@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
 import org.apache.arrow.vector.TimeStampMicroTZVector;
@@ -35,9 +34,7 @@ import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampSecHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampSecTZHolder;
 
-/**
- * Auxiliary class used to unify data access on TimeStampVectors.
- */
+/** Auxiliary class used to unify data access on TimeStampVectors. */
 final class ArrowFlightJdbcTimeStampVectorGetter {
 
   private ArrowFlightJdbcTimeStampVectorGetter() {
@@ -45,16 +42,15 @@ final class ArrowFlightJdbcTimeStampVectorGetter {
   }
 
   /**
-   * Auxiliary class meant to unify TimeStamp*Vector#get implementations with different classes of ValueHolders.
+   * Auxiliary class meant to unify TimeStamp*Vector#get implementations with different classes of
+   * ValueHolders.
    */
   static class Holder {
     int isSet; // Tells if value is set; 0 = not set, 1 = set
     long value; // Holds actual value in its respective timeunit
   }
 
-  /**
-   * Functional interface used to unify TimeStamp*Vector#get implementations.
-   */
+  /** Functional interface used to unify TimeStamp*Vector#get implementations. */
   @FunctionalInterface
   interface Getter {
     void get(int index, Holder holder);

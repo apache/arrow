@@ -165,7 +165,7 @@ namespace Apache.Arrow.C
                 }
 
                 // Special handling for nested types
-                if (format == "+l" || format == "+vl")
+                if (format == "+l" || format == "+vl" || format == "+L")
                 {
                     if (_cSchema->n_children != 1)
                     {
@@ -180,7 +180,13 @@ namespace Apache.Arrow.C
 
                     Field childField = childSchema.GetAsField();
 
-                    return format[1] == 'v' ? new ListViewType(childField) : new ListType(childField);
+                    return format[1] switch
+                    {
+                        'l' => new ListType(childField),
+                        'v' => new ListViewType(childField),
+                        'L' => new LargeListType(childField),
+                        _ => throw new InvalidDataException($"Invalid format for list: '{format}'"),
+                    };
                 }
                 else if (format == "+s")
                 {
@@ -304,10 +310,10 @@ namespace Apache.Arrow.C
                     // Binary data
                     "z" => BinaryType.Default,
                     "vz" => BinaryViewType.Default,
-                    //"Z" => new LargeBinaryType() // Not yet implemented
+                    "Z" => LargeBinaryType.Default,
                     "u" => StringType.Default,
                     "vu" => StringViewType.Default,
-                    //"U" => new LargeStringType(), // Not yet implemented
+                    "U" => LargeStringType.Default,
                     // Date and time
                     "tdD" => Date32Type.Default,
                     "tdm" => Date64Type.Default,

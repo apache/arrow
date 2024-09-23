@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.expression;
 
 import java.util.List;
-
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
-/**
- * Node representing an arbitrary function in an expression.
- */
+/** Node representing an arbitrary function in an expression. */
 class FunctionNode implements TreeNode {
   private final String function;
   private final List<TreeNode> children;

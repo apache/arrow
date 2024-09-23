@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import java.util.Collection;
 import java.util.Set;
-
 import org.apache.arrow.vector.complex.AbstractStructVector;
 
 /**
- * Implementation of MapWithOrdinal that allows for promotion to multimap when duplicate fields exist.
+ * Implementation of MapWithOrdinal that allows for promotion to multimap when duplicate fields
+ * exist.
+ *
  * @param <K> key type
  * @param <V> value type
  */
@@ -36,19 +36,21 @@ public class PromotableMultiMapWithOrdinal<K, V> implements MapWithOrdinal<K, V>
 
   /**
    * Create promotable map.
+   *
    * @param promotable if promotion is allowed, otherwise delegate to MapWithOrdinal.
    * @param conflictPolicy how to handle name conflicts.
    */
-  public PromotableMultiMapWithOrdinal(boolean promotable, AbstractStructVector.ConflictPolicy conflictPolicy) {
+  public PromotableMultiMapWithOrdinal(
+      boolean promotable, AbstractStructVector.ConflictPolicy conflictPolicy) {
     this.promotable = promotable;
     this.conflictPolicy = conflictPolicy;
     delegate = mapWithOrdinal;
   }
 
   private void promote() {
-    if (delegate == multiMapWithOrdinal ||
-        !promotable ||
-        conflictPolicy.equals(AbstractStructVector.ConflictPolicy.CONFLICT_REPLACE)) {
+    if (delegate == multiMapWithOrdinal
+        || !promotable
+        || conflictPolicy.equals(AbstractStructVector.ConflictPolicy.CONFLICT_REPLACE)) {
       return;
     }
     for (K key : mapWithOrdinal.keys()) {

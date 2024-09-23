@@ -20,6 +20,7 @@ name: Java JNI
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/java_jni.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_build.sh'
@@ -29,6 +30,7 @@ on:
       - 'java/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/java_jni.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_build.sh'
@@ -45,6 +47,7 @@ permissions:
   contents: read
 
 env:
+  ARCHERY_DEBUG: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
@@ -52,7 +55,7 @@ jobs:
     name: AMD64 manylinux2014 Java JNI
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 90
+    timeout-minutes: 240
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
@@ -69,16 +72,18 @@ jobs:
           key: java-jni-manylinux-2014-${{ hashFiles('cpp/**', 'java/**') }}
           restore-keys: java-jni-manylinux-2014-
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: archery docker run java-jni-manylinux-2014
+        run: |
+          source ci/scripts/util_enable_core_dumps.sh
+          archery docker run java-jni-manylinux-2014
       - name: Docker Push
         if: >-
           success() &&
@@ -109,20 +114,20 @@ jobs:
           key: maven-${{ hashFiles('java/**') }}
           restore-keys: maven-
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-          GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
         run: |
           archery docker run \
             -e CI=true \
-            -e "GRADLE_ENTERPRISE_ACCESS_KEY=$GRADLE_ENTERPRISE_ACCESS_KEY" \
+            -e "DEVELOCITY_ACCESS_KEY=$DEVELOCITY_ACCESS_KEY" \
             conda-python-java-integration
       - name: Docker Push
         if: >-

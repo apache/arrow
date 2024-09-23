@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
-
 import org.apache.arrow.vector.SmallIntVector;
 
 /** A column binder for 8-bit integers. */
@@ -34,8 +32,10 @@ public class SmallIntBinder extends BaseColumnBinder<SmallIntVector> {
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
-    final short value = vector.getDataBuffer().getShort((short) rowIndex * SmallIntVector.TYPE_WIDTH);
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
+    final short value =
+        vector.getDataBuffer().getShort((short) rowIndex * SmallIntVector.TYPE_WIDTH);
     statement.setShort(parameterIndex, value);
   }
 }

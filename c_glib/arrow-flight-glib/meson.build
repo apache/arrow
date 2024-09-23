@@ -37,6 +37,14 @@ cpp_headers = files(
   'server.hpp',
 )
 
+version_h = configure_file(
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [python3, generate_version_header_py, '--library', 'GAFLIGHT', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+)
+
+c_headers += version_h
+
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: 'arrow-flight-glib')
 
@@ -50,6 +58,7 @@ libarrow_flight_glib = library('arrow-flight-glib',
                                dependencies: dependencies,
                                implicit_include_directories: false,
                                include_directories: base_include_directories,
+                               cpp_args: ['-DGAFLIGHT_COMPILATION'],
                                soversion: so_version,
                                version: library_version)
 arrow_flight_glib = declare_dependency(link_with: libarrow_flight_glib,

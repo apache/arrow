@@ -17,7 +17,7 @@
 
 ARG repo
 ARG arch
-ARG python=3.8
+ARG python=3.9
 FROM ${repo}:${arch}-conda-python-${python}
 
 RUN mamba install -q -y "cython<3" && \

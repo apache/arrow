@@ -14,25 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Calendar;
-
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.TimeStampMilliTZVector;
 
 /**
- * Consumer which consume timestamp (with time zone) type values from {@link ResultSet}.
- * Write the data to {@link TimeStampMilliTZVector}.
+ * Consumer which consume timestamp (with time zone) type values from {@link ResultSet}. Write the
+ * data to {@link TimeStampMilliTZVector}.
  */
 public class TimestampTZConsumer {
-  /**
-   * Creates a consumer for {@link TimeStampMilliTZVector}.
-   */
+  /** Creates a consumer for {@link TimeStampMilliTZVector}. */
   public static JdbcConsumer<TimeStampMilliTZVector> createConsumer(
       TimeStampMilliTZVector vector, int index, boolean nullable, Calendar calendar) {
     Preconditions.checkArgument(calendar != null, "Calendar cannot be null");
@@ -43,17 +39,14 @@ public class TimestampTZConsumer {
     }
   }
 
-  /**
-   * Nullable consumer for timestamp (with time zone).
-   */
+  /** Nullable consumer for timestamp (with time zone). */
   static class NullableTimestampTZConsumer extends BaseConsumer<TimeStampMilliTZVector> {
 
     protected final Calendar calendar;
 
-    /**
-     * Instantiate a TimestampConsumer.
-     */
-    public NullableTimestampTZConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
+    /** Instantiate a TimestampConsumer. */
+    public NullableTimestampTZConsumer(
+        TimeStampMilliTZVector vector, int index, Calendar calendar) {
       super(vector, index);
       this.calendar = calendar;
     }
@@ -70,17 +63,14 @@ public class TimestampTZConsumer {
     }
   }
 
-  /**
-   * Non-nullable consumer for timestamp (with time zone).
-   */
+  /** Non-nullable consumer for timestamp (with time zone). */
   static class NonNullableTimestampConsumer extends BaseConsumer<TimeStampMilliTZVector> {
 
     protected final Calendar calendar;
 
-    /**
-     * Instantiate a TimestampConsumer.
-     */
-    public NonNullableTimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
+    /** Instantiate a TimestampConsumer. */
+    public NonNullableTimestampConsumer(
+        TimeStampMilliTZVector vector, int index, Calendar calendar) {
       super(vector, index);
       this.calendar = calendar;
     }

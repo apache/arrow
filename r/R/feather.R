@@ -29,7 +29,7 @@
 #' [write_ipc_file()] can only write V2 files.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' @param sink A string file path, connection, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
 #' @param version integer Feather file version, Version 1 or Version 2. Version 2 is the default.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data

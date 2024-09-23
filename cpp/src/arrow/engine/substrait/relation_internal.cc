@@ -91,7 +91,7 @@ Result<EmitInfo> GetEmitInfo(const RelMessage& rel,
   }
   emit_info.expressions = std::move(proj_field_refs);
   emit_info.schema = schema(std::move(emit_fields));
-  return std::move(emit_info);
+  return emit_info;
 }
 
 Result<DeclarationInfo> ProcessEmitProject(
@@ -393,6 +393,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       auto scan_options = std::make_shared<dataset::ScanOptions>();
       scan_options->use_threads = true;
+      scan_options->add_augmented_fields = false;
 
       if (read.has_filter()) {
         ARROW_ASSIGN_OR_RAISE(scan_options->filter,
@@ -1023,7 +1024,7 @@ Result<std::unique_ptr<substrait::ReadRel>> NamedTableRelationConverter(
   }
   read_rel->set_allocated_named_table(read_rel_tn.release());
 
-  return std::move(read_rel);
+  return read_rel;
 }
 
 Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
@@ -1067,7 +1068,7 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
     read_rel_lfs->mutable_items()->AddAllocated(read_rel_lfs_ffs.release());
   }
   read_rel->set_allocated_local_files(read_rel_lfs.release());
-  return std::move(read_rel);
+  return read_rel;
 }
 
 Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
@@ -1096,7 +1097,7 @@ Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
   ARROW_ASSIGN_OR_RAISE(auto subs_expr,
                         ToProto(bound_expression, ext_set, conversion_options));
   filter_rel->set_allocated_condition(subs_expr.release());
-  return std::move(filter_rel);
+  return filter_rel;
 }
 
 }  // namespace
@@ -1145,7 +1146,7 @@ Result<std::unique_ptr<substrait::Rel>> ToProto(
     const ConversionOptions& conversion_options) {
   auto rel = std::make_unique<substrait::Rel>();
   RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, &rel, conversion_options));
-  return std::move(rel);
+  return rel;
 }
 
 }  // namespace engine

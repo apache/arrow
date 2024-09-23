@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.PreparedStatement;
@@ -23,16 +22,13 @@ import java.sql.Types;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
-
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 
-/**
- * A column binder for map of primitive values.
- */
+/** A column binder for map of primitive values. */
 public class MapBinder extends BaseColumnBinder<MapVector> {
 
   private UnionMapReader reader;
@@ -58,8 +54,8 @@ public class MapBinder extends BaseColumnBinder<MapVector> {
     }
     List<Field> keyValueFields = Objects.requireNonNull(structField.get(0)).getChildren();
     if (keyValueFields.size() != 2) {
-      throw new IllegalArgumentException("Expected two children fields " +
-                                         "inside nested Struct field in Map");
+      throw new IllegalArgumentException(
+          "Expected two children fields " + "inside nested Struct field in Map");
     }
     ArrowType keyType = Objects.requireNonNull(keyValueFields.get(0)).getType();
     ArrowType valueType = Objects.requireNonNull(keyValueFields.get(1)).getType();
@@ -68,15 +64,16 @@ public class MapBinder extends BaseColumnBinder<MapVector> {
   }
 
   @Override
-  public void bind(PreparedStatement statement,
-                   int parameterIndex, int rowIndex) throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
     reader.setPosition(rowIndex);
     LinkedHashMap<Object, Object> tags = new JsonStringHashMap<>();
     while (reader.next()) {
       Object key = reader.key().readObject();
       Object value = reader.value().readObject();
-      tags.put(isTextKey && key != null ? key.toString() : key,
-               isTextValue && value != null ? value.toString() : value);
+      tags.put(
+          isTextKey && key != null ? key.toString() : key,
+          isTextValue && value != null ? value.toString() : value);
     }
     switch (jdbcType) {
       case Types.VARCHAR:

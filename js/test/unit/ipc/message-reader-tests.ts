@@ -24,11 +24,16 @@ for (const table of generateRandomTables([10, 20, 30])) {
 
     const io = ArrowIOTestHelper.stream(table);
     const name = `[\n ${table.schema.fields.join(',\n ')}\n]`;
-    const numMessages = table.batches.reduce((numMessages, batch) => {
-        return numMessages +
-            /* recordBatch message */ 1 +
-            /* dictionary messages */ batch.dictionaries.size;
-    }, /* schema message */ 1);
+
+    const numDictionaries = table.batches.reduce((dictionaries, batch) => {
+        return [...batch.dictionaries.values()]
+            .flatMap((dictionary) => dictionary.data)
+            .reduce((dictionaries, data) => dictionaries.add(data), dictionaries);
+    }, new Set()).size;
+
+    const numMessages = /* schema message */ 1 +
+                        /* recordBatch messages */ table.batches.length +
+                        /* dictionary messages */ numDictionaries;
 
     const validate = validateMessageReader.bind(0, numMessages);
     const validateAsync = validateAsyncMessageReader.bind(0, numMessages);

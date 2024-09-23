@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.complex.StructVector;
@@ -30,10 +29,7 @@ import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
-/**
- * Helper class that handles converting a {@link StructVector} to a
- * {@link ArrowRecordBatch}.
- */
+/** Helper class that handles converting a {@link StructVector} to a {@link ArrowRecordBatch}. */
 public class StructVectorUnloader {
 
   private final StructVector root;
@@ -41,9 +37,7 @@ public class StructVectorUnloader {
   private final CompressionCodec codec;
   private final boolean alignBuffers;
 
-  /**
-   * Constructs a new instance of the given struct vector.
-   */
+  /** Constructs a new instance of the given struct vector. */
   public StructVectorUnloader(StructVector root) {
     this(root, true, NoCompressionCodec.INSTANCE, true);
   }
@@ -51,11 +45,9 @@ public class StructVectorUnloader {
   /**
    * Constructs a new instance.
    *
-   * @param root             The struct vector to serialize to an
-   *                         {@link ArrowRecordBatch}.
-   * @param includeNullCount Controls whether null count is copied to the
-   *                         {@link ArrowRecordBatch}
-   * @param alignBuffers     Controls if buffers get aligned to 8-byte boundaries.
+   * @param root The struct vector to serialize to an {@link ArrowRecordBatch}.
+   * @param includeNullCount Controls whether null count is copied to the {@link ArrowRecordBatch}
+   * @param alignBuffers Controls if buffers get aligned to 8-byte boundaries.
    */
   public StructVectorUnloader(StructVector root, boolean includeNullCount, boolean alignBuffers) {
     this(root, includeNullCount, NoCompressionCodec.INSTANCE, alignBuffers);
@@ -64,16 +56,13 @@ public class StructVectorUnloader {
   /**
    * Constructs a new instance.
    *
-   * @param root             The struct vector to serialize to an
-   *                         {@link ArrowRecordBatch}.
-   * @param includeNullCount Controls whether null count is copied to the
-   *                         {@link ArrowRecordBatch}
-   * @param codec            the codec for compressing data. If it is null, then
-   *                         no compression is needed.
-   * @param alignBuffers     Controls if buffers get aligned to 8-byte boundaries.
+   * @param root The struct vector to serialize to an {@link ArrowRecordBatch}.
+   * @param includeNullCount Controls whether null count is copied to the {@link ArrowRecordBatch}
+   * @param codec the codec for compressing data. If it is null, then no compression is needed.
+   * @param alignBuffers Controls if buffers get aligned to 8-byte boundaries.
    */
-  public StructVectorUnloader(StructVector root, boolean includeNullCount, CompressionCodec codec,
-      boolean alignBuffers) {
+  public StructVectorUnloader(
+      StructVector root, boolean includeNullCount, CompressionCodec codec, boolean alignBuffers) {
     this.root = root;
     this.includeNullCount = includeNullCount;
     this.codec = codec;
@@ -81,32 +70,58 @@ public class StructVectorUnloader {
   }
 
   /**
-   * Performs the depth first traversal of the Vectors to create an
-   * {@link ArrowRecordBatch} suitable for serialization.
+   * Performs the depth first traversal of the Vectors to create an {@link ArrowRecordBatch}
+   * suitable for serialization.
    */
   public ArrowRecordBatch getRecordBatch() {
     List<ArrowFieldNode> nodes = new ArrayList<>();
     List<ArrowBuf> buffers = new ArrayList<>();
+    List<Long> variadicBufferCounts = new ArrayList<>();
     for (FieldVector vector : root.getChildrenFromFields()) {
-      appendNodes(vector, nodes, buffers);
+      appendNodes(vector, nodes, buffers, variadicBufferCounts);
     }
-    return new ArrowRecordBatch(root.getValueCount(), nodes, buffers, CompressionUtil.createBodyCompression(codec),
+    return new ArrowRecordBatch(
+        root.getValueCount(),
+        nodes,
+        buffers,
+        CompressionUtil.createBodyCompression(codec),
+        variadicBufferCounts,
         alignBuffers);
   }
 
-  private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
-    nodes.add(new ArrowFieldNode(vector.getValueCount(), includeNullCount ? vector.getNullCount() : -1));
+  private long getVariadicBufferCount(FieldVector vector) {
+    if (vector instanceof BaseVariableWidthViewVector) {
+      return ((BaseVariableWidthViewVector) vector).getDataBuffers().size();
+    }
+    return 0L;
+  }
+
+  private void appendNodes(
+      FieldVector vector,
+      List<ArrowFieldNode> nodes,
+      List<ArrowBuf> buffers,
+      List<Long> variadicBufferCounts) {
+    nodes.add(
+        new ArrowFieldNode(vector.getValueCount(), includeNullCount ? vector.getNullCount() : -1));
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
-    int expectedBufferCount = TypeLayout.getTypeBufferCount(vector.getField().getType());
+    long variadicBufferCount = getVariadicBufferCount(vector);
+    int expectedBufferCount =
+        (int) (TypeLayout.getTypeBufferCount(vector.getField().getType()) + variadicBufferCount);
+    // only update variadicBufferCounts for vectors that have variadic buffers
+    if (vector instanceof BaseVariableWidthViewVector) {
+      variadicBufferCounts.add(variadicBufferCount);
+    }
     if (fieldBuffers.size() != expectedBufferCount) {
-      throw new IllegalArgumentException(String.format("wrong number of buffers for field %s in vector %s. found: %s",
-          vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));
+      throw new IllegalArgumentException(
+          String.format(
+              "wrong number of buffers for field %s in vector %s. found: %s",
+              vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));
     }
     for (ArrowBuf buf : fieldBuffers) {
       buffers.add(codec.compress(vector.getAllocator(), buf));
     }
     for (FieldVector child : vector.getChildrenFromFields()) {
-      appendNodes(child, nodes, buffers);
+      appendNodes(child, nodes, buffers, variadicBufferCounts);
     }
   }
 }

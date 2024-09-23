@@ -83,17 +83,17 @@ of adding a basic feature.
    the installation of third-party packages, depending on which build
    options and components you enable. The C++ build guide
    has suggestions for commonly encountered issues - you can find it
-   :ref:`here <cpp-development>`. 
+   :ref:`here <cpp-development>`.
    Anytime you are stuck, feel free to reach out via
    appropriate :ref:`communication` channel.
 
-   See a short description about the building process of 
+   See a short description about the building process of
    :ref:`PyArrow or the R package<build-arrow-guide>` or go straight to detailed
    instructions on how to build one of Arrow libraries in the
    `documentation <https://arrow.apache.org/docs/>`_ .
- 
+
 #. **Run the tests**
-   
+
    We should run the tests to check if everything is working correctly. For example,
    you can run the tests from a terminal for Python
 
@@ -155,7 +155,7 @@ There are lots of ways to contribute to the project besides writing code!
 * Improving the **documentation** is a great way to start contributing!
   For more information visit :ref:`documentation` section of the guide.
 
-* **Apache Arrow Cookbooks** are a collection of recipes for solving various problems 
+* **Apache Arrow Cookbooks** are a collection of recipes for solving various problems
   and completing different tasks using Apache Arrow. They are also a great way to start
   contributing. For more information visit
   `How to contribute to Apache Arrow Cookbook <https://github.com/apache/arrow-cookbook/blob/main/CONTRIBUTING.md>`_

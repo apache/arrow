@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.sql.example;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
@@ -37,9 +35,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-/**
- * Flight SQL Client Demo CLI Application.
- */
+/** Flight SQL Client Demo CLI Application. */
 public class FlightSqlClientDemoApp implements AutoCloseable {
   public final List<CallOption> callOptions = new ArrayList<>();
   public final BufferAllocator allocator;
@@ -67,7 +63,8 @@ public class FlightSqlClientDemoApp implements AutoCloseable {
 
     try {
       cmd = parser.parse(options, args);
-      try (final FlightSqlClientDemoApp thisApp = new FlightSqlClientDemoApp(new RootAllocator(Integer.MAX_VALUE))) {
+      try (final FlightSqlClientDemoApp thisApp =
+          new FlightSqlClientDemoApp(new RootAllocator(Integer.MAX_VALUE))) {
         thisApp.executeApp(cmd);
       }
 
@@ -79,8 +76,8 @@ public class FlightSqlClientDemoApp implements AutoCloseable {
   }
 
   /**
-   * Gets the current {@link CallOption} as an array; usually used as an
-   * argument in {@link FlightSqlClient} methods.
+   * Gets the current {@link CallOption} as an array; usually used as an argument in {@link
+   * FlightSqlClient} methods.
    *
    * @return current {@link CallOption} array.
    */
@@ -89,12 +86,12 @@ public class FlightSqlClientDemoApp implements AutoCloseable {
   }
 
   /**
-   * Calls {@link FlightSqlClientDemoApp#createFlightSqlClient(String, int)}
-   * in order to create a {@link FlightSqlClient} to be used in future calls,
-   * and then calls {@link FlightSqlClientDemoApp#executeCommand(CommandLine)}
-   * to execute the command parsed at execution.
+   * Calls {@link FlightSqlClientDemoApp#createFlightSqlClient(String, int)} in order to create a
+   * {@link FlightSqlClient} to be used in future calls, and then calls {@link
+   * FlightSqlClientDemoApp#executeCommand(CommandLine)} to execute the command parsed at execution.
    *
-   * @param cmd parsed {@link CommandLine}; often the result of {@link DefaultParser#parse(Options, String[])}.
+   * @param cmd parsed {@link CommandLine}; often the result of {@link DefaultParser#parse(Options,
+   *     String[])}.
    */
   public void executeApp(final CommandLine cmd) throws Exception {
     final String host = cmd.getOptionValue("host").trim();
@@ -107,29 +104,22 @@ public class FlightSqlClientDemoApp implements AutoCloseable {
   /**
    * Parses the "{@code command}" CLI argument and redirects to the appropriate method.
    *
-   * @param cmd parsed {@link CommandLine}; often the result of
-   *            {@link DefaultParser#parse(Options, String[])}.
+   * @param cmd parsed {@link CommandLine}; often the result of {@link DefaultParser#parse(Options,
+   *     String[])}.
    */
   public void executeCommand(CommandLine cmd) throws Exception {
     switch (cmd.getOptionValue("command").trim()) {
       case "Execute":
-        exampleExecute(
-            cmd.getOptionValue("query")
-        );
+        exampleExecute(cmd.getOptionValue("query"));
         break;
       case "ExecuteUpdate":
-        exampleExecuteUpdate(
-            cmd.getOptionValue("query")
-        );
+        exampleExecuteUpdate(cmd.getOptionValue("query"));
         break;
       case "GetCatalogs":
         exampleGetCatalogs();
         break;
       case "GetSchemas":
-        exampleGetSchemas(
-            cmd.getOptionValue("catalog"),
-            cmd.getOptionValue("schema")
-        );
+        exampleGetSchemas(cmd.getOptionValue("catalog"), cmd.getOptionValue("schema"));
         break;
       case "GetTableTypes":
         exampleGetTableTypes();
@@ -138,41 +128,38 @@ public class FlightSqlClientDemoApp implements AutoCloseable {
         exampleGetTables(
             cmd.getOptionValue("catalog"),
             cmd.getOptionValue("schema"),
-            cmd.getOptionValue("table")
-        );
+            cmd.getOptionValue("table"));
         break;
       case "GetExportedKeys":
         exampleGetExportedKeys(
             cmd.getOptionValue("catalog"),
             cmd.getOptionValue("schema"),
-            cmd.getOptionValue("table")
-        );
+            cmd.getOptionValue("table"));
         break;
       case "GetImportedKeys":
         exampleGetImportedKeys(
             cmd.getOptionValue("catalog"),
             cmd.getOptionValue("schema"),
-            cmd.getOptionValue("table")
-        );
+            cmd.getOptionValue("table"));
         break;
       case "GetPrimaryKeys":
         exampleGetPrimaryKeys(
             cmd.getOptionValue("catalog"),
             cmd.getOptionValue("schema"),
-            cmd.getOptionValue("table")
-        );
+            cmd.getOptionValue("table"));
         break;
       default:
-        System.out.println("Command used is not valid! Please use one of: \n" +
-            "[\"ExecuteUpdate\",\n" +
-            "\"Execute\",\n" +
-            "\"GetCatalogs\",\n" +
-            "\"GetSchemas\",\n" +
-            "\"GetTableTypes\",\n" +
-            "\"GetTables\",\n" +
-            "\"GetExportedKeys\",\n" +
-            "\"GetImportedKeys\",\n" +
-            "\"GetPrimaryKeys\"]");
+        System.out.println(
+            "Command used is not valid! Please use one of: \n"
+                + "[\"ExecuteUpdate\",\n"
+                + "\"Execute\",\n"
+                + "\"GetCatalogs\",\n"
+                + "\"GetSchemas\",\n"
+                + "\"GetTableTypes\",\n"
+                + "\"GetTables\",\n"
+                + "\"GetExportedKeys\",\n"
+                + "\"GetImportedKeys\",\n"
+                + "\"GetPrimaryKeys\"]");
     }
   }
 
@@ -192,7 +179,8 @@ public class FlightSqlClientDemoApp implements AutoCloseable {
   }
 
   private void exampleExecuteUpdate(final String query) {
-    System.out.println("Updated: " + flightSqlClient.executeUpdate(query, getCallOptions()) + "rows.");
+    System.out.println(
+        "Updated: " + flightSqlClient.executeUpdate(query, getCallOptions()) + "rows.");
   }
 
   private void exampleGetCatalogs() throws Exception {
@@ -207,22 +195,29 @@ public class FlightSqlClientDemoApp implements AutoCloseable {
     printFlightInfoResults(flightSqlClient.getTableTypes(getCallOptions()));
   }
 
-  private void exampleGetTables(final String catalog, final String schema, final String table) throws Exception {
+  private void exampleGetTables(final String catalog, final String schema, final String table)
+      throws Exception {
     // For now, this won't filter by table types.
-    printFlightInfoResults(flightSqlClient.getTables(
-        catalog, schema, table, null, false, getCallOptions()));
+    printFlightInfoResults(
+        flightSqlClient.getTables(catalog, schema, table, null, false, getCallOptions()));
   }
 
-  private void exampleGetExportedKeys(final String catalog, final String schema, final String table) throws Exception {
-    printFlightInfoResults(flightSqlClient.getExportedKeys(TableRef.of(catalog, schema, table), getCallOptions()));
+  private void exampleGetExportedKeys(final String catalog, final String schema, final String table)
+      throws Exception {
+    printFlightInfoResults(
+        flightSqlClient.getExportedKeys(TableRef.of(catalog, schema, table), getCallOptions()));
   }
 
-  private void exampleGetImportedKeys(final String catalog, final String schema, final String table) throws Exception {
-    printFlightInfoResults(flightSqlClient.getImportedKeys(TableRef.of(catalog, schema, table), getCallOptions()));
+  private void exampleGetImportedKeys(final String catalog, final String schema, final String table)
+      throws Exception {
+    printFlightInfoResults(
+        flightSqlClient.getImportedKeys(TableRef.of(catalog, schema, table), getCallOptions()));
   }
 
-  private void exampleGetPrimaryKeys(final String catalog, final String schema, final String table) throws Exception {
-    printFlightInfoResults(flightSqlClient.getPrimaryKeys(TableRef.of(catalog, schema, table), getCallOptions()));
+  private void exampleGetPrimaryKeys(final String catalog, final String schema, final String table)
+      throws Exception {
+    printFlightInfoResults(
+        flightSqlClient.getPrimaryKeys(TableRef.of(catalog, schema, table), getCallOptions()));
   }
 
   private void printFlightInfoResults(final FlightInfo flightInfo) throws Exception {

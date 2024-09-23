@@ -148,17 +148,22 @@ class DatasetEncryptionTestBase : public ::testing::Test {
                          FileSystemDatasetFactory::Make(file_system_, selector,
                                                         file_format, factory_options));
 
-    // Read dataset into table
+    // Create the dataset
     ASSERT_OK_AND_ASSIGN(auto dataset, dataset_factory->Finish());
-    ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
-    ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
-    ASSERT_OK_AND_ASSIGN(auto read_table, scanner->ToTable());
 
-    // Verify the data was read correctly
-    ASSERT_OK_AND_ASSIGN(auto combined_table, read_table->CombineChunks());
-    // Validate the table
-    ASSERT_OK(combined_table->ValidateFull());
-    AssertTablesEqual(*combined_table, *table_);
+    // Reuse the dataset above to scan it twice to make sure decryption works correctly.
+    for (size_t i = 0; i < 2; ++i) {
+      // Read dataset into table
+      ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+      ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+      ASSERT_OK_AND_ASSIGN(auto read_table, scanner->ToTable());
+
+      // Verify the data was read correctly
+      ASSERT_OK_AND_ASSIGN(auto combined_table, read_table->CombineChunks());
+      // Validate the table
+      ASSERT_OK(combined_table->ValidateFull());
+      AssertTablesEqual(*combined_table, *table_);
+    }
   }
 
  protected:

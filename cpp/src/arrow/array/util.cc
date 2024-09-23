@@ -95,7 +95,7 @@ class ArrayDataEndianSwapper {
   Status SwapType(const DataType& type) {
     RETURN_NOT_OK(VisitTypeInline(type, this));
     RETURN_NOT_OK(SwapChildren(type.fields()));
-    if (internal::HasValidityBitmap(type.id())) {
+    if (internal::may_have_validity_bitmap(type.id())) {
       // Copy null bitmap
       out_->buffers[0] = data_->buffers[0];
     }
@@ -125,7 +125,8 @@ class ArrayDataEndianSwapper {
     for (int64_t i = 0; i < length; i++) {
       out_data[i] = bit_util::ByteSwap(in_data[i]);
     }
-    return std::move(out_buffer);
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(out_buffer));
   }
 
   template <typename VALUE_TYPE>
@@ -548,7 +549,7 @@ class NullArrayFactory {
   }
 
   Status Visit(const StructType& type) {
-    for (int i = 0; i < type_->num_fields(); ++i) {
+    for (int i = 0; i < type.num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(type, i, length_));
     }
     return Status::OK();

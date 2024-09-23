@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 /**
@@ -23,29 +22,22 @@ package org.apache.arrow.flight;
  * <p>Middleware are instantiated per-call and should store state in the middleware instance.
  */
 public interface FlightClientMiddleware {
-  /**
-   * A callback used before request headers are sent. The headers may be manipulated.
-   */
+  /** A callback used before request headers are sent. The headers may be manipulated. */
   void onBeforeSendingHeaders(CallHeaders outgoingHeaders);
 
-  /**
-   * A callback called after response headers are received. The headers may be manipulated.
-   */
+  /** A callback called after response headers are received. The headers may be manipulated. */
   void onHeadersReceived(CallHeaders incomingHeaders);
 
-  /**
-   * A callback called after the call completes.
-   */
+  /** A callback called after the call completes. */
   void onCallCompleted(CallStatus status);
 
-  /**
-   * A factory for client middleware instances.
-   */
+  /** A factory for client middleware instances. */
   interface Factory {
     /**
      * Create a new middleware instance for the given call.
      *
-     * @throws FlightRuntimeException if the middleware wants to reject the call with the given status
+     * @throws FlightRuntimeException if the middleware wants to reject the call with the given
+     *     status
      */
     FlightClientMiddleware onCallStarted(CallInfo info);
   }

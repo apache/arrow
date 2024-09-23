@@ -14,31 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 /** The result of cancelling a FlightInfo. */
 public enum CancelStatus {
   /**
-   * The cancellation status is unknown. Servers should avoid using
-   * this value (send a NOT_FOUND error if the requested query is
-   * not known). Clients can retry the request.
+   * The cancellation status is unknown. Servers should avoid using this value (send a NOT_FOUND
+   * error if the requested query is not known). Clients can retry the request.
    */
   UNSPECIFIED,
   /**
-   * The cancellation request is complete. Subsequent requests with
-   * the same payload may return CANCELLED or a NOT_FOUND error.
+   * The cancellation request is complete. Subsequent requests with the same payload may return
+   * CANCELLED or a NOT_FOUND error.
    */
   CANCELLED,
-  /**
-   * The cancellation request is in progress. The client may retry
-   * the cancellation request.
-   */
+  /** The cancellation request is in progress. The client may retry the cancellation request. */
   CANCELLING,
-  /**
-   * The query is not cancellable. The client should not retry the
-   * cancellation request.
-   */
+  /** The query is not cancellable. The client should not retry the cancellation request. */
   NOT_CANCELLABLE,
   ;
 }

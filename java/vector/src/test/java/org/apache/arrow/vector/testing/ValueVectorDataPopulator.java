@@ -14,17 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.testing;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BitVectorHelper;
@@ -61,27 +59,27 @@ import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.VariableWidthFieldVector;
+import org.apache.arrow.vector.complex.BaseLargeRepeatedValueViewVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
+import org.apache.arrow.vector.complex.BaseRepeatedValueViewVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
+import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.holders.IntervalDayHolder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
-/**
- * Utility for populating {@link org.apache.arrow.vector.ValueVector}.
- */
+/** Utility for populating {@link org.apache.arrow.vector.ValueVector}. */
 public class ValueVectorDataPopulator {
 
-  private ValueVectorDataPopulator() {
-  }
+  private ValueVectorDataPopulator() {}
 
-  /**
-   * Populate values for BigIntVector.
-   */
+  /** Populate values for BigIntVector. */
   public static void setVector(BigIntVector vector, Long... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -93,9 +91,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for BitVector.
-   */
+  /** Populate values for BitVector. */
   public static void setVector(BitVector vector, Integer... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -109,6 +105,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for DateDayVector.
+   *
    * @param values numbers of days since UNIX epoch
    */
   public static void setVector(DateDayVector vector, Integer... values) {
@@ -124,6 +121,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for DateMilliVector.
+   *
    * @param values numbers of milliseconds since UNIX epoch
    */
   public static void setVector(DateMilliVector vector, Long... values) {
@@ -137,9 +135,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for DecimalVector.
-   */
+  /** Populate values for DecimalVector. */
   public static void setVector(DecimalVector vector, Long... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -151,9 +147,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for Decimal256Vector.
-   */
+  /** Populate values for Decimal256Vector. */
   public static void setVector(Decimal256Vector vector, Long... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -165,9 +159,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for Decimal256Vector.
-   */
+  /** Populate values for Decimal256Vector. */
   public static void setVector(Decimal256Vector vector, BigDecimal... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -181,7 +173,9 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for DurationVector.
-   * @param values values of elapsed time in either seconds, milliseconds, microseconds or nanoseconds.
+   *
+   * @param values values of elapsed time in either seconds, milliseconds, microseconds or
+   *     nanoseconds.
    */
   public static void setVector(DurationVector vector, Long... values) {
     final int length = values.length;
@@ -194,9 +188,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for FixedSizeBinaryVector.
-   */
+  /** Populate values for FixedSizeBinaryVector. */
   public static void setVector(FixedSizeBinaryVector vector, byte[]... values) {
     final int length = values.length;
     vector.allocateNewSafe();
@@ -208,9 +200,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for Float2Vector.
-   */
+  /** Populate values for Float2Vector. */
   public static void setVector(Float2Vector vector, Float... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -222,9 +212,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for Float4Vector.
-   */
+  /** Populate values for Float4Vector. */
   public static void setVector(Float4Vector vector, Float... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -236,9 +224,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for Float8Vector.
-   */
+  /** Populate values for Float8Vector. */
   public static void setVector(Float8Vector vector, Double... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -250,9 +236,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for IntVector.
-   */
+  /** Populate values for IntVector. */
   public static void setVector(IntVector vector, Integer... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -266,7 +250,9 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for IntervalDayVector.
-   * @param values holders witch holds days and milliseconds values which represents interval in SQL style.
+   *
+   * @param values holders witch holds days and milliseconds values which represents interval in SQL
+   *     style.
    */
   public static void setVector(IntervalDayVector vector, IntervalDayHolder... values) {
     final int length = values.length;
@@ -281,6 +267,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for IntervalYearVector.
+   *
    * @param values total month intervals in SQL style.
    */
   public static void setVector(IntervalYearVector vector, Integer... values) {
@@ -294,9 +281,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for SmallIntVector.
-   */
+  /** Populate values for SmallIntVector. */
   public static void setVector(SmallIntVector vector, Short... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -310,6 +295,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for TimeMicroVector.
+   *
    * @param values numbers of microseconds since UNIX epoch
    */
   public static void setVector(TimeMicroVector vector, Long... values) {
@@ -325,6 +311,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for TimeMicroVector.
+   *
    * @param values numbers of milliseconds since UNIX epoch
    */
   public static void setVector(TimeMilliVector vector, Integer... values) {
@@ -340,6 +327,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for TimeNanoVector.
+   *
    * @param values numbers of nanoseconds since UNIX epoch
    */
   public static void setVector(TimeNanoVector vector, Long... values) {
@@ -355,6 +343,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for TimeSecVector.
+   *
    * @param values numbers of seconds since UNIX epoch
    */
   public static void setVector(TimeSecVector vector, Integer... values) {
@@ -370,6 +359,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for TimeStampMicroTZVector.
+   *
    * @param values numbers of microseconds since UNIX epoch
    */
   public static void setVector(TimeStampMicroTZVector vector, Long... values) {
@@ -385,6 +375,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for TimeStampMicroVector.
+   *
    * @param values numbers of microseconds since UNIX epoch
    */
   public static void setVector(TimeStampMicroVector vector, Long... values) {
@@ -400,6 +391,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for TimeStampMilliTZVector.
+   *
    * @param values numbers of milliseconds since UNIX epoch
    */
   public static void setVector(TimeStampMilliTZVector vector, Long... values) {
@@ -415,6 +407,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for TimeStampMilliVector.
+   *
    * @param values numbers of milliseconds since UNIX epoch
    */
   public static void setVector(TimeStampMilliVector vector, Long... values) {
@@ -430,6 +423,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for TimeStampNanoTZVector.
+   *
    * @param values numbers of nanoseconds since UNIX epoch
    */
   public static void setVector(TimeStampNanoTZVector vector, Long... values) {
@@ -445,6 +439,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for TimeStampNanoVector.
+   *
    * @param values numbers of nanoseconds since UNIX epoch
    */
   public static void setVector(TimeStampNanoVector vector, Long... values) {
@@ -460,6 +455,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for TimeStampSecTZVector.
+   *
    * @param values numbers of seconds since UNIX epoch
    */
   public static void setVector(TimeStampSecTZVector vector, Long... values) {
@@ -475,6 +471,7 @@ public class ValueVectorDataPopulator {
 
   /**
    * Populate values for TimeStampSecVector.
+   *
    * @param values numbers of seconds since UNIX epoch
    */
   public static void setVector(TimeStampSecVector vector, Long... values) {
@@ -488,9 +485,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for TinyIntVector.
-   */
+  /** Populate values for TinyIntVector. */
   public static void setVector(TinyIntVector vector, Byte... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -502,9 +497,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for UInt1Vector.
-   */
+  /** Populate values for UInt1Vector. */
   public static void setVector(UInt1Vector vector, Byte... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -516,9 +509,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for UInt2Vector.
-   */
+  /** Populate values for UInt2Vector. */
   public static void setVector(UInt2Vector vector, Character... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -530,9 +521,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for UInt4Vector.
-   */
+  /** Populate values for UInt4Vector. */
   public static void setVector(UInt4Vector vector, Integer... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -544,9 +533,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for UInt8Vector.
-   */
+  /** Populate values for UInt8Vector. */
   public static void setVector(UInt8Vector vector, Long... values) {
     final int length = values.length;
     vector.allocateNew(length);
@@ -558,9 +545,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for VarBinaryVector.
-   */
+  /** Populate values for VarBinaryVector. */
   public static void setVector(VarBinaryVector vector, byte[]... values) {
     final int length = values.length;
     vector.allocateNewSafe();
@@ -572,9 +557,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for VarCharVector.
-   */
+  /** Populate values for VarCharVector. */
   public static void setVector(VarCharVector vector, byte[]... values) {
     final int length = values.length;
     vector.allocateNewSafe();
@@ -586,9 +569,18 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for LargeVarCharVector.
-   */
+  public static void setVector(VariableWidthFieldVector vector, byte[]... values) {
+    final int length = values.length;
+    vector.allocateNewSafe();
+    for (int i = 0; i < length; i++) {
+      if (values[i] != null) {
+        vector.set(i, values[i]);
+      }
+    }
+    vector.setValueCount(length);
+  }
+
+  /** Populate values for LargeVarCharVector. */
   public static void setVector(LargeVarCharVector vector, byte[]... values) {
     final int length = values.length;
     vector.allocateNewSafe();
@@ -600,9 +592,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for VarCharVector.
-   */
+  /** Populate values for VarCharVector. */
   public static void setVector(VarCharVector vector, String... values) {
     final int length = values.length;
     vector.allocateNewSafe();
@@ -614,9 +604,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for LargeVarCharVector.
-   */
+  /** Populate values for LargeVarCharVector. */
   public static void setVector(LargeVarCharVector vector, String... values) {
     final int length = values.length;
     vector.allocateNewSafe();
@@ -628,9 +616,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  /**
-   * Populate values for {@link ListVector}.
-   */
+  /** Populate values for {@link ListVector}. */
   public static void setVector(ListVector vector, List<Integer>... values) {
     vector.allocateNewSafe();
     Types.MinorType type = Types.MinorType.INT;
@@ -659,9 +645,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(values.length);
   }
 
-  /**
-   * Populate values for {@link LargeListVector}.
-   */
+  /** Populate values for {@link LargeListVector}. */
   public static void setVector(LargeListVector vector, List<Integer>... values) {
     vector.allocateNewSafe();
     Types.MinorType type = Types.MinorType.INT;
@@ -690,9 +674,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(values.length);
   }
 
-  /**
-   * Populate values for {@link FixedSizeListVector}.
-   */
+  /** Populate values for {@link FixedSizeListVector}. */
   public static void setVector(FixedSizeListVector vector, List<Integer>... values) {
     vector.allocateNewSafe();
     for (int i = 0; i < values.length; i++) {
@@ -724,17 +706,16 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(values.length);
   }
 
-  /**
-   * Populate values for {@link StructVector}.
-   */
+  /** Populate values for {@link StructVector}. */
   public static void setVector(StructVector vector, Map<String, List<Integer>> values) {
     vector.allocateNewSafe();
 
     int valueCount = 0;
     for (final Entry<String, List<Integer>> entry : values.entrySet()) {
       // Add the child
-      final IntVector child = vector.addOrGet(entry.getKey(),
-          FieldType.nullable(MinorType.INT.getType()), IntVector.class);
+      final IntVector child =
+          vector.addOrGet(
+              entry.getKey(), FieldType.nullable(MinorType.INT.getType()), IntVector.class);
 
       // Write the values to the child
       child.allocateNew();
@@ -750,5 +731,67 @@ public class ValueVectorDataPopulator {
       valueCount = Math.max(valueCount, v.size());
     }
     vector.setValueCount(valueCount);
+  }
+
+  /** Populate values for {@link ListViewVector}. */
+  public static void setVector(ListViewVector vector, List<Integer>... values) {
+    vector.allocateNewSafe();
+    Types.MinorType type = Types.MinorType.INT;
+    vector.addOrGetVector(FieldType.nullable(type.getType()));
+
+    IntVector dataVector = (IntVector) vector.getDataVector();
+    dataVector.allocateNew();
+
+    // set underlying vectors
+    int curPos = 0;
+    for (int i = 0; i < values.length; i++) {
+      vector.getOffsetBuffer().setInt((long) i * BaseRepeatedValueViewVector.OFFSET_WIDTH, curPos);
+      if (values[i] == null) {
+        BitVectorHelper.unsetBit(vector.getValidityBuffer(), i);
+      } else {
+        BitVectorHelper.setBit(vector.getValidityBuffer(), i);
+        for (int value : values[i]) {
+          dataVector.setSafe(curPos, value);
+          curPos += 1;
+        }
+      }
+      vector
+          .getSizeBuffer()
+          .setInt((long) i * BaseRepeatedValueViewVector.SIZE_WIDTH, values[i].size());
+    }
+    dataVector.setValueCount(curPos);
+    vector.setValueCount(values.length);
+  }
+
+  /** Populate values for {@link ListViewVector}. */
+  public static void setVector(LargeListViewVector vector, List<Integer>... values) {
+    vector.allocateNewSafe();
+    Types.MinorType type = Types.MinorType.INT;
+    vector.addOrGetVector(FieldType.nullable(type.getType()));
+
+    IntVector dataVector = (IntVector) vector.getDataVector();
+    dataVector.allocateNew();
+
+    // set underlying vectors
+    int curPos = 0;
+    for (int i = 0; i < values.length; i++) {
+      vector
+          .getOffsetBuffer()
+          .setInt((long) i * BaseLargeRepeatedValueViewVector.OFFSET_WIDTH, curPos);
+      if (values[i] == null) {
+        BitVectorHelper.unsetBit(vector.getValidityBuffer(), i);
+      } else {
+        BitVectorHelper.setBit(vector.getValidityBuffer(), i);
+        for (int value : values[i]) {
+          dataVector.setSafe(curPos, value);
+          curPos += 1;
+        }
+      }
+      vector
+          .getSizeBuffer()
+          .setInt((long) i * BaseRepeatedValueViewVector.SIZE_WIDTH, values[i].size());
+    }
+    dataVector.setValueCount(curPos);
+    vector.setValueCount(values.length);
   }
 }

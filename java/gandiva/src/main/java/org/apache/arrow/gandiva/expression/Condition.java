@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.expression;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 
-/**
- * Opaque class representing a filter condition.
- */
+/** Opaque class representing a filter condition. */
 public class Condition {
   private final TreeNode root;
 
@@ -32,6 +29,7 @@ public class Condition {
 
   /**
    * Converts an condition expression into a protobuf.
+   *
    * @return A protobuf representing the condition expression tree
    */
   public GandivaTypes.Condition toProtobuf() throws GandivaException {

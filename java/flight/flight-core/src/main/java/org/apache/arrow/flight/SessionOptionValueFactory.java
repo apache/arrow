@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-
 import org.apache.arrow.flight.impl.Flight;
 
 /** Abstract factory for concrete SessionOptionValue instances. */
@@ -60,9 +58,12 @@ public class SessionOptionValueFactory {
       case DOUBLE_VALUE:
         return new SessionOptionValueDouble(proto.getDoubleValue());
       case STRING_LIST_VALUE:
-        // Using ByteString::toByteArray() here otherwise we still somehow get `ByteArray`s with broken .equals(String)
-        return new SessionOptionValueStringList(proto.getStringListValue().getValuesList().asByteStringList().stream()
-            .map((e) -> new String(e.toByteArray(), StandardCharsets.UTF_8)).toArray(String[]::new));
+        // Using ByteString::toByteArray() here otherwise we still somehow get `ByteArray`s with
+        // broken .equals(String)
+        return new SessionOptionValueStringList(
+            proto.getStringListValue().getValuesList().asByteStringList().stream()
+                .map((e) -> new String(e.toByteArray(), StandardCharsets.UTF_8))
+                .toArray(String[]::new));
       case OPTIONVALUE_NOT_SET:
         return new SessionOptionValueEmpty();
       default:

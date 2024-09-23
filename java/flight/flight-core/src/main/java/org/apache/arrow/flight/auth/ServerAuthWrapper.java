@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth;
 
+import com.google.protobuf.ByteString;
+import io.grpc.stub.StreamObserver;
 import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
-
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.auth.ServerAuthHandler.ServerAuthSender;
 import org.apache.arrow.flight.grpc.StatusUtils;
@@ -30,13 +30,7 @@ import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.protobuf.ByteString;
-
-import io.grpc.stub.StreamObserver;
-
-/**
- * Contains utility methods for integrating authorization into a GRPC stream.
- */
+/** Contains utility methods for integrating authorization into a GRPC stream. */
 public class ServerAuthWrapper {
   private static final Logger LOGGER = LoggerFactory.getLogger(ServerAuthWrapper.class);
 
@@ -48,24 +42,28 @@ public class ServerAuthWrapper {
    * @param executors ExecutorService
    * @return AuthObserver
    */
-  public static StreamObserver<HandshakeRequest> wrapHandshake(ServerAuthHandler authHandler,
-      StreamObserver<HandshakeResponse> responseObserver, ExecutorService executors) {
+  public static StreamObserver<HandshakeRequest> wrapHandshake(
+      ServerAuthHandler authHandler,
+      StreamObserver<HandshakeResponse> responseObserver,
+      ExecutorService executors) {
 
     // stream started.
     AuthObserver observer = new AuthObserver(responseObserver);
-    final Runnable r = () -> {
-      try {
-        if (authHandler.authenticate(observer.sender, observer.iter)) {
-          responseObserver.onCompleted();
-          return;
-        }
+    final Runnable r =
+        () -> {
+          try {
+            if (authHandler.authenticate(observer.sender, observer.iter)) {
+              responseObserver.onCompleted();
+              return;
+            }
 
-        responseObserver.onError(StatusUtils.toGrpcException(CallStatus.UNAUTHENTICATED.toRuntimeException()));
-      } catch (Exception ex) {
-        LOGGER.error("Error during authentication", ex);
-        responseObserver.onError(StatusUtils.toGrpcException(ex));
-      }
-    };
+            responseObserver.onError(
+                StatusUtils.toGrpcException(CallStatus.UNAUTHENTICATED.toRuntimeException()));
+          } catch (Exception ex) {
+            LOGGER.error("Error during authentication", ex);
+            responseObserver.onError(StatusUtils.toGrpcException(ex));
+          }
+        };
     observer.future = executors.submit(r);
     return observer;
   }
@@ -91,26 +89,27 @@ public class ServerAuthWrapper {
       }
     }
 
-    private Iterator<byte[]> iter = new Iterator<byte[]>() {
+    private Iterator<byte[]> iter =
+        new Iterator<byte[]>() {
 
-      @Override
-      public byte[] next() {
-        while (!completed || !messages.isEmpty()) {
-          byte[] bytes = messages.poll();
-          if (bytes == null) {
-            //busy wait.
-            continue;
+          @Override
+          public byte[] next() {
+            while (!completed || !messages.isEmpty()) {
+              byte[] bytes = messages.poll();
+              if (bytes == null) {
+                // busy wait.
+                continue;
+              }
+              return bytes;
+            }
+            throw new IllegalStateException("Requesting more messages than client sent.");
           }
-          return bytes;
-        }
-        throw new IllegalStateException("Requesting more messages than client sent.");
-      }
 
-      @Override
-      public boolean hasNext() {
-        return !messages.isEmpty();
-      }
-    };
+          @Override
+          public boolean hasNext() {
+            return !messages.isEmpty();
+          }
+        };
 
     @Override
     public void onError(Throwable t) {
@@ -130,17 +129,14 @@ public class ServerAuthWrapper {
 
       @Override
       public void send(byte[] payload) {
-        responseObserver.onNext(HandshakeResponse.newBuilder()
-            .setPayload(ByteString.copyFrom(payload))
-            .build());
+        responseObserver.onNext(
+            HandshakeResponse.newBuilder().setPayload(ByteString.copyFrom(payload)).build());
       }
 
       @Override
       public void onError(Throwable cause) {
         responseObserver.onError(StatusUtils.toGrpcException(cause));
       }
-
     }
   }
-
 }

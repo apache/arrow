@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import java.io.InputStream;
@@ -35,7 +34,6 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.accessor.impl.ArrowFlightJdbcNullVectorAccessor;
@@ -43,22 +41,20 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
-/**
- * Base accessor for {@link UnionVector} and {@link DenseUnionVector}.
- */
+/** Base accessor for {@link UnionVector} and {@link DenseUnionVector}. */
 public abstract class AbstractArrowFlightJdbcUnionVectorAccessor extends ArrowFlightJdbcAccessor {
 
   /**
-   * Array of accessors for each type contained in UnionVector.
-   * Index corresponds to UnionVector and DenseUnionVector typeIds which are both limited to 128.
+   * Array of accessors for each type contained in UnionVector. Index corresponds to UnionVector and
+   * DenseUnionVector typeIds which are both limited to 128.
    */
   private final ArrowFlightJdbcAccessor[] accessors = new ArrowFlightJdbcAccessor[128];
 
   private final ArrowFlightJdbcNullVectorAccessor nullAccessor =
-      new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {
-      });
+      new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {});
 
-  protected AbstractArrowFlightJdbcUnionVectorAccessor(IntSupplier currentRowSupplier,
+  protected AbstractArrowFlightJdbcUnionVectorAccessor(
+      IntSupplier currentRowSupplier,
       ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
   }

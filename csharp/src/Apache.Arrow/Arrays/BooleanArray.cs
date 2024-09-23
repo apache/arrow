@@ -21,7 +21,7 @@ using System.Collections.Generic;
 
 namespace Apache.Arrow
 {
-    public class BooleanArray: Array, IReadOnlyList<bool?>
+    public class BooleanArray: Array, IReadOnlyList<bool?>, ICollection<bool?>
     {
         public class Builder : IArrowArrayBuilder<bool, BooleanArray, Builder>
         {
@@ -188,7 +188,7 @@ namespace Apache.Arrow
         public bool? GetValue(int index)
         {
             return IsNull(index)
-                ? (bool?)null
+                ? null
                 : BitUtility.GetBit(ValueBuffer.Span, index + Offset);
         }
 
@@ -205,5 +205,30 @@ namespace Apache.Arrow
         }
 
         IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<bool?>)this).GetEnumerator();
+
+        int ICollection<bool?>.Count => Length;
+        bool ICollection<bool?>.IsReadOnly => true;
+        void ICollection<bool?>.Add(bool? item) => throw new NotSupportedException("Collection is read-only.");
+        bool ICollection<bool?>.Remove(bool? item) => throw new NotSupportedException("Collection is read-only.");
+        void ICollection<bool?>.Clear() => throw new NotSupportedException("Collection is read-only.");
+
+        bool ICollection<bool?>.Contains(bool? item)
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                if (GetValue(index).Equals(item))
+                    return true;
+            }
+
+            return false;
+        }
+
+        void ICollection<bool?>.CopyTo(bool?[] array, int arrayIndex)
+        {
+            for (int srcIndex = 0, destIndex = arrayIndex; srcIndex < Length; srcIndex++, destIndex++)
+            {
+                array[destIndex] = GetValue(srcIndex);
+            }
+        }
     }
 }

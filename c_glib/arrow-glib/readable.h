@@ -25,10 +25,13 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_READABLE (garrow_readable_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_INTERFACE(GArrowReadable, garrow_readable, GARROW, READABLE, GObject)
 
+GARROW_AVAILABLE_IN_ALL
 GArrowBuffer *
 garrow_readable_read(GArrowReadable *readable, gint64 n_bytes, GError **error);
+
 GARROW_AVAILABLE_IN_0_17
 GBytes *
 garrow_readable_read_bytes(GArrowReadable *readable, gint64 n_bytes, GError **error);

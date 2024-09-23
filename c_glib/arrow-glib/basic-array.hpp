@@ -23,22 +23,32 @@
 
 #include <arrow-glib/basic-array.h>
 
+GARROW_EXTERN
 arrow::EqualOptions *
 garrow_equal_options_get_raw(GArrowEqualOptions *equal_options);
 
+GARROW_EXTERN
 GArrowArray *
 garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array);
+
+GARROW_EXTERN
 GArrowArray *
 garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array,
                      const gchar *first_property_name,
                      ...);
+
+GARROW_EXTERN
 GArrowArray *
 garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
                             const gchar *first_property_name,
                             va_list args);
+
+GARROW_EXTERN
 GArrowExtensionArray *
 garrow_extension_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array,
                                GArrowArray *storage);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::Array>
 garrow_array_get_raw(GArrowArray *array);
 

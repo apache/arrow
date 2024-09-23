@@ -14,29 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.grpc;
 
+import io.grpc.Context;
 import java.util.HashMap;
 import java.util.Set;
-
 import org.apache.arrow.flight.RequestContext;
 
-import io.grpc.Context;
-
-
-/**
- * Adapter for holding key value pairs.
- */
+/** Adapter for holding key value pairs. */
 public class RequestContextAdapter implements RequestContext {
   public static final Context.Key<RequestContext> REQUEST_CONTEXT_KEY =
-          Context.key("arrow-flight-request-context");
+      Context.key("arrow-flight-request-context");
   private final HashMap<String, String> map = new HashMap<>();
 
   @Override
   public void put(String key, String value) {
     if (map.putIfAbsent(key, value) != null) {
-      throw new IllegalArgumentException("Duplicate write to a RequestContext at key " + key + " not allowed.");
+      throw new IllegalArgumentException(
+          "Duplicate write to a RequestContext at key " + key + " not allowed.");
     }
   }
 

@@ -28,6 +28,7 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_DATUM (garrow_datum_get_type())
+GARROW_AVAILABLE_IN_1_0
 G_DECLARE_DERIVABLE_TYPE(GArrowDatum, garrow_datum, GARROW, DATUM, GObject)
 struct _GArrowDatumClass
 {
@@ -60,6 +61,7 @@ garrow_datum_to_string(GArrowDatum *datum);
 /* GARROW_TYPE_NONE_DATUM */
 
 #define GARROW_TYPE_SCALAR_DATUM (garrow_scalar_datum_get_type())
+GARROW_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(
   GArrowScalarDatum, garrow_scalar_datum, GARROW, SCALAR_DATUM, GArrowDatum)
 struct _GArrowScalarDatumClass
@@ -72,6 +74,7 @@ GArrowScalarDatum *
 garrow_scalar_datum_new(GArrowScalar *value);
 
 #define GARROW_TYPE_ARRAY_DATUM (garrow_array_datum_get_type())
+GARROW_AVAILABLE_IN_1_0
 G_DECLARE_DERIVABLE_TYPE(
   GArrowArrayDatum, garrow_array_datum, GARROW, ARRAY_DATUM, GArrowDatum)
 struct _GArrowArrayDatumClass
@@ -84,6 +87,7 @@ GArrowArrayDatum *
 garrow_array_datum_new(GArrowArray *value);
 
 #define GARROW_TYPE_CHUNKED_ARRAY_DATUM (garrow_chunked_array_datum_get_type())
+GARROW_AVAILABLE_IN_1_0
 G_DECLARE_DERIVABLE_TYPE(GArrowChunkedArrayDatum,
                          garrow_chunked_array_datum,
                          GARROW,
@@ -99,6 +103,7 @@ GArrowChunkedArrayDatum *
 garrow_chunked_array_datum_new(GArrowChunkedArray *value);
 
 #define GARROW_TYPE_RECORD_BATCH_DATUM (garrow_record_batch_datum_get_type())
+GARROW_AVAILABLE_IN_1_0
 G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatchDatum,
                          garrow_record_batch_datum,
                          GARROW,
@@ -114,6 +119,7 @@ GArrowRecordBatchDatum *
 garrow_record_batch_datum_new(GArrowRecordBatch *value);
 
 #define GARROW_TYPE_TABLE_DATUM (garrow_table_datum_get_type())
+GARROW_AVAILABLE_IN_1_0
 G_DECLARE_DERIVABLE_TYPE(
   GArrowTableDatum, garrow_table_datum, GARROW, TABLE_DATUM, GArrowDatum)
 struct _GArrowTableDatumClass

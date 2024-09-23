@@ -14,23 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex;
 
 import org.apache.arrow.vector.FieldVector;
 
-/**
- * Abstraction for all list type vectors.
- */
+/** Abstraction for all list type vectors. */
 public interface BaseListVector extends FieldVector {
 
-  /**
-   * Get data vector start index with the given list index.
-   */
+  /** Get data vector start index with the given list index. */
   int getElementStartIndex(int index);
 
-  /**
-   * Get data vector end index with the given list index.
-   */
+  /** Get data vector end index with the given list index. */
   int getElementEndIndex(int index);
 }

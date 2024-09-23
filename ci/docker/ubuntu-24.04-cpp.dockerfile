@@ -29,7 +29,7 @@ RUN echo "debconf debconf/frontend select Noninteractive" | \
 # while debugging package list with docker build.
 ARG clang_tools
 ARG llvm
-RUN latest_system_llvm=14 && \
+RUN latest_system_llvm=18 && \
     if [ ${llvm} -gt ${latest_system_llvm} -o \
          ${clang_tools} -gt ${latest_system_llvm} ]; then \
       apt-get update -y -q && \
@@ -57,6 +57,7 @@ RUN latest_system_llvm=14 && \
         clang-${llvm} \
         clang-format-${clang_tools} \
         clang-tidy-${clang_tools} \
+        libclang-rt-${llvm}-dev \
         llvm-${llvm}-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
@@ -127,7 +128,7 @@ RUN if [ "${gcc_version}" = "" ]; then \
           g++ \
           gcc; \
     else \
-      if [ "${gcc_version}" -gt "12" ]; then \
+      if [ "${gcc_version}" -gt "14" ]; then \
           apt-get update -y -q && \
           apt-get install -y -q --no-install-recommends software-properties-common && \
           add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
@@ -178,7 +179,6 @@ ENV ARROW_ACERO=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \

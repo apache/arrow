@@ -27,6 +27,7 @@
 #include "arrow/array/array_nested.h"
 #include "arrow/array/util.h"
 #include "arrow/array/validate.h"
+#include "arrow/device_allocation_type_set.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -84,6 +85,18 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::MakeEmpty(
   std::vector<std::shared_ptr<Array>> new_chunks(1);
   ARROW_ASSIGN_OR_RAISE(new_chunks[0], MakeEmptyArray(type, memory_pool));
   return std::make_shared<ChunkedArray>(std::move(new_chunks));
+}
+
+DeviceAllocationTypeSet ChunkedArray::device_types() const {
+  if (chunks_.empty()) {
+    // An empty ChunkedArray is considered to be CPU-only.
+    return DeviceAllocationTypeSet::CpuOnly();
+  }
+  DeviceAllocationTypeSet set;
+  for (const auto& chunk : chunks_) {
+    set.add(chunk->device_type());
+  }
+  return set;
 }
 
 bool ChunkedArray::Equals(const ChunkedArray& other, const EqualOptions& opts) const {

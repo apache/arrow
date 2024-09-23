@@ -14,37 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import org.apache.arrow.vector.util.CallBack;
 
-
 /**
- * Callback for when the Schema for the Vector changes (generally happens when a vector is promoted to a union type
- * from a single value type).
+ * Callback for when the Schema for the Vector changes (generally happens when a vector is promoted
+ * to a union type from a single value type).
  */
 public class SchemaChangeCallBack implements CallBack {
   private boolean schemaChanged = false;
 
-  /**
-   * Constructs a schema-change callback with the schema-changed state set to
-   * {@code false}.
-   */
-  public SchemaChangeCallBack() {
-  }
+  /** Constructs a schema-change callback with the schema-changed state set to {@code false}. */
+  public SchemaChangeCallBack() {}
 
-  /**
-   * Sets the schema-changed state to {@code true}.
-   */
+  /** Sets the schema-changed state to {@code true}. */
   @Override
   public void doWork() {
     schemaChanged = true;
   }
 
   /**
-   * Returns the value of schema-changed state, <strong>resetting</strong> the
-   * schema-changed state to {@code false}.
+   * Returns the value of schema-changed state, <strong>resetting</strong> the schema-changed state
+   * to {@code false}.
    *
    * @return the previous schema-changed state
    */
@@ -54,4 +46,3 @@ public class SchemaChangeCallBack implements CallBack {
     return current;
   }
 }
-

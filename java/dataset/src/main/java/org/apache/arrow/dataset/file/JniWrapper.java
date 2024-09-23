@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset.file;
 
 import org.apache.arrow.dataset.jni.JniLoader;
@@ -31,30 +30,33 @@ public class JniWrapper {
     return INSTANCE;
   }
 
-  private JniWrapper() {
-  }
+  private JniWrapper() {}
 
   /**
    * Create FileSystemDatasetFactory and return its native pointer. The pointer is pointing to a
    * intermediate shared_ptr of the factory instance.
    *
    * @param uri file uri to read, either a file or a directory
-   * @param fileFormat file format ID
+   * @param fileFormat file format ID.
+   * @param serializedFragmentScanOptions serialized FragmentScanOptions.
    * @return the native pointer of the arrow::dataset::FileSystemDatasetFactory instance.
    * @see FileFormat
    */
-  public native long makeFileSystemDatasetFactory(String uri, int fileFormat);
+  public native long makeFileSystemDatasetFactory(
+      String uri, int fileFormat, String[] serializedFragmentScanOptions);
 
   /**
    * Create FileSystemDatasetFactory and return its native pointer. The pointer is pointing to a
    * intermediate shared_ptr of the factory instance.
    *
    * @param uris List of file uris to read, each path pointing to an individual file
-   * @param fileFormat file format ID
+   * @param fileFormat file format ID.
+   * @param serializedFragmentScanOptions serialized FragmentScanOptions.
    * @return the native pointer of the arrow::dataset::FileSystemDatasetFactory instance.
    * @see FileFormat
    */
-  public native long makeFileSystemDatasetFactory(String[] uris, int fileFormat);
+  public native long makeFileSystemDatasetFactoryWithFiles(
+      String[] uris, int fileFormat, String[] serializedFragmentScanOptions);
 
   /**
    * Write the content in a {@link org.apache.arrow.c.ArrowArrayStream} into files. This internally
@@ -65,14 +67,14 @@ public class JniWrapper {
    * @param uri target file uri
    * @param partitionColumns columns used to partition output files
    * @param maxPartitions maximum partitions to be included in written files
-   * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is current partition
-   *                         ID around all written files.
+   * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is
+   *     current partition ID around all written files.
    */
-  public native void writeFromScannerToFile(long streamAddress,
-                                            long fileFormat,
-                                            String uri,
-                                            String[] partitionColumns,
-                                            int maxPartitions,
-                                            String baseNameTemplate);
-
+  public native void writeFromScannerToFile(
+      long streamAddress,
+      long fileFormat,
+      String uri,
+      String[] partitionColumns,
+      int maxPartitions,
+      String baseNameTemplate);
 }

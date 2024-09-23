@@ -28,7 +28,7 @@ _ARTIFACTS_PATH = os.path.join(ARROW_ROOT_DEFAULT, "csharp/artifacts")
 
 _EXE_PATH = os.path.join(_ARTIFACTS_PATH,
                          "Apache.Arrow.IntegrationTest",
-                         "Debug/net7.0/Apache.Arrow.IntegrationTest",
+                         "Debug/net8.0/Apache.Arrow.IntegrationTest",
                          )
 
 _clr_loaded = False
@@ -44,10 +44,10 @@ def _load_clr():
         import clr
         clr.AddReference(
             f"{_ARTIFACTS_PATH}/Apache.Arrow.IntegrationTest/"
-            f"Debug/net7.0/Apache.Arrow.IntegrationTest.dll")
+            f"Debug/net8.0/Apache.Arrow.IntegrationTest.dll")
         clr.AddReference(
             f"{_ARTIFACTS_PATH}/Apache.Arrow.Tests/"
-            f"Debug/net7.0/Apache.Arrow.Tests.dll")
+            f"Debug/net8.0/Apache.Arrow.Tests.dll")
 
         from Apache.Arrow.IntegrationTest import CDataInterface
         CDataInterface.Initialize()

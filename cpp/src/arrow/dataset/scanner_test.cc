@@ -1103,7 +1103,8 @@ TEST_P(TestScanner, ProjectionDefaults) {
   }
   // If we only specify a projection expression then infer the projected schema
   // from the projection expression
-  auto projection_desc = ProjectionDescr::FromNames({"i32"}, *schema_);
+  auto projection_desc =
+      ProjectionDescr::FromNames({"i32"}, *schema_, /*add_augmented_fields=*/true);
   {
     ARROW_SCOPED_TRACE("User only specifies projection");
     options_->projection = projection_desc->expression;
@@ -1148,7 +1149,8 @@ TEST_P(TestScanner, ProjectedScanNestedFromNames) {
   });
   ASSERT_OK_AND_ASSIGN(auto descr,
                        ProjectionDescr::FromNames({".struct.i32", "nested.right.f64"},
-                                                  *options_->dataset_schema))
+                                                  *options_->dataset_schema,
+                                                  options_->add_augmented_fields))
   SetProjection(options_.get(), std::move(descr));
   auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   auto batch_out = ConstantArrayGenerator::Zeroes(
@@ -2106,7 +2108,8 @@ TEST(ScanOptions, TestMaterializedFields) {
 
   auto set_projection_from_names = [&opts](std::vector<std::string> names) {
     ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::FromNames(
-                                              std::move(names), *opts->dataset_schema));
+                                              std::move(names), *opts->dataset_schema,
+                                              opts->add_augmented_fields));
     SetProjection(opts.get(), std::move(projection));
   };
 
@@ -2160,7 +2163,8 @@ TEST(ScanOptions, TestMaterializedFields) {
   // project top-level field, filter nothing
   opts->filter = literal(true);
   ASSERT_OK_AND_ASSIGN(projection,
-                       ProjectionDescr::FromNames({"nested"}, *opts->dataset_schema));
+                       ProjectionDescr::FromNames({"nested"}, *opts->dataset_schema,
+                                                  opts->add_augmented_fields));
   SetProjection(opts.get(), std::move(projection));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre(FieldRef("nested")));
 

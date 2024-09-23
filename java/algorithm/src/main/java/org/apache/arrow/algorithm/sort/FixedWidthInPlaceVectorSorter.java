@@ -14,20 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.vector.BaseFixedWidthVector;
 
 /**
- * Default in-place sorter for fixed-width vectors.
- * It is based on quick-sort, with average time complexity O(n*log(n)).
+ * Default in-place sorter for fixed-width vectors. It is based on quick-sort, with average time
+ * complexity O(n*log(n)).
+ *
  * @param <V> vector type.
  */
-public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> implements InPlaceVectorSorter<V> {
+public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector>
+    implements InPlaceVectorSorter<V> {
 
   /**
-   * If the number of items is smaller than this threshold, we will use another algorithm to sort the data.
+   * If the number of items is smaller than this threshold, we will use another algorithm to sort
+   * the data.
    */
   public static final int CHANGE_ALGORITHM_THRESHOLD = 15;
 
@@ -35,15 +37,10 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
 
   VectorValueComparator<V> comparator;
 
-  /**
-   * The vector to sort.
-   */
+  /** The vector to sort. */
   V vec;
 
-  /**
-   * The buffer to hold the pivot.
-   * It always has length 1.
-   */
+  /** The buffer to hold the pivot. It always has length 1. */
   V pivotBuffer;
 
   @Override
@@ -99,9 +96,7 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
     }
   }
 
-  /**
-   *  Select the pivot as the median of 3 samples.
-   */
+  /** Select the pivot as the median of 3 samples. */
   void choosePivot(int low, int high) {
     // we need at least 3 items
     if (high - low + 1 < STOP_CHOOSING_PIVOT_THRESHOLD) {

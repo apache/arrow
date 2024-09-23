@@ -14,23 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.Field;
 
-/**
- * Flags as defined in the C data interface specification.
- */
+/** Flags as defined in the C data interface specification. */
 final class Flags {
   static final int ARROW_FLAG_DICTIONARY_ORDERED = 1;
   static final int ARROW_FLAG_NULLABLE = 2;
   static final int ARROW_FLAG_MAP_KEYS_SORTED = 4;
 
-  private Flags() {
-  }
+  private Flags() {}
 
   static long forField(Field field) {
     long flags = 0L;

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc;
 
 import java.io.IOException;
@@ -22,11 +21,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
- * Magic header/footer helpers for {@link ArrowFileWriter} and {@link ArrowFileReader} formatted files.
+ * Magic header/footer helpers for {@link ArrowFileWriter} and {@link ArrowFileReader} formatted
+ * files.
  */
 class ArrowMagic {
-  private ArrowMagic(){
-  }
+  private ArrowMagic() {}
 
   private static final byte[] MAGIC = "ARROW1".getBytes(StandardCharsets.UTF_8);
 

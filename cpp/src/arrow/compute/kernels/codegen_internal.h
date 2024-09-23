@@ -133,7 +133,8 @@ struct GetViewType<Type, enable_if_has_c_type<Type>> {
 
 template <typename Type>
 struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
-                                     is_fixed_size_binary_type<Type>::value>> {
+                                     is_fixed_size_binary_type<Type>::value ||
+                                     is_binary_view_like_type<Type>::value>> {
   using T = std::string_view;
   using PhysicalType = T;
 
@@ -369,43 +370,6 @@ struct UnboxScalar<Decimal256Type> {
   }
 };
 
-template <typename Type, typename Enable = void>
-struct BoxScalar;
-
-template <typename Type>
-struct BoxScalar<Type, enable_if_has_c_type<Type>> {
-  using T = typename GetOutputType<Type>::T;
-  static void Box(T val, Scalar* out) {
-    // Enables BoxScalar<Int64Type> to work on a (for example) Time64Scalar
-    T* mutable_data = reinterpret_cast<T*>(
-        checked_cast<::arrow::internal::PrimitiveScalarBase*>(out)->mutable_data());
-    *mutable_data = val;
-  }
-};
-
-template <typename Type>
-struct BoxScalar<Type, enable_if_base_binary<Type>> {
-  using T = typename GetOutputType<Type>::T;
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static void Box(T val, Scalar* out) {
-    checked_cast<ScalarType*>(out)->value = std::make_shared<Buffer>(val);
-  }
-};
-
-template <>
-struct BoxScalar<Decimal128Type> {
-  using T = Decimal128;
-  using ScalarType = Decimal128Scalar;
-  static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
-};
-
-template <>
-struct BoxScalar<Decimal256Type> {
-  using T = Decimal256;
-  using ScalarType = Decimal256Scalar;
-  static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
-};
-
 // A VisitArraySpanInline variant that calls its visitor function with logical
 // values, such as Decimal128 rather than std::string_view.
 
@@ -460,7 +424,8 @@ static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& ar
 
 Result<TypeHolder> FirstType(KernelContext*, const std::vector<TypeHolder>& types);
 Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types);
-Result<TypeHolder> ListValuesType(KernelContext*, const std::vector<TypeHolder>& types);
+Result<TypeHolder> ListValuesType(KernelContext* ctx,
+                                  const std::vector<TypeHolder>& types);
 
 // ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to
@@ -1295,6 +1260,22 @@ ArrayKernelExec GenerateVarBinary(detail::GetTypeId get_id) {
       return Generator<Type0, LargeBinaryType, Args...>::Exec;
     case Type::LARGE_STRING:
       return Generator<Type0, LargeStringType, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return nullptr;
+  }
+}
+
+// Generate a kernel given a templated functor for binary-view types. Generates a
+// single kernel for binary/string-view.
+//
+// See "Numeric" above for description of the generator functor
+template <template <typename...> class Generator, typename Type0, typename... Args>
+ArrayKernelExec GenerateVarBinaryViewBase(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::BINARY_VIEW:
+    case Type::STRING_VIEW:
+      return Generator<Type0, BinaryViewType, Args...>::Exec;
     default:
       DCHECK(false);
       return nullptr;

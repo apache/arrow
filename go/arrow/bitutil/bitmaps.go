@@ -22,9 +22,9 @@ import (
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow/endian"
-	"github.com/apache/arrow/go/v16/arrow/internal/debug"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow/endian"
+	"github.com/apache/arrow/go/v18/arrow/internal/debug"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 )
 
 // BitmapReader is a simple bitmap reader for a byte slice.

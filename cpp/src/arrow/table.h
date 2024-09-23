@@ -241,6 +241,8 @@ class ARROW_EXPORT Table {
 ///
 /// The conversion is zero-copy: each record batch is a view over a slice
 /// of the table's columns.
+///
+/// The table is expected to be valid prior to using it with the batch reader.
 class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
  public:
   /// \brief Construct a TableBatchReader for the given table

@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.expression;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 
-/**
- * Defines an internal node in the expression tree.
- */
+/** Defines an internal node in the expression tree. */
 public interface TreeNode {
   /**
    * Converts a TreeNode into a protobuf.

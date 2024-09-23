@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.util.Preconditions;
@@ -22,23 +21,26 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
 
 /**
- * An out-of-place sorter for vectors of arbitrary type, with time complexity O(n*log(n)).
- * Since it does not make any assumptions about the memory layout of the vector, its performance
- * can be sub-optimal. So if another sorter is applicable ({@link FixedWidthInPlaceVectorSorter}),
- * it should be used in preference.
+ * An out-of-place sorter for vectors of arbitrary type, with time complexity O(n*log(n)). Since it
+ * does not make any assumptions about the memory layout of the vector, its performance can be
+ * sub-optimal. So if another sorter is applicable ({@link FixedWidthInPlaceVectorSorter}), it
+ * should be used in preference.
  *
  * @param <V> vector type.
  */
-public class GeneralOutOfPlaceVectorSorter<V extends ValueVector> implements OutOfPlaceVectorSorter<V> {
+public class GeneralOutOfPlaceVectorSorter<V extends ValueVector>
+    implements OutOfPlaceVectorSorter<V> {
 
   @Override
   public void sortOutOfPlace(V srcVector, V dstVector, VectorValueComparator<V> comparator) {
     comparator.attachVector(srcVector);
 
     // check vector capacity
-    Preconditions.checkArgument(dstVector.getValueCapacity() >= srcVector.getValueCount(),
-        "Not enough capacity for the target vector. " +
-            "Expected capacity %s, actual capacity %s", srcVector.getValueCount(), dstVector.getValueCapacity());
+    Preconditions.checkArgument(
+        dstVector.getValueCapacity() >= srcVector.getValueCount(),
+        "Not enough capacity for the target vector. " + "Expected capacity %s, actual capacity %s",
+        srcVector.getValueCount(),
+        dstVector.getValueCapacity());
 
     // sort value indices
     try (IntVector sortedIndices = new IntVector("", srcVector.getAllocator())) {

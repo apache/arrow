@@ -14,26 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import java.util.List;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.ListVector;
 
-/**
- * Accessor for the Arrow type {@link ListVector}.
- */
+/** Accessor for the Arrow type {@link ListVector}. */
 public class ArrowFlightJdbcListVectorAccessor extends AbstractArrowFlightJdbcListVectorAccessor {
 
   private final ListVector vector;
 
-  public ArrowFlightJdbcListVectorAccessor(ListVector vector, IntSupplier currentRowSupplier,
-                                           ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcListVectorAccessor(
+      ListVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
   }
@@ -45,7 +43,8 @@ public class ArrowFlightJdbcListVectorAccessor extends AbstractArrowFlightJdbcLi
 
   @Override
   protected long getEndOffset(int index) {
-    return vector.getOffsetBuffer()
+    return vector
+        .getOffsetBuffer()
         .getInt((long) (index + 1) * BaseRepeatedValueVector.OFFSET_WIDTH);
   }
 

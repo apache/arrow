@@ -14,24 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
+import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
-
 import org.apache.arrow.flight.impl.Flight;
 
-import com.google.protobuf.Timestamp;
-import com.google.protobuf.util.Timestamps;
-
-/**
- * A POJO representation of the execution of a long-running query.
- */
+/** A POJO representation of the execution of a long-running query. */
 public class PollInfo {
   private final FlightInfo flightInfo;
   private final FlightDescriptor flightDescriptor;
@@ -42,11 +37,17 @@ public class PollInfo {
    * Create a new PollInfo.
    *
    * @param flightInfo The FlightInfo (must not be null).
-   * @param flightDescriptor The descriptor used to poll for more information; null if and only if query is finished.
+   * @param flightDescriptor The descriptor used to poll for more information; null if and only if
+   *     query is finished.
    * @param progress Optional progress info in [0.0, 1.0].
-   * @param expirationTime An expiration time, after which the server may no longer recognize the descriptor.
+   * @param expirationTime An expiration time, after which the server may no longer recognize the
+   *     descriptor.
    */
-  public PollInfo(FlightInfo flightInfo, FlightDescriptor flightDescriptor, Double progress, Instant expirationTime) {
+  public PollInfo(
+      FlightInfo flightInfo,
+      FlightDescriptor flightDescriptor,
+      Double progress,
+      Instant expirationTime) {
     this.flightInfo = Objects.requireNonNull(flightInfo);
     this.flightDescriptor = flightDescriptor;
     this.progress = progress;
@@ -55,19 +56,22 @@ public class PollInfo {
 
   PollInfo(Flight.PollInfo flt) throws URISyntaxException {
     this.flightInfo = new FlightInfo(flt.getInfo());
-    this.flightDescriptor = flt.hasFlightDescriptor() ? new FlightDescriptor(flt.getFlightDescriptor()) : null;
+    this.flightDescriptor =
+        flt.hasFlightDescriptor() ? new FlightDescriptor(flt.getFlightDescriptor()) : null;
     this.progress = flt.hasProgress() ? flt.getProgress() : null;
-    this.expirationTime = flt.hasExpirationTime() ?
-        Instant.ofEpochSecond(flt.getExpirationTime().getSeconds(), Timestamps.toNanos(flt.getExpirationTime())) :
-        null;
+    this.expirationTime =
+        flt.hasExpirationTime()
+            ? Instant.ofEpochSecond(
+                flt.getExpirationTime().getSeconds(), Timestamps.toNanos(flt.getExpirationTime()))
+            : null;
   }
 
   /**
    * The FlightInfo describing the result set of the execution of a query.
    *
-   * <p>This is always present and always contains all endpoints for the query execution so far,
-   * not just new endpoints that completed execution since the last call to
-   * {@link FlightClient#pollInfo(FlightDescriptor, CallOption...)}.
+   * <p>This is always present and always contains all endpoints for the query execution so far, not
+   * just new endpoints that completed execution since the last call to {@link
+   * FlightClient#pollInfo(FlightDescriptor, CallOption...)}.
    */
   public FlightInfo getFlightInfo() {
     return flightInfo;
@@ -76,7 +80,7 @@ public class PollInfo {
   /**
    * The FlightDescriptor that should be used to get further updates on this query.
    *
-   * <p>It is present if and only if the query is still running.  If present, it should be passed to
+   * <p>It is present if and only if the query is still running. If present, it should be passed to
    * {@link FlightClient#pollInfo(FlightDescriptor, CallOption...)} to get an update.
    */
   public Optional<FlightDescriptor> getFlightDescriptor() {
@@ -86,7 +90,8 @@ public class PollInfo {
   /**
    * The progress of the query.
    *
-   * <p>If present, should be a value in [0.0, 1.0]. It is not necessarily monotonic or non-decreasing.
+   * <p>If present, should be a value in [0.0, 1.0]. It is not necessarily monotonic or
+   * non-decreasing.
    */
   public Optional<Double> getProgress() {
     return Optional.ofNullable(progress);
@@ -95,8 +100,8 @@ public class PollInfo {
   /**
    * The expiration time of the query execution.
    *
-   * <p>After this passes, the server may not recognize the descriptor anymore and the client will not
-   * be able to track the query anymore.
+   * <p>After this passes, the server may not recognize the descriptor anymore and the client will
+   * not be able to track the query anymore.
    */
   public Optional<Instant> getExpirationTime() {
     return Optional.ofNullable(expirationTime);
@@ -139,10 +144,10 @@ public class PollInfo {
       return false;
     }
     PollInfo pollInfo = (PollInfo) o;
-    return Objects.equals(getFlightInfo(), pollInfo.getFlightInfo()) &&
-        Objects.equals(getFlightDescriptor(), pollInfo.getFlightDescriptor()) &&
-        Objects.equals(getProgress(), pollInfo.getProgress()) &&
-        Objects.equals(getExpirationTime(), pollInfo.getExpirationTime());
+    return Objects.equals(getFlightInfo(), pollInfo.getFlightInfo())
+        && Objects.equals(getFlightDescriptor(), pollInfo.getFlightDescriptor())
+        && Objects.equals(getProgress(), pollInfo.getProgress())
+        && Objects.equals(getExpirationTime(), pollInfo.getExpirationTime());
   }
 
   @Override
@@ -152,11 +157,15 @@ public class PollInfo {
 
   @Override
   public String toString() {
-    return "PollInfo{" +
-        "flightInfo=" + flightInfo +
-        ", flightDescriptor=" + flightDescriptor +
-        ", progress=" + progress +
-        ", expirationTime=" + expirationTime +
-        '}';
+    return "PollInfo{"
+        + "flightInfo="
+        + flightInfo
+        + ", flightDescriptor="
+        + flightDescriptor
+        + ", progress="
+        + progress
+        + ", expirationTime="
+        + expirationTime
+        + '}';
   }
 }

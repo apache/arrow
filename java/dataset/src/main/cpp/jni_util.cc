@@ -28,7 +28,7 @@ namespace arrow {
 namespace dataset {
 namespace jni {
 
-jint JNI_VERSION = JNI_VERSION_1_6;
+jint JNI_VERSION = JNI_VERSION_10;
 
 class ReservationListenableMemoryPool::Impl {
  public:

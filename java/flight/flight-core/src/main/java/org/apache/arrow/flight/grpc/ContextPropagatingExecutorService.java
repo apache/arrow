@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.grpc;
 
+import io.grpc.Context;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -27,14 +27,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
-import io.grpc.Context;
-
 /**
  * An {@link ExecutorService} that propagates the {@link Context}.
  *
- * <p>Context is used to propagate per-call state, like the authenticated user, between threads (as gRPC makes no
- * guarantees about what thread things execute on). This wrapper makes it easy to preserve this when using an Executor.
- * The Context itself is immutable, so it is thread-safe.
+ * <p>Context is used to propagate per-call state, like the authenticated user, between threads (as
+ * gRPC makes no guarantees about what thread things execute on). This wrapper makes it easy to
+ * preserve this when using an Executor. The Context itself is immutable, so it is thread-safe.
  */
 public class ContextPropagatingExecutorService implements ExecutorService {
 
@@ -89,25 +87,32 @@ public class ContextPropagatingExecutorService implements ExecutorService {
   }
 
   @Override
-  public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks) throws InterruptedException {
-    return delegate.invokeAll(tasks.stream().map(Context.current()::wrap).collect(Collectors.toList()));
+  public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks)
+      throws InterruptedException {
+    return delegate.invokeAll(
+        tasks.stream().map(Context.current()::wrap).collect(Collectors.toList()));
   }
 
   @Override
-  public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks, long timeout,
-      TimeUnit unit) throws InterruptedException {
-    return delegate.invokeAll(tasks.stream().map(Context.current()::wrap).collect(Collectors.toList()), timeout, unit);
+  public <T> List<Future<T>> invokeAll(
+      Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit)
+      throws InterruptedException {
+    return delegate.invokeAll(
+        tasks.stream().map(Context.current()::wrap).collect(Collectors.toList()), timeout, unit);
   }
 
   @Override
-  public <T> T invokeAny(Collection<? extends Callable<T>> tasks) throws InterruptedException, ExecutionException {
-    return delegate.invokeAny(tasks.stream().map(Context.current()::wrap).collect(Collectors.toList()));
+  public <T> T invokeAny(Collection<? extends Callable<T>> tasks)
+      throws InterruptedException, ExecutionException {
+    return delegate.invokeAny(
+        tasks.stream().map(Context.current()::wrap).collect(Collectors.toList()));
   }
 
   @Override
   public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit)
       throws InterruptedException, ExecutionException, TimeoutException {
-    return delegate.invokeAny(tasks.stream().map(Context.current()::wrap).collect(Collectors.toList()), timeout, unit);
+    return delegate.invokeAny(
+        tasks.stream().map(Context.current()::wrap).collect(Collectors.toList()), timeout, unit);
   }
 
   @Override

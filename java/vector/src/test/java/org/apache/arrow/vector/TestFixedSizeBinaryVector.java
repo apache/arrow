@@ -14,11 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -26,9 +29,9 @@ import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
 import org.apache.arrow.vector.holders.NullableFixedSizeBinaryHolder;
 import org.apache.arrow.vector.util.ReusableByteArray;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestFixedSizeBinaryVector {
   private static final int numValues = 123;
@@ -49,7 +52,8 @@ public class TestFixedSizeBinaryVector {
 
   private ArrowBuf[] bufs = new ArrowBuf[numValues];
   private FixedSizeBinaryHolder[] holders = new FixedSizeBinaryHolder[numValues];
-  private NullableFixedSizeBinaryHolder[] nullableHolders = new NullableFixedSizeBinaryHolder[numValues];
+  private NullableFixedSizeBinaryHolder[] nullableHolders =
+      new NullableFixedSizeBinaryHolder[numValues];
 
   private static byte[] smallValue;
 
@@ -84,8 +88,7 @@ public class TestFixedSizeBinaryVector {
     throw new Exception(message);
   }
 
-
-  @Before
+  @BeforeEach
   public void init() throws Exception {
     allocator = new DirtyRootAllocator(Integer.MAX_VALUE, (byte) 100);
     vector = new FixedSizeBinaryVector("fixedSizeBinary", allocator, typeWidth);
@@ -128,7 +131,7 @@ public class TestFixedSizeBinaryVector {
     largeNullableHolder.buffer = largeBuf;
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     for (int i = 0; i < numValues; i++) {
       bufs[i].close();
@@ -156,9 +159,12 @@ public class TestFixedSizeBinaryVector {
     final byte[] value = null;
     for (int i = 0; i < numValues; i++) {
       final int index = i;
-      Exception e = assertThrows(NullPointerException.class, () -> {
-        vector.set(index, value);
-      });
+      Exception e =
+          assertThrows(
+              NullPointerException.class,
+              () -> {
+                vector.set(index, value);
+              });
       assertEquals("expecting a valid byte array", e.getMessage());
     }
   }
@@ -281,10 +287,12 @@ public class TestFixedSizeBinaryVector {
 
   @Test
   public void testGetTransferPairWithField() {
-    final FixedSizeBinaryVector fromVector = new FixedSizeBinaryVector("fixedSizeBinary", allocator, typeWidth);
+    final FixedSizeBinaryVector fromVector =
+        new FixedSizeBinaryVector("fixedSizeBinary", allocator, typeWidth);
     final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(), allocator);
     final FixedSizeBinaryVector toVector = (FixedSizeBinaryVector) transferPair.getTo();
-    // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+    // Field inside a new vector created by reusing a field should be the same in memory as the
+    // original field.
     assertSame(fromVector.getField(), toVector.getField());
   }
 

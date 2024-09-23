@@ -20,6 +20,7 @@ name: Java
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/java.yml'
       - 'ci/docker/*java*'
       - 'ci/scripts/java*.sh'
@@ -29,6 +30,7 @@ on:
       - 'java/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/java.yml'
       - 'ci/docker/*java*'
       - 'ci/scripts/java*.sh'
@@ -45,6 +47,7 @@ permissions:
   contents: read
 
 env:
+  ARCHERY_DEBUG: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
@@ -56,8 +59,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        jdk: [8, 11, 17, 21]
-        maven: [3.9.5]
+        jdk: [11, 17, 21, 22]
+        maven: [3.9.6]
         image: [java]
     env:
       JDK: ${{ matrix.jdk }}
@@ -75,20 +78,20 @@ jobs:
           key: maven-${{ hashFiles('java/**') }}
           restore-keys: maven-
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-          GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
         run: |
           archery docker run \
             -e CI=true \
-            -e "GRADLE_ENTERPRISE_ACCESS_KEY=$GRADLE_ENTERPRISE_ACCESS_KEY" \
+            -e "DEVELOCITY_ACCESS_KEY=$DEVELOCITY_ACCESS_KEY" \
             ${{ matrix.image }}
       - name: Docker Push
         if: >-
@@ -103,9 +106,9 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: AMD64 macOS 11 Java JDK ${{ matrix.jdk }}
-    runs-on: macos-latest
-    if: github.event_name == 'push'
+    name: AMD64 macOS 12 Java JDK ${{ matrix.jdk }}
+    runs-on: macos-12
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -125,12 +128,12 @@ jobs:
       - name: Build
         shell: bash
         env:
-          GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
         run: ci/scripts/java_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
         env:
-          GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
         run: ci/scripts/java_test.sh $(pwd) $(pwd)/build
 
   windows:
@@ -156,10 +159,10 @@ jobs:
       - name: Build
         shell: bash
         env:
-          GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
         run: ci/scripts/java_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
         env:
-          GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
         run: ci/scripts/java_test.sh $(pwd) $(pwd)/build

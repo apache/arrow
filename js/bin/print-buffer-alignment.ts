@@ -17,8 +17,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as fs from 'fs';
-import * as Path from 'path';
+import * as fs from 'node:fs';
+import * as Path from 'node:path';
 import { VectorLoader } from '../src/visitor/vectorloader.ts';
 import { RecordBatch, AsyncMessageReader, makeData, Struct, Schema, Field } from '../index.ts';
 

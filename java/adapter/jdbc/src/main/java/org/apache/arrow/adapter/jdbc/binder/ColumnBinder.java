@@ -14,17 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.FieldVector;
 
-/**
- * A helper to bind values from a wrapped Arrow vector to a JDBC PreparedStatement.
- */
+/** A helper to bind values from a wrapped Arrow vector to a JDBC PreparedStatement. */
 public interface ColumnBinder {
   /**
    * Bind the given row to the given parameter.
@@ -43,14 +39,10 @@ public interface ColumnBinder {
    */
   int getJdbcType();
 
-  /**
-   * Get the vector used by this binder.
-   */
+  /** Get the vector used by this binder. */
   FieldVector getVector();
 
-  /**
-   * Create a column binder for a vector, using the default JDBC type code for null values.
-   */
+  /** Create a column binder for a vector, using the default JDBC type code for null values. */
   static ColumnBinder forVector(FieldVector vector) {
     return forVector(vector, /*jdbcType*/ null);
   }
@@ -62,7 +54,8 @@ public interface ColumnBinder {
    * @param jdbcType The JDBC type code to use (or null to use the default).
    */
   static ColumnBinder forVector(FieldVector vector, Integer jdbcType) {
-    final ColumnBinder binder = vector.getField().getType().accept(new ColumnBinderArrowTypeVisitor(vector, jdbcType));
+    final ColumnBinder binder =
+        vector.getField().getType().accept(new ColumnBinderArrowTypeVisitor(vector, jdbcType));
     if (vector.getField().isNullable()) {
       return new NullableColumnBinder(binder);
     }

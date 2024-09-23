@@ -25,6 +25,18 @@ ARG manylinux
 ENV MANYLINUX_VERSION=${manylinux}
 
 # Ensure dnf is installed, especially for the manylinux2014 base
+RUN if [ "${MANYLINUX_VERSION}" = "2014" ]; then \
+      sed -i \
+        -e 's/^mirrorlist/#mirrorlist/' \
+        -e 's/^#baseurl/baseurl/' \
+        -e 's/mirror\.centos\.org/vault.centos.org/' \
+        /etc/yum.repos.d/*.repo; \
+      if [ "${arch}" != "amd64" ]; then \
+        sed -i \
+          -e 's,vault\.centos\.org/centos,vault.centos.org/altarch,' \
+          /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo; \
+      fi; \
+    fi
 RUN yum install -y dnf
 
 # Install basic dependencies
@@ -35,12 +47,11 @@ RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget
 # on manylinux_2_28, no system python is installed.
 # We therefore override the PATH with Python 3.8 in /opt/python
 # so that we have a consistent Python version across base images.
-ENV CPYTHON_VERSION=cp38
+ENV CPYTHON_VERSION=cp39
 ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
 
 # Install CMake
-# AWS SDK doesn't work with CMake=3.22 due to https://gitlab.kitware.com/cmake/cmake/-/issues/22524
-ARG cmake=3.21.4
+ARG cmake=3.29.2
 COPY ci/scripts/install_cmake.sh arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_cmake.sh ${arch} linux ${cmake} /usr/local
 
@@ -89,15 +100,19 @@ RUN vcpkg install \
         --x-feature=parquet \
         --x-feature=s3
 
+# Make sure auditwheel is up-to-date
+RUN pipx upgrade auditwheel
+
 # Configure Python for applications running in the bash shell of this Dockerfile
-ARG python=3.8
+ARG python=3.9
+ARG python_abi_tag=cp39
 ENV PYTHON_VERSION=${python}
-RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-*) && \
+ENV PYTHON_ABI_TAG=${python_abi_tag}
+RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-${PYTHON_ABI_TAG}) && \
     echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
 
 SHELL ["/bin/bash", "-i", "-c"]
 ENTRYPOINT ["/bin/bash", "-i", "-c"]
 
 COPY python/requirements-wheel-build.txt /arrow/python/
-# TODO(GH-39848) Remove the `--pre --extra-index-url` for numpy nightly again before the 16.0 release 
-RUN pip install -r /arrow/python/requirements-wheel-build.txt --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
+RUN pip install -r /arrow/python/requirements-wheel-build.txt

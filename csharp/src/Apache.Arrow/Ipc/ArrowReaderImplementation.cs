@@ -261,7 +261,7 @@ namespace Apache.Arrow.Ipc
 
             if (fieldNullCount < 0)
             {
-                throw new InvalidDataException("Null count length must be >= 0"); // TODO:Localize exception message
+                throw new InvalidDataException("Null count must be >= 0"); // TODO:Localize exception message
             }
 
             int buffers;
@@ -291,6 +291,8 @@ namespace Apache.Arrow.Ipc
                     break;
                 case ArrowTypeId.String:
                 case ArrowTypeId.Binary:
+                case ArrowTypeId.LargeString:
+                case ArrowTypeId.LargeBinary:
                 case ArrowTypeId.ListView:
                     buffers = 3;
                     break;

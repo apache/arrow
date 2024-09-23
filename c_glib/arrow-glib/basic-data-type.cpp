@@ -1801,14 +1801,14 @@ garrow_extension_data_type_wrap_chunked_array(GArrowExtensionDataType *data_type
   return garrow_chunked_array_new_raw(&arrow_extension_chunked_array);
 }
 
+G_END_DECLS
+
 static std::shared_ptr<arrow::DataType>
 garrow_extension_data_type_get_storage_data_type_raw(GArrowExtensionDataType *data_type)
 {
   auto priv = GARROW_EXTENSION_DATA_TYPE_GET_PRIVATE(data_type);
   return garrow_data_type_get_raw(priv->storage_data_type);
 }
-
-G_END_DECLS
 
 namespace garrow {
   GExtensionType::GExtensionType(GArrowExtensionDataType *garrow_data_type)

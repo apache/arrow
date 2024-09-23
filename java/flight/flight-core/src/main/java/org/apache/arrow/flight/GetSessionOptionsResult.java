@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.io.IOException;
@@ -23,7 +22,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.flight.impl.Flight;
 
 /** A request to view the currently-set options for the current server session. */
@@ -35,9 +33,13 @@ public class GetSessionOptionsResult {
   }
 
   GetSessionOptionsResult(Flight.GetSessionOptionsResult proto) {
-    sessionOptions = Collections.unmodifiableMap(
-        proto.getSessionOptionsMap().entrySet().stream().collect(Collectors.toMap(
-            Map.Entry::getKey, (e) -> SessionOptionValueFactory.makeSessionOptionValue(e.getValue()))));
+    sessionOptions =
+        Collections.unmodifiableMap(
+            proto.getSessionOptionsMap().entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        (e) -> SessionOptionValueFactory.makeSessionOptionValue(e.getValue()))));
   }
 
   /**
@@ -51,15 +53,17 @@ public class GetSessionOptionsResult {
 
   Flight.GetSessionOptionsResult toProtocol() {
     Flight.GetSessionOptionsResult.Builder b = Flight.GetSessionOptionsResult.newBuilder();
-    b.putAllSessionOptions(sessionOptions.entrySet().stream().collect(Collectors.toMap(
-        Map.Entry::getKey, (e) -> e.getValue().toProtocol())));
+    b.putAllSessionOptions(
+        sessionOptions.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, (e) -> e.getValue().toProtocol())));
     return b.build();
   }
 
   /**
    * Get the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight types.
+   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight
+   * types.
    */
   public ByteBuffer serialize() {
     return ByteBuffer.wrap(toProtocol().toByteArray());
@@ -68,7 +72,8 @@ public class GetSessionOptionsResult {
   /**
    * Parse the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from non-Flight services.
+   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from
+   * non-Flight services.
    *
    * @param serialized The serialized form of the message, as returned by {@link #serialize()}.
    * @return The deserialized message.

@@ -87,7 +87,9 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
   return std::shared_ptr<RExtensionType>(cloned.release());
 }
 
-std::string RExtensionType::ToString() const {
+std::string RExtensionType::ToString() const { return ToString(false); }
+
+std::string RExtensionType::ToString(bool show_metadata) const {
   arrow::Result<std::string> result = SafeCallIntoR<std::string>([&]() {
     cpp11::environment instance = r6_instance();
     cpp11::function instance_ToString(instance["ToString"]);
@@ -98,7 +100,11 @@ std::string RExtensionType::ToString() const {
   // In the event of an error (e.g., we are not on the main thread
   // and we are not inside RunWithCapturedR()), just call the default method
   if (!result.ok()) {
+#if ARROW_VERSION_MAJOR >= 16
+    return ExtensionType::ToString(show_metadata);
+#else
     return ExtensionType::ToString();
+#endif
   } else {
     return result.ValueUnsafe();
   }

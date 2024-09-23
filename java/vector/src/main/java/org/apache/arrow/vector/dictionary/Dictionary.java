@@ -14,19 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.dictionary;
 
 import java.util.Objects;
-
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 
 /**
- * A dictionary (integer to Value mapping) that is used to facilitate
- * dictionary encoding compression.
+ * A dictionary (integer to Value mapping) that is used to facilitate dictionary encoding
+ * compression.
  */
 public class Dictionary {
 
@@ -64,8 +62,8 @@ public class Dictionary {
       return false;
     }
     Dictionary that = (Dictionary) o;
-    return Objects.equals(encoding, that.encoding) &&
-        new VectorEqualsVisitor().vectorEquals(that.dictionary, dictionary);
+    return Objects.equals(encoding, that.encoding)
+        && new VectorEqualsVisitor().vectorEquals(that.dictionary, dictionary);
   }
 
   @Override

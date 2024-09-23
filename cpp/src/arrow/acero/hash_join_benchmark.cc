@@ -23,7 +23,7 @@
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/api.h"
-#include "arrow/compute/kernels/row_encoder_internal.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/thread_pool.h"
 
@@ -83,8 +83,8 @@ class JoinBenchmark {
       build_metadata["null_probability"] = std::to_string(settings.null_percentage);
       build_metadata["min"] = std::to_string(min_build_value);
       build_metadata["max"] = std::to_string(max_build_value);
-      build_metadata["min_length"] = settings.var_length_min;
-      build_metadata["max_length"] = settings.var_length_max;
+      build_metadata["min_length"] = std::to_string(settings.var_length_min);
+      build_metadata["max_length"] = std::to_string(settings.var_length_max);
 
       std::unordered_map<std::string, std::string> probe_metadata;
       probe_metadata["null_probability"] = std::to_string(settings.null_percentage);
@@ -104,7 +104,7 @@ class JoinBenchmark {
       key_cmp.push_back(JoinKeyCmp::EQ);
     }
 
-    for (size_t i = 0; i < settings.build_payload_types.size(); i++) {
+    for (size_t i = 0; i < settings.probe_payload_types.size(); i++) {
       std::string name = "lp" + std::to_string(i);
       DCHECK_OK(l_schema_builder.AddField(field(name, settings.probe_payload_types[i])));
     }
@@ -148,7 +148,7 @@ class JoinBenchmark {
     };
 
     scheduler_ = TaskScheduler::Make();
-    DCHECK_OK(ctx_.Init(settings.num_threads, nullptr));
+    DCHECK_OK(ctx_.Init(nullptr));
 
     auto register_task_group_callback = [&](std::function<Status(size_t, int64_t)> task,
                                             std::function<Status(size_t)> cont) {
@@ -279,7 +279,7 @@ static void BM_HashJoinBasic_MatchesPerRow(benchmark::State& st) {
   settings.cardinality = 1.0 / static_cast<double>(st.range(0));
 
   settings.num_build_batches = static_cast<int>(st.range(1));
-  settings.num_probe_batches = settings.num_probe_batches;
+  settings.num_probe_batches = settings.num_build_batches;
 
   HashJoinBasicBenchmarkImpl(st, settings);
 }
@@ -291,7 +291,7 @@ static void BM_HashJoinBasic_PayloadSize(benchmark::State& st) {
   settings.cardinality = 1.0 / static_cast<double>(st.range(1));
 
   settings.num_build_batches = static_cast<int>(st.range(2));
-  settings.num_probe_batches = settings.num_probe_batches;
+  settings.num_probe_batches = settings.num_build_batches;
 
   HashJoinBasicBenchmarkImpl(st, settings);
 }

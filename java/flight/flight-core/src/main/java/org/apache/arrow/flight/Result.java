@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
-import org.apache.arrow.flight.impl.Flight;
-
 import com.google.protobuf.ByteString;
+import org.apache.arrow.flight.impl.Flight;
 
 /**
  * Opaque result returned after executing an action.
@@ -43,8 +41,6 @@ public class Result {
   }
 
   Flight.Result toProtocol() {
-    return Flight.Result.newBuilder()
-        .setBody(ByteString.copyFrom(body))
-        .build();
+    return Flight.Result.newBuilder().setBody(ByteString.copyFrom(body)).build();
   }
 }

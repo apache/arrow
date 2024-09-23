@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -26,7 +28,6 @@ import java.util.Spliterators;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-
 import org.apache.arrow.dataset.file.FileFormat;
 import org.apache.arrow.dataset.file.FileSystemDatasetFactory;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
@@ -45,20 +46,18 @@ import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 public abstract class TestDataset {
   private BufferAllocator allocator = null;
 
-  @Before
+  @BeforeEach
   public void setUp() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     allocator.close();
   }
@@ -67,7 +66,8 @@ public abstract class TestDataset {
     return allocator;
   }
 
-  protected List<ArrowRecordBatch> collectResultFromFactory(DatasetFactory factory, ScanOptions options) {
+  protected List<ArrowRecordBatch> collectResultFromFactory(
+      DatasetFactory factory, ScanOptions options) {
     final Dataset dataset = factory.finish();
     final Scanner scanner = dataset.newScan(options);
     try {
@@ -108,22 +108,25 @@ public abstract class TestDataset {
   }
 
   protected void assertParquetFileEquals(String expectedURI, String actualURI) throws Exception {
-    final FileSystemDatasetFactory expectedFactory = new FileSystemDatasetFactory(
-        rootAllocator(), NativeMemoryPool.getDefault(), FileFormat.PARQUET, expectedURI);
-    final FileSystemDatasetFactory actualFactory = new FileSystemDatasetFactory(
-        rootAllocator(), NativeMemoryPool.getDefault(), FileFormat.PARQUET, actualURI);
-    List<ArrowRecordBatch> expectedBatches = collectResultFromFactory(expectedFactory,
-        new ScanOptions(new String[0], 100));
-    List<ArrowRecordBatch> actualBatches = collectResultFromFactory(actualFactory,
-        new ScanOptions(new String[0], 100));
-    try (
-        VectorSchemaRoot expectVsr = VectorSchemaRoot.create(expectedFactory.inspect(), rootAllocator());
-        VectorSchemaRoot actualVsr = VectorSchemaRoot.create(actualFactory.inspect(), rootAllocator())) {
+    final FileSystemDatasetFactory expectedFactory =
+        new FileSystemDatasetFactory(
+            rootAllocator(), NativeMemoryPool.getDefault(), FileFormat.PARQUET, expectedURI);
+    final FileSystemDatasetFactory actualFactory =
+        new FileSystemDatasetFactory(
+            rootAllocator(), NativeMemoryPool.getDefault(), FileFormat.PARQUET, actualURI);
+    List<ArrowRecordBatch> expectedBatches =
+        collectResultFromFactory(expectedFactory, new ScanOptions(new String[0], 100));
+    List<ArrowRecordBatch> actualBatches =
+        collectResultFromFactory(actualFactory, new ScanOptions(new String[0], 100));
+    try (VectorSchemaRoot expectVsr =
+            VectorSchemaRoot.create(expectedFactory.inspect(), rootAllocator());
+        VectorSchemaRoot actualVsr =
+            VectorSchemaRoot.create(actualFactory.inspect(), rootAllocator())) {
 
       // fast-fail by comparing metadata
-      Assert.assertEquals(expectedBatches.toString(), actualBatches.toString());
+      assertEquals(expectedBatches.toString(), actualBatches.toString());
       // compare ArrowRecordBatches
-      Assert.assertEquals(expectedBatches.size(), actualBatches.size());
+      assertEquals(expectedBatches.size(), actualBatches.size());
       VectorLoader expectLoader = new VectorLoader(expectVsr);
       VectorLoader actualLoader = new VectorLoader(actualVsr);
       for (int i = 0; i < expectedBatches.size(); i++) {
@@ -133,7 +136,7 @@ public abstract class TestDataset {
           FieldVector vector = expectVsr.getFieldVectors().get(i);
           FieldVector otherVector = actualVsr.getFieldVectors().get(i);
           // TODO: ARROW-18140 Use VectorSchemaRoot#equals() method to compare
-          Assert.assertTrue(VectorEqualsVisitor.vectorEquals(vector, otherVector));
+          assertTrue(VectorEqualsVisitor.vectorEquals(vector, otherVector));
         }
       }
     } finally {
@@ -150,7 +153,8 @@ public abstract class TestDataset {
   }
 
   protected <T> Stream<T> stream(Iterator<T> iterator) {
-    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
+    return StreamSupport.stream(
+        Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
   }
 
   protected <T> List<T> collect(Iterator<T> iterator) {

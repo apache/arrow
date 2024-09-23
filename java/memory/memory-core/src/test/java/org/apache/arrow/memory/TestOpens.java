@@ -14,33 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.condition.JRE.JAVA_16;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledForJreRange;
 
 public class TestOpens {
   /** Instantiating the RootAllocator should poke MemoryUtil and fail. */
   @Test
+  @EnabledForJreRange(min = JAVA_16)
   public void testMemoryUtilFailsLoudly() {
     // This test is configured by Maven to run WITHOUT add-opens. So this should fail on JDK16+
     // (where JEP396 means that add-opens is required to access JDK internals).
     // The test will likely fail in your IDE if it doesn't correctly pick this up.
-    Throwable e = assertThrows(Throwable.class, () -> {
-      BufferAllocator allocator = new RootAllocator();
-      allocator.close();
-    });
+    Throwable e =
+        assertThrows(
+            Throwable.class,
+            () -> {
+              BufferAllocator allocator = new RootAllocator();
+              allocator.close();
+            });
     boolean found = false;
     while (e != null) {
       e = e.getCause();
-      if (e instanceof RuntimeException && e.getMessage().contains("Failed to initialize MemoryUtil")) {
+      if (e instanceof RuntimeException
+          && e.getMessage().contains("Failed to initialize MemoryUtil")) {
         found = true;
         break;
       }
     }
-    assertTrue(found, "Expected exception as not thrown");
+    assertTrue(found, "Expected exception was not thrown");
   }
 }

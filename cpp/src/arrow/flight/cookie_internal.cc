@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Interfaces for defining middleware for Flight clients. Currently
-// experimental.
+// Interfaces for defining middleware for Flight clients.
 
 #include "arrow/flight/cookie_internal.h"
 #include "arrow/flight/client.h"
@@ -29,7 +28,7 @@
 
 // Mingw-w64 defines strcasecmp in string.h
 #if defined(_WIN32) && !defined(strcasecmp)
-#define strcasecmp stricmp
+#  define strcasecmp stricmp
 #endif
 
 #include <algorithm>

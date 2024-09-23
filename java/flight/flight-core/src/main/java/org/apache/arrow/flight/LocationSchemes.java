@@ -14,12 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
-/**
- * Constants representing well-known URI schemes for Flight services.
- */
+/** Constants representing well-known URI schemes for Flight services. */
 public final class LocationSchemes {
   public static final String GRPC = "grpc";
   public static final String GRPC_INSECURE = "grpc+tcp";

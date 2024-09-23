@@ -14,16 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
-/**
- * An AllocationManager wrapping a ForeignAllocation.
- */
+/** An AllocationManager wrapping a ForeignAllocation. */
 class ForeignAllocationManager extends AllocationManager {
   private final ForeignAllocation allocation;
 
-  protected ForeignAllocationManager(BufferAllocator accountingAllocator, ForeignAllocation allocation) {
+  protected ForeignAllocationManager(
+      BufferAllocator accountingAllocator, ForeignAllocation allocation) {
     super(accountingAllocator);
     this.allocation = allocation;
   }

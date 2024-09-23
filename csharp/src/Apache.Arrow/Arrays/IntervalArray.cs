@@ -31,7 +31,7 @@ namespace Apache.Arrow
     }
 
     public abstract class IntervalArray<T> : PrimitiveArray<T>
-        where T : struct
+        where T : struct, IEquatable<T>
     {
         protected IntervalArray(ArrayData data)
             : base(data)

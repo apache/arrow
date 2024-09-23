@@ -23,8 +23,7 @@ ARG arch=amd64
 ARG maven=3.8.7
 ARG node=16
 ARG yarn=1.22
-ARG jdk=8
-ARG go=1.19.13
+ARG jdk=11
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
@@ -44,19 +43,34 @@ RUN mamba install -q -y \
 
 # Install Rust with only the needed components
 # (rustfmt is needed for tonic-build to compile the protobuf definitions)
+# GH-41637: Version pinned at 1.77 because the glibc for conda-cpp is currently too old
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile=minimal -y && \
-    $HOME/.cargo/bin/rustup toolchain install stable && \
+    $HOME/.cargo/bin/rustup override set 1.77 && \
+    $HOME/.cargo/bin/rustup toolchain install 1.77 && \
     $HOME/.cargo/bin/rustup component add rustfmt
 
 ENV GOROOT=/opt/go \
     GOBIN=/opt/go/bin \
     GOPATH=/go \
     PATH=/opt/go/bin:$PATH
-RUN wget -nv -O - https://dl.google.com/go/go${go}.linux-${arch}.tar.gz | tar -xzf - -C /opt
+# Use always latest go
+RUN wget -nv -O - https://dl.google.com/go/go$( \
+        curl \
+        --fail \
+        --location \
+        --show-error \
+        --silent \
+        https://api.github.com/repos/golang/go/git/matching-refs/tags/go | \
+        grep -o '"ref": "refs/tags/go.*"' | \
+        tail -n 1 | \
+        sed \
+        -e 's,^"ref": "refs/tags/go,,g' \
+        -e 's/"$//g' \
+    ).linux-${arch}.tar.gz | tar -xzf - -C /opt
 
 ENV DOTNET_ROOT=/opt/dotnet \
     PATH=/opt/dotnet:$PATH
-RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 7.0 -InstallDir /opt/dotnet
+RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 8.0 -InstallDir /opt/dotnet
 
 ENV ARROW_ACERO=OFF \
     ARROW_AZURE=OFF \

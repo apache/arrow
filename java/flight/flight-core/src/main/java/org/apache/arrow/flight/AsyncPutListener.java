@@ -14,19 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-
 import org.apache.arrow.flight.grpc.StatusUtils;
 
 /**
  * A handler for server-sent application metadata messages during a Flight DoPut operation.
  *
- * <p>To handle messages, create an instance of this class overriding {@link #onNext(PutResult)}. The other methods
- * should not be overridden.
+ * <p>To handle messages, create an instance of this class overriding {@link #onNext(PutResult)}.
+ * The other methods should not be overridden.
  */
 public class AsyncPutListener implements FlightClient.PutListener {
 
@@ -37,8 +35,8 @@ public class AsyncPutListener implements FlightClient.PutListener {
   }
 
   /**
-   * Wait for the stream to finish on the server side. You must call this to be notified of any errors that may have
-   * happened during the upload.
+   * Wait for the stream to finish on the server side. You must call this to be notified of any
+   * errors that may have happened during the upload.
    */
   @Override
   public final void getResult() {
@@ -52,8 +50,7 @@ public class AsyncPutListener implements FlightClient.PutListener {
   }
 
   @Override
-  public void onNext(PutResult val) {
-  }
+  public void onNext(PutResult val) {}
 
   @Override
   public final void onError(Throwable t) {

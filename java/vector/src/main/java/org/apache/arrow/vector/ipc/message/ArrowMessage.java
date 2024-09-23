@@ -14,12 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc.message;
 
-/**
- * Interface for Arrow IPC messages (https://arrow.apache.org/docs/format/IPC.html).
- */
+/** Interface for Arrow IPC messages (https://arrow.apache.org/docs/format/IPC.html). */
 public interface ArrowMessage extends FBSerializable, AutoCloseable {
 
   long computeBodyLength();

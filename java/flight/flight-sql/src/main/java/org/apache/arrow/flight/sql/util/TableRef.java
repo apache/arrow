@@ -14,13 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.sql.util;
 
-/**
- * A helper class to reference a table to be passed to the flight
- * sql client.
- */
+/** A helper class to reference a table to be passed to the flight sql client. */
 public class TableRef {
   private final String catalog;
   private final String dbSchema;
@@ -28,9 +24,10 @@ public class TableRef {
 
   /**
    * The complete constructor for the TableRef class.
-   * @param catalog   the catalog from a table.
-   * @param dbSchema  the database schema from a table.
-   * @param table     the table name from a table.
+   *
+   * @param catalog the catalog from a table.
+   * @param dbSchema the database schema from a table.
+   * @param table the table name from a table.
    */
   public TableRef(String catalog, String dbSchema, String table) {
     this.catalog = catalog;
@@ -40,10 +37,11 @@ public class TableRef {
 
   /**
    * A static initializer of the TableRef with all the arguments.
-   * @param catalog   the catalog from a table.
-   * @param dbSchema  the database schema from a table.
-   * @param table     the table name from a table.
-   * @return  A TableRef object.
+   *
+   * @param catalog the catalog from a table.
+   * @param dbSchema the database schema from a table.
+   * @param table the table name from a table.
+   * @return A TableRef object.
    */
   public static TableRef of(String catalog, String dbSchema, String table) {
     return new TableRef(catalog, dbSchema, table);
@@ -51,7 +49,8 @@ public class TableRef {
 
   /**
    * Retrieve the catalog from the object.
-   * @return  the catalog.
+   *
+   * @return the catalog.
    */
   public String getCatalog() {
     return catalog;
@@ -59,7 +58,8 @@ public class TableRef {
 
   /**
    * Retrieves the db schema from the object.
-   * @return  the dbSchema
+   *
+   * @return the dbSchema
    */
   public String getDbSchema() {
     return dbSchema;
@@ -67,10 +67,10 @@ public class TableRef {
 
   /**
    * Retrieves the table from the object.
-   * @return  the table.
+   *
+   * @return the table.
    */
   public String getTable() {
     return table;
   }
 }
-

@@ -503,7 +503,7 @@ Result<TypeHolder> ResolveDecimalBinaryOperationOutput(
                         ToResult(getter(left_type.precision(), left_type.scale(),
                                         right_type.precision(), right_type.scale())));
   ARROW_ASSIGN_OR_RAISE(auto type, DecimalType::Make(left_type.id(), precision, scale));
-  return std::move(type);
+  return type;
 }
 
 Result<TypeHolder> ResolveDecimalAdditionOrSubtractionOutput(
@@ -566,7 +566,7 @@ Result<TypeHolder> ResolveTemporalOutput(KernelContext*,
   }
 
   auto type = duration(right_type.unit());
-  return std::move(type);
+  return type;
 }
 
 template <typename Op>

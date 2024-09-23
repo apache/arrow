@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.dictionary;
 
 import java.util.Collections;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
@@ -32,9 +30,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
-/**
- * Sub fields encoder/decoder for Dictionary encoded {@link BaseListVector}.
- */
+/** Sub fields encoder/decoder for Dictionary encoded {@link BaseListVector}. */
 public class ListSubfieldEncoder {
 
   private final DictionaryHashTable hashTable;
@@ -42,13 +38,12 @@ public class ListSubfieldEncoder {
   private final BufferAllocator allocator;
 
   public ListSubfieldEncoder(Dictionary dictionary, BufferAllocator allocator) {
-    this (dictionary, allocator, SimpleHasher.INSTANCE);
+    this(dictionary, allocator, SimpleHasher.INSTANCE);
   }
 
-  /**
-   * Construct an instance.
-   */
-  public ListSubfieldEncoder(Dictionary dictionary, BufferAllocator allocator, ArrowBufHasher hasher) {
+  /** Construct an instance. */
+  public ListSubfieldEncoder(
+      Dictionary dictionary, BufferAllocator allocator, ArrowBufHasher hasher) {
     this.dictionary = dictionary;
     this.allocator = allocator;
     BaseListVector dictVector = (BaseListVector) dictionary.getVector();
@@ -62,26 +57,34 @@ public class ListSubfieldEncoder {
   private static BaseListVector cloneVector(BaseListVector vector, BufferAllocator allocator) {
 
     final FieldType fieldType = vector.getField().getFieldType();
-    BaseListVector cloned = (BaseListVector) fieldType.createNewSingleVector(vector.getField().getName(),
-        allocator, /*schemaCallBack=*/null);
+    BaseListVector cloned =
+        (BaseListVector)
+            fieldType.createNewSingleVector(
+                vector.getField().getName(), allocator, /*schemaCallBack=*/ null);
 
-    final ArrowFieldNode fieldNode = new ArrowFieldNode(vector.getValueCount(), vector.getNullCount());
+    final ArrowFieldNode fieldNode =
+        new ArrowFieldNode(vector.getValueCount(), vector.getNullCount());
     cloned.loadFieldBuffers(fieldNode, vector.getFieldBuffers());
 
     return cloned;
   }
 
   /**
-   * Dictionary encodes subfields for complex vector with a provided dictionary.
-   * The dictionary must contain all values in the sub fields vector.
+   * Dictionary encodes subfields for complex vector with a provided dictionary. The dictionary must
+   * contain all values in the sub fields vector.
+   *
    * @param vector vector to encode
    * @return dictionary encoded vector
    */
   public BaseListVector encodeListSubField(BaseListVector vector) {
     final int valueCount = vector.getValueCount();
 
-    FieldType indexFieldType = new FieldType(vector.getField().isNullable(),
-        dictionary.getEncoding().getIndexType(), dictionary.getEncoding(), vector.getField().getMetadata());
+    FieldType indexFieldType =
+        new FieldType(
+            vector.getField().isNullable(),
+            dictionary.getEncoding().getIndexType(),
+            dictionary.getEncoding(),
+            vector.getField().getMetadata());
     Field valueField = new Field(vector.getField().getName(), indexFieldType, null);
 
     // clone list vector and initialize data vector
@@ -110,9 +113,9 @@ public class ListSubfieldEncoder {
   /**
    * Decodes a dictionary subfields encoded vector using the provided dictionary.
    *
-   * {@link ListSubfieldEncoder#decodeListSubField(BaseListVector, Dictionary, BufferAllocator)} should be used instead
-   * if only decoding is required as it can avoid building the {@link DictionaryHashTable} which only makes sense when
-   * encoding.
+   * <p>{@link ListSubfieldEncoder#decodeListSubField(BaseListVector, Dictionary, BufferAllocator)}
+   * should be used instead if only decoding is required as it can avoid building the {@link
+   * DictionaryHashTable} which only makes sense when encoding.
    *
    * @param vector dictionary encoded vector, its data vector must be int type
    * @return vector with values restored from dictionary
@@ -129,9 +132,8 @@ public class ListSubfieldEncoder {
    * @param allocator allocator the decoded values use
    * @return vector with values restored from dictionary
    */
-  public static BaseListVector decodeListSubField(BaseListVector vector,
-                                                  Dictionary dictionary,
-                                                  BufferAllocator allocator) {
+  public static BaseListVector decodeListSubField(
+      BaseListVector vector, Dictionary dictionary, BufferAllocator allocator) {
     int valueCount = vector.getValueCount();
     BaseListVector dictionaryVector = (BaseListVector) dictionary.getVector();
     int dictionaryValueCount = getDataVector(dictionaryVector).getValueCount();
@@ -154,7 +156,8 @@ public class ListSubfieldEncoder {
           int start = vector.getElementStartIndex(i);
           int end = vector.getElementEndIndex(i);
 
-          DictionaryEncoder.retrieveIndexVector(indices, transfer, dictionaryValueCount, start, end);
+          DictionaryEncoder.retrieveIndexVector(
+              indices, transfer, dictionaryValueCount, start, end);
         }
       }
       return decoded;

@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.StructVector;
 
 /**
- * A factory for {@link NullableStructWriter} instances.  The factory allows for configuring if field
+ * A factory for {@link NullableStructWriter} instances. The factory allows for configuring if field
  * names should be considered case-sensitive.
  */
 public class NullableStructWriterFactory {
@@ -34,8 +33,11 @@ public class NullableStructWriterFactory {
     this.caseSensitive = caseSensitive;
   }
 
+  /** Creates a new instance. */
   public NullableStructWriter build(StructVector container) {
-    return this.caseSensitive ? new NullableCaseSensitiveStructWriter(container) : new NullableStructWriter(container);
+    return this.caseSensitive
+        ? new NullableCaseSensitiveStructWriter(container)
+        : new NullableStructWriter(container);
   }
 
   public static NullableStructWriterFactory getNullableStructWriterFactoryInstance() {

@@ -14,27 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
 
-/**
- * Insertion sorter.
- */
+/** Insertion sorter. */
 class InsertionSorter {
 
   /**
    * Sorts the range of a vector by insertion sort.
    *
-   * @param vector     the vector to be sorted.
-   * @param startIdx   the start index of the range (inclusive).
-   * @param endIdx     the end index of the range (inclusive).
-   * @param buffer     an extra buffer with capacity 1 to hold the current key.
+   * @param vector the vector to be sorted.
+   * @param startIdx the start index of the range (inclusive).
+   * @param endIdx the end index of the range (inclusive).
+   * @param buffer an extra buffer with capacity 1 to hold the current key.
    * @param comparator the criteria for vector element comparison.
-   * @param <V>        the vector type.
+   * @param <V> the vector type.
    */
   static <V extends BaseFixedWidthVector> void insertionSort(
       V vector, int startIdx, int endIdx, VectorValueComparator<V> comparator, V buffer) {
@@ -53,11 +50,11 @@ class InsertionSorter {
   /**
    * Sorts the range of vector indices by insertion sort.
    *
-   * @param indices    the vector  indices.
-   * @param startIdx   the start index of the range (inclusive).
-   * @param endIdx     the end index of the range (inclusive).
+   * @param indices the vector indices.
+   * @param startIdx the start index of the range (inclusive).
+   * @param endIdx the end index of the range (inclusive).
    * @param comparator the criteria for vector element comparison.
-   * @param <V>        the vector type.
+   * @param <V> the vector type.
    */
   static <V extends ValueVector> void insertionSort(
       IntVector indices, int startIdx, int endIdx, VectorValueComparator<V> comparator) {

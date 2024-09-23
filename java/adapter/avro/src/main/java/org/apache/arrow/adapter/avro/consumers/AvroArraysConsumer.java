@@ -14,25 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume array type values from avro decoder.
- * Write the data to {@link ListVector}.
+ * Consumer which consume array type values from avro decoder. Write the data to {@link ListVector}.
  */
 public class AvroArraysConsumer extends BaseAvroConsumer<ListVector> {
 
   private final Consumer delegate;
 
-  /**
-   * Instantiate a ArrayConsumer.
-   */
+  /** Instantiate a ArrayConsumer. */
   public AvroArraysConsumer(ListVector vector, Consumer delegate) {
     super(vector);
     this.delegate = delegate;

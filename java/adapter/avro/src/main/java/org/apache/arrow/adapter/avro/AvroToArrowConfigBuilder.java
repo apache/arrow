@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro;
 
 import java.util.HashSet;
 import java.util.Set;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 
-/**
- * This class builds {@link AvroToArrowConfig}s.
- */
+/** This class builds {@link AvroToArrowConfig}s. */
 public class AvroToArrowConfigBuilder {
 
   private BufferAllocator allocator;
@@ -36,9 +32,7 @@ public class AvroToArrowConfigBuilder {
 
   private Set<String> skipFieldNames;
 
-  /**
-   * Default constructor for the {@link AvroToArrowConfigBuilder}.
-   */
+  /** Default constructor for the {@link AvroToArrowConfigBuilder}. */
   public AvroToArrowConfigBuilder(BufferAllocator allocator) {
     this.allocator = allocator;
     this.targetBatchSize = AvroToArrowVectorIterator.DEFAULT_BATCH_SIZE;
@@ -61,14 +55,8 @@ public class AvroToArrowConfigBuilder {
     return this;
   }
 
-  /**
-   * This builds the {@link AvroToArrowConfig} from the provided params.
-   */
+  /** This builds the {@link AvroToArrowConfig} from the provided params. */
   public AvroToArrowConfig build() {
-    return new AvroToArrowConfig(
-        allocator,
-        targetBatchSize,
-        provider,
-        skipFieldNames);
+    return new AvroToArrowConfig(allocator, targetBatchSize, provider, skipFieldNames);
   }
 }

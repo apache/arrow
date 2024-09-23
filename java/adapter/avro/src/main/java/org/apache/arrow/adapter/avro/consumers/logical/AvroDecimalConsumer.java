@@ -14,40 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers.logical;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
 import org.apache.arrow.adapter.avro.consumers.BaseAvroConsumer;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume decimal type values from avro decoder.
- * Write the data to {@link DecimalVector}.
+ * Consumer which consume decimal type values from avro decoder. Write the data to {@link
+ * DecimalVector}.
  */
 public abstract class AvroDecimalConsumer extends BaseAvroConsumer<DecimalVector> {
 
-  /**
-   * Instantiate a AvroDecimalConsumer.
-   */
+  /** Instantiate a AvroDecimalConsumer. */
   public AvroDecimalConsumer(DecimalVector vector) {
     super(vector);
   }
 
-  /**
-   * Consumer for decimal logical type with original bytes type.
-   */
+  /** Consumer for decimal logical type with original bytes type. */
   public static class BytesDecimalConsumer extends AvroDecimalConsumer {
 
     private ByteBuffer cacheBuffer;
 
-    /**
-     * Instantiate a BytesDecimalConsumer.
-     */
+    /** Instantiate a BytesDecimalConsumer. */
     public BytesDecimalConsumer(DecimalVector vector) {
       super(vector);
     }
@@ -60,19 +52,14 @@ public abstract class AvroDecimalConsumer extends BaseAvroConsumer<DecimalVector
       cacheBuffer.get(bytes);
       vector.setBigEndian(currentIndex++, bytes);
     }
-
   }
 
-  /**
-   * Consumer for decimal logical type with original fixed type.
-   */
+  /** Consumer for decimal logical type with original fixed type. */
   public static class FixedDecimalConsumer extends AvroDecimalConsumer {
 
     private byte[] reuseBytes;
 
-    /**
-     * Instantiate a FixedDecimalConsumer.
-     */
+    /** Instantiate a FixedDecimalConsumer. */
     public FixedDecimalConsumer(DecimalVector vector, int size) {
       super(vector);
       Preconditions.checkArgument(size <= 16, "Decimal bytes length should <= 16.");

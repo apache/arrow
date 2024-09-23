@@ -14,19 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.evaluator;
-
-import java.util.List;
-
-import org.apache.arrow.vector.types.pojo.ArrowType;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import java.util.List;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 
-/**
- * POJO to define a function signature.
- */
+/** POJO to define a function signature. */
 public class FunctionSignature {
   private final String name;
   private final ArrowType returnType;
@@ -46,6 +41,7 @@ public class FunctionSignature {
 
   /**
    * Ctor.
+   *
    * @param name - name of the function.
    * @param returnType - data type of return
    * @param paramTypes - data type of input args.
@@ -58,6 +54,7 @@ public class FunctionSignature {
 
   /**
    * Override equals.
+   *
    * @param signature - signature to compare
    * @return true if equal and false if not.
    */
@@ -69,9 +66,9 @@ public class FunctionSignature {
       return false;
     }
     final FunctionSignature other = (FunctionSignature) signature;
-    return this.name.equalsIgnoreCase(other.name) &&
-        Objects.equal(this.returnType, other.returnType) &&
-        Objects.equal(this.paramTypes, other.paramTypes);
+    return this.name.equalsIgnoreCase(other.name)
+        && Objects.equal(this.returnType, other.returnType)
+        && Objects.equal(this.paramTypes, other.paramTypes);
   }
 
   @Override
@@ -82,12 +79,9 @@ public class FunctionSignature {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-            .add("name ", name)
-            .add("return type ", returnType)
-            .add("param types ", paramTypes)
-            .toString();
-
+        .add("name ", name)
+        .add("return type ", returnType)
+        .add("param types ", paramTypes)
+        .toString();
   }
-
-
 }

@@ -14,19 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -34,20 +33,20 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestVectorReset {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -94,6 +93,18 @@ public class TestVectorReset {
   }
 
   @Test
+  public void testVariableViewTypeReset() {
+    try (final ViewVarCharVector vector = new ViewVarCharVector("ViewVarChar", allocator)) {
+      vector.allocateNewSafe();
+      vector.set(0, "a".getBytes(StandardCharsets.UTF_8));
+      vector.setLastSet(0);
+      vector.setValueCount(1);
+      resetVectorAndVerify(vector, vector.getBuffers(false));
+      assertEquals(-1, vector.getLastSet());
+    }
+  }
+
+  @Test
   public void testLargeVariableTypeReset() {
     try (final LargeVarCharVector vector = new LargeVarCharVector("LargeVarChar", allocator)) {
       vector.allocateNewSafe();
@@ -108,10 +119,14 @@ public class TestVectorReset {
   @Test
   public void testListTypeReset() {
     try (final ListVector variableList =
-           new ListVector("VarList", allocator, FieldType.nullable(MinorType.INT.getType()), null);
-         final FixedSizeListVector fixedList =
-            new FixedSizeListVector("FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null)
-    ) {
+            new ListVector(
+                "VarList", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+        final FixedSizeListVector fixedList =
+            new FixedSizeListVector(
+                "FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null);
+        final ListViewVector variableViewList =
+            new ListViewVector(
+                "VarListView", allocator, FieldType.nullable(MinorType.INT.getType()), null)) {
       // ListVector
       variableList.allocateNewSafe();
       variableList.startNewValue(0);
@@ -125,20 +140,29 @@ public class TestVectorReset {
       fixedList.setNull(0);
       fixedList.setValueCount(1);
       resetVectorAndVerify(fixedList, fixedList.getBuffers(false));
+
+      // ListViewVector
+      variableViewList.allocateNewSafe();
+      variableViewList.startNewValue(0);
+      variableViewList.endValue(0, 0);
+      variableViewList.setValueCount(1);
+      resetVectorAndVerify(variableViewList, variableViewList.getBuffers(false));
     }
   }
 
   @Test
   public void testStructTypeReset() {
     try (final NonNullableStructVector nonNullableStructVector =
-           new NonNullableStructVector("Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
-         final StructVector structVector =
-            new StructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
-    ) {
+            new NonNullableStructVector(
+                "Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+        final StructVector structVector =
+            new StructVector(
+                "NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)) {
       // NonNullableStructVector
       nonNullableStructVector.allocateNewSafe();
-      IntVector structChild = nonNullableStructVector
-          .addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
+      IntVector structChild =
+          nonNullableStructVector.addOrGet(
+              "child", FieldType.nullable(new Int(32, true)), IntVector.class);
       structChild.setNull(0);
       nonNullableStructVector.setValueCount(1);
       resetVectorAndVerify(nonNullableStructVector, nonNullableStructVector.getBuffers(false));
@@ -153,9 +177,9 @@ public class TestVectorReset {
 
   @Test
   public void testUnionTypeReset() {
-    try (final UnionVector vector = new UnionVector("Union", allocator, /* field type */ null, /* call-back */ null);
-         final IntVector dataVector = new IntVector("Int", allocator)
-    ) {
+    try (final UnionVector vector =
+            new UnionVector("Union", allocator, /* field type */ null, /* call-back */ null);
+        final IntVector dataVector = new IntVector("Int", allocator)) {
       vector.getBufferSize();
       vector.allocateNewSafe();
       dataVector.allocateNewSafe();

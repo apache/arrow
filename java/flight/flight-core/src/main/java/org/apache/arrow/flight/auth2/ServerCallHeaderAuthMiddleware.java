@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth2;
 
 import static org.apache.arrow.flight.auth2.CallHeaderAuthenticator.AuthResult;
@@ -26,18 +25,18 @@ import org.apache.arrow.flight.FlightServerMiddleware;
 import org.apache.arrow.flight.RequestContext;
 
 /**
- * Middleware that's used to validate credentials during the handshake and verify
- * the bearer token in subsequent requests.
+ * Middleware that's used to validate credentials during the handshake and verify the bearer token
+ * in subsequent requests.
  */
 public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
-  /**
-   * Factory for accessing ServerAuthMiddleware.
-   */
-  public static class Factory implements FlightServerMiddleware.Factory<ServerCallHeaderAuthMiddleware> {
+  /** Factory for accessing ServerAuthMiddleware. */
+  public static class Factory
+      implements FlightServerMiddleware.Factory<ServerCallHeaderAuthMiddleware> {
     private final CallHeaderAuthenticator authHandler;
 
     /**
      * Construct a factory with the given auth handler.
+     *
      * @param authHandler The auth handler what will be used for authenticating requests.
      */
     public Factory(CallHeaderAuthenticator authHandler) {
@@ -45,8 +44,8 @@ public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
     }
 
     @Override
-    public ServerCallHeaderAuthMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders,
-                                                        RequestContext context) {
+    public ServerCallHeaderAuthMiddleware onCallStarted(
+        CallInfo callInfo, CallHeaders incomingHeaders, RequestContext context) {
       final AuthResult result = authHandler.authenticate(incomingHeaders);
       context.put(Auth2Constants.PEER_IDENTITY_KEY, result.getPeerIdentity());
       return new ServerCallHeaderAuthMiddleware(result);
@@ -65,10 +64,8 @@ public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
   }
 
   @Override
-  public void onCallCompleted(CallStatus status) {
-  }
+  public void onCallCompleted(CallStatus status) {}
 
   @Override
-  public void onCallErrored(Throwable err) {
-  }
+  public void onCallErrored(Throwable err) {}
 }

@@ -14,24 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers.logical;
 
 import java.io.IOException;
-
 import org.apache.arrow.adapter.avro.consumers.BaseAvroConsumer;
 import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume date timestamp-micro values from avro decoder.
- * Write the data to {@link TimeStampMicroVector}.
+ * Consumer which consume date timestamp-micro values from avro decoder. Write the data to {@link
+ * TimeStampMicroVector}.
  */
 public class AvroTimestampMicrosConsumer extends BaseAvroConsumer<TimeStampMicroVector> {
 
-  /**
-   * Instantiate a AvroTimestampMicroConsumer.
-   */
+  /** Instantiate a AvroTimestampMicroConsumer. */
   public AvroTimestampMicrosConsumer(TimeStampMicroVector vector) {
     super(vector);
   }

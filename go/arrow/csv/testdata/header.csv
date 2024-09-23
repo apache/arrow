@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-bool;i8;i16;i32;i64;u8;u16;u32;u64;f16;f32;f64;str;large_str;ts;list(i64);large_list(i64);fixed_size_list(i64);binary;large_binary;fixed_size_binary;uuid
-true;-1;-1;-1;-1;1;1;1;1;1.1;1.1;1.1;str-1;str-1;2022-05-09T00:01:01;{1,2,3};{1,2,3};{1,2,3};AAEC;AAEC;AAEC;00000000-0000-0000-0000-000000000001
-false;-2;-2;-2;-2;2;2;2;2;2.2;2.2;2.2;;;2022-05-09T23:59:59;{};{};{4,5,6};;;;00000000-0000-0000-0000-000000000002
-null;NULL;null;N/A;;null;null;null;null;null;null;null;null;null;null;null;null;null;null;null;null;null
+bool;i8;i16;i32;i64;u8;u16;u32;u64;f16;f32;f64;str;large_str;ts;list(i64);large_list(i64);fixed_size_list(i64);binary;large_binary;fixed_size_binary;uuid;date32;date64
+true;-1;-1;-1;-1;1;1;1;1;1.1;1.1;1.1;str-1;str-1;2022-05-09T00:01:01;{1,2,3};{1,2,3};{1,2,3};AAEC;AAEC;AAEC;00000000-0000-0000-0000-000000000001;2022-05-09;2022-05-09
+false;-2;-2;-2;-2;2;2;2;2;2.2;2.2;2.2;;;2022-05-09T23:59:59;{};{};{4,5,6};;;;00000000-0000-0000-0000-000000000002;2022-05-09;2022-05-09
+null;NULL;null;N/A;;null;null;null;null;null;null;null;null;null;null;null;null;null;null;null;null;null;null;null

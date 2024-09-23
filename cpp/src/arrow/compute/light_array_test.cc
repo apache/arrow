@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/light_array.h"
+#include "arrow/compute/light_array_internal.h"
 
 #include <gtest/gtest.h>
 #include <numeric>
 
+#include "arrow/memory_pool.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -294,7 +295,7 @@ TEST(ResizableArrayData, Basic) {
         arrow::internal::checked_pointer_cast<FixedWidthType>(type)->bit_width() / 8;
     {
       ResizableArrayData array;
-      array.Init(type, pool.get(), /*log_num_rows_min=*/16);
+      ASSERT_OK(array.Init(type, pool.get(), /*log_num_rows_min=*/16));
       ASSERT_EQ(0, array.num_rows());
       ASSERT_OK(array.ResizeFixedLengthBuffers(2));
       ASSERT_EQ(2, array.num_rows());
@@ -329,7 +330,7 @@ TEST(ResizableArrayData, Binary) {
     ARROW_SCOPED_TRACE("Type: ", type->ToString());
     {
       ResizableArrayData array;
-      array.Init(type, pool.get(), /*log_num_rows_min=*/4);
+      ASSERT_OK(array.Init(type, pool.get(), /*log_num_rows_min=*/4));
       ASSERT_EQ(0, array.num_rows());
       ASSERT_OK(array.ResizeFixedLengthBuffers(2));
       ASSERT_EQ(2, array.num_rows());

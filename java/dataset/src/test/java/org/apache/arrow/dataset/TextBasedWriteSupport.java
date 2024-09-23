@@ -14,14 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.Random;
 
 public class TextBasedWriteSupport {
@@ -29,14 +31,27 @@ public class TextBasedWriteSupport {
   private final Random random = new Random();
 
   public TextBasedWriteSupport(File outputFolder, String fileExtension) throws URISyntaxException {
-    uri = new URI("file", outputFolder.getPath() + File.separator +
-        "generated-" + random.nextLong() + fileExtension, null);
+    uri =
+        new URI(
+            "file",
+            outputFolder.getPath()
+                + File.separator
+                + "generated-"
+                + random.nextLong()
+                + fileExtension,
+            null);
   }
 
-  public static TextBasedWriteSupport writeTempFile(File outputFolder, String fileExtension, String... values)
+  public static TextBasedWriteSupport writeTempFile(
+      File outputFolder, String fileExtension, String... values)
       throws URISyntaxException, IOException {
     TextBasedWriteSupport writer = new TextBasedWriteSupport(outputFolder, fileExtension);
-    try (FileWriter addValues = new FileWriter(new File(writer.uri), true)) {
+    try (Writer addValues =
+        Files.newBufferedWriter(
+            new File(writer.uri).toPath(),
+            StandardCharsets.UTF_8,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.APPEND)) {
       for (Object value : values) {
         addValues.write(value + "\n");
       }

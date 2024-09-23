@@ -14,41 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.compare;
 
 import java.util.function.BiFunction;
-
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.util.ValueEpsilonEqualizers;
 
-/**
- * Visitor to compare floating point vectors approximately.
- */
+/** Visitor to compare floating point vectors approximately. */
 public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
-  /**
-   * Functions to calculate difference between float/double values.
-   */
+  /** Functions to calculate difference between float/double values. */
   private final VectorValueEqualizer<Float4Vector> floatDiffFunction;
+
   private final VectorValueEqualizer<Float8Vector> doubleDiffFunction;
 
-  /**
-   * Default epsilons for diff functions.
-   */
+  /** Default epsilons for diff functions. */
   public static final float DEFAULT_FLOAT_EPSILON = 1.0E-6f;
+
   public static final double DEFAULT_DOUBLE_EPSILON = 1.0E-6;
 
   /**
    * Constructs a new instance with default tolerances.
+   *
    * @param left left vector
    * @param right right vector
    */
   public ApproxEqualsVisitor(ValueVector left, ValueVector right) {
-    this (left, right, DEFAULT_FLOAT_EPSILON, DEFAULT_DOUBLE_EPSILON);
+    this(left, right, DEFAULT_FLOAT_EPSILON, DEFAULT_DOUBLE_EPSILON);
   }
 
   /**
@@ -59,30 +54,36 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
    * @param floatEpsilon difference for float values
    * @param doubleEpsilon difference for double values
    */
-  public ApproxEqualsVisitor(ValueVector left, ValueVector right, float floatEpsilon, double doubleEpsilon) {
-    this (left, right,
+  public ApproxEqualsVisitor(
+      ValueVector left, ValueVector right, float floatEpsilon, double doubleEpsilon) {
+    this(
+        left,
+        right,
         new ValueEpsilonEqualizers.Float4EpsilonEqualizer(floatEpsilon),
         new ValueEpsilonEqualizers.Float8EpsilonEqualizer(doubleEpsilon));
   }
 
-  /**
-   * Constructs a new instance.
-   */
-  public ApproxEqualsVisitor(ValueVector left, ValueVector right,
-                             VectorValueEqualizer<Float4Vector> floatDiffFunction,
-                             VectorValueEqualizer<Float8Vector> doubleDiffFunction) {
-    this (left, right, floatDiffFunction, doubleDiffFunction, DEFAULT_TYPE_COMPARATOR);
+  /** Constructs a new instance. */
+  public ApproxEqualsVisitor(
+      ValueVector left,
+      ValueVector right,
+      VectorValueEqualizer<Float4Vector> floatDiffFunction,
+      VectorValueEqualizer<Float8Vector> doubleDiffFunction) {
+    this(left, right, floatDiffFunction, doubleDiffFunction, DEFAULT_TYPE_COMPARATOR);
   }
 
   /**
    * Constructs a new instance.
+   *
    * @param left the left vector.
    * @param right the right vector.
    * @param floatDiffFunction the equalizer for float values.
    * @param doubleDiffFunction the equalizer for double values.
    * @param typeComparator type comparator to compare vector type.
    */
-  public ApproxEqualsVisitor(ValueVector left, ValueVector right,
+  public ApproxEqualsVisitor(
+      ValueVector left,
+      ValueVector right,
       VectorValueEqualizer<Float4Vector> floatDiffFunction,
       VectorValueEqualizer<Float8Vector> doubleDiffFunction,
       BiFunction<ValueVector, ValueVector, Boolean> typeComparator) {
@@ -110,9 +111,11 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
   @Override
   protected ApproxEqualsVisitor createInnerVisitor(
-      ValueVector left, ValueVector right,
+      ValueVector left,
+      ValueVector right,
       BiFunction<ValueVector, ValueVector, Boolean> typeComparator) {
-    return new ApproxEqualsVisitor(left, right, floatDiffFunction.clone(), doubleDiffFunction.clone(), typeComparator);
+    return new ApproxEqualsVisitor(
+        left, right, floatDiffFunction.clone(), doubleDiffFunction.clone(), typeComparator);
   }
 
   private boolean float4ApproxEquals(Range range) {

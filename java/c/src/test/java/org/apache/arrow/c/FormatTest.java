@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.apache.arrow.c.Flags;
-import org.apache.arrow.c.Format;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.IntervalUnit;
@@ -71,22 +68,33 @@ public class FormatTest {
     assertEquals("ttm", Format.asString(new ArrowType.Time(TimeUnit.MILLISECOND, 32)));
     assertEquals("ttu", Format.asString(new ArrowType.Time(TimeUnit.MICROSECOND, 64)));
     assertEquals("ttn", Format.asString(new ArrowType.Time(TimeUnit.NANOSECOND, 64)));
-    assertEquals("tss:Timezone", Format.asString(new ArrowType.Timestamp(TimeUnit.SECOND, "Timezone")));
-    assertEquals("tsm:Timezone", Format.asString(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "Timezone")));
-    assertEquals("tsu:Timezone", Format.asString(new ArrowType.Timestamp(TimeUnit.MICROSECOND, "Timezone")));
-    assertEquals("tsn:Timezone", Format.asString(new ArrowType.Timestamp(TimeUnit.NANOSECOND, "Timezone")));
-    assertEquals("+us:1,1,1", Format.asString(new ArrowType.Union(UnionMode.Sparse, new int[] { 1, 1, 1 })));
-    assertEquals("+ud:1,1,1", Format.asString(new ArrowType.Union(UnionMode.Dense, new int[] { 1, 1, 1 })));
+    assertEquals(
+        "tss:Timezone", Format.asString(new ArrowType.Timestamp(TimeUnit.SECOND, "Timezone")));
+    assertEquals(
+        "tsm:Timezone", Format.asString(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "Timezone")));
+    assertEquals(
+        "tsu:Timezone", Format.asString(new ArrowType.Timestamp(TimeUnit.MICROSECOND, "Timezone")));
+    assertEquals(
+        "tsn:Timezone", Format.asString(new ArrowType.Timestamp(TimeUnit.NANOSECOND, "Timezone")));
+    assertEquals(
+        "+us:1,1,1", Format.asString(new ArrowType.Union(UnionMode.Sparse, new int[] {1, 1, 1})));
+    assertEquals(
+        "+ud:1,1,1", Format.asString(new ArrowType.Union(UnionMode.Dense, new int[] {1, 1, 1})));
     assertEquals("u", Format.asString(new ArrowType.Utf8()));
 
-    assertThrows(UnsupportedOperationException.class, () -> Format.asString(new ArrowType.Int(1, true)));
-    assertThrows(UnsupportedOperationException.class, () -> Format.asString(new ArrowType.Time(TimeUnit.SECOND, 1)));
-    assertThrows(UnsupportedOperationException.class,
+    assertThrows(
+        UnsupportedOperationException.class, () -> Format.asString(new ArrowType.Int(1, true)));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> Format.asString(new ArrowType.Time(TimeUnit.SECOND, 1)));
+    assertThrows(
+        UnsupportedOperationException.class,
         () -> Format.asString(new ArrowType.Time(TimeUnit.MILLISECOND, 64)));
   }
 
   @Test
-  public void testAsType() throws IllegalStateException, NumberFormatException, UnsupportedOperationException {
+  public void testAsType()
+      throws IllegalStateException, NumberFormatException, UnsupportedOperationException {
     assertTrue(Format.asType("n", 0L) instanceof ArrowType.Null);
     assertTrue(Format.asType("b", 0L) instanceof ArrowType.Bool);
     assertEquals(new ArrowType.Int(Byte.SIZE, true), Format.asType("c", 0L));
@@ -98,8 +106,10 @@ public class FormatTest {
     assertEquals(new ArrowType.Int(Long.SIZE, true), Format.asType("l", 0L));
     assertEquals(new ArrowType.Int(Long.SIZE, false), Format.asType("L", 0L));
     assertEquals(new ArrowType.FloatingPoint(FloatingPointPrecision.HALF), Format.asType("e", 0L));
-    assertEquals(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), Format.asType("f", 0L));
-    assertEquals(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE), Format.asType("g", 0L));
+    assertEquals(
+        new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), Format.asType("f", 0L));
+    assertEquals(
+        new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE), Format.asType("g", 0L));
     assertTrue(Format.asType("z", 0L) instanceof ArrowType.Binary);
     assertTrue(Format.asType("Z", 0L) instanceof ArrowType.LargeBinary);
     assertTrue(Format.asType("u", 0L) instanceof ArrowType.Utf8);
@@ -126,12 +136,21 @@ public class FormatTest {
     assertEquals(new ArrowType.Decimal(9, 1, 1), Format.asType("d:9,1,1", 0L));
     assertEquals(new ArrowType.FixedSizeBinary(1), Format.asType("w:1", 0L));
     assertEquals(new ArrowType.FixedSizeList(3), Format.asType("+w:3", 0L));
-    assertEquals(new ArrowType.Union(UnionMode.Dense, new int[] { 1, 1, 1 }), Format.asType("+ud:1,1,1", 0L));
-    assertEquals(new ArrowType.Union(UnionMode.Sparse, new int[] { 1, 1, 1 }), Format.asType("+us:1,1,1", 0L));
-    assertEquals(new ArrowType.Timestamp(TimeUnit.SECOND, "Timezone"), Format.asType("tss:Timezone", 0L));
-    assertEquals(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "Timezone"), Format.asType("tsm:Timezone", 0L));
-    assertEquals(new ArrowType.Timestamp(TimeUnit.MICROSECOND, "Timezone"), Format.asType("tsu:Timezone", 0L));
-    assertEquals(new ArrowType.Timestamp(TimeUnit.NANOSECOND, "Timezone"), Format.asType("tsn:Timezone", 0L));
+    assertEquals(
+        new ArrowType.Union(UnionMode.Dense, new int[] {1, 1, 1}), Format.asType("+ud:1,1,1", 0L));
+    assertEquals(
+        new ArrowType.Union(UnionMode.Sparse, new int[] {1, 1, 1}), Format.asType("+us:1,1,1", 0L));
+    assertEquals(
+        new ArrowType.Timestamp(TimeUnit.SECOND, "Timezone"), Format.asType("tss:Timezone", 0L));
+    assertEquals(
+        new ArrowType.Timestamp(TimeUnit.MILLISECOND, "Timezone"),
+        Format.asType("tsm:Timezone", 0L));
+    assertEquals(
+        new ArrowType.Timestamp(TimeUnit.MICROSECOND, "Timezone"),
+        Format.asType("tsu:Timezone", 0L));
+    assertEquals(
+        new ArrowType.Timestamp(TimeUnit.NANOSECOND, "Timezone"),
+        Format.asType("tsn:Timezone", 0L));
 
     assertThrows(UnsupportedOperationException.class, () -> Format.asType("Format", 0L));
     assertThrows(UnsupportedOperationException.class, () -> Format.asType(":", 0L));

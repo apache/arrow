@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset;
 
 import java.io.IOException;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
@@ -28,8 +26,10 @@ import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
 
 public class OrcWriteSupport {
-  public static void writeTempFile(TypeDescription orcSchema, Path path, Integer[] values) throws IOException {
-    Writer writer = OrcFile.createWriter(path, OrcFile.writerOptions(new Configuration()).setSchema(orcSchema));
+  public static void writeTempFile(TypeDescription orcSchema, Path path, Integer[] values)
+      throws IOException {
+    Writer writer =
+        OrcFile.createWriter(path, OrcFile.writerOptions(new Configuration()).setSchema(orcSchema));
     VectorizedRowBatch batch = orcSchema.createRowBatch();
     LongColumnVector longColumnVector = (LongColumnVector) batch.cols[0];
     for (int idx = 0; idx < values.length; idx++) {

@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
-
 import org.apache.arrow.vector.BitVector;
 
 /** A column binder for booleans. */
@@ -34,7 +32,8 @@ public class BitBinder extends BaseColumnBinder<BitVector> {
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
     // See BitVector#getBit
     final int byteIndex = rowIndex >> 3;
     final byte b = vector.getDataBuffer().getByte(byteIndex);

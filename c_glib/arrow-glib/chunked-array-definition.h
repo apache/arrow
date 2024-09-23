@@ -24,6 +24,7 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_CHUNKED_ARRAY (garrow_chunked_array_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(
   GArrowChunkedArray, garrow_chunked_array, GARROW, CHUNKED_ARRAY, GObject)
 struct _GArrowChunkedArrayClass

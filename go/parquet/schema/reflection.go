@@ -22,10 +22,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v16/arrow/float16"
-	"github.com/apache/arrow/go/v16/parquet"
-	format "github.com/apache/arrow/go/v16/parquet/internal/gen-go/parquet"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v18/arrow/float16"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
 )
 
 type taggedInfo struct {
@@ -551,7 +551,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 // NewSchemaFromStruct generates a schema from an object type via reflection of
 // the type and reading struct tags for "parquet".
 //
-// Rules
+// # Rules
 //
 // Everything defaults to Required repetition, unless otherwise specified.
 // Pointer types become Optional repetition.
@@ -571,7 +571,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 //
 // maps will become appropriate Map structures in the schema of the defined key and values.
 //
-// Available Tags
+// # Available Tags
 //
 // name: by default the node will have the same name as the field, this tag let's you specify a name
 //
@@ -609,14 +609,7 @@ func NewSchemaFromStruct(obj interface{}) (sc *Schema, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			sc = nil
-			switch x := r.(type) {
-			case string:
-				err = xerrors.New(x)
-			case error:
-				err = x
-			default:
-				err = xerrors.New("unknown panic")
-			}
+			err = utils.FormatRecoveredError("unknown panic", r)
 		}
 	}()
 
@@ -646,7 +639,7 @@ func typeFromNode(n Node) reflect.Type {
 		}
 
 		if n.RepetitionType() == parquet.Repetitions.Optional {
-			typ = reflect.PtrTo(typ)
+			typ = reflect.PointerTo(typ)
 		} else if n.RepetitionType() == parquet.Repetitions.Repeated {
 			typ = reflect.SliceOf(typ)
 		}
@@ -714,7 +707,7 @@ func typeFromNode(n Node) reflect.Type {
 				elemType = reflect.SliceOf(elemType)
 			}
 			if gnode.RepetitionType() == parquet.Repetitions.Optional {
-				elemType = reflect.PtrTo(elemType)
+				elemType = reflect.PointerTo(elemType)
 			}
 			return elemType
 		case ConvertedTypes.Map, ConvertedTypes.MapKeyValue:
@@ -785,7 +778,7 @@ func typeFromNode(n Node) reflect.Type {
 
 			mapType := reflect.MapOf(keyType, valType)
 			if gnode.RepetitionType() == parquet.Repetitions.Optional {
-				mapType = reflect.PtrTo(mapType)
+				mapType = reflect.PointerTo(mapType)
 			}
 			return mapType
 		default:
@@ -803,7 +796,7 @@ func typeFromNode(n Node) reflect.Type {
 				return reflect.SliceOf(structType)
 			}
 			if gnode.RepetitionType() == parquet.Repetitions.Optional {
-				return reflect.PtrTo(structType)
+				return reflect.PointerTo(structType)
 			}
 			return structType
 		}
@@ -824,14 +817,7 @@ func NewStructFromSchema(sc *Schema) (t reflect.Type, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			t = nil
-			switch x := r.(type) {
-			case string:
-				err = xerrors.New(x)
-			case error:
-				err = x
-			default:
-				err = xerrors.New("unknown panic")
-			}
+			err = utils.FormatRecoveredError("unknown panic", r)
 		}
 	}()
 

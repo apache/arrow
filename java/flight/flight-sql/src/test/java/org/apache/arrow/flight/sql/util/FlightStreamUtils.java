@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.sql.util;
 
 import static java.util.Objects.isNull;
@@ -25,7 +24,6 @@ import java.nio.channels.Channels;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.FieldVector;
@@ -52,75 +50,82 @@ public class FlightStreamUtils {
           results.add(new ArrayList<>());
         }
 
-        root.getSchema().getFields().forEach(field -> {
-          try (final FieldVector fieldVector = root.getVector(field.getName())) {
-            if (fieldVector instanceof VarCharVector) {
-              final VarCharVector varcharVector = (VarCharVector) fieldVector;
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                final Text data = varcharVector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : data.toString());
-              }
-            } else if (fieldVector instanceof IntVector) {
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                Object data = fieldVector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
-              }
-            } else if (fieldVector instanceof VarBinaryVector) {
-              final VarBinaryVector varbinaryVector = (VarBinaryVector) fieldVector;
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                final byte[] data = varbinaryVector.getObject(rowIndex);
-                final String output;
-                try {
-                  output = isNull(data) ?
-                      null :
-                      MessageSerializer.deserializeSchema(
-                          new ReadChannel(Channels.newChannel(new ByteArrayInputStream(data)))).toJson();
-                } catch (final IOException e) {
-                  throw new RuntimeException("Failed to deserialize schema", e);
-                }
-                results.get(rowIndex).add(output);
-              }
-            } else if (fieldVector instanceof DenseUnionVector) {
-              final DenseUnionVector denseUnionVector = (DenseUnionVector) fieldVector;
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                final Object data = denseUnionVector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
-              }
-            } else if (fieldVector instanceof ListVector) {
-              for (int i = 0; i < fieldVector.getValueCount(); i++) {
-                if (!fieldVector.isNull(i)) {
-                  List<Text> elements = (List<Text>) ((ListVector) fieldVector).getObject(i);
-                  List<String> values = new ArrayList<>();
+        root.getSchema()
+            .getFields()
+            .forEach(
+                field -> {
+                  try (final FieldVector fieldVector = root.getVector(field.getName())) {
+                    if (fieldVector instanceof VarCharVector) {
+                      final VarCharVector varcharVector = (VarCharVector) fieldVector;
+                      for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                        final Text data = varcharVector.getObject(rowIndex);
+                        results.get(rowIndex).add(isNull(data) ? null : data.toString());
+                      }
+                    } else if (fieldVector instanceof IntVector) {
+                      for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                        Object data = fieldVector.getObject(rowIndex);
+                        results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
+                      }
+                    } else if (fieldVector instanceof VarBinaryVector) {
+                      final VarBinaryVector varbinaryVector = (VarBinaryVector) fieldVector;
+                      for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                        final byte[] data = varbinaryVector.getObject(rowIndex);
+                        final String output;
+                        try {
+                          output =
+                              isNull(data)
+                                  ? null
+                                  : MessageSerializer.deserializeSchema(
+                                          new ReadChannel(
+                                              Channels.newChannel(new ByteArrayInputStream(data))))
+                                      .toJson();
+                        } catch (final IOException e) {
+                          throw new RuntimeException("Failed to deserialize schema", e);
+                        }
+                        results.get(rowIndex).add(output);
+                      }
+                    } else if (fieldVector instanceof DenseUnionVector) {
+                      final DenseUnionVector denseUnionVector = (DenseUnionVector) fieldVector;
+                      for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                        final Object data = denseUnionVector.getObject(rowIndex);
+                        results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
+                      }
+                    } else if (fieldVector instanceof ListVector) {
+                      for (int i = 0; i < fieldVector.getValueCount(); i++) {
+                        if (!fieldVector.isNull(i)) {
+                          List<Text> elements =
+                              (List<Text>) ((ListVector) fieldVector).getObject(i);
+                          List<String> values = new ArrayList<>();
 
-                  for (Text element : elements) {
-                    values.add(element.toString());
+                          for (Text element : elements) {
+                            values.add(element.toString());
+                          }
+                          results.get(i).add(values.toString());
+                        }
+                      }
+
+                    } else if (fieldVector instanceof UInt4Vector) {
+                      final UInt4Vector uInt4Vector = (UInt4Vector) fieldVector;
+                      for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                        final Object data = uInt4Vector.getObject(rowIndex);
+                        results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
+                      }
+                    } else if (fieldVector instanceof UInt1Vector) {
+                      final UInt1Vector uInt1Vector = (UInt1Vector) fieldVector;
+                      for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                        final Object data = uInt1Vector.getObject(rowIndex);
+                        results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
+                      }
+                    } else if (fieldVector instanceof BitVector) {
+                      for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                        Object data = fieldVector.getObject(rowIndex);
+                        results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
+                      }
+                    } else {
+                      throw new UnsupportedOperationException("Not yet implemented");
+                    }
                   }
-                  results.get(i).add(values.toString());
-                }
-              }
-
-            } else if (fieldVector instanceof UInt4Vector) {
-              final UInt4Vector uInt4Vector = (UInt4Vector) fieldVector;
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                final Object data = uInt4Vector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
-              }
-            } else if (fieldVector instanceof UInt1Vector) {
-              final UInt1Vector uInt1Vector = (UInt1Vector) fieldVector;
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                final Object data = uInt1Vector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
-              }
-            } else if (fieldVector instanceof BitVector) {
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                Object data = fieldVector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
-              }
-            } else {
-              throw new UnsupportedOperationException("Not yet implemented");
-            }
-          }
-        });
+                });
       }
     }
 

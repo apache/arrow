@@ -14,23 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth2;
 
 import org.apache.arrow.flight.CallHeaders;
 
-/**
- * Utility class for completing the auth process.
- */
+/** Utility class for completing the auth process. */
 public final class AuthUtilities {
-  private AuthUtilities() {
-
-  }
+  private AuthUtilities() {}
 
   /**
    * Helper method for retrieving a value from the Authorization header.
    *
-   * @param headers     The headers to inspect.
+   * @param headers The headers to inspect.
    * @param valuePrefix The prefix within the value portion of the header to extract away.
    * @return The header value.
    */
@@ -43,5 +38,4 @@ public final class AuthUtilities {
     }
     return null;
   }
-
 }

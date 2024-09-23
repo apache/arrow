@@ -14,24 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset.jni;
 
 import org.apache.arrow.dataset.scanner.ScanTask;
 import org.apache.arrow.vector.ipc.ArrowReader;
 
 /**
- * Native implementation of {@link ScanTask}. Currently RecordBatches are iterated directly by the scanner
- * id via {@link JniWrapper}, thus we allow only one-time execution of method {@link #execute()}. If a re-scan
- * operation is expected, call {@link NativeDataset#newScan} to create a new scanner instance.
+ * Native implementation of {@link ScanTask}. Currently RecordBatches are iterated directly by the
+ * scanner id via {@link JniWrapper}, thus we allow only one-time execution of method {@link
+ * #execute()}. If a re-scan operation is expected, call {@link NativeDataset#newScan} to create a
+ * new scanner instance.
  */
 @Deprecated
 public class NativeScanTask implements ScanTask {
   private final NativeScanner scanner;
 
-  /**
-   * Constructor.
-   */
+  /** Constructor. */
   public NativeScanTask(NativeScanner scanner) {
     this.scanner = scanner;
   }

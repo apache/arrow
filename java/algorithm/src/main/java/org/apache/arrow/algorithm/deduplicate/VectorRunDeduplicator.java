@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.deduplicate;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -26,29 +25,28 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 
 /**
- * Remove adjacent equal elements from a vector.
- * If the vector is sorted, it removes all duplicated values in the vector.
+ * Remove adjacent equal elements from a vector. If the vector is sorted, it removes all duplicated
+ * values in the vector.
+ *
  * @param <V> vector type.
  */
 public class VectorRunDeduplicator<V extends ValueVector> implements AutoCloseable {
 
   /**
-   * Bit set for distinct values.
-   * If the value at some index is not equal to the previous value,
-   * its bit is set to 1, otherwise its bit is set to 0.
+   * Bit set for distinct values. If the value at some index is not equal to the previous value, its
+   * bit is set to 1, otherwise its bit is set to 0.
    */
   private ArrowBuf distinctValueBuffer;
 
-  /**
-   * The vector to deduplicate.
-   */
+  /** The vector to deduplicate. */
   private final V vector;
 
   private final BufferAllocator allocator;
 
   /**
    * Constructs a vector run deduplicator for a given vector.
-   * @param vector the vector to deduplicate.  Ownership is NOT taken.
+   *
+   * @param vector the vector to deduplicate. Ownership is NOT taken.
    * @param allocator the allocator used for allocating buffers for start indices.
    */
   public VectorRunDeduplicator(V vector, BufferAllocator allocator) {
@@ -65,17 +63,20 @@ public class VectorRunDeduplicator<V extends ValueVector> implements AutoCloseab
 
   /**
    * Gets the number of values which are different from their predecessor.
+   *
    * @return the run count.
    */
   public int getRunCount() {
     if (distinctValueBuffer == null) {
       createDistinctValueBuffer();
     }
-    return vector.getValueCount() - BitVectorHelper.getNullCount(distinctValueBuffer, vector.getValueCount());
+    return vector.getValueCount()
+        - BitVectorHelper.getNullCount(distinctValueBuffer, vector.getValueCount());
   }
 
   /**
    * Gets the vector with deduplicated adjacent values removed.
+   *
    * @param outVector the output vector.
    */
   public void populateDeduplicatedValues(V outVector) {
@@ -88,6 +89,7 @@ public class VectorRunDeduplicator<V extends ValueVector> implements AutoCloseab
 
   /**
    * Gets the length of each distinct value.
+   *
    * @param lengthVector the vector for holding length values.
    */
   public void populateRunLengths(IntVector lengthVector) {
@@ -95,7 +97,8 @@ public class VectorRunDeduplicator<V extends ValueVector> implements AutoCloseab
       createDistinctValueBuffer();
     }
 
-    DeduplicationUtils.populateRunLengths(distinctValueBuffer, lengthVector, vector.getValueCount());
+    DeduplicationUtils.populateRunLengths(
+        distinctValueBuffer, lengthVector, vector.getValueCount());
   }
 
   @Override

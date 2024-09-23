@@ -721,6 +721,11 @@ function(ADD_TEST_CASE REL_TEST_NAME)
                                      "${EXECUTABLE_OUTPUT_PATH};$ENV{CONDA_PREFIX}/lib")
   endif()
 
+  # Ensure using bundled GoogleTest when we use bundled GoogleTest.
+  # ARROW_GTEST_GTEST_HEADERS is defined only when we use bundled
+  # GoogleTest.
+  target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_GTEST_GTEST_HEADERS})
+
   if(ARG_STATIC_LINK_LIBS)
     # Customize link libraries
     target_link_libraries(${TEST_NAME} PRIVATE ${ARG_STATIC_LINK_LIBS})
@@ -760,8 +765,8 @@ function(ADD_TEST_CASE REL_TEST_NAME)
                valgrind --suppressions=valgrind.supp --tool=memcheck --gen-suppressions=all \
                  --num-callers=500 --leak-check=full --leak-check-heuristics=stdstring \
                  --error-exitcode=1 ${TEST_PATH} ${ARG_TEST_ARGUMENTS}")
-  elseif(WIN32)
-    add_test(${TEST_NAME} ${TEST_PATH} ${ARG_TEST_ARGUMENTS})
+  elseif(WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME} ${ARG_TEST_ARGUMENTS})
   else()
     add_test(${TEST_NAME}
              ${BUILD_SUPPORT_DIR}/run-test.sh

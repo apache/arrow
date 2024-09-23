@@ -14,28 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-/**
- * A {@link ObjectMapper} factory to read/write JSON.
- */
+/** A {@link ObjectMapper} factory to read/write JSON. */
 public final class ObjectMapperFactory {
 
-  private ObjectMapperFactory() {
-  }
+  private ObjectMapperFactory() {}
 
-  /**
-   * Creates a new {@link ObjectMapper} instance.
-   */
+  /** Creates a new {@link ObjectMapper} instance. */
   public static ObjectMapper newObjectMapper() {
-    return JsonMapper.builder()
-       .addModule(new JavaTimeModule())
-       .build();
+    return JsonMapper.builder().addModule(new JavaTimeModule()).build();
   }
 }
-

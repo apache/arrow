@@ -189,11 +189,11 @@ constexpr BasicDecimal128 kDecimal128HalfPowersOfTen[] = {
     BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
 #if ARROW_LITTLE_ENDIAN
-#define BasicDecimal256FromLE(v1, v2, v3, v4) \
-  BasicDecimal256(std::array<uint64_t, 4>{v1, v2, v3, v4})
+#  define BasicDecimal256FromLE(v1, v2, v3, v4) \
+    BasicDecimal256(std::array<uint64_t, 4>{v1, v2, v3, v4})
 #else
-#define BasicDecimal256FromLE(v1, v2, v3, v4) \
-  BasicDecimal256(std::array<uint64_t, 4>{v4, v3, v2, v1})
+#  define BasicDecimal256FromLE(v1, v2, v3, v4) \
+    BasicDecimal256(std::array<uint64_t, 4>{v4, v3, v2, v1})
 #endif
 
 constexpr BasicDecimal256 kDecimal256PowersOfTen[76 + 1] = {

@@ -34,7 +34,7 @@ rm -rf ${source_dir}/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Set SDK, C++ and Wheel flags ==="
 export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-${arch}"
-export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.15}
+export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-12.0}
 export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
 
 if [ $arch = "arm64" ]; then
@@ -48,17 +48,12 @@ fi
 
 echo "=== (${PYTHON_VERSION}) Install Python build dependencies ==="
 export PIP_SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])')
-export PIP_TARGET_PLATFORM="macosx_${MACOSX_DEPLOYMENT_TARGET//./_}_${arch}"
 
-# TODO(GH-39848) Remove the `--pre --extra-index-url` for numpy nightly again before the 16.0 release 
 pip install \
   --upgrade \
   --only-binary=:all: \
   --target $PIP_SITE_PACKAGES \
-  --platform $PIP_TARGET_PLATFORM \
-  -r ${source_dir}/python/requirements-wheel-build.txt \
-  --pre \
-  --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
+  -r ${source_dir}/python/requirements-wheel-build.txt
 pip install "delocate>=0.10.3"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
@@ -91,6 +86,13 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-osx-static-${CMAKE_BUILD_TYPE}}}
 
+echo "=== Protobuf compiler versions on PATH ==="
+which -a protoc || echo "no protoc on PATH!"
+
+echo "=== Protobuf compiler version from vcpkg ==="
+_pbc=${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/protobuf/protoc
+echo "$_pbc: `$_pbc --version`"
+
 mkdir -p ${build_dir}/build
 pushd ${build_dir}/build
 
@@ -122,6 +124,7 @@ cmake \
     -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT} \
     -DARROW_TENSORFLOW=${ARROW_TENSORFLOW} \
     -DARROW_USE_CCACHE=ON \
+    -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
     -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI} \
     -DARROW_WITH_BZ2=${ARROW_WITH_BZ2} \
     -DARROW_WITH_LZ4=${ARROW_WITH_LZ4} \
@@ -134,7 +137,6 @@ cmake \
     -DCMAKE_INSTALL_PREFIX=${build_dir}/install \
     -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
-    -DORC_PROTOBUF_EXECUTABLE=${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/protobuf/protoc \
     -DORC_SOURCE=BUNDLED \
     -DPARQUET_REQUIRE_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION} \
     -DVCPKG_MANIFEST_MODE=OFF \
@@ -148,7 +150,6 @@ echo "=== (${PYTHON_VERSION}) Building wheel ==="
 export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR}
-export PYARROW_INSTALL_TESTS=1
 export PYARROW_WITH_ACERO=${ARROW_ACERO}
 export PYARROW_WITH_AZURE=${ARROW_AZURE}
 export PYARROW_WITH_DATASET=${ARROW_DATASET}

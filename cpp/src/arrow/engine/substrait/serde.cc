@@ -256,7 +256,7 @@ Result<std::shared_ptr<acero::ExecPlan>> MakeSingleDeclarationPlan(
   } else {
     ARROW_ASSIGN_OR_RAISE(auto plan, acero::ExecPlan::Make());
     ARROW_RETURN_NOT_OK(declarations[0].AddToPlan(plan.get()));
-    return std::move(plan);
+    return plan;
   }
 }
 

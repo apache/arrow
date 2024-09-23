@@ -44,6 +44,7 @@ BOOL = ArrowBool()
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--debug", type=BOOL, is_flag=True, default=False,
+              envvar='ARCHERY_DEBUG',
               help="Increase logging with debugging output.")
 @click.option("--pdb", type=BOOL, is_flag=True, default=False,
               help="Invoke pdb on uncaught exception.")
@@ -260,6 +261,7 @@ lint_checks = [
               "Check all sources files for license texts via Apache RAT."),
     LintCheck('r', "Lint R files."),
     LintCheck('docker', "Lint Dockerfiles with hadolint."),
+    LintCheck('docs', "Lint docs with sphinx-lint."),
 ]
 
 
@@ -284,9 +286,10 @@ def decorate_lint_command(cmd):
               help="Run IWYU on all C++ files if enabled")
 @click.option("-a", "--all", is_flag=True, default=False,
               help="Enable all checks.")
+@click.argument("path", required=False)
 @decorate_lint_command
 @click.pass_context
-def lint(ctx, src, fix, iwyu_all, **checks):
+def lint(ctx, src, fix, iwyu_all, path, **checks):
     if checks.pop('all'):
         # "--all" is given => enable all non-selected checks
         for k, v in checks.items():
@@ -296,7 +299,7 @@ def lint(ctx, src, fix, iwyu_all, **checks):
         raise click.UsageError(
             "Need to enable at least one lint check (try --help)")
     try:
-        linter(src, fix, iwyu_all=iwyu_all, **checks)
+        linter(src, fix, iwyu_all=iwyu_all, path=path, **checks)
     except LintValidationException:
         sys.exit(1)
 
@@ -721,7 +724,7 @@ def _set_default(opt, default):
 
 @archery.command(short_help="Execute protocol and Flight integration tests")
 @click.option('--with-all', is_flag=True, default=False,
-              help=('Include all known languages by default '
+              help=('Include all known implementations by default '
                     'in integration tests'))
 @click.option('--random-seed', type=int, default=12345,
               help="Seed for PRNG when generating test data")
@@ -734,10 +737,17 @@ def _set_default(opt, default):
 @click.option('--with-js', type=bool, default=False,
               help='Include JavaScript in integration tests')
 @click.option('--with-go', type=bool, default=False,
-              help='Include Go in integration tests')
+              help='Include Go in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_GO")
+@click.option('--with-nanoarrow', type=bool, default=False,
+              help='Include nanoarrow in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_NANOARROW")
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
+@click.option('--target-implementations', default='',
+              help=('Target implementations in this integration tests'),
+              envvar="ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS")
 @click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
 @click.option('--run-ipc', is_flag=True, default=False,
@@ -773,15 +783,15 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    languages = ['cpp', 'csharp', 'java', 'js', 'go', 'rust']
+    implementations = ['cpp', 'csharp', 'java', 'js', 'go', 'nanoarrow', 'rust']
     formats = ['ipc', 'flight', 'c_data']
 
-    enabled_languages = 0
-    for lang in languages:
+    enabled_implementations = 0
+    for lang in implementations:
         param = f'with_{lang}'
         if with_all:
             args[param] = with_all
-        enabled_languages += args[param]
+        enabled_implementations += args[param]
 
     enabled_formats = 0
     for fmt in formats:
@@ -798,9 +808,9 @@ def integration(with_all=False, random_seed=12345, **args):
             raise click.UsageError(
                 "Need to enable at least one format to test "
                 "(IPC, Flight, C Data Interface); try --help")
-        if enabled_languages == 0:
+        if enabled_implementations == 0:
             raise click.UsageError(
-                "Need to enable at least one language to test; try --help")
+                "Need to enable at least one implementation to test; try --help")
         run_all_tests(**args)
 
 

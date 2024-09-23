@@ -14,11 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
-/**
- * Per-call RPC options. These are hints to the underlying RPC layer and may not be respected.
- */
-public interface CallOption {
-}
+/** Per-call RPC options. These are hints to the underlying RPC layer and may not be respected. */
+public interface CallOption {}

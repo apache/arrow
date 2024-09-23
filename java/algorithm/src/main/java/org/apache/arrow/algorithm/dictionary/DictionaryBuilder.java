@@ -14,33 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.dictionary;
 
 import org.apache.arrow.vector.ValueVector;
 
 /**
- * A dictionary builder is intended for the scenario frequently encountered in practice:
- * the dictionary is not known a priori, so it is generated dynamically.
- * In particular, when a new value arrives, it is tested to check if it is already
- * in the dictionary. If so, it is simply neglected, otherwise, it is added to the dictionary.
- * <p>
- *   The dictionary builder is intended to build a single dictionary.
- *   So it cannot be used for different dictionaries.
- * </p>
+ * A dictionary builder is intended for the scenario frequently encountered in practice: the
+ * dictionary is not known a priori, so it is generated dynamically. In particular, when a new value
+ * arrives, it is tested to check if it is already in the dictionary. If so, it is simply neglected,
+ * otherwise, it is added to the dictionary.
+ *
+ * <p>The dictionary builder is intended to build a single dictionary. So it cannot be used for
+ * different dictionaries.
+ *
  * <p>Below gives the sample code for using the dictionary builder
+ *
  * <pre>{@code
  * DictionaryBuilder dictionaryBuilder = ...
  * ...
  * dictionaryBuild.addValue(newValue);
  * ...
  * }</pre>
- * </p>
- * <p>
- *   With the above code, the dictionary vector will be populated,
- *   and it can be retrieved by the {@link DictionaryBuilder#getDictionary()} method.
- *   After that, dictionary encoding can proceed with the populated dictionary..
- * </p>
+ *
+ * <p>With the above code, the dictionary vector will be populated, and it can be retrieved by the
+ * {@link DictionaryBuilder#getDictionary()} method. After that, dictionary encoding can proceed
+ * with the populated dictionary..
  *
  * @param <V> the dictionary vector type.
  */
@@ -58,7 +56,7 @@ public interface DictionaryBuilder<V extends ValueVector> {
    * Try to add an element from the target vector to the dictionary.
    *
    * @param targetVector the target vector containing new element.
-   * @param targetIndex  the index of the new element in the target vector.
+   * @param targetIndex the index of the new element in the target vector.
    * @return the index of the new element in the dictionary.
    */
   int addValue(V targetVector, int targetIndex);

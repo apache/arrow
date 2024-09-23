@@ -591,9 +591,10 @@ garrow_large_list_array_get_value_length(GArrowLargeListArray *array, gint64 i)
 const gint64 *
 garrow_large_list_array_get_value_offsets(GArrowLargeListArray *array, gint64 *n_offsets)
 {
-  return garrow_base_list_array_get_value_offsets<arrow::LargeListArray>(
-    GARROW_ARRAY(array),
-    n_offsets);
+  auto value_offsets =
+    garrow_base_list_array_get_value_offsets<arrow::LargeListArray>(GARROW_ARRAY(array),
+                                                                    n_offsets);
+  return reinterpret_cast<const gint64 *>(value_offsets);
 }
 
 typedef struct GArrowStructArrayPrivate_

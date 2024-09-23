@@ -52,10 +52,10 @@ Aggregations
 Cumulative Functions
 --------------------
 
-Cumulative functions are vector functions that perform a running accumulation on 
-their input using a given binary associative operation with an identity element 
-(a monoid) and output an array containing the corresponding intermediate running 
-values. The input is expected to be of numeric type. By default these functions 
+Cumulative functions are vector functions that perform a running accumulation on
+their input using a given binary associative operation with an identity element
+(a monoid) and output an array containing the corresponding intermediate running
+values. The input is expected to be of numeric type. By default these functions
 do not detect overflow. They are also
 available in an overflow-checking variant, suffixed ``_checked``, which
 throws an ``ArrowInvalid`` exception when overflow is detected.
@@ -173,7 +173,7 @@ variants which detect domain errors where appropriate.
 Comparisons
 -----------
 
-These functions expect two inputs of the same type. If one of the inputs is `null`
+These functions expect two inputs of the same type. If one of the inputs is ``null``
 they return ``null``.
 
 .. autosummary::
@@ -540,7 +540,6 @@ Compute Options
    AssumeTimezoneOptions
    CastOptions
    CountOptions
-   CountOptions
    CumulativeSumOptions
    DayOfWeekOptions
    DictionaryEncodeOptions
@@ -566,7 +565,6 @@ Compute Options
    RoundToMultipleOptions
    RunEndEncodeOptions
    ScalarAggregateOptions
-   ScalarAggregateOptions
    SelectKOptions
    SetLookupOptions
    SliceOptions
@@ -577,7 +575,6 @@ Compute Options
    StrptimeOptions
    StructFieldOptions
    TakeOptions
-   TDigestOptions
    TDigestOptions
    TrimOptions
    VarianceOptions

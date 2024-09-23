@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/internal/json"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/json"
 )
 
 const (
@@ -349,15 +349,16 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		typ := dtype.(*arrow.LargeListViewType)
 		return NewLargeListViewBuilderWithField(mem, typ.ElemField())
 	case arrow.EXTENSION:
-		typ := dtype.(arrow.ExtensionType)
-		bldr := NewExtensionBuilder(mem, typ)
-		if custom, ok := typ.(ExtensionBuilderWrapper); ok {
-			return custom.NewBuilder(bldr)
+		if custom, ok := dtype.(CustomExtensionBuilder); ok {
+			return custom.NewBuilder(mem)
 		}
-		return bldr
+		if typ, ok := dtype.(arrow.ExtensionType); ok {
+			return NewExtensionBuilder(mem, typ)
+		}
+		panic(fmt.Errorf("arrow/array: invalid extension type: %T", dtype))
 	case arrow.FIXED_SIZE_LIST:
 		typ := dtype.(*arrow.FixedSizeListType)
-		return NewFixedSizeListBuilder(mem, typ.Len(), typ.Elem())
+		return NewFixedSizeListBuilderWithField(mem, typ.Len(), typ.ElemField())
 	case arrow.DURATION:
 		typ := dtype.(*arrow.DurationType)
 		return NewDurationBuilder(mem, typ)

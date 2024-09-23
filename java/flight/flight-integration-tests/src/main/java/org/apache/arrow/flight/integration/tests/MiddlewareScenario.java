@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
-
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
@@ -39,9 +37,9 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
- * Test an edge case in middleware: gRPC-Java consolidates headers and trailers if a call fails immediately. On the
- * gRPC implementation side, we need to watch for this, or else we'll have a call with "no headers" if we only look
- * for headers.
+ * Test an edge case in middleware: gRPC-Java consolidates headers and trailers if a call fails
+ * immediately. On the gRPC implementation side, we need to watch for this, or else we'll have a
+ * call with "no headers" if we only look for headers.
  */
 final class MiddlewareScenario implements Scenario {
 
@@ -56,7 +54,8 @@ final class MiddlewareScenario implements Scenario {
       public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
         if (descriptor.isCommand()) {
           if (Arrays.equals(COMMAND_SUCCESS, descriptor.getCommand())) {
-            return new FlightInfo(new Schema(Collections.emptyList()), descriptor, Collections.emptyList(), -1, -1);
+            return new FlightInfo(
+                new Schema(Collections.emptyList()), descriptor, Collections.emptyList(), -1, -1);
           }
         }
         throw CallStatus.UNIMPLEMENTED.toRuntimeException();
@@ -66,22 +65,26 @@ final class MiddlewareScenario implements Scenario {
 
   @Override
   public void buildServer(FlightServer.Builder builder) {
-    builder.middleware(FlightServerMiddleware.Key.of("test"), new InjectingServerMiddleware.Factory());
+    builder.middleware(
+        FlightServerMiddleware.Key.of("test"), new InjectingServerMiddleware.Factory());
   }
 
   @Override
-  public void client(BufferAllocator allocator, Location location, FlightClient ignored) throws Exception {
+  public void client(BufferAllocator allocator, Location location, FlightClient ignored)
+      throws Exception {
     final ExtractingClientMiddleware.Factory factory = new ExtractingClientMiddleware.Factory();
-    try (final FlightClient client = FlightClient.builder(allocator, location).intercept(factory).build()) {
+    try (final FlightClient client =
+        FlightClient.builder(allocator, location).intercept(factory).build()) {
       // Should fail immediately
-      IntegrationAssertions.assertThrows(FlightRuntimeException.class,
+      IntegrationAssertions.assertThrows(
+          FlightRuntimeException.class,
           () -> client.getInfo(FlightDescriptor.command(new byte[0])));
       if (!EXPECTED_HEADER_VALUE.equals(factory.extractedHeader)) {
         throw new AssertionError(
-            "Expected to extract the header value '" +
-                EXPECTED_HEADER_VALUE +
-                "', but found: " +
-                factory.extractedHeader);
+            "Expected to extract the header value '"
+                + EXPECTED_HEADER_VALUE
+                + "', but found: "
+                + factory.extractedHeader);
       }
 
       // Should not fail
@@ -89,10 +92,10 @@ final class MiddlewareScenario implements Scenario {
       client.getInfo(FlightDescriptor.command(COMMAND_SUCCESS));
       if (!EXPECTED_HEADER_VALUE.equals(factory.extractedHeader)) {
         throw new AssertionError(
-            "Expected to extract the header value '" +
-                EXPECTED_HEADER_VALUE +
-                "', but found: " +
-                factory.extractedHeader);
+            "Expected to extract the header value '"
+                + EXPECTED_HEADER_VALUE
+                + "', but found: "
+                + factory.extractedHeader);
       }
     }
   }
@@ -112,19 +115,17 @@ final class MiddlewareScenario implements Scenario {
     }
 
     @Override
-    public void onCallCompleted(CallStatus status) {
-    }
+    public void onCallCompleted(CallStatus status) {}
 
     @Override
-    public void onCallErrored(Throwable err) {
-    }
+    public void onCallErrored(Throwable err) {}
 
     /** The factory for the server middleware. */
     static class Factory implements FlightServerMiddleware.Factory<InjectingServerMiddleware> {
 
       @Override
-      public InjectingServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders,
-          RequestContext context) {
+      public InjectingServerMiddleware onCallStarted(
+          CallInfo info, CallHeaders incomingHeaders, RequestContext context) {
         String incoming = incomingHeaders.get(HEADER);
         return new InjectingServerMiddleware(incoming == null ? "" : incoming);
       }
@@ -151,8 +152,7 @@ final class MiddlewareScenario implements Scenario {
     }
 
     @Override
-    public void onCallCompleted(CallStatus status) {
-    }
+    public void onCallCompleted(CallStatus status) {}
 
     /** The factory for the client middleware. */
     static class Factory implements FlightClientMiddleware.Factory {

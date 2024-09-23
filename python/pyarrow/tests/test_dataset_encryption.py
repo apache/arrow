@@ -17,7 +17,7 @@
 
 import base64
 from datetime import timedelta
-import numpy as np
+import random
 import pyarrow.fs as fs
 import pyarrow as pa
 
@@ -142,6 +142,18 @@ def test_dataset_encryption_decryption():
 
     assert table.equals(dataset.to_table())
 
+    # set decryption properties for parquet fragment scan options
+    decryption_properties = crypto_factory.file_decryption_properties(
+        kms_connection_config, decryption_config)
+    pq_scan_opts = ds.ParquetFragmentScanOptions(
+        decryption_properties=decryption_properties
+    )
+
+    pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
+    dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
+
+    assert table.equals(dataset.to_table())
+
 
 @pytest.mark.skipif(
     not encryption_unavailable, reason="Parquet Encryption is currently enabled"
@@ -175,7 +187,10 @@ def test_large_row_encryption_decryption():
 
     row_count = 2**15 + 1
     table = pa.Table.from_arrays(
-        [pa.array(np.random.rand(row_count), type=pa.float32())], names=["foo"]
+        [pa.array(
+            [random.random() for _ in range(row_count)],
+            type=pa.float32()
+        )], names=["foo"]
     )
 
     kms_config = pe.KmsConnectionConfig()

@@ -17,7 +17,7 @@
 package pqarrow
 
 import (
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v18/arrow"
 )
 
 func releaseArrays(arrays []arrow.Array) {
@@ -38,6 +38,8 @@ func releaseArrayData(data []arrow.ArrayData) {
 
 func releaseColumns(columns []arrow.Column) {
 	for _, col := range columns {
-		col.Release()
+		if col.Data() != nil { // data can be nil due to the way columns are constructed in ReadRowGroups
+			col.Release()
+		}
 	}
 }

@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import org.apache.arrow.vector.FieldVector;
 
 /**
  * Base class for non-skippable avro consumers.
+ *
  * @param <T> vector type.
  */
 public abstract class BaseAvroConsumer<T extends FieldVector> implements Consumer<T> {
@@ -30,6 +30,7 @@ public abstract class BaseAvroConsumer<T extends FieldVector> implements Consume
 
   /**
    * Constructs a base avro consumer.
+   *
    * @param vector the vector to consume.
    */
   public BaseAvroConsumer(T vector) {

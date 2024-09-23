@@ -24,10 +24,10 @@
 #include "arrow/acero/swiss_join_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/array/util.h"  // MakeArrayFromScalar
-#include "arrow/compute/kernels/row_encoder_internal.h"
-#include "arrow/compute/key_hash.h"
+#include "arrow/compute/key_hash_internal.h"
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/compute/row/encode_internal.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/tracing_internal.h"
@@ -122,7 +122,7 @@ void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_ro
   if (!is_fixed_length_column) {
     int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
     const uint8_t* row_ptr_base = rows.data(2);
-    const uint32_t* row_offsets = rows.offsets();
+    const RowTableImpl::offset_type* row_offsets = rows.offsets();
     uint32_t field_offset_within_row, field_length;
 
     if (varbinary_column_id == 0) {
@@ -173,7 +173,7 @@ void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_ro
       // Case 4: This is a fixed length column in a varying length row
       //
       const uint8_t* row_ptr_base = rows.data(2) + field_offset_within_row;
-      const uint32_t* row_offsets = rows.offsets();
+      const RowTableImpl::offset_type* row_offsets = rows.offsets();
       for (int i = 0; i < num_rows; ++i) {
         uint32_t row_id = row_ids[i];
         const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
@@ -473,17 +473,10 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     (*first_target_row_id)[sources.size()] = num_rows;
   }
 
-  if (num_bytes > std::numeric_limits<uint32_t>::max()) {
-    return Status::Invalid(
-        "There are more than 2^32 bytes of key data.  Acero cannot "
-        "process a join of this magnitude");
-  }
-
   // Allocate target memory
   //
   target->rows_.Clean();
-  RETURN_NOT_OK(target->rows_.AppendEmpty(static_cast<uint32_t>(num_rows),
-                                          static_cast<uint32_t>(num_bytes)));
+  RETURN_NOT_OK(target->rows_.AppendEmpty(static_cast<uint32_t>(num_rows), num_bytes));
 
   // In case of varying length rows,
   // initialize the first row offset for each range of rows corresponding to a
@@ -565,15 +558,15 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
                                       int64_t first_target_row_offset,
                                       const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
-  uint32_t* target_offsets = target->mutable_offsets();
-  const uint32_t* source_offsets = source.offsets();
+  RowTableImpl::offset_type* target_offsets = target->mutable_offsets();
+  const RowTableImpl::offset_type* source_offsets = source.offsets();
 
   // Permutation of source rows is optional.
   //
   if (!source_rows_permutation) {
     int64_t target_row_offset = first_target_row_offset;
     for (int64_t i = 0; i < num_source_rows; ++i) {
-      target_offsets[first_target_row_id + i] = static_cast<uint32_t>(target_row_offset);
+      target_offsets[first_target_row_id + i] = target_row_offset;
       target_row_offset += source_offsets[i + 1] - source_offsets[i];
     }
     // We purposefully skip outputting of N+1 offset, to allow concurrent
@@ -593,7 +586,10 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
       int64_t source_row_id = source_rows_permutation[i];
       const uint64_t* source_row_ptr = reinterpret_cast<const uint64_t*>(
           source.data(2) + source_offsets[source_row_id]);
-      uint32_t length = source_offsets[source_row_id + 1] - source_offsets[source_row_id];
+      int64_t length = source_offsets[source_row_id + 1] - source_offsets[source_row_id];
+      // Though the row offset is 64-bit, the length of a single row must be 32-bit as
+      // required by current row table implementation.
+      DCHECK_LE(length, std::numeric_limits<uint32_t>::max());
 
       // Rows should be 64-bit aligned.
       // In that case we can copy them using a sequence of 64-bit read/writes.
@@ -604,7 +600,7 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
         *target_row_ptr++ = *source_row_ptr++;
       }
 
-      target_offsets[first_target_row_id + i] = static_cast<uint32_t>(target_row_offset);
+      target_offsets[first_target_row_id + i] = target_row_offset;
       target_row_offset += length;
     }
   }
@@ -1671,7 +1667,7 @@ Result<std::shared_ptr<ArrayData>> JoinResultMaterialize::FlushBuildColumn(
     const std::shared_ptr<DataType>& data_type, const RowArray* row_array, int column_id,
     uint32_t* row_ids) {
   ResizableArrayData output;
-  output.Init(data_type, pool_, bit_util::Log2(num_rows_));
+  RETURN_NOT_OK(output.Init(data_type, pool_, bit_util::Log2(num_rows_)));
 
   for (size_t i = 0; i <= null_ranges_.size(); ++i) {
     int row_id_begin =
@@ -2167,6 +2163,11 @@ Status JoinResidualFilter::FilterOneBatch(const ExecBatch& keypayload_batch,
   ARROW_DCHECK(!output_payload_ids || payload_ids_maybe_null);
 
   *num_passing_rows = 0;
+
+  if (num_batch_rows == 0) {
+    return Status::OK();
+  }
+
   ARROW_ASSIGN_OR_RAISE(Datum mask,
                         EvalFilter(keypayload_batch, num_batch_rows, batch_row_ids,
                                    key_ids_maybe_null, payload_ids_maybe_null));
@@ -2246,8 +2247,9 @@ Result<ExecBatch> JoinResidualFilter::MaterializeFilterInput(
         build_schemas_->map(HashJoinProjection::FILTER, HashJoinProjection::PAYLOAD);
     for (int i = 0; i < num_build_cols; ++i) {
       ResizableArrayData column_data;
-      column_data.Init(build_schemas_->data_type(HashJoinProjection::FILTER, i), pool_,
-                       bit_util::Log2(num_batch_rows));
+      RETURN_NOT_OK(
+          column_data.Init(build_schemas_->data_type(HashJoinProjection::FILTER, i),
+                           pool_, bit_util::Log2(num_batch_rows)));
       if (auto idx = to_key.get(i); idx != SchemaProjectionMap::kMissingField) {
         RETURN_NOT_OK(build_keys_->DecodeSelected(&column_data, idx, num_batch_rows,
                                                   key_ids_maybe_null, pool_));
@@ -2465,6 +2467,8 @@ Status JoinProbeProcessor::OnFinished() {
 
 class SwissJoin : public HashJoinImpl {
  public:
+  static constexpr auto kTempStackUsage = 64 * arrow::util::MiniBatch::kMiniBatchLength;
+
   Status Init(QueryContext* ctx, JoinType join_type, size_t num_threads,
               const HashJoinProjectionMaps* proj_map_left,
               const HashJoinProjectionMaps* proj_map_right,
@@ -2508,6 +2512,7 @@ class SwissJoin : public HashJoinImpl {
 
     local_states_.resize(num_threads_);
     for (int i = 0; i < num_threads_; ++i) {
+      RETURN_NOT_OK(local_states_[i].stack.Init(pool_, kTempStackUsage));
       local_states_[i].hash_table_ready = false;
       local_states_[i].num_output_batches = 0;
       local_states_[i].materialize.Init(pool_, proj_map_left, proj_map_right);
@@ -2561,8 +2566,7 @@ class SwissJoin : public HashJoinImpl {
 
     ExecBatch keypayload_batch;
     ARROW_ASSIGN_OR_RAISE(keypayload_batch, KeyPayloadFromInput(/*side=*/0, &batch));
-    ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * temp_stack,
-                          ctx_->GetTempStack(thread_index));
+    arrow::util::TempVectorStack* temp_stack = &local_states_[thread_index].stack;
 
     return CancelIfNotOK(
         probe_processor_.OnNextBatch(thread_index, keypayload_batch, temp_stack,
@@ -2674,8 +2678,7 @@ class SwissJoin : public HashJoinImpl {
             input_batch.values[schema->num_cols(HashJoinProjection::KEY) + icol];
       }
     }
-    ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * temp_stack,
-                          ctx_->GetTempStack(thread_id));
+    arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
     RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PushNextBatch(
         static_cast<int64_t>(thread_id), key_batch, no_payload ? nullptr : &payload_batch,
         temp_stack)));
@@ -2710,8 +2713,7 @@ class SwissJoin : public HashJoinImpl {
 
   Status MergeFinished(size_t thread_id) {
     RETURN_NOT_OK(status());
-    ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * temp_stack,
-                          ctx_->GetTempStack(thread_id));
+    arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
     hash_table_build_.FinishPrtnMerge(temp_stack);
     return CancelIfNotOK(OnBuildHashTableFinished(static_cast<int64_t>(thread_id)));
   }
@@ -2766,8 +2768,7 @@ class SwissJoin : public HashJoinImpl {
         std::min((task_id + 1) * kNumRowsPerScanTask, hash_table_.num_rows());
     // Get thread index and related temp vector stack
     //
-    ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * temp_stack,
-                          ctx_->GetTempStack(thread_id));
+    arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
 
     // Split into mini-batches
     //
@@ -2944,6 +2945,7 @@ class SwissJoin : public HashJoinImpl {
   FinishedCallback finished_callback_;
 
   struct ThreadLocalState {
+    arrow::util::TempVectorStack stack;
     JoinResultMaterialize materialize;
     std::vector<KeyColumnArray> temp_column_arrays;
     int64_t num_output_batches;
@@ -2980,7 +2982,7 @@ class SwissJoin : public HashJoinImpl {
 
 Result<std::unique_ptr<HashJoinImpl>> HashJoinImpl::MakeSwiss() {
   std::unique_ptr<HashJoinImpl> impl{new SwissJoin()};
-  return std::move(impl);
+  return impl;
 }
 
 }  // namespace acero

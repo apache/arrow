@@ -14,21 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Types;
-
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeSecVector;
 
-/**
- * A binder for 32-bit time types.
- */
+/** A binder for 32-bit time types. */
 public class Time32Binder extends BaseColumnBinder<BaseFixedWidthVector> {
   private static final long TYPE_WIDTH = 4;
 
@@ -43,11 +39,11 @@ public class Time32Binder extends BaseColumnBinder<BaseFixedWidthVector> {
   }
 
   public Time32Binder(TimeSecVector vector, int jdbcType) {
-    this(vector, /*factor*/1_000, jdbcType);
+    this(vector, /*factor*/ 1_000, jdbcType);
   }
 
   public Time32Binder(TimeMilliVector vector, int jdbcType) {
-    this(vector, /*factor*/1, jdbcType);
+    this(vector, /*factor*/ 1, jdbcType);
   }
 
   Time32Binder(BaseFixedWidthVector vector, long factor, int jdbcType) {
@@ -56,7 +52,8 @@ public class Time32Binder extends BaseColumnBinder<BaseFixedWidthVector> {
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
     // TODO: multiply with overflow
     // TODO: take in a Calendar as well?
     final Time value = new Time(vector.getDataBuffer().getInt(rowIndex * TYPE_WIDTH) * factor);

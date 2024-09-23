@@ -25,6 +25,7 @@
 G_BEGIN_DECLS
 
 #define GGANDIVA_TYPE_FILTER (ggandiva_filter_get_type())
+GGANDIVA_AVAILABLE_IN_4_0
 G_DECLARE_DERIVABLE_TYPE(GGandivaFilter, ggandiva_filter, GGANDIVA, FILTER, GObject)
 
 struct _GGandivaFilterClass
@@ -32,8 +33,11 @@ struct _GGandivaFilterClass
   GObjectClass parent_class;
 };
 
+GGANDIVA_AVAILABLE_IN_4_0
 GGandivaFilter *
 ggandiva_filter_new(GArrowSchema *schema, GGandivaCondition *condition, GError **error);
+
+GGANDIVA_AVAILABLE_IN_4_0
 gboolean
 ggandiva_filter_evaluate(GGandivaFilter *filter,
                          GArrowRecordBatch *record_batch,

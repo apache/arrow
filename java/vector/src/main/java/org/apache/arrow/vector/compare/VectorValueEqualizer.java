@@ -14,20 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.compare;
 
 import org.apache.arrow.vector.ValueVector;
 
 /**
  * A function to determine if two vectors are equal at specified positions.
+ *
  * @param <V> the vector type.
  */
 public interface VectorValueEqualizer<V extends ValueVector> extends Cloneable {
 
   /**
-   * Checks if the vectors are equal at the given positions, given that the values
-   * at both positions are non-null.
+   * Checks if the vectors are equal at the given positions, given that the values at both positions
+   * are non-null.
+   *
    * @param vector1 the first vector.
    * @param index1 index in the first vector.
    * @param vector2 the second vector.
@@ -38,6 +39,7 @@ public interface VectorValueEqualizer<V extends ValueVector> extends Cloneable {
 
   /**
    * Creates a equalizer of the same type.
+   *
    * @return the newly created equalizer.
    */
   VectorValueEqualizer<V> clone();

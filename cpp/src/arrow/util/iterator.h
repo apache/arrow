@@ -105,9 +105,18 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
   Iterator() : ptr_(NULLPTR, [](void*) {}) {}
 
   /// \brief Return the next element of the sequence, IterationTraits<T>::End() when the
-  /// iteration is completed. Calling this on a default constructed Iterator
-  /// will result in undefined behavior.
-  Result<T> Next() { return next_(ptr_.get()); }
+  /// iteration is completed.
+  Result<T> Next() {
+    if (ptr_) {
+      auto next_result = next_(ptr_.get());
+      if (next_result.ok() && IsIterationEnd(next_result.ValueUnsafe())) {
+        ptr_.reset(NULLPTR);
+      }
+      return next_result;
+    } else {
+      return IterationTraits<T>::End();
+    }
+  }
 
   /// Pass each element of the sequence to a visitor. Will return any error status
   /// returned by the visitor, terminating iteration.
@@ -180,9 +189,7 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
       ARROW_ASSIGN_OR_RAISE(auto element, maybe_element);
       out.push_back(std::move(element));
     }
-    // ARROW-8193: On gcc-4.8 without the explicit move it tries to use the
-    // copy constructor, which may be deleted on the elements of type T
-    return std::move(out);
+    return out;
   }
 
  private:

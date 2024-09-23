@@ -67,26 +67,6 @@ sloppiness = include_file_ctime
 hash_dir = false" >> ~/.ccache/ccache.conf
 fi
 
-# Special hacking to try to reproduce quirks on centos using non-default build
-# tooling.
-if [[ -n "$DEVTOOLSET_VERSION" ]]; then
-  $PACKAGE_MANAGER install -y centos-release-scl
-  $PACKAGE_MANAGER install -y "devtoolset-$DEVTOOLSET_VERSION"
-
-  # Enable devtoolset here so that `which gcc` finds the right compiler below
-  source /opt/rh/devtoolset-${DEVTOOLSET_VERSION}/enable
-
-  # Build images which require the devtoolset don't have CXX17 variables
-  # set as the system compiler doesn't support C++17
-  if [ ! "`{R_BIN} CMD config CXX17`" ]; then
-    mkdir -p ~/.R
-    echo "CC = $(which gcc) -fPIC" >> ~/.R/Makevars
-    echo "CXX17 = $(which g++) -fPIC" >> ~/.R/Makevars
-    echo "CXX17STD = -std=c++17" >> ~/.R/Makevars
-    echo "CXX17FLAGS = ${CXX11FLAGS}" >> ~/.R/Makevars
-  fi
-fi
-
 if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh" ]; then
   "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh"
 fi

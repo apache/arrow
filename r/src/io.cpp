@@ -212,11 +212,16 @@ void io___BufferOutputStream__Write(
 class RConnectionFileInterface : public virtual arrow::io::FileInterface {
  public:
   explicit RConnectionFileInterface(cpp11::sexp connection_sexp)
-      : connection_sexp_(connection_sexp), closed_(false) {
+      : connection_sexp_(connection_sexp),
+        closed_(false),
+        seekable_(false),
+        bytes_written_(0),
+        bytes_read_(0) {
     check_closed();
+    seekable_ = check_seekable();
   }
 
-  arrow::Status Close() {
+  arrow::Status Close() override {
     if (closed_) {
       return arrow::Status::OK();
     }
@@ -227,9 +232,19 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
                              "close() on R connection");
   }
 
-  arrow::Result<int64_t> Tell() const {
+  arrow::Result<int64_t> Tell() const override {
     if (closed()) {
       return arrow::Status::IOError("R connection is closed");
+    }
+
+    // R connections use seek() with no additional arguments as a tell()
+    // implementation; however, non-seekable connections will error if you
+    // do this. This heuristic allows Tell() to return a reasonable value
+    // (used by at least the IPC writer).
+    if (!seekable_ && bytes_written_ > 0) {
+      return bytes_written_;
+    } else if (!seekable_) {
+      return bytes_read_;
     }
 
     return SafeCallIntoR<int64_t>(
@@ -240,7 +255,7 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
         "tell() on R connection");
   }
 
-  bool closed() const { return closed_; }
+  bool closed() const override { return closed_; }
 
  protected:
   cpp11::sexp connection_sexp_;
@@ -261,13 +276,14 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
     return SafeCallIntoR<int64_t>(
         [&] {
           cpp11::function read_bin = cpp11::package("base")["readBin"];
-          cpp11::writable::raws ptype((R_xlen_t)0);
+          cpp11::writable::raws ptype(static_cast<R_xlen_t>(0));
           cpp11::integers n = cpp11::as_sexp<int>(static_cast<int>(nbytes));
 
           cpp11::sexp result = read_bin(connection_sexp_, ptype, n);
 
           int64_t result_size = cpp11::safe[Rf_xlength](result);
           memcpy(out, cpp11::safe[RAW](result), result_size);
+          bytes_read_++;
           return result_size;
         },
         "readBin() on R connection");
@@ -294,6 +310,7 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
 
           cpp11::function write_bin = cpp11::package("base")["writeBin"];
           write_bin(data_raw, connection_sexp_);
+          bytes_written_ += nbytes;
         },
         "writeBin() on R connection");
   }
@@ -312,6 +329,9 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
 
  private:
   bool closed_;
+  bool seekable_;
+  int64_t bytes_written_;
+  int64_t bytes_read_;
 
   bool check_closed() {
     if (closed_) {
@@ -333,6 +353,15 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
 
     return closed_;
   }
+
+  bool check_seekable() {
+    auto is_seekable_result = SafeCallIntoR<bool>([&] {
+      cpp11::sexp result = cpp11::package("base")["isSeekable"](connection_sexp_);
+      return cpp11::as_cpp<bool>(result);
+    });
+
+    return is_seekable_result.ok() && *is_seekable_result;
+  }
 };
 
 class RConnectionInputStream : public virtual arrow::io::InputStream,
@@ -341,9 +370,11 @@ class RConnectionInputStream : public virtual arrow::io::InputStream,
   explicit RConnectionInputStream(cpp11::sexp connection_sexp)
       : RConnectionFileInterface(connection_sexp) {}
 
-  arrow::Result<int64_t> Read(int64_t nbytes, void* out) { return ReadBase(nbytes, out); }
+  arrow::Result<int64_t> Read(int64_t nbytes, void* out) override {
+    return ReadBase(nbytes, out);
+  }
 
-  arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t nbytes) {
+  arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t nbytes) override {
     return ReadBase(nbytes);
   }
 };
@@ -373,13 +404,15 @@ class RConnectionRandomAccessFile : public arrow::io::RandomAccessFile,
     }
   }
 
-  arrow::Result<int64_t> GetSize() { return size_; }
+  arrow::Result<int64_t> GetSize() override { return size_; }
 
-  arrow::Status Seek(int64_t pos) { return SeekBase(pos); }
+  arrow::Status Seek(int64_t pos) override { return SeekBase(pos); }
 
-  arrow::Result<int64_t> Read(int64_t nbytes, void* out) { return ReadBase(nbytes, out); }
+  arrow::Result<int64_t> Read(int64_t nbytes, void* out) override {
+    return ReadBase(nbytes, out);
+  }
 
-  arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t nbytes) {
+  arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t nbytes) override {
     return ReadBase(nbytes);
   }
 
@@ -393,7 +426,7 @@ class RConnectionOutputStream : public arrow::io::OutputStream,
   explicit RConnectionOutputStream(cpp11::sexp connection_sexp)
       : RConnectionFileInterface(connection_sexp) {}
 
-  arrow::Status Write(const void* data, int64_t nbytes) {
+  arrow::Status Write(const void* data, int64_t nbytes) override {
     return WriteBase(data, nbytes);
   }
 };

@@ -14,20 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
-
 import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.util.DecimalUtility;
 
-/**
- * A binder for 256-bit decimals.
- */
+/** A binder for 256-bit decimals. */
 public class Decimal256Binder extends BaseColumnBinder<Decimal256Vector> {
   public Decimal256Binder(Decimal256Vector vector) {
     this(vector, Types.DECIMAL);
@@ -38,9 +34,11 @@ public class Decimal256Binder extends BaseColumnBinder<Decimal256Vector> {
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
-    final BigDecimal value = DecimalUtility.getBigDecimalFromArrowBuf(
-        vector.getDataBuffer(), rowIndex, vector.getScale(), Decimal256Vector.TYPE_WIDTH);
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
+    final BigDecimal value =
+        DecimalUtility.getBigDecimalFromArrowBuf(
+            vector.getDataBuffer(), rowIndex, vector.getScale(), Decimal256Vector.TYPE_WIDTH);
     statement.setBigDecimal(parameterIndex, value);
   }
 }

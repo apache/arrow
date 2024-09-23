@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import java.sql.Connection;
@@ -23,17 +22,13 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
-
 import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
 import javax.sql.PooledConnection;
 import javax.sql.StatementEventListener;
-
 import org.apache.arrow.driver.jdbc.utils.ConnectionWrapper;
 
-/**
- * {@link PooledConnection} implementation for Arrow Flight JDBC Driver.
- */
+/** {@link PooledConnection} implementation for Arrow Flight JDBC Driver. */
 public class ArrowFlightJdbcPooledConnection implements PooledConnection {
 
   private final ArrowFlightConnection connection;

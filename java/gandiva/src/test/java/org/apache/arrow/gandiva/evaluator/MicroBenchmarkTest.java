@@ -14,24 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.evaluator;
 
-import java.util.List;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.common.collect.Lists;
+import java.util.List;
 import org.apache.arrow.gandiva.expression.Condition;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.expression.TreeBuilder;
 import org.apache.arrow.gandiva.expression.TreeNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
-import com.google.common.collect.Lists;
-
-@Ignore
+@Disabled
 public class MicroBenchmarkTest extends BaseEvaluatorTest {
 
   private double toleranceRatio = 4.0;
@@ -54,13 +52,16 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
     List<Field> cols = Lists.newArrayList(x, n2x, n3x);
     Schema schema = new Schema(cols);
 
-    long timeTaken = timedProject(new Int32DataAndVectorGenerator(allocator),
-        schema,
-        Lists.newArrayList(expr),
-        1 * MILLION, 16 * THOUSAND,
-        4);
+    long timeTaken =
+        timedProject(
+            new Int32DataAndVectorGenerator(allocator),
+            schema,
+            Lists.newArrayList(expr),
+            1 * MILLION,
+            16 * THOUSAND,
+            4);
     System.out.println("Time taken for projecting 1m records of add3 is " + timeTaken + "ms");
-    Assert.assertTrue(timeTaken <= 13 * toleranceRatio);
+    assertTrue(timeTaken <= 13 * toleranceRatio);
   }
 
   @Test
@@ -115,13 +116,16 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
     ExpressionTree expr = TreeBuilder.makeExpression(topNode, x);
     Schema schema = new Schema(Lists.newArrayList(x));
 
-    long timeTaken = timedProject(new BoundedInt32DataAndVectorGenerator(allocator, 250),
-        schema,
-        Lists.newArrayList(expr),
-        1 * MILLION, 16 * THOUSAND,
-        4);
+    long timeTaken =
+        timedProject(
+            new BoundedInt32DataAndVectorGenerator(allocator, 250),
+            schema,
+            Lists.newArrayList(expr),
+            1 * MILLION,
+            16 * THOUSAND,
+            4);
     System.out.println("Time taken for projecting 10m records of nestedIf is " + timeTaken + "ms");
-    Assert.assertTrue(timeTaken <= 15 * toleranceRatio);
+    assertTrue(timeTaken <= 15 * toleranceRatio);
   }
 
   @Test
@@ -131,21 +135,26 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
     Field n3x = Field.nullable("n3x", int32);
 
     // x + n2x < n3x
-    TreeNode add = TreeBuilder.makeFunction("add",
-        Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeField(n2x)), int32);
-    TreeNode lessThan = TreeBuilder
-        .makeFunction("less_than", Lists.newArrayList(add, TreeBuilder.makeField(n3x)), boolType);
+    TreeNode add =
+        TreeBuilder.makeFunction(
+            "add", Lists.newArrayList(TreeBuilder.makeField(x), TreeBuilder.makeField(n2x)), int32);
+    TreeNode lessThan =
+        TreeBuilder.makeFunction(
+            "less_than", Lists.newArrayList(add, TreeBuilder.makeField(n3x)), boolType);
     Condition condition = TreeBuilder.makeCondition(lessThan);
 
     List<Field> cols = Lists.newArrayList(x, n2x, n3x);
     Schema schema = new Schema(cols);
 
-    long timeTaken = timedFilter(new Int32DataAndVectorGenerator(allocator),
-        schema,
-        condition,
-        1 * MILLION, 16 * THOUSAND,
-        4);
+    long timeTaken =
+        timedFilter(
+            new Int32DataAndVectorGenerator(allocator),
+            schema,
+            condition,
+            1 * MILLION,
+            16 * THOUSAND,
+            4);
     System.out.println("Time taken for filtering 10m records of a+b<c is " + timeTaken + "ms");
-    Assert.assertTrue(timeTaken <= 12 * toleranceRatio);
+    assertTrue(timeTaken <= 12 * toleranceRatio);
   }
 }

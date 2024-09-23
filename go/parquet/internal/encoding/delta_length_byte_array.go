@@ -17,9 +17,9 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/internal/utils"
-	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -110,9 +110,9 @@ func (d *DeltaLengthByteArrayDecoder) Allocator() memory.Allocator { return d.me
 // followed by the rest of the byte array data immediately after.
 func (d *DeltaLengthByteArrayDecoder) SetData(nvalues int, data []byte) error {
 	dec := DeltaBitPackInt32Decoder{
-		deltaBitPackDecoder: &deltaBitPackDecoder{
-			decoder: newDecoderBase(d.encoding, d.descr),
-			mem:     d.mem}}
+		decoder: newDecoderBase(d.encoding, d.descr),
+		mem:     d.mem,
+	}
 
 	if err := dec.SetData(nvalues, data); err != nil {
 		return err

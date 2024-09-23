@@ -48,16 +48,31 @@ After installed, it runs the merge script.
 you'll have to install Python dependencies yourself and then run
 `dev/merge_arrow_pr.py` directly.)
 
+The merge script requires tokens for access control. There are two options
+for configuring your tokens: environment variables or a configuration file.
+
+> Note: Arrow only requires a GitHub token. Parquet can use GitHub or
+JIRA tokens.
+
+#### Pass tokens via Environment Variables
+
 The merge script uses the GitHub REST API. You must set a
-`ARROW_GITHUB_API_TOKEN` environment variable to use a 
-[Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token). 
+`ARROW_GITHUB_API_TOKEN` environment variable to use a
+[Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
 You need to add `workflow` scope to the Personal Access Token.
 
-You can specify the 
+You can specify the
 [Personal Access Token](https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html)
-of your JIRA account in the 
+of your JIRA account in the
 `APACHE_JIRA_TOKEN` environment variable.
 If the variable is not set, the script will ask you for it.
+
+#### Pass tokens via configuration file
+
+```
+cp ./merge.conf.sample ~/.config/arrow/merge.conf
+```
+Update your new `merge.conf` file with your Personal Access Tokens.
 
 Example output:
 

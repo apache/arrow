@@ -26,5 +26,5 @@ numpy>=1.16.6
 pytest
 pytest-faulthandler
 s3fs>=2023.10.0
-setuptools
-setuptools_scm
+setuptools>=64
+setuptools_scm>=8

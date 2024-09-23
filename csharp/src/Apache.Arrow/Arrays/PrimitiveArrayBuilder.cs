@@ -20,7 +20,7 @@ using System.Linq;
 
 namespace Apache.Arrow
 {
-    public abstract class PrimitiveArrayBuilder<TFrom, TTo, TArray, TBuilder> : IArrowArrayBuilder<TArray, TBuilder>
+    public abstract class PrimitiveArrayBuilder<TFrom, TTo, TArray, TBuilder> : IArrowArrayBuilder<TFrom, TArray, TBuilder>
         where TTo : struct
         where TArray : IArrowArray
         where TBuilder : class, IArrowArrayBuilder<TArray>

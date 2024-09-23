@@ -17,7 +17,10 @@
 
 #include "parquet/arrow/schema_internal.h"
 
+#include "arrow/extension/json.h"
 #include "arrow/type.h"
+
+#include "parquet/properties.h"
 
 using ArrowType = ::arrow::DataType;
 using ArrowTypeId = ::arrow::Type;
@@ -107,7 +110,8 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical
   }
 }
 
-Result<std::shared_ptr<ArrowType>> FromByteArray(const LogicalType& logical_type) {
+Result<std::shared_ptr<ArrowType>> FromByteArray(
+    const LogicalType& logical_type, const ArrowReaderProperties& reader_properties) {
   switch (logical_type.type()) {
     case LogicalType::Type::STRING:
       return ::arrow::utf8();
@@ -115,9 +119,15 @@ Result<std::shared_ptr<ArrowType>> FromByteArray(const LogicalType& logical_type
       return MakeArrowDecimal(logical_type);
     case LogicalType::Type::NONE:
     case LogicalType::Type::ENUM:
-    case LogicalType::Type::JSON:
     case LogicalType::Type::BSON:
       return ::arrow::binary();
+    case LogicalType::Type::JSON:
+      if (reader_properties.get_arrow_extensions_enabled()) {
+        return ::arrow::extension::json(::arrow::utf8());
+      }
+      // When the original Arrow schema isn't stored and Arrow extensions are disabled,
+      // LogicalType::JSON is read as utf8().
+      return ::arrow::utf8();
     default:
       return Status::NotImplemented("Unhandled logical logical_type ",
                                     logical_type.ToString(), " for binary array");
@@ -180,7 +190,7 @@ Result<std::shared_ptr<ArrowType>> FromInt64(const LogicalType& logical_type) {
 
 Result<std::shared_ptr<ArrowType>> GetArrowType(
     Type::type physical_type, const LogicalType& logical_type, int type_length,
-    const ::arrow::TimeUnit::type int96_arrow_time_unit) {
+    const ArrowReaderProperties& reader_properties) {
   if (logical_type.is_invalid() || logical_type.is_null()) {
     return ::arrow::null();
   }
@@ -193,13 +203,13 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     case ParquetType::INT64:
       return FromInt64(logical_type);
     case ParquetType::INT96:
-      return ::arrow::timestamp(int96_arrow_time_unit);
+      return ::arrow::timestamp(reader_properties.coerce_int96_timestamp_unit());
     case ParquetType::FLOAT:
       return ::arrow::float32();
     case ParquetType::DOUBLE:
       return ::arrow::float64();
     case ParquetType::BYTE_ARRAY:
-      return FromByteArray(logical_type);
+      return FromByteArray(logical_type, reader_properties);
     case ParquetType::FIXED_LEN_BYTE_ARRAY:
       return FromFLBA(logical_type, type_length);
     default: {
@@ -212,9 +222,9 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
 
 Result<std::shared_ptr<ArrowType>> GetArrowType(
     const schema::PrimitiveNode& primitive,
-    const ::arrow::TimeUnit::type int96_arrow_time_unit) {
+    const ArrowReaderProperties& reader_properties) {
   return GetArrowType(primitive.physical_type(), *primitive.logical_type(),
-                      primitive.type_length(), int96_arrow_time_unit);
+                      primitive.type_length(), reader_properties);
 }
 
 }  // namespace parquet::arrow

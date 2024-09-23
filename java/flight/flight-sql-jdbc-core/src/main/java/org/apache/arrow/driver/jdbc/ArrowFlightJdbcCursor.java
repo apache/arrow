@@ -14,16 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
-
 
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
@@ -34,9 +31,7 @@ import org.apache.calcite.avatica.util.ArrayImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Arrow Flight Jdbc's Cursor class.
- */
+/** Arrow Flight Jdbc's Cursor class. */
 public class ArrowFlightJdbcCursor extends AbstractCursor {
 
   private static final Logger LOGGER;
@@ -54,18 +49,20 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
   }
 
   @Override
-  public List<Accessor> createAccessors(List<ColumnMetaData> columns,
-                                        Calendar localCalendar,
-                                        ArrayImpl.Factory factory) {
+  public List<Accessor> createAccessors(
+      List<ColumnMetaData> columns, Calendar localCalendar, ArrayImpl.Factory factory) {
     final List<FieldVector> fieldVectors = root.getFieldVectors();
 
-    return IntStream.range(0, fieldVectors.size()).mapToObj(root::getVector)
+    return IntStream.range(0, fieldVectors.size())
+        .mapToObj(root::getVector)
         .map(this::createAccessor)
         .collect(Collectors.toCollection(() -> new ArrayList<>(fieldVectors.size())));
   }
 
   private Accessor createAccessor(FieldVector vector) {
-    return ArrowFlightJdbcAccessorFactory.createAccessor(vector, this::getCurrentRow,
+    return ArrowFlightJdbcAccessorFactory.createAccessor(
+        vector,
+        this::getCurrentRow,
         (boolean wasNull) -> {
           // AbstractCursor creates a boolean array of length 1 to hold the wasNull value
           this.wasNull[0] = wasNull;
@@ -73,8 +70,9 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
   }
 
   /**
-   * ArrowFlightJdbcAccessors do not use {@link AbstractCursor.Getter}, as it would box primitive types and cause
-   * performance issues. Each Accessor implementation works directly on Arrow Vectors.
+   * ArrowFlightJdbcAccessors do not use {@link AbstractCursor.Getter}, as it would box primitive
+   * types and cause performance issues. Each Accessor implementation works directly on Arrow
+   * Vectors.
    */
   @Override
   protected Getter createGetter(int column) {

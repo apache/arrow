@@ -163,7 +163,7 @@ if(CMAKE_THREAD_LIBS_INIT)
 endif()
 
 if(WIN32)
-  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32.dll")
+  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32")
 endif()
 
 if(NOT WIN32 AND NOT APPLE)
@@ -200,22 +200,29 @@ function(arrow_add_object_library PREFIX)
   set(SOURCES ${ARGN})
   string(TOLOWER "${PREFIX}" prefix)
   if(WIN32)
-    add_library(${prefix}_shared OBJECT ${SOURCES})
-    add_library(${prefix}_static OBJECT ${SOURCES})
-    set_target_properties(${prefix}_shared PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    set_target_properties(${prefix}_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_compile_definitions(${prefix}_shared PRIVATE ARROW_EXPORTING)
-    target_compile_definitions(${prefix}_static PRIVATE ARROW_STATIC)
-    target_compile_features(${prefix}_shared PRIVATE cxx_std_17)
-    target_compile_features(${prefix}_static PRIVATE cxx_std_17)
-    set(${PREFIX}_TARGET_SHARED
-        ${prefix}_shared
-        PARENT_SCOPE)
-    set(${PREFIX}_TARGET_STATIC
-        ${prefix}_static
-        PARENT_SCOPE)
+    set(targets)
+    if(ARROW_BUILD_SHARED)
+      add_library(${prefix}_shared OBJECT ${SOURCES})
+      set_target_properties(${prefix}_shared PROPERTIES POSITION_INDEPENDENT_CODE ON)
+      target_compile_definitions(${prefix}_shared PRIVATE ARROW_EXPORTING)
+      target_compile_features(${prefix}_shared PRIVATE cxx_std_17)
+      set(${PREFIX}_TARGET_SHARED
+          ${prefix}_shared
+          PARENT_SCOPE)
+      list(APPEND targets ${prefix}_shared)
+    endif()
+    if(ARROW_BUILD_STATIC)
+      add_library(${prefix}_static OBJECT ${SOURCES})
+      set_target_properties(${prefix}_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+      target_compile_definitions(${prefix}_static PRIVATE ARROW_STATIC)
+      target_compile_features(${prefix}_static PRIVATE cxx_std_17)
+      set(${PREFIX}_TARGET_STATIC
+          ${prefix}_static
+          PARENT_SCOPE)
+      list(APPEND targets ${prefix}_static)
+    endif()
     set(${PREFIX}_TARGETS
-        ${prefix}_shared ${prefix}_static
+        ${targets}
         PARENT_SCOPE)
   else()
     add_library(${prefix} OBJECT ${SOURCES})
@@ -351,6 +358,12 @@ macro(append_runtime_avx512_src SRCS SRC)
   endif()
 endmacro()
 
+# Write out compile-time configuration constants
+configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
+configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")
+
 set(ARROW_SRCS
     builder.cc
     buffer.cc
@@ -360,7 +373,11 @@ set(ARROW_SRCS
     config.cc
     datum.cc
     device.cc
+    device_allocation_type_set.cc
     extension_type.cc
+    extension/bool8.cc
+    extension/json.cc
+    extension/uuid.cc
     pretty_print.cc
     record_batch.cc
     result.cc
@@ -399,6 +416,7 @@ arrow_add_object_library(ARROW_ARRAY
                          array/concatenate.cc
                          array/data.cc
                          array/diff.cc
+                         array/statistics.cc
                          array/util.cc
                          array/validate.cc)
 
@@ -501,6 +519,7 @@ set(ARROW_UTIL_SRCS
     util/decimal.cc
     util/delimiting.cc
     util/dict_util.cc
+    util/fixed_width_internal.cc
     util/float16.cc
     util/formatting.cc
     util/future.cc
@@ -508,6 +527,7 @@ set(ARROW_UTIL_SRCS
     util/int_util.cc
     util/io_util.cc
     util/list_util.cc
+    util/logger.cc
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
@@ -613,10 +633,25 @@ if(ARROW_WITH_ZSTD)
   endforeach()
 endif()
 
+if(ARROW_WITH_OPENTELEMETRY)
+  arrow_add_object_library(ARROW_TELEMETRY telemetry/logging.cc)
+
+  foreach(ARROW_TELEMETRY_TARGET ${ARROW_TELEMETRY_TARGETS})
+    target_link_libraries(${ARROW_TELEMETRY_TARGET} PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
+  endforeach()
+else()
+  set(ARROW_TELEMETRY_TARGET_SHARED)
+  set(ARROW_TELEMETRY_TARGET_STATIC)
+endif()
+
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
-set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON)
-set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers RapidJSON arrow_static
-                                   ${ARROW_GTEST_GTEST})
+set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON Boost::process)
+set(ARROW_TESTING_STATIC_LINK_LIBS
+    arrow::flatbuffers
+    RapidJSON
+    Boost::process
+    arrow_static
+    ${ARROW_GTEST_GTEST})
 set(ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
 set(ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 # that depend on gtest
@@ -628,17 +663,19 @@ else()
   list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ArrowTesting::gtest)
 endif()
 if(WIN32)
-  list(APPEND ARROW_TESTING_SHARED_LINK_LIBS "ws2_32.dll")
-  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS "ws2_32.dll")
-  list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS "ws2_32.dll")
+  list(APPEND ARROW_TESTING_SHARED_LINK_LIBS "ws2_32")
+  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS "ws2_32")
+  list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS "ws2_32")
 endif()
 
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
-    testing/gtest_util.cc
-    testing/random.cc
+    testing/fixed_width_test_util.cc
     testing/generator.cc
+    testing/gtest_util.cc
+    testing/process.cc
+    testing/random.cc
     testing/util.cc)
 
 #
@@ -689,13 +726,12 @@ set(ARROW_COMPUTE_SRCS
     compute/function.cc
     compute/function_internal.cc
     compute/kernel.cc
-    compute/key_hash.cc
-    compute/key_map.cc
-    compute/light_array.cc
+    compute/key_hash_internal.cc
+    compute/key_map_internal.cc
+    compute/light_array_internal.cc
     compute/ordering.cc
     compute/registry.cc
     compute/kernels/codegen_internal.cc
-    compute/kernels/row_encoder.cc
     compute/kernels/ree_util_internal.cc
     compute/kernels/scalar_cast_boolean.cc
     compute/kernels/scalar_cast_dictionary.cc
@@ -714,11 +750,13 @@ set(ARROW_COMPUTE_SRCS
     compute/row/encode_internal.cc
     compute/row/compare_internal.cc
     compute/row/grouper.cc
+    compute/row/row_encoder_internal.cc
     compute/row/row_internal.cc
-    compute/util.cc)
+    compute/util.cc
+    compute/util_internal.cc)
 
-append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_avx2.cc)
-append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_avx2.cc)
+append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_internal_avx2.cc)
+append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_internal_avx2.cc)
 append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/compare_internal_avx2.cc)
 append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/encode_internal_avx2.cc)
 append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/util_avx2.cc)
@@ -878,6 +916,7 @@ endif()
 if(ARROW_JSON)
   arrow_add_object_library(ARROW_JSON
                            extension/fixed_shape_tensor.cc
+                           extension/opaque.cc
                            json/options.cc
                            json/chunked_builder.cc
                            json/chunker.cc
@@ -899,6 +938,10 @@ if(ARROW_ORC)
                            adapters/orc/util.cc)
   foreach(ARROW_ORC_TARGET ${ARROW_ORC_TARGETS})
     target_link_libraries(${ARROW_ORC_TARGET} PRIVATE orc::orc)
+    if(ARROW_ORC_VERSION VERSION_LESS "2.0.0")
+      target_compile_definitions(${ARROW_ORC_TARGET}
+                                 PRIVATE ARROW_ORC_NEED_TIME_ZONE_DATABASE_CHECK)
+    endif()
   endforeach()
 else()
   set(ARROW_ORC_TARGET_SHARED)
@@ -996,6 +1039,7 @@ add_arrow_lib(arrow
               ${ARROW_JSON_TARGET_SHARED}
               ${ARROW_MEMORY_POOL_TARGET_SHARED}
               ${ARROW_ORC_TARGET_SHARED}
+              ${ARROW_TELEMETRY_TARGET_SHARED}
               ${ARROW_UTIL_TARGET_SHARED}
               ${ARROW_VENDORED_TARGET_SHARED}
               ${ARROW_SHARED_PRIVATE_LINK_LIBS}
@@ -1011,6 +1055,7 @@ add_arrow_lib(arrow
               ${ARROW_JSON_TARGET_STATIC}
               ${ARROW_MEMORY_POOL_TARGET_STATIC}
               ${ARROW_ORC_TARGET_STATIC}
+              ${ARROW_TELEMETRY_TARGET_STATIC}
               ${ARROW_UTIL_TARGET_STATIC}
               ${ARROW_VENDORED_TARGET_STATIC}
               ${ARROW_SYSTEM_LINK_LIBS}
@@ -1134,6 +1179,7 @@ add_arrow_test(array_test
                array/array_struct_test.cc
                array/array_union_test.cc
                array/array_view_test.cc
+               array/statistics_test.cc
                PRECOMPILED_HEADERS
                "$<$<COMPILE_LANGUAGE:CXX>:arrow/testing/pch.h>")
 
@@ -1187,6 +1233,7 @@ add_subdirectory(testing)
 add_subdirectory(array)
 add_subdirectory(c)
 add_subdirectory(compute)
+add_subdirectory(extension)
 add_subdirectory(io)
 add_subdirectory(tensor)
 add_subdirectory(util)
@@ -1229,7 +1276,6 @@ endif()
 
 if(ARROW_JSON)
   add_subdirectory(json)
-  add_subdirectory(extension)
 endif()
 
 if(ARROW_ORC)
@@ -1238,6 +1284,10 @@ endif()
 
 if(ARROW_SUBSTRAIT)
   add_subdirectory(engine)
+endif()
+
+if(ARROW_WITH_OPENTELEMETRY)
+  add_subdirectory(telemetry)
 endif()
 
 if(ARROW_TENSORFLOW)

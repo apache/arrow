@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.binder;
 
 import org.apache.arrow.vector.FieldVector;
 
 /**
  * Base class for ColumnBinder implementations.
+ *
  * @param <V> The concrete FieldVector subtype.
  */
 public abstract class BaseColumnBinder<V extends FieldVector> implements ColumnBinder {

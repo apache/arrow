@@ -16,7 +16,7 @@
 # under the License.
 
 from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from functools import partial
 import datetime
 import sys
@@ -30,7 +30,10 @@ except ImportError:
     tzst = None
 import weakref
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pyarrow as pa
 import pyarrow.types as types
 import pyarrow.tests.strategies as past
@@ -345,6 +348,7 @@ def test_pytz_tzinfo_to_string():
     assert [pa.lib.tzinfo_to_string(i) for i in tz] == expected
 
 
+@pytest.mark.timezone_data
 def test_dateutil_tzinfo_to_string():
     if sys.platform == 'win32':
         # Skip due to new release of python-dateutil
@@ -360,6 +364,7 @@ def test_dateutil_tzinfo_to_string():
     assert pa.lib.tzinfo_to_string(tz) == 'Europe/Paris'
 
 
+@pytest.mark.timezone_data
 def test_zoneinfo_tzinfo_to_string():
     zoneinfo = pytest.importorskip('zoneinfo')
     if sys.platform == 'win32':
@@ -378,13 +383,10 @@ def test_tzinfo_to_string_errors():
     with pytest.raises(TypeError):
         pa.lib.tzinfo_to_string("Europe/Budapest")
 
-    if sys.version_info >= (3, 8):
-        # before 3.8 it was only possible to create timezone objects with whole
-        # number of minutes
-        tz = datetime.timezone(datetime.timedelta(hours=1, seconds=30))
-        msg = "Offset must represent whole number of minutes"
-        with pytest.raises(ValueError, match=msg):
-            pa.lib.tzinfo_to_string(tz)
+    tz = datetime.timezone(datetime.timedelta(hours=1, seconds=30))
+    msg = "Offset must represent whole number of minutes"
+    with pytest.raises(ValueError, match=msg):
+        pa.lib.tzinfo_to_string(tz)
 
 
 if tzst:
@@ -691,6 +693,8 @@ def test_struct_type():
     assert list(ty) == fields
     assert ty[0].name == 'a'
     assert ty[2].type == pa.int32()
+    assert ty.names == [f.name for f in ty]
+    assert ty.fields == list(ty)
     with pytest.raises(IndexError):
         assert ty[3]
 
@@ -1261,14 +1265,16 @@ def test_field_modified_copies():
 
 def test_is_integer_value():
     assert pa.types.is_integer_value(1)
-    assert pa.types.is_integer_value(np.int64(1))
+    if np is not None:
+        assert pa.types.is_integer_value(np.int64(1))
     assert not pa.types.is_integer_value('1')
 
 
 def test_is_float_value():
     assert not pa.types.is_float_value(1)
     assert pa.types.is_float_value(1.)
-    assert pa.types.is_float_value(np.float64(1))
+    if np is not None:
+        assert pa.types.is_float_value(np.float64(1))
     assert not pa.types.is_float_value('1.0')
 
 
@@ -1276,8 +1282,9 @@ def test_is_boolean_value():
     assert not pa.types.is_boolean_value(1)
     assert pa.types.is_boolean_value(True)
     assert pa.types.is_boolean_value(False)
-    assert pa.types.is_boolean_value(np.bool_(True))
-    assert pa.types.is_boolean_value(np.bool_(False))
+    if np is not None:
+        assert pa.types.is_boolean_value(np.bool_(True))
+        assert pa.types.is_boolean_value(np.bool_(False))
 
 
 @h.settings(suppress_health_check=(h.HealthCheck.too_slow,))
@@ -1323,15 +1330,59 @@ def test_types_come_back_with_specific_type():
         assert type(type_back) is type(arrow_type)
 
 
-def test_schema_import_c_schema_interface():
-    class Wrapper:
-        def __init__(self, schema):
-            self.schema = schema
+class SchemaWrapper:
+    def __init__(self, schema):
+        self.schema = schema
 
-        def __arrow_c_schema__(self):
-            return self.schema.__arrow_c_schema__()
+    def __arrow_c_schema__(self):
+        return self.schema.__arrow_c_schema__()
 
-    schema = pa.schema([pa.field("field_name", pa.int32())])
-    wrapped_schema = Wrapper(schema)
+
+class SchemaMapping(Mapping):
+    def __init__(self, schema):
+        self.schema = schema
+
+    def __arrow_c_schema__(self):
+        return self.schema.__arrow_c_schema__()
+
+    def __getitem__(self, key):
+        return self.schema[key]
+
+    def __iter__(self):
+        return iter(self.schema)
+
+    def __len__(self):
+        return len(self.schema)
+
+
+@pytest.mark.parametrize("wrapper_class", [SchemaWrapper, SchemaMapping])
+def test_schema_import_c_schema_interface(wrapper_class):
+    schema = pa.schema([pa.field("field_name", pa.int32())], metadata={"a": "b"})
+    assert schema.metadata == {b"a": b"b"}
+    wrapped_schema = wrapper_class(schema)
 
     assert pa.schema(wrapped_schema) == schema
+    assert pa.schema(wrapped_schema).metadata == {b"a": b"b"}
+    assert pa.schema(wrapped_schema, metadata={"a": "c"}).metadata == {b"a": b"c"}
+
+
+def test_field_import_c_schema_interface():
+    class Wrapper:
+        def __init__(self, field):
+            self.field = field
+
+        def __arrow_c_schema__(self):
+            return self.field.__arrow_c_schema__()
+
+    field = pa.field("field_name", pa.int32(), metadata={"key": "value"})
+    wrapped_field = Wrapper(field)
+
+    assert pa.field(wrapped_field) == field
+
+    with pytest.raises(ValueError, match="cannot specify 'type'"):
+        pa.field(wrapped_field, type=pa.int64())
+
+    # override nullable or metadata
+    assert pa.field(wrapped_field, nullable=False).nullable is False
+    result = pa.field(wrapped_field, metadata={"other": "meta"})
+    assert result.metadata == {b"other": b"meta"}

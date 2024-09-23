@@ -14,48 +14,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
-/**
- * A {@link FlightProducer} that throws on all operations.
- */
+/** A {@link FlightProducer} that throws on all operations. */
 public class NoOpFlightProducer implements FlightProducer {
 
   @Override
-  public void getStream(CallContext context, Ticket ticket,
-      ServerStreamListener listener) {
-    listener.error(CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
+  public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+    listener.error(
+        CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
   }
 
   @Override
-  public void listFlights(CallContext context, Criteria criteria,
-      StreamListener<FlightInfo> listener) {
-    listener.onError(CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
+  public void listFlights(
+      CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
+    listener.onError(
+        CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
   }
 
   @Override
-  public FlightInfo getFlightInfo(CallContext context,
-      FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
     throw CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException();
   }
 
   @Override
-  public Runnable acceptPut(CallContext context,
-      FlightStream flightStream, StreamListener<PutResult> ackStream) {
+  public Runnable acceptPut(
+      CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
     throw CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException();
   }
 
   @Override
-  public void doAction(CallContext context, Action action,
-      StreamListener<Result> listener) {
-    listener.onError(CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
+  public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
+    listener.onError(
+        CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
   }
 
   @Override
-  public void listActions(CallContext context,
-      StreamListener<ActionType> listener) {
-    listener.onError(CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
+  public void listActions(CallContext context, StreamListener<ActionType> listener) {
+    listener.onError(
+        CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
   }
-
 }

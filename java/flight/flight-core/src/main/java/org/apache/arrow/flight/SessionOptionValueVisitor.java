@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 /**
@@ -23,36 +22,26 @@ package org.apache.arrow.flight;
  * @param <T> Return type of the visit operation.
  */
 public interface SessionOptionValueVisitor<T> {
-  /**
-   * A callback to handle SessionOptionValue containing a String.
-   */
+  /** A callback to handle SessionOptionValue containing a String. */
   T visit(String value);
 
-  /**
-   * A callback to handle SessionOptionValue containing a boolean.
-   */
+  /** A callback to handle SessionOptionValue containing a boolean. */
   T visit(boolean value);
 
-  /**
-   * A callback to handle SessionOptionValue containing a long.
-   */
+  /** A callback to handle SessionOptionValue containing a long. */
   T visit(long value);
 
-  /**
-   * A callback to handle SessionOptionValue containing a double.
-   */
+  /** A callback to handle SessionOptionValue containing a double. */
   T visit(double value);
 
-  /**
-   * A callback to handle SessionOptionValue containing an array of String.
-   */
+  /** A callback to handle SessionOptionValue containing an array of String. */
   T visit(String[] value);
 
   /**
    * A callback to handle SessionOptionValue containing no value.
    *
-   * By convention, an attempt to set a valueless SessionOptionValue should
-   * attempt to unset or clear the named option value on the server.
+   * <p>By convention, an attempt to set a valueless SessionOptionValue should attempt to unset or
+   * clear the named option value on the server.
    */
   T visit(Void value);
 }

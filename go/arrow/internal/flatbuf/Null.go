@@ -22,7 +22,7 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// These are stored in the flatbuffer in the Type union below
+// / These are stored in the flatbuffer in the Type union below
 type Null struct {
 	_tab flatbuffers.Table
 }

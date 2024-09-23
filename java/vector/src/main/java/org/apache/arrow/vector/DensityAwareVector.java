@@ -14,36 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 /**
- * Vector that support density aware initial capacity settings.
- * We use this for ListVector and VarCharVector as of now to
- * control the memory allocated.
+ * Vector that support density aware initial capacity settings. We use this for ListVector and
+ * VarCharVector as of now to control the memory allocated.
  *
- * <p>For ListVector, we have been using a multiplier of 5
- * to compute the initial capacity of the inner data vector.
- * For deeply nested lists and lists with lots of NULL values,
- * this is over-allocation upfront. So density helps to be
- * conservative when computing the value capacity of the
- * inner vector.
+ * <p>For ListVector, we have been using a multiplier of 5 to compute the initial capacity of the
+ * inner data vector. For deeply nested lists and lists with lots of NULL values, this is
+ * over-allocation upfront. So density helps to be conservative when computing the value capacity of
+ * the inner vector.
  *
- * <p>For example, a density value of 10 implies each position in the
- * list vector has a list of 10 values. So we will provision
- * an initial capacity of (valuecount * 10) for the inner vector.
- * A density value of 0.1 implies out of 10 positions in the list vector,
- * 1 position has a list of size 1 and remaining positions are
- * null (no lists) or empty lists. This helps in tightly controlling
- * the memory we provision for inner data vector.
+ * <p>For example, a density value of 10 implies each position in the list vector has a list of 10
+ * values. So we will provision an initial capacity of (valuecount * 10) for the inner vector. A
+ * density value of 0.1 implies out of 10 positions in the list vector, 1 position has a list of
+ * size 1 and remaining positions are null (no lists) or empty lists. This helps in tightly
+ * controlling the memory we provision for inner data vector.
  *
- * <p>Similar analogy is applicable for VarCharVector where the capacity
- * of the data buffer can be controlled using density multiplier
- * instead of default multiplier of 8 (default size of average
+ * <p>Similar analogy is applicable for VarCharVector where the capacity of the data buffer can be
+ * controlled using density multiplier instead of default multiplier of 8 (default size of average
  * varchar length).
  *
- * <p>Also from container vectors, we propagate the density down
- * the inner vectors so that they can use it appropriately.
+ * <p>Also from container vectors, we propagate the density down the inner vectors so that they can
+ * use it appropriately.
  */
 public interface DensityAwareVector {
 

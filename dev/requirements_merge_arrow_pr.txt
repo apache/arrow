@@ -1,3 +1,2 @@
 jira
 requests
-six

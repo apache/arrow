@@ -66,6 +66,9 @@ set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.txt
 @rem Force conda to use conda-forge
 conda config --add channels conda-forge
 conda config --remove channels defaults
+@rem Ensure using the latest information. If there are invalid caches,
+@rem mamba may use invalid download URL.
+mamba clean --all -y
 @rem Arrow conda environment
 mamba create -n arrow -y -c conda-forge ^
   --file=ci\conda_env_python.txt ^

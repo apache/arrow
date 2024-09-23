@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.Date;
@@ -22,12 +21,9 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Calendar;
-
 import org.apache.arrow.vector.DateDayVector;
 
-/**
- * A column binder for 32-bit dates.
- */
+/** A column binder for 32-bit dates. */
 public class DateDayBinder extends BaseColumnBinder<DateDayVector> {
   private static final long MILLIS_PER_DAY = 86_400_000;
   private final Calendar calendar;
@@ -46,7 +42,8 @@ public class DateDayBinder extends BaseColumnBinder<DateDayVector> {
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
     // TODO: multiply with overflow
     final long index = (long) rowIndex * DateDayVector.TYPE_WIDTH;
     final Date value = new Date(vector.getDataBuffer().getInt(index) * MILLIS_PER_DAY);

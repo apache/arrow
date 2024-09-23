@@ -431,9 +431,12 @@ namespace Apache.Arrow
                 value = SqlDecimal.ConvertToPrecScale(value, precision, scale);
             }
 
-            // TODO: Consider groveling in the internals to avoid the probable allocation
-            Span<int> span = bytes.CastTo<int>();
-            value.Data.AsSpan().CopyTo(span);
+#if NET7_0_OR_GREATER
+            value.WriteTdsValue(bytes.CastTo<uint>());
+#else
+            value.Data.AsSpan().CopyTo(bytes.CastTo<int>());
+#endif
+
             if (!value.IsPositive)
             {
                 Span<long> longSpan = bytes.CastTo<long>();

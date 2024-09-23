@@ -42,7 +42,7 @@ export function recordBatchReaderThroughDOMStream<T extends TypeMap = any>(writa
         let size = controller.desiredSize;
         let r: IteratorResult<RecordBatch<T>> | null = null;
         while (!(r = await reader.next()).done) {
-            controller.enqueue(r.value);
+            controller.enqueue(r!.value);
             if (size != null && --size <= 0) {
                 return;
             }

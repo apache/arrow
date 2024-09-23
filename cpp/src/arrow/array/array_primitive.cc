@@ -56,7 +56,7 @@ int64_t BooleanArray::false_count() const {
 }
 
 int64_t BooleanArray::true_count() const {
-  if (data_->null_count.load() != 0) {
+  if (data_->MayHaveNulls()) {
     DCHECK(data_->buffers[0]);
     return internal::CountAndSetBits(data_->buffers[0]->data(), data_->offset,
                                      data_->buffers[1]->data(), data_->offset,

@@ -14,23 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc.message;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
-
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestMessageMetadataResult {
 
   @Test
   public void getMessageLength_returnsConstructValue() {
     // This API is used by spark.
-    MessageMetadataResult result = new MessageMetadataResult(1, ByteBuffer.allocate(0),
-        new org.apache.arrow.flatbuf.Message());
+    MessageMetadataResult result =
+        new MessageMetadataResult(
+            1, ByteBuffer.allocate(0), new org.apache.arrow.flatbuf.Message());
     assertEquals(1, result.getMessageLength());
   }
-
 }

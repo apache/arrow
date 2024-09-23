@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.binary;
 
 import java.io.ByteArrayInputStream;
@@ -23,7 +22,6 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
@@ -31,8 +29,8 @@ import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.VarBinaryVector;
 
 /**
- * Accessor for the Arrow types: {@link FixedSizeBinaryVector}, {@link VarBinaryVector}
- * and {@link LargeVarBinaryVector}.
+ * Accessor for the Arrow types: {@link FixedSizeBinaryVector}, {@link VarBinaryVector} and {@link
+ * LargeVarBinaryVector}.
  */
 public class ArrowFlightJdbcBinaryVectorAccessor extends ArrowFlightJdbcAccessor {
 
@@ -42,26 +40,31 @@ public class ArrowFlightJdbcBinaryVectorAccessor extends ArrowFlightJdbcAccessor
 
   private final ByteArrayGetter getter;
 
-  public ArrowFlightJdbcBinaryVectorAccessor(FixedSizeBinaryVector vector,
-                                             IntSupplier currentRowSupplier,
-                                             ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcBinaryVectorAccessor(
+      FixedSizeBinaryVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     this(vector::get, currentRowSupplier, setCursorWasNull);
   }
 
-  public ArrowFlightJdbcBinaryVectorAccessor(VarBinaryVector vector, IntSupplier currentRowSupplier,
-                                             ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcBinaryVectorAccessor(
+      VarBinaryVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     this(vector::get, currentRowSupplier, setCursorWasNull);
   }
 
-  public ArrowFlightJdbcBinaryVectorAccessor(LargeVarBinaryVector vector,
-                                             IntSupplier currentRowSupplier,
-                                             ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcBinaryVectorAccessor(
+      LargeVarBinaryVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     this(vector::get, currentRowSupplier, setCursorWasNull);
   }
 
-  private ArrowFlightJdbcBinaryVectorAccessor(ByteArrayGetter getter,
-                                              IntSupplier currentRowSupplier,
-                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  private ArrowFlightJdbcBinaryVectorAccessor(
+      ByteArrayGetter getter,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.getter = getter;
   }

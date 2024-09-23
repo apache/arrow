@@ -14,22 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 
-/**
- * Accessor for the Float8Vector.
- */
+/** Accessor for the Float8Vector. */
 public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final Float8Vector vector;
@@ -38,13 +34,14 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
   /**
    * Instantiate a accessor for the {@link Float8Vector}.
    *
-   * @param vector             an instance of a Float8Vector.
+   * @param vector an instance of a Float8Vector.
    * @param currentRowSupplier the supplier to track the lines.
-   * @param setCursorWasNull   the consumer to set if value was null.
+   * @param setCursorWasNull the consumer to set if value was null.
    */
-  public ArrowFlightJdbcFloat8VectorAccessor(Float8Vector vector,
-                                             IntSupplier currentRowSupplier,
-                                             ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcFloat8VectorAccessor(
+      Float8Vector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.holder = new NullableFloat8Holder();
     this.vector = vector;

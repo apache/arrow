@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.types.pojo;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.util.Preconditions;
@@ -32,8 +30,8 @@ import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
 import org.apache.arrow.vector.util.CallBack;
 
 /**
- * POJO representation of an Arrow field type.  It consists of a logical type, nullability and whether the field
- * (column) is dictionary encoded.
+ * POJO representation of an Arrow field type. It consists of a logical type, nullability and
+ * whether the field (column) is dictionary encoded.
  */
 public class FieldType {
 
@@ -62,7 +60,11 @@ public class FieldType {
    * @param dictionary The dictionary encoding of the field.
    * @param metadata Custom metadata for the field.
    */
-  public FieldType(boolean nullable, ArrowType type, DictionaryEncoding dictionary, Map<String, String> metadata) {
+  public FieldType(
+      boolean nullable,
+      ArrowType type,
+      DictionaryEncoding dictionary,
+      Map<String, String> metadata) {
     super();
     this.nullable = nullable;
     this.type = Preconditions.checkNotNull(type);
@@ -70,14 +72,19 @@ public class FieldType {
     if (type instanceof ExtensionType) {
       // Save the extension type name/metadata
       final Map<String, String> extensionMetadata = new HashMap<>();
-      extensionMetadata.put(ExtensionType.EXTENSION_METADATA_KEY_NAME, ((ExtensionType) type).extensionName());
-      extensionMetadata.put(ExtensionType.EXTENSION_METADATA_KEY_METADATA, ((ExtensionType) type).serialize());
+      extensionMetadata.put(
+          ExtensionType.EXTENSION_METADATA_KEY_NAME, ((ExtensionType) type).extensionName());
+      extensionMetadata.put(
+          ExtensionType.EXTENSION_METADATA_KEY_METADATA, ((ExtensionType) type).serialize());
       if (metadata != null) {
         extensionMetadata.putAll(metadata);
       }
       this.metadata = Collections.unmodifiableMap(extensionMetadata);
     } else {
-      this.metadata = metadata == null ? java.util.Collections.emptyMap() : Collections2.immutableMapCopy(metadata);
+      this.metadata =
+          metadata == null
+              ? java.util.Collections.emptyMap()
+              : Collections2.immutableMapCopy(metadata);
     }
   }
 
@@ -97,12 +104,14 @@ public class FieldType {
     return metadata;
   }
 
-  public FieldVector createNewSingleVector(String name, BufferAllocator allocator, CallBack schemaCallBack) {
+  public FieldVector createNewSingleVector(
+      String name, BufferAllocator allocator, CallBack schemaCallBack) {
     MinorType minorType = Types.getMinorTypeForArrowType(type);
     return minorType.getNewVector(name, this, allocator, schemaCallBack);
   }
 
-  public FieldVector createNewSingleVector(Field field, BufferAllocator allocator, CallBack schemaCallBack) {
+  public FieldVector createNewSingleVector(
+      Field field, BufferAllocator allocator, CallBack schemaCallBack) {
     MinorType minorType = Types.getMinorTypeForArrowType(type);
     return minorType.getNewVector(field, allocator, schemaCallBack);
   }
@@ -118,10 +127,9 @@ public class FieldType {
       return false;
     }
     FieldType that = (FieldType) obj;
-    return this.isNullable() == that.isNullable() &&
-        Objects.equals(this.getType(), that.getType()) &&
-        Objects.equals(this.getDictionary(), that.getDictionary()) &&
-        Objects.equals(this.getMetadata(), that.getMetadata());
+    return this.isNullable() == that.isNullable()
+        && Objects.equals(this.getType(), that.getType())
+        && Objects.equals(this.getDictionary(), that.getDictionary())
+        && Objects.equals(this.getMetadata(), that.getMetadata());
   }
-
 }

@@ -14,20 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
 import java.util.List;
-
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.avro.io.Decoder;
 
-/**
- * Composite consumer which hold all consumers.
- * It manages the consume and cleanup process.
- */
+/** Composite consumer which hold all consumers. It manages the consume and cleanup process. */
 public class CompositeAvroConsumer implements AutoCloseable {
 
   private final List<Consumer> consumers;
@@ -40,18 +35,14 @@ public class CompositeAvroConsumer implements AutoCloseable {
     this.consumers = consumers;
   }
 
-  /**
-   * Consume decoder data.
-   */
+  /** Consume decoder data. */
   public void consume(Decoder decoder) throws IOException {
     for (Consumer consumer : consumers) {
       consumer.consume(decoder);
     }
   }
 
-  /**
-   * Reset vector of consumers with the given {@link VectorSchemaRoot}.
-   */
+  /** Reset vector of consumers with the given {@link VectorSchemaRoot}. */
   public void resetConsumerVectors(VectorSchemaRoot root) {
     int index = 0;
     for (Consumer consumer : consumers) {

@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.util;
 
 /**
- * Utility class to that provides {@link #ASSERT_ENABLED} constant to determine if assertions are enabled.
+ * Utility class to that provides {@link #ASSERT_ENABLED} constant to determine if assertions are
+ * enabled.
  */
 public class AssertionUtil {
 
@@ -31,8 +31,7 @@ public class AssertionUtil {
     ASSERT_ENABLED = isAssertEnabled;
   }
 
-  private AssertionUtil() {
-  }
+  private AssertionUtil() {}
 
   public static boolean isAssertionsEnabled() {
     return ASSERT_ENABLED;

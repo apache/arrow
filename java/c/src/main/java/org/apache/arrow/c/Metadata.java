@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.apache.arrow.c.NativeUtil.NULL;
@@ -27,18 +26,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.MemoryUtil;
 
-/**
- * Encode and decode metadata.
- */
+/** Encode and decode metadata. */
 final class Metadata {
 
-  private Metadata() {
-  }
+  private Metadata() {}
 
   static ArrowBuf encode(BufferAllocator allocator, Map<String, String> metadata) {
     if (metadata == null || metadata.size() == 0) {
@@ -57,7 +52,8 @@ final class Metadata {
     }
 
     ArrowBuf result = allocator.buffer(totalSize);
-    ByteBuffer writer = MemoryUtil.directBuffer(result.memoryAddress(), totalSize).order(ByteOrder.nativeOrder());
+    ByteBuffer writer =
+        MemoryUtil.directBuffer(result.memoryAddress(), totalSize).order(ByteOrder.nativeOrder());
     writer.putInt(metadata.size());
     for (byte[] buffer : buffers) {
       writer.putInt(buffer.length);
@@ -71,7 +67,8 @@ final class Metadata {
       return null;
     }
 
-    ByteBuffer reader = MemoryUtil.directBuffer(bufferAddress, Integer.MAX_VALUE).order(ByteOrder.nativeOrder());
+    ByteBuffer reader =
+        MemoryUtil.directBuffer(bufferAddress, Integer.MAX_VALUE).order(ByteOrder.nativeOrder());
 
     int size = reader.getInt();
     checkState(size >= 0, "Metadata size must not be negative");

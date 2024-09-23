@@ -53,22 +53,22 @@ class EvalBatch {
   int GetNumBuffers() const { return num_buffers_; }
 
   const uint8_t* GetBuffer(int idx) const {
-    DCHECK(idx <= num_buffers_);
+    ARROW_DCHECK(idx <= num_buffers_);
     return (buffers_array_.get())[idx];
   }
 
   uint8_t* GetBuffer(int idx) {
-    DCHECK(idx <= num_buffers_);
+    ARROW_DCHECK(idx <= num_buffers_);
     return (buffers_array_.get())[idx];
   }
 
   int64_t GetBufferOffset(int idx) const {
-    DCHECK(idx <= num_buffers_);
+    ARROW_DCHECK(idx <= num_buffers_);
     return (buffer_offsets_array_.get())[idx];
   }
 
   void SetBuffer(int idx, uint8_t* buffer, int64_t offset) {
-    DCHECK(idx <= num_buffers_);
+    ARROW_DCHECK(idx <= num_buffers_);
     (buffers_array_.get())[idx] = buffer;
     (buffer_offsets_array_.get())[idx] = offset;
   }
@@ -80,11 +80,11 @@ class EvalBatch {
   }
 
   const uint8_t* GetLocalBitMap(int idx) const {
-    DCHECK(idx <= GetNumLocalBitMaps());
+    ARROW_DCHECK(idx <= GetNumLocalBitMaps());
     return local_bitmaps_holder_->GetLocalBitMap(idx);
   }
   uint8_t* GetLocalBitMap(int idx) {
-    DCHECK(idx <= GetNumLocalBitMaps());
+    ARROW_DCHECK(idx <= GetNumLocalBitMaps());
     return local_bitmaps_holder_->GetLocalBitMap(idx);
   }
 

@@ -14,16 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.AbstractStructVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -39,21 +41,20 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestStructVector {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -64,18 +65,19 @@ public class TestStructVector {
     metadata.put("k1", "v1");
     FieldType type = new FieldType(true, Struct.INSTANCE, null, metadata);
     try (StructVector vector = new StructVector("struct", allocator, type, null)) {
-      Assert.assertEquals(vector.getField().getMetadata(), type.getMetadata());
+      assertEquals(vector.getField().getMetadata(), type.getMetadata());
     }
   }
 
   @Test
   public void testMakeTransferPair() {
     try (final StructVector s1 = StructVector.empty("s1", allocator);
-         final StructVector s2 = StructVector.empty("s2", allocator)) {
+        final StructVector s2 = StructVector.empty("s2", allocator)) {
       s1.addOrGet("struct_child", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
       s1.makeTransferPair(s2);
       final FieldVector child = s1.getChild("struct_child");
-      final FieldVector toChild = s2.addOrGet("struct_child", child.getField().getFieldType(), child.getClass());
+      final FieldVector toChild =
+          s2.addOrGet("struct_child", child.getField().getFieldType(), child.getClass());
       assertEquals(0, toChild.getValueCapacity());
       assertEquals(0, toChild.getDataBuffer().capacity());
       assertEquals(0, toChild.getValidityBuffer().capacity());
@@ -108,8 +110,8 @@ public class TestStructVector {
       /*
        * Verify that the buffer sizes haven't changed.
        */
-      Assert.assertEquals(vector.getValidityBuffer().capacity(), savedValidityBufferCapacity);
-      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      assertEquals(vector.getValidityBuffer().capacity(), savedValidityBufferCapacity);
+      assertEquals(vector.getValueCapacity(), savedValueCapacity);
     }
   }
 
@@ -157,7 +159,8 @@ public class TestStructVector {
       unionVector.addVector(new SmallIntVector("smallInt", allocator));
 
       // add varchar vector
-      vector.addOrGet("varchar", FieldType.nullable(MinorType.VARCHAR.getType()), VarCharVector.class);
+      vector.addOrGet(
+          "varchar", FieldType.nullable(MinorType.VARCHAR.getType()), VarCharVector.class);
 
       List<ValueVector> primitiveVectors = vector.getPrimitiveVectors();
       assertEquals(4, primitiveVectors.size());
@@ -192,8 +195,14 @@ public class TestStructVector {
   @Test
   public void testAddChildVectorsWithDuplicatedFieldNamesForConflictPolicyAppend() {
     final FieldType type = new FieldType(true, Struct.INSTANCE, null, null);
-    try (StructVector vector = new StructVector("struct", allocator, type, null,
-        AbstractStructVector.ConflictPolicy.CONFLICT_APPEND, true)) {
+    try (StructVector vector =
+        new StructVector(
+            "struct",
+            allocator,
+            type,
+            null,
+            AbstractStructVector.ConflictPolicy.CONFLICT_APPEND,
+            true)) {
       final List<Field> initFields = new ArrayList<>();
 
       // Add a bit more fields to test against stability of the internal field
@@ -245,8 +254,14 @@ public class TestStructVector {
   @Test
   public void testAddChildVectorsWithDuplicatedFieldNamesForConflictPolicyReplace() {
     final FieldType type = new FieldType(true, Struct.INSTANCE, null, null);
-    try (StructVector vector = new StructVector("struct", allocator, type, null,
-        AbstractStructVector.ConflictPolicy.CONFLICT_REPLACE, true)) {
+    try (StructVector vector =
+        new StructVector(
+            "struct",
+            allocator,
+            type,
+            null,
+            AbstractStructVector.ConflictPolicy.CONFLICT_REPLACE,
+            true)) {
       final List<Field> initFields = new ArrayList<>();
 
       // Add a bit more fields to test against stability of the internal field
@@ -301,7 +316,8 @@ public class TestStructVector {
     try (final StructVector fromVector = simpleStructVector("s1", allocator)) {
       TransferPair tp = fromVector.getTransferPair(fromVector.getField(), allocator);
       final StructVector toVector = (StructVector) tp.getTo();
-      // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+      // Field inside a new vector created by reusing a field should be the same in memory as the
+      // original field.
       assertSame(toVector.getField(), fromVector.getField());
       toVector.clear();
     }
@@ -313,7 +329,8 @@ public class TestStructVector {
     try (final StructVector fromVector = simpleStructVector("s1", allocator)) {
       TransferPair tp = fromVector.getTransferPair(fromVector.getField(), allocator, callBack);
       final StructVector toVector = (StructVector) tp.getTo();
-      // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+      // Field inside a new vector created by reusing a field should be the same in memory as the
+      // original field.
       assertSame(toVector.getField(), fromVector.getField());
       toVector.clear();
     }

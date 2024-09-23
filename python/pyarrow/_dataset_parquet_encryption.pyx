@@ -162,6 +162,14 @@ def set_encryption_config(
     opts.parquet_options.parquet_encryption_config = c_config
 
 
+def set_decryption_properties(
+    ParquetFragmentScanOptions opts not None,
+    FileDecryptionProperties config not None
+):
+    cdef CReaderProperties* reader_props = opts.reader_properties()
+    reader_props.file_decryption_properties(config.unwrap())
+
+
 def set_decryption_config(
     ParquetFragmentScanOptions opts not None,
     ParquetDecryptionConfig config not None

@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.evaluator;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.gandiva.exceptions.EvaluatorClosedException;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.exceptions.UnsupportedTypeException;
@@ -37,16 +35,13 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
- * This class provides a mechanism to evaluate a set of expressions against a RecordBatch.
- * Follow these steps to use this class:
- * 1) Use the static method make() to create an instance of this class that evaluates a
- *    set of expressions
- * 2) Invoke the method evaluate() to evaluate these expressions against a RecordBatch
- * 3) Invoke close() to release resources
+ * This class provides a mechanism to evaluate a set of expressions against a RecordBatch. Follow
+ * these steps to use this class: 1) Use the static method make() to create an instance of this
+ * class that evaluates a set of expressions 2) Invoke the method evaluate() to evaluate these
+ * expressions against a RecordBatch 3) Invoke close() to release resources
  */
 public class Projector {
-  private static final org.slf4j.Logger logger =
-          org.slf4j.LoggerFactory.getLogger(Projector.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Projector.class);
 
   private JniWrapper wrapper;
   private final long moduleId;
@@ -63,130 +58,142 @@ public class Projector {
   }
 
   /**
-   * Invoke this function to generate LLVM code to evaluate the list of project expressions.
-   * Invoke Projector::Evaluate() against a RecordBatch to evaluate the record batch
-   * against these projections.
+   * Invoke this function to generate LLVM code to evaluate the list of project expressions. Invoke
+   * Projector::Evaluate() against a RecordBatch to evaluate the record batch against these
+   * projections.
    *
-   * @param schema Table schema. The field names in the schema should match the fields used
-   *               to create the TreeNodes
-   * @param exprs  List of expressions to be evaluated against data
-   *
+   * @param schema Table schema. The field names in the schema should match the fields used to
+   *     create the TreeNodes
+   * @param exprs List of expressions to be evaluated against data
    * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
    */
-  public static Projector make(Schema schema, List<ExpressionTree> exprs)
-      throws GandivaException {
+  public static Projector make(Schema schema, List<ExpressionTree> exprs) throws GandivaException {
     return make(schema, exprs, SelectionVectorType.SV_NONE, JniLoader.getDefaultConfiguration());
   }
 
   /**
-   * Invoke this function to generate LLVM code to evaluate the list of project expressions.
-   * Invoke Projector::Evaluate() against a RecordBatch to evaluate the record batch
-   * against these projections.
+   * Invoke this function to generate LLVM code to evaluate the list of project expressions. Invoke
+   * Projector::Evaluate() against a RecordBatch to evaluate the record batch against these
+   * projections.
    *
-   * @param schema Table schema. The field names in the schema should match the fields used
-   *               to create the TreeNodes
-   * @param exprs  List of expressions to be evaluated against data
+   * @param schema Table schema. The field names in the schema should match the fields used to
+   *     create the TreeNodes
+   * @param exprs List of expressions to be evaluated against data
    * @param configOptions ConfigOptions parameter
-   *
    * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
    */
-  public static Projector make(Schema schema, List<ExpressionTree> exprs,
-                               ConfigurationBuilder.ConfigOptions configOptions) throws GandivaException {
-    return make(schema, exprs, SelectionVectorType.SV_NONE, JniLoader.getConfiguration(configOptions));
+  public static Projector make(
+      Schema schema, List<ExpressionTree> exprs, ConfigurationBuilder.ConfigOptions configOptions)
+      throws GandivaException {
+    return make(
+        schema, exprs, SelectionVectorType.SV_NONE, JniLoader.getConfiguration(configOptions));
   }
 
   /**
-   * Invoke this function to generate LLVM code to evaluate the list of project expressions.
-   * Invoke Projector::Evaluate() against a RecordBatch to evaluate the record batch
-   * against these projections.
+   * Invoke this function to generate LLVM code to evaluate the list of project expressions. Invoke
+   * Projector::Evaluate() against a RecordBatch to evaluate the record batch against these
+   * projections.
    *
-   * @param schema Table schema. The field names in the schema should match the fields used
-   *               to create the TreeNodes
-   * @param exprs  List of expressions to be evaluated against data
+   * @param schema Table schema. The field names in the schema should match the fields used to
+   *     create the TreeNodes
+   * @param exprs List of expressions to be evaluated against data
    * @param optimize Flag to choose if the generated llvm code is to be optimized
-   *
    * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
    */
   @Deprecated
   public static Projector make(Schema schema, List<ExpressionTree> exprs, boolean optimize)
       throws GandivaException {
-    return make(schema, exprs, SelectionVectorType.SV_NONE,
-            JniLoader.getConfiguration((new ConfigurationBuilder.ConfigOptions()).withOptimize(optimize)));
+    return make(
+        schema,
+        exprs,
+        SelectionVectorType.SV_NONE,
+        JniLoader.getConfiguration(
+            (new ConfigurationBuilder.ConfigOptions()).withOptimize(optimize)));
   }
 
   /**
-   * Invoke this function to generate LLVM code to evaluate the list of project expressions.
-   * Invoke Projector::Evaluate() against a RecordBatch to evaluate the record batch
-   * against these projections.
+   * Invoke this function to generate LLVM code to evaluate the list of project expressions. Invoke
+   * Projector::Evaluate() against a RecordBatch to evaluate the record batch against these
+   * projections.
    *
-   * @param schema Table schema. The field names in the schema should match the fields used
-   *               to create the TreeNodes
-   * @param exprs  List of expressions to be evaluated against data
+   * @param schema Table schema. The field names in the schema should match the fields used to
+   *     create the TreeNodes
+   * @param exprs List of expressions to be evaluated against data
    * @param selectionVectorType type of selection vector
-   *
    * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
    */
-  public static Projector make(Schema schema, List<ExpressionTree> exprs,
-      SelectionVectorType selectionVectorType)
-          throws GandivaException {
+  public static Projector make(
+      Schema schema, List<ExpressionTree> exprs, SelectionVectorType selectionVectorType)
+      throws GandivaException {
     return make(schema, exprs, selectionVectorType, JniLoader.getDefaultConfiguration());
   }
 
   /**
-   * Invoke this function to generate LLVM code to evaluate the list of project expressions.
-   * Invoke Projector::Evaluate() against a RecordBatch to evaluate the record batch
-   * against these projections.
+   * Invoke this function to generate LLVM code to evaluate the list of project expressions. Invoke
+   * Projector::Evaluate() against a RecordBatch to evaluate the record batch against these
+   * projections.
    *
-   * @param schema Table schema. The field names in the schema should match the fields used
-   *               to create the TreeNodes
-   * @param exprs  List of expressions to be evaluated against data
+   * @param schema Table schema. The field names in the schema should match the fields used to
+   *     create the TreeNodes
+   * @param exprs List of expressions to be evaluated against data
    * @param selectionVectorType type of selection vector
    * @param configOptions ConfigOptions parameter
-   *
    * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
    */
-  public static Projector make(Schema schema, List<ExpressionTree> exprs, SelectionVectorType selectionVectorType,
-                               ConfigurationBuilder.ConfigOptions configOptions) throws GandivaException {
+  public static Projector make(
+      Schema schema,
+      List<ExpressionTree> exprs,
+      SelectionVectorType selectionVectorType,
+      ConfigurationBuilder.ConfigOptions configOptions)
+      throws GandivaException {
     return make(schema, exprs, selectionVectorType, JniLoader.getConfiguration(configOptions));
   }
 
   /**
-   * Invoke this function to generate LLVM code to evaluate the list of project expressions.
-   * Invoke Projector::Evaluate() against a RecordBatch to evaluate the record batch
-   * against these projections.
+   * Invoke this function to generate LLVM code to evaluate the list of project expressions. Invoke
+   * Projector::Evaluate() against a RecordBatch to evaluate the record batch against these
+   * projections.
    *
-   * @param schema Table schema. The field names in the schema should match the fields used
-   *               to create the TreeNodes
-   * @param exprs  List of expressions to be evaluated against data
+   * @param schema Table schema. The field names in the schema should match the fields used to
+   *     create the TreeNodes
+   * @param exprs List of expressions to be evaluated against data
    * @param selectionVectorType type of selection vector
    * @param optimize Flag to choose if the generated llvm code is to be optimized
-   *
    * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
    */
   @Deprecated
-  public static Projector make(Schema schema, List<ExpressionTree> exprs,
-                               SelectionVectorType selectionVectorType, boolean optimize)
+  public static Projector make(
+      Schema schema,
+      List<ExpressionTree> exprs,
+      SelectionVectorType selectionVectorType,
+      boolean optimize)
       throws GandivaException {
-    return make(schema, exprs, selectionVectorType,
-            JniLoader.getConfiguration((new ConfigurationBuilder.ConfigOptions()).withOptimize(optimize)));
+    return make(
+        schema,
+        exprs,
+        selectionVectorType,
+        JniLoader.getConfiguration(
+            (new ConfigurationBuilder.ConfigOptions()).withOptimize(optimize)));
   }
 
   /**
-   * Invoke this function to generate LLVM code to evaluate the list of project expressions.
-   * Invoke Projector::Evaluate() against a RecordBatch to evaluate the record batch
-   * against these projections.
+   * Invoke this function to generate LLVM code to evaluate the list of project expressions. Invoke
+   * Projector::Evaluate() against a RecordBatch to evaluate the record batch against these
+   * projections.
    *
-   * @param schema Table schema. The field names in the schema should match the fields used
-   *               to create the TreeNodes
-   * @param exprs  List of expressions to be evaluated against data
+   * @param schema Table schema. The field names in the schema should match the fields used to
+   *     create the TreeNodes
+   * @param exprs List of expressions to be evaluated against data
    * @param selectionVectorType type of selection vector
    * @param configurationId Custom configuration created through config builder.
-   *
    * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
    */
-  public static Projector make(Schema schema, List<ExpressionTree> exprs,
+  public static Projector make(
+      Schema schema,
+      List<ExpressionTree> exprs,
       SelectionVectorType selectionVectorType,
-      long configurationId) throws GandivaException {
+      long configurationId)
+      throws GandivaException {
     // serialize the schema and the list of expressions as a protobuf
     GandivaTypes.ExpressionList.Builder builder = GandivaTypes.ExpressionList.newBuilder();
     for (ExpressionTree expr : exprs) {
@@ -196,8 +203,12 @@ public class Projector {
     // Invoke the JNI layer to create the LLVM module representing the expressions
     GandivaTypes.Schema schemaBuf = ArrowTypeHelper.arrowSchemaToProtobuf(schema);
     JniWrapper wrapper = JniLoader.getInstance().getWrapper();
-    long moduleId = wrapper.buildProjector(schemaBuf.toByteArray(),
-        builder.build().toByteArray(), selectionVectorType.getNumber(), configurationId);
+    long moduleId =
+        wrapper.buildProjector(
+            schemaBuf.toByteArray(),
+            builder.build().toByteArray(),
+            selectionVectorType.getNumber(),
+            configurationId);
     logger.debug("Created module for the projector with id {}", moduleId);
     return new Projector(wrapper, moduleId, schema, exprs.size());
   }
@@ -209,23 +220,28 @@ public class Projector {
    * @param outColumns Result of applying the project on the data
    */
   public void evaluate(ArrowRecordBatch recordBatch, List<ValueVector> outColumns)
-          throws GandivaException {
-    evaluate(recordBatch.getLength(), recordBatch.getBuffers(),
-             recordBatch.getBuffersLayout(),
-             SelectionVectorType.SV_NONE.getNumber(), recordBatch.getLength(),
-             0, 0, outColumns);
+      throws GandivaException {
+    evaluate(
+        recordBatch.getLength(),
+        recordBatch.getBuffers(),
+        recordBatch.getBuffersLayout(),
+        SelectionVectorType.SV_NONE.getNumber(),
+        recordBatch.getLength(),
+        0,
+        0,
+        outColumns);
   }
 
   /**
-   * Invoke this function to evaluate a set of expressions against a set of arrow buffers.
-   * (this is an optimised version that skips taking references).
+   * Invoke this function to evaluate a set of expressions against a set of arrow buffers. (this is
+   * an optimised version that skips taking references).
    *
    * @param numRows number of rows.
    * @param buffers List of input arrow buffers
    * @param outColumns Result of applying the project on the data
    */
-  public void evaluate(int numRows, List<ArrowBuf> buffers,
-                       List<ValueVector> outColumns) throws GandivaException {
+  public void evaluate(int numRows, List<ArrowBuf> buffers, List<ValueVector> outColumns)
+      throws GandivaException {
     List<ArrowBuffer> buffersLayout = new ArrayList<>();
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
@@ -233,9 +249,15 @@ public class Projector {
       buffersLayout.add(new ArrowBuffer(offset, size));
       offset += size;
     }
-    evaluate(numRows, buffers, buffersLayout,
-             SelectionVectorType.SV_NONE.getNumber(),
-             numRows, 0, 0, outColumns);
+    evaluate(
+        numRows,
+        buffers,
+        buffersLayout,
+        SelectionVectorType.SV_NONE.getNumber(),
+        numRows,
+        0,
+        0,
+        outColumns);
   }
 
   /**
@@ -245,10 +267,12 @@ public class Projector {
    * @param selectionVector Selection vector which stores the selected rows.
    * @param outColumns Result of applying the project on the data
    */
-  public void evaluate(ArrowRecordBatch recordBatch,
-                     SelectionVector selectionVector, List<ValueVector> outColumns)
-        throws GandivaException {
-    evaluate(recordBatch.getLength(), recordBatch.getBuffers(),
+  public void evaluate(
+      ArrowRecordBatch recordBatch, SelectionVector selectionVector, List<ValueVector> outColumns)
+      throws GandivaException {
+    evaluate(
+        recordBatch.getLength(),
+        recordBatch.getBuffers(),
         recordBatch.getBuffersLayout(),
         selectionVector.getType().getNumber(),
         selectionVector.getRecordCount(),
@@ -258,18 +282,20 @@ public class Projector {
   }
 
   /**
- * Invoke this function to evaluate a set of expressions against a set of arrow buffers
- * on the selected positions.
- * (this is an optimised version that skips taking references).
- *
- * @param numRows number of rows.
- * @param buffers List of input arrow buffers
- * @param selectionVector Selection vector which stores the selected rows.
- * @param outColumns Result of applying the project on the data
- */
-  public void evaluate(int numRows, List<ArrowBuf> buffers,
-                     SelectionVector selectionVector,
-                     List<ValueVector> outColumns) throws GandivaException {
+   * Invoke this function to evaluate a set of expressions against a set of arrow buffers on the
+   * selected positions. (this is an optimised version that skips taking references).
+   *
+   * @param numRows number of rows.
+   * @param buffers List of input arrow buffers
+   * @param selectionVector Selection vector which stores the selected rows.
+   * @param outColumns Result of applying the project on the data
+   */
+  public void evaluate(
+      int numRows,
+      List<ArrowBuf> buffers,
+      SelectionVector selectionVector,
+      List<ValueVector> outColumns)
+      throws GandivaException {
     List<ArrowBuffer> buffersLayout = new ArrayList<>();
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
@@ -277,7 +303,10 @@ public class Projector {
       buffersLayout.add(new ArrowBuffer(offset, size));
       offset += size;
     }
-    evaluate(numRows, buffers, buffersLayout,
+    evaluate(
+        numRows,
+        buffers,
+        buffersLayout,
         selectionVector.getType().getNumber(),
         selectionVector.getRecordCount(),
         selectionVector.getBuffer().memoryAddress(),
@@ -285,10 +314,16 @@ public class Projector {
         outColumns);
   }
 
-  private void evaluate(int numRows, List<ArrowBuf> buffers, List<ArrowBuffer> buffersLayout,
-                       int selectionVectorType, int selectionVectorRecordCount,
-                       long selectionVectorAddr, long selectionVectorSize,
-                       List<ValueVector> outColumns) throws GandivaException {
+  private void evaluate(
+      int numRows,
+      List<ArrowBuf> buffers,
+      List<ArrowBuffer> buffersLayout,
+      int selectionVectorType,
+      int selectionVectorRecordCount,
+      long selectionVectorAddr,
+      long selectionVectorSize,
+      List<ValueVector> outColumns)
+      throws GandivaException {
     if (this.closed) {
       throw new EvaluatorClosedException();
     }
@@ -344,15 +379,19 @@ public class Projector {
 
     wrapper.evaluateProjector(
         hasVariableWidthColumns ? new VectorExpander(resizableVectors) : null,
-        this.moduleId, numRows, bufAddrs, bufSizes,
-        selectionVectorType, selectionVectorRecordCount,
-        selectionVectorAddr, selectionVectorSize,
-        outAddrs, outSizes);
+        this.moduleId,
+        numRows,
+        bufAddrs,
+        bufSizes,
+        selectionVectorType,
+        selectionVectorRecordCount,
+        selectionVectorAddr,
+        selectionVectorSize,
+        outAddrs,
+        outSizes);
   }
 
-  /**
-   * Closes the LLVM module representing this evaluator.
-   */
+  /** Closes the LLVM module representing this evaluator. */
   public void close() throws GandivaException {
     if (this.closed) {
       return;

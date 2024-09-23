@@ -15,13 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "gandiva/execution_context.h"
+#include "gandiva/gdv_function_stubs.h"
+
 // This file is also used in the pre-compiled unit tests, which do include
 // llvm/engine/..
 #ifndef GANDIVA_UNIT_TEST
-#include "gandiva/exported_funcs.h"
-#include "gandiva/gdv_function_stubs.h"
+#  include "gandiva/exported_funcs.h"
 
-#include "gandiva/engine.h"
+#  include "gandiva/engine.h"
 
 namespace gandiva {
 
@@ -55,8 +57,6 @@ arrow::Status ExportedContextFunctions::AddMappings(Engine* engine) const {
 
 }  // namespace gandiva
 #endif  // !GANDIVA_UNIT_TEST
-
-#include "gandiva/execution_context.h"
 
 extern "C" {
 

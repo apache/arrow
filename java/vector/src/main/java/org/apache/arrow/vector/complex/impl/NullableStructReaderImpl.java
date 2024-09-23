@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.NonNullableStructVector;
@@ -23,8 +22,8 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.pojo.Field;
 
 /**
- * An {@link org.apache.arrow.vector.complex.reader.FieldReader} for
- * reading nullable struct vectors.
+ * An {@link org.apache.arrow.vector.complex.reader.FieldReader} for reading nullable struct
+ * vectors.
  */
 public class NullableStructReaderImpl extends SingleStructReaderImpl {
 

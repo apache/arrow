@@ -138,7 +138,7 @@ class ExampleFileSystem : public fs::FileSystem {
   }
 };
 
-fs::FileSystemRegistrar kExampleFileSystemModule{
+auto kExampleFileSystemModule = ARROW_REGISTER_FILESYSTEM(
     "example",
     [](const arrow::util::Uri& uri, const io::IOContext& io_context,
        std::string* out_path) -> Result<std::shared_ptr<fs::FileSystem>> {
@@ -148,4 +148,4 @@ fs::FileSystemRegistrar kExampleFileSystemModule{
       }
       return fs;
     },
-};
+    {});

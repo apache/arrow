@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth2;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.function.Consumer;
-
 import org.apache.arrow.flight.CallHeaders;
 
-/**
- * Client credentials that use a username and password.
- */
+/** Client credentials that use a username and password. */
 public final class BasicAuthCredentialWriter implements Consumer<CallHeaders> {
 
   private final String name;
@@ -38,7 +34,11 @@ public final class BasicAuthCredentialWriter implements Consumer<CallHeaders> {
 
   @Override
   public void accept(CallHeaders outputHeaders) {
-    outputHeaders.insert(Auth2Constants.AUTHORIZATION_HEADER, Auth2Constants.BASIC_PREFIX +
-        Base64.getEncoder().encodeToString(String.format("%s:%s", name, password).getBytes(StandardCharsets.UTF_8)));
+    outputHeaders.insert(
+        Auth2Constants.AUTHORIZATION_HEADER,
+        Auth2Constants.BASIC_PREFIX
+            + Base64.getEncoder()
+                .encodeToString(
+                    String.format("%s:%s", name, password).getBytes(StandardCharsets.UTF_8)));
   }
 }

@@ -49,7 +49,7 @@ static jmethodID orc_memory_constructor;
 static jclass record_batch_class;
 static jmethodID record_batch_constructor;
 
-static jint JNI_VERSION = JNI_VERSION_1_6;
+static jint JNI_VERSION = JNI_VERSION_10;
 
 using arrow::internal::checked_cast;
 using arrow::jni::ConcurrentMap;

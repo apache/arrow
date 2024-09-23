@@ -1026,7 +1026,7 @@ Result<std::unique_ptr<liborc::Type>> GetOrcType(const DataType& type) {
         SetAttributes(*it, orc_subtype.get());
         out_type->addStructField(field_name, std::move(orc_subtype));
       }
-      return std::move(out_type);
+      return out_type;
     }
     case Type::type::MAP: {
       const auto& key_field = checked_cast<const MapType&>(type).key_field();
@@ -1048,7 +1048,7 @@ Result<std::unique_ptr<liborc::Type>> GetOrcType(const DataType& type) {
         SetAttributes(arrow_field, orc_subtype.get());
         out_type->addUnionChild(std::move(orc_subtype));
       }
-      return std::move(out_type);
+      return out_type;
     }
     default: {
       return Status::NotImplemented("Unknown or unsupported Arrow type: ",
@@ -1195,7 +1195,7 @@ Result<std::unique_ptr<liborc::Type>> GetOrcType(const Schema& schema) {
     SetAttributes(field, orc_subtype.get());
     out_type->addStructField(field->name(), std::move(orc_subtype));
   }
-  return std::move(out_type);
+  return out_type;
 }
 
 Result<std::shared_ptr<const KeyValueMetadata>> GetFieldMetadata(

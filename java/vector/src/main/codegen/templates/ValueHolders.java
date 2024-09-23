@@ -27,7 +27,6 @@
 package org.apache.arrow.vector.holders;
 
 <#include "/@includes/vv_imports.ftl" />
-
 /**
  * Source code generated using FreeMarker template ${.template_name}
  */
@@ -40,11 +39,12 @@ public final class ${className} implements ValueHolder{
     
     /** The last index (exclusive) into the Vector. **/
     public int end;
-    
+
     /** The Vector holding the actual values. **/
     public ${minor.class}Vector vector;
-    
+
     <#else>
+
     public static final int WIDTH = ${type.width};
     
     <#if mode.name == "Optional">public int isSet;
@@ -70,10 +70,6 @@ public final class ${className} implements ValueHolder{
       throw new UnsupportedOperationException();
     }
     </#if>
-    
-    
-    
-    
 }
 
 </#list>

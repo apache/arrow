@@ -76,22 +76,14 @@ install_arrow <- function(nightly = FALSE,
       ARROW_R_DEV = verbose,
       ARROW_USE_PKG_CONFIG = use_system
     )
-    # On the M1, we can't use the usual autobrew, which pulls Intel dependencies
-    apple_m1 <- grepl("arm-apple|aarch64.*darwin", R.Version()$platform)
-    # On Rosetta, we have to build without JEMALLOC, so we also can't autobrew
-    rosetta <- on_rosetta()
-    if (rosetta) {
+    # On Rosetta, we have to build without JEMALLOC
+    if (on_rosetta()) {
       Sys.setenv(ARROW_JEMALLOC = "OFF")
-    }
-    if (apple_m1 || rosetta) {
       Sys.setenv(FORCE_BUNDLED_BUILD = "true")
     }
 
     opts <- list()
-    if (apple_m1 || rosetta) {
-      # Skip binaries (esp. for rosetta)
-      opts$pkgType <- "source"
-    } else if (isTRUE(binary)) {
+    if (isTRUE(binary)) {
       # Unless otherwise directed, don't consider newer source packages when
       # options(pkgType) == "both" (default on win/mac)
       opts$install.packages.check.source <- "no"

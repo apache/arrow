@@ -14,25 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume fixed type values from avro decoder.
- * Write the data to {@link org.apache.arrow.vector.FixedSizeBinaryVector}.
+ * Consumer which consume fixed type values from avro decoder. Write the data to {@link
+ * org.apache.arrow.vector.FixedSizeBinaryVector}.
  */
 public class AvroFixedConsumer extends BaseAvroConsumer<FixedSizeBinaryVector> {
 
   private final byte[] reuseBytes;
 
-  /**
-   * Instantiate a AvroFixedConsumer.
-   */
+  /** Instantiate a AvroFixedConsumer. */
   public AvroFixedConsumer(FixedSizeBinaryVector vector, int size) {
     super(vector);
     reuseBytes = new byte[size];

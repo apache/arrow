@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
 /**
- * EXPERIMENTAL: a memory allocation that does not come from a BufferAllocator, but rather an outside source (like JNI).
+ * EXPERIMENTAL: a memory allocation that does not come from a BufferAllocator, but rather an
+ * outside source (like JNI).
  *
  * <p>To use this, subclass this class and implement {@link #release0()} to free the allocation.
  */
@@ -37,22 +37,16 @@ public abstract class ForeignAllocation {
     this.size = size;
   }
 
-  /**
-   * Get the size of this allocation.
-   */
+  /** Get the size of this allocation. */
   public long getSize() {
     return size;
   }
 
-  /**
-   * Get the address of this allocation.
-   */
+  /** Get the address of this allocation. */
   protected long memoryAddress() {
     return memoryAddress;
   }
 
-  /**
-   * Free this allocation. Will only be called once.
-   */
+  /** Free this allocation. Will only be called once. */
   protected abstract void release0();
 }

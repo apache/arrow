@@ -28,7 +28,10 @@ import time
 import traceback
 import json
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 import pyarrow as pa
 
@@ -180,20 +183,16 @@ class MetadataFlightServer(FlightServerBase):
     def do_put(self, context, descriptor, reader, writer):
         counter = 0
         expected_data = [-10, -5, 0, 5, 10]
-        while True:
-            try:
-                batch, buf = reader.read_chunk()
-                assert batch.equals(pa.RecordBatch.from_arrays(
-                    [pa.array([expected_data[counter]])],
-                    ['a']
-                ))
-                assert buf is not None
-                client_counter, = struct.unpack('<i', buf.to_pybytes())
-                assert counter == client_counter
-                writer.write(struct.pack('<i', counter))
-                counter += 1
-            except StopIteration:
-                return
+        for batch, buf in reader:
+            assert batch.equals(pa.RecordBatch.from_arrays(
+                [pa.array([expected_data[counter]])],
+                ['a']
+            ))
+            assert buf is not None
+            client_counter, = struct.unpack('<i', buf.to_pybytes())
+            assert counter == client_counter
+            writer.write(struct.pack('<i', counter))
+            counter += 1
 
     @staticmethod
     def number_batches(table):
@@ -960,6 +959,7 @@ def test_server_exit_reraises_exception():
             raise ValueError()
 
 
+@pytest.mark.threading
 @pytest.mark.slow
 def test_client_wait_for_available():
     location = ('localhost', find_free_port())
@@ -1515,17 +1515,45 @@ def test_flight_do_get_metadata():
             FlightClient(('localhost', server.port)) as client:
         reader = client.do_get(flight.Ticket(b''))
         idx = 0
+        for batch, metadata in reader:
+            batches.append(batch)
+            server_idx, = struct.unpack('<i', metadata.to_pybytes())
+            assert idx == server_idx
+            idx += 1
+        data = pa.Table.from_batches(batches)
+        assert data.equals(table)
+
+
+def test_flight_metadata_record_batch_reader_iterator():
+    """Verify the iterator interface works as expected."""
+    batches1 = []
+    batches2 = []
+
+    with MetadataFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        reader = client.do_get(flight.Ticket(b''))
+        idx = 0
         while True:
             try:
                 batch, metadata = reader.read_chunk()
-                batches.append(batch)
+                batches1.append(batch)
                 server_idx, = struct.unpack('<i', metadata.to_pybytes())
                 assert idx == server_idx
                 idx += 1
             except StopIteration:
                 break
-        data = pa.Table.from_batches(batches)
-        assert data.equals(table)
+
+    with MetadataFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        reader = client.do_get(flight.Ticket(b''))
+        idx = 0
+        for batch, metadata in reader:
+            batches2.append(batch)
+            server_idx, = struct.unpack('<i', metadata.to_pybytes())
+            assert idx == server_idx
+            idx += 1
+
+    assert batches1 == batches2
 
 
 def test_flight_do_get_metadata_v4():
@@ -1563,6 +1591,7 @@ def test_flight_do_put_metadata():
                 assert idx == server_idx
 
 
+@pytest.mark.numpy
 def test_flight_do_put_limit():
     """Try a simple do_put call with a size limit."""
     large_batch = pa.RecordBatch.from_arrays([
@@ -1603,6 +1632,7 @@ def test_cancel_do_get():
             reader.read_chunk()
 
 
+@pytest.mark.threading
 @pytest.mark.slow
 def test_cancel_do_get_threaded():
     """Test canceling a DoGet operation from another thread."""
@@ -2067,15 +2097,14 @@ class CancelFlightServer(FlightServerBase):
             time.sleep(0.5)
 
 
+@pytest.mark.threading
 def test_interrupt():
     if threading.current_thread().ident != threading.main_thread().ident:
         pytest.skip("test only works from main Python thread")
-    # Skips test if not available
-    raise_signal = util.get_raise_signal()
 
     def signal_from_thread():
         time.sleep(0.5)
-        raise_signal(signal.SIGINT)
+        signal.raise_signal(signal.SIGINT)
 
     exc_types = (KeyboardInterrupt, pa.ArrowCancelled)
 

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/c/bridge.h"
 #include "arrow/util/utf8.h"
 
 #include "arrow/matlab/array/proxy/array.h"
@@ -40,6 +41,7 @@ Array::Array(std::shared_ptr<arrow::Array> array) : array{std::move(array)} {
   REGISTER_METHOD(Array, getType);
   REGISTER_METHOD(Array, isEqual);
   REGISTER_METHOD(Array, slice);
+  REGISTER_METHOD(Array, exportToC);
 }
 
 std::shared_ptr<arrow::Array> Array::unwrap() { return array; }
@@ -178,4 +180,20 @@ void Array::slice(libmexclass::proxy::method::Context& context) {
   output[0]["TypeID"] = factory.createScalar(type_id);
   context.outputs[0] = output;
 }
+
+void Array::exportToC(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+  mda::StructArray opts = context.inputs[0];
+  const mda::TypedArray<uint64_t> array_address_mda = opts[0]["ArrowArrayAddress"];
+  const mda::TypedArray<uint64_t> schema_address_mda = opts[0]["ArrowSchemaAddress"];
+
+  auto arrow_array = reinterpret_cast<struct ArrowArray*>(uint64_t(array_address_mda[0]));
+  auto arrow_schema =
+      reinterpret_cast<struct ArrowSchema*>(uint64_t(schema_address_mda[0]));
+
+  MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
+      arrow::ExportArray(*array, arrow_array, arrow_schema), context,
+      error::C_EXPORT_FAILED);
+}
+
 }  // namespace arrow::matlab::array::proxy

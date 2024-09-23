@@ -484,8 +484,8 @@ ExecNode_Aggregate <- function(input, options, key_names) {
   .Call(`_arrow_ExecNode_Aggregate`, input, options, key_names)
 }
 
-ExecNode_Join <- function(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
-  .Call(`_arrow_ExecNode_Join`, input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
+ExecNode_Join <- function(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right, na_matches) {
+  .Call(`_arrow_ExecNode_Join`, input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right, na_matches)
 }
 
 ExecNode_Union <- function(input, right_data) {
@@ -1132,6 +1132,10 @@ compute___expr__get_field_ref_name <- function(x) {
   .Call(`_arrow_compute___expr__get_field_ref_name`, x)
 }
 
+compute___expr__field_names_in_expression <- function(x) {
+  .Call(`_arrow_compute___expr__field_names_in_expression`, x)
+}
+
 compute___expr__field_ref <- function(name) {
   .Call(`_arrow_compute___expr__field_ref`, name)
 }
@@ -1346,10 +1350,6 @@ fs___FileSystem__OpenAppendStream <- function(file_system, path) {
 
 fs___FileSystem__type_name <- function(file_system) {
   .Call(`_arrow_fs___FileSystem__type_name`, file_system)
-}
-
-fs___LocalFileSystem__create <- function() {
-  .Call(`_arrow_fs___LocalFileSystem__create`)
 }
 
 fs___SubTreeFileSystem__create <- function(base_path, base_fs) {

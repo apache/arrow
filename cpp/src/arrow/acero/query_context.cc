@@ -40,8 +40,7 @@ QueryContext::QueryContext(QueryOptions opts, ExecContext exec_context)
 const CpuInfo* QueryContext::cpu_info() const { return CpuInfo::GetInstance(); }
 int64_t QueryContext::hardware_flags() const { return cpu_info()->hardware_flags(); }
 
-Status QueryContext::Init(size_t max_num_threads, util::AsyncTaskScheduler* scheduler) {
-  tld_.resize(max_num_threads);
+Status QueryContext::Init(util::AsyncTaskScheduler* scheduler) {
   async_scheduler_ = scheduler;
   return Status::OK();
 }
@@ -49,15 +48,6 @@ Status QueryContext::Init(size_t max_num_threads, util::AsyncTaskScheduler* sche
 size_t QueryContext::GetThreadIndex() { return thread_indexer_(); }
 
 size_t QueryContext::max_concurrency() const { return thread_indexer_.Capacity(); }
-
-Result<util::TempVectorStack*> QueryContext::GetTempStack(size_t thread_index) {
-  if (!tld_[thread_index].is_init) {
-    RETURN_NOT_OK(tld_[thread_index].stack.Init(
-        memory_pool(), 32 * util::MiniBatch::kMiniBatchLength * sizeof(uint64_t)));
-    tld_[thread_index].is_init = true;
-  }
-  return &tld_[thread_index].stack;
-}
 
 Result<Future<>> QueryContext::BeginExternalTask(std::string_view name) {
   Future<> completion_future = Future<>::Make();

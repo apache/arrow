@@ -316,14 +316,13 @@ gparquet_writer_properties_get_data_page_size(GParquetWriterProperties *properti
   return parquet_properties->data_pagesize();
 }
 
-typedef struct GParquetArrowFileWriterPrivate_
+struct GParquetArrowFileWriterPrivate
 {
   parquet::arrow::FileWriter *arrow_file_writer;
-} GParquetArrowFileWriterPrivate;
+};
 
 enum {
-  PROP_0,
-  PROP_ARROW_FILE_WRITER
+  PROP_ARROW_FILE_WRITER = 1,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GParquetArrowFileWriter,
@@ -497,6 +496,58 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
 }
 
 /**
+ * gparquet_arrow_file_writer_get_schema:
+ * @writer: A #GParquetArrowFileWriter.
+ *
+ * Returns: (transfer full): The schema to be written to.
+ *
+ * Since: 18.0.0
+ */
+GArrowSchema *
+gparquet_arrow_file_writer_get_schema(GParquetArrowFileWriter *writer)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  auto arrow_schema = parquet_arrow_file_writer->schema();
+  return garrow_schema_new_raw(&arrow_schema);
+}
+
+/**
+ * gparquet_arrow_file_writer_write_record_batch:
+ * @writer: A #GParquetArrowFileWriter.
+ * @record_batch: A record batch to be written.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Write a record batch into the buffered row group.
+ *
+ * Multiple record batches can be written into the same row group
+ * through this function.
+ *
+ * gparquet_writer_properties_get_max_row_group_length() is respected
+ * and a new row group will be created if the current row group
+ * exceeds the limit.
+ *
+ * Record batches get flushed to the output stream once
+ * gparquet_file_writer_new_buffered_row_group() or
+ * gparquet_file_writer_close() is called.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gparquet_arrow_file_writer_write_record_batch(GParquetArrowFileWriter *writer,
+                                              GArrowRecordBatch *record_batch,
+                                              GError **error)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  auto arrow_record_batch = garrow_record_batch_get_raw(record_batch).get();
+  auto status = parquet_arrow_file_writer->WriteRecordBatch(*arrow_record_batch);
+  return garrow_error_check(error,
+                            status,
+                            "[parquet][arrow][file-writer][write-record-batch]");
+}
+
+/**
  * gparquet_arrow_file_writer_write_table:
  * @writer: A #GParquetArrowFileWriter.
  * @table: A table to be written.
@@ -510,13 +561,82 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
 gboolean
 gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
                                        GArrowTable *table,
-                                       guint64 chunk_size,
+                                       gsize chunk_size,
                                        GError **error)
 {
   auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
   auto arrow_table = garrow_table_get_raw(table).get();
-  auto status = parquet_arrow_file_writer->WriteTable(*arrow_table, chunk_size);
-  return garrow_error_check(error, status, "[parquet][arrow][file-writer][write-table]");
+  return garrow::check(error,
+                       parquet_arrow_file_writer->WriteTable(*arrow_table, chunk_size),
+                       "[parquet][arrow][file-writer][write-table]");
+}
+
+/**
+ * gparquet_arrow_file_writer_new_row_group:
+ * @writer: A #GParquetArrowFileWriter.
+ * @chunk_size: The max number of rows in a row group.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Start a new row group.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gparquet_arrow_file_writer_new_row_group(GParquetArrowFileWriter *writer,
+                                         gsize chunk_size,
+                                         GError **error)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  return garrow::check(error,
+                       parquet_arrow_file_writer->NewRowGroup(chunk_size),
+                       "[parquet][arrow][file-writer][new-row-group]");
+}
+
+/**
+ * gparquet_arrow_file_writer_new_buffered_row_group:
+ * @writer: A #GParquetArrowFileWriter.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Start a new buffered row group.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gparquet_arrow_file_writer_new_buffered_row_group(GParquetArrowFileWriter *writer,
+                                                  GError **error)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  return garrow::check(error,
+                       parquet_arrow_file_writer->NewBufferedRowGroup(),
+                       "[parquet][arrow][file-writer][new-buffered-row-group]");
+}
+
+/**
+ * gparquet_arrow_file_writer_write_chunked_array:
+ * @writer: A #GParquetArrowFileWriter.
+ * @chunked_array: A #GArrowChunkedArray to be written.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Start a chunked array as a column chunk.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gparquet_arrow_file_writer_write_chunked_array(GParquetArrowFileWriter *writer,
+                                               GArrowChunkedArray *chunked_array,
+                                               GError **error)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  return garrow::check(error,
+                       parquet_arrow_file_writer->WriteColumnChunk(arrow_chunked_array),
+                       "[parquet][arrow][file-writer][write-chunked-array]");
 }
 
 /**

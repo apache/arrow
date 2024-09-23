@@ -14,32 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth;
 
+import com.google.protobuf.ByteString;
+import io.grpc.StatusRuntimeException;
+import io.grpc.stub.StreamObserver;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
-
 import org.apache.arrow.flight.auth.ClientAuthHandler.ClientAuthSender;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceStub;
 
-import com.google.protobuf.ByteString;
-
-import io.grpc.StatusRuntimeException;
-import io.grpc.stub.StreamObserver;
-
-/**
- * Utility class for performing authorization over using a GRPC stub.
- */
+/** Utility class for performing authorization over using a GRPC stub. */
 public class ClientAuthWrapper {
 
   /**
-   * Do client auth for a client.  The stub will be authenticated after this method returns.
+   * Do client auth for a client. The stub will be authenticated after this method returns.
    *
    * @param authHandler The handler to use.
    * @param stub The service stub.
@@ -87,43 +81,46 @@ public class ClientAuthWrapper {
       }
     }
 
-    private Iterator<byte[]> iter = new Iterator<byte[]>() {
+    private Iterator<byte[]> iter =
+        new Iterator<byte[]>() {
 
-      @Override
-      public byte[] next() {
-        while (!completed.isDone() || !messages.isEmpty()) {
-          byte[] bytes = messages.poll();
-          if (bytes == null) {
-            // busy wait.
-            continue;
-          } else {
-            return bytes;
-          }
-        }
-
-        if (completed.isCompletedExceptionally()) {
-          // Preserve prior exception behavior
-          // TODO: with ARROW-5681, throw an appropriate Flight exception if gRPC raised an exception
-          try {
-            completed.get();
-          } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-          } catch (ExecutionException e) {
-            if (e.getCause() instanceof StatusRuntimeException) {
-              throw (StatusRuntimeException) e.getCause();
+          @Override
+          public byte[] next() {
+            while (!completed.isDone() || !messages.isEmpty()) {
+              byte[] bytes = messages.poll();
+              if (bytes == null) {
+                // busy wait.
+                continue;
+              } else {
+                return bytes;
+              }
             }
-            throw new RuntimeException(e);
+
+            if (completed.isCompletedExceptionally()) {
+              // Preserve prior exception behavior
+              // TODO: with ARROW-5681, throw an appropriate Flight exception if gRPC raised an
+              // exception
+              try {
+                completed.get();
+              } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+              } catch (ExecutionException e) {
+                if (e.getCause() instanceof StatusRuntimeException) {
+                  throw (StatusRuntimeException) e.getCause();
+                }
+                throw new RuntimeException(e);
+              }
+            }
+
+            throw new IllegalStateException(
+                "You attempted to retrieve messages after there were none.");
           }
-        }
 
-        throw new IllegalStateException("You attempted to retrieve messages after there were none.");
-      }
-
-      @Override
-      public boolean hasNext() {
-        return !messages.isEmpty();
-      }
-    };
+          @Override
+          public boolean hasNext() {
+            return !messages.isEmpty();
+          }
+        };
 
     @Override
     public void onError(Throwable t) {
@@ -137,9 +134,8 @@ public class ClientAuthWrapper {
       @Override
       public void send(byte[] payload) {
         try {
-          responseObserver.onNext(HandshakeRequest.newBuilder()
-              .setPayload(ByteString.copyFrom(payload))
-              .build());
+          responseObserver.onNext(
+              HandshakeRequest.newBuilder().setPayload(ByteString.copyFrom(payload)).build());
         } catch (StatusRuntimeException sre) {
           throw StatusUtils.fromGrpcRuntimeException(sre);
         }
@@ -150,7 +146,6 @@ public class ClientAuthWrapper {
         this.errored = true;
         responseObserver.onError(StatusUtils.toGrpcException(cause));
       }
-
     }
 
     @Override
@@ -158,5 +153,4 @@ public class ClientAuthWrapper {
       completed.complete(true);
     }
   }
-
 }

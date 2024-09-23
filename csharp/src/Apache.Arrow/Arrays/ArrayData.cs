@@ -15,7 +15,6 @@
 
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
-using Google.FlatBuffers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,11 +27,29 @@ namespace Apache.Arrow
 
         public readonly IArrowType DataType;
         public readonly int Length;
-        public readonly int NullCount;
+
+        /// <summary>
+        /// The number of null values in the Array. May be -1 if the null count has not been computed.
+        /// </summary>
+        public int NullCount;
+
         public readonly int Offset;
         public readonly ArrowBuffer[] Buffers;
         public readonly ArrayData[] Children;
         public readonly ArrayData Dictionary; // Only used for dictionary type
+
+        /// <summary>
+        /// Get the number of null values in the Array, computing the count if required.
+        /// </summary>
+        public int GetNullCount()
+        {
+            if (NullCount == RecalculateNullCount)
+            {
+                NullCount = ComputeNullCount();
+            }
+
+            return NullCount;
+        }
 
         // This is left for compatibility with lower version binaries
         // before the dictionary type was supported.
@@ -111,7 +128,25 @@ namespace Apache.Arrow
             length = Math.Min(Length - offset, length);
             offset += Offset;
 
-            return new ArrayData(DataType, length, RecalculateNullCount, offset, Buffers, Children, Dictionary);
+            int nullCount;
+            if (NullCount == 0)
+            {
+                nullCount = 0;
+            }
+            else if (NullCount == Length)
+            {
+                nullCount = length;
+            }
+            else if (offset == Offset && length == Length)
+            {
+                nullCount = NullCount;
+            }
+            else
+            {
+                nullCount = RecalculateNullCount;
+            }
+
+            return new ArrayData(DataType, length, nullCount, offset, Buffers, Children, Dictionary);
         }
 
         public ArrayData Clone(MemoryAllocator allocator = default)
@@ -124,6 +159,25 @@ namespace Apache.Arrow
                 Buffers?.Select(b => b.Clone(allocator))?.ToArray(),
                 Children?.Select(b => b.Clone(allocator))?.ToArray(),
                 Dictionary?.Clone(allocator));
+        }
+
+        private int ComputeNullCount()
+        {
+            if (DataType.TypeId == ArrowTypeId.Union)
+            {
+                return UnionArray.ComputeNullCount(this);
+            }
+
+            if (Buffers == null || Buffers.Length == 0 || Buffers[0].IsEmpty)
+            {
+                return 0;
+            }
+
+            // Note: Dictionary arrays may be logically null if there is a null in the dictionary values,
+            // but this isn't accounted for by the IArrowArray.IsNull implementation,
+            // so we maintain consistency with that behaviour here.
+
+            return Length - BitUtility.CountBits(Buffers[0].Span, Offset, Length);
         }
     }
 }

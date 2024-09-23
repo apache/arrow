@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import java.util.Iterator;
-
 import org.apache.arrow.flight.ActionType;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightConstants;
@@ -35,19 +33,21 @@ final class ExpirationTimeListActionsScenario implements Scenario {
   }
 
   @Override
-  public void buildServer(FlightServer.Builder builder) {
-  }
+  public void buildServer(FlightServer.Builder builder) {}
 
   @Override
-  public void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception {
+  public void client(BufferAllocator allocator, Location location, FlightClient client)
+      throws Exception {
     Iterator<ActionType> actions = client.listActions().iterator();
     IntegrationAssertions.assertTrue("Expected 2 actions", actions.hasNext());
     ActionType action = actions.next();
-    IntegrationAssertions.assertEquals(FlightConstants.CANCEL_FLIGHT_INFO.getType(), action.getType());
+    IntegrationAssertions.assertEquals(
+        FlightConstants.CANCEL_FLIGHT_INFO.getType(), action.getType());
 
     IntegrationAssertions.assertTrue("Expected 2 actions", actions.hasNext());
     action = actions.next();
-    IntegrationAssertions.assertEquals(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType(), action.getType());
+    IntegrationAssertions.assertEquals(
+        FlightConstants.RENEW_FLIGHT_ENDPOINT.getType(), action.getType());
 
     IntegrationAssertions.assertFalse("Expected 2 actions", actions.hasNext());
   }

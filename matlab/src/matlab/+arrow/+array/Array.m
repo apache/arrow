@@ -97,6 +97,19 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
             % Invoke isEqual proxy object method
             tf = obj.Proxy.isEqual(proxyIDs);
         end
+
+        function export(obj, cArrowArrayAddress, cArrowSchemaAddress)
+            arguments
+                obj(1, 1) arrow.array.Array
+                cArrowArrayAddress(1, 1) uint64
+                cArrowSchemaAddress(1, 1) uint64
+            end
+            args = struct(...
+                ArrowArrayAddress=cArrowArrayAddress,...
+                ArrowSchemaAddress=cArrowSchemaAddress...
+            );
+            obj.Proxy.exportToC(args);
+        end
     end
 
     methods (Hidden)
@@ -106,6 +119,17 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
             traits = arrow.type.traits.traits(arrow.type.ID(arrayStruct.TypeID));
             proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=arrayStruct.ProxyID);
             array = traits.ArrayConstructor(proxy);
+        end
+    end
+
+    methods (Static)
+        function array = import(cArray, cSchema)
+            arguments
+                cArray(1, 1) arrow.c.Array
+                cSchema(1, 1) arrow.c.Schema
+            end
+            importer = arrow.c.internal.ArrayImporter();
+            array = importer.import(cArray, cSchema);
         end
     end
 end

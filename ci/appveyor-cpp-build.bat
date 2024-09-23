@@ -46,7 +46,9 @@ set ARROW_CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
 set ARROW_CXXFLAGS=/WX /MP
 
 @rem Install GCS testbench
+set PIPX_BIN_DIR=C:\Windows\
 call %CD%\ci\scripts\install_gcs_testbench.bat
+storage-testbench -h || exit /B
 
 @rem
 @rem Build and test Arrow C++ libraries (including Parquet)
@@ -129,7 +131,6 @@ set PYARROW_WITH_ORC=%ARROW_ORC%
 set PYARROW_WITH_PARQUET=ON
 set PYARROW_WITH_PARQUET_ENCRYPTION=ON
 set PYARROW_WITH_S3=%ARROW_S3%
-set PYARROW_WITH_STATIC_BOOST=ON
 set PYARROW_WITH_SUBSTRAIT=ON
 
 set ARROW_HOME=%CONDA_PREFIX%\Library

@@ -14,28 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 
 /**
  * A DictionaryProvider that is used in C Data Interface for imports.
- * <p>
- * CDataDictionaryProvider is similar to
- * {@link DictionaryProvider.MapDictionaryProvider} with a key difference that
- * the dictionaries are owned by the provider so it must eventually be closed.
- * <p>
- * The typical usage is to create the CDataDictionaryProvider and pass it to
- * {@link Data#importField} or {@link Data#importSchema} to allocate empty
- * dictionaries based on the information in {@link ArrowSchema}. Then you can
- * re-use the same dictionary provider in any function that imports an
- * {@link ArrowArray} that has the same schema.
+ *
+ * <p>CDataDictionaryProvider is similar to {@link DictionaryProvider.MapDictionaryProvider} with a
+ * key difference that the dictionaries are owned by the provider so it must eventually be closed.
+ *
+ * <p>The typical usage is to create the CDataDictionaryProvider and pass it to {@link
+ * Data#importField} or {@link Data#importSchema} to allocate empty dictionaries based on the
+ * information in {@link ArrowSchema}. Then you can re-use the same dictionary provider in any
+ * function that imports an {@link ArrowArray} that has the same schema.
  */
 public class CDataDictionaryProvider implements DictionaryProvider, AutoCloseable {
 
@@ -69,5 +65,4 @@ public class CDataDictionaryProvider implements DictionaryProvider, AutoCloseabl
     }
     map.clear();
   }
-
 }

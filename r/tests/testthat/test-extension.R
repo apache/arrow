@@ -343,3 +343,11 @@ test_that("Dataset/arrow_dplyr_query can roundtrip extension types", {
 
   expect_identical(unclass(roundtripped$extension), roundtripped$letter)
 })
+
+test_that("Handling vctrs_rcrd type", {
+  df <- data.frame(
+    x = vctrs::new_rcrd(fields = list(special = 1:3), class = "special")
+  )
+  tab <- arrow_table(df)
+  expect_identical(as.data.frame(tab), df)
+})

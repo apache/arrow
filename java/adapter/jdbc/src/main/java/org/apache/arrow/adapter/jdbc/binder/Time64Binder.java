@@ -14,21 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Types;
-
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeNanoVector;
 
-/**
- * A binder for 64-bit time types.
- */
+/** A binder for 64-bit time types. */
 public class Time64Binder extends BaseColumnBinder<BaseFixedWidthVector> {
   private static final long TYPE_WIDTH = 8;
 
@@ -43,11 +39,11 @@ public class Time64Binder extends BaseColumnBinder<BaseFixedWidthVector> {
   }
 
   public Time64Binder(TimeMicroVector vector, int jdbcType) {
-    this(vector, /*factor*/1_000, jdbcType);
+    this(vector, /*factor*/ 1_000, jdbcType);
   }
 
   public Time64Binder(TimeNanoVector vector, int jdbcType) {
-    this(vector, /*factor*/1_000_000, jdbcType);
+    this(vector, /*factor*/ 1_000_000, jdbcType);
   }
 
   Time64Binder(BaseFixedWidthVector vector, long factor, int jdbcType) {
@@ -56,7 +52,8 @@ public class Time64Binder extends BaseColumnBinder<BaseFixedWidthVector> {
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
     // TODO: option to throw on truncation (vendor Guava IntMath#multiply)
     final Time value = new Time(vector.getDataBuffer().getLong(rowIndex * TYPE_WIDTH) / factor);
     statement.setTime(parameterIndex, value);

@@ -14,15 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.expression;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 
 /**
- * Used to represent expression tree nodes representing boolean constants.
- * Used while creating expressions like if (!x).
+ * Used to represent expression tree nodes representing boolean constants. Used while creating
+ * expressions like if (!x).
  */
 class BooleanNode implements TreeNode {
   private final Boolean value;

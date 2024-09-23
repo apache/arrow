@@ -33,7 +33,7 @@ ${R_BIN} CMD INSTALL ${INSTALL_ARGS} arrow*.tar.gz
 pushd tests
 
 # to generate suppression files run:
-# ${R_BIN} --vanilla -d "valgrind --tool=memcheck --leak-check=full --track-origins=yes --gen-suppressions=all --log-file=memcheck.log" -f testthat.supp
+# ${R_BIN} --vanilla -d "valgrind --tool=memcheck --leak-check=full --track-origins=yes --gen-suppressions=all --log-file=memcheck.log" -f testthat.R
 ${R_BIN} --vanilla -d "valgrind --tool=memcheck --leak-check=full --track-origins=yes --suppressions=/${1}/ci/etc/valgrind-cran.supp" -f testthat.R |& tee testthat.out
 
 # valgrind --error-exitcode=1 should return an erroring exit code that we can catch,

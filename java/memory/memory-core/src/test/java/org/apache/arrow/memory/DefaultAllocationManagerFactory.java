@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
 import org.apache.arrow.memory.util.MemoryUtil;
@@ -22,22 +21,19 @@ import org.apache.arrow.memory.util.MemoryUtil;
 /**
  * The default Allocation Manager Factory for a module.
  *
- * This is only used by tests and contains only a simplistic allocator method.
- *
+ * <p>This is only used by tests and contains only a simplistic allocator method.
  */
 public class DefaultAllocationManagerFactory implements AllocationManager.Factory {
 
   public static final AllocationManager.Factory FACTORY = new DefaultAllocationManagerFactory();
-  private static final ArrowBuf EMPTY = new ArrowBuf(ReferenceManager.NO_OP,
-      null,
-      0,
-      MemoryUtil.UNSAFE.allocateMemory(0));
+  private static final ArrowBuf EMPTY =
+      new ArrowBuf(ReferenceManager.NO_OP, null, 0, MemoryUtil.allocateMemory(0));
 
   @Override
   public AllocationManager create(BufferAllocator accountingAllocator, long size) {
     return new AllocationManager(accountingAllocator) {
       private final long allocatedSize = size;
-      private final long address = MemoryUtil.UNSAFE.allocateMemory(size);
+      private final long address = MemoryUtil.allocateMemory(size);
 
       @Override
       public long getSize() {
@@ -51,7 +47,7 @@ public class DefaultAllocationManagerFactory implements AllocationManager.Factor
 
       @Override
       protected void release0() {
-        MemoryUtil.UNSAFE.freeMemory(address);
+        MemoryUtil.freeMemory(address);
       }
     };
   }

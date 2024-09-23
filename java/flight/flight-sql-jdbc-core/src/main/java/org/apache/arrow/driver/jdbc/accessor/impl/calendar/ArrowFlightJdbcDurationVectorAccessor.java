@@ -14,26 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
 import java.time.Duration;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.DurationVector;
 
-/**
- * Accessor for the Arrow type {@link DurationVector}.
- */
+/** Accessor for the Arrow type {@link DurationVector}. */
 public class ArrowFlightJdbcDurationVectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final DurationVector vector;
 
-  public ArrowFlightJdbcDurationVectorAccessor(DurationVector vector,
-                                               IntSupplier currentRowSupplier,
-                                               ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcDurationVectorAccessor(
+      DurationVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
   }

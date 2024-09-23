@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.rounding;
 
 import org.apache.arrow.memory.util.CommonUtil;
@@ -22,9 +21,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The default rounding policy. That is, if the requested size is within the chunk size,
- * the rounded size will be the next power of two. Otherwise, the rounded size
- * will be identical to the requested size.
+ * The default rounding policy. That is, if the requested size is within the chunk size, the rounded
+ * size will be the next power of two. Otherwise, the rounded size will be identical to the
+ * requested size.
  */
 public class DefaultRoundingPolicy implements RoundingPolicy {
   private static final Logger logger = LoggerFactory.getLogger(DefaultRoundingPolicy.class);
@@ -33,31 +32,25 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
   /**
    * The variables here and the static block calculates the DEFAULT_CHUNK_SIZE.
    *
-   * <p>
-   *   It was copied from {@link io.netty.buffer.PooledByteBufAllocator}.
-   * </p>
+   * <p>It was copied from {@link io.netty.buffer.PooledByteBufAllocator}.
    */
-  private static final int MIN_PAGE_SIZE = 4096;
-  private static final int MAX_CHUNK_SIZE = (int) (((long) Integer.MAX_VALUE + 1) / 2);
+  private static final long MIN_PAGE_SIZE = 4096;
+
+  private static final long MAX_CHUNK_SIZE = ((long) Integer.MAX_VALUE + 1) / 2;
   private static final long DEFAULT_CHUNK_SIZE;
 
-
   static {
-    int defaultPageSize = Integer.getInteger("org.apache.memory.allocator.pageSize", 8192);
-    Throwable pageSizeFallbackCause = null;
+    long defaultPageSize = Long.getLong("org.apache.memory.allocator.pageSize", 8192);
     try {
       validateAndCalculatePageShifts(defaultPageSize);
     } catch (Throwable t) {
-      pageSizeFallbackCause = t;
       defaultPageSize = 8192;
     }
 
     int defaultMaxOrder = Integer.getInteger("org.apache.memory.allocator.maxOrder", 11);
-    Throwable maxOrderFallbackCause = null;
     try {
       validateAndCalculateChunkSize(defaultPageSize, defaultMaxOrder);
     } catch (Throwable t) {
-      maxOrderFallbackCause = t;
       defaultMaxOrder = 11;
     }
     DEFAULT_CHUNK_SIZE = validateAndCalculateChunkSize(defaultPageSize, defaultMaxOrder);
@@ -67,9 +60,10 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
     }
   }
 
-  private static int validateAndCalculatePageShifts(int pageSize) {
+  private static long validateAndCalculatePageShifts(long pageSize) {
     if (pageSize < MIN_PAGE_SIZE) {
-      throw new IllegalArgumentException("pageSize: " + pageSize + " (expected: " + MIN_PAGE_SIZE + ")");
+      throw new IllegalArgumentException(
+          "pageSize: " + pageSize + " (expected: " + MIN_PAGE_SIZE + ")");
     }
 
     if ((pageSize & pageSize - 1) != 0) {
@@ -77,30 +71,31 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
     }
 
     // Logarithm base 2. At this point we know that pageSize is a power of two.
-    return Integer.SIZE - 1 - Integer.numberOfLeadingZeros(pageSize);
+    return Long.SIZE - 1L - Long.numberOfLeadingZeros(pageSize);
   }
 
-  private static int validateAndCalculateChunkSize(int pageSize, int maxOrder) {
+  private static long validateAndCalculateChunkSize(long pageSize, int maxOrder) {
     if (maxOrder > 14) {
       throw new IllegalArgumentException("maxOrder: " + maxOrder + " (expected: 0-14)");
     }
 
     // Ensure the resulting chunkSize does not overflow.
-    int chunkSize = pageSize;
-    for (int i = maxOrder; i > 0; i --) {
+    long chunkSize = pageSize;
+    for (long i = maxOrder; i > 0; i--) {
       if (chunkSize > MAX_CHUNK_SIZE / 2) {
-        throw new IllegalArgumentException(String.format(
-            "pageSize (%d) << maxOrder (%d) must not exceed %d", pageSize, maxOrder, MAX_CHUNK_SIZE));
+        throw new IllegalArgumentException(
+            String.format(
+                "pageSize (%d) << maxOrder (%d) must not exceed %d",
+                pageSize, maxOrder, MAX_CHUNK_SIZE));
       }
       chunkSize <<= 1;
     }
     return chunkSize;
   }
 
-  /**
-   * The singleton instance.
-   */
-  public static final DefaultRoundingPolicy DEFAULT_ROUNDING_POLICY = new DefaultRoundingPolicy(DEFAULT_CHUNK_SIZE);
+  /** The singleton instance. */
+  public static final DefaultRoundingPolicy DEFAULT_ROUNDING_POLICY =
+      new DefaultRoundingPolicy(DEFAULT_CHUNK_SIZE);
 
   private DefaultRoundingPolicy(long chunkSize) {
     this.chunkSize = chunkSize;
@@ -108,7 +103,6 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
 
   @Override
   public long getRoundedSize(long requestSize) {
-    return requestSize < chunkSize ?
-            CommonUtil.nextPowerOfTwo(requestSize) : requestSize;
+    return requestSize < chunkSize ? CommonUtil.nextPowerOfTwo(requestSize) : requestSize;
   }
 }

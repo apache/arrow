@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc;
 
 import java.io.IOException;
@@ -25,7 +24,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -37,9 +35,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 
-/**
- * Writer for the Arrow stream format to send ArrowRecordBatches over a WriteChannel.
- */
+/** Writer for the Arrow stream format to send ArrowRecordBatches over a WriteChannel. */
 public class ArrowStreamWriter extends ArrowWriter {
   private final Map<Long, FieldVector> previousDictionaries = new HashMap<>();
 
@@ -47,8 +43,8 @@ public class ArrowStreamWriter extends ArrowWriter {
    * Construct an ArrowStreamWriter with an optional DictionaryProvider for the OutputStream.
    *
    * @param root Existing VectorSchemaRoot with vectors to be written.
-   * @param provider DictionaryProvider for any vectors that are dictionary encoded.
-   *                 (Optional, can be null)
+   * @param provider DictionaryProvider for any vectors that are dictionary encoded. (Optional, can
+   *     be null)
    * @param out OutputStream for writing.
    */
   public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, OutputStream out) {
@@ -58,7 +54,8 @@ public class ArrowStreamWriter extends ArrowWriter {
   /**
    * Construct an ArrowStreamWriter with an optional DictionaryProvider for the WritableByteChannel.
    */
-  public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
+  public ArrowStreamWriter(
+      VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
     this(root, provider, out, IpcOption.DEFAULT);
   }
 
@@ -66,12 +63,15 @@ public class ArrowStreamWriter extends ArrowWriter {
    * Construct an ArrowStreamWriter with an optional DictionaryProvider for the WritableByteChannel.
    *
    * @param root Existing VectorSchemaRoot with vectors to be written.
-   * @param provider DictionaryProvider for any vectors that are dictionary encoded.
-   *                 (Optional, can be null)
+   * @param provider DictionaryProvider for any vectors that are dictionary encoded. (Optional, can
+   *     be null)
    * @param option IPC write options
    * @param out WritableByteChannel for writing.
    */
-  public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+  public ArrowStreamWriter(
+      VectorSchemaRoot root,
+      DictionaryProvider provider,
+      WritableByteChannel out,
       IpcOption option) {
     super(root, provider, out, option);
   }
@@ -80,16 +80,20 @@ public class ArrowStreamWriter extends ArrowWriter {
    * Construct an ArrowStreamWriter with compression enabled.
    *
    * @param root Existing VectorSchemaRoot with vectors to be written.
-   * @param provider DictionaryProvider for any vectors that are dictionary encoded.
-   *                 (Optional, can be null)
+   * @param provider DictionaryProvider for any vectors that are dictionary encoded. (Optional, can
+   *     be null)
    * @param option IPC write options
    * @param compressionFactory Compression codec factory
    * @param codecType Codec type
    * @param out WritableByteChannel for writing.
    */
-  public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
-                           IpcOption option, CompressionCodec.Factory compressionFactory,
-                           CompressionUtil.CodecType codecType) {
+  public ArrowStreamWriter(
+      VectorSchemaRoot root,
+      DictionaryProvider provider,
+      WritableByteChannel out,
+      IpcOption option,
+      CompressionCodec.Factory compressionFactory,
+      CompressionUtil.CodecType codecType) {
     this(root, provider, out, option, compressionFactory, codecType, Optional.empty());
   }
 
@@ -97,17 +101,22 @@ public class ArrowStreamWriter extends ArrowWriter {
    * Construct an ArrowStreamWriter with compression enabled.
    *
    * @param root Existing VectorSchemaRoot with vectors to be written.
-   * @param provider DictionaryProvider for any vectors that are dictionary encoded.
-   *                 (Optional, can be null)
+   * @param provider DictionaryProvider for any vectors that are dictionary encoded. (Optional, can
+   *     be null)
    * @param option IPC write options
    * @param compressionFactory Compression codec factory
    * @param codecType Codec type
    * @param compressionLevel Compression level
    * @param out WritableByteChannel for writing.
    */
-  public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
-                           IpcOption option, CompressionCodec.Factory compressionFactory,
-                           CompressionUtil.CodecType codecType, Optional<Integer> compressionLevel) {
+  public ArrowStreamWriter(
+      VectorSchemaRoot root,
+      DictionaryProvider provider,
+      WritableByteChannel out,
+      IpcOption option,
+      CompressionCodec.Factory compressionFactory,
+      CompressionUtil.CodecType codecType,
+      Optional<Integer> compressionLevel) {
     super(root, provider, out, option, compressionFactory, codecType, compressionLevel);
   }
 
@@ -137,8 +146,8 @@ public class ArrowStreamWriter extends ArrowWriter {
     for (long id : dictionaryIdsUsed) {
       Dictionary dictionary = provider.lookup(id);
       FieldVector vector = dictionary.getVector();
-      if (previousDictionaries.containsKey(id) &&
-          VectorEqualsVisitor.vectorEquals(vector, previousDictionaries.get(id))) {
+      if (previousDictionaries.containsKey(id)
+          && VectorEqualsVisitor.vectorEquals(vector, previousDictionaries.get(id))) {
         // Dictionary was previously written and hasn't changed
         continue;
       }

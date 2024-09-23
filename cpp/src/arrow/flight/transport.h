@@ -19,8 +19,6 @@
 /// Internal (but not private) interface for implementing
 /// alternate network transports in Flight.
 ///
-/// \warning EXPERIMENTAL. Subject to change.
-///
 /// To implement a transport, implement ServerTransport and
 /// ClientTransport, and register the desired URI schemes with
 /// TransportRegistry. Flight takes care of most of the per-RPC
@@ -248,8 +246,6 @@ TransportRegistry* GetDefaultTransportRegistry();
 /// Transport implementations may subclass this to store their own
 /// state, and stash an instance in a user-supplied AsyncListener via
 /// ClientTransport::GetAsyncRpc and ClientTransport::SetAsyncRpc.
-///
-/// This API is EXPERIMENTAL.
 class ARROW_FLIGHT_EXPORT AsyncRpc {
  public:
   virtual ~AsyncRpc() = default;

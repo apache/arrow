@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.deduplicate;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -26,18 +25,18 @@ import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 
-/**
- * Utilities for vector deduplication.
- */
+/** Utilities for vector deduplication. */
 class DeduplicationUtils {
 
   /**
    * Gets the start positions of the first distinct values in a vector.
+   *
    * @param vector the target vector.
    * @param runStarts the bit set to hold the start positions.
    * @param <V> vector type.
    */
-  public static <V extends ValueVector> void populateRunStartIndicators(V vector, ArrowBuf runStarts) {
+  public static <V extends ValueVector> void populateRunStartIndicators(
+      V vector, ArrowBuf runStarts) {
     int bufSize = DataSizeRoundingUtil.divideBy8Ceil(vector.getValueCount());
     Preconditions.checkArgument(runStarts.capacity() >= bufSize);
     runStarts.setZero(0, bufSize);
@@ -55,6 +54,7 @@ class DeduplicationUtils {
 
   /**
    * Gets the run lengths, given the start positions.
+   *
    * @param runStarts the bit set for start positions.
    * @param runLengths the run length vector to populate.
    * @param valueCount the number of values in the bit set.
@@ -76,15 +76,15 @@ class DeduplicationUtils {
   }
 
   /**
-   * Gets distinct values from the input vector by removing adjacent
-   * duplicated values.
+   * Gets distinct values from the input vector by removing adjacent duplicated values.
+   *
    * @param indicators the bit set containing the start positions of distinct values.
    * @param inputVector the input vector.
    * @param outputVector the output vector.
    * @param <V> vector type.
    */
   public static <V extends ValueVector> void populateDeduplicatedValues(
-          ArrowBuf indicators, V inputVector, V outputVector) {
+      ArrowBuf indicators, V inputVector, V outputVector) {
     int dstIdx = 0;
     for (int srcIdx = 0; srcIdx < inputVector.getValueCount(); srcIdx++) {
       if (BitVectorHelper.get(indicators, srcIdx) != 0) {

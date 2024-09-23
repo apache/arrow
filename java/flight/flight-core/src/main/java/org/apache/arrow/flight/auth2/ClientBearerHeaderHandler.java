@@ -14,20 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth2;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 
-/**
- * A client header handler that parses the incoming headers for a bearer token.
- */
+/** A client header handler that parses the incoming headers for a bearer token. */
 public class ClientBearerHeaderHandler implements ClientHeaderHandler {
 
   @Override
-  public CredentialCallOption getCredentialCallOptionFromIncomingHeaders(CallHeaders incomingHeaders) {
-    final String bearerValue = AuthUtilities.getValueFromAuthHeader(incomingHeaders, Auth2Constants.BEARER_PREFIX);
+  public CredentialCallOption getCredentialCallOptionFromIncomingHeaders(
+      CallHeaders incomingHeaders) {
+    final String bearerValue =
+        AuthUtilities.getValueFromAuthHeader(incomingHeaders, Auth2Constants.BEARER_PREFIX);
     if (bearerValue != null) {
       return new CredentialCallOption(new BearerCredentialWriter(bearerValue));
     }

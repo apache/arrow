@@ -22,9 +22,9 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// Represents the same logical types that List can, but contains offsets and
-/// sizes allowing for writes in any order and sharing of child values among
-/// list values.
+// / Represents the same logical types that List can, but contains offsets and
+// / sizes allowing for writes in any order and sharing of child values among
+// / list values.
 type ListView struct {
 	_tab flatbuffers.Table
 }

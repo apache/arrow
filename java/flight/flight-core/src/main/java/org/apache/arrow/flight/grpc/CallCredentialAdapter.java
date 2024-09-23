@@ -14,20 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.grpc;
-
-import java.util.concurrent.Executor;
-import java.util.function.Consumer;
-
-import org.apache.arrow.flight.CallHeaders;
 
 import io.grpc.CallCredentials;
 import io.grpc.Metadata;
+import java.util.concurrent.Executor;
+import java.util.function.Consumer;
+import org.apache.arrow.flight.CallHeaders;
 
-/**
- * Adapter class to utilize a CredentialWriter to implement Grpc CallCredentials.
- */
+/** Adapter class to utilize a CredentialWriter to implement Grpc CallCredentials. */
 public class CallCredentialAdapter extends CallCredentials {
 
   private final Consumer<CallHeaders> credentialWriter;
@@ -37,13 +32,14 @@ public class CallCredentialAdapter extends CallCredentials {
   }
 
   @Override
-  public void applyRequestMetadata(RequestInfo requestInfo, Executor executor, MetadataApplier metadataApplier) {
-    executor.execute(() ->
-    {
-      final Metadata headers = new Metadata();
-      credentialWriter.accept(new MetadataAdapter(headers));
-      metadataApplier.apply(headers);
-    });
+  public void applyRequestMetadata(
+      RequestInfo requestInfo, Executor executor, MetadataApplier metadataApplier) {
+    executor.execute(
+        () -> {
+          final Metadata headers = new Metadata();
+          credentialWriter.accept(new MetadataAdapter(headers));
+          metadataApplier.apply(headers);
+        });
   }
 
   @Override

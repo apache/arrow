@@ -23,13 +23,13 @@ import (
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/encoded"
-	"github.com/apache/arrow/go/v16/arrow/internal/debug"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/internal/bitutils"
-	"github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/encoded"
+	"github.com/apache/arrow/go/v18/arrow/internal/debug"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/bitutils"
+	"github.com/apache/arrow/go/v18/internal/utils"
 )
 
 // Concatenate creates a new arrow.Array which is the concatenation of the
@@ -520,12 +520,7 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arr arrow.ArrayData, 
 	out := &Data{refCount: 1, dtype: data[0].DataType(), nulls: 0}
 	defer func() {
 		if pErr := recover(); pErr != nil {
-			switch e := pErr.(type) {
-			case error:
-				err = fmt.Errorf("arrow/concat: %w", e)
-			default:
-				err = fmt.Errorf("arrow/concat: %v", pErr)
-			}
+			err = utils.FormatRecoveredError("arrow/concat", pErr)
 		}
 		if err != nil {
 			out.Release()

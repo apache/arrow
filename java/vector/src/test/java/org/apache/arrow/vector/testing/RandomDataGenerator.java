@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.testing;
 
 import java.util.Random;
 import java.util.function.Supplier;
 
-/**
- * Utility for generating random data.
- */
+/** Utility for generating random data. */
 public class RandomDataGenerator {
 
   static final Random random = new Random(0);
@@ -39,6 +36,5 @@ public class RandomDataGenerator {
 
   public static final Supplier<Double> DOUBLE_GENERATOR = () -> random.nextDouble();
 
-  private RandomDataGenerator() {
-  }
+  private RandomDataGenerator() {}
 }

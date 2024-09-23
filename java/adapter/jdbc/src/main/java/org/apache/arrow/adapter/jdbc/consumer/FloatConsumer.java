@@ -14,24 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.Float4Vector;
 
 /**
- * Consumer which consume float type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.Float4Vector}.
+ * Consumer which consume float type values from {@link ResultSet}. Write the data to {@link
+ * org.apache.arrow.vector.Float4Vector}.
  */
 public class FloatConsumer {
 
-  /**
-   * Creates a consumer for {@link Float4Vector}.
-   */
-  public static JdbcConsumer<Float4Vector> createConsumer(Float4Vector vector, int index, boolean nullable) {
+  /** Creates a consumer for {@link Float4Vector}. */
+  public static JdbcConsumer<Float4Vector> createConsumer(
+      Float4Vector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableFloatConsumer(vector, index);
     } else {
@@ -39,14 +36,10 @@ public class FloatConsumer {
     }
   }
 
-  /**
-   * Nullable float consumer.
-   */
+  /** Nullable float consumer. */
   static class NullableFloatConsumer extends BaseConsumer<Float4Vector> {
 
-    /**
-     * Instantiate a FloatConsumer.
-     */
+    /** Instantiate a FloatConsumer. */
     public NullableFloatConsumer(Float4Vector vector, int index) {
       super(vector, index);
     }
@@ -63,14 +56,10 @@ public class FloatConsumer {
     }
   }
 
-  /**
-   * Non-nullable float consumer.
-   */
+  /** Non-nullable float consumer. */
   static class NonNullableFloatConsumer extends BaseConsumer<Float4Vector> {
 
-    /**
-     * Instantiate a FloatConsumer.
-     */
+    /** Instantiate a FloatConsumer. */
     public NonNullableFloatConsumer(Float4Vector vector, int index) {
       super(vector, index);
     }

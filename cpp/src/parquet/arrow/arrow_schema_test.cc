@@ -31,8 +31,11 @@
 #include "parquet/thrift_internal.h"
 
 #include "arrow/array.h"
+#include "arrow/extension/json.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/key_value_metadata.h"
 
 using arrow::Field;
@@ -76,17 +79,17 @@ class TestConvertParquetSchema : public ::testing::Test {
       auto result_field = result_schema_->field(i);
       auto expected_field = expected_schema->field(i);
       EXPECT_TRUE(result_field->Equals(expected_field, check_metadata))
-          << "Field " << i << "\n  result: " << result_field->ToString()
-          << "\n  expected: " << expected_field->ToString();
+          << "Field " << i << "\n  result: " << result_field->ToString(check_metadata)
+          << "\n  expected: " << expected_field->ToString(check_metadata);
     }
   }
 
   ::arrow::Status ConvertSchema(
       const std::vector<NodePtr>& nodes,
-      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = nullptr) {
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = nullptr,
+      ArrowReaderProperties props = ArrowReaderProperties()) {
     NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
     descr_.Init(schema);
-    ArrowReaderProperties props;
     return FromParquetSchema(&descr_, props, key_value_metadata, &result_schema_);
   }
 
@@ -230,7 +233,7 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
        ::arrow::uint64()},
       {"int(64, true)", LogicalType::Int(64, true), ParquetType::INT64, -1,
        ::arrow::int64()},
-      {"json", LogicalType::JSON(), ParquetType::BYTE_ARRAY, -1, ::arrow::binary()},
+      {"json", LogicalType::JSON(), ParquetType::BYTE_ARRAY, -1, ::arrow::utf8()},
       {"bson", LogicalType::BSON(), ParquetType::BYTE_ARRAY, -1, ::arrow::binary()},
       {"interval", LogicalType::Interval(), ParquetType::FIXED_LEN_BYTE_ARRAY, 12,
        ::arrow::fixed_size_binary(12)},
@@ -722,6 +725,87 @@ TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
   ASSERT_OK(ConvertSchema(parquet_fields));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
+}
+
+Status ArrowSchemaToParquetMetadata(std::shared_ptr<::arrow::Schema>& arrow_schema,
+                                    std::shared_ptr<KeyValueMetadata>& metadata) {
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<Buffer> serialized,
+      ::arrow::ipc::SerializeSchema(*arrow_schema, ::arrow::default_memory_pool()));
+  std::string schema_as_string = serialized->ToString();
+  std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
+  metadata = ::arrow::key_value_metadata({"ARROW:schema"}, {schema_base64});
+  return Status::OK();
+}
+
+TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
+  std::vector<NodePtr> parquet_fields;
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "json_1", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::JSON));
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "json_2", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::JSON));
+
+  {
+    // Parquet file does not contain Arrow schema.
+    // By default, both fields should be treated as utf8() fields in Arrow.
+    auto arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", UTF8, true), ::arrow::field("json_2", UTF8, true)});
+    std::shared_ptr<KeyValueMetadata> metadata{};
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata));
+    CheckFlatSchema(arrow_schema);
+  }
+
+  {
+    // Parquet file does not contain Arrow schema.
+    // If Arrow extensions are enabled, both fields should be treated as json() extension
+    // fields.
+    ArrowReaderProperties props;
+    props.set_arrow_extensions_enabled(true);
+    auto arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", ::arrow::extension::json(), true),
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
+                        true)});
+    std::shared_ptr<KeyValueMetadata> metadata{};
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    CheckFlatSchema(arrow_schema);
+  }
+
+  {
+    // Parquet file contains Arrow schema.
+    // Both json_1 and json_2 should be returned as a json() field
+    // even though extensions are not enabled.
+    ArrowReaderProperties props;
+    props.set_arrow_extensions_enabled(false);
+    std::shared_ptr<KeyValueMetadata> field_metadata =
+        ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
+    auto arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
+                        true)});
+
+    std::shared_ptr<KeyValueMetadata> metadata;
+    ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    CheckFlatSchema(arrow_schema, true /* check_metadata */);
+  }
+
+  {
+    // Parquet file contains Arrow schema. Extensions are enabled.
+    // Both json_1 and json_2 should be returned as a json() field
+    ArrowReaderProperties props;
+    props.set_arrow_extensions_enabled(true);
+    std::shared_ptr<KeyValueMetadata> field_metadata =
+        ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
+    auto arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
+                        true)});
+
+    std::shared_ptr<KeyValueMetadata> metadata;
+    ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    CheckFlatSchema(arrow_schema, true /* check_metadata */);
+  }
 }
 
 class TestConvertArrowSchema : public ::testing::Test {

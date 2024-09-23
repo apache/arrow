@@ -14,19 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.DecimalVector;
 
 /**
- * Consumer which consume decimal type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.DecimalVector}.
+ * Consumer which consume decimal type values from {@link ResultSet}. Write the data to {@link
+ * org.apache.arrow.vector.DecimalVector}.
  */
 public abstract class DecimalConsumer extends BaseConsumer<DecimalVector> {
   private final RoundingMode bigDecimalRoundingMode;
@@ -36,7 +34,7 @@ public abstract class DecimalConsumer extends BaseConsumer<DecimalVector> {
    * Constructs a new consumer.
    *
    * @param vector the underlying vector for the consumer.
-   * @param index  the column id for the consumer.
+   * @param index the column id for the consumer.
    */
   public DecimalConsumer(DecimalVector vector, int index) {
     this(vector, index, null);
@@ -44,11 +42,12 @@ public abstract class DecimalConsumer extends BaseConsumer<DecimalVector> {
 
   /**
    * Constructs a new consumer, with optional coercibility.
+   *
    * @param vector the underlying vector for the consumer.
    * @param index the column index for the consumer.
-   * @param bigDecimalRoundingMode java.math.RoundingMode to be applied if the BigDecimal scale does not match that
-   *                               of the target vector.  Set to null to retain strict matching behavior (scale of
-   *                               source and target vector must match exactly).
+   * @param bigDecimalRoundingMode java.math.RoundingMode to be applied if the BigDecimal scale does
+   *     not match that of the target vector. Set to null to retain strict matching behavior (scale
+   *     of source and target vector must match exactly).
    */
   public DecimalConsumer(DecimalVector vector, int index, RoundingMode bigDecimalRoundingMode) {
     super(vector, index);
@@ -56,15 +55,9 @@ public abstract class DecimalConsumer extends BaseConsumer<DecimalVector> {
     this.scale = vector.getScale();
   }
 
-  /**
-   * Creates a consumer for {@link DecimalVector}.
-   */
+  /** Creates a consumer for {@link DecimalVector}. */
   public static JdbcConsumer<DecimalVector> createConsumer(
-          DecimalVector vector,
-          int index,
-          boolean nullable,
-          RoundingMode bigDecimalRoundingMode
-  ) {
+      DecimalVector vector, int index, boolean nullable, RoundingMode bigDecimalRoundingMode) {
     if (nullable) {
       return new NullableDecimalConsumer(vector, index, bigDecimalRoundingMode);
     } else {
@@ -79,16 +72,12 @@ public abstract class DecimalConsumer extends BaseConsumer<DecimalVector> {
     vector.set(currentIndex, value);
   }
 
-
-  /**
-   * Consumer for nullable decimal.
-   */
+  /** Consumer for nullable decimal. */
   static class NullableDecimalConsumer extends DecimalConsumer {
 
-    /**
-     * Instantiate a DecimalConsumer.
-     */
-    public NullableDecimalConsumer(DecimalVector vector, int index, RoundingMode bigDecimalRoundingMode) {
+    /** Instantiate a DecimalConsumer. */
+    public NullableDecimalConsumer(
+        DecimalVector vector, int index, RoundingMode bigDecimalRoundingMode) {
       super(vector, index, bigDecimalRoundingMode);
     }
 
@@ -104,15 +93,12 @@ public abstract class DecimalConsumer extends BaseConsumer<DecimalVector> {
     }
   }
 
-  /**
-   * Consumer for non-nullable decimal.
-   */
+  /** Consumer for non-nullable decimal. */
   static class NonNullableDecimalConsumer extends DecimalConsumer {
 
-    /**
-     * Instantiate a DecimalConsumer.
-     */
-    public NonNullableDecimalConsumer(DecimalVector vector, int index, RoundingMode bigDecimalRoundingMode) {
+    /** Instantiate a DecimalConsumer. */
+    public NonNullableDecimalConsumer(
+        DecimalVector vector, int index, RoundingMode bigDecimalRoundingMode) {
       super(vector, index, bigDecimalRoundingMode);
     }
 

@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.evaluator;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.List;
 import java.util.Set;
-
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.gandiva.ipc.GandivaTypes.ExtGandivaType;
@@ -32,14 +33,8 @@ import org.apache.arrow.vector.types.IntervalUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-import com.google.protobuf.InvalidProtocolBufferException;
-
 /**
- * Used to get the functions and data types supported by
- * Gandiva.
- * All types are in Arrow namespace.
+ * Used to get the functions and data types supported by Gandiva. All types are in Arrow namespace.
  */
 public class ExpressionRegistry {
 
@@ -55,14 +50,15 @@ public class ExpressionRegistry {
 
   private static volatile ExpressionRegistry INSTANCE;
 
-  private ExpressionRegistry(Set<ArrowType> supportedTypes,
-                             Set<FunctionSignature> functionSignatures) {
+  private ExpressionRegistry(
+      Set<ArrowType> supportedTypes, Set<FunctionSignature> functionSignatures) {
     this.supportedTypes = supportedTypes;
     this.functionSignatures = functionSignatures;
   }
 
   /**
    * Returns a singleton instance of the class.
+   *
    * @return singleton instance
    * @throws GandivaException if error in Gandiva Library integration.
    */
@@ -92,8 +88,8 @@ public class ExpressionRegistry {
   private static Set<ArrowType> getSupportedTypesFromGandiva() throws GandivaException {
     Set<ArrowType> supportedTypes = Sets.newHashSet();
     try {
-      byte[] gandivaSupportedDataTypes = new ExpressionRegistryJniHelper()
-              .getGandivaSupportedDataTypes();
+      byte[] gandivaSupportedDataTypes =
+          new ExpressionRegistryJniHelper().getGandivaSupportedDataTypes();
       GandivaDataTypes gandivaDataTypes = GandivaDataTypes.parseFrom(gandivaSupportedDataTypes);
       for (ExtGandivaType type : gandivaDataTypes.getDataTypeList()) {
         supportedTypes.add(getArrowType(type));
@@ -104,15 +100,14 @@ public class ExpressionRegistry {
     return supportedTypes;
   }
 
-  private static Set<FunctionSignature> getSupportedFunctionsFromGandiva() throws
-          GandivaException {
+  private static Set<FunctionSignature> getSupportedFunctionsFromGandiva() throws GandivaException {
     Set<FunctionSignature> supportedTypes = Sets.newHashSet();
     try {
-      byte[] gandivaSupportedFunctions = new ExpressionRegistryJniHelper()
-              .getGandivaSupportedFunctions();
+      byte[] gandivaSupportedFunctions =
+          new ExpressionRegistryJniHelper().getGandivaSupportedFunctions();
       GandivaFunctions gandivaFunctions = GandivaFunctions.parseFrom(gandivaSupportedFunctions);
-      for (GandivaTypes.FunctionSignature protoFunctionSignature
-              : gandivaFunctions.getFunctionList()) {
+      for (GandivaTypes.FunctionSignature protoFunctionSignature :
+          gandivaFunctions.getFunctionList()) {
 
         String functionName = protoFunctionSignature.getName();
         ArrowType returnType = getArrowType(protoFunctionSignature.getReturnType());
@@ -120,8 +115,8 @@ public class ExpressionRegistry {
         for (ExtGandivaType type : protoFunctionSignature.getParamTypesList()) {
           paramTypes.add(getArrowType(type));
         }
-        FunctionSignature functionSignature = new FunctionSignature(functionName,
-                                                                    returnType, paramTypes);
+        FunctionSignature functionSignature =
+            new FunctionSignature(functionName, returnType, paramTypes);
         supportedTypes.add(functionSignature);
       }
     } catch (InvalidProtocolBufferException invalidProtException) {
@@ -167,11 +162,9 @@ public class ExpressionRegistry {
       case GandivaType.TIMESTAMP_VALUE:
         return new ArrowType.Timestamp(mapArrowTimeUnit(type.getTimeUnit()), null);
       case GandivaType.TIME32_VALUE:
-        return new ArrowType.Time(mapArrowTimeUnit(type.getTimeUnit()),
-                BIT_WIDTH_32);
+        return new ArrowType.Time(mapArrowTimeUnit(type.getTimeUnit()), BIT_WIDTH_32);
       case GandivaType.TIME64_VALUE:
-        return new ArrowType.Time(mapArrowTimeUnit(type.getTimeUnit()),
-                BIT_WIDTH_64);
+        return new ArrowType.Time(mapArrowTimeUnit(type.getTimeUnit()), BIT_WIDTH_64);
       case GandivaType.NONE_VALUE:
         return new ArrowType.Null();
       case GandivaType.DECIMAL_VALUE:
@@ -215,6 +208,4 @@ public class ExpressionRegistry {
         return null;
     }
   }
-
 }
-

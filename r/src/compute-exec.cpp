@@ -411,10 +411,17 @@ std::shared_ptr<acero::ExecNode> ExecNode_Join(
     const std::shared_ptr<acero::ExecNode>& right_data,
     std::vector<std::string> left_keys, std::vector<std::string> right_keys,
     std::vector<std::string> left_output, std::vector<std::string> right_output,
-    std::string output_suffix_for_left, std::string output_suffix_for_right) {
+    std::string output_suffix_for_left, std::string output_suffix_for_right,
+    bool na_matches) {
   std::vector<arrow::FieldRef> left_refs, right_refs, left_out_refs, right_out_refs;
+  std::vector<acero::JoinKeyCmp> key_cmps;
   for (auto&& name : left_keys) {
     left_refs.emplace_back(std::move(name));
+    // Populate key_cmps in this loop, one for each key
+    // Note that Acero supports having different values for each key, but dplyr
+    // only supports one value for all keys, so we're only going to support that
+    // for now.
+    key_cmps.emplace_back(na_matches ? acero::JoinKeyCmp::IS : acero::JoinKeyCmp::EQ);
   }
   for (auto&& name : right_keys) {
     right_refs.emplace_back(std::move(name));
@@ -434,10 +441,11 @@ std::shared_ptr<acero::ExecNode> ExecNode_Join(
 
   return MakeExecNodeOrStop(
       "hashjoin", input->plan(), {input.get(), right_data.get()},
-      acero::HashJoinNodeOptions{
-          join_type, std::move(left_refs), std::move(right_refs),
-          std::move(left_out_refs), std::move(right_out_refs), compute::literal(true),
-          std::move(output_suffix_for_left), std::move(output_suffix_for_right)});
+      acero::HashJoinNodeOptions{join_type, std::move(left_refs), std::move(right_refs),
+                                 std::move(left_out_refs), std::move(right_out_refs),
+                                 std::move(key_cmps), compute::literal(true),
+                                 std::move(output_suffix_for_left),
+                                 std::move(output_suffix_for_right)});
 }
 
 // [[acero::export]]

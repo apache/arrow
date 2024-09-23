@@ -42,9 +42,16 @@ cpp_headers = files(
   'parquet-glib.hpp',
 )
 
+version_h = configure_file(
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [python3, generate_version_header_py, '--library', 'GPARQUET', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+)
+
+c_headers += version_h
+
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: project_name)
-
 
 dependencies = [
   arrow,
@@ -57,6 +64,7 @@ libparquet_glib = library('parquet-glib',
                           dependencies: dependencies,
                           implicit_include_directories: false,
                           include_directories: base_include_directories,
+                          cpp_args: ['-DGPARQUET_COMPILATION'],
                           soversion: so_version,
                           version: library_version)
 parquet_glib = declare_dependency(link_with: libparquet_glib,

@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import java.nio.charset.StandardCharsets;
-
 import org.apache.arrow.flight.CancelFlightInfoRequest;
 import org.apache.arrow.flight.CancelFlightInfoResult;
 import org.apache.arrow.flight.CancelStatus;
@@ -41,24 +39,26 @@ final class ExpirationTimeCancelFlightInfoScenario implements Scenario {
   }
 
   @Override
-  public void buildServer(FlightServer.Builder builder) {
-  }
+  public void buildServer(FlightServer.Builder builder) {}
 
   @Override
-  public void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception {
-    FlightInfo info = client.getInfo(FlightDescriptor.command("expiration".getBytes(StandardCharsets.UTF_8)));
+  public void client(BufferAllocator allocator, Location location, FlightClient client)
+      throws Exception {
+    FlightInfo info =
+        client.getInfo(FlightDescriptor.command("expiration".getBytes(StandardCharsets.UTF_8)));
     CancelFlightInfoRequest request = new CancelFlightInfoRequest(info);
     CancelFlightInfoResult result = client.cancelFlightInfo(request);
     IntegrationAssertions.assertEquals(CancelStatus.CANCELLED, result.getStatus());
 
     // All requests should fail
     for (FlightEndpoint endpoint : info.getEndpoints()) {
-      IntegrationAssertions.assertThrows(FlightRuntimeException.class, () -> {
-        try (FlightStream stream = client.getStream(endpoint.getTicket())) {
-          while (stream.next()) {
-          }
-        }
-      });
+      IntegrationAssertions.assertThrows(
+          FlightRuntimeException.class,
+          () -> {
+            try (FlightStream stream = client.getStream(endpoint.getTicket())) {
+              while (stream.next()) {}
+            }
+          });
     }
   }
 }

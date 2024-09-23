@@ -27,14 +27,14 @@
 
 namespace arrow {
 
-class ARROW_TESTING_EXPORT UuidArray : public ExtensionArray {
+class ARROW_TESTING_EXPORT ExampleUuidArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
 };
 
-class ARROW_TESTING_EXPORT UuidType : public ExtensionType {
+class ARROW_TESTING_EXPORT ExampleUuidType : public ExtensionType {
  public:
-  UuidType() : ExtensionType(fixed_size_binary(16)) {}
+  ExampleUuidType() : ExtensionType(fixed_size_binary(16)) {}
 
   std::string extension_name() const override { return "uuid"; }
 
@@ -130,6 +130,25 @@ class ARROW_TESTING_EXPORT DictExtensionType : public ExtensionType {
       const std::string& serialized) const override;
 
   std::string Serialize() const override { return "dict-extension-serialized"; }
+};
+
+// A minimal extension type that does not error when passed blank extension information
+class ARROW_TESTING_EXPORT MetadataOptionalExtensionType : public ExtensionType {
+ public:
+  MetadataOptionalExtensionType() : ExtensionType(null()) {}
+  std::string extension_name() const override { return "metadata.optional"; }
+  std::string Serialize() const override { return ""; }
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
+    return nullptr;
+  }
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    return other.extension_name() == extension_name();
+  }
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized_data) const override {
+    return std::make_shared<MetadataOptionalExtensionType>();
+  }
 };
 
 class ARROW_TESTING_EXPORT Complex128Array : public ExtensionArray {

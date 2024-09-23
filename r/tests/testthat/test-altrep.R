@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_on_r_older_than("3.6")
-
 test_that("altrep test functions do not include base altrep", {
   expect_false(is_arrow_altrep(1:10))
   expect_identical(test_arrow_altrep_is_materialized(1:10), NA)
@@ -373,6 +371,11 @@ test_that("altrep min/max/sum identical to R versions for double", {
   expect_altrep_roundtrip(x, max)
   expect_altrep_roundtrip(x, sum)
 
+  # On valgrind the NA_real_ is sometimes transformed to NaN
+  # https://stat.ethz.ch/pipermail/r-devel/2021-April/080683.html
+  # so we skip these there to avoid complicated NA == NaN logic,
+  # and they are tested on a number of other platforms / conditions
+  skip_on_linux_devel()
   x <- c(1, 2, NA_real_)
   expect_altrep_roundtrip(x, min, na.rm = TRUE)
   expect_altrep_roundtrip(x, max, na.rm = TRUE)

@@ -485,8 +485,9 @@ class LeafReader : public ColumnReaderImpl {
         NextRowGroup();
       }
     }
-    RETURN_NOT_OK(
-        TransferColumnData(record_reader_.get(), field_, descr_, ctx_->pool, &out_));
+    RETURN_NOT_OK(TransferColumnData(record_reader_.get(),
+                                     input_->column_chunk_metadata(), field_, descr_,
+                                     ctx_.get(), &out_));
     return Status::OK();
     END_PARQUET_CATCH_EXCEPTIONS
   }
@@ -1040,6 +1041,16 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
         for (const auto& column : columns) {
           if (column == nullptr || column->length() == 0) {
             return ::arrow::IterationTraits<RecordBatchIterator>::End();
+          }
+        }
+
+        // Check all columns has same row-size
+        if (!columns.empty()) {
+          int64_t row_size = columns[0]->length();
+          for (size_t i = 1; i < columns.size(); ++i) {
+            if (columns[i]->length() != row_size) {
+              return ::arrow::Status::Invalid("columns do not have the same size");
+            }
           }
         }
 

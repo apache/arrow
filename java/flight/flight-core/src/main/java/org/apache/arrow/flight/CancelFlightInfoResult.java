@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
-
 import org.apache.arrow.flight.impl.Flight;
 
-/**
- * The result of cancelling a FlightInfo.
- */
+/** The result of cancelling a FlightInfo. */
 public class CancelFlightInfoResult {
   private final CancelStatus status;
 
@@ -81,7 +77,8 @@ public class CancelFlightInfoResult {
   /**
    * Get the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight types.
+   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight
+   * types.
    */
   public ByteBuffer serialize() {
     return ByteBuffer.wrap(toProtocol().toByteArray());
@@ -90,7 +87,8 @@ public class CancelFlightInfoResult {
   /**
    * Parse the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from non-Flight services.
+   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from
+   * non-Flight services.
    *
    * @param serialized The serialized form of the message, as returned by {@link #serialize()}.
    * @return The deserialized message.
@@ -119,8 +117,6 @@ public class CancelFlightInfoResult {
 
   @Override
   public String toString() {
-    return "CancelFlightInfoResult{" +
-        "status=" + status +
-        '}';
+    return "CancelFlightInfoResult{" + "status=" + status + '}';
   }
 }

@@ -109,9 +109,9 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     </#if>
     byte[] value = new byte [length];
     holder.buffer.getBytes(holder.start, value, 0, length);
-    <#if minor.class == "VarBinary" || minor.class == "LargeVarBinary">
+    <#if minor.class == "VarBinary" || minor.class == "LargeVarBinary" || minor.class == "ViewVarBinary">
     return value;
-    <#elseif minor.class == "VarChar" || minor.class == "LargeVarChar">
+    <#elseif minor.class == "VarChar" || minor.class == "LargeVarChar" || minor.class == "ViewVarChar">
     Text text = new Text();
     text.set(value);
     return text;

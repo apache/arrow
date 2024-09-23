@@ -14,17 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.NullVector;
 
 /**
- * Consumer which consume null type values from ResultSet.
- * Corresponding to {@link org.apache.arrow.vector.NullVector}.
+ * Consumer which consume null type values from ResultSet. Corresponding to {@link
+ * org.apache.arrow.vector.NullVector}.
  */
 public class NullConsumer extends BaseConsumer<NullVector> {
 
@@ -33,6 +31,5 @@ public class NullConsumer extends BaseConsumer<NullVector> {
   }
 
   @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-  }
+  public void consume(ResultSet resultSet) throws SQLException {}
 }

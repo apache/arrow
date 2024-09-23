@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.sql;
-
-import org.apache.arrow.flight.FlightProducer;
-import org.apache.arrow.flight.Result;
 
 import com.google.protobuf.Any;
 import com.google.protobuf.Message;
+import org.apache.arrow.flight.FlightProducer;
+import org.apache.arrow.flight.Result;
 
 /**
  * A StreamListener that accepts a particular type.

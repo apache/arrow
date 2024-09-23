@@ -18,18 +18,19 @@ package pqarrow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/arrio"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/parquet"
-	"github.com/apache/arrow/go/v16/parquet/file"
-	"github.com/apache/arrow/go/v16/parquet/schema"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/arrio"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/file"
+	"github.com/apache/arrow/go/v18/parquet/schema"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/xerrors"
 )
@@ -374,6 +375,10 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 		columns[data.idx] = *arrow.NewColumn(sc.Field(data.idx), data.data)
 		data.data.Release()
 	}
+
+	// if the context is in error, but we haven't set an error yet, then it means that the parent context
+	// was cancelled. In this case, we should exit early as some columns may not have been read yet.
+	err = errors.Join(err, ctx.Err())
 
 	if err != nil {
 		// if we encountered an error, consume any waiting data on the channel

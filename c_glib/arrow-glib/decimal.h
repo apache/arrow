@@ -27,6 +27,7 @@ G_BEGIN_DECLS
 
 /* Disabled because it conflicts with GARROW_TYPE_DECIMAL128 in GArrowType. */
 /* #define GARROW_TYPE_DECIMAL128 (garrow_decimal128_get_type()) */
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal128, garrow_decimal128, GARROW, DECIMAL128, GObject)
 
 struct _GArrowDecimal128Class
@@ -34,8 +35,10 @@ struct _GArrowDecimal128Class
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowDecimal128 *
 garrow_decimal128_new_string(const gchar *data, GError **error);
+GARROW_AVAILABLE_IN_ALL
 GArrowDecimal128 *
 garrow_decimal128_new_integer(const gint64 data);
 GARROW_AVAILABLE_IN_3_0
@@ -62,25 +65,34 @@ GARROW_AVAILABLE_IN_0_12
 gboolean
 garrow_decimal128_greater_than_or_equal(GArrowDecimal128 *decimal,
                                         GArrowDecimal128 *other_decimal);
+GARROW_AVAILABLE_IN_ALL
 gchar *
 garrow_decimal128_to_string_scale(GArrowDecimal128 *decimal, gint32 scale);
+GARROW_AVAILABLE_IN_ALL
 gchar *
 garrow_decimal128_to_string(GArrowDecimal128 *decimal);
 GARROW_AVAILABLE_IN_3_0
 GBytes *
 garrow_decimal128_to_bytes(GArrowDecimal128 *decimal);
+GARROW_AVAILABLE_IN_ALL
 void
 garrow_decimal128_abs(GArrowDecimal128 *decimal);
+GARROW_AVAILABLE_IN_ALL
 void
 garrow_decimal128_negate(GArrowDecimal128 *decimal);
+GARROW_AVAILABLE_IN_ALL
 gint64
 garrow_decimal128_to_integer(GArrowDecimal128 *decimal);
+GARROW_AVAILABLE_IN_ALL
 GArrowDecimal128 *
 garrow_decimal128_plus(GArrowDecimal128 *left, GArrowDecimal128 *right);
+GARROW_AVAILABLE_IN_ALL
 GArrowDecimal128 *
 garrow_decimal128_minus(GArrowDecimal128 *left, GArrowDecimal128 *right);
+GARROW_AVAILABLE_IN_ALL
 GArrowDecimal128 *
 garrow_decimal128_multiply(GArrowDecimal128 *left, GArrowDecimal128 *right);
+GARROW_AVAILABLE_IN_ALL
 GArrowDecimal128 *
 garrow_decimal128_divide(GArrowDecimal128 *left,
                          GArrowDecimal128 *right,
@@ -95,6 +107,7 @@ garrow_decimal128_rescale(GArrowDecimal128 *decimal,
 
 /* Disabled because it conflicts with GARROW_TYPE_DECIMAL256 in GArrowType. */
 /* #define GARROW_TYPE_DECIMAL256 (garrow_decimal256_get_type()) */
+GARROW_AVAILABLE_IN_3_0
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal256, garrow_decimal256, GARROW, DECIMAL256, GObject)
 
 struct _GArrowDecimal256Class

@@ -98,7 +98,7 @@ def test_leak3():
 
 
 def test_ARROW_8801():
-    x = pd.to_datetime(np.random.randint(0, 2**32, size=2**20),
+    x = pd.to_datetime(np.random.randint(0, 2**32, size=2**20, dtype=np.int64),
                        unit='ms', utc=True)
     table = pa.table(pd.DataFrame({'x': x}))
 

@@ -19,16 +19,16 @@
 
 // sys/mman.h not present in Visual Studio or Cygwin
 #ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include "arrow/io/mman.h"
-#undef Realloc
-#undef Free
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include "arrow/io/mman.h"
+#  undef Realloc
+#  undef Free
 #else
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <unistd.h>  // IWYU pragma: keep
+#  include <fcntl.h>
+#  include <sys/mman.h>
+#  include <unistd.h>  // IWYU pragma: keep
 #endif
 
 #include <algorithm>
@@ -230,7 +230,8 @@ class ReadableFile::ReadableFileImpl : public OSFile {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    return std::move(buffer);
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(buffer));
   }
 
   Result<std::shared_ptr<Buffer>> ReadBufferAt(int64_t position, int64_t nbytes) {
@@ -242,7 +243,8 @@ class ReadableFile::ReadableFileImpl : public OSFile {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    return std::move(buffer);
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(buffer));
   }
 
   Status WillNeed(const std::vector<ReadRange>& ranges) {
@@ -398,8 +400,14 @@ class MemoryMappedFile::MemoryMap
 
     ~Region() {
       if (data_ != nullptr) {
+#ifndef __EMSCRIPTEN__
         int result = munmap(data(), static_cast<size_t>(size_));
+        // emscripten erroneously reports failures in munmap
+        // https://github.com/emscripten-core/emscripten/issues/20459
         ARROW_CHECK_EQ(result, 0) << "munmap failed";
+#else
+        munmap(data(), static_cast<size_t>(size_));
+#endif
       }
     }
 

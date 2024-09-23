@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// \brief Implementation of Flight RPC client. API should be
-/// considered experimental for now
+/// \brief Implementation of Flight RPC client.
 
 #pragma once
 
@@ -147,8 +146,8 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
 // Silence warning
 // "non dll-interface class RecordBatchReader used as base for dll-interface class"
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4275)
+#  pragma warning(push)
+#  pragma warning(disable : 4275)
 #endif
 
 /// \brief A RecordBatchWriter that also allows sending
@@ -164,7 +163,7 @@ class ARROW_FLIGHT_EXPORT FlightStreamWriter : public MetadataRecordBatchWriter 
 };
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 /// \brief A reader for application-specific metadata sent back to the
@@ -177,7 +176,6 @@ class ARROW_FLIGHT_EXPORT FlightMetadataReader {
 };
 
 /// \brief Client class for Arrow Flight RPC services.
-/// API experimental for now
 class ARROW_FLIGHT_EXPORT FlightClient {
  public:
   ~FlightClient();
@@ -275,8 +273,6 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the dataset request
   /// \param[in] listener Callbacks for response and RPC completion
-  ///
-  /// This API is EXPERIMENTAL.
   void GetFlightInfoAsync(const FlightCallOptions& options,
                           const FlightDescriptor& descriptor,
                           std::shared_ptr<AsyncListener<FlightInfo>> listener);
@@ -288,8 +284,6 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \brief Asynchronous GetFlightInfo returning a Future.
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the dataset request
-  ///
-  /// This API is EXPERIMENTAL.
   arrow::Future<FlightInfo> GetFlightInfoAsync(const FlightCallOptions& options,
                                                const FlightDescriptor& descriptor);
   arrow::Future<FlightInfo> GetFlightInfoAsync(const FlightDescriptor& descriptor) {

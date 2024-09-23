@@ -19,7 +19,10 @@ import datetime
 import io
 import warnings
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
@@ -331,6 +334,7 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
         pq_reader_method, filename, coerce_int96_timestamp_unit="s"
     )
     df_correct = tab_correct.to_pandas(timestamp_as_object=True)
+    df["a"] = df["a"].astype(object)
     tm.assert_frame_equal(df, df_correct)
 
 

@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import org.apache.arrow.vector.BaseIntVector;
@@ -36,29 +34,22 @@ import org.apache.arrow.vector.holders.NullableUInt2Holder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableUInt8Holder;
 
-/**
- * A custom getter for values from the {@link BaseIntVector}.
- */
+/** A custom getter for values from the {@link BaseIntVector}. */
 class ArrowFlightJdbcNumericGetter {
-  /**
-   * A holder for values from the {@link BaseIntVector}.
-   */
+  /** A holder for values from the {@link BaseIntVector}. */
   static class NumericHolder {
     int isSet; // Tells if value is set; 0 = not set, 1 = set
     long value; // Holds actual value
   }
 
-  /**
-   * Functional interface for a getter to baseInt values.
-   */
+  /** Functional interface for a getter to baseInt values. */
   @FunctionalInterface
   interface Getter {
     void get(int index, NumericHolder holder);
   }
 
   /**
-   * Main class that will check the type of the vector to create
-   * a specific getter.
+   * Main class that will check the type of the vector to create a specific getter.
    *
    * @param vector an instance of the {@link BaseIntVector}
    * @return a getter.

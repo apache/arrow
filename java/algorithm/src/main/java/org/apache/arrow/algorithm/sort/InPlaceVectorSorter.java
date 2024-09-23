@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.vector.ValueVector;
 
 /**
- * Basic interface for sorting a vector in-place.
- * That is, the sorting is performed by modifying the input vector,
- * without creating a new sorted vector.
+ * Basic interface for sorting a vector in-place. That is, the sorting is performed by modifying the
+ * input vector, without creating a new sorted vector.
  *
  * @param <V> the vector type.
  */
@@ -30,6 +28,7 @@ public interface InPlaceVectorSorter<V extends ValueVector> {
 
   /**
    * Sort a vector in-place.
+   *
    * @param vec the vector to sort.
    * @param comparator the criteria for sort.
    */

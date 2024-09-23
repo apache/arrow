@@ -14,16 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 
-/**
- * Reader for a MapVector.
- */
+/** Reader for a MapVector. */
 public class UnionMapReader extends UnionListReader {
 
   private String keyName = MapVector.KEY_NAME;
@@ -67,9 +64,7 @@ public class UnionMapReader extends UnionListReader {
     return reader().reader(valueName);
   }
 
-  /**
-   * Return the MinorType of the reader as MAP.
-   */
+  /** Return the MinorType of the reader as MAP. */
   @Override
   public MinorType getMinorType() {
     return MinorType.MAP;

@@ -14,18 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset.jni;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicLong;
-
 import org.apache.arrow.util.VisibleForTesting;
 
 /**
- * Reserving Java direct memory bytes from java.nio.Bits. Used by Java Dataset API's C++ memory
- * pool implementation. This makes memory allocated by the pool to be controlled by JVM option
+ * Reserving Java direct memory bytes from java.nio.Bits. Used by Java Dataset API's C++ memory pool
+ * implementation. This makes memory allocated by the pool to be controlled by JVM option
  * "-XX:MaxDirectMemorySize".
  */
 public class DirectReservationListener implements ReservationListener {
@@ -40,10 +38,12 @@ public class DirectReservationListener implements ReservationListener {
       methodUnreserve = this.getDeclaredMethodBaseOnJDKVersion(classBits, "unreserveMemory");
       methodUnreserve.setAccessible(true);
     } catch (Exception e) {
-      final RuntimeException failure = new RuntimeException(
-          "Failed to initialize DirectReservationListener. When starting Java you must include " +
-              "`--add-opens=java.base/java.nio=org.apache.arrow.dataset,org.apache.arrow.memory.core,ALL-UNNAMED` " +
-              "(See https://arrow.apache.org/docs/java/install.html)", e);
+      final RuntimeException failure =
+          new RuntimeException(
+              "Failed to initialize DirectReservationListener. When starting Java you must include "
+                  + "`--add-opens=java.base/java.nio=org.apache.arrow.dataset,org.apache.arrow.memory.core,ALL-UNNAMED` "
+                  + "(See https://arrow.apache.org/docs/java/install.html)",
+              e);
       failure.printStackTrace();
       throw failure;
     }
@@ -55,14 +55,13 @@ public class DirectReservationListener implements ReservationListener {
     return INSTANCE;
   }
 
-  /**
-   * Reserve bytes by invoking java.nio.java.Bitjava.nio.Bitss#reserveMemory.
-   */
+  /** Reserve bytes by invoking java.nio.java.Bitjava.nio.Bitss#reserveMemory. */
   @Override
   public void reserve(long size) {
     try {
       if (size > Integer.MAX_VALUE) {
-        throw new IllegalArgumentException("reserve size should not be larger than Integer.MAX_VALUE (0x7fffffff)");
+        throw new IllegalArgumentException(
+            "reserve size should not be larger than Integer.MAX_VALUE (0x7fffffff)");
       }
       methodReserve.invoke(null, (int) size, (int) size);
     } catch (Exception e) {
@@ -70,14 +69,13 @@ public class DirectReservationListener implements ReservationListener {
     }
   }
 
-  /**
-   * Unreserve bytes by invoking java.nio.java.Bitjava.nio.Bitss#unreserveMemory.
-   */
+  /** Unreserve bytes by invoking java.nio.java.Bitjava.nio.Bitss#unreserveMemory. */
   @Override
   public void unreserve(long size) {
     try {
       if (size > Integer.MAX_VALUE) {
-        throw new IllegalArgumentException("unreserve size should not be larger than Integer.MAX_VALUE (0x7fffffff)");
+        throw new IllegalArgumentException(
+            "unreserve size should not be larger than Integer.MAX_VALUE (0x7fffffff)");
       }
       methodUnreserve.invoke(null, (int) size, (int) size);
     } catch (Exception e) {
@@ -85,9 +83,7 @@ public class DirectReservationListener implements ReservationListener {
     }
   }
 
-  /**
-   * Get current reservation of jVM direct memory. Visible for testing.
-   */
+  /** Get current reservation of jVM direct memory. Visible for testing. */
   @VisibleForTesting
   public long getCurrentDirectMemReservation() {
     try {
@@ -110,7 +106,9 @@ public class DirectReservationListener implements ReservationListener {
   }
 
   /**
-   * Get the given method via reflection, searching for different signatures based on the Java version.
+   * Get the given method via reflection, searching for different signatures based on the Java
+   * version.
+   *
    * @param classBits The java.nio.Bits class.
    * @param name The method being requested.
    * @return The method object.

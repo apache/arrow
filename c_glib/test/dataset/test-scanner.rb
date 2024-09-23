@@ -45,4 +45,14 @@ class TestDatasetScanner < Test::Unit::TestCase
   def test_to_table
     assert_equal(@table, @scanner.to_table)
   end
+
+  def test_to_record_batch_reader
+    reader = @scanner.to_record_batch_reader
+    begin
+      assert_equal(@table, reader.read_all)
+    ensure
+      # Unref to ensure the reader closes files and we can delete the temp directory
+      reader.unref
+    end
+  end
 end

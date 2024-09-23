@@ -14,24 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.util;
 
 import java.util.Arrays;
-
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-
-/**
- * Convenient way of obtaining and manipulating stack traces for debugging.
- */
+/** Convenient way of obtaining and manipulating stack traces for debugging. */
 public class StackTrace {
 
-  private final @Nullable StackTraceElement [] stackTraceElements;
+  private final @Nullable StackTraceElement[] stackTraceElements;
 
-  /**
-   * Constructor. Captures the current stack trace.
-   */
+  /** Constructor. Captures the current stack trace. */
   public StackTrace() {
     final StackTraceElement[] stack = Thread.currentThread().getStackTrace();
     // Skip first two elements to remove getStackTrace/StackTrace.<init>
@@ -41,7 +34,7 @@ public class StackTrace {
   /**
    * Write the stack trace to a StringBuilder.
    *
-   * @param sb     where to write it
+   * @param sb where to write it
    * @param indent how many double spaces to indent each line
    */
   public void writeToBuilder(final StringBuilder sb, final int indent) {

@@ -18,7 +18,6 @@
 library(dplyr, warn.conflicts = FALSE)
 
 test_that("expand_across correctly expands quosures", {
-
   # single unnamed function
   expect_across_equal(
     quos(across(c(dbl, dbl2), round)),
@@ -115,16 +114,6 @@ test_that("expand_across correctly expands quosures", {
       dbl2 = sqrt(dbl2)
     ),
     example_data
-  )
-
-  # ellipses (...) are a deprecated argument
-  expect_error(
-    expand_across(
-      as_adq(example_data),
-      quos(across(c(dbl, dbl2), round, digits = -1))
-    ),
-    regexp = "`...` argument to `across()` is deprecated in dplyr and not supported in Arrow",
-    fixed = TRUE
   )
 
   # alternative ways of specifying .fns - as a list
@@ -233,10 +222,18 @@ test_that("expand_across correctly expands quosures", {
     ),
     example_data
   )
+
+  skip_if_not_available("dataset")
+  # ellipses (...) are a deprecated argument
+  # abandon_ship message offers multiple suggestions
+  expect_snapshot(
+    InMemoryDataset$create(example_data) %>%
+      mutate(across(c(dbl, dbl2), round, digits = -1)),
+    error = TRUE
+  )
 })
 
 test_that("purrr-style lambda functions are supported", {
-
   # using `.x` inside lambda functions
   expect_across_equal(
     quos(across(c(dbl, dbl2), ~ round(.x, digits = 0))),
@@ -279,7 +276,17 @@ test_that("purrr-style lambda functions are supported", {
   )
 })
 
-test_that("ARROW-14071 - function(x)-style lambda functions are not supported", {
+test_that("ARROW-14071 - R functions from a user's environment", {
+  makeWhole <- function(x) round(x, digits = 0)
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(c(int, dbl), makeWhole)) %>%
+      collect(),
+    example_data
+  )
+})
+
+test_that("function(x)-style lambda functions are not supported", {
   expect_error(
     expand_across(as_adq(example_data), quos(across(.cols = c(dbl, dbl2), list(function(x) {
       head(x, 1)
@@ -301,17 +308,15 @@ test_that("ARROW-14071 - function(x)-style lambda functions are not supported", 
 })
 
 test_that("if_all() and if_any() are supported", {
-
   expect_across_equal(
-    quos(if_any(everything(), ~is.na(.x))),
+    quos(if_any(everything(), ~ is.na(.x))),
     quos(is.na(int) | is.na(dbl) | is.na(dbl2) | is.na(lgl) | is.na(false) | is.na(chr) | is.na(fct)),
     example_data
   )
 
   expect_across_equal(
-    quos(if_all(everything(), ~is.na(.x))),
+    quos(if_all(everything(), ~ is.na(.x))),
     quos(is.na(int) & is.na(dbl) & is.na(dbl2) & is.na(lgl) & is.na(false) & is.na(chr) & is.na(fct)),
     example_data
   )
-
 })

@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.netty.buffer;
 
+import io.netty.util.ByteProcessor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -26,11 +26,9 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 
-import io.netty.util.ByteProcessor;
-
 /**
- * This is basically a complete copy of netty's DuplicatedByteBuf. We copy because we want to override
- * some behaviors and make buffer mutable.
+ * This is basically a complete copy of netty's DuplicatedByteBuf. We copy because we want to
+ * override some behaviors and make buffer mutable.
  */
 abstract class MutableWrappedByteBuf extends AbstractByteBuf {
 
@@ -343,40 +341,33 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
   }
 
   @Override
-  public int setBytes(int index, FileChannel in, long position, int length)
-      throws IOException {
+  public int setBytes(int index, FileChannel in, long position, int length) throws IOException {
     return buffer.setBytes(index, in, position, length);
   }
 
   @Override
-  public ByteBuf getBytes(int index, OutputStream out, int length)
-      throws IOException {
+  public ByteBuf getBytes(int index, OutputStream out, int length) throws IOException {
     buffer.getBytes(index, out, length);
     return this;
   }
 
   @Override
-  public int getBytes(int index, GatheringByteChannel out, int length)
-      throws IOException {
+  public int getBytes(int index, GatheringByteChannel out, int length) throws IOException {
     return buffer.getBytes(index, out, length);
   }
 
   @Override
-  public int setBytes(int index, InputStream in, int length)
-      throws IOException {
+  public int setBytes(int index, InputStream in, int length) throws IOException {
     return buffer.setBytes(index, in, length);
   }
 
   @Override
-  public int setBytes(int index, ScatteringByteChannel in, int length)
-      throws IOException {
+  public int setBytes(int index, ScatteringByteChannel in, int length) throws IOException {
     return buffer.setBytes(index, in, length);
   }
 
-
   @Override
-  public int getBytes(int index, FileChannel out, long position, int length)
-      throws IOException {
+  public int getBytes(int index, FileChannel out, long position, int length) throws IOException {
     return buffer.getBytes(index, out, position, length);
   }
 
@@ -444,5 +435,4 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
     boolean released = unwrap().release(decrement);
     return released;
   }
-
 }

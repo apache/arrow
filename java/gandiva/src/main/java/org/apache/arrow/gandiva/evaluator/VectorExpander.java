@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.evaluator;
 
 import org.apache.arrow.vector.BaseVariableWidthVector;
@@ -30,9 +29,7 @@ public class VectorExpander {
     this.vectors = vectors;
   }
 
-  /**
-   * Result of vector expansion.
-   */
+  /** Result of vector expansion. */
   public static class ExpandResult {
     public long address;
     public long capacity;
@@ -44,13 +41,12 @@ public class VectorExpander {
   }
 
   /**
-   * Expand vector at specified index. This is used as a back call from jni, and is only
-   * relevant for variable width vectors.
+   * Expand vector at specified index. This is used as a back call from jni, and is only relevant
+   * for variable width vectors.
    *
    * @param index index of buffer in the list passed to jni.
    * @param toCapacity the size to which the buffer should be expanded to.
-   *
-   * @return address and size  of the buffer after expansion.
+   * @return address and size of the buffer after expansion.
    */
   public ExpandResult expandOutputVectorAtIndex(int index, long toCapacity) {
     if (index >= vectors.length || vectors[index] == null) {
@@ -62,8 +58,6 @@ public class VectorExpander {
       vector.reallocDataBuffer();
     }
     return new ExpandResult(
-        vector.getDataBuffer().memoryAddress(),
-        vector.getDataBuffer().capacity());
+        vector.getDataBuffer().memoryAddress(), vector.getDataBuffer().capacity());
   }
-
 }

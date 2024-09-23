@@ -14,16 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth2;
 
 import java.util.function.Consumer;
-
 import org.apache.arrow.flight.CallHeaders;
 
-/**
- * Client credentials that use a bearer token.
- */
+/** Client credentials that use a bearer token. */
 public final class BearerCredentialWriter implements Consumer<CallHeaders> {
 
   private final String bearer;
@@ -34,6 +30,7 @@ public final class BearerCredentialWriter implements Consumer<CallHeaders> {
 
   @Override
   public void accept(CallHeaders outputHeaders) {
-    outputHeaders.insert(Auth2Constants.AUTHORIZATION_HEADER, Auth2Constants.BEARER_PREFIX + bearer);
+    outputHeaders.insert(
+        Auth2Constants.AUTHORIZATION_HEADER, Auth2Constants.BEARER_PREFIX + bearer);
   }
 }

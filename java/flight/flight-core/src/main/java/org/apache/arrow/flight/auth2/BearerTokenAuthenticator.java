@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth2;
 
 import org.apache.arrow.flight.CallHeaders;
@@ -40,22 +39,25 @@ public abstract class BearerTokenAuthenticator implements CallHeaderAuthenticato
     }
 
     // Delegate to the basic auth handler to do the validation.
-    final CallHeaderAuthenticator.AuthResult result = initialAuthenticator.authenticate(incomingHeaders);
+    final CallHeaderAuthenticator.AuthResult result =
+        initialAuthenticator.authenticate(incomingHeaders);
     return getAuthResultWithBearerToken(result);
   }
 
   /**
    * Callback to run when the initial authenticator succeeds.
+   *
    * @param authResult A successful initial authentication result.
-   * @return an alternate AuthResult based on the original AuthResult that will write a bearer token to output headers.
+   * @return an alternate AuthResult based on the original AuthResult that will write a bearer token
+   *     to output headers.
    */
   protected abstract AuthResult getAuthResultWithBearerToken(AuthResult authResult);
 
   /**
    * Validate the bearer token.
+   *
    * @param bearerToken The bearer token to validate.
    * @return A successful AuthResult if validation succeeded.
    */
   protected abstract AuthResult validateBearer(String bearerToken);
-
 }

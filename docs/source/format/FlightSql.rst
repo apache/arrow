@@ -32,9 +32,6 @@ with any database that supports the necessary endpoints. Flight SQL
 clients wrap the underlying Flight client to provide methods for the
 new RPC methods described here.
 
-.. warning:: Flight SQL is **experimental** and changes to the
-             protocol may still be made.
-
 RPC Methods
 ===========
 
@@ -114,6 +111,12 @@ google.protobuf.Any message, then serialized and packed into the
 to the command name (i.e. for ``ActionClosePreparedStatementRequest``,
 the ``type`` should be ``ClosePreparedStatement``).
 
+Commands that execute updates such as ``CommandStatementUpdate`` and
+``CommandStatementIngest`` return a Flight SQL ``DoPutUpdateResult``
+after consuming the entire FlightData stream. This message is encoded
+in the ``app_metadata`` field of the Flight RPC ``PutResult`` returned.
+
+
 ``ActionClosePreparedStatementRequest``
     Close a previously created prepared statement.
 
@@ -185,6 +188,13 @@ the ``type`` should be ``ClosePreparedStatement``).
     When used with DoPut: execute the query and return the number of
     affected rows.
 
+``CommandStatementIngest``
+    Execute a bulk ingestion.
+
+    When used with DoPut: load the stream of Arrow record batches into
+    the specified target table and return the number of rows ingested
+    via a ``DoPutUpdateResult`` message.
+
 Flight Server Session Management
 --------------------------------
 
@@ -229,17 +239,17 @@ Close and invalidate the current session context.
 Sequence Diagrams
 =================
 
-.. figure:: ./FlightSql/CommandGetTables.mmd.svg
+.. mermaid:: ./FlightSql/CommandGetTables.mmd
+  :caption: Listing available tables.
 
-   Listing available tables.
+.. mermaid:: ./FlightSql/CommandStatementQuery.mmd
+  :caption: Executing an ad-hoc query.
 
-.. figure:: ./FlightSql/CommandStatementQuery.mmd.svg
+.. mermaid:: ./FlightSql/CommandPreparedStatementQuery.mmd
+  :caption: Creating a prepared statement, then executing it.
 
-   Executing an ad-hoc query.
-
-.. figure:: ./FlightSql/CommandPreparedStatementQuery.mmd.svg
-
-   Creating a prepared statement, then executing it.
+.. mermaid:: ./FlightSql/CommandStatementIngest.mmd
+  :caption: Executing a bulk ingestion.
 
 External Resources
 ==================

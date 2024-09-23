@@ -54,10 +54,10 @@ but some modules are JNI bindings to the C++ library.
      - (Experimental) A library for converting JDBC data to Arrow data.
      - Native
    * - flight-core
-     - (Experimental) An RPC mechanism for transferring ValueVectors.
+     - An RPC mechanism for transferring ValueVectors.
      - Native
    * - flight-sql
-     - (Experimental) Contains utility classes to expose Flight SQL semantics for clients and servers over Arrow Flight.
+     - Contains utility classes to expose Flight SQL semantics for clients and servers over Arrow Flight.
      - Native
    * - flight-integration-tests
      - Integration tests for Flight RPC.

@@ -22,9 +22,10 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/decimal128"
-	"github.com/apache/arrow/go/v16/internal/types"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/decimal128"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
+	"github.com/apache/arrow/go/v18/internal/utils"
 	avro "github.com/hamba/avro/v2"
 )
 
@@ -76,14 +77,7 @@ func ArrowSchemaFromAvro(schema avro.Schema) (s *arrow.Schema, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			s = nil
-			switch x := r.(type) {
-			case string:
-				err = fmt.Errorf("invalid avro schema: %s", x)
-			case error:
-				err = fmt.Errorf("invalid avro schema: %w", x)
-			default:
-				err = fmt.Errorf("invalid avro schema: unknown error")
-			}
+			err = utils.FormatRecoveredError("invalid avro schema", r)
 		}
 	}()
 	n := newSchemaNode()
@@ -355,7 +349,7 @@ func avroLogicalToArrowField(n *schemaNode) {
 		// The uuid logical type represents a random generated universally unique identifier (UUID).
 		// A uuid logical type annotates an Avro string. The string has to conform with RFC-4122
 	case "uuid":
-		dt = types.NewUUIDType()
+		dt = extensions.NewUUIDType()
 
 	// The date logical type represents a date within the calendar, with no reference to a particular
 	// time zone or time of day.

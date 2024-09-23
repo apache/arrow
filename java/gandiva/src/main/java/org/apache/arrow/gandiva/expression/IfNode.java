@@ -14,16 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.expression;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
-/**
- * Node representing a if-then-else block expression.
- */
+/** Node representing a if-then-else block expression. */
 class IfNode implements TreeNode {
   private final TreeNode condition;
   private final TreeNode thenNode;

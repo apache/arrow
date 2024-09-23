@@ -281,7 +281,7 @@ test_that("to_duckdb passing a connection", {
     to_duckdb(con = con_separate, auto_disconnect = FALSE)
 
   # Generates a query like SELECT * FROM arrow_xxx
-  table_four_query <- paste(show_query(table_four), collapse = "\n")
+  table_four_query <- paste(dbplyr::sql_build(table_four), collapse = "\n")
   table_four_name <- stringr::str_extract(table_four_query, "arrow_[0-9]{3}")
   expect_false(is.na(table_four_name))
 

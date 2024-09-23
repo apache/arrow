@@ -26,34 +26,48 @@
 
 #include <arrow-glib/input-stream.h>
 
+GARROW_EXTERN
 GArrowInputStream *
 garrow_input_stream_new_raw(std::shared_ptr<arrow::io::InputStream> *arrow_input_stream);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::io::InputStream>
 garrow_input_stream_get_raw(GArrowInputStream *input_stream);
 
+GARROW_EXTERN
 GArrowSeekableInputStream *
 garrow_seekable_input_stream_new_raw(
   std::shared_ptr<arrow::io::RandomAccessFile> *arrow_random_access_file);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::io::RandomAccessFile>
 garrow_seekable_input_stream_get_raw(GArrowSeekableInputStream *input_stream);
 
+GARROW_EXTERN
 GArrowBufferInputStream *
 garrow_buffer_input_stream_new_raw(
   std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader, GArrowBuffer *buffer);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::io::BufferReader>
 garrow_buffer_input_stream_get_raw(GArrowBufferInputStream *input_stream);
 
+GARROW_EXTERN
 GArrowFileInputStream *
 garrow_file_input_stream_new_raw(std::shared_ptr<arrow::io::ReadableFile> *arrow_stream);
 
+GARROW_EXTERN
 GArrowMemoryMappedInputStream *
 garrow_memory_mapped_input_stream_new_raw(
   std::shared_ptr<arrow::io::MemoryMappedFile> *arrow_stream);
 
+GARROW_EXTERN
 GArrowCompressedInputStream *
 garrow_compressed_input_stream_new_raw(
   std::shared_ptr<arrow::io::CompressedInputStream> *arrow_raw,
   GArrowCodec *codec,
   GArrowInputStream *raw);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::io::InputStream>
 garrow_compressed_input_stream_get_raw(GArrowCompressedInputStream *stream);

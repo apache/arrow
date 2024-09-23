@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.converter.impl;
 
 import java.math.BigDecimal;
-
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -26,13 +24,10 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/**
- * AvaticaParameterConverter for Decimal Arrow types.
- */
+/** AvaticaParameterConverter for Decimal Arrow types. */
 public class DecimalAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public DecimalAvaticaParameterConverter(ArrowType.Decimal type) {
-  }
+  public DecimalAvaticaParameterConverter(ArrowType.Decimal type) {}
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {

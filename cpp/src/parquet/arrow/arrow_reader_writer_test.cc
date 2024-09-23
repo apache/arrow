@@ -16,9 +16,9 @@
 // under the License.
 
 #ifdef _MSC_VER
-#pragma warning(push)
+#  pragma warning(push)
 // Disable forcing value to bool warnings
-#pragma warning(disable : 4800)
+#  pragma warning(disable : 4800)
 #endif
 
 #include "gmock/gmock.h"
@@ -37,6 +37,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/extension/json.h"
 #include "arrow/io/api.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -55,7 +56,7 @@
 #include "arrow/util/range.h"
 
 #ifdef ARROW_CSV
-#include "arrow/csv/api.h"
+#  include "arrow/csv/api.h"
 #endif
 
 #include "parquet/api/reader.h"
@@ -618,10 +619,15 @@ class ParquetIOTestBase : public ::testing::Test {
     return ParquetFileWriter::Open(sink_, schema);
   }
 
-  void ReaderFromSink(std::unique_ptr<FileReader>* out) {
+  void ReaderFromSink(
+      std::unique_ptr<FileReader>* out,
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
     ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
-    ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                                ::arrow::default_memory_pool(), out));
+    FileReaderBuilder builder;
+    ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+    ASSERT_OK_NO_THROW(builder.memory_pool(::arrow::default_memory_pool())
+                           ->properties(properties)
+                           ->Build(out));
   }
 
   void ReadSingleColumnFile(std::unique_ptr<FileReader> file_reader,
@@ -670,6 +676,7 @@ class ParquetIOTestBase : public ::testing::Test {
   void RoundTripSingleColumn(
       const std::shared_ptr<Array>& values, const std::shared_ptr<Array>& expected,
       const std::shared_ptr<::parquet::ArrowWriterProperties>& arrow_properties,
+      const ArrowReaderProperties& reader_properties = default_arrow_reader_properties(),
       bool nullable = true) {
     std::shared_ptr<Table> table = MakeSimpleTable(values, nullable);
     this->ResetSink();
@@ -679,7 +686,7 @@ class ParquetIOTestBase : public ::testing::Test {
 
     std::shared_ptr<Table> out;
     std::unique_ptr<FileReader> reader;
-    ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
+    ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader, reader_properties));
     const bool expect_metadata = arrow_properties->store_schema();
     ASSERT_NO_FATAL_FAILURE(
         this->ReadTableFromFile(std::move(reader), expect_metadata, &out));
@@ -1426,6 +1433,52 @@ TEST_F(TestLargeStringParquetIO, Basics) {
   const auto arrow_properties =
       ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
   this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
+}
+
+using TestJsonParquetIO = TestParquetIO<::arrow::extension::JsonExtensionType>;
+
+TEST_F(TestJsonParquetIO, JsonExtension) {
+  const char* json = R"([
+    "null",
+    "1234",
+    "3.14159",
+    "true",
+    "false",
+    "\"a json string\"",
+    "[\"a\", \"json\", \"array\"]",
+    "{\"obj\": \"a simple json object\"}"
+  ])";
+
+  const auto json_type = ::arrow::extension::json();
+  const auto string_array = ::arrow::ArrayFromJSON(::arrow::utf8(), json);
+  const auto json_array = ::arrow::ExtensionType::WrapArray(json_type, string_array);
+
+  const auto json_large_type = ::arrow::extension::json(::arrow::large_utf8());
+  const auto large_string_array = ::arrow::ArrayFromJSON(::arrow::large_utf8(), json);
+  const auto json_large_array =
+      ::arrow::ExtensionType::WrapArray(json_large_type, large_string_array);
+
+  // When the original Arrow schema isn't stored and Arrow extensions are disabled,
+  // LogicalType::JSON is read as utf8.
+  this->RoundTripSingleColumn(json_array, string_array,
+                              default_arrow_writer_properties());
+  this->RoundTripSingleColumn(json_large_array, string_array,
+                              default_arrow_writer_properties());
+
+  // When the original Arrow schema isn't stored and Arrow extensions are enabled,
+  // LogicalType::JSON is read as JsonExtensionType with utf8 storage.
+  ::parquet::ArrowReaderProperties reader_properties;
+  reader_properties.set_arrow_extensions_enabled(true);
+  this->RoundTripSingleColumn(json_array, json_array, default_arrow_writer_properties(),
+                              reader_properties);
+  this->RoundTripSingleColumn(json_large_array, json_array,
+                              default_arrow_writer_properties(), reader_properties);
+
+  // When the original Arrow schema is stored, the stored Arrow type is respected.
+  const auto writer_properties =
+      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
+  this->RoundTripSingleColumn(json_array, json_array, writer_properties);
+  this->RoundTripSingleColumn(json_large_array, json_large_array, writer_properties);
 }
 
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;
@@ -4469,7 +4522,7 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
     RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(buffer_)));
     RETURN_NOT_OK(builder.properties(properties_)->Build(&reader));
 
-    return std::move(reader);
+    return reader;
   }
 };
 
@@ -5298,14 +5351,20 @@ TEST(TestArrowReadWrite, MultithreadedWrite) {
 
 TEST(TestArrowReadWrite, FuzzReader) {
   constexpr size_t kMaxFileSize = 1024 * 1024 * 1;
-  {
-    auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
+  auto check_bad_file = [&](const std::string& file_name) {
+    SCOPED_TRACE(file_name);
+    auto path = test::get_data_file(file_name, /*is_good=*/false);
     PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
                                              path, ::arrow::io::FileMode::READ));
     PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
     auto s = internal::FuzzReader(buffer->data(), buffer->size());
     ASSERT_NOT_OK(s);
-  }
+  };
+  check_bad_file("PARQUET-1481.parquet");
+  check_bad_file("ARROW-GH-41317.parquet");
+  check_bad_file("ARROW-GH-41321.parquet");
+  check_bad_file("ARROW-RS-GH-6229-LEVELS.parquet");
+  check_bad_file("ARROW-RS-GH-6229-DICTHEADER.parquet");
   {
     auto path = test::get_data_file("alltypes_plain.parquet", /*is_good=*/true);
     PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(

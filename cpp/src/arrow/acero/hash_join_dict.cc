@@ -225,21 +225,20 @@ Status HashJoinDictBuild::Init(ExecContext* ctx, std::shared_ptr<Array> dictiona
     return Status::OK();
   }
 
-  dictionary_ = dictionary;
+  dictionary_ = std::move(dictionary);
 
   // Initialize encoder
   RowEncoder encoder;
-  std::vector<TypeHolder> encoder_types;
-  encoder_types.emplace_back(value_type_);
+  std::vector<TypeHolder> encoder_types{value_type_};
   encoder.Init(encoder_types, ctx);
 
   // Encode all dictionary values
-  int64_t length = dictionary->data()->length;
+  int64_t length = dictionary_->data()->length;
   if (length >= std::numeric_limits<int32_t>::max()) {
     return Status::Invalid(
         "Dictionary length in hash join must fit into signed 32-bit integer.");
   }
-  RETURN_NOT_OK(encoder.EncodeAndAppend(ExecSpan({*dictionary->data()}, length)));
+  RETURN_NOT_OK(encoder.EncodeAndAppend(ExecSpan({*dictionary_->data()}, length)));
 
   std::vector<int32_t> entries_to_take;
 

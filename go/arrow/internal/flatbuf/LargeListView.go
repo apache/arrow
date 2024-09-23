@@ -22,8 +22,8 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// Same as ListView, but with 64-bit offsets and sizes, allowing to represent
-/// extremely large data values.
+// / Same as ListView, but with 64-bit offsets and sizes, allowing to represent
+// / extremely large data values.
 type LargeListView struct {
 	_tab flatbuffers.Table
 }

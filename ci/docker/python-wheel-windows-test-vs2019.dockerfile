@@ -22,26 +22,42 @@
 # contains choco and vs2019 preinstalled
 FROM abrarov/msvc-2019:2.11.0
 
+# hadolint shell=cmd.exe
+
 # Add unix tools to path
 RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 
-# Remove previous installations of python from the base image
+# 1. Remove previous installations of python from the base image
 # NOTE: a more recent base image (tried with 2.12.1) comes with python 3.9.7
 # and the msi installers are failing to remove pip and tcl/tk "products" making
 # the subsequent choco python installation step failing for installing python
 # version 3.9.* due to existing python version
+# 2. Install Minio for S3 testing.
 RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
-    rm -rf Python*
+    rm -rf Python* && \
+    curl https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z \
+        --output "C:\Windows\Minio.exe"
 
-# Define the full version number otherwise choco falls back to patch number 0 (3.8 => 3.8.0)
-ARG python=3.8
-RUN (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\Python38;C:\Python38\Scripts") & \
-    (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13" && setx PATH "%PATH%;C:\Python39;C:\Python39\Scripts") & \
-    (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11" && setx PATH "%PATH%;C:\Python310;C:\Python310\Scripts") & \
-    (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.5" && setx PATH "%PATH%;C:\Python311;C:\Python311\Scripts") & \
-    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.0" && setx PATH "%PATH%;C:\Python312;C:\Python312\Scripts")
-RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
-RUN python -m pip install -U pip setuptools
+# Install the GCS testbench using a well-known Python version.
+# NOTE: cannot use pipx's `--fetch-missing-python` because of
+# https://github.com/pypa/pipx/issues/1521, therefore download Python ourselves.
+RUN choco install -r -y --pre --no-progress python --version=3.11.9
+ENV PIPX_BIN_DIR=C:\\Windows\\
+ENV PIPX_PYTHON="C:\Python311\python.exe"
+COPY ci/scripts/install_gcs_testbench.bat C:/arrow/ci/scripts/
+RUN call "C:\arrow\ci\scripts\install_gcs_testbench.bat" && \
+    storage-testbench -h
+
+# Define the full version number otherwise choco falls back to patch number 0 (3.9 => 3.9.0)
+ARG python=3.9
+RUN (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13") & \
+    (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11") & \
+    (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9") & \
+    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.5") & \
+    (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.0-rc1")
 
 # Install archiver to extract xz archives
-RUN choco install --no-progress -r -y archiver
+RUN choco install -r -y --pre --no-progress --force python --version=%PYTHON_VERSION% && \
+    choco install --no-progress -r -y archiver
+
+ENV PYTHON=$python

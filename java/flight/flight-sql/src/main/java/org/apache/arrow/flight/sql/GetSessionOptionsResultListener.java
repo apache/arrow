@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.sql;
 
 import org.apache.arrow.flight.FlightProducer;
@@ -22,7 +21,8 @@ import org.apache.arrow.flight.GetSessionOptionsResult;
 import org.apache.arrow.flight.Result;
 
 /** Typed StreamListener for getSessionOptions. */
-public class GetSessionOptionsResultListener implements FlightProducer.StreamListener<GetSessionOptionsResult> {
+public class GetSessionOptionsResultListener
+    implements FlightProducer.StreamListener<GetSessionOptionsResult> {
   private final FlightProducer.StreamListener<Result> listener;
 
   GetSessionOptionsResultListener(FlightProducer.StreamListener<Result> listener) {

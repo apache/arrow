@@ -39,17 +39,16 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"reflect"
 	"runtime/cgo"
 	"strconv"
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/endian"
-	"github.com/apache/arrow/go/v16/arrow/internal"
-	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/endian"
+	"github.com/apache/arrow/go/v18/arrow/internal"
+	"github.com/apache/arrow/go/v18/arrow/ipc"
 )
 
 func encodeCMetadata(keys, values []string) []byte {
@@ -291,64 +290,10 @@ func (exp *schemaExporter) export(field arrow.Field) {
 	exp.exportMeta(&field.Metadata)
 }
 
-func allocateArrowSchemaArr(n int) (out []CArrowSchema) {
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = uintptr(C.calloc(C.size_t(n), C.sizeof_struct_ArrowSchema))
-	s.Len = n
-	s.Cap = n
-
-	return
-}
-
-func allocateArrowSchemaPtrArr(n int) (out []*CArrowSchema) {
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = uintptr(C.calloc(C.size_t(n), C.size_t(unsafe.Sizeof((*CArrowSchema)(nil)))))
-	s.Len = n
-	s.Cap = n
-
-	return
-}
-
-func allocateArrowArrayArr(n int) (out []CArrowArray) {
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = uintptr(C.calloc(C.size_t(n), C.sizeof_struct_ArrowArray))
-	s.Len = n
-	s.Cap = n
-
-	return
-}
-
-func allocateArrowArrayPtrArr(n int) (out []*CArrowArray) {
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = uintptr(C.calloc(C.size_t(n), C.size_t(unsafe.Sizeof((*CArrowArray)(nil)))))
-	s.Len = n
-	s.Cap = n
-
-	return
-}
-
-func allocateBufferPtrArr(n int) (out []*C.void) {
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = uintptr(C.calloc(C.size_t(n), C.size_t(unsafe.Sizeof((*C.void)(nil)))))
-	s.Len = n
-	s.Cap = n
-
-	return
-}
-
-func allocateBufferSizeArr(n int) (out []C.int64_t) {
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = uintptr(C.calloc(C.size_t(n), C.size_t(unsafe.Sizeof(int64(0)))))
-	s.Len = n
-	s.Cap = n
-
-	return
-}
-
 func (exp *schemaExporter) finish(out *CArrowSchema) {
 	out.dictionary = nil
 	if exp.dict != nil {
-		out.dictionary = (*CArrowSchema)(C.malloc(C.sizeof_struct_ArrowSchema))
+		out.dictionary = (*CArrowSchema)(C.calloc(C.sizeof_struct_ArrowSchema, C.size_t(1)))
 		exp.dict.finish(out.dictionary)
 	}
 	out.name = C.CString(exp.name)
@@ -468,7 +413,7 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		childPtrs[0], childPtrs[1] = &children[0], &children[1]
 		out.children = (**CArrowArray)(unsafe.Pointer(&childPtrs[0]))
 	case *array.Dictionary:
-		out.dictionary = (*CArrowArray)(C.malloc(C.sizeof_struct_ArrowArray))
+		out.dictionary = (*CArrowArray)(C.calloc(C.sizeof_struct_ArrowArray, C.size_t(1)))
 		exportArray(arr.Dictionary(), out.dictionary, nil)
 	case array.Union:
 		out.n_children = C.int64_t(arr.NumFields())

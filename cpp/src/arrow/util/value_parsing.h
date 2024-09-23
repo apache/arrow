@@ -135,6 +135,9 @@ bool StringToFloat(const char* s, size_t length, char decimal_point, float* out)
 ARROW_EXPORT
 bool StringToFloat(const char* s, size_t length, char decimal_point, double* out);
 
+ARROW_EXPORT
+bool StringToFloat(const char* s, size_t length, char decimal_point, uint16_t* out);
+
 template <>
 struct StringConverter<FloatType> {
   using value_type = float;
@@ -156,6 +159,20 @@ struct StringConverter<DoubleType> {
   explicit StringConverter(char decimal_point = '.') : decimal_point(decimal_point) {}
 
   bool Convert(const DoubleType&, const char* s, size_t length, value_type* out) {
+    return ARROW_PREDICT_TRUE(StringToFloat(s, length, decimal_point, out));
+  }
+
+ private:
+  const char decimal_point;
+};
+
+template <>
+struct StringConverter<HalfFloatType> {
+  using value_type = uint16_t;
+
+  explicit StringConverter(char decimal_point = '.') : decimal_point(decimal_point) {}
+
+  bool Convert(const HalfFloatType&, const char* s, size_t length, value_type* out) {
     return ARROW_PREDICT_TRUE(StringToFloat(s, length, decimal_point, out));
   }
 

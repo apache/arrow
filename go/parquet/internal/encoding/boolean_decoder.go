@@ -23,10 +23,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	shared_utils "github.com/apache/arrow/go/v16/internal/utils"
-	"github.com/apache/arrow/go/v16/parquet"
-	"github.com/apache/arrow/go/v16/parquet/internal/utils"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	shared_utils "github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/internal/utils"
 )
 
 // PlainBooleanDecoder is for the Plain Encoding type, there is no

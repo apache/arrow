@@ -873,7 +873,8 @@ ggandiva_int64_literal_node_class_init(GGandivaInt64LiteralNodeClass *klass)
 GGandivaInt64LiteralNode *
 ggandiva_int64_literal_node_new(gint64 value)
 {
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
+  auto int64_t_value = static_cast<int64_t>(value);
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(int64_t_value);
   return GGANDIVA_INT64_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
 }
 
@@ -916,7 +917,8 @@ ggandiva_uint64_literal_node_class_init(GGandivaUInt64LiteralNodeClass *klass)
 GGandivaUInt64LiteralNode *
 ggandiva_uint64_literal_node_new(guint64 value)
 {
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
+  auto uint64_t_value = static_cast<uint64_t>(value);
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(uint64_t_value);
   return GGANDIVA_UINT64_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
 }
 

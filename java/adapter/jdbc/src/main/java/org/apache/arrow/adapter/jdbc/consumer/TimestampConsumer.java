@@ -14,26 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-
 import org.apache.arrow.vector.TimeStampMilliVector;
 
 /**
- * Consumer which consume timestamp type values from {@link ResultSet}.
- * Write the data to {@link TimeStampMilliVector}.
+ * Consumer which consume timestamp type values from {@link ResultSet}. Write the data to {@link
+ * TimeStampMilliVector}.
  */
 public abstract class TimestampConsumer {
 
-  /**
-   * Creates a consumer for {@link TimeStampMilliVector}.
-   */
+  /** Creates a consumer for {@link TimeStampMilliVector}. */
   public static JdbcConsumer<TimeStampMilliVector> createConsumer(
-          TimeStampMilliVector vector, int index, boolean nullable) {
+      TimeStampMilliVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableTimestampConsumer(vector, index);
     } else {
@@ -41,14 +37,10 @@ public abstract class TimestampConsumer {
     }
   }
 
-  /**
-   * Nullable consumer for timestamp.
-   */
+  /** Nullable consumer for timestamp. */
   static class NullableTimestampConsumer extends BaseConsumer<TimeStampMilliVector> {
 
-    /**
-     * Instantiate a TimestampConsumer.
-     */
+    /** Instantiate a TimestampConsumer. */
     public NullableTimestampConsumer(TimeStampMilliVector vector, int index) {
       super(vector, index);
     }
@@ -65,14 +57,10 @@ public abstract class TimestampConsumer {
     }
   }
 
-  /**
-   * Non-nullable consumer for timestamp.
-   */
+  /** Non-nullable consumer for timestamp. */
   static class NonNullableTimestampConsumer extends BaseConsumer<TimeStampMilliVector> {
 
-    /**
-     * Instantiate a TimestampConsumer.
-     */
+    /** Instantiate a TimestampConsumer. */
     public NonNullableTimestampConsumer(TimeStampMilliVector vector, int index) {
       super(vector, index);
     }

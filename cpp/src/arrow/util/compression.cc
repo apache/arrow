@@ -216,7 +216,7 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
 
   DCHECK_NE(codec, nullptr);
   RETURN_NOT_OK(codec->Init());
-  return std::move(codec);
+  return codec;
 }
 
 // use compression level to create Codec

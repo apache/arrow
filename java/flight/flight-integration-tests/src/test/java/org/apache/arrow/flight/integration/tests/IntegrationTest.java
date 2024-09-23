@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
@@ -24,9 +27,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.jupiter.api.Test;
 
-/**
- * Run the integration test scenarios in-process.
- */
+/** Run the integration test scenarios in-process. */
 class IntegrationTest {
   @Test
   void authBasicProto() throws Exception {
@@ -84,6 +85,11 @@ class IntegrationTest {
   }
 
   @Test
+  void flightSqlIngestion() throws Exception {
+    testScenario("flight_sql:ingestion");
+  }
+
+  @Test
   void appMetadataFlightInfoEndpoint() throws Exception {
     testScenario("app_metadata_flight_info_endpoint");
   }
@@ -94,10 +100,18 @@ class IntegrationTest {
   }
 
   void testScenario(String scenarioName) throws Exception {
-    try (final BufferAllocator allocator = new RootAllocator()) {
-      final FlightServer.Builder builder = FlightServer.builder()
-          .allocator(allocator)
-          .location(Location.forGrpcInsecure("0.0.0.0", 0));
+    TestBufferAllocationListener listener = new TestBufferAllocationListener();
+    try (final BufferAllocator allocator = new RootAllocator(listener, Long.MAX_VALUE)) {
+      final ExecutorService exec =
+          Executors.newCachedThreadPool(
+              new ThreadFactoryBuilder()
+                  .setNameFormat("integration-test-flight-server-executor-%d")
+                  .build());
+      final FlightServer.Builder builder =
+          FlightServer.builder()
+              .executor(exec)
+              .allocator(allocator)
+              .location(Location.forGrpcInsecure("0.0.0.0", 0));
       final Scenario scenario = Scenarios.getScenario(scenarioName);
       scenario.buildServer(builder);
       builder.producer(scenario.producer(allocator, Location.forGrpcInsecure("0.0.0.0", 0)));
@@ -110,6 +124,17 @@ class IntegrationTest {
           scenario.client(allocator, location, client);
         }
       }
+
+      // Shutdown the executor while allowing existing tasks to finish.
+      // Without this wait, allocator.close() may get invoked earlier than an executor thread may
+      // have finished freeing up resources
+      // In that case, allocator.close() can throw an IllegalStateException for memory leak, leading
+      // to flaky tests
+      exec.shutdown();
+      final boolean unused = exec.awaitTermination(3, TimeUnit.SECONDS);
+    } catch (IllegalStateException e) {
+      // this could be due to Allocator detecting memory leak. Add allocation trail to help debug
+      listener.reThrowWithAddedAllocatorInfo(e);
     }
   }
 }

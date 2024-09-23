@@ -14,19 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.Decimal256Vector;
 
 /**
- * Consumer which consume decimal type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.Decimal256Vector}.
+ * Consumer which consume decimal type values from {@link ResultSet}. Write the data to {@link
+ * org.apache.arrow.vector.Decimal256Vector}.
  */
 public abstract class Decimal256Consumer extends BaseConsumer<Decimal256Vector> {
   private final RoundingMode bigDecimalRoundingMode;
@@ -36,7 +34,7 @@ public abstract class Decimal256Consumer extends BaseConsumer<Decimal256Vector> 
    * Constructs a new consumer.
    *
    * @param vector the underlying vector for the consumer.
-   * @param index  the column id for the consumer.
+   * @param index the column id for the consumer.
    */
   public Decimal256Consumer(Decimal256Vector vector, int index) {
     this(vector, index, null);
@@ -44,27 +42,23 @@ public abstract class Decimal256Consumer extends BaseConsumer<Decimal256Vector> 
 
   /**
    * Constructs a new consumer, with optional coercibility.
+   *
    * @param vector the underlying vector for the consumer.
    * @param index the column index for the consumer.
-   * @param bigDecimalRoundingMode java.math.RoundingMode to be applied if the BigDecimal scale does not match that
-   *                               of the target vector.  Set to null to retain strict matching behavior (scale of
-   *                               source and target vector must match exactly).
+   * @param bigDecimalRoundingMode java.math.RoundingMode to be applied if the BigDecimal scale does
+   *     not match that of the target vector. Set to null to retain strict matching behavior (scale
+   *     of source and target vector must match exactly).
    */
-  public Decimal256Consumer(Decimal256Vector vector, int index, RoundingMode bigDecimalRoundingMode) {
+  public Decimal256Consumer(
+      Decimal256Vector vector, int index, RoundingMode bigDecimalRoundingMode) {
     super(vector, index);
     this.bigDecimalRoundingMode = bigDecimalRoundingMode;
     this.scale = vector.getScale();
   }
 
-  /**
-   * Creates a consumer for {@link Decimal256Vector}.
-   */
+  /** Creates a consumer for {@link Decimal256Vector}. */
   public static JdbcConsumer<Decimal256Vector> createConsumer(
-          Decimal256Vector vector,
-          int index,
-          boolean nullable,
-          RoundingMode bigDecimalRoundingMode
-  ) {
+      Decimal256Vector vector, int index, boolean nullable, RoundingMode bigDecimalRoundingMode) {
     if (nullable) {
       return new NullableDecimal256Consumer(vector, index, bigDecimalRoundingMode);
     } else {
@@ -79,16 +73,12 @@ public abstract class Decimal256Consumer extends BaseConsumer<Decimal256Vector> 
     vector.set(currentIndex, value);
   }
 
-
-  /**
-   * Consumer for nullable decimal.
-   */
+  /** Consumer for nullable decimal. */
   static class NullableDecimal256Consumer extends Decimal256Consumer {
 
-    /**
-     * Instantiate a Decimal256Consumer.
-     */
-    public NullableDecimal256Consumer(Decimal256Vector vector, int index, RoundingMode bigDecimalRoundingMode) {
+    /** Instantiate a Decimal256Consumer. */
+    public NullableDecimal256Consumer(
+        Decimal256Vector vector, int index, RoundingMode bigDecimalRoundingMode) {
       super(vector, index, bigDecimalRoundingMode);
     }
 
@@ -104,15 +94,12 @@ public abstract class Decimal256Consumer extends BaseConsumer<Decimal256Vector> 
     }
   }
 
-  /**
-   * Consumer for non-nullable decimal.
-   */
+  /** Consumer for non-nullable decimal. */
   static class NonNullableDecimal256Consumer extends Decimal256Consumer {
 
-    /**
-     * Instantiate a Decimal256Consumer.
-     */
-    public NonNullableDecimal256Consumer(Decimal256Vector vector, int index, RoundingMode bigDecimalRoundingMode) {
+    /** Instantiate a Decimal256Consumer. */
+    public NonNullableDecimal256Consumer(
+        Decimal256Vector vector, int index, RoundingMode bigDecimalRoundingMode) {
       super(vector, index, bigDecimalRoundingMode);
     }
 

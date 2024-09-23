@@ -14,32 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
-import static junit.framework.TestCase.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * Test cases for {@link VectorBatchAppender}.
- */
+/** Test cases for {@link VectorBatchAppender}. */
 public class TestVectorBatchAppender {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
@@ -50,8 +47,8 @@ public class TestVectorBatchAppender {
     final int length2 = 5;
     final int length3 = 7;
     try (IntVector target = new IntVector("", allocator);
-         IntVector delta1 = new IntVector("", allocator);
-         IntVector delta2 = new IntVector("", allocator)) {
+        IntVector delta1 = new IntVector("", allocator);
+        IntVector delta2 = new IntVector("", allocator)) {
 
       target.allocateNew(length1);
       delta1.allocateNew(length2);

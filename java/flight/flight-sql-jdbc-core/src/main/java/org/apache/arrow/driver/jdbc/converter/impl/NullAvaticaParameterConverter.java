@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.converter.impl;
 
 import org.apache.arrow.vector.FieldVector;
@@ -24,19 +23,18 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/**
- * AvaticaParameterConverter for Null Arrow types.
- */
+/** AvaticaParameterConverter for Null Arrow types. */
 public class NullAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public NullAvaticaParameterConverter(ArrowType.Null type) {
-  }
+  public NullAvaticaParameterConverter(ArrowType.Null type) {}
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
     Object value = typedValue.toLocal();
     if (vector instanceof NullVector) {
-      if (value != null) { throw new RuntimeException("Can't set non-null value on NullVector"); }
+      if (value != null) {
+        throw new RuntimeException("Can't set non-null value on NullVector");
+      }
       vector.setNull(index);
     }
     return false;

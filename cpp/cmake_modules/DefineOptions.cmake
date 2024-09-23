@@ -158,8 +158,6 @@ if(ARROW_DEFINE_OPTIONS)
   define_option_string(ARROW_GIT_DESCRIPTION "The Arrow git commit description (if any)"
                        "")
 
-  define_option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
-
   define_option(ARROW_POSITION_INDEPENDENT_CODE
                 "Whether to create position-independent target" ON)
 
@@ -169,6 +167,8 @@ if(ARROW_DEFINE_OPTIONS)
 takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
+
+  define_option(ARROW_USE_LLD "Use the LLVM lld for linking (if available)" OFF)
 
   define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
 
@@ -303,7 +303,10 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_IPC)
 
   define_option(ARROW_AZURE
-                "Build Arrow with Azure support (requires the Azure SDK for C++)" OFF)
+                "Build Arrow with Azure support (requires the Azure SDK for C++)"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
 
   define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
 
@@ -346,9 +349,16 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_UTF8PROC)
 
   define_option(ARROW_GCS
-                "Build Arrow with GCS support (requires the GCloud SDK for C++)" OFF)
+                "Build Arrow with GCS support (requires the GCloud SDK for C++)"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
 
-  define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
+  define_option(ARROW_HDFS
+                "Build the Arrow HDFS bridge"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
 
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
@@ -398,7 +408,11 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_HDFS
                 ARROW_JSON)
 
-  define_option(ARROW_S3 "Build Arrow with S3 support (requires the AWS SDK for C++)" OFF)
+  define_option(ARROW_S3
+                "Build Arrow with S3 support (requires the AWS SDK for C++)"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
 
   define_option(ARROW_SKYHOOK
                 "Build the Skyhook libraries"

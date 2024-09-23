@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.converter.impl;
 
 import java.util.List;
-
 import org.apache.arrow.driver.jdbc.utils.AvaticaParameterBinder;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -27,13 +25,10 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/**
- * AvaticaParameterConverter for FixedSizeList Arrow types.
- */
+/** AvaticaParameterConverter for FixedSizeList Arrow types. */
 public class FixedSizeListAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public FixedSizeListAvaticaParameterConverter(ArrowType.FixedSizeList type) {
-  }
+  public FixedSizeListAvaticaParameterConverter(ArrowType.FixedSizeList type) {}
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
@@ -47,9 +42,11 @@ public class FixedSizeListAvaticaParameterConverter extends BaseAvaticaParameter
 
       if (arraySize != maxArraySize) {
         if (!childVector.getField().isNullable()) {
-          throw new UnsupportedOperationException("Each array must contain " + maxArraySize + " elements");
+          throw new UnsupportedOperationException(
+              "Each array must contain " + maxArraySize + " elements");
         } else if (arraySize > maxArraySize) {
-          throw new UnsupportedOperationException("Each array must contain at most " + maxArraySize + " elements");
+          throw new UnsupportedOperationException(
+              "Each array must contain at most " + maxArraySize + " elements");
         }
       }
 
@@ -64,9 +61,12 @@ public class FixedSizeListAvaticaParameterConverter extends BaseAvaticaParameter
             throw new UnsupportedOperationException("Can't set null on non-nullable child list");
           }
         } else {
-          childVector.getField().getType().accept(
+          childVector
+              .getField()
+              .getType()
+              .accept(
                   new AvaticaParameterBinder.BinderVisitor(
-                          childVector, TypedValue.ofSerial(typedValue.componentType, val), childIndex));
+                      childVector, TypedValue.ofSerial(typedValue.componentType, val), childIndex));
         }
       }
       listVector.setValueCount(index + 1);

@@ -19,9 +19,9 @@ module org.apache.arrow.tools {
   exports org.apache.arrow.tools;
 
   requires com.fasterxml.jackson.databind;
-  requires com.google.common;
   requires org.apache.arrow.compression;
   requires org.apache.arrow.memory.core;
   requires org.apache.arrow.vector;
+  requires org.apache.commons.cli;
   requires org.slf4j;
 }

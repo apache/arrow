@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.validate;
 
 import java.io.IOException;
 import java.util.Iterator;
-
 import org.apache.arrow.vector.types.MetadataVersion;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -28,7 +26,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 /**
  * Given a field, checks that no Union fields are present.
  *
- * This is intended to be used to prevent unions from being read/written with V4 metadata.
+ * <p>This is intended to be used to prevent unions from being read/written with V4 metadata.
  */
 public final class MetadataV4UnionChecker {
   static boolean isUnion(Field field) {
@@ -50,7 +48,8 @@ public final class MetadataV4UnionChecker {
   }
 
   /**
-   * Check the schema, raising an error if an unsupported feature is used (e.g. unions with < V5 metadata).
+   * Check the schema, raising an error if an unsupported feature is used (e.g. unions with < V5
+   * metadata).
    */
   public static void checkForUnion(Iterator<Field> fields, MetadataVersion metadataVersion) {
     if (metadataVersion.toFlatbufID() >= MetadataVersion.V5.toFlatbufID()) {
@@ -66,7 +65,8 @@ public final class MetadataV4UnionChecker {
   }
 
   /**
-   * Check the schema, raising an error if an unsupported feature is used (e.g. unions with < V5 metadata).
+   * Check the schema, raising an error if an unsupported feature is used (e.g. unions with < V5
+   * metadata).
    */
   public static void checkRead(Schema schema, MetadataVersion metadataVersion) throws IOException {
     if (metadataVersion.toFlatbufID() >= MetadataVersion.V5.toFlatbufID()) {

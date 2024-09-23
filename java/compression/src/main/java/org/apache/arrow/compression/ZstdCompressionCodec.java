@@ -14,20 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.compression;
 
-
+import com.github.luben.zstd.Zstd;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.compression.AbstractCompressionCodec;
 import org.apache.arrow.vector.compression.CompressionUtil;
 
-import com.github.luben.zstd.Zstd;
-
-/**
- * Compression codec for the ZSTD algorithm.
- */
+/** Compression codec for the ZSTD algorithm. */
 public class ZstdCompressionCodec extends AbstractCompressionCodec {
 
   private int compressionLevel;
@@ -46,10 +41,13 @@ public class ZstdCompressionCodec extends AbstractCompressionCodec {
     long maxSize = Zstd.compressBound(uncompressedBuffer.writerIndex());
     long dstSize = CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH + maxSize;
     ArrowBuf compressedBuffer = allocator.buffer(dstSize);
-    long bytesWritten = Zstd.compressUnsafe(
-                          compressedBuffer.memoryAddress() + CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH, dstSize,
-                          /*src*/uncompressedBuffer.memoryAddress(), /*srcSize=*/uncompressedBuffer.writerIndex(),
-                          /*level=*/this.compressionLevel);
+    long bytesWritten =
+        Zstd.compressUnsafe(
+            compressedBuffer.memoryAddress() + CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH,
+            dstSize,
+            /*src*/ uncompressedBuffer.memoryAddress(),
+            /*srcSize=*/ uncompressedBuffer.writerIndex(),
+            /*level=*/ this.compressionLevel);
     if (Zstd.isError(bytesWritten)) {
       compressedBuffer.close();
       throw new RuntimeException("Error compressing: " + Zstd.getErrorName(bytesWritten));
@@ -62,17 +60,23 @@ public class ZstdCompressionCodec extends AbstractCompressionCodec {
   protected ArrowBuf doDecompress(BufferAllocator allocator, ArrowBuf compressedBuffer) {
     long decompressedLength = readUncompressedLength(compressedBuffer);
     ArrowBuf uncompressedBuffer = allocator.buffer(decompressedLength);
-    long decompressedSize = Zstd.decompressUnsafe(uncompressedBuffer.memoryAddress(), decompressedLength,
-          /*src=*/compressedBuffer.memoryAddress() + CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH,
-          compressedBuffer.writerIndex() - CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH);
+    long decompressedSize =
+        Zstd.decompressUnsafe(
+            uncompressedBuffer.memoryAddress(),
+            decompressedLength,
+            /*src=*/ compressedBuffer.memoryAddress() + CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH,
+            compressedBuffer.writerIndex() - CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH);
     if (Zstd.isError(decompressedSize)) {
       uncompressedBuffer.close();
       throw new RuntimeException("Error decompressing: " + Zstd.getErrorName(decompressedLength));
     }
     if (decompressedLength != decompressedSize) {
       uncompressedBuffer.close();
-      throw new RuntimeException("Expected != actual decompressed length: " + 
-                                 decompressedLength + " != " + decompressedSize);
+      throw new RuntimeException(
+          "Expected != actual decompressed length: "
+              + decompressedLength
+              + " != "
+              + decompressedSize);
     }
     uncompressedBuffer.writerIndex(decompressedLength);
     return uncompressedBuffer;

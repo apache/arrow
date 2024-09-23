@@ -31,7 +31,7 @@
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/support/client_callback.h>
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
-#include <grpcpp/security/tls_credentials_options.h>
+#  include <grpcpp/security/tls_credentials_options.h>
 #endif
 
 #include <grpc/grpc_security_constants.h>
@@ -648,10 +648,10 @@ class UnaryUnaryAsyncCall : public ::grpc::ClientUnaryReactor, public internal::
 
   void OnDone(const ::grpc::Status& status) override {
     if (status.ok()) {
-      auto result = internal::FromProto(pb_response);
-      client_status = result.status();
+      FlightInfo::Data info_data;
+      client_status = internal::FromProto(pb_response, &info_data);
       if (client_status.ok()) {
-        listener->OnNext(std::move(result).MoveValueUnsafe());
+        listener->OnNext(FlightInfo{std::move(info_data)});
       }
     }
     Finish(status);
@@ -670,11 +670,11 @@ class UnaryUnaryAsyncCall : public ::grpc::ClientUnaryReactor, public internal::
   }
 };
 
-#define LISTENER_NOT_OK(LISTENER, EXPR)                 \
-  if (auto arrow_status = (EXPR); !arrow_status.ok()) { \
-    (LISTENER)->OnFinish(std::move(arrow_status));      \
-    return;                                             \
-  }
+#  define LISTENER_NOT_OK(LISTENER, EXPR)                 \
+    if (auto arrow_status = (EXPR); !arrow_status.ok()) { \
+      (LISTENER)->OnFinish(std::move(arrow_status));      \
+      return;                                             \
+    }
 #endif
 
 class GrpcClientImpl : public internal::ClientTransport {
@@ -697,7 +697,7 @@ class GrpcClientImpl : public internal::ClientTransport {
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           namespace ge = ::GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS;
 
-#if defined(GRPC_USE_CERTIFICATE_VERIFIER)
+#  if defined(GRPC_USE_CERTIFICATE_VERIFIER)
           // gRPC >= 1.43
           class NoOpCertificateVerifier : public ge::ExternalCertificateVerifier {
            public:
@@ -712,10 +712,10 @@ class GrpcClientImpl : public internal::ClientTransport {
           auto cert_verifier =
               ge::ExternalCertificateVerifier::Create<NoOpCertificateVerifier>();
 
-#else   // defined(GRPC_USE_CERTIFICATE_VERIFIER)
-        // gRPC < 1.43
-        // A callback to supply to TlsCredentialsOptions that accepts any server
-        // arguments.
+#  else   // defined(GRPC_USE_CERTIFICATE_VERIFIER)
+          // gRPC < 1.43
+          // A callback to supply to TlsCredentialsOptions that accepts any server
+          // arguments.
           struct NoOpTlsAuthorizationCheck
               : public ge::TlsServerAuthorizationCheckInterface {
             int Schedule(ge::TlsServerAuthorizationCheckArg* arg) override {
@@ -727,33 +727,33 @@ class GrpcClientImpl : public internal::ClientTransport {
           auto server_authorization_check = std::make_shared<NoOpTlsAuthorizationCheck>();
           noop_auth_check_ = std::make_shared<ge::TlsServerAuthorizationCheckConfig>(
               server_authorization_check);
-#endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
+#  endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
 
-#if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
+#  if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
           auto certificate_provider =
               std::make_shared<::grpc::experimental::StaticDataCertificateProvider>(
                   kDummyRootCert);
-#if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+#    if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
           ::grpc::experimental::TlsChannelCredentialsOptions tls_options(
               certificate_provider);
-#else   // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
-        // While gRPC >= 1.36 does not require a root cert (it has a default)
-        // in practice the path it hardcodes is broken. See grpc/grpc#21655.
+#    else   // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+            // While gRPC >= 1.36 does not require a root cert (it has a default)
+            // in practice the path it hardcodes is broken. See grpc/grpc#21655.
           ::grpc::experimental::TlsChannelCredentialsOptions tls_options;
           tls_options.set_certificate_provider(certificate_provider);
-#endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+#    endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
           tls_options.watch_root_certs();
           tls_options.set_root_cert_name("dummy");
-#if defined(GRPC_USE_CERTIFICATE_VERIFIER)
+#    if defined(GRPC_USE_CERTIFICATE_VERIFIER)
           tls_options.set_certificate_verifier(std::move(cert_verifier));
           tls_options.set_check_call_host(false);
           tls_options.set_verify_server_certs(false);
-#else   // defined(GRPC_USE_CERTIFICATE_VERIFIER)
+#    else   // defined(GRPC_USE_CERTIFICATE_VERIFIER)
           tls_options.set_server_verification_option(
               grpc_tls_server_verification_option::GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION);
           tls_options.set_server_authorization_check_config(noop_auth_check_);
-#endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
-#elif defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+#    endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
+#  elif defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           // continues defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
           auto materials_config = std::make_shared<ge::TlsKeyMaterialsConfig>();
           materials_config->set_pem_root_certs(kDummyRootCert);
@@ -761,7 +761,7 @@ class GrpcClientImpl : public internal::ClientTransport {
               GRPC_SSL_DONT_REQUEST_CLIENT_CERTIFICATE,
               GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION, materials_config,
               std::shared_ptr<ge::TlsCredentialReloadConfig>(), noop_auth_check_);
-#endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
+#  endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
           creds = ge::TlsCredentials(tls_options);
 #else   // defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           return Status::NotImplemented(
@@ -889,7 +889,8 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     pb::FlightInfo pb_info;
     while (!options.stop_token.IsStopRequested() && stream->Read(&pb_info)) {
-      ARROW_ASSIGN_OR_RAISE(FlightInfo info_data, internal::FromProto(pb_info));
+      FlightInfo::Data info_data;
+      RETURN_NOT_OK(internal::FromProto(pb_info, &info_data));
       flights.emplace_back(std::move(info_data));
     }
     if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
@@ -939,7 +940,8 @@ class GrpcClientImpl : public internal::ClientTransport {
         stub_->GetFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
     RETURN_NOT_OK(s);
 
-    ARROW_ASSIGN_OR_RAISE(auto info_data, internal::FromProto(pb_response));
+    FlightInfo::Data info_data;
+    RETURN_NOT_OK(internal::FromProto(pb_response, &info_data));
     *info = std::make_unique<FlightInfo>(std::move(info_data));
     return Status::OK();
   }
@@ -976,9 +978,9 @@ class GrpcClientImpl : public internal::ClientTransport {
                               &rpc.context);
     RETURN_NOT_OK(s);
 
-    std::string str;
-    RETURN_NOT_OK(internal::FromProto(pb_response, &str));
-    return std::make_unique<SchemaResult>(std::move(str));
+    auto schema_result = std::make_unique<SchemaResult>();
+    RETURN_NOT_OK(internal::FromProto(pb_response, schema_result.get()));
+    return schema_result;
   }
 
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,

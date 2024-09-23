@@ -14,42 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 
-/**
- * Accessor for {@link DecimalVector} and {@link Decimal256Vector}.
- */
+/** Accessor for {@link DecimalVector} and {@link Decimal256Vector}. */
 public class ArrowFlightJdbcDecimalVectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final Getter getter;
 
-  /**
-   * Functional interface used to unify Decimal*Vector#getObject implementations.
-   */
+  /** Functional interface used to unify Decimal*Vector#getObject implementations. */
   @FunctionalInterface
   interface Getter {
     BigDecimal getObject(int index);
   }
 
-  public ArrowFlightJdbcDecimalVectorAccessor(DecimalVector vector, IntSupplier currentRowSupplier,
-                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcDecimalVectorAccessor(
+      DecimalVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.getter = vector::getObject;
   }
 
-  public ArrowFlightJdbcDecimalVectorAccessor(Decimal256Vector vector,
-                                              IntSupplier currentRowSupplier,
-                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcDecimalVectorAccessor(
+      Decimal256Vector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.getter = vector::getObject;
   }

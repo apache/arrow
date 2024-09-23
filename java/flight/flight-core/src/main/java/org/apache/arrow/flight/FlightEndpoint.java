@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
@@ -28,16 +30,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-
 import org.apache.arrow.flight.impl.Flight;
 
-import com.google.protobuf.ByteString;
-import com.google.protobuf.Timestamp;
-import com.google.protobuf.util.Timestamps;
-
-/**
- * POJO to convert to/from the underlying protobuf FlightEndpoint.
- */
+/** POJO to convert to/from the underlying protobuf FlightEndpoint. */
 public class FlightEndpoint {
   private final List<Location> locations;
   private final Ticket ticket;
@@ -48,10 +43,10 @@ public class FlightEndpoint {
    * Constructs a new endpoint with no expiration time.
    *
    * @param ticket A ticket that describe the key of a data stream.
-   * @param locations  The possible locations the stream can be retrieved from.
+   * @param locations The possible locations the stream can be retrieved from.
    */
   public FlightEndpoint(Ticket ticket, Location... locations) {
-    this(ticket, /*expirationTime*/null, locations);
+    this(ticket, /*expirationTime*/ null, locations);
   }
 
   /**
@@ -59,16 +54,19 @@ public class FlightEndpoint {
    *
    * @param ticket A ticket that describe the key of a data stream.
    * @param expirationTime (optional) When this endpoint expires.
-   * @param locations  The possible locations the stream can be retrieved from.
+   * @param locations The possible locations the stream can be retrieved from.
    */
   public FlightEndpoint(Ticket ticket, Instant expirationTime, Location... locations) {
-    this(ticket, expirationTime, null, Collections.unmodifiableList(new ArrayList<>(Arrays.asList(locations))));
+    this(
+        ticket,
+        expirationTime,
+        null,
+        Collections.unmodifiableList(new ArrayList<>(Arrays.asList(locations))));
   }
 
-  /**
-   * Private constructor with all parameters. Should only be called by Builder.
-   */
-  private FlightEndpoint(Ticket ticket, Instant expirationTime, byte[] appMetadata, List<Location> locations) {
+  /** Private constructor with all parameters. Should only be called by Builder. */
+  private FlightEndpoint(
+      Ticket ticket, Instant expirationTime, byte[] appMetadata, List<Location> locations) {
     Objects.requireNonNull(ticket);
     this.locations = locations;
     this.expirationTime = expirationTime;
@@ -76,17 +74,16 @@ public class FlightEndpoint {
     this.appMetadata = appMetadata;
   }
 
-  /**
-   * Constructs from the protocol buffer representation.
-   */
+  /** Constructs from the protocol buffer representation. */
   FlightEndpoint(Flight.FlightEndpoint flt) throws URISyntaxException {
     this.locations = new ArrayList<>();
     for (final Flight.Location location : flt.getLocationList()) {
       this.locations.add(new Location(location.getUri()));
     }
     if (flt.hasExpirationTime()) {
-      this.expirationTime = Instant.ofEpochSecond(
-          flt.getExpirationTime().getSeconds(), Timestamps.toNanos(flt.getExpirationTime()));
+      this.expirationTime =
+          Instant.ofEpochSecond(
+              flt.getExpirationTime().getSeconds(), Timestamps.toNanos(flt.getExpirationTime()));
     } else {
       this.expirationTime = null;
     }
@@ -110,12 +107,10 @@ public class FlightEndpoint {
     return appMetadata;
   }
 
-  /**
-   * Converts to the protocol buffer representation.
-   */
+  /** Converts to the protocol buffer representation. */
   Flight.FlightEndpoint toProtocol() {
-    Flight.FlightEndpoint.Builder b = Flight.FlightEndpoint.newBuilder()
-        .setTicket(ticket.toProtocol());
+    Flight.FlightEndpoint.Builder b =
+        Flight.FlightEndpoint.newBuilder().setTicket(ticket.toProtocol());
 
     for (Location l : locations) {
       b.addLocation(l.toProtocol());
@@ -139,7 +134,8 @@ public class FlightEndpoint {
   /**
    * Get the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight types.
+   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight
+   * types.
    */
   public ByteBuffer serialize() {
     return ByteBuffer.wrap(toProtocol().toByteArray());
@@ -148,14 +144,16 @@ public class FlightEndpoint {
   /**
    * Parse the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from non-Flight services.
+   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from
+   * non-Flight services.
    *
    * @param serialized The serialized form of the message, as returned by {@link #serialize()}.
    * @return The deserialized message.
    * @throws IOException if the serialized form is invalid.
    * @throws URISyntaxException if the serialized form contains an unsupported URI format.
    */
-  public static FlightEndpoint deserialize(ByteBuffer serialized) throws IOException, URISyntaxException {
+  public static FlightEndpoint deserialize(ByteBuffer serialized)
+      throws IOException, URISyntaxException {
     return new FlightEndpoint(Flight.FlightEndpoint.parseFrom(serialized));
   }
 
@@ -168,10 +166,10 @@ public class FlightEndpoint {
       return false;
     }
     FlightEndpoint that = (FlightEndpoint) o;
-    return locations.equals(that.locations) &&
-        ticket.equals(that.ticket) &&
-        Objects.equals(expirationTime, that.expirationTime) &&
-        Arrays.equals(appMetadata, that.appMetadata);
+    return locations.equals(that.locations)
+        && ticket.equals(that.ticket)
+        && Objects.equals(expirationTime, that.expirationTime)
+        && Arrays.equals(appMetadata, that.appMetadata);
   }
 
   @Override
@@ -181,27 +179,29 @@ public class FlightEndpoint {
 
   @Override
   public String toString() {
-    return "FlightEndpoint{" +
-        "locations=" + locations +
-        ", ticket=" + ticket +
-        ", expirationTime=" + (expirationTime == null ? "(none)" : expirationTime.toString()) +
-        ", appMetadata=" + (appMetadata == null ? "(none)" : Base64.getEncoder().encodeToString(appMetadata)) +
-        '}';
+    return "FlightEndpoint{"
+        + "locations="
+        + locations
+        + ", ticket="
+        + ticket
+        + ", expirationTime="
+        + (expirationTime == null ? "(none)" : expirationTime.toString())
+        + ", appMetadata="
+        + (appMetadata == null ? "(none)" : Base64.getEncoder().encodeToString(appMetadata))
+        + '}';
   }
 
   /**
    * Create a builder for FlightEndpoint.
    *
    * @param ticket A ticket that describe the key of a data stream.
-   * @param locations  The possible locations the stream can be retrieved from.
+   * @param locations The possible locations the stream can be retrieved from.
    */
   public static Builder builder(Ticket ticket, Location... locations) {
     return new Builder(ticket, locations);
   }
 
-  /**
-   * Builder for FlightEndpoint.
-   */
+  /** Builder for FlightEndpoint. */
   public static final class Builder {
     private final Ticket ticket;
     private final List<Location> locations;
@@ -233,9 +233,7 @@ public class FlightEndpoint {
       return this;
     }
 
-    /**
-     * Build FlightEndpoint object.
-     */
+    /** Build FlightEndpoint object. */
     public FlightEndpoint build() {
       return new FlightEndpoint(ticket, expirationTime, appMetadata, locations);
     }

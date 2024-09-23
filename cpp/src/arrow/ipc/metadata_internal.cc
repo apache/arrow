@@ -109,8 +109,9 @@ flatbuf::MetadataVersion MetadataVersionToFlatbuffer(MetadataVersion version) {
 bool HasValidityBitmap(Type::type type_id, MetadataVersion version) {
   // In V4, null types have no validity bitmap
   // In V5 and later, null and union types have no validity bitmap
-  return (version < MetadataVersion::V5) ? (type_id != Type::NA)
-                                         : ::arrow::internal::HasValidityBitmap(type_id);
+  return (version < MetadataVersion::V5)
+             ? (type_id != Type::NA)
+             : ::arrow::internal::may_have_validity_bitmap(type_id);
 }
 
 namespace {
@@ -190,11 +191,9 @@ Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
   }
 
   if (mode == UnionMode::SPARSE) {
-    ARROW_ASSIGN_OR_RAISE(
-        *out, SparseUnionType::Make(std::move(children), std::move(type_codes)));
+    ARROW_ASSIGN_OR_RAISE(*out, SparseUnionType::Make(children, std::move(type_codes)));
   } else {
-    ARROW_ASSIGN_OR_RAISE(
-        *out, DenseUnionType::Make(std::move(children), std::move(type_codes)));
+    ARROW_ASSIGN_OR_RAISE(*out, DenseUnionType::Make(children, std::move(type_codes)));
   }
   return Status::OK();
 }
@@ -477,7 +476,9 @@ static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& fiel
 
 static KeyValueOffset AppendKeyValue(FBB& fbb, const std::string& key,
                                      const std::string& value) {
-  return flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value));
+  auto fbb_key = fbb.CreateString(key);
+  auto fbb_value = fbb.CreateString(value);
+  return flatbuf::CreateKeyValue(fbb, fbb_key, fbb_value);
 }
 
 static void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,

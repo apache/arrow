@@ -625,6 +625,11 @@ TEST(TimestampConversion, UserDefinedParsers) {
 }
 
 TEST(TimestampConversion, UserDefinedParsersWithZone) {
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "Test temporarily disabled due to emscripten bug "
+                  "https://github.com/emscripten-core/emscripten/issues/20467";
+#endif
+
   auto options = ConvertOptions::Defaults();
   auto type = timestamp(TimeUnit::SECOND, "America/Phoenix");
 

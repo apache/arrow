@@ -14,27 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume map type values from avro decoder.
- * Write the data to {@link MapVector}.
+ * Consumer which consume map type values from avro decoder. Write the data to {@link MapVector}.
  */
 public class AvroMapConsumer extends BaseAvroConsumer<MapVector> {
 
   private final Consumer delegate;
 
-  /**
-   * Instantiate a AvroMapConsumer.
-   */
+  /** Instantiate a AvroMapConsumer. */
   public AvroMapConsumer(MapVector vector, Consumer delegate) {
     super(vector);
     this.delegate = delegate;

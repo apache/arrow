@@ -14,19 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.io.IOException;
 import java.sql.Blob;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.VarBinaryVector;
 
 /**
- * Consumer which consume blob type values from {@link ResultSet}.
- * Write the data to {@link VarBinaryVector}.
+ * Consumer which consume blob type values from {@link ResultSet}. Write the data to {@link
+ * VarBinaryVector}.
  */
 public class BlobConsumer extends BaseConsumer<VarBinaryVector> {
 
@@ -34,17 +32,12 @@ public class BlobConsumer extends BaseConsumer<VarBinaryVector> {
 
   private final boolean nullable;
 
-  /**
-   * Creates a consumer for {@link VarBinaryVector}.
-   */
-  public static BlobConsumer createConsumer(
-          BinaryConsumer delegate, int index, boolean nullable) {
+  /** Creates a consumer for {@link VarBinaryVector}. */
+  public static BlobConsumer createConsumer(BinaryConsumer delegate, int index, boolean nullable) {
     return new BlobConsumer(delegate, index, nullable);
   }
 
-  /**
-   * Instantiate a BlobConsumer.
-   */
+  /** Instantiate a BlobConsumer. */
   public BlobConsumer(BinaryConsumer delegate, int index, boolean nullable) {
     super(null, index);
     this.delegate = delegate;

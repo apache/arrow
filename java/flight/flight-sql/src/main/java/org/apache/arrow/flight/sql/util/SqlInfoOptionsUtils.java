@@ -14,34 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.sql.util;
 
+import com.google.protobuf.ProtocolMessageEnum;
 import java.util.Arrays;
 import java.util.Collection;
-
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 
-import com.google.protobuf.ProtocolMessageEnum;
-
-/**
- * Utility class for {@link SqlInfo} and {@link FlightSqlClient#getSqlInfo} option parsing.
- */
+/** Utility class for {@link SqlInfo} and {@link FlightSqlClient#getSqlInfo} option parsing. */
 public final class SqlInfoOptionsUtils {
   private SqlInfoOptionsUtils() {
     // Prevent instantiation.
   }
 
   /**
-   * Returns whether the provided {@code bitmask} points to the provided {@link ProtocolMessageEnum} by comparing
-   * {@link ProtocolMessageEnum#getNumber} with the respective bit index of the {@code bitmask}.
+   * Returns whether the provided {@code bitmask} points to the provided {@link ProtocolMessageEnum}
+   * by comparing {@link ProtocolMessageEnum#getNumber} with the respective bit index of the {@code
+   * bitmask}.
    *
    * @param enumInstance the protobuf message enum to use.
-   * @param bitmask      the bitmask response from {@link FlightSqlClient#getSqlInfo}.
+   * @param bitmask the bitmask response from {@link FlightSqlClient#getSqlInfo}.
    * @return whether the provided {@code bitmask} points to the specified {@code enumInstance}.
    */
-  public static boolean doesBitmaskTranslateToEnum(final ProtocolMessageEnum enumInstance, final long bitmask) {
+  public static boolean doesBitmaskTranslateToEnum(
+      final ProtocolMessageEnum enumInstance, final long bitmask) {
     return ((bitmask >> enumInstance.getNumber()) & 1) == 1;
   }
 

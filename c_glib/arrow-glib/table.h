@@ -29,6 +29,7 @@ G_BEGIN_DECLS
 
 #define GARROW_TYPE_TABLE_CONCATENATE_OPTIONS                                            \
   (garrow_table_concatenate_options_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowTableConcatenateOptions,
                          garrow_table_concatenate_options,
                          GARROW,
@@ -44,6 +45,7 @@ GArrowTableConcatenateOptions *
 garrow_table_concatenate_options_new(void);
 
 #define GARROW_TYPE_TABLE (garrow_table_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowTable, garrow_table, GARROW, TABLE, GObject)
 struct _GArrowTableClass
 {
@@ -53,18 +55,21 @@ struct _GArrowTableClass
 GARROW_AVAILABLE_IN_0_12
 GArrowTable *
 garrow_table_new_values(GArrowSchema *schema, GList *values, GError **error);
+
 GARROW_AVAILABLE_IN_0_15
 GArrowTable *
 garrow_table_new_chunked_arrays(GArrowSchema *schema,
                                 GArrowChunkedArray **chunked_arrays,
                                 gsize n_chunked_arrays,
                                 GError **error);
+
 GARROW_AVAILABLE_IN_0_12
 GArrowTable *
 garrow_table_new_arrays(GArrowSchema *schema,
                         GArrowArray **arrays,
                         gsize n_arrays,
                         GError **error);
+
 GARROW_AVAILABLE_IN_0_12
 GArrowTable *
 garrow_table_new_record_batches(GArrowSchema *schema,
@@ -72,22 +77,29 @@ garrow_table_new_record_batches(GArrowSchema *schema,
                                 gsize n_record_batches,
                                 GError **error);
 
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_table_equal(GArrowTable *table, GArrowTable *other_table);
+
 GARROW_AVAILABLE_IN_0_17
 gboolean
 garrow_table_equal_metadata(GArrowTable *table,
                             GArrowTable *other_table,
                             gboolean check_metadata);
 
+GARROW_AVAILABLE_IN_ALL
 GArrowSchema *
 garrow_table_get_schema(GArrowTable *table);
+
 GARROW_AVAILABLE_IN_0_15
 GArrowChunkedArray *
 garrow_table_get_column_data(GArrowTable *table, gint i);
 
+GARROW_AVAILABLE_IN_ALL
 guint
 garrow_table_get_n_columns(GArrowTable *table);
+
+GARROW_AVAILABLE_IN_ALL
 guint64
 garrow_table_get_n_rows(GArrowTable *table);
 
@@ -98,8 +110,11 @@ garrow_table_add_column(GArrowTable *table,
                         GArrowField *field,
                         GArrowChunkedArray *chunked_array,
                         GError **error);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowTable *
 garrow_table_remove_column(GArrowTable *table, guint i, GError **error);
+
 GARROW_AVAILABLE_IN_0_15
 GArrowTable *
 garrow_table_replace_column(GArrowTable *table,
@@ -107,22 +122,28 @@ garrow_table_replace_column(GArrowTable *table,
                             GArrowField *field,
                             GArrowChunkedArray *chunked_array,
                             GError **error);
+
+GARROW_AVAILABLE_IN_ALL
 gchar *
 garrow_table_to_string(GArrowTable *table, GError **error);
+
 GARROW_AVAILABLE_IN_0_14
 GArrowTable *
 garrow_table_concatenate(GArrowTable *table,
                          GList *other_tables,
                          GArrowTableConcatenateOptions *options,
                          GError **error);
+
 GARROW_AVAILABLE_IN_0_14
 GArrowTable *
 garrow_table_slice(GArrowTable *table, gint64 offset, gint64 length);
+
 GARROW_AVAILABLE_IN_0_16
 GArrowTable *
 garrow_table_combine_chunks(GArrowTable *table, GError **error);
 
 #define GARROW_TYPE_FEATHER_WRITE_PROPERTIES (garrow_feather_write_properties_get_type())
+GARROW_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(GArrowFeatherWriteProperties,
                          garrow_feather_write_properties,
                          GARROW,

@@ -29,10 +29,12 @@ RUN apt-get update -y -q && \
         ccache \
         cmake \
         curl \
+        gdb \
         git \
         libssl-dev \
         libcurl4-openssl-dev \
         python3-pip \
+        python3-venv \
         tzdata \
         wget && \
     apt-get clean && \
@@ -85,7 +87,6 @@ ENV ARROW_ACERO=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \

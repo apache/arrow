@@ -482,6 +482,14 @@ class FileWriterImpl : public FileWriter {
     return writer_->metadata();
   }
 
+  /// \brief Append the key-value metadata to the file metadata
+  ::arrow::Status AddKeyValueMetadata(
+      const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata)
+      override {
+    PARQUET_CATCH_NOT_OK(writer_->AddKeyValueMetadata(key_value_metadata));
+    return Status::OK();
+  }
+
  private:
   friend class FileWriter;
 
@@ -515,16 +523,6 @@ Status FileWriter::Make(::arrow::MemoryPool* pool,
   return Status::OK();
 }
 
-Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
-                        std::shared_ptr<::arrow::io::OutputStream> sink,
-                        std::shared_ptr<WriterProperties> properties,
-                        std::unique_ptr<FileWriter>* writer) {
-  ARROW_ASSIGN_OR_RAISE(
-      *writer, Open(std::move(schema), pool, std::move(sink), std::move(properties),
-                    default_arrow_writer_properties()));
-  return Status::OK();
-}
-
 Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                          const ArrowWriterProperties& properties,
                          std::shared_ptr<const KeyValueMetadata>* out) {
@@ -547,18 +545,8 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
   // The serialized schema is not UTF-8, which is required for Thrift
   std::string schema_as_string = serialized->ToString();
   std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
-  result->Append(kArrowSchemaKey, schema_base64);
-  *out = result;
-  return Status::OK();
-}
-
-Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
-                        std::shared_ptr<::arrow::io::OutputStream> sink,
-                        std::shared_ptr<WriterProperties> properties,
-                        std::shared_ptr<ArrowWriterProperties> arrow_properties,
-                        std::unique_ptr<FileWriter>* writer) {
-  ARROW_ASSIGN_OR_RAISE(*writer, Open(std::move(schema), pool, std::move(sink),
-                                      std::move(properties), arrow_properties));
+  result->Append(kArrowSchemaKey, std::move(schema_base64));
+  *out = std::move(result);
   return Status::OK();
 }
 

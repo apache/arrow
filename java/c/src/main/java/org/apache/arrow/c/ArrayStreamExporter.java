@@ -14,23 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
-
 import org.apache.arrow.c.jni.JniWrapper;
 import org.apache.arrow.c.jni.PrivateData;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-/**
- * Utility to export an {@link ArrowReader} as an ArrowArrayStream.
- */
+/** Utility to export an {@link ArrowReader} as an ArrowArrayStream. */
 final class ArrayStreamExporter {
   private final BufferAllocator allocator;
 
@@ -38,9 +34,7 @@ final class ArrayStreamExporter {
     this.allocator = allocator;
   }
 
-  /**
-   * Java-side state for the exported stream.
-   */
+  /** Java-side state for the exported stream. */
   static class ExportedArrayStreamPrivateData implements PrivateData {
     final BufferAllocator allocator;
     final ArrowReader reader;

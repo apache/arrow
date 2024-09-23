@@ -56,6 +56,7 @@ add_arrow_test(utility-test
                compression_test.cc
                decimal_test.cc
                float16_test.cc
+               fixed_width_test.cc
                formatting_util_test.cc
                key_value_metadata_test.cc
                hashing_test.cc
@@ -63,6 +64,7 @@ add_arrow_test(utility-test
                ${IO_UTIL_TEST_SOURCES}
                iterator_test.cc
                list_util_test.cc
+               logger_test.cc
                logging_test.cc
                queue_test.cc
                range_test.cc

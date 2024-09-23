@@ -27,9 +27,18 @@ from datetime import date, datetime, time, timedelta, timezone
 
 import hypothesis as h
 import hypothesis.strategies as st
-import numpy as np
-import numpy.testing as npt
 import pytest
+try:
+    import numpy as np
+    import numpy.testing as npt
+    try:
+        _np_VisibleDeprecationWarning = np.VisibleDeprecationWarning
+    except AttributeError:
+        from numpy.exceptions import (
+            VisibleDeprecationWarning as _np_VisibleDeprecationWarning
+        )
+except ImportError:
+    np = None
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import invoke_script, random_ascii, rands
@@ -49,14 +58,6 @@ try:
     from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 except ImportError:
     pass
-
-
-try:
-    _np_VisibleDeprecationWarning = np.VisibleDeprecationWarning
-except AttributeError:
-    from numpy.exceptions import (
-        VisibleDeprecationWarning as _np_VisibleDeprecationWarning
-    )
 
 
 # Marks all of the tests in this module
@@ -218,6 +219,17 @@ class TestConvertMetadata:
         df = pd.DataFrame(
             np.random.randn(5, 3),
             columns=pd.date_range("2021-01-01", periods=3, freq="50D", tz="CET")
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+    def test_column_index_names_with_decimal(self):
+        # GH-41503: Test valid roundtrip with decimal value in column index
+        df = pd.DataFrame(
+            [[decimal.Decimal(5), decimal.Decimal(6)]],
+            columns=pd.MultiIndex.from_product(
+                [[decimal.Decimal(1)], [decimal.Decimal(2), decimal.Decimal(3)]]
+            ),
+            index=[decimal.Decimal(4)],
         )
         _check_pandas_roundtrip(df, preserve_index=True)
 
@@ -769,7 +781,7 @@ class TestConvertPrimitiveTypes:
             info = np.iinfo(dtype)
             values = np.random.randint(max(info.min, np.iinfo(np.int_).min),
                                        min(info.max, np.iinfo(np.int_).max),
-                                       size=num_values)
+                                       size=num_values, dtype=dtype)
             data[dtype] = values.astype(dtype)
             fields.append(pa.field(dtype, arrow_dtype))
 
@@ -1191,9 +1203,11 @@ class TestConvertDateTimeLikeTypes:
 
     @pytest.mark.parametrize('mask', [
         None,
-        np.array([True, False, False, True, False, False]),
+        [True, False, False, True, False, False],
     ])
     def test_pandas_datetime_to_date64(self, mask):
+        if mask:
+            mask = np.array(mask)
         s = pd.to_datetime([
             '2018-05-10T00:00:00',
             '2018-05-11T00:00:00',
@@ -1597,7 +1611,8 @@ class TestConvertDateTimeLikeTypes:
         assert pa.Array.from_pandas(expected).equals(result)
 
     @pytest.mark.skipif(
-        Version('1.16.0') <= Version(np.__version__) < Version('1.16.1'),
+        np is not None and Version('1.16.0') <= Version(
+            np.__version__) < Version('1.16.1'),
         reason='Until numpy/numpy#12745 is resolved')
     def test_fixed_offset_timezone(self):
         df = pd.DataFrame({
@@ -2571,7 +2586,7 @@ class TestConvertListTypes:
         )
 
         actual = arr.to_pandas()
-        expected = pd.Series([[1, None], [], None])
+        expected = pd.Series([[1, np.nan], [], None])
 
         tm.assert_series_equal(actual, expected)
 
@@ -2593,7 +2608,7 @@ class TestConvertListTypes:
         arr = pa.chunked_array([arr1, arr2])
 
         actual = arr.to_pandas()
-        expected = pd.Series([[3, 4], [2, 3], [1, 2], [5, 6, 7], [6, 7, None], None])
+        expected = pd.Series([[3, 4], [2, 3], [1, 2], [5, 6, 7], [6, 7, np.nan], None])
 
         tm.assert_series_equal(actual, expected)
 
@@ -2910,23 +2925,23 @@ class TestConvertMisc:
     """
 
     type_pairs = [
-        (np.int8, pa.int8()),
-        (np.int16, pa.int16()),
-        (np.int32, pa.int32()),
-        (np.int64, pa.int64()),
-        (np.uint8, pa.uint8()),
-        (np.uint16, pa.uint16()),
-        (np.uint32, pa.uint32()),
-        (np.uint64, pa.uint64()),
-        (np.float16, pa.float16()),
-        (np.float32, pa.float32()),
-        (np.float64, pa.float64()),
+        ("int8", pa.int8()),
+        ("int16", pa.int16()),
+        ("int32", pa.int32()),
+        ("int64", pa.int64()),
+        ("uint8", pa.uint8()),
+        ("uint16", pa.uint16()),
+        ("uint32", pa.uint32()),
+        ("uint64", pa.uint64()),
+        ("float16", pa.float16()),
+        ("float32", pa.float32()),
+        ("float64", pa.float64()),
         # XXX unsupported
         # (np.dtype([('a', 'i2')]), pa.struct([pa.field('a', pa.int16())])),
-        (np.object_, pa.string()),
-        (np.object_, pa.binary()),
-        (np.object_, pa.binary(10)),
-        (np.object_, pa.list_(pa.int64())),
+        ("object", pa.string()),
+        ("object", pa.binary()),
+        ("object", pa.binary(10)),
+        ("object", pa.list_(pa.int64())),
     ]
 
     def test_all_none_objects(self):
@@ -2939,13 +2954,15 @@ class TestConvertMisc:
         _check_pandas_roundtrip(df)
 
     def test_empty_arrays(self):
-        for dtype, pa_type in self.type_pairs:
-            arr = np.array([], dtype=dtype)
+        for dtype_str, pa_type in self.type_pairs:
+            arr = np.array([], dtype=np.dtype(dtype_str))
             _check_array_roundtrip(arr, type=pa_type)
 
     def test_non_threaded_conversion(self):
         _non_threaded_conversion()
 
+    @pytest.mark.processes
+    @pytest.mark.threading
     def test_threaded_conversion_multiprocess(self):
         # Parallel conversion should work from child processes too (ARROW-2963)
         pool = mp.Pool(2)
@@ -4743,6 +4760,7 @@ def make_df_with_timestamps():
             np.datetime64('2050-05-03 15:42', 'ns'),
         ],
     })
+    df['dateTimeMs'] = df['dateTimeMs'].astype('object')
     # Not part of what we're testing, just ensuring that the inputs are what we
     # expect.
     assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (
@@ -4812,6 +4830,7 @@ def test_timestamp_as_object_fixed_offset():
     assert pa.table(result) == table
 
 
+@pytest.mark.processes
 def test_threaded_pandas_import():
     invoke_script("pandas_threaded_import.py")
 
@@ -5115,6 +5134,7 @@ def test_nested_chunking_valid():
               schema=schema)
 
 
+@pytest.mark.processes
 def test_is_data_frame_race_condition():
     # See https://github.com/apache/arrow/issues/39313
     test_util.invoke_script('arrow_39313.py')

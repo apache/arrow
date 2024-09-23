@@ -44,9 +44,6 @@ import sys
 import requests
 import getpass
 
-from six.moves import input
-import six
-
 try:
     import jira.client
     import jira.exceptions
@@ -99,7 +96,7 @@ def get_json(url, headers=None):
 
 
 def run_cmd(cmd):
-    if isinstance(cmd, six.string_types):
+    if isinstance(cmd, str):
         cmd = cmd.split(' ')
 
     try:
@@ -113,7 +110,7 @@ def run_cmd(cmd):
         print('--------------')
         raise e
 
-    if isinstance(output, six.binary_type):
+    if isinstance(output, bytes):
         output = output.decode('utf-8')
     return output
 
@@ -306,15 +303,11 @@ def get_candidate_fix_version(mainline_versions,
 
     # Only suggest versions starting with a number, like 0.x but not JS-0.x
     mainline_versions = all_versions
-    mainline_non_patch_versions = []
-    for v in mainline_versions:
-        (major, minor, patch) = v.split(".")
-        if patch == "0":
-            mainline_non_patch_versions.append(v)
+    major_versions = [v for v in mainline_versions if v.endswith('.0.0')]
 
-    if len(mainline_versions) > len(mainline_non_patch_versions):
-        # If there is a non-patch release, suggest that instead
-        mainline_versions = mainline_non_patch_versions
+    if len(mainline_versions) > len(major_versions):
+        # If there is a future major release, suggest that
+        mainline_versions = major_versions
 
     mainline_versions = [v for v in mainline_versions
                          if f"maint-{v}" not in maintenance_branches]

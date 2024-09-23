@@ -14,24 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.TinyIntVector;
 
 /**
- * Consumer which consume tinyInt type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.TinyIntVector}.
+ * Consumer which consume tinyInt type values from {@link ResultSet}. Write the data to {@link
+ * org.apache.arrow.vector.TinyIntVector}.
  */
 public abstract class TinyIntConsumer {
 
-  /**
-   * Creates a consumer for {@link TinyIntVector}.
-   */
-  public static JdbcConsumer<TinyIntVector> createConsumer(TinyIntVector vector, int index, boolean nullable) {
+  /** Creates a consumer for {@link TinyIntVector}. */
+  public static JdbcConsumer<TinyIntVector> createConsumer(
+      TinyIntVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableTinyIntConsumer(vector, index);
     } else {
@@ -39,14 +36,10 @@ public abstract class TinyIntConsumer {
     }
   }
 
-  /**
-   * Nullable consumer for tiny int.
-   */
+  /** Nullable consumer for tiny int. */
   static class NullableTinyIntConsumer extends BaseConsumer<TinyIntVector> {
 
-    /**
-     * Instantiate a TinyIntConsumer.
-     */
+    /** Instantiate a TinyIntConsumer. */
     public NullableTinyIntConsumer(TinyIntVector vector, int index) {
       super(vector, index);
     }
@@ -63,14 +56,10 @@ public abstract class TinyIntConsumer {
     }
   }
 
-  /**
-   * Non-nullable consumer for tiny int.
-   */
+  /** Non-nullable consumer for tiny int. */
   static class NonNullableTinyIntConsumer extends BaseConsumer<TinyIntVector> {
 
-    /**
-     * Instantiate a TinyIntConsumer.
-     */
+    /** Instantiate a TinyIntConsumer. */
     public NonNullableTinyIntConsumer(TinyIntVector vector, int index) {
       super(vector, index);
     }

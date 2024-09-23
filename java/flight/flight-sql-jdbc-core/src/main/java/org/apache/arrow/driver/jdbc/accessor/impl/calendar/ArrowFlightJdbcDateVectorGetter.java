@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
 import org.apache.arrow.vector.DateDayVector;
@@ -22,9 +21,7 @@ import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.holders.NullableDateDayHolder;
 import org.apache.arrow.vector.holders.NullableDateMilliHolder;
 
-/**
- * Auxiliary class used to unify data access on TimeStampVectors.
- */
+/** Auxiliary class used to unify data access on TimeStampVectors. */
 final class ArrowFlightJdbcDateVectorGetter {
 
   private ArrowFlightJdbcDateVectorGetter() {
@@ -32,16 +29,15 @@ final class ArrowFlightJdbcDateVectorGetter {
   }
 
   /**
-   * Auxiliary class meant to unify Date*Vector#get implementations with different classes of ValueHolders.
+   * Auxiliary class meant to unify Date*Vector#get implementations with different classes of
+   * ValueHolders.
    */
   static class Holder {
     int isSet; // Tells if value is set; 0 = not set, 1 = set
     long value; // Holds actual value in its respective timeunit
   }
 
-  /**
-   * Functional interface used to unify Date*Vector#get implementations.
-   */
+  /** Functional interface used to unify Date*Vector#get implementations. */
   @FunctionalInterface
   interface Getter {
     void get(int index, Holder holder);

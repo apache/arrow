@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.util;
 
 import org.apache.arrow.memory.util.StackTrace;
@@ -22,22 +21,19 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TestStackTrace {
-  /**
-   * Check that the stack trace includes the origin line.
-   */
+  /** Check that the stack trace includes the origin line. */
   @Test
   public void testStackTraceComplete() {
     final String stackTrace = new StackTrace().toString();
     Assertions.assertTrue(stackTrace.contains("TestStackTrace.testStackTraceComplete"), stackTrace);
   }
 
-  /**
-   * Check that the stack trace doesn't include getStackTrace or StackTrace.
-   */
+  /** Check that the stack trace doesn't include getStackTrace or StackTrace. */
   @Test
   public void testStackTraceOmit() {
     final String stackTrace = new StackTrace().toString();
     Assertions.assertFalse(stackTrace.contains("Thread.getStackTrace"), stackTrace);
-    Assertions.assertFalse(stackTrace.contains("org.apache.arrow.memory.util.StackTrace"), stackTrace);
+    Assertions.assertFalse(
+        stackTrace.contains("org.apache.arrow.memory.util.StackTrace"), stackTrace);
   }
 }

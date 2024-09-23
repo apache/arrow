@@ -21,7 +21,7 @@ azure-identity-cpp>=1.6.0
 azure-storage-blobs-cpp>=12.10.0
 azure-storage-common-cpp>=12.5.0
 azure-storage-files-datalake-cpp>=12.9.0
-benchmark>=1.6.0
+benchmark>=1.6.0,!=1.8.4
 boost-cpp>=1.68.0
 brotli
 bzip2

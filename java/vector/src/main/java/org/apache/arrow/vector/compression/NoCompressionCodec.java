@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.compression;
 
 import org.apache.arrow.flatbuf.BodyCompressionMethod;
@@ -22,9 +21,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.message.ArrowBodyCompression;
 
-/**
- * The default compression codec that does no compression.
- */
+/** The default compression codec that does no compression. */
 public class NoCompressionCodec implements CompressionCodec {
 
   public static final NoCompressionCodec INSTANCE = new NoCompressionCodec();
@@ -34,8 +31,7 @@ public class NoCompressionCodec implements CompressionCodec {
   public static final ArrowBodyCompression DEFAULT_BODY_COMPRESSION =
       new ArrowBodyCompression(COMPRESSION_TYPE, BodyCompressionMethod.BUFFER);
 
-  private NoCompressionCodec() {
-  }
+  private NoCompressionCodec() {}
 
   @Override
   public ArrowBuf compress(BufferAllocator allocator, ArrowBuf uncompressedBuffer) {
@@ -52,9 +48,7 @@ public class NoCompressionCodec implements CompressionCodec {
     return CompressionUtil.CodecType.NO_COMPRESSION;
   }
 
-  /**
-   * The default factory that creates a {@link NoCompressionCodec}.
-   */
+  /** The default factory that creates a {@link NoCompressionCodec}. */
   public static class Factory implements CompressionCodec.Factory {
 
     public static final NoCompressionCodec.Factory INSTANCE = new NoCompressionCodec.Factory();
@@ -67,7 +61,8 @@ public class NoCompressionCodec implements CompressionCodec {
         case LZ4_FRAME:
         case ZSTD:
           throw new IllegalArgumentException(
-            "Please add arrow-compression module to use CommonsCompressionFactory for " + codecType);
+              "Please add arrow-compression module to use CommonsCompressionFactory for "
+                  + codecType);
         default:
           throw new IllegalArgumentException("Unsupported codec type: " + codecType);
       }

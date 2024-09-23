@@ -224,6 +224,22 @@ class ARROW_EXPORT Array {
   /// \return Status
   Status ValidateFull() const;
 
+  /// \brief Return the device_type that this array's data is allocated on
+  ///
+  /// This just delegates to calling device_type on the underlying ArrayData
+  /// object which backs this Array.
+  ///
+  /// \return DeviceAllocationType
+  DeviceAllocationType device_type() const { return data_->device_type(); }
+
+  /// \brief Return the statistics of this Array
+  ///
+  /// This just delegates to calling statistics on the underlying ArrayData
+  /// object which backs this Array.
+  ///
+  /// \return const ArrayStatistics&
+  std::shared_ptr<ArrayStatistics> statistics() const { return data_->statistics; }
+
  protected:
   Array() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(Array);

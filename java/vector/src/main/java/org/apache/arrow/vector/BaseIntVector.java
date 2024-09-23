@@ -14,30 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
-/**
- * Interface for all int type vectors.
- */
+/** Interface for all int type vectors. */
 public interface BaseIntVector extends FieldVector {
 
   /**
-   * Sets the value at index, note this value may need to be truncated.
-   * Note this is safe version (i.e. call setSafe(int, ...) method in vector)
+   * Sets the value at index, note this value may need to be truncated. Note this is safe version
+   * (i.e. call setSafe(int, ...) method in vector)
    */
   void setWithPossibleTruncate(int index, long value);
 
   /**
-   * Sets the value at index, note this value may need to be truncated.
-   * Note this is unsafe version (i.e. call set(int, ...) method in vector)
+   * Sets the value at index, note this value may need to be truncated. Note this is unsafe version
+   * (i.e. call set(int, ...) method in vector)
    */
   void setUnsafeWithPossibleTruncate(int index, long value);
 
   /**
-   * Gets the value at index.
-   * This value may have been extended to long and will throw {@link NullPointerException}
-   * if the value is null. Note null check could be turned off via {@link NullCheckingForGet}.
+   * Gets the value at index. This value may have been extended to long and will throw {@link
+   * NullPointerException} if the value is null. Note null check could be turned off via {@link
+   * NullCheckingForGet}.
    */
   long getValueAsLong(int index);
 }

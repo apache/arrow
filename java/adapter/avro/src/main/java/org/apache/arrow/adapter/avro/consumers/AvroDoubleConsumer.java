@@ -14,23 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume double type values from avro decoder.
- * Write the data to {@link Float8Vector}.
+ * Consumer which consume double type values from avro decoder. Write the data to {@link
+ * Float8Vector}.
  */
 public class AvroDoubleConsumer extends BaseAvroConsumer<Float8Vector> {
 
-  /**
-   * Instantiate a AvroDoubleConsumer.
-   */
+  /** Instantiate a AvroDoubleConsumer. */
   public AvroDoubleConsumer(Float8Vector vector) {
     super(vector);
   }

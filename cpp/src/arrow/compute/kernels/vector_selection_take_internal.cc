@@ -19,6 +19,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "arrow/array/builder_primitive.h"
@@ -27,8 +28,10 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/gather_internal.h"
 #include "arrow/compute/kernels/vector_selection_internal.h"
 #include "arrow/compute/kernels/vector_selection_take_internal.h"
+#include "arrow/compute/registry.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -37,6 +40,7 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/fixed_width_internal.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/ree_util.h"
 
@@ -323,235 +327,79 @@ namespace {
 using TakeState = OptionsWrapper<TakeOptions>;
 
 // ----------------------------------------------------------------------
-// Implement optimized take for primitive types from boolean to 1/2/4/8-byte
-// C-type based types. Use common implementation for every byte width and only
-// generate code for unsigned integer indices, since after boundschecking to
-// check for negative numbers in the indices we can safely reinterpret_cast
-// signed integers as unsigned.
+// Implement optimized take for primitive types from boolean to
+// 1/2/4/8/16/32-byte C-type based types and fixed-size binary (0 or more
+// bytes).
+//
+// Use one specialization for each of these primitive byte-widths so the
+// compiler can specialize the memcpy to dedicated CPU instructions and for
+// fixed-width binary use the 1-byte specialization but pass WithFactor=true
+// that makes the kernel consider the factor parameter provided at runtime.
+//
+// Only unsigned index types need to be instantiated since after
+// boundschecking to check for negative numbers in the indices we can safely
+// reinterpret_cast signed integers as unsigned.
 
-/// \brief The Take implementation for primitive (fixed-width) types does not
-/// use the logical Arrow type but rather the physical C type. This way we
-/// only generate one take function for each byte width.
+/// \brief The Take implementation for primitive types and fixed-width binary.
 ///
-/// This function assumes that the indices have been boundschecked.
-template <typename IndexCType, typename ValueWidthConstant>
-struct PrimitiveTakeImpl {
-  static constexpr int kValueWidth = ValueWidthConstant::value;
+/// Also note that this function can also handle fixed-size-list arrays if
+/// they fit the criteria described in fixed_width_internal.h, so use the
+/// function defined in that file to access values and destination pointers
+/// and DO NOT ASSUME `values.type()` is a primitive type.
+///
+/// NOTE: Template parameters are types instead of values to let
+/// `TakeIndexDispatch<>` forward `typename... Args`  after the index type.
+///
+/// \pre the indices have been boundschecked
+template <typename IndexCType, typename ValueBitWidthConstant,
+          typename OutputIsZeroInitialized = std::false_type,
+          typename WithFactor = std::false_type>
+struct FixedWidthTakeImpl {
+  static constexpr int kValueWidthInBits = ValueBitWidthConstant::value;
 
-  static void Exec(const ArraySpan& values, const ArraySpan& indices,
-                   ArrayData* out_arr) {
-    DCHECK_EQ(values.type->byte_width(), kValueWidth);
-    const auto* values_data =
-        values.GetValues<uint8_t>(1, 0) + kValueWidth * values.offset;
-    const uint8_t* values_is_valid = values.buffers[0].data;
-    auto values_offset = values.offset;
+  static Status Exec(KernelContext* ctx, const ArraySpan& values,
+                     const ArraySpan& indices, ArrayData* out_arr, int64_t factor) {
+#ifndef NDEBUG
+    int64_t bit_width = util::FixedWidthInBits(*values.type);
+    DCHECK(WithFactor::value || (kValueWidthInBits == bit_width && factor == 1));
+    DCHECK(!WithFactor::value ||
+           (factor > 0 && kValueWidthInBits == 8 &&  // factors are used with bytes
+            static_cast<int64_t>(factor * kValueWidthInBits) == bit_width));
+#endif
+    const bool out_has_validity = values.MayHaveNulls() || indices.MayHaveNulls();
 
-    const auto* indices_data = indices.GetValues<IndexCType>(1);
-    const uint8_t* indices_is_valid = indices.buffers[0].data;
-    auto indices_offset = indices.offset;
-
-    auto out = out_arr->GetMutableValues<uint8_t>(1, 0) + kValueWidth * out_arr->offset;
-    auto out_is_valid = out_arr->buffers[0]->mutable_data();
-    auto out_offset = out_arr->offset;
-    DCHECK_EQ(out_offset, 0);
-
-    // If either the values or indices have nulls, we preemptively zero out the
-    // out validity bitmap so that we don't have to use ClearBit in each
-    // iteration for nulls.
-    if (values.null_count != 0 || indices.null_count != 0) {
-      bit_util::SetBitsTo(out_is_valid, out_offset, indices.length, false);
-    }
-
-    auto WriteValue = [&](int64_t position) {
-      memcpy(out + position * kValueWidth,
-             values_data + indices_data[position] * kValueWidth, kValueWidth);
-    };
-
-    auto WriteZero = [&](int64_t position) {
-      memset(out + position * kValueWidth, 0, kValueWidth);
-    };
-
-    auto WriteZeroSegment = [&](int64_t position, int64_t length) {
-      memset(out + position * kValueWidth, 0, kValueWidth * length);
-    };
-
-    OptionalBitBlockCounter indices_bit_counter(indices_is_valid, indices_offset,
-                                                indices.length);
-    int64_t position = 0;
+    const uint8_t* src;
+    int64_t src_offset;
+    std::tie(src_offset, src) = util::OffsetPointerOfFixedBitWidthValues(values);
+    uint8_t* out = util::MutableFixedWidthValuesPointer(out_arr);
     int64_t valid_count = 0;
-    while (position < indices.length) {
-      BitBlockCount block = indices_bit_counter.NextBlock();
-      if (values.null_count == 0) {
-        // Values are never null, so things are easier
-        valid_count += block.popcount;
-        if (block.popcount == block.length) {
-          // Fastest path: neither values nor index nulls
-          bit_util::SetBitsTo(out_is_valid, out_offset + position, block.length, true);
-          for (int64_t i = 0; i < block.length; ++i) {
-            WriteValue(position);
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some indices but not all are null
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
-              // index is not null
-              bit_util::SetBit(out_is_valid, out_offset + position);
-              WriteValue(position);
-            } else {
-              WriteZero(position);
-            }
-            ++position;
-          }
-        } else {
-          WriteZeroSegment(position, block.length);
-          position += block.length;
-        }
-      } else {
-        // Values have nulls, so we must do random access into the values bitmap
-        if (block.popcount == block.length) {
-          // Faster path: indices are not null but values may be
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
-              // value is not null
-              WriteValue(position);
-              bit_util::SetBit(out_is_valid, out_offset + position);
-              ++valid_count;
-            } else {
-              WriteZero(position);
-            }
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some but not all indices are null. Since we are doing
-          // random access in general we have to check the value nullness one by
-          // one.
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position) &&
-                bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
-              // index is not null && value is not null
-              WriteValue(position);
-              bit_util::SetBit(out_is_valid, out_offset + position);
-              ++valid_count;
-            } else {
-              WriteZero(position);
-            }
-            ++position;
-          }
-        } else {
-          WriteZeroSegment(position, block.length);
-          position += block.length;
-        }
-      }
+    arrow::internal::Gather<kValueWidthInBits, IndexCType, WithFactor::value> gather{
+        /*src_length=*/values.length,
+        src,
+        src_offset,
+        /*idx_length=*/indices.length,
+        /*idx=*/indices.GetValues<IndexCType>(1),
+        out,
+        factor};
+    if (out_has_validity) {
+      DCHECK_EQ(out_arr->offset, 0);
+      // out_is_valid must be zero-initiliazed, because Gather::Execute
+      // saves time by not having to ClearBit on every null element.
+      auto out_is_valid = out_arr->GetMutableValues<uint8_t>(0);
+      memset(out_is_valid, 0, bit_util::BytesForBits(out_arr->length));
+      valid_count = gather.template Execute<OutputIsZeroInitialized::value>(
+          /*src_validity=*/values, /*idx_validity=*/indices, out_is_valid);
+    } else {
+      valid_count = gather.Execute();
     }
     out_arr->null_count = out_arr->length - valid_count;
-  }
-};
-
-template <typename IndexCType>
-struct BooleanTakeImpl {
-  static void Exec(const ArraySpan& values, const ArraySpan& indices,
-                   ArrayData* out_arr) {
-    const uint8_t* values_data = values.buffers[1].data;
-    const uint8_t* values_is_valid = values.buffers[0].data;
-    auto values_offset = values.offset;
-
-    const auto* indices_data = indices.GetValues<IndexCType>(1);
-    const uint8_t* indices_is_valid = indices.buffers[0].data;
-    auto indices_offset = indices.offset;
-
-    auto out = out_arr->buffers[1]->mutable_data();
-    auto out_is_valid = out_arr->buffers[0]->mutable_data();
-    auto out_offset = out_arr->offset;
-
-    // If either the values or indices have nulls, we preemptively zero out the
-    // out validity bitmap so that we don't have to use ClearBit in each
-    // iteration for nulls.
-    if (values.null_count != 0 || indices.null_count != 0) {
-      bit_util::SetBitsTo(out_is_valid, out_offset, indices.length, false);
-    }
-    // Avoid uninitialized data in values array
-    bit_util::SetBitsTo(out, out_offset, indices.length, false);
-
-    auto PlaceDataBit = [&](int64_t loc, IndexCType index) {
-      bit_util::SetBitTo(out, out_offset + loc,
-                         bit_util::GetBit(values_data, values_offset + index));
-    };
-
-    OptionalBitBlockCounter indices_bit_counter(indices_is_valid, indices_offset,
-                                                indices.length);
-    int64_t position = 0;
-    int64_t valid_count = 0;
-    while (position < indices.length) {
-      BitBlockCount block = indices_bit_counter.NextBlock();
-      if (values.null_count == 0) {
-        // Values are never null, so things are easier
-        valid_count += block.popcount;
-        if (block.popcount == block.length) {
-          // Fastest path: neither values nor index nulls
-          bit_util::SetBitsTo(out_is_valid, out_offset + position, block.length, true);
-          for (int64_t i = 0; i < block.length; ++i) {
-            PlaceDataBit(position, indices_data[position]);
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some but not all indices are null
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
-              // index is not null
-              bit_util::SetBit(out_is_valid, out_offset + position);
-              PlaceDataBit(position, indices_data[position]);
-            }
-            ++position;
-          }
-        } else {
-          position += block.length;
-        }
-      } else {
-        // Values have nulls, so we must do random access into the values bitmap
-        if (block.popcount == block.length) {
-          // Faster path: indices are not null but values may be
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
-              // value is not null
-              bit_util::SetBit(out_is_valid, out_offset + position);
-              PlaceDataBit(position, indices_data[position]);
-              ++valid_count;
-            }
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some but not all indices are null. Since we are doing
-          // random access in general we have to check the value nullness one by
-          // one.
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
-              // index is not null
-              if (bit_util::GetBit(values_is_valid,
-                                   values_offset + indices_data[position])) {
-                // value is not null
-                PlaceDataBit(position, indices_data[position]);
-                bit_util::SetBit(out_is_valid, out_offset + position);
-                ++valid_count;
-              }
-            }
-            ++position;
-          }
-        } else {
-          position += block.length;
-        }
-      }
-    }
-    out_arr->null_count = out_arr->length - valid_count;
+    return Status::OK();
   }
 };
 
 template <template <typename...> class TakeImpl, typename... Args>
-void TakeIndexDispatch(const ArraySpan& values, const ArraySpan& indices,
-                       ArrayData* out) {
+Status TakeIndexDispatch(KernelContext* ctx, const ArraySpan& values,
+                         const ArraySpan& indices, ArrayData* out, int64_t factor = 1) {
   // With the simplifying assumption that boundschecking has taken place
   // already at a higher level, we can now assume that the index values are all
   // non-negative. Thus, we can interpret signed integers as unsigned and avoid
@@ -559,22 +407,20 @@ void TakeIndexDispatch(const ArraySpan& values, const ArraySpan& indices,
   // width.
   switch (indices.type->byte_width()) {
     case 1:
-      return TakeImpl<uint8_t, Args...>::Exec(values, indices, out);
+      return TakeImpl<uint8_t, Args...>::Exec(ctx, values, indices, out, factor);
     case 2:
-      return TakeImpl<uint16_t, Args...>::Exec(values, indices, out);
+      return TakeImpl<uint16_t, Args...>::Exec(ctx, values, indices, out, factor);
     case 4:
-      return TakeImpl<uint32_t, Args...>::Exec(values, indices, out);
-    case 8:
-      return TakeImpl<uint64_t, Args...>::Exec(values, indices, out);
+      return TakeImpl<uint32_t, Args...>::Exec(ctx, values, indices, out, factor);
     default:
-      DCHECK(false) << "Invalid indices byte width";
-      break;
+      DCHECK_EQ(indices.type->byte_width(), 8);
+      return TakeImpl<uint64_t, Args...>::Exec(ctx, values, indices, out, factor);
   }
 }
 
 }  // namespace
 
-Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+Status FixedWidthTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& values = batch[0].array;
   const ArraySpan& indices = batch[1].array;
 
@@ -583,50 +429,60 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
   }
 
   ArrayData* out_arr = out->array_data().get();
-
-  const int bit_width = values.type->bit_width();
-
-  // TODO: When neither values nor indices contain nulls, we can skip
-  // allocating the validity bitmap altogether and save time and space. A
-  // streamlined PrimitiveTakeImpl would need to be written that skips all
-  // interactions with the output validity bitmap, though.
-  RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, indices.length, bit_width,
-                                              /*allocate_validity=*/true, out_arr));
-  switch (bit_width) {
+  DCHECK(util::IsFixedWidthLike(values));
+  // When we know for sure that values nor indices contain nulls, we can skip
+  // allocating the validity bitmap altogether and save time and space.
+  const bool allocate_validity = values.MayHaveNulls() || indices.MayHaveNulls();
+  RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
+      ctx, indices.length, /*source=*/values, allocate_validity, out_arr));
+  switch (util::FixedWidthInBits(*values.type)) {
+    case 0:
+      DCHECK(values.type->id() == Type::FIXED_SIZE_BINARY ||
+             values.type->id() == Type::FIXED_SIZE_LIST);
+      return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 0>>(
+          ctx, values, indices, out_arr);
     case 1:
-      TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
-      break;
+      // Zero-initialize the data buffer for the output array when the bit-width is 1
+      // (e.g. Boolean array) to avoid having to ClearBit on every null element.
+      // This might be profitable for other types as well, but we take the most
+      // conservative approach for now.
+      memset(out_arr->buffers[1]->mutable_data(), 0, out_arr->buffers[1]->size());
+      return TakeIndexDispatch<
+          FixedWidthTakeImpl, std::integral_constant<int, 1>, /*OutputIsZeroInitialized=*/
+          std::true_type>(ctx, values, indices, out_arr);
     case 8:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 1>>(
-          values, indices, out_arr);
-      break;
+      return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 8>>(
+          ctx, values, indices, out_arr);
     case 16:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 2>>(
-          values, indices, out_arr);
-      break;
+      return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 16>>(
+          ctx, values, indices, out_arr);
     case 32:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 4>>(
-          values, indices, out_arr);
-      break;
+      return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 32>>(
+          ctx, values, indices, out_arr);
     case 64:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
-          values, indices, out_arr);
-      break;
+      return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 64>>(
+          ctx, values, indices, out_arr);
     case 128:
       // For INTERVAL_MONTH_DAY_NANO, DECIMAL128
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 16>>(
-          values, indices, out_arr);
-      break;
+      return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 128>>(
+          ctx, values, indices, out_arr);
     case 256:
       // For DECIMAL256
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 32>>(
-          values, indices, out_arr);
-      break;
-    default:
-      return Status::NotImplemented("Unsupported primitive type for take: ",
-                                    *values.type);
+      return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 256>>(
+          ctx, values, indices, out_arr);
   }
-  return Status::OK();
+  if (ARROW_PREDICT_TRUE(values.type->id() == Type::FIXED_SIZE_BINARY ||
+                         values.type->id() == Type::FIXED_SIZE_LIST)) {
+    int64_t byte_width = util::FixedWidthInBytes(*values.type);
+    // 0-length fixed-size binary or lists were handled above on `case 0`
+    DCHECK_GT(byte_width, 0);
+    return TakeIndexDispatch<FixedWidthTakeImpl,
+                             /*ValueBitWidth=*/std::integral_constant<int, 8>,
+                             /*OutputIsZeroInitialized=*/std::false_type,
+                             /*WithFactor=*/std::true_type>(ctx, values, indices, out_arr,
+                                                            /*factor=*/byte_width);
+  }
+  return Status::NotImplemented("Unsupported primitive type for take: ", *values.type);
 }
 
 namespace {
@@ -681,126 +537,6 @@ Status ExtensionTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out)
 // R -> RecordBatch
 // T -> Table
 
-Result<std::shared_ptr<ArrayData>> TakeAAA(const std::shared_ptr<ArrayData>& values,
-                                           const std::shared_ptr<ArrayData>& indices,
-                                           const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result,
-                        CallFunction("array_take", {values, indices}, &options, ctx));
-  return result.array();
-}
-
-Result<std::shared_ptr<ChunkedArray>> TakeCAC(const ChunkedArray& values,
-                                              const Array& indices,
-                                              const TakeOptions& options,
-                                              ExecContext* ctx) {
-  std::shared_ptr<Array> values_array;
-  if (values.num_chunks() == 1) {
-    // Case 1: `values` has a single chunk, so just use it
-    values_array = values.chunk(0);
-  } else {
-    // TODO Case 2: See if all `indices` fall in the same chunk and call Array Take on it
-    // See
-    // https://github.com/apache/arrow/blob/6f2c9041137001f7a9212f244b51bc004efc29af/r/src/compute.cpp#L123-L151
-    // TODO Case 3: If indices are sorted, can slice them and call Array Take
-    // (these are relevant to TakeCCC as well)
-
-    // Case 4: Else, concatenate chunks and call Array Take
-    if (values.chunks().empty()) {
-      ARROW_ASSIGN_OR_RAISE(
-          values_array, MakeArrayOfNull(values.type(), /*length=*/0, ctx->memory_pool()));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(values_array,
-                            Concatenate(values.chunks(), ctx->memory_pool()));
-    }
-  }
-  // Call Array Take on our single chunk
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
-                        TakeAAA(values_array->data(), indices.data(), options, ctx));
-  std::vector<std::shared_ptr<Array>> chunks = {MakeArray(new_chunk)};
-  return std::make_shared<ChunkedArray>(std::move(chunks));
-}
-
-Result<std::shared_ptr<ChunkedArray>> TakeCCC(const ChunkedArray& values,
-                                              const ChunkedArray& indices,
-                                              const TakeOptions& options,
-                                              ExecContext* ctx) {
-  // XXX: for every chunk in indices, values are gathered from all chunks in values to
-  // form a new chunk in the result. Performing this concatenation is not ideal, but
-  // greatly simplifies the implementation before something more efficient is
-  // implemented.
-  std::shared_ptr<Array> values_array;
-  if (values.num_chunks() == 1) {
-    values_array = values.chunk(0);
-  } else {
-    if (values.chunks().empty()) {
-      ARROW_ASSIGN_OR_RAISE(
-          values_array, MakeArrayOfNull(values.type(), /*length=*/0, ctx->memory_pool()));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(values_array,
-                            Concatenate(values.chunks(), ctx->memory_pool()));
-    }
-  }
-  std::vector<std::shared_ptr<Array>> new_chunks;
-  new_chunks.resize(indices.num_chunks());
-  for (int i = 0; i < indices.num_chunks(); i++) {
-    ARROW_ASSIGN_OR_RAISE(auto chunk, TakeAAA(values_array->data(),
-                                              indices.chunk(i)->data(), options, ctx));
-    new_chunks[i] = MakeArray(chunk);
-  }
-  return std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
-}
-
-Result<std::shared_ptr<ChunkedArray>> TakeACC(const Array& values,
-                                              const ChunkedArray& indices,
-                                              const TakeOptions& options,
-                                              ExecContext* ctx) {
-  auto num_chunks = indices.num_chunks();
-  std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
-  for (int i = 0; i < num_chunks; i++) {
-    // Take with that indices chunk
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> chunk,
-                          TakeAAA(values.data(), indices.chunk(i)->data(), options, ctx));
-    new_chunks[i] = MakeArray(chunk);
-  }
-  return std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
-}
-
-Result<std::shared_ptr<RecordBatch>> TakeRAR(const RecordBatch& batch,
-                                             const Array& indices,
-                                             const TakeOptions& options,
-                                             ExecContext* ctx) {
-  auto ncols = batch.num_columns();
-  auto nrows = indices.length();
-  std::vector<std::shared_ptr<Array>> columns(ncols);
-  for (int j = 0; j < ncols; j++) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> col_data,
-                          TakeAAA(batch.column(j)->data(), indices.data(), options, ctx));
-    columns[j] = MakeArray(col_data);
-  }
-  return RecordBatch::Make(batch.schema(), nrows, std::move(columns));
-}
-
-Result<std::shared_ptr<Table>> TakeTAT(const Table& table, const Array& indices,
-                                       const TakeOptions& options, ExecContext* ctx) {
-  auto ncols = table.num_columns();
-  std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
-
-  for (int j = 0; j < ncols; j++) {
-    ARROW_ASSIGN_OR_RAISE(columns[j], TakeCAC(*table.column(j), indices, options, ctx));
-  }
-  return Table::Make(table.schema(), std::move(columns));
-}
-
-Result<std::shared_ptr<Table>> TakeTCT(const Table& table, const ChunkedArray& indices,
-                                       const TakeOptions& options, ExecContext* ctx) {
-  auto ncols = table.num_columns();
-  std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
-  for (int j = 0; j < ncols; j++) {
-    ARROW_ASSIGN_OR_RAISE(columns[j], TakeCCC(*table.column(j), indices, options, ctx));
-  }
-  return Table::Make(table.schema(), std::move(columns));
-}
-
 const FunctionDoc take_doc(
     "Select values from an input based on indices from another array",
     ("The output is populated with values from the input at positions\n"
@@ -809,14 +545,136 @@ const FunctionDoc take_doc(
 
 // Metafunction for dispatching to different Take implementations other than
 // Array-Array.
-//
-// TODO: Revamp approach to executing Take operations. In addition to being
-// overly complex dispatching, there is no parallelization.
 class TakeMetaFunction : public MetaFunction {
  public:
   TakeMetaFunction()
       : MetaFunction("take", Arity::Binary(), take_doc, GetDefaultTakeOptions()) {}
 
+  static Result<Datum> CallArrayTake(const std::vector<Datum>& args,
+                                     const TakeOptions& options, ExecContext* ctx) {
+    ARROW_ASSIGN_OR_RAISE(auto array_take_func,
+                          ctx->func_registry()->GetFunction("array_take"));
+    return array_take_func->Execute(args, &options, ctx);
+  }
+
+  static Result<std::shared_ptr<Array>> ChunkedArrayAsArray(
+      const std::shared_ptr<ChunkedArray>& values, MemoryPool* pool) {
+    switch (values->num_chunks()) {
+      case 0:
+        return MakeArrayOfNull(values->type(), /*length=*/0, pool);
+      case 1:
+        return values->chunk(0);
+      default:
+        return Concatenate(values->chunks(), pool);
+    }
+  }
+
+ private:
+  static Result<std::shared_ptr<ArrayData>> TakeAAA(const std::vector<Datum>& args,
+                                                    const TakeOptions& options,
+                                                    ExecContext* ctx) {
+    DCHECK_EQ(args[0].kind(), Datum::ARRAY);
+    DCHECK_EQ(args[1].kind(), Datum::ARRAY);
+    ARROW_ASSIGN_OR_RAISE(Datum result, CallArrayTake(args, options, ctx));
+    return result.array();
+  }
+
+  static Result<std::shared_ptr<ArrayData>> TakeCAA(
+      const std::shared_ptr<ChunkedArray>& values, const Array& indices,
+      const TakeOptions& options, ExecContext* ctx) {
+    ARROW_ASSIGN_OR_RAISE(auto values_array,
+                          ChunkedArrayAsArray(values, ctx->memory_pool()));
+    std::vector<Datum> args = {std::move(values_array), indices};
+    return TakeAAA(args, options, ctx);
+  }
+
+  static Result<std::shared_ptr<ChunkedArray>> TakeCAC(
+      const std::shared_ptr<ChunkedArray>& values, const Array& indices,
+      const TakeOptions& options, ExecContext* ctx) {
+    ARROW_ASSIGN_OR_RAISE(auto new_chunk, TakeCAA(values, indices, options, ctx));
+    return std::make_shared<ChunkedArray>(MakeArray(std::move(new_chunk)));
+  }
+
+  static Result<std::shared_ptr<ChunkedArray>> TakeCCC(
+      const std::shared_ptr<ChunkedArray>& values,
+      const std::shared_ptr<ChunkedArray>& indices, const TakeOptions& options,
+      ExecContext* ctx) {
+    // XXX: for every chunk in indices, values are gathered from all chunks in values to
+    // form a new chunk in the result. Performing this concatenation is not ideal, but
+    // greatly simplifies the implementation before something more efficient is
+    // implemented.
+    ARROW_ASSIGN_OR_RAISE(auto values_array,
+                          ChunkedArrayAsArray(values, ctx->memory_pool()));
+    std::vector<Datum> args = {std::move(values_array), {}};
+    std::vector<std::shared_ptr<Array>> new_chunks;
+    new_chunks.resize(indices->num_chunks());
+    for (int i = 0; i < indices->num_chunks(); i++) {
+      args[1] = indices->chunk(i);
+      // XXX: this loop can use TakeCAA once it can handle ChunkedArray
+      // without concatenating first
+      ARROW_ASSIGN_OR_RAISE(auto chunk, TakeAAA(args, options, ctx));
+      new_chunks[i] = MakeArray(chunk);
+    }
+    return std::make_shared<ChunkedArray>(std::move(new_chunks), values->type());
+  }
+
+  static Result<std::shared_ptr<ChunkedArray>> TakeACC(const Array& values,
+                                                       const ChunkedArray& indices,
+                                                       const TakeOptions& options,
+                                                       ExecContext* ctx) {
+    auto num_chunks = indices.num_chunks();
+    std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
+    std::vector<Datum> args = {values, {}};
+    for (int i = 0; i < num_chunks; i++) {
+      // Take with that indices chunk
+      args[1] = indices.chunk(i);
+      ARROW_ASSIGN_OR_RAISE(auto chunk, TakeAAA(args, options, ctx));
+      new_chunks[i] = MakeArray(chunk);
+    }
+    return std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
+  }
+
+  static Result<std::shared_ptr<RecordBatch>> TakeRAR(const RecordBatch& batch,
+                                                      const Array& indices,
+                                                      const TakeOptions& options,
+                                                      ExecContext* ctx) {
+    auto ncols = batch.num_columns();
+    auto nrows = indices.length();
+    std::vector<std::shared_ptr<Array>> columns(ncols);
+    std::vector<Datum> args = {{}, indices};
+    for (int j = 0; j < ncols; j++) {
+      args[0] = batch.column(j);
+      ARROW_ASSIGN_OR_RAISE(auto col_data, TakeAAA(args, options, ctx));
+      columns[j] = MakeArray(col_data);
+    }
+    return RecordBatch::Make(batch.schema(), nrows, std::move(columns));
+  }
+
+  static Result<std::shared_ptr<Table>> TakeTAT(const std::shared_ptr<Table>& table,
+                                                const Array& indices,
+                                                const TakeOptions& options,
+                                                ExecContext* ctx) {
+    auto ncols = table->num_columns();
+    std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
+
+    for (int j = 0; j < ncols; j++) {
+      ARROW_ASSIGN_OR_RAISE(columns[j], TakeCAC(table->column(j), indices, options, ctx));
+    }
+    return Table::Make(table->schema(), std::move(columns));
+  }
+
+  static Result<std::shared_ptr<Table>> TakeTCT(
+      const std::shared_ptr<Table>& table, const std::shared_ptr<ChunkedArray>& indices,
+      const TakeOptions& options, ExecContext* ctx) {
+    auto ncols = table->num_columns();
+    std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
+    for (int j = 0; j < ncols; j++) {
+      ARROW_ASSIGN_OR_RAISE(columns[j], TakeCCC(table->column(j), indices, options, ctx));
+    }
+    return Table::Make(table->schema(), std::move(columns));
+  }
+
+ public:
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
@@ -825,16 +683,16 @@ class TakeMetaFunction : public MetaFunction {
     switch (args[0].kind()) {
       case Datum::ARRAY:
         if (index_kind == Datum::ARRAY) {
-          return TakeAAA(args[0].array(), args[1].array(), take_opts, ctx);
+          return TakeAAA(args, take_opts, ctx);
         } else if (index_kind == Datum::CHUNKED_ARRAY) {
           return TakeACC(*args[0].make_array(), *args[1].chunked_array(), take_opts, ctx);
         }
         break;
       case Datum::CHUNKED_ARRAY:
         if (index_kind == Datum::ARRAY) {
-          return TakeCAC(*args[0].chunked_array(), *args[1].make_array(), take_opts, ctx);
+          return TakeCAC(args[0].chunked_array(), *args[1].make_array(), take_opts, ctx);
         } else if (index_kind == Datum::CHUNKED_ARRAY) {
-          return TakeCCC(*args[0].chunked_array(), *args[1].chunked_array(), take_opts,
+          return TakeCCC(args[0].chunked_array(), args[1].chunked_array(), take_opts,
                          ctx);
         }
         break;
@@ -845,12 +703,13 @@ class TakeMetaFunction : public MetaFunction {
         break;
       case Datum::TABLE:
         if (index_kind == Datum::ARRAY) {
-          return TakeTAT(*args[0].table(), *args[1].make_array(), take_opts, ctx);
+          return TakeTAT(args[0].table(), *args[1].make_array(), take_opts, ctx);
         } else if (index_kind == Datum::CHUNKED_ARRAY) {
-          return TakeTCT(*args[0].table(), *args[1].chunked_array(), take_opts, ctx);
+          return TakeTCT(args[0].table(), args[1].chunked_array(), take_opts, ctx);
         }
         break;
-      default:
+      case Datum::NONE:
+      case Datum::SCALAR:
         break;
     }
     return Status::NotImplemented(
@@ -877,17 +736,17 @@ void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
   auto take_indices = match::Integer();
 
   *out = {
-      {InputType(match::Primitive()), take_indices, PrimitiveTakeExec},
+      {InputType(match::Primitive()), take_indices, FixedWidthTakeExec},
       {InputType(match::BinaryLike()), take_indices, VarBinaryTakeExec},
       {InputType(match::LargeBinaryLike()), take_indices, LargeVarBinaryTakeExec},
-      {InputType(Type::FIXED_SIZE_BINARY), take_indices, FSBTakeExec},
+      {InputType(match::FixedSizeBinaryLike()), take_indices, FixedWidthTakeExec},
       {InputType(null()), take_indices, NullTakeExec},
-      {InputType(Type::DECIMAL128), take_indices, PrimitiveTakeExec},
-      {InputType(Type::DECIMAL256), take_indices, PrimitiveTakeExec},
       {InputType(Type::DICTIONARY), take_indices, DictionaryTake},
       {InputType(Type::EXTENSION), take_indices, ExtensionTake},
       {InputType(Type::LIST), take_indices, ListTakeExec},
       {InputType(Type::LARGE_LIST), take_indices, LargeListTakeExec},
+      {InputType(Type::LIST_VIEW), take_indices, ListViewTakeExec},
+      {InputType(Type::LARGE_LIST_VIEW), take_indices, LargeListViewTakeExec},
       {InputType(Type::FIXED_SIZE_LIST), take_indices, FSLTakeExec},
       {InputType(Type::DENSE_UNION), take_indices, DenseUnionTakeExec},
       {InputType(Type::SPARSE_UNION), take_indices, SparseUnionTakeExec},

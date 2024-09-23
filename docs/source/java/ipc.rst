@@ -81,7 +81,7 @@ Here we used an in-memory stream, but this could have been a socket or some othe
     writer.end();
 
 Note that, since the :class:`VectorSchemaRoot` in the writer is a container that can hold batches, batches flow through
-:class:`VectorSchemaRoot` as part of a pipeline, so we need to populate data before `writeBatch`, so that later batches
+:class:`VectorSchemaRoot` as part of a pipeline, so we need to populate data before ``writeBatch``, so that later batches
 could overwrite previous ones.
 
 Now the :class:`ByteArrayOutputStream` contains the complete stream which contains 5 record batches.

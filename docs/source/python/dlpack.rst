@@ -90,4 +90,4 @@ Convert a PyArrow CPU array to PyTorch tensor:
 
     >>> import torch
     >>> torch.from_dlpack(array)
-    tensor([2, 0, 2, 4])    
+    tensor([2, 0, 2, 4])

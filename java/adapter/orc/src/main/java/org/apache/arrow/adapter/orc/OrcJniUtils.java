@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.orc;
 
 import java.io.File;
@@ -25,24 +24,21 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 
-/**
- * Helper class for JNI related operations.
- */
+/** Helper class for JNI related operations. */
 class OrcJniUtils {
   private static final String LIBRARY_NAME = "arrow_orc_jni";
   private static boolean isLoaded = false;
 
-  private OrcJniUtils() {
-  }
+  private OrcJniUtils() {}
 
-  static void loadOrcAdapterLibraryFromJar()
-          throws IOException, IllegalAccessException {
+  static void loadOrcAdapterLibraryFromJar() throws IOException, IllegalAccessException {
     synchronized (OrcJniUtils.class) {
       if (!isLoaded) {
         final String libraryToLoad =
             LIBRARY_NAME + "/" + getNormalizedArch() + "/" + System.mapLibraryName(LIBRARY_NAME);
         final File libraryFile =
-            moveFileFromJarToTemp(System.getProperty("java.io.tmpdir"), libraryToLoad, LIBRARY_NAME);
+            moveFileFromJarToTemp(
+                System.getProperty("java.io.tmpdir"), libraryToLoad, LIBRARY_NAME);
         System.load(libraryFile.getAbsolutePath());
         isLoaded = true;
       }
@@ -64,11 +60,11 @@ class OrcJniUtils {
     return arch;
   }
 
-  private static File moveFileFromJarToTemp(final String tmpDir, String libraryToLoad, String libraryName)
-          throws IOException {
+  private static File moveFileFromJarToTemp(
+      final String tmpDir, String libraryToLoad, String libraryName) throws IOException {
     final File temp = File.createTempFile(tmpDir, libraryName);
-    try (final InputStream is = OrcReaderJniWrapper.class.getClassLoader()
-            .getResourceAsStream(libraryToLoad)) {
+    try (final InputStream is =
+        OrcReaderJniWrapper.class.getClassLoader().getResourceAsStream(libraryToLoad)) {
       if (is == null) {
         throw new FileNotFoundException(libraryToLoad);
       } else {

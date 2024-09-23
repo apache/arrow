@@ -30,7 +30,6 @@ package mallocator
 import "C"
 
 import (
-	"reflect"
 	"sync/atomic"
 	"unsafe"
 )
@@ -61,27 +60,36 @@ func (alloc *Mallocator) Allocate(size int) []byte {
 	}
 	ptr, err := C.calloc(C.size_t(size), 1)
 	if err != nil {
-		panic(err)
+		// under some circumstances and allocation patterns, we can end up in a scenario
+		// where for some reason calloc return ENOMEM even though there is definitely memory
+		// available for use. So we attempt to fallback to simply doing malloc + memset in
+		// this case. If malloc returns a nil pointer, then we know we're out of memory
+		// and will surface the error.
+		if ptr = C.malloc(C.size_t(size)); ptr == nil {
+			panic(err)
+		}
+		C.memset(ptr, 0, C.size_t(size))
 	} else if ptr == nil {
 		panic("mallocator: out of memory")
 	}
+
 	atomic.AddUint64(&alloc.allocatedBytes, uint64(size))
 	return unsafe.Slice((*byte)(ptr), size)
 }
 
 func (alloc *Mallocator) Free(b []byte) {
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	C.free(unsafe.Pointer(sh.Data))
+	sz := len(b)
+	C.free(getPtr(b))
 	// Subtract sh.Len via two's complement (since atomic doesn't offer subtract)
-	atomic.AddUint64(&alloc.allocatedBytes, ^(uint64(sh.Len) - 1))
+	atomic.AddUint64(&alloc.allocatedBytes, ^(uint64(sz) - 1))
 }
 
 func (alloc *Mallocator) Reallocate(size int, b []byte) []byte {
 	if size < 0 {
 		panic("mallocator: negative size")
 	}
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	ptr, err := C.realloc_and_initialize(unsafe.Pointer(sh.Data), C.size_t(sh.Cap), C.size_t(size))
+	cp := cap(b)
+	ptr, err := C.realloc_and_initialize(getPtr(b), C.size_t(cp), C.size_t(size))
 	if err != nil {
 		panic(err)
 	} else if ptr == nil && size != 0 {

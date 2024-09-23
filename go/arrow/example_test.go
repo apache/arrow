@@ -20,14 +20,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/arrow/tensor"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow/tensor"
 )
 
 // This example demonstrates how to build an array of int64 values using a builder and Append.
-// Whilst convenient for small arrays,
 func Example_minimal() {
 	// Create an allocator.
 	pool := memory.NewGoAllocator()

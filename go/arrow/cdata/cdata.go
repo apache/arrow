@@ -32,7 +32,11 @@ package cdata
 //	memset(out, 0, sizeof(struct ArrowArray));
 //	return out;
 // }
-// struct ArrowArrayStream* get_stream() { return (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream)); }
+// struct ArrowArrayStream* get_stream() {
+//	struct ArrowArrayStream* out = (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream));
+//	memset(out, 0, sizeof(struct ArrowArrayStream));
+//	return out;
+// }
 //
 import "C"
 
@@ -46,10 +50,10 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -448,6 +452,7 @@ func (imp *cimporter) doImportArr(src *CArrowArray) error {
 	defer func() {
 		if imp.alloc.bufCount == 0 {
 			C.ArrowArrayRelease(imp.arr)
+			C.free(unsafe.Pointer(imp.arr))
 		}
 	}()
 

@@ -14,24 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume enum type values from avro decoder.
- * Write the data to {@link IntVector}.
+ * Consumer which consume enum type values from avro decoder. Write the data to {@link IntVector}.
  */
 public class AvroEnumConsumer extends BaseAvroConsumer<BaseIntVector> {
 
-  /**
-   * Instantiate a AvroEnumConsumer.
-   */
+  /** Instantiate a AvroEnumConsumer. */
   public AvroEnumConsumer(BaseIntVector vector) {
     super(vector);
   }

@@ -100,9 +100,9 @@ Here is an example of a Java program that queries a Parquet file using Java Subs
 .. code-block:: text
 
     // Results example:
-    FieldPath(0)	FieldPath(1)	FieldPath(2)	FieldPath(3)
-    0	ALGERIA	0	 haggle. carefully final deposits detect slyly agai
-    1	ARGENTINA	1	al foxes promise slyly according to the regular accounts. bold requests alon
+    FieldPath(0)    FieldPath(1)    FieldPath(2)    FieldPath(3)
+    0               ALGERIA         0               haggle. carefully final deposits detect slyly agai
+    1               ARGENTINA       1               al foxes promise slyly according to the regular accounts. bold requests alon
 
 Executing Projections and Filters Using Extended Expressions
 ============================================================
@@ -189,13 +189,13 @@ This Java program:
 
 .. code-block:: text
 
-    column-1	column-2
-    13	ROMANIA - ular asymptotes are about the furious multipliers. express dependencies nag above the ironically ironic account
-    14	SAUDI ARABIA - ts. silent requests haggle. closely express packages sleep across the blithely
-    12	VIETNAM - hely enticingly express accounts. even, final
-    13	RUSSIA -  requests against the platelets use never according to the quickly regular pint
-    13	UNITED KINGDOM - eans boost carefully special requests. accounts are. carefull
-    11	UNITED STATES - y final packages. slow foxes cajole quickly. quickly silent platelets breach ironic accounts. unusual pinto be
+    column-1  column-2
+    13        ROMANIA - ular asymptotes are about the furious multipliers. express dependencies nag above the ironically ironic account
+    14        SAUDI ARABIA - ts. silent requests haggle. closely express packages sleep across the blithely
+    12        VIETNAM - hely enticingly express accounts. even, final
+    13        RUSSIA -  requests against the platelets use never according to the quickly regular pint
+    13        UNITED KINGDOM - eans boost carefully special requests. accounts are. carefull
+    11        UNITED STATES - y final packages. slow foxes cajole quickly. quickly silent platelets breach ironic accounts. unusual pinto be
 
 .. _`Substrait`: https://substrait.io/
 .. _`Substrait Java`: https://github.com/substrait-io/substrait-java

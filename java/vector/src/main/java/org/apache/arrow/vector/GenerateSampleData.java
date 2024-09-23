@@ -14,21 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
 
 /**
- * Helper class to generate test data for Nullable fixed and variable
- * width scalar vectors. Previous implementations of java vector classes
- * provided generateTestData(now deprecated) API to populate the vector
- * with sample data. This class should be used for that purpose.
+ * Helper class to generate test data for Nullable fixed and variable width scalar vectors. Previous
+ * implementations of java vector classes provided generateTestData(now deprecated) API to populate
+ * the vector with sample data. This class should be used for that purpose.
  */
 public class GenerateSampleData {
-  private GenerateSampleData() {
-  }
+  private GenerateSampleData() {}
 
   /** Populates <code>vector</code> with <code>valueCount</code> random values. */
   public static void generateTestData(final ValueVector vector, final int valueCount) {
@@ -208,7 +205,6 @@ public class GenerateSampleData {
       }
     }
     vector.setValueCount(valueCount);
-
   }
 
   private static void writeTimeNanoData(TimeNanoVector vector, int valueCount) {
@@ -395,4 +391,3 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 }
-

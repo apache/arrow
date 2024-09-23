@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import java.util.Collection;
@@ -24,16 +23,16 @@ import java.util.Set;
 /**
  * An implementation of a map that supports constant time look-up by a generic key or an ordinal.
  *
- * <p>This class extends the functionality a regular {@link Map} with ordinal lookup support.
- * Upon insertion an unused ordinal is assigned to the inserted (key, value) tuple.
- * Upon update the same ordinal id is re-used while value is replaced.
- * Upon deletion of an existing item, its corresponding ordinal is recycled and could be used by another item.
+ * <p>This class extends the functionality a regular {@link Map} with ordinal lookup support. Upon
+ * insertion an unused ordinal is assigned to the inserted (key, value) tuple. Upon update the same
+ * ordinal id is re-used while value is replaced. Upon deletion of an existing item, its
+ * corresponding ordinal is recycled and could be used by another item.
  *
- * <p>For any instance with N items, this implementation guarantees that ordinals are in the range of [0, N). However,
- * the ordinal assignment is dynamic and may change after an insertion or deletion. Consumers of this class are
- * responsible for explicitly checking the ordinal corresponding to a key via
- * {@link MultiMapWithOrdinal#getOrdinal(Object)} before attempting to execute a lookup
- * with an ordinal.
+ * <p>For any instance with N items, this implementation guarantees that ordinals are in the range
+ * of [0, N). However, the ordinal assignment is dynamic and may change after an insertion or
+ * deletion. Consumers of this class are responsible for explicitly checking the ordinal
+ * corresponding to a key via {@link MultiMapWithOrdinal#getOrdinal(Object)} before attempting to
+ * execute a lookup with an ordinal.
  *
  * @param <K> key type
  * @param <V> value type

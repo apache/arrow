@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
 import org.apache.arrow.adapter.jdbc.consumer.exceptions.JdbcConsumerException;
 import org.apache.arrow.util.AutoCloseables;
@@ -28,17 +26,12 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
-/**
- * Composite consumer which hold all consumers.
- * It manages the consume and cleanup process.
- */
+/** Composite consumer which hold all consumers. It manages the consume and cleanup process. */
 public class CompositeJdbcConsumer implements JdbcConsumer {
 
   private final JdbcConsumer[] consumers;
 
-  /**
-   * Construct an instance.
-   */
+  /** Construct an instance. */
   public CompositeJdbcConsumer(JdbcConsumer[] consumers) {
     this.consumers = consumers;
   }
@@ -51,9 +44,11 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
       } catch (Exception e) {
         if (consumers[i] instanceof BaseConsumer) {
           BaseConsumer consumer = (BaseConsumer) consumers[i];
-          JdbcFieldInfo fieldInfo = new JdbcFieldInfo(rs.getMetaData(), consumer.columnIndexInResultSet);
+          JdbcFieldInfo fieldInfo =
+              new JdbcFieldInfo(rs.getMetaData(), consumer.columnIndexInResultSet);
           ArrowType arrowType = consumer.vector.getMinorType().getType();
-          throw new JdbcConsumerException("Exception while consuming JDBC value", e, fieldInfo, arrowType);
+          throw new JdbcConsumerException(
+              "Exception while consuming JDBC value", e, fieldInfo, arrowType);
         } else {
           throw e;
         }
@@ -70,17 +65,12 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
     } catch (Exception e) {
       throw new RuntimeException("Error occurred while releasing resources.", e);
     }
-
   }
 
   @Override
-  public void resetValueVector(ValueVector vector) {
+  public void resetValueVector(ValueVector vector) {}
 
-  }
-
-  /**
-   * Reset inner consumers through vectors in the vector schema root.
-   */
+  /** Reset inner consumers through vectors in the vector schema root. */
   public void resetVectorSchemaRoot(VectorSchemaRoot root) {
     assert root.getFieldVectors().size() == consumers.length;
     for (int i = 0; i < consumers.length; i++) {
@@ -88,4 +78,3 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
     }
   }
 }
-

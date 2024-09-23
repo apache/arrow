@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc;
 
 import java.io.IOException;
@@ -25,7 +24,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
@@ -46,9 +44,7 @@ import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Abstract base class for implementing Arrow writers for IPC over a WriteChannel.
- */
+/** Abstract base class for implementing Arrow writers for IPC over a WriteChannel. */
 public abstract class ArrowWriter implements AutoCloseable {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
@@ -71,29 +67,45 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   protected IpcOption option;
 
-  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
+  protected ArrowWriter(
+      VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
     this(root, provider, out, IpcOption.DEFAULT);
   }
 
-  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
-    this(root, provider, out, option, NoCompressionCodec.Factory.INSTANCE, CompressionUtil.CodecType.NO_COMPRESSION,
-            Optional.empty());
+  protected ArrowWriter(
+      VectorSchemaRoot root,
+      DictionaryProvider provider,
+      WritableByteChannel out,
+      IpcOption option) {
+    this(
+        root,
+        provider,
+        out,
+        option,
+        NoCompressionCodec.Factory.INSTANCE,
+        CompressionUtil.CodecType.NO_COMPRESSION,
+        Optional.empty());
   }
 
   /**
    * Note: fields are not closed when the writer is closed.
    *
-   * @param root               the vectors to write to the output
-   * @param provider           where to find the dictionaries
-   * @param out                the output where to write
-   * @param option             IPC write options
+   * @param root the vectors to write to the output
+   * @param provider where to find the dictionaries
+   * @param out the output where to write
+   * @param option IPC write options
    * @param compressionFactory Compression codec factory
-   * @param codecType          Compression codec
-   * @param compressionLevel   Compression level
+   * @param codecType Compression codec
+   * @param compressionLevel Compression level
    */
-  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option,
-                        CompressionCodec.Factory compressionFactory, CompressionUtil.CodecType codecType,
-                        Optional<Integer> compressionLevel) {
+  protected ArrowWriter(
+      VectorSchemaRoot root,
+      DictionaryProvider provider,
+      WritableByteChannel out,
+      IpcOption option,
+      CompressionCodec.Factory compressionFactory,
+      CompressionUtil.CodecType codecType,
+      Optional<Integer> compressionLevel) {
     this.out = new WriteChannel(out);
     this.option = option;
     this.dictionaryProvider = provider;
@@ -101,15 +113,17 @@ public abstract class ArrowWriter implements AutoCloseable {
     this.compressionFactory = compressionFactory;
     this.codecType = codecType;
     this.compressionLevel = compressionLevel;
-    this.codec = this.compressionLevel.isPresent() ?
-            this.compressionFactory.createCodec(this.codecType, this.compressionLevel.get()) :
-            this.compressionFactory.createCodec(this.codecType);
-    this.unloader = new VectorUnloader(root, /*includeNullCount*/ true, codec,
-        /*alignBuffers*/ true);
+    this.codec =
+        this.compressionLevel.isPresent()
+            ? this.compressionFactory.createCodec(this.codecType, this.compressionLevel.get())
+            : this.compressionFactory.createCodec(this.codecType);
+    this.unloader =
+        new VectorUnloader(root, /*includeNullCount*/ true, codec, /*alignBuffers*/ true);
 
     List<Field> fields = new ArrayList<>(root.getSchema().getFields().size());
 
-    MetadataV4UnionChecker.checkForUnion(root.getSchema().getFields().iterator(), option.metadataVersion);
+    MetadataV4UnionChecker.checkForUnion(
+        root.getSchema().getFields().iterator(), option.metadataVersion);
     // Convert fields with dictionaries to have dictionary type
     for (Field field : root.getSchema().getFields()) {
       fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIdsUsed));
@@ -122,9 +136,7 @@ public abstract class ArrowWriter implements AutoCloseable {
     ensureStarted();
   }
 
-  /**
-   * Writes the record batch currently loaded in this instance's VectorSchemaRoot.
-   */
+  /** Writes the record batch currently loaded in this instance's VectorSchemaRoot. */
   public void writeBatch() throws IOException {
     ensureStarted();
     ensureDictionariesWritten(dictionaryProvider, dictionaryIdsUsed);
@@ -137,12 +149,11 @@ public abstract class ArrowWriter implements AutoCloseable {
     FieldVector vector = dictionary.getVector();
     long id = dictionary.getEncoding().getId();
     int count = vector.getValueCount();
-    VectorSchemaRoot dictRoot = new VectorSchemaRoot(
-        Collections.singletonList(vector.getField()),
-        Collections.singletonList(vector),
-        count);
-    VectorUnloader unloader = new VectorUnloader(dictRoot, /*includeNullCount*/ true, this.codec,
-        /*alignBuffers*/ true);
+    VectorSchemaRoot dictRoot =
+        new VectorSchemaRoot(
+            Collections.singletonList(vector.getField()), Collections.singletonList(vector), count);
+    VectorUnloader unloader =
+        new VectorUnloader(dictRoot, /*includeNullCount*/ true, this.codec, /*alignBuffers*/ true);
     ArrowRecordBatch batch = unloader.getRecordBatch();
     ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(id, batch, false);
     try {
@@ -159,8 +170,11 @@ public abstract class ArrowWriter implements AutoCloseable {
   protected ArrowBlock writeDictionaryBatch(ArrowDictionaryBatch batch) throws IOException {
     ArrowBlock block = MessageSerializer.serialize(out, batch, option);
     if (LOGGER.isDebugEnabled()) {
-      LOGGER.debug("DictionaryRecordBatch at {}, metadata: {}, body: {}",
-          block.getOffset(), block.getMetadataLength(), block.getBodyLength());
+      LOGGER.debug(
+          "DictionaryRecordBatch at {}, metadata: {}, body: {}",
+          block.getOffset(),
+          block.getMetadataLength(),
+          block.getBodyLength());
     }
     return block;
   }
@@ -168,8 +182,11 @@ public abstract class ArrowWriter implements AutoCloseable {
   protected ArrowBlock writeRecordBatch(ArrowRecordBatch batch) throws IOException {
     ArrowBlock block = MessageSerializer.serialize(out, batch, option);
     if (LOGGER.isDebugEnabled()) {
-      LOGGER.debug("RecordBatch at {}, metadata: {}, body: {}",
-          block.getOffset(), block.getMetadataLength(), block.getBodyLength());
+      LOGGER.debug(
+          "RecordBatch at {}, metadata: {}, body: {}",
+          block.getOffset(),
+          block.getMetadataLength(),
+          block.getBodyLength());
     }
     return block;
   }
@@ -194,11 +211,11 @@ public abstract class ArrowWriter implements AutoCloseable {
   }
 
   /**
-   * Write dictionaries after schema and before recordBatches, dictionaries won't be
-   * written if empty stream (only has schema data in IPC).
+   * Write dictionaries after schema and before recordBatches, dictionaries won't be written if
+   * empty stream (only has schema data in IPC).
    */
-  protected abstract void ensureDictionariesWritten(DictionaryProvider provider, Set<Long> dictionaryIdsUsed)
-      throws IOException;
+  protected abstract void ensureDictionariesWritten(
+      DictionaryProvider provider, Set<Long> dictionaryIdsUsed) throws IOException;
 
   private void ensureEnded() throws IOException {
     if (!ended) {
@@ -207,11 +224,9 @@ public abstract class ArrowWriter implements AutoCloseable {
     }
   }
 
-  protected void startInternal(WriteChannel out) throws IOException {
-  }
+  protected void startInternal(WriteChannel out) throws IOException {}
 
-  protected void endInternal(WriteChannel out) throws IOException {
-  }
+  protected void endInternal(WriteChannel out) throws IOException {}
 
   @Override
   public void close() {

@@ -14,21 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
+import io.grpc.stub.StreamObserver;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
 import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.util.AutoCloseables;
 
-import io.grpc.stub.StreamObserver;
-
 /**
  * Shim listener to avoid exposing GRPC internals.
-
+ *
  * @param <FROM> From Type
  * @param <TO> To Type
  */
@@ -45,17 +42,19 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
    *
    * @param delegate The {@link StreamObserver} to wrap.
    * @param func The transformation function.
-   * @param errorHandler A handler for uncaught exceptions (e.g. if something tries to double-close this stream).
+   * @param errorHandler A handler for uncaught exceptions (e.g. if something tries to double-close
+   *     this stream).
    * @param <FROM> The source type.
    * @param <TO> The output type.
    * @return A wrapped listener.
    */
-  public static <FROM, TO> StreamPipe<FROM, TO> wrap(StreamObserver<TO> delegate, Function<FROM, TO> func,
-      Consumer<Throwable> errorHandler) {
+  public static <FROM, TO> StreamPipe<FROM, TO> wrap(
+      StreamObserver<TO> delegate, Function<FROM, TO> func, Consumer<Throwable> errorHandler) {
     return new StreamPipe<>(delegate, func, errorHandler);
   }
 
-  public StreamPipe(StreamObserver<TO> delegate, Function<FROM, TO> func, Consumer<Throwable> errorHandler) {
+  public StreamPipe(
+      StreamObserver<TO> delegate, Function<FROM, TO> func, Consumer<Throwable> errorHandler) {
     super();
     this.delegate = delegate;
     this.mapFunction = func;
@@ -107,9 +106,7 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
     }
   }
 
-  /**
-   * Ensure this stream has been completed.
-   */
+  /** Ensure this stream has been completed. */
   void ensureCompleted() {
     if (!closed) {
       onCompleted();

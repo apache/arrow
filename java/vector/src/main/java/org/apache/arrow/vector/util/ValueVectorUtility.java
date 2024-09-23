@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import static org.apache.arrow.vector.validate.ValidateUtil.validateOrThrow;
 
 import java.util.function.BiFunction;
-
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.ValueVector;
@@ -29,38 +27,28 @@ import org.apache.arrow.vector.validate.ValidateVectorBufferVisitor;
 import org.apache.arrow.vector.validate.ValidateVectorDataVisitor;
 import org.apache.arrow.vector.validate.ValidateVectorTypeVisitor;
 
-/**
- * Utility methods for {@link ValueVector}.
- */
+/** Utility methods for {@link ValueVector}. */
 public class ValueVectorUtility {
 
-  private ValueVectorUtility() {
-  }
+  private ValueVectorUtility() {}
 
   /**
-   * Get the toString() representation of vector suitable for debugging.
-   * Note since vectors may have millions of values, this method only shows max 20 values.
-   * Examples as below (v represents value):
-   * <li>
-   *   vector with 0 value:
-   *   []
-   * </li>
-   * <li>
-   *   vector with 5 values (no more than 20 values):
-   *   [v0, v1, v2, v3, v4]
-   * </li>
-   * <li>
-   *  vector with 100 values (more than 20 values):
-   *  [v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, ..., v90, v91, v92, v93, v94, v95, v96, v97, v98, v99]
-   * </li>
+   * Get the toString() representation of vector suitable for debugging. Note since vectors may have
+   * millions of values, this method only shows max 20 values. Examples as below (v represents
+   * value):
+   * <li>vector with 0 value: []
+   * <li>vector with 5 values (no more than 20 values): [v0, v1, v2, v3, v4]
+   * <li>vector with 100 values (more than 20 values): [v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, ...,
+   *     v90, v91, v92, v93, v94, v95, v96, v97, v98, v99]
    */
   public static <V extends ValueVector> String getToString(V vector, int start, int end) {
     return getToString(vector, start, end, (v, i) -> v.getObject(i));
   }
 
   /**
-   * Get the toString() representation of vector suitable for debugging.
-   * Note since vectors may have millions of values, this method only shows at most 20 values.
+   * Get the toString() representation of vector suitable for debugging. Note since vectors may have
+   * millions of values, this method only shows at most 20 values.
+   *
    * @param vector the vector for which to get toString representation.
    * @param start the starting index, inclusive.
    * @param end the end index, exclusive.
@@ -108,9 +96,7 @@ public class ValueVectorUtility {
     return sb.toString();
   }
 
-  /**
-   * Utility to validate vector in O(1) time.
-   */
+  /** Utility to validate vector in O(1) time. */
   public static void validate(ValueVector vector) {
     Preconditions.checkNotNull(vector);
 
@@ -121,9 +107,7 @@ public class ValueVectorUtility {
     vector.accept(bufferVisitor, null);
   }
 
-  /**
-   * Utility to validate vector in O(n) time, where n is the value count.
-   */
+  /** Utility to validate vector in O(n) time, where n is the value count. */
   public static void validateFull(ValueVector vector) {
     validate(vector);
 
@@ -131,39 +115,41 @@ public class ValueVectorUtility {
     vector.accept(dataVisitor, null);
   }
 
-  /**
-   * Utility to validate vector schema root in O(1) time.
-   */
+  /** Utility to validate vector schema root in O(1) time. */
   public static void validate(VectorSchemaRoot root) {
     Preconditions.checkNotNull(root);
     int valueCount = root.getRowCount();
-    validateOrThrow(valueCount >= 0, "The row count of vector schema root %s is negative.", valueCount);
+    validateOrThrow(
+        valueCount >= 0, "The row count of vector schema root %s is negative.", valueCount);
     for (ValueVector childVec : root.getFieldVectors()) {
-      validateOrThrow(valueCount == childVec.getValueCount(),
-          "Child vector and vector schema root have different value counts. " +
-              "Child vector value count %s, vector schema root value count %s", childVec.getValueCount(), valueCount);
+      validateOrThrow(
+          valueCount == childVec.getValueCount(),
+          "Child vector and vector schema root have different value counts. "
+              + "Child vector value count %s, vector schema root value count %s",
+          childVec.getValueCount(),
+          valueCount);
       validate(childVec);
     }
   }
 
-  /**
-   * Utility to validate vector in O(n) time, where n is the value count.
-   */
+  /** Utility to validate vector in O(n) time, where n is the value count. */
   public static void validateFull(VectorSchemaRoot root) {
     Preconditions.checkNotNull(root);
     int valueCount = root.getRowCount();
-    validateOrThrow(valueCount >= 0, "The row count of vector schema root %s is negative.", valueCount);
+    validateOrThrow(
+        valueCount >= 0, "The row count of vector schema root %s is negative.", valueCount);
     for (ValueVector childVec : root.getFieldVectors()) {
-      validateOrThrow(valueCount == childVec.getValueCount(),
-          "Child vector and vector schema root have different value counts. " +
-              "Child vector value count %s, vector schema root value count %s", childVec.getValueCount(), valueCount);
+      validateOrThrow(
+          valueCount == childVec.getValueCount(),
+          "Child vector and vector schema root have different value counts. "
+              + "Child vector value count %s, vector schema root value count %s",
+          childVec.getValueCount(),
+          valueCount);
       validateFull(childVec);
     }
   }
 
-  /**
-   * Pre allocate memory for BaseFixedWidthVector.
-   */
+  /** Pre allocate memory for BaseFixedWidthVector. */
   public static void preAllocate(VectorSchemaRoot root, int targetSize) {
     for (ValueVector vector : root.getFieldVectors()) {
       if (vector instanceof BaseFixedWidthVector) {
@@ -172,9 +158,7 @@ public class ValueVectorUtility {
     }
   }
 
-  /**
-   * Ensure capacity for BaseFixedWidthVector.
-   */
+  /** Ensure capacity for BaseFixedWidthVector. */
   public static void ensureCapacity(VectorSchemaRoot root, int targetCapacity) {
     for (ValueVector vector : root.getFieldVectors()) {
       if (vector instanceof BaseFixedWidthVector) {

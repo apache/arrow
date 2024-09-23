@@ -16,10 +16,14 @@
 # under the License.
 
 from datetime import datetime as dt
-import numpy as np
 import pyarrow as pa
 from pyarrow.vendored.version import Version
 import pytest
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow.interchange as pi
 from pyarrow.interchange.column import (
@@ -107,13 +111,13 @@ def test_offset_of_sliced_array():
     "int", [pa.int8(), pa.int16(), pa.int32(), pa.int64()]
 )
 @pytest.mark.parametrize(
-    "float, np_float", [
+    "float, np_float_str", [
         # (pa.float16(), np.float16),   #not supported by pandas
-        (pa.float32(), np.float32),
-        (pa.float64(), np.float64)
+        (pa.float32(), "float32"),
+        (pa.float64(), "float64")
     ]
 )
-def test_pandas_roundtrip(uint, int, float, np_float):
+def test_pandas_roundtrip(uint, int, float, np_float_str):
     if Version(pd.__version__) < Version("1.5.0"):
         pytest.skip("__dataframe__ added to pandas in 1.5.0")
 
@@ -122,7 +126,7 @@ def test_pandas_roundtrip(uint, int, float, np_float):
         {
             "a": pa.array(arr, type=uint),
             "b": pa.array(arr, type=int),
-            "c": pa.array(np.array(arr, dtype=np_float), type=float),
+            "c": pa.array(np.array(arr, dtype=np.dtype(np_float_str)), type=float),
             "d": [True, False, True],
         }
     )
@@ -326,17 +330,19 @@ def test_pandas_roundtrip_datetime(unit):
 
 @pytest.mark.pandas
 @pytest.mark.parametrize(
-    "np_float", [np.float32, np.float64]
+    "np_float_str", ["float32", "float64"]
 )
-def test_pandas_to_pyarrow_with_missing(np_float):
+def test_pandas_to_pyarrow_with_missing(np_float_str):
     if Version(pd.__version__) < Version("1.5.0"):
         pytest.skip("__dataframe__ added to pandas in 1.5.0")
 
-    np_array = np.array([0, np.nan, 2], dtype=np_float)
+    np_array = np.array([0, np.nan, 2], dtype=np.dtype(np_float_str))
     datetime_array = [None, dt(2007, 7, 14), dt(2007, 7, 15)]
     df = pd.DataFrame({
-        "a": np_array,   # float, ColumnNullType.USE_NAN
-        "dt": datetime_array  # ColumnNullType.USE_SENTINEL
+        # float, ColumnNullType.USE_NAN
+        "a": np_array,
+        # ColumnNullType.USE_SENTINEL
+        "dt": np.array(datetime_array, dtype="datetime64[ns]")
     })
     expected = pa.table({
         "a": pa.array(np_array, from_pandas=True),
@@ -362,6 +368,7 @@ def test_pandas_to_pyarrow_float16_with_missing():
         pi.from_dataframe(df)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize(
     "uint", [pa.uint8(), pa.uint16(), pa.uint32()]
 )
@@ -369,16 +376,16 @@ def test_pandas_to_pyarrow_float16_with_missing():
     "int", [pa.int8(), pa.int16(), pa.int32(), pa.int64()]
 )
 @pytest.mark.parametrize(
-    "float, np_float", [
-        (pa.float16(), np.float16),
-        (pa.float32(), np.float32),
-        (pa.float64(), np.float64)
+    "float, np_float_str", [
+        (pa.float16(), "float16"),
+        (pa.float32(), "float32"),
+        (pa.float64(), "float64")
     ]
 )
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
 @pytest.mark.parametrize("tz", ['America/New_York', '+07:30', '-04:30'])
 @pytest.mark.parametrize("offset, length", [(0, 3), (0, 2), (1, 2), (2, 1)])
-def test_pyarrow_roundtrip(uint, int, float, np_float,
+def test_pyarrow_roundtrip(uint, int, float, np_float_str,
                            unit, tz, offset, length):
 
     from datetime import datetime as dt
@@ -389,7 +396,7 @@ def test_pyarrow_roundtrip(uint, int, float, np_float,
         {
             "a": pa.array(arr, type=uint),
             "b": pa.array(arr, type=int),
-            "c": pa.array(np.array(arr, dtype=np_float),
+            "c": pa.array(np.array(arr, dtype=np.dtype(np_float_str)),
                           type=float, from_pandas=True),
             "d": [True, False, True],
             "e": [True, False, None],

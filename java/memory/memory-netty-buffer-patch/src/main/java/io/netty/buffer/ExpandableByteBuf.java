@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.netty.buffer;
 
 import org.apache.arrow.memory.BufferAllocator;
 
 /**
  * Allows us to decorate ArrowBuf to make it expandable so that we can use them in the context of
- * the Netty framework
- * (thus supporting RPC level memory accounting).
+ * the Netty framework (thus supporting RPC level memory accounting).
  */
 public class ExpandableByteBuf extends MutableWrappedByteBuf {
 
@@ -52,5 +50,4 @@ public class ExpandableByteBuf extends MutableWrappedByteBuf {
       return super.capacity(newCapacity);
     }
   }
-
 }

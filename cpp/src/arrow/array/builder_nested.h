@@ -181,13 +181,11 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
     if constexpr (is_list_view(TYPE::type_id)) {
       sizes = array.GetValues<offset_type>(2);
     }
-    const bool all_valid = !array.MayHaveLogicalNulls();
-    const uint8_t* validity = array.HasValidityBitmap() ? array.buffers[0].data : NULLPTR;
+    static_assert(internal::may_have_validity_bitmap(TYPE::type_id));
+    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
     ARROW_RETURN_NOT_OK(Reserve(length));
     for (int64_t row = offset; row < offset + length; row++) {
-      const bool is_valid =
-          all_valid || (validity && bit_util::GetBit(validity, array.offset + row)) ||
-          array.IsValid(row);
+      const bool is_valid = !validity || bit_util::GetBit(validity, array.offset + row);
       int64_t size = 0;
       if (is_valid) {
         if constexpr (is_list_view(TYPE::type_id)) {
@@ -250,7 +248,7 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
   /// \brief Append dimensions for a single list slot.
   ///
   /// ListViewBuilder overrides this to also append the size.
-  virtual void UnsafeAppendDimensions(int64_t offset, int64_t size) {
+  virtual void UnsafeAppendDimensions(int64_t offset, int64_t ARROW_ARG_UNUSED(size)) {
     offsets_builder_.UnsafeAppend(static_cast<offset_type>(offset));
   }
 
@@ -569,13 +567,11 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
-    const int32_t* offsets = array.GetValues<int32_t>(1);
-    const bool all_valid = !array.MayHaveLogicalNulls();
-    const uint8_t* validity = array.HasValidityBitmap() ? array.buffers[0].data : NULLPTR;
+    const auto* offsets = array.GetValues<int32_t>(1);
+    static_assert(internal::may_have_validity_bitmap(MapType::type_id));
+    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
-      const bool is_valid =
-          all_valid || (validity && bit_util::GetBit(validity, array.offset + row)) ||
-          array.IsValid(row);
+      const bool is_valid = !validity || bit_util::GetBit(validity, array.offset + row);
       if (is_valid) {
         ARROW_RETURN_NOT_OK(Append());
         const int64_t slot_length = offsets[row + 1] - offsets[row];
@@ -646,6 +642,8 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 /// \brief Builder class for fixed-length list array value types
 class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
  public:
+  using TypeClass = FixedSizeListType;
+
   /// Use this constructor to define the built array's type explicitly. If value_builder
   /// has indeterminate type, this builder will also.
   FixedSizeListBuilder(MemoryPool* pool,

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.sql.util;
 
 import com.google.protobuf.Descriptors.EnumDescriptor;
@@ -22,7 +21,9 @@ import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.ProtocolMessageEnum;
 
 enum AdhocTestOption implements ProtocolMessageEnum {
-  OPTION_A, OPTION_B, OPTION_C;
+  OPTION_A,
+  OPTION_B,
+  OPTION_C;
 
   @Override
   public int getNumber() {
@@ -40,6 +41,7 @@ enum AdhocTestOption implements ProtocolMessageEnum {
   }
 
   private UnsupportedOperationException getUnsupportedException() {
-    return new UnsupportedOperationException("Unimplemented method is irrelevant for the scope of this test.");
+    return new UnsupportedOperationException(
+        "Unimplemented method is irrelevant for the scope of this test.");
   }
 }

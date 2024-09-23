@@ -19,25 +19,15 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/internal/types"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/types"
 	"github.com/stretchr/testify/suite"
 )
 
 type ExtensionTypeTestSuite struct {
 	suite.Suite
-}
-
-func (e *ExtensionTypeTestSuite) SetupTest() {
-	e.NoError(arrow.RegisterExtensionType(types.NewUUIDType()))
-}
-
-func (e *ExtensionTypeTestSuite) TearDownTest() {
-	if arrow.GetExtensionType("uuid") != nil {
-		e.NoError(arrow.UnregisterExtensionType("uuid"))
-	}
 }
 
 func (e *ExtensionTypeTestSuite) TestParametricEquals() {

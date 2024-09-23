@@ -21,10 +21,10 @@
 # Requirements
 # - Ruby >= 2.3
 # - Maven >= 3.8.7
-# - JDK >=8
+# - JDK >= 11
 # - gcc >= 4.8
 # - Node.js >= 18
-# - Go >= 1.19
+# - Go >= 1.22
 # - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
@@ -185,9 +185,7 @@ test_binary() {
 test_apt() {
   show_header "Testing APT packages"
 
-  for target in "debian:bullseye" \
-                "arm64v8/debian:bullseye" \
-                "debian:bookworm" \
+  for target in "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
                 "debian:trixie" \
                 "arm64v8/debian:trixie" \
@@ -347,7 +345,7 @@ install_csharp() {
 
   show_info "Ensuring that C# is installed..."
 
-  if dotnet --version | grep 7\.0 > /dev/null 2>&1; then
+  if dotnet --version | grep 8\.0 > /dev/null 2>&1; then
     local csharp_bin=$(dirname $(which dotnet))
     show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
   else
@@ -355,7 +353,7 @@ install_csharp() {
       show_info "dotnet found but it is the wrong version and will be ignored."
     fi
     local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=7.0.102
+    local dotnet_version=8.0.204
     local dotnet_platform=
     case "$(uname)" in
       Linux)
@@ -405,7 +403,7 @@ install_go() {
     return 0
   fi
 
-  local version=1.19.13
+  local version=1.22.6
   show_info "Installing go version ${version}..."
 
   local arch="$(uname -m)"
@@ -502,7 +500,8 @@ maybe_setup_conda() {
 install_maven() {
   MAVEN_VERSION=3.8.7
   if command -v mvn > /dev/null; then
-    SYSTEM_MAVEN_VERSION=$(mvn -v | head -n 1 | awk '{print $3}')
+    # --batch-mode is for disabling output color.
+    SYSTEM_MAVEN_VERSION=$(mvn --batch-mode -v | head -n 1 | awk '{print $3}')
     show_info "Found Maven version ${SYSTEM_MAVEN_VERSION} at $(command -v mvn)."
   else
     SYSTEM_MAVEN_VERSION=0.0.0
@@ -513,7 +512,7 @@ install_maven() {
     show_info "System Maven version ${SYSTEM_MAVEN_VERSION} matches required Maven version ${MAVEN_VERSION}. Skipping installation."
   else
     # Append pipe character to make preview release versions like "X.Y.Z-beta-1" sort
-    # as older than their corresponding release version "X.Y.Z". This works because 
+    # as older than their corresponding release version "X.Y.Z". This works because
     # `sort -V` orders the pipe character lower than any version number character.
     older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sed 's/$/|/' | sort -V | sed 's/|$//' | head -n1)
     if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" ]]; then
@@ -523,7 +522,8 @@ install_maven() {
         ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
       tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
       export PATH=$(pwd)/apache-maven-${MAVEN_VERSION}/bin:$PATH
-      show_info "Installed Maven version $(mvn -v | head -n 1 | awk '{print $3}')"
+      # --batch-mode is for disabling output color.
+      show_info "Installed Maven version $(mvn --batch-mode -v | head -n 1 | awk '{print $3}')"
     else
       show_info "System Maven version ${SYSTEM_MAVEN_VERSION} is newer than minimum version ${MAVEN_VERSION}. Skipping installation."
     fi
@@ -642,8 +642,8 @@ test_package_java() {
         normalized_arch=x86_64
         ;;
     esac
-    mkdir -p ${dist_dir}/${normalized_arch}/
-    mv ${install_dir}/lib/* ${dist_dir}/${normalized_arch}/
+    mkdir -p ${dist_dir}
+    mv ${install_dir}/lib/* ${dist_dir}
     mvn install \
         -Darrow.c.jni.dist.dir=${dist_dir} \
         -Parrow-c-data
@@ -756,7 +756,7 @@ test_python() {
   show_header "Build and test Python libraries"
 
   # Build and test Python
-  maybe_setup_virtualenv "cython>=0.29.31" numpy "setuptools_scm<8.0.0" setuptools
+  maybe_setup_virtualenv
   maybe_setup_conda --file ci/conda_env_python.txt
 
   if [ "${USE_CONDA}" -gt 0 ]; then
@@ -788,7 +788,7 @@ test_python() {
   pushd python
 
   # Build pyarrow
-  python setup.py build_ext --inplace
+  python -m pip install -e .
 
   # Check mandatory and optional imports
   python -c "
@@ -953,7 +953,7 @@ test_go() {
   show_header "Build and test Go libraries"
 
   maybe_setup_go
-  maybe_setup_conda compilers go=1.19
+  maybe_setup_conda compilers go=1.22
 
   pushd go
   go get -v ./...
@@ -1146,14 +1146,14 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.8 3.9 3.10 3.11 3.12}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.9 3.10 3.11 3.12 3.13}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
 
   for python in ${python_versions}; do
     local pyver=${python/m}
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda tzdata
       if ! VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv; then
         continue
       fi
@@ -1170,11 +1170,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.8 3.9 3.10 3.11 3.12"
+    local python_versions="3.9 3.10 3.11 3.12 3.13"
     local platform_tags="macosx_11_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.8 3.9 3.10 3.11 3.12"
+    local python_versions="3.9 3.10 3.11 3.12 3.13"
     local platform_tags="macosx_10_15_x86_64"
   fi
 

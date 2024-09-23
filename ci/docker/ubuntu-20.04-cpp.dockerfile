@@ -101,6 +101,7 @@ RUN apt-get update -y -q && \
         libutf8proc-dev \
         libxml2-dev \
         libzstd-dev \
+        lld \
         make \
         ninja-build \
         nlohmann-json3-dev \
@@ -157,13 +158,13 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
+    ARROW_USE_LLD=ON \
     ARROW_USE_UBSAN=OFF \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \

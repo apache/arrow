@@ -14,22 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 
-/**
- * A binder for fixed-width binary types.
- */
+/** A binder for fixed-width binary types. */
 public class FixedSizeBinaryBinder extends BaseColumnBinder<FixedSizeBinaryVector> {
   /**
    * Create a binder for the given vector using the given JDBC type for null values.
    *
-   * @param vector   The vector to draw values from.
+   * @param vector The vector to draw values from.
    * @param jdbcType The JDBC type code.
    */
   public FixedSizeBinaryBinder(FixedSizeBinaryVector vector, int jdbcType) {
@@ -37,9 +33,12 @@ public class FixedSizeBinaryBinder extends BaseColumnBinder<FixedSizeBinaryVecto
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
     byte[] binaryData = new byte[vector.getByteWidth()];
-    vector.getDataBuffer().getBytes((long) rowIndex * binaryData.length, binaryData, 0, binaryData.length);
+    vector
+        .getDataBuffer()
+        .getBytes((long) rowIndex * binaryData.length, binaryData, 0, binaryData.length);
     statement.setBytes(parameterIndex, binaryData);
   }
 }

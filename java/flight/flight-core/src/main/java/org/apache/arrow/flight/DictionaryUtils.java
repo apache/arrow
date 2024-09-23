@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.util.ArrayList;
@@ -24,7 +23,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
@@ -39,9 +37,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
 import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 
-/**
- * Utilities to work with dictionaries in Flight.
- */
+/** Utilities to work with dictionaries in Flight. */
 final class DictionaryUtils {
 
   private DictionaryUtils() {
@@ -51,16 +47,22 @@ final class DictionaryUtils {
   /**
    * Generate all the necessary Flight messages to send a schema and associated dictionaries.
    *
-   * @throws Exception if there was an error closing {@link ArrowMessage} objects. This is not generally expected.
+   * @throws Exception if there was an error closing {@link ArrowMessage} objects. This is not
+   *     generally expected.
    */
-  static Schema generateSchemaMessages(final Schema originalSchema, final FlightDescriptor descriptor,
-                                       final DictionaryProvider provider, final IpcOption option,
-                                       final Consumer<ArrowMessage> messageCallback) throws Exception {
+  static Schema generateSchemaMessages(
+      final Schema originalSchema,
+      final FlightDescriptor descriptor,
+      final DictionaryProvider provider,
+      final IpcOption option,
+      final Consumer<ArrowMessage> messageCallback)
+      throws Exception {
     final Set<Long> dictionaryIds = new HashSet<>();
     final Schema schema = generateSchema(originalSchema, provider, dictionaryIds);
     MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option.metadataVersion);
     // Send the schema message
-    final Flight.FlightDescriptor protoDescriptor = descriptor == null ? null : descriptor.toProtocol();
+    final Flight.FlightDescriptor protoDescriptor =
+        descriptor == null ? null : descriptor.toProtocol();
     try (final ArrowMessage message = new ArrowMessage(protoDescriptor, schema, option)) {
       messageCallback.accept(message);
     }
@@ -70,13 +72,14 @@ final class DictionaryUtils {
       final FieldVector vector = dictionary.getVector();
       final int count = vector.getValueCount();
       // Do NOT close this root, as it does not actually own the vector.
-      final VectorSchemaRoot dictRoot = new VectorSchemaRoot(
-          Collections.singletonList(vector.getField()),
-          Collections.singletonList(vector),
-          count);
+      final VectorSchemaRoot dictRoot =
+          new VectorSchemaRoot(
+              Collections.singletonList(vector.getField()),
+              Collections.singletonList(vector),
+              count);
       final VectorUnloader unloader = new VectorUnloader(dictRoot);
-      try (final ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(
-          id, unloader.getRecordBatch());
+      try (final ArrowDictionaryBatch dictionaryBatch =
+              new ArrowDictionaryBatch(id, unloader.getRecordBatch());
           final ArrowMessage message = new ArrowMessage(dictionaryBatch, option)) {
         messageCallback.accept(message);
       }
@@ -84,27 +87,33 @@ final class DictionaryUtils {
     return schema;
   }
 
-  static void closeDictionaries(final Schema schema, final DictionaryProvider provider) throws Exception {
+  static void closeDictionaries(final Schema schema, final DictionaryProvider provider)
+      throws Exception {
     // Close dictionaries
     final Set<Long> dictionaryIds = new HashSet<>();
-    schema.getFields().forEach(field -> DictionaryUtility.toMessageFormat(field, provider, dictionaryIds));
+    schema
+        .getFields()
+        .forEach(field -> DictionaryUtility.toMessageFormat(field, provider, dictionaryIds));
 
-    final List<AutoCloseable> dictionaryVectors = dictionaryIds.stream()
-            .map(id -> (AutoCloseable) provider.lookup(id).getVector()).collect(Collectors.toList());
+    final List<AutoCloseable> dictionaryVectors =
+        dictionaryIds.stream()
+            .map(id -> (AutoCloseable) provider.lookup(id).getVector())
+            .collect(Collectors.toList());
     AutoCloseables.close(dictionaryVectors);
   }
 
   /**
-   * Generates the schema to send with flight messages.
-   * If the schema contains no field with a dictionary, it will return the schema as is.
-   * Otherwise, it will return a newly created a new schema after converting the fields.
+   * Generates the schema to send with flight messages. If the schema contains no field with a
+   * dictionary, it will return the schema as is. Otherwise, it will return a newly created a new
+   * schema after converting the fields.
+   *
    * @param originalSchema the original schema.
    * @param provider the dictionary provider.
    * @param dictionaryIds dictionary IDs that are used.
    * @return the schema to send with the flight messages.
    */
   static Schema generateSchema(
-          final Schema originalSchema, final DictionaryProvider provider, Set<Long> dictionaryIds) {
+      final Schema originalSchema, final DictionaryProvider provider, Set<Long> dictionaryIds) {
     // first determine if a new schema needs to be created.
     boolean createSchema = false;
     for (Field field : originalSchema.getFields()) {

@@ -14,26 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume bytes type values from avro decoder.
- * Write the data to {@link VarBinaryVector}.
+ * Consumer which consume bytes type values from avro decoder. Write the data to {@link
+ * VarBinaryVector}.
  */
 public class AvroBytesConsumer extends BaseAvroConsumer<VarBinaryVector> {
 
   private ByteBuffer cacheBuffer;
 
-  /**
-   * Instantiate a AvroBytesConsumer.
-   */
+  /** Instantiate a AvroBytesConsumer. */
   public AvroBytesConsumer(VarBinaryVector vector) {
     super(vector);
   }

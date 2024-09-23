@@ -25,23 +25,32 @@
 
 #include <arrow-glib/output-stream.h>
 
+GARROW_EXTERN
 GArrowOutputStream *
 garrow_output_stream_new_raw(
   std::shared_ptr<arrow::io::OutputStream> *arrow_output_stream);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::io::OutputStream>
 garrow_output_stream_get_raw(GArrowOutputStream *output_stream);
 
+GARROW_EXTERN
 GArrowFileOutputStream *
 garrow_file_output_stream_new_raw(
   std::shared_ptr<arrow::io::FileOutputStream> *arrow_file_output_stream);
+
+GARROW_EXTERN
 GArrowBufferOutputStream *
 garrow_buffer_output_stream_new_raw(
   std::shared_ptr<arrow::io::BufferOutputStream> *arrow_buffer_output_stream);
 
+GARROW_EXTERN
 GArrowCompressedOutputStream *
 garrow_compressed_output_stream_new_raw(
   std::shared_ptr<arrow::io::CompressedOutputStream> *arrow_raw,
   GArrowCodec *codec,
   GArrowOutputStream *raw);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::io::OutputStream>
 garrow_compressed_output_stream_get_raw(GArrowCompressedOutputStream *stream);

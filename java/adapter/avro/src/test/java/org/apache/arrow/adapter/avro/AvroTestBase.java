@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -29,7 +28,6 @@ import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -45,18 +43,16 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 
 public class AvroTestBase {
 
-  @ClassRule
-  public static final TemporaryFolder TMP = new TemporaryFolder();
+  @TempDir public File TMP;
 
   protected AvroToArrowConfig config;
 
-  @Before
+  @BeforeEach
   public void init() {
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     config = new AvroToArrowConfigBuilder(allocator).build();
@@ -64,37 +60,42 @@ public class AvroTestBase {
 
   public static Schema getSchema(String schemaName) throws Exception {
     try {
-      // Attempt to use JDK 9 behavior of getting the module then the resource stream from the module.
+      // Attempt to use JDK 9 behavior of getting the module then the resource stream from the
+      // module.
       // Note that this code is caller-sensitive.
       Method getModuleMethod = Class.class.getMethod("getModule");
       Object module = getModuleMethod.invoke(TestWriteReadAvroRecord.class);
-      Method getResourceAsStreamFromModule = module.getClass().getMethod("getResourceAsStream", String.class);
-      try (InputStream is = (InputStream) getResourceAsStreamFromModule.invoke(module, "/schema/" + schemaName)) {
-        return new Schema.Parser()
-            .parse(is);
+      Method getResourceAsStreamFromModule =
+          module.getClass().getMethod("getResourceAsStream", String.class);
+      try (InputStream is =
+          (InputStream) getResourceAsStreamFromModule.invoke(module, "/schema/" + schemaName)) {
+        return new Schema.Parser().parse(is);
       }
     } catch (NoSuchMethodException ex) {
       // Use JDK8 behavior.
-      try (InputStream is = TestWriteReadAvroRecord.class.getResourceAsStream("/schema/" + schemaName)) {
+      try (InputStream is =
+          TestWriteReadAvroRecord.class.getResourceAsStream("/schema/" + schemaName)) {
         return new Schema.Parser().parse(is);
       }
     }
   }
 
   protected VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
-    File dataFile = TMP.newFile();
+    File dataFile = new File(TMP, "test.avro");
 
-    BinaryEncoder
-        encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
-    DatumWriter writer = new GenericDatumWriter(schema);
-    BinaryDecoder
-        decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+    try (FileOutputStream fos = new FileOutputStream(dataFile);
+        FileInputStream fis = new FileInputStream(dataFile)) {
 
-    for (Object value : data) {
-      writer.write(value, encoder);
+      BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(fos, null);
+      DatumWriter<Object> writer = new GenericDatumWriter<>(schema);
+      BinaryDecoder decoder = new DecoderFactory().directBinaryDecoder(fis, null);
+
+      for (Object value : data) {
+        writer.write(value, encoder);
+      }
+
+      return AvroToArrow.avroToArrow(schema, decoder, config);
     }
-
-    return AvroToArrow.avroToArrow(schema, decoder, config);
   }
 
   protected void checkArrayResult(List<List<?>> expected, ListVector vector) {
@@ -145,7 +146,7 @@ public class AvroTestBase {
     }
   }
 
-  protected void checkRecordResult(Schema schema, ArrayList<GenericRecord> data, VectorSchemaRoot root) {
+  protected void checkRecordResult(Schema schema, List<GenericRecord> data, VectorSchemaRoot root) {
     assertEquals(data.size(), root.getRowCount());
     assertEquals(schema.getFields().size(), root.getFieldVectors().size());
 
@@ -157,10 +158,10 @@ public class AvroTestBase {
 
       checkPrimitiveResult(fieldData, root.getFieldVectors().get(i));
     }
-
   }
 
-  protected void checkNestedRecordResult(Schema schema, List<GenericRecord> data, VectorSchemaRoot root) {
+  protected void checkNestedRecordResult(
+      Schema schema, List<GenericRecord> data, VectorSchemaRoot root) {
     assertEquals(data.size(), root.getRowCount());
     assertTrue(schema.getFields().size() == 1);
 
@@ -176,9 +177,7 @@ public class AvroTestBase {
 
       checkPrimitiveResult(fieldData, structVector.getChildrenFromFields().get(i));
     }
-
   }
-
 
   // belows are for iterator api
 
@@ -194,10 +193,12 @@ public class AvroTestBase {
     }
   }
 
-  protected void checkRecordResult(Schema schema, ArrayList<GenericRecord> data, List<VectorSchemaRoot> roots) {
-    roots.forEach(root -> {
-      assertEquals(schema.getFields().size(), root.getFieldVectors().size());
-    });
+  protected void checkRecordResult(
+      Schema schema, List<GenericRecord> data, List<VectorSchemaRoot> roots) {
+    roots.forEach(
+        root -> {
+          assertEquals(schema.getFields().size(), root.getFieldVectors().size());
+        });
 
     for (int i = 0; i < schema.getFields().size(); i++) {
       List fieldData = new ArrayList();
@@ -210,7 +211,6 @@ public class AvroTestBase {
 
       checkPrimitiveResult(fieldData, vectors);
     }
-
   }
 
   protected void checkPrimitiveResult(List data, List<FieldVector> vectors) {

@@ -61,6 +61,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         shared_ptr[CFileSystem] shared_from_this()
         c_string type_name() const
         CResult[c_string] NormalizePath(c_string path)
+        CResult[c_string] MakeUri(c_string path)
         CResult[CFileInfo] GetFileInfo(const c_string& path)
         CResult[vector[CFileInfo]] GetFileInfo(
             const vector[c_string]& paths)
@@ -85,6 +86,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_bool Equals(shared_ptr[CFileSystem] other)
 
     CResult[shared_ptr[CFileSystem]] CFileSystemFromUri \
+        "arrow::fs::FileSystemFromUri"(const c_string& uri)
+    CResult[shared_ptr[CFileSystem]] CFileSystemFromUri \
         "arrow::fs::FileSystemFromUri"(const c_string& uri, c_string* out_path)
     CResult[shared_ptr[CFileSystem]] CFileSystemFromUriOrPath \
         "arrow::fs::FileSystemFromUriOrPath"(const c_string& uri,
@@ -97,19 +100,6 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     CStatus CFileSystemsInitialize "arrow::fs::Initialize" \
         (const CFileSystemGlobalOptions& options)
-
-    cdef cppclass CLocalFileSystemOptions "arrow::fs::LocalFileSystemOptions":
-        c_bool use_mmap
-
-        @staticmethod
-        CLocalFileSystemOptions Defaults()
-
-        c_bool Equals(const CLocalFileSystemOptions& other)
-
-    cdef cppclass CLocalFileSystem "arrow::fs::LocalFileSystem"(CFileSystem):
-        CLocalFileSystem()
-        CLocalFileSystem(CLocalFileSystemOptions)
-        CLocalFileSystemOptions options()
 
     cdef cppclass CSubTreeFileSystem \
             "arrow::fs::SubTreeFileSystem"(CFileSystem):
@@ -167,6 +157,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_bool background_writes
         c_bool allow_bucket_creation
         c_bool allow_bucket_deletion
+        c_bool check_directory_existence_before_creation
         c_bool force_virtual_addressing
         shared_ptr[const CKeyValueMetadata] default_metadata
         c_string role_arn

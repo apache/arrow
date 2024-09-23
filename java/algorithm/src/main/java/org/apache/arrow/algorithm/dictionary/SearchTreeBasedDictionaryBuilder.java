@@ -14,45 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.dictionary;
 
 import java.util.TreeSet;
-
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.vector.ValueVector;
 
 /**
- * This class builds the dictionary based on a binary search tree.
- * Each add operation can be finished in O(log(n)) time,
- * where n is the current dictionary size.
+ * This class builds the dictionary based on a binary search tree. Each add operation can be
+ * finished in O(log(n)) time, where n is the current dictionary size.
  *
  * @param <V> the dictionary vector type.
  */
-public class SearchTreeBasedDictionaryBuilder<V extends ValueVector> implements DictionaryBuilder<V> {
+public class SearchTreeBasedDictionaryBuilder<V extends ValueVector>
+    implements DictionaryBuilder<V> {
 
-  /**
-   * The dictionary to be built.
-   */
+  /** The dictionary to be built. */
   private final V dictionary;
 
-  /**
-   * The criteria for sorting in the search tree.
-   */
+  /** The criteria for sorting in the search tree. */
   protected final VectorValueComparator<V> comparator;
 
-  /**
-   * If null should be encoded.
-   */
+  /** If null should be encoded. */
   private final boolean encodeNull;
 
-  /**
-   * The search tree for storing the value index.
-   */
+  /** The search tree for storing the value index. */
   private TreeSet<Integer> searchTree;
 
   /**
    * Construct a search tree-based dictionary builder.
+   *
    * @param dictionary the dictionary vector.
    * @param comparator the criteria for value equality.
    */
@@ -62,11 +53,13 @@ public class SearchTreeBasedDictionaryBuilder<V extends ValueVector> implements 
 
   /**
    * Construct a search tree-based dictionary builder.
+   *
    * @param dictionary the dictionary vector.
    * @param comparator the criteria for value equality.
    * @param encodeNull if null values should be added to the dictionary.
    */
-  public SearchTreeBasedDictionaryBuilder(V dictionary, VectorValueComparator<V> comparator, boolean encodeNull) {
+  public SearchTreeBasedDictionaryBuilder(
+      V dictionary, VectorValueComparator<V> comparator, boolean encodeNull) {
     this.dictionary = dictionary;
     this.comparator = comparator;
     this.encodeNull = encodeNull;
@@ -76,11 +69,10 @@ public class SearchTreeBasedDictionaryBuilder<V extends ValueVector> implements 
   }
 
   /**
-   * Gets the dictionary built.
-   * Please note that the dictionary is not in sorted order.
-   * Instead, its order is determined by the order of element insertion.
-   * To get the dictionary in sorted order, please use
-   * {@link SearchTreeBasedDictionaryBuilder#populateSortedDictionary(ValueVector)}.
+   * Gets the dictionary built. Please note that the dictionary is not in sorted order. Instead, its
+   * order is determined by the order of element insertion. To get the dictionary in sorted order,
+   * please use {@link SearchTreeBasedDictionaryBuilder#populateSortedDictionary(ValueVector)}.
+   *
    * @return the dictionary.
    */
   @Override
@@ -90,6 +82,7 @@ public class SearchTreeBasedDictionaryBuilder<V extends ValueVector> implements 
 
   /**
    * Try to add all values from the target vector to the dictionary.
+   *
    * @param targetVector the target vector containing values to probe.
    * @return the number of values actually added to the dictionary.
    */
@@ -107,6 +100,7 @@ public class SearchTreeBasedDictionaryBuilder<V extends ValueVector> implements 
 
   /**
    * Try to add an element from the target vector to the dictionary.
+   *
    * @param targetVector the target vector containing new element.
    * @param targetIndex the index of the new element in the target vector.
    * @return the index of the new element in the dictionary.
@@ -132,8 +126,8 @@ public class SearchTreeBasedDictionaryBuilder<V extends ValueVector> implements 
   }
 
   /**
-   * Gets the sorted dictionary.
-   * Note that given the binary search tree, the sort can finish in O(n).
+   * Gets the sorted dictionary. Note that given the binary search tree, the sort can finish in
+   * O(n).
    */
   public void populateSortedDictionary(V sortedDictionary) {
     int idx = 0;

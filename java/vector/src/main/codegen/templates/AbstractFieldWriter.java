@@ -68,6 +68,16 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
 
   @Override
+  public void startListView() {
+    throw new IllegalStateException(String.format("You tried to start a list view when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
+  }
+
+  @Override
+  public void endListView() {
+    throw new IllegalStateException(String.format("You tried to end a list view when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
+  }
+
+  @Override
   public void startMap() {
     throw new IllegalStateException(String.format("You tried to start a map when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
   }
@@ -185,6 +195,12 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
 
   @Override
+  public ListWriter listView() {
+    fail("ListView");
+    return null;
+  }
+
+  @Override
   public MapWriter map() {
     fail("Map");
     return null;
@@ -199,6 +215,12 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   @Override
   public ListWriter list(String name) {
     fail("List");
+    return null;
+  }
+
+  @Override
+  public ListWriter listView(String name) {
+    fail("ListView");
     return null;
   }
 

@@ -114,6 +114,9 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Note: This  must be true in order for any readahead to happen
   bool use_threads = false;
 
+  /// If true the scanner will add augmented fields to the output schema.
+  bool add_augmented_fields = true;
+
   /// Fragment-specific scan options.
   std::shared_ptr<FragmentScanOptions> fragment_scan_options;
 
@@ -287,10 +290,12 @@ struct ARROW_DS_EXPORT ProjectionDescr {
 
   /// \brief Create a default projection referencing fields in the dataset schema
   static Result<ProjectionDescr> FromNames(std::vector<std::string> names,
-                                           const Schema& dataset_schema);
+                                           const Schema& dataset_schema,
+                                           bool add_augmented_fields = true);
 
   /// \brief Make a projection that projects every field in the dataset schema
-  static Result<ProjectionDescr> Default(const Schema& dataset_schema);
+  static Result<ProjectionDescr> Default(const Schema& dataset_schema,
+                                         bool add_augmented_fields = true);
 };
 
 /// \brief Utility method to set the projection expression and schema

@@ -17,11 +17,25 @@
 
 FROM centos:centos7
 
+# Update mirrors to use vault.centos.org as CentOS 7
+# is EOL since 2024-06-30
+RUN sed -i \
+      -e 's/^mirrorlist/#mirrorlist/' \
+      -e 's/^#baseurl/baseurl/' \
+      -e 's/mirror\.centos\.org/vault.centos.org/' \
+      /etc/yum.repos.d/*.repo
+
 # devtoolset is required for C++17
 RUN \
   yum install -y \
     centos-release-scl \
     epel-release && \
+  sed -i \
+    -e 's/^mirrorlist/#mirrorlist/' \
+    -e 's/^#baseurl/baseurl/' \
+    -e 's/^# baseurl/baseurl/' \
+    -e 's/mirror\.centos\.org/vault.centos.org/' \
+    /etc/yum.repos.d/CentOS-SCLo-scl*.repo && \
   yum install -y \
     cmake3 \
     curl \
