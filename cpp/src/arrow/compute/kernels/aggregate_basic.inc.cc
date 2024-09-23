@@ -96,10 +96,12 @@ struct SumImpl : public ScalarAggregator {
     std::shared_ptr<DataType> out_type_;
     if (out_type->id() == Type::DECIMAL128) {
       auto cast_type = checked_cast<Decimal128Type>(out_type);
-      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal128Type::Make(Decimal128Type::kMaxPrecision, cast_type->scale()));
+      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal128Type::Make(Decimal128Type::kMaxPrecision,
+                                                            cast_type->scale()));
     } else if (out_type->id() == Type::DECIMAL256) {
       auto cast_type = checked_cast<Decimal256Type>(out_type);
-      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal256Type::Make(Decimal256Type::kMaxPrecision, cast_type->scale()));
+      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal256Type::Make(Decimal256Type::kMaxPrecision,
+                                                            cast_type->scale()));
     } else {
       out_type_ = out_type;
     }
@@ -234,9 +236,11 @@ struct MeanImpl<ArrowType, SimdLevel, enable_if_decimal<ArrowType>>
     std::shared_ptr<DataType> out_type_;
     auto decimal_type = checked_cast<DecimalType>(this->out_type);
     if (decimal_type->id() == Type::DECIMAL128) {
-      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal128Type::Make(Decimal128Type::kMaxPrecision, decimal_type->scale()));
+      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal128Type::Make(Decimal128Type::kMaxPrecision,
+                                                            decimal_type->scale()));
     } else {
-      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal256Type::Make(Decimal256Type::kMaxPrecision, decimal_type->scale()));
+      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal256Type::Make(Decimal256Type::kMaxPrecision,
+                                                            decimal_type->scale()));
     }
 
     if ((!options.skip_nulls && this->nulls_observed) ||
