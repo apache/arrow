@@ -84,14 +84,8 @@ class S3Environment : public ::testing::Environment {
   // condition accessing environment variables.
   S3Environment() : ec2_metadata_disabled_guard_("AWS_EC2_METADATA_DISABLED", "true") {}
 
-  void SetUp() override {
-    // Change this to increase logging during tests
-    S3GlobalOptions options;
-    options.log_level = S3LogLevel::Fatal;
-    ASSERT_OK(InitializeS3(options));
-  }
-
-  void TearDown() override { ASSERT_OK(FinalizeS3()); }
+  void SetUp() override;
+  void TearDown() override;
 
  private:
   EnvVarGuard ec2_metadata_disabled_guard_;
