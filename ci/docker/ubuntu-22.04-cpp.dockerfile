@@ -69,6 +69,7 @@ RUN apt-get update -y -q && \
         ca-certificates \
         ccache \
         ceph \
+        ceph-mds \
         cmake \
         curl \
         gdb \
