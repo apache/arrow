@@ -86,15 +86,14 @@ pushd ${build_dir}
 if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then
   export PYTHON="${PYTHON:-python3}"
 fi
-# ctest \
-#     --label-regex unittest \
-#     --output-on-failure \
-#     --parallel ${n_jobs} \
-#     --repeat until-pass:3 \
-#     --timeout ${ARROW_CTEST_TIMEOUT:-300} \
-#     "${ctest_options[@]}" \
-#     "$@"
-${binary_output_dir}/arrow-s3fs-test
+ctest \
+    --label-regex unittest \
+    --output-on-failure \
+    --parallel ${n_jobs} \
+    --repeat until-pass:3 \
+    --timeout ${ARROW_CTEST_TIMEOUT:-300} \
+    "${ctest_options[@]}" \
+    "$@"
 
 if [ "${ARROW_BUILD_EXAMPLES}" == "ON" ]; then
     examples=$(find ${binary_output_dir} -executable -name "*example")
