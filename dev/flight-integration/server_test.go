@@ -24,6 +24,7 @@ import (
 	integration "github.com/apache/arrow/dev/flight-integration"
 	"github.com/apache/arrow/dev/flight-integration/scenario"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -38,7 +39,7 @@ func TestIntegrationClientAndServer(t *testing.T) {
 	scenarios, err := scenario.GetScenarios()
 	require.NoError(t, err)
 
-	srv := integration.NewIntegrationServer(scenarios...)
+	srv, shutdown := integration.NewIntegrationServer(scenarios...)
 	require.NoError(t, err)
 
 	go srv.Serve(lis)
@@ -53,5 +54,6 @@ func TestIntegrationClientAndServer(t *testing.T) {
 	}
 
 	runner := scenario.NewRunner(scenarios)
-	require.NoError(t, runner.RunScenarios(dialer))
+	assert.NoError(t, runner.RunScenarios(dialer))
+	assert.NoError(t, shutdown())
 }

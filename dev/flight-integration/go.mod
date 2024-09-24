@@ -21,6 +21,7 @@ go 1.22.3
 require (
 	github.com/google/flatbuffers v24.3.25+incompatible
 	github.com/stretchr/testify v1.9.0
+	golang.org/x/sync v0.8.0
 	google.golang.org/grpc v1.66.2
 	google.golang.org/protobuf v1.34.2
 )

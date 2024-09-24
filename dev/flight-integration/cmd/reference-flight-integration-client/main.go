@@ -19,7 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	"os"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -42,7 +42,7 @@ func main() {
 
 	scenarios, err := scenario.GetScenarios(scenarioNames...)
 	if err != nil {
-		log.Fatal(err)
+		fail(err)
 	}
 
 	dialServer := func() (conn *grpc.ClientConn, err error) {
@@ -51,6 +51,11 @@ func main() {
 
 	runner := scenario.NewRunner(scenarios)
 	if err := runner.RunScenarios(dialServer); err != nil {
-		log.Fatal(err)
+		fail(err)
 	}
+}
+
+func fail(err error) {
+	fmt.Fprintln(os.Stderr, err)
+	os.Exit(1)
 }

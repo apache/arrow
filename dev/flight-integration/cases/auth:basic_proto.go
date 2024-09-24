@@ -47,7 +47,7 @@ func init() {
 					Name: "unauthenticated_action",
 					ServerHandler: scenario.Handler{DoAction: func(a *flight.Action, fs flight.FlightService_DoActionServer) error {
 						md, ok := metadata.FromIncomingContext(fs.Context())
-						if ok && len(md.Get(authHeader)) > 0 {
+						if ok && len(md.Get(authHeader)) > 0 && md.Get(authHeader)[0] != "" {
 							return fmt.Errorf("expected not to find auth header for unauthenticated action")
 						}
 

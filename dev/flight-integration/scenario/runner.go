@@ -74,10 +74,25 @@ func (r *ScenarioRunner) RunScenarios(newConnFn func() (conn *grpc.ClientConn, e
 	}
 
 	if len(r.results) > 0 {
-		err = fmt.Errorf("client-side errors:\n%v", r.results)
+		err = fmt.Errorf(renderResults(r.results))
 	}
 
 	return err
+}
+
+func renderResults(results map[string]error) string {
+	var bldr strings.Builder
+
+	header := "Flight Reference Implementation Client Failure"
+	fmt.Fprintln(&bldr, header)
+	fmt.Fprintln(&bldr, strings.Repeat("-", len(header)))
+
+	for scenarioName, err := range results {
+		fmt.Fprintf(&bldr, "Scenario Name: %s\n", scenarioName)
+		fmt.Fprintf(&bldr, "Details:%s", err)
+	}
+
+	return bldr.String()
 }
 
 func processErrors(errs []error) error {

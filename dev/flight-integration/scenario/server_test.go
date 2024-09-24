@@ -86,7 +86,7 @@ func TestServer(t *testing.T) {
 }
 
 func (s *ServerSuite) TestSingleScenario() {
-	srv := integration.NewIntegrationServer(
+	srv, shutdown := integration.NewIntegrationServer(
 		scenario.Scenario{
 			Name: "mock_scenario",
 			Steps: []scenario.ScenarioStep{
@@ -109,10 +109,12 @@ func (s *ServerSuite) TestSingleScenario() {
 	info, err := client.GetFlightInfo(s.ctx, &desc)
 	s.Require().NoError(err)
 	s.Assert().True(proto.Equal(&desc, info.FlightDescriptor))
+
+	s.Require().NoError(shutdown())
 }
 
 func (s *ServerSuite) TestMultipleScenariosNoDisconnect() {
-	srv := integration.NewIntegrationServer(
+	srv, shutdown := integration.NewIntegrationServer(
 		scenario.Scenario{
 			Name: "mock_scenario1",
 			Steps: []scenario.ScenarioStep{
@@ -168,10 +170,13 @@ func (s *ServerSuite) TestMultipleScenariosNoDisconnect() {
 	// expect failure because the same client conn is in-use, signalling the client is still on the same scenario.
 	_, err = client.GetFlightInfo(s.ctx, &desc)
 	s.Require().ErrorContains(err, "expected previous client to disconnect before starting new scenario")
+
+	// expect server to report the scenario that had not completed
+	s.Require().ErrorContains(shutdown(), "mock_scenario2/step_one")
 }
 
 func (s *ServerSuite) TestMultipleScenariosWithDisconnect() {
-	srv := integration.NewIntegrationServer(
+	srv, shutdown := integration.NewIntegrationServer(
 		scenario.Scenario{
 			Name: "mock_scenario1",
 			Steps: []scenario.ScenarioStep{
@@ -225,10 +230,12 @@ func (s *ServerSuite) TestMultipleScenariosWithDisconnect() {
 	// mock_scenario2, step_one
 	_, err = client.GetFlightInfo(s.ctx, &desc)
 	s.Require().NoError(err)
+
+	s.Require().NoError(shutdown())
 }
 
 func (s *ServerSuite) TestMultipleScenariosWithError() {
-	srv := integration.NewIntegrationServer(
+	srv, shutdown := integration.NewIntegrationServer(
 		scenario.Scenario{
 			Name: "mock_scenario1",
 			Steps: []scenario.ScenarioStep{
@@ -282,4 +289,7 @@ func (s *ServerSuite) TestMultipleScenariosWithError() {
 	// expect server to skip to mock_scenario2
 	_, err = client.GetFlightInfo(s.ctx, &desc)
 	s.Require().NoError(err)
+
+	// expect server to report the scenario that was skipped
+	s.Require().ErrorContains(shutdown(), "mock_scenario1/step_two")
 }

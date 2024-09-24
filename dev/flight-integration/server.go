@@ -23,11 +23,11 @@ import (
 	"google.golang.org/grpc"
 )
 
-func NewIntegrationServer(scenarios ...scenario.Scenario) *grpc.Server {
-	server := scenario.NewServer(scenarios)
+func NewIntegrationServer(scenarios ...scenario.Scenario) (*grpc.Server, func() error) {
+	server, shutdown := scenario.NewServer(scenarios)
 
 	srv := grpc.NewServer(grpc.StatsHandler(server))
 	flight.RegisterFlightServiceServer(srv, server)
 
-	return srv
+	return srv, shutdown
 }

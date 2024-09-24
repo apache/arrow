@@ -19,11 +19,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	integration "github.com/apache/arrow/dev/flight-integration"
+	"golang.org/x/sync/errgroup"
 
 	_ "github.com/apache/arrow/dev/flight-integration/cases"
 	"github.com/apache/arrow/dev/flight-integration/scenario"
@@ -40,18 +43,38 @@ func main() {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
-		log.Fatalf("failed to listen on port %d: %v", *port, err)
+		fail(fmt.Errorf("failed to listen on port %d: %v", *port, err))
 	}
 
 	scenarios, err := scenario.GetScenarios(scenarioNames...)
 	if err != nil {
-		log.Fatal(err)
+		fail(err)
 	}
 
-	srv := integration.NewIntegrationServer(scenarios...)
+	srv, shutdown := integration.NewIntegrationServer(scenarios...)
 
-	log.Printf("server listening at %v", lis.Addr())
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	var g errgroup.Group
+	g.Go(func() error {
+		defer srv.GracefulStop()
+		<-sigCh
+		return shutdown()
+	})
+
+	_, p, _ := net.SplitHostPort(lis.Addr().String())
+	fmt.Printf("Server listening on localhost:%s\n", p)
 	if err := srv.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		fail(fmt.Errorf("failed to serve: %v", err))
 	}
+
+	if err := g.Wait(); err != nil {
+		fail(err)
+	}
+}
+
+func fail(err error) {
+	fmt.Fprintln(os.Stderr, err)
+	os.Exit(1)
 }

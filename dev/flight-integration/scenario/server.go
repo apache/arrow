@@ -32,7 +32,7 @@ var (
 	msgExpectedClientDisconnect = "expected previous client to disconnect before starting new scenario"
 )
 
-func NewServer(scenarios []Scenario) *scenarioServer {
+func NewServer(scenarios []Scenario) (*scenarioServer, func() error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	server := scenarioServer{
 		scenarios:     scenarios,
@@ -45,7 +45,7 @@ func NewServer(scenarios []Scenario) *scenarioServer {
 	server.serverReadyCh <- struct{}{}
 	go server.runClientConnWatcher()
 
-	return &server
+	return &server, server.handleShutdown
 }
 
 type scenarioServer struct {
@@ -81,6 +81,18 @@ func (s *scenarioServer) runClientConnWatcher() {
 			return
 		}
 	}
+}
+
+func (s *scenarioServer) handleShutdown() error {
+	for !s.done {
+		s.FinishScenario()
+	}
+
+	if len(s.incompleteScenarios) > 0 {
+		return fmt.Errorf("server execution was interrupted for the following scenario steps: [ %s ]", strings.Join(s.incompleteScenarios, ", "))
+	}
+
+	return nil
 }
 
 func (s *scenarioServer) CurrentScenario() (Scenario, error) {
@@ -139,11 +151,6 @@ func (s *scenarioServer) FinishScenario() {
 	if s.curScenario == len(s.scenarios) {
 		s.done = true
 		s.cancel()
-
-		log.Println("All scenarios completed")
-		if len(s.incompleteScenarios) > 0 {
-			log.Printf("Execution did not complete for the following scenario/steps: [ %s ]\n", strings.Join(s.incompleteScenarios, ", "))
-		}
 	}
 }
 
@@ -306,10 +313,8 @@ func (s *scenarioServer) PollFlightInfo(ctx context.Context, desc *flight.Flight
 func (s *scenarioServer) HandleConn(ctx context.Context, connStats stats.ConnStats) {
 	switch connStats.(type) {
 	case *stats.ConnBegin:
-		log.Println("Begin conn")
 		select {
 		case <-s.serverReadyCh:
-			log.Println("conn acquired")
 		case <-s.ctx.Done():
 			log.Fatal("invalid state: all scenarios completed, server not accepting new connections")
 		default:
@@ -317,10 +322,8 @@ func (s *scenarioServer) HandleConn(ctx context.Context, connStats stats.ConnSta
 		}
 
 	case *stats.ConnEnd:
-		log.Println("End conn")
 		select {
 		case s.clientDoneCh <- struct{}{}:
-			log.Println("conn restored")
 		default:
 			log.Fatal("invalid state: server recieved multiple disconnects but only supports one client")
 		}
