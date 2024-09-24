@@ -1218,6 +1218,7 @@ add_arrow_test(sparse_tensor_test)
 add_arrow_test(stl_test SOURCES stl_iterator_test.cc stl_test.cc)
 
 add_arrow_benchmark(builder_benchmark)
+add_arrow_benchmark(chunk_resolver_benchmark)
 add_arrow_benchmark(compare_benchmark)
 add_arrow_benchmark(memory_pool_benchmark)
 add_arrow_benchmark(type_benchmark)
