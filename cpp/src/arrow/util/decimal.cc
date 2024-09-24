@@ -753,23 +753,6 @@ std::string Decimal128::ToString(int32_t scale) const {
   return str;
 }
 
-static inline void ShiftAndAdd(std::string_view input, uint32_t* out) {
-  const uint32_t len =
-      static_cast<uint32_t>(std::min(kInt32DecimalDigits + 1, input.size()));
-  if (len == 0) {
-    return;
-  }
-
-  uint32_t value = 0;
-  ARROW_CHECK(internal::ParseValue<UInt32Type>(input.data(), len, &value));
-
-  uint64_t tmp = *out;
-  tmp *= kUInt32PowersOfTen[len];
-  tmp += value;
-
-  *out = static_cast<uint32_t>(tmp & 0xFFFFFFFFU);
-}
-
 // Iterates over input and for each group of kInt64DecimalDigits multiple out by
 // the appropriate power of 10 necessary to add source parsed as uint64 and
 // then adds the parsed value of source.
@@ -976,34 +959,17 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
   }
 
   if (out != nullptr) {
-    if constexpr (std::is_same_v<Decimal32, DecimalClass>) {
-      uint32_t value{0};
-      ShiftAndAdd(dec.whole_digits, &value);
-      ShiftAndAdd(dec.fractional_digits, &value);
-      if (value > static_cast<uint32_t>(
-                      std::numeric_limits<typename DecimalClass::ValueType>::max())) {
-        return Status::Invalid("The string '", s, "' cannot be represented as ",
-                               type_name);
-      }
+    uint64_t value{0};
+    ShiftAndAdd(dec.whole_digits, &value, 1);
+    ShiftAndAdd(dec.fractional_digits, &value, 1);
+    if (value > static_cast<uint64_t>(
+                    std::numeric_limits<typename DecimalClass::ValueType>::max())) {
+      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
+    }
 
-      *out = DecimalClass(value);
-      if (dec.sign == '-') {
-        out->Negate();
-      }
-    } else {
-      uint64_t value{0};
-      ShiftAndAdd(dec.whole_digits, &value, 1);
-      ShiftAndAdd(dec.fractional_digits, &value, 1);
-      if (value > static_cast<uint64_t>(
-                      std::numeric_limits<typename DecimalClass::ValueType>::max())) {
-        return Status::Invalid("The string '", s, "' cannot be represented as ",
-                               type_name);
-      }
-
-      *out = DecimalClass(value);
-      if (dec.sign == '-') {
-        out->Negate();
-      }
+    *out = DecimalClass(value);
+    if (dec.sign == '-') {
+      out->Negate();
     }
   }
 

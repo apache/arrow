@@ -1421,27 +1421,23 @@ TYPED_TEST(TestBasicDecimalFunctionality, TestFromBigEndianBadLength) {
 }
 
 TYPED_TEST(TestBasicDecimalFunctionality, TestToInteger) {
-  if constexpr (std::is_same_v<TypeParam, Decimal256>) {
-    GTEST_SKIP();  // Decimal256 doesn't have ToInteger
-  } else {
-    TypeParam value1("1234");
-    int32_t out1;
+  TypeParam value1("1234");
+  int32_t out1;
 
-    TypeParam value2("-1234");
-    int64_t out2;
+  TypeParam value2("-1234");
+  int64_t out2;
 
-    ASSERT_OK(value1.ToInteger(&out1));
-    ASSERT_EQ(1234, out1);
+  ASSERT_OK(value1.ToInteger(&out1));
+  ASSERT_EQ(1234, out1);
 
-    ASSERT_OK(value1.ToInteger(&out2));
-    ASSERT_EQ(1234, out2);
+  ASSERT_OK(value1.ToInteger(&out2));
+  ASSERT_EQ(1234, out2);
 
-    ASSERT_OK(value2.ToInteger(&out1));
-    ASSERT_EQ(-1234, out1);
+  ASSERT_OK(value2.ToInteger(&out1));
+  ASSERT_EQ(-1234, out1);
 
-    ASSERT_OK(value2.ToInteger(&out2));
-    ASSERT_EQ(-1234, out2);
-  }
+  ASSERT_OK(value2.ToInteger(&out2));
+  ASSERT_EQ(-1234, out2);
 }
 
 template <typename ArrowType, typename CType = typename ArrowType::c_type>
