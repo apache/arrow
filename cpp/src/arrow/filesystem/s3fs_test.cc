@@ -375,6 +375,10 @@ TEST_F(S3RegionResolutionTest, RestrictedBucket) {
 }
 
 TEST_F(S3RegionResolutionTest, NonExistentBucket) {
+#if defined(__APPLE__)
+  // See investigation in GH-40410
+  GTEST_SKIP() << "This test can hang on macOS CI";
+#endif
   auto maybe_region = ResolveS3BucketRegion("ursa-labs-nonexistent-bucket");
   ASSERT_RAISES(IOError, maybe_region);
   ASSERT_THAT(maybe_region.status().message(),
