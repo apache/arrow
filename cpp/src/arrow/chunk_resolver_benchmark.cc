@@ -95,8 +95,6 @@ struct ResolveManyBenchmark {
       all_succeeded &= success;
     }
     ARROW_CHECK(all_succeeded);
-    state.counters["logical_len"] = static_cast<double>(chunked_array_length);
-    state.counters["num_chunks"] = static_cast<double>(num_chunks);
     state.SetItemsProcessed(state.iterations() * num_logical_indices);
   }
 };
@@ -106,6 +104,8 @@ void ResolveManySetArgs(benchmark::internal::Benchmark* bench) {
   constexpr int32_t kNonAligned = 3;
   const int64_t kNumIndicesFew = (kChunkedArrayLength >> 7) - kNonAligned;
   const int64_t kNumIndicesMany = (kChunkedArrayLength >> 1) - kNonAligned;
+
+  bench->ArgNames({"chunked_array_length", "num_chunks", "num_indices"});
 
   switch (sizeof(IndexType)) {
     case 1:
