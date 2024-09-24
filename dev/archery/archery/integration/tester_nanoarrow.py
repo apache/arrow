@@ -57,7 +57,7 @@ class NanoarrowTester(Tester):
             'COMMAND': command,
             **{
                 f'QUIRK_{q}': "1"
-                for q in quirks or ""
+                for q in quirks or ()
             },
         }
 
