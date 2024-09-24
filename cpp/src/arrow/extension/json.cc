@@ -57,7 +57,7 @@ Result<std::shared_ptr<DataType>> JsonExtensionType::Make(
   return std::make_shared<JsonExtensionType>(storage_type);
 }
 
-std::shared_ptr<DataType> json(const std::shared_ptr<DataType>& storage_type) {
+std::shared_ptr<DataType> json(std::shared_ptr<DataType> storage_type) {
   return JsonExtensionType::Make(storage_type).ValueOrDie();
 }
 

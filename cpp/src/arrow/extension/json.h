@@ -53,6 +53,6 @@ class ARROW_EXPORT JsonExtensionType : public ExtensionType {
 
 /// \brief Return a JsonExtensionType instance.
 ARROW_EXPORT std::shared_ptr<DataType> json(
-    const std::shared_ptr<DataType>& storage_type = utf8());
+    std::shared_ptr<DataType> storage_type = utf8());
 
 }  // namespace arrow::extension
