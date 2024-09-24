@@ -45,12 +45,14 @@ class ARROW_EXPORT JsonExtensionType : public ExtensionType {
 
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
+  static Result<std::shared_ptr<DataType>> Make(const std::shared_ptr<DataType>& storage_type);
+
  private:
   std::shared_ptr<DataType> storage_type_;
 };
 
 /// \brief Return a JsonExtensionType instance.
 ARROW_EXPORT std::shared_ptr<DataType> json(
-    std::shared_ptr<DataType> storage_type = utf8());
+    const std::shared_ptr<DataType>& storage_type = utf8());
 
 }  // namespace arrow::extension
