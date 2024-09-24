@@ -1032,10 +1032,10 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   } else {
     batch_gen = std::move(merged_batch_gen);
   }
-
+  int64_t index=require_sequenced_output?0:compute::kUnsequencedIndex;
   auto gen = MakeMappedGenerator(
       std::move(batch_gen),
-      [scan_options](const EnumeratedRecordBatch& partial)
+      [scan_options, index](const EnumeratedRecordBatch& partial)mutable
           -> Result<std::optional<compute::ExecBatch>> {
         // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
         // than this, for example parquet's row group stats. Failing to do this leaves
@@ -1057,6 +1057,8 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
         batch->values.emplace_back(partial.record_batch.index);
         batch->values.emplace_back(partial.record_batch.last);
         batch->values.emplace_back(partial.fragment.value->ToString());
+        		if (index!=compute::kUnsequencedIndex)
+			          batch->index = index++;
         return batch;
       });
 

@@ -563,7 +563,7 @@ class ARROW_DS_EXPORT ScanNodeOptions : public acero::ExecNodeOptions {
  public:
   explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
                            std::shared_ptr<ScanOptions> scan_options,
-                           bool require_sequenced_output = false)
+                           bool require_sequenced_output = true)
       : dataset(std::move(dataset)),
         scan_options(std::move(scan_options)),
         require_sequenced_output(require_sequenced_output) {}
