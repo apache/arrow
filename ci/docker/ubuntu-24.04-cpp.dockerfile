@@ -68,6 +68,7 @@ RUN apt-get update -y -q && \
         autoconf \
         ca-certificates \
         ccache \
+        ceph \
         cmake \
         curl \
         gdb \

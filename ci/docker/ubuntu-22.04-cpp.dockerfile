@@ -68,6 +68,7 @@ RUN apt-get update -y -q && \
         bzip2 \
         ca-certificates \
         ccache \
+        ceph \
         cmake \
         curl \
         gdb \
