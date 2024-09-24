@@ -792,7 +792,7 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
         ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
     auto arrow_schema = ::arrow::schema(
         {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
-         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::utf8()),
                         true)});
 
     std::shared_ptr<KeyValueMetadata> metadata;
@@ -810,7 +810,7 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
         ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
     auto arrow_schema = ::arrow::schema(
         {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
-         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::utf8()),
                         true)});
 
     std::shared_ptr<KeyValueMetadata> metadata;
