@@ -116,6 +116,9 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
       return OverflowError(real, precision, scale);
     }
 
+    // The algorithm below requires the destination decimal type
+    // to be strictly more precise than the source float type
+    // (see `kSafeMulByTenTo` calculation).
     if constexpr (kMaxPrecision <= kMantissaDigits) {
       return Derived::FromPositiveRealApprox(real, precision, scale);
     }
