@@ -367,11 +367,11 @@ struct ProductImpl : public ScalarAggregator {
   Status Finalize(KernelContext*, Datum* out) override {
     std::shared_ptr<DataType> out_type_;
     if (out_type->id() == Type::DECIMAL128) {
-      auto cast_type = checked_cast<Decimal128Type>(out_type);
+      auto cast_type = checked_pointer_cast<Decimal128Type>(this->out_type);
       ARROW_ASSIGN_OR_RAISE(out_type_, Decimal128Type::Make(Decimal128Type::kMaxPrecision,
                                                             cast_type->scale()));
     } else if (out_type->id() == Type::DECIMAL256) {
-      auto cast_type = checked_cast<Decimal256Type>(out_type);
+      auto cast_type = checked_pointer_cast<Decimal256Type>(this->out_type);
       ARROW_ASSIGN_OR_RAISE(out_type_, Decimal256Type::Make(Decimal256Type::kMaxPrecision,
                                                             cast_type->scale()));
     } else {
