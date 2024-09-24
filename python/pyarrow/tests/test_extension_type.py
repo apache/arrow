@@ -1973,3 +1973,10 @@ def test_json(storage_type, pickle_module):
     # cast extension type -> storage type
     inner = array.cast(storage_type)
     assert inner == storage
+
+    for storage_type in (pa.int32(), pa.large_binary(), pa.float32()):
+        with pytest.raises(
+                pa.ArrowInvalid,
+                match="Invalid storage type for JsonExtensionType: " +
+                      str(storage_type)):
+            pa.json_(storage_type)
