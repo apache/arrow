@@ -4,3 +4,6 @@
 [submodule "testing"]
 	path = testing
 	url = https://github.com/apache/arrow-testing
+[submodule "csharp/tools/gir.core"]
+	path = csharp/tools/gir.core
+	url = https://github.com/gircore/gir.core.git

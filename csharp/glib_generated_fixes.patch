@@ -1,0 +1,2285 @@
+diff --git a/csharp/src/Apache.Arrow.Dataset.GLibBindings-1.0/Public/DatasetFactory.Methods.Generated.cs b/csharp/src/Apache.Arrow.Dataset.GLibBindings-1.0/Public/DatasetFactory.Methods.Generated.cs
+index dfaac7a27..6068d4530 100644
+--- a/csharp/src/Apache.Arrow.Dataset.GLibBindings-1.0/Public/DatasetFactory.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.Dataset.GLibBindings-1.0/Public/DatasetFactory.Methods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class DatasetFactory
+ {
+     
+ [Version("5.0.0")]
+-public Apache.Arrow.Dataset.GLibBindings.Dataset? Finish(Apache.Arrow.Dataset.GLibBindings.FinishOptions? options)
++public virtual Apache.Arrow.Dataset.GLibBindings.Dataset? Finish(Apache.Arrow.Dataset.GLibBindings.FinishOptions? options)
+ {
+     
+     var resultFinish = Apache.Arrow.Dataset.GLibBindings.Internal.DatasetFactory.Finish(this.Handle, options?.Handle ?? IntPtr.Zero, out GLib.Internal.ErrorOwnedHandle error);
+diff --git a/csharp/src/Apache.Arrow.Dataset.GLibBindings-1.0/Public/FileSystemDatasetFactory.Methods.Generated.cs b/csharp/src/Apache.Arrow.Dataset.GLibBindings-1.0/Public/FileSystemDatasetFactory.Methods.Generated.cs
+index 809181969..6c0c5855a 100644
+--- a/csharp/src/Apache.Arrow.Dataset.GLibBindings-1.0/Public/FileSystemDatasetFactory.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.Dataset.GLibBindings-1.0/Public/FileSystemDatasetFactory.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("5.0.0")]
+-public Apache.Arrow.Dataset.GLibBindings.FileSystemDataset? Finish(Apache.Arrow.Dataset.GLibBindings.FinishOptions? options)
++public override Apache.Arrow.Dataset.GLibBindings.FileSystemDataset? Finish(Apache.Arrow.Dataset.GLibBindings.FinishOptions? options)
+ {
+     
+     var resultFinish = Apache.Arrow.Dataset.GLibBindings.Internal.FileSystemDatasetFactory.Finish(this.Handle, options?.Handle ?? IntPtr.Zero, out GLib.Internal.ErrorOwnedHandle error);
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/AggregateNodeOptions.Constructors.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/AggregateNodeOptions.Constructors.Generated.cs
+index 313ec0ef1..caa4d5ab6 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/AggregateNodeOptions.Constructors.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/AggregateNodeOptions.Constructors.Generated.cs
+@@ -16,10 +16,14 @@ public partial class AggregateNodeOptions
+ [Version("6.0.0")]
+ public static AggregateNodeOptions? New(GLib.List aggregations, string[]? keys, nuint nKeys)
+ {
+-    
++
++    if (keys == null)
++    {
++        throw new ArgumentNullException(nameof(keys));
++    }
+     var handle = Internal.AggregateNodeOptions.New(aggregations.Handle, keys, nKeys, out GLib.Internal.ErrorOwnedHandle error);
+ if(!error.IsInvalid)
+     throw new GLib.GException(error);return new AggregateNodeOptions(handle, true);
+ 
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Array.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Array.Methods.Generated.cs
+index 149cb7c38..1bb1d46bb 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Array.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Array.Methods.Generated.cs
+@@ -191,7 +191,7 @@ public Apache.Arrow.GLibBindings.DataType GetValueDataType()
+ }
+ 
+ [Version("0.3.0")]
+-public Apache.Arrow.GLibBindings.Type GetValueType()
++public virtual Apache.Arrow.GLibBindings.Type GetValueType()
+ {
+     
+     var resultGetValueType = Apache.Arrow.GLibBindings.Internal.Array.GetValueType(this.Handle);
+@@ -308,7 +308,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.4.0")]
+-public string? ToString()
++public override string? ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.Array.ToString(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -339,4 +339,4 @@ if(!error.IsInvalid)
+     
+     return GObject.Internal.ObjectWrapper.WrapNullableHandle<Apache.Arrow.GLibBindings.Array>(resultView, true);
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ArrayBuilder.Methods.Generated.cs
+index 2ce99596f..285cf83f6 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ArrayBuilder.Methods.Generated.cs
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("3.0.0")]
+-public bool AppendNull()
++public virtual bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -47,7 +47,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("3.0.0")]
+-public bool AppendNulls(long n)
++public virtual bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -169,4 +169,4 @@ if(!error.IsInvalid)
+     
+     return resultResize;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BinaryArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BinaryArrayBuilder.Methods.Generated.cs
+index 0e62571a5..2736c0cac 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BinaryArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BinaryArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.BinaryArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.16.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.BinaryArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -78,4 +78,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BinaryDictionaryArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BinaryDictionaryArrayBuilder.Methods.Generated.cs
+index 052f84e21..88385a1c0 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BinaryDictionaryArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BinaryDictionaryArrayBuilder.Methods.Generated.cs
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("2.0.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.BinaryDictionaryArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -99,4 +99,4 @@ public void ResetFull()
+     
+     
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BooleanArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BooleanArrayBuilder.Methods.Generated.cs
+index 8faba9c3a..f7fdd98c0 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BooleanArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BooleanArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.BooleanArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.BooleanArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Buffer.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Buffer.Methods.Generated.cs
+index 8dee955e5..863807750 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Buffer.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Buffer.Methods.Generated.cs
+@@ -71,7 +71,7 @@ public GLib.Bytes? GetMutableData()
+     var resultGetMutableData = Apache.Arrow.GLibBindings.Internal.Buffer.GetMutableData(this.Handle);
+ 
+     
+-    return resultGetMutableData.IsInvalid ? null : new GLib.Bytes(resultGetMutableData);;
++    return resultGetMutableData.IsInvalid ? null : new GLib.Bytes(resultGetMutableData);
+ }
+ 
+ [Version("0.3.0")]
+@@ -113,4 +113,4 @@ public Apache.Arrow.GLibBindings.Buffer Slice(long offset, long size)
+     
+     return GObject.Internal.ObjectWrapper.WrapHandle<Apache.Arrow.GLibBindings.Buffer>(resultSlice, true);
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BufferInputStream.InterfaceMethods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BufferInputStream.InterfaceMethods.Generated.cs
+index 4bdaf2beb..ba6508314 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BufferInputStream.InterfaceMethods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BufferInputStream.InterfaceMethods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class BufferInputStream
+ {
+     
+ 
+-public bool Close()
++public override bool Close()
+ {
+     
+     var resultClose = Apache.Arrow.GLibBindings.Internal.File.Close(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.FileMode GetMode()
++public override Apache.Arrow.GLibBindings.FileMode GetMode()
+ {
+     
+     var resultGetMode = Apache.Arrow.GLibBindings.Internal.File.GetMode(this.Handle);
+@@ -35,7 +35,7 @@ public Apache.Arrow.GLibBindings.FileMode GetMode()
+ }
+ 
+ [Version("0.13.0")]
+-public bool IsClosed()
++public override bool IsClosed()
+ {
+     
+     var resultIsClosed = Apache.Arrow.GLibBindings.Internal.File.IsClosed(this.Handle);
+@@ -45,7 +45,7 @@ public bool IsClosed()
+ }
+ 
+ 
+-public long Tell()
++public override long Tell()
+ {
+     
+     var resultTell = Apache.Arrow.GLibBindings.Internal.File.Tell(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -56,7 +56,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
++public override Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
+ {
+     
+     var resultRead = Apache.Arrow.GLibBindings.Internal.Readable.Read(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,13 +67,13 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.17.0")]
+-public GLib.Bytes? ReadBytes(long nBytes)
++public override GLib.Bytes? ReadBytes(long nBytes)
+ {
+     
+     var resultReadBytes = Apache.Arrow.GLibBindings.Internal.Readable.ReadBytes(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+ if(!error.IsInvalid)
+     throw new GLib.GException(error);
+     
+-    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);;
++    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);
++}
+ }
+-}
+\ No newline at end of file
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BufferOutputStream.InterfaceMethods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BufferOutputStream.InterfaceMethods.Generated.cs
+index 2668af429..c5f946fde 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BufferOutputStream.InterfaceMethods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/BufferOutputStream.InterfaceMethods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class BufferOutputStream
+ {
+     
+ 
+-public bool Close()
++public override bool Close()
+ {
+     
+     var resultClose = Apache.Arrow.GLibBindings.Internal.File.Close(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.FileMode GetMode()
++public override Apache.Arrow.GLibBindings.FileMode GetMode()
+ {
+     
+     var resultGetMode = Apache.Arrow.GLibBindings.Internal.File.GetMode(this.Handle);
+@@ -35,7 +35,7 @@ public Apache.Arrow.GLibBindings.FileMode GetMode()
+ }
+ 
+ [Version("0.13.0")]
+-public bool IsClosed()
++public override bool IsClosed()
+ {
+     
+     var resultIsClosed = Apache.Arrow.GLibBindings.Internal.File.IsClosed(this.Handle);
+@@ -45,7 +45,7 @@ public bool IsClosed()
+ }
+ 
+ 
+-public long Tell()
++public override long Tell()
+ {
+     
+     var resultTell = Apache.Arrow.GLibBindings.Internal.File.Tell(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -56,7 +56,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool Flush()
++public override bool Flush()
+ {
+     
+     var resultFlush = Apache.Arrow.GLibBindings.Internal.Writable.Flush(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,7 +67,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool Write(Span<byte> data)
++public override bool Write(Span<byte> data)
+ {
+     
+     var resultWrite = Apache.Arrow.GLibBindings.Internal.Writable.Write(this.Handle, ref MemoryMarshal.GetReference(data), (long) data.Length, out GLib.Internal.ErrorOwnedHandle error);
+@@ -76,4 +76,4 @@ if(!error.IsInvalid)
+     
+     return resultWrite;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ChunkedArray.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ChunkedArray.Methods.Generated.cs
+index 21605fda9..1c1f1e064 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ChunkedArray.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ChunkedArray.Methods.Generated.cs
+@@ -180,7 +180,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.11.0")]
+-public string? ToString()
++public override string? ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.ChunkedArray.ToString(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -189,4 +189,4 @@ if(!error.IsInvalid)
+     
+     return resultToString.ConvertToString();
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/CompressedInputStream.InterfaceMethods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/CompressedInputStream.InterfaceMethods.Generated.cs
+index 1f2cb9b75..035795ac4 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/CompressedInputStream.InterfaceMethods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/CompressedInputStream.InterfaceMethods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class CompressedInputStream
+ {
+     
+ 
+-public bool Close()
++public override bool Close()
+ {
+     
+     var resultClose = Apache.Arrow.GLibBindings.Internal.File.Close(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.FileMode GetMode()
++public override Apache.Arrow.GLibBindings.FileMode GetMode()
+ {
+     
+     var resultGetMode = Apache.Arrow.GLibBindings.Internal.File.GetMode(this.Handle);
+@@ -35,7 +35,7 @@ public Apache.Arrow.GLibBindings.FileMode GetMode()
+ }
+ 
+ [Version("0.13.0")]
+-public bool IsClosed()
++public override bool IsClosed()
+ {
+     
+     var resultIsClosed = Apache.Arrow.GLibBindings.Internal.File.IsClosed(this.Handle);
+@@ -45,7 +45,7 @@ public bool IsClosed()
+ }
+ 
+ 
+-public long Tell()
++public override long Tell()
+ {
+     
+     var resultTell = Apache.Arrow.GLibBindings.Internal.File.Tell(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -56,7 +56,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
++public override Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
+ {
+     
+     var resultRead = Apache.Arrow.GLibBindings.Internal.Readable.Read(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,13 +67,13 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.17.0")]
+-public GLib.Bytes? ReadBytes(long nBytes)
++public override GLib.Bytes? ReadBytes(long nBytes)
+ {
+     
+     var resultReadBytes = Apache.Arrow.GLibBindings.Internal.Readable.ReadBytes(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+ if(!error.IsInvalid)
+     throw new GLib.GException(error);
+     
+-    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);;
++    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);
++}
+ }
+-}
+\ No newline at end of file
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/CompressedOutputStream.InterfaceMethods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/CompressedOutputStream.InterfaceMethods.Generated.cs
+index ca4214ff4..f3796d0f4 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/CompressedOutputStream.InterfaceMethods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/CompressedOutputStream.InterfaceMethods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class CompressedOutputStream
+ {
+     
+ 
+-public bool Close()
++public override bool Close()
+ {
+     
+     var resultClose = Apache.Arrow.GLibBindings.Internal.File.Close(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.FileMode GetMode()
++public override Apache.Arrow.GLibBindings.FileMode GetMode()
+ {
+     
+     var resultGetMode = Apache.Arrow.GLibBindings.Internal.File.GetMode(this.Handle);
+@@ -35,7 +35,7 @@ public Apache.Arrow.GLibBindings.FileMode GetMode()
+ }
+ 
+ [Version("0.13.0")]
+-public bool IsClosed()
++public override bool IsClosed()
+ {
+     
+     var resultIsClosed = Apache.Arrow.GLibBindings.Internal.File.IsClosed(this.Handle);
+@@ -45,7 +45,7 @@ public bool IsClosed()
+ }
+ 
+ 
+-public long Tell()
++public override long Tell()
+ {
+     
+     var resultTell = Apache.Arrow.GLibBindings.Internal.File.Tell(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -56,7 +56,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool Flush()
++public override bool Flush()
+ {
+     
+     var resultFlush = Apache.Arrow.GLibBindings.Internal.Writable.Flush(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,7 +67,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool Write(Span<byte> data)
++public override bool Write(Span<byte> data)
+ {
+     
+     var resultWrite = Apache.Arrow.GLibBindings.Internal.Writable.Write(this.Handle, ref MemoryMarshal.GetReference(data), (long) data.Length, out GLib.Internal.ErrorOwnedHandle error);
+@@ -76,4 +76,4 @@ if(!error.IsInvalid)
+     
+     return resultWrite;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/DataType.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/DataType.Methods.Generated.cs
+index a94746cd6..fc4cd2265 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/DataType.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/DataType.Methods.Generated.cs
+@@ -55,7 +55,7 @@ public string GetName()
+ }
+ 
+ 
+-public string ToString()
++public override string ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.DataType.ToString(this.Handle);
+@@ -63,4 +63,4 @@ public string ToString()
+     
+     return resultToString.ConvertToString();
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Date32ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Date32ArrayBuilder.Methods.Generated.cs
+index 9ad8b1053..9cde657c5 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Date32ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Date32ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.7.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.Date32ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.Date32ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Date64ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Date64ArrayBuilder.Methods.Generated.cs
+index 9e5caf1c9..1d9f4c469 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Date64ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Date64ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.7.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.Date64ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.Date64ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Datum.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Datum.Methods.Generated.cs
+index 61626aad9..d17064519 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Datum.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Datum.Methods.Generated.cs
+@@ -64,7 +64,7 @@ public bool IsValue()
+ }
+ 
+ [Version("1.0.0")]
+-public string ToString()
++public override string ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.Datum.ToString(this.Handle);
+@@ -72,4 +72,4 @@ public string ToString()
+     
+     return resultToString.ConvertToString();
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/DayTimeIntervalArray.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/DayTimeIntervalArray.Methods.Generated.cs
+index 783db05f8..bf0edf074 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/DayTimeIntervalArray.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/DayTimeIntervalArray.Methods.Generated.cs
+@@ -30,6 +30,6 @@ public GLib.List? GetValues()
+     var resultGetValues = Apache.Arrow.GLibBindings.Internal.DayTimeIntervalArray.GetValues(this.Handle);
+ 
+     
+-    return resultGetValues.IsInvalid ? null : new GLib.List(resultGetValues);;
++    return resultGetValues.IsInvalid ? null : new GLib.List(resultGetValues);
++}
+ }
+-}
+\ No newline at end of file
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal128.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal128.Methods.Generated.cs
+index 078a50549..263e678f5 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal128.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal128.Methods.Generated.cs
+@@ -166,7 +166,7 @@ public long ToInteger()
+ }
+ 
+ [Version("0.10.0")]
+-public string ToString()
++public override string ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.Decimal128.ToString(this.Handle);
+@@ -184,4 +184,4 @@ public string ToStringScale(int scale)
+     
+     return resultToStringScale.ConvertToString();
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal128Array.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal128Array.Methods.Generated.cs
+index b65a67c57..38c4928f6 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal128Array.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal128Array.Methods.Generated.cs
+@@ -24,7 +24,7 @@ public string FormatValue(long i)
+ }
+ 
+ [Version("0.10.0")]
+-public Apache.Arrow.GLibBindings.Decimal128 GetValue(long i)
++public new Apache.Arrow.GLibBindings.Decimal128 GetValue(long i)
+ {
+     
+     var resultGetValue = Apache.Arrow.GLibBindings.Internal.Decimal128Array.GetValue(this.Handle, i);
+@@ -32,4 +32,4 @@ public Apache.Arrow.GLibBindings.Decimal128 GetValue(long i)
+     
+     return GObject.Internal.ObjectWrapper.WrapHandle<Apache.Arrow.GLibBindings.Decimal128>(resultGetValue, true);
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal128ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal128ArrayBuilder.Methods.Generated.cs
+index 9e7458301..d95cc5a86 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal128ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal128ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.12.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.Decimal128ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -46,4 +46,4 @@ if(!error.IsInvalid)
+     return resultAppendValue;
+ }
+ 
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal256.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal256.Methods.Generated.cs
+index 1ea712d0f..4be9303d2 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal256.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal256.Methods.Generated.cs
+@@ -146,7 +146,7 @@ public GLib.Bytes ToBytes()
+ }
+ 
+ [Version("3.0.0")]
+-public string ToString()
++public override string ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.Decimal256.ToString(this.Handle);
+@@ -164,4 +164,4 @@ public string ToStringScale(int scale)
+     
+     return resultToStringScale.ConvertToString();
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal256Array.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal256Array.Methods.Generated.cs
+index 68eb91efe..55af9ad7b 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal256Array.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Decimal256Array.Methods.Generated.cs
+@@ -24,7 +24,7 @@ public string FormatValue(long i)
+ }
+ 
+ [Version("3.0.0")]
+-public Apache.Arrow.GLibBindings.Decimal256 GetValue(long i)
++public new Apache.Arrow.GLibBindings.Decimal256 GetValue(long i)
+ {
+     
+     var resultGetValue = Apache.Arrow.GLibBindings.Internal.Decimal256Array.GetValue(this.Handle, i);
+@@ -32,4 +32,4 @@ public Apache.Arrow.GLibBindings.Decimal256 GetValue(long i)
+     
+     return GObject.Internal.ObjectWrapper.WrapHandle<Apache.Arrow.GLibBindings.Decimal256>(resultGetValue, true);
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/DoubleArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/DoubleArrayBuilder.Methods.Generated.cs
+index 7efef4f26..32e12b9b8 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/DoubleArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/DoubleArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.DoubleArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.DoubleArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Expression.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Expression.Methods.Generated.cs
+index 9e88e93a4..8669e1927 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Expression.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Expression.Methods.Generated.cs
+@@ -24,7 +24,7 @@ public bool Equal(Apache.Arrow.GLibBindings.Expression otherExpression)
+ }
+ 
+ [Version("6.0.0")]
+-public string ToString()
++public override string ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.Expression.ToString(this.Handle);
+@@ -32,4 +32,4 @@ public string ToString()
+     
+     return resultToString.ConvertToString();
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Field.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Field.Methods.Generated.cs
+index c216dd2aa..cfc79d0d0 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Field.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Field.Methods.Generated.cs
+@@ -51,7 +51,7 @@ public GLib.HashTable? GetMetadata()
+     var resultGetMetadata = Apache.Arrow.GLibBindings.Internal.Field.GetMetadata(this.Handle);
+ 
+     
+-    return resultGetMetadata.IsInvalid ? null : new GLib.HashTable(resultGetMetadata);;
++    return resultGetMetadata.IsInvalid ? null : new GLib.HashTable(resultGetMetadata);
+ }
+ 
+ 
+@@ -95,7 +95,7 @@ public Apache.Arrow.GLibBindings.Field RemoveMetadata()
+ }
+ 
+ 
+-public string ToString()
++public override string ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.Field.ToString(this.Handle);
+@@ -133,4 +133,4 @@ public Apache.Arrow.GLibBindings.Field WithMetadata(GLib.HashTable metadata)
+     
+     return GObject.Internal.ObjectWrapper.WrapHandle<Apache.Arrow.GLibBindings.Field>(resultWithMetadata, true);
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/File.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/File.Methods.Generated.cs
+index 459b77da4..3b12c052f 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/File.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/File.Methods.Generated.cs
+@@ -23,4 +23,4 @@ bool IsClosed();
+ 
+ 
+ long Tell();
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileHelper.Functions.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileHelper.Functions.Generated.cs
+index ba608305f..6fda6ecd9 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileHelper.Functions.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileHelper.Functions.Generated.cs
+@@ -14,7 +14,7 @@ public partial class FileHelper : GObject.GTypeProvider
+ {
+     
+ 
+-public static GObject.Type GetGType()
++public static new GObject.Type GetGType()
+ {
+     
+     var resultGetGType = Apache.Arrow.GLibBindings.Internal.File.GetGType();
+@@ -24,4 +24,4 @@ public static GObject.Type GetGType()
+ }
+ 
+     
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileInfo.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileInfo.Methods.Generated.cs
+index 5bfb0f7c0..0d84ae2a5 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileInfo.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileInfo.Methods.Generated.cs
+@@ -44,7 +44,7 @@ public bool IsFile()
+ }
+ 
+ [Version("0.17.0")]
+-public string ToString()
++public override string ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.FileInfo.ToString(this.Handle);
+@@ -52,4 +52,4 @@ public string ToString()
+     
+     return resultToString.ConvertToString();
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileInputStream.InterfaceMethods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileInputStream.InterfaceMethods.Generated.cs
+index c16179432..0058a2e7c 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileInputStream.InterfaceMethods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileInputStream.InterfaceMethods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class FileInputStream
+ {
+     
+ 
+-public bool Close()
++public override bool Close()
+ {
+     
+     var resultClose = Apache.Arrow.GLibBindings.Internal.File.Close(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.FileMode GetMode()
++public override Apache.Arrow.GLibBindings.FileMode GetMode()
+ {
+     
+     var resultGetMode = Apache.Arrow.GLibBindings.Internal.File.GetMode(this.Handle);
+@@ -35,7 +35,7 @@ public Apache.Arrow.GLibBindings.FileMode GetMode()
+ }
+ 
+ [Version("0.13.0")]
+-public bool IsClosed()
++public override bool IsClosed()
+ {
+     
+     var resultIsClosed = Apache.Arrow.GLibBindings.Internal.File.IsClosed(this.Handle);
+@@ -45,7 +45,7 @@ public bool IsClosed()
+ }
+ 
+ 
+-public long Tell()
++public override long Tell()
+ {
+     
+     var resultTell = Apache.Arrow.GLibBindings.Internal.File.Tell(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -56,7 +56,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
++public override Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
+ {
+     
+     var resultRead = Apache.Arrow.GLibBindings.Internal.Readable.Read(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,13 +67,13 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.17.0")]
+-public GLib.Bytes? ReadBytes(long nBytes)
++public override GLib.Bytes? ReadBytes(long nBytes)
+ {
+     
+     var resultReadBytes = Apache.Arrow.GLibBindings.Internal.Readable.ReadBytes(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+ if(!error.IsInvalid)
+     throw new GLib.GException(error);
+     
+-    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);;
++    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);
++}
+ }
+-}
+\ No newline at end of file
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileOutputStream.InterfaceMethods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileOutputStream.InterfaceMethods.Generated.cs
+index 6b329e7bd..b7901f995 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileOutputStream.InterfaceMethods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FileOutputStream.InterfaceMethods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class FileOutputStream
+ {
+     
+ 
+-public bool Close()
++public override bool Close()
+ {
+     
+     var resultClose = Apache.Arrow.GLibBindings.Internal.File.Close(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.FileMode GetMode()
++public override Apache.Arrow.GLibBindings.FileMode GetMode()
+ {
+     
+     var resultGetMode = Apache.Arrow.GLibBindings.Internal.File.GetMode(this.Handle);
+@@ -35,7 +35,7 @@ public Apache.Arrow.GLibBindings.FileMode GetMode()
+ }
+ 
+ [Version("0.13.0")]
+-public bool IsClosed()
++public override bool IsClosed()
+ {
+     
+     var resultIsClosed = Apache.Arrow.GLibBindings.Internal.File.IsClosed(this.Handle);
+@@ -45,7 +45,7 @@ public bool IsClosed()
+ }
+ 
+ 
+-public long Tell()
++public override long Tell()
+ {
+     
+     var resultTell = Apache.Arrow.GLibBindings.Internal.File.Tell(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -56,7 +56,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool Flush()
++public override bool Flush()
+ {
+     
+     var resultFlush = Apache.Arrow.GLibBindings.Internal.Writable.Flush(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,7 +67,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool Write(Span<byte> data)
++public override bool Write(Span<byte> data)
+ {
+     
+     var resultWrite = Apache.Arrow.GLibBindings.Internal.Writable.Write(this.Handle, ref MemoryMarshal.GetReference(data), (long) data.Length, out GLib.Internal.ErrorOwnedHandle error);
+@@ -76,4 +76,4 @@ if(!error.IsInvalid)
+     
+     return resultWrite;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FloatArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FloatArrayBuilder.Methods.Generated.cs
+index 783fe3e81..7777bf68a 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FloatArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FloatArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.FloatArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.FloatArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Function.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Function.Methods.Generated.cs
+index 562a1e820..f49d73e31 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Function.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Function.Methods.Generated.cs
+@@ -75,7 +75,7 @@ public GObject.Type GetOptionsType()
+ }
+ 
+ [Version("7.0.0")]
+-public string ToString()
++public override string ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.Function.ToString(this.Handle);
+@@ -83,4 +83,4 @@ public string ToString()
+     
+     return resultToString.ConvertToString();
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FunctionOptions.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FunctionOptions.Methods.Generated.cs
+index cc39f5ca1..d4ef9c98b 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FunctionOptions.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/FunctionOptions.Methods.Generated.cs
+@@ -24,7 +24,7 @@ public bool Equal(Apache.Arrow.GLibBindings.FunctionOptions? otherOptions)
+ }
+ 
+ [Version("7.0.0")]
+-public string ToString()
++public override string ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.FunctionOptions.ToString(this.Handle);
+@@ -32,4 +32,4 @@ public string ToString()
+     
+     return resultToString.ConvertToString();
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/GIOInputStream.InterfaceMethods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/GIOInputStream.InterfaceMethods.Generated.cs
+index 307cf0e6c..db792655c 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/GIOInputStream.InterfaceMethods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/GIOInputStream.InterfaceMethods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class GIOInputStream
+ {
+     
+ 
+-public bool Close()
++public override bool Close()
+ {
+     
+     var resultClose = Apache.Arrow.GLibBindings.Internal.File.Close(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.FileMode GetMode()
++public override Apache.Arrow.GLibBindings.FileMode GetMode()
+ {
+     
+     var resultGetMode = Apache.Arrow.GLibBindings.Internal.File.GetMode(this.Handle);
+@@ -35,7 +35,7 @@ public Apache.Arrow.GLibBindings.FileMode GetMode()
+ }
+ 
+ [Version("0.13.0")]
+-public bool IsClosed()
++public override bool IsClosed()
+ {
+     
+     var resultIsClosed = Apache.Arrow.GLibBindings.Internal.File.IsClosed(this.Handle);
+@@ -45,7 +45,7 @@ public bool IsClosed()
+ }
+ 
+ 
+-public long Tell()
++public override long Tell()
+ {
+     
+     var resultTell = Apache.Arrow.GLibBindings.Internal.File.Tell(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -56,7 +56,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
++public override Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
+ {
+     
+     var resultRead = Apache.Arrow.GLibBindings.Internal.Readable.Read(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,13 +67,13 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.17.0")]
+-public GLib.Bytes? ReadBytes(long nBytes)
++public override GLib.Bytes? ReadBytes(long nBytes)
+ {
+     
+     var resultReadBytes = Apache.Arrow.GLibBindings.Internal.Readable.ReadBytes(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+ if(!error.IsInvalid)
+     throw new GLib.GException(error);
+     
+-    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);;
++    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);
++}
+ }
+-}
+\ No newline at end of file
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/GIOOutputStream.InterfaceMethods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/GIOOutputStream.InterfaceMethods.Generated.cs
+index f0e274488..f2bde170c 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/GIOOutputStream.InterfaceMethods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/GIOOutputStream.InterfaceMethods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class GIOOutputStream
+ {
+     
+ 
+-public bool Close()
++public override bool Close()
+ {
+     
+     var resultClose = Apache.Arrow.GLibBindings.Internal.File.Close(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.FileMode GetMode()
++public override Apache.Arrow.GLibBindings.FileMode GetMode()
+ {
+     
+     var resultGetMode = Apache.Arrow.GLibBindings.Internal.File.GetMode(this.Handle);
+@@ -35,7 +35,7 @@ public Apache.Arrow.GLibBindings.FileMode GetMode()
+ }
+ 
+ [Version("0.13.0")]
+-public bool IsClosed()
++public override bool IsClosed()
+ {
+     
+     var resultIsClosed = Apache.Arrow.GLibBindings.Internal.File.IsClosed(this.Handle);
+@@ -45,7 +45,7 @@ public bool IsClosed()
+ }
+ 
+ 
+-public long Tell()
++public override long Tell()
+ {
+     
+     var resultTell = Apache.Arrow.GLibBindings.Internal.File.Tell(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -56,7 +56,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool Flush()
++public override bool Flush()
+ {
+     
+     var resultFlush = Apache.Arrow.GLibBindings.Internal.Writable.Flush(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,7 +67,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool Write(Span<byte> data)
++public override bool Write(Span<byte> data)
+ {
+     
+     var resultWrite = Apache.Arrow.GLibBindings.Internal.Writable.Write(this.Handle, ref MemoryMarshal.GetReference(data), (long) data.Length, out GLib.Internal.ErrorOwnedHandle error);
+@@ -76,4 +76,4 @@ if(!error.IsInvalid)
+     
+     return resultWrite;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/InputStream.InterfaceMethods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/InputStream.InterfaceMethods.Generated.cs
+index b2030f012..8d877bb22 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/InputStream.InterfaceMethods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/InputStream.InterfaceMethods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class InputStream
+ {
+     
+ 
+-public bool Close()
++public virtual bool Close()
+ {
+     
+     var resultClose = Apache.Arrow.GLibBindings.Internal.File.Close(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.FileMode GetMode()
++public virtual Apache.Arrow.GLibBindings.FileMode GetMode()
+ {
+     
+     var resultGetMode = Apache.Arrow.GLibBindings.Internal.File.GetMode(this.Handle);
+@@ -35,7 +35,7 @@ public Apache.Arrow.GLibBindings.FileMode GetMode()
+ }
+ 
+ [Version("0.13.0")]
+-public bool IsClosed()
++public virtual new bool IsClosed()
+ {
+     
+     var resultIsClosed = Apache.Arrow.GLibBindings.Internal.File.IsClosed(this.Handle);
+@@ -45,7 +45,7 @@ public bool IsClosed()
+ }
+ 
+ 
+-public long Tell()
++public virtual long Tell()
+ {
+     
+     var resultTell = Apache.Arrow.GLibBindings.Internal.File.Tell(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -56,7 +56,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
++public virtual Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
+ {
+     
+     var resultRead = Apache.Arrow.GLibBindings.Internal.Readable.Read(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,13 +67,13 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.17.0")]
+-public GLib.Bytes? ReadBytes(long nBytes)
++public virtual GLib.Bytes? ReadBytes(long nBytes)
+ {
+     
+     var resultReadBytes = Apache.Arrow.GLibBindings.Internal.Readable.ReadBytes(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+ if(!error.IsInvalid)
+     throw new GLib.GException(error);
+     
+-    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);;
++    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);
++}
+ }
+-}
+\ No newline at end of file
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int16ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int16ArrayBuilder.Methods.Generated.cs
+index c472f18c0..4500b1443 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int16ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int16ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.Int16ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.Int16ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int32ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int32ArrayBuilder.Methods.Generated.cs
+index dff53cf2e..4184ce15d 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int32ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int32ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.Int32ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.Int32ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int64ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int64ArrayBuilder.Methods.Generated.cs
+index 1c46723be..5ee9fa0bf 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int64ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int64ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.Int64ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.Int64ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int8ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int8ArrayBuilder.Methods.Generated.cs
+index 7d7f48c31..077ab7012 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int8ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Int8ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.Int8ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.Int8ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/IntArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/IntArrayBuilder.Methods.Generated.cs
+index 55733dd36..1f1bdc41c 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/IntArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/IntArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.6.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.IntArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.IntArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/LargeBinaryArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/LargeBinaryArrayBuilder.Methods.Generated.cs
+index 731a21115..1b08b9281 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/LargeBinaryArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/LargeBinaryArrayBuilder.Methods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class LargeBinaryArrayBuilder
+ {
+     
+ [Version("0.16.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.LargeBinaryArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.16.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.LargeBinaryArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/LargeListArray.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/LargeListArray.Methods.Generated.cs
+index 580e3176f..492c6dcde 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/LargeListArray.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/LargeListArray.Methods.Generated.cs
+@@ -45,7 +45,7 @@ public long GetValueOffset(long i)
+ 
+ 
+ [Version("0.16.0")]
+-public Apache.Arrow.GLibBindings.DataType GetValueType()
++public new Apache.Arrow.GLibBindings.DataType GetValueType()
+ {
+     
+     var resultGetValueType = Apache.Arrow.GLibBindings.Internal.LargeListArray.GetValueType(this.Handle);
+@@ -63,4 +63,4 @@ public Apache.Arrow.GLibBindings.Array GetValues()
+     
+     return GObject.Internal.ObjectWrapper.WrapHandle<Apache.Arrow.GLibBindings.Array>(resultGetValues, true);
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/LargeListArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/LargeListArrayBuilder.Methods.Generated.cs
+index cffb6ef0a..32439a276 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/LargeListArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/LargeListArrayBuilder.Methods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class LargeListArrayBuilder
+ {
+     
+ [Version("0.16.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.LargeListArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -44,4 +44,4 @@ public Apache.Arrow.GLibBindings.ArrayBuilder GetValueBuilder()
+     
+     return GObject.Internal.ObjectWrapper.WrapHandle<Apache.Arrow.GLibBindings.ArrayBuilder>(resultGetValueBuilder, false);
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ListArray.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ListArray.Methods.Generated.cs
+index f12eb6df0..bee43a5fc 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ListArray.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ListArray.Methods.Generated.cs
+@@ -45,7 +45,7 @@ public int GetValueOffset(long i)
+ 
+ 
+ 
+-public Apache.Arrow.GLibBindings.DataType GetValueType()
++public new Apache.Arrow.GLibBindings.DataType GetValueType()
+ {
+     
+     var resultGetValueType = Apache.Arrow.GLibBindings.Internal.ListArray.GetValueType(this.Handle);
+@@ -63,4 +63,4 @@ public Apache.Arrow.GLibBindings.Array GetValues()
+     
+     return GObject.Internal.ObjectWrapper.WrapHandle<Apache.Arrow.GLibBindings.Array>(resultGetValues, true);
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ListArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ListArrayBuilder.Methods.Generated.cs
+index 57515fd08..57ec6a9e2 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ListArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ListArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.ListArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -55,4 +55,4 @@ public Apache.Arrow.GLibBindings.ArrayBuilder GetValueBuilder()
+     
+     return GObject.Internal.ObjectWrapper.WrapHandle<Apache.Arrow.GLibBindings.ArrayBuilder>(resultGetValueBuilder, false);
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MapArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MapArrayBuilder.Methods.Generated.cs
+index 803268332..57cece55c 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MapArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MapArrayBuilder.Methods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class MapArrayBuilder
+ {
+     
+ [Version("0.17.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.MapArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.17.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.MapArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -86,4 +86,4 @@ public Apache.Arrow.GLibBindings.ArrayBuilder GetValueBuilder()
+     
+     return GObject.Internal.ObjectWrapper.WrapHandle<Apache.Arrow.GLibBindings.ArrayBuilder>(resultGetValueBuilder, false);
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MemoryMappedInputStream.InterfaceMethods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MemoryMappedInputStream.InterfaceMethods.Generated.cs
+index 8d6608918..4b9ea9249 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MemoryMappedInputStream.InterfaceMethods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MemoryMappedInputStream.InterfaceMethods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class MemoryMappedInputStream
+ {
+     
+ 
+-public bool Close()
++public override bool Close()
+ {
+     
+     var resultClose = Apache.Arrow.GLibBindings.Internal.File.Close(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.FileMode GetMode()
++public override Apache.Arrow.GLibBindings.FileMode GetMode()
+ {
+     
+     var resultGetMode = Apache.Arrow.GLibBindings.Internal.File.GetMode(this.Handle);
+@@ -35,7 +35,7 @@ public Apache.Arrow.GLibBindings.FileMode GetMode()
+ }
+ 
+ [Version("0.13.0")]
+-public bool IsClosed()
++public override bool IsClosed()
+ {
+     
+     var resultIsClosed = Apache.Arrow.GLibBindings.Internal.File.IsClosed(this.Handle);
+@@ -45,7 +45,7 @@ public bool IsClosed()
+ }
+ 
+ 
+-public long Tell()
++public override long Tell()
+ {
+     
+     var resultTell = Apache.Arrow.GLibBindings.Internal.File.Tell(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -56,7 +56,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
++public override Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
+ {
+     
+     var resultRead = Apache.Arrow.GLibBindings.Internal.Readable.Read(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,13 +67,13 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.17.0")]
+-public GLib.Bytes? ReadBytes(long nBytes)
++public override GLib.Bytes? ReadBytes(long nBytes)
+ {
+     
+     var resultReadBytes = Apache.Arrow.GLibBindings.Internal.Readable.ReadBytes(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+ if(!error.IsInvalid)
+     throw new GLib.GException(error);
+     
+-    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);;
++    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);
++}
+ }
+-}
+\ No newline at end of file
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MonthDayNanoIntervalArray.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MonthDayNanoIntervalArray.Methods.Generated.cs
+index be7a23466..d325e259a 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MonthDayNanoIntervalArray.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MonthDayNanoIntervalArray.Methods.Generated.cs
+@@ -30,6 +30,6 @@ public GLib.List? GetValues()
+     var resultGetValues = Apache.Arrow.GLibBindings.Internal.MonthDayNanoIntervalArray.GetValues(this.Handle);
+ 
+     
+-    return resultGetValues.IsInvalid ? null : new GLib.List(resultGetValues);;
++    return resultGetValues.IsInvalid ? null : new GLib.List(resultGetValues);
++}
+ }
+-}
+\ No newline at end of file
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MutableBuffer.Constructors.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MutableBuffer.Constructors.Generated.cs
+index 6b651f24f..fb2aafc32 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MutableBuffer.Constructors.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MutableBuffer.Constructors.Generated.cs
+@@ -14,7 +14,7 @@ public partial class MutableBuffer
+ {
+     
+ [Version("0.3.0")]
+-public static MutableBuffer New(Span<byte> data)
++public static new MutableBuffer New(Span<byte> data)
+ {
+     
+     var handle = Internal.MutableBuffer.New(ref MemoryMarshal.GetReference(data), (long) data.Length);
+@@ -30,4 +30,4 @@ public static new MutableBuffer NewBytes(GLib.Bytes data)
+ return new MutableBuffer(handle, true);
+ 
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MutableBuffer.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MutableBuffer.Methods.Generated.cs
+index 233eb0fe6..05d7c317e 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MutableBuffer.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/MutableBuffer.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.3.0")]
+-public Apache.Arrow.GLibBindings.MutableBuffer Slice(long offset, long size)
++public new Apache.Arrow.GLibBindings.MutableBuffer Slice(long offset, long size)
+ {
+     
+     var resultSlice = Apache.Arrow.GLibBindings.Internal.MutableBuffer.Slice(this.Handle, offset, size);
+@@ -33,4 +33,4 @@ public Apache.Arrow.GLibBindings.MutableBuffer Slice(long offset, long size)
+     
+     return GObject.Internal.ObjectWrapper.WrapHandle<Apache.Arrow.GLibBindings.MutableBuffer>(resultSlice, true);
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/NullArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/NullArrayBuilder.Methods.Generated.cs
+index 7e1ea181a..219f282ba 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/NullArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/NullArrayBuilder.Methods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class NullArrayBuilder
+ {
+     
+ [Version("0.13.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.NullArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.13.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.NullArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -34,4 +34,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendNulls;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/OutputStream.InterfaceMethods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/OutputStream.InterfaceMethods.Generated.cs
+index e83bf4f15..3ecc190d7 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/OutputStream.InterfaceMethods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/OutputStream.InterfaceMethods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class OutputStream
+ {
+     
+ 
+-public bool Close()
++public virtual bool Close()
+ {
+     
+     var resultClose = Apache.Arrow.GLibBindings.Internal.File.Close(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.FileMode GetMode()
++public virtual Apache.Arrow.GLibBindings.FileMode GetMode()
+ {
+     
+     var resultGetMode = Apache.Arrow.GLibBindings.Internal.File.GetMode(this.Handle);
+@@ -35,7 +35,7 @@ public Apache.Arrow.GLibBindings.FileMode GetMode()
+ }
+ 
+ [Version("0.13.0")]
+-public bool IsClosed()
++public virtual bool IsClosed()
+ {
+     
+     var resultIsClosed = Apache.Arrow.GLibBindings.Internal.File.IsClosed(this.Handle);
+@@ -45,7 +45,7 @@ public bool IsClosed()
+ }
+ 
+ 
+-public long Tell()
++public virtual long Tell()
+ {
+     
+     var resultTell = Apache.Arrow.GLibBindings.Internal.File.Tell(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -56,7 +56,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool Flush()
++public virtual bool Flush()
+ {
+     
+     var resultFlush = Apache.Arrow.GLibBindings.Internal.Writable.Flush(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,7 +67,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool Write(Span<byte> data)
++public virtual bool Write(Span<byte> data)
+ {
+     
+     var resultWrite = Apache.Arrow.GLibBindings.Internal.Writable.Write(this.Handle, ref MemoryMarshal.GetReference(data), (long) data.Length, out GLib.Internal.ErrorOwnedHandle error);
+@@ -76,4 +76,4 @@ if(!error.IsInvalid)
+     
+     return resultWrite;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ProjectNodeOptions.Constructors.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ProjectNodeOptions.Constructors.Generated.cs
+index 13447d866..d558d2926 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ProjectNodeOptions.Constructors.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ProjectNodeOptions.Constructors.Generated.cs
+@@ -16,9 +16,13 @@ public partial class ProjectNodeOptions
+ [Version("11.0.0")]
+ public static ProjectNodeOptions New(GLib.List expressions, string[]? names, nuint nNames)
+ {
+-    
++    if (names == null)
++    {
++        throw new ArgumentNullException(nameof(names));
++    }
++
+     var handle = Internal.ProjectNodeOptions.New(expressions.Handle, names, nNames);
+ return new ProjectNodeOptions(handle, true);
+ 
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ReadableHelper.Functions.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ReadableHelper.Functions.Generated.cs
+index f269721e5..0dfdd0dc1 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ReadableHelper.Functions.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ReadableHelper.Functions.Generated.cs
+@@ -14,7 +14,7 @@ public partial class ReadableHelper : GObject.GTypeProvider
+ {
+     
+ 
+-public static GObject.Type GetGType()
++public static new GObject.Type GetGType()
+ {
+     
+     var resultGetGType = Apache.Arrow.GLibBindings.Internal.Readable.GetGType();
+@@ -24,4 +24,4 @@ public static GObject.Type GetGType()
+ }
+ 
+     
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ReadableHelper.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ReadableHelper.Methods.Generated.cs
+index 737422966..3f56935d2 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ReadableHelper.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/ReadableHelper.Methods.Generated.cs
+@@ -32,6 +32,6 @@ public GLib.Bytes? ReadBytes(long nBytes)
+ if(!error.IsInvalid)
+     throw new GLib.GException(error);
+     
+-    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);;
++    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);
++}
+ }
+-}
+\ No newline at end of file
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/RecordBatch.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/RecordBatch.Methods.Generated.cs
+index 2c0d91277..4923569ef 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/RecordBatch.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/RecordBatch.Methods.Generated.cs
+@@ -171,7 +171,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.4.0")]
+-public string? ToString()
++public override string? ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.RecordBatch.ToString(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -180,4 +180,4 @@ if(!error.IsInvalid)
+     
+     return resultToString.ConvertToString();
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Scalar.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Scalar.Methods.Generated.cs
+index c1ddf1dbe..a76edc2d4 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Scalar.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Scalar.Methods.Generated.cs
+@@ -65,7 +65,7 @@ public bool IsValid()
+ }
+ 
+ [Version("5.0.0")]
+-public string ToString()
++public override string ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.Scalar.ToString(this.Handle);
+@@ -73,4 +73,4 @@ public string ToString()
+     
+     return resultToString.ConvertToString();
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Schema.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Schema.Methods.Generated.cs
+index 646d9b634..f3ea75e35 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Schema.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Schema.Methods.Generated.cs
+@@ -92,7 +92,7 @@ public GLib.HashTable? GetMetadata()
+     var resultGetMetadata = Apache.Arrow.GLibBindings.Internal.Schema.GetMetadata(this.Handle);
+ 
+     
+-    return resultGetMetadata.IsInvalid ? null : new GLib.HashTable(resultGetMetadata);;
++    return resultGetMetadata.IsInvalid ? null : new GLib.HashTable(resultGetMetadata);
+ }
+ 
+ [Version("3.0.0")]
+@@ -138,7 +138,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public string ToString()
++public override string ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.Schema.ToString(this.Handle);
+@@ -166,4 +166,4 @@ public Apache.Arrow.GLibBindings.Schema WithMetadata(GLib.HashTable metadata)
+     
+     return GObject.Internal.ObjectWrapper.WrapHandle<Apache.Arrow.GLibBindings.Schema>(resultWithMetadata, true);
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/SeekableInputStream.InterfaceMethods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/SeekableInputStream.InterfaceMethods.Generated.cs
+index b76c2ffaf..5571ad1c6 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/SeekableInputStream.InterfaceMethods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/SeekableInputStream.InterfaceMethods.Generated.cs
+@@ -14,7 +14,7 @@ public partial class SeekableInputStream
+ {
+     
+ 
+-public bool Close()
++public override bool Close()
+ {
+     
+     var resultClose = Apache.Arrow.GLibBindings.Internal.File.Close(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.FileMode GetMode()
++public override Apache.Arrow.GLibBindings.FileMode GetMode()
+ {
+     
+     var resultGetMode = Apache.Arrow.GLibBindings.Internal.File.GetMode(this.Handle);
+@@ -35,7 +35,7 @@ public Apache.Arrow.GLibBindings.FileMode GetMode()
+ }
+ 
+ [Version("0.13.0")]
+-public bool IsClosed()
++public override bool IsClosed()
+ {
+     
+     var resultIsClosed = Apache.Arrow.GLibBindings.Internal.File.IsClosed(this.Handle);
+@@ -45,7 +45,7 @@ public bool IsClosed()
+ }
+ 
+ 
+-public long Tell()
++public override long Tell()
+ {
+     
+     var resultTell = Apache.Arrow.GLibBindings.Internal.File.Tell(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -56,7 +56,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
++public override Apache.Arrow.GLibBindings.Buffer? Read(long nBytes)
+ {
+     
+     var resultRead = Apache.Arrow.GLibBindings.Internal.Readable.Read(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,13 +67,13 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.17.0")]
+-public GLib.Bytes? ReadBytes(long nBytes)
++public override GLib.Bytes? ReadBytes(long nBytes)
+ {
+     
+     var resultReadBytes = Apache.Arrow.GLibBindings.Internal.Readable.ReadBytes(this.Handle, nBytes, out GLib.Internal.ErrorOwnedHandle error);
+ if(!error.IsInvalid)
+     throw new GLib.GException(error);
+     
+-    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);;
++    return resultReadBytes.IsInvalid ? null : new GLib.Bytes(resultReadBytes);
++}
+ }
+-}
+\ No newline at end of file
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/SeekableInputStream.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/SeekableInputStream.Methods.Generated.cs
+index 65ac1636f..9cae9e118 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/SeekableInputStream.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/SeekableInputStream.Methods.Generated.cs
+@@ -64,6 +64,6 @@ public GLib.Bytes? ReadAtBytes(long position, long nBytes)
+ if(!error.IsInvalid)
+     throw new GLib.GException(error);
+     
+-    return resultReadAtBytes.IsInvalid ? null : new GLib.Bytes(resultReadAtBytes);;
++    return resultReadAtBytes.IsInvalid ? null : new GLib.Bytes(resultReadAtBytes);
++}
+ }
+-}
+\ No newline at end of file
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/StringDictionaryArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/StringDictionaryArrayBuilder.Methods.Generated.cs
+index f421fcfdd..24ca61c59 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/StringDictionaryArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/StringDictionaryArrayBuilder.Methods.Generated.cs
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("2.0.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.StringDictionaryArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -88,4 +88,4 @@ public void ResetFull()
+     
+     
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/StructArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/StructArrayBuilder.Methods.Generated.cs
+index 814adda5c..648531284 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/StructArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/StructArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.StructArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -65,4 +65,4 @@ public GLib.List GetFieldBuilders()
+     
+     return new GLib.List(resultGetFieldBuilders.Copy());
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Table.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Table.Methods.Generated.cs
+index e3fc93f13..670747dcc 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Table.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Table.Methods.Generated.cs
+@@ -194,7 +194,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.12.0")]
+-public string? ToString()
++public override string? ToString()
+ {
+     
+     var resultToString = Apache.Arrow.GLibBindings.Internal.Table.ToString(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -214,4 +214,4 @@ if(!error.IsInvalid)
+     
+     return resultWriteAsFeather;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Tensor.Constructors.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Tensor.Constructors.Generated.cs
+index d952ce812..ae5643782 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Tensor.Constructors.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Tensor.Constructors.Generated.cs
+@@ -16,9 +16,13 @@ public partial class Tensor
+ [Version("0.3.0")]
+ public static Tensor New(Apache.Arrow.GLibBindings.DataType dataType, Apache.Arrow.GLibBindings.Buffer data, Span<long> shape, Span<long> strides, string[]? dimensionNames, nuint nDimensionNames)
+ {
+-    
++    if (dimensionNames == null)
++    {
++        throw new ArgumentNullException(nameof(dimensionNames));
++    }
++
+     var handle = Internal.Tensor.New(dataType.Handle, data.Handle, ref MemoryMarshal.GetReference(shape), (nuint) shape.Length, ref MemoryMarshal.GetReference(strides), (nuint) strides.Length, dimensionNames, nDimensionNames);
+ return new Tensor(handle, true);
+ 
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Time32ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Time32ArrayBuilder.Methods.Generated.cs
+index a4af1d73d..9b34ef580 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Time32ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Time32ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.7.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.Time32ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.Time32ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Time64ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Time64ArrayBuilder.Methods.Generated.cs
+index 72ef5cfb4..b7cda69b3 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Time64ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/Time64ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.7.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.Time64ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.Time64ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/TimestampArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/TimestampArrayBuilder.Methods.Generated.cs
+index 8ec391325..1a43993fe 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/TimestampArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/TimestampArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.7.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.TimestampArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.TimestampArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt16ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt16ArrayBuilder.Methods.Generated.cs
+index b96d1ba72..7986c63f0 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt16ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt16ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.UInt16ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.UInt16ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt32ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt32ArrayBuilder.Methods.Generated.cs
+index 4ba49b36f..fe35e8c2c 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt32ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt32ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.UInt32ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.UInt32ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt64ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt64ArrayBuilder.Methods.Generated.cs
+index 1dd3a454b..d73e5d657 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt64ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt64ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.UInt64ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.UInt64ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt8ArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt8ArrayBuilder.Methods.Generated.cs
+index 06d577653..3062b5142 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt8ArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UInt8ArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ 
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.UInt8ArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.UInt8ArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UIntArrayBuilder.Methods.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UIntArrayBuilder.Methods.Generated.cs
+index 978157e1a..a3d27d52f 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UIntArrayBuilder.Methods.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/UIntArrayBuilder.Methods.Generated.cs
+@@ -25,7 +25,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNull()
++public override bool AppendNull()
+ {
+     
+     var resultAppendNull = Apache.Arrow.GLibBindings.Internal.UIntArrayBuilder.AppendNull(this.Handle, out GLib.Internal.ErrorOwnedHandle error);
+@@ -36,7 +36,7 @@ if(!error.IsInvalid)
+ }
+ 
+ [Version("0.8.0")]
+-public bool AppendNulls(long n)
++public override bool AppendNulls(long n)
+ {
+     
+     var resultAppendNulls = Apache.Arrow.GLibBindings.Internal.UIntArrayBuilder.AppendNulls(this.Handle, n, out GLib.Internal.ErrorOwnedHandle error);
+@@ -67,4 +67,4 @@ if(!error.IsInvalid)
+     
+     return resultAppendValues;
+ }
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/WritableFileHelper.Functions.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/WritableFileHelper.Functions.Generated.cs
+index 419f80f02..dddd5bac1 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/WritableFileHelper.Functions.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/WritableFileHelper.Functions.Generated.cs
+@@ -14,7 +14,7 @@ public partial class WritableFileHelper : GObject.GTypeProvider
+ {
+     
+ 
+-public static GObject.Type GetGType()
++public static new GObject.Type GetGType()
+ {
+     
+     var resultGetGType = Apache.Arrow.GLibBindings.Internal.WritableFile.GetGType();
+@@ -24,4 +24,4 @@ public static GObject.Type GetGType()
+ }
+ 
+     
+-}
+\ No newline at end of file
++}
+diff --git a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/WritableHelper.Functions.Generated.cs b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/WritableHelper.Functions.Generated.cs
+index 79016218a..0deb101b5 100644
+--- a/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/WritableHelper.Functions.Generated.cs
++++ b/csharp/src/Apache.Arrow.GLibBindings-1.0/Public/WritableHelper.Functions.Generated.cs
+@@ -14,7 +14,7 @@ public partial class WritableHelper : GObject.GTypeProvider
+ {
+     
+ 
+-public static GObject.Type GetGType()
++public static new GObject.Type GetGType()
+ {
+     
+     var resultGetGType = Apache.Arrow.GLibBindings.Internal.Writable.GetGType();
+@@ -24,4 +24,4 @@ public static GObject.Type GetGType()
+ }
+ 
+     
+-}
+\ No newline at end of file
++}
