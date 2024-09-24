@@ -769,13 +769,10 @@ cdef class FlightEndpoint(_Weakrefable):
         """
         cdef:
             int64_t time_since_epoch
-            const char* UTC = "UTC"
-            shared_ptr[CTimestampType] time_type = make_shared[CTimestampType](TimeUnit.TimeUnit_NANO, UTC)
-            shared_ptr[CTimestampScalar] shared
         if self.endpoint.expiration_time.has_value():
             time_since_epoch = TimePoint_to_ns(
                 TimePoint_from_system_time(self.endpoint.expiration_time.value()))
-            return scalar(time_since_epoch, pa.timestamp("ns", "UTC"))
+            return lib.scalar(time_since_epoch, timestamp("ns", "UTC"))
         return None
 
     @property
