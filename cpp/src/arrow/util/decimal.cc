@@ -94,7 +94,7 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
     constexpr int kMantissaDigits = RealTraits<Real>::kMantissaDigits;
 
     // to avoid precision and rounding issues, we'll unconditionally
-    // throw Decimal32 to the approx algorithm instead.
+    // throw Decimal32 to the approx algorithm instead. (GH-44216)    
     if constexpr (std::is_base_of_v<BasicDecimal32, DecimalType>) {
       return Derived::FromPositiveRealApprox(real, precision, scale);
     }
