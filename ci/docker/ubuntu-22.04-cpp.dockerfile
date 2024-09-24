@@ -119,6 +119,7 @@ RUN apt-get update -y -q && \
         rapidjson-dev \
         rsync \
         tzdata \
+        uuid-runtime \
         wget \
         xz-utils && \
     apt-get clean && \

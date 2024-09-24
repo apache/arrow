@@ -120,6 +120,7 @@ RUN apt-get update -y -q && \
         rsync \
         tzdata \
         tzdata-legacy \
+        uuid-runtime \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
