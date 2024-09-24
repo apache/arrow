@@ -125,12 +125,8 @@ FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<DataType>& type
                                            int64_t length,
                                            const std::shared_ptr<Buffer>& data,
                                            const std::shared_ptr<Buffer>& null_bitmap,
-                                           int64_t null_count, int64_t offset)
-    : PrimitiveArray(type, length, data, null_bitmap, null_count, offset),
-      byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()) {}
-
-const uint8_t* FixedSizeBinaryArray::GetValue(int64_t i) const {
-  return raw_values_ + (i + data_->offset) * byte_width_;
+                                           int64_t null_count, int64_t offset) {
+  SetData(ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset));
 }
 
 }  // namespace arrow
