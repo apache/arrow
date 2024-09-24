@@ -522,4 +522,10 @@ def test_json_extension_type(storage_type):
     arr = pa.ExtensionArray.from_storage(json_type, storage)
     table = pa.table([arr], names=["ext"])
 
-    _simple_table_roundtrip(table, use_dictionary=False)
+    _simple_table_roundtrip(table)
+
+    for storage_type in (pa.int32(), pa.large_binary(), pa.float32()):
+        with pytest.raises(
+                pa.ArrowInvalid,
+                match="Invalid storage type for JsonExtensionType: " + str(storage_type)):
+            pa.json_(storage_type)

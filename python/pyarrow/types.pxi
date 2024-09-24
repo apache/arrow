@@ -1814,7 +1814,7 @@ cdef class ExtensionType(BaseExtensionType):
 
 cdef class JsonType(BaseExtensionType):
     """
-    Concrete class for Arrow arrays of JSON data type.
+    Concrete class for JSON extension type.
 
     Examples
     --------
@@ -5340,7 +5340,9 @@ def json_(DataType storage_type=utf8()):
     Parameters
     ----------
     storage_type : DataType, default pyarrow.string()
-        The underlying data type.
+        The underlying data type. Can be on of the following types:
+        string, large_string, string_view.
+
 
     Returns
     -------
