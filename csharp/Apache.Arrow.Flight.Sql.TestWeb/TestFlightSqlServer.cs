@@ -38,7 +38,7 @@ public class TestFlightSqlServer : FlightServer
                     .Build();
                 var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
                 var flightInfo = new FlightInfo(schema, flightDescriptor, new List<FlightEndpoint>(), 0, 0);
-                var cancelRequest = new CancelFlightInfoRequest(flightInfo);
+                var cancelRequest = new FlightInfoCancelRequest(flightInfo);
                 await responseStream.WriteAsync(new FlightResult(Any.Pack(cancelRequest).Serialize().ToByteArray())).ConfigureAwait(false);
                 break;
             case "BeginTransaction":

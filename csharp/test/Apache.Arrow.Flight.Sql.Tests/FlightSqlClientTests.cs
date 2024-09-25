@@ -10,7 +10,6 @@ using Arrow.Flight.Protocol.Sql;
 using Google.Protobuf;
 using Grpc.Core.Utils;
 using Xunit;
-using RecordBatchWithMetadata = Apache.Arrow.Flight.Sql.TestWeb.RecordBatchWithMetadata;
 
 namespace Apache.Arrow.Flight.Sql.Tests;
 
@@ -729,14 +728,13 @@ public class FlightSqlClientTests : IDisposable
             .Build();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var flightInfo = new FlightInfo(schema, flightDescriptor, new List<FlightEndpoint>(), 0, 0);
-        var cancelRequest = new CancelFlightInfoRequest(flightInfo);
+        var cancelRequest = new FlightInfoCancelRequest(flightInfo);
 
         // Act
         var cancelResult = await _flightSqlClient.CancelFlightInfoAsync(options, cancelRequest);
 
         // Assert
-        Assert.NotNull(cancelResult);
-        Assert.True(cancelResult.CancelStatus == CancelStatus.Cancelled);
+        Assert.Equal(0, cancelResult.GetCancelStatus());
     }
 
     [Fact]
@@ -744,7 +742,7 @@ public class FlightSqlClientTests : IDisposable
     {
         // Arrange
         var options = new FlightCallOptions();
-        var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test-query");
+        var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var schema = new Schema
                 .Builder()
             .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
@@ -759,7 +757,7 @@ public class FlightSqlClientTests : IDisposable
         var cancelStatus = await _flightSqlClient.CancelQueryAsync(options, flightInfo);
 
         // Assert
-        Assert.Equal(CancelStatus.Cancelled, cancelStatus);
+        Assert.Equal(0, cancelStatus.GetCancelStatus());
     }
 
     public void Dispose() => _testWebFactory?.Dispose();
