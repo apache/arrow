@@ -970,6 +970,7 @@ tasks:
   {% for target in ["cpp",
                     "csharp",
                     "integration",
+                    "java",
                     "js",
                     "python",
                     "ruby"] %}
