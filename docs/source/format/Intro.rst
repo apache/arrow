@@ -392,9 +392,8 @@ Run-end encoding is well-suited for representing data containing sequences of th
 same value. These sequences are called runs. A run-end encoded array has no buffers
 of its own, but has two child arrays:
 
-*  **Run ends array:** holds the index in the array where each run ends. The run ends
-   array always begins with 0 and contains one more element than the length of
-   its parent array.
+*  **Run ends array:** holds the index in the array where each run ends. The number
+   of run ends is the same as the length of its parent array.
 *  **Values array:** the actual values without repetitions (together with null values).
 
 Note that nulls of the parent array are strictly represented in the values array.
