@@ -23,7 +23,6 @@ import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.vector.complex.impl.ViewVarBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableViewVarBinaryHolder;
-import org.apache.arrow.vector.holders.NullableViewVarCharHolder;
 import org.apache.arrow.vector.holders.ViewVarBinaryHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -132,7 +131,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector
    * @param index position of an element to get
    * @param holder data holder to be populated by this function
    */
-  public void get(int index, NullableViewVarCharHolder holder) {
+  public void get(int index, NullableViewVarBinaryHolder holder) {
     final int dataLength = getValueLength(index);
     if (isSet(index) == 0) {
       holder.isSet = 0;
