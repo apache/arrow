@@ -133,20 +133,20 @@ class ChunkedIndexMapper {
       : ChunkedIndexMapper(util::span(chunks), indices_begin, indices_end) {}
   ChunkedIndexMapper(util::span<const Array* const> chunks, uint64_t* indices_begin,
                      uint64_t* indices_end)
-      : resolver_(chunks),
-        chunk_lengths_(GetChunkLengths(chunks)),
+      : chunk_lengths_(GetChunkLengths(chunks)),
         indices_begin_(indices_begin),
         indices_end_(indices_end) {}
   ChunkedIndexMapper(const RecordBatchVector& chunks, uint64_t* indices_begin,
                      uint64_t* indices_end)
-      : resolver_(chunks),
-        chunk_lengths_(GetChunkLengths(chunks)),
+      : chunk_lengths_(GetChunkLengths(chunks)),
         indices_begin_(indices_begin),
         indices_end_(indices_end) {}
 
   // Turn the original uint64_t logical indices into physical. This reuses the
   // same memory area, so the logical indices cannot be used anymore until
   // PhysicalToLogical() is called.
+  //
+  // This assumes that the logical indices are originally chunk-partitioned.
   Result<std::pair<ResolvedChunkIndex*, ResolvedChunkIndex*>> LogicalToPhysical();
 
   // Turn the physical indices back into logical, making the uint64_t indices
@@ -157,7 +157,6 @@ class ChunkedIndexMapper {
   static std::vector<int64_t> GetChunkLengths(util::span<const Array* const> chunks);
   static std::vector<int64_t> GetChunkLengths(const RecordBatchVector& chunks);
 
-  ChunkResolver resolver_;
   std::vector<int64_t> chunk_lengths_;
   uint64_t* indices_begin_;
   uint64_t* indices_end_;

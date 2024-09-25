@@ -68,24 +68,25 @@ ChunkedIndexMapper::LogicalToPhysical() {
     }
   }
 
-  constexpr int64_t kMaxBatchSize = 512;
-  std::array<TypedChunkLocation<uint64_t>, kMaxBatchSize> batch;
-
   const int64_t num_indices = static_cast<int64_t>(indices_end_ - indices_begin_);
   ResolvedChunkIndex* physical_begin =
       reinterpret_cast<ResolvedChunkIndex*>(indices_begin_);
   DCHECK_EQ(physical_begin + num_indices,
             reinterpret_cast<ResolvedChunkIndex*>(indices_end_));
 
-  for (int64_t i = 0; i < num_indices; i += kMaxBatchSize) {
-    const int64_t batch_size = std::min(kMaxBatchSize, num_indices - i);
-    [[maybe_unused]] bool ok =
-        resolver_.ResolveMany(batch_size, indices_begin_ + i, batch.data());
-    DCHECK(ok) << "ResolveMany unexpectedly failed (invalid logical index?)";
-    for (int64_t j = 0; j < batch_size; ++j) {
-      const auto loc = batch[j];
-      physical_begin[i + j] = ResolvedChunkIndex{loc.chunk_index, loc.index_in_chunk};
+  int64_t chunk_offset = 0;
+  for (int64_t chunk_index = 0; chunk_index < static_cast<int64_t>(chunk_lengths_.size());
+       ++chunk_index) {
+    const int64_t chunk_length = chunk_lengths_[chunk_index];
+    for (int64_t i = 0; i < chunk_length; ++i) {
+      DCHECK_GE(indices_begin_[chunk_offset + i], static_cast<uint64_t>(chunk_offset));
+      DCHECK_LT(indices_begin_[chunk_offset + i],
+                static_cast<uint64_t>(chunk_offset + chunk_length));
+      physical_begin[chunk_offset + i] = ResolvedChunkIndex{
+          static_cast<uint64_t>(chunk_index),
+          indices_begin_[chunk_offset + i] - static_cast<uint64_t>(chunk_offset)};
     }
+    chunk_offset += chunk_length;
   }
 
   return std::pair{physical_begin, physical_begin + num_indices};
