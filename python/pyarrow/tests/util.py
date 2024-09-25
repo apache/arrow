@@ -407,15 +407,14 @@ def _configure_s3_limited_user(s3_server, policy):
         # The s3_server fixture starts the minio process but
         # it takes a few moments for the process to become available
         _wait_for_minio_startup(mcdir, address, access_key, secret_key)
-        # These commands create a limited user with a specific
-        # policy and creates a sample bucket for that user to
-        # write to
-        _run_mc_command(mcdir, 'admin', 'policy', 'create',
-                        'myminio/', 'no-create-buckets', policy_path)
+        # Create a limited user with a specific policy ...
         _run_mc_command(mcdir, 'admin', 'user', 'add',
                         'myminio/', 'limited', 'limited123')
+        _run_mc_command(mcdir, 'admin', 'policy', 'create',
+                        'myminio/', 'no-create-buckets', policy_path)
         _run_mc_command(mcdir, 'admin', 'policy', 'attach',
                         'myminio/', 'no-create-buckets', '--user', 'limited')
+        # ... and a sample bucket for that user to write to
         _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket',
                         '--ignore-existing')
 
