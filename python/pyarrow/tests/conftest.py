@@ -195,7 +195,7 @@ def retry(attempts=3, delay=1.0, max_delay=None, backoff=1):
 def s3_server(s3_connection, tmpdir_factory):
     @retry(attempts=5, delay=1, backoff=2)
     def minio_server_health_check(address):
-        resp = urllib.request.urlopen(f"http://{address}/minio/health/cluster")
+        resp = urllib.request.urlopen(f"http://{address}/minio/health/live")
         assert resp.getcode() == 200
 
     tmpdir = tmpdir_factory.getbasetemp()
