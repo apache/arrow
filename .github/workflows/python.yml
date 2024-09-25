@@ -134,15 +134,18 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: ARM64 macOS ${{ matrix.macos-version }} Python 3
+    name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} Python 3
     runs-on: macos-${{ matrix.macos-version }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        macos-version:
-          - "14"
+        include:
+          - architecture: AMD64
+            macos-version: "13"
+          - architecture: ARM64
+            macos-version: "14"
     env:
       ARROW_HOME: /tmp/local
       ARROW_AZURE: ON

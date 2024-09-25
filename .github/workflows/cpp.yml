@@ -190,15 +190,18 @@ jobs:
           docker compose run --rm minimal
 
   macos:
-    name: ARM64 macOS ${{ matrix.macos-version }} C++
+    name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} C++
     runs-on: macos-${{ matrix.macos-version }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        macos-version:
-          - "14"
+        include:
+          - architecture: AMD64
+            macos-version: "13"
+          - architecture: ARM64
+            macos-version: "14"
     env:
       ARROW_AZURE: ON
       ARROW_BUILD_TESTS: ON
