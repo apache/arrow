@@ -34,7 +34,7 @@ bool JsonExtensionType::ExtensionEquals(const ExtensionType& other) const {
 
 Result<std::shared_ptr<DataType>> JsonExtensionType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
-  return JsonExtensionType::Make(storage_type);
+  return JsonExtensionType::Make(std::move(storage_type));
 }
 
 std::string JsonExtensionType::Serialize() const { return ""; }
@@ -54,7 +54,7 @@ Result<std::shared_ptr<DataType>> JsonExtensionType::Make(
     return Status::Invalid("Invalid storage type for JsonExtensionType: ",
                            storage_type->ToString());
   }
-  return std::make_shared<JsonExtensionType>(storage_type);
+  return std::make_shared<JsonExtensionType>(std::move(storage_type));
 }
 
 std::shared_ptr<DataType> json(std::shared_ptr<DataType> storage_type) {
