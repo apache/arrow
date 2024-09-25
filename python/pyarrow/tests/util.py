@@ -410,12 +410,12 @@ def _configure_s3_limited_user(s3_server, policy):
         # These commands create a limited user with a specific
         # policy and creates a sample bucket for that user to
         # write to
-        _run_mc_command(mcdir, 'admin', 'policy', 'add',
+        _run_mc_command(mcdir, 'admin', 'policy', 'create',
                         'myminio/', 'no-create-buckets', policy_path)
         _run_mc_command(mcdir, 'admin', 'user', 'add',
                         'myminio/', 'limited', 'limited123')
-        _run_mc_command(mcdir, 'admin', 'policy', 'set',
-                        'myminio', 'no-create-buckets', 'user=limited')
+        _run_mc_command(mcdir, 'admin', 'policy', 'attach',
+                        'myminio/', 'no-create-buckets', '--user', 'limited')
         _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket',
                         '--ignore-existing')
 
