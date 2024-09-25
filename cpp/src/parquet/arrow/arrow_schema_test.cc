@@ -767,6 +767,17 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
     std::shared_ptr<KeyValueMetadata> metadata{};
     ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
     CheckFlatSchema(arrow_schema);
+
+    // If original data was e.g. json(large_utf8()) it will be interpreted as json(utf8())
+    // in absence of Arrow schema.
+    arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", ::arrow::extension::json(), true),
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
+                        true)});
+    metadata = std::shared_ptr<KeyValueMetadata>{};
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    EXPECT_TRUE(result_schema_->field(1)->type()->Equals(
+        ::arrow::extension::json(::arrow::utf8())));
   }
 
   {
