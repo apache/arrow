@@ -18,7 +18,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.vector.complex.impl.ViewVarCharReaderImpl;
@@ -187,8 +186,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
   public void set(int index, ViewVarCharHolder holder) {
     int start = holder.start;
     int length = holder.end - start;
-    ArrowBuf dataBuf = holder.buffer;
-    setBytes(index, dataBuf, start, length);
+    setBytes(index, holder.buffer, start, length);
     lastSet = index;
   }
 
@@ -219,8 +217,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
       BitVectorHelper.setBit(validityBuffer, index);
       int start = holder.start;
       int length = holder.end - start;
-      ArrowBuf dataBuf = holder.buffer;
-      setBytes(index, dataBuf, start, length);
+      setBytes(index, holder.buffer, start, length);
     }
     lastSet = index;
   }
