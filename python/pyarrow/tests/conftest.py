@@ -151,7 +151,7 @@ def hdfs_connection():
 
 @pytest.fixture(scope='session')
 def s3_connection():
-    host, port = 'localhost', find_free_port()
+    host, port = '127.0.0.1', find_free_port()
     access_key, secret_key = 'arrow', 'apachearrow'
     return host, port, access_key, secret_key
 
