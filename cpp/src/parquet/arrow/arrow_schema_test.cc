@@ -776,6 +776,8 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
                         true)});
     metadata = std::shared_ptr<KeyValueMetadata>{};
     ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    EXPECT_FALSE(result_schema_->field(1)->type()->Equals(
+        arrow_schema->field(1)->type()));
     EXPECT_TRUE(result_schema_->field(1)->type()->Equals(
         ::arrow::extension::json(::arrow::utf8())));
     EXPECT_FALSE(
