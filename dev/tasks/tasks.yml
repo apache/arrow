@@ -973,6 +973,20 @@ tasks:
                     "js",
                     "python",
                     "ruby"] %}
+  verify-rc-source-{{ target }}-macos-amd64:
+    ci: github
+    template: verify-rc/github.macos.yml
+    params:
+      target: {{ target }}
+      github_runner: "macos-13"
+  {% endfor %}
+
+  {% for target in ["cpp",
+                    "csharp",
+                    "integration",
+                    "js",
+                    "python",
+                    "ruby"] %}
   verify-rc-source-{{ target }}-macos-arm64:
     ci: github
     template: verify-rc/github.macos.yml
