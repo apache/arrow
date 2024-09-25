@@ -48,7 +48,7 @@ std::shared_ptr<Array> JsonExtensionType::MakeArray(
 }
 
 Result<std::shared_ptr<DataType>> JsonExtensionType::Make(
-    const std::shared_ptr<DataType>& storage_type) {
+    std::shared_ptr<DataType> storage_type) {
   if (storage_type->id() != Type::STRING && storage_type->id() != Type::STRING_VIEW &&
       storage_type->id() != Type::LARGE_STRING) {
     return Status::Invalid("Invalid storage type for JsonExtensionType: ",

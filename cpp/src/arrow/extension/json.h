@@ -45,8 +45,7 @@ class ARROW_EXPORT JsonExtensionType : public ExtensionType {
 
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
-  static Result<std::shared_ptr<DataType>> Make(
-      const std::shared_ptr<DataType>& storage_type);
+  static Result<std::shared_ptr<DataType>> Make(std::shared_ptr<DataType> storage_type);
 
  private:
   std::shared_ptr<DataType> storage_type_;
