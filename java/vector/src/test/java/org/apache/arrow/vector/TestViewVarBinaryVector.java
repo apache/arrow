@@ -67,7 +67,8 @@ public class TestViewVarBinaryVector {
 
   @Test
   public void testSetNullableViewVarBinaryHolder() {
-    try (final ViewVarBinaryVector viewVarBinaryVector = new ViewVarBinaryVector("myvector", allocator)) {
+    try (final ViewVarBinaryVector viewVarBinaryVector =
+        new ViewVarBinaryVector("myvector", allocator)) {
       viewVarBinaryVector.allocateNew(0, 0);
       final List<byte[]> strings = List.of(STR0, STR1, STR2, STR3, STR4, STR5);
 
