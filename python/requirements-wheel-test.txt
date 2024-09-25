@@ -9,8 +9,8 @@ cython
 hypothesis
 pytest
 pytz
+pyuwsgi; sys.platform != 'win32' and python_version < '3.13'
 tzdata; sys_platform == 'win32'
-uwsgi; sys.platform != 'win32' and python_version < '3.13'
 
 # We generally test with the oldest numpy version that supports a given Python
 # version. However, there is no need to make this strictly the oldest version,
