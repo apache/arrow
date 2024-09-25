@@ -36,7 +36,7 @@ vast set of algorithms for in-memory analytical data processing.
 
 Apart from this initial vision, Arrow has grown to also develop a
 multi-language collection of libraries for solving problems related to
-in-memory analytical data processing. This includes such topics as:
+in-memory analytical data processing. This covers topics like:
 
 * Zero-copy shared memory and RPC-based data movement
 * Reading and writing file formats (like CSV, `Apache ORC`_, and `Apache Parquet`_)
@@ -48,8 +48,8 @@ in-memory analytical data processing. This includes such topics as:
 Arrow Columnar Format
 =====================
 
-Apache Arrow focuses on tabular data so let's consider we have data
-which are tabular so they can be organized into a table:
+Apache Arrow focuses on tabular data. For an example, let's consider
+we have data that can be organized into a table:
 
 .. figure:: ./images/columnar-diagram_1.svg
    :scale: 70%
@@ -57,7 +57,7 @@ which are tabular so they can be organized into a table:
 
    Diagram of a tabular data structure.
 
-This kind of data can be represented in memory using a row-based format or a
+Tabular data can be represented in memory using a row-based format or a
 column-based format. The row-based format stores data row-by-row, meaning the rows
 are adjacent in the computer memory:
 
@@ -68,9 +68,10 @@ are adjacent in the computer memory:
 
 In a columnar format, the data is organized column-by-column instead.
 This organization makes analytical operations like filtering, grouping,
-aggregations and others more efficient because the CPU can maintain memory locality
-and require less memory jumps to process the data. By keeping the data contiguous
-in memory it also enables vectorization of the computations. Most modern
+aggregations and others, more efficient thanks to memory locality.
+When processing the data, the memory locations accessed by the CPU tend
+be near one another. By keeping the data contiguous in memory, it also
+enables vectorization of the computations. Most modern
 CPUs have
 [SIMD instructions](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)
 (a single instruction that operates on multiple values at once) enabling parallel
@@ -160,19 +161,19 @@ Variable length binary and string
 ---------------------------------
 
 In contrast to the fixed size primitive layout, the variable length layout
-allows to represent an array where each element can have a variable size
+allows representing an array where each element can have a variable size
 in bytes. This layout is used for binary and string data.
 
 The bytes of all elements in a binary or string column are stored together
 consecutively in a single buffer or region of memory. To know where each element
-of the column starts and ends the physical layout also includes integer offsets.
-The number of elements of the offset buffer is one more than the length of the
-array as the last two elements define the start and the end of the last
-element in the binary/string column.
+of the column starts and ends, the physical layout also includes integer offsets.
+The offsets buffer is always one element longer than the array.
+The last two offsets define the start and the end of the last
+binary/string element.
 
-Binary and string data types share the same physical layout. The one difference
-between them is that the string data type is utf-8 binary and assumes to contain
-utf-8 encoded strings.
+Binary and string data types share the same physical layout. The only
+difference between them is that a string-typed array is assumed to contain
+valid utf-8 string data.
 
 The difference between binary/string and large binary/string is in the offset
 data type. In the first case that is int32 and in the second it is int64.
@@ -197,18 +198,19 @@ Variable length binary and string view
 
 This layout is an alternative for the variable length binary layout and is adapted
 from TU Munich's `UmbraDB`_ and is similar to the string layout used in `DuckDB`_ and
-`Velox`_ (and sometimes also called "German style strings").
+`Velox`_ (and sometimes also called "German strings").
 
-The main differences to the classical binary and string layout is the views buffer.
-It includes the length of the string, and then either contains the characters
+The main difference to the classical binary and string layout is the views buffer.
+It includes the length of the string, and then either its characters appearing
 inline (for small strings) or only the first 4 bytes of the string and an offset into
-one of potentially several data buffers. Because it uses an offset and length to refer
-to the data buffer, the bytes of all elements do not need to be stored together
-consecutively in one buffer, and thus it supports the bytes to be written out of order.
+one of the potentially several data buffers. Because it uses an offset and length to refer
+to the data buffer, the bytes of all elements do not need to be stored
+consecutively in a single buffer. This enables out of order writing of
+variable length elements into the array.
 
 These properties are important for efficient string processing. The prefix
 enables a profitable fast path for string comparisons, which are frequently
-determined within the first four bytes. Selecting elements is a simple "take"
+determined within the first four bytes. Selecting elements is a simple "gather"
 operation on the fixed-width views buffer and does not need to rewrite the
 values buffers.
 
@@ -267,8 +269,9 @@ List View
 
 In contrast to the list type, list view type also has a size buffer together
 with an offset buffer. The offsets continue to indicate the start of each
-element but size is now saved in a separate size buffer. This allows to have
-out-of-order offsets.
+element but size is now saved in a separate size buffer. This allows
+out-of-order offsets as the sizes aren't derived from the consecutive
+offsets anymore.
 
 .. figure:: ./images/var-list-view-diagram.svg
    :alt: Diagram is showing the difference between the variable size list view
@@ -281,11 +284,11 @@ Struct
 ------
 
 A struct is a nested data type parameterized by an ordered sequence of fields
-(a data types and a name).
+(a data type and a name).
 
 * There is one child array for each field
 * Child arrays are independent and need not be adjacent to each other in
-  memory (only need to have the same length)
+  memory. They only need to have the same length.
 
 One can think of an individual struct field as a key-value pair where the
 key is the field name and the child array its values. The field (key) is
@@ -386,7 +389,7 @@ Run-End Encoded Layout
 ======================
 
 Run-end encoding is well-suited for representing data containing sequences of the
-same value. These sequences are called runs. Run-end encoded array has no buffers
+same value. These sequences are called runs. A run-end encoded array has no buffers
 of its own, but has two child arrays:
 
 *  **Run ends array:** holds the index in the array where each run ends. The run ends
