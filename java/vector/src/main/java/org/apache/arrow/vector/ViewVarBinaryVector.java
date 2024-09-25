@@ -23,6 +23,7 @@ import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.vector.complex.impl.ViewVarBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableViewVarBinaryHolder;
+import org.apache.arrow.vector.holders.NullableViewVarCharHolder;
 import org.apache.arrow.vector.holders.ViewVarBinaryHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -131,9 +132,32 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector
    * @param index position of an element to get
    * @param holder data holder to be populated by this function
    */
-  public void get(int index, NullableViewVarBinaryHolder holder) {
-    // TODO: https://github.com/apache/arrow/issues/40936
-    throw new UnsupportedOperationException("Unsupported operation");
+  public void get(int index, NullableViewVarCharHolder holder) {
+    final int dataLength = getValueLength(index);
+    if (isSet(index) == 0) {
+      holder.isSet = 0;
+      return;
+    }
+    holder.isSet = 1;
+    if (dataLength > INLINE_SIZE) {
+      // data is in the data buffer
+      // get buffer index
+      final int bufferIndex =
+          viewBuffer.getInt(((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+      // get data offset
+      final int dataOffset =
+          viewBuffer.getInt(
+              ((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+      holder.buffer = dataBuffers.get(bufferIndex);
+      holder.start = dataOffset;
+      holder.end = dataOffset + dataLength;
+    } else {
+      final long dataOffset = ((long) index * ELEMENT_SIZE) + LENGTH_WIDTH;
+      // data is in the value buffer
+      holder.buffer = viewBuffer;
+      holder.start = (int) dataOffset;
+      holder.end = (int) dataOffset + dataLength;
+    }
   }
 
   /*----------------------------------------------------------------*
@@ -150,8 +174,10 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector
    * @param holder holder that carries data buffer.
    */
   public void set(int index, ViewVarBinaryHolder holder) {
-    // TODO: https://github.com/apache/arrow/issues/40936
-    throw new UnsupportedOperationException("Unsupported operation");
+    int start = holder.start;
+    int length = holder.end - start;
+    setBytes(index, holder.buffer, start, length);
+    lastSet = index;
   }
 
   /**
@@ -162,8 +188,9 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector
    * @param holder holder that carries data buffer.
    */
   public void setSafe(int index, ViewVarBinaryHolder holder) {
-    // TODO: https://github.com/apache/arrow/issues/40936
-    throw new UnsupportedOperationException("Unsupported operation");
+    int length = holder.end - holder.start;
+    handleSafe(index, length);
+    set(index, holder);
   }
 
   /**
@@ -174,8 +201,15 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector
    * @param holder holder that carries data buffer.
    */
   public void set(int index, NullableViewVarBinaryHolder holder) {
-    // TODO: https://github.com/apache/arrow/issues/40936
-    throw new UnsupportedOperationException("Unsupported operation");
+    if (holder.isSet == 0) {
+      setNull(index);
+    } else {
+      BitVectorHelper.setBit(validityBuffer, index);
+      int start = holder.start;
+      int length = holder.end - start;
+      setBytes(index, holder.buffer, start, length);
+    }
+    lastSet = index;
   }
 
   /**
@@ -186,8 +220,9 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector
    * @param holder holder that carries data buffer.
    */
   public void setSafe(int index, NullableViewVarBinaryHolder holder) {
-    // TODO: https://github.com/apache/arrow/issues/40936
-    throw new UnsupportedOperationException("Unsupported operation");
+    int length = holder.end - holder.start;
+    handleSafe(index, length);
+    set(index, holder);
   }
 
   /*----------------------------------------------------------------*
