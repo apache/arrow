@@ -415,7 +415,9 @@ Overview of Arrow Terminology
 A specification for how to represent values of an array in memory.
 
 **Buffer**
-A contiguous region of memory with a given length. Buffers are used to store data for arrays.
+A contiguous region of memory with a given length in bytes. Buffers are used to store data
+for arrays. Sometimes we use the notion of number of elements in a buffer which can only be
+used if we know the data type of the array that wraps this specific buffer.
 
 **Array**
 A contiguous, one-dimensional sequence of values with known length where all values have the
