@@ -20,7 +20,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"time"
+	"log"
 
 	"github.com/apache/arrow/go/v18/arrow/internal/flight_integration"
 	"google.golang.org/grpc"
@@ -34,21 +34,12 @@ var (
 	scenario = flag.String("scenario", "", "Integration test scenario to run")
 )
 
-const retries = 3
-
 func main() {
 	flag.Parse()
 
 	c := flight_integration.GetScenario(*scenario, *path)
-	var err error
-	for i := 0; i < retries; i++ {
-		err = c.RunClient(fmt.Sprintf("%s:%d", *host, *port), grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err == nil {
-			break
-		}
-		time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
+	if err := c.RunClient(fmt.Sprintf("%s:%d", *host, *port), grpc.WithTransportCredentials(insecure.NewCredentials())); err != nil {
+		log.Fatal(err)
 	}
-	if err != nil {
-		panic(err)
-	}
+
 }

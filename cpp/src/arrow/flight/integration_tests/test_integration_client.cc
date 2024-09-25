@@ -202,8 +202,6 @@ class IntegrationTestScenario : public Scenario {
 }  // namespace flight
 }  // namespace arrow
 
-constexpr int kRetries = 3;
-
 arrow::Status RunScenario(arrow::flight::integration_tests::Scenario* scenario) {
   auto options = arrow::flight::FlightClientOptions::Defaults();
   std::unique_ptr<arrow::flight::FlightClient> client;
@@ -229,15 +227,7 @@ int main(int argc, char** argv) {
         std::make_shared<arrow::flight::integration_tests::IntegrationTestScenario>();
   }
 
-  // ARROW-11908: retry a few times in case a client is slow to bring up the server
-  auto status = arrow::Status::OK();
-  for (int i = 0; i < kRetries; i++) {
-    status = RunScenario(scenario.get());
-    if (status.ok()) break;
-    // Failed, wait a bit and try again
-    std::this_thread::sleep_for(std::chrono::milliseconds((i + 1) * 500));
-  }
-  ABORT_NOT_OK(status);
+  ABORT_NOT_OK( RunScenario(scenario.get()));
 
   arrow::util::ArrowLog::UninstallSignalAction();
   return 0;

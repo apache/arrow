@@ -33,6 +33,7 @@ func init() {
 					Name: "get_info",
 					ServerHandler: scenario.Handler{GetFlightInfo: func(ctx context.Context, fd *flight.FlightDescriptor) (*flight.FlightInfo, error) {
 						return &flight.FlightInfo{
+							FlightDescriptor: fd,
 							Endpoint: []*flight.FlightEndpoint{{
 								Ticket:   &flight.Ticket{Ticket: []byte("reuse")},
 								Location: []*flight.Location{{Uri: "arrow-flight-reuse-connection://?"}},

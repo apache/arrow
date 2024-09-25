@@ -750,6 +750,8 @@ def _set_default(opt, default):
               help='Run IPC integration tests')
 @click.option('--run-flight', is_flag=True, default=False,
               help='Run Flight integration tests')
+@click.option('--run-flight-reference', is_flag=True, default=False,
+              help='Run Flight integration tests against reference implementation')
 @click.option('--run-c-data', is_flag=True, default=False,
               help='Run C Data Interface integration tests')
 @click.option('--debug', is_flag=True, default=False,
@@ -780,7 +782,7 @@ def integration(with_all=False, random_seed=12345, **args):
     gen_path = args['write_generated_json']
 
     languages = ['cpp', 'csharp', 'java', 'js', 'go', 'nanoarrow', 'rust']
-    formats = ['ipc', 'flight', 'c_data']
+    formats = ['ipc', 'flight', 'c_data', 'flight_reference']
 
     enabled_languages = 0
     for lang in languages:

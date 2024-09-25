@@ -71,7 +71,7 @@ func init() {
 
 					received := header.Get(headerName)
 					t.Assert().Len(received, 1)
-					t.Assert().Equal(headerPayload, received[0])
+					t.Assert().Equal([]string{headerPayload}, received)
 				}
 				{
 					var header metadata.MD
@@ -81,7 +81,7 @@ func init() {
 
 					received := header.Get(headerName)
 					t.Assert().Len(received, 1)
-					t.Assert().Equal(headerPayload, received[0])
+					t.Assert().Equal([]string{headerPayload}, received)
 				}
 			},
 		},

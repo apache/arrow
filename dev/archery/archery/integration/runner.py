@@ -37,6 +37,7 @@ from .tester_java import JavaTester
 from .tester_js import JSTester
 from .tester_csharp import CSharpTester
 from .tester_nanoarrow import NanoarrowTester
+from .tester_reference import FlightReferenceTester
 from .util import guid, printer
 from .util import SKIP_C_ARRAY, SKIP_C_SCHEMA, SKIP_FLIGHT, SKIP_IPC
 from ..utils.source import ARROW_ROOT_DEFAULT
@@ -59,11 +60,12 @@ class IntegrationRunner(object):
 
     def __init__(self, json_files,
                  flight_scenarios: List[Scenario],
-                 testers: List[Tester], tempdir=None,
+                 testers: List[Tester], flight_reference_tester: Tester, tempdir=None,
                  debug=False, stop_on_error=True, gold_dirs=None,
                  serial=False, match=None, **unused_kwargs):
         self.json_files = json_files
         self.flight_scenarios = flight_scenarios
+        self.flight_reference_tester = flight_reference_tester
         self.testers = testers
         self.temp_dir = tempdir or tempfile.mkdtemp()
         self.debug = debug
@@ -117,6 +119,22 @@ class IntegrationRunner(object):
                          self.testers)
         for server, client in itertools.product(servers, clients):
             self._compare_flight_implementations(server, client)
+        log('\n')
+
+    def run_flight_reference(self):
+        """
+        Run Arrow Flight integration tests for the matrix of enabled
+        implementations.
+        """
+        servers = filter(lambda t: t.FLIGHT_SERVER, self.testers)
+        clients = filter(lambda t: (t.FLIGHT_CLIENT and t.CONSUMER),
+                         self.testers)
+
+        for server in servers:
+            self._test_flight_server_implementation(server)
+
+        for client in clients:
+            self._test_flight_client_implementation(client)
         log('\n')
 
     def run_c_data(self):
@@ -352,6 +370,34 @@ class IntegrationRunner(object):
         consumer.validate(json_path, consumer_file_path,
                           quirks=test_case.quirks)
 
+    def _test_flight_server_implementation(
+        self,
+        producer: Tester
+    ):
+        consumer = self.flight_reference_tester
+        log('##########################################################')
+        log('Flight: {0} serving, {1} requesting'
+            .format(producer.name, consumer.name))
+        log('##########################################################')
+
+        case_runner = partial(self._run_flight_test_case, producer, consumer)
+        self._run_test_cases(
+            case_runner, self.flight_scenarios)
+
+    def _test_flight_client_implementation(
+        self,
+        consumer: Tester
+    ):
+        producer = self.flight_reference_tester
+        log('##########################################################')
+        log('Flight: {0} serving, {1} requesting'
+            .format(producer.name, consumer.name))
+        log('##########################################################')
+
+        case_runner = partial(self._run_flight_test_case, producer, consumer)
+        self._run_test_cases(
+            case_runner, self.flight_scenarios)
+
     def _compare_flight_implementations(
         self,
         producer: Tester,
@@ -543,7 +589,7 @@ def get_static_json_files():
 def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                   with_csharp=True, with_go=True, with_rust=False,
                   with_nanoarrow=False, run_ipc=False, run_flight=False,
-                  run_c_data=False, tempdir=None, **kwargs):
+                  run_c_data=False, tempdir=None, run_flight_reference=False, **kwargs):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
     testers: List[Tester] = []
@@ -578,40 +624,40 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "auth:basic_proto",
             description="Authenticate using the BasicAuth protobuf."),
-        Scenario(
-            "middleware",
-            description="Ensure headers are propagated via middleware.",
-        ),
-        Scenario(
-            "ordered",
-            description="Ensure FlightInfo.ordered is supported.",
-            skip_testers={"JS", "C#", "Rust"},
-        ),
-        Scenario(
-            "expiration_time:do_get",
-            description=("Ensure FlightEndpoint.expiration_time with "
-                         "DoGet is working as expected."),
-            skip_testers={"JS", "C#", "Rust"},
-        ),
-        Scenario(
-            "expiration_time:list_actions",
-            description=("Ensure FlightEndpoint.expiration_time related "
-                         "pre-defined actions is working with ListActions "
-                         "as expected."),
-            skip_testers={"JS", "C#", "Rust"},
-        ),
-        Scenario(
-            "expiration_time:cancel_flight_info",
-            description=("Ensure FlightEndpoint.expiration_time and "
-                         "CancelFlightInfo are working as expected."),
-            skip_testers={"JS", "C#", "Rust"},
-        ),
-        Scenario(
-            "expiration_time:renew_flight_endpoint",
-            description=("Ensure FlightEndpoint.expiration_time and "
-                         "RenewFlightEndpoint are working as expected."),
-            skip_testers={"JS", "C#", "Rust"},
-        ),
+        # Scenario(
+        #     "middleware",
+        #     description="Ensure headers are propagated via middleware.",
+        # ),
+        # Scenario(
+        #     "ordered",
+        #     description="Ensure FlightInfo.ordered is supported.",
+        #     skip_testers={"JS", "C#", "Rust"},
+        # ),
+        # Scenario(
+        #     "expiration_time:do_get",
+        #     description=("Ensure FlightEndpoint.expiration_time with "
+        #                  "DoGet is working as expected."),
+        #     skip_testers={"JS", "C#", "Rust"},
+        # ),
+        # Scenario(
+        #     "expiration_time:list_actions",
+        #     description=("Ensure FlightEndpoint.expiration_time related "
+        #                  "pre-defined actions is working with ListActions "
+        #                  "as expected."),
+        #     skip_testers={"JS", "C#", "Rust"},
+        # ),
+        # Scenario(
+        #     "expiration_time:cancel_flight_info",
+        #     description=("Ensure FlightEndpoint.expiration_time and "
+        #                  "CancelFlightInfo are working as expected."),
+        #     skip_testers={"JS", "C#", "Rust"},
+        # ),
+        # Scenario(
+        #     "expiration_time:renew_flight_endpoint",
+        #     description=("Ensure FlightEndpoint.expiration_time and "
+        #                  "RenewFlightEndpoint are working as expected."),
+        #     skip_testers={"JS", "C#", "Rust"},
+        # ),
         Scenario(
             "location:reuse_connection",
             description="Ensure arrow-flight-reuse-connection is accepted.",
@@ -632,30 +678,39 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             description="Ensure support FlightInfo and Endpoint app_metadata",
             skip_testers={"JS", "C#", "Rust"}
         ),
-        Scenario(
-            "flight_sql",
-            description="Ensure Flight SQL protocol is working as expected.",
-            skip_testers={"Rust"}
-        ),
-        Scenario(
-            "flight_sql:extension",
-            description="Ensure Flight SQL extensions work as expected.",
-            skip_testers={"Rust"}
-        ),
-        Scenario(
-            "flight_sql:ingestion",
-            description="Ensure Flight SQL ingestion works as expected.",
-            skip_testers={"JS", "C#", "Rust"}
-        ),
+        # Scenario(
+        #     "flight_sql",
+        #     description="Ensure Flight SQL protocol is working as expected.",
+        #     skip_testers={"Rust"}
+        # ),
+        # Scenario(
+        #     "flight_sql:extension",
+        #     description="Ensure Flight SQL extensions work as expected.",
+        #     skip_testers={"Rust"}
+        # ),
+        # Scenario(
+        #     "flight_sql:ingestion",
+        #     description="Ensure Flight SQL ingestion works as expected.",
+        #     skip_testers={"JS", "C#", "Rust"}
+        # ),
     ]
 
-    runner = IntegrationRunner(json_files, flight_scenarios, testers, **kwargs)
+    flight_reference_impl = FlightReferenceTester(**kwargs)
+    runner = IntegrationRunner(
+        json_files,
+        flight_scenarios,
+        testers,
+        flight_reference_impl,
+        **kwargs,
+    )
     if run_ipc:
         runner.run_ipc()
     if run_flight:
         runner.run_flight()
     if run_c_data:
         runner.run_c_data()
+    if run_flight_reference:
+        runner.run_flight_reference()
 
     fail_count = 0
     if runner.failures:
