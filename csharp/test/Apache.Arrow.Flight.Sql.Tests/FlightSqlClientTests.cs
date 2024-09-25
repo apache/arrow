@@ -734,7 +734,7 @@ public class FlightSqlClientTests : IDisposable
         var cancelResult = await _flightSqlClient.CancelFlightInfoAsync(options, cancelRequest);
 
         // Assert
-        Assert.Equal(0, cancelResult.GetCancelStatus());
+        Assert.Equal(1, cancelResult.GetCancelStatus());
     }
 
     [Fact]
@@ -757,7 +757,7 @@ public class FlightSqlClientTests : IDisposable
         var cancelStatus = await _flightSqlClient.CancelQueryAsync(options, flightInfo);
 
         // Assert
-        Assert.Equal(0, cancelStatus.GetCancelStatus());
+        Assert.Equal(1, cancelStatus.GetCancelStatus());
     }
 
     public void Dispose() => _testWebFactory?.Dispose();

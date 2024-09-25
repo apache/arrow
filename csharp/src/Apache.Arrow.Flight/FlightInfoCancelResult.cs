@@ -31,4 +31,9 @@ public class FlightInfoCancelResult : IMessage
     {
         return (int)_flightInfoCancelResult.Status;
     }
+
+    public void SetStatus(int status)
+    {
+        _flightInfoCancelResult.Status = (CancelStatus)status;
+    }
 }
