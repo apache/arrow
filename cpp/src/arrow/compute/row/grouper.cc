@@ -208,7 +208,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     }
     ARROW_DCHECK(value.is_array());
     const auto& array = value.array;
-    DCHECK_GT(array.GetNullCount(), 0);
+    DCHECK_EQ(array.GetNullCount(), 0);
     return GetNextSegmentDeprecated(*array.type, GetValuesAsBytes(array), offset,
                                     batch.length);
     ARROW_UNSUPPRESS_DEPRECATION_WARNING
@@ -346,7 +346,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     // `data` is an array whose index-0 corresponds to index `offset` of `batch`
     const std::shared_ptr<ArrayData>& data = datum.array();
     DCHECK_EQ(data->length, batch.length - offset);
-    ARROW_DCHECK(data->GetNullCount() == 0);
+    DCHECK_EQ(data->GetNullCount(), 0);
     DCHECK_EQ(data->type->id(), GroupIdType::type_id);
     const group_id_t* values = data->GetValues<group_id_t>(1);
     int64_t cursor;
@@ -419,7 +419,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
                                                         /*length=*/1));
     DCHECK(datum.is_array());
     const std::shared_ptr<ArrayData>& data = datum.array();
-    ARROW_DCHECK(data->GetNullCount() == 0);
+    DCHECK_EQ(data->GetNullCount(), 0);
     DCHECK_EQ(data->type->id(), GroupIdType::type_id);
     DCHECK_EQ(1, data->length);
     const group_id_t* values = data->GetValues<group_id_t>(1);
@@ -650,7 +650,7 @@ struct GrouperFastImpl : public Grouper {
       const TypeHolder& key = keys[icol];
       if (key.id() == Type::DICTIONARY) {
         auto bit_width = checked_cast<const FixedWidthType&>(*key).bit_width();
-        ARROW_DCHECK(bit_width % 8 == 0);
+        DCHECK(bit_width % 8, 0);
         impl->col_metadata_[icol] = KeyColumnMetadata(true, bit_width / 8);
       } else if (key.id() == Type::BOOL) {
         impl->col_metadata_[icol] = KeyColumnMetadata(true, 0);
