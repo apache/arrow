@@ -206,7 +206,8 @@ class S3TestMixin : public AwsTestMixin {
     ARROW_ASSIGN_OR_RAISE(minio_, GetMinioEnv()->GetOneServer());
     client_config_.reset(new Aws::Client::ClientConfiguration());
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
-    client_config_->scheme = Aws::Http::Scheme::HTTP;
+    client_config_->scheme = Aws::Http::Scheme::HTTPS;
+    client_config_->verifySSL = false;
     client_config_->retryStrategy =
         std::make_shared<ConnectRetryStrategy>(kRetryInterval, kMaxRetryDuration);
     credentials_ = {ToAwsString(minio_->access_key()), ToAwsString(minio_->secret_key())};
@@ -531,7 +532,7 @@ class TestS3FS : public S3TestMixin {
   }
 
   Result<std::shared_ptr<S3FileSystem>> MakeNewFileSystem(
-      io::IOContext io_context = io::default_io_context(), bool use_https = false) {
+      io::IOContext io_context = io::default_io_context(), bool use_https = true) {
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
     options_.scheme = use_https ? "https" : "http";
     options_.endpoint_override = minio_->connect_string();
@@ -541,7 +542,7 @@ class TestS3FS : public S3TestMixin {
     return S3FileSystem::Make(options_, io_context);
   }
 
-  void MakeFileSystem(bool use_https = false) {
+  void MakeFileSystem(bool use_https = true) {
     ASSERT_OK_AND_ASSIGN(fs_, MakeNewFileSystem(io::default_io_context(), use_https));
   }
 
@@ -1305,9 +1306,7 @@ TEST_F(TestS3FS, SSECustomerKeyMatch) {
   // normal write/read with correct SSEC key
   std::shared_ptr<io::OutputStream> stream;
   options_.sse_customer_key = "12345678123456781234567812345678";
-  MakeFileSystem(true);  // need to use https, otherwise get 'InvalidRequest Message:
-                         // Requests specifying Server Side Encryption with Customer
-                         // provided keys must be made over a secure connection.'
+  MakeFileSystem();
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile_with_sse_c"));
   ASSERT_OK(stream->Write("some"));
   ASSERT_OK(stream->Close());
@@ -1320,7 +1319,7 @@ TEST_F(TestS3FS, SSECustomerKeyMatch) {
 TEST_F(TestS3FS, SSECustomerKeyMismatch) {
   std::shared_ptr<io::OutputStream> stream;
   options_.sse_customer_key = "12345678123456781234567812345678";
-  MakeFileSystem(true);
+  MakeFileSystem();
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile_with_sse_c"));
   ASSERT_OK(stream->Write("some"));
   ASSERT_OK(stream->Close());
@@ -1453,7 +1452,7 @@ TEST_F(TestS3FS, FileSystemFromUri) {
   std::stringstream ss;
   ss << "s3://" << minio_->access_key() << ":" << minio_->secret_key()
      << "@bucket/somedir/subdir/subfile"
-     << "?scheme=http&endpoint_override=" << UriEscape(minio_->connect_string());
+     << "?scheme=https&endpoint_override=" << UriEscape(minio_->connect_string());
 
   std::string path;
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(ss.str(), &path));
@@ -1555,7 +1554,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
     }
 
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
-    options_.scheme = "http";
+    options_.scheme = "https";
     options_.endpoint_override = minio_->connect_string();
     options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
     ASSERT_OK_AND_ASSIGN(s3fs_, S3FileSystem::Make(options_));
@@ -1639,7 +1638,7 @@ TEST(CalculateSSECustomerKeyMD5, Sanity) {
   sse_customer_key[31] = '\xFA';  // non-ASCII
   std::string sse_customer_key_string(sse_customer_key, sizeof(sse_customer_key));
   ASSERT_OK_AND_ASSIGN(auto md5, CalculateSSECustomerKeyMD5(sse_customer_key_string))
-  ASSERT_STREQ(md5.c_str(), "97FTa6lj0hE7lshKdBy61g==");  // valid case
+  ASSERT_EQ(md5, "97FTa6lj0hE7lshKdBy61g==");  // valid case
 }
 
 }  // namespace fs
