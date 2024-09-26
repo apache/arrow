@@ -21,7 +21,7 @@ Introduction
 
 Apache Arrow was born from the need for a set of standards around
 tabular data representation and interchange between systems.
-The adoption of these standards reduce computing costs of data
+The adoption of these standards reduces computing costs of data
 serialization/deserialization and implementation costs across
 systems implemented in different programming languages.
 
