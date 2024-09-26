@@ -88,6 +88,7 @@ import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
@@ -769,6 +770,18 @@ public class RoundtripTest {
       assertTrue(roundtrip(vector, StructVector.class));
     }
   }
+
+  @Test
+  public void testRunEndEncodedVector() {
+    try (final RunEndEncodedVector vector = RunEndEncodedVector.empty("v", allocator)) {
+      setVector(
+          vector,
+          Arrays.stream(new int[] {1, 3}).boxed().collect(Collectors.toList()),
+          Arrays.stream(new int[] {1, 2}).boxed().collect(Collectors.toList()));
+      assertTrue(roundtrip(vector, RunEndEncodedVector.class));
+    }
+  }
+
 
   @Test
   public void testExtensionTypeVector() {

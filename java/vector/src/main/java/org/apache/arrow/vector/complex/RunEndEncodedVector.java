@@ -203,6 +203,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     for (FieldVector v : getChildrenFromFields()) {
       v.clear();
     }
+    this.valueCount = 0;
   }
 
   /**
@@ -232,19 +233,6 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
   @Override
   public MinorType getMinorType() {
     return MinorType.RUNENDENCODED;
-  }
-
-  /**
-   * To transfer quota responsibility.
-   *
-   * @param allocator the target allocator
-   * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new
-   *     target vector of the same type.
-   */
-  @Override
-  public TransferPair getTransferPair(BufferAllocator allocator) {
-    throw new UnsupportedOperationException(
-        "RunEndEncodedVector does not support getTransferPair(BufferAllocator)");
   }
 
   /**
@@ -284,8 +272,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    throw new UnsupportedOperationException(
-        "RunEndEncodedVector does not support getTransferPair(String, BufferAllocator, CallBack)");
+    return new TransferImpl(ref, allocator, callBack);
   }
 
   /**
@@ -299,8 +286,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
-    throw new UnsupportedOperationException(
-        "RunEndEncodedVector does not support getTransferPair(Field, BufferAllocator, CallBack)");
+    return new TransferImpl(field, allocator, callBack);
   }
 
   /**
@@ -312,8 +298,68 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public TransferPair makeTransferPair(ValueVector target) {
-    throw new UnsupportedOperationException(
-        "RunEndEncodedVector does not support makeTransferPair(ValueVector)");
+    return new TransferImpl((RunEndEncodedVector) target);
+  }
+
+  private class TransferImpl implements TransferPair {
+
+    RunEndEncodedVector to;
+    TransferPair dataTransferPair;
+    TransferPair reeTransferPair;
+
+    public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
+      this(new RunEndEncodedVector(name, allocator, field.getFieldType(), callBack));
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator, CallBack callBack) {
+      this(new RunEndEncodedVector(field, allocator, callBack));
+    }
+
+    public TransferImpl(RunEndEncodedVector to) {
+      this.to = to;
+      if (to.getRunEndsVector() instanceof ZeroVector) {
+        to.initializeChildrenFromFields(field.getChildren());
+      }
+      reeTransferPair = getRunEndsVector().makeTransferPair(to.getRunEndsVector());
+      dataTransferPair = getValuesVector().makeTransferPair(to.getValuesVector());
+    }
+
+    /**
+     * Transfer this vector'data to another vector. The memory associated with this vector is
+     * transferred to the allocator of target vector for accounting and management purposes.
+     */
+    @Override
+    public void transfer() {
+      to.clear();
+      dataTransferPair.transfer();
+      reeTransferPair.transfer();
+      if (valueCount > 0) {
+        to.setValueCount(valueCount);
+      }
+      clear();
+    }
+
+    /**
+     * Slice this vector at desired index and length and transfer the corresponding data to the
+     * target vector.
+     *
+     * @param startIndex start position of the split in source vector.
+     * @param length length of the split.
+     */
+    @Override
+    public void splitAndTransfer(int startIndex, int length) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ValueVector getTo() {
+      return to;
+    }
+
+    @Override
+    public void copyValueSafe(int from, int to) {
+      this.to.copyFrom(from, to, RunEndEncodedVector.this);
+    }
   }
 
   /**
@@ -568,6 +614,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
       throw new UnsupportedOperationException(
           "Run-end encoded vectors do not have any associated buffers.");
     }
+    this.valueCount = fieldNode.getLength();
   }
 
   /**
