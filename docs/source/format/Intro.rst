@@ -32,7 +32,8 @@ offered by the language and common in-memory data processing algorithms
 (e.g. slicing and concatenating). Users can extend and use the utilities
 provided by the Apache Arrow implementation in their programming
 language of choice. Some implementations are further ahead and feature a
-vast set of algorithms for in-memory analytical data processing.
+vast set of algorithms for in-memory analytical data processing. More detail
+about how implementations differ can be found on the :ref:`status` page.
 
 Apart from this initial vision, Arrow has grown to also develop a
 multi-language collection of libraries for solving problems related to
@@ -71,12 +72,12 @@ This organization makes analytical operations like filtering, grouping,
 aggregations and others, more efficient thanks to memory locality.
 When processing the data, the memory locations accessed by the CPU tend
 be near one another. By keeping the data contiguous in memory, it also
-enables vectorization of the computations. Most modern
-CPUs have
-[SIMD instructions](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)
-(a single instruction that operates on multiple values at once) enabling parallel
-processing and execution of operations on vector data using a single CPU
-instruction.
+enables vectorization of the computations. Most modern CPUs have
+`SIMD instructions`_ (a single instruction that operates on multiple values at
+once) enabling parallel processing and execution of operations on vector data
+using a single CPU instruction.
+
+.. _SIMD instructions: https://en.wikipedia.org/wiki/Single_instruction,_multiple_data
 
 Apache Arrow is solving this exact problem. It is the specification that
 uses the columnar layout.
@@ -173,7 +174,7 @@ binary/string element.
 
 Binary and string data types share the same physical layout. The only
 difference between them is that a string-typed array is assumed to contain
-valid utf-8 string data.
+valid UTF-8 string data.
 
 The difference between binary/string and large binary/string is in the offset
 data type. In the first case that is int32 and in the second it is int64.
