@@ -879,7 +879,8 @@ if(ARROW_FILESYSTEM)
 
     if(ARROW_S3_MODULE)
       if(NOT ARROW_BUILD_SHARED)
-        message(FATAL_ERROR "ARROW_S3_MODULE without shared libarrow is not supported")
+        message(FATAL_ERROR "ARROW_S3_MODULE without shared libarrow (-DARROW_BUILD_SHARED=ON) is not supported"
+        )
       endif()
 
       add_library(arrow_s3fs MODULE filesystem/s3fs_module.cc filesystem/s3fs.cc)
