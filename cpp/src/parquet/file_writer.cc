@@ -583,6 +583,46 @@ void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
   }
 }
 
+void WriteEncryptedMetadataFile(
+    const FileMetaData& metadata, std::shared_ptr<::arrow::io::OutputStream> sink,
+    std::shared_ptr<FileEncryptionProperties> file_encryption_properties) {
+  auto file_encryptor = std::make_unique<InternalFileEncryptor>(
+      file_encryption_properties.get(), ::arrow::default_memory_pool());
+
+  if (file_encryption_properties->encrypted_footer()) {
+    PARQUET_THROW_NOT_OK(sink->Write(kParquetEMagic, 4));
+
+    PARQUET_ASSIGN_OR_THROW(int64_t position, sink->Tell());
+    auto metadata_start = static_cast<uint64_t>(position);
+
+    auto writer_props = parquet::WriterProperties::Builder()
+                            .encryption(file_encryption_properties)
+                            ->build();
+    auto builder = FileMetaDataBuilder::Make(metadata.schema(), writer_props);
+
+    auto footer_metadata = builder->Finish(metadata.key_value_metadata());
+    auto crypto_metadata = builder->GetCryptoMetaData();
+
+    WriteFileCryptoMetaData(*crypto_metadata, sink.get());
+
+    auto footer_encryptor = file_encryptor->GetFooterEncryptor();
+    WriteEncryptedFileMetadata(metadata, sink.get(), footer_encryptor, true);
+
+    PARQUET_ASSIGN_OR_THROW(position, sink->Tell());
+    auto footer_and_crypto_len = static_cast<uint32_t>(position - metadata_start);
+    PARQUET_THROW_NOT_OK(
+        sink->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4));
+    PARQUET_THROW_NOT_OK(sink->Write(kParquetEMagic, 4));
+  } else {
+    // Encrypted file with plaintext footer mode.
+    PARQUET_THROW_NOT_OK(sink->Write(kParquetMagic, 4));
+    auto footer_signing_encryptor = file_encryptor->GetFooterSigningEncryptor();
+    WriteEncryptedFileMetadata(metadata, sink.get(), footer_signing_encryptor, false);
+  }
+
+  file_encryptor->WipeOutEncryptionKeys();
+}
+
 void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
                              ArrowOutputStream* sink) {
   crypto_metadata.WriteTo(sink);
