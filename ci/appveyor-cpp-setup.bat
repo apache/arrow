@@ -46,7 +46,7 @@ conda info -a
 @rem
 @rem Install mamba to the base environment
 @rem
-conda install -q -y -c conda-forge mamba python=%PYTHON% || exit /B
+conda install -q -y -c conda-forge "mamba<2" python=%PYTHON% || exit /B
 
 @rem Update for newer CA certificates
 mamba update -q -y -c conda-forge --all || exit /B
