@@ -41,14 +41,15 @@ conda config --set show_channel_urls True
 conda config --set remote_connect_timeout_secs 12
 @rem Workaround for ARROW-13636
 conda config --append disallowed_packages pypy3
-@rem Can't use conda-libmamba-solver 2.0.0
-conda config --set solver classic
 conda info -a
 
 @rem
 @rem Install Python to the base environment
 @rem
 conda install -q -y -c conda-forge python=%PYTHON% || exit /B
+
+@rem Can't use conda-libmamba-solver 2.0.0
+conda config --set solver classic
 
 @rem Update for newer CA certificates
 conda update -q -y -c conda-forge --all || exit /B
