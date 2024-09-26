@@ -997,9 +997,8 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
     const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
     if (inferred_type->id() != ::arrow::Type::EXTENSION &&
         ex_type.extension_name() == std::string("arrow.json") &&
-        (inferred_type->id() == ::arrow::Type::STRING ||
-         inferred_type->id() == ::arrow::Type::LARGE_STRING ||
-         inferred_type->id() == ::arrow::Type::STRING_VIEW)) {
+        ::arrow::extension::JsonExtensionType::IsSupportedStorageType(
+            inferred_type->id())) {
       // Schema mismatch.
       //
       // Arrow extensions are DISABLED in Parquet.
@@ -1019,9 +1018,8 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       // from the Parquet type
       if (ex_type.storage_type()->Equals(*inferred->field->type()) ||
           ((ex_type.extension_name() == "arrow.json") &&
-           (inferred->field->type()->storage_id() == ::arrow::Type::STRING ||
-            inferred->field->type()->storage_id() == ::arrow::Type::LARGE_STRING ||
-            inferred->field->type()->storage_id() == ::arrow::Type::STRING_VIEW))) {
+           ::arrow::extension::JsonExtensionType::IsSupportedStorageType(
+               inferred->field->type()->storage_id()))) {
         inferred->field = inferred->field->WithType(origin_type);
       }
     }

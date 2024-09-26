@@ -47,10 +47,14 @@ std::shared_ptr<Array> JsonExtensionType::MakeArray(
   return std::make_shared<ExtensionArray>(data);
 }
 
+bool JsonExtensionType::IsSupportedStorageType(Type::type type_id) {
+  return type_id == Type::STRING || type_id == Type::STRING_VIEW ||
+         type_id == Type::LARGE_STRING;
+}
+
 Result<std::shared_ptr<DataType>> JsonExtensionType::Make(
     std::shared_ptr<DataType> storage_type) {
-  if (storage_type->id() != Type::STRING && storage_type->id() != Type::STRING_VIEW &&
-      storage_type->id() != Type::LARGE_STRING) {
+  if (!IsSupportedStorageType(storage_type->id())) {
     return Status::Invalid("Invalid storage type for JsonExtensionType: ",
                            storage_type->ToString());
   }
