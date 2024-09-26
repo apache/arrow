@@ -46,8 +46,11 @@ conda info -a
 @rem
 @rem Install mamba to the base environment
 @rem
-@rem GH-44234: "mamba update" with Mamba 2.0.0 failed
-conda install -q -y -c conda-forge mamba=1.5.10 python=%PYTHON% || exit /B
+conda install -q -y -c conda-forge mamba python=%PYTHON% || exit /B
+
+@rem Ensure using the latest information. If there are invalid caches,
+@rem mamba may use invalid download URL.
+mamba clean --all -y
 
 @rem Update for newer CA certificates
 mamba update -q -y -c conda-forge --all || exit /B
@@ -67,9 +70,6 @@ set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.txt
 @rem Force conda to use conda-forge
 conda config --add channels conda-forge
 conda config --remove channels defaults
-@rem Ensure using the latest information. If there are invalid caches,
-@rem mamba may use invalid download URL.
-mamba clean --all -y
 @rem Arrow conda environment
 mamba create -n arrow -y -c conda-forge ^
   --file=ci\conda_env_python.txt ^
