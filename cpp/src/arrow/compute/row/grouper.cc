@@ -650,7 +650,7 @@ struct GrouperFastImpl : public Grouper {
       const TypeHolder& key = keys[icol];
       if (key.id() == Type::DICTIONARY) {
         auto bit_width = checked_cast<const FixedWidthType&>(*key).bit_width();
-        DCHECK(bit_width % 8, 0);
+        DCHECK_EQ(bit_width % 8, 0);
         impl->col_metadata_[icol] = KeyColumnMetadata(true, bit_width / 8);
       } else if (key.id() == Type::BOOL) {
         impl->col_metadata_[icol] = KeyColumnMetadata(true, 0);
