@@ -1118,7 +1118,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 20.04
+        UBUNTU: 22.04
       flags: >-
         -e ARROW_AZURE=OFF
         -e ARROW_GANDIVA=OFF
@@ -1188,12 +1188,12 @@ tasks:
         UBUNTU: 24.04
       image: ubuntu-cpp-thread-sanitizer
 
-  test-ubuntu-20.04-cpp-minimal-with-formats:
+  test-ubuntu-24.04-cpp-minimal-with-formats:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 20.04
+        UBUNTU: 24.04
       flags: "-e ARROW_CSV=ON -e ARROW_PARQUET=ON"
       image: ubuntu-cpp-minimal
 
@@ -1509,6 +1509,8 @@ tasks:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        UBUNTU: 20.04
       image: ubuntu-cuda-cpp
 
   test-cuda-cpp-ubuntu-22.04-cuda-11.7.1:
