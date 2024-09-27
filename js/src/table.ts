@@ -238,8 +238,21 @@ export class Table<T extends TypeMap = any> {
      *
      * @returns An Array of Table rows.
      */
-    public toArray() {
+    public toArray(): Array<Struct<T>['TValue']> {
         return [...this];
+    }
+
+    /**
+     * Return a JavaScript Array view of the Table rows.
+     *
+     * It is a lightweight read-only proxy that delegates to the table. Accessing elements has some
+     * overhead compared to the regular array returned by `toArray()` because of this indirection,
+     * but it avoids potentially large memory allocation.
+     *
+     * @returns An Array proxy to the Table rows.
+     */
+    public toArrayView(): Array<Struct<T>['TValue']> {
+        return new Proxy([] as Array<Struct<T>['TValue']>, new TableArrayProxyHandler(this));
     }
 
     /**
@@ -248,7 +261,7 @@ export class Table<T extends TypeMap = any> {
      * @returns A string representation of the Table rows.
      */
     public toString() {
-        return `[\n  ${this.toArray().join(',\n  ')}\n]`;
+        return `[\n  ${this.toArrayView().join(',\n  ')}\n]`;
     }
 
     /**
@@ -444,3 +457,77 @@ export function tableFromArrays<I extends Record<string | number | symbol, Typed
     }
     return new Table<T>(vecs);
 }
+
+class TableArrayProxyHandler<T extends TypeMap = any> implements ProxyHandler<Array<Struct<T>['TValue']>> {
+    table: Table<T>;
+
+    constructor(table: Table<T>) {
+        this.table = table;
+    }
+
+    // Traps that aren't implemented:
+    // - apply
+    // - construct
+    // - defineProperty
+    // - deleteProperty
+    // - getPrototypeOf
+    // - isExtensible
+    // - preventExtensions
+    // - set
+    // - setPrototypeOf
+
+    get(target: Array<Struct<T>['TValue']>, p: string | symbol, receiver: any): any {
+        if (typeof p === 'string') {
+            const i = Number(p);
+            if (Number.isInteger(i)) {
+                return this.table.get(i);
+            }
+            if (p === 'at') {
+                return (i: number): Struct<T>['TValue'] | undefined => {
+                    return this.table.at(i) ?? undefined;
+                };
+            }
+            if (p === 'length') {
+                return this.table.numRows;
+            }
+        } else if (p === Symbol('keys')) {
+            const end = this.table.numRows;
+            return function * () {
+                let i = 0;
+                while(i < end) {
+                    yield i++;
+                }
+                return;
+            };
+        }
+        return Reflect.get(target, p, receiver);
+    }
+
+    getOwnPropertyDescriptor(target: Array<Struct<T>['TValue']>, p: string | symbol): PropertyDescriptor | undefined {
+        if (typeof p === 'string') {
+            const i = Number(p);
+            if (Number.isInteger(i) && i >= 0 && i < this.table.numRows) {
+                return { enumerable: true, configurable: true };
+            }
+        }
+        return Reflect.getOwnPropertyDescriptor(target, p);
+    }
+
+    has(target: Array<Struct<T>['TValue']>, p: string | symbol): boolean {
+        if (typeof p === 'string') {
+            const i = Number(p);
+            if (Number.isInteger(i)) {
+                return i >= 0 && i < this.table.numRows;
+            }
+        }
+        return Reflect.has(target, p);
+    }
+
+    ownKeys(_target: Array<Struct<T>['TValue']>): ArrayLike<string | symbol> {
+        // Can be expensive as we allocate an array with all index numbers as strings
+        const keys = Array.from({length: this.table.numRows}, (_, i) => String(i));
+        keys.push('length');
+        return keys;
+    }
+}
+

@@ -79,3 +79,61 @@ describe('tableFromJSON()', () => {
         expect(table.getChild('c')!.type).toBeInstanceOf(Dictionary);
     });
 });
+
+describe('table views', () => {
+    const table = tableFromJSON([{
+        a: 42,
+        b: true,
+        c: 'foo',
+    }, {
+        a: 12,
+        b: false,
+        c: 'bar',
+    }]);
+
+    function checkArrayValues(arr: Array<any>) {
+        expect(arr).toHaveLength(2);
+        expect(arr[0].a).toBe(42);
+        expect(arr[0].b).toBe(true);
+        expect(arr[0].c).toBe('foo');
+        expect(arr[1].a).toBe(12);
+        expect(arr[1].b).toBe(false);
+        expect(arr[1].c).toBe('bar');
+    }
+
+    function checkArray(arr: Array<any>) {
+        test('Wrapper', () => checkArrayValues(arr));
+
+        test('Iterator', () => {
+            const arr2 = [];
+            for (let item of arr) {
+                arr2.push(item);
+            }
+            checkArrayValues(arr);
+        });
+
+        test('Array index', () => {
+            const arr2 = new Array(arr.length);
+            for (let i = 0; i < arr2.length; i++) {
+                arr2[i] = arr[i];
+            }
+            checkArrayValues(arr2);
+        });
+
+        test('Keys', () => {
+            const arr2: any[] = new Array(arr.length);
+            let keys = Object.keys(arr);
+            for (let k in keys) {
+                arr2[k] = arr[k];
+            }
+            checkArrayValues(arr2);
+        });
+    }
+
+    describe('table.toArray()', () => {
+        checkArray(table.toArray());
+    });
+    describe('table.toArrayView()', () => {
+        checkArray(table.toArrayView());
+    });
+});

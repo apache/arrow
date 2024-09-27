@@ -205,6 +205,10 @@ for (const { name, table, counts } of config) {
             table.toArray();
         }),
 
+        b.add(`toArrayView, dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
+            table.toArrayView();
+        }),
+
         b.add(`get, dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
             for (let i = -1, n = table.numRows; ++i < n;) {
                 table.get(i);
