@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <immintrin.h>
-
 #include "arrow/compute/row/encode_internal.h"
+#include "arrow/util/simd.h"
 
 namespace arrow {
 namespace compute {

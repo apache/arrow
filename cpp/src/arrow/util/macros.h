@@ -19,6 +19,8 @@
 
 #include <cstdint>
 
+#include "arrow/util/simd.h"
+
 #define ARROW_EXPAND(x) x
 #define ARROW_STRINGIFY(x) #x
 #define ARROW_CONCAT(x, y) x##y
@@ -105,7 +107,11 @@
 #  define ARROW_FORCE_INLINE __forceinline
 #  define ARROW_PREDICT_FALSE(x) (x)
 #  define ARROW_PREDICT_TRUE(x) (x)
-#  define ARROW_PREFETCH(addr)
+#  if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
+#    define ARROW_PREFETCH(addr) _mm_prefetch((const char*)(addr), _MM_HINT_T0)
+#  else
+#    define ARROW_PREFETCH(addr)
+#  endif
 #  define ARROW_RESTRICT __restrict
 #  define ARROW_COMPILER_ASSUME(expr) __assume(expr)
 #else
