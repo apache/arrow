@@ -82,16 +82,14 @@ std::string MinioTestServer::ca_path() const {
 
 void MinioTestServer::GenerateCertificateFile() {
   ASSERT_OK_AND_ASSIGN(auto public_crt_file,
-                       PlatformFilename::FromString(
-                           impl_->temp_dir_ca_->path().ToString() + "/public.crt"));
+                       PlatformFilename::FromString(ca_path() + "/public.crt"));
   ASSERT_OK_AND_ASSIGN(auto public_cert_fd, FileOpenWritable(public_crt_file));
   ASSERT_OK(FileWrite(public_cert_fd.fd(), reinterpret_cast<const uint8_t*>(kMinioCert),
                       strlen(kMinioCert)));
   ASSERT_OK(public_cert_fd.Close());
 
   ASSERT_OK_AND_ASSIGN(auto private_key_file,
-                       PlatformFilename::FromString(
-                           impl_->temp_dir_ca_->path().ToString() + "/private.key"));
+                       PlatformFilename::FromString(ca_path() + "/private.key"));
   ASSERT_OK_AND_ASSIGN(auto private_key_fd, FileOpenWritable(private_key_file));
   ASSERT_OK(FileWrite(private_key_fd.fd(),
                       reinterpret_cast<const uint8_t*>(kMinioPrivateKey),
@@ -119,23 +117,18 @@ Status MinioTestServer::Start() {
   // Disable the embedded console (one less listening address to care about)
   impl_->server_process_->SetEnv("MINIO_BROWSER", "off");
   impl_->connect_string_ = GenerateConnectString();
-  ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
-  // NOTE: --quiet makes startup faster by suppressing remote version check
-  std::vector<std::string> start_args = {"server", "--quiet", "--compat", "--address",
-                                         impl_->connect_string_};
-
   // create the dedicated folder for certificate file, rather than reuse the data
   // folder, since there is test case to check whether the folder is empty.
   ARROW_ASSIGN_OR_RAISE(impl_->temp_dir_ca_, TemporaryDir::Make("s3fs-test-ca-"));
   GenerateCertificateFile();
-  start_args.push_back("--certs-dir");
-  start_args.push_back(ca_path());
   arrow::fs::FileSystemGlobalOptions global_options;
   global_options.tls_ca_dir_path = ca_path();
   ARROW_RETURN_NOT_OK(arrow::fs::Initialize(global_options));
-  // apply the data path at the end since some minio version only support it at the end
-  start_args.push_back(impl_->temp_dir_->path().ToString());
-  impl_->server_process_->SetArgs(start_args);
+  ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
+  // NOTE: --quiet makes startup faster by suppressing remote version check
+  impl_->server_process_->SetArgs({"server", "--quiet", "--compat", "--certs-dir",
+                                   ca_path(), "--address", impl_->connect_string_,
+                                   impl_->temp_dir_->path().ToString()});
   ARROW_RETURN_NOT_OK(impl_->server_process_->Execute());
   return Status::OK();
 }
