@@ -81,7 +81,8 @@ class MinioFixture : public benchmark::Fixture {
     }
 
     client_config_.endpointOverride = ToAwsString(minio_->connect_string());
-    client_config_.scheme = Aws::Http::Scheme::HTTP;
+    client_config_.scheme = Aws::Http::Scheme::HTTPS;
+    client_config_.caPath = ToAwsString(minio_->ca_path());
     if (!region_.empty()) {
       client_config_.region = ToAwsString(region_);
     }
@@ -110,7 +111,7 @@ class MinioFixture : public benchmark::Fixture {
 
   void MakeFileSystem() {
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
-    options_.scheme = "http";
+    options_.scheme = "https";
     if (!region_.empty()) {
       options_.region = region_;
     }
