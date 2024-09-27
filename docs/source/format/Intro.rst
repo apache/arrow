@@ -119,7 +119,7 @@ column 1 in the diagram below).
    `least-significant bit numbering <https://en.wikipedia.org/wiki/Bit_numbering>`_
    being used.
 
-   This is also the how we represented the validity bitmaps in the
+   This is also how we have represented the validity bitmaps in the
    diagrams included in this document.
 
 Primitive Layouts
