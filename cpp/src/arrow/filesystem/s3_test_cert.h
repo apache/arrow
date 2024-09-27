@@ -20,6 +20,10 @@
 namespace arrow {
 namespace fs {
 
+// The below two static strings are generated according to
+// https://github.com/minio/minio/tree/RELEASE.2024-09-22T00-33-43Z/docs/tls#323-generate-a-self-signed-certificate
+// `openssl req -new -x509 -nodes -days 36500 -keyout private.key -out public.crt -config
+// openssl.conf`
 const char* kMinioPrivateKey = R"(-----BEGIN PRIVATE KEY-----
 MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCqwKYHsTSciGqP
 uU3qkTWpnXIi3iC0eeW7JSzJHGFs880WdR5JdK4WufPK+1xzgiYjMEPfAcuSWz3b
@@ -50,7 +54,7 @@ t9pJcv2E5xY7/nFNIorpKg==
 -----END PRIVATE KEY-----
 )";
 
-const char* kMinioPublicCert = R"(-----BEGIN CERTIFICATE-----
+const char* kMinioCert = R"(-----BEGIN CERTIFICATE-----
 MIIDiTCCAnGgAwIBAgIUXbHZ6FAhKSXg4WSGUQySlSyE4U0wDQYJKoZIhvcNAQEL
 BQAwXzELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAlZBMQ4wDAYDVQQHDAVBcnJvdzEO
 MAwGA1UECgwFQXJyb3cxDjAMBgNVBAsMBUFycm93MRMwEQYDVQQDDApBcnJyb3dU

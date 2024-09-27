@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <cctype>
 #include <optional>
 #include <sstream>
 #include <string>

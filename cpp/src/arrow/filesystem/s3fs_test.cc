@@ -207,7 +207,7 @@ class S3TestMixin : public AwsTestMixin {
     client_config_.reset(new Aws::Client::ClientConfiguration());
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
     client_config_->scheme = Aws::Http::Scheme::HTTPS;
-    client_config_->verifySSL = false;
+    client_config_->caPath = ToAwsString(minio_->ca_path());
     client_config_->retryStrategy =
         std::make_shared<ConnectRetryStrategy>(kRetryInterval, kMaxRetryDuration);
     credentials_ = {ToAwsString(minio_->access_key()), ToAwsString(minio_->secret_key())};
@@ -532,9 +532,9 @@ class TestS3FS : public S3TestMixin {
   }
 
   Result<std::shared_ptr<S3FileSystem>> MakeNewFileSystem(
-      io::IOContext io_context = io::default_io_context(), bool use_https = true) {
+      io::IOContext io_context = io::default_io_context()) {
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
-    options_.scheme = use_https ? "https" : "http";
+    options_.scheme = "https";
     options_.endpoint_override = minio_->connect_string();
     if (!options_.retry_strategy) {
       options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
@@ -542,8 +542,8 @@ class TestS3FS : public S3TestMixin {
     return S3FileSystem::Make(options_, io_context);
   }
 
-  void MakeFileSystem(bool use_https = true) {
-    ASSERT_OK_AND_ASSIGN(fs_, MakeNewFileSystem(io::default_io_context(), use_https));
+  void MakeFileSystem() {
+    ASSERT_OK_AND_ASSIGN(fs_, MakeNewFileSystem(io::default_io_context()));
   }
 
   template <typename Matcher>
@@ -1325,7 +1325,7 @@ TEST_F(TestS3FS, SSECustomerKeyMismatch) {
   ASSERT_OK(stream->Close());
 
   options_.sse_customer_key = "87654321876543218765432187654321";
-  MakeFileSystem(true);
+  MakeFileSystem();
   ASSERT_RAISES(IOError, fs_->OpenInputFile("bucket/newfile_with_sse_c"));
   ASSERT_OK(RestoreTestBucket());
 }
