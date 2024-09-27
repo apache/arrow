@@ -19,6 +19,7 @@ import datetime
 import inspect
 import os
 import pathlib
+import sys
 
 try:
     import numpy as np
@@ -1075,6 +1076,9 @@ def test_write_to_dataset_pathlib_nonlocal(tempdir, s3_example_s3fs):
 
 @pytest.mark.pandas
 @pytest.mark.s3
+# See https://github.com/apache/arrow/pull/44225#issuecomment-2378365291
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="test fails because of unsupported characters")
 def test_write_to_dataset_with_partitions_s3fs(s3_example_s3fs):
     fs, path = s3_example_s3fs
 
