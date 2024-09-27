@@ -40,7 +40,7 @@ class MinioTestServer {
   MinioTestServer();
   ~MinioTestServer();
 
-  Status Start(bool enable_tls = true);
+  Status Start();
 
   Status Stop();
 
@@ -49,6 +49,8 @@ class MinioTestServer {
   std::string access_key() const;
 
   std::string secret_key() const;
+
+  std::string ca_path() const;
 
  private:
   void GenerateCertificateFile();

@@ -76,28 +76,30 @@ std::string MinioTestServer::access_key() const { return impl_->access_key_; }
 
 std::string MinioTestServer::secret_key() const { return impl_->secret_key_; }
 
+std::string MinioTestServer::ca_path() const {
+  return impl_->temp_dir_ca_->path().ToString();
+}
+
 void MinioTestServer::GenerateCertificateFile() {
-  PlatformFilename public_crt_file, private_key_file;
-  ASSERT_OK_AND_ASSIGN(public_crt_file,
+  ASSERT_OK_AND_ASSIGN(auto public_crt_file,
                        PlatformFilename::FromString(
                            impl_->temp_dir_ca_->path().ToString() + "/public.crt"));
-  ASSERT_OK_AND_ASSIGN(FileDescriptor public_cert_fd, FileOpenWritable(public_crt_file));
-  ASSERT_OK(FileWrite(public_cert_fd.fd(),
-                      reinterpret_cast<const uint8_t*>(kMinioPublicCert),
-                      strlen(kMinioPublicCert)));
+  ASSERT_OK_AND_ASSIGN(auto public_cert_fd, FileOpenWritable(public_crt_file));
+  ASSERT_OK(FileWrite(public_cert_fd.fd(), reinterpret_cast<const uint8_t*>(kMinioCert),
+                      strlen(kMinioCert)));
   ASSERT_OK(public_cert_fd.Close());
 
-  ASSERT_OK_AND_ASSIGN(private_key_file,
+  ASSERT_OK_AND_ASSIGN(auto private_key_file,
                        PlatformFilename::FromString(
                            impl_->temp_dir_ca_->path().ToString() + "/private.key"));
-  ASSERT_OK_AND_ASSIGN(FileDescriptor private_key_fd, FileOpenWritable(private_key_file));
+  ASSERT_OK_AND_ASSIGN(auto private_key_fd, FileOpenWritable(private_key_file));
   ASSERT_OK(FileWrite(private_key_fd.fd(),
                       reinterpret_cast<const uint8_t*>(kMinioPrivateKey),
                       strlen(kMinioPrivateKey)));
   ASSERT_OK(private_key_fd.Close());
 }
 
-Status MinioTestServer::Start(bool enable_tls) {
+Status MinioTestServer::Start() {
   const char* connect_str = std::getenv(kEnvConnectString);
   const char* access_key = std::getenv(kEnvAccessKey);
   const char* secret_key = std::getenv(kEnvSecretKey);
@@ -121,17 +123,16 @@ Status MinioTestServer::Start(bool enable_tls) {
   // NOTE: --quiet makes startup faster by suppressing remote version check
   std::vector<std::string> start_args = {"server", "--quiet", "--compat", "--address",
                                          impl_->connect_string_};
-  if (enable_tls) {
-    // create the dedicated folder for certificate file, rather than reuse the data
-    // folder, since there is case to check whether the folder is empty.
-    ARROW_ASSIGN_OR_RAISE(impl_->temp_dir_ca_, TemporaryDir::Make("s3fs-test-ca"));
-    GenerateCertificateFile();
-    start_args.push_back("--certs-dir");
-    start_args.push_back(impl_->temp_dir_ca_->path().ToString());
-    arrow::fs::FileSystemGlobalOptions global_options;
-    global_options.tls_ca_dir_path = impl_->temp_dir_ca_->path().ToString();
-    ARROW_RETURN_NOT_OK(arrow::fs::Initialize(global_options));
-  }
+
+  // create the dedicated folder for certificate file, rather than reuse the data
+  // folder, since there is test case to check whether the folder is empty.
+  ARROW_ASSIGN_OR_RAISE(impl_->temp_dir_ca_, TemporaryDir::Make("s3fs-test-ca-"));
+  GenerateCertificateFile();
+  start_args.push_back("--certs-dir");
+  start_args.push_back(ca_path());
+  arrow::fs::FileSystemGlobalOptions global_options;
+  global_options.tls_ca_dir_path = ca_path();
+  ARROW_RETURN_NOT_OK(arrow::fs::Initialize(global_options));
   // apply the data path at the end since some minio version only support it at the end
   start_args.push_back(impl_->temp_dir_->path().ToString());
   impl_->server_process_->SetArgs(start_args);
