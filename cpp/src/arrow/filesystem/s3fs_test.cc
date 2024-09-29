@@ -207,7 +207,13 @@ class S3TestMixin : public AwsTestMixin {
     client_config_.reset(new Aws::Client::ClientConfiguration());
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
     client_config_->scheme = Aws::Http::Scheme::HTTPS;
+// The caPath only take effect on linux according to the AWS SDK documentation
+// https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/client-config.html
+#if defined(__linux__)
     client_config_->caPath = ToAwsString(minio_->ca_path());
+#else
+    client_config_->verifySSL = false;
+#endif
     client_config_->retryStrategy =
         std::make_shared<ConnectRetryStrategy>(kRetryInterval, kMaxRetryDuration);
     credentials_ = {ToAwsString(minio_->access_key()), ToAwsString(minio_->secret_key())};

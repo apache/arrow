@@ -82,7 +82,13 @@ class MinioFixture : public benchmark::Fixture {
 
     client_config_.endpointOverride = ToAwsString(minio_->connect_string());
     client_config_.scheme = Aws::Http::Scheme::HTTPS;
+// The caPath only take effect on linux according to the AWS SDK documentation
+// https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/client-config.html
+#if defined(__linux__)
     client_config_.caPath = ToAwsString(minio_->ca_path());
+#else
+    client_config_.verifySSL = false;
+#endif
     if (!region_.empty()) {
       client_config_.region = ToAwsString(region_);
     }
