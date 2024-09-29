@@ -24,5 +24,4 @@ public static class FlightSqlTestExtensions
     {
         return Any.Pack(command).Serialize();
     }
-
 }
