@@ -489,7 +489,7 @@ namespace Apache.Arrow.Flight.Tests
         {
             var cts = new CancellationTokenSource();
             cts.CancelAfter(1);
-
+            
             var batch = CreateTestBatch(0, 100);
             var metadata = new Metadata();
             var flightDescriptor = FlightDescriptor.CreatePathDescriptor("raise_cancelled");
