@@ -740,10 +740,10 @@ if(ARROW_SKYHOOK)
   add_subdirectory(src/skyhook)
 endif()
 
-#if(ARROW_BUILD_EXAMPLES)
+if(ARROW_BUILD_EXAMPLES)
   add_custom_target(runexample ctest -L example)
   add_subdirectory(examples/arrow)
-#endif()
+endif()
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.txt
               ${CMAKE_CURRENT_SOURCE_DIR}/../NOTICE.txt
