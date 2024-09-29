@@ -3,4 +3,5 @@ hypothesis
 pandas
 pytest
 pytz
-uwsgi; sys.platform != 'win32' and python_version < '3.13'
+# uwsgi disabled on macOS because of GH-44218
+uwsgi; sys.platform != 'win32' and sys.platform != 'darwin' and python_version < '3.13'

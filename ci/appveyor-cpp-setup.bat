@@ -44,12 +44,15 @@ conda config --append disallowed_packages pypy3
 conda info -a
 
 @rem
-@rem Install mamba to the base environment
+@rem Install Python to the base environment
 @rem
-conda install -q -y -c conda-forge mamba python=%PYTHON% || exit /B
+conda install -q -y -c conda-forge python=%PYTHON% || exit /B
+
+@rem Can't use conda-libmamba-solver 2.0.0
+conda config --set solver classic
 
 @rem Update for newer CA certificates
-mamba update -q -y -c conda-forge --all || exit /B
+conda update -q -y -c conda-forge --all || exit /B
 
 @rem
 @rem Create conda environment
@@ -66,11 +69,8 @@ set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.txt
 @rem Force conda to use conda-forge
 conda config --add channels conda-forge
 conda config --remove channels defaults
-@rem Ensure using the latest information. If there are invalid caches,
-@rem mamba may use invalid download URL.
-mamba clean --all -y
 @rem Arrow conda environment
-mamba create -n arrow -y -c conda-forge ^
+conda create -n arrow -y -c conda-forge ^
   --file=ci\conda_env_python.txt ^
   %CONDA_PACKAGES%  ^
   "ccache" ^

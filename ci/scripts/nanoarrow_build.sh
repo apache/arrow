@@ -46,7 +46,7 @@ set -x
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
-cmake ${source_dir} -DNANOARROW_BUILD_INTEGRATION_TESTS=ON
+cmake ${source_dir} -DNANOARROW_IPC=ON -DNANOARROW_BUILD_INTEGRATION_TESTS=ON
 cmake --build .
 
 popd

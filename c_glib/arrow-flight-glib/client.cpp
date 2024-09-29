@@ -187,16 +187,20 @@ gaflight_metadata_reader_read(GAFlightMetadataReader *reader, GError **error)
   }
 }
 
-typedef struct GAFlightCallOptionsPrivate_
+struct GAFlightCallOptionsPrivate
 {
   arrow::flight::FlightCallOptions options;
-} GAFlightCallOptionsPrivate;
+};
+
+enum {
+  PROP_TIMEOUT = 1,
+};
 
 G_DEFINE_TYPE_WITH_PRIVATE(GAFlightCallOptions, gaflight_call_options, G_TYPE_OBJECT)
 
-#define GAFLIGHT_CALL_OPTIONS_GET_PRIVATE(obj)                                           \
+#define GAFLIGHT_CALL_OPTIONS_GET_PRIVATE(object)                                        \
   static_cast<GAFlightCallOptionsPrivate *>(                                             \
-    gaflight_call_options_get_instance_private(GAFLIGHT_CALL_OPTIONS(obj)))
+    gaflight_call_options_get_instance_private(GAFLIGHT_CALL_OPTIONS(object)))
 
 static void
 gaflight_call_options_finalize(GObject *object)
@@ -206,6 +210,42 @@ gaflight_call_options_finalize(GObject *object)
   priv->options.~FlightCallOptions();
 
   G_OBJECT_CLASS(gaflight_call_options_parent_class)->finalize(object);
+}
+
+static void
+gaflight_call_options_set_property(GObject *object,
+                                   guint prop_id,
+                                   const GValue *value,
+                                   GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_CALL_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_TIMEOUT:
+    priv->options.timeout = arrow::flight::TimeoutDuration(g_value_get_double(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gaflight_call_options_get_property(GObject *object,
+                                   guint prop_id,
+                                   GValue *value,
+                                   GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_CALL_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_TIMEOUT:
+    g_value_set_double(value, priv->options.timeout.count());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
 }
 
 static void
@@ -221,6 +261,28 @@ gaflight_call_options_class_init(GAFlightCallOptionsClass *klass)
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize = gaflight_call_options_finalize;
+  gobject_class->set_property = gaflight_call_options_set_property;
+  gobject_class->get_property = gaflight_call_options_get_property;
+
+  arrow::flight::FlightCallOptions options;
+  GParamSpec *spec;
+  /**
+   * GAFlightCallOptions:timeout:
+   *
+   * An optional timeout for this call. Negative durations mean an
+   * implementation-defined default behavior will be used
+   * instead. This is the default value.
+   *
+   * Since: 18.0.0
+   */
+  spec = g_param_spec_double("timeout",
+                             nullptr,
+                             nullptr,
+                             -G_MAXDOUBLE,
+                             G_MAXDOUBLE,
+                             options.timeout.count(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_TIMEOUT, spec);
 }
 
 /**

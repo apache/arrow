@@ -78,15 +78,16 @@ DayTimeIntervalArray::DayTimeIntervalArray(const std::shared_ptr<DataType>& type
                                            int64_t length,
                                            const std::shared_ptr<Buffer>& data,
                                            const std::shared_ptr<Buffer>& null_bitmap,
-                                           int64_t null_count, int64_t offset)
-    : PrimitiveArray(type, length, data, null_bitmap, null_count, offset) {}
+                                           int64_t null_count, int64_t offset) {
+  SetData(ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset));
+}
 
 DayTimeIntervalArray::DayTimeIntervalArray(int64_t length,
                                            const std::shared_ptr<Buffer>& data,
                                            const std::shared_ptr<Buffer>& null_bitmap,
                                            int64_t null_count, int64_t offset)
-    : PrimitiveArray(day_time_interval(), length, data, null_bitmap, null_count, offset) {
-}
+    : DayTimeIntervalArray(day_time_interval(), length, data, null_bitmap, null_count,
+                           offset) {}
 
 DayTimeIntervalType::DayMilliseconds DayTimeIntervalArray::GetValue(int64_t i) const {
   DCHECK(i < length());
@@ -105,14 +106,15 @@ MonthDayNanoIntervalArray::MonthDayNanoIntervalArray(
 MonthDayNanoIntervalArray::MonthDayNanoIntervalArray(
     const std::shared_ptr<DataType>& type, int64_t length,
     const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
-    int64_t null_count, int64_t offset)
-    : PrimitiveArray(type, length, data, null_bitmap, null_count, offset) {}
+    int64_t null_count, int64_t offset) {
+  SetData(ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset));
+}
 
 MonthDayNanoIntervalArray::MonthDayNanoIntervalArray(
     int64_t length, const std::shared_ptr<Buffer>& data,
     const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset)
-    : PrimitiveArray(month_day_nano_interval(), length, data, null_bitmap, null_count,
-                     offset) {}
+    : MonthDayNanoIntervalArray(month_day_nano_interval(), length, data, null_bitmap,
+                                null_count, offset) {}
 
 MonthDayNanoIntervalType::MonthDayNanos MonthDayNanoIntervalArray::GetValue(
     int64_t i) const {

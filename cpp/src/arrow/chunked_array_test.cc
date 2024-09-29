@@ -32,6 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/pcg_random.h"
 
 namespace arrow {
 
@@ -373,10 +374,27 @@ TEST(TestChunkResolver, Resolve) {
   ASSERT_EQ(resolver.Resolve(10).chunk_index, 3);
 }
 
+template <class RNG>
+std::vector<int64_t> GenChunkedArrayOffsets(RNG& rng, int32_t num_chunks,
+                                            int64_t chunked_array_len) {
+  std::uniform_int_distribution<int64_t> offset_gen(1, chunked_array_len - 1);
+  std::vector<int64_t> offsets;
+  offsets.reserve(num_chunks + 1);
+  offsets.push_back(0);
+  while (offsets.size() < static_cast<size_t>(num_chunks)) {
+    offsets.push_back(offset_gen(rng));
+  }
+  offsets.push_back(chunked_array_len);
+  std::sort(offsets.begin() + 1, offsets.end());
+  return offsets;
+}
+
 template <typename T>
 class TestChunkResolverMany : public ::testing::Test {
  public:
   using IndexType = T;
+  static constexpr int32_t kMaxInt32 = std::numeric_limits<int32_t>::max();
+  static constexpr uint64_t kMaxValidIndex = std::numeric_limits<IndexType>::max();
 
   Result<std::vector<ChunkLocation>> ResolveMany(
       const ChunkResolver& resolver, const std::vector<IndexType>& logical_index_vec) {
@@ -510,6 +528,55 @@ class TestChunkResolverMany : public ::testing::Test {
       ASSERT_OK(ResolveMany(resolver_with_empty, logical_index_vec));
     }
   }
+
+  void TestRandomInput(int32_t num_chunks, int64_t chunked_array_len) {
+    random::pcg64 rng(42);
+
+    // Generate random chunk offsets...
+    auto offsets = GenChunkedArrayOffsets(rng, num_chunks, chunked_array_len);
+    ASSERT_EQ(offsets.size(), static_cast<size_t>(num_chunks) + 1);
+    // ...and ensure there is at least one empty chunk.
+    std::uniform_int_distribution<int32_t> chunk_index_gen(
+        1, static_cast<int32_t>(num_chunks - 1));
+    auto chunk_index = chunk_index_gen(rng);
+    offsets[chunk_index] = offsets[chunk_index - 1];
+
+    // Generate random query array of logical indices...
+    const auto num_logical_indices = 3 * static_cast<int64_t>(num_chunks) / 2;
+    std::vector<IndexType> logical_index_vec;
+    logical_index_vec.reserve(num_logical_indices);
+    std::uniform_int_distribution<uint64_t> logical_index_gen(1, kMaxValidIndex);
+    for (int64_t i = 0; i < num_logical_indices; i++) {
+      const auto index = static_cast<IndexType>(logical_index_gen(rng));
+      logical_index_vec.push_back(index);
+    }
+    // ...and sprinkle some extreme logical index values.
+    std::uniform_int_distribution<int64_t> position_gen(0, logical_index_vec.size() - 1);
+    for (int i = 0; i < 2; i++) {
+      auto max_valid_index =
+          std::min(kMaxValidIndex, static_cast<uint64_t>(chunked_array_len));
+      // zero and last valid logical index
+      logical_index_vec[position_gen(rng)] = 0;
+      logical_index_vec[position_gen(rng)] = static_cast<IndexType>(max_valid_index - 1);
+      // out of  bounds indices
+      logical_index_vec[position_gen(rng)] = static_cast<IndexType>(max_valid_index);
+      if (max_valid_index < kMaxValidIndex) {
+        logical_index_vec[position_gen(rng)] =
+            static_cast<IndexType>(max_valid_index + 1);
+      }
+    }
+
+    ChunkResolver resolver(std::move(offsets));
+    CheckResolveMany(resolver, logical_index_vec);
+  }
+
+  void TestRandomInput() {
+    const int64_t num_chunks = static_cast<int64_t>(
+        std::min(kMaxValidIndex - 1, static_cast<uint64_t>(1) << 16));
+    const int64_t avg_chunk_length = 20;
+    const int64_t chunked_array_len = num_chunks * 2 * avg_chunk_length;
+    TestRandomInput(num_chunks, chunked_array_len);
+  }
 };
 
 TYPED_TEST_SUITE(TestChunkResolverMany, IndexTypes);
@@ -517,5 +584,6 @@ TYPED_TEST_SUITE(TestChunkResolverMany, IndexTypes);
 TYPED_TEST(TestChunkResolverMany, Basics) { this->TestBasics(); }
 TYPED_TEST(TestChunkResolverMany, OutOfBounds) { this->TestOutOfBounds(); }
 TYPED_TEST(TestChunkResolverMany, Overflow) { this->TestOverflow(); }
+TYPED_TEST(TestChunkResolverMany, RandomInput) { this->TestRandomInput(); }
 
 }  // namespace arrow

@@ -68,6 +68,9 @@ RUN apt-get update -y -q && \
         autoconf \
         ca-certificates \
         ccache \
+        ceph \
+        ceph-fuse \
+        ceph-mds \
         cmake \
         curl \
         gdb \
@@ -91,6 +94,7 @@ RUN apt-get update -y -q && \
         libprotobuf-dev \
         libprotoc-dev \
         libpsl-dev \
+        libradospp-dev \
         libre2-dev \
         librtmp-dev \
         libsnappy-dev \
@@ -112,11 +116,14 @@ RUN apt-get update -y -q && \
         protobuf-compiler-grpc \
         python3-dev \
         python3-pip \
+        python3-rados \
         python3-venv \
+        rados-objclass-dev \
         rapidjson-dev \
         rsync \
         tzdata \
         tzdata-legacy \
+        uuid-runtime \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*

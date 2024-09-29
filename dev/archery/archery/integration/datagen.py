@@ -1914,33 +1914,42 @@ def get_generated_json_files(tempdir=None):
         generate_duplicate_fieldnames_case()
         .skip_tester('JS'),
 
-        generate_dictionary_case(),
+        generate_dictionary_case()
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
+        .skip_tester('nanoarrow'),
 
         generate_dictionary_unsigned_case()
+        .skip_tester('nanoarrow')
         .skip_tester('Java'),  # TODO(ARROW-9377)
 
         generate_nested_dictionary_case()
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
+        .skip_tester('nanoarrow')
         .skip_tester('Java'),  # TODO(ARROW-7779)
 
         generate_run_end_encoded_case()
         .skip_tester('C#')
         .skip_tester('Java')
         .skip_tester('JS')
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
         .skip_tester('Rust'),
 
         generate_binary_view_case()
         .skip_tester('JS')
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
         .skip_tester('Rust'),
 
         generate_list_view_case()
         .skip_tester('C#')     # Doesn't support large list views
         .skip_tester('JS')
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
         .skip_tester('Rust'),
 
         generate_extension_case()
+        .skip_tester('nanoarrow')
         # TODO: ensure the extension is registered in the C++ entrypoint
         .skip_format(SKIP_C_SCHEMA, 'C++')
         .skip_format(SKIP_C_ARRAY, 'C++'),

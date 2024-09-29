@@ -263,9 +263,15 @@ void Engine::InitOnce() {
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 
   cpu_name = llvm::sys::getHostCPUName();
+#if LLVM_VERSION_MAJOR >= 19
+  auto host_features = llvm::sys::getHostCPUFeatures();
+  const bool have_host_features = true;
+#else
   llvm::StringMap<bool> host_features;
+  const auto have_host_features = llvm::sys::getHostCPUFeatures(host_features);
+#endif
   std::string cpu_attrs_str;
-  if (llvm::sys::getHostCPUFeatures(host_features)) {
+  if (have_host_features) {
     for (auto& f : host_features) {
       std::string attr = f.second ? std::string("+") + f.first().str()
                                   : std::string("-") + f.first().str();

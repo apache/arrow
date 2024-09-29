@@ -51,11 +51,11 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
       null_count_(0),
       chunk_resolver_{chunks_} {
   if (type_ == nullptr) {
-    ARROW_CHECK_GT(chunks_.size(), 0)
+    ARROW_CHECK_GT(chunks_.size(), static_cast<size_t>(0))
         << "cannot construct ChunkedArray from empty vector and omitted type";
     type_ = chunks_[0]->type();
   }
-
+  ARROW_CHECK_LE(chunks.size(), static_cast<size_t>(std::numeric_limits<int>::max()));
   for (const auto& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
