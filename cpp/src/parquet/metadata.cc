@@ -1097,32 +1097,34 @@ void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
 }
 
 ::arrow::Result<std::shared_ptr<parquet::FileMetaData>> FileMetaData::CoalesceMetadata(
-    const std::vector<std::shared_ptr<parquet::FileMetaData>>& metadata_list,
-    const std::shared_ptr<parquet::WriterProperties>& writer_props) {
+    std::vector<std::shared_ptr<parquet::FileMetaData>>& metadata_list,
+    std::shared_ptr<parquet::WriterProperties>& writer_props) {
   if (metadata_list.empty()) {
     return ::arrow::Status::Invalid("No metadata to coalesce");
   }
 
   std::vector<std::string> values, keys;
 
-  const auto& metadata = metadata_list[0];
   // Read metadata from all dataset files and store AADs and paths as key-value metadata.
-  for (size_t i = 1; i < metadata_list.size(); i++) {
+  for (size_t i = 0; i < metadata_list.size(); i++) {
     const auto& file_metadata = metadata_list[i];
     keys.push_back("row_group_aad_" + std::to_string(i));
     values.push_back(file_metadata->file_aad());
-    metadata->AppendRowGroups(*file_metadata);
+    if (i > 0) {
+      metadata_list[0]->AppendRowGroups(*file_metadata);
+    }
   }
 
   // Create a new FileMetadata object with the created AADs and paths as
   // key_value_metadata.
-  auto fmd_builder = parquet::FileMetaDataBuilder::Make(metadata->schema(), writer_props);
+  auto fmd_builder =
+      parquet::FileMetaDataBuilder::Make(metadata_list[0]->schema(), writer_props);
   const std::shared_ptr<const KeyValueMetadata> file_aad_metadata =
       ::arrow::key_value_metadata(keys, values);
-  auto metadata2 = fmd_builder->Finish(file_aad_metadata);
-  metadata2->AppendRowGroups(*metadata);
+  auto metadata = fmd_builder->Finish(file_aad_metadata);
+  metadata->AppendRowGroups(*metadata_list[0]);
 
-  return metadata2;
+  return metadata;
 }
 
 class FileCryptoMetaData::FileCryptoMetaDataImpl {

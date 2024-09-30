@@ -399,8 +399,8 @@ class PARQUET_EXPORT FileMetaData {
   /// \param[in] writer_props
   /// \return
   static ::arrow::Result<std::shared_ptr<FileMetaData>> CoalesceMetadata(
-    const std::vector<std::shared_ptr<FileMetaData>>& metadata_list,
-    const std::shared_ptr<WriterProperties>& writer_props);
+    std::vector<std::shared_ptr<FileMetaData>>& metadata_list,
+    std::shared_ptr<WriterProperties>& writer_props);
 
   /// \brief Set the AAD of decryptor of the file.
   ///

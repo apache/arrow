@@ -311,7 +311,7 @@ Result<std::vector<std::shared_ptr<parquet::FileMetaData>>> ReadMetadata(
     PARQUET_ASSIGN_OR_THROW(auto input, file_system->OpenInputFile(path));
     auto parquet_reader = parquet::ParquetFileReader::Open(input, reader_properties);
     auto file_metadata = parquet_reader->metadata();
-//    file_metadata->set_file_path(path);
+    file_metadata->set_file_path(path);
     metadata.push_back(file_metadata);
   }
   return metadata;

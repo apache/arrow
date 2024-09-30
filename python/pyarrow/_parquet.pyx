@@ -1059,6 +1059,25 @@ cdef class FileMetaData(_Weakrefable):
         c_metadata = other.sp_metadata
         self._metadata.AppendRowGroups(deref(c_metadata))
 
+    @classmethod
+    def coalesce_metadata(cls, metadata_list):
+        """
+
+        """
+        cdef:
+            FileMetaData metadata = FileMetaData.__new__(FileMetaData)
+            vector[shared_ptr[CFileMetaData]] c_metadata_list
+            shared_ptr[WriterProperties] c_properties = _create_writer_properties()
+            shared_ptr[CFileMetaData] c_metadata
+
+        for metadata in metadata_list:
+            c_metadata_list.push_back((<FileMetaData> metadata).sp_metadata)
+
+        c_metadata = GetResultValue(
+            CFileMetaData_CoalesceMetadata(c_metadata_list, c_properties))
+        metadata.init(c_metadata)
+        return metadata
+
     def write_metadata_file(self, where, encryption_properties=None):
         """
         Write the metadata to a metadata-only Parquet file.

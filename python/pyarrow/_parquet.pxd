@@ -365,6 +365,10 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         inline EncryptionAlgorithm encryption_algorithm() const
         inline const c_string& footer_signing_key_metadata() const
 
+    cdef CResult[shared_ptr[CFileMetaData]] CFileMetaData_CoalesceMetadata \
+        " parquet::FileMetaData::CoalesceMetadata"(const vector[shared_ptr[CFileMetaData]]& metadata_list,
+                                                   const shared_ptr[WriterProperties]& properties)
+
     cdef shared_ptr[CFileMetaData] CFileMetaData_Make \
         " parquet::FileMetaData::Make"(const void* serialized_metadata,
                                        uint32_t* metadata_len)

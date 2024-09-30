@@ -28,6 +28,7 @@ import operator
 import warnings
 
 import pyarrow as pa
+# from pyarrow._parquet cimport _create_writer_properties
 
 try:
     import pyarrow._parquet as _parquet
@@ -2053,7 +2054,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
         The metadata attribute will be the parquet metadata of the file.
         This metadata will have the file path attribute set and can be used
-        to build a _metadata file.  The metadata attribute will be None if
+        to build a _metadata file. The metadata attribute will be None if
         the format is not parquet.
 
         Example visitor which simple collects the filenames created::
@@ -2149,7 +2150,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
     if metadata_collector is not None:
         def file_visitor(written_file):
-            metadata_collector.append(written_file.metadata)
+            metadata = written_file.metadata
+            # TODO: is set_file_path needed?
+            metadata.set_file_path(written_file.path)
+            metadata_collector.append(metadata)
 
     # map format arguments
     parquet_format = ds.ParquetFileFormat()
@@ -2251,12 +2255,10 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
     writer.close()
 
     if metadata_collector is not None:
-        metadata = read_metadata(where, filesystem=filesystem, **read_metadata_kwargs)
         if hasattr(where, "seek"):
             where.seek(cursor_position)  # file-like, set cursor back.
 
-        for m in metadata_collector:
-            metadata.append_row_groups(m)
+        metadata = FileMetaData.coalesce_metadata(metadata_collector)
         if filesystem is not None:
             with filesystem.open_output_stream(where) as f:
                 metadata.write_metadata_file(f, **write_metadata_kwargs)
