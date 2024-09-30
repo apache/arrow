@@ -3485,7 +3485,7 @@ cdef class FixedSizeListArray(BaseListArray):
         Note even null elements are included.
 
         Compare with :meth:`flatten`, which returns only the non-null
-        sub-list values.
+        sub-list values from non-null lists.
 
         Returns
         -------
@@ -3507,8 +3507,8 @@ cdef class FixedSizeListArray(BaseListArray):
         [
           1,
           2,
-          null,
-          null,
+          0,
+          0,
           3,
           null
         ]
