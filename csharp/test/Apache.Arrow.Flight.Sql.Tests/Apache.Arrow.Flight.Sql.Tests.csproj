@@ -17,11 +17,4 @@
       <ProjectReference Include="..\..\src\Apache.Arrow.Flight.Sql\Apache.Arrow.Flight.Sql.csproj" />
       <ProjectReference Include="..\Apache.Arrow.Flight.TestWeb\Apache.Arrow.Flight.TestWeb.csproj" />
     </ItemGroup>
-
-    <ItemGroup>
-      <Reference Include="JetBrains.ReSharper.TestRunner.Merged">
-        <HintPath>..\..\..\..\..\..\Applications\Rider.app\Contents\lib\ReSharperHost\TestRunner\netcoreapp3.0\JetBrains.ReSharper.TestRunner.Merged.dll</HintPath>
-      </Reference>
-    </ItemGroup>
-
 </Project>
