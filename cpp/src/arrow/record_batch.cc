@@ -616,8 +616,8 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
             return static_cast<DoubleBuilder*>(builder)->Append(value);
           }
           Status operator()(const std::string& value) {
-            return static_cast<StringBuilder*>(builder)->Append(value.data(),
-                                                                value.size());
+            return static_cast<StringBuilder*>(builder)->Append(
+                value.data(), static_cast<int32_t>(value.size()));
           }
         } visitor;
         visitor.builder = values_builders[values_type_index].get();
