@@ -12,8 +12,7 @@ public class FlightInfoCancelResult : IMessage
     public FlightInfoCancelResult()
     {
         _flightInfoCancelResult = new CancelFlightInfoResult();
-        Descriptor =
-            DescriptorReflection.Descriptor.MessageTypes[0];
+        Descriptor = DescriptorReflection.Descriptor.MessageTypes[0];
     }
 
     public void MergeFrom(CodedInputStream input) => _flightInfoCancelResult.MergeFrom(input);
