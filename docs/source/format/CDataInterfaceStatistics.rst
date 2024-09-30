@@ -200,6 +200,12 @@ Here are pre-defined statistics keys:
    * - ``ARROW:min_value:approximate``
      - Target dependent
      - The minimum value in the target. (approximate)
+   * - ``ARROW:null_count:exact``
+     - ``int64``
+     - The number of nulls in the target. (exact)
+   * - ``ARROW:null_count:approximate``
+     - ``float64``
+     - The number of nulls in the target. (approximate)
    * - ``ARROW:row_count:exact``
      - ``int64``
      - The number of rows in the target table or record batch. (exact)
