@@ -597,7 +597,7 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
           }
           RETURN_NOT_OK(values_builder->Append());
         }
-        RETURN_NOT_OK(keys_builder->Append(key, strlen(key)));
+        RETURN_NOT_OK(keys_builder->Append(key, static_cast<int32_t>(strlen(key))));
         const auto values_type_index = values_type_indexes[nth_statistics];
         RETURN_NOT_OK(items_builder->Append(values_type_index));
         struct Visitor {
