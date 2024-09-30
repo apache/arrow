@@ -313,7 +313,7 @@ struct Decimal64RealConversion
     int64_t result = x.value();
     uint64_t shifted = 0;
     if (bits > 0) {
-      shifted = (result << (64 - bits));
+      shifted = (static_cast<uint64_t>(result) << (64 - bits));
       result >>= bits;
     }
     constexpr uint64_t kHalf = 0x8000000000000000ULL;
