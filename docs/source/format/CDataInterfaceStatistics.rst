@@ -85,7 +85,7 @@ Here is the outline of the schema for statistics::
 
     struct<
       column: int32,
-      values: map<
+      statistics: map<
         key: dictionary<
           indices: int32,
           dictionary: utf8
@@ -108,13 +108,13 @@ Here is the details of top-level ``struct``:
      - ``true``
      - The zero-based column index, or null if the statistics
        describe the whole table or record batch.
-   * - ``values``
+   * - ``statistics``
      - ``map``
      - ``false``
      - Statistics for the target column, table or record batch. See
        the separate table below for details.
 
-Here is the details of the ``map`` of the ``values``:
+Here is the details of the ``map`` of the ``statistics``:
 
 .. list-table::
    :header-rows: 1
