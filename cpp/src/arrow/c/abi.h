@@ -80,6 +80,24 @@ struct ArrowArray {
   void* private_data;
 };
 
+#  define ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT "ARROW:average_byte_width:exact"
+#  define ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE \
+    "ARROW:average_byte_width:approximate"
+#  define ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT "ARROW:distinct_count:exact"
+#  define ARROW_STATISTICS_KEY_DISTINCT_COUNT_APPROXIMATE \
+    "ARROW:distinct_count:approximate"
+#  define ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_EXACT "ARROW:max_byte_width:exact"
+#  define ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_APPROXIMATE \
+    "ARROW:max_byte_width:approximate"
+#  define ARROW_STATISTICS_KEY_MAX_VALUE_EXACT "ARROW:max_value:exact"
+#  define ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE "ARROW:max_value:approximate"
+#  define ARROW_STATISTICS_KEY_MIN_VALUE_EXACT "ARROW:min_value:exact"
+#  define ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE "ARROW:min_value:approximate"
+#  define ARROW_STATISTICS_KEY_NULL_COUNT_EXACT "ARROW:null_count:exact"
+#  define ARROW_STATISTICS_KEY_NULL_COUNT_APPROXIMATE "ARROW:null_count:approximate"
+#  define ARROW_STATISTICS_KEY_ROW_COUNT_EXACT "ARROW:row_count:exact"
+#  define ARROW_STATISTICS_KEY_ROW_COUNT_APPROXIMATE "ARROW:row_count:approximate"
+
 #endif  // ARROW_C_DATA_INTERFACE
 
 #ifndef ARROW_C_DEVICE_DATA_INTERFACE
