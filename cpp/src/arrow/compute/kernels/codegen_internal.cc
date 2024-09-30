@@ -547,6 +547,17 @@ Status CastDecimalArgs(TypeHolder* begin, size_t count) {
   return Status::OK();
 }
 
+Result<std::shared_ptr<DataType>> WidenDecimalToMaxPrecision(std::shared_ptr<DataType> type) {
+  if (type->id() == Type::DECIMAL128) {
+    auto cast_type = checked_pointer_cast<Decimal128Type>(type);
+    return Decimal128Type::Make(Decimal128Type::kMaxPrecision, cast_type->scale());
+  } else if (type->id() == Type::DECIMAL256) {
+    auto cast_type = checked_pointer_cast<Decimal256Type>(type);
+    return Decimal256Type::Make(Decimal256Type::kMaxPrecision, cast_type->scale());
+  }
+  return type;
+}
+
 bool HasDecimal(const std::vector<TypeHolder>& types) {
   for (const auto& th : types) {
     if (is_decimal(th.id())) {
