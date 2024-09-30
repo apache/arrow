@@ -94,7 +94,7 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
     constexpr int kMantissaDigits = RealTraits<Real>::kMantissaDigits;
 
     // to avoid precision and rounding issues, we'll unconditionally
-    // throw Decimal32 to the approx algorithm instead. (GH-44216)    
+    // throw Decimal32 to the approx algorithm instead. (GH-44216)
     if constexpr (std::is_base_of_v<BasicDecimal32, DecimalType>) {
       return Derived::FromPositiveRealApprox(real, precision, scale);
     }
@@ -258,29 +258,10 @@ struct Decimal32RealConversion
   using Base::PowerOfTen;
 
   static Decimal32 RoundedRightShift(const Decimal32& x, int bits) {
-    if (bits == 0) {
-      return x;
-    }
-
-    int32_t result = x.value();
-    uint32_t shifted = 0;
-    if (bits > 0) {
-      shifted = (result << (32 - bits));
-      result >>= bits;
-    }
-    constexpr uint32_t kHalf = 0x80000000;
-    if (shifted > kHalf) {
-      // strictly more than half => round up
-      result += 1;
-    } else if (shifted == kHalf) {
-      // exactly half => round to even
-      if ((result & 1) != 0) {
-        result += 1;
-      }
-    } else {
-      // strictly less than half => round down
-    }
-    return Decimal32(result);
+    // currently we *only* push to the Approx method for Decimal32
+    // so this should never get called.
+    DCHECK(false);
+    return x;
   }
 
   template <typename Real>
