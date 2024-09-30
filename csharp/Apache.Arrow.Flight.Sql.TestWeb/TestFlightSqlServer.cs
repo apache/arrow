@@ -28,21 +28,21 @@ public class TestFlightSqlServer : FlightServer
             case "test":
                 await responseStream.WriteAsync(new FlightResult("test data")).ConfigureAwait(false);
                 break;
-            case "GetPrimaryKeys":
+            case SqlAction.GetPrimaryKeysRequest:
                 await responseStream.WriteAsync(new FlightResult("test data")).ConfigureAwait(false);
                 break;
-            case "CancelFlightInfo":
+            case SqlAction.CancelFlightInfoRequest:
                 var cancelRequest = new FlightInfoCancelResult();
                 cancelRequest.SetStatus(1);
                 await responseStream.WriteAsync(new FlightResult(Any.Pack(cancelRequest).Serialize().ToByteArray())).ConfigureAwait(false);
                 break;
-            case "BeginTransaction":
-            case "Commit":
-            case "Rollback":
+            case SqlAction.BeginTransactionRequest:
+            case SqlAction.CommitRequest:
+            case SqlAction.RollbackRequest:
                 await responseStream.WriteAsync(new FlightResult(ByteString.CopyFromUtf8("sample-transaction-id"))).ConfigureAwait(false);
                 break;
-            case "CreatePreparedStatement":
-            case "ClosePreparedStatement":
+            case SqlAction.CreateRequest:
+            case SqlAction.CloseRequest:
                 var prepareStatementResponse = new ActionCreatePreparedStatementResult
                 {
                     PreparedStatementHandle = ByteString.CopyFromUtf8("sample-testing-prepared-statement")
