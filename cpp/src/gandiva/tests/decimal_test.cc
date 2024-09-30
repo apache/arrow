@@ -364,25 +364,25 @@ TEST_F(TestDecimal, TestRoundFunctions) {
   auto exprs = std::vector<ExpressionPtr>{
       TreeExprBuilder::MakeExpression("abs", {field_a}, field("res_abs", decimal_type)),
       TreeExprBuilder::MakeExpression("ceil", {field_a},
-                                      field("res_ceil", arrow::decimal(precision, 0))),
-      TreeExprBuilder::MakeExpression("floor", {field_a},
-                                      field("res_floor", arrow::decimal(precision, 0))),
-      TreeExprBuilder::MakeExpression("round", {field_a},
-                                      field("res_round", arrow::decimal(precision, 0))),
+                                      field("res_ceil", arrow::decimal128(precision, 0))),
       TreeExprBuilder::MakeExpression(
-          "truncate", {field_a}, field("res_truncate", arrow::decimal(precision, 0))),
+          "floor", {field_a}, field("res_floor", arrow::decimal128(precision, 0))),
+      TreeExprBuilder::MakeExpression(
+          "round", {field_a}, field("res_round", arrow::decimal128(precision, 0))),
+      TreeExprBuilder::MakeExpression(
+          "truncate", {field_a}, field("res_truncate", arrow::decimal128(precision, 0))),
 
       TreeExprBuilder::MakeExpression(
           TreeExprBuilder::MakeFunction("round",
                                         {TreeExprBuilder::MakeField(field_a), scale_1},
-                                        arrow::decimal(precision, 1)),
-          field("res_round_3", arrow::decimal(precision, 1))),
+                                        arrow::decimal128(precision, 1)),
+          field("res_round_3", arrow::decimal128(precision, 1))),
 
       TreeExprBuilder::MakeExpression(
           TreeExprBuilder::MakeFunction("truncate",
                                         {TreeExprBuilder::MakeField(field_a), scale_1},
-                                        arrow::decimal(precision, 1)),
-          field("res_truncate_3", arrow::decimal(precision, 1))),
+                                        arrow::decimal128(precision, 1)),
+          field("res_truncate_3", arrow::decimal128(precision, 1))),
   };
 
   // Build a projector for the expression.
@@ -416,38 +416,38 @@ TEST_F(TestDecimal, TestRoundFunctions) {
 
   // ceil(x)
   EXPECT_ARROW_ARRAY_EQUALS(
-      MakeArrowArrayDecimal(arrow::decimal(precision, 0),
+      MakeArrowArrayDecimal(arrow::decimal128(precision, 0),
                             MakeDecimalVector({"2", "2", "-1", "-1"}, 0), validity),
       outputs[1]);
 
   // floor(x)
   EXPECT_ARROW_ARRAY_EQUALS(
-      MakeArrowArrayDecimal(arrow::decimal(precision, 0),
+      MakeArrowArrayDecimal(arrow::decimal128(precision, 0),
                             MakeDecimalVector({"1", "1", "-2", "-2"}, 0), validity),
       outputs[2]);
 
   // round(x)
   EXPECT_ARROW_ARRAY_EQUALS(
-      MakeArrowArrayDecimal(arrow::decimal(precision, 0),
+      MakeArrowArrayDecimal(arrow::decimal128(precision, 0),
                             MakeDecimalVector({"1", "2", "-1", "-2"}, 0), validity),
       outputs[3]);
 
   // truncate(x)
   EXPECT_ARROW_ARRAY_EQUALS(
-      MakeArrowArrayDecimal(arrow::decimal(precision, 0),
+      MakeArrowArrayDecimal(arrow::decimal128(precision, 0),
                             MakeDecimalVector({"1", "1", "-1", "-1"}, 0), validity),
       outputs[4]);
 
   // round(x, 1)
   EXPECT_ARROW_ARRAY_EQUALS(
-      MakeArrowArrayDecimal(arrow::decimal(precision, 1),
+      MakeArrowArrayDecimal(arrow::decimal128(precision, 1),
                             MakeDecimalVector({"1.2", "1.6", "-1.2", "-1.6"}, 1),
                             validity),
       outputs[5]);
 
   // truncate(x, 1)
   EXPECT_ARROW_ARRAY_EQUALS(
-      MakeArrowArrayDecimal(arrow::decimal(precision, 1),
+      MakeArrowArrayDecimal(arrow::decimal128(precision, 1),
                             MakeDecimalVector({"1.2", "1.5", "-1.2", "-1.5"}, 1),
                             validity),
       outputs[6]);
@@ -532,7 +532,7 @@ TEST_F(TestDecimal, TestCastFunctions) {
 
   // castDECIMAL(decimal)
   EXPECT_ARROW_ARRAY_EQUALS(
-      MakeArrowArrayDecimal(arrow::decimal(precision, 1),
+      MakeArrowArrayDecimal(arrow::decimal128(precision, 1),
                             MakeDecimalVector({"1.2", "1.6", "-1.2", "-1.6"}, 1),
                             validity),
       outputs[4]);
@@ -1157,14 +1157,14 @@ TEST_F(TestDecimal, TestCastDecimalOverflow) {
   // Validate results
   // castDECIMAL(decimal)
   EXPECT_ARROW_ARRAY_EQUALS(
-      MakeArrowArrayDecimal(arrow::decimal(precision_out, 1),
+      MakeArrowArrayDecimal(arrow::decimal128(precision_out, 1),
                             MakeDecimalVector({"1.2", "0.0", "-1.2", "-1.6"}, 1),
                             validity),
       outputs[0]);
 
   // castDECIMALNullOnOverflow(decimal)
   EXPECT_ARROW_ARRAY_EQUALS(
-      MakeArrowArrayDecimal(arrow::decimal(precision_out, 1),
+      MakeArrowArrayDecimal(arrow::decimal128(precision_out, 1),
                             MakeDecimalVector({"1.2", "1.6", "-1.2", "-1.6"}, 1),
                             {true, false, true, true}),
       outputs[1]);

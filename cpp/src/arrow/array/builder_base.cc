@@ -119,6 +119,8 @@ struct AppendScalarImpl {
   }
 
   Status Visit(const FixedSizeBinaryType& t) { return HandleFixedWidth(t); }
+  Status Visit(const Decimal32Type& t) { return HandleFixedWidth(t); }
+  Status Visit(const Decimal64Type& t) { return HandleFixedWidth(t); }
   Status Visit(const Decimal128Type& t) { return HandleFixedWidth(t); }
   Status Visit(const Decimal256Type& t) { return HandleFixedWidth(t); }
 

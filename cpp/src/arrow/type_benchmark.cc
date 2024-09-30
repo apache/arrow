@@ -105,8 +105,8 @@ static std::vector<std::shared_ptr<Schema>> SampleSchemas() {
   auto fb2 = field("bs", utf8());
   auto fc1 = field("cs", list(fixed_size_binary(10)));
   auto fc2 = field("cs", list(fixed_size_binary(10)));
-  auto fd1 = field("ds", decimal(19, 5));
-  auto fd2 = field("ds", decimal(19, 5));
+  auto fd1 = field("ds", decimal128(19, 5));
+  auto fd2 = field("ds", decimal128(19, 5));
   auto fe1 = field("es", map(utf8(), int32()));
   auto fe2 = field("es", map(utf8(), int32()));
   auto ff1 = field("fs", dictionary(int8(), binary()));

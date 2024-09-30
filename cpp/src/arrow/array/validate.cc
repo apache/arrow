@@ -144,6 +144,16 @@ struct ValidateArrayImpl {
 
   Status Visit(const FixedWidthType&) { return ValidateFixedWidthBuffers(); }
 
+  Status Visit(const Decimal32Type& type) {
+    RETURN_NOT_OK(ValidateFixedWidthBuffers());
+    return ValidateDecimals(type);
+  }
+
+  Status Visit(const Decimal64Type& type) {
+    RETURN_NOT_OK(ValidateFixedWidthBuffers());
+    return ValidateDecimals(type);
+  }
+
   Status Visit(const Decimal128Type& type) {
     RETURN_NOT_OK(ValidateFixedWidthBuffers());
     return ValidateDecimals(type);

@@ -951,24 +951,24 @@ struct ScalarToProtoImpl {
   Status Visit(const MonthIntervalScalar& s) { return NotImplemented(s); }
   Status Visit(const DayTimeIntervalScalar& s) { return NotImplemented(s); }
 
-  Status Visit(const Decimal128Scalar& s) {
+  template <typename T, typename TypeClass = typename T::TypeClass>
+  enable_if_decimal<TypeClass, Status> Visit(const T& s) {
+    using ValueType = typename T::ValueType;
+
     auto decimal = std::make_unique<Lit::Decimal>();
 
-    auto decimal_type = checked_cast<const Decimal128Type*>(s.type.get());
+    auto decimal_type = checked_cast<const TypeClass*>(s.type.get());
     decimal->set_precision(decimal_type->precision());
     decimal->set_scale(decimal_type->scale());
 
     decimal->set_value(reinterpret_cast<const char*>(s.value.native_endian_bytes()),
-                       sizeof(Decimal128));
+                       sizeof(ValueType));
 #if !ARROW_LITTLE_ENDIAN
     std::reverse(decimal->mutable_value()->begin(), decimal->mutable_value()->end());
 #endif
     lit_->set_allocated_decimal(decimal.release());
     return Status::OK();
   }
-
-  // Need support for parameterized UDTs
-  Status Visit(const Decimal256Scalar& s) { return NotImplemented(s); }
 
   Status Visit(const BaseListScalar& s) {
     if (s.value->length() == 0) {

@@ -363,13 +363,19 @@ TEST_F(TestSchemaExport, Primitive) {
   TestPrimitive(binary_view(), "vz");
   TestPrimitive(utf8_view(), "vu");
 
-  TestPrimitive(decimal(16, 4), "d:16,4");
+  TestPrimitive(smallest_decimal(8, 4), "d:8,4,32");
+  TestPrimitive(smallest_decimal(16, 4), "d:16,4,64");
+  TestPrimitive(decimal128(16, 4), "d:16,4");
   TestPrimitive(decimal256(16, 4), "d:16,4,256");
 
-  TestPrimitive(decimal(15, 0), "d:15,0");
+  TestPrimitive(smallest_decimal(8, 0), "d:8,0,32");
+  TestPrimitive(smallest_decimal(15, 0), "d:15,0,64");
+  TestPrimitive(decimal128(15, 0), "d:15,0");
   TestPrimitive(decimal256(15, 0), "d:15,0,256");
 
-  TestPrimitive(decimal(15, -4), "d:15,-4");
+  TestPrimitive(smallest_decimal(8, -4), "d:8,-4,32");
+  TestPrimitive(smallest_decimal(15, -4), "d:15,-4,64");
+  TestPrimitive(decimal128(15, -4), "d:15,-4");
   TestPrimitive(decimal256(15, -4), "d:15,-4,256");
 }
 
@@ -906,7 +912,9 @@ TEST_F(TestArrayExport, Primitive) {
   TestPrimitive(binary_view(), R"(["foo", "bar", null])");
   TestPrimitive(utf8_view(), R"(["foo", "bar", null])");
 
-  TestPrimitive(decimal(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(decimal32(9, 4), R"(["1234.5670", null])");
+  TestPrimitive(decimal64(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(decimal128(16, 4), R"(["1234.5670", null])");
   TestPrimitive(decimal256(16, 4), R"(["1234.5670", null])");
 
   TestPrimitive(month_day_nano_interval(), R"([[-1, 5, 20], null])");
@@ -1501,7 +1509,9 @@ TEST_F(TestDeviceArrayExport, Primitive) {
   TestPrimitive(mm, utf8(), R"(["foo", "bar", null])");
   TestPrimitive(mm, large_utf8(), R"(["foo", "bar", null])");
 
-  TestPrimitive(mm, decimal(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(mm, decimal32(9, 4), R"(["1234.5670", null])");
+  TestPrimitive(mm, decimal64(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(mm, decimal128(16, 4), R"(["1234.5670", null])");
   TestPrimitive(mm, decimal256(16, 4), R"(["1234.5670", null])");
 
   TestPrimitive(mm, month_day_nano_interval(), R"([[-1, 5, 20], null])");
@@ -1951,6 +1961,10 @@ TEST_F(TestSchemaImport, Primitive) {
   CheckImport(field("", decimal128(16, 4)));
   FillPrimitive("d:16,4,256");
   CheckImport(field("", decimal256(16, 4)));
+  FillPrimitive("d:4,4,32");
+  CheckImport(field("", decimal32(4, 4)));
+  FillPrimitive("d:16,4,64");
+  CheckImport(field("", decimal64(16, 4)));
 
   FillPrimitive("d:16,0");
   CheckImport(field("", decimal128(16, 0)));
@@ -1958,6 +1972,10 @@ TEST_F(TestSchemaImport, Primitive) {
   CheckImport(field("", decimal128(16, 0)));
   FillPrimitive("d:16,0,256");
   CheckImport(field("", decimal256(16, 0)));
+  FillPrimitive("d:4,0,32");
+  CheckImport(field("", decimal32(4, 0)));
+  FillPrimitive("d:16,0,64");
+  CheckImport(field("", decimal64(16, 0)));
 
   FillPrimitive("d:16,-4");
   CheckImport(field("", decimal128(16, -4)));
@@ -1965,6 +1983,10 @@ TEST_F(TestSchemaImport, Primitive) {
   CheckImport(field("", decimal128(16, -4)));
   FillPrimitive("d:16,-4,256");
   CheckImport(field("", decimal256(16, -4)));
+  FillPrimitive("d:4,-4,32");
+  CheckImport(field("", decimal32(4, -4)));
+  FillPrimitive("d:16,-4,64");
+  CheckImport(field("", decimal64(16, -4)));
 }
 
 TEST_F(TestSchemaImport, Temporal) {
@@ -2034,7 +2056,7 @@ TEST_F(TestSchemaImport, String) {
   FillPrimitive("w:3");
   CheckImport(fixed_size_binary(3));
   FillPrimitive("d:15,4");
-  CheckImport(decimal(15, 4));
+  CheckImport(decimal128(15, 4));
 }
 
 TEST_F(TestSchemaImport, List) {
@@ -2950,26 +2972,26 @@ TEST_F(TestArrayImport, FixedSizeBinary) {
   FillPrimitive(2, 0, 0, primitive_buffers_no_nulls2);
   CheckImport(ArrayFromJSON(fixed_size_binary(3), R"(["abc", "def"])"));
   FillPrimitive(2, 0, 0, primitive_buffers_no_nulls3);
-  CheckImport(ArrayFromJSON(decimal(15, 4), R"(["12345.6789", "98765.4321"])"));
+  CheckImport(ArrayFromJSON(decimal128(15, 4), R"(["12345.6789", "98765.4321"])"));
 
   // Empty array with null data pointers
   FillPrimitive(0, 0, 0, all_buffers_omitted);
   CheckImport(ArrayFromJSON(fixed_size_binary(3), "[]"));
   FillPrimitive(0, 0, 0, all_buffers_omitted);
-  CheckImport(ArrayFromJSON(decimal(15, 4), "[]"));
+  CheckImport(ArrayFromJSON(decimal128(15, 4), "[]"));
 }
 
 TEST_F(TestArrayImport, FixedSizeBinaryWithOffset) {
   FillPrimitive(1, 0, 1, primitive_buffers_no_nulls2);
   CheckImport(ArrayFromJSON(fixed_size_binary(3), R"(["def"])"));
   FillPrimitive(1, 0, 1, primitive_buffers_no_nulls3);
-  CheckImport(ArrayFromJSON(decimal(15, 4), R"(["98765.4321"])"));
+  CheckImport(ArrayFromJSON(decimal128(15, 4), R"(["98765.4321"])"));
 
   // Empty array with null data pointers
   FillPrimitive(0, 0, 1, all_buffers_omitted);
   CheckImport(ArrayFromJSON(fixed_size_binary(3), "[]"));
   FillPrimitive(0, 0, 1, all_buffers_omitted);
-  CheckImport(ArrayFromJSON(decimal(15, 4), "[]"));
+  CheckImport(ArrayFromJSON(decimal128(15, 4), "[]"));
 }
 
 TEST_F(TestArrayImport, List) {
@@ -3624,10 +3646,16 @@ TEST_F(TestSchemaRoundtrip, Primitive) {
   TestWithTypeFactory(boolean);
   TestWithTypeFactory(float16);
 
+  TestWithTypeFactory([] { return decimal32(8, 4); });
+  TestWithTypeFactory([] { return decimal64(16, 4); });
   TestWithTypeFactory([] { return decimal128(19, 4); });
   TestWithTypeFactory([] { return decimal256(19, 4); });
+  TestWithTypeFactory([] { return decimal32(8, 0); });
+  TestWithTypeFactory([] { return decimal64(16, 0); });
   TestWithTypeFactory([] { return decimal128(19, 0); });
   TestWithTypeFactory([] { return decimal256(19, 0); });
+  TestWithTypeFactory([] { return decimal32(8, -5); });
+  TestWithTypeFactory([] { return decimal64(16, -5); });
   TestWithTypeFactory([] { return decimal128(19, -5); });
   TestWithTypeFactory([] { return decimal256(19, -5); });
   TestWithTypeFactory([] { return fixed_size_binary(3); });
@@ -3661,7 +3689,7 @@ TEST_F(TestSchemaRoundtrip, ListView) {
 
 TEST_F(TestSchemaRoundtrip, Struct) {
   auto f1 = field("f1", utf8(), /*nullable=*/false);
-  auto f2 = field("f2", list(decimal(19, 4)));
+  auto f2 = field("f2", list(decimal128(19, 4)));
 
   TestWithTypeFactory([&]() { return struct_({f1, f2}); });
   f2 = f2->WithMetadata(key_value_metadata(kMetadataKeys2, kMetadataValues2));
@@ -3671,7 +3699,7 @@ TEST_F(TestSchemaRoundtrip, Struct) {
 
 TEST_F(TestSchemaRoundtrip, Union) {
   auto f1 = field("f1", utf8(), /*nullable=*/false);
-  auto f2 = field("f2", list(decimal(19, 4)));
+  auto f2 = field("f2", list(decimal128(19, 4)));
   auto type_codes = std::vector<int8_t>{42, 43};
 
   TestWithTypeFactory(
@@ -3901,6 +3929,8 @@ TEST_F(TestArrayRoundtrip, Primitive) {
   TestWithJSON(int32(), "[]");
   TestWithJSON(int32(), "[4, 5, null]");
 
+  TestWithJSON(decimal32(8, 4), R"(["0.4759", "1234.5670", null])");
+  TestWithJSON(decimal64(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSON(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSON(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
 
@@ -3908,6 +3938,8 @@ TEST_F(TestArrayRoundtrip, Primitive) {
 
   TestWithJSONSliced(int32(), "[4, 5]");
   TestWithJSONSliced(int32(), "[4, 5, 6, null]");
+  TestWithJSONSliced(decimal32(8, 4), R"(["0.4759", "1234.5670", null])");
+  TestWithJSONSliced(decimal64(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(month_day_nano_interval(),
