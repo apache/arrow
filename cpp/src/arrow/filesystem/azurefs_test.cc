@@ -562,16 +562,15 @@ class TestAzureOptions : public ::testing::Test {
 
   void TestFromUriAbfs() {
     std::string path;
-    ASSERT_OK_AND_ASSIGN(
-        auto options,
-        AzureOptions::FromUri(
-            "abfs://account:password@127.0.0.1:10000/container/dir/blob", &path));
+    ASSERT_OK_AND_ASSIGN(auto options,
+                         AzureOptions::FromUri(
+                             "abfs://account@127.0.0.1:10000/container/dir/blob", &path));
     ASSERT_EQ(options.account_name, "account");
     ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.blob_storage_scheme, "https");
     ASSERT_EQ(options.dfs_storage_scheme, "https");
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
     ASSERT_EQ(options.background_writes, true);
   }
@@ -579,43 +578,42 @@ class TestAzureOptions : public ::testing::Test {
   void TestFromUriAbfss() {
     std::string path;
     ASSERT_OK_AND_ASSIGN(
-        auto options,
-        AzureOptions::FromUri(
-            "abfss://account:password@127.0.0.1:10000/container/dir/blob", &path));
+        auto options, AzureOptions::FromUri(
+                          "abfss://account@127.0.0.1:10000/container/dir/blob", &path));
     ASSERT_EQ(options.account_name, "account");
     ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.blob_storage_scheme, "https");
     ASSERT_EQ(options.dfs_storage_scheme, "https");
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
     ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriEnableTls() {
     std::string path;
-    ASSERT_OK_AND_ASSIGN(auto options,
-                         AzureOptions::FromUri(
-                             "abfs://account:password@127.0.0.1:10000/container/dir/blob?"
-                             "enable_tls=false",
-                             &path));
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account@127.0.0.1:10000/container/dir/blob?"
+                              "enable_tls=false",
+                              &path));
     ASSERT_EQ(options.account_name, "account");
     ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.blob_storage_scheme, "http");
     ASSERT_EQ(options.dfs_storage_scheme, "http");
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
     ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriDisableBackgroundWrites() {
     std::string path;
-    ASSERT_OK_AND_ASSIGN(auto options,
-                         AzureOptions::FromUri(
-                             "abfs://account:password@127.0.0.1:10000/container/dir/blob?"
-                             "background_writes=false",
-                             &path));
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account@127.0.0.1:10000/container/dir/blob?"
+                              "background_writes=false",
+                              &path));
     ASSERT_EQ(options.background_writes, false);
   }
 
@@ -635,15 +633,6 @@ class TestAzureOptions : public ::testing::Test {
                               "credential_kind=anonymous",
                               nullptr));
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kAnonymous);
-  }
-
-  void TestFromUriCredentialStorageSharedKey() {
-    ASSERT_OK_AND_ASSIGN(
-        auto options,
-        AzureOptions::FromUri(
-            "abfs://:password@account.blob.core.windows.net/container/dir/blob",
-            nullptr));
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
   }
 
   void TestFromUriCredentialClientSecret() {
@@ -767,9 +756,6 @@ TEST_F(TestAzureOptions, FromUriDisableBackgroundWrites) {
 }
 TEST_F(TestAzureOptions, FromUriCredentialDefault) { TestFromUriCredentialDefault(); }
 TEST_F(TestAzureOptions, FromUriCredentialAnonymous) { TestFromUriCredentialAnonymous(); }
-TEST_F(TestAzureOptions, FromUriCredentialStorageSharedKey) {
-  TestFromUriCredentialStorageSharedKey();
-}
 TEST_F(TestAzureOptions, FromUriCredentialClientSecret) {
   TestFromUriCredentialClientSecret();
 }

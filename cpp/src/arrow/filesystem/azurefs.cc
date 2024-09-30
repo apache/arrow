@@ -101,7 +101,6 @@ void AzureOptions::ExtractFromUriSchemeAndHierPart(const Uri& uri,
 }
 
 Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
-  const auto account_key = uri.password();
   std::optional<CredentialKind> credential_kind;
   std::optional<std::string> credential_kind_value;
   std::string tenant_id;
@@ -155,10 +154,6 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
   }
 
   if (credential_kind) {
-    if (!account_key.empty()) {
-      return Status::Invalid("Password must not be specified with credential_kind=",
-                             *credential_kind_value);
-    }
     if (!tenant_id.empty()) {
       return Status::Invalid("tenant_id must not be specified with credential_kind=",
                              *credential_kind_value);
@@ -190,40 +185,25 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
         break;
     }
   } else {
-    if (!account_key.empty()) {
-      // With password
-      if (!tenant_id.empty()) {
-        return Status::Invalid("tenant_id must not be specified with password");
-      }
-      if (!client_id.empty()) {
-        return Status::Invalid("client_id must not be specified with password");
-      }
-      if (!client_secret.empty()) {
-        return Status::Invalid("client_secret must not be specified with password");
-      }
-      RETURN_NOT_OK(ConfigureAccountKeyCredential(account_key));
-    } else {
-      // Without password
-      if (tenant_id.empty() && client_id.empty() && client_secret.empty()) {
-        // No related parameters
-        if (account_name.empty()) {
-          RETURN_NOT_OK(ConfigureAnonymousCredential());
-        } else {
-          // Default credential
-        }
+    if (tenant_id.empty() && client_id.empty() && client_secret.empty()) {
+      // No related parameters
+      if (account_name.empty()) {
+        RETURN_NOT_OK(ConfigureAnonymousCredential());
       } else {
-        // One or more tenant_id, client_id or client_secret are specified
-        if (client_id.empty()) {
-          return Status::Invalid("client_id must be specified");
-        }
-        if (tenant_id.empty() && client_secret.empty()) {
-          RETURN_NOT_OK(ConfigureManagedIdentityCredential(client_id));
-        } else if (!tenant_id.empty() && !client_secret.empty()) {
-          RETURN_NOT_OK(
-              ConfigureClientSecretCredential(tenant_id, client_id, client_secret));
-        } else {
-          return Status::Invalid("Both of tenant_id and client_secret must be specified");
-        }
+        // Default credential
+      }
+    } else {
+      // One or more tenant_id, client_id or client_secret are specified
+      if (client_id.empty()) {
+        return Status::Invalid("client_id must be specified");
+      }
+      if (tenant_id.empty() && client_secret.empty()) {
+        RETURN_NOT_OK(ConfigureManagedIdentityCredential(client_id));
+      } else if (!tenant_id.empty() && !client_secret.empty()) {
+        RETURN_NOT_OK(
+            ConfigureClientSecretCredential(tenant_id, client_id, client_secret));
+      } else {
+        return Status::Invalid("Both of tenant_id and client_secret must be specified");
       }
     }
   }
