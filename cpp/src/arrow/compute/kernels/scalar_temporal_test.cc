@@ -939,6 +939,7 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
     ASSERT_RAISES(Invalid, PGYear(timestamp_array));
     ASSERT_RAISES(Invalid, PGMonth(timestamp_array));
     ASSERT_RAISES(Invalid, PGDay(timestamp_array));
+    ASSERT_RAISES(Invalid, PGWeek(timestamp_array));
     ASSERT_RAISES(Invalid, USYear(timestamp_array));
     ASSERT_RAISES(Invalid, ISOYear(timestamp_array));
     ASSERT_RAISES(Invalid, Week(timestamp_array));

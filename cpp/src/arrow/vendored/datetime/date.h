@@ -90,7 +90,7 @@ namespace date
 {
 
 // 10957 = julian days of '2000-01-01' - julian days of '1970-01-01'
-// This is used to align the number of days based on the PG epoch to
+// This is used to align the number of days based on the PostgreSQL epoch to
 // the number based on the unix epoch, or vice versa.
 #define DIFFDAYS_BETWEEN_UNIXEPOCH_AND_PGEPOCH 10957
 
