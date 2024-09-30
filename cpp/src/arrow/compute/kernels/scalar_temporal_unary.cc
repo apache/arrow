@@ -55,7 +55,6 @@ using arrow_vendored::date::weekday;
 using arrow_vendored::date::weeks;
 using arrow_vendored::date::year;
 using arrow_vendored::date::year_month_day;
-using arrow_vendored::date::year_month_day_pg;
 using arrow_vendored::date::year_month_weekday;
 using arrow_vendored::date::years;
 using arrow_vendored::date::zoned_time;
@@ -467,7 +466,7 @@ struct USYear {
 // ----------------------------------------------------------------------
 // Extract PostgreSQL year from temporal types
 //
-// This class is the same as Year except using year_month_day_pg.
+// This class is the same as Year except using pg_epoch.
 
 template <typename Duration, typename Localizer>
 struct PGYear {
@@ -477,8 +476,8 @@ struct PGYear {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     return static_cast<T>(static_cast<const int32_t>(
-        year_month_day_pg(
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
+        year_month_day(
+            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)), epoch_type::pg_epoch)
             .year()));
   }
 
@@ -496,7 +495,9 @@ struct PGMonth {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     return static_cast<T>(static_cast<const uint32_t>(
-        year_month_day_pg(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
+        year_month_day(
+            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)),
+            epoch_type::pg_epoch)
             .month()));
   }
 
@@ -514,7 +515,9 @@ struct PGDay {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     return static_cast<T>(static_cast<const uint32_t>(
-        year_month_day_pg(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
+        year_month_day(
+            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)),
+            epoch_type::pg_epoch)
             .day()));
   }
 
@@ -556,7 +559,7 @@ struct PGWeek {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
-    auto y = year_month_day_pg{t + days_offset_}.year();
+    auto y = year_month_day{t + days_offset_, epoch_type::pg_epoch}.year();
 
     if (first_week_is_fully_in_year_) {
       auto start = localizer_.ConvertDays(y / jan / wd_[1]);
