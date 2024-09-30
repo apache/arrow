@@ -914,8 +914,7 @@ tasks:
 {% for distribution, version in [("conda", "latest"),
                                  ("almalinux", "8"),
                                  ("ubuntu", "20.04"),
-                                 ("ubuntu", "22.04"),
-                                 ("ubuntu", "24.04")] %}
+                                 ("ubuntu", "22.04")] %}
   {% for target in ["cpp",
                     "csharp",
                     "integration",
