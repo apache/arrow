@@ -304,7 +304,7 @@ class ARROW_EXPORT BasicDecimal32 : public SmallBasicDecimal<int32_t> {
 
   /// \brief Multiply this number by another. The result is truncated to 32 bits.
   BasicDecimal32& operator*=(const BasicDecimal32& right) {
-    value_ *= right.value_;
+    value_ *= static_cast<uint64_t>(right.value_);
     return *this;
   }
 

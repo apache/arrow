@@ -1470,7 +1470,7 @@ TYPED_TEST(TestBasicDecimalFunctionality, Multiply) {
       ASSERT_EQ(TypeParam(static_cast<int64_t>(x) * y), result)
           << " x: " << x << " y: " << y;
 
-      // for Decimal128/256
+      // for Decimal128
       if constexpr (std::is_same_v<TypeParam, Decimal128>) {
         // Test by multiplying with an additional 32 bit factor, then additional
         // factor of 2^30 to test results in the range of -2^123 to 2^123 without
