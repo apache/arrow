@@ -3110,11 +3110,11 @@ TEST_P(Decimal32Test, WithNulls) {
   std::vector<Decimal32> draw = {Decimal32(1),  Decimal32(2), Decimal32(-1), Decimal32(4),
                                  Decimal32(-1), Decimal32(1), Decimal32(2)};
   Decimal32 big;
-  ASSERT_OK_AND_ASSIGN(big, Decimal32::FromString("23034.234234"));
+  ASSERT_OK_AND_ASSIGN(big, Decimal32::FromString("23034.234"));
   draw.push_back(big);
 
   Decimal32 big_negative;
-  ASSERT_OK_AND_ASSIGN(big_negative, Decimal32::FromString("-23049.235234"));
+  ASSERT_OK_AND_ASSIGN(big_negative, Decimal32::FromString("-23049.235"));
   draw.push_back(big_negative);
 
   std::vector<uint8_t> valid_bytes = {true, true, false, true, false,

@@ -2254,7 +2254,7 @@ TEST(TypesTest, TestDecimal32) {
 }
 
 TEST(TypesTest, TestDecimal64) {
-  Decimal32Type t1(12, 4);
+  Decimal64Type t1(12, 4);
 
   EXPECT_EQ(t1.id(), Type::DECIMAL64);
   EXPECT_EQ(t1.precision(), 12);
