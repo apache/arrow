@@ -19,6 +19,24 @@ import XCTest
 import FlatBuffers
 @testable import Arrow
 
+let currentDate = Date.now
+class StructTest {
+    var field0: Bool = false
+    var field1: Int8 = 0
+    var field2: Int16 = 0
+    var field: Int32 = 0
+    var field4: Int64 = 0
+    var field5: UInt8 = 0
+    var field6: UInt16 = 0
+    var field7: UInt32 = 0
+    var field8: UInt64 = 0
+    var field9: Double = 0
+    var field10: Float = 0
+    var field11: String = ""
+    var field12 = Data()
+    var field13: Date = currentDate
+}
+
 @discardableResult
 func checkBoolRecordBatch(_ result: Result<ArrowReader.ArrowReaderResult, ArrowError>) throws -> [RecordBatch] {
     let recordBatches: [RecordBatch]
@@ -55,6 +73,45 @@ func checkBoolRecordBatch(_ result: Result<ArrowReader.ArrowReaderResult, ArrowE
     return recordBatches
 }
 
+@discardableResult
+func checkStructRecordBatch(_ result: Result<ArrowReader.ArrowReaderResult, ArrowError>) throws -> [RecordBatch] {
+    let recordBatches: [RecordBatch]
+    switch result {
+    case .success(let result):
+        recordBatches = result.batches
+    case .failure(let error):
+        throw error
+    }
+
+    XCTAssertEqual(recordBatches.count, 1)
+    for recordBatch in recordBatches {
+        XCTAssertEqual(recordBatch.length, 3)
+        XCTAssertEqual(recordBatch.columns.count, 1)
+        XCTAssertEqual(recordBatch.schema.fields.count, 1)
+        XCTAssertEqual(recordBatch.schema.fields[0].name, "struct1")
+        XCTAssertEqual(recordBatch.schema.fields[0].type.id, .strct)
+        let structArray = recordBatch.columns[0].array as? StructArray
+        XCTAssertEqual(structArray!.arrowFields!.count, 2)
+        XCTAssertEqual(structArray!.arrowFields![0].type.id, .boolean)
+        XCTAssertEqual(structArray!.arrowFields![1].type.id, .boolean)
+
+        for index in 0..<recordBatch.length {
+            let column = recordBatch.columns[0]
+            let str = column.array as? AsString
+            let val = "\(str!.asString(index))"
+            if index == 0 {
+                XCTAssertEqual(val, "{true,true}")
+            } else if index == 1 {
+                XCTAssertEqual(val, "{,true}")
+            } else {
+                XCTAssertEqual(val, "")
+            }
+        }
+    }
+
+    return recordBatches
+}
+
 func currentDirectory(path: String = #file) -> URL {
     return URL(fileURLWithPath: path).deletingLastPathComponent()
 }
@@ -67,6 +124,47 @@ func makeSchema() -> ArrowSchema {
         .addField("col4", type: ArrowType(ArrowType.ArrowInt32), isNullable: false)
         .addField("col5", type: ArrowType(ArrowType.ArrowFloat), isNullable: false)
         .finish()
+}
+
+func makeStructSchema() -> ArrowSchema {
+    let testObj = StructTest()
+    var fields = [ArrowField]()
+    let buildStructType = {() -> ArrowNestedType in
+        let mirror = Mirror(reflecting: testObj)
+        for (property, value) in mirror.children {
+            let arrowType = ArrowType(ArrowType.infoForType(type(of: value)))
+            fields.append(ArrowField(property!, type: arrowType, isNullable: true))
+        }
+
+        return ArrowNestedType(ArrowType.ArrowStruct, fields: fields)
+    }
+
+    return ArrowSchema.Builder()
+        .addField("struct1", type: buildStructType(), isNullable: true)
+        .finish()
+}
+
+func makeStructRecordBatch() throws -> RecordBatch {
+    let testData = StructTest()
+    let dateNow = Date.now
+    let structBuilder = try ArrowArrayBuilders.loadStructArrayBuilderForType(testData)
+    structBuilder.append([true, Int8(1), Int16(2), Int32(3), Int64(4),
+                          UInt8(5), UInt16(6), UInt32(7), UInt64(8), Double(9.9),
+                          Float(10.10), "11", Data("12".utf8), dateNow])
+    structBuilder.append(nil)
+    structBuilder.append([true, Int8(13), Int16(14), Int32(15), Int64(16),
+                          UInt8(17), UInt16(18), UInt32(19), UInt64(20), Double(21.21),
+                          Float(22.22), "23", Data("24".utf8), dateNow])
+    let structHolder = ArrowArrayHolderImpl(try structBuilder.finish())
+    let result = RecordBatch.Builder()
+        .addColumn("struct1", arrowArray: structHolder)
+        .finish()
+    switch result {
+    case .success(let recordBatch):
+        return recordBatch
+    case .failure(let error):
+        throw error
+    }
 }
 
 func makeRecordBatch() throws -> RecordBatch {
@@ -118,7 +216,60 @@ func makeRecordBatch() throws -> RecordBatch {
     }
 }
 
-final class IPCFileReaderTests: XCTestCase {
+func makeBinaryDataset() throws -> (ArrowSchema, RecordBatch) {
+    let schemaBuilder = ArrowSchema.Builder()
+    let schema = schemaBuilder.addField("binary", type: ArrowType(ArrowType.ArrowBinary), isNullable: false)
+        .finish()
+
+    let binaryBuilder = try ArrowArrayBuilders.loadBinaryArrayBuilder()
+    binaryBuilder.append("test10".data(using: .utf8))
+    binaryBuilder.append("test22".data(using: .utf8))
+    binaryBuilder.append("test33".data(using: .utf8))
+    binaryBuilder.append("test44".data(using: .utf8))
+
+    let binaryHolder = ArrowArrayHolderImpl(try binaryBuilder.finish())
+    let result = RecordBatch.Builder()
+        .addColumn("binary", arrowArray: binaryHolder)
+        .finish()
+    switch result {
+    case .success(let recordBatch):
+        return (schema, recordBatch)
+    case .failure(let error):
+        throw error
+    }
+}
+
+func makeTimeDataset() throws -> (ArrowSchema, RecordBatch) {
+    let schemaBuilder = ArrowSchema.Builder()
+    let schema = schemaBuilder.addField("time64", type: ArrowTypeTime64(.microseconds), isNullable: false)
+        .addField("time32", type: ArrowTypeTime32(.milliseconds), isNullable: false)
+        .finish()
+
+    let time64Builder = try ArrowArrayBuilders.loadTime64ArrayBuilder(.nanoseconds)
+    time64Builder.append(12345678)
+    time64Builder.append(1)
+    time64Builder.append(nil)
+    time64Builder.append(98765432)
+    let time32Builder = try ArrowArrayBuilders.loadTime32ArrayBuilder(.milliseconds)
+    time32Builder.append(1)
+    time32Builder.append(2)
+    time32Builder.append(nil)
+    time32Builder.append(3)
+    let time64Holder = ArrowArrayHolderImpl(try time64Builder.finish())
+    let time32Holder = ArrowArrayHolderImpl(try time32Builder.finish())
+    let result = RecordBatch.Builder()
+        .addColumn("time64", arrowArray: time64Holder)
+        .addColumn("time32", arrowArray: time32Holder)
+        .finish()
+    switch result {
+    case .success(let recordBatch):
+        return (schema, recordBatch)
+    case .failure(let error):
+        throw error
+    }
+}
+
+final class IPCFileReaderTests: XCTestCase { // swiftlint:disable:this type_body_length
     func testFileReader_double() throws {
         let fileURL = currentDirectory().appendingPathComponent("../../testdata_double.arrow")
         let arrowReader = ArrowReader()
@@ -179,6 +330,37 @@ final class IPCFileReaderTests: XCTestCase {
         switch arrowWriter.toFile(outputUrl, info: writerInfo) {
         case .success:
             try checkBoolRecordBatch(arrowReader.fromFile(outputUrl))
+        case .failure(let error):
+            throw error
+        }
+    }
+
+    func testFileReader_struct() throws {
+        let fileURL = currentDirectory().appendingPathComponent("../../testdata_struct.arrow")
+        let arrowReader = ArrowReader()
+        try checkStructRecordBatch(arrowReader.fromFile(fileURL))
+    }
+
+    func testFileWriter_struct() throws {
+        // read existing file
+        let fileURL = currentDirectory().appendingPathComponent("../../testdata_struct.arrow")
+        let arrowReader = ArrowReader()
+        let fileRBs = try checkStructRecordBatch(arrowReader.fromFile(fileURL))
+        let arrowWriter = ArrowWriter()
+        // write data from file to a stream
+        let writerInfo = ArrowWriter.Info(.recordbatch, schema: fileRBs[0].schema, batches: fileRBs)
+        switch arrowWriter.toStream(writerInfo) {
+        case .success(let writeData):
+            // read stream back into recordbatches
+            try checkStructRecordBatch(arrowReader.fromStream(writeData))
+        case .failure(let error):
+            throw error
+        }
+        // write file record batches to another file
+        let outputUrl = currentDirectory().appendingPathComponent("../../testfilewriter_struct.arrow")
+        switch arrowWriter.toFile(outputUrl, info: writerInfo) {
+        case .success:
+            try checkStructRecordBatch(arrowReader.fromFile(outputUrl))
         case .failure(let error):
             throw error
         }
@@ -321,6 +503,60 @@ final class IPCFileReaderTests: XCTestCase {
         }
     }
 
+    func testStructRBInMemoryToFromStream() throws {
+        // read existing file
+        let schema = makeStructSchema()
+        let recordBatch = try makeStructRecordBatch()
+        let arrowWriter = ArrowWriter()
+        let writerInfo = ArrowWriter.Info(.recordbatch, schema: schema, batches: [recordBatch])
+        switch arrowWriter.toStream(writerInfo) {
+        case .success(let writeData):
+            let arrowReader = ArrowReader()
+            switch arrowReader.fromStream(writeData) {
+            case .success(let result):
+                let recordBatches = result.batches
+                XCTAssertEqual(recordBatches.count, 1)
+                for recordBatch in recordBatches {
+                    XCTAssertEqual(recordBatch.length, 3)
+                    XCTAssertEqual(recordBatch.columns.count, 1)
+                    XCTAssertEqual(recordBatch.schema.fields.count, 1)
+                    XCTAssertEqual(recordBatch.schema.fields[0].name, "struct1")
+                    XCTAssertEqual(recordBatch.schema.fields[0].type.id, .strct)
+                    XCTAssertTrue(recordBatch.schema.fields[0].type is ArrowNestedType)
+                    let nestedType = (recordBatch.schema.fields[0].type as? ArrowNestedType)!
+                    XCTAssertEqual(nestedType.fields.count, 14)
+                    let columns = recordBatch.columns
+                    XCTAssertEqual(columns[0].nullCount, 1)
+                    XCTAssertNil(columns[0].array.asAny(1))
+                    let structVal =
+                        "\((columns[0].array as? AsString)!.asString(0))"
+                    XCTAssertEqual(structVal, "{true,1,2,3,4,5,6,7,8,9.9,10.1,11,12,\(currentDate)}")
+                    let structArray = (recordBatch.columns[0].array as? StructArray)!
+                    XCTAssertEqual(structArray.length, 3)
+                    XCTAssertEqual(structArray.arrowFields!.count, 14)
+                    XCTAssertEqual(structArray.arrowFields![0].type.id, .boolean)
+                    XCTAssertEqual(structArray.arrowFields![1].type.id, .int8)
+                    XCTAssertEqual(structArray.arrowFields![2].type.id, .int16)
+                    XCTAssertEqual(structArray.arrowFields![3].type.id, .int32)
+                    XCTAssertEqual(structArray.arrowFields![4].type.id, .int64)
+                    XCTAssertEqual(structArray.arrowFields![5].type.id, .uint8)
+                    XCTAssertEqual(structArray.arrowFields![6].type.id, .uint16)
+                    XCTAssertEqual(structArray.arrowFields![7].type.id, .uint32)
+                    XCTAssertEqual(structArray.arrowFields![8].type.id, .uint64)
+                    XCTAssertEqual(structArray.arrowFields![9].type.id, .double)
+                    XCTAssertEqual(structArray.arrowFields![10].type.id, .float)
+                    XCTAssertEqual(structArray.arrowFields![11].type.id, .string)
+                    XCTAssertEqual(structArray.arrowFields![12].type.id, .binary)
+                    XCTAssertEqual(structArray.arrowFields![13].type.id, .date64)
+                }
+            case.failure(let error):
+                throw error
+            }
+        case .failure(let error):
+            throw error
+        }
+    }
+
     func testBinaryInMemoryToFromStream() throws {
         let dataset = try makeBinaryDataset()
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: dataset.0, batches: [dataset.1])
@@ -384,3 +620,5 @@ final class IPCFileReaderTests: XCTestCase {
         }
     }
 }
+
+// swiftlint:disable:this file_length
