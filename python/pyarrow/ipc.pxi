@@ -120,6 +120,8 @@ cdef class IpcReadOptions(_Weakrefable):
     ----------
     ensure_native_endian : bool, default True
         Whether to convert incoming data to platform-native endianness.
+    ensure_memory_alignment : bool, default True
+        Whether to align incoming data if mis-aligned.
     use_threads : bool
         Whether to use the global CPU thread pool to parallelize any
         computational tasks like decompression
@@ -133,9 +135,11 @@ cdef class IpcReadOptions(_Weakrefable):
     # cdef block is in lib.pxd
 
     def __init__(self, *, bint ensure_native_endian=True,
+                 bint ensure_memory_alignment=True,
                  bint use_threads=True, list included_fields=None):
         self.c_options = CIpcReadOptions.Defaults()
         self.ensure_native_endian = ensure_native_endian
+        self.ensure_memory_alignment = ensure_memory_alignment
         self.use_threads = use_threads
         if included_fields is not None:
             self.included_fields = included_fields
@@ -147,6 +151,14 @@ cdef class IpcReadOptions(_Weakrefable):
     @ensure_native_endian.setter
     def ensure_native_endian(self, bint value):
         self.c_options.ensure_native_endian = value
+
+    @property
+    def ensure_memory_alignment(self):
+        return self.c_options.ensure_memory_alignment
+
+    @ensure_memory_alignment.setter
+    def ensure_memory_alignment(self, bint value):
+        self.c_options.ensure_memory_alignment = value
 
     @property
     def use_threads(self):
