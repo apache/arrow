@@ -145,7 +145,7 @@ namespace Apache.Arrow.Ipc
                         case 32:
                             return new Types.Decimal32Type(decMeta.Precision, decMeta.Scale);
                         case 64:
-                            return new Types.Decimal64Type(decMeta.Precision, decMeta.Precision);
+                            return new Types.Decimal64Type(decMeta.Precision, decMeta.Scale);
                         case 128:
                             return new Types.Decimal128Type(decMeta.Precision, decMeta.Scale);
                         case 256:
