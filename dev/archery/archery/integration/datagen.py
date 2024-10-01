@@ -1906,7 +1906,6 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('JS'),
 
         generate_decimal32_case()
-        .skip_tester('C#')
         .skip_tester('Java')
         .skip_tester('JS')
         .skip_tester('nanoarrow')
@@ -1914,7 +1913,6 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Go'),
 
         generate_decimal64_case()
-        .skip_tester('C#')
         .skip_tester('Java')
         .skip_tester('JS')
         .skip_tester('nanoarrow')
