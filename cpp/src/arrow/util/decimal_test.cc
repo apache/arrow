@@ -40,6 +40,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/int128_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -1724,7 +1725,7 @@ TYPED_TEST(TestBasicDecimalFunctionality, FitsInPrecision) {
 
 TEST(Decimal32Test, LeftShift) {
   auto check = [](int32_t x, uint32_t bits) {
-    auto expected = Decimal32(x << bits);
+    auto expected = Decimal32(arrow::internal::SafeLeftShift(x, bits));
     auto actual = Decimal32(x) << bits;
     ASSERT_EQ(actual.value(), expected.value());
   };
@@ -1807,7 +1808,7 @@ TEST(Decimal32Test, Negate) {
 
 TEST(Decimal64Test, LeftShift) {
   auto check = [](int64_t x, uint32_t bits) {
-    auto expected = Decimal64(x << bits);
+    auto expected = Decimal64(arrow::internal::SafeLeftShift(x, bits));
     auto actual = Decimal64(x) << bits;
     ASSERT_EQ(actual.value(), expected.value());
   };
