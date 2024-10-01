@@ -441,7 +441,7 @@ install_go() {
 install_conda() {
   # Setup short-lived miniconda for Python and integration tests
   show_info "Ensuring that Conda is installed..."
-  local prefix=$ARROW_TMPDIR/mambaforge
+  local prefix=$ARROW_TMPDIR/miniforge
 
   # Setup miniconda only if the directory doesn't exist yet
   if [ "${CONDA_ALREADY_INSTALLED:-0}" -eq 0 ]; then
@@ -449,7 +449,7 @@ install_conda() {
       show_info "Installing miniconda at ${prefix}..."
       local arch=$(uname -m)
       local platform=$(uname)
-      local url="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-${platform}-${arch}.sh"
+      local url="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-${platform}-${arch}.sh"
       curl -sL -o miniconda.sh $url
       bash miniconda.sh -b -p $prefix
       rm -f miniconda.sh
