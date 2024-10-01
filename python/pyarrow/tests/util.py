@@ -371,7 +371,7 @@ def _run_mc_command(mcdir, *args):
             raise ChildProcessError("Could not run mc")
 
 
-def _configure_s3_limited_user(s3_server, policy):
+def _configure_s3_limited_user(s3_server, policy, username, password):
     """
     Attempts to use the mc command to configure the minio server
     with a special user limited:limited123 which does not have
@@ -407,15 +407,14 @@ def _configure_s3_limited_user(s3_server, policy):
         # The s3_server fixture starts the minio process but
         # it takes a few moments for the process to become available
         _wait_for_minio_startup(mcdir, address, access_key, secret_key)
-        # These commands create a limited user with a specific
-        # policy and creates a sample bucket for that user to
-        # write to
-        _run_mc_command(mcdir, 'admin', 'policy', 'add',
-                        'myminio/', 'no-create-buckets', policy_path)
+        # Create a limited user with a specific policy ...
         _run_mc_command(mcdir, 'admin', 'user', 'add',
-                        'myminio/', 'limited', 'limited123')
-        _run_mc_command(mcdir, 'admin', 'policy', 'set',
-                        'myminio', 'no-create-buckets', 'user=limited')
+                        'myminio/', username, password)
+        _run_mc_command(mcdir, 'admin', 'policy', 'create',
+                        'myminio/', 'no-create-buckets', policy_path)
+        _run_mc_command(mcdir, 'admin', 'policy', 'attach',
+                        'myminio/', 'no-create-buckets', '--user', username)
+        # ... and a sample bucket for that user to write to
         _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket',
                         '--ignore-existing')
 
