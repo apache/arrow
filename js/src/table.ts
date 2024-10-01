@@ -238,7 +238,7 @@ export class Table<T extends TypeMap = any> {
      *
      * @returns An Array of Table rows.
      */
-    public toArray(): Array<Struct<T>['TValue']> {
+    public toArray() {
         return [...this];
     }
 
@@ -251,7 +251,7 @@ export class Table<T extends TypeMap = any> {
      *
      * @returns An Array proxy to the Table rows.
      */
-    public toArrayView(): Array<Struct<T>['TValue']> {
+    public toArrayView() {
         return new Proxy([] as Array<Struct<T>['TValue']>, new TableArrayProxyHandler(this));
     }
 
