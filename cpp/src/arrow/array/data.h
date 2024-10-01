@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <arrow/util/range.h>
 #include <atomic>  // IWYU pragma: export
 #include <cassert>
 #include <cstdint>
@@ -233,6 +234,21 @@ struct ARROW_EXPORT ArrayData {
       return !internal::IsNullRunEndEncoded(*this, i);
     }
     return null_count.load() != length;
+  }
+
+  Status AlignBuffers() {
+    // align buffers according to their data type's layout
+    for (auto&& [buffer, layout] : internal::Zip(buffers, type->layout().buffers)) {
+      if (layout.kind == DataTypeLayout::FIXED_WIDTH &&
+          buffer->address() % layout.byte_width) {
+        RETURN_NOT_OK(Buffer::Copy(buffer, buffer->memory_manager()).Value(&buffer));
+      }
+    }
+    // align children data recursively
+    for (unsigned int i = 0; i < child_data.size(); i++) {
+      RETURN_NOT_OK(child_data[i]->AlignBuffers());
+    }
+    return Status::OK();
   }
 
   /// \brief Access a buffer's data as a typed C pointer

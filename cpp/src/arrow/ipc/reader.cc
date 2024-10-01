@@ -601,6 +601,9 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
         return Status::IOError("Array length did not match record batch length");
       }
       columns[i] = std::move(column);
+      if (context.options.ensure_memory_alignment) {
+        RETURN_NOT_OK(columns[i]->AlignBuffers());
+      }
       if (inclusion_mask) {
         filtered_columns.push_back(columns[i]);
         filtered_fields.push_back(schema->field(i));
