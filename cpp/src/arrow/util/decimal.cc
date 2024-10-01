@@ -669,7 +669,14 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
     //               adjusted_exponent = -7
     // After inserting decimal point: *str = "-1.23"
     // After appending exponent: *str = "-1.23E-7"
-    str->insert(str->begin() + 1 + is_negative_offset, '.');
+    // Example 3:
+    // Precondition: *str = "0", is_negative_offset = 0, num_digits = 1, scale = -1,
+    //               adjusted_exponent = 1
+    // After inserting decimal point: *str = "0" // Not inserted
+    // After appending exponent: *str = "0E+1"
+    if (num_digits > 1) {
+      str->insert(str->begin() + 1 + is_negative_offset, '.');
+    }
     str->push_back('E');
     if (adjusted_exponent >= 0) {
       str->push_back('+');
