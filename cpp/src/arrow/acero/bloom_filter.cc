@@ -22,7 +22,7 @@
 #include "arrow/util/bit_util.h"    // Log2
 #include "arrow/util/bitmap_ops.h"  // CountSetBits
 #include "arrow/util/config.h"
-#include "arrow/util/macros.h"  // PREFETCH
+#include "arrow/util/prefetch.h"  // PREFETCH
 
 namespace arrow {
 namespace acero {
