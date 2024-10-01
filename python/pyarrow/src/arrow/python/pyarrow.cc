@@ -83,6 +83,7 @@ DEFINE_WRAP_FUNCTIONS(tensor, Tensor)
 
 DEFINE_WRAP_FUNCTIONS(batch, RecordBatch)
 DEFINE_WRAP_FUNCTIONS(table, Table)
+DEFINE_WRAP_FUNCTIONS(record_batch_reader, RecordBatchReader)
 
 #undef DEFINE_WRAP_FUNCTIONS
 

@@ -70,6 +70,7 @@ DECLARE_WRAP_FUNCTIONS(tensor, Tensor)
 
 DECLARE_WRAP_FUNCTIONS(batch, RecordBatch)
 DECLARE_WRAP_FUNCTIONS(table, Table)
+DECLARE_WRAP_FUNCTIONS(record_batch_reader, RecordBatchReader)
 
 #undef DECLARE_WRAP_FUNCTIONS
 
