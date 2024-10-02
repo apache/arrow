@@ -2308,6 +2308,24 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, MovePath) { this->TestMovePath(); 
 
 // Tests using Azurite (the local Azure emulator)
 
+TEST_F(TestAzuriteFileSystem, CheckIfHierarchicalNamespaceIsEnabledRuntimeError) {
+  ASSERT_OK(options_.ConfigureAccountKeyCredential("not-base64"));
+  ASSERT_OK_AND_ASSIGN(auto datalake_service_client,
+                       options_.MakeDataLakeServiceClient());
+  auto adlfs_client = datalake_service_client->GetFileSystemClient("nonexistent");
+  ASSERT_RAISES(UnknownError,
+                internal::CheckIfHierarchicalNamespaceIsEnabled(adlfs_client, options_));
+}
+
+TEST_F(TestAzuriteFileSystem, CheckIfHierarchicalNamespaceIsEnabledTransportError) {
+  options_.dfs_storage_authority = "127.0.0.1:20000";  // Wrong port
+  ASSERT_OK_AND_ASSIGN(auto datalake_service_client,
+                       options_.MakeDataLakeServiceClient());
+  auto adlfs_client = datalake_service_client->GetFileSystemClient("nonexistent");
+  ASSERT_RAISES(IOError,
+                internal::CheckIfHierarchicalNamespaceIsEnabled(adlfs_client, options_));
+}
+
 TEST_F(TestAzuriteFileSystem, GetFileInfoSelector) {
   SetUpSmallFileSystemTree();
 

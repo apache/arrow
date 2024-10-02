@@ -275,7 +275,7 @@ std::string BuildBaseUrl(const std::string& scheme, const std::string& authority
 }
 
 template <typename... PrefixArgs>
-Status ExceptionToStatus(const Storage::StorageException& exception,
+Status ExceptionToStatus(const Azure::Core::RequestFailedException& exception,
                          PrefixArgs&&... prefix_args) {
   return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
                          exception.ErrorCode, "] ", exception.what());
@@ -1381,6 +1381,13 @@ Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
                                  "Check for Hierarchical Namespace support on '",
                                  adlfs_client.GetUrl(), "' failed.");
     }
+  } catch (const Azure::Core::Http::TransportException& exception) {
+    return ExceptionToStatus(exception, "Check for Hierarchical Namespace support on '",
+                             adlfs_client.GetUrl(), "' failed.");
+  } catch (const std::exception& exception) {
+    return Status::UnknownError(
+        "Check for Hierarchical Namespace support on '", adlfs_client.GetUrl(),
+        "' failed: ", typeid(exception).name(), ": ", exception.what());
   }
 }
 
