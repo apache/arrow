@@ -1029,9 +1029,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       // Restore extension type, if the storage type is the same as inferred
       // from the Parquet type
       if (ex_type.storage_type()->Equals(*inferred->field->type()) ||
-          ((ex_type.extension_name() == "arrow.json") &&
-           ::arrow::extension::JsonExtensionType::IsSupportedStorageType(
-               inferred->field->type()->storage_id()))) {
+          (ex_type.extension_name() == "arrow.json")) {
         inferred->field = inferred->field->WithType(origin_type);
       }
     }
