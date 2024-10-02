@@ -699,7 +699,11 @@ _C_HEADERS = frozenset([
     # Hardware specific headers
     'arm_neon.h',
     'emmintrin.h',
-    'xmmintin.h',
+    'immintrin.h',
+    'intrin.h',
+    'nmmintrin.h',
+    'x86intrin.h',
+    'xmmintrin.h',
     ])
 
 # Folders of C libraries so commonly used in C++,

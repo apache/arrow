@@ -208,7 +208,7 @@ jobs:
       matrix:
         platform:
           - { runs_on: 'windows-latest', name: "Windows"}
-          - { runs_on: macos-12, name: "macOS x86_64"}
+          - { runs_on: macos-13, name: "macOS x86_64"}
           - { runs_on: macos-14, name: "macOS arm64" }
         r_version: [oldrel, release]
     steps:
@@ -389,7 +389,7 @@ jobs:
       matrix:
         platform:
           - {runs_on: "ubuntu-latest", name: "Linux"}
-          - {runs_on: "macos-12" , name: "macOS"}
+          - {runs_on: "macos-13" , name: "macOS"}
     steps:
       - name: Install R
         uses: r-lib/actions/setup-r@v2

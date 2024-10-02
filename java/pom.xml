@@ -105,7 +105,7 @@ under the License.
     <dep.avro.version>1.12.0</dep.avro.version>
     <arrow.vector.classifier></arrow.vector.classifier>
     <forkCount>2</forkCount>
-    <checkstyle.version>10.18.1</checkstyle.version>
+    <checkstyle.version>10.18.2</checkstyle.version>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <error_prone_core.version>2.31.0</error_prone_core.version>
     <mockito.core.version>5.11.0</mockito.core.version>
@@ -279,7 +279,7 @@ under the License.
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>
-      <version>5.13.0</version>
+      <version>5.14.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>

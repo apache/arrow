@@ -995,7 +995,7 @@ TEST_F(TestS3FS, CreateDir) {
   ASSERT_OK(fs_->CreateDir("bucket/newdir", /*recursive=*/false));
   AssertFileInfo(fs_.get(), "bucket/newdir", FileType::Directory);
 
-  // By default CreateDir uses recursvie mode, make it explictly to be false
+  // Non-recursive, but parent does not exist
   ASSERT_RAISES(IOError,
                 fs_->CreateDir("bucket/newdir/newsub/newsubsub", /*recursive=*/false));
 
@@ -1005,7 +1005,8 @@ TEST_F(TestS3FS, CreateDir) {
   AssertFileInfo(fs_.get(), "bucket/newdir/newsub/newsubsub", FileType::Directory);
 
   // Existing "file", should fail
-  ASSERT_RAISES(IOError, fs_->CreateDir("bucket/somefile"));
+  ASSERT_RAISES(IOError, fs_->CreateDir("bucket/somefile", /*recursive=*/false));
+  ASSERT_RAISES(IOError, fs_->CreateDir("bucket/somefile", /*recursive=*/true));
 
   // URI
   ASSERT_RAISES(Invalid, fs_->CreateDir("s3:bucket/newdir2"));
@@ -1017,6 +1018,11 @@ TEST_F(TestS3FS, CreateDir) {
   // check existing before creation
   options_.check_directory_existence_before_creation = true;
   MakeFileSystem();
+
+  // Existing "file", should fail again
+  ASSERT_RAISES(IOError, fs_->CreateDir("bucket/somefile", /*recursive=*/false));
+  ASSERT_RAISES(IOError, fs_->CreateDir("bucket/somefile", /*recursive=*/true));
+
   // New "directory" again
   AssertFileInfo(fs_.get(), "bucket/checknewdir", FileType::NotFound);
   ASSERT_OK(fs_->CreateDir("bucket/checknewdir"));
@@ -1031,6 +1037,7 @@ TEST_F(TestS3FS, CreateDir) {
   AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub/newsubsub", FileType::Directory);
   AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub/newsubsub/newsubsub",
                  FileType::NotFound);
+
   // Try creation with the same name
   ASSERT_OK(fs_->CreateDir("bucket/checknewdir/newsub/newsubsub/newsubsub/",
                            /*recursive=*/true));
@@ -1532,6 +1539,10 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
 
   bool have_implicit_directories() const override { return true; }
   bool allow_write_file_over_dir() const override { return true; }
+  bool allow_write_implicit_dir_over_file() const override {
+    // Recent Minio versions allow this
+    return true;
+  }
   bool allow_move_dir() const override { return false; }
   bool allow_append_to_file() const override { return false; }
   bool have_directory_mtimes() const override { return false; }

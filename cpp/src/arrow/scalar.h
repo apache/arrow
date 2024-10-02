@@ -563,6 +563,14 @@ struct ARROW_EXPORT DecimalScalar : public internal::PrimitiveScalarBase {
   ValueType value;
 };
 
+struct ARROW_EXPORT Decimal32Scalar : public DecimalScalar<Decimal32Type, Decimal32> {
+  using DecimalScalar::DecimalScalar;
+};
+
+struct ARROW_EXPORT Decimal64Scalar : public DecimalScalar<Decimal64Type, Decimal64> {
+  using DecimalScalar::DecimalScalar;
+};
+
 struct ARROW_EXPORT Decimal128Scalar : public DecimalScalar<Decimal128Type, Decimal128> {
   using DecimalScalar::DecimalScalar;
 };

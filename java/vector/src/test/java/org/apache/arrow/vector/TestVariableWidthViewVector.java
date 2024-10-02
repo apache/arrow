@@ -48,6 +48,10 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.CommonUtil;
+import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.holders.NullableViewVarBinaryHolder;
+import org.apache.arrow.vector.holders.NullableViewVarCharHolder;
+import org.apache.arrow.vector.holders.ValueHolder;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
@@ -63,7 +67,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-public class TestVarCharViewVector {
+public class TestVariableWidthViewVector {
 
   // short string (length <= 12)
   private static final byte[] STR0 = "0123456".getBytes(StandardCharsets.UTF_8);
@@ -369,6 +373,136 @@ public class TestVarCharViewVector {
               StandardCharsets.UTF_8),
           str6);
     }
+  }
+
+  @Test
+  public void testSetNullableViewVarCharHolder() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      viewVarCharVector.allocateNew(0, 0);
+      final List<byte[]> strings = List.of(STR0, STR1, STR2, STR3, STR4, STR5);
+
+      NullableViewVarCharHolder stringHolder = new NullableViewVarCharHolder();
+
+      // set not null
+      int size = strings.size();
+      for (int i = 0; i < size; i++) {
+        setAndCheck(viewVarCharVector, i, strings.get(i), stringHolder);
+      }
+
+      // set null
+      setAndCheck(viewVarCharVector, 6, null, stringHolder);
+
+      // copy by holder
+      // len < 12
+      copyAndCheck(viewVarCharVector, stringHolder, 0, 7);
+      // len > 12
+      copyAndCheck(viewVarCharVector, stringHolder, 2, 8);
+      // null
+      copyAndCheck(viewVarCharVector, stringHolder, 6, 9);
+
+      // test overwrite
+      for (int i = 0; i < size; i++) {
+        setAndCheck(viewVarCharVector, i, strings.get(size - i - 1), stringHolder);
+      }
+
+      String longString = generateRandomString(128);
+      setAndCheck(viewVarCharVector, 6, longString.getBytes(), stringHolder);
+    }
+  }
+
+  @Test
+  public void testSetNullableViewVarBinaryHolder() {
+    try (final ViewVarBinaryVector viewVarBinaryVector =
+        new ViewVarBinaryVector("myvector", allocator)) {
+      viewVarBinaryVector.allocateNew(0, 0);
+      final List<byte[]> strings = List.of(STR0, STR1, STR2, STR3, STR4, STR5);
+
+      NullableViewVarBinaryHolder holder = new NullableViewVarBinaryHolder();
+
+      // set not null
+      int size = strings.size();
+      for (int i = 0; i < size; i++) {
+        setAndCheck(viewVarBinaryVector, i, strings.get(i), holder);
+      }
+
+      // set null
+      setAndCheck(viewVarBinaryVector, 6, null, holder);
+
+      // copy by holder
+      // len < 12
+      copyAndCheck(viewVarBinaryVector, holder, 0, 7);
+      // len > 12
+      copyAndCheck(viewVarBinaryVector, holder, 2, 8);
+      // null
+      copyAndCheck(viewVarBinaryVector, holder, 6, 9);
+
+      // test overwrite
+      for (int i = 0; i < size; i++) {
+        setAndCheck(viewVarBinaryVector, i, strings.get(size - i - 1), holder);
+      }
+
+      String longString = generateRandomString(128);
+      setAndCheck(viewVarBinaryVector, 6, longString.getBytes(), holder);
+    }
+  }
+
+  private static void copyAndCheck(
+      BaseVariableWidthViewVector vector, ValueHolder holder, int fromIndex, int toIndex) {
+    if (vector instanceof ViewVarCharVector) {
+      ViewVarCharVector viewVarCharVector = (ViewVarCharVector) vector;
+      NullableViewVarCharHolder stringHolder = (NullableViewVarCharHolder) holder;
+      viewVarCharVector.get(fromIndex, stringHolder);
+      viewVarCharVector.setSafe(toIndex, stringHolder);
+    }
+
+    if (vector instanceof ViewVarBinaryVector) {
+      ViewVarBinaryVector viewVarBinaryVector = (ViewVarBinaryVector) vector;
+      NullableViewVarBinaryHolder binaryHolder = (NullableViewVarBinaryHolder) holder;
+      viewVarBinaryVector.get(fromIndex, binaryHolder);
+      viewVarBinaryVector.setSafe(toIndex, binaryHolder);
+    }
+
+    assertArrayEquals(vector.get(fromIndex), vector.get(toIndex));
+  }
+
+  private void setAndCheck(
+      ViewVarCharVector vector, int index, byte[] str, NullableViewVarCharHolder stringHolder) {
+    ArrowBuf buf = null;
+    if (null == str) {
+      stringHolder.isSet = 0;
+    } else {
+      buf = allocator.buffer(str.length);
+      buf.setBytes(0, str);
+      stringHolder.isSet = 1;
+      stringHolder.start = 0;
+      stringHolder.end = str.length;
+      stringHolder.buffer = buf;
+    }
+    vector.setSafe(index, stringHolder);
+
+    // verify results
+    assertArrayEquals(str, vector.get(index));
+    AutoCloseables.closeNoChecked(buf);
+  }
+
+  private void setAndCheck(
+      ViewVarBinaryVector vector, int index, byte[] str, NullableViewVarBinaryHolder binaryHolder) {
+    ArrowBuf buf = null;
+    if (null == str) {
+      binaryHolder.isSet = 0;
+    } else {
+      buf = allocator.buffer(str.length);
+      buf.setBytes(0, str);
+      binaryHolder.isSet = 1;
+      binaryHolder.start = 0;
+      binaryHolder.end = str.length;
+      binaryHolder.buffer = buf;
+    }
+    vector.setSafe(index, binaryHolder);
+
+    // verify results
+    assertArrayEquals(str, vector.get(index));
+    AutoCloseables.closeNoChecked(buf);
   }
 
   @Test
