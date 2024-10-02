@@ -27,6 +27,7 @@ import threading
 import time
 import traceback
 import json
+from datetime import datetime
 
 try:
     import numpy as np
@@ -918,6 +919,17 @@ def test_repr():
 
     with pytest.raises(TypeError):
         flight.Action("foo", None)
+
+    with pytest.raises(TypeError):
+        flight.FlightEndpoint(object(), [])
+    with pytest.raises(TypeError):
+        flight.FlightEndpoint("foo", ["grpc://test", b"grpc://test", object()])
+    with pytest.raises(TypeError):
+        flight.FlightEndpoint("foo", [], expiration_time="2023-04-05T01:02:03")
+    with pytest.raises(TypeError):
+        flight.FlightEndpoint("foo", [], expiration_time=datetime(2023, 4, 5, 1, 2, 3))
+    with pytest.raises(TypeError):
+        flight.FlightEndpoint("foo", [], app_metadata=object())
 
 
 def test_eq():
