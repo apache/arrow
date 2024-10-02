@@ -1,4 +1,5 @@
 // #include "arrow/compute/kernels/vector_gather_internal.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
@@ -125,10 +126,11 @@ Status FixedWidthPermuteExec(KernelContext* ctx, const ExecSpan& batch, ExecResu
     // 0-length fixed-size binary or lists were handled above on `case 0`
     DCHECK_GT(byte_width, 0);
     return PermuteIndexDispatch<FixedWidthTakeImpl,
-                             /*ValueBitWidth=*/std::integral_constant<int, 8>,
-                             /*OutputIsZeroInitialized=*/std::false_type,
-                             /*WithFactor=*/std::true_type>(ctx, values, indices, out_arr,
-                                                            /*factor=*/byte_width);
+                                /*ValueBitWidth=*/std::integral_constant<int, 8>,
+                                /*OutputIsZeroInitialized=*/std::false_type,
+                                /*WithFactor=*/std::true_type>(ctx, values, indices,
+                                                               out_arr,
+                                                               /*factor=*/byte_width);
   }
   return Status::NotImplemented("Unsupported primitive type for permute: ", *values.type);
   return Status::OK();
@@ -141,9 +143,10 @@ struct PermuteKernelSignature {
 };
 
 std::unique_ptr<Function> MakePermuteFunction(
-    std::string name, std::vector<PermuteKernelSignature>&& signatures, FunctionDoc doc) {
-  auto func =
-      std::make_unique<VectorFunction>(std::move(name), Arity::Binary(), std::move(doc));
+    std::string name, std::vector<PermuteKernelSignature>&& signatures, FunctionDoc doc,
+    const FunctionOptions* default_options) {
+  auto func = std::make_unique<VectorFunction>(std::move(name), Arity::Binary(),
+                                               std::move(doc), default_options);
   for (auto& signature : signatures) {
     auto kernel = VectorKernel{};
     kernel.signature = KernelSignature::Make(
@@ -161,6 +164,11 @@ const FunctionDoc permute_doc(
     "Place each input value to the output array at position specified by `indices`",
     {"input", "indices"});
 
+const PermuteOptions* GetDefaultPermuteOptions() {
+  static const auto kDefaultPermuteOptions = PermuteOptions::Defaults();
+  return &kDefaultPermuteOptions;
+}
+
 }  // namespace
 
 void RegisterVectorPermute(FunctionRegistry* registry) {
@@ -168,8 +176,8 @@ void RegisterVectorPermute(FunctionRegistry* registry) {
   std::vector<PermuteKernelSignature> signatures = {
       {InputType(match::Primitive()), permute_indices, FixedWidthPermuteExec},
   };
-  DCHECK_OK(registry->AddFunction(
-      MakePermuteFunction("permute", std::move(signatures), permute_doc)));
+  DCHECK_OK(registry->AddFunction(MakePermuteFunction(
+      "permute", std::move(signatures), permute_doc, GetDefaultPermuteOptions())));
 }
 
 }  // namespace arrow::compute::internal

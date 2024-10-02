@@ -155,6 +155,8 @@ static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
 static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>(
     DataMember("recursive", &ListFlattenOptions::recursive));
+static auto kPermuteOptionsType =
+    GetFunctionOptionsType<PermuteOptions>(DataMember("bound", &PermuteOptions::bound));
 }  // namespace
 }  // namespace internal
 
@@ -230,6 +232,10 @@ ListFlattenOptions::ListFlattenOptions(bool recursive)
     : FunctionOptions(internal::kListFlattenOptionsType), recursive(recursive) {}
 constexpr char ListFlattenOptions::kTypeName[];
 
+PermuteOptions::PermuteOptions(int64_t bound)
+    : FunctionOptions(internal::kPermuteOptionsType), bound(bound) {}
+constexpr char PermuteOptions::kTypeName[];
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -244,6 +250,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPairwiseOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kListFlattenOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kPermuteOptionsType));
 }
 }  // namespace internal
 
@@ -427,6 +434,15 @@ Result<Datum> CumulativeMin(const Datum& values, const CumulativeOptions& option
 Result<Datum> CumulativeMean(const Datum& values, const CumulativeOptions& options,
                              ExecContext* ctx) {
   return CallFunction("cumulative_mean", {Datum(values)}, &options, ctx);
+}
+
+// ----------------------------------------------------------------------
+// Permute functions
+
+Result<std::shared_ptr<Array>> Permute(const Datum& values, const Datum& indices,
+                                       const PermuteOptions& options, ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("permute", {values, indices}, ctx));
+  return result.make_array();
 }
 
 }  // namespace compute

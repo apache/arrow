@@ -257,6 +257,19 @@ class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
   bool recursive = false;
 };
 
+/// \brief Options for permute function
+class ARROW_EXPORT PermuteOptions : public FunctionOptions {
+ public:
+  explicit PermuteOptions(int64_t bound = -1);
+  static constexpr char const kTypeName[] = "PermuteOptions";
+  static PermuteOptions Defaults() { return PermuteOptions(); }
+
+  /// \brief The upper bound of the permutation. If -1, the output will be sized as the
+  /// maximum value in the indices array + 1. Otherwise, the output will be of size bound,
+  /// and any indices that are greater of equal to bound will be ignored.
+  int64_t bound = -1;
+};
+
 /// @}
 
 /// \brief Filter with a boolean selection filter
@@ -704,6 +717,11 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
                                             const PairwiseOptions& options,
                                             bool check_overflow = false,
                                             ExecContext* ctx = NULLPTR);
+
+Result<std::shared_ptr<Array>> Permute(
+    const Datum& values, const Datum& indices,
+    const PermuteOptions& options = PermuteOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
