@@ -750,11 +750,8 @@ cdef class FlightEndpoint(_Weakrefable):
 
         if expiration_time is not None:
             if isinstance(expiration_time, lib.TimestampScalar):
-                # Convert into OS-dependent std::chrono::system_clock::time_point from
-                # std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
-                # See Timestamp in cpp/src/arrow/flight/types.h
-                self.endpoint.expiration_time = TimePoint_to_system_time(TimePoint_from_ns(
-                    expiration_time.cast(timestamp("ns")).value))
+                self.endpoint.expiration_time = TimePoint_from_ns(
+                    expiration_time.cast(timestamp("ns")).value)
             else:
                 raise TypeError("Argument expiration_time must be a TimestampScalar, "
                                 "not '{}'".format(type(expiration_time)))
@@ -786,11 +783,7 @@ cdef class FlightEndpoint(_Weakrefable):
         cdef:
             int64_t time_since_epoch
         if self.endpoint.expiration_time.has_value():
-            time_since_epoch = TimePoint_to_ns(
-                # Convert from OS-dependent std::chrono::system_clock::time_point into
-                # std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
-                # See Timestamp in cpp/src/arrow/flight/types.h
-                TimePoint_from_system_time(self.endpoint.expiration_time.value()))
+            time_since_epoch = TimePoint_to_ns(self.endpoint.expiration_time.value())
             return lib.scalar(time_since_epoch, timestamp("ns", "UTC"))
         return None
 
