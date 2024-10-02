@@ -730,22 +730,35 @@ cdef class FlightEndpoint(_Weakrefable):
 
         if isinstance(ticket, Ticket):
             self.endpoint.ticket.ticket = tobytes(ticket.ticket)
-        else:
+        elif isinstance(ticket, (str, bytes)):
             self.endpoint.ticket.ticket = tobytes(ticket)
+        else:
+            raise TypeError("Argument ticket must be a Ticket instance, string or bytes, "
+                            "not '{}'".format(type(ticket)))
 
         for location in locations:
             if isinstance(location, Location):
                 c_location = (<Location> location).location
-            else:
+            elif isinstance(location, (str, bytes)):
                 c_location = CLocation()
                 check_flight_status(
                     CLocation.Parse(tobytes(location)).Value(&c_location))
+            else:
+                raise TypeError("Argument locations must contain Location instances, strings or bytes, "
+                                "not '{}'".format(type(location)))
             self.endpoint.locations.push_back(c_location)
 
         if expiration_time is not None:
-            self.endpoint.expiration_time = TimePoint_to_system_time(TimePoint_from_ns(
-                expiration_time.cast(timestamp("ns")).value))
+            if isinstance(expiration_time, lib.TimestampScalar):
+                self.endpoint.expiration_time = TimePoint_to_system_time(TimePoint_from_ns(
+                    expiration_time.cast(timestamp("ns")).value))
+            else:
+                raise TypeError("Argument expiration_time must be a TimestampScalar, "
+                                "not '{}'".format(type(expiration_time)))
 
+        if not isinstance(app_metadata, (str, bytes)):
+            raise TypeError("Argument app_metadata must be a string or bytes, "
+                            "not '{}'".format(type(app_metadata)))
         self.endpoint.app_metadata = tobytes(app_metadata)
 
     @property
