@@ -354,6 +354,7 @@ set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/python_test.cc
     ${PYARROW_CPP_SOURCE_DIR}/python_to_arrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/pyarrow.cc
+    ${PYARROW_CPP_SOURCE_DIR}/pyarrow_compute.cc
     ${PYARROW_CPP_SOURCE_DIR}/serialize.cc
     ${PYARROW_CPP_SOURCE_DIR}/udf.cc)
 set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/numpy_init.cc
@@ -412,6 +413,7 @@ if(PYARROW_BUILD_ACERO)
   else()
     list(APPEND PYARROW_CPP_LINK_LIBS ArrowAcero::arrow_acero_static)
   endif()
+  list(APPEND PYARROW_CPP_SRCS ${PYARROW_CPP_SOURCE_DIR}/pyarrow_acero.cc)
 endif()
 
 if(PYARROW_BUILD_PARQUET)
@@ -454,6 +456,7 @@ endif()
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
                                                ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
+
 if(NOT CMAKE_VERSION VERSION_LESS 3.16)
   target_precompile_headers(arrow_python PUBLIC
                             "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>")
@@ -642,6 +645,7 @@ endif()
 
 set(CYTHON_EXTENSIONS
     lib
+    lib_compute
     _compute
     _csv
     _feather
@@ -718,6 +722,7 @@ if(PYARROW_BUILD_ACERO)
     set(ACERO_LINK_LIBS)
   endif()
   list(APPEND CYTHON_EXTENSIONS _acero)
+  list(APPEND CYTHON_EXTENSIONS lib_acero)
 endif()
 
 # Dataset
@@ -912,20 +917,31 @@ foreach(module ${CYTHON_EXTENSIONS})
   endforeach()
 endforeach()
 
-set(ARROW_PYTHON_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src/arrow/python")
-file(MAKE_DIRECTORY ${ARROW_PYTHON_BINARY_DIR})
-add_custom_command(OUTPUT "${ARROW_PYTHON_BINARY_DIR}/lib_api.h"
-                          "${ARROW_PYTHON_BINARY_DIR}/lib.h"
-                   COMMAND ${CMAKE_COMMAND} -E copy
-                           "${CMAKE_CURRENT_BINARY_DIR}/lib_api.h"
-                           "${CMAKE_CURRENT_BINARY_DIR}/lib.h"
-                           "${ARROW_PYTHON_BINARY_DIR}/"
-                   DEPENDS lib_pyx)
-add_custom_target(cython_api_headers DEPENDS "${ARROW_PYTHON_BINARY_DIR}/lib_api.h"
-                                             "${ARROW_PYTHON_BINARY_DIR}/lib.h")
-add_dependencies(arrow_python cython_api_headers)
-install(FILES "${ARROW_PYTHON_BINARY_DIR}/lib_api.h" "${ARROW_PYTHON_BINARY_DIR}/lib.h"
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/arrow/python)
+function(install_wrapper_lib lib_module)
+  set(ARROW_PYTHON_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src/arrow/python")
+  file(MAKE_DIRECTORY ${ARROW_PYTHON_BINARY_DIR})
+  add_custom_command(OUTPUT "${ARROW_PYTHON_BINARY_DIR}/${lib_module}_api.h"
+                            "${ARROW_PYTHON_BINARY_DIR}/${lib_module}.h"
+                     COMMAND ${CMAKE_COMMAND} -E copy
+                             "${CMAKE_CURRENT_BINARY_DIR}/${lib_module}_api.h"
+                             "${CMAKE_CURRENT_BINARY_DIR}/${lib_module}.h"
+                             "${ARROW_PYTHON_BINARY_DIR}/"
+                     DEPENDS ${lib_module}_pyx)
+  add_custom_target(cython_api_headers_${lib_module}
+                    DEPENDS "${ARROW_PYTHON_BINARY_DIR}/${lib_module}_api.h"
+                            "${ARROW_PYTHON_BINARY_DIR}/${lib_module}.h")
+  add_dependencies(arrow_python cython_api_headers_${lib_module})
+  install(FILES "${ARROW_PYTHON_BINARY_DIR}/${lib_module}_api.h"
+                "${ARROW_PYTHON_BINARY_DIR}/${lib_module}.h"
+          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/arrow/python)
+endfunction()
+
+# These libraries provide interops between arrow C++ and pyarrow
+if(PYARROW_BUILD_ACERO)
+  install_wrapper_lib(lib_acero)
+endif()
+install_wrapper_lib(lib_compute)
+install_wrapper_lib(lib)
 
 # Additional link libraries
 
@@ -943,6 +959,7 @@ endif()
 
 if(PYARROW_BUILD_ACERO)
   target_link_libraries(_acero PRIVATE ${ACERO_LINK_LIBS})
+  target_link_libraries(lib_acero PRIVATE ${ACERO_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_DATASET)

@@ -256,6 +256,10 @@ cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":
     int import_pyarrow() except -1
 
 
+cdef extern from "arrow/python/pyarrow_compute.h" namespace "arrow::py":
+    int import_pyarrow_compute() except -1
+
+
 cdef extern from "arrow/python/common.h" namespace "arrow::py":
     c_bool IsPyError(const CStatus& status)
     void RestorePyError(const CStatus& status) except *
