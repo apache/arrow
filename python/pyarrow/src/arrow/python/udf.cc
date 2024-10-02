@@ -16,6 +16,8 @@
 // under the License.
 
 #include "arrow/python/udf.h"
+
+#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api_aggregate.h"
