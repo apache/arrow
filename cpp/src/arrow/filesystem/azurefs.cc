@@ -285,9 +285,7 @@ Status ExceptionToStatus(const Core::RequestFailedException& exception,
 template <typename... PrefixArgs>
 Status ExceptionToStatus(const std::exception_ptr& ex_ptr, PrefixArgs&&... prefix_args) {
   try {
-    if (ex_ptr) {
       std::rethrow_exception(ex_ptr);
-    }
   } catch (const Storage::StorageException& ex) {
     return ExceptionToStatus(ex, std::forward<PrefixArgs>(prefix_args)...);
   } catch (const Http::TransportException& ex) {
@@ -300,11 +298,10 @@ Status ExceptionToStatus(const std::exception_ptr& ex_ptr, PrefixArgs&&... prefi
     return Status::UnknownError(std::forward<PrefixArgs>(prefix_args)..., " ",
                                 typeid(ex).name(), " has occurred: ", ex.what());
   } catch (...) {
+    return Status::UnknownError(
+        std::forward<PrefixArgs>(prefix_args)...,
+        " An unexpected exception has occurred. No further detail is available.");
   }
-
-  return Status::UnknownError(
-      std::forward<PrefixArgs>(prefix_args)...,
-      " An unexpected exception has occurred. No further detail is available.");
 }
 
 }  // namespace
