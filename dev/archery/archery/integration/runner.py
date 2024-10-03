@@ -193,12 +193,16 @@ class IntegrationRunner(object):
                 skip_testers.add("Rust")
             if prefix == '2.0.0-compression':
                 skip_testers.add("JS")
+                # https://github.com/apache/arrow-nanoarrow/issues/621
+                skip_testers.add("nanoarrow")
 
             # See https://github.com/apache/arrow/pull/9822 for how to
             # disable specific compression type tests.
 
             if prefix == '4.0.0-shareddict':
                 skip_testers.add("C#")
+                # https://github.com/apache/arrow-nanoarrow/issues/622
+                skip_testers.add("nanoarrow")
 
             quirks = set()
             if prefix in {'0.14.1', '0.17.1',
