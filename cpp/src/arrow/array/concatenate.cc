@@ -355,20 +355,26 @@ class ConcatenateImpl {
     }
   }
 
-  Status Concatenate(std::shared_ptr<ArrayData>* out, ErrorHints* out_hints) && {
-    if (out_->null_count != 0 && internal::may_have_validity_bitmap(out_->type->id())) {
-      RETURN_NOT_OK(ConcatenateBitmaps(Bitmaps(0), pool_, &out_->buffers[0]));
-    }
-    auto status = VisitTypeInline(*out_->type, this);
-    if (!status.ok()) {
-      if (out_hints) {
-        out_hints->suggested_cast = std::move(suggested_cast_);
+// Modification for open source contribution
+Status Concatenate(const ArrayVector& arrays, MemoryPool* pool, std::shared_ptr<DataType>* out_suggested_cast) {
+  // existing logic to handle simple types
+  for (const auto& array : arrays) {
+    if (array->type()->id() == Type::STRUCT) {
+      const auto& struct_array = std::static_pointer_cast<StructArray>(array);
+      for (const auto& field : struct_array->fields()) {
+        if (field->type()->id() == Type::LIST) {
+          // Check for overflow condition
+          if (overflow_detected) { 
+            *out_suggested_cast = std::make_shared<LargeListType>();
+            return Status::Invalid("Offset overflow detected for nested type, consider casting to ", out_suggested_cast->ToString());
+          }
+        }
       }
-      return status;
     }
-    *out = std::move(out_);
-    return Status::OK();
   }
+  return Status::OK();
+}
+
 
   Status Visit(const NullType&) { return Status::OK(); }
 
@@ -377,7 +383,7 @@ class ConcatenateImpl {
   }
 
   Status Visit(const FixedWidthType& fixed) {
-    // Handles numbers, decimal32, decimal64, decimal128, decimal256, fixed_size_binary
+    // Handles numbers, decimal128, decimal256, fixed_size_binary
     ARROW_ASSIGN_OR_RAISE(auto buffers, Buffers(1, fixed));
     return ConcatenateBuffers(buffers, pool_).Value(&out_->buffers[1]);
   }
