@@ -389,55 +389,6 @@ install_csharp() {
   CSHARP_ALREADY_INSTALLED=1
 }
 
-install_go() {
-  # Install go
-  if [ "${GO_ALREADY_INSTALLED:-0}" -gt 0 ]; then
-    show_info "$(go version) already installed at $(which go)"
-    return 0
-  fi
-
-  if command -v go > /dev/null; then
-    show_info "Found $(go version) at $(command -v go)"
-    export GOPATH=${ARROW_TMPDIR}/gopath
-    mkdir -p $GOPATH
-    return 0
-  fi
-
-  local version=1.22.6
-  show_info "Installing go version ${version}..."
-
-  local arch="$(uname -m)"
-  if [ "$arch" == "x86_64" ]; then
-    arch=amd64
-  elif [ "$arch" == "aarch64" ]; then
-    arch=arm64
-  fi
-
-  if [ "$(uname)" == "Darwin" ]; then
-    local os=darwin
-  else
-    local os=linux
-  fi
-
-  local archive="go${version}.${os}-${arch}.tar.gz"
-  curl -sLO https://go.dev/dl/$archive
-
-  ls -l
-  local prefix=${ARROW_TMPDIR}/go
-  mkdir -p $prefix
-  tar -xzf $archive -C $prefix
-  rm -f $archive
-
-  export GOROOT=${prefix}/go
-  export GOPATH=${prefix}/gopath
-  export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-
-  mkdir -p $GOPATH
-  show_info "$(go version) installed at $(which go)"
-
-  GO_ALREADY_INSTALLED=1
-}
-
 install_conda() {
   # Setup short-lived miniconda for Python and integration tests
   show_info "Ensuring that Conda is installed..."
@@ -583,13 +534,6 @@ maybe_setup_virtualenv() {
       show_info "Installed pip packages $@..."
       pip install "$@"
     fi
-  fi
-}
-
-maybe_setup_go() {
-  show_info "Ensuring that Go is installed..."
-  if [ "${USE_CONDA}" -eq 0 ]; then
-    install_go
   fi
 }
 
@@ -951,38 +895,6 @@ test_js() {
   popd
 }
 
-test_go() {
-  show_header "Build and test Go libraries"
-
-  maybe_setup_go
-  maybe_setup_conda compilers go=1.22
-
-  pushd go
-  go get -v ./...
-  if [ ${TEST_GO} -gt 0 ]; then
-    go test ./...
-  fi
-  go install -buildvcs=false ./...
-  if [ ${TEST_INTEGRATION_GO} -gt 0 ]; then
-    pushd arrow/internal/cdata_integration
-    case "$(uname)" in
-      Linux)
-        go_lib="arrow_go_integration.so"
-        ;;
-      Darwin)
-        go_lib="arrow_go_integration.dylib"
-        ;;
-      MINGW*)
-        go_lib="arrow_go_integration.dll"
-        ;;
-    esac
-    CGO_ENABLED=1 go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
-    popd
-  fi
-  go clean -modcache
-  popd
-}
-
 # Run integration tests
 test_integration() {
   show_header "Build and execute integration tests"
@@ -1011,7 +923,6 @@ test_integration() {
     --with-cpp=${TEST_INTEGRATION_CPP} \
     --with-java=${TEST_INTEGRATION_JAVA} \
     --with-js=${TEST_INTEGRATION_JS} \
-    --with-go=${TEST_INTEGRATION_GO} \
     $INTEGRATION_TEST_ARGS
 }
 
@@ -1090,9 +1001,6 @@ test_source_distribution() {
 
   pushd $ARROW_SOURCE_DIR
 
-  if [ ${BUILD_GO} -gt 0 ]; then
-    test_go
-  fi
   if [ ${TEST_CSHARP} -gt 0 ]; then
     test_csharp
   fi
@@ -1289,22 +1197,19 @@ test_jars() {
 : ${TEST_RUBY:=${TEST_SOURCE}}
 : ${TEST_PYTHON:=${TEST_SOURCE}}
 : ${TEST_JS:=${TEST_SOURCE}}
-: ${TEST_GO:=${TEST_SOURCE}}
 : ${TEST_INTEGRATION:=${TEST_SOURCE}}
 
 # For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
 : ${TEST_INTEGRATION_CPP:=${TEST_INTEGRATION}}
 : ${TEST_INTEGRATION_JAVA:=${TEST_INTEGRATION}}
 : ${TEST_INTEGRATION_JS:=${TEST_INTEGRATION}}
-: ${TEST_INTEGRATION_GO:=${TEST_INTEGRATION}}
 
 # Automatically build/test if its activated by a dependent
 TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
 BUILD_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
 BUILD_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION_JAVA}))
 BUILD_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
-BUILD_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
-TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
+TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS}))
 
 # Execute tests in a conda environment
 : ${USE_CONDA:=0}

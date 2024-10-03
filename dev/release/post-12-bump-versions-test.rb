@@ -211,15 +211,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ],
         },
         {
-          path: "docs/source/index.rst",
-          hunks: [
-            [
-              "-   Go <https://pkg.go.dev/github.com/apache/arrow/go/v#{@snapshot_major_version}>",
-              "+   Go <https://pkg.go.dev/github.com/apache/arrow/go/v#{@next_major_version}>",
-            ],
-          ],
-        },
-        {
           path: "r/pkgdown/assets/versions.json",
           hunks: [
             [
@@ -231,15 +222,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
               "+        \"name\": \"#{@previous_r_version}\",",
               "+        \"version\": \"#{@previous_compatible_version}/\"",
               "+    },",
-            ],
-          ],
-        },
-        {
-          path: "r/_pkgdown.yml",
-          hunks: [
-            [
-              "-          [Go](https://pkg.go.dev/github.com/apache/arrow/go/v#{@snapshot_major_version}) <br>",
-              "+          [Go](https://pkg.go.dev/github.com/apache/arrow/go/v#{@next_major_version}) <br>",
             ],
           ],
         },
@@ -258,63 +240,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ],
         },
       ]
-    end
-
-    Dir.glob("go/**/{go.mod,*.go,*.go.*,README.md}") do |path|
-      if path == "go/arrow/doc.go"
-        expected_changes << {
-          path: path,
-          hunks: [
-            [
-              "-const PkgVersion = \"#{@snapshot_version}\"",
-              "+const PkgVersion = \"#{@next_snapshot_version}\"",
-            ],
-          ]
-        }
-        next
-      end
-
-      import_path = "github.com/apache/arrow/go/v#{@snapshot_major_version}"
-      hunks = []
-      if next_release_type == :major
-        lines = File.readlines(path, chomp: true)
-        target_lines = lines.each_with_index.select do |line, i|
-          line.include?(import_path)
-        end
-        next if target_lines.empty?
-        n_context_lines = 3 # The default of Git's diff.context
-        target_hunks = [[target_lines.first[0]]]
-        previous_i = target_lines.first[1]
-        target_lines[1..-1].each do |line, i|
-          if i - previous_i < n_context_lines
-            target_hunks.last << line
-          else
-            target_hunks << [line]
-          end
-          previous_i = i
-        end
-        target_hunks.each do |lines|
-          hunk = []
-          lines.each do |line,|
-            hunk << "-#{line}"
-          end
-          lines.each do |line|
-            new_line = line.gsub("v#{@snapshot_major_version}") do
-              "v#{@next_major_version}"
-            end
-            hunk << "+#{new_line}"
-          end
-          hunks << hunk
-        end
-      end
-      if path == "go/parquet/writer_properties.go"
-        hunks << [
-          "-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",
-          "+\tDefaultCreatedBy          = \"parquet-go version #{@next_snapshot_version}\"",
-        ]
-      end
-      next if hunks.empty?
-      expected_changes << {hunks: hunks, path: path}
     end
 
     Dir.glob("java/**/pom.xml") do |path|
