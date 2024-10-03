@@ -34,6 +34,7 @@ on:
       - 'ci/scripts/swift_*'
       - 'docker-compose.yml'
       - 'swift/**'
+      - 'go/**'
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
