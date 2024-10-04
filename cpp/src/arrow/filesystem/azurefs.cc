@@ -1921,7 +1921,11 @@ class AzureFileSystem::Impl {
           if (path.Name == base_location.path && !path.IsDirectory) {
             return NotADir(base_location);
           }
-          acc_results->push_back(FileInfoFromPath(base_location.container, path));
+          if (internal::GetAbstractPathDepth(path.Name) -
+                  internal::GetAbstractPathDepth(base_location.path) - 1 <=
+              select.max_recursion) {
+            acc_results->push_back(FileInfoFromPath(base_location.container, path));
+          }
         }
       }
     } catch (const Storage::StorageException& exception) {
