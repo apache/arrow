@@ -1823,18 +1823,17 @@ class AzureFileSystem::Impl {
       }
       if (!list_response.Blobs.empty()) {
         const auto& blob = list_response.Blobs[0];
-        const auto next_character = blob.Name[options.Prefix.Value().length()];
         if (blob.Name == location.path) {
           info.set_type(FileType::File);
           info.set_size(blob.BlobSize);
           info.set_mtime(
               std::chrono::system_clock::time_point{blob.Details.LastModified});
           return info;
-        } else if (next_character < '/') {
+        } else if (blob.Name[options.Prefix.Value().length()] < internal::kSep) {
           // First list result did not indicate a directory and there is definitely no 
           // exactly matching blob. However, there may still be a directory that we 
           // initially missed because the first list result came before 
-          // `options.Prefix + '/'` lexigraphically.
+          // `options.Prefix + internal::kSep` lexigraphically.
           // For example the flat namespace storage account has the following blobs:
           // - container/dir.txt
           // - container/dir/file.txt
