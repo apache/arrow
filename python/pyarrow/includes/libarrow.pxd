@@ -1356,6 +1356,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CConcatenateTablesOptions options,
         CMemoryPool* memory_pool)
 
+    CResult[shared_ptr[CRecordBatch]] ConcatenateRecordBatches(
+        const vector[shared_ptr[CRecordBatch]]& batches,
+        CMemoryPool* memory_pool)
+
     cdef cppclass CDictionaryUnifier" arrow::DictionaryUnifier":
         @staticmethod
         CResult[shared_ptr[CChunkedArray]] UnifyChunkedArray(
