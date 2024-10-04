@@ -1851,6 +1851,9 @@ Structural transforms
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
 
+Replace functions
+~~~~~~~~~~~~~~~~~
+
 These functions create a copy of the first input with some elements
 replaced, based on the remaining inputs.
 
@@ -1872,7 +1875,7 @@ replaced, based on the remaining inputs.
   Also see: :ref:`if_else <cpp-compute-scalar-selections>`.
 
 Pairwise functions
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 Pairwise functions are unary vector functions that perform a binary operation on
 a pair of elements in the input array, typically on adjacent elements. The n-th
 output is computed by applying the binary operation to the n-th and (n-p)-th inputs,
