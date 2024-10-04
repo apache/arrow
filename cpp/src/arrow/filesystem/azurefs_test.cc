@@ -406,10 +406,10 @@ class TestAzuriteGeneric : public TestGeneric {
  protected:
   // Azurite doesn't block writing files over directories.
   bool allow_write_file_over_dir() const override { return true; }
-  // Azurite doesn't support moving files.
-  bool allow_move_file() const override { return false; }
   // Azurite doesn't support moving directories.
   bool allow_move_dir() const override { return false; }
+  // Azurite doesn't support moving files.
+  bool allow_move_file() const override { return false; }
   // Azurite doesn't support directory mtime.
   bool have_directory_mtimes() const override { return false; }
   // DeleteDir() doesn't work with Azurite on macOS
@@ -432,10 +432,10 @@ class TestAzureFlatNSGeneric : public TestGeneric {
  protected:
   // Flat namespace account doesn't block writing files over directories.
   bool allow_write_file_over_dir() const override { return true; }
-  // Flat namespace account doesn't support moving files.
-  bool allow_move_file() const override { return false; }
   // Flat namespace account doesn't support moving directories.
   bool allow_move_dir() const override { return false; }
+  // Flat namespace account doesn't support moving files.
+  bool allow_move_file() const override { return false; }
   // Flat namespace account doesn't support directory mtime.
   bool have_directory_mtimes() const override { return false; }
 };
