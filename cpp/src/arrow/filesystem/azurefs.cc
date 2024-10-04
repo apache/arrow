@@ -1793,6 +1793,8 @@ class AzureFileSystem::Impl {
       // BlobPrefixes. A BlobPrefix always ends with kDelimiter ("/"), so we can
       // distinguish between a directory and a file by checking if we received a
       // prefix or a blob.
+      // This strategy allows us to implement GetFileInfo with just 1 blob storage
+      // operation in almost every case.
       if (!list_response.BlobPrefixes.empty()) {
         // Ensure the returned BlobPrefixes[0] string doesn't contain more characters than
         // the requested Prefix. For instance, if we request with Prefix="dir/abra" and
@@ -1814,6 +1816,25 @@ class AzureFileSystem::Impl {
           info.set_mtime(
               std::chrono::system_clock::time_point{blob.Details.LastModified});
           return info;
+        } else if (blob.Name[options.Prefix.Value().length()] < internal::kSep) {
+          // First list result did not indicate a directory and there is definitely no
+          // exactly matching blob. However, there may still be a directory that we
+          // initially missed because the first list result came before
+          // `options.Prefix + internal::kSep` lexigraphically.
+          // For example the flat namespace storage account has the following blobs:
+          // - container/dir.txt
+          // - container/dir/file.txt
+          // GetFileInfo(container/dir) should return FileType::Directory but in this
+          // edge case `blob = "dir.txt"`, so without further checks we would incorrectly
+          // return FileType::NotFound.
+          // Therefore we make an extra list operation with the trailing slash to confirm
+          // whether the path is a directory.
+          options.Prefix = internal::EnsureTrailingSlash(location.path);
+          auto list_with_trailing_slash_response = container_client.ListBlobs(options);
+          if (!list_with_trailing_slash_response.Blobs.empty()) {
+            info.set_type(FileType::Directory);
+            return info;
+          }
         }
       }
       info.set_type(FileType::NotFound);
