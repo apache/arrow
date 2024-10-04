@@ -2080,14 +2080,15 @@ void TestAzureFileSystem::TestGetFileInfoObjectWithNestedStructure() {
   ASSERT_OK(output->Close());
 
   // . is immediately before "/" lexicographically, ensure that this doesn't
-  // cause unexpected issues.
+  // cause unexpected issues. NOTE: Its seems real Azure blob storage doesn't 
+  // allow blob names to end in `.`
   ASSERT_OK_AND_ASSIGN(output, fs()->OpenOutputStream(
-                                   data.ContainerPath("test-object-dir/some_other_dir."),
+                                   data.ContainerPath("test-object-dir/some_other_dir.a"),
                                    /*metadata=*/{}));
   ASSERT_OK(output->Write(lorem_ipsum));
   ASSERT_OK(output->Close());
   ASSERT_OK_AND_ASSIGN(output,
-                       fs()->OpenOutputStream(data.ContainerPath(kObjectName + "."),
+                       fs()->OpenOutputStream(data.ContainerPath(kObjectName + ".a"),
                                               /*metadata=*/{}));
   ASSERT_OK(output->Write(lorem_ipsum));
   ASSERT_OK(output->Close());
