@@ -31,13 +31,6 @@ from typing import Callable, List, Optional
 from . import cdata
 from .scenario import Scenario
 from .tester import Tester, CDataExporter, CDataImporter
-from .tester_cpp import CppTester
-from .tester_go import GoTester
-from .tester_rust import RustTester
-from .tester_java import JavaTester
-from .tester_js import JSTester
-from .tester_csharp import CSharpTester
-from .tester_nanoarrow import NanoarrowTester
 from .util import guid, printer
 from .util import SKIP_C_ARRAY, SKIP_C_SCHEMA, SKIP_FLIGHT, SKIP_IPC
 from ..utils.logger import group as group_raw
@@ -603,24 +596,31 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             other_testers.append(tester)
 
     if with_cpp:
+        from .tester_cpp import CppTester
         append_tester("cpp", CppTester(**kwargs))
 
     if with_java:
+        from .tester_java import JavaTester
         append_tester("java", JavaTester(**kwargs))
 
     if with_js:
+        from .tester_js import JSTester
         append_tester("js", JSTester(**kwargs))
 
     if with_csharp:
+        from .tester_csharp import CSharpTester
         append_tester("csharp", CSharpTester(**kwargs))
 
     if with_go:
+        from .tester_go import GoTester
         append_tester("go", GoTester(**kwargs))
 
     if with_nanoarrow:
+        from .tester_nanoarrow import NanoarrowTester
         append_tester("nanoarrow", NanoarrowTester(**kwargs))
 
     if with_rust:
+        from .tester_rust import RustTester
         append_tester("rust", RustTester(**kwargs))
 
     static_json_files = get_static_json_files()
