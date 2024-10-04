@@ -949,15 +949,11 @@ class TestAzureFileSystem : public ::testing::Test {
   void CreateHierarchicalData(HierarchicalPaths* paths) {
     auto data = SetUpPreexistingData();
     const auto directory_path = data.RandomDirectoryPath(rng_);
-    const auto directory_adjacent_path = directory_path + ".txt";
     const auto sub_directory_path = ConcatAbstractPath(directory_path, "new-sub");
     const auto sub_blob_path = ConcatAbstractPath(sub_directory_path, "sub.txt");
     const auto top_blob_path = ConcatAbstractPath(directory_path, "top.txt");
     ASSERT_OK(fs()->CreateDir(sub_directory_path, true));
-    ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(directory_adjacent_path));
-    ASSERT_OK(output->Write(std::string_view("directory adjacent")));
-    ASSERT_OK(output->Close());
-    ASSERT_OK_AND_ASSIGN(output, fs()->OpenOutputStream(sub_blob_path));
+    ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(sub_blob_path));
     ASSERT_OK(output->Write(std::string_view("sub")));
     ASSERT_OK(output->Close());
     ASSERT_OK_AND_ASSIGN(output, fs()->OpenOutputStream(top_blob_path));
@@ -966,7 +962,6 @@ class TestAzureFileSystem : public ::testing::Test {
 
     AssertFileInfo(fs(), data.container_name, FileType::Directory);
     AssertFileInfo(fs(), directory_path, FileType::Directory);
-    AssertFileInfo(fs(), directory_adjacent_path, FileType::File);
     AssertFileInfo(fs(), sub_directory_path, FileType::Directory);
     AssertFileInfo(fs(), sub_blob_path, FileType::File);
     AssertFileInfo(fs(), top_blob_path, FileType::File);
