@@ -1895,15 +1895,18 @@ class AzureFileSystem::Impl {
   /// \brief List the paths at the root of a filesystem or some dir in a filesystem.
   ///
   /// \pre adlfs_client is the client for the filesystem named like the first
-  /// segment of select.base_dir.
+  /// segment of select.base_dir. The filesystem is know to exist.
   Status GetFileInfoWithSelectorFromFileSystem(
       const DataLake::DataLakeFileSystemClient& adlfs_client,
       const Core::Context& context, Azure::Nullable<int32_t> page_size_hint,
       const FileSelector& select, FileInfoVector* acc_results) {
     ARROW_ASSIGN_OR_RAISE(auto base_location, AzureLocation::FromString(select.base_dir));
 
+    // The filesystem a.k.a. the container is known to exist so if the path is empty then
+    // we have already found the base_location, so initialize found to true.
+    bool found = base_location.path.empty();
+
     auto directory_client = adlfs_client.GetDirectoryClient(base_location.path);
-    bool found = false;
     DataLake::ListPathsOptions options;
     options.PageSizeHint = page_size_hint;
 
