@@ -1292,11 +1292,8 @@ def test_dataset_partitioning_format(
     if flavor != ds.HivePartitioning:
         # Raises error upon filtering for lower level partition without filtering for
         # higher level partition
-        with pytest.raises(ArrowInvalid) as raised:
+        with pytest.raises(ArrowInvalid, match="No partition key for foo but a key was provided subsequently for bar"):
             partitioning.format(((pc.field("bar") == "ant bee")))
-        assert raised.type is ArrowInvalid
-        assert raised.value.args == (
-            "No partition key for foo but a key was provided subsequently for bar.",
         )
     else:
         # Hive partitioning allows this to pass
