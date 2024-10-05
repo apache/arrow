@@ -1910,11 +1910,7 @@ class AzureFileSystem::Impl {
     DataLake::ListPathsOptions options;
     options.PageSizeHint = page_size_hint;
 
-    // Add 1 because with `select.max_recursion=0`, we want to list the base path, 
-    // which will return results with a depth 1 greater than the depth of the base path. 
-    auto result_max_depth =
-        select.max_recursion + internal::GetAbstractPathDepth(base_location.path) + 1;
-
+    auto base_path_depth = internal::GetAbstractPathDepth(base_location.path);
     try {
       auto list_response = directory_client.ListPaths(select.recursive, options, context);
       for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
@@ -1926,7 +1922,13 @@ class AzureFileSystem::Impl {
           if (path.Name == base_location.path && !path.IsDirectory) {
             return NotADir(base_location);
           }
-          if (internal::GetAbstractPathDepth(path.Name) <= result_max_depth) {
+          // Subtract 1 because with `max_recursion=0` we want to list the base path,
+          // which will produce results with depth 1 greater that the base path's depth.
+          // NOTE: `select.max_recursion` + anything will cause integer overflows because
+          // `select.max_recursion` defaults to `INT32_MAX`. Therefore, options to
+          // rewrite this condition in a more readable way are limited.
+          if (internal::GetAbstractPathDepth(path.Name) - base_path_depth - 1 <=
+              select.max_recursion) {
             acc_results->push_back(FileInfoFromPath(base_location.container, path));
           }
         }
