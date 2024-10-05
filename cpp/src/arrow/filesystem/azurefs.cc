@@ -1916,18 +1916,22 @@ class AzureFileSystem::Impl {
   /// \brief List the paths at the root of a filesystem or some dir in a filesystem.
   ///
   /// \pre adlfs_client is the client for the filesystem named like the first
-  /// segment of select.base_dir.
+  /// segment of select.base_dir. The filesystem is know to exist.
   Status GetFileInfoWithSelectorFromFileSystem(
       const DataLake::DataLakeFileSystemClient& adlfs_client,
       const Core::Context& context, Azure::Nullable<int32_t> page_size_hint,
       const FileSelector& select, FileInfoVector* acc_results) {
     ARROW_ASSIGN_OR_RAISE(auto base_location, AzureLocation::FromString(select.base_dir));
 
+    // The filesystem a.k.a. the container is known to exist so if the path is empty then
+    // we have already found the base_location, so initialize found to true.
+    bool found = base_location.path.empty();
+
     auto directory_client = adlfs_client.GetDirectoryClient(base_location.path);
-    bool found = false;
     DataLake::ListPathsOptions options;
     options.PageSizeHint = page_size_hint;
 
+    auto base_path_depth = internal::GetAbstractPathDepth(base_location.path);
     try {
       auto list_response = directory_client.ListPaths(select.recursive, options, context);
       for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
@@ -1939,7 +1943,15 @@ class AzureFileSystem::Impl {
           if (path.Name == base_location.path && !path.IsDirectory) {
             return NotADir(base_location);
           }
-          acc_results->push_back(FileInfoFromPath(base_location.container, path));
+          // Subtract 1 because with `max_recursion=0` we want to list the base path,
+          // which will produce results with depth 1 greater that the base path's depth.
+          // NOTE: `select.max_recursion` + anything will cause integer overflows because
+          // `select.max_recursion` defaults to `INT32_MAX`. Therefore, options to
+          // rewrite this condition in a more readable way are limited.
+          if (internal::GetAbstractPathDepth(path.Name) - base_path_depth - 1 <=
+              select.max_recursion) {
+            acc_results->push_back(FileInfoFromPath(base_location.container, path));
+          }
         }
       }
     } catch (const Storage::StorageException& exception) {
