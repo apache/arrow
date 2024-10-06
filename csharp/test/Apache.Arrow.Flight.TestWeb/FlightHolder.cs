@@ -55,10 +55,25 @@ namespace Apache.Arrow.Flight.TestWeb
             int batchBytes = _recordBatches.Sum(rb => rb.RecordBatch.Arrays.Sum(arr => arr.Data.Buffers.Sum(b=>b.Length)));
             return new FlightInfo(_schema, _flightDescriptor, new List<FlightEndpoint>()
             {
-                new FlightEndpoint(new FlightTicket(_flightDescriptor.Paths.FirstOrDefault()), new List<FlightLocation>(){
+                new FlightEndpoint(new FlightTicket(GetTicket(_flightDescriptor)), new List<FlightLocation>(){
                     new FlightLocation(_location)
                 })
             }, batchArrayLength, batchBytes);
+        }
+
+        private string GetTicket(FlightDescriptor descriptor)
+        {
+            if (descriptor.Paths.FirstOrDefault() != null)
+            {
+                return descriptor.Paths.FirstOrDefault();
+            }
+            
+            if (descriptor.Command.Length > 0)
+            {
+                return $"{descriptor.Command.ToStringUtf8()}";
+            }
+
+            return "default_custom_ticket";
         }
     }
 }

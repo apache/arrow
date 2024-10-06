@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Apache.Arrow.Flight.TestWeb;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -8,16 +9,16 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Apache.Arrow.Flight.Sql.TestWeb;
+namespace Apache.Arrow.Flight.Sql.Tests;
 
-public class TestSqlWebFactory : IDisposable
+public class TestFlightSqlWebFactory : IDisposable
 {
     readonly IHost host;
     private int _port;
 
-    public TestSqlWebFactory(FlightSqlStore flightStore)
+    public TestFlightSqlWebFactory(FlightStore flightStore)
     {
-        host = WebHostBuilder(flightStore).Build(); //Create the server
+        host = WebHostBuilder(flightStore).Build();
         host.Start();
         var addressInfo = host.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>();
         if (addressInfo == null)
@@ -32,14 +33,14 @@ public class TestSqlWebFactory : IDisposable
             "System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
     }
 
-    private IHostBuilder WebHostBuilder(FlightSqlStore flightStore)
+    private IHostBuilder WebHostBuilder(FlightStore flightStore)
     {
         return Host.CreateDefaultBuilder()
             .ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder
                     .ConfigureKestrel(c => { c.ListenAnyIP(0, l => l.Protocols = HttpProtocols.Http2); })
-                    .UseStartup<Startup>()
+                    .UseStartup<StartupFlightSql>()
                     .ConfigureServices(services => { services.AddSingleton(flightStore); });
             });
     }

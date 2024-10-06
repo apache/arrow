@@ -2,7 +2,8 @@ using System;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
 using Apache.Arrow.Flight.Sql.Client;
-using Apache.Arrow.Flight.Sql.TestWeb;
+using Apache.Arrow.Flight.Tests;
+using Apache.Arrow.Flight.TestWeb;
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -10,8 +11,8 @@ namespace Apache.Arrow.Flight.Sql.Tests;
 
 public class FlightSqlPreparedStatementTests
 {
-    readonly TestSqlWebFactory _testWebFactory;
-    readonly FlightSqlStore _flightStore;
+    readonly TestWebFactory _testWebFactory;
+    readonly FlightStore _flightStore;
     private readonly PreparedStatement _preparedStatement;
     private readonly Schema _schema;
     private readonly RecordBatch _parameterBatch;
@@ -19,8 +20,8 @@ public class FlightSqlPreparedStatementTests
 
     public FlightSqlPreparedStatementTests()
     {
-        _flightStore = new FlightSqlStore();
-        _testWebFactory = new TestSqlWebFactory(_flightStore);
+        _flightStore = new FlightStore();
+        _testWebFactory = new TestWebFactory(_flightStore);
         FlightClient flightClient = new(_testWebFactory.GetChannel());
         FlightSqlClient flightSqlClient = new(flightClient);
 
@@ -45,7 +46,7 @@ public class FlightSqlPreparedStatementTests
             new Int32Array.Builder().AppendRange(columnSizes).Build()
         ], 5);
 
-        var flightHolder = new FlightSqlHolder(_flightDescriptor, _schema, _testWebFactory.GetAddress());
+        var flightHolder = new FlightHolder(_flightDescriptor, _schema, _testWebFactory.GetAddress());
         _preparedStatement = new PreparedStatement(flightSqlClient, flightHolder.GetFlightInfo(), "SELECT * FROM test");
     }
 
@@ -74,7 +75,7 @@ public class FlightSqlPreparedStatementTests
     {
         // Arrange
         var options = new FlightCallOptions();
-        var flightHolder = new FlightSqlHolder(_flightDescriptor, _schema, _testWebFactory.GetAddress());
+        var flightHolder = new FlightHolder(_flightDescriptor, _schema, _testWebFactory.GetAddress());
         flightHolder.AddBatch(new RecordBatchWithMetadata(_parameterBatch));
         _flightStore.Flights.Add(_flightDescriptor, flightHolder);
         await _preparedStatement.SetParameters(_parameterBatch);
@@ -83,7 +84,7 @@ public class FlightSqlPreparedStatementTests
         long affectedRows = await _preparedStatement.ExecuteUpdateAsync(options);
 
         // Assert
-        Assert.True(affectedRows > 0);  // Verifies that the statement executed successfully.
+        Assert.True(affectedRows > 0); 
     }
 
     [Fact]

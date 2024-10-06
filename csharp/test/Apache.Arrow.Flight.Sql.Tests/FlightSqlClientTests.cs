@@ -4,7 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
 using Apache.Arrow.Flight.Sql.Client;
-using Apache.Arrow.Flight.Sql.TestWeb;
+using Apache.Arrow.Flight.Tests;
+using Apache.Arrow.Flight.TestWeb;
 using Apache.Arrow.Types;
 using Arrow.Flight.Protocol.Sql;
 using Google.Protobuf;
@@ -15,15 +16,15 @@ namespace Apache.Arrow.Flight.Sql.Tests;
 
 public class FlightSqlClientTests : IDisposable
 {
-    readonly TestSqlWebFactory _testWebFactory;
-    readonly FlightSqlStore _flightStore;
+    readonly TestFlightSqlWebFactory _testWebFactory;
+    readonly FlightStore _flightStore;
     private readonly FlightSqlClient _flightSqlClient;
     private readonly FlightSqlTestUtils _testUtils;
 
     public FlightSqlClientTests()
     {
-        _flightStore = new FlightSqlStore();
-        _testWebFactory = new TestSqlWebFactory(_flightStore);
+        _flightStore = new FlightStore();
+        _testWebFactory = new TestFlightSqlWebFactory(_flightStore);
         FlightClient flightClient = new(_testWebFactory.GetChannel());
         _flightSqlClient = new FlightSqlClient(flightClient);
 
@@ -94,7 +95,7 @@ public class FlightSqlClientTests : IDisposable
         var transaction = new Transaction("sample-transaction-id");
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
         flightHolder.AddBatch(new RecordBatchWithMetadata(recordBatch));
 
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
@@ -118,7 +119,7 @@ public class FlightSqlClientTests : IDisposable
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
 
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
         flightHolder.AddBatch(new RecordBatchWithMetadata(recordBatch));
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -139,7 +140,7 @@ public class FlightSqlClientTests : IDisposable
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
 
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
         flightHolder.AddBatch(new RecordBatchWithMetadata(recordBatch));
 
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
@@ -159,7 +160,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
         // Act
@@ -177,7 +178,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -198,7 +199,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -218,7 +219,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -238,7 +239,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
         string catalog = "test-catalog";
@@ -285,7 +286,7 @@ public class FlightSqlClientTests : IDisposable
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
         var tableRef = new TableRef { Catalog = "test-catalog", Table = "test-table", DbSchema = "test-schema" };
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -328,7 +329,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -371,7 +372,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -398,7 +399,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -448,7 +449,7 @@ public class FlightSqlClientTests : IDisposable
         ], 5);
         Assert.NotNull(recordBatch);
         Assert.Equal(5, recordBatch.Length);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, schema, _testWebFactory.GetAddress());
+        var flightHolder = new FlightHolder(flightDescriptor, schema, _testWebFactory.GetAddress());
         flightHolder.AddBatch(new RecordBatchWithMetadata(_testUtils.CreateTestBatch(0, 100)));
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -469,7 +470,7 @@ public class FlightSqlClientTests : IDisposable
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
         var tableRef = new TableRef { Catalog = "test-catalog", Table = "test-table", DbSchema = "test-schema" };
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -488,7 +489,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -508,7 +509,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -535,7 +536,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -556,7 +557,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
         var pkTableRef = new TableRef { Catalog = "PKCatalog", DbSchema = "PKSchema", Table = "PKTable" };
@@ -578,7 +579,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
@@ -603,7 +604,7 @@ public class FlightSqlClientTests : IDisposable
         var commandGetTableTypes = new CommandGetTableTypes();
         byte[] packedCommand = commandGetTableTypes.PackAndSerialize().ToByteArray();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor(packedCommand);
-        var flightHolder = new FlightSqlHolder(flightDescriptor, expectedSchema, "http://localhost:5000");
+        var flightHolder = new FlightHolder(flightDescriptor, expectedSchema, "http://localhost:5000");
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
         // Act
@@ -628,7 +629,7 @@ public class FlightSqlClientTests : IDisposable
         byte[] packedCommand = commandGetTableTypesSchema.PackAndSerialize().ToByteArray();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor(packedCommand);
 
-        var flightHolder = new FlightSqlHolder(flightDescriptor, expectedSchema, "http://localhost:5000");
+        var flightHolder = new FlightHolder(flightDescriptor, expectedSchema, "http://localhost:5000");
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
         // Act
@@ -657,7 +658,7 @@ public class FlightSqlClientTests : IDisposable
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor(packedCommand);
 
         // Creating a flight holder with the expected schema and adding it to the flight store
-        var flightHolder = new FlightSqlHolder(flightDescriptor, expectedSchema, "http://localhost:5000");
+        var flightHolder = new FlightHolder(flightDescriptor, expectedSchema, "http://localhost:5000");
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
         // Act
@@ -685,7 +686,7 @@ public class FlightSqlClientTests : IDisposable
         byte[] packedCommand = commandGetXdbcTypeInfo.PackAndSerialize().ToByteArray();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor(packedCommand);
 
-        var flightHolder = new FlightSqlHolder(flightDescriptor, expectedSchema, "http://localhost:5000");
+        var flightHolder = new FlightHolder(flightDescriptor, expectedSchema, "http://localhost:5000");
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
         // Act
@@ -706,7 +707,7 @@ public class FlightSqlClientTests : IDisposable
                 .Builder()
             .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
             .Build();
-        var flightHolder = new FlightSqlHolder(flightDescriptor, expectedSchema, _testWebFactory.GetAddress());
+        var flightHolder = new FlightHolder(flightDescriptor, expectedSchema, _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
         // Act
@@ -751,7 +752,7 @@ public class FlightSqlClientTests : IDisposable
 
         // Adding the flight info to the flight store for testing
         _flightStore.Flights.Add(flightDescriptor,
-            new FlightSqlHolder(flightDescriptor, schema, _testWebFactory.GetAddress()));
+            new FlightHolder(flightDescriptor, schema, _testWebFactory.GetAddress()));
 
         // Act
         var cancelStatus = await _flightSqlClient.CancelQueryAsync(options, flightInfo);

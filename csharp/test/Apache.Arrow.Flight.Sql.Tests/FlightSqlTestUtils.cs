@@ -1,20 +1,21 @@
 using System.Linq;
-using Apache.Arrow.Flight.Sql.TestWeb;
+using Apache.Arrow.Flight.Tests;
+using Apache.Arrow.Flight.TestWeb;
 
 namespace Apache.Arrow.Flight.Sql.Tests;
 
 public class FlightSqlTestUtils
 {
-    private readonly TestSqlWebFactory _testWebFactory;
-    private readonly FlightSqlStore _flightStore;
+    private readonly TestFlightSqlWebFactory _testWebFactory;
+    private readonly FlightStore _flightStore;
 
-    public FlightSqlTestUtils(TestSqlWebFactory testWebFactory, FlightSqlStore flightStore)
+    public FlightSqlTestUtils(TestFlightSqlWebFactory testWebFactory, FlightStore flightStore)
     {
         _testWebFactory = testWebFactory;
         _flightStore = flightStore;
     }
 
-    public RecordBatch CreateTestBatch(int startValue, int length)
+    public RecordBatch CreateTestBatch(int startValue, int length) 
     {
         var batchBuilder = new RecordBatch.Builder();
         Int32Array.Builder builder = new();
@@ -33,7 +34,7 @@ public class FlightSqlTestUtils
     {
         var initialBatch = batches.FirstOrDefault();
 
-        var flightHolder = new FlightSqlHolder(flightDescriptor, initialBatch.RecordBatch.Schema,
+        var flightHolder = new FlightHolder(flightDescriptor, initialBatch.RecordBatch.Schema,
             _testWebFactory.GetAddress());
 
         foreach (var batch in batches)
