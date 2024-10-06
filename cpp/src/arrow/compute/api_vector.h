@@ -257,6 +257,25 @@ class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
   bool recursive = false;
 };
 
+/// \brief Options for reverse_index function
+class ARROW_EXPORT ReverseIndexOptions : public FunctionOptions {
+ public:
+  explicit ReverseIndexOptions(int64_t output_length = 0,
+                               std::shared_ptr<DataType> output_type = int32(),
+                               std::shared_ptr<Scalar> output_non_taken = NULLPTR);
+  static constexpr char const kTypeName[] = "ReverseIndexOptions";
+  static ReverseIndexOptions Defaults() { return ReverseIndexOptions(); }
+
+  /// \brief The upper bound of the permutation. If -1, the output will be sized as the
+  /// maximum value in the indices array + 1. Otherwise, the output will be of size bound,
+  /// and any indices that are greater of equal to bound will be ignored.
+  int64_t output_length = 0;
+  /// \brief The type of the output reverse index. If null, the output type will be the
+  /// smallest possible integer type that can hold the maximum value in the indices array.
+  std::shared_ptr<DataType> output_type = int32();
+  std::shared_ptr<Scalar> output_non_taken = NULLPTR;
+};
+
 /// \brief Options for permute function
 class ARROW_EXPORT PermuteOptions : public FunctionOptions {
  public:

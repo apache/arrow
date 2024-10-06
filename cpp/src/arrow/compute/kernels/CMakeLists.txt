@@ -115,6 +115,12 @@ add_arrow_compute_test(vector_selection_test
                        EXTRA_LINK_LIBS
                        arrow_compute_kernels_testing)
 
+add_arrow_compute_test(vector_placement_test
+                       SOURCES
+                       vector_placement_test.cc
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing)
+
 add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")

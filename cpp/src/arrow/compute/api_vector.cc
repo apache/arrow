@@ -155,6 +155,10 @@ static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
 static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>(
     DataMember("recursive", &ListFlattenOptions::recursive));
+static auto kReverseIndexOptionsType = GetFunctionOptionsType<ReverseIndexOptions>(
+    DataMember("output_length", &ReverseIndexOptions::output_length),
+    DataMember("output_type", &ReverseIndexOptions::output_type),
+    DataMember("output_non_taken", &ReverseIndexOptions::output_non_taken));
 static auto kPermuteOptionsType =
     GetFunctionOptionsType<PermuteOptions>(DataMember("bound", &PermuteOptions::bound));
 }  // namespace
@@ -231,6 +235,15 @@ constexpr char PairwiseOptions::kTypeName[];
 ListFlattenOptions::ListFlattenOptions(bool recursive)
     : FunctionOptions(internal::kListFlattenOptionsType), recursive(recursive) {}
 constexpr char ListFlattenOptions::kTypeName[];
+
+ReverseIndexOptions::ReverseIndexOptions(int64_t output_length,
+                                         std::shared_ptr<DataType> output_type,
+                                         std::shared_ptr<Scalar> output_non_taken)
+    : FunctionOptions(internal::kPermuteOptionsType),
+      output_length(output_length),
+      output_type(std::move(output_type)),
+      output_non_taken(std::move(output_non_taken)) {}
+constexpr char ReverseIndexOptions::kTypeName[];
 
 PermuteOptions::PermuteOptions(int64_t bound)
     : FunctionOptions(internal::kPermuteOptionsType), bound(bound) {}
@@ -438,6 +451,13 @@ Result<Datum> CumulativeMean(const Datum& values, const CumulativeOptions& optio
 
 // ----------------------------------------------------------------------
 // Permute functions
+
+Result<std::shared_ptr<Array>> ReverseIndex(const Datum& indices,
+                                            const ReverseIndexOptions& options,
+                                            ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("reverse_index", {indices}, ctx));
+  return result.make_array();
+}
 
 Result<std::shared_ptr<Array>> Permute(const Datum& values, const Datum& indices,
                                        const PermuteOptions& options, ExecContext* ctx) {
