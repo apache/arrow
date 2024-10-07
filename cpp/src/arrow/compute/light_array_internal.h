@@ -34,6 +34,12 @@
 namespace arrow {
 namespace compute {
 
+
+// Forward declaration of KeyColumnArray for convenience of creating a type alias
+class KeyColumnArray;
+using KeyColumnVector = std::vector<KeyColumnArray>;
+
+
 /// \brief Context needed by various execution engine operations
 ///
 /// In the execution engine this context is provided by either the node or the
