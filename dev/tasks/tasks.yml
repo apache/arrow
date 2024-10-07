@@ -1327,7 +1327,7 @@ tasks:
       env:
         ARROW_R_DEV: "TRUE"
       image: ubuntu-r-valgrind
-      timeout: 300 # 5 hours
+      timeout: 330 # 5.5 hours
 
   test-r-linux-rchk:
     ci: github
