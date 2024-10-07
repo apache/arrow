@@ -430,8 +430,6 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-macosx_12_0_x86_64.whl
 
-{% endfor %}
-
   wheel-macos-monterey-{{ python_tag }}-{{ abi_tag }}-arm64:
     ci: github
     template: python-wheels/github.osx.yml
