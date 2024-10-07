@@ -251,10 +251,6 @@ static inline EncodedGeometryStatistics FromThrift(
     out.mmax = geometry_stats.bbox.mmax;
   }
 
-  for (const auto& covering : geometry_stats.coverings) {
-    out.coverings.emplace_back(covering.kind, covering.value);
-  }
-
   return out;
 }
 
@@ -368,16 +364,6 @@ static inline format::GeometryStatistics ToThrift(
     bbox.__set_mmax(encoded_geometry_stats.mmax);
   }
   geometry_statistics.__set_bbox(bbox);
-
-  std::vector<format::Covering> coverings;
-  coverings.reserve(encoded_geometry_stats.coverings.size());
-  for (const auto& pair : encoded_geometry_stats.coverings) {
-    format::Covering covering;
-    covering.__set_kind(pair.first);
-    covering.__set_value(pair.second);
-    coverings.push_back(std::move(covering));
-  }
-  geometry_statistics.__set_coverings(coverings);
   return geometry_statistics;
 }
 

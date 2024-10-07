@@ -1785,17 +1785,14 @@ TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
 // Test writing and reading geometry columns
 class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
  public:
-  static const char* kCrs;
-  static const char* kMetadata;
-
   void SetUpSchema(Repetition::type repetition, int num_columns) override {
     std::vector<schema::NodePtr> fields;
 
     for (int i = 0; i < num_columns; ++i) {
       std::string name = TestColumnName(i);
       std::shared_ptr<const LogicalType> logical_type =
-          GeometryLogicalType::Make(kCrs, LogicalType::GeometryEdges::PLANAR,
-                                    LogicalType::GeometryEncoding::WKB, kMetadata);
+          GeometryLogicalType::Make("OGC:CRS84", LogicalType::GeometryEdges::PLANAR,
+                                    LogicalType::GeometryEncoding::WKB);
       fields.push_back(schema::PrimitiveNode::Make(name, repetition, logical_type,
                                                    ByteArrayType::type_num));
     }
@@ -1867,21 +1864,6 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     EXPECT_DOUBLE_EQ(1, min_y);
     EXPECT_DOUBLE_EQ(99, max_x);
     EXPECT_DOUBLE_EQ(100, max_y);
-
-    auto coverings = geometry_statistics->GetCoverings();
-    EXPECT_EQ(1, coverings.size());
-    EXPECT_EQ("WKB", coverings[0].first);
-    geometry::WKBGeometryBounder bounder;
-    const std::string& wkb = coverings[0].second;
-    geometry::WKBBuffer wkb_buffer(reinterpret_cast<const uint8_t*>(wkb.data()),
-                                   wkb.size());
-    bounder.ReadGeometry(&wkb_buffer);
-    bounder.Flush();
-    auto bounds = bounder.Bounds();
-    EXPECT_DOUBLE_EQ(0, bounds.min[0]);
-    EXPECT_DOUBLE_EQ(1, bounds.min[1]);
-    EXPECT_DOUBLE_EQ(99, bounds.max[0]);
-    EXPECT_DOUBLE_EQ(100, bounds.max[1]);
   }
 
   void TestWriteAndReadSpaced(ParquetVersion::type version,
@@ -1948,10 +1930,6 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     EXPECT_FALSE(geometry_statistics->HasM());
   }
 };
-
-const char* TestGeometryValuesWriter::kCrs =
-    R"({"id": {"authority": "OGC", "code": "CRS84"}})";
-const char* TestGeometryValuesWriter::kMetadata = "test_metadata";
 
 TEST_F(TestGeometryValuesWriter, TestWriteAndReadV1) {
   for (auto data_page_version :

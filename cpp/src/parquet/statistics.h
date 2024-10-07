@@ -131,7 +131,6 @@ class PARQUET_EXPORT EncodedGeometryStatistics {
   double zmax{-kInf};
   double mmin{kInf};
   double mmax{-kInf};
-  std::vector<std::pair<std::string, std::string>> coverings;
   std::vector<int32_t> geometry_types;
 
   bool has_z() const { return (zmax - zmin) >= 0; }
@@ -186,7 +185,6 @@ class PARQUET_EXPORT GeometryStatistics {
   bool HasM() const;
 
   std::vector<int32_t> GetGeometryTypes() const;
-  std::vector<std::pair<std::string, std::string>> GetCoverings() const;
 
  private:
   std::unique_ptr<GeometryStatisticsImpl> impl_;

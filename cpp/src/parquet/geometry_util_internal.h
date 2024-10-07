@@ -688,33 +688,4 @@ static inline std::string MakeWKBPoint(const double* xyzm, bool has_z, bool has_
   return wkb;
 }
 
-static inline std::string MakeCoveringWKBFromBound(double xmin, double xmax, double ymin,
-                                                   double ymax) {
-  std::string wkb_data(93, 0);
-
-  // endianness and header
-  auto data = reinterpret_cast<uint8_t*>(wkb_data.data());
-  data[0] = kWkbNativeEndianness;
-  uint32_t wkb_type = 3;  // POLYGON
-  memcpy(&data[1], &wkb_type, 4);
-
-  // n_rings and n_coords
-  uint32_t n_rings = 1;
-  uint32_t n_coords = 5;
-  memcpy(&data[5], &n_rings, 4);
-  memcpy(&data[9], &n_coords, 4);
-
-  // coordinates
-  double coords[5][2] = {
-      {xmin, ymin}, {xmax, ymin}, {xmax, ymax}, {xmin, ymax}, {xmin, ymin}};
-  uint8_t* ptr = &data[13];
-  for (auto coord : coords) {
-    memcpy(ptr, &coord[0], 8);
-    memcpy(ptr + 8, &coord[1], 8);
-    ptr += 16;
-  }
-
-  return wkb_data;
-}
-
 }  // namespace parquet::geometry

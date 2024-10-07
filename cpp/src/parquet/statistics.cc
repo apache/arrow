@@ -149,7 +149,6 @@ class GeometryStatisticsImpl {
 
   void Reset() {
     bounder_.Reset();
-    coverings_.clear();
     is_valid_ = true;
   }
 
@@ -168,15 +167,6 @@ class GeometryStatisticsImpl {
     out.zmax = maxes[2];
     out.mmin = mins[3];
     out.mmax = maxes[3];
-
-    if (generate_coverings_) {
-      std::string kind = "WKB";
-      std::string value =
-          geometry::MakeCoveringWKBFromBound(out.xmin, out.xmax, out.ymin, out.ymax);
-      out.coverings.emplace_back(kind, value);
-    } else {
-      out.coverings = coverings_;
-    }
 
     return out;
   }
@@ -200,11 +190,6 @@ class GeometryStatisticsImpl {
       return;
     }
 
-    // Don't generate coverings when encoding since this statistics object is
-    // initialized from an encoded geometry statistics. We'll simply use the
-    // coverings in the encoded geometry statistics.
-    generate_coverings_ = false;
-
     geometry::BoundingBox box;
     box.min[0] = encoded.xmin;
     box.max[0] = encoded.xmax;
@@ -223,20 +208,6 @@ class GeometryStatisticsImpl {
 
     bounder_.ReadBox(box);
     bounder_.ReadGeometryTypes(encoded.geometry_types);
-    coverings_ = encoded.coverings;
-
-    try {
-      for (const auto& covering : encoded.coverings) {
-        if (covering.first == "WKB") {
-          geometry::WKBBuffer buf(
-              reinterpret_cast<const uint8_t*>(covering.second.data()),
-              covering.second.size());
-          bounder_.ReadGeometry(&buf, false);
-        }
-      }
-    } catch (ParquetException&) {
-      is_valid_ = false;
-    }
   }
 
   bool is_valid() const { return is_valid_; }
@@ -247,15 +218,9 @@ class GeometryStatisticsImpl {
 
   std::vector<int32_t> GetGeometryTypes() const { return bounder_.GeometryTypes(); }
 
-  std::vector<std::pair<std::string, std::string>> GetCoverings() const {
-    return coverings_;
-  }
-
  private:
   geometry::WKBGeometryBounder bounder_;
-  std::vector<std::pair<std::string, std::string>> coverings_;
   bool is_valid_ = true;
-  bool generate_coverings_ = true;
 };
 
 GeometryStatistics::GeometryStatistics() {
@@ -358,11 +323,6 @@ bool GeometryStatistics::HasM() const { return (GetMMax() - GetMMin()) > 0; }
 
 std::vector<int32_t> GeometryStatistics::GetGeometryTypes() const {
   return impl_->GetGeometryTypes();
-}
-
-std::vector<std::pair<std::string, std::string>> GeometryStatistics::GetCoverings()
-    const {
-  return impl_->GetCoverings();
 }
 
 namespace {

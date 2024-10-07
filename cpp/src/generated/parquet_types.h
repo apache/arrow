@@ -213,9 +213,54 @@ std::ostream& operator<<(std::ostream& out, const FieldRepetitionType::type& val
 std::string to_string(const FieldRepetitionType::type& val);
 
 /**
- * Interpretation for edges of GEOMETRY logical type, i.e. whether the edge
- * between points represent a straight cartesian line or the shortest line on
- * the sphere. It applies to all non-point geometry objects.
+ * Physical type and encoding for the geometry type.
+ */
+struct GeometryEncoding {
+  enum type {
+    /**
+     * Allowed for physical type: BYTE_ARRAY.
+     *
+     * Well-known binary (WKB) representations of geometries.
+     *
+     * To be clear, we follow the same rule of WKB and coordinate axis order from
+     * GeoParquet [1][2]. Geometries SHOULD be encoded as ISO WKB [3][4]
+     * supporting XY, XYZ, XYM, XYZM and the standard geometry types
+     * Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon,
+     * and GeometryCollection). Coordinate order is always (x, y) where x is
+     * easting or longitude and y is northing or latitude. This ordering explicitly
+     * overrides the axis order as specified in the CRS following the GeoPackage
+     * specification [5].
+     *
+     * This is the preferred encoding for maximum portability. It also supports
+     * GeometryStatistics to be set in the column chunk and page index.
+     *
+     * [1] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L92
+     * [2] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L155
+     * [3] https://portal.ogc.org/files/?artifact_id=18241
+     * [4] https://www.iso.org/standard/60343.html
+     * [5] https://www.geopackage.org/spec130/#gpb_spec
+     */
+    WKB = 0
+  };
+};
+
+extern const std::map<int, const char*> _GeometryEncoding_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const GeometryEncoding::type& val);
+
+std::string to_string(const GeometryEncoding::type& val);
+
+/**
+ * Interpretation for edges of elements of a GEOMETRY logical type. In other
+ * words, whether a point between two vertices should be interpolated in
+ * its XY dimensions as if it were a Cartesian line connecting the two
+ * vertices (planar) or the shortest spherical arc between the longitude
+ * and latitude represented by the two vertices (spherical). This value
+ * applies to all non-point geometry objects and is independent of the
+ * coordinate reference system.
+ *
+ * Because most systems currently assume planar edges and do not support
+ * spherical edges, planar should be used as the default value.
  */
 struct Edges {
   enum type {
@@ -229,37 +274,6 @@ extern const std::map<int, const char*> _Edges_VALUES_TO_NAMES;
 std::ostream& operator<<(std::ostream& out, const Edges::type& val);
 
 std::string to_string(const Edges::type& val);
-
-/**
- * Physical type and encoding for the geometry type.
- */
-struct GeometryEncoding {
-  enum type {
-    /**
-     * Allowed for physical type: BYTE_ARRAY.
-     *
-     * Well-known binary (WKB) representations of geometries.
-     *
-     * To be clear, we follow the same rule of WKB and coordinate axis order from
-     * GeoParquet [1][2]. It is the ISO WKB supporting XY, XYZ, XYM, XYZM and the
-     * standard geometry types (Point, LineString, Polygon, MultiPoint,
-     * MultiLineString, MultiPolygon, and GeometryCollection).
-     *
-     * This is the preferred encoding for maximum portability. It also supports
-     * GeometryStatistics to be set in the column chunk and page index.
-     *
-     * [1] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L92
-     * [2] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L155
-     */
-    WKB = 0
-  };
-};
-
-extern const std::map<int, const char*> _GeometryEncoding_VALUES_TO_NAMES;
-
-std::ostream& operator<<(std::ostream& out, const GeometryEncoding::type& val);
-
-std::string to_string(const GeometryEncoding::type& val);
 
 /**
  * Encodings supported by Parquet.  Not all encodings are valid for all types.  These
@@ -398,8 +412,6 @@ std::ostream& operator<<(std::ostream& out, const BoundaryOrder::type& val);
 std::string to_string(const BoundaryOrder::type& val);
 
 class SizeStatistics;
-
-class Covering;
 
 class BoundingBox;
 
@@ -618,69 +630,6 @@ void swap(SizeStatistics &a, SizeStatistics &b);
 
 std::ostream& operator<<(std::ostream& out, const SizeStatistics& obj);
 
-
-/**
- * A custom binary-encoded polygon or multi-polygon to represent a covering of
- * geometries. For example, it may be a bounding box or an envelope of geometries
- * when a bounding box cannot be built (e.g. a geometry has spherical edges, or if
- * an edge of geographic coordinates crosses the antimeridian). In addition, it can
- * also be used to provide vendor-agnostic coverings like S2 or H3 grids.
- */
-class Covering {
- public:
-
-  Covering(const Covering&);
-  Covering(Covering&&) noexcept;
-  Covering& operator=(const Covering&);
-  Covering& operator=(Covering&&) noexcept;
-  Covering() noexcept
-           : kind(),
-             value() {
-  }
-
-  virtual ~Covering() noexcept;
-  /**
-   * A type of covering. Currently accepted values: "WKB".
-   */
-  std::string kind;
-  /**
-   * A payload specific to kind. Below are the supported values:
-   * - WKB: well-known binary of a POLYGON or MULTI-POLYGON that completely
-   *   covers the contents. This will be interpreted according to the same CRS
-   *   and edges defined by the logical type.
-   */
-  std::string value;
-
-  void __set_kind(const std::string& val);
-
-  void __set_value(const std::string& val);
-
-  bool operator == (const Covering & rhs) const
-  {
-    if (!(kind == rhs.kind))
-      return false;
-    if (!(value == rhs.value))
-      return false;
-    return true;
-  }
-  bool operator != (const Covering &rhs) const {
-    return !(*this == rhs);
-  }
-
-  bool operator < (const Covering & ) const;
-
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
-
-  virtual void printTo(std::ostream& out) const;
-};
-
-void swap(Covering &a, Covering &b);
-
-std::ostream& operator<<(std::ostream& out, const Covering& obj);
-
 typedef struct _BoundingBox__isset {
   _BoundingBox__isset() : zmin(false), zmax(false), mmin(false), mmax(false) {}
   bool zmin :1;
@@ -691,10 +640,10 @@ typedef struct _BoundingBox__isset {
 
 /**
  * Bounding box of geometries in the representation of min/max value pair of
- * coordinates from each axis. Values of Z and M are omitted for 2D geometries.
- * Filter pushdown on geometries are only safe for planar spatial predicate
- * but it is recommended that the writer always generates bounding box statistics,
- * regardless of whether the geometries are planar or spherical.
+ * coordinates from each axis when Edges is planar. Values of Z and M are omitted
+ * for 2D geometries. When Edges is spherical, the bounding box is in the form of
+ * [westmost, eastmost, southmost, northmost], with necessary min/max values for
+ * Z and M if needed.
  */
 class BoundingBox {
  public:
@@ -715,9 +664,21 @@ class BoundingBox {
   }
 
   virtual ~BoundingBox() noexcept;
+  /**
+   * Westmost value if edges = spherical *
+   */
   double xmin;
+  /**
+   * Eastmost value if edges = spherical *
+   */
   double xmax;
+  /**
+   * Southmost value if edges = spherical *
+   */
   double ymin;
+  /**
+   * Northmost value if edges = spherical *
+   */
   double ymax;
   double zmin;
   double zmax;
@@ -789,9 +750,8 @@ void swap(BoundingBox &a, BoundingBox &b);
 std::ostream& operator<<(std::ostream& out, const BoundingBox& obj);
 
 typedef struct _GeometryStatistics__isset {
-  _GeometryStatistics__isset() : bbox(false), coverings(false), geometry_types(false) {}
+  _GeometryStatistics__isset() : bbox(false), geometry_types(false) {}
   bool bbox :1;
-  bool coverings :1;
   bool geometry_types :1;
 } _GeometryStatistics__isset;
 
@@ -813,13 +773,6 @@ class GeometryStatistics {
    * A bounding box of geometries
    */
   BoundingBox bbox;
-  /**
-   * A list of coverings of geometries.
-   * Note that It is allowed to have more than one covering of the same kind and
-   * implementation is free to use any of them. It is recommended to have at most
-   * one covering for each kind.
-   */
-  std::vector<Covering>  coverings;
   /**
    * The geometry types of all geometries, or an empty array if they are not
    * known. This is borrowed from `geometry_types` column metadata of GeoParquet [1]
@@ -853,8 +806,6 @@ class GeometryStatistics {
 
   void __set_bbox(const BoundingBox& val);
 
-  void __set_coverings(const std::vector<Covering> & val);
-
   void __set_geometry_types(const std::vector<int32_t> & val);
 
   bool operator == (const GeometryStatistics & rhs) const
@@ -862,10 +813,6 @@ class GeometryStatistics {
     if (__isset.bbox != rhs.__isset.bbox)
       return false;
     else if (__isset.bbox && !(bbox == rhs.bbox))
-      return false;
-    if (__isset.coverings != rhs.__isset.coverings)
-      return false;
-    else if (__isset.coverings && !(coverings == rhs.coverings))
       return false;
     if (__isset.geometry_types != rhs.__isset.geometry_types)
       return false;
@@ -1812,10 +1759,8 @@ void swap(BsonType &a, BsonType &b);
 std::ostream& operator<<(std::ostream& out, const BsonType& obj);
 
 typedef struct _GeometryType__isset {
-  _GeometryType__isset() : crs(false), crs_encoding(false), metadata(false) {}
+  _GeometryType__isset() : crs(false) {}
   bool crs :1;
-  bool crs_encoding :1;
-  bool metadata :1;
 } _GeometryType__isset;
 
 /**
@@ -1831,9 +1776,7 @@ class GeometryType {
   GeometryType() noexcept
                : encoding(static_cast<GeometryEncoding::type>(0)),
                  edges(static_cast<Edges::type>(0)),
-                 crs(),
-                 crs_encoding(),
-                 metadata() {
+                 crs() {
   }
 
   virtual ~GeometryType() noexcept;
@@ -1845,65 +1788,31 @@ class GeometryType {
    */
   GeometryEncoding::type encoding;
   /**
-   * Edges of geometry type.
+   * Interpretation for edges of elements of a GEOMETRY logical type, i.e. whether
+   * the interpolation between points along an edge represents a straight cartesian
+   * line or the shortest line on the sphere.
    * Please refer to the definition of Edges for more detail.
    *
    * @see Edges
    */
   Edges::type edges;
   /**
-   * Coordinate Reference System, i.e. mapping of how coordinates refer to
-   * precise locations on earth. Writers are not required to set this field.
-   * Once crs is set, crs_encoding field below MUST be set together.
-   * For example, "OGC:CRS84" can be set in the form of PROJJSON as below:
-   * {
-   *     "$schema": "https://proj.org/schemas/v0.5/projjson.schema.json",
-   *     "type": "GeographicCRS",
-   *     "name": "WGS 84 longitude-latitude",
-   *     "datum": {
-   *         "type": "GeodeticReferenceFrame",
-   *         "name": "World Geodetic System 1984",
-   *         "ellipsoid": {
-   *             "name": "WGS 84",
-   *             "semi_major_axis": 6378137,
-   *             "inverse_flattening": 298.257223563
-   *         }
-   *     },
-   *     "coordinate_system": {
-   *         "subtype": "ellipsoidal",
-   *         "axis": [
-   *         {
-   *             "name": "Geodetic longitude",
-   *             "abbreviation": "Lon",
-   *             "direction": "east",
-   *             "unit": "degree"
-   *         },
-   *         {
-   *             "name": "Geodetic latitude",
-   *             "abbreviation": "Lat",
-   *             "direction": "north",
-   *             "unit": "degree"
-   *         }
-   *         ]
-   *     },
-   *     "id": {
-   *         "authority": "OGC",
-   *         "code": "CRS84"
-   *     }
-   * }
+   * CRS (coordinate reference system) is a mapping of how coordinates refer to
+   * precise locations on earth. A crs is specified by a string, which is a Parquet
+   * file metadata field whose value is the crs representation. An additional field
+   * with the suffix '.type' describes the encoding of this CRS representation.
+   *
+   * For example, if a geometry column (e.g., 'geom1') uses the CRS 'OGC:CRS84', the
+   * writer may create 2 file metadata fields: 'geom1_crs' and 'geom1_crs.type', and
+   * set the 'crs' field to 'geom1_crs'. The 'geom1_crs' field will contain the
+   * PROJJSON representation of OGC:CRS84
+   * (https://github.com/opengeospatial/geoparquet/blob/main/format-specs/geoparquet.md#ogccrs84-details),
+   * and the 'geom1_crs.type' field will contain the string 'PROJJSON'.
+   *
+   * Multiple geometry columns can refer to the same CRS metadata field
+   * (e.g., 'geom1_crs') if they share the same CRS.
    */
   std::string crs;
-  /**
-   * Encoding used in the above crs field. It MUST be set if crs field is set.
-   * Currently the only allowed value is "PROJJSON".
-   */
-  std::string crs_encoding;
-  /**
-   * Additional informative metadata.
-   * GeoParquet could offload its column metadata in a JSON-encoded UTF-8 string:
-   * https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L46
-   */
-  std::string metadata;
 
   _GeometryType__isset __isset;
 
@@ -1912,10 +1821,6 @@ class GeometryType {
   void __set_edges(const Edges::type val);
 
   void __set_crs(const std::string& val);
-
-  void __set_crs_encoding(const std::string& val);
-
-  void __set_metadata(const std::string& val);
 
   bool operator == (const GeometryType & rhs) const
   {
@@ -1926,14 +1831,6 @@ class GeometryType {
     if (__isset.crs != rhs.__isset.crs)
       return false;
     else if (__isset.crs && !(crs == rhs.crs))
-      return false;
-    if (__isset.crs_encoding != rhs.__isset.crs_encoding)
-      return false;
-    else if (__isset.crs_encoding && !(crs_encoding == rhs.crs_encoding))
-      return false;
-    if (__isset.metadata != rhs.__isset.metadata)
-      return false;
-    else if (__isset.metadata && !(metadata == rhs.metadata))
       return false;
     return true;
   }

@@ -498,7 +498,6 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
             static_cast<ByteArrayColumnIndex*>(column_index.get());
         const auto& actual_stats = byte_array_column_index->geometry_statistics()[i];
         ASSERT_EQ(expected_stats.geometry_types, actual_stats.GetGeometryTypes());
-        ASSERT_EQ(expected_stats.coverings, actual_stats.GetCoverings());
         ASSERT_DOUBLE_EQ(expected_stats.xmin, actual_stats.GetXMin());
         ASSERT_DOUBLE_EQ(expected_stats.xmax, actual_stats.GetXMax());
         ASSERT_DOUBLE_EQ(expected_stats.ymin, actual_stats.GetYMin());
@@ -636,18 +635,14 @@ TEST(PageIndex, WriteGeometryColumnIndex) {
     geom_stats[i].mmin = i + 7;
     geom_stats[i].mmax = i + 8;
     geom_stats[i].geometry_types = {i + 1};
-    std::string covering = geometry::MakeCoveringWKBFromBound(
-        geom_stats[i].xmin, geom_stats[i].xmax, geom_stats[i].ymin, geom_stats[i].ymax);
-    geom_stats[i].coverings = {{"WKB", covering}};
     page_stats.at(i).set_min(dummy_min).set_max(dummy_max);
     page_stats.at(i).set_geometry(geom_stats[i]);
   }
 
   schema::NodePtr node = schema::PrimitiveNode::Make(
       "c1", Repetition::OPTIONAL,
-      GeometryLogicalType::Make(R"({"id": {"authority": "OGC", "code": "CRS84"}})",
-                                LogicalType::GeometryEdges::PLANAR,
-                                LogicalType::GeometryEncoding::WKB, "metadata0"),
+      GeometryLogicalType::Make("OGC:CRS84", LogicalType::GeometryEdges::PLANAR,
+                                LogicalType::GeometryEncoding::WKB),
       Type::BYTE_ARRAY);
 
   TestWriteTypedColumnIndex(node, page_stats, BoundaryOrder::Ascending,

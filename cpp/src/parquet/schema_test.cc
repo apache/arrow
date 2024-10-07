@@ -1544,10 +1544,10 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
       {LogicalType::BSON(), "BSON", R"({"Type": "BSON"})"},
       {LogicalType::UUID(), "UUID", R"({"Type": "UUID"})"},
       {LogicalType::Float16(), "Float16", R"({"Type": "Float16"})"},
-      {LogicalType::Geometry(), "Geometry(crs=, edges=planar, encoding=wkb, metadata=)",
+      {LogicalType::Geometry(), "Geometry(crs=, edges=planar, encoding=wkb)",
        R"({"Type": "Geometry", "edges": "planar", "encoding": "wkb"})"},
       {LogicalType::Geometry("{}", LogicalType::GeometryEdges::SPHERICAL),
-       "Geometry(crs={}, edges=spherical, encoding=wkb, metadata=)",
+       "Geometry(crs={}, edges=spherical, encoding=wkb)",
        R"({"Type": "Geometry", "crs": {}, "edges": "spherical", "encoding": "wkb"})"},
       {LogicalType::None(), "None", R"({"Type": "None"})"},
   };
@@ -2273,7 +2273,7 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
       {LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY, 2},
       {LogicalType::Geometry(), Type::BYTE_ARRAY, -1},
       {LogicalType::Geometry("non-empty crs", LogicalType::GeometryEdges::SPHERICAL,
-                             LogicalType::GeometryEncoding::WKB, "non-empty metadata"),
+                             LogicalType::GeometryEncoding::WKB),
        Type::BYTE_ARRAY, -1},
       {LogicalType::None(), Type::BOOLEAN, -1}};
 

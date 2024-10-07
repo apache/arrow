@@ -1827,9 +1827,8 @@ class TestGeometryLogicalType : public ::testing::Test {
     schema::NodeVector fields;
     fields.push_back(PrimitiveNode::Make(
         "g", Repetition::REQUIRED,
-        GeometryLogicalType::Make(R"({"id": {"authority": "OGC", "code": "CRS84"}})",
-                                  LogicalType::GeometryEdges::PLANAR,
-                                  LogicalType::GeometryEncoding::WKB, "metadata0"),
+        GeometryLogicalType::Make("OGC:CRS84", LogicalType::GeometryEdges::PLANAR,
+                                  LogicalType::GeometryEncoding::WKB),
         Type::BYTE_ARRAY));
     auto schema = std::static_pointer_cast<GroupNode>(
         GroupNode::Make("schema", Repetition::REQUIRED, fields));
@@ -1976,8 +1975,6 @@ class TestGeometryLogicalType : public ::testing::Test {
     EXPECT_GT(geom_stats->GetYMax(), geom_stats->GetYMin());
     EXPECT_FALSE(geom_stats->HasZ());
     EXPECT_FALSE(geom_stats->HasM());
-    EXPECT_EQ(1, geom_stats->GetCoverings().size());
-    EXPECT_EQ("WKB", geom_stats->GetCoverings().front().first);
   }
 
   void CheckColumnIndex(std::shared_ptr<ByteArrayColumnIndex> geometry_column_index) {
@@ -1998,8 +1995,6 @@ class TestGeometryLogicalType : public ::testing::Test {
       EXPECT_GT(geom_stats.GetYMax(), geom_stats.GetYMin());
       EXPECT_FALSE(geom_stats.HasZ());
       EXPECT_FALSE(geom_stats.HasM());
-      EXPECT_EQ(1, geom_stats.GetCoverings().size());
-      EXPECT_EQ("WKB", geom_stats.GetCoverings().front().first);
       last_xmin = geom_stats.GetXMin();
       last_ymin = geom_stats.GetYMin();
 
@@ -2033,7 +2028,6 @@ class TestGeometryLogicalType : public ::testing::Test {
         EXPECT_TRUE(statistics.has_geometry_statistics);
         EncodedGeometryStatistics geom_stats = statistics.geometry_statistics();
         EXPECT_EQ(1, geom_stats.geometry_types.size());
-        EXPECT_EQ(1, geom_stats.coverings.size());
         EXPECT_GE(geom_stats.xmin, 0);
         EXPECT_GT(geom_stats.xmax, geom_stats.xmin);
         EXPECT_GT(geom_stats.ymin, 0);
