@@ -110,7 +110,7 @@ under the License.
     <error_prone_core.version>2.31.0</error_prone_core.version>
     <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
-    <checker.framework.version>3.47.0</checker.framework.version>
+    <checker.framework.version>3.48.0</checker.framework.version>
     <logback.version>1.5.8</logback.version>
     <doclint>none</doclint>
     <additionalparam>-Xdoclint:none</additionalparam>
