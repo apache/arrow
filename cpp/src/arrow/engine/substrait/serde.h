@@ -39,6 +39,15 @@
 namespace arrow {
 namespace engine {
 
+/// \brief Helper function to create a consistent unpacking error status message.
+///
+/// \param[in] literal_type the user-defined literal type that failed to unpack
+/// \param[in] protobuf_type the expected protobuf type for the user-defined literal
+/// \return a Status object indicating the unpack failure with a descriptive error message
+ARROW_ENGINE_EXPORT
+inline Status CreateUnpackUserDefinedStatus(const std::string& literal_type, const std::string& protobuf_type) {
+    return Status::Invalid("Failed to unpack user defined ", literal_type, " literal to ", protobuf_type);
+}
 /// \brief Serialize an Acero Plan to a binary protobuf Substrait message
 ///
 /// \param[in] declaration the Acero declaration to serialize.
