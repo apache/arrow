@@ -47,6 +47,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/align_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
@@ -601,9 +602,6 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
         return Status::IOError("Array length did not match record batch length");
       }
       columns[i] = std::move(column);
-      if (context.options.ensure_memory_alignment) {
-        RETURN_NOT_OK(columns[i]->AlignBuffers());
-      }
       if (inclusion_mask) {
         filtered_columns.push_back(columns[i]);
         filtered_fields.push_back(schema->field(i));
@@ -639,8 +637,12 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
                             arrow::internal::SwapEndianArrayData(filtered_column));
     }
   }
-  return RecordBatch::Make(std::move(filtered_schema), metadata->length(),
-                           std::move(filtered_columns));
+  auto batch = RecordBatch::Make(std::move(filtered_schema), metadata->length(),
+    std::move(filtered_columns));
+  if (context.options.ensure_memory_alignment) {
+    return util::EnsureAlignment(batch, arrow::util::kValueAlignment, default_memory_pool());
+  }
+  return batch;
 }
 
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(

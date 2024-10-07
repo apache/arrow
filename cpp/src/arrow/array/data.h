@@ -31,7 +31,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/range.h"
 #include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
@@ -234,21 +233,6 @@ struct ARROW_EXPORT ArrayData {
       return !internal::IsNullRunEndEncoded(*this, i);
     }
     return null_count.load() != length;
-  }
-
-  Status AlignBuffers() {
-    // align buffers according to their data type's layout
-    for (auto&& [buffer, layout] : internal::Zip(buffers, type->layout().buffers)) {
-      if (layout.kind == DataTypeLayout::FIXED_WIDTH &&
-          buffer->address() % layout.byte_width) {
-        RETURN_NOT_OK(Buffer::Copy(buffer, buffer->memory_manager()).Value(&buffer));
-      }
-    }
-    // align children data recursively
-    for (const auto& child : child_data) {
-      RETURN_NOT_OK(child->AlignBuffers());
-    }
-    return Status::OK();
   }
 
   /// \brief Access a buffer's data as a typed C pointer
