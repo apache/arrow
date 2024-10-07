@@ -59,7 +59,7 @@ all the extensions types::
     b'"\x14\n\x01x\n\x01y\x12\x0c\n\x04*\x02\x10\x01\n\x04b\x02\x10\x01:\x19\x10,*\x15Acero 17.0.0'
 
 If ``Substrait Python`` is installed, the schema can also be converted to
-``substrait-python`` object::
+a ``substrait-python`` object::
 
     >>> print(substrait_schema.to_pysubstrait())
     version {
