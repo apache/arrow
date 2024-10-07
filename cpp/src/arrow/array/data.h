@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <arrow/util/range.h>
 #include <atomic>  // IWYU pragma: export
 #include <cassert>
 #include <cstdint>
@@ -32,6 +31,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/range.h"
 #include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
@@ -245,8 +245,8 @@ struct ARROW_EXPORT ArrayData {
       }
     }
     // align children data recursively
-    for (unsigned int i = 0; i < child_data.size(); i++) {
-      RETURN_NOT_OK(child_data[i]->AlignBuffers());
+    for (const auto& child : child_data) {
+      RETURN_NOT_OK(child->AlignBuffers());
     }
     return Status::OK();
   }

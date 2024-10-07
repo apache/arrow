@@ -536,7 +536,6 @@ def test_read_options():
     assert options.use_threads is True
     assert options.ensure_native_endian is True
     assert options.ensure_memory_alignment is True
-    assert options.ens is True
     assert options.included_fields == []
 
     options.ensure_native_endian = False
