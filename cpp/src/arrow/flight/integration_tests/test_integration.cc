@@ -45,6 +45,7 @@
 #include "arrow/table.h"
 #include "arrow/table_builder.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/align_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
@@ -279,6 +280,120 @@ class MiddlewareScenario : public Scenario {
   }
 
   std::shared_ptr<TestClientMiddlewareFactory> client_middleware_;
+};
+
+/// \brief The server used for testing FlightClient data alignment.
+///
+/// The server always returns the same data of various byte widths.
+/// The client should return data that is aligned according to the data type
+/// if FlightCallOptions.read_options.ensure_memory_alignment is true.
+///
+/// This scenario is passed only when the client returns aligned data.
+class AlignmentServer : public FlightServerBase {
+  Status GetFlightInfo(const ServerCallContext& context,
+                       const FlightDescriptor& descriptor,
+                       std::unique_ptr<FlightInfo>* result) override {
+    auto schema = BuildSchema();
+    std::vector<FlightEndpoint> endpoints{
+      FlightEndpoint{{"foo"}, {}, std::nullopt, ""}};
+    ARROW_ASSIGN_OR_RAISE(
+        auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
+    *result = std::make_unique<FlightInfo>(info);
+    return Status::OK();
+  }
+
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
+               std::unique_ptr<FlightDataStream>* stream) override {
+    ARROW_ASSIGN_OR_RAISE(auto builder, RecordBatchBuilder::Make(
+                                            BuildSchema(), arrow::default_memory_pool()));
+    if (request.ticket == "foo") {
+      auto int32_builder = builder->GetFieldAs<Int32Builder>(0);
+      ARROW_RETURN_NOT_OK(int32_builder->Append(1));
+      ARROW_RETURN_NOT_OK(int32_builder->Append(2));
+      ARROW_RETURN_NOT_OK(int32_builder->Append(3));
+      auto int64_builder = builder->GetFieldAs<Int64Builder>(1);
+      ARROW_RETURN_NOT_OK(int64_builder->Append(1l));
+      ARROW_RETURN_NOT_OK(int64_builder->Append(2l));
+      ARROW_RETURN_NOT_OK(int64_builder->Append(3l));
+      auto bool_builder = builder->GetFieldAs<BooleanBuilder>(2);
+      ARROW_RETURN_NOT_OK(bool_builder->Append(false));
+      ARROW_RETURN_NOT_OK(bool_builder->Append(true));
+      ARROW_RETURN_NOT_OK(bool_builder->Append(false));
+    } else {
+      return Status::KeyError("Could not find flight: ", request.ticket);
+    }
+    ARROW_ASSIGN_OR_RAISE(auto record_batch, builder->Flush());
+    std::vector<std::shared_ptr<RecordBatch>> record_batches{record_batch};
+    ARROW_ASSIGN_OR_RAISE(auto record_batch_reader,
+                          RecordBatchReader::Make(record_batches));
+    *stream = std::make_unique<RecordBatchStream>(record_batch_reader);
+    return Status::OK();
+  }
+
+ private:
+  std::shared_ptr<Schema> BuildSchema() {
+    return arrow::schema({
+        arrow::field("int32", arrow::int32(), false),
+        arrow::field("int64", arrow::int64(), false),
+        arrow::field("bool", arrow::boolean(), false),
+    });
+  }
+};
+
+/// \brief The alignment scenario.
+///
+/// This tests that the client provides aligned data if requested.
+class AlignmentScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    server->reset(new AlignmentServer());
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("alignment")));
+    std::vector<std::shared_ptr<arrow::Table>> tables;
+    for (const auto& endpoint : info->endpoints()) {
+      if (!endpoint.locations.empty()) {
+        std::stringstream ss;
+        ss << "[";
+        for (const auto& location : endpoint.locations) {
+          if (ss.str().size() != 1) {
+            ss << ", ";
+          }
+          ss << location.ToString();
+        }
+        ss << "]";
+        return Status::Invalid(
+            "Expected to receive empty locations to use the original service: ",
+            ss.str());
+      }
+      ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint.ticket));
+      ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
+      tables.push_back(table);
+    }
+    ARROW_ASSIGN_OR_RAISE(auto table, ConcatenateTables(tables));
+
+    // Check read data
+    auto expectedRowCount = 3;
+    if (table->getRowCount() != expectedRowCount) {
+      return Status::Invalid("Read table size isn't expected\n", "Expected rows:\n",
+                             expectedRowCount, "Actual rows:\n", table->getRowCount());
+    }
+    auto expectedColumnCount = 3;
+    if (table->getVectorCount() != expectedColumnCount) {
+      return Status::Invalid("Read table size isn't expected\n", "Expected columns:\n",
+                             expectedColumnCount, "Actual columns:\n", table->getVectorCount());
+    }
+    // Check data alignment
+    if (!util::CheckAlignment(table)) {
+      return Status::Invalid("Read table has unaligned data");
+    }
+    return Status::OK();
+  }
 };
 
 /// \brief The server used for testing FlightInfo.ordered.
@@ -2383,6 +2498,9 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
     return Status::OK();
   } else if (scenario_name == "middleware") {
     *out = std::make_shared<MiddlewareScenario>();
+    return Status::OK();
+  } else if (scenario_name == "alignment") {
+    *out = std::make_shared<AlignmentScenario>();
     return Status::OK();
   } else if (scenario_name == "ordered") {
     *out = std::make_shared<OrderedScenario>();
