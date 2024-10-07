@@ -145,4 +145,14 @@ TEST(ReverseIndex, Overflow) {
   }
 }
 
+TEST(Permute, Basic) {
+  auto values = ArrayFromJSON(int64(), "[10, 11, 12, 13, 14, 15, 16, 17, 18, 19]");
+  auto indices = ArrayFromJSON(int64(), "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]");
+  auto expected = ArrayFromJSON(int64(), "[19, 18, 17, 16, 15, 14, 13, 12, 11, 10]");
+  PermuteOptions options{10};
+  ASSERT_OK_AND_ASSIGN(Datum result,
+                       CallFunction("permute", {values, indices}, &options));
+  AssertDatumsEqual(expected, result);
+}
+
 };  // namespace arrow::compute

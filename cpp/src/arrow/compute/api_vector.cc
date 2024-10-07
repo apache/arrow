@@ -159,8 +159,8 @@ static auto kReverseIndexOptionsType = GetFunctionOptionsType<ReverseIndexOption
     DataMember("output_length", &ReverseIndexOptions::output_length),
     DataMember("output_type", &ReverseIndexOptions::output_type),
     DataMember("output_non_taken", &ReverseIndexOptions::output_non_taken));
-static auto kPermuteOptionsType =
-    GetFunctionOptionsType<PermuteOptions>(DataMember("bound", &PermuteOptions::bound));
+static auto kPermuteOptionsType = GetFunctionOptionsType<PermuteOptions>(
+    DataMember("output_length", &PermuteOptions::output_length));
 }  // namespace
 }  // namespace internal
 
@@ -245,8 +245,8 @@ ReverseIndexOptions::ReverseIndexOptions(int64_t output_length,
       output_non_taken(std::move(output_non_taken)) {}
 constexpr char ReverseIndexOptions::kTypeName[];
 
-PermuteOptions::PermuteOptions(int64_t bound)
-    : FunctionOptions(internal::kPermuteOptionsType), bound(bound) {}
+PermuteOptions::PermuteOptions(int64_t output_length)
+    : FunctionOptions(internal::kPermuteOptionsType), output_length(output_length) {}
 constexpr char PermuteOptions::kTypeName[];
 
 namespace internal {

@@ -266,27 +266,30 @@ class ARROW_EXPORT ReverseIndexOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "ReverseIndexOptions";
   static ReverseIndexOptions Defaults() { return ReverseIndexOptions(); }
 
-  /// \brief The upper bound of the permutation. If -1, the output will be sized as the
-  /// maximum value in the indices array + 1. Otherwise, the output will be of size bound,
-  /// and any indices that are greater of equal to bound will be ignored.
+  /// \brief The length of the output reverse index. Must be non-negative. Any indices
+  /// that are greater of equal to this length will be ignored.
   int64_t output_length = 0;
-  /// \brief The type of the output reverse index. If null, the output type will be the
-  /// smallest possible integer type that can hold the maximum value in the indices array.
+  /// \brief The type of the output reverse index. Must be integer types. An overflow
+  /// error will be reported if any reverse indices are out of the bounds of the output
+  /// type.
   std::shared_ptr<DataType> output_type = int32();
+  /// \brief The value to fill in the output reverse index for indices that are not taken.
+  /// Must be of the same type as `output_type` if not null. If not provided or an invalid
+  /// scalar is provided, the non-taken indices will be filled with nulls. Using non-null
+  /// scalars properly may enable efficient processing of reverse index function.
   std::shared_ptr<Scalar> output_non_taken = NULLPTR;
 };
 
 /// \brief Options for permute function
 class ARROW_EXPORT PermuteOptions : public FunctionOptions {
  public:
-  explicit PermuteOptions(int64_t bound = -1);
+  explicit PermuteOptions(int64_t output_length = 0);
   static constexpr char const kTypeName[] = "PermuteOptions";
   static PermuteOptions Defaults() { return PermuteOptions(); }
 
-  /// \brief The upper bound of the permutation. If -1, the output will be sized as the
-  /// maximum value in the indices array + 1. Otherwise, the output will be of size bound,
-  /// and any indices that are greater of equal to bound will be ignored.
-  int64_t bound = -1;
+  /// \brief The length of the output permutation. Must be non-negative. Any values with
+  /// indices that are greater of equal to this length will be ignored.
+  int64_t output_length = 0;
 };
 
 /// @}

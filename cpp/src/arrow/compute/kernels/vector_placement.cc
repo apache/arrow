@@ -10,6 +10,18 @@ namespace arrow::compute::internal {
 
 namespace {
 
+// ----------------------------------------------------------------------
+// ReverseIndex
+
+const FunctionDoc reverse_index_doc(
+    "Compute the reverse indices from an input indices",
+    "For the `i`-th `index` in `indices`, the `index`-th output is `i`", {"indices"});
+
+const PermuteOptions* GetDefaultReverseIndexOptions() {
+  static const auto kDefaultPermuteOptions = PermuteOptions::Defaults();
+  return &kDefaultPermuteOptions;
+}
+
 struct ReverseIndexState : public KernelState {
   explicit ReverseIndexState(int64_t length, std::shared_ptr<DataType> type,
                              std::shared_ptr<Buffer> validity,
@@ -203,15 +215,8 @@ struct ReverseIndexChunked {
   }
 };
 
-const FunctionDoc reverse_index_doc(
-    "Compute the reverse indices from an input indices",
-    "Place each input value to the output array at position specified by `indices`",
-    {"indices"});
-
-const PermuteOptions* GetDefaultReverseIndexOptions() {
-  static const auto kDefaultPermuteOptions = PermuteOptions::Defaults();
-  return &kDefaultPermuteOptions;
-}
+// ----------------------------------------------------------------------
+// Permute
 
 const FunctionDoc permute_doc(
     "Permute values of an input based on indices from another array",
@@ -232,68 +237,40 @@ class PermuteMetaFunction : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    const auto& permute_options = checked_cast<const PermuteOptions&>(*options);
-    if (args[0].length() != args[1].length()) {
-      return Status::Invalid("Input and indices must have the same length");
+    const auto& values = args[0];
+    const auto& indices = args[1];
+    auto* permute_options = checked_cast<const PermuteOptions*>(options);
+    if (values.length() != indices.length()) {
+      return Status::Invalid(
+          "Input and indices of permute must have the same length, got " +
+          std::to_string(values.length()) + " and " + std::to_string(indices.length()));
     }
-    if (args[0].length() == 0) {
-      return args[0];
+    if (!is_integer(indices.type()->id())) {
+      return Status::Invalid("Indices of permute must be of integer type, got ",
+                             indices.type()->ToString());
     }
-    int64_t output_length = permute_options.bound;
+    int64_t output_length = permute_options->output_length;
     if (output_length < 0) {
-      ARROW_ASSIGN_OR_RAISE(auto max_scalar, CallFunction("max", {args[1]}, ctx));
-      DCHECK(max_scalar.is_scalar());
-      ARROW_ASSIGN_OR_RAISE(auto max_i64_scalar, max_scalar.scalar()->CastTo(int64()));
-      output_length = checked_cast<const Int64Scalar*>(max_i64_scalar.get())->value + 1;
+      return Status::Invalid("Output length of permute must be non-negative, got " +
+                             std::to_string(output_length));
     }
-    if (output_length <= 0) {
-      ARROW_ASSIGN_OR_RAISE(auto output, MakeEmptyArray(args[0].type()));
-      return output->data();
+    std::shared_ptr<Scalar> output_non_taken = nullptr;
+    if (is_signed_integer(indices.type()->id())) {
+      // Using -1 (as opposed to null) as output_non_taken for signed integer types to
+      // enable efficient reverse_index.
+      ARROW_ASSIGN_OR_RAISE(output_non_taken, MakeScalar(indices.type(), -1));
     }
-    ARROW_ASSIGN_OR_RAISE(auto reverse_indices,
-                          MakeArrayOfNull(int64(), output_length, ctx->memory_pool()));
-    switch (args[1].kind()) {
-      case Datum::ARRAY:
-        RETURN_NOT_OK(ReverseIndices(*args[1].array(), reverse_indices->data()));
-        break;
-      case Datum::CHUNKED_ARRAY:
-        for (const auto& chunk : args[1].chunked_array()->chunks()) {
-          RETURN_NOT_OK(ReverseIndices(*chunk->data(), reverse_indices->data()));
-        }
-        break;
-      default:
-        return Status::NotImplemented("Unsupported shape for permute operation: indices=",
-                                      args[1].ToString());
-        break;
-    }
-    return CallFunction("take", {args[0], reverse_indices}, ctx);
+    ReverseIndexOptions reverse_index_options{output_length, indices.type(),
+                                              std::move(output_non_taken)};
+    ARROW_ASSIGN_OR_RAISE(
+        auto reverse_indices,
+        CallFunction("reverse_index", {indices}, &reverse_index_options, ctx));
+    TakeOptions take_options{/*boundcheck=*/false};
+    return CallFunction("take", {values, reverse_indices}, &take_options, ctx);
   }
-
- private:
-  Status ReverseIndices(const ArraySpan& indices,
-                        const std::shared_ptr<ArrayData>& reverse_indices) const {
-    auto reverse_indices_validity = reverse_indices->GetMutableValues<uint8_t>(0);
-    auto reverse_indices_data = reverse_indices->GetMutableValues<int64_t>(1);
-    auto length = reverse_indices->length;
-    int64_t reverse_index = 0;
-    return VisitArraySpanInline<Int64Type>(
-        indices,
-        [&](int64_t index) {
-          if (ARROW_PREDICT_TRUE(index > 0 && index < length)) {
-            bit_util::SetBitTo(reverse_indices_validity, index, true);
-            reverse_indices_data[index] = reverse_index;
-          }
-          ++reverse_index;
-          return Status::OK();
-        },
-        [&]() {
-          ++reverse_index;
-          return Status::OK();
-        });
-  };
 };
 
-}  // namespace
+// ----------------------------------------------------------------------
 
 void RegisterVectorReverseIndex(FunctionRegistry* registry) {
   auto function =
@@ -319,9 +296,15 @@ void RegisterVectorReverseIndex(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
 
+void RegisterVectorPermute(FunctionRegistry* registry) {
+  DCHECK_OK(registry->AddFunction(std::make_shared<PermuteMetaFunction>()));
+}
+
+}  // namespace
+
 void RegisterVectorPlacement(FunctionRegistry* registry) {
   RegisterVectorReverseIndex(registry);
-  DCHECK_OK(registry->AddFunction(std::make_shared<PermuteMetaFunction>()));
+  RegisterVectorPermute(registry);
 }
 
 }  // namespace arrow::compute::internal
