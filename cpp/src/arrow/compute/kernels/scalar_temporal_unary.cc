@@ -476,8 +476,8 @@ struct PGYear {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     return static_cast<T>(static_cast<const int32_t>(
-        year_month_day(
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)), epoch_type::pg_epoch)
+        year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)),
+                       arrow_vendored::date::epoch_type::pg_epoch)
             .year()));
   }
 
@@ -495,9 +495,8 @@ struct PGMonth {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     return static_cast<T>(static_cast<const uint32_t>(
-        year_month_day(
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)),
-            epoch_type::pg_epoch)
+        year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)),
+                       arrow_vendored::date::epoch_type::pg_epoch)
             .month()));
   }
 
@@ -515,9 +514,8 @@ struct PGDay {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     return static_cast<T>(static_cast<const uint32_t>(
-        year_month_day(
-            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)),
-            epoch_type::pg_epoch)
+        year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)),
+                       arrow_vendored::date::epoch_type::pg_epoch)
             .day()));
   }
 
@@ -559,7 +557,8 @@ struct PGWeek {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
-    auto y = year_month_day{t + days_offset_, epoch_type::pg_epoch}.year();
+    auto y = year_month_day{t + days_offset_, arrow_vendored::date::epoch_type::pg_epoch}
+                 .year();
 
     if (first_week_is_fully_in_year_) {
       auto start = localizer_.ConvertDays(y / jan / wd_[1]);

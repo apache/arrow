@@ -688,7 +688,7 @@ std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits>& os, const month_weekday_last& mwdl);
 
 // epoch_type represents the difference days between the specific epoch and unix epoch.
-enum epoch_type {
+enum class epoch_type {
   // '1970-01-01'
   unix_epoch = 0,
 
@@ -2999,7 +2999,7 @@ year_month_day::to_days() const NOEXCEPT
     auto const yoe = static_cast<unsigned>(y - era * 400);       // [0, 399]
     auto const doy = (153*(m > 2 ? m-3 : m+9) + 2)/5 + d-1;      // [0, 365]
     auto const doe = yoe * 365 + yoe/4 - yoe/100 + doy;          // [0, 146096]
-    return days{era * 146097 + static_cast<int>(doe) - 719468 - et_};
+    return days{era * 146097 + static_cast<int>(doe) - 719468 - static_cast<int> (et_)};
 }
 
 CONSTCD14
@@ -3106,7 +3106,7 @@ year_month_day::from_days(days dp, epoch_type et) NOEXCEPT
              "This algorithm has not been ported to a 16 bit unsigned integer");
     static_assert(std::numeric_limits<int>::digits >= 20,
              "This algorithm has not been ported to a 16 bit signed integer");
-    auto const z = dp.count() + 719468 + et;
+    auto const z = dp.count() + 719468 + static_cast<int>(et);
     auto const era = (z >= 0 ? z : z - 146096) / 146097;
     auto const doe = static_cast<unsigned>(z - era * 146097);          // [0, 146096]
     auto const yoe = (doe - doe/1460 + doe/36524 - doe/146096) / 365;  // [0, 399]
