@@ -234,7 +234,7 @@ final class Format {
       case LargeListView:
         return "+vL";
       case RunEndEncoded:
-        return "r";
+        return "+r";
       case NONE:
         throw new IllegalArgumentException("Arrow type ID is NONE");
       default:
