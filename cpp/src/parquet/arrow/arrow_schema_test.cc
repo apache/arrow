@@ -757,23 +757,35 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
 
   {
     // Parquet file does not contain Arrow schema.
-    // If Arrow extensions are enabled, both fields should be treated as json() extension
-    // fields.
+    // If Arrow extensions are enabled, fields will be interpreted as json(utf8())
+    // extension fields.
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(true);
     auto arrow_schema = ::arrow::schema(
         {::arrow::field("json_1", ::arrow::extension::json(), true),
-         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
-                        true)});
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::utf8()), true)});
     std::shared_ptr<KeyValueMetadata> metadata{};
     ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
     CheckFlatSchema(arrow_schema);
+
+    // If original data was e.g. json(large_utf8()) it will be interpreted as json(utf8())
+    // in absence of Arrow schema.
+    arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", ::arrow::extension::json(), true),
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
+                        true)});
+    metadata = std::shared_ptr<KeyValueMetadata>{};
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    EXPECT_TRUE(result_schema_->field(1)->type()->Equals(
+        ::arrow::extension::json(::arrow::utf8())));
+    EXPECT_FALSE(
+        result_schema_->field(1)->type()->Equals(arrow_schema->field(1)->type()));
   }
 
   {
     // Parquet file contains Arrow schema.
-    // Both json_1 and json_2 should be returned as a json() field
-    // even though extensions are not enabled.
+    // json_1 and json_2 will be interpreted as json(utf8()) and json(large_utf8())
+    // fields even though extensions are not enabled.
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(false);
     std::shared_ptr<KeyValueMetadata> field_metadata =
@@ -791,7 +803,7 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
 
   {
     // Parquet file contains Arrow schema. Extensions are enabled.
-    // Both json_1 and json_2 should be returned as a json() field
+    // json_1 and json_2 will be interpreted as json(utf8()) and json(large_utf8()).
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(true);
     std::shared_ptr<KeyValueMetadata> field_metadata =
