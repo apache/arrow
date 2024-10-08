@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Upload PR review Payload"
-        uses: actions/upload-artifact@v4.4.0
+        uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v4.4.1
         with:
           path: "${{ github.event_path }}"
           name: "pr_review_payload"
