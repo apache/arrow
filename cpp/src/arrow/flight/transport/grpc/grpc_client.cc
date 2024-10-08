@@ -815,6 +815,8 @@ class GrpcClientImpl : public internal::ClientTransport {
         default_args[arg.first] = std::get<int>(arg.second);
       } else if (std::holds_alternative<std::string>(arg.second)) {
         args.SetString(arg.first, std::get<std::string>(arg.second));
+      } else if (std::holds_alternative<void*>(arg.second)) {
+        args.SetPointer(arg.first, std::get<void*>(arg.second));
       }
       // Otherwise unimplemented
     }
