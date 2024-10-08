@@ -152,7 +152,7 @@ test_that("check_allowlist", {
   # (which is one level higher, so we can find `tools/nixlibs.R`)
   # TODO: it's possible that we don't want to run this whole file in that directory
   # like we do currently.
-  local_dir("..")
+  withr::local_dir("..")
 
   tf <- tempfile()
   cat("tu$\n^cent\n^dar\n", file = tf)
