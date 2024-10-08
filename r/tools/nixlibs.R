@@ -217,7 +217,7 @@ identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()
   lib
 }
 
-check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apache/arrow/main/r/tools/nixibs-allowlist.txt") {
+check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apache/arrow/main/r/tools/nixlibs-allowlist.txt") {
   allowlist <- tryCatch(
     # Try a remote allowlist so that we can add/remove without a release
     suppressWarnings(readLines(allowed)),
