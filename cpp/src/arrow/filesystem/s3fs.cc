@@ -105,6 +105,10 @@
 #  define ARROW_S3_HAS_S3CLIENT_CONFIGURATION
 #endif
 
+#if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 201)
+#  define ARROW_S3_SUPPORT_SSEC
+#endif
+
 #ifdef ARROW_S3_HAS_CRT
 #  include <aws/crt/io/Bootstrap.h>
 #  include <aws/crt/io/EventLoopGroup.h>
