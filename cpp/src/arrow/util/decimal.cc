@@ -38,6 +38,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/value_parsing.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -1191,7 +1192,7 @@ Status Decimal128::ToArrowStatus(DecimalStatus dstatus) const {
   return arrow::ToArrowStatus(dstatus, 128);
 }
 
-std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
   os << decimal.ToIntegerString();
   return os;
 }
@@ -1444,7 +1445,7 @@ double Decimal256::ToDouble(int32_t scale) const {
   return Decimal256RealConversion::ToReal<double>(*this, scale);
 }
 
-std::ostream& operator<<(std::ostream& os, const Decimal256& decimal) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal256& decimal) {
   os << decimal.ToIntegerString();
   return os;
 }
