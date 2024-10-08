@@ -782,7 +782,6 @@ public class RoundtripTest {
     }
   }
 
-
   @Test
   public void testExtensionTypeVector() {
     ExtensionTypeRegistry.register(new UuidType());
