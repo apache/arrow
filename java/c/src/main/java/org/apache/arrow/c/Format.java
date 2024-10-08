@@ -323,7 +323,7 @@ final class Format {
         return new ArrowType.ListView();
       case "+vL":
         return new ArrowType.LargeListView();
-      case "r":
+      case "+r":
         return new ArrowType.RunEndEncoded();
       default:
         String[] parts = format.split(":", 2);
