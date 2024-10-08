@@ -55,5 +55,5 @@ Gem::Specification.new do |spec|
 
   required_msys2_package_version = version_components[0, 3].join(".")
   spec.metadata["msys2_mingw_dependencies"] =
-    "arrow>=#{required_msys2_package_version}"
+    "arrow>=#{required_msys2_package_version}" xsimd
 end
