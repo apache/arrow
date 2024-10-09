@@ -408,6 +408,13 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
     } else if (kv.first == "allow_bucket_deletion") {
       ARROW_ASSIGN_OR_RAISE(options.allow_bucket_deletion,
                             ::arrow::internal::ParseBoolean(kv.second));
+    } else if (kv.first == "tls_ca_file_path") {
+      options.tls_ca_file_path = kv.second;
+    } else if (kv.first == "tls_ca_dir_path") {
+      options.tls_ca_dir_path = kv.second;
+    } else if (kv.first == "tls_verify_certificates") {
+      ARROW_ASSIGN_OR_RAISE(options.tls_verify_certificates,
+                            ::arrow::internal::ParseBoolean(kv.second));
     } else {
       return Status::Invalid("Unexpected query parameter in S3 URI: '", kv.first, "'");
     }
@@ -444,6 +451,9 @@ bool S3Options::Equals(const S3Options& other) const {
           background_writes == other.background_writes &&
           allow_bucket_creation == other.allow_bucket_creation &&
           allow_bucket_deletion == other.allow_bucket_deletion &&
+          tls_ca_file_path == other.tls_ca_file_path &&
+          tls_ca_dir_path == other.tls_ca_dir_path &&
+          tls_verify_certificates == other.tls_verify_certificates &&
           sse_customer_key == other.sse_customer_key && default_metadata_equals &&
           GetAccessKey() == other.GetAccessKey() &&
           GetSecretKey() == other.GetSecretKey() &&
@@ -1131,11 +1141,20 @@ class ClientBuilder {
     } else {
       client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
     }
-    if (!internal::global_options.tls_ca_file_path.empty()) {
+    if (!options_.tls_ca_file_path.empty()) {
+      client_config_.caFile = ToAwsString(options_.tls_ca_file_path);
+    } else if (!internal::global_options.tls_ca_file_path.empty()) {
       client_config_.caFile = ToAwsString(internal::global_options.tls_ca_file_path);
     }
-    if (!internal::global_options.tls_ca_dir_path.empty()) {
+    if (!options_.tls_ca_dir_path.empty()) {
+      client_config_.caPath = ToAwsString(options_.tls_ca_dir_path);
+    } else if (!internal::global_options.tls_ca_dir_path.empty()) {
       client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
+    }
+    if (!options_.tls_verify_certificates) {
+      client_config_.verifySSL = options_.tls_verify_certificates;
+    } else if (!internal::global_options.tls_verify_certificates) {
+      client_config_.verifySSL = internal::global_options.tls_verify_certificates;
     }
 
     // Set proxy options if provided

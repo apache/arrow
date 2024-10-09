@@ -199,6 +199,20 @@ struct ARROW_EXPORT S3Options {
   /// the SSE-C customized key (raw 32 bytes key).
   std::string sse_customer_key;
 
+  /// Path to a single PEM file holding all TLS CA certificates
+  ///
+  /// If empty, the underlying TLS library's defaults will be used.
+  std::string tls_ca_file_path;
+
+  /// Path to a directory holding TLS CA certificates in individual PEM files
+  /// named along the OpenSSL "hashed" format.
+  ///
+  /// If empty, the underlying TLS library's defaults will be used.
+  std::string tls_ca_dir_path;
+
+  /// Controls whether to verify TLS certificates. Defaults to true.
+  bool tls_verify_certificates = true;
+
   S3Options();
 
   /// Configure with the default AWS credentials provider chain.

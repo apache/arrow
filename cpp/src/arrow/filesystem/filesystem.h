@@ -710,6 +710,9 @@ struct FileSystemGlobalOptions {
   ///
   /// If empty, the underlying TLS library's defaults will be used.
   std::string tls_ca_dir_path;
+
+  /// Controls whether to verify TLS certificates. Defaults to true.
+  bool tls_verify_certificates = true;
 };
 
 /// EXPERIMENTAL: optional global initialization routine

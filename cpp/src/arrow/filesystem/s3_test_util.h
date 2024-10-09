@@ -30,6 +30,10 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 
+#if defined(__linux__)
+#  define MINIO_SERVER_WITH_TLS
+#endif  // Linux
+
 namespace arrow {
 namespace fs {
 
@@ -51,6 +55,8 @@ class MinioTestServer {
   std::string secret_key() const;
 
   std::string ca_path() const;
+
+  std::string scheme() const;
 
  private:
   Status GenerateCertificateFile();
