@@ -1466,6 +1466,24 @@ def test_azurefs_options(pickle_module):
     with pytest.raises(TypeError):
         AzureFileSystem()
 
+@pytest.mark.azure
+def test_azurefs_connection_errors(pickle_module):
+    from pyarrow.fs import AzureFileSystem
+
+    # filesystem with bad port - attempts to use this
+    # will lead to transport errors which the FS needs
+    # to handle properly
+    fs1 = AzureFileSystem(
+        account_name='fake-account-name',
+        account_key='fakeaccountkey==',
+        blob_storage_authority='127.0.0.1:20000',
+        dfs_storage_authority='127.0.0.1:20000',
+        blob_storage_scheme='http',
+        dfs_storage_scheme='http'
+    )
+
+    with pytest.raises(OSError):
+        fs1.create_dir("test/dir")
 
 @pytest.mark.hdfs
 def test_hdfs_options(hdfs_connection, pickle_module):
