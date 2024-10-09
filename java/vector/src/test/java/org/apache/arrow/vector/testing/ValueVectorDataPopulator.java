@@ -827,6 +827,10 @@ public class ValueVectorDataPopulator {
       }
     }
 
-    vector.setValueCount(runEnds.get(runCount - 1));
+    if (runCount > 0) {
+      vector.setValueCount(runEnds.get(runCount - 1));
+    } else {
+      vector.setValueCount(0);
+    }
   }
 }

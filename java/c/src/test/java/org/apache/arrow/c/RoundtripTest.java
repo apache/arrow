@@ -776,12 +776,19 @@ public class RoundtripTest {
     try (final RunEndEncodedVector vector = RunEndEncodedVector.empty("v", allocator)) {
       setVector(
           vector,
-          Arrays.stream(new int[] {1, 3}).boxed().collect(Collectors.toList()),
-          Arrays.stream(new int[] {1, 2}).boxed().collect(Collectors.toList()));
+          List.of(1, 3),
+          List.of(1, 2));
       assertTrue(roundtrip(vector, RunEndEncodedVector.class));
     }
   }
 
+  @Test
+  public void testEmptyRunEndEncodedVector() {
+    try (final RunEndEncodedVector vector = RunEndEncodedVector.empty("v", allocator)) {
+      setVector(vector, List.of(), List.of());
+      assertTrue(roundtrip(vector, RunEndEncodedVector.class));
+    }
+  }
   @Test
   public void testExtensionTypeVector() {
     ExtensionTypeRegistry.register(new UuidType());
