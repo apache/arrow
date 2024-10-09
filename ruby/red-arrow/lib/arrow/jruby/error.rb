@@ -15,11 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/version"
-
 module Arrow
   class Error < StandardError
+    class Invalid < Error
+    end
   end
 end
-
-require_relative "arrow/#{RUBY_ENGINE}"

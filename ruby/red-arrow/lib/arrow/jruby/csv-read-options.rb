@@ -15,11 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/version"
-
 module Arrow
-  class Error < StandardError
+  class CSVReadOptions
+    def add_column_type(name, type)
+      raise NotImplementedError
+    end
+
+    def delimiter
+      raise NotImplementedError
+    end
+
+    def delimiter=(delimiter)
+      raise NotImplementedError
+    end
   end
 end
-
-require_relative "arrow/#{RUBY_ENGINE}"

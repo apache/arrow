@@ -15,11 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/version"
-
 module Arrow
-  class Error < StandardError
+  class StreamListenerRaw
+    class << self
+      def type_register
+      end
+    end
   end
 end
-
-require_relative "arrow/#{RUBY_ENGINE}"

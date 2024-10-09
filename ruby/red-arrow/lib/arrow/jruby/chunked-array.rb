@@ -15,11 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/version"
-
 module Arrow
-  class Error < StandardError
+  class ChunkedArray
+    def initialize(arrays)
+      @arrays = arrays
+    end
+
+    def n_rows
+      @arrays.sum(&:size)
+    end
+
+    def chunks
+      @arrays
+    end
+
+    def get_chunk(i)
+      @arrays[i]
+    end
   end
 end
-
-require_relative "arrow/#{RUBY_ENGINE}"

@@ -20,7 +20,11 @@
 require_relative "lib/arrow/version"
 
 Gem::Specification.new do |spec|
+  is_jruby = RUBY_ENGINE == "jruby"
+
   spec.name = "red-arrow"
+  spec.platform = "java" if is_jruby
+
   version_components = [
     Arrow::Version::MAJOR.to_s,
     Arrow::Version::MINOR.to_s,
@@ -43,15 +47,20 @@ Gem::Specification.new do |spec|
   spec.files += Dir.glob("lib/**/*.rb")
   spec.files += Dir.glob("image/*.*")
   spec.files += Dir.glob("doc/text/*")
-  spec.test_files += Dir.glob("test/**/*")
-  spec.extensions = ["ext/arrow/extconf.rb"]
+  spec.extensions = ["ext/arrow/extconf.rb"] unless is_jruby
 
   spec.add_runtime_dependency("bigdecimal", ">= 3.1.0")
   spec.add_runtime_dependency("csv")
-  spec.add_runtime_dependency("extpp", ">= 0.1.1")
-  spec.add_runtime_dependency("gio2", ">= 4.2.3")
-  spec.add_runtime_dependency("native-package-installer")
-  spec.add_runtime_dependency("pkg-config")
+  if is_jruby
+    spec.add_runtime_dependency("jar-dependencies")
+    spec.requirements << "jar org.apache.arrow, arrow-vector, #{spec.version}"
+    spec.requirements << "jar org.apache.arrow, arrow-memory-netty, #{spec.version}"
+  else
+    spec.add_runtime_dependency("extpp", ">= 0.1.1")
+    spec.add_runtime_dependency("gio2", ">= 4.2.3")
+    spec.add_runtime_dependency("native-package-installer")
+    spec.add_runtime_dependency("pkg-config")
+  end
 
   required_msys2_package_version = version_components[0, 3].join(".")
   spec.metadata["msys2_mingw_dependencies"] =

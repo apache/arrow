@@ -15,11 +15,34 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/version"
-
 module Arrow
-  class Error < StandardError
+  class DataType
+    def initialize
+      @minor_type = self.class::MinorType
+    end
+  end
+
+  class Int8DataType < DataType
+    MinorType = org.apache.arrow.vector.types.Types::MinorType::SMALLINT
+  end
+
+  class Int32DataType < DataType
+    MinorType = org.apache.arrow.vector.types.Types::MinorType::INT
+  end
+
+  class Decimal128DataType < DataType
+    class << self
+      def max_precision
+        38
+      end
+    end
+  end
+
+  class Decimal256DataType < DataType
+    class << self
+      def max_precision
+        76
+      end
+    end
   end
 end
-
-require_relative "arrow/#{RUBY_ENGINE}"

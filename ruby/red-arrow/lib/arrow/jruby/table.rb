@@ -15,11 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/version"
-
 module Arrow
-  class Error < StandardError
+  class Table
+    def filter(filter, options=nil)
+      raise NotImplementedError
+    end
+
+    def take(indices)
+      raise NotImplementedError
+    end
+
+    def n_rows
+      raise NotImplementedError
+    end
+
+    def slice(from, length)
+      raise NotImplementedError
+    end
+
+    def remove_column(index)
+      raise NotImplementedError
+    end
   end
 end
-
-require_relative "arrow/#{RUBY_ENGINE}"

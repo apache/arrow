@@ -15,11 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/version"
-
 module Arrow
-  class Error < StandardError
+  class SortOptions
+    def add_sort_key(target, order=nil)
+      raise NotImplementedError
+    end
   end
 end
-
-require_relative "arrow/#{RUBY_ENGINE}"
