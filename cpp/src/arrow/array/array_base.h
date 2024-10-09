@@ -237,7 +237,7 @@ class ARROW_EXPORT Array {
   /// This just delegates to calling statistics on the underlying ArrayData
   /// object which backs this Array.
   ///
-  /// \return const ArrayStatistics&
+  /// \return std::shared_ptr<ArrayStatistics>
   std::shared_ptr<ArrayStatistics> statistics() const { return data_->statistics; }
 
  protected:
