@@ -87,9 +87,7 @@ class ArrowAltrepData {
 
   const std::shared_ptr<ChunkedArray>& chunked_array() { return chunked_array_; }
 
-  arrow::ChunkLocation locate(int64_t index) {
-    return resolver_.Resolve(index);
-  }
+  arrow::ChunkLocation locate(int64_t index) { return resolver_.Resolve(index); }
 
  private:
   std::shared_ptr<ChunkedArray> chunked_array_;
