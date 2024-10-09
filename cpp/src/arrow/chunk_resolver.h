@@ -27,12 +27,12 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 
-namespace arrow::internal {
+namespace arrow {
 
 struct ChunkResolver;
 
 template <typename IndexType>
-struct TypedChunkLocation {
+struct ARROW_EXPORT TypedChunkLocation {
   /// \brief Index of the chunk in the array of chunks
   ///
   /// The value is always in the range `[0, chunks.size()]`. `chunks.size()` is used
@@ -41,7 +41,7 @@ struct TypedChunkLocation {
 
   /// \brief Index of the value in the chunk
   ///
-  /// The value is UNDEFINED if chunk_index >= chunks.size()
+  /// The value is UNDEFINED if `chunk_index >= chunks.size()`
   IndexType index_in_chunk = 0;
 
   TypedChunkLocation() = default;
@@ -61,7 +61,7 @@ using ChunkLocation = TypedChunkLocation<int64_t>;
 
 /// \brief An utility that incrementally resolves logical indices into
 /// physical indices in a chunked array.
-struct ARROW_EXPORT ChunkResolver {
+class ARROW_EXPORT ChunkResolver {
  private:
   /// \brief Array containing `chunks.size() + 1` offsets.
   ///
@@ -75,8 +75,16 @@ struct ARROW_EXPORT ChunkResolver {
   mutable std::atomic<int32_t> cached_chunk_;
 
  public:
+  /// \brief Initialize from an `ArrayVector`.
   explicit ChunkResolver(const ArrayVector& chunks) noexcept;
+
+  /// \brief Initialize from a vector of raw `Array` pointers.
   explicit ChunkResolver(const std::vector<const Array*>& chunks) noexcept;
+
+  /// \brief Initialize from a `RecordBatchVector`.
+  ///
+  /// Because all `Array`s in a `RecordBatch` must have the same length, this
+  /// can be useful for iterating over multiple columns simultaneously.
   explicit ChunkResolver(const RecordBatchVector& batches) noexcept;
 
   /// \brief Construct a ChunkResolver from a vector of chunks.size() + 1 offsets.
@@ -115,11 +123,11 @@ struct ARROW_EXPORT ChunkResolver {
   /// The returned ChunkLocation contains the chunk index and the within-chunk index
   /// equivalent to the logical index.
   ///
-  /// \pre index >= 0
-  /// \post location.chunk_index in [0, chunks.size()]
+  /// \pre `index >= 0`
+  /// \post `location.chunk_index` in `[0, chunks.size()]`
   /// \param index The logical index to resolve
   /// \return ChunkLocation with a valid chunk_index if index is within
-  ///         bounds, or with chunk_index == chunks.size() if logical index is
+  ///         bounds, or with `chunk_index == chunks.size()` if logical index is
   ///         `>= chunked_array.length()`.
   inline ChunkLocation Resolve(int64_t index) const {
     const auto cached_chunk = cached_chunk_.load(std::memory_order_relaxed);
@@ -133,13 +141,13 @@ struct ARROW_EXPORT ChunkResolver {
   /// The returned ChunkLocation contains the chunk index and the within-chunk index
   /// equivalent to the logical index.
   ///
-  /// \pre index >= 0
-  /// \post location.chunk_index in [0, chunks.size()]
+  /// \pre `index >= 0`
+  /// \post `location.chunk_index` in `[0, chunks.size()]`
   /// \param index The logical index to resolve
   /// \param hint ChunkLocation{} or the last ChunkLocation returned by
   ///             this ChunkResolver.
   /// \return ChunkLocation with a valid chunk_index if index is within
-  ///         bounds, or with chunk_index == chunks.size() if logical index is
+  ///         bounds, or with `chunk_index == chunks.size()` if logical index is
   ///         `>= chunked_array.length()`.
   inline ChunkLocation ResolveWithHint(int64_t index, ChunkLocation hint) const {
     assert(hint.chunk_index < static_cast<uint32_t>(offsets_.size()));
@@ -281,4 +289,4 @@ struct ARROW_EXPORT ChunkResolver {
   }
 };
 
-}  // namespace arrow::internal
+}  // namespace arrow
