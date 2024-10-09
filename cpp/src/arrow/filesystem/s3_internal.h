@@ -323,14 +323,15 @@ Status SetSSECustomerKey(S3RequestType& request, const std::string& sse_customer
   if (sse_customer_key.empty()) {
     return Status::OK();  // do nothing if the sse_customer_key is not configured
   }
-#ifndef ARROW_S3_SUPPORT_SSEC
-  return Status::NotImplemented("SSE-C is not supported");
-#endif
+#ifdef ARROW_S3_SUPPORT_SSEC
   ARROW_ASSIGN_OR_RAISE(auto md5, internal::CalculateSSECustomerKeyMD5(sse_customer_key));
   request.SetSSECustomerKeyMD5(md5);
   request.SetSSECustomerKey(arrow::util::base64_encode(sse_customer_key));
   request.SetSSECustomerAlgorithm("AES256");
   return Status::OK();
+#else
+  return Status::NotImplemented("SSE-C is not supported");
+#endif
 }
 
 }  // namespace internal

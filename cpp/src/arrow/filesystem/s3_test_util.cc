@@ -61,6 +61,7 @@ struct MinioTestServer::Impl {
   std::string access_key_ = kMinioAccessKey;
   std::string secret_key_ = kMinioSecretKey;
   std::unique_ptr<util::Process> server_process_;
+  std::string scheme_ = "http";
 };
 
 MinioTestServer::MinioTestServer() : impl_(new Impl) {}
@@ -79,6 +80,8 @@ std::string MinioTestServer::secret_key() const { return impl_->secret_key_; }
 std::string MinioTestServer::ca_path() const {
   return impl_->temp_dir_ca_->path().ToString();
 }
+
+std::string MinioTestServer::scheme() const { return impl_->scheme_; }
 
 Status MinioTestServer::GenerateCertificateFile() {
   // create the dedicated folder for certificate file, rather than reuse the data
@@ -101,19 +104,10 @@ Status MinioTestServer::GenerateCertificateFile() {
                                 strlen(kMinioPrivateKey)));
   ARROW_RETURN_NOT_OK(private_key_fd.Close());
 
-  // Set the trusted CA certificate
-#if defined(__linux__)
   arrow::fs::FileSystemGlobalOptions global_options;
-  global_options.tls_ca_dir_path = ca_path();
+  global_options.tls_verify_certificates = false;
   ARROW_RETURN_NOT_OK(arrow::fs::Initialize(global_options));
-#elif defined(_WIN32)
-  // Windows does not have a standard location for CA certificates
-  auto import_cert_process = std::make_unique<util::Process>();
-  ARROW_RETURN_NOT_OK(import_cert_process->SetExecutable("certutil"));
-  import_cert_process->SetArgs(
-      {"-addstore", "-f", "ArrowTest", public_crt_file.ToString()});
-  ARROW_RETURN_NOT_OK(import_cert_process->Execute());
-#endif
+
   return Status::OK();
 }
 
@@ -137,12 +131,19 @@ Status MinioTestServer::Start() {
   // Disable the embedded console (one less listening address to care about)
   impl_->server_process_->SetEnv("MINIO_BROWSER", "off");
   impl_->connect_string_ = GenerateConnectString();
+  std::vector<std::string> minio_args({"server", "--quiet", "--compat", "--address",
+                                       impl_->connect_string_,
+                                       impl_->temp_dir_->path().ToString()});
+#ifdef MINIO_SERVER_WITH_TLS
   ARROW_RETURN_NOT_OK(GenerateCertificateFile());
+  minio_args.push_back("--certs-dir");
+  minio_args.push_back(ca_path());
+  impl_->scheme_ = "https";
+#endif  // MINIO_SERVER_WITH_TLS
+
   ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
   // NOTE: --quiet makes startup faster by suppressing remote version check
-  impl_->server_process_->SetArgs({"server", "--quiet", "--compat", "--certs-dir",
-                                   ca_path(), "--address", impl_->connect_string_,
-                                   impl_->temp_dir_->path().ToString()});
+  impl_->server_process_->SetArgs(minio_args);
   ARROW_RETURN_NOT_OK(impl_->server_process_->Execute());
   return Status::OK();
 }
