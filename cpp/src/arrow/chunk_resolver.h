@@ -29,7 +29,7 @@
 
 namespace arrow {
 
-struct ChunkResolver;
+class ChunkResolver;
 
 template <typename IndexType>
 struct ARROW_EXPORT TypedChunkLocation {
