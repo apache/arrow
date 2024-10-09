@@ -27,6 +27,7 @@ import re
 import operator
 
 import pyarrow as pa
+# from pyarrow._parquet cimport _create_writer_properties
 
 try:
     import pyarrow._parquet as _parquet
@@ -2048,7 +2049,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
         The metadata attribute will be the parquet metadata of the file.
         This metadata will have the file path attribute set and can be used
-        to build a _metadata file.  The metadata attribute will be None if
+        to build a _metadata file. The metadata attribute will be None if
         the format is not parquet.
 
         Example visitor which simple collects the filenames created::
@@ -2138,7 +2139,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
     if metadata_collector is not None:
         def file_visitor(written_file):
-            metadata_collector.append(written_file.metadata)
+            metadata = written_file.metadata
+            # TODO: is set_file_path needed?
+            metadata.set_file_path(written_file.path)
+            metadata_collector.append(metadata)
 
     # map format arguments
     parquet_format = ds.ParquetFileFormat()
@@ -2170,7 +2174,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
 
 def write_metadata(schema, where, metadata_collector=None, filesystem=None,
-                   **kwargs):
+                   encryption_properties=None, **kwargs):
     """
     Write metadata-only Parquet file from schema. This can be used with
     `write_to_dataset` to generate `_common_metadata` and `_metadata` sidecar
@@ -2185,6 +2189,7 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
     filesystem : FileSystem, default None
         If nothing passed, will be inferred from `where` if path-like, else
         `where` is already a file-like object so no filesystem is needed.
+    encryption_properties : FileEncryptionProperties, default None
     **kwargs : dict,
         Additional kwargs for ParquetWriter class. See docstring for
         `ParquetWriter` for more information.
@@ -2222,23 +2227,32 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
     if hasattr(where, "seek"):  # file-like
         cursor_position = where.tell()
 
+    read_metadata_kwargs = dict()
+    write_metadata_kwargs = dict()
+    if "decryption_properties" in kwargs:
+        read_metadata_kwargs["decryption_properties"] = kwargs.pop(
+            "decryption_properties")
+    if "encryption_properties2" in kwargs:
+        write_metadata_kwargs["encryption_properties"] = kwargs.pop(
+            "encryption_properties2")
+    if encryption_properties is not None:
+        kwargs["encryption_properties"] = encryption_properties
+
+    # ParquetWriter doesn't expose the metadata until it's written. Write
+    # it and read it again.
     writer = ParquetWriter(where, schema, filesystem, **kwargs)
     writer.close()
 
     if metadata_collector is not None:
-        # ParquetWriter doesn't expose the metadata until it's written. Write
-        # it and read it again.
-        metadata = read_metadata(where, filesystem=filesystem)
         if hasattr(where, "seek"):
             where.seek(cursor_position)  # file-like, set cursor back.
 
-        for m in metadata_collector:
-            metadata.append_row_groups(m)
+        metadata = FileMetaData.coalesce_metadata(metadata_collector)
         if filesystem is not None:
             with filesystem.open_output_stream(where) as f:
-                metadata.write_metadata_file(f)
+                metadata.write_metadata_file(f, **write_metadata_kwargs)
         else:
-            metadata.write_metadata_file(where)
+            metadata.write_metadata_file(where, **write_metadata_kwargs)
 
 
 def read_metadata(where, memory_map=False, decryption_properties=None,

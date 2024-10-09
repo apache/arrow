@@ -619,8 +619,6 @@ void WriteEncryptedMetadataFile(
     auto footer_signing_encryptor = file_encryptor->GetFooterSigningEncryptor();
     WriteEncryptedFileMetadata(metadata, sink.get(), footer_signing_encryptor, false);
   }
-
-  file_encryptor->WipeOutEncryptionKeys();
 }
 
 void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
