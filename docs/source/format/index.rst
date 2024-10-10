@@ -30,6 +30,7 @@ Specifications
    CanonicalExtensions
    Other
    CDataInterface
+   CDataInterfaceStatistics
    CStreamInterface
    CDeviceDataInterface
    DissociatedIPC
