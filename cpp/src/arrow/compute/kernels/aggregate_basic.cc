@@ -336,8 +336,8 @@ struct ProductImpl : public ScalarAggregator {
       internal::VisitArrayValuesInline<ArrowType>(
           data,
           [&](typename TypeTraits<ArrowType>::CType value) {
-            this->product =
-                MultiplyTraits<AccType>::Multiply(*out_type, this->product, value);
+            this->product = MultiplyTraits<AccType>::Multiply(
+                *out_type, this->product, static_cast<ProductType>(value));
           },
           [] {});
     } else {
@@ -347,8 +347,8 @@ struct ProductImpl : public ScalarAggregator {
       if (data.is_valid) {
         for (int64_t i = 0; i < batch.length; i++) {
           auto value = internal::UnboxScalar<ArrowType>::Unbox(data);
-          this->product =
-              MultiplyTraits<AccType>::Multiply(*out_type, this->product, value);
+          this->product = MultiplyTraits<AccType>::Multiply(
+              *out_type, this->product, static_cast<ProductType>(value));
         }
       }
     }

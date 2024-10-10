@@ -568,6 +568,14 @@ void TestDecimalBasic(std::shared_ptr<DataType> type) {
   AssertArraysEqual(*expected, *actual);
 }
 
+TEST(TestDecimal32, Basics) {
+  TestDecimalBasic<Decimal32, Decimal32Builder>(decimal32(8, 4));
+}
+
+TEST(TestDecimal64, Basics) {
+  TestDecimalBasic<Decimal64, Decimal64Builder>(decimal64(10, 4));
+}
+
 TEST(TestDecimal128, Basics) {
   TestDecimalBasic<Decimal128, Decimal128Builder>(decimal128(10, 4));
 }
@@ -577,7 +585,8 @@ TEST(TestDecimal256, Basics) {
 }
 
 TEST(TestDecimal, Errors) {
-  for (std::shared_ptr<DataType> type : {decimal128(10, 4), decimal256(10, 4)}) {
+  for (std::shared_ptr<DataType> type :
+       {decimal32(8, 4), decimal64(10, 4), decimal128(10, 4), decimal256(10, 4)}) {
     std::shared_ptr<Array> array;
 
     ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]"));
@@ -589,7 +598,8 @@ TEST(TestDecimal, Errors) {
 }
 
 TEST(TestDecimal, Dictionary) {
-  for (std::shared_ptr<DataType> type : {decimal128(10, 2), decimal256(10, 2)}) {
+  for (std::shared_ptr<DataType> type :
+       {decimal32(8, 2), decimal64(10, 2), decimal128(10, 2), decimal256(10, 2)}) {
     AssertJSONDictArray(int32(), type,
                         R"(["123.45", "-78.90", "-78.90", null, "123.45"])",
                         /*indices=*/"[0, 1, 1, null, 0]",

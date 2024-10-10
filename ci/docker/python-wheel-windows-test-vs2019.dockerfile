@@ -35,7 +35,7 @@ RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 # 2. Install Minio for S3 testing.
 RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
     rm -rf Python* && \
-    curl https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z \
+    curl https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z \
         --output "C:\Windows\Minio.exe"
 
 # Install the GCS testbench using a well-known Python version.

@@ -101,7 +101,6 @@ void AzureOptions::ExtractFromUriSchemeAndHierPart(const Uri& uri,
 }
 
 Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
-  const auto account_key = uri.password();
   std::optional<CredentialKind> credential_kind;
   std::optional<std::string> credential_kind_value;
   std::string tenant_id;
@@ -155,10 +154,6 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
   }
 
   if (credential_kind) {
-    if (!account_key.empty()) {
-      return Status::Invalid("Password must not be specified with credential_kind=",
-                             *credential_kind_value);
-    }
     if (!tenant_id.empty()) {
       return Status::Invalid("tenant_id must not be specified with credential_kind=",
                              *credential_kind_value);
@@ -190,40 +185,25 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
         break;
     }
   } else {
-    if (!account_key.empty()) {
-      // With password
-      if (!tenant_id.empty()) {
-        return Status::Invalid("tenant_id must not be specified with password");
-      }
-      if (!client_id.empty()) {
-        return Status::Invalid("client_id must not be specified with password");
-      }
-      if (!client_secret.empty()) {
-        return Status::Invalid("client_secret must not be specified with password");
-      }
-      RETURN_NOT_OK(ConfigureAccountKeyCredential(account_key));
-    } else {
-      // Without password
-      if (tenant_id.empty() && client_id.empty() && client_secret.empty()) {
-        // No related parameters
-        if (account_name.empty()) {
-          RETURN_NOT_OK(ConfigureAnonymousCredential());
-        } else {
-          // Default credential
-        }
+    if (tenant_id.empty() && client_id.empty() && client_secret.empty()) {
+      // No related parameters
+      if (account_name.empty()) {
+        RETURN_NOT_OK(ConfigureAnonymousCredential());
       } else {
-        // One or more tenant_id, client_id or client_secret are specified
-        if (client_id.empty()) {
-          return Status::Invalid("client_id must be specified");
-        }
-        if (tenant_id.empty() && client_secret.empty()) {
-          RETURN_NOT_OK(ConfigureManagedIdentityCredential(client_id));
-        } else if (!tenant_id.empty() && !client_secret.empty()) {
-          RETURN_NOT_OK(
-              ConfigureClientSecretCredential(tenant_id, client_id, client_secret));
-        } else {
-          return Status::Invalid("Both of tenant_id and client_secret must be specified");
-        }
+        // Default credential
+      }
+    } else {
+      // One or more tenant_id, client_id or client_secret are specified
+      if (client_id.empty()) {
+        return Status::Invalid("client_id must be specified");
+      }
+      if (tenant_id.empty() && client_secret.empty()) {
+        RETURN_NOT_OK(ConfigureManagedIdentityCredential(client_id));
+      } else if (!tenant_id.empty() && !client_secret.empty()) {
+        RETURN_NOT_OK(
+            ConfigureClientSecretCredential(tenant_id, client_id, client_secret));
+      } else {
+        return Status::Invalid("Both of tenant_id and client_secret must be specified");
       }
     }
   }
@@ -295,7 +275,7 @@ std::string BuildBaseUrl(const std::string& scheme, const std::string& authority
 }
 
 template <typename... PrefixArgs>
-Status ExceptionToStatus(const Storage::StorageException& exception,
+Status ExceptionToStatus(const Azure::Core::RequestFailedException& exception,
                          PrefixArgs&&... prefix_args) {
   return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
                          exception.ErrorCode, "] ", exception.what());
@@ -1401,6 +1381,13 @@ Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
                                  "Check for Hierarchical Namespace support on '",
                                  adlfs_client.GetUrl(), "' failed.");
     }
+  } catch (const Azure::Core::Http::TransportException& exception) {
+    return ExceptionToStatus(exception, "Check for Hierarchical Namespace support on '",
+                             adlfs_client.GetUrl(), "' failed.");
+  } catch (const std::exception& exception) {
+    return Status::UnknownError(
+        "Check for Hierarchical Namespace support on '", adlfs_client.GetUrl(),
+        "' failed: ", typeid(exception).name(), ": ", exception.what());
   }
 }
 
@@ -1806,6 +1793,8 @@ class AzureFileSystem::Impl {
       // BlobPrefixes. A BlobPrefix always ends with kDelimiter ("/"), so we can
       // distinguish between a directory and a file by checking if we received a
       // prefix or a blob.
+      // This strategy allows us to implement GetFileInfo with just 1 blob storage
+      // operation in almost every case.
       if (!list_response.BlobPrefixes.empty()) {
         // Ensure the returned BlobPrefixes[0] string doesn't contain more characters than
         // the requested Prefix. For instance, if we request with Prefix="dir/abra" and
@@ -1827,6 +1816,25 @@ class AzureFileSystem::Impl {
           info.set_mtime(
               std::chrono::system_clock::time_point{blob.Details.LastModified});
           return info;
+        } else if (blob.Name[options.Prefix.Value().length()] < internal::kSep) {
+          // First list result did not indicate a directory and there is definitely no
+          // exactly matching blob. However, there may still be a directory that we
+          // initially missed because the first list result came before
+          // `options.Prefix + internal::kSep` lexigraphically.
+          // For example the flat namespace storage account has the following blobs:
+          // - container/dir.txt
+          // - container/dir/file.txt
+          // GetFileInfo(container/dir) should return FileType::Directory but in this
+          // edge case `blob = "dir.txt"`, so without further checks we would incorrectly
+          // return FileType::NotFound.
+          // Therefore we make an extra list operation with the trailing slash to confirm
+          // whether the path is a directory.
+          options.Prefix = internal::EnsureTrailingSlash(location.path);
+          auto list_with_trailing_slash_response = container_client.ListBlobs(options);
+          if (!list_with_trailing_slash_response.Blobs.empty()) {
+            info.set_type(FileType::Directory);
+            return info;
+          }
         }
       }
       info.set_type(FileType::NotFound);
@@ -1908,18 +1916,22 @@ class AzureFileSystem::Impl {
   /// \brief List the paths at the root of a filesystem or some dir in a filesystem.
   ///
   /// \pre adlfs_client is the client for the filesystem named like the first
-  /// segment of select.base_dir.
+  /// segment of select.base_dir. The filesystem is know to exist.
   Status GetFileInfoWithSelectorFromFileSystem(
       const DataLake::DataLakeFileSystemClient& adlfs_client,
       const Core::Context& context, Azure::Nullable<int32_t> page_size_hint,
       const FileSelector& select, FileInfoVector* acc_results) {
     ARROW_ASSIGN_OR_RAISE(auto base_location, AzureLocation::FromString(select.base_dir));
 
+    // The filesystem a.k.a. the container is known to exist so if the path is empty then
+    // we have already found the base_location, so initialize found to true.
+    bool found = base_location.path.empty();
+
     auto directory_client = adlfs_client.GetDirectoryClient(base_location.path);
-    bool found = false;
     DataLake::ListPathsOptions options;
     options.PageSizeHint = page_size_hint;
 
+    auto base_path_depth = internal::GetAbstractPathDepth(base_location.path);
     try {
       auto list_response = directory_client.ListPaths(select.recursive, options, context);
       for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
@@ -1931,7 +1943,15 @@ class AzureFileSystem::Impl {
           if (path.Name == base_location.path && !path.IsDirectory) {
             return NotADir(base_location);
           }
-          acc_results->push_back(FileInfoFromPath(base_location.container, path));
+          // Subtract 1 because with `max_recursion=0` we want to list the base path,
+          // which will produce results with depth 1 greater that the base path's depth.
+          // NOTE: `select.max_recursion` + anything will cause integer overflows because
+          // `select.max_recursion` defaults to `INT32_MAX`. Therefore, options to
+          // rewrite this condition in a more readable way are limited.
+          if (internal::GetAbstractPathDepth(path.Name) - base_path_depth - 1 <=
+              select.max_recursion) {
+            acc_results->push_back(FileInfoFromPath(base_location.container, path));
+          }
         }
       }
     } catch (const Storage::StorageException& exception) {

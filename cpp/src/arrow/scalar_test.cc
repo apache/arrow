@@ -108,7 +108,7 @@ TEST(TestNullScalar, Cast) {
            list(int32()),
            struct_({field("f", int32())}),
            map(utf8(), int32()),
-           decimal(12, 2),
+           decimal128(12, 2),
            list_view(int32()),
            large_list(int32()),
            dense_union({field("string", utf8()), field("number", uint64())}),

@@ -734,6 +734,73 @@ def test_partitioning_pickling(pickle_module):
         assert pickle_module.loads(pickle_module.dumps(part)) == part
 
 
+@pytest.mark.parametrize(
+    "flavor, expected_defined_partition, expected_undefined_partition",
+    [
+        (ds.HivePartitioning, (r"foo=A/bar=ant%20bee", ""), ("", "")),
+        (ds.DirectoryPartitioning, (r"A/ant bee", ""), ("", "")),
+        (ds.FilenamePartitioning, ("", r"A_ant bee_"), ("", "_")),
+    ],
+)
+def test_dataset_partitioning_format(
+    flavor: "ds.Partitioning",
+    expected_defined_partition: tuple,
+    expected_undefined_partition: tuple,
+):
+
+    partitioning_schema = pa.schema([("foo", pa.string()), ("bar", pa.string())])
+
+    partitioning = flavor(schema=partitioning_schema)
+
+    # test forward transformation (format)
+    assert (
+        partitioning.format((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
+        == expected_defined_partition
+    )
+
+    # test backward transformation (parse)
+    assert partitioning.parse("/".join(expected_defined_partition)).equals(
+        (pc.field("foo") == "A") & (pc.field("bar") == "ant bee")
+    )
+
+    # test complex expression can still be parsed into useful directory/path
+    assert (
+        partitioning.format(
+            ((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
+            & ((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
+        )
+        == expected_defined_partition
+    )
+
+    # test a different complex expression cannot be parsed into directory/path
+    # and just returns the same value as if no filter were applied.
+    assert (
+        partitioning.format(
+            ((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
+            | ((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
+        )
+        == expected_undefined_partition
+    )
+
+    if flavor != ds.HivePartitioning:
+        # Raises error upon filtering for lower level partition without filtering for
+        # higher level partition
+        with pytest.raises(
+            pa.ArrowInvalid,
+            match=(
+                "No partition key for foo but a key was provided"
+                " subsequently for bar"
+            )
+        ):
+            partitioning.format(((pc.field("bar") == "ant bee")))
+    else:
+        # Hive partitioning allows this to pass
+        assert partitioning.format(((pc.field("bar") == "ant bee"))) == (
+            r"bar=ant%20bee",
+            "",
+        )
+
+
 def test_expression_arithmetic_operators():
     dataset = ds.dataset(pa.table({'a': [1, 2, 3], 'b': [2, 2, 2]}))
     a = ds.field("a")
@@ -4914,13 +4981,15 @@ def test_write_dataset_s3_put_only(s3_server):
 
     # write dataset with s3 filesystem
     host, port, _, _ = s3_server['connection']
+
+    _configure_s3_limited_user(s3_server, _minio_put_only_policy,
+                               'test_dataset_limited_user', 'limited123')
     fs = S3FileSystem(
-        access_key='limited',
+        access_key='test_dataset_limited_user',
         secret_key='limited123',
         endpoint_override='{}:{}'.format(host, port),
         scheme='http'
     )
-    _configure_s3_limited_user(s3_server, _minio_put_only_policy)
 
     table = pa.table([
         pa.array(range(20)), pa.array(random.random() for _ in range(20)),
@@ -4970,7 +5039,7 @@ def test_write_dataset_s3_put_only(s3_server):
         scheme='http',
         allow_bucket_creation=True,
     )
-    with pytest.raises(OSError, match="Access Denied"):
+    with pytest.raises(OSError, match="(Access Denied|ACCESS_DENIED)"):
         ds.write_dataset(
             table, "non-existing-bucket", filesystem=fs,
             format="feather", create_dir=True,

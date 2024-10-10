@@ -39,7 +39,7 @@ export class StructRow<T extends TypeMap = any> {
     constructor(parent: Data<Struct<T>>, rowIndex: number) {
         this[kParent] = parent;
         this[kRowIndex] = rowIndex;
-        return new Proxy(this, new StructRowProxyHandler());
+        return new Proxy(this, structRowProxyHandler);
     }
 
     public toArray() { return Object.values(this.toJSON()); }
@@ -157,3 +157,5 @@ class StructRowProxyHandler<T extends TypeMap = any> implements ProxyHandler<Str
         return false;
     }
 }
+
+const structRowProxyHandler = new StructRowProxyHandler();

@@ -461,8 +461,7 @@ inline void SetListData(VarLengthListLikeArray<TYPE>* self,
   self->Array::SetData(data);
 
   self->list_type_ = checked_cast<const TYPE*>(data->type.get());
-  self->raw_value_offsets_ =
-      data->GetValuesSafe<typename TYPE::offset_type>(1, /*offset=*/0);
+  self->raw_value_offsets_ = data->GetValuesSafe<typename TYPE::offset_type>(1);
   // BaseListViewArray::SetData takes care of setting raw_value_sizes_.
 
   ARROW_CHECK_EQ(self->list_type_->value_type()->id(), data->child_data[0]->type->id());
@@ -654,7 +653,7 @@ ListViewArray::ListViewArray(std::shared_ptr<DataType> type, int64_t length,
 
 void ListViewArray::SetData(const std::shared_ptr<ArrayData>& data) {
   internal::SetListData(this, data);
-  raw_value_sizes_ = data->GetValuesSafe<ListViewType::offset_type>(2, /*offset=*/0);
+  raw_value_sizes_ = data->GetValuesSafe<ListViewType::offset_type>(2);
 }
 
 Result<std::shared_ptr<ListViewArray>> ListViewArray::FromArrays(
@@ -729,7 +728,7 @@ LargeListViewArray::LargeListViewArray(std::shared_ptr<DataType> type, int64_t l
 
 void LargeListViewArray::SetData(const std::shared_ptr<ArrayData>& data) {
   internal::SetListData(this, data);
-  raw_value_sizes_ = data->GetValuesSafe<LargeListViewType::offset_type>(2, /*offset=*/0);
+  raw_value_sizes_ = data->GetValuesSafe<LargeListViewType::offset_type>(2);
 }
 
 Result<std::shared_ptr<LargeListViewArray>> LargeListViewArray::FromArrays(
@@ -1184,7 +1183,7 @@ void UnionArray::SetData(std::shared_ptr<ArrayData> data) {
   union_type_ = checked_cast<const UnionType*>(data_->type.get());
 
   ARROW_CHECK_GE(data_->buffers.size(), 2);
-  raw_type_codes_ = data->GetValuesSafe<int8_t>(1, /*offset=*/0);
+  raw_type_codes_ = data->GetValuesSafe<int8_t>(1);
   boxed_fields_.resize(data_->child_data.size());
 }
 
@@ -1206,7 +1205,7 @@ void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   // No validity bitmap
   ARROW_CHECK_EQ(data_->buffers[0], nullptr);
 
-  raw_value_offsets_ = data->GetValuesSafe<int32_t>(2, /*offset=*/0);
+  raw_value_offsets_ = data->GetValuesSafe<int32_t>(2);
 }
 
 SparseUnionArray::SparseUnionArray(std::shared_ptr<ArrayData> data) {

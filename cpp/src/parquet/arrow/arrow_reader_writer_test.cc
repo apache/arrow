@@ -857,10 +857,10 @@ typedef ::testing::Types<
     ::arrow::Int16Type, ::arrow::Int32Type, ::arrow::UInt64Type, ::arrow::Int64Type,
     ::arrow::Date32Type, ::arrow::FloatType, ::arrow::DoubleType, ::arrow::StringType,
     ::arrow::BinaryType, ::arrow::FixedSizeBinaryType, ::arrow::HalfFloatType,
-    DecimalWithPrecisionAndScale<1>, DecimalWithPrecisionAndScale<5>,
-    DecimalWithPrecisionAndScale<10>, DecimalWithPrecisionAndScale<19>,
-    DecimalWithPrecisionAndScale<23>, DecimalWithPrecisionAndScale<27>,
-    DecimalWithPrecisionAndScale<38>, Decimal256WithPrecisionAndScale<39>,
+    Decimal128WithPrecisionAndScale<1>, Decimal128WithPrecisionAndScale<5>,
+    Decimal128WithPrecisionAndScale<10>, Decimal128WithPrecisionAndScale<19>,
+    Decimal128WithPrecisionAndScale<23>, Decimal128WithPrecisionAndScale<27>,
+    Decimal128WithPrecisionAndScale<38>, Decimal256WithPrecisionAndScale<39>,
     Decimal256WithPrecisionAndScale<56>, Decimal256WithPrecisionAndScale<76>>
     TestTypes;
 
@@ -4146,11 +4146,12 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
 INSTANTIATE_TEST_SUITE_P(
     ReadDecimals, TestArrowReaderAdHocSparkAndHvr,
     ::testing::Values(
-        std::make_tuple("int32_decimal.parquet", ::arrow::decimal(4, 2)),
-        std::make_tuple("int64_decimal.parquet", ::arrow::decimal(10, 2)),
-        std::make_tuple("fixed_length_decimal.parquet", ::arrow::decimal(25, 2)),
-        std::make_tuple("fixed_length_decimal_legacy.parquet", ::arrow::decimal(13, 2)),
-        std::make_tuple("byte_array_decimal.parquet", ::arrow::decimal(4, 2))));
+        std::make_tuple("int32_decimal.parquet", ::arrow::decimal128(4, 2)),
+        std::make_tuple("int64_decimal.parquet", ::arrow::decimal128(10, 2)),
+        std::make_tuple("fixed_length_decimal.parquet", ::arrow::decimal128(25, 2)),
+        std::make_tuple("fixed_length_decimal_legacy.parquet",
+                        ::arrow::decimal128(13, 2)),
+        std::make_tuple("byte_array_decimal.parquet", ::arrow::decimal128(4, 2))));
 
 TEST(TestArrowReaderAdHoc, ReadFloat16Files) {
   using ::arrow::util::Float16;
@@ -5095,8 +5096,8 @@ class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
 };
 
 typedef ::testing::Types<
-    DecimalWithPrecisionAndScale<1>, DecimalWithPrecisionAndScale<5>,
-    DecimalWithPrecisionAndScale<10>, DecimalWithPrecisionAndScale<18>,
+    Decimal128WithPrecisionAndScale<1>, Decimal128WithPrecisionAndScale<5>,
+    Decimal128WithPrecisionAndScale<10>, Decimal128WithPrecisionAndScale<18>,
     Decimal256WithPrecisionAndScale<1>, Decimal256WithPrecisionAndScale<5>,
     Decimal256WithPrecisionAndScale<10>, Decimal256WithPrecisionAndScale<18>>
     DecimalTestTypes;

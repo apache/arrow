@@ -670,32 +670,32 @@ Decimal128 Dec128(std::string_view value) {
 
 TEST(DecimalConversion, Basics) {
   AssertConversion<Decimal128Type, Decimal128>(
-      decimal(23, 2), {"12,34.5\n", "36.37,-1e5\n"},
+      decimal128(23, 2), {"12,34.5\n", "36.37,-1e5\n"},
       {{Dec128("12.00"), Dec128("36.37")}, {Dec128("34.50"), Dec128("-100000.00")}});
 }
 
 TEST(DecimalConversion, Nulls) {
   AssertConversion<Decimal128Type, Decimal128>(
-      decimal(14, 3), {"1.5,0.\n", ",-1e3\n"},
+      decimal128(14, 3), {"1.5,0.\n", ",-1e3\n"},
       {{Dec128("1.500"), Decimal128()}, {Decimal128(), Dec128("-1000.000")}},
       {{true, false}, {true, true}});
 
-  AssertConversionAllNulls<Decimal128Type, Decimal128>(decimal(14, 2));
+  AssertConversionAllNulls<Decimal128Type, Decimal128>(decimal128(14, 2));
 }
 
 TEST(DecimalConversion, CustomNulls) {
   auto options = ConvertOptions::Defaults();
   options.null_values = {"xxx", "zzz"};
 
-  AssertConversion<Decimal128Type, Decimal128>(decimal(14, 3), {"\"1.5\",\"xxx\"\n"},
+  AssertConversion<Decimal128Type, Decimal128>(decimal128(14, 3), {"\"1.5\",\"xxx\"\n"},
                                                {{Dec128("1.500")}, {0}},
                                                {{true}, {false}}, options);
 
   options.quoted_strings_can_be_null = false;
-  AssertConversionError(decimal(14, 3), {"\"1.5\",\"xxx\"\n"}, {1}, options);
+  AssertConversionError(decimal128(14, 3), {"\"1.5\",\"xxx\"\n"}, {1}, options);
 
   AssertConversion<Decimal128Type, Decimal128>(
-      decimal(14, 3), {"1.5,xxx\n", "zzz,-1e3\n"},
+      decimal128(14, 3), {"1.5,xxx\n", "zzz,-1e3\n"},
       {{Dec128("1.500"), Decimal128()}, {Decimal128(), Dec128("-1000.000")}},
       {{true, false}, {false, true}}, options);
 }
@@ -705,7 +705,7 @@ TEST(DecimalConversion, CustomDecimalPoint) {
   options.decimal_point = '/';
 
   AssertConversion<Decimal128Type, Decimal128>(
-      decimal(14, 3), {"1/5,0/\n", ",-1e3\n"},
+      decimal128(14, 3), {"1/5,0/\n", ",-1e3\n"},
       {{Dec128("1.500"), Decimal128()}, {Decimal128(), Dec128("-1000.000")}},
       {{true, false}, {true, true}}, options);
   AssertConversionError(decimal128(14, 3), {"1.5\n"}, {0}, options);
@@ -713,16 +713,16 @@ TEST(DecimalConversion, CustomDecimalPoint) {
 
 TEST(DecimalConversion, Whitespace) {
   AssertConversion<Decimal128Type, Decimal128>(
-      decimal(5, 1), {" 12.00,34.5\n", " 0 ,-1e2 \n"},
+      decimal128(5, 1), {" 12.00,34.5\n", " 0 ,-1e2 \n"},
       {{Dec128("12.0"), Decimal128()}, {Dec128("34.5"), Dec128("-100.0")}});
 }
 
 TEST(DecimalConversion, OverflowFails) {
-  AssertConversionError(decimal(5, 0), {"1e6,0\n"}, {0});
+  AssertConversionError(decimal128(5, 0), {"1e6,0\n"}, {0});
 
-  AssertConversionError(decimal(5, 1), {"123.22\n"}, {0});
-  AssertConversionError(decimal(5, 1), {"12345.6\n"}, {0});
-  AssertConversionError(decimal(5, 1), {"1.61\n"}, {0});
+  AssertConversionError(decimal128(5, 1), {"123.22\n"}, {0});
+  AssertConversionError(decimal128(5, 1), {"12345.6\n"}, {0});
+  AssertConversionError(decimal128(5, 1), {"1.61\n"}, {0});
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -851,7 +851,7 @@ TEST(TestFixedSizeBinaryDictConverter, Errors) {
 }
 
 TEST(TestDecimalDictConverter, Basics) {
-  auto value_type = decimal(9, 3);
+  auto value_type = decimal128(9, 3);
 
   auto expected_dict = ArrayFromJSON(value_type, R"(["1.234", "456.789"])");
   auto expected_indices = ArrayFromJSON(int32(), "[0, 1, null, 1]");
@@ -861,7 +861,7 @@ TEST(TestDecimalDictConverter, Basics) {
 }
 
 TEST(TestDecimalDictConverter, CustomDecimalPoint) {
-  auto value_type = decimal(9, 3);
+  auto value_type = decimal128(9, 3);
 
   auto options = ConvertOptions::Defaults();
   options.decimal_point = '\'';
@@ -876,7 +876,7 @@ TEST(TestDecimalDictConverter, CustomDecimalPoint) {
 }
 
 TEST(TestDecimalDictConverter, Errors) {
-  auto value_type = decimal(9, 3);
+  auto value_type = decimal128(9, 3);
 
   // Overflow
   ASSERT_RAISES(Invalid, DictConversion(value_type, "1e10\n"));

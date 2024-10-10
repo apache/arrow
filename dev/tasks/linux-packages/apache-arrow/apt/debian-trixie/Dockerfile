@@ -82,6 +82,9 @@ RUN \
     valac \
     zlib1g-dev && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
-    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
+    apt install -y -V ${quiet} nvidia-cuda-toolkit && \
+    # GH-44358: Workaround for non-existent path error
+    mkdir -p \
+      /usr/lib/nvidia-cuda-toolkit/include/$(dpkg-architecture -qDEB_HOST_MULTIARCH); \
   fi && \
   apt clean

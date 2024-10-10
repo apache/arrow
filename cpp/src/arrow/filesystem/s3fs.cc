@@ -1784,15 +1784,23 @@ class ObjectOutputStream final : public io::OutputStream {
     return Status::OK();
   }
 
+  Status CleanupIfFailed(Status status) {
+    if (!status.ok()) {
+      RETURN_NOT_OK(CleanupAfterClose());
+      return status;
+    }
+    return Status::OK();
+  }
+
   Status Close() override {
     if (closed_) return Status::OK();
 
-    RETURN_NOT_OK(EnsureReadyToFlushFromClose());
+    RETURN_NOT_OK(CleanupIfFailed(EnsureReadyToFlushFromClose()));
 
-    RETURN_NOT_OK(Flush());
+    RETURN_NOT_OK(CleanupIfFailed(Flush()));
 
     if (IsMultipartCreated()) {
-      RETURN_NOT_OK(FinishPartUploadAfterFlush());
+      RETURN_NOT_OK(CleanupIfFailed(FinishPartUploadAfterFlush()));
     }
 
     return CleanupAfterClose();
@@ -1801,12 +1809,12 @@ class ObjectOutputStream final : public io::OutputStream {
   Future<> CloseAsync() override {
     if (closed_) return Status::OK();
 
-    RETURN_NOT_OK(EnsureReadyToFlushFromClose());
+    RETURN_NOT_OK(CleanupIfFailed(EnsureReadyToFlushFromClose()));
 
     // Wait for in-progress uploads to finish (if async writes are enabled)
     return FlushAsync().Then([self = Self()]() {
       if (self->IsMultipartCreated()) {
-        RETURN_NOT_OK(self->FinishPartUploadAfterFlush());
+        RETURN_NOT_OK(self->CleanupIfFailed(self->FinishPartUploadAfterFlush()));
       }
       return self->CleanupAfterClose();
     });
@@ -2021,7 +2029,7 @@ class ObjectOutputStream final : public io::OutputStream {
                                     std::shared_ptr<UploadState> state,
                                     int32_t part_number,
                                     Aws::S3::Model::PutObjectOutcome outcome) {
-      HandleUploadUsingSingleRequestOutcome(state, request, outcome.GetResult());
+      HandleUploadUsingSingleRequestOutcome(state, request, outcome);
       return Status::OK();
     };
 
@@ -2072,7 +2080,7 @@ class ObjectOutputStream final : public io::OutputStream {
                                     std::shared_ptr<UploadState> state,
                                     int32_t part_number,
                                     Aws::S3::Model::UploadPartOutcome outcome) {
-      HandleUploadPartOutcome(state, part_number, request, outcome.GetResult());
+      HandleUploadPartOutcome(state, part_number, request, outcome);
       return Status::OK();
     };
 
@@ -2083,16 +2091,12 @@ class ObjectOutputStream final : public io::OutputStream {
 
   static void HandleUploadUsingSingleRequestOutcome(
       const std::shared_ptr<UploadState>& state, const S3Model::PutObjectRequest& req,
-      const Result<S3Model::PutObjectOutcome>& result) {
+      const S3Model::PutObjectOutcome& outcome) {
     std::unique_lock<std::mutex> lock(state->mutex);
-    if (!result.ok()) {
-      state->status &= result.status();
-    } else {
-      const auto& outcome = *result;
-      if (!outcome.IsSuccess()) {
-        state->status &= UploadUsingSingleRequestError(req, outcome);
-      }
+    if (!outcome.IsSuccess()) {
+      state->status &= UploadUsingSingleRequestError(req, outcome);
     }
+
     // GH-41862: avoid potential deadlock if the Future's callback is called
     // with the mutex taken.
     auto fut = state->pending_uploads_completed;
@@ -2103,18 +2107,14 @@ class ObjectOutputStream final : public io::OutputStream {
   static void HandleUploadPartOutcome(const std::shared_ptr<UploadState>& state,
                                       int part_number,
                                       const S3Model::UploadPartRequest& req,
-                                      const Result<S3Model::UploadPartOutcome>& result) {
+                                      const S3Model::UploadPartOutcome& outcome) {
     std::unique_lock<std::mutex> lock(state->mutex);
-    if (!result.ok()) {
-      state->status &= result.status();
+    if (!outcome.IsSuccess()) {
+      state->status &= UploadPartError(req, outcome);
     } else {
-      const auto& outcome = *result;
-      if (!outcome.IsSuccess()) {
-        state->status &= UploadPartError(req, outcome);
-      } else {
-        AddCompletedPart(state, part_number, outcome.GetResult());
-      }
+      AddCompletedPart(state, part_number, outcome.GetResult());
     }
+
     // Notify completion
     if (--state->uploads_in_progress == 0) {
       // GH-41862: avoid potential deadlock if the Future's callback is called
@@ -2218,11 +2218,28 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     return std::string(FromAwsString(builder_.config().region));
   }
 
+  // TODO: for every returned error, call GetOrSetBackend()?
+
   template <typename Error>
-  void SaveBackend(const Aws::Client::AWSError<Error>& error) {
+  S3Backend GetOrSetBackend(const Aws::Client::AWSError<Error>& error) {
     if (!backend_ || *backend_ == S3Backend::Other) {
       backend_ = DetectS3Backend(error);
     }
+    DCHECK(backend_.has_value());
+    return *backend_;
+  }
+
+  Result<S3Backend> GetBackend() {
+    if (!backend_) {
+      ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
+      S3Model::HeadBucketRequest req;
+      req.SetBucket("$extremelyunlikelytoexist$");
+      auto outcome = client_lock.Move()->HeadBucket(req);
+      DCHECK(!outcome.IsSuccess());
+      return GetOrSetBackend(outcome.GetError());
+    }
+    return *backend_;
   }
 
   // Tests to see if a bucket exists
@@ -2345,12 +2362,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
     if (previous_outcome) {
       // Fetch the backend from the previous error
-      DCHECK(!previous_outcome->IsSuccess());
-      if (!backend_) {
-        SaveBackend(previous_outcome->GetError());
-        DCHECK(backend_);
-      }
-      if (backend_ != S3Backend::Minio) {
+      if (GetOrSetBackend(previous_outcome->GetError()) != S3Backend::Minio) {
         // HEAD already returned a 404, nothing more to do
         return false;
       }
@@ -2373,9 +2385,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       return true;
     }
     if (!backend_) {
-      SaveBackend(outcome.GetError());
-      DCHECK(backend_);
-      if (*backend_ == S3Backend::Minio) {
+      if (GetOrSetBackend(outcome.GetError()) == S3Backend::Minio) {
         // Try again with separator-terminated key (see above)
         return IsEmptyDirectory(bucket, key);
       }
@@ -3053,6 +3063,7 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
 
     auto outcome = client_lock.Move()->HeadBucket(req);
     if (!outcome.IsSuccess()) {
+      impl_->GetOrSetBackend(outcome.GetError());
       if (!IsNotFound(outcome.GetError())) {
         const auto msg = "When getting information for bucket '" + path.bucket + "': ";
         return ErrorToStatus(msg, "HeadBucket", outcome.GetError(),
@@ -3077,6 +3088,7 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
       FileObjectToInfo(path.key, outcome.GetResult(), &info);
       return info;
     }
+    impl_->GetOrSetBackend(outcome.GetError());
     if (!IsNotFound(outcome.GetError())) {
       const auto msg = "When getting information for key '" + path.key + "' in bucket '" +
                        path.bucket + "': ";
@@ -3124,8 +3136,9 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
     return impl_->CreateBucket(path.bucket);
   }
 
+  ARROW_ASSIGN_OR_RAISE(auto backend, impl_->GetBackend());
+
   FileInfo file_info;
-  // Create object
   if (recursive) {
     // Ensure bucket exists
     ARROW_ASSIGN_OR_RAISE(bool bucket_exists, impl_->BucketExists(path.bucket));
@@ -3135,7 +3148,8 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
 
     auto key_i = path.key_parts.begin();
     std::string parent_key{};
-    if (options().check_directory_existence_before_creation) {
+    if (options().check_directory_existence_before_creation ||
+        backend == S3Backend::Minio) {
       // Walk up the directory first to find the first existing parent
       for (const auto& part : path.key_parts) {
         parent_key += part;
@@ -3146,6 +3160,10 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
                               this->GetFileInfo(path.bucket + kSep + parent_key));
         if (file_info.type() != FileType::NotFound) {
           // Found!
+          if (file_info.type() != FileType::Directory) {
+            return Status::IOError("Cannot create directory '", file_info.path(),
+                                   "': a non-directory entry already exists");
+          }
           break;
         } else {
           // remove the kSep and the part
@@ -3178,15 +3196,23 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
     }
   }
 
-  // Check if the directory exists already
-  if (options().check_directory_existence_before_creation) {
+  // Non-recursive operation
+
+  // Check if the entry exists already
+  if (options().check_directory_existence_before_creation ||
+      backend == S3Backend::Minio) {
     ARROW_ASSIGN_OR_RAISE(file_info, this->GetFileInfo(path.full_path));
     if (file_info.type() != FileType::NotFound) {
+      if (file_info.type() != FileType::Directory) {
+        return Status::IOError("Cannot create directory '", file_info.path(),
+                               "': a non-directory entry already exists");
+      }
       return Status::OK();
     }
   }
-  // XXX Should we check that no non-directory entry exists?
-  // Minio does it for us, not sure about other S3 implementations.
+  // NOTE: this won't check that no non-directory entry exists with the same name
+  // (unlike when `check_directory_existence_before_creation` is enabled).
+  // Old versions of Minio do it for us, newer versions don't.
   return impl_->CreateEmptyDir(path.bucket, path.key);
 }
 

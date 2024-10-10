@@ -59,9 +59,8 @@ template <typename Value>
 ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
 Status CheckForGetNextSegment(const std::vector<Value>& values, int64_t length,
                               int64_t offset, const std::vector<TypeHolder>& key_types) {
-  if (offset < 0 || offset > length) {
-    return Status::Invalid("invalid grouping segmenter offset: ", offset);
-  }
+  DCHECK_GE(offset, 0);
+  DCHECK_LE(offset, length);
   if (values.size() != key_types.size()) {
     return Status::Invalid("expected batch size ", key_types.size(), " but got ",
                            values.size());
@@ -173,10 +172,8 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
   Result<Segment> GetNextSegmentDeprecated(const Scalar& scalar, int64_t offset,
                                            int64_t length) {
     ARROW_SUPPRESS_DEPRECATION_WARNING
-    ARROW_RETURN_NOT_OK(CheckType(*scalar.type));
-    if (!scalar.is_valid) {
-      return Status::Invalid("segmenting an invalid scalar");
-    }
+    DCHECK(is_fixed_width(*scalar.type));
+    DCHECK(scalar.is_valid);
     auto data = checked_cast<const PrimitiveScalarBase&>(scalar).data();
     bool extends = length > 0 ? ExtendDeprecated(data) : kEmptyExtends;
     return MakeSegment(length, offset, length, extends);
@@ -188,7 +185,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
                                            const uint8_t* array_bytes, int64_t offset,
                                            int64_t length) {
     ARROW_SUPPRESS_DEPRECATION_WARNING
-    RETURN_NOT_OK(CheckType(array_type));
+    DCHECK(is_fixed_width(array_type));
     DCHECK_LE(offset, length);
     int64_t byte_width = array_type.byte_width();
     int64_t match_length = GetMatchLength(array_bytes + offset * byte_width, byte_width,
@@ -211,9 +208,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     }
     ARROW_DCHECK(value.is_array());
     const auto& array = value.array;
-    if (array.GetNullCount() > 0) {
-      return Status::NotImplemented("segmenting a nullable array");
-    }
+    DCHECK_EQ(array.GetNullCount(), 0);
     return GetNextSegmentDeprecated(*array.type, GetValuesAsBytes(array), offset,
                                     batch.length);
     ARROW_UNSUPPRESS_DEPRECATION_WARNING
@@ -227,7 +222,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     }
 
     const auto& value = batch.values[0];
-    RETURN_NOT_OK(CheckType(*value.type()));
+    DCHECK(is_fixed_width(*value.type()));
 
     std::vector<Segment> segments;
     const void* key_data;
@@ -261,13 +256,6 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
   }
 
  private:
-  static Status CheckType(const DataType& type) {
-    if (!is_fixed_width(type)) {
-      return Status::Invalid("SimpleKeySegmenter does not support type ", type);
-    }
-    return Status::OK();
-  }
-
   static const uint8_t* GetValuesAsBytes(const ArraySpan& data, int64_t offset = 0) {
     DCHECK_GT(data.type->byte_width(), 0);
     int64_t absolute_byte_offset = (data.offset + offset) * data.type->byte_width();
@@ -354,23 +342,20 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     ARROW_RETURN_NOT_OK(grouper_->Reset());
 
     ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset));
-    if (datum.is_array()) {
-      // `data` is an array whose index-0 corresponds to index `offset` of `batch`
-      const std::shared_ptr<ArrayData>& data = datum.array();
-      DCHECK_EQ(data->length, batch.length - offset);
-      ARROW_DCHECK(data->GetNullCount() == 0);
-      DCHECK_EQ(data->type->id(), GroupIdType::type_id);
-      const group_id_t* values = data->GetValues<group_id_t>(1);
-      int64_t cursor;
-      for (cursor = 1; cursor < data->length; cursor++) {
-        if (values[0] != values[cursor]) break;
-      }
-      int64_t length = cursor;
-      bool extends = length > 0 ? bound_extend(values) : kEmptyExtends;
-      return MakeSegment(batch.length, offset, length, extends);
-    } else {
-      return Status::Invalid("segmenting unsupported datum kind ", datum.kind());
+    DCHECK(datum.is_array());
+    // `data` is an array whose index-0 corresponds to index `offset` of `batch`
+    const std::shared_ptr<ArrayData>& data = datum.array();
+    DCHECK_EQ(data->length, batch.length - offset);
+    DCHECK_EQ(data->GetNullCount(), 0);
+    DCHECK_EQ(data->type->id(), GroupIdType::type_id);
+    const group_id_t* values = data->GetValues<group_id_t>(1);
+    int64_t cursor;
+    for (cursor = 1; cursor < data->length; cursor++) {
+      if (values[0] != values[cursor]) break;
     }
+    int64_t length = cursor;
+    bool extends = length > 0 ? bound_extend(values) : kEmptyExtends;
+    return MakeSegment(batch.length, offset, length, extends);
     ARROW_UNSUPPRESS_DEPRECATION_WARNING
   }
 
@@ -432,11 +417,9 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
   Result<group_id_t> MapGroupIdAt(const Batch& batch, int64_t offset = 0) {
     ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset,
                                                         /*length=*/1));
-    if (!datum.is_array()) {
-      return Status::Invalid("accessing unsupported datum kind ", datum.kind());
-    }
+    DCHECK(datum.is_array());
     const std::shared_ptr<ArrayData>& data = datum.array();
-    ARROW_DCHECK(data->GetNullCount() == 0);
+    DCHECK_EQ(data->GetNullCount(), 0);
     DCHECK_EQ(data->type->id(), GroupIdType::type_id);
     DCHECK_EQ(1, data->length);
     const group_id_t* values = data->GetValues<group_id_t>(1);
@@ -447,17 +430,6 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
   std::unique_ptr<Grouper> grouper_;
   group_id_t save_group_id_;
 };
-
-Status CheckAndCapLengthForConsume(int64_t batch_length, int64_t& consume_offset,
-                                   int64_t* consume_length) {
-  if (consume_offset < 0) {
-    return Status::Invalid("invalid grouper consume offset: ", consume_offset);
-  }
-  if (*consume_length < 0) {
-    *consume_length = batch_length - consume_offset;
-  }
-  return Status::OK();
-}
 
 }  // namespace
 
@@ -480,6 +452,17 @@ Result<std::unique_ptr<RowSegmenter>> RowSegmenter::Make(
 }
 
 namespace {
+
+Status CheckAndCapLengthForConsume(int64_t batch_length, int64_t& consume_offset,
+                                   int64_t* consume_length) {
+  if (consume_offset < 0) {
+    return Status::Invalid("invalid grouper consume offset: ", consume_offset);
+  }
+  if (*consume_length < 0) {
+    *consume_length = batch_length - consume_offset;
+  }
+  return Status::OK();
+}
 
 struct GrouperImpl : public Grouper {
   static Result<std::unique_ptr<GrouperImpl>> Make(
@@ -667,7 +650,7 @@ struct GrouperFastImpl : public Grouper {
       const TypeHolder& key = keys[icol];
       if (key.id() == Type::DICTIONARY) {
         auto bit_width = checked_cast<const FixedWidthType&>(*key).bit_width();
-        ARROW_DCHECK(bit_width % 8 == 0);
+        DCHECK_EQ(bit_width % 8, 0);
         impl->col_metadata_[icol] = KeyColumnMetadata(true, bit_width / 8);
       } else if (key.id() == Type::BOOL) {
         impl->col_metadata_[icol] = KeyColumnMetadata(true, 0);

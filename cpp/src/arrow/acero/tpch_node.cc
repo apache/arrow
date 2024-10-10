@@ -838,12 +838,12 @@ class PartAndPartSupplierGenerator {
 
   const std::vector<std::shared_ptr<DataType>> kPartTypes = {
       int32(), utf8(),  fixed_size_binary(25), fixed_size_binary(10),
-      utf8(),  int32(), fixed_size_binary(10), decimal(12, 2),
+      utf8(),  int32(), fixed_size_binary(10), decimal128(12, 2),
       utf8(),
   };
 
   const std::vector<std::shared_ptr<DataType>> kPartsuppTypes = {
-      int32(), int32(), int32(), decimal(12, 2), utf8(),
+      int32(), int32(), int32(), decimal128(12, 2), utf8(),
   };
 
   Status AllocatePartBatch(size_t thread_index, int column) {
@@ -1527,7 +1527,7 @@ class OrdersAndLineItemGenerator {
   const std::vector<std::shared_ptr<DataType>> kOrdersTypes = {int32(),
                                                                int32(),
                                                                fixed_size_binary(1),
-                                                               decimal(12, 2),
+                                                               decimal128(12, 2),
                                                                date32(),
                                                                fixed_size_binary(15),
                                                                fixed_size_binary(15),
@@ -1539,10 +1539,10 @@ class OrdersAndLineItemGenerator {
       int32(),
       int32(),
       int32(),
-      decimal(12, 2),
-      decimal(12, 2),
-      decimal(12, 2),
-      decimal(12, 2),
+      decimal128(12, 2),
+      decimal128(12, 2),
+      decimal128(12, 2),
+      decimal128(12, 2),
       fixed_size_binary(1),
       fixed_size_binary(1),
       date32(),
@@ -2489,7 +2489,7 @@ class SupplierGenerator : public TpchTableGenerator {
 
   std::vector<std::shared_ptr<DataType>> kTypes = {
       int32(), fixed_size_binary(25), utf8(),
-      int32(), fixed_size_binary(15), decimal(12, 2),
+      int32(), fixed_size_binary(15), decimal128(12, 2),
       utf8(),
   };
 
@@ -2872,7 +2872,7 @@ class CustomerGenerator : public TpchTableGenerator {
       utf8(),
       int32(),
       fixed_size_binary(15),
-      decimal(12, 2),
+      decimal128(12, 2),
       fixed_size_binary(10),
       utf8(),
   };

@@ -81,8 +81,8 @@ jobs:
         run: archery docker push debian-js
 
   macos:
-    name: AMD64 macOS 12 NodeJS ${{ matrix.node }}
-    runs-on: macos-12
+    name: AMD64 macOS 13 NodeJS ${{ matrix.node }}
+    runs-on: macos-13
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 30
     strategy:
