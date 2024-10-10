@@ -738,10 +738,10 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
 
 /// \brief Return the reverse indices of the given indices.
 ///
-/// For indices[i] = x, reverse_indices[x] = i. And reverse_indices[x] = null if
-/// x does not appear in the indices. For indices[i] = x where x < 0 or x >=
-/// output_length, it is ignored. If multiple indices point to the same value, the last
-/// one is used.
+/// For indices[i] = x, reverse_indices[x] = i. And reverse_indices[x] = null if x does
+/// not appear in the input indices. For indices[i] = x where x < 0 or x >= output_length,
+/// it is ignored. If multiple indices point to the same value, the last one is used.
+///
 /// For example, with indices = [null, 0, 3, 2, 4, 1, 1], the reverse indices is
 ///   [1, 6, 3]                    if output_length = 3,
 ///   [1, 6, 3, 2, 4, null, null]  if output_length = 7.
@@ -762,11 +762,12 @@ Result<std::shared_ptr<Array>> ReverseIndices(
 
 /// \brief Permute the values into specified positions according to the indices.
 ///
-/// For indices[i] = x, output[x] = values[i]. And output[x] = null if
-/// x does not appear in the indices. For indices[i] = x where x < 0 or x >=
-/// output_length, values[i] is ignored.
-/// For example, with values = [a, b, c, d, e, f, g] and indices = [null, 0, 3, 2, 4, 1,
-/// 1], the permutation is
+/// For indices[i] = x, output[x] = values[i]. And output[x] = null if x does not appear
+/// in the input indices. For indices[i] = x where x < 0 or x >= output_length, values[i]
+/// is ignored.
+///
+/// For example, with values = [a, b, c, d, e, f, g] and indices = [null, 0,
+/// 3, 2, 4, 1, 1], the permutation is
 ///   [b, g, d]                    if output_length = 3,
 ///   [b, g, d, c, e, null, null]  if output_length = 7.
 /// output_length can also be negative, in which case the permutation is of the same

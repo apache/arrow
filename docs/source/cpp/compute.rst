@@ -1941,15 +1941,18 @@ indices.
 +-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
 | Function name   | Arity  | Input type 1 | Input type 2 | Output type  | Options class                   | Notes |
 +=================+========+==============+==============+==============+=================================+=======+
-| reverse_indices | Unary  | Integer      |              | Integer      | :struct:`ReverseIndicesOptions` | \(1)  |
+| reverse_indices | Unary  | Integer      |              | Integer \(1) | :struct:`ReverseIndicesOptions` | \(2)  |
 +-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
-| permute         | Binary | Any          | Integer      | Input type 1 | :struct:`PermuteOptions`        | \(2)  |
+| permute         | Binary | Any          | Integer      | Input type 1 | :struct:`PermuteOptions`        | \(3)  |
 +-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
 
-* \(1) Each element in the input is appended to the output iff it is non-null.
-  If the input is a record batch or table, any null value in a column drops
-  the entire row.
+* \(1) The output type is specified in :struct:`ReverseIndicesOptions`.
 
-* \(2) Each element in input 1 (the values) is appended to the output iff
-  the corresponding element in input 2 (the filter) is true.  How
-  nulls in the filter are handled can be configured using FilterOptions.
+* \(2) For ``indices[i] = x``, ``reverse_indices[x] = i``. And ``reverse_indices[x]
+ = null`` if ``x`` does not appear in the input ``indices``. For ``indices[i] = x``
+ where ``x < 0`` or ``x >= output_length``, it is ignored. If multiple indices point
+ to the same value, the last one is used.
+
+* \(3) For ``indices[i] = x``, ``output[x] = values[i]``. And ``output[x] = null``
+if ``x`` does not appear in the input ``indices``. For ``indices[i] = x`` where
+``x < 0`` or ``x >= output_length``, ``values[i]`` is ignored.
