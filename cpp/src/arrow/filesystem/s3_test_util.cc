@@ -16,6 +16,7 @@
 // under the License.
 
 #ifndef _WIN32
+#  include <signal.h>
 #  include <sys/wait.h>
 #endif
 
@@ -134,6 +135,53 @@ void MinioTestEnvironment::SetUp() {
 
 Result<std::shared_ptr<MinioTestServer>> MinioTestEnvironment::GetOneServer() {
   return impl_->server_generator_().result();
+}
+
+namespace {
+
+#ifndef _WIN32
+// HACK: try and debug GH-40410 by using an homegrown timeout that should trigger
+// a coredump and automatic backtrace.
+using ::arrow::internal::ReinstateSignalHandler;
+using ::arrow::internal::SetSignalHandler;
+using ::arrow::internal::SignalHandler;
+
+constexpr int kSigAlrmTimeout = 4 * 60;  // seconds
+::arrow::internal::SignalHandler old_sigalrm_handler;
+
+void SigAlrmHandler(int signum) {
+  alarm(0);
+  raise(SIGABRT);
+}
+
+void SetTimeoutSignal() {
+  old_sigalrm_handler = SetSignalHandler(SIGALRM, SignalHandler(&SigAlrmHandler)).ValueOrDie();
+  alarm(kSigAlrmTimeout);
+}
+
+void ClearTimeoutSignal() {
+  alarm(0);
+  ReinstateSignalHandler(SIGALRM, old_sigalrm_handler.callback());
+}
+#endif
+
+}
+
+void S3Environment::SetUp() {
+  // Change this to increase logging during tests
+  S3GlobalOptions options;
+  options.log_level = S3LogLevel::Fatal;
+  ASSERT_OK(InitializeS3(options));
+#ifndef _WIN32
+  SetTimeoutSignal();
+#endif
+}
+
+void S3Environment::TearDown() {
+#ifndef _WIN32
+  ClearTimeoutSignal();
+#endif
+  ASSERT_OK(FinalizeS3());
 }
 
 }  // namespace fs
