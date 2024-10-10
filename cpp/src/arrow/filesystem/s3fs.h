@@ -196,6 +196,25 @@ struct ARROW_EXPORT S3Options {
   /// delay between retries.
   std::shared_ptr<S3RetryStrategy> retry_strategy;
 
+  /// the SSE-C customized key (raw 32 bytes key).
+  std::string sse_customer_key;
+
+  /// Path to a single PEM file holding all TLS CA certificates
+  ///
+  /// If empty, global filesystem options will be used, if the global filesystem options
+  /// is also empty, the underlying TLS library's defaults will be used.
+  std::string tls_ca_file_path;
+
+  /// Path to a directory holding TLS CA certificates in individual PEM files
+  /// named along the OpenSSL "hashed" format.
+  ///
+  /// If empty, global filesystem options will be used, if the global filesystem options
+  /// is also empty, the underlying TLS library's defaults will be used.
+  std::string tls_ca_dir_path;
+
+  /// Whether to verify the S3 endpoint's TLS certificate, if the scheme is "https".
+  bool tls_verify_certificates = true;
+
   S3Options();
 
   /// Configure with the default AWS credentials provider chain.

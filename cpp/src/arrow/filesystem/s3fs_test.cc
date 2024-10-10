@@ -80,6 +80,7 @@ using ::arrow::internal::ToChars;
 using ::arrow::internal::Zip;
 using ::arrow::util::UriEscape;
 
+using ::arrow::fs::internal::CalculateSSECustomerKeyMD5;
 using ::arrow::fs::internal::ConnectRetryStrategy;
 using ::arrow::fs::internal::ErrorToStatus;
 using ::arrow::fs::internal::OutcomeToStatus;
@@ -205,7 +206,12 @@ class S3TestMixin : public AwsTestMixin {
     ARROW_ASSIGN_OR_RAISE(minio_, GetMinioEnv()->GetOneServer());
     client_config_.reset(new Aws::Client::ClientConfiguration());
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
-    client_config_->scheme = Aws::Http::Scheme::HTTP;
+    if (minio_->scheme() == "https") {
+      client_config_->scheme = Aws::Http::Scheme::HTTPS;
+      client_config_->caFile = ToAwsString(minio_->ca_file_path());
+    } else {
+      client_config_->scheme = Aws::Http::Scheme::HTTP;
+    }
     client_config_->retryStrategy =
         std::make_shared<ConnectRetryStrategy>(kRetryInterval, kMaxRetryDuration);
     credentials_ = {ToAwsString(minio_->access_key()), ToAwsString(minio_->secret_key())};
@@ -300,6 +306,17 @@ TEST_F(S3OptionsTest, FromUri) {
   ASSERT_EQ(options.scheme, "http");
   ASSERT_EQ(options.endpoint_override, "localhost");
   ASSERT_EQ(path, "mybucket/foo/bar");
+  ASSERT_EQ(options.tls_verify_certificates, true);
+
+  // Explicit tls related configuration
+  ASSERT_OK_AND_ASSIGN(
+      options,
+      S3Options::FromUri("s3://mybucket/foo/bar/?tls_ca_dir_path=/test&tls_ca_file_path=/"
+                         "test/test.pem&tls_verify_certificates=false",
+                         &path));
+  ASSERT_EQ(options.tls_ca_dir_path, "/test");
+  ASSERT_EQ(options.tls_ca_file_path, "/test/test.pem");
+  ASSERT_EQ(options.tls_verify_certificates, false);
 
   // Missing bucket name
   ASSERT_RAISES(Invalid, S3Options::FromUri("s3:///foo/bar/", &path));
@@ -532,7 +549,7 @@ class TestS3FS : public S3TestMixin {
   Result<std::shared_ptr<S3FileSystem>> MakeNewFileSystem(
       io::IOContext io_context = io::default_io_context()) {
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
-    options_.scheme = "http";
+    options_.scheme = minio_->scheme();
     options_.endpoint_override = minio_->connect_string();
     if (!options_.retry_strategy) {
       options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
@@ -1298,6 +1315,59 @@ TEST_F(TestS3FS, OpenInputFile) {
   ASSERT_RAISES(IOError, file->Seek(10));
 }
 
+#ifdef MINIO_SERVER_WITH_TLS
+TEST_F(TestS3FS, SSECustomerKeyMatch) {
+  // normal write/read with correct SSEC key
+  std::shared_ptr<io::OutputStream> stream;
+  options_.sse_customer_key = "12345678123456781234567812345678";
+  for (const auto& allow_delayed_open : {false, true}) {
+    ARROW_SCOPED_TRACE("allow_delayed_open = ", allow_delayed_open);
+    options_.allow_delayed_open = allow_delayed_open;
+    MakeFileSystem();
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile_with_sse_c"));
+    ASSERT_OK(stream->Write("some"));
+    ASSERT_OK(stream->Close());
+    ASSERT_OK_AND_ASSIGN(auto file, fs_->OpenInputFile("bucket/newfile_with_sse_c"));
+    ASSERT_OK_AND_ASSIGN(auto buf, file->Read(5));
+    AssertBufferEqual(*buf, "some");
+    ASSERT_OK(RestoreTestBucket());
+  }
+}
+
+TEST_F(TestS3FS, SSECustomerKeyMismatch) {
+  std::shared_ptr<io::OutputStream> stream;
+  for (const auto& allow_delayed_open : {false, true}) {
+    options_.allow_delayed_open = allow_delayed_open;
+    options_.sse_customer_key = "12345678123456781234567812345678";
+    MakeFileSystem();
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile_with_sse_c"));
+    ASSERT_OK(stream->Write("some"));
+    ASSERT_OK(stream->Close());
+    options_.sse_customer_key = "87654321876543218765432187654321";
+    MakeFileSystem();
+    ASSERT_RAISES(IOError, fs_->OpenInputFile("bucket/newfile_with_sse_c"));
+    ASSERT_OK(RestoreTestBucket());
+  }
+}
+
+TEST_F(TestS3FS, SSECustomerKeyMissing) {
+  std::shared_ptr<io::OutputStream> stream;
+  for (const auto& allow_delayed_open : {false, true}) {
+    options_.allow_delayed_open = allow_delayed_open;
+    options_.sse_customer_key = "12345678123456781234567812345678";
+    MakeFileSystem();
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile_with_sse_c"));
+    ASSERT_OK(stream->Write("some"));
+    ASSERT_OK(stream->Close());
+
+    options_.sse_customer_key = {};
+    MakeFileSystem();
+    ASSERT_RAISES(IOError, fs_->OpenInputFile("bucket/newfile_with_sse_c"));
+    ASSERT_OK(RestoreTestBucket());
+  }
+}
+#endif  // MINIO_SERVER_WITH_TLS
+
 struct S3OptionsTestParameters {
   bool background_writes{false};
   bool allow_delayed_open{false};
@@ -1420,7 +1490,8 @@ TEST_F(TestS3FS, FileSystemFromUri) {
   std::stringstream ss;
   ss << "s3://" << minio_->access_key() << ":" << minio_->secret_key()
      << "@bucket/somedir/subdir/subfile"
-     << "?scheme=http&endpoint_override=" << UriEscape(minio_->connect_string());
+     << "?scheme=" << minio_->scheme()
+     << "&endpoint_override=" << UriEscape(minio_->connect_string());
 
   std::string path;
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(ss.str(), &path));
@@ -1522,7 +1593,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
     }
 
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
-    options_.scheme = "http";
+    options_.scheme = minio_->scheme();
     options_.endpoint_override = minio_->connect_string();
     options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
     ASSERT_OK_AND_ASSIGN(s3fs_, S3FileSystem::Make(options_));
@@ -1591,6 +1662,22 @@ TEST(S3GlobalOptions, DefaultsLogLevel) {
     EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", "invalid");
     ASSERT_EQ(S3LogLevel::Fatal, arrow::fs::S3GlobalOptions::Defaults().log_level);
   }
+}
+
+TEST(CalculateSSECustomerKeyMD5, Sanity) {
+  ASSERT_RAISES(Invalid, CalculateSSECustomerKeyMD5(""));  // invalid length
+  ASSERT_RAISES(Invalid,
+                CalculateSSECustomerKeyMD5(
+                    "1234567890123456789012345678901234567890"));  // invalid length
+  // valid case, with some non-ASCII character and a null byte in the sse_customer_key
+  char sse_customer_key[32] = {};
+  sse_customer_key[0] = '\x40';   // '@' character
+  sse_customer_key[1] = '\0';     // null byte
+  sse_customer_key[2] = '\xFF';   // non-ASCII
+  sse_customer_key[31] = '\xFA';  // non-ASCII
+  std::string sse_customer_key_string(sse_customer_key, sizeof(sse_customer_key));
+  ASSERT_OK_AND_ASSIGN(auto md5, CalculateSSECustomerKeyMD5(sse_customer_key_string))
+  ASSERT_EQ(md5, "97FTa6lj0hE7lshKdBy61g==");  // valid case
 }
 
 }  // namespace fs

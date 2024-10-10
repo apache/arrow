@@ -206,6 +206,12 @@ std::string GetListenAddress() {
   return ss.str();
 }
 
+std::string GetListenAddress(const std::string& host) {
+  std::stringstream ss;
+  ss << host << ":" << GetListenPort();
+  return ss.str();
+}
+
 const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types() {
   static std::vector<std::shared_ptr<DataType>> types = {
       int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()};
