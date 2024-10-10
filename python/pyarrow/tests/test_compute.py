@@ -349,8 +349,49 @@ def test_sum_array(arrow_type):
 
     arr = pa.array([], type=arrow_type)
     assert arr.sum().as_py() is None  # noqa: E711
+    assert pc.sum(arr).as_py() is None  # noqa: E711
     assert arr.sum(min_count=0).as_py() == 0
     assert pc.sum(arr, min_count=0).as_py() == 0
+
+
+@pytest.mark.parametrize("arrow_type", [pa.decimal128(3, 2), pa.decimal256(3, 2)])
+def test_sum_decimal_array(arrow_type):
+    from decimal import Decimal
+    max_precision_type = pa.decimal128(38, arrow_type.scale) if pa.types.is_decimal128(arrow_type) else pa.decimal256(76, arrow_type.scale)
+    expected_sum = Decimal("5.79")
+    zero = Decimal("0.00")
+
+    arr = pa.array([Decimal("1.23"), Decimal("4.56")], type=arrow_type)
+    assert arr.sum().as_py() == expected_sum
+    assert arr.sum().type == max_precision_type
+    assert pc.sum(arr).as_py() == expected_sum
+    assert pc.sum(arr).type == max_precision_type
+
+    arr = pa.array([Decimal("1.23"), Decimal("4.56"), None], type=arrow_type)
+    assert arr.sum().as_py() == expected_sum
+    assert arr.sum().type == max_precision_type
+    assert pc.sum(arr).as_py() == expected_sum
+    assert pc.sum(arr).type == max_precision_type
+
+    arr = pa.array([None], type=arrow_type)
+    assert arr.sum().as_py() is None  # noqa: E711
+    assert arr.sum().type == max_precision_type  # noqa: E711
+    assert pc.sum(arr).as_py() is None  # noqa: E711
+    assert pc.sum(arr).type == max_precision_type  # noqa: E711
+    assert arr.sum(min_count=0).as_py() == zero
+    assert arr.sum(min_count=0).type == max_precision_type
+    assert pc.sum(arr, min_count=0).as_py() == zero
+    assert pc.sum(arr, min_count=0).type == max_precision_type
+
+    arr = pa.array([], type=arrow_type)
+    assert arr.sum().as_py() is None  # noqa: E711
+    assert arr.sum().type == max_precision_type  # noqa: E711
+    assert pc.sum(arr).as_py() is None  # noqa: E711
+    assert pc.sum(arr).type == max_precision_type  # noqa: E711
+    assert arr.sum(min_count=0).as_py() == zero
+    assert arr.sum(min_count=0).type == max_precision_type
+    assert pc.sum(arr, min_count=0).as_py() == zero
+    assert pc.sum(arr, min_count=0).type == max_precision_type
 
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
@@ -374,6 +415,39 @@ def test_sum_chunked_array(arrow_type):
     assert arr.num_chunks == 0
     assert pc.sum(arr).as_py() is None  # noqa: E711
     assert pc.sum(arr, min_count=0).as_py() == 0
+
+
+@pytest.mark.parametrize('arrow_type', [pa.decimal128(3, 2), pa.decimal256(3, 2)])
+def test_sum_chunked_array_decimal_type(arrow_type):
+    from decimal import Decimal
+    max_precision_type = pa.decimal128(38, arrow_type.scale) if pa.types.is_decimal128(arrow_type) else pa.decimal256(76, arrow_type.scale)
+    expected_sum = Decimal("5.79")
+    zero = Decimal("0.00")
+
+    arr = pa.chunked_array([pa.array([Decimal("1.23"), Decimal("4.56")], type=arrow_type)])
+    assert pc.sum(arr).as_py() == expected_sum
+    assert pc.sum(arr).type == max_precision_type
+
+    arr = pa.chunked_array([
+        pa.array([Decimal("1.23")], type=arrow_type), pa.array([Decimal("4.56")], type=arrow_type)
+    ])
+    assert pc.sum(arr).as_py() == expected_sum
+    assert pc.sum(arr).type == max_precision_type
+
+    arr = pa.chunked_array([
+        pa.array([Decimal("1.23")], type=arrow_type),
+        pa.array([], type=arrow_type),
+        pa.array([Decimal("4.56")], type=arrow_type)
+    ])
+    assert pc.sum(arr).as_py() == expected_sum
+    assert pc.sum(arr).type == max_precision_type
+
+    arr = pa.chunked_array((), type=arrow_type)
+    assert arr.num_chunks == 0
+    assert pc.sum(arr).as_py() is None  # noqa: E711
+    assert pc.sum(arr).type == max_precision_type
+    assert pc.sum(arr, min_count=0).as_py() == zero
+    assert pc.sum(arr, min_count=0).type == max_precision_type
 
 
 def test_mode_array():
