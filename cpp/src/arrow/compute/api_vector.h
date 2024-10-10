@@ -257,19 +257,19 @@ class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
   bool recursive = false;
 };
 
-/// \brief Options for reverse_index function
-class ARROW_EXPORT ReverseIndexOptions : public FunctionOptions {
+/// \brief Options for reverse_indices function
+class ARROW_EXPORT ReverseIndicesOptions : public FunctionOptions {
  public:
-  explicit ReverseIndexOptions(int64_t output_length = -1,
+  explicit ReverseIndicesOptions(int64_t output_length = -1,
                                std::shared_ptr<DataType> output_type = int32());
-  static constexpr char const kTypeName[] = "ReverseIndexOptions";
-  static ReverseIndexOptions Defaults() { return ReverseIndexOptions(); }
+  static constexpr char const kTypeName[] = "ReverseIndicesOptions";
+  static ReverseIndicesOptions Defaults() { return ReverseIndicesOptions(); }
 
-  /// \brief The length of the output reverse index. If negative, the output will be of
-  /// the same length as the input indices. Any indices that are greater of equal to this
+  /// \brief The length of the output reverse indices. If negative, the output will be of
+  /// the same length as the input indices. Any indices that are greater or equal to this
   /// length will be ignored.
   int64_t output_length = -1;
-  /// \brief The type of the output reverse index. Must be integer types that are able to
+  /// \brief The type of the output reverse indices. Must be integer types that are able to
   /// store the length of the input indices, otherwise an overflow error will be reported.
   std::shared_ptr<DataType> output_type = int32();
 };
@@ -282,8 +282,8 @@ class ARROW_EXPORT PermuteOptions : public FunctionOptions {
   static PermuteOptions Defaults() { return PermuteOptions(); }
 
   /// \brief The length of the output permutation. If negative, the output will be of the
-  /// same length as the input indices. Any values with indices that are greater of equal
-  /// to this length will be ignored.
+  /// same length as the input values (and indices). Any values with indices that are
+  /// greater or equal to this length will be ignored.
   int64_t output_length = 0;
 };
 
@@ -754,9 +754,9 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
 ///
 /// \since 19.0.0
 /// \note API not yet finalized
-Result<std::shared_ptr<Array>> ReverseIndex(
+Result<std::shared_ptr<Array>> ReverseIndices(
     const Datum& indices,
-    const ReverseIndexOptions& options = ReverseIndexOptions::Defaults(),
+    const ReverseIndicesOptions& options = ReverseIndicesOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
 /// \brief Permute the values into specified positions in the output array according to
