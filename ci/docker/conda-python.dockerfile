@@ -27,7 +27,6 @@ COPY ci/conda_env_python.txt \
 # we need to install the conda-forge gdb instead (GH-38323).
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
-        --channel conda-forge/label/python_rc \
         $([ "$python" == $(gdb --batch --eval-command 'python import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') ] && echo "gdb") \
         "python=${python}.*=*_cp*" \
         nomkl && \
