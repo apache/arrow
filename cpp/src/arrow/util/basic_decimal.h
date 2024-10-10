@@ -40,7 +40,7 @@ enum class DecimalStatus {
 };
 
 template <typename Derived, int BIT_WIDTH, int NWORDS = BIT_WIDTH / 64>
-class ARROW_EXPORT GenericBasicDecimal {
+class GenericBasicDecimal {
  protected:
   struct LittleEndianArrayTag {};
 
@@ -168,7 +168,7 @@ class ARROW_EXPORT GenericBasicDecimal {
 };
 
 template <typename DigitType>
-class ARROW_EXPORT SmallBasicDecimal {
+class SmallBasicDecimal {
  public:
   static_assert(
       std::is_same_v<DigitType, int32_t> || std::is_same_v<DigitType, int64_t>,
