@@ -68,10 +68,12 @@ import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.holders.IntervalDayHolder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
 /** Utility for populating {@link org.apache.arrow.vector.ValueVector}. */
@@ -793,5 +795,42 @@ public class ValueVectorDataPopulator {
     }
     dataVector.setValueCount(curPos);
     vector.setValueCount(values.length);
+  }
+
+  public static void setVector(
+      RunEndEncodedVector vector, List<Integer> runEnds, List<Integer> values) {
+    int runCount = runEnds.size();
+    assert runCount == values.size();
+    final FieldType valueType = FieldType.notNullable(MinorType.INT.getType());
+    final FieldType runEndType = FieldType.notNullable(Types.MinorType.INT.getType());
+    final Field valueField = new Field("value", valueType, null);
+    final Field runEndField = new Field("ree", runEndType, null);
+    vector.initializeChildrenFromFields(List.of(runEndField, valueField));
+
+    IntVector runEndsVector = (IntVector) vector.getRunEndsVector();
+    runEndsVector.setValueCount(runCount);
+    for (int i = 0; i < runCount; i++) {
+      if (runEnds.get(i) == null) {
+        runEndsVector.setNull(i);
+      } else {
+        runEndsVector.set(i, runEnds.get(i));
+      }
+    }
+
+    IntVector valuesVector = (IntVector) vector.getValuesVector();
+    valuesVector.setValueCount(runCount);
+    for (int i = 0; i < runCount; i++) {
+      if (runEnds.get(i) == null) {
+        valuesVector.setNull(i);
+      } else {
+        valuesVector.set(i, values.get(i));
+      }
+    }
+
+    if (runCount > 0) {
+      vector.setValueCount(runEnds.get(runCount - 1));
+    } else {
+      vector.setValueCount(0);
+    }
   }
 }

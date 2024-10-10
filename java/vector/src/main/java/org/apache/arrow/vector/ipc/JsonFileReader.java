@@ -910,7 +910,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       }
 
       int nullCount = 0;
-      if (type instanceof ArrowType.Null) {
+      if (type instanceof ArrowType.RunEndEncoded) {
+        nullCount = 0;
+      } else if (type instanceof ArrowType.Null) {
         nullCount = valueCount;
       } else if (!(type instanceof Union)) {
         nullCount = BitVectorHelper.getNullCount(vectorBuffers.get(0), valueCount);
