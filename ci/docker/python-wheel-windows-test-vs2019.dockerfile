@@ -53,8 +53,8 @@ ARG python=3.9
 RUN (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13") & \
     (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11") & \
     (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9") & \
-    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.5") & \
-    (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.0-rc1")
+    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.6") & \
+    (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.0-rc2")
 
 # Install archiver to extract xz archives
 RUN choco install -r -y --pre --no-progress --force python --version=%PYTHON_VERSION% && \
