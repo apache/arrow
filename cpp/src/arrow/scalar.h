@@ -134,7 +134,7 @@ namespace internal {
 constexpr auto kScalarScratchSpaceSize = sizeof(int64_t) * 2;
 
 template <typename Impl>
-struct ARROW_EXPORT ArraySpanFillFromScalarScratchSpace {
+struct ArraySpanFillFromScalarScratchSpace {
   //  16 bytes of scratch space to enable ArraySpan to be a view onto any
   //  Scalar- including binary scalars where we need to create a buffer
   //  that looks like two 32-bit or 64-bit offsets.
@@ -163,7 +163,7 @@ struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
 };
 
 template <typename T, typename CType = typename T::c_type>
-struct ARROW_EXPORT PrimitiveScalar : public PrimitiveScalarBase {
+struct PrimitiveScalar : public PrimitiveScalarBase {
   using PrimitiveScalarBase::PrimitiveScalarBase;
   using TypeClass = T;
   using ValueType = CType;
@@ -464,7 +464,7 @@ struct ARROW_EXPORT Date64Scalar : public DateScalar<Date64Type> {
 };
 
 template <typename T>
-struct ARROW_EXPORT TimeScalar : public TemporalScalar<T> {
+struct TimeScalar : public TemporalScalar<T> {
   using TemporalScalar<T>::TemporalScalar;
 
   TimeScalar(typename TemporalScalar<T>::ValueType value, TimeUnit::type unit)
@@ -543,7 +543,7 @@ struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
 };
 
 template <typename TYPE_CLASS, typename VALUE_TYPE>
-struct ARROW_EXPORT DecimalScalar : public internal::PrimitiveScalarBase {
+struct DecimalScalar : public internal::PrimitiveScalarBase {
   using internal::PrimitiveScalarBase::PrimitiveScalarBase;
   using TypeClass = TYPE_CLASS;
   using ValueType = VALUE_TYPE;

@@ -89,7 +89,7 @@ class ARROW_EXPORT SharedExclusiveChecker {
 // wrappers between those two classes.
 
 template <class Derived>
-class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
+class InputStreamConcurrencyWrapper : public InputStream {
  public:
   Status Close() final {
     auto guard = lock_.exclusive_guard();
@@ -159,7 +159,7 @@ class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
 };
 
 template <class Derived>
-class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile {
+class RandomAccessFileConcurrencyWrapper : public RandomAccessFile {
  public:
   Status Close() final {
     auto guard = lock_.exclusive_guard();

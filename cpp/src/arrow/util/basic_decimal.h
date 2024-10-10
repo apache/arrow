@@ -40,7 +40,7 @@ enum class DecimalStatus {
 };
 
 template <typename Derived, int BIT_WIDTH, int NWORDS = BIT_WIDTH / 64>
-class ARROW_EXPORT GenericBasicDecimal {
+class GenericBasicDecimal {
  protected:
   struct LittleEndianArrayTag {};
 

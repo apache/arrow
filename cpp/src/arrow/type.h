@@ -548,7 +548,7 @@ ARROW_EXPORT void PrintTo(const Field& field, std::ostream* os);
 namespace detail {
 
 template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
-class ARROW_EXPORT CTypeImpl : public BASE {
+class CTypeImpl : public BASE {
  public:
   static constexpr Type::type type_id = TYPE_ID;
   using c_type = C_TYPE;
