@@ -47,8 +47,20 @@ public static class Program
         clientCommand.SetHandler(async (port, scenario, jsonFile) =>
         {
             var command = new FlightClientCommand(port, scenario, jsonFile);
-            await command.Execute();
+            await command.Execute().ConfigureAwait(false);
         }, portOption, scenarioOption, pathOption);
+
+        var serverCommand = new Command("server", "Run the Flight server")
+        {
+            scenarioOption,
+        };
+        rootCommand.AddCommand(serverCommand);
+
+        serverCommand.SetHandler(async scenario =>
+        {
+            var command = new FlightServerCommand(scenario);
+            await command.Execute().ConfigureAwait(false);
+        }, scenarioOption);
 
         return await rootCommand.InvokeAsync(args);
     }

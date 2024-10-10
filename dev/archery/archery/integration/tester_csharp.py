@@ -17,6 +17,7 @@
 
 from contextlib import contextmanager
 import os
+import subprocess
 
 from . import cdata
 from .tester import Tester, CDataExporter, CDataImporter
@@ -154,7 +155,7 @@ class CSharpCDataImporter(CDataImporter, _CDataBase):
 class CSharpTester(Tester):
     PRODUCER = True
     CONSUMER = True
-    FLIGHT_SERVER = False
+    FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
     C_DATA_SCHEMA_EXPORTER = True
     C_DATA_SCHEMA_IMPORTER = True
@@ -215,3 +216,31 @@ class CSharpTester(Tester):
         if self.debug:
             log(' '.join(cmd))
         run_cmd(cmd)
+
+    @contextmanager
+    def flight_server(self, scenario_name=None):
+        cmd = [_FLIGHT_EXE_PATH, 'server']
+        if scenario_name:
+            cmd.extend(['--scenario', scenario_name])
+        if self.debug:
+            log(' '.join(cmd))
+        server = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        try:
+            server.stdout.readline()  # Skip first log line output
+            output = server.stdout.readline().decode()
+            if "Now listening on" not in output:
+                server.kill()
+                out, err = server.communicate()
+                raise RuntimeError(
+                    '.NET Flight server did not start properly, '
+                    'stdout: \n{}\n\nstderr:\n{}\n'.format(
+                        output + out.decode(), err.decode()
+                    )
+                )
+            port = int(output.split(':')[-1])
+            yield port
+        finally:
+            server.kill()
+            server.wait(5)
