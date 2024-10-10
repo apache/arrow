@@ -1,120 +1,140 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include <gtest/gtest.h>
 
 #include "arrow/chunked_array.h"
-#include "arrow/compute/api.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/test_util.h"
-#include "arrow/result.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/checked_cast.h"
 
 namespace arrow::compute {
 
-TEST(ReverseIndex, Invalid) {
+// ----------------------------------------------------------------------
+// ReverseIndices tests
+
+TEST(ReverseIndices, Invalid) {
   {
     auto indices = ArrayFromJSON(int32(), "[]");
-    ReverseIndexOptions options{0, nullptr};
-    ASSERT_RAISES_WITH_MESSAGE(Invalid,
-                               "Invalid: Output type of reverse_index must not be null",
-                               CallFunction("reverse_index", {indices}, &options));
-  }
-  {
-    auto indices = ArrayFromJSON(int32(), "[]");
-    ReverseIndexOptions options{0, utf8()};
+    ReverseIndicesOptions options{0, utf8()};
     ASSERT_RAISES_WITH_MESSAGE(
-        Invalid, "Invalid: Output type of reverse_index must be integer, got string",
-        CallFunction("reverse_index", {indices}, &options));
+        Invalid, "Invalid: Output type of reverse_indices must be integer, got string",
+        CallFunction("reverse_indices", {indices}, &options));
   }
 }
 
-TEST(ReverseIndex, Basic) {
+TEST(ReverseIndices, DefaultOptions) {
+  {
+    ReverseIndicesOptions options;
+    ASSERT_EQ(options.output_length, -1);
+    ASSERT_EQ(options.output_type, nullptr);
+  }
+  {
+    auto indices = ArrayFromJSON(int32(), "[0]");
+    ReverseIndicesOptions options;
+    ASSERT_OK_AND_ASSIGN(Datum result,
+                         CallFunction("reverse_indices", {indices}, &options));
+    ASSERT_EQ(result.length(), 1);
+    ASSERT_EQ(result.type()->id(), Type::INT32);
+  }
+}
+
+TEST(ReverseIndices, Basic) {
   {
     auto indices = ArrayFromJSON(int32(), "[9, 7, 5, 3, 1, 0, 2, 4, 6, 8]");
     auto expected = ArrayFromJSON(int8(), "[5, 4, 6, 3, 7, 2, 8, 1, 9, 0]");
-    ReverseIndexOptions options{10, int8()};
+    ReverseIndicesOptions options{10, int8()};
     ASSERT_OK_AND_ASSIGN(Datum result,
-                         CallFunction("reverse_index", {indices}, &options));
+                         CallFunction("reverse_indices", {indices}, &options));
     AssertDatumsEqual(expected, result);
   }
   {
     auto indices = ArrayFromJSON(int32(), "[1, 2]");
     auto expected = ArrayFromJSON(int8(), "[null, 0, 1, null, null, null, null]");
-    ReverseIndexOptions options{7, int8()};
+    ReverseIndicesOptions options{7, int8()};
     ASSERT_OK_AND_ASSIGN(Datum result,
-                         CallFunction("reverse_index", {indices}, &options));
-    AssertDatumsEqual(expected, result);
-  }
-  {
-    auto indices = ArrayFromJSON(int32(), "[1, 2]");
-    auto expected = ArrayFromJSON(int8(), "[null, 0, 1, null, null, null, null]");
-    ReverseIndexOptions options{7, int8(), MakeNullScalar(int8())};
-    ASSERT_OK_AND_ASSIGN(Datum result,
-                         CallFunction("reverse_index", {indices}, &options));
+                         CallFunction("reverse_indices", {indices}, &options));
     AssertDatumsEqual(expected, result);
   }
   {
     auto indices = ArrayFromJSON(int32(), "[1, 2]");
     auto expected = ArrayFromJSON(int8(), "[]");
-    ReverseIndexOptions options{0, int8()};
+    ReverseIndicesOptions options{0, int8()};
     ASSERT_OK_AND_ASSIGN(Datum result,
-                         CallFunction("reverse_index", {indices}, &options));
+                         CallFunction("reverse_indices", {indices}, &options));
     AssertDatumsEqual(expected, result);
   }
   {
     auto indices = ArrayFromJSON(int32(), "[1, 0]");
     auto expected = ArrayFromJSON(int8(), "[1]");
-    ReverseIndexOptions options{1, int8()};
+    ReverseIndicesOptions options{1, int8()};
     ASSERT_OK_AND_ASSIGN(Datum result,
-                         CallFunction("reverse_index", {indices}, &options));
+                         CallFunction("reverse_indices", {indices}, &options));
     AssertDatumsEqual(expected, result);
   }
   {
     auto indices = ArrayFromJSON(int32(), "[1, 2]");
     auto expected = ArrayFromJSON(int8(), "[null]");
-    ReverseIndexOptions options{1, int8()};
+    ReverseIndicesOptions options{1, int8()};
     ASSERT_OK_AND_ASSIGN(Datum result,
-                         CallFunction("reverse_index", {indices}, &options));
+                         CallFunction("reverse_indices", {indices}, &options));
     AssertDatumsEqual(expected, result);
   }
   {
     auto indices = ArrayFromJSON(int32(), "[]");
     auto expected = ArrayFromJSON(int8(), "[null, null, null, null, null, null, null]");
-    ReverseIndexOptions options{7, int8()};
+    ReverseIndicesOptions options{7, int8()};
     ASSERT_OK_AND_ASSIGN(Datum result,
-                         CallFunction("reverse_index", {indices}, &options));
+                         CallFunction("reverse_indices", {indices}, &options));
     AssertDatumsEqual(expected, result);
   }
 }
 
-TEST(ReverseIndex, Overflow) {
+TEST(ReverseIndices, Overflow) {
   {
     auto indices = ConstantArrayGenerator::Zeroes(127, int8());
     auto expected = ArrayFromJSON(int8(), "[126]");
-    ReverseIndexOptions options{1, int8()};
+    ReverseIndicesOptions options{1, int8()};
     ASSERT_OK_AND_ASSIGN(Datum result,
-                         CallFunction("reverse_index", {indices}, &options));
+                         CallFunction("reverse_indices", {indices}, &options));
     AssertDatumsEqual(expected, result);
   }
   {
     auto indices = ConstantArrayGenerator::Zeroes(128, int8());
-    ReverseIndexOptions options{1, int8()};
+    ReverseIndicesOptions options{1, int8()};
     ASSERT_RAISES_WITH_MESSAGE(Invalid,
-                               "Invalid: Output type int8 of reverse_index is "
+                               "Invalid: Output type int8 of reverse_indices is "
                                "insufficient to store indices of length 128",
-                               CallFunction("reverse_index", {indices}, &options));
+                               CallFunction("reverse_indices", {indices}, &options));
   }
   {
     ASSERT_OK_AND_ASSIGN(auto indices, MakeArrayOfNull(int8(), 128));
     auto expected = ArrayFromJSON(int8(), "[null]");
-    ReverseIndexOptions options{1, int8()};
+    ReverseIndicesOptions options{1, int8()};
     ASSERT_RAISES_WITH_MESSAGE(Invalid,
-                               "Invalid: Output type int8 of reverse_index is "
+                               "Invalid: Output type int8 of reverse_indices is "
                                "insufficient to store indices of length 128",
-                               CallFunction("reverse_index", {indices}, &options));
+                               CallFunction("reverse_indices", {indices}, &options));
   }
 }
+
+// ----------------------------------------------------------------------
+// Permute tests
 
 TEST(Permute, Basic) {
   {

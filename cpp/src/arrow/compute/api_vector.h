@@ -261,7 +261,7 @@ class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
 class ARROW_EXPORT ReverseIndicesOptions : public FunctionOptions {
  public:
   explicit ReverseIndicesOptions(int64_t output_length = -1,
-                               std::shared_ptr<DataType> output_type = int32());
+                                 std::shared_ptr<DataType> output_type = nullptr);
   static constexpr char const kTypeName[] = "ReverseIndicesOptions";
   static ReverseIndicesOptions Defaults() { return ReverseIndicesOptions(); }
 
@@ -269,9 +269,10 @@ class ARROW_EXPORT ReverseIndicesOptions : public FunctionOptions {
   /// the same length as the input indices. Any indices that are greater or equal to this
   /// length will be ignored.
   int64_t output_length = -1;
-  /// \brief The type of the output reverse indices. Must be integer types that are able to
-  /// store the length of the input indices, otherwise an overflow error will be reported.
-  std::shared_ptr<DataType> output_type = int32();
+  /// \brief The type of the output reverse indices. If null, the output will be of the
+  /// same type as the input indices, otherwise must be integer types. An overflow error
+  /// will be reported if this type is not able to store the length of the input indices.
+  std::shared_ptr<DataType> output_type = nullptr;
 };
 
 /// \brief Options for permute function
@@ -759,8 +760,7 @@ Result<std::shared_ptr<Array>> ReverseIndices(
     const ReverseIndicesOptions& options = ReverseIndicesOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
-/// \brief Permute the values into specified positions in the output array according to
-/// the indices.
+/// \brief Permute the values into specified positions according to the indices.
 ///
 /// For indices[i] = x, output[x] = values[i]. And output[x] = null if
 /// x does not appear in the indices. For indices[i] = x where x < 0 or x >=
