@@ -15,11 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/version"
+require "extpp/setup"
+require "gio2"
 
-module Arrow
-  class Error < StandardError
-  end
-end
-
-require_relative "arrow/#{RUBY_ENGINE}"
+require_relative "loader"
+Arrow::Loader.load

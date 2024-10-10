@@ -1820,7 +1820,7 @@ GARROW_AVAILABLE_IN_12_0
 gint8
 garrow_union_array_builder_append_child(GArrowUnionArrayBuilder *builder,
                                         GArrowArrayBuilder *child,
-                                        const gchar *filed_name);
+                                        const gchar *field_name);
 
 GARROW_AVAILABLE_IN_12_0
 gboolean

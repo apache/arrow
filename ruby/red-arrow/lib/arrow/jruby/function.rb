@@ -15,11 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/version"
-
 module Arrow
-  class Error < StandardError
+  class Function
+    def execute(args, options=nil, context=nil)
+      raise NotImplementedError
+    end
   end
 end
-
-require_relative "arrow/#{RUBY_ENGINE}"
