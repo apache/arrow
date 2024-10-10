@@ -289,4 +289,13 @@ class ARROW_EXPORT ChunkResolver {
   }
 };
 
+// Explicitly instantiate template base struct, for DLL linking on Windows
+template struct arrow::TypedChunkLocation<int32_t>;
+template struct arrow::TypedChunkLocation<int16_t>;
+template struct arrow::TypedChunkLocation<int8_t>;
+template struct arrow::TypedChunkLocation<uint8_t>;
+template struct arrow::TypedChunkLocation<uint16_t>;
+template struct arrow::TypedChunkLocation<uint32_t>;
+template struct arrow::TypedChunkLocation<int64_t>;
+template struct arrow::TypedChunkLocation<uint64_t>;
 }  // namespace arrow
