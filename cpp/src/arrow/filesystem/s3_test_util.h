@@ -44,7 +44,10 @@ class MinioTestServer {
   MinioTestServer();
   ~MinioTestServer();
 
-  Status Start();
+  // enable_tls_if_supported = true: start Minio with TLS if MINIO_SERVER_WITH_TLS is
+  // defined, Currently only enabled on Linux platfrom. enable_tls_if_supported = false:
+  // start Minio without TLS in all platfroms
+  Status Start(bool enable_tls_if_supported = true);
 
   Status Stop();
 
@@ -54,7 +57,9 @@ class MinioTestServer {
 
   std::string secret_key() const;
 
-  std::string ca_path() const;
+  std::string ca_dir_path() const;
+
+  std::string ca_file_path() const;
 
   std::string scheme() const;
 

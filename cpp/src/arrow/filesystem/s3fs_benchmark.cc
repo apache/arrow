@@ -61,7 +61,7 @@ class MinioFixture : public benchmark::Fixture {
  public:
   void SetUp(const ::benchmark::State& state) override {
     minio_.reset(new MinioTestServer());
-    ASSERT_OK(minio_->Start());
+    ASSERT_OK(minio_->Start(false));
 
     const char* region_str = std::getenv(kEnvAwsRegion);
     if (region_str) {
@@ -81,12 +81,7 @@ class MinioFixture : public benchmark::Fixture {
     }
 
     client_config_.endpointOverride = ToAwsString(minio_->connect_string());
-    if (minio_->scheme() == "https") {
-      client_config_.scheme = Aws::Http::Scheme::HTTPS;
-      client_config_.verifySSL = false;
-    } else {
-      client_config_.scheme = Aws::Http::Scheme::HTTP;
-    }
+    client_config_.scheme = Aws::Http::Scheme::HTTP;
     if (!region_.empty()) {
       client_config_.region = ToAwsString(region_);
     }

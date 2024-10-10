@@ -201,16 +201,18 @@ struct ARROW_EXPORT S3Options {
 
   /// Path to a single PEM file holding all TLS CA certificates
   ///
-  /// If empty, the underlying TLS library's defaults will be used.
+  /// If empty, global filesystem options will be used, if the global filesystem options
+  /// is also empty, the underlying TLS library's defaults will be used.
   std::string tls_ca_file_path;
 
   /// Path to a directory holding TLS CA certificates in individual PEM files
   /// named along the OpenSSL "hashed" format.
   ///
-  /// If empty, the underlying TLS library's defaults will be used.
+  /// If empty, global filesystem options will be used, if the global filesystem options
+  /// is also empty, the underlying TLS library's defaults will be used.
   std::string tls_ca_dir_path;
 
-  /// Controls whether to verify TLS certificates. Defaults to true.
+  /// Whether to verify the S3 endpoint's TLS certificate, if the scheme is "https".
   bool tls_verify_certificates = true;
 
   S3Options();
