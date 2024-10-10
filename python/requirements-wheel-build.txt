@@ -1,8 +1,3 @@
-# Remove pre and extra index url once there's NumPy and Cython wheels for 3.13
-# on PyPI
---pre
---extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
-
 cython>=0.29.31
 oldest-supported-numpy>=0.14; python_version<'3.9'
 numpy>=2.0.0; python_version>='3.9'
