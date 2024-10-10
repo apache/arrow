@@ -168,7 +168,7 @@ class GenericBasicDecimal {
 };
 
 template <typename DigitType>
-class SmallBasicDecimal {
+class ARROW_EXPORT SmallBasicDecimal {
  public:
   static_assert(
       std::is_same_v<DigitType, int32_t> || std::is_same_v<DigitType, int64_t>,
