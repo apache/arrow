@@ -208,7 +208,7 @@ class S3TestMixin : public AwsTestMixin {
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
     if (minio_->scheme() == "https") {
       client_config_->scheme = Aws::Http::Scheme::HTTPS;
-      client_config_->verifySSL = false;
+      client_config_->caFile = ToAwsString(minio_->ca_file_path());
     } else {
       client_config_->scheme = Aws::Http::Scheme::HTTP;
     }
@@ -306,6 +306,7 @@ TEST_F(S3OptionsTest, FromUri) {
   ASSERT_EQ(options.scheme, "http");
   ASSERT_EQ(options.endpoint_override, "localhost");
   ASSERT_EQ(path, "mybucket/foo/bar");
+  ASSERT_EQ(options.tls_verify_certificates, true);
 
   // Explicit tls related configuration
   ASSERT_OK_AND_ASSIGN(
@@ -459,7 +460,6 @@ class TestS3FS : public S3TestMixin {
     // Most tests will create buckets
     options_.allow_bucket_creation = true;
     options_.allow_bucket_deletion = true;
-    options_.tls_verify_certificates = false;
     MakeFileSystem();
     // Set up test bucket
     {
@@ -557,9 +557,7 @@ class TestS3FS : public S3TestMixin {
     return S3FileSystem::Make(options_, io_context);
   }
 
-  void MakeFileSystem() {
-    ASSERT_OK_AND_ASSIGN(fs_, MakeNewFileSystem(io::default_io_context()));
-  }
+  void MakeFileSystem() { ASSERT_OK_AND_ASSIGN(fs_, MakeNewFileSystem()); }
 
   template <typename Matcher>
   void AssertMetadataRoundtrip(const std::string& path,
@@ -1319,28 +1317,51 @@ TEST_F(TestS3FS, SSECustomerKeyMatch) {
   // normal write/read with correct SSEC key
   std::shared_ptr<io::OutputStream> stream;
   options_.sse_customer_key = "12345678123456781234567812345678";
-  MakeFileSystem();
-  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile_with_sse_c"));
-  ASSERT_OK(stream->Write("some"));
-  ASSERT_OK(stream->Close());
-  ASSERT_OK_AND_ASSIGN(auto file, fs_->OpenInputFile("bucket/newfile_with_sse_c"));
-  ASSERT_OK_AND_ASSIGN(auto buf, file->Read(4));
-  AssertBufferEqual(*buf, "some");
-  ASSERT_OK(RestoreTestBucket());
+  for (const auto& allow_delayed_open : {false, true}) {
+    ARROW_SCOPED_TRACE("allow_delayed_open = ", allow_delayed_open);
+    options_.allow_delayed_open = allow_delayed_open;
+    MakeFileSystem();
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile_with_sse_c"));
+    ASSERT_OK(stream->Write("some"));
+    ASSERT_OK(stream->Close());
+    ASSERT_OK_AND_ASSIGN(auto file, fs_->OpenInputFile("bucket/newfile_with_sse_c"));
+    ASSERT_OK_AND_ASSIGN(auto buf, file->Read(5));
+    AssertBufferEqual(*buf, "some");
+    ASSERT_OK(RestoreTestBucket());
+  }
 }
 
 TEST_F(TestS3FS, SSECustomerKeyMismatch) {
   std::shared_ptr<io::OutputStream> stream;
-  options_.sse_customer_key = "12345678123456781234567812345678";
-  MakeFileSystem();
-  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile_with_sse_c"));
-  ASSERT_OK(stream->Write("some"));
-  ASSERT_OK(stream->Close());
+  for (const auto& allow_delayed_open : {false, true}) {
+    options_.allow_delayed_open = allow_delayed_open;
+    options_.sse_customer_key = "12345678123456781234567812345678";
+    MakeFileSystem();
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile_with_sse_c"));
+    ASSERT_OK(stream->Write("some"));
+    ASSERT_OK(stream->Close());
+    options_.sse_customer_key = "87654321876543218765432187654321";
+    MakeFileSystem();
+    ASSERT_RAISES(IOError, fs_->OpenInputFile("bucket/newfile_with_sse_c"));
+    ASSERT_OK(RestoreTestBucket());
+  }
+}
 
-  options_.sse_customer_key = "87654321876543218765432187654321";
-  MakeFileSystem();
-  ASSERT_RAISES(IOError, fs_->OpenInputFile("bucket/newfile_with_sse_c"));
-  ASSERT_OK(RestoreTestBucket());
+TEST_F(TestS3FS, SSECustomerKeyMissing) {
+  std::shared_ptr<io::OutputStream> stream;
+  for (const auto& allow_delayed_open : {false, true}) {
+    options_.allow_delayed_open = allow_delayed_open;
+    options_.sse_customer_key = "12345678123456781234567812345678";
+    MakeFileSystem();
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile_with_sse_c"));
+    ASSERT_OK(stream->Write("some"));
+    ASSERT_OK(stream->Close());
+
+    options_.sse_customer_key = {};
+    MakeFileSystem();
+    ASSERT_RAISES(IOError, fs_->OpenInputFile("bucket/newfile_with_sse_c"));
+    ASSERT_OK(RestoreTestBucket());
+  }
 }
 #endif  // MINIO_SERVER_WITH_TLS
 

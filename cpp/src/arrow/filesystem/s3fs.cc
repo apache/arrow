@@ -105,10 +105,6 @@
 #  define ARROW_S3_HAS_S3CLIENT_CONFIGURATION
 #endif
 
-#if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 201)
-#  define ARROW_S3_SUPPORT_SSEC
-#endif
-
 #ifdef ARROW_S3_HAS_CRT
 #  include <aws/crt/io/Bootstrap.h>
 #  include <aws/crt/io/EventLoopGroup.h>
@@ -1151,11 +1147,7 @@ class ClientBuilder {
     } else if (!internal::global_options.tls_ca_dir_path.empty()) {
       client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
     }
-    if (!options_.tls_verify_certificates) {
-      client_config_.verifySSL = options_.tls_verify_certificates;
-    } else if (!internal::global_options.tls_verify_certificates) {
-      client_config_.verifySSL = internal::global_options.tls_verify_certificates;
-    }
+    client_config_.verifySSL = options_.tls_verify_certificates;
 
     // Set proxy options if provided
     if (!options_.proxy_options.scheme.empty()) {
@@ -1324,7 +1316,7 @@ Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
   S3Model::GetObjectRequest req;
   req.SetBucket(ToAwsString(path.bucket));
   req.SetKey(ToAwsString(path.key));
-  RETURN_NOT_OK(SetSSECustomerKey(req, sse_customer_key));
+  RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key));
   req.SetRange(ToAwsString(FormatRange(start, length)));
   req.SetResponseStreamFactory(AwsWriteableStreamFactory(out, length));
   return OutcomeToResult("GetObject", client->GetObject(req));
@@ -1480,7 +1472,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
     S3Model::HeadObjectRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
-    RETURN_NOT_OK(SetSSECustomerKey(req, sse_customer_key_));
+    RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
 
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
     auto outcome = client_lock.Move()->HeadObject(req);
@@ -1701,7 +1693,7 @@ class ObjectOutputStream final : public io::OutputStream {
     S3Model::CreateMultipartUploadRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
-    RETURN_NOT_OK(SetSSECustomerKey(req, sse_customer_key_));
+    RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
     RETURN_NOT_OK(SetMetadataInRequest(&req));
 
     auto outcome = client_lock.Move()->CreateMultipartUpload(req);
@@ -1803,9 +1795,9 @@ class ObjectOutputStream final : public io::OutputStream {
     S3Model::CompleteMultipartUploadRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
-    RETURN_NOT_OK(SetSSECustomerKey(req, sse_customer_key_));
     req.SetUploadId(multipart_upload_id_);
     req.SetMultipartUpload(std::move(completed_upload));
+    RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
 
     auto outcome =
         client_lock.Move()->CompleteMultipartUploadWithErrorFixup(std::move(req));
@@ -1985,7 +1977,7 @@ class ObjectOutputStream final : public io::OutputStream {
     req.SetKey(ToAwsString(path_.key));
     req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
     req.SetContentLength(nbytes);
-    RETURN_NOT_OK(SetSSECustomerKey(req, sse_customer_key_));
+    RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
 
     if (!background_writes_) {
       req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
@@ -2375,7 +2367,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
     S3Model::CopyObjectRequest req;
     req.SetBucket(ToAwsString(dest_path.bucket));
-    RETURN_NOT_OK(SetSSECustomerKey(req, options().sse_customer_key));
+    RETURN_NOT_OK(SetSSECustomerKey(&req, options().sse_customer_key));
     req.SetKey(ToAwsString(dest_path.key));
     // ARROW-13048: Copy source "Must be URL-encoded" according to AWS SDK docs.
     // However at least in 1.8 and 1.9 the SDK URL-encodes the path for you

@@ -19,7 +19,7 @@
 #  include <sys/wait.h>
 #endif
 
-#include "arrow/filesystem/s3_test_cert.h"
+#include "arrow/filesystem/s3_test_cert_internal.h"
 #include "arrow/filesystem/s3_test_util.h"
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/testing/process.h"
@@ -77,8 +77,12 @@ std::string MinioTestServer::access_key() const { return impl_->access_key_; }
 
 std::string MinioTestServer::secret_key() const { return impl_->secret_key_; }
 
-std::string MinioTestServer::ca_path() const {
+std::string MinioTestServer::ca_dir_path() const {
   return impl_->temp_dir_ca_->path().ToString();
+}
+
+std::string MinioTestServer::ca_file_path() const {
+  return impl_->temp_dir_ca_->path().ToString() + "/public.crt";
 }
 
 std::string MinioTestServer::scheme() const { return impl_->scheme_; }
@@ -89,7 +93,7 @@ Status MinioTestServer::GenerateCertificateFile() {
   ARROW_ASSIGN_OR_RAISE(impl_->temp_dir_ca_, TemporaryDir::Make("s3fs-test-ca-"));
 
   ARROW_ASSIGN_OR_RAISE(auto public_crt_file,
-                        PlatformFilename::FromString(ca_path() + "/public.crt"));
+                        PlatformFilename::FromString(ca_dir_path() + "/public.crt"));
   ARROW_ASSIGN_OR_RAISE(auto public_cert_fd, FileOpenWritable(public_crt_file));
   ARROW_RETURN_NOT_OK(FileWrite(public_cert_fd.fd(),
                                 reinterpret_cast<const uint8_t*>(kMinioCert),
@@ -97,7 +101,7 @@ Status MinioTestServer::GenerateCertificateFile() {
   ARROW_RETURN_NOT_OK(public_cert_fd.Close());
 
   ARROW_ASSIGN_OR_RAISE(auto private_key_file,
-                        PlatformFilename::FromString(ca_path() + "/private.key"));
+                        PlatformFilename::FromString(ca_dir_path() + "/private.key"));
   ARROW_ASSIGN_OR_RAISE(auto private_key_fd, FileOpenWritable(private_key_file));
   ARROW_RETURN_NOT_OK(FileWrite(private_key_fd.fd(),
                                 reinterpret_cast<const uint8_t*>(kMinioPrivateKey),
@@ -105,13 +109,13 @@ Status MinioTestServer::GenerateCertificateFile() {
   ARROW_RETURN_NOT_OK(private_key_fd.Close());
 
   arrow::fs::FileSystemGlobalOptions global_options;
-  global_options.tls_verify_certificates = false;
+  global_options.tls_ca_file_path = ca_file_path();
   ARROW_RETURN_NOT_OK(arrow::fs::Initialize(global_options));
 
   return Status::OK();
 }
 
-Status MinioTestServer::Start() {
+Status MinioTestServer::Start(bool enable_tls_if_supported) {
   const char* connect_str = std::getenv(kEnvConnectString);
   const char* access_key = std::getenv(kEnvAccessKey);
   const char* secret_key = std::getenv(kEnvSecretKey);
@@ -134,12 +138,14 @@ Status MinioTestServer::Start() {
   std::vector<std::string> minio_args({"server", "--quiet", "--compat", "--address",
                                        impl_->connect_string_,
                                        impl_->temp_dir_->path().ToString()});
+  if (enable_tls_if_supported) {
 #ifdef MINIO_SERVER_WITH_TLS
-  ARROW_RETURN_NOT_OK(GenerateCertificateFile());
-  minio_args.push_back("--certs-dir");
-  minio_args.push_back(ca_path());
-  impl_->scheme_ = "https";
+    ARROW_RETURN_NOT_OK(GenerateCertificateFile());
+    minio_args.push_back("--certs-dir");
+    minio_args.push_back(ca_dir_path());
+    impl_->scheme_ = "https";
 #endif  // MINIO_SERVER_WITH_TLS
+  }
 
   ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
   // NOTE: --quiet makes startup faster by suppressing remote version check

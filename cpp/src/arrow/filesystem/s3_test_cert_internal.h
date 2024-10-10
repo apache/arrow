@@ -17,14 +17,12 @@
 
 #pragma once
 
-namespace arrow {
-namespace fs {
-
+namespace arrow::fs {
 // The below two static strings are generated according to
 // https://github.com/minio/minio/tree/RELEASE.2024-09-22T00-33-43Z/docs/tls#323-generate-a-self-signed-certificate
 // `openssl req -new -x509 -nodes -days 36500 -keyout private.key -out public.crt -config
 // openssl.conf`
-const char* kMinioPrivateKey = R"(-----BEGIN PRIVATE KEY-----
+static constexpr const char* kMinioPrivateKey = R"(-----BEGIN PRIVATE KEY-----
 MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCqwKYHsTSciGqP
 uU3qkTWpnXIi3iC0eeW7JSzJHGFs880WdR5JdK4WufPK+1xzgiYjMEPfAcuSWz3b
 qYyCI61q+a9Iu2nj7cFTW9bfZrmWlnI0YOLJc+q0AAdAjF1lvRKenH8tbjz/2jyl
@@ -54,7 +52,7 @@ t9pJcv2E5xY7/nFNIorpKg==
 -----END PRIVATE KEY-----
 )";
 
-const char* kMinioCert = R"(-----BEGIN CERTIFICATE-----
+static constexpr const char* kMinioCert = R"(-----BEGIN CERTIFICATE-----
 MIIDiTCCAnGgAwIBAgIUXbHZ6FAhKSXg4WSGUQySlSyE4U0wDQYJKoZIhvcNAQEL
 BQAwXzELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAlZBMQ4wDAYDVQQHDAVBcnJvdzEO
 MAwGA1UECgwFQXJyb3cxDjAMBgNVBAsMBUFycm93MRMwEQYDVQQDDApBcnJyb3dU
@@ -76,5 +74,4 @@ TFeMNKROmrEPCWaYr6MJ+ItHtb5Cawapea4THz9GCjR9eLq2CbMqLezZ8xBHPzc4
 ixI2l0uCfg7ZUSA+90yaScc7bhEQ8CMiPtJgNKaKIqB58DpY7028xJpW7Ma2
 -----END CERTIFICATE-----
 )";
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs
