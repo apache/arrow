@@ -1044,6 +1044,12 @@ cdef class ExtensionScalar(Scalar):
         return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
 
 
+class JsonScalar(ExtensionScalar):
+    """
+    Concrete class for JSON extension scalar.
+    """
+
+
 class UuidScalar(ExtensionScalar):
     """
     Concrete class for Uuid extension scalar.

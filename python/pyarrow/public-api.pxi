@@ -131,6 +131,8 @@ cdef api object pyarrow_wrap_data_type(
             out = OpaqueType.__new__(OpaqueType)
         elif extension_name == b"arrow.uuid":
             out = UuidType.__new__(UuidType)
+        elif extension_name == b"arrow.json":
+            out = JsonType.__new__(JsonType)
         else:
             out = BaseExtensionType.__new__(BaseExtensionType)
     else:
