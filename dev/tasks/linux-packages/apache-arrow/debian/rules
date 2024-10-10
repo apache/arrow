@@ -14,6 +14,13 @@ BUILD_TYPE=release
 	dh $@ --with gir
 
 override_dh_auto_configure:
+	code_name="$$(. /etc/os-release &&			\
+                        echo $${VERSION_CODENAME})";		\
+	if [ "$${code_name}" = "focal" ]; then			\
+	  ARROW_AZURE=OFF;					\
+	else							\
+	  ARROW_AZURE=ON;					\
+	fi;							\
 	if dpkg -l nvidia-cuda-toolkit > /dev/null 2>&1; then	\
 	  ARROW_CUDA=ON;					\
 	else							\
@@ -24,6 +31,7 @@ override_dh_auto_configure:
 	  --builddirectory=cpp_build				\
 	  --buildsystem=cmake+ninja				\
 	  --							\
+	  -DARROW_AZURE=$${ARROW_AZURE}				\
 	  -DARROW_BUILD_UTILITIES=ON				\
 	  -DARROW_COMPUTE=ON					\
 	  -DARROW_CSV=ON					\
