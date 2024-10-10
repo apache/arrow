@@ -38,6 +38,7 @@ RUN \
     gobject-introspection-devel \
     grpc-devel \
     grpc-plugins \
+    libxml2-devel \
     libzstd-devel \
     llvm-devel \
     lz4-devel \

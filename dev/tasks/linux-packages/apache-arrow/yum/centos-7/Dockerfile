@@ -58,6 +58,7 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     json-devel \
+    libxml2-devel \
     libzstd-devel \
     lz4-devel \
     ninja-build \
