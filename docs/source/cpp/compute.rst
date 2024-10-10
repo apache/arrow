@@ -1931,3 +1931,25 @@ operation to the n-th and (n+abs(p))-th inputs.
   ``Subtract``. The period can be specified in :struct:`PairwiseOptions`.
 * \(2) Wraps around the result when overflow is detected.
 * \(3) Returns an ``Invalid`` :class:`Status` when overflow is detected.
+
+Placement functions
+~~~~~~~~~~~~~~~~~~
+
+Placement functions reorder the input array based on placement arguments, e.g.
+indices.
+
++-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
+| Function name   | Arity  | Input type 1 | Input type 2 | Output type  | Options class                   | Notes |
++=================+========+==============+==============+==============+=================================+=======+
+| reverse_indices | Unary  | Integer      |              | Integer      | :struct:`ReverseIndicesOptions` | \(1)  |
++-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
+| permute         | Binary | Any          | Integer      | Input type 1 | :struct:`PermuteOptions`        | \(2)  |
++-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
+
+* \(1) Each element in the input is appended to the output iff it is non-null.
+  If the input is a record batch or table, any null value in a column drops
+  the entire row.
+
+* \(2) Each element in input 1 (the values) is appended to the output iff
+  the corresponding element in input 2 (the filter) is true.  How
+  nulls in the filter are handled can be configured using FilterOptions.
