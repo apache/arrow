@@ -5730,3 +5730,37 @@ def test_make_write_options_error():
     msg = "make_write_options\\(\\) takes exactly 0 positional arguments"
     with pytest.raises(TypeError, match=msg):
         pformat.make_write_options(43)
+
+
+def test_scanner_from_substrait(dataset):
+    try:
+        import pyarrow.substrait as ps
+    except ImportError:
+        pytest.skip("substrait NOT enabled")
+
+    # SELECT str WHERE i64 = 4
+    projection = (b'\nS\x08\x0c\x12Ohttps://github.com/apache/arrow/blob/main/format'
+                  b'/substrait/extension_types.yaml\x12\t\n\x07\x08\x0c\x1a\x03u64'
+                  b'\x12\x0b\n\t\x08\x0c\x10\x01\x1a\x03u32\x1a\x0f\n\x08\x12\x06'
+                  b'\n\x04\x12\x02\x08\x02\x1a\x03str"i\n\x03i64\n\x03f64\n\x03str'
+                  b'\n\x05const\n\x06struct\n\x01a\n\x01b\n\x05group\n\x03key'
+                  b'\x127\n\x04:\x02\x10\x01\n\x04Z\x02\x10\x01\n\x04b\x02\x10'
+                  b'\x01\n\x04:\x02\x10\x01\n\x11\xca\x01\x0e\n\x04:\x02\x10\x01'
+                  b'\n\x04b\x02\x10\x01\x18\x01\n\x04*\x02\x10\x01\n\x04b\x02\x10\x01')
+    filtering = (b'\n\x1e\x08\x06\x12\x1a/functions_comparison.yaml\nS\x08\x0c\x12'
+                 b'Ohttps://github.com/apache/arrow/blob/main/format'
+                 b'/substrait/extension_types.yaml\x12\x18\x1a\x16\x08\x06\x10\xc5'
+                 b'\x01\x1a\x0fequal:any1_any1\x12\t\n\x07\x08\x0c\x1a\x03u64\x12'
+                 b'\x0b\n\t\x08\x0c\x10\x01\x1a\x03u32\x1a\x1f\n\x1d\x1a\x1b\x08'
+                 b'\xc5\x01\x1a\x04\n\x02\x10\x02"\x08\x1a\x06\x12\x04\n\x02\x12\x00'
+                 b'"\x06\x1a\x04\n\x02(\x04"i\n\x03i64\n\x03f64\n\x03str\n\x05const'
+                 b'\n\x06struct\n\x01a\n\x01b\n\x05group\n\x03key\x127\n\x04:\x02'
+                 b'\x10\x01\n\x04Z\x02\x10\x01\n\x04b\x02\x10\x01\n\x04:\x02\x10'
+                 b'\x01\n\x11\xca\x01\x0e\n\x04:\x02\x10\x01\n\x04b\x02\x10\x01'
+                 b'\x18\x01\n\x04*\x02\x10\x01\n\x04b\x02\x10\x01')
+
+    result = dataset.scanner(
+        columns=ps.BoundExpressions.from_substrait(projection),
+        filter=ps.BoundExpressions.from_substrait(filtering)
+    ).to_table()
+    assert result.to_pydict() == {'str': ['4', '4']}

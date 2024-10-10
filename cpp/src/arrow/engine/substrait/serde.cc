@@ -56,7 +56,7 @@ Status ParseFromBufferImpl(const Buffer& buf, const std::string& full_name,
   if (message->ParseFromZeroCopyStream(&buf_stream)) {
     return Status::OK();
   }
-  return Status::IOError("ParseFromZeroCopyStream failed for ", full_name);
+  return Status::Invalid("ParseFromZeroCopyStream failed for ", full_name);
 }
 
 template <typename Message>

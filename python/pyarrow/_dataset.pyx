@@ -39,6 +39,11 @@ from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
 from pyarrow._json cimport ParseOptions as JsonParseOptions
 from pyarrow._json cimport ReadOptions as JsonReadOptions
 
+try:
+    import pyarrow.substrait as pa_substrait
+except ImportError:
+    pa_substrait = None
+
 
 _DEFAULT_BATCH_SIZE = 2**17
 _DEFAULT_BATCH_READAHEAD = 16
@@ -272,6 +277,13 @@ cdef class Dataset(_Weakrefable):
 
         # at the moment only support filter
         requested_filter = options.get("filter")
+        if pa_substrait and isinstance(requested_filter, pa_substrait.BoundExpressions):
+            expressions = list(requested_filter.expressions.values())
+            if len(expressions) != 1:
+                raise ValueError(
+                    "Only one BoundExpressions with a single expression are supported")
+            new_options["filter"] = requested_filter = expressions[0]
+
         current_filter = self._scan_options.get("filter")
         if requested_filter is not None and current_filter is not None:
             new_options["filter"] = current_filter & requested_filter
@@ -282,7 +294,7 @@ cdef class Dataset(_Weakrefable):
 
     def scanner(self,
                 object columns=None,
-                Expression filter=None,
+                object filter=None,
                 int batch_size=_DEFAULT_BATCH_SIZE,
                 int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                 int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
@@ -3447,6 +3459,9 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
         filter, pyarrow_wrap_schema(builder.schema()))))
 
     if columns is not None:
+        if pa_substrait and isinstance(columns, pa_substrait.BoundExpressions):
+            columns = columns.expressions
+
         if isinstance(columns, dict):
             for expr in columns.values():
                 if not isinstance(expr, Expression):
@@ -3527,7 +3542,7 @@ cdef class Scanner(_Weakrefable):
     @staticmethod
     def from_dataset(Dataset dataset not None, *,
                      object columns=None,
-                     Expression filter=None,
+                     object filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                      int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
