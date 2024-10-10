@@ -28,8 +28,8 @@
 
 namespace arrow {
 
-using internal::ChunkResolver;
-using internal::TypedChunkLocation;
+using arrow::ChunkResolver;
+using arrow::TypedChunkLocation;
 
 namespace {
 

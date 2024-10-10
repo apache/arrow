@@ -36,9 +36,9 @@
 
 namespace arrow {
 
-using internal::ChunkLocation;
-using internal::ChunkResolver;
-using internal::TypedChunkLocation;
+using arrow::ChunkLocation;
+using arrow::ChunkResolver;
+using arrow::TypedChunkLocation;
 
 class TestChunkedArray : public ::testing::Test {
  protected:

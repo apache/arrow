@@ -23,8 +23,8 @@
 
 namespace arrow {
 
+using arrow::ChunkLocation;
 using internal::checked_cast;
-using internal::ChunkLocation;
 
 namespace compute {
 namespace internal {
@@ -852,7 +852,7 @@ class TableSorter {
   const RecordBatchVector batches_;
   const SortOptions& options_;
   const NullPlacement null_placement_;
-  const ::arrow::internal::ChunkResolver left_resolver_, right_resolver_;
+  const ::arrow::ChunkResolver left_resolver_, right_resolver_;
   const std::vector<ResolvedSortKey> sort_keys_;
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
