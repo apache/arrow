@@ -2505,6 +2505,43 @@ cdef class Partitioning(_Weakrefable):
         result = self.partitioning.Parse(tobytes(path))
         return Expression.wrap(GetResultValue(result))
 
+    def format(self, expr):
+        """
+        Convert a filter expression into a tuple of (directory, filename) using 
+        the current partitioning scheme
+
+        Parameters
+        ----------
+        expr : pyarrow.dataset.Expression
+
+        Returns
+        -------
+        tuple[str, str]
+
+        Examples
+        --------
+
+        Specify the Schema for paths like "/2009/June":
+
+        >>> import pyarrow as pa
+        >>> import pyarrow.dataset as ds
+        >>> import pyarrow.compute as pc
+        >>> part = ds.partitioning(pa.schema([("year", pa.int16()),
+        ...                                   ("month", pa.string())]))
+        >>> part.format(
+        ...     (pc.field("year") == 1862) & (pc.field("month") == "Jan")
+        ... )
+        ('1862/Jan', '')
+        """
+        cdef:
+            CPartitionPathFormat result
+
+        result = GetResultValue(self.partitioning.Format(
+            Expression.unwrap(expr)
+        ))
+
+        return frombytes(result.directory), frombytes(result.filename)
+
     @property
     def schema(self):
         """The arrow Schema attached to the partitioning."""

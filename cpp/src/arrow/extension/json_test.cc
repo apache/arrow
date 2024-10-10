@@ -80,4 +80,18 @@ TEST_F(TestJsonExtensionType, InvalidUTF8) {
   }
 }
 
+TEST_F(TestJsonExtensionType, StorageTypeValidation) {
+  ASSERT_TRUE(json(utf8())->Equals(json(utf8())));
+  ASSERT_FALSE(json(large_utf8())->Equals(json(utf8())));
+  ASSERT_FALSE(json(utf8_view())->Equals(json(utf8())));
+  ASSERT_FALSE(json(utf8_view())->Equals(json(large_utf8())));
+
+  for (const auto& storage_type : {int16(), binary(), float64(), null()}) {
+    ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                               "Invalid: Invalid storage type for JsonExtensionType: " +
+                                   storage_type->ToString(),
+                               extension::JsonExtensionType::Make(storage_type));
+  }
+}
+
 }  // namespace arrow

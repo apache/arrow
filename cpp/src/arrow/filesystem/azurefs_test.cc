@@ -364,9 +364,9 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
   std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
 
   bool have_implicit_directories() const override { return true; }
-  bool allow_write_file_over_dir() const override { return true; }
-  bool allow_read_dir_as_file() const override { return true; }
-  bool allow_move_dir() const override { return false; }
+  bool allow_write_file_over_dir() const override { return false; }
+  bool allow_read_dir_as_file() const override { return false; }
+  bool allow_move_dir() const override { return true; }
   bool allow_move_file() const override { return true; }
   bool allow_append_to_file() const override { return true; }
   bool have_directory_mtimes() const override { return true; }
@@ -404,7 +404,11 @@ class TestAzuriteGeneric : public TestGeneric {
   }
 
  protected:
-  // Azurite doesn't support moving files over containers.
+  // Azurite doesn't block writing files over directories.
+  bool allow_write_file_over_dir() const override { return true; }
+  // Azurite doesn't support moving directories.
+  bool allow_move_dir() const override { return false; }
+  // Azurite doesn't support moving files.
   bool allow_move_file() const override { return false; }
   // Azurite doesn't support directory mtime.
   bool have_directory_mtimes() const override { return false; }
@@ -426,7 +430,11 @@ class TestAzureFlatNSGeneric : public TestGeneric {
   }
 
  protected:
-  // Flat namespace account doesn't support moving files over containers.
+  // Flat namespace account doesn't block writing files over directories.
+  bool allow_write_file_over_dir() const override { return true; }
+  // Flat namespace account doesn't support moving directories.
+  bool allow_move_dir() const override { return false; }
+  // Flat namespace account doesn't support moving files.
   bool allow_move_file() const override { return false; }
   // Flat namespace account doesn't support directory mtime.
   bool have_directory_mtimes() const override { return false; }
@@ -2061,6 +2069,20 @@ void TestAzureFileSystem::TestGetFileInfoObjectWithNestedStructure() {
   ASSERT_OK(output->Close());
   ASSERT_OK_AND_ASSIGN(output,
                        fs()->OpenOutputStream(data.ContainerPath(kObjectName + "0"),
+                                              /*metadata=*/{}));
+  ASSERT_OK(output->Write(lorem_ipsum));
+  ASSERT_OK(output->Close());
+
+  // . is immediately before "/" lexicographically, ensure that this doesn't
+  // cause unexpected issues. NOTE: Its seems real Azure blob storage doesn't
+  // allow blob names to end in `.`
+  ASSERT_OK_AND_ASSIGN(output, fs()->OpenOutputStream(
+                                   data.ContainerPath("test-object-dir/some_other_dir.a"),
+                                   /*metadata=*/{}));
+  ASSERT_OK(output->Write(lorem_ipsum));
+  ASSERT_OK(output->Close());
+  ASSERT_OK_AND_ASSIGN(output,
+                       fs()->OpenOutputStream(data.ContainerPath(kObjectName + ".a"),
                                               /*metadata=*/{}));
   ASSERT_OK(output->Write(lorem_ipsum));
   ASSERT_OK(output->Close());

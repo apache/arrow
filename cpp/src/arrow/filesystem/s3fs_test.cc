@@ -572,7 +572,10 @@ class TestS3FS : public S3TestMixin {
   void TestOpenOutputStream(bool allow_delayed_open) {
     std::shared_ptr<io::OutputStream> stream;
 
-    if (!allow_delayed_open) {
+    if (allow_delayed_open) {
+      ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("nonexistent-bucket/somefile"));
+      ASSERT_RAISES(IOError, stream->Close());
+    } else {
       // Nonexistent
       ASSERT_RAISES(IOError, fs_->OpenOutputStream("nonexistent-bucket/somefile"));
     }

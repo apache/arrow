@@ -102,7 +102,7 @@
     "mkdirp": "3.0.1",
     "multistream": "4.1.0",
     "regenerator-runtime": "0.14.1",
-    "rollup": "4.19.2",
+    "rollup": "4.22.4",
     "rxjs": "7.8.1",
     "ts-jest": "29.1.4",
     "ts-node": "10.9.2",

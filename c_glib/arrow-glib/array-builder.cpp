@@ -6320,7 +6320,7 @@ garrow_union_array_builder_class_init(GArrowUnionArrayBuilderClass *klass)
  * garrow_union_array_builder_append_child:
  * @builder: A #GArrowUnionArrayBuilder.
  * @child: A #GArrowArrayBuilder for new child.
- * @filed_name: (nullable): A field name for new child.
+ * @field_name: (nullable): A field name for new child.
  *
  * Returns: The type ID for the appended child.
  *

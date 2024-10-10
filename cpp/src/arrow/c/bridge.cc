@@ -2333,6 +2333,7 @@ class ArrayStreamReader {
         break;
       case ENOSYS:
         code = StatusCode::NotImplemented;
+        break;
       default:
         code = StatusCode::IOError;
         break;

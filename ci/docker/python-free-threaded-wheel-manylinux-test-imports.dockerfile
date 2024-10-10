@@ -18,6 +18,8 @@
 ARG base
 FROM ${base}
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update -y -q && \
     apt install -y -q --no-install-recommends software-properties-common gpg-agent && \
     add-apt-repository -y ppa:deadsnakes/ppa && \

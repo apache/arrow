@@ -79,8 +79,15 @@ class TestStreamDecoder < Test::Unit::TestCase
   end
 
   def test_consume_buffer
+    # We need to keep data that aren't processed yet.
+    data = []
     @buffer.data.to_s.each_byte do |byte|
-      @decoder.consume_buffer(Arrow::Buffer.new(byte.chr))
+      data << byte.chr
+      can_clear = (@decoder.next_required_size == 1)
+      @decoder.consume_buffer(Arrow::Buffer.new(data.last))
+      # We can release a reference for kept data after they are
+      # processed.
+      data.clear if can_clear
     end
     assert_equal([
                    [:schema_decoded, @schema, @schema],

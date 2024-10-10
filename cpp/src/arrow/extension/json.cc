@@ -28,17 +28,13 @@
 namespace arrow::extension {
 
 bool JsonExtensionType::ExtensionEquals(const ExtensionType& other) const {
-  return other.extension_name() == this->extension_name();
+  return other.extension_name() == this->extension_name() &&
+         other.storage_type()->Equals(storage_type_);
 }
 
 Result<std::shared_ptr<DataType>> JsonExtensionType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
-  if (storage_type->id() != Type::STRING && storage_type->id() != Type::STRING_VIEW &&
-      storage_type->id() != Type::LARGE_STRING) {
-    return Status::Invalid("Invalid storage type for JsonExtensionType: ",
-                           storage_type->ToString());
-  }
-  return std::make_shared<JsonExtensionType>(storage_type);
+  return JsonExtensionType::Make(std::move(storage_type));
 }
 
 std::string JsonExtensionType::Serialize() const { return ""; }
@@ -51,11 +47,22 @@ std::shared_ptr<Array> JsonExtensionType::MakeArray(
   return std::make_shared<ExtensionArray>(data);
 }
 
-std::shared_ptr<DataType> json(const std::shared_ptr<DataType> storage_type) {
-  ARROW_CHECK(storage_type->id() != Type::STRING ||
-              storage_type->id() != Type::STRING_VIEW ||
-              storage_type->id() != Type::LARGE_STRING);
-  return std::make_shared<JsonExtensionType>(storage_type);
+bool JsonExtensionType::IsSupportedStorageType(Type::type type_id) {
+  return type_id == Type::STRING || type_id == Type::STRING_VIEW ||
+         type_id == Type::LARGE_STRING;
+}
+
+Result<std::shared_ptr<DataType>> JsonExtensionType::Make(
+    std::shared_ptr<DataType> storage_type) {
+  if (!IsSupportedStorageType(storage_type->id())) {
+    return Status::Invalid("Invalid storage type for JsonExtensionType: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<JsonExtensionType>(std::move(storage_type));
+}
+
+std::shared_ptr<DataType> json(std::shared_ptr<DataType> storage_type) {
+  return JsonExtensionType::Make(std::move(storage_type)).ValueOrDie();
 }
 
 }  // namespace arrow::extension
