@@ -50,7 +50,7 @@ const char* kEnvConnectString = "ARROW_TEST_S3_CONNECT_STRING";
 const char* kEnvAccessKey = "ARROW_TEST_S3_ACCESS_KEY";
 const char* kEnvSecretKey = "ARROW_TEST_S3_SECRET_KEY";
 
-std::string GenerateConnectString() { return GetListenAddress(); }
+std::string GenerateConnectString() { return GetListenAddress("localhost"); }
 
 }  // namespace
 
