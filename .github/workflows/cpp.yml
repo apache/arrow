@@ -283,12 +283,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - windows-2019
         include:
-          - os: windows-2019
+          - compiler: msvc
+            orc: ON
+            os: windows-2019
             simd-level: AVX2
-            title: AMD64 Windows 2019 C++17 AVX2
+            substrait: ON
+            title: AMD64 Windows 2019 C++ MSVC AVX2
+          - compiler: clang-cl
+            # /bigobj related build error with Protobuf
+            orc: OFF
+            os: windows-2019
+            simd-level:
+            # /bigobj related build error with Protobuf
+            substrait: OFF
+            title: AMD64 Windows 2019 C++ clang-cl
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
@@ -301,10 +310,10 @@ jobs:
       ARROW_HOME: /usr
       ARROW_JEMALLOC: OFF
       ARROW_MIMALLOC: ON
-      ARROW_ORC: ON
+      ARROW_ORC: ${{ matrix.orc }}
       ARROW_PARQUET: ON
       ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
-      ARROW_SUBSTRAIT: ON
+      ARROW_SUBSTRAIT: ${{ matrix.substrait }}
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       ARROW_WITH_BROTLI: OFF
@@ -354,8 +363,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-windows-${{ env.CACHE_VERSION }}-
+          key: cpp-ccache-windows-${{ matrix.compiler }}-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-windows-${{ matrix.compiler }}-${{ env.CACHE_VERSION }}-
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2022-09-13"
@@ -363,6 +372,9 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          if ${{ matrix.compiler }}==clang-cl (
+            set ARROW_CMAKE_ARGS=-DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl
+          )
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Test
         shell: bash
