@@ -737,20 +737,20 @@ def test_partitioning_pickling(pickle_module):
 @pytest.mark.parametrize(
     "flavor, expected_defined_partition, expected_undefined_partition",
     [
-        (ds.HivePartitioning, (r"foo=A/bar=ant%20bee", ""), ("", "")),
-        (ds.DirectoryPartitioning, (r"A/ant bee", ""), ("", "")),
-        (ds.FilenamePartitioning, ("", r"A_ant bee_"), ("", "_")),
+        ("HivePartitioning", (r"foo=A/bar=ant%20bee", ""), ("", "")),
+        ("DirectoryPartitioning", (r"A/ant bee", ""), ("", "")),
+        ("FilenamePartitioning", ("", r"A_ant bee_"), ("", "_")),
     ],
 )
 def test_dataset_partitioning_format(
-    flavor: "ds.Partitioning",
+    flavor: str,
     expected_defined_partition: tuple,
     expected_undefined_partition: tuple,
 ):
 
     partitioning_schema = pa.schema([("foo", pa.string()), ("bar", pa.string())])
 
-    partitioning = flavor(schema=partitioning_schema)
+    partitioning = getattr(ds, flavor)(schema=partitioning_schema)
 
     # test forward transformation (format)
     assert (
@@ -782,7 +782,7 @@ def test_dataset_partitioning_format(
         == expected_undefined_partition
     )
 
-    if flavor != ds.HivePartitioning:
+    if flavor != "HivePartitioning":
         # Raises error upon filtering for lower level partition without filtering for
         # higher level partition
         with pytest.raises(
