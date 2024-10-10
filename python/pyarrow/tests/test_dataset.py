@@ -782,7 +782,7 @@ def test_dataset_partitioning_format(
         == expected_undefined_partition
     )
 
-    if flavor != ds.HivePartitioning:
+    if flavor != "HivePartitioning":
         # Raises error upon filtering for lower level partition without filtering for
         # higher level partition
         with pytest.raises(
