@@ -157,8 +157,7 @@ static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>
     DataMember("recursive", &ListFlattenOptions::recursive));
 static auto kReverseIndexOptionsType = GetFunctionOptionsType<ReverseIndexOptions>(
     DataMember("output_length", &ReverseIndexOptions::output_length),
-    DataMember("output_type", &ReverseIndexOptions::output_type),
-    DataMember("output_non_taken", &ReverseIndexOptions::output_non_taken));
+    DataMember("output_type", &ReverseIndexOptions::output_type));
 static auto kPermuteOptionsType = GetFunctionOptionsType<PermuteOptions>(
     DataMember("output_length", &PermuteOptions::output_length));
 }  // namespace
@@ -237,12 +236,10 @@ ListFlattenOptions::ListFlattenOptions(bool recursive)
 constexpr char ListFlattenOptions::kTypeName[];
 
 ReverseIndexOptions::ReverseIndexOptions(int64_t output_length,
-                                         std::shared_ptr<DataType> output_type,
-                                         std::shared_ptr<Scalar> output_non_taken)
+                                         std::shared_ptr<DataType> output_type)
     : FunctionOptions(internal::kPermuteOptionsType),
       output_length(output_length),
-      output_type(std::move(output_type)),
-      output_non_taken(std::move(output_non_taken)) {}
+      output_type(std::move(output_type)) {}
 constexpr char ReverseIndexOptions::kTypeName[];
 
 PermuteOptions::PermuteOptions(int64_t output_length)
@@ -263,6 +260,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPairwiseOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kListFlattenOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kReverseIndexOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPermuteOptionsType));
 }
 }  // namespace internal
@@ -450,18 +448,20 @@ Result<Datum> CumulativeMean(const Datum& values, const CumulativeOptions& optio
 }
 
 // ----------------------------------------------------------------------
-// Permute functions
+// Placement functions
 
 Result<std::shared_ptr<Array>> ReverseIndex(const Datum& indices,
                                             const ReverseIndexOptions& options,
                                             ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("reverse_index", {indices}, ctx));
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("reverse_index", {indices}, &options, ctx));
   return result.make_array();
 }
 
 Result<std::shared_ptr<Array>> Permute(const Datum& values, const Datum& indices,
                                        const PermuteOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("permute", {values, indices}, ctx));
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("permute", {values, indices}, &options, ctx));
   return result.make_array();
 }
 

@@ -260,24 +260,18 @@ class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
 /// \brief Options for reverse_index function
 class ARROW_EXPORT ReverseIndexOptions : public FunctionOptions {
  public:
-  explicit ReverseIndexOptions(int64_t output_length = 0,
-                               std::shared_ptr<DataType> output_type = int32(),
-                               std::shared_ptr<Scalar> output_non_taken = NULLPTR);
+  explicit ReverseIndexOptions(int64_t output_length = -1,
+                               std::shared_ptr<DataType> output_type = int32());
   static constexpr char const kTypeName[] = "ReverseIndexOptions";
   static ReverseIndexOptions Defaults() { return ReverseIndexOptions(); }
 
-  /// \brief The length of the output reverse index. Must be non-negative. Any indices
-  /// that are greater of equal to this length will be ignored.
-  int64_t output_length = 0;
-  /// \brief The type of the output reverse index. Must be integer types. An overflow
-  /// error will be reported if any reverse indices are out of the bounds of the output
-  /// type.
+  /// \brief The length of the output reverse index. If negative, the output will be of
+  /// the same length as the input indices. Any indices that are greater of equal to this
+  /// length will be ignored.
+  int64_t output_length = -1;
+  /// \brief The type of the output reverse index. Must be integer types that are able to
+  /// store the length of the input indices, otherwise an overflow error will be reported.
   std::shared_ptr<DataType> output_type = int32();
-  /// \brief The value to fill in the output reverse index for indices that are not taken.
-  /// Must be of the same type as `output_type` if not null. If not provided or an invalid
-  /// scalar is provided, the non-taken indices will be filled with nulls. Using non-null
-  /// scalars properly may enable efficient processing of reverse index function.
-  std::shared_ptr<Scalar> output_non_taken = NULLPTR;
 };
 
 /// \brief Options for permute function
@@ -287,8 +281,9 @@ class ARROW_EXPORT PermuteOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "PermuteOptions";
   static PermuteOptions Defaults() { return PermuteOptions(); }
 
-  /// \brief The length of the output permutation. Must be non-negative. Any values with
-  /// indices that are greater of equal to this length will be ignored.
+  /// \brief The length of the output permutation. If negative, the output will be of the
+  /// same length as the input indices. Any values with indices that are greater of equal
+  /// to this length will be ignored.
   int64_t output_length = 0;
 };
 
@@ -740,6 +735,51 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
                                             bool check_overflow = false,
                                             ExecContext* ctx = NULLPTR);
 
+/// \brief Return the reverse indices of the given indices.
+///
+/// For indices[i] = x, reverse_indices[x] = i. And reverse_indices[x] = null if
+/// x does not appear in the indices. For indices[i] = x where x < 0 or x >=
+/// output_length, it is ignored. If multiple indices point to the same value, the last
+/// one is used.
+/// For example, with indices = [null, 0, 3, 2, 4, 1, 1], the reverse indices is
+///   [1, 6, 3]                    if output_length = 3,
+///   [1, 6, 3, 2, 4, null, null]  if output_length = 7.
+/// output_length can also be negative, in which case the reverse indices is of the same
+/// length as the indices.
+///
+/// \param[in] indices array-like indices
+/// \param[in] options configures the output length and the output type
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting reverse indices
+///
+/// \since 19.0.0
+/// \note API not yet finalized
+Result<std::shared_ptr<Array>> ReverseIndex(
+    const Datum& indices,
+    const ReverseIndexOptions& options = ReverseIndexOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Permute the values into specified positions in the output array according to
+/// the indices.
+///
+/// For indices[i] = x, output[x] = values[i]. And output[x] = null if
+/// x does not appear in the indices. For indices[i] = x where x < 0 or x >=
+/// output_length, values[i] is ignored.
+/// For example, with values = [a, b, c, d, e, f, g] and indices = [null, 0, 3, 2, 4, 1,
+/// 1], the permutation is
+///   [b, g, d]                    if output_length = 3,
+///   [b, g, d, c, e, null, null]  if output_length = 7.
+/// output_length can also be negative, in which case the permutation is of the same
+/// length as the values (and indices).
+///
+/// \param[in] values datum to permute
+/// \param[in] indices array-like indices
+/// \param[in] options configures the output length of the permutation
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting permutation
+///
+/// \since 19.0.0
+/// \note API not yet finalized
 Result<std::shared_ptr<Array>> Permute(
     const Datum& values, const Datum& indices,
     const PermuteOptions& options = PermuteOptions::Defaults(),
