@@ -228,9 +228,8 @@ class CSharpTester(Tester):
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         try:
-            server.stdout.readline()  # Skip first log line output
             output = server.stdout.readline().decode()
-            if "Now listening on" not in output:
+            if not output.startswith("Server listening on "):
                 server.kill()
                 out, err = server.communicate()
                 raise RuntimeError(

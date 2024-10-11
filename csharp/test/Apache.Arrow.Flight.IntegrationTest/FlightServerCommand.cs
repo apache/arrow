@@ -18,7 +18,10 @@ using System.Net;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.TestWeb;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace Apache.Arrow.Flight.IntegrationTest;
@@ -40,7 +43,7 @@ public class FlightServerCommand
             throw new Exception($"Scenario '{_scenario}' is not supported.");
         }
 
-        await Host.CreateDefaultBuilder()
+        var host = Host.CreateDefaultBuilder()
             .ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder
@@ -50,8 +53,16 @@ public class FlightServerCommand
                     })
                     .UseStartup<Startup>();
             })
-            .Build()
-            .RunAsync()
-            .ConfigureAwait(false);
+            .Build();
+
+        await host.StartAsync().ConfigureAwait(false);
+
+        var addresses = host.Services.GetService<IServer>().Features.Get<IServerAddressesFeature>().Addresses;
+        foreach (var address in addresses)
+        {
+            Console.WriteLine($"Server listening on {address}");
+        }
+
+        await host.WaitForShutdownAsync().ConfigureAwait(false);
     }
 }
