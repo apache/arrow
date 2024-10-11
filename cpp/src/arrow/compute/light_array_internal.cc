@@ -167,12 +167,12 @@ Result<KeyColumnMetadata> ColumnMetadataFromDataType(
  * a particular way.
  */
 Result<KeyColumnMetadata> ColumnMetadataFromListType(const DataType* type) {
-  if (type->id() == Type::LIST || type->id() == Type::MAP) {
+  if (type->id() == Type::LIST) {
     return KeyColumnMetadata(false, sizeof(uint32_t));
-  }
-  else if (type->id() == Type::LARGE_LIST) {
+  } else if (type->id() == Type::LARGE_LIST) {
     return KeyColumnMetadata(false, sizeof(uint64_t));
   }
+
   // Caller attempted to create a KeyColumnArray from an invalid type
   return Status::TypeError("Unsupported column data type ", type->name(),
                            " used with KeyColumnMetadata");
@@ -184,86 +184,38 @@ Result<KeyColumnMetadata> ColumnMetadataFromListType(
 }
 
 /**
- * Coalesces children of a StructArray into a flattened list of KeyColumnArrays. When
- * hashing a StructArray, we want to co-index a list of KeyColumnArrays so that values in
- * the same row are combined.
+ * TODO: figure out how to handle nested validity
+ * Precondition: array_span is a nested array of primitive types (one level of nesting).
+ * Returns a KeyColumnArray for values of a ListArray or MapArray so that each element in
+ * the ListArray is properly treated as a row value.
  */
-Result<KeyColumnVector> ColumnArraysFromStructArray(const ArraySpan& array_span,
-                                                    int64_t num_rows) {
-  KeyColumnVector flattened_spans;
-  flattened_spans.reserve(array_span.child_data.size());
-
-  // Recurse on each child of the ArraySpan in DFS-order
-  for (size_t child_ndx = 0; child_ndx < array_span.child_data.size(); ++child_ndx) {
-    auto child_span = array_span.child_data[child_ndx];
-    ARROW_ASSIGN_OR_RAISE(auto child_keycols,
-                          ColumnArraysFromArraySpan(child_span, num_rows));
-
-    flattened_spans.insert(flattened_spans.end(), child_keycols.begin(),
-                           child_keycols.end());
-  }
-
-  return flattened_spans;
-}
-
-/**
- * Flattens the data in a ListArray into a list of KeyColumnArrays so that each element in
- * the ListArray is properly treated as a row value. Due to semantics of nulls in nested
- * arrays and their non-impact on a hash value, nulls in nested arrays are dropped when
- * flattened. If a list is null, then that row is considered null and is preserved.
- *
- * The values buffer of a list type should be propagated to the caller as is, but the
- * parent offsets and offsets of the current ArraySpan must be coalesced. Essentially, for
- * the purposes of hashing, we don't care about internal structure of a row value so we
- * flatten the offsets.
- */
-
-// TODO: recurse to: (1) flatten offsets, (2) eventually bottom out and grab var data
-template <typename OffsetType>
-Result<KeyColumnArray> ColumnArraysFromListArray(const ArraySpan& array_span,
-                                                 int64_t num_rows,
-                                                 const OffsetType* parent_offsets) {
+Result<KeyColumnArray> ColumnArrayFromListArray(const ArraySpan& array_span,
+                                                int64_t start_row, int64_t num_rows) {
   // Construct KeyColumnMetadata
   ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata metadata,
                         ColumnMetadataFromListType(array_span.type));
 
-  ARROW_LOG(INFO) << "[ListArray] Child count: "
-                  << std::to_string(array_span.child_data.size());
-
-  // ListArrays have only 1 child
   auto child_span = array_span.child_data[0];
-  uint8_t* buffer_validity = nullptr;
-  /*
-   * TODO: Currently unsupported.
-   * figure out how the validity bitmap affects flattened lists
-   *if (child_span.GetBuffer(0) != nullptr) {
-   *  buffer_validity = (uint8_t*)child_span.GetBuffer(0)->data();
-   *}
-   **/
 
-  // For simple lists or lists containing only list types, this should point to the child
-  // buffer with all of the values
+  uint8_t* list_validity = nullptr;
+  if (array_span.GetBuffer(0) != nullptr) {
+    list_validity = (uint8_t*)array_span.GetBuffer(0)->data();
+  }
+
   uint8_t* buffer_varlength = nullptr;
   if (child_span.num_buffers() > 2 && child_span.GetBuffer(2) != NULLPTR) {
-    ARROW_LOG(INFO) << "found list array data";
     buffer_varlength = (uint8_t*)child_span.GetBuffer(2)->data();
   }
-  else {
-    ARROW_LOG(INFO) << "child array does not have list array data";
-  }
 
-  // TODO
-  // Lists get flattened to 1 KeyColumnArray; Maps get flattened to 2 (key and value)
   KeyColumnArray column_array =
-      KeyColumnArray(metadata, child_span.offset + num_rows, buffer_validity,
+      KeyColumnArray(metadata, array_span.offset + start_row + num_rows, list_validity,
                      child_span.GetBuffer(1)->data(), buffer_varlength);
 
-  return column_array;
+  return column_array.Slice(array_span.offset + start_row, num_rows);
 }
 
-
 Result<KeyColumnArray> ColumnArrayFromArraySpan(const ArraySpan& array_span,
-                                                int64_t num_rows) {
+                                                int64_t start_row, int64_t num_rows) {
   ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata metadata,
                         ColumnMetadataFromDataType(array_span.type));
 
@@ -278,64 +230,96 @@ Result<KeyColumnArray> ColumnArrayFromArraySpan(const ArraySpan& array_span,
   }
 
   KeyColumnArray column_array =
-      KeyColumnArray(metadata, array_span.offset + num_rows, buffer_validity,
+      KeyColumnArray(metadata, array_span.offset + start_row + num_rows, buffer_validity,
                      array_span.GetBuffer(1)->data(), buffer_varlength);
 
-  return column_array.Slice(array_span.offset, num_rows);
+  return column_array.Slice(array_span.offset + start_row, num_rows);
 }
 
-Result<KeyColumnVector> ColumnArraysFromArraySpan(const ArraySpan& array_span,
-                                                  int64_t num_rows) {
-  KeyColumnVector flattened_spans;
-  flattened_spans.reserve(1 + array_span.child_data.size());
-
-  // Construct a KeyColumnArray from the given ArraySpan
-  auto keycol_result = ColumnArrayFromArraySpan(array_span, num_rows);
-  if (keycol_result.ok()) {
-    flattened_spans.push_back(*keycol_result);
+Status ColumnArraysFromStructArray(const ArraySpan& array_span, int64_t start_row,
+                                   int64_t num_rows, KeyColumnVector* column_arrays) {
+  // Validate our precondition
+  for (size_t child_ndx = 0; child_ndx < array_span.child_data.size(); ++child_ndx) {
+    if (ARROW_PREDICT_FALSE(is_nested(child_span.type->id()))) {
+      return Status::NotImplemented("Hashing a multi-nested array is unsupported.");
+    }
   }
 
-  // If ArraySpan data type is not supported, check for supported nested types.
+  // Construct KeyColumnVector from child arrays
+  column_arrays->resize(array_span.child_data.size());
+  for (size_t child_ndx = 0; child_ndx < array_span.child_data.size(); ++child_ndx) {
+    auto child_span = array_span.child_data[child_ndx];
+
+    ARROW_ASSIGN_OR_RAISE((*column_arrays)[child_ndx],
+                          ColumnArrayFromArraySpan(child_span, start_row, num_rows));
+  }
+}
+
+/**
+ * Precondition: array_span is a MapArray of fixed width primitives.
+ */
+Status ColumnArraysFromMapArray(const ArraySpan& array_span, int64_t start_row,
+                                int64_t num_rows, KeyColumnArray* column_arrays) {
+  auto map_childspan = array_span.child_data[0];
+  auto key_span = map_childspan.child_data[0];
+  auto val_span = map_childspan.child_data[1];
+
+  // Validate precondition
+  //  assumptions: we assume keys are strings and values are primitives
+  if (ARROW_PREDICT_TRUE(!is_primitive(key_span.type->id())) ||
+      ARROW_PREDICT_FALSE(!is_primitive(val_span.type->id()))) {
+    return Status::NotImplemented("A MapArray with non-primitive types is unsupported.");
+  }
+
+  // If precondition is valid, then we should produce two KeyColumnArrays
+  ARROW_ASSIGN_OR_RAISE((*column_arrays)[0],
+                        ColumnArrayFromArraySpan(key_span, start_row, num_rows));
+
+  ARROW_ASSIGN_OR_RAISE((*column_arrays)[1],
+                        ColumnArrayFromArraySpan(val_span, start_row, num_rows));
+}
+
+Status ColumnArraysFromArraySpan(const ArraySpan& array_span, int64_t start_row,
+                                 int64_t num_rows, KeyColumnVector* column_arrays) {
+  // If array is not nested, we extract a single KeyColumn
+  if (!is_nested(array_span.type->id())) {
+    column_arrays->resize(1);
+    ARROW_ASSIGN_OR_RAISE((*column_arrays)[0],
+                          ColumnArrayFromArraySpan(array_span, num_rows));
+  }
+
+  // If array is nested, we may extract many KeyColumns but we need to traverse
   else if (is_nested(array_span.type->id())) {
     switch (array_span.type->id()) {
       case Type::LIST:
-      case Type::MAP: {
-        const uint32_t* list_offsets = (const uint32_t*) array_span.GetBuffer(1)->data();
-        ARROW_ASSIGN_OR_RAISE(auto list_keycol,
-                              ColumnArraysFromListArray(array_span, num_rows,
-                                                        list_offsets));
-
-        flattened_spans.push_back(list_keycol);
-        break;
-      }
-
       case Type::LARGE_LIST: {
-        const uint64_t* list_offsets = (const uint64_t*) array_span.GetBuffer(1)->data();
-        ARROW_ASSIGN_OR_RAISE(auto list_keycol,
-                              ColumnArraysFromListArray(array_span, num_rows,
-                                                        list_offsets));
-
-        flattened_spans.push_back(list_keycol);
+        column_arrays->resize(1);
+        ARROW_ASSIGN_OR_RAISE((*column_arrays)[0],
+                              ColumnArrayFromListArray(array_span, num_rows);
         break;
       }
 
       case Type::STRUCT: {
-        ARROW_ASSIGN_OR_RAISE(auto struct_keycols,
-                              ColumnArraysFromStructArray(array_span, num_rows));
-
-        flattened_spans.insert(flattened_spans.end(), struct_keycols.begin(),
-                               struct_keycols.end());
+        ARROW_RETURN_NOT_OK(
+            ColumnArraysFromStructArray(array_span, start_row, num_rows, column_arrays));
         break;
       }
 
+      case Type::MAP: {
+        ARROW_RETURN_NOT_OK(
+            ColumnArraysFromMapArray(array_span, start_row, num_rows, column_arrays));
+        break;
+      }
+
+      // TODO: add support for unions
+      case Type::SPARSE_UNION:
+      case Type::DENSE_UNION:
+      case Type::MAP:
       default:
-        // unsupported types include: unions, fixed size list
         ARROW_WARN_NOT_OK(keycol_result.status(), "Unsupported nested type for hashing");
         break;
     }
   }
-
-  return flattened_spans;
 }
 
 Result<KeyColumnArray> ColumnArrayFromArrayData(
