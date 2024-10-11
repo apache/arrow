@@ -73,8 +73,10 @@ namespace Apache.Arrow.Flight.TestWeb
 
             while (await requestStream.MoveNext())
             {
-                flightHolder.AddBatch(new RecordBatchWithMetadata(requestStream.Current, requestStream.ApplicationMetadata.FirstOrDefault()));
-                await responseStream.WriteAsync(FlightPutResult.Empty);
+                var applicationMetadata = requestStream.ApplicationMetadata.FirstOrDefault();
+                flightHolder.AddBatch(new RecordBatchWithMetadata(requestStream.Current, applicationMetadata));
+                await responseStream.WriteAsync(
+                    applicationMetadata == null ? FlightPutResult.Empty : new FlightPutResult(applicationMetadata));
             }
         }
 
