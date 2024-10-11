@@ -34,11 +34,9 @@
 namespace arrow {
 namespace compute {
 
-
 // Forward declaration of KeyColumnArray for convenience of creating a type alias
 class KeyColumnArray;
 using KeyColumnVector = std::vector<KeyColumnArray>;
-
 
 /// \brief Context needed by various execution engine operations
 ///
@@ -104,14 +102,10 @@ class ARROW_EXPORT KeyColumnArray {
   ///
   /// This is a view only and does not take ownership of the buffers.  The lifetime
   /// of the buffers must exceed the lifetime of this view
-  KeyColumnArray( const KeyColumnMetadata& metadata
-                 ,int64_t  length
-                 ,uint8_t* validity_buffer
-                 ,uint8_t* fixed_length_buffer
-                 ,uint8_t* var_length_buffer
-                 ,int bit_offset_validity = 0
-                 ,int bit_offset_fixed    = 0
-                 ,const util::TempVectorStack *alloc = nullptr);
+  KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length,
+                 uint8_t* validity_buffer, uint8_t* fixed_length_buffer,
+                 uint8_t* var_length_buffer, int bit_offset_validity = 0,
+                 int bit_offset_fixed = 0);
   /// \brief Create a sliced view of `this`
   ///
   /// The number of rows used in offset must be divisible by 8
@@ -195,7 +189,6 @@ class ARROW_EXPORT KeyColumnArray {
   // Starting bit offset within the first byte (between 0 and 7)
   // to be used when accessing buffers that store bit vectors.
   int bit_offset_[kMaxBuffers - 1];
-  const util::TempVectorStack* arena_alloc;
 
   bool is_bool_type() const {
     return metadata_.is_fixed_length && metadata_.fixed_length == 0 &&
@@ -235,9 +228,10 @@ ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
 
 ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(const DataType* type);
 
-/// \brief Create KeyColumnArray from ArraySpan
+/// \brief Create KeyColumnArray instances from an ArraySpan (nested types supported)
 ///
-/// The caller should ensure this is only called on "key" columns.
+/// The caller should ensure this is only called on "key" columns. Some nested types are
+/// supported up to 1 level of nesting (e.g. List<int8> but not List<List<int8>>).
 /// \see ColumnMetadataFromDataType for details
 ARROW_EXPORT Result<KeyColumnVector> ColumnArraysFromArraySpan(
     const ArraySpan& array_span, int64_t num_rows);
@@ -290,7 +284,6 @@ ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t st
 /// \see ColumnArrayFromArrayData for more details
 ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch,
                                               std::vector<KeyColumnArray>* column_arrays);
-
 
 /// A lightweight resizable array for "key" columns
 ///
