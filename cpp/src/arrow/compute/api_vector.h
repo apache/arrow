@@ -270,7 +270,7 @@ class ARROW_EXPORT ReverseIndicesOptions : public FunctionOptions {
   /// length will be ignored.
   int64_t output_length = -1;
   /// \brief The type of the output reverse indices. If null, the output will be of the
-  /// same type as the input indices, otherwise must be integer types. An overflow error
+  /// same type as the input indices, otherwise must be integer types. An invalid error
   /// will be reported if this type is not able to store the length of the input indices.
   std::shared_ptr<DataType> output_type = nullptr;
 };
