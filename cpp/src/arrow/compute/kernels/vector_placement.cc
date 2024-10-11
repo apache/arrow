@@ -121,21 +121,18 @@ struct ReverseIndicesImpl {
     // buffer and an uninitialized data buffer. The subsequent processing will fill the
     // valid values only.
     // - Otherwise (i.e. the output is "dense"), the validity buffer is lazily allocated
-    // and filled all-true in the subsequent processing only when needed. The data buffer
-    // is preallocated and filled with an "impossible" value (input_length - note that the
-    // range of reverse_indices is [0, input_length)) for the subsequent processing to
-    // detect validity.
+    // and initialized all-true in the subsequent processing only when needed. The data
+    // buffer is preallocated and filled with all "impossible" values (that is,
+    // input_length - note that the range of reverse_indices is [0, input_length)) for the
+    // subsequent processing to detect validity.
     bool likely_many_nulls = LikelyManyNulls();
     if (likely_many_nulls) {
       RETURN_NOT_OK(AllocateValidityBufAndFill(false));
       RETURN_NOT_OK(AllocateDataBuf(output_type));
+      return Execute<Type, true>();
     } else {
       RETURN_NOT_OK(
           AllocateDataBufAndFill(output_type, static_cast<OutputCType>(input_length)));
-    }
-    if (likely_many_nulls) {
-      return Execute<Type, true>();
-    } else {
       return Execute<Type, false>();
     }
   }
@@ -223,8 +220,8 @@ struct ReverseIndicesImpl {
         }));
 
     // If not many nulls, run another pass iterating over the data to set the validity
-    // to false if the value is "impossible". The validity buffer is allocated and
-    // filled all-true on-the-fly when the first "impossible" value is seen.
+    // to false if the value is "impossible". The validity buffer is on demand allocated
+    // and initialized all-true when the first "impossible" value is seen.
     if constexpr (!likely_many_nulls) {
       for (int64_t i = 0; i < output_length; ++i) {
         if (ARROW_PREDICT_FALSE(data[i] == static_cast<OutputCType>(input_length))) {
