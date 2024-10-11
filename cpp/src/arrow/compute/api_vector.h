@@ -764,7 +764,7 @@ Result<std::shared_ptr<Array>> ReverseIndices(
 ///
 /// For indices[i] = x, output[x] = values[i]. And output[x] = null if x does not appear
 /// in the input indices. For indices[i] = x where x < 0 or x >= output_length, values[i]
-/// is ignored.
+/// is ignored. If multiple indices point to the same value, the last one is used.
 ///
 /// For example, with values = [a, b, c, d, e, f, g] and indices = [null, 0,
 /// 3, 2, 4, 1, 1], the permutation is

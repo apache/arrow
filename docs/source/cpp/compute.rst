@@ -1955,4 +1955,5 @@ indices.
 
 * \(3) For ``indices[i] = x``, ``output[x] = values[i]``. And ``output[x] = null``
 if ``x`` does not appear in the input ``indices``. For ``indices[i] = x`` where
-``x < 0`` or ``x >= output_length``, ``values[i]`` is ignored.
+``x < 0`` or ``x >= output_length``, ``values[i]`` is ignored. If multiple indices
+point to the same value, the last one is used.
