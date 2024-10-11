@@ -36,6 +36,7 @@ public class FlightClientCommand
     {
         if (!string.IsNullOrEmpty(_scenario))
         {
+            // No named scenarios are currently implemented
             throw new Exception($"Scenario '{_scenario}' is not supported.");
         }
 
@@ -45,6 +46,6 @@ public class FlightClientCommand
         }
 
         var scenario = new JsonTestScenario(_port, _jsonFileInfo);
-        await scenario.RunClient();
+        await scenario.RunClient().ConfigureAwait(false);
     }
 }

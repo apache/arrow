@@ -34,7 +34,7 @@ public static class Program
             "Path to a JSON file of test data");
 
         var rootCommand = new RootCommand(
-            "Integration test app for Apache.Arrow .NET Flight.");
+            "Integration test application for Apache.Arrow .NET Flight.");
 
         var clientCommand = new Command("client", "Run the Flight client")
         {
@@ -62,6 +62,6 @@ public static class Program
             await command.Execute().ConfigureAwait(false);
         }, scenarioOption);
 
-        return await rootCommand.InvokeAsync(args);
+        return await rootCommand.InvokeAsync(args).ConfigureAwait(false);
     }
 }

@@ -36,6 +36,7 @@ public class FlightServerCommand
     {
         if (!string.IsNullOrEmpty(_scenario))
         {
+            // No named scenarios are currently implemented
             throw new Exception($"Scenario '{_scenario}' is not supported.");
         }
 

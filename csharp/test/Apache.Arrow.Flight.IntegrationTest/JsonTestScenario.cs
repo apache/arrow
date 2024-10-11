@@ -30,17 +30,17 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Apache.Arrow.Flight.IntegrationTest;
 
 /// <summary>
-/// A test scenario defined using a JSON file
+/// A test scenario defined using a JSON data file
 /// </summary>
-internal class JsonTestScenario : Scenario
+internal class JsonTestScenario
 {
-    private readonly int _port;
+    private readonly int _serverPort;
     private readonly FileInfo _jsonFile;
     private readonly ServiceProvider _serviceProvider;
 
-    public JsonTestScenario(int port, FileInfo jsonFile)
+    public JsonTestScenario(int serverPort, FileInfo jsonFile)
     {
-        _port = port;
+        _serverPort = serverPort;
         _jsonFile = jsonFile;
 
         var services = new ServiceCollection();
@@ -48,9 +48,9 @@ internal class JsonTestScenario : Scenario
         _serviceProvider = services.BuildServiceProvider();
     }
 
-    public override async Task RunClient()
+    public async Task RunClient()
     {
-        var address = $"grpc+tcp://localhost:{_port}";
+        var address = $"grpc+tcp://localhost:{_serverPort}";
         using var channel = GrpcChannel.ForAddress(
             address,
             new GrpcChannelOptions
@@ -62,27 +62,28 @@ internal class JsonTestScenario : Scenario
 
         var descriptor = FlightDescriptor.CreatePathDescriptor(_jsonFile.FullName);
 
-        var jsonFile = await JsonFile.ParseAsync(_jsonFile);
+        var jsonFile = await JsonFile.ParseAsync(_jsonFile).ConfigureAwait(false);
         var schema = jsonFile.GetSchemaAndDictionaries(out Func<DictionaryType, IArrowArray> dictionaries);
         var batches = jsonFile.Batches.Select(batch => batch.ToArrow(schema, dictionaries)).ToArray();
 
         // 1. Put the data to the server.
-        await UploadBatches(client, descriptor, batches);
+        await UploadBatches(client, descriptor, batches).ConfigureAwait(false);
 
         // 2. Get the ticket for the data.
-        var info = await client.GetInfo(descriptor);
+        var info = await client.GetInfo(descriptor).ConfigureAwait(false);
         if (info.Endpoints.Count == 0)
         {
             throw new Exception("No endpoints received");
         }
 
+        // 3. Stream data from the server, comparing individual batches.
         foreach (var endpoint in info.Endpoints)
         {
             var locations = endpoint.Locations.ToArray();
             if (locations.Length == 0)
             {
                 // Can read with existing client
-                await ConsumeFlightLocation(client, endpoint.Ticket, batches);
+                await ConsumeFlightLocation(client, endpoint.Ticket, batches).ConfigureAwait(false);
             }
             else
             {
@@ -96,7 +97,7 @@ internal class JsonTestScenario : Scenario
                             Credentials = ChannelCredentials.Insecure
                         });
                     var readClient = new FlightClient(readChannel);
-                    await ConsumeFlightLocation(readClient, endpoint.Ticket, batches);
+                    await ConsumeFlightLocation(readClient, endpoint.Ticket, batches).ConfigureAwait(false);
                 }
             }
         }
@@ -114,10 +115,10 @@ internal class JsonTestScenario : Scenario
             {
                 var metadata = $"{counter}";
 
-                await writer.WriteAsync(batch, ByteString.CopyFromUtf8(metadata));
+                await writer.WriteAsync(batch, ByteString.CopyFromUtf8(metadata)).ConfigureAwait(false);
 
                 // Verify server has acknowledged the write request
-                await putCall.ResponseStream.MoveNext();
+                await putCall.ResponseStream.MoveNext().ConfigureAwait(false);
                 var responseString = putCall.ResponseStream.Current.ApplicationMetadata.ToStringUtf8();
 
                 if (responseString != metadata)
@@ -130,7 +131,7 @@ internal class JsonTestScenario : Scenario
         }
         finally
         {
-            await writer.CompleteAsync();
+            await writer.CompleteAsync().ConfigureAwait(false);
         }
     }
 
@@ -140,7 +141,7 @@ internal class JsonTestScenario : Scenario
         var counter = 0;
         foreach (var originalBatch in batches)
         {
-            if (!await readStream.ResponseStream.MoveNext())
+            if (!await readStream.ResponseStream.MoveNext().ConfigureAwait(false))
             {
                 throw new Exception($"Expected {batches.Length} batches but received {counter}");
             }
@@ -149,6 +150,11 @@ internal class JsonTestScenario : Scenario
             ArrowReaderVerifier.CompareBatches(originalBatch, batch, strictCompare: false);
 
             counter++;
+        }
+
+        if (await readStream.ResponseStream.MoveNext().ConfigureAwait(false))
+        {
+            throw new Exception($"Expected to reach the end of the response stream after {batches.Length} batches");
         }
     }
 }
