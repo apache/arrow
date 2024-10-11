@@ -114,7 +114,10 @@ jobs:
           # tries to replace /usr/local/bin/2to3 and so on and causes
           # a conflict error.
           brew update
-          brew install --overwrite python@3.13
+          for python_package in $(brew list | grep python@); do
+            brew install --overwrite ${python_package}
+          done
+          brew install --overwrite python
 
           brew bundle --file=arrow/cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
