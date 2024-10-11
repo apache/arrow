@@ -1208,7 +1208,7 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-cpp-emscripten
 
-{% for python_version in ["3.9", "3.10", "3.11", "3.12"] %}
+{% for python_version in ["3.9", "3.10", "3.11", "3.12", "3.13"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
