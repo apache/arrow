@@ -33,6 +33,55 @@ final class TableTests: XCTestCase {
         XCTAssertEqual(schema.fields[1].isNullable, false)
     }
 
+    func testSchemaNested() {
+        class StructTest {
+            var field0: Bool = false
+            var field1: Int8 = 0
+            var field2: Int16 = 0
+            var field3: Int32 = 0
+            var field4: Int64 = 0
+            var field5: UInt8 = 0
+            var field6: UInt16 = 0
+            var field7: UInt32 = 0
+            var field8: UInt64 = 0
+            var field9: Double = 0
+            var field10: Float = 0
+            var field11: String = ""
+            var field12 = Data()
+            var field13: Date = Date.now
+        }
+
+        let testObj = StructTest()
+        var fields = [ArrowField]()
+        let buildStructType = {() -> ArrowNestedType in
+            let mirror = Mirror(reflecting: testObj)
+            for (property, value) in mirror.children {
+                let arrowType = ArrowType(ArrowType.infoForType(type(of: value)))
+                fields.append(ArrowField(property!, type: arrowType, isNullable: true))
+            }
+
+            return ArrowNestedType(ArrowType.ArrowStruct, fields: fields)
+        }
+
+        let structType = buildStructType()
+        XCTAssertEqual(structType.id, ArrowTypeId.strct)
+        XCTAssertEqual(structType.fields.count, 14)
+        XCTAssertEqual(structType.fields[0].type.id, ArrowTypeId.boolean)
+        XCTAssertEqual(structType.fields[1].type.id, ArrowTypeId.int8)
+        XCTAssertEqual(structType.fields[2].type.id, ArrowTypeId.int16)
+        XCTAssertEqual(structType.fields[3].type.id, ArrowTypeId.int32)
+        XCTAssertEqual(structType.fields[4].type.id, ArrowTypeId.int64)
+        XCTAssertEqual(structType.fields[5].type.id, ArrowTypeId.uint8)
+        XCTAssertEqual(structType.fields[6].type.id, ArrowTypeId.uint16)
+        XCTAssertEqual(structType.fields[7].type.id, ArrowTypeId.uint32)
+        XCTAssertEqual(structType.fields[8].type.id, ArrowTypeId.uint64)
+        XCTAssertEqual(structType.fields[9].type.id, ArrowTypeId.double)
+        XCTAssertEqual(structType.fields[10].type.id, ArrowTypeId.float)
+        XCTAssertEqual(structType.fields[11].type.id, ArrowTypeId.string)
+        XCTAssertEqual(structType.fields[12].type.id, ArrowTypeId.binary)
+        XCTAssertEqual(structType.fields[13].type.id, ArrowTypeId.date64)
+    }
+
     func testTable() throws {
         let doubleBuilder: NumberArrayBuilder<Double> = try ArrowArrayBuilders.loadNumberArrayBuilder()
         doubleBuilder.append(11.11)
