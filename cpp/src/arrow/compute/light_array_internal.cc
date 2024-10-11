@@ -48,16 +48,16 @@ KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length
 KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length,
                                uint8_t* validity_buffer, uint8_t* fixed_length_buffer,
                                uint8_t* var_length_buffer, int bit_offset_validity,
-                               int bit_offset_fixed,
-                               const util::TempVectorStack* alloc) {
+                               int bit_offset_fixed) {
   metadata_ = metadata;
-  length_   = length;
-  buffers_[kValidityBuffer]       = mutable_buffers_[kValidityBuffer]       = validity_buffer;
-  buffers_[kFixedLengthBuffer]    = mutable_buffers_[kFixedLengthBuffer]    = fixed_length_buffer;
-  buffers_[kVariableLengthBuffer] = mutable_buffers_[kVariableLengthBuffer] = var_length_buffer;
-  bit_offset_[kValidityBuffer]    = bit_offset_validity;
+  length_ = length;
+  buffers_[kValidityBuffer] = mutable_buffers_[kValidityBuffer] = validity_buffer;
+  buffers_[kFixedLengthBuffer] = mutable_buffers_[kFixedLengthBuffer] =
+      fixed_length_buffer;
+  buffers_[kVariableLengthBuffer] = mutable_buffers_[kVariableLengthBuffer] =
+      var_length_buffer;
+  bit_offset_[kValidityBuffer] = bit_offset_validity;
   bit_offset_[kFixedLengthBuffer] = bit_offset_fixed;
-  arena_alloc                     = alloc;
 }
 
 KeyColumnArray KeyColumnArray::WithBufferFrom(const KeyColumnArray& other,
@@ -83,8 +83,6 @@ KeyColumnArray KeyColumnArray::Slice(int64_t offset, int64_t length) const {
   sliced.metadata_ = metadata_;
   sliced.length_ = length;
   uint32_t fixed_size = metadata_.fixed_length;
-  // TODO: see if this is necessary
-  // uint32_t fixed_size = !metadata_.is_fixed_length ? sizeof(uint32_t) : metadata_.fixed_length;
 
   sliced.buffers_[0] =
       buffers_[0] ? buffers_[0] + (bit_offset_[0] + offset) / 8 : nullptr;
@@ -119,7 +117,7 @@ KeyColumnArray KeyColumnArray::Slice(int64_t offset, int64_t length) const {
 Result<KeyColumnMetadata> ColumnMetadataFromDataType(
     const std::shared_ptr<DataType>& type) {
   // "ptype" is the "physical" type
-  const DataType* ptype = type->GetSharedPtr().get();
+  const DataType* ptype = type.get();
 
   // For ExtensionType, use the backing physical type (storage_type() is a shared ptr)
   if (ARROW_PREDICT_FALSE(type->id() == Type::EXTENSION)) {
@@ -351,14 +349,12 @@ KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
     const std::shared_ptr<ArrayData>& array_data, const KeyColumnMetadata& metadata,
     int64_t start_row, int64_t num_rows) {
   KeyColumnArray column_array = KeyColumnArray(
-       metadata
-      ,array_data->offset + start_row + num_rows
-      ,array_data->buffers[0] != NULLPTR ? array_data->buffers[0]->data() : nullptr
-      ,array_data->buffers[1]->data()
-      ,(array_data->buffers.size() > 2 && array_data->buffers[2] != NULLPTR)
+      metadata, array_data->offset + start_row + num_rows,
+      array_data->buffers[0] != NULLPTR ? array_data->buffers[0]->data() : nullptr,
+      array_data->buffers[1]->data(),
+      (array_data->buffers.size() > 2 && array_data->buffers[2] != NULLPTR)
           ? array_data->buffers[2]->data()
-          : nullptr
-  );
+          : nullptr);
   return column_array.Slice(array_data->offset + start_row, num_rows);
 }
 
@@ -393,9 +389,8 @@ Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
 
 Status ColumnArraysFromExecBatch(const ExecBatch& batch,
                                  std::vector<KeyColumnArray>* column_arrays) {
-  return ColumnArraysFromExecBatch(
-    batch, 0, static_cast<int>(batch.length), column_arrays
-  );
+  return ColumnArraysFromExecBatch(batch, 0, static_cast<int>(batch.length),
+                                   column_arrays);
 }
 
 Status ResizableArrayData::Init(const std::shared_ptr<DataType>& data_type,
