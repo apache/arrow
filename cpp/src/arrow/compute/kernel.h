@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"  // for DeviceAllocationTypeSet
 #include "arrow/compute/exec.h"
 #include "arrow/datum.h"
 #include "arrow/device_allocation_type_set.h"
@@ -194,16 +195,37 @@ class ARROW_EXPORT InputType {
     USE_TYPE_MATCHER
   };
 
-  /// \brief Accept any value type
-  InputType() : kind_(ANY_TYPE) {}
+  /// \brief Accept any value type of values allocated on the given set of device
+  /// types.
+  explicit InputType(DeviceAllocationTypeSet accepted_devices)
+      : kind_(ANY_TYPE), accepted_device_types_(std::move(accepted_devices)) {}
 
-  /// \brief Accept an exact value type.
+  /// \brief Accept an exact value type of values allocated on the given set of device
+  /// types.
+  InputType(std::shared_ptr<DataType> type, DeviceAllocationTypeSet accepted_devices)
+      : kind_(EXACT_TYPE),
+        type_(std::move(type)),
+        accepted_device_types_(accepted_devices) {}
+
+  /// \brief Use the passed TypeMatcher to check the type of arguments allocated on the
+  /// given set of device types.
+  InputType(std::shared_ptr<TypeMatcher> type_matcher,
+            DeviceAllocationTypeSet accepted_devices)
+      : kind_(USE_TYPE_MATCHER),
+        type_matcher_(std::move(type_matcher)),
+        accepted_device_types_(std::move(accepted_devices)) {}
+
+  /// \brief Accept any value type of values allocated on the CPU.
+  InputType() : InputType(DeviceAllocationTypeSet::CpuOnly()) {}
+
+  /// \brief Accept an exact value type of values allocated on the CPU.
   InputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
-      : kind_(EXACT_TYPE), type_(std::move(type)) {}
+      : InputType(std::move(type), DeviceAllocationTypeSet::CpuOnly()) {}
 
-  /// \brief Use the passed TypeMatcher to type check.
+  /// \brief Use the passed TypeMatcher to type check the type of arguments allocated on
+  /// the CPU.
   InputType(std::shared_ptr<TypeMatcher> type_matcher)  // NOLINT implicit construction
-      : kind_(USE_TYPE_MATCHER), type_matcher_(std::move(type_matcher)) {}
+      : InputType(std::move(type_matcher), DeviceAllocationTypeSet::CpuOnly()) {}
 
   /// \brief Match any type with the given Type::type. Uses a TypeMatcher for
   /// its implementation.
@@ -242,6 +264,13 @@ class ARROW_EXPORT InputType {
   /// \brief Return true if the type matches this InputType
   bool Matches(const DataType& type) const;
 
+  /// \brief Return true if the Datum's device allocation type matches this
+  /// argument's accepted device allocation type set (and only allows scalar or
+  /// array-like Datums).
+  ///
+  /// \pre Matches(value) == true
+  bool MatchesDeviceAllocationType(const Datum& value) const;
+
   /// \brief The type matching rule that this InputType uses.
   Kind kind() const { return kind_; }
 
@@ -255,26 +284,32 @@ class ARROW_EXPORT InputType {
   /// and will assert in debug builds.
   const TypeMatcher& type_matcher() const;
 
+  /// \brief The device allocation types that are accepted for this input type.
+  DeviceAllocationTypeSet accepted_device_types() const { return accepted_device_types_; }
+
  private:
   void CopyInto(const InputType& other) {
     this->kind_ = other.kind_;
     this->type_ = other.type_;
     this->type_matcher_ = other.type_matcher_;
+    this->accepted_device_types_ = other.accepted_device_types_;
   }
 
   void MoveInto(InputType&& other) {
     this->kind_ = other.kind_;
     this->type_ = std::move(other.type_);
     this->type_matcher_ = std::move(other.type_matcher_);
+    this->accepted_device_types_ = std::move(other.accepted_device_types_);
   }
 
   Kind kind_;
-
   // For EXACT_TYPE Kind
   std::shared_ptr<DataType> type_;
-
   // For USE_TYPE_MATCHER Kind
   std::shared_ptr<TypeMatcher> type_matcher_;
+
+  // For matching device types. CPU-only by default.
+  DeviceAllocationTypeSet accepted_device_types_;
 };
 
 /// \brief Container to capture both exact and input-dependent output types.
@@ -367,6 +402,15 @@ class ARROW_EXPORT KernelSignature {
   /// \brief Return true if the signature if compatible with the list of input
   /// value descriptors.
   bool MatchesInputs(const std::vector<TypeHolder>& types) const;
+
+  /// \brief Return true if the signature is compatible with the list of
+  /// execution arguments regarding device allocation types.
+  ///
+  /// \pre MatchesInputs(GetTypes(args)) == true
+  bool MatchesDeviceAllocationTypes(
+      const std::vector<Datum>& args,
+      DeviceAllocationTypeSet* out_expected_device_types = NULLPTR,
+      int* offending_arg_index = NULLPTR) const;
 
   /// \brief Returns true if the input types of each signature are
   /// equal. Well-formed functions should have a deterministic output type
