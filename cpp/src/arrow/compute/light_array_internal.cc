@@ -196,6 +196,9 @@ Result<KeyColumnArray> ColumnArrayFromListArray(const ArraySpan& array_span,
                         ColumnMetadataFromListType(array_span.type));
 
   auto child_span = array_span.child_data[0];
+  if (!is_primitive(child_span.type->id())) {
+    return Status::NotImplemented("A ListArray with non-primitive types is unsupported.");
+  }
 
   uint8_t* list_validity = nullptr;
   if (array_span.GetBuffer(0) != nullptr) {
