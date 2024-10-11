@@ -1933,7 +1933,7 @@ operation to the n-th and (n+abs(p))-th inputs.
 * \(3) Returns an ``Invalid`` :class:`Status` when overflow is detected.
 
 Placement functions
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
 
 Placement functions reorder the input array based on placement arguments, e.g.
 indices.
