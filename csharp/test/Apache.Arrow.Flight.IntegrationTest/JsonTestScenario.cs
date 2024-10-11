@@ -24,6 +24,8 @@ using Apache.Arrow.Types;
 using Google.Protobuf;
 using Grpc.Net.Client;
 using Grpc.Core;
+using Grpc.Net.Client.Balancer;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Apache.Arrow.Flight.IntegrationTest;
 
@@ -34,17 +36,28 @@ internal class JsonTestScenario : Scenario
 {
     private readonly int _port;
     private readonly FileInfo _jsonFile;
+    private readonly ServiceProvider _serviceProvider;
 
     public JsonTestScenario(int port, FileInfo jsonFile)
     {
         _port = port;
         _jsonFile = jsonFile;
+
+        var services = new ServiceCollection();
+        services.AddSingleton<ResolverFactory>(new GrpcTcpResolverFactory());
+        _serviceProvider = services.BuildServiceProvider();
     }
 
     public override async Task RunClient()
     {
-        var address = $"http://localhost:{_port}";
-        using var channel = GrpcChannel.ForAddress(address);
+        var address = $"grpc+tcp://localhost:{_port}";
+        using var channel = GrpcChannel.ForAddress(
+            address,
+            new GrpcChannelOptions
+            {
+                ServiceProvider = _serviceProvider,
+                Credentials = ChannelCredentials.Insecure
+            });
         var client = new FlightClient(channel);
 
         var descriptor = FlightDescriptor.CreatePathDescriptor(_jsonFile.FullName);
@@ -75,7 +88,13 @@ internal class JsonTestScenario : Scenario
             {
                 foreach (var location in locations)
                 {
-                    using var readChannel = GrpcChannel.ForAddress(location.Uri.Replace("grpc+tcp", "http"));
+                    using var readChannel = GrpcChannel.ForAddress(
+                        location.Uri,
+                        new GrpcChannelOptions
+                        {
+                            ServiceProvider = _serviceProvider,
+                            Credentials = ChannelCredentials.Insecure
+                        });
                     var readClient = new FlightClient(readChannel);
                     await ConsumeFlightLocation(readClient, endpoint.Ticket, batches);
                 }
