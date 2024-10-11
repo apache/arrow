@@ -278,14 +278,14 @@ class ARROW_EXPORT ReverseIndicesOptions : public FunctionOptions {
 /// \brief Options for permute function
 class ARROW_EXPORT PermuteOptions : public FunctionOptions {
  public:
-  explicit PermuteOptions(int64_t output_length = 0);
+  explicit PermuteOptions(int64_t output_length = -1);
   static constexpr char const kTypeName[] = "PermuteOptions";
   static PermuteOptions Defaults() { return PermuteOptions(); }
 
   /// \brief The length of the output permutation. If negative, the output will be of the
   /// same length as the input values (and indices). Any values with indices that are
   /// greater or equal to this length will be ignored.
-  int64_t output_length = 0;
+  int64_t output_length = -1;
 };
 
 /// @}
