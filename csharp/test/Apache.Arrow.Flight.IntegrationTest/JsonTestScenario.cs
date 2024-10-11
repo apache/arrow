@@ -133,6 +133,13 @@ internal class JsonTestScenario
         {
             await writer.CompleteAsync().ConfigureAwait(false);
         }
+
+        // Drain the response stream to ensure the server has stored the data
+        var hasMore = await putCall.ResponseStream.MoveNext().ConfigureAwait(false);
+        if (hasMore)
+        {
+            throw new Exception("Expected to have reached the end of the response stream");
+        }
     }
 
     private static async Task ConsumeFlightLocation(FlightClient client, FlightTicket ticket, RecordBatch[] batches)
