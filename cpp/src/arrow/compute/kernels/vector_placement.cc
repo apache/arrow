@@ -343,6 +343,12 @@ class PermuteMetaFunction : public MetaFunction {
                             ExecContext* ctx) const override {
     DCHECK_EQ(args.size(), 2);
     const auto& values = args[0];
+    // Though the way how permute is currently implemented may support record batch or
+    // table, we don't want to promise that yet.
+    if (!values.is_arraylike()) {
+      return Status::NotImplemented("Permute does not support " +
+                                    ToString(values.kind()) + " argument");
+    }
     const auto& indices = args[1];
     auto* permute_options = checked_cast<const PermuteOptions*>(options);
     if (values.length() != indices.length()) {
