@@ -144,11 +144,13 @@ struct ReverseIndicesImpl {
   Status CheckInput(const Type& output_type) {
     using OutputCType = typename Type::c_type;
 
-    if (static_cast<int64_t>(std::numeric_limits<OutputCType>::max()) < input_length) {
-      return Status::Invalid(
-          "Output type " + output_type.ToString() +
-          " of reverse_indices is insufficient to store indices of length " +
-          std::to_string(input_length));
+    if constexpr (!std::is_same_v<OutputCType, uint64_t>) {
+      if (static_cast<int64_t>(std::numeric_limits<OutputCType>::max()) < input_length) {
+        return Status::Invalid(
+            "Output type " + output_type.ToString() +
+            " of reverse_indices is insufficient to store indices of length " +
+            std::to_string(input_length));
+      }
     }
 
     return Status::OK();
@@ -220,9 +222,9 @@ struct ReverseIndicesImpl {
           return Status::OK();
         }));
 
-    // If not many nulls, run another pass iterating over the data to set the validity to
-    // false if the value is "impossible". The validity buffer is allocated and filled
-    // all-true on-the-fly when the first "impossible" value is seen.
+    // If not many nulls, run another pass iterating over the data to set the validity
+    // to false if the value is "impossible". The validity buffer is allocated and
+    // filled all-true on-the-fly when the first "impossible" value is seen.
     if constexpr (!likely_many_nulls) {
       for (int64_t i = 0; i < output_length; ++i) {
         if (ARROW_PREDICT_FALSE(data[i] == static_cast<OutputCType>(input_length))) {
