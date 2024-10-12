@@ -775,9 +775,9 @@ test_glib() {
   show_header "Build and test C GLib libraries"
 
   # Build and test C GLib
-  # We can remove '==2.80.5' once https://github.com/conda-forge/glib-feedstock/issues/191
-  # is fixed.
-  maybe_setup_conda glib==2.80.5 gobject-introspection meson ninja ruby
+  # We can remove '==2.80.5' and 'python<3.13' once
+  # https://github.com/conda-forge/glib-feedstock/issues/191 is fixed.
+  maybe_setup_conda glib==2.80.5 gobject-introspection meson ninja 'python<3.13' ruby
   maybe_setup_virtualenv meson
 
   # Install bundler if doesn't exist
