@@ -169,16 +169,19 @@ struct MinioTestEnvironment::Impl {
   }
 };
 
-MinioTestEnvironment::MinioTestEnvironment() : impl_(new Impl) {}
+MinioTestEnvironment::MinioTestEnvironment(bool enable_tls_if_supported)
+    : impl_(new Impl), enable_tls_if_supported_(enable_tls_if_supported) {}
 
 MinioTestEnvironment::~MinioTestEnvironment() = default;
 
 void MinioTestEnvironment::SetUp() {
   auto pool = ::arrow::internal::GetCpuThreadPool();
 
-  auto launch_one_server = []() -> Result<std::shared_ptr<MinioTestServer>> {
+  auto launch_one_server =
+      [enable_tls_if_supported =
+           enable_tls_if_supported_]() -> Result<std::shared_ptr<MinioTestServer>> {
     auto server = std::make_shared<MinioTestServer>();
-    RETURN_NOT_OK(server->Start());
+    RETURN_NOT_OK(server->Start(enable_tls_if_supported));
     return server;
   };
   impl_->server_generator_ = [pool, launch_one_server]() {

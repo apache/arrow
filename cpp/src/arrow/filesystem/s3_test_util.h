@@ -74,7 +74,7 @@ class MinioTestServer {
 
 class MinioTestEnvironment : public ::testing::Environment {
  public:
-  MinioTestEnvironment();
+  explicit MinioTestEnvironment(bool enable_tls_if_supported = true);
   ~MinioTestEnvironment();
 
   void SetUp() override;
@@ -84,6 +84,7 @@ class MinioTestEnvironment : public ::testing::Environment {
  protected:
   struct Impl;
   std::unique_ptr<Impl> impl_;
+  bool enable_tls_if_supported_ = true;  // by default, enable TLS if supported
 };
 
 // A global test "environment", to ensure that the S3 API is initialized before
