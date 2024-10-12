@@ -182,6 +182,24 @@ class AwsTestMixin : public ::testing::Test {
 #endif
 };
 
+// Test the CalculateSSECustomerKeyMD5 in AwsTestMixin fixture, since there is AWS SDK
+// function call in it
+TEST_F(AwsTestMixin, CalculateSSECustomerKeyMD5) {
+  ASSERT_RAISES(Invalid, CalculateSSECustomerKeyMD5(""));  // invalid length
+  ASSERT_RAISES(Invalid,
+                CalculateSSECustomerKeyMD5(
+                    "1234567890123456789012345678901234567890"));  // invalid length
+  // valid case, with some non-ASCII character and a null byte in the sse_customer_key
+  char sse_customer_key[32] = {};
+  sse_customer_key[0] = '\x40';   // '@' character
+  sse_customer_key[1] = '\0';     // null byte
+  sse_customer_key[2] = '\xFF';   // non-ASCII
+  sse_customer_key[31] = '\xFA';  // non-ASCII
+  std::string sse_customer_key_string(sse_customer_key, sizeof(sse_customer_key));
+  ASSERT_OK_AND_ASSIGN(auto md5, CalculateSSECustomerKeyMD5(sse_customer_key_string))
+  ASSERT_EQ(md5, "97FTa6lj0hE7lshKdBy61g==");  // valid case
+}
+
 class S3TestMixin : public AwsTestMixin {
  public:
   void SetUp() override {
@@ -1679,22 +1697,5 @@ TEST(S3GlobalOptions, DefaultsLogLevel) {
     ASSERT_EQ(S3LogLevel::Fatal, arrow::fs::S3GlobalOptions::Defaults().log_level);
   }
 }
-
-TEST(CalculateSSECustomerKeyMD5, Sanity) {
-  ASSERT_RAISES(Invalid, CalculateSSECustomerKeyMD5(""));  // invalid length
-  ASSERT_RAISES(Invalid,
-                CalculateSSECustomerKeyMD5(
-                    "1234567890123456789012345678901234567890"));  // invalid length
-  // valid case, with some non-ASCII character and a null byte in the sse_customer_key
-  char sse_customer_key[32] = {};
-  sse_customer_key[0] = '\x40';   // '@' character
-  sse_customer_key[1] = '\0';     // null byte
-  sse_customer_key[2] = '\xFF';   // non-ASCII
-  sse_customer_key[31] = '\xFA';  // non-ASCII
-  std::string sse_customer_key_string(sse_customer_key, sizeof(sse_customer_key));
-  ASSERT_OK_AND_ASSIGN(auto md5, CalculateSSECustomerKeyMD5(sse_customer_key_string))
-  ASSERT_EQ(md5, "97FTa6lj0hE7lshKdBy61g==");  // valid case
-}
-
 }  // namespace fs
 }  // namespace arrow
