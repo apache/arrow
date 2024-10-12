@@ -491,6 +491,19 @@ TEST_F(TestBufferedInputStream, BufferSizeLimit) {
   }
 }
 
+TEST_F(TestBufferedInputStream, PeekPastBufferedBytesTwice) {
+  MakeExample1(/*buffer_size=*/10, default_memory_pool(), /*raw_read_bound=*/15);
+  ASSERT_OK(buffered_->Read(9));
+  ASSERT_EQ(1, buffered_->bytes_buffered());
+  ASSERT_EQ(10, buffered_->buffer_size());
+  ASSERT_OK(buffered_->Peek(6));
+  ASSERT_EQ(6, buffered_->bytes_buffered());
+  ASSERT_EQ(15, buffered_->buffer_size());
+  ASSERT_OK(buffered_->Peek(6));
+  ASSERT_EQ(6, buffered_->bytes_buffered());
+  ASSERT_EQ(15, buffered_->buffer_size());
+}
+
 class TestBufferedInputStreamBound : public ::testing::Test {
  public:
   void SetUp() { CreateExample(/*bounded=*/true); }
