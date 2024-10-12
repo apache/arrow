@@ -755,7 +755,7 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
 ///
 /// \since 19.0.0
 /// \note API not yet finalized
-Result<std::shared_ptr<Array>> ReverseIndices(
+Result<Datum> ReverseIndices(
     const Datum& indices,
     const ReverseIndicesOptions& options = ReverseIndicesOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
@@ -781,10 +781,9 @@ Result<std::shared_ptr<Array>> ReverseIndices(
 ///
 /// \since 19.0.0
 /// \note API not yet finalized
-Result<std::shared_ptr<Array>> Permute(
-    const Datum& values, const Datum& indices,
-    const PermuteOptions& options = PermuteOptions::Defaults(),
-    ExecContext* ctx = NULLPTR);
+Result<Datum> Permute(const Datum& values, const Datum& indices,
+                      const PermuteOptions& options = PermuteOptions::Defaults(),
+                      ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

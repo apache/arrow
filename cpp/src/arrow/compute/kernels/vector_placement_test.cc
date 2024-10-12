@@ -46,23 +46,46 @@ Result<Datum> ReverseIndices(const Datum& indices, int64_t output_length,
   return ReverseIndices(indices, options);
 }
 
-template <typename InputString, typename InputShapeFunc>
-void TestReverseIndices(const InputString& indices_str, int64_t output_length,
-                        const std::string& expected_str,
-                        InputShapeFunc&& input_shape_func, bool validity_must_be_null) {
+void AssertReverseIndices(const Datum& indices, int64_t output_length,
+                          const std::shared_ptr<DataType>& output_type,
+                          const Datum& expected, bool validity_must_be_null) {
+  ASSERT_OK_AND_ASSIGN(auto result, ReverseIndices(indices, output_length, output_type));
+  ASSERT_EQ(indices.kind(), result.kind());
+  std::shared_ptr<Array> result_array;
+  if (result.is_array()) {
+    result_array = result.make_array();
+  } else {
+    ASSERT_TRUE(result.is_chunked_array());
+    ASSERT_OK_AND_ASSIGN(result_array, Concatenate(result.chunked_array()->chunks()));
+  }
+  AssertDatumsEqual(expected, result_array);
+  if (validity_must_be_null) {
+    ASSERT_FALSE(result_array->data()->HasValidityBitmap());
+  }
+}
+
+template <typename InputFunc>
+void DoTestReverseIndicesForAllInputTypes(InputFunc&& input, int64_t output_length,
+                                          const std::shared_ptr<DataType>& output_type,
+                                          const Datum& expected,
+                                          bool validity_must_be_null = false) {
   for (const auto& input_type : kIntegerTypes) {
-    auto indices = input_shape_func(input_type, indices_str);
     ARROW_SCOPED_TRACE("Input type: " + input_type->ToString());
-    for (const auto& output_type : kIntegerTypes) {
-      ARROW_SCOPED_TRACE("Output type: " + output_type->ToString());
-      auto expected = ArrayFromJSON(output_type, expected_str);
-      ASSERT_OK_AND_ASSIGN(Datum result,
-                           ReverseIndices(indices, output_length, output_type));
-      AssertDatumsEqual(expected, result);
-      if (validity_must_be_null) {
-        ASSERT_FALSE(result.array()->HasValidityBitmap());
-      }
-    }
+    auto indices = input(input_type);
+    AssertReverseIndices(indices, output_length, output_type, expected,
+                         validity_must_be_null);
+  }
+}
+
+template <typename InputFunc>
+void DoTestReverseIndicesForAllInputOutputTypes(InputFunc&& input, int64_t output_length,
+                                                const std::string& expected_str,
+                                                bool validity_must_be_null) {
+  for (const auto& output_type : kIntegerTypes) {
+    ARROW_SCOPED_TRACE("Output type: " + output_type->ToString());
+    auto expected = ArrayFromJSON(output_type, expected_str);
+    DoTestReverseIndicesForAllInputTypes(std::forward<InputFunc>(input), output_length,
+                                         output_type, expected, validity_must_be_null);
   }
 }
 
@@ -72,13 +95,19 @@ void TestReverseIndices(const std::string& indices_str,
                         bool validity_must_be_null = false) {
   {
     ARROW_SCOPED_TRACE("Array");
-    TestReverseIndices(indices_str, output_length, expected_str, ArrayFromJSON,
-                       validity_must_be_null);
+    DoTestReverseIndicesForAllInputOutputTypes(
+        [&](const std::shared_ptr<DataType>& input_type) {
+          return ArrayFromJSON(input_type, indices_str);
+        },
+        output_length, expected_str, validity_must_be_null);
   }
   {
     ARROW_SCOPED_TRACE("Chunked");
-    TestReverseIndices(indices_chunked_str, output_length, expected_str,
-                       ChunkedArrayFromJSON, validity_must_be_null);
+    DoTestReverseIndicesForAllInputOutputTypes(
+        [&](const std::shared_ptr<DataType>& input_type) {
+          return ChunkedArrayFromJSON(input_type, indices_chunked_str);
+        },
+        output_length, expected_str, validity_must_be_null);
   }
 }
 
@@ -114,7 +143,7 @@ TEST(ReverseIndices, DefaultOptions) {
       ARROW_SCOPED_TRACE("Input type: " + input_type->ToString());
       auto indices = ArrayFromJSON(input_type, "[0]");
       ASSERT_OK_AND_ASSIGN(Datum result, ReverseIndices(indices));
-      AssertDatumsEqual(result, indices);
+      AssertDatumsEqual(indices, result);
     }
   }
 }
@@ -131,15 +160,13 @@ class TestReverseIndicesSmallOutputType : public ::testing::Test {
   void JustEnoughOutputType() {
     auto output_type = type_singleton();
     int64_t input_length = static_cast<int64_t>(std::numeric_limits<CType>::max());
-    auto expected = ConstantArrayGenerator::Numeric<ArrowType>(
-        /*size=*/1, /*value=*/static_cast<CType>(input_length - 1));
-    for (const auto& input_type : kIntegerTypes) {
-      ARROW_SCOPED_TRACE("Input type: " + input_type->ToString());
-      auto indices = ConstantArrayGenerator::Zeroes(input_length, input_type);
-      ASSERT_OK_AND_ASSIGN(Datum result,
-                           ReverseIndices(indices, /*output_length=*/1, output_type));
-      AssertDatumsEqual(expected, result);
-    }
+    auto expected =
+        ArrayFromJSON(output_type, "[" + std::to_string(input_length - 1) + "]");
+    DoTestReverseIndicesForAllInputTypes(
+        [&](const std::shared_ptr<DataType>& input_type) {
+          return ConstantArrayGenerator::Zeroes(input_length, input_type);
+        },
+        /*output_length=*/1, output_type, expected);
   }
 
   void InsufficientOutputType() {
@@ -242,6 +269,11 @@ TEST(ReverseIndices, Basic) {
 
 // ----------------------------------------------------------------------
 // Permute tests
+//
+// Shorthand notation:
+//
+//   A = Array
+//   C = ChunkedArray
 
 namespace {
 
@@ -250,69 +282,154 @@ Result<Datum> Permute(const Datum& values, const Datum& indices, int64_t output_
   return Permute(values, indices, options);
 }
 
-void TestPermuteAAA(const Array& values, const Array& indices, int64_t output_length,
-                    const Array& expected) {
+void AssertPermuteAAA(const std::shared_ptr<Array>& values,
+                      const std::shared_ptr<Array>& indices, int64_t output_length,
+                      const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(Datum result, Permute(values, indices, output_length));
   AssertDatumsEqual(expected, result);
 }
 
-// void TestPermuteAAA(const std::shared_ptr<DataType>& values_type,
-//                     const std::string& values_str, const std::string& indices_str,
-//                     int64_t output_length, const std::string& expected_str) {
-//   auto values = ArrayFromJSON(values_type, values_str);
-//   auto expected = ArrayFromJSON(values_type, expected_str);
-//   for (const auto& indices_type : kIntegerTypes) {
-//     ARROW_SCOPED_TRACE("Indices type: " + indices_type->ToString());
-//     auto indices = ArrayFromJSON(indices_type, indices_str);
-//     TestPermuteAAA(*values, *indices, output_length, *expected);
-//   }
-// }
-
-void TestPermuteCAC(const std::shared_ptr<ChunkedArray>& values, const Array& indices,
-                    int64_t output_length,
-                    const std::shared_ptr<ChunkedArray>& expected) {
+void AssertPermuteCAC(const std::shared_ptr<ChunkedArray>& values,
+                      const std::shared_ptr<Array>& indices, int64_t output_length,
+                      const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(Datum result, Permute(values, indices, output_length));
-  AssertDatumsEqual(expected, result);
+  ASSERT_TRUE(result.is_chunked_array());
+  ASSERT_OK_AND_ASSIGN(auto result_array, Concatenate(result.chunked_array()->chunks()));
+  AssertDatumsEqual(expected, result_array);
 }
 
-void TestPermuteCACWithArray(const std::shared_ptr<Array>& values,
-                             const std::shared_ptr<Array>& indices, int64_t output_length,
-                             const std::shared_ptr<Array>& expected) {
-  // PermuteAAA(Concat(V, V, V), I') == Concat(PermuteCAC([V, V, V], I'))
-  // where
-  //   V = values
-  //   I = indices
-  //   I' = Concat(I + 2 * output_length, I, I + output_length)
-  auto values3 = ArrayVector{values, values, values};
-  ASSERT_OK_AND_ASSIGN(auto concat_values3, Concatenate(values3));
-  auto chunked_values3 = std::make_shared<ChunkedArray>(values3);
+void AssertPermuteACC(const std::shared_ptr<Array>& values,
+                      const std::shared_ptr<ChunkedArray>& indices, int64_t output_length,
+                      const std::shared_ptr<Array>& expected) {
+  ASSERT_OK_AND_ASSIGN(Datum result, Permute(values, indices, output_length));
+  ASSERT_TRUE(result.is_chunked_array());
+  ASSERT_OK_AND_ASSIGN(auto result_array, Concatenate(result.chunked_array()->chunks()));
+  AssertDatumsEqual(expected, result_array);
+}
 
-  std::shared_ptr<Array> concat_indices3;
-  {
-    auto double_length =
-        MakeScalar(indices->type(), 2 * values->length()));
-    auto zero = MakeScalar(indices->type(), 0);
-    auto length = MakeScalar(indices->type(), static_cast<int64_t>(values->length()));
-    ASSERT_OK_AND_ASSIGN(auto indices_prefix, Add(indices, *double_length));
-    ASSERT_OK_AND_ASSIGN(auto indices_middle, Add(indices, *zero));
-    ASSERT_OK_AND_ASSIGN(auto indices_suffix, Add(indices, *length));
-    auto indices3 = ArrayVector{
-        indices_prefix.make_array(),
-        indices_middle.make_array(),
-        indices_suffix.make_array(),
-    };
-    ASSERT_OK_AND_ASSIGN(concat_indices3, Concatenate(indices3));
+void AssertPermuteCCC(const std::shared_ptr<ChunkedArray>& values,
+                      const std::shared_ptr<ChunkedArray>& indices, int64_t output_length,
+                      const std::shared_ptr<Array>& expected) {
+  ASSERT_OK_AND_ASSIGN(Datum result, Permute(values, indices, output_length));
+  ASSERT_TRUE(result.is_chunked_array());
+  ASSERT_OK_AND_ASSIGN(auto result_array, Concatenate(result.chunked_array()->chunks()));
+  AssertDatumsEqual(expected, result_array);
+}
+
+void DoTestPermuteAAA(const std::shared_ptr<Array>& values,
+                      const std::shared_ptr<Array>& indices, int64_t output_length,
+                      const std::shared_ptr<Array>& expected) {
+  AssertPermuteAAA(values, indices, output_length, expected);
+}
+
+/// The following helper functions are based on the invariant:
+/// PermuteXXA([V, V], [I', I''], 2 * l) == Concat(E, E)
+///
+/// where
+///   V = values
+///   I = indices
+///   l = output_length
+///   I' = ReplaceWithMask(I, i >= l, null)
+///   I'' = I + l
+///   E = PermuteAAA(V, I, l)
+
+/// Make indices prefix I' = ReplaceWithMask(I, i >= l, null).
+Result<std::shared_ptr<Array>> MakeIndicesPrefix(const std::shared_ptr<Array>& indices,
+                                                 int64_t output_length) {
+  ARROW_ASSIGN_OR_RAISE(auto l, MakeScalar(indices->type(), output_length));
+  ARROW_ASSIGN_OR_RAISE(auto ge_than_l, CallFunction("greater_equal", {indices, l}));
+  ARROW_ASSIGN_OR_RAISE(auto all_null,
+                        MakeArrayOfNull(indices->type(), indices->length()));
+  ARROW_ASSIGN_OR_RAISE(auto prefix, ReplaceWithMask(indices, ge_than_l, all_null));
+  return prefix.make_array();
+}
+
+/// Make indices suffix I'' = I + l.
+Result<std::shared_ptr<Array>> MakeIndicesSuffix(const std::shared_ptr<Array>& indices,
+                                                 int64_t output_length) {
+  ARROW_ASSIGN_OR_RAISE(auto l, MakeScalar(indices->type(), output_length));
+  ARROW_ASSIGN_OR_RAISE(auto suffix, Add(indices, l));
+  return suffix.make_array();
+}
+
+void DoTestPermuteCACWithArrays(const std::shared_ptr<Array>& values,
+                                const std::shared_ptr<Array>& indices,
+                                int64_t output_length,
+                                const std::shared_ptr<Array>& expected) {
+  auto chunked_values2 = std::make_shared<ChunkedArray>(ArrayVector{values, values});
+
+  ASSERT_OK_AND_ASSIGN(auto indices_prefix, MakeIndicesPrefix(indices, output_length));
+  ASSERT_OK_AND_ASSIGN(auto indices_suffix, MakeIndicesSuffix(indices, output_length));
+  ASSERT_OK_AND_ASSIGN(auto concat_indices2,
+                       Concatenate({indices_prefix, indices_suffix}));
+
+  ASSERT_OK_AND_ASSIGN(auto concat_expected2,
+                       Concatenate(ArrayVector{expected, expected}));
+
+  AssertPermuteCAC(chunked_values2, concat_indices2, output_length * 2, concat_expected2);
+}
+
+void DoTestPermuteACCWithArrays(const std::shared_ptr<Array>& values,
+                                const std::shared_ptr<Array>& indices,
+                                int64_t output_length,
+                                const std::shared_ptr<Array>& expected) {
+  ASSERT_OK_AND_ASSIGN(auto concat_values2, Concatenate(ArrayVector{values, values}));
+
+  ASSERT_OK_AND_ASSIGN(auto indices_prefix, MakeIndicesPrefix(indices, output_length));
+  ASSERT_OK_AND_ASSIGN(auto indices_suffix, MakeIndicesSuffix(indices, output_length));
+  auto chunked_indices2 =
+      std::make_shared<ChunkedArray>(ArrayVector{indices_prefix, indices_suffix});
+
+  ASSERT_OK_AND_ASSIGN(auto concat_expected2,
+                       Concatenate(ArrayVector{expected, expected}));
+
+  AssertPermuteACC(concat_values2, chunked_indices2, output_length * 2, concat_expected2);
+}
+
+void DoTestPermuteCCCWithArrays(const std::shared_ptr<Array>& values,
+                                const std::shared_ptr<Array>& indices,
+                                int64_t output_length,
+                                const std::shared_ptr<Array>& expected) {
+  auto chunked_values2 = std::make_shared<ChunkedArray>(ArrayVector{values, values});
+
+  ASSERT_OK_AND_ASSIGN(auto indices_prefix, MakeIndicesPrefix(indices, output_length));
+  ASSERT_OK_AND_ASSIGN(auto indices_suffix, MakeIndicesSuffix(indices, output_length));
+  auto chunked_indices2 =
+      std::make_shared<ChunkedArray>(ArrayVector{indices_prefix, indices_suffix});
+
+  ASSERT_OK_AND_ASSIGN(auto concat_expected2,
+                       Concatenate(ArrayVector{expected, expected}));
+
+  AssertPermuteCCC(chunked_values2, chunked_indices2, output_length * 2,
+                   concat_expected2);
+}
+
+void TestPermute(const std::shared_ptr<DataType>& values_type,
+                 const std::string& values_str, const std::string& indices_str,
+                 int64_t output_length, const std::string& expected_str) {
+  auto values = ArrayFromJSON(values_type, values_str);
+  auto expected = ArrayFromJSON(values_type, expected_str);
+  for (const auto& indices_type : kIntegerTypes) {
+    ARROW_SCOPED_TRACE("Indices type: " + indices_type->ToString());
+    auto indices = ArrayFromJSON(indices_type, indices_str);
+    {
+      ARROW_SCOPED_TRACE("AAA");
+      DoTestPermuteAAA(values, indices, output_length, expected);
+    }
+    {
+      ARROW_SCOPED_TRACE("CAA");
+      DoTestPermuteCACWithArrays(values, indices, output_length, expected);
+    }
+    {
+      ARROW_SCOPED_TRACE("ACA");
+      DoTestPermuteACCWithArrays(values, indices, output_length, expected);
+    }
+    {
+      ARROW_SCOPED_TRACE("CCA");
+      DoTestPermuteCCCWithArrays(values, indices, output_length, expected);
+    }
   }
-
-  ASSERT_OK_AND_ASSIGN(Datum result, Permute(values, indices, output_length));
-  AssertDatumsEqual(expected, result);
 }
-
-// void TestPermuteACA(const Array& values, const std::shared_ptr<ChunkedArray>& indices,
-//                     int64_t output_length, const Array& expected) {
-//   ASSERT_OK_AND_ASSIGN(Datum result, Permute(values, indices, output_length));
-//   AssertDatumsEqual(expected, result);
-// }
 
 }  // namespace
 
@@ -349,7 +466,7 @@ TEST(Permute, DefaultOptions) {
       ARROW_SCOPED_TRACE("Indices type: " + indices_type->ToString());
       auto indices = ArrayFromJSON(indices_type, "[0]");
       ASSERT_OK_AND_ASSIGN(Datum result, Permute(values, indices));
-      AssertDatumsEqual(result, values);
+      AssertDatumsEqual(values, result);
     }
   }
 }
@@ -367,13 +484,14 @@ class TestPermuteSmallIndicesTypes : public ::testing::Test {
     auto values = ArrayFromJSON(utf8(), R"(["a"])");
     auto indices_type = type_singleton();
     int64_t max_integer = static_cast<int64_t>(std::numeric_limits<CType>::max());
-    auto indices = ConstantArrayGenerator::Numeric<ArrowType>(1, max_integer - 1);
+    auto indices =
+        ArrayFromJSON(indices_type, "[" + std::to_string(max_integer - 1) + "]");
     ASSERT_OK_AND_ASSIGN(auto expected_prefix_nulls,
                          MakeArrayOfNull(utf8(), max_integer - 1));
-    auto expected_suffix_value = ConstantArrayGenerator::String(/*size=*/1, "a");
+    auto expected_suffix_value = values;
     ASSERT_OK_AND_ASSIGN(auto expected,
                          Concatenate({expected_prefix_nulls, expected_suffix_value}));
-    TestPermuteAAA(*values, *indices, /*output_length=*/max_integer, *expected);
+    DoTestPermuteAAA(values, indices, /*output_length=*/max_integer, expected);
   }
 };
 
@@ -383,22 +501,20 @@ TYPED_TEST(TestPermuteSmallIndicesTypes, MaxIntegerIndex) { this->MaxIntegerInde
 
 TEST(Permute, Basic) {
   {
-    auto values = ArrayFromJSON(int64(), "[10, 11, 12, 13, 14, 15, 16, 17, 18, 19]");
-    auto indices = ArrayFromJSON(int64(), "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]");
-    auto expected = ArrayFromJSON(int64(), "[19, 18, 17, 16, 15, 14, 13, 12, 11, 10]");
-    PermuteOptions options{10};
-    ASSERT_OK_AND_ASSIGN(Datum result,
-                         CallFunction("permute", {values, indices}, &options));
-    AssertDatumsEqual(expected, result);
+    ARROW_SCOPED_TRACE("Basic");
+    auto values = "[10, 11, 12, 13, 14, 15, 16, 17, 18, 19]";
+    auto indices = "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]";
+    int64_t output_length = 10;
+    auto expected = "[19, 18, 17, 16, 15, 14, 13, 12, 11, 10]";
+    TestPermute(int64(), values, indices, output_length, expected);
   }
   {
-    auto values = ArrayFromJSON(int64(), "[0, 0, 0, 1, 1, 1]");
-    auto indices = ArrayFromJSON(int64(), "[0, 3, 6, 1, 4, 7]");
-    auto expected = ArrayFromJSON(int64(), "[0, 1, null, 0, 1, null, 0, 1, null]");
-    PermuteOptions options{9};
-    ASSERT_OK_AND_ASSIGN(Datum result,
-                         CallFunction("permute", {values, indices}, &options));
-    AssertDatumsEqual(expected, result);
+    ARROW_SCOPED_TRACE("Output greater than input");
+    auto values = "[0, 0, 0, 1, 1, 1]";
+    auto indices = "[0, 3, 6, 1, 4, 7]";
+    int64_t output_length = 9;
+    auto expected = "[0, 1, null, 0, 1, null, 0, 1, null]";
+    TestPermute(int64(), values, indices, output_length, expected);
   }
 }
 

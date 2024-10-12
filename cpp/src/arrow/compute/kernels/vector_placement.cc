@@ -286,8 +286,11 @@ struct ReverseIndicesChunked {
     DCHECK_EQ(batch.num_values(), 1);
     DCHECK(batch[0].is_chunked_array());
     const auto& indices = batch[0].chunked_array();
-    ARROW_ASSIGN_OR_RAISE(*result, ReverseIndicesImpl<ThisType>::Exec(
-                                       ctx, indices, indices->length(), indices->type()));
+    ARROW_ASSIGN_OR_RAISE(auto reverse_indices,
+                          ReverseIndicesImpl<ThisType>::Exec(
+                              ctx, indices, indices->length(), indices->type()));
+    *result =
+        Datum(std::make_shared<ChunkedArray>(MakeArray(std::move(reverse_indices))));
     return Status::OK();
   }
 };
@@ -340,13 +343,17 @@ class PermuteMetaFunction : public MetaFunction {
                             ExecContext* ctx) const override {
     DCHECK_EQ(args.size(), 2);
     const auto& values = args[0];
+    const auto& indices = args[1];
     // Though the way how permute is currently implemented may support record batch or
     // table, we don't want to promise that yet.
     if (!values.is_arraylike()) {
       return Status::NotImplemented("Permute does not support " +
-                                    ToString(values.kind()) + " argument");
+                                    ToString(values.kind()) + " values");
     }
-    const auto& indices = args[1];
+    if (!indices.is_arraylike()) {
+      return Status::NotImplemented("Permute does not support " +
+                                    ToString(values.kind()) + " indices");
+    }
     auto* permute_options = checked_cast<const PermuteOptions*>(options);
     if (values.length() != indices.length()) {
       return Status::Invalid(
@@ -362,14 +369,14 @@ class PermuteMetaFunction : public MetaFunction {
     if (output_length < 0) {
       output_length = values.length();
     }
-    // Internally invoke take(values, reverse_indices(indices)) to implement permute.
+    // Internally invoke Take(values, ReverseIndices(indices)) to implement permute.
     // For example, with
     //   values = [a, b, c, d, e, f, g]
     //   indices = [null, 0, 3, 2, 4, 1, 1]
-    // the reverse_indices(indices) is
+    // the ReverseIndices(indices) is
     //   [1, 6, 3]                    if output_length = 3,
     //   [1, 6, 3, 2, 4, null, null]  if output_length = 7.
-    // and take(values, reverse_indices(indices)) is
+    // and Take(values, ReverseIndices(indices)) is
     //   [b, g, d]                    if output_length = 3,
     //   [b, g, d, c, e, null, null]  if output_length = 7.
     ReverseIndicesOptions reverse_indices_options{

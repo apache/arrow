@@ -450,19 +450,14 @@ Result<Datum> CumulativeMean(const Datum& values, const CumulativeOptions& optio
 // ----------------------------------------------------------------------
 // Placement functions
 
-Result<std::shared_ptr<Array>> ReverseIndices(const Datum& indices,
-                                              const ReverseIndicesOptions& options,
-                                              ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result,
-                        CallFunction("reverse_indices", {indices}, &options, ctx));
-  return result.make_array();
+Result<Datum> ReverseIndices(const Datum& indices, const ReverseIndicesOptions& options,
+                             ExecContext* ctx) {
+  return CallFunction("reverse_indices", {indices}, &options, ctx);
 }
 
-Result<std::shared_ptr<Array>> Permute(const Datum& values, const Datum& indices,
-                                       const PermuteOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result,
-                        CallFunction("permute", {values, indices}, &options, ctx));
-  return result.make_array();
+Result<Datum> Permute(const Datum& values, const Datum& indices,
+                      const PermuteOptions& options, ExecContext* ctx) {
+  return CallFunction("permute", {values, indices}, &options, ctx);
 }
 
 }  // namespace compute
