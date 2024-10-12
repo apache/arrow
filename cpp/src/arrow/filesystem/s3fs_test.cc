@@ -95,8 +95,15 @@ static constexpr int32_t kMaxRetryDuration = 6000; /* milliseconds */
 ::testing::Environment* minio_env =
     ::testing::AddGlobalTestEnvironment(new MinioTestEnvironment);
 
-MinioTestEnvironment* GetMinioEnv() {
-  return ::arrow::internal::checked_cast<MinioTestEnvironment*>(minio_env);
+::testing::Environment* minio_env_http =
+    ::testing::AddGlobalTestEnvironment(new MinioTestEnvironment(false));
+
+MinioTestEnvironment* GetMinioEnv(bool enable_tls_if_supported) {
+  if (enable_tls_if_supported) {
+    return ::arrow::internal::checked_cast<MinioTestEnvironment*>(minio_env);
+  } else {
+    return ::arrow::internal::checked_cast<MinioTestEnvironment*>(minio_env_http);
+  }
 }
 
 class ShortRetryStrategy : public S3RetryStrategy {
@@ -203,7 +210,7 @@ class S3TestMixin : public AwsTestMixin {
 
  protected:
   Status InitServerAndClient() {
-    ARROW_ASSIGN_OR_RAISE(minio_, GetMinioEnv()->GetOneServer());
+    ARROW_ASSIGN_OR_RAISE(minio_, GetMinioEnv(enable_tls_if_supported_)->GetOneServer());
     client_config_.reset(new Aws::Client::ClientConfiguration());
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
     if (minio_->scheme() == "https") {
@@ -230,6 +237,7 @@ class S3TestMixin : public AwsTestMixin {
   std::unique_ptr<Aws::Client::ClientConfiguration> client_config_;
   Aws::Auth::AWSCredentials credentials_;
   std::unique_ptr<Aws::S3::S3Client> client_;
+  bool enable_tls_if_supported_ = true;
 };
 
 void AssertGetObject(Aws::S3::Model::GetObjectResult& result,
@@ -914,7 +922,15 @@ TEST_F(TestS3FS, GetFileInfoGenerator) {
   // Non-root dir case is tested by generic tests
 }
 
-TEST_F(TestS3FS, GetFileInfoGeneratorStress) {
+class TestS3FSHTTP : public TestS3FS {
+ public:
+  void SetUp() override {
+    enable_tls_if_supported_ = false;
+    TestS3FS::SetUp();
+  }
+};
+
+TEST_F(TestS3FSHTTP, GetFileInfoGeneratorStress) {
   // This test is slow because it needs to create a bunch of seed files.  However, it is
   // the only test that stresses listing and deleting when there are more than 1000
   // files and paging is required.
