@@ -1226,6 +1226,15 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
         extension_type = type
         type = type.storage_type
 
+    if _is_array_like(value):
+        value = get_values(value, &is_pandas_object)
+
+    options.size = 1
+
+    if type is not None:
+        ty = ensure_type(type)
+        options.type = ty.sp_type
+    
     cdef shared_ptr[CArray] c_array
     cdef shared_ptr[CScalar] c_scalar
 
@@ -1239,16 +1248,6 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
         if extension_type is not None:
             result = ExtensionScalar.from_storage(extension_type, result)
         return result
-
-
-    if _is_array_like(value):
-        value = get_values(value, &is_pandas_object)
-
-    options.size = 1
-
-    if type is not None:
-        ty = ensure_type(type)
-        options.type = ty.sp_type
 
     if from_pandas is None:
         options.from_pandas = is_pandas_object
