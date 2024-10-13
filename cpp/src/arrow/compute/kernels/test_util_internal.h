@@ -79,7 +79,11 @@ inline std::shared_ptr<Array> DecimalArrayFromJSON(const std::shared_ptr<DataTyp
   const auto& ty = checked_cast<const DecimalType&>(*type);
   if (ty.scale() >= 0) return ArrayFromJSON(type, json);
   auto p = ty.precision() - ty.scale();
-  auto adjusted_ty = ty.id() == Type::DECIMAL128 ? decimal128(p, 0) : decimal256(p, 0);
+  std::shared_ptr<DataType> adjusted_ty =
+    ty.id() == Type::DECIMAL32 ? decimal32(p, 0) :
+    ty.id() == Type::DECIMAL64 ? decimal64(p, 0) :
+    ty.id() == Type::DECIMAL128 ? decimal128(p, 0) :
+    decimal256(p, 0);
   return Cast(ArrayFromJSON(adjusted_ty, json), type).ValueOrDie().make_array();
 }
 
@@ -88,7 +92,11 @@ inline std::shared_ptr<Scalar> DecimalScalarFromJSON(
   const auto& ty = checked_cast<const DecimalType&>(*type);
   if (ty.scale() >= 0) return ScalarFromJSON(type, json);
   auto p = ty.precision() - ty.scale();
-  auto adjusted_ty = ty.id() == Type::DECIMAL128 ? decimal128(p, 0) : decimal256(p, 0);
+  std::shared_ptr<DataType> adjusted_ty =
+    ty.id() == Type::DECIMAL32 ? decimal32(p, 0) :
+    ty.id() == Type::DECIMAL64 ? decimal64(p, 0) :
+    ty.id() == Type::DECIMAL128 ? decimal128(p, 0) :
+    decimal256(p, 0);
   return Cast(ScalarFromJSON(adjusted_ty, json), type).ValueOrDie().scalar();
 }
 
