@@ -16,7 +16,7 @@ public class FlightSqlClient
 
     public FlightSqlClient(FlightClient client)
     {
-        _client = client ?? throw new ArgumentNullException(nameof(client));
+        _client = client;
     }
 
     /// <summary>
@@ -298,7 +298,7 @@ public class FlightSqlClient
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="descriptor">The descriptor of the dataset request, whether a named dataset or a command.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the SchemaResult describing the dataset schema.</returns>
-    public async Task<Schema> GetSchemaAsync(FlightCallOptions options, FlightDescriptor descriptor)
+    public virtual async Task<Schema> GetSchemaAsync(FlightCallOptions options, FlightDescriptor descriptor)
     {
         if (descriptor is null)
         {
@@ -466,53 +466,48 @@ public class FlightSqlClient
                     var intArrayBuilder = new Int32Array.Builder();
                     for (int i = 0; i < rowCount; i++)
                     {
-                        intArrayBuilder.Append(i); // Just filling with sample data
+                        intArrayBuilder.Append(i); 
                     }
 
                     arrays.Add(intArrayBuilder.Build());
                     break;
 
                 case StringType:
-                    // Create a String array
                     var stringArrayBuilder = new StringArray.Builder();
                     for (int i = 0; i < rowCount; i++)
                     {
-                        stringArrayBuilder.Append($"Value-{i}"); // Sample string values
+                        stringArrayBuilder.Append($"Value-{i}");
                     }
 
                     arrays.Add(stringArrayBuilder.Build());
                     break;
 
                 case Int64Type:
-                    // Create an Int64 array
                     var longArrayBuilder = new Int64Array.Builder();
                     for (int i = 0; i < rowCount; i++)
                     {
-                        longArrayBuilder.Append((long)i * 100); // Sample data
+                        longArrayBuilder.Append((long)i * 100);
                     }
 
                     arrays.Add(longArrayBuilder.Build());
                     break;
 
                 case FloatType:
-                    // Create a Float array
                     var floatArrayBuilder = new FloatArray.Builder();
                     for (int i = 0; i < rowCount; i++)
                     {
-                        floatArrayBuilder.Append((float)(i * 1.1)); // Sample data
+                        floatArrayBuilder.Append((float)(i * 1.1));
                     }
 
                     arrays.Add(floatArrayBuilder.Build());
                     break;
 
                 case BooleanType:
-                    // Create a Boolean array
                     var boolArrayBuilder = new BooleanArray.Builder();
                     for (int i = 0; i < rowCount; i++)
                     {
-                        boolArrayBuilder.Append(i % 2 == 0); // Alternate between true and false
+                        boolArrayBuilder.Append(i % 2 == 0);
                     }
-
                     arrays.Add(boolArrayBuilder.Build());
                     break;
 
@@ -1170,7 +1165,7 @@ public class FlightSqlClient
                 byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
                 var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
                 var flightInfo = await GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
-                return new PreparedStatement(this, flightInfo, query);
+                return new PreparedStatement(this, transaction.TransactionId.ToStringUtf8(), flightInfo.Schema, flightInfo.Schema);
             }
 
             throw new NullReferenceException($"{nameof(PreparedStatement)} was not able to be created");
