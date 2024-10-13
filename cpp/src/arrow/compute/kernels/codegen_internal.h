@@ -1449,9 +1449,10 @@ Status CastDecimalArgs(TypeHolder* begin, size_t count);
 /// Given a DataType, if it is a DecimalType, return a DecimalType with the same scale
 /// and the maximum precision for that DecimalType.
 ///
-/// If it is _not_ a DecimalType, return type
+/// If it is _not_ a DecimalType, return a Status::TypeError
 ARROW_EXPORT
-Result<std::shared_ptr<DataType>> WidenDecimalToMaxPrecision(std::shared_ptr<DataType> type);
+Result<std::shared_ptr<DataType>> WidenDecimalToMaxPrecision(
+    std::shared_ptr<DataType> type);
 
 ARROW_EXPORT
 bool HasDecimal(const std::vector<TypeHolder>& types);
