@@ -24,9 +24,10 @@ import { Visitor } from '../visitor.js';
 import { packBools } from '../util/bit.js';
 import { encodeUtf8 } from '../util/utf8.js';
 import { Int64, Int128 } from '../util/int.js';
-import { UnionMode, DateUnit, MetadataVersion } from '../enum.js';
+import { UnionMode, DateUnit, MetadataVersion, IntervalUnit } from '../enum.js';
 import { toArrayBufferView } from '../util/buffer.js';
 import { BufferRegion, FieldNode } from '../ipc/metadata/message.js';
+import { encodeIntervalDayTime, encodeIntervalMonthDayNano } from '../util/interval.js';
 
 /** @ignore */
 export interface VectorLoader extends Visitor {
@@ -178,6 +179,13 @@ export class JSONVectorLoader extends VectorLoader {
             return packBools(sources[offset] as number[]);
         } else if (DataType.isUtf8(type) || DataType.isLargeUtf8(type)) {
             return encodeUtf8((sources[offset] as string[]).join(''));
+        } else if (DataType.isInterval(type)) {
+            if (type.unit === IntervalUnit.MONTH_DAY_NANO) {
+                return encodeIntervalMonthDayNano(sources[offset]);
+            }
+            if (type.unit === IntervalUnit.DAY_TIME) {
+                return encodeIntervalDayTime(sources[offset]);
+            }
         }
         return toArrayBufferView(Uint8Array, toArrayBufferView(type.ArrayType, sources[offset].map((x) => +x)));
     }
