@@ -183,8 +183,8 @@ To avoid exhaustively listing supported types, the tables below use a number
 of general type categories:
 
 * "Numeric": Integer types (Int8, etc.) and Floating-point types (Float32,
-  Float64, sometimes Float16).  Some functions also accept Decimal128 and
-  Decimal256 input.
+  Float64, sometimes Float16).  Some functions also accept
+  Decimal32/64/128/256 input.
 
 * "Temporal": Date types (Date32, Date64), Time types (Time32, Time64),
   Timestamp, Duration, Interval.
@@ -276,7 +276,9 @@ the input to a single output value.
   is always -1, regardless of whether there are nulls in the input.
 
 * \(5) For decimal inputs, the resulting decimal will have the same
-  precision and scale. The result is rounded away from zero.
+  scale and the maximum precision for its width. For instance, an array
+  of ``decimal128(3, 2)`` will return a ``decimal128(38, 2)`` scalar.
+  The result is rounded away from zero.
 
 * \(6) Output is a ``{"min": input type, "max": input type}`` Struct.
 
@@ -294,8 +296,10 @@ the input to a single output value.
   the values to be pivoted. The output is a Struct with one field for each key
   in :member:`PivotOptions::key_names`.
 
-* \(9) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
-  input type.
+* \(9) Output is Int64, UInt64, Float64, or Decimal32/64/128/256, depending
+  on the input type. For decimals, the precision is increased to the maximum
+  precision for the type's width. For instance, an array of
+  ``decimal128(3, 2)`` will return a ``decimal128(38, 2)`` scalar.
 
 * \(10) Output is Float64 or input type, depending on QuantileOptions.
 
