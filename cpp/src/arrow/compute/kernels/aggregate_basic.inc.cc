@@ -93,8 +93,10 @@ struct SumImpl : public ScalarAggregator {
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
-    std::shared_ptr<DataType> out_type_;
-    ARROW_ASSIGN_OR_RAISE(out_type_, WidenDecimalToMaxPrecision(this->out_type));
+    std::shared_ptr<DataType> out_type_ = this->out_type;
+    if (is_decimal(this->out_type->id())) {
+      ARROW_ASSIGN_OR_RAISE(out_type_, WidenDecimalToMaxPrecision(this->out_type));
+    }
 
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {

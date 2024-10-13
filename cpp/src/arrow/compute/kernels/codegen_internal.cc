@@ -535,14 +535,22 @@ Status CastDecimalArgs(TypeHolder* begin, size_t count) {
 }
 
 Result<std::shared_ptr<DataType>> WidenDecimalToMaxPrecision(std::shared_ptr<DataType> type) {
-  if (type->id() == Type::DECIMAL128) {
-    auto cast_type = checked_pointer_cast<Decimal128Type>(type);
-    return Decimal128Type::Make(Decimal128Type::kMaxPrecision, cast_type->scale());
-  } else if (type->id() == Type::DECIMAL256) {
-    auto cast_type = checked_pointer_cast<Decimal256Type>(type);
-    return Decimal256Type::Make(Decimal256Type::kMaxPrecision, cast_type->scale());
+  if (!is_decimal(type->id())) {
+    return Status::TypeError("Non-DecimalType passed to WidenDecimalToMaxPrecision: " + type->ToString());
   }
-  return type;
+  auto cast_type = checked_pointer_cast<DecimalType>(type);
+  switch (type->id()) {
+    case Type::DECIMAL32:
+      return Decimal32Type::Make(Decimal32Type::kMaxPrecision, cast_type->scale());
+    case Type::DECIMAL64:
+      return Decimal64Type::Make(Decimal64Type::kMaxPrecision, cast_type->scale());
+    case Type::DECIMAL128:
+      return Decimal128Type::Make(Decimal128Type::kMaxPrecision, cast_type->scale());
+    case Type::DECIMAL256:
+      return Decimal256Type::Make(Decimal256Type::kMaxPrecision, cast_type->scale());
+    default:
+      return Status::TypeError("An unknown DecimalType was passed to WidenDecimalToMaxPrecision: " + type->ToString());
+  };
 }
 
 bool HasDecimal(const std::vector<TypeHolder>& types) {
