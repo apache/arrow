@@ -104,7 +104,7 @@ Implementations
    C/GLib <c_glib/index>
    C++ <cpp/index>
    C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
-   Go <https://pkg.go.dev/github.com/apache/arrow/go/v18>
+   Go <https://arrow.apache.org/go/>
    Java <java/index>
    JavaScript <js/index>
    Julia <https://arrow.apache.org/julia/>

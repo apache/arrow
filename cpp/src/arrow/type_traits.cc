@@ -72,14 +72,18 @@ int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index) {
     case Type::MAP:                // Same as LIST
     case Type::INTERVAL_MONTHS:    // Stored as int32_t*
     case Type::INTERVAL_DAY_TIME:  // Stored as two contiguous 32-bit integers
+    case Type::DECIMAL32:  // May be cast to SmallBasicDecimal* which requires alignment
+                           // of 4
       return 4;
     case Type::INT64:
     case Type::UINT64:
     case Type::DOUBLE:
-    case Type::DECIMAL128:       // May be cast to GenericBasicDecimal* which requires
-                                 // alignment of 8
-    case Type::DECIMAL256:       // May be cast to GenericBasicDecimal* which requires
-                                 // alignment of 8
+    case Type::DECIMAL64:   // May be cast to SmallBasicDecimal* which requires alignment
+                            // of 8
+    case Type::DECIMAL128:  // May be cast to GenericBasicDecimal* which requires
+                            // alignment of 8
+    case Type::DECIMAL256:  // May be cast to GenericBasicDecimal* which requires
+                            // alignment of 8
     case Type::LARGE_BINARY:     // Offsets may be cast to int64_t*
     case Type::LARGE_STRING:     // Offsets may be cast to int64_t*
     case Type::LARGE_LIST:       // Offsets may be cast to int64_t*

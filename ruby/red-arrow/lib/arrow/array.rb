@@ -33,9 +33,10 @@ module Arrow
       end
 
       def builder_class
-        builder_class_name = "#{name}Builder"
-        return nil unless const_defined?(builder_class_name)
-        const_get(builder_class_name)
+        local_name = name.split("::").last
+        builder_class_name = "#{local_name}Builder"
+        return nil unless Arrow.const_defined?(builder_class_name)
+        Arrow.const_get(builder_class_name)
       end
 
       # @api private
@@ -91,6 +92,8 @@ module Arrow
     def equal_array?(other, options=nil)
       equal_options(other, options)
     end
+
+    alias_method :size, :length
 
     def each
       return to_enum(__method__) unless block_given?
@@ -250,7 +253,7 @@ module Arrow
             "[array][resolve] need to implement " +
             "a feature that building #{value_data_type} array " +
             "from raw Ruby Array"
-          raise NotImplemented, message
+          raise NotImplementedError, message
         end
         other_array
       elsif other_array.respond_to?(:value_data_type)

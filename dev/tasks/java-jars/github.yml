@@ -117,6 +117,7 @@ jobs:
           for python_package in $(brew list | grep python@); do
             brew install --overwrite ${python_package}
           done
+          brew install --overwrite python
 
           brew bundle --file=arrow/cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's

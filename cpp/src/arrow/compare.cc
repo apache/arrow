@@ -750,15 +750,10 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const Decimal128Type& left) {
-    const auto& right = checked_cast<const Decimal128Type&>(right_);
-    result_ = left.precision() == right.precision() && left.scale() == right.scale();
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal256Type& left) {
-    const auto& right = checked_cast<const Decimal256Type&>(right_);
-    result_ = left.precision() == right.precision() && left.scale() == right.scale();
+  Status Visit(const DecimalType& left) {
+    const auto& right = checked_cast<const DecimalType&>(right_);
+    result_ = left.byte_width() == right.byte_width() &&
+              left.precision() == right.precision() && left.scale() == right.scale();
     return Status::OK();
   }
 
@@ -897,6 +892,18 @@ class ScalarEqualsVisitor {
   enable_if_t<std::is_base_of<BaseBinaryScalar, T>::value, Status> Visit(const T& left) {
     const auto& right = checked_cast<const BaseBinaryScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal32Scalar& left) {
+    const auto& right = checked_cast<const Decimal32Scalar&>(right_);
+    result_ = left.value == right.value;
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal64Scalar& left) {
+    const auto& right = checked_cast<const Decimal64Scalar&>(right_);
+    result_ = left.value == right.value;
     return Status::OK();
   }
 

@@ -158,7 +158,7 @@ static void AddArrowTypesToVector(arrow::Type::type type, DataTypeVector& vector
       vector.push_back(arrow::null());
       break;
     case arrow::Type::type::DECIMAL:
-      vector.push_back(arrow::decimal(38, 0));
+      vector.push_back(arrow::decimal128(38, 0));
       break;
     case arrow::Type::type::INTERVAL_MONTHS:
       vector.push_back(arrow::month_interval());

@@ -68,7 +68,7 @@ class TestPairwiseDiff : public ::testing::Test {
   void SetUp() override {
     test_numerical_types_ = NumericTypes();
     test_temporal_types_ = TemporalTypes();
-    test_decimal_types_ = {decimal(4, 2), decimal(70, 10)};
+    test_decimal_types_ = {decimal128(4, 2), decimal256(70, 10)};
 
     test_input_types_.insert(test_input_types_.end(), test_numerical_types_.begin(),
                              test_numerical_types_.end());
@@ -188,24 +188,26 @@ TEST_F(TestPairwiseDiff, Temporal) {
 TEST_F(TestPairwiseDiff, Decimal) {
   {
     PairwiseOptions options(1);
-    auto input = ArrayFromJSON(decimal(4, 2), R"(["11.00", "22.11", "-10.25", "33.45"])");
-    auto output = ArrayFromJSON(decimal(5, 2), R"([null, "11.11", "-32.36", "43.70"])");
+    auto input =
+        ArrayFromJSON(decimal128(4, 2), R"(["11.00", "22.11", "-10.25", "33.45"])");
+    auto output =
+        ArrayFromJSON(decimal128(5, 2), R"([null, "11.11", "-32.36", "43.70"])");
     CheckVectorUnary("pairwise_diff", input, output, &options);
   }
 
   {
     PairwiseOptions options(-1);
     auto input = ArrayFromJSON(
-        decimal(40, 30),
+        decimal256(40, 30),
         R"(["1111111111.222222222222222222222222222222", "2222222222.333333333333333333333333333333"])");
     auto output = ArrayFromJSON(
-        decimal(41, 30), R"(["-1111111111.111111111111111111111111111111", null])");
+        decimal256(41, 30), R"(["-1111111111.111111111111111111111111111111", null])");
     CheckVectorUnary("pairwise_diff", input, output, &options);
   }
 
   {  /// Out of range decimal precision
     PairwiseOptions options(1);
-    auto input = ArrayFromJSON(decimal(38, 0), R"(["1e38"])");
+    auto input = ArrayFromJSON(decimal128(38, 0), R"(["1e38"])");
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     testing::HasSubstr("Decimal precision out of range"),

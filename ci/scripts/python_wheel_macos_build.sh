@@ -49,8 +49,15 @@ fi
 echo "=== (${PYTHON_VERSION}) Install Python build dependencies ==="
 export PIP_SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])')
 
+# Remove once there are released Cython wheels for 3.13 free-threaded available
+FREE_THREADED_BUILD="$(python -c"import sysconfig; print(bool(sysconfig.get_config_var('Py_GIL_DISABLED')))")"
+if [[ $FREE_THREADED_BUILD == "True"  ]]; then
+  pip install cython --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" --prefer-binary
+fi
+# With Python 3.9, the `--upgrade` flag is required to force full replacement of setuptools' distutils patching
+pip install --upgrade --target $PIP_SITE_PACKAGES "setuptools>=58"
+
 pip install \
-  --upgrade \
   --only-binary=:all: \
   --target $PIP_SITE_PACKAGES \
   -r ${source_dir}/python/requirements-wheel-build.txt

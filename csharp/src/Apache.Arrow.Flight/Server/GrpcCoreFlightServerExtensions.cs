@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#if NET46_OR_GREATER
+#if NET47_OR_GREATER
 
 using Apache.Arrow.Flight.Protocol;
 using Apache.Arrow.Flight.Server.Internal;

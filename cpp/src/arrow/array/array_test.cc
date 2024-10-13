@@ -442,7 +442,7 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
       large_binary(),
       binary_view(),
       fixed_size_binary(3),
-      decimal(16, 4),
+      decimal128(16, 4),
       utf8(),
       large_utf8(),
       utf8_view(),
@@ -667,8 +667,10 @@ static ScalarVector GetScalars() {
       std::make_shared<BinaryViewScalar>(hello),
       std::make_shared<FixedSizeBinaryScalar>(
           hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
-      std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
-      std::make_shared<Decimal256Scalar>(Decimal256(10), decimal(76, 38)),
+      std::make_shared<Decimal32Scalar>(Decimal32(10), smallest_decimal(7, 4)),
+      std::make_shared<Decimal64Scalar>(Decimal64(10), smallest_decimal(12, 4)),
+      std::make_shared<Decimal128Scalar>(Decimal128(10), smallest_decimal(20, 4)),
+      std::make_shared<Decimal256Scalar>(Decimal256(10), smallest_decimal(76, 38)),
       std::make_shared<StringScalar>(hello),
       std::make_shared<LargeStringScalar>(hello),
       std::make_shared<StringViewScalar>(hello),
@@ -3092,6 +3094,98 @@ class DecimalTest : public ::testing::TestWithParam<int> {
   }
 };
 
+using Decimal32Test = DecimalTest<Decimal32Type>;
+
+TEST_P(Decimal32Test, NoNulls) {
+  int32_t precision = GetParam();
+  std::vector<Decimal32> draw = {Decimal32(1), Decimal32(-2), Decimal32(2389),
+                                 Decimal32(4), Decimal32(-12348)};
+  std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal32Test, WithNulls) {
+  int32_t precision = GetParam();
+  std::vector<Decimal32> draw = {Decimal32(1),  Decimal32(2), Decimal32(-1), Decimal32(4),
+                                 Decimal32(-1), Decimal32(1), Decimal32(2)};
+  Decimal32 big;
+  ASSERT_OK_AND_ASSIGN(big, Decimal32::FromString("23034.234"));
+  draw.push_back(big);
+
+  Decimal32 big_negative;
+  ASSERT_OK_AND_ASSIGN(big_negative, Decimal32::FromString("-23049.235"));
+  draw.push_back(big_negative);
+
+  std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
+                                      true, true, true,  true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal32Test, ValidateFull) {
+  int32_t precision = GetParam();
+  std::vector<Decimal32> draw;
+  Decimal32 val = Decimal32::GetMaxValue(precision) + 1;
+
+  draw = {Decimal32(), val};
+  auto arr = this->TestCreate(precision, draw, {true, false}, 0);
+  ASSERT_OK(arr->ValidateFull());
+
+  draw = {val, Decimal32()};
+  arr = this->TestCreate(precision, draw, {true, false}, 0);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("does not fit in precision of"), arr->ValidateFull());
+}
+
+INSTANTIATE_TEST_SUITE_P(Decimal32Test, Decimal32Test, ::testing::Range(1, 9));
+
+using Decimal64Test = DecimalTest<Decimal64Type>;
+
+TEST_P(Decimal64Test, NoNulls) {
+  int32_t precision = GetParam();
+  std::vector<Decimal64> draw = {Decimal64(1), Decimal64(-2), Decimal64(2389),
+                                 Decimal64(4), Decimal64(-12348)};
+  std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal64Test, WithNulls) {
+  int32_t precision = GetParam();
+  std::vector<Decimal64> draw = {Decimal64(1),  Decimal64(2), Decimal64(-1), Decimal64(4),
+                                 Decimal64(-1), Decimal64(1), Decimal64(2)};
+  Decimal64 big;
+  ASSERT_OK_AND_ASSIGN(big, Decimal64::FromString("23034.234234"));
+  draw.push_back(big);
+
+  Decimal64 big_negative;
+  ASSERT_OK_AND_ASSIGN(big_negative, Decimal64::FromString("-23049.235234"));
+  draw.push_back(big_negative);
+
+  std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
+                                      true, true, true,  true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal64Test, ValidateFull) {
+  int32_t precision = GetParam();
+  std::vector<Decimal64> draw;
+  Decimal64 val = Decimal64::GetMaxValue(precision) + 1;
+
+  draw = {Decimal64(), val};
+  auto arr = this->TestCreate(precision, draw, {true, false}, 0);
+  ASSERT_OK(arr->ValidateFull());
+
+  draw = {val, Decimal64()};
+  arr = this->TestCreate(precision, draw, {true, false}, 0);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("does not fit in precision of"), arr->ValidateFull());
+}
+
+INSTANTIATE_TEST_SUITE_P(Decimal64Test, Decimal64Test, ::testing::Range(1, 9));
+
 using Decimal128Test = DecimalTest<Decimal128Type>;
 
 TEST_P(Decimal128Test, NoNulls) {
@@ -3313,6 +3407,28 @@ TEST(TestSwapEndianArrayData, PrimitiveType) {
   data = ArrayData::Make(uint64(), 1, {null_buffer, data_int_buffer}, 0);
   auto data_int64_buffer = Buffer::FromString("76543210");
   expected_data = ArrayData::Make(uint64(), 1, {null_buffer, data_int64_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  auto data_4byte_buffer = Buffer::FromString(
+      "\x01"
+      "12\x01");
+  data = ArrayData::Make(decimal32(9, 8), 1, {null_buffer, data_4byte_buffer});
+  auto data_decimal32_buffer = Buffer::FromString(
+      "\x01"
+      "21\x01");
+  expected_data =
+      ArrayData::Make(decimal32(9, 8), 1, {null_buffer, data_decimal32_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  auto data_8byte_buffer = Buffer::FromString(
+      "\x01"
+      "123456\x01");
+  data = ArrayData::Make(decimal64(18, 8), 1, {null_buffer, data_8byte_buffer});
+  auto data_decimal64_buffer = Buffer::FromString(
+      "\x01"
+      "654321\x01");
+  expected_data =
+      ArrayData::Make(decimal64(18, 8), 1, {null_buffer, data_decimal64_buffer}, 0);
   AssertArrayDataEqualsWithSwapEndian(data, expected_data);
 
   auto data_16byte_buffer = Buffer::FromString(
@@ -3647,6 +3763,8 @@ DataTypeVector SwappableTypes() {
                         uint16(),
                         uint32(),
                         uint64(),
+                        decimal32(8, 1),
+                        decimal64(16, 2),
                         decimal128(19, 4),
                         decimal256(37, 8),
                         timestamp(TimeUnit::MICRO, ""),

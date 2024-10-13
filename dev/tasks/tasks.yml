@@ -416,10 +416,7 @@ tasks:
 
 {############################## Wheel macOS ####################################}
 
-{% for macos_version, macos_codename in [("13.0", "ventura")] %}
-  {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
-
-  wheel-macos-{{ macos_codename }}-{{ python_tag }}-{{ abi_tag }}-amd64:
+  wheel-macos-monterey-{{ python_tag }}-{{ abi_tag }}-amd64:
     ci: github
     template: python-wheels/github.osx.yml
     params:
@@ -427,13 +424,11 @@ tasks:
       arrow_jemalloc: "ON"
       python_version: "{{ python_version }}"
       python_abi_tag: "{{ abi_tag }}"
-      macos_deployment_target: "{{ macos_version }}"
+      macos_deployment_target: "12.0"
       runs_on: "macos-13"
       vcpkg_arch: "amd64"
     artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
-
-{% endfor %}
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-macosx_12_0_x86_64.whl
 
   wheel-macos-monterey-{{ python_tag }}-{{ abi_tag }}-arm64:
     ci: github
@@ -922,6 +917,9 @@ tasks:
                     "js",
                     "python",
                     "ruby"] %}
+    # Skip verification for python and integration on Ubuntu 20.04
+    # GH-44253. Remove once we drop support for 20.04
+    {% if not (target in ["python", "integration"] and version == "20.04") %}
   verify-rc-source-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
     ci: github
     template: verify-rc/github.linux.amd64.docker.yml
@@ -930,15 +928,20 @@ tasks:
         {{ distribution.upper() }}: "{{ version }}"
       target: {{ target }}
       distro: {{ distribution }}
+    {% endif %}
   {% endfor %}
 
   {% for target in ["jars", "wheels"] %}
+    # Skip verification for wheels on Ubuntu 20.04
+    # GH-44253. Remove once we drop support for 20.04
+    {% if not (target == "wheels" and version == "20.04") %}
   verify-rc-binaries-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
     ci: github
     template: verify-rc/github.linux.amd64.docker.yml
     params:
       target: {{ target }}
       distro: {{ distribution }}
+    {% endif %}
   {% endfor %}
 
 {% endfor %}
@@ -1205,7 +1208,7 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-cpp-emscripten
 
-{% for python_version in ["3.9", "3.10", "3.11", "3.12"] %}
+{% for python_version in ["3.9", "3.10", "3.11", "3.12", "3.13"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1319,7 +1322,7 @@ tasks:
       env:
         ARROW_R_DEV: "TRUE"
       image: ubuntu-r-valgrind
-      timeout: 300 # 5 hours
+      timeout: 330 # 5.5 hours
 
   test-r-linux-rchk:
     ci: github

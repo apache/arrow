@@ -32,7 +32,7 @@ under the License.
 
   <properties>
     <arrow.cpp.build.dir>../../../cpp/release-build/</arrow.cpp.build.dir>
-    <parquet.version>1.14.2</parquet.version>
+    <parquet.version>1.14.3</parquet.version>
     <avro.version>1.12.0</avro.version>
   </properties>
 
@@ -150,7 +150,7 @@ under the License.
     <dependency>
       <groupId>org.apache.hive</groupId>
       <artifactId>hive-storage-api</artifactId>
-      <version>4.0.0</version>
+      <version>4.0.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>

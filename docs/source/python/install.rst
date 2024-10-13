@@ -71,12 +71,9 @@ See :ref:`python-development`.
 Dependencies
 ------------
 
-Required dependency
-
-* **NumPy 1.16.6** or higher.
-
 Optional dependencies
 
+* **NumPy 1.16.6** or higher.
 * **pandas 1.0** or higher,
 * **cffi**.
 

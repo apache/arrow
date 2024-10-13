@@ -460,7 +460,7 @@ jobs:
           mkdir -p /usr/local/bin
           wget \
             --output-document /usr/local/bin/minio.exe \
-            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
+            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z
           chmod +x /usr/local/bin/minio.exe
       - name: Set up Python
         uses: actions/setup-python@v5.2.0

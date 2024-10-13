@@ -1590,6 +1590,28 @@ def generate_null_trivial_case(batch_sizes):
     return _generate_file('null_trivial', fields, batch_sizes)
 
 
+def generate_decimal32_case():
+    fields = [
+        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
+                     bit_width=32)
+        for i, precision in enumerate(range(3, 10))
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file('decimal32', fields, batch_sizes)
+
+
+def generate_decimal64_case():
+    fields = [
+        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
+                     bit_width=64)
+        for i, precision in enumerate(range(3, 19))
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file('decimal64', fields, batch_sizes)
+
+
 def generate_decimal128_case():
     fields = [
         DecimalField(name='f{}'.format(i), precision=precision, scale=2,
@@ -1882,6 +1904,20 @@ def get_generated_json_files(tempdir=None):
 
         generate_decimal256_case()
         .skip_tester('JS'),
+
+        generate_decimal32_case()
+        .skip_tester('Java')
+        .skip_tester('JS')
+        .skip_tester('nanoarrow')
+        .skip_tester('Rust')
+        .skip_tester('Go'),
+
+        generate_decimal64_case()
+        .skip_tester('Java')
+        .skip_tester('JS')
+        .skip_tester('nanoarrow')
+        .skip_tester('Rust')
+        .skip_tester('Go'),
 
         generate_datetime_case(),
 

@@ -447,7 +447,9 @@ void GenericFileSystemTest::TestMoveFile(FileSystem* fs) {
   }
   // Parent destination is not a directory
   CreateFile(fs, "xxx", "");
-  ASSERT_RAISES(IOError, fs->Move("AB/pqr", "xxx/mno"));
+  if (!allow_write_implicit_dir_over_file()) {
+    ASSERT_RAISES(IOError, fs->Move("AB/pqr", "xxx/mno"));
+  }
   if (!allow_write_file_over_dir()) {
     // Destination is a directory
     ASSERT_RAISES(IOError, fs->Move("AB/pqr", "EF"));
@@ -568,8 +570,10 @@ void GenericFileSystemTest::TestCopyFile(FileSystem* fs) {
     // Parent destination doesn't exist
     ASSERT_RAISES(IOError, fs->CopyFile("AB/abc", "XX/mno"));
   }
-  // Parent destination is not a directory
-  ASSERT_RAISES(IOError, fs->CopyFile("AB/abc", "def/mno"));
+  // Parent destination is not a directory ("def" is a file)
+  if (!allow_write_implicit_dir_over_file()) {
+    ASSERT_RAISES(IOError, fs->CopyFile("AB/abc", "def/mno"));
+  }
   AssertAllDirs(fs, all_dirs);
   AssertAllFiles(fs, {"AB/abc", "EF/ghi", "def"});
 }

@@ -166,6 +166,9 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool have_implicit_directories() const { return false; }
   // - Whether the filesystem may allow writing a file "over" a directory
   virtual bool allow_write_file_over_dir() const { return false; }
+  // - Whether the filesystem may allow writing a directory "over" a file,
+  //   for example copying file "A" to "B/C" while "B" exists and is a file.
+  virtual bool allow_write_implicit_dir_over_file() const { return false; }
   // - Whether the filesystem allows reading a directory
   virtual bool allow_read_dir_as_file() const { return false; }
   // - Whether the filesystem allows moving a file

@@ -1219,12 +1219,16 @@ TEST_F(TestUnifySchemas, Decimal) {
   auto options = Field::MergeOptions::Defaults();
 
   options.promote_decimal_to_float = true;
+  CheckPromoteTo(decimal32(3, 2), {float32(), float64()}, options);
+  CheckPromoteTo(decimal64(3, 2), {float32(), float64()}, options);
   CheckPromoteTo(decimal128(3, 2), {float32(), float64()}, options);
   CheckPromoteTo(decimal256(3, 2), {float32(), float64()}, options);
 
   options.promote_integer_to_decimal = true;
-  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(12, 2), options);
-  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(10, 0), options);
+  CheckPromoteTo(int32(), decimal32(3, 2), decimal64(11, 2), options);
+  CheckPromoteTo(int32(), decimal64(3, -2), decimal64(9, 0), options);
+  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(11, 2), options);
+  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(9, 0), options);
 
   options.promote_decimal = true;
   CheckPromoteTo(decimal128(3, 2), decimal128(5, 2), decimal128(5, 2), options);
@@ -1241,15 +1245,15 @@ TEST_F(TestUnifySchemas, Decimal) {
   CheckPromoteTo(decimal256(3, -2), decimal256(5, -2), decimal256(5, -2), options);
 
   // int32() is essentially decimal128(10, 0)
-  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(12, 2), options);
-  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(10, 0), options);
-  CheckPromoteTo(int64(), decimal128(38, 37), decimal256(56, 37), options);
+  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(11, 2), options);
+  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(9, 0), options);
+  CheckPromoteTo(int64(), decimal128(38, 37), decimal256(55, 37), options);
 
   CheckUnifyFailsTypeError(decimal256(1, 0), decimal128(1, 0), options);
 
   options.promote_numeric_width = true;
   CheckPromoteTo(decimal128(3, 2), decimal256(5, 2), decimal256(5, 2), options);
-  CheckPromoteTo(int32(), decimal128(38, 37), decimal256(47, 37), options);
+  CheckPromoteTo(int32(), decimal128(38, 37), decimal256(46, 37), options);
   CheckUnifyFailsInvalid(decimal128(38, 10), decimal256(76, 5), options);
 
   CheckUnifyFailsInvalid(int64(), decimal256(76, 75), options);
@@ -2217,6 +2221,50 @@ TEST(TestDictionaryType, Equals) {
   auto t5 = dictionary(int8(), int32(), /*ordered=*/false);
   auto t6 = dictionary(int8(), int32(), /*ordered=*/true);
   AssertTypeNotEqual(*t5, *t6);
+}
+
+TEST(TypesTest, SmallestDecimal) {
+  for (int32_t i = 1; i < 76; ++i) {
+    auto t = smallest_decimal(i, 4);
+
+    if (i <= 9) {
+      EXPECT_EQ(t->id(), Type::DECIMAL32);
+    } else if (i <= 18) {
+      EXPECT_EQ(t->id(), Type::DECIMAL64);
+    } else if (i <= 38) {
+      EXPECT_EQ(t->id(), Type::DECIMAL128);
+    } else {
+      EXPECT_EQ(t->id(), Type::DECIMAL256);
+    }
+  }
+}
+
+TEST(TypesTest, TestDecimal32) {
+  Decimal32Type t1(4, 4);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL32);
+  EXPECT_EQ(t1.precision(), 4);
+  EXPECT_EQ(t1.scale(), 4);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal32(4, 4)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 4);
+  EXPECT_EQ(t1.bit_width(), 32);
+}
+
+TEST(TypesTest, TestDecimal64) {
+  Decimal64Type t1(12, 4);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL64);
+  EXPECT_EQ(t1.precision(), 12);
+  EXPECT_EQ(t1.scale(), 4);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal64(12, 4)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 8);
+  EXPECT_EQ(t1.bit_width(), 64);
 }
 
 TEST(TypesTest, TestDecimal128Small) {
