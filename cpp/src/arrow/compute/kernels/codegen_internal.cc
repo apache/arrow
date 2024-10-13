@@ -79,7 +79,8 @@ Result<TypeHolder> ListValuesType(KernelContext* ctx,
 
 Result<TypeHolder> MaxPrecisionDecimalType(KernelContext*,
                                            const std::vector<TypeHolder>& args) {
-  ARROW_ASSIGN_OR_RAISE(auto out_type_, WidenDecimalToMaxPrecision(args[0].GetSharedPtr()));
+  ARROW_ASSIGN_OR_RAISE(auto out_type_,
+                        WidenDecimalToMaxPrecision(args[0].GetSharedPtr()));
   return out_type_;
 }
 
@@ -534,9 +535,11 @@ Status CastDecimalArgs(TypeHolder* begin, size_t count) {
   return Status::OK();
 }
 
-Result<std::shared_ptr<DataType>> WidenDecimalToMaxPrecision(std::shared_ptr<DataType> type) {
+Result<std::shared_ptr<DataType>> WidenDecimalToMaxPrecision(
+    std::shared_ptr<DataType> type) {
   if (!is_decimal(type->id())) {
-    return Status::TypeError("Non-DecimalType passed to WidenDecimalToMaxPrecision: " + type->ToString());
+    return Status::TypeError("Non-DecimalType passed to WidenDecimalToMaxPrecision: " +
+                             type->ToString());
   }
   auto cast_type = checked_pointer_cast<DecimalType>(type);
   switch (type->id()) {
@@ -549,7 +552,9 @@ Result<std::shared_ptr<DataType>> WidenDecimalToMaxPrecision(std::shared_ptr<Dat
     case Type::DECIMAL256:
       return Decimal256Type::Make(Decimal256Type::kMaxPrecision, cast_type->scale());
     default:
-      return Status::TypeError("An unknown DecimalType was passed to WidenDecimalToMaxPrecision: " + type->ToString());
+      return Status::TypeError(
+          "An unknown DecimalType was passed to WidenDecimalToMaxPrecision: " +
+          type->ToString());
   };
 }
 

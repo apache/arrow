@@ -1053,10 +1053,10 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), sum_doc,
                                                    &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(SumInit, {boolean()}, uint64(), func.get());
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL32}, MaxPrecisionDecimalType),
-               SumInit, func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL64}, MaxPrecisionDecimalType),
-               SumInit, func.get(), SimdLevel::NONE);
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL32}, MaxPrecisionDecimalType), SumInit,
+               func.get(), SimdLevel::NONE);
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL64}, MaxPrecisionDecimalType), SumInit,
+               func.get(), SimdLevel::NONE);
   AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, MaxPrecisionDecimalType),
                SumInit, func.get(), SimdLevel::NONE);
   AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, MaxPrecisionDecimalType),
@@ -1204,7 +1204,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddBasicAggKernels(IndexInit::Init, PrimitiveTypes(), int64(), func.get());
   AddBasicAggKernels(IndexInit::Init, TemporalTypes(), int64(), func.get());
   AddBasicAggKernels(IndexInit::Init,
-                     {fixed_size_binary(1), decimal32(1, 0), decimal64(1, 0), decimal128(1, 0), decimal256(1, 0), null()},
+                     {fixed_size_binary(1), decimal32(1, 0), decimal64(1, 0),
+                      decimal128(1, 0), decimal256(1, 0), null()},
                      int64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
