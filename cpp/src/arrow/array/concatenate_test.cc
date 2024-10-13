@@ -760,6 +760,24 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
                                                pool, &suggested_cast)
                              .status());
   ASSERT_TRUE(suggested_cast->Equals(LargeVersionOfType(list_view_ty)));
+
+  auto struct_ty = struct_({field("a", int32()), field("b", list(utf8()))});
+  auto fake_long_struct = ArrayFromJSON(struct_ty, "[[0, [\"Hello\"]]]");
+  std::dynamic_pointer_cast<StructArray>(fake_long_struct)
+      ->field(1)
+      ->data()
+      ->GetMutableValues<int32_t>(1)[1] = std::numeric_limits<int32_t>::max();
+  auto suggested_struct_ty =
+      struct_({field("a", int32()), field("b", large_list(utf8()))});
+  auto concatenate_status = Concatenate({fake_long_struct, fake_long_struct});
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::StrEq("Invalid: offset overflow while concatenating arrays, "
+                       "consider casting input from `" +
+                       struct_ty->ToString() + "` to `" +
+                       suggested_struct_ty->ToString() + "` first."),
+      concatenate_status);
 }
 
 TEST_F(ConcatenateTest, DictionaryConcatenateWithEmptyUint16) {
