@@ -555,7 +555,7 @@ Result<std::shared_ptr<DataType>> WidenDecimalToMaxPrecision(
       return Status::TypeError(
           "An unknown DecimalType was passed to WidenDecimalToMaxPrecision: " +
           type->ToString());
-  };
+  }
 }
 
 bool HasDecimal(const std::vector<TypeHolder>& types) {

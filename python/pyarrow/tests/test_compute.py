@@ -363,7 +363,11 @@ def test_sum_array(arrow_type):
 @pytest.mark.parametrize("arrow_type", [pa.decimal128(3, 2), pa.decimal256(3, 2)])
 def test_sum_decimal_array(arrow_type):
     from decimal import Decimal
-    max_precision_type = pa.decimal128(38, arrow_type.scale) if pa.types.is_decimal128(arrow_type) else pa.decimal256(76, arrow_type.scale)
+    max_precision_type = (
+        pa.decimal128(38, arrow_type.scale)
+        if pa.types.is_decimal128(arrow_type)
+        else pa.decimal256(76, arrow_type.scale)
+    )
     expected_sum = Decimal("5.79")
     zero = Decimal("0.00")
 
@@ -426,16 +430,25 @@ def test_sum_chunked_array(arrow_type):
 @pytest.mark.parametrize('arrow_type', [pa.decimal128(3, 2), pa.decimal256(3, 2)])
 def test_sum_chunked_array_decimal_type(arrow_type):
     from decimal import Decimal
-    max_precision_type = pa.decimal128(38, arrow_type.scale) if pa.types.is_decimal128(arrow_type) else pa.decimal256(76, arrow_type.scale)
+    max_precision_type = (
+        pa.decimal128(38, arrow_type.scale)
+        if pa.types.is_decimal128(arrow_type)
+        else pa.decimal256(76, arrow_type.scale)
+    )
     expected_sum = Decimal("5.79")
     zero = Decimal("0.00")
 
-    arr = pa.chunked_array([pa.array([Decimal("1.23"), Decimal("4.56")], type=arrow_type)])
+    arr = pa.chunked_array(
+        [
+            pa.array([Decimal("1.23"), Decimal("4.56")], type=arrow_type)
+        ]
+    )
     assert pc.sum(arr).as_py() == expected_sum
     assert pc.sum(arr).type == max_precision_type
 
     arr = pa.chunked_array([
-        pa.array([Decimal("1.23")], type=arrow_type), pa.array([Decimal("4.56")], type=arrow_type)
+        pa.array([Decimal("1.23")], type=arrow_type),
+        pa.array([Decimal("4.56")], type=arrow_type)
     ])
     assert pc.sum(arr).as_py() == expected_sum
     assert pc.sum(arr).type == max_precision_type
