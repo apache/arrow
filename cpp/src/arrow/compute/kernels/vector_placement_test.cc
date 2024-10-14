@@ -954,8 +954,8 @@ Result<Datum> ExecuteIfElseByPermute(const Expression& cond, const Expression& i
   ARROW_ASSIGN_OR_RAISE(auto if_true_input_datum,
                         CallFunction("take", {input_rb, sel_if_true_datum}));
 
-  // 4. Get indices of "false"es form the mas as the selection vector - by first inverting
-  // the mask and then getting the non-zero's indices.
+  // 4. Get indices of "false"es from the mask as the selection vector - by first
+  // inverting the mask and then getting the non-zero's indices.
   ARROW_ASSIGN_OR_RAISE(auto invert_cond_datum, CallFunction("invert", {cond_datum}));
   ARROW_ASSIGN_OR_RAISE(auto sel_if_false_datum,
                         CallFunction("indices_nonzero", {invert_cond_datum}));
