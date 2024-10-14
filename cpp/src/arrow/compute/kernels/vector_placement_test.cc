@@ -380,7 +380,7 @@ void DoTestPermuteAAA(const std::shared_ptr<Array>& values,
 ///   l = output_length
 ///   I' = ReplaceWithMask(I, i >= l, null)
 ///   I'' = ReplaceWithMask(I, i < 0, null) + l
-///   E = PermuteAAA(V, I, l)
+///   E = Permute(V, I, l)
 
 /// Make indices prefix I' = ReplaceWithMask(I, i >= l, null).
 Result<std::shared_ptr<Array>> MakeIndicesPrefix(const std::shared_ptr<Array>& indices,
