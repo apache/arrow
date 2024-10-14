@@ -87,8 +87,8 @@ all_array_types = [
     (pa.large_list(pa.int16()), [[1], [-2, -3, 4], [5, 6], None, [9, 16]]),
     (pa.struct([('a', pa.int8()), ('b', pa.int8())]), [
         {'a': 1, 'b': 2}, None, {'a': -3, 'b': -4}, None, {'a': 5, 'b': 6}]),
-    (pa.decimal128(5, 2), [decimal.Decimal('-0.1'), decimal.Decimal('0.0'), decimal.Decimal('0.3')]),
-    (pa.decimal256(5, 2), [decimal.Decimal('-0.1'), decimal.Decimal('0.0'), decimal.Decimal('0.3')]),
+    (pa.decimal128(5, 2), [decimal.Decimal('-0.25'), decimal.Decimal('-0.11'), decimal.Decimal('0.00'), decimal.Decimal('0.32'), decimal.Decimal('0.21')]),
+    (pa.decimal256(5, 2), [decimal.Decimal('-0.25'), decimal.Decimal('-0.11'), decimal.Decimal('0.00'), decimal.Decimal('0.32'), decimal.Decimal('0.21')])
 ]
 
 
