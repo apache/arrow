@@ -30,8 +30,11 @@ import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
@@ -50,6 +53,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * values vector of any type. There are no buffers associated with the parent vector.
  */
 public class RunEndEncodedVector extends BaseValueVector implements FieldVector {
+
   public static final FieldVector DEFAULT_VALUE_VECTOR = ZeroVector.INSTANCE;
   public static final FieldVector DEFAULT_RUN_END_VECTOR = ZeroVector.INSTANCE;
 
@@ -348,7 +352,81 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
      */
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      throw new UnsupportedOperationException();
+      ValueVector toDataVector = dataTransferPair.getTo();
+      ValueVector toRunEndVector = reeTransferPair.getTo();
+
+      toDataVector.clear();
+      toRunEndVector.clear();
+
+      int endIndex = startIndex + length;
+      int physicalStartIndex = getPhysicalIndex(startIndex);
+      int physicalEndIndex = getPhysicalIndex(endIndex);
+      int physicalLength = physicalEndIndex - physicalStartIndex + 1;
+      dataTransferPair.splitAndTransfer(physicalStartIndex, physicalLength);
+      if (startIndex == 0) {
+        reeTransferPair.splitAndTransfer(physicalStartIndex, physicalLength);
+      } else {
+        shiftRunEndVector(
+            toRunEndVector,
+            startIndex,
+            length,
+            physicalStartIndex,
+            physicalEndIndex,
+            physicalLength);
+      }
+      getTo().setValueCount(length);
+    }
+
+    private void shiftRunEndVector(
+        ValueVector toRunEndVector,
+        int startIndex,
+        int length,
+        int physicalStartIndex,
+        int physicalEndIndex,
+        int physicalLength) {
+      toRunEndVector.setValueCount(physicalLength);
+      toRunEndVector.getValidityBuffer().setOne(0, toRunEndVector.getValidityBuffer().capacity());
+      ArrowBuf fromRunEndBuffer = runEndsVector.getDataBuffer();
+      ArrowBuf toRunEndBuffer = toRunEndVector.getDataBuffer();
+      int physicalLastIndex = physicalLength - 1;
+      if (toRunEndVector instanceof SmallIntVector) {
+        byte typeWidth = SmallIntVector.TYPE_WIDTH;
+        for (int i = 0; i < physicalLastIndex; i++) {
+          toRunEndBuffer.setShort(
+              (long) i * typeWidth,
+              fromRunEndBuffer.getShort((long) (i + physicalStartIndex) * typeWidth) - startIndex);
+        }
+        int lastEnd =
+            Math.min(
+                fromRunEndBuffer.getShort((long) physicalEndIndex * typeWidth) - startIndex,
+                length);
+        toRunEndBuffer.setShort((long) physicalLastIndex * typeWidth, lastEnd);
+      } else if (toRunEndVector instanceof IntVector) {
+        byte typeWidth = IntVector.TYPE_WIDTH;
+        for (int i = 0; i < physicalLastIndex; i++) {
+          toRunEndBuffer.setInt(
+              (long) i * typeWidth,
+              fromRunEndBuffer.getInt((long) (i + physicalStartIndex) * typeWidth) - startIndex);
+        }
+        int lastEnd =
+            Math.min(
+                fromRunEndBuffer.getInt((long) physicalEndIndex * typeWidth) - startIndex, length);
+        toRunEndBuffer.setInt((long) physicalLastIndex * typeWidth, lastEnd);
+      } else if (toRunEndVector instanceof BigIntVector) {
+        byte typeWidth = BigIntVector.TYPE_WIDTH;
+        for (int i = 0; i < physicalLastIndex; i++) {
+          toRunEndBuffer.setLong(
+              (long) i * typeWidth,
+              fromRunEndBuffer.getLong((long) (i + physicalStartIndex) * typeWidth) - startIndex);
+        }
+        long lastEnd =
+            Math.min(
+                fromRunEndBuffer.getLong((long) physicalEndIndex * typeWidth) - startIndex, length);
+        toRunEndBuffer.setLong((long) physicalLastIndex * typeWidth, lastEnd);
+      } else {
+        throw new IllegalArgumentException(
+            "Run-end vector and must be of type int with size 16, 32, or 64 bits.");
+      }
     }
 
     @Override

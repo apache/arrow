@@ -255,4 +255,48 @@ public class TestRunEndEncodedVector {
     reeVector.setValueCount(logicalValueCount);
     return logicalValueCount;
   }
+
+  @Test
+  public void testSplitAndTransfer() {
+    // test compare same constant vector
+    try (RunEndEncodedVector constantVector =
+        new RunEndEncodedVector(createBigIntRunEndEncodedField("constant"), allocator, null)) {
+      int logicalValueCount = 15;
+
+      setConstantVector(constantVector, 1L, logicalValueCount);
+
+      try (RunEndEncodedVector toVector = RunEndEncodedVector.empty("constant", allocator)) {
+        TransferPair transferPair = constantVector.makeTransferPair(toVector);
+        int startIndex = 1;
+        int transferLength = 10;
+        transferPair.splitAndTransfer(startIndex, transferLength);
+
+        toVector.validate();
+        assertEquals(transferLength, toVector.getValueCount());
+        assertTrue(
+            constantVector.accept(
+                new RangeEqualsVisitor(constantVector, toVector), new Range(1, 0, transferLength)));
+      }
+    }
+
+    try (RunEndEncodedVector reeVector =
+        new RunEndEncodedVector(createBigIntRunEndEncodedField("ree"), allocator, null)) {
+
+      setBasicVector(reeVector, 5, i -> i + 1, i -> i + 1);
+
+      try (RunEndEncodedVector toVector = RunEndEncodedVector.empty("ree", allocator)) {
+        TransferPair transferPair = reeVector.makeTransferPair(toVector);
+        int startIndex = 1;
+        int transferLength = 10;
+        transferPair.splitAndTransfer(startIndex, transferLength);
+
+        toVector.validate();
+        assertEquals(transferLength, toVector.getValueCount());
+        assertTrue(
+            reeVector.accept(
+                new RangeEqualsVisitor(reeVector, toVector),
+                new Range(startIndex, 0, transferLength)));
+      }
+    }
+  }
 }
