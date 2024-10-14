@@ -116,7 +116,7 @@ struct ReverseIndicesImpl {
 
     RETURN_NOT_OK(CheckInput(output_type));
 
-    // Dispatch the execution based on wether there are likely many nulls in the output.
+    // Dispatch the execution based on whether there are likely many nulls in the output.
     // - If many nulls (i.e. the output is "sparse"), preallocate an all-false validity
     // buffer and an uninitialized data buffer. The subsequent processing will fill the
     // valid values only.
