@@ -13,35 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.IO;
 using System.Threading.Tasks;
-using Apache.Arrow.Flight.IntegrationTest.Scenarios;
+using Apache.Arrow.Flight.Server;
 
 namespace Apache.Arrow.Flight.IntegrationTest;
 
-public class FlightClientCommand
+/// <summary>
+/// A Flight integration test scenario
+/// </summary>
+internal interface IScenario
 {
-    private readonly int _port;
-    private readonly string _scenario;
-    private readonly FileInfo _jsonFileInfo;
+    /// <summary>
+    /// Create a FlightServer instance to run the scenario
+    /// </summary>
+    FlightServer MakeServer();
 
-    public FlightClientCommand(int port, string scenario, FileInfo jsonFileInfo)
-    {
-        _port = port;
-        _scenario = scenario;
-        _jsonFileInfo = jsonFileInfo;
-    }
-
-    public async Task Execute()
-    {
-        IScenario scenario = _scenario switch
-        {
-            null => new JsonTestScenario(_jsonFileInfo),
-            "do_exchange:echo" => new DoExchangeEchoScenario(),
-            _ => throw new NotSupportedException($"Scenario '{_scenario}' is not supported"),
-        };
-
-        await scenario.RunClient(_port).ConfigureAwait(false);
-    }
+    /// <summary>
+    /// Run the scenario using a Flight client
+    /// </summary>
+    Task RunClient(int serverPort);
 }
