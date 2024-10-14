@@ -1977,6 +1977,5 @@ def test_json(storage_type, pickle_module):
     for storage_type in (pa.int32(), pa.large_binary(), pa.float32()):
         with pytest.raises(
                 pa.ArrowInvalid,
-                match="Invalid storage type for JsonExtensionType: " +
-                      str(storage_type)):
+                match=f"Invalid storage type for JsonExtensionType: {storage_type}"):
             pa.json_(storage_type)

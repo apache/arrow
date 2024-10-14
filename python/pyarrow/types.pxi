@@ -5343,7 +5343,6 @@ def json_(DataType storage_type=utf8()):
         The underlying data type. Can be on of the following types:
         string, large_string, string_view.
 
-
     Returns
     -------
     type : JsonType
