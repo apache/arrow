@@ -15,40 +15,40 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestDecimal128DataType < Test::Unit::TestCase
+class TestDecimal64DataType < Test::Unit::TestCase
   def test_type
-    data_type = Arrow::Decimal128DataType.new(2, 0)
-    assert_equal(Arrow::Type::DECIMAL128, data_type.id)
+    data_type = Arrow::Decimal64DataType.new(2, 0)
+    assert_equal(Arrow::Type::DECIMAL64, data_type.id)
   end
 
   def test_name
-    data_type = Arrow::Decimal128DataType.new(2, 0)
-    assert_equal("decimal128", data_type.name)
+    data_type = Arrow::Decimal64DataType.new(2, 0)
+    assert_equal("decimal64", data_type.name)
   end
 
   def test_to_s
-    data_type = Arrow::Decimal128DataType.new(2, 0)
-    assert_equal("decimal128(2, 0)", data_type.to_s)
+    data_type = Arrow::Decimal64DataType.new(2, 0)
+    assert_equal("decimal64(2, 0)", data_type.to_s)
   end
 
   def test_precision
-    data_type = Arrow::Decimal128DataType.new(8, 2)
+    data_type = Arrow::Decimal64DataType.new(8, 2)
     assert_equal(8, data_type.precision)
   end
 
   def test_scale
-    data_type = Arrow::Decimal128DataType.new(8, 2)
+    data_type = Arrow::Decimal64DataType.new(8, 2)
     assert_equal(2, data_type.scale)
   end
 
   def test_decimal_data_type_new
-    assert_equal(Arrow::Decimal128DataType.new(19, 2),
-                 Arrow::DecimalDataType.new(19, 2))
+    assert_equal(Arrow::Decimal64DataType.new(18, 2),
+                 Arrow::DecimalDataType.new(18, 2))
   end
 
   def test_invalid_precision
     assert_raise(Arrow::Error::Invalid) do
-      Arrow::Decimal128DataType.new(39, 1)
+      Arrow::Decimal64DataType.new(19, 1)
     end
   end
 end
