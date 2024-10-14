@@ -389,14 +389,14 @@ def test_sum_chunked_array(arrow_type):
 @pytest.mark.parametrize('arrow_type', decimal_arrow_types)
 def test_sum_decimal_array(arrow_type):
     arr = pa.array(
-        [decimal.Decimal('-0.1'), decimal.Decimal('-0.0'),
-                decimal.Decimal('0.1'), decimal.Decimal('0.2')], type=arrow_type)
+        [decimal.Decimal('-0.1'), decimal.Decimal('-0.0'), decimal.Decimal('0.1'),
+         decimal.Decimal('0.2')], type=arrow_type)
     assert arr.sum().as_py() == decimal.Decimal('0.20')
     assert pc.sum(arr).as_py() == decimal.Decimal('0.20')
 
     arr = pa.array(
         [decimal.Decimal('-0.1'), decimal.Decimal('-0.0'),
-                decimal.Decimal('0.1'), decimal.Decimal('0.2'), None], type=arrow_type)
+            decimal.Decimal('0.1'), decimal.Decimal('0.2'), None], type=arrow_type)
     assert arr.sum().as_py() == decimal.Decimal('0.20')
     assert pc.sum(arr).as_py() == decimal.Decimal('0.20')
 
