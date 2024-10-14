@@ -19,6 +19,11 @@ name: C GLib & Ruby
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
       - '.dockerignore'
       - '.github/workflows/ruby.yml'

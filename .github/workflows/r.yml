@@ -19,6 +19,11 @@ name: R
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
       - '.dockerignore'
       - ".github/workflows/r.yml"
