@@ -174,6 +174,16 @@ cdef class _PandasAPIShim(object):
         self._check_import()
         return self._is_ge_v3
 
+    def uses_string_dtype(self):
+        if self.is_ge_v3():
+            return True
+        try:
+            if self.pd.options.future.infer_string:
+                return True
+        except:
+            pass
+        return False
+
     @property
     def categorical_type(self):
         self._check_import()
