@@ -229,7 +229,7 @@ struct ArrowDeviceArrayStream {
 #endif  // ARROW_C_DEVICE_STREAM_INTERFACE
 
 #ifndef ARROW_C_ASYNC_STREAM_INTERFACE
-#define ARROW_C_ASYNC_STREAM_INTERFACE
+#  define ARROW_C_ASYNC_STREAM_INTERFACE
 
 // ArrowAsyncTask represents available data from a producer that was passed to
 // an invocation of `on_next_task` on the ArrowAsyncDeviceStreamHandler.
