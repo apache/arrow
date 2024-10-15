@@ -59,7 +59,9 @@ env:
 jobs:
   ubuntu-minimum-cpp-version:
     name: Check minimum supported Arrow C++ Version (${{ matrix.cpp_version }})
-    runs-on: ubuntu-latest
+    # We don't provide Apache Arrow C++ 15.0.2 deb packages for Ubuntu 24.04.
+    # So we use ubuntu-22.04 here.
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         include:
