@@ -24,13 +24,9 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
-#include "arrow/util/uri.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-using util::Uri;
-namespace fs {
-namespace internal {
+namespace arrow::fs::internal {
 
 ARROW_EXPORT
 TimePoint CurrentTimePoint();
@@ -101,6 +97,12 @@ Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
 
 extern FileSystemGlobalOptions global_options;
 
-}  // namespace internal
-}  // namespace fs
-}  // namespace arrow
+/// \brief Unregister filesystem factories
+///
+/// For testing purposes, it can be useful to remove filesystem factories from
+/// the registry. This allows a test to emulate loading an unknown filesystem
+/// module even if the library has built-in support for the schemes in the module.
+ARROW_EXPORT
+Status UnregisterFileSystemFactory(const std::string& scheme);
+
+}  // namespace arrow::fs::internal
