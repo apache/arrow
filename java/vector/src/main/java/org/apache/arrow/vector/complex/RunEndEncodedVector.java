@@ -329,7 +329,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     }
 
     /**
-     * Transfer this vector'data to another vector. The memory associated with this vector is
+     * Transfer the vector data to another vector. The memory associated with this vector is
      * transferred to the allocator of target vector for accounting and management purposes.
      */
     @Override
@@ -344,7 +344,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     }
 
     /**
-     * Slice this vector at desired index and length and transfer the corresponding data to the
+     * Slice this vector at the desired index and length, then transfer the corresponding data to the
      * target vector.
      *
      * @param startIndex start position of the split in source vector.
