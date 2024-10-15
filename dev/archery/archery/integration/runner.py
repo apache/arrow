@@ -631,10 +631,13 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
     flight_scenarios = [
         Scenario(
             "auth:basic_proto",
-            description="Authenticate using the BasicAuth protobuf."),
+            description="Authenticate using the BasicAuth protobuf.",
+            skip_testers={"C#"},
+        ),
         Scenario(
             "middleware",
             description="Ensure headers are propagated via middleware.",
+            skip_testers={"C#"},
         ),
         Scenario(
             "ordered",
@@ -689,12 +692,12 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "flight_sql",
             description="Ensure Flight SQL protocol is working as expected.",
-            skip_testers={"Rust"}
+            skip_testers={"Rust", "C#"}
         ),
         Scenario(
             "flight_sql:extension",
             description="Ensure Flight SQL extensions work as expected.",
-            skip_testers={"Rust"}
+            skip_testers={"Rust", "C#"}
         ),
         Scenario(
             "flight_sql:ingestion",
