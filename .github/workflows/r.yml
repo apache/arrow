@@ -59,7 +59,9 @@ env:
 jobs:
   ubuntu-minimum-cpp-version:
     name: Check minimum supported Arrow C++ Version (${{ matrix.cpp_version }})
-    runs-on: ubuntu-latest
+    # We don't provide Apache Arrow C++ 15.0.2 deb packages for Ubuntu 24.04.
+    # So we use ubuntu-22.04 here.
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         include:
@@ -170,7 +172,7 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v4.4.1
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: test-output-${{ matrix.ubuntu }}-${{ matrix.r }}
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
@@ -230,7 +232,7 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v4.4.1
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: test-output-bundled
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
@@ -292,7 +294,7 @@ jobs:
         # So that they're unique when multiple are downloaded in the next step
         shell: bash
         run: mv libarrow.zip libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
-      - uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v4.4.1
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
           path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip

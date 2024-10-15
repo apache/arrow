@@ -640,11 +640,12 @@ public class TestMapVector {
       MapWriter valueWriter;
 
       // we are essentially writing Map<Long, Map<Long, Long>>
-      // populate map vector with the following three records
+      // populate map vector with the following four records
       // [
       //    null,
       //    [1:[50: 100, 200:400], 2:[75: 175, 150: 250]],
-      //    [3:[10: 20], 4:[15: 20], 5:[25: 30, 35: null]]
+      //    [3:[10: 20], 4:[15: 20], 5:[25: 30, 35: null]],
+      //    [8:[15: 30, 10: 20]]
       // ]
 
       /* write null at index 0 */
@@ -706,11 +707,26 @@ public class TestMapVector {
 
       mapWriter.endMap();
 
-      assertEquals(2, mapVector.getLastSet());
+      /* write one or more maps at index 3 */
+      mapWriter.setPosition(3);
+      mapWriter.startMap();
 
-      mapWriter.setValueCount(3);
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(8);
+      valueWriter = mapWriter.value().map();
+      valueWriter.startMap();
+      writeEntry(valueWriter, 15, 30L);
+      writeEntry(valueWriter, 10, 20L);
+      valueWriter.endMap();
+      mapWriter.endEntry();
 
-      assertEquals(3, mapVector.getValueCount());
+      mapWriter.endMap();
+
+      assertEquals(3, mapVector.getLastSet());
+
+      mapWriter.setValueCount(4);
+
+      assertEquals(4, mapVector.getValueCount());
 
       // Get mapVector element at index 0
       Object result = mapVector.getObject(0);
@@ -784,19 +800,40 @@ public class TestMapVector {
       assertEquals(35L, getResultKey(innerMap));
       assertNull(innerMap.get(MapVector.VALUE_NAME));
 
+      // Get mapVector element at index 3
+      result = mapVector.getObject(3);
+      resultSet = (ArrayList<?>) result;
+
+      // only 1 map entry at index 3
+      assertEquals(1, resultSet.size());
+
+      resultStruct = (Map<?, ?>) resultSet.get(0);
+      assertEquals(8L, getResultKey(resultStruct));
+      list = (ArrayList<Map<?, ?>>) getResultValue(resultStruct);
+      assertEquals(2, list.size()); // value is a list of 2 maps
+      innerMap = list.get(0);
+      assertEquals(15L, getResultKey(innerMap));
+      assertEquals(30L, getResultValue(innerMap));
+      innerMap = list.get(1);
+      assertEquals(10L, getResultKey(innerMap));
+      assertEquals(20L, getResultValue(innerMap));
+
       /* check underlying bitVector */
       assertTrue(mapVector.isNull(0));
       assertFalse(mapVector.isNull(1));
       assertFalse(mapVector.isNull(2));
+      assertFalse(mapVector.isNull(3));
 
       /* check underlying offsets */
       final ArrowBuf offsetBuffer = mapVector.getOffsetBuffer();
 
-      /* mapVector has 0 entries at index 0, 2 entries at index 1, and 3 entries at index 2 */
+      // mapVector has 0 entries at index 0, 2 entries at index 1, 3 entries at index 2,
+      // and 1 entry at index 3
       assertEquals(0, offsetBuffer.getInt(0 * MapVector.OFFSET_WIDTH));
       assertEquals(0, offsetBuffer.getInt(1 * MapVector.OFFSET_WIDTH));
       assertEquals(2, offsetBuffer.getInt(2 * MapVector.OFFSET_WIDTH));
       assertEquals(5, offsetBuffer.getInt(3 * MapVector.OFFSET_WIDTH));
+      assertEquals(6, offsetBuffer.getInt(4 * MapVector.OFFSET_WIDTH));
     }
   }
 
