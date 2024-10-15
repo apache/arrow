@@ -257,6 +257,56 @@ public class TestRunEndEncodedVector {
   }
 
   @Test
+  public void testTransfer() {
+    // constant vector
+    try (RunEndEncodedVector reeVector =
+        new RunEndEncodedVector(createBigIntRunEndEncodedField("constant"), allocator, null)) {
+      Long value = 65536L;
+      int logicalValueCount = 100;
+      setConstantVector(reeVector, value, logicalValueCount);
+      assertEquals(logicalValueCount, reeVector.getValueCount());
+      for (int i = 0; i < logicalValueCount; i++) {
+        assertEquals(value, reeVector.getObject(i));
+      }
+
+      TransferPair transferPair = reeVector.getTransferPair(allocator);
+      transferPair.transfer();
+      assertEquals(0, reeVector.getValueCount());
+      assertEquals(0, reeVector.getValuesVector().getValueCount());
+      assertEquals(0, reeVector.getRunEndsVector().getValueCount());
+      try (RunEndEncodedVector toVector = (RunEndEncodedVector) transferPair.getTo()) {
+        assertEquals(logicalValueCount, toVector.getValueCount());
+        for (int i = 0; i < logicalValueCount; i++) {
+          assertEquals(value, toVector.getObject(i));
+        }
+      }
+    }
+
+    // basic run end encoded vector
+    try (RunEndEncodedVector reeVector =
+        new RunEndEncodedVector(createBigIntRunEndEncodedField("basic"), allocator, null)) {
+      // Create REE vector representing:
+      // [null, 2, 2, null, null, null, 4, 4, 4, 4, null, null, null, null, null].
+      int runCount = 5;
+      final int logicalValueCount =
+          setBasicVector(reeVector, runCount, i -> i % 2 == 0 ? null : i + 1, i -> i + 1);
+
+      assertEquals(15, reeVector.getValueCount());
+      checkBasic(runCount, reeVector);
+
+      TransferPair transferPair = reeVector.getTransferPair(allocator);
+      transferPair.transfer();
+      assertEquals(0, reeVector.getValueCount());
+      assertEquals(0, reeVector.getValuesVector().getValueCount());
+      assertEquals(0, reeVector.getRunEndsVector().getValueCount());
+      try (RunEndEncodedVector toVector = (RunEndEncodedVector) transferPair.getTo()) {
+        assertEquals(logicalValueCount, toVector.getValueCount());
+        checkBasic(runCount, toVector);
+      }
+    }
+  }
+
+  @Test
   public void testSplitAndTransfer() {
     // test compare same constant vector
     try (RunEndEncodedVector constantVector =
