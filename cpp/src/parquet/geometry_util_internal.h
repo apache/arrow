@@ -394,7 +394,7 @@ class WKBSequenceBounder {
     uint32_t n_coords = src->ReadUInt32<swap>();
     uint32_t n_chunks = n_coords / coords_per_chunk;
     for (uint32_t i = 0; i < n_chunks; i++) {
-      src->ReadDoubles<swap>(coords_per_chunk, chunk_);
+      src->ReadDoubles<swap>(coords_per_chunk * coord_size, chunk_);
       ReadChunk(coords_per_chunk);
     }
 
