@@ -13,15 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 
 namespace Apache.Arrow.Flight.TestWeb
 {
@@ -35,6 +33,11 @@ namespace Apache.Arrow.Flight.TestWeb
                 .AddFlightServer<TestFlightServer>();
 
             services.AddSingleton(new FlightStore());
+
+            // The integration tests rely on the port being written to the first line of stdout,
+            // so send all logging to stderr.
+            services.Configure<ConsoleLoggerOptions>(
+                o => o.LogToStandardErrorThreshold = LogLevel.Debug);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
