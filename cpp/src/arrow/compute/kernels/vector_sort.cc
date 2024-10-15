@@ -23,7 +23,6 @@
 
 namespace arrow {
 
-using arrow::ChunkLocation;
 using internal::checked_cast;
 
 namespace compute {

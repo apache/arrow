@@ -28,9 +28,6 @@
 
 namespace arrow {
 
-using arrow::ChunkResolver;
-using arrow::TypedChunkLocation;
-
 namespace {
 
 int64_t constexpr kChunkedArrayLength = std::numeric_limits<uint16_t>::max();
