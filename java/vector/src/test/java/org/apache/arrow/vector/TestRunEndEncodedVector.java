@@ -311,18 +311,22 @@ public class TestRunEndEncodedVector {
 
       setBasicVector(reeVector, 5, i -> i + 1, i -> i + 1);
 
+      int[][] transferConfigs = {{0, 0}, {0, 1}, {0, 9}, {1, 0}, {1, 10}, {1, 14}};
+
       try (RunEndEncodedVector toVector = RunEndEncodedVector.empty("ree", allocator)) {
         TransferPair transferPair = reeVector.makeTransferPair(toVector);
-        int startIndex = 1;
-        int transferLength = 10;
-        transferPair.splitAndTransfer(startIndex, transferLength);
+        for (final int[] transferConfig : transferConfigs) {
+          int startIndex = transferConfig[0];
+          int transferLength = transferConfig[1];
+          transferPair.splitAndTransfer(startIndex, transferLength);
 
-        toVector.validate();
-        assertEquals(transferLength, toVector.getValueCount());
-        assertTrue(
-            reeVector.accept(
-                new RangeEqualsVisitor(reeVector, toVector),
-                new Range(startIndex, 0, transferLength)));
+          toVector.validate();
+          assertEquals(transferLength, toVector.getValueCount());
+          assertTrue(
+              reeVector.accept(
+                  new RangeEqualsVisitor(reeVector, toVector),
+                  new Range(startIndex, 0, transferLength)));
+        }
       }
     }
   }

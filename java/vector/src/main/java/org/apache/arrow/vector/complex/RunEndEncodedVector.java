@@ -344,30 +344,44 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     }
 
     /**
-     * Slice this vector at the desired index and length, then transfer the corresponding data to the
-     * target vector.
+     * Slice this vector at the desired index and length, then transfer the corresponding data to
+     * the target vector.
      *
      * @param startIndex start position of the split in source vector.
      * @param length length of the split.
      */
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      ValueVector toDataVector = dataTransferPair.getTo();
-      ValueVector toRunEndVector = reeTransferPair.getTo();
+      to.clear();
+      if (length <= 0) {
+        return;
+      }
 
-      toDataVector.clear();
-      toRunEndVector.clear();
-
-      int endIndex = startIndex + length;
       int physicalStartIndex = getPhysicalIndex(startIndex);
-      int physicalEndIndex = getPhysicalIndex(endIndex);
+      int physicalEndIndex = getPhysicalIndex(startIndex + length - 1);
       int physicalLength = physicalEndIndex - physicalStartIndex + 1;
       dataTransferPair.splitAndTransfer(physicalStartIndex, physicalLength);
+      FieldVector toRunEndsVector = to.runEndsVector;
       if (startIndex == 0) {
-        reeTransferPair.splitAndTransfer(physicalStartIndex, physicalLength);
+        if (((BaseIntVector) runEndsVector).getValueAsLong(physicalEndIndex) == length) {
+          reeTransferPair.splitAndTransfer(physicalStartIndex, physicalLength);
+        } else {
+          reeTransferPair.splitAndTransfer(physicalStartIndex, physicalLength - 1);
+          toRunEndsVector.setValueCount(physicalLength);
+          if (toRunEndsVector instanceof SmallIntVector) {
+            ((SmallIntVector) toRunEndsVector).set(physicalEndIndex, length);
+          } else if (toRunEndsVector instanceof IntVector) {
+            ((IntVector) toRunEndsVector).set(physicalEndIndex, length);
+          } else if (toRunEndsVector instanceof BigIntVector) {
+            ((BigIntVector) toRunEndsVector).set(physicalEndIndex, length);
+          } else {
+            throw new IllegalArgumentException(
+                "Run-end vector and must be of type int with size 16, 32, or 64 bits.");
+          }
+        }
       } else {
-        shiftRunEndVector(
-            toRunEndVector,
+        shiftRunEndsVector(
+            toRunEndsVector,
             startIndex,
             length,
             physicalStartIndex,
@@ -377,7 +391,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
       getTo().setValueCount(length);
     }
 
-    private void shiftRunEndVector(
+    private void shiftRunEndsVector(
         ValueVector toRunEndVector,
         int startIndex,
         int length,
