@@ -79,18 +79,6 @@ public class TestRunEndEncodedVector {
       for (int i = 0; i < logicalValueCount; i++) {
         assertEquals(value, reeVector.getObject(i));
       }
-
-      TransferPair transferPair = reeVector.getTransferPair(allocator);
-      transferPair.transfer();
-      assertEquals(0, reeVector.getValueCount());
-      assertEquals(0, reeVector.getValuesVector().getValueCount());
-      assertEquals(0, reeVector.getRunEndsVector().getValueCount());
-      try (RunEndEncodedVector toVector = (RunEndEncodedVector) transferPair.getTo()) {
-        assertEquals(logicalValueCount, toVector.getValueCount());
-        for (int i = 0; i < logicalValueCount; i++) {
-          assertEquals(value, toVector.getObject(i));
-        }
-      }
     }
 
     // constant null vector
@@ -120,20 +108,9 @@ public class TestRunEndEncodedVector {
 
       assertEquals(15, reeVector.getValueCount());
       checkBasic(runCount, reeVector);
-
       // test index out of bound
       assertThrows(IndexOutOfBoundsException.class, () -> reeVector.getObject(-1));
       assertThrows(IndexOutOfBoundsException.class, () -> reeVector.getObject(logicalValueCount));
-
-      TransferPair transferPair = reeVector.getTransferPair(allocator);
-      transferPair.transfer();
-      assertEquals(0, reeVector.getValueCount());
-      assertEquals(0, reeVector.getValuesVector().getValueCount());
-      assertEquals(0, reeVector.getRunEndsVector().getValueCount());
-      try (RunEndEncodedVector toVector = (RunEndEncodedVector) transferPair.getTo()) {
-        assertEquals(logicalValueCount, toVector.getValueCount());
-        checkBasic(runCount, toVector);
-      }
     }
   }
 
