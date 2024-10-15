@@ -491,17 +491,28 @@ TEST_F(TestBufferedInputStream, BufferSizeLimit) {
   }
 }
 
-TEST_F(TestBufferedInputStream, PeekPastBufferedBytesTwice) {
+TEST_F(TestBufferedInputStream, PeekPastBufferedBytes) {
+  // GH-43949: Peek and SetBufferSize should not affect the
+  // buffered bytes.
   MakeExample1(/*buffer_size=*/10, default_memory_pool(), /*raw_read_bound=*/15);
-  ASSERT_OK(buffered_->Read(9));
+  ASSERT_OK_AND_ASSIGN(auto bytes, buffered_->Read(9));
+  EXPECT_EQ(std::string_view(bytes->data_as<char>(), bytes->size()),
+            kExample1.substr(0, 9));
   ASSERT_EQ(1, buffered_->bytes_buffered());
   ASSERT_EQ(10, buffered_->buffer_size());
-  ASSERT_OK(buffered_->Peek(6));
+  ASSERT_OK_AND_ASSIGN(auto view, buffered_->Peek(3));
+  EXPECT_EQ(view, kExample1.substr(9, 3));
+  ASSERT_EQ(3, buffered_->bytes_buffered());
+  ASSERT_EQ(12, buffered_->buffer_size());
+  ASSERT_OK_AND_ASSIGN(view, buffered_->Peek(10));
+  EXPECT_EQ(view, kExample1.substr(9, 6));
   ASSERT_EQ(6, buffered_->bytes_buffered());
   ASSERT_EQ(15, buffered_->buffer_size());
-  ASSERT_OK(buffered_->Peek(6));
-  ASSERT_EQ(6, buffered_->bytes_buffered());
-  ASSERT_EQ(15, buffered_->buffer_size());
+  // Do read
+  ASSERT_OK_AND_ASSIGN(bytes, buffered_->Read(6));
+  EXPECT_EQ(std::string_view(bytes->data_as<char>(), bytes->size()),
+            kExample1.substr(9, 6));
+  ASSERT_EQ(0, buffered_->bytes_buffered());
 }
 
 class TestBufferedInputStreamBound : public ::testing::Test {
