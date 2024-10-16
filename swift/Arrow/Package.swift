@@ -31,10 +31,7 @@ let package = Package(
             targets: ["Arrow"])
     ],
     dependencies: [
-        .package(
-              url: "https://github.com/google/flatbuffers.git",
-              .upToNextMajor(from: "v24.3.7")
-            ),
+        .package(url: "https://github.com/google/flatbuffers.git", branch: "v24.3.7"),
         .package(
               url: "https://github.com/apple/swift-atomics.git",
               .upToNextMajor(from: "1.2.0") // or `.upToNextMinor
