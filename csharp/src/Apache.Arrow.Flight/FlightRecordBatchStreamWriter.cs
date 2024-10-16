@@ -64,7 +64,7 @@ namespace Apache.Arrow.Flight
         {
             if (!_disposed)
             {
-                _flightDataStream.Dispose();
+                _flightDataStream?.Dispose();
                 _disposed = true;
             }
         }

@@ -17,6 +17,7 @@
 
 from contextlib import contextmanager
 import os
+import subprocess
 
 from . import cdata
 from .tester import Tester, CDataExporter, CDataImporter
@@ -25,11 +26,19 @@ from ..utils.source import ARROW_ROOT_DEFAULT
 
 
 _ARTIFACTS_PATH = os.path.join(ARROW_ROOT_DEFAULT, "csharp/artifacts")
+_BUILD_SUBDIR = "Debug/net8.0"
 
 _EXE_PATH = os.path.join(_ARTIFACTS_PATH,
                          "Apache.Arrow.IntegrationTest",
-                         "Debug/net8.0/Apache.Arrow.IntegrationTest",
+                         _BUILD_SUBDIR,
+                         "Apache.Arrow.IntegrationTest",
                          )
+
+_FLIGHT_EXE_PATH = os.path.join(_ARTIFACTS_PATH,
+                                "Apache.Arrow.Flight.IntegrationTest",
+                                _BUILD_SUBDIR,
+                                "Apache.Arrow.Flight.IntegrationTest",
+                                )
 
 _clr_loaded = False
 
@@ -44,10 +53,10 @@ def _load_clr():
         import clr
         clr.AddReference(
             f"{_ARTIFACTS_PATH}/Apache.Arrow.IntegrationTest/"
-            f"Debug/net8.0/Apache.Arrow.IntegrationTest.dll")
+            f"{_BUILD_SUBDIR}/Apache.Arrow.IntegrationTest.dll")
         clr.AddReference(
             f"{_ARTIFACTS_PATH}/Apache.Arrow.Tests/"
-            f"Debug/net8.0/Apache.Arrow.Tests.dll")
+            f"{_BUILD_SUBDIR}/Apache.Arrow.Tests.dll")
 
         from Apache.Arrow.IntegrationTest import CDataInterface
         CDataInterface.Initialize()
@@ -146,6 +155,8 @@ class CSharpCDataImporter(CDataImporter, _CDataBase):
 class CSharpTester(Tester):
     PRODUCER = True
     CONSUMER = True
+    FLIGHT_SERVER = True
+    FLIGHT_CLIENT = True
     C_DATA_SCHEMA_EXPORTER = True
     C_DATA_SCHEMA_IMPORTER = True
     C_DATA_ARRAY_EXPORTER = True
@@ -192,3 +203,43 @@ class CSharpTester(Tester):
 
     def make_c_data_importer(self):
         return CSharpCDataImporter(self.debug, self.args)
+
+    def flight_request(self, port, json_path=None, scenario_name=None):
+        cmd = [_FLIGHT_EXE_PATH, 'client', '--port', f'{port}']
+        if json_path:
+            cmd.extend(['--path', json_path])
+        elif scenario_name:
+            cmd.extend(['--scenario', scenario_name])
+        else:
+            raise TypeError("Must provide one of json_path or scenario_name")
+
+        if self.debug:
+            log(' '.join(cmd))
+        run_cmd(cmd)
+
+    @contextmanager
+    def flight_server(self, scenario_name=None):
+        cmd = [_FLIGHT_EXE_PATH, 'server']
+        if scenario_name:
+            cmd.extend(['--scenario', scenario_name])
+        if self.debug:
+            log(' '.join(cmd))
+        server = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        try:
+            output = server.stdout.readline().decode()
+            if not output.startswith("Server listening on "):
+                server.kill()
+                out, err = server.communicate()
+                raise RuntimeError(
+                    '.NET Flight server did not start properly, '
+                    'stdout: \n{}\n\nstderr:\n{}\n'.format(
+                        output + out.decode(), err.decode()
+                    )
+                )
+            port = int(output.split(':')[-1])
+            yield port
+        finally:
+            server.kill()
+            server.wait(5)

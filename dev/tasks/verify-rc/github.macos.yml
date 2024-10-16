@@ -66,6 +66,14 @@ jobs:
           TEST_{{ target|upper }}: 1
         {% if use_conda %}
           USE_CONDA: 1
+          {% if target == "integration" %}
+          # JPype doesn't work with Python 3.13.
+          # See also:
+          # * https://discuss.python.org/t/api-for-python-3-13-prevents-use-of-3rd-party-gc-allocators/62709/5
+          # * GH-44386
+          # * GH-44389
+          PYTHON_VERSION: "3.12"
+          {% endif %}
         {% endif %}
         run: |
           arrow/dev/release/verify-release-candidate.sh {{ release|default("") }} {{ rc|default("") }}

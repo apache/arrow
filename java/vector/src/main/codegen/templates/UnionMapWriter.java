@@ -219,4 +219,16 @@ public class UnionMapWriter extends UnionListWriter {
         return super.map();
     }
   }
+
+  @Override
+  public MapWriter map() {
+    switch (mode) {
+      case KEY:
+        return entryWriter.map(MapVector.KEY_NAME);
+      case VALUE:
+        return entryWriter.map(MapVector.VALUE_NAME);
+      default:
+        return super.map();
+    }
+  }
 }

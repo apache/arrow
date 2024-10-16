@@ -208,15 +208,15 @@ Supported features in the gRPC transport:
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 | Flight RPC Feature                         | C++   | Java  | Go    | JS | C#    | Rust  | Julia | Swift |
 +============================================+=======+=======+=======+====+=======+=======+=======+=======+
-| All RPC methods                            | ✓     | ✓     | ✓     |    | ✓ (1) | ✓     |       |       |
+| All RPC methods                            | ✓     | ✓     | ✓     |    | ✓     | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| Authentication handlers                    | ✓     | ✓     | ✓     |    | ✓ (2) | ✓     |       |       |
+| Authentication handlers                    | ✓     | ✓     | ✓     |    | ✓ (1) | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 | Call timeouts                              | ✓     | ✓     | ✓     |    |       | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 | Call cancellation                          | ✓     | ✓     | ✓     |    |       | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| Concurrent client calls (3)                | ✓     | ✓     | ✓     |    | ✓     | ✓     |       |       |
+| Concurrent client calls (2)                | ✓     | ✓     | ✓     |    | ✓     | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 | Custom middleware                          | ✓     | ✓     | ✓     |    |       | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
@@ -228,7 +228,7 @@ Supported features in the UCX transport:
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 | Flight RPC Feature                         | C++   | Java  | Go    | JS | C#    | Rust  | Julia | Swift |
 +============================================+=======+=======+=======+====+=======+=======+=======+=======+
-| All RPC methods                            | ✓ (4) |       |       |    |       |       |       |       |
+| All RPC methods                            | ✓ (3) |       |       |    |       |       |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 | Authentication handlers                    |       |       |       |    |       |       |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
@@ -236,7 +236,7 @@ Supported features in the UCX transport:
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 | Call cancellation                          |       |       |       |    |       |       |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| Concurrent client calls                    | ✓ (5) |       |       |    |       |       |       |       |
+| Concurrent client calls                    | ✓ (4) |       |       |    |       |       |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 | Custom middleware                          |       |       |       |    |       |       |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
@@ -245,11 +245,10 @@ Supported features in the UCX transport:
 
 Notes:
 
-* \(1) No support for Handshake or DoExchange.
-* \(2) Support using AspNetCore authentication handlers.
-* \(3) Whether a single client can support multiple concurrent calls.
-* \(4) Only support for DoExchange, DoGet, DoPut, and GetFlightInfo.
-* \(5) Each concurrent call is a separate connection to the server
+* \(1) Support using AspNetCore authentication handlers.
+* \(2) Whether a single client can support multiple concurrent calls.
+* \(3) Only support for DoExchange, DoGet, DoPut, and GetFlightInfo.
+* \(4) Each concurrent call is a separate connection to the server
   (unlike gRPC where concurrent calls are multiplexed over a single
   connection). This will generally provide better throughput but
   consumes more resources both on the server and the client.

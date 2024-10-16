@@ -25,7 +25,7 @@ import tempfile
 import numpy as np
 
 from .util import frombytes, tobytes, random_bytes, random_utf8
-from .util import SKIP_C_SCHEMA, SKIP_C_ARRAY
+from .util import SKIP_C_SCHEMA, SKIP_C_ARRAY, SKIP_FLIGHT
 
 
 def metadata_key_values(pairs):
@@ -1890,7 +1890,10 @@ def get_generated_json_files(tempdir=None):
         return
 
     file_objs = [
-        generate_primitive_case([], name='primitive_no_batches'),
+        generate_primitive_case([], name='primitive_no_batches')
+        # TODO(https://github.com/apache/arrow/issues/44363)
+        .skip_format(SKIP_FLIGHT, 'C#'),
+
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 
@@ -1952,16 +1955,22 @@ def get_generated_json_files(tempdir=None):
 
         generate_dictionary_case()
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
-        .skip_tester('nanoarrow'),
+        .skip_tester('nanoarrow')
+        # TODO(https://github.com/apache/arrow/issues/38045)
+        .skip_format(SKIP_FLIGHT, 'C#'),
 
         generate_dictionary_unsigned_case()
         .skip_tester('nanoarrow')
-        .skip_tester('Java'),  # TODO(ARROW-9377)
+        .skip_tester('Java')  # TODO(ARROW-9377)
+        # TODO(https://github.com/apache/arrow/issues/38045)
+        .skip_format(SKIP_FLIGHT, 'C#'),
 
         generate_nested_dictionary_case()
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
         .skip_tester('nanoarrow')
-        .skip_tester('Java'),  # TODO(ARROW-7779)
+        .skip_tester('Java')  # TODO(ARROW-7779)
+        # TODO(https://github.com/apache/arrow/issues/38045)
+        .skip_format(SKIP_FLIGHT, 'C#'),
 
         generate_run_end_encoded_case()
         .skip_tester('C#')
@@ -1988,7 +1997,9 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('nanoarrow')
         # TODO: ensure the extension is registered in the C++ entrypoint
         .skip_format(SKIP_C_SCHEMA, 'C++')
-        .skip_format(SKIP_C_ARRAY, 'C++'),
+        .skip_format(SKIP_C_ARRAY, 'C++')
+        # TODO(https://github.com/apache/arrow/issues/38045)
+        .skip_format(SKIP_FLIGHT, 'C#'),
     ]
 
     generated_paths = []
