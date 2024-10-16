@@ -135,6 +135,7 @@ Status MinioTestServer::Start(bool enable_tls_if_supported) {
   // Disable the embedded console (one less listening address to care about)
   impl_->server_process_->SetEnv("MINIO_BROWSER", "off");
   impl_->connect_string_ = GenerateConnectString();
+  // NOTE: --quiet makes startup faster by suppressing remote version check
   std::vector<std::string> minio_args({"server", "--quiet", "--compat", "--address",
                                        impl_->connect_string_,
                                        impl_->temp_dir_->path().ToString()});
@@ -148,7 +149,6 @@ Status MinioTestServer::Start(bool enable_tls_if_supported) {
   }
 
   ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
-  // NOTE: --quiet makes startup faster by suppressing remote version check
   impl_->server_process_->SetArgs(minio_args);
   ARROW_RETURN_NOT_OK(impl_->server_process_->Execute());
   return Status::OK();

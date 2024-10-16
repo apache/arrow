@@ -1351,7 +1351,7 @@ TEST_F(TestS3FS, OpenInputFile) {
 
 #ifdef MINIO_SERVER_WITH_TLS
 TEST_F(TestS3FS, SSECustomerKeyMatch) {
-  // normal write/read with correct SSEC key
+  // normal write/read with correct SSE-C key
   std::shared_ptr<io::OutputStream> stream;
   options_.sse_customer_key = "12345678123456781234567812345678";
   for (const auto& allow_delayed_open : {false, true}) {

@@ -314,15 +314,15 @@ class ConnectRetryStrategy : public Aws::Client::RetryStrategy {
   int32_t max_retry_duration_;
 };
 
-/// \brief calculate the MD5 of the input sse-c key (raw key, not base64 encoded)
-/// \param sse_customer_key is the input sse key
+/// \brief calculate the MD5 of the input SSE-C key (raw key, not base64 encoded)
+/// \param sse_customer_key is the input SSE-C key
 /// \return the base64 encoded MD5 for the input key
 inline Result<std::string> CalculateSSECustomerKeyMD5(
     const std::string& sse_customer_key) {
-  // the key needs to be 256 bits (32 bytes) according to
+  // The key needs to be 256 bits (32 bytes) according to
   // https://docs.aws.amazon.com/AmazonS3/latest/userguide/ServerSideEncryptionCustomerKeys.html#specifying-s3-c-encryption
   if (sse_customer_key.length() != 32) {
-    return Status::Invalid("32 bytes sse-c key is expected");
+    return Status::Invalid("32 bytes SSE-C key is expected");
   }
 
   // Convert the raw binary key to an Aws::String
