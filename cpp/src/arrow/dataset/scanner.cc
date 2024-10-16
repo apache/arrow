@@ -1062,16 +1062,18 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
         return batch;
       });
 
+  auto ordering = require_sequenced_output?Ordering::Implicit():Ordering::Unordered();
+  
   auto fields = scan_options->dataset_schema->fields();
   if (scan_options->add_augmented_fields) {
     for (const auto& aug_field : kAugmentedFields) {
       fields.push_back(aug_field);
     }
   }
-
+  
   return acero::MakeExecNode(
       "source", plan, {},
-      acero::SourceNodeOptions{schema(std::move(fields)), std::move(gen)});
+      acero::SourceNodeOptions{schema(std::move(fields)), std::move(gen), ordering});
 }
 
 Result<acero::ExecNode*> MakeAugmentedProjectNode(acero::ExecPlan* plan,

@@ -771,8 +771,8 @@ class InputState: public util::SerialSequencingQueue::Processor {
   }
 
  private:
-   std::unique_ptr<util::SerialSequencingQueue> sequencer_;
-
+  // ExecBatch Sequencer
+  std::unique_ptr<util::SerialSequencingQueue> sequencer_;
   // Pending record batches. The latest is the front. Batches cannot be empty.
   BackpressureConcurrentQueue<std::shared_ptr<RecordBatch>> queue_;
   // Schema associated with the input

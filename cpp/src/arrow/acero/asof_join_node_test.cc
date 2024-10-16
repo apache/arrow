@@ -409,7 +409,6 @@ void DoRunUnorderedPlanTest(bool l_unordered, bool r_unordered,
   DoRunUnorderedPlanTest(l_unordered, r_unordered, l_schema, r_schema,
                          GetRepeatedOptions(2, "time", {"key"}, 1000),
                          "out-of-order on-key values");
-                        //  "requires sequenced input");
 }
 
 struct BasicTestTypes {
