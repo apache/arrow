@@ -917,8 +917,8 @@ Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
 }
 
 Result<std::shared_ptr<Array>> MakeMaskArray(const std::vector<int64_t>& indices,
-                                             int64_t length, MemoryPool* memory_pool) {
-  BooleanBuilder builder(memory_pool);
+                                             int64_t length, MemoryPool* pool) {
+  BooleanBuilder builder(pool);
   RETURN_NOT_OK(builder.Resize(length));
 
   auto i = indices.begin();
