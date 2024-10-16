@@ -69,7 +69,6 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
                                               MemoryPool* pool = default_memory_pool());
 
-
 /// \brief Create an Array representing a boolean mask
 ///
 /// The mask will have all elements set to false except for those
@@ -80,8 +79,9 @@ Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
 /// \param[in] pool the memory pool to allocate memory from
 /// \return the resulting Array
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> MakeMaskArray(const std::vector<int64_t> &indices, int64_t length,
-                                             MemoryPool* memory_pool = default_memory_pool());
+Result<std::shared_ptr<Array>> MakeMaskArray(
+    const std::vector<int64_t>& indices, int64_t length,
+    MemoryPool* memory_pool = default_memory_pool());
 /// @}
 
 namespace internal {

@@ -916,18 +916,17 @@ Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
   return builder->Finish();
 }
 
-Result<std::shared_ptr<Array>> MakeMaskArray(const std::vector<int64_t> &indices, int64_t length,
-                                             MemoryPool* memory_pool) {
+Result<std::shared_ptr<Array>> MakeMaskArray(const std::vector<int64_t>& indices,
+                                             int64_t length, MemoryPool* memory_pool) {
   BooleanBuilder builder(memory_pool);
   RETURN_NOT_OK(builder.Resize(length));
 
   auto i = indices.begin();
-  for(int64_t builder_i = 0; builder_i < length; builder_i++) {
+  for (int64_t builder_i = 0; builder_i < length; builder_i++) {
     if (builder_i == *i) {
       builder.UnsafeAppend(true);
       i++;
-    }
-    else {
+    } else {
       builder.UnsafeAppend(false);
     }
   }
