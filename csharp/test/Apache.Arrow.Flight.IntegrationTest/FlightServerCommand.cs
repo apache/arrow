@@ -16,6 +16,8 @@
 using System;
 using System.Net;
 using System.Threading.Tasks;
+using Apache.Arrow.Flight.IntegrationTest.Scenarios;
+using Apache.Arrow.Flight.Server;
 using Apache.Arrow.Flight.TestWeb;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -23,6 +25,8 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 
 namespace Apache.Arrow.Flight.IntegrationTest;
 
@@ -37,11 +41,12 @@ public class FlightServerCommand
 
     public async Task Execute()
     {
-        if (!string.IsNullOrEmpty(_scenario))
+        IScenario scenario = _scenario switch
         {
-            // No named scenarios are currently implemented
-            throw new Exception($"Scenario '{_scenario}' is not supported.");
-        }
+            null => null,
+            "do_exchange:echo" => new DoExchangeEchoScenario(),
+            _ => throw new NotSupportedException($"Scenario {_scenario} is not supported")
+        };
 
         var host = Host.CreateDefaultBuilder()
             .ConfigureWebHostDefaults(webBuilder =>
@@ -50,6 +55,26 @@ public class FlightServerCommand
                     .ConfigureKestrel(options =>
                     {
                         options.Listen(IPEndPoint.Parse("127.0.0.1:0"), l => l.Protocols = HttpProtocols.Http2);
+                    })
+                    .ConfigureServices(services =>
+                    {
+                        if (scenario == null)
+                        {
+                            // Use the TestFlightServer for JSON based integration tests
+                            services.AddGrpc().AddFlightServer<TestFlightServer>();
+                            services.AddSingleton(new FlightStore());
+                        }
+                        else
+                        {
+                            // Use a scenario-specific server implementation
+                            services.AddGrpc().Services.AddScoped<FlightServer>(_ => scenario.MakeServer());
+                        }
+
+                        // The integration tests rely on the port being written to the first line of stdout,
+                        // so send all logging to stderr.
+                        services.Configure<ConsoleLoggerOptions>(
+                            o => o.LogToStandardErrorThreshold = LogLevel.Debug);
+
                     })
                     .UseStartup<Startup>();
             })

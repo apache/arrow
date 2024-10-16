@@ -24,7 +24,6 @@ using Apache.Arrow.Tests;
 using Google.Protobuf;
 using Grpc.Core;
 using Grpc.Core.Utils;
-using Python.Runtime;
 using Xunit;
 
 namespace Apache.Arrow.Flight.Tests
