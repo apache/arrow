@@ -208,6 +208,24 @@ In this example the Pandas Timestamp is time zone aware
 (``UTC`` on this case), and this information is used to create the Arrow
 :class:`~.TimestampArray`.
 
+When converting nested Timestamp arrays using :meth:`to_pandas()`, timezone information is **not preserved**. For example:
+
+.. ipython:: python
+
+    ts = pd.Timestamp('2024-01-01 12:00:00+0000', tz='Europe/Paris')
+    arr = pa.array([[ts]])
+    arr.to_pandas()[0][0]  # Returns timezone-naive numpy.datetime64
+
+In this case, the conversion defaults to ``numpy.datetime64``, which drops the timezone information. This happens because NumPy does not support timezones in its ``datetime64`` format, and PyArrow inherits this limitation when converting nested arrays - this is unlikely to change in the near future.
+
+To preserve the timezone information when converting nested arrays, the ``timestamp_as_object=True`` argument can be used. This converts the timestamps to Python ``datetime`` objects, which are timezone-aware:
+
+.. ipython:: python
+
+    arr.to_pandas(timestamp_as_object=True)[0][0]  # Returns timezone-aware Python datetime
+
+While this retains timezone information, it comes with a performance trade-off due to the use of ``object-dtype`` arrays in pandas, which are less efficient than ``numpy.datetime64`` arrays.
+
 Date types
 ~~~~~~~~~~
 
