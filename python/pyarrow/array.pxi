@@ -539,6 +539,37 @@ def repeat(value, size, MemoryPool memory_pool=None):
 
 
 def mask(indices, length, MemoryPool memory_pool=None):
+    """
+    Create a boolean Array instance where specific indices are marked as True.
+
+    Parameters
+    ----------
+    indices : list[int]
+        The indices that have to be marked as True.
+        All other indices will be False.
+    length : int
+        How many entries the array should have total.
+    memory_pool : MemoryPool, default None
+        Arrow MemoryPool to use for allocations. Uses the default memory
+        pool if not passed.
+
+    Returns
+    -------
+    arr : Array
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> pa.mask([1, 3], length=5)
+    <pyarrow.lib.BooleanArray object at 0x7dad0f6b6080>
+    [
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+    """
     cdef:
         CMemoryPool* c_pool = maybe_unbox_memory_pool(memory_pool)
         vector[int64_t] c_indices = indices
