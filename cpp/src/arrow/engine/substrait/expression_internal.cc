@@ -51,6 +51,7 @@
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/engine/substrait/util_internal.h"
+#include "arrow/engine/substrait/serde.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -435,8 +436,7 @@ struct UserDefinedLiteralToArrow {
   Status Visit(const IntegerType& type) {
     google::protobuf::UInt64Value value;
     if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined integer literal to UInt64Value");
+      return CreateUnpackUserDefinedStatus("integer", "UInt64Value");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
     return Status::OK();
@@ -444,8 +444,7 @@ struct UserDefinedLiteralToArrow {
   Status Visit(const Time32Type& type) {
     google::protobuf::Int32Value value;
     if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined time32 literal to Int32Value");
+      return CreateUnpackUserDefinedStatus("time32", "Int32Value");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
     return Status::OK();
@@ -453,8 +452,7 @@ struct UserDefinedLiteralToArrow {
   Status Visit(const Time64Type& type) {
     google::protobuf::Int64Value value;
     if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined time64 literal to Int64Value");
+      return CreateUnpackUserDefinedStatus("time64", "Int64Value");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
     return Status::OK();
@@ -462,8 +460,7 @@ struct UserDefinedLiteralToArrow {
   Status Visit(const Date64Type& type) {
     google::protobuf::Int64Value value;
     if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined date64 literal to Int64Value");
+      return CreateUnpackUserDefinedStatus("date64", "Int64Value");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
     return Status::OK();
@@ -471,8 +468,7 @@ struct UserDefinedLiteralToArrow {
   Status Visit(const HalfFloatType& type) {
     google::protobuf::UInt32Value value;
     if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined half_float literal to UInt32Value");
+      return CreateUnpackUserDefinedStatus("half_float", "UInt32Value");
     }
     uint16_t half_float_value = value.value();
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), half_float_value));
@@ -481,13 +477,21 @@ struct UserDefinedLiteralToArrow {
   Status Visit(const LargeStringType& type) {
     google::protobuf::StringValue value;
     if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined large_string literal to StringValue");
+      return CreateUnpackUserDefinedStatus("large_string", "StringValue");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_,
                           MakeScalar(type.GetSharedPtr(), std::string(value.value())));
     return Status::OK();
   }
+  Status Visit(const LargeBinaryType& type) {
+    google::protobuf::BytesValue value;
+    if (!user_defined_->value().UnpackTo(&value)) {
+      return CreateUnpackUserDefinedStatus("large_binary", "BytesValue");
+    }
+    ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
+    return Status::OK();
+  }
+
   Status Visit(const LargeBinaryType& type) {
     google::protobuf::BytesValue value;
     if (!user_defined_->value().UnpackTo(&value)) {

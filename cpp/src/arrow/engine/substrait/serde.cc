@@ -48,16 +48,26 @@
 namespace arrow {
 namespace engine {
 
+inline Status CreateUnpackUserDefinedStatus(const std::string& type) {
+    const std::string message = "Failed to unpack user defined " + type;
+    return Status::IOError(message);
+}
+
 Status ParseFromBufferImpl(const Buffer& buf, const std::string& full_name,
                            google::protobuf::Message* message) {
   google::protobuf::io::ArrayInputStream buf_stream{buf.data(),
                                                     static_cast<int>(buf.size())};
 
-  if (message->ParseFromZeroCopyStream(&buf_stream)) {
-    return Status::OK();
+  const std::string kParseError = "ParseFromZeroCopyStream failed for ";
+
+  if (ARROW_PREDICT_FALSE(!message->ParseFromZeroCopyStream(&buf_stream))) {
+    return Status::IOError(kParseError, full_name);
   }
-  return Status::IOError("ParseFromZeroCopyStream failed for ", full_name);
+  
+  return Status::OK();
 }
+
+return Status::IOError(kParseError, full_name);
 
 template <typename Message>
 Result<Message> ParseFromBuffer(const Buffer& buf) {
@@ -117,9 +127,9 @@ DeclarationFactory MakeConsumingSinkDeclarationFactory(
              acero::Declaration input,
              std::vector<std::string> names) -> Result<acero::Declaration> {
     std::shared_ptr<acero::SinkNodeConsumer> consumer = consumer_factory();
-    if (consumer == nullptr) {
-      return Status::Invalid("consumer factory is exhausted");
-    }
+    if (ARROW_PREDICT_FALSE(consumer == nullptr)) {
+    return Status::Invalid(kConsumerFactoryExhausted);
+}
     std::shared_ptr<acero::ExecNodeOptions> options =
         std::make_shared<acero::ConsumingSinkNodeOptions>(
             acero::ConsumingSinkNodeOptions{std::move(consumer), std::move(names)});
@@ -133,9 +143,10 @@ DeclarationFactory MakeWriteDeclarationFactory(
              acero::Declaration input,
              std::vector<std::string> names) -> Result<acero::Declaration> {
     std::shared_ptr<dataset::WriteNodeOptions> options = write_options_factory();
-    if (options == nullptr) {
-      return Status::Invalid("write options factory is exhausted");
-    }
+    if (ARROW_PREDICT_FALSE(options == nullptr)) {
+    return Status::Invalid(kWriteOptionsFactoryExhausted);
+}
+
     return acero::Declaration::Sequence(
         {std::move(input), {"write", std::move(*options)}});
   };
@@ -163,13 +174,14 @@ Result<std::vector<acero::Declaration>> DeserializePlans(
     if (plan_rel.has_root()) {
       names.assign(plan_rel.root().names().begin(), plan_rel.root().names().end());
     }
-    if (names.size() > 0) {
-      if (decl_info.output_schema->num_fields() != plan_rel.root().names_size()) {
-        return Status::Invalid("Substrait plan has ", plan_rel.root().names_size(),
+    if (ARROW_PREDICT_FALSE(names.size() > 0)) {
+    if (ARROW_PREDICT_FALSE(decl_info.output_schema->num_fields() != plan_rel.root().names_size())) {
+        return Status::Invalid(kSubstraitPlanNamesMismatch, plan_rel.root().names_size(),
                                " names that cannot be applied to extension schema:\n",
                                decl_info.output_schema->ToString(false));
-      }
     }
+}
+
 
     // pipe each relation
     ARROW_ASSIGN_OR_RAISE(
@@ -249,7 +261,13 @@ Result<BoundExpressions> DeserializeExpressions(
 
 namespace {
 
-Result<std::shared_ptr<acero::ExecPlan>> MakeSingleDeclarationPlan(
+inline Result<Message> ParseFromBuffer(const Buffer& buf) {
+  Message message;
+  ARROW_RETURN_NOT_OK(ParseFromBufferImpl(buf, Message::descriptor()->full_name(), &message));
+  return message;
+}
+
+inline Result<std::shared_ptr<acero::ExecPlan>> MakeSingleDeclarationPlan(
     std::vector<acero::Declaration> declarations) {
   if (declarations.size() > 1) {
     return Status::Invalid("DeserializePlan does not support multiple root relations");
@@ -259,6 +277,7 @@ Result<std::shared_ptr<acero::ExecPlan>> MakeSingleDeclarationPlan(
     return plan;
   }
 }
+
 
 }  // namespace
 
