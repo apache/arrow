@@ -221,8 +221,8 @@ check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apa
   allowlist <- tryCatch(
     # Try a remote allowlist so that we can add/remove without a release
     suppressWarnings(readLines(allowed)),
-    # Fallback to default: allowed only on Ubuntu and CentOS/RHEL
-    error = function(e) c("ubuntu", "centos", "redhat", "rhel")
+    # Fallback to default allow list shipped with the package
+    error = function(e) readLines("tools/nixlibs-allowlist.txt")
   )
   # allowlist should contain valid regular expressions (plain strings ok too)
   any(grepl(paste(allowlist, collapse = "|"), os))

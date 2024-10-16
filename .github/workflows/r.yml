@@ -20,6 +20,7 @@ name: R
 on:
   push:
     paths:
+      - '.dockerignore'
       - ".github/workflows/r.yml"
       - "ci/docker/**"
       - "ci/etc/rprofile"
@@ -32,6 +33,7 @@ on:
       - "r/**"
   pull_request:
     paths:
+      - '.dockerignore'
       - ".github/workflows/r.yml"
       - "ci/docker/**"
       - "ci/etc/rprofile"
@@ -57,7 +59,9 @@ env:
 jobs:
   ubuntu-minimum-cpp-version:
     name: Check minimum supported Arrow C++ Version (${{ matrix.cpp_version }})
-    runs-on: ubuntu-latest
+    # We don't provide Apache Arrow C++ 15.0.2 deb packages for Ubuntu 24.04.
+    # So we use ubuntu-22.04 here.
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         include:
@@ -86,19 +90,18 @@ jobs:
       run: |
         sudo apt-get install devscripts
 
-    # replace the SHA with v2 once INFRA-26031 is resolved
-    - uses: r-lib/actions/setup-r@732fb28088814627972f1ccbacc02561178cf391
+    - uses: r-lib/actions/setup-r@v2
       with:
         use-public-rspm: true
         install-r: false
 
-    - uses: r-lib/actions/setup-r-dependencies@732fb28088814627972f1ccbacc02561178cf391
+    - uses: r-lib/actions/setup-r-dependencies@v2
       with:
         extra-packages: any::rcmdcheck
         needs: check
         working-directory: src/r
 
-    - uses: r-lib/actions/check-r-package@732fb28088814627972f1ccbacc02561178cf391
+    - uses: r-lib/actions/check-r-package@v2
       with:
         working-directory: src/r
       env:
@@ -122,7 +125,7 @@ jobs:
       fail-fast: false
       matrix:
         r: ["4.4"]
-        ubuntu: [20.04]
+        ubuntu: [24.04]
         force-tests: ["true"]
     env:
       R: ${{ matrix.r }}
@@ -147,9 +150,9 @@ jobs:
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -157,8 +160,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           # Setting a non-default and non-probable Marquesas French Polynesia time
           # it has both with a .45 offset and very very few people who live there.
           archery docker run -e TZ=MART -e ARROW_R_FORCE_TESTS=${{ matrix.force-tests }} ubuntu-r
@@ -170,9 +172,9 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: test-output
+          name: test-output-${{ matrix.ubuntu }}-${{ matrix.r }}
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: >-
@@ -207,9 +209,9 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -217,8 +219,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           # Don't set a TZ here to test that case. These builds will have the following warning in them:
           #   System has not been booted with systemd as init system (PID 1). Can't operate.
           #   Failed to connect to bus: Host is down
@@ -231,9 +232,9 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: test-output
+          name: test-output-bundled
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: >-
@@ -293,7 +294,7 @@ jobs:
         # So that they're unique when multiple are downloaded in the next step
         shell: bash
         run: mv libarrow.zip libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
           path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
@@ -331,7 +332,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: mkdir r/windows
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.8
         with:
           name: libarrow-rtools40-ucrt64.zip
           path: r/windows
@@ -341,11 +342,11 @@ jobs:
           cd r/windows
           ls *.zip | xargs -n 1 unzip -uo
           rm -rf *.zip
-      - uses: r-lib/actions/setup-r@732fb28088814627972f1ccbacc02561178cf391
+      - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.rversion }}
           Ncpus: 2
-      - uses: r-lib/actions/setup-r-dependencies@732fb28088814627972f1ccbacc02561178cf391
+      - uses: r-lib/actions/setup-r-dependencies@v2
         env:
           GITHUB_PAT: "${{ github.token }}"
         with:

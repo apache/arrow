@@ -17,7 +17,7 @@
 
 import base64
 from datetime import timedelta
-import numpy as np
+import random
 import pyarrow.fs as fs
 import pyarrow as pa
 
@@ -187,7 +187,10 @@ def test_large_row_encryption_decryption():
 
     row_count = 2**15 + 1
     table = pa.Table.from_arrays(
-        [pa.array(np.random.rand(row_count), type=pa.float32())], names=["foo"]
+        [pa.array(
+            [random.random() for _ in range(row_count)],
+            type=pa.float32()
+        )], names=["foo"]
     )
 
     kms_config = pe.KmsConnectionConfig()

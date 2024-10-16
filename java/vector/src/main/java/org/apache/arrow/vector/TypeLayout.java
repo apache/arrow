@@ -40,6 +40,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.LargeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.LargeUtf8;
 import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
+import org.apache.arrow.vector.types.pojo.ArrowType.RunEndEncoded;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
@@ -280,6 +281,11 @@ public class TypeLayout {
               public TypeLayout visit(Duration type) {
                 return newFixedWidthTypeLayout(BufferLayout.dataBuffer(64));
               }
+
+              @Override
+              public TypeLayout visit(RunEndEncoded type) {
+                return new TypeLayout(Collections.<BufferLayout>emptyList());
+              }
             });
     return layout;
   }
@@ -443,6 +449,11 @@ public class TypeLayout {
           @Override
           public Integer visit(Duration type) {
             return FIXED_WIDTH_BUFFER_COUNT;
+          }
+
+          @Override
+          public Integer visit(RunEndEncoded type) {
+            return 0;
           }
         });
   }

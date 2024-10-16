@@ -106,6 +106,8 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<LargeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<UnionArray>,
+            IArrowArrayVisitor<Decimal32Array>,
+            IArrowArrayVisitor<Decimal64Array>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
             IArrowArrayVisitor<DictionaryArray>,
@@ -150,6 +152,8 @@ namespace Apache.Arrow.Tests
             public void Visit(LargeListArray array) => CompareArrays(array);
             public void Visit(FixedSizeListArray array) => CompareArrays(array);
             public void Visit(FixedSizeBinaryArray array) => CompareArrays(array);
+            public void Visit(Decimal32Array array) => CompareArrays(array);
+            public void Visit(Decimal64Array array) => CompareArrays(array);
             public void Visit(Decimal128Array array) => CompareArrays(array);
             public void Visit(Decimal256Array array) => CompareArrays(array);
             public void Visit(StringArray array) => CompareBinaryArrays<StringArray>(array);
@@ -566,7 +570,9 @@ namespace Apache.Arrow.Tests
                 var listSize = ((FixedSizeListType)expectedArray.Data.DataType).ListSize;
                 var expectedValuesSlice = ArrowArrayFactory.Slice(
                     expectedArray.Values, expectedArray.Offset * listSize, expectedArray.Length * listSize);
-                actualArray.Values.Accept(new ArrayComparer(expectedValuesSlice, _strictCompare));
+                var actualValuesSlice = ArrowArrayFactory.Slice(
+                    actualArray.Values, actualArray.Offset * listSize, actualArray.Length * listSize);
+                actualValuesSlice.Accept(new ArrayComparer(expectedValuesSlice, _strictCompare));
             }
 
             private void CompareValidityBuffer(int nullCount, int arrayLength, ArrowBuffer expectedValidityBuffer, int expectedBufferOffset, ArrowBuffer actualValidityBuffer, int actualBufferOffset)

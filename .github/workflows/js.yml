@@ -20,12 +20,14 @@ name: NodeJS
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/js.yml'
       - 'ci/docker/*js.dockerfile'
       - 'ci/scripts/js_*'
       - 'js/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/js.yml'
       - 'ci/docker/*js.dockerfile'
       - 'ci/scripts/js_*'
@@ -54,9 +56,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -64,8 +66,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run debian-js
       - name: Docker Push
         if: >-
@@ -80,8 +81,8 @@ jobs:
         run: archery docker push debian-js
 
   macos:
-    name: AMD64 macOS 12 NodeJS ${{ matrix.node }}
-    runs-on: macos-12
+    name: AMD64 macOS 13 NodeJS ${{ matrix.node }}
+    runs-on: macos-13
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 30
     strategy:

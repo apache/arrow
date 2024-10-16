@@ -26,13 +26,13 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/testing/future_util.h"
 #ifndef NDEBUG
-#include <sstream>
+#  include <sstream>
 #endif
 #include <unordered_set>
 
 #include "arrow/acero/options.h"
 #ifndef NDEBUG
-#include "arrow/acero/options_internal.h"
+#  include "arrow/acero/options_internal.h"
 #endif
 #include "arrow/acero/map_node.h"
 #include "arrow/acero/query_context.h"
@@ -41,8 +41,8 @@
 #include "arrow/acero/util.h"
 #include "arrow/api.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"

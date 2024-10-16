@@ -335,7 +335,7 @@ with launch_server(dist_dir) as (hostname, port):
         """
 import pyarrow,pathlib
 pyarrow_dir = pathlib.Path(pyarrow.__file__).parent
-pytest.main([pyarrow_dir, '-v'])
+pytest.main([pyarrow_dir, '-r', 's'])
 """,
         wait_for_terminate=False,
     )

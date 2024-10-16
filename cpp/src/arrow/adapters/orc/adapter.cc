@@ -25,7 +25,7 @@
 #include <vector>
 
 #ifdef ARROW_ORC_NEED_TIME_ZONE_DATABASE_CHECK
-#include <filesystem>
+#  include <filesystem>
 #endif
 
 #include "arrow/adapters/orc/util.h"

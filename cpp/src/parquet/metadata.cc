@@ -408,15 +408,6 @@ std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
                               properties, writer_version, std::move(file_decryptor)));
 }
 
-std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
-    const void* metadata, const ColumnDescriptor* descr,
-    const ApplicationVersion* writer_version, int16_t row_group_ordinal,
-    int16_t column_ordinal, std::shared_ptr<InternalFileDecryptor> file_decryptor) {
-  return std::unique_ptr<ColumnChunkMetaData>(new ColumnChunkMetaData(
-      metadata, descr, row_group_ordinal, column_ordinal, default_reader_properties(),
-      writer_version, std::move(file_decryptor)));
-}
-
 ColumnChunkMetaData::ColumnChunkMetaData(
     const void* metadata, const ColumnDescriptor* descr, int16_t row_group_ordinal,
     int16_t column_ordinal, const ReaderProperties& properties,
@@ -589,15 +580,6 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
 
 std::unique_ptr<RowGroupMetaData> RowGroupMetaData::Make(
     const void* metadata, const SchemaDescriptor* schema,
-    const ApplicationVersion* writer_version,
-    std::shared_ptr<InternalFileDecryptor> file_decryptor) {
-  return std::unique_ptr<parquet::RowGroupMetaData>(
-      new RowGroupMetaData(metadata, schema, default_reader_properties(), writer_version,
-                           std::move(file_decryptor)));
-}
-
-std::unique_ptr<RowGroupMetaData> RowGroupMetaData::Make(
-    const void* metadata, const SchemaDescriptor* schema,
     const ReaderProperties& properties, const ApplicationVersion* writer_version,
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   return std::unique_ptr<parquet::RowGroupMetaData>(new RowGroupMetaData(
@@ -751,7 +733,7 @@ class FileMetaData::FileMetaDataImpl {
 
     std::shared_ptr<Buffer> encrypted_buffer = AllocateBuffer(
         file_decryptor_->pool(), aes_encryptor->CiphertextLength(serialized_len));
-    uint32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
+    int32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
         serialized_data_span, str2span(key), str2span(aad), nonce,
         encrypted_buffer->mutable_span_as<uint8_t>());
     // Delete AES encryptor object. It was created only to verify the footer signature.
@@ -799,7 +781,7 @@ class FileMetaData::FileMetaDataImpl {
 
       // encrypt the footer key
       std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
-      int encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
+      int32_t encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
       // write unencrypted footer
       PARQUET_THROW_NOT_OK(dst->Write(serialized_data, serialized_len));
@@ -986,13 +968,6 @@ std::shared_ptr<FileMetaData> FileMetaData::Make(
   // This FileMetaData ctor is private, not compatible with std::make_shared
   return std::shared_ptr<FileMetaData>(
       new FileMetaData(metadata, metadata_len, properties, std::move(file_decryptor)));
-}
-
-std::shared_ptr<FileMetaData> FileMetaData::Make(
-    const void* metadata, uint32_t* metadata_len,
-    std::shared_ptr<InternalFileDecryptor> file_decryptor) {
-  return std::shared_ptr<FileMetaData>(new FileMetaData(
-      metadata, metadata_len, default_reader_properties(), std::move(file_decryptor)));
 }
 
 FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len,
@@ -1672,7 +1647,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
                                                                 serialized_len);
 
         std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
-        int encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
+        int32_t encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
         const char* temp =
             const_cast<const char*>(reinterpret_cast<char*>(encrypted_data.data()));
@@ -1911,13 +1886,11 @@ void RowGroupMetaDataBuilder::Finish(int64_t total_bytes_written,
 // file metadata
 class FileMetaDataBuilder::FileMetaDataBuilderImpl {
  public:
-  explicit FileMetaDataBuilderImpl(
-      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-      std::shared_ptr<const KeyValueMetadata> key_value_metadata)
+  explicit FileMetaDataBuilderImpl(const SchemaDescriptor* schema,
+                                   std::shared_ptr<WriterProperties> props)
       : metadata_(new format::FileMetaData()),
         properties_(std::move(props)),
-        schema_(schema),
-        key_value_metadata_(std::move(key_value_metadata)) {
+        schema_(schema) {
     if (properties_->file_encryption_properties() != nullptr &&
         properties_->file_encryption_properties()->encrypted_footer()) {
       crypto_metadata_ = std::make_unique<format::FileCryptoMetaData>();
@@ -1974,13 +1947,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     metadata_->__set_num_rows(total_rows);
     metadata_->__set_row_groups(row_groups_);
 
-    if (key_value_metadata_ || key_value_metadata) {
-      if (!key_value_metadata_) {
-        key_value_metadata_ = key_value_metadata;
-      } else if (key_value_metadata) {
-        key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
-      }
-      ToThriftKeyValueMetadata(*key_value_metadata_, metadata_.get());
+    if (key_value_metadata) {
+      ToThriftKeyValueMetadata(*key_value_metadata, metadata_.get());
     }
 
     int32_t file_version = 0;
@@ -2066,15 +2034,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
 
   std::unique_ptr<RowGroupMetaDataBuilder> current_row_group_builder_;
   const SchemaDescriptor* schema_;
-  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
 };
-
-std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
-    const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-    std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
-  return std::unique_ptr<FileMetaDataBuilder>(
-      new FileMetaDataBuilder(schema, std::move(props), std::move(key_value_metadata)));
-}
 
 std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
     const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props) {
@@ -2082,11 +2042,9 @@ std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
       new FileMetaDataBuilder(schema, std::move(props)));
 }
 
-FileMetaDataBuilder::FileMetaDataBuilder(
-    const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-    std::shared_ptr<const KeyValueMetadata> key_value_metadata)
-    : impl_{std::make_unique<FileMetaDataBuilderImpl>(schema, std::move(props),
-                                                      std::move(key_value_metadata))} {}
+FileMetaDataBuilder::FileMetaDataBuilder(const SchemaDescriptor* schema,
+                                         std::shared_ptr<WriterProperties> props)
+    : impl_{std::make_unique<FileMetaDataBuilderImpl>(schema, std::move(props))} {}
 
 FileMetaDataBuilder::~FileMetaDataBuilder() = default;
 

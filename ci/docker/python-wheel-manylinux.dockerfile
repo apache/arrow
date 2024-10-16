@@ -47,7 +47,7 @@ RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget
 # on manylinux_2_28, no system python is installed.
 # We therefore override the PATH with Python 3.8 in /opt/python
 # so that we have a consistent Python version across base images.
-ENV CPYTHON_VERSION=cp38
+ENV CPYTHON_VERSION=cp39
 ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
 
 # Install CMake
@@ -100,14 +100,24 @@ RUN vcpkg install \
         --x-feature=parquet \
         --x-feature=s3
 
+# Make sure auditwheel is up-to-date
+RUN pipx upgrade auditwheel
+
 # Configure Python for applications running in the bash shell of this Dockerfile
-ARG python=3.8
+ARG python=3.9
+ARG python_abi_tag=cp39
 ENV PYTHON_VERSION=${python}
-RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-*) && \
+ENV PYTHON_ABI_TAG=${python_abi_tag}
+RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-${PYTHON_ABI_TAG}) && \
     echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
 
 SHELL ["/bin/bash", "-i", "-c"]
 ENTRYPOINT ["/bin/bash", "-i", "-c"]
+
+# Remove once there are released Cython wheels for 3.13 free-threaded available
+RUN if [ "${python_abi_tag}" = "cp313t" ]; then \
+      pip install cython --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" --prefer-binary ; \
+    fi
 
 COPY python/requirements-wheel-build.txt /arrow/python/
 RUN pip install -r /arrow/python/requirements-wheel-build.txt

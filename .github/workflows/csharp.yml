@@ -39,7 +39,7 @@ permissions:
 jobs:
 
   ubuntu:
-    name: AMD64 Ubuntu 18.04 C# ${{ matrix.dotnet }}
+    name: AMD64 Ubuntu 24.04 C# ${{ matrix.dotnet }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
@@ -52,6 +52,10 @@ jobs:
         uses: actions/setup-dotnet@v4.0.1
         with:
           dotnet-version: ${{ matrix.dotnet }}
+      - name: Setup Python
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
+        with:
+          python-version: 3
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
@@ -95,7 +99,7 @@ jobs:
 
   macos:
     name: AMD64 macOS 13 C# ${{ matrix.dotnet }}
-    runs-on: macos-13 # Pending https://github.com/pythonnet/pythonnet/issues/2396
+    runs-on: macos-13
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:
@@ -108,7 +112,7 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
         with:
           python-version: 3.12
       - name: Checkout Arrow

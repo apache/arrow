@@ -18,7 +18,7 @@
 // TODO(wesm): LLVM 7 produces pesky C4244 that disable pragmas around the LLVM
 // includes seem to not fix as with LLVM 6
 #if defined(_MSC_VER)
-#pragma warning(disable : 4244)
+#  pragma warning(disable : 4244)
 #endif
 
 #include "gandiva/engine.h"
@@ -35,12 +35,12 @@
 #include <arrow/util/logging.h>
 
 #if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4141)
-#pragma warning(disable : 4146)
-#pragma warning(disable : 4244)
-#pragma warning(disable : 4267)
-#pragma warning(disable : 4624)
+#  pragma warning(push)
+#  pragma warning(disable : 4141)
+#  pragma warning(disable : 4146)
+#  pragma warning(disable : 4244)
+#  pragma warning(disable : 4267)
+#  pragma warning(disable : 4624)
 #endif
 
 #include <llvm/Analysis/Passes.h>
@@ -56,32 +56,32 @@
 #include <llvm/Linker/Linker.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #if LLVM_VERSION_MAJOR >= 17
-#include <llvm/TargetParser/SubtargetFeature.h>
+#  include <llvm/TargetParser/SubtargetFeature.h>
 #else
-#include <llvm/MC/SubtargetFeature.h>
+#  include <llvm/MC/SubtargetFeature.h>
 #endif
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/DynamicLibrary.h>
 #if LLVM_VERSION_MAJOR >= 18
-#include <llvm/TargetParser/Host.h>
+#  include <llvm/TargetParser/Host.h>
 #else
-#include <llvm/Support/Host.h>
+#  include <llvm/Support/Host.h>
 #endif
 #include <llvm/Transforms/IPO/GlobalDCE.h>
 #include <llvm/Transforms/IPO/Internalize.h>
 #if LLVM_VERSION_MAJOR >= 14
-#include <llvm/IR/PassManager.h>
-#include <llvm/MC/TargetRegistry.h>
-#include <llvm/Passes/PassPlugin.h>
-#include <llvm/Transforms/IPO/GlobalOpt.h>
-#include <llvm/Transforms/Scalar/NewGVN.h>
-#include <llvm/Transforms/Scalar/SimplifyCFG.h>
-#include <llvm/Transforms/Utils/Mem2Reg.h>
-#include <llvm/Transforms/Vectorize/LoopVectorize.h>
-#include <llvm/Transforms/Vectorize/SLPVectorizer.h>
+#  include <llvm/IR/PassManager.h>
+#  include <llvm/MC/TargetRegistry.h>
+#  include <llvm/Passes/PassPlugin.h>
+#  include <llvm/Transforms/IPO/GlobalOpt.h>
+#  include <llvm/Transforms/Scalar/NewGVN.h>
+#  include <llvm/Transforms/Scalar/SimplifyCFG.h>
+#  include <llvm/Transforms/Utils/Mem2Reg.h>
+#  include <llvm/Transforms/Vectorize/LoopVectorize.h>
+#  include <llvm/Transforms/Vectorize/SLPVectorizer.h>
 #else
-#include <llvm/Support/TargetRegistry.h>
-#include <llvm/Transforms/IPO/PassManagerBuilder.h>
+#  include <llvm/Support/TargetRegistry.h>
+#  include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #endif
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
@@ -91,18 +91,18 @@
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Utils.h>
 #if LLVM_VERSION_MAJOR <= 17
-#include <llvm/Transforms/Vectorize.h>
+#  include <llvm/Transforms/Vectorize.h>
 #endif
 
 // JITLink is available in LLVM 9+
 // but the `InProcessMemoryManager::Create` API was added since LLVM 14
 #if LLVM_VERSION_MAJOR >= 14 && !defined(_WIN32)
-#define JIT_LINK_SUPPORTED
-#include <llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h>
+#  define JIT_LINK_SUPPORTED
+#  include <llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h>
 #endif
 
 #if defined(_MSC_VER)
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 #include "gandiva/configuration.h"
@@ -263,9 +263,15 @@ void Engine::InitOnce() {
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 
   cpu_name = llvm::sys::getHostCPUName();
+#if LLVM_VERSION_MAJOR >= 19
+  auto host_features = llvm::sys::getHostCPUFeatures();
+  const bool have_host_features = true;
+#else
   llvm::StringMap<bool> host_features;
+  const auto have_host_features = llvm::sys::getHostCPUFeatures(host_features);
+#endif
   std::string cpu_attrs_str;
-  if (llvm::sys::getHostCPUFeatures(host_features)) {
+  if (have_host_features) {
     for (auto& f : host_features) {
       std::string attr = f.second ? std::string("+") + f.first().str()
                                   : std::string("-") + f.first().str();

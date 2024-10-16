@@ -22,10 +22,10 @@
 #include "gandiva/precompiled/time_fields.h"
 
 #ifndef GANDIVA_UNIT_TEST
-#include "gandiva/exported_funcs.h"
-#include "gandiva/gdv_function_stubs.h"
+#  include "gandiva/exported_funcs.h"
+#  include "gandiva/gdv_function_stubs.h"
 
-#include "gandiva/engine.h"
+#  include "gandiva/engine.h"
 
 namespace gandiva {
 

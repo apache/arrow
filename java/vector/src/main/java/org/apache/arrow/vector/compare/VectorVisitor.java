@@ -29,6 +29,7 @@ import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
 /**
@@ -71,4 +72,9 @@ public interface VectorVisitor<OUT, IN> {
     throw new UnsupportedOperationException(
         "VectorVisitor for LargeListViewVector is not supported.");
   }
+
+  default OUT visit(RunEndEncodedVector left, IN value) {
+    throw new UnsupportedOperationException(
+        "VectorVisitor for LargeListViewVector is not supported.");
+  };
 }

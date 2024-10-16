@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/statistics.h"
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
@@ -152,7 +153,8 @@ struct ARROW_EXPORT ArrayData {
         offset(other.offset),
         buffers(std::move(other.buffers)),
         child_data(std::move(other.child_data)),
-        dictionary(std::move(other.dictionary)) {
+        dictionary(std::move(other.dictionary)),
+        statistics(std::move(other.statistics)) {
     SetNullCount(other.null_count);
   }
 
@@ -163,7 +165,8 @@ struct ARROW_EXPORT ArrayData {
         offset(other.offset),
         buffers(other.buffers),
         child_data(other.child_data),
-        dictionary(other.dictionary) {
+        dictionary(other.dictionary),
+        statistics(other.statistics) {
     SetNullCount(other.null_count);
   }
 
@@ -176,6 +179,7 @@ struct ARROW_EXPORT ArrayData {
     buffers = std::move(other.buffers);
     child_data = std::move(other.child_data);
     dictionary = std::move(other.dictionary);
+    statistics = std::move(other.statistics);
     return *this;
   }
 
@@ -188,6 +192,7 @@ struct ARROW_EXPORT ArrayData {
     buffers = other.buffers;
     child_data = other.child_data;
     dictionary = other.dictionary;
+    statistics = other.statistics;
     return *this;
   }
 
@@ -274,6 +279,18 @@ struct ARROW_EXPORT ArrayData {
   }
 
   /// \brief Construct a zero-copy slice of the data with the given offset and length
+  ///
+  /// The associated `ArrayStatistics` is always discarded in a sliced
+  /// `ArrayData`. Because `ArrayStatistics` in the original
+  /// `ArrayData` may be invalid in a sliced `ArrayData`. If you want
+  /// to reuse statistics in the original `ArrayData`, you need to do
+  /// it by yourself.
+  ///
+  /// If the specified slice range has the same range as the original
+  /// `ArrayData`, we can reuse statistics in the original
+  /// `ArrayData`. Because it has the same data as the original
+  /// `ArrayData`. But the associated `ArrayStatistics` is discarded
+  /// in this case too. Use `Copy()` instead for the case.
   std::shared_ptr<ArrayData> Slice(int64_t offset, int64_t length) const;
 
   /// \brief Input-checking variant of Slice
@@ -390,6 +407,9 @@ struct ARROW_EXPORT ArrayData {
 
   // The dictionary for this Array, if any. Only used for dictionary type
   std::shared_ptr<ArrayData> dictionary;
+
+  // The statistics for this Array.
+  std::shared_ptr<ArrayStatistics> statistics;
 };
 
 /// \brief A non-owning Buffer reference

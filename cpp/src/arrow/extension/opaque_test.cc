@@ -25,7 +25,6 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
-#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
@@ -169,7 +168,6 @@ TEST(OpaqueType, MetadataRoundTrip) {
 TEST(OpaqueType, BatchRoundTrip) {
   auto type = internal::checked_pointer_cast<extension::OpaqueType>(
       extension::opaque(binary(), "geometry", "adbc.postgresql"));
-  ExtensionTypeGuard guard(type);
 
   auto storage = ArrayFromJSON(binary(), R"(["foobar", null])");
   auto array = ExtensionType::WrapArray(type, storage);

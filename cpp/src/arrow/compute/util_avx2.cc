@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <immintrin.h>
 #include <cstring>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/simd.h"
 
 namespace arrow::util::bit_util::avx2 {
 

@@ -2095,6 +2095,140 @@ public class TestLargeListViewVector {
     }
   }
 
+  @Test
+  public void testRangeChildVector1() {
+    /*
+     * Non-overlapping ranges
+     * offsets: [0, 2]
+     * sizes: [4, 1]
+     * values: [0, 1, 2, 3]
+     *
+     * vector: [[0, 1, 2, 3], [2]]
+     * */
+    try (LargeListViewVector largeListViewVector =
+        LargeListViewVector.empty("largelistview", allocator)) {
+      // Allocate buffers in listViewVector by calling `allocateNew` method.
+      largeListViewVector.allocateNew();
+
+      // Initialize the child vector using `initializeChildrenFromFields` method.
+
+      FieldType fieldType = new FieldType(true, new ArrowType.Int(32, true), null, null);
+      Field field = new Field("child-vector", fieldType, null);
+      largeListViewVector.initializeChildrenFromFields(Collections.singletonList(field));
+
+      // Set values in the child vector.
+      FieldVector fieldVector = largeListViewVector.getDataVector();
+      fieldVector.clear();
+
+      IntVector childVector = (IntVector) fieldVector;
+
+      childVector.allocateNew(8);
+
+      childVector.set(0, 0);
+      childVector.set(1, 1);
+      childVector.set(2, 2);
+      childVector.set(3, 3);
+      childVector.set(4, 4);
+      childVector.set(5, 5);
+      childVector.set(6, 6);
+      childVector.set(7, 7);
+
+      childVector.setValueCount(8);
+
+      // Set validity, offset and size buffers using `setValidity`,
+      //  `setOffset` and `setSize` methods.
+      largeListViewVector.setValidity(0, 1);
+      largeListViewVector.setValidity(1, 1);
+
+      largeListViewVector.setOffset(0, 0);
+      largeListViewVector.setOffset(1, 2);
+
+      largeListViewVector.setSize(0, 4);
+      largeListViewVector.setSize(1, 1);
+
+      assertEquals(8, largeListViewVector.getDataVector().getValueCount());
+
+      largeListViewVector.setValueCount(2);
+      assertEquals(4, largeListViewVector.getDataVector().getValueCount());
+
+      IntVector childVector1 = (IntVector) largeListViewVector.getDataVector();
+      final ArrowBuf dataBuffer = childVector1.getDataBuffer();
+      final ArrowBuf validityBuffer = childVector1.getValidityBuffer();
+
+      // yet the underneath buffer contains the original buffer
+      for (int i = 0; i < validityBuffer.capacity(); i++) {
+        assertEquals(i, dataBuffer.getInt((long) i * IntVector.TYPE_WIDTH));
+      }
+    }
+  }
+
+  @Test
+  public void testRangeChildVector2() {
+    /*
+     * Overlapping ranges
+     * offsets: [0, 2]
+     * sizes: [3, 1]
+     * values: [0, 1, 2, 3]
+     *
+     * vector: [[1, 2, 3], [2]]
+     * */
+    try (LargeListViewVector largeListViewVector =
+        LargeListViewVector.empty("largelistview", allocator)) {
+      // Allocate buffers in listViewVector by calling `allocateNew` method.
+      largeListViewVector.allocateNew();
+
+      // Initialize the child vector using `initializeChildrenFromFields` method.
+
+      FieldType fieldType = new FieldType(true, new ArrowType.Int(32, true), null, null);
+      Field field = new Field("child-vector", fieldType, null);
+      largeListViewVector.initializeChildrenFromFields(Collections.singletonList(field));
+
+      // Set values in the child vector.
+      FieldVector fieldVector = largeListViewVector.getDataVector();
+      fieldVector.clear();
+
+      IntVector childVector = (IntVector) fieldVector;
+
+      childVector.allocateNew(8);
+
+      childVector.set(0, 0);
+      childVector.set(1, 1);
+      childVector.set(2, 2);
+      childVector.set(3, 3);
+      childVector.set(4, 4);
+      childVector.set(5, 5);
+      childVector.set(6, 6);
+      childVector.set(7, 7);
+
+      childVector.setValueCount(8);
+
+      // Set validity, offset and size buffers using `setValidity`,
+      //  `setOffset` and `setSize` methods.
+      largeListViewVector.setValidity(0, 1);
+      largeListViewVector.setValidity(1, 1);
+
+      largeListViewVector.setOffset(0, 1);
+      largeListViewVector.setOffset(1, 2);
+
+      largeListViewVector.setSize(0, 3);
+      largeListViewVector.setSize(1, 1);
+
+      assertEquals(8, largeListViewVector.getDataVector().getValueCount());
+
+      largeListViewVector.setValueCount(2);
+      assertEquals(4, largeListViewVector.getDataVector().getValueCount());
+
+      IntVector childVector1 = (IntVector) largeListViewVector.getDataVector();
+      final ArrowBuf dataBuffer = childVector1.getDataBuffer();
+      final ArrowBuf validityBuffer = childVector1.getValidityBuffer();
+
+      // yet the underneath buffer contains the original buffer
+      for (int i = 0; i < validityBuffer.capacity(); i++) {
+        assertEquals(i, dataBuffer.getInt((long) i * IntVector.TYPE_WIDTH));
+      }
+    }
+  }
+
   private void writeIntValues(UnionLargeListViewWriter writer, int[] values) {
     writer.startListView();
     for (int v : values) {

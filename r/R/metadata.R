@@ -107,15 +107,34 @@ safe_r_metadata <- function(metadata, on_save = FALSE) {
   # and mutate the `types_removed` variable outside of it.
   check_r_metadata_types_recursive <- function(x) {
     allowed_types <- c("character", "double", "integer", "logical", "complex", "list", "NULL")
+    # Pull out the attributes so we can also check them
+    x_attrs <- attributes(x)
+
     if (is.list(x)) {
+      # Add special handling for some base R classes that are list but
+      # their [[ methods leads to infinite recursion.
+      # We unclass here and then reapply attributes after.
+      x <- unclass(x)
+
       types <- map_chr(x, typeof)
-      x[types == "list"] <- map(x[types == "list"], check_r_metadata_types_recursive)
       ok <- types %in% allowed_types
       if (!all(ok)) {
         # Record the invalid types, then remove the offending elements
         types_removed <<- c(types_removed, setdiff(types, allowed_types))
         x <- x[ok]
+        if ("names" %in% names(x_attrs)) {
+          # Also prune from the attributes since we'll re-add later
+          x_attrs[["names"]] <- x_attrs[["names"]][ok]
+        }
       }
+      # For the rest, recurse
+      x <- map(x, check_r_metadata_types_recursive)
+    }
+
+    # attributes() of a named list will return a list with a "names" attribute,
+    # so it will recurse indefinitely.
+    if (!is.null(x_attrs) && !identical(x_attrs, list(names = names(x)))) {
+      attributes(x) <- check_r_metadata_types_recursive(x_attrs)
     }
     x
   }

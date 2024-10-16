@@ -165,7 +165,8 @@ set(PARQUET_SRCS
     column_reader.cc
     column_scanner.cc
     column_writer.cc
-    encoding.cc
+    decoder.cc
+    encoder.cc
     encryption/encryption.cc
     encryption/internal_file_decryptor.cc
     encryption/internal_file_encryptor.cc

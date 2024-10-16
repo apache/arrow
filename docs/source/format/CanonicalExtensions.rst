@@ -259,7 +259,7 @@ JSON
 * Extension name: ``arrow.json``.
 
 * The storage type of this extension is ``String`` or
-  or ``LargeString`` or ``StringView``.
+  ``LargeString`` or ``StringView``.
   Only UTF-8 encoded JSON as specified in `rfc8259`_ is supported.
 
 * Extension type parameters:
@@ -271,6 +271,8 @@ JSON
   Metadata is either an empty string or a JSON string with an empty object.
   In the future, additional fields may be added, but they are not required
   to interpret the array.
+
+.. _uuid_extension:
 
 UUID
 ====

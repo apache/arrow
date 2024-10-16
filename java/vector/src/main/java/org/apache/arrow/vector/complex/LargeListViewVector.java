@@ -250,7 +250,9 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
    */
   @Override
   public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
-    throw new UnsupportedOperationException("exportCDataBuffers Not implemented yet");
+    exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
+    exportBuffer(offsetBuffer, buffers, buffersPtr, nullValue, true);
+    exportBuffer(sizeBuffer, buffers, buffersPtr, nullValue, true);
   }
 
   @Override
@@ -851,7 +853,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
     }
 
     if (index > 0) {
-      final int prevOffset = getLengthOfChildVectorByIndex(index);
+      final int prevOffset = getMaxViewEndChildVectorByIndex(index);
       offsetBuffer.setInt(index * OFFSET_WIDTH, prevOffset);
     }
 
@@ -943,7 +945,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
       }
     }
     /* valueCount for the data vector is the current end offset */
-    final long childValueCount = (valueCount == 0) ? 0 : getLengthOfChildVector();
+    final long childValueCount = (valueCount == 0) ? 0 : getMaxViewEndChildVector();
     /* set the value count of data vector and this will take care of
      * checking whether data buffer needs to be reallocated.
      * TODO: revisit when 64-bit vectors are supported
@@ -1001,7 +1003,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
     if (valueCount == 0) {
       return 0.0D;
     }
-    final double totalListSize = getLengthOfChildVector();
+    final double totalListSize = getMaxViewEndChildVector();
     return totalListSize / valueCount;
   }
 

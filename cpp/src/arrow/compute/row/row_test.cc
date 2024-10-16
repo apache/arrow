@@ -123,7 +123,7 @@ TEST(RowTableMemoryConsumption, Encode) {
       ASSERT_GT(actual_null_mask_size * 2,
                 row_table.buffer_size(0) - padding_for_vectors);
 
-      int64_t actual_offset_size = num_rows * sizeof(uint32_t);
+      int64_t actual_offset_size = num_rows * sizeof(RowTableImpl::offset_type);
       ASSERT_LE(actual_offset_size, row_table.buffer_size(1) - padding_for_vectors);
       ASSERT_GT(actual_offset_size * 2, row_table.buffer_size(1) - padding_for_vectors);
 
@@ -134,15 +134,14 @@ TEST(RowTableMemoryConsumption, Encode) {
   }
 }
 
-// GH-43202: Ensure that when offset overflow happens in encoding the row table, an
-// explicit error is raised instead of a silent wrong result.
-TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(Encode)) {
+// GH-43495: Ensure that we can build a row table with more than 4GB row data.
+TEST(RowTableLarge, LARGE_MEMORY_TEST(Encode)) {
   if constexpr (sizeof(void*) == 4) {
     GTEST_SKIP() << "Test only works on 64-bit platforms";
   }
 
-  // Use 8 512MB var-length rows (occupies 4GB+) to overflow the offset in the row table.
-  constexpr int64_t num_rows = 8;
+  // Use 9 512MB var-length rows to occupy more than 4GB memory.
+  constexpr int64_t num_rows = 9;
   constexpr int64_t length_per_binary = 512 * 1024 * 1024;
   constexpr int64_t row_alignment = sizeof(uint32_t);
   constexpr int64_t var_length_alignment = sizeof(uint32_t);
@@ -156,7 +155,7 @@ TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(Encode)) {
       auto value, ::arrow::gen::Constant(
                       std::make_shared<BinaryScalar>(std::string(length_per_binary, 'X')))
                       ->Generate(1));
-  values.push_back(std::move(value));
+  values.emplace_back(std::move(value));
   ExecBatch batch = ExecBatch(std::move(values), 1);
   ASSERT_OK(ColumnArraysFromExecBatch(batch, &columns));
 
@@ -174,39 +173,24 @@ TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(Encode)) {
   // The rows to encode.
   std::vector<uint16_t> row_ids(num_rows, 0);
 
-  // Encoding 7 rows should be fine.
-  {
-    row_encoder.PrepareEncodeSelected(0, num_rows - 1, columns);
-    ASSERT_OK(row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows - 1),
-                                         row_ids.data()));
-  }
+  // Encode num_rows rows.
+  row_encoder.PrepareEncodeSelected(0, num_rows, columns);
+  ASSERT_OK(row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows),
+                                       row_ids.data()));
 
-  // Encoding 8 rows should overflow.
-  {
-    int64_t length_per_row = table_metadata.fixed_length + length_per_binary;
-    std::stringstream expected_error_message;
-    expected_error_message << "Invalid: Offset overflow detected in "
-                              "EncoderOffsets::GetRowOffsetsSelected for row "
-                           << num_rows - 1 << " of length " << length_per_row
-                           << " bytes, current length in total is "
-                           << length_per_row * (num_rows - 1) << " bytes";
-    row_encoder.PrepareEncodeSelected(0, num_rows, columns);
-    ASSERT_RAISES_WITH_MESSAGE(
-        Invalid, expected_error_message.str(),
-        row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows),
-                                   row_ids.data()));
-  }
+  auto encoded_row_length = table_metadata.fixed_length + length_per_binary;
+  ASSERT_EQ(row_table.offsets()[num_rows - 1], encoded_row_length * (num_rows - 1));
+  ASSERT_EQ(row_table.offsets()[num_rows], encoded_row_length * num_rows);
 }
 
-// GH-43202: Ensure that when offset overflow happens in appending to the row table, an
-// explicit error is raised instead of a silent wrong result.
-TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(AppendFrom)) {
+// GH-43495: Ensure that we can build a row table with more than 4GB row data.
+TEST(RowTableLarge, LARGE_MEMORY_TEST(AppendFrom)) {
   if constexpr (sizeof(void*) == 4) {
     GTEST_SKIP() << "Test only works on 64-bit platforms";
   }
 
-  // Use 8 512MB var-length rows (occupies 4GB+) to overflow the offset in the row table.
-  constexpr int64_t num_rows = 8;
+  // Use 9 512MB var-length rows to occupy more than 4GB memory.
+  constexpr int64_t num_rows = 9;
   constexpr int64_t length_per_binary = 512 * 1024 * 1024;
   constexpr int64_t num_rows_seed = 1;
   constexpr int64_t row_alignment = sizeof(uint32_t);
@@ -244,23 +228,15 @@ TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(AppendFrom)) {
   RowTableImpl row_table;
   ASSERT_OK(row_table.Init(pool, table_metadata));
 
-  // Appending the seed 7 times should be fine.
-  for (int i = 0; i < num_rows - 1; ++i) {
+  // Append seed num_rows times.
+  for (int i = 0; i < num_rows; ++i) {
     ASSERT_OK(row_table.AppendSelectionFrom(row_table_seed, num_rows_seed,
                                             /*source_row_ids=*/NULLPTR));
   }
 
-  // Appending the seed the 8-th time should overflow.
-  int64_t length_per_row = table_metadata.fixed_length + length_per_binary;
-  std::stringstream expected_error_message;
-  expected_error_message
-      << "Invalid: Offset overflow detected in RowTableImpl::AppendSelectionFrom for row "
-      << num_rows - 1 << " of length " << length_per_row
-      << " bytes, current length in total is " << length_per_row * (num_rows - 1)
-      << " bytes";
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, expected_error_message.str(),
-                             row_table.AppendSelectionFrom(row_table_seed, num_rows_seed,
-                                                           /*source_row_ids=*/NULLPTR));
+  auto encoded_row_length = table_metadata.fixed_length + length_per_binary;
+  ASSERT_EQ(row_table.offsets()[num_rows - 1], encoded_row_length * (num_rows - 1));
+  ASSERT_EQ(row_table.offsets()[num_rows], encoded_row_length * num_rows);
 }
 
 }  // namespace compute

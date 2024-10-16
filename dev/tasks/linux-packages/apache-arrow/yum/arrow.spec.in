@@ -63,6 +63,7 @@
 %define gcc_package gcc
 %endif
 
+%define use_azure (%{_rhel} >= 8 || %{_amzn} >= 2023)
 %define use_bundled_nlohmann_json (%{_rhel} == 8)
 %define use_flight (%{_rhel} >= 8 || %{_amzn} >= 2023)
 %define use_gandiva (%{_rhel} >= 8 || %{_amzn} >= 2023)
@@ -121,6 +122,9 @@ BuildRequires:	grpc-plugins
 %if %{use_gcs} && !%{use_bundled_nlohmann_json}
 BuildRequires:	json-devel
 %endif
+%if %{use_azure}
+BuildRequires:	libxml2-devel
+%endif
 BuildRequires:	libzstd-devel
 BuildRequires:	lz4-devel %{lz4_requirement}
 BuildRequires:	ninja-build
@@ -161,6 +165,9 @@ Apache Arrow is a data processing library for analysis.
 cpp_build_type=release
 cd cpp
 %arrow_cmake \
+%if %{use_azure}
+  -DARROW_AZURE=ON \
+%endif
   -DARROW_BUILD_UTILITIES=ON \
   -DARROW_CSV=ON \
   -DARROW_DATASET=ON \

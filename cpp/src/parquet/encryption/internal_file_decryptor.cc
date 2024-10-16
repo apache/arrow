@@ -33,16 +33,16 @@ Decryptor::Decryptor(std::shared_ptr<encryption::AesDecryptor> aes_decryptor,
       aad_(aad),
       pool_(pool) {}
 
-int Decryptor::PlaintextLength(int ciphertext_len) const {
+int32_t Decryptor::PlaintextLength(int32_t ciphertext_len) const {
   return aes_decryptor_->PlaintextLength(ciphertext_len);
 }
 
-int Decryptor::CiphertextLength(int plaintext_len) const {
+int32_t Decryptor::CiphertextLength(int32_t plaintext_len) const {
   return aes_decryptor_->CiphertextLength(plaintext_len);
 }
 
-int Decryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
-                       ::arrow::util::span<uint8_t> plaintext) {
+int32_t Decryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
+                           ::arrow::util::span<uint8_t> plaintext) {
   return aes_decryptor_->Decrypt(ciphertext, str2span(key_), str2span(aad_), plaintext);
 }
 
@@ -143,7 +143,7 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
 
   // Create both data and metadata decryptors to avoid redundant retrieval of key
   // from the key_retriever.
-  int key_len = static_cast<int>(footer_key.size());
+  auto key_len = static_cast<int32_t>(footer_key.size());
   std::shared_ptr<encryption::AesDecryptor> aes_metadata_decryptor;
   std::shared_ptr<encryption::AesDecryptor> aes_data_decryptor;
 
@@ -197,7 +197,7 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
     throw HiddenColumnException("HiddenColumnException, path=" + column_path);
   }
 
-  int key_len = static_cast<int>(column_key.size());
+  auto key_len = static_cast<int32_t>(column_key.size());
   std::lock_guard<std::mutex> lock(mutex_);
   auto aes_decryptor =
       encryption::AesDecryptor::Make(algorithm_, key_len, metadata, &all_decryptors_);

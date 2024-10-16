@@ -55,7 +55,6 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_GANDIVA:=OFF}
 : ${ARROW_GCS:=ON}
 : ${ARROW_HDFS:=ON}
-: ${ARROW_JEMALLOC:=ON}
 : ${ARROW_MIMALLOC:=ON}
 : ${ARROW_ORC:=ON}
 : ${ARROW_PARQUET:=ON}
@@ -81,6 +80,9 @@ if [[ "$(uname -m)" == arm* ]] || [[ "$(uname -m)" == aarch* ]]; then
     # 4k and 64k page arm64 systems. For more context see
     # https://github.com/apache/arrow/issues/10929
     export ARROW_EXTRA_CMAKE_FLAGS="-DARROW_JEMALLOC_LG_PAGE=16"
+    : ${ARROW_JEMALLOC:=OFF}
+else
+    : ${ARROW_JEMALLOC:=ON}
 fi
 
 mkdir /tmp/arrow-build
@@ -140,7 +142,6 @@ echo "=== (${PYTHON_VERSION}) Building wheel ==="
 export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR}
-export PYARROW_INSTALL_TESTS=1
 export PYARROW_WITH_ACERO=${ARROW_ACERO}
 export PYARROW_WITH_AZURE=${ARROW_AZURE}
 export PYARROW_WITH_DATASET=${ARROW_DATASET}
@@ -181,5 +182,5 @@ popd
 rm -rf dist/temp-fix-wheel
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux${MANYLINUX_VERSION} ==="
-auditwheel repair -L . dist/pyarrow-*.whl -w repaired_wheels
+auditwheel repair dist/pyarrow-*.whl -w repaired_wheels
 popd

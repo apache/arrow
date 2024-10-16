@@ -59,9 +59,9 @@ if make
     end
     system("#{make} > #{File::NULL}") or exit(false)
   end
+  $LOAD_PATH.unshift(build_dir.to_s)
 end
 
-$LOAD_PATH.unshift(build_dir.to_s)
 $LOAD_PATH.unshift(lib_dir.to_s)
 
 require_relative "helper"

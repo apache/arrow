@@ -858,7 +858,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector
     }
 
     if (index > 0) {
-      final int prevOffset = getLengthOfChildVectorByIndex(index);
+      final int prevOffset = getMaxViewEndChildVectorByIndex(index);
       offsetBuffer.setInt(index * OFFSET_WIDTH, prevOffset);
     }
 
@@ -942,7 +942,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector
       }
     }
     /* valueCount for the data vector is the current end offset */
-    final int childValueCount = (valueCount == 0) ? 0 : getLengthOfChildVector();
+    final int childValueCount = (valueCount == 0) ? 0 : getMaxViewEndChildVector();
     /* set the value count of data vector and this will take care of
      * checking whether data buffer needs to be reallocated.
      */
@@ -1005,7 +1005,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector
     if (valueCount == 0) {
       return 0.0D;
     }
-    final double totalListSize = getLengthOfChildVector();
+    final double totalListSize = getMaxViewEndChildVector();
     return totalListSize / valueCount;
   }
 

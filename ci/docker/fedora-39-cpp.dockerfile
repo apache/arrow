@@ -34,6 +34,7 @@ RUN dnf update -y && \
         curl-devel \
         gcc \
         gcc-c++ \
+        gdb \
         gflags-devel \
         git \
         glog-devel \

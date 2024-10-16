@@ -104,10 +104,10 @@ jobs:
     strategy:
       matrix:
         include:
-            - architecture: AMD64
-              macos-version: "12"
-            - architecture: ARM64
-              macos-version: "14"
+          - architecture: AMD64
+            macos-version: "13"
+          - architecture: ARM64
+            macos-version: "14"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

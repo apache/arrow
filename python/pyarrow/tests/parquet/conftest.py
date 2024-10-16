@@ -17,6 +17,7 @@
 
 import os
 import pathlib
+import sys
 
 import pytest
 
@@ -30,6 +31,8 @@ def datadir(base_datadir):
 
 @pytest.fixture(scope='module')
 def parquet_test_datadir():
+    if sys.platform == 'emscripten':
+        pytest.skip("needs PARQUET_TEST_DATA files access")
     result = os.environ.get('PARQUET_TEST_DATA')
     if not result:
         raise RuntimeError('Please point the PARQUET_TEST_DATA environment '

@@ -26,6 +26,10 @@ pushd ${source_dir}
 
 printenv
 
+if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  . "${ARROW_PYTHON_VENV}/bin/activate"
+fi
+
 # Run the nixlibs.R test suite, which is not included in the installed package
 ${R_BIN} -e 'setwd("tools"); testthat::test_dir(".", stop_on_warning = TRUE)'
 
