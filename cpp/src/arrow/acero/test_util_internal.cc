@@ -411,8 +411,8 @@ BatchesWithSchema MakeBatchesFromString(const std::shared_ptr<Schema>& schema,
       out_batches.batches.push_back(out_batches.batches[i]);
     }
   }
-  for(size_t batch_index=0;batch_index<out_batches.batches.size();++batch_index){
-    out_batches.batches[batch_index].index=batch_index;
+  for (size_t batch_index = 0; batch_index < out_batches.batches.size(); ++batch_index) {
+    out_batches.batches[batch_index].index = batch_index;
   }
 
   return out_batches;

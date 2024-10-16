@@ -4018,8 +4018,8 @@ cdef class _ScanNodeOptions(ExecNodeOptions):
             bint require_sequenced_output=False
 
         c_scan_options = Scanner._make_scan_options(dataset, scan_options)
-        
-        require_sequenced_output=scan_options.get("require_sequenced_output",False)
+
+        require_sequenced_output=scan_options.get("require_sequenced_output", False)
 
         self.wrapped.reset(
             new CScanNodeOptions(dataset.unwrap(), c_scan_options, require_sequenced_output)

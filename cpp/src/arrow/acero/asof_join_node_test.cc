@@ -101,7 +101,7 @@ Result<BatchesWithSchema> MakeBatchesFromNumString(
   BatchesWithSchema batches;
   batches.schema = schema;
   int n_fields = schema->num_fields();
-  size_t batch_index=0;
+  size_t batch_index = 0;
   for (auto num_batch : num_batches.batches) {
     Datum two(Int32Scalar(2));
     std::vector<Datum> values;
@@ -129,7 +129,7 @@ Result<BatchesWithSchema> MakeBatchesFromNumString(
       }
     }
     ExecBatch batch(values, num_batch.length);
-    batch.index=batch_index++;
+    batch.index = batch_index++;
     batches.batches.push_back(batch);
   }
   return batches;

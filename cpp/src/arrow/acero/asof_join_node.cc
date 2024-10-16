@@ -16,9 +16,9 @@
 // under the License.
 
 #include "arrow/acero/asof_join_node.h"
+#include "arrow/acero/accumulation_queue.h"
 #include "arrow/acero/backpressure_handler.h"
 #include "arrow/acero/concurrent_queue_internal.h"
-#include "arrow/acero/accumulation_queue.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -472,7 +472,7 @@ class BackpressureController : public BackpressureControl {
   std::atomic<int32_t>& backpressure_counter_;
 };
 
-class InputState: public util::SerialSequencingQueue::Processor {
+class InputState : public util::SerialSequencingQueue::Processor {
   // InputState corresponds to an input
   // Input record batches are queued up in InputState until processed and
   // turned into output record batches.
@@ -484,8 +484,8 @@ class InputState: public util::SerialSequencingQueue::Processor {
              const col_index_t time_col_index,
              const std::vector<col_index_t>& key_col_index)
       : sequencer_(util::SerialSequencingQueue::Make(this)),
-		queue_(std::move(handler)),  
-          schema_(schema),
+        queue_(std::move(handler)),
+        schema_(schema),
         time_col_index_(time_col_index),
         key_col_index_(key_col_index),
         time_type_id_(schema_->fields()[time_col_index_]->type()->id()),
@@ -701,12 +701,12 @@ class InputState: public util::SerialSequencingQueue::Processor {
                DEBUG_MANIP(std::endl));
     return updated;
   }
-  Status InsertBatch(ExecBatch batch){
-	  return sequencer_->InsertBatch(std::move(batch));
+  Status InsertBatch(ExecBatch batch) {
+    return sequencer_->InsertBatch(std::move(batch));
   }
 
   Status Process(ExecBatch batch) override {
-	auto rb = *batch.ToRecordBatch(schema_);
+    auto rb = *batch.ToRecordBatch(schema_);
     DEBUG_SYNC(node_, "received batch from input ", index_, ":", DEBUG_MANIP(std::endl),
                rb->ToString(), DEBUG_MANIP(std::endl));
     return Push(rb);
@@ -1412,7 +1412,7 @@ class AsofJoinNode : public ExecNode {
     // InputReceived may be called after execution was finished. Pushing it to the
     // InputState is unnecessary since we're done (and anyway may cause the
     // BackPressureController to pause the input, causing a deadlock), so drop it.
-    if(::arrow::compute::kUnsequencedIndex == batch.index)
+    if (::arrow::compute::kUnsequencedIndex == batch.index)
       return Status::Invalid("AsofJoin requires sequenced input");
 
     if (process_task_.is_finished()) {
