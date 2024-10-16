@@ -28,7 +28,7 @@ under the License.
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>18.0.0-SNAPSHOT</version>
+  <version>18.0.0</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
@@ -81,7 +81,7 @@ under the License.
   <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
     <connection>scm:git:https://github.com/apache/arrow.git</connection>
     <developerConnection>scm:git:https://github.com/apache/arrow.git</developerConnection>
-    <tag>main</tag>
+    <tag>apache-arrow-18.0.0</tag>
     <url>https://github.com/apache/arrow/tree/${project.scm.tag}</url>
   </scm>
 
