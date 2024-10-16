@@ -123,6 +123,17 @@ function(arrow_create_merged_static_lib output_target)
 
     set(BUNDLE_COMMAND ${LIBTOOL_MACOS} "-no_warning_for_no_symbols" "-static" "-o"
                        ${output_lib_path} ${all_library_paths})
+  elseif(MSVC)
+    if(CMAKE_LIBTOOL)
+      set(BUNDLE_TOOL ${CMAKE_LIBTOOL})
+    else()
+      find_program(BUNDLE_TOOL lib HINTS "${CMAKE_CXX_COMPILER}/..")
+      if(NOT BUNDLE_TOOL)
+        message(FATAL_ERROR "Cannot locate lib.exe to bundle libraries")
+      endif()
+    endif()
+    set(BUNDLE_COMMAND ${BUNDLE_TOOL} /NOLOGO /OUT:${output_lib_path}
+                       ${all_library_paths})
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(Clang|GNU|Intel|IntelLLVM)$")
     set(ar_script_path ${CMAKE_BINARY_DIR}/${ARG_NAME}.ar)
 
@@ -144,18 +155,6 @@ function(arrow_create_merged_static_lib output_target)
     endif()
 
     set(BUNDLE_COMMAND ${ar_tool} -M < ${ar_script_path})
-
-  elseif(MSVC)
-    if(CMAKE_LIBTOOL)
-      set(BUNDLE_TOOL ${CMAKE_LIBTOOL})
-    else()
-      find_program(BUNDLE_TOOL lib HINTS "${CMAKE_CXX_COMPILER}/..")
-      if(NOT BUNDLE_TOOL)
-        message(FATAL_ERROR "Cannot locate lib.exe to bundle libraries")
-      endif()
-    endif()
-    set(BUNDLE_COMMAND ${BUNDLE_TOOL} /NOLOGO /OUT:${output_lib_path}
-                       ${all_library_paths})
   else()
     message(FATAL_ERROR "Unknown bundle scenario!")
   endif()
