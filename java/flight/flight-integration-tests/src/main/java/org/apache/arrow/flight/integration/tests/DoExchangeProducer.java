@@ -16,7 +16,6 @@
  */
 package org.apache.arrow.flight.integration.tests;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -30,8 +29,6 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 /** The server used for testing the Flight do_exchange method. */
 final class DoExchangeProducer extends NoOpFlightProducer {
-  private static final byte[] COMMAND_ECHO = "echo".getBytes(StandardCharsets.UTF_8);
-
   private final BufferAllocator allocator;
 
   DoExchangeProducer(BufferAllocator allocator) {
