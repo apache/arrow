@@ -18,6 +18,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
+using Apache.Arrow.Flight.Server;
 using Apache.Arrow.IntegrationTest;
 using Apache.Arrow.Tests;
 using Apache.Arrow.Types;
@@ -27,20 +28,23 @@ using Grpc.Core;
 using Grpc.Net.Client.Balancer;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Apache.Arrow.Flight.IntegrationTest;
+namespace Apache.Arrow.Flight.IntegrationTest.Scenarios;
 
 /// <summary>
 /// A test scenario defined using a JSON data file
 /// </summary>
-internal class JsonTestScenario
+internal class JsonTestScenario : IScenario
 {
-    private readonly int _serverPort;
     private readonly FileInfo _jsonFile;
     private readonly ServiceProvider _serviceProvider;
 
-    public JsonTestScenario(int serverPort, FileInfo jsonFile)
+    public JsonTestScenario(FileInfo jsonFile)
     {
-        _serverPort = serverPort;
+        if (!(jsonFile?.Exists ?? false))
+        {
+            throw new Exception($"Invalid JSON file path '{jsonFile?.FullName}'");
+        }
+
         _jsonFile = jsonFile;
 
         var services = new ServiceCollection();
@@ -48,9 +52,14 @@ internal class JsonTestScenario
         _serviceProvider = services.BuildServiceProvider();
     }
 
-    public async Task RunClient()
+    public FlightServer MakeServer()
     {
-        var address = $"grpc+tcp://localhost:{_serverPort}";
+        throw new NotImplementedException();
+    }
+
+    public async Task RunClient(int serverPort)
+    {
+        var address = $"grpc+tcp://localhost:{serverPort}";
         using var channel = GrpcChannel.ForAddress(
             address,
             new GrpcChannelOptions
