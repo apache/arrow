@@ -687,6 +687,17 @@ template<class CharT, class Traits>
 std::basic_ostream<CharT, Traits>&
 operator<<(std::basic_ostream<CharT, Traits>& os, const month_weekday_last& mwdl);
 
+// epoch_type represents the difference days between the specific epoch and unix epoch.
+enum class epoch_type {
+  // '1970-01-01'
+  unix_epoch = 0,
+
+  // 10957 = julian days of '2000-01-01' - julian days of '1970-01-01'
+  // This is used to align the number of days based on the PostgreSQL epoch to
+  // the number based on the unix epoch, or vice versa.
+  pg_epoch = 10957
+};
+
 // class year_month_day
 
 class year_month_day
@@ -694,15 +705,18 @@ class year_month_day
     date::year  y_;
     date::month m_;
     date::day   d_;
+    epoch_type et_;
 
 public:
     year_month_day() = default;
     CONSTCD11 year_month_day(const date::year& y, const date::month& m,
-                             const date::day& d) NOEXCEPT;
-    CONSTCD14 year_month_day(const year_month_day_last& ymdl) NOEXCEPT;
+                             const date::day& d, epoch_type et = epoch_type::unix_epoch) NOEXCEPT;
+    CONSTCD14 year_month_day(const year_month_day_last& ymdl,
+                             epoch_type et = epoch_type::unix_epoch) NOEXCEPT;
 
-    CONSTCD14 year_month_day(sys_days dp) NOEXCEPT;
-    CONSTCD14 explicit year_month_day(local_days dp) NOEXCEPT;
+    CONSTCD14 year_month_day(sys_days dp, epoch_type et = epoch_type::unix_epoch) NOEXCEPT;
+    CONSTCD14 explicit year_month_day(local_days dp,
+                                      epoch_type et = epoch_type::unix_epoch) NOEXCEPT;
 
     template<class = detail::unspecified_month_disambiguator>
     CONSTCD14 year_month_day& operator+=(const months& m) NOEXCEPT;
@@ -714,14 +728,15 @@ public:
     CONSTCD11 date::year  year()  const NOEXCEPT;
     CONSTCD11 date::month month() const NOEXCEPT;
     CONSTCD11 date::day   day()   const NOEXCEPT;
+    CONSTCD11 epoch_type epoch() const NOEXCEPT;
 
     CONSTCD14 operator sys_days() const NOEXCEPT;
     CONSTCD14 explicit operator local_days() const NOEXCEPT;
     CONSTCD14 bool ok() const NOEXCEPT;
 
 private:
-    static CONSTCD14 year_month_day from_days(days dp) NOEXCEPT;
-    CONSTCD14 days to_days() const NOEXCEPT;
+ static CONSTCD14 year_month_day from_days(days dp, epoch_type et) NOEXCEPT;
+ CONSTCD14 days to_days() const NOEXCEPT;
 };
 
 CONSTCD11 bool operator==(const year_month_day& x, const year_month_day& y) NOEXCEPT;
@@ -2899,37 +2914,36 @@ operator-(const year_month_day_last& ymdl, const years& dy) NOEXCEPT
 // year_month_day
 
 CONSTCD11
-inline
-year_month_day::year_month_day(const date::year& y, const date::month& m,
-                               const date::day& d) NOEXCEPT
-    : y_(y)
-    , m_(m)
-    , d_(d)
-    {}
+inline year_month_day::year_month_day(const date::year& y, const date::month& m,
+                                      const date::day& d,
+                                      epoch_type et) NOEXCEPT
+    : y_(y),
+      m_(m),
+      d_(d), 
+      et_(et) {}
 
 CONSTCD14
-inline
-year_month_day::year_month_day(const year_month_day_last& ymdl) NOEXCEPT
-    : y_(ymdl.year())
-    , m_(ymdl.month())
-    , d_(ymdl.day())
-    {}
+inline year_month_day::year_month_day(const year_month_day_last& ymdl,
+                                      epoch_type et) NOEXCEPT
+    : y_(ymdl.year()),
+      m_(ymdl.month()),
+      d_(ymdl.day()),
+      et_(et) {}
 
 CONSTCD14
-inline
-year_month_day::year_month_day(sys_days dp) NOEXCEPT
-    : year_month_day(from_days(dp.time_since_epoch()))
-    {}
+inline year_month_day::year_month_day(sys_days dp,
+                                      epoch_type et) NOEXCEPT
+    : year_month_day(from_days(dp.time_since_epoch(), et)) {}
 
 CONSTCD14
-inline
-year_month_day::year_month_day(local_days dp) NOEXCEPT
-    : year_month_day(from_days(dp.time_since_epoch()))
-    {}
+inline year_month_day::year_month_day(local_days dp,
+                                      epoch_type et) NOEXCEPT
+    : year_month_day(from_days(dp.time_since_epoch(), et)) {}
 
 CONSTCD11 inline year year_month_day::year() const NOEXCEPT {return y_;}
 CONSTCD11 inline month year_month_day::month() const NOEXCEPT {return m_;}
 CONSTCD11 inline day year_month_day::day() const NOEXCEPT {return d_;}
+CONSTCD11 inline epoch_type year_month_day::epoch() const NOEXCEPT {return et_;}
 
 template<class>
 CONSTCD14
@@ -2985,7 +2999,7 @@ year_month_day::to_days() const NOEXCEPT
     auto const yoe = static_cast<unsigned>(y - era * 400);       // [0, 399]
     auto const doy = (153*(m > 2 ? m-3 : m+9) + 2)/5 + d-1;      // [0, 365]
     auto const doe = yoe * 365 + yoe/4 - yoe/100 + doy;          // [0, 146096]
-    return days{era * 146097 + static_cast<int>(doe) - 719468};
+    return days{era * 146097 + static_cast<int>(doe) - 719468 - static_cast<int> (et_)};
 }
 
 CONSTCD14
@@ -3086,13 +3100,13 @@ operator<<(std::basic_ostream<CharT, Traits>& os, const year_month_day& ymd)
 CONSTCD14
 inline
 year_month_day
-year_month_day::from_days(days dp) NOEXCEPT
+year_month_day::from_days(days dp, epoch_type et) NOEXCEPT
 {
     static_assert(std::numeric_limits<unsigned>::digits >= 18,
              "This algorithm has not been ported to a 16 bit unsigned integer");
     static_assert(std::numeric_limits<int>::digits >= 20,
              "This algorithm has not been ported to a 16 bit signed integer");
-    auto const z = dp.count() + 719468;
+    auto const z = dp.count() + 719468 + static_cast<int>(et);
     auto const era = (z >= 0 ? z : z - 146096) / 146097;
     auto const doe = static_cast<unsigned>(z - era * 146097);          // [0, 146096]
     auto const yoe = (doe - doe/1460 + doe/36524 - doe/146096) / 365;  // [0, 399]
@@ -3101,7 +3115,7 @@ year_month_day::from_days(days dp) NOEXCEPT
     auto const mp = (5*doy + 2)/153;                                   // [0, 11]
     auto const d = doy - (153*mp+2)/5 + 1;                             // [1, 31]
     auto const m = mp < 10 ? mp+3 : mp-9;                              // [1, 12]
-    return year_month_day{date::year{y + (m <= 2)}, date::month(m), date::day(d)};
+    return year_month_day{date::year{y + (m <= 2)}, date::month(m), date::day(d), et};
 }
 
 template<class>

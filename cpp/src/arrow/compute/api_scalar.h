@@ -516,6 +516,11 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
                        /*count_from_zero=*/false,
                        /*first_week_is_fully_in_year=*/false};
   }
+  static WeekOptions PGDefaults() {
+    return WeekOptions{/*week_starts_monday*/ true,
+                       /*count_from_zero=*/false,
+                       /*first_week_is_fully_in_year=*/false};
+  }
 
   /// What day does the week start with (Monday=true, Sunday=false)
   bool week_starts_monday;
@@ -1331,6 +1336,57 @@ Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> USYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief PGYear returns PostgreSQL year for each element of `values`.
+/// First week of PostgreSQL epidemiological year has the majority (4 or more) of it's
+/// days in January. Last week of PostgreSQL epidemiological year has the year's last
+/// Wednesday in it. PostgreSQL epidemiological week starts on Sunday.
+///
+/// \param[in] values input to extract year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 18.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> PGYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief PGMonth returns PostgreSQL month for each element of `values`.
+/// Month is encoded as January=1, December=12
+///
+/// \param[in] values input to extract month from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 18.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> PGMonth(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief PGDay returns PostgreSQL day number for each element of `values`.
+///
+/// \param[in] values input to extract day from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 18.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> PGDay(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief PGWeek returns PostgreSQL week of year number for each element of `values`.
+/// First PostgreSQL week has the majority (4 or more) of its days in January.
+/// PostgreSQL week starts on Sunday. Year can have 52 or 53 weeks.
+/// Week numbering starts with 1.
+///
+/// \param[in] values input to extract PostgreSQL week of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 18.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> PGWeek(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief ISOWeek returns ISO week of year number for each element of `values`.
 /// First ISO week has the majority (4 or more) of its days in January.
