@@ -80,7 +80,7 @@ final class IntegrationAssertions {
 
   static void assertNull(Object actual) {
     if (actual != null) {
-      throw new AssertionError("Expected: null\n\nbut got: (not null)\n");
+      throw new AssertionError("Expected: null\n\nbut got: " + actual);
     }
   }
 
