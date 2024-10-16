@@ -122,6 +122,7 @@ case "${distribution}-${distribution_version}" in
   centos-*)
     distribution_prefix="centos"
     repository_version+="-stream"
+    dnf update -y
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
