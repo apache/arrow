@@ -538,6 +538,21 @@ def repeat(value, size, MemoryPool memory_pool=None):
     return pyarrow_wrap_array(c_array)
 
 
+def mask(indices, length, MemoryPool memory_pool=None):
+    cdef:
+        CMemoryPool* c_pool = maybe_unbox_memory_pool(memory_pool)
+        vector[int64_t] c_indices = indices
+        int64_t c_length = length
+        CResult[shared_ptr[CArray]] res = MakeMaskArray(c_indices, c_length, c_pool)
+
+    with nogil:
+        c_array = GetResultValue(
+            res
+        )
+
+    return pyarrow_wrap_array(c_array)
+
+
 def infer_type(values, mask=None, from_pandas=False):
     """
     Attempt to infer Arrow data type that can hold the passed Python

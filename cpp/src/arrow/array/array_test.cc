@@ -894,6 +894,31 @@ TEST_F(TestArray, TestConcurrentFillFromScalar) {
   }
 }
 
+TEST_F(TestArray, TestMakeMaskArray) {
+  ASSERT_OK_AND_ASSIGN(auto array, MakeMaskArray({5, 8}, 10));
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(array->length(), 10);
+
+  ASSERT_OK_AND_ASSIGN(auto true_scalar, MakeScalar(boolean(), true));
+  ASSERT_OK_AND_ASSIGN(auto false_scalar, MakeScalar(boolean(), false));
+
+  // Only values at index 5 and 8 should be true.
+  ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(1));
+  AssertScalarsEqual(*scalar, *false_scalar);
+
+  ASSERT_OK_AND_ASSIGN(scalar, array->GetScalar(5));
+  AssertScalarsEqual(*scalar, *true_scalar);
+
+  ASSERT_OK_AND_ASSIGN(scalar, array->GetScalar(6));
+  AssertScalarsEqual(*scalar, *false_scalar);
+
+  ASSERT_OK_AND_ASSIGN(scalar, array->GetScalar(8));
+  AssertScalarsEqual(*scalar, *true_scalar);
+
+  ASSERT_OK_AND_ASSIGN(scalar, array->GetScalar(9));
+  AssertScalarsEqual(*scalar, *false_scalar);
+}
+
 TEST_F(TestArray, ExtensionSpanRoundTrip) {
   // Other types are checked in MakeEmptyArray but MakeEmptyArray doesn't
   // work for extension types so we check that here

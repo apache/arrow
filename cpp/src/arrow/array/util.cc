@@ -29,6 +29,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_base.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
@@ -913,6 +914,25 @@ Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
   RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
   RETURN_NOT_OK(builder->Resize(0));
   return builder->Finish();
+}
+
+Result<std::shared_ptr<Array>> MakeMaskArray(const std::vector<int64_t> &indices, int64_t length,
+                                             MemoryPool* memory_pool) {
+  BooleanBuilder builder(memory_pool);
+  RETURN_NOT_OK(builder.Resize(length));
+
+  auto i = indices.begin();
+  for(int64_t builder_i = 0; builder_i < length; builder_i++) {
+    if (builder_i == *i) {
+      builder.UnsafeAppend(true);
+      i++;
+    }
+    else {
+      builder.UnsafeAppend(false);
+    }
+  }
+
+  return builder.Finish();
 }
 
 namespace internal {

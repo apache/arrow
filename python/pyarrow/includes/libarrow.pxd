@@ -246,6 +246,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     CResult[shared_ptr[CArray]] MakeArrayFromScalar(
         const CScalar& scalar, int64_t length, CMemoryPool* pool)
 
+    CResult[shared_ptr[CArray]] MakeMaskArray(
+        const vector[int64_t]&, int64_t length, CMemoryPool* pool)
+
     CStatus DebugPrint(const CArray& arr, int indent)
 
     cdef cppclass CFixedWidthType" arrow::FixedWidthType"(CDataType):
