@@ -917,7 +917,7 @@ before or after any logging or processing of the error code.
 Result lifetimes
 ''''''''''''''''
 
-The ``ArrowSchema`` passed to the ``on_schema`` callback must be released independantly,
+The ``ArrowSchema`` passed to the ``on_schema`` callback must be released independently,
 with the object itself needing to be moved to a consumer owned ``ArrowSchema`` object. The
 ``ArrowSchema*`` passed as a parameter to the callback *MUST NOT* be stored and kept.
 
