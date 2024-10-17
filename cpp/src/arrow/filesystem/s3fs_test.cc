@@ -95,8 +95,8 @@ static constexpr int32_t kMaxRetryDuration = 6000; /* milliseconds */
 ::testing::Environment* minio_env =
     ::testing::AddGlobalTestEnvironment(new MinioTestEnvironment);
 
-::testing::Environment* minio_env_http =
-    ::testing::AddGlobalTestEnvironment(new MinioTestEnvironment(false));
+::testing::Environment* minio_env_http = ::testing::AddGlobalTestEnvironment(
+    new MinioTestEnvironment(/*enable_tls_if_supported=*/false));
 
 MinioTestEnvironment* GetMinioEnv(bool enable_tls_if_supported) {
   if (enable_tls_if_supported) {
@@ -1349,6 +1349,7 @@ TEST_F(TestS3FS, OpenInputFile) {
   ASSERT_RAISES(IOError, file->Seek(10));
 }
 
+// Minio only allows Server Side Encryption on HTTPS client connections.
 #ifdef MINIO_SERVER_WITH_TLS
 TEST_F(TestS3FS, SSECustomerKeyMatch) {
   // normal write/read with correct SSE-C key
@@ -1399,6 +1400,18 @@ TEST_F(TestS3FS, SSECustomerKeyMissing) {
     ASSERT_RAISES(IOError, fs_->OpenInputFile("bucket/newfile_with_sse_c"));
     ASSERT_OK(RestoreTestBucket());
   }
+}
+
+TEST_F(TestS3FS, SSECustomerKeyCopyFile) {
+  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenOutputStream("bucket/newfile_with_sse_c"));
+  ASSERT_OK(stream->Write("some"));
+  ASSERT_OK(stream->Close());
+  ASSERT_OK(fs_->CopyFile("bucket/newfile_with_sse_c", "bucket/copied_with_sse_c"));
+
+  ASSERT_OK_AND_ASSIGN(auto file, fs_->OpenInputFile("bucket/copied_with_sse_c"));
+  ASSERT_OK_AND_ASSIGN(auto buf, file->Read(5));
+  AssertBufferEqual(*buf, "some");
+  ASSERT_OK(RestoreTestBucket());
 }
 #endif  // MINIO_SERVER_WITH_TLS
 
@@ -1697,5 +1710,6 @@ TEST(S3GlobalOptions, DefaultsLogLevel) {
     ASSERT_EQ(S3LogLevel::Fatal, arrow::fs::S3GlobalOptions::Defaults().log_level);
   }
 }
+
 }  // namespace fs
 }  // namespace arrow
