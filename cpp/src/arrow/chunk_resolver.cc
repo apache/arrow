@@ -26,7 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/record_batch.h"
 
-namespace arrow::internal {
+namespace arrow {
 
 namespace {
 template <typename T>
@@ -167,4 +167,4 @@ void ChunkResolver::ResolveManyImpl(int64_t n_indices, const uint64_t* logical_i
                     logical_index_vec, out_chunk_location_vec, chunk_hint);
 }
 
-}  // namespace arrow::internal
+}  // namespace arrow

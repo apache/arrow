@@ -87,13 +87,11 @@ class ArrowAltrepData {
 
   const std::shared_ptr<ChunkedArray>& chunked_array() { return chunked_array_; }
 
-  arrow::internal::ChunkLocation locate(int64_t index) {
-    return resolver_.Resolve(index);
-  }
+  arrow::ChunkLocation locate(int64_t index) { return resolver_.Resolve(index); }
 
  private:
   std::shared_ptr<ChunkedArray> chunked_array_;
-  arrow::internal::ChunkResolver resolver_;
+  arrow::ChunkResolver resolver_;
 };
 
 // the ChunkedArray that is being wrapped by the altrep object
