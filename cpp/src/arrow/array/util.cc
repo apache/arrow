@@ -925,7 +925,8 @@ Result<std::shared_ptr<Array>> MakeMaskArray(const std::vector<int64_t>& indices
   auto i = indices.begin();
   for (int64_t builder_i = 0; builder_i < length; builder_i++) {
     if (i == indices_end) {
-      RETURN_NOT_OK(builder.AppendValues(static_cast<int64_t>(length - builder.length()), false));
+      RETURN_NOT_OK(
+          builder.AppendValues(static_cast<int64_t>(length - builder.length()), false));
       break;
     } else if (builder_i == *i) {
       builder.UnsafeAppend(true);
