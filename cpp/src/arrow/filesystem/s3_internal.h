@@ -58,7 +58,7 @@
 #endif  // !ARROW_AWS_SDK_VERSION_CHECK
 
 #if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 201)
-#  define ARROW_S3_HAS_SSE_C
+#  define ARROW_S3_HAS_SSE_CUSTOMER_KEY
 #endif
 
 namespace arrow {
@@ -339,19 +339,42 @@ inline Result<std::string> CalculateSSECustomerKeyMD5(
       sse_customer_key_md5.GetLength()));
 }
 
+struct SSECustomerKeyHeaders {
+  std::string sse_customer_key;
+  std::string sse_customer_key_md5;
+  std::string sse_customer_algorithm;
+};
+
+inline Result<std::optional<SSECustomerKeyHeaders>> GetSSECustomerKeyHeaders(
+    const std::string& sse_customer_key) {
+  if (sse_customer_key.empty()) {
+    return std::nullopt;
+  }
+#ifdef ARROW_S3_HAS_SSE_CUSTOMER_KEY
+  ARROW_ASSIGN_OR_RAISE(auto md5, internal::CalculateSSECustomerKeyMD5(sse_customer_key));
+  return SSECustomerKeyHeaders{arrow::util::base64_encode(sse_customer_key), md5,
+                               "AES256"};
+#else
+  return Status::NotImplemented(
+      "SSE customer key not supported by this version of the AWS SDK");
+#endif
+}
+
 template <typename S3RequestType>
 Status SetSSECustomerKey(S3RequestType* request, const std::string& sse_customer_key) {
-  if (sse_customer_key.empty()) {
-    return Status::OK();  // do nothing if the sse_customer_key is not configured
+  ARROW_ASSIGN_OR_RAISE(auto maybe_headers, GetSSECustomerKeyHeaders(sse_customer_key));
+  if (!maybe_headers.has_value()) {
+    return Status::OK();
   }
-#ifdef ARROW_S3_HAS_SSE_C
-  ARROW_ASSIGN_OR_RAISE(auto md5, internal::CalculateSSECustomerKeyMD5(sse_customer_key));
-  request->SetSSECustomerKeyMD5(md5);
-  request->SetSSECustomerKey(arrow::util::base64_encode(sse_customer_key));
-  request->SetSSECustomerAlgorithm("AES256");
+#ifdef ARROW_S3_HAS_SSE_CUSTOMER_KEY
+  auto headers = std::move(maybe_headers).value();
+  request->SetSSECustomerKey(headers.sse_customer_key);
+  request->SetSSECustomerKeyMD5(headers.sse_customer_key_md5);
+  request->SetSSECustomerAlgorithm(headers.sse_customer_algorithm);
   return Status::OK();
 #else
-  return Status::NotImplemented("SSE-C is not supported");
+  return Status::NotImplemented(
+      "SSE customer key not supported by this version of the AWS SDK");
 #endif
 }
 

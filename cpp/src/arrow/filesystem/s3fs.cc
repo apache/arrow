@@ -2367,8 +2367,18 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
     S3Model::CopyObjectRequest req;
     req.SetBucket(ToAwsString(dest_path.bucket));
-    RETURN_NOT_OK(SetSSECustomerKey(&req, options().sse_customer_key));
     req.SetKey(ToAwsString(dest_path.key));
+    ARROW_ASSIGN_OR_RAISE(auto maybe_sse_headers,
+                          internal::GetSSECustomerKeyHeaders(options().sse_customer_key));
+    if (maybe_sse_headers.has_value()) {
+      auto sse_headers = std::move(maybe_sse_headers).value();
+      req.SetSSECustomerKey(sse_headers.sse_customer_key);
+      req.SetSSECustomerKeyMD5(sse_headers.sse_customer_key_md5);
+      req.SetSSECustomerAlgorithm(sse_headers.sse_customer_algorithm);
+      req.SetCopySourceSSECustomerKey(sse_headers.sse_customer_key);
+      req.SetCopySourceSSECustomerKeyMD5(sse_headers.sse_customer_key_md5);
+      req.SetCopySourceSSECustomerAlgorithm(sse_headers.sse_customer_algorithm);
+    }
     // ARROW-13048: Copy source "Must be URL-encoded" according to AWS SDK docs.
     // However at least in 1.8 and 1.9 the SDK URL-encodes the path for you
     req.SetCopySource(src_path.ToAwsString());
