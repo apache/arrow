@@ -1812,6 +1812,43 @@ cdef class ExtensionType(BaseExtensionType):
         return ExtensionScalar
 
 
+cdef class JsonType(BaseExtensionType):
+    """
+    Concrete class for JSON extension type.
+
+    Examples
+    --------
+    Define the extension type for JSON array
+
+    >>> import pyarrow as pa
+    >>> json_type = pa.json_(pa.large_utf8())
+
+    Create an extension array
+
+    >>> arr = [None, '{ "id":30, "values":["a", "b"] }']
+    >>> storage = pa.array(arr, pa.large_utf8())
+    >>> pa.ExtensionArray.from_storage(json_type, storage)
+    <pyarrow.lib.JsonArray object at ...>
+    [
+      null,
+      "{ "id":30, "values":["a", "b"] }"
+    ]
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.json_ext_type = <const CJsonType*> type.get()
+
+    def __arrow_ext_class__(self):
+        return JsonArray
+
+    def __reduce__(self):
+        return json_, (self.storage_type,)
+
+    def __arrow_ext_scalar_class__(self):
+        return JsonScalar
+
+
 cdef class UuidType(BaseExtensionType):
     """
     Concrete class for UUID extension type.
@@ -5294,6 +5331,44 @@ def run_end_encoded(run_end_type, value_type):
         raise ValueError("The run_end_type should be 'int16', 'int32', or 'int64'")
     ree_type = CMakeRunEndEncodedType(_run_end_type.sp_type, _value_type.sp_type)
     return pyarrow_wrap_data_type(ree_type)
+
+
+def json_(DataType storage_type=utf8()):
+    """
+    Create instance of JSON extension type.
+
+    Parameters
+    ----------
+    storage_type : DataType, default pyarrow.string()
+        The underlying data type. Can be on of the following types:
+        string, large_string, string_view.
+
+    Returns
+    -------
+    type : JsonType
+
+    Examples
+    --------
+    Create an instance of JSON extension type:
+
+    >>> import pyarrow as pa
+    >>> pa.json_(pa.utf8())
+    JsonType(extension<arrow.json>)
+
+    Use the JSON type to create an array:
+
+    >>> pa.array(['{"a": 1}', '{"b": 2}'], type=pa.json_(pa.utf8()))
+    <pyarrow.lib.JsonArray object at ...>
+    [
+      "{"a": 1}",
+      "{"b": 2}"
+    ]
+    """
+
+    cdef JsonType out = JsonType.__new__(JsonType)
+    c_json_ext_type = GetResultValue(CJsonType.Make(storage_type.sp_type))
+    out.init(c_json_ext_type)
+    return out
 
 
 def uuid():
