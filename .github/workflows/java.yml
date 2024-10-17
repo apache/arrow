@@ -19,6 +19,11 @@ name: Java
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
       - '.dockerignore'
       - '.github/workflows/java.yml'

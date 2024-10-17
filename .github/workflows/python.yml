@@ -19,6 +19,11 @@ name: Python
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
       - '.dockerignore'
       - '.github/workflows/python.yml'

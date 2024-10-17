@@ -19,6 +19,11 @@ name: C++
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
       - '.dockerignore'
       - '.github/workflows/cpp.yml'

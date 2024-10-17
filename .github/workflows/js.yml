@@ -19,6 +19,11 @@ name: NodeJS
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
       - '.dockerignore'
       - '.github/workflows/js.yml'
