@@ -239,6 +239,110 @@ struct SizeStatistics {
 }
 
 /**
+ * Physical type and encoding for the geometry type.
+ */
+enum GeometryEncoding {
+  /**
+   * Allowed for physical type: BYTE_ARRAY.
+   *
+   * Well-known binary (WKB) representations of geometries.
+   *
+   * To be clear, we follow the same rule of WKB and coordinate axis order from
+   * GeoParquet [1][2]. Geometries SHOULD be encoded as ISO WKB [3][4]
+   * supporting XY, XYZ, XYM, XYZM and the standard geometry types
+   * Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon,
+   * and GeometryCollection). Coordinate order is always (x, y) where x is
+   * easting or longitude and y is northing or latitude. This ordering explicitly
+   * overrides the axis order as specified in the CRS following the GeoPackage
+   * specification [5].
+   *
+   * This is the preferred encoding for maximum portability. It also supports
+   * GeometryStatistics to be set in the column chunk and page index.
+   *
+   * [1] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L92
+   * [2] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L155
+   * [3] https://portal.ogc.org/files/?artifact_id=18241
+   * [4] https://www.iso.org/standard/60343.html
+   * [5] https://www.geopackage.org/spec130/#gpb_spec
+   */
+  WKB = 0;
+}
+
+/**
+ * Interpretation for edges of elements of a GEOMETRY logical type. In other
+ * words, whether a point between two vertices should be interpolated in
+ * its XY dimensions as if it were a Cartesian line connecting the two
+ * vertices (planar) or the shortest spherical arc between the longitude
+ * and latitude represented by the two vertices (spherical). This value
+ * applies to all non-point geometry objects and is independent of the
+ * coordinate reference system.
+ *
+ * Because most systems currently assume planar edges and do not support
+ * spherical edges, planar should be used as the default value.
+ */
+enum Edges {
+  PLANAR = 0;
+  SPHERICAL = 1;
+}
+
+/**
+ * Bounding box of geometries in the representation of min/max value pair of
+ * coordinates from each axis when Edges is planar. Values of Z and M are omitted
+ * for 2D geometries. When Edges is spherical, the bounding box is in the form of
+ * [westmost, eastmost, southmost, northmost], with necessary min/max values for
+ * Z and M if needed.
+ */
+struct BoundingBox {
+  /** Westmost value if edges = spherical **/
+  1: required double xmin;
+  /** Eastmost value if edges = spherical **/
+  2: required double xmax;
+  /** Southmost value if edges = spherical **/
+  3: required double ymin;
+  /** Northmost value if edges = spherical **/
+  4: required double ymax;
+  5: optional double zmin;
+  6: optional double zmax;
+  7: optional double mmin;
+  8: optional double mmax;
+}
+
+/** Statistics specific to GEOMETRY logical type */
+struct GeometryStatistics {
+  /** A bounding box of geometries */
+  1: optional BoundingBox bbox;
+
+  /**
+   * The geometry types of all geometries, or an empty array if they are not
+   * known. This is borrowed from `geometry_types` column metadata of GeoParquet [1]
+   * except that values in the list are WKB (ISO variant) integer codes [2]. Table
+   * below shows the most common geometry types and their codes:
+   *
+   * | Type               | XY   | XYZ  | XYM  | XYZM |
+   * | :----------------- | :--- | :--- | :--- | :--: |
+   * | Point              | 0001 | 1001 | 2001 | 3001 |
+   * | LineString         | 0002 | 1002 | 2002 | 3002 |
+   * | Polygon            | 0003 | 1003 | 2003 | 3003 |
+   * | MultiPoint         | 0004 | 1004 | 2004 | 3004 |
+   * | MultiLineString    | 0005 | 1005 | 2005 | 3005 |
+   * | MultiPolygon       | 0006 | 1006 | 2006 | 3006 |
+   * | GeometryCollection | 0007 | 1007 | 2007 | 3007 |
+   *
+   * In addition, the following rules are used:
+   * - A list of multiple values indicates that multiple geometry types are
+   *   present (e.g. `[0003, 0006]`).
+   * - An empty array explicitly signals that the geometry types are not known.
+   * - The geometry types in the list must be unique (e.g. `[0001, 0001]`
+   *   is not valid).
+   *
+   * Please refer to links below for more detail:
+   * [1] https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry#Well-known_binary
+   * [2] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L159
+   */
+  2: optional list<i32> geometry_types;
+}
+
+/**
  * Statistics per row group and per page
  * All fields are optional.
  */
@@ -280,6 +384,9 @@ struct Statistics {
    7: optional bool is_max_value_exact;
    /** If true, min_value is the actual minimum value for a column */
    8: optional bool is_min_value_exact;
+
+   /** statistics specific to geometry logical type */
+   9: optional GeometryStatistics geometry_stats;
 }
 
 /** Empty structs to use as logical type annotations */
@@ -375,6 +482,41 @@ struct BsonType {
 }
 
 /**
+ * Geometry logical type annotation (added in 2.11.0)
+ */
+struct GeometryType {
+  /**
+   * Physical type and encoding for the geometry type.
+   * Please refer to the definition of GeometryEncoding for more detail.
+   */
+  1: required GeometryEncoding encoding;
+  /**
+   * Interpretation for edges of elements of a GEOMETRY logical type, i.e. whether
+   * the interpolation between points along an edge represents a straight cartesian
+   * line or the shortest line on the sphere.
+   * Please refer to the definition of Edges for more detail.
+   */
+  2: required Edges edges;
+  /**
+   * CRS (coordinate reference system) is a mapping of how coordinates refer to
+   * precise locations on earth. A crs is specified by a string, which is a Parquet
+   * file metadata field whose value is the crs representation. An additional field
+   * with the suffix '.type' describes the encoding of this CRS representation.
+   *
+   * For example, if a geometry column (e.g., 'geom1') uses the CRS 'OGC:CRS84', the
+   * writer may create 2 file metadata fields: 'geom1_crs' and 'geom1_crs.type', and
+   * set the 'crs' field to 'geom1_crs'. The 'geom1_crs' field will contain the
+   * PROJJSON representation of OGC:CRS84
+   * (https://github.com/opengeospatial/geoparquet/blob/main/format-specs/geoparquet.md#ogccrs84-details),
+   * and the 'geom1_crs.type' field will contain the string 'PROJJSON'.
+   *
+   * Multiple geometry columns can refer to the same CRS metadata field
+   * (e.g., 'geom1_crs') if they share the same CRS.
+   */
+  3: optional string crs;
+}
+
+/**
  * LogicalType annotations to replace ConvertedType.
  *
  * To maintain compatibility, implementations using LogicalType for a
@@ -404,6 +546,7 @@ union LogicalType {
   13: BsonType BSON           // use ConvertedType BSON
   14: UUIDType UUID           // no compatible ConvertedType
   15: Float16Type FLOAT16     // no compatible ConvertedType
+  16: GeometryType GEOMETRY   // no compatible ConvertedType
 }
 
 /**
@@ -527,12 +670,15 @@ enum Encoding {
    */
   RLE_DICTIONARY = 8;
 
-  /** Encoding for floating-point data.
+  /** Encoding for fixed-width data (FLOAT, DOUBLE, INT32, INT64, FIXED_LEN_BYTE_ARRAY).
       K byte-streams are created where K is the size in bytes of the data type.
-      The individual bytes of an FP value are scattered to the corresponding stream and
+      The individual bytes of a value are scattered to the corresponding stream and
       the streams are concatenated.
       This itself does not reduce the size of the data but can lead to better compression
       afterwards.
+
+      Added in 2.8 for FLOAT and DOUBLE.
+      Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
    */
   BYTE_STREAM_SPLIT = 9;
 }
@@ -736,10 +882,10 @@ struct PageHeader {
 }
 
 /**
- * Wrapper struct to specify sort order
+ * Sort order within a RowGroup of a leaf column
  */
 struct SortingColumn {
-  /** The column index (in this row group) **/
+  /** The ordinal position of the column (in this row group) **/
   1: required i32 column_idx
 
   /** If true, indicates this column is sorted in descending order. **/
@@ -789,7 +935,7 @@ struct ColumnMetaData {
   /** total byte size of all uncompressed pages in this column chunk (including the headers) **/
   6: required i64 total_uncompressed_size
 
-  /** total byte size of all compressed, and potentially encrypted, pages 
+  /** total byte size of all compressed, and potentially encrypted, pages
    *  in this column chunk (including the headers) **/
   7: required i64 total_compressed_size
 
@@ -904,10 +1050,10 @@ struct RowGroup {
    * in this row group **/
   5: optional i64 file_offset
 
-  /** Total byte size of all compressed (and potentially encrypted) column data 
+  /** Total byte size of all compressed (and potentially encrypted) column data
    *  in this row group **/
   6: optional i64 total_compressed_size
-  
+
   /** Row group ordinal in the file **/
   7: optional i16 ordinal
 }
@@ -946,12 +1092,13 @@ union ColumnOrder {
    *   TIME_MICROS - signed comparison
    *   TIMESTAMP_MILLIS - signed comparison
    *   TIMESTAMP_MICROS - signed comparison
-   *   INTERVAL - unsigned comparison
+   *   INTERVAL - undefined
    *   JSON - unsigned byte-wise comparison
    *   BSON - unsigned byte-wise comparison
    *   ENUM - unsigned byte-wise comparison
    *   LIST - undefined
    *   MAP - undefined
+   *   GEOMETRY - undefined, use GeometryStatistics instead.
    *
    * In the absence of logical types, the sort order is determined by the physical type:
    *   BOOLEAN - false, true
@@ -971,7 +1118,7 @@ union ColumnOrder {
    *     - If the min is +0, the row group may contain -0 values as well.
    *     - If the max is -0, the row group may contain +0 values as well.
    *     - When looking for NaN values, min and max should be ignored.
-   * 
+   *
    *     When writing statistics the following rules should be followed:
    *     - NaNs should not be written to min or max statistics fields.
    *     - If the computed max value is zero (whether negative or positive),
@@ -999,6 +1146,13 @@ struct PageLocation {
   3: required i64 first_row_index
 }
 
+/**
+ * Optional offsets for each data page in a ColumnChunk.
+ *
+ * Forms part of the page index, along with ColumnIndex.
+ *
+ * OffsetIndex may be present even if ColumnIndex is not.
+ */
 struct OffsetIndex {
   /**
    * PageLocations, ordered by increasing PageLocation.offset. It is required
@@ -1015,8 +1169,14 @@ struct OffsetIndex {
 }
 
 /**
- * Description for ColumnIndex.
- * Each <array-field>[i] refers to the page at OffsetIndex.page_locations[i]
+ * Optional statistics for each data page in a ColumnChunk.
+ *
+ * Forms part the page index, along with OffsetIndex.
+ *
+ * If this structure is present, OffsetIndex must also be present.
+ *
+ * For each field in this structure, <field>[i] refers to the page at
+ * OffsetIndex.page_locations[i]
  */
 struct ColumnIndex {
   /**
@@ -1070,6 +1230,8 @@ struct ColumnIndex {
     **/
    7: optional list<i64> definition_level_histograms;
 
+   /** A list containing statistics of GEOMETRY logical type for each page */
+   8: optional list<GeometryStatistics> geometry_stats;
 }
 
 struct AesGcmV1 {
@@ -1149,31 +1311,30 @@ struct FileMetaData {
    */
   7: optional list<ColumnOrder> column_orders;
 
-  /** 
+  /**
    * Encryption algorithm. This field is set only in encrypted files
    * with plaintext footer. Files with encrypted footer store algorithm id
    * in FileCryptoMetaData structure.
    */
   8: optional EncryptionAlgorithm encryption_algorithm
 
-  /** 
-   * Retrieval metadata of key used for signing the footer. 
-   * Used only in encrypted files with plaintext footer. 
-   */ 
+  /**
+   * Retrieval metadata of key used for signing the footer.
+   * Used only in encrypted files with plaintext footer.
+   */
   9: optional binary footer_signing_key_metadata
 }
 
 /** Crypto metadata for files with encrypted footer **/
 struct FileCryptoMetaData {
-  /** 
+  /**
    * Encryption algorithm. This field is only used for files
    * with encrypted footer. Files with plaintext footer store algorithm id
    * inside footer (FileMetaData structure).
    */
   1: required EncryptionAlgorithm encryption_algorithm
-    
-  /** Retrieval metadata of key used for encryption of footer, 
+
+  /** Retrieval metadata of key used for encryption of footer,
    *  and (possibly) columns **/
   2: optional binary key_metadata
 }
-

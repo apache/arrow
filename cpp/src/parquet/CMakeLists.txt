@@ -375,6 +375,7 @@ add_parquet_test(internals-test
                  statistics_test.cc
                  encoding_test.cc
                  metadata_test.cc
+                 geometry_util_internal_test.cc
                  page_index_test.cc
                  public_api_test.cc
                  types_test.cc)
