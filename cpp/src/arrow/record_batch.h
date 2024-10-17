@@ -282,6 +282,18 @@ class ARROW_EXPORT RecordBatch {
 
   virtual DeviceAllocationType device_type() const = 0;
 
+  /// \brief Create a statistics array of this record batch
+  ///
+  /// The created array follows the C data interface statistics
+  /// specification. See
+  /// https://arrow.apache.org/docs/format/CDataInterfaceStatistics.html
+  /// for details.
+  ///
+  /// \param[in] pool the memory pool to allocate memory from
+  /// \return the statistics array of this record batch
+  Result<std::shared_ptr<Array>> MakeStatisticsArray(
+      MemoryPool* pool = default_memory_pool()) const;
+
  protected:
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);
 
