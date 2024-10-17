@@ -55,6 +55,7 @@ python arrow\dev\release\download_rc_binaries.py %ARROW_VERSION% %RC_NUMBER% ^
 call deactivate
 
 set ARROW_TEST_DATA=%cd%\arrow\testing\data
+set PARQUET_TEST_DATA=%cd%\arrow\cpp\submodules\parquet-testing\data
 
 
 CALL :verify_wheel 3.9
