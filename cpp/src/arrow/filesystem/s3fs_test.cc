@@ -943,7 +943,7 @@ TEST_F(TestS3FS, GetFileInfoGenerator) {
 class TestS3FSHTTP : public TestS3FS {
  public:
   void SetUp() override {
-    enable_tls_if_supported_ = false;
+    enable_tls_if_supported_ = true;
     TestS3FS::SetUp();
   }
 };
