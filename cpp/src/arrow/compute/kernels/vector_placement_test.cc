@@ -918,7 +918,7 @@ TYPED_TEST(TestPermuteString, Basic) {
 
 namespace {
 
-/// Execute an if-else expression using regular expression evaluation, as a reference.
+/// Execute an if-else expression using regular evaluation, as a reference.
 Result<Datum> ExecuteIfElseByExpr(const Expression& cond, const Expression& if_true,
                                   const Expression& if_false,
                                   const std::shared_ptr<Schema>& schema,
@@ -1038,20 +1038,24 @@ TEST(Permute, IfElse) {
     auto if_true = call("divide", {field_ref("a"), field_ref("b")});
     auto if_false = field_ref("b");
     auto schema = arrow::schema({field("a", int32()), field("b", int32())});
-    {
-      auto rb = RecordBatchFromJSON(schema, R"([
+    auto rb = RecordBatchFromJSON(schema, R"([
         [1, 1],
         [2, 1],
         [3, 0],
         [4, 1],
         [5, 1]
       ])");
-      auto input = ExecBatch(*rb);
+    auto input = ExecBatch(*rb);
 
+    {
+      ARROW_SCOPED_TRACE("Regular evaluation");
       ASSERT_RAISES_WITH_MESSAGE(
           Invalid, "Invalid: divide by zero",
           ExecuteIfElseByExpr(cond, if_true, if_false, schema, input));
+    }
 
+    {
+      ARROW_SCOPED_TRACE("Special form");
       auto expected = ArrayFromJSON(int32(), "[1, 2, 0, 4, 5]");
       DoTestIfElse(cond, if_true, if_false, schema, input, expected);
     }
