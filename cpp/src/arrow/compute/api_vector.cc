@@ -155,6 +155,11 @@ static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
 static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>(
     DataMember("recursive", &ListFlattenOptions::recursive));
+static auto kReverseIndicesOptionsType = GetFunctionOptionsType<ReverseIndicesOptions>(
+    DataMember("output_length", &ReverseIndicesOptions::output_length),
+    DataMember("output_type", &ReverseIndicesOptions::output_type));
+static auto kPermuteOptionsType = GetFunctionOptionsType<PermuteOptions>(
+    DataMember("output_length", &PermuteOptions::output_length));
 }  // namespace
 }  // namespace internal
 
@@ -230,6 +235,17 @@ ListFlattenOptions::ListFlattenOptions(bool recursive)
     : FunctionOptions(internal::kListFlattenOptionsType), recursive(recursive) {}
 constexpr char ListFlattenOptions::kTypeName[];
 
+ReverseIndicesOptions::ReverseIndicesOptions(int64_t output_length,
+                                             std::shared_ptr<DataType> output_type)
+    : FunctionOptions(internal::kReverseIndicesOptionsType),
+      output_length(output_length),
+      output_type(std::move(output_type)) {}
+constexpr char ReverseIndicesOptions::kTypeName[];
+
+PermuteOptions::PermuteOptions(int64_t output_length)
+    : FunctionOptions(internal::kPermuteOptionsType), output_length(output_length) {}
+constexpr char PermuteOptions::kTypeName[];
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -244,6 +260,8 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPairwiseOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kListFlattenOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kReverseIndicesOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kPermuteOptionsType));
 }
 }  // namespace internal
 
@@ -427,6 +445,19 @@ Result<Datum> CumulativeMin(const Datum& values, const CumulativeOptions& option
 Result<Datum> CumulativeMean(const Datum& values, const CumulativeOptions& options,
                              ExecContext* ctx) {
   return CallFunction("cumulative_mean", {Datum(values)}, &options, ctx);
+}
+
+// ----------------------------------------------------------------------
+// Placement functions
+
+Result<Datum> ReverseIndices(const Datum& indices, const ReverseIndicesOptions& options,
+                             ExecContext* ctx) {
+  return CallFunction("reverse_indices", {indices}, &options, ctx);
+}
+
+Result<Datum> Permute(const Datum& values, const Datum& indices,
+                      const PermuteOptions& options, ExecContext* ctx) {
+  return CallFunction("permute", {values, indices}, &options, ctx);
 }
 
 }  // namespace compute
