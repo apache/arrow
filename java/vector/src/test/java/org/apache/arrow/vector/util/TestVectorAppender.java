@@ -34,6 +34,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.compare.TypeEqualsVisitor;
@@ -168,6 +169,32 @@ public class TestVectorAppender {
             "a12", "a13", null);
         assertVectorsEqual(expected, target);
       }
+    }
+  }
+
+  @Test
+  public void testAppendVariableWidthViewVector() {
+    final int length1 = 10;
+    final int length2 = 5;
+    try (ViewVarCharVector target = new ViewVarCharVector("", allocator);
+        ViewVarCharVector delta = new ViewVarCharVector("", allocator)) {
+
+      target.setValueCount(length1);
+      delta.setValueCount(length2);
+
+      for (int i = 0; i < length1; i++) {
+        target.setSafe(i, (i + "xxxxxxxxxxxx").getBytes());
+      }
+
+      for (int i = 0; i < length2; i++) {
+        delta.setSafe(i, (i + "xxxxxxxxxxxx").getBytes());
+      }
+
+      VectorAppender appender = new VectorAppender(target);
+      delta.accept(appender, null);
+
+      assertEquals(15, target.getValueCount());
+      target.accept(new RangeEqualsVisitor(target, delta), new Range(10, 0, 5));
     }
   }
 
