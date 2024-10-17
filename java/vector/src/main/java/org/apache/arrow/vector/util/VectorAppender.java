@@ -284,18 +284,18 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // append view buffer
     ArrowBuf targetViewBuffer = targetVector.getDataBuffer();
-    int ELEMENT_SIZE = BaseVariableWidthViewVector.ELEMENT_SIZE;
     MemoryUtil.copyMemory(
         deltaVector.getDataBuffer().memoryAddress(),
-        targetViewBuffer.memoryAddress() + (long) ELEMENT_SIZE * oldTargetValueCount,
-        (long) ELEMENT_SIZE * deltaVector.getValueCount());
+        targetViewBuffer.memoryAddress()
+            + (long) BaseVariableWidthViewVector.ELEMENT_SIZE * oldTargetValueCount,
+        (long) BaseVariableWidthViewVector.ELEMENT_SIZE * deltaVector.getValueCount());
 
     // update view buffer
     for (int i = oldTargetValueCount; i < newValueCount; i++) {
       if (targetViewVector.isSet(i) > 0
           && targetViewVector.getValueLength(i) > BaseVariableWidthViewVector.INLINE_SIZE) {
         long start =
-            (long) i * ELEMENT_SIZE
+            (long) i * BaseVariableWidthViewVector.ELEMENT_SIZE
                 + BaseVariableWidthViewVector.LENGTH_WIDTH
                 + BaseVariableWidthViewVector.PREFIX_WIDTH;
         // shift buf id
