@@ -561,7 +561,7 @@ def mask(indices, length, MemoryPool memory_pool=None):
     --------
     >>> import pyarrow as pa
     >>> pa.mask([1, 3], length=5)
-    <pyarrow.lib.BooleanArray object at 0x7dad0f6b6080>
+    <pyarrow.lib.BooleanArray object at ...>
     [
       false,
       true,
