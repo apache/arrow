@@ -60,7 +60,7 @@ set PARQUET_TEST_DATA=%cd%\arrow\cpp\submodules\parquet-testing\data
 @rem Download IANA Timezone Database for ORC C++
 curl https://cygwin.osuosl.org/noarch/release/tzdata/tzdata-2024a-1.tar.xz --output tzdata.tar.xz || exit /B
 mkdir %USERPROFILE%\Downloads\test\tzdata
-arc unarchive tzdata.tar.xz %USERPROFILE%\Downloads\test\tzdata
+tar --extract --file tzdata.tar.xz --directory %USERPROFILE%\Downloads\test\tzdata
 set TZDIR=%USERPROFILE%\Downloads\test\tzdata\usr\share\zoneinfo
 
 CALL :verify_wheel 3.9
