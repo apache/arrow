@@ -1084,11 +1084,11 @@ test_macos_wheels() {
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
     local python_versions="3.9 3.10 3.11 3.12 3.13"
-    local platform_tags="macosx_11_0_arm64"
+    local platform_tags="macosx_12_0_arm64"
     local check_flight=OFF
   else
     local python_versions="3.9 3.10 3.11 3.12 3.13"
-    local platform_tags="macosx_10_15_x86_64"
+    local platform_tags="macosx_12_0_x86_64"
   fi
 
   if [ "${SOURCE_KIND}" != "local" ]; then
