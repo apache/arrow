@@ -1974,7 +1974,6 @@ def get_generated_json_files(tempdir=None):
 
         generate_run_end_encoded_case()
         .skip_tester('C#')
-        .skip_tester('Java')
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
