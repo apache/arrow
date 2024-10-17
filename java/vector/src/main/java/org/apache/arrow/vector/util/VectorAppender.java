@@ -19,6 +19,8 @@ package org.apache.arrow.vector.util;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
 import java.util.HashSet;
+import java.util.List;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -247,8 +249,63 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
   }
 
   @Override
-  public ValueVector visit(BaseVariableWidthViewVector left, Void value) {
-    throw new UnsupportedOperationException("View vectors are not supported.");
+  public ValueVector visit(BaseVariableWidthViewVector deltaVector, Void value) {
+    Preconditions.checkArgument(
+        typeVisitor.equals(deltaVector),
+        "The targetVector to append must have the same type as the targetVector being appended");
+
+    if (deltaVector.getValueCount() == 0) {
+      return targetVector; // nothing to append, return
+    }
+
+    int oldTargetValueCount = targetVector.getValueCount();
+    int newValueCount = oldTargetValueCount + deltaVector.getValueCount();
+
+    // make sure there is enough capacity
+    while (targetVector.getValueCapacity() < newValueCount) {
+      targetVector.reAlloc();
+    }
+
+    // append validity buffer
+    BitVectorHelper.concatBits(
+        targetVector.getValidityBuffer(),
+        oldTargetValueCount,
+        deltaVector.getValidityBuffer(),
+        deltaVector.getValueCount(),
+        targetVector.getValidityBuffer());
+
+    // append data buffers
+    BaseVariableWidthViewVector targetViewVector = (BaseVariableWidthViewVector) targetVector;
+    List<ArrowBuf> targetDataBuffers = targetViewVector.getDataBuffers();
+    final int oldTargetDataBufferCount = targetDataBuffers.size();
+    List<ArrowBuf> deltaVectorDataBuffers = deltaVector.getDataBuffers();
+    deltaVectorDataBuffers.forEach(buf -> buf.getReferenceManager().retain());
+    targetDataBuffers.addAll(deltaVectorDataBuffers);
+
+    // append view buffer
+    ArrowBuf targetViewBuffer = targetVector.getDataBuffer();
+    int ELEMENT_SIZE = BaseVariableWidthViewVector.ELEMENT_SIZE;
+    MemoryUtil.copyMemory(
+        deltaVector.getDataBuffer().memoryAddress(),
+        targetViewBuffer.memoryAddress() + (long) ELEMENT_SIZE * oldTargetValueCount,
+        (long) ELEMENT_SIZE * deltaVector.getValueCount());
+
+    // update view buffer
+    for (int i = oldTargetValueCount; i < newValueCount; i++) {
+      if (targetViewVector.isSet(i) > 0
+          && targetViewVector.getValueLength(i) > BaseVariableWidthViewVector.INLINE_SIZE) {
+        long start =
+            (long) i * ELEMENT_SIZE
+                + BaseVariableWidthViewVector.LENGTH_WIDTH
+                + BaseVariableWidthViewVector.PREFIX_WIDTH;
+        // shift buf id
+        int bufferId = targetViewBuffer.getInt(start);
+        targetViewBuffer.setInt(start, bufferId + oldTargetDataBufferCount);
+      }
+    }
+
+    targetVector.setValueCount(newValueCount);
+    return targetVector;
   }
 
   @Override
