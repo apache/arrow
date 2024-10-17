@@ -80,6 +80,14 @@ void DeletePointer(std::shared_ptr<T>* ptr) {
 template <typename T>
 using Pointer = cpp11::external_pointer<std::shared_ptr<T>, DeletePointer<T>>;
 
+#if ARROW_MAJOR_VERSION >= 18
+using ChunkResolver = arrow::ChunkResolver;
+using ChunkLocation = arrow::ChunkLocation;
+#else
+using ChunkResolver = arrow::internal::ChunkResolver;
+using ChunkLocation = arrow::internal::ChunkLocation;
+#endif
+
 class ArrowAltrepData {
  public:
   explicit ArrowAltrepData(const std::shared_ptr<ChunkedArray>& chunked_array)
@@ -87,11 +95,11 @@ class ArrowAltrepData {
 
   const std::shared_ptr<ChunkedArray>& chunked_array() { return chunked_array_; }
 
-  arrow::ChunkLocation locate(int64_t index) { return resolver_.Resolve(index); }
+  ChunkLocation locate(int64_t index) { return resolver_.Resolve(index); }
 
  private:
   std::shared_ptr<ChunkedArray> chunked_array_;
-  arrow::ChunkResolver resolver_;
+  ChunkResolver resolver_;
 };
 
 // the ChunkedArray that is being wrapped by the altrep object
