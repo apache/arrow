@@ -337,7 +337,8 @@ ARROW_PYFLIGHT_EXPORT
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const arrow::flight::FlightDescriptor& descriptor,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,
-                        int64_t total_records, int64_t total_bytes,
+                        int64_t total_records, int64_t total_bytes, bool ordered,
+                        const std::string& app_metadata,
                         std::unique_ptr<arrow::flight::FlightInfo>* out);
 
 /// \brief Create a SchemaResult from schema.
