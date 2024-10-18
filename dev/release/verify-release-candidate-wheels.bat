@@ -56,7 +56,6 @@ call deactivate
 
 set ARROW_TEST_DATA=%cd%\arrow\testing\data
 set PARQUET_TEST_DATA=%cd%\arrow\cpp\submodules\parquet-testing\data
-set TZDIR=c:\msys64\usr\share\zoneinfo
 
 CALL :verify_wheel 3.9
 if errorlevel 1 GOTO error
