@@ -2511,4 +2511,77 @@ Result<std::shared_ptr<ChunkedArray>> ImportDeviceChunkedArray(
   return ImportChunked</*IsDevice=*/true>(stream, mapper);
 }
 
+namespace {
+class AsyncRecordBatchReader {
+ public:  
+  struct PrivateData {
+    explicit PrivateData(std::shared_ptr<AsyncRecordBatchReader> rdr)
+      : rdr_(std::move(rdr)) {}
+
+    std::shared_ptr<AsyncRecordBatchReader> rdr_;    
+    ARROW_DISALLOW_COPY_AND_ASSIGN(PrivateData);
+  };
+
+  const Future<std::shared_ptr<Schema>>& schema() const {
+    return fut_schema_;
+  }
+
+  static Status MakeHandler(std::shared_ptr<AsyncRecordBatchReader> rdr, ArrowAsyncDeviceStreamHandler* out) {
+    out->private_data = new AsyncRecordBatchReader::PrivateData{std::move(rdr)};
+    out->on_schema = AsyncRecordBatchReader::on_schema;
+    out->on_next_task = AsyncRecordBatchReader::on_next_task;
+    out->on_error = AsyncRecordBatchReader::on_error;
+    out->release = AsyncRecordBatchReader::release;
+    return Status::OK();
+  }
+ protected:
+  static int on_schema(ArrowAsyncDeviceStreamHandler* self, ArrowSchema* stream_schema, const char* additional_metadata) {    
+    auto private_data = reinterpret_cast<AsyncRecordBatchReader::PrivateData*>(self->private_data);
+    if (self->producer == nullptr) {
+      private_data->rdr_->producer_ = self->producer;
+      private_data->rdr_->device_type_ = static_cast<DeviceAllocationType>(self->producer->device_type);
+    }
+
+    auto maybe_schema = ImportSchema(stream_schema);
+    if (!maybe_schema.ok()) {
+      private_data->rdr_->error_code_ = EINVAL;
+      private_data->rdr_->error_message_ = maybe_schema.status().ToString();
+      return EINVAL;   
+    }    
+    
+    auto schema = maybe_schema.MoveValueUnsafe();
+    private_data->rdr_->schema_ = schema;
+    private_data->rdr_->fut_schema_.MarkFinished(schema);
+    return 0;
+  }
+
+  static int on_next_task(ArrowAsyncDeviceStreamHandler* self, ArrowAsyncTask* task, const char* metadata) {
+    
+  }
+
+  static void on_error(ArrowAsyncDeviceStreamHandler* self, int code, const char* message, const char* metadata) {
+
+  }
+
+  static void release(ArrowAsyncDeviceStreamHandler* self) {
+    auto private_data = reinterpret_cast<AsyncRecordBatchReader::PrivateData*>(self->private_data);
+    delete private_data;
+  }
+
+  Future<std::shared_ptr<Schema>> fut_schema_;
+  std::shared_ptr<Schema> schema_;
+  DeviceAllocationType device_type_;
+  ArrowAsyncProducer* producer_;
+
+
+
+  int error_code_;
+  std::string error_message_;
+  std::string error_metadata_;
+};
+
+
+
+}  // namespace
+
 }  // namespace arrow
