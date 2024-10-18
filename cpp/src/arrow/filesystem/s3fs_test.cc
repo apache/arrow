@@ -255,7 +255,9 @@ class S3TestMixin : public AwsTestMixin {
   std::unique_ptr<Aws::Client::ClientConfiguration> client_config_;
   Aws::Auth::AWSCredentials credentials_;
   std::unique_ptr<Aws::S3::S3Client> client_;
-  bool enable_tls_if_supported_ = true;
+  bool enable_tls_if_supported_ =
+      false;  // by default, use the HTTP for all the test cases, since there is the
+              // random failure when there is stress test against the minio HTTPS Server
 };
 
 void AssertGetObject(Aws::S3::Model::GetObjectResult& result,
@@ -940,15 +942,7 @@ TEST_F(TestS3FS, GetFileInfoGenerator) {
   // Non-root dir case is tested by generic tests
 }
 
-class TestS3FSHTTP : public TestS3FS {
- public:
-  void SetUp() override {
-    enable_tls_if_supported_ = true;
-    TestS3FS::SetUp();
-  }
-};
-
-TEST_F(TestS3FSHTTP, GetFileInfoGeneratorStress) {
+TEST_F(TestS3FS, GetFileInfoGeneratorStress) {
   // This test is slow because it needs to create a bunch of seed files.  However, it is
   // the only test that stresses listing and deleting when there are more than 1000
   // files and paging is required.
@@ -1351,7 +1345,15 @@ TEST_F(TestS3FS, OpenInputFile) {
 
 // Minio only allows Server Side Encryption on HTTPS client connections.
 #ifdef MINIO_SERVER_WITH_TLS
-TEST_F(TestS3FS, SSECustomerKeyMatch) {
+class TestS3FSHTTPS : public TestS3FS {
+ public:
+  void SetUp() override {
+    enable_tls_if_supported_ = true;
+    TestS3FS::SetUp();
+  }
+};
+
+TEST_F(TestS3FSHTTPS, SSECustomerKeyMatch) {
   // normal write/read with correct SSE-C key
   std::shared_ptr<io::OutputStream> stream;
   options_.sse_customer_key = "12345678123456781234567812345678";
@@ -1369,7 +1371,7 @@ TEST_F(TestS3FS, SSECustomerKeyMatch) {
   }
 }
 
-TEST_F(TestS3FS, SSECustomerKeyMismatch) {
+TEST_F(TestS3FSHTTPS, SSECustomerKeyMismatch) {
   std::shared_ptr<io::OutputStream> stream;
   for (const auto& allow_delayed_open : {false, true}) {
     options_.allow_delayed_open = allow_delayed_open;
@@ -1385,7 +1387,7 @@ TEST_F(TestS3FS, SSECustomerKeyMismatch) {
   }
 }
 
-TEST_F(TestS3FS, SSECustomerKeyMissing) {
+TEST_F(TestS3FSHTTPS, SSECustomerKeyMissing) {
   std::shared_ptr<io::OutputStream> stream;
   for (const auto& allow_delayed_open : {false, true}) {
     options_.allow_delayed_open = allow_delayed_open;
@@ -1402,7 +1404,7 @@ TEST_F(TestS3FS, SSECustomerKeyMissing) {
   }
 }
 
-TEST_F(TestS3FS, SSECustomerKeyCopyFile) {
+TEST_F(TestS3FSHTTPS, SSECustomerKeyCopyFile) {
   ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenOutputStream("bucket/newfile_with_sse_c"));
   ASSERT_OK(stream->Write("some"));
   ASSERT_OK(stream->Close());

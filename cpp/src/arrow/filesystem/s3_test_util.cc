@@ -50,7 +50,7 @@ const char* kEnvConnectString = "ARROW_TEST_S3_CONNECT_STRING";
 const char* kEnvAccessKey = "ARROW_TEST_S3_ACCESS_KEY";
 const char* kEnvSecretKey = "ARROW_TEST_S3_SECRET_KEY";
 
-std::string GenerateConnectString() { return GetListenAddress("localhost"); }
+std::string GenerateConnectString() { return GetListenAddress(); }
 
 }  // namespace
 
@@ -145,7 +145,10 @@ Status MinioTestServer::Start(bool enable_tls_if_supported) {
     minio_args.push_back("--certs-dir");
     minio_args.push_back(ca_dir_path());
     impl_->scheme_ = "https";
-#endif  // MINIO_SERVER_WITH_TLS
+    impl_->connect_string_ =
+        GetListenAddress("localhost");  // for TLS enabled case, we need to use localhost
+                                        // which is the fixed hostname in the certificate
+#endif                                  // MINIO_SERVER_WITH_TLS
   }
 
   ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
