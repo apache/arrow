@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/compute/function.h>
+#include <arrow/compute/registry.h>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -351,6 +354,24 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
   }
 }
 
+// this kernel delays execution for some specific scalar values
+Status delay(compute::KernelContext* ctx, const compute::ExecSpan& batch,
+             compute::ExecResult* out) {
+  const ArraySpan& input = batch[0].array;
+  const uint32_t* input_values = input.GetValues<uint32_t>(1);
+  uint8_t* output_values = out->array_span()->buffers[1].data;
+
+  // Boolean data is stored in 1 bit per value
+  for (int64_t i = 0; i < input.length; ++i) {
+    if (input_values[i] % 16 == 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    bit_util::SetBitTo(output_values, i, true);
+  }
+
+  return Status::OK();
+}
+
 TEST_F(TestFileSystemDataset, WritePersistOrder) {
   // Test for ARROW-26818
   auto format = std::make_shared<IpcFileFormat>();
@@ -363,11 +384,23 @@ TEST_F(TestFileSystemDataset, WritePersistOrder) {
   auto table = gen::Gen({gen::Step()})->FailOnError()->Table(2, 1024);
   auto dataset = std::make_shared<InMemoryDataset>(table);
 
-  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
-  ARROW_CHECK_OK(scanner_builder->UseThreads(true));
-  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+  // register the scalar function that delays execution for some rows
+  // this guarantees the writing phase sees out-of-order exec batches
+  auto delay_func = std::make_shared<compute::ScalarFunction>("delay", compute::Arity(1),
+                                                              compute::FunctionDoc());
+  compute::ScalarKernel delay_kernel;
+  delay_kernel.exec = delay;
+  delay_kernel.signature = compute::KernelSignature::Make({uint32()}, boolean());
+  ARROW_CHECK_OK(delay_func->AddKernel(delay_kernel));
+  ARROW_CHECK_OK(compute::GetFunctionRegistry()->AddFunction(delay_func));
 
   for (bool preserve_order : {true, false}) {
+    ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+    ARROW_CHECK_OK(scanner_builder->UseThreads(true));
+    ARROW_CHECK_OK(
+        scanner_builder->Filter(compute::call("delay", {compute::field_ref("f0")})));
+    ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+
     auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
     write_options.filesystem = fs;
     write_options.preserve_order = preserve_order;
@@ -386,7 +419,7 @@ TEST_F(TestFileSystemDataset, WritePersistOrder) {
     std::shared_ptr<RecordBatch> batch;
     ABORT_NOT_OK(reader.ReadNext(&batch));
     int32_t prev = -1;
-    auto out_of_order = false;
+    int out_of_order = 0;
     while (batch != nullptr) {
       for (int row = 0; row < batch->num_rows(); ++row) {
         auto scalar = batch->column(0)->GetScalar(row).ValueOrDie();
@@ -394,16 +427,13 @@ TEST_F(TestFileSystemDataset, WritePersistOrder) {
             std::static_pointer_cast<arrow::NumericScalar<arrow::Int32Type>>(scalar);
         int32_t value = numeric_scalar->value;
         if (value <= prev) {
-          out_of_order = true;
+          out_of_order++;
         }
         prev = value;
       }
       ABORT_NOT_OK(reader.ReadNext(&batch));
     }
-    // TODO: this currently fails because out-of-order batches cannot be reproduced with
-    // this test how can we guarantee that table written with preserve_order = false is
-    // out of order? Other than SimpleWriteNodeTest.SequenceOutput in write_node_test.cc
-    ASSERT_EQ(out_of_order, !preserve_order);
+    ASSERT_EQ(out_of_order > 0, !preserve_order);
   }
 }
 
