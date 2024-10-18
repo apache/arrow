@@ -128,6 +128,10 @@ ARROW_TESTING_EXPORT int GetListenPort();
 // port conflicts.
 ARROW_TESTING_EXPORT std::string GetListenAddress();
 
+// Get a "host:port" to listen on. Compared to GetListenAddress(), this function would use
+// the host passed in.
+ARROW_TESTING_EXPORT std::string GetListenAddress(const std::string& host);
+
 ARROW_TESTING_EXPORT
 const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types();
 
