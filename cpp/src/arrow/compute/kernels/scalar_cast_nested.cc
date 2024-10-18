@@ -355,10 +355,6 @@ struct CastStruct {
       const auto& in_field = in_type.field(in_field_index);
       const auto& out_field = out_type.field(out_field_index);
       if (in_field->name() == out_field->name()) {
-        if (in_field->nullable() && !out_field->nullable()) {
-          return Status::TypeError("cannot cast nullable field to non-nullable field: ",
-                                   in_type.ToString(), " ", out_type.ToString());
-        }
         fields_to_select[out_field_index++] = in_field_index;
       }
     }
@@ -382,10 +378,16 @@ struct CastStruct {
     for (int field_index : fields_to_select) {
       const auto& values = (in_array.child_data[field_index].ToArrayData()->Slice(
           in_array.offset, in_array.length));
-      const auto& target_type = out->type()->field(out_field_index++)->type();
+      const auto& target_field = out->type()->field(out_field_index++);
 
-      ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-                            Cast(values, target_type, options, ctx->exec_context()));
+      if (!target_field->nullable() && values->null_count > 0) {
+        return Status::TypeError("field '", target_field->name(),
+                                 "' has nulls. Can't cast to non-nullable type ",
+                                 target_field->type()->ToString());
+      }
+
+      ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(values, target_field->type(), options,
+                                                    ctx->exec_context()));
 
       DCHECK(cast_values.is_array());
       out_array->child_data.push_back(cast_values.array());
