@@ -1235,6 +1235,20 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
         ty = ensure_type(type)
         options.type = ty.sp_type
 
+    cdef shared_ptr[CArray] c_array
+    cdef shared_ptr[CScalar] c_scalar
+
+    if hasattr(value, "__arrow_c_array__"):
+        c_array = pyarrow_unwrap_array(value.__arrow_c_array__())
+        if c_array.get().length() != 1:
+            raise ValueError("Expected a length-1 array for scalar construction")
+        with nogil:
+            c_scalar = GetResultValue(c_array.get().GetScalar(0))
+        result = Scalar.wrap(c_scalar)
+        if extension_type is not None:
+            result = ExtensionScalar.from_storage(extension_type, result)
+        return result
+
     if from_pandas is None:
         options.from_pandas = is_pandas_object
     else:
