@@ -280,6 +280,9 @@ struct ArrowAsyncTask {
 // control on the asynchronous stream processing. This object must be owned by the
 // producer who creates it, and thus is responsible for cleaning it up.
 struct ArrowAsyncProducer {
+  // The device type that this stream produces data on.
+  ArrowDeviceType device_type;
+
   // A consumer must call this function to start receiving on_next_task calls.
   //
   // It *must* be valid to call this synchronously from within `on_next_task` or
@@ -335,7 +338,7 @@ struct ArrowAsyncProducer {
 // defined callbacks, this is intended to be created by the consumer instead.
 // The consumer passes this handler to the producer, which in turn uses the
 // callbacks to inform the consumer of events in the stream.
-struct ArrowAsyncDeviceStreamHandler {
+struct ArrowAsyncDeviceStreamHandler {  
   // Handler for receiving a schema. The passed in stream_schema must be
   // released or moved by the handler (producer is giving ownership of the schema to
   // the handler, but not ownership of the top level object itself).

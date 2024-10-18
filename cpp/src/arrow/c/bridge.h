@@ -406,4 +406,13 @@ Result<std::shared_ptr<ChunkedArray>> ImportDeviceChunkedArray(
 
 /// @}
 
+
+/// \defgroup c-async-stream-interface Functions for working with the async C data interface.
+///
+/// @{
+
+
+
+/// @}
+
 }  // namespace arrow
