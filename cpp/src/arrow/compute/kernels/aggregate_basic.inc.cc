@@ -93,11 +93,16 @@ struct SumImpl : public ScalarAggregator {
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
+    std::shared_ptr<DataType> out_type_ = this->out_type;
+    if (is_decimal(this->out_type->id())) {
+      ARROW_ASSIGN_OR_RAISE(out_type_, WidenDecimalToMaxPrecision(this->out_type));
+    }
+
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {
-      out->value = std::make_shared<OutputType>(out_type);
+      out->value = std::make_shared<OutputType>(out_type_);
     } else {
-      out->value = std::make_shared<OutputType>(this->sum, out_type);
+      out->value = std::make_shared<OutputType>(this->sum, out_type_);
     }
     return Status::OK();
   }
@@ -220,9 +225,12 @@ struct MeanImpl<ArrowType, SimdLevel, enable_if_decimal<ArrowType>>
 
   template <typename T = ArrowType>
   Status FinalizeImpl(Datum* out) {
+    std::shared_ptr<DataType> out_type_;
+    ARROW_ASSIGN_OR_RAISE(out_type_, WidenDecimalToMaxPrecision(this->out_type));
+
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count) || (this->count == 0)) {
-      out->value = std::make_shared<OutputType>(this->out_type);
+      out->value = std::make_shared<OutputType>(out_type_);
     } else {
       SumCType quotient, remainder;
       ARROW_ASSIGN_OR_RAISE(std::tie(quotient, remainder), this->sum.Divide(this->count));
@@ -235,7 +243,7 @@ struct MeanImpl<ArrowType, SimdLevel, enable_if_decimal<ArrowType>>
           quotient -= 1;
         }
       }
-      out->value = std::make_shared<OutputType>(quotient, this->out_type);
+      out->value = std::make_shared<OutputType>(quotient, out_type_);
     }
     return Status::OK();
   }
