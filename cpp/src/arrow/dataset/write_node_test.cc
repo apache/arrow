@@ -18,8 +18,8 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
-#include <memory>
 #include <arrow/compute/api_scalar.h>
+#include <memory>
 
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
@@ -186,7 +186,8 @@ TEST_F(SimpleWriteNodeTest, SequenceOutput) {
   acero::RegisterTestNodes();
 
   // Create an input table
-  std::shared_ptr<Table> table = gen::Gen({gen::Step()})->FailOnError()->Table(kRowsPerBatch, kNumBatches);
+  std::shared_ptr<Table> table =
+      gen::Gen({gen::Step()})->FailOnError()->Table(kRowsPerBatch, kNumBatches);
   auto dataset = std::make_shared<InMemoryDataset>(table);
   auto scan_options = std::make_shared<ScanOptions>();
   scan_options->use_threads = true;
@@ -196,25 +197,29 @@ TEST_F(SimpleWriteNodeTest, SequenceOutput) {
     EXPECT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
     auto exprs = scan_options->projection.call()->arguments;
     auto names = checked_cast<const compute::MakeStructOptions*>(
-      scan_options->projection.call()->options.get()
-    )->field_names;
+                     scan_options->projection.call()->options.get())
+                     ->field_names;
 
     auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
     dataset::WriteNodeOptions write_options(fs_write_options_);
     write_options.write_options.file_write_options = format->DefaultWriteOptions();
     write_options.write_options.base_dir = "root";
-    write_options.write_options.partitioning = std::make_shared<HivePartitioning>(schema({}));
+    write_options.write_options.partitioning =
+        std::make_shared<HivePartitioning>(schema({}));
     write_options.write_options.basename_template = "{i}.feather";
     write_options.write_options.filesystem = fs;
     write_options.write_options.preserve_order = preserve_order;
 
-    // test plan of FileSystemDataset::Write with a jitter node that guarantees exec batches are out of order
+    // test plan of FileSystemDataset::Write with a jitter node that guarantees exec
+    // batches are out of order
     acero::Declaration plan = acero::Declaration::Sequence({
-    {"scan", ScanNodeOptions{dataset, scanner->options(), /*require_sequenced_output=*/false, /*implicit_ordering=*/true}},
-    {"filter", acero::FilterNodeOptions{scanner->options()->filter}},
-    {"project", acero::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-    {"jitter", acero::JitterNodeOptions(kSeed, kJitterMod)},
-    {"write", write_options},
+        {"scan",
+         ScanNodeOptions{dataset, scanner->options(), /*require_sequenced_output=*/false,
+                         /*implicit_ordering=*/true}},
+        {"filter", acero::FilterNodeOptions{scanner->options()->filter}},
+        {"project", acero::ProjectNodeOptions{std::move(exprs), std::move(names)}},
+        {"jitter", acero::JitterNodeOptions(kSeed, kJitterMod)},
+        {"write", write_options},
     });
 
     ASSERT_OK(DeclarationToStatus(plan));
@@ -235,9 +240,12 @@ TEST_F(SimpleWriteNodeTest, SequenceOutput) {
     while (batch != nullptr) {
       for (int row = 0; row < batch->num_rows(); ++row) {
         auto scalar = batch->column(0)->GetScalar(row).ValueOrDie();
-        auto numeric_scalar = std::static_pointer_cast<arrow::NumericScalar<arrow::Int32Type>>(scalar);
+        auto numeric_scalar =
+            std::static_pointer_cast<arrow::NumericScalar<arrow::Int32Type>>(scalar);
         int32_t value = numeric_scalar->value;
-        if (value <= prev) { out_of_order = true; }
+        if (value <= prev) {
+          out_of_order = true;
+        }
         prev = value;
       }
       ABORT_NOT_OK(reader.ReadNext(&batch));

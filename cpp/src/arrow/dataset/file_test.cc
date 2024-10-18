@@ -390,16 +390,19 @@ TEST_F(TestFileSystemDataset, WritePersistOrder) {
     while (batch != nullptr) {
       for (int row = 0; row < batch->num_rows(); ++row) {
         auto scalar = batch->column(0)->GetScalar(row).ValueOrDie();
-        auto numeric_scalar = std::static_pointer_cast<arrow::NumericScalar<arrow::Int32Type>>(scalar);
+        auto numeric_scalar =
+            std::static_pointer_cast<arrow::NumericScalar<arrow::Int32Type>>(scalar);
         int32_t value = numeric_scalar->value;
-        if (value <= prev) { out_of_order = true; }
+        if (value <= prev) {
+          out_of_order = true;
+        }
         prev = value;
       }
       ABORT_NOT_OK(reader.ReadNext(&batch));
     }
-    // TODO: this currently fails because out-of-order batches cannot be reproduced with this test
-    // how can we guarantee that table written with preserve_order = false is out of order?
-    // Other than SimpleWriteNodeTest.SequenceOutput in write_node_test.cc
+    // TODO: this currently fails because out-of-order batches cannot be reproduced with
+    // this test how can we guarantee that table written with preserve_order = false is
+    // out of order? Other than SimpleWriteNodeTest.SequenceOutput in write_node_test.cc
     ASSERT_EQ(out_of_order, !preserve_order);
   }
 }
