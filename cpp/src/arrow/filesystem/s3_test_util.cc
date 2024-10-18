@@ -136,20 +136,24 @@ Status MinioTestServer::Start(bool enable_tls_if_supported) {
   impl_->server_process_->SetEnv("MINIO_BROWSER", "off");
   impl_->connect_string_ = GenerateConnectString();
   // NOTE: --quiet makes startup faster by suppressing remote version check
-  std::vector<std::string> minio_args({"server", "--quiet", "--compat", "--address",
-                                       impl_->connect_string_,
-                                       impl_->temp_dir_->path().ToString()});
+  std::vector<std::string> minio_args({"server", "--quiet", "--compat"});
   if (enable_tls_if_supported) {
 #ifdef MINIO_SERVER_WITH_TLS
     ARROW_RETURN_NOT_OK(GenerateCertificateFile());
-    minio_args.push_back("--certs-dir");
-    minio_args.push_back(ca_dir_path());
+    minio_args.emplace_back("--certs-dir");
+    minio_args.emplace_back(ca_dir_path());
     impl_->scheme_ = "https";
     impl_->connect_string_ =
         GetListenAddress("localhost");  // for TLS enabled case, we need to use localhost
                                         // which is the fixed hostname in the certificate
 #endif                                  // MINIO_SERVER_WITH_TLS
   }
+  minio_args.emplace_back("--address");
+  minio_args.emplace_back(
+      impl_->connect_string_);  // the connect_string_ differs for the http and https,
+                                // https is fixed localhost while http is the dynamic ip
+                                // in range 127.0.0.1/8
+  minio_args.emplace_back(impl_->temp_dir_->path().ToString());
 
   ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
   impl_->server_process_->SetArgs(minio_args);
