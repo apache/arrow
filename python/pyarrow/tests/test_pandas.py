@@ -411,7 +411,9 @@ class TestConvertMetadata:
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] == 'stringz'
         assert column_indexes['name'] == column_indexes['field_name']
-        assert column_indexes['numpy_type'] == 'object'
+        assert column_indexes['numpy_type'] == (
+            'str' if _pandas_api.uses_string_dtype() else 'object'
+        )
         assert column_indexes['pandas_type'] == 'unicode'
 
         md = column_indexes['metadata']
@@ -1680,7 +1682,10 @@ class TestConvertStringLikeTypes:
         repeats = 1000
         values = ['foo', None, 'bar', 'mañana', np.nan]
         df = pd.DataFrame({'strings': values * repeats})
-        field = pa.field('strings', pa.string())
+        field = pa.field(
+            'strings',
+            pa.large_string() if _pandas_api.uses_string_dtype() else pa.string()
+        )
         schema = pa.schema([field])
         ex_values = ['foo', None, 'bar', 'mañana', None]
         expected = pd.DataFrame({'strings': ex_values * repeats})
