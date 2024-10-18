@@ -29,6 +29,7 @@ jobs:
       {{ key }}: {{ value }}
     {% endfor %}
     {% endif %}
+    timeout-minutes: 60
 
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}

@@ -24,7 +24,9 @@ curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output ~/Dow
 
 # Extract
 mkdir -p ~/Downloads/tzdata
-tar --extract --file ~/Downloads/tzdata2021e.tar.gz --directory ~/Downloads/tzdata
+ls -lah ~/Downloads/tzdata
+tar --extract --file ~/Downloads/tzdata2021e.tar.gz --directory ~/Downloads/tzdata --verbose
+grep -r Mexico ~/Downloads/tzdata
 
 # Download Windows timezone mapping
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml --output ~/Downloads/tzdata/windowsZones.xml
