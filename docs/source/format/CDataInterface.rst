@@ -47,7 +47,7 @@ but with the cost of a dependency) or minimal integration with the Arrow
 Goals
 -----
 
-* Expose an ABI-stable interface.
+* Expose an API-stable interface.
 * Make it easy for third-party projects to implement support for (including partial
   support where sufficient), with little initial investment.
 * Allow zero-copy sharing of Arrow data between independent runtimes
