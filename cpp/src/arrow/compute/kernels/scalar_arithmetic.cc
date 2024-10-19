@@ -372,9 +372,6 @@ struct Atan {
   template <typename T, typename Arg0>
   static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
-    if (ARROW_PREDICT_FALSE((val <= -1.0 || val >= 1.0))) {
-      return std::numeric_limits<T>::quiet_NaN();
-    }
     return std::atan(val);
   }
 };
