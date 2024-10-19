@@ -658,6 +658,8 @@ def test_read_pandas_map_fields(tempdir):
 
 @pytest.mark.pandas
 def test_pandas_dtype_conversions():
+    # Integer array with None value should have Int64 dtype, which is a
+    # nullable-integer array dtype that can represent None values
     df = pa.Table.from_pydict({"col": [0, None]}).to_pandas()
     assert df.dtypes["col"] == int
 
