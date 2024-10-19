@@ -1187,7 +1187,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
 
   // Float types (with _checked variant)
   for (std::string name :
-       {"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos"}) {
+       {"ln", "log2", "log10", "log1p", "sin", "sinh", "cos", "cosh", "tan", "tanh", "asin", "asinh", "acos", "acosh", "atanh"}) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
       for (const auto& ty : {float32(), float64()}) {
@@ -1207,7 +1207,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
 
   // Integer -> Float64 (with _checked variant)
   for (std::string name :
-       {"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos"}) {
+       {"ln", "log2", "log10", "log1p", "sin", "sinh", "cos", "cosh", "tan", "tanh", "asin", "asinh", "acos", "acosh", "atanh"}) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
       for (const auto& ty :
