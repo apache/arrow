@@ -3380,6 +3380,8 @@ def create_sample_expressions():
                        pc.multiply(a, b), pc.power(a, a), pc.sqrt(a),
                        pc.exp(b), pc.cos(b), pc.sin(b), pc.tan(b),
                        pc.acos(b), pc.atan(b), pc.asin(b), pc.atan2(b, b),
+                       pc.sinh(a), pc.cosh(a), pc.tanh(a),
+                       pc.asinh(a), pc.acosh(b), pc.atanh(pa.scalar(0)),
                        pc.abs(b), pc.sign(a), pc.bit_wise_not(a),
                        pc.bit_wise_and(a, a), pc.bit_wise_or(a, a),
                        pc.bit_wise_xor(a, a), pc.is_nan(b), pc.is_finite(b),
