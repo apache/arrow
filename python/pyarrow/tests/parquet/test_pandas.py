@@ -655,3 +655,35 @@ def test_read_pandas_map_fields(tempdir):
 
     result = pq.read_pandas(filename).to_pandas()
     tm.assert_frame_equal(result, df)
+
+@pytest.mark.pandas
+def test_pandas_dtype_conversions():
+    df = pa.Table.from_pydict({"col": [0, None]}).to_pandas()
+    assert df.dtypes["col"] == int
+
+    df = pa.Table.from_pydict({"col": [None, 1.2]}).to_pandas()
+    assert df.dtypes["col"] == float
+
+    df = pa.Table.from_pydict({"col": [1.2, 1]}).to_pandas()
+    assert df.dtypes["col"] == float
+
+    df = pa.Table.from_pydict({"col": [1.2, 2.4]}).to_pandas()
+    assert df.dtypes["col"] == float
+
+    df = pa.Table.from_pydict({"col": [0, 1]}).to_pandas()
+    assert df.dtypes["col"] == int
+
+    df = pa.Table.from_pydict({"col": [1, 3.14, None]}).to_pandas()
+    assert df.dtypes["col"] == float
+
+    df = pa.Table.from_pydict({"col": [1, "string", None]}).to_pandas()
+    assert df.dtypes["col"] == object
+
+    df = pa.Table.from_pydict({"col": [None, None]}).to_pandas()
+    assert df.dtypes["col"] == object
+
+    df = pa.Table.from_pydict({"col": [True, False]}).to_pandas()
+    assert df.dtypes["col"] == bool
+
+    df = pa.Table.from_pydict({}).to_pandas()
+    assert df.empty
