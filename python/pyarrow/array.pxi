@@ -21,6 +21,7 @@ import os
 import warnings
 from cython import sizeof
 
+from pyarrow.tests.test_extension_type import IntegerType
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
@@ -2107,6 +2108,11 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         c_options.coerce_temporal_nanoseconds = True
 
     if isinstance(obj, Array):
+        # If the array is an integer array, ensure the dtype is Int64
+        # which is a nullable-integer dtype that can represent None
+        # values
+        if isinstance(original_type, IntegerArray):
+            dtype = "Int64"
         with nogil:
             check_status(ConvertArrayToPandas(c_options,
                                               (<Array> obj).sp_array,
