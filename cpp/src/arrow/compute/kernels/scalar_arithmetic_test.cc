@@ -1187,7 +1187,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
 
   // Float types (with _checked variant)
   for (std::string name :
-       {"ln", "log2", "log10", "log1p", "sin", "sinh", "cos", "cosh", "tan", "tanh", "asin", "asinh", "acos", "acosh", "atanh"}) {
+       {"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos", "acosh", "atanh"}) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
       for (const auto& ty : {float32(), float64()}) {
@@ -1198,7 +1198,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
   }
 
   // Float types
-  for (std::string name : {"atan", "sign", "exp"}) {
+  for (std::string name : {"sinh", "cosh", "tanh", "asinh", "atan", "sign", "exp"}) {
     for (const auto& ty : {float32(), float64()}) {
       CheckDispatchBest(name, {ty}, {ty});
       CheckDispatchBest(name, {dictionary(int8(), ty)}, {ty});
@@ -1207,7 +1207,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
 
   // Integer -> Float64 (with _checked variant)
   for (std::string name :
-       {"ln", "log2", "log10", "log1p", "sin", "sinh", "cos", "cosh", "tan", "tanh", "asin", "asinh", "acos", "acosh", "atanh"}) {
+       {"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos", "acosh", "atanh"}) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
       for (const auto& ty :
@@ -1219,7 +1219,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
   }
 
   // Integer -> Float64
-  for (std::string name : {"atan"}) {
+  for (std::string name : {"sinh", "cosh", "tanh", "asinh", "atan"}) {
     for (const auto& ty :
          {int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(), uint64()}) {
       CheckDispatchBest(name, {ty}, {float64()});
@@ -1229,15 +1229,15 @@ TEST(TestUnaryArithmetic, DispatchBest) {
 }
 
 TEST(TestUnaryArithmetic, Null) {
-  for (std::string name : {"abs", "acos", "acosh", "asin", "asinh", "atanh", "cos", "cosh", "ln", "log10", "log1p", "log2",
-                           "negate", "sin", "sinh", "tan", "tanh"}) {
+  for (std::string name : {"abs", "acos", "acosh", "asin", "atanh", "cos", "ln", "log10", "log1p", "log2",
+                           "negate", "sin", "tan"}) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
       AssertNullToNull(name);
     }
   }
 
-  for (std::string name : {"atan", "bit_wise_not", "sign"}) {
+  for (std::string name : {"sinh", "cosh", "tanh", "asinh", "atan", "bit_wise_not", "sign"}) {
     AssertNullToNull(name);
   }
 }
@@ -2497,6 +2497,19 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigSin) {
   this->AssertUnaryOpRaises(Sin, "[Inf, -Inf]", "domain error");
 }
 
+TYPED_TEST(TestUnaryArithmeticFloating, TrigSinh) {
+  this->SetNansEqual(true);
+  auto sinh = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Sinh(arg, ctx);
+  };
+
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(sinh, "[Inf, -Inf]", "[Inf, -Inf]");
+  this->AssertUnaryOp(sinh, "[]", "[]");
+  this->AssertUnaryOp(sinh, "[null, NaN]", "[null, NaN]");
+  this->AssertUnaryOp(sinh, MakeArray(0, M_LN2, M_LN10), "[0, 0.75, 4.95]");
+}
+
 TYPED_TEST(TestUnaryArithmeticFloating, TrigCos) {
   this->SetNansEqual(true);
   this->AssertUnaryOp(Cos, "[Inf, -Inf]", "[NaN, NaN]");
@@ -2507,6 +2520,18 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigCos) {
     this->AssertUnaryOp(Cos, MakeArray(0, M_PI_2, M_PI), "[1, 0, -1]");
   }
   this->AssertUnaryOpRaises(Cos, "[Inf, -Inf]", "domain error");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigCosh) {
+  this->SetNansEqual(true);
+  auto cosh = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Cosh(arg, ctx);
+  };
+
+  this->AssertUnaryOp(cosh, "[Inf, -Inf]", "[Inf, Inf]");
+  this->AssertUnaryOp(cosh, "[]", "[]");
+  this->AssertUnaryOp(cosh, "[null, NaN]", "[null, NaN]");
+  this->AssertUnaryOp(cosh, MakeArray(0, M_LN2, M_LN10), "[1, 1.25, 5.05]");
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigTan) {
@@ -2523,6 +2548,18 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigTan) {
   this->AssertUnaryOpRaises(Tan, "[Inf, -Inf]", "domain error");
 }
 
+TYPED_TEST(TestUnaryArithmeticFloating, TrigTanh) {
+  this->SetNansEqual(true);
+  auto tanh = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Tanh(arg, ctx);
+  };
+
+  this->AssertUnaryOp(tanh, "[Inf, -Inf]", "[1, -1]");
+  this->AssertUnaryOp(tanh, "[]", "[]");
+  this->AssertUnaryOp(tanh, "[null, NaN]", "[null, NaN]");
+  this->AssertUnaryOp(tanh, MakeArray(0, M_LN2), "[0, 0.6]");
+}
+
 TYPED_TEST(TestUnaryArithmeticFloating, TrigAsin) {
   this->SetNansEqual(true);
   this->AssertUnaryOp(Asin, "[Inf, -Inf, -2, 2]", "[NaN, NaN, NaN, NaN]");
@@ -2535,6 +2572,18 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigAsin) {
   this->AssertUnaryOpRaises(Asin, "[Inf, -Inf, -2, 2]", "domain error");
 }
 
+TYPED_TEST(TestUnaryArithmeticFloating, TrigAsinh) {
+  this->SetNansEqual(true);
+  auto asinh = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Asinh(arg, ctx);
+  };
+
+  this->AssertUnaryOp(asinh, "[Inf, -Inf]", "[Inf, -Inf]");
+  this->AssertUnaryOp(asinh, "[]", "[]");
+  this->AssertUnaryOp(asinh, "[null, NaN]", "[null, NaN]");
+  this->AssertUnaryOp(asinh, "[0, 0.75, 4.95]", MakeArray(0, M_LN2, M_LN10));
+}
+
 TYPED_TEST(TestUnaryArithmeticFloating, TrigAcos) {
   this->SetNansEqual(true);
   this->AssertUnaryOp(Asin, "[Inf, -Inf, -2, 2]", "[NaN, NaN, NaN, NaN]");
@@ -2545,6 +2594,18 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigAcos) {
     this->AssertUnaryOp(Acos, "[0, 1, -1]", MakeArray(M_PI_2, 0, M_PI));
   }
   this->AssertUnaryOpRaises(Acos, "[Inf, -Inf, -2, 2]", "domain error");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigAcosh) {
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Acosh, "[0, -1, -Inf]", "[NaN, NaN, NaN]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Acosh, "[]", "[]");
+    this->AssertUnaryOp(Acosh, "[null, NaN]", "[null, NaN]");
+    this->AssertUnaryOp(Acosh, "[1, 1.25, 5.05]", MakeArray(0, M_LN2, M_LN10));
+  }
+  this->AssertUnaryOpRaises(Acosh, "[0, -1, -Inf]", "domain error");
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigAtan) {
@@ -2570,6 +2631,19 @@ TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
                     "[0, 0, 0, -0.0, -0.0, 1, 0, -1, 0, 0, 0, Inf, -Inf]",
                     MakeArray(0, 0, -0.0, M_PI, -M_PI, 0, M_PI_2, M_PI, -M_PI_2, M_PI_2,
                               -M_PI_2, 0, M_PI));
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigAtanh) {
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Atanh, "[-Inf, Inf, -2, 2]", "[NaN, NaN, NaN, NaN]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Atanh, "[]", "[]");
+    this->AssertUnaryOp(Atanh, "[null, NaN]", "[null, NaN]");
+    this->AssertUnaryOp(Atanh, "[-1, 1]", "[-Inf, Inf]");
+    this->AssertUnaryOp(Atanh, "[0, 0.6]", MakeArray(0, M_LN2));
+  }
+  this->AssertUnaryOpRaises(Atanh, "[-Inf, Inf, -2, 2]", "domain error");
 }
 
 TYPED_TEST(TestUnaryArithmeticIntegral, Trig) {
