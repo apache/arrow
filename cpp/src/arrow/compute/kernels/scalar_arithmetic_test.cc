@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Required for Windows to define M_LN* constants
+#define _USE_MATH_DEFINES
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
