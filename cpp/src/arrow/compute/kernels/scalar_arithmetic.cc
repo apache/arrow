@@ -275,7 +275,6 @@ struct TanhChecked {
       *st = Status::Invalid("domain error");
       return val;
     }
-    // Cannot raise range errors (overflow) since PI/2 is not exactly representable
     return std::tanh(val);
   }
 };
@@ -385,8 +384,7 @@ struct Atanh {
   static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE((val <= -1.0 || val >= 1.0))) {
-      *st = Status::Invalid("domain error");
-      return val;
+      return std::numeric_limits<T>::quiet_NaN();
     }
     return std::atanh(val);
   }
@@ -396,6 +394,10 @@ struct AtanhChecked {
   template <typename T, typename Arg0>
   static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
+    if (ARROW_PREDICT_FALSE((val <= -1.0 || val >= 1.0))) {
+      *st = Status::Invalid("domain error");
+      return val;
+    }
     return std::atanh(val);
   }
 };
@@ -1398,20 +1400,20 @@ const FunctionDoc acosh_checked_doc{"Compute the inverse hyperbolic cosine",
                                    {"x"}};
 
 const FunctionDoc atan_doc{"Compute the inverse tangent of x",
-                           ("NaN is returned for invalid input values;\n"
-                            "to raise an error instead, see \"atanh_checked\"."),
+                           ("The return value is in the range [-pi/2, pi/2];\n"
+                            "for a full return range [-pi, pi], see \"atan2\"."),
                            {"x"}};
 
 const FunctionDoc atan2_doc{"Compute the inverse tangent of y/x",
                             ("The return value is in the range [-pi, pi]."),
                             {"y", "x"}};
 
-const FunctionDoc atanh_doc{"Compute the inverse hyperbolic tangent of x",
-                           ("The return value is in the range [-pi/2, pi/2];\n"
-                            "for a full return range [-pi, pi], see \"atan2\"."),
+const FunctionDoc acosh_doc{"Compute the inverse hyperbolic tangent",
+                           ("NaN is returned for invalid input values;\n"
+                            "to raise an error instead, see \"atanh_checked\"."),
                            {"x"}};
 
-const FunctionDoc atanh_checked_doc{"Compute the inverse hyperbolic cosine",
+const FunctionDoc atanh_checked_doc{"Compute the inverse hyperbolic tangent",
                                    ("Invalid input values raise an error;\n"
                                     "to return NaN instead, see \"atanh\"."),
                                    {"x"}};
