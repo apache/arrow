@@ -656,6 +656,7 @@ def test_read_pandas_map_fields(tempdir):
     result = pq.read_pandas(filename).to_pandas()
     tm.assert_frame_equal(result, df)
 
+
 @pytest.mark.pandas
 def test_pandas_dtype_conversions():
     # Integer array with None value should have Int64 dtype, which is a
