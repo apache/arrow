@@ -2106,11 +2106,22 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         c_options.coerce_temporal_nanoseconds = True
 
     if isinstance(obj, Array):
-        # If the array is an integer array, ensure the dtype is Int64
-        # which is a nullable-integer dtype that can represent None
+        # If the array has None values and integers, ensure the dtype is
+        # Int64 which is a nullable-integer dtype that can represent None
         # values
-        if isinstance(original_type, IntegerArray):
-            dtype = "Int64"
+        is_integer_array = True
+        is_none_array = True
+        for value in obj:
+            if value is not None and not isinstance(value, int):
+                is_integer_array = False
+                is_none_array = False
+                break
+            elif value is not None:
+                is_none_array = False
+        # Should make sure the array contains not only None values
+        if is_integer_array and not is_none_array:
+            dtype = 'Int64'
+
         with nogil:
             check_status(ConvertArrayToPandas(c_options,
                                               (<Array> obj).sp_array,
