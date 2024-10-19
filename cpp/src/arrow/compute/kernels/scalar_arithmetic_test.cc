@@ -1186,8 +1186,8 @@ TEST(TestUnaryArithmetic, DispatchBest) {
   }
 
   // Float types (with _checked variant)
-  for (std::string name :
-       {"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos", "acosh", "atanh"}) {
+  for (std::string name : {"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin",
+                           "acos", "acosh", "atanh"}) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
       for (const auto& ty : {float32(), float64()}) {
@@ -1206,8 +1206,8 @@ TEST(TestUnaryArithmetic, DispatchBest) {
   }
 
   // Integer -> Float64 (with _checked variant)
-  for (std::string name :
-       {"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos", "acosh", "atanh"}) {
+  for (std::string name : {"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin",
+                           "acos", "acosh", "atanh"}) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
       for (const auto& ty :
@@ -1229,15 +1229,16 @@ TEST(TestUnaryArithmetic, DispatchBest) {
 }
 
 TEST(TestUnaryArithmetic, Null) {
-  for (std::string name : {"abs", "acos", "acosh", "asin", "atanh", "cos", "ln", "log10", "log1p", "log2",
-                           "negate", "sin", "tan"}) {
+  for (std::string name : {"abs", "acos", "acosh", "asin", "atanh", "cos", "ln", "log10",
+                           "log1p", "log2", "negate", "sin", "tan"}) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
       AssertNullToNull(name);
     }
   }
 
-  for (std::string name : {"sinh", "cosh", "tanh", "asinh", "atan", "bit_wise_not", "sign"}) {
+  for (std::string name :
+       {"sinh", "cosh", "tanh", "asinh", "atan", "bit_wise_not", "sign"}) {
     AssertNullToNull(name);
   }
 }

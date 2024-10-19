@@ -1263,16 +1263,12 @@ const FunctionDoc sin_doc{"Compute the sine",
                            "to raise an error instead, see \"sin_checked\"."),
                           {"x"}};
 
-
 const FunctionDoc sin_checked_doc{"Compute the sine",
                                   ("Invalid input values raise an error;\n"
                                    "to return NaN instead, see \"sin\"."),
                                   {"x"}};
 
-const FunctionDoc sinh_doc{"Compute the hyperblic sine",
-(""),
-                          {"x"}};
-
+const FunctionDoc sinh_doc{"Compute the hyperblic sine", (""), {"x"}};
 
 const FunctionDoc cos_doc{"Compute the cosine",
                           ("NaN is returned for invalid input values;\n"
@@ -1284,9 +1280,7 @@ const FunctionDoc cos_checked_doc{"Compute the cosine",
                                    "to return NaN instead, see \"cos\"."),
                                   {"x"}};
 
-const FunctionDoc cosh_doc{"Compute the hyperbolic cosine",
-(""),
-                          {"x"}};
+const FunctionDoc cosh_doc{"Compute the hyperbolic cosine", (""), {"x"}};
 
 const FunctionDoc tan_doc{"Compute the tangent",
                           ("NaN is returned for invalid input values;\n"
@@ -1298,9 +1292,7 @@ const FunctionDoc tan_checked_doc{"Compute the tangent",
                                    "to return NaN instead, see \"tanh\"."),
                                   {"x"}};
 
-const FunctionDoc tanh_doc{"Compute the hyperbolic tangent",
-                           (""),
-                          {"x"}};
+const FunctionDoc tanh_doc{"Compute the hyperbolic tangent", (""), {"x"}};
 
 const FunctionDoc asin_doc{"Compute the inverse sine",
                            ("NaN is returned for invalid input values;\n"
@@ -1312,11 +1304,10 @@ const FunctionDoc asin_checked_doc{"Compute the inverse sine",
                                     "to return NaN instead, see \"asin\"."),
                                    {"x"}};
 
-
 const FunctionDoc asinh_doc{"Compute the inverse hyperbolic sine",
-                           ("NaN is returned for invalid input values;\n"
-                            "to raise an error instead, see \"asinh_checked\"."),
-                           {"x"}};
+                            ("NaN is returned for invalid input values;\n"
+                             "to raise an error instead, see \"asinh_checked\"."),
+                            {"x"}};
 
 const FunctionDoc acos_doc{"Compute the inverse cosine",
                            ("NaN is returned for invalid input values;\n"
@@ -1329,14 +1320,14 @@ const FunctionDoc acos_checked_doc{"Compute the inverse cosine",
                                    {"x"}};
 
 const FunctionDoc acosh_doc{"Compute the inverse hyperbolic cosine",
-                           ("NaN is returned for invalid input values;\n"
-                            "to raise an error instead, see \"acosh_checked\"."),
-                           {"x"}};
+                            ("NaN is returned for invalid input values;\n"
+                             "to raise an error instead, see \"acosh_checked\"."),
+                            {"x"}};
 
 const FunctionDoc acosh_checked_doc{"Compute the inverse hyperbolic cosine",
-                                   ("Invalid input values raise an error;\n"
-                                    "to return NaN instead, see \"acosh\"."),
-                                   {"x"}};
+                                    ("Invalid input values raise an error;\n"
+                                     "to return NaN instead, see \"acosh\"."),
+                                    {"x"}};
 
 const FunctionDoc atan_doc{"Compute the inverse tangent of x",
                            ("The return value is in the range [-pi/2, pi/2];\n"
@@ -1348,14 +1339,14 @@ const FunctionDoc atan2_doc{"Compute the inverse tangent of y/x",
                             {"y", "x"}};
 
 const FunctionDoc atanh_doc{"Compute the inverse hyperbolic tangent",
-                           ("NaN is returned for invalid input values;\n"
-                            "to raise an error instead, see \"atanh_checked\"."),
-                           {"x"}};
+                            ("NaN is returned for invalid input values;\n"
+                             "to raise an error instead, see \"atanh_checked\"."),
+                            {"x"}};
 
 const FunctionDoc atanh_checked_doc{"Compute the inverse hyperbolic tangent",
-                                   ("Invalid input values raise an error;\n"
-                                    "to return NaN instead, see \"atanh\"."),
-                                   {"x"}};
+                                    ("Invalid input values raise an error;\n"
+                                     "to return NaN instead, see \"atanh\"."),
+                                    {"x"}};
 
 const FunctionDoc ln_doc{
     "Compute natural logarithm",
