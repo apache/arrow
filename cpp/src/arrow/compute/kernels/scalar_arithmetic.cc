@@ -392,7 +392,7 @@ struct Atanh {
 
 struct AtanhChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE((val <= -1.0 || val >= 1.0))) {
       *st = Status::Invalid("domain error");
@@ -1408,7 +1408,7 @@ const FunctionDoc atan2_doc{"Compute the inverse tangent of y/x",
                             ("The return value is in the range [-pi, pi]."),
                             {"y", "x"}};
 
-const FunctionDoc acosh_doc{"Compute the inverse hyperbolic tangent",
+const FunctionDoc atanh_doc{"Compute the inverse hyperbolic tangent",
                            ("NaN is returned for invalid input values;\n"
                             "to raise an error instead, see \"atanh_checked\"."),
                            {"x"}};
