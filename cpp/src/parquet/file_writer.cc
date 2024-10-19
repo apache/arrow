@@ -359,6 +359,11 @@ class FileSerializer : public ParquetFileWriter::Contents {
     if (row_group_writer_) {
       row_group_writer_->Close();
     }
+    if (num_row_groups_ >= std::numeric_limits<int16_t>::max()) {
+      // Parquet thrifts using int16 for row group ordinal, so we can't have more than
+      // 32767 row groups in a file.
+      throw ParquetException("Too many row groups in the file when writing row group");
+    }
     num_row_groups_++;
     auto rg_metadata = metadata_->AppendRowGroup();
     if (page_index_builder_) {
