@@ -884,6 +884,7 @@ cdef class _PandasConvertible(_Weakrefable):
             coerce_temporal_nanoseconds=coerce_temporal_nanoseconds
         )
         print("LOG: to_pandas")
+        print(f"LOG: self type: ({type(self)})")
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata,
                                types_mapper=types_mapper)
