@@ -2105,6 +2105,7 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
         c_options.coerce_temporal_nanoseconds = True
 
+    should_override_dtype = True
     if isinstance(obj, Array):
         # If the array has None values and integers, ensure the dtype is
         # Int64 which is a nullable-integer dtype that can represent None
@@ -2121,6 +2122,7 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         # Should make sure the array contains not only None values
         if is_integer_array and not is_none_array:
             dtype = 'Int64'
+            should_override_dtype = False
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options,
@@ -2142,7 +2144,7 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         dtype = "object"
     elif types_mapper:
         dtype = types_mapper(original_type)
-    else:
+    elif should_override_dtype:
         dtype = None
 
     result = pandas_api.series(arr, dtype=dtype, name=name, copy=False)
