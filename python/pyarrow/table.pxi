@@ -5127,6 +5127,7 @@ cdef class Table(_Tabular):
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False,
                    types_mapper=None):
+        print("LOG: TABLE _to_pandas")
         self._assert_cpu()
         from pyarrow.pandas_compat import table_to_dataframe
         df = table_to_dataframe(
