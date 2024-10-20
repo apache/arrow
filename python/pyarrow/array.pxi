@@ -883,6 +883,7 @@ cdef class _PandasConvertible(_Weakrefable):
             maps_as_pydicts=maps_as_pydicts,
             coerce_temporal_nanoseconds=coerce_temporal_nanoseconds
         )
+        print("LOG: to_pandas")
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata,
                                types_mapper=types_mapper)
@@ -1553,6 +1554,7 @@ cdef class Array(_PandasConvertible):
         return self.take(indices)
 
     def _to_pandas(self, options, types_mapper=None, **kwargs):
+        print("LOG: _to_pandas")
         self._assert_cpu()
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
@@ -2079,6 +2081,7 @@ cdef class Array(_PandasConvertible):
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
+    print("LOG: _array_like_to_pandas")
     cdef:
         PyObject* out
         PandasOptions c_options = _convert_pandas_options(options)
@@ -2105,8 +2108,8 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
         c_options.coerce_temporal_nanoseconds = True
 
-    should_override_dtype = True
     if isinstance(obj, Array):
+        print("LOG: _array_like_to_pandas isinstance(obj, Array)")
         # If the array has None values and integers, ensure the dtype is
         # Int64 which is a nullable-integer dtype that can represent None
         # values
@@ -2122,7 +2125,7 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         # Should make sure the array contains not only None values
         if is_integer_array and not is_none_array:
             dtype = 'Int64'
-            should_override_dtype = False
+            return pandas_api.series(arr, dtype=dtype, name=name, copy=False)
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options,
@@ -2144,7 +2147,7 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         dtype = "object"
     elif types_mapper:
         dtype = types_mapper(original_type)
-    elif should_override_dtype:
+    else:
         dtype = None
 
     result = pandas_api.series(arr, dtype=dtype, name=name, copy=False)
