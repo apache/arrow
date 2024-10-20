@@ -2122,15 +2122,18 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
                 break
             elif value is not None:
                 is_none_array = False
-        # Should make sure the array contains not only None values
-        if is_integer_array and not is_none_array:
-            dtype = 'Int64'
-            return pandas_api.series(arr, dtype=dtype, name=name, copy=False)
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options,
                                               (<Array> obj).sp_array,
                                               obj, &out))
+
+        # Should make sure the array contains not only None values
+        if is_integer_array and not is_none_array:
+            dtype = 'Int64'
+            arr = wrap_array_output(out)
+            return pandas_api.series(arr, dtype=dtype, name=name, copy=False)
+
     elif isinstance(obj, ChunkedArray):
         with nogil:
             check_status(libarrow_python.ConvertChunkedArrayToPandas(
