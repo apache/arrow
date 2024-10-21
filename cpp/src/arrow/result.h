@@ -39,6 +39,8 @@ ARROW_EXPORT void DieWithMessage(const std::string& msg);
 
 ARROW_EXPORT void InvalidValueOrDie(const Status& st);
 
+ARROW_EXPORT Status UninitializedResult();
+
 }  // namespace internal
 
 /// A class for representing either a usable value, or an error.
@@ -112,7 +114,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   /// an empty vector, it will actually invoke the default constructor of
   /// Result.
   explicit Result() noexcept  // NOLINT(runtime/explicit)
-      : status_(Status::UnknownError("Uninitialized Result<T>")) {}
+      : status_(internal::UninitializedResult()) {}
 
   ~Result() noexcept { Destroy(); }
 
@@ -302,7 +304,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   ///         has a value.
   Status status() && {
     if (ok()) return Status::OK();
-    auto tmp = Status::UnknownError("Uninitialized Result<T>");
+    auto tmp = internal::UninitializedResult();
     std::swap(status_, tmp);
     return tmp;
   }
