@@ -99,7 +99,9 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
         column_index_.min_values.size() != num_pages ||
         column_index_.max_values.size() != num_pages ||
         (column_index_.__isset.null_counts &&
-         column_index_.null_counts.size() != num_pages)) {
+         column_index_.null_counts.size() != num_pages) ||
+        (column_index_.__isset.geometry_stats &&
+         column_index_.geometry_stats.size() != num_pages)) {
       throw ParquetException("Invalid column index");
     }
 
@@ -127,6 +129,20 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
       }
     }
     DCHECK_EQ(num_non_null_pages, non_null_page_indices_.size());
+
+    // Decode geometry statistics.
+    // Note that null pages are skipped.
+    if (column_index_.__isset.geometry_stats) {
+      geometry_statistics_.reserve(num_pages);
+      for (size_t i = 0; i < num_pages; ++i) {
+        if (!column_index_.null_pages[i]) {
+          auto encoded_geom_stat = FromThrift(column_index_.geometry_stats[i]);
+          GeometryStatistics geom_stat;
+          geom_stat.Decode(encoded_geom_stat);
+          geometry_statistics_.push_back(std::move(geom_stat));
+        }
+      }
+    }
   }
 
   const std::vector<bool>& null_pages() const override {
@@ -159,6 +175,10 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
 
   const std::vector<T>& max_values() const override { return max_values_; }
 
+  const std::vector<GeometryStatistics>& geometry_statistics() const override {
+    return geometry_statistics_;
+  }
+
  private:
   /// Wrapped thrift column index.
   const format::ColumnIndex column_index_;
@@ -167,6 +187,8 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
   std::vector<T> max_values_;
   /// A list of page indices for non-null pages.
   std::vector<int32_t> non_null_page_indices_;
+  /// A list of geometry statistics
+  std::vector<GeometryStatistics> geometry_statistics_;
 };
 
 class OffsetIndexImpl : public OffsetIndex {
@@ -492,6 +514,11 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     } else {
       column_index_.__isset.null_counts = false;
       column_index_.null_counts.clear();
+    }
+
+    if (stats.has_geometry_statistics) {
+      column_index_.__isset.geometry_stats = true;
+      column_index_.geometry_stats.emplace_back(ToThrift(stats.geometry_statistics()));
     }
   }
 
