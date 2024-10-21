@@ -401,15 +401,6 @@ cdef class ChunkedArray(_PandasConvertible):
         return _pc().is_valid(self)
 
     def __eq__(self, other):
-        """
-        >>> table = pa.Table.from_pydict({"foo": [float("nan")]})
-        >>> table.equals(table)
-        True
-        >>> table_1 = pa.Table.from_pydict({"foo": [float("nan")]})
-        >>> table_2 = pa.Table.from_pydict({"foo": [float("nan")]})
-        >>> table_1.equals(table_2)
-        True
-        """
         try:
             return self.equals(other)
         except TypeError:
