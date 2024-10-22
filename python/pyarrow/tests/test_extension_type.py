@@ -1932,8 +1932,9 @@ def test_bool8_scalar():
     pa.string(), pa.large_string(), pa.string_view()))
 def test_json(storage_type, pickle_module):
     data = ['{"a": 1}', '{"b": 2}', None]
-    storage = pa.array(data, type=storage_type)
     json_type = pa.json_(storage_type)
+    storage = pa.array(data, type=storage_type)
+    array = pa.array(data, type=json_type)
     json_arr_class = json_type.__arrow_ext_class__()
 
     assert pa.json_() == pa.json_(pa.utf8())
@@ -1944,7 +1945,6 @@ def test_json(storage_type, pickle_module):
     assert json_type == pa.json_(storage_type)
     assert json_type != storage_type
 
-    array = pa.ExtensionArray.from_storage(json_type, storage)
     assert isinstance(array, pa.JsonArray)
 
     assert array.to_pylist() == data
