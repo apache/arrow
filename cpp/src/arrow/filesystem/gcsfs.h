@@ -232,7 +232,7 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
 
   /// Create a GcsFileSystem instance from the given options.
   // TODO(ARROW-16884): make this return Result for consistency
-  static std::shared_ptr<GcsFileSystem> Make(
+  static Result<std::shared_ptr<GcsFileSystem>> Make(
       const GcsOptions& options, const io::IOContext& = io::default_io_context());
 
  private:
