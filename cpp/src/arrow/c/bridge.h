@@ -412,13 +412,19 @@ Result<std::shared_ptr<ChunkedArray>> ImportDeviceChunkedArray(
 ///
 /// @{
 
+/// \brief AsyncErrorDetail is a StatusDetail that contains an error code and message
+/// from an asynchronous operation.
 class AsyncErrorDetail : public StatusDetail {
  public:
   AsyncErrorDetail(int code, std::string message, std::string metadata)
       : code_(code), message_(std::move(message)), metadata_(std::move(metadata)) {}
   const char* type_id() const override { return "AsyncErrorDetail"; }
+  // ToString just returns the error message that was returned with the error
   std::string ToString() const override { return message_; }
+  // code is an errno-compatible error code
   int code() const { return code_; }
+  // returns any metadata that was returned with the error, likely in a
+  // key-value format similar to ArrowSchema metadata
   const std::string& ErrorMetadata() const { return metadata_; }
 
  private:
@@ -443,8 +449,8 @@ class Executor;
 /// The ArrowAsyncDeviceStreamHandler struct is intended to have its callbacks populated
 /// and then be passed to a producer to call the appropriate callbacks when data is ready.
 /// This inverts the traditional flow of control, and so we construct a corresponding
-/// AsyncRecordBatchGenerator to provide an interface for the consumer to retrieve data as it
-/// is pushed to the handler.
+/// AsyncRecordBatchGenerator to provide an interface for the consumer to retrieve data as
+/// it is pushed to the handler.
 ///
 /// \param[in,out] handler C struct to be populated
 /// \param[in] executor the executor to use for waiting and populating record batches
