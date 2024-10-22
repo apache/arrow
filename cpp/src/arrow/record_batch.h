@@ -300,8 +300,8 @@ struct ARROW_EXPORT RecordBatchWithMetadata {
 
 template <>
 struct IterationTraits<RecordBatchWithMetadata> {
-  static RecordBatchWithMetadata End() { return {nullptr, nullptr}; }
-  static bool IsEnd(const RecordBatchWithMetadata& val) { return val.batch == nullptr; }
+  static RecordBatchWithMetadata End() { return {NULLPTR, NULLPTR}; }
+  static bool IsEnd(const RecordBatchWithMetadata& val) { return val.batch == NULLPTR; }
 };
 
 /// \brief Abstract interface for reading stream of record batches
