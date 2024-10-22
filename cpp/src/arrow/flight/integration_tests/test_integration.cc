@@ -294,8 +294,7 @@ class AlignmentServer : public FlightServerBase {
                        const FlightDescriptor& descriptor,
                        std::unique_ptr<FlightInfo>* result) override {
     auto schema = BuildSchema();
-    std::vector<FlightEndpoint> endpoints{
-      FlightEndpoint{{"foo"}, {}, std::nullopt, ""}};
+    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{"foo"}, {}, std::nullopt, ""}};
     ARROW_ASSIGN_OR_RAISE(
         auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     *result = std::make_unique<FlightInfo>(info);
@@ -352,7 +351,8 @@ class AlignmentScenario : public Scenario {
 
   Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
 
-  Status RunClient(std::unique_ptr<FlightClient> client) override {
+  arrow::Result<std::shared_ptr<Table>> GetTable(FlightClient* client,
+                                                 const FlightCallOptions& call_options) {
     ARROW_ASSIGN_OR_RAISE(auto info,
                           client->GetFlightInfo(FlightDescriptor::Command("alignment")));
     std::vector<std::shared_ptr<arrow::Table>> tables;
@@ -371,27 +371,51 @@ class AlignmentScenario : public Scenario {
             "Expected to receive empty locations to use the original service: ",
             ss.str());
       }
-      ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint.ticket));
+      ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(call_options, endpoint.ticket));
       ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
       tables.push_back(table);
     }
-    ARROW_ASSIGN_OR_RAISE(auto table, ConcatenateTables(tables));
+    return ConcatenateTables(tables);
+  }
 
-    // Check read data
-    auto expectedRowCount = 3;
-    if (table->getRowCount() != expectedRowCount) {
-      return Status::Invalid("Read table size isn't expected\n", "Expected rows:\n",
-                             expectedRowCount, "Actual rows:\n", table->getRowCount());
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    for (bool ensure_alignment : {true, false}) {
+      auto call_options = FlightCallOptions();
+      call_options.read_options.ensure_memory_alignment = ensure_alignment;
+      ARROW_ASSIGN_OR_RAISE(auto table, GetTable(client.get(), call_options));
+
+      // Check read data
+      auto expected_row_count = 3;
+      if (table->num_rows() != expected_row_count) {
+        return Status::Invalid("Read table size isn't expected\n", "Expected rows:\n",
+                               expected_row_count, "Actual rows:\n", table->num_rows());
+      }
+      auto expected_column_count = 3;
+      if (table->num_columns() != expected_column_count) {
+        return Status::Invalid("Read table size isn't expected\n", "Expected columns:\n",
+                               expected_column_count, "Actual columns:\n",
+                               table->num_columns());
+      }
+      // Check data alignment
+      std::vector<bool> needs_alignment;
+      if (ensure_alignment) {
+        // with ensure_alignment=true, we require data to be aligned
+        if (!util::CheckAlignment(*table, arrow::util::kValueAlignment,
+                                  &needs_alignment)) {
+          return Status::Invalid("Read table has unaligned data");
+        }
+      } else {
+        // this is not a requirement but merely an observation:
+        // with ensure_alignment=false, flight client returns mis-aligned data
+        // if this is not the case any more, feel free to remove this assertion
+        if (util::CheckAlignment(*table, arrow::util::kValueAlignment,
+                                 &needs_alignment)) {
+          return Status::Invalid(
+              "Read table has aligned data, which is good, but unprecedented");
+        }
+      }
     }
-    auto expectedColumnCount = 3;
-    if (table->getVectorCount() != expectedColumnCount) {
-      return Status::Invalid("Read table size isn't expected\n", "Expected columns:\n",
-                             expectedColumnCount, "Actual columns:\n", table->getVectorCount());
-    }
-    // Check data alignment
-    if (!util::CheckAlignment(table)) {
-      return Status::Invalid("Read table has unaligned data");
-    }
+
     return Status::OK();
   }
 };
