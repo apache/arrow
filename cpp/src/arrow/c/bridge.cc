@@ -2570,10 +2570,8 @@ class AsyncRecordBatchIterator {
     state_->producer_->request(state_->producer_, 1);
     ArrowDeviceArray out;
     if (task.first.extract_data(&task.first, &out) != 0) {
-      std::unique_lock<std::mutex> lock(state_->mutex_);
-      if (state_->error_.ok()) {
-        state_->cv_.wait(lock, [&] { return !state_->error_.ok(); });
-      }
+      std::unique_lock<std::mutex> lock(state_->mutex_);      
+      state_->cv_.wait(lock, [&] { return !state_->error_.ok(); });      
       return state_->error_;
     }
 
