@@ -443,7 +443,7 @@ class Executor;
 /// The ArrowAsyncDeviceStreamHandler struct is intended to have its callbacks populated
 /// and then be passed to a producer to call the appropriate callbacks when data is ready.
 /// This inverts the traditional flow of control, and so we construct a corresponding
-/// AsyncRecordBatchReader to provide an interface for the consumer to retrieve data as it
+/// AsyncRecordBatchGenerator to provide an interface for the consumer to retrieve data as it
 /// is pushed to the handler.
 ///
 /// \param[in,out] handler C struct to be populated
