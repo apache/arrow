@@ -105,7 +105,7 @@ class TestExtensionDataType < Test::Unit::TestCase
 
   def test_abstract_class
     assert_raise(TypeError) do
-      Arrow::ExtensionDataType.new.name
+      Arrow::ExtensionDataType.new
     end
   end
 end
