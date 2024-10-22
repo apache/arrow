@@ -103,8 +103,7 @@ class TestExtensionDataType < Test::Unit::TestCase
                  ])
   end
 
-  # GH-44478 test https://github.com/apache/arrow/issues/44478
-  def test_abstract_class_init
+  def test_abstract_class
     assert_raise(TypeError) do
       Arrow::ExtensionDataType.new.name
     end
