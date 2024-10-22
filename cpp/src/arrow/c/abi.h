@@ -269,7 +269,7 @@ struct ArrowAsyncTask {
   // calling this, and so it must be released separately.
   //
   // It is only valid to call this method exactly once.
-  int (*extract_data)(struct ArrowArrayTask* self, struct ArrowDeviceArray* out);
+  int (*extract_data)(struct ArrowAsyncTask* self, struct ArrowDeviceArray* out);
 
   // opaque task-specific data
   void* private_data;

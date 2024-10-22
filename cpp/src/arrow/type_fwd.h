@@ -79,7 +79,9 @@ using ScalarVector = std::vector<std::shared_ptr<Scalar>>;
 
 class ChunkedArray;
 class RecordBatch;
+struct RecordBatchWithMetadata;
 class RecordBatchReader;
+class AsyncRecordBatchReader;
 class Table;
 
 struct Datum;

@@ -26,6 +26,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -406,12 +407,75 @@ Result<std::shared_ptr<ChunkedArray>> ImportDeviceChunkedArray(
 
 /// @}
 
-
-/// \defgroup c-async-stream-interface Functions for working with the async C data interface.
+/// \defgroup c-async-stream-interface Functions for working with the async C data
+/// interface.
 ///
 /// @{
 
+class AsyncErrorDetail : public StatusDetail {
+ public:
+  AsyncErrorDetail(int code, std::string message, std::string metadata)
+      : code_(code), message_(std::move(message)), metadata_(std::move(metadata)) {}
+  const char* type_id() const override { return "AsyncErrorDetail"; }
+  std::string ToString() const override { return message_; }
 
+  const std::string& ErrorMetadata() const { return metadata_; }
+
+ private:
+  int code_{0};
+  std::string message_;
+  std::string metadata_;
+};
+
+struct AsyncRecordBatchGenerator {
+  std::shared_ptr<Schema> schema;
+  DeviceAllocationType device_type;
+  AsyncGenerator<RecordBatchWithMetadata> generator;
+};
+
+namespace internal {
+class Executor;
+}
+
+/// \brief Create an AsyncRecordBatchReader and populate a corresponding handler to pass
+/// to a producer
+///
+/// The ArrowAsyncDeviceStreamHandler struct is intended to have its callbacks populated
+/// and then be passed to a producer to call the appropriate callbacks when data is ready.
+/// This inverts the traditional flow of control, and so we construct a corresponding
+/// AsyncRecordBatchReader to provide an interface for the consumer to retrieve data as it
+/// is pushed to the handler.
+///
+/// \param[in,out] handler C struct to be populated
+/// \param[in] executor the executor to use for waiting and populating record batches
+/// \param[in] queue_size initial number of record batches to request for queueing
+/// \param[in] mapper mapping from device type and ID to memory manager
+/// \return Future that resolves to either an error or AsyncRecordBatchGenerator once a
+/// schema is available or an error is received.
+ARROW_EXPORT
+Future<AsyncRecordBatchGenerator> CreateAsyncDeviceStreamHandler(
+    struct ArrowAsyncDeviceStreamHandler* handler, internal::Executor* executor,
+    uint64_t queue_size = 5,
+    const DeviceMemoryMapper mapper = DefaultDeviceMemoryMapper);
+
+/// \brief Export an AsyncGenerator of record batches using a provided handler
+///
+/// This function calls the callbacks on the consumer-provided async handler as record
+/// batches become available from the AsyncGenerator which is provided. It will first call
+/// on_schema using the provided schema, and then serially visit each record batch from
+/// the generator, calling the on_next_task callback. If an error occurs, on_error will be
+/// called appropriately.
+///
+/// \param[in] schema the schema of the stream being exported
+/// \param[in] generator a generator that asynchronously produces record batches
+/// \param[in] device_type the device type that the record batches will be located on
+/// \param[in] handler the handler whose callbacks to utilize as data is available
+/// \return Future that will resolve once the generator is exhausted or an error occurs
+ARROW_EXPORT
+Future<> ExportAsyncRecordBatchReader(
+    std::shared_ptr<Schema> schema,
+    AsyncGenerator<std::shared_ptr<RecordBatch>> generator,
+    DeviceAllocationType device_type, struct ArrowAsyncDeviceStreamHandler* handler);
 
 /// @}
 
