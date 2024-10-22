@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -296,6 +297,14 @@ struct ARROW_EXPORT RecordBatchWithMetadata {
   std::shared_ptr<RecordBatch> batch;
   std::shared_ptr<KeyValueMetadata> custom_metadata;
 };
+
+
+template <>
+struct IterationTraits<RecordBatchWithMetadata> {
+  static RecordBatchWithMetadata End() { return {nullptr, nullptr}; }
+  static bool IsEnd(const RecordBatchWithMetadata& val) { return val.batch == nullptr; }
+};
+
 
 /// \brief Abstract interface for reading stream of record batches
 class ARROW_EXPORT RecordBatchReader {

@@ -19,8 +19,11 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <condition_variable>
 #include <cstring>
 #include <memory>
+#include <mutex>
+#include <queue>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -37,8 +40,10 @@
 #include "arrow/result.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -2512,76 +2517,330 @@ Result<std::shared_ptr<ChunkedArray>> ImportDeviceChunkedArray(
 }
 
 namespace {
-class AsyncRecordBatchReader {
- public:  
-  struct PrivateData {
-    explicit PrivateData(std::shared_ptr<AsyncRecordBatchReader> rdr)
-      : rdr_(std::move(rdr)) {}
 
-    std::shared_ptr<AsyncRecordBatchReader> rdr_;    
+class AsyncRecordBatchIterator {
+ public:
+  struct State {
+    State(uint64_t queue_size, const DeviceMemoryMapper mapper)
+        : queue_size_{queue_size}, mapper_{std::move(mapper)} {}
+
+    const uint64_t queue_size_;
+    const DeviceMemoryMapper mapper_;
+    ArrowAsyncProducer* producer_;
+    DeviceAllocationType device_type_;
+
+    std::mutex mutex_;
+    std::shared_ptr<Schema> schema_;
+    std::condition_variable cv_;
+    std::queue<std::pair<ArrowAsyncTask, std::shared_ptr<KeyValueMetadata>>> batches_;
+    bool end_of_stream_ = false;
+    Status error_{Status::OK()};
+  };
+
+  AsyncRecordBatchIterator(uint64_t queue_size, const DeviceMemoryMapper mapper)
+      : state_{std::make_shared<State>(queue_size, std::move(mapper))} {}
+
+  AsyncRecordBatchIterator(std::shared_ptr<State> state) : state_{std::move(state)} {}
+
+  const std::shared_ptr<Schema>& schema() const { return state_->schema_; }
+
+  const DeviceAllocationType device_type() const { return state_->device_type_; }
+
+  Result<RecordBatchWithMetadata> Next() {
+    std::pair<ArrowAsyncTask, std::shared_ptr<KeyValueMetadata>> task;
+    {
+      std::unique_lock<std::mutex> lock(state_->mutex_);
+      state_->cv_.wait(lock, [&] {
+        return !state_->error_.ok() || !state_->batches_.empty() ||
+               state_->end_of_stream_;
+      });
+      if (!state_->error_.ok()) {
+        return state_->error_;
+      }
+
+      if (state_->batches_.empty() && state_->end_of_stream_) {
+        return RecordBatchWithMetadata{nullptr, nullptr};
+      }
+
+      task = state_->batches_.front();
+      state_->batches_.pop();
+    }
+
+    state_->producer_->request(state_->producer_, 1);
+    ArrowDeviceArray out;
+    if (task.first.extract_data(&task.first, &out) != 0) {
+      std::unique_lock<std::mutex> lock(state_->mutex_);
+      if (state_->error_.ok()) {
+        state_->cv_.wait(lock, [&] { return !state_->error_.ok(); });
+      }
+      return state_->error_;
+    }
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto batch, ImportDeviceRecordBatch(&out, state_->schema_, state_->mapper_));
+    return RecordBatchWithMetadata{std::move(batch), std::move(task.second)};
+  }
+
+  static Future<std::shared_ptr<AsyncRecordBatchIterator::State>> Make(
+      AsyncRecordBatchIterator& iterator, struct ArrowAsyncDeviceStreamHandler* handler) {
+    auto iterator_fut = Future<std::shared_ptr<AsyncRecordBatchIterator::State>>::Make();
+
+    auto private_data = new PrivateData{iterator.state_};
+    private_data->fut_iterator_ = iterator_fut;
+
+    handler->private_data = private_data;
+    handler->on_schema = on_schema;
+    handler->on_next_task = on_next_task;
+    handler->on_error = on_error;
+    handler->release = release;
+    return iterator_fut;
+  }
+
+ private:
+  struct PrivateData {
+    explicit PrivateData(std::shared_ptr<State> state) : state_(std::move(state)) {}
+
+    std::shared_ptr<State> state_;
+    Future<std::shared_ptr<AsyncRecordBatchIterator::State>> fut_iterator_;
     ARROW_DISALLOW_COPY_AND_ASSIGN(PrivateData);
   };
 
-  const Future<std::shared_ptr<Schema>>& schema() const {
-    return fut_schema_;
-  }
-
-  static Status MakeHandler(std::shared_ptr<AsyncRecordBatchReader> rdr, ArrowAsyncDeviceStreamHandler* out) {
-    out->private_data = new AsyncRecordBatchReader::PrivateData{std::move(rdr)};
-    out->on_schema = AsyncRecordBatchReader::on_schema;
-    out->on_next_task = AsyncRecordBatchReader::on_next_task;
-    out->on_error = AsyncRecordBatchReader::on_error;
-    out->release = AsyncRecordBatchReader::release;
-    return Status::OK();
-  }
- protected:
-  static int on_schema(ArrowAsyncDeviceStreamHandler* self, ArrowSchema* stream_schema, const char* additional_metadata) {    
-    auto private_data = reinterpret_cast<AsyncRecordBatchReader::PrivateData*>(self->private_data);
-    if (self->producer == nullptr) {
-      private_data->rdr_->producer_ = self->producer;
-      private_data->rdr_->device_type_ = static_cast<DeviceAllocationType>(self->producer->device_type);
+  static int on_schema(struct ArrowAsyncDeviceStreamHandler* self,
+                       struct ArrowSchema* stream_schema,
+                       const char* additional_metadata) {
+    auto* private_data = reinterpret_cast<PrivateData*>(self->private_data);
+    if (self->producer != nullptr) {
+      private_data->state_->producer_ = self->producer;
+      private_data->state_->device_type_ =
+          static_cast<DeviceAllocationType>(self->producer->device_type);
     }
 
     auto maybe_schema = ImportSchema(stream_schema);
     if (!maybe_schema.ok()) {
-      private_data->rdr_->error_code_ = EINVAL;
-      private_data->rdr_->error_message_ = maybe_schema.status().ToString();
-      return EINVAL;   
-    }    
-    
+      private_data->fut_iterator_.MarkFinished(maybe_schema.status());
+      return EINVAL;
+    }
+
     auto schema = maybe_schema.MoveValueUnsafe();
-    private_data->rdr_->schema_ = schema;
-    private_data->rdr_->fut_schema_.MarkFinished(schema);
+    private_data->state_->schema_ = schema;
+    private_data->fut_iterator_.MarkFinished(private_data->state_);
+    self->producer->request(self->producer,
+                            static_cast<int64_t>(private_data->state_->queue_size_));
     return 0;
   }
 
-  static int on_next_task(ArrowAsyncDeviceStreamHandler* self, ArrowAsyncTask* task, const char* metadata) {
-    
+  static int on_next_task(ArrowAsyncDeviceStreamHandler* self, ArrowAsyncTask* task,
+                          const char* metadata) {
+    auto* private_data = reinterpret_cast<PrivateData*>(self->private_data);
+
+    if (task == nullptr) {
+      std::unique_lock<std::mutex> lock(private_data->state_->mutex_);
+      private_data->state_->end_of_stream_ = true;
+      lock.unlock();
+      private_data->state_->cv_.notify_one();
+      return 0;
+    }
+
+    std::shared_ptr<KeyValueMetadata> kvmetadata;
+    if (metadata != nullptr) {
+      auto maybe_decoded = DecodeMetadata(metadata);
+      if (!maybe_decoded.ok()) {
+        private_data->state_->error_ = maybe_decoded.status();
+        private_data->state_->cv_.notify_one();
+        return EINVAL;
+      }
+
+      kvmetadata = maybe_decoded->metadata;
+    }
+
+    std::unique_lock<std::mutex> lock(private_data->state_->mutex_);
+    private_data->state_->batches_.emplace(*task, std::move(kvmetadata));
+    lock.unlock();
+    private_data->state_->cv_.notify_one();
+    return 0;
   }
 
-  static void on_error(ArrowAsyncDeviceStreamHandler* self, int code, const char* message, const char* metadata) {
-
+  static void on_error(ArrowAsyncDeviceStreamHandler* self, int code, const char* message,
+                       const char* metadata) {
+    auto* private_data = reinterpret_cast<PrivateData*>(self->private_data);
+    std::unique_lock<std::mutex> lock(private_data->state_->mutex_);
+    private_data->state_->error_ = Status::FromDetailAndArgs(
+        StatusCode::UnknownError,
+        std::make_shared<AsyncErrorDetail>(code, message, metadata),
+        std::string(message));
+    lock.unlock();
+    private_data->state_->cv_.notify_one();
   }
 
   static void release(ArrowAsyncDeviceStreamHandler* self) {
-    auto private_data = reinterpret_cast<AsyncRecordBatchReader::PrivateData*>(self->private_data);
+    auto* private_data = reinterpret_cast<PrivateData*>(self->private_data);
     delete private_data;
   }
 
-  Future<std::shared_ptr<Schema>> fut_schema_;
-  std::shared_ptr<Schema> schema_;
-  DeviceAllocationType device_type_;
-  ArrowAsyncProducer* producer_;
-
-
-
-  int error_code_;
-  std::string error_message_;
-  std::string error_metadata_;
+  std::shared_ptr<State> state_;
 };
 
+struct AsyncProducer {
+  struct State {
+    struct ArrowAsyncProducer producer_;
 
+    std::mutex mutex_;
+    std::condition_variable cv_;
+    uint64_t pending_requests_{0};
+    bool cancelled_{false};
+    Status error_{Status::OK()};
+  };
+
+  AsyncProducer(DeviceAllocationType device_type, struct ArrowSchema* schema,
+                struct ArrowAsyncDeviceStreamHandler* handler)
+      : handler_{handler}, state_{std::make_shared<State>()} {
+    state_->producer_.device_type = static_cast<ArrowDeviceType>(device_type);
+    state_->producer_.private_data = reinterpret_cast<void*>(state_.get());
+    state_->producer_.request = AsyncProducer::request;
+    state_->producer_.cancel = AsyncProducer::cancel;
+    handler_->producer = &state_->producer_;
+
+    if (int status = handler_->on_schema(handler_, schema, nullptr) != 0) {
+      state_->error_ =
+          Status::UnknownError("Received error from handler::on_schema ", status);
+    }
+  }
+
+  struct PrivateTaskData {
+    PrivateTaskData(std::shared_ptr<State> producer, std::shared_ptr<RecordBatch> record)
+        : producer_{std::move(producer)}, record_(std::move(record)) {}
+
+    std::shared_ptr<State> producer_;
+    std::shared_ptr<RecordBatch> record_;
+    ARROW_DISALLOW_COPY_AND_ASSIGN(PrivateTaskData);
+  };
+
+  Status operator()(const std::shared_ptr<RecordBatch>& record) {    
+    std::unique_lock<std::mutex> lock(state_->mutex_);
+    if (state_->pending_requests_ == 0) {
+      state_->cv_.wait(lock, [this]() -> bool {
+        return !state_->error_.ok() || state_->cancelled_ ||
+               state_->pending_requests_ > 0;
+      });
+    }
+
+    if (!state_->error_.ok()) {
+      return state_->error_;
+    }
+
+    if (state_->cancelled_) {
+      return Status::Cancelled("Consumer cancelled");
+    }
+
+    if (state_->pending_requests_ > 0) {
+      state_->pending_requests_--;
+      lock.unlock();
+
+      ArrowAsyncTask task;
+      task.private_data = new PrivateTaskData{state_, record};
+      task.extract_data = AsyncProducer::extract_data;
+
+      if (int status = handler_->on_next_task(handler_, &task, nullptr) != 0) {
+        delete reinterpret_cast<PrivateTaskData*>(task.private_data);
+        return Status::UnknownError("Received error from handler::on_next_task ", status);
+      }
+    }
+
+    return Status::OK();
+  }
+
+  static void request(struct ArrowAsyncProducer* producer, int64_t n) {
+    auto* self = reinterpret_cast<State*>(producer->private_data);
+    {
+      std::lock_guard<std::mutex> lock(self->mutex_);
+      if (self->cancelled_) {
+        return;
+      }
+      self->pending_requests_ += n;
+    }
+    self->cv_.notify_all();
+  }
+
+  static void cancel(struct ArrowAsyncProducer* producer) {
+    auto* self = reinterpret_cast<State*>(producer->private_data);
+    {
+      std::lock_guard<std::mutex> lock(self->mutex_);
+      if (self->cancelled_) {
+        return;
+      }
+      self->cancelled_ = true;
+    }
+    self->cv_.notify_all();
+  }
+
+  static int extract_data(struct ArrowAsyncTask* task, struct ArrowDeviceArray* out) {
+    auto private_data = reinterpret_cast<PrivateTaskData*>(task->private_data);
+    int ret = 0;
+    if (out != nullptr) {
+      auto status = ExportDeviceRecordBatch(*private_data->record_,
+                                            private_data->record_->GetSyncEvent(), out);
+      if (!status.ok()) {
+        std::lock_guard<std::mutex> lock(private_data->producer_->mutex_);
+        private_data->producer_->error_ = status;
+      }
+    }
+
+    delete private_data;
+    return ret;
+  }
+
+  struct ArrowAsyncDeviceStreamHandler* handler_;  
+  std::shared_ptr<State> state_;
+};
 
 }  // namespace
+
+Future<AsyncRecordBatchGenerator> CreateAsyncDeviceStreamHandler(
+    struct ArrowAsyncDeviceStreamHandler* handler, internal::Executor* executor,
+    uint64_t queue_size, const DeviceMemoryMapper mapper) {
+  auto iterator = std::make_shared<AsyncRecordBatchIterator>(queue_size, std::move(mapper));
+  return AsyncRecordBatchIterator::Make(*iterator, handler)
+      .Then([executor](std::shared_ptr<AsyncRecordBatchIterator::State> state)
+                -> Result<AsyncRecordBatchGenerator> {
+        AsyncRecordBatchGenerator gen{state->schema_, state->device_type_, nullptr};
+        auto it =
+            Iterator<RecordBatchWithMetadata>(AsyncRecordBatchIterator{std::move(state)});
+        ARROW_ASSIGN_OR_RAISE(gen.generator,
+                              MakeBackgroundGenerator(std::move(it), executor));
+        return gen;
+      });
+}
+
+Future<> ExportAsyncRecordBatchReader(
+    std::shared_ptr<Schema> schema,
+    AsyncGenerator<std::shared_ptr<RecordBatch>> generator,
+    DeviceAllocationType device_type, struct ArrowAsyncDeviceStreamHandler* handler) {
+  struct ArrowSchema c_schema;
+  SchemaExportGuard guard(&c_schema);
+
+  auto status = ExportSchema(*schema, &c_schema);
+  if (!status.ok()) {
+    handler->on_error(handler, EINVAL, status.message().c_str(), nullptr);
+    handler->release(handler);
+    return Future<>::MakeFinished(status);
+  }
+
+  return VisitAsyncGenerator(generator, AsyncProducer{device_type, &c_schema, handler})
+      .Then(
+          [handler]() -> Future<> {
+            int status = handler->on_next_task(handler, nullptr, nullptr);
+            handler->release(handler);
+            if (status != 0) {
+              return Status::UnknownError(
+                  "Received error from handler::on_next_task ", status);
+            }            
+            return Future<>::MakeFinished();
+          },
+          [handler](const Status status) -> Future<> {
+            handler->on_error(handler, EINVAL, status.message().c_str(), nullptr);
+            handler->release(handler);
+            return status;
+          });
+}
 
 }  // namespace arrow
