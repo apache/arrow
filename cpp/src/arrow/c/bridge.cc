@@ -2545,7 +2545,7 @@ class AsyncRecordBatchIterator {
 
   const std::shared_ptr<Schema>& schema() const { return state_->schema_; }
 
-  const DeviceAllocationType device_type() const { return state_->device_type_; }
+  DeviceAllocationType device_type() const { return state_->device_type_; }
 
   Result<RecordBatchWithMetadata> Next() {
     std::pair<ArrowAsyncTask, std::shared_ptr<KeyValueMetadata>> task;
