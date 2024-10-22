@@ -2790,7 +2790,7 @@ struct AsyncProducer {
 
 Future<AsyncRecordBatchGenerator> CreateAsyncDeviceStreamHandler(
     struct ArrowAsyncDeviceStreamHandler* handler, internal::Executor* executor,
-    uint64_t queue_size, const DeviceMemoryMapper mapper) {
+    uint64_t queue_size, DeviceMemoryMapper mapper) {
   auto iterator =
       std::make_shared<AsyncRecordBatchIterator>(queue_size, std::move(mapper));
   return AsyncRecordBatchIterator::Make(*iterator, handler)
