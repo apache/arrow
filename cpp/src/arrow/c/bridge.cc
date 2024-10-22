@@ -2540,7 +2540,7 @@ class AsyncRecordBatchIterator {
   AsyncRecordBatchIterator(uint64_t queue_size, const DeviceMemoryMapper mapper)
       : state_{std::make_shared<State>(queue_size, std::move(mapper))} {}
 
-  AsyncRecordBatchIterator(std::shared_ptr<State> state) : state_{std::move(state)} {}
+  explicit AsyncRecordBatchIterator(std::shared_ptr<State> state) : state_{std::move(state)} {}
 
   const std::shared_ptr<Schema>& schema() const { return state_->schema_; }
 
