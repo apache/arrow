@@ -17,6 +17,7 @@
 
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 #include "benchmark/benchmark.h"
