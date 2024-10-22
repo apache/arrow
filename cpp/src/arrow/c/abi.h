@@ -331,7 +331,7 @@ struct ArrowAsyncProducer {
 // defined callbacks, this is intended to be created by the consumer instead.
 // The consumer passes this handler to the producer, which in turn uses the
 // callbacks to inform the consumer of events in the stream.
-struct ArrowAsyncDeviceStreamHandler {  
+struct ArrowAsyncDeviceStreamHandler {
   // Handler for receiving a schema. The passed in stream_schema must be
   // released or moved by the handler (producer is giving ownership of the schema to
   // the handler, but not ownership of the top level object itself).
@@ -359,8 +359,7 @@ struct ArrowAsyncDeviceStreamHandler {
   // A producer that receives a non-zero return here should stop producing and eventually
   // call release instead.
   int (*on_schema)(struct ArrowAsyncDeviceStreamHandler* self,
-                   struct ArrowSchema* stream_schema,
-                   const char* addl_metadata);
+                   struct ArrowSchema* stream_schema, const char* addl_metadata);
 
   // Handler for receiving data. This is called when data is available providing an
   // ArrowAsyncTask struct to signify it. The producer indicates the end of the stream

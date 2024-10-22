@@ -418,7 +418,7 @@ class AsyncErrorDetail : public StatusDetail {
       : code_(code), message_(std::move(message)), metadata_(std::move(metadata)) {}
   const char* type_id() const override { return "AsyncErrorDetail"; }
   std::string ToString() const override { return message_; }
-
+  int code() const { return code_; }
   const std::string& ErrorMetadata() const { return metadata_; }
 
  private:
@@ -455,8 +455,7 @@ class Executor;
 ARROW_EXPORT
 Future<AsyncRecordBatchGenerator> CreateAsyncDeviceStreamHandler(
     struct ArrowAsyncDeviceStreamHandler* handler, internal::Executor* executor,
-    uint64_t queue_size = 5,
-    const DeviceMemoryMapper mapper = DefaultDeviceMemoryMapper);
+    uint64_t queue_size = 5, const DeviceMemoryMapper mapper = DefaultDeviceMemoryMapper);
 
 /// \brief Export an AsyncGenerator of record batches using a provided handler
 ///
