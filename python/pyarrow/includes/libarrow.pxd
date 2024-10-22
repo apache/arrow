@@ -2871,6 +2871,13 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         shared_ptr[CArray] storage()
 
 
+cdef extern from "arrow/extension/json.h" namespace "arrow::extension" nogil:
+    cdef cppclass CJsonType" arrow::extension::JsonExtensionType"(CExtensionType):
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make(shared_ptr[CDataType]& storage_type)
+
+
 cdef extern from "arrow/extension/uuid.h" namespace "arrow::extension" nogil:
     cdef cppclass CUuidType" arrow::extension::UuidType"(CExtensionType):
 
