@@ -76,6 +76,7 @@ class GcsTestbench : public ::testing::Environment {
       return;
     }
 
+    server_process->SetArgs({"--port", port_});
     server_process->IgnoreStderr();
     status = server_process->Execute();
     if (!status.ok()) {
