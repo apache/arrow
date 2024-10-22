@@ -5363,8 +5363,7 @@ TEST_F(TestAsyncDeviceArrayStreamRoundTrip, Simple) {
   ASSERT_FALSE(fut_gen.is_finished());
 
   ASSERT_OK_AND_ASSIGN(auto fut, internal::GetCpuThreadPool()->Submit([&]() {
-    return ExportAsyncRecordBatchReader(orig_schema,
-                                        MakeVectorGenerator(batches),
+    return ExportAsyncRecordBatchReader(orig_schema, MakeVectorGenerator(batches),
                                         device->device_type(), &handler);
   }));
 

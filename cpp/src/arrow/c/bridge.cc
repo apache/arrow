@@ -2715,7 +2715,7 @@ struct AsyncProducer {
     ARROW_DISALLOW_COPY_AND_ASSIGN(PrivateTaskData);
   };
 
-  Status operator()(const std::shared_ptr<RecordBatch>& record) {    
+  Status operator()(const std::shared_ptr<RecordBatch>& record) {
     std::unique_lock<std::mutex> lock(state_->mutex_);
     if (state_->pending_requests_ == 0) {
       state_->cv_.wait(lock, [this]() -> bool {
@@ -2789,7 +2789,7 @@ struct AsyncProducer {
     return ret;
   }
 
-  struct ArrowAsyncDeviceStreamHandler* handler_;  
+  struct ArrowAsyncDeviceStreamHandler* handler_;
   std::shared_ptr<State> state_;
 };
 
@@ -2798,7 +2798,8 @@ struct AsyncProducer {
 Future<AsyncRecordBatchGenerator> CreateAsyncDeviceStreamHandler(
     struct ArrowAsyncDeviceStreamHandler* handler, internal::Executor* executor,
     uint64_t queue_size, const DeviceMemoryMapper mapper) {
-  auto iterator = std::make_shared<AsyncRecordBatchIterator>(queue_size, std::move(mapper));
+  auto iterator =
+      std::make_shared<AsyncRecordBatchIterator>(queue_size, std::move(mapper));
   return AsyncRecordBatchIterator::Make(*iterator, handler)
       .Then([executor](std::shared_ptr<AsyncRecordBatchIterator::State> state)
                 -> Result<AsyncRecordBatchGenerator> {
@@ -2831,9 +2832,9 @@ Future<> ExportAsyncRecordBatchReader(
             int status = handler->on_next_task(handler, nullptr, nullptr);
             handler->release(handler);
             if (status != 0) {
-              return Status::UnknownError(
-                  "Received error from handler::on_next_task ", status);
-            }            
+              return Status::UnknownError("Received error from handler::on_next_task ",
+                                          status);
+            }
             return Future<>::MakeFinished();
           },
           [handler](const Status status) -> Future<> {

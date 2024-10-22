@@ -338,7 +338,7 @@ struct ArrowAsyncProducer {
 // defined callbacks, this is intended to be created by the consumer instead.
 // The consumer passes this handler to the producer, which in turn uses the
 // callbacks to inform the consumer of events in the stream.
-struct ArrowAsyncDeviceStreamHandler {  
+struct ArrowAsyncDeviceStreamHandler {
   // Handler for receiving a schema. The passed in stream_schema must be
   // released or moved by the handler (producer is giving ownership of the schema to
   // the handler, but not ownership of the top level object itself).
