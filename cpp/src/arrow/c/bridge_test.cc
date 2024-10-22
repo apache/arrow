@@ -5367,13 +5367,13 @@ TEST_F(TestAsyncDeviceArrayStreamRoundTrip, Simple) {
                                         device->device_type(), &handler);
   }));
 
-  ASSERT_OK_AND_ASSIGN(auto generator, fut_gen.result());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto generator, fut_gen);
   ASSERT_NO_FATAL_FAILURE(AssertSchemaEqual(*orig_schema, *generator.schema));
 
   auto collect_fut = CollectAsyncGenerator(generator.generator);
-  ASSERT_OK_AND_ASSIGN(auto results, collect_fut.result());
-  ASSERT_OK(fut.status());
-  ASSERT_OK(fut_gen.status());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto results, collect_fut);
+  ASSERT_FINISHES_OK(fut);
+  ASSERT_FINISHES_OK(fut_gen);
 
   ASSERT_EQ(results.size(), 2);
   AssertBatchesEqual(*results[0].batch, *batches[0]);
