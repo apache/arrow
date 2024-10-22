@@ -5368,7 +5368,7 @@ TEST_F(TestAsyncDeviceArrayStreamRoundTrip, Simple) {
   }));
 
   ASSERT_OK_AND_ASSIGN(auto generator, fut_gen.result());
-  AssertSchemaEqual(*orig_schema, *generator.schema);
+  ASSERT_NO_FATAL_FAILURE(AssertSchemaEqual(*orig_schema, *generator.schema));
 
   auto collect_fut = CollectAsyncGenerator(generator.generator);
   ASSERT_OK_AND_ASSIGN(auto results, collect_fut.result());
