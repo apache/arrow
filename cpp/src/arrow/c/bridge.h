@@ -461,7 +461,7 @@ class Executor;
 ARROW_EXPORT
 Future<AsyncRecordBatchGenerator> CreateAsyncDeviceStreamHandler(
     struct ArrowAsyncDeviceStreamHandler* handler, internal::Executor* executor,
-    uint64_t queue_size = 5, const DeviceMemoryMapper mapper = DefaultDeviceMemoryMapper);
+    uint64_t queue_size = 5, DeviceMemoryMapper mapper = DefaultDeviceMemoryMapper);
 
 /// \brief Export an AsyncGenerator of record batches using a provided handler
 ///
