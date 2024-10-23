@@ -3713,8 +3713,8 @@ def field(name, type=None, nullable=None, metadata=None):
         Name of the field.
         Alternatively, you can also pass an object that implements the Arrow
         PyCapsule Protocol for schemas (has an ``__arrow_c_schema__`` method).
-    type : pyarrow.DataType
-        Arrow datatype of the field.
+    type : pyarrow.DataType or str
+        Arrow datatype of the field or a string matching one.
     nullable : bool, default True
         Whether the field's values are nullable.
     metadata : dict, default None
@@ -3746,6 +3746,11 @@ def field(name, type=None, nullable=None, metadata=None):
 
     >>> pa.struct([field])
     StructType(struct<key: int32>)
+
+    A str can also be passed for the type parameter:
+
+    >>> pa.field('key', 'int32')
+    pyarrow.Field<key: int32>
     """
     if hasattr(name, "__arrow_c_schema__"):
         if type is not None:
@@ -5713,6 +5718,25 @@ def schema(fields, metadata=None):
     >>> pa.schema([
     ...     pa.field('some_int', pa.int32()),
     ...     pa.field('some_string', pa.string())
+    ... ])
+    some_int: int32
+    some_string: string
+
+    DataTypes can also be passed as strings. The following is equivalent to the
+    above example:
+
+    >>> pa.schema([
+    ...     pa.field('some_int', "int32"),
+    ...     pa.field('some_string', "string")
+    ... ])
+    some_int: int32
+    some_string: string
+
+    Or more concisely:
+
+    >>> pa.schema([
+    ...     ('some_int', "int32"),
+    ...     ('some_string', "string")
     ... ])
     some_int: int32
     some_string: string
