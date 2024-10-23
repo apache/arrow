@@ -460,7 +460,7 @@ endif()
 
 set(ARROW_VENDORED_SRCS
     vendored/base64.cpp
-    vendored/datetime/tz.cpp
+    vendored/datetime.cpp
     vendored/double-conversion/bignum-dtoa.cc
     vendored/double-conversion/bignum.cc
     vendored/double-conversion/cached-powers.cc
@@ -488,7 +488,7 @@ set(ARROW_VENDORED_SRCS
 if(APPLE)
   list(APPEND ARROW_VENDORED_SRCS vendored/datetime/ios.mm)
 endif()
-set_source_files_properties(vendored/datetime/tz.cpp
+set_source_files_properties(vendored/datetime.cpp
                             PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                        SKIP_UNITY_BUILD_INCLUSION ON)
 arrow_add_object_library(ARROW_VENDORED ${ARROW_VENDORED_SRCS})
