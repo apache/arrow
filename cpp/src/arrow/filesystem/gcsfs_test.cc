@@ -270,7 +270,8 @@ class TestGCSFSGeneric : public GcsIntegrationTest, public GenericFileSystemTest
   void SetUp() override {
     ASSERT_NO_FATAL_FAILURE(GcsIntegrationTest::SetUp());
     auto bucket_name = RandomBucketName();
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<GcsFileSystem> gcs_fs_, GcsFileSystem::Make(TestGcsOptions()));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<GcsFileSystem> gcs_fs_,
+GcsFileSystem::Make(TestGcsOptions()));
     ASSERT_OK(gcs_fs_->CreateDir(bucket_name, true));
     fs_ = std::make_shared<SubTreeFileSystem>(bucket_name, gcs_fs_);
   }
@@ -486,8 +487,9 @@ TEST(GcsFileSystem, FileSystemCompare) {
   GcsOptions a_options;
   a_options.scheme = "http";
   a_options.project_id = "test-only-invalid-project-id";
-  auto a = GcsFileSystem::Make(a_options);
+  ASSERT_OK_AND_ASSIGN(auto a, GcsFileSystem::Make(a_options));
   EXPECT_THAT(a, NotNull());
+  EXPECT_TRUE(a->Equals(*a));
 
   GcsOptions b_options;
   b_options.scheme = "http";
@@ -617,7 +619,7 @@ TEST(GcsFileSystem, ObjectMetadataRoundtrip) {
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<GcsFileSystem> fs, GcsFileSystem::Make(TestGcsOptions()));
+  ASSERT_OK_AND_ASSIGN(auto fs, GcsFileSystem::Make(TestGcsOptions()));
   arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketName(), FileType::Directory);
 
   // URI
