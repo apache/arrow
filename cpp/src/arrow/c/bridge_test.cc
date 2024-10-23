@@ -5393,9 +5393,8 @@ TEST_F(TestAsyncDeviceArrayStreamRoundTrip, NullSchema) {
 }
 
 TEST_F(TestAsyncDeviceArrayStreamRoundTrip, PropagateError) {
-  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);  
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
   auto orig_schema = arrow::schema({field("ints", int32())});
-
 
   struct ArrowAsyncDeviceStreamHandler handler;
   auto fut_gen = CreateAsyncDeviceStreamHandler(&handler, internal::GetCpuThreadPool(), 1,
