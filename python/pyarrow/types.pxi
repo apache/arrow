@@ -5722,6 +5722,25 @@ def schema(fields, metadata=None):
     some_int: int32
     some_string: string
 
+    DataTypes can also be passed as strings. The following is equivalent to the
+    above example:
+
+    >>> pa.schema([
+    ...     pa.field('some_int', "int32"),
+    ...     pa.field('some_string', "string")
+    ... ])
+    some_int: int32
+    some_string: string
+
+    Or more concisely:
+
+    >>> pa.schema([
+    ...     ('some_int', "int32"),
+    ...     ('some_string', "string")
+    ... ])
+    some_int: int32
+    some_string: string
+
     Returns
     -------
     schema : pyarrow.Schema
