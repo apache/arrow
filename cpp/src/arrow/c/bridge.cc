@@ -2662,11 +2662,26 @@ class AsyncRecordBatchIterator {
   static void on_error(ArrowAsyncDeviceStreamHandler* self, int code, const char* message,
                        const char* metadata) {
     auto* private_data = reinterpret_cast<PrivateData*>(self->private_data);
-    std::unique_lock<std::mutex> lock(private_data->state_->mutex_);
-    private_data->state_->error_ = Status::FromDetailAndArgs(
+    std::string message_str, metadata_str;
+    if (message != nullptr) {
+      message_str = message;
+    }
+    if (metadata != nullptr) {
+      metadata_str = metadata;
+    }
+
+    Status error = Status::FromDetailAndArgs(
         StatusCode::UnknownError,
-        std::make_shared<AsyncErrorDetail>(code, message, metadata),
-        std::string(message));
+        std::make_shared<AsyncErrorDetail>(code, message_str, std::move(metadata_str)),
+        std::move(message_str));
+
+    if (!private_data->fut_iterator_.is_finished()) {
+      private_data->fut_iterator_.MarkFinished(error);
+      return;
+    }
+
+    std::unique_lock<std::mutex> lock(private_data->state_->mutex_);
+    private_data->state_->error_ = error;
     lock.unlock();
     private_data->state_->cv_.notify_one();
   }
@@ -2809,6 +2824,12 @@ Future<> ExportAsyncRecordBatchReader(
     std::shared_ptr<Schema> schema,
     AsyncGenerator<std::shared_ptr<RecordBatch>> generator,
     DeviceAllocationType device_type, struct ArrowAsyncDeviceStreamHandler* handler) {
+  if (!schema) {
+    handler->on_error(handler, EINVAL, "Schema is null", nullptr);
+    handler->release(handler);
+    return Future<>::MakeFinished(Status::Invalid("Schema is null"));
+  }
+
   struct ArrowSchema c_schema;
   SchemaExportGuard guard(&c_schema);
 
