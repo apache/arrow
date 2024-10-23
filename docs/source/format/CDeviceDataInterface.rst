@@ -655,7 +655,7 @@ serialized.
 Async Device Stream Interface
 =============================
 
-The :ref:`C stream interface <_c-device-stream-interface>` provides a synchronous
+The :ref:`C stream interface <c-device-stream-interface>` provides a synchronous
 API centered around the consumer calling the producer functions to retrieve
 the next record batch. For concurrent communication between producer and consumer,
 the ``ArrowAsyncDeviceStreamHandler`` can be used. This interface is non-opinionated
