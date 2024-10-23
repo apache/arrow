@@ -18,8 +18,13 @@
 name: Dev
 
 on:
-  # always trigger
+  # always trigger except Dependabot "push"
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
   pull_request:
 
 concurrency:

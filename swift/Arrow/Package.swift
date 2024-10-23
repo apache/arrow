@@ -31,11 +31,7 @@ let package = Package(
             targets: ["Arrow"])
     ],
     dependencies: [
-        // The latest version of flatbuffers v23.5.26 was built in May 26, 2023
-        // and therefore doesn't include the unaligned buffer swift changes.
-        // This can be changed back to using the tag once a new version of
-        // flatbuffers has been released.
-        .package(url: "https://github.com/google/flatbuffers.git", branch: "master"),
+        .package(url: "https://github.com/google/flatbuffers.git", branch: "v24.3.7"),
         .package(
               url: "https://github.com/apple/swift-atomics.git",
               .upToNextMajor(from: "1.2.0") // or `.upToNextMinor

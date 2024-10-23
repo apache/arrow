@@ -6259,6 +6259,57 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     return pyarrow_wrap_table(c_result_table)
 
 
+def concat_batches(recordbatches, MemoryPool memory_pool=None):
+    """
+    Concatenate pyarrow.RecordBatch objects.
+
+    All recordbatches must share the same Schema,
+    the operation implies a copy of the data to merge
+    the arrays of the different RecordBatches.
+
+    Parameters
+    ----------
+    recordbatches : iterable of pyarrow.RecordBatch objects
+        Pyarrow record batches to concatenate into a single RecordBatch.
+    memory_pool : MemoryPool, default None
+        For memory allocations, if required, otherwise use default pool.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> t1 = pa.record_batch([
+    ...     pa.array([2, 4, 5, 100]),
+    ...     pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+    ...     ], names=['n_legs', 'animals'])
+    >>> t2 = pa.record_batch([
+    ...     pa.array([2, 4]),
+    ...     pa.array(["Parrot", "Dog"])
+    ...     ], names=['n_legs', 'animals'])
+    >>> pa.concat_batches([t1,t2])
+    pyarrow.RecordBatch
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [2,4,5,100,2,4]
+    animals: ["Flamingo","Horse","Brittle stars","Centipede","Parrot","Dog"]
+
+    """
+    cdef:
+        vector[shared_ptr[CRecordBatch]] c_recordbatches
+        shared_ptr[CRecordBatch] c_result_recordbatch
+        RecordBatch recordbatch
+        CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+    for recordbatch in recordbatches:
+        c_recordbatches.push_back(recordbatch.sp_batch)
+
+    with nogil:
+        c_result_recordbatch = GetResultValue(
+            ConcatenateRecordBatches(c_recordbatches, pool))
+
+    return pyarrow_wrap_batch(c_result_recordbatch)
+
+
 def _from_pydict(cls, mapping, schema, metadata):
     """
     Construct a Table/RecordBatch from Arrow arrays or columns.

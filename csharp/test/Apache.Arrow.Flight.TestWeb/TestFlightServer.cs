@@ -67,14 +67,16 @@ namespace Apache.Arrow.Flight.TestWeb
 
             if(!_flightStore.Flights.TryGetValue(flightDescriptor, out var flightHolder))
             {
-                flightHolder = new FlightHolder(flightDescriptor, await requestStream.Schema, $"http://{context.Host}");
+                flightHolder = new FlightHolder(flightDescriptor, await requestStream.Schema, $"grpc+tcp://{context.Host}");
                 _flightStore.Flights.Add(flightDescriptor, flightHolder);
             }
 
             while (await requestStream.MoveNext())
             {
-                flightHolder.AddBatch(new RecordBatchWithMetadata(requestStream.Current, requestStream.ApplicationMetadata.FirstOrDefault()));
-                await responseStream.WriteAsync(FlightPutResult.Empty);
+                var applicationMetadata = requestStream.ApplicationMetadata.FirstOrDefault();
+                flightHolder.AddBatch(new RecordBatchWithMetadata(requestStream.Current, applicationMetadata));
+                await responseStream.WriteAsync(
+                    applicationMetadata == null ? FlightPutResult.Empty : new FlightPutResult(applicationMetadata));
             }
         }
 
