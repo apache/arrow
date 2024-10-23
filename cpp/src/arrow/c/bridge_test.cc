@@ -5378,6 +5378,8 @@ TEST_F(TestAsyncDeviceArrayStreamRoundTrip, Simple) {
   ASSERT_EQ(results.size(), 2);
   AssertBatchesEqual(*results[0].batch, *batches[0]);
   AssertBatchesEqual(*results[1].batch, *batches[1]);
+
+  internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 TEST_F(TestAsyncDeviceArrayStreamRoundTrip, NullSchema) {
@@ -5415,6 +5417,8 @@ TEST_F(TestAsyncDeviceArrayStreamRoundTrip, PropagateError) {
   auto collect_fut = CollectAsyncGenerator(generator.generator);
   ASSERT_FINISHES_AND_RAISES(UnknownError, collect_fut);
   ASSERT_FINISHES_AND_RAISES(UnknownError, fut);
+
+  internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 }  // namespace arrow
