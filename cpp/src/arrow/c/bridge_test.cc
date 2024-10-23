@@ -5380,4 +5380,42 @@ TEST_F(TestAsyncDeviceArrayStreamRoundTrip, Simple) {
   AssertBatchesEqual(*results[1].batch, *batches[1]);
 }
 
+TEST_F(TestAsyncDeviceArrayStreamRoundTrip, NullSchema) {
+  struct ArrowAsyncDeviceStreamHandler handler;
+  auto fut_gen = CreateAsyncDeviceStreamHandler(&handler, internal::GetCpuThreadPool(), 1,
+                                                TestDeviceArrayRoundtrip::DeviceMapper);
+  ASSERT_FALSE(fut_gen.is_finished());
+
+  auto fut = ExportAsyncRecordBatchReader(nullptr, nullptr, DeviceAllocationType::kCPU,
+                                          &handler);
+  ASSERT_FINISHES_AND_RAISES(Invalid, fut);
+  ASSERT_FINISHES_AND_RAISES(UnknownError, fut_gen);
+}
+
+TEST_F(TestAsyncDeviceArrayStreamRoundTrip, PropagateError) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);  
+  auto orig_schema = arrow::schema({field("ints", int32())});
+
+
+  struct ArrowAsyncDeviceStreamHandler handler;
+  auto fut_gen = CreateAsyncDeviceStreamHandler(&handler, internal::GetCpuThreadPool(), 1,
+                                                TestDeviceArrayRoundtrip::DeviceMapper);
+  ASSERT_FALSE(fut_gen.is_finished());
+
+  ASSERT_OK_AND_ASSIGN(auto fut, internal::GetCpuThreadPool()->Submit([&]() {
+    return ExportAsyncRecordBatchReader(
+        orig_schema,
+        MakeFailingGenerator<std::shared_ptr<RecordBatch>>(
+            Status::UnknownError("expected failure")),
+        device->device_type(), &handler);
+  }));
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto generator, fut_gen);
+  ASSERT_NO_FATAL_FAILURE(AssertSchemaEqual(*orig_schema, *generator.schema));
+
+  auto collect_fut = CollectAsyncGenerator(generator.generator);
+  ASSERT_FINISHES_AND_RAISES(UnknownError, collect_fut);
+  ASSERT_FINISHES_AND_RAISES(UnknownError, fut);
+}
+
 }  // namespace arrow
