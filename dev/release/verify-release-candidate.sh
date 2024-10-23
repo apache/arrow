@@ -775,9 +775,7 @@ test_glib() {
   show_header "Build and test C GLib libraries"
 
   # Build and test C GLib
-  # We can remove '==2.80.5' and 'python<3.13' once
-  # https://github.com/conda-forge/glib-feedstock/issues/191 is fixed.
-  maybe_setup_conda glib==2.80.5 gobject-introspection meson ninja 'python<3.13' ruby
+  maybe_setup_conda glib gobject-introspection meson ninja ruby
   maybe_setup_virtualenv meson
 
   # Install bundler if doesn't exist
@@ -1059,6 +1057,10 @@ test_linux_wheels() {
   local python_versions="${TEST_PYTHON_VERSIONS:-3.9 3.10 3.11 3.12 3.13}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
 
+  if [ "${SOURCE_KIND}" != "local" ]; then
+    local wheel_content="OFF"
+  fi
+
   for python in ${python_versions}; do
     local pyver=${python/m}
     for platform in ${platform_tags}; do
@@ -1068,7 +1070,8 @@ test_linux_wheels() {
         continue
       fi
       pip install pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+      CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} \
+        ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 }
@@ -1081,11 +1084,15 @@ test_macos_wheels() {
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
     local python_versions="3.9 3.10 3.11 3.12 3.13"
-    local platform_tags="macosx_11_0_arm64"
+    local platform_tags="macosx_12_0_arm64"
     local check_flight=OFF
   else
     local python_versions="3.9 3.10 3.11 3.12 3.13"
-    local platform_tags="macosx_10_15_x86_64"
+    local platform_tags="macosx_12_0_x86_64"
+  fi
+
+  if [ "${SOURCE_KIND}" != "local" ]; then
+    local wheel_content="OFF"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
@@ -1104,7 +1111,8 @@ test_macos_wheels() {
       fi
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
+      CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} \
+        ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
         ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done

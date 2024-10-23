@@ -63,7 +63,7 @@ inline std::enable_if_t<std::is_trivially_copyable_v<T>, T> SafeLoadAs(
 template <typename T>
 inline std::enable_if_t<std::is_trivially_copyable_v<T>, T> SafeLoad(const T* unaligned) {
   std::remove_const_t<T> ret;
-  std::memcpy(&ret, unaligned, sizeof(T));
+  std::memcpy(&ret, static_cast<const void*>(unaligned), sizeof(T));
   return ret;
 }
 
@@ -73,7 +73,7 @@ inline std::enable_if_t<std::is_trivially_copyable_v<T> &&
                         U>
 SafeCopy(T value) {
   std::remove_const_t<U> ret;
-  std::memcpy(&ret, &value, sizeof(T));
+  std::memcpy(&ret, static_cast<const void*>(&value), sizeof(T));
   return ret;
 }
 
