@@ -57,6 +57,9 @@ in the background, without blocking (default \code{TRUE})
 buckets if \verb{$CreateDir()} is called on the bucket level (default \code{FALSE}).
 \item \code{allow_bucket_deletion}: logical, if TRUE, the filesystem will delete
 buckets if\verb{$DeleteDir()} is called on the bucket level (default \code{FALSE}).
+\item \code{check_directory_existence_before_creation}: logical, if TRUE, the filesystem 
+will create new directories only when necessary at the cost of extra I/O calls. if FALSE,
+the filesystem will create new directories without checking the existence (default \code{FALSE}).
 \item \code{request_timeout}: Socket read time on Windows and macOS in seconds. If
 negative, the AWS SDK default (typically 3 seconds).
 \item \code{connect_timeout}: Socket connection timeout in seconds. If negative, AWS
