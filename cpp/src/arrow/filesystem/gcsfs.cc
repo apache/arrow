@@ -962,8 +962,8 @@ Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenAppendStream(
   return Status::NotImplemented("Append is not supported in GCS");
 }
 
-Result<std::shared_ptr<GcsFileSystem>> GcsFileSystem::Make(
-    const GcsOptions& options, const io::IOContext& context) {
+Result<std::shared_ptr<GcsFileSystem>> GcsFileSystem::Make(const GcsOptions& options,
+                                                           const io::IOContext& context) {
   // Cannot use `std::make_shared<>` as the constructor is private.
   return std::shared_ptr<GcsFileSystem>(new GcsFileSystem(options, context));
 }
