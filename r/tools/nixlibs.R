@@ -926,7 +926,9 @@ options(.arrow.cleanup = character())
 on.exit(unlink(getOption(".arrow.cleanup"), recursive = TRUE), add = TRUE)
 
 not_cran <- env_is("NOT_CRAN", "true")
-if (not_cran) {
+on_r_universe <- !env_is("MY_UNIVERSE", "")
+
+if (not_cran || on_r_universe) {
   # Set more eager defaults
   if (env_is("LIBARROW_BINARY", "")) {
     Sys.setenv(LIBARROW_BINARY = "true")
