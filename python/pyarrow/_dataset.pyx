@@ -3716,10 +3716,13 @@ cdef class Scanner(_Weakrefable):
 
         Parameters
         ----------
-        source : Iterator
-            The iterator of Batches.
+        source : Iterator or Arrow-compatible stream object
+            The iterator of Batches. This can be a pyarrow RecordBatchReader,
+            any object that implements the Arrow PyCapsule Protocol for
+            streams, or an actual Python iterator of RecordBatches.
         schema : Schema
-            The schema of the batches.
+            The schema of the batches (required when passing a Python
+            iterator).
         columns : list[str] or dict[str, Expression], default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
@@ -3775,6 +3778,12 @@ cdef class Scanner(_Weakrefable):
                 raise ValueError('Cannot specify a schema when providing '
                                  'a RecordBatchReader')
             reader = source
+        elif hasattr(source, "__arrow_c_stream__"):
+            if schema:
+                raise ValueError(
+                    'Cannot specify a schema when providing an object '
+                    'implementing the Arrow PyCapsule Protocol')
+            reader = pa.ipc.RecordBatchReader.from_stream(source)
         elif _is_iterable(source):
             if schema is None:
                 raise ValueError('Must provide schema to construct scanner '
