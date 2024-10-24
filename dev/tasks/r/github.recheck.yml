@@ -15,12 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowCUDA
-  VERSION = "18.0.0"
+{% import 'macros.jinja' as macros with context %}
 
-  module Version
-    numbers, TAG = VERSION.split("-")
-    MAJOR, MINOR, MICRO = numbers.split(".").collect(&:to_i)
-    STRING = VERSION
-  end
-end
+{{ macros.github_header() }}
+
+jobs:
+  recheck:
+    name: Reverse check {{ which }} dependents
+    uses: amoeba/recheck/.github/workflows/recheck.yml@v1 # TODO: Point at recheck not amoeba before merging and pin to SHA
+    with:
+      which: {{ which }}
+      subdirectory: r
+      repository: {{ arrow.github_repo }}
+      ref: {{ arrow.branch }}
