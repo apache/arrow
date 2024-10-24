@@ -293,9 +293,9 @@ class BufferedInputStream::Impl : public BufferedBase {
     }
     if ((buffer_pos_ + bytes_buffered_) >= new_buffer_size) {
       return Status::Invalid(
-          "Cannot shrink read buffer if buffered data remains, new_buffer_size:",
-          new_buffer_size, ", buffer_pos:", buffer_pos_,
-          ", bytes_buffered:", bytes_buffered_, ", buffer_size:", buffer_size_);
+          "Cannot shrink read buffer if buffered data remains, new_buffer_size: ",
+          new_buffer_size, ", buffer_pos: ", buffer_pos_,
+          ", bytes_buffered: ", bytes_buffered_, ", buffer_size: ", buffer_size_);
     }
     if (raw_read_bound_ >= 0) {
       // No need to reserve space for more than the total remaining number of bytes.
