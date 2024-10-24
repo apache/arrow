@@ -20,13 +20,12 @@
 set -ex
 
 # Download database
-curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output ~/Downloads/tzdata2021e.tar.gz
+curl https://data.iana.org/time-zones/releases/tzdata2024b.tar.gz --output ~/Downloads/tzdata.tar.gz
 
 # Extract
 mkdir -p ~/Downloads/tzdata
 ls -lah ~/Downloads/tzdata
-tar --extract --file ~/Downloads/tzdata2021e.tar.gz --directory ~/Downloads/tzdata --verbose
-grep -r Mexico ~/Downloads/tzdata
+tar --extract --file ~/Downloads/tzdata.tar.gz --directory ~/Downloads/tzdata
 
 # Download Windows timezone mapping
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml --output ~/Downloads/tzdata/windowsZones.xml
