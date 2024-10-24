@@ -52,21 +52,21 @@
     "jest.config.js"
   ],
   "dependencies": {
-    "@swc/helpers": "^0.5.11",
-    "@types/command-line-args": "^5.2.3",
-    "@types/command-line-usage": "^5.0.4",
-    "@types/node": "^20.13.0",
     "command-line-args": "^5.2.1",
     "command-line-usage": "^7.0.1",
     "flatbuffers": "^24.3.25",
-    "json-bignum": "^0.0.3",
-    "tslib": "^2.6.2"
+    "json-bignum": "^0.0.3"
   },
   "devDependencies": {
     "@openpgp/web-stream-tools": "0.0.13",
     "@rollup/plugin-alias": "5.1.0",
     "@rollup/plugin-node-resolve": "15.2.3",
     "@rollup/stream": "3.0.1",
+    "@types/node": "^20.13.0",
+    "tslib": "^2.6.2",
+    "@swc/helpers": "^0.5.11",
+    "@types/command-line-args": "^5.2.3",
+    "@types/command-line-usage": "^5.0.4",
     "@swc/core": "1.6.6",
     "@types/benchmark": "2.1.5",
     "@types/glob": "8.1.0",
