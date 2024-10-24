@@ -294,7 +294,13 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   ///
   /// \return The stored non-OK status object, or an OK status if this object
   ///         has a value.
-  constexpr const Status& status() const { return status_; }
+  constexpr const Status& status() const& { return status_; }
+
+  /// Gets the stored status object, or an OK status if a `T` value is stored.
+  ///
+  /// \return The stored non-OK status object, or an OK status if this object
+  ///         has a value.
+  Status status() && { return status_; }
 
   /// Gets the stored `T` value.
   ///
@@ -350,7 +356,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
                             std::is_constructible<U, T>::value>::type>
   Status Value(U* out) && {
     if (!ok()) {
-      return status();
+      return std::move(*this).status();
     }
     *out = U(MoveValueUnsafe());
     return Status::OK();
@@ -380,7 +386,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   typename EnsureResult<decltype(std::declval<M&&>()(std::declval<T&&>()))>::type Map(
       M&& m) && {
     if (!ok()) {
-      return status();
+      return std::move(*this).status();
     }
     return std::forward<M>(m)(MoveValueUnsafe());
   }
@@ -402,7 +408,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
                             std::is_constructible<U, T>::value>::type>
   Result<U> As() && {
     if (!ok()) {
-      return status();
+      return std::move(*this).status();
     }
     return U(MoveValueUnsafe());
   }
