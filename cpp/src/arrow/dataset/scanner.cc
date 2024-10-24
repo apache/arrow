@@ -1032,11 +1032,11 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   } else {
     batch_gen = std::move(merged_batch_gen);
   }
-
+  int64_t index = require_sequenced_output ? 0 : compute::kUnsequencedIndex;
   auto gen = MakeMappedGenerator(
       std::move(batch_gen),
-      [scan_options](const EnumeratedRecordBatch& partial)
-          -> Result<std::optional<compute::ExecBatch>> {
+      [scan_options, index](const EnumeratedRecordBatch& partial) mutable
+      -> Result<std::optional<compute::ExecBatch>> {
         // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
         // than this, for example parquet's row group stats. Failing to do this leaves
         // perf on the table because row group stats could be used to skip kernel execs in
@@ -1057,8 +1057,11 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
         batch->values.emplace_back(partial.record_batch.index);
         batch->values.emplace_back(partial.record_batch.last);
         batch->values.emplace_back(partial.fragment.value->ToString());
+        if (index != compute::kUnsequencedIndex) batch->index = index++;
         return batch;
       });
+
+  auto ordering = require_sequenced_output ? Ordering::Implicit() : Ordering::Unordered();
 
   auto fields = scan_options->dataset_schema->fields();
   if (scan_options->add_augmented_fields) {
@@ -1069,7 +1072,7 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
 
   return acero::MakeExecNode(
       "source", plan, {},
-      acero::SourceNodeOptions{schema(std::move(fields)), std::move(gen)});
+      acero::SourceNodeOptions{schema(std::move(fields)), std::move(gen), ordering});
 }
 
 Result<acero::ExecNode*> MakeAugmentedProjectNode(acero::ExecPlan* plan,

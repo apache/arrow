@@ -384,6 +384,7 @@ Result<BatchesWithSchema> MakeIntegerBatches(
   int row = 0;
   for (int i = 0; i < num_batches; i++) {
     ARROW_ASSIGN_OR_RAISE(auto batch, MakeIntegerBatch(gens, schema, row, batch_size));
+    batch.index = i;
     out.batches.push_back(std::move(batch));
     row += batch_size;
   }
@@ -409,6 +410,9 @@ BatchesWithSchema MakeBatchesFromString(const std::shared_ptr<Schema>& schema,
     for (size_t i = 0; i < batch_count; ++i) {
       out_batches.batches.push_back(out_batches.batches[i]);
     }
+  }
+  for (size_t batch_index = 0; batch_index < out_batches.batches.size(); ++batch_index) {
+    out_batches.batches[batch_index].index = batch_index;
   }
 
   return out_batches;
