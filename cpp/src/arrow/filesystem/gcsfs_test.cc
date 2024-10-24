@@ -66,8 +66,7 @@ culpa qui officia deserunt mollit anim id est laborum.
 class GcsTestbench : public ::testing::Environment {
  public:
   GcsTestbench() {
-    // port_ = std::to_string(GetListenPort());
-    port_ = "9000";
+    port_ = std::to_string(GetListenPort());
     auto error = std::string("Could not start GCS emulator 'storage-testbench'");
     auto server_process = std::make_unique<util::Process>();
     auto status = server_process->SetExecutable("storage-testbench");
@@ -77,7 +76,7 @@ class GcsTestbench : public ::testing::Environment {
       return;
     }
 
-    // server_process->SetArgs({"--port", port_});
+    server_process->SetArgs({"--port", port_});
     server_process->IgnoreStderr();
     status = server_process->Execute();
     if (!status.ok()) {
