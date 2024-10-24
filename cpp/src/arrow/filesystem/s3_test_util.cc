@@ -19,6 +19,7 @@
 #  include <sys/wait.h>
 #endif
 
+#include "arrow/filesystem/s3_test_cert_internal.h"
 #include "arrow/filesystem/s3_test_util.h"
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/testing/process.h"
@@ -31,6 +32,11 @@
 namespace arrow {
 namespace fs {
 
+using ::arrow::internal::FileClose;
+using ::arrow::internal::FileDescriptor;
+using ::arrow::internal::FileOpenWritable;
+using ::arrow::internal::FileWrite;
+using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::TemporaryDir;
 
 namespace {
@@ -50,10 +56,12 @@ std::string GenerateConnectString() { return GetListenAddress(); }
 
 struct MinioTestServer::Impl {
   std::unique_ptr<TemporaryDir> temp_dir_;
+  std::unique_ptr<TemporaryDir> temp_dir_ca_;
   std::string connect_string_;
   std::string access_key_ = kMinioAccessKey;
   std::string secret_key_ = kMinioSecretKey;
   std::unique_ptr<util::Process> server_process_;
+  std::string scheme_ = "http";
 };
 
 MinioTestServer::MinioTestServer() : impl_(new Impl) {}
@@ -69,7 +77,45 @@ std::string MinioTestServer::access_key() const { return impl_->access_key_; }
 
 std::string MinioTestServer::secret_key() const { return impl_->secret_key_; }
 
-Status MinioTestServer::Start() {
+std::string MinioTestServer::ca_dir_path() const {
+  return impl_->temp_dir_ca_->path().ToString();
+}
+
+std::string MinioTestServer::ca_file_path() const {
+  return impl_->temp_dir_ca_->path().ToString() + "/public.crt";
+}
+
+std::string MinioTestServer::scheme() const { return impl_->scheme_; }
+
+Status MinioTestServer::GenerateCertificateFile() {
+  // create the dedicated folder for certificate file, rather than reuse the data
+  // folder, since there is test case to check whether the folder is empty.
+  ARROW_ASSIGN_OR_RAISE(impl_->temp_dir_ca_, TemporaryDir::Make("s3fs-test-ca-"));
+
+  ARROW_ASSIGN_OR_RAISE(auto public_crt_file,
+                        PlatformFilename::FromString(ca_dir_path() + "/public.crt"));
+  ARROW_ASSIGN_OR_RAISE(auto public_cert_fd, FileOpenWritable(public_crt_file));
+  ARROW_RETURN_NOT_OK(FileWrite(public_cert_fd.fd(),
+                                reinterpret_cast<const uint8_t*>(kMinioCert),
+                                strlen(kMinioCert)));
+  ARROW_RETURN_NOT_OK(public_cert_fd.Close());
+
+  ARROW_ASSIGN_OR_RAISE(auto private_key_file,
+                        PlatformFilename::FromString(ca_dir_path() + "/private.key"));
+  ARROW_ASSIGN_OR_RAISE(auto private_key_fd, FileOpenWritable(private_key_file));
+  ARROW_RETURN_NOT_OK(FileWrite(private_key_fd.fd(),
+                                reinterpret_cast<const uint8_t*>(kMinioPrivateKey),
+                                strlen(kMinioPrivateKey)));
+  ARROW_RETURN_NOT_OK(private_key_fd.Close());
+
+  arrow::fs::FileSystemGlobalOptions global_options;
+  global_options.tls_ca_file_path = ca_file_path();
+  ARROW_RETURN_NOT_OK(arrow::fs::Initialize(global_options));
+
+  return Status::OK();
+}
+
+Status MinioTestServer::Start(bool enable_tls_if_supported) {
   const char* connect_str = std::getenv(kEnvConnectString);
   const char* access_key = std::getenv(kEnvAccessKey);
   const char* secret_key = std::getenv(kEnvSecretKey);
@@ -89,11 +135,28 @@ Status MinioTestServer::Start() {
   // Disable the embedded console (one less listening address to care about)
   impl_->server_process_->SetEnv("MINIO_BROWSER", "off");
   impl_->connect_string_ = GenerateConnectString();
-  ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
   // NOTE: --quiet makes startup faster by suppressing remote version check
-  impl_->server_process_->SetArgs({"server", "--quiet", "--compat", "--address",
-                                   impl_->connect_string_,
-                                   impl_->temp_dir_->path().ToString()});
+  std::vector<std::string> minio_args({"server", "--quiet", "--compat"});
+  if (enable_tls_if_supported) {
+#ifdef MINIO_SERVER_WITH_TLS
+    ARROW_RETURN_NOT_OK(GenerateCertificateFile());
+    minio_args.emplace_back("--certs-dir");
+    minio_args.emplace_back(ca_dir_path());
+    impl_->scheme_ = "https";
+    impl_->connect_string_ =
+        GetListenAddress("localhost");  // for TLS enabled case, we need to use localhost
+                                        // which is the fixed hostname in the certificate
+#endif                                  // MINIO_SERVER_WITH_TLS
+  }
+  minio_args.emplace_back("--address");
+  minio_args.emplace_back(
+      impl_->connect_string_);  // the connect_string_ differs for the http and https,
+                                // https is fixed localhost while http is the dynamic ip
+                                // in range 127.0.0.1/8
+  minio_args.emplace_back(impl_->temp_dir_->path().ToString());
+
+  ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
+  impl_->server_process_->SetArgs(minio_args);
   ARROW_RETURN_NOT_OK(impl_->server_process_->Execute());
   return Status::OK();
 }
@@ -113,16 +176,19 @@ struct MinioTestEnvironment::Impl {
   }
 };
 
-MinioTestEnvironment::MinioTestEnvironment() : impl_(new Impl) {}
+MinioTestEnvironment::MinioTestEnvironment(bool enable_tls_if_supported)
+    : impl_(new Impl), enable_tls_if_supported_(enable_tls_if_supported) {}
 
 MinioTestEnvironment::~MinioTestEnvironment() = default;
 
 void MinioTestEnvironment::SetUp() {
   auto pool = ::arrow::internal::GetCpuThreadPool();
 
-  auto launch_one_server = []() -> Result<std::shared_ptr<MinioTestServer>> {
+  auto launch_one_server =
+      [enable_tls_if_supported =
+           enable_tls_if_supported_]() -> Result<std::shared_ptr<MinioTestServer>> {
     auto server = std::make_shared<MinioTestServer>();
-    RETURN_NOT_OK(server->Start());
+    RETURN_NOT_OK(server->Start(enable_tls_if_supported));
     return server;
   };
   impl_->server_generator_ = [pool, launch_one_server]() {
