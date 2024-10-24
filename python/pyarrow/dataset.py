@@ -848,9 +848,9 @@ def _ensure_write_partitioning(part, schema, flavor):
 
 
 def write_dataset(data, base_dir, *, basename_template=None, format=None,
-                  partitioning=None, partitioning_flavor=None, schema=None,
-                  filesystem=None, file_options=None, use_threads=True,
-                  max_partitions=None, max_open_files=None,
+                  partitioning=None, partitioning_flavor=None,
+                  schema=None, filesystem=None, file_options=None, use_threads=True,
+                  preserve_order=False, max_partitions=None, max_open_files=None,
                   max_rows_per_file=None, min_rows_per_group=None,
                   max_rows_per_group=None, file_visitor=None,
                   existing_data_behavior='error', create_dir=True):
@@ -893,7 +893,12 @@ Table/RecordBatch, or iterable of RecordBatch
         ``FileFormat.make_write_options()`` function.
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
-        used determined by the number of available CPU cores.
+        used determined by the number of available CPU cores.  Using multiple
+        threads may change the order of rows in the written dataset.
+    preserve_order : bool, default False
+        Preserve the order of rows. If enabled, order of rows in the dataset are
+        guaranteed to be preserved even if use_threads is enabled. This may cause
+        notable performance degradation.
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
     max_open_files : int, default 1024
@@ -1029,7 +1034,7 @@ Table/RecordBatch, or iterable of RecordBatch
 
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
-        file_options, max_partitions, file_visitor, existing_data_behavior,
-        max_open_files, max_rows_per_file,
+        preserve_order, file_options, max_partitions, file_visitor,
+        existing_data_behavior, max_open_files, max_rows_per_file,
         min_rows_per_group, max_rows_per_group, create_dir
     )
