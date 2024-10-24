@@ -107,8 +107,9 @@ for pom in *.pom; do
   classifiers=""
   args=()
   args+=(deploy:deploy-file)
-  args+=(-Durl=https://repository.apache.org/service/local/staging/deploy/maven2)
   args+=(-DrepositoryId=apache.releases.https)
+  args+=(-DretryFailedDeploymentCount=10)
+  args+=(-Durl=https://repository.apache.org/service/local/staging/deploy/maven2)
   pom="${PWD}/${pom}"
   args+=(-DpomFile="${pom}")
   if [ -f "${base}.jar" ]; then
@@ -139,7 +140,7 @@ for pom in *.pom; do
   args+=(-Dtypes="${types}")
   args+=(-Dclassifiers="${classifiers}")
   pushd "${SOURCE_DIR}"
-  mvn deploy:deploy-file "${args[@]}"
+  mvn "${args[@]}"
   popd
 done
 

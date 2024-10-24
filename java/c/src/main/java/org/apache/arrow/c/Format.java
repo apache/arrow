@@ -233,6 +233,8 @@ final class Format {
         return "+vl";
       case LargeListView:
         return "+vL";
+      case RunEndEncoded:
+        return "+r";
       case NONE:
         throw new IllegalArgumentException("Arrow type ID is NONE");
       default:
@@ -321,6 +323,8 @@ final class Format {
         return new ArrowType.ListView();
       case "+vL":
         return new ArrowType.LargeListView();
+      case "+r":
+        return new ArrowType.RunEndEncoded();
       default:
         String[] parts = format.split(":", 2);
         if (parts.length == 2) {

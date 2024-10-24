@@ -36,10 +36,6 @@
 
 namespace arrow {
 
-using internal::ChunkLocation;
-using internal::ChunkResolver;
-using internal::TypedChunkLocation;
-
 class TestChunkedArray : public ::testing::Test {
  protected:
   virtual void Construct() {

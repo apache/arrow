@@ -19,6 +19,11 @@ name: Integration
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
       - '.dockerignore'
       - '.github/workflows/integration.yml'

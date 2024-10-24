@@ -185,88 +185,79 @@ test_binary() {
 test_apt() {
   show_header "Testing APT packages"
 
-  for target in "debian:bookworm" \
-                "arm64v8/debian:bookworm" \
-                "debian:trixie" \
-                "arm64v8/debian:trixie" \
-                "ubuntu:focal" \
-                "arm64v8/ubuntu:focal" \
-                "ubuntu:jammy" \
-                "arm64v8/ubuntu:jammy" \
-                "ubuntu:noble" \
-                "arm64v8/ubuntu:noble"; do \
-    case "${target}" in
-      arm64v8/*)
-        if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
-          case "${target}" in
-            arm64v8/ubuntu:focal)
-              : # OK
-              ;;
-            *)
-              # qemu-user-static in Ubuntu 20.04 has a crash bug:
-              #   https://bugs.launchpad.net/qemu/+bug/1749393
-              continue
-              ;;
-          esac
-        else
-          continue
-        fi
-        ;;
-    esac
-    if ! docker run --rm -v "${ARROW_DIR}":/arrow:delegated \
-           --security-opt="seccomp=unconfined" \
-           "${target}" \
-           /arrow/dev/release/verify-apt.sh \
-           "${VERSION}" \
-           "rc"; then
-      echo "Failed to verify the APT repository for ${target}"
-      exit 1
-    fi
-  done
+  if [ "$(arch)" = "x86_64" ]; then
+    for target in "debian:bookworm" \
+                  "debian:trixie" \
+                  "ubuntu:focal" \
+                  "ubuntu:jammy" \
+                  "ubuntu:noble"; do \
+      if ! docker run \
+             --platform=linux/x86_64 \
+             --rm \
+             --security-opt="seccomp=unconfined" \
+             --volume "${ARROW_DIR}":/arrow:delegated \
+             "${target}" \
+             /arrow/dev/release/verify-apt.sh \
+             "${VERSION}" \
+             "rc"; then
+        echo "Failed to verify the APT repository for ${target} on x86_64"
+        exit 1
+      fi
+    done
+  fi
+
+  if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
+    for target in "arm64v8/debian:bookworm" \
+                  "arm64v8/debian:trixie" \
+                  "arm64v8/ubuntu:focal" \
+                  "arm64v8/ubuntu:jammy" \
+                  "arm64v8/ubuntu:noble"; do \
+      if ! docker run \
+             --platform=linux/arm64 \
+             --rm \
+             --security-opt="seccomp=unconfined" \
+             --volume "${ARROW_DIR}":/arrow:delegated \
+             "${target}" \
+             /arrow/dev/release/verify-apt.sh \
+             "${VERSION}" \
+             "rc"; then
+        echo "Failed to verify the APT repository for ${target} on arm64"
+        exit 1
+      fi
+    done
+  fi
 }
 
 test_yum() {
   show_header "Testing Yum packages"
 
-  for target in "almalinux:9" \
-                "arm64v8/almalinux:9" \
-                "almalinux:8" \
-                "arm64v8/almalinux:8" \
-                "amazonlinux:2023" \
-                "quay.io/centos/centos:stream9" \
-                "quay.io/centos/centos:stream8" \
-                "centos:7"; do
-    case "${target}" in
-      arm64v8/*)
-        if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
-          : # OK
-        else
-          continue
-        fi
-        ;;
-      centos:7)
-        if [ "$(arch)" = "x86_64" ]; then
-          : # OK
-        else
-          continue
-        fi
-        ;;
-    esac
-    if ! docker run \
-           --rm \
-           --security-opt="seccomp=unconfined" \
-           --volume "${ARROW_DIR}":/arrow:delegated \
-           "${target}" \
-           /arrow/dev/release/verify-yum.sh \
-           "${VERSION}" \
-           "rc"; then
-      echo "Failed to verify the Yum repository for ${target}"
-      exit 1
-    fi
-  done
+  if [ "$(arch)" = "x86_64" ]; then
+    for target in "almalinux:9" \
+                  "almalinux:8" \
+                  "amazonlinux:2023" \
+                  "quay.io/centos/centos:stream9" \
+                  "quay.io/centos/centos:stream8" \
+                  "centos:7"; do
+      if ! docker run \
+             --platform linux/x86_64 \
+             --rm \
+             --security-opt="seccomp=unconfined" \
+             --volume "${ARROW_DIR}":/arrow:delegated \
+             "${target}" \
+             /arrow/dev/release/verify-yum.sh \
+             "${VERSION}" \
+             "rc"; then
+        echo "Failed to verify the Yum repository for ${target} on x86_64"
+        exit 1
+      fi
+    done
+  fi
 
-  if [ "$(arch)" != "aarch64" -a -e /usr/bin/qemu-aarch64-static ]; then
-    for target in "quay.io/centos/centos:stream9" \
+  if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
+    for target in "arm64v8/almalinux:9" \
+                  "arm64v8/almalinux:8" \
+                  "arm64v8/amazonlinux:2023" \
+                  "quay.io/centos/centos:stream9" \
                   "quay.io/centos/centos:stream8"; do
       if ! docker run \
              --platform linux/arm64 \
@@ -277,7 +268,7 @@ test_yum() {
              /arrow/dev/release/verify-yum.sh \
              "${VERSION}" \
              "rc"; then
-        echo "Failed to verify the Yum repository for ${target} arm64"
+        echo "Failed to verify the Yum repository for ${target} on arm64"
         exit 1
       fi
     done
@@ -775,9 +766,7 @@ test_glib() {
   show_header "Build and test C GLib libraries"
 
   # Build and test C GLib
-  # We can remove '==2.80.5' once https://github.com/conda-forge/glib-feedstock/issues/191
-  # is fixed.
-  maybe_setup_conda glib==2.80.5 gobject-introspection meson ninja ruby
+  maybe_setup_conda glib gobject-introspection meson ninja ruby
   maybe_setup_virtualenv meson
 
   # Install bundler if doesn't exist
@@ -1059,6 +1048,10 @@ test_linux_wheels() {
   local python_versions="${TEST_PYTHON_VERSIONS:-3.9 3.10 3.11 3.12 3.13}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
 
+  if [ "${SOURCE_KIND}" != "local" ]; then
+    local wheel_content="OFF"
+  fi
+
   for python in ${python_versions}; do
     local pyver=${python/m}
     for platform in ${platform_tags}; do
@@ -1068,7 +1061,8 @@ test_linux_wheels() {
         continue
       fi
       pip install pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+      CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} \
+        ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 }
@@ -1081,11 +1075,15 @@ test_macos_wheels() {
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
     local python_versions="3.9 3.10 3.11 3.12 3.13"
-    local platform_tags="macosx_11_0_arm64"
+    local platform_tags="macosx_12_0_arm64"
     local check_flight=OFF
   else
     local python_versions="3.9 3.10 3.11 3.12 3.13"
-    local platform_tags="macosx_10_15_x86_64"
+    local platform_tags="macosx_12_0_x86_64"
+  fi
+
+  if [ "${SOURCE_KIND}" != "local" ]; then
+    local wheel_content="OFF"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
@@ -1104,7 +1102,8 @@ test_macos_wheels() {
       fi
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
+      CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} \
+        ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
         ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done

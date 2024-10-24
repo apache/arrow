@@ -103,23 +103,23 @@ else
 endif
 
 if arrow_cpp_build_lib_dir == ''
-  arrow = dependency('arrow')
+  arrow = dependency('arrow', version: ['>=' + version])
   # They are just for checking required modules are enabled. They are built into
   # libarrow.so. So we don't need additional build flags for them.
-  dependency('arrow-compute')
-  dependency('arrow-csv')
-  dependency('arrow-filesystem')
-  dependency('arrow-json')
+  dependency('arrow-compute', version: ['>=' + version])
+  dependency('arrow-csv', version: ['>=' + version])
+  dependency('arrow-filesystem', version: ['>=' + version])
+  dependency('arrow-json', version: ['>=' + version])
 
-  have_arrow_orc = dependency('arrow-orc', required: false).found()
-  arrow_cuda = dependency('arrow-cuda', required: false)
+  have_arrow_orc = dependency('arrow-orc', required: false, version: ['>=' + version]).found()
+  arrow_cuda = dependency('arrow-cuda', required: false, version: ['>=' + version])
   # we do not support compiling glib without acero engine
-  arrow_acero = dependency('arrow-acero', required: true)
-  arrow_dataset = dependency('arrow-dataset', required: false)
-  arrow_flight = dependency('arrow-flight', required: false)
-  arrow_flight_sql = dependency('arrow-flight-sql', required: false)
-  gandiva = dependency('gandiva', required: false)
-  parquet = dependency('parquet', required: false)
+  arrow_acero = dependency('arrow-acero', required: true, version: ['>=' + version])
+  arrow_dataset = dependency('arrow-dataset', required: false, version: ['>=' + version])
+  arrow_flight = dependency('arrow-flight', required: false, version: ['>=' + version])
+  arrow_flight_sql = dependency('arrow-flight-sql', required: false, version: ['>=' + version])
+  gandiva = dependency('gandiva', required: false, version: ['>=' + version])
+  parquet = dependency('parquet', required: false, version: ['>=' + version])
 else
   base_include_directories += [
     include_directories(join_paths(arrow_cpp_build_dir, 'src')),
