@@ -159,6 +159,7 @@ x-hierarchy:
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-cpp-emscripten
+  - ubuntu-d
   - ubuntu-r-sanitizer
   - ubuntu-r-valgrind
   - ubuntu-swift
@@ -983,6 +984,23 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"
+
+  ubuntu-d:
+    # Usage:
+    #   docker-compose build ubuntu-d
+    #   docker-compose run --rm ubuntu-d
+    # Parameters:
+    image: ubuntu-d
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-d.dockerfile
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    command: &d-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
+        /arrow/ci/scripts/d_test.sh /arrow /build"
 
   debian-python:
     # Usage:
