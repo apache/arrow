@@ -35,9 +35,11 @@ Status::Status(StatusCode code, std::string msg, std::shared_ptr<StatusDetail> d
 }
 
 void Status::CopyFrom(const Status& s) {
-  delete state_;
+  DeleteState();
   if (s.state_ == nullptr) {
     state_ = nullptr;
+  } else if (s.state_->is_static) {
+    state_ = s.state_;
   } else {
     state_ = new State(*s.state_);
   }
@@ -154,6 +156,12 @@ void Status::Warn() const { ARROW_LOG(WARNING) << ToString(); }
 void Status::Warn(const std::string& message) const {
   ARROW_LOG(WARNING) << message << ": " << ToString();
 }
+
+Status Status::MakeStatic(StatusCode code, std::string msg, std::shared_ptr<StatusDetail> detail) {
+  Status st{code, std::move(msg), std::move(detail)};
+  st.state_->is_static = true;
+  return st;
+} 
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 void Status::AddContextLine(const char* filename, int line, const char* expr) {
