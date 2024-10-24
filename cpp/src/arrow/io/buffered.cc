@@ -326,7 +326,7 @@ class BufferedInputStream::Impl : public BufferedBase {
     }
 
     // Increase the buffer size if needed.
-    if (nbytes > buffer_size_ - buffer_pos_) {
+    if (nbytes > buffer_->size() - buffer_pos_) {
       RETURN_NOT_OK(SetBufferSize(nbytes + buffer_pos_));
       DCHECK(buffer_->size() - buffer_pos_ >= nbytes);
     }
