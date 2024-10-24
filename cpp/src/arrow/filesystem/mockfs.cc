@@ -255,12 +255,12 @@ class MockFSInputStream : public io::BufferReader {
 
 }  // namespace
 
-std::ostream& operator<<(std::ostream& os, const MockDirInfo& di) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const MockDirInfo& di) {
   return os << "'" << di.full_path << "' [mtime=" << di.mtime.time_since_epoch().count()
             << "]";
 }
 
-std::ostream& operator<<(std::ostream& os, const MockFileInfo& di) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const MockFileInfo& di) {
   return os << "'" << di.full_path << "' [mtime=" << di.mtime.time_since_epoch().count()
             << ", size=" << di.data.length() << "]";
 }
