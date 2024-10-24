@@ -271,8 +271,7 @@ class TestGCSFSGeneric : public GcsIntegrationTest, public GenericFileSystemTest
   void SetUp() override {
     ASSERT_NO_FATAL_FAILURE(GcsIntegrationTest::SetUp());
     auto bucket_name = RandomBucketName();
-    ASSERT_OK_AND_ASSIGN(gcs_fs_,
-GcsFileSystem::Make(TestGcsOptions()));
+    ASSERT_OK_AND_ASSIGN(gcs_fs_, GcsFileSystem::Make(TestGcsOptions()));
     ASSERT_OK(gcs_fs_->CreateDir(bucket_name, true));
     fs_ = std::make_shared<SubTreeFileSystem>(bucket_name, gcs_fs_);
   }
