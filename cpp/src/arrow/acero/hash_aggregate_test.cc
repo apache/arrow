@@ -1798,12 +1798,12 @@ TEST_P(GroupBy, SumMeanProductDecimal) {
 
     AssertDatumsEqual(ArrayFromJSON(struct_({
                                         field("key_0", int64()),
-                                        field("hash_sum", decimal128(3, 2)),
-                                        field("hash_sum", decimal256(3, 2)),
-                                        field("hash_mean", decimal128(3, 2)),
-                                        field("hash_mean", decimal256(3, 2)),
-                                        field("hash_product", decimal128(3, 2)),
-                                        field("hash_product", decimal256(3, 2)),
+                                        field("hash_sum", decimal128(38, 2)),
+                                        field("hash_sum", decimal256(76, 2)),
+                                        field("hash_mean", decimal128(38, 2)),
+                                        field("hash_mean", decimal256(76, 2)),
+                                        field("hash_product", decimal128(38, 2)),
+                                        field("hash_product", decimal256(76, 2)),
                                     }),
                                     R"([
     [1, "4.25",  "4.25",  "2.13",  "2.13",  "3.25", "3.25"],
