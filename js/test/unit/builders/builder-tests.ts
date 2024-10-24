@@ -66,6 +66,7 @@ describe('Generated Test Data', () => {
     describe('DictionaryBuilder', () => { validateBuilder(generate.dictionary); });
     describe('IntervalDayTimeBuilder', () => { validateBuilder(generate.intervalDayTime); });
     describe('IntervalYearMonthBuilder', () => { validateBuilder(generate.intervalYearMonth); });
+    describe('IntervalMonthDayNanoBuilder', () => { validateBuilder(generate.intervalMonthDayNano); });
     describe('DurationSecondBuilder', () => { validateBuilder(generate.durationSecond); });
     describe('DurationMillisecondBuilder', () => { validateBuilder(generate.durationMillisecond); });
     describe('DurationMicrosecondBuilder', () => { validateBuilder(generate.durationMicrosecond); });
