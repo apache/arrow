@@ -1898,3 +1898,29 @@ operation to the n-th and (n+abs(p))-th inputs.
   ``Subtract``. The period can be specified in :struct:`PairwiseOptions`.
 * \(2) Wraps around the result when overflow is detected.
 * \(3) Returns an ``Invalid`` :class:`Status` when overflow is detected.
+
+Placement functions
+~~~~~~~~~~~~~~~~~~~
+
+Placement functions reorder the input array based on placement arguments, e.g.
+indices.
+
++-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
+| Function name   | Arity  | Input type 1 | Input type 2 | Output type  | Options class                   | Notes |
++=================+========+==============+==============+==============+=================================+=======+
+| reverse_indices | Unary  | Integer      |              | Integer \(1) | :struct:`ReverseIndicesOptions` | \(2)  |
++-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
+| permute         | Binary | Any          | Integer      | Input type 1 | :struct:`PermuteOptions`        | \(3)  |
++-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
+
+* \(1) The output type is specified in :struct:`ReverseIndicesOptions`.
+
+* \(2) For ``indices[i] = x``, ``reverse_indices[x] = i``. And ``reverse_indices[x]
+ = null`` if ``x`` does not appear in the input ``indices``. For ``indices[i] = x``
+ where ``x < 0`` or ``x >= output_length``, it is ignored. If multiple indices point
+ to the same value, the last one is used.
+
+* \(3) For ``indices[i] = x``, ``output[x] = values[i]``. And ``output[x] = null``
+if ``x`` does not appear in the input ``indices``. For ``indices[i] = x`` where
+``x < 0`` or ``x >= output_length``, ``values[i]`` is ignored. If multiple indices
+point to the same value, the last one is used.
