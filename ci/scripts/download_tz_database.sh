@@ -24,7 +24,6 @@ curl https://data.iana.org/time-zones/releases/tzdata2024b.tar.gz --output ~/Dow
 
 # Extract
 mkdir -p ~/Downloads/tzdata
-ls -lah ~/Downloads/tzdata
 tar --extract --file ~/Downloads/tzdata.tar.gz --directory ~/Downloads/tzdata
 
 # Download Windows timezone mapping
