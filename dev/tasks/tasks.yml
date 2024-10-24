@@ -895,6 +895,13 @@ tasks:
       - r-pkg__bin__macosx__big-sur-arm64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
       - r-pkg__src__contrib__arrow_{no_rc_r_version}\.tar\.gz
 
+{% for which in ["strong", "most"] %}
+  r-recheck-{{which}}:
+    ci: github
+    template: r/github.recheck.yml
+    params:
+      which: {{which}}
+{% endfor %}
 
   ########################### Release verification ############################
 
