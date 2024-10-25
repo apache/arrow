@@ -372,7 +372,7 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   // a `State` structure containing the error code and message(s)
   const State* state_;
 
-  void DeleteState() {
+  void DeleteState() noexcept {
     // ARROW-2400: On certain compilers, splitting off the slow path improves
     // performance significantly.
     if (ARROW_PREDICT_FALSE(state_ != NULLPTR)) {
