@@ -908,7 +908,7 @@ both directions. As a result, error handling can be slightly more complex. Thus 
 designates the following rules:
 
 * If the producer encounters an error during processing, it should call the ``on_error``
-callback, and then call ``release`` after it returns.
+  callback, and then call ``release`` after it returns.
 
 * If ``on_schema`` or ``on_next_task`` returns a non-zero integer value, the producer *should not*
 call the ``on_error`` callback, but instead should eventually call ``release`` at some point
