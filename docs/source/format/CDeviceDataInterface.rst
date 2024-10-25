@@ -655,6 +655,12 @@ serialized.
 Async Device Stream Interface
 =============================
 
+.. warning::
+
+    Experimental: The Aync C Device Stream interface is experimental in its current
+    form. Based on feedback and usage the protocol definition may change until
+    it is fully standardized.
+
 The :ref:`C stream interface <c-device-stream-interface>` provides a synchronous
 API centered around the consumer calling the producer functions to retrieve
 the next record batch. For concurrent communication between producer and consumer,
@@ -699,7 +705,6 @@ The C device async stream interface consists of three ``struct`` definitions:
     struct ArrowAsyncDeviceStreamHandler {
       // consumer-specific handlers
       int (*on_schema)(struct ArrowAsyncDeviceStreamHandler* self,
-                       struct ArrowAsyncProducer* producer,
                        struct ArrowSchema* stream_schema, const char* addl_metadata);
       int (*on_next_task)(struct ArrowAsyncDeviceStreamHandler* self,
                           struct ArrowAsyncTask* task, const char* metadata);
@@ -708,6 +713,9 @@ The C device async stream interface consists of three ``struct`` definitions:
 
       // release callback
       void (*release)(struct ArrowAsyncDeviceStreamHandler* self);
+
+      // must be populated before calling any callbacks
+      struct ArrowAsyncProducer* producer;
 
       // opaque handler-specific data
       void* private_data;
@@ -727,7 +735,7 @@ The ArrowAsyncDeviceStreamHandler structure
 
 The structure has the following fields:
 
-.. c:member:: int (*ArrowAsyncDeviceStreamHandler.on_schema)(struct ArrowAsyncDeviceStreamHandler*, struct ArrowAsyncProducer*, struct ArrowSchema*, const char*)
+.. c:member:: int (*ArrowAsyncDeviceStreamHandler.on_schema)(struct ArrowAsyncDeviceStreamHandler*, struct ArrowSchema*, const char*)
 
     *Mandatory.* Handler for receiving the schema of the stream. All incoming records should
     match the provided schema. If successful, the function should return 0, otherwise
@@ -740,8 +748,8 @@ The structure has the following fields:
     the additional metadata beyond the lifetime of this call *MUST* copy the value themselves.
 
     Unless the ``on_error`` handler is called, this will always get called exactly once and will be
-    the first method called on this object. As such the producer *MUST* provide an ``ArrowAsyncProducer``
-    object when calling this function to allow the consumer to apply back-pressure and control the flow of data.
+    the first method called on this object. As such the producer *MUST* populate the ``ArrowAsyncProducer``
+    member before calling this function to allow the consumer to apply back-pressure and control the flow of data.
     The producer maintains ownership of the ``ArrowAsyncProducer`` and must clean it up *after*
     calling the release callback on the ``ArrowAsyncDeviceStreamHandler``.
 
@@ -798,6 +806,14 @@ The structure has the following fields:
     It is valid for this to be called by a producer with or without a preceding call to
     :c:member:`ArrowAsyncProducer.request`. This must not call any methods of an ``ArrowAsyncProducer``
     object.
+
+.. c:member:: struct ArrowAsyncProducer ArrowAsyncDeviceStreamHandler.producer
+
+    *Mandatory.* The producer object that the consumer will use to request additional data or cancel.
+
+    This object *MUST* be populated before calling the :c:member:`ArrowAsyncDeviceStreamHandler.on_schema`
+    callback. The producer maintains ownership of this object and must clean it up *after* calling
+    the release callback on the ``ArrowAsyncDeviceStreamHandler``.
 
 .. c:member:: void* ArrowAsyncDeviceStreamHandler.private_data
 
@@ -938,9 +954,9 @@ usage as in :ref:`C data interface <c-data-interface-released>`.
 ArrowAsyncProducer Lifetime
 '''''''''''''''''''''''''''
 
-The lifetime of the ``ArrowAsyncProducer`` passed to ``on_schema`` is owned by the producer
-itself and should be managed by it. It *MUST* remain valid at least until just before
-calling ``release`` on the stream handler object.
+The lifetime of the ``ArrowAsyncProducer`` is owned by the producer itself and should
+be managed by it. It *MUST* be populated before calling any methods other than ``release``
+and *MUST* remain valid at least until just before calling ``release`` on the stream handler object.
 
 Thread safety
 '''''''''''''

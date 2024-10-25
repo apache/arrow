@@ -231,8 +231,8 @@ struct ArrowDeviceArrayStream {
 #ifndef ARROW_C_ASYNC_STREAM_INTERFACE
 #  define ARROW_C_ASYNC_STREAM_INTERFACE
 
-// ArrowAsyncTask represents available data from a producer that was passed to
-// an invocation of `on_next_task` on the ArrowAsyncDeviceStreamHandler.
+// EXPERIMENTAL: ArrowAsyncTask represents available data from a producer that was passed
+// to an invocation of `on_next_task` on the ArrowAsyncDeviceStreamHandler.
 //
 // The reason for this Task approach instead of the Async interface returning
 // the Array directly is to allow for more complex thread handling and reducing
@@ -275,8 +275,8 @@ struct ArrowAsyncTask {
   void* private_data;
 };
 
-// ArrowAsyncProducer represents a 1-to-1 relationship between an async producer
-// and consumer. This object allows the consumer to perform backpressure and flow
+// EXPERIMENTAL: ArrowAsyncProducer represents a 1-to-1 relationship between an async
+// producer and consumer. This object allows the consumer to perform backpressure and flow
 // control on the asynchronous stream processing. This object must be owned by the
 // producer who creates it, and thus is responsible for cleaning it up.
 struct ArrowAsyncProducer {
@@ -323,7 +323,7 @@ struct ArrowAsyncProducer {
   void* private_data;
 };
 
-// Similar to ArrowDeviceArrayStream, except designed for an asynchronous
+// EXPERIMENTAL: Similar to ArrowDeviceArrayStream, except designed for an asynchronous
 // style of interaction. While ArrowDeviceArrayStream provides producer
 // defined callbacks, this is intended to be created by the consumer instead.
 // The consumer passes this handler to the producer, which in turn uses the
@@ -356,8 +356,7 @@ struct ArrowAsyncDeviceStreamHandler {
   // A producer that receives a non-zero return here should stop producing and eventually
   // call release instead.
   int (*on_schema)(struct ArrowAsyncDeviceStreamHandler* self,
-                   struct ArrowAsyncProducer* producer, struct ArrowSchema* stream_schema,
-                   const char* addl_metadata);
+                   struct ArrowSchema* stream_schema, const char* addl_metadata);
 
   // Handler for receiving data. This is called when data is available providing an
   // ArrowAsyncTask struct to signify it. The producer indicates the end of the stream
@@ -422,6 +421,11 @@ struct ArrowAsyncDeviceStreamHandler {
   //
   // The release callback must not call any methods of an ArrowAsyncProducer object.
   void (*release)(struct ArrowAsyncDeviceStreamHandler* self);
+
+  // MUST be populated by the producer BEFORE calling any callbacks other than release.
+  // This provides the connection between a handler and its producer, and must exist until
+  // the release callback is called.
+  struct ArrowAsyncProducer* producer;
 
   // Opaque handler-specific data
   void* private_data;
