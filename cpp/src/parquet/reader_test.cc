@@ -1182,7 +1182,7 @@ TEST_F(TestJSONWithLocalFile, JSONOutputFLBA) {
 
 // GH-44101: Test that JSON output is valid JSON
 TEST_F(TestJSONWithLocalFile, ValidJsonOutput) {
-  auto checkJsonValid = [](std::string_view json_string) -> ::arrow::Status {
+  auto check_json_valid = [](std::string_view json_string) -> ::arrow::Status {
     rj::Document json_doc;
     constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
     json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
@@ -1199,7 +1199,7 @@ TEST_F(TestJSONWithLocalFile, ValidJsonOutput) {
       "concatenated_gzip_members.parquet", "nulls.snappy.parquet"};
   for (const auto& file : check_file_lists) {
     std::string json_content = ReadFromLocalFile(file);
-    ASSERT_OK(checkJsonValid(json_content))
+    ASSERT_OK(check_json_valid(json_content))
         << "Invalid JSON output for file: " << file << ", content:" << json_content;
   }
 }
