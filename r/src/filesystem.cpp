@@ -430,7 +430,7 @@ std::shared_ptr<arrow::fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymou
 
   auto io_context = MainRThread::GetInstance().CancellableIOContext();
 
-  auto gcs_fs_ = fs::GcsFileSystem::Make(gcs_opts, io_context);
+  ARROW_ASSIGN_OR_RAISE(auto gcs_fs_, fs::GcsFileSystem::Make(gcs_opts, io_context);
   return gcs_fs_;
 }
 
