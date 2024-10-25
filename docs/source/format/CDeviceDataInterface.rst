@@ -911,8 +911,8 @@ designates the following rules:
   callback, and then call ``release`` after it returns.
 
 * If ``on_schema`` or ``on_next_task`` returns a non-zero integer value, the producer *should not*
-call the ``on_error`` callback, but instead should eventually call ``release`` at some point
-before or after any logging or processing of the error code.
+  call the ``on_error`` callback, but instead should eventually call ``release`` at some point
+  before or after any logging or processing of the error code.
 
 Result lifetimes
 ''''''''''''''''
