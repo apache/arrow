@@ -19,8 +19,8 @@
 
 #include <string>
 
-#include "arrow/util/logging.h"
 #include "arrow/status_internal.h"
+#include "arrow/util/logging.h"
 
 namespace arrow::internal {
 

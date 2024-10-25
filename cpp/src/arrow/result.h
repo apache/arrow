@@ -303,7 +303,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   /// \return The stored non-OK status object, or an OK status if this object
   ///         has a value.
   Status status() && {
-    if (ok()) return Status::OK();
+    if (ARROW_PREDICT_TRUE(ok())) return Status::OK();
     auto tmp = internal::UninitializedResult();
     std::swap(status_, tmp);
     return tmp;
