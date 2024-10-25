@@ -819,7 +819,7 @@ This producer-provided structure has the following fields:
 .. c:member:: int (*ArrowArrayTask.extract_data)(struct ArrowArrayTask*, struct ArrowDeviceArray*)
 
   *Mandatory.* A callback to populate the provided ``ArrowDeviceArray`` with the available data.
-  The order of ArrowAsyncTasks provided by the producer enables a consumer to know the order of
+  The order of ``ArrowAsyncTasks`` provided by the producer enables a consumer to know the order of
   the data to process. If the consumer does not care about the data that is owned by this task,
   it must still call ``extract_data`` so that the producer can perform any required cleanup. ``NULL``
   should be passed as the device array pointer to indicate that the consumer doesn't want the
