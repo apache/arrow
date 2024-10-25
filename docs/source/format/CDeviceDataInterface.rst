@@ -657,7 +657,7 @@ Async Device Stream Interface
 
 .. warning::
 
-    Experimental: The Aync C Device Stream interface is experimental in its current
+    Experimental: The Async C Device Stream interface is experimental in its current
     form. Based on feedback and usage the protocol definition may change until
     it is fully standardized.
 
