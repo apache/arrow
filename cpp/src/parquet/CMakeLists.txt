@@ -320,7 +320,7 @@ if(ARROW_TESTING)
   # "link" our dependencies so that include paths are configured
   # correctly
   target_link_libraries(parquet_testing PUBLIC ${ARROW_GTEST_GMOCK})
-  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing)
+  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing RapidJSON)
 endif()
 
 if(NOT ARROW_BUILD_SHARED)
