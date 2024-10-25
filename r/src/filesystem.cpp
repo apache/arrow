@@ -359,8 +359,8 @@ void FinalizeS3() {
 std::shared_ptr<arrow::KeyValueMetadata> strings_to_kvm(cpp11::strings metadata);
 
 // [[gcs::export]]
-Result<std::shared_ptr<GcsFileSystem>> fs___GcsFileSystem__Make(bool anonymous,
-                                                                cpp11::list options) {
+std::shared_ptr<GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
+                                                        cpp11::list options) {
   fs::GcsOptions gcs_opts;
 
   // Handle auth (anonymous, credentials, default)
@@ -430,7 +430,8 @@ Result<std::shared_ptr<GcsFileSystem>> fs___GcsFileSystem__Make(bool anonymous,
 
   auto io_context = MainRThread::GetInstance().CancellableIOContext();
 
-  return fs::GcsFileSystem::Make(gcs_opts, io_context);
+  ARROW_ASSIGN_OR_RAISE(auto gcs_fs_, fs::GcsFileSystem::Make(gcs_opts, io_context));
+  return gcs_fs_;
 }
 
 // [[gcs::export]]
