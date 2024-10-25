@@ -361,7 +361,7 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
 #endif
 
  private:
-  struct State {
+  struct ARROW_EXPORT State {
     StatusCode code;
     std::string msg;
     std::shared_ptr<StatusDetail> detail;
