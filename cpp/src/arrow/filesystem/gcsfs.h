@@ -230,10 +230,6 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
-  ARROW_DEPRECATED("Deprecated in 19.0.0. Use the Result version instead.")
-  static std::shared_ptr<GcsFileSystem> Make(
-      const GcsOptions& options, const io::IOContext& = io::default_io_context());
-
   /// Create a GcsFileSystem instance from the given options.
   static Result<std::shared_ptr<GcsFileSystem>> Make(
       const GcsOptions& options, const io::IOContext& = io::default_io_context());
