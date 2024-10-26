@@ -772,7 +772,6 @@ def make_datetimetz(unit, tz):
 def table_to_dataframe(
     options, table, categories=None, ignore_metadata=False, types_mapper=None
 ):
-    print("LOG: table_to_dataframe")
     all_columns = []
     column_indexes = []
     pandas_metadata = table.schema.pandas_metadata
