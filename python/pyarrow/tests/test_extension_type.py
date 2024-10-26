@@ -1926,3 +1926,56 @@ def test_bool8_scalar():
     assert pa.scalar(1, type=pa.bool8()).as_py() is True
     assert pa.scalar(2, type=pa.bool8()).as_py() is True
     assert pa.scalar(None, type=pa.bool8()).as_py() is None
+
+
+@pytest.mark.parametrize("storage_type", (
+    pa.string(), pa.large_string(), pa.string_view()))
+def test_json(storage_type, pickle_module):
+    data = ['{"a": 1}', '{"b": 2}', None]
+    json_type = pa.json_(storage_type)
+    storage = pa.array(data, type=storage_type)
+    array = pa.array(data, type=json_type)
+    json_arr_class = json_type.__arrow_ext_class__()
+
+    assert pa.json_() == pa.json_(pa.utf8())
+    assert json_type.extension_name == "arrow.json"
+    assert json_type.storage_type == storage_type
+    assert json_type.__class__ is pa.JsonType
+
+    assert json_type == pa.json_(storage_type)
+    assert json_type != storage_type
+
+    assert isinstance(array, pa.JsonArray)
+
+    assert array.to_pylist() == data
+    assert array[0].as_py() == data[0]
+    assert array[2].as_py() is None
+
+    # Pickle roundtrip
+    result = pickle_module.loads(pickle_module.dumps(json_type))
+    assert result == json_type
+
+    # IPC roundtrip
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["ext"]))
+    batch = ipc_read_batch(buf)
+    reconstructed_array = batch.column(0)
+    assert reconstructed_array.type == json_type
+    assert reconstructed_array == array
+    assert isinstance(array, json_arr_class)
+
+    assert json_type.__arrow_ext_scalar_class__() == pa.JsonScalar
+    assert isinstance(array[0], pa.JsonScalar)
+
+    # cast storage -> extension type
+    result = storage.cast(json_type)
+    assert result == array
+
+    # cast extension type -> storage type
+    inner = array.cast(storage_type)
+    assert inner == storage
+
+    for storage_type in (pa.int32(), pa.large_binary(), pa.float32()):
+        with pytest.raises(
+                pa.ArrowInvalid,
+                match=f"Invalid storage type for JsonExtensionType: {storage_type}"):
+            pa.json_(storage_type)

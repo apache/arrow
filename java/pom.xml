@@ -93,14 +93,14 @@ under the License.
   <properties>
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
-    <dep.junit.jupiter.version>5.11.2</dep.junit.jupiter.version>
+    <dep.junit.jupiter.version>5.11.3</dep.junit.jupiter.version>
     <dep.slf4j.version>2.0.16</dep.slf4j.version>
     <dep.guava-bom.version>33.3.1-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.114.Final</dep.netty-bom.version>
     <dep.grpc-bom.version>1.65.0</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.25.4</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.18.0</dep.jackson-bom.version>
-    <dep.hadoop.version>3.4.0</dep.hadoop.version>
+    <dep.hadoop.version>3.4.1</dep.hadoop.version>
     <dep.fbs.version>24.3.25</dep.fbs.version>
     <dep.avro.version>1.12.0</dep.avro.version>
     <arrow.vector.classifier></arrow.vector.classifier>
@@ -111,7 +111,7 @@ under the License.
     <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
     <checker.framework.version>3.48.1</checker.framework.version>
-    <logback.version>1.5.10</logback.version>
+    <logback.version>1.5.11</logback.version>
     <doclint>none</doclint>
     <additionalparam>-Xdoclint:none</additionalparam>
     <!-- List of add-opens arg line arguments for tests -->
@@ -279,7 +279,7 @@ under the License.
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>
-      <version>5.14.1</version>
+      <version>5.14.2</version>
       <scope>test</scope>
     </dependency>
     <dependency>

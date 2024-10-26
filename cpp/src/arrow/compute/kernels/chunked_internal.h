@@ -52,7 +52,7 @@ struct ResolvedChunk {
 
 class ChunkedArrayResolver {
  private:
-  ::arrow::internal::ChunkResolver resolver_;
+  ChunkResolver resolver_;
   std::vector<const Array*> chunks_;
 
  public:

@@ -1660,9 +1660,9 @@ enum {
   PROP_STORAGE_DATA_TYPE = 1
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowExtensionDataType,
-                           garrow_extension_data_type,
-                           GARROW_TYPE_DATA_TYPE)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowExtensionDataType,
+                                    garrow_extension_data_type,
+                                    GARROW_TYPE_DATA_TYPE)
 
 #define GARROW_EXTENSION_DATA_TYPE_GET_PRIVATE(obj)                                      \
   static_cast<GArrowExtensionDataTypePrivate *>(                                         \
