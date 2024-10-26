@@ -429,7 +429,6 @@ std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
   }
 
   auto io_context = MainRThread::GetInstance().CancellableIOContext();
-
 #if ARROW_VERSION_MAJOR >= 18
   return ValueOrStop(fs::GcsFileSystem::Make(gcs_opts, io_context));
 #else
