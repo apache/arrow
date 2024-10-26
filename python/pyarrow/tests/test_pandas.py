@@ -836,8 +836,8 @@ class TestConvertPrimitiveTypes:
             arr = pa.array(values, mask=null_mask)
             arrays.append(arr)
 
-            expected = values.astype('f8')
-            expected[null_mask] = np.nan
+            expected = pd.Series(values, dtype='Int64')
+            expected[null_mask] = pd.NA
 
             expected_cols.append(expected)
 
