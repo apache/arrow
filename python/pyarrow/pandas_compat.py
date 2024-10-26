@@ -746,10 +746,13 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
         assert len(placement) == 1
         name = columns[placement[0]]
         pandas_dtype = extension_columns[name]
-        if not hasattr(pandas_dtype, '__from_arrow__'):
+        if pandas_dtype == 'Int64':
+            arr = _pandas_api.pd.array(arr, dtype='Int64', copy=False)
+        elif not hasattr(pandas_dtype, '__from_arrow__'):
             raise ValueError("This column does not support to be converted "
                              "to a pandas ExtensionArray")
-        arr = pandas_dtype.__from_arrow__(arr)
+        else:
+            arr = pandas_dtype.__from_arrow__(arr)
     else:
         arr = block_arr
 
