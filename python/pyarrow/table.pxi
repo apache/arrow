@@ -3539,9 +3539,9 @@ cdef class RecordBatch(_Tabular):
         >>> struct = pa.array([{'n_legs': 2, 'animals': 'Parrot'},
         ...                    {'year': 2022, 'n_legs': 4}])
         >>> pa.RecordBatch.from_struct_array(struct).to_pandas()
-          animals  n_legs    year
-        0  Parrot       2     NaN
-        1    None       4  2022.0
+          animals  n_legs  year
+        0  Parrot       2  <NA>
+        1    None       4  2022
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
@@ -4891,9 +4891,9 @@ cdef class Table(_Tabular):
         >>> struct = pa.array([{'n_legs': 2, 'animals': 'Parrot'},
         ...                    {'year': 2022, 'n_legs': 4}])
         >>> pa.Table.from_struct_array(struct).to_pandas()
-          animals  n_legs    year
-        0  Parrot       2     NaN
-        1    None       4  2022.0
+          animals  n_legs  year
+        0  Parrot       2  <NA>
+        1    None       4  2022
         """
         if isinstance(struct_array, Array):
             return Table.from_batches([RecordBatch.from_struct_array(struct_array)])
