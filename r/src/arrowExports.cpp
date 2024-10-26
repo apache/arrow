@@ -3575,7 +3575,7 @@ END_CPP11
 }
 // filesystem.cpp
 #if defined(ARROW_R_WITH_GCS)
-std::shared_ptr<arrow::fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous, cpp11::list options);
+std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous, cpp11::list options);
 extern "C" SEXP _arrow_fs___GcsFileSystem__Make(SEXP anonymous_sexp, SEXP options_sexp){
 BEGIN_CPP11
 	arrow::r::Input<bool>::type anonymous(anonymous_sexp);
