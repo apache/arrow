@@ -84,9 +84,7 @@
 #   pragma warning(disable : 4127)
 #endif
 
-namespace arrow_vendored
-{
-namespace date
+namespace arrow_vendored::date
 {
 
 //---------------+
@@ -8234,8 +8232,7 @@ operator<<(std::basic_ostream<CharT, Traits>& os,
                  detail::get_units<CharT>(typename Period::type{});
 }
 
-}  // namespace date
-}  // namespace arrow_vendored
+}  // namespace arrow_vendored::date
 
 #ifdef _MSC_VER
 #   pragma warning(pop)

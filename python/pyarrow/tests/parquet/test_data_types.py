@@ -510,3 +510,14 @@ def test_large_binary_overflow():
                 pa.ArrowInvalid,
                 match="Parquet cannot store strings with size 2GB or more"):
             _write_table(table, writer, use_dictionary=use_dictionary)
+
+
+@pytest.mark.parametrize("storage_type", (
+    pa.string(), pa.large_string()))
+def test_json_extension_type(storage_type):
+    data = ['{"a": 1}', '{"b": 2}', None]
+    arr = pa.array(data, type=pa.json_(storage_type))
+
+    table = pa.table([arr], names=["ext"])
+
+    _simple_table_roundtrip(table)

@@ -88,9 +88,8 @@ Chunked Arrays
    :project: arrow_cpp
    :members:
 
-.. doxygenstruct:: arrow::ChunkLocation
+.. doxygentypedef:: arrow::ChunkLocation
    :project: arrow_cpp
-   :members:
 
 .. doxygenstruct:: arrow::TypedChunkLocation
    :project: arrow_cpp
