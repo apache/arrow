@@ -27,6 +27,6 @@ install:
 ## Building and running tests
 
 ```
-cd java
+cd java/gandiva
 mvn install -Dgandiva.cpp.build.dir=<path_to_cpp_artifact_directory>
 ```
