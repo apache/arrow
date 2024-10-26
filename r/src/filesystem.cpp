@@ -430,7 +430,7 @@ std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
 
   auto io_context = MainRThread::GetInstance().CancellableIOContext();
 
-  return fs::GcsFileSystem::Make(gcs_opts, io_context);
+  return ValueOrStop(fs::GcsFileSystem::Make(gcs_opts, io_context));
 }
 
 // [[gcs::export]]
