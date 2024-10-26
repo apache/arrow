@@ -790,6 +790,14 @@ def table_to_dataframe(
         index = _pandas_api.pd.RangeIndex(table.num_rows)
         ext_columns_dtypes = _get_extension_dtypes(table, [], types_mapper)
 
+    # If a column has None values and integers, ensure the dtype is
+    # Int64 which is a nullable-integer dtype that can represent None
+    # values
+    if not options['integer_object_nulls']:
+        for col, field in zip(table.itercolumns(), table.schema):
+            if col.type == pa.int64() and col.null_count > 0:
+                ext_columns_dtypes[field.name] = 'Int64'
+
     _check_data_column_metadata_consistency(all_columns)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
 
@@ -886,13 +894,6 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
             pandas_dtype = types_mapper(typ)
             if pandas_dtype is not None:
                 ext_columns[field.name] = pandas_dtype
-
-    # If a column has None values and integers, ensure the dtype is
-    # Int64 which is a nullable-integer dtype that can represent None
-    # values
-    for col, field in zip(table.itercolumns(), table.schema):
-        if col.type == pa.int64() and col.null_count > 0:
-            ext_columns[field.name] = 'Int64'
 
     return ext_columns
 

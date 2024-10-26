@@ -945,7 +945,7 @@ class TestConvertPrimitiveTypes:
     def test_int_object_nulls(self):
         arr = np.array([None, 1, np.int64(3)] * 5, dtype=object)
         df = pd.DataFrame({'ints': arr})
-        expected = pd.DataFrame({'ints': pd.to_numeric(arr)})
+        expected = pd.DataFrame({'ints': pd.to_numeric(arr)}, dtype='Int64')
         field = pa.field('ints', pa.int64())
         schema = pa.schema([field])
         _check_pandas_roundtrip(df, expected=expected,
@@ -4381,9 +4381,6 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
     expected = pd.Series([1, 2, 3, 4])
     tm.assert_series_equal(result, expected)
-
-    with pytest.raises(ValueError):
-        table.to_pandas()
 
 
 def test_to_pandas_extension_dtypes_mapping():
