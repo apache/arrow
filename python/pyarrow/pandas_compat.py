@@ -865,6 +865,13 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
                 if hasattr(pandas_dtype, "__from_arrow__"):
                     ext_columns[name] = pandas_dtype
 
+    # If a column has None values and integers, ensure the dtype is
+    # Int64 which is a nullable-integer dtype that can represent None
+    # values
+    for col in table.itercolumns():
+        if col.type == pa.int64() and col.null_count > 0:
+            ext_columns[col.name] = 'Int64'
+
     # infer from extension type in the schema
     for field in table.schema:
         typ = field.type
