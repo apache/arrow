@@ -3689,25 +3689,36 @@ def test_recordbatch_table_pass_name_to_pandas():
     assert t[0].to_pandas().name == 'a0'
 
 
-@pytest.mark.parametrize(
-    ('col_values', 'expected_type'),
-    [
-        ([0, None], pd.Int64Dtype()),
-        ([2, None, 1], pd.Int64Dtype()),
-        ([None, None, 1], pd.Int64Dtype()),
-        ([None, None], object),
-        ([None, 1.2], float),
-        ([1.2, 1], float),
-        ([1.2, 2.4], float),
-        ([0, 1], int),
-        ([1, 3.14, None], float)
-    ]
-)
-def test_pandas_dtype_conversions(col_values, expected_type):
-    # Integer array with None values should have Int64 dtype, which is a
+@pytest.mark.pandas
+def test_pandas_dtype_conversions():
+    # Integer array with None value should have Int64 dtype, which is a
     # nullable-integer array dtype that can represent None values
-    df = pa.Table.from_pydict({"col": col_values}).to_pandas()
-    assert df.dtypes["col"] == expected_type
+    df = pa.Table.from_pydict({"col": [0, None]}).to_pandas()
+    assert df.dtypes["col"] == pd.Int64Dtype()
+
+    df = pa.Table.from_pydict({"col": [2, None, 1]}).to_pandas()
+    assert df.dtypes["col"] == pd.Int64Dtype()
+
+    df = pa.Table.from_pydict({"col": [None, None, -3]}).to_pandas()
+    assert df.dtypes["col"] == pd.Int64Dtype()
+
+    df = pa.Table.from_pydict({"col": [None, None]}).to_pandas()
+    assert df.dtypes["col"] == object
+
+    df = pa.Table.from_pydict({"col": [None, 1.2]}).to_pandas()
+    assert df.dtypes["col"] == float
+
+    df = pa.Table.from_pydict({"col": [1.2, 1]}).to_pandas()
+    assert df.dtypes["col"] == float
+
+    df = pa.Table.from_pydict({"col": [1.2, 2.4]}).to_pandas()
+    assert df.dtypes["col"] == float
+
+    df = pa.Table.from_pydict({"col": [0, 1]}).to_pandas()
+    assert df.dtypes["col"] == int
+
+    df = pa.Table.from_pydict({"col": [1, 3.14, None]}).to_pandas()
+    assert df.dtypes["col"] == float
 
 
 # ----------------------------------------------------------------------
