@@ -54,7 +54,7 @@ jobs:
         dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v4.0.1
+        uses: actions/setup-dotnet@v4.1.0
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Setup Python
@@ -86,7 +86,7 @@ jobs:
         dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v4.0.1
+        uses: actions/setup-dotnet@v4.1.0
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
@@ -113,7 +113,7 @@ jobs:
         dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v4.0.1
+        uses: actions/setup-dotnet@v4.1.0
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Setup Python
