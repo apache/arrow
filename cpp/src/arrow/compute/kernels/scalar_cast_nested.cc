@@ -363,8 +363,6 @@ struct CastStruct {
       }
     }
 
-
-
     const ArraySpan& in_array = batch[0].array;
     ArrayData* out_array = out->array_data().get();
 
