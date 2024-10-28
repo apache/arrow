@@ -42,20 +42,6 @@ function_doc_additions["filter"] = """
     ]
     """
 
-function_doc_additions["index"] = """
-    Examples
-    --------
-    >>> import pyarrow as pa
-    >>> import pyarrow.compute as pc
-    >>> arr = pa.array(["Lorem", "ipsum", "dolor", "sit", "Lorem", "ipsum"])
-    >>> pc.index(arr, "ipsum")
-    <pyarrow.Int64Scalar: 1>
-    >>> pc.index(arr, "ipsum", start=2)
-    <pyarrow.Int64Scalar: 5>
-    >>> pc.index(arr, "amet")
-    <pyarrow.Int64Scalar: -1>
-    """
-
 function_doc_additions["mode"] = """
     Examples
     --------
