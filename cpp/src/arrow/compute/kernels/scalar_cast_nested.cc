@@ -349,7 +349,6 @@ struct CastStruct {
 
     std::vector<int> fields_to_select(out_field_count, -1);
 
-    // create a set of field names
     std::set<std::string> in_field_names;
     for (int in_field_index = 0; in_field_index < in_field_count; ++in_field_index) {
       in_field_names.insert(in_type.field(in_field_index)->name());
@@ -357,8 +356,7 @@ struct CastStruct {
 
     int out_field_index = 0;
     for (int in_field_index = 0;
-         in_field_index < in_field_count && out_field_index < out_field_count;
-         ++in_field_index) {
+         in_field_index < in_field_count && out_field_index < out_field_count;) {
       const auto& in_field = in_type.field(in_field_index);
       const auto& out_field = out_type.field(out_field_index);
       if (in_field->name() == out_field->name()) {
@@ -367,6 +365,7 @@ struct CastStruct {
                                    in_type.ToString(), " ", out_type.ToString());
         }
         fields_to_select[out_field_index++] = in_field_index;
+        in_field_index++;
       } else if (in_field_names.count(out_field->name()) == 0) {
         if (out_field->nullable()) {
           fields_to_select[out_field_index++] = -2;
@@ -375,6 +374,8 @@ struct CastStruct {
               "struct fields don't match or are in the wrong order: Input fields: ",
               in_type.ToString(), " output fields: ", out_type.ToString());
         }
+      } else {
+        in_field_index++;
       }
     }
 
