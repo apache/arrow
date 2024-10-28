@@ -2760,6 +2760,17 @@ TEST(Cast, StructToBiggerStruct) {
       TypeError,
       ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
       Cast(src, options));
+
+  const auto dest2 =
+      arrow::struct_({std::make_shared<Field>("a", int8()),
+                      std::make_shared<Field>("c", int8(), /*nullable=*/false),
+                      std::make_shared<Field>("b", int8())});
+  const auto options2 = CastOptions::Safe(dest2);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
+      Cast(src, options2));
 }
 
 TEST(Cast, StructToBiggerNullableStruct) {
@@ -2772,6 +2783,9 @@ TEST(Cast, StructToBiggerNullableStruct) {
   c = ArrayFromJSON(int8(), "[null, null]");
   ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a, b, c}, {"a", "b", "c"}));
   CheckCast(src, dest);
+
+  ASSERT_OK_AND_ASSIGN(auto dest2, StructArray::Make({a, c, b}, {"a", "c", "b"}));
+  CheckCast(src, dest2);
 }
 
 TEST(Cast, StructToDifferentNullabilityStruct) {
