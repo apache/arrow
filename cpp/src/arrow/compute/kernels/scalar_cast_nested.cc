@@ -363,11 +363,7 @@ struct CastStruct {
       }
     }
 
-    if (out_field_index < out_field_count) {
-      return Status::TypeError(
-          "struct fields don't match or are in the wrong order: Input fields: ",
-          in_type.ToString(), " output fields: ", out_type.ToString());
-    }
+
 
     const ArraySpan& in_array = batch[0].array;
     ArrayData* out_array = out->array_data().get();
@@ -380,8 +376,23 @@ struct CastStruct {
 
     out_field_index = 0;
     for (int field_index : fields_to_select) {
-      const auto& values = (in_array.child_data[field_index].ToArrayData()->Slice(
-          in_array.offset, in_array.length));
+      std::shared_ptr<ArrayData> values;
+      if (field_index == -1) {
+        const auto& out_field = out_type.field(out_field_index);
+        if (out_field->nullable()) {
+          std::shared_ptr<Array> nulls;
+          RETURN_NOT_OK(MakeArrayOfNull(out_field->type()->GetSharedPtr(), batch.length)
+                            .Value(&nulls));
+          values = nulls->data();
+        } else {
+          return Status::TypeError(
+              "struct fields don't match or are in the wrong order: Input fields: ",
+              in_type.ToString(), " output fields: ", out_type.ToString());
+        }
+      } else {
+        values = (in_array.child_data[field_index].ToArrayData()->Slice(in_array.offset,
+                                                                        in_array.length));
+      }
       const auto& target_type = out->type()->field(out_field_index++)->type();
 
       ARROW_ASSIGN_OR_RAISE(Datum cast_values,
