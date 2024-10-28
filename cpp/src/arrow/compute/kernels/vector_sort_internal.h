@@ -749,9 +749,9 @@ struct ResolvedTableSortKey {
         order(order),
         null_count(null_count) {}
 
-  using LocationType = ::arrow::internal::ChunkLocation;
+  using LocationType = ::arrow::ChunkLocation;
 
-  ResolvedChunk GetChunk(::arrow::internal::ChunkLocation loc) const {
+  ResolvedChunk GetChunk(::arrow::ChunkLocation loc) const {
     return {chunks[loc.chunk_index], loc.index_in_chunk};
   }
 

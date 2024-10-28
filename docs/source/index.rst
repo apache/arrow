@@ -20,15 +20,14 @@
 Apache Arrow
 ============
 
-Apache Arrow is a development platform for in-memory analytics. It contains a
-set of technologies that enable big data systems to process and move data
-fast. It specifies a standardized language-independent columnar memory format
-for flat and hierarchical data, organized for efficient analytic operations on
-modern hardware.
+Apache Arrow is a universal columnar format and multi-language toolbox for fast
+data interchange and in-memory analytics.
 
-The project is developing a multi-language collection of libraries for solving
-systems problems related to in-memory analytical data processing. This includes
-such topics as:
+The project specifies a language-independent column-oriented memory format
+for flat and hierarchical data, organized for efficient analytic operations on
+modern hardware. The project houses an actively developed collection of
+libraries in many languages for solving problems related to data transfer and
+in-memory analytical processing. This includes such topics as:
 
 * Zero-copy shared memory and RPC-based data movement
 * Reading and writing file formats (like CSV, Apache ORC, and Apache Parquet)

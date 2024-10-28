@@ -63,6 +63,7 @@ repos:
     hooks:
       - id: clang-format
         name: C++ Format
+        alias: cpp-format
         types_or:
           - c++
           # - json
@@ -103,6 +104,7 @@ repos:
     hooks:
       - id: clang-format
         name: C/GLib Format
+        alias: c-glib-cpp-format
         files: >-
           ^c_glib/
   - repo: https://github.com/pre-commit/mirrors-clang-format
@@ -110,6 +112,7 @@ repos:
     hooks:
       - id: clang-format
         name: MATLAB (C++) Format
+        alias: matlab-cpp-format
         files: >-
           ^matlab/src/cpp/
   - repo: https://github.com/pre-commit/mirrors-clang-format
@@ -117,6 +120,7 @@ repos:
     hooks:
       - id: clang-format
         name: Python (C++) Format
+        alias: python-cpp-format
         files: >-
           ^python/pyarrow/src/
         exclude: >-
@@ -130,6 +134,7 @@ repos:
     hooks:
       - id: clang-format
         name: R (C++) Format
+        alias: r-cpp-format
         files: >-
           ^r/src/
         exclude: >-

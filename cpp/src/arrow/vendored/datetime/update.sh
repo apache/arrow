@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,22 +17,37 @@
 # specific language governing permissions and limitations
 # under the License.
 
-github:
-  description: "Apache Arrow is the universal columnar format and multi-language toolbox for fast data interchange and in-memory analytics"
-  homepage: https://arrow.apache.org/
-  collaborators:
-    - anjakefala
-    - benibus
-    - jbonofre
-    - js8544
-    - laurentgo
-    - vibhatha
-    - zanmato1984
-    - ZhangHuiGui
+set -eux
 
-notifications:
-  commits:      commits@arrow.apache.org
-  issues_status: issues@arrow.apache.org
-  issues:       github@arrow.apache.org
-  pullrequests: github@arrow.apache.org
-  jira_options: link label worklog
+source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 VERSION"
+  echo " e.g.: $0 3.0.3"
+  exit 1
+fi
+
+version="$1"
+
+pushd "${source_dir}"
+rm -rf date
+git clone \
+    --branch "v${version}" \
+    --depth 1 \
+    https://github.com/HowardHinnant/date.git
+commit_id=$(git -C date log -1 --format=format:%H)
+mv date/include/date/date.h ./
+mv date/include/date/ios.h ./
+mv date/include/date/tz.h ./
+mv date/include/date/tz_private.h ./
+mv date/src/* ./
+rm -rf date
+sed -i.bak -E \
+    -e 's/namespace date/namespace arrow_vendored::date/g' \
+    -e 's,include "date/,include ",g' \
+    *.{cpp,h,mm}
+sed -i.bak -E \
+    -e "s/changeset [0-9a-f]+/changeset ${commit_id}/g" \
+    README.md
+rm *.bak
+popd

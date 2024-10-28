@@ -641,6 +641,11 @@ Always OFF if building binaries" OFF)
                        "")
 
   #----------------------------------------------------------------------
+  set_option_category("Cross compiling")
+
+  define_option_string(ARROW_GRPC_CPP_PLUGIN "grpc_cpp_plugin path to be used" "")
+
+  #----------------------------------------------------------------------
   set_option_category("Advanced developer")
 
   define_option(ARROW_EXTRA_ERROR_CONTEXT

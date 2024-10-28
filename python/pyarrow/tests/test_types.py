@@ -1153,6 +1153,13 @@ def test_field_basic():
         pa.field('foo', None)
 
 
+def test_field_datatype_alias():
+    f = pa.field('foo', 'string')
+
+    assert f.name == 'foo'
+    assert f.type is pa.string()
+
+
 def test_field_equals():
     meta1 = {b'foo': b'bar'}
     meta2 = {b'bizz': b'bazz'}
