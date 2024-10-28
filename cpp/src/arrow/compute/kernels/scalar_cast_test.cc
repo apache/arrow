@@ -2760,9 +2760,10 @@ TEST(Cast, StructToBiggerStruct) {
   b = ArrayFromJSON(int8(), "[3, 4]");
   ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
 
-  const auto dest = arrow::struct_({std::make_shared<Field>("a", int8(), /*nullable=*/false),
-                                    std::make_shared<Field>("b", int8(), /*nullable=*/false),
-                                    std::make_shared<Field>("c", int8(), /*nullable=*/false)});
+  const auto dest =
+      arrow::struct_({std::make_shared<Field>("a", int8()),
+                      std::make_shared<Field>("b", int8()),
+                      std::make_shared<Field>("c", int8(), /*nullable=*/false)});
   const auto options = CastOptions::Safe(dest);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -2776,26 +2777,16 @@ TEST(Cast, StructToBiggerNullableStruct) {
   std::shared_ptr<Array> a, b, c;
   a = ArrayFromJSON(int8(), "[1, 2]");
   b = ArrayFromJSON(int8(), "[3, 4]");
-  c = ArrayFromJSON(int8(), "[null, null]");
   ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
 
-  const auto fields_dest = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                    std::make_shared<Field>("b", int8()),
-                                    std::make_shared<Field>("c", int8())});
-  const auto options = CastOptions::Safe(fields_dest);
+  const auto type_dest = arrow::struct_(
+      {std::make_shared<Field>("a", int8()), std::make_shared<Field>("b", int8()),
+       std::make_shared<Field>("c", int8(), /*nullable=*/true)});
+  const auto options = CastOptions::Safe(type_dest);
 
-  // std::vector<std::shared_ptr<Field>> fields_src_nullable = {
-  //       std::make_shared<Field>("a", int8(), true),
-  //       std::make_shared<Field>("b", int8(), true),
-  //       std::make_shared<Field>("c", int8(), true)};
-
-  ASSERT_OK_AND_ASSIGN(auto out, Cast(src, options));
-  std::cout << out.ToString() << std::endl;
-
-  // ASSERT_OK_AND_ASSIGN(
-  //   auto dest,
-  //   StructArray::Make({a, b, c}, {"a", "b", "c"}));
-  // CheckCast(src, dest, options);
+  c = ArrayFromJSON(int8(), "[null, null]");
+  ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a, b, c}, {"a", "b", "c"}));
+  CheckCast(src, dest);
 }
 
 TEST(Cast, StructToDifferentNullabilityStruct) {
