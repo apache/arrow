@@ -129,7 +129,7 @@ class NumericArray : public PrimitiveArray {
   IteratorType end() const { return IteratorType(*this, length()); }
 
  protected:
-  NumericArray() : values_(nullptr) {}
+  NumericArray() : values_(NULLPTR) {}
 
   void SetData(const std::shared_ptr<ArrayData>& data) {
     this->PrimitiveArray::SetData(data);
