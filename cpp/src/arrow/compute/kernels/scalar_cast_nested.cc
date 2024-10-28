@@ -354,38 +354,32 @@ struct CastStruct {
       in_field_names.insert(in_type.field(in_field_index)->name());
     }
 
-    int out_field_index = 0;
-    for (int in_field_index = 0;
-         in_field_index < in_field_count && out_field_index < out_field_count;) {
+    for (int in_field_index = 0, out_field_index = 0;
+         out_field_index < out_field_count;) {
+      const auto& out_field = out_type.field(out_field_index);
       const auto& in_field = in_type.field(in_field_index);
-      const auto& out_field = out_type.field(out_field_index);
-      if (in_field->name() == out_field->name()) {
-        if (in_field->nullable() && !out_field->nullable()) {
-          return Status::TypeError("cannot cast nullable field to non-nullable field: ",
-                                   in_type.ToString(), " ", out_type.ToString());
+      if (in_field_index < in_field_count) {
+        // If there are more in_fields check if they match the out_field.
+        if (in_field->name() == out_field->name()) {
+          if (in_field->nullable() && !out_field->nullable()) {
+            return Status::TypeError("cannot cast nullable field to non-nullable field: ",
+                                     in_type.ToString(), " ", out_type.ToString());
+          }
+          fields_to_select[out_field_index++] = in_field_index;
+          in_field_index++;
+          continue;
         }
-        fields_to_select[out_field_index++] = in_field_index;
-        in_field_index++;
-      } else if (in_field_names.count(out_field->name()) == 0) {
-        if (out_field->nullable()) {
-          fields_to_select[out_field_index++] = -2;
-        } else {
-          return Status::TypeError(
-              "struct fields don't match or are in the wrong order: Input fields: ",
-              in_type.ToString(), " output fields: ", out_type.ToString());
-        }
-      } else {
-        in_field_index++;
       }
-    }
-
-    for (; out_field_index < out_field_count; ++out_field_index) {
-      const auto& out_field = out_type.field(out_field_index);
       if (in_field_names.count(out_field->name()) == 0 && out_field->nullable()) {
-        // If the field is nullable and not in the input fields we can still fill it with
-        // nulls.
-        fields_to_select[out_field_index] = -2;
+        // There will not be any matching in_field but we can fill with null.
+        fields_to_select[out_field_index++] = -2;
+      } else if (in_field_index < in_field_count) {
+        // Didn't match current in_field, and the we cannot fill with null, so
+        // try next in_field.
+        in_field_index++;
       } else {
+        // Didn't match current in_field, we cannot fill with null, and there
+        // are no more in_fields to try, so fail.
         return Status::TypeError(
             "struct fields don't match or are in the wrong order: Input fields: ",
             in_type.ToString(), " output fields: ", out_type.ToString());
@@ -401,7 +395,7 @@ struct CastStruct {
                                        in_array.offset, in_array.length));
     }
 
-    out_field_index = 0;
+    int out_field_index = 0;
     for (int field_index : fields_to_select) {
       std::shared_ptr<ArrayData> values;
       const auto& target_type = out->type()->field(out_field_index++)->type();
