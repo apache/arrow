@@ -18,6 +18,7 @@
 // Implementation of casting to (or between) list types
 
 #include <limits>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -348,6 +349,12 @@ struct CastStruct {
 
     std::vector<int> fields_to_select(out_field_count, -1);
 
+    // create a set of field names
+    std::set<std::string> in_field_names;
+    for (int in_field_index = 0; in_field_index < in_field_count; ++in_field_index) {
+      in_field_names.insert(in_type.field(in_field_index)->name());
+    }
+
     int out_field_index = 0;
     for (int in_field_index = 0;
          in_field_index < in_field_count && out_field_index < out_field_count;
@@ -360,18 +367,21 @@ struct CastStruct {
                                    in_type.ToString(), " ", out_type.ToString());
         }
         fields_to_select[out_field_index++] = in_field_index;
+      } else if (in_field_names.count(out_field->name()) == 0) {
+        if (out_field->nullable()) {
+          fields_to_select[out_field_index++] = -2;
+        } else {
+          return Status::TypeError(
+              "struct fields don't match or are in the wrong order: Input fields: ",
+              in_type.ToString(), " output fields: ", out_type.ToString());
+        }
       }
     }
 
-    for (; out_field_index < out_field_count; ++out_field_index) {
-      const auto& out_field = out_type.field(out_field_index);
-      if (out_field->nullable()) {
-        fields_to_select[out_field_index] = -2;
-      } else {
-        return Status::TypeError(
-            "struct fields don't match or are in the wrong order: Input fields: ",
-            in_type.ToString(), " output fields: ", out_type.ToString());
-      }
+    if (out_field_index < out_field_count) {
+      return Status::TypeError(
+          "struct fields don't match or are in the wrong order: Input fields: ",
+          in_type.ToString(), " output fields: ", out_type.ToString());
     }
 
     const ArraySpan& in_array = batch[0].array;
@@ -390,15 +400,15 @@ struct CastStruct {
 
       if (field_index == -2) {
         std::shared_ptr<Array> nulls;
-        RETURN_NOT_OK(MakeArrayOfNull(target_type->GetSharedPtr(), batch.length)
-                          .Value(&nulls));
+        RETURN_NOT_OK(
+            MakeArrayOfNull(target_type->GetSharedPtr(), batch.length).Value(&nulls));
         values = nulls->data();
       } else {
         values = (in_array.child_data[field_index].ToArrayData()->Slice(in_array.offset,
                                                                         in_array.length));
       }
 
-      // TODO(tomnewton): Do we need to call this after creating array of nulls. 
+      // TODO(tomnewton): Do we need to call this after creating array of nulls.
       ARROW_ASSIGN_OR_RAISE(Datum cast_values,
                             Cast(values, target_type, options, ctx->exec_context()));
 
