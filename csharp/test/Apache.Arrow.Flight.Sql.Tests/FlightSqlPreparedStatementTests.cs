@@ -66,7 +66,7 @@ namespace Apache.Arrow.Flight.Sql.Tests
         {
             var validRecordBatch = CreateRecordBatch(_schema, new[] { 1, 2, 3 });
             var result = _preparedStatement.SetParameters(validRecordBatch);
-            var flightInfo = await _preparedStatement.ExecuteAsync(new FlightCallOptions(), validRecordBatch);
+            var flightInfo = await _preparedStatement.ExecuteAsync(validRecordBatch);
 
             Assert.NotNull(flightInfo);
             Assert.IsType<FlightInfo>(flightInfo);
@@ -76,14 +76,14 @@ namespace Apache.Arrow.Flight.Sql.Tests
         [Fact]
         public async Task ExecuteUpdateAsync_ShouldReturnAffectedRows_WhenParametersAreSet()
         {
-            var affectedRows = await _preparedStatement.ExecuteUpdateAsync(new FlightCallOptions(), _parameterBatch);
+            var affectedRows = await _preparedStatement.ExecuteUpdateAsync(_parameterBatch);
             Assert.True(affectedRows > 0, "Expected affected rows to be greater than 0.");
         }
 
         [Fact]
         public async Task BindParametersAsync_ShouldReturnMetadata_WhenValidInputsAreProvided()
         {
-            var metadata = await _preparedStatement.BindParametersAsync(new FlightCallOptions(), _flightDescriptor, _parameterBatch);
+            var metadata = await _preparedStatement.BindParametersAsync(_flightDescriptor, _parameterBatch);
             Assert.NotNull(metadata);
             Assert.True(metadata.Length > 0, "Metadata should have a length greater than 0 when valid.");
         }

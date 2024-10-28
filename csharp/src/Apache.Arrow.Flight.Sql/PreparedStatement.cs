@@ -49,7 +49,7 @@ public class PreparedStatement : IDisposable
     /// <param name="options">The options used to configure the Flight call.</param>
     /// <returns>A task representing the asynchronous operation, which returns the schema of the result set.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the schema is empty or invalid.</exception>
-    public async Task<Schema> GetSchemaAsync(FlightCallOptions options)
+    public async Task<Schema> GetSchemaAsync(FlightCallOptions? options = default)
     {
         EnsureStatementIsNotClosed();
 
@@ -60,7 +60,7 @@ public class PreparedStatement : IDisposable
                 PreparedStatementHandle = ByteString.CopyFrom(_handle, Encoding.UTF8)
             };
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var schema = await _client.GetSchemaAsync(options, descriptor).ConfigureAwait(false);
+            var schema = await _client.GetSchemaAsync(descriptor, options).ConfigureAwait(false);
             if (schema == null || !schema.FieldsList.Any())
             {
                 throw new InvalidOperationException("Schema is empty or invalid.");
@@ -80,7 +80,7 @@ public class PreparedStatement : IDisposable
     /// <param name="options">The options used to configure the Flight call.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <exception cref="InvalidOperationException">Thrown if closing the prepared statement fails.</exception>
-    public async Task CloseAsync(FlightCallOptions options)
+    public async Task CloseAsync(FlightCallOptions? options = default)
     {
         EnsureStatementIsNotClosed();
         try
@@ -91,7 +91,7 @@ public class PreparedStatement : IDisposable
             };
 
             var action = new FlightAction(SqlAction.CloseRequest, closeRequest.ToByteArray());
-            await foreach (var result in _client.DoActionAsync(options, action).ConfigureAwait(false))
+            await foreach (var result in _client.DoActionAsync(action, options).ConfigureAwait(false))
             {
                 // Just drain the results to complete the operation
             }
@@ -251,8 +251,6 @@ public class PreparedStatement : IDisposable
         return Status.DefaultSuccess;
     }
 
-
-
     /// <summary>
     /// Executes the prepared statement asynchronously and retrieves the query results as <see cref="FlightInfo"/>.
     /// </summary>
@@ -262,7 +260,7 @@ public class PreparedStatement : IDisposable
     /// <returns>A <see cref="Task{FlightInfo}"/> representing the asynchronous operation. The task result contains the <see cref="FlightInfo"/> describing the executed query results.</returns>
     /// <exception cref="InvalidOperationException">Thrown if the prepared statement is closed or if there is an error during execution.</exception>
     /// <exception cref="OperationCanceledException">Thrown if the operation is canceled by the <paramref name="cancellationToken"/>.</exception>
-    public async Task<FlightInfo> ExecuteAsync(FlightCallOptions options, RecordBatch parameterBatch, CancellationToken cancellationToken = default)
+    public async Task<FlightInfo> ExecuteAsync(RecordBatch parameterBatch, FlightCallOptions? options = default, CancellationToken cancellationToken = default)
     {
         EnsureStatementIsNotClosed();
 
@@ -271,10 +269,10 @@ public class PreparedStatement : IDisposable
         
         if (parameterBatch != null)
         {
-            await BindParametersAsync(options, descriptor, parameterBatch).ConfigureAwait(false);
+            await BindParametersAsync(descriptor, parameterBatch, options).ConfigureAwait(false);
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return await _client.GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
+        return await _client.GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -311,14 +309,14 @@ public class PreparedStatement : IDisposable
     /// Console.WriteLine($"Rows affected: {affectedRows}");
     /// </code>
     /// </example>
-    public async Task<long> ExecuteUpdateAsync(FlightCallOptions options, RecordBatch parameterBatch)
+    public async Task<long> ExecuteUpdateAsync(RecordBatch parameterBatch, FlightCallOptions? options = default)
     {
         if (parameterBatch == null)
         {
             throw new ArgumentNullException(nameof(parameterBatch), "Parameter batch cannot be null.");
         }
         var descriptor = FlightDescriptor.CreateCommandDescriptor(_handle);
-        var metadata = await BindParametersAsync(options, descriptor, parameterBatch).ConfigureAwait(false);
+        var metadata = await BindParametersAsync(descriptor, parameterBatch, options).ConfigureAwait(false);
 
         try
         {
@@ -355,14 +353,14 @@ public class PreparedStatement : IDisposable
     /// <returns>A <see cref="Task{ByteString}"/> that represents the asynchronous operation. The task result contains the metadata from the server after binding the parameters.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="parameterBatch"/> is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown if the operation is canceled or if there is an error during the DoPut operation.</exception>
-    public async Task<ByteString> BindParametersAsync(FlightCallOptions options, FlightDescriptor descriptor, RecordBatch parameterBatch)
+    public async Task<ByteString> BindParametersAsync(FlightDescriptor descriptor, RecordBatch parameterBatch, FlightCallOptions? options = default)
     {
         if (parameterBatch == null)
         {
             throw new ArgumentNullException(nameof(parameterBatch), "Parameter batch cannot be null.");
         }
 
-        var putResult = await _client.DoPutAsync(options, descriptor, parameterBatch.Schema).ConfigureAwait(false);
+        var putResult = await _client.DoPutAsync(descriptor, parameterBatch.Schema, options).ConfigureAwait(false);
 
         try
         {
