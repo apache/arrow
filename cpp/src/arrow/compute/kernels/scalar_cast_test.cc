@@ -2673,8 +2673,9 @@ static void CheckStructToStructSubsetWithNulls(
       CheckCast(src_null, dest5_null);
 
       // field does not exist
-      ASSERT_OK_AND_ASSIGN(auto dest6_null,
-                           StructArray::Make({a1, d1, nulls}, {"a", "d", "f"}, null_bitmap));
+      ASSERT_OK_AND_ASSIGN(
+          auto dest6_null,
+          StructArray::Make({a1, d1, nulls}, {"a", "d", "f"}, null_bitmap));
       CheckCast(src_null, dest6_null);
 
       // fields in wrong order
@@ -2731,20 +2732,16 @@ TEST(Cast, StructToStructSubsetWithNulls) {
 }
 
 TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
-  std::vector<std::string> field_names = {"a", "b"};
+  std::vector<std::string> src_field_names = {"a", "b"};
   std::shared_ptr<Array> a, b;
   a = ArrayFromJSON(int8(), "[1, 2]");
   b = ArrayFromJSON(int8(), "[3, 4]");
-  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
+  auto nulls = ArrayFromJSON(int8(), "[null, null]");
+  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, src_field_names));
 
-  const auto dest = arrow::struct_(
-      {std::make_shared<Field>("c", int8()), std::make_shared<Field>("d", int8())});
-  const auto options = CastOptions::Safe(dest);
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-      Cast(src, options));
+  std::vector<std::string> dest_field_names = {"c", "d"};
+  ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({nulls, nulls}, dest_field_names));
+  CheckCast(src, dest);
 }
 
 TEST(Cast, StructToBiggerStruct) {
@@ -2771,11 +2768,6 @@ TEST(Cast, StructToBiggerNullableStruct) {
   a = ArrayFromJSON(int8(), "[1, 2]");
   b = ArrayFromJSON(int8(), "[3, 4]");
   ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
-
-  const auto type_dest = arrow::struct_(
-      {std::make_shared<Field>("a", int8()), std::make_shared<Field>("b", int8()),
-       std::make_shared<Field>("c", int8(), /*nullable=*/true)});
-  const auto options = CastOptions::Safe(type_dest);
 
   c = ArrayFromJSON(int8(), "[null, null]");
   ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a, b, c}, {"a", "b", "c"}));

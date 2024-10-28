@@ -378,10 +378,17 @@ struct CastStruct {
       }
     }
 
-    if (out_field_index < out_field_count) {
-      return Status::TypeError(
-          "struct fields don't match or are in the wrong order: Input fields: ",
-          in_type.ToString(), " output fields: ", out_type.ToString());
+    for (; out_field_index < out_field_count; ++out_field_index) {
+      const auto& out_field = out_type.field(out_field_index);
+      if (in_field_names.count(out_field->name()) == 0 && out_field->nullable()) {
+        // If the field is nullable and not in the input fields we can still fill it with
+        // nulls.
+        fields_to_select[out_field_index] = -2;
+      } else {
+        return Status::TypeError(
+            "struct fields don't match or are in the wrong order: Input fields: ",
+            in_type.ToString(), " output fields: ", out_type.ToString());
+      }
     }
 
     const ArraySpan& in_array = batch[0].array;
