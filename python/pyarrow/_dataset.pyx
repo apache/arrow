@@ -4067,11 +4067,14 @@ cdef class _ScanNodeOptions(ExecNodeOptions):
     def _set_options(self, Dataset dataset, dict scan_options):
         cdef:
             shared_ptr[CScanOptions] c_scan_options
+            bint require_sequenced_output=False
 
         c_scan_options = Scanner._make_scan_options(dataset, scan_options)
 
+        require_sequenced_output=scan_options.get("require_sequenced_output", False)
+
         self.wrapped.reset(
-            new CScanNodeOptions(dataset.unwrap(), c_scan_options)
+            new CScanNodeOptions(dataset.unwrap(), c_scan_options, require_sequenced_output)
         )
 
 
@@ -4097,7 +4100,9 @@ class ScanNodeOptions(_ScanNodeOptions):
     dataset : pyarrow.dataset.Dataset
         The table which acts as the data source.
     **kwargs : dict, optional
-        Scan options. See `Scanner.from_dataset` for possible arguments.
+        Scan options. See `Scanner.from_dataset` for possible arguments.        
+    require_sequenced_output : bool, default False
+        Assert implicit ordering on data.
     """
 
     def __init__(self, Dataset dataset, **kwargs):
