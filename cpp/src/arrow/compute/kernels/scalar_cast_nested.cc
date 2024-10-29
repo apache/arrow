@@ -371,7 +371,7 @@ struct CastStruct {
         }
       }
       if (in_field_names.count(out_field->name()) == 0 && out_field->nullable()) {
-        // There will not be any matching in_field but we can fill with null.
+        // Didn't match current in_field, but we can will with null.
         fields_to_select[out_field_index++] = -2;
       } else if (in_field_index < in_field_count) {
         // Didn't match current in_field, and the we cannot fill with null, so
