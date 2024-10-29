@@ -2728,7 +2728,7 @@ TEST(Cast, StructToSameSizedAndNamedStruct) { CheckStructToStruct(NumericTypes()
 TEST(Cast, StructToStructSubset) { CheckStructToStructSubset(NumericTypes()); }
 
 TEST(Cast, StructToStructSubsetWithNulls) {
-  CheckStructToStructSubsetWithNulls({int16()});
+  CheckStructToStructSubsetWithNulls(NumericTypes());
 }
 
 TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
