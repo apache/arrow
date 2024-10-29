@@ -397,25 +397,19 @@ struct CastStruct {
 
     int out_field_index = 0;
     for (int field_index : fields_to_select) {
-      std::shared_ptr<ArrayData> values;
       const auto& target_type = out->type()->field(out_field_index++)->type();
-
       if (field_index == -2) {
-        std::shared_ptr<Array> nulls;
-        RETURN_NOT_OK(
-            MakeArrayOfNull(target_type->GetSharedPtr(), batch.length).Value(&nulls));
-        values = nulls->data();
+        ARROW_ASSIGN_OR_RAISE(auto nulls,
+                              MakeArrayOfNull(target_type->GetSharedPtr(), batch.length));
+        out_array->child_data.push_back(nulls->data());
       } else {
-        values = (in_array.child_data[field_index].ToArrayData()->Slice(in_array.offset,
-                                                                        in_array.length));
+        const auto& values = (in_array.child_data[field_index].ToArrayData()->Slice(
+            in_array.offset, in_array.length));
+        ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                              Cast(values, target_type, options, ctx->exec_context()));
+        DCHECK(cast_values.is_array());
+        out_array->child_data.push_back(cast_values.array());
       }
-
-      // TODO(tomnewton): Do we need to call this after creating array of nulls.
-      ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-                            Cast(values, target_type, options, ctx->exec_context()));
-
-      DCHECK(cast_values.is_array());
-      out_array->child_data.push_back(cast_values.array());
     }
 
     return Status::OK();
