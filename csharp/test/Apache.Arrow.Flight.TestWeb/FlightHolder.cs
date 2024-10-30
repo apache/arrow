@@ -30,7 +30,7 @@ namespace Apache.Arrow.Flight.TestWeb
 
         //Not thread safe, but only used in tests
         private readonly List<RecordBatchWithMetadata> _recordBatches = new List<RecordBatchWithMetadata>();
-
+        
         public FlightHolder(FlightDescriptor flightDescriptor, Schema schema, string location)
         {
             _flightDescriptor = flightDescriptor;

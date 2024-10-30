@@ -53,7 +53,7 @@ namespace Apache.Arrow.Flight.TestWeb
             {
                 var batches = flightHolder.GetRecordBatches();
 
-
+                
                 foreach(var batch in batches)
                 {
                     await responseStream.WriteAsync(batch.RecordBatch, batch.Metadata);
