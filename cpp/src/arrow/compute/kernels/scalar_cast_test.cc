@@ -2761,8 +2761,9 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   ASSERT_OK_AND_ASSIGN(auto dest1, StructArray::Make({nulls, nulls}, dest1_field_names));
   CheckCast(src, dest1);
 
-  const auto dest2 = arrow::struct_(
-      {std::make_shared<Field>("c", int8(), /*nullable=*/false), std::make_shared<Field>("d", int8())});
+  const auto dest2 =
+      arrow::struct_({std::make_shared<Field>("c", int8(), /*nullable=*/false),
+                      std::make_shared<Field>("d", int8())});
   const auto options2 = CastOptions::Safe(dest2);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(

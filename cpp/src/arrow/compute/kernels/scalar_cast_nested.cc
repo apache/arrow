@@ -367,16 +367,18 @@ struct CastStruct {
           }
           // Found matching in_field and out_field.
           fields_to_select[out_field_index++] = in_field_index;
-          // Using the same in_field for multiple out_fields is not allowed. 
+          // Using the same in_field for multiple out_fields is not allowed.
           in_field_index++;
           continue;
         }
       }
       if (all_in_field_names.count(out_field->name()) == 0 && out_field->nullable()) {
-        // Didn't match current in_field, but we can fill with null. 
-        // Filling with null is only acceptable on nuallable fields when there 
+        // Didn't match current in_field, but we can fill with null.
+        // Filling with null is only acceptable on nuallable fields when there
         // is definitely no in_field with matching name.
-        fields_to_select[out_field_index++] = -2;  // -2 is a sentinel value for fill with null. 
+
+        // -2 is a sentinel value indicating fill with null.
+        fields_to_select[out_field_index++] = -2;
       } else if (in_field_index < in_field_count) {
         // Didn't match current in_field, and the we cannot fill with null, so
         // try next in_field.
