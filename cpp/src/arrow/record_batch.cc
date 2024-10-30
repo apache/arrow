@@ -486,10 +486,12 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
   statistics.nth_statistics = 0;
   statistics.start_new_column = true;
   statistics.nth_column = std::nullopt;
+
   statistics.key = ARROW_STATISTICS_KEY_ROW_COUNT_EXACT;
   statistics.type = int64();
   statistics.value = record_batch.num_rows();
   RETURN_NOT_OK(on_statistics(statistics));
+  statistics.start_new_column = false;
 
   const auto num_fields = record_batch.schema()->num_fields();
   for (int nth_column = 0; nth_column < num_fields; ++nth_column) {
