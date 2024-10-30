@@ -1495,10 +1495,10 @@ garrow_decimal_data_type_class_init(GArrowDecimalDataTypeClass *klass)
  * Returns: (nullable):
  *   The newly created decimal data type on success, %NULL on error.
  *
- *   #GArrowDecimal32DataType is used if @precision up to 9
- *   #GArrowDecimal64DataType is used if @precision up to 19
- *   #GArrowDecimal128DataType is used if @precision up to 38
- *   Otherwise, #GArrowDecimal256DataType is used
+ *   * #GArrowDecimal32DataType is used if @precision up to 9
+ *   * #GArrowDecimal64DataType is used if @precision up to 19
+ *   * #GArrowDecimal128DataType is used if @precision up to 38
+ *   * #GArrowDecimal256DataType is used otherwise
  *
  * Since: 0.10.0
  */
