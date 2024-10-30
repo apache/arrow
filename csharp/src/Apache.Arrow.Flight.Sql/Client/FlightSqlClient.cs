@@ -819,18 +819,14 @@ public class FlightSqlClient
     /// <param name="sqlInfo">The SQL info required.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetSqlInfoAsync(List<int> sqlInfo, FlightCallOptions? options = default)
+    public async Task<FlightInfo> GetSqlInfoAsync(List<int>? sqlInfo = default, FlightCallOptions? options = default)
     {
         if (options == null)
         {
             throw new ArgumentNullException(nameof(options));
         }
 
-        if (sqlInfo == null || sqlInfo.Count == 0)
-        {
-            throw new ArgumentException("SQL info list cannot be null or empty", nameof(sqlInfo));
-        }
-
+        sqlInfo ??= new List<int>();
         try
         {
             var command = new CommandGetSqlInfo();

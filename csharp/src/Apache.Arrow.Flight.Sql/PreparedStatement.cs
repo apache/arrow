@@ -91,7 +91,7 @@ public class PreparedStatement : IDisposable
                 PreparedStatementHandle = ByteString.CopyFrom(_handle, Encoding.UTF8)
             };
 
-            var action = new FlightAction(SqlAction.CloseRequest, closeRequest.ToByteArray());
+            var action = new FlightAction(SqlAction.CloseRequest, closeRequest.PackAndSerialize());
             await foreach (var result in _client.DoActionAsync(action, options).ConfigureAwait(false))
             {
                 // Just drain the results to complete the operation
