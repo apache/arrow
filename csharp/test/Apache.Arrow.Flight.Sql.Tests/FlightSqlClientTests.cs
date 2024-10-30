@@ -609,7 +609,6 @@ public class FlightSqlClientTests : IDisposable
     public async Task GetCrossReferenceSchemaAsync()
     {
         // Arrange
-        var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
         var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
@@ -617,7 +616,7 @@ public class FlightSqlClientTests : IDisposable
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
         // Act
-        var schema = await _flightSqlClient.GetCrossReferenceSchemaAsync(options);
+        var schema = await _flightSqlClient.GetCrossReferenceSchemaAsync();
 
         // Assert
         var expectedSchema = recordBatch.Schema;

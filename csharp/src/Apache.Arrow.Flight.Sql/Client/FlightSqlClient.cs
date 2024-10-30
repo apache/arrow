@@ -13,7 +13,7 @@ namespace Apache.Arrow.Flight.Sql.Client;
 public class FlightSqlClient
 {
     private readonly FlightClient _client;
-
+    
     public FlightSqlClient(FlightClient client)
     {
         _client = client;
@@ -45,26 +45,6 @@ public class FlightSqlClient
             }
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandQuery.PackAndSerialize());
             return await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
-            // var prepareStatementRequest =
-            //     new ActionCreatePreparedStatementRequest { Query = query, TransactionId = transaction.TransactionId };
-            // var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
-            // var call = _client.DoAction(action, options?.Headers);
-            //
-            // await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
-            // {
-            //     var preparedStatementResponse =
-            //         FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
-            //     var commandSqlCall = new CommandPreparedStatementQuery
-            //     {
-            //         PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
-            //     };
-            //
-            //     byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
-            //     var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
-            //     return await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
-            // }
-            //
-            // throw new InvalidOperationException("No results returned from the query.");
         }
         catch (RpcException ex)
         {
@@ -137,7 +117,7 @@ public class FlightSqlClient
 
         try
         {
-            var flightInfoCall = _client.GetInfo(descriptor, options?.Headers);
+            using var flightInfoCall = _client.GetInfo(descriptor, options?.Headers);
             var flightInfo = await flightInfoCall.ResponseAsync.ConfigureAwait(false);
             return flightInfo;
         }
@@ -158,7 +138,7 @@ public class FlightSqlClient
         if (action is null)
             throw new ArgumentNullException(nameof(action));
 
-        var call = _client.DoAction(action, options?.Headers);
+        using var call = _client.DoAction(action, options?.Headers);
 
         await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
         {
@@ -186,7 +166,7 @@ public class FlightSqlClient
             var prepareStatementRequest =
                 new ActionCreatePreparedStatementRequest { Query = query, TransactionId = transaction.TransactionId };
             var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
-            var call = _client.DoAction(action, options?.Headers);
+            using var call = _client.DoAction(action, options?.Headers);
 
             await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
@@ -269,7 +249,7 @@ public class FlightSqlClient
 
         try
         {
-            var schemaResultCall = _client.GetSchema(descriptor, options?.Headers);
+            using var schemaResultCall = _client.GetSchema(descriptor, options?.Headers);
             var schemaResult = await schemaResultCall.ResponseAsync.ConfigureAwait(false);
             return schemaResult;
         }
@@ -353,7 +333,7 @@ public class FlightSqlClient
             throw new ArgumentNullException(nameof(ticket));
         }
 
-        var call = _client.GetStream(ticket, options?.Headers);
+        using var call = _client.GetStream(ticket, options?.Headers);
         await foreach (var recordBatch in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
         {
             yield return recordBatch;
@@ -377,7 +357,7 @@ public class FlightSqlClient
             throw new ArgumentNullException(nameof(schema));
         try
         {
-            var doPutResult = _client.StartPut(descriptor, options?.Headers);
+            using var doPutResult = _client.StartPut(descriptor, options?.Headers);
             var writer = doPutResult.RequestStream;
             var reader = doPutResult.ResponseStream;
 
@@ -674,11 +654,6 @@ public class FlightSqlClient
     /// <returns>The SchemaResult describing the schema of the cross-reference.</returns>
     public async Task<Schema> GetCrossReferenceSchemaAsync(FlightCallOptions? options = default)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
         try
         {
             var commandGetCrossReferenceSchema = new CommandGetCrossReference();
@@ -860,7 +835,7 @@ public class FlightSqlClient
         {
             var command = new CommandGetSqlInfo();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var schemaResultCall = _client.GetSchema(descriptor, options.Headers);
+            using var schemaResultCall = _client.GetSchema(descriptor, options.Headers);
             var schemaResult = await schemaResultCall.ResponseAsync.ConfigureAwait(false);
 
             return schemaResult;
@@ -884,7 +859,7 @@ public class FlightSqlClient
         try
         {
             var action = new FlightAction(SqlAction.CancelFlightInfoRequest, request.PackAndSerialize());
-            var call = _client.DoAction(action, options?.Headers);
+            using var call = _client.DoAction(action, options?.Headers);
             await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
                 if (Any.Parser.ParseFrom(result.Body) is Any anyResult &&
@@ -918,7 +893,7 @@ public class FlightSqlClient
             var cancelQueryRequest = new FlightInfoCancelRequest(info);
             var cancelQueryAction =
                 new FlightAction(SqlAction.CancelFlightInfoRequest, cancelQueryRequest.PackAndSerialize());
-            var cancelQueryCall = _client.DoAction(cancelQueryAction, options?.Headers);
+            using var cancelQueryCall = _client.DoAction(cancelQueryAction, options?.Headers);
 
             await foreach (var result in cancelQueryCall.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
@@ -947,7 +922,7 @@ public class FlightSqlClient
         {
             var actionBeginTransaction = new ActionBeginTransactionRequest();
             var action = new FlightAction(SqlAction.BeginTransactionRequest, actionBeginTransaction.PackAndSerialize());
-            var responseStream = _client.DoAction(action, options?.Headers);
+            using var responseStream = _client.DoAction(action, options?.Headers);
             await foreach (var result in responseStream.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
                 string? beginTransactionResult = result.Body.ToStringUtf8();
@@ -1034,8 +1009,7 @@ public class FlightSqlClient
             };
 
             var action = new FlightAction(SqlAction.CreateRequest, preparedStatementRequest.PackAndSerialize());
-            var call = _client.DoAction(action, options?.Headers);
-
+            using var call = _client.DoAction(action, options?.Headers);
             await foreach (var result in call.ResponseStream.ReadAllAsync())
             {
                 var preparedStatementResponse =
@@ -1050,7 +1024,6 @@ public class FlightSqlClient
                 var flightInfo = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
                 return new PreparedStatement(this, transaction.TransactionId.ToStringUtf8(), flightInfo.Schema, flightInfo.Schema);
             }
-
             throw new NullReferenceException($"{nameof(PreparedStatement)} was not able to be created");
         }
         catch (RpcException ex)
