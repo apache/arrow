@@ -608,6 +608,26 @@ GARROW_AVAILABLE_IN_ALL
 gint32
 garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type);
 
+#define GARROW_TYPE_DECIMAL32_DATA_TYPE (garrow_decimal32_data_type_get_type())
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal32DataType,
+                         garrow_decimal32_data_type,
+                         GARROW,
+                         DECIMAL32_DATA_TYPE,
+                         GArrowDecimalDataType)
+struct _GArrowDecimal32DataTypeClass
+{
+  GArrowDecimalDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+gint32
+garrow_decimal32_data_type_max_precision();
+
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32DataType *
+garrow_decimal32_data_type_new(gint32 precision, gint32 scale, GError **error);
+
 #define GARROW_TYPE_DECIMAL64_DATA_TYPE (garrow_decimal64_data_type_get_type())
 GARROW_AVAILABLE_IN_19_0
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal64DataType,
