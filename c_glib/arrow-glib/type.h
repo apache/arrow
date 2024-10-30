@@ -70,6 +70,8 @@ G_BEGIN_DECLS
  * @GARROW_TYPE_LARGE_LIST: A list of some logical data type with 64-bit offsets.
  * @GARROW_TYPE_MONTH_DAY_NANO_INTERVAL: MONTH_DAY_NANO interval in SQL style.
  * @GARROW_TYPE_RUN_END_ENCODED: Run-end encoded data.
+ * @GARROW_TYPE_DECIMAL64: Precision- and scale-based decimal
+ *   type with 64-bit. Storage type depends on the parameters.
  *
  * They are corresponding to `arrow::Type::type` values.
  */
@@ -113,6 +115,8 @@ typedef enum {
   GARROW_TYPE_LARGE_LIST,
   GARROW_TYPE_MONTH_DAY_NANO_INTERVAL,
   GARROW_TYPE_RUN_END_ENCODED,
+  /* TODO: Remove = 44 when we add STRING_VIEW..DECIMAL32. */
+  GARROW_TYPE_DECIMAL64 = 44,
 } GArrowType;
 
 /**
