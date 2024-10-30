@@ -624,7 +624,7 @@ GARROW_AVAILABLE_IN_19_0
 gint32
 garrow_decimal64_data_type_max_precision();
 
-GARROW_AVAILABLE_IN_0_12
+GARROW_AVAILABLE_IN_19_0
 GArrowDecimal64DataType *
 garrow_decimal64_data_type_new(gint32 precision, gint32 scale, GError **error);
 
