@@ -47,7 +47,6 @@ using arrow::util::SafeCopy;
 using arrow::util::SafeLoad;
 
 namespace parquet {
-
 namespace {
 
 // ----------------------------------------------------------------------
@@ -631,8 +630,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     switch (type) {
       case LogicalType::Type::FLOAT16:
         return true;
-      case LogicalType::Type::GEOMETRY:
-        return true;
       default:
         return false;
     }
@@ -867,7 +864,6 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
   IncrementNumValues(num_values);
 
   if (num_values == 0) return;
-
   SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 }
 
@@ -883,7 +879,6 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   IncrementNumValues(num_values);
 
   if (num_values == 0) return;
-
   SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
                                              valid_bits_offset));
 }
@@ -1038,7 +1033,6 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              int64_t num_values,
                                              ::arrow::MemoryPool* pool) {
   DCHECK(encoded_stats != nullptr);
-
   return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
               encoded_stats->null_count, encoded_stats->distinct_count,
               encoded_stats->has_min && encoded_stats->has_max,
