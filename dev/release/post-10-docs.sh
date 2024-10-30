@@ -56,7 +56,7 @@ git branch -D ${branch_name} || :
 git checkout -b ${branch_name}
 # list and remove previous versioned docs
 versioned_paths=()
-for versioned_path in docs/*.0/; do
+for versioned_path in docs/*.*/; do
   versioned_paths+=(${versioned_path})
   rm -rf ${versioned_path}
 done
