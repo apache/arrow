@@ -491,7 +491,7 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
   statistics.value = record_batch.num_rows();
   RETURN_NOT_OK(on_statistics(statistics));
 
-  int num_fields = record_batch.schema()->num_fields();
+  const auto num_fields = record_batch.schema()->num_fields();
   for (int nth_column = 0; nth_column < num_fields; ++nth_column) {
     auto column_statistics = record_batch.column(nth_column)->statistics();
     if (!column_statistics) {
@@ -550,6 +550,21 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
 
 Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
     MemoryPool* memory_pool) const {
+  // Statistics schema:
+  // struct<
+  //   column: int32,
+  //   statistics: map<
+  //     key: dictionary<
+  //       indices: int32,
+  //       dictionary: utf8,
+  //     >,
+  //     items: dense_union<...all needed types...>,
+  //   >
+  // >
+
+  // Statistics schema doesn't define static dense union type for
+  // values. Each statistics schema have a dense union type that has
+  // needled value types. The following block collects these types.
   std::vector<std::shared_ptr<Field>> values_types;
   std::vector<int8_t> values_type_indexes;
   RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
@@ -567,16 +582,31 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
     return Status::OK();
   }));
 
+  // statistics.key: dictionary<indices: int32, dictionary: utf8>
   auto keys_type = dictionary(int32(), utf8(), false);
+  // statistics.items: dense_union<...all needed types...>
   auto values_type = dense_union(values_types);
+  // struct<
+  //   column: int32,
+  //   statistics: map<
+  //     key: dictionary<
+  //       indices: int32,
+  //       dictionary: utf8,
+  //     >,
+  //     items: dense_union<...all needed types...>,
+  //   >
+  // >
   auto statistics_type =
       struct_({field("column", int32()),
                field("statistics", map(keys_type, values_type, false))});
 
   std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
+  // columns: int32
   auto columns_builder = std::make_shared<Int32Builder>(memory_pool);
   field_builders.push_back(std::static_pointer_cast<ArrayBuilder>(columns_builder));
+  // statistics.key: dictionary<indices: int32, dictionary: utf8>
   auto keys_builder = std::make_shared<StringDictionary32Builder>();
+  // statistics.items: dense_union<...all needed types...>
   std::vector<std::shared_ptr<ArrayBuilder>> values_builders;
   for (const auto& values_type : values_types) {
     std::unique_ptr<ArrayBuilder> values_builder;
@@ -585,12 +615,31 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
   }
   auto items_builder = std::make_shared<DenseUnionBuilder>(
       memory_pool, std::move(values_builders), values_type);
+  // statistics:
+  //   map<
+  //     key: dictionary<
+  //       indices: int32,
+  //       dictionary: utf8,
+  //     >,
+  //     items: dense_union<...all needed types...>,
+  //   >
   auto values_builder = std::make_shared<MapBuilder>(
       memory_pool, std::static_pointer_cast<ArrayBuilder>(keys_builder),
       std::static_pointer_cast<ArrayBuilder>(items_builder));
   field_builders.push_back(std::static_pointer_cast<ArrayBuilder>(values_builder));
+  // struct<
+  //   column: int32,
+  //   statistics: map<
+  //     key: dictionary<
+  //       indices: int32,
+  //       dictionary: utf8,
+  //     >,
+  //     items: dense_union<...all needed types...>,
+  //   >
+  // >
   StructBuilder builder(statistics_type, memory_pool, std::move(field_builders));
 
+  // Append statistics.
   RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
     if (statistics.start_new_column) {
       RETURN_NOT_OK(builder.Append());
