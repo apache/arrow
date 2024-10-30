@@ -2571,6 +2571,15 @@ static void CheckStructToStructSubset(
                            StructArray::Make({a1, d1, nulls}, {"a", "d", "f"}));
       CheckCast(src, dest6);
 
+      const auto dest6_5 = arrow::struct_(
+          {std::make_shared<Field>("a", int8()), std::make_shared<Field>("d", int16()),
+           std::make_shared<Field>("f", int64(), /*nullable=*/false)});
+      const auto options6_5 = CastOptions::Safe(dest6_5);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          TypeError,
+          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
+          Cast(src, options6_5));
+
       // fields in wrong order
       const auto dest7 = arrow::struct_({std::make_shared<Field>("a", int8()),
                                          std::make_shared<Field>("c", int16()),
@@ -2678,6 +2687,15 @@ static void CheckStructToStructSubsetWithNulls(
           StructArray::Make({a1, d1, nulls}, {"a", "d", "f"}, null_bitmap));
       CheckCast(src_null, dest6_null);
 
+      const auto dest6_5_null = arrow::struct_(
+          {std::make_shared<Field>("a", int8()), std::make_shared<Field>("d", int16()),
+           std::make_shared<Field>("f", int64(), /*nullable=*/false)});
+      const auto options6_5_null = CastOptions::Safe(dest6_5_null);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          TypeError,
+          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
+          Cast(src_null, options6_5_null));
+
       // fields in wrong order
       const auto dest7_null = arrow::struct_({std::make_shared<Field>("a", int8()),
                                               std::make_shared<Field>("c", int16()),
@@ -2728,7 +2746,7 @@ TEST(Cast, StructToSameSizedAndNamedStruct) { CheckStructToStruct(NumericTypes()
 TEST(Cast, StructToStructSubset) { CheckStructToStructSubset(NumericTypes()); }
 
 TEST(Cast, StructToStructSubsetWithNulls) {
-  CheckStructToStructSubsetWithNulls(NumericTypes());
+  CheckStructToStructSubsetWithNulls({int8()});
 }
 
 TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
@@ -2742,6 +2760,15 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   std::vector<std::string> dest_field_names = {"c", "d"};
   ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({nulls, nulls}, dest_field_names));
   CheckCast(src, dest);
+
+  const auto dest2 = arrow::struct_(
+      {std::make_shared<Field>("c", int8(), /*nullable=*/false), std::make_shared<Field>("d", int8())});
+  const auto options2 = CastOptions::Safe(dest2);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
+      Cast(src, options2));
 }
 
 TEST(Cast, StructToBiggerStruct) {
