@@ -22,9 +22,9 @@ public class FlightSqlClient
     /// <summary>
     /// Execute a SQL query on the server.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="query">The UTF8-encoded SQL query to be executed.</param>
     /// <param name="transaction">A transaction to associate this query with.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> ExecuteAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
     {
@@ -67,9 +67,9 @@ public class FlightSqlClient
     /// <summary>
     /// Executes an update query on the server.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="query">The UTF8-encoded SQL query to be executed.</param>
     /// <param name="transaction">A transaction to associate this query with. Defaults to no transaction if not provided.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The number of rows affected by the operation.</returns>
     public async Task<long> ExecuteUpdateAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
     {
@@ -117,8 +117,8 @@ public class FlightSqlClient
     /// <summary>
     /// Asynchronously retrieves flight information for a given flight descriptor.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="descriptor">The descriptor of the dataset request, whether a named dataset or a command.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> GetFlightInfoAsync(FlightDescriptor descriptor, FlightCallOptions? options = default)
     {
@@ -142,8 +142,8 @@ public class FlightSqlClient
     /// <summary>
     /// Perform the indicated action, returning an iterator to the stream of results, if any.
     /// </summary>
-    /// <param name="options">Per-RPC options</param>
     /// <param name="action">The action to be performed</param>
+    /// <param name="options">Per-RPC options</param>
     /// <returns>An async enumerable of results</returns>
     public async IAsyncEnumerable<FlightResult> DoActionAsync(FlightAction action, FlightCallOptions? options = default)
     {
@@ -161,9 +161,9 @@ public class FlightSqlClient
     /// <summary>
     /// Get the result set schema from the server for the given query.
     /// </summary>
-    /// <param name="options">Per-RPC options</param>
     /// <param name="query">The UTF8-encoded SQL query</param>
     /// <param name="transaction">A transaction to associate this query with</param>
+    /// <param name="options">Per-RPC options</param>
     /// <returns>The SchemaResult describing the schema of the result set</returns>
     public async Task<Schema> GetExecuteSchemaAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
     {
@@ -249,8 +249,8 @@ public class FlightSqlClient
     /// <summary>
     /// Asynchronously retrieves schema information for a given flight descriptor.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="descriptor">The descriptor of the dataset request, whether a named dataset or a command.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the SchemaResult describing the dataset schema.</returns>
     public virtual async Task<Schema> GetSchemaAsync(FlightDescriptor descriptor, FlightCallOptions? options = default)
     {
@@ -335,8 +335,8 @@ public class FlightSqlClient
     /// <summary>
     /// Given a flight ticket and schema, request to be sent the stream. Returns record batch stream reader.
     /// </summary>
-    /// <param name="options">Per-RPC options</param>
     /// <param name="ticket">The flight ticket to use</param>
+    /// <param name="options">Per-RPC options</param>
     /// <returns>The returned RecordBatchReader</returns>
     public async IAsyncEnumerable<RecordBatch> DoGetAsync(FlightTicket ticket, FlightCallOptions? options = default)
     {
@@ -356,9 +356,9 @@ public class FlightSqlClient
     /// Upload data to a Flight described by the given descriptor. The caller must call Close() on the returned stream
     /// once they are done writing.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="descriptor">The descriptor of the stream.</param>
     /// <param name="schema">The schema for the data to upload.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A Task representing the asynchronous operation. The task result contains a DoPutResult struct holding a reader and a writer.</returns>
     public async Task<DoPutResult> DoPutAsync(FlightDescriptor descriptor, Schema schema, FlightCallOptions? options = default)
     {
@@ -455,8 +455,8 @@ public class FlightSqlClient
     /// <summary>
     /// Request the primary keys for a table.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="tableRef">The table reference.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> GetPrimaryKeysAsync(TableRef tableRef, FlightCallOptions? options = default)
     {
@@ -484,12 +484,12 @@ public class FlightSqlClient
     /// <summary>
     /// Request a list of tables.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="catalog">The catalog.</param>
     /// <param name="dbSchemaFilterPattern">The schema filter pattern.</param>
     /// <param name="tableFilterPattern">The table filter pattern.</param>
     /// <param name="includeSchema">True to include the schema upon return, false to not include the schema.</param>
     /// <param name="tableTypes">The table types to include.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<IEnumerable<FlightInfo>> 
         GetTablesAsync(string? catalog = null, string? dbSchemaFilterPattern = null, string? tableFilterPattern = null, bool includeSchema = false, IEnumerable<string>? tableTypes = null, FlightCallOptions? options = default)
@@ -519,8 +519,8 @@ public class FlightSqlClient
     /// <summary>
     /// Retrieves a description about the foreign key columns that reference the primary key columns of the given table.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="tableRef">The table reference.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> GetExportedKeysAsync(TableRef tableRef, FlightCallOptions? options = default)
     {
@@ -572,8 +572,8 @@ public class FlightSqlClient
     /// <summary>
     /// Retrieves the foreign key columns for the given table.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="tableRef">The table reference.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> GetImportedKeysAsync(TableRef tableRef, FlightCallOptions? options = default)
     {
@@ -624,9 +624,9 @@ public class FlightSqlClient
     /// <summary>
     /// Retrieves a description of the foreign key columns in the given foreign key table that reference the primary key or the columns representing a unique constraint of the parent table.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="pkTableRef">The table reference that exports the key.</param>
     /// <param name="fkTableRef">The table reference that imports the key.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> GetCrossReferenceAsync(TableRef pkTableRef, TableRef fkTableRef, FlightCallOptions? options = default)
     {
@@ -740,8 +740,8 @@ public class FlightSqlClient
     /// <summary>
     /// Request the information about all the data types supported with filtering by data type.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="dataType">The data type to search for as filtering.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> GetXdbcTypeInfoAsync(int dataType, FlightCallOptions? options = default)
     {
@@ -816,8 +816,8 @@ public class FlightSqlClient
     /// <summary>
     /// Request a list of SQL information.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="sqlInfo">The SQL info required.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> GetSqlInfoAsync(List<int> sqlInfo, FlightCallOptions? options = default)
     {
@@ -875,8 +875,8 @@ public class FlightSqlClient
     /// <summary>
     /// Explicitly cancel a FlightInfo.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="request">The CancelFlightInfoRequest.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A Task representing the asynchronous operation. The task result contains the CancelFlightInfoResult describing the canceled result.</returns>
     public async Task<FlightInfoCancelResult> CancelFlightInfoAsync(FlightInfoCancelRequest request, FlightCallOptions? options = default)
     {
@@ -906,8 +906,8 @@ public class FlightSqlClient
     /// <summary>
     /// Explicitly cancel a query.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="info">The FlightInfo of the query to cancel.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A Task representing the asynchronous operation.</returns>
     public async Task<FlightInfoCancelResult> CancelQueryAsync(FlightInfo info, FlightCallOptions? options = default)
     {
@@ -967,8 +967,8 @@ public class FlightSqlClient
     /// Commit a transaction.
     /// After this, the transaction and all associated savepoints will be invalidated.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="transaction">The transaction.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A Task representing the asynchronous operation.</returns>
     public AsyncServerStreamingCall<FlightResult> CommitAsync(Transaction transaction, FlightCallOptions? options = default)
     {
@@ -990,8 +990,8 @@ public class FlightSqlClient
     /// Rollback a transaction.
     /// After this, the transaction and all associated savepoints will be invalidated.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="transaction">The transaction to rollback.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A Task representing the asynchronous operation.</returns>
     public AsyncServerStreamingCall<FlightResult> RollbackAsync(Transaction transaction, FlightCallOptions? options = default)
     {
@@ -1014,9 +1014,9 @@ public class FlightSqlClient
     /// <summary>
     /// Create a prepared statement object.
     /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="query">The query that will be executed.</param>
     /// <param name="transaction">A transaction to associate this query with.</param>
+    /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The created prepared statement.</returns>
     public async Task<PreparedStatement> PrepareAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
     {

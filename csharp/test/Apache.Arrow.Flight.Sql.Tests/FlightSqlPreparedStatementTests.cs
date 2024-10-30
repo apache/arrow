@@ -66,7 +66,7 @@ namespace Apache.Arrow.Flight.Sql.Tests
         {
             var validRecordBatch = CreateRecordBatch(_schema, new[] { 1, 2, 3 });
             var result = _preparedStatement.SetParameters(validRecordBatch);
-            var flightInfo = await _preparedStatement.ExecuteAsync(validRecordBatch);
+            var flightInfo = await _preparedStatement.ExecuteAsync();
 
             Assert.NotNull(flightInfo);
             Assert.IsType<FlightInfo>(flightInfo);

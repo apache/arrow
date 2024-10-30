@@ -21,6 +21,7 @@ public class PreparedStatement : IDisposable
     private readonly string _handle;
     private Schema _datasetSchema;
     private Schema _parameterSchema;
+    private RecordBatch? _recordsBatch;
     private bool _isClosed;
     public bool IsClosed => _isClosed;
     public string Handle => _handle;
@@ -201,9 +202,8 @@ public class PreparedStatement : IDisposable
     {
         EnsureStatementIsNotClosed();
 
-        if (parameterBatch == null)
-            throw new ArgumentNullException(nameof(parameterBatch));
-
+        _recordsBatch = parameterBatch ?? throw new ArgumentNullException(nameof(parameterBatch));
+        
         var channel = Channel.CreateUnbounded<FlightData>();
         var task = Task.Run(async () =>
         {
@@ -211,10 +211,10 @@ public class PreparedStatement : IDisposable
             {
                 using (var memoryStream = new MemoryStream())
                 {
-                    var writer = new ArrowStreamWriter(memoryStream, parameterBatch.Schema);
+                    var writer = new ArrowStreamWriter(memoryStream, _recordsBatch.Schema);
 
                     cancellationToken.ThrowIfCancellationRequested();
-                    await writer.WriteRecordBatchAsync(parameterBatch, cancellationToken).ConfigureAwait(false);
+                    await writer.WriteRecordBatchAsync(_recordsBatch, cancellationToken).ConfigureAwait(false);
                     await writer.WriteEndAsync(cancellationToken).ConfigureAwait(false);
 
                     memoryStream.Position = 0;
@@ -254,22 +254,21 @@ public class PreparedStatement : IDisposable
     /// <summary>
     /// Executes the prepared statement asynchronously and retrieves the query results as <see cref="FlightInfo"/>.
     /// </summary>
-    /// <param name="options">The <see cref="FlightCallOptions"/> for the operation, which may include timeouts, headers, and other options for the call.</param>
-    /// <param name="parameterBatch">Optional <see cref="RecordBatch"/> containing parameters to bind before executing the statement.</param>
     /// <param name="cancellationToken">Optional <see cref="CancellationToken"/> to observe while waiting for the task to complete. The task will be canceled if the token is canceled.</param>
+    /// <param name="options">Optional <see cref="FlightCallOptions"/>The <see cref="FlightCallOptions"/> for the operation, which may include timeouts, headers, and other options for the call.</param>
     /// <returns>A <see cref="Task{FlightInfo}"/> representing the asynchronous operation. The task result contains the <see cref="FlightInfo"/> describing the executed query results.</returns>
     /// <exception cref="InvalidOperationException">Thrown if the prepared statement is closed or if there is an error during execution.</exception>
     /// <exception cref="OperationCanceledException">Thrown if the operation is canceled by the <paramref name="cancellationToken"/>.</exception>
-    public async Task<FlightInfo> ExecuteAsync(RecordBatch parameterBatch, FlightCallOptions? options = default, CancellationToken cancellationToken = default)
+    public async Task<FlightInfo> ExecuteAsync(CancellationToken cancellationToken = default, FlightCallOptions? options = default)
     {
         EnsureStatementIsNotClosed();
 
         var descriptor = FlightDescriptor.CreateCommandDescriptor(_handle);
         cancellationToken.ThrowIfCancellationRequested();
         
-        if (parameterBatch != null)
+        if (_recordsBatch != null)
         {
-            await BindParametersAsync(descriptor, parameterBatch, options).ConfigureAwait(false);
+            await BindParametersAsync(descriptor, _recordsBatch, options).ConfigureAwait(false);
         }
         cancellationToken.ThrowIfCancellationRequested();
         return await _client.GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
@@ -285,11 +284,11 @@ public class PreparedStatement : IDisposable
     /// 
     /// This operation is asynchronous and can be canceled via the provided <paramref name="cancellationToken"/>.
     /// </remarks>
-    /// <param name="options">The <see cref="FlightCallOptions"/> for this execution, containing headers and other options.</param>
     /// <param name="parameterBatch">
     /// A <see cref="RecordBatch"/> containing the parameters to be bound to the update statement. 
     /// This batch should match the schema expected by the prepared statement.
     /// </param>
+    /// <param name="options">The <see cref="FlightCallOptions"/> for this execution, containing headers and other options.</param>
     /// <returns>
     /// A <see cref="Task{TResult}"/> representing the asynchronous operation. 
     /// The task result contains the number of rows affected by the update.
@@ -347,9 +346,9 @@ public class PreparedStatement : IDisposable
     /// <summary>
     /// Binds parameters to the prepared statement by streaming the given RecordBatch to the server asynchronously.
     /// </summary>
-    /// <param name="options">The <see cref="FlightCallOptions"/> for the operation, which may include timeouts, headers, and other options for the call.</param>
     /// <param name="descriptor">The <see cref="FlightDescriptor"/> that identifies the statement or command being executed.</param>
     /// <param name="parameterBatch">The <see cref="RecordBatch"/> containing the parameters to bind to the prepared statement.</param>
+    /// <param name="options">The <see cref="FlightCallOptions"/> for the operation, which may include timeouts, headers, and other options for the call.</param>
     /// <returns>A <see cref="Task{ByteString}"/> that represents the asynchronous operation. The task result contains the metadata from the server after binding the parameters.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="parameterBatch"/> is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown if the operation is canceled or if there is an error during the DoPut operation.</exception>
