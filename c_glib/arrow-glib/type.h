@@ -50,8 +50,6 @@ G_BEGIN_DECLS
  * @GARROW_TYPE_TIME64: Exact time encoded with int64, supporting micro- or nanoseconds
  * @GARROW_TYPE_MONTH_INTERVAL: YEAR_MONTH interval in SQL style.
  * @GARROW_TYPE_DAY_TIME_INTERVAL: DAY_TIME interval in SQL style.
- * @GARROW_TYPE_DECIMAL64: Precision- and scale-based decimal
- *   type with 64-bit. Storage type depends on the parameters.
  * @GARROW_TYPE_DECIMAL128: Precision- and scale-based decimal
  *   type with 128-bit. Storage type depends on the parameters.
  * @GARROW_TYPE_DECIMAL256: Precision- and scale-based decimal
@@ -72,6 +70,8 @@ G_BEGIN_DECLS
  * @GARROW_TYPE_LARGE_LIST: A list of some logical data type with 64-bit offsets.
  * @GARROW_TYPE_MONTH_DAY_NANO_INTERVAL: MONTH_DAY_NANO interval in SQL style.
  * @GARROW_TYPE_RUN_END_ENCODED: Run-end encoded data.
+ * @GARROW_TYPE_DECIMAL64: Precision- and scale-based decimal
+ *   type with 64-bit. Storage type depends on the parameters.
  *
  * They are corresponding to `arrow::Type::type` values.
  */
