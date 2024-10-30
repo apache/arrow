@@ -376,6 +376,7 @@ set(ARROW_SRCS
     device_allocation_type_set.cc
     extension_type.cc
     extension/bool8.cc
+    extension/json.cc
     extension/uuid.cc
     pretty_print.cc
     record_batch.cc
@@ -459,7 +460,7 @@ endif()
 
 set(ARROW_VENDORED_SRCS
     vendored/base64.cpp
-    vendored/datetime/tz.cpp
+    vendored/datetime.cpp
     vendored/double-conversion/bignum-dtoa.cc
     vendored/double-conversion/bignum.cc
     vendored/double-conversion/cached-powers.cc
@@ -487,7 +488,7 @@ set(ARROW_VENDORED_SRCS
 if(APPLE)
   list(APPEND ARROW_VENDORED_SRCS vendored/datetime/ios.mm)
 endif()
-set_source_files_properties(vendored/datetime/tz.cpp
+set_source_files_properties(vendored/datetime.cpp
                             PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                        SKIP_UNITY_BUILD_INCLUSION ON)
 arrow_add_object_library(ARROW_VENDORED ${ARROW_VENDORED_SRCS})
@@ -1217,6 +1218,7 @@ add_arrow_test(sparse_tensor_test)
 add_arrow_test(stl_test SOURCES stl_iterator_test.cc stl_test.cc)
 
 add_arrow_benchmark(builder_benchmark)
+add_arrow_benchmark(chunk_resolver_benchmark)
 add_arrow_benchmark(compare_benchmark)
 add_arrow_benchmark(memory_pool_benchmark)
 add_arrow_benchmark(type_benchmark)

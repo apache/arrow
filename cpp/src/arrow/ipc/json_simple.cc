@@ -386,6 +386,10 @@ class DecimalConverter final
   const DecimalSubtype* decimal_type_;
 };
 
+template <typename BuilderType = typename TypeTraits<Decimal32Type>::BuilderType>
+using Decimal32Converter = DecimalConverter<Decimal32Type, Decimal32, BuilderType>;
+template <typename BuilderType = typename TypeTraits<Decimal64Type>::BuilderType>
+using Decimal64Converter = DecimalConverter<Decimal64Type, Decimal64, BuilderType>;
 template <typename BuilderType = typename TypeTraits<Decimal128Type>::BuilderType>
 using Decimal128Converter = DecimalConverter<Decimal128Type, Decimal128, BuilderType>;
 template <typename BuilderType = typename TypeTraits<Decimal256Type>::BuilderType>
@@ -886,6 +890,8 @@ Status GetDictConverter(const std::shared_ptr<DataType>& type,
     PARAM_CONVERTER_CASE(Type::BINARY_VIEW, StringConverter, BinaryViewType)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter,
                           FixedSizeBinaryType)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL32, Decimal32Converter, Decimal32Type)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL64, Decimal64Converter, Decimal64Type)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL128, Decimal128Converter, Decimal128Type)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL256, Decimal256Converter, Decimal256Type)
     default:
@@ -948,6 +954,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::STRING_VIEW, StringConverter<StringViewType>)
     SIMPLE_CONVERTER_CASE(Type::BINARY_VIEW, StringConverter<BinaryViewType>)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter<>)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL32, Decimal32Converter<>)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL64, Decimal64Converter<>)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL128, Decimal128Converter<>)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL256, Decimal256Converter<>)
     SIMPLE_CONVERTER_CASE(Type::SPARSE_UNION, UnionConverter)

@@ -79,7 +79,7 @@ if(POLICY CMP0170)
   cmake_policy(SET CMP0170 NEW)
 endif()
 
-set(ARROW_VERSION "18.0.0-SNAPSHOT")
+set(ARROW_VERSION "19.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -160,6 +160,7 @@ set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "19.1"
     "18.1"
     "17.0"
     "16.0"
@@ -301,7 +302,8 @@ add_custom_target(lint
                   --cpplint_binary
                   ${CPPLINT_BIN}
                   ${COMMON_LINT_OPTIONS}
-                  ${ARROW_LINT_QUIET})
+                  ${ARROW_LINT_QUIET}
+                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
 #
 # "make format" and "make check-format" targets

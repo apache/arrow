@@ -50,6 +50,13 @@ class ArrowArrayUtilityTest {
     allocator.close();
   }
 
+  @Test
+  void arraySchemaInit() {
+    ArrowSchema schema = ArrowSchema.allocateNew(allocator);
+    assertThat(schema.snapshot().release).isEqualTo(0);
+    schema.close();
+  }
+
   // ------------------------------------------------------------
   // BufferImportTypeVisitor
 

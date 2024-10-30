@@ -1437,7 +1437,8 @@ cdef class Array(_PandasConvertible):
 
         Returns
         -------
-        sliced : RecordBatch
+        sliced : Array
+            An array with the same datatype, containing the sliced values.
         """
         cdef shared_ptr[CArray] result
 
@@ -4341,6 +4342,33 @@ cdef class ExtensionArray(Array):
         cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
         result.validate()
         return result
+
+
+class JsonArray(ExtensionArray):
+    """
+    Concrete class for Arrow arrays of JSON data type.
+
+    This does not guarantee that the JSON data actually
+    is valid JSON.
+
+    Examples
+    --------
+    Define the extension type for JSON array
+
+    >>> import pyarrow as pa
+    >>> json_type = pa.json_(pa.large_utf8())
+
+    Create an extension array
+
+    >>> arr = [None, '{ "id":30, "values":["a", "b"] }']
+    >>> storage = pa.array(arr, pa.large_utf8())
+    >>> pa.ExtensionArray.from_storage(json_type, storage)
+    <pyarrow.lib.JsonArray object at ...>
+    [
+      null,
+      "{ "id":30, "values":["a", "b"] }"
+    ]
+    """
 
 
 class UuidArray(ExtensionArray):

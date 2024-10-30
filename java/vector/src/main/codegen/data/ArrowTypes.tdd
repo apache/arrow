@@ -139,6 +139,11 @@
        name: "LargeListView",
        fields: [],
        complex: true
+    },
+    {
+       name: "RunEndEncoded",
+       fields: [],
+       complex: true
     }
   ]
 }

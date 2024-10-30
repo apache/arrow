@@ -35,6 +35,7 @@ jobs:
       ARCH: arm64v8
       {% endif %}
       PYTHON: "{{ python_version }}"
+      PYTHON_ABI_TAG: "{{ python_abi_tag }}"
       {% if python_version == "3.13" %}
       PYTHON_IMAGE_TAG: "3.13-rc"
       {% else %}
@@ -50,22 +51,35 @@ jobs:
         shell: bash
         run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: wheel
           path: arrow/python/repaired_wheels/*.whl
 
       # TODO(kszucs): auditwheel show
       - name: Test wheel
+        if: |
+          '{{ python_abi_tag }}' != 'cp313t'
         shell: bash
         run: |
+          source arrow/ci/scripts/util_enable_core_dumps.sh
           archery docker run python-wheel-manylinux-test-imports
           archery docker run python-wheel-manylinux-test-unittests
+
+      # Free-threaded wheels need to be tested using a different docker-compose service
+      - name: Test free-threaded wheel
+        if: |
+          '{{ python_abi_tag }}' == 'cp313t'
+        shell: bash
+        run: |
+          source arrow/ci/scripts/util_enable_core_dumps.sh
+          archery docker run python-free-threaded-wheel-manylinux-test-imports
+          archery docker run python-free-threaded-wheel-manylinux-test-unittests
 
       - name: Test wheel on AlmaLinux 8
         shell: bash
         if: |
-          '{{ python_version }}' == '3.8'
+          '{{ python_version }}' == '3.9'
         env:
           ALMALINUX: "8"
         run: |
@@ -81,7 +95,7 @@ jobs:
       - name: Test wheel on Ubuntu 20.04
         shell: bash
         if: |
-          '{{ python_version }}' == '3.8'
+          '{{ python_version }}' == '3.9'
         env:
           UBUNTU: "20.04"
         run: |

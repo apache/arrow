@@ -226,6 +226,11 @@ cdef class UuidType(BaseExtensionType):
     cdef:
         const CUuidType* uuid_ext_type
 
+cdef class JsonType(BaseExtensionType):
+    cdef:
+        const CJsonType* json_ext_type
+
+
 cdef class PyExtensionType(ExtensionType):
     pass
 
@@ -525,6 +530,8 @@ cdef class Table(_Tabular):
     cdef:
         shared_ptr[CTable] sp_table
         CTable* table
+        c_bool _is_cpu
+        c_bool _init_is_cpu
 
     cdef void init(self, const shared_ptr[CTable]& table)
 

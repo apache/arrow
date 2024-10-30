@@ -24,13 +24,13 @@
 #include "arrow/util/logging.h"
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-#include "arrow/util/bpacking_avx2.h"
+#  include "arrow/util/bpacking_avx2.h"
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-#include "arrow/util/bpacking_avx512.h"
+#  include "arrow/util/bpacking_avx512.h"
 #endif
 #if defined(ARROW_HAVE_NEON)
-#include "arrow/util/bpacking_neon.h"
+#  include "arrow/util/bpacking_neon.h"
 #endif
 
 namespace arrow {

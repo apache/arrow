@@ -185,88 +185,79 @@ test_binary() {
 test_apt() {
   show_header "Testing APT packages"
 
-  for target in "debian:bookworm" \
-                "arm64v8/debian:bookworm" \
-                "debian:trixie" \
-                "arm64v8/debian:trixie" \
-                "ubuntu:focal" \
-                "arm64v8/ubuntu:focal" \
-                "ubuntu:jammy" \
-                "arm64v8/ubuntu:jammy" \
-                "ubuntu:noble" \
-                "arm64v8/ubuntu:noble"; do \
-    case "${target}" in
-      arm64v8/*)
-        if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
-          case "${target}" in
-            arm64v8/ubuntu:focal)
-              : # OK
-              ;;
-            *)
-              # qemu-user-static in Ubuntu 20.04 has a crash bug:
-              #   https://bugs.launchpad.net/qemu/+bug/1749393
-              continue
-              ;;
-          esac
-        else
-          continue
-        fi
-        ;;
-    esac
-    if ! docker run --rm -v "${ARROW_DIR}":/arrow:delegated \
-           --security-opt="seccomp=unconfined" \
-           "${target}" \
-           /arrow/dev/release/verify-apt.sh \
-           "${VERSION}" \
-           "rc"; then
-      echo "Failed to verify the APT repository for ${target}"
-      exit 1
-    fi
-  done
+  if [ "$(arch)" = "x86_64" ]; then
+    for target in "debian:bookworm" \
+                  "debian:trixie" \
+                  "ubuntu:focal" \
+                  "ubuntu:jammy" \
+                  "ubuntu:noble"; do \
+      if ! docker run \
+             --platform=linux/x86_64 \
+             --rm \
+             --security-opt="seccomp=unconfined" \
+             --volume "${ARROW_DIR}":/arrow:delegated \
+             "${target}" \
+             /arrow/dev/release/verify-apt.sh \
+             "${VERSION}" \
+             "rc"; then
+        echo "Failed to verify the APT repository for ${target} on x86_64"
+        exit 1
+      fi
+    done
+  fi
+
+  if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
+    for target in "arm64v8/debian:bookworm" \
+                  "arm64v8/debian:trixie" \
+                  "arm64v8/ubuntu:focal" \
+                  "arm64v8/ubuntu:jammy" \
+                  "arm64v8/ubuntu:noble"; do \
+      if ! docker run \
+             --platform=linux/arm64 \
+             --rm \
+             --security-opt="seccomp=unconfined" \
+             --volume "${ARROW_DIR}":/arrow:delegated \
+             "${target}" \
+             /arrow/dev/release/verify-apt.sh \
+             "${VERSION}" \
+             "rc"; then
+        echo "Failed to verify the APT repository for ${target} on arm64"
+        exit 1
+      fi
+    done
+  fi
 }
 
 test_yum() {
   show_header "Testing Yum packages"
 
-  for target in "almalinux:9" \
-                "arm64v8/almalinux:9" \
-                "almalinux:8" \
-                "arm64v8/almalinux:8" \
-                "amazonlinux:2023" \
-                "quay.io/centos/centos:stream9" \
-                "quay.io/centos/centos:stream8" \
-                "centos:7"; do
-    case "${target}" in
-      arm64v8/*)
-        if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
-          : # OK
-        else
-          continue
-        fi
-        ;;
-      centos:7)
-        if [ "$(arch)" = "x86_64" ]; then
-          : # OK
-        else
-          continue
-        fi
-        ;;
-    esac
-    if ! docker run \
-           --rm \
-           --security-opt="seccomp=unconfined" \
-           --volume "${ARROW_DIR}":/arrow:delegated \
-           "${target}" \
-           /arrow/dev/release/verify-yum.sh \
-           "${VERSION}" \
-           "rc"; then
-      echo "Failed to verify the Yum repository for ${target}"
-      exit 1
-    fi
-  done
+  if [ "$(arch)" = "x86_64" ]; then
+    for target in "almalinux:9" \
+                  "almalinux:8" \
+                  "amazonlinux:2023" \
+                  "quay.io/centos/centos:stream9" \
+                  "quay.io/centos/centos:stream8" \
+                  "centos:7"; do
+      if ! docker run \
+             --platform linux/x86_64 \
+             --rm \
+             --security-opt="seccomp=unconfined" \
+             --volume "${ARROW_DIR}":/arrow:delegated \
+             "${target}" \
+             /arrow/dev/release/verify-yum.sh \
+             "${VERSION}" \
+             "rc"; then
+        echo "Failed to verify the Yum repository for ${target} on x86_64"
+        exit 1
+      fi
+    done
+  fi
 
-  if [ "$(arch)" != "aarch64" -a -e /usr/bin/qemu-aarch64-static ]; then
-    for target in "quay.io/centos/centos:stream9" \
+  if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
+    for target in "arm64v8/almalinux:9" \
+                  "arm64v8/almalinux:8" \
+                  "arm64v8/amazonlinux:2023" \
+                  "quay.io/centos/centos:stream9" \
                   "quay.io/centos/centos:stream8"; do
       if ! docker run \
              --platform linux/arm64 \
@@ -277,7 +268,7 @@ test_yum() {
              /arrow/dev/release/verify-yum.sh \
              "${VERSION}" \
              "rc"; then
-        echo "Failed to verify the Yum repository for ${target} arm64"
+        echo "Failed to verify the Yum repository for ${target} on arm64"
         exit 1
       fi
     done
@@ -389,59 +380,10 @@ install_csharp() {
   CSHARP_ALREADY_INSTALLED=1
 }
 
-install_go() {
-  # Install go
-  if [ "${GO_ALREADY_INSTALLED:-0}" -gt 0 ]; then
-    show_info "$(go version) already installed at $(which go)"
-    return 0
-  fi
-
-  if command -v go > /dev/null; then
-    show_info "Found $(go version) at $(command -v go)"
-    export GOPATH=${ARROW_TMPDIR}/gopath
-    mkdir -p $GOPATH
-    return 0
-  fi
-
-  local version=1.22.6
-  show_info "Installing go version ${version}..."
-
-  local arch="$(uname -m)"
-  if [ "$arch" == "x86_64" ]; then
-    arch=amd64
-  elif [ "$arch" == "aarch64" ]; then
-    arch=arm64
-  fi
-
-  if [ "$(uname)" == "Darwin" ]; then
-    local os=darwin
-  else
-    local os=linux
-  fi
-
-  local archive="go${version}.${os}-${arch}.tar.gz"
-  curl -sLO https://go.dev/dl/$archive
-
-  ls -l
-  local prefix=${ARROW_TMPDIR}/go
-  mkdir -p $prefix
-  tar -xzf $archive -C $prefix
-  rm -f $archive
-
-  export GOROOT=${prefix}/go
-  export GOPATH=${prefix}/gopath
-  export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-
-  mkdir -p $GOPATH
-  show_info "$(go version) installed at $(which go)"
-
-  GO_ALREADY_INSTALLED=1
-}
-
 install_conda() {
   # Setup short-lived miniconda for Python and integration tests
   show_info "Ensuring that Conda is installed..."
-  local prefix=$ARROW_TMPDIR/mambaforge
+  local prefix=$ARROW_TMPDIR/miniforge
 
   # Setup miniconda only if the directory doesn't exist yet
   if [ "${CONDA_ALREADY_INSTALLED:-0}" -eq 0 ]; then
@@ -449,7 +391,7 @@ install_conda() {
       show_info "Installing miniconda at ${prefix}..."
       local arch=$(uname -m)
       local platform=$(uname)
-      local url="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-${platform}-${arch}.sh"
+      local url="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-${platform}-${arch}.sh"
       curl -sL -o miniconda.sh $url
       bash miniconda.sh -b -p $prefix
       rm -f miniconda.sh
@@ -583,13 +525,6 @@ maybe_setup_virtualenv() {
       show_info "Installed pip packages $@..."
       pip install "$@"
     fi
-  fi
-}
-
-maybe_setup_go() {
-  show_info "Ensuring that Go is installed..."
-  if [ "${USE_CONDA}" -eq 0 ]; then
-    install_go
   fi
 }
 
@@ -949,38 +884,6 @@ test_js() {
   popd
 }
 
-test_go() {
-  show_header "Build and test Go libraries"
-
-  maybe_setup_go
-  maybe_setup_conda compilers go=1.22
-
-  pushd go
-  go get -v ./...
-  if [ ${TEST_GO} -gt 0 ]; then
-    go test ./...
-  fi
-  go install -buildvcs=false ./...
-  if [ ${TEST_INTEGRATION_GO} -gt 0 ]; then
-    pushd arrow/internal/cdata_integration
-    case "$(uname)" in
-      Linux)
-        go_lib="arrow_go_integration.so"
-        ;;
-      Darwin)
-        go_lib="arrow_go_integration.dylib"
-        ;;
-      MINGW*)
-        go_lib="arrow_go_integration.dll"
-        ;;
-    esac
-    CGO_ENABLED=1 go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
-    popd
-  fi
-  go clean -modcache
-  popd
-}
-
 # Run integration tests
 test_integration() {
   show_header "Build and execute integration tests"
@@ -1009,7 +912,6 @@ test_integration() {
     --with-cpp=${TEST_INTEGRATION_CPP} \
     --with-java=${TEST_INTEGRATION_JAVA} \
     --with-js=${TEST_INTEGRATION_JS} \
-    --with-go=${TEST_INTEGRATION_GO} \
     $INTEGRATION_TEST_ARGS
 }
 
@@ -1088,9 +990,6 @@ test_source_distribution() {
 
   pushd $ARROW_SOURCE_DIR
 
-  if [ ${BUILD_GO} -gt 0 ]; then
-    test_go
-  fi
   if [ ${TEST_CSHARP} -gt 0 ]; then
     test_csharp
   fi
@@ -1146,8 +1045,12 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.8 3.9 3.10 3.11 3.12 3.13}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.9 3.10 3.11 3.12 3.13}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
+
+  if [ "${SOURCE_KIND}" != "local" ]; then
+    local wheel_content="OFF"
+  fi
 
   for python in ${python_versions}; do
     local pyver=${python/m}
@@ -1158,7 +1061,8 @@ test_linux_wheels() {
         continue
       fi
       pip install pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+      CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} \
+        ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 }
@@ -1170,12 +1074,16 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.8 3.9 3.10 3.11 3.12 3.13"
-    local platform_tags="macosx_11_0_arm64"
+    local python_versions="3.9 3.10 3.11 3.12 3.13"
+    local platform_tags="macosx_12_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.8 3.9 3.10 3.11 3.12 3.13"
-    local platform_tags="macosx_10_15_x86_64"
+    local python_versions="3.9 3.10 3.11 3.12 3.13"
+    local platform_tags="macosx_12_0_x86_64"
+  fi
+
+  if [ "${SOURCE_KIND}" != "local" ]; then
+    local wheel_content="OFF"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
@@ -1194,7 +1102,8 @@ test_macos_wheels() {
       fi
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
+      CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} \
+        ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
         ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
@@ -1287,22 +1196,19 @@ test_jars() {
 : ${TEST_RUBY:=${TEST_SOURCE}}
 : ${TEST_PYTHON:=${TEST_SOURCE}}
 : ${TEST_JS:=${TEST_SOURCE}}
-: ${TEST_GO:=${TEST_SOURCE}}
 : ${TEST_INTEGRATION:=${TEST_SOURCE}}
 
 # For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
 : ${TEST_INTEGRATION_CPP:=${TEST_INTEGRATION}}
 : ${TEST_INTEGRATION_JAVA:=${TEST_INTEGRATION}}
 : ${TEST_INTEGRATION_JS:=${TEST_INTEGRATION}}
-: ${TEST_INTEGRATION_GO:=${TEST_INTEGRATION}}
 
 # Automatically build/test if its activated by a dependent
 TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
 BUILD_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
 BUILD_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION_JAVA}))
 BUILD_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
-BUILD_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
-TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
+TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS}))
 
 # Execute tests in a conda environment
 : ${USE_CONDA:=0}

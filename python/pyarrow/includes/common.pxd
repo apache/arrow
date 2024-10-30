@@ -173,3 +173,12 @@ cdef inline object PyObject_to_object(PyObject* o):
     cdef object result = <object> o
     cpython.Py_DECREF(result)
     return result
+
+
+cdef extern from "<string_view>" namespace "std" nogil:
+    cdef cppclass cpp_string_view "std::string_view":
+        string_view()
+        string_view(const char*)
+        size_t size()
+        bint empty()
+        const char* data()

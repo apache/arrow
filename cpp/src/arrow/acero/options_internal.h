@@ -18,8 +18,8 @@
 #pragma once
 
 #ifndef NDEBUG
-#include <mutex>
-#include <ostream>
+#  include <mutex>
+#  include <ostream>
 #endif
 
 namespace arrow {

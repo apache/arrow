@@ -532,7 +532,8 @@ class BinaryTask
              OpenSSL::OpenSSLError,
              SocketError,
              SystemCallError,
-             Timeout::Error => error
+             Timeout::Error,
+             Error => error
         n_retries += 1
         if n_retries <= max_n_retries
           $stderr.puts

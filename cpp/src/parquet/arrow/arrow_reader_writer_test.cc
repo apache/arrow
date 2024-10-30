@@ -16,9 +16,9 @@
 // under the License.
 
 #ifdef _MSC_VER
-#pragma warning(push)
+#  pragma warning(push)
 // Disable forcing value to bool warnings
-#pragma warning(disable : 4800)
+#  pragma warning(disable : 4800)
 #endif
 
 #include "gmock/gmock.h"
@@ -37,6 +37,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/extension/json.h"
 #include "arrow/io/api.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -55,7 +56,7 @@
 #include "arrow/util/range.h"
 
 #ifdef ARROW_CSV
-#include "arrow/csv/api.h"
+#  include "arrow/csv/api.h"
 #endif
 
 #include "parquet/api/reader.h"
@@ -618,10 +619,15 @@ class ParquetIOTestBase : public ::testing::Test {
     return ParquetFileWriter::Open(sink_, schema);
   }
 
-  void ReaderFromSink(std::unique_ptr<FileReader>* out) {
+  void ReaderFromSink(
+      std::unique_ptr<FileReader>* out,
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
     ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
-    ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                                ::arrow::default_memory_pool(), out));
+    FileReaderBuilder builder;
+    ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+    ASSERT_OK_NO_THROW(builder.memory_pool(::arrow::default_memory_pool())
+                           ->properties(properties)
+                           ->Build(out));
   }
 
   void ReadSingleColumnFile(std::unique_ptr<FileReader> file_reader,
@@ -670,6 +676,7 @@ class ParquetIOTestBase : public ::testing::Test {
   void RoundTripSingleColumn(
       const std::shared_ptr<Array>& values, const std::shared_ptr<Array>& expected,
       const std::shared_ptr<::parquet::ArrowWriterProperties>& arrow_properties,
+      const ArrowReaderProperties& reader_properties = default_arrow_reader_properties(),
       bool nullable = true) {
     std::shared_ptr<Table> table = MakeSimpleTable(values, nullable);
     this->ResetSink();
@@ -679,7 +686,7 @@ class ParquetIOTestBase : public ::testing::Test {
 
     std::shared_ptr<Table> out;
     std::unique_ptr<FileReader> reader;
-    ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
+    ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader, reader_properties));
     const bool expect_metadata = arrow_properties->store_schema();
     ASSERT_NO_FATAL_FAILURE(
         this->ReadTableFromFile(std::move(reader), expect_metadata, &out));
@@ -850,10 +857,10 @@ typedef ::testing::Types<
     ::arrow::Int16Type, ::arrow::Int32Type, ::arrow::UInt64Type, ::arrow::Int64Type,
     ::arrow::Date32Type, ::arrow::FloatType, ::arrow::DoubleType, ::arrow::StringType,
     ::arrow::BinaryType, ::arrow::FixedSizeBinaryType, ::arrow::HalfFloatType,
-    DecimalWithPrecisionAndScale<1>, DecimalWithPrecisionAndScale<5>,
-    DecimalWithPrecisionAndScale<10>, DecimalWithPrecisionAndScale<19>,
-    DecimalWithPrecisionAndScale<23>, DecimalWithPrecisionAndScale<27>,
-    DecimalWithPrecisionAndScale<38>, Decimal256WithPrecisionAndScale<39>,
+    Decimal128WithPrecisionAndScale<1>, Decimal128WithPrecisionAndScale<5>,
+    Decimal128WithPrecisionAndScale<10>, Decimal128WithPrecisionAndScale<19>,
+    Decimal128WithPrecisionAndScale<23>, Decimal128WithPrecisionAndScale<27>,
+    Decimal128WithPrecisionAndScale<38>, Decimal256WithPrecisionAndScale<39>,
     Decimal256WithPrecisionAndScale<56>, Decimal256WithPrecisionAndScale<76>>
     TestTypes;
 
@@ -1426,6 +1433,52 @@ TEST_F(TestLargeStringParquetIO, Basics) {
   const auto arrow_properties =
       ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
   this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
+}
+
+using TestJsonParquetIO = TestParquetIO<::arrow::extension::JsonExtensionType>;
+
+TEST_F(TestJsonParquetIO, JsonExtension) {
+  const char* json = R"([
+    "null",
+    "1234",
+    "3.14159",
+    "true",
+    "false",
+    "\"a json string\"",
+    "[\"a\", \"json\", \"array\"]",
+    "{\"obj\": \"a simple json object\"}"
+  ])";
+
+  const auto json_type = ::arrow::extension::json();
+  const auto string_array = ::arrow::ArrayFromJSON(::arrow::utf8(), json);
+  const auto json_array = ::arrow::ExtensionType::WrapArray(json_type, string_array);
+
+  const auto json_large_type = ::arrow::extension::json(::arrow::large_utf8());
+  const auto large_string_array = ::arrow::ArrayFromJSON(::arrow::large_utf8(), json);
+  const auto json_large_array =
+      ::arrow::ExtensionType::WrapArray(json_large_type, large_string_array);
+
+  // When the original Arrow schema isn't stored and Arrow extensions are disabled,
+  // LogicalType::JSON is read as utf8.
+  this->RoundTripSingleColumn(json_array, string_array,
+                              default_arrow_writer_properties());
+  this->RoundTripSingleColumn(json_large_array, string_array,
+                              default_arrow_writer_properties());
+
+  // When the original Arrow schema isn't stored and Arrow extensions are enabled,
+  // LogicalType::JSON is read as JsonExtensionType with utf8 storage.
+  ::parquet::ArrowReaderProperties reader_properties;
+  reader_properties.set_arrow_extensions_enabled(true);
+  this->RoundTripSingleColumn(json_array, json_array, default_arrow_writer_properties(),
+                              reader_properties);
+  this->RoundTripSingleColumn(json_large_array, json_array,
+                              default_arrow_writer_properties(), reader_properties);
+
+  // When the original Arrow schema is stored, the stored Arrow type is respected.
+  const auto writer_properties =
+      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
+  this->RoundTripSingleColumn(json_array, json_array, writer_properties);
+  this->RoundTripSingleColumn(json_large_array, json_large_array, writer_properties);
 }
 
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;
@@ -4093,11 +4146,12 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
 INSTANTIATE_TEST_SUITE_P(
     ReadDecimals, TestArrowReaderAdHocSparkAndHvr,
     ::testing::Values(
-        std::make_tuple("int32_decimal.parquet", ::arrow::decimal(4, 2)),
-        std::make_tuple("int64_decimal.parquet", ::arrow::decimal(10, 2)),
-        std::make_tuple("fixed_length_decimal.parquet", ::arrow::decimal(25, 2)),
-        std::make_tuple("fixed_length_decimal_legacy.parquet", ::arrow::decimal(13, 2)),
-        std::make_tuple("byte_array_decimal.parquet", ::arrow::decimal(4, 2))));
+        std::make_tuple("int32_decimal.parquet", ::arrow::decimal128(4, 2)),
+        std::make_tuple("int64_decimal.parquet", ::arrow::decimal128(10, 2)),
+        std::make_tuple("fixed_length_decimal.parquet", ::arrow::decimal128(25, 2)),
+        std::make_tuple("fixed_length_decimal_legacy.parquet",
+                        ::arrow::decimal128(13, 2)),
+        std::make_tuple("byte_array_decimal.parquet", ::arrow::decimal128(4, 2))));
 
 TEST(TestArrowReaderAdHoc, ReadFloat16Files) {
   using ::arrow::util::Float16;
@@ -5042,8 +5096,8 @@ class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
 };
 
 typedef ::testing::Types<
-    DecimalWithPrecisionAndScale<1>, DecimalWithPrecisionAndScale<5>,
-    DecimalWithPrecisionAndScale<10>, DecimalWithPrecisionAndScale<18>,
+    Decimal128WithPrecisionAndScale<1>, Decimal128WithPrecisionAndScale<5>,
+    Decimal128WithPrecisionAndScale<10>, Decimal128WithPrecisionAndScale<18>,
     Decimal256WithPrecisionAndScale<1>, Decimal256WithPrecisionAndScale<5>,
     Decimal256WithPrecisionAndScale<10>, Decimal256WithPrecisionAndScale<18>>
     DecimalTestTypes;

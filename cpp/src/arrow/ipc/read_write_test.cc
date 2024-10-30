@@ -336,7 +336,7 @@ TEST_F(TestSchemaMetadata, NestedDictionaryFields) {
     auto dict_type1 = dictionary(int8(), utf8(), /*ordered=*/true);
     auto dict_type2 = dictionary(int32(), fixed_size_binary(24));
     auto dict_type3 = dictionary(int32(), binary());
-    auto dict_type4 = dictionary(int8(), decimal(19, 7));
+    auto dict_type4 = dictionary(int8(), decimal128(19, 7));
 
     auto struct_type1 = struct_({field("s1", dict_type1), field("s2", dict_type2)});
     auto struct_type2 = struct_({field("s3", dict_type3), field("s4", dict_type4)});
@@ -1081,9 +1081,9 @@ TEST_F(RecursionLimits, ReadLimit) {
 // Test fails with a structured exception on Windows + Debug
 #if !defined(_WIN32) || defined(NDEBUG)
 TEST_F(RecursionLimits, StressLimit) {
-#ifdef __EMSCRIPTEN__
+#  ifdef __EMSCRIPTEN__
   GTEST_SKIP() << "This crashes the Emscripten runtime.";
-#endif
+#  endif
 
   auto CheckDepth = [this](int recursion_depth, bool* it_works) {
     int32_t metadata_length = -1;
@@ -1112,10 +1112,10 @@ TEST_F(RecursionLimits, StressLimit) {
   ASSERT_TRUE(it_works);
 
 // Mitigate Valgrind's slowness
-#if !defined(ARROW_VALGRIND)
+#  if !defined(ARROW_VALGRIND)
   CheckDepth(500, &it_works);
   ASSERT_TRUE(it_works);
-#endif
+#  endif
 }
 #endif  // !defined(_WIN32) || defined(NDEBUG)
 

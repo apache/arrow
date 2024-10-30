@@ -41,7 +41,7 @@ jobs:
           R -e "source('R/install-arrow.R'); create_package_with_all_dependencies(dest_file = 'arrow_with_deps.tar.gz', source_file = \"${built_tar}\")"
         shell: bash
       - name: Upload the third party dependency artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: thirdparty_deps
           path: arrow/r/arrow_with_deps.tar.gz
@@ -60,7 +60,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r@v2
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: thirdparty_deps
           path: arrow/r/
@@ -91,7 +91,7 @@ jobs:
         run: cat arrow-tests/testthat.Rout*
         if: always()
       - name: Save the test output
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: test-output
           path: arrow-tests/testthat.Rout*

@@ -2101,12 +2101,10 @@ class CancelFlightServer(FlightServerBase):
 def test_interrupt():
     if threading.current_thread().ident != threading.main_thread().ident:
         pytest.skip("test only works from main Python thread")
-    # Skips test if not available
-    raise_signal = util.get_raise_signal()
 
     def signal_from_thread():
         time.sleep(0.5)
-        raise_signal(signal.SIGINT)
+        signal.raise_signal(signal.SIGINT)
 
     exc_types = (KeyboardInterrupt, pa.ArrowCancelled)
 

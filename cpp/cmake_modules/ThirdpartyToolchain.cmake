@@ -4223,6 +4223,14 @@ if(ARROW_WITH_GRPC)
       target_link_libraries(gRPC::grpc++ INTERFACE gRPC::grpc_asan_suppressed)
     endif()
   endif()
+
+  if(ARROW_GRPC_CPP_PLUGIN)
+    if(NOT TARGET gRPC::grpc_cpp_plugin)
+      add_executable(gRPC::grpc_cpp_plugin IMPORTED)
+    endif()
+    set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES IMPORTED_LOCATION
+                                                           ${ARROW_GRPC_CPP_PLUGIN})
+  endif()
 endif()
 
 # ----------------------------------------------------------------------
@@ -5001,6 +5009,10 @@ macro(build_awssdk)
     # Negate warnings that AWS SDK cannot build under
     string(APPEND AWS_C_FLAGS " -Wno-error=shorten-64-to-32")
     string(APPEND AWS_CXX_FLAGS " -Wno-error=shorten-64-to-32")
+  endif()
+  if(NOT MSVC)
+    string(APPEND AWS_C_FLAGS " -Wno-deprecated")
+    string(APPEND AWS_CXX_FLAGS " -Wno-deprecated")
   endif()
 
   set(AWSSDK_COMMON_CMAKE_ARGS

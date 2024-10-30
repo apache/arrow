@@ -17,7 +17,7 @@
 
 // Ensure 64-bit off_t for platforms where it matters
 #ifdef _FILE_OFFSET_BITS
-#undef _FILE_OFFSET_BITS
+#  undef _FILE_OFFSET_BITS
 #endif
 
 #define _FILE_OFFSET_BITS 64
@@ -27,8 +27,8 @@
 // is the best way to enable modern POSIX APIs, such as posix_madvise(), on Solaris.
 // (see also
 // https://github.com/illumos/illumos-gate/blob/master/usr/src/uts/common/sys/mman.h)
-#undef __EXTENSIONS__
-#define __EXTENSIONS__
+#  undef __EXTENSIONS__
+#  define __EXTENSIONS__
 #endif
 
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
@@ -60,34 +60,34 @@
 // file compatibility stuff
 
 #ifdef _WIN32
-#include <direct.h>
-#include <io.h>
-#include <share.h>
+#  include <direct.h>
+#  include <io.h>
+#  include <share.h>
 #else  // POSIX-like platforms
-#include <dirent.h>
+#  include <dirent.h>
 #endif
 
 #ifdef _WIN32
-#include "arrow/io/mman.h"
-#undef Realloc
-#undef Free
+#  include "arrow/io/mman.h"
+#  undef Realloc
+#  undef Free
 #else  // POSIX-like platforms
-#include <sys/mman.h>
-#include <unistd.h>
+#  include <sys/mman.h>
+#  include <unistd.h>
 #endif
 
 // define max read/write count
 #ifdef _WIN32
-#define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
+#  define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
 #else
 
-#ifdef __APPLE__
+#  ifdef __APPLE__
 // due to macOS bug, we need to set read/write max
-#define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
-#else
+#    define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
+#  else
 // see notes on Linux read/write manpage
-#define ARROW_MAX_IO_CHUNKSIZE 0x7ffff000
-#endif
+#    define ARROW_MAX_IO_CHUNKSIZE 0x7ffff000
+#  endif
 
 #endif
 
@@ -102,25 +102,25 @@
 
 // For filename conversion
 #if defined(_WIN32)
-#include "arrow/util/utf8.h"
+#  include "arrow/util/utf8.h"
 #endif
 
 #ifdef _WIN32
-#include <psapi.h>
+#  include <psapi.h>
 
 #elif __APPLE__
-#include <mach/mach.h>
-#include <sys/sysctl.h>
+#  include <mach/mach.h>
+#  include <sys/sysctl.h>
 
 #elif __linux__
-#include <sys/sysinfo.h>
-#include <fstream>
+#  include <sys/sysinfo.h>
+#  include <fstream>
 #endif
 
 #ifdef _WIN32
-#include <Windows.h>
+#  include <Windows.h>
 #else
-#include <dlfcn.h>
+#  include <dlfcn.h>
 #endif
 
 namespace arrow::internal {
@@ -1223,11 +1223,11 @@ Status SetPipeFileDescriptorNonBlocking(int fd) {
 namespace {
 
 #ifdef WIN32
-#define PIPE_WRITE _write
-#define PIPE_READ _read
+#  define PIPE_WRITE _write
+#  define PIPE_READ _read
 #else
-#define PIPE_WRITE write
-#define PIPE_READ read
+#  define PIPE_WRITE write
+#  define PIPE_READ read
 #endif
 
 class SelfPipeImpl : public SelfPipe, public std::enable_shared_from_this<SelfPipeImpl> {
@@ -1500,7 +1500,7 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
             region.size + static_cast<size_t>(addr - aligned_addr)};
   };
 
-#ifdef _WIN32
+#  ifdef _WIN32
   // PrefetchVirtualMemory() is available on Windows 8 or later
   struct PrefetchEntry {  // Like WIN32_MEMORY_RANGE_ENTRY
     void* VirtualAddress;
@@ -1528,7 +1528,7 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
     }
   }
   return Status::OK();
-#elif defined(POSIX_MADV_WILLNEED)
+#  elif defined(POSIX_MADV_WILLNEED)
   for (const auto& region : regions) {
     if (region.size != 0) {
       const auto aligned = align_region(region);
@@ -1542,9 +1542,9 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
     }
   }
   return Status::OK();
-#else
+#  else
   return Status::OK();
-#endif
+#  endif
 #else
   return Status::OK();
 #endif
@@ -1876,11 +1876,11 @@ std::vector<NativePathString> GetPlatformTemporaryDirs() {
 
 #else
   selectors = {{"TMPDIR", ""}, {"TMP", ""}, {"TEMP", ""}, {"TEMPDIR", ""}};
-#ifdef __ANDROID__
+#  ifdef __ANDROID__
   fallback_tmp = "/data/local/tmp";
-#else
+#  else
   fallback_tmp = "/tmp";
-#endif
+#  endif
 #endif
 
   std::vector<NativePathString> temp_dirs;
@@ -2157,7 +2157,7 @@ int64_t GetCurrentRSS() {
 
 #elif defined(__APPLE__)
 // OSX ------------------------------------------------------
-#ifdef MACH_TASK_BASIC_INFO
+#  ifdef MACH_TASK_BASIC_INFO
   struct mach_task_basic_info info;
   mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
   if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
@@ -2165,7 +2165,7 @@ int64_t GetCurrentRSS() {
     ARROW_LOG(WARNING) << "Can't resolve RSS value";
     return 0;
   }
-#else
+#  else
   struct task_basic_info info;
   mach_msg_type_number_t infoCount = TASK_BASIC_INFO_COUNT;
   if (task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
@@ -2173,7 +2173,7 @@ int64_t GetCurrentRSS() {
     ARROW_LOG(WARNING) << "Can't resolve RSS value";
     return 0;
   }
-#endif
+#  endif
   return static_cast<int64_t>(info.resident_size);
 
 #elif defined(__linux__)

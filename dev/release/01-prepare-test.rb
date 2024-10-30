@@ -219,20 +219,6 @@ class PrepareTest < Test::Unit::TestCase
     end
     expected_changes += [
       {
-        path: "go/arrow/doc.go",
-        hunks: [
-          ["-const PkgVersion = \"#{@snapshot_version}\"",
-           "+const PkgVersion = \"#{@release_version}\""],
-        ],
-      },
-      {
-        path: "go/parquet/writer_properties.go",
-        hunks: [
-          ["-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",
-           "+\tDefaultCreatedBy          = \"parquet-go version #{@release_version}\""],
-        ],
-      },
-      {
         path: "js/package.json",
         hunks: [
           ["-  \"version\": \"#{@snapshot_version}\"",

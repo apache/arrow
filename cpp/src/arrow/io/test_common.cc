@@ -23,7 +23,7 @@
 #include <vector>
 
 #ifndef _WIN32
-#include <fcntl.h>
+#  include <fcntl.h>
 #endif
 
 #include "arrow/buffer.h"

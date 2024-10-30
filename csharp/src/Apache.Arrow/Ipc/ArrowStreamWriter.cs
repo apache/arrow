@@ -68,6 +68,8 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<UnionArray>,
+            IArrowArrayVisitor<Decimal32Array>,
+            IArrowArrayVisitor<Decimal64Array>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
             IArrowArrayVisitor<DictionaryArray>,
@@ -291,6 +293,10 @@ namespace Apache.Arrow.Ipc
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
                 _buffers.Add(CreateSlicedBuffer(array.ValueBuffer, itemSize, array.Offset, array.Length));
             }
+
+            public void Visit(Decimal32Array array) => Visit(array as FixedSizeBinaryArray);
+
+            public void Visit(Decimal64Array array) => Visit(array as FixedSizeBinaryArray);
 
             public void Visit(Decimal128Array array) => Visit(array as FixedSizeBinaryArray);
 

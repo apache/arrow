@@ -364,13 +364,17 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   set(ARROW_JEMALLOC_DESCRIPTION "Build the Arrow jemalloc-based allocator")
   if(WIN32
-     OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD"
+     OR CMAKE_SYSTEM_NAME STREQUAL "FreeBSD"
+     OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch|ARM|arm"
      OR NOT ARROW_ENABLE_THREADING)
     # jemalloc is not supported on Windows.
     #
     # jemalloc is the default malloc implementation on FreeBSD and can't
     # be built with --disable-libdl on FreeBSD. Because lazy-lock feature
     # is required on FreeBSD. Lazy-lock feature requires libdl.
+    #
+    # jemalloc may have a problem on ARM.
+    # See also: https://github.com/apache/arrow/issues/44342
     #
     # jemalloc requires thread.
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} OFF)
@@ -635,6 +639,11 @@ Always OFF if building binaries" OFF)
   define_option_string(ARROW_GANDIVA_PC_CXX_FLAGS
                        "Compiler flags to append when pre-compiling Gandiva operations"
                        "")
+
+  #----------------------------------------------------------------------
+  set_option_category("Cross compiling")
+
+  define_option_string(ARROW_GRPC_CPP_PLUGIN "grpc_cpp_plugin path to be used" "")
 
   #----------------------------------------------------------------------
   set_option_category("Advanced developer")

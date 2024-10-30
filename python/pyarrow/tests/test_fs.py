@@ -19,8 +19,10 @@ from datetime import datetime, timezone, timedelta
 import gzip
 import os
 import pathlib
+from urllib.request import urlopen
 import subprocess
 import sys
+import time
 
 import pytest
 import weakref
@@ -34,6 +36,10 @@ from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
                         FileSystemHandler, PyFileSystem, FSSpecHandler,
                         copy_files)
+from pyarrow.util import find_free_port
+
+
+here = os.path.dirname(os.path.abspath(__file__))
 
 
 class DummyHandler(FileSystemHandler):
@@ -509,11 +515,12 @@ def skip_azure(fs, reason):
 @pytest.mark.s3
 def test_s3fs_limited_permissions_create_bucket(s3_server):
     from pyarrow.fs import S3FileSystem
-    _configure_s3_limited_user(s3_server, _minio_limited_policy)
+    _configure_s3_limited_user(s3_server, _minio_limited_policy,
+                               'test_fs_limited_user', 'limited123')
     host, port, _, _ = s3_server['connection']
 
     fs = S3FileSystem(
-        access_key='limited',
+        access_key='test_fs_limited_user',
         secret_key='limited123',
         endpoint_override='{}:{}'.format(host, port),
         scheme='http'
@@ -2010,3 +2017,36 @@ def test_concurrent_s3fs_init():
         finalize_s3()
         """
     subprocess.check_call([sys.executable, "-c", code])
+
+
+@pytest.mark.s3
+def test_uwsgi_integration():
+    # GH-44071: using S3FileSystem under uwsgi shouldn't lead to a crash at shutdown
+    try:
+        subprocess.check_call(["uwsgi", "--version"])
+    except FileNotFoundError:
+        pytest.skip("uwsgi not installed on this Python")
+
+    port = find_free_port()
+    args = ["uwsgi", "-i", "--http", f"127.0.0.1:{port}",
+            "--wsgi-file", os.path.join(here, "wsgi_examples.py")]
+    proc = subprocess.Popen(args, stdin=subprocess.DEVNULL)
+    # Try to fetch URL, it should return 200 Ok...
+    try:
+        url = f"http://127.0.0.1:{port}/s3/"
+        start_time = time.time()
+        error = None
+        while time.time() < start_time + 5:
+            try:
+                with urlopen(url) as resp:
+                    assert resp.status == 200
+                break
+            except OSError as e:
+                error = e
+                time.sleep(0.1)
+        else:
+            pytest.fail(f"Could not fetch {url!r}: {error}")
+    finally:
+        proc.terminate()
+    # ... and uwsgi should gracefully shutdown after it's been asked above
+    assert proc.wait() == 30  # UWSGI_END_CODE = 30
