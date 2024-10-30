@@ -349,30 +349,34 @@ struct CastStruct {
 
     std::vector<int> fields_to_select(out_field_count, -1);
 
-    std::set<std::string> in_field_names;
+    std::set<std::string> all_in_field_names;
     for (int in_field_index = 0; in_field_index < in_field_count; ++in_field_index) {
-      in_field_names.insert(in_type.field(in_field_index)->name());
+      all_in_field_names.insert(in_type.field(in_field_index)->name());
     }
 
     for (int in_field_index = 0, out_field_index = 0;
          out_field_index < out_field_count;) {
       const auto& out_field = out_type.field(out_field_index);
-      const auto& in_field = in_type.field(in_field_index);
       if (in_field_index < in_field_count) {
+        const auto& in_field = in_type.field(in_field_index);
         // If there are more in_fields check if they match the out_field.
         if (in_field->name() == out_field->name()) {
           if (in_field->nullable() && !out_field->nullable()) {
             return Status::TypeError("cannot cast nullable field to non-nullable field: ",
                                      in_type.ToString(), " ", out_type.ToString());
           }
+          // Found matching in_field and out_field.
           fields_to_select[out_field_index++] = in_field_index;
+          // Using the same in_field for multiple out_fields is not allowed. 
           in_field_index++;
           continue;
         }
       }
-      if (in_field_names.count(out_field->name()) == 0 && out_field->nullable()) {
-        // Didn't match current in_field, but we can will with null.
-        fields_to_select[out_field_index++] = -2;
+      if (all_in_field_names.count(out_field->name()) == 0 && out_field->nullable()) {
+        // Didn't match current in_field, but we can fill with null. 
+        // Filling with null is only acceptable on nuallable fields when there 
+        // is definitely no in_field with matching name.
+        fields_to_select[out_field_index++] = -2;  // -2 is a sentinel value for fill with null. 
       } else if (in_field_index < in_field_count) {
         // Didn't match current in_field, and the we cannot fill with null, so
         // try next in_field.
