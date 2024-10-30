@@ -37,26 +37,34 @@ public class FlightSqlClient
 
         try
         {
-            var prepareStatementRequest =
-                new ActionCreatePreparedStatementRequest { Query = query, TransactionId = transaction.TransactionId };
-            var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
-            var call = _client.DoAction(action, options?.Headers);
-
-            await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
+            var commandQuery = new CommandStatementQuery { Query = query };
+        
+            if (transaction.IsValid())
             {
-                var preparedStatementResponse =
-                    FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
-                var commandSqlCall = new CommandPreparedStatementQuery
-                {
-                    PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
-                };
-
-                byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
-                var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
-                return await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+                commandQuery.TransactionId = transaction.TransactionId;
             }
-
-            throw new InvalidOperationException("No results returned from the query.");
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(commandQuery.PackAndSerialize());
+            return await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            // var prepareStatementRequest =
+            //     new ActionCreatePreparedStatementRequest { Query = query, TransactionId = transaction.TransactionId };
+            // var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
+            // var call = _client.DoAction(action, options?.Headers);
+            //
+            // await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
+            // {
+            //     var preparedStatementResponse =
+            //         FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
+            //     var commandSqlCall = new CommandPreparedStatementQuery
+            //     {
+            //         PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
+            //     };
+            //
+            //     byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
+            //     var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
+            //     return await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
+            // }
+            //
+            // throw new InvalidOperationException("No results returned from the query.");
         }
         catch (RpcException ex)
         {
@@ -694,11 +702,6 @@ public class FlightSqlClient
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> GetTableTypesAsync(FlightCallOptions? options = default)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
         try
         {
             var command = new CommandGetTableTypes();

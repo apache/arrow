@@ -147,10 +147,62 @@ public class FlightSqlClientTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_ShouldReturnFlightInfo_WhenValidInputsAreProvided()
+    {
+        // Arrange
+        string query = "SELECT * FROM test_table";
+        var transaction = new Transaction("sample-transaction-id");
+        var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
+        var recordBatch = _testUtils.CreateTestBatch(0, 100);
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
+            _testWebFactory.GetAddress());
+        _flightStore.Flights.Add(flightDescriptor, flightHolder);
+        
+        // Act
+        var flightInfo = await _flightSqlClient.ExecuteAsync(query, transaction);
+
+        // Assert
+        Assert.NotNull(flightInfo);
+        Assert.IsType<FlightInfo>(flightInfo);
+    }
+    
+    [Fact]
+    public async Task ExecuteAsync_ShouldThrowArgumentException_WhenQueryIsEmpty()
+    {
+        // Arrange
+        string emptyQuery = string.Empty;
+        var transaction = new Transaction("sample-transaction-id");
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await _flightSqlClient.ExecuteAsync(emptyQuery, transaction));
+    }
+    
+    [Fact]
+    public async Task ExecuteAsync_ShouldReturnFlightInfo_WhenTransactionIsNoTransaction()
+    {
+        // Arrange
+        string query = "SELECT * FROM test_table";
+        var transaction = Transaction.NoTransaction;
+        var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
+        var recordBatch = _testUtils.CreateTestBatch(0, 100);
+        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
+            _testWebFactory.GetAddress());
+        _flightStore.Flights.Add(flightDescriptor, flightHolder);
+        
+        // Act
+        var flightInfo = await _flightSqlClient.ExecuteAsync(query, transaction);
+
+        // Assert
+        Assert.NotNull(flightInfo);
+        Assert.IsType<FlightInfo>(flightInfo);
+    }
+
+    
+    [Fact]
     public async Task GetFlightInfoAsync()
     {
         // Arrange
-        var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
         var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
@@ -577,7 +629,6 @@ public class FlightSqlClientTests : IDisposable
     public async Task GetTableTypesAsync()
     {
         // Arrange
-        var options = new FlightCallOptions();
         var expectedSchema = new Schema
                 .Builder()
             .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
@@ -589,7 +640,7 @@ public class FlightSqlClientTests : IDisposable
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
         // Act
-        var flightInfo = await _flightSqlClient.GetTableTypesAsync(options);
+        var flightInfo = await _flightSqlClient.GetTableTypesAsync();
         var actualSchema = flightInfo.Schema;
 
         // Assert
