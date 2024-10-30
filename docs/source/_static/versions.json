@@ -21,11 +21,6 @@
         "url": "https://arrow.apache.org/docs/16.1/"
     },
     {
-        "name": "16.0",
-        "version": "16.0/",
-        "url": "https://arrow.apache.org/docs/16.0/"
-    },
-    {
         "name": "15.0",
         "version": "15.0/",
         "url": "https://arrow.apache.org/docs/15.0/"
