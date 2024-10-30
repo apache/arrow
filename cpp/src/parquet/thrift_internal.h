@@ -41,6 +41,7 @@
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
+#include "parquet/geometry_statistics.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
@@ -390,10 +391,6 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   }
   if (stats.has_distinct_count) {
     statistics.__set_distinct_count(stats.distinct_count);
-  }
-
-  if (stats.has_geometry_statistics) {
-    statistics.__set_geometry_stats(ToThrift(stats.geometry_statistics()));
   }
 
   return statistics;

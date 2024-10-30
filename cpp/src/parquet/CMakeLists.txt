@@ -173,6 +173,7 @@ set(PARQUET_SRCS
     exception.cc
     file_reader.cc
     file_writer.cc
+    geometry_statistics.cc
     level_comparison.cc
     level_conversion.cc
     metadata.cc

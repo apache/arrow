@@ -1599,7 +1599,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
       {LogicalType::BSON(), SortOrder::UNSIGNED},
       {LogicalType::UUID(), SortOrder::UNSIGNED},
       {LogicalType::Float16(), SortOrder::SIGNED},
-      {LogicalType::Geometry(), SortOrder::UNSIGNED},
+      {LogicalType::Geometry(), SortOrder::UNKNOWN},
       {LogicalType::None(), SortOrder::UNKNOWN}};
 
   for (const ExpectedSortOrder& c : cases) {

@@ -1675,7 +1675,7 @@ class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible
  private:
   Geometry(std::string crs, LogicalType::GeometryEdges::edges edges,
            LogicalType::GeometryEncoding::geometry_encoding encoding)
-      : LogicalType::Impl(LogicalType::Type::GEOMETRY, SortOrder::UNSIGNED),
+      : LogicalType::Impl(LogicalType::Type::GEOMETRY, SortOrder::UNKNOWN),
         LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY),
         crs_(std::move(crs)),
         edges_(edges),

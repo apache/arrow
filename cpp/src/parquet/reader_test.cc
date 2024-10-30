@@ -44,6 +44,7 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
+#include "parquet/geometry_statistics.h"
 #include "parquet/metadata.h"
 #include "parquet/page_index.h"
 #include "parquet/platform.h"
@@ -1912,22 +1913,8 @@ class TestGeometryLogicalType : public ::testing::Test {
     for (int i = 0; i < num_row_groups; i++) {
       auto row_group_metadata = metadata->RowGroup(i);
       auto column_chunk_metadata = row_group_metadata->ColumnChunk(0);
-      auto statistics = column_chunk_metadata->statistics();
-      CheckStatistics(statistics);
-
-      if (enable_write_page_index) {
-        // Check column index
-        auto row_group_index_reader = page_index_reader->RowGroup(i);
-        auto column_index = row_group_index_reader->GetColumnIndex(0);
-        auto geometry_column_index =
-            std::static_pointer_cast<ByteArrayColumnIndex>(column_index);
-        CheckColumnIndex(geometry_column_index);
-      } else {
-        // Check per-page statistics
-        auto row_group_reader = file_reader->RowGroup(i);
-        auto page_reader = row_group_reader->GetColumnPageReader(0);
-        CheckPageStatistics(page_reader.get());
-      }
+      auto geometry_stats = column_chunk_metadata->geometry_statistics();
+      CheckGeometryStatistics(geometry_stats);
     }
 
     // Check the geometry values
@@ -1962,10 +1949,8 @@ class TestGeometryLogicalType : public ::testing::Test {
     EXPECT_EQ(kNumRows, total_values_read);
   }
 
-  void CheckStatistics(std::shared_ptr<Statistics> statistics) {
-    EXPECT_TRUE(statistics->HasMinMax());
-    EXPECT_TRUE(statistics->HasGeometryStatistics());
-    const GeometryStatistics* geom_stats = statistics->geometry_statistics();
+  void CheckGeometryStatistics(std::shared_ptr<GeometryStatistics> geom_stats) {
+    ASSERT_TRUE(geom_stats != nullptr);
     std::vector<int32_t> geometry_types = geom_stats->GetGeometryTypes();
     EXPECT_EQ(1, geometry_types.size());
     EXPECT_EQ(1, geometry_types[0]);
@@ -1975,65 +1960,6 @@ class TestGeometryLogicalType : public ::testing::Test {
     EXPECT_GT(geom_stats->GetYMax(), geom_stats->GetYMin());
     EXPECT_FALSE(geom_stats->HasZ());
     EXPECT_FALSE(geom_stats->HasM());
-  }
-
-  void CheckColumnIndex(std::shared_ptr<ByteArrayColumnIndex> geometry_column_index) {
-    EXPECT_FALSE(geometry_column_index->geometry_statistics().empty());
-    double last_xmin = -geometry::kInf;
-    double last_ymin = -geometry::kInf;
-
-    size_t num_pages = geometry_column_index->geometry_statistics().size();
-    EXPECT_GT(num_pages, 0);
-    for (size_t i = 0; i < num_pages; i++) {
-      const auto& geom_stats = geometry_column_index->geometry_statistics()[i];
-      std::vector<int32_t> geometry_types = geom_stats.GetGeometryTypes();
-      EXPECT_EQ(1, geometry_types.size());
-      EXPECT_EQ(1, geometry_types[0]);
-      EXPECT_GE(geom_stats.GetXMin(), last_xmin);
-      EXPECT_GT(geom_stats.GetXMax(), geom_stats.GetXMin());
-      EXPECT_GT(geom_stats.GetYMin(), last_ymin);
-      EXPECT_GT(geom_stats.GetYMax(), geom_stats.GetYMin());
-      EXPECT_FALSE(geom_stats.HasZ());
-      EXPECT_FALSE(geom_stats.HasM());
-      last_xmin = geom_stats.GetXMin();
-      last_ymin = geom_stats.GetYMin();
-
-      const auto& min = geometry_column_index->min_values()[i];
-      const auto& max = geometry_column_index->max_values()[i];
-      double min_x = 0;
-      double min_y = 0;
-      double max_x = 0;
-      double max_y = 0;
-      test::GetWKBPointCoordinate(min, &min_x, &min_y);
-      test::GetWKBPointCoordinate(max, &max_x, &max_y);
-      EXPECT_DOUBLE_EQ(geom_stats.GetXMin(), min_x);
-      EXPECT_DOUBLE_EQ(geom_stats.GetYMin(), min_y);
-      EXPECT_DOUBLE_EQ(geom_stats.GetXMax(), max_x);
-      EXPECT_DOUBLE_EQ(geom_stats.GetYMax(), max_y);
-    }
-  }
-
-  void CheckPageStatistics(PageReader* page_reader) {
-    while (true) {
-      auto page = page_reader->NextPage();
-      if (!page) {
-        break;  // No more pages
-      }
-      // Check if the page has statistics
-      if (page->type() == parquet::PageType::DATA_PAGE ||
-          page->type() == parquet::PageType::DATA_PAGE_V2) {
-        std::shared_ptr<parquet::DataPage> data_page =
-            std::static_pointer_cast<parquet::DataPage>(page);
-        const EncodedStatistics& statistics = data_page->statistics();
-        EXPECT_TRUE(statistics.has_geometry_statistics);
-        EncodedGeometryStatistics geom_stats = statistics.geometry_statistics();
-        EXPECT_EQ(1, geom_stats.geometry_types.size());
-        EXPECT_GE(geom_stats.xmin, 0);
-        EXPECT_GT(geom_stats.xmax, geom_stats.xmin);
-        EXPECT_GT(geom_stats.ymin, 0);
-        EXPECT_GT(geom_stats.ymax, geom_stats.ymin);
-      }
-    }
   }
 
  protected:

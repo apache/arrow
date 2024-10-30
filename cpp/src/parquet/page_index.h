@@ -98,12 +98,6 @@ class PARQUET_EXPORT TypedColumnIndex : public ColumnIndex {
   ///
   /// Just like `min_values`, but for upper bounds instead of lower bounds.
   virtual const std::vector<T>& max_values() const = 0;
-
-  /// \brief A vector of geometry statistics for each data page in this column.
-  ///
-  /// This is like `min_values` and `max_values`, but for geometry statistics
-  /// instead of lower/upper bounds
-  virtual const std::vector<GeometryStatistics>& geometry_statistics() const = 0;
 };
 
 using BoolColumnIndex = TypedColumnIndex<BooleanType>;

@@ -36,7 +36,6 @@
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
-#include "parquet/geometry_util_internal.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
@@ -48,282 +47,6 @@ using arrow::util::SafeCopy;
 using arrow::util::SafeLoad;
 
 namespace parquet {
-
-class GeometryStatisticsImpl {
- public:
-  GeometryStatisticsImpl() = default;
-  GeometryStatisticsImpl(const GeometryStatisticsImpl&) = default;
-
-  bool Equals(const GeometryStatisticsImpl& other) const {
-    if (is_valid_ != other.is_valid_) {
-      return false;
-    }
-
-    if (!is_valid_ && !other.is_valid_) {
-      return true;
-    }
-
-    auto geometry_types = bounder_.GeometryTypes();
-    auto other_geometry_types = other.bounder_.GeometryTypes();
-    if (geometry_types.size() != other_geometry_types.size()) {
-      return false;
-    }
-
-    for (size_t i = 0; i < geometry_types.size(); i++) {
-      if (geometry_types[i] != other_geometry_types[i]) {
-        return false;
-      }
-    }
-
-    return bounder_.Bounds() == other.bounder_.Bounds();
-  }
-
-  void Merge(const GeometryStatisticsImpl& other) {
-    if (!is_valid_ || !other.is_valid_) {
-      is_valid_ = false;
-      return;
-    }
-
-    bounder_.ReadBox(other.bounder_.Bounds());
-    bounder_.ReadGeometryTypes(other.bounder_.GeometryTypes());
-  }
-
-  void Update(const ByteArray* values, int64_t num_values, int64_t null_count) {
-    if (!is_valid_) {
-      return;
-    }
-
-    geometry::WKBBuffer buf;
-    try {
-      for (int64_t i = 0; i < num_values; i++) {
-        const ByteArray& item = values[i];
-        buf.Init(item.ptr, item.len);
-        bounder_.ReadGeometry(&buf);
-      }
-
-      bounder_.Flush();
-    } catch (ParquetException&) {
-      is_valid_ = false;
-    }
-  }
-
-  void UpdateSpaced(const ByteArray* values, const uint8_t* valid_bits,
-                    int64_t valid_bits_offset, int64_t num_spaced_values,
-                    int64_t num_values, int64_t null_count) {
-    DCHECK_GT(num_spaced_values, 0);
-
-    geometry::WKBBuffer buf;
-    try {
-      ::arrow::internal::VisitSetBitRunsVoid(
-          valid_bits, valid_bits_offset, num_spaced_values,
-          [&](int64_t position, int64_t length) {
-            for (int64_t i = 0; i < length; i++) {
-              ByteArray item = SafeLoad(values + i + position);
-              buf.Init(item.ptr, item.len);
-              bounder_.ReadGeometry(&buf);
-            }
-          });
-      bounder_.Flush();
-    } catch (ParquetException&) {
-      is_valid_ = false;
-    }
-  }
-
-  void Update(const ::arrow::Array& values) {
-    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(values);
-    geometry::WKBBuffer buf;
-    try {
-      for (int64_t i = 0; i < binary_array.length(); ++i) {
-        if (!binary_array.IsNull(i)) {
-          std::string_view byte_array = binary_array.GetView(i);
-          buf.Init(reinterpret_cast<const uint8_t*>(byte_array.data()),
-                   byte_array.length());
-          bounder_.ReadGeometry(&buf);
-          bounder_.Flush();
-        }
-      }
-    } catch (ParquetException&) {
-      is_valid_ = false;
-    }
-  }
-
-  void Reset() {
-    bounder_.Reset();
-    is_valid_ = true;
-  }
-
-  EncodedGeometryStatistics Encode() const {
-    const double* mins = bounder_.Bounds().min;
-    const double* maxes = bounder_.Bounds().max;
-
-    EncodedGeometryStatistics out;
-    out.geometry_types = bounder_.GeometryTypes();
-
-    out.xmin = mins[0];
-    out.xmax = maxes[0];
-    out.ymin = mins[1];
-    out.ymax = maxes[1];
-    out.zmin = mins[2];
-    out.zmax = maxes[2];
-    out.mmin = mins[3];
-    out.mmax = maxes[3];
-
-    return out;
-  }
-
-  std::string EncodeMin() const {
-    const double* mins = bounder_.Bounds().min;
-    bool has_z = !std::isinf(mins[2]);
-    bool has_m = !std::isinf(mins[3]);
-    return geometry::MakeWKBPoint(mins, has_z, has_m);
-  }
-
-  std::string EncodeMax() const {
-    const double* maxes = bounder_.Bounds().max;
-    bool has_z = !std::isinf(maxes[2]);
-    bool has_m = !std::isinf(maxes[3]);
-    return geometry::MakeWKBPoint(maxes, has_z, has_m);
-  }
-
-  void Update(const EncodedGeometryStatistics& encoded) {
-    if (!is_valid_) {
-      return;
-    }
-
-    geometry::BoundingBox box;
-    box.min[0] = encoded.xmin;
-    box.max[0] = encoded.xmax;
-    box.min[1] = encoded.ymin;
-    box.max[1] = encoded.ymax;
-
-    if (encoded.has_z()) {
-      box.min[2] = encoded.zmin;
-      box.max[2] = encoded.zmax;
-    }
-
-    if (encoded.has_m()) {
-      box.min[3] = encoded.mmin;
-      box.max[3] = encoded.mmax;
-    }
-
-    bounder_.ReadBox(box);
-    bounder_.ReadGeometryTypes(encoded.geometry_types);
-  }
-
-  bool is_valid() const { return is_valid_; }
-
-  const double* GetMinBounds() { return bounder_.Bounds().min; }
-
-  const double* GetMaxBounds() { return bounder_.Bounds().max; }
-
-  std::vector<int32_t> GetGeometryTypes() const { return bounder_.GeometryTypes(); }
-
- private:
-  geometry::WKBGeometryBounder bounder_;
-  bool is_valid_ = true;
-};
-
-GeometryStatistics::GeometryStatistics() {
-  impl_ = std::make_unique<GeometryStatisticsImpl>();
-}
-
-GeometryStatistics::GeometryStatistics(std::unique_ptr<GeometryStatisticsImpl> impl)
-    : impl_(std::move(impl)) {}
-
-GeometryStatistics::GeometryStatistics(GeometryStatistics&&) = default;
-
-GeometryStatistics::~GeometryStatistics() = default;
-
-bool GeometryStatistics::Equals(const GeometryStatistics& other) const {
-  return impl_->Equals(*other.impl_);
-}
-
-void GeometryStatistics::Merge(const GeometryStatistics& other) {
-  impl_->Merge(*other.impl_);
-}
-
-void GeometryStatistics::Update(const ByteArray* values, int64_t num_values,
-                                int64_t null_count) {
-  impl_->Update(values, num_values, null_count);
-}
-
-void GeometryStatistics::UpdateSpaced(const ByteArray* values, const uint8_t* valid_bits,
-                                      int64_t valid_bits_offset,
-                                      int64_t num_spaced_values, int64_t num_values,
-                                      int64_t null_count) {
-  impl_->UpdateSpaced(values, valid_bits, valid_bits_offset, num_spaced_values,
-                      num_values, null_count);
-}
-
-void GeometryStatistics::Update(const ::arrow::Array& values) { impl_->Update(values); }
-
-void GeometryStatistics::Reset() { impl_->Reset(); }
-
-bool GeometryStatistics::is_valid() const { return impl_->is_valid(); }
-
-EncodedGeometryStatistics GeometryStatistics::Encode() const { return impl_->Encode(); }
-
-std::string GeometryStatistics::EncodeMin() const { return impl_->EncodeMin(); }
-
-std::string GeometryStatistics::EncodeMax() const { return impl_->EncodeMax(); }
-
-void GeometryStatistics::Decode(const EncodedGeometryStatistics& encoded) {
-  impl_->Update(encoded);
-}
-
-std::shared_ptr<GeometryStatistics> GeometryStatistics::clone() const {
-  std::unique_ptr<GeometryStatisticsImpl> impl =
-      std::make_unique<GeometryStatisticsImpl>(*impl_);
-  return std::make_shared<GeometryStatistics>(std::move(impl));
-}
-
-double GeometryStatistics::GetXMin() const {
-  const double* mins = impl_->GetMinBounds();
-  return mins[0];
-}
-
-double GeometryStatistics::GetXMax() const {
-  const double* maxes = impl_->GetMaxBounds();
-  return maxes[0];
-}
-
-double GeometryStatistics::GetYMin() const {
-  const double* mins = impl_->GetMinBounds();
-  return mins[1];
-}
-
-double GeometryStatistics::GetYMax() const {
-  const double* maxes = impl_->GetMaxBounds();
-  return maxes[1];
-}
-
-double GeometryStatistics::GetZMin() const {
-  const double* mins = impl_->GetMinBounds();
-  return mins[2];
-}
-
-double GeometryStatistics::GetZMax() const {
-  const double* maxes = impl_->GetMaxBounds();
-  return maxes[2];
-}
-
-double GeometryStatistics::GetMMin() const {
-  const double* mins = impl_->GetMinBounds();
-  return mins[3];
-}
-
-double GeometryStatistics::GetMMax() const {
-  const double* maxes = impl_->GetMaxBounds();
-  return maxes[3];
-}
-
-bool GeometryStatistics::HasZ() const { return (GetZMax() - GetZMin()) > 0; }
-
-bool GeometryStatistics::HasM() const { return (GetMMax() - GetMMin()) > 0; }
-
-std::vector<int32_t> GeometryStatistics::GetGeometryTypes() const {
-  return impl_->GetGeometryTypes();
-}
 
 namespace {
 
@@ -870,8 +593,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
                       int64_t null_count, int64_t distinct_count, bool has_min_max,
-                      bool has_null_count, bool has_distinct_count, MemoryPool* pool,
-                      const EncodedGeometryStatistics* geometry_statistics)
+                      bool has_null_count, bool has_distinct_count, MemoryPool* pool)
       : TypedStatisticsImpl(descr, pool) {
     TypedStatisticsImpl::IncrementNumValues(num_values);
     if (has_null_count) {
@@ -892,20 +614,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       PlainDecode(encoded_max, &max_);
     }
     has_min_max_ = has_min_max;
-
-    if (geometry_statistics != nullptr) {
-      geometry_statistics_ = std::make_shared<GeometryStatistics>();
-      geometry_statistics_->Decode(*geometry_statistics);
-    }
   }
 
   bool HasDistinctCount() const override { return has_distinct_count_; };
   bool HasMinMax() const override { return has_min_max_; }
   bool HasNullCount() const override { return has_null_count_; };
-  bool HasGeometryStatistics() const override { return geometry_statistics_ != nullptr; }
-  const GeometryStatistics* geometry_statistics() const override {
-    return geometry_statistics_.get();
-  }
 
   void IncrementNullCount(int64_t n) override {
     statistics_.null_count += n;
@@ -944,15 +657,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       if (!MinMaxEqual(other)) return false;
     }
 
-    if (HasGeometryStatistics() != other.HasGeometryStatistics()) {
-      return false;
-    }
-
-    if (HasGeometryStatistics() &&
-        !geometry_statistics_->Equals(*other.geometry_statistics())) {
-      return false;
-    }
-
     return null_count() == other.null_count() &&
            distinct_count() == other.distinct_count() &&
            num_values() == other.num_values();
@@ -963,9 +667,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void Reset() override {
     ResetCounts();
     ResetHasFlags();
-    if (HasGeometryStatistics()) {
-      geometry_statistics_->Reset();
-    }
   }
 
   void SetMinMax(const T& arg_min, const T& arg_max) override {
@@ -996,12 +697,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (other.HasMinMax()) {
       SetMinMax(other.min(), other.max());
     }
-
-    if (this->HasGeometryStatistics() && other.HasGeometryStatistics()) {
-      this->geometry_statistics_->Merge(*other.geometry_statistics());
-    } else if (other.HasGeometryStatistics()) {
-      this->geometry_statistics_ = other.geometry_statistics()->clone();
-    }
   }
 
   void Update(const T* values, int64_t num_values, int64_t null_count) override;
@@ -1019,19 +714,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       return;
     }
 
-    if constexpr (std::is_same<T, ByteArray>::value) {
-      if (logical_type_ == LogicalType::Type::GEOMETRY) {
-        if (geometry_statistics_ == nullptr) {
-          geometry_statistics_ = std::make_unique<GeometryStatistics>();
-        }
-        geometry_statistics_->Update(values);
-        SetGeometryMinMax();
-      } else {
-        SetMinMaxPair(comparator_->GetMinMax(values));
-      }
-    } else {
-      SetMinMaxPair(comparator_->GetMinMax(values));
-    }
+    SetMinMaxPair(comparator_->GetMinMax(values));
   }
 
   const T& min() const override { return min_; }
@@ -1068,9 +751,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (HasDistinctCount()) {
       s.set_distinct_count(this->distinct_count());
     }
-    if (HasGeometryStatistics() && geometry_statistics_->is_valid()) {
-      s.set_geometry(geometry_statistics_->Encode());
-    }
     return s;
   }
 
@@ -1096,7 +776,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   std::shared_ptr<TypedComparator<DType>> comparator_;
   std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
   LogicalType::Type::type logical_type_ = LogicalType::Type::NONE;
-  std::shared_ptr<GeometryStatistics> geometry_statistics_;
 
   void PlainEncode(const T& src, std::string* dst) const;
   void PlainDecode(const std::string& src, T* dst) const;
@@ -1143,9 +822,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       Copy(comparator_->Compare(max_, max) ? max : max_, &max_, max_buffer_.get());
     }
   }
-
-  // Set the minimum and maximum values for geometry columns.
-  void SetGeometryMinMax();
 };
 
 template <>
@@ -1182,24 +858,6 @@ inline void TypedStatisticsImpl<ByteArrayType>::Copy(const ByteArray& src, ByteA
 }
 
 template <typename DType>
-void TypedStatisticsImpl<DType>::SetGeometryMinMax() {}
-
-template <>
-void TypedStatisticsImpl<ByteArrayType>::SetGeometryMinMax() {
-  DCHECK_EQ(logical_type_, LogicalType::Type::GEOMETRY);
-
-  if (HasGeometryStatistics() && geometry_statistics_->is_valid()) {
-    std::string min = geometry_statistics_->EncodeMin();
-    std::string max = geometry_statistics_->EncodeMax();
-    Copy(ByteArray(min), &min_, min_buffer_.get());
-    Copy(ByteArray(max), &max_, max_buffer_.get());
-    has_min_max_ = true;
-  } else {
-    has_min_max_ = false;
-  }
-}
-
-template <typename DType>
 void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
                                         int64_t null_count) {
   DCHECK_GE(num_values, 0);
@@ -1210,19 +868,7 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
 
   if (num_values == 0) return;
 
-  if constexpr (std::is_same<T, ByteArray>::value) {
-    if (logical_type_ == LogicalType::Type::GEOMETRY) {
-      if (geometry_statistics_ == nullptr) {
-        geometry_statistics_ = std::make_unique<GeometryStatistics>();
-      }
-      geometry_statistics_->Update(values, num_values, null_count);
-      SetGeometryMinMax();
-    } else {
-      SetMinMaxPair(comparator_->GetMinMax(values, num_values));
-    }
-  } else {
-    SetMinMaxPair(comparator_->GetMinMax(values, num_values));
-  }
+  SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 }
 
 template <typename DType>
@@ -1238,22 +884,8 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
 
   if (num_values == 0) return;
 
-  if constexpr (std::is_same<T, ByteArray>::value) {
-    if (logical_type_ == LogicalType::Type::GEOMETRY) {
-      if (geometry_statistics_ == nullptr) {
-        geometry_statistics_ = std::make_unique<GeometryStatistics>();
-      }
-      geometry_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
-                                         num_spaced_values, num_values, null_count);
-      SetGeometryMinMax();
-    } else {
-      SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
-                                                 valid_bits_offset));
-    }
-  } else {
-    SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
-                                               valid_bits_offset));
-  }
+  SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
+                                             valid_bits_offset));
 }
 
 template <typename DType>
@@ -1407,28 +1039,24 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              ::arrow::MemoryPool* pool) {
   DCHECK(encoded_stats != nullptr);
 
-  const EncodedGeometryStatistics* geometry_statistics = nullptr;
-  if (encoded_stats->has_geometry_statistics) {
-    geometry_statistics = &encoded_stats->geometry_statistics();
-  }
   return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
               encoded_stats->null_count, encoded_stats->distinct_count,
               encoded_stats->has_min && encoded_stats->has_max,
-              encoded_stats->has_null_count, encoded_stats->has_distinct_count, pool,
-              geometry_statistics);
+              encoded_stats->has_null_count, encoded_stats->has_distinct_count, pool);
 }
 
-std::shared_ptr<Statistics> Statistics::Make(
-    const ColumnDescriptor* descr, const std::string& encoded_min,
-    const std::string& encoded_max, int64_t num_values, int64_t null_count,
-    int64_t distinct_count, bool has_min_max, bool has_null_count,
-    bool has_distinct_count, ::arrow::MemoryPool* pool,
-    const EncodedGeometryStatistics* geometry_statistics) {
+std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
+                                             const std::string& encoded_min,
+                                             const std::string& encoded_max,
+                                             int64_t num_values, int64_t null_count,
+                                             int64_t distinct_count, bool has_min_max,
+                                             bool has_null_count, bool has_distinct_count,
+                                             ::arrow::MemoryPool* pool) {
 #define MAKE_STATS(CAP_TYPE, KLASS)                                              \
   case Type::CAP_TYPE:                                                           \
     return std::make_shared<TypedStatisticsImpl<KLASS>>(                         \
         descr, encoded_min, encoded_max, num_values, null_count, distinct_count, \
-        has_min_max, has_null_count, has_distinct_count, pool, geometry_statistics)
+        has_min_max, has_null_count, has_distinct_count, pool)
 
   switch (descr->physical_type()) {
     MAKE_STATS(BOOLEAN, BooleanType);
