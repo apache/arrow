@@ -211,6 +211,18 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ],
         },
         {
+          path: "r/pkgdown/assets/versions.html",
+          hunks: [
+            [
+              "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
+              "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
+              "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
+              "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
+              "+<p><a href=\"../#{@previous_compatible_version}/r/\">#{@previous_r_version}</a></p>",
+            ],
+          ],
+        },
+        {
           path: "r/pkgdown/assets/versions.json",
           hunks: [
             [
@@ -228,6 +240,17 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       ]
     else
       expected_changes += [
+        {
+          path: "r/pkgdown/assets/versions.html",
+          hunks: [
+            [
+              "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
+              "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
+              "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
+              "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
+            ],
+          ],
+        },
         {
           path: "r/pkgdown/assets/versions.json",
           hunks: [
