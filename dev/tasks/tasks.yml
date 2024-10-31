@@ -89,6 +89,7 @@ groups:
   r:
     - test*-r-*
     - r-binary-packages
+    - r-recheck-most
 
   ruby:
     - test-*ruby*
