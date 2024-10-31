@@ -1953,7 +1953,9 @@ TEST_F(TestLevels, ListErrors) {
   {
     ::arrow::Status error = MaybeSetParquetSchema(GroupNode::Make(
         "child_list", Repetition::REPEATED,
-        {PrimitiveNode::Make("bool", Repetition::REPEATED, ParquetType::BOOLEAN)},
+        {GroupNode::Make("list", Repetition::REPEATED,
+                         {PrimitiveNode::Make("element", Repetition::REQUIRED,
+                                              ParquetType::BOOLEAN)})},
         LogicalType::List()));
     ASSERT_RAISES(Invalid, error);
     std::string expected("LIST-annotated groups must not be repeated.");
