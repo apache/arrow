@@ -673,7 +673,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             "do_exchange:echo",
             description=("Test the do_exchange method by "
                          "echoing data back to the client."),
-            skip_testers={"Go", "Java", "JS", "Rust"},
+            skip_testers={"Go", "JS", "Rust"},
         ),
         Scenario(
             "location:reuse_connection",

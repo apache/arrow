@@ -99,6 +99,11 @@ class IntegrationTest {
     testScenario("session_options");
   }
 
+  @Test
+  void doExchangeEcho() throws Exception {
+    testScenario("do_exchange:echo");
+  }
+
   void testScenario(String scenarioName) throws Exception {
     TestBufferAllocationListener listener = new TestBufferAllocationListener();
     try (final BufferAllocator allocator = new RootAllocator(listener, Long.MAX_VALUE)) {

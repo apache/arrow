@@ -65,7 +65,6 @@ jobs:
           TEST_DEFAULT: 0
           TEST_{{ target|upper }}: 1
         {% if use_conda %}
-          USE_CONDA: 1
           {% if target == "integration" %}
           # JPype doesn't work with Python 3.13.
           # See also:
@@ -74,6 +73,7 @@ jobs:
           # * GH-44389
           PYTHON_VERSION: "3.12"
           {% endif %}
+          USE_CONDA: 1
         {% endif %}
         run: |
           arrow/dev/release/verify-release-candidate.sh {{ release|default("") }} {{ rc|default("") }}

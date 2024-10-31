@@ -105,7 +105,7 @@ def test_run_query_input_types(tmpdir, query):
 
     # Otherwise error for invalid query
     msg = "ParseFromZeroCopyStream failed for substrait.Plan"
-    with pytest.raises(OSError, match=msg):
+    with pytest.raises(ArrowInvalid, match=msg):
         substrait.run_query(query)
 
 
@@ -1077,3 +1077,44 @@ def test_serializing_udfs():
     assert schema == returned.schema
     assert len(returned.expressions) == 1
     assert str(returned.expressions["expr"]) == str(exprs[0])
+
+
+def test_serializing_schema():
+    substrait_schema = b'\n\x01x\n\x01y\x12\x0c\n\x04*\x02\x10\x01\n\x04b\x02\x10\x01'
+    expected_schema = pa.schema([
+        pa.field("x", pa.int32()),
+        pa.field("y", pa.string())
+    ])
+    returned = pa.substrait.deserialize_schema(substrait_schema)
+    assert expected_schema == returned
+
+    arrow_substrait_schema = pa.substrait.serialize_schema(returned)
+    assert arrow_substrait_schema.schema == substrait_schema
+
+    returned = pa.substrait.deserialize_schema(arrow_substrait_schema)
+    assert expected_schema == returned
+
+    returned = pa.substrait.deserialize_schema(arrow_substrait_schema.schema)
+    assert expected_schema == returned
+
+    returned = pa.substrait.deserialize_expressions(arrow_substrait_schema.expression)
+    assert returned.schema == expected_schema
+
+
+def test_bound_expression_from_Message():
+    class FakeMessage:
+        def __init__(self, expr):
+            self.expr = expr
+
+        def SerializeToString(self):
+            return self.expr
+
+    # SELECT project_release, project_version
+    message = (b'\x1a\x1b\n\x08\x12\x06\n\x04\x12\x02\x08\x01\x1a\x0fproject_release'
+               b'\x1a\x19\n\x06\x12\x04\n\x02\x12\x00\x1a\x0fproject_version'
+               b'"0\n\x0fproject_version\n\x0fproject_release'
+               b'\x12\x0c\n\x04:\x02\x10\x01\n\x04b\x02\x10\x01')
+    exprs = pa.substrait.BoundExpressions.from_substrait(FakeMessage(message))
+    assert len(exprs.expressions) == 2
+    assert 'project_release' in exprs.expressions
+    assert 'project_version' in exprs.expressions

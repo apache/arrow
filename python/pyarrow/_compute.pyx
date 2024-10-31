@@ -2441,7 +2441,7 @@ cdef class Expression(_Weakrefable):
         )
 
     @staticmethod
-    def from_substrait(object buffer not None):
+    def from_substrait(object message not None):
         """
         Deserialize an expression from Substrait
 
@@ -2453,7 +2453,7 @@ cdef class Expression(_Weakrefable):
 
         Parameters
         ----------
-        buffer : bytes or Buffer
+        message : bytes or Buffer or a protobuf Message
             The Substrait message to deserialize
 
         Returns
@@ -2461,7 +2461,7 @@ cdef class Expression(_Weakrefable):
         Expression
             The deserialized expression
         """
-        expressions = _pas().deserialize_expressions(buffer).expressions
+        expressions = _pas().BoundExpressions.from_substrait(message).expressions
         if len(expressions) == 0:
             raise ValueError("Substrait message did not contain any expressions")
         if len(expressions) > 1:
