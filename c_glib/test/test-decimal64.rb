@@ -16,8 +16,6 @@
 # under the License.
 
 class TestDecimal64 < Test::Unit::TestCase
-  include Helper::Omittable
-
   def test_new_string_invalid
     message =
       "[decimal64][new][string]: Invalid: " +
@@ -92,7 +90,6 @@ class TestDecimal64 < Test::Unit::TestCase
   end
 
   def test_divide
-    require_gi_bindings(3, 3, 0)
     integer_data1 = 23423445
     integer_data2 = -5443
     decimal1 = Arrow::Decimal64.new(integer_data1)
@@ -106,7 +103,6 @@ class TestDecimal64 < Test::Unit::TestCase
   end
 
   def test_divide_zero
-    require_gi_bindings(3, 3, 0)
     decimal1 = Arrow::Decimal64.new(23423445)
     decimal2 = Arrow::Decimal64.new(0)
     message =
@@ -131,7 +127,6 @@ class TestDecimal64 < Test::Unit::TestCase
   end
 
   def test_not_equal
-    require_gi_bindings(3, 3, 1)
     decimal = Arrow::Decimal64.new(10)
     other_decimal1 = Arrow::Decimal64.new(10)
     other_decimal2 = Arrow::Decimal64.new(11)
@@ -146,7 +141,6 @@ class TestDecimal64 < Test::Unit::TestCase
   end
 
   def test_less_than
-    require_gi_bindings(3, 3, 1)
     decimal = Arrow::Decimal64.new(10)
     other_decimal1 = Arrow::Decimal64.new(11)
     other_decimal2 = Arrow::Decimal64.new(9)
@@ -163,7 +157,6 @@ class TestDecimal64 < Test::Unit::TestCase
   end
 
   def test_less_than_or_equal
-    require_gi_bindings(3, 3, 1)
     decimal = Arrow::Decimal64.new(10)
     other_decimal1 = Arrow::Decimal64.new(11)
     other_decimal2 = Arrow::Decimal64.new(9)
@@ -180,7 +173,6 @@ class TestDecimal64 < Test::Unit::TestCase
   end
 
   def test_greater_than
-    require_gi_bindings(3, 3, 1)
     decimal = Arrow::Decimal64.new(10)
     other_decimal1 = Arrow::Decimal64.new(11)
     other_decimal2 = Arrow::Decimal64.new(9)
@@ -197,7 +189,6 @@ class TestDecimal64 < Test::Unit::TestCase
   end
 
   def test_greater_than_or_equal
-    require_gi_bindings(3, 3, 1)
     decimal = Arrow::Decimal64.new(10)
     other_decimal1 = Arrow::Decimal64.new(11)
     other_decimal2 = Arrow::Decimal64.new(9)
