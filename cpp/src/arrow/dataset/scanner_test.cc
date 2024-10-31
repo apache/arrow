@@ -2339,25 +2339,24 @@ DatasetAndBatches MakeNestedDataset() {
                  })),
   });
 
-  return DatasetAndBatchesFromJSON(
-      dataset_schema, physical_schema,
-      {
-          {
-              R"([{"a": 1,    "b": null,  "c": {"e": 0}},
+  return DatasetAndBatchesFromJSON(dataset_schema, physical_schema,
+                                   {
+                                       {
+                                           R"([{"a": 1,    "b": null,  "c": {"e": 0}},
                   {"a": 2,    "b": true,  "c": {"e": 1}}])",
-          },
-          //  R"([{"a": null, "b": true,  "c": {"e": 2}},
-          //      {"a": 3,    "b": false, "c": {"e": null}}])",
-          //  R"([{"a": null, "b": null,  "c": null}])",
-          //  {
-          //      R"([{"a": null, "b": true,  "c": {"e": 4}},
-          //          {"a": 4,    "b": false, "c": null}])",
-          //      R"([{"a": 5,    "b": null,  "c": {"e": 6}},
-          //          {"a": 6,    "b": false, "c": {"e": 7}},
-          //          {"a": 7,    "b": false, "c": {"e": null}}])",
-          //  },
-      },
-      /*guarantees=*/{});
+                                           R"([{"a": null, "b": true,  "c": {"e": 2}},
+                  {"a": 3,    "b": false, "c": {"e": null}}])",
+                                           R"([{"a": null, "b": null,  "c": null}])",
+                                       },
+                                       {
+                                           R"([{"a": null, "b": true,  "c": {"e": 4}},
+                  {"a": 4,    "b": false, "c": null}])",
+                                           R"([{"a": 5,    "b": null,  "c": {"e": 6}},
+                  {"a": 6,    "b": false, "c": {"e": 7}},
+                  {"a": 7,    "b": false, "c": {"e": null}}])",
+                                       },
+                                   },
+                                   /*guarantees=*/{});
 }
 
 compute::Expression Materialize(std::vector<std::string> names,
@@ -2544,7 +2543,6 @@ TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
                                                                  field_ref("a"),
                                                                  field_ref("b"),
                                                                  field_ref("c"),
-
                                                              }}},
                                        {"sink", acero::SinkNodeOptions{&plan.sink_gen}},
                                    })
@@ -2553,12 +2551,28 @@ TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
   auto expected = nested.batches;
 
   for (auto& batch : expected) {
-    auto d = ArrayFromJSON(int64(), "[null, null]");
-    auto e = ArrayFromJSON(int64(), "[0, 1]");
-    std::vector<std::string> field_names = {"d", "e"};
-    ASSERT_OK_AND_ASSIGN(auto struct_array,
-                         StructArray::Make({d, e}, field_names));
-    batch.values[2] = struct_array;  // Datum();
+    // auto d = ArrayFromJSON(int64(), "[null, null]");
+    // auto e = ArrayFromJSON(int64(), "[0, 1]");
+    // auto value = batch.values[2];
+
+    ASSERT_OK_AND_ASSIGN(auto nulls,
+                         MakeArrayOfNull(int64()->GetSharedPtr(), batch.length));
+    // auto e_copy = std::make_shared<Array>(batch.values[2].array()->child_data[0]);
+    // auto e = batch.values[2].make_array();
+    auto e = batch.values[2].array()->child_data[0];
+    // Array e_array;
+    auto e_array = std::make_shared<Int64Array>(e);
+    // e->SetData()
+    // .push_back(batch.values[2].array()->child_data[0]);
+
+    std::vector<std::string> names = {"d", "e"};
+
+    std::vector<std::shared_ptr<Array>> arrays = {nulls, e_array};
+
+    ASSERT_OK_AND_ASSIGN(
+        auto struct_array,
+        StructArray::Make(arrays, names));
+    batch.values[2] = struct_array;
   }
 
   ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
