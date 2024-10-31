@@ -22,7 +22,7 @@
 jobs:
   recheck:
     name: Reverse check {{ which }} dependents
-    uses: r-devel/recheck/.github/workflows/recheck.yml@v1
+    uses: r-devel/recheck/.github/workflows/recheck.yml@9fe04de60ebeadd505b8d76223a346617ccca836
     with:
       which: {{ which }}
       subdirectory: r
