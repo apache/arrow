@@ -1008,7 +1008,7 @@ void DoTestIfElse(const Expression& cond, const Expression& if_true,
   ASSERT_TRUE(result_by_expr.is_array());
   ASSERT_OK_AND_ASSIGN(Datum result_by_permute,
                        ExecuteIfElseByPermute(cond, if_true, if_false, schema, input));
-  // Permute will output chunked array because we inputs values and indices as chunked
+  // Permute will output chunked array because we input values and indices as chunked
   // arrays consisting of each branches. We don't care the shape of the output when
   // comparing the results - only contents, so we concatenate the chunked array.
   ASSERT_TRUE(result_by_permute.is_chunked_array());
