@@ -385,13 +385,12 @@ garrow_decimal64_init(GArrowDecimal64 *object)
 static void
 garrow_decimal64_class_init(GArrowDecimal64Class *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize = garrow_decimal64_finalize;
   gobject_class->set_property = garrow_decimal64_set_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_pointer(
     "decimal64",
     "Decimal64",
