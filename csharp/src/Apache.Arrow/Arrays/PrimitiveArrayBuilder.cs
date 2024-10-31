@@ -110,7 +110,7 @@ namespace Apache.Arrow
         public int Length => ValueBuffer.Length;
         protected int NullCount => ValidityBuffer.UnsetBitCount;
 
-        internal PrimitiveArrayBuilder()
+        public PrimitiveArrayBuilder()
         {
             ValueBuffer = new ArrowBuffer.Builder<T>();
             ValidityBuffer = new ArrowBuffer.BitmapBuilder();
