@@ -1107,12 +1107,12 @@ test_macos_wheels() {
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       ARROW_FLIGHT=${check_flight} \
-        ARROW_GCS=${check_gcs}
+        ARROW_GCS=${check_gcs} \
         ARROW_S3=${check_s3} \
         ARROW_VERSION=${VERSION} \
         CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} \
         CHECK_VERSION=ON \
-        INSTALL_PYARROW=OFF
+        INSTALL_PYARROW=OFF \
         ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
