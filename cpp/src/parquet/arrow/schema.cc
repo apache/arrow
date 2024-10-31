@@ -633,9 +633,12 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
   if (group.field_count() != 1) {
     return Status::Invalid("LIST-annotated groups must have a single child.");
   }
-  if (group.is_repeated()) {
-    return Status::Invalid("LIST-annotated groups must not be repeated.");
-  }
+
+  // The Parquet spec requires that LIST-annotated group cannot be repeated when
+  // it applies normal three-level encoding. We need to figure out legacy list
+  // structures and do not enforce this rule for them.
+  bool is_legacy_list_structure = true;
+
   current_levels.Increment(group);
 
   out->children.resize(group.field_count());
@@ -671,8 +674,11 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
         // }
         //
         // yields list<item: list<item: TYPE not null> not null> ?nullable
+        if (!list_group.logical_type()->is_list()) {
+          return Status::Invalid("Group with one repeated child must be LIST-annotated.");
+        }
         RETURN_NOT_OK(
-            NodeToSchemaField(*repeated_field, current_levels, ctx, out, child_field));
+            ListToSchemaField(list_group, current_levels, ctx, out, child_field));
       } else if (HasListElementName(list_group, group)) {
         // We distinguish the special case that we have
         //
@@ -696,6 +702,7 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
         // }
         //
         // yields list<item: TYPE ?nullable> ?nullable
+        is_legacy_list_structure = false;
         RETURN_NOT_OK(
             NodeToSchemaField(*repeated_field, current_levels, ctx, out, child_field));
       }
@@ -721,6 +728,11 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
     RETURN_NOT_OK(
         PopulateLeaf(column_index, item_field, current_levels, ctx, out, child_field));
   }
+
+  if (!is_legacy_list_structure && group.is_repeated()) {
+    return Status::Invalid("LIST-annotated groups must not be repeated.");
+  }
+
   out->field = ::arrow::field(group.name(), ::arrow::list(child_field->field),
                               group.is_optional(), FieldIdMetadata(group.field_id()));
   out->level_info = current_levels;

@@ -18,6 +18,7 @@
 #include <memory>
 #include <vector>
 
+#include "gmock/gmock-matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -602,23 +603,55 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
   }
 
   // Two-level encoding List<List<Integer>>:
-  // optional group nested_list (LIST) {
+  // optional group my_list (LIST) {
   //   repeated group array (LIST) {
   //     repeated int32 array;
   //   }
   // }
   {
-    auto inner_element =
+    auto inner_array =
         PrimitiveNode::Make("array", Repetition::REPEATED, ParquetType::INT32);
-    auto outer_element = GroupNode::Make("array", Repetition::REPEATED, {inner_element},
-                                         ConvertedType::LIST);
-    parquet_fields.push_back(GroupNode::Make("nested_list", Repetition::OPTIONAL,
-                                             {outer_element}, ConvertedType::LIST));
-    auto arrow_inner_element = ::arrow::field("array", INT32, /*nullable=*/false);
-    auto arrow_outer_element =
-        ::arrow::field("array", ::arrow::list(arrow_inner_element), /*nullable=*/false);
-    auto arrow_list = ::arrow::list(arrow_outer_element);
-    arrow_fields.push_back(::arrow::field("nested_list", arrow_list, true));
+    auto outer_array = GroupNode::Make("array", Repetition::REPEATED, {inner_array},
+                                       ConvertedType::LIST);
+    parquet_fields.push_back(GroupNode::Make("my_list", Repetition::OPTIONAL,
+                                             {outer_array}, ConvertedType::LIST));
+    auto arrow_inner_array = ::arrow::field("array", INT32, /*nullable=*/false);
+    auto arrow_outer_array =
+        ::arrow::field("array", ::arrow::list(arrow_inner_array), /*nullable=*/false);
+    auto arrow_list = ::arrow::list(arrow_outer_array);
+    arrow_fields.push_back(::arrow::field("my_list", arrow_list, true));
+  }
+
+  // List<Map<String, String>> in three-level list encoding:
+  // optional group my_list (LIST) {
+  //   repeated group list {
+  //     required group element (MAP) {
+  //       repeated group key_value {
+  //         required binary key (STRING);
+  //         optional binary value (STRING);
+  //       }
+  //     }
+  //   }
+  // }
+  {
+    auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, ParquetType::BYTE_ARRAY,
+                                   ConvertedType::UTF8);
+    auto value = PrimitiveNode::Make("value", Repetition::OPTIONAL,
+                                     ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
+    auto key_value = GroupNode::Make("key_value", Repetition::REPEATED, {key, value});
+    auto element =
+        GroupNode::Make("element", Repetition::REQUIRED, {key_value}, ConvertedType::MAP);
+    auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, ConvertedType::LIST));
+
+    auto arrow_key = ::arrow::field("key", UTF8, /*nullable=*/false);
+    auto arrow_value = ::arrow::field("value", UTF8, /*nullable=*/true);
+    auto arrow_element = ::arrow::field(
+        "element", std::make_shared<::arrow::MapType>(arrow_key, arrow_value),
+        /*nullable=*/false);
+    auto arrow_list = ::arrow::list(arrow_element);
+    arrow_fields.push_back(::arrow::field("my_list", arrow_list, /*nullable=*/true));
   }
 
   auto arrow_schema = ::arrow::schema(arrow_fields);
@@ -745,6 +778,60 @@ TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
   ASSERT_OK(ConvertSchema(parquet_fields));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
+}
+
+TEST_F(TestConvertParquetSchema, IllegalParquetNestedSchema) {
+  // List<Map<String, String>> in two-level list encoding:
+  //
+  // optional group my_list (LIST) {
+  //   repeated group array (MAP) {
+  //     repeated group key_value {
+  //       required binary key (STRING);
+  //       optional binary value (STRING);
+  //     }
+  //   }
+  // }
+  {
+    auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, ParquetType::BYTE_ARRAY,
+                                   ConvertedType::UTF8);
+    auto value = PrimitiveNode::Make("value", Repetition::OPTIONAL,
+                                     ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
+    auto key_value = GroupNode::Make("key_value", Repetition::REPEATED, {key, value});
+    auto array =
+        GroupNode::Make("array", Repetition::REPEATED, {key_value}, ConvertedType::MAP);
+    std::vector<NodePtr> parquet_fields;
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {array}, ConvertedType::LIST));
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        testing::HasSubstr("Group with one repeated child must be LIST-annotated."),
+        ConvertSchema(parquet_fields));
+  }
+
+  // List<List<String>>: outer list is two-level encoding, inner list is three-level
+  //
+  // optional group my_list (LIST) {
+  //   repeated group array (LIST) {
+  //     repeated group list {
+  //       required binary element (STRING);
+  //     }
+  //   }
+  // }
+  {
+    auto element = PrimitiveNode::Make("element", Repetition::REQUIRED,
+                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
+    auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+    auto array =
+        GroupNode::Make("array", Repetition::REPEATED, {list}, ConvertedType::LIST);
+    std::vector<NodePtr> parquet_fields;
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {array}, ConvertedType::LIST));
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, testing::HasSubstr("LIST-annotated groups must not be repeated."),
+        ConvertSchema(parquet_fields));
+  }
 }
 
 Status ArrowSchemaToParquetMetadata(std::shared_ptr<::arrow::Schema>& arrow_schema,
