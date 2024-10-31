@@ -150,25 +150,23 @@ struct ARROW_EXPORT ArrayData {
   ArrayData(ArrayData&& other) noexcept
       : type(std::move(other.type)),
         length(other.length),
+        null_count(other.null_count.load()),
         offset(other.offset),
         buffers(std::move(other.buffers)),
         child_data(std::move(other.child_data)),
         dictionary(std::move(other.dictionary)),
-        statistics(std::move(other.statistics)) {
-    SetNullCount(other.null_count);
-  }
+        statistics(std::move(other.statistics)) {}
 
   // Copy constructor
   ArrayData(const ArrayData& other) noexcept
       : type(other.type),
         length(other.length),
+        null_count(other.null_count.load()),
         offset(other.offset),
         buffers(other.buffers),
         child_data(other.child_data),
         dictionary(other.dictionary),
-        statistics(other.statistics) {
-    SetNullCount(other.null_count);
-  }
+        statistics(other.statistics) {}
 
   // Move assignment
   ArrayData& operator=(ArrayData&& other) {
@@ -324,7 +322,7 @@ struct ARROW_EXPORT ArrayData {
 
   /// \brief Return true if the validity bitmap may have 0's in it, or if the
   /// child arrays (in the case of types without a validity bitmap) may have
-  /// nulls, or if the dictionary of dictionay array may have nulls.
+  /// nulls, or if the dictionary of dictionary array may have nulls.
   ///
   /// This is not a drop-in replacement for MayHaveNulls, as historically
   /// MayHaveNulls() has been used to check for the presence of a validity
@@ -639,7 +637,7 @@ struct ARROW_EXPORT ArraySpan {
   bool HasVariadicBuffers() const;
 
  private:
-  ARROW_FRIEND_EXPORT friend bool internal::IsNullRunEndEncoded(const ArrayData& span,
+  ARROW_FRIEND_EXPORT friend bool internal::IsNullRunEndEncoded(const ArrayData& data,
                                                                 int64_t i);
 
   bool IsNullSparseUnion(int64_t i) const;
