@@ -2557,7 +2557,7 @@ TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
     auto c_data = batch.values[2].array()->Copy();
     c_data->child_data.insert(c_data->child_data.begin(), nulls->data());
     c_data->type = nested.dataset->schema()->field(2)->type();
-    auto c_array = std::make_shared<Int64Array>(c_data);
+    auto c_array = std::make_shared<StructArray>(c_data);
     batch.values[2] = c_array;
   }
 
