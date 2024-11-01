@@ -164,8 +164,10 @@ bool Datum::Equals(const Datum& other) const {
       return true;
     case Datum::SCALAR:
       return internal::SharedPtrEquals(this->scalar(), other.scalar());
-    case Datum::ARRAY:
-      return internal::SharedPtrEquals(this->make_array(), other.make_array());
+    case Datum::ARRAY: {
+      bool equal = internal::SharedPtrEquals(this->make_array(), other.make_array());
+      return equal;
+    }
     case Datum::CHUNKED_ARRAY:
       return internal::SharedPtrEquals(this->chunked_array(), other.chunked_array());
     case Datum::RECORD_BATCH:

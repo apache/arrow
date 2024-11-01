@@ -2551,28 +2551,14 @@ TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
   auto expected = nested.batches;
 
   for (auto& batch : expected) {
-    // auto d = ArrayFromJSON(int64(), "[null, null]");
-    // auto e = ArrayFromJSON(int64(), "[0, 1]");
-    // auto value = batch.values[2];
-
+    // Scan will fill in "c.d" with nulls. 
     ASSERT_OK_AND_ASSIGN(auto nulls,
                          MakeArrayOfNull(int64()->GetSharedPtr(), batch.length));
-    // auto e_copy = std::make_shared<Array>(batch.values[2].array()->child_data[0]);
-    // auto e = batch.values[2].make_array();
-    auto e = batch.values[2].array()->child_data[0];
-    // Array e_array;
-    auto e_array = std::make_shared<Int64Array>(e);
-    // e->SetData()
-    // .push_back(batch.values[2].array()->child_data[0]);
-
-    std::vector<std::string> names = {"d", "e"};
-
-    std::vector<std::shared_ptr<Array>> arrays = {nulls, e_array};
-
-    ASSERT_OK_AND_ASSIGN(
-        auto struct_array,
-        StructArray::Make(arrays, names));
-    batch.values[2] = struct_array;
+    auto c_data = batch.values[2].array()->Copy();
+    c_data->child_data.insert(c_data->child_data.begin(), nulls->data());
+    c_data->type = nested.dataset->schema()->field(2)->type();
+    auto c_array = std::make_shared<Int64Array>(c_data);
+    batch.values[2] = c_array;
   }
 
   ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
