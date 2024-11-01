@@ -274,18 +274,6 @@ struct Asinh {
   }
 };
 
-struct AsinhChecked {
-  template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
-    static_assert(std::is_same<T, Arg0>::value, "");
-    if (ARROW_PREDICT_FALSE(std::isinf(val))) {
-      *st = Status::Invalid("domain error");
-      return val;
-    }
-    return std::asin(val);
-  }
-};
-
 struct Acos {
   template <typename T, typename Arg0>
   static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
@@ -1284,12 +1272,12 @@ const FunctionDoc cosh_doc{"Compute the hyperbolic cosine", (""), {"x"}};
 
 const FunctionDoc tan_doc{"Compute the tangent",
                           ("NaN is returned for invalid input values;\n"
-                           "to raise an error instead, see \"tanh_checked\"."),
+                           "to raise an error instead, see \"tan_checked\"."),
                           {"x"}};
 
 const FunctionDoc tan_checked_doc{"Compute the tangent",
                                   ("Infinite values raise an error;\n"
-                                   "to return NaN instead, see \"tanh\"."),
+                                   "to return NaN instead, see \"tan\"."),
                                   {"x"}};
 
 const FunctionDoc tanh_doc{"Compute the hyperbolic tangent", (""), {"x"}};
@@ -1304,10 +1292,7 @@ const FunctionDoc asin_checked_doc{"Compute the inverse sine",
                                     "to return NaN instead, see \"asin\"."),
                                    {"x"}};
 
-const FunctionDoc asinh_doc{"Compute the inverse hyperbolic sine",
-                            ("NaN is returned for invalid input values;\n"
-                             "to raise an error instead, see \"asinh_checked\"."),
-                            {"x"}};
+const FunctionDoc asinh_doc{"Compute the inverse hyperbolic sine", (""), {"x"}};
 
 const FunctionDoc acos_doc{"Compute the inverse cosine",
                            ("NaN is returned for invalid input values;\n"
