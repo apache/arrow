@@ -2343,17 +2343,17 @@ DatasetAndBatches MakeNestedDataset() {
                                    {
                                        {
                                            R"([{"a": 1,    "b": null,  "c": {"e": 0}},
-                  {"a": 2,    "b": true,  "c": {"e": 1}}])",
+                                               {"a": 2,    "b": true,  "c": {"e": 1}}])",
                                            R"([{"a": null, "b": true,  "c": {"e": 2}},
-                  {"a": 3,    "b": false, "c": {"e": null}}])",
+                                               {"a": 3,    "b": false, "c": {"e": null}}])",
                                            R"([{"a": null, "b": null,  "c": null}])",
                                        },
                                        {
                                            R"([{"a": null, "b": true,  "c": {"e": 4}},
-                  {"a": 4,    "b": false, "c": null}])",
+                                               {"a": 4,    "b": false, "c": null}])",
                                            R"([{"a": 5,    "b": null,  "c": {"e": 6}},
-                  {"a": 6,    "b": false, "c": {"e": 7}},
-                  {"a": 7,    "b": false, "c": {"e": null}}])",
+                                               {"a": 6,    "b": false, "c": {"e": 7}},
+                                               {"a": 7,    "b": false, "c": {"e": null}}])",
                                        },
                                    },
                                    /*guarantees=*/{});
@@ -2536,17 +2536,15 @@ TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
   auto options = std::make_shared<ScanOptions>();
   options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
-  ASSERT_OK(
-      acero::Declaration::Sequence({
-                                       {"scan", ScanNodeOptions{nested.dataset, options}},
-                                       {"augmented_project", acero::ProjectNodeOptions{{
-                                                                 field_ref("a"),
-                                                                 field_ref("b"),
-                                                                 field_ref("c"),
-                                                             }}},
-                                       {"sink", acero::SinkNodeOptions{&plan.sink_gen}},
-                                   })
-          .AddToPlan(plan.get()));
+  ASSERT_OK(acero::Declaration::Sequence(
+                {
+                    {"scan", ScanNodeOptions{nested.dataset, options}},
+                    {"augmented_project",
+                     acero::ProjectNodeOptions{
+                         {field_ref("a"), field_ref("b"), field_ref("c")}}},
+                    {"sink", acero::SinkNodeOptions{&plan.sink_gen}},
+                })
+                .AddToPlan(plan.get()));
 
   auto expected = nested.batches;
 
