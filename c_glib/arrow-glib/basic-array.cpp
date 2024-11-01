@@ -171,6 +171,11 @@ G_BEGIN_DECLS
  * have Arrow format data, you need to use #GArrowMonthDayNanoIntervalArray
  * to create a new array.
  *
+ * #GArrowDecimal64Array is a class for 64-bit decimal array. It can
+ * store zero or more 64-bit decimal data. If you don't have Arrow
+ * format data, you need to use #GArrowDecimal64ArrayBuilder to
+ * create a new array.
+ *
  * #GArrowDecimal128Array is a class for 128-bit decimal array. It can
  * store zero or more 128-bit decimal data. If you don't have Arrow
  * format data, you need to use #GArrowDecimal128ArrayBuilder to
@@ -3090,6 +3095,60 @@ garrow_fixed_size_binary_array_get_values_bytes(GArrowFixedSizeBinaryArray *arra
                             arrow_binary_array->byte_width() * arrow_array->length());
 }
 
+G_DEFINE_TYPE(GArrowDecimal64Array,
+              garrow_decimal64_array,
+              GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY)
+static void
+garrow_decimal64_array_init(GArrowDecimal64Array *object)
+{
+}
+
+static void
+garrow_decimal64_array_class_init(GArrowDecimal64ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_decimal64_array_format_value:
+ * @array: A #GArrowDecimal64Array.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The formatted @i-th value.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 19.0.0
+ */
+gchar *
+garrow_decimal64_array_format_value(GArrowDecimal64Array *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_decimal64_array =
+    std::static_pointer_cast<arrow::Decimal64Array>(arrow_array);
+  auto value = arrow_decimal64_array->FormatValue(i);
+  return g_strndup(value.data(), value.size());
+}
+
+/**
+ * garrow_decimal64_array_get_value:
+ * @array: A #GArrowDecimal64Array.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The @i-th value.
+ *
+ * Since: 19.0.0
+ */
+GArrowDecimal64 *
+garrow_decimal64_array_get_value(GArrowDecimal64Array *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_decimal64_array =
+    std::static_pointer_cast<arrow::Decimal64Array>(arrow_array);
+  auto arrow_decimal64 =
+    std::make_shared<arrow::Decimal64>(arrow_decimal64_array->GetValue(i));
+  return garrow_decimal64_new_raw(&arrow_decimal64);
+}
+
 G_DEFINE_TYPE(GArrowDecimal128Array,
               garrow_decimal128_array,
               GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY)
@@ -3442,6 +3501,9 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
     break;
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_ARRAY;
+    break;
+  case arrow::Type::type::DECIMAL64:
+    type = GARROW_TYPE_DECIMAL64_ARRAY;
     break;
   case arrow::Type::type::DECIMAL128:
     type = GARROW_TYPE_DECIMAL128_ARRAY;

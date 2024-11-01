@@ -457,6 +457,9 @@ G_BEGIN_DECLS
  * #GArrowMapArrayBuilder is the class to create a new
  * #GArrowMapArray.
  *
+ * #GArrowDecimal64ArrayBuilder is the class to create a new
+ * #GArrowDecimal64Array.
+ *
  * #GArrowDecimal128ArrayBuilder is the class to create a new
  * #GArrowDecimal128Array.
  *
@@ -6062,6 +6065,105 @@ garrow_map_array_builder_get_value_builder(GArrowMapArrayBuilder *builder)
   return priv->value_builder;
 }
 
+G_DEFINE_TYPE(GArrowDecimal64ArrayBuilder,
+              garrow_decimal64_array_builder,
+              GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY_BUILDER)
+
+static void
+garrow_decimal64_array_builder_init(GArrowDecimal64ArrayBuilder *builder)
+{
+}
+
+static void
+garrow_decimal64_array_builder_class_init(GArrowDecimal64ArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_decimal64_array_builder_new:
+ * @data_type: #GArrowDecimal64DataType for the decimal.
+ *
+ * Returns: A newly created #GArrowDecimal64ArrayBuilder.
+ *
+ * Since: 19.0.0
+ */
+GArrowDecimal64ArrayBuilder *
+garrow_decimal64_array_builder_new(GArrowDecimal64DataType *data_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto builder =
+    garrow_array_builder_new(arrow_data_type, NULL, "[decimal64-array-builder][new]");
+  return GARROW_DECIMAL64_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_decimal64_array_builder_append_value:
+ * @builder: A #GArrowDecimal64ArrayBuilder.
+ * @value: (nullable): A decimal value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 19.0.0
+ */
+gboolean
+garrow_decimal64_array_builder_append_value(GArrowDecimal64ArrayBuilder *builder,
+                                            GArrowDecimal64 *value,
+                                            GError **error)
+{
+  if (value) {
+    auto arrow_decimal = garrow_decimal64_get_raw(value);
+    return garrow_array_builder_append_value<arrow::Decimal64Builder>(
+      GARROW_ARRAY_BUILDER(builder),
+      *arrow_decimal,
+      error,
+      "[decimal64-array-builder][append-value]");
+  } else {
+    return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
+  }
+}
+
+/**
+ * garrow_decimal64_array_builder_append_values:
+ * @builder: A #GArrowDecimal64ArrayBuilder.
+ * @values: (array length=values_length): The array of #GArrowDecimal64.
+ * @values_length: The length of @values.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   boolean that shows whether the Nth value is valid or not. If the
+ *   Nth @is_valids is %TRUE, the Nth @values is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of @is_valids.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple values at once. It's more efficient than multiple
+ * `append` and `append_null` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 19.0.0
+ */
+gboolean
+garrow_decimal64_array_builder_append_values(GArrowDecimal64ArrayBuilder *builder,
+                                             GArrowDecimal64 **values,
+                                             gint64 values_length,
+                                             const gboolean *is_valids,
+                                             gint64 is_valids_length,
+                                             GError **error)
+{
+  return garrow_array_builder_append_values(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[decimal64-array-builder][append-values]",
+    [](guint8 *output, GArrowDecimal64 *value, gsize size) {
+      auto arrow_decimal = garrow_decimal64_get_raw(value);
+      arrow_decimal->ToBytes(output);
+    });
+}
+
 G_DEFINE_TYPE(GArrowDecimal128ArrayBuilder,
               garrow_decimal128_array_builder,
               GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY_BUILDER)
@@ -6580,6 +6682,9 @@ garrow_array_builder_new_raw(std::shared_ptr<arrow::ArrayBuilder> *arrow_builder
       break;
     case arrow::Type::type::MAP:
       type = GARROW_TYPE_MAP_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::DECIMAL64:
+      type = GARROW_TYPE_DECIMAL64_ARRAY_BUILDER;
       break;
     case arrow::Type::type::DECIMAL128:
       type = GARROW_TYPE_DECIMAL128_ARRAY_BUILDER;
