@@ -4169,7 +4169,7 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
                      ARROW_PC_PACKAGE_NAME
                      ${ARROW_ABSL_PC_PACKAGE_NAME}
                      HAVE_ALT
-                     FALSE
+                     TRUE
                      FORCE_ANY_NEWER_VERSION
                      TRUE
                      REQUIRED_VERSION
