@@ -2549,7 +2549,7 @@ TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
   auto expected = nested.batches;
 
   for (auto& batch : expected) {
-    // Scan will fill in "c.d" with nulls. 
+    // Scan will fill in "c.d" with nulls.
     ASSERT_OK_AND_ASSIGN(auto nulls,
                          MakeArrayOfNull(int64()->GetSharedPtr(), batch.length));
     auto c_data = batch.values[2].array()->Copy();
