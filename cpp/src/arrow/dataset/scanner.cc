@@ -1000,6 +1000,7 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   auto scan_options = scan_node_options.scan_options;
   auto dataset = scan_node_options.dataset;
   bool require_sequenced_output = scan_node_options.require_sequenced_output;
+  bool implicit_ordering = scan_node_options.implicit_ordering;
 
   RETURN_NOT_OK(NormalizeScanOptions(scan_options, dataset->schema()));
 
@@ -1032,11 +1033,11 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   } else {
     batch_gen = std::move(merged_batch_gen);
   }
-  int64_t index = require_sequenced_output ? 0 : compute::kUnsequencedIndex;
+
   auto gen = MakeMappedGenerator(
       std::move(batch_gen),
-      [scan_options, index](const EnumeratedRecordBatch& partial) mutable
-      -> Result<std::optional<compute::ExecBatch>> {
+      [scan_options](const EnumeratedRecordBatch& partial)
+          -> Result<std::optional<compute::ExecBatch>> {
         // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
         // than this, for example parquet's row group stats. Failing to do this leaves
         // perf on the table because row group stats could be used to skip kernel execs in
@@ -1057,11 +1058,10 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
         batch->values.emplace_back(partial.record_batch.index);
         batch->values.emplace_back(partial.record_batch.last);
         batch->values.emplace_back(partial.fragment.value->ToString());
-        if (index != compute::kUnsequencedIndex) batch->index = index++;
         return batch;
       });
 
-  auto ordering = require_sequenced_output ? Ordering::Implicit() : Ordering::Unordered();
+  auto ordering = implicit_ordering ? Ordering::Implicit() : Ordering::Unordered();
 
   auto fields = scan_options->dataset_schema->fields();
   if (scan_options->add_augmented_fields) {
