@@ -104,6 +104,8 @@ G_BEGIN_DECLS
  * #GArrowMonthDayNanoIntervalScalar is a class for the month day nano
  * intarval scalar.
  *
+ * #GArrowDecimal64Scalar is a class for a 64-bit decimal scalar.
+ *
  * #GArrowDecimal128Scalar is a class for a 128-bit decimal scalar.
  *
  * #GArrowDecimal256Scalar is a class for a 256-bit decimal scalar.
@@ -1631,6 +1633,127 @@ garrow_month_day_nano_interval_scalar_get_value(GArrowMonthDayNanoIntervalScalar
   return priv->value;
 }
 
+typedef struct GArrowDecimal64ScalarPrivate_
+{
+  GArrowDecimal64 *value;
+} GArrowDecimal64ScalarPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowDecimal64Scalar,
+                           garrow_decimal64_scalar,
+                           GARROW_TYPE_SCALAR)
+
+#define GARROW_DECIMAL64_SCALAR_GET_PRIVATE(obj)                                         \
+  static_cast<GArrowDecimal64ScalarPrivate *>(                                           \
+    garrow_decimal64_scalar_get_instance_private(GARROW_DECIMAL64_SCALAR(obj)))
+
+static void
+garrow_decimal64_scalar_dispose(GObject *object)
+{
+  auto priv = GARROW_DECIMAL64_SCALAR_GET_PRIVATE(object);
+
+  if (priv->value) {
+    g_object_unref(priv->value);
+    priv->value = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_decimal64_scalar_parent_class)->dispose(object);
+}
+
+static void
+garrow_decimal64_scalar_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto priv = GARROW_DECIMAL64_SCALAR_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_VALUE:
+    priv->value = GARROW_DECIMAL64(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_decimal64_scalar_init(GArrowDecimal64Scalar *object)
+{
+}
+
+static void
+garrow_decimal64_scalar_class_init(GArrowDecimal64ScalarClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_decimal64_scalar_dispose;
+  gobject_class->set_property = garrow_decimal64_scalar_set_property;
+
+  GParamSpec *spec;
+  /**
+   * GArrowDecimal64Scalar:value:
+   *
+   * The value of the scalar.
+   *
+   * Since: 19.0.0
+   */
+  spec = g_param_spec_object(
+    "value",
+    "Value",
+    "The value of the scalar",
+    garrow_decimal64_get_type(),
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_VALUE, spec);
+}
+
+/**
+ * garrow_decimal64_scalar_new:
+ * @data_type: A #GArrowDecimal64DataType for this scalar.
+ * @value: The value of this scalar.
+ *
+ * Returns: A newly created #GArrowDecimal64Scalar.
+ *
+ * Since: 19.0.0
+ */
+GArrowDecimal64Scalar *
+garrow_decimal64_scalar_new(GArrowDecimal64DataType *data_type, GArrowDecimal64 *value)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_value = garrow_decimal64_get_raw(value);
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::Decimal64Scalar>(*arrow_value, arrow_data_type));
+  return GARROW_DECIMAL64_SCALAR(garrow_scalar_new_raw(&arrow_scalar,
+                                                       "scalar",
+                                                       &arrow_scalar,
+                                                       "data-type",
+                                                       data_type,
+                                                       "value",
+                                                       value,
+                                                       NULL));
+}
+
+/**
+ * garrow_decimal64_scalar_get_value:
+ * @scalar: A #GArrowDecimal64Scalar.
+ *
+ * Returns: (transfer none): The value of this scalar.
+ *
+ * Since: 19.0.0
+ */
+GArrowDecimal64 *
+garrow_decimal64_scalar_get_value(GArrowDecimal64Scalar *scalar)
+{
+  auto priv = GARROW_DECIMAL64_SCALAR_GET_PRIVATE(scalar);
+  if (!priv->value) {
+    auto arrow_scalar = std::static_pointer_cast<arrow::Decimal64Scalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    auto arrow_value = std::make_shared<arrow::Decimal64>(arrow_scalar->value);
+    priv->value = garrow_decimal64_new_raw(&arrow_value);
+  }
+  return priv->value;
+}
+
 typedef struct GArrowDecimal128ScalarPrivate_
 {
   GArrowDecimal128 *value;
@@ -2507,6 +2630,9 @@ garrow_scalar_new_raw_valist(std::shared_ptr<arrow::Scalar> *arrow_scalar,
     break;
   case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
     type = GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_SCALAR;
+    break;
+  case arrow::Type::type::DECIMAL64:
+    type = GARROW_TYPE_DECIMAL64_SCALAR;
     break;
   case arrow::Type::type::DECIMAL128:
     type = GARROW_TYPE_DECIMAL128_SCALAR;

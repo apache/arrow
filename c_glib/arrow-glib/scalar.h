@@ -501,6 +501,22 @@ GARROW_AVAILABLE_IN_8_0
 GArrowMonthDayNano *
 garrow_month_day_nano_interval_scalar_get_value(GArrowMonthDayNanoIntervalScalar *scalar);
 
+#define GARROW_TYPE_DECIMAL64_SCALAR (garrow_decimal64_scalar_get_type())
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowDecimal64Scalar, garrow_decimal64_scalar, GARROW, DECIMAL64_SCALAR, GArrowScalar)
+struct _GArrowDecimal64ScalarClass
+{
+  GArrowScalarClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal64Scalar *
+garrow_decimal64_scalar_new(GArrowDecimal64DataType *data_type, GArrowDecimal64 *value);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal64 *
+garrow_decimal64_scalar_get_value(GArrowDecimal64Scalar *scalar);
+
 #define GARROW_TYPE_DECIMAL128_SCALAR (garrow_decimal128_scalar_get_type())
 GARROW_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal128Scalar,
