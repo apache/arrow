@@ -948,10 +948,10 @@
     hyperdyperid "^1.2.0"
     thingies "^1.20.0"
 
-"@jsonjoy.com/util@^1.1.2":
-  version "1.1.2"
-  resolved "https://registry.yarnpkg.com/@jsonjoy.com/util/-/util-1.1.2.tgz#5072c27ecdb16d1ed7a2d125a1d0ed8aba01d652"
-  integrity sha512-HOGa9wtE6LEz2I5mMQ2pMSjth85PmD71kPbsecs02nEUq3/Kw0wRK3gmZn5BCEB8mFLXByqPxjHgApoMwIPMKQ==
+"@jsonjoy.com/util@^1.1.2", "@jsonjoy.com/util@^1.3.0":
+  version "1.5.0"
+  resolved "https://registry.yarnpkg.com/@jsonjoy.com/util/-/util-1.5.0.tgz#6008e35b9d9d8ee27bc4bfaa70c8cbf33a537b4c"
+  integrity sha512-ojoNsrIuPI9g6o8UxhraZQSyF2ByJanAY4cTFbc8Mf2AXEF4aQRGY1dJxyJpuyav8r9FGflEt/Ff3u5Nt6YMPA==
 
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
@@ -5168,14 +5168,14 @@ mdurl@^2.0.0:
   resolved "https://registry.yarnpkg.com/mdurl/-/mdurl-2.0.0.tgz#80676ec0433025dd3e17ee983d0fe8de5a2237e0"
   integrity sha512-Lf+9+2r+Tdp5wXDXC4PcIBjTDtq4UKjCPMQhKIuzpJNW0b96kVqSwW0bT7FhRSfmAiFYgP+SCRvdrDozfh0U5w==
 
-memfs@4.9.2:
-  version "4.9.2"
-  resolved "https://registry.yarnpkg.com/memfs/-/memfs-4.9.2.tgz#42e7b48207268dad8c9c48ea5d4952c5d3840433"
-  integrity sha512-f16coDZlTG1jskq3mxarwB+fGRrd0uXWt+o1WIhRfOwbXQZqUDsTVxQBFK9JjRQHblg8eAG2JSbprDXKjc7ijQ==
+memfs@4.14.0:
+  version "4.14.0"
+  resolved "https://registry.yarnpkg.com/memfs/-/memfs-4.14.0.tgz#48d5e85a03ea0b428280003212fbca3063531be3"
+  integrity sha512-JUeY0F/fQZgIod31Ja1eJgiSxLn7BfQlCnqhwXFBzFHEw63OdLK7VJUJ7bnzNsWgCyoUP5tEp1VRY8rDaYzqOA==
   dependencies:
     "@jsonjoy.com/json-pack" "^1.0.3"
-    "@jsonjoy.com/util" "^1.1.2"
-    sonic-forest "^1.0.0"
+    "@jsonjoy.com/util" "^1.3.0"
+    tree-dump "^1.0.1"
     tslib "^2.0.0"
 
 memoizee@0.4.X:
@@ -6397,13 +6397,6 @@ snapdragon@^0.8.1:
     source-map-resolve "^0.5.0"
     use "^3.1.0"
 
-sonic-forest@^1.0.0:
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/sonic-forest/-/sonic-forest-1.0.2.tgz#d80aa621d1cffe75a606ca44789ccff30f5b9ce6"
-  integrity sha512-2rICdwIJi5kVlehMUVtJeHn3ohh5YZV4pDv0P0c1M11cRz/gXNViItpM94HQwfvnXuzybpqK0LZJgTa3lEwtAw==
-  dependencies:
-    tree-dump "^1.0.0"
-
 source-map-resolve@^0.5.0:
   version "0.5.3"
   resolved "https://registry.yarnpkg.com/source-map-resolve/-/source-map-resolve-0.5.3.tgz#190866bece7553e1f8f267a2ee82c606b5509a1a"
@@ -6879,10 +6872,10 @@ totalist@^3.0.0:
   resolved "https://registry.yarnpkg.com/totalist/-/totalist-3.0.1.tgz#ba3a3d600c915b1a97872348f79c127475f6acf8"
   integrity sha512-sf4i37nQ2LBx4m3wB74y+ubopq6W/dIzXg0FDGjsYnZHVa1Da8FH853wlL2gtUhg+xJXjfk3kUZS3BRoQeoQBQ==
 
-tree-dump@^1.0.0:
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/tree-dump/-/tree-dump-1.0.1.tgz#b448758da7495580e6b7830d6b7834fca4c45b96"
-  integrity sha512-WCkcRBVPSlHHq1dc/px9iOfqklvzCbdRwvlNfxGZsrHqf6aZttfPrd7DJTt6oR10dwUfpFFQeVTkPbBIZxX/YA==
+tree-dump@^1.0.1:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/tree-dump/-/tree-dump-1.0.2.tgz#c460d5921caeb197bde71d0e9a7b479848c5b8ac"
+  integrity sha512-dpev9ABuLWdEubk+cIaI9cHwRNNDjkBBLXTwI4UCUFdQ5xXKqNXoK4FEciw/vxf+NQ7Cb7sGUyeUtORvHIdRXQ==
 
 trim-newlines@^4.0.2:
   version "4.1.1"
