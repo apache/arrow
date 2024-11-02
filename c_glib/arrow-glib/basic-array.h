@@ -810,6 +810,26 @@ GARROW_AVAILABLE_IN_3_0
 GBytes *
 garrow_fixed_size_binary_array_get_values_bytes(GArrowFixedSizeBinaryArray *array);
 
+#define GARROW_TYPE_DECIMAL32_ARRAY (garrow_decimal32_array_get_type())
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal32Array,
+                         garrow_decimal32_array,
+                         GARROW,
+                         DECIMAL32_ARRAY,
+                         GArrowFixedSizeBinaryArray)
+struct _GArrowDecimal32ArrayClass
+{
+  GArrowFixedSizeBinaryArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+gchar *
+garrow_decimal32_array_format_value(GArrowDecimal32Array *array, gint64 i);
+
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32 *
+garrow_decimal32_array_get_value(GArrowDecimal32Array *array, gint64 i);
+
 #define GARROW_TYPE_DECIMAL64_ARRAY (garrow_decimal64_array_get_type())
 GARROW_AVAILABLE_IN_19_0
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal64Array,

@@ -1729,6 +1729,36 @@ GARROW_AVAILABLE_IN_0_17
 GArrowArrayBuilder *
 garrow_map_array_builder_get_value_builder(GArrowMapArrayBuilder *builder);
 
+#define GARROW_TYPE_DECIMAL32_ARRAY_BUILDER (garrow_decimal32_array_builder_get_type())
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal32ArrayBuilder,
+                         garrow_decimal32_array_builder,
+                         GARROW,
+                         DECIMAL32_ARRAY_BUILDER,
+                         GArrowFixedSizeBinaryArrayBuilder)
+struct _GArrowDecimal32ArrayBuilderClass
+{
+  GArrowFixedSizeBinaryArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32ArrayBuilder *
+garrow_decimal32_array_builder_new(GArrowDecimal32DataType *data_type);
+
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal32_array_builder_append_value(GArrowDecimal32ArrayBuilder *builder,
+                                            GArrowDecimal32 *value,
+                                            GError **error);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal32_array_builder_append_values(GArrowDecimal32ArrayBuilder *builder,
+                                             GArrowDecimal32 **values,
+                                             gint64 values_length,
+                                             const gboolean *is_valids,
+                                             gint64 is_valids_length,
+                                             GError **error);
+
 #define GARROW_TYPE_DECIMAL64_ARRAY_BUILDER (garrow_decimal64_array_builder_get_type())
 GARROW_AVAILABLE_IN_19_0
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal64ArrayBuilder,
