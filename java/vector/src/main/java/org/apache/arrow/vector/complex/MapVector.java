@@ -211,23 +211,25 @@ public class MapVector extends ListVector {
           startIndex,
           length,
           valueCount);
-      final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
-      final int sliceLength =
-          offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
       to.clear();
-      to.offsetBuffer = to.allocateOffsetBuffer((length + 1) * OFFSET_WIDTH);
-      /* splitAndTransfer offset buffer */
-      for (int i = 0; i < length + 1; i++) {
-        final int relativeOffset =
-            offsetBuffer.getInt((startIndex + i) * OFFSET_WIDTH) - startPoint;
-        to.offsetBuffer.setInt(i * OFFSET_WIDTH, relativeOffset);
+      if (length > 0) {
+        final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
+        final int sliceLength =
+            offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
+        to.offsetBuffer = to.allocateOffsetBuffer((length + 1) * OFFSET_WIDTH);
+        /* splitAndTransfer offset buffer */
+        for (int i = 0; i < length + 1; i++) {
+          final int relativeOffset =
+              offsetBuffer.getInt((startIndex + i) * OFFSET_WIDTH) - startPoint;
+          to.offsetBuffer.setInt(i * OFFSET_WIDTH, relativeOffset);
+        }
+        /* splitAndTransfer validity buffer */
+        splitAndTransferValidityBuffer(startIndex, length, to);
+        /* splitAndTransfer data buffer */
+        dataTransferPair.splitAndTransfer(startPoint, sliceLength);
+        to.lastSet = length - 1;
+        to.setValueCount(length);
       }
-      /* splitAndTransfer validity buffer */
-      splitAndTransferValidityBuffer(startIndex, length, to);
-      /* splitAndTransfer data buffer */
-      dataTransferPair.splitAndTransfer(startPoint, sliceLength);
-      to.lastSet = length - 1;
-      to.setValueCount(length);
     }
 
     /*
