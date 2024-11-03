@@ -1071,7 +1071,8 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
 
     // Mappings either without a _checked variant or substrait has no overflow option
     for (const auto& function_name :
-         {"exp", "sign", "cos", "cosh", "sin", "sinh", "tan", "tanh", "acos", "acosh", "asin", "asinh", "atan", "atanh", "atan2"}) {
+         {"exp", "sign", "cos", "cosh", "sin", "sinh", "tan", "tanh", "acos", "acosh",
+          "asin", "asinh", "atan", "atanh", "atan2"}) {
       DCHECK_OK(
           AddSubstraitCallToArrow({kSubstraitArithmeticFunctionsUri, function_name},
                                   DecodeOptionlessUncheckedArithmetic(function_name)));
