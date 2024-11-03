@@ -21,13 +21,9 @@ endif()
 
 set(find_package_args)
 
-if(abslAlt_FIND_VERSION)
-  list(APPEND find_package_args ${abslAlt_FIND_VERSION})
-endif()
 if(abslAlt_FIND_QUIETLY)
   list(APPEND find_package_args QUIET)
 endif()
-
 if(abslAlt_FIND_REQUIRED)
   list(APPEND find_package_args REQUIRED)
 endif()
