@@ -106,10 +106,6 @@ Status MinioTestServer::GenerateCertificateFile() {
                                 strlen(kMinioPrivateKey)));
   ARROW_RETURN_NOT_OK(private_key_fd.Close());
 
-  arrow::fs::FileSystemGlobalOptions global_options;
-  global_options.tls_ca_file_path = ca_file_path();
-  ARROW_RETURN_NOT_OK(arrow::fs::Initialize(global_options));
-
   return Status::OK();
 }
 

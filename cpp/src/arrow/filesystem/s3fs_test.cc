@@ -499,6 +499,9 @@ class TestS3FS : public S3TestMixin {
     // Most tests will create buckets
     options_.allow_bucket_creation = true;
     options_.allow_bucket_deletion = true;
+    if (enable_tls_) {
+      options_.tls_ca_file_path = minio_->ca_file_path();
+    }
     MakeFileSystem();
     // Set up test bucket
     {
