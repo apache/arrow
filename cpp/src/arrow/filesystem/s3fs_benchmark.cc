@@ -61,7 +61,7 @@ class MinioFixture : public benchmark::Fixture {
  public:
   void SetUp(const ::benchmark::State& state) override {
     minio_.reset(new MinioTestServer());
-    ASSERT_OK(minio_->Start(/*enable_tls_if_supported=*/false));
+    ASSERT_OK(minio_->Start(/*enable_tls=*/false));
 
     const char* region_str = std::getenv(kEnvAwsRegion);
     if (region_str) {

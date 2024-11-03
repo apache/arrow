@@ -206,6 +206,8 @@ struct ARROW_EXPORT S3Options {
   /// If empty, global filesystem options will be used (see FileSystemGlobalOptions);
   /// if the corresponding global filesystem option is also empty, the underlying
   /// TLS library's defaults will be used.
+  ///
+  /// Note this option may be ignored on some systems (Windows, macOS).
   std::string tls_ca_file_path;
 
   /// Optional path to a directory holding TLS CA
@@ -216,6 +218,8 @@ struct ARROW_EXPORT S3Options {
   /// If empty, global filesystem options will be used (see FileSystemGlobalOptions);
   /// if the corresponding global filesystem option is also empty, the underlying
   /// TLS library's defaults will be used.
+  ///
+  /// Note this option may be ignored on some systems (Windows, macOS).
   std::string tls_ca_dir_path;
 
   /// Whether to verify the S3 endpoint's TLS certificate

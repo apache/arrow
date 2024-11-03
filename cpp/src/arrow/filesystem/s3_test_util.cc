@@ -50,8 +50,6 @@ const char* kEnvConnectString = "ARROW_TEST_S3_CONNECT_STRING";
 const char* kEnvAccessKey = "ARROW_TEST_S3_ACCESS_KEY";
 const char* kEnvSecretKey = "ARROW_TEST_S3_SECRET_KEY";
 
-std::string GenerateConnectString() { return GetListenAddress(); }
-
 }  // namespace
 
 struct MinioTestServer::Impl {
@@ -115,7 +113,7 @@ Status MinioTestServer::GenerateCertificateFile() {
   return Status::OK();
 }
 
-Status MinioTestServer::Start(bool enable_tls_if_supported) {
+Status MinioTestServer::Start(bool enable_tls) {
   const char* connect_str = std::getenv(kEnvConnectString);
   const char* access_key = std::getenv(kEnvAccessKey);
   const char* secret_key = std::getenv(kEnvSecretKey);
@@ -134,25 +132,23 @@ Status MinioTestServer::Start(bool enable_tls_if_supported) {
   impl_->server_process_->SetEnv("MINIO_SECRET_KEY", kMinioSecretKey);
   // Disable the embedded console (one less listening address to care about)
   impl_->server_process_->SetEnv("MINIO_BROWSER", "off");
-  impl_->connect_string_ = GenerateConnectString();
   // NOTE: --quiet makes startup faster by suppressing remote version check
   std::vector<std::string> minio_args({"server", "--quiet", "--compat"});
-  if (enable_tls_if_supported) {
-#ifdef MINIO_SERVER_WITH_TLS
+  if (enable_tls) {
     ARROW_RETURN_NOT_OK(GenerateCertificateFile());
     minio_args.emplace_back("--certs-dir");
     minio_args.emplace_back(ca_dir_path());
     impl_->scheme_ = "https";
-    impl_->connect_string_ =
-        GetListenAddress("localhost");  // for TLS enabled case, we need to use localhost
-                                        // which is the fixed hostname in the certificate
-#endif                                  // MINIO_SERVER_WITH_TLS
+    // With TLS enabled, we need the connection hostname to match the certificate's
+    // subject name. This also constrains the actual listening IP address.
+    impl_->connect_string_ = GetListenAddress("localhost");
+  } else {
+    // Without TLS enabled, we want to minimize the likelihood of address collisions
+    // by varying the listening IP address (note that most tests don't enable TLS).
+    impl_->connect_string_ = GetListenAddress();
   }
   minio_args.emplace_back("--address");
-  minio_args.emplace_back(
-      impl_->connect_string_);  // the connect_string_ differs for the http and https,
-                                // https is fixed localhost while http is the dynamic ip
-                                // in range 127.0.0.1/8
+  minio_args.emplace_back(impl_->connect_string_);
   minio_args.emplace_back(impl_->temp_dir_->path().ToString());
 
   ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
@@ -168,16 +164,19 @@ Status MinioTestServer::Stop() {
 
 struct MinioTestEnvironment::Impl {
   std::function<Future<std::shared_ptr<MinioTestServer>>()> server_generator_;
+  bool enable_tls_;
+
+  explicit Impl(bool enable_tls) : enable_tls_(enable_tls) {}
 
   Result<std::shared_ptr<MinioTestServer>> LaunchOneServer() {
     auto server = std::make_shared<MinioTestServer>();
-    RETURN_NOT_OK(server->Start());
+    RETURN_NOT_OK(server->Start(enable_tls_));
     return server;
   }
 };
 
-MinioTestEnvironment::MinioTestEnvironment(bool enable_tls_if_supported)
-    : impl_(new Impl), enable_tls_if_supported_(enable_tls_if_supported) {}
+MinioTestEnvironment::MinioTestEnvironment(bool enable_tls)
+    : impl_(new Impl(enable_tls)) {}
 
 MinioTestEnvironment::~MinioTestEnvironment() = default;
 
@@ -185,10 +184,9 @@ void MinioTestEnvironment::SetUp() {
   auto pool = ::arrow::internal::GetCpuThreadPool();
 
   auto launch_one_server =
-      [enable_tls_if_supported =
-           enable_tls_if_supported_]() -> Result<std::shared_ptr<MinioTestServer>> {
+      [enable_tls = impl_->enable_tls_]() -> Result<std::shared_ptr<MinioTestServer>> {
     auto server = std::make_shared<MinioTestServer>();
-    RETURN_NOT_OK(server->Start(enable_tls_if_supported));
+    RETURN_NOT_OK(server->Start(enable_tls));
     return server;
   };
   impl_->server_generator_ = [pool, launch_one_server]() {

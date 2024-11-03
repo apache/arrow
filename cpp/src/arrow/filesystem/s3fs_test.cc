@@ -71,6 +71,12 @@
 #include "arrow/util/range.h"
 #include "arrow/util/string.h"
 
+// TLS tests require the ability to set a custom CA file when initiating S3 client
+// connections, which the AWS SDK currently only supports on Linux.
+#if defined(__linux__)
+#  define ENABLE_TLS_TESTS
+#endif  // Linux
+
 namespace arrow {
 namespace fs {
 
@@ -95,14 +101,14 @@ static constexpr int32_t kMaxRetryDuration = 6000; /* milliseconds */
 ::testing::Environment* minio_env =
     ::testing::AddGlobalTestEnvironment(new MinioTestEnvironment);
 
-::testing::Environment* minio_env_http = ::testing::AddGlobalTestEnvironment(
-    new MinioTestEnvironment(/*enable_tls_if_supported=*/false));
+::testing::Environment* minio_env_https =
+    ::testing::AddGlobalTestEnvironment(new MinioTestEnvironment(/*enable_tls=*/true));
 
-MinioTestEnvironment* GetMinioEnv(bool enable_tls_if_supported) {
-  if (enable_tls_if_supported) {
-    return ::arrow::internal::checked_cast<MinioTestEnvironment*>(minio_env);
+MinioTestEnvironment* GetMinioEnv(bool enable_tls) {
+  if (enable_tls) {
+    return ::arrow::internal::checked_cast<MinioTestEnvironment*>(minio_env_https);
   } else {
-    return ::arrow::internal::checked_cast<MinioTestEnvironment*>(minio_env_http);
+    return ::arrow::internal::checked_cast<MinioTestEnvironment*>(minio_env);
   }
 }
 
@@ -182,24 +188,6 @@ class AwsTestMixin : public ::testing::Test {
 #endif
 };
 
-// Test the CalculateSSECustomerKeyMD5 in AwsTestMixin fixture, since there is AWS SDK
-// function call in it
-TEST_F(AwsTestMixin, CalculateSSECustomerKeyMD5) {
-  ASSERT_RAISES(Invalid, CalculateSSECustomerKeyMD5(""));  // invalid length
-  ASSERT_RAISES(Invalid,
-                CalculateSSECustomerKeyMD5(
-                    "1234567890123456789012345678901234567890"));  // invalid length
-  // valid case, with some non-ASCII character and a null byte in the sse_customer_key
-  char sse_customer_key[32] = {};
-  sse_customer_key[0] = '\x40';   // '@' character
-  sse_customer_key[1] = '\0';     // null byte
-  sse_customer_key[2] = '\xFF';   // non-ASCII
-  sse_customer_key[31] = '\xFA';  // non-ASCII
-  std::string sse_customer_key_string(sse_customer_key, sizeof(sse_customer_key));
-  ASSERT_OK_AND_ASSIGN(auto md5, CalculateSSECustomerKeyMD5(sse_customer_key_string))
-  ASSERT_EQ(md5, "97FTa6lj0hE7lshKdBy61g==");  // valid case
-}
-
 class S3TestMixin : public AwsTestMixin {
  public:
   void SetUp() override {
@@ -228,7 +216,7 @@ class S3TestMixin : public AwsTestMixin {
 
  protected:
   Status InitServerAndClient() {
-    ARROW_ASSIGN_OR_RAISE(minio_, GetMinioEnv(enable_tls_if_supported_)->GetOneServer());
+    ARROW_ASSIGN_OR_RAISE(minio_, GetMinioEnv(enable_tls_)->GetOneServer());
     client_config_.reset(new Aws::Client::ClientConfiguration());
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
     if (minio_->scheme() == "https") {
@@ -255,9 +243,11 @@ class S3TestMixin : public AwsTestMixin {
   std::unique_ptr<Aws::Client::ClientConfiguration> client_config_;
   Aws::Auth::AWSCredentials credentials_;
   std::unique_ptr<Aws::S3::S3Client> client_;
-  bool enable_tls_if_supported_ =
-      false;  // by default, use the HTTP for all the test cases, since there is the
-              // random failure when there is stress test against the minio HTTPS Server
+  // Use plain HTTP by default, as this allows us to listen on different loopback
+  // addresses and thus minimize the risk of address reuse (HTTPS requires the
+  // hostname to match the certificate's subject name, constraining us to a
+  // single loopback address).
+  bool enable_tls_ = false;
 };
 
 void AssertGetObject(Aws::S3::Model::GetObjectResult& result,
@@ -281,6 +271,27 @@ void AssertObjectContents(Aws::S3::S3Client* client, const std::string& bucket,
   req.SetKey(ToAwsString(key));
   ARROW_AWS_ASSIGN_OR_FAIL(auto result, client->GetObject(req));
   AssertGetObject(result, expected);
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Misc tests
+
+class InternalsTest : public AwsTestMixin {};
+
+TEST_F(InternalsTest, CalculateSSECustomerKeyMD5) {
+  ASSERT_RAISES(Invalid, CalculateSSECustomerKeyMD5(""));  // invalid length
+  ASSERT_RAISES(Invalid,
+                CalculateSSECustomerKeyMD5(
+                    "1234567890123456789012345678901234567890"));  // invalid length
+  // valid case, with some non-ASCII character and a null byte in the sse_customer_key
+  char sse_customer_key[32] = {};
+  sse_customer_key[0] = '\x40';   // '@' character
+  sse_customer_key[1] = '\0';     // null byte
+  sse_customer_key[2] = '\xFF';   // non-ASCII
+  sse_customer_key[31] = '\xFA';  // non-ASCII
+  std::string sse_customer_key_string(sse_customer_key, sizeof(sse_customer_key));
+  ASSERT_OK_AND_ASSIGN(auto md5, CalculateSSECustomerKeyMD5(sse_customer_key_string))
+  ASSERT_EQ(md5, "97FTa6lj0hE7lshKdBy61g==");  // valid case
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -1344,11 +1355,11 @@ TEST_F(TestS3FS, OpenInputFile) {
 }
 
 // Minio only allows Server Side Encryption on HTTPS client connections.
-#ifdef MINIO_SERVER_WITH_TLS
+#ifdef ENABLE_TLS_TESTS
 class TestS3FSHTTPS : public TestS3FS {
  public:
   void SetUp() override {
-    enable_tls_if_supported_ = true;
+    enable_tls_ = true;
     TestS3FS::SetUp();
   }
 };
@@ -1374,6 +1385,7 @@ TEST_F(TestS3FSHTTPS, SSECustomerKeyMatch) {
 TEST_F(TestS3FSHTTPS, SSECustomerKeyMismatch) {
   std::shared_ptr<io::OutputStream> stream;
   for (const auto& allow_delayed_open : {false, true}) {
+    ARROW_SCOPED_TRACE("allow_delayed_open = ", allow_delayed_open);
     options_.allow_delayed_open = allow_delayed_open;
     options_.sse_customer_key = "12345678123456781234567812345678";
     MakeFileSystem();
@@ -1390,6 +1402,7 @@ TEST_F(TestS3FSHTTPS, SSECustomerKeyMismatch) {
 TEST_F(TestS3FSHTTPS, SSECustomerKeyMissing) {
   std::shared_ptr<io::OutputStream> stream;
   for (const auto& allow_delayed_open : {false, true}) {
+    ARROW_SCOPED_TRACE("allow_delayed_open = ", allow_delayed_open);
     options_.allow_delayed_open = allow_delayed_open;
     options_.sse_customer_key = "12345678123456781234567812345678";
     MakeFileSystem();
@@ -1415,7 +1428,7 @@ TEST_F(TestS3FSHTTPS, SSECustomerKeyCopyFile) {
   AssertBufferEqual(*buf, "some");
   ASSERT_OK(RestoreTestBucket());
 }
-#endif  // MINIO_SERVER_WITH_TLS
+#endif  // ENABLE_TLS_TESTS
 
 struct S3OptionsTestParameters {
   bool background_writes{false};

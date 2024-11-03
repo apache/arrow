@@ -30,10 +30,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 
-#if defined(__linux__)
-#  define MINIO_SERVER_WITH_TLS
-#endif  // Linux
-
 namespace arrow {
 namespace fs {
 
@@ -44,10 +40,7 @@ class MinioTestServer {
   MinioTestServer();
   ~MinioTestServer();
 
-  // enable_tls_if_supported = true: start Minio with TLS if MINIO_SERVER_WITH_TLS is
-  // defined, Currently only enabled on Linux platfrom. enable_tls_if_supported = false:
-  // start Minio without TLS in all platfroms
-  Status Start(bool enable_tls_if_supported = true);
+  Status Start(bool enable_tls = false);
 
   Status Stop();
 
@@ -74,7 +67,7 @@ class MinioTestServer {
 
 class MinioTestEnvironment : public ::testing::Environment {
  public:
-  explicit MinioTestEnvironment(bool enable_tls_if_supported = true);
+  explicit MinioTestEnvironment(bool enable_tls = false);
   ~MinioTestEnvironment();
 
   void SetUp() override;
@@ -84,7 +77,6 @@ class MinioTestEnvironment : public ::testing::Environment {
  protected:
   struct Impl;
   std::unique_ptr<Impl> impl_;
-  bool enable_tls_if_supported_ = true;  // by default, enable TLS if supported
 };
 
 // A global test "environment", to ensure that the S3 API is initialized before
