@@ -26,7 +26,7 @@ class StatusConstant {
  public:
   StatusConstant(StatusCode code, std::string msg,
                  std::shared_ptr<StatusDetail> detail = nullptr)
-      : state_{code, std::move(msg), std::move(detail), /*is_constant=*/true} {
+      : state_{code, /*is_constant=*/true, std::move(msg), std::move(detail)} {
     ARROW_CHECK_NE(code, StatusCode::OK)
         << "StatusConstant is not intended for use with OK status codes";
   }

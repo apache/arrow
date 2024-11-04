@@ -369,9 +369,9 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
  private:
   struct State {
     StatusCode code;
+    bool is_constant;
     std::string msg;
     std::shared_ptr<StatusDetail> detail;
-    bool is_constant = false;
   };
   // OK status has a `NULL` state_.  Otherwise, `state_` points to
   // a `State` structure containing the error code and message(s)

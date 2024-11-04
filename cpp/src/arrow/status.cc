@@ -28,7 +28,7 @@ Status::Status(StatusCode code, const std::string& msg)
 
 Status::Status(StatusCode code, std::string msg, std::shared_ptr<StatusDetail> detail) {
   ARROW_CHECK_NE(code, StatusCode::OK) << "Cannot construct ok status with message";
-  state_ = new State{code, std::move(msg), std::move(detail)};
+  state_ = new State{code, /*is_constant=*/false, std::move(msg), std::move(detail)};
 }
 
 void Status::CopyFrom(const Status& s) {
@@ -165,7 +165,7 @@ void Status::AddContextLine(const char* filename, int line, const char* expr) {
   ss << "\n" << filename << ":" << line << "  " << expr;
   if (state_->is_constant) {
     // We can't add context lines to a StatusConstant's state, so copy it now
-    state_ = new State{code(), message(), detail()};
+    state_ = new State{code(), /*is_constant=*/false, message(), detail()};
   }
   const_cast<State*>(state_)->msg += ss.str();
 }
