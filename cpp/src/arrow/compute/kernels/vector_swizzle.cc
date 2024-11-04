@@ -73,10 +73,7 @@ struct InversePermutationImpl {
     const auto& options = InversePermutationState::Get(ctx);
 
     // Apply default options semantics.
-    int64_t output_length = options.output_length;
-    if (output_length < 0) {
-      output_length = input_length;
-    }
+    int64_t output_length = options.max_index < 0 ? input_length : options.max_index + 1;
     std::shared_ptr<DataType> output_type = options.output_type;
     if (!output_type) {
       output_type = input_type;
@@ -367,23 +364,18 @@ class PermuteMetaFunction : public MetaFunction {
       return Status::Invalid("Indices of permute must be of integer type, got ",
                              indices.type()->ToString());
     }
-    // Apply default options semantics.
-    int64_t output_length = permute_options->output_length;
-    if (output_length < 0) {
-      output_length = values.length();
-    }
     // Internally invoke Take(values, InversePermutation(indices)) to implement permute.
     // For example, with
     //   values = [a, b, c, d, e, f, g]
     //   indices = [null, 0, 3, 2, 4, 1, 1]
     // the InversePermutation(indices) is
-    //   [1, 6, 3]                    if output_length = 3,
-    //   [1, 6, 3, 2, 4, null, null]  if output_length = 7.
+    //   [1, 6, 3]                    if max_index = 2,
+    //   [1, 6, 3, 2, 4, null, null]  if max_index = 6.
     // and Take(values, InversePermutation(indices)) is
-    //   [b, g, d]                    if output_length = 3,
-    //   [b, g, d, c, e, null, null]  if output_length = 7.
+    //   [b, g, d]                    if max_index = 2,
+    //   [b, g, d, c, e, null, null]  if max_index = 6.
     InversePermutationOptions inverse_permutation_options{
-        output_length,
+        permute_options->max_index,
         // Use the smallest possible uint type to store inverse permutation.
         InferSmallestInversePermutationType(values.length())};
     ARROW_ASSIGN_OR_RAISE(auto inverse_permutation,

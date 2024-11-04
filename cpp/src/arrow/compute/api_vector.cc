@@ -157,10 +157,10 @@ static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>
     DataMember("recursive", &ListFlattenOptions::recursive));
 static auto kInversePermutationOptionsType =
     GetFunctionOptionsType<InversePermutationOptions>(
-        DataMember("output_length", &InversePermutationOptions::output_length),
+        DataMember("max_index", &InversePermutationOptions::max_index),
         DataMember("output_type", &InversePermutationOptions::output_type));
 static auto kPermuteOptionsType = GetFunctionOptionsType<PermuteOptions>(
-    DataMember("output_length", &PermuteOptions::output_length));
+    DataMember("max_index", &PermuteOptions::max_index));
 }  // namespace
 }  // namespace internal
 
@@ -237,14 +237,14 @@ ListFlattenOptions::ListFlattenOptions(bool recursive)
 constexpr char ListFlattenOptions::kTypeName[];
 
 InversePermutationOptions::InversePermutationOptions(
-    int64_t output_length, std::shared_ptr<DataType> output_type)
+    int64_t max_index, std::shared_ptr<DataType> output_type)
     : FunctionOptions(internal::kInversePermutationOptionsType),
-      output_length(output_length),
+      max_index(max_index),
       output_type(std::move(output_type)) {}
 constexpr char InversePermutationOptions::kTypeName[];
 
-PermuteOptions::PermuteOptions(int64_t output_length)
-    : FunctionOptions(internal::kPermuteOptionsType), output_length(output_length) {}
+PermuteOptions::PermuteOptions(int64_t max_index)
+    : FunctionOptions(internal::kPermuteOptionsType), max_index(max_index) {}
 constexpr char PermuteOptions::kTypeName[];
 
 namespace internal {

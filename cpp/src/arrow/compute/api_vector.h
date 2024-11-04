@@ -260,15 +260,15 @@ class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
 /// \brief Options for inverse_permutation function
 class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
  public:
-  explicit InversePermutationOptions(int64_t output_length = -1,
+  explicit InversePermutationOptions(int64_t max_index = -1,
                                      std::shared_ptr<DataType> output_type = NULLPTR);
   static constexpr char const kTypeName[] = "InversePermutationOptions";
   static InversePermutationOptions Defaults() { return InversePermutationOptions(); }
 
-  /// \brief The length of the output inverse permutation. If negative, the output will be
-  /// of the same length as the input indices. Any indices that are greater or equal to
-  /// this length will be ignored.
-  int64_t output_length = -1;
+  /// \brief The max value in the input indices to process. Any indices that are greater
+  /// to this length will be ignored. If negative, this value will be set to the length of
+  /// the input indices minus 1.
+  int64_t max_index = -1;
   /// \brief The type of the output inverse permutation. If null, the output will be of
   /// the same type as the input indices, otherwise must be integer types. An invalid
   /// error will be reported if this type is not able to store the length of the input
@@ -279,14 +279,14 @@ class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
 /// \brief Options for permute function
 class ARROW_EXPORT PermuteOptions : public FunctionOptions {
  public:
-  explicit PermuteOptions(int64_t output_length = -1);
+  explicit PermuteOptions(int64_t max_index = -1);
   static constexpr char const kTypeName[] = "PermuteOptions";
   static PermuteOptions Defaults() { return PermuteOptions(); }
 
-  /// \brief The length of the output permutation. If negative, the output will be of the
-  /// same length as the input values (and indices). Any values with indices that are
-  /// greater or equal to this length will be ignored.
-  int64_t output_length = -1;
+  /// \brief The max value in the input indices to process. Any values with indices that
+  /// are greater to this length will be ignored. If negative, this value will be set to
+  /// the length of the input minus 1.
+  int64_t max_index = -1;
 };
 
 /// @}
@@ -740,18 +740,15 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
 /// \brief Return the inverse permutation of the given indices.
 ///
 /// For indices[i] = x, inverse_permutation[x] = i. And inverse_permutation[x] = null if x
-/// does not appear in the input indices. For indices[i] = x where x < 0 or x >=
-/// output_length, it is ignored. If multiple indices point to the same value, the last
-/// one is used.
+/// does not appear in the input indices. For indices[i] = x where x < 0 or x > max_index,
+/// it is ignored. If multiple indices point to the same value, the last one is used.
 ///
 /// For example, with indices = [null, 0, 3, 2, 4, 1, 1], the inverse permutation is
-///   [1, 6, 3]                    if output_length = 3,
-///   [1, 6, 3, 2, 4, null, null]  if output_length = 7.
-/// output_length can also be negative, in which case the inverse permutation is of the
-/// same length as the indices.
+///   [1, 6, 3]                    if max_index = 2,
+///   [1, 6, 3, 2, 4, null, null]  if max_index = 6.
 ///
 /// \param[in] indices array-like indices
-/// \param[in] options configures the output length and the output type
+/// \param[in] options configures the max index and the output type
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting inverse permutation
 ///
@@ -766,19 +763,17 @@ Result<Datum> InversePermutation(
 /// \brief Permute the values into specified positions according to the indices.
 ///
 /// For indices[i] = x, output[x] = values[i]. And output[x] = null if x does not appear
-/// in the input indices. For indices[i] = x where x < 0 or x >= output_length, values[i]
+/// in the input indices. For indices[i] = x where x < 0 or x > max_index, values[i]
 /// is ignored. If multiple indices point to the same value, the last one is used.
 ///
 /// For example, with values = [a, b, c, d, e, f, g] and indices = [null, 0,
 /// 3, 2, 4, 1, 1], the permutation is
-///   [b, g, d]                    if output_length = 3,
-///   [b, g, d, c, e, null, null]  if output_length = 7.
-/// output_length can also be negative, in which case the permutation is of the same
-/// length as the values (and indices).
+///   [b, g, d]                    if max_index = 2,
+///   [b, g, d, c, e, null, null]  if max_index = 6.
 ///
 /// \param[in] values datum to permute
 /// \param[in] indices array-like indices
-/// \param[in] options configures the output length of the permutation
+/// \param[in] options configures the max index of the permutation
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting permutation
 ///
