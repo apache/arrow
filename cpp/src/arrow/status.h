@@ -137,7 +137,13 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
  public:
   // Create a success status.
   constexpr Status() noexcept : state_(NULLPTR) {}
-  ~Status() noexcept { DeleteState(); }
+  ~Status() noexcept {
+    if (ARROW_PREDICT_FALSE(state_ != NULL)) {
+      if (!state_->is_constant) {
+        DeleteState();
+      }
+    }
+  }
 
   Status(StatusCode code, const std::string& msg);
   /// \brief Pluggable constructor for use by sub-systems.  detail cannot be null.
@@ -361,12 +367,11 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
 #endif
 
  private:
-  struct ARROW_EXPORT State {
+  struct State {
     StatusCode code;
     std::string msg;
     std::shared_ptr<StatusDetail> detail;
     bool is_constant = false;
-    ~State();
   };
   // OK status has a `NULL` state_.  Otherwise, `state_` points to
   // a `State` structure containing the error code and message(s)
@@ -375,11 +380,7 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   void DeleteState() noexcept {
     // ARROW-2400: On certain compilers, splitting off the slow path improves
     // performance significantly.
-    if (ARROW_PREDICT_FALSE(state_ != NULLPTR)) {
-      if (!state_->is_constant) {
-        delete state_;
-      }
-    }
+    delete state_;
   }
   void CopyFrom(const Status& s);
   inline void MoveFrom(Status& s);
@@ -388,7 +389,11 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
 };
 
 void Status::MoveFrom(Status& s) {
-  DeleteState();
+  if (ARROW_PREDICT_FALSE(state_ != NULL)) {
+    if (!state_->is_constant) {
+      DeleteState();
+    }
+  }
   state_ = s.state_;
   s.state_ = NULLPTR;
 }

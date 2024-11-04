@@ -27,7 +27,8 @@ class StatusConstant {
   StatusConstant(StatusCode code, std::string msg,
                  std::shared_ptr<StatusDetail> detail = nullptr)
       : state_{code, std::move(msg), std::move(detail), /*is_constant=*/true} {
-    ARROW_CHECK_NE(code, StatusCode::OK) << "Cannot construct ok status constant";
+    ARROW_CHECK_NE(code, StatusCode::OK)
+        << "StatusConstant is not intended for use with OK status codes";
   }
 
   operator Status() const {  // NOLINT(runtime/explicit)

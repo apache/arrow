@@ -31,12 +31,12 @@ Status::Status(StatusCode code, std::string msg, std::shared_ptr<StatusDetail> d
   state_ = new State{code, std::move(msg), std::move(detail)};
 }
 
-// We would prefer that this destructor *not* be inlined, since the vast majority of
-// Statuses are OK and so inlining would superflously increase binary size.
-Status::State::~State() = default;
-
 void Status::CopyFrom(const Status& s) {
-  DeleteState();
+  if (ARROW_PREDICT_FALSE(state_ != NULL)) {
+    if (!state_->is_constant) {
+      DeleteState();
+    }
+  }
   if (s.state_ == nullptr) {
     state_ = nullptr;
   } else if (s.state_->is_constant) {
