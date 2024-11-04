@@ -198,6 +198,31 @@ public class TestSplitAndTransfer {
     toDUV.clear();
   }
 
+  @Test
+  public void testWithNullVector() {
+    int valueCount = 123;
+    int startIndex = 10;
+    NullVector fromNullVector = new NullVector("nullVector");
+    fromNullVector.setValueCount(valueCount);
+    TransferPair transferPair = fromNullVector.getTransferPair(fromNullVector.getAllocator());
+    transferPair.splitAndTransfer(startIndex, valueCount - startIndex);
+    NullVector toNullVector = (NullVector) transferPair.getTo();
+
+    assertEquals(valueCount - startIndex, toNullVector.getValueCount());
+    // no allocations to clear for NullVector
+  }
+
+  @Test
+  public void testWithZeroVector() {
+    ZeroVector fromZeroVector = new ZeroVector("zeroVector");
+    TransferPair transferPair = fromZeroVector.getTransferPair(fromZeroVector.getAllocator());
+    transferPair.splitAndTransfer(0, 0);
+    ZeroVector toZeroVector = (ZeroVector) transferPair.getTo();
+
+    assertEquals(0, toZeroVector.getValueCount());
+    // no allocations to clear for ZeroVector
+  }
+
   @Test /* VarCharVector */
   public void test() throws Exception {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
