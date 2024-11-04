@@ -20,9 +20,10 @@ import java.util.concurrent.TimeUnit;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.holders.NullableVarCharHolder;
+import org.apache.arrow.vector.holders.NullableViewVarCharHolder;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
@@ -37,7 +38,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /** Benchmarks for {@link BaseVariableWidthVector}. */
 @State(Scope.Benchmark)
-public class VariableWidthVectorBenchmarks {
+public class VariableWidthViewVectorBenchmarks {
   // checkstyle:off: MissingJavadocMethod
 
   private static final int VECTOR_CAPACITY = 16 * 1024;
@@ -51,13 +52,13 @@ public class VariableWidthVectorBenchmarks {
 
   private BufferAllocator allocator;
 
-  private VarCharVector vector;
+  private ViewVarCharVector vector;
 
   /** Setup benchmarks. */
   @Setup(Level.Iteration)
   public void prepare() {
-    allocator = new RootAllocator(ALLOCATOR_CAPACITY);
-    vector = new VarCharVector("vector", allocator);
+    allocator = new RootAllocator();
+    vector = new ViewVarCharVector("vector", allocator);
     vector.allocateNew(VECTOR_CAPACITY, VECTOR_LENGTH);
     arrowBuff = allocator.buffer(VECTOR_LENGTH);
     arrowBuff.setBytes(0, bytes, 0, bytes.length);
@@ -84,6 +85,7 @@ public class VariableWidthVectorBenchmarks {
   }
 
   @Benchmark
+  @Fork(1)
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MILLISECONDS)
   public int setSafeFromArray() {
@@ -97,7 +99,7 @@ public class VariableWidthVectorBenchmarks {
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MILLISECONDS)
   public int setSafeFromNullableVarcharHolder() {
-    NullableVarCharHolder nvch = new NullableVarCharHolder();
+    NullableViewVarCharHolder nvch = new NullableViewVarCharHolder();
     nvch.buffer = arrowBuff;
     nvch.start = 0;
     nvch.end = bytes.length;
@@ -116,7 +118,7 @@ public class VariableWidthVectorBenchmarks {
   public static void main(String[] args) throws RunnerException {
     Options opt =
         new OptionsBuilder()
-            .include(VariableWidthVectorBenchmarks.class.getSimpleName())
+            .include(VariableWidthViewVectorBenchmarks.class.getSimpleName())
             .forks(1)
             .build();
 
