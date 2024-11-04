@@ -510,7 +510,7 @@ struct _GArrowDecimal32ScalarClass
   GArrowScalarClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_19_0
 GArrowDecimal32Scalar *
 garrow_decimal32_scalar_new(GArrowDecimal32DataType *data_type, GArrowDecimal32 *value);
 GARROW_AVAILABLE_IN_5_0
