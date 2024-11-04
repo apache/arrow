@@ -101,8 +101,6 @@ struct Directory {
 // A filesystem entry
 using EntryBase = std::variant<std::nullptr_t, File, Directory>;
 
-struct Directory;
-
 class Entry : public EntryBase {
 public:
   Entry(Entry&&) = default;
