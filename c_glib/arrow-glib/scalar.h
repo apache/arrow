@@ -518,7 +518,7 @@ GArrowDecimal32 *
 garrow_decimal32_scalar_get_value(GArrowDecimal32Scalar *scalar);
 
 #define GARROW_TYPE_DECIMAL64_SCALAR (garrow_decimal64_scalar_get_type())
-GARROW_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_19_0
 G_DECLARE_DERIVABLE_TYPE(
   GArrowDecimal64Scalar, garrow_decimal64_scalar, GARROW, DECIMAL64_SCALAR, GArrowScalar)
 struct _GArrowDecimal64ScalarClass
