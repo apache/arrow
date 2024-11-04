@@ -276,12 +276,12 @@ class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
   std::shared_ptr<DataType> output_type = NULLPTR;
 };
 
-/// \brief Options for permute function
-class ARROW_EXPORT PermuteOptions : public FunctionOptions {
+/// \brief Options for scatter function
+class ARROW_EXPORT ScatterOptions : public FunctionOptions {
  public:
-  explicit PermuteOptions(int64_t max_index = -1);
-  static constexpr char const kTypeName[] = "PermuteOptions";
-  static PermuteOptions Defaults() { return PermuteOptions(); }
+  explicit ScatterOptions(int64_t max_index = -1);
+  static constexpr char const kTypeName[] = "ScatterOptions";
+  static ScatterOptions Defaults() { return ScatterOptions(); }
 
   /// \brief The max value in the input indices to process. Any values with indices that
   /// are greater to this length will be ignored. If negative, this value will be set to
@@ -760,28 +760,28 @@ Result<Datum> InversePermutation(
     const InversePermutationOptions& options = InversePermutationOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
-/// \brief Permute the values into specified positions according to the indices.
+/// \brief Scatter the values into specified positions according to the indices.
 ///
 /// For indices[i] = x, output[x] = values[i]. And output[x] = null if x does not appear
 /// in the input indices. For indices[i] = x where x < 0 or x > max_index, values[i]
 /// is ignored. If multiple indices point to the same value, the last one is used.
 ///
 /// For example, with values = [a, b, c, d, e, f, g] and indices = [null, 0,
-/// 3, 2, 4, 1, 1], the permutation is
+/// 3, 2, 4, 1, 1], the output is
 ///   [b, g, d]                    if max_index = 2,
 ///   [b, g, d, c, e, null, null]  if max_index = 6.
 ///
-/// \param[in] values datum to permute
+/// \param[in] values datum to scatter
 /// \param[in] indices array-like indices
-/// \param[in] options configures the max index of the permutation
+/// \param[in] options configures the max index of to scatter
 /// \param[in] ctx the function execution context, optional
-/// \return the resulting permutation
+/// \return the resulting datum
 ///
 /// \since 19.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Permute(const Datum& values, const Datum& indices,
-                      const PermuteOptions& options = PermuteOptions::Defaults(),
+Result<Datum> Scatter(const Datum& values, const Datum& indices,
+                      const ScatterOptions& options = ScatterOptions::Defaults(),
                       ExecContext* ctx = NULLPTR);
 
 }  // namespace compute

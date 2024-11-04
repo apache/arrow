@@ -320,23 +320,23 @@ void RegisterVectorInversePermutation(FunctionRegistry* registry) {
 }
 
 // ----------------------------------------------------------------------
-// Permute
+// Scatter
 
-const FunctionDoc permute_doc(
-    "Permute the values into specified positions according to the indices",
+const FunctionDoc scatter_doc(
+    "Scatter the values into specified positions according to the indices",
     "Place the `i`-th value at the position specified by the `i`-th index",
     {"values", "indices"});
 
-const PermuteOptions* GetDefaultPermuteOptions() {
-  static const auto kDefaultPermuteOptions = PermuteOptions::Defaults();
-  return &kDefaultPermuteOptions;
+const ScatterOptions* GetDefaultScatterOptions() {
+  static const auto kDefaultScatterOptions = ScatterOptions::Defaults();
+  return &kDefaultScatterOptions;
 }
 
-class PermuteMetaFunction : public MetaFunction {
+class ScatterMetaFunction : public MetaFunction {
  public:
-  PermuteMetaFunction()
-      : MetaFunction("permute", Arity::Binary(), permute_doc,
-                     GetDefaultPermuteOptions()) {}
+  ScatterMetaFunction()
+      : MetaFunction("scatter", Arity::Binary(), scatter_doc,
+                     GetDefaultScatterOptions()) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -344,27 +344,27 @@ class PermuteMetaFunction : public MetaFunction {
     DCHECK_EQ(args.size(), 2);
     const auto& values = args[0];
     const auto& indices = args[1];
-    // Though the way how permute is currently implemented may support record batch or
+    // Though the way how scatter is currently implemented may support record batch or
     // table, we don't want to promise that yet.
     if (!values.is_arraylike()) {
-      return Status::NotImplemented("Permute does not support " +
+      return Status::NotImplemented("Scatter does not support " +
                                     ToString(values.kind()) + " values");
     }
     if (!indices.is_arraylike()) {
-      return Status::NotImplemented("Permute does not support " +
+      return Status::NotImplemented("Scatter does not support " +
                                     ToString(values.kind()) + " indices");
     }
-    auto* permute_options = checked_cast<const PermuteOptions*>(options);
+    auto* scatter_options = checked_cast<const ScatterOptions*>(options);
     if (values.length() != indices.length()) {
       return Status::Invalid(
-          "Input and indices of permute must have the same length, got " +
+          "Input and indices of scatter must have the same length, got " +
           std::to_string(values.length()) + " and " + std::to_string(indices.length()));
     }
     if (!is_integer(indices.type()->id())) {
-      return Status::Invalid("Indices of permute must be of integer type, got ",
+      return Status::Invalid("Indices of scatter must be of integer type, got ",
                              indices.type()->ToString());
     }
-    // Internally invoke Take(values, InversePermutation(indices)) to implement permute.
+    // Internally invoke Take(values, InversePermutation(indices)) to implement scatter.
     // For example, with
     //   values = [a, b, c, d, e, f, g]
     //   indices = [null, 0, 3, 2, 4, 1, 1]
@@ -375,7 +375,7 @@ class PermuteMetaFunction : public MetaFunction {
     //   [b, g, d]                    if max_index = 2,
     //   [b, g, d, c, e, null, null]  if max_index = 6.
     InversePermutationOptions inverse_permutation_options{
-        permute_options->max_index,
+        scatter_options->max_index,
         // Use the smallest possible uint type to store inverse permutation.
         InferSmallestInversePermutationType(values.length())};
     ARROW_ASSIGN_OR_RAISE(auto inverse_permutation,
@@ -400,8 +400,8 @@ class PermuteMetaFunction : public MetaFunction {
   }
 };
 
-void RegisterVectorPermute(FunctionRegistry* registry) {
-  DCHECK_OK(registry->AddFunction(std::make_shared<PermuteMetaFunction>()));
+void RegisterVectorScatter(FunctionRegistry* registry) {
+  DCHECK_OK(registry->AddFunction(std::make_shared<ScatterMetaFunction>()));
 }
 
 }  // namespace
@@ -410,7 +410,7 @@ void RegisterVectorPermute(FunctionRegistry* registry) {
 
 void RegisterVectorSwizzle(FunctionRegistry* registry) {
   RegisterVectorInversePermutation(registry);
-  RegisterVectorPermute(registry);
+  RegisterVectorScatter(registry);
 }
 
 }  // namespace arrow::compute::internal

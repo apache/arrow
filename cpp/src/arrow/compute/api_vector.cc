@@ -159,8 +159,8 @@ static auto kInversePermutationOptionsType =
     GetFunctionOptionsType<InversePermutationOptions>(
         DataMember("max_index", &InversePermutationOptions::max_index),
         DataMember("output_type", &InversePermutationOptions::output_type));
-static auto kPermuteOptionsType = GetFunctionOptionsType<PermuteOptions>(
-    DataMember("max_index", &PermuteOptions::max_index));
+static auto kScatterOptionsType = GetFunctionOptionsType<ScatterOptions>(
+    DataMember("max_index", &ScatterOptions::max_index));
 }  // namespace
 }  // namespace internal
 
@@ -243,9 +243,9 @@ InversePermutationOptions::InversePermutationOptions(
       output_type(std::move(output_type)) {}
 constexpr char InversePermutationOptions::kTypeName[];
 
-PermuteOptions::PermuteOptions(int64_t max_index)
-    : FunctionOptions(internal::kPermuteOptionsType), max_index(max_index) {}
-constexpr char PermuteOptions::kTypeName[];
+ScatterOptions::ScatterOptions(int64_t max_index)
+    : FunctionOptions(internal::kScatterOptionsType), max_index(max_index) {}
+constexpr char ScatterOptions::kTypeName[];
 
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
@@ -262,7 +262,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kPairwiseOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kListFlattenOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kInversePermutationOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kPermuteOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kScatterOptionsType));
 }
 }  // namespace internal
 
@@ -457,9 +457,9 @@ Result<Datum> InversePermutation(const Datum& indices,
   return CallFunction("inverse_permutation", {indices}, &options, ctx);
 }
 
-Result<Datum> Permute(const Datum& values, const Datum& indices,
-                      const PermuteOptions& options, ExecContext* ctx) {
-  return CallFunction("permute", {values, indices}, &options, ctx);
+Result<Datum> Scatter(const Datum& values, const Datum& indices,
+                      const ScatterOptions& options, ExecContext* ctx) {
+  return CallFunction("scatter", {values, indices}, &options, ctx);
 }
 
 }  // namespace compute

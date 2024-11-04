@@ -300,7 +300,7 @@ TEST(InversePermutation, Basic) {
 }
 
 // ----------------------------------------------------------------------
-// Permute tests
+// Scatter tests
 //
 // Shorthand notation:
 //
@@ -309,53 +309,53 @@ TEST(InversePermutation, Basic) {
 
 namespace {
 
-Result<Datum> Permute(const Datum& values, const Datum& indices, int64_t max_index) {
-  PermuteOptions options{max_index};
-  return Permute(values, indices, options);
+Result<Datum> Scatter(const Datum& values, const Datum& indices, int64_t max_index) {
+  ScatterOptions options{max_index};
+  return Scatter(values, indices, options);
 }
 
-void AssertPermuteAAA(const std::shared_ptr<Array>& values,
+void AssertScatterAAA(const std::shared_ptr<Array>& values,
                       const std::shared_ptr<Array>& indices, int64_t max_index,
                       const std::shared_ptr<Array>& expected) {
-  ASSERT_OK_AND_ASSIGN(Datum result, Permute(values, indices, max_index));
+  ASSERT_OK_AND_ASSIGN(Datum result, Scatter(values, indices, max_index));
   AssertDatumsEqual(expected, result);
 }
 
-void AssertPermuteCAC(const std::shared_ptr<ChunkedArray>& values,
+void AssertScatterCAC(const std::shared_ptr<ChunkedArray>& values,
                       const std::shared_ptr<Array>& indices, int64_t max_index,
                       const std::shared_ptr<Array>& expected) {
-  ASSERT_OK_AND_ASSIGN(Datum result, Permute(values, indices, max_index));
+  ASSERT_OK_AND_ASSIGN(Datum result, Scatter(values, indices, max_index));
   ASSERT_TRUE(result.is_chunked_array());
   ASSERT_OK_AND_ASSIGN(auto result_array, Concatenate(result.chunked_array()->chunks()));
   AssertDatumsEqual(expected, result_array);
 }
 
-void AssertPermuteACC(const std::shared_ptr<Array>& values,
+void AssertScatterACC(const std::shared_ptr<Array>& values,
                       const std::shared_ptr<ChunkedArray>& indices, int64_t max_index,
                       const std::shared_ptr<Array>& expected) {
-  ASSERT_OK_AND_ASSIGN(Datum result, Permute(values, indices, max_index));
+  ASSERT_OK_AND_ASSIGN(Datum result, Scatter(values, indices, max_index));
   ASSERT_TRUE(result.is_chunked_array());
   ASSERT_OK_AND_ASSIGN(auto result_array, Concatenate(result.chunked_array()->chunks()));
   AssertDatumsEqual(expected, result_array);
 }
 
-void AssertPermuteCCC(const std::shared_ptr<ChunkedArray>& values,
+void AssertScatterCCC(const std::shared_ptr<ChunkedArray>& values,
                       const std::shared_ptr<ChunkedArray>& indices, int64_t max_index,
                       const std::shared_ptr<Array>& expected) {
-  ASSERT_OK_AND_ASSIGN(Datum result, Permute(values, indices, max_index));
+  ASSERT_OK_AND_ASSIGN(Datum result, Scatter(values, indices, max_index));
   ASSERT_TRUE(result.is_chunked_array());
   ASSERT_OK_AND_ASSIGN(auto result_array, Concatenate(result.chunked_array()->chunks()));
   AssertDatumsEqual(expected, result_array);
 }
 
-void DoTestPermuteAAA(const std::shared_ptr<Array>& values,
+void DoTestScatterAAA(const std::shared_ptr<Array>& values,
                       const std::shared_ptr<Array>& indices, int64_t max_index,
                       const std::shared_ptr<Array>& expected) {
-  AssertPermuteAAA(values, indices, max_index, expected);
+  AssertScatterAAA(values, indices, max_index, expected);
 }
 
 /// The following helper functions are based on the invariant:
-/// Permute([V, V], [I', I''], 2 * (m + 1) - 1) == Concat(E, E)
+/// Scatter([V, V], [I', I''], 2 * (m + 1) - 1) == Concat(E, E)
 ///
 /// where
 ///   V = values
@@ -363,7 +363,7 @@ void DoTestPermuteAAA(const std::shared_ptr<Array>& values,
 ///   m = max_index
 ///   I' = ReplaceWithMask(I, i > m, null)
 ///   I'' = ReplaceWithMask(I, i < 0, null) + m + 1
-///   E = Permute(V, I, m)
+///   E = Scatter(V, I, m)
 
 /// Make indices prefix I' = ReplaceWithMask(I, i > m, null).
 Result<std::shared_ptr<Array>> MakeIndicesPrefix(const std::shared_ptr<Array>& indices,
@@ -391,7 +391,7 @@ Result<std::shared_ptr<Array>> MakeIndicesSuffix(const std::shared_ptr<Array>& i
   return suffix.make_array();
 }
 
-void DoTestPermuteCACWithArrays(const std::shared_ptr<Array>& values,
+void DoTestScatterCACWithArrays(const std::shared_ptr<Array>& values,
                                 const std::shared_ptr<Array>& indices, int64_t max_index,
                                 const std::shared_ptr<Array>& expected) {
   auto chunked_values2 = std::make_shared<ChunkedArray>(ArrayVector{values, values});
@@ -404,11 +404,11 @@ void DoTestPermuteCACWithArrays(const std::shared_ptr<Array>& values,
   ASSERT_OK_AND_ASSIGN(auto concat_expected2,
                        Concatenate(ArrayVector{expected, expected}));
 
-  AssertPermuteCAC(chunked_values2, concat_indices2, (max_index + 1) * 2 - 1,
+  AssertScatterCAC(chunked_values2, concat_indices2, (max_index + 1) * 2 - 1,
                    concat_expected2);
 }
 
-void DoTestPermuteACCWithArrays(const std::shared_ptr<Array>& values,
+void DoTestScatterACCWithArrays(const std::shared_ptr<Array>& values,
                                 const std::shared_ptr<Array>& indices, int64_t max_index,
                                 const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(auto concat_values2, Concatenate(ArrayVector{values, values}));
@@ -421,11 +421,11 @@ void DoTestPermuteACCWithArrays(const std::shared_ptr<Array>& values,
   ASSERT_OK_AND_ASSIGN(auto concat_expected2,
                        Concatenate(ArrayVector{expected, expected}));
 
-  AssertPermuteACC(concat_values2, chunked_indices2, (max_index + 1) * 2 - 1,
+  AssertScatterACC(concat_values2, chunked_indices2, (max_index + 1) * 2 - 1,
                    concat_expected2);
 }
 
-void DoTestPermuteCCCWithArrays(const std::shared_ptr<Array>& values,
+void DoTestScatterCCCWithArrays(const std::shared_ptr<Array>& values,
                                 const std::shared_ptr<Array>& indices, int64_t max_index,
                                 const std::shared_ptr<Array>& expected) {
   auto chunked_values2 = std::make_shared<ChunkedArray>(ArrayVector{values, values});
@@ -438,11 +438,11 @@ void DoTestPermuteCCCWithArrays(const std::shared_ptr<Array>& values,
   ASSERT_OK_AND_ASSIGN(auto concat_expected2,
                        Concatenate(ArrayVector{expected, expected}));
 
-  AssertPermuteCCC(chunked_values2, chunked_indices2, (max_index + 1) * 2 - 1,
+  AssertScatterCCC(chunked_values2, chunked_indices2, (max_index + 1) * 2 - 1,
                    concat_expected2);
 }
 
-void DoTestPermuteForIndicesTypes(
+void DoTestScatterForIndicesTypes(
     const std::vector<std::shared_ptr<DataType>>& indices_types,
     const std::shared_ptr<Array>& values, const std::shared_ptr<Array>& indices,
     int64_t max_index, const std::shared_ptr<Array>& expected) {
@@ -453,61 +453,61 @@ void DoTestPermuteForIndicesTypes(
     auto casted_indices = casted.make_array();
     {
       ARROW_SCOPED_TRACE("AAA");
-      DoTestPermuteAAA(values, casted_indices, max_index, expected);
+      DoTestScatterAAA(values, casted_indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("CAA");
-      DoTestPermuteCACWithArrays(values, casted_indices, max_index, expected);
+      DoTestScatterCACWithArrays(values, casted_indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("ACA");
-      DoTestPermuteACCWithArrays(values, casted_indices, max_index, expected);
+      DoTestScatterACCWithArrays(values, casted_indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("CCA");
-      DoTestPermuteCCCWithArrays(values, casted_indices, max_index, expected);
+      DoTestScatterCCCWithArrays(values, casted_indices, max_index, expected);
     }
   }
 }
 
-void DoTestPermuteSignedIndices(const std::shared_ptr<Array>& values,
+void DoTestScatterSignedIndices(const std::shared_ptr<Array>& values,
                                 const std::shared_ptr<Array>& indices, int64_t max_index,
                                 const std::shared_ptr<Array>& expected) {
-  DoTestPermuteForIndicesTypes(kSignedIntegerTypes, values, indices, max_index, expected);
+  DoTestScatterForIndicesTypes(kSignedIntegerTypes, values, indices, max_index, expected);
 }
 
-void DoTestPermute(const std::shared_ptr<Array>& values,
+void DoTestScatter(const std::shared_ptr<Array>& values,
                    const std::shared_ptr<Array>& indices, int64_t max_index,
                    const std::shared_ptr<Array>& expected) {
-  DoTestPermuteForIndicesTypes(kIntegerTypes, values, indices, max_index, expected);
+  DoTestScatterForIndicesTypes(kIntegerTypes, values, indices, max_index, expected);
 }
 
 }  // namespace
 
-TEST(Permute, Invalid) {
+TEST(Scatter, Invalid) {
   {
     ARROW_SCOPED_TRACE("Length mismatch");
     auto values = ArrayFromJSON(int32(), "[0, 1]");
     auto indices = ArrayFromJSON(int32(), "[0]");
     ASSERT_RAISES_WITH_MESSAGE(
         Invalid,
-        "Invalid: Input and indices of permute must have the same length, got 2 and 1",
-        Permute(values, indices));
+        "Invalid: Input and indices of scatter must have the same length, got 2 and 1",
+        Scatter(values, indices));
   }
   {
     ARROW_SCOPED_TRACE("Invalid input type");
     auto values = ArrayFromJSON(int32(), "[0]");
     auto indices = ArrayFromJSON(utf8(), R"(["a"])");
     ASSERT_RAISES_WITH_MESSAGE(
-        Invalid, "Invalid: Indices of permute must be of integer type, got string",
-        Permute(values, indices));
+        Invalid, "Invalid: Indices of scatter must be of integer type, got string",
+        Scatter(values, indices));
   }
 }
 
-TEST(Permute, DefaultOptions) {
+TEST(Scatter, DefaultOptions) {
   {
     ARROW_SCOPED_TRACE("Default options values");
-    PermuteOptions options;
+    ScatterOptions options;
     ASSERT_EQ(options.max_index, -1);
   }
   {
@@ -516,14 +516,14 @@ TEST(Permute, DefaultOptions) {
     for (const auto& indices_type : kIntegerTypes) {
       ARROW_SCOPED_TRACE("Indices type: " + indices_type->ToString());
       auto indices = ArrayFromJSON(indices_type, "[0]");
-      ASSERT_OK_AND_ASSIGN(Datum result, Permute(values, indices));
+      ASSERT_OK_AND_ASSIGN(Datum result, Scatter(values, indices));
       AssertDatumsEqual(values, result);
     }
   }
 }
 
 template <typename ArrowType>
-class TestPermuteSmallIndicesTypes : public ::testing::Test {
+class TestScatterSmallIndicesTypes : public ::testing::Test {
  protected:
   using CType = typename TypeTraits<ArrowType>::CType;
 
@@ -532,9 +532,9 @@ class TestPermuteSmallIndicesTypes : public ::testing::Test {
   }
 };
 
-TYPED_TEST_SUITE(TestPermuteSmallIndicesTypes, SmallOutputTypes);
+TYPED_TEST_SUITE(TestScatterSmallIndicesTypes, SmallOutputTypes);
 
-TYPED_TEST(TestPermuteSmallIndicesTypes, MaxIntegerIndex) {
+TYPED_TEST(TestScatterSmallIndicesTypes, MaxIntegerIndex) {
   auto values = ArrayFromJSON(utf8(), R"(["a"])");
   auto indices_type = this->type_singleton();
   int64_t max_integer =
@@ -545,11 +545,11 @@ TYPED_TEST(TestPermuteSmallIndicesTypes, MaxIntegerIndex) {
   auto expected_suffix_value = values;
   ASSERT_OK_AND_ASSIGN(auto expected,
                        Concatenate({expected_prefix_nulls, expected_suffix_value}));
-  DoTestPermuteAAA(values, indices, /*max_index=*/max_integer - 1, expected);
+  DoTestScatterAAA(values, indices, /*max_index=*/max_integer - 1, expected);
 }
 
 template <typename ArrowType>
-class TestPermuteTyped : public ::testing::Test {
+class TestScatterTyped : public ::testing::Test {
  protected:
   virtual std::shared_ptr<DataType> values_type() const {
     if constexpr (is_parameter_free_type<ArrowType>::value) {
@@ -560,21 +560,21 @@ class TestPermuteTyped : public ::testing::Test {
     }
   }
 
-  void TestPermuteSignedIndices(const std::string& values_str,
+  void TestScatterSignedIndices(const std::string& values_str,
                                 const std::string& indices_str, int64_t max_index,
                                 const std::string& expected_str) {
-    TestPermute(DoTestPermuteSignedIndices, values_str, indices_str, max_index,
+    TestScatter(DoTestScatterSignedIndices, values_str, indices_str, max_index,
                 expected_str);
   }
 
-  void TestPermute(const std::string& values_str, const std::string& indices_str,
+  void TestScatter(const std::string& values_str, const std::string& indices_str,
                    int64_t max_index, const std::string& expected_str) {
-    TestPermute(DoTestPermute, values_str, indices_str, max_index, expected_str);
+    TestScatter(DoTestScatter, values_str, indices_str, max_index, expected_str);
   }
 
  private:
   template <typename DoTestFunc>
-  void TestPermute(DoTestFunc&& func, const std::string& values_str,
+  void TestScatter(DoTestFunc&& func, const std::string& values_str,
                    const std::string& indices_str, int64_t max_index,
                    const std::string& expected_str) {
     auto values = ArrayFromJSON(values_type(), values_str);
@@ -584,16 +584,16 @@ class TestPermuteTyped : public ::testing::Test {
   }
 };
 
-class TestPermuteBoolean : public TestPermuteTyped<BooleanType> {};
+class TestScatterBoolean : public TestScatterTyped<BooleanType> {};
 
-TEST_F(TestPermuteBoolean, Basic) {
+TEST_F(TestScatterBoolean, Basic) {
   {
     ARROW_SCOPED_TRACE("Basic");
     auto values = "[true, false, true, true, false, false, true, true, true, false]";
     auto indices = "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]";
     int64_t max_index = 9;
     auto expected = "[false, true, true, true, false, false, true, true, false, true]";
-    TestPermute(values, indices, max_index, expected);
+    TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Values with nulls");
@@ -601,7 +601,7 @@ TEST_F(TestPermuteBoolean, Basic) {
     auto indices = "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]";
     int64_t max_index = 9;
     auto expected = "[true, null, null, false, false, true, true, null, false, true]";
-    TestPermute(values, indices, max_index, expected);
+    TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Indices with nulls");
@@ -609,7 +609,7 @@ TEST_F(TestPermuteBoolean, Basic) {
     auto indices = "[9, null, 7, null, 5, null, 3, null, 1, null]";
     int64_t max_index = 9;
     auto expected = "[null, true, null, true, null, false, null, true, null, true]";
-    TestPermute(values, indices, max_index, expected);
+    TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Indices with negatives");
@@ -617,7 +617,7 @@ TEST_F(TestPermuteBoolean, Basic) {
     auto indices = "[9, -1, 7, -2, 5, -3, 3, -4, 1, -5]";
     int64_t max_index = 9;
     auto expected = "[null, true, null, true, null, false, null, true, null, true]";
-    TestPermuteSignedIndices(values, indices, max_index, expected);
+    TestScatterSignedIndices(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Output less than input");
@@ -625,7 +625,7 @@ TEST_F(TestPermuteBoolean, Basic) {
     auto indices = "[1, 0]";
     int64_t max_index = 0;
     auto expected = "[true]";
-    TestPermute(values, indices, max_index, expected);
+    TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Output greater than input");
@@ -633,7 +633,7 @@ TEST_F(TestPermuteBoolean, Basic) {
     auto indices = "[0, 3, 6, 1, 4, 7]";
     int64_t max_index = 8;
     auto expected = "[true, false, null, true, false, null, true, false, null]";
-    TestPermute(values, indices, max_index, expected);
+    TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Values all null");
@@ -641,7 +641,7 @@ TEST_F(TestPermuteBoolean, Basic) {
     auto indices = "[0, 1]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    TestPermute(values, indices, max_index, expected);
+    TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Indices all null");
@@ -649,7 +649,7 @@ TEST_F(TestPermuteBoolean, Basic) {
     auto indices = "[null, null]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    TestPermute(values, indices, max_index, expected);
+    TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Output all null");
@@ -657,7 +657,7 @@ TEST_F(TestPermuteBoolean, Basic) {
     auto indices = "[2, 3]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    TestPermute(values, indices, max_index, expected);
+    TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Empty input output null");
@@ -665,7 +665,7 @@ TEST_F(TestPermuteBoolean, Basic) {
     auto indices = "[]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    TestPermute(values, indices, max_index, expected);
+    TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Indices duplicated indices");
@@ -673,23 +673,23 @@ TEST_F(TestPermuteBoolean, Basic) {
     auto indices = "[0, 1, 0, 1]";
     int64_t max_index = 3;
     auto expected = "[null, null, null, null]";
-    TestPermute(values, indices, max_index, expected);
+    TestScatter(values, indices, max_index, expected);
   }
 }
 
 template <typename ArrowType>
-class TestPermuteNumeric : public TestPermuteTyped<ArrowType> {};
+class TestScatterNumeric : public TestScatterTyped<ArrowType> {};
 
-TYPED_TEST_SUITE(TestPermuteNumeric, NumericArrowTypes);
+TYPED_TEST_SUITE(TestScatterNumeric, NumericArrowTypes);
 
-TYPED_TEST(TestPermuteNumeric, Basic) {
+TYPED_TEST(TestScatterNumeric, Basic) {
   {
     ARROW_SCOPED_TRACE("Basic");
     auto values = "[10, 11, 12, 13, 14, 15, 16, 17, 18, 19]";
     auto indices = "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]";
     int64_t max_index = 9;
     auto expected = "[19, 18, 17, 16, 15, 14, 13, 12, 11, 10]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Values with nulls");
@@ -697,7 +697,7 @@ TYPED_TEST(TestPermuteNumeric, Basic) {
     auto indices = "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]";
     int64_t max_index = 9;
     auto expected = "[19, null, 17, null, 15, null, 13, null, 11, null]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Indices with nulls");
@@ -705,7 +705,7 @@ TYPED_TEST(TestPermuteNumeric, Basic) {
     auto indices = "[9, null, 7, null, 5, null, 3, null, 1, null]";
     int64_t max_index = 9;
     auto expected = "[null, 18, null, 16, null, 14, null, 12, null, 10]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Indices with negatives");
@@ -713,7 +713,7 @@ TYPED_TEST(TestPermuteNumeric, Basic) {
     auto indices = "[9, -1, 7, -2, 5, -3, 3, -4, 1, -5]";
     int64_t max_index = 9;
     auto expected = "[null, 18, null, 16, null, 14, null, 12, null, 10]";
-    this->TestPermuteSignedIndices(values, indices, max_index, expected);
+    this->TestScatterSignedIndices(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Output less than input");
@@ -721,7 +721,7 @@ TYPED_TEST(TestPermuteNumeric, Basic) {
     auto indices = "[1, 0]";
     int64_t max_index = 0;
     auto expected = "[0]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Output greater than input");
@@ -729,7 +729,7 @@ TYPED_TEST(TestPermuteNumeric, Basic) {
     auto indices = "[0, 3, 6, 1, 4, 7]";
     int64_t max_index = 8;
     auto expected = "[0, 1, null, 0, 1, null, 0, 1, null]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Values all null");
@@ -737,7 +737,7 @@ TYPED_TEST(TestPermuteNumeric, Basic) {
     auto indices = "[0, 1]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Indices all null");
@@ -745,7 +745,7 @@ TYPED_TEST(TestPermuteNumeric, Basic) {
     auto indices = "[null, null]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Output all null");
@@ -753,7 +753,7 @@ TYPED_TEST(TestPermuteNumeric, Basic) {
     auto indices = "[2, 3]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Empty input output null");
@@ -761,7 +761,7 @@ TYPED_TEST(TestPermuteNumeric, Basic) {
     auto indices = "[]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Indices duplicated indices");
@@ -769,23 +769,23 @@ TYPED_TEST(TestPermuteNumeric, Basic) {
     auto indices = "[0, 1, 0, 1]";
     int64_t max_index = 3;
     auto expected = "[null, null, null, null]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
 }
 
 template <typename ArrowType>
-class TestPermuteString : public TestPermuteTyped<ArrowType> {};
+class TestScatterString : public TestScatterTyped<ArrowType> {};
 
-TYPED_TEST_SUITE(TestPermuteString, BaseBinaryArrowTypes);
+TYPED_TEST_SUITE(TestScatterString, BaseBinaryArrowTypes);
 
-TYPED_TEST(TestPermuteString, Basic) {
+TYPED_TEST(TestScatterString, Basic) {
   {
     ARROW_SCOPED_TRACE("Basic");
     auto values = R"(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"])";
     auto indices = "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]";
     int64_t max_index = 9;
     auto expected = R"(["j", "i", "h", "g", "f", "e", "d", "c", "b", "a"])";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Values with nulls");
@@ -793,7 +793,7 @@ TYPED_TEST(TestPermuteString, Basic) {
     auto indices = "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]";
     int64_t max_index = 9;
     auto expected = R"(["j", null, "h", null, "f", null, "d", null, "b", null])";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Indices with nulls");
@@ -801,7 +801,7 @@ TYPED_TEST(TestPermuteString, Basic) {
     auto indices = "[9, null, 7, null, 5, null, 3, null, 1, null]";
     int64_t max_index = 9;
     auto expected = R"([null, "i", null, "g", null, "e", null, "c", null, "a"])";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Indices with negatives");
@@ -809,7 +809,7 @@ TYPED_TEST(TestPermuteString, Basic) {
     auto indices = "[9, -1, 7, -2, 5, -3, 3, -4, 1, -5]";
     int64_t max_index = 9;
     auto expected = R"([null, "i", null, "g", null, "e", null, "c", null, "a"])";
-    this->TestPermuteSignedIndices(values, indices, max_index, expected);
+    this->TestScatterSignedIndices(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Output less than input");
@@ -817,7 +817,7 @@ TYPED_TEST(TestPermuteString, Basic) {
     auto indices = "[1, 0]";
     int64_t max_index = 0;
     auto expected = R"(["a"])";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Output greater than input");
@@ -825,7 +825,7 @@ TYPED_TEST(TestPermuteString, Basic) {
     auto indices = "[0, 3, 6, 1, 4, 7]";
     int64_t max_index = 8;
     auto expected = R"(["a", "b", null, "a", "b", null, "a", "b", null])";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Values all null");
@@ -833,7 +833,7 @@ TYPED_TEST(TestPermuteString, Basic) {
     auto indices = "[0, 1]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Indices all null");
@@ -841,7 +841,7 @@ TYPED_TEST(TestPermuteString, Basic) {
     auto indices = "[null, null]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Output all null");
@@ -849,7 +849,7 @@ TYPED_TEST(TestPermuteString, Basic) {
     auto indices = "[2, 3]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Empty input output null");
@@ -857,7 +857,7 @@ TYPED_TEST(TestPermuteString, Basic) {
     auto indices = "[]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Indices duplicated indices");
@@ -865,13 +865,13 @@ TYPED_TEST(TestPermuteString, Basic) {
     auto indices = "[0, 1, 0, 1]";
     int64_t max_index = 3;
     auto expected = "[null, null, null, null]";
-    this->TestPermute(values, indices, max_index, expected);
+    this->TestScatter(values, indices, max_index, expected);
   }
 }
 
 // ----------------------------------------------------------------------
-// Test Permute using a hypothetical if-else special form.
-// Also demonstrate how Permute can serve as a building block of implementing special
+// Test Scatter using a hypothetical if-else special form.
+// Also demonstrate how Scatter can serve as a building block of implementing special
 // forms.
 
 namespace {
@@ -886,9 +886,9 @@ Result<Datum> ExecuteIfElseByExpr(const Expression& cond, const Expression& if_t
   return ExecuteScalarExpression(bound, input);
 }
 
-/// Execute an if-else expression in a special form fashion, in which Permute is used as a
+/// Execute an if-else expression in a special form fashion, in which Scatter is used as a
 /// building block.
-Result<Datum> ExecuteIfElseByPermute(const Expression& cond, const Expression& if_true,
+Result<Datum> ExecuteIfElseByScatter(const Expression& cond, const Expression& if_true,
                                      const Expression& if_false,
                                      const std::shared_ptr<Schema>& schema,
                                      const ExecBatch& input) {
@@ -950,11 +950,11 @@ Result<Datum> ExecuteIfElseByPermute(const Expression& cond, const Expression& i
   auto sel_ca =
       std::make_shared<ChunkedArray>(ArrayVector{sel_if_true_array, sel_if_false_array});
 
-  // 9. Finally, permute the "true"/"false" results to their original positions in the
+  // 9. Finally, scatter the "true"/"false" results to their original positions in the
   // input (according to the selection vectors). Note we didn't handle the rows with nulls
-  // in the mask, because Permute will fill nulls for these rows and this is equal to the
+  // in the mask, because Scatter will fill nulls for these rows and this is equal to the
   // null handling policy of if-else, which is pretty nice.
-  return Permute(/*values=*/result_ca, /*indices=*/sel_ca,
+  return Scatter(/*values=*/result_ca, /*indices=*/sel_ca,
                  /*max_index=*/input.length - 1);
 }
 
@@ -964,23 +964,23 @@ void DoTestIfElse(const Expression& cond, const Expression& if_true,
   ASSERT_OK_AND_ASSIGN(Datum result_by_expr,
                        ExecuteIfElseByExpr(cond, if_true, if_false, schema, input));
   ASSERT_TRUE(result_by_expr.is_array());
-  ASSERT_OK_AND_ASSIGN(Datum result_by_permute,
-                       ExecuteIfElseByPermute(cond, if_true, if_false, schema, input));
-  // Permute will output chunked array because we input values and indices as chunked
+  ASSERT_OK_AND_ASSIGN(Datum result_by_scatter,
+                       ExecuteIfElseByScatter(cond, if_true, if_false, schema, input));
+  // Scatter will output chunked array because we input values and indices as chunked
   // arrays consisting of each branches. We don't care the shape of the output when
   // comparing the results - only contents, so we concatenate the chunked array.
-  ASSERT_TRUE(result_by_permute.is_chunked_array());
-  ASSERT_OK_AND_ASSIGN(auto result_by_permute_concat,
-                       Concatenate(result_by_permute.chunked_array()->chunks()));
+  ASSERT_TRUE(result_by_scatter.is_chunked_array());
+  ASSERT_OK_AND_ASSIGN(auto result_by_scatter_concat,
+                       Concatenate(result_by_scatter.chunked_array()->chunks()));
 
-  AssertDatumsEqual(result_by_expr, result_by_permute_concat);
+  AssertDatumsEqual(result_by_expr, result_by_scatter_concat);
 }
 
 void DoTestIfElse(const Expression& cond, const Expression& if_true,
                   const Expression& if_false, const std::shared_ptr<Schema>& schema,
                   const ExecBatch& input, const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(Datum result,
-                       ExecuteIfElseByPermute(cond, if_true, if_false, schema, input));
+                       ExecuteIfElseByScatter(cond, if_true, if_false, schema, input));
   ASSERT_TRUE(result.is_chunked_array());
   ASSERT_OK_AND_ASSIGN(auto result_concat, Concatenate(result.chunked_array()->chunks()));
 
@@ -989,7 +989,7 @@ void DoTestIfElse(const Expression& cond, const Expression& if_true,
 
 }  // namespace
 
-TEST(Permute, IfElse) {
+TEST(Scatter, IfElse) {
   {
     ARROW_SCOPED_TRACE("if (b != 0) then a / b else b");
     auto cond = call("not_equal", {field_ref("b"), literal(0)});
