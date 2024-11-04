@@ -46,6 +46,7 @@ struct ARROW_EXPORT ArrayStatistics {
       const std::shared_ptr<DataType>& operator()(const int64_t&) { return int64(); }
       const std::shared_ptr<DataType>& operator()(const uint64_t&) { return uint64(); }
       const std::shared_ptr<DataType>& operator()(const double&) { return float64(); }
+      // GH-44579: How to support binary data?
       const std::shared_ptr<DataType>& operator()(const std::string&) { return utf8(); }
     } visitor;
     return std::visit(visitor, value.value());
