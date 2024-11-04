@@ -529,7 +529,7 @@ struct _GArrowDecimal64ScalarClass
 GARROW_AVAILABLE_IN_19_0
 GArrowDecimal64Scalar *
 garrow_decimal64_scalar_new(GArrowDecimal64DataType *data_type, GArrowDecimal64 *value);
-GARROW_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_19_0
 GArrowDecimal64 *
 garrow_decimal64_scalar_get_value(GArrowDecimal64Scalar *scalar);
 
