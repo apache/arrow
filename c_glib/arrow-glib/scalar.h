@@ -513,7 +513,7 @@ struct _GArrowDecimal32ScalarClass
 GARROW_AVAILABLE_IN_19_0
 GArrowDecimal32Scalar *
 garrow_decimal32_scalar_new(GArrowDecimal32DataType *data_type, GArrowDecimal32 *value);
-GARROW_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_19_0
 GArrowDecimal32 *
 garrow_decimal32_scalar_get_value(GArrowDecimal32Scalar *scalar);
 
