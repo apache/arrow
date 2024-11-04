@@ -54,6 +54,7 @@ Status ValidatePath(std::string_view s) {
 ////////////////////////////////////////////////////////////////////////////
 // Filesystem structure
 
+struct Directory;
 class Entry;
 
 struct File {
@@ -77,8 +78,6 @@ struct File {
 
 // A filesystem entry
 using EntryBase = std::variant<std::nullptr_t, File, Directory>;
-
-struct Directory;
 
 class Entry : public EntryBase {
 public:
