@@ -82,11 +82,9 @@ struct Directory {
   std::map<std::string, std::unique_ptr<Entry>> entries;
 
   Directory(std::string name, TimePoint mtime);
-  Directory::Directory(Directory&& other) noexcept;
+  Directory(Directory&& other) noexcept;
 
   Directory& operator=(Directory&& other) noexcept;
-
-  Entry* Find(const std::string& s);
 
   Entry* Find(const std::string& s);
 
