@@ -526,7 +526,7 @@ struct _GArrowDecimal64ScalarClass
   GArrowScalarClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_19_0
 GArrowDecimal64Scalar *
 garrow_decimal64_scalar_new(GArrowDecimal64DataType *data_type, GArrowDecimal64 *value);
 GARROW_AVAILABLE_IN_5_0
