@@ -1052,6 +1052,12 @@ test_linux_wheels() {
     local wheel_content="OFF"
   fi
 
+  if [ "${SOURCE_KIND}" = "tarball" ]; then
+    local check_version="ON"
+  else
+    local check_version="OFF"
+  fi
+
   for python in ${python_versions}; do
     local pyver=${python/m}
     for platform in ${platform_tags}; do
@@ -1061,7 +1067,11 @@ test_linux_wheels() {
         continue
       fi
       pip install pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} \
+      ARROW_GCS=${check_gcs} \
+        ARROW_VERSION=${VERSION} \
+        CHECK_VERSION=${check_version} \
+        CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} \
+        INSTALL_PYARROW=OFF \
         ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
@@ -1086,6 +1096,12 @@ test_macos_wheels() {
     local wheel_content="OFF"
   fi
 
+  if [ "${SOURCE_KIND}" = "tarball" ]; then
+    local check_version="ON"
+  else
+    local check_version="OFF"
+  fi
+
   # verify arch-native wheels inside an arch-native conda environment
   for python in ${python_versions}; do
     local pyver=${python/m}
@@ -1102,8 +1118,13 @@ test_macos_wheels() {
       fi
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} \
-        ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
+      ARROW_FLIGHT=${check_flight} \
+        ARROW_GCS=${check_gcs} \
+        ARROW_S3=${check_s3} \
+        ARROW_VERSION=${VERSION} \
+        CHECK_WHEEL_CONTENT=${wheel_content:-"ON"} \
+        CHECK_VERSION=${check_version} \
+        INSTALL_PYARROW=OFF \
         ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done

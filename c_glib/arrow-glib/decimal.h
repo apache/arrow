@@ -106,7 +106,7 @@ garrow_decimal32_rescale(GArrowDecimal32 *decimal,
 
 /* Disabled because it conflicts with GARROW_TYPE_DECIMAL64 in GArrowType. */
 /* #define GARROW_TYPE_DECIMAL64 (garrow_decimal64_get_type()) */
-GARROW_AVAILABLE_IN_ALL
+GARROW_AVAILABLE_IN_19_0
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal64, garrow_decimal64, GARROW, DECIMAL64, GObject)
 
 struct _GArrowDecimal64Class
