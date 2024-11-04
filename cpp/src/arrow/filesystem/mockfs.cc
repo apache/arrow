@@ -76,6 +76,30 @@ struct File {
   }
 };
 
+struct Directory {
+  std::string name;
+  TimePoint mtime;
+  std::map<std::string, std::unique_ptr<Entry>> entries;
+
+  Directory(std::string name, TimePoint mtime);
+  Directory::Directory(Directory&& other) noexcept;
+
+  Directory& operator=(Directory&& other) noexcept;
+
+  Entry* Find(const std::string& s);
+
+  Entry* Find(const std::string& s);
+
+  bool CreateEntry(const std::string& s, std::unique_ptr<Entry> entry);
+
+  void AssignEntry(const std::string& s, std::unique_ptr<Entry> entry);
+
+  bool DeleteEntry(const std::string& s);
+
+ private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Directory);
+};
+
 // A filesystem entry
 using EntryBase = std::variant<std::nullptr_t, File, Directory>;
 
@@ -144,49 +168,40 @@ private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Entry);
 };
 
-struct Directory {
-  std::string name;
-  TimePoint mtime;
-  std::map<std::string, std::unique_ptr<Entry>> entries;
+Directory::Directory(std::string name, TimePoint mtime) : name(std::move(name)), mtime(mtime) {}
+Directory::Directory(Directory&& other) noexcept
+    : name(std::move(other.name)),
+      mtime(other.mtime),
+      entries(std::move(other.entries)) {}
 
-  Directory(std::string name, TimePoint mtime) : name(std::move(name)), mtime(mtime) {}
-  Directory(Directory&& other) noexcept
-      : name(std::move(other.name)),
-        mtime(other.mtime),
-        entries(std::move(other.entries)) {}
+Directory& Directory::operator=(Directory&& other) noexcept {
+  name = std::move(other.name);
+  mtime = other.mtime;
+  entries = std::move(other.entries);
+  return *this;
+}
 
-  Directory& operator=(Directory&& other) noexcept {
-    name = std::move(other.name);
-    mtime = other.mtime;
-    entries = std::move(other.entries);
-    return *this;
+Entry* Directory::Find(const std::string& s) {
+  auto it = entries.find(s);
+  if (it != entries.end()) {
+    return it->second.get();
+  } else {
+    return nullptr;
   }
+}
 
-  Entry* Find(const std::string& s) {
-    auto it = entries.find(s);
-    if (it != entries.end()) {
-      return it->second.get();
-    } else {
-      return nullptr;
-    }
-  }
+bool Directory::CreateEntry(const std::string& s, std::unique_ptr<Entry> entry) {
+  DCHECK(!s.empty());
+  auto p = entries.emplace(s, std::move(entry));
+  return p.second;
+}
 
-  bool CreateEntry(const std::string& s, std::unique_ptr<Entry> entry) {
-    DCHECK(!s.empty());
-    auto p = entries.emplace(s, std::move(entry));
-    return p.second;
-  }
+void Directory::AssignEntry(const std::string& s, std::unique_ptr<Entry> entry) {
+  DCHECK(!s.empty());
+  entries[s] = std::move(entry);
+}
 
-  void AssignEntry(const std::string& s, std::unique_ptr<Entry> entry) {
-    DCHECK(!s.empty());
-    entries[s] = std::move(entry);
-  }
-
-  bool DeleteEntry(const std::string& s) { return entries.erase(s) > 0; }
-
- private:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(Directory);
-};
+bool Directory::DeleteEntry(const std::string& s) { return entries.erase(s) > 0; }
 
 ////////////////////////////////////////////////////////////////////////////
 // Streams
