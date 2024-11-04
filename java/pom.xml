@@ -109,7 +109,7 @@ under the License.
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <error_prone_core.version>2.31.0</error_prone_core.version>
     <mockito.core.version>5.14.2</mockito.core.version>
-    <checker.framework.version>3.48.1</checker.framework.version>
+    <checker.framework.version>3.48.2</checker.framework.version>
     <logback.version>1.5.11</logback.version>
     <doclint>none</doclint>
     <additionalparam>-Xdoclint:none</additionalparam>
