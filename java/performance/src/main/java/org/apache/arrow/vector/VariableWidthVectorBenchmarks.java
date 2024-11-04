@@ -26,6 +26,7 @@ import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -52,6 +53,9 @@ public class VariableWidthVectorBenchmarks {
   private BufferAllocator allocator;
 
   private VarCharVector vector;
+
+  @Param({"1", "2", "10", "40"})
+  private int step;
 
   /** Setup benchmarks. */
   @Setup(Level.Iteration)
@@ -88,7 +92,7 @@ public class VariableWidthVectorBenchmarks {
   @OutputTimeUnit(TimeUnit.MILLISECONDS)
   public int setSafeFromArray() {
     for (int i = 0; i < 500; ++i) {
-      vector.setSafe(i * 40, bytes);
+      vector.setSafe(i * step, bytes);
     }
     return vector.getBufferSize();
   }
