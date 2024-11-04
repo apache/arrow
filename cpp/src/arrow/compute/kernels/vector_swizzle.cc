@@ -412,7 +412,7 @@ void RegisterVectorPermute(FunctionRegistry* registry) {
 
 // ----------------------------------------------------------------------
 
-void RegisterVectorPlacement(FunctionRegistry* registry) {
+void RegisterVectorSwizzle(FunctionRegistry* registry) {
   RegisterVectorReverseIndices(registry);
   RegisterVectorPermute(registry);
 }

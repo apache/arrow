@@ -1932,11 +1932,10 @@ operation to the n-th and (n+abs(p))-th inputs.
 * \(2) Wraps around the result when overflow is detected.
 * \(3) Returns an ``Invalid`` :class:`Status` when overflow is detected.
 
-Placement functions
+Swizzle functions
 ~~~~~~~~~~~~~~~~~~~
 
-Placement functions reorder the input array based on placement arguments, e.g.
-indices.
+Swizzle functions reorder the input array based on targeting indices.
 
 +-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
 | Function name   | Arity  | Input type 1 | Input type 2 | Output type  | Options class                   | Notes |

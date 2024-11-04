@@ -56,7 +56,7 @@ void RegisterVectorSort(FunctionRegistry* registry);
 void RegisterVectorRunEndEncode(FunctionRegistry* registry);
 void RegisterVectorRunEndDecode(FunctionRegistry* registry);
 void RegisterVectorPairwise(FunctionRegistry* registry);
-void RegisterVectorPlacement(FunctionRegistry* registry);
+void RegisterVectorSwizzle(FunctionRegistry* registry);
 void RegisterVectorOptions(FunctionRegistry* registry);
 
 // Aggregate functions

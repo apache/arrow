@@ -115,9 +115,9 @@ add_arrow_compute_test(vector_selection_test
                        EXTRA_LINK_LIBS
                        arrow_compute_kernels_testing)
 
-add_arrow_compute_test(vector_placement_test
+add_arrow_compute_test(vector_swizzle_test
                        SOURCES
-                       vector_placement_test.cc
+                       vector_swizzle_test.cc
                        EXTRA_LINK_LIBS
                        arrow_compute_kernels_testing)
 
