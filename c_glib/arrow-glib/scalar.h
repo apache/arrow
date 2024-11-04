@@ -502,7 +502,7 @@ GArrowMonthDayNano *
 garrow_month_day_nano_interval_scalar_get_value(GArrowMonthDayNanoIntervalScalar *scalar);
 
 #define GARROW_TYPE_DECIMAL32_SCALAR (garrow_decimal32_scalar_get_type())
-GARROW_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_19_0
 G_DECLARE_DERIVABLE_TYPE(
   GArrowDecimal32Scalar, garrow_decimal32_scalar, GARROW, DECIMAL32_SCALAR, GArrowScalar)
 struct _GArrowDecimal32ScalarClass
