@@ -1937,17 +1937,17 @@ Swizzle functions
 
 Swizzle functions reorder the input array based on targeting indices.
 
-+-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
-| Function name   | Arity  | Input type 1 | Input type 2 | Output type  | Options class                   | Notes |
-+=================+========+==============+==============+==============+=================================+=======+
-| reverse_indices | Unary  | Integer      |              | Integer \(1) | :struct:`ReverseIndicesOptions` | \(2)  |
-+-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
-| permute         | Binary | Any          | Integer      | Input type 1 | :struct:`PermuteOptions`        | \(3)  |
-+-----------------+--------+--------------+--------------+--------------+---------------------------------+-------+
++---------------------+--------+--------------+--------------+--------------+-------------------------------------+-------+
+| Function name       | Arity  | Input type 1 | Input type 2 | Output type  | Options class                       | Notes |
++=====================+========+==============+==============+==============+=====================================+=======+
+| inverse_permutation | Unary  | Integer      |              | Integer \(1) | :struct:`InversePermutationOptions` | \(2)  |
++---------------------+--------+--------------+--------------+--------------+-------------------------------------+-------+
+| scatter             | Binary | Any          | Integer      | Input type 1 | :struct:`ScatterOptions`            | \(3)  |
++---------------------+--------+--------------+--------------+--------------+-------------------------------------+-------+
 
-* \(1) The output type is specified in :struct:`ReverseIndicesOptions`.
+* \(1) The output type is specified in :struct:`InversePermutationOptions`.
 
-* \(2) For ``indices[i] = x``, ``reverse_indices[x] = i``. And ``reverse_indices[x]
+* \(2) For ``indices[i] = x``, ``inverse_permutation[x] = i``. And ``inverse_permutation[x]
  = null`` if ``x`` does not appear in the input ``indices``. For ``indices[i] = x``
  where ``x < 0`` or ``x >= output_length``, it is ignored. If multiple indices point
  to the same value, the last one is used.

@@ -49,20 +49,21 @@ using SmallOutputTypes = ::testing::Types<UInt8Type, UInt16Type, Int8Type, Int16
 }  // namespace
 
 // ----------------------------------------------------------------------
-// ReverseIndices tests
+// InversePermutation tests
 
 namespace {
 
-Result<Datum> ReverseIndices(const Datum& indices, int64_t output_length,
-                             std::shared_ptr<DataType> output_type) {
-  ReverseIndicesOptions options{output_length, std::move(output_type)};
-  return ReverseIndices(indices, options);
+Result<Datum> InversePermutation(const Datum& indices, int64_t output_length,
+                                 std::shared_ptr<DataType> output_type) {
+  InversePermutationOptions options{output_length, std::move(output_type)};
+  return InversePermutation(indices, options);
 }
 
-void AssertReverseIndices(const Datum& indices, int64_t output_length,
-                          const std::shared_ptr<DataType>& output_type,
-                          const Datum& expected, bool validity_must_be_null) {
-  ASSERT_OK_AND_ASSIGN(auto result, ReverseIndices(indices, output_length, output_type));
+void AssertInversePermutation(const Datum& indices, int64_t output_length,
+                              const std::shared_ptr<DataType>& output_type,
+                              const Datum& expected, bool validity_must_be_null) {
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       InversePermutation(indices, output_length, output_type));
   ASSERT_EQ(indices.kind(), result.kind());
   std::shared_ptr<Array> result_array;
   if (result.is_array()) {
@@ -78,40 +79,40 @@ void AssertReverseIndices(const Datum& indices, int64_t output_length,
 }
 
 template <typename InputFunc>
-void DoTestReverseIndicesForInputTypes(
+void DoTestInversePermutationForInputTypes(
     const std::vector<std::shared_ptr<DataType>>& input_types, InputFunc&& input,
     int64_t output_length, const std::shared_ptr<DataType>& output_type,
     const Datum& expected, bool validity_must_be_null = false) {
   for (const auto& input_type : input_types) {
     ARROW_SCOPED_TRACE("Input type: " + input_type->ToString());
     auto indices = input(input_type);
-    AssertReverseIndices(indices, output_length, output_type, expected,
-                         validity_must_be_null);
+    AssertInversePermutation(indices, output_length, output_type, expected,
+                             validity_must_be_null);
   }
 }
 
 template <typename InputFunc>
-void DoTestReverseIndicesForInputOutputTypes(
+void DoTestInversePermutationForInputOutputTypes(
     const std::vector<std::shared_ptr<DataType>>& input_types,
     const std::vector<std::shared_ptr<DataType>>& output_types, InputFunc&& input,
     int64_t output_length, const std::string& expected_str, bool validity_must_be_null) {
   for (const auto& output_type : kIntegerTypes) {
     ARROW_SCOPED_TRACE("Output type: " + output_type->ToString());
     auto expected = ArrayFromJSON(output_type, expected_str);
-    DoTestReverseIndicesForInputTypes(input_types, std::forward<InputFunc>(input),
-                                      output_length, output_type, expected,
-                                      validity_must_be_null);
+    DoTestInversePermutationForInputTypes(input_types, std::forward<InputFunc>(input),
+                                          output_length, output_type, expected,
+                                          validity_must_be_null);
   }
 }
 
-void TestReverseIndicesForInputOutputTypes(
+void TestInversePermutationForInputOutputTypes(
     const std::vector<std::shared_ptr<DataType>>& input_types,
     const std::vector<std::shared_ptr<DataType>>& output_types,
     const std::string& indices_str, const std::vector<std::string>& indices_chunked_str,
     int64_t output_length, const std::string& expected_str, bool validity_must_be_null) {
   {
     ARROW_SCOPED_TRACE("Array");
-    DoTestReverseIndicesForInputOutputTypes(
+    DoTestInversePermutationForInputOutputTypes(
         input_types, output_types,
         [&](const std::shared_ptr<DataType>& input_type) {
           return ArrayFromJSON(input_type, indices_str);
@@ -120,7 +121,7 @@ void TestReverseIndicesForInputOutputTypes(
   }
   {
     ARROW_SCOPED_TRACE("Chunked");
-    DoTestReverseIndicesForInputOutputTypes(
+    DoTestInversePermutationForInputOutputTypes(
         input_types, output_types,
         [&](const std::shared_ptr<DataType>& input_type) {
           return ChunkedArrayFromJSON(input_type, indices_chunked_str);
@@ -129,47 +130,48 @@ void TestReverseIndicesForInputOutputTypes(
   }
 }
 
-void TestReverseIndicesSigned(const std::string& indices_str,
-                              const std::vector<std::string>& indices_chunked_str,
-                              int64_t output_length, const std::string& expected_str,
-                              bool validity_must_be_null = false) {
-  TestReverseIndicesForInputOutputTypes(kSignedIntegerTypes, kIntegerTypes, indices_str,
-                                        indices_chunked_str, output_length, expected_str,
-                                        validity_must_be_null);
+void TestInversePermutationSigned(const std::string& indices_str,
+                                  const std::vector<std::string>& indices_chunked_str,
+                                  int64_t output_length, const std::string& expected_str,
+                                  bool validity_must_be_null = false) {
+  TestInversePermutationForInputOutputTypes(
+      kSignedIntegerTypes, kIntegerTypes, indices_str, indices_chunked_str, output_length,
+      expected_str, validity_must_be_null);
 }
 
-void TestReverseIndices(const std::string& indices_str,
-                        const std::vector<std::string>& indices_chunked_str,
-                        int64_t output_length, const std::string& expected_str,
-                        bool validity_must_be_null = false) {
-  TestReverseIndicesForInputOutputTypes(kIntegerTypes, kIntegerTypes, indices_str,
-                                        indices_chunked_str, output_length, expected_str,
-                                        validity_must_be_null);
+void TestInversePermutation(const std::string& indices_str,
+                            const std::vector<std::string>& indices_chunked_str,
+                            int64_t output_length, const std::string& expected_str,
+                            bool validity_must_be_null = false) {
+  TestInversePermutationForInputOutputTypes(kIntegerTypes, kIntegerTypes, indices_str,
+                                            indices_chunked_str, output_length,
+                                            expected_str, validity_must_be_null);
 }
 
 }  // namespace
 
-TEST(ReverseIndices, InvalidOutputType) {
+TEST(InversePermutation, InvalidOutputType) {
   {
     ARROW_SCOPED_TRACE("Output type float");
     auto indices = ArrayFromJSON(int32(), "[]");
     ASSERT_RAISES_WITH_MESSAGE(
-        Invalid, "Invalid: Output type of reverse_indices must be integer, got float",
-        ReverseIndices(indices, /*output_length=*/0, /*output_type=*/float32()));
+        Invalid, "Invalid: Output type of inverse_permutation must be integer, got float",
+        InversePermutation(indices, /*output_length=*/0, /*output_type=*/float32()));
   }
   {
     ARROW_SCOPED_TRACE("Output type string");
     auto indices = ArrayFromJSON(int32(), "[]");
     ASSERT_RAISES_WITH_MESSAGE(
-        Invalid, "Invalid: Output type of reverse_indices must be integer, got string",
-        ReverseIndices(indices, /*output_length=*/0, /*output_type=*/utf8()));
+        Invalid,
+        "Invalid: Output type of inverse_permutation must be integer, got string",
+        InversePermutation(indices, /*output_length=*/0, /*output_type=*/utf8()));
   }
 }
 
-TEST(ReverseIndices, DefaultOptions) {
+TEST(InversePermutation, DefaultOptions) {
   {
     ARROW_SCOPED_TRACE("Default options values");
-    ReverseIndicesOptions options;
+    InversePermutationOptions options;
     ASSERT_EQ(options.output_length, -1);
     ASSERT_EQ(options.output_type, nullptr);
   }
@@ -178,14 +180,14 @@ TEST(ReverseIndices, DefaultOptions) {
     for (const auto& input_type : kIntegerTypes) {
       ARROW_SCOPED_TRACE("Input type: " + input_type->ToString());
       auto indices = ArrayFromJSON(input_type, "[0]");
-      ASSERT_OK_AND_ASSIGN(Datum result, ReverseIndices(indices));
+      ASSERT_OK_AND_ASSIGN(Datum result, InversePermutation(indices));
       AssertDatumsEqual(indices, result);
     }
   }
 }
 
 template <typename ArrowType>
-class TestReverseIndicesSmallOutputType : public ::testing::Test {
+class TestInversePermutationSmallOutputType : public ::testing::Test {
  protected:
   using CType = typename TypeTraits<ArrowType>::CType;
 
@@ -194,15 +196,15 @@ class TestReverseIndicesSmallOutputType : public ::testing::Test {
   }
 };
 
-TYPED_TEST_SUITE(TestReverseIndicesSmallOutputType, SmallOutputTypes);
+TYPED_TEST_SUITE(TestInversePermutationSmallOutputType, SmallOutputTypes);
 
-TYPED_TEST(TestReverseIndicesSmallOutputType, JustEnoughOutputType) {
+TYPED_TEST(TestInversePermutationSmallOutputType, JustEnoughOutputType) {
   auto output_type = this->type_singleton();
   int64_t input_length =
       static_cast<int64_t>(std::numeric_limits<typename TestFixture::CType>::max());
   auto expected =
       ArrayFromJSON(output_type, "[" + std::to_string(input_length - 1) + "]");
-  DoTestReverseIndicesForInputTypes(
+  DoTestInversePermutationForInputTypes(
       kIntegerTypes,
       [&](const std::shared_ptr<DataType>& input_type) {
         return ConstantArrayGenerator::Zeroes(input_length, input_type);
@@ -210,7 +212,7 @@ TYPED_TEST(TestReverseIndicesSmallOutputType, JustEnoughOutputType) {
       /*output_length=*/1, output_type, expected);
 }
 
-TYPED_TEST(TestReverseIndicesSmallOutputType, InsufficientOutputType) {
+TYPED_TEST(TestInversePermutationSmallOutputType, InsufficientOutputType) {
   auto output_type = this->type_singleton();
   int64_t input_length =
       static_cast<int64_t>(std::numeric_limits<typename TestFixture::CType>::max()) + 1;
@@ -220,13 +222,13 @@ TYPED_TEST(TestReverseIndicesSmallOutputType, InsufficientOutputType) {
     ASSERT_RAISES_WITH_MESSAGE(
         Invalid,
         "Invalid: Output type " + output_type->ToString() +
-            " of reverse_indices is insufficient to store indices of length " +
+            " of inverse_permutation is insufficient to store indices of length " +
             std::to_string(input_length),
-        ReverseIndices(indices, /*output_length=*/1, output_type));
+        InversePermutation(indices, /*output_length=*/1, output_type));
   }
 }
 
-TEST(ReverseIndices, Basic) {
+TEST(InversePermutation, Basic) {
   {
     ARROW_SCOPED_TRACE("Basic");
     auto indices = "[9, 7, 5, 3, 1, 0, 2, 4, 6, 8]";
@@ -234,8 +236,8 @@ TEST(ReverseIndices, Basic) {
         "[]", "[9, 7, 5, 3, 1]", "[0]", "[2, 4, 6]", "[8]", "[]"};
     int64_t output_length = 10;
     auto expected = "[5, 4, 6, 3, 7, 2, 8, 1, 9, 0]";
-    TestReverseIndices(indices, indices_chunked, output_length, expected,
-                       /*validity_must_be_null=*/true);
+    TestInversePermutation(indices, indices_chunked, output_length, expected,
+                           /*validity_must_be_null=*/true);
   }
   {
     ARROW_SCOPED_TRACE("Basic with nulls");
@@ -244,7 +246,7 @@ TEST(ReverseIndices, Basic) {
         "[]", "[9, 7, 5, 3, 1]", "[null]", "[null, null, null]", "[null]", "[]"};
     int64_t output_length = 10;
     auto expected = "[null, 4, null, 3, null, 2, null, 1, null, 0]";
-    TestReverseIndices(indices, indices_chunked, output_length, expected);
+    TestInversePermutation(indices, indices_chunked, output_length, expected);
   }
   {
     ARROW_SCOPED_TRACE("Basic with negatives");
@@ -253,7 +255,7 @@ TEST(ReverseIndices, Basic) {
         "[]", "[9, 7, 5, 3, 1]", "[-1]", "[-2, -3, -4]", "[-5]", "[]"};
     int64_t output_length = 10;
     auto expected = "[null, 4, null, 3, null, 2, null, 1, null, 0]";
-    TestReverseIndicesSigned(indices, indices_chunked, output_length, expected);
+    TestInversePermutationSigned(indices, indices_chunked, output_length, expected);
   }
   {
     ARROW_SCOPED_TRACE("Empty output");
@@ -261,8 +263,8 @@ TEST(ReverseIndices, Basic) {
     std::vector<std::string> indices_chunked{"[]", "[1]", "[]", "[]", "[2]", "[]"};
     int64_t output_length = 0;
     auto expected = "[]";
-    TestReverseIndices(indices, indices_chunked, output_length, expected,
-                       /*validity_must_be_null=*/true);
+    TestInversePermutation(indices, indices_chunked, output_length, expected,
+                           /*validity_must_be_null=*/true);
   }
   {
     ARROW_SCOPED_TRACE("Output less than input");
@@ -270,8 +272,8 @@ TEST(ReverseIndices, Basic) {
     std::vector<std::string> indices_chunked{"[]", "[]", "[]", "[1, 0]"};
     int64_t output_length = 1;
     auto expected = "[1]";
-    TestReverseIndices(indices, indices_chunked, output_length, expected,
-                       /*validity_must_be_null=*/true);
+    TestInversePermutation(indices, indices_chunked, output_length, expected,
+                           /*validity_must_be_null=*/true);
   }
   {
     ARROW_SCOPED_TRACE("Output greater than input");
@@ -279,7 +281,7 @@ TEST(ReverseIndices, Basic) {
     std::vector<std::string> indices_chunked{"[]", "[1]", "[]", "[2]"};
     int64_t output_length = 7;
     auto expected = "[null, 0, 1, null, null, null, null]";
-    TestReverseIndices(indices, indices_chunked, output_length, expected);
+    TestInversePermutation(indices, indices_chunked, output_length, expected);
   }
   {
     ARROW_SCOPED_TRACE("Input all null");
@@ -287,7 +289,7 @@ TEST(ReverseIndices, Basic) {
     std::vector<std::string> indices_chunked{"[]", "[null]", "[]", "[null]"};
     int64_t output_length = 2;
     auto expected = "[null, null]";
-    TestReverseIndices(indices, indices_chunked, output_length, expected);
+    TestInversePermutation(indices, indices_chunked, output_length, expected);
   }
   {
     ARROW_SCOPED_TRACE("Output all null");
@@ -295,7 +297,7 @@ TEST(ReverseIndices, Basic) {
     std::vector<std::string> indices_chunked{"[]", "[2]", "[]", "[3]"};
     int64_t output_length = 2;
     auto expected = "[null, null]";
-    TestReverseIndices(indices, indices_chunked, output_length, expected);
+    TestInversePermutation(indices, indices_chunked, output_length, expected);
   }
   {
     ARROW_SCOPED_TRACE("Empty input output null");
@@ -303,7 +305,7 @@ TEST(ReverseIndices, Basic) {
     std::vector<std::string> indices_chunked{"[]", "[]", "[]", "[]"};
     int64_t output_length = 7;
     auto expected = "[null, null, null, null, null, null, null]";
-    TestReverseIndices(indices, indices_chunked, output_length, expected);
+    TestInversePermutation(indices, indices_chunked, output_length, expected);
   }
   {
     ARROW_SCOPED_TRACE("Input duplicated indices");
@@ -312,7 +314,7 @@ TEST(ReverseIndices, Basic) {
                                              "[]", "[2]",    "[3]"};
     int64_t output_length = 5;
     auto expected = "[null, 6, 7, 8, null]";
-    TestReverseIndices(indices, indices_chunked, output_length, expected);
+    TestInversePermutation(indices, indices_chunked, output_length, expected);
   }
 }
 

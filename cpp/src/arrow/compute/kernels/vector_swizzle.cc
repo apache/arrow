@@ -27,32 +27,33 @@ namespace arrow::compute::internal {
 namespace {
 
 // ----------------------------------------------------------------------
-// ReverseIndices
+// InversePermutation
 
-const FunctionDoc reverse_indices_doc(
-    "Return the reverse indices of the given indices",
+const FunctionDoc inverse_permutation_doc(
+    "Return the inverse permutation of the given indices",
     "For the `i`-th `index` in `indices`, the `index`-th output is `i`", {"indices"});
 
-const ReverseIndicesOptions* GetDefaultReverseIndicesOptions() {
-  static const auto kDefaultReverseIndicesOptions = ReverseIndicesOptions::Defaults();
-  return &kDefaultReverseIndicesOptions;
+const InversePermutationOptions* GetDefaultInversePermutationOptions() {
+  static const auto kDefaultInversePermutationOptions =
+      InversePermutationOptions::Defaults();
+  return &kDefaultInversePermutationOptions;
 }
 
-using ReverseIndicesState = OptionsWrapper<ReverseIndicesOptions>;
+using InversePermutationState = OptionsWrapper<InversePermutationOptions>;
 
-/// Resolve the output type of reverse_indices. The output type is specified in the
+/// Resolve the output type of inverse_permutation. The output type is specified in the
 /// options, and if null, set it to the input type. The output type must be integer.
-Result<TypeHolder> ResolveReverseIndicesOutputType(
+Result<TypeHolder> ResolveInversePermutationOutputType(
     KernelContext* ctx, const std::vector<TypeHolder>& input_types) {
   DCHECK_EQ(input_types.size(), 1);
   DCHECK_NE(input_types[0], nullptr);
 
-  std::shared_ptr<DataType> output_type = ReverseIndicesState::Get(ctx).output_type;
+  std::shared_ptr<DataType> output_type = InversePermutationState::Get(ctx).output_type;
   if (!output_type) {
     output_type = input_types[0].owned_type;
   }
   if (!is_integer(output_type->id())) {
-    return Status::Invalid("Output type of reverse_indices must be integer, got " +
+    return Status::Invalid("Output type of inverse_permutation must be integer, got " +
                            output_type->ToString());
   }
 
@@ -60,8 +61,8 @@ Result<TypeHolder> ResolveReverseIndicesOutputType(
 }
 
 template <typename ExecType>
-struct ReverseIndicesImpl {
-  using ThisType = ReverseIndicesImpl<ExecType>;
+struct InversePermutationImpl {
+  using ThisType = InversePermutationImpl<ExecType>;
   using IndexType = typename ExecType::IndexType;
   using IndexCType = typename IndexType::c_type;
   using ShapeType = typename ExecType::ShapeType;
@@ -69,7 +70,7 @@ struct ReverseIndicesImpl {
   static Result<std::shared_ptr<ArrayData>> Exec(
       KernelContext* ctx, const ShapeType& indices, int64_t input_length,
       const std::shared_ptr<DataType>& input_type) {
-    const auto& options = ReverseIndicesState::Get(ctx);
+    const auto& options = InversePermutationState::Get(ctx);
 
     // Apply default options semantics.
     int64_t output_length = options.output_length;
@@ -98,8 +99,8 @@ struct ReverseIndicesImpl {
   std::shared_ptr<Buffer> data_buf = nullptr;
 
  private:
-  ReverseIndicesImpl(KernelContext* ctx, const ShapeType& indices, int64_t input_length,
-                     int64_t output_length)
+  InversePermutationImpl(KernelContext* ctx, const ShapeType& indices,
+                         int64_t input_length, int64_t output_length)
       : ctx(ctx),
         indices(indices),
         input_length(input_length),
@@ -123,8 +124,8 @@ struct ReverseIndicesImpl {
     // - Otherwise (i.e. the output is "dense"), the validity buffer is lazily allocated
     // and initialized all-true in the subsequent processing only when needed. The data
     // buffer is preallocated and filled with all "impossible" values (that is,
-    // input_length - note that the range of reverse_indices is [0, input_length)) for the
-    // subsequent processing to detect validity.
+    // input_length - note that the range of inverse_permutation is [0, input_length)) for
+    // the subsequent processing to detect validity.
     bool likely_many_nulls = LikelyManyNulls();
     if (likely_many_nulls) {
       RETURN_NOT_OK(AllocateValidityBufAndFill(false));
@@ -145,7 +146,7 @@ struct ReverseIndicesImpl {
       if (static_cast<int64_t>(std::numeric_limits<OutputCType>::max()) < input_length) {
         return Status::Invalid(
             "Output type " + output_type.ToString() +
-            " of reverse_indices is insufficient to store indices of length " +
+            " of inverse_permutation is insufficient to store indices of length " +
             std::to_string(input_length));
       }
     }
@@ -199,23 +200,23 @@ struct ReverseIndicesImpl {
     }
     DCHECK_NE(data_buf, nullptr);
     OutputCType* data = data_buf->mutable_data_as<OutputCType>();
-    int64_t reverse_index = 0;
+    int64_t inverse = 0;
     RETURN_NOT_OK(ExecType::template VisitIndices(
         indices,
         [&](IndexCType index) {
           if (ARROW_PREDICT_TRUE(index >= 0 &&
                                  static_cast<int64_t>(index) < output_length)) {
-            data[index] = static_cast<OutputCType>(reverse_index);
+            data[index] = static_cast<OutputCType>(inverse);
             // If many nulls, set validity to true for valid values.
             if constexpr (likely_many_nulls) {
               bit_util::SetBitTo(validity, index, true);
             }
           }
-          ++reverse_index;
+          ++inverse;
           return Status::OK();
         },
         [&]() {
-          ++reverse_index;
+          ++inverse;
           return Status::OK();
         }));
 
@@ -242,8 +243,8 @@ struct ReverseIndicesImpl {
 };
 
 template <typename Ignored, typename Type>
-struct ReverseIndices {
-  using ThisType = ReverseIndices<Ignored, Type>;
+struct InversePermutation {
+  using ThisType = InversePermutation<Ignored, Type>;
   using IndexType = Type;
   using ShapeType = ArraySpan;
 
@@ -259,15 +260,15 @@ struct ReverseIndices {
     DCHECK(span[0].is_array());
     const auto& indices = span[0].array;
     ARROW_ASSIGN_OR_RAISE(
-        result->value, ReverseIndicesImpl<ThisType>::Exec(ctx, indices, indices.length,
-                                                          indices.type->GetSharedPtr()));
+        result->value, InversePermutationImpl<ThisType>::Exec(
+                           ctx, indices, indices.length, indices.type->GetSharedPtr()));
     return Status::OK();
   }
 };
 
 template <typename Ignored, typename Type>
-struct ReverseIndicesChunked {
-  using ThisType = ReverseIndicesChunked<Ignored, Type>;
+struct InversePermutationChunked {
+  using ThisType = InversePermutationChunked<Ignored, Type>;
   using IndexType = Type;
   using ShapeType = std::shared_ptr<ChunkedArray>;
 
@@ -286,28 +287,30 @@ struct ReverseIndicesChunked {
     DCHECK_EQ(batch.num_values(), 1);
     DCHECK(batch[0].is_chunked_array());
     const auto& indices = batch[0].chunked_array();
-    ARROW_ASSIGN_OR_RAISE(auto reverse_indices,
-                          ReverseIndicesImpl<ThisType>::Exec(
+    ARROW_ASSIGN_OR_RAISE(auto inverse_permutation,
+                          InversePermutationImpl<ThisType>::Exec(
                               ctx, indices, indices->length(), indices->type()));
     *result =
-        Datum(std::make_shared<ChunkedArray>(MakeArray(std::move(reverse_indices))));
+        Datum(std::make_shared<ChunkedArray>(MakeArray(std::move(inverse_permutation))));
     return Status::OK();
   }
 };
 
-void RegisterVectorReverseIndices(FunctionRegistry* registry) {
-  auto function = std::make_shared<VectorFunction>("reverse_indices", Arity::Unary(),
-                                                   reverse_indices_doc,
-                                                   GetDefaultReverseIndicesOptions());
+void RegisterVectorInversePermutation(FunctionRegistry* registry) {
+  auto function = std::make_shared<VectorFunction>("inverse_permutation", Arity::Unary(),
+                                                   inverse_permutation_doc,
+                                                   GetDefaultInversePermutationOptions());
 
   auto add_kernel = [&function](Type::type type_id) {
     VectorKernel kernel;
-    kernel.signature = KernelSignature::Make({InputType(match::SameTypeId(type_id))},
-                                             OutputType(ResolveReverseIndicesOutputType));
-    kernel.init = ReverseIndicesState::Init;
-    kernel.exec = GenerateInteger<ReverseIndices, void, ArrayKernelExec>(type_id);
+    kernel.signature =
+        KernelSignature::Make({InputType(match::SameTypeId(type_id))},
+                              OutputType(ResolveInversePermutationOutputType));
+    kernel.init = InversePermutationState::Init;
+    kernel.exec = GenerateInteger<InversePermutation, void, ArrayKernelExec>(type_id);
     kernel.exec_chunked =
-        GenerateInteger<ReverseIndicesChunked, void, VectorKernel::ChunkedExec>(type_id);
+        GenerateInteger<InversePermutationChunked, void, VectorKernel::ChunkedExec>(
+            type_id);
     kernel.can_execute_chunkwise = false;
     kernel.output_chunked = false;
     DCHECK_OK(function->AddKernel(std::move(kernel)));
@@ -369,29 +372,30 @@ class PermuteMetaFunction : public MetaFunction {
     if (output_length < 0) {
       output_length = values.length();
     }
-    // Internally invoke Take(values, ReverseIndices(indices)) to implement permute.
+    // Internally invoke Take(values, InversePermutation(indices)) to implement permute.
     // For example, with
     //   values = [a, b, c, d, e, f, g]
     //   indices = [null, 0, 3, 2, 4, 1, 1]
-    // the ReverseIndices(indices) is
+    // the InversePermutation(indices) is
     //   [1, 6, 3]                    if output_length = 3,
     //   [1, 6, 3, 2, 4, null, null]  if output_length = 7.
-    // and Take(values, ReverseIndices(indices)) is
+    // and Take(values, InversePermutation(indices)) is
     //   [b, g, d]                    if output_length = 3,
     //   [b, g, d, c, e, null, null]  if output_length = 7.
-    ReverseIndicesOptions reverse_indices_options{
+    InversePermutationOptions inverse_permutation_options{
         output_length,
-        // Use the smallest possible uint type to store reverse indices.
-        InferSmallestReverseIndicesType(values.length())};
-    ARROW_ASSIGN_OR_RAISE(
-        auto reverse_indices,
-        CallFunction("reverse_indices", {indices}, &reverse_indices_options, ctx));
+        // Use the smallest possible uint type to store inverse permutation.
+        InferSmallestInversePermutationType(values.length())};
+    ARROW_ASSIGN_OR_RAISE(auto inverse_permutation,
+                          CallFunction("inverse_permutation", {indices},
+                                       &inverse_permutation_options, ctx));
     TakeOptions take_options{/*boundcheck=*/false};
-    return CallFunction("take", {values, reverse_indices}, &take_options, ctx);
+    return CallFunction("take", {values, inverse_permutation}, &take_options, ctx);
   }
 
  private:
-  static std::shared_ptr<DataType> InferSmallestReverseIndicesType(int64_t input_length) {
+  static std::shared_ptr<DataType> InferSmallestInversePermutationType(
+      int64_t input_length) {
     if (input_length <= std::numeric_limits<uint8_t>::max()) {
       return uint8();
     } else if (input_length <= std::numeric_limits<uint16_t>::max()) {
@@ -413,7 +417,7 @@ void RegisterVectorPermute(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 
 void RegisterVectorSwizzle(FunctionRegistry* registry) {
-  RegisterVectorReverseIndices(registry);
+  RegisterVectorInversePermutation(registry);
   RegisterVectorPermute(registry);
 }
 
