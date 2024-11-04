@@ -75,55 +75,11 @@ struct File {
   }
 };
 
-struct Directory {
-  std::string name;
-  TimePoint mtime;
-  std::map<std::string, std::unique_ptr<Entry>> entries;
-
-  Directory(std::string name, TimePoint mtime) : name(std::move(name)), mtime(mtime) {}
-  Directory(Directory&& other) noexcept
-      : name(std::move(other.name)),
-        mtime(other.mtime),
-        entries(std::move(other.entries)) {}
-
-  Directory& operator=(Directory&& other) noexcept {
-    name = std::move(other.name);
-    mtime = other.mtime;
-    entries = std::move(other.entries);
-    return *this;
-  }
-
-  Entry* Find(const std::string& s) {
-    auto it = entries.find(s);
-    if (it != entries.end()) {
-      return it->second.get();
-    } else {
-      return nullptr;
-    }
-  }
-
-  bool CreateEntry(const std::string& s, std::unique_ptr<Entry> entry) {
-    DCHECK(!s.empty());
-    auto p = entries.emplace(s, std::move(entry));
-    return p.second;
-  }
-
-  void AssignEntry(const std::string& s, std::unique_ptr<Entry> entry) {
-    DCHECK(!s.empty());
-    entries[s] = std::move(entry);
-  }
-
-  bool DeleteEntry(const std::string& s) { return entries.erase(s) > 0; }
-
- private:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(Directory);
-};
-
 // A filesystem entry
 using EntryBase = std::variant<std::nullptr_t, File, Directory>;
 
 class Entry : public EntryBase {
- public:
+public:
   Entry(Entry&&) = default;
   Entry& operator=(Entry&&) = default;
   explicit Entry(Directory&& v) : EntryBase(std::move(v)) {}
@@ -183,8 +139,52 @@ class Entry : public EntryBase {
     }
   }
 
- private:
+private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Entry);
+};
+
+struct Directory {
+  std::string name;
+  TimePoint mtime;
+  std::map<std::string, std::unique_ptr<Entry>> entries;
+
+  Directory(std::string name, TimePoint mtime) : name(std::move(name)), mtime(mtime) {}
+  Directory(Directory&& other) noexcept
+      : name(std::move(other.name)),
+        mtime(other.mtime),
+        entries(std::move(other.entries)) {}
+
+  Directory& operator=(Directory&& other) noexcept {
+    name = std::move(other.name);
+    mtime = other.mtime;
+    entries = std::move(other.entries);
+    return *this;
+  }
+
+  Entry* Find(const std::string& s) {
+    auto it = entries.find(s);
+    if (it != entries.end()) {
+      return it->second.get();
+    } else {
+      return nullptr;
+    }
+  }
+
+  bool CreateEntry(const std::string& s, std::unique_ptr<Entry> entry) {
+    DCHECK(!s.empty());
+    auto p = entries.emplace(s, std::move(entry));
+    return p.second;
+  }
+
+  void AssignEntry(const std::string& s, std::unique_ptr<Entry> entry) {
+    DCHECK(!s.empty());
+    entries[s] = std::move(entry);
+  }
+
+  bool DeleteEntry(const std::string& s) { return entries.erase(s) > 0; }
+
+ private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Directory);
 };
 
 ////////////////////////////////////////////////////////////////////////////
