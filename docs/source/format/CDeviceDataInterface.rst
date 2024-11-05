@@ -699,13 +699,14 @@ The C device async stream interface consists of three ``struct`` definitions:
       void (*cancel)(struct ArrowAsyncProducer* self);
 
       void (*release)(struct ArrowAsyncProducer* self);
+      const char* additional_metadata;
       void* private_data;
     };
 
     struct ArrowAsyncDeviceStreamHandler {
       // consumer-specific handlers
       int (*on_schema)(struct ArrowAsyncDeviceStreamHandler* self,
-                       struct ArrowSchema* stream_schema, const char* addl_metadata);
+                       struct ArrowSchema* stream_schema);
       int (*on_next_task)(struct ArrowAsyncDeviceStreamHandler* self,
                           struct ArrowAsyncTask* task, const char* metadata);
       void (*on_error)(struct ArrowAsyncDeviceStreamHandler* self,
@@ -735,17 +736,16 @@ The ArrowAsyncDeviceStreamHandler structure
 
 The structure has the following fields:
 
-.. c:member:: int (*ArrowAsyncDeviceStreamHandler.on_schema)(struct ArrowAsyncDeviceStreamHandler*, struct ArrowSchema*, const char*)
+.. c:member:: int (*ArrowAsyncDeviceStreamHandler.on_schema)(struct ArrowAsyncDeviceStreamHandler*, struct ArrowSchema*)
 
     *Mandatory.* Handler for receiving the schema of the stream. All incoming records should
     match the provided schema. If successful, the function should return 0, otherwise
     it should return an ``errno``-compatible error code.
 
-    The ``const char*`` parameter exists for producers to provide any extra contextual information
-    they want, such as the total number of rows in the stream, statistics, or otherwise. This is
-    encoded in the same format as :c:member:`ArrowSchema.metadata`. If not ``NULL``,
-    the lifetime is only the scope of the call to this function. A consumer who wants to maintain
-    the additional metadata beyond the lifetime of this call *MUST* copy the value themselves.
+    If there is any extra contextual information that the producer wants to provide, it can set
+    :c:member:`ArrowAsyncProducer.additional_metadata` to a non-NULL value. This is encoded in the
+    same format as :c:member:`ArrowSchema.metadata`. The lifetime of this metadata, if not ``NULL``,
+    should be tied to the lifetime of the ``ArrowAsyncProducer`` object.
 
     Unless the ``on_error`` handler is called, this will always get called exactly once and will be
     the first method called on this object. As such the producer *MUST* populate the ``ArrowAsyncProducer``
@@ -908,6 +908,13 @@ This producer-provided and managed object has the following fields:
 
   Any error encountered during handling a call to cancel must be reported via the ``on_error``
   callback on the async stream handler.
+
+.. c:member:: const char* ArrowAsyncProducer.additional_metadata
+
+    *Optional.* An additional metadata string to provide any extra context to the consumer. This *MUST*
+    either be ``NULL`` or a valid string that is encoded in the same way as :c:member:`ArrowSchema.metadata`.
+
+    If not ``NULL`` it *MUST* be valid for at least the lifetime of this object.
 
 .. c:member:: void* ArrowAsyncProducer.private_data
 
