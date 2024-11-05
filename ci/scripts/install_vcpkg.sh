@@ -55,6 +55,12 @@ fi
 
 if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_ACTOR:-}" ]; then
   PATH="${PATH}:${VCPKG_ROOT}"
+  vcpkg install \
+        --clean-after-build \
+        --x-install-root=${VCPKG_ROOT}/installed \
+        --x-manifest-root=/arrow/ci/vcpkg \
+        nuget
+
   nuget_url="https://nuget.pkg.github.com/${GITHUB_ACTOR}/index.json"
   "$(vcpkg fetch nuget)" \
     sources add \
