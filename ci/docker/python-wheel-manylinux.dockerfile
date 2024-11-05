@@ -66,6 +66,8 @@ COPY ci/scripts/install_ccache.sh arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 
 # Install vcpkg
+ARG GITHUB_ACTOR
+ARG GITHUB_TOKEN
 ARG vcpkg
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*linux*.cmake \
@@ -75,10 +77,13 @@ COPY ci/scripts/install_vcpkg.sh \
 ENV VCPKG_ROOT=/opt/vcpkg
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
-    VCPKG_FORCE_SYSTEM_BINARIES=1 \
-    VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
+    GITHUB_ACTOR="${GITHUB_ACTOR}" \
+    GITHUB_TOKEN="${GITHUB_TOKEN}" \
+    VCPKG_BINARY_SOURCES="clear;nuget,https://nuget.pkg.github.com/${GITHUB_ACTOR}/index.json,readwrite" \
     VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
-    VCPKG_FEATURE_FLAGS="manifests"
+    VCPKG_FEATURE_FLAGS="manifests" \
+    VCPKG_FORCE_SYSTEM_BINARIES=1 \
+    VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg
 
 RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg}
 ENV PATH="${PATH}:${VCPKG_ROOT}"
@@ -93,7 +98,7 @@ RUN vcpkg install \
         --clean-after-build \
         --x-install-root=${VCPKG_ROOT}/installed \
         --x-manifest-root=/arrow/ci/vcpkg \
-        --x-feature=azure \ 
+        --x-feature=azure \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \

@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -eu
 
 if [ "$#" -lt 1 ]; then
   echo "Usage: $0 ``<target-directory> [<vcpkg-version> [<vcpkg-ports-patch>]]"
@@ -42,7 +42,7 @@ pushd ${vcpkg_destination}
 
 git checkout "${vcpkg_version}"
 
-if [[ "$OSTYPE" == "msys" ]]; then
+if [[ "${OSTYPE:-}" == "msys" ]]; then
   ./bootstrap-vcpkg.bat -disableMetrics
 else
   ./bootstrap-vcpkg.sh -disableMetrics
@@ -51,6 +51,21 @@ fi
 if [ -f "${vcpkg_ports_patch}" ]; then
   git apply --verbose --ignore-whitespace ${vcpkg_ports_patch}
   echo "Patch successfully applied to the VCPKG port files!"
+fi
+
+if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_ACTOR:-}" ]; then
+  PATH="${PATH}:${VCPKG_ROOT}"
+  nuget_url="https://nuget.pkg.github.com/${GITHUB_ACTOR}/index.json"
+  "$(vcpkg fetch nuget)" \
+    sources add \
+    -Source "${nuget_url}" \
+    -StorePasswordInClearText \
+    -Name GitHubPackages \
+    -UserName "${GITHUB_ACTOR}" \
+    -Password "${GITHUB_TOKEN}"
+  "$(vcpkg fetch nuget)" \
+    setapikey "${GITHUB_TOKEN}" \
+    -Source "${nuget_url}"
 fi
 
 popd
