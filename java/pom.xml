@@ -97,20 +97,20 @@ under the License.
     <dep.slf4j.version>2.0.16</dep.slf4j.version>
     <dep.guava-bom.version>33.3.1-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.114.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.65.0</dep.grpc-bom.version>
+    <dep.grpc-bom.version>1.68.1</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.25.4</dep.protobuf-bom.version>
-    <dep.jackson-bom.version>2.18.0</dep.jackson-bom.version>
+    <dep.jackson-bom.version>2.18.1</dep.jackson-bom.version>
     <dep.hadoop.version>3.4.1</dep.hadoop.version>
     <dep.fbs.version>24.3.25</dep.fbs.version>
     <dep.avro.version>1.12.0</dep.avro.version>
     <arrow.vector.classifier></arrow.vector.classifier>
     <forkCount>2</forkCount>
-    <checkstyle.version>10.18.2</checkstyle.version>
+    <checkstyle.version>10.20.0</checkstyle.version>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <error_prone_core.version>2.31.0</error_prone_core.version>
     <mockito.core.version>5.14.2</mockito.core.version>
-    <checker.framework.version>3.48.1</checker.framework.version>
-    <logback.version>1.5.11</logback.version>
+    <checker.framework.version>3.48.2</checker.framework.version>
+    <logback.version>1.5.12</logback.version>
     <doclint>none</doclint>
     <additionalparam>-Xdoclint:none</additionalparam>
     <!-- List of add-opens arg line arguments for tests -->
@@ -514,7 +514,7 @@ under the License.
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>exec-maven-plugin</artifactId>
-          <version>3.4.1</version>
+          <version>3.5.0</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
