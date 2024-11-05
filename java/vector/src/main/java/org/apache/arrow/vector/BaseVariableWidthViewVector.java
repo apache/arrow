@@ -1367,11 +1367,13 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   protected final void setBytes(int index, byte[] value, int start, int length) {
     int writePosition = index * ELEMENT_SIZE;
 
-    // to clear the memory segment of view being written to
-    // this is helpful in case of overwriting the value
-    viewBuffer.setZero(writePosition, ELEMENT_SIZE);
-
     if (length <= INLINE_SIZE) {
+      // to clear the memory segment of view being written to
+      // if it has been set
+      if (viewBuffer.getLong(writePosition) != 0 || viewBuffer.getLong(writePosition + 8) != 0) {
+        viewBuffer.setZero(writePosition, ELEMENT_SIZE);
+      }
+
       // allocate inline buffer
       // set length
       viewBuffer.setInt(writePosition, length);
@@ -1411,11 +1413,13 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   protected final void setBytes(int index, ArrowBuf valueBuf, int start, int length) {
     int writePosition = index * ELEMENT_SIZE;
 
-    // to clear the memory segment of view being written to
-    // this is helpful in case of overwriting the value
-    viewBuffer.setZero(writePosition, ELEMENT_SIZE);
-
     if (length <= INLINE_SIZE) {
+      // to clear the memory segment of view being written to
+      // if it has been set
+      if (viewBuffer.getLong(writePosition) != 0 || viewBuffer.getLong(writePosition + 8) != 0) {
+        viewBuffer.setZero(writePosition, ELEMENT_SIZE);
+      }
+
       // allocate inline buffer
       // set length
       viewBuffer.setInt(writePosition, length);
