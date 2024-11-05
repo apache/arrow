@@ -64,6 +64,35 @@ class DictBuilder;
 Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
               int32_t recursion_depth, SerializedPyObject* blobs_out);
 
+// Constructing dictionaries of key/value pairs. Sequences of
+// keys and values are built separately using a pair of
+// SequenceBuilders. The resulting Arrow representation
+// can be obtained via the Finish method.
+class DictBuilder {
+public:
+  explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
+    builder_.reset(new StructBuilder(struct_({field("keys", dense_union(FieldVector{})),
+                                              field("vals", dense_union(FieldVector{}))}),
+                                     pool, {keys_.builder(), vals_.builder()}));
+  }
+
+  // Builder for the keys of the dictionary
+  SequenceBuilder& keys() { return keys_; }
+  // Builder for the values of the dictionary
+  SequenceBuilder& vals() { return vals_; }
+
+  // Construct an Arrow StructArray representing the dictionary.
+  // Contains a field "keys" for the keys and "vals" for the values.
+  Status Finish(std::shared_ptr<Array>* out) { return builder_->Finish(out); }
+
+  std::shared_ptr<StructBuilder> builder() { return builder_; }
+
+private:
+  SequenceBuilder keys_;
+  SequenceBuilder vals_;
+  std::shared_ptr<StructBuilder> builder_;
+};
+
 // A Sequence is a heterogeneous collections of elements. It can contain
 // scalar Python types, lists, tuples, dictionaries, tensors and sparse tensors.
 class SequenceBuilder {
@@ -296,35 +325,6 @@ class SequenceBuilder {
   std::shared_ptr<Int32Builder> buffer_indices_;
 
   std::shared_ptr<DenseUnionBuilder> builder_;
-};
-
-// Constructing dictionaries of key/value pairs. Sequences of
-// keys and values are built separately using a pair of
-// SequenceBuilders. The resulting Arrow representation
-// can be obtained via the Finish method.
-class DictBuilder {
- public:
-  explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
-    builder_.reset(new StructBuilder(struct_({field("keys", dense_union(FieldVector{})),
-                                              field("vals", dense_union(FieldVector{}))}),
-                                     pool, {keys_.builder(), vals_.builder()}));
-  }
-
-  // Builder for the keys of the dictionary
-  SequenceBuilder& keys() { return keys_; }
-  // Builder for the values of the dictionary
-  SequenceBuilder& vals() { return vals_; }
-
-  // Construct an Arrow StructArray representing the dictionary.
-  // Contains a field "keys" for the keys and "vals" for the values.
-  Status Finish(std::shared_ptr<Array>* out) { return builder_->Finish(out); }
-
-  std::shared_ptr<StructBuilder> builder() { return builder_; }
-
- private:
-  SequenceBuilder keys_;
-  SequenceBuilder vals_;
-  std::shared_ptr<StructBuilder> builder_;
 };
 
 Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
