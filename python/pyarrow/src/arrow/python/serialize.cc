@@ -87,7 +87,7 @@ public:
 
   std::shared_ptr<StructBuilder> builder() { return builder_; }
 
-private:
+ private:
   SequenceBuilder keys_;
   SequenceBuilder vals_;
   std::shared_ptr<StructBuilder> builder_;
