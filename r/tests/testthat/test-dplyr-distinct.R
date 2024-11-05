@@ -121,4 +121,38 @@ test_that("distinct() can return all columns", {
 
   expect_identical(dim(with_table), dim(expected))
   expect_identical(names(with_table), names(expected))
+
+  # Test with some mutation in there
+  expected <- tbl %>%
+    select(-fct) %>%
+    distinct(lgl, bigger = int * 10L, .keep_all = TRUE) %>%
+    arrange(int)
+
+  with_table <- tbl %>%
+    arrow_table() %>%
+    select(-fct) %>%
+    distinct(lgl, bigger = int * 10, .keep_all = TRUE) %>%
+    arrange(int) %>%
+    collect()
+
+  expect_identical(dim(with_table), dim(expected))
+  expect_identical(names(with_table), names(expected))
+  expect_identical(with_table$bigger, expected$bigger)
+
+  # Mutation that overwrites
+  expected <- tbl %>%
+    select(-fct) %>%
+    distinct(lgl, int = int * 10L, .keep_all = TRUE) %>%
+    arrange(int)
+
+  with_table <- tbl %>%
+    arrow_table() %>%
+    select(-fct) %>%
+    distinct(lgl, int = int * 10, .keep_all = TRUE) %>%
+    arrange(int) %>%
+    collect()
+
+  expect_identical(dim(with_table), dim(expected))
+  expect_identical(names(with_table), names(expected))
+  expect_identical(with_table$int, expected$int)
 })
