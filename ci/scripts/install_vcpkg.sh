@@ -54,24 +54,28 @@ if [ -f "${vcpkg_ports_patch}" ]; then
 fi
 
 if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_ACTOR:-}" ]; then
-  PATH="${PATH}:${VCPKG_ROOT}"
-  vcpkg install \
-        --clean-after-build \
-        --x-install-root=${VCPKG_ROOT}/installed \
-        --x-manifest-root=/arrow/ci/vcpkg \
-        nuget
-
   nuget_url="https://nuget.pkg.github.com/${GITHUB_ACTOR}/index.json"
-  "$(vcpkg fetch nuget)" \
-    sources add \
-    -Source "${nuget_url}" \
-    -StorePasswordInClearText \
-    -Name GitHubPackages \
-    -UserName "${GITHUB_ACTOR}" \
-    -Password "${GITHUB_TOKEN}"
-  "$(vcpkg fetch nuget)" \
-    setapikey "${GITHUB_TOKEN}" \
-    -Source "${nuget_url}"
+  cat <<NUGET_CONFIG > "${VCPKG_ROOT}/nuget.config"
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <config>
+    <add key="defaultPushSource" value="${nuget_url}" />
+  </config>
+  <apikeys>
+    <add key="${nuget_url}" value="${GITHUB_TOKEN}" />
+  </apikeys>
+  <packageSources>
+    <clear />
+    <add key="GitHubPackages" value="${nuget_url}" />
+  </packageSources>
+  <packageSourcesCredentials>
+    <GitHubPackages>
+      <add key="Username" value="${GITHUB_ACTOR}" />
+      <add key="Password" value="${GITHUB_TOKEN}" />
+    </GitHubPackages>
+  </packageSourcesCredentials>
+</configuration>
+NUGET_CONFIG
 fi
 
 popd
