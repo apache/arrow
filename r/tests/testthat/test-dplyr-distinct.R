@@ -103,12 +103,22 @@ test_that("across() works in distinct()", {
 })
 
 test_that("distinct() can return all columns", {
-  skip("ARROW-14045")
-  compare_dplyr_binding(
-    .input %>%
-      distinct(lgl, .keep_all = TRUE) %>%
-      arrange(int) %>%
-      collect(),
-    tbl
-  )
+  # hash_one prefers to keep non-null values, which is different from .keep_all in dplyr
+  # so we can't compare the result directly
+  expected <- tbl %>%
+    # Drop factor because:
+    # NotImplemented: Function 'hash_one' has no kernel matching input types (dictionary<values=string, indices=int8, ordered=0>, uint8)
+    select(-fct) %>%
+    distinct(lgl, .keep_all = TRUE) %>%
+    arrange(int)
+
+  with_table <- tbl %>%
+    arrow_table() %>%
+    select(-fct) %>%
+    distinct(lgl, .keep_all = TRUE) %>%
+    arrange(int) %>%
+    collect()
+
+  expect_identical(dim(with_table), dim(expected))
+  expect_identical(names(with_table), names(expected))
 })
