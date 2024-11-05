@@ -97,7 +97,7 @@ under the License.
     <dep.slf4j.version>2.0.16</dep.slf4j.version>
     <dep.guava-bom.version>33.3.1-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.114.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.68.1</dep.grpc-bom.version>
+    <dep.grpc-bom.version>1.65.0</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.25.4</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.18.1</dep.jackson-bom.version>
     <dep.hadoop.version>3.4.1</dep.hadoop.version>
