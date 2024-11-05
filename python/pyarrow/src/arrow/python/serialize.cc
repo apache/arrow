@@ -24,6 +24,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <any>
 
 #include <numpy/arrayobject.h>
 #include <numpy/arrayscalars.h>
@@ -70,16 +71,12 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
 // can be obtained via the Finish method.
 class DictBuilder {
  public:
-  explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
-    builder_.reset(new StructBuilder(struct_({field("keys", dense_union(FieldVector{})),
-                                              field("vals", dense_union(FieldVector{}))}),
-                                     pool, {keys_.builder(), vals_.builder()}));
-  }
+  explicit DictBuilder(MemoryPool* pool = nullptr);
 
   // Builder for the keys of the dictionary
-  SequenceBuilder& keys() { return (SequenceBuilder)keys_; }
+  SequenceBuilder& keys() { return *keys_; }
   // Builder for the values of the dictionary
-  SequenceBuilder& vals() { return (SequenceBuilder)vals_; }
+  SequenceBuilder& vals() { return *vals_; }
 
   // Construct an Arrow StructArray representing the dictionary.
   // Contains a field "keys" for the keys and "vals" for the values.
@@ -88,8 +85,8 @@ class DictBuilder {
   std::shared_ptr<StructBuilder> builder() { return builder_; }
 
  private:
-  std::any keys_;
-  std::any vals_;
+  std::unique_ptr<SequenceBuilder> keys_;
+  std::unique_ptr<SequenceBuilder> vals_;
   std::shared_ptr<StructBuilder> builder_;
 };
 
@@ -326,6 +323,12 @@ class SequenceBuilder {
 
   std::shared_ptr<DenseUnionBuilder> builder_;
 };
+
+DictBuilder::DictBuilder(MemoryPool* pool) : keys_(std::make_unique<SequenceBuilder>(SequenceBuilder(pool))), vals_(std::make_unique<SequenceBuilder>(SequenceBuilder(pool))) {
+  builder_.reset(new StructBuilder(struct_({field("keys", dense_union(FieldVector{})),
+                                            field("vals", dense_union(FieldVector{}))}),
+                                   pool, {keys_->builder(), vals_->builder()}));
+}
 
 Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
                                    int32_t recursion_depth,
