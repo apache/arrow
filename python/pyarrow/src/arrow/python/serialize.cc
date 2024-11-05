@@ -69,7 +69,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
 // SequenceBuilders. The resulting Arrow representation
 // can be obtained via the Finish method.
 class DictBuilder {
-public:
+ public:
   explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
     builder_.reset(new StructBuilder(struct_({field("keys", dense_union(FieldVector{})),
                                               field("vals", dense_union(FieldVector{}))}),
@@ -77,9 +77,9 @@ public:
   }
 
   // Builder for the keys of the dictionary
-  SequenceBuilder& keys() { return keys_; }
+  SequenceBuilder& keys() { return (SequenceBuilder)keys_; }
   // Builder for the values of the dictionary
-  SequenceBuilder& vals() { return vals_; }
+  SequenceBuilder& vals() { return (SequenceBuilder)vals_; }
 
   // Construct an Arrow StructArray representing the dictionary.
   // Contains a field "keys" for the keys and "vals" for the values.
@@ -88,8 +88,8 @@ public:
   std::shared_ptr<StructBuilder> builder() { return builder_; }
 
  private:
-  SequenceBuilder keys_;
-  SequenceBuilder vals_;
+  std::any keys_;
+  std::any vals_;
   std::shared_ptr<StructBuilder> builder_;
 };
 
