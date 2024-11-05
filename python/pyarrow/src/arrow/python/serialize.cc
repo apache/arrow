@@ -74,9 +74,9 @@ class DictBuilder {
   explicit DictBuilder(MemoryPool* pool = nullptr);
 
   // Builder for the keys of the dictionary
-  SequenceBuilder& keys() { return *keys_; }
+  SequenceBuilder* keys() { return keys_.get(); }
   // Builder for the values of the dictionary
-  SequenceBuilder& vals() { return *vals_; }
+  SequenceBuilder* vals() { return vals_.get(); }
 
   // Construct an Arrow StructArray representing the dictionary.
   // Contains a field "keys" for the keys and "vals" for the values.
@@ -349,9 +349,9 @@ Status SequenceBuilder::AppendDict(PyObject* context, PyObject* dict,
   while (PyDict_Next(dict, &pos, &key, &value)) {
     RETURN_NOT_OK(dict_values_->builder()->Append());
     RETURN_NOT_OK(
-        Append(context, key, &dict_values_->keys(), recursion_depth + 1, blobs_out));
+        Append(context, key, dict_values_->keys(), recursion_depth + 1, blobs_out));
     RETURN_NOT_OK(
-        Append(context, value, &dict_values_->vals(), recursion_depth + 1, blobs_out));
+        Append(context, value, dict_values_->vals(), recursion_depth + 1, blobs_out));
   }
 
   // This block is used to decrement the reference counts of the results
