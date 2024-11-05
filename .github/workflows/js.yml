@@ -89,7 +89,7 @@ jobs:
     name: AMD64 macOS 13 NodeJS ${{ matrix.node }}
     runs-on: macos-13
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

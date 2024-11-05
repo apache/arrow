@@ -121,7 +121,7 @@ under the License.
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcpkix-jdk18on</artifactId>
-      <version>1.78.1</version>
+      <version>1.79</version>
     </dependency>
 
     <dependency>
