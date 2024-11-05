@@ -26,11 +26,8 @@ test_that("distinct()", {
   compare_dplyr_binding(
     .input %>%
       distinct(some_grouping, lgl) %>%
-      collect() %>%
-      # GH-14947: column output order changed in dplyr 1.1.0, so we need
-      # to make the column order explicit until dplyr 1.1.0 is on CRAN
-      select(some_grouping, lgl) %>%
-      arrange(some_grouping, lgl),
+      arrange(some_grouping, lgl) %>%
+      collect(),
     tbl
   )
 })
@@ -60,11 +57,8 @@ test_that("distinct() can retain groups", {
     .input %>%
       group_by(some_grouping, int) %>%
       distinct(lgl) %>%
-      collect() %>%
-      # GH-14947: column output order changed in dplyr 1.1.0, so we need
-      # to make the column order explicit until dplyr 1.1.0 is on CRAN
-      select(some_grouping, int, lgl) %>%
-      arrange(lgl, int),
+      arrange(lgl, int) %>%
+      collect(),
     tbl
   )
 
@@ -73,11 +67,8 @@ test_that("distinct() can retain groups", {
     .input %>%
       group_by(y = some_grouping, int) %>%
       distinct(x = lgl) %>%
-      collect() %>%
-      # GH-14947: column output order changed in dplyr 1.1.0, so we need
-      # to make the column order explicit until dplyr 1.1.0 is on CRAN
-      select(y, int, x) %>%
-      arrange(int),
+      arrange(int) %>%
+      collect(),
     tbl
   )
 })
@@ -95,11 +86,8 @@ test_that("distinct() can contain expressions", {
     .input %>%
       group_by(lgl, int) %>%
       distinct(x = some_grouping + 1) %>%
-      collect() %>%
-      # GH-14947: column output order changed in dplyr 1.1.0, so we need
-      # to make the column order explicit until dplyr 1.1.0 is on CRAN
-      select(lgl, int, x) %>%
-      arrange(int),
+      arrange(int) %>%
+      collect(),
     tbl
   )
 })
@@ -119,8 +107,8 @@ test_that("distinct() can return all columns", {
   compare_dplyr_binding(
     .input %>%
       distinct(lgl, .keep_all = TRUE) %>%
-      collect() %>%
-      arrange(int),
+      arrange(int) %>%
+      collect(),
     tbl
   )
 })
