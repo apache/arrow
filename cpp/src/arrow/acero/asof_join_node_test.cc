@@ -1754,8 +1754,7 @@ TEST(AsofJoinTest, DetroyNotStartedAsofJoinNode) {
   // causes the execution plan to terminate before the asofjoin node is started.
   arrow::acero::SinkNodeOptions sink_node_options{/*generator=*/nullptr,
                                                   /*schema=*/nullptr};
-  arrow::acero::Declaration sink =
-      arrow::acero::Declaration::Sequence({asof_join, {"sink", sink_node_options}});
+  auto sink = Declaration::Sequence({asof_join, {"sink", sink_node_options}});
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
