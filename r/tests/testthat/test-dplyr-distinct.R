@@ -106,7 +106,7 @@ test_that("distinct() can return all columns", {
   # hash_one prefers to keep non-null values, which is different from .keep_all in dplyr
   # so we can't compare the result directly
   expected <- tbl %>%
-    # Drop factor because:
+    # Drop factor because of #44661:
     # NotImplemented: Function 'hash_one' has no kernel matching input types
     #   (dictionary<values=string, indices=int8, ordered=0>, uint8)
     select(-fct) %>%
