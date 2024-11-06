@@ -18,6 +18,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Server;
 using Apache.Arrow.Flight.Sql;
+using Apache.Arrow.Types;
 using Arrow.Flight.Protocol.Sql;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
@@ -59,11 +60,20 @@ public class TestFlightSqlServer : FlightServer
                 break;
             case SqlAction.CreateRequest:
             case SqlAction.CloseRequest:
-                var prepareStatementResponse = new ActionCreatePreparedStatementResult
+                var schema = new Schema.Builder()
+                    .Field(f => f.Name("id").DataType(Int32Type.Default))
+                    .Field(f => f.Name("name").DataType(StringType.Default))
+                    .Build();
+                var datasetSchemaBytes = SchemaExtensions.SerializeSchema(schema);
+                var parameterSchemaBytes = SchemaExtensions.SerializeSchema(schema);
+
+                var preparedStatementResponse = new ActionCreatePreparedStatementResult
                 {
-                    PreparedStatementHandle = ByteString.CopyFromUtf8("sample-testing-prepared-statement")
+                    PreparedStatementHandle = ByteString.CopyFromUtf8("ample-testing-prepared-statement"),
+                    DatasetSchema = ByteString.CopyFrom(datasetSchemaBytes),
+                    ParameterSchema = ByteString.CopyFrom(parameterSchemaBytes)
                 };
-                byte[] packedResult = Any.Pack(prepareStatementResponse).Serialize().ToByteArray();
+                byte[] packedResult = Any.Pack(preparedStatementResponse).Serialize().ToByteArray();
                 var flightResult = new FlightResult(packedResult);
                 await responseStream.WriteAsync(flightResult).ConfigureAwait(false);
                 break;

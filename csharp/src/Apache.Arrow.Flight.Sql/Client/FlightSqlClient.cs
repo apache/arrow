@@ -159,28 +159,24 @@ public class FlightSqlClient
 
         if (string.IsNullOrEmpty(query))
             throw new ArgumentException($"Query cannot be null or empty: {nameof(query)}");
-
-        FlightInfo schemaResult = null!;
         try
         {
             var prepareStatementRequest =
                 new ActionCreatePreparedStatementRequest { Query = query, TransactionId = transaction.TransactionId };
             var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
             using var call = _client.DoAction(action, options?.Headers);
+            
+            var preparedStatementResponse = await ReadPreparedStatementAsync(call).ConfigureAwait(false);
 
-            await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
+            if (preparedStatementResponse.PreparedStatementHandle.IsEmpty)
+                throw new InvalidOperationException("Received an empty or invalid PreparedStatementHandle.");
+            var commandSqlCall = new CommandPreparedStatementQuery
             {
-                var preparedStatementResponse =
-                    FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
-                var commandSqlCall = new CommandPreparedStatementQuery
-                {
-                    PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
-                };
-                byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
-                var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
-                schemaResult = await GetFlightInfoAsync(descriptor, options);
-            }
+                PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
+            };
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCall.PackAndSerialize());
 
+            var schemaResult = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
             return schemaResult.Schema;
         }
         catch (RpcException ex)
@@ -992,43 +988,53 @@ public class FlightSqlClient
     /// <param name="transaction">A transaction to associate this query with.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The created prepared statement.</returns>
-    public async Task<PreparedStatement> PrepareAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
+    public async Task<PreparedStatement> PrepareStatementAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
     {
-        transaction ??= Transaction.NoTransaction;
 
         if (string.IsNullOrEmpty(query))
-        {
             throw new ArgumentException("Query cannot be null or empty", nameof(query));
-        }
+
+        transaction ??= Transaction.NoTransaction;
 
         try
         {
-            var preparedStatementRequest = new ActionCreatePreparedStatementRequest
+            var command = new ActionCreatePreparedStatementRequest
             {
-                Query = query, TransactionId = transaction.TransactionId
+                Query = query
             };
 
-            var action = new FlightAction(SqlAction.CreateRequest, preparedStatementRequest.PackAndSerialize());
-            var call = _client.DoAction(action, options?.Headers);
-            await foreach (var result in call.ResponseStream.ReadAllAsync())
+            if (transaction.IsValid())
             {
-                var preparedStatementResponse =
-                    FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
-
-                var commandSqlCall = new CommandPreparedStatementQuery
-                {
-                    PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
-                };
-                byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
-                var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
-                var flightInfo = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
-                return new PreparedStatement(this, transaction.TransactionId.ToStringUtf8(), flightInfo.Schema, flightInfo.Schema);
+                command.TransactionId = transaction.TransactionId;
             }
-            throw new NullReferenceException($"{nameof(PreparedStatement)} was not able to be created");
+            
+            var action = new FlightAction(SqlAction.CreateRequest, command.PackAndSerialize());
+            using var call = _client.DoAction(action, options?.Headers);
+            var preparedStatementResponse = await ReadPreparedStatementAsync(call).ConfigureAwait(false);
+            
+            return new PreparedStatement(this,
+                preparedStatementResponse.PreparedStatementHandle.ToStringUtf8(),
+                SchemaExtensions.DeserializeSchema(preparedStatementResponse.DatasetSchema.ToByteArray()),
+                SchemaExtensions.DeserializeSchema(preparedStatementResponse.ParameterSchema.ToByteArray())
+            );
         }
         catch (RpcException ex)
         {
             throw new InvalidOperationException("Failed to prepare statement", ex);
         }
+    }
+
+    private static async Task<ActionCreatePreparedStatementResult> ReadPreparedStatementAsync(
+        AsyncServerStreamingCall<FlightResult> call)
+    {
+        await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
+        {
+            var response = Any.Parser.ParseFrom(result.Body);
+            if (response.Is(ActionCreatePreparedStatementResult.Descriptor))
+            {
+                return response.Unpack<ActionCreatePreparedStatementResult>();
+            }
+        }
+        throw new InvalidOperationException("Server did not return a valid prepared statement response.");
     }
 }

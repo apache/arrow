@@ -89,17 +89,60 @@ public class FlightSqlClientTests : IDisposable
         string query = "INSERT INTO users (id, name) VALUES (1, 'John Doe')";
         var transaction = new Transaction("sample-transaction-id");
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
-        var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
+
+        // Create a sample schema for the dataset and parameters
+        var schema = new Schema.Builder()
+            .Field(f => f.Name("id").DataType(Int32Type.Default))
+            .Field(f => f.Name("name").DataType(StringType.Default))
+            .Build();
+
+        var recordBatch = new RecordBatch(schema, new Array[]
+        {
+            new Int32Array.Builder().Append(1).Build(),
+            new StringArray.Builder().Append("John Doe").Build()
+        }, 1);
+        
+        var flightHolder = new FlightHolder(flightDescriptor, schema, _testWebFactory.GetAddress());
         flightHolder.AddBatch(new RecordBatchWithMetadata(recordBatch));
-
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
+        
+        var datasetSchemaBytes = SchemaExtensions.SerializeSchema(schema);
+        var parameterSchemaBytes = SchemaExtensions.SerializeSchema(schema);
 
+        
+        var preparedStatementResponse = new ActionCreatePreparedStatementResult
+        {
+            PreparedStatementHandle = ByteString.CopyFromUtf8("prepared-handle"),
+            DatasetSchema = ByteString.CopyFrom(datasetSchemaBytes),
+            ParameterSchema = ByteString.CopyFrom(parameterSchemaBytes)
+        };
+        
         // Act
-        var preparedStatement = await _flightSqlClient.PrepareAsync(query, transaction);
+        var preparedStatement = await _flightSqlClient.PrepareStatementAsync(query, transaction);
+        var deserializedDatasetSchema = SchemaExtensions.DeserializeSchema(preparedStatementResponse.DatasetSchema.ToByteArray());
+        var deserializedParameterSchema = SchemaExtensions.DeserializeSchema(preparedStatementResponse.ParameterSchema.ToByteArray());
 
         // Assert
         Assert.NotNull(preparedStatement);
+        Assert.NotNull(deserializedDatasetSchema);
+        Assert.NotNull(deserializedParameterSchema);
+        CompareSchemas(schema, deserializedDatasetSchema);
+        CompareSchemas(schema, deserializedParameterSchema);
+        // // Arrange
+        // string query = "INSERT INTO users (id, name) VALUES (1, 'John Doe')";
+        // var transaction = new Transaction("sample-transaction-id");
+        // var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
+        // var recordBatch = _testUtils.CreateTestBatch(0, 100);
+        // var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
+        // flightHolder.AddBatch(new RecordBatchWithMetadata(recordBatch));
+        //
+        // _flightStore.Flights.Add(flightDescriptor, flightHolder);
+        //
+        // // Act
+        // var preparedStatement = await _flightSqlClient.PrepareStatementAsync(query, transaction);
+        //
+        // // Assert
+        // Assert.NotNull(preparedStatement);
     }
 
     #endregion
@@ -461,8 +504,7 @@ public class FlightSqlClientTests : IDisposable
     public async Task DoPutAsync()
     {
         // Arrange
-        var schema = new Schema
-                .Builder()
+        var schema = new Schema.Builder()
             .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
             .Field(f => f.Name("TYPE_NAME").DataType(StringType.Default).Nullable(false))
             .Field(f => f.Name("PRECISION").DataType(Int32Type.Default).Nullable(false))
@@ -628,8 +670,7 @@ public class FlightSqlClientTests : IDisposable
     public async Task GetTableTypesAsync()
     {
         // Arrange
-        var expectedSchema = new Schema
-                .Builder()
+        var expectedSchema = new Schema.Builder()
             .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
             .Build();
         var commandGetTableTypes = new CommandGetTableTypes();
@@ -652,8 +693,7 @@ public class FlightSqlClientTests : IDisposable
     {
         // Arrange
         var options = new FlightCallOptions();
-        var expectedSchema = new Schema
-                .Builder()
+        var expectedSchema = new Schema.Builder()
             .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
             .Build();
         var commandGetTableTypesSchema = new CommandGetTableTypes();
@@ -676,8 +716,7 @@ public class FlightSqlClientTests : IDisposable
     {
         // Arrange
         var options = new FlightCallOptions();
-        var expectedSchema = new Schema
-                .Builder()
+        var expectedSchema = new Schema.Builder()
             .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
             .Field(f => f.Name("TYPE_NAME").DataType(StringType.Default).Nullable(false))
             .Field(f => f.Name("PRECISION").DataType(Int32Type.Default).Nullable(false))
@@ -705,8 +744,7 @@ public class FlightSqlClientTests : IDisposable
     {
         // Arrange
         var options = new FlightCallOptions();
-        var expectedSchema = new Schema
-                .Builder()
+        var expectedSchema = new Schema.Builder()
             .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
             .Field(f => f.Name("TYPE_NAME").DataType(StringType.Default).Nullable(false))
             .Field(f => f.Name("PRECISION").DataType(Int32Type.Default).Nullable(false))
@@ -734,8 +772,7 @@ public class FlightSqlClientTests : IDisposable
         // Arrange
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("sqlInfo");
-        var expectedSchema = new Schema
-                .Builder()
+        var expectedSchema = new Schema.Builder()
             .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
             .Build();
         var flightHolder = new FlightHolder(flightDescriptor, expectedSchema, _testWebFactory.GetAddress());
@@ -753,8 +790,7 @@ public class FlightSqlClientTests : IDisposable
     public async Task CancelFlightInfoAsync()
     {
         // Arrange
-        var schema = new Schema
-                .Builder()
+        var schema = new Schema.Builder()
             .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
             .Build();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
@@ -773,8 +809,7 @@ public class FlightSqlClientTests : IDisposable
     {
         // Arrange
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
-        var schema = new Schema
-                .Builder()
+        var schema = new Schema.Builder()
             .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
             .Build();
         var flightInfo = new FlightInfo(schema, flightDescriptor, new List<FlightEndpoint>(), 0, 0);

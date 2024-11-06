@@ -22,4 +22,16 @@ public static class SchemaExtensions
         var reader = new ArrowStreamReader(stream);
         return reader.Schema;
     }
+    
+    /// <summary>
+    /// Serializes the provided schema to a byte array.
+    /// </summary>
+    public static byte[] SerializeSchema(Schema schema)
+    {
+        using var memoryStream = new MemoryStream();
+        using var writer = new ArrowStreamWriter(memoryStream, schema);
+        writer.WriteStart(); 
+        writer.WriteEnd();
+        return memoryStream.ToArray();
+    }
 }
