@@ -76,8 +76,8 @@ x-sccache: &sccache
 
 x-vcpkg-build-args: &vcpkg-build-args
   vcpkg: ${VCPKG}
-  GITHUB_ACTOR:
-  GITHUB_TOKEN:
+  ACTIONS_CACHE_URL:
+  ACTIONS_RUNTIME_TOKEN:
 
 # CPU/memory limit presets to pass to Docker.
 #

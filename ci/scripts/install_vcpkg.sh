@@ -53,33 +53,4 @@ if [ -f "${vcpkg_ports_patch}" ]; then
   echo "Patch successfully applied to the VCPKG port files!"
 fi
 
-if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_ACTOR:-}" ]; then
-  if type dnf 2>/dev/null; then
-    dnf install -y epel-release
-    dnf install -y mono-complete
-  fi
-  nuget_url="https://nuget.pkg.github.com/${GITHUB_ACTOR}/index.json"
-  cat <<NUGET_CONFIG > "${VCPKG_ROOT}/nuget.config"
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <config>
-    <add key="defaultPushSource" value="${nuget_url}" />
-  </config>
-  <apikeys>
-    <add key="${nuget_url}" value="${GITHUB_TOKEN}" />
-  </apikeys>
-  <packageSources>
-    <clear />
-    <add key="GitHubPackages" value="${nuget_url}" />
-  </packageSources>
-  <packageSourcesCredentials>
-    <GitHubPackages>
-      <add key="Username" value="${GITHUB_ACTOR}" />
-      <add key="Password" value="${GITHUB_TOKEN}" />
-    </GitHubPackages>
-  </packageSourcesCredentials>
-</configuration>
-NUGET_CONFIG
-fi
-
 popd
