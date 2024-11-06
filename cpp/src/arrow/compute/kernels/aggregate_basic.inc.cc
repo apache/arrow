@@ -77,7 +77,8 @@ struct SumImpl : public ScalarAggregator {
       this->count += data.is_valid * batch.length;
       this->nulls_observed = this->nulls_observed || !data.is_valid;
       if (data.is_valid) {
-        this->sum += internal::UnboxScalar<ArrowType>::Unbox(data) * batch.length;
+        this->sum += static_cast<SumCType>(internal::UnboxScalar<ArrowType>::Unbox(data) *
+                                           batch.length);
       }
     }
     return Status::OK();

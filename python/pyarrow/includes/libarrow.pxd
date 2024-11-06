@@ -1356,6 +1356,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CConcatenateTablesOptions options,
         CMemoryPool* memory_pool)
 
+    CResult[shared_ptr[CRecordBatch]] ConcatenateRecordBatches(
+        const vector[shared_ptr[CRecordBatch]]& batches,
+        CMemoryPool* memory_pool)
+
     cdef cppclass CDictionaryUnifier" arrow::DictionaryUnifier":
         @staticmethod
         CResult[shared_ptr[CChunkedArray]] UnifyChunkedArray(
@@ -2865,6 +2869,13 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         CExtensionArray(shared_ptr[CDataType], shared_ptr[CArray] storage)
 
         shared_ptr[CArray] storage()
+
+
+cdef extern from "arrow/extension/json.h" namespace "arrow::extension" nogil:
+    cdef cppclass CJsonType" arrow::extension::JsonExtensionType"(CExtensionType):
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make(shared_ptr[CDataType]& storage_type)
 
 
 cdef extern from "arrow/extension/uuid.h" namespace "arrow::extension" nogil:

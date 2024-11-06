@@ -143,9 +143,31 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
    * @param holder data holder to be populated by this function
    */
   public void get(int index, NullableViewVarCharHolder holder) {
-    // TODO: https://github.com/apache/arrow/issues/40937
-    throw new UnsupportedOperationException(
-        "NullableViewVarCharHolder get operation not supported");
+    final int dataLength = getValueLength(index);
+    if (isSet(index) == 0) {
+      holder.isSet = 0;
+      return;
+    }
+    holder.isSet = 1;
+    if (dataLength > INLINE_SIZE) {
+      // data is in the data buffer
+      // get buffer index
+      final int bufferIndex =
+          viewBuffer.getInt(((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+      // get data offset
+      final int dataOffset =
+          viewBuffer.getInt(
+              ((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+      holder.buffer = dataBuffers.get(bufferIndex);
+      holder.start = dataOffset;
+      holder.end = dataOffset + dataLength;
+    } else {
+      final long dataOffset = ((long) index * ELEMENT_SIZE) + LENGTH_WIDTH;
+      // data is in the value buffer
+      holder.buffer = viewBuffer;
+      holder.start = (int) dataOffset;
+      holder.end = (int) dataOffset + dataLength;
+    }
   }
 
   /*----------------------------------------------------------------*
@@ -162,8 +184,10 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
    * @param holder holder that carries data buffer.
    */
   public void set(int index, ViewVarCharHolder holder) {
-    // TODO: https://github.com/apache/arrow/issues/40937
-    throw new UnsupportedOperationException("ViewVarCharHolder set operation not supported");
+    int start = holder.start;
+    int length = holder.end - start;
+    setBytes(index, holder.buffer, start, length);
+    lastSet = index;
   }
 
   /**
@@ -174,8 +198,9 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
    * @param holder holder that carries data buffer.
    */
   public void setSafe(int index, ViewVarCharHolder holder) {
-    // TODO: https://github.com/apache/arrow/issues/40937
-    throw new UnsupportedOperationException("ViewVarCharHolder setSafe operation not supported");
+    int length = holder.end - holder.start;
+    handleSafe(index, length);
+    set(index, holder);
   }
 
   /**
@@ -186,9 +211,15 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
    * @param holder holder that carries data buffer.
    */
   public void set(int index, NullableViewVarCharHolder holder) {
-    // TODO: https://github.com/apache/arrow/issues/40937
-    throw new UnsupportedOperationException(
-        "NullableViewVarCharHolder set operation not supported");
+    if (holder.isSet == 0) {
+      setNull(index);
+    } else {
+      BitVectorHelper.setBit(validityBuffer, index);
+      int start = holder.start;
+      int length = holder.end - start;
+      setBytes(index, holder.buffer, start, length);
+    }
+    lastSet = index;
   }
 
   /**
@@ -199,9 +230,9 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
    * @param holder holder that carries data buffer.
    */
   public void setSafe(int index, NullableViewVarCharHolder holder) {
-    // TODO: https://github.com/apache/arrow/issues/40937
-    throw new UnsupportedOperationException(
-        "NullableViewVarCharHolder setSafe operation not supported");
+    int length = holder.end - holder.start;
+    handleSafe(index, length);
+    set(index, holder);
   }
 
   /**

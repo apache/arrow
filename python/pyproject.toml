@@ -35,9 +35,6 @@ build-backend = "setuptools.build_meta"
 name = "pyarrow"
 dynamic = ["version"]
 requires-python = ">=3.9"
-dependencies = [
-    "numpy >= 1.16.6"
-]
 description = "Python library for Apache Arrow"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {text = "Apache Software License"}
@@ -84,4 +81,4 @@ root = '..'
 version_file = 'pyarrow/_generated_version.py'
 version_scheme = 'guess-next-dev'
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
-fallback_version = '18.0.0a0'
+fallback_version = '19.0.0a0'

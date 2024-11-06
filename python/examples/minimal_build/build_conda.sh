@@ -34,7 +34,7 @@ git config --global --add safe.directory $ARROW_ROOT
 # Run these only once
 
 function setup_miniconda() {
-  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh"
+  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh"
   wget -O miniconda.sh $MINICONDA_URL
   bash miniconda.sh -b -p $MINICONDA
   rm -f miniconda.sh

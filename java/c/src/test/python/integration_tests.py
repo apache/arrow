@@ -399,6 +399,20 @@ class TestPythonIntegration(unittest.TestCase):
                     return reader.read_next_batch()
 
         self.round_trip_record_batch(recreate_batch)
+    
+    def test_runendencoded_array(self):
+        # empty vector
+        self.round_trip_array(lambda: pa.RunEndEncodedArray.from_arrays([], [], pa.run_end_encoded(pa.int64(), pa.int64())))
+
+        # constant null vector
+        self.round_trip_array(lambda: pa.RunEndEncodedArray.from_arrays([10], [None]))
+        # constant int vector
+        self.round_trip_array(lambda: pa.RunEndEncodedArray.from_arrays([10], [10]))
+
+        # run end int vector
+        self.round_trip_array(lambda: pa.RunEndEncodedArray.from_arrays([3, 5, 10, 12, 19], [1, 2, 1, None, 3]))
+        # run end string vector
+        self.round_trip_array(lambda: pa.RunEndEncodedArray.from_arrays([3, 5, 10, 12, 19], ["1", "2", "1", None, "3"]))
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

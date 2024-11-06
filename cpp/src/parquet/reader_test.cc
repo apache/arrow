@@ -27,6 +27,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+
+#include <rapidjson/document.h>
+#include <rapidjson/error/en.h>
+#include <rapidjson/stringbuffer.h>
+
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
@@ -46,6 +52,8 @@
 #include "parquet/platform.h"
 #include "parquet/printer.h"
 #include "parquet/test_util.h"
+
+namespace rj = arrow::rapidjson;
 
 using arrow::internal::checked_pointer_cast;
 using arrow::internal::Zip;
@@ -1170,6 +1178,30 @@ TEST_F(TestJSONWithLocalFile, JSONOutputFLBA) {
   ])###";
 
   EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
+}
+
+// GH-44101: Test that JSON output is valid JSON
+TEST_F(TestJSONWithLocalFile, ValidJsonOutput) {
+  auto check_json_valid = [](std::string_view json_string) -> ::arrow::Status {
+    rj::Document json_doc;
+    constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
+    json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
+    if (json_doc.HasParseError()) {
+      return ::arrow::Status::Invalid("JSON parse error at offset ",
+                                      json_doc.GetErrorOffset(), ": ",
+                                      rj::GetParseError_En(json_doc.GetParseError()));
+    }
+    return ::arrow::Status::OK();
+  };
+  std::vector<std::string_view> check_file_lists = {
+      "data_index_bloom_encoding_with_length.parquet",
+      "data_index_bloom_encoding_stats.parquet", "alltypes_tiny_pages_plain.parquet",
+      "concatenated_gzip_members.parquet", "nulls.snappy.parquet"};
+  for (const auto& file : check_file_lists) {
+    std::string json_content = ReadFromLocalFile(file);
+    ASSERT_OK(check_json_valid(json_content))
+        << "Invalid JSON output for file: " << file << ", content:" << json_content;
+  }
 }
 
 TEST(TestFileReader, BufferedReadsWithDictionary) {

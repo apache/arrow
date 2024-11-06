@@ -51,6 +51,8 @@ struct TDigestImpl : public ScalarAggregator {
   double ToDouble(T value) const {
     return static_cast<double>(value);
   }
+  double ToDouble(const Decimal32& value) const { return value.ToDouble(decimal_scale); }
+  double ToDouble(const Decimal64& value) const { return value.ToDouble(decimal_scale); }
   double ToDouble(const Decimal128& value) const { return value.ToDouble(decimal_scale); }
   double ToDouble(const Decimal256& value) const { return value.ToDouble(decimal_scale); }
 

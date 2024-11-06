@@ -177,7 +177,7 @@ TEST_F(TestProjector, TestProjectCacheFloat) {
 
 TEST_F(TestProjector, TestProjectCacheLiteral) {
   auto schema = arrow::schema({});
-  auto res = field("result", arrow::decimal(38, 5));
+  auto res = field("result", arrow::decimal128(38, 5));
 
   DecimalScalar128 d0("12345678", 38, 5);
   DecimalScalar128 d1("98756432", 38, 5);
@@ -199,21 +199,21 @@ TEST_F(TestProjector, TestProjectCacheDecimalCast) {
   auto field_float64 = field("float64", arrow::float64());
   auto schema = arrow::schema({field_float64});
 
-  auto res_31_13 = field("result", arrow::decimal(31, 13));
+  auto res_31_13 = field("result", arrow::decimal128(31, 13));
   auto expr0 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13);
   std::shared_ptr<Projector> projector0;
   ASSERT_OK(Projector::Make(schema, {expr0}, TestConfiguration(), &projector0));
   EXPECT_FALSE(projector0->GetBuiltFromCache());
 
   // if the output scale is different, the cache can't be used.
-  auto res_31_14 = field("result", arrow::decimal(31, 14));
+  auto res_31_14 = field("result", arrow::decimal128(31, 14));
   auto expr1 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_14);
   std::shared_ptr<Projector> projector1;
   ASSERT_OK(Projector::Make(schema, {expr1}, TestConfiguration(), &projector1));
   EXPECT_FALSE(projector1->GetBuiltFromCache());
 
   // if the output scale/precision are same, should get a cache hit.
-  auto res_31_13_alt = field("result", arrow::decimal(31, 13));
+  auto res_31_13_alt = field("result", arrow::decimal128(31, 13));
   auto expr2 =
       TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13_alt);
   std::shared_ptr<Projector> projector2;

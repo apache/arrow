@@ -67,6 +67,8 @@ TYPE_ID_TRAIT(INTERVAL_DAY_TIME, DayTimeIntervalType)
 TYPE_ID_TRAIT(INTERVAL_MONTH_DAY_NANO, MonthDayNanoIntervalType)
 TYPE_ID_TRAIT(INTERVAL_MONTHS, MonthIntervalType)
 TYPE_ID_TRAIT(DURATION, DurationType)
+TYPE_ID_TRAIT(DECIMAL32, Decimal32Type)
+TYPE_ID_TRAIT(DECIMAL64, Decimal64Type)
 TYPE_ID_TRAIT(DECIMAL128, Decimal128Type)
 TYPE_ID_TRAIT(DECIMAL256, Decimal256Type)
 TYPE_ID_TRAIT(STRUCT, StructType)
@@ -312,6 +314,24 @@ struct TypeTraits<HalfFloatType> {
   }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return float16(); }
+};
+
+template <>
+struct TypeTraits<Decimal32Type> {
+  using ArrayType = Decimal32Array;
+  using BuilderType = Decimal32Builder;
+  using ScalarType = Decimal32Scalar;
+  using CType = Decimal32;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<Decimal64Type> {
+  using ArrayType = Decimal64Array;
+  using BuilderType = Decimal64Builder;
+  using ScalarType = Decimal64Scalar;
+  using CType = Decimal64;
+  constexpr static bool is_parameter_free = false;
 };
 
 template <>
@@ -724,6 +744,18 @@ template <typename T, typename R = void>
 using enable_if_decimal = enable_if_t<is_decimal_type<T>::value, R>;
 
 template <typename T>
+using is_decimal32_type = std::is_base_of<Decimal32Type, T>;
+
+template <typename T, typename R = void>
+using enable_if_decimal32 = enable_if_t<is_decimal32_type<T>::value, R>;
+
+template <typename T>
+using is_decimal64_type = std::is_base_of<Decimal64Type, T>;
+
+template <typename T, typename R = void>
+using enable_if_decimal64 = enable_if_t<is_decimal64_type<T>::value, R>;
+
+template <typename T>
 using is_decimal128_type = std::is_base_of<Decimal128Type, T>;
 
 template <typename T, typename R = void>
@@ -1059,6 +1091,8 @@ constexpr bool is_numeric(Type::type type_id) {
 /// \return whether type-id is a decimal type one
 constexpr bool is_decimal(Type::type type_id) {
   switch (type_id) {
+    case Type::DECIMAL32:
+    case Type::DECIMAL64:
     case Type::DECIMAL128:
     case Type::DECIMAL256:
       return true;
@@ -1293,6 +1327,8 @@ constexpr bool is_dictionary(Type::type type_id) { return type_id == Type::DICTI
 /// \return whether type-id is a fixed-size-binary type one
 constexpr bool is_fixed_size_binary(Type::type type_id) {
   switch (type_id) {
+    case Type::DECIMAL32:
+    case Type::DECIMAL64:
     case Type::DECIMAL128:
     case Type::DECIMAL256:
     case Type::FIXED_SIZE_BINARY:
@@ -1475,6 +1511,10 @@ static inline int bit_width(Type::type type_id) {
     case Type::INTERVAL_MONTH_DAY_NANO:
       return 128;
 
+    case Type::DECIMAL32:
+      return 32;
+    case Type::DECIMAL64:
+      return 64;
     case Type::DECIMAL128:
       return 128;
     case Type::DECIMAL256:

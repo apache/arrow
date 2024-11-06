@@ -17,12 +17,16 @@ copies or substantial portions of the Software.
 Sources for datetime are adapted from Howard Hinnant's date library
 (https://github.com/HowardHinnant/date).
 
-Sources are taken from changeset 1ead6715dec030d340a316c927c877a3c4e5a00c
+Sources are taken from changeset 5bdb7e6f31fac909c090a46dbd9fea27b6e609a4
 of the above project.
 
 The following changes are made:
 - fix internal inclusion paths (from "date/xxx.h" to simply "xxx.h")
 - enclose the `date` namespace inside the `arrow_vendored` namespace
-- include a custom "visibility.h" header from "tz.cpp" for proper DLL
-  exports on Windows
-- disable curl-based database downloading in "tz.h"
+
+## How to update
+
+```console
+$ cd cpp/src/arrow/vendored/datetime
+$ ./update.sh 3.0.3
+```

@@ -506,6 +506,8 @@ could be used for any device:
         arr->array.release(&arr->array);
     }
 
+.. _c-device-stream-interface:
+
 Device Stream Interface
 =======================
 
@@ -649,6 +651,367 @@ Thread safety
 The stream source is not assumed to be thread-safe. Consumers wanting to
 call ``get_next`` from several threads should ensure those calls are
 serialized.
+
+Async Device Stream Interface
+=============================
+
+.. warning::
+
+    Experimental: The Async C Device Stream interface is experimental in its current
+    form. Based on feedback and usage the protocol definition may change until
+    it is fully standardized.
+
+The :ref:`C stream interface <c-device-stream-interface>` provides a synchronous
+API centered around the consumer calling the producer functions to retrieve
+the next record batch. For concurrent communication between producer and consumer,
+the ``ArrowAsyncDeviceStreamHandler`` can be used. This interface is non-opinionated
+and may fit into different concurrent communication models.
+
+Semantics
+---------
+
+Rather than the producer providing a structure of callbacks for a consumer to
+call and retrieve records, the Async interface is a structure allocated and populated by the consumer.
+The consumer allocated struct provides handler callbacks for the producer to call
+when the schema and chunks of data are available.
+
+In addition to the ``ArrowAsyncDeviceStreamHandler``, there are also two additional
+structs used for the full data flow: ``ArrowAsyncTask`` and ``ArrowAsyncProducer``.
+
+Structure Definition
+--------------------
+
+The C device async stream interface consists of three ``struct`` definitions:
+
+.. code-block:: c
+
+    #ifndef ARROW_C_ASYNC_STREAM_INTERFACE
+    #define ARROW_C_ASYNC_STREAM_INTERFACE
+
+    struct ArrowAsyncTask {
+      int (*extract_data)(struct ArrowArrayTask* self, struct ArrowDeviceArray* out);
+
+      void* private_data;
+    };
+
+    struct ArrowAsyncProducer {
+      void (*request)(struct ArrowAsyncProducer* self, int64_t n);
+      void (*cancel)(struct ArrowAsyncProducer* self);
+
+      void (*release)(struct ArrowAsyncProducer* self);
+      const char* additional_metadata;
+      void* private_data;
+    };
+
+    struct ArrowAsyncDeviceStreamHandler {
+      // consumer-specific handlers
+      int (*on_schema)(struct ArrowAsyncDeviceStreamHandler* self,
+                       struct ArrowSchema* stream_schema);
+      int (*on_next_task)(struct ArrowAsyncDeviceStreamHandler* self,
+                          struct ArrowAsyncTask* task, const char* metadata);
+      void (*on_error)(struct ArrowAsyncDeviceStreamHandler* self,
+                       int code, const char* message, const char* metadata);
+
+      // release callback
+      void (*release)(struct ArrowAsyncDeviceStreamHandler* self);
+
+      // must be populated before calling any callbacks
+      struct ArrowAsyncProducer* producer;
+
+      // opaque handler-specific data
+      void* private_data;
+    };
+
+    #endif  // ARROW_C_ASYNC_STREAM_INTERFACE
+
+.. note::
+    The canonical guard ``ARROW_C_ASYNC_STREAM_INTERFACE`` is meant to avoid
+    duplicate definitions if two projects copy the C async stream interface
+    definitions into their own headers, and a third-party project includes
+    from these two projects. It is therefore important that this guard is kept
+    exactly as-is when these definitions are copied.
+
+The ArrowAsyncDeviceStreamHandler structure
+'''''''''''''''''''''''''''''''''''''''''''
+
+The structure has the following fields:
+
+.. c:member:: int (*ArrowAsyncDeviceStreamHandler.on_schema)(struct ArrowAsyncDeviceStreamHandler*, struct ArrowSchema*)
+
+    *Mandatory.* Handler for receiving the schema of the stream. All incoming records should
+    match the provided schema. If successful, the function should return 0, otherwise
+    it should return an ``errno``-compatible error code.
+
+    If there is any extra contextual information that the producer wants to provide, it can set
+    :c:member:`ArrowAsyncProducer.additional_metadata` to a non-NULL value. This is encoded in the
+    same format as :c:member:`ArrowSchema.metadata`. The lifetime of this metadata, if not ``NULL``,
+    should be tied to the lifetime of the ``ArrowAsyncProducer`` object.
+
+    Unless the ``on_error`` handler is called, this will always get called exactly once and will be
+    the first method called on this object. As such the producer *MUST* populate the ``ArrowAsyncProducer``
+    member before calling this function to allow the consumer to apply back-pressure and control the flow of data.
+    The producer maintains ownership of the ``ArrowAsyncProducer`` and must clean it up *after*
+    calling the release callback on the ``ArrowAsyncDeviceStreamHandler``.
+
+    A producer that receives a non-zero result here must not subsequently call anything other than
+    the release callback on this object.
+
+.. c:member:: int (*ArrowAsyncDeviceStreamHandler.on_next_task)(struct ArrowAsyncDeviceStreamHandler*, struct ArrowAsyncTask*, const char*)
+
+    *Mandatory.* Handler to be called when a new record is available for processing. The
+    schema for each record should be the same as the schema that ``on_schema`` was called with.
+    If successfully handled, the function should return 0, otherwise it should return an
+    ``errno``-compatible error code.
+
+    Rather than passing the record itself it receives an ``ArrowAsyncTask`` instead to facilitate
+    better consumer-focused thread control as far as receiving the data. A call to this function
+    simply indicates that data is available via the provided task.
+
+    The producer signals the end of the stream by passing ``NULL`` for the ``ArrowAsyncTask``
+    pointer instead of a valid address. This task object is only valid during the lifetime of
+    this function call. If the consumer wants to use the task beyond the scope of this method, it
+    must copy or move its contents to a new ArrowAsyncTask object.
+
+    The ``const char*`` parameter exists for producers to provide any extra contextual information
+    they want. This is encoded in the same format as :c:member:`ArrowSchema.metadata`. If not ``NULL``,
+    the lifetime is only the scope of the call to this function. A consumer who wants to maintain
+    the additional metadata beyond the lifetime of this call *MUST* copy the value themselves.
+
+    A producer *MUST NOT* call this concurrently from multiple threads.
+
+    The :c:member:`ArrowAsyncProducer.request` callback must be called to start receiving calls to this
+    handler.
+
+.. c:member:: void (*ArrowAsyncDeviceStreamHandler.on_error)(struct ArrowAsyncDeviceStreamHandler, int, const char*, const char*)
+
+    *Mandatory.* Handler to be called when an error is encountered by the producer. After calling
+    this, the ``release`` callback will be called as the last call on this struct. The parameters
+    are an ``errno``-compatible error code and an optional error message and metadata.
+
+    If the message and metadata are not ``NULL``, their lifetime is only valid during the scope
+    of this call. A consumer who wants to maintain these values past the return of this function
+    *MUST* copy the values themselves.
+
+    If the metadata parameter is not ``NULL``, to provide key-value error metadata, then it should
+    be encoded identically to the way that metadata is encoded in :c:member:`ArrowSchema.metadata`.
+
+    It is valid for this to be called by a producer with or without a preceding call to
+    :c:member:`ArrowAsyncProducer.request`. This callback *MUST NOT* call any methods of an
+    ``ArrowAsyncProducer`` object.
+
+.. c:member:: void (*ArrowAsyncDeviceStreamHandler.release)(struct ArrowAsyncDeviceStreamHandler*)
+
+    *Mandatory.* A pointer to a consumer-provided release callback for the handler.
+
+    It is valid for this to be called by a producer with or without a preceding call to
+    :c:member:`ArrowAsyncProducer.request`. This must not call any methods of an ``ArrowAsyncProducer``
+    object.
+
+.. c:member:: struct ArrowAsyncProducer ArrowAsyncDeviceStreamHandler.producer
+
+    *Mandatory.* The producer object that the consumer will use to request additional data or cancel.
+
+    This object *MUST* be populated by the producer before calling the :c:member:`ArrowAsyncDeviceStreamHandler.on_schema`
+    callback. The producer maintains ownership of this object and must clean it up *after* calling
+    the release callback on the ``ArrowAsyncDeviceStreamHandler``.
+
+    The consumer *CANNOT* assume that this is valid until the ``on_schema`` callback is called.
+
+.. c:member:: void* ArrowAsyncDeviceStreamHandler.private_data
+
+    *Optional.* An opaque pointer to consumer-provided private data.
+
+    Producers *MUST NOT* process this member. Lifetime of this member is handled by
+    the consumer, and especially by the release callback.
+
+The ArrowAsyncTask structure
+''''''''''''''''''''''''''''
+
+The purpose of using a Task object rather than passing the array directly to the ``on_next``
+callback is to allow for more complex and efficient thread handling. Utilizing a Task
+object allows for a producer to separate the "decoding" logic from the I/O, enabling a
+consumer to avoid transferring data between CPU cores (e.g. from one L1/L2 cache to another).
+
+This producer-provided structure has the following fields:
+
+.. c:member:: int (*ArrowArrayTask.extract_data)(struct ArrowArrayTask*, struct ArrowDeviceArray*)
+
+  *Mandatory.* A callback to populate the provided ``ArrowDeviceArray`` with the available data.
+  The order of ``ArrowAsyncTasks`` provided by the producer enables a consumer to know the order of
+  the data to process. If the consumer does not care about the data that is owned by this task,
+  it must still call ``extract_data`` so that the producer can perform any required cleanup. ``NULL``
+  should be passed as the device array pointer to indicate that the consumer doesn't want the
+  actual data, letting the task perform necessary cleanup.
+
+  If a non-zero value is returned from this, it should be followed only by the producer calling
+  the ``on_error`` callback of the ``ArrowAsyncDeviceStreamHandler``. Because calling this method
+  is likely to be separate from the current control flow, returning a non-zero value to signal
+  an error occuring allows the current thread to decide handle the case accordingly, while still
+  allowing all error logging and handling to be centralized in the
+  :c:member:`ArrowAsyncDeviceStreamHandler.on_error` callback.
+
+  Rather than having a separate release callback, any required cleanup should be performed as part
+  of the invocation of this callback. Ownership of the Array is given to the pointer passed in as
+  a parameter, and this array must be released separately.
+
+  It is only valid to call this method exactly once.
+
+.. c:member:: void* ArrowArrayTask.private_data
+
+  *Optional.* An opaque pointer to producer-provided private data.
+
+  Consumers *MUST NOT* process this member. Lifetime of this member is handled by
+  the producer who created this object, and should be cleaned up if necessary during
+  the call to :c:member:`ArrowArrayTask.extract_data`.
+
+The ArrowAsyncProducer structure
+''''''''''''''''''''''''''''''''
+
+This producer-provided and managed object has the following fields:
+
+.. c:member:: void (*ArrowAsyncProducer.request)(struct ArrowAsyncProducer*, uint64_t)
+
+  *Mandatory.* This function must be called by a consumer to start receiving calls to
+  :c:member:`ArrowAsyncDeviceStreamHandler.on_next_task`. It *MUST* be valid to call
+  this synchronously from within :c:member:`ArrowAsyncDeviceStreamHandler.on_next_task`
+  or :c:member:`ArrowAsyncDeviceStreamHandler.on_schema`. As a result, this function
+  *MUST NOT* synchronously call ``on_next_task`` or ``on_error`` to avoid recursive
+  and reentrant callbacks.
+
+  After ``cancel`` is called, additional calls to this function must be a NOP, but allowed.
+
+  While not cancelled, calling this function registers the given number of additional
+  arrays/batches to be produced by the producer. A producer should only call
+  the appropriate ``on_next_task`` callback up to a maximum of the total sum of calls to
+  this method before propagating back-pressure / waiting.
+
+  Any error encountered by calling request must be propagated by calling the ``on_error``
+  callback of the ``ArrowAsyncDeviceStreamHandler``.
+
+  It is invalid to call this function with a value of ``n`` that is ``<= 0``. Producers should
+  error (e.g. call ``on_error``) if receiving such a value for ``n``.
+
+.. c:member:: void (*ArrowAsyncProducer.cancel)(struct ArrowAsyncProducer*)
+
+  *Mandatory.* This function signals to the producer that it must *eventually* stop calling
+  ``on_next_task``. Calls to ``cancel`` must be idempotent and thread-safe. After calling
+  it once, subsequent calls *MUST* be a NOP. This *MUST NOT* call any consumer-side handlers
+  other than ``on_error``.
+
+  It is not required that calling ``cancel`` affect the producer *immediately*, only that it
+  must eventually stop calling ``on_next_task`` and then subsequently call ``release``
+  on the async handler object. As such, a consumer *MUST* be prepared to receive one or more
+  calls to ``on_next_task`` or ``on_error`` even after calling ``cancel`` if there are still
+  requested arrays pending.
+
+  Successful cancelling *MUST NOT* result in a producer calling
+  :c:member:`ArrowAsyncDeviceStreamHandler.on_error`, instead it should finish out any remaining
+  tasks (calling ``on_next_task`` accordingly) and eventually just call ``release``.
+
+  Any error encountered during handling a call to cancel must be reported via the ``on_error``
+  callback on the async stream handler.
+
+.. c:member:: const char* ArrowAsyncProducer.additional_metadata
+
+    *Optional.* An additional metadata string to provide any extra context to the consumer. This *MUST*
+    either be ``NULL`` or a valid string that is encoded in the same way as :c:member:`ArrowSchema.metadata`.
+    As an example, a producer could utilize this metadata to provide the total number of rows and/or batches
+    in the stream if known.
+
+    If not ``NULL`` it *MUST* be valid for at least the lifetime of this object.
+
+.. c:member:: void* ArrowAsyncProducer.private_data
+
+  *Optional.* An opaque pointer to producer-provided specific data.
+
+  Consumers *MUST NOT* process this member, the lifetime is owned by the producer
+  that constructed this object.
+
+Error Handling
+''''''''''''''
+
+Unlike the regular C Stream interface, the Async interface allows for errors to flow in
+both directions. As a result, error handling can be slightly more complex. Thus this spec
+designates the following rules:
+
+* If the producer encounters an error during processing, it should call the ``on_error``
+  callback, and then call ``release`` after it returns.
+
+* If ``on_schema`` or ``on_next_task`` returns a non-zero integer value, the producer *should not*
+  call the ``on_error`` callback, but instead should eventually call ``release`` at some point
+  before or after any logging or processing of the error code.
+
+Result lifetimes
+''''''''''''''''
+
+The ``ArrowSchema`` passed to the ``on_schema`` callback must be released independently,
+with the object itself needing to be moved to a consumer owned ``ArrowSchema`` object. The
+``ArrowSchema*`` passed as a parameter to the callback *MUST NOT* be stored and kept.
+
+The ``ArrowAsyncTask`` object provided to ``on_next_task`` is owned by the producer and
+will be cleaned up during the invocation of calling ``extract_data`` on it. If the consumer
+doesn't care about the data, it should pass ``NULL`` instead of a valid ``ArrowDeviceArray*``.
+
+The ``const char*`` error ``message`` and ``metadata`` which are passed to ``on_error``
+are only valid within the scope of the ``on_error`` function itself. They must be copied
+if it is necessary for them to exist after it returns.
+
+Stream Handler Lifetime
+'''''''''''''''''''''''
+
+Lifetime of the async stream handler is managed using a release callback with similar
+usage as in :ref:`C data interface <c-data-interface-released>`.
+
+ArrowAsyncProducer Lifetime
+'''''''''''''''''''''''''''
+
+The lifetime of the ``ArrowAsyncProducer`` is owned by the producer itself and should
+be managed by it. It *MUST* be populated before calling any methods other than ``release``
+and *MUST* remain valid at least until just before calling ``release`` on the stream handler object.
+
+Thread safety
+'''''''''''''
+
+All handler functions on the ``ArrowAsyncDeviceStreamHandler`` should only be called in a
+serialized manner, but are not guaranteed to be called from the same thread every time. A
+producer should wait for handler callbacks to return before calling the next handler callback,
+and before calling the ``release`` callback.
+
+Back-pressure is managed by the consumer making calls to :c:member:`ArrowAsyncProducer.request`
+to indicate how many arrays it is ready to receive.
+
+The ``ArrowAsyncDeviceStreamHandler`` object should be able to handle callbacks as soon as
+it is passed to the producer, any initialization should be performed before it is provided.
+
+Possible Sequence Diagram
+-------------------------
+
+.. mermaid::
+
+  sequenceDiagram
+    Consumer->>+Producer: ArrowAsyncDeviceStreamHandler*
+    Producer-->>+Consumer: on_schema(ArrowAsyncProducer*, ArrowSchema*)
+    Consumer->>Producer: ArrowAsyncProducer->request(n)
+
+    par
+        loop up to n times
+            Producer-->>Consumer: on_next_task(ArrowAsyncTask*)
+        end
+    and for each task
+        Consumer-->>Producer: ArrowAsyncTask.extract_data(...)
+        Consumer-->>Producer: ArrowAsyncProducer->request(1)
+    end
+
+    break Optionally
+        Consumer->>-Producer: ArrowAsyncProducer->cancel()
+    end
+
+    loop possible remaining
+        Producer-->>Consumer: on_next_task(ArrowAsyncTask*)
+    end
+
+    Producer->>-Consumer: ArrowAsyncDeviceStreamHandler->release()
+
 
 Interoperability with other interchange formats
 ===============================================

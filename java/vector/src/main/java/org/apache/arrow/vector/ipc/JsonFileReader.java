@@ -909,10 +909,12 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
                 variadicBufferIndices));
       }
 
-      int nullCount = 0;
-      if (type instanceof ArrowType.Null) {
+      int nullCount;
+      if (type instanceof ArrowType.RunEndEncoded || type instanceof Union) {
+        nullCount = 0;
+      } else if (type instanceof ArrowType.Null) {
         nullCount = valueCount;
-      } else if (!(type instanceof Union)) {
+      } else {
         nullCount = BitVectorHelper.getNullCount(vectorBuffers.get(0), valueCount);
       }
       final ArrowFieldNode fieldNode = new ArrowFieldNode(valueCount, nullCount);

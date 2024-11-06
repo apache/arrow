@@ -63,7 +63,7 @@ add_gandiva_test(precompiled-test
                  time.cc
                  timestamp_arithmetic.cc
                  ../cast_time.cc
-                 ../../arrow/vendored/datetime/tz.cpp
+                 ../../arrow/vendored/datetime.cpp
                  hash_test.cc
                  hash.cc
                  string_ops_test.cc

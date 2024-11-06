@@ -101,6 +101,7 @@ Result<BatchesWithSchema> MakeBatchesFromNumString(
   BatchesWithSchema batches;
   batches.schema = schema;
   int n_fields = schema->num_fields();
+  size_t batch_index = 0;
   for (auto num_batch : num_batches.batches) {
     Datum two(Int32Scalar(2));
     std::vector<Datum> values;
@@ -128,6 +129,7 @@ Result<BatchesWithSchema> MakeBatchesFromNumString(
       }
     }
     ExecBatch batch(values, num_batch.length);
+    batch.index = batch_index++;
     batches.batches.push_back(batch);
   }
   return batches;
@@ -185,6 +187,7 @@ Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string fr
                           replace_key ? batches.schema->SetField(from_index, new_field)
                                       : batches.schema->AddField(from_index, new_field));
   }
+  size_t batch_index = 0;
   for (const ExecBatch& batch : batches.batches) {
     std::vector<Datum> new_values;
     for (int i = 0; i < n_fields; i++) {
@@ -233,6 +236,7 @@ Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string fr
       new_values.push_back(value);
     }
     new_batches.batches.emplace_back(new_values, batch.length);
+    new_batches.batches.back().index = batch_index++;
   }
   return new_batches;
 }
@@ -1571,7 +1575,7 @@ void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
       "asofjoin", {l_src, r_src}, GetRepeatedOptions(2, "time", {"key"}, 1000)};
 
   QueryOptions query_options;
-  query_options.use_threads = false;
+  query_options.use_threads = true;
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches,
                        DeclarationToExecBatches(asofjoin, query_options));
 
@@ -1579,7 +1583,7 @@ void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
 }
 
 TEST(AsofJoinTest, BatchSequencing) {
-  return TestSequencing(MakeIntegerBatches, /*num_batches=*/32, /*batch_size=*/1);
+  return TestSequencing(MakeIntegerBatches, /*num_batches=*/1000, /*batch_size=*/1);
 }
 
 template <typename BatchesMaker>

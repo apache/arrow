@@ -30,8 +30,11 @@ import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
@@ -50,6 +53,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * values vector of any type. There are no buffers associated with the parent vector.
  */
 public class RunEndEncodedVector extends BaseValueVector implements FieldVector {
+
   public static final FieldVector DEFAULT_VALUE_VECTOR = ZeroVector.INSTANCE;
   public static final FieldVector DEFAULT_RUN_END_VECTOR = ZeroVector.INSTANCE;
 
@@ -203,6 +207,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     for (FieldVector v : getChildrenFromFields()) {
       v.clear();
     }
+    this.valueCount = 0;
   }
 
   /**
@@ -232,19 +237,6 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
   @Override
   public MinorType getMinorType() {
     return MinorType.RUNENDENCODED;
-  }
-
-  /**
-   * To transfer quota responsibility.
-   *
-   * @param allocator the target allocator
-   * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new
-   *     target vector of the same type.
-   */
-  @Override
-  public TransferPair getTransferPair(BufferAllocator allocator) {
-    throw new UnsupportedOperationException(
-        "RunEndEncodedVector does not support getTransferPair(BufferAllocator)");
   }
 
   /**
@@ -284,8 +276,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    throw new UnsupportedOperationException(
-        "RunEndEncodedVector does not support getTransferPair(String, BufferAllocator, CallBack)");
+    return new TransferImpl(ref, allocator, callBack);
   }
 
   /**
@@ -299,8 +290,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
-    throw new UnsupportedOperationException(
-        "RunEndEncodedVector does not support getTransferPair(Field, BufferAllocator, CallBack)");
+    return new TransferImpl(field, allocator, callBack);
   }
 
   /**
@@ -312,8 +302,156 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public TransferPair makeTransferPair(ValueVector target) {
-    throw new UnsupportedOperationException(
-        "RunEndEncodedVector does not support makeTransferPair(ValueVector)");
+    return new TransferImpl((RunEndEncodedVector) target);
+  }
+
+  private class TransferImpl implements TransferPair {
+
+    RunEndEncodedVector to;
+    TransferPair dataTransferPair;
+    TransferPair reeTransferPair;
+
+    public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
+      this(new RunEndEncodedVector(name, allocator, field.getFieldType(), callBack));
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator, CallBack callBack) {
+      this(new RunEndEncodedVector(field, allocator, callBack));
+    }
+
+    public TransferImpl(RunEndEncodedVector to) {
+      this.to = to;
+      if (to.getRunEndsVector() instanceof ZeroVector) {
+        to.initializeChildrenFromFields(field.getChildren());
+      }
+      reeTransferPair = getRunEndsVector().makeTransferPair(to.getRunEndsVector());
+      dataTransferPair = getValuesVector().makeTransferPair(to.getValuesVector());
+    }
+
+    /**
+     * Transfer the vector data to another vector. The memory associated with this vector is
+     * transferred to the allocator of target vector for accounting and management purposes.
+     */
+    @Override
+    public void transfer() {
+      to.clear();
+      dataTransferPair.transfer();
+      reeTransferPair.transfer();
+      if (valueCount > 0) {
+        to.setValueCount(valueCount);
+      }
+      clear();
+    }
+
+    /**
+     * Slice this vector at the desired index and length, then transfer the corresponding data to
+     * the target vector.
+     *
+     * @param startIndex start position of the split in source vector.
+     * @param length length of the split.
+     */
+    @Override
+    public void splitAndTransfer(int startIndex, int length) {
+      to.clear();
+      if (length <= 0) {
+        return;
+      }
+
+      int physicalStartIndex = getPhysicalIndex(startIndex);
+      int physicalEndIndex = getPhysicalIndex(startIndex + length - 1);
+      int physicalLength = physicalEndIndex - physicalStartIndex + 1;
+      dataTransferPair.splitAndTransfer(physicalStartIndex, physicalLength);
+      FieldVector toRunEndsVector = to.runEndsVector;
+      if (startIndex == 0) {
+        if (((BaseIntVector) runEndsVector).getValueAsLong(physicalEndIndex) == length) {
+          reeTransferPair.splitAndTransfer(physicalStartIndex, physicalLength);
+        } else {
+          reeTransferPair.splitAndTransfer(physicalStartIndex, physicalLength - 1);
+          toRunEndsVector.setValueCount(physicalLength);
+          if (toRunEndsVector instanceof SmallIntVector) {
+            ((SmallIntVector) toRunEndsVector).set(physicalEndIndex, length);
+          } else if (toRunEndsVector instanceof IntVector) {
+            ((IntVector) toRunEndsVector).set(physicalEndIndex, length);
+          } else if (toRunEndsVector instanceof BigIntVector) {
+            ((BigIntVector) toRunEndsVector).set(physicalEndIndex, length);
+          } else {
+            throw new IllegalArgumentException(
+                "Run-end vector and must be of type int with size 16, 32, or 64 bits.");
+          }
+        }
+      } else {
+        shiftRunEndsVector(
+            toRunEndsVector,
+            startIndex,
+            length,
+            physicalStartIndex,
+            physicalEndIndex,
+            physicalLength);
+      }
+      getTo().setValueCount(length);
+    }
+
+    private void shiftRunEndsVector(
+        ValueVector toRunEndVector,
+        int startIndex,
+        int length,
+        int physicalStartIndex,
+        int physicalEndIndex,
+        int physicalLength) {
+      toRunEndVector.setValueCount(physicalLength);
+      toRunEndVector.getValidityBuffer().setOne(0, toRunEndVector.getValidityBuffer().capacity());
+      ArrowBuf fromRunEndBuffer = runEndsVector.getDataBuffer();
+      ArrowBuf toRunEndBuffer = toRunEndVector.getDataBuffer();
+      int physicalLastIndex = physicalLength - 1;
+      if (toRunEndVector instanceof SmallIntVector) {
+        byte typeWidth = SmallIntVector.TYPE_WIDTH;
+        for (int i = 0; i < physicalLastIndex; i++) {
+          toRunEndBuffer.setShort(
+              (long) i * typeWidth,
+              fromRunEndBuffer.getShort((long) (i + physicalStartIndex) * typeWidth) - startIndex);
+        }
+        int lastEnd =
+            Math.min(
+                fromRunEndBuffer.getShort((long) physicalEndIndex * typeWidth) - startIndex,
+                length);
+        toRunEndBuffer.setShort((long) physicalLastIndex * typeWidth, lastEnd);
+      } else if (toRunEndVector instanceof IntVector) {
+        byte typeWidth = IntVector.TYPE_WIDTH;
+        for (int i = 0; i < physicalLastIndex; i++) {
+          toRunEndBuffer.setInt(
+              (long) i * typeWidth,
+              fromRunEndBuffer.getInt((long) (i + physicalStartIndex) * typeWidth) - startIndex);
+        }
+        int lastEnd =
+            Math.min(
+                fromRunEndBuffer.getInt((long) physicalEndIndex * typeWidth) - startIndex, length);
+        toRunEndBuffer.setInt((long) physicalLastIndex * typeWidth, lastEnd);
+      } else if (toRunEndVector instanceof BigIntVector) {
+        byte typeWidth = BigIntVector.TYPE_WIDTH;
+        for (int i = 0; i < physicalLastIndex; i++) {
+          toRunEndBuffer.setLong(
+              (long) i * typeWidth,
+              fromRunEndBuffer.getLong((long) (i + physicalStartIndex) * typeWidth) - startIndex);
+        }
+        long lastEnd =
+            Math.min(
+                fromRunEndBuffer.getLong((long) physicalEndIndex * typeWidth) - startIndex, length);
+        toRunEndBuffer.setLong((long) physicalLastIndex * typeWidth, lastEnd);
+      } else {
+        throw new IllegalArgumentException(
+            "Run-end vector and must be of type int with size 16, 32, or 64 bits.");
+      }
+    }
+
+    @Override
+    public ValueVector getTo() {
+      return to;
+    }
+
+    @Override
+    public void copyValueSafe(int from, int to) {
+      this.to.copyFrom(from, to, RunEndEncodedVector.this);
+    }
   }
 
   /**
@@ -568,6 +706,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
       throw new UnsupportedOperationException(
           "Run-end encoded vectors do not have any associated buffers.");
     }
+    this.valueCount = fieldNode.getLength();
   }
 
   /**

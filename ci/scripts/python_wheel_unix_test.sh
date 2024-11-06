@@ -88,6 +88,13 @@ import pyarrow.parquet
   fi
 fi
 
+if [ "${CHECK_VERSION}" == "ON" ]; then
+  pyarrow_version=$(python -c "import pyarrow; print(pyarrow.__version__)")
+  [ "${pyarrow_version}" = "${ARROW_VERSION}" ]
+  arrow_cpp_version=$(python -c "import pyarrow; print(pyarrow.cpp_build_info.version)")
+  [ "${arrow_cpp_version}" = "${ARROW_VERSION}" ]
+fi
+
 if [ "${CHECK_WHEEL_CONTENT}" == "ON" ]; then
   python ${source_dir}/ci/scripts/python_wheel_validate_contents.py \
     --path ${source_dir}/python/repaired_wheels

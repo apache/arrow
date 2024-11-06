@@ -184,11 +184,11 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
       {"string", LogicalType::String(), ParquetType::BYTE_ARRAY, -1, ::arrow::utf8()},
       {"enum", LogicalType::Enum(), ParquetType::BYTE_ARRAY, -1, ::arrow::binary()},
       {"decimal(8, 2)", LogicalType::Decimal(8, 2), ParquetType::INT32, -1,
-       ::arrow::decimal(8, 2)},
+       ::arrow::decimal128(8, 2)},
       {"decimal(16, 4)", LogicalType::Decimal(16, 4), ParquetType::INT64, -1,
-       ::arrow::decimal(16, 4)},
+       ::arrow::decimal128(16, 4)},
       {"decimal(32, 8)", LogicalType::Decimal(32, 8), ParquetType::FIXED_LEN_BYTE_ARRAY,
-       16, ::arrow::decimal(32, 8)},
+       16, ::arrow::decimal128(32, 8)},
       {"date", LogicalType::Date(), ParquetType::INT32, -1, ::arrow::date32()},
       {"time(ms)", LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
        ParquetType::INT32, -1, ::arrow::time32(::arrow::TimeUnit::MILLI)},
@@ -757,23 +757,35 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
 
   {
     // Parquet file does not contain Arrow schema.
-    // If Arrow extensions are enabled, both fields should be treated as json() extension
-    // fields.
+    // If Arrow extensions are enabled, fields will be interpreted as json(utf8())
+    // extension fields.
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(true);
     auto arrow_schema = ::arrow::schema(
         {::arrow::field("json_1", ::arrow::extension::json(), true),
-         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
-                        true)});
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::utf8()), true)});
     std::shared_ptr<KeyValueMetadata> metadata{};
     ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
     CheckFlatSchema(arrow_schema);
+
+    // If original data was e.g. json(large_utf8()) it will be interpreted as json(utf8())
+    // in absence of Arrow schema.
+    arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", ::arrow::extension::json(), true),
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
+                        true)});
+    metadata = std::shared_ptr<KeyValueMetadata>{};
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    EXPECT_TRUE(result_schema_->field(1)->type()->Equals(
+        ::arrow::extension::json(::arrow::utf8())));
+    EXPECT_FALSE(
+        result_schema_->field(1)->type()->Equals(arrow_schema->field(1)->type()));
   }
 
   {
     // Parquet file contains Arrow schema.
-    // Both json_1 and json_2 should be returned as a json() field
-    // even though extensions are not enabled.
+    // json_1 and json_2 will be interpreted as json(utf8()) and json(large_utf8())
+    // fields even though extensions are not enabled.
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(false);
     std::shared_ptr<KeyValueMetadata> field_metadata =
@@ -791,7 +803,7 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
 
   {
     // Parquet file contains Arrow schema. Extensions are enabled.
-    // Both json_1 and json_2 should be returned as a json() field
+    // json_1 and json_2 will be interpreted as json(utf8()) and json(large_utf8()).
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(true);
     std::shared_ptr<KeyValueMetadata> field_metadata =
@@ -929,13 +941,13 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
       {"utf8", ::arrow::utf8(), LogicalType::String(), ParquetType::BYTE_ARRAY, -1},
       {"large_utf8", ::arrow::large_utf8(), LogicalType::String(),
        ParquetType::BYTE_ARRAY, -1},
-      {"decimal(1, 0)", ::arrow::decimal(1, 0), LogicalType::Decimal(1, 0),
+      {"decimal(1, 0)", ::arrow::decimal128(1, 0), LogicalType::Decimal(1, 0),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 1},
-      {"decimal(8, 2)", ::arrow::decimal(8, 2), LogicalType::Decimal(8, 2),
+      {"decimal(8, 2)", ::arrow::decimal128(8, 2), LogicalType::Decimal(8, 2),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 4},
-      {"decimal(16, 4)", ::arrow::decimal(16, 4), LogicalType::Decimal(16, 4),
+      {"decimal(16, 4)", ::arrow::decimal128(16, 4), LogicalType::Decimal(16, 4),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 7},
-      {"decimal(32, 8)", ::arrow::decimal(32, 8), LogicalType::Decimal(32, 8),
+      {"decimal(32, 8)", ::arrow::decimal128(32, 8), LogicalType::Decimal(32, 8),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 14},
       {"float16", ::arrow::float16(), LogicalType::Float16(),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 2},
@@ -1462,7 +1474,7 @@ TEST_F(TestConvertRoundTrip, FieldIdPreserveAllColumnTypes) {
 }
 
 TEST(InvalidSchema, ParquetNegativeDecimalScale) {
-  const auto& type = ::arrow::decimal(23, -2);
+  const auto& type = ::arrow::decimal128(23, -2);
   const auto& field = ::arrow::field("f0", type);
   const auto& arrow_schema = ::arrow::schema({field});
   std::shared_ptr<::parquet::WriterProperties> properties =

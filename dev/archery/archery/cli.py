@@ -772,6 +772,64 @@ def _set_default(opt, default):
               help=("Substring for test names to include in run, "
                     "e.g. -k primitive"))
 def integration(with_all=False, random_seed=12345, **args):
+    """If you don't specify the "--target-implementations" option nor
+    the "ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS" environment
+    variable, test patterns are product of all specified
+    implementations and all specified implementations.
+
+    If "--with-cpp", "--with-java" and "--with-rust" are specified,
+    the following patterns are tested:
+
+    \b
+    | Producer | Consumer |
+    |----------|----------|
+    | C++      | C++      |
+    | C++      | Java     |
+    | C++      | Rust     |
+    | Java     | C++      |
+    | Java     | Java     |
+    | Java     | Rust     |
+    | Rust     | C++      |
+    | Rust     | Java     |
+    | Rust     | Rust     |
+
+    If "--target-implementations=cpp,java" or
+    "ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS=cpp,java" is
+    specified, test patterns are:
+
+    \b
+    * product of {C++,Java} and {C++,Java}
+    * product of {C++,Java} and {Rust}
+    * product of {Rust} and {C++,Java}
+
+    \b
+    | Producer | Consumer |
+    |----------|----------|
+    | C++      | C++      |
+    | C++      | Java     |
+    | Java     | C++      |
+    | Java     | Java     |
+    | C++      | Rust     |
+    | Java     | Rust     |
+    | Rust     | C++      |
+    | Rust     | Java     |
+
+    In general, we can reduce test time by specifying only
+    implementations in our repository. For example, we can use
+    "ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS=rust" for
+    apache/arrow-rs. It uses only the following test patterns:
+
+    \b
+    | Producer | Consumer |
+    |----------|----------|
+    | Rust     | Rust     |
+    | Rust     | C++      |
+    | Rust     | Java     |
+    | C++      | Rust     |
+    | Java     | Rust     |
+
+    """
+
     from .integration.runner import write_js_test_json, run_all_tests
     import numpy as np
 

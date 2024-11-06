@@ -20,7 +20,6 @@
 #if defined(_MSC_VER)
 #  if defined(_M_AMD64) || defined(_M_X64)
 #    include <intrin.h>  // IWYU pragma: keep
-#    include <nmmintrin.h>
 #  endif
 
 #  pragma intrinsic(_BitScanReverse)

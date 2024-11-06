@@ -32,6 +32,7 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType.RunEndEncoded;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,22 +107,25 @@ public class TestRunEndEncodedVector {
           setBasicVector(reeVector, runCount, i -> i % 2 == 0 ? null : i + 1, i -> i + 1);
 
       assertEquals(15, reeVector.getValueCount());
-      int index = 0;
-      for (int run = 0; run < runCount; run++) {
-        long expectedRunValue = (long) run + 1;
-        for (int j = 0; j <= run; j++) {
-          if (run % 2 == 0) {
-            assertNull(reeVector.getObject(index));
-          } else {
-            assertEquals(expectedRunValue, reeVector.getObject(index));
-          }
-          index++;
-        }
-      }
-
+      checkBasic(runCount, reeVector);
       // test index out of bound
       assertThrows(IndexOutOfBoundsException.class, () -> reeVector.getObject(-1));
       assertThrows(IndexOutOfBoundsException.class, () -> reeVector.getObject(logicalValueCount));
+    }
+  }
+
+  private static void checkBasic(int runCount, RunEndEncodedVector reeVector) {
+    int index = 0;
+    for (int run = 0; run < runCount; run++) {
+      long expectedRunValue = (long) run + 1;
+      for (int j = 0; j <= run; j++) {
+        if (run % 2 == 0) {
+          assertNull(reeVector.getObject(index));
+        } else {
+          assertEquals(expectedRunValue, reeVector.getObject(index));
+        }
+        index++;
+      }
     }
   }
 
@@ -227,5 +231,103 @@ public class TestRunEndEncodedVector {
     reeVector.getRunEndsVector().setValueCount(runCount);
     reeVector.setValueCount(logicalValueCount);
     return logicalValueCount;
+  }
+
+  @Test
+  public void testTransfer() {
+    // constant vector
+    try (RunEndEncodedVector reeVector =
+        new RunEndEncodedVector(createBigIntRunEndEncodedField("constant"), allocator, null)) {
+      Long value = 65536L;
+      int logicalValueCount = 100;
+      setConstantVector(reeVector, value, logicalValueCount);
+      assertEquals(logicalValueCount, reeVector.getValueCount());
+      for (int i = 0; i < logicalValueCount; i++) {
+        assertEquals(value, reeVector.getObject(i));
+      }
+
+      TransferPair transferPair = reeVector.getTransferPair(allocator);
+      transferPair.transfer();
+      assertEquals(0, reeVector.getValueCount());
+      assertEquals(0, reeVector.getValuesVector().getValueCount());
+      assertEquals(0, reeVector.getRunEndsVector().getValueCount());
+      try (RunEndEncodedVector toVector = (RunEndEncodedVector) transferPair.getTo()) {
+        assertEquals(logicalValueCount, toVector.getValueCount());
+        for (int i = 0; i < logicalValueCount; i++) {
+          assertEquals(value, toVector.getObject(i));
+        }
+      }
+    }
+
+    // basic run end encoded vector
+    try (RunEndEncodedVector reeVector =
+        new RunEndEncodedVector(createBigIntRunEndEncodedField("basic"), allocator, null)) {
+      // Create REE vector representing:
+      // [null, 2, 2, null, null, null, 4, 4, 4, 4, null, null, null, null, null].
+      int runCount = 5;
+      final int logicalValueCount =
+          setBasicVector(reeVector, runCount, i -> i % 2 == 0 ? null : i + 1, i -> i + 1);
+
+      assertEquals(15, reeVector.getValueCount());
+      checkBasic(runCount, reeVector);
+
+      TransferPair transferPair = reeVector.getTransferPair(allocator);
+      transferPair.transfer();
+      assertEquals(0, reeVector.getValueCount());
+      assertEquals(0, reeVector.getValuesVector().getValueCount());
+      assertEquals(0, reeVector.getRunEndsVector().getValueCount());
+      try (RunEndEncodedVector toVector = (RunEndEncodedVector) transferPair.getTo()) {
+        assertEquals(logicalValueCount, toVector.getValueCount());
+        checkBasic(runCount, toVector);
+      }
+    }
+  }
+
+  @Test
+  public void testSplitAndTransfer() {
+    // test compare same constant vector
+    try (RunEndEncodedVector constantVector =
+        new RunEndEncodedVector(createBigIntRunEndEncodedField("constant"), allocator, null)) {
+      int logicalValueCount = 15;
+
+      setConstantVector(constantVector, 1L, logicalValueCount);
+
+      try (RunEndEncodedVector toVector = RunEndEncodedVector.empty("constant", allocator)) {
+        TransferPair transferPair = constantVector.makeTransferPair(toVector);
+        int startIndex = 1;
+        int transferLength = 10;
+        transferPair.splitAndTransfer(startIndex, transferLength);
+
+        toVector.validate();
+        assertEquals(transferLength, toVector.getValueCount());
+        assertTrue(
+            constantVector.accept(
+                new RangeEqualsVisitor(constantVector, toVector), new Range(1, 0, transferLength)));
+      }
+    }
+
+    try (RunEndEncodedVector reeVector =
+        new RunEndEncodedVector(createBigIntRunEndEncodedField("ree"), allocator, null)) {
+
+      setBasicVector(reeVector, 5, i -> i + 1, i -> i + 1);
+
+      int[][] transferConfigs = {{0, 0}, {0, 1}, {0, 9}, {1, 0}, {1, 10}, {1, 14}};
+
+      try (RunEndEncodedVector toVector = RunEndEncodedVector.empty("ree", allocator)) {
+        TransferPair transferPair = reeVector.makeTransferPair(toVector);
+        for (final int[] transferConfig : transferConfigs) {
+          int startIndex = transferConfig[0];
+          int transferLength = transferConfig[1];
+          transferPair.splitAndTransfer(startIndex, transferLength);
+
+          toVector.validate();
+          assertEquals(transferLength, toVector.getValueCount());
+          assertTrue(
+              reeVector.accept(
+                  new RangeEqualsVisitor(reeVector, toVector),
+                  new Range(startIndex, 0, transferLength)));
+        }
+      }
+    }
   }
 }
