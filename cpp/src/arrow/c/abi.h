@@ -321,7 +321,9 @@ struct ArrowAsyncProducer {
 
   // Any additional metadata tied to a specific stream of data. This must either be NULL
   // or a valid pointer to metadata which is encoded in the same way schema metadata
-  // would be. Non-null metadata must be valid for the lifetime of this object.
+  // would be. Non-null metadata must be valid for the lifetime of this object. As an
+  // example a producer could use this to provide the total number of rows and/or batches
+  // in the stream if known.
   const char* additional_metadata;
 
   // producer-specific opaque data.

@@ -811,9 +811,11 @@ The structure has the following fields:
 
     *Mandatory.* The producer object that the consumer will use to request additional data or cancel.
 
-    This object *MUST* be populated before calling the :c:member:`ArrowAsyncDeviceStreamHandler.on_schema`
+    This object *MUST* be populated by the producer before calling the :c:member:`ArrowAsyncDeviceStreamHandler.on_schema`
     callback. The producer maintains ownership of this object and must clean it up *after* calling
     the release callback on the ``ArrowAsyncDeviceStreamHandler``.
+
+    The consumer *CANNOT* assume that this is valid until the ``on_schema`` callback is called.
 
 .. c:member:: void* ArrowAsyncDeviceStreamHandler.private_data
 
@@ -913,6 +915,8 @@ This producer-provided and managed object has the following fields:
 
     *Optional.* An additional metadata string to provide any extra context to the consumer. This *MUST*
     either be ``NULL`` or a valid string that is encoded in the same way as :c:member:`ArrowSchema.metadata`.
+    As an example, a producer could utilize this metadata to provide the total number of rows and/or batches
+    in the stream if known.
 
     If not ``NULL`` it *MUST* be valid for at least the lifetime of this object.
 
