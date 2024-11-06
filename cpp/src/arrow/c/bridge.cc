@@ -2605,8 +2605,7 @@ class AsyncRecordBatchIterator {
   };
 
   static int on_schema(struct ArrowAsyncDeviceStreamHandler* self,
-                       struct ArrowSchema* stream_schema,
-                       const char* additional_metadata) {
+                       struct ArrowSchema* stream_schema) {
     auto* private_data = reinterpret_cast<PrivateData*>(self->private_data);
     if (self->producer != nullptr) {
       private_data->state_->producer_ = self->producer;
@@ -2713,7 +2712,7 @@ struct AsyncProducer {
     state_->producer_.cancel = AsyncProducer::cancel;
     handler_->producer = &state_->producer_;
 
-    if (int status = handler_->on_schema(handler_, schema, nullptr) != 0) {
+    if (int status = handler_->on_schema(handler_, schema) != 0) {
       state_->error_ =
           Status::UnknownError("Received error from handler::on_schema ", status);
     }
