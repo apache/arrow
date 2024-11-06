@@ -16,9 +16,12 @@
 // under the License.
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/kernels/set_lookup_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
@@ -34,10 +37,26 @@ using internal::HashTraits;
 namespace compute::internal {
 namespace {
 
-// This base class enables non-templated access to the value set type
-struct SetLookupStateBase : public KernelState {
-  std::shared_ptr<DataType> value_set_type;
-};
+template <typename T>
+Result<std::shared_ptr<Array>> SortAndUnique(std::shared_ptr<T> value_set) {
+  if constexpr (std::is_same_v<T, ChunkedArray>) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> value_set_array,
+                          Concatenate(value_set->chunks()));
+    return SortAndUnique(value_set_array);
+  } else {
+    ARROW_ASSIGN_OR_RAISE(value_set, Unique(std::move(value_set)));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> sort_indices,
+                          SortIndices(value_set, SortOptions({}, NullPlacement::AtEnd)));
+    ARROW_ASSIGN_OR_RAISE(
+        value_set, Take(*value_set, *sort_indices, TakeOptions(/*bounds_check=*/false)));
+    if (value_set->length() > 0 && value_set->IsNull(value_set->length() - 1)) {
+      // If the last one is null we know it's the only one because of the call
+      // to `Unique` above.
+      value_set = value_set->Slice(0, value_set->length() - 1);
+    }
+    return value_set;
+  }
+}
 
 template <typename Type>
 struct SetLookupState : public SetLookupStateBase {
@@ -209,6 +228,21 @@ struct InitStateVisitor {
   }
 
   Result<std::unique_ptr<KernelState>> GetResult() {
+    if (!options.value_set.is_arraylike()) {
+      return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
+    }
+
+    // The sorted and unique value set needs to be derived from the value set
+    // before casting occurs.
+    std::shared_ptr<Array> sorted_and_unique_value_set;
+    if (options.value_set.is_chunked_array()) {
+      sorted_and_unique_value_set =
+          SortAndUnique(options.value_set.chunked_array()).ValueOr(nullptr);
+    } else {
+      sorted_and_unique_value_set =
+          SortAndUnique(options.value_set.make_array()).ValueOr(nullptr);
+    }
+
     if (arg_type.id() == Type::TIMESTAMP &&
         options.value_set.type()->id() == Type::TIMESTAMP) {
       // Other types will fail when casting, so no separate check is needed
@@ -228,9 +262,7 @@ struct InitStateVisitor {
                                " vs ", *options.value_set.type());
     }
 
-    if (!options.value_set.is_arraylike()) {
-      return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
-    } else if (!options.value_set.type()->Equals(*arg_type)) {
+    if (!options.value_set.type()->Equals(*arg_type)) {
       auto cast_result =
           Cast(options.value_set, CastOptions::Safe(arg_type.GetSharedPtr()),
                ctx->exec_context());
@@ -252,6 +284,8 @@ struct InitStateVisitor {
     }
 
     RETURN_NOT_OK(VisitTypeInline(*options.value_set.type(), this));
+    checked_cast<SetLookupStateBase*>(result.get())->sorted_and_unique_value_set =
+        sorted_and_unique_value_set;
     return std::move(result);
   }
 };
