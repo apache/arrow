@@ -107,7 +107,8 @@ test_that("distinct() can return all columns", {
   # so we can't compare the result directly
   expected <- tbl %>%
     # Drop factor because:
-    # NotImplemented: Function 'hash_one' has no kernel matching input types (dictionary<values=string, indices=int8, ordered=0>, uint8)
+    # NotImplemented: Function 'hash_one' has no kernel matching input types
+    #   (dictionary<values=string, indices=int8, ordered=0>, uint8)
     select(-fct) %>%
     distinct(lgl, .keep_all = TRUE) %>%
     arrange(int)
