@@ -418,22 +418,6 @@ struct _GArrowTemporalDataTypeClass
   GArrowFixedWidthDataTypeClass parent_class;
 };
 
-#define GARROW_TYPE_BINARY_VIEW_DATA_TYPE (garrow_binary_view_data_type_get_type())
-GARROW_AVAILABLE_IN_19_0
-G_DECLARE_DERIVABLE_TYPE(GArrowBinaryViewDataType,
-                         garrow_binary_view_data_type,
-                         GARROW,
-                         BINARY_VIEW_DATA_TYPE,
-                         GArrowDataType)
-struct _GArrowBinaryViewDataTypeClass
-{
-  GArrowDataTypeClass parent_class;
-};
-
-GARROW_AVAILABLE_IN_19_0
-GArrowBinaryViewDataType *
-garrow_binary_view_data_type_new(void);
-
 #define GARROW_TYPE_DATE32_DATA_TYPE (garrow_date32_data_type_get_type())
 GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowDate32DataType,
@@ -785,5 +769,21 @@ GARROW_AVAILABLE_IN_3_0
 GArrowExtensionDataType *
 garrow_extension_data_type_registry_lookup(GArrowExtensionDataTypeRegistry *registry,
                                            const gchar *name);
+
+#define GARROW_TYPE_BINARY_VIEW_DATA_TYPE (garrow_binary_view_data_type_get_type())
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowBinaryViewDataType,
+                         garrow_binary_view_data_type,
+                         GARROW,
+                         BINARY_VIEW_DATA_TYPE,
+                         GArrowDataType)
+struct _GArrowBinaryViewDataTypeClass
+{
+  GArrowDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+GArrowBinaryViewDataType *
+garrow_binary_view_data_type_new(void);
 
 G_END_DECLS

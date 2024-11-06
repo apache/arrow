@@ -69,8 +69,6 @@ G_BEGIN_DECLS
  *
  * #GArrowBinaryDataType is a class for the binary data type.
  *
- * #GArrowBinaryViewDataType is a class for the binary data type.
- *
  * #GArrowLargeBinaryDataType is a class for the 64-bit offsets binary
  * data type.
  *
@@ -129,6 +127,8 @@ G_BEGIN_DECLS
  *
  * #GArrowExtensionDataTypeRegistry is a class to manage extension
  * data types.
+ *
+ * #GArrowBinaryViewDataType is a class for the binary view data type.
  */
 
 struct GArrowDataTypePrivate
@@ -838,7 +838,6 @@ GArrowBinaryViewDataType *
 garrow_binary_view_data_type_new(void)
 {
   auto arrow_data_type = arrow::binary_view();
-
   GArrowBinaryViewDataType *data_type = GARROW_BINARY_VIEW_DATA_TYPE(
     g_object_new(GARROW_TYPE_BINARY_VIEW_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
