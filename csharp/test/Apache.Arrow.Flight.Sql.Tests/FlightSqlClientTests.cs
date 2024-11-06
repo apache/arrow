@@ -83,7 +83,7 @@ public class FlightSqlClientTests : IDisposable
     #region PreparedStatement
 
     [Fact]
-    public async Task PreparedStatementAsync()
+    public async Task PreparedAsync()
     {
         // Arrange
         string query = "INSERT INTO users (id, name) VALUES (1, 'John Doe')";
@@ -108,7 +108,6 @@ public class FlightSqlClientTests : IDisposable
         
         var datasetSchemaBytes = SchemaExtensions.SerializeSchema(schema);
         var parameterSchemaBytes = SchemaExtensions.SerializeSchema(schema);
-
         
         var preparedStatementResponse = new ActionCreatePreparedStatementResult
         {
@@ -118,7 +117,7 @@ public class FlightSqlClientTests : IDisposable
         };
         
         // Act
-        var preparedStatement = await _flightSqlClient.PrepareStatementAsync(query, transaction);
+        var preparedStatement = await _flightSqlClient.PrepareAsync(query, transaction);
         var deserializedDatasetSchema = SchemaExtensions.DeserializeSchema(preparedStatementResponse.DatasetSchema.ToByteArray());
         var deserializedParameterSchema = SchemaExtensions.DeserializeSchema(preparedStatementResponse.ParameterSchema.ToByteArray());
 
@@ -128,21 +127,6 @@ public class FlightSqlClientTests : IDisposable
         Assert.NotNull(deserializedParameterSchema);
         CompareSchemas(schema, deserializedDatasetSchema);
         CompareSchemas(schema, deserializedParameterSchema);
-        // // Arrange
-        // string query = "INSERT INTO users (id, name) VALUES (1, 'John Doe')";
-        // var transaction = new Transaction("sample-transaction-id");
-        // var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
-        // var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        // var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
-        // flightHolder.AddBatch(new RecordBatchWithMetadata(recordBatch));
-        //
-        // _flightStore.Flights.Add(flightDescriptor, flightHolder);
-        //
-        // // Act
-        // var preparedStatement = await _flightSqlClient.PrepareStatementAsync(query, transaction);
-        //
-        // // Assert
-        // Assert.NotNull(preparedStatement);
     }
 
     #endregion

@@ -175,7 +175,6 @@ public class FlightSqlClient
                 PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
             };
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCall.PackAndSerialize());
-
             var schemaResult = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
             return schemaResult.Schema;
         }
@@ -988,7 +987,7 @@ public class FlightSqlClient
     /// <param name="transaction">A transaction to associate this query with.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The created prepared statement.</returns>
-    public async Task<PreparedStatement> PrepareStatementAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
+    public async Task<PreparedStatement> PrepareAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
     {
 
         if (string.IsNullOrEmpty(query))
