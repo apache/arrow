@@ -1731,6 +1731,7 @@ TEST(AsofJoinTest, RhsEmptinessRaceEmptyBy) {
       ExecBatchFromJSON({int64(), utf8()}, R"([[1, "Z"], [2, "Z"], [3, "B"]])");
   AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
 }
+
 // Reproduction of GH-44526: Provoke destruction of not started asofjoin node by providing
 // a sink that fails on creation
 TEST(AsofJoinTest, DetroyNotStartedAsofJoinNode) {
@@ -1749,7 +1750,10 @@ TEST(AsofJoinTest, DetroyNotStartedAsofJoinNode) {
   Declaration asof_join{
       "asofjoin", {std::move(left), std::move(right)}, std::move(asof_join_opts)};
 
-  arrow::acero::SinkNodeOptions sink_node_options{nullptr, nullptr};
+  // Setting invalid arguments, such as nullptr in generator or schema in SinkNodeOptions,
+  // causes the execution plan to terminate before the asofjoin node is started.
+  arrow::acero::SinkNodeOptions sink_node_options{/*generator=*/nullptr,
+                                                  /*schema=*/nullptr};
   arrow::acero::Declaration sink =
       arrow::acero::Declaration::Sequence({asof_join, {"sink", sink_node_options}});
 
@@ -1759,5 +1763,6 @@ TEST(AsofJoinTest, DetroyNotStartedAsofJoinNode) {
           "`generator` is a required SinkNode option and cannot be null"),
       DeclarationToStatus(std::move(sink)));
 }
+
 }  // namespace acero
 }  // namespace arrow
