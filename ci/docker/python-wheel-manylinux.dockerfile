@@ -96,7 +96,6 @@ COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 # previous versions => use bundled S3 build
 RUN vcpkg install \
         --clean-after-build \
-        --debug \
         --x-install-root=${VCPKG_ROOT}/installed \
         --x-manifest-root=/arrow/ci/vcpkg \
         --x-feature=azure \

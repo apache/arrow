@@ -57,20 +57,22 @@ if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_REPOSITORY_OWNER:-}" ]; then
   if type dnf 2>/dev/null; then
     dnf install -y epel-release
     dnf install -y mono-complete
-    wget --no-verbose https://dist.nuget.org/win-x86-commandline/v6.10.0/nuget.exe
-    mv nuget.exe /usr/bin/nuget
-    chmod +x /usr/bin/nuget
+    curl \
+      --location \
+      --output "${vcpkg_destination}/nuget" \
+      https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
   fi
+  PATH="${vcpkg_destination}:${PATH}"
   vcpkg fetch nuget || :
   nuget_url="https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json"
-  mono /usr/bin/nuget \
+  mono $(vcpkg fetch nuget | tail -n 1) \
     sources add \
     -source "${nuget_url}" \
     -storepasswordincleartext \
     -name "GitHub" \
     -username "${GITHUB_REPOSITORY_OWNER}" \
     -password "${GITHUB_TOKEN}"
-  mono /usr/bin/nuget \
+  mono $(vcpkg fetch nuget | tail -n 1) \
     setapikey "${GITHUB_TOKEN}" \
     -source "${nuget_url}"
 fi
