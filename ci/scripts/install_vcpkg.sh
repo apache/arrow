@@ -57,7 +57,7 @@ if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_ACTOR:-}" ]; then
   if type dnf 2>/dev/null; then
     dnf install -y epel-release
     dnf install -y mono-complete
-    wget https://dist.nuget.org/win-x86-commandline/v6.10.0/nuget.exe
+    wget --no-verbose https://dist.nuget.org/win-x86-commandline/v6.10.0/nuget.exe
     mv nuget.exe /usr/libexec/
     cat <<NUGET > /usr/bin/nuget
 #!/bin/sh
@@ -65,10 +65,9 @@ if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_ACTOR:-}" ]; then
 exec mono /usr/libexec/nuget.exe "\$@"
 NUGET
     chmod +x /usr/bin/nuget
-    nuget help
   fi
   nuget_url="https://nuget.pkg.github.com/${GITHUB_ACTOR}/index.json"
-  cat <<NUGET_CONFIG > "${VCPKG_ROOT}/nuget.config"
+  cat <<NUGET_CONFIG | tee "${VCPKG_ROOT}/nuget.config"
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <config>
