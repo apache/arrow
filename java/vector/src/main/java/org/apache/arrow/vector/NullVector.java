@@ -155,9 +155,16 @@ public class NullVector implements FieldVector, ValueIterableVector<Object> {
   @Override
   public void reAlloc() {}
 
+  /*
+   * IMPORTANT NOTE
+   * It's essential that NullVector (and ZeroVector) do not require BufferAllocator for any data storage.
+   * However, some methods of the parent interface may require passing in a BufferAllocator, even if null.
+   *
+   * @return null
+   */
   @Override
   public BufferAllocator getAllocator() {
-    throw new UnsupportedOperationException("Tried to get allocator from NullVector");
+    return null;
   }
 
   @Override
