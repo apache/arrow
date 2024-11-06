@@ -68,6 +68,7 @@ RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 # Install vcpkg
 ARG ACTIONS_CACHE_URL
 ARG ACTIONS_RUNTIME_TOKEN
+ARG VCPKG_BINARY_SOURCES
 ARG vcpkg
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*linux*.cmake \
@@ -79,7 +80,7 @@ ARG build_type=release
 ENV ACTIONS_CACHE_URL="${ACTIONS_CACHE_URL}" \
     ACTIONS_RUNTIME_TOKEN="${ACTIONS_RUNTIME_TOKEN}" \
     CMAKE_BUILD_TYPE=${build_type} \
-    VCPKG_BINARY_SOURCES="clear;x-gha,readwrite" \
+    VCPKG_BINARY_SOURCES="${VCPKG_BINARY_SOURCES}" \
     VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
     VCPKG_FEATURE_FLAGS="manifests" \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
