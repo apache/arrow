@@ -357,7 +357,7 @@ public class FlightSqlClient
             throw new ArgumentNullException(nameof(schema));
         try
         {
-            using var doPutResult = _client.StartPut(descriptor, options?.Headers);
+            var doPutResult = _client.StartPut(descriptor, options?.Headers);
             var writer = doPutResult.RequestStream;
             var reader = doPutResult.ResponseStream;
 
@@ -835,7 +835,7 @@ public class FlightSqlClient
         {
             var command = new CommandGetSqlInfo();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            using var schemaResultCall = _client.GetSchema(descriptor, options.Headers);
+             var schemaResultCall = _client.GetSchema(descriptor, options.Headers);
             var schemaResult = await schemaResultCall.ResponseAsync.ConfigureAwait(false);
 
             return schemaResult;
@@ -859,7 +859,7 @@ public class FlightSqlClient
         try
         {
             var action = new FlightAction(SqlAction.CancelFlightInfoRequest, request.PackAndSerialize());
-            using var call = _client.DoAction(action, options?.Headers);
+             var call = _client.DoAction(action, options?.Headers);
             await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
                 if (Any.Parser.ParseFrom(result.Body) is Any anyResult &&
@@ -893,7 +893,7 @@ public class FlightSqlClient
             var cancelQueryRequest = new FlightInfoCancelRequest(info);
             var cancelQueryAction =
                 new FlightAction(SqlAction.CancelFlightInfoRequest, cancelQueryRequest.PackAndSerialize());
-            using var cancelQueryCall = _client.DoAction(cancelQueryAction, options?.Headers);
+             var cancelQueryCall = _client.DoAction(cancelQueryAction, options?.Headers);
 
             await foreach (var result in cancelQueryCall.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
@@ -922,7 +922,7 @@ public class FlightSqlClient
         {
             var actionBeginTransaction = new ActionBeginTransactionRequest();
             var action = new FlightAction(SqlAction.BeginTransactionRequest, actionBeginTransaction.PackAndSerialize());
-            using var responseStream = _client.DoAction(action, options?.Headers);
+             var responseStream = _client.DoAction(action, options?.Headers);
             await foreach (var result in responseStream.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
                 string? beginTransactionResult = result.Body.ToStringUtf8();
@@ -1009,7 +1009,7 @@ public class FlightSqlClient
             };
 
             var action = new FlightAction(SqlAction.CreateRequest, preparedStatementRequest.PackAndSerialize());
-            using var call = _client.DoAction(action, options?.Headers);
+            var call = _client.DoAction(action, options?.Headers);
             await foreach (var result in call.ResponseStream.ReadAllAsync())
             {
                 var preparedStatementResponse =
@@ -1030,18 +1030,5 @@ public class FlightSqlClient
         {
             throw new InvalidOperationException("Failed to prepare statement", ex);
         }
-    }
-}
-
-internal static class FlightDescriptorExtensions
-{
-    public static byte[] PackAndSerialize(this IMessage command)
-    {
-        return Any.Pack(command).Serialize().ToByteArray();
-    }
-
-    public static T ParseAndUnpack<T>(this ByteString source) where T : IMessage<T>, new()
-    {
-        return Any.Parser.ParseFrom(source).Unpack<T>();
     }
 }
