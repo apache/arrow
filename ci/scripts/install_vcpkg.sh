@@ -62,11 +62,11 @@ if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_ACTOR:-}" ]; then
     cat <<NUGET > /usr/bin/nuget
 #!/bin/sh
 
-exec mono /usr/libexec/nuget.exe "$@"
+exec mono /usr/libexec/nuget.exe "\$@"
 NUGET
     chmod +x /usr/bin/nuget
+    nuget help
   fi
-  nuget help
   nuget_url="https://nuget.pkg.github.com/${GITHUB_ACTOR}/index.json"
   cat <<NUGET_CONFIG > "${VCPKG_ROOT}/nuget.config"
 <?xml version="1.0" encoding="utf-8"?>
