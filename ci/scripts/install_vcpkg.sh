@@ -53,7 +53,7 @@ if [ -f "${vcpkg_ports_patch}" ]; then
   echo "Patch successfully applied to the VCPKG port files!"
 fi
 
-if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_ACTOR:-}" ]; then
+if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_REPOSITORY_OWNER:-}" ]; then
   if type dnf 2>/dev/null; then
     dnf install -y epel-release
     dnf install -y mono-complete
@@ -66,28 +66,17 @@ exec mono /usr/libexec/nuget.exe "\$@"
 NUGET
     chmod +x /usr/bin/nuget
   fi
-  nuget_url="https://nuget.pkg.github.com/${GITHUB_ACTOR}/index.json"
-  cat <<NUGET_CONFIG | tee "${VCPKG_ROOT}/nuget.config"
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <config>
-    <add key="defaultPushSource" value="${nuget_url}" />
-  </config>
-  <apikeys>
-    <add key="${nuget_url}" value="${GITHUB_TOKEN}" />
-  </apikeys>
-  <packageSources>
-    <clear />
-    <add key="GitHubPackages" value="${nuget_url}" />
-  </packageSources>
-  <packageSourcesCredentials>
-    <GitHubPackages>
-      <add key="Username" value="${GITHUB_ACTOR}" />
-      <add key="Password" value="${GITHUB_TOKEN}" />
-    </GitHubPackages>
-  </packageSourcesCredentials>
-</configuration>
-NUGET_CONFIG
+  nuget_url="https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json"
+  nuget \
+    sources add \
+    -source "${nuget_url}" \
+    -storepasswordincleartext \
+    -name "GitHub" \
+    -username "${GITHUB_REPOSITORY_OWNER}" \
+    -password "${GITHUB_TOKEN}"
+  nuget \
+    setapikey "${GITHUB_TOKEN}" \
+    -source "${nuget_url}"
 fi
 
 popd

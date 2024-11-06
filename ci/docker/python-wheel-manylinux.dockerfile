@@ -66,7 +66,7 @@ COPY ci/scripts/install_ccache.sh arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 
 # Install vcpkg
-ARG GITHUB_ACTOR
+ARG GITHUB_REPOSITORY_OWNER
 ARG GITHUB_TOKEN
 ARG vcpkg
 COPY ci/vcpkg/*.patch \
@@ -77,9 +77,9 @@ COPY ci/scripts/install_vcpkg.sh \
 ENV VCPKG_ROOT=/opt/vcpkg
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
-    GITHUB_ACTOR="${GITHUB_ACTOR}" \
+    GITHUB_REPOSITORY_OWNER="${GITHUB_REPOSITORY_OWNER}" \
     GITHUB_TOKEN="${GITHUB_TOKEN}" \
-    VCPKG_BINARY_SOURCES="clear;nugetconfig,${VCPKG_ROOT}/nuget.config" \
+    VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite" \
     VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
     VCPKG_FEATURE_FLAGS="manifests" \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
