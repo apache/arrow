@@ -1935,7 +1935,7 @@ operation to the n-th and (n+abs(p))-th inputs.
 Swizzle functions
 ~~~~~~~~~~~~~~~~~~~
 
-Swizzle functions reorder the input array based on targeting indices.
+Swizzle functions reorder the input array based on the specified indices.
 
 +---------------------+--------+--------------+--------------+--------------+-------------------------------------+-------+
 | Function name       | Arity  | Input type 1 | Input type 2 | Output type  | Options class                       | Notes |
@@ -1949,10 +1949,10 @@ Swizzle functions reorder the input array based on targeting indices.
 
 * \(2) For ``indices[i] = x``, ``inverse_permutation[x] = i``. And ``inverse_permutation[x]
  = null`` if ``x`` does not appear in the input ``indices``. For ``indices[i] = x``
- where ``x < 0`` or ``x >= output_length``, it is ignored. If multiple indices point
+ where ``x < 0`` or ``x > max_index``, it is ignored. If multiple indices point
  to the same value, the last one is used.
 
 * \(3) For ``indices[i] = x``, ``output[x] = values[i]``. And ``output[x] = null``
 if ``x`` does not appear in the input ``indices``. For ``indices[i] = x`` where
-``x < 0`` or ``x >= output_length``, ``values[i]`` is ignored. If multiple indices
+``x < 0`` or ``x > max_index``, ``values[i]`` is ignored. If multiple indices
 point to the same value, the last one is used.

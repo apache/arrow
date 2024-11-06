@@ -266,8 +266,8 @@ class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
   static InversePermutationOptions Defaults() { return InversePermutationOptions(); }
 
   /// \brief The max value in the input indices to process. Any indices that are greater
-  /// to this length will be ignored. If negative, this value will be set to the length of
-  /// the input indices minus 1.
+  /// than this value will be ignored. If negative, this value will be set to the length
+  /// of the input indices minus 1.
   int64_t max_index = -1;
   /// \brief The type of the output inverse permutation. If null, the output will be of
   /// the same type as the input indices, otherwise must be integer types. An invalid
@@ -284,7 +284,7 @@ class ARROW_EXPORT ScatterOptions : public FunctionOptions {
   static ScatterOptions Defaults() { return ScatterOptions(); }
 
   /// \brief The max value in the input indices to process. Any values with indices that
-  /// are greater to this length will be ignored. If negative, this value will be set to
+  /// are greater than this value will be ignored. If negative, this value will be set to
   /// the length of the input minus 1.
   int64_t max_index = -1;
 };
