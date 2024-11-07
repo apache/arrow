@@ -33,7 +33,7 @@ def test_docker_run_with_custom_command(run, build, pull):
 
     assert result.exit_code == 0
     pull.assert_called_once_with(
-        "ubuntu-cpp", pull_leaf=True,
+        "--quiet", "ubuntu-cpp", pull_leaf=True,
     )
     build.assert_called_once_with(
         "ubuntu-cpp",
@@ -72,7 +72,7 @@ def test_docker_run_options(run, build, pull):
     result = CliRunner().invoke(docker, args)
     assert result.exit_code == 0
     pull.assert_called_once_with(
-        "ubuntu-cpp", pull_leaf=True,
+        "--quiet", "ubuntu-cpp", pull_leaf=True,
     )
     build.assert_called_once_with(
         "ubuntu-cpp",
@@ -149,7 +149,7 @@ def test_docker_run_only_pulling_and_building(build, pull):
     result = CliRunner().invoke(docker, args)
     assert result.exit_code == 0
     pull.assert_called_once_with(
-        "ubuntu-cpp", pull_leaf=True,
+        "--quiet", "ubuntu-cpp", pull_leaf=True,
     )
     build.assert_called_once_with(
         "ubuntu-cpp",
