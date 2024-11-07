@@ -37,6 +37,9 @@
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
   VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
 
+permissions:
+  packages: write
+
 jobs:
   build:
     name: Build wheel for Python {{ python_version }} on macOS

@@ -19,6 +19,9 @@
 
 {{ macros.github_header() }}
 
+permissions:
+  packages: write
+
 jobs:
 
   build-cpp-ubuntu:
@@ -51,6 +54,7 @@ jobs:
       - name: Build C++ libraries
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
+          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
           archery docker run \
             -e ARROW_JAVA_BUILD=OFF \

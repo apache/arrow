@@ -19,6 +19,9 @@
 
 {{ macros.github_header() }}
 
+permissions:
+  packages: write
+
 jobs:
   build:
     name: "Build wheel for Windows"
