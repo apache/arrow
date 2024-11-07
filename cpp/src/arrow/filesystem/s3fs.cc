@@ -160,6 +160,7 @@ using internal::IsNotFound;
 using internal::OutcomeToResult;
 using internal::OutcomeToStatus;
 using internal::S3Backend;
+using internal::SetSSECustomerKey;
 using internal::ToAwsString;
 using internal::ToURLEncodedAwsString;
 
@@ -403,6 +404,13 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
     } else if (kv.first == "allow_bucket_deletion") {
       ARROW_ASSIGN_OR_RAISE(options.allow_bucket_deletion,
                             ::arrow::internal::ParseBoolean(kv.second));
+    } else if (kv.first == "tls_ca_file_path") {
+      options.tls_ca_file_path = kv.second;
+    } else if (kv.first == "tls_ca_dir_path") {
+      options.tls_ca_dir_path = kv.second;
+    } else if (kv.first == "tls_verify_certificates") {
+      ARROW_ASSIGN_OR_RAISE(options.tls_verify_certificates,
+                            ::arrow::internal::ParseBoolean(kv.second));
     } else {
       return Status::Invalid("Unexpected query parameter in S3 URI: '", kv.first, "'");
     }
@@ -439,7 +447,11 @@ bool S3Options::Equals(const S3Options& other) const {
           background_writes == other.background_writes &&
           allow_bucket_creation == other.allow_bucket_creation &&
           allow_bucket_deletion == other.allow_bucket_deletion &&
-          default_metadata_equals && GetAccessKey() == other.GetAccessKey() &&
+          tls_ca_file_path == other.tls_ca_file_path &&
+          tls_ca_dir_path == other.tls_ca_dir_path &&
+          tls_verify_certificates == other.tls_verify_certificates &&
+          sse_customer_key == other.sse_customer_key && default_metadata_equals &&
+          GetAccessKey() == other.GetAccessKey() &&
           GetSecretKey() == other.GetSecretKey() &&
           GetSessionToken() == other.GetSessionToken());
 }
@@ -1125,12 +1137,17 @@ class ClientBuilder {
     } else {
       client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
     }
-    if (!internal::global_options.tls_ca_file_path.empty()) {
+    if (!options_.tls_ca_file_path.empty()) {
+      client_config_.caFile = ToAwsString(options_.tls_ca_file_path);
+    } else if (!internal::global_options.tls_ca_file_path.empty()) {
       client_config_.caFile = ToAwsString(internal::global_options.tls_ca_file_path);
     }
-    if (!internal::global_options.tls_ca_dir_path.empty()) {
+    if (!options_.tls_ca_dir_path.empty()) {
+      client_config_.caPath = ToAwsString(options_.tls_ca_dir_path);
+    } else if (!internal::global_options.tls_ca_dir_path.empty()) {
       client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
     }
+    client_config_.verifySSL = options_.tls_verify_certificates;
 
     // Set proxy options if provided
     if (!options_.proxy_options.scheme.empty()) {
@@ -1292,11 +1309,14 @@ Aws::IOStreamFactory AwsWriteableStreamFactory(void* data, int64_t nbytes) {
 }
 
 Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
-                                                const S3Path& path, int64_t start,
-                                                int64_t length, void* out) {
+                                                const S3Path& path,
+                                                const std::string& sse_customer_key,
+                                                int64_t start, int64_t length,
+                                                void* out) {
   S3Model::GetObjectRequest req;
   req.SetBucket(ToAwsString(path.bucket));
   req.SetKey(ToAwsString(path.key));
+  RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key));
   req.SetRange(ToAwsString(FormatRange(start, length)));
   req.SetResponseStreamFactory(AwsWriteableStreamFactory(out, length));
   return OutcomeToResult("GetObject", client->GetObject(req));
@@ -1433,11 +1453,13 @@ bool IsDirectory(std::string_view key, const S3Model::HeadObjectResult& result) 
 class ObjectInputFile final : public io::RandomAccessFile {
  public:
   ObjectInputFile(std::shared_ptr<S3ClientHolder> holder, const io::IOContext& io_context,
-                  const S3Path& path, int64_t size = kNoSize)
+                  const S3Path& path, int64_t size = kNoSize,
+                  const std::string& sse_customer_key = "")
       : holder_(std::move(holder)),
         io_context_(io_context),
         path_(path),
-        content_length_(size) {}
+        content_length_(size),
+        sse_customer_key_(sse_customer_key) {}
 
   Status Init() {
     // Issue a HEAD Object to get the content-length and ensure any
@@ -1450,6 +1472,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
     S3Model::HeadObjectRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
+    RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
 
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
     auto outcome = client_lock.Move()->HeadObject(req);
@@ -1534,9 +1557,9 @@ class ObjectInputFile final : public io::RandomAccessFile {
 
     // Read the desired range of bytes
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
-    ARROW_ASSIGN_OR_RAISE(
-        S3Model::GetObjectResult result,
-        GetObjectRange(client_lock.get(), path_, position, nbytes, out));
+    ARROW_ASSIGN_OR_RAISE(S3Model::GetObjectResult result,
+                          GetObjectRange(client_lock.get(), path_, sse_customer_key_,
+                                         position, nbytes, out));
 
     auto& stream = result.GetBody();
     stream.ignore(nbytes);
@@ -1584,6 +1607,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   int64_t pos_ = 0;
   int64_t content_length_ = kNoSize;
   std::shared_ptr<const KeyValueMetadata> metadata_;
+  std::string sse_customer_key_;
 };
 
 // Upload size per part. While AWS and Minio support different sizes for each
@@ -1620,7 +1644,8 @@ class ObjectOutputStream final : public io::OutputStream {
         metadata_(metadata),
         default_metadata_(options.default_metadata),
         background_writes_(options.background_writes),
-        allow_delayed_open_(options.allow_delayed_open) {}
+        allow_delayed_open_(options.allow_delayed_open),
+        sse_customer_key_(options.sse_customer_key) {}
 
   ~ObjectOutputStream() override {
     // For compliance with the rest of the IO stack, Close rather than Abort,
@@ -1668,6 +1693,7 @@ class ObjectOutputStream final : public io::OutputStream {
     S3Model::CreateMultipartUploadRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
+    RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
     RETURN_NOT_OK(SetMetadataInRequest(&req));
 
     auto outcome = client_lock.Move()->CreateMultipartUpload(req);
@@ -1771,6 +1797,7 @@ class ObjectOutputStream final : public io::OutputStream {
     req.SetKey(ToAwsString(path_.key));
     req.SetUploadId(multipart_upload_id_);
     req.SetMultipartUpload(std::move(completed_upload));
+    RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
 
     auto outcome =
         client_lock.Move()->CompleteMultipartUploadWithErrorFixup(std::move(req));
@@ -1958,6 +1985,7 @@ class ObjectOutputStream final : public io::OutputStream {
     req.SetKey(ToAwsString(path_.key));
     req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
     req.SetContentLength(nbytes);
+    RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
 
     if (!background_writes_) {
       req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
@@ -2171,6 +2199,7 @@ class ObjectOutputStream final : public io::OutputStream {
     Future<> pending_uploads_completed = Future<>::MakeFinished(Status::OK());
   };
   std::shared_ptr<UploadState> upload_state_;
+  std::string sse_customer_key_;
 };
 
 // This function assumes info->path() is already set
@@ -2339,6 +2368,17 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     S3Model::CopyObjectRequest req;
     req.SetBucket(ToAwsString(dest_path.bucket));
     req.SetKey(ToAwsString(dest_path.key));
+    ARROW_ASSIGN_OR_RAISE(auto maybe_sse_headers,
+                          internal::GetSSECustomerKeyHeaders(options().sse_customer_key));
+    if (maybe_sse_headers.has_value()) {
+      auto sse_headers = std::move(maybe_sse_headers).value();
+      req.SetSSECustomerKey(sse_headers.sse_customer_key);
+      req.SetSSECustomerKeyMD5(sse_headers.sse_customer_key_md5);
+      req.SetSSECustomerAlgorithm(sse_headers.sse_customer_algorithm);
+      req.SetCopySourceSSECustomerKey(sse_headers.sse_customer_key);
+      req.SetCopySourceSSECustomerKeyMD5(sse_headers.sse_customer_key_md5);
+      req.SetCopySourceSSECustomerAlgorithm(sse_headers.sse_customer_algorithm);
+    }
     // ARROW-13048: Copy source "Must be URL-encoded" according to AWS SDK docs.
     // However at least in 1.8 and 1.9 the SDK URL-encodes the path for you
     req.SetCopySource(src_path.ToAwsString());
@@ -2982,7 +3022,8 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
     RETURN_NOT_OK(CheckS3Initialized());
 
-    auto ptr = std::make_shared<ObjectInputFile>(holder_, fs->io_context(), path);
+    auto ptr = std::make_shared<ObjectInputFile>(holder_, fs->io_context(), path, kNoSize,
+                                                 fs->options().sse_customer_key);
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
@@ -3002,8 +3043,8 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
     RETURN_NOT_OK(CheckS3Initialized());
 
-    auto ptr =
-        std::make_shared<ObjectInputFile>(holder_, fs->io_context(), path, info.size());
+    auto ptr = std::make_shared<ObjectInputFile>(
+        holder_, fs->io_context(), path, info.size(), fs->options().sse_customer_key);
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }

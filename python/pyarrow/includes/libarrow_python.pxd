@@ -17,6 +17,7 @@
 
 # distutils: language = c++
 
+from pyarrow.includes.chrono cimport time_point
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
@@ -243,6 +244,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     int64_t TimePoint_to_ns(CTimePoint val)
     CTimePoint TimePoint_from_s(double val)
     CTimePoint TimePoint_from_ns(int64_t val)
+
+    CTimePoint TimePoint_from_system_time(time_point val)
+    time_point TimePoint_to_system_time(CTimePoint val)
 
     CResult[c_string] TzinfoToString(PyObject* pytzinfo)
     CResult[PyObject*] StringToTzinfo(c_string)

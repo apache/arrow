@@ -80,6 +80,12 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    */
   void reAlloc();
 
+  /**
+   * Get the allocator associated with the vector. CAVEAT: Some ValueVector subclasses (e.g.
+   * NullVector) do not require an allocator for data storage and may return null.
+   *
+   * @return Returns nullable allocator.
+   */
   BufferAllocator getAllocator();
 
   /**

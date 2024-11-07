@@ -157,8 +157,11 @@ cat <<ANNOUNCE >> "${announce_file}"
 
 ANNOUNCE
 
+# Remove the "# Apache Arrow ..." line and increment section level
+# of "## Bug Fixes"/"## New Features and Improvements" to "### ...".
 archery release changelog generate ${version} | \
-  sed -e 's/^#/##/g' >> "${announce_file}"
+  sed -e '/^# /d' \
+      -e 's/^#/##/g' >> "${announce_file}"
 
 cat <<ANNOUNCE >> "${announce_file}"
 [1]: https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/

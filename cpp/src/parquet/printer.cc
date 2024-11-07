@@ -220,7 +220,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     bool hasRow;
     do {
       hasRow = false;
-      for (auto scanner : scanners) {
+      for (const auto& scanner : scanners) {
         if (scanner->HasNext()) {
           hasRow = true;
           scanner->PrintNext(stream, COL_WIDTH);
@@ -246,7 +246,7 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
          << file_metadata->schema()->group_node()->field_count() << "\",\n";
   stream << "  \"NumberOfColumns\": \"" << file_metadata->num_columns() << "\",\n";
 
-  if (selected_columns.size() == 0) {
+  if (selected_columns.empty()) {
     for (int i = 0; i < file_metadata->num_columns(); i++) {
       selected_columns.push_back(i);
     }
@@ -299,29 +299,30 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
              << column_chunk->num_values() << "\", "
              << "\"StatsSet\": ";
       if (column_chunk->is_stats_set()) {
-        stream << "\"True\", \"Stats\": {";
+        stream << R"("True", "Stats": {)";
         if (stats->HasNullCount()) {
-          stream << "\"NumNulls\": \"" << stats->null_count();
+          stream << R"("NumNulls": ")" << stats->null_count() << "\"";
         }
         if (stats->HasDistinctCount()) {
-          stream << "\", "
-                 << "\"DistinctValues\": \"" << stats->distinct_count();
+          stream << ", "
+                 << R"("DistinctValues": ")" << stats->distinct_count() << "\"";
         }
         if (stats->HasMinMax()) {
           std::string min = stats->EncodeMin(), max = stats->EncodeMax();
-          stream << "\", "
-                 << "\"Max\": \"" << FormatStatValue(descr->physical_type(), max)
+          stream << ", "
+                 << R"("Max": ")" << FormatStatValue(descr->physical_type(), max)
                  << "\", "
-                 << "\"Min\": \"" << FormatStatValue(descr->physical_type(), min);
+                 << R"("Min": ")" << FormatStatValue(descr->physical_type(), min) << "\"";
         }
-        stream << "\" },";
+        stream << " },";
       } else {
         stream << "\"False\",";
       }
       stream << "\n           \"Compression\": \""
              << ::arrow::internal::AsciiToUpper(
                     Codec::GetCodecAsString(column_chunk->compression()))
-             << "\", \"Encodings\": \"";
+             << R"(", "Encodings": )";
+      stream << "\"";
       if (column_chunk->encoding_stats().empty()) {
         for (auto encoding : column_chunk->encodings()) {
           stream << EncodingToString(encoding) << " ";
@@ -329,40 +330,43 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
       } else {
         PrintPageEncodingStats(stream, column_chunk->encoding_stats());
       }
-      stream << "\", "
-             << "\"UncompressedSize\": \"" << column_chunk->total_uncompressed_size()
-             << "\", \"CompressedSize\": \"" << column_chunk->total_compressed_size();
+      stream << "\"";
+      stream << ", "
+             << R"("UncompressedSize": ")" << column_chunk->total_uncompressed_size()
+             << R"(", "CompressedSize": ")" << column_chunk->total_compressed_size()
+             << "\"";
 
       if (column_chunk->bloom_filter_offset()) {
         // Output BloomFilter {offset, length}
-        stream << "\", BloomFilter {"
-               << "\"offset\": \"" << column_chunk->bloom_filter_offset().value();
+        stream << ", \"BloomFilter\": {"
+               << R"("offset": ")" << column_chunk->bloom_filter_offset().value() << "\"";
         if (column_chunk->bloom_filter_length()) {
-          stream << "\", \"length\": \"" << column_chunk->bloom_filter_length().value();
+          stream << R"(, "length": ")" << column_chunk->bloom_filter_length().value()
+                 << "\"";
         }
-        stream << "\"}";
+        stream << "}";
       }
 
       if (column_chunk->GetColumnIndexLocation()) {
         auto location = column_chunk->GetColumnIndexLocation().value();
         // Output ColumnIndex {offset, length}
-        stream << "\", ColumnIndex {"
-               << "\"offset\": \"" << location.offset;
-        stream << "\", \"length\": \"" << location.length;
+        stream << ", \"ColumnIndex\": {"
+               << R"("offset": ")" << location.offset;
+        stream << R"(", "length": ")" << location.length;
         stream << "\"}";
       }
 
       if (column_chunk->GetOffsetIndexLocation()) {
         auto location = column_chunk->GetOffsetIndexLocation().value();
         // Output OffsetIndex {offset, length}
-        stream << "\", OffsetIndex {"
-               << "\"offset\": \"" << location.offset;
-        stream << "\", \"length\": \"" << location.length;
-        stream << "\"}";
+        stream << ", \"OffsetIndex\": {"
+               << R"("offset": ")" << location.offset << "\"";
+        stream << R"(, "length": ")" << location.length << "\"";
+        stream << "}";
       }
 
       // end of a ColumnChunk
-      stream << "\" }";
+      stream << " }";
       c1++;
       if (c1 != static_cast<int>(selected_columns.size())) {
         stream << ",\n";

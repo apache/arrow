@@ -42,8 +42,8 @@ class TestDecimal128DataType < Test::Unit::TestCase
   end
 
   def test_decimal_data_type_new
-    assert_equal(Arrow::Decimal128DataType.new(8, 2),
-                 Arrow::DecimalDataType.new(8, 2))
+    assert_equal(Arrow::Decimal128DataType.new(19, 2),
+                 Arrow::DecimalDataType.new(19, 2))
   end
 
   def test_invalid_precision
