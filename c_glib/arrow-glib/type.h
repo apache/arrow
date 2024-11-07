@@ -71,7 +71,7 @@ G_BEGIN_DECLS
  * @GARROW_TYPE_MONTH_DAY_NANO_INTERVAL: MONTH_DAY_NANO interval in SQL style.
  * @GARROW_TYPE_RUN_END_ENCODED: Run-end encoded data.
  * @GARROW_TYPE_BINARY_VIEW: Bytes view type with 4-byte prefix and inline small string
- * optimization.
+ *   optimization.
  * @GARROW_TYPE_DECIMAL32: Precision- and scale-based decimal
  * @GARROW_TYPE_DECIMAL64: Precision- and scale-based decimal
  *   type with 64-bit. Storage type depends on the parameters.
