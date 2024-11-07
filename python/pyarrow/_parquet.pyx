@@ -467,7 +467,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def dictionary_page_offset(self):
-        """Offset of dictionary page relative to column chunk offset (int)."""
+        """Offset of dictionary page relative to beginning of the file (int)."""
         if self.has_dictionary_page:
             return self.metadata.dictionary_page_offset()
         else:
@@ -475,7 +475,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def data_page_offset(self):
-        """Offset of data page relative to column chunk offset (int)."""
+        """Offset of data page relative to beginning of the file (int)."""
         return self.metadata.data_page_offset()
 
     @property
