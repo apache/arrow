@@ -63,7 +63,6 @@ if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_REPOSITORY_OWNER:-}" ]; then
       https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
   fi
   PATH="${vcpkg_destination}:${PATH}"
-  vcpkg fetch nuget || :
   nuget_url="https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json"
   mono $(vcpkg fetch nuget | tail -n 1) \
     sources add \
