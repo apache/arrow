@@ -158,17 +158,22 @@ class GitHub(Downloader):
             raise ValueError("--tag is required")
         self._repository = repository
         self._tag = tag
+        # use the same name as the gh CLI
+        self._token = os.environ.get("GH_TOKEN")
 
     def get_file_list(self, prefix, filter=None):
         url = (f"https://api.github.com/repos/{self._repository}/"
                f"releases/tags/{self._tag}")
         print("Fetching release from", url)
+        headers = {
+            "Accept": "application/vnd.github+json",
+        }
+        if self._token:
+            headers["Authorization"] = f"Bearer {self._token}"
         request = urllib.request.Request(
             url,
             method="GET",
-            headers={
-                "Accept": "application/vnd.github+json",
-            },
+            headers=headers,
         )
         raw_response = urllib.request.urlopen(request).read().decode()
         response = json.loads(raw_response)
