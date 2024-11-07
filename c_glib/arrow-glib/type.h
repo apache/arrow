@@ -70,6 +70,8 @@ G_BEGIN_DECLS
  * @GARROW_TYPE_LARGE_LIST: A list of some logical data type with 64-bit offsets.
  * @GARROW_TYPE_MONTH_DAY_NANO_INTERVAL: MONTH_DAY_NANO interval in SQL style.
  * @GARROW_TYPE_RUN_END_ENCODED: Run-end encoded data.
+ * @GARROW_TYPE_BINARY_VIEW: Bytes view type with 4-byte prefix and inline small string
+ *   optimization.
  * @GARROW_TYPE_DECIMAL32: Precision- and scale-based decimal
  * @GARROW_TYPE_DECIMAL64: Precision- and scale-based decimal
  *   type with 64-bit. Storage type depends on the parameters.
@@ -116,7 +118,9 @@ typedef enum {
   GARROW_TYPE_LARGE_LIST,
   GARROW_TYPE_MONTH_DAY_NANO_INTERVAL,
   GARROW_TYPE_RUN_END_ENCODED,
-  /* TODO: Remove = 43 when we add STRING_VIEW(39)..LARGE_LIST_VIEW(42). */
+  /* TODO: Remove = 40 when we add STRING_VIEW(39) */
+  GARROW_TYPE_BINARY_VIEW = 40,
+  /* TODO: Remove = 43 when we add LIST_VIEW(41)..LARGE_LIST_VIEW(42). */
   GARROW_TYPE_DECIMAL32 = 43,
   GARROW_TYPE_DECIMAL64,
 } GArrowType;

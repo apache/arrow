@@ -770,4 +770,20 @@ GArrowExtensionDataType *
 garrow_extension_data_type_registry_lookup(GArrowExtensionDataTypeRegistry *registry,
                                            const gchar *name);
 
+#define GARROW_TYPE_BINARY_VIEW_DATA_TYPE (garrow_binary_view_data_type_get_type())
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowBinaryViewDataType,
+                         garrow_binary_view_data_type,
+                         GARROW,
+                         BINARY_VIEW_DATA_TYPE,
+                         GArrowDataType)
+struct _GArrowBinaryViewDataTypeClass
+{
+  GArrowDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+GArrowBinaryViewDataType *
+garrow_binary_view_data_type_new(void);
+
 G_END_DECLS

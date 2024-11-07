@@ -114,6 +114,8 @@ garrow_type_from_raw(arrow::Type::type type)
     return GARROW_TYPE_MONTH_DAY_NANO_INTERVAL;
   case arrow::Type::type::RUN_END_ENCODED:
     return GARROW_TYPE_RUN_END_ENCODED;
+  case arrow::Type::type::BINARY_VIEW:
+    return GARROW_TYPE_BINARY_VIEW;
   default:
     return GARROW_TYPE_NA;
   }
