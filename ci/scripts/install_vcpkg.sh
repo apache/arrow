@@ -56,7 +56,9 @@ fi
 if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_REPOSITORY_OWNER:-}" ]; then
   if type dnf 2>/dev/null; then
     dnf install -y epel-release
-    dnf install -y mono-complete
+    # We can remove "|| dnf install -y mono-core" when we drop support
+    # for manylinux2014.
+    dnf install -y mono-complete || dnf install -y mono-core
     curl \
       --location \
       --output "${vcpkg_destination}/nuget" \
