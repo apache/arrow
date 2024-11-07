@@ -43,6 +43,8 @@ jobs:
 
       - name: Build wheel
         shell: cmd
+        env:
+          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
           cd arrow
           @rem We want to use only

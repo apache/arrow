@@ -64,14 +64,18 @@ if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_REPOSITORY_OWNER:-}" ]; then
   fi
   PATH="${vcpkg_destination}:${PATH}"
   nuget_url="https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json"
-  mono $(vcpkg fetch nuget | tail -n 1) \
+  nuget="$(vcpkg fetch nuget | tail -n 1)"
+  if type mono 2>/dev/null; then
+    nuget="mono ${nuget}"
+  fi
+  ${nuget} \
     sources add \
     -source "${nuget_url}" \
     -storepasswordincleartext \
     -name "GitHub" \
     -username "${GITHUB_REPOSITORY_OWNER}" \
     -password "${GITHUB_TOKEN}"
-  mono $(vcpkg fetch nuget | tail -n 1) \
+  ${nuget} \
     setapikey "${GITHUB_TOKEN}" \
     -source "${nuget_url}"
 fi

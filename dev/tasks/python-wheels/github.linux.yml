@@ -52,12 +52,12 @@ jobs:
 
       - name: Build wheel
         shell: bash
+        env:
+          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} \
             python-wheel-manylinux-{{ manylinux_version }}
-        env:
-          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
 
       - uses: actions/upload-artifact@v4
         with:
