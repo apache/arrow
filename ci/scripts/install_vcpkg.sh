@@ -54,32 +54,39 @@ if [ -f "${vcpkg_ports_patch}" ]; then
 fi
 
 if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_REPOSITORY_OWNER:-}" ]; then
+  can_use_nuget=yes
   if type dnf 2>/dev/null; then
     dnf install -y epel-release
-    # We can remove "|| dnf install -y mono-core" when we drop support
-    # for manylinux2014.
-    dnf install -y mono-complete || dnf install -y mono-core
-    curl \
-      --location \
-      --output "${vcpkg_destination}/nuget" \
-      https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+    if dnf info mono-complete 2>/dev/null; then
+      dnf install -y mono-complete
+      curl \
+        --location \
+        --output "${vcpkg_destination}/nuget" \
+        https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+    else
+      # manylinux2014_aarch64 image doesn't have mono-complete in
+      # EPEL. It has Mono but it's old.
+      can_use_nuget=no
+    fi
   fi
-  PATH="${vcpkg_destination}:${PATH}"
-  nuget_url="https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json"
-  nuget="$(vcpkg fetch nuget | tail -n 1)"
-  if type mono 2>/dev/null; then
-    nuget="mono ${nuget}"
+  if [ "${can_use_nuget}" = "yes" ]; then
+    PATH="${vcpkg_destination}:${PATH}"
+    nuget_url="https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json"
+    nuget="$(vcpkg fetch nuget | tail -n 1)"
+    if type mono 2>/dev/null; then
+      nuget="mono ${nuget}"
+    fi
+    ${nuget} \
+      sources add \
+      -source "${nuget_url}" \
+      -storepasswordincleartext \
+      -name "GitHub" \
+      -username "${GITHUB_REPOSITORY_OWNER}" \
+      -password "${GITHUB_TOKEN}"
+    ${nuget} \
+      setapikey "${GITHUB_TOKEN}" \
+      -source "${nuget_url}"
   fi
-  ${nuget} \
-    sources add \
-    -source "${nuget_url}" \
-    -storepasswordincleartext \
-    -name "GitHub" \
-    -username "${GITHUB_REPOSITORY_OWNER}" \
-    -password "${GITHUB_TOKEN}"
-  ${nuget} \
-    setapikey "${GITHUB_TOKEN}" \
-    -source "${nuget_url}"
 fi
 
 popd
