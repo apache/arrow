@@ -1205,8 +1205,11 @@ TEST_F(TestJSONWithLocalFile, ValidJsonOutput) {
   };
   std::vector<std::string_view> check_file_lists = {
       "data_index_bloom_encoding_with_length.parquet",
-      "data_index_bloom_encoding_stats.parquet", "alltypes_tiny_pages_plain.parquet",
-      "concatenated_gzip_members.parquet", "nulls.snappy.parquet", "sort_columns.parquet"};
+      "data_index_bloom_encoding_stats.parquet",
+      "alltypes_tiny_pages_plain.parquet",
+      "concatenated_gzip_members.parquet",
+      "nulls.snappy.parquet",
+      "sort_columns.parquet"};
   for (const auto& file : check_file_lists) {
     std::string json_content = ReadFromLocalFile(file);
     ASSERT_OK(check_json_valid(json_content))
