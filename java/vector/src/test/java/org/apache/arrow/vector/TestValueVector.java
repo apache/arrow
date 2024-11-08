@@ -46,11 +46,13 @@ import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
+import org.apache.arrow.vector.complex.impl.UnionLargeListViewWriter;
 import org.apache.arrow.vector.complex.impl.UnionListViewWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.holders.NullableIntHolder;
@@ -2911,6 +2913,35 @@ public class TestValueVector {
   }
 
   @Test
+  public void testLargeListViewVectorEqualsWithNull() {
+    try (final LargeListViewVector vector1 = LargeListViewVector.empty("largelistview", allocator);
+        final LargeListViewVector vector2 =
+            LargeListViewVector.empty("largelistview", allocator); ) {
+
+      UnionLargeListViewWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      // set some values
+      writeLargeListViewVector(writer1, new int[] {1, 2});
+      writeLargeListViewVector(writer1, new int[] {3, 4});
+      writeLargeListViewVector(writer1, new int[] {});
+      writer1.setValueCount(3);
+
+      UnionLargeListViewWriter writer2 = vector2.getWriter();
+      writer2.allocate();
+
+      // set some values
+      writeLargeListViewVector(writer2, new int[] {1, 2});
+      writeLargeListViewVector(writer2, new int[] {3, 4});
+      writer2.setValueCount(3);
+
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+
+      assertFalse(visitor.vectorEquals(vector1, vector2));
+    }
+  }
+
+  @Test
   public void testListVectorEquals() {
     try (final ListVector vector1 = ListVector.empty("list", allocator);
         final ListVector vector2 = ListVector.empty("list", allocator); ) {
@@ -2975,6 +3006,39 @@ public class TestValueVector {
   }
 
   @Test
+  public void testLargeListViewVectorEquals() {
+    try (final LargeListViewVector vector1 = LargeListViewVector.empty("largelistview", allocator);
+        final LargeListViewVector vector2 =
+            LargeListViewVector.empty("largelistview", allocator); ) {
+
+      UnionLargeListViewWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      // set some values
+      writeLargeListViewVector(writer1, new int[] {1, 2});
+      writeLargeListViewVector(writer1, new int[] {3, 4});
+      writeLargeListViewVector(writer1, new int[] {5, 6});
+      writer1.setValueCount(3);
+
+      UnionLargeListViewWriter writer2 = vector2.getWriter();
+      writer2.allocate();
+
+      // set some values
+      writeLargeListViewVector(writer2, new int[] {1, 2});
+      writeLargeListViewVector(writer2, new int[] {3, 4});
+      writer2.setValueCount(2);
+
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+      assertFalse(visitor.vectorEquals(vector1, vector2));
+
+      writeLargeListViewVector(writer2, new int[] {5, 6});
+      writer2.setValueCount(3);
+
+      assertTrue(visitor.vectorEquals(vector1, vector2));
+    }
+  }
+
+  @Test
   public void testListVectorSetNull() {
     try (final ListVector vector = ListVector.empty("list", allocator)) {
       UnionListWriter writer = vector.getWriter();
@@ -3006,6 +3070,29 @@ public class TestValueVector {
       writeListViewVector(writer, new int[] {1, 2});
       writeListViewVector(writer, new int[] {3, 4});
       writeListViewVector(writer, new int[] {5, 6});
+      vector.setNull(3);
+      vector.setNull(4);
+      vector.setNull(5);
+      writer.setValueCount(6);
+
+      assertEquals(vector.getObject(0), Arrays.asList(1, 2));
+      assertEquals(vector.getObject(1), Arrays.asList(3, 4));
+      assertEquals(vector.getObject(2), Arrays.asList(5, 6));
+      assertTrue(vector.isNull(3));
+      assertTrue(vector.isNull(4));
+      assertTrue(vector.isNull(5));
+    }
+  }
+
+  @Test
+  public void testLargeListViewVectorSetNull() {
+    try (final LargeListViewVector vector = LargeListViewVector.empty("largelistview", allocator)) {
+      UnionLargeListViewWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writeLargeListViewVector(writer, new int[] {1, 2});
+      writeLargeListViewVector(writer, new int[] {3, 4});
+      writeLargeListViewVector(writer, new int[] {5, 6});
       vector.setNull(3);
       vector.setNull(4);
       vector.setNull(5);
@@ -3352,6 +3439,14 @@ public class TestValueVector {
   }
 
   private void writeListViewVector(UnionListViewWriter writer, int[] values) {
+    writer.startListView();
+    for (int v : values) {
+      writer.integer().writeInt(v);
+    }
+    writer.endListView();
+  }
+
+  private void writeLargeListViewVector(UnionLargeListViewWriter writer, int[] values) {
     writer.startListView();
     for (int v : values) {
       writer.integer().writeInt(v);

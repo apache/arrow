@@ -429,8 +429,8 @@ Be sure to go through on the following checklist:
       git remote add <YOUR_GITHUB_ID> git@github.com:<YOUR_GITHUB_ID>/homebrew-core.git
       cd -
 
-      # dev/release/post-15-homebrew.sh 10.0.0 kou
-      dev/release/post-15-homebrew.sh X.Y.Z <YOUR_GITHUB_ID>
+      # dev/release/post-14-homebrew.sh 10.0.0 kou
+      dev/release/post-14-homebrew.sh X.Y.Z <YOUR_GITHUB_ID>
 
    This script pushes a ``apache-arrow-X.Y.Z`` branch to your ``Homebrew/homebrew-core`` fork. You need to create a pull request from the ``apache-arrow-X.Y.Z`` branch with ``apache-arrow, apache-arrow-glib: X.Y.Z`` title on your Web browser.
 
@@ -455,8 +455,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/msys2/MINGW-packages.git
       cd -
 
-      # dev/release/post-14-msys2.sh 10.0.0 ../MINGW-packages
-      dev/release/post-14-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
+      # dev/release/post-13-msys2.sh 10.0.0 ../MINGW-packages
+      dev/release/post-13-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``msys2/MINGW-packages`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``arrow: Update to X.Y.Z`` title on your Web browser.
 
@@ -602,8 +602,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/microsoft/vcpkg.git
       cd -
 
-      # dev/release/post-16-vcpkg.sh 10.0.0 ../vcpkg
-      dev/release/post-16-vcpkg.sh X.Y.Z <YOUR_VCPKG_FORK>
+      # dev/release/post-15-vcpkg.sh 10.0.0 ../vcpkg
+      dev/release/post-15-vcpkg.sh X.Y.Z <YOUR_VCPKG_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``microsoft/vcpkg`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``[arrow] Update to X.Y.Z`` title on your Web browser.
 
@@ -645,16 +645,6 @@ Be sure to go through on the following checklist:
       # but you will require to push manually after reviewing the commits.
       # dev/release/post-12-bump-versions.sh 10.0.0 11.0.0
       dev/release/post-12-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
-
-.. dropdown:: Update tags for Go modules
-   :animate: fade-in-slide-down
-   :class-title: sd-fs-5
-   :class-container: sd-shadow-md
-
-   .. code-block:: Bash
-
-      # dev/release/post-13-go.sh 10.0.0
-      dev/release/post-13-go.sh X.Y.Z
 
 .. dropdown:: Update docs
    :animate: fade-in-slide-down

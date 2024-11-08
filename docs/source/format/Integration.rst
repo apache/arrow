@@ -390,20 +390,37 @@ but can be of any type.
 
 Extension types are, as in the IPC format, represented as their underlying
 storage type plus some dedicated field metadata to reconstruct the extension
-type.  For example, assuming a "uuid" extension type backed by a
-FixedSizeBinary(16) storage, here is how a "uuid" field would be represented::
+type.  For example, assuming a "rational" extension type backed by a
+``struct<numer: int32, denom: int32>`` storage, here is how a "rational" field
+would be represented::
 
     {
       "name" : "name_of_the_field",
       "nullable" : /* boolean */,
       "type" : {
-         "name" : "fixedsizebinary",
-         "byteWidth" : 16
+        "name" : "struct"
       },
-      "children" : [],
+      "children" : [
+        {
+          "name": "numer",
+          "type": {
+            "name": "int",
+            "bitWidth": 32,
+            "isSigned": true
+          }
+        },
+        {
+          "name": "denom",
+          "type": {
+            "name": "int",
+            "bitWidth": 32,
+            "isSigned": true
+          }
+        }
+      ],
       "metadata" : [
-         {"key": "ARROW:extension:name", "value": "uuid"},
-         {"key": "ARROW:extension:metadata", "value": "uuid-serialized"}
+         {"key": "ARROW:extension:name", "value": "rational"},
+         {"key": "ARROW:extension:metadata", "value": "rational-serialized"}
       ]
     }
 

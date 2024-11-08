@@ -61,6 +61,7 @@ public class BufferLayout {
   private static final BufferLayout VALUES_32 = new BufferLayout(BufferType.DATA, 32);
   private static final BufferLayout VALUES_16 = new BufferLayout(BufferType.DATA, 16);
   private static final BufferLayout VALUES_8 = new BufferLayout(BufferType.DATA, 8);
+  private static final BufferLayout LARGE_SIZE_BUFFER = new BufferLayout(BufferType.SIZE, 64);
   private static final BufferLayout SIZE_BUFFER = new BufferLayout(BufferType.SIZE, 32);
   private static final BufferLayout VIEW_BUFFER = new BufferLayout(BufferType.VIEWS, 16);
 
@@ -78,6 +79,10 @@ public class BufferLayout {
 
   public static BufferLayout sizeBuffer() {
     return SIZE_BUFFER;
+  }
+
+  public static BufferLayout largeSizeBuffer() {
+    return LARGE_SIZE_BUFFER;
   }
 
   /**

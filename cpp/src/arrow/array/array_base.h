@@ -232,6 +232,14 @@ class ARROW_EXPORT Array {
   /// \return DeviceAllocationType
   DeviceAllocationType device_type() const { return data_->device_type(); }
 
+  /// \brief Return the statistics of this Array
+  ///
+  /// This just delegates to calling statistics on the underlying ArrayData
+  /// object which backs this Array.
+  ///
+  /// \return const std::shared_ptr<ArrayStatistics>&
+  const std::shared_ptr<ArrayStatistics>& statistics() const { return data_->statistics; }
+
  protected:
   Array() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(Array);

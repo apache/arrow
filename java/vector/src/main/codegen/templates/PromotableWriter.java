@@ -41,6 +41,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   protected final ListViewVector listViewVector;
   protected final FixedSizeListVector fixedListVector;
   protected final LargeListVector largeListVector;
+  protected final LargeListViewVector largeListViewVector;
   protected final NullableStructWriterFactory nullableStructWriterFactory;
   protected int position;
   protected static final int MAX_DECIMAL_PRECISION = 38;
@@ -84,6 +85,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.listViewVector = null;
     this.fixedListVector = null;
     this.largeListVector = null;
+    this.largeListViewVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }
@@ -122,6 +124,26 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
    * Constructs a new instance.
    *
    * @param v The vector to initialize the writer with.
+   * @param listViewVector The vector that serves as a parent of v.
+   */
+  public PromotableWriter(ValueVector v, ListViewVector listViewVector) {
+    this(v, listViewVector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param largeListViewVector The vector that serves as a parent of v.
+   */
+  public PromotableWriter(ValueVector v, LargeListViewVector largeListViewVector) {
+    this(v, largeListViewVector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
    * @param listVector The vector that serves as a parent of v.
    * @param nullableStructWriterFactory The factory to create the delegate writer.
    */
@@ -134,6 +156,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.parentContainer = null;
     this.fixedListVector = null;
     this.largeListVector = null;
+    this.largeListViewVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }
@@ -154,6 +177,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.parentContainer = null;
     this.fixedListVector = null;
     this.largeListVector = null;
+    this.largeListViewVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }
@@ -174,6 +198,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.listVector = null;
     this.listViewVector = null;
     this.largeListVector = null;
+    this.largeListViewVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }
@@ -194,6 +219,28 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.parentContainer = null;
     this.listVector = null;
     this.listViewVector = null;
+    this.largeListViewVector = null;
+    this.nullableStructWriterFactory = nullableStructWriterFactory;
+    init(v);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param largeListViewVector The vector that serves as a parent of v.
+   * @param nullableStructWriterFactory The factory to create the delegate writer.
+   */
+  public PromotableWriter(
+      ValueVector v,
+      LargeListViewVector largeListViewVector,
+      NullableStructWriterFactory nullableStructWriterFactory) {
+    this.largeListViewVector = largeListViewVector;
+    this.fixedListVector = null;
+    this.parentContainer = null;
+    this.listVector = null;
+    this.listViewVector = null;
+    this.largeListVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }

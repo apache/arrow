@@ -42,10 +42,10 @@ test_that("simple int column roundtrip", {
 test_that("read_parquet() supports col_select", {
   skip_if_not_available("snappy")
   df <- read_parquet(pq_file, col_select = c(x, y, z))
-  expect_equal(names(df), c("x", "y", "z"))
+  expect_named(df, c("x", "y", "z"))
 
   df <- read_parquet(pq_file, col_select = starts_with("c"))
-  expect_equal(names(df), c("carat", "cut", "color", "clarity"))
+  expect_named(df, c("carat", "cut", "color", "clarity"))
 })
 
 test_that("read_parquet() with raw data", {

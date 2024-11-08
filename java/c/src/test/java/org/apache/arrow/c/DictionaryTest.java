@@ -247,8 +247,8 @@ public class DictionaryTest {
 
     // Write the values to child 1
     child1.allocateNew();
-    child1.set(0, "01234567890".getBytes());
-    child1.set(1, "012345678901234567".getBytes());
+    child1.set(0, "01234567890".getBytes(StandardCharsets.UTF_8));
+    child1.set(1, "012345678901234567".getBytes(StandardCharsets.UTF_8));
     vector.setIndexDefined(0);
 
     // Write the values to child 2
@@ -269,8 +269,8 @@ public class DictionaryTest {
 
     // Write the values to child 1
     child1.allocateNew();
-    child1.set(0, "012345678".getBytes());
-    child1.set(1, "01234".getBytes());
+    child1.set(0, "012345678".getBytes(StandardCharsets.UTF_8));
+    child1.set(1, "01234".getBytes(StandardCharsets.UTF_8));
     vector.setIndexDefined(0);
 
     // Write the values to child 2

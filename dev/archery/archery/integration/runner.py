@@ -17,6 +17,7 @@
 
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
+import contextlib
 from functools import partial
 import glob
 import gzip
@@ -30,15 +31,9 @@ from typing import Callable, List, Optional
 from . import cdata
 from .scenario import Scenario
 from .tester import Tester, CDataExporter, CDataImporter
-from .tester_cpp import CppTester
-from .tester_go import GoTester
-from .tester_rust import RustTester
-from .tester_java import JavaTester
-from .tester_js import JSTester
-from .tester_csharp import CSharpTester
-from .tester_nanoarrow import NanoarrowTester
 from .util import guid, printer
 from .util import SKIP_C_ARRAY, SKIP_C_SCHEMA, SKIP_FLIGHT, SKIP_IPC
+from ..utils.logger import group as group_raw
 from ..utils.source import ARROW_ROOT_DEFAULT
 from . import datagen
 
@@ -47,6 +42,12 @@ Failure = namedtuple('Failure',
                      ('test_case', 'producer', 'consumer', 'exc_info'))
 
 log = printer.print
+
+
+@contextlib.contextmanager
+def group(name):
+    with group_raw(name, log):
+        yield
 
 
 class Outcome:
@@ -59,12 +60,13 @@ class IntegrationRunner(object):
 
     def __init__(self, json_files,
                  flight_scenarios: List[Scenario],
-                 testers: List[Tester], tempdir=None,
-                 debug=False, stop_on_error=True, gold_dirs=None,
+                 testers: List[Tester], other_testers: List[Tester],
+                 tempdir=None, debug=False, stop_on_error=True, gold_dirs=None,
                  serial=False, match=None, **unused_kwargs):
         self.json_files = json_files
         self.flight_scenarios = flight_scenarios
         self.testers = testers
+        self.other_testers = other_testers
         self.temp_dir = tempdir or tempfile.mkdtemp()
         self.debug = debug
         self.stop_on_error = stop_on_error
@@ -91,20 +93,36 @@ class IntegrationRunner(object):
             self._compare_ipc_implementations(
                 producer, consumer, self._produce_consume,
                 self.json_files)
+
+        for producer, consumer in itertools.product(
+                filter(lambda t: t.PRODUCER, self.testers),
+                filter(lambda t: t.CONSUMER, self.other_testers)):
+            self._compare_ipc_implementations(
+                producer, consumer, self._produce_consume,
+                self.json_files)
+
+        for producer, consumer in itertools.product(
+                filter(lambda t: t.PRODUCER, self.other_testers),
+                filter(lambda t: t.CONSUMER, self.testers)):
+            self._compare_ipc_implementations(
+                producer, consumer, self._produce_consume,
+                self.json_files)
+
         if self.gold_dirs:
             for gold_dir, consumer in itertools.product(
                     self.gold_dirs,
                     filter(lambda t: t.CONSUMER, self.testers)):
-                log('\n')
-                log('******************************************************')
-                log('Tests against golden files in {}'.format(gold_dir))
-                log('******************************************************')
+                with group(f"Integration: Test: IPC: Gold: {consumer.name}"):
+                    log('\n')
+                    log('******************************************************')
+                    log('Tests against golden files in {}'.format(gold_dir))
+                    log('******************************************************')
 
-                def run_gold(_, consumer, test_case: datagen.File):
-                    return self._run_gold(gold_dir, consumer, test_case)
-                self._compare_ipc_implementations(
-                    consumer, consumer, run_gold,
-                    self._gold_tests(gold_dir))
+                    def run_gold(_, consumer, test_case: datagen.File):
+                        return self._run_gold(gold_dir, consumer, test_case)
+                    self._compare_ipc_implementations(
+                        consumer, consumer, run_gold,
+                        self._gold_tests(gold_dir))
         log('\n')
 
     def run_flight(self):
@@ -114,7 +132,7 @@ class IntegrationRunner(object):
         """
         servers = filter(lambda t: t.FLIGHT_SERVER, self.testers)
         clients = filter(lambda t: (t.FLIGHT_CLIENT and t.CONSUMER),
-                         self.testers)
+                         self.testers + self.other_testers)
         for server, client in itertools.product(servers, clients):
             self._compare_flight_implementations(server, client)
         log('\n')
@@ -126,6 +144,14 @@ class IntegrationRunner(object):
         """
         for producer, consumer in itertools.product(
                 filter(lambda t: t.C_DATA_SCHEMA_EXPORTER, self.testers),
+                filter(lambda t: t.C_DATA_SCHEMA_IMPORTER, self.testers)):
+            self._compare_c_data_implementations(producer, consumer)
+        for producer, consumer in itertools.product(
+                filter(lambda t: t.C_DATA_SCHEMA_EXPORTER, self.testers),
+                filter(lambda t: t.C_DATA_SCHEMA_IMPORTER, self.other_testers)):
+            self._compare_c_data_implementations(producer, consumer)
+        for producer, consumer in itertools.product(
+                filter(lambda t: t.C_DATA_SCHEMA_EXPORTER, self.other_testers),
                 filter(lambda t: t.C_DATA_SCHEMA_IMPORTER, self.testers)):
             self._compare_c_data_implementations(producer, consumer)
         log('\n')
@@ -160,12 +186,16 @@ class IntegrationRunner(object):
                 skip_testers.add("Rust")
             if prefix == '2.0.0-compression':
                 skip_testers.add("JS")
+                # https://github.com/apache/arrow-nanoarrow/issues/621
+                skip_testers.add("nanoarrow")
 
             # See https://github.com/apache/arrow/pull/9822 for how to
             # disable specific compression type tests.
 
             if prefix == '4.0.0-shareddict':
                 skip_testers.add("C#")
+                # https://github.com/apache/arrow-nanoarrow/issues/622
+                skip_testers.add("nanoarrow")
 
             quirks = set()
             if prefix in {'0.14.1', '0.17.1',
@@ -233,14 +263,15 @@ class IntegrationRunner(object):
         """
         Compare Arrow IPC for two implementations (one producer, one consumer).
         """
-        log('##########################################################')
-        log('IPC: {0} producing, {1} consuming'
-            .format(producer.name, consumer.name))
-        log('##########################################################')
+        with group(f"Integration: Test: IPC: {producer.name} -> {consumer.name}"):
+            log('##########################################################')
+            log('IPC: {0} producing, {1} consuming'
+                .format(producer.name, consumer.name))
+            log('##########################################################')
 
-        case_runner = partial(self._run_ipc_test_case,
-                              producer, consumer, run_binaries)
-        self._run_test_cases(case_runner, test_cases)
+            case_runner = partial(self._run_ipc_test_case,
+                                  producer, consumer, run_binaries)
+            self._run_test_cases(case_runner, test_cases)
 
     def _run_ipc_test_case(
         self,
@@ -357,14 +388,15 @@ class IntegrationRunner(object):
         producer: Tester,
         consumer: Tester
     ):
-        log('##########################################################')
-        log('Flight: {0} serving, {1} requesting'
-            .format(producer.name, consumer.name))
-        log('##########################################################')
+        with group(f"Integration: Test: Flight: {producer.name} -> {consumer.name}"):
+            log('##########################################################')
+            log('Flight: {0} serving, {1} requesting'
+                .format(producer.name, consumer.name))
+            log('##########################################################')
 
-        case_runner = partial(self._run_flight_test_case, producer, consumer)
-        self._run_test_cases(
-            case_runner, self.json_files + self.flight_scenarios)
+            case_runner = partial(self._run_flight_test_case, producer, consumer)
+            self._run_test_cases(
+                case_runner, self.json_files + self.flight_scenarios)
 
     def _run_flight_test_case(self,
                               producer: Tester,
@@ -415,26 +447,31 @@ class IntegrationRunner(object):
         producer: Tester,
         consumer: Tester
     ):
-        log('##########################################################')
-        log(f'C Data Interface: '
-            f'{producer.name} exporting, {consumer.name} importing')
-        log('##########################################################')
+        with group("Integration: Test: C Data Interface: "
+                   f"{producer.name} -> {consumer.name}"):
+            log('##########################################################')
+            log(f'C Data Interface: '
+                f'{producer.name} exporting, {consumer.name} importing')
+            log('##########################################################')
 
-        # Serial execution is required for proper memory accounting
-        serial = True
+            # Serial execution is required for proper memory accounting
+            serial = True
 
-        with producer.make_c_data_exporter() as exporter:
-            with consumer.make_c_data_importer() as importer:
-                case_runner = partial(self._run_c_schema_test_case,
-                                      producer, consumer,
-                                      exporter, importer)
-                self._run_test_cases(case_runner, self.json_files, serial=serial)
-
-                if producer.C_DATA_ARRAY_EXPORTER and consumer.C_DATA_ARRAY_IMPORTER:
-                    case_runner = partial(self._run_c_array_test_cases,
+            with producer.make_c_data_exporter() as exporter:
+                with consumer.make_c_data_importer() as importer:
+                    case_runner = partial(self._run_c_schema_test_case,
                                           producer, consumer,
                                           exporter, importer)
                     self._run_test_cases(case_runner, self.json_files, serial=serial)
+
+                    if producer.C_DATA_ARRAY_EXPORTER and \
+                       consumer.C_DATA_ARRAY_IMPORTER:
+                        case_runner = partial(self._run_c_array_test_cases,
+                                              producer, consumer,
+                                              exporter, importer)
+                        self._run_test_cases(case_runner,
+                                             self.json_files,
+                                             serial=serial)
 
     def _run_c_schema_test_case(self,
                                 producer: Tester, consumer: Tester,
@@ -543,31 +580,48 @@ def get_static_json_files():
 def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                   with_csharp=True, with_go=True, with_rust=False,
                   with_nanoarrow=False, run_ipc=False, run_flight=False,
-                  run_c_data=False, tempdir=None, **kwargs):
+                  run_c_data=False, tempdir=None, target_implementations="",
+                  **kwargs):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
+    target_implementations = \
+        target_implementations.split(",") if target_implementations else []
 
     testers: List[Tester] = []
+    other_testers: List[Tester] = []
+
+    def append_tester(implementation, tester):
+        if len(target_implementations) == 0 or implementation in target_implementations:
+            testers.append(tester)
+        else:
+            other_testers.append(tester)
 
     if with_cpp:
-        testers.append(CppTester(**kwargs))
+        from .tester_cpp import CppTester
+        append_tester("cpp", CppTester(**kwargs))
 
     if with_java:
-        testers.append(JavaTester(**kwargs))
+        from .tester_java import JavaTester
+        append_tester("java", JavaTester(**kwargs))
 
     if with_js:
-        testers.append(JSTester(**kwargs))
+        from .tester_js import JSTester
+        append_tester("js", JSTester(**kwargs))
 
     if with_csharp:
-        testers.append(CSharpTester(**kwargs))
+        from .tester_csharp import CSharpTester
+        append_tester("csharp", CSharpTester(**kwargs))
 
     if with_go:
-        testers.append(GoTester(**kwargs))
+        from .tester_go import GoTester
+        append_tester("go", GoTester(**kwargs))
 
     if with_nanoarrow:
-        testers.append(NanoarrowTester(**kwargs))
+        from .tester_nanoarrow import NanoarrowTester
+        append_tester("nanoarrow", NanoarrowTester(**kwargs))
 
     if with_rust:
-        testers.append(RustTester(**kwargs))
+        from .tester_rust import RustTester
+        append_tester("rust", RustTester(**kwargs))
 
     static_json_files = get_static_json_files()
     generated_json_files = datagen.get_generated_json_files(tempdir=tempdir)
@@ -577,10 +631,13 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
     flight_scenarios = [
         Scenario(
             "auth:basic_proto",
-            description="Authenticate using the BasicAuth protobuf."),
+            description="Authenticate using the BasicAuth protobuf.",
+            skip_testers={"C#"},
+        ),
         Scenario(
             "middleware",
             description="Ensure headers are propagated via middleware.",
+            skip_testers={"C#"},
         ),
         Scenario(
             "ordered",
@@ -613,6 +670,12 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             skip_testers={"JS", "C#", "Rust"},
         ),
         Scenario(
+            "do_exchange:echo",
+            description=("Test the do_exchange method by "
+                         "echoing data back to the client."),
+            skip_testers={"Go", "JS", "Rust"},
+        ),
+        Scenario(
             "location:reuse_connection",
             description="Ensure arrow-flight-reuse-connection is accepted.",
             skip_testers={"JS", "C#", "Rust"},
@@ -635,21 +698,22 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "flight_sql",
             description="Ensure Flight SQL protocol is working as expected.",
-            skip_testers={"Rust"}
+            skip_testers={"Rust", "C#"}
         ),
         Scenario(
             "flight_sql:extension",
             description="Ensure Flight SQL extensions work as expected.",
-            skip_testers={"Rust"}
+            skip_testers={"Rust", "C#"}
         ),
         Scenario(
             "flight_sql:ingestion",
             description="Ensure Flight SQL ingestion works as expected.",
-            skip_testers={"JS", "C#", "Rust", "Java"}
+            skip_testers={"JS", "C#", "Rust"}
         ),
     ]
 
-    runner = IntegrationRunner(json_files, flight_scenarios, testers, **kwargs)
+    runner = IntegrationRunner(json_files, flight_scenarios, testers,
+                               other_testers, **kwargs)
     if run_ipc:
         runner.run_ipc()
     if run_flight:
@@ -657,22 +721,23 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
     if run_c_data:
         runner.run_c_data()
 
-    fail_count = 0
-    if runner.failures:
-        log("################# FAILURES #################")
-        for test_case, producer, consumer, exc_info in runner.failures:
-            fail_count += 1
-            log("FAILED TEST:", end=" ")
-            log(test_case.name, producer.name, "producing, ",
-                consumer.name, "consuming")
-            if exc_info:
-                exc_type, exc_value, exc_tb = exc_info
-                log(f'{exc_type}: {exc_value}')
-            log()
+    with group("Integration: Test: Result"):
+        fail_count = 0
+        if runner.failures:
+            log("################# FAILURES #################")
+            for test_case, producer, consumer, exc_info in runner.failures:
+                fail_count += 1
+                log("FAILED TEST:", end=" ")
+                log(test_case.name, producer.name, "producing, ",
+                    consumer.name, "consuming")
+                if exc_info:
+                    exc_type, exc_value, exc_tb = exc_info
+                    log(f'{exc_type}: {exc_value}')
+                log()
 
-    log(f"{fail_count} failures, {len(runner.skips)} skips")
-    if fail_count > 0:
-        sys.exit(1)
+        log(f"{fail_count} failures, {len(runner.skips)} skips")
+        if fail_count > 0:
+            sys.exit(1)
 
 
 def write_js_test_json(directory):

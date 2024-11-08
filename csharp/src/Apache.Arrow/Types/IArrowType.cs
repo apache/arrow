@@ -56,6 +56,8 @@ namespace Apache.Arrow.Types
         LargeList,
         LargeBinary,
         LargeString,
+        Decimal32,
+        Decimal64,
     }
 
     public interface IArrowType

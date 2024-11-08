@@ -20,7 +20,10 @@
 #include <memory>
 #include <string>
 
+#include <google/protobuf/any.pb.h>
+
 #include "arrow/buffer.h"
+#include "arrow/flight/protocol_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
@@ -38,6 +41,57 @@ overloaded(Ts...)->overloaded<Ts...>;
 namespace arrow {
 namespace flight {
 namespace internal {
+
+namespace {
+
+Status PackToAnyAndSerialize(const google::protobuf::Message& command, std::string* out) {
+  google::protobuf::Any any;
+#if PROTOBUF_VERSION >= 3015000
+  if (!any.PackFrom(command)) {
+    return Status::SerializationError("Failed to pack ", command.GetTypeName());
+  }
+#else
+  any.PackFrom(command);
+#endif
+
+#if PROTOBUF_VERSION >= 3015000
+  if (!any.SerializeToString(out)) {
+    return Status::SerializationError("Failed to serialize ", command.GetTypeName());
+  }
+#else
+  any.SerializeToString(out);
+#endif
+  return Status::OK();
+}
+
+}  // namespace
+
+Status PackProtoCommand(const google::protobuf::Message& command, FlightDescriptor* out) {
+  std::string buf;
+  RETURN_NOT_OK(PackToAnyAndSerialize(command, &buf));
+  *out = FlightDescriptor::Command(std::move(buf));
+  return Status::OK();
+}
+
+Status PackProtoAction(std::string action_type, const google::protobuf::Message& action,
+                       Action* out) {
+  std::string buf;
+  RETURN_NOT_OK(PackToAnyAndSerialize(action, &buf));
+  out->type = std::move(action_type);
+  out->body = Buffer::FromString(std::move(buf));
+  return Status::OK();
+}
+
+Status UnpackProtoAction(const Action& action, google::protobuf::Message* out) {
+  google::protobuf::Any any;
+  if (!any.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()))) {
+    return Status::Invalid("Unable to parse action ", action.type);
+  }
+  if (!any.UnpackTo(out)) {
+    return Status::Invalid("Unable to unpack ", out->GetTypeName());
+  }
+  return Status::OK();
+}
 
 // Timestamp
 
@@ -282,8 +336,8 @@ Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
   return Status::OK();
 }
 
-Status FromProto(const pb::SchemaResult& pb_result, std::string* result) {
-  *result = pb_result.schema();
+Status FromProto(const pb::SchemaResult& pb_result, SchemaResult* result) {
+  *result = SchemaResult{pb_result.schema()};
   return Status::OK();
 }
 

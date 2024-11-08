@@ -219,20 +219,6 @@ class PrepareTest < Test::Unit::TestCase
     end
     expected_changes += [
       {
-        path: "go/arrow/doc.go",
-        hunks: [
-          ["-const PkgVersion = \"#{@snapshot_version}\"",
-           "+const PkgVersion = \"#{@release_version}\""],
-        ],
-      },
-      {
-        path: "go/parquet/writer_properties.go",
-        hunks: [
-          ["-\tDefaultCreatedBy          = \"parquet-go version #{@snapshot_version}\"",
-           "+\tDefaultCreatedBy          = \"parquet-go version #{@release_version}\""],
-        ],
-      },
-      {
         path: "js/package.json",
         hunks: [
           ["-  \"version\": \"#{@snapshot_version}\"",
@@ -278,6 +264,18 @@ class PrepareTest < Test::Unit::TestCase
     if next_release_type == :major
       expected_changes += [
         {
+          path: "r/pkgdown/assets/versions.html",
+          hunks: [
+            [
+              "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
+              "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
+              "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
+              "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
+              "+<p><a href=\"../#{@previous_compatible_version}/r/\">#{@previous_r_version}</a></p>",
+            ]
+          ],
+        },
+        {
           path: "r/pkgdown/assets/versions.json",
           hunks: [
             [
@@ -295,6 +293,17 @@ class PrepareTest < Test::Unit::TestCase
       ]
     else
       expected_changes += [
+        {
+          path: "r/pkgdown/assets/versions.html",
+          hunks: [
+            [
+              "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
+              "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
+              "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
+              "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
+            ]
+          ],
+        },
         {
           path: "r/pkgdown/assets/versions.json",
           hunks: [

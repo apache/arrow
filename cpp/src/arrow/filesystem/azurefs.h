@@ -112,6 +112,9 @@ struct ARROW_EXPORT AzureOptions {
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
   std::shared_ptr<const KeyValueMetadata> default_metadata;
 
+  /// Whether OutputStream writes will be issued in the background, without blocking.
+  bool background_writes = true;
+
  private:
   enum class CredentialKind {
     kDefault,
@@ -141,12 +144,10 @@ struct ARROW_EXPORT AzureOptions {
   ///
   /// Supported formats:
   ///
-  /// 1. abfs[s]://[:\<password\>@]\<account\>.blob.core.windows.net
-  ///    [/\<container\>[/\<path\>]]
-  /// 2. abfs[s]://\<container\>[:\<password\>]\@\<account\>.dfs.core.windows.net[/path]
-  /// 3. abfs[s]://[\<account[:\<password\>]@]\<host[.domain]\>[\<:port\>]
-  ///    [/\<container\>[/path]]
-  /// 4. abfs[s]://[\<account[:\<password\>]@]\<container\>[/path]
+  /// 1. abfs[s]://\<account\>.blob.core.windows.net[/\<container\>[/\<path\>]]
+  /// 2. abfs[s]://\<container\>\@\<account\>.dfs.core.windows.net[/path]
+  /// 3. abfs[s]://[\<account@]\<host[.domain]\>[\<:port\>][/\<container\>[/path]]
+  /// 4. abfs[s]://[\<account@]\<container\>[/path]
   ///
   /// (1) and (2) are compatible with the Azure Data Lake Storage Gen2 URIs
   /// [1], (3) is for Azure Blob Storage compatible service including Azurite,
@@ -367,6 +368,8 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
+
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 };
 
 }  // namespace arrow::fs

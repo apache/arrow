@@ -724,7 +724,7 @@ def _set_default(opt, default):
 
 @archery.command(short_help="Execute protocol and Flight integration tests")
 @click.option('--with-all', is_flag=True, default=False,
-              help=('Include all known languages by default '
+              help=('Include all known implementations by default '
                     'in integration tests'))
 @click.option('--random-seed', type=int, default=12345,
               help="Seed for PRNG when generating test data")
@@ -737,13 +737,17 @@ def _set_default(opt, default):
 @click.option('--with-js', type=bool, default=False,
               help='Include JavaScript in integration tests')
 @click.option('--with-go', type=bool, default=False,
-              help='Include Go in integration tests')
+              help='Include Go in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_GO")
 @click.option('--with-nanoarrow', type=bool, default=False,
               help='Include nanoarrow in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_NANOARROW")
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
+@click.option('--target-implementations', default='',
+              help=('Target implementations in this integration tests'),
+              envvar="ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS")
 @click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
 @click.option('--run-ipc', is_flag=True, default=False,
@@ -768,6 +772,64 @@ def _set_default(opt, default):
               help=("Substring for test names to include in run, "
                     "e.g. -k primitive"))
 def integration(with_all=False, random_seed=12345, **args):
+    """If you don't specify the "--target-implementations" option nor
+    the "ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS" environment
+    variable, test patterns are product of all specified
+    implementations and all specified implementations.
+
+    If "--with-cpp", "--with-java" and "--with-rust" are specified,
+    the following patterns are tested:
+
+    \b
+    | Producer | Consumer |
+    |----------|----------|
+    | C++      | C++      |
+    | C++      | Java     |
+    | C++      | Rust     |
+    | Java     | C++      |
+    | Java     | Java     |
+    | Java     | Rust     |
+    | Rust     | C++      |
+    | Rust     | Java     |
+    | Rust     | Rust     |
+
+    If "--target-implementations=cpp,java" or
+    "ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS=cpp,java" is
+    specified, test patterns are:
+
+    \b
+    * product of {C++,Java} and {C++,Java}
+    * product of {C++,Java} and {Rust}
+    * product of {Rust} and {C++,Java}
+
+    \b
+    | Producer | Consumer |
+    |----------|----------|
+    | C++      | C++      |
+    | C++      | Java     |
+    | Java     | C++      |
+    | Java     | Java     |
+    | C++      | Rust     |
+    | Java     | Rust     |
+    | Rust     | C++      |
+    | Rust     | Java     |
+
+    In general, we can reduce test time by specifying only
+    implementations in our repository. For example, we can use
+    "ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS=rust" for
+    apache/arrow-rs. It uses only the following test patterns:
+
+    \b
+    | Producer | Consumer |
+    |----------|----------|
+    | Rust     | Rust     |
+    | Rust     | C++      |
+    | Rust     | Java     |
+    | C++      | Rust     |
+    | Java     | Rust     |
+
+    """
+
     from .integration.runner import write_js_test_json, run_all_tests
     import numpy as np
 
@@ -779,15 +841,15 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    languages = ['cpp', 'csharp', 'java', 'js', 'go', 'nanoarrow', 'rust']
+    implementations = ['cpp', 'csharp', 'java', 'js', 'go', 'nanoarrow', 'rust']
     formats = ['ipc', 'flight', 'c_data']
 
-    enabled_languages = 0
-    for lang in languages:
+    enabled_implementations = 0
+    for lang in implementations:
         param = f'with_{lang}'
         if with_all:
             args[param] = with_all
-        enabled_languages += args[param]
+        enabled_implementations += args[param]
 
     enabled_formats = 0
     for fmt in formats:
@@ -804,9 +866,9 @@ def integration(with_all=False, random_seed=12345, **args):
             raise click.UsageError(
                 "Need to enable at least one format to test "
                 "(IPC, Flight, C Data Interface); try --help")
-        if enabled_languages == 0:
+        if enabled_implementations == 0:
             raise click.UsageError(
-                "Need to enable at least one language to test; try --help")
+                "Need to enable at least one implementation to test; try --help")
         run_all_tests(**args)
 
 

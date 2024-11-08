@@ -60,16 +60,20 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VariableWidthFieldVector;
+import org.apache.arrow.vector.complex.BaseLargeRepeatedValueViewVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueViewVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
+import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.holders.IntervalDayHolder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
 /** Utility for populating {@link org.apache.arrow.vector.ValueVector}. */
@@ -759,5 +763,74 @@ public class ValueVectorDataPopulator {
     }
     dataVector.setValueCount(curPos);
     vector.setValueCount(values.length);
+  }
+
+  /** Populate values for {@link ListViewVector}. */
+  public static void setVector(LargeListViewVector vector, List<Integer>... values) {
+    vector.allocateNewSafe();
+    Types.MinorType type = Types.MinorType.INT;
+    vector.addOrGetVector(FieldType.nullable(type.getType()));
+
+    IntVector dataVector = (IntVector) vector.getDataVector();
+    dataVector.allocateNew();
+
+    // set underlying vectors
+    int curPos = 0;
+    for (int i = 0; i < values.length; i++) {
+      vector
+          .getOffsetBuffer()
+          .setInt((long) i * BaseLargeRepeatedValueViewVector.OFFSET_WIDTH, curPos);
+      if (values[i] == null) {
+        BitVectorHelper.unsetBit(vector.getValidityBuffer(), i);
+      } else {
+        BitVectorHelper.setBit(vector.getValidityBuffer(), i);
+        for (int value : values[i]) {
+          dataVector.setSafe(curPos, value);
+          curPos += 1;
+        }
+      }
+      vector
+          .getSizeBuffer()
+          .setInt((long) i * BaseRepeatedValueViewVector.SIZE_WIDTH, values[i].size());
+    }
+    dataVector.setValueCount(curPos);
+    vector.setValueCount(values.length);
+  }
+
+  public static void setVector(
+      RunEndEncodedVector vector, List<Integer> runEnds, List<Integer> values) {
+    int runCount = runEnds.size();
+    assert runCount == values.size();
+    final FieldType valueType = FieldType.notNullable(MinorType.INT.getType());
+    final FieldType runEndType = FieldType.notNullable(Types.MinorType.INT.getType());
+    final Field valueField = new Field("value", valueType, null);
+    final Field runEndField = new Field("ree", runEndType, null);
+    vector.initializeChildrenFromFields(List.of(runEndField, valueField));
+
+    IntVector runEndsVector = (IntVector) vector.getRunEndsVector();
+    runEndsVector.setValueCount(runCount);
+    for (int i = 0; i < runCount; i++) {
+      if (runEnds.get(i) == null) {
+        runEndsVector.setNull(i);
+      } else {
+        runEndsVector.set(i, runEnds.get(i));
+      }
+    }
+
+    IntVector valuesVector = (IntVector) vector.getValuesVector();
+    valuesVector.setValueCount(runCount);
+    for (int i = 0; i < runCount; i++) {
+      if (runEnds.get(i) == null) {
+        valuesVector.setNull(i);
+      } else {
+        valuesVector.set(i, values.get(i));
+      }
+    }
+
+    if (runCount > 0) {
+      vector.setValueCount(runEnds.get(runCount - 1));
+    } else {
+      vector.setValueCount(0);
+    }
   }
 }

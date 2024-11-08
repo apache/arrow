@@ -229,6 +229,12 @@ final class Format {
         return "vu";
       case BinaryView:
         return "vz";
+      case ListView:
+        return "+vl";
+      case LargeListView:
+        return "+vL";
+      case RunEndEncoded:
+        return "+r";
       case NONE:
         throw new IllegalArgumentException("Arrow type ID is NONE");
       default:
@@ -313,6 +319,12 @@ final class Format {
         return new ArrowType.Utf8View();
       case "vz":
         return new ArrowType.BinaryView();
+      case "+vl":
+        return new ArrowType.ListView();
+      case "+vL":
+        return new ArrowType.LargeListView();
+      case "+r":
+        return new ArrowType.RunEndEncoded();
       default:
         String[] parts = format.split(":", 2);
         if (parts.length == 2) {

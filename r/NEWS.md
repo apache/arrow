@@ -17,7 +17,18 @@
   under the License.
 -->
 
-# arrow 17.0.0.9000
+# arrow 18.0.0.9000
+
+# arrow 18.0.0
+
+## Minor improvements and fixes
+
+* Fix bindings to allow filtering a factor column in a Dataset using `%in%` (#43446)
+* Update `str_sub` binding to properly handle negative `end` values (@coussens, #44141)
+* Fix altrep string columns from readr (#43351)
+* Fix crash in ParquetFileWriter$WriteTable and add WriteBatch (#42241)
+* Fix bindings in Math group generics (@aboyoun, #43162)
+* Fix pull on a grouped query returns the wrong column (#43172)
 
 # arrow 17.0.0
 
@@ -32,7 +43,7 @@
   functions (UDFs); for UDFs, see `register_scalar_function()`. (#41223)
 * `mutate()` expressions can now include aggregations, such as `x - mean(x)`. (#41350)
 * `summarize()` supports more complex expressions, and correctly handles cases
-  where column names are reused in expressions.
+  where column names are reused in expressions. (#41223)
 * The `na_matches` argument to the `dplyr::*_join()` functions is now supported.
   This argument controls whether `NA` values are considered equal when joining. (#41358)
 * R metadata, stored in the Arrow schema to support round-tripping data between

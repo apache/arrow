@@ -64,6 +64,9 @@ cdef class Device(_Weakrefable):
         self.init(device)
         return self
 
+    cdef inline shared_ptr[CDevice] unwrap(self) nogil:
+        return self.device
+
     def __eq__(self, other):
         if not isinstance(other, Device):
             return False
@@ -129,6 +132,9 @@ cdef class MemoryManager(_Weakrefable):
         cdef MemoryManager self = MemoryManager.__new__(MemoryManager)
         self.init(mm)
         return self
+
+    cdef inline shared_ptr[CMemoryManager] unwrap(self) nogil:
+        return self.memory_manager
 
     def __repr__(self):
         return "<pyarrow.MemoryManager device: {}>".format(

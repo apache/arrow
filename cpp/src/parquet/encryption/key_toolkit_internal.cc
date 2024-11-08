@@ -53,7 +53,7 @@ std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
                              static_cast<int>(master_key.size()), false,
                              false /*contains_length*/);
 
-  int decrypted_key_len =
+  int32_t decrypted_key_len =
       key_decryptor.PlaintextLength(static_cast<int>(encrypted_key.size()));
   std::string decrypted_key(decrypted_key_len, '\0');
   ::arrow::util::span<uint8_t> decrypted_key_span(

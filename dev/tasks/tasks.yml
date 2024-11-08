@@ -29,6 +29,7 @@ groups:
 
   wheel:
     - wheel-*
+    - python-sdist
 
   linux:
     - almalinux-*
@@ -69,11 +70,15 @@ groups:
 
 {############################# Testing tasks #################################}
 
+  cuda:
+    - test-cuda-*
+
   test:
     - test-*
 
   cpp:
     - test-*cpp*
+    - example-*cpp*
 
   c-glib:
     - test-*c-glib*
@@ -89,12 +94,10 @@ groups:
   r:
     - test*-r-*
     - r-binary-packages
+    - r-recheck-most
 
   ruby:
     - test-*ruby*
-
-  go:
-    - test*-go-*
 
   vcpkg:
     - test-*vcpkg*
@@ -385,11 +388,12 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
-{% for python_version, python_tag, abi_tag in [("3.8", "cp38", "cp38"),
-                                               ("3.9", "cp39", "cp39"),
+{% for python_version, python_tag, abi_tag in [("3.9", "cp39", "cp39"),
                                                ("3.10", "cp310", "cp310"),
                                                ("3.11", "cp311", "cp311"),
-                                               ("3.12", "cp312", "cp312")] %}
+                                               ("3.12", "cp312", "cp312"),
+                                               ("3.13", "cp313", "cp313"),
+                                               ("3.13", "cp313", "cp313t")] %}
 
 {############################## Wheel Linux ##################################}
 
@@ -398,12 +402,13 @@ tasks:
                                                  ("amd64", "2-28", "manylinux_2_28_x86_64"),
                                                  ("arm64", "2014", "manylinux_2_17_aarch64.manylinux2014_aarch64"),
                                                  ("arm64", "2-28", "manylinux_2_28_aarch64")] %}
-  wheel-manylinux-{{ manylinux_version }}-{{ python_tag }}-{{ arch }}:
+  wheel-manylinux-{{ manylinux_version }}-{{ python_tag }}-{{ abi_tag }}-{{ arch }}:
     ci: github
     template: python-wheels/github.linux.yml
     params:
       arch: "{{ arch }}"
       python_version: "{{ python_version }}"
+      python_abi_tag: "{{ abi_tag }}"
       manylinux_version: "{{ manylinux_version }}"
       wheel_platform_tag: "{{ platform_tag }}"
     artifacts:
@@ -412,38 +417,39 @@ tasks:
 
 {############################## Wheel macOS ####################################}
 
-{% for macos_version, macos_codename in [("10.15", "catalina")] %}
-  {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
-
-  wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
+  wheel-macos-monterey-{{ python_tag }}-{{ abi_tag }}-amd64:
     ci: github
     template: python-wheels/github.osx.yml
     params:
       arch: "x86_64"
       arrow_jemalloc: "ON"
       python_version: "{{ python_version }}"
-      macos_deployment_target: "{{ macos_version }}"
+      python_abi_tag: "{{ abi_tag }}"
+      macos_deployment_target: "12.0"
       runs_on: "macos-13"
       vcpkg_arch: "amd64"
     artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-macosx_12_0_x86_64.whl
 
-{% endfor %}
-
-  wheel-macos-big-sur-{{ python_tag }}-arm64:
+  wheel-macos-monterey-{{ python_tag }}-{{ abi_tag }}-arm64:
     ci: github
     template: python-wheels/github.osx.yml
     params:
       arch: "arm64"
       arrow_jemalloc: "OFF"
       python_version: "{{ python_version }}"
-      macos_deployment_target: "11.0"
+      python_abi_tag: "{{ abi_tag }}"
+      macos_deployment_target: "12.0"
       runs_on: "macos-14"
       vcpkg_arch: "arm64"
     artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_11_0_arm64.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-macosx_12_0_arm64.whl
 
 {############################## Wheel Windows ################################}
+
+# TODO: Remove this when there's NumPy wheels for Windows.
+# See https://github.com/numpy/numpy/issues/26157 for more info.
+{% if abi_tag != "cp313t" %}
 
   wheel-windows-{{ python_tag }}-amd64:
     ci: github
@@ -453,6 +459,7 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-win_amd64.whl
 
+{% endif %}
 {% endfor %}
 
 {############################ Python sdist ####################################}
@@ -506,59 +513,59 @@ tasks:
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-acero-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-acero1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-acero1800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-acero1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-acero1900_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-glib1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset-glib1800_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset1800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib1900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset1900_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-glib1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-glib1800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-glib1900_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql-glib1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql-glib1800_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql1800_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight1800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql-glib1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql-glib1900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql1900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight1900_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-glib1800_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow1800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-glib1900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow1900_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva-glib1800_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva1800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva-glib1900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva1900_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet-glib1800_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet1800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet-glib1900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet1900_{no_rc_version}-1_[a-z0-9]+.deb
       - parquet-tools_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda-glib1800_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda1800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda1800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda-glib1900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda1900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda1900_{no_rc_version}-1_[a-z0-9]+.deb
     {% endif %}
   {% endfor %}
 {% endfor %}
@@ -895,6 +902,20 @@ tasks:
       - r-pkg__bin__macosx__big-sur-arm64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
       - r-pkg__src__contrib__arrow_{no_rc_r_version}\.tar\.gz
 
+{% for which in ["strong", "most"] %}
+  # strong and most used here are defined by ?tools::package_dependencies as:
+  #
+  # strong: Depends, Imports, LinkingTo
+  # most: Depends, Imports, LinkingTo, Suggests
+  #
+  # So the key difference between strong and most is whether you want to expand
+  # the reverse dependency checking to Suggests (most) or not.
+  r-recheck-{{which}}:
+    ci: github
+    template: r/github.recheck.yml
+    params:
+      which: {{which}}
+{% endfor %}
 
   ########################### Release verification ############################
 
@@ -906,12 +927,14 @@ tasks:
                                  ("ubuntu", "22.04")] %}
   {% for target in ["cpp",
                     "csharp",
-                    "go",
                     "integration",
                     "java",
                     "js",
                     "python",
                     "ruby"] %}
+    # Skip verification for python and integration on Ubuntu 20.04
+    # GH-44253. Remove once we drop support for 20.04
+    {% if not (target in ["python", "integration"] and version == "20.04") %}
   verify-rc-source-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
     ci: github
     template: verify-rc/github.linux.amd64.docker.yml
@@ -920,15 +943,20 @@ tasks:
         {{ distribution.upper() }}: "{{ version }}"
       target: {{ target }}
       distro: {{ distribution }}
+    {% endif %}
   {% endfor %}
 
   {% for target in ["jars", "wheels"] %}
+    # Skip verification for wheels on Ubuntu 20.04
+    # GH-44253. Remove once we drop support for 20.04
+    {% if not (target == "wheels" and version == "20.04") %}
   verify-rc-binaries-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
     ci: github
     template: verify-rc/github.linux.amd64.docker.yml
     params:
       target: {{ target }}
       distro: {{ distribution }}
+    {% endif %}
   {% endfor %}
 
 {% endfor %}
@@ -954,12 +982,11 @@ tasks:
     params:
       target: {{ target }}
       use_conda: True
-      github_runner: "macos-12"
+      github_runner: "macos-13"
   {% endfor %}
 
   {% for target in ["cpp",
                     "csharp",
-                    "go",
                     "integration",
                     "java",
                     "js",
@@ -970,12 +997,11 @@ tasks:
     template: verify-rc/github.macos.yml
     params:
       target: {{ target }}
-      github_runner: "macos-12"
+      github_runner: "macos-13"
   {% endfor %}
 
   {% for target in ["cpp",
                     "csharp",
-                    "go",
                     "integration",
                     "js",
                     "python",
@@ -993,7 +1019,7 @@ tasks:
       github_runner: "macos-14"
   {% endfor %}
 
-  {% for macos_version in ["11", "12"] %}
+  {% for macos_version in ["13"] %}
   verify-rc-binaries-wheels-macos-{{ macos_version }}-amd64:
     ci: github
     template: verify-rc/github.macos.yml
@@ -1110,9 +1136,13 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        ARCHERY_USE_DOCKER_CLI: 0
-        UBUNTU: 20.04
-      flags: -e ARROW_SKYHOOK=ON
+        UBUNTU: 22.04
+      flags: >-
+        -e ARROW_AZURE=OFF
+        -e ARROW_GANDIVA=OFF
+        -e ARROW_GCS=OFF
+        -e ARROW_S3=OFF
+        -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
 
 {% for debian_version in ["12"] %}
@@ -1164,24 +1194,24 @@ tasks:
       flags: "-e ARROW_ENABLE_THREADING=OFF"
       image: ubuntu-cpp
 
-  test-ubuntu-20.04-cpp-thread-sanitizer:
+  test-ubuntu-24.04-cpp-thread-sanitizer:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         # clang-tools and llvm version need to be synchronized so as
         # to have the right llvm-symbolizer version
-        CLANG_TOOLS: 11
-        LLVM: 11
-        UBUNTU: 20.04
+        CLANG_TOOLS: 18
+        LLVM: 18
+        UBUNTU: 24.04
       image: ubuntu-cpp-thread-sanitizer
 
-  test-ubuntu-20.04-cpp-minimal-with-formats:
+  test-ubuntu-24.04-cpp-minimal-with-formats:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 20.04
+        UBUNTU: 24.04
       flags: "-e ARROW_CSV=ON -e ARROW_PARQUET=ON"
       image: ubuntu-cpp-minimal
 
@@ -1193,7 +1223,7 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-cpp-emscripten
 
-{% for python_version in ["3.8", "3.9", "3.10", "3.11", "3.12"] %}
+{% for python_version in ["3.9", "3.10", "3.11", "3.12", "3.13"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1250,6 +1280,14 @@ tasks:
         PYTHON: "3.10"
       image: conda-python-cython2
 
+  test-ubuntu-22.04-python-313-freethreading:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
+      image: ubuntu-python-313-freethreading
+
   test-debian-12-python-3-amd64:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1268,20 +1306,20 @@ tasks:
       flags: "-e ARROW_S3=OFF -e ARROW_GANDIVA=OFF"
       image: debian-python
 
-  test-ubuntu-20.04-python-3:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 20.04
-      image: ubuntu-python
-
   test-ubuntu-22.04-python-3:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 22.04
+      image: ubuntu-python
+
+  test-ubuntu-24.04-python-3:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 24.04
       image: ubuntu-python
 
   test-fedora-39-python-3:
@@ -1299,17 +1337,25 @@ tasks:
       env:
         ARROW_R_DEV: "TRUE"
       image: ubuntu-r-valgrind
-      timeout: 300 # 5 hours
+      timeout: 330 # 5.5 hours
 
   test-r-linux-rchk:
     ci: github
     template: r/github.linux.rchk.yml
+
+  test-r-extra-packages:
+    ci: github
+    template: r/github.linux.extra.packages.yml   
 
   test-r-linux-as-cran:
     ci: github
     template: r/github.linux.cran.yml
     params:
       MATRIX: {{ "${{ matrix.r_image }}" }}
+
+  test-r-macos-as-cran:
+    ci: github
+    template: r/github.macos.cran.yml
 
   test-r-arrow-backwards-compatibility:
     ci: github
@@ -1462,19 +1508,7 @@ tasks:
         R_PRUNE_DEPS: TRUE
       image: r-clang-sanitizer
 
-  {% for go_version, staticcheck in [("1.21", "v0.4.7"), ("1.22", "latest")] %}
-  test-debian-12-go-{{ go_version }}:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        DEBIAN: 12
-        GO: "{{go_version}}"
-        STATICCHECK: "{{ staticcheck }}"
-      image: debian-go
-  {% endfor %}
-
-  # be sure to update binary-task.rb when upgrading ubuntu
+  # be sure to update binary-task.rb when upgrading Debian
   test-debian-12-docs:
     ci: github
     template: docs/github.linux.yml
@@ -1482,7 +1516,6 @@ tasks:
       env:
         JDK: 17
       pr_number: Unset
-      flags: "-v $PWD/build/:/build/"
       image: debian-docs
       publish: false
     artifacts:
@@ -1490,20 +1523,30 @@ tasks:
 
   ############################## CUDA tests #################################
 
-  test-cuda-cpp:
+  test-cuda-cpp-ubuntu-20.04-cuda-11.2.2:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
       env:
-        ARCHERY_USE_DOCKER_CLI: 0
+        UBUNTU: 20.04
       image: ubuntu-cuda-cpp
 
-  test-cuda-python:
+  test-cuda-cpp-ubuntu-22.04-cuda-11.7.1:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
       env:
-        ARCHERY_USE_DOCKER_CLI: 0
+        UBUNTU: 22.04
+        CUDA: 11.7.1
+      image: ubuntu-cuda-cpp
+
+  test-cuda-python-ubuntu-22.04-cuda-11.7.1:
+    ci: github
+    template: docker-tests/github.cuda.yml
+    params:
+      env:
+        UBUNTU: 22.04
+        CUDA: 11.7.1
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
@@ -1521,11 +1564,11 @@ tasks:
 
   ############################## Integration tests ############################
 
-{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.8", "1.0", "1.19", True),
-                                                                     ("3.9", "latest", "latest", False),
-                                                                     ("3.10", "latest", "1.26", False),
+{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.9", "1.1.3", "1.19.5", True),
                                                                      ("3.10", "latest", "latest", False),
-                                                                     ("3.10", "nightly", "nightly", False),
+                                                                     ("3.11", "latest", "1.26", False),
+                                                                     ("3.11", "latest", "latest", False),
+                                                                     ("3.11", "nightly", "nightly", False),
                                                                      ("3.11", "upstream_devel", "nightly", False)] %}
   test-conda-python-{{ python_version }}-pandas-{{ pandas_version }}-numpy-{{ numpy_version }}:
     ci: github
@@ -1565,7 +1608,6 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        ARCHERY_USE_DOCKER_CLI: 0
         HDFS: "{{ hdfs_version }}"
         PYTHON: "3.10"
       image: conda-python-hdfs
@@ -1613,6 +1655,5 @@ tasks:
       env:
         JDK: 17
       pr_number: Unset
-      flags: "-v $PWD/build/:/build/"
       image: debian-docs
       publish: true

@@ -45,8 +45,8 @@ class PARQUET_EXPORT Encryptor {
 
   [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const;
 
-  int Encrypt(::arrow::util::span<const uint8_t> plaintext,
-              ::arrow::util::span<uint8_t> ciphertext);
+  int32_t Encrypt(::arrow::util::span<const uint8_t> plaintext,
+                  ::arrow::util::span<uint8_t> ciphertext);
 
   bool EncryptColumnMetaData(
       bool encrypted_footer,
@@ -103,7 +103,7 @@ class InternalFileEncryptor {
   encryption::AesEncryptor* GetDataAesEncryptor(ParquetCipher::type algorithm,
                                                 size_t key_len);
 
-  int MapKeyLenToEncryptorArrayIndex(int key_len) const;
+  int MapKeyLenToEncryptorArrayIndex(int32_t key_len) const;
 };
 
 }  // namespace parquet

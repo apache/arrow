@@ -1707,7 +1707,7 @@ These functions select and return a subset of their input.
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1)      |
+| drop_null     | Unary  | Any          |              | Input type 1 |                         | \(1)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
@@ -1851,15 +1851,18 @@ Structural transforms
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
 
+Replace functions
+~~~~~~~~~~~~~~~~~
+
 These functions create a copy of the first input with some elements
 replaced, based on the remaining inputs.
 
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
 | Function name            | Arity      | Input type 1          | Input type 2 | Input type 3 | Output type  | Notes |
 +==========================+============+=======================+==============+==============+==============+=======+
-| fill_null_backward       | Unary      | Fixed-width or binary | N/A          | N/A          | N/A          | \(1)  |
+| fill_null_backward       | Unary      | Fixed-width or binary |              |              | Input type 1 | \(1)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
-| fill_null_forward        | Unary      | Fixed-width or binary | N/A          | N/A          | N/A          | \(1)  |
+| fill_null_forward        | Unary      | Fixed-width or binary |              |              | Input type 1 | \(1)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
 | replace_with_mask        | Ternary    | Fixed-width or binary | Boolean      | Input type 1 | Input type 1 | \(2)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
@@ -1872,7 +1875,7 @@ replaced, based on the remaining inputs.
   Also see: :ref:`if_else <cpp-compute-scalar-selections>`.
 
 Pairwise functions
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 Pairwise functions are unary vector functions that perform a binary operation on
 a pair of elements in the input array, typically on adjacent elements. The n-th
 output is computed by applying the binary operation to the n-th and (n-p)-th inputs,

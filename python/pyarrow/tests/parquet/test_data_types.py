@@ -17,8 +17,12 @@
 
 import decimal
 import io
+import random
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
@@ -173,6 +177,7 @@ def test_direct_read_dictionary_subfield():
     assert result[0].num_chunks == 1
 
 
+@pytest.mark.numpy
 def test_dictionary_array_automatically_read():
     # ARROW-3246
 
@@ -334,10 +339,10 @@ def test_column_of_lists(tempdir):
 def test_large_list_records():
     # This was fixed in PARQUET-1100
 
-    list_lengths = np.random.randint(0, 500, size=50)
-    list_lengths[::10] = 0
+    list_lengths = [random.randint(0, 500) for _ in range(50)]
+    list_lengths[::10] = [0, 0, 0, 0, 0]
 
-    list_values = [list(map(int, np.random.randint(0, 100, size=x)))
+    list_values = [list(map(int, [random.randint(0, 100) for _ in range(x)]))
                    if i % 8 else None
                    for i, x in enumerate(list_lengths)]
 
@@ -505,3 +510,14 @@ def test_large_binary_overflow():
                 pa.ArrowInvalid,
                 match="Parquet cannot store strings with size 2GB or more"):
             _write_table(table, writer, use_dictionary=use_dictionary)
+
+
+@pytest.mark.parametrize("storage_type", (
+    pa.string(), pa.large_string()))
+def test_json_extension_type(storage_type):
+    data = ['{"a": 1}', '{"b": 2}', None]
+    arr = pa.array(data, type=pa.json_(storage_type))
+
+    table = pa.table([arr], names=["ext"])
+
+    _simple_table_roundtrip(table)

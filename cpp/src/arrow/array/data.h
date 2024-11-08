@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/statistics.h"
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
@@ -149,23 +150,23 @@ struct ARROW_EXPORT ArrayData {
   ArrayData(ArrayData&& other) noexcept
       : type(std::move(other.type)),
         length(other.length),
+        null_count(other.null_count.load()),
         offset(other.offset),
         buffers(std::move(other.buffers)),
         child_data(std::move(other.child_data)),
-        dictionary(std::move(other.dictionary)) {
-    SetNullCount(other.null_count);
-  }
+        dictionary(std::move(other.dictionary)),
+        statistics(std::move(other.statistics)) {}
 
   // Copy constructor
   ArrayData(const ArrayData& other) noexcept
       : type(other.type),
         length(other.length),
+        null_count(other.null_count.load()),
         offset(other.offset),
         buffers(other.buffers),
         child_data(other.child_data),
-        dictionary(other.dictionary) {
-    SetNullCount(other.null_count);
-  }
+        dictionary(other.dictionary),
+        statistics(other.statistics) {}
 
   // Move assignment
   ArrayData& operator=(ArrayData&& other) {
@@ -176,6 +177,7 @@ struct ARROW_EXPORT ArrayData {
     buffers = std::move(other.buffers);
     child_data = std::move(other.child_data);
     dictionary = std::move(other.dictionary);
+    statistics = std::move(other.statistics);
     return *this;
   }
 
@@ -188,6 +190,7 @@ struct ARROW_EXPORT ArrayData {
     buffers = other.buffers;
     child_data = other.child_data;
     dictionary = other.dictionary;
+    statistics = other.statistics;
     return *this;
   }
 
@@ -274,6 +277,18 @@ struct ARROW_EXPORT ArrayData {
   }
 
   /// \brief Construct a zero-copy slice of the data with the given offset and length
+  ///
+  /// The associated `ArrayStatistics` is always discarded in a sliced
+  /// `ArrayData`. Because `ArrayStatistics` in the original
+  /// `ArrayData` may be invalid in a sliced `ArrayData`. If you want
+  /// to reuse statistics in the original `ArrayData`, you need to do
+  /// it by yourself.
+  ///
+  /// If the specified slice range has the same range as the original
+  /// `ArrayData`, we can reuse statistics in the original
+  /// `ArrayData`. Because it has the same data as the original
+  /// `ArrayData`. But the associated `ArrayStatistics` is discarded
+  /// in this case too. Use `Copy()` instead for the case.
   std::shared_ptr<ArrayData> Slice(int64_t offset, int64_t length) const;
 
   /// \brief Input-checking variant of Slice
@@ -307,7 +322,7 @@ struct ARROW_EXPORT ArrayData {
 
   /// \brief Return true if the validity bitmap may have 0's in it, or if the
   /// child arrays (in the case of types without a validity bitmap) may have
-  /// nulls, or if the dictionary of dictionay array may have nulls.
+  /// nulls, or if the dictionary of dictionary array may have nulls.
   ///
   /// This is not a drop-in replacement for MayHaveNulls, as historically
   /// MayHaveNulls() has been used to check for the presence of a validity
@@ -390,6 +405,9 @@ struct ARROW_EXPORT ArrayData {
 
   // The dictionary for this Array, if any. Only used for dictionary type
   std::shared_ptr<ArrayData> dictionary;
+
+  // The statistics for this Array.
+  std::shared_ptr<ArrayStatistics> statistics;
 };
 
 /// \brief A non-owning Buffer reference
@@ -619,7 +637,7 @@ struct ARROW_EXPORT ArraySpan {
   bool HasVariadicBuffers() const;
 
  private:
-  ARROW_FRIEND_EXPORT friend bool internal::IsNullRunEndEncoded(const ArrayData& span,
+  ARROW_FRIEND_EXPORT friend bool internal::IsNullRunEndEncoded(const ArrayData& data,
                                                                 int64_t i);
 
   bool IsNullSparseUnion(int64_t i) const;

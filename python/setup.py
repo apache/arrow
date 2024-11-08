@@ -32,8 +32,7 @@ else:
     # Get correct EXT_SUFFIX on Windows (https://bugs.python.org/issue39825)
     from distutils import sysconfig
 
-import pkg_resources
-from setuptools import setup, Extension, Distribution, find_namespace_packages
+from setuptools import setup, Extension, Distribution
 
 from Cython.Distutils import build_ext as _build_ext
 import Cython
@@ -106,7 +105,8 @@ class build_ext(_build_ext):
     _found_names = ()
 
     def build_extensions(self):
-        numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
+        import numpy
+        numpy_incl = numpy.get_include()
 
         self.extensions = [ext for ext in self.extensions
                            if ext.name != '__dummy__']
@@ -396,21 +396,7 @@ class BinaryDistribution(Distribution):
         return True
 
 
-if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
-    packages = find_namespace_packages(include=['pyarrow*'])
-    exclude_package_data = {}
-else:
-    packages = find_namespace_packages(include=['pyarrow*'],
-                                       exclude=["pyarrow.tests*"])
-    # setuptools adds back importable packages even when excluded.
-    # https://github.com/pypa/setuptools/issues/3260
-    # https://github.com/pypa/setuptools/issues/3340#issuecomment-1219383976
-    exclude_package_data = {"pyarrow": ["tests*"]}
-
-
 setup(
-    packages=packages,
-    exclude_package_data=exclude_package_data,
     distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],

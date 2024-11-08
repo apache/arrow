@@ -368,7 +368,7 @@ std::shared_ptr<arrow::Buffer> LoadArrowBufferFromByteBuffer(JNIEnv* env, jobjec
 
 inline bool ParseBool(const std::string& value) { return value == "true" ? true : false; }
 
-inline bool ParseChar(const std::string& key, const std::string& value) {
+inline char ParseChar(const std::string& key, const std::string& value) {
   if (value.size() != 1) {
     JniThrow("Option " + key + " should be a char, but is " + value);
   }

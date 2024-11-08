@@ -67,6 +67,7 @@ import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
@@ -476,6 +477,17 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
   @Override
   public Void visit(ExtensionTypeVector<?> vector, Void value) {
     validateExtensionTypeVector(vector);
+    return null;
+  }
+
+  @Override
+  public Void visit(RunEndEncodedVector vector, Void value) {
+    validateVectorCommon(vector, ArrowType.RunEndEncoded.class);
+    for (ValueVector subVector : vector.getChildrenFromFields()) {
+      if (subVector != null) {
+        subVector.accept(this, null);
+      }
+    }
     return null;
   }
 }

@@ -25,6 +25,164 @@
 
 G_BEGIN_DECLS
 
+/* Disabled because it conflicts with GARROW_TYPE_DECIMAL32 in GArrowType. */
+/* #define GARROW_TYPE_DECIMAL32 (garrow_decimal32_get_type()) */
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal32, garrow_decimal32, GARROW, DECIMAL32, GObject)
+
+struct _GArrowDecimal32Class
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32 *
+garrow_decimal32_new_string(const gchar *data, GError **error);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32 *
+garrow_decimal32_new_integer(const gint64 data);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32 *
+garrow_decimal32_copy(GArrowDecimal32 *decimal);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal32_equal(GArrowDecimal32 *decimal, GArrowDecimal32 *other_decimal);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal32_not_equal(GArrowDecimal32 *decimal, GArrowDecimal32 *other_decimal);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal32_less_than(GArrowDecimal32 *decimal, GArrowDecimal32 *other_decimal);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal32_less_than_or_equal(GArrowDecimal32 *decimal,
+                                    GArrowDecimal32 *other_decimal);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal32_greater_than(GArrowDecimal32 *decimal, GArrowDecimal32 *other_decimal);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal32_greater_than_or_equal(GArrowDecimal32 *decimal,
+                                       GArrowDecimal32 *other_decimal);
+GARROW_AVAILABLE_IN_19_0
+gchar *
+garrow_decimal32_to_string_scale(GArrowDecimal32 *decimal, gint32 scale);
+GARROW_AVAILABLE_IN_19_0
+gchar *
+garrow_decimal32_to_string(GArrowDecimal32 *decimal);
+GARROW_AVAILABLE_IN_19_0
+GBytes *
+garrow_decimal32_to_bytes(GArrowDecimal32 *decimal);
+GARROW_AVAILABLE_IN_19_0
+void
+garrow_decimal32_abs(GArrowDecimal32 *decimal);
+GARROW_AVAILABLE_IN_19_0
+void
+garrow_decimal32_negate(GArrowDecimal32 *decimal);
+GARROW_AVAILABLE_IN_19_0
+gint64
+garrow_decimal32_to_integer(GArrowDecimal32 *decimal);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32 *
+garrow_decimal32_plus(GArrowDecimal32 *left, GArrowDecimal32 *right);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32 *
+garrow_decimal32_minus(GArrowDecimal32 *left, GArrowDecimal32 *right);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32 *
+garrow_decimal32_multiply(GArrowDecimal32 *left, GArrowDecimal32 *right);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32 *
+garrow_decimal32_divide(GArrowDecimal32 *left,
+                        GArrowDecimal32 *right,
+                        GArrowDecimal32 **remainder,
+                        GError **error);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32 *
+garrow_decimal32_rescale(GArrowDecimal32 *decimal,
+                         gint32 original_scale,
+                         gint32 new_scale,
+                         GError **error);
+
+/* Disabled because it conflicts with GARROW_TYPE_DECIMAL64 in GArrowType. */
+/* #define GARROW_TYPE_DECIMAL64 (garrow_decimal64_get_type()) */
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal64, garrow_decimal64, GARROW, DECIMAL64, GObject)
+
+struct _GArrowDecimal64Class
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal64 *
+garrow_decimal64_new_string(const gchar *data, GError **error);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal64 *
+garrow_decimal64_new_integer(const gint64 data);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal64 *
+garrow_decimal64_copy(GArrowDecimal64 *decimal);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal64_equal(GArrowDecimal64 *decimal, GArrowDecimal64 *other_decimal);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal64_not_equal(GArrowDecimal64 *decimal, GArrowDecimal64 *other_decimal);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal64_less_than(GArrowDecimal64 *decimal, GArrowDecimal64 *other_decimal);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal64_less_than_or_equal(GArrowDecimal64 *decimal,
+                                    GArrowDecimal64 *other_decimal);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal64_greater_than(GArrowDecimal64 *decimal, GArrowDecimal64 *other_decimal);
+GARROW_AVAILABLE_IN_19_0
+gboolean
+garrow_decimal64_greater_than_or_equal(GArrowDecimal64 *decimal,
+                                       GArrowDecimal64 *other_decimal);
+GARROW_AVAILABLE_IN_19_0
+gchar *
+garrow_decimal64_to_string_scale(GArrowDecimal64 *decimal, gint32 scale);
+GARROW_AVAILABLE_IN_19_0
+gchar *
+garrow_decimal64_to_string(GArrowDecimal64 *decimal);
+GARROW_AVAILABLE_IN_19_0
+GBytes *
+garrow_decimal64_to_bytes(GArrowDecimal64 *decimal);
+GARROW_AVAILABLE_IN_19_0
+void
+garrow_decimal64_abs(GArrowDecimal64 *decimal);
+GARROW_AVAILABLE_IN_19_0
+void
+garrow_decimal64_negate(GArrowDecimal64 *decimal);
+GARROW_AVAILABLE_IN_19_0
+gint64
+garrow_decimal64_to_integer(GArrowDecimal64 *decimal);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal64 *
+garrow_decimal64_plus(GArrowDecimal64 *left, GArrowDecimal64 *right);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal64 *
+garrow_decimal64_minus(GArrowDecimal64 *left, GArrowDecimal64 *right);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal64 *
+garrow_decimal64_multiply(GArrowDecimal64 *left, GArrowDecimal64 *right);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal64 *
+garrow_decimal64_divide(GArrowDecimal64 *left,
+                        GArrowDecimal64 *right,
+                        GArrowDecimal64 **remainder,
+                        GError **error);
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal64 *
+garrow_decimal64_rescale(GArrowDecimal64 *decimal,
+                         gint32 original_scale,
+                         gint32 new_scale,
+                         GError **error);
+
 /* Disabled because it conflicts with GARROW_TYPE_DECIMAL128 in GArrowType. */
 /* #define GARROW_TYPE_DECIMAL128 (garrow_decimal128_get_type()) */
 GARROW_AVAILABLE_IN_ALL

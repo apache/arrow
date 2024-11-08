@@ -38,14 +38,10 @@ pushd ${source_dir}
 ${mvn} clean test
 
 projects=()
-if [ "${ARROW_DATASET}" = "ON" ]; then
-  projects+=(gandiva)
-fi
-if [ "${ARROW_GANDIVA}" = "ON" ]; then
-  projects+=(gandiva)
-fi
-if [ "${ARROW_ORC}" = "ON" ]; then
+if [ "${ARROW_JAVA_JNI}" = "ON" ]; then
   projects+=(adapter/orc)
+  projects+=(dataset)
+  projects+=(gandiva)
 fi
 if [ "${#projects[@]}" -gt 0 ]; then
   ${mvn} clean test \

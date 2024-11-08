@@ -539,14 +539,14 @@ test_that("StructArray methods", {
   expect_equal(a$x, arrow_array(df$x))
   expect_equal(a[["x"]], arrow_array(df$x))
   expect_equal(a[[1]], arrow_array(df$x))
-  expect_identical(names(a), c("x", "y", "z"))
+  expect_named(a, c("x", "y", "z"))
   expect_identical(dim(a), c(10L, 3L))
 })
 
 test_that("StructArray creation", {
   # from data.frame
   a <- StructArray$create(example_data)
-  expect_identical(names(a), c("int", "dbl", "dbl2", "lgl", "false", "chr", "fct"))
+  expect_named(a, c("int", "dbl", "dbl2", "lgl", "false", "chr", "fct"))
   expect_identical(dim(a), c(10L, 7L))
   expect_r6_class(a, "StructArray")
 

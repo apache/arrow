@@ -19,7 +19,13 @@ name: C GLib & Ruby
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
+      - '.dockerignore'
       - '.github/workflows/ruby.yml'
       - 'ci/docker/**'
       - 'ci/scripts/c_glib_*'
@@ -33,6 +39,7 @@ on:
       - 'ruby/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/ruby.yml'
       - 'ci/docker/**'
       - 'ci/scripts/c_glib_*'
@@ -54,7 +61,6 @@ permissions:
 
 env:
   ARCHERY_DEBUG: 1
-  ARCHERY_USE_DOCKER_CLI: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
@@ -84,9 +90,9 @@ jobs:
           key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
           restore-keys: ubuntu-${{ matrix.ubuntu }}-ruby-
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -94,8 +100,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e ARROW_FLIGHT=ON \
             -e ARROW_FLIGHT_SQL=ON \
@@ -117,7 +122,7 @@ jobs:
         run: archery docker push ubuntu-ruby
 
   macos:
-    name: AMD64 macOS 14 GLib & Ruby
+    name: ARM64 macOS 14 GLib & Ruby
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -407,7 +412,10 @@ jobs:
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
       - name: Build C++ vcpkg dependencies
         run: |
-          vcpkg\vcpkg.exe install --triplet $env:VCPKG_TRIPLET --x-manifest-root cpp --x-install-root build\cpp\vcpkg_installed
+          vcpkg\vcpkg.exe install `
+            --triplet $env:VCPKG_TRIPLET `
+            --x-manifest-root cpp `
+            --x-install-root build\cpp\vcpkg_installed
       - name: Build C++
         shell: cmd
         run: |

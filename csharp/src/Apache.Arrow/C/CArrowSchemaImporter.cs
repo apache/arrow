@@ -224,19 +224,17 @@ namespace Apache.Arrow.C
                 // Decimals
                 if (format.StartsWith("d:"))
                 {
-                    bool is256 = format.EndsWith(",256");
-                    string parameters_part = format.Remove(0, 2);
-                    if (is256) parameters_part.Substring(0, parameters_part.Length - 5);
-                    string[] parameters = parameters_part.Split(',');
+                    string[] parameters = format.Substring(2).Split(',');
                     int precision = Int32.Parse(parameters[0]);
                     int scale = Int32.Parse(parameters[1]);
-                    if (is256)
+                    int bitWidth = parameters.Length == 2 ? 128 : Int32.Parse(parameters[2]);
+                    switch (bitWidth)
                     {
-                        return new Decimal256Type(precision, scale);
-                    }
-                    else
-                    {
-                        return new Decimal128Type(precision, scale);
+                        case 32: return new Decimal32Type(precision, scale);
+                        case 64: return new Decimal64Type(precision, scale);
+                        case 128: return new Decimal128Type(precision, scale);
+                        case 256: return new Decimal256Type(precision, scale);
+                        default: throw new InvalidDataException($"Unexpected bit width {bitWidth}");
                     }
                 }
 

@@ -21,7 +21,7 @@
 #include "arrow/memory_pool.h"
 
 #ifdef ADDRESS_SANITIZER
-#include <sanitizer/asan_interface.h>
+#  include <sanitizer/asan_interface.h>
 #endif
 
 namespace arrow {

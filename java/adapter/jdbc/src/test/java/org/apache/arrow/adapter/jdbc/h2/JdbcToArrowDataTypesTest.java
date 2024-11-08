@@ -145,6 +145,7 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
   /** Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes. */
   @ParameterizedTest
   @MethodSource("getTestData")
+  @Override
   public void testJdbcToArrowValues(Table table)
       throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);

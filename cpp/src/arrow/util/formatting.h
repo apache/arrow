@@ -106,6 +106,18 @@ class DecimalToStringFormatterMixin {
 };
 
 template <>
+class StringFormatter<Decimal32Type>
+    : public DecimalToStringFormatterMixin<Decimal32Type> {
+  using DecimalToStringFormatterMixin::DecimalToStringFormatterMixin;
+};
+
+template <>
+class StringFormatter<Decimal64Type>
+    : public DecimalToStringFormatterMixin<Decimal64Type> {
+  using DecimalToStringFormatterMixin::DecimalToStringFormatterMixin;
+};
+
+template <>
 class StringFormatter<Decimal128Type>
     : public DecimalToStringFormatterMixin<Decimal128Type> {
   using DecimalToStringFormatterMixin::DecimalToStringFormatterMixin;

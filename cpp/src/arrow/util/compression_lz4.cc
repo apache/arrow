@@ -34,7 +34,7 @@
 #include "arrow/util/ubsan.h"
 
 #ifndef LZ4F_HEADER_SIZE_MAX
-#define LZ4F_HEADER_SIZE_MAX 19
+#  define LZ4F_HEADER_SIZE_MAX 19
 #endif
 
 namespace arrow {

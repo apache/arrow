@@ -84,8 +84,11 @@ import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
+import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
@@ -526,14 +529,6 @@ public class RoundtripTest {
     }
   }
 
-  private String generateString(String str, int repetition) {
-    StringBuilder aRepeated = new StringBuilder();
-    for (int i = 0; i < repetition; i++) {
-      aRepeated.append(str);
-    }
-    return aRepeated.toString();
-  }
-
   @Test
   public void testViewVector() {
     // ViewVarCharVector with short strings
@@ -684,6 +679,46 @@ public class RoundtripTest {
   }
 
   @Test
+  public void testListViewVector() {
+    try (final ListViewVector vector = ListViewVector.empty("v", allocator)) {
+      setVector(
+          vector,
+          Arrays.stream(new int[] {1, 2}).boxed().collect(Collectors.toList()),
+          Arrays.stream(new int[] {3, 4}).boxed().collect(Collectors.toList()),
+          new ArrayList<Integer>());
+      assertTrue(roundtrip(vector, ListViewVector.class));
+    }
+  }
+
+  @Test
+  public void testEmptyListViewVector() {
+    try (final ListViewVector vector = ListViewVector.empty("v", allocator)) {
+      setVector(vector, new ArrayList<Integer>());
+      assertTrue(roundtrip(vector, ListViewVector.class));
+    }
+  }
+
+  @Test
+  public void testLargeListViewVector() {
+    try (final LargeListViewVector vector = LargeListViewVector.empty("v", allocator)) {
+      setVector(
+          vector,
+          Arrays.stream(new int[] {1, 2}).boxed().collect(Collectors.toList()),
+          Arrays.stream(new int[] {3, 4}).boxed().collect(Collectors.toList()),
+          new ArrayList<Integer>());
+      assertTrue(roundtrip(vector, LargeListViewVector.class));
+    }
+  }
+
+  @Test
+  public void testEmptyLargeListViewVector() {
+    try (final LargeListViewVector vector = LargeListViewVector.empty("v", allocator)) {
+      setVector(vector, new ArrayList<Integer>());
+      assertTrue(roundtrip(vector, LargeListViewVector.class));
+    }
+  }
+
+  @Test
   public void testMapVector() {
     int count = 5;
     try (final MapVector vector = MapVector.empty("v", allocator, false)) {
@@ -733,6 +768,22 @@ public class RoundtripTest {
       data.put("col_2", Arrays.stream(new int[] {3, 4}).boxed().collect(Collectors.toList()));
       setVector(vector, data);
       assertTrue(roundtrip(vector, StructVector.class));
+    }
+  }
+
+  @Test
+  public void testRunEndEncodedVector() {
+    try (final RunEndEncodedVector vector = RunEndEncodedVector.empty("v", allocator)) {
+      setVector(vector, List.of(1, 3), List.of(1, 2));
+      assertTrue(roundtrip(vector, RunEndEncodedVector.class));
+    }
+  }
+
+  @Test
+  public void testEmptyRunEndEncodedVector() {
+    try (final RunEndEncodedVector vector = RunEndEncodedVector.empty("v", allocator)) {
+      setVector(vector, List.of(), List.of());
+      assertTrue(roundtrip(vector, RunEndEncodedVector.class));
     }
   }
 

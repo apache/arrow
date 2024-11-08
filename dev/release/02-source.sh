@@ -90,7 +90,7 @@ if [ ${SOURCE_UPLOAD} -gt 0 ]; then
   ${sha512_generate} $tarball > ${tarball}.sha512
 
   # Upload signed tarballs to GitHub Release
-  gh release upload ${tag} ${tarball}.sha256 ${tarball}.sha512
+  gh release upload --repo apache/arrow ${tag} ${tarball}.sha256 ${tarball}.sha512
 
   # check out the arrow RC folder
   svn co --depth=empty https://dist.apache.org/repos/dist/dev/arrow tmp

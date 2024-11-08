@@ -108,22 +108,22 @@ test_that("Power", {
   expect_equal(a^0, Array$create(c(1, 1, 1, 1, NA_real_)))
   expect_equal(a^2, Array$create(c(1, 4, 9, 16, NA_real_)))
   expect_equal(a^(-1), Array$create(c(1, 1 / 2, 1 / 3, 1 / 4, NA_real_)))
-  expect_equal(a^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
+  expect_equal(a^(0.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 
   expect_equal(b^0, Array$create(c(1, 1, 1, 1, NA_real_)))
   expect_equal(b^2, Array$create(c(1, 4, 9, 16, NA_real_)))
   expect_equal(b^(-1), Array$create(c(1, 1 / 2, 1 / 3, 1 / 4, NA_real_)))
-  expect_equal(b^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
+  expect_equal(b^(0.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 
   expect_equal(c^0, Array$create(c(1, 1, 1, 1, NA_real_)))
   expect_equal(c^2, Array$create(c(1, 4, 9, 16, NA_real_)))
   expect_equal(c^(-1), Array$create(c(1, 1 / 2, 1 / 3, 1 / 4, NA_real_)))
-  expect_equal(c^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
+  expect_equal(c^(0.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 
   expect_equal(d^0, Array$create(c(1, 1, 1, 1, NA_real_)))
   expect_equal(d^2, Array$create(c(1, 4, 9, 16, NA_real_)))
   expect_equal(d^(-1), Array$create(c(1, 1 / 2, 1 / 3, 1 / 4, NA_real_)))
-  expect_equal(d^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
+  expect_equal(d^(0.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 })
 
 test_that("Dates casting", {

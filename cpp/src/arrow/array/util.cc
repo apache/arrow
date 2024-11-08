@@ -152,57 +152,20 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
-  Status Visit(const Decimal128Type& type) {
-    auto data = reinterpret_cast<const uint64_t*>(data_->buffers[1]->data());
+  template <typename T>
+  enable_if_decimal<T, Status> Visit(const T& type) {
+    using value_type = typename TypeTraits<T>::CType;
+    auto data = data_->buffers[1]->span_as<value_type>();
     ARROW_ASSIGN_OR_RAISE(auto new_buffer,
                           AllocateBuffer(data_->buffers[1]->size(), pool_));
-    auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
-    // NOTE: data_->length not trusted (see warning above)
-    const int64_t length = data_->buffers[1]->size() / Decimal128Type::kByteWidth;
-    for (int64_t i = 0; i < length; i++) {
-      uint64_t tmp;
-      auto idx = i * 2;
-#if ARROW_LITTLE_ENDIAN
-      tmp = bit_util::FromBigEndian(data[idx]);
-      new_data[idx] = bit_util::FromBigEndian(data[idx + 1]);
-      new_data[idx + 1] = tmp;
-#else
-      tmp = bit_util::FromLittleEndian(data[idx]);
-      new_data[idx] = bit_util::FromLittleEndian(data[idx + 1]);
-      new_data[idx + 1] = tmp;
-#endif
-    }
-    out_->buffers[1] = std::move(new_buffer);
-    return Status::OK();
-  }
+    auto new_data = new_buffer->mutable_data_as<value_type>();
 
-  Status Visit(const Decimal256Type& type) {
-    auto data = reinterpret_cast<const uint64_t*>(data_->buffers[1]->data());
-    ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
-    auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
-    // NOTE: data_->length not trusted (see warning above)
-    const int64_t length = data_->buffers[1]->size() / Decimal256Type::kByteWidth;
-    for (int64_t i = 0; i < length; i++) {
-      uint64_t tmp0, tmp1, tmp2;
-      auto idx = i * 4;
-#if ARROW_LITTLE_ENDIAN
-      tmp0 = bit_util::FromBigEndian(data[idx]);
-      tmp1 = bit_util::FromBigEndian(data[idx + 1]);
-      tmp2 = bit_util::FromBigEndian(data[idx + 2]);
-      new_data[idx] = bit_util::FromBigEndian(data[idx + 3]);
-      new_data[idx + 1] = tmp2;
-      new_data[idx + 2] = tmp1;
-      new_data[idx + 3] = tmp0;
-#else
-      tmp0 = bit_util::FromLittleEndian(data[idx]);
-      tmp1 = bit_util::FromLittleEndian(data[idx + 1]);
-      tmp2 = bit_util::FromLittleEndian(data[idx + 2]);
-      new_data[idx] = bit_util::FromLittleEndian(data[idx + 3]);
-      new_data[idx + 1] = tmp2;
-      new_data[idx + 2] = tmp1;
-      new_data[idx + 3] = tmp0;
-#endif
+    for (const value_type& v : data) {
+      auto bytes = v.ToBytes();
+      std::reverse(bytes.begin(), bytes.end());
+      memcpy(new_data++, bytes.data(), bytes.size());
     }
+
     out_->buffers[1] = std::move(new_buffer);
     return Status::OK();
   }

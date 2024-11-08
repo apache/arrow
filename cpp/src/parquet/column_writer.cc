@@ -40,6 +40,7 @@
 #include "arrow/util/crc32.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/type_traits.h"
@@ -353,8 +354,6 @@ class SerializedPageWriter : public PageWriter {
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
                       fallback, dict_encoding_stats_, data_encoding_stats_,
                       meta_encryptor_);
-    // Write metadata at end of column chunk
-    metadata_->WriteTo(sink_.get());
   }
 
   /**
@@ -667,9 +666,6 @@ class BufferedPageWriter : public PageWriter {
                       has_dictionary, fallback, pager_->dict_encoding_stats_,
                       pager_->data_encoding_stats_, pager_->meta_encryptor_);
 
-    // Write metadata at end of column chunk
-    metadata_->WriteTo(in_memory_sink_.get());
-
     // Buffered page writer needs to adjust page offsets.
     pager_->FinishPageIndexes(final_position);
 
@@ -722,18 +718,6 @@ std::unique_ptr<PageWriter> PageWriter::Open(
   }
 }
 
-std::unique_ptr<PageWriter> PageWriter::Open(
-    std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
-    int compression_level, ColumnChunkMetaDataBuilder* metadata,
-    int16_t row_group_ordinal, int16_t column_chunk_ordinal, MemoryPool* pool,
-    bool buffered_row_group, std::shared_ptr<Encryptor> meta_encryptor,
-    std::shared_ptr<Encryptor> data_encryptor, bool page_write_checksum_enabled,
-    ColumnIndexBuilder* column_index_builder, OffsetIndexBuilder* offset_index_builder) {
-  return PageWriter::Open(sink, codec, metadata, row_group_ordinal, column_chunk_ordinal,
-                          pool, buffered_row_group, meta_encryptor, data_encryptor,
-                          page_write_checksum_enabled, column_index_builder,
-                          offset_index_builder, CodecOptions{compression_level});
-}
 // ----------------------------------------------------------------------
 // ColumnWriter
 
@@ -837,6 +821,9 @@ class ColumnWriterImpl {
   void FlushBufferedDataPages();
 
   ColumnChunkMetaDataBuilder* metadata_;
+  // key_value_metadata_ for the column chunk
+  // It would be nullptr if there is no KeyValueMetadata set.
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
   const ColumnDescriptor* descr_;
   // scratch buffer if validity bits need to be recalculated.
   std::shared_ptr<ResizableBuffer> bits_buffer_;
@@ -1105,6 +1092,7 @@ int64_t ColumnWriterImpl::Close() {
     if (rows_written_ > 0 && chunk_statistics.is_set()) {
       metadata_->SetStatistics(chunk_statistics);
     }
+    metadata_->SetKeyValueMetadata(key_value_metadata_);
     pager_->Close(has_dictionary_, fallback_);
   }
 
@@ -1400,6 +1388,25 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
   bool pages_change_on_record_boundaries() const {
     return pages_change_on_record_boundaries_;
+  }
+
+  void AddKeyValueMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) override {
+    if (closed_) {
+      throw ParquetException("Cannot add key-value metadata to closed column");
+    }
+    if (key_value_metadata_ == nullptr) {
+      key_value_metadata_ = key_value_metadata;
+    } else if (key_value_metadata != nullptr) {
+      key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
+    }
+  }
+
+  void ResetKeyValueMetadata() override {
+    if (closed_) {
+      throw ParquetException("Cannot add key-value metadata to closed column");
+    }
+    key_value_metadata_ = nullptr;
   }
 
  private:
@@ -2265,11 +2272,11 @@ struct SerializeFunctor<
 
     if (array.null_count() == 0) {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = FixDecimalEndianess<ArrowType::kByteWidth>(array.GetValue(i), offset);
+        out[i] = FixDecimalEndianness<ArrowType::kByteWidth>(array.GetValue(i), offset);
       }
     } else {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = array.IsValid(i) ? FixDecimalEndianess<ArrowType::kByteWidth>(
+        out[i] = array.IsValid(i) ? FixDecimalEndianness<ArrowType::kByteWidth>(
                                         array.GetValue(i), offset)
                                   : FixedLenByteArray();
       }
@@ -2297,7 +2304,7 @@ struct SerializeFunctor<
   }
 
   template <int byte_width>
-  FixedLenByteArray FixDecimalEndianess(const uint8_t* in, int64_t offset) {
+  FixedLenByteArray FixDecimalEndianness(const uint8_t* in, int64_t offset) {
     const auto* u64_in = reinterpret_cast<const int64_t*>(in);
     auto out = reinterpret_cast<const uint8_t*>(scratch) + offset;
     static_assert(byte_width == 16 || byte_width == 32,

@@ -58,7 +58,7 @@ jobs:
           repository: ursacomputing/crossbow
           ref: main
       - name: Set up Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           cache: 'pip'
           python-version: 3.12

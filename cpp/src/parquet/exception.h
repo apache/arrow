@@ -28,7 +28,7 @@
 
 // PARQUET-1085
 #if !defined(ARROW_UNUSED)
-#define ARROW_UNUSED(x) UNUSED(x)
+#  define ARROW_UNUSED(x) UNUSED(x)
 #endif
 
 // Parquet exception to Arrow Status

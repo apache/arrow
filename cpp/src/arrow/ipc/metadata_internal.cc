@@ -278,13 +278,19 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return Status::OK();
     case flatbuf::Type::Decimal: {
       auto dec_type = static_cast<const flatbuf::Decimal*>(type_data);
-      if (dec_type->bitWidth() == 128) {
-        return Decimal128Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
-      } else if (dec_type->bitWidth() == 256) {
-        return Decimal256Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
-      } else {
-        return Status::Invalid("Library only supports 128-bit or 256-bit decimal values");
+      switch (dec_type->bitWidth()) {
+        case 32:
+          return Decimal32Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
+        case 64:
+          return Decimal64Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
+        case 128:
+          return Decimal128Type::Make(dec_type->precision(), dec_type->scale())
+              .Value(out);
+        case 256:
+          return Decimal256Type::Make(dec_type->precision(), dec_type->scale())
+              .Value(out);
       }
+      return Status::Invalid("Library only supports 32/64/128/256-bit decimal values");
     }
     case flatbuf::Type::Date: {
       auto date_type = static_cast<const flatbuf::Date*>(type_data);
@@ -647,6 +653,24 @@ class FieldToFlatbufferVisitor {
     fb_type_ = flatbuf::Type::Interval;
     type_offset_ =
         flatbuf::CreateInterval(fbb_, flatbuf::IntervalUnit::YEAR_MONTH).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal32Type& type) {
+    const auto& dec_type = checked_cast<const Decimal32Type&>(type);
+    fb_type_ = flatbuf::Type::Decimal;
+    type_offset_ = flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale(),
+                                          /*bitWidth=*/32)
+                       .Union();
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal64Type& type) {
+    const auto& dec_type = checked_cast<const Decimal64Type&>(type);
+    fb_type_ = flatbuf::Type::Decimal;
+    type_offset_ = flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale(),
+                                          /*bitWidth=*/64)
+                       .Union();
     return Status::OK();
   }
 

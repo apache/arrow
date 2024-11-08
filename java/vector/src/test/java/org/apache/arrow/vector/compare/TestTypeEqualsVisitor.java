@@ -32,6 +32,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ViewVarBinaryVector;
 import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -110,6 +111,22 @@ public class TestTypeEqualsVisitor {
     try (final ListViewVector right = ListViewVector.empty("listview", allocator);
         final ListViewVector left1 = ListViewVector.empty("listview", allocator);
         final ListViewVector left2 = ListViewVector.empty("listview", allocator)) {
+
+      right.addOrGetVector(FieldType.nullable(new ArrowType.Utf8()));
+      left1.addOrGetVector(FieldType.nullable(new ArrowType.Utf8()));
+      left2.addOrGetVector(FieldType.nullable(new ArrowType.FixedSizeBinary(2)));
+
+      TypeEqualsVisitor visitor = new TypeEqualsVisitor(right);
+      assertTrue(visitor.equals(left1));
+      assertFalse(visitor.equals(left2));
+    }
+  }
+
+  @Test
+  public void testLargeListViewTypeEquals() {
+    try (final LargeListViewVector right = LargeListViewVector.empty("largelistview", allocator);
+        final LargeListViewVector left1 = LargeListViewVector.empty("largelistview", allocator);
+        final LargeListViewVector left2 = LargeListViewVector.empty("largelistview", allocator)) {
 
       right.addOrGetVector(FieldType.nullable(new ArrowType.Utf8()));
       left1.addOrGetVector(FieldType.nullable(new ArrowType.Utf8()));

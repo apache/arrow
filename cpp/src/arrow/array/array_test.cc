@@ -442,7 +442,7 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
       large_binary(),
       binary_view(),
       fixed_size_binary(3),
-      decimal(16, 4),
+      decimal128(16, 4),
       utf8(),
       large_utf8(),
       utf8_view(),
@@ -667,8 +667,10 @@ static ScalarVector GetScalars() {
       std::make_shared<BinaryViewScalar>(hello),
       std::make_shared<FixedSizeBinaryScalar>(
           hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
-      std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
-      std::make_shared<Decimal256Scalar>(Decimal256(10), decimal(76, 38)),
+      std::make_shared<Decimal32Scalar>(Decimal32(10), smallest_decimal(7, 4)),
+      std::make_shared<Decimal64Scalar>(Decimal64(10), smallest_decimal(12, 4)),
+      std::make_shared<Decimal128Scalar>(Decimal128(10), smallest_decimal(20, 4)),
+      std::make_shared<Decimal256Scalar>(Decimal256(10), smallest_decimal(76, 38)),
       std::make_shared<StringScalar>(hello),
       std::make_shared<LargeStringScalar>(hello),
       std::make_shared<StringViewScalar>(hello),
@@ -3092,6 +3094,98 @@ class DecimalTest : public ::testing::TestWithParam<int> {
   }
 };
 
+using Decimal32Test = DecimalTest<Decimal32Type>;
+
+TEST_P(Decimal32Test, NoNulls) {
+  int32_t precision = GetParam();
+  std::vector<Decimal32> draw = {Decimal32(1), Decimal32(-2), Decimal32(2389),
+                                 Decimal32(4), Decimal32(-12348)};
+  std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal32Test, WithNulls) {
+  int32_t precision = GetParam();
+  std::vector<Decimal32> draw = {Decimal32(1),  Decimal32(2), Decimal32(-1), Decimal32(4),
+                                 Decimal32(-1), Decimal32(1), Decimal32(2)};
+  Decimal32 big;
+  ASSERT_OK_AND_ASSIGN(big, Decimal32::FromString("23034.234"));
+  draw.push_back(big);
+
+  Decimal32 big_negative;
+  ASSERT_OK_AND_ASSIGN(big_negative, Decimal32::FromString("-23049.235"));
+  draw.push_back(big_negative);
+
+  std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
+                                      true, true, true,  true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal32Test, ValidateFull) {
+  int32_t precision = GetParam();
+  std::vector<Decimal32> draw;
+  Decimal32 val = Decimal32::GetMaxValue(precision) + 1;
+
+  draw = {Decimal32(), val};
+  auto arr = this->TestCreate(precision, draw, {true, false}, 0);
+  ASSERT_OK(arr->ValidateFull());
+
+  draw = {val, Decimal32()};
+  arr = this->TestCreate(precision, draw, {true, false}, 0);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("does not fit in precision of"), arr->ValidateFull());
+}
+
+INSTANTIATE_TEST_SUITE_P(Decimal32Test, Decimal32Test, ::testing::Range(1, 9));
+
+using Decimal64Test = DecimalTest<Decimal64Type>;
+
+TEST_P(Decimal64Test, NoNulls) {
+  int32_t precision = GetParam();
+  std::vector<Decimal64> draw = {Decimal64(1), Decimal64(-2), Decimal64(2389),
+                                 Decimal64(4), Decimal64(-12348)};
+  std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal64Test, WithNulls) {
+  int32_t precision = GetParam();
+  std::vector<Decimal64> draw = {Decimal64(1),  Decimal64(2), Decimal64(-1), Decimal64(4),
+                                 Decimal64(-1), Decimal64(1), Decimal64(2)};
+  Decimal64 big;
+  ASSERT_OK_AND_ASSIGN(big, Decimal64::FromString("23034.234234"));
+  draw.push_back(big);
+
+  Decimal64 big_negative;
+  ASSERT_OK_AND_ASSIGN(big_negative, Decimal64::FromString("-23049.235234"));
+  draw.push_back(big_negative);
+
+  std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
+                                      true, true, true,  true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(Decimal64Test, ValidateFull) {
+  int32_t precision = GetParam();
+  std::vector<Decimal64> draw;
+  Decimal64 val = Decimal64::GetMaxValue(precision) + 1;
+
+  draw = {Decimal64(), val};
+  auto arr = this->TestCreate(precision, draw, {true, false}, 0);
+  ASSERT_OK(arr->ValidateFull());
+
+  draw = {val, Decimal64()};
+  arr = this->TestCreate(precision, draw, {true, false}, 0);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("does not fit in precision of"), arr->ValidateFull());
+}
+
+INSTANTIATE_TEST_SUITE_P(Decimal64Test, Decimal64Test, ::testing::Range(1, 9));
+
 using Decimal128Test = DecimalTest<Decimal128Type>;
 
 TEST_P(Decimal128Test, NoNulls) {
@@ -3313,6 +3407,28 @@ TEST(TestSwapEndianArrayData, PrimitiveType) {
   data = ArrayData::Make(uint64(), 1, {null_buffer, data_int_buffer}, 0);
   auto data_int64_buffer = Buffer::FromString("76543210");
   expected_data = ArrayData::Make(uint64(), 1, {null_buffer, data_int64_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  auto data_4byte_buffer = Buffer::FromString(
+      "\x01"
+      "12\x01");
+  data = ArrayData::Make(decimal32(9, 8), 1, {null_buffer, data_4byte_buffer});
+  auto data_decimal32_buffer = Buffer::FromString(
+      "\x01"
+      "21\x01");
+  expected_data =
+      ArrayData::Make(decimal32(9, 8), 1, {null_buffer, data_decimal32_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  auto data_8byte_buffer = Buffer::FromString(
+      "\x01"
+      "123456\x01");
+  data = ArrayData::Make(decimal64(18, 8), 1, {null_buffer, data_8byte_buffer});
+  auto data_decimal64_buffer = Buffer::FromString(
+      "\x01"
+      "654321\x01");
+  expected_data =
+      ArrayData::Make(decimal64(18, 8), 1, {null_buffer, data_decimal64_buffer}, 0);
   AssertArrayDataEqualsWithSwapEndian(data, expected_data);
 
   auto data_16byte_buffer = Buffer::FromString(
@@ -3647,6 +3763,8 @@ DataTypeVector SwappableTypes() {
                         uint16(),
                         uint32(),
                         uint64(),
+                        decimal32(8, 1),
+                        decimal64(16, 2),
                         decimal128(19, 4),
                         decimal256(37, 8),
                         timestamp(TimeUnit::MICRO, ""),
@@ -3707,6 +3825,132 @@ TEST(TestSwapEndianArrayData, InvalidLength) {
     auto swapped = MakeArray(swapped_data);
     ASSERT_RAISES(Invalid, swapped->Validate());
   }
+}
+
+class TestArrayDataStatistics : public ::testing::Test {
+ public:
+  void SetUp() {
+    valids_ = {1, 0, 1, 1};
+    null_count_ = std::count(valids_.begin(), valids_.end(), 0);
+    null_buffer_ = *internal::BytesToBits(valids_);
+    values_ = {1, 0, 3, -4};
+    min_ = *std::min_element(values_.begin(), values_.end());
+    max_ = *std::max_element(values_.begin(), values_.end());
+    values_buffer_ = Buffer::FromVector(values_);
+    data_ = ArrayData::Make(int32(), values_.size(), {null_buffer_, values_buffer_},
+                            null_count_);
+    data_->statistics = std::make_shared<ArrayStatistics>();
+    data_->statistics->null_count = null_count_;
+    data_->statistics->min = min_;
+    data_->statistics->is_min_exact = true;
+    data_->statistics->max = max_;
+    data_->statistics->is_max_exact = true;
+  }
+
+ protected:
+  std::vector<uint8_t> valids_;
+  size_t null_count_;
+  std::shared_ptr<Buffer> null_buffer_;
+  std::vector<int32_t> values_;
+  int64_t min_;
+  int64_t max_;
+  std::shared_ptr<Buffer> values_buffer_;
+  std::shared_ptr<ArrayData> data_;
+};
+
+TEST_F(TestArrayDataStatistics, MoveConstructor) {
+  ArrayData copied_data(*data_);
+  ArrayData moved_data(std::move(copied_data));
+
+  ASSERT_TRUE(moved_data.statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, moved_data.statistics->null_count.value());
+
+  ASSERT_TRUE(moved_data.statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(moved_data.statistics->min.value()));
+  ASSERT_TRUE(moved_data.statistics->is_min_exact);
+
+  ASSERT_TRUE(moved_data.statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(moved_data.statistics->max.value()));
+  ASSERT_TRUE(moved_data.statistics->is_max_exact);
+}
+
+TEST_F(TestArrayDataStatistics, CopyConstructor) {
+  ArrayData copied_data(*data_);
+
+  ASSERT_TRUE(copied_data.statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, copied_data.statistics->null_count.value());
+
+  ASSERT_TRUE(copied_data.statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(copied_data.statistics->min.value()));
+  ASSERT_TRUE(copied_data.statistics->is_min_exact);
+
+  ASSERT_TRUE(copied_data.statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(copied_data.statistics->max.value()));
+  ASSERT_TRUE(copied_data.statistics->is_max_exact);
+}
+
+TEST_F(TestArrayDataStatistics, MoveAssignment) {
+  ArrayData copied_data(*data_);
+  ArrayData moved_data;
+  moved_data = std::move(copied_data);
+
+  ASSERT_TRUE(moved_data.statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, moved_data.statistics->null_count.value());
+
+  ASSERT_TRUE(moved_data.statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(moved_data.statistics->min.value()));
+  ASSERT_TRUE(moved_data.statistics->is_min_exact);
+
+  ASSERT_TRUE(moved_data.statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(moved_data.statistics->max.value()));
+  ASSERT_TRUE(moved_data.statistics->is_max_exact);
+}
+
+TEST_F(TestArrayDataStatistics, CopyAssignment) {
+  ArrayData copied_data;
+  copied_data = *data_;
+
+  ASSERT_TRUE(copied_data.statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, copied_data.statistics->null_count.value());
+
+  ASSERT_TRUE(copied_data.statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(copied_data.statistics->min.value()));
+  ASSERT_TRUE(copied_data.statistics->is_min_exact);
+
+  ASSERT_TRUE(copied_data.statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(copied_data.statistics->max.value()));
+  ASSERT_TRUE(copied_data.statistics->is_max_exact);
+}
+
+TEST_F(TestArrayDataStatistics, CopyTo) {
+  ASSERT_OK_AND_ASSIGN(auto copied_data,
+                       data_->CopyTo(arrow::default_cpu_memory_manager()));
+
+  ASSERT_TRUE(copied_data->statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, copied_data->statistics->null_count.value());
+
+  ASSERT_TRUE(copied_data->statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data->statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(copied_data->statistics->min.value()));
+  ASSERT_TRUE(copied_data->statistics->is_min_exact);
+
+  ASSERT_TRUE(copied_data->statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data->statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(copied_data->statistics->max.value()));
+  ASSERT_TRUE(copied_data->statistics->is_max_exact);
+}
+
+TEST_F(TestArrayDataStatistics, Slice) {
+  auto sliced_data = data_->Slice(0, 1);
+  ASSERT_FALSE(sliced_data->statistics);
 }
 
 template <typename PType>

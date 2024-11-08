@@ -34,8 +34,33 @@ public interface AllocationReservation extends AutoCloseable {
    * @param nBytes the number of bytes to add
    * @return true if the addition is possible, false otherwise
    * @throws IllegalStateException if called after buffer() is used to allocate the reservation
+   * @deprecated use {@link #add(long)} instead
    */
+  @Deprecated(forRemoval = true)
   boolean add(int nBytes);
+
+  /**
+   * Add to the current reservation.
+   *
+   * <p>Adding may fail if the allocator is not allowed to consume any more space.
+   *
+   * @param nBytes the number of bytes to add
+   * @return true if the addition is possible, false otherwise
+   * @throws IllegalStateException if called after buffer() is used to allocate the reservation
+   */
+  boolean add(long nBytes);
+
+  /**
+   * Requests a reservation of additional space.
+   *
+   * <p>The implementation of the allocator's inner class provides this.
+   *
+   * @param nBytes the amount to reserve
+   * @return true if the reservation can be satisfied, false otherwise
+   * @deprecated use {@link #reserve(long)} instead
+   */
+  @Deprecated(forRemoval = true)
+  boolean reserve(int nBytes);
 
   /**
    * Requests a reservation of additional space.
@@ -45,7 +70,7 @@ public interface AllocationReservation extends AutoCloseable {
    * @param nBytes the amount to reserve
    * @return true if the reservation can be satisfied, false otherwise
    */
-  boolean reserve(int nBytes);
+  boolean reserve(long nBytes);
 
   /**
    * Allocate a buffer whose size is the total of all the add()s made.
@@ -64,6 +89,13 @@ public interface AllocationReservation extends AutoCloseable {
    * @return size of the current reservation
    */
   int getSize();
+
+  /**
+   * Get the current size of the reservation (the sum of all the add()s) as a long value.
+   *
+   * @return size of the current reservation
+   */
+  long getSizeLong();
 
   /**
    * Return whether or not the reservation has been used.

@@ -65,6 +65,21 @@ GAFLIGHT_AVAILABLE_IN_14_0
 GAFlightDescriptor *
 gaflight_message_reader_get_descriptor(GAFlightMessageReader *reader);
 
+#define GAFLIGHT_TYPE_METADATA_WRITER (gaflight_metadata_writer_get_type())
+GAFLIGHT_AVAILABLE_IN_18_0
+G_DECLARE_DERIVABLE_TYPE(
+  GAFlightMetadataWriter, gaflight_metadata_writer, GAFLIGHT, METADATA_WRITER, GObject)
+struct _GAFlightMetadataWriterClass
+{
+  GObjectClass parent_class;
+};
+
+GAFLIGHT_AVAILABLE_IN_18_0
+gboolean
+gaflight_metadata_writer_write(GAFlightMetadataWriter *writer,
+                               GArrowBuffer *metadata,
+                               GError **error);
+
 #define GAFLIGHT_TYPE_SERVER_CALL_CONTEXT (gaflight_server_call_context_get_type())
 GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightServerCallContext,
@@ -199,6 +214,7 @@ G_DECLARE_DERIVABLE_TYPE(GAFlightServer, gaflight_server, GAFLIGHT, SERVER, GObj
  * GAFlightServerClass:
  * @list_flights: A virtual function to implement `ListFlights` API.
  * @do_get: A virtual function to implement `DoGet` API.
+ * @do_put: A virtual function to implement `DoPut` API.
  *
  * Since: 5.0.0
  */
@@ -218,6 +234,11 @@ struct _GAFlightServerClass
                                 GAFlightServerCallContext *context,
                                 GAFlightTicket *ticket,
                                 GError **error);
+  gboolean (*do_put)(GAFlightServer *server,
+                     GAFlightServerCallContext *context,
+                     GAFlightMessageReader *reader,
+                     GAFlightMetadataWriter *writer,
+                     GError **error);
 };
 
 GAFLIGHT_AVAILABLE_IN_5_0
@@ -252,6 +273,14 @@ GAFlightDataStream *
 gaflight_server_do_get(GAFlightServer *server,
                        GAFlightServerCallContext *context,
                        GAFlightTicket *ticket,
+                       GError **error);
+
+GAFLIGHT_AVAILABLE_IN_18_0
+gboolean
+gaflight_server_do_put(GAFlightServer *server,
+                       GAFlightServerCallContext *context,
+                       GAFlightMessageReader *reader,
+                       GAFlightMetadataWriter *writer,
                        GError **error);
 
 G_END_DECLS

@@ -55,7 +55,7 @@ duration_from_chunks <- function(chunks) {
   accepted_chunks <- c("second", "minute", "hour", "day", "week")
   matched_chunks <- accepted_chunks[pmatch(names(chunks), accepted_chunks, duplicates.ok = TRUE)]
 
-  if (any(is.na(matched_chunks))) {
+  if (anyNA(matched_chunks)) {
     arrow_not_supported(
       paste(
         "named `difftime` units other than:",
@@ -442,7 +442,7 @@ parse_period_unit <- function(x) {
   str_unit_start <- substr(str_unit, 1, 3)
   unit <- as.integer(pmatch(str_unit_start, known_units)) - 1L
 
-  if (any(is.na(unit))) {
+  if (anyNA(unit)) {
     validation_error(
       sprintf(
         "Invalid period name: '%s'",

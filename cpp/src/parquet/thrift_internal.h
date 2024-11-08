@@ -530,7 +530,7 @@ class ThriftSerializer {
     auto cipher_buffer =
         AllocateBuffer(encryptor->pool(), encryptor->CiphertextLength(out_length));
     ::arrow::util::span<const uint8_t> out_span(out_buffer, out_length);
-    int cipher_buffer_len =
+    int32_t cipher_buffer_len =
         encryptor->Encrypt(out_span, cipher_buffer->mutable_span_as<uint8_t>());
 
     PARQUET_THROW_NOT_OK(out->Write(cipher_buffer->data(), cipher_buffer_len));

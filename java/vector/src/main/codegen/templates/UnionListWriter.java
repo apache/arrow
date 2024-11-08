@@ -26,7 +26,7 @@ import java.lang.UnsupportedOperationException;
 import java.math.BigDecimal;
 
 <@pp.dropOutputFile />
-<#list ["List", "ListView", "LargeList"] as listName>
+<#list ["List", "ListView", "LargeList", "LargeListView"] as listName>
 
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/Union${listName}Writer.java" />
 
@@ -53,14 +53,17 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   private boolean inStruct = false;
   private boolean listStarted = false;
   private String structName;
-  <#if listName == "LargeList">
+  <#if listName == "LargeList" || listName == "LargeListView">
   private static final long OFFSET_WIDTH = 8;
   <#else>
   private static final int OFFSET_WIDTH = 4;
   </#if>
 
-  <#if listName = "ListView">
+  <#if listName == "ListView">
   private static final long SIZE_WIDTH = 4;
+  </#if>
+  <#if listName == "LargeListView">
+  private static final long SIZE_WIDTH = 8;
   </#if>
 
   public Union${listName}Writer(${listName}Vector vector) {
@@ -69,7 +72,7 @@ public class Union${listName}Writer extends AbstractFieldWriter {
 
   public Union${listName}Writer(${listName}Vector vector, NullableStructWriterFactory nullableStructWriterFactory) {
     this.vector = vector;
-    <#if listName = "ListView">
+    <#if listName = "ListView" || listName = "LargeListView">
     this.writer = new PromotableViewWriter(vector.getDataVector(), vector, nullableStructWriterFactory);
     <#else>
     this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableStructWriterFactory);
@@ -231,9 +234,46 @@ public class Union${listName}Writer extends AbstractFieldWriter {
     listStarted = false;
   }
 
+  @Override
   public void startListView() {
     vector.startNewValue(idx());
     writer.setPosition(vector.getOffsetBuffer().getInt((idx()) * OFFSET_WIDTH));
+    listStarted = true;
+  }
+
+  @Override
+  public void endListView() {
+    int sizeUptoIdx = 0;
+    for (int i = 0; i < idx(); i++) {
+      sizeUptoIdx += vector.getSizeBuffer().getInt(i * SIZE_WIDTH);
+    }
+    vector.getSizeBuffer().setInt(idx() * SIZE_WIDTH, writer.idx() - sizeUptoIdx);
+    setPosition(idx() + 1);
+    listStarted = false;
+  }
+  <#elseif listName == "LargeListView">
+  @Override
+  public void startList() {
+    vector.startNewValue(idx());
+    writer.setPosition(vector.getOffsetBuffer().getInt((idx()) * OFFSET_WIDTH));
+    listStarted = true;
+  }
+
+  @Override
+  public void endList() {
+    int sizeUptoIdx = 0;
+    for (int i = 0; i < idx(); i++) {
+      sizeUptoIdx += vector.getSizeBuffer().getInt(i * SIZE_WIDTH);
+    }
+    vector.getSizeBuffer().setInt(idx() * SIZE_WIDTH, writer.idx() - sizeUptoIdx);
+    setPosition(idx() + 1);
+    listStarted = false;
+  }
+
+  @Override
+  public void startListView() {
+    vector.startNewValue(idx());
+    writer.setPosition(checkedCastToInt(vector.getOffsetBuffer().getInt((idx()) * OFFSET_WIDTH)));
     listStarted = true;
   }
 

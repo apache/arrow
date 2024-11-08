@@ -20,10 +20,8 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <variant>
 
-#include "arrow/util/float16.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -34,9 +32,7 @@ namespace arrow {
 /// as Apache Parquet may have statistics. Statistics associated with
 /// data source can be read unified API via this class.
 struct ARROW_EXPORT ArrayStatistics {
-  using ValueType =
-      std::variant<bool, int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t,
-                   uint64_t, util::Float16, float, double, std::string, std::string_view>;
+  using ValueType = std::variant<bool, int64_t, uint64_t, double, std::string>;
 
   /// \brief The number of null values, may not be set
   std::optional<int64_t> null_count = std::nullopt;
@@ -47,14 +43,14 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief The minimum value, may not be set
   std::optional<ValueType> min = std::nullopt;
 
-  /// \brief Whether the minimum value is exact or not, may not be set
-  std::optional<bool> is_min_exact = std::nullopt;
+  /// \brief Whether the minimum value is exact or not
+  bool is_min_exact = false;
 
   /// \brief The maximum value, may not be set
   std::optional<ValueType> max = std::nullopt;
 
-  /// \brief Whether the maximum value is exact or not, may not be set
-  std::optional<bool> is_max_exact = std::nullopt;
+  /// \brief Whether the maximum value is exact or not
+  bool is_max_exact = false;
 
   /// \brief Check two statistics for equality
   bool Equals(const ArrayStatistics& other) const {

@@ -523,16 +523,6 @@ Status FileWriter::Make(::arrow::MemoryPool* pool,
   return Status::OK();
 }
 
-Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
-                        std::shared_ptr<::arrow::io::OutputStream> sink,
-                        std::shared_ptr<WriterProperties> properties,
-                        std::unique_ptr<FileWriter>* writer) {
-  ARROW_ASSIGN_OR_RAISE(
-      *writer, Open(std::move(schema), pool, std::move(sink), std::move(properties),
-                    default_arrow_writer_properties()));
-  return Status::OK();
-}
-
 Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                          const ArrowWriterProperties& properties,
                          std::shared_ptr<const KeyValueMetadata>* out) {
@@ -557,16 +547,6 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
   std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
   result->Append(kArrowSchemaKey, std::move(schema_base64));
   *out = std::move(result);
-  return Status::OK();
-}
-
-Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
-                        std::shared_ptr<::arrow::io::OutputStream> sink,
-                        std::shared_ptr<WriterProperties> properties,
-                        std::shared_ptr<ArrowWriterProperties> arrow_properties,
-                        std::unique_ptr<FileWriter>* writer) {
-  ARROW_ASSIGN_OR_RAISE(*writer, Open(std::move(schema), pool, std::move(sink),
-                                      std::move(properties), arrow_properties));
   return Status::OK();
 }
 
