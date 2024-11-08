@@ -33,6 +33,8 @@ find_package(absl ${find_package_args})
 if(NOT DEFINED absl_VERSION)
   # Abseil does not define a version when build 'live at head'.
   # As this is their recommended path we need to define a large version to pass version checks.
+  # CMake removes the '_head' suffix for version comparison but it will show up in the logs
+  # and matches the abseil-cpp.pc version of 'head'
   set(absl_VERSION 99999999_head)
 endif()
 
