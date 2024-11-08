@@ -781,10 +781,10 @@ def table_to_dataframe(
         table, index = _reconstruct_index(table, index_descriptors,
                                           all_columns, types_mapper)
         ext_columns_dtypes = _get_extension_dtypes(
-            table, all_columns, types_mapper)
+            table, all_columns, types_mapper, options)
     else:
         index = _pandas_api.pd.RangeIndex(table.num_rows)
-        ext_columns_dtypes = _get_extension_dtypes(table, [], types_mapper)
+        ext_columns_dtypes = _get_extension_dtypes(table, [], types_mapper, options)
 
     _check_data_column_metadata_consistency(all_columns)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
@@ -829,7 +829,7 @@ _pandas_supported_numpy_types = {
 }
 
 
-def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
+def _get_extension_dtypes(table, columns_metadata, types_mapper=None, options=None):
     """
     Based on the stored column pandas metadata and the extension types
     in the arrow schema, infer which columns should be converted to a
@@ -842,6 +842,7 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
     and then we can check if this dtype supports conversion from arrow.
 
     """
+    strings_to_categorical = options["strings_to_categorical"]
     ext_columns = {}
 
     # older pandas version that does not yet support extension dtypes
@@ -849,7 +850,7 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
         return ext_columns
 
     # for pandas 3.0+, use pandas' new default string dtype
-    if _pandas_api.uses_string_dtype():
+    if _pandas_api.uses_string_dtype() and not strings_to_categorical:
         for field in table.schema:
             if (
                 pa.types.is_string(field.type)
@@ -871,6 +872,10 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
             # that are certainly numpy dtypes
             pandas_dtype = _pandas_api.pandas_dtype(dtype)
             if isinstance(pandas_dtype, _pandas_api.extension_dtype):
+                if strings_to_categorical and isinstance(
+                    pandas_dtype, _pandas_api.pd.StringDtype
+                ):
+                    continue
                 if hasattr(pandas_dtype, "__from_arrow__"):
                     ext_columns[name] = pandas_dtype
 
@@ -1148,7 +1153,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         ):
             new_levels.append(level)
             continue
-        elif level.dtype != dtype and not level.dtype == "str":
+        elif level.dtype != dtype:
             level = level.astype(dtype)
         # ARROW-9096: if original DataFrame was upcast we keep that
         if level.dtype != numpy_dtype and pandas_dtype != "datetimetz":
