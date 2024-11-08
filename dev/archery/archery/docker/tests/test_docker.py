@@ -270,7 +270,7 @@ def test_compose_default_params_and_env(arrow_compose_path):
 
 def test_forwarding_env_variables(arrow_compose_path):
     expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
+        "pull --quiet --ignore-pull-failures conda-cpp",
         "build conda-cpp",
     ]
     expected_env = PartialEnv(
@@ -290,24 +290,24 @@ def test_compose_pull(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path)
 
     expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
+        "pull --quiet --ignore-pull-failures conda-cpp",
     ]
     with assert_compose_calls(compose, expected_calls):
         compose.clear_pull_memory()
         compose.pull('conda-cpp')
 
     expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
-        "pull --ignore-pull-failures conda-python",
-        "pull --ignore-pull-failures conda-python-pandas"
+        "pull --quiet --ignore-pull-failures conda-cpp",
+        "pull --quiet --ignore-pull-failures conda-python",
+        "pull --quiet --ignore-pull-failures conda-python-pandas"
     ]
     with assert_compose_calls(compose, expected_calls):
         compose.clear_pull_memory()
         compose.pull('conda-python-pandas')
 
     expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
-        "pull --ignore-pull-failures conda-python",
+        "pull --quiet --ignore-pull-failures conda-cpp",
+        "pull --quiet --ignore-pull-failures conda-python",
     ]
     with assert_compose_calls(compose, expected_calls):
         compose.clear_pull_memory()
@@ -316,8 +316,8 @@ def test_compose_pull(arrow_compose_path):
 
 def test_compose_pull_params(arrow_compose_path):
     expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
-        "pull --ignore-pull-failures conda-python",
+        "pull --quiet --ignore-pull-failures conda-cpp",
+        "pull --quiet --ignore-pull-failures conda-python",
     ]
     compose = DockerCompose(arrow_compose_path, params=dict(UBUNTU='18.04'))
     expected_env = PartialEnv(PYTHON='3.8', PANDAS='latest')
@@ -483,7 +483,7 @@ def test_compose_push(arrow_compose_path):
     for image in ["conda-cpp", "conda-python", "conda-python-pandas"]:
         expected_calls.append(
             mock.call(["docker", "compose", f"--file={compose.config.path}",
-                       "push", image], check=True, env=expected_env)
+                       "push", "--quiet", image], check=True, env=expected_env)
         )
     with assert_subprocess_calls(expected_calls):
         compose.push('conda-python-pandas', user='user', password='pass')
