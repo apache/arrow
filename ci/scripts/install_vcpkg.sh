@@ -53,40 +53,33 @@ if [ -f "${vcpkg_ports_patch}" ]; then
   echo "Patch successfully applied to the VCPKG port files!"
 fi
 
-if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_REPOSITORY_OWNER:-}" ]; then
-  can_use_nuget=yes
+if [ -n "${GITHUB_TOKEN:-}" ] && \
+     [ -n "${GITHUB_REPOSITORY_OWNER:-}" ] && \
+     [ -n "${VCPKG_BINARY_SOURCES:-}" ] ; then
   if type dnf 2>/dev/null; then
     dnf install -y epel-release
-    if dnf info mono-complete 2>/dev/null; then
-      dnf install -y mono-complete
-      curl \
-        --location \
-        --output "${vcpkg_destination}/nuget" \
-        https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
-    else
-      # manylinux2014_aarch64 image doesn't have mono-complete in
-      # EPEL. It has Mono but it's old.
-      can_use_nuget=no
-    fi
+    dnf install -y mono-complete
+    curl \
+      --location \
+      --output "${vcpkg_destination}/nuget" \
+      https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
   fi
-  if [ "${can_use_nuget}" = "yes" ]; then
-    PATH="${vcpkg_destination}:${PATH}"
-    nuget_url="https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json"
-    nuget="$(vcpkg fetch nuget | tail -n 1)"
-    if type mono 2>/dev/null; then
-      nuget="mono ${nuget}"
-    fi
-    ${nuget} \
-      sources add \
-      -source "${nuget_url}" \
-      -storepasswordincleartext \
-      -name "GitHub" \
-      -username "${GITHUB_REPOSITORY_OWNER}" \
-      -password "${GITHUB_TOKEN}"
-    ${nuget} \
-      setapikey "${GITHUB_TOKEN}" \
-      -source "${nuget_url}"
+  PATH="${vcpkg_destination}:${PATH}"
+  nuget_url="https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json"
+  nuget="$(vcpkg fetch nuget | tail -n 1)"
+  if type mono 2>/dev/null; then
+    nuget="mono ${nuget}"
   fi
+  ${nuget} \
+    sources add \
+    -source "${nuget_url}" \
+    -storepasswordincleartext \
+    -name "GitHub" \
+    -username "${GITHUB_REPOSITORY_OWNER}" \
+    -password "${GITHUB_TOKEN}"
+  ${nuget} \
+    setapikey "${GITHUB_TOKEN}" \
+    -source "${nuget_url}"
 fi
 
 popd

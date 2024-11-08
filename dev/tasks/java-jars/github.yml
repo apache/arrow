@@ -56,6 +56,12 @@ jobs:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
+          if [ "${ARCH}" = "aarch_64" ]; then
+            # We can't use NuGet on manylinux2014_aarch64 because Mono is old.
+            :
+          else
+            export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
+          fi
           archery docker run \
             -e ARROW_JAVA_BUILD=OFF \
             -e ARROW_JAVA_TEST=OFF \

@@ -78,6 +78,7 @@ x-vcpkg-build-args: &vcpkg-build-args
   vcpkg: ${VCPKG}
   GITHUB_REPOSITORY_OWNER:
   GITHUB_TOKEN:
+  VCPKG_BINARY_SOURCES:
 
 # CPU/memory limit presets to pass to Docker.
 #
