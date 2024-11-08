@@ -425,7 +425,8 @@ class AsyncErrorDetail : public StatusDetail {
   int code() const { return code_; }
   // returns any metadata that was returned with the error, likely in a
   // key-value format similar to ArrowSchema metadata
-  const std::string& ErrorMetadata() const { return metadata_; }
+  const std::string& ErrorMetadataString() const { return metadata_; }
+  std::shared_ptr<KeyValueMetadata> ErrorMetadata() const;
 
  private:
   int code_{0};
