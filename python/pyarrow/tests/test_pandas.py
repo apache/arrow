@@ -3304,6 +3304,10 @@ def _assert_nunique(obj, expected):
 
 
 def test_to_pandas_deduplicate_strings_array_types():
+    if _pandas_api.uses_string_dtype():
+        pytest.skip(
+            "pandas uses string dtype and not object dtype, keyword has no effect"
+        )
     nunique = 100
     repeats = 10
     values = _generate_dedup_example(nunique, repeats)
@@ -3316,6 +3320,10 @@ def test_to_pandas_deduplicate_strings_array_types():
 
 
 def test_to_pandas_deduplicate_strings_table_types():
+    if _pandas_api.uses_string_dtype():
+        pytest.skip(
+            "pandas uses string dtype and not object dtype, keyword has no effect"
+        )
     nunique = 100
     repeats = 10
     values = _generate_dedup_example(nunique, repeats)
@@ -3779,20 +3787,26 @@ def _check_to_pandas_memory_unchanged(obj, **kwargs):
     x = obj.to_pandas(**kwargs)  # noqa
 
     # Memory allocation unchanged -- either zero copy or self-destructing
-    assert pa.total_allocated_bytes() == prior_allocation
+    if _pandas_api.uses_string_dtype():
+        # for the string array of the columns Index
+        # -> increase the size to account for overallocation for small arrays
+        max_index_allocation = max(192, x.columns.nbytes * 2)
+        assert pa.total_allocated_bytes() <= (prior_allocation + max_index_allocation)
+    else:
+        assert pa.total_allocated_bytes() == prior_allocation
 
 
 def test_to_pandas_split_blocks():
     # ARROW-3789
     t = pa.table([
-        pa.array([1, 2, 3, 4, 5], type='i1'),
-        pa.array([1, 2, 3, 4, 5], type='i4'),
-        pa.array([1, 2, 3, 4, 5], type='i8'),
-        pa.array([1, 2, 3, 4, 5], type='f4'),
-        pa.array([1, 2, 3, 4, 5], type='f8'),
-        pa.array([1, 2, 3, 4, 5], type='f8'),
-        pa.array([1, 2, 3, 4, 5], type='f8'),
-        pa.array([1, 2, 3, 4, 5], type='f8'),
+        pa.array([1, 2, 3, 4, 5]*100, type='i1'),
+        pa.array([1, 2, 3, 4, 5]*100, type='i4'),
+        pa.array([1, 2, 3, 4, 5]*100, type='i8'),
+        pa.array([1, 2, 3, 4, 5]*100, type='f4'),
+        pa.array([1, 2, 3, 4, 5]*100, type='f8'),
+        pa.array([1, 2, 3, 4, 5]*100, type='f8'),
+        pa.array([1, 2, 3, 4, 5]*100, type='f8'),
+        pa.array([1, 2, 3, 4, 5]*100, type='f8'),
     ], ['f{}'.format(i) for i in range(8)])
 
     _check_blocks_created(t, 8)
@@ -3837,7 +3851,12 @@ def test_table_uses_memory_pool():
     prior_allocation = pa.total_allocated_bytes()
     x = t.to_pandas()
 
-    assert pa.total_allocated_bytes() == (prior_allocation + 3 * N * 8)
+    new_allocation = 3 * N * 8
+    if _pandas_api.uses_string_dtype():
+        # for the small columns Index
+        new_allocation += 128
+
+    assert pa.total_allocated_bytes() == (prior_allocation + new_allocation)
 
     # Check successful garbage collection
     x = None  # noqa
@@ -4115,7 +4134,10 @@ def test_dictionary_encoded_nested_to_pandas():
 
 def test_dictionary_from_pandas():
     cat = pd.Categorical(['a', 'b', 'a'])
-    expected_type = pa.dictionary(pa.int8(), pa.string())
+    expected_type = pa.dictionary(
+        pa.int8(),
+        pa.large_string() if _pandas_api.uses_string_dtype() else pa.string()
+    )
 
     result = pa.array(cat)
     assert result.to_pylist() == ['a', 'b', 'a']
@@ -4528,9 +4550,11 @@ def test_metadata_compat_range_index_pre_0_12():
     gen_name_1 = '__index_level_1__'
 
     # Case 1: named RangeIndex
-    e1 = pd.DataFrame({
-        'a': a_values
-    }, index=pd.RangeIndex(0, 8, step=2, name='qux'))
+    e1 = pd.DataFrame(
+        {'a': a_values},
+        index=pd.RangeIndex(0, 8, step=2, name='qux'),
+        columns=pd.Index(['a'], dtype=object)
+    )
     t1 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
                               names=['a', 'qux'])
     t1 = t1.replace_schema_metadata({
@@ -4557,9 +4581,11 @@ def test_metadata_compat_range_index_pre_0_12():
     tm.assert_frame_equal(r1, e1)
 
     # Case 2: named RangeIndex, but conflicts with an actual column
-    e2 = pd.DataFrame({
-        'qux': a_values
-    }, index=pd.RangeIndex(0, 8, step=2, name='qux'))
+    e2 = pd.DataFrame(
+        {'qux': a_values},
+        index=pd.RangeIndex(0, 8, step=2, name='qux'),
+        columns=pd.Index(['qux'], dtype=object)
+    )
     t2 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
                               names=['qux', gen_name_0])
     t2 = t2.replace_schema_metadata({
@@ -4586,9 +4612,11 @@ def test_metadata_compat_range_index_pre_0_12():
     tm.assert_frame_equal(r2, e2)
 
     # Case 3: unnamed RangeIndex
-    e3 = pd.DataFrame({
-        'a': a_values
-    }, index=pd.RangeIndex(0, 8, step=2, name=None))
+    e3 = pd.DataFrame(
+        {'a': a_values},
+        index=pd.RangeIndex(0, 8, step=2, name=None),
+        columns=pd.Index(['a'], dtype=object)
+    )
     t3 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
                               names=['a', gen_name_0])
     t3 = t3.replace_schema_metadata({
@@ -4615,9 +4643,11 @@ def test_metadata_compat_range_index_pre_0_12():
     tm.assert_frame_equal(r3, e3)
 
     # Case 4: MultiIndex with named RangeIndex
-    e4 = pd.DataFrame({
-        'a': a_values
-    }, index=[pd.RangeIndex(0, 8, step=2, name='qux'), b_values])
+    e4 = pd.DataFrame(
+        {'a': a_values},
+        index=[pd.RangeIndex(0, 8, step=2, name='qux'), b_values],
+        columns=pd.Index(['a'], dtype=object)
+    )
     t4 = pa.Table.from_arrays([a_arrow, rng_index_arrow, b_arrow],
                               names=['a', 'qux', gen_name_1])
     t4 = t4.replace_schema_metadata({
@@ -4649,9 +4679,11 @@ def test_metadata_compat_range_index_pre_0_12():
     tm.assert_frame_equal(r4, e4)
 
     # Case 4: MultiIndex with unnamed RangeIndex
-    e5 = pd.DataFrame({
-        'a': a_values
-    }, index=[pd.RangeIndex(0, 8, step=2, name=None), b_values])
+    e5 = pd.DataFrame(
+        {'a': a_values},
+        index=[pd.RangeIndex(0, 8, step=2, name=None), b_values],
+        columns=pd.Index(['a'], dtype=object)
+    )
     t5 = pa.Table.from_arrays([a_arrow, rng_index_arrow, b_arrow],
                               names=['a', gen_name_0, gen_name_1])
     t5 = t5.replace_schema_metadata({
