@@ -1184,8 +1184,8 @@ TEST_F(TestJSONWithLocalFile, JSONOutputSortColumns) {
   std::string json_content = ReadFromLocalFile("sort_columns.parquet");
 
   std::string json_contains = R"###("SortColumns": [
-         {"column_idx":0, "descending":1, "nulls_first": 1},
-         {"column_idx":1, "descending":0, "nulls_first": 0}
+         {"column_idx": 0, "descending": 1, "nulls_first": 1},
+         {"column_idx": 1, "descending": 0, "nulls_first": 0}
        ])###";
   EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
 }
