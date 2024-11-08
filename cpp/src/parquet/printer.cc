@@ -296,17 +296,18 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
            << "\", ";
     auto row_group_sorting_columns = group_metadata->sorting_columns();
     if (!row_group_sorting_columns.empty()) {
-      stream << " \"SortColumns\": [";
+      stream << " \"SortColumns\": [\n";
       for (size_t i = 0; i < row_group_sorting_columns.size(); i++) {
-        stream << "{\"column_idx\":" << row_group_sorting_columns[i].column_idx
+        stream << "         {\"column_idx\":" << row_group_sorting_columns[i].column_idx
                << ", \"descending\":" << row_group_sorting_columns[i].descending
                << ", \"nulls_first\": " << row_group_sorting_columns[i].nulls_first
                << "}";
         if (i + 1 != row_group_sorting_columns.size()) {
-          stream << ", ";
+          stream << ",";
         }
+        stream << '\n';
       }
-      stream << "], ";
+      stream << "       ], ";
     }
     stream << " \"Rows\": \"" << group_metadata->num_rows() << "\",\n";
 
