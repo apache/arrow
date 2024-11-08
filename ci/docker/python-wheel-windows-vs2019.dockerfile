@@ -45,6 +45,7 @@ ENV GITHUB_REPOSITORY_OWNER="${GITHUB_REPOSITORY_OWNER}" \
     GITHUB_TOKEN="${GITHUB_TOKEN}" \
     VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite" \
     VCPKG_ROOT=C:\\vcpkg
+# TODO: Use --mount=type=secret for GITHUB_TOKEN
 RUN bash arrow/ci/scripts/install_vcpkg.sh /c/vcpkg %vcpkg% && \
     setx PATH "%PATH%;%VCPKG_ROOT%"
 
