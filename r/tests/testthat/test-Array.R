@@ -1261,7 +1261,7 @@ test_that("concat_arrays works", {
 
   concat_int <- concat_arrays(arrow_array(1:3), arrow_array(4:5))
   expect_true(concat_int$type == int32())
-  expect_true(all(concat_int == arrow_array(1:5)))
+  expect_equal(concat_int,  arrow_array(1:5))
 
   concat_int64 <- concat_arrays(
     arrow_array(1:3),
@@ -1269,7 +1269,7 @@ test_that("concat_arrays works", {
     type = int64()
   )
   expect_true(concat_int64$type == int64())
-  expect_true(all(concat_int == arrow_array(1:5)))
+  expect_equal(concat_int, arrow_array(1:5))
 
   expect_error(
     concat_arrays(
@@ -1283,7 +1283,7 @@ test_that("concat_arrays works", {
 test_that("concat_arrays() coerces its input to Array", {
   concat_ints <- concat_arrays(1L, 2L)
   expect_true(concat_ints$type == int32())
-  expect_true(all(concat_ints == arrow_array(c(1L, 2L))))
+  expect_equal(concat_ints, arrow_array(c(1L, 2L)))
 
   expect_error(
     concat_arrays(1L, "not a number", type = int32()),
