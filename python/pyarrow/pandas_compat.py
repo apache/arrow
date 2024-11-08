@@ -781,10 +781,12 @@ def table_to_dataframe(
         table, index = _reconstruct_index(table, index_descriptors,
                                           all_columns, types_mapper)
         ext_columns_dtypes = _get_extension_dtypes(
-            table, all_columns, types_mapper, options)
+            table, all_columns, types_mapper, options, categories)
     else:
         index = _pandas_api.pd.RangeIndex(table.num_rows)
-        ext_columns_dtypes = _get_extension_dtypes(table, [], types_mapper, options)
+        ext_columns_dtypes = _get_extension_dtypes(
+            table, [], types_mapper, options, categories
+        )
 
     _check_data_column_metadata_consistency(all_columns)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
@@ -829,7 +831,9 @@ _pandas_supported_numpy_types = {
 }
 
 
-def _get_extension_dtypes(table, columns_metadata, types_mapper=None, options=None):
+def _get_extension_dtypes(
+    table, columns_metadata, types_mapper=None, options=None, categories=None
+):
     """
     Based on the stored column pandas metadata and the extension types
     in the arrow schema, infer which columns should be converted to a
@@ -843,6 +847,8 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None, options=No
 
     """
     strings_to_categorical = options["strings_to_categorical"]
+    categories = categories or []
+
     ext_columns = {}
 
     # older pandas version that does not yet support extension dtypes
@@ -856,7 +862,7 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None, options=No
                 pa.types.is_string(field.type)
                 or pa.types.is_large_string(field.type)
                 or pa.types.is_string_view(field.type)
-            ):
+            ) and field.name not in categories:
                 ext_columns[field.name] = _pandas_api.pd.StringDtype(na_value=np.nan)
 
     # infer the extension columns from the pandas metadata
@@ -872,7 +878,7 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None, options=No
             # that are certainly numpy dtypes
             pandas_dtype = _pandas_api.pandas_dtype(dtype)
             if isinstance(pandas_dtype, _pandas_api.extension_dtype):
-                if strings_to_categorical and isinstance(
+                if (strings_to_categorical or name in categories) and isinstance(
                     pandas_dtype, _pandas_api.pd.StringDtype
                 ):
                     continue
