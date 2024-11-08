@@ -310,7 +310,11 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
 
-  define_option(ARROW_COMPUTE "Build all Arrow Compute kernels" OFF)
+  define_option(ARROW_COMPUTE
+                "Build all Arrow Compute kernels"
+                OFF
+                DEPENDS
+                ARROW_IPC)
 
   define_option(ARROW_CSV "Build the Arrow CSV Parser Module" OFF)
 
