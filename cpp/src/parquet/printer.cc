@@ -142,6 +142,15 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     stream << "--- Total Bytes: " << group_metadata->total_byte_size() << " ---\n";
     stream << "--- Total Compressed Bytes: " << group_metadata->total_compressed_size()
            << " ---\n";
+    auto sorting_columns = group_metadata->sorting_columns();
+    if (!sorting_columns.empty()) {
+      stream << "--- Sort Columns:\n";
+      for (auto column : sorting_columns) {
+        stream << "column_idx: " << column.column_idx
+               << ", descending: " << column.descending
+               << ", nulls_first: " << column.nulls_first << "\n";
+      }
+    }
     stream << "--- Rows: " << group_metadata->num_rows() << " ---\n";
 
     // Print column metadata
@@ -285,6 +294,21 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
     stream << " \"TotalBytes\": \"" << group_metadata->total_byte_size() << "\", ";
     stream << " \"TotalCompressedBytes\": \"" << group_metadata->total_compressed_size()
            << "\", ";
+    auto row_group_sorting_columns = group_metadata->sorting_columns();
+    if (!row_group_sorting_columns.empty()) {
+      stream << " \"SortColumns\": [\n";
+      for (size_t i = 0; i < row_group_sorting_columns.size(); i++) {
+        stream << "         {\"column_idx\": " << row_group_sorting_columns[i].column_idx
+               << ", \"descending\": " << row_group_sorting_columns[i].descending
+               << ", \"nulls_first\": " << row_group_sorting_columns[i].nulls_first
+               << "}";
+        if (i + 1 != row_group_sorting_columns.size()) {
+          stream << ",";
+        }
+        stream << '\n';
+      }
+      stream << "       ], ";
+    }
     stream << " \"Rows\": \"" << group_metadata->num_rows() << "\",\n";
 
     // Print column metadata
