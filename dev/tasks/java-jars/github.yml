@@ -56,7 +56,7 @@ jobs:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
-          if [ "${ARCH}" = "aarch_64" ]; then
+          if [ "${ARCH}" = "arm64v8" ]; then
             # We can't use NuGet on manylinux2014_aarch64 because Mono is old.
             :
           else
