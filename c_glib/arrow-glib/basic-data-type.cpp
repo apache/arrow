@@ -128,6 +128,8 @@ G_BEGIN_DECLS
  * #GArrowExtensionDataTypeRegistry is a class to manage extension
  * data types.
  *
+ * #GArrowStringViewDataType is a class for the string view data type.
+ *
  * #GArrowBinaryViewDataType is a class for the binary view data type.
  */
 
@@ -2234,6 +2236,34 @@ garrow_binary_view_data_type_new(void)
   auto arrow_data_type = arrow::binary_view();
   GArrowBinaryViewDataType *data_type = GARROW_BINARY_VIEW_DATA_TYPE(
     g_object_new(GARROW_TYPE_BINARY_VIEW_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  return data_type;
+}
+
+G_DEFINE_TYPE(GArrowStringViewDataType,
+              garrow_string_view_data_type,
+              GARROW_TYPE_BINARY_VIEW_DATA_TYPE)
+
+static void
+garrow_string_view_data_type_init(GArrowStringViewDataType *object)
+{
+}
+
+static void
+garrow_string_view_data_type_class_init(GArrowStringViewDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_string_view_data_type_new:
+ *
+ * Returns: The newly created string view data type.
+ */
+GArrowStringViewDataType *
+garrow_string_view_data_type_new(void)
+{
+  auto arrow_data_type = arrow::utf8_view();
+  GArrowStringViewDataType *data_type = GARROW_STRING_VIEW_DATA_TYPE(
+    g_object_new(GARROW_TYPE_STRING_VIEW_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
 
