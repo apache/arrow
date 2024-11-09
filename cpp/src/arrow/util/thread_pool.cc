@@ -108,16 +108,7 @@ SerialExecutor::~SerialExecutor() {
 #ifndef ARROW_ENABLE_THREADING
   GetSerialExecutorGlobalState()->all_executors.erase(this);
 #endif
-  auto state = state_;
-  std::unique_lock<std::mutex> lk(state->mutex);
-  if (!state->task_queue.empty()) {
-    // We may have remaining tasks if the executor is being abandoned.  We could have
-    // resource leakage in this case.  However, we can force the cleanup to happen now
-    state->paused = false;
-    lk.unlock();
-    RunLoop();
-    lk.lock();
-  }
+  state_->task_queue.clear();
 }
 
 int SerialExecutor::GetNumTasks() {
