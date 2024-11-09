@@ -1734,7 +1734,7 @@ TEST(AsofJoinTest, RhsEmptinessRaceEmptyBy) {
 
 // Reproduction of GH-44526: Provoke destruction of not started asofjoin node by providing
 // a sink that fails on creation
-TEST(AsofJoinTest, DetroyNotStartedAsofJoinNode) {
+TEST(AsofJoinTest, DestroyNonStartedAsofJoinNode) {
   auto left_batch = ExecBatchFromJSON({int64()}, R"([[1], [2], [3]])");
   auto right_batch =
       ExecBatchFromJSON({utf8(), int64()}, R"([["Z", 2], ["B", 3], ["A", 4]])");
