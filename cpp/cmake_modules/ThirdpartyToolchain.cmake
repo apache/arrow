@@ -818,7 +818,8 @@ if(DEFINED ENV{ARROW_THRIFT_URL})
 else()
   set(THRIFT_SOURCE_URL
       "https://dlcdn.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-  )endif()
+  )
+endif()
 
 if(DEFINED ENV{ARROW_UCX_URL})
   set(ARROW_UCX_SOURCE_URL "$ENV{ARROW_UCX_URL}")
