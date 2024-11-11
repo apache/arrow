@@ -16,6 +16,8 @@
  */
 package org.apache.arrow.memory.util;
 
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
@@ -42,9 +44,8 @@ public class HistoricalLog {
    *     object instance is best.
    * @param args for the format string, or nothing if none are required
    */
-  @SuppressWarnings("FormatStringAnnotation")
-  /* Remove @SuppressWarnings after fixing https://github.com/apache/arrow/issues/41951 */
-  public HistoricalLog(final String idStringFormat, Object... args) {
+  @FormatMethod
+  public HistoricalLog(@FormatString final String idStringFormat, Object... args) {
     this(Integer.MAX_VALUE, idStringFormat, args);
   }
 
@@ -65,9 +66,8 @@ public class HistoricalLog {
    *     object instance is best.
    * @param args for the format string, or nothing if none are required
    */
-  @SuppressWarnings("AnnotateFormatMethod")
-  public HistoricalLog(final int limit, final String idStringFormat, Object... args) {
-    // Remove @SuppressWarnings after fixing https://github.com/apache/arrow/issues/41951
+  @FormatMethod
+  public HistoricalLog(final int limit, @FormatString final String idStringFormat, Object... args) {
     this.limit = limit;
     this.idString = String.format(idStringFormat, args);
     this.firstEvent = null;
@@ -80,9 +80,8 @@ public class HistoricalLog {
    * @param noteFormat {@link String#format} format string that describes the event
    * @param args for the format string, or nothing if none are required
    */
-  @SuppressWarnings("AnnotateFormatMethod")
-  public synchronized void recordEvent(final String noteFormat, Object... args) {
-    // Remove @SuppressWarnings after fixing https://github.com/apache/arrow/issues/41951
+  @FormatMethod
+  public synchronized void recordEvent(@FormatString final String noteFormat, Object... args) {
     final String note = String.format(noteFormat, args);
     final Event event = new Event(note);
     if (firstEvent == null) {

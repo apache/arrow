@@ -170,15 +170,15 @@ public class DecimalUtility {
     final long addressOfValue = bytebuf.memoryAddress() + (long) index * byteWidth;
     final long padValue = Long.signum(value) == -1 ? -1L : 0L;
     if (LITTLE_ENDIAN) {
-      MemoryUtil.UNSAFE.putLong(addressOfValue, value);
+      MemoryUtil.putLong(addressOfValue, value);
       for (int i = 1; i <= (byteWidth - 8) / 8; i++) {
-        MemoryUtil.UNSAFE.putLong(addressOfValue + Long.BYTES * i, padValue);
+        MemoryUtil.putLong(addressOfValue + Long.BYTES * i, padValue);
       }
     } else {
       for (int i = 0; i < (byteWidth - 8) / 8; i++) {
-        MemoryUtil.UNSAFE.putLong(addressOfValue + Long.BYTES * i, padValue);
+        MemoryUtil.putLong(addressOfValue + Long.BYTES * i, padValue);
       }
-      MemoryUtil.UNSAFE.putLong(addressOfValue + Long.BYTES * (byteWidth - 8) / 8, value);
+      MemoryUtil.putLong(addressOfValue + Long.BYTES * (byteWidth - 8) / 8, value);
     }
   }
 

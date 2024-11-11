@@ -278,5 +278,17 @@ public final class ConvertUtils {
       throw new UnsupportedOperationException(
           "AvaticaParameter not yet supported for type " + type);
     }
+
+    @Override
+    public AvaticaParameter visit(ArrowType.LargeListView type) {
+      throw new UnsupportedOperationException(
+          "AvaticaParameter not yet supported for type " + type);
+    }
+
+    @Override
+    public AvaticaParameter visit(ArrowType.RunEndEncoded type) {
+      throw new UnsupportedOperationException(
+          "No Avatica parameter binder implemented for type " + type);
+    }
   }
 }

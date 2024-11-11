@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -34,9 +33,9 @@ import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
+import org.apache.arrow.memory.util.MemoryUtil;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import sun.misc.Unsafe;
 
 public class TestBaseAllocator {
 
@@ -316,7 +315,7 @@ public class TestBaseAllocator {
 
   @Test
   public void testSegmentAllocator() {
-    RoundingPolicy policy = new SegmentRoundingPolicy(1024);
+    RoundingPolicy policy = new SegmentRoundingPolicy(1024L);
     try (RootAllocator allocator =
         new RootAllocator(AllocationListener.NOOP, 1024 * 1024, policy)) {
       ArrowBuf buf = allocator.buffer(798);
@@ -335,7 +334,7 @@ public class TestBaseAllocator {
 
   @Test
   public void testSegmentAllocator_childAllocator() {
-    RoundingPolicy policy = new SegmentRoundingPolicy(1024);
+    RoundingPolicy policy = new SegmentRoundingPolicy(1024L);
     try (RootAllocator allocator = new RootAllocator(AllocationListener.NOOP, 1024 * 1024, policy);
         BufferAllocator childAllocator = allocator.newChildAllocator("child", 0, 512 * 1024)) {
 
@@ -358,14 +357,14 @@ public class TestBaseAllocator {
   @Test
   public void testSegmentAllocator_smallSegment() {
     IllegalArgumentException e =
-        assertThrows(IllegalArgumentException.class, () -> new SegmentRoundingPolicy(128));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentRoundingPolicy(128L));
     assertEquals("The segment size cannot be smaller than 1024", e.getMessage());
   }
 
   @Test
   public void testSegmentAllocator_segmentSizeNotPowerOf2() {
     IllegalArgumentException e =
-        assertThrows(IllegalArgumentException.class, () -> new SegmentRoundingPolicy(4097));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentRoundingPolicy(4097L));
     assertEquals("The segment size must be a power of 2", e.getMessage());
   }
 
@@ -405,8 +404,7 @@ public class TestBaseAllocator {
                   public AllocationManager create(
                       BufferAllocator accountingAllocator, long requestedSize) {
                     return new AllocationManager(accountingAllocator) {
-                      private final Unsafe unsafe = getUnsafe();
-                      private final long address = unsafe.allocateMemory(requestedSize);
+                      private final long address = MemoryUtil.allocateMemory(requestedSize);
 
                       @Override
                       protected long memoryAddress() {
@@ -415,28 +413,13 @@ public class TestBaseAllocator {
 
                       @Override
                       protected void release0() {
-                        unsafe.setMemory(address, requestedSize, (byte) 0);
-                        unsafe.freeMemory(address);
+                        MemoryUtil.setMemory(address, requestedSize, (byte) 0);
+                        MemoryUtil.freeMemory(address);
                       }
 
                       @Override
                       public long getSize() {
                         return requestedSize;
-                      }
-
-                      private Unsafe getUnsafe() {
-                        Field f = null;
-                        try {
-                          f = Unsafe.class.getDeclaredField("theUnsafe");
-                          f.setAccessible(true);
-                          return (Unsafe) f.get(null);
-                        } catch (NoSuchFieldException | IllegalAccessException e) {
-                          throw new RuntimeException(e);
-                        } finally {
-                          if (f != null) {
-                            f.setAccessible(false);
-                          }
-                        }
                       }
                     };
                   }
@@ -974,7 +957,7 @@ public class TestBaseAllocator {
       try (final BufferAllocator childAllocator1 =
           rootAllocator.newChildAllocator("unclaimedReservation", 0, MAX_ALLOCATION)) {
         try (final AllocationReservation reservation = childAllocator1.newReservation()) {
-          assertTrue(reservation.add(64));
+          assertTrue(reservation.add(64L));
         }
         rootAllocator.verify();
       }
@@ -989,8 +972,8 @@ public class TestBaseAllocator {
           rootAllocator.newChildAllocator("claimedReservation", 0, MAX_ALLOCATION)) {
 
         try (final AllocationReservation reservation = childAllocator1.newReservation()) {
-          assertTrue(reservation.add(32));
-          assertTrue(reservation.add(32));
+          assertTrue(reservation.add(32L));
+          assertTrue(reservation.add(32L));
 
           final ArrowBuf arrowBuf = reservation.allocateBuffer();
           assertEquals(64, arrowBuf.capacity());

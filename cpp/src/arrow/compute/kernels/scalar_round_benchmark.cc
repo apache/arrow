@@ -122,26 +122,28 @@ void SetRoundArgs(benchmark::internal::Benchmark* bench) {
   BENCHMARK_TEMPLATE(BENCHMARK, OP, DoubleType)->Apply(SetRoundArgs);
 
 #ifdef ALL_ROUND_BENCHMARKS
-#define DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(BENCHMARK, OP, TYPE)                     \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::DOWN)->Apply(SetRoundArgs);         \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::UP)->Apply(SetRoundArgs);           \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::TOWARDS_ZERO)->Apply(SetRoundArgs); \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::TOWARDS_INFINITY)                   \
-      ->Apply(SetRoundArgs);                                                             \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_DOWN)->Apply(SetRoundArgs);    \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_UP)->Apply(SetRoundArgs);      \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_TOWARDS_ZERO)                  \
-      ->Apply(SetRoundArgs);                                                             \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_TOWARDS_INFINITY)              \
-      ->Apply(SetRoundArgs);                                                             \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_TO_EVEN)->Apply(SetRoundArgs); \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_TO_ODD)->Apply(SetRoundArgs)
+#  define DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(BENCHMARK, OP, TYPE)                  \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::DOWN)->Apply(SetRoundArgs);      \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::UP)->Apply(SetRoundArgs);        \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::TOWARDS_ZERO)                    \
+        ->Apply(SetRoundArgs);                                                          \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::TOWARDS_INFINITY)                \
+        ->Apply(SetRoundArgs);                                                          \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_DOWN)->Apply(SetRoundArgs); \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_UP)->Apply(SetRoundArgs);   \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_TOWARDS_ZERO)               \
+        ->Apply(SetRoundArgs);                                                          \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_TOWARDS_INFINITY)           \
+        ->Apply(SetRoundArgs);                                                          \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_TO_EVEN)                    \
+        ->Apply(SetRoundArgs);                                                          \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_TO_ODD)->Apply(SetRoundArgs)
 #else
-#define DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(BENCHMARK, OP, TYPE)             \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::DOWN)->Apply(SetRoundArgs); \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_TOWARDS_ZERO)          \
-      ->Apply(SetRoundArgs);                                                     \
-  BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_TO_ODD)->Apply(SetRoundArgs)
+#  define DECLARE_ROUND_BENCHMARKS_WITH_ROUNDMODE(BENCHMARK, OP, TYPE)             \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::DOWN)->Apply(SetRoundArgs); \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_TOWARDS_ZERO)          \
+        ->Apply(SetRoundArgs);                                                     \
+    BENCHMARK_TEMPLATE(BENCHMARK, OP, TYPE, RoundMode::HALF_TO_ODD)->Apply(SetRoundArgs)
 #endif
 
 #define DECLARE_ROUND_BENCHMARKS(BENCHMARK, OP)                       \

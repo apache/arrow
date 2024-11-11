@@ -171,7 +171,10 @@ using PrimitiveArrowTypes =
 using TemporalArrowTypes =
     ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
 
-using DecimalArrowTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
+// we can uncomment Decimal32Type and Decimal64Type once the cast
+// functions are implemented for those types
+using DecimalArrowTypes =
+    ::testing::Types</*Decimal32Type, Decimal64Type,*/ Decimal128Type, Decimal256Type>;
 
 using BaseBinaryArrowTypes =
     ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
@@ -457,9 +460,9 @@ class ARROW_TESTING_EXPORT SignalHandlerGuard {
 };
 
 #ifndef ARROW_LARGE_MEMORY_TESTS
-#define LARGE_MEMORY_TEST(name) DISABLED_##name
+#  define LARGE_MEMORY_TEST(name) DISABLED_##name
 #else
-#define LARGE_MEMORY_TEST(name) name
+#  define LARGE_MEMORY_TEST(name) name
 #endif
 
 inline void PrintTo(const Status& st, std::ostream* os) { *os << st.ToString(); }

@@ -33,8 +33,8 @@
 #include "gandiva/decimal_type_util.h"
 
 #ifndef GANDIVA_UNIT_TEST
-#include "gandiva/engine.h"
-#include "gandiva/exported_funcs.h"
+#  include "gandiva/engine.h"
+#  include "gandiva/exported_funcs.h"
 
 namespace gandiva {
 

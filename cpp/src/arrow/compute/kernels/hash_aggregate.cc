@@ -33,9 +33,9 @@
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/aggregate_var_std_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
-#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/row/grouper.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
@@ -477,7 +477,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     VisitGroupedValues<Type>(
         batch,
         [&](uint32_t g, InputCType value) {
-          reduced[g] = Impl::Reduce(*out_type_, reduced[g], value);
+          reduced[g] = Impl::Reduce(*out_type_, reduced[g], static_cast<CType>(value));
           counts[g]++;
         },
         [&](uint32_t g) { bit_util::SetBitTo(no_nulls, g, false); });
@@ -880,6 +880,8 @@ struct GroupedVarStdImpl : public GroupedAggregator {
   double ToDouble(T value) const {
     return static_cast<double>(value);
   }
+  double ToDouble(const Decimal32& value) const { return value.ToDouble(decimal_scale_); }
+  double ToDouble(const Decimal64& value) const { return value.ToDouble(decimal_scale_); }
   double ToDouble(const Decimal128& value) const {
     return value.ToDouble(decimal_scale_);
   }
@@ -892,8 +894,10 @@ struct GroupedVarStdImpl : public GroupedAggregator {
   // float/double/int64/decimal: calculate `m2` (sum((X-mean)^2)) with
   // `two pass algorithm` (see aggregate_var_std.cc)
   template <typename T = Type>
-  enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4), Status> ConsumeImpl(
-      const ExecSpan& batch) {
+  enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4) ||
+                  std::is_same_v<CType, Decimal32>,
+              Status>
+  ConsumeImpl(const ExecSpan& batch) {
     using SumType = typename internal::GetSumType<T>::SumType;
 
     GroupedVarStdImpl<Type> state;
@@ -910,7 +914,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     VisitGroupedValues<Type>(
         batch,
         [&](uint32_t g, typename TypeTraits<Type>::CType value) {
-          sums[g] += value;
+          sums[g] += static_cast<SumType>(value);
           counts[g]++;
         },
         [&](uint32_t g) { bit_util::ClearBit(no_nulls, g); });
@@ -1186,6 +1190,8 @@ struct GroupedTDigestImpl : public GroupedAggregator {
   double ToDouble(T value) const {
     return static_cast<double>(value);
   }
+  double ToDouble(const Decimal32& value) const { return value.ToDouble(decimal_scale_); }
+  double ToDouble(const Decimal64& value) const { return value.ToDouble(decimal_scale_); }
   double ToDouble(const Decimal128& value) const {
     return value.ToDouble(decimal_scale_);
   }
@@ -1363,6 +1369,18 @@ template <>
 struct AntiExtrema<double> {
   static constexpr double anti_min() { return std::numeric_limits<double>::infinity(); }
   static constexpr double anti_max() { return -std::numeric_limits<double>::infinity(); }
+};
+
+template <>
+struct AntiExtrema<Decimal32> {
+  static constexpr Decimal32 anti_min() { return BasicDecimal32::GetMaxSentinel(); }
+  static constexpr Decimal32 anti_max() { return BasicDecimal32::GetMinSentinel(); }
+};
+
+template <>
+struct AntiExtrema<Decimal64> {
+  static constexpr Decimal64 anti_min() { return BasicDecimal64::GetMaxSentinel(); }
+  static constexpr Decimal64 anti_max() { return BasicDecimal64::GetMinSentinel(); }
 };
 
 template <>
@@ -2533,11 +2551,11 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
 struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
   Result<Datum> Finalize() override {
     ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
-    ARROW_ASSIGN_OR_RAISE(auto groupings, grouper_->MakeGroupings(
-                                              *uniques[1].array_as<UInt32Array>(),
-                                              static_cast<uint32_t>(num_groups_), ctx_));
     ARROW_ASSIGN_OR_RAISE(
-        auto list, grouper_->ApplyGroupings(*groupings, *uniques[0].make_array(), ctx_));
+        auto groupings, Grouper::MakeGroupings(*uniques[1].array_as<UInt32Array>(),
+                                               static_cast<uint32_t>(num_groups_), ctx_));
+    ARROW_ASSIGN_OR_RAISE(
+        auto list, Grouper::ApplyGroupings(*groupings, *uniques[0].make_array(), ctx_));
     const auto& values = list->values();
     DCHECK_EQ(values->offset(), 0);
     auto* offsets = list->value_offsets()->mutable_data_as<int32_t>();

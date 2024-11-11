@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.vector;
 
+import static java.util.Arrays.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,18 +24,22 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.jupiter.api.AfterEach;
@@ -195,6 +200,65 @@ public class TestSplitAndTransfer {
     assertEquals(0, toDUV.getValueCount());
     fromDuv.clear();
     toDUV.clear();
+  }
+
+  @Test
+  public void testWithNullVector() {
+    int valueCount = 123;
+    int startIndex = 10;
+    NullVector fromNullVector = new NullVector("nullVector");
+    fromNullVector.setValueCount(valueCount);
+    TransferPair transferPair = fromNullVector.getTransferPair(fromNullVector.getAllocator());
+    transferPair.splitAndTransfer(startIndex, valueCount - startIndex);
+    NullVector toNullVector = (NullVector) transferPair.getTo();
+
+    assertEquals(valueCount - startIndex, toNullVector.getValueCount());
+    // no allocations to clear for NullVector
+  }
+
+  @Test
+  public void testWithZeroVector() {
+    ZeroVector fromZeroVector = new ZeroVector("zeroVector");
+    TransferPair transferPair = fromZeroVector.getTransferPair(fromZeroVector.getAllocator());
+    transferPair.splitAndTransfer(0, 0);
+    ZeroVector toZeroVector = (ZeroVector) transferPair.getTo();
+
+    assertEquals(0, toZeroVector.getValueCount());
+    // no allocations to clear for ZeroVector
+  }
+
+  @Test
+  public void testListVectorWithEmptyMapVector() {
+    // List<element: Map(false)<entries: Struct<key: Utf8 not null, value: Utf8> not null>>
+    int valueCount = 1;
+    List<Field> children = new ArrayList<>();
+    children.add(new Field("key", FieldType.notNullable(new ArrowType.Utf8()), null));
+    children.add(new Field("value", FieldType.nullable(new ArrowType.Utf8()), null));
+    Field structField =
+        new Field("entries", FieldType.notNullable(ArrowType.Struct.INSTANCE), children);
+
+    Field mapField =
+        new Field("element", FieldType.notNullable(new ArrowType.Map(false)), asList(structField));
+
+    Field listField = new Field("list", FieldType.nullable(new ArrowType.List()), asList(mapField));
+
+    ListVector fromListVector = (ListVector) listField.createVector(allocator);
+    fromListVector.allocateNew();
+    fromListVector.setValueCount(valueCount);
+
+    // child vector is empty
+    MapVector dataVector = (MapVector) fromListVector.getDataVector();
+    dataVector.allocateNew();
+    // unset capacity to mimic observed failure mode
+    dataVector.getOffsetBuffer().capacity(0);
+
+    TransferPair transferPair = fromListVector.getTransferPair(fromListVector.getAllocator());
+    transferPair.splitAndTransfer(0, valueCount);
+    ListVector toListVector = (ListVector) transferPair.getTo();
+
+    assertEquals(valueCount, toListVector.getValueCount());
+    fromListVector.clear();
+    toListVector.clear();
   }
 
   @Test /* VarCharVector */
@@ -838,6 +902,25 @@ public class TestSplitAndTransfer {
   public void testListVectorZeroStartIndexAndLength() {
     try (final ListVector listVector = ListVector.empty("list", allocator);
         final ListVector newListVector = ListVector.empty("newList", allocator)) {
+
+      listVector.allocateNew();
+      final int valueCount = 0;
+      listVector.setValueCount(valueCount);
+
+      final TransferPair tp = listVector.makeTransferPair(newListVector);
+
+      tp.splitAndTransfer(0, 0);
+      assertEquals(valueCount, newListVector.getValueCount());
+
+      newListVector.clear();
+    }
+  }
+
+  @Test
+  public void testLargeListViewVectorZeroStartIndexAndLength() {
+    try (final LargeListViewVector listVector =
+            LargeListViewVector.empty("largelistview", allocator);
+        final LargeListViewVector newListVector = LargeListViewVector.empty("newList", allocator)) {
 
       listVector.allocateNew();
       final int valueCount = 0;

@@ -47,7 +47,9 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.LargeListVector;
+import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -184,6 +186,11 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   }
 
   @Override
+  public List<ArrowBuf> visit(ArrowType.RunEndEncoded type) {
+    return List.of();
+  }
+
+  @Override
   public List<ArrowBuf> visit(ArrowType.Map type) {
     return Arrays.asList(maybeImportBitmap(type), importOffsets(type, MapVector.OFFSET_WIDTH));
   }
@@ -230,7 +237,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   private List<ArrowBuf> visitVariableWidthView(ArrowType type) {
     final int viewBufferIndex = 1;
     final int variadicSizeBufferIndex = this.buffers.length - 1;
-    final long numOfVariadicBuffers = this.buffers.length - 3;
+    final long numOfVariadicBuffers = this.buffers.length - 3L;
     final long variadicSizeBufferCapacity = numOfVariadicBuffers * Long.BYTES;
     List<ArrowBuf> buffers = new ArrayList<>();
 
@@ -400,7 +407,17 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.ListView type) {
-    throw new UnsupportedOperationException(
-        "Importing buffers for view type: " + type + " not supported");
+    return Arrays.asList(
+        maybeImportBitmap(type),
+        importFixedBytes(type, 1, ListViewVector.OFFSET_WIDTH),
+        importFixedBytes(type, 2, ListViewVector.SIZE_WIDTH));
+  }
+
+  @Override
+  public List<ArrowBuf> visit(ArrowType.LargeListView type) {
+    return Arrays.asList(
+        maybeImportBitmap(type),
+        importFixedBytes(type, 1, LargeListViewVector.OFFSET_WIDTH),
+        importFixedBytes(type, 2, LargeListViewVector.SIZE_WIDTH));
   }
 }

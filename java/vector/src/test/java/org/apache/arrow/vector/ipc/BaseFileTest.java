@@ -579,7 +579,7 @@ public class BaseFileTest {
     FieldReader unionReader = root.getVector("union").getReader();
     for (int i = 0; i < count; i++) {
       unionReader.setPosition(i);
-      switch (i % 4) {
+      switch (i % 5) {
         case 0:
           assertEquals(i, unionReader.readInteger().intValue());
           break;
@@ -590,6 +590,9 @@ public class BaseFileTest {
           assertEquals(i % 3, unionReader.size());
           break;
         case 3:
+          assertEquals(3, unionReader.size());
+          break;
+        case 4:
           NullableTimeStampMilliHolder h = new NullableTimeStampMilliHolder();
           unionReader.reader("timestamp").read(h);
           assertEquals(i, h.value);
@@ -612,9 +615,10 @@ public class BaseFileTest {
     IntWriter intWriter = rootWriter.integer("union");
     BigIntWriter bigIntWriter = rootWriter.bigInt("union");
     ListWriter listWriter = rootWriter.list("union");
+    ListWriter listViewWriter = rootWriter.listView("union");
     StructWriter structWriter = rootWriter.struct("union");
     for (int i = 0; i < count; i++) {
-      switch (i % 4) {
+      switch (i % 5) {
         case 0:
           intWriter.setPosition(i);
           intWriter.writeInt(i);
@@ -632,6 +636,14 @@ public class BaseFileTest {
           listWriter.endList();
           break;
         case 3:
+          listViewWriter.setPosition(i);
+          listViewWriter.startListView();
+          for (int j = 0; j < i % 5; j++) {
+            listViewWriter.varChar().writeVarChar(0, 3, varchar);
+          }
+          listViewWriter.endListView();
+          break;
+        case 4:
           structWriter.setPosition(i);
           structWriter.start();
           structWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);

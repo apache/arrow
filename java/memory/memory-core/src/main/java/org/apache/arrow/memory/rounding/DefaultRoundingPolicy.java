@@ -34,13 +34,13 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
    *
    * <p>It was copied from {@link io.netty.buffer.PooledByteBufAllocator}.
    */
-  private static final int MIN_PAGE_SIZE = 4096;
+  private static final long MIN_PAGE_SIZE = 4096;
 
-  private static final int MAX_CHUNK_SIZE = (int) (((long) Integer.MAX_VALUE + 1) / 2);
+  private static final long MAX_CHUNK_SIZE = ((long) Integer.MAX_VALUE + 1) / 2;
   private static final long DEFAULT_CHUNK_SIZE;
 
   static {
-    int defaultPageSize = Integer.getInteger("org.apache.memory.allocator.pageSize", 8192);
+    long defaultPageSize = Long.getLong("org.apache.memory.allocator.pageSize", 8192);
     try {
       validateAndCalculatePageShifts(defaultPageSize);
     } catch (Throwable t) {
@@ -60,7 +60,7 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
     }
   }
 
-  private static int validateAndCalculatePageShifts(int pageSize) {
+  private static long validateAndCalculatePageShifts(long pageSize) {
     if (pageSize < MIN_PAGE_SIZE) {
       throw new IllegalArgumentException(
           "pageSize: " + pageSize + " (expected: " + MIN_PAGE_SIZE + ")");
@@ -71,17 +71,17 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
     }
 
     // Logarithm base 2. At this point we know that pageSize is a power of two.
-    return Integer.SIZE - 1 - Integer.numberOfLeadingZeros(pageSize);
+    return Long.SIZE - 1L - Long.numberOfLeadingZeros(pageSize);
   }
 
-  private static int validateAndCalculateChunkSize(int pageSize, int maxOrder) {
+  private static long validateAndCalculateChunkSize(long pageSize, int maxOrder) {
     if (maxOrder > 14) {
       throw new IllegalArgumentException("maxOrder: " + maxOrder + " (expected: 0-14)");
     }
 
     // Ensure the resulting chunkSize does not overflow.
-    int chunkSize = pageSize;
-    for (int i = maxOrder; i > 0; i--) {
+    long chunkSize = pageSize;
+    for (long i = maxOrder; i > 0; i--) {
       if (chunkSize > MAX_CHUNK_SIZE / 2) {
         throw new IllegalArgumentException(
             String.format(

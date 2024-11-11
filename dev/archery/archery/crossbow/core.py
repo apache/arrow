@@ -746,12 +746,19 @@ def get_version(root, **kwargs):
     subprojects, e.g. apache-arrow-js-XXX tags.
     """
     from setuptools_scm.git import parse as parse_git_version
+    from setuptools_scm import Configuration
 
     # query the calculated version based on the git tags
     kwargs['describe_command'] = (
         'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
     )
-    version = parse_git_version(root, **kwargs)
+
+    # Create a Configuration object with necessary parameters
+    config = Configuration(
+        git_describe_command=kwargs['describe_command']
+    )
+
+    version = parse_git_version(root, config=config, **kwargs)
     tag = str(version.tag)
 
     # We may get a development tag for the next version, such as "5.0.0.dev0",

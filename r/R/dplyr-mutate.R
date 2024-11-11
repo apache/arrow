@@ -77,12 +77,12 @@ mutate.arrow_dplyr_query <- function(.data,
       agg_query$aggregations <- mask$.aggregations
       agg_query <- collapse.arrow_dplyr_query(agg_query)
       if (length(grv)) {
-        out <- left_join(out, agg_query, by = grv)
+        out <- dplyr::left_join(out, agg_query, by = grv)
       } else {
         # If there are no group_by vars, add a scalar column to both and join on that
         agg_query$selected_columns[["..tempjoin"]] <- Expression$scalar(1L)
         out$selected_columns[["..tempjoin"]] <- Expression$scalar(1L)
-        out <- left_join(out, agg_query, by = "..tempjoin")
+        out <- dplyr::left_join(out, agg_query, by = "..tempjoin")
       }
     }
 

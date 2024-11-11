@@ -247,7 +247,7 @@ public class BitVectorHelper {
 
     int index = 0;
     while (index + 8 <= fullBytesCount) {
-      long longValue = MemoryUtil.UNSAFE.getLong(validityBuffer.memoryAddress() + index);
+      long longValue = MemoryUtil.getLong(validityBuffer.memoryAddress() + index);
       if (longValue != (long) intToCompare) {
         return false;
       }
@@ -255,7 +255,7 @@ public class BitVectorHelper {
     }
 
     if (index + 4 <= fullBytesCount) {
-      int intValue = MemoryUtil.UNSAFE.getInt(validityBuffer.memoryAddress() + index);
+      int intValue = MemoryUtil.getInt(validityBuffer.memoryAddress() + index);
       if (intValue != intToCompare) {
         return false;
       }
@@ -263,7 +263,7 @@ public class BitVectorHelper {
     }
 
     while (index < fullBytesCount) {
-      byte byteValue = MemoryUtil.UNSAFE.getByte(validityBuffer.memoryAddress() + index);
+      byte byteValue = MemoryUtil.getByte(validityBuffer.memoryAddress() + index);
       if (byteValue != (byte) intToCompare) {
         return false;
       }
@@ -272,7 +272,7 @@ public class BitVectorHelper {
 
     // handling with the last bits
     if (remainder != 0) {
-      byte byteValue = MemoryUtil.UNSAFE.getByte(validityBuffer.memoryAddress() + sizeInBytes - 1);
+      byte byteValue = MemoryUtil.getByte(validityBuffer.memoryAddress() + sizeInBytes - 1);
       byte mask = (byte) ((1 << remainder) - 1);
       byteValue = (byte) (byteValue & mask);
       if (checkOneBits) {
@@ -386,7 +386,7 @@ public class BitVectorHelper {
 
     // copy the first bit set
     if (input1 != output) {
-      MemoryUtil.UNSAFE.copyMemory(input1.memoryAddress(), output.memoryAddress(), numBytes1);
+      MemoryUtil.copyMemory(input1.memoryAddress(), output.memoryAddress(), numBytes1);
     }
 
     if (bitIndex(numBits1) == 0) {
@@ -394,8 +394,7 @@ public class BitVectorHelper {
       // boundary.
       // For this case, we have a shortcut to copy all bytes from the second set after the byte
       // boundary.
-      MemoryUtil.UNSAFE.copyMemory(
-          input2.memoryAddress(), output.memoryAddress() + numBytes1, numBytes2);
+      MemoryUtil.copyMemory(input2.memoryAddress(), output.memoryAddress() + numBytes1, numBytes2);
       return;
     }
 

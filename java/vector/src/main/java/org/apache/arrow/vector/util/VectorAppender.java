@@ -93,7 +93,7 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
           targetVector.getDataBuffer());
 
     } else {
-      MemoryUtil.UNSAFE.copyMemory(
+      MemoryUtil.copyMemory(
           deltaVector.getDataBuffer().memoryAddress(),
           targetVector.getDataBuffer().memoryAddress()
               + deltaVector.getTypeWidth() * targetVector.getValueCount(),
@@ -142,13 +142,13 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
         targetVector.getValidityBuffer());
 
     // append data buffer
-    MemoryUtil.UNSAFE.copyMemory(
+    MemoryUtil.copyMemory(
         deltaVector.getDataBuffer().memoryAddress(),
         targetVector.getDataBuffer().memoryAddress() + targetDataSize,
         deltaDataSize);
 
     // copy offset buffer
-    MemoryUtil.UNSAFE.copyMemory(
+    MemoryUtil.copyMemory(
         deltaVector.getOffsetBuffer().memoryAddress() + BaseVariableWidthVector.OFFSET_WIDTH,
         targetVector.getOffsetBuffer().memoryAddress()
             + (targetVector.getValueCount() + 1) * BaseVariableWidthVector.OFFSET_WIDTH,
@@ -214,13 +214,13 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
         targetVector.getValidityBuffer());
 
     // append data buffer
-    MemoryUtil.UNSAFE.copyMemory(
+    MemoryUtil.copyMemory(
         deltaVector.getDataBuffer().memoryAddress(),
         targetVector.getDataBuffer().memoryAddress() + targetDataSize,
         deltaDataSize);
 
     // copy offset buffer
-    MemoryUtil.UNSAFE.copyMemory(
+    MemoryUtil.copyMemory(
         deltaVector.getOffsetBuffer().memoryAddress() + BaseLargeVariableWidthVector.OFFSET_WIDTH,
         targetVector.getOffsetBuffer().memoryAddress()
             + (targetVector.getValueCount() + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH,
@@ -292,7 +292,7 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
         targetVector.getValidityBuffer());
 
     // append offset buffer
-    MemoryUtil.UNSAFE.copyMemory(
+    MemoryUtil.copyMemory(
         deltaVector.getOffsetBuffer().memoryAddress() + ListVector.OFFSET_WIDTH,
         targetVector.getOffsetBuffer().memoryAddress()
             + (targetVector.getValueCount() + 1) * ListVector.OFFSET_WIDTH,
@@ -362,7 +362,7 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
         targetVector.getValidityBuffer());
 
     // append offset buffer
-    MemoryUtil.UNSAFE.copyMemory(
+    MemoryUtil.copyMemory(
         deltaVector.getOffsetBuffer().memoryAddress() + ListVector.OFFSET_WIDTH,
         targetVector.getOffsetBuffer().memoryAddress()
             + (targetVector.getValueCount() + 1) * LargeListVector.OFFSET_WIDTH,
@@ -499,7 +499,7 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
     }
 
     // append type buffers
-    MemoryUtil.UNSAFE.copyMemory(
+    MemoryUtil.copyMemory(
         deltaVector.getTypeBufferAddress(),
         targetUnionVector.getTypeBufferAddress() + targetVector.getValueCount(),
         deltaVector.getValueCount());
@@ -564,7 +564,7 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
     }
 
     // append type buffers
-    MemoryUtil.UNSAFE.copyMemory(
+    MemoryUtil.copyMemory(
         deltaVector.getTypeBuffer().memoryAddress(),
         targetDenseUnionVector.getTypeBuffer().memoryAddress() + targetVector.getValueCount(),
         deltaVector.getValueCount());

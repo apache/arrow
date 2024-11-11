@@ -26,7 +26,6 @@ on:
 
 env:
   ARCHERY_DEBUG: 1
-  ARCHERY_USE_DOCKER_CLI: 1
 {% endmacro %}
 
 {%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive", action_v="4") -%}
@@ -170,13 +169,29 @@ env:
   - name: Upload package to Gemfury
     shell: bash
     run: |
-      fury push \
-        --api-token=${CROSSBOW_GEMFURY_TOKEN} \
-        --as=${CROSSBOW_GEMFURY_ORG} \
-        {{ pattern }}
+      if $(fury versions --as=${CROSSBOW_GEMFURY_ORG} --api-token=${CROSSBOW_GEMFURY_TOKEN} pyarrow | grep --fixed-strings -q "{{ arrow.no_rc_version }}"); then
+        echo "Version {{ arrow.no_rc_version }} already exists. Avoid pushing version."
+      else
+        fury push \
+          --api-token=${CROSSBOW_GEMFURY_TOKEN} \
+          --as=${CROSSBOW_GEMFURY_ORG} \
+          {{ pattern }}
+      fi
     env:
       CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
       CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
+  {% endif %}
+{% endmacro %}
+
+{%- macro github_upload_wheel_scientific_python(pattern) -%}
+  {%- if arrow.is_default_branch() -%}
+  - name: Upload wheel to Anaconda scientific-python
+    shell: bash
+    run: |
+      python3 -m pip install git+https://github.com/Anaconda-Platform/anaconda-client.git@1.12.3
+      anaconda -t ${CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN} upload --force -u scientific-python-nightly-wheels --label main {{ pattern }}
+    env:
+      CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN: {{ '${{ secrets.CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN }}' }}
   {% endif %}
 {% endmacro %}
 
@@ -196,7 +211,7 @@ env:
 {%- macro azure_upload_releases(pattern) -%}
   - task: UsePythonVersion@0
     inputs:
-      versionSpec: '3.8'
+      versionSpec: '3.9'
   - script: pip install -e arrow/dev/archery[crossbow-upload]
     displayName: Install Crossbow
   - bash: |
@@ -305,7 +320,7 @@ env:
     run: mkdir repo
   {% if get_win %}
   - name: Get windows binary
-    uses: actions/download-artifact@v3
+    uses: actions/download-artifact@v4
     with:
       name: r-lib__libarrow__bin__windows
       path: repo/libarrow/bin/windows
@@ -313,7 +328,7 @@ env:
   {% if get_nix %}
     {% for openssl_version in ["1.0", "1.1", "3.0"] %}
   - name: Get Linux OpenSSL {{ openssl_version }} binary
-    uses: actions/download-artifact@v3
+    uses: actions/download-artifact@v4
     with:
       name: r-lib__libarrow__bin__linux-openssl-{{ openssl_version }}
       path: repo/libarrow/bin/linux-openssl-{{ openssl_version }}
@@ -323,7 +338,7 @@ env:
     {% for openssl_version in ["1.1", "3.0"] %}
       {% for arch in ["x86_64", "arm64"] %}
   - name: Get macOS {{ arch }} OpenSSL {{ openssl_version }} binary
-    uses: actions/download-artifact@v3
+    uses: actions/download-artifact@v4
     with:
       name: r-lib__libarrow__bin__darwin-{{arch}}-openssl-{{ openssl_version }}
       path: repo/libarrow/bin/darwin-{{ arch }}-openssl-{{ openssl_version }}
@@ -331,7 +346,7 @@ env:
     {% endfor %}
   {% endif %}
   - name: Get src pkg
-    uses: actions/download-artifact@v3
+    uses: actions/download-artifact@v4
     with:
       name: r-pkg__src__contrib
       path: repo/src/contrib

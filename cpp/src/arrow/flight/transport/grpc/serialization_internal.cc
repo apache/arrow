@@ -28,8 +28,8 @@
 #include "arrow/flight/platform.h"
 
 #if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4267)
+#  pragma warning(push)
+#  pragma warning(disable : 4267)
 #endif
 
 #include <google/protobuf/io/coded_stream.h>
@@ -41,7 +41,7 @@
 #include <grpcpp/impl/codegen/proto_utils.h>
 
 #if defined(_MSC_VER)
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 #include "arrow/buffer.h"
@@ -284,7 +284,7 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
       for (const auto& buffer : ipc_msg.body_buffers) {
         // Buffer may be null when the row length is zero, or when all
         // entries are invalid.
-        if (!buffer) continue;
+        if (!buffer || buffer->size() == 0) continue;
 
         ::grpc::Slice slice;
         auto status = SliceFromBuffer(buffer).Value(&slice);
@@ -400,8 +400,8 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 // The pointer bitcast hack below causes legitimate warnings, silence them.
 #ifndef _WIN32
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
 // Pointer bitcast explanation: grpc::*Writer<T>::Write() and grpc::*Reader<T>::Read()
@@ -478,7 +478,7 @@ bool ReadPayload(::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* read
 }
 
 #ifndef _WIN32
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #endif
 
 }  // namespace grpc

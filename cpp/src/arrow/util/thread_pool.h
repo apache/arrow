@@ -36,7 +36,7 @@
 
 #if defined(_MSC_VER)
 // Disable harmless warning for decorated name length limit
-#pragma warning(disable : 4503)
+#  pragma warning(disable : 4503)
 #endif
 
 namespace arrow {

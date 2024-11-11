@@ -42,7 +42,7 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
 
 from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
                          _stringify_path,
-                         tobytes, frombytes)
+                         tobytes, frombytes, is_threading_enabled)
 
 cimport cpython as cp
 
@@ -467,7 +467,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def dictionary_page_offset(self):
-        """Offset of dictionary page relative to column chunk offset (int)."""
+        """Offset of dictionary page relative to beginning of the file (int)."""
         if self.has_dictionary_page:
             return self.metadata.dictionary_page_offset()
         else:
@@ -475,7 +475,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def data_page_offset(self):
-        """Offset of data page relative to column chunk offset (int)."""
+        """Offset of data page relative to beginning of the file (int)."""
         return self.metadata.data_page_offset()
 
     @property
@@ -507,6 +507,19 @@ cdef class ColumnChunkMetaData(_Weakrefable):
     def has_column_index(self):
         """Whether the column chunk has a column index"""
         return self.metadata.GetColumnIndexLocation().has_value()
+
+    @property
+    def metadata(self):
+        """Additional metadata as key value pairs (dict[bytes, bytes])."""
+        cdef:
+            unordered_map[c_string, c_string] metadata
+            const CKeyValueMetadata* underlying_metadata
+        underlying_metadata = self.metadata.key_value_metadata().get()
+        if underlying_metadata != NULL:
+            underlying_metadata.ToUnorderedMap(&metadata)
+            return metadata
+        else:
+            return None
 
 
 cdef class SortingColumn:
@@ -1453,6 +1466,9 @@ cdef class ParquetReader(_Weakrefable):
                 default_arrow_reader_properties())
             FileReaderBuilder builder
 
+        if pre_buffer and not is_threading_enabled():
+            pre_buffer = False
+
         if metadata is not None:
             c_metadata = metadata.sp_metadata
 
@@ -1555,7 +1571,10 @@ cdef class ParquetReader(_Weakrefable):
         ----------
         use_threads : bool
         """
-        self.reader.get().set_use_threads(use_threads)
+        if is_threading_enabled():
+            self.reader.get().set_use_threads(use_threads)
+        else:
+            self.reader.get().set_use_threads(False)
 
     def set_batch_size(self, int64_t batch_size):
         """

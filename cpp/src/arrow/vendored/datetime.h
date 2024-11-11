@@ -17,10 +17,11 @@
 
 #pragma once
 
-#include "arrow/vendored/datetime/date.h"  // IWYU pragma: export
-#include "arrow/vendored/datetime/tz.h"    // IWYU pragma: export
+#include "arrow/vendored/datetime/visibility.h"  // IWYU pragma: export
+#include "arrow/vendored/datetime/date.h"        // IWYU pragma: export
+#include "arrow/vendored/datetime/tz.h"          // IWYU pragma: export
 
 // Can be defined by date.h.
 #ifdef NOEXCEPT
-#undef NOEXCEPT
+#  undef NOEXCEPT
 #endif

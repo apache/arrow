@@ -31,4 +31,4 @@ jobs:
       - name: Run minimal build example
         run: |
           cd arrow/python/examples/{{ type }}
-          docker-compose run --rm {{ image }}
+          docker compose run --rm {{ image }}

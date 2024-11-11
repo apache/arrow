@@ -221,8 +221,8 @@ check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apa
   allowlist <- tryCatch(
     # Try a remote allowlist so that we can add/remove without a release
     suppressWarnings(readLines(allowed)),
-    # Fallback to default: allowed only on Ubuntu and CentOS/RHEL
-    error = function(e) c("ubuntu", "centos", "redhat", "rhel")
+    # Fallback to default allow list shipped with the package
+    error = function(e) readLines("tools/nixlibs-allowlist.txt")
   )
   # allowlist should contain valid regular expressions (plain strings ok too)
   any(grepl(paste(allowlist, collapse = "|"), os))
@@ -926,7 +926,9 @@ options(.arrow.cleanup = character())
 on.exit(unlink(getOption(".arrow.cleanup"), recursive = TRUE), add = TRUE)
 
 not_cran <- env_is("NOT_CRAN", "true")
-if (not_cran) {
+on_r_universe <- !env_is("MY_UNIVERSE", "")
+
+if (not_cran || on_r_universe) {
   # Set more eager defaults
   if (env_is("LIBARROW_BINARY", "")) {
     Sys.setenv(LIBARROW_BINARY = "true")

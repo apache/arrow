@@ -30,10 +30,6 @@
 // been invented (that would involve another several millennia of evolution).
 // We did not mean to shout.
 
-// NOTE(ARROW): This is required so that symbols are properly exported from the DLL
-#include "visibility.h"
-
-
 #ifdef _WIN32
    // windows.h will be included directly and indirectly (e.g. by curl).
    // We need to define these macros to prevent windows.h bringing in
@@ -96,6 +92,27 @@
 #  define TARGET_OS_SIMULATOR 0
 #endif
 
+#if defined(ANDROID) || defined(__ANDROID__)
+#  include <sys/system_properties.h>
+#  if USE_OS_TZDB
+#    define MISSING_LEAP_SECONDS 1
+// from https://android.googlesource.com/platform/bionic/+/master/libc/tzcode/bionic.cpp
+static constexpr size_t ANDROID_TIMEZONE_NAME_LENGTH = 40;
+struct bionic_tzdata_header_t {
+  char tzdata_version[12];
+  std::int32_t index_offset;
+  std::int32_t data_offset;
+  std::int32_t final_offset;
+};
+struct index_entry_t {
+  char buf[ANDROID_TIMEZONE_NAME_LENGTH];
+  std::int32_t start;
+  std::int32_t length;
+  std::int32_t unused; // Was raw GMT offset; always 0 since tzdata2014f (L).
+};
+#  endif // USE_OS_TZDB
+#endif // defined(ANDROID) || defined(__ANDROID__)
+
 #if USE_OS_TZDB
 #  include <dirent.h>
 #endif
@@ -118,10 +135,13 @@
 #include <vector>
 #include <sys/stat.h>
 
-// unistd.h is used on some platforms as part of the means to get
+// unistd.h is used on some platforms as part of the the means to get
 // the current time zone. On Win32 windows.h provides a means to do it.
 // gcc/mingw supports unistd.h on Win32 but MSVC does not.
 
+#ifdef __ANDROID__
+#  define INSTALL .
+#endif
 #ifdef _WIN32
 #  ifdef WINAPI_FAMILY
 #    include <winapifamily.h>
@@ -174,9 +194,9 @@
 
 #ifdef _WIN32
 static CONSTDATA char folder_delimiter = '\\';
-#else   // !_WIN32
+#elif !defined(ANDROID) && !defined(__ANDROID__)
 static CONSTDATA char folder_delimiter = '/';
-#endif  // !_WIN32
+#endif  // !defined(WIN32) && !defined(ANDROID) && !defined(__ANDROID__)
 
 #if defined(__GNUC__) && __GNUC__ < 5
    // GCC 4.9 Bug 61489 Wrong warning with -Wmissing-field-initializers
@@ -187,20 +207,6 @@ static CONSTDATA char folder_delimiter = '/';
 #if !USE_OS_TZDB
 
 #  ifdef _WIN32
-#    ifndef WINRT
-
-namespace
-{
-    struct task_mem_deleter
-    {
-        void operator()(wchar_t buf[])
-        {
-            if (buf != nullptr)
-                CoTaskMemFree(buf);
-        }
-    };
-    using co_task_mem_ptr = std::unique_ptr<wchar_t[], task_mem_deleter>;
-}
 
 static
 std::wstring
@@ -229,6 +235,21 @@ convert_utf8_to_utf16(const std::string& s)
     }
 
     return out;
+}
+
+#    ifndef WINRT
+
+namespace
+{
+    struct task_mem_deleter
+    {
+        void operator()(wchar_t buf[])
+        {
+            if (buf != nullptr)
+                CoTaskMemFree(buf);
+        }
+    };
+    using co_task_mem_ptr = std::unique_ptr<wchar_t[], task_mem_deleter>;
 }
 
 // We might need to know certain locations even if not using the remote API,
@@ -368,7 +389,7 @@ private:
     {
 #  ifdef _WIN32
         std::wstring wfilename = convert_utf8_to_utf16(filename);
-        FILE* file = ::_wfopen(wfilename.c_str(), L"rb");
+        FILE* file = ::_wfopen(wfilename.c_str(), L"r");
 #  else // !_WIN32
         FILE* file = ::fopen(filename.c_str(), "rb");
 #  endif // _WIN32
@@ -384,9 +405,8 @@ private:
 };
 
 #endif  // !USE_OS_TZDB
-namespace arrow_vendored
-{
-namespace date
+
+namespace arrow_vendored::date
 {
 // +---------------------+
 // | Begin Configuration |
@@ -466,7 +486,18 @@ discover_tz_dir()
 {
     struct stat sb;
     using namespace std;
-#  ifndef __APPLE__
+#  if defined(ANDROID) || defined(__ANDROID__)
+    CONSTDATA auto tz_dir_default = "/apex/com.android.tzdata/etc/tz";
+    CONSTDATA auto tz_dir_fallback = "/system/usr/share/zoneinfo";
+
+    // Check updatable path first
+    if(stat(tz_dir_default, &sb) == 0 && S_ISDIR(sb.st_mode))
+        return tz_dir_default;
+    else if(stat(tz_dir_fallback, &sb) == 0 && S_ISDIR(sb.st_mode))
+        return tz_dir_fallback;
+    else
+        throw runtime_error("discover_tz_dir failed to find zoneinfo\n");
+#  elif !defined(__APPLE__)
     CONSTDATA auto tz_dir_default = "/usr/share/zoneinfo";
     CONSTDATA auto tz_dir_buildroot = "/usr/share/zoneinfo/uclibc";
 
@@ -489,9 +520,10 @@ discover_tz_dir()
     if (!(lstat(timezone, &sb) == 0 && S_ISLNK(sb.st_mode) && sb.st_size > 0))
         throw runtime_error("discover_tz_dir failed\n");
     string result;
-    char rp[PATH_MAX+1] = {};
-    if (readlink(timezone, rp, sizeof(rp)-1) > 0)
-        result = string(rp);
+    unique_ptr<char[]> rp(new char[sb.st_size]);
+    const auto rp_length = readlink(timezone, rp.get(), sb.st_size);
+    if (rp_length > 0)
+        result = string(rp.get(), rp_length); // readlink doesn't null-terminate
     else
         throw system_error(errno, system_category(), "readlink() failed");
     auto i = result.find("zoneinfo");
@@ -523,7 +555,9 @@ get_tz_dir()
 static_assert(min_year <= max_year, "Configuration error");
 #endif
 
+#if !defined(ANDROID) && !defined(__ANDROID__)
 static std::unique_ptr<tzdb> init_tzdb();
+#endif // !defined(ANDROID) && !defined(__ANDROID__)
 
 tzdb_list::~tzdb_list()
 {
@@ -582,31 +616,67 @@ get_tzdb_list()
     return tz_db;
 }
 
+#if !defined(ANDROID) && !defined(__ANDROID__)
+inline
 static
-std::string
-parse3(std::istream& in)
+char
+tolower(char c)
 {
-    std::string r(3, ' ');
-    ws(in);
-    r[0] = static_cast<char>(in.get());
-    r[1] = static_cast<char>(in.get());
-    r[2] = static_cast<char>(in.get());
-    return r;
+    return static_cast<char>(std::tolower(c));
 }
 
+inline
+static
+void
+tolower(std::string& s)
+{
+    for (auto& c : s)
+        c = tolower(c);
+}
+
+inline
+static
+std::string
+get_alpha_word(std::istream& in)
+{
+    ws(in);
+    std::string s;
+    while (!in.eof() && std::isalpha(in.peek()))
+        s.push_back(static_cast<char>(in.get()));
+    return s;
+}
+#endif // !defined(ANDROID) && !defined(__ANDROID__)
+
+inline
+static
+bool
+is_prefix_of(std::string const& key, std::string const& value)
+{
+    const size_t size = std::min(key.size(), value.size());
+    return key.compare(0, size, value, 0, size) == 0;
+}
+
+#if !defined(ANDROID) && !defined(__ANDROID__)
 static
 unsigned
 parse_month(std::istream& in)
 {
-    CONSTDATA char*const month_names[] =
-        {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-    auto s = parse3(in);
-    auto m = std::find(std::begin(month_names), std::end(month_names), s) - month_names;
+    static std::string const month_names[] =
+        {"january", "february", "march", "april", "may", "june",
+         "july", "august", "september", "october", "november", "december"};
+    auto s = get_alpha_word(in);
+    tolower(s);
+    auto m = std::find_if(std::begin(month_names), std::end(month_names),
+                 [&s](std::string const& m)
+                 {
+                     return is_prefix_of(s, m);
+                 })
+                  - month_names;
     if (m >= std::end(month_names) - std::begin(month_names))
         throw std::runtime_error("oops: bad month name: " + s);
     return static_cast<unsigned>(++m);
 }
+#endif // !defined(ANDROID) && !defined(__ANDROID__)
 
 #if !USE_OS_TZDB
 
@@ -818,10 +888,16 @@ static
 unsigned
 parse_dow(std::istream& in)
 {
-    CONSTDATA char*const dow_names[] =
-        {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-    auto s = parse3(in);
-    auto dow = std::find(std::begin(dow_names), std::end(dow_names), s) - dow_names;
+    static std::string const dow_names[] =
+        {"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"};
+    auto s = get_alpha_word(in);
+    tolower(s);
+    auto dow = std::find_if(std::begin(dow_names), std::end(dow_names),
+                 [&s](std::string const& dow)
+                 {
+                     return is_prefix_of(s, dow);
+                 })
+                  - dow_names;
     if (dow >= std::end(dow_names) - std::begin(dow_names))
         throw std::runtime_error("oops: bad dow name: " + s);
     return static_cast<unsigned>(dow);
@@ -871,7 +947,7 @@ parse_signed_time(std::istream& in)
 detail::MonthDayTime::MonthDayTime(local_seconds tp, tz timezone)
     : zone_(timezone)
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     const auto dp = date::floor<days>(tp);
     const auto hms = make_time(tp - dp);
     const auto ymd = year_month_day(dp);
@@ -965,7 +1041,7 @@ sys_seconds
 detail::MonthDayTime::to_sys(date::year y, std::chrono::seconds offset,
                      std::chrono::seconds save) const
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     using namespace std::chrono;
     auto until_utc = to_time_point(y);
     if (zone_ == tz::standard)
@@ -1000,7 +1076,7 @@ date::sys_days
 detail::MonthDayTime::to_sys_days(date::year y) const
 {
     using namespace std::chrono;
-    using namespace date;
+    using namespace arrow_vendored::date;
     switch (type_)
     {
     case month_day:
@@ -1034,7 +1110,7 @@ void
 detail::MonthDayTime::canonicalize(date::year y)
 {
     using namespace std::chrono;
-    using namespace date;
+    using namespace arrow_vendored::date;
     switch (type_)
     {
     case month_day:
@@ -1072,7 +1148,7 @@ detail::MonthDayTime::canonicalize(date::year y)
 std::istream&
 detail::operator>>(std::istream& is, MonthDayTime& x)
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     using namespace std::chrono;
     assert(((std::ios::failbit | std::ios::badbit) & is.exceptions()) ==
             (std::ios::failbit | std::ios::badbit));
@@ -1082,7 +1158,7 @@ detail::operator>>(std::istream& is, MonthDayTime& x)
         auto m = parse_month(is);
         if (!is.eof() && ws(is) && !is.eof() && is.peek() != '#')
         {
-            if (is.peek() == 'l')
+            if (tolower(is.peek()) == 'l')
             {
                 for (int i = 0; i < 4; ++i)
                     is.get();
@@ -1208,7 +1284,7 @@ detail::Rule::Rule(const std::string& s)
 {
     try
     {
-        using namespace date;
+        using namespace arrow_vendored::date;
         using namespace std::chrono;
         std::istringstream in(s);
         in.exceptions(std::ios::failbit | std::ios::badbit);
@@ -1353,7 +1429,7 @@ detail::operator<(const std::string& x, const Rule& y)
 std::ostream&
 detail::operator<<(std::ostream& os, const Rule& r)
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     using namespace std::chrono;
     detail::save_ostream<char> _(os);
     os.fill(' ');
@@ -1412,7 +1488,7 @@ detail::Rule::overlaps(const Rule& x, const Rule& y)
 void
 detail::Rule::split(std::vector<Rule>& rules, std::size_t i, std::size_t k, std::size_t& e)
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     using difference_type = std::vector<Rule>::iterator::difference_type;
     // rules[i].starting_year_ <= rules[k].starting_year_ &&
     //     rules[i].ending_year_ >= rules[k].starting_year_ &&
@@ -1551,7 +1627,7 @@ static
 std::pair<const Rule*, date::year>
 find_previous_rule(const Rule* r, date::year y)
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     auto const& rules = get_tzdb().rules;
     if (y == r->starting_year())
     {
@@ -1587,7 +1663,7 @@ static
 std::pair<const Rule*, date::year>
 find_next_rule(const Rule* first_rule, const Rule* last_rule, const Rule* r, date::year y)
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     if (y == r->ending_year())
     {
         if (r == last_rule-1)
@@ -1618,7 +1694,7 @@ static
 std::pair<const Rule*, date::year>
 find_next_rule(const Rule* r, date::year y)
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     auto const& rules = get_tzdb().rules;
     if (y == r->ending_year())
     {
@@ -1667,7 +1743,7 @@ find_rule_for_zone(const std::pair<const Rule*, const Rule*>& eqr,
     assert(eqr.second != nullptr);
 
     using namespace std::chrono;
-    using namespace date;
+    using namespace arrow_vendored::date;
     auto r = eqr.first;
     auto ry = r->starting_year();
     auto prev_save = minutes{0};
@@ -1693,7 +1769,7 @@ find_rule_for_zone(const std::pair<const Rule*, const Rule*>& eqr,
                    const local_seconds& tp_loc)
 {
     using namespace std::chrono;
-    using namespace date;
+    using namespace arrow_vendored::date;
     auto r = eqr.first;
     auto ry = r->starting_year();
     auto prev_save = minutes{0};
@@ -1733,7 +1809,7 @@ find_rule(const std::pair<const Rule*, date::year>& first_rule,
           const std::string& initial_abbrev)
 {
     using namespace std::chrono;
-    using namespace date;
+    using namespace arrow_vendored::date;
     auto r = first_rule.first;
     auto ry = first_rule.second;
     sys_info x{sys_days(year::min()/min_day), sys_days(year::max()/max_day),
@@ -2148,6 +2224,9 @@ time_zone::load_data(std::istream& inf,
 void
 time_zone::init_impl()
 {
+#if defined(ANDROID) || defined(__ANDROID__)
+    return;
+#endif // defined(ANDROID) || defined(__ANDROID__)
     using namespace std;
     using namespace std::chrono;
     auto name = get_tz_dir() + ('/' + name_);
@@ -2309,6 +2388,86 @@ time_zone::get_info_impl(local_seconds tp) const
     return i;
 }
 
+#if defined(ANDROID) || defined(__ANDROID__)
+void
+time_zone::parse_from_android_tzdata(std::ifstream& inf, const std::size_t off)
+{
+    using namespace std;
+    using namespace std::chrono;
+    if (!inf.is_open())
+        throw std::runtime_error{"Unable to open tzdata"};
+    std::size_t restorepos = inf.tellg();
+    inf.seekg(off, inf.beg);
+    load_header(inf);
+    auto v = load_version(inf);
+    std::int32_t tzh_ttisgmtcnt, tzh_ttisstdcnt, tzh_leapcnt,
+                 tzh_timecnt,    tzh_typecnt,    tzh_charcnt;
+    skip_reserve(inf);
+    load_counts(inf, tzh_ttisgmtcnt, tzh_ttisstdcnt, tzh_leapcnt,
+                     tzh_timecnt,    tzh_typecnt,    tzh_charcnt);
+    if (v == 0)
+    {
+        load_data<int32_t>(inf, tzh_leapcnt, tzh_timecnt, tzh_typecnt, tzh_charcnt);
+    }
+    else
+    {
+#if !defined(NDEBUG)
+        inf.ignore((4+1)*tzh_timecnt + 6*tzh_typecnt + tzh_charcnt + 8*tzh_leapcnt +
+                   tzh_ttisstdcnt + tzh_ttisgmtcnt);
+        load_header(inf);
+        auto v2 = load_version(inf);
+        assert(v == v2);
+        skip_reserve(inf);
+#else  // defined(NDEBUG)
+        inf.ignore((4+1)*tzh_timecnt + 6*tzh_typecnt + tzh_charcnt + 8*tzh_leapcnt +
+                   tzh_ttisstdcnt + tzh_ttisgmtcnt + (4+1+15));
+#endif  // defined(NDEBUG)
+        load_counts(inf, tzh_ttisgmtcnt, tzh_ttisstdcnt, tzh_leapcnt,
+                         tzh_timecnt,    tzh_typecnt,    tzh_charcnt);
+        load_data<int64_t>(inf, tzh_leapcnt, tzh_timecnt, tzh_typecnt, tzh_charcnt);
+    }
+#if !MISSING_LEAP_SECONDS
+    if (tzh_leapcnt > 0)
+    {
+        auto& leap_seconds = get_tzdb_list().front().leap_seconds;
+        auto itr = leap_seconds.begin();
+        auto l = itr->date();
+        seconds leap_count{0};
+        for (auto t = std::upper_bound(transitions_.begin(), transitions_.end(), l,
+                                       [](const sys_seconds& x, const transition& ct)
+                                       {
+                                           return x < ct.timepoint;
+                                       });
+                  t != transitions_.end(); ++t)
+        {
+            while (t->timepoint >= l)
+            {
+                ++leap_count;
+                if (++itr == leap_seconds.end())
+                    l = sys_days(max_year/max_day);
+                else
+                    l = itr->date() + leap_count;
+            }
+            t->timepoint -= leap_count;
+        }
+    }
+#endif  // !MISSING_LEAP_SECONDS
+    auto b = transitions_.begin();
+    auto i = transitions_.end();
+    if (i != b)
+    {
+        for (--i; i != b; --i)
+        {
+            if (i->info->offset == i[-1].info->offset &&
+                i->info->abbrev == i[-1].info->abbrev &&
+                i->info->is_dst == i[-1].info->is_dst)
+                i = transitions_.erase(i);
+        }
+    }
+    inf.seekg(restorepos, inf.beg);
+}
+#endif // defined(ANDROID) || defined(__ANDROID__)
+
 std::ostream&
 operator<<(std::ostream& os, const time_zone& z)
 {
@@ -2342,7 +2501,7 @@ time_zone::time_zone(const std::string& s, detail::undocumented)
 {
     try
     {
-        using namespace date;
+        using namespace arrow_vendored::date;
         std::istringstream in(s);
         in.exceptions(std::ios::failbit | std::ios::badbit);
         std::string word;
@@ -2412,7 +2571,7 @@ time_zone::add(const std::string& s)
 void
 time_zone::parse_info(std::istream& in)
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     using namespace std::chrono;
     zonelets_.emplace_back();
     auto& zonelet = zonelets_.back();
@@ -2445,7 +2604,7 @@ void
 time_zone::adjust_infos(const std::vector<Rule>& rules)
 {
     using namespace std::chrono;
-    using namespace date;
+    using namespace arrow_vendored::date;
     const zonelet* prev_zonelet = nullptr;
     for (auto& z : zonelets_)
     {
@@ -2616,7 +2775,7 @@ sys_info
 time_zone::get_info_impl(sys_seconds tp, int tz_int) const
 {
     using namespace std::chrono;
-    using namespace date;
+    using namespace arrow_vendored::date;
     tz timezone = static_cast<tz>(tz_int);
     assert(timezone != tz::standard);
     auto y = year_month_day(floor<days>(tp)).year();
@@ -2678,7 +2837,7 @@ time_zone::get_info_impl(sys_seconds tp, int tz_int) const
 std::ostream&
 operator<<(std::ostream& os, const time_zone& z)
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     using namespace std::chrono;
     detail::save_ostream<char> _(os);
     os.fill(' ');
@@ -2709,7 +2868,8 @@ operator<<(std::ostream& os, const time_zone& z)
         os.width(8);
         os << s.format_ << "   ";
         os << s.until_year_ << ' ' << s.until_date_;
-        os << "   " << s.until_utc_ << " UTC";
+        os << "   ";
+        date::operator<<(os, s.until_utc_) << " UTC";
         os << "   " << s.until_std_ << " STD";
         os << "   " << s.until_loc_;
         os << "   " << make_time(s.initial_save_);
@@ -2734,20 +2894,19 @@ operator<<(std::ostream& os, const time_zone& z)
 std::ostream&
 operator<<(std::ostream& os, const leap_second& x)
 {
-    using namespace date;
-    return os << x.date_ << "  +";
+    return date::operator<<(os, x.date_) << "  +";
 }
 
 #if USE_OS_TZDB
 
+#if !defined(ANDROID) && !defined(__ANDROID__)
 static
 std::string
 get_version()
 {
-    using namespace std;
-    auto path = get_tz_dir() + string("/+VERSION");
-    ifstream in{path};
-    string version;
+    auto path = get_tz_dir() + std::string("/+VERSION");
+    std::ifstream in{path};
+    std::string version;
     if (in)
     {
         in >> version;
@@ -2782,7 +2941,8 @@ find_read_and_leap_seconds()
                 iss.exceptions(std::ios::failbit | std::ios::badbit);
                 std::string word;
                 iss >> word;
-                if (word == "Leap")
+                tolower(word);
+                if (is_prefix_of(word, "leap"))
                 {
                     int y, m, d;
                     iss >> y;
@@ -2843,6 +3003,7 @@ find_read_and_leap_seconds()
 #endif
     return {};
 }
+#endif // !defined(ANDROID) && !defined(__ANDROID__)
 
 static
 std::unique_ptr<tzdb>
@@ -2850,6 +3011,38 @@ init_tzdb()
 {
     std::unique_ptr<tzdb> db(new tzdb);
 
+#if defined(ANDROID) || defined(__ANDROID__)
+    auto path = get_tz_dir() + std::string("/tzdata");
+    std::ifstream in{path};
+    if (!in)
+        throw std::runtime_error("Can not open " + path);
+    bionic_tzdata_header_t hdr{};
+    in.read(reinterpret_cast<char*>(&hdr), sizeof(bionic_tzdata_header_t));
+    if (!is_prefix_of(hdr.tzdata_version, "tzdata") || hdr.tzdata_version[11] != 0)
+        throw std::runtime_error("Malformed tzdata - invalid magic!");
+    maybe_reverse_bytes(hdr.index_offset);
+    maybe_reverse_bytes(hdr.data_offset);
+    maybe_reverse_bytes(hdr.final_offset);
+    if (hdr.index_offset > hdr.data_offset)
+        throw std::runtime_error("Malformed tzdata - hdr.index_offset > hdr.data_offset!");
+    const size_t index_size = hdr.data_offset - hdr.index_offset;
+    if ((index_size % sizeof(index_entry_t)) != 0)
+        throw std::runtime_error("Malformed tzdata - index size malformed!");
+    //Iterate through zone index
+    index_entry_t index_entry{};
+    for (size_t idx = 0; idx < index_size; idx += sizeof(index_entry_t)) {
+        in.read(reinterpret_cast<char*>(&index_entry), sizeof(index_entry_t));
+        maybe_reverse_bytes(index_entry.start);
+        maybe_reverse_bytes(index_entry.length);
+        time_zone timezone{std::string(index_entry.buf),
+                           detail::undocumented{}};
+        timezone.parse_from_android_tzdata(in, hdr.data_offset + index_entry.start);
+        db->zones.emplace_back(std::move(timezone));
+    }
+    db->zones.shrink_to_fit();
+    std::sort(db->zones.begin(), db->zones.end());
+    db->version = std::string(hdr.tzdata_version).replace(0, 6, "");
+#else
     //Iterate through folders
     std::queue<std::string> subfolders;
     subfolders.emplace(get_tz_dir());
@@ -2874,6 +3067,7 @@ init_tzdb()
                 strcmp(d->d_name, "version")      == 0      ||
                 strcmp(d->d_name, "zone.tab")     == 0      ||
                 strcmp(d->d_name, "zone1970.tab") == 0      ||
+                strcmp(d->d_name, "zonenow.tab")  == 0      ||
                 strcmp(d->d_name, "tzdata.zi")    == 0      ||
                 strcmp(d->d_name, "leapseconds")  == 0      ||
                 strcmp(d->d_name, "leap-seconds.list") == 0   )
@@ -2901,6 +3095,7 @@ init_tzdb()
     std::sort(db->zones.begin(), db->zones.end());
     db->leap_seconds = find_read_and_leap_seconds();
     db->version = get_version();
+#endif // defined(ANDROID) || defined(__ANDROID__)
     return db;
 }
 
@@ -2910,7 +3105,7 @@ init_tzdb()
 
 time_zone_link::time_zone_link(const std::string& s)
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     std::istringstream in(s);
     in.exceptions(std::ios::failbit | std::ios::badbit);
     std::string word;
@@ -2920,7 +3115,7 @@ time_zone_link::time_zone_link(const std::string& s)
 std::ostream&
 operator<<(std::ostream& os, const time_zone_link& x)
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     detail::save_ostream<char> _(os);
     os.fill(' ');
     os.flags(std::ios::dec | std::ios::left);
@@ -2932,7 +3127,7 @@ operator<<(std::ostream& os, const time_zone_link& x)
 
 leap_second::leap_second(const std::string& s, detail::undocumented)
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     std::istringstream in(s);
     in.exceptions(std::ios::failbit | std::ios::badbit);
     std::string word;
@@ -3564,7 +3759,7 @@ static
 std::unique_ptr<tzdb>
 init_tzdb()
 {
-    using namespace date;
+    using namespace arrow_vendored::date;
     const std::string install = get_install();
     const std::string path = install + folder_delimiter;
     std::string line;
@@ -3643,22 +3838,23 @@ init_tzdb()
                 std::istringstream in(line);
                 std::string word;
                 in >> word;
-                if (word == "Rule")
+                tolower(word);
+                if (is_prefix_of(word, "rule"))
                 {
                     db->rules.push_back(Rule(line));
                     continue_zone = false;
                 }
-                else if (word == "Link")
+                else if (is_prefix_of(word, "link"))
                 {
                     db->links.push_back(time_zone_link(line));
                     continue_zone = false;
                 }
-                else if (word == "Leap")
+                else if (is_prefix_of(word, "leap"))
                 {
                     db->leap_seconds.push_back(leap_second(line, detail::undocumented{}));
                     continue_zone = false;
                 }
-                else if (word == "Zone")
+                else if (is_prefix_of(word, "zone"))
                 {
                     db->zones.push_back(time_zone(line, detail::undocumented{}));
                     continue_zone = true;
@@ -3716,6 +3912,67 @@ get_tzdb()
     return get_tzdb_list().front();
 }
 
+namespace {
+
+class recursion_limiter
+{
+    unsigned depth_ = 0;
+    unsigned limit_;
+
+    class restore_recursion_depth;
+
+public:
+    recursion_limiter(recursion_limiter const&) = delete;
+    recursion_limiter& operator=(recursion_limiter const&) = delete;
+
+    explicit constexpr recursion_limiter(unsigned limit) noexcept;
+
+    restore_recursion_depth count();
+};
+
+class recursion_limiter::restore_recursion_depth
+{
+    recursion_limiter* rc_;
+
+public:
+    ~restore_recursion_depth();
+    restore_recursion_depth(restore_recursion_depth&&) = default;
+
+    explicit restore_recursion_depth(recursion_limiter* rc) noexcept;
+};
+
+inline
+recursion_limiter::restore_recursion_depth::~restore_recursion_depth()
+{
+    --(rc_->depth_);
+}
+
+inline
+recursion_limiter::restore_recursion_depth::restore_recursion_depth(recursion_limiter* rc)
+                                                                                  noexcept
+    : rc_{rc}
+{}
+
+inline
+constexpr
+recursion_limiter::recursion_limiter(unsigned limit) noexcept
+    : limit_{limit}
+{
+}
+
+inline
+recursion_limiter::restore_recursion_depth
+recursion_limiter::count()
+{
+    ++depth_;
+    if (depth_ > limit_)
+        throw std::runtime_error("recursion limit of " +
+                                  std::to_string(limit_) + " exceeded");
+    return restore_recursion_depth{this};
+}
+
+}  // unnamed namespace
+
 const time_zone*
 #if HAS_STRING_VIEW
 tzdb::locate_zone(std::string_view tz_name) const
@@ -3723,6 +3980,10 @@ tzdb::locate_zone(std::string_view tz_name) const
 tzdb::locate_zone(const std::string& tz_name) const
 #endif
 {
+    // If a link-to-link chain exceeds this limit, give up
+    thread_local recursion_limiter rc{10};
+    auto restore_count = rc.count();
+
     auto zi = std::lower_bound(zones.begin(), zones.end(), tz_name,
 #if HAS_STRING_VIEW
         [](const time_zone& z, const std::string_view& nm)
@@ -3746,13 +4007,7 @@ tzdb::locate_zone(const std::string& tz_name) const
         });
         if (li != links.end() && li->name() == tz_name)
         {
-            zi = std::lower_bound(zones.begin(), zones.end(), li->target(),
-                [](const time_zone& z, const std::string& nm)
-                {
-                    return z.name() < nm;
-                });
-            if (zi != zones.end() && zi->name() == li->target())
-                return &*zi;
+            return locate_zone(li->target());
         }
 #endif  // !USE_OS_TZDB
         throw std::runtime_error(std::string(tz_name) + " not found in timezone database");
@@ -3928,10 +4183,12 @@ bool
 sniff_realpath(const char* timezone)
 {
     using namespace std;
-    char rp[PATH_MAX+1] = {};
-    if (realpath(timezone, rp) == nullptr)
+    unique_ptr<char, decltype(free) *> rp(realpath(timezone, nullptr), free);
+    if (rp.get() == nullptr)
         throw system_error(errno, system_category(), "realpath() failed");
-    auto result = extract_tz_name(rp);
+    auto result = extract_tz_name(rp.get());
+    if (result.find("posix") == 0)
+        return false;
     return result != "posixrules";
 }
 
@@ -3958,18 +4215,24 @@ tzdb::current_zone() const
         {
             using namespace std;
             static const bool use_realpath = sniff_realpath(timezone);
-            char rp[PATH_MAX+1] = {};
             if (use_realpath)
             {
-                if (realpath(timezone, rp) == nullptr)
+                unique_ptr<char, decltype(free) *> rp(realpath(timezone, nullptr), free);
+                if (rp.get() == nullptr)
                     throw system_error(errno, system_category(), "realpath() failed");
+                return locate_zone(extract_tz_name(rp.get()));
             }
             else
             {
-                if (readlink(timezone, rp, sizeof(rp)-1) <= 0)
+                // +1 because st_size doesn't include the '\0' terminator
+                const auto rp_size = sb.st_size + 1;
+                unique_ptr<char[]> rp(new char[rp_size]);
+                const auto rp_length = readlink(timezone, rp.get(), rp_size);
+                if (rp_length <= 0)
                     throw system_error(errno, system_category(), "readlink() failed");
+                rp.get()[rp_length] = '\0'; // readlink doesn't null-terminate
+                return locate_zone(extract_tz_name(rp.get()));
             }
-            return locate_zone(extract_tz_name(rp));
         }
     }
     // On embedded systems e.g. buildroot with uclibc the timezone is linked
@@ -3988,9 +4251,10 @@ tzdb::current_zone() const
         if (lstat(timezone, &sb) == 0 && S_ISLNK(sb.st_mode) && sb.st_size > 0) {
             using namespace std;
             string result;
-            char rp[PATH_MAX+1] = {};
-            if (readlink(timezone, rp, sizeof(rp)-1) > 0)
-                result = string(rp);
+            unique_ptr<char[]> rp(new char[sb.st_size]);
+            const auto rp_length = readlink(timezone, rp.get(), sb.st_size);
+            if (rp_length > 0)
+                result = string(rp.get(), rp_length); // readlink doesn't null-terminate
             else
                 throw system_error(errno, system_category(), "readlink() failed");
 
@@ -4041,6 +4305,18 @@ tzdb::current_zone() const
     // Fall through to try other means.
     }
     {
+    // On Android, it is not possible to use file based approach either,
+    // we have to ask the value of `persist.sys.timezone` system property
+#if defined(ANDROID) || defined(__ANDROID__)
+    char sys_timezone[PROP_VALUE_MAX];
+    if (__system_property_get("persist.sys.timezone", sys_timezone) > 0)
+    {
+        return locate_zone(sys_timezone);
+    }
+#endif // defined(ANDROID) || defined(__ANDROID__)
+    // Fall through to try other means.
+    }
+    {
     // On some versions of some linux distro's (e.g. Red Hat),
     // the current timezone might be in the first line of
     // the /etc/sysconfig/clock file as:
@@ -4060,6 +4336,25 @@ tzdb::current_zone() const
         }
         // Fall through to try other means.
     }
+    // On OpenWRT we need to check /etc/config/system
+    // It will have a line with the following structure
+    //   ...
+    //   option zoneName 'Europe/Berlin'
+    //   ...
+    {
+        std::ifstream timezone_file("/etc/config/system");
+        if (timezone_file.is_open())
+        {
+            for(std::string result; std::getline(timezone_file, result);) {
+                std::string findStr = "option zoneName '";
+                size_t startPos = result.find(findStr);
+                if (startPos != std::string::npos) {
+                    size_t endPos = result.find("'", startPos + findStr.size());
+                    return locate_zone(result.substr(startPos + findStr.size(), endPos - startPos - findStr.size()));
+                }
+            }
+        }
+    }
     throw std::runtime_error("Could not get current timezone");
 }
 
@@ -4071,8 +4366,7 @@ current_zone()
     return get_tzdb().current_zone();
 }
 
-}  // namespace date
-}  // namespace arrow_vendored
+}  // namespace arrow_vendored::date
 
 #if defined(__GNUC__) && __GNUC__ < 5
 # pragma GCC diagnostic pop

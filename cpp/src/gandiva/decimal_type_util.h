@@ -76,7 +76,7 @@ class GANDIVA_EXPORT DecimalTypeUtil {
 
   static Decimal128TypePtr MakeType(int32_t precision, int32_t scale) {
     return std::dynamic_pointer_cast<arrow::Decimal128Type>(
-        arrow::decimal(precision, scale));
+        arrow::decimal128(precision, scale));
   }
 
  private:

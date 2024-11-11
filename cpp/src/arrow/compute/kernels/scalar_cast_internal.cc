@@ -188,8 +188,6 @@ void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type,
 // ----------------------------------------------------------------------
 
 Status UnpackDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  // TODO: is there an implementation more friendly to the "span" data structures?
-
   DictionaryArray dict_arr(batch[0].array.ToArrayData());
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
 
@@ -281,6 +279,8 @@ void AddZeroCopyCast(Type::type in_type_id, InputType in_type, OutputType out_ty
 }
 
 static bool CanCastFromDictionary(Type::type type_id) {
+  /// TODO(GH-43010): add is_binary_view_like() here once array_take
+  /// can handle string-views
   return (is_primitive(type_id) || is_base_binary_like(type_id) ||
           is_fixed_size_binary(type_id));
 }
@@ -297,9 +297,6 @@ void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* fun
   // From dictionary to this type
   if (CanCastFromDictionary(out_type_id)) {
     // Dictionary unpacking not implemented for boolean or nested types.
-    //
-    // XXX: Uses Take and does its own memory allocation for the moment. We can
-    // fix this later.
     DCHECK_OK(func->AddKernel(Type::DICTIONARY, {InputType(Type::DICTIONARY)}, out_ty,
                               UnpackDictionary, NullHandling::COMPUTED_NO_PREALLOCATE,
                               MemAllocation::NO_PREALLOCATE));

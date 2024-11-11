@@ -40,6 +40,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.LargeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.LargeUtf8;
 import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
+import org.apache.arrow.vector.types.pojo.ArrowType.RunEndEncoded;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
@@ -113,6 +114,16 @@ public class TypeLayout {
                         BufferLayout.validityVector(),
                         BufferLayout.offsetBuffer(),
                         BufferLayout.sizeBuffer());
+                return new TypeLayout(vectors);
+              }
+
+              @Override
+              public TypeLayout visit(ArrowType.LargeListView type) {
+                List<BufferLayout> vectors =
+                    asList(
+                        BufferLayout.validityVector(),
+                        BufferLayout.largeOffsetBuffer(),
+                        BufferLayout.largeSizeBuffer());
                 return new TypeLayout(vectors);
               }
 
@@ -270,6 +281,11 @@ public class TypeLayout {
               public TypeLayout visit(Duration type) {
                 return newFixedWidthTypeLayout(BufferLayout.dataBuffer(64));
               }
+
+              @Override
+              public TypeLayout visit(RunEndEncoded type) {
+                return new TypeLayout(Collections.<BufferLayout>emptyList());
+              }
             });
     return layout;
   }
@@ -338,6 +354,12 @@ public class TypeLayout {
           public Integer visit(ArrowType.LargeList type) {
             // validity buffer + offset buffer
             return 2;
+          }
+
+          @Override
+          public Integer visit(ArrowType.LargeListView type) {
+            // validity buffer + offset buffer + size buffer
+            return 3;
           }
 
           @Override
@@ -427,6 +449,11 @@ public class TypeLayout {
           @Override
           public Integer visit(Duration type) {
             return FIXED_WIDTH_BUFFER_COUNT;
+          }
+
+          @Override
+          public Integer visit(RunEndEncoded type) {
+            return 0;
           }
         });
   }

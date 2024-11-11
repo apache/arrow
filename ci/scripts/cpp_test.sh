@@ -80,7 +80,7 @@ case "$(uname)" in
     ;;
 esac
 
-if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then  
+if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   n_jobs=1 # avoid spurious fails on emscripten due to loading too many big executables
 fi
 

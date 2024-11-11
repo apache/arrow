@@ -453,9 +453,9 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   /**
    * Get the inner vectors.
    *
+   * @return the inner vectors for this field as defined by the TypeLayout
    * @deprecated This API will be removed as the current implementations no longer support inner
    *     vectors.
-   * @return the inner vectors for this field as defined by the TypeLayout
    */
   @Deprecated
   @Override
@@ -888,7 +888,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
       BitVectorHelper.unsetBit(this.getValidityBuffer(), thisIndex);
     } else {
       BitVectorHelper.setBit(this.getValidityBuffer(), thisIndex);
-      MemoryUtil.UNSAFE.copyMemory(
+      MemoryUtil.copyMemory(
           from.getDataBuffer().memoryAddress() + (long) fromIndex * typeWidth,
           this.getDataBuffer().memoryAddress() + (long) thisIndex * typeWidth,
           typeWidth);

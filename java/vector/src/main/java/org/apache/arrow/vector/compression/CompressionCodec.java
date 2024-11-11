@@ -16,6 +16,9 @@
  */
 package org.apache.arrow.vector.compression;
 
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.ServiceLoader;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 
@@ -51,11 +54,52 @@ public interface CompressionCodec {
 
   /** Factory to create compression codec. */
   interface Factory {
+    /**
+     * This combines all the available factories registered as service providers in the module path.
+     * For each {@link CompressionUtil.CodecType compression codec type}, it will use whatever
+     * factory supports it, i.e. doesn't throw on `createCodec(type)`. If multiple factories
+     * registered as service providers support the same codec type, the first one encountered while
+     * iterating over the {@link ServiceLoader} will be selected. A codec type that is not supported
+     * by any registered service provider will fall back to {@link
+     * NoCompressionCodec.Factory#INSTANCE} for backwards compatibility.
+     */
+    Factory INSTANCE = bestEffort();
 
     /** Creates the codec based on the codec type. */
     CompressionCodec createCodec(CompressionUtil.CodecType codecType);
 
     /** Creates the codec based on the codec type and compression level. */
     CompressionCodec createCodec(CompressionUtil.CodecType codecType, int compressionLevel);
+
+    private static Factory bestEffort() {
+      final ServiceLoader<Factory> serviceLoader = ServiceLoader.load(Factory.class);
+      final Map<CompressionUtil.CodecType, Factory> factories =
+          new EnumMap<>(CompressionUtil.CodecType.class);
+      for (Factory factory : serviceLoader) {
+        for (CompressionUtil.CodecType codecType : CompressionUtil.CodecType.values()) {
+          try {
+            factory.createCodec(codecType); // will throw if not supported
+            factories.putIfAbsent(codecType, factory);
+          } catch (Throwable ignored) {
+          }
+        }
+      }
+
+      final Factory fallback = NoCompressionCodec.Factory.INSTANCE;
+      return new Factory() {
+        @Override
+        public CompressionCodec createCodec(CompressionUtil.CodecType codecType) {
+          return factories.getOrDefault(codecType, fallback).createCodec(codecType);
+        }
+
+        @Override
+        public CompressionCodec createCodec(
+            CompressionUtil.CodecType codecType, int compressionLevel) {
+          return factories
+              .getOrDefault(codecType, fallback)
+              .createCodec(codecType, compressionLevel);
+        }
+      };
+    }
   }
 }

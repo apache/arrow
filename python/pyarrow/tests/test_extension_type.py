@@ -23,11 +23,14 @@ import weakref
 from uuid import uuid4, UUID
 import sys
 
-import numpy as np
+import pytest
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
 import pyarrow as pa
 from pyarrow.vendored.version import Version
-
-import pytest
 
 
 @contextlib.contextmanager
@@ -95,18 +98,21 @@ class IntegerEmbeddedType(pa.ExtensionType):
         return cls()
 
 
-class UuidScalarType(pa.ExtensionScalar):
+class ExampleUuidScalarType(pa.ExtensionScalar):
     def as_py(self):
         return None if self.value is None else UUID(bytes=self.value.as_py())
 
 
-class UuidType(pa.ExtensionType):
+class ExampleUuidType(pa.ExtensionType):
 
     def __init__(self):
-        super().__init__(pa.binary(16), 'pyarrow.tests.UuidType')
+        super().__init__(pa.binary(16), 'pyarrow.tests.ExampleUuidType')
+
+    def __reduce__(self):
+        return ExampleUuidType, ()
 
     def __arrow_ext_scalar_class__(self):
-        return UuidScalarType
+        return ExampleUuidScalarType
 
     def __arrow_ext_serialize__(self):
         return b''
@@ -116,10 +122,10 @@ class UuidType(pa.ExtensionType):
         return cls()
 
 
-class UuidType2(pa.ExtensionType):
+class ExampleUuidType2(pa.ExtensionType):
 
     def __init__(self):
-        super().__init__(pa.binary(16), 'pyarrow.tests.UuidType2')
+        super().__init__(pa.binary(16), 'pyarrow.tests.ExampleUuidType2')
 
     def __arrow_ext_serialize__(self):
         return b''
@@ -250,8 +256,8 @@ def ipc_read_batch(buf):
 
 
 def test_ext_type_basics():
-    ty = UuidType()
-    assert ty.extension_name == "pyarrow.tests.UuidType"
+    ty = ExampleUuidType()
+    assert ty.extension_name == "pyarrow.tests.ExampleUuidType"
 
 
 def test_ext_type_str():
@@ -267,16 +273,16 @@ def test_ext_type_repr():
 
 
 def test_ext_type_lifetime():
-    ty = UuidType()
+    ty = ExampleUuidType()
     wr = weakref.ref(ty)
     del ty
     assert wr() is None
 
 
 def test_ext_type_storage_type():
-    ty = UuidType()
+    ty = ExampleUuidType()
     assert ty.storage_type == pa.binary(16)
-    assert ty.__class__ is UuidType
+    assert ty.__class__ is ExampleUuidType
     ty = ParamExtType(5)
     assert ty.storage_type == pa.binary(5)
     assert ty.__class__ is ParamExtType
@@ -284,7 +290,7 @@ def test_ext_type_storage_type():
 
 def test_ext_type_byte_width():
     # Test for fixed-size binary types
-    ty = UuidType()
+    ty = pa.uuid()
     assert ty.byte_width == 16
     ty = ParamExtType(5)
     assert ty.byte_width == 5
@@ -297,7 +303,7 @@ def test_ext_type_byte_width():
 
 def test_ext_type_bit_width():
     # Test for fixed-size binary types
-    ty = UuidType()
+    ty = pa.uuid()
     assert ty.bit_width == 128
     ty = ParamExtType(5)
     assert ty.bit_width == 40
@@ -309,7 +315,7 @@ def test_ext_type_bit_width():
 
 
 def test_ext_type_as_py():
-    ty = UuidType()
+    ty = ExampleUuidType()
     expected = uuid4()
     scalar = pa.ExtensionScalar.from_storage(ty, expected.bytes)
     assert scalar.as_py() == expected
@@ -342,12 +348,22 @@ def test_ext_type_as_py():
 
 def test_uuid_type_pickle(pickle_module):
     for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
-        ty = UuidType()
+        ty = ExampleUuidType()
         ser = pickle_module.dumps(ty, protocol=proto)
         del ty
         ty = pickle_module.loads(ser)
         wr = weakref.ref(ty)
-        assert ty.extension_name == "pyarrow.tests.UuidType"
+        assert ty.extension_name == "pyarrow.tests.ExampleUuidType"
+        del ty
+        assert wr() is None
+
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
+        ty = pa.uuid()
+        ser = pickle_module.dumps(ty, protocol=proto)
+        del ty
+        ty = pickle_module.loads(ser)
+        wr = weakref.ref(ty)
+        assert ty.extension_name == "arrow.uuid"
         del ty
         assert wr() is None
 
@@ -358,8 +374,8 @@ def test_ext_type_equality():
     c = ParamExtType(6)
     assert a != b
     assert b == c
-    d = UuidType()
-    e = UuidType()
+    d = ExampleUuidType()
+    e = ExampleUuidType()
     assert a != d
     assert d == e
 
@@ -403,7 +419,7 @@ def test_ext_array_equality():
     storage1 = pa.array([b"0123456789abcdef"], type=pa.binary(16))
     storage2 = pa.array([b"0123456789abcdef"], type=pa.binary(16))
     storage3 = pa.array([], type=pa.binary(16))
-    ty1 = UuidType()
+    ty1 = ExampleUuidType()
     ty2 = ParamExtType(16)
 
     a = pa.ExtensionArray.from_storage(ty1, storage1)
@@ -451,9 +467,9 @@ def test_ext_scalar_from_array():
     data = [b"0123456789abcdef", b"0123456789abcdef",
             b"zyxwvutsrqponmlk", None]
     storage = pa.array(data, type=pa.binary(16))
-    ty1 = UuidType()
+    ty1 = ExampleUuidType()
     ty2 = ParamExtType(16)
-    ty3 = UuidType2()
+    ty3 = ExampleUuidType2()
 
     a = pa.ExtensionArray.from_storage(ty1, storage)
     b = pa.ExtensionArray.from_storage(ty2, storage)
@@ -462,9 +478,9 @@ def test_ext_scalar_from_array():
     scalars_a = list(a)
     assert len(scalars_a) == 4
 
-    assert ty1.__arrow_ext_scalar_class__() == UuidScalarType
-    assert isinstance(a[0], UuidScalarType)
-    assert isinstance(scalars_a[0], UuidScalarType)
+    assert ty1.__arrow_ext_scalar_class__() == ExampleUuidScalarType
+    assert isinstance(a[0], ExampleUuidScalarType)
+    assert isinstance(scalars_a[0], ExampleUuidScalarType)
 
     for s, val in zip(scalars_a, data):
         assert isinstance(s, pa.ExtensionScalar)
@@ -505,7 +521,7 @@ def test_ext_scalar_from_array():
 
 
 def test_ext_scalar_from_storage():
-    ty = UuidType()
+    ty = ExampleUuidType()
 
     s = pa.ExtensionScalar.from_storage(ty, None)
     assert isinstance(s, pa.ExtensionScalar)
@@ -549,6 +565,7 @@ def test_ext_array_pickling(pickle_module):
         assert arr.storage.to_pylist() == [b"foo", b"bar"]
 
 
+@pytest.mark.numpy
 def test_ext_array_conversion_to_numpy():
     storage1 = pa.array([1, 2, 3], type=pa.int64())
     storage2 = pa.array([b"123", b"456", b"789"], type=pa.binary(3))
@@ -606,6 +623,7 @@ def struct_w_ext_data():
     return [sarr1, sarr2]
 
 
+@pytest.mark.numpy
 def test_struct_w_ext_array_to_numpy(struct_w_ext_data):
     # ARROW-15291
     # Check that we don't segfault when trying to build
@@ -706,14 +724,14 @@ def test_cast_between_extension_types():
     tiny_int_arr.cast(pa.int64()).cast(IntegerType())
 
     # Between the same extension types is okay
-    array = pa.array([b'1' * 16, b'2' * 16], pa.binary(16)).cast(UuidType())
-    out = array.cast(UuidType())
-    assert out.type == UuidType()
+    array = pa.array([b'1' * 16, b'2' * 16], pa.binary(16)).cast(ExampleUuidType())
+    out = array.cast(ExampleUuidType())
+    assert out.type == ExampleUuidType()
 
     # Will still fail casting between extensions who share storage type,
     # can only cast between exactly the same extension types.
     with pytest.raises(TypeError, match='Casting from *'):
-        array.cast(UuidType2())
+        array.cast(ExampleUuidType2())
 
 
 def test_cast_to_extension_with_extension_storage():
@@ -744,10 +762,10 @@ def test_cast_nested_extension_types(data, type_factory):
 
 def test_casting_dict_array_to_extension_type():
     storage = pa.array([b"0123456789abcdef"], type=pa.binary(16))
-    arr = pa.ExtensionArray.from_storage(UuidType(), storage)
+    arr = pa.ExtensionArray.from_storage(ExampleUuidType(), storage)
     dict_arr = pa.DictionaryArray.from_arrays(pa.array([0, 0], pa.int32()),
                                               arr)
-    out = dict_arr.cast(UuidType())
+    out = dict_arr.cast(ExampleUuidType())
     assert isinstance(out, pa.ExtensionArray)
     assert out.to_pylist() == [UUID('30313233-3435-3637-3839-616263646566'),
                                UUID('30313233-3435-3637-3839-616263646566')]
@@ -1220,6 +1238,7 @@ def test_parquet_extension_nested_in_extension(tmpdir):
             assert table == orig_table
 
 
+@pytest.mark.numpy
 def test_to_numpy():
     period_type = PeriodType('D')
     storage = pa.array([1, 2, 3, 4], pa.int64())
@@ -1272,7 +1291,11 @@ def test_empty_take():
     (["cat", "dog", "horse"], LabelType)
 ))
 @pytest.mark.parametrize(
-    "into", ["to_numpy", pytest.param("to_pandas", marks=pytest.mark.pandas)])
+    "into", [
+        pytest.param("to_numpy", marks=pytest.mark.numpy),
+        pytest.param("to_pandas", marks=pytest.mark.pandas)
+    ]
+)
 def test_extension_array_to_numpy_pandas(data, ty, into):
     storage = pa.array(data)
     ext_arr = pa.ExtensionArray.from_storage(ty(), storage)
@@ -1288,6 +1311,7 @@ def test_extension_array_to_numpy_pandas(data, ty, into):
         assert np.array_equal(result, expected)
 
 
+@pytest.mark.numpy
 def test_array_constructor():
     ext_type = IntegerType()
     storage = pa.array([1, 2, 3], type=pa.int64())
@@ -1320,6 +1344,7 @@ def test_array_constructor_from_pandas():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 @pytest.mark.cython
 def test_cpp_extension_in_python(tmpdir):
     from .test_cython import (
@@ -1347,7 +1372,7 @@ def test_cpp_extension_in_python(tmpdir):
     mod = __import__('extensions')
 
     uuid_type = mod._make_uuid_type()
-    assert uuid_type.extension_name == "uuid"
+    assert uuid_type.extension_name == "example-uuid"
     assert uuid_type.storage_type == pa.binary(16)
 
     array = mod._make_uuid_array()
@@ -1356,12 +1381,40 @@ def test_cpp_extension_in_python(tmpdir):
     assert array[0].as_py() == b'abcdefghijklmno0'
     assert array[1].as_py() == b'0onmlkjihgfedcba'
 
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["example-uuid"]))
+
+    batch = ipc_read_batch(buf)
+    reconstructed_array = batch.column(0)
+    assert reconstructed_array.type == uuid_type
+    assert reconstructed_array == array
+
+
+def test_uuid_extension():
+    data = [b"0123456789abcdef", b"0123456789abcdef",
+            b"zyxwvutsrqponmlk", None]
+
+    uuid_type = pa.uuid()
+    assert uuid_type.extension_name == "arrow.uuid"
+    assert uuid_type.storage_type == pa.binary(16)
+    assert uuid_type.__class__ is pa.UuidType
+
+    storage = pa.array(data, pa.binary(16))
+    array = pa.ExtensionArray.from_storage(uuid_type, storage)
+    assert array.type == uuid_type
+
+    assert array.to_pylist() == [x if x is None else UUID(bytes=x) for x in data]
+    assert array[0].as_py() == UUID(bytes=data[0])
+    assert array[3].as_py() is None
+
     buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["uuid"]))
 
     batch = ipc_read_batch(buf)
     reconstructed_array = batch.column(0)
     assert reconstructed_array.type == uuid_type
     assert reconstructed_array == array
+
+    assert uuid_type.__arrow_ext_scalar_class__() == pa.UuidScalar
+    assert isinstance(array[0], pa.UuidScalar)
 
 
 def test_tensor_type():
@@ -1389,38 +1442,45 @@ def test_tensor_type():
     assert tensor_type.permutation is None
 
 
-@pytest.mark.parametrize("value_type", (np.int8(), np.int64(), np.float32()))
-def test_tensor_class_methods(value_type):
+@pytest.mark.numpy
+@pytest.mark.parametrize("np_type_str", ("int8", "int64", "float32"))
+def test_tensor_class_methods(np_type_str):
     from numpy.lib.stride_tricks import as_strided
-    arrow_type = pa.from_numpy_dtype(value_type)
+    arrow_type = pa.from_numpy_dtype(np.dtype(np_type_str))
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 3])
     storage = pa.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
                        pa.list_(arrow_type, 6))
     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
     expected = np.array(
-        [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=value_type)
+        [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
+        dtype=np.dtype(np_type_str)
+    )
     np.testing.assert_array_equal(arr.to_tensor(), expected)
     np.testing.assert_array_equal(arr.to_numpy_ndarray(), expected)
 
-    expected = np.array([[[7, 8, 9], [10, 11, 12]]], dtype=value_type)
+    expected = np.array([[[7, 8, 9], [10, 11, 12]]], dtype=np.dtype(np_type_str))
     result = arr[1:].to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
     values = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]]
-    flat_arr = np.array(values[0], dtype=value_type)
-    bw = value_type.itemsize
+    flat_arr = np.array(values[0], dtype=np.dtype(np_type_str))
+    bw = np.dtype(np_type_str).itemsize
     storage = pa.array(values, pa.list_(arrow_type, 12))
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[0, 1, 2])
     result = pa.ExtensionArray.from_storage(tensor_type, storage)
     expected = np.array(
-        [[[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]], dtype=value_type)
+        [[[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]],
+        dtype=np.dtype(np_type_str)
+    )
     np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
 
     result = flat_arr.reshape(1, 2, 3, 2)
     expected = np.array(
-        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]], dtype=value_type)
+        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]],
+        dtype=np.dtype(np_type_str)
+    )
     np.testing.assert_array_equal(result, expected)
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[0, 2, 1])
@@ -1441,25 +1501,27 @@ def test_tensor_class_methods(value_type):
     assert result.to_tensor().strides == (12 * bw, 1 * bw, 6 * bw, 2 * bw)
 
 
-@pytest.mark.parametrize("value_type", (np.int8(), np.int64(), np.float32()))
-def test_tensor_array_from_numpy(value_type):
+@pytest.mark.numpy
+@pytest.mark.parametrize("np_type_str", ("int8", "int64", "float32"))
+def test_tensor_array_from_numpy(np_type_str):
     from numpy.lib.stride_tricks import as_strided
-    arrow_type = pa.from_numpy_dtype(value_type)
+    arrow_type = pa.from_numpy_dtype(np.dtype(np_type_str))
 
     arr = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
-                   dtype=value_type, order="C")
+                   dtype=np.dtype(np_type_str), order="C")
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     assert isinstance(tensor_array_from_numpy.type, pa.FixedShapeTensorType)
     assert tensor_array_from_numpy.type.value_type == arrow_type
     assert tensor_array_from_numpy.type.shape == [2, 3]
 
     arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]],
-                   dtype=value_type, order="F")
+                   dtype=np.dtype(np_type_str), order="F")
     with pytest.raises(ValueError, match="First stride needs to be largest"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
 
-    flat_arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=value_type)
-    bw = value_type.itemsize
+    flat_arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                        dtype=np.dtype(np_type_str))
+    bw = np.dtype(np_type_str).itemsize
 
     arr = flat_arr.reshape(1, 3, 4)
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
@@ -1477,23 +1539,26 @@ def test_tensor_array_from_numpy(value_type):
     arr = flat_arr.reshape(1, 2, 3, 2)
     result = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     expected = np.array(
-        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]], dtype=value_type)
+        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]],
+        dtype=np.dtype(np_type_str)
+    )
     np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
 
-    arr = np.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]], dtype=value_type)
+    arr = np.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
+                   dtype=np.dtype(np_type_str))
     expected = arr[1:]
     result = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)[1:].to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
-    arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=value_type)
+    arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=np.dtype(np_type_str))
     with pytest.raises(ValueError, match="Cannot convert 1D array or scalar to fixed"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
 
-    arr = np.array(1, dtype=value_type)
+    arr = np.array(1, dtype=np.dtype(np_type_str))
     with pytest.raises(ValueError, match="Cannot convert 1D array or scalar to fixed"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
 
-    arr = np.array([], dtype=value_type)
+    arr = np.array([], dtype=np.dtype(np_type_str))
 
     with pytest.raises(ValueError, match="Cannot convert 1D array or scalar to fixed"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr.reshape((0)))
@@ -1505,6 +1570,7 @@ def test_tensor_array_from_numpy(value_type):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr.reshape((3, 0, 2)))
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize("tensor_type", (
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1]),
@@ -1661,3 +1727,255 @@ def test_legacy_int_type():
             batch = ipc_read_batch(buf)
             assert isinstance(batch.column(0).type, LegacyIntType)
             assert batch.column(0) == ext_arr
+
+
+@pytest.mark.parametrize("storage_type,storage", [
+    (pa.null(), [None] * 4),
+    (pa.int64(), [1, 2, None, 4]),
+    (pa.binary(), [None, b"foobar"]),
+    (pa.list_(pa.int64()), [[], [1, 2], None, [3, None]]),
+])
+def test_opaque_type(pickle_module, storage_type, storage):
+    opaque_type = pa.opaque(storage_type, "type", "vendor")
+    assert opaque_type.extension_name == "arrow.opaque"
+    assert opaque_type.storage_type == storage_type
+    assert opaque_type.type_name == "type"
+    assert opaque_type.vendor_name == "vendor"
+    assert "arrow.opaque" in str(opaque_type)
+
+    assert opaque_type == opaque_type
+    assert opaque_type != storage_type
+    assert opaque_type != pa.opaque(storage_type, "type2", "vendor")
+    assert opaque_type != pa.opaque(storage_type, "type", "vendor2")
+    assert opaque_type != pa.opaque(pa.decimal128(12, 3), "type", "vendor")
+
+    # Pickle roundtrip
+    result = pickle_module.loads(pickle_module.dumps(opaque_type))
+    assert result == opaque_type
+
+    # IPC roundtrip
+    opaque_arr_class = opaque_type.__arrow_ext_class__()
+    storage = pa.array(storage, storage_type)
+    arr = pa.ExtensionArray.from_storage(opaque_type, storage)
+    assert isinstance(arr, opaque_arr_class)
+
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
+    batch = ipc_read_batch(buf)
+
+    assert batch.column(0).type.extension_name == "arrow.opaque"
+    assert isinstance(batch.column(0), opaque_arr_class)
+
+    # cast storage -> extension type
+    result = storage.cast(opaque_type)
+    assert result == arr
+
+    # cast extension type -> storage type
+    inner = arr.cast(storage_type)
+    assert inner == storage
+
+
+def test_bool8_type(pickle_module):
+    bool8_type = pa.bool8()
+    storage_type = pa.int8()
+    assert bool8_type.extension_name == "arrow.bool8"
+    assert bool8_type.storage_type == storage_type
+    assert str(bool8_type) == "extension<arrow.bool8>"
+
+    assert bool8_type == bool8_type
+    assert bool8_type == pa.bool8()
+    assert bool8_type != storage_type
+
+    # Pickle roundtrip
+    result = pickle_module.loads(pickle_module.dumps(bool8_type))
+    assert result == bool8_type
+
+    # IPC roundtrip
+    storage = pa.array([-1, 0, 1, 2, None], storage_type)
+    arr = pa.ExtensionArray.from_storage(bool8_type, storage)
+    assert isinstance(arr, pa.Bool8Array)
+
+    # extension is registered by default
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
+    batch = ipc_read_batch(buf)
+
+    assert batch.column(0).type.extension_name == "arrow.bool8"
+    assert isinstance(batch.column(0), pa.Bool8Array)
+
+    # cast storage -> extension type
+    result = storage.cast(bool8_type)
+    assert result == arr
+
+    # cast extension type -> storage type
+    inner = arr.cast(storage_type)
+    assert inner == storage
+
+
+def test_bool8_to_bool_conversion():
+    bool_arr = pa.array([True, False, True, True, None], pa.bool_())
+    bool8_arr = pa.ExtensionArray.from_storage(
+        pa.bool8(),
+        pa.array([-1, 0, 1, 2, None], pa.int8()),
+    )
+
+    # cast extension type -> arrow boolean type
+    assert bool8_arr.cast(pa.bool_()) == bool_arr
+
+    # cast arrow boolean type -> extension type, expecting canonical values
+    canonical_storage = pa.array([1, 0, 1, 1, None], pa.int8())
+    canonical_bool8_arr = pa.ExtensionArray.from_storage(pa.bool8(), canonical_storage)
+    assert bool_arr.cast(pa.bool8()) == canonical_bool8_arr
+
+
+@pytest.mark.numpy
+def test_bool8_to_numpy_conversion():
+    arr = pa.ExtensionArray.from_storage(
+        pa.bool8(),
+        pa.array([-1, 0, 1, 2, None], pa.int8()),
+    )
+
+    # cannot zero-copy with nulls
+    with pytest.raises(
+        pa.ArrowInvalid,
+        match="Needed to copy 1 chunks with 1 nulls, but zero_copy_only was True",
+    ):
+        arr.to_numpy()
+
+    # nullable conversion possible with a copy, but dest dtype is object
+    assert np.array_equal(
+        arr.to_numpy(zero_copy_only=False),
+        np.array([True, False, True, True, None], dtype=np.object_),
+    )
+
+    # zero-copy possible with non-null array
+    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
+    arr_no_nulls = pa.ExtensionArray.from_storage(
+        pa.bool8(),
+        pa.array([-1, 0, 1, 2], pa.int8()),
+    )
+
+    arr_to_np = arr_no_nulls.to_numpy()
+    assert np.array_equal(arr_to_np, np_arr_no_nulls)
+
+    # same underlying buffer
+    assert arr_to_np.ctypes.data == arr_no_nulls.buffers()[1].address
+
+    # if the user requests a writable array, a copy should be performed
+    arr_to_np_writable = arr_no_nulls.to_numpy(zero_copy_only=False, writable=True)
+    assert np.array_equal(arr_to_np_writable, np_arr_no_nulls)
+
+    # different underlying buffer
+    assert arr_to_np_writable.ctypes.data != arr_no_nulls.buffers()[1].address
+
+
+@pytest.mark.numpy
+def test_bool8_from_numpy_conversion():
+    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
+    canonical_bool8_arr_no_nulls = pa.ExtensionArray.from_storage(
+        pa.bool8(),
+        pa.array([1, 0, 1, 1], pa.int8()),
+    )
+
+    arr_from_np = pa.Bool8Array.from_numpy(np_arr_no_nulls)
+    assert arr_from_np == canonical_bool8_arr_no_nulls
+
+    # same underlying buffer
+    assert arr_from_np.buffers()[1].address == np_arr_no_nulls.ctypes.data
+
+    # conversion only valid for 1-D arrays
+    with pytest.raises(
+        ValueError,
+        match="Cannot convert 2-D array to bool8 array",
+    ):
+        pa.Bool8Array.from_numpy(
+            np.array([[True, False], [False, True]], dtype=np.bool_),
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="Cannot convert 0-D array to bool8 array",
+    ):
+        pa.Bool8Array.from_numpy(np.bool_())
+
+    # must use compatible storage type
+    with pytest.raises(
+        TypeError,
+        match="Array dtype float64 incompatible with bool8 storage",
+    ):
+        pa.Bool8Array.from_numpy(np.array([1, 2, 3], dtype=np.float64))
+
+
+def test_bool8_scalar():
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), -1).as_py() is True
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), 0).as_py() is False
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), 1).as_py() is True
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), 2).as_py() is True
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), None).as_py() is None
+
+    arr = pa.ExtensionArray.from_storage(
+        pa.bool8(),
+        pa.array([-1, 0, 1, 2, None], pa.int8()),
+    )
+    assert arr[0].as_py() is True
+    assert arr[1].as_py() is False
+    assert arr[2].as_py() is True
+    assert arr[3].as_py() is True
+    assert arr[4].as_py() is None
+
+    assert pa.scalar(-1, type=pa.bool8()).as_py() is True
+    assert pa.scalar(0, type=pa.bool8()).as_py() is False
+    assert pa.scalar(1, type=pa.bool8()).as_py() is True
+    assert pa.scalar(2, type=pa.bool8()).as_py() is True
+    assert pa.scalar(None, type=pa.bool8()).as_py() is None
+
+
+@pytest.mark.parametrize("storage_type", (
+    pa.string(), pa.large_string(), pa.string_view()))
+def test_json(storage_type, pickle_module):
+    data = ['{"a": 1}', '{"b": 2}', None]
+    json_type = pa.json_(storage_type)
+    storage = pa.array(data, type=storage_type)
+    array = pa.array(data, type=json_type)
+    json_arr_class = json_type.__arrow_ext_class__()
+
+    assert pa.json_() == pa.json_(pa.utf8())
+    assert json_type.extension_name == "arrow.json"
+    assert json_type.storage_type == storage_type
+    assert json_type.__class__ is pa.JsonType
+
+    assert json_type == pa.json_(storage_type)
+    assert json_type != storage_type
+
+    assert isinstance(array, pa.JsonArray)
+
+    assert array.to_pylist() == data
+    assert array[0].as_py() == data[0]
+    assert array[2].as_py() is None
+
+    # Pickle roundtrip
+    result = pickle_module.loads(pickle_module.dumps(json_type))
+    assert result == json_type
+
+    # IPC roundtrip
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["ext"]))
+    batch = ipc_read_batch(buf)
+    reconstructed_array = batch.column(0)
+    assert reconstructed_array.type == json_type
+    assert reconstructed_array == array
+    assert isinstance(array, json_arr_class)
+
+    assert json_type.__arrow_ext_scalar_class__() == pa.JsonScalar
+    assert isinstance(array[0], pa.JsonScalar)
+
+    # cast storage -> extension type
+    result = storage.cast(json_type)
+    assert result == array
+
+    # cast extension type -> storage type
+    inner = array.cast(storage_type)
+    assert inner == storage
+
+    for storage_type in (pa.int32(), pa.large_binary(), pa.float32()):
+        with pytest.raises(
+                pa.ArrowInvalid,
+                match=f"Invalid storage type for JsonExtensionType: {storage_type}"):
+            pa.json_(storage_type)

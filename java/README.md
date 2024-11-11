@@ -85,7 +85,7 @@ variable are set, the system property takes precedence.
 
 ## Java Properties
 
- * For Java 9 or later, should set `-Dio.netty.tryReflectionSetAccessible=true`.
+ * `-Dio.netty.tryReflectionSetAccessible=true` should be set.
 This fixes `java.lang.UnsupportedOperationException: sun.misc.Unsafe or java.nio.DirectByteBuffer.(long, int) not available`. thrown by Netty.
  * To support duplicate fields in a `StructVector` enable `-Darrow.struct.conflict.policy=CONFLICT_APPEND`.
 Duplicate fields are ignored (`CONFLICT_REPLACE`) by default and overwritten. To support different policies for

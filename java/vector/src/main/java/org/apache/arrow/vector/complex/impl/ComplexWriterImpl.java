@@ -18,6 +18,7 @@ package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StateTool;
@@ -30,6 +31,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
   private NullableStructWriter structRoot;
   private UnionListWriter listRoot;
+  private UnionListViewWriter listViewRoot;
   private UnionMapWriter mapRoot;
   private final NonNullableStructVector container;
 
@@ -42,6 +44,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     INIT,
     STRUCT,
     LIST,
+    LISTVIEW,
     MAP
   }
 
@@ -99,6 +102,9 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     if (listRoot != null) {
       listRoot.close();
     }
+    if (listViewRoot != null) {
+      listViewRoot.close();
+    }
   }
 
   @Override
@@ -109,6 +115,9 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         break;
       case LIST:
         listRoot.clear();
+        break;
+      case LISTVIEW:
+        listViewRoot.clear();
         break;
       case MAP:
         mapRoot.clear();
@@ -127,6 +136,9 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
       case LIST:
         listRoot.setValueCount(count);
         break;
+      case LISTVIEW:
+        listViewRoot.setValueCount(count);
+        break;
       case MAP:
         mapRoot.setValueCount(count);
         break;
@@ -144,6 +156,9 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         break;
       case LIST:
         listRoot.setPosition(index);
+        break;
+      case LISTVIEW:
+        listViewRoot.setPosition(index);
         break;
       case MAP:
         mapRoot.setPosition(index);
@@ -230,6 +245,31 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     }
 
     return listRoot;
+  }
+
+  @Override
+  public ListWriter rootAsListView() {
+    switch (mode) {
+      case INIT:
+        int vectorCount = container.size();
+        // TODO allow dictionaries in complex types
+        ListViewVector listVector = container.addOrGetListView(name);
+        if (container.size() > vectorCount) {
+          listVector.allocateNew();
+        }
+        listViewRoot = new UnionListViewWriter(listVector, nullableStructWriterFactory);
+        listViewRoot.setPosition(idx());
+        mode = Mode.LISTVIEW;
+        break;
+
+      case LISTVIEW:
+        break;
+
+      default:
+        check(Mode.INIT, Mode.STRUCT);
+    }
+
+    return listViewRoot;
   }
 
   @Override

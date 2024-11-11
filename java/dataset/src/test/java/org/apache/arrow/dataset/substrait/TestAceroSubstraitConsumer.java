@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -87,7 +88,8 @@ public class TestAceroSubstraitConsumer extends TestDataset {
                                 TestAceroSubstraitConsumer.class
                                     .getClassLoader()
                                     .getResource("substrait/local_files_users.json")
-                                    .toURI())))
+                                    .toURI())),
+                        StandardCharsets.UTF_8)
                     .replace("FILENAME_PLACEHOLDER", writeSupport.getOutputURI()))) {
       assertEquals(schema, arrowReader.getVectorSchemaRoot().getSchema());
       int rowcount = 0;
@@ -134,7 +136,8 @@ public class TestAceroSubstraitConsumer extends TestDataset {
                               TestAceroSubstraitConsumer.class
                                   .getClassLoader()
                                   .getResource("substrait/named_table_users.json")
-                                  .toURI()))),
+                                  .toURI())),
+                      StandardCharsets.UTF_8),
                   mapTableToArrowReader)) {
         assertEquals(schema, arrowReader.getVectorSchemaRoot().getSchema());
         assertEquals(arrowReader.getVectorSchemaRoot().getSchema(), schema);
@@ -186,7 +189,8 @@ public class TestAceroSubstraitConsumer extends TestDataset {
                                     TestAceroSubstraitConsumer.class
                                         .getClassLoader()
                                         .getResource("substrait/named_table_users.json")
-                                        .toURI()))),
+                                        .toURI())),
+                            StandardCharsets.UTF_8),
                         mapTableToArrowReader)) {
               assertEquals(schema, arrowReader.getVectorSchemaRoot().getSchema());
               int rowcount = 0;
@@ -311,12 +315,6 @@ public class TestAceroSubstraitConsumer extends TestDataset {
   @Test
   public void testRunExtendedExpressionsFilterWithProjectionsInsteadOfFilterException()
       throws Exception {
-    final Schema schema =
-        new Schema(
-            Arrays.asList(
-                Field.nullable("id", new ArrowType.Int(32, true)),
-                Field.nullable("name", new ArrowType.Utf8())),
-            null);
     // Substrait Extended Expression: Project New Column:
     // Expression ADD: id + 2
     // Expression CONCAT: name + '-' + name
@@ -360,12 +358,6 @@ public class TestAceroSubstraitConsumer extends TestDataset {
 
   @Test
   public void testRunExtendedExpressionsFilterWithEmptyFilterException() throws Exception {
-    final Schema schema =
-        new Schema(
-            Arrays.asList(
-                Field.nullable("id", new ArrowType.Int(32, true)),
-                Field.nullable("name", new ArrowType.Utf8())),
-            null);
     String base64EncodedSubstraitFilter = "";
     ByteBuffer substraitExpressionFilter = getByteBuffer(base64EncodedSubstraitFilter);
     ParquetWriteSupport writeSupport =
@@ -529,12 +521,6 @@ public class TestAceroSubstraitConsumer extends TestDataset {
 
   @Test
   public void testRunExtendedExpressionsProjectionWithEmptyProjectionException() throws Exception {
-    final Schema schema =
-        new Schema(
-            Arrays.asList(
-                Field.nullable("id", new ArrowType.Int(32, true)),
-                Field.nullable("name", new ArrowType.Utf8())),
-            null);
     String base64EncodedSubstraitFilter = "";
     ByteBuffer substraitExpressionProjection = getByteBuffer(base64EncodedSubstraitFilter);
     ParquetWriteSupport writeSupport =

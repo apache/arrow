@@ -133,11 +133,36 @@ struct GetViewType<Type, enable_if_has_c_type<Type>> {
 
 template <typename Type>
 struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
-                                     is_fixed_size_binary_type<Type>::value>> {
+                                     is_fixed_size_binary_type<Type>::value ||
+                                     is_binary_view_like_type<Type>::value>> {
   using T = std::string_view;
   using PhysicalType = T;
 
   static T LogicalValue(PhysicalType value) { return value; }
+};
+
+template <>
+struct GetViewType<Decimal32Type> {
+  using T = Decimal32;
+  using PhysicalType = std::string_view;
+
+  static T LogicalValue(PhysicalType value) {
+    return Decimal32(reinterpret_cast<const uint8_t*>(value.data()));
+  }
+
+  static T LogicalValue(T value) { return value; }
+};
+
+template <>
+struct GetViewType<Decimal64Type> {
+  using T = Decimal64;
+  using PhysicalType = std::string_view;
+
+  static T LogicalValue(PhysicalType value) {
+    return Decimal64(reinterpret_cast<const uint8_t*>(value.data()));
+  }
+
+  static T LogicalValue(T value) { return value; }
 };
 
 template <>
@@ -175,6 +200,16 @@ struct GetOutputType<Type, enable_if_has_c_type<Type>> {
 template <typename Type>
 struct GetOutputType<Type, enable_if_t<is_string_like_type<Type>::value>> {
   using T = std::string;
+};
+
+template <>
+struct GetOutputType<Decimal32Type> {
+  using T = Decimal32;
+};
+
+template <>
+struct GetOutputType<Decimal64Type> {
+  using T = Decimal64;
 };
 
 template <>
@@ -224,7 +259,9 @@ using enable_if_not_floating_value = enable_if_t<!std::is_floating_point<T>::val
 
 template <typename T, typename R = T>
 using enable_if_decimal_value =
-    enable_if_t<std::is_same<Decimal128, T>::value || std::is_same<Decimal256, T>::value,
+    enable_if_t<std::is_same<Decimal32, T>::value || std::is_same<Decimal64, T>::value ||
+                    std::is_same<Decimal128, T>::value ||
+                    std::is_same<Decimal256, T>::value,
                 R>;
 
 // ----------------------------------------------------------------------
@@ -350,6 +387,22 @@ struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
   static T Unbox(const Scalar& val) {
     if (!val.is_valid) return std::string_view();
     return checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
+  }
+};
+
+template <>
+struct UnboxScalar<Decimal32Type> {
+  using T = Decimal32;
+  static const T& Unbox(const Scalar& val) {
+    return checked_cast<const Decimal32Scalar&>(val).value;
+  }
+};
+
+template <>
+struct UnboxScalar<Decimal64Type> {
+  using T = Decimal64;
+  static const T& Unbox(const Scalar& val) {
+    return checked_cast<const Decimal64Scalar&>(val).value;
   }
 };
 
@@ -1116,6 +1169,10 @@ ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
 template <template <typename... Args> class Generator, typename... Args>
 ArrayKernelExec GenerateDecimalToDecimal(detail::GetTypeId get_id) {
   switch (get_id.id) {
+    case Type::DECIMAL32:
+      return Generator<Decimal32Type, Args...>::Exec;
+    case Type::DECIMAL64:
+      return Generator<Decimal64Type, Args...>::Exec;
     case Type::DECIMAL128:
       return Generator<Decimal128Type, Args...>::Exec;
     case Type::DECIMAL256:
@@ -1265,6 +1322,22 @@ ArrayKernelExec GenerateVarBinary(detail::GetTypeId get_id) {
   }
 }
 
+// Generate a kernel given a templated functor for binary-view types. Generates a
+// single kernel for binary/string-view.
+//
+// See "Numeric" above for description of the generator functor
+template <template <typename...> class Generator, typename Type0, typename... Args>
+ArrayKernelExec GenerateVarBinaryViewBase(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::BINARY_VIEW:
+    case Type::STRING_VIEW:
+      return Generator<Type0, BinaryViewType, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return nullptr;
+  }
+}
+
 // Generate a kernel given a templated functor for temporal types
 //
 // See "Numeric" above for description of the generator functor
@@ -1295,6 +1368,10 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
 template <template <typename...> class Generator, typename Type0, typename... Args>
 ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
   switch (get_id.id) {
+    case Type::DECIMAL32:
+      return Generator<Type0, Decimal32Type, Args...>::Exec;
+    case Type::DECIMAL64:
+      return Generator<Type0, Decimal64Type, Args...>::Exec;
     case Type::DECIMAL128:
       return Generator<Type0, Decimal128Type, Args...>::Exec;
     case Type::DECIMAL256:

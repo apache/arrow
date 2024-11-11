@@ -27,7 +27,6 @@ import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.compression.CompressionCodec;
-import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowFooter;
@@ -64,7 +63,7 @@ public class ArrowFileReader extends ArrowReader {
   }
 
   public ArrowFileReader(SeekableReadChannel in, BufferAllocator allocator) {
-    this(in, allocator, NoCompressionCodec.Factory.INSTANCE);
+    this(in, allocator, CompressionCodec.Factory.INSTANCE);
   }
 
   public ArrowFileReader(SeekableByteChannel in, BufferAllocator allocator) {

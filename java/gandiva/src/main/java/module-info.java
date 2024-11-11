@@ -21,9 +21,9 @@ open module org.apache.arrow.gandiva {
   exports org.apache.arrow.gandiva.ipc;
 
   requires com.google.common;
+  requires com.google.protobuf;
   requires org.apache.arrow.format;
   requires org.apache.arrow.memory.core;
   requires org.apache.arrow.vector;
   requires org.slf4j;
-  requires protobuf.java;
 }

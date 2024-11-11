@@ -17,14 +17,11 @@
 
 #pragma once
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-#include <immintrin.h>
-#endif
-
 #include <cstdint>
 
 #include "arrow/compute/light_array_internal.h"
 #include "arrow/compute/util.h"
+#include "arrow/util/simd.h"
 
 namespace arrow {
 namespace compute {

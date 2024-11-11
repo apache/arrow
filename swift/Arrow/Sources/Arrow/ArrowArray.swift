@@ -21,7 +21,7 @@ public protocol ArrowArrayHolder {
     var type: ArrowType {get}
     var length: UInt {get}
     var nullCount: UInt {get}
-    var array: Any {get}
+    var array: AnyArray {get}
     var data: ArrowData {get}
     var getBufferData: () -> [Data] {get}
     var getBufferDataSizes: () -> [Int] {get}
@@ -29,11 +29,11 @@ public protocol ArrowArrayHolder {
 }
 
 public class ArrowArrayHolderImpl: ArrowArrayHolder {
-    public let array: Any
     public let data: ArrowData
     public let type: ArrowType
     public let length: UInt
     public let nullCount: UInt
+    public let array: AnyArray
     public let getBufferData: () -> [Data]
     public let getBufferDataSizes: () -> [Int]
     public let getArrowColumn: (ArrowField, [ArrowArrayHolder]) throws -> ArrowColumn
@@ -73,6 +73,50 @@ public class ArrowArrayHolderImpl: ArrowArrayHolder {
             return ArrowColumn(field, chunked: ChunkedArrayHolder(try ChunkedArray<T>(arrays)))
         }
     }
+
+    public static func loadArray( // swiftlint:disable:this cyclomatic_complexity
+        _ arrowType: ArrowType, with: ArrowData) throws -> ArrowArrayHolder {
+        switch arrowType.id {
+        case .int8:
+            return try ArrowArrayHolderImpl(FixedArray<Int8>(with))
+        case .int16:
+            return try ArrowArrayHolderImpl(FixedArray<Int16>(with))
+        case .int32:
+            return try ArrowArrayHolderImpl(FixedArray<Int32>(with))
+        case .int64:
+            return try ArrowArrayHolderImpl(FixedArray<Int64>(with))
+        case .uint8:
+            return try ArrowArrayHolderImpl(FixedArray<UInt8>(with))
+        case .uint16:
+            return try ArrowArrayHolderImpl(FixedArray<UInt16>(with))
+        case .uint32:
+            return try ArrowArrayHolderImpl(FixedArray<UInt32>(with))
+        case .uint64:
+            return try ArrowArrayHolderImpl(FixedArray<UInt64>(with))
+        case .double:
+            return try ArrowArrayHolderImpl(FixedArray<Double>(with))
+        case .float:
+            return try ArrowArrayHolderImpl(FixedArray<Float>(with))
+        case .date32:
+            return try ArrowArrayHolderImpl(Date32Array(with))
+        case .date64:
+            return try ArrowArrayHolderImpl(Date64Array(with))
+        case .time32:
+            return try ArrowArrayHolderImpl(Time32Array(with))
+        case .time64:
+            return try ArrowArrayHolderImpl(Time64Array(with))
+        case .string:
+            return try ArrowArrayHolderImpl(StringArray(with))
+        case .boolean:
+            return try ArrowArrayHolderImpl(BoolArray(with))
+        case .binary:
+            return try ArrowArrayHolderImpl(BinaryArray(with))
+        case .strct:
+            return try ArrowArrayHolderImpl(StructArray(with))
+        default:
+            throw ArrowError.invalid("Array not found for type: \(arrowType)")
+        }
+    }
 }
 
 public class ArrowArray<T>: AsString, AnyArray {
@@ -81,7 +125,7 @@ public class ArrowArray<T>: AsString, AnyArray {
     public var nullCount: UInt {return self.arrowData.nullCount}
     public var length: UInt {return self.arrowData.length}
 
-    public required init(_ arrowData: ArrowData) {
+    public required init(_ arrowData: ArrowData) throws {
         self.arrowData = arrowData
     }
 
@@ -221,15 +265,63 @@ public class BinaryArray: ArrowArray<Data> {
     }
 
     public override func asString(_ index: UInt) -> String {
-        if self[index] == nil {
-            return ""
-        }
-
+        if self[index] == nil {return ""}
         let data = self[index]!
         if options.printAsHex {
             return data.hexEncodedString()
         } else {
             return String(data: data, encoding: .utf8)!
         }
+    }
+}
+
+public class StructArray: ArrowArray<[Any?]> {
+    public private(set) var arrowFields: [ArrowArrayHolder]?
+    public required init(_ arrowData: ArrowData) throws {
+        try super.init(arrowData)
+        var fields = [ArrowArrayHolder]()
+        for child in arrowData.children {
+            fields.append(try ArrowArrayHolderImpl.loadArray(child.type, with: child))
+        }
+
+        self.arrowFields = fields
+    }
+
+    public override subscript(_ index: UInt) -> [Any?]? {
+        if self.arrowData.isNull(index) {
+            return nil
+        }
+
+        if let fields = arrowFields {
+            var result = [Any?]()
+            for field in fields {
+                result.append(field.array.asAny(index))
+            }
+
+            return result
+        }
+
+        return nil
+    }
+
+    public override func asString(_ index: UInt) -> String {
+        if self.arrowData.isNull(index) {
+            return ""
+        }
+
+        var output = "{"
+        if let fields = arrowFields {
+            for fieldIndex in 0..<fields.count {
+                let asStr = fields[fieldIndex].array as? AsString
+                if fieldIndex == 0 {
+                    output.append("\(asStr!.asString(index))")
+                } else {
+                    output.append(",\(asStr!.asString(index))")
+                }
+            }
+        }
+
+        output += "}"
+        return output
     }
 }

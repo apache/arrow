@@ -33,7 +33,10 @@ from pyarrow.util import _DEPR_MSG
 from libcpp cimport bool as c_bool
 
 import inspect
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import warnings
 
 
@@ -41,6 +44,11 @@ __pas = None
 _substrait_msg = (
     "The pyarrow installation is not built with support for Substrait."
 )
+
+
+SUPPORTED_INPUT_ARR_TYPES = (list, tuple)
+if np is not None:
+    SUPPORTED_INPUT_ARR_TYPES += (np.ndarray, )
 
 
 def _pas():
@@ -473,7 +481,7 @@ cdef class MetaFunction(Function):
 
 cdef _pack_compute_args(object values, vector[CDatum]* out):
     for val in values:
-        if isinstance(val, (list, np.ndarray)):
+        if isinstance(val, SUPPORTED_INPUT_ARR_TYPES):
             val = lib.asarray(val)
 
         if isinstance(val, Array):
@@ -2189,7 +2197,7 @@ class QuantileOptions(_QuantileOptions):
 
     def __init__(self, q=0.5, *, interpolation="linear", skip_nulls=True,
                  min_count=0):
-        if not isinstance(q, (list, tuple, np.ndarray)):
+        if not isinstance(q, SUPPORTED_INPUT_ARR_TYPES):
             q = [q]
         self._set_options(q, interpolation, skip_nulls, min_count)
 
@@ -2222,7 +2230,7 @@ class TDigestOptions(_TDigestOptions):
 
     def __init__(self, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
                  min_count=0):
-        if not isinstance(q, (list, tuple, np.ndarray)):
+        if not isinstance(q, SUPPORTED_INPUT_ARR_TYPES):
             q = [q]
         self._set_options(q, delta, buffer_size, skip_nulls, min_count)
 
@@ -2433,7 +2441,7 @@ cdef class Expression(_Weakrefable):
         )
 
     @staticmethod
-    def from_substrait(object buffer not None):
+    def from_substrait(object message not None):
         """
         Deserialize an expression from Substrait
 
@@ -2445,7 +2453,7 @@ cdef class Expression(_Weakrefable):
 
         Parameters
         ----------
-        buffer : bytes or Buffer
+        message : bytes or Buffer or a protobuf Message
             The Substrait message to deserialize
 
         Returns
@@ -2453,7 +2461,7 @@ cdef class Expression(_Weakrefable):
         Expression
             The deserialized expression
         """
-        expressions = _pas().deserialize_expressions(buffer).expressions
+        expressions = _pas().BoundExpressions.from_substrait(message).expressions
         if len(expressions) == 0:
             raise ValueError("Substrait message did not contain any expressions")
         if len(expressions) > 1:

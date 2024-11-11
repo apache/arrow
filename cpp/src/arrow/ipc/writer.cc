@@ -86,7 +86,7 @@ bool HasNestedDict(const ArrayData& data) {
 }
 
 Status GetTruncatedBitmap(int64_t offset, int64_t length,
-                          const std::shared_ptr<Buffer> input, MemoryPool* pool,
+                          const std::shared_ptr<Buffer>& input, MemoryPool* pool,
                           std::shared_ptr<Buffer>* buffer) {
   if (!input) {
     *buffer = input;
@@ -103,7 +103,7 @@ Status GetTruncatedBitmap(int64_t offset, int64_t length,
 }
 
 Status GetTruncatedBuffer(int64_t offset, int64_t length, int32_t byte_width,
-                          const std::shared_ptr<Buffer> input, MemoryPool* pool,
+                          const std::shared_ptr<Buffer>& input, MemoryPool* pool,
                           std::shared_ptr<Buffer>* buffer) {
   if (!input) {
     *buffer = input;
@@ -252,7 +252,7 @@ class RecordBatchSerializer {
   }
 
   Status Assemble(const RecordBatch& batch) {
-    if (field_nodes_.size() > 0) {
+    if (!field_nodes_.empty()) {
       field_nodes_.clear();
       buffer_meta_.clear();
       out_->body_buffers.clear();
@@ -335,8 +335,7 @@ class RecordBatchSerializer {
       ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
                             AllocateBuffer(required_bytes, options_.memory_pool));
 
-      offset_type* dest_offsets =
-          reinterpret_cast<offset_type*>(shifted_offsets->mutable_data());
+      auto dest_offsets = shifted_offsets->mutable_span_as<offset_type>();
       const offset_type start_offset = array.value_offset(0);
 
       for (int i = 0; i < array.length(); ++i) {
@@ -362,7 +361,6 @@ class RecordBatchSerializer {
                                      offset_type* out_min_offset,
                                      offset_type* out_max_end) {
     auto offsets = array.value_offsets();
-    auto sizes = array.value_sizes();
 
     const int64_t required_bytes = sizeof(offset_type) * array.length();
     if (array.offset() != 0) {
@@ -572,7 +570,7 @@ class RecordBatchSerializer {
   Status Visit(const StructArray& array) {
     --max_recursion_depth_;
     for (int i = 0; i < array.num_fields(); ++i) {
-      std::shared_ptr<Array> field = array.field(i);
+      const auto& field = array.field(i);
       RETURN_NOT_OK(VisitArray(*field));
     }
     ++max_recursion_depth_;
@@ -641,8 +639,7 @@ class RecordBatchSerializer {
       ARROW_ASSIGN_OR_RAISE(
           auto shifted_offsets_buffer,
           AllocateBuffer(length * sizeof(int32_t), options_.memory_pool));
-      int32_t* shifted_offsets =
-          reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
+      auto shifted_offsets = shifted_offsets_buffer->mutable_span_as<int32_t>();
 
       // Offsets are guaranteed to be increasing according to the spec, so
       // the first offset we find for a child is the initial offset and
@@ -899,7 +896,7 @@ Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
   RETURN_NOT_OK(WriteStridedTensorData(0, 0, elem_size, tensor,
                                        scratch_space->mutable_data(), &stream));
 
-  out->reset(new Tensor(tensor.type(), contiguous_data, tensor.shape()));
+  *out = std::make_unique<Tensor>(tensor.type(), contiguous_data, tensor.shape());
 
   return Status::OK();
 }
@@ -1005,7 +1002,7 @@ class SparseTensorSerializer {
   }
 
   Status Assemble(const SparseTensor& sparse_tensor) {
-    if (buffer_meta_.size() > 0) {
+    if (!buffer_meta_.empty()) {
       buffer_meta_.clear();
       out_->body_buffers.clear();
     }
@@ -1169,7 +1166,7 @@ Status RecordBatchWriter::WriteTable(const Table& table) { return WriteTable(tab
 
 namespace internal {
 
-IpcPayloadWriter::~IpcPayloadWriter() {}
+IpcPayloadWriter::~IpcPayloadWriter() = default;
 
 Status IpcPayloadWriter::Start() { return Status::OK(); }
 

@@ -28,7 +28,6 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.compression.CompressionCodec;
-import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
@@ -50,7 +49,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   private final CompressionCodec.Factory compressionFactory;
 
   protected ArrowReader(BufferAllocator allocator) {
-    this(allocator, NoCompressionCodec.Factory.INSTANCE);
+    this(allocator, CompressionCodec.Factory.INSTANCE);
   }
 
   protected ArrowReader(BufferAllocator allocator, CompressionCodec.Factory compressionFactory) {

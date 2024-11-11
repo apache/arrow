@@ -50,6 +50,7 @@ import org.junit.jupiter.api.Test;
 public class AvroToArrowIteratorTest extends AvroTestBase {
 
   @BeforeEach
+  @Override
   public void init() {
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     this.config = new AvroToArrowConfigBuilder(allocator).setTargetBatchSize(3).build();

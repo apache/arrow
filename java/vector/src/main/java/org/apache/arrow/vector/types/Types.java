@@ -69,9 +69,11 @@ import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
+import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
@@ -111,6 +113,7 @@ import org.apache.arrow.vector.complex.impl.UInt1WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt2WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt4WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt8WriterImpl;
+import org.apache.arrow.vector.complex.impl.UnionLargeListViewWriter;
 import org.apache.arrow.vector.complex.impl.UnionLargeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
@@ -134,11 +137,13 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
 import org.apache.arrow.vector.types.pojo.ArrowType.LargeBinary;
+import org.apache.arrow.vector.types.pojo.ArrowType.LargeListView;
 import org.apache.arrow.vector.types.pojo.ArrowType.LargeUtf8;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
 import org.apache.arrow.vector.types.pojo.ArrowType.ListView;
 import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
+import org.apache.arrow.vector.types.pojo.ArrowType.RunEndEncoded;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
@@ -645,6 +650,19 @@ public class Types {
         return new UnionLargeListWriter((LargeListVector) vector);
       }
     },
+    LARGELISTVIEW(ArrowType.LargeListView.INSTANCE) {
+      @Override
+      public FieldVector getNewVector(
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new LargeListViewVector(
+            field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new UnionLargeListViewWriter((LargeListViewVector) vector);
+      }
+    },
     FIXED_SIZE_LIST(null) {
       @Override
       public FieldVector getNewVector(
@@ -768,6 +786,19 @@ public class Types {
             .getUnderlyingVector()
             .getMinorType()
             .getNewFieldWriter(vector);
+      }
+    },
+    RUNENDENCODED(RunEndEncoded.INSTANCE) {
+      @Override
+      public FieldVector getNewVector(
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new RunEndEncodedVector(field, allocator, schemaChangeCallback);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        throw new UnsupportedOperationException(
+            "FieldWriter for run-end encoded vector is not implemented yet.");
       }
     },
     ;
@@ -997,8 +1028,18 @@ public class Types {
           }
 
           @Override
+          public MinorType visit(LargeListView type) {
+            return MinorType.LARGELISTVIEW;
+          }
+
+          @Override
           public MinorType visit(ExtensionType type) {
             return MinorType.EXTENSIONTYPE;
+          }
+
+          @Override
+          public MinorType visit(RunEndEncoded type) {
+            return MinorType.RUNENDENCODED;
           }
         });
   }

@@ -56,4 +56,5 @@ rm -rf ${CORPUS_DIR}
 ${OUT}/parquet-arrow-generate-fuzz-corpus ${CORPUS_DIR}
 # Add Parquet testing examples
 cp ${ARROW_CPP}/submodules/parquet-testing/data/*.parquet ${CORPUS_DIR}
+cp ${ARROW_CPP}/submodules/parquet-testing/bad_data/*.parquet ${CORPUS_DIR}
 ${ARROW_CPP}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/parquet-arrow-fuzz_seed_corpus.zip

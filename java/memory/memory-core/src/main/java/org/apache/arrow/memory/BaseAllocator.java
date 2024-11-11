@@ -16,6 +16,8 @@
  */
 package org.apache.arrow.memory;
 
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -27,6 +29,7 @@ import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
+import org.apache.arrow.memory.util.LargeMemoryUtil;
 import org.apache.arrow.util.Preconditions;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.KeyFor;
@@ -539,9 +542,8 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     return sb.toString();
   }
 
-  /* Remove @SuppressWarnings after fixing https://github.com/apache/arrow/issues/41951 */
-  @SuppressWarnings("FormatStringAnnotation")
-  private void hist(String noteFormat, Object... args) {
+  @FormatMethod
+  private void hist(@FormatString String noteFormat, Object... args) {
     if (historicalLog != null) {
       historicalLog.recordEvent(noteFormat, args);
     }
@@ -859,7 +861,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   public class Reservation implements AllocationReservation {
 
     private final @Nullable HistoricalLog historicalLog;
-    private int nBytes = 0;
+    private long nBytes = 0;
     private boolean used = false;
     private boolean closed = false;
 
@@ -887,8 +889,15 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       }
     }
 
+    @SuppressWarnings({"removal", "InlineMeSuggester"})
+    @Deprecated(forRemoval = true)
     @Override
     public boolean add(final int nBytes) {
+      return add((long) nBytes);
+    }
+
+    @Override
+    public boolean add(final long nBytes) {
       assertOpen();
 
       Preconditions.checkArgument(nBytes >= 0, "nBytes(%d) < 0", nBytes);
@@ -905,7 +914,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       // modifying this behavior so that we maintain what we reserve and what the user asked for
       // and make sure to only
       // round to power of two as necessary.
-      final int nBytesTwo = CommonUtil.nextPowerOfTwo(nBytes);
+      final long nBytesTwo = CommonUtil.nextPowerOfTwo(nBytes);
       if (!reserve(nBytesTwo)) {
         return false;
       }
@@ -928,6 +937,11 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
     @Override
     public int getSize() {
+      return LargeMemoryUtil.checkedCastToInt(nBytes);
+    }
+
+    @Override
+    public long getSizeLong() {
       return nBytes;
     }
 
@@ -977,8 +991,15 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       closed = true;
     }
 
+    @SuppressWarnings({"removal", "InlineMeSuggester"})
+    @Deprecated(forRemoval = true)
     @Override
     public boolean reserve(int nBytes) {
+      return reserve((long) nBytes);
+    }
+
+    @Override
+    public boolean reserve(long nBytes) {
       assertOpen();
 
       final AllocationOutcome outcome = BaseAllocator.this.allocateBytes(nBytes);
@@ -998,7 +1019,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
      * @param nBytes the size of the buffer requested
      * @return the buffer, or null, if the request cannot be satisfied
      */
-    private ArrowBuf allocate(int nBytes) {
+    private ArrowBuf allocate(long nBytes) {
       assertOpen();
 
       boolean success = false;
@@ -1032,7 +1053,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
      *
      * @param nBytes the size of the reservation
      */
-    private void releaseReservation(int nBytes) {
+    private void releaseReservation(long nBytes) {
       assertOpen();
 
       releaseBytes(nBytes);

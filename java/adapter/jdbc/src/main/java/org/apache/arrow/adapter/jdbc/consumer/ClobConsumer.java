@@ -86,12 +86,8 @@ public abstract class ClobConsumer extends BaseConsumer<VarCharVector> {
             while ((dataBuffer.writerIndex() + bytes.length) > dataBuffer.capacity()) {
               vector.reallocDataBuffer();
             }
-            MemoryUtil.UNSAFE.copyMemory(
-                bytes,
-                MemoryUtil.BYTE_ARRAY_BASE_OFFSET,
-                null,
-                dataBuffer.memoryAddress() + startIndex + totalBytes,
-                bytes.length);
+            MemoryUtil.copyToMemory(
+                bytes, 0, dataBuffer.memoryAddress() + startIndex + totalBytes, bytes.length);
 
             totalBytes += bytes.length;
             read += readSize;
@@ -133,12 +129,8 @@ public abstract class ClobConsumer extends BaseConsumer<VarCharVector> {
           while ((dataBuffer.writerIndex() + bytes.length) > dataBuffer.capacity()) {
             vector.reallocDataBuffer();
           }
-          MemoryUtil.UNSAFE.copyMemory(
-              bytes,
-              MemoryUtil.BYTE_ARRAY_BASE_OFFSET,
-              null,
-              dataBuffer.memoryAddress() + startIndex + totalBytes,
-              bytes.length);
+          MemoryUtil.copyToMemory(
+              bytes, 0, dataBuffer.memoryAddress() + startIndex + totalBytes, bytes.length);
 
           totalBytes += bytes.length;
           read += readSize;

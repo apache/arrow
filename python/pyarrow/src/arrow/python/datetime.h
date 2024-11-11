@@ -35,9 +35,9 @@
 // Instead, we redefine PyDateTimeAPI to point to a global variable,
 // which is initialized once by calling InitDatetime().
 #ifdef PYPY_VERSION
-#include "datetime.h"
+#  include "datetime.h"
 #else
-#define PyDateTimeAPI ::arrow::py::internal::datetime_api
+#  define PyDateTimeAPI ::arrow::py::internal::datetime_api
 #endif
 
 namespace arrow {
@@ -142,6 +142,20 @@ inline TimePoint TimePoint_from_s(double val) {
 ARROW_PYTHON_EXPORT
 inline TimePoint TimePoint_from_ns(int64_t val) {
   return TimePoint(TimePoint::duration(val));
+}
+
+ARROW_PYTHON_EXPORT
+// Note: Needed by FlightEndpoint.expiration_time, which is an OS-dependent
+// std::chrono::system_clock::time_point
+inline std::chrono::system_clock::time_point TimePoint_to_system_time(TimePoint val) {
+  return std::chrono::time_point_cast<std::chrono::system_clock::duration>(val);
+}
+
+ARROW_PYTHON_EXPORT
+// Note: Needed by FlightEndpoint.expiration_time, which is an OS-dependent
+// std::chrono::system_clock::time_point
+inline TimePoint TimePoint_from_system_time(std::chrono::system_clock::time_point val) {
+  return std::chrono::time_point_cast<TimePoint::duration>(val);
 }
 
 ARROW_PYTHON_EXPORT

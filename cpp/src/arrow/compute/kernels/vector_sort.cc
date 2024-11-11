@@ -24,7 +24,6 @@
 namespace arrow {
 
 using internal::checked_cast;
-using internal::ChunkLocation;
 
 namespace compute {
 namespace internal {
@@ -852,7 +851,7 @@ class TableSorter {
   const RecordBatchVector batches_;
   const SortOptions& options_;
   const NullPlacement null_placement_;
-  const ::arrow::internal::ChunkResolver left_resolver_, right_resolver_;
+  const ::arrow::ChunkResolver left_resolver_, right_resolver_;
   const std::vector<ResolvedSortKey> sort_keys_;
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
@@ -870,7 +869,7 @@ const SortOptions* GetDefaultSortOptions() {
 const FunctionDoc sort_indices_doc(
     "Return the indices that would sort an array, record batch or table",
     ("This function computes an array of indices that define a stable sort\n"
-     "of the input array, record batch or table.  By default, nNull values are\n"
+     "of the input array, record batch or table.  By default, null values are\n"
      "considered greater than any other value and are therefore sorted at the\n"
      "end of the input. For floating-point types, NaNs are considered greater\n"
      "than any other non-null value, but smaller than null values.\n"

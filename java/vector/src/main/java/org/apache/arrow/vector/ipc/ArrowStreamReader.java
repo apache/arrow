@@ -25,7 +25,6 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.compression.CompressionCodec;
-import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageChannelReader;
@@ -65,7 +64,7 @@ public class ArrowStreamReader extends ArrowReader {
    * @param allocator to allocate new buffers
    */
   public ArrowStreamReader(MessageChannelReader messageReader, BufferAllocator allocator) {
-    this(messageReader, allocator, NoCompressionCodec.Factory.INSTANCE);
+    this(messageReader, allocator, CompressionCodec.Factory.INSTANCE);
   }
 
   /**

@@ -44,6 +44,12 @@ public interface VectorSchemaRootTransformer {
     private final List<Field> newFields = new ArrayList<>();
     private final Collection<Task> tasks = new ArrayList<>();
 
+    /**
+     * Constructor for the VectorSchemaRootTransformer's Builder.
+     *
+     * @param schema The Arrow schema.
+     * @param bufferAllocator The BufferAllocator to use for allocating memory.
+     */
     public Builder(final Schema schema, final BufferAllocator bufferAllocator) {
       this.schema = schema;
       this.bufferAllocator =
@@ -127,6 +133,11 @@ public interface VectorSchemaRootTransformer {
       return this;
     }
 
+    /**
+     * Build the {@link VectorSchemaRoot} with applied transformation tasks.
+     *
+     * @return The built {@link VectorSchemaRoot}.
+     */
     public VectorSchemaRootTransformer build() {
       return (originalRoot, transformedRoot) -> {
         if (transformedRoot == null) {

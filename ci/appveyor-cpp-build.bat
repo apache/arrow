@@ -46,7 +46,9 @@ set ARROW_CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
 set ARROW_CXXFLAGS=/WX /MP
 
 @rem Install GCS testbench
+set PIPX_BIN_DIR=C:\Windows\
 call %CD%\ci\scripts\install_gcs_testbench.bat
+storage-testbench -h || exit /B
 
 @rem
 @rem Build and test Arrow C++ libraries (including Parquet)
@@ -137,7 +139,7 @@ set PARQUET_HOME=%CONDA_PREFIX%\Library
 
 @rem Download IANA Timezone Database to a non-standard location to
 @rem test the configurability of the timezone database path
-curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz || exit /B
+curl https://data.iana.org/time-zones/releases/tzdata2024b.tar.gz --output tzdata.tar.gz || exit /B
 mkdir %USERPROFILE%\Downloads\test\tzdata
 tar --extract --file tzdata.tar.gz --directory %USERPROFILE%\Downloads\test\tzdata
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^

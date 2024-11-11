@@ -83,8 +83,12 @@ update_versions() {
   popd
 
   pushd "${ARROW_DIR}/java"
-  mvn versions:set -DnewVersion=${version} -DprocessAllModules
-  find . -type f -name pom.xml.versionsBackup -delete
+  mvn versions:set -DnewVersion=${version} -DprocessAllModules -DgenerateBackupPoms=false
+  if [ "${type}" = "release" ]; then
+    # versions-maven-plugin:set-scm-tag does not update the whole reactor. Invoking separately
+    mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-java-root
+    mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-bom
+  fi
   git add "pom.xml"
   git add "**/pom.xml"
   popd
@@ -175,21 +179,6 @@ update_versions() {
   git add */*/*/version.rb
   popd
 
-  pushd "${ARROW_DIR}/go"
-  find . "(" -name "*.go*" -o -name "go.mod" -o -name README.md ")" -exec sed -i.bak -E -e \
-    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" {} \;
-  # update parquet writer version
-  sed -i.bak -E -e \
-    "s/\"parquet-go version .+\"/\"parquet-go version ${version}\"/" \
-    parquet/writer_properties.go
-  sed -i.bak -E -e \
-    "s/const PkgVersion = \".*/const PkgVersion = \"${version}\"/" \
-    arrow/doc.go
-
-  find . -name "*.bak" -exec rm {} \;
-  git add .
-  popd
-
   pushd "${ARROW_DIR}/docs/source"
   # godoc link must reference current version, will reference v0.0.0 (2018) otherwise
   sed -i.bak -E -e \
@@ -205,6 +194,7 @@ update_versions() {
                      "${base_version}" \
                      "${next_version}"
   git add docs/source/_static/versions.json
+  git add r/pkgdown/assets/versions.html
   git add r/pkgdown/assets/versions.json
   popd
 }

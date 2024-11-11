@@ -94,6 +94,7 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
 
   private StructVector structVector;
   private ListVector listVector;
+  private ListViewVector listViewVector;
   private MapVector mapVector;
 
   private FieldReader reader;
@@ -333,6 +334,20 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
       }
     }
     return listVector;
+  }
+
+  public ListViewVector getListView() {
+    if (listViewVector == null) {
+      int vectorCount = internalStruct.size();
+      listViewVector = addOrGet(MinorType.LISTVIEW, ListViewVector.class);
+      if (internalStruct.size() > vectorCount) {
+        listViewVector.allocateNew();
+        if (callBack != null) {
+          callBack.doWork();
+        }
+      }
+    }
+    return listViewVector;
   }
 
   public MapVector getMap() {
@@ -702,6 +717,8 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
           return getStruct();
         case LIST:
           return getList();
+        case LISTVIEW:
+          return getListView();
         case MAP:
           return getMap(name, arrowType);
         default:

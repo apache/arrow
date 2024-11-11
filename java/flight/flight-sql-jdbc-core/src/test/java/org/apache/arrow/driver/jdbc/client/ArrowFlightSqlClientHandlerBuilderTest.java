@@ -33,7 +33,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-/** Test the behavior of ArrowFlightSqlClientHandler.Builder */
+/** Test the behavior of ArrowFlightSqlClientHandler.Builder. */
 public class ArrowFlightSqlClientHandlerBuilderTest {
 
   @RegisterExtension

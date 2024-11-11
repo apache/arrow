@@ -58,7 +58,8 @@ public class ArrowArrayBuilder<T: ArrowBufferBuilder, U: ArrowArray<T.ItemType>>
     public func finish() throws -> ArrowArray<T.ItemType> {
         let buffers = self.bufferBuilder.finish()
         let arrowData = try ArrowData(self.type, buffers: buffers, nullCount: self.nullCount)
-        return U(arrowData)
+        let array = try U(arrowData)
+        return array
     }
 
     public func getStride() -> Int {
@@ -118,6 +119,55 @@ public class Time64ArrayBuilder: ArrowArrayBuilder<FixedBufferBuilder<Time64>, T
     }
 }
 
+public class StructArrayBuilder: ArrowArrayBuilder<StructBufferBuilder, StructArray> {
+    let builders: [any ArrowArrayHolderBuilder]
+    let fields: [ArrowField]
+    public init(_ fields: [ArrowField], builders: [any ArrowArrayHolderBuilder]) throws {
+        self.fields = fields
+        self.builders = builders
+        try super.init(ArrowNestedType(ArrowType.ArrowStruct, fields: fields))
+        self.bufferBuilder.initializeTypeInfo(fields)
+    }
+
+    public init(_ fields: [ArrowField]) throws {
+        self.fields = fields
+        var builders = [any ArrowArrayHolderBuilder]()
+        for field in fields {
+            builders.append(try ArrowArrayBuilders.loadBuilder(arrowType: field.type))
+        }
+
+        self.builders = builders
+        try super.init(ArrowNestedType(ArrowType.ArrowStruct, fields: fields))
+    }
+
+    public override func append(_ values: [Any?]?) {
+        self.bufferBuilder.append(values)
+        if let anyValues = values {
+            for index in 0..<builders.count {
+                self.builders[index].appendAny(anyValues[index])
+            }
+        } else {
+            for index in 0..<builders.count {
+                self.builders[index].appendAny(nil)
+            }
+        }
+    }
+
+    public override func finish() throws -> StructArray {
+        let buffers = self.bufferBuilder.finish()
+        var childData = [ArrowData]()
+        for builder in self.builders {
+            childData.append(try builder.toHolder().array.arrowData)
+        }
+
+        let arrowData = try ArrowData(self.type, buffers: buffers,
+                                      children: childData, nullCount: self.nullCount,
+                                      length: self.length)
+        let structArray = try StructArray(arrowData)
+        return structArray
+    }
+}
+
 public class ArrowArrayBuilders {
     public static func loadBuilder( // swiftlint:disable:this cyclomatic_complexity
         _ builderType: Any.Type) throws -> ArrowArrayHolderBuilder {
@@ -166,6 +216,72 @@ public class ArrowArrayBuilders {
             type == UInt32.self || type == UInt64.self ||
             type == String.self || type == Double.self ||
             type == Float.self || type == Date.self
+    }
+
+    public static func loadStructArrayBuilderForType<T>(_ obj: T) throws -> StructArrayBuilder {
+        let mirror = Mirror(reflecting: obj)
+        var builders = [ArrowArrayHolderBuilder]()
+        var fields = [ArrowField]()
+        for (property, value) in mirror.children {
+            guard let propertyName = property else {
+                continue
+            }
+
+            let builderType = type(of: value)
+            let arrowType = ArrowType(ArrowType.infoForType(builderType))
+            fields.append(ArrowField(propertyName, type: arrowType, isNullable: true))
+            builders.append(try loadBuilder(arrowType: arrowType))
+        }
+
+        return try StructArrayBuilder(fields, builders: builders)
+    }
+
+    public static func loadBuilder( // swiftlint:disable:this cyclomatic_complexity
+        arrowType: ArrowType) throws -> ArrowArrayHolderBuilder {
+        switch arrowType.id {
+        case .uint8:
+            return try loadNumberArrayBuilder() as NumberArrayBuilder<UInt8>
+        case .uint16:
+            return try loadNumberArrayBuilder() as NumberArrayBuilder<UInt16>
+        case .uint32:
+            return try loadNumberArrayBuilder() as NumberArrayBuilder<UInt32>
+        case .uint64:
+            return try loadNumberArrayBuilder() as NumberArrayBuilder<UInt64>
+        case .int8:
+            return try loadNumberArrayBuilder() as NumberArrayBuilder<Int8>
+        case .int16:
+            return try loadNumberArrayBuilder() as NumberArrayBuilder<Int16>
+        case .int32:
+            return try loadNumberArrayBuilder() as NumberArrayBuilder<Int32>
+        case .int64:
+            return try loadNumberArrayBuilder() as NumberArrayBuilder<Int64>
+        case .double:
+            return try loadNumberArrayBuilder() as NumberArrayBuilder<Double>
+        case .float:
+            return try loadNumberArrayBuilder() as NumberArrayBuilder<Float>
+        case .string:
+            return try StringArrayBuilder()
+        case .boolean:
+            return try BoolArrayBuilder()
+        case .binary:
+            return try BinaryArrayBuilder()
+        case .date32:
+            return try Date32ArrayBuilder()
+        case .date64:
+            return try Date64ArrayBuilder()
+        case .time32:
+            guard let timeType = arrowType as? ArrowTypeTime32 else {
+                throw ArrowError.invalid("Expected arrow type for \(arrowType.id) not found")
+            }
+            return try Time32ArrayBuilder(timeType.unit)
+        case .time64:
+            guard let timeType = arrowType as? ArrowTypeTime64 else {
+                throw ArrowError.invalid("Expected arrow type for \(arrowType.id) not found")
+            }
+            return try Time64ArrayBuilder(timeType.unit)
+        default:
+            throw ArrowError.unknownType("Builder not found for arrow type: \(arrowType.id)")
+        }
     }
 
     public static func loadNumberArrayBuilder<T>() throws -> NumberArrayBuilder<T> {

@@ -40,7 +40,6 @@ export default packageTask;
 
 const createMainPackageJson = (target, format) => (orig) => ({
     ...createTypeScriptPackageJson(target, format)(orig),
-    bin: orig.bin,
     name: npmPkgName,
     type: 'commonjs',
     main: `${mainExport}.node.js`,
@@ -90,7 +89,6 @@ const createMainPackageJson = (target, format) => (orig) => ({
 
 const createTypeScriptPackageJson = (target, format) => (orig) => ({
     ...createScopedPackageJSON(target, format)(orig),
-    bin: undefined,
     main: `${mainExport}.node.ts`,
     module: `${mainExport}.node.ts`,
     types: `${mainExport}.node.ts`,
@@ -108,6 +106,9 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
     packageJSONFields.reduce(
         (xs, key) => ({ ...xs, [key]: xs[key] || orig[key] }),
         {
+            bin: Object.entries(orig.bin).reduce((xs, [key, val]) => ({
+                ...xs, [key]: val.replace('.cjs', '.js')
+            }), {}),
             // un-set version, since it's automatically applied during the release process
             version: undefined,
             // set the scoped package name (e.g. "@apache-arrow/esnext-esm")
@@ -120,11 +121,11 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             // set "main" to "Arrow" if building scoped UMD target, otherwise "Arrow.node"
             main:     format === 'umd' ? `${mainExport}.js` : `${mainExport}.node.js`,
             // set "type" to `module` or `commonjs` (https://nodejs.org/api/packages.html#packages_type)
-            type:     format === 'esm' ? `module` : `commonjs`,
+            type:     format === 'esm' || format === 'cls' ? `module` : `commonjs`,
             // set "module" if building scoped ESM target
-            module:   format === 'esm' ? `${mainExport}.node.js` : undefined,
+            module:   format === 'esm' || format === 'cls' ? `${mainExport}.node.js` : undefined,
             // set "sideEffects" to false as a hint to Webpack that it's safe to tree-shake the ESM target
-            sideEffects: format === 'esm' ? false : undefined,
+            sideEffects: format === 'esm' || format === 'cls' ? false : undefined,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target
             esm:      format === `esm` ? { mode: `auto`, sourceMap: true } : undefined,
             // set "types" to "Arrow.dom" if building scoped UMD target, otherwise "Arrow.node"

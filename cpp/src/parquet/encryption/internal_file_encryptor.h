@@ -43,8 +43,10 @@ class PARQUET_EXPORT Encryptor {
   void UpdateAad(const std::string& aad) { aad_ = aad; }
   ::arrow::MemoryPool* pool() { return pool_; }
 
-  int CiphertextSizeDelta();
-  int Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* ciphertext);
+  [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const;
+
+  int32_t Encrypt(::arrow::util::span<const uint8_t> plaintext,
+                  ::arrow::util::span<uint8_t> ciphertext);
 
   bool EncryptColumnMetaData(
       bool encrypted_footer,
@@ -86,8 +88,6 @@ class InternalFileEncryptor {
   std::shared_ptr<Encryptor> footer_signing_encryptor_;
   std::shared_ptr<Encryptor> footer_encryptor_;
 
-  std::vector<encryption::AesEncryptor*> all_encryptors_;
-
   // Key must be 16, 24 or 32 bytes in length. Thus there could be up to three
   // types of meta_encryptors and data_encryptors.
   std::unique_ptr<encryption::AesEncryptor> meta_encryptor_[3];
@@ -103,7 +103,7 @@ class InternalFileEncryptor {
   encryption::AesEncryptor* GetDataAesEncryptor(ParquetCipher::type algorithm,
                                                 size_t key_len);
 
-  int MapKeyLenToEncryptorArrayIndex(int key_len);
+  int MapKeyLenToEncryptorArrayIndex(int32_t key_len) const;
 };
 
 }  // namespace parquet

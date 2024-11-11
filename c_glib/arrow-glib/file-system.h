@@ -337,4 +337,16 @@ struct _GArrowGCSFileSystemClass
   GArrowFileSystemClass parent_class;
 };
 
+#define GARROW_TYPE_AZURE_FILE_SYSTEM (garrow_azure_file_system_get_type())
+GARROW_AVAILABLE_IN_18_0
+G_DECLARE_DERIVABLE_TYPE(GArrowAzureFileSystem,
+                         garrow_azure_file_system,
+                         GARROW,
+                         AZURE_FILE_SYSTEM,
+                         GArrowFileSystem)
+struct _GArrowAzureFileSystemClass
+{
+  GArrowFileSystemClass parent_class;
+};
+
 G_END_DECLS

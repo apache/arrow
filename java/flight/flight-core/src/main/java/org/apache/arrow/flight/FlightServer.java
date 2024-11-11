@@ -188,6 +188,7 @@ public class FlightServer implements AutoCloseable {
     private CallHeaderAuthenticator headerAuthenticator = CallHeaderAuthenticator.NO_OP;
     private ExecutorService executor = null;
     private int maxInboundMessageSize = MAX_GRPC_MESSAGE_SIZE;
+    private int maxHeaderListSize = MAX_GRPC_MESSAGE_SIZE;
     private int backpressureThreshold = DEFAULT_BACKPRESSURE_THRESHOLD;
     private InputStream certChain;
     private InputStream key;
@@ -324,6 +325,7 @@ public class FlightServer implements AutoCloseable {
       builder
           .executor(exec)
           .maxInboundMessageSize(maxInboundMessageSize)
+          .maxInboundMetadataSize(maxHeaderListSize)
           .addService(
               ServerInterceptors.intercept(
                   flightService,
@@ -364,6 +366,11 @@ public class FlightServer implements AutoCloseable {
 
       builder.intercept(new ServerInterceptorAdapter(interceptors));
       return new FlightServer(location, builder.build(), grpcExecutor);
+    }
+
+    public Builder setMaxHeaderListSize(int maxHeaderListSize) {
+      this.maxHeaderListSize = maxHeaderListSize;
+      return this;
     }
 
     /**

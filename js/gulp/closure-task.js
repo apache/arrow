@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { targetDir, mainExport, esmRequire, gCCLanguageNames, publicModulePaths, observableFromStreams, shouldRunInChildProcess, spawnGulpCommandInChildProcess } from "./util.js";
+import { targetDir, mainExport, gCCLanguageNames, publicModulePaths, observableFromStreams, shouldRunInChildProcess, spawnGulpCommandInChildProcess } from "./util.js";
 
 import fs from 'node:fs';
 import gulp from 'gulp';
@@ -48,12 +48,13 @@ export const closureTask = ((cache) => memoizeTask(cache, async function closure
     const externs = Path.join(`${out}/${mainExport}.externs.js`);
     const entry_point = Path.join(`${src}/${mainExport}.dom.cls.js`);
 
-    const exportedImports = publicModulePaths(srcAbsolute).reduce((entries, publicModulePath) => [
-        ...entries, {
+    const exportedImports = [];
+    for (const publicModulePath of publicModulePaths(srcAbsolute)) {
+        exportedImports.push({
             publicModulePath,
-            exports_: getPublicExportedNames(esmRequire(publicModulePath))
-        }
-    ], []);
+            exports_: getPublicExportedNames(await import(`file://${publicModulePath}`))
+        });
+    }
 
     await mkdirp(out);
 

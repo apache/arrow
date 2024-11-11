@@ -17,6 +17,7 @@
 
 import contextlib
 import os
+import platform
 import signal
 import subprocess
 import sys
@@ -26,10 +27,11 @@ import pyarrow as pa
 
 import pytest
 
+pytestmark = pytest.mark.processes
 
 possible_backends = ["system", "jemalloc", "mimalloc"]
 
-should_have_jemalloc = sys.platform == "linux"
+should_have_jemalloc = (sys.platform == "linux" and platform.machine() == 'x86_64')
 should_have_mimalloc = sys.platform == "win32"
 
 

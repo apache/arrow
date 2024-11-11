@@ -34,11 +34,13 @@ import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class FilterProjectTest extends BaseEvaluatorTest {
 
   @Test
+  @Disabled("GH-43576 - Fix and enable this test")
   public void testSimpleSV16() throws GandivaException, Exception {
     Field a = Field.nullable("a", int32);
     Field b = Field.nullable("b", int32);

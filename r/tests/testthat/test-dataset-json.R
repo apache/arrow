@@ -40,7 +40,7 @@ test_that("JSON dataset", {
 
   expect_r6_class(ds$format, "JsonFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
-  expect_identical(names(ds), c(names(df1), "part"))
+  expect_named(ds, c(names(df1), "part"))
   expect_identical(dim(ds), c(20L, 7L))
 
   expect_equal(

@@ -45,6 +45,10 @@ public class ActionType {
     return type;
   }
 
+  public String getDescription() {
+    return description;
+  }
+
   /** Converts the POJO to the corresponding protocol buffer type. */
   Flight.ActionType toProtocol() {
     return Flight.ActionType.newBuilder().setType(type).setDescription(description).build();

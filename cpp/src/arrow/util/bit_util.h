@@ -18,18 +18,17 @@
 #pragma once
 
 #if defined(_MSC_VER)
-#if defined(_M_AMD64) || defined(_M_X64)
-#include <intrin.h>  // IWYU pragma: keep
-#include <nmmintrin.h>
-#endif
+#  if defined(_M_AMD64) || defined(_M_X64)
+#    include <intrin.h>  // IWYU pragma: keep
+#  endif
 
-#pragma intrinsic(_BitScanReverse)
-#pragma intrinsic(_BitScanForward)
-#define ARROW_POPCOUNT64 __popcnt64
-#define ARROW_POPCOUNT32 __popcnt
+#  pragma intrinsic(_BitScanReverse)
+#  pragma intrinsic(_BitScanForward)
+#  define ARROW_POPCOUNT64 __popcnt64
+#  define ARROW_POPCOUNT32 __popcnt
 #else
-#define ARROW_POPCOUNT64 __builtin_popcountll
-#define ARROW_POPCOUNT32 __builtin_popcount
+#  define ARROW_POPCOUNT64 __builtin_popcountll
+#  define ARROW_POPCOUNT32 __builtin_popcount
 #endif
 
 #include <cstdint>

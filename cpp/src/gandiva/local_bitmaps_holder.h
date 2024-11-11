@@ -40,7 +40,7 @@ class LocalBitMapsHolder {
   uint8_t** GetLocalBitMapArray() const { return local_bitmaps_array_.get(); }
 
   uint8_t* GetLocalBitMap(int idx) const {
-    DCHECK(idx <= GetNumLocalBitMaps());
+    ARROW_DCHECK(idx <= GetNumLocalBitMaps());
     return local_bitmaps_array_.get()[idx];
   }
 

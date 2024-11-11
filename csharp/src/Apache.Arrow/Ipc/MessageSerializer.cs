@@ -142,6 +142,10 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Decimal decMeta = field.Type<Flatbuf.Decimal>().Value;
                     switch (decMeta.BitWidth)
                     {
+                        case 32:
+                            return new Types.Decimal32Type(decMeta.Precision, decMeta.Scale);
+                        case 64:
+                            return new Types.Decimal64Type(decMeta.Precision, decMeta.Scale);
                         case 128:
                             return new Types.Decimal128Type(decMeta.Precision, decMeta.Scale);
                         case 256:
@@ -186,6 +190,8 @@ namespace Apache.Arrow.Ipc
                     return Types.StringType.Default;
                 case Flatbuf.Type.Utf8View:
                     return Types.StringViewType.Default;
+                case Flatbuf.Type.LargeUtf8:
+                    return Types.LargeStringType.Default;
                 case Flatbuf.Type.FixedSizeBinary:
                     Flatbuf.FixedSizeBinary fixedSizeBinaryMetadata = field.Type<Flatbuf.FixedSizeBinary>().Value;
                     return new Types.FixedSizeBinaryType(fixedSizeBinaryMetadata.ByteWidth);
@@ -193,6 +199,8 @@ namespace Apache.Arrow.Ipc
                     return Types.BinaryType.Default;
                 case Flatbuf.Type.BinaryView:
                     return Types.BinaryViewType.Default;
+                case Flatbuf.Type.LargeBinary:
+                    return Types.LargeBinaryType.Default;
                 case Flatbuf.Type.List:
                     if (childFields == null || childFields.Length != 1)
                     {
@@ -205,6 +213,12 @@ namespace Apache.Arrow.Ipc
                         throw new InvalidDataException($"List view type must have exactly one child.");
                     }
                     return new Types.ListViewType(childFields[0]);
+                case Flatbuf.Type.LargeList:
+                    if (childFields == null || childFields.Length != 1)
+                    {
+                        throw new InvalidDataException($"Large list type must have exactly one child.");
+                    }
+                    return new Types.LargeListType(childFields[0]);
                 case Flatbuf.Type.FixedSizeList:
                     if (childFields == null || childFields.Length != 1)
                     {

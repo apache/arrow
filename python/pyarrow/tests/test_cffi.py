@@ -492,7 +492,7 @@ def test_export_import_exception_reader():
     original._export_to_c(ptr_stream)
 
     reader = pa.RecordBatchReader._import_from_c(ptr_stream)
-    with pytest.raises(OSError) as exc_info:
+    with pytest.raises(NotImplementedError) as exc_info:
         reader.read_next_batch()
 
     # inner *and* outer exception should be present
@@ -749,6 +749,7 @@ def test_roundtrip_chunked_array_capsule_requested_schema():
         chunked.__arrow_c_stream__(requested_capsule)
 
 
+@needs_cffi
 def test_import_device_no_cuda():
     try:
         import pyarrow.cuda  # noqa

@@ -177,6 +177,16 @@ struct ARROW_EXPORT S3Options {
   /// to be true to address these scenarios.
   bool check_directory_existence_before_creation = false;
 
+  /// Whether to allow file-open methods to return before the actual open.
+  ///
+  /// Enabling this may reduce the latency of `OpenInputStream`, `OpenOutputStream`,
+  /// and similar methods, by reducing the number of roundtrips necessary. It may also
+  /// allow usage of more efficient S3 APIs for small files.
+  /// The downside is that failure conditions such as attempting to open a file in a
+  /// non-existing bucket will only be reported when actual I/O is done (at worse,
+  /// when attempting to close the file).
+  bool allow_delayed_open = false;
+
   /// \brief Default metadata for OpenOutputStream.
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
@@ -185,6 +195,37 @@ struct ARROW_EXPORT S3Options {
   /// Optional retry strategy to determine which error types should be retried, and the
   /// delay between retries.
   std::shared_ptr<S3RetryStrategy> retry_strategy;
+
+  /// Optional customer-provided key for server-side encryption (SSE-C).
+  ///
+  /// This should be the 32-byte AES-256 key, unencoded.
+  std::string sse_customer_key;
+
+  /// Optional path to a single PEM file holding all TLS CA certificates
+  ///
+  /// If empty, global filesystem options will be used (see FileSystemGlobalOptions);
+  /// if the corresponding global filesystem option is also empty, the underlying
+  /// TLS library's defaults will be used.
+  ///
+  /// Note this option may be ignored on some systems (Windows, macOS).
+  std::string tls_ca_file_path;
+
+  /// Optional path to a directory holding TLS CA
+  ///
+  /// The given directory should contain CA certificates as individual PEM files
+  /// named along the OpenSSL "hashed" format.
+  ///
+  /// If empty, global filesystem options will be used (see FileSystemGlobalOptions);
+  /// if the corresponding global filesystem option is also empty, the underlying
+  /// TLS library's defaults will be used.
+  ///
+  /// Note this option may be ignored on some systems (Windows, macOS).
+  std::string tls_ca_dir_path;
+
+  /// Whether to verify the S3 endpoint's TLS certificate
+  ///
+  /// This option applies if the scheme is "https".
+  bool tls_verify_certificates = true;
 
   S3Options();
 

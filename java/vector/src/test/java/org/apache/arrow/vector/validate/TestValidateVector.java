@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -33,6 +34,7 @@ import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
@@ -40,6 +42,7 @@ import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.RunEndEncoded;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.jupiter.api.AfterEach;
@@ -262,6 +265,41 @@ public class TestValidateVector {
       ValidateUtil.ValidateException e =
           assertThrows(ValidateUtil.ValidateException.class, () -> vector.validate());
       assertTrue(e.getMessage().contains("Not enough capacity for fixed width data buffer"));
+    }
+  }
+
+  @Test
+  public void testRunEndEncodedVector() {
+    final FieldType valueType = FieldType.notNullable(Types.MinorType.BIGINT.getType());
+    final FieldType runEndType = FieldType.notNullable(Types.MinorType.INT.getType());
+
+    final Field valueField = new Field("value", valueType, null);
+    final Field runEndField = new Field("ree", runEndType, null);
+
+    try (RunEndEncodedVector vector =
+        new RunEndEncodedVector(
+            new Field(
+                "ree",
+                FieldType.notNullable(RunEndEncoded.INSTANCE),
+                List.of(runEndField, valueField)),
+            allocator,
+            null)) {
+      vector.validate();
+
+      int runCount = 1;
+      vector.allocateNew();
+      ((BigIntVector) vector.getValuesVector()).set(0, 1);
+      ((IntVector) vector.getRunEndsVector()).set(0, 10);
+      vector.getValuesVector().setValueCount(runCount);
+      vector.getRunEndsVector().setValueCount(runCount);
+      vector.setValueCount(10);
+
+      vector.validate();
+
+      vector.getRunEndsVector().setValueCount(0);
+      ValidateUtil.ValidateException e =
+          assertThrows(ValidateUtil.ValidateException.class, () -> vector.validate());
+      assertTrue(e.getMessage().contains("Run end vector does not contain enough elements"));
     }
   }
 

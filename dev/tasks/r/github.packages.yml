@@ -51,7 +51,7 @@ jobs:
           R CMD build --no-build-vignettes .
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-pkg__src__contrib
           path: arrow/r/arrow_*.tar.gz
@@ -106,7 +106,7 @@ jobs:
           cd arrow/r/libarrow/dist
           shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-lib__libarrow__bin__darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}
           path: arrow/r/libarrow/dist/arrow-*.zip*
@@ -140,8 +140,7 @@ jobs:
           UBUNTU: {{ '"${{ matrix.ubuntu }}"' }}
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source arrow/ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e EXTRA_CMAKE_FLAGS="{{ '${{ matrix.extra-cmake-flags }}' }}" \
             {{ '${{ matrix.os }}' }}-cpp-static
@@ -162,7 +161,7 @@ jobs:
           cd arrow/r/libarrow/dist
           shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-lib__libarrow__bin__linux-openssl-{{ '${{ matrix.openssl }}' }}
           path: arrow/r/libarrow/dist/arrow-*.zip*
@@ -195,7 +194,7 @@ jobs:
           cd build
           sha512sum arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-lib__libarrow__bin__windows
           path: build/arrow-*.zip*
@@ -209,7 +208,7 @@ jobs:
       matrix:
         platform:
           - { runs_on: 'windows-latest', name: "Windows"}
-          - { runs_on: macos-12, name: "macOS x86_64"}
+          - { runs_on: macos-13, name: "macOS x86_64"}
           - { runs_on: macos-14, name: "macOS arm64" }
         r_version: [oldrel, release]
     steps:
@@ -292,7 +291,7 @@ jobs:
           cat(cmd, file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-pkg{{ '${{ steps.build.outputs.path }}' }}
           path: arrow_*
@@ -348,7 +347,7 @@ jobs:
           '
       - name: Upload binary artifact
         if: matrix.config.devtoolset
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-pkg_centos7
           path: arrow_*
@@ -360,7 +359,7 @@ jobs:
     runs-on: ubuntu-latest
     container: "rstudio/r-base:4.2-centos7"
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: r-pkg_centos7
       - name: Install DTS Package
@@ -390,7 +389,7 @@ jobs:
       matrix:
         platform:
           - {runs_on: "ubuntu-latest", name: "Linux"}
-          - {runs_on: "macos-12" , name: "macOS"}
+          - {runs_on: "macos-13" , name: "macOS"}
     steps:
       - name: Install R
         uses: r-lib/actions/setup-r@v2
@@ -442,7 +441,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Download Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
       - name: Install R

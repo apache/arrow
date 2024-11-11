@@ -64,6 +64,25 @@ void PrintPageEncodingStats(std::ostream& stream,
 // the fixed initial size is just for an example
 #define COL_WIDTH 30
 
+void PutChars(std::ostream& stream, char c, int n) {
+  for (int i = 0; i < n; ++i) {
+    stream.put(c);
+  }
+}
+
+void PrintKeyValueMetadata(std::ostream& stream,
+                           const KeyValueMetadata& key_value_metadata,
+                           int indent_level = 0, int indent_width = 1) {
+  const int64_t size_of_key_value_metadata = key_value_metadata.size();
+  PutChars(stream, ' ', indent_level * indent_width);
+  stream << "Key Value Metadata: " << size_of_key_value_metadata << " entries\n";
+  for (int64_t i = 0; i < size_of_key_value_metadata; i++) {
+    PutChars(stream, ' ', (indent_level + 1) * indent_width);
+    stream << "Key nr " << i << " " << key_value_metadata.key(i) << ": "
+           << key_value_metadata.value(i) << "\n";
+  }
+}
+
 void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selected_columns,
                                     bool print_values, bool format_dump,
                                     bool print_key_value_metadata, const char* filename) {
@@ -76,12 +95,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
 
   if (print_key_value_metadata && file_metadata->key_value_metadata()) {
     auto key_value_metadata = file_metadata->key_value_metadata();
-    int64_t size_of_key_value_metadata = key_value_metadata->size();
-    stream << "Key Value File Metadata: " << size_of_key_value_metadata << " entries\n";
-    for (int64_t i = 0; i < size_of_key_value_metadata; i++) {
-      stream << " Key nr " << i << " " << key_value_metadata->key(i) << ": "
-             << key_value_metadata->value(i) << "\n";
-    }
+    PrintKeyValueMetadata(stream, *key_value_metadata);
   }
 
   stream << "Number of RowGroups: " << file_metadata->num_row_groups() << "\n";
@@ -128,6 +142,15 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     stream << "--- Total Bytes: " << group_metadata->total_byte_size() << " ---\n";
     stream << "--- Total Compressed Bytes: " << group_metadata->total_compressed_size()
            << " ---\n";
+    auto sorting_columns = group_metadata->sorting_columns();
+    if (!sorting_columns.empty()) {
+      stream << "--- Sort Columns:\n";
+      for (auto column : sorting_columns) {
+        stream << "column_idx: " << column.column_idx
+               << ", descending: " << column.descending
+               << ", nulls_first: " << column.nulls_first << "\n";
+      }
+    }
     stream << "--- Rows: " << group_metadata->num_rows() << " ---\n";
 
     // Print column metadata
@@ -136,7 +159,11 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
       std::shared_ptr<Statistics> stats = column_chunk->statistics();
 
       const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
-      stream << "Column " << i << std::endl << "  Values: " << column_chunk->num_values();
+      stream << "Column " << i << std::endl;
+      if (print_key_value_metadata && column_chunk->key_value_metadata()) {
+        PrintKeyValueMetadata(stream, *column_chunk->key_value_metadata(), 1, 2);
+      }
+      stream << "  Values: " << column_chunk->num_values();
       if (column_chunk->is_stats_set()) {
         std::string min = stats->EncodeMin(), max = stats->EncodeMax();
         stream << ", Null Values: " << stats->null_count()
@@ -202,7 +229,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     bool hasRow;
     do {
       hasRow = false;
-      for (auto scanner : scanners) {
+      for (const auto& scanner : scanners) {
         if (scanner->HasNext()) {
           hasRow = true;
           scanner->PrintNext(stream, COL_WIDTH);
@@ -228,7 +255,7 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
          << file_metadata->schema()->group_node()->field_count() << "\",\n";
   stream << "  \"NumberOfColumns\": \"" << file_metadata->num_columns() << "\",\n";
 
-  if (selected_columns.size() == 0) {
+  if (selected_columns.empty()) {
     for (int i = 0; i < file_metadata->num_columns(); i++) {
       selected_columns.push_back(i);
     }
@@ -267,6 +294,21 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
     stream << " \"TotalBytes\": \"" << group_metadata->total_byte_size() << "\", ";
     stream << " \"TotalCompressedBytes\": \"" << group_metadata->total_compressed_size()
            << "\", ";
+    auto row_group_sorting_columns = group_metadata->sorting_columns();
+    if (!row_group_sorting_columns.empty()) {
+      stream << " \"SortColumns\": [\n";
+      for (size_t i = 0; i < row_group_sorting_columns.size(); i++) {
+        stream << "         {\"column_idx\": " << row_group_sorting_columns[i].column_idx
+               << ", \"descending\": " << row_group_sorting_columns[i].descending
+               << ", \"nulls_first\": " << row_group_sorting_columns[i].nulls_first
+               << "}";
+        if (i + 1 != row_group_sorting_columns.size()) {
+          stream << ",";
+        }
+        stream << '\n';
+      }
+      stream << "       ], ";
+    }
     stream << " \"Rows\": \"" << group_metadata->num_rows() << "\",\n";
 
     // Print column metadata
@@ -281,29 +323,30 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
              << column_chunk->num_values() << "\", "
              << "\"StatsSet\": ";
       if (column_chunk->is_stats_set()) {
-        stream << "\"True\", \"Stats\": {";
+        stream << R"("True", "Stats": {)";
         if (stats->HasNullCount()) {
-          stream << "\"NumNulls\": \"" << stats->null_count();
+          stream << R"("NumNulls": ")" << stats->null_count() << "\"";
         }
         if (stats->HasDistinctCount()) {
-          stream << "\", "
-                 << "\"DistinctValues\": \"" << stats->distinct_count();
+          stream << ", "
+                 << R"("DistinctValues": ")" << stats->distinct_count() << "\"";
         }
         if (stats->HasMinMax()) {
           std::string min = stats->EncodeMin(), max = stats->EncodeMax();
-          stream << "\", "
-                 << "\"Max\": \"" << FormatStatValue(descr->physical_type(), max)
+          stream << ", "
+                 << R"("Max": ")" << FormatStatValue(descr->physical_type(), max)
                  << "\", "
-                 << "\"Min\": \"" << FormatStatValue(descr->physical_type(), min);
+                 << R"("Min": ")" << FormatStatValue(descr->physical_type(), min) << "\"";
         }
-        stream << "\" },";
+        stream << " },";
       } else {
         stream << "\"False\",";
       }
       stream << "\n           \"Compression\": \""
              << ::arrow::internal::AsciiToUpper(
                     Codec::GetCodecAsString(column_chunk->compression()))
-             << "\", \"Encodings\": \"";
+             << R"(", "Encodings": )";
+      stream << "\"";
       if (column_chunk->encoding_stats().empty()) {
         for (auto encoding : column_chunk->encodings()) {
           stream << EncodingToString(encoding) << " ";
@@ -311,40 +354,43 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
       } else {
         PrintPageEncodingStats(stream, column_chunk->encoding_stats());
       }
-      stream << "\", "
-             << "\"UncompressedSize\": \"" << column_chunk->total_uncompressed_size()
-             << "\", \"CompressedSize\": \"" << column_chunk->total_compressed_size();
+      stream << "\"";
+      stream << ", "
+             << R"("UncompressedSize": ")" << column_chunk->total_uncompressed_size()
+             << R"(", "CompressedSize": ")" << column_chunk->total_compressed_size()
+             << "\"";
 
       if (column_chunk->bloom_filter_offset()) {
         // Output BloomFilter {offset, length}
-        stream << "\", BloomFilter {"
-               << "\"offset\": \"" << column_chunk->bloom_filter_offset().value();
+        stream << ", \"BloomFilter\": {"
+               << R"("offset": ")" << column_chunk->bloom_filter_offset().value() << "\"";
         if (column_chunk->bloom_filter_length()) {
-          stream << "\", \"length\": \"" << column_chunk->bloom_filter_length().value();
+          stream << R"(, "length": ")" << column_chunk->bloom_filter_length().value()
+                 << "\"";
         }
-        stream << "\"}";
+        stream << "}";
       }
 
       if (column_chunk->GetColumnIndexLocation()) {
         auto location = column_chunk->GetColumnIndexLocation().value();
         // Output ColumnIndex {offset, length}
-        stream << "\", ColumnIndex {"
-               << "\"offset\": \"" << location.offset;
-        stream << "\", \"length\": \"" << location.length;
+        stream << ", \"ColumnIndex\": {"
+               << R"("offset": ")" << location.offset;
+        stream << R"(", "length": ")" << location.length;
         stream << "\"}";
       }
 
       if (column_chunk->GetOffsetIndexLocation()) {
         auto location = column_chunk->GetOffsetIndexLocation().value();
         // Output OffsetIndex {offset, length}
-        stream << "\", OffsetIndex {"
-               << "\"offset\": \"" << location.offset;
-        stream << "\", \"length\": \"" << location.length;
-        stream << "\"}";
+        stream << ", \"OffsetIndex\": {"
+               << R"("offset": ")" << location.offset << "\"";
+        stream << R"(, "length": ")" << location.length << "\"";
+        stream << "}";
       }
 
       // end of a ColumnChunk
-      stream << "\" }";
+      stream << " }";
       c1++;
       if (c1 != static_cast<int>(selected_columns.size())) {
         stream << ",\n";

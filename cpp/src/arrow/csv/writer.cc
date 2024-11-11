@@ -32,7 +32,7 @@
 #include <memory>
 
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-#include <xsimd/xsimd.hpp>
+#  include <xsimd/xsimd.hpp>
 #endif
 
 namespace arrow {

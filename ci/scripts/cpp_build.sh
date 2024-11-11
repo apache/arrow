@@ -30,11 +30,17 @@ if [ -x "$(command -v git)" ]; then
 fi
 
 # TODO(kszucs): consider to move these to CMake
-if [ ! -z "${CONDA_PREFIX}" ]; then
+if [ ! -z "${CONDA_PREFIX}" ] && [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ]; then
   echo -e "===\n=== Conda environment for build\n==="
   conda list
 
-  export ARROW_CMAKE_ARGS="${ARROW_CMAKE_ARGS} -DCMAKE_AR=${AR} -DCMAKE_RANLIB=${RANLIB}"
+  if [ -n "${AR}" ]; then
+    ARROW_CMAKE_ARGS+=" -DCMAKE_AR=${AR}"
+  fi
+  if [ -n "${RANLIB}" ]; then
+    ARROW_CMAKE_ARGS+=" -DCMAKE_RANLIB=${RANLIB}"
+  fi
+  export ARROW_CMAKE_ARGS
   export ARROW_GANDIVA_PC_CXX_FLAGS=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
 elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
@@ -99,6 +105,10 @@ if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   fi
   n_jobs=2 # Emscripten build fails on docker unless this is set really low
   source ~/emsdk/emsdk_env.sh
+  export CMAKE_INSTALL_PREFIX=$(em-config CACHE)/sysroot
+  # conda sets LDFLAGS / CFLAGS etc. which break
+  # emcmake so we unset them
+  unset LDFLAGS CFLAGS CXXFLAGS CPPFLAGS
   emcmake cmake \
     --preset=ninja-${ARROW_BUILD_TYPE:-debug}-emscripten \
     -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE:-OFF} \

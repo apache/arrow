@@ -28,10 +28,10 @@
 #include "arrow/buffer.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
-#include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/rle_encoding.h"
+#include "arrow/util/rle_encoding_internal.h"
 
 namespace arrow {
 namespace util {

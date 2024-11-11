@@ -57,14 +57,19 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<MonthDayNanosecondIntervalArray>,
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<ListViewArray>,
+            IArrowArrayVisitor<LargeListArray>,
             IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<StringViewArray>,
+            IArrowArrayVisitor<LargeStringArray>,
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<BinaryViewArray>,
+            IArrowArrayVisitor<LargeBinaryArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<UnionArray>,
+            IArrowArrayVisitor<Decimal32Array>,
+            IArrowArrayVisitor<Decimal64Array>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
             IArrowArrayVisitor<DictionaryArray>,
@@ -199,6 +204,28 @@ namespace Apache.Arrow.Ipc
                 VisitArray(values);
             }
 
+            public void Visit(LargeListArray array)
+            {
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateBuffer(GetZeroBasedLongValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length)));
+
+                int valuesOffset = 0;
+                int valuesLength = 0;
+                if (array.Length > 0)
+                {
+                    valuesOffset = checked((int)array.ValueOffsets[0]);
+                    valuesLength = checked((int)array.ValueOffsets[array.Length] - valuesOffset);
+                }
+
+                var values = array.Values;
+                if (valuesOffset > 0 || valuesLength < values.Length)
+                {
+                    values = ArrowArrayFactory.Slice(values, valuesOffset, valuesLength);
+                }
+
+                VisitArray(values);
+            }
+
             public void Visit(FixedSizeListArray array)
             {
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
@@ -213,6 +240,8 @@ namespace Apache.Arrow.Ipc
             public void Visit(StringArray array) => Visit(array as BinaryArray);
 
             public void Visit(StringViewArray array) => Visit(array as BinaryViewArray);
+
+            public void Visit(LargeStringArray array) => Visit(array as LargeBinaryArray);
 
             public void Visit(BinaryArray array)
             {
@@ -242,12 +271,32 @@ namespace Apache.Arrow.Ipc
                 VariadicCounts.Add(array.DataBufferCount);
             }
 
+            public void Visit(LargeBinaryArray array)
+            {
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateBuffer(GetZeroBasedLongValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length)));
+
+                int valuesOffset = 0;
+                int valuesLength = 0;
+                if (array.Length > 0)
+                {
+                    valuesOffset = checked((int)array.ValueOffsets[0]);
+                    valuesLength = checked((int)array.ValueOffsets[array.Length]) - valuesOffset;
+                }
+
+                _buffers.Add(CreateSlicedBuffer<byte>(array.ValueBuffer, valuesOffset, valuesLength));
+            }
+
             public void Visit(FixedSizeBinaryArray array)
             {
                 var itemSize = ((FixedSizeBinaryType)array.Data.DataType).ByteWidth;
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
                 _buffers.Add(CreateSlicedBuffer(array.ValueBuffer, itemSize, array.Offset, array.Length));
             }
+
+            public void Visit(Decimal32Array array) => Visit(array as FixedSizeBinaryArray);
+
+            public void Visit(Decimal64Array array) => Visit(array as FixedSizeBinaryArray);
 
             public void Visit(Decimal128Array array) => Visit(array as FixedSizeBinaryArray);
 
@@ -306,6 +355,39 @@ namespace Apache.Arrow.Ipc
 
                     var newValueOffsetsBuffer = _allocator.Allocate(requiredBytes);
                     var newValueOffsets = newValueOffsetsBuffer.Memory.Span.CastTo<int>();
+
+                    for (int i = 0; i < arrayLength + 1; ++i)
+                    {
+                        newValueOffsets[i] = originalOffsets[i] - firstOffset;
+                    }
+
+                    return new ArrowBuffer(newValueOffsetsBuffer);
+                }
+                else if (valueOffsetsBuffer.Length > requiredBytes)
+                {
+                    // Array may have been sliced but the offset is zero,
+                    // so we can truncate the existing offsets
+                    return new ArrowBuffer(valueOffsetsBuffer.Memory.Slice(0, requiredBytes));
+                }
+                else
+                {
+                    // Use the full buffer
+                    return valueOffsetsBuffer;
+                }
+            }
+
+            private ArrowBuffer GetZeroBasedLongValueOffsets(ArrowBuffer valueOffsetsBuffer, int arrayOffset, int arrayLength)
+            {
+                var requiredBytes = CalculatePaddedBufferLength(checked(sizeof(long) * (arrayLength + 1)));
+
+                if (arrayOffset != 0)
+                {
+                    // Array has been sliced, so we need to shift and adjust the offsets
+                    var originalOffsets = valueOffsetsBuffer.Span.CastTo<long>().Slice(arrayOffset, arrayLength + 1);
+                    var firstOffset = arrayLength > 0 ? originalOffsets[0] : 0L;
+
+                    var newValueOffsetsBuffer = _allocator.Allocate(requiredBytes);
+                    var newValueOffsets = newValueOffsetsBuffer.Memory.Span.CastTo<long>();
 
                     for (int i = 0; i < arrayLength + 1; ++i)
                     {

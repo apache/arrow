@@ -20,6 +20,7 @@ module org.apache.arrow.adapter.jdbc {
   exports org.apache.arrow.adapter.jdbc;
   exports org.apache.arrow.adapter.jdbc.binder;
 
+  requires com.fasterxml.jackson.annotation;
   requires com.fasterxml.jackson.databind;
   requires java.sql;
   requires jdk.unsupported;

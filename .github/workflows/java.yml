@@ -19,7 +19,13 @@ name: Java
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
+      - '.dockerignore'
       - '.github/workflows/java.yml'
       - 'ci/docker/*java*'
       - 'ci/scripts/java*.sh'
@@ -29,6 +35,7 @@ on:
       - 'java/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/java.yml'
       - 'ci/docker/*java*'
       - 'ci/scripts/java*.sh'
@@ -46,7 +53,6 @@ permissions:
 
 env:
   ARCHERY_DEBUG: 1
-  ARCHERY_USE_DOCKER_CLI: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
@@ -58,7 +64,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        jdk: [8, 11, 17, 21, 22]
+        jdk: [11, 17, 21, 22]
         maven: [3.9.6]
         image: [java]
     env:
@@ -77,9 +83,9 @@ jobs:
           key: maven-${{ hashFiles('java/**') }}
           restore-keys: maven-
       - name: Setup Python
-        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -105,8 +111,8 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: AMD64 macOS 12 Java JDK ${{ matrix.jdk }}
-    runs-on: macos-12
+    name: AMD64 macOS 13 Java JDK ${{ matrix.jdk }}
+    runs-on: macos-13
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 30
     strategy:

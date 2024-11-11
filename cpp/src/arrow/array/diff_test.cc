@@ -707,6 +707,8 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
   }
 
   for (const auto& type : {
+           decimal32(8, 4),
+           decimal64(10, 4),
            decimal128(10, 4),
            decimal256(10, 4),
        }) {
