@@ -138,7 +138,7 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
       continue;
     }
     int num_columns = schema_->num_columns();
-    std::vector<std::optional<IndexLocation>> locations(num_columns, std::nullopt);
+    RowGroupBloomFilterLocation locations;
 
     // serialize bloom filter in ascending order of column id
     for (auto& [column_id, filter] : row_group_bloom_filters) {
@@ -148,6 +148,9 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
       PARQUET_ASSIGN_OR_THROW(int64_t offset, sink->Tell());
       filter->WriteTo(sink);
       PARQUET_ASSIGN_OR_THROW(int64_t pos, sink->Tell());
+      if (pos - offset > std::numeric_limits<int32_t>::max()) {
+        throw ParquetException("Bloom filter is too large to be serialized.");
+      }
       locations[column_id] = IndexLocation{offset, static_cast<int32_t>(pos - offset)};
     }
     location->bloom_filter_location.emplace(row_group_ordinal, std::move(locations));

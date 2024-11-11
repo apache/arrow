@@ -106,6 +106,31 @@ class PARQUET_EXPORT BloomFilter {
   /// @return hash result.
   virtual uint64_t Hash(const FLBA* value, uint32_t len) const = 0;
 
+  // Variant of const reference argument to facilitate template
+
+  /// Compute hash for ByteArray value by using its plain encoding result.
+  ///
+  /// @param value the value to hash.
+  uint64_t Hash(const ByteArray& value) const { return Hash(&value); }
+
+  /// Compute hash for fixed byte array value by using its plain encoding result.
+  ///
+  /// @param value the value to hash.
+  uint64_t Hash(const FLBA& value, uint32_t type_len) const {
+    return Hash(&value, type_len);
+  }
+  /// Compute hash for Int96 value by using its plain encoding result.
+  ///
+  /// @param value the value to hash.
+  uint64_t Hash(const Int96& value) const { return Hash(&value); }
+  /// Compute hash for std::string_view value by using its plain encoding result.
+  ///
+  /// @param value the value to hash.
+  uint64_t Hash(std::string_view value) const {
+    ByteArray ba(value);
+    return Hash(&ba);
+  }
+
   /// Batch compute hashes for 32 bits values by using its plain encoding result.
   ///
   /// @param values values a pointer to the values to hash.
@@ -166,31 +191,6 @@ class PARQUET_EXPORT BloomFilter {
                       uint64_t* hashes) const = 0;
 
   virtual ~BloomFilter() = default;
-
-  // Variant of const reference argument to facilitate template
-
-  /// Compute hash for ByteArray value by using its plain encoding result.
-  ///
-  /// @param value the value to hash.
-  uint64_t Hash(const ByteArray& value) const { return Hash(&value); }
-
-  /// Compute hash for fixed byte array value by using its plain encoding result.
-  ///
-  /// @param value the value to hash.
-  uint64_t Hash(const FLBA& value, uint32_t type_len) const {
-    return Hash(&value, type_len);
-  }
-  /// Compute hash for Int96 value by using its plain encoding result.
-  ///
-  /// @param value the value to hash.
-  uint64_t Hash(const Int96& value) const { return Hash(&value); }
-  /// Compute hash for std::string_view value by using its plain encoding result.
-  ///
-  /// @param value the value to hash.
-  uint64_t Hash(std::string_view value) const {
-    ByteArray ba(value);
-    return Hash(&ba);
-  }
 
  protected:
   // Hash strategy available for Bloom filter.

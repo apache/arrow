@@ -116,9 +116,9 @@ TEST(BloomFilterBuilderTest, BasicRoundTrip) {
   builder->WriteTo(sink.get(), &location);
   EXPECT_EQ(2, location.bloom_filter_location.size());
   for (auto& [row_group_id, row_group_bloom_filter] : location.bloom_filter_location) {
-    EXPECT_EQ(2, row_group_bloom_filter.size());
-    EXPECT_TRUE(row_group_bloom_filter[0].has_value());
-    EXPECT_FALSE(row_group_bloom_filter[1].has_value());
+    EXPECT_EQ(1, row_group_bloom_filter.size());
+    EXPECT_TRUE(row_group_bloom_filter.find(0) != row_group_bloom_filter.end());
+    EXPECT_FALSE(row_group_bloom_filter.find(1) != row_group_bloom_filter.end());
   }
 
   struct RowGroupBloomFilterCase {
@@ -135,10 +135,9 @@ TEST(BloomFilterBuilderTest, BasicRoundTrip) {
       RowGroupBloomFilterCase{/*row_group_id=*/1, /*exists_hashes=*/{300, 400},
                               /*unexists_hashes=*/{100, 200}}};
   for (const auto& c : cases) {
-    int64_t bloom_filter_offset =
-        location.bloom_filter_location[c.row_group_id][0]->offset;
-    int32_t bloom_filter_length =
-        location.bloom_filter_location[c.row_group_id][0]->length;
+    auto& bloom_filter_location = location.bloom_filter_location[c.row_group_id];
+    int64_t bloom_filter_offset = bloom_filter_location[0].offset;
+    int32_t bloom_filter_length = bloom_filter_location[0].length;
 
     ReaderProperties reader_properties;
     ::arrow::io::BufferReader reader(

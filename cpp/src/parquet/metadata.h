@@ -510,14 +510,24 @@ class PARQUET_EXPORT RowGroupMetaDataBuilder {
   std::unique_ptr<RowGroupMetaDataBuilderImpl> impl_;
 };
 
-/// Alias type of page index and bloom filter location of a row group. The index
-/// location is located by column ordinal. If a column does not have a page index
-/// (respectively bloom filter), its value is set to std::nullopt.
+/// Alias type of page index location of a row group. The index location
+/// is located by column ordinal. If a column does not have a page index,
+/// its value is set to std::nullopt.
 using RowGroupIndexLocation = std::vector<std::optional<IndexLocation>>;
 
-/// Alias type of page index and bloom filter location of a parquet file. The
+/// Alias type of bloom filter location of a row group. The filter location
+/// is located by column ordinal. Number of columns with a bloom filter to
+/// be relatively small compared to the number of overall columns, so
+/// map is used.
+using RowGroupBloomFilterLocation = std::map<int32_t, IndexLocation>;
+
+/// Alias type of page index and location of a parquet file. The
 /// index location is located by the row group ordinal.
 using FileIndexLocation = std::map<size_t, RowGroupIndexLocation>;
+
+/// Alias type of bloom filter and location of a parquet file. The
+/// index location is located by the row group ordinal.
+using FileBloomFilterLocation = std::map<size_t, RowGroupBloomFilterLocation>;
 
 /// \brief Public struct for location to all page indexes in a parquet file.
 struct PageIndexLocation {
@@ -533,7 +543,7 @@ struct BloomFilterLocation {
   ///
   /// Note: Before Parquet 2.10, the bloom filter index only have "offset". But here
   /// we use "IndexLocation" with length to support the future extension.
-  FileIndexLocation bloom_filter_location;
+  FileBloomFilterLocation bloom_filter_location;
 };
 
 class PARQUET_EXPORT FileMetaDataBuilder {

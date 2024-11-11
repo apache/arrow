@@ -5491,7 +5491,7 @@ class ParquetPageIndexRoundTripTest : public ::testing::Test,
   void ReadPageIndexes(int expect_num_row_groups, int expect_num_pages,
                        const std::set<int>& expect_columns_without_index = {}) {
     auto read_properties = default_arrow_reader_properties();
-    auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(this->buffer_));
+    auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer_));
 
     auto metadata = reader->metadata();
     ASSERT_EQ(expect_num_row_groups, metadata->num_row_groups());
@@ -5923,10 +5923,10 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
         [5,     null],
         [6,     "f"]
   ])"};
-  auto table = ::arrow::TableFromJSON(schema, contents);
+  auto dict_encoded_table = ::arrow::TableFromJSON(schema, contents);
   // using non_dict_table to adapt some interface which doesn't support dictionary.
-  auto non_dict_table = ::arrow::TableFromJSON(origin_schema, contents);
-  WriteFile(writer_properties, table);
+  auto table = ::arrow::TableFromJSON(origin_schema, contents);
+  WriteFile(writer_properties, dict_encoded_table);
 
   ReadBloomFilters(/*expect_num_row_groups=*/2);
   ASSERT_EQ(4, bloom_filters_.size());
@@ -5939,8 +5939,7 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
       int64_t bloom_filter_idx_another_rg =
           row_group_id == 0 ? bloom_filter_idx + 2 : bloom_filter_idx - 2;
       ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
-      auto col = non_dict_table->column(0)->Slice(current_row,
-                                                  row_group_row_count[row_group_id]);
+      auto col = table->column(0)->Slice(current_row, row_group_row_count[row_group_id]);
       VerifyBloomFilterContains<::arrow::Int64Type>(
           bloom_filters_[bloom_filter_idx].get(), *col);
       VerifyBloomFilterNotContains<::arrow::Int64Type>(
@@ -5951,8 +5950,7 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
       int64_t bloom_filter_idx_another_rg =
           row_group_id == 0 ? bloom_filter_idx + 2 : bloom_filter_idx - 2;
       ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
-      auto col = non_dict_table->column(1)->Slice(current_row,
-                                                  row_group_row_count[row_group_id]);
+      auto col = table->column(1)->Slice(current_row, row_group_row_count[row_group_id]);
       VerifyBloomFilterContains<::arrow::StringType>(
           bloom_filters_[bloom_filter_idx].get(), *col);
       VerifyBloomFilterNotContains<::arrow::StringType>(
