@@ -232,7 +232,7 @@ class DockerCompose(Command):
 
     def pull(self, service_name, pull_leaf=True, ignore_pull_failures=True):
         def _pull(service):
-            args = ['pull']
+            args = ['pull', '--quiet']
             if service['image'] in self.pull_memory:
                 return
 
@@ -427,9 +427,9 @@ class DockerCompose(Command):
     def push(self, service_name, user=None, password=None):
         def _push(service):
             if self.config.using_docker:
-                return self._execute_docker('push', service['image'])
+                return self._execute_docker('push', '--quiet', service['image'])
             else:
-                return self._execute_compose('push', service['name'])
+                return self._execute_compose('push', '--quiet', service['name'])
 
         if user is not None:
             try:
