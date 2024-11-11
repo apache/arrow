@@ -412,7 +412,7 @@ Result<std::shared_ptr<ChunkedArray>> ImportDeviceChunkedArray(
 ///
 /// @{
 
-/// \brief AsyncErrorDetail is a StatusDetail that contains an error code and message
+/// \brief EXPERIMENTAL: AsyncErrorDetail is a StatusDetail that contains an error code and message
 /// from an asynchronous operation.
 class AsyncErrorDetail : public StatusDetail {
  public:
@@ -444,7 +444,7 @@ namespace internal {
 class Executor;
 }
 
-/// \brief Create an AsyncRecordBatchReader and populate a corresponding handler to pass
+/// \brief EXPERIMENTAL: Create an AsyncRecordBatchReader and populate a corresponding handler to pass
 /// to a producer
 ///
 /// The ArrowAsyncDeviceStreamHandler struct is intended to have its callbacks populated
@@ -464,7 +464,7 @@ Future<AsyncRecordBatchGenerator> CreateAsyncDeviceStreamHandler(
     struct ArrowAsyncDeviceStreamHandler* handler, internal::Executor* executor,
     uint64_t queue_size = 5, DeviceMemoryMapper mapper = DefaultDeviceMemoryMapper);
 
-/// \brief Export an AsyncGenerator of record batches using a provided handler
+/// \brief EXPERIMENTAL: Export an AsyncGenerator of record batches using a provided handler
 ///
 /// This function calls the callbacks on the consumer-provided async handler as record
 /// batches become available from the AsyncGenerator which is provided. It will first call
