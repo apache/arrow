@@ -1948,7 +1948,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
             const auto& row_group_bloom_filter_location = iter->second;
             for (auto& [column_id, bloom_filter_location] :
                  row_group_bloom_filter_location) {
-              DCHECK(column_id < row_group_metadata.columns.size());
+              DCHECK_LT(static_cast<size_t>(column_id),
+                        row_group_metadata.columns.size());
               auto& column = row_group_metadata.columns[column_id];
               auto& column_metadata = column.meta_data;
               column_metadata.__set_bloom_filter_offset(bloom_filter_location.offset);

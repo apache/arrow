@@ -145,11 +145,15 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
       if (ARROW_PREDICT_FALSE(filter == nullptr)) {
         throw ParquetException("Bloom filter state is invalid for column ", column_id);
       }
+      if (ARROW_PREDICT_FALSE(column_id < 0 || column_id >= num_columns)) {
+        throw ParquetException("Invalid column ordinal when serailizing: ", column_id);
+      }
       PARQUET_ASSIGN_OR_THROW(int64_t offset, sink->Tell());
       filter->WriteTo(sink);
       PARQUET_ASSIGN_OR_THROW(int64_t pos, sink->Tell());
       if (pos - offset > std::numeric_limits<int32_t>::max()) {
-        throw ParquetException("Bloom filter is too large to be serialized.");
+        throw ParquetException("Bloom filter is too large to be serialized, size: ",
+                               pos - offset);
       }
       locations[column_id] = IndexLocation{offset, static_cast<int32_t>(pos - offset)};
     }
