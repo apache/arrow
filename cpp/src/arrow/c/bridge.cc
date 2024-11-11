@@ -2572,7 +2572,7 @@ class AsyncRecordBatchIterator {
     Status error_{Status::OK()};
   };
 
-  AsyncRecordBatchIterator(uint64_t queue_size, const DeviceMemoryMapper mapper)
+  AsyncRecordBatchIterator(uint64_t queue_size, DeviceMemoryMapper mapper)
       : state_{std::make_shared<State>(queue_size, std::move(mapper))} {}
 
   explicit AsyncRecordBatchIterator(std::shared_ptr<State> state)
