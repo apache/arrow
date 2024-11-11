@@ -842,11 +842,10 @@ TEST(TimestampParser, StrptimeZoneOffset) {
     "2018-01-01 00:00:00+0000",
     "2018-01-01 00:00:00+0100",
 #if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
+// glibc < 2.28 doesn't support "-0117" timezone offset.
+// See also: https://github.com/apache/arrow/issues/43808
 #  if (__GLIBC__ >= 2) && (__GLIBC_MINOR__ >= 28)
     "2018-01-01 00:00:00-0117",
-#  else
-    // glibc < 2.28 doesn't support "-0117" timezone offset.
-    // See also: https://github.com/apache/arrow/issues/43808
 #  endif
 #else
     "2018-01-01 00:00:00-0117",
