@@ -1149,7 +1149,9 @@ class AsofJoinNode : public ExecNode {
   virtual ~AsofJoinNode() {
 #ifdef ARROW_ENABLE_THREADING
     PushProcess(false);
-    process_thread_.join();
+    if (process_thread_.joinable()) {
+      process_thread_.join();
+    }
 #endif
   }
 
