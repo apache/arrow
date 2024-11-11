@@ -2622,7 +2622,7 @@ class AsyncRecordBatchIterator {
       private_data->fut_iterator_.MarkFinished(maybe_schema.status());
       return EINVAL;
     }
-    
+
     private_data->state_->schema_ = maybe_schema.MoveValueUnsafe();
     private_data->fut_iterator_.MarkFinished(private_data->state_);
     self->producer->request(self->producer,
@@ -2783,7 +2783,8 @@ struct AsyncProducer {
   }
 
   static int extract_data(struct ArrowAsyncTask* task, struct ArrowDeviceArray* out) {
-    std::unique_ptr<PrivateTaskData> private_data{reinterpret_cast<PrivateTaskData*>(task->private_data)};
+    std::unique_ptr<PrivateTaskData> private_data{
+        reinterpret_cast<PrivateTaskData*>(task->private_data)};
     int ret = 0;
     if (out != nullptr) {
       auto status = ExportDeviceRecordBatch(*private_data->record_,
@@ -2793,7 +2794,7 @@ struct AsyncProducer {
         private_data->producer_->error_ = status;
       }
     }
-    
+
     return ret;
   }
 
