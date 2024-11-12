@@ -186,9 +186,11 @@ class ARROW_ACERO_EXPORT ExecNode {
   /// input batch that was mapped.
   ///
   /// Other nodes may introduce order.  For example, an order-by node will emit
-  /// a brand new ordering independent of the input ordering.
+  /// a brand new ordering independent of the input ordering.  An assert-order node
+  /// checks rows are in a given order and turns the implicit input ordering into an
+  /// explicit ordering.  Any out-of-order row will fail the assertion.
   ///
-  /// Finally, as described above, such as a hash-join or aggregation may may
+  /// Finally, as described above, such as a hash-join or aggregation may
   /// destroy ordering (although these nodes could also choose to establish a
   /// new ordering based on the hash keys).
   ///
