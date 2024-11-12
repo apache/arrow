@@ -663,6 +663,7 @@ def test_string_view_from_buffers():
     buffers = array.buffers()
     copied = pa.StringViewArray.from_buffers(
         pa.string_view(), len(array), buffers)
+    copied.validate(full=True)
     assert copied.to_pylist() == [
         "String longer than 12 characters",
         None,

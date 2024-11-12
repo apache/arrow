@@ -327,17 +327,17 @@ cdef class DataType(_Weakrefable):
         return self.type.layout().buffers.size()
 
     @property
-    def is_variadic(self):
+    def has_variadic_buffers(self):
         """
-        If is_variadic is True, the number of buffers expected is only
+        If True, the number of expected buffers is only
         lower-bounded by num_buffers.
 
         Examples
         --------
         >>> import pyarrow as pa
-        >>> pa.int64().is_variadic
+        >>> pa.int64().has_variadic_buffers
         False
-        >>> pa.string_view().is_variadic
+        >>> pa.string_view().has_variadic_buffers
         True
         """
         return self.type.layout().variadic_spec.has_value()

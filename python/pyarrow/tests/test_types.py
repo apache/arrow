@@ -887,12 +887,12 @@ def test_types_weakref():
     assert wr() is None  # not a singleton
 
 
-def test_types_is_variadic():
+def test_types_has_variadic_buffers():
     for ty in get_many_types():
         if ty in (pa.string_view(), pa.binary_view()):
-            assert ty.is_variadic
+            assert ty.has_variadic_buffers
         else:
-            assert not ty.is_variadic
+            assert not ty.has_variadic_buffers
 
 
 def test_fields_hashable():
