@@ -1,4 +1,30 @@
 
+# Apache Arrow 18.1.0 (2024-11-11)
+
+## Bug Fixes
+
+* [GH-44360](https://github.com/apache/arrow/issues/44360) - [C#] Fix Flight DoExchange incompatibility with C++ implementation (#44424)
+* [GH-44389](https://github.com/apache/arrow/issues/44389) - [Java][Integration][Release] Use Python 3.12 for verify-rc-source-integration-linux-conda-latest-amd64 (#44395)
+* [GH-44448](https://github.com/apache/arrow/issues/44448) - [C++] Add support for overwriting grpc_cpp_plugin path for cross-compiling (#44507)
+* [GH-44453](https://github.com/apache/arrow/issues/44453) - [Release] Add shebang to `07-matlab-upload.sh` (#44454)
+* [GH-44459](https://github.com/apache/arrow/issues/44459) - [Release][Packaging] Do not check wheel content when verifying binary wheels (#44460)
+* [GH-44461](https://github.com/apache/arrow/issues/44461) - [Release][Packacing][Python] Set PARQUET_TEST_DATA on verify-release-candidate-wheels.bat (#44462)
+* [GH-44506](https://github.com/apache/arrow/issues/44506) - [Docs][C++] Fix documentation directive for ChunkLocation (#44505)
+* [GH-44606](https://github.com/apache/arrow/issues/44606) - [C++] Add find module for abseil that handles missing version (#44613)
+* [GH-44607](https://github.com/apache/arrow/issues/44607) - [C++][Dev] Update bundled Thrift, update mirrors to use CDN (#44685)
+* [GH-44674](https://github.com/apache/arrow/issues/44674) - [R] Fix R CMD check failure with dev testthat (#44675)
+
+
+## New Features and Improvements
+
+* [GH-34535](https://github.com/apache/arrow/issues/34535) - [C++] Move ChunkResolver to the public API (#44357)
+* [GH-44353](https://github.com/apache/arrow/issues/44353) - [Java] Implement `map()` for `UnionMapWriter` (#44390)
+* [GH-44361](https://github.com/apache/arrow/issues/44361) - [C#][Integration] Include .NET in Flight integration tests (#44377)
+* [GH-44449](https://github.com/apache/arrow/issues/44449) - [Release] Retry on HTTP error in binary upload (#44450)
+* [GH-44451](https://github.com/apache/arrow/issues/44451) - [Release] Retry on HTTP error in Java upload (#44452)
+
+
+
 # Apache Arrow 18.0.0 (2024-10-16)
 
 ## Bug Fixes
