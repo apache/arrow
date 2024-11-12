@@ -876,9 +876,9 @@ class ScalarEqualsVisitor {
   typename std::enable_if<(is_primitive_ctype<typename T::TypeClass>::value ||
                            is_temporal_type<typename T::TypeClass>::value),
                           Status>::type
-  Visit(const T& left_) {
+  Visit(const T& left) {
     const auto& right = checked_cast<const T&>(right_);
-    result_ = right.value == left_.value;
+    result_ = left.value == right.value;
     return Status::OK();
   }
 
@@ -1027,6 +1027,239 @@ class ScalarEqualsVisitor {
   bool result_;
 };
 
+template <typename T, typename Flags>
+struct FloatingLess {
+  explicit FloatingLess(const EqualOptions& options)
+      : epsilon(static_cast<T>(options.atol())) {}
+
+  bool operator()(T x, T y) const {
+    if (x == y) {
+      return !Flags::signed_zeros_equal && std::signbit(x) && !std::signbit(y);
+    }
+    // TODO: consider null (nan) placement
+    if (Flags::nans_equal && std::isnan(x) && std::isnan(y)) {
+      return false;
+    }
+    if (Flags::approximate) {
+      return x + epsilon < y;
+    }
+    return x < y;
+  }
+
+  const T epsilon;
+};
+
+// For half-float equality.
+template <typename Flags>
+struct FloatingLess<uint16_t, Flags> {
+  explicit FloatingLess(const EqualOptions& options)
+      : epsilon(static_cast<float>(options.atol())) {}
+
+  bool operator()(uint16_t x, uint16_t y) const {
+    Float16 f_x = Float16::FromBits(x);
+    Float16 f_y = Float16::FromBits(y);
+    if (x == y) {
+      return Flags::signed_zeros_equal || (f_x.signbit() == f_y.signbit());
+    }
+    // TODO: consider null (nan) placement
+    if (Flags::nans_equal && f_x.is_nan() && f_y.is_nan()) {
+      return true;
+    }
+    if (Flags::approximate && (fabs(f_x.ToFloat() - f_y.ToFloat()) <= epsilon)) {
+      return true;
+    }
+    return false;
+  }
+
+  const float epsilon;
+};
+
+template <typename T, typename Visitor>
+struct FloatingLessDispatcher {
+  const EqualOptions& options;
+  bool floating_approximate;
+  Visitor&& visit;
+
+  template <bool Approximate, bool NansEqual>
+  void DispatchL3() {
+    if (options.signed_zeros_equal()) {
+      visit(FloatingEquality<T, FloatingEqualityFlags<Approximate, NansEqual, true>>{
+          options});
+    } else {
+      visit(FloatingEquality<T, FloatingEqualityFlags<Approximate, NansEqual, false>>{
+          options});
+    }
+  }
+
+  template <bool Approximate>
+  void DispatchL2() {
+    if (options.nans_equal()) {
+      DispatchL3<Approximate, true>();
+    } else {
+      DispatchL3<Approximate, false>();
+    }
+  }
+
+  void Dispatch() {
+    if (floating_approximate) {
+      DispatchL2<true>();
+    } else {
+      DispatchL2<false>();
+    }
+  }
+};
+
+// Call `visit(equality_func)` where `equality_func` has the signature `bool(T, T)`
+// and returns true if the two values compare equal.
+template <typename T, typename Visitor>
+void VisitFloatingLess(const EqualOptions& options, bool floating_approximate,
+                       Visitor&& visit) {
+  FloatingEqualityDispatcher<T, Visitor>{options, floating_approximate,
+                                         std::forward<Visitor>(visit)}
+      .Dispatch();
+}
+
+class ScalarLessVisitor {
+ public:
+  // PRE-CONDITIONS:
+  // - the types are equal
+  // - the scalars are non-null
+  explicit ScalarLessVisitor(const Scalar& right, const EqualOptions& opts,
+                             bool floating_approximate)
+      : right_(right),
+        options_(opts),
+        floating_approximate_(floating_approximate),
+        result_(false) {}
+
+  Status Visit(const NullScalar& left) {
+    result_ = false;
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanScalar& left) {
+    const auto& right = checked_cast<const BooleanScalar&>(right_);
+    result_ = !left.value && right.value;
+    return Status::OK();
+  }
+
+  Status Visit(const MonthDayNanoIntervalScalar& left) {
+    return Status::Invalid("Comparing month day nano interval scalars not supported");
+  }
+
+  template <typename T>
+  typename std::enable_if<(is_primitive_ctype<typename T::TypeClass>::value ||
+                           is_temporal_type<typename T::TypeClass>::value),
+                          Status>::type
+  Visit(const T& left) {
+    const auto& right = checked_cast<const T&>(right_);
+    result_ = left.value < right.value;
+    return Status::OK();
+  }
+
+  Status Visit(const FloatScalar& left) { return CompareFloating(left); }
+
+  Status Visit(const DoubleScalar& left) { return CompareFloating(left); }
+
+  Status Visit(const HalfFloatScalar& left) { return CompareFloating(left); }
+
+  template <typename T>
+  enable_if_t<std::is_base_of<BaseBinaryScalar, T>::value, Status> Visit(const T& left) {
+    return Status::Invalid("Comparing BinaryScalar not supported");
+  }
+
+  Status Visit(const Decimal32Scalar& left) {
+    const auto& right = checked_cast<const Decimal32Scalar&>(right_);
+    result_ = left.value < right.value;
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal64Scalar& left) {
+    const auto& right = checked_cast<const Decimal64Scalar&>(right_);
+    result_ = left.value < right.value;
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal128Scalar& left) {
+    const auto& right = checked_cast<const Decimal128Scalar&>(right_);
+    result_ = left.value < right.value;
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal256Scalar& left) {
+    const auto& right = checked_cast<const Decimal256Scalar&>(right_);
+    result_ = left.value < right.value;
+    return Status::OK();
+  }
+
+  Status Visit(const ListScalar& left) {
+    return Status::Invalid("Comparing list scalars not supported");
+  }
+
+  Status Visit(const LargeListScalar& left) {
+    return Status::Invalid("Comparing list scalars not supported");
+  }
+
+  Status Visit(const ListViewScalar& left) {
+    return Status::Invalid("Comparing list scalars not supported");
+  }
+
+  Status Visit(const LargeListViewScalar& left) {
+    return Status::Invalid("Comparing BinaryScalar not supported");
+  }
+
+  Status Visit(const MapScalar& left) {
+    return Status::Invalid("Comparing map scalars not supported");
+  }
+
+  Status Visit(const FixedSizeListScalar& left) {
+    return Status::Invalid("Comparing list scalars not supported");
+  }
+
+  Status Visit(const StructScalar& left) {
+    return Status::Invalid("Comparing struct scalars not supported");
+  }
+
+  Status Visit(const DenseUnionScalar& left) {
+    return Status::Invalid("Comparing union scalars not supported");
+  }
+
+  Status Visit(const SparseUnionScalar& left) {
+    return Status::Invalid("Comparing union scalars not supported");
+  }
+
+  Status Visit(const DictionaryScalar& left) {
+    return Status::Invalid("Comparing dictionary scalars not supported");
+  }
+
+  Status Visit(const RunEndEncodedScalar& left) {
+    return Status::Invalid("Comparing run end scalars not supported");
+  }
+
+  Status Visit(const ExtensionScalar& left) {
+    return Status::Invalid("Comparing extension scalars not supported");
+  }
+
+  bool result() const { return result_; }
+
+ protected:
+  template <typename ScalarType>
+  Status CompareFloating(const ScalarType& left) {
+    using CType = decltype(left.value);
+    const auto& right = checked_cast<const ScalarType&>(right_);
+
+    auto visitor = [&](auto&& compare_func) {
+      result_ = compare_func(left.value, right.value);
+    };
+    VisitFloatingEquality<CType>(options_, floating_approximate_, std::move(visitor));
+    return Status::OK();
+  }
+
+  const Scalar& right_;
+  const EqualOptions options_;
+  const bool floating_approximate_;
+  bool result_;
+};
+
 Status PrintDiff(const Array& left, const Array& right, std::ostream* os);
 
 Status PrintDiff(const Array& left, const Array& right, int64_t left_offset,
@@ -1119,6 +1352,31 @@ bool ScalarEquals(const Scalar& left, const Scalar& right, const EqualOptions& o
   return visitor.result();
 }
 
+bool ScalarLess(const Scalar& left, const Scalar& right, const EqualOptions& options,
+                bool floating_approximate) {
+  if (&left == &right && IdentityImpliesEquality(*left.type, options)) {
+    return false;
+  }
+  if (!left.type->Equals(right.type)) {
+    return false;
+  }
+  if (!left.is_valid && !right.is_valid) {
+    return false;
+  }
+  if (!left.is_valid) {
+    // TODO: consider null placement
+    return true;
+  }
+  if (!right.is_valid) {
+    // TODO: consider null placement
+    return false;
+  }
+  ScalarLessVisitor visitor(right, options, floating_approximate);
+  auto error = VisitScalarInline(left, &visitor);
+  DCHECK_OK(error);
+  return visitor.result();
+}
+
 }  // namespace
 
 bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
@@ -1156,6 +1414,17 @@ bool ScalarApproxEquals(const Scalar& left, const Scalar& right,
                         const EqualOptions& options) {
   const bool floating_approximate = true;
   return ScalarEquals(left, right, options, floating_approximate);
+}
+
+bool ScalarLess(const Scalar& left, const Scalar& right, const EqualOptions& options) {
+  const bool floating_approximate = false;
+  return ScalarLess(left, right, options, floating_approximate);
+}
+
+bool ScalarApproxLess(const Scalar& left, const Scalar& right,
+                      const EqualOptions& options) {
+  const bool floating_approximate = true;
+  return ScalarLess(left, right, options, floating_approximate);
 }
 
 namespace {

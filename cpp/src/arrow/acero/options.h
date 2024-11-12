@@ -241,6 +241,22 @@ class ARROW_ACERO_EXPORT RecordBatchSourceNodeOptions
   using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
 };
 
+/// \brief a node which asserts rows are in expected order
+///
+/// The order of rows with batches is asserted in parallel while
+/// consecutive batches are check for expected order sequentially.
+/// The output batches are again processed further in parallel.
+class ARROW_ACERO_EXPORT AssertOrderNodeOptions : public ExecNodeOptions {
+ public:
+  static constexpr std::string_view kName = "assert-order";
+  /// \brief create an instance from sort options
+  explicit AssertOrderNodeOptions(SortOptions sort_options)
+      : sort_options(std::move(sort_options)) {}
+
+  /// \brief options describing which columns and direction to sort
+  SortOptions sort_options;
+};
+
 /// \brief a node which excludes some rows from batches passed through it
 ///
 /// filter_expression will be evaluated against each batch which is pushed to
