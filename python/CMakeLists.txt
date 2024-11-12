@@ -480,9 +480,8 @@ else()
 endif()
 target_link_libraries(arrow_python PUBLIC Python3::NumPy)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
-set_target_properties(arrow_python
-    PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
-              SOVERSION "${PYARROW_SO_VERSION}")
+set_target_properties(arrow_python PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
+                                              SOVERSION "${PYARROW_SO_VERSION}")
 install(TARGETS arrow_python
         ARCHIVE DESTINATION .
         LIBRARY DESTINATION .
@@ -499,8 +498,8 @@ else()
     target_compile_definitions(arrow_python_parquet_encryption
                                PRIVATE ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING)
     set_target_properties(arrow_python_parquet_encryption
-      PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
-               SOVERSION "${PYARROW_SO_VERSION}")
+                          PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
+                                     SOVERSION "${PYARROW_SO_VERSION}")
     install(TARGETS arrow_python_parquet_encryption
             ARCHIVE DESTINATION .
             LIBRARY DESTINATION .
@@ -532,8 +531,8 @@ if(PYARROW_BUILD_FLIGHT)
                                                    ArrowFlight::arrow_flight_shared)
   target_compile_definitions(arrow_python_flight PRIVATE ARROW_PYFLIGHT_EXPORTING)
   set_target_properties(arrow_python_flight
-    PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
-             SOVERSION "${PYARROW_SO_VERSION}")
+                        PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
+                                   SOVERSION "${PYARROW_SO_VERSION}")
   install(TARGETS arrow_python_flight
           ARCHIVE DESTINATION .
           LIBRARY DESTINATION .
