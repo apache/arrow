@@ -349,7 +349,10 @@ class TestConvertMetadata:
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    def test_index_metadata_field_name(self):
+    def test_index_metadata_field_name(self, request):
+        if _pandas_api.uses_string_dtype():
+            # https://github.com/pandas-dev/pandas/issues/59879
+            request.applymarker(pytest.mark.xfail(reason="bug in pandas string dtype"))
         # test None case, and strangely named non-index columns
         df = pd.DataFrame(
             [(1, 'a', 3.1), (2, 'b', 2.2), (3, 'c', 1.3)],
