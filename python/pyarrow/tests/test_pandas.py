@@ -17,6 +17,7 @@
 
 import gc
 import decimal
+import io
 import json
 import multiprocessing as mp
 import sys
@@ -4409,6 +4410,31 @@ def test_to_pandas_extension_dtypes_mapping():
     result = table.to_pandas(
         types_mapper={pa.int64(): pd.PeriodDtype('D')}.get)
     assert isinstance(result['a'].dtype, pd.PeriodDtype)
+
+
+
+def test_to_pandas_extension_dtypes_mapping_complex_type():
+    pa_type = pa.struct(
+        [
+            pa.field("bar", pa.bool_(), nullable=False),
+            pa.field("baz", pa.float32(), nullable=True),
+        ],
+    )
+    pd_type = pd.ArrowDtype(pa_type)
+    schema = pa.schema([pa.field("foo", pa_type)])
+    df0 = pd.DataFrame(
+        [
+            {"foo": {"bar": True, "baz": np.float32(1)}},
+            {"foo": {"bar": True, "baz": None}},
+        ],
+    ).astype({"foo": pd_type})
+
+    # Round trip df0 into df1
+    with io.BytesIO() as stream:
+        df0.to_parquet(stream, schema=schema)
+        stream.seek(0)
+        df1 = pd.read_parquet(stream, dtype_backend="pyarrow")
+    pd.testing.assert_frame_equal(df0, df1)
 
 
 def test_array_to_pandas():
