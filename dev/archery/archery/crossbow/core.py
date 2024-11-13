@@ -820,10 +820,18 @@ class Target(Serializable):
         #
         # Example:
         #
-        # '10.0.0.dev235' ->
-        # '10.0.0-SNAPSHOT'
+        #   '10.0.0.dev235' ->
+        #   '10.0.0-SNAPSHOT'
         self.no_rc_snapshot_version = re.sub(
             r'\.(dev\d+)$', '-SNAPSHOT', self.no_rc_version)
+        # SO (shared object) version for C++/C GLib
+        #
+        # Example:
+        #
+        #   '18.1.0' ->
+        #   '1801'
+        major, minor = map(int, self.no_rc_version.split(".")[0:2])
+        self.so_version = f"{major * 100 + minor}"
 
     @classmethod
     def from_repo(cls, repo, head=None, branch=None, remote=None, version=None,
@@ -1191,6 +1199,7 @@ class Job(Serializable):
             'no_rc_snapshot_version': target.no_rc_snapshot_version,
             'r_version': target.r_version,
             'no_rc_r_version': target.no_rc_r_version,
+            'so_version': target.so_version,
         }
         for task_name, task in task_definitions.items():
             task = task.copy()
