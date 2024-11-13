@@ -878,10 +878,14 @@ def _get_extension_dtypes(
             # that are certainly numpy dtypes
             pandas_dtype = _pandas_api.pandas_dtype(dtype)
             if isinstance(pandas_dtype, _pandas_api.extension_dtype):
-                if (strings_to_categorical or name in categories) and isinstance(
-                    pandas_dtype, _pandas_api.pd.StringDtype
-                ):
-                    continue
+                if isinstance(pandas_dtype, _pandas_api.pd.StringDtype):
+                    if strings_to_categorical or name in categories:
+                        continue
+                    try:
+                        if pa.types.is_dictionary(table.schema.field(name).type):
+                            continue
+                    except KeyError:
+                        pass
                 if hasattr(pandas_dtype, "__from_arrow__"):
                     ext_columns[name] = pandas_dtype
 
