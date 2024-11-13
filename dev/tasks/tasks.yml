@@ -1584,6 +1584,8 @@ tasks:
       {% endif %}
       {% if pandas_version == "nightly" %}
         # TODO can be removed once this is enabled by default in pandas >= 3
+        # This is to enable the Pandas feature.
+        # See: https://github.com/pandas-dev/pandas/pull/58459
         PANDAS_FUTURE_INFER_STRING: "1"
       {% endif %}
     {% if not cache_leaf %}
