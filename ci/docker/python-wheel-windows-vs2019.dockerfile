@@ -34,18 +34,12 @@ RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 #
 # Compiling vcpkg itself from a git tag doesn't work anymore since vcpkg has
 # started to ship precompiled binaries for the vcpkg-tool.
-ARG GITHUB_REPOSITORY_OWNER
-ARG GITHUB_TOKEN
 ARG vcpkg
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*windows*.cmake \
      arrow/ci/vcpkg/
 COPY ci/scripts/install_vcpkg.sh arrow/ci/scripts/
-ENV GITHUB_REPOSITORY_OWNER="${GITHUB_REPOSITORY_OWNER}" \
-    GITHUB_TOKEN="${GITHUB_TOKEN}" \
-    VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite" \
-    VCPKG_ROOT=C:\\vcpkg
-# TODO: Use --mount=type=secret for GITHUB_TOKEN
+ENV VCPKG_ROOT=C:\\vcpkg
 RUN bash arrow/ci/scripts/install_vcpkg.sh /c/vcpkg %vcpkg% && \
     setx PATH "%PATH%;%VCPKG_ROOT%"
 

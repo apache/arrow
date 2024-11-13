@@ -19,9 +19,6 @@
 
 {{ macros.github_header() }}
 
-permissions:
-  packages: write
-
 jobs:
   build:
     name: "Build wheel for Windows"
@@ -36,7 +33,9 @@ jobs:
       # note that we don't run docker build since there wouldn't be a cache hit
       # and rebuilding the dependencies takes a fair amount of time
       REPO: ghcr.io/ursacomputing/arrow
-      # BuildKit isn't really supported on Windows for now
+      # BuildKit isn't really supported on Windows for now.
+      # NuGet + GitHub Packages based vcpkg cache is also disabled for now.
+      # Because secret mount requires BuildKit.
       DOCKER_BUILDKIT: 0
 
     steps:
@@ -46,8 +45,6 @@ jobs:
 
       - name: Build wheel
         shell: cmd
-        env:
-          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
           cd arrow
           @rem We want to use only
