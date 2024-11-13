@@ -831,9 +831,7 @@ _pandas_supported_numpy_types = {
 }
 
 
-def _get_extension_dtypes(
-    table, columns_metadata, types_mapper=None, options=None, categories=None
-):
+def _get_extension_dtypes(table, columns_metadata, types_mapper, options, categories):
     """
     Based on the stored column pandas metadata and the extension types
     in the arrow schema, infer which columns should be converted to a
@@ -879,6 +877,11 @@ def _get_extension_dtypes(
             pandas_dtype = _pandas_api.pandas_dtype(dtype)
             if isinstance(pandas_dtype, _pandas_api.extension_dtype):
                 if isinstance(pandas_dtype, _pandas_api.pd.StringDtype):
+                    # when the metadata indicate to use the string dtype,
+                    # ignore this in case:
+                    # - it is specified to convert strings / this column to categorical
+                    # - the column itself is dictionary encoded and would otherwise be
+                    #   converted to categorical
                     if strings_to_categorical or name in categories:
                         continue
                     try:
@@ -1162,7 +1165,14 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             level.dtype == "str" and numpy_dtype == "object"
             and ("mixed" in pandas_dtype or pandas_dtype in ["unicode", "string"])
         ):
-            # in this case don't convert to object dtype, but keep using the str dtype
+            # the metadata indicate that the original dataframe used object dtype,
+            # but ignore this and keep string dtype if:
+            # - the original columns used mixed types -> we don't attempt to faithfully
+            #   roundtrip in this case, but keep the column names as strings
+            # - the original columns were inferred to be strings but stored in object
+            #   dtype -> we don't restore the object dtype because all metadata
+            #   generated using pandas < 3 will have this case by default, and
+            #   for pandas >= 3 we want to use the default string dtype for .columns
             new_levels.append(level)
             continue
         elif level.dtype != dtype:
