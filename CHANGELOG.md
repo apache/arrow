@@ -1,4 +1,30 @@
 
+# Apache Arrow 18.1.0 (2024-11-13)
+
+## Bug Fixes
+
+* [GH-44360](https://github.com/apache/arrow/issues/44360) - [C\#] Flight DoExchange server is incompatible with C++/PyArrow client
+* [GH-44389](https://github.com/apache/arrow/issues/44389) - [Java][Integration][Release] verify-rc-source-integration-linux-conda-latest-amd64 fails with MemoryError
+* [GH-44448](https://github.com/apache/arrow/issues/44448) - [C++] cross-compilation issues with 18.0.0rc0: inclusion of \`<nmmintrin.h\>\` resp. mis-detection of \`grpc\_cpp\_plugin\`
+* [GH-44453](https://github.com/apache/arrow/issues/44453) - [Release] \`07-matlab-upload.sh\` misses shebang
+* [GH-44459](https://github.com/apache/arrow/issues/44459) - [Release][Packaging] Wheel content script does not work with local wheel verification
+* [GH-44461](https://github.com/apache/arrow/issues/44461) - [Packaging][Release][Python] The Windows wheel verification is failing due to missing PARQUET\_TEST\_DATA env variable
+* [GH-44506](https://github.com/apache/arrow/issues/44506) - [Docs][C++] Fix documentation directive for ChunkLocation
+* [GH-44606](https://github.com/apache/arrow/issues/44606) - [C++] Error when building Arrow v18.0.0 against non-LTS absl, abseil-cpp
+* [GH-44607](https://github.com/apache/arrow/issues/44607) - [C++] Thrift mirrors are outdated
+* [GH-44674](https://github.com/apache/arrow/issues/44674) - [R] R CMD check failure with dev testthat
+
+
+## New Features and Improvements
+
+* [GH-34535](https://github.com/apache/arrow/issues/34535) - [C++] Request to move ChunkResolver to public API
+* [GH-44353](https://github.com/apache/arrow/issues/44353) - [Java] Exceptions when building MapVector with map values
+* [GH-44361](https://github.com/apache/arrow/issues/44361) - [C\#][Integration] Set up integration testing of C\# Flight
+* [GH-44449](https://github.com/apache/arrow/issues/44449) - [Release] Retry on 503 HTTP response in binary upload
+* [GH-44451](https://github.com/apache/arrow/issues/44451) - [Release] Add support for retry on HTTP error in Java artifacts upload
+
+
+
 # Apache Arrow 18.0.0 (2024-10-16)
 
 ## Bug Fixes
