@@ -81,10 +81,10 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FEATURE_FLAGS="manifests" \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg
-# For --mount=type=secret: GITHUB_TOKEN is only secret data but we use
+# For --mount=type=secret: The GITHUB_TOKEN is the only real secret but we use
 # --mount=type=secret for GITHUB_REPOSITORY_OWNER and
-# VCPKG_BINARY_SOURCES too. Because we don't want to store all of
-# them to built image for easy to reuse built image cache.
+# VCPKG_BINARY_SOURCES too because we don't want to store them
+# into the built image in order to easily reuse the built image cache.
 #
 # For vcpkg install: cannot use the S3 feature here because while
 # aws-sdk-cpp=1.9.160 contains ssl related fixes as well as we can
