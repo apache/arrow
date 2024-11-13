@@ -75,9 +75,9 @@ x-sccache: &sccache
   SCCACHE_S3_KEY_PREFIX: ${SCCACHE_S3_KEY_PREFIX:-sccache}
 
 x-vcpkg-build-secrets: &vcpkg-build-secrets
-  GITHUB_REPOSITORY_OWNER:
-  GITHUB_TOKEN:
-  VCPKG_BINARY_SOURCES:
+  - github_repository_owner
+  - github_token
+  - vcpkg_binary_sources
 
 # CPU/memory limit presets to pass to Docker.
 #
@@ -1136,8 +1136,7 @@ services:
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
-      secrets:
-        <<: *vcpkg-build-secrets
+      secrets: *vcpkg-build-secrets
     environment:
       <<: [*common, *ccache]
     volumes:
@@ -1162,8 +1161,7 @@ services:
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-28-vcpkg-${VCPKG}
-      secrets:
-        <<: *vcpkg-build-secrets
+      secrets: *vcpkg-build-secrets
     environment:
       <<: [*common, *ccache]
     volumes:
