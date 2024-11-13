@@ -1159,8 +1159,10 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         elif pandas_dtype == "decimal":
             level = _pandas_api.pd.Index([decimal.Decimal(i) for i in level])
         elif (
-            level.dtype == "str" and "mixed" in pandas_dtype and numpy_dtype == "object"
+            level.dtype == "str" and numpy_dtype == "object"
+            and ("mixed" in pandas_dtype or pandas_dtype in ["unicode", "string"])
         ):
+            # in this case don't convert to object dtype, but keep using the str dtype
             new_levels.append(level)
             continue
         elif level.dtype != dtype:

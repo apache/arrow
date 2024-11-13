@@ -4553,7 +4553,7 @@ def test_metadata_compat_range_index_pre_0_12():
     e1 = pd.DataFrame(
         {'a': a_values},
         index=pd.RangeIndex(0, 8, step=2, name='qux'),
-        columns=pd.Index(['a'], dtype=object)
+        columns=pd.Index(['a'])
     )
     t1 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
                               names=['a', 'qux'])
@@ -4584,7 +4584,7 @@ def test_metadata_compat_range_index_pre_0_12():
     e2 = pd.DataFrame(
         {'qux': a_values},
         index=pd.RangeIndex(0, 8, step=2, name='qux'),
-        columns=pd.Index(['qux'], dtype=object)
+        columns=pd.Index(['qux'])
     )
     t2 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
                               names=['qux', gen_name_0])
@@ -4615,7 +4615,7 @@ def test_metadata_compat_range_index_pre_0_12():
     e3 = pd.DataFrame(
         {'a': a_values},
         index=pd.RangeIndex(0, 8, step=2, name=None),
-        columns=pd.Index(['a'], dtype=object)
+        columns=pd.Index(['a'])
     )
     t3 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
                               names=['a', gen_name_0])
@@ -4646,7 +4646,7 @@ def test_metadata_compat_range_index_pre_0_12():
     e4 = pd.DataFrame(
         {'a': a_values},
         index=[pd.RangeIndex(0, 8, step=2, name='qux'), b_values],
-        columns=pd.Index(['a'], dtype=object)
+        columns=pd.Index(['a'])
     )
     t4 = pa.Table.from_arrays([a_arrow, rng_index_arrow, b_arrow],
                               names=['a', 'qux', gen_name_1])
@@ -4682,7 +4682,7 @@ def test_metadata_compat_range_index_pre_0_12():
     e5 = pd.DataFrame(
         {'a': a_values},
         index=[pd.RangeIndex(0, 8, step=2, name=None), b_values],
-        columns=pd.Index(['a'], dtype=object)
+        columns=pd.Index(['a'])
     )
     t5 = pa.Table.from_arrays([a_arrow, rng_index_arrow, b_arrow],
                               names=['a', gen_name_0, gen_name_1])
