@@ -5,10 +5,15 @@
         "url": "https://arrow.apache.org/docs/dev/"
     },
     {
-        "name": "18.0 (stable)",
+        "name": "18.1 (stable)",
         "version": "",
         "url": "https://arrow.apache.org/docs/",
         "preferred": true
+    },
+    {
+        "name": "18.0",
+        "version": "18.0/",
+        "url": "https://arrow.apache.org/docs/18.0/"
     },
     {
         "name": "17.0",

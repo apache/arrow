@@ -1,6 +1,6 @@
 {
   "name": "arrow-glib",
-  "version-string": "18.0.0",
+  "version-string": "18.1.0",
   "dependencies": [
     "glib",
     "gobject-introspection",

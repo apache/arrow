@@ -29,7 +29,7 @@ under the License.
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-bom</artifactId>
-  <version>18.0.0</version>
+  <version>18.1.0</version>
   <packaging>pom</packaging>
 
   <name>Arrow Bill of Materials</name>
@@ -68,7 +68,7 @@ under the License.
   <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
     <connection>scm:git:https://github.com/apache/arrow.git</connection>
     <developerConnection>scm:git:https://github.com/apache/arrow.git</developerConnection>
-    <tag>apache-arrow-18.0.0</tag>
+    <tag>apache-arrow-18.1.0</tag>
     <url>https://github.com/apache/arrow/tree/${project.scm.tag}</url>
   </scm>
 
