@@ -333,13 +333,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ],
           path: "dev/tasks/linux-packages/apache-arrow/debian/control.in",
         },
-        {
-          sampled_diff: [
-            "-      - libarrow-acero#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
-            "+      - libarrow-acero#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
-          ],
-          path: "dev/tasks/tasks.yml",
-        },
       ]
     else
       expected_changes = []
