@@ -3769,6 +3769,10 @@ TEST_F(TestSchemaRoundtrip, RegisteredExtension) {
 TEST_F(TestSchemaRoundtrip, Map) {
   TestWithTypeFactory([&]() { return map(utf8(), int32()); });
   TestWithTypeFactory([&]() { return map(utf8(), field("value", int32(), false)); });
+  TestWithTypeFactory([&]() {
+    return map(utf8(), field("value", int32(), false,
+                             KeyValueMetadata::Make({"meta key"}, {"meta value"})));
+  });
   // Field names are brought in line with the spec on import.
   TestWithTypeFactory(
       [&]() {
