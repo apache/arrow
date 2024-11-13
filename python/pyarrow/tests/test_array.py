@@ -671,7 +671,7 @@ def test_string_view_from_buffers():
         "Length is 12"
     ]
 
-    match = r"number of buffers is at least \(2\)"
+    match = r"number of buffers is at least 2"
     with pytest.raises(ValueError, match=match):
         pa.StringViewArray.from_buffers(
             pa.string_view(), len(array), buffers[0:1])
