@@ -1314,9 +1314,9 @@ struct SchemaImporter {
     // Some implementations of Arrow (such as Rust) use a non-standard field name
     // for key ("keys") and value ("values") fields. For simplicity, we override
     // them on import.
-    type_ = std::make_shared<MapType>(value_type->field(0)->WithName("key"),
-                                  value_type->field(1)->WithName("value"),
-                                  keys_sorted);
+    type_ =
+        std::make_shared<MapType>(value_type->field(0)->WithName("key"),
+                                  value_type->field(1)->WithName("value"), keys_sorted);
     return Status::OK();
   }
 
