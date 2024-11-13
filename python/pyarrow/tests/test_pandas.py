@@ -4550,11 +4550,9 @@ def test_metadata_compat_range_index_pre_0_12():
     gen_name_1 = '__index_level_1__'
 
     # Case 1: named RangeIndex
-    e1 = pd.DataFrame(
-        {'a': a_values},
-        index=pd.RangeIndex(0, 8, step=2, name='qux'),
-        columns=pd.Index(['a'])
-    )
+    e1 = pd.DataFrame({
+        'a': a_values
+    }, index=pd.RangeIndex(0, 8, step=2, name='qux'))
     t1 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
                               names=['a', 'qux'])
     t1 = t1.replace_schema_metadata({
@@ -4581,11 +4579,9 @@ def test_metadata_compat_range_index_pre_0_12():
     tm.assert_frame_equal(r1, e1)
 
     # Case 2: named RangeIndex, but conflicts with an actual column
-    e2 = pd.DataFrame(
-        {'qux': a_values},
-        index=pd.RangeIndex(0, 8, step=2, name='qux'),
-        columns=pd.Index(['qux'])
-    )
+    e2 = pd.DataFrame({
+        'qux': a_values
+    }, index=pd.RangeIndex(0, 8, step=2, name='qux'))
     t2 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
                               names=['qux', gen_name_0])
     t2 = t2.replace_schema_metadata({
@@ -4612,11 +4608,9 @@ def test_metadata_compat_range_index_pre_0_12():
     tm.assert_frame_equal(r2, e2)
 
     # Case 3: unnamed RangeIndex
-    e3 = pd.DataFrame(
-        {'a': a_values},
-        index=pd.RangeIndex(0, 8, step=2, name=None),
-        columns=pd.Index(['a'])
-    )
+    e3 = pd.DataFrame({
+        'a': a_values
+    }, index=pd.RangeIndex(0, 8, step=2, name=None))
     t3 = pa.Table.from_arrays([a_arrow, rng_index_arrow],
                               names=['a', gen_name_0])
     t3 = t3.replace_schema_metadata({
@@ -4643,11 +4637,9 @@ def test_metadata_compat_range_index_pre_0_12():
     tm.assert_frame_equal(r3, e3)
 
     # Case 4: MultiIndex with named RangeIndex
-    e4 = pd.DataFrame(
-        {'a': a_values},
-        index=[pd.RangeIndex(0, 8, step=2, name='qux'), b_values],
-        columns=pd.Index(['a'])
-    )
+    e4 = pd.DataFrame({
+        'a': a_values
+    }, index=[pd.RangeIndex(0, 8, step=2, name='qux'), b_values])
     t4 = pa.Table.from_arrays([a_arrow, rng_index_arrow, b_arrow],
                               names=['a', 'qux', gen_name_1])
     t4 = t4.replace_schema_metadata({
@@ -4679,11 +4671,9 @@ def test_metadata_compat_range_index_pre_0_12():
     tm.assert_frame_equal(r4, e4)
 
     # Case 4: MultiIndex with unnamed RangeIndex
-    e5 = pd.DataFrame(
-        {'a': a_values},
-        index=[pd.RangeIndex(0, 8, step=2, name=None), b_values],
-        columns=pd.Index(['a'])
-    )
+    e5 = pd.DataFrame({
+        'a': a_values
+    }, index=[pd.RangeIndex(0, 8, step=2, name=None), b_values])
     t5 = pa.Table.from_arrays([a_arrow, rng_index_arrow, b_arrow],
                               names=['a', gen_name_0, gen_name_1])
     t5 = t5.replace_schema_metadata({
