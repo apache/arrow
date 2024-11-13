@@ -55,7 +55,7 @@ fi
 
 if [ -n "${GITHUB_TOKEN:-}" ] && \
      [ -n "${GITHUB_REPOSITORY_OWNER:-}" ] && \
-     [ -n "${VCPKG_BINARY_SOURCES:-}" ] ; then
+     [ "${VCPKG_BINARY_SOURCES:-}" = "clear;nuget,GitHub,readwrite" ] ; then
   if type dnf 2>/dev/null; then
     dnf install -y epel-release
     dnf install -y mono-complete
