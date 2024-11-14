@@ -53,11 +53,12 @@
   - r/R/flight.*
   - python/pyarrow/*flight.*
 
-"Component: C++ - Gandiva":
+"Component: Gandiva":
   - c_glib/gandiva-glib/**/*
   - cpp/src/gandiva/**/*
-  - ruby/red-gandiva/**/*
+  - java/gandiva/**/*
   - python/pyarrow/gandiva.*
+  - ruby/red-gandiva/**/*
 
 "Component: Parquet":
   - c_glib/parquet-glib/**/*
