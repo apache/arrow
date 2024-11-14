@@ -340,6 +340,8 @@ struct CastFixedList {
 };
 
 struct CastStruct {
+  static constexpr int kFillNullSentinel = -2;
+
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const CastOptions& options = CastState::Get(ctx);
     const auto& in_type = checked_cast<const StructType&>(*batch[0].type());
@@ -377,8 +379,7 @@ struct CastStruct {
         // Filling with null is only acceptable on nullable fields when there
         // is definitely no in_field with matching name.
 
-        // -2 is a sentinel value indicating fill with null.
-        fields_to_select[out_field_index++] = -2;
+        fields_to_select[out_field_index++] = kFillNullSentinel;
       } else if (in_field_index < in_field_count) {
         // Didn't match current in_field, and the we cannot fill with null, so
         // try next in_field.
@@ -404,7 +405,7 @@ struct CastStruct {
     int out_field_index = 0;
     for (int field_index : fields_to_select) {
       const auto& target_type = out->type()->field(out_field_index++)->type();
-      if (field_index == -2) {
+      if (field_index == kFillNullSentinel) {
         ARROW_ASSIGN_OR_RAISE(auto nulls,
                               MakeArrayOfNull(target_type->GetSharedPtr(), batch.length));
         out_array->child_data.push_back(nulls->data());
