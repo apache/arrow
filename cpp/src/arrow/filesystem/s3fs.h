@@ -389,7 +389,9 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
 enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };
 
 struct ARROW_EXPORT S3GlobalOptions {
+  /// The log level for S3-originating messages.
   S3LogLevel log_level;
+
   /// The number of threads to configure when creating AWS' I/O event loop
   ///
   /// Defaults to 1 as recommended by AWS' doc when the # of connections is
@@ -397,6 +399,16 @@ struct ARROW_EXPORT S3GlobalOptions {
   ///
   /// For more details see Aws::Crt::Io::EventLoopGroup
   int num_event_loop_threads = 1;
+
+  /// Whether to install a process-wide SIGPIPE handler
+  ///
+  /// The AWS SDK may sometimes emit SIGPIPE signals for certain errors;
+  /// by default, they would abort the current process.
+  /// This option, if enabled, will install a process-wide signal handler
+  /// that logs and otherwise ignore incoming SIGPIPE signals.
+  ///
+  /// This option has no effect on Windows.
+  bool install_sigpipe_handler = false;
 
   /// \brief Initialize with default options
   ///
