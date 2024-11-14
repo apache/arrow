@@ -340,9 +340,9 @@ struct CastFixedList {
 };
 
 struct CastStruct {
-  static constexpr int kFillNullSentinel = -2;
-
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    static constexpr int kFillNullSentinel = -2;
+
     const CastOptions& options = CastState::Get(ctx);
     const auto& in_type = checked_cast<const StructType&>(*batch[0].type());
     const auto& out_type = checked_cast<const StructType&>(*out->type());
