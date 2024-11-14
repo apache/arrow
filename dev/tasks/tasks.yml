@@ -693,7 +693,7 @@ tasks:
     ci: github
     template: matlab/github.yml
     artifacts:
-      - matlab-arrow-[0-9]+.[0-9]+.[0-9]+.mltbx
+      - matlab-arrow-{no_rc_no_dev_version}.mltbx
 
   ############################## Arrow JAR's ##################################
 

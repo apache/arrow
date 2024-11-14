@@ -152,7 +152,7 @@ jobs:
           MATLABPATH: arrow/matlab/tools
           ARROW_MATLAB_TOOLBOX_FOLDER: arrow/matlab/install/arrow_matlab
           ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER: artifacts/matlab-dist
-          ARROW_MATLAB_TOOLBOX_VERSION: {{ arrow.no_rc_version }}
+          ARROW_MATLAB_TOOLBOX_VERSION: {{ arrow.no_rc_no_dev_version }}
         uses: matlab-actions/run-command@v2
         with:
           command: packageMatlabInterface

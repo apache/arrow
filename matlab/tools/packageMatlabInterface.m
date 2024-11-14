@@ -17,7 +17,11 @@
 
 toolboxFolder = string(getenv("ARROW_MATLAB_TOOLBOX_FOLDER"));
 outputFolder = string(getenv("ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER"));
-toolboxVersionRaw = string(getenv("ARROW_MATLAB_TOOLBOX_VERSION"));
+toolboxVersion = string(getenv("ARROW_MATLAB_TOOLBOX_VERSION"));
+if isempty(toolboxVersion)
+    error("ARROW_MATLAB_TOOLBOX_VERSION environment variable value is empty." + ...
+        "ARROW_MATLAB_TOOLBOX_VERSION should follow the general form: ${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}.";
+end
 
 appendLicenseText(fullfile(toolboxFolder, "LICENSE.txt"));
 appendNoticeText(fullfile(toolboxFolder, "NOTICE.txt"));
@@ -27,13 +31,7 @@ mkdir(outputFolder);
 
 disp("Toolbox Folder: " + toolboxFolder);
 disp("Output Folder: " + outputFolder);
-disp("Toolbox Version Raw: " + toolboxVersionRaw);
-
-versionPattern = regexpPattern("^[0-9]+\.[0-9]+\.[0-9]+");
-toolboxVersion = extract(toolboxVersionRaw, versionPattern);
-if isempty(toolboxVersion)
-    error("Unable to extract MAJOR.MINOR.PATCH version string from " + toolboxVersionRaw);
-end
+disp("Toolbox Version: " + toolboxVersion);
 
 disp("Toolbox Version:" + toolboxVersion);
 
