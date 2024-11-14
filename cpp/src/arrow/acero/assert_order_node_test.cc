@@ -84,8 +84,7 @@ void CheckAssert(const std::shared_ptr<ChunkedArray>& array,
   }
 }
 
-void CheckAssert(const std::shared_ptr<ChunkedArray>& array,
-                 const Ordering& ordering,
+void CheckAssert(const std::shared_ptr<ChunkedArray>& array, const Ordering& ordering,
                  const Status& expected_status = Status::OK()) {
   CheckAssert(array, table_schema, ordering, expected_status);
 }
@@ -115,7 +114,8 @@ TEST(AssertOrderNode, SingleColumnAsc) {
   // TODO: add tests with NULL and NaN values
 
   auto asc_sort_options =
-      Ordering({{compute::SortKey{"id", compute::SortOrder::Ascending}}}, compute::NullPlacement::AtStart);
+      Ordering({{compute::SortKey{"id", compute::SortOrder::Ascending}}},
+               compute::NullPlacement::AtStart);
 
   CheckAssert(monotonic_ids, asc_sort_options);
   CheckAssert(repeating_ids, asc_sort_options);
@@ -133,31 +133,32 @@ TEST(AssertOrderNode, SingleColumnAsc) {
 }
 
 TEST(AssertOrderNode, SingleColumnDesc) {
-    const auto monotonic_ids =
-        ChunkedArrayFromJSON(int64(), {"[9, 8, 7]", "[6, 5, 4]", "[3, 2, 1]"});
-    const auto repeating_ids =
-        ChunkedArrayFromJSON(int64(), {"[9, 7, 7]", "[5, 5, 5]", "[3, 3, 1]"});
-    const auto identical_ids =
-        ChunkedArrayFromJSON(int64(), {"[3, 3, 3]", "[3, 3, 3]", "[3, 3, 3]"});
-    const auto some_negative_ids =
-        ChunkedArrayFromJSON(int64(), {"[5, 4, 3]", "[2, 0, -2]", "[-3, -5, -6]"});
-    const auto all_negative_ids =
-        ChunkedArrayFromJSON(int64(), {"[-1, -2, -3]", "[-4, -5, -6]", "[-7, -8, -9]"});
+  const auto monotonic_ids =
+      ChunkedArrayFromJSON(int64(), {"[9, 8, 7]", "[6, 5, 4]", "[3, 2, 1]"});
+  const auto repeating_ids =
+      ChunkedArrayFromJSON(int64(), {"[9, 7, 7]", "[5, 5, 5]", "[3, 3, 1]"});
+  const auto identical_ids =
+      ChunkedArrayFromJSON(int64(), {"[3, 3, 3]", "[3, 3, 3]", "[3, 3, 3]"});
+  const auto some_negative_ids =
+      ChunkedArrayFromJSON(int64(), {"[5, 4, 3]", "[2, 0, -2]", "[-3, -5, -6]"});
+  const auto all_negative_ids =
+      ChunkedArrayFromJSON(int64(), {"[-1, -2, -3]", "[-4, -5, -6]", "[-7, -8, -9]"});
 
-    const auto all_empty_batches = ChunkedArrayFromJSON(int64(), {"[]", "[]", "[]"});
-    const auto many_empty_batches = ChunkedArrayFromJSON(
-        int64(),
-        {"[]", "[]", "[9, 8, 7]", "[]", "[]", "[6, 5, 4]", "[]", "[3, 2, 1]", "[]", "[]"});
+  const auto all_empty_batches = ChunkedArrayFromJSON(int64(), {"[]", "[]", "[]"});
+  const auto many_empty_batches = ChunkedArrayFromJSON(
+      int64(),
+      {"[]", "[]", "[9, 8, 7]", "[]", "[]", "[6, 5, 4]", "[]", "[3, 2, 1]", "[]", "[]"});
 
-    const auto unordered_batch =
-        ChunkedArrayFromJSON(int64(), {"[9, 8, 7]", "[6, 4, 5]", "[3, 2, 1]"});
-    const auto unordered_batches =
-        ChunkedArrayFromJSON(int64(), {"[9, 8, 7]", "[3, 2, 1]", "[6, 5, 4]"});
+  const auto unordered_batch =
+      ChunkedArrayFromJSON(int64(), {"[9, 8, 7]", "[6, 4, 5]", "[3, 2, 1]"});
+  const auto unordered_batches =
+      ChunkedArrayFromJSON(int64(), {"[9, 8, 7]", "[3, 2, 1]", "[6, 5, 4]"});
 
-    // TODO: add tests with NULL and NaN values
+  // TODO: add tests with NULL and NaN values
 
-    auto desc_sort_options =
-        Ordering({{compute::SortKey{"id", compute::SortOrder::Descending}}}, compute::NullPlacement::AtStart);
+  auto desc_sort_options =
+      Ordering({{compute::SortKey{"id", compute::SortOrder::Descending}}},
+               compute::NullPlacement::AtStart);
 
   CheckAssert(monotonic_ids, desc_sort_options);
   CheckAssert(repeating_ids, desc_sort_options);

@@ -1069,7 +1069,9 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
 
   // the source can at most establish implicit ordering,
   // the assert_order node will establish explicit ordering
-  auto source_ordering = require_sequenced_output || ordering.is_ordered() ? Ordering::Implicit() : Ordering::Unordered();
+  auto source_ordering = require_sequenced_output || ordering.is_ordered()
+                             ? Ordering::Implicit()
+                             : Ordering::Unordered();
 
   auto fields = scan_options->dataset_schema->fields();
   if (scan_options->add_augmented_fields) {
@@ -1078,16 +1080,16 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
     }
   }
 
-  auto out = acero::MakeExecNode(
-      "source", plan, {},
-      acero::SourceNodeOptions{schema(std::move(fields)), std::move(gen), source_ordering});
+  auto out =
+      acero::MakeExecNode("source", plan, {},
+                          acero::SourceNodeOptions{schema(std::move(fields)),
+                                                   std::move(gen), source_ordering});
 
   // assert and establish explicit ordering
   if (ordering.is_explicit()) {
     ARROW_ASSIGN_OR_RAISE(auto source, out);
-    out = acero::MakeExecNode(
-        "assert_order", plan, {source},
-        acero::AssertOrderNodeOptions{ordering});
+    out = acero::MakeExecNode("assert_order", plan, {source},
+                              acero::AssertOrderNodeOptions{ordering});
   }
 
   return out;

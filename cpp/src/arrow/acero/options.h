@@ -251,8 +251,7 @@ class ARROW_ACERO_EXPORT AssertOrderNodeOptions : public ExecNodeOptions {
  public:
   static constexpr std::string_view kName = "assert_order";
   /// \brief create an instance from ordering
-  explicit AssertOrderNodeOptions(Ordering ordering)
-      : ordering(std::move(ordering)) {}
+  explicit AssertOrderNodeOptions(Ordering ordering) : ordering(std::move(ordering)) {}
 
   /// \brief expected null placement and sort columns and directions
   Ordering ordering;
