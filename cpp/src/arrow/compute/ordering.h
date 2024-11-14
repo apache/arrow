@@ -62,7 +62,7 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
  public:
   Ordering(std::vector<SortKey> sort_keys,
            NullPlacement null_placement = NullPlacement::AtStart)
-      : sort_keys_(std::move(sort_keys)), null_placement_(null_placement) {}
+      : sort_keys_(std::move(sort_keys)), null_placement_(null_placement), is_implicit_(false) {}
   /// true if data ordered by other is also ordered by this
   ///
   /// For example, if data is ordered by [a, b, c] then it is also ordered
@@ -88,7 +88,9 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
   std::string ToString() const;
 
   bool is_implicit() const { return is_implicit_; }
-  bool is_unordered() const { return !is_implicit_ && sort_keys_.empty(); }
+  bool is_explicit() const { return !is_implicit_ && !sort_keys_.empty(); }
+  bool is_ordered() const { return is_implicit() || is_explicit(); }
+  bool is_unordered() const { return !is_ordered(); }
 
   const std::vector<SortKey>& sort_keys() const { return sort_keys_; }
   NullPlacement null_placement() const { return null_placement_; }
@@ -113,7 +115,7 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
   std::vector<SortKey> sort_keys_;
   /// Whether nulls and NaNs are placed at the start or at the end
   NullPlacement null_placement_;
-  bool is_implicit_ = false;
+  bool is_implicit_;
 };
 
 }  // namespace compute
