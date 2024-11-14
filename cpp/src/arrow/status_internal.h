@@ -31,7 +31,7 @@ class StatusConstant {
         << "StatusConstant is not intended for use with OK status codes";
   }
 
-  operator Status() const {  // NOLINT(runtime/explicit)
+  operator Status() {  // NOLINT(runtime/explicit)
     Status st;
     st.state_ = &state_;
     return st;

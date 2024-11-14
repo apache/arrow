@@ -87,6 +87,15 @@ TEST(StatusTest, StatusConstant) {
 
   Status copy = st;
   ASSERT_EQ(&st.message(), &copy.message());
+  Status moved = std::move(st);
+  ASSERT_EQ(&copy.message(), &moved.message());
+  ASSERT_OK(st);
+
+  Status other = constant;
+  ASSERT_EQ(other.code(), StatusCode::Invalid);
+  ASSERT_EQ(other.message(), "default error");
+  ASSERT_EQ(other.detail(), nullptr);
+  ASSERT_EQ(&other.message(), &moved.message());
 }
 
 TEST(StatusTest, AndStatus) {

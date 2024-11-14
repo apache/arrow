@@ -167,7 +167,7 @@ void Status::AddContextLine(const char* filename, int line, const char* expr) {
     // We can't add context lines to a StatusConstant's state, so copy it now
     state_ = new State{code(), /*is_constant=*/false, message(), detail()};
   }
-  const_cast<State*>(state_)->msg += ss.str();
+  state_->msg += ss.str();
 }
 #endif
 
