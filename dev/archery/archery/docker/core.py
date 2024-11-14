@@ -203,7 +203,7 @@ class DockerCompose(Command):
                 )
             msg = (
                 "`{cmd}` exited with a non-zero exit code {code}, see the "
-                "process log above.\n\nThe {compose_bin} command was "
+                "process log above.\n\nThe {bin} command was "
                 "invoked with the following parameters:\n\nDefaults defined "
                 "in .env:\n{dotenv}\n\nArchery was called with:\n{params}"
             )
@@ -211,6 +211,7 @@ class DockerCompose(Command):
                 msg.format(
                     cmd=' '.join(e.cmd),
                     code=e.returncode,
+                    bin=self.bin,
                     dotenv=formatdict(self.config.dotenv, template='  {}: {}'),
                     params=formatdict(
                         self.config.params, template='  export {}={}'
