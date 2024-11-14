@@ -142,7 +142,7 @@ class ComposeConfig:
                              stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
         if result.returncode != 0:
-            # strip the intro line of docker-compose errors
+            # strip the intro line of docker compose errors
             errors += result.stderr.decode().splitlines()
 
         if errors:
@@ -203,7 +203,7 @@ class DockerCompose(Command):
                 )
             msg = (
                 "`{cmd}` exited with a non-zero exit code {code}, see the "
-                "process log above.\n\nThe docker-compose command was "
+                "process log above.\n\nThe {compose_bin} command was "
                 "invoked with the following parameters:\n\nDefaults defined "
                 "in .env:\n{dotenv}\n\nArchery was called with:\n{params}"
             )
@@ -406,7 +406,7 @@ class DockerCompose(Command):
                 cmd = service.get('command', '')
                 if cmd:
                     # service command might be already defined as a list
-                    # on the docker-compose yaml file.
+                    # in docker-compose.yml.
                     if isinstance(cmd, list):
                         cmd = shlex.join(cmd)
                     # Match behaviour from docker compose
@@ -418,7 +418,7 @@ class DockerCompose(Command):
             # execute as a plain docker cli command
             self._execute_docker('run', '--rm', *args)
         else:
-            # execute as a docker-compose command
+            # execute as a docker compose command
             args.append(service_name)
             if command is not None:
                 args.append(command)

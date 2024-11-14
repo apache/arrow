@@ -1090,9 +1090,9 @@ services:
 
   ubuntu-python-313-freethreading:
     # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose build ubuntu-python-313-freethreading
-    #   docker-compose run --rm ubuntu-python-313-freethreading
+    #   docker compose build ubuntu-cpp
+    #   docker compose build ubuntu-python-313-freethreading
+    #   docker compose run --rm ubuntu-python-313-freethreading
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   UBUNTU: 20.04, 22.04, 24.04
@@ -1328,11 +1328,11 @@ services:
 
   conda-python-no-numpy:
     # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-no-numpy
-    #   docker-compose run --rm conda-python-no-numpy
+    #   docker compose build conda
+    #   docker compose build conda-cpp
+    #   docker compose build conda-python
+    #   docker compose build conda-python-no-numpy
+    #   docker compose run --rm conda-python-no-numpy
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}-no-numpy
     build:
       context: .
@@ -1545,11 +1545,11 @@ services:
 
   conda-python-cpython-debug:
     # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-cpython-debug
-    #   docker-compose run --rm conda-python-cpython-debug
+    #   docker compose build conda
+    #   docker compose build conda-cpp
+    #   docker compose build conda-python
+    #   docker compose build conda-python-cpython-debug
+    #   docker compose run --rm conda-python-cpython-debug
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}-cpython-debug
     build:
       context: .
