@@ -19,7 +19,7 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.chrono cimport time_point
+from pyarrow.includes.libarrow_python cimport CTimePoint
 
 
 cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
@@ -135,7 +135,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
         CTicket ticket
         vector[CLocation] locations
-        optional[time_point] expiration_time
+        optional[CTimePoint] expiration_time
         c_string app_metadata
 
         bint operator==(CFlightEndpoint)
