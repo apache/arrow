@@ -21,6 +21,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/acero/type_fwd.h"
@@ -248,13 +249,13 @@ class ARROW_ACERO_EXPORT RecordBatchSourceNodeOptions
 /// The output batches are again processed further in parallel.
 class ARROW_ACERO_EXPORT AssertOrderNodeOptions : public ExecNodeOptions {
  public:
-  static constexpr std::string_view kName = "assert-order";
-  /// \brief create an instance from sort options
-  explicit AssertOrderNodeOptions(SortOptions sort_options)
-      : sort_options(std::move(sort_options)) {}
+  static constexpr std::string_view kName = "assert_order";
+  /// \brief create an instance from ordering
+  explicit AssertOrderNodeOptions(Ordering ordering)
+      : ordering(std::move(ordering)) {}
 
-  /// \brief options describing which columns and direction to sort
-  SortOptions sort_options;
+  /// \brief expected null placement and sort columns and directions
+  Ordering ordering;
 };
 
 /// \brief a node which excludes some rows from batches passed through it

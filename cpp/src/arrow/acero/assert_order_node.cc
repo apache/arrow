@@ -128,8 +128,7 @@ class AssertOrderNode : public ExecNode,
 
     const auto& assert_options = checked_cast<const AssertOrderNodeOptions&>(options);
 
-    SortOptions sort_options = assert_options.sort_options;
-    Ordering ordering = sort_options.AsOrdering();
+    Ordering ordering = assert_options.ordering;
 
     // check output ordering
     if (ordering.is_implicit() || ordering.is_unordered()) {
