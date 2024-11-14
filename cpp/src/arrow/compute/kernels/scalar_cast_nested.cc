@@ -374,7 +374,7 @@ struct CastStruct {
       }
       if (all_in_field_names.count(out_field->name()) == 0 && out_field->nullable()) {
         // Didn't match current in_field, but we can fill with null.
-        // Filling with null is only acceptable on nuallable fields when there
+        // Filling with null is only acceptable on nullable fields when there
         // is definitely no in_field with matching name.
 
         // -2 is a sentinel value indicating fill with null.
