@@ -130,7 +130,7 @@ class ComposeConfig:
                 '`x-hierarchy`'.format(name)
             )
 
-        # trigger docker compose's own validation
+        # trigger Docker Compose's own validation
         if self.using_docker:
             compose = Docker()
             args = ['compose']
@@ -410,7 +410,7 @@ class DockerCompose(Command):
                     # in docker-compose.yml.
                     if isinstance(cmd, list):
                         cmd = shlex.join(cmd)
-                    # Match behaviour from docker compose
+                    # Match behaviour from Docker Compose
                     # to interpolate environment variables
                     # https://docs.docker.com/compose/compose-file/12-interpolation/
                     cmd = cmd.replace("$$", "$")

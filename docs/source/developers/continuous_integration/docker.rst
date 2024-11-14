@@ -22,13 +22,13 @@ Running Docker Builds
 
 Most of our Linux based Continuous Integration tasks are decoupled from public
 CI services using `Docker <https://docs.docker.com/>`_ and
-`docker compose <https://docs.docker.com/compose/>`_.  Keeping the CI configuration
+`Docker Compose <https://docs.docker.com/compose/>`_.  Keeping the CI configuration
 minimal makes local reproducibility possible.
 
 Usage
 -----
 
-There are multiple ways to execute the docker based builds.
+There are multiple ways to execute the Docker based builds.
 The recommended way is to use the :ref:`Archery <archery>` tool:
 
 Examples
@@ -56,7 +56,7 @@ Archery calls the following docker compose commands:
     docker compose build conda-python
     docker compose run --rm conda-python
 
-**Show the docker compose commands instead of executing them:**
+**Show the Docker Compose commands instead of executing them:**
 
 .. code:: bash
 
@@ -182,13 +182,13 @@ whole ``.docker`` directory).
 Development
 -----------
 
-The docker compose configuration is tuned towards reusable development
+The Docker Compose configuration is tuned towards reusable development
 containers using hierarchical images. For example multiple language bindings
 are dependent on the C++ implementation, so instead of redefining the
 C++ environment multiple Dockerfiles, we can reuse the exact same base C++
 image when building Glib, Ruby, R and Python bindings.
 This reduces duplication and streamlines maintenance, but makes the
-docker compose configuration more complicated.
+Docker Compose configuration more complicated.
 
 .. _docker-build-parameters:
 
