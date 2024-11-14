@@ -518,6 +518,14 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///         Schema.
   Status Filter(const compute::Expression& filter);
 
+  /// \brief Set the ordering of the scanned rows.
+  ///
+  /// An explicit ordering the scanned data provide. Scan fails on first un-ordered row.
+  /// Reading un-ordered data partially might succeed if un-ordered rows are not read.
+  /// Setting an ordering does not actually order the data but asserts that data in the
+  /// dataset is ordered as stated during scan.
+  Status Ordering(const compute::Ordering& ordering);
+
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanOptions;
   Status UseThreads(bool use_threads = true);
@@ -577,6 +585,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
  private:
   std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<ScanOptions> scan_options_ = std::make_shared<ScanOptions>();
+  compute::Ordering ordering_ = Ordering::Unordered();
 };
 
 /// \brief Construct a source ExecNode which yields batches from a dataset scan.
@@ -593,16 +602,24 @@ class ARROW_DS_EXPORT ScanNodeOptions : public acero::ExecNodeOptions {
   explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
                            std::shared_ptr<ScanOptions> scan_options,
                            bool require_sequenced_output = false,
-                           bool implicit_ordering = false)
+                           Ordering ordering = Ordering::Unordered())
       : dataset(std::move(dataset)),
         scan_options(std::move(scan_options)),
         require_sequenced_output(require_sequenced_output),
-        implicit_ordering(implicit_ordering) {}
+        ordering(std::move(ordering)) {}
+
+    explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
+                             std::shared_ptr<ScanOptions> scan_options,
+                             Ordering ordering = Ordering::Unordered())
+      : ScanNodeOptions(std::move(dataset),
+                        std::move(scan_options),
+                        false,
+                        std::move(ordering)) { }
 
   std::shared_ptr<Dataset> dataset;
   std::shared_ptr<ScanOptions> scan_options;
   bool require_sequenced_output;
-  bool implicit_ordering;
+  Ordering ordering;
 };
 
 /// @}
