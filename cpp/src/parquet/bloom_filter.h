@@ -116,6 +116,7 @@ class PARQUET_EXPORT BloomFilter {
   /// Compute hash for fixed byte array value by using its plain encoding result.
   ///
   /// @param value the value to hash.
+  /// @param type_len the value length.
   uint64_t Hash(const FLBA& value, uint32_t type_len) const {
     return Hash(&value, type_len);
   }
