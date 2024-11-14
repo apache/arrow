@@ -1105,6 +1105,7 @@ tasks:
       env:
         UBUNTU: 24.04
       image: ubuntu-cpp-bundled-offline
+      timeout: 120
 
   test-ubuntu-24.04-cpp-gcc-13-bundled:
     ci: github
