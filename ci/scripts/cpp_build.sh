@@ -22,6 +22,7 @@ set -ex
 source_dir=${1}/cpp
 build_dir=${2}/cpp
 
+: ${ARROW_OFFLINE:=OFF}
 : ${ARROW_USE_CCACHE:=OFF}
 : ${BUILD_DOCS_CPP:=OFF}
 
@@ -97,6 +98,16 @@ esac
 
 mkdir -p ${build_dir}
 pushd ${build_dir}
+
+if [ "${ARROW_OFFLINE}" = "ON" ]; then
+  ${source_dir}/thirdparty/download_dependencies.sh ${PWD}/thirdparty > \
+    enable_offline_build.sh
+  . enable_offline_build.sh
+  # We can't use mv because we can't remove /etc/resolv.conf in Docker
+  # container.
+  cp /etc/resolv.conf{,.bak}
+  echo > /etc/resolv.conf
+fi
 
 if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   if [ "${UBUNTU}" = "20.04" ]; then
@@ -236,6 +247,10 @@ time cmake --build . --target install
 
 # Save disk space by removing large temporary build products
 find . -name "*.o" -delete
+
+if [ "${ARROW_OFFLINE}" = "ON" ]; then
+  cp /etc/resolv.conf{.bak,}
+fi
 
 popd
 
