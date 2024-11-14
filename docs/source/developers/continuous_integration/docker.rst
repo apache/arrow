@@ -22,7 +22,7 @@ Running Docker Builds
 
 Most of our Linux based Continuous Integration tasks are decoupled from public
 CI services using `Docker <https://docs.docker.com/>`_ and
-`docker-compose <https://docs.docker.com/compose/>`_.  Keeping the CI configuration
+`docker compose <https://docs.docker.com/compose/>`_.  Keeping the CI configuration
 minimal makes local reproducibility possible.
 
 Usage
@@ -46,17 +46,17 @@ Examples
 
     archery docker run conda-python
 
-Archery calls the following docker-compose commands:
+Archery calls the following docker compose commands:
 
 .. code:: bash
 
-    docker-compose pull --ignore-pull-failures conda-cpp
-    docker-compose pull --ignore-pull-failures conda-python
-    docker-compose build conda-cpp
-    docker-compose build conda-python
-    docker-compose run --rm conda-python
+    docker compose pull --ignore-pull-failures conda-cpp
+    docker compose pull --ignore-pull-failures conda-python
+    docker compose build conda-cpp
+    docker compose build conda-python
+    docker compose run --rm conda-python
 
-**Show the docker-compose commands instead of executing them:**
+**Show the docker compose commands instead of executing them:**
 
 .. code:: bash
 
@@ -72,9 +72,9 @@ Which translates to:
 
 .. code:: bash
 
-    docker-compose build --no-cache conda-cpp
-    docker-compose build --no-cache conda-python
-    docker-compose run --rm conda-python
+    docker compose build --no-cache conda-cpp
+    docker compose build --no-cache conda-python
+    docker compose run --rm conda-python
 
 **To disable the cache only for the leaf image:**
 
@@ -92,12 +92,12 @@ Which translates to:
 .. code:: bash
 
     export PANDAS=upstream_devel
-    docker-compose pull --ignore-pull-failures conda-cpp
-    docker-compose pull --ignore-pull-failures conda-python
-    docker-compose build conda-cpp
-    docker-compose build conda-python
-    docker-compose build --no-cache conda-python-pandas
-    docker-compose run --rm conda-python-pandas
+    docker compose pull --ignore-pull-failures conda-cpp
+    docker compose pull --ignore-pull-failures conda-python
+    docker compose build conda-cpp
+    docker compose build conda-python
+    docker compose build --no-cache conda-python-pandas
+    docker compose run --rm conda-python-pandas
 
 Note that it doesn't pull the conda-python-pandas image and disable the cache
 when building it.
@@ -135,7 +135,7 @@ can be useful to skip the build phases:
 
 Most of the build scripts used within the containers can be configured through
 environment variables. Pass them using ``--env`` or ``-e`` CLI options -
-similar to the ``docker run`` and ``docker-compose run`` interface.
+similar to the ``docker run`` and ``docker compose run`` interface.
 
 .. code:: bash
 
@@ -182,13 +182,13 @@ whole ``.docker`` directory).
 Development
 -----------
 
-The docker-compose configuration is tuned towards reusable development
+The docker compose configuration is tuned towards reusable development
 containers using hierarchical images. For example multiple language bindings
 are dependent on the C++ implementation, so instead of redefining the
 C++ environment multiple Dockerfiles, we can reuse the exact same base C++
 image when building Glib, Ruby, R and Python bindings.
 This reduces duplication and streamlines maintenance, but makes the
-docker-compose configuration more complicated.
+docker compose configuration more complicated.
 
 .. _docker-build-parameters:
 
