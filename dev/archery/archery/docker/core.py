@@ -130,7 +130,7 @@ class ComposeConfig:
                 '`x-hierarchy`'.format(name)
             )
 
-        # trigger docker-compose's own validation
+        # trigger Docker Compose's own validation
         if self.using_docker:
             compose = Docker()
             args = ['compose']
@@ -142,7 +142,7 @@ class ComposeConfig:
                              stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
         if result.returncode != 0:
-            # strip the intro line of docker-compose errors
+            # strip the intro line of docker compose errors
             errors += result.stderr.decode().splitlines()
 
         if errors:
@@ -203,7 +203,7 @@ class DockerCompose(Command):
                 )
             msg = (
                 "`{cmd}` exited with a non-zero exit code {code}, see the "
-                "process log above.\n\nThe docker-compose command was "
+                "process log above.\n\nThe {bin} command was "
                 "invoked with the following parameters:\n\nDefaults defined "
                 "in .env:\n{dotenv}\n\nArchery was called with:\n{params}"
             )
@@ -211,6 +211,7 @@ class DockerCompose(Command):
                 msg.format(
                     cmd=' '.join(e.cmd),
                     code=e.returncode,
+                    bin=self.bin,
                     dotenv=formatdict(self.config.dotenv, template='  {}: {}'),
                     params=formatdict(
                         self.config.params, template='  export {}={}'
@@ -406,10 +407,10 @@ class DockerCompose(Command):
                 cmd = service.get('command', '')
                 if cmd:
                     # service command might be already defined as a list
-                    # on the docker-compose yaml file.
+                    # in docker-compose.yml.
                     if isinstance(cmd, list):
                         cmd = shlex.join(cmd)
-                    # Match behaviour from docker compose
+                    # Match behaviour from Docker Compose
                     # to interpolate environment variables
                     # https://docs.docker.com/compose/compose-file/12-interpolation/
                     cmd = cmd.replace("$$", "$")
@@ -418,7 +419,7 @@ class DockerCompose(Command):
             # execute as a plain docker cli command
             self._execute_docker('run', '--rm', *args)
         else:
-            # execute as a docker-compose command
+            # execute as a docker compose command
             args.append(service_name)
             if command is not None:
                 args.append(command)
