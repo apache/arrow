@@ -5313,10 +5313,15 @@ TEST_F(TestArrayDeviceStreamRoundtrip, ChunkedArrayRoundtripEmpty) {
   });
 }
 
-#ifdef ARROW_ENABLE_THREADING
-
 class TestAsyncDeviceArrayStreamRoundTrip : public BaseArrayStreamTest {
  public:
+  void SetUp() override {
+    BaseArrayStreamTest::SetUp();
+#ifdef ARROW_ENABLE_THREADING
+    GTEST_SKIP() << "Test requires ARROW_ENABLE_THREADING=OFF";
+#endif    
+  }
+
   static Result<std::shared_ptr<ArrayData>> ToDeviceData(
       const std::shared_ptr<MemoryManager>& mm, const ArrayData& data) {
     arrow::BufferVector buffers;
@@ -5422,7 +5427,5 @@ TEST_F(TestAsyncDeviceArrayStreamRoundTrip, PropagateError) {
 
   internal::GetCpuThreadPool()->WaitForIdle();
 }
-
-#endif
 
 }  // namespace arrow
