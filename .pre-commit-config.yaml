@@ -173,3 +173,12 @@ repos:
           '--disable',
           'dangling-hyphen,line-too-long',
         ]
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.10.0
+    hooks:
+      - id: shellcheck
+        # TODO: Remove this when we fix all lint failures
+        files: >-
+          (
+          ?^ci/scripts/c_glib_build\.sh$|
+          )
