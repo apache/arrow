@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/io/type_fwd.h"
+#include "arrow/io/interfaces.h"
 #include "parquet/encryption/type_fwd.h"
 #include "parquet/types.h"
 

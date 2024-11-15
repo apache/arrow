@@ -1701,6 +1701,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
 
   auto update_stats = [&](int64_t num_chunk_levels,
                           const std::shared_ptr<Array>& chunk_indices) {
+    DCHECK(page_statistics_ != nullptr || bloom_filter_ != nullptr);
     // TODO(PARQUET-2068) This approach may make two copies.  First, a copy of the
     // indices array to a (hopefully smaller) referenced indices array.  Second, a copy
     // of the values array to a (probably not smaller) referenced values array.
@@ -1725,9 +1726,8 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
                                  &exec_ctx));
       referenced_dictionary = referenced_dictionary_datum.make_array();
     }
-
-    int64_t non_null_count = chunk_indices->length() - chunk_indices->null_count();
     if (page_statistics_ != nullptr) {
+      int64_t non_null_count = chunk_indices->length() - chunk_indices->null_count();
       page_statistics_->IncrementNullCount(num_chunk_levels - non_null_count);
       page_statistics_->IncrementNumValues(non_null_count);
       page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
@@ -2426,7 +2426,9 @@ void TypedColumnWriterImpl<FLBAType>::UpdateBloomFilter(const FLBA* values,
 
 template <>
 void TypedColumnWriterImpl<BooleanType>::UpdateBloomFilter(const bool*, int64_t) {
-  DCHECK(bloom_filter_ == nullptr);
+  if (ARROW_PREDICT_FALSE(bloom_filter_ != nullptr)) {
+    throw ParquetException("BooleanType does not support bloom filters");
+  }
 }
 
 template <typename DType>

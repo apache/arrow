@@ -516,9 +516,10 @@ class PARQUET_EXPORT RowGroupMetaDataBuilder {
 using RowGroupIndexLocation = std::vector<std::optional<IndexLocation>>;
 
 /// Alias type of bloom filter location of a row group. The filter location
-/// is located by column ordinal. Number of columns with a bloom filter to
-/// be relatively small compared to the number of overall columns, so
-/// map is used.
+/// is located by column ordinal.
+///
+/// Number of columns with a bloom filter to be relatively small compared to
+/// the number of overall columns, so map is used.
 using RowGroupBloomFilterLocation = std::map<int32_t, IndexLocation>;
 
 /// Alias type of page index and location of a parquet file. The

@@ -599,7 +599,7 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Disable bloom filter for the column specified by `path`.
-    /// Default enabled.
+    /// Default disabled.
     Builder* disable_bloom_filter(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->disable_bloom_filter(path->ToDotString());
     }
