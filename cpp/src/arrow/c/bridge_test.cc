@@ -5317,8 +5317,8 @@ class TestAsyncDeviceArrayStreamRoundTrip : public BaseArrayStreamTest {
  public:
   void SetUp() override {
     BaseArrayStreamTest::SetUp();
-#ifdef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "Test requires ARROW_ENABLE_THREADING=OFF";
+#ifndef ARROW_ENABLE_THREADING
+    GTEST_SKIP() << "Test requires ARROW_ENABLE_THREADING=ON";
 #endif
   }
 
