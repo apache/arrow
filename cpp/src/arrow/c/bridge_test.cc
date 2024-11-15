@@ -5319,7 +5319,7 @@ class TestAsyncDeviceArrayStreamRoundTrip : public BaseArrayStreamTest {
     BaseArrayStreamTest::SetUp();
 #ifdef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires ARROW_ENABLE_THREADING=OFF";
-#endif    
+#endif
   }
 
   static Result<std::shared_ptr<ArrayData>> ToDeviceData(
