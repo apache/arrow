@@ -17,7 +17,6 @@
 
 import gc
 import decimal
-import io
 import json
 import multiprocessing as mp
 import sys
@@ -4430,10 +4429,8 @@ def test_to_pandas_extension_dtypes_mapping_complex_type():
     ).astype({"foo": pd_type})
 
     # Round trip df0 into df1
-    with io.BytesIO() as stream:
-        df0.to_parquet(stream, schema=schema)
-        stream.seek(0)
-        df1 = pd.read_parquet(stream, dtype_backend="pyarrow")
+    table = pa.Table.from_pandas(df0, schema=schema)
+    df1 = table.to_pandas(types_mapper=pd.ArrowDtype)
     pd.testing.assert_frame_equal(df0, df1)
 
 
