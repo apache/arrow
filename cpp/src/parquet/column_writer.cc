@@ -455,7 +455,7 @@ class SerializedPageWriter : public PageWriter {
       /// has flushed all data pages.
       offset_index_builder_->AddPage(
           start_pos, static_cast<int32_t>(compressed_size), *page.first_row_index(),
-          page_size_stats ? page_size_stats->unencoded_byte_array_data_bytes()
+          page_size_stats ? page_size_stats->unencoded_byte_array_data_bytes
                           : std::nullopt);
     }
 

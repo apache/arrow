@@ -520,8 +520,8 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     }
 
     if (size_stats != nullptr) {
-      const auto& page_ref_level_hist = size_stats->repetition_level_histogram();
-      const auto& page_def_level_hist = size_stats->definition_level_histogram();
+      const auto& page_ref_level_hist = size_stats->repetition_level_histogram;
+      const auto& page_def_level_hist = size_stats->definition_level_histogram;
       column_index_.repetition_level_histograms.insert(
           column_index_.repetition_level_histograms.end(), page_ref_level_hist.cbegin(),
           page_ref_level_hist.cend());
@@ -881,10 +881,9 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
 
 void OffsetIndexBuilder::AddPage(const PageLocation& page_location,
                                  const SizeStatistics* size_stats) {
-  this->AddPage(
-      page_location.offset, page_location.compressed_page_size,
-      page_location.first_row_index,
-      size_stats ? size_stats->unencoded_byte_array_data_bytes() : std::nullopt);
+  this->AddPage(page_location.offset, page_location.compressed_page_size,
+                page_location.first_row_index,
+                size_stats ? size_stats->unencoded_byte_array_data_bytes : std::nullopt);
 }
 
 RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(

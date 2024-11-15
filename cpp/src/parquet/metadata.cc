@@ -313,7 +313,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     if (!column_metadata_->__isset.size_statistics) {
       return nullptr;
     }
-    return SizeStatistics::Make(&column_metadata_->size_statistics, descr_);
+    return std::make_unique<SizeStatistics>(
+        FromThrift(column_metadata_->size_statistics));
   }
 
   inline Compression::type compression() const {

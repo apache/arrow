@@ -68,6 +68,7 @@ struct ParquetVersion {
   };
 };
 
+struct ByteArray;
 struct PageIndexLocation;
 
 class FileMetaData;
@@ -87,7 +88,7 @@ class ArrowWriterPropertiesBuilder;
 
 class EncodedStatistics;
 class Statistics;
-class SizeStatistics;
+struct SizeStatistics;
 
 class ColumnIndex;
 class OffsetIndex;

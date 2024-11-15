@@ -30,84 +30,25 @@
 
 namespace parquet {
 
-class SizeStatistics::Impl {
- public:
-  Impl() = default;
-
-  Impl(const format::SizeStatistics* size_stats, const ColumnDescriptor* descr)
-      : rep_level_histogram_(size_stats->repetition_level_histogram),
-        def_level_histogram_(size_stats->definition_level_histogram) {
-    if (descr->physical_type() == Type::BYTE_ARRAY &&
-        size_stats->__isset.unencoded_byte_array_data_bytes) {
-      unencoded_byte_array_data_bytes_ = size_stats->unencoded_byte_array_data_bytes;
-    }
+void SizeStatistics::Merge(const SizeStatistics& other) {
+  if (repetition_level_histogram.size() != other.repetition_level_histogram.size() ||
+      definition_level_histogram.size() != other.definition_level_histogram.size() ||
+      unencoded_byte_array_data_bytes.has_value() !=
+          other.unencoded_byte_array_data_bytes.has_value()) {
+    throw ParquetException("Cannot merge incompatible SizeStatistics");
   }
 
-  const std::vector<int64_t>& repetition_level_histogram() const {
-    return rep_level_histogram_;
+  std::transform(repetition_level_histogram.begin(), repetition_level_histogram.end(),
+                 other.repetition_level_histogram.begin(),
+                 repetition_level_histogram.begin(), std::plus<>());
+
+  std::transform(definition_level_histogram.begin(), definition_level_histogram.end(),
+                 other.definition_level_histogram.begin(),
+                 definition_level_histogram.begin(), std::plus<>());
+  if (unencoded_byte_array_data_bytes.has_value()) {
+    unencoded_byte_array_data_bytes = unencoded_byte_array_data_bytes.value() +
+                                      other.unencoded_byte_array_data_bytes.value();
   }
-
-  const std::vector<int64_t>& definition_level_histogram() const {
-    return def_level_histogram_;
-  }
-
-  std::optional<int64_t> unencoded_byte_array_data_bytes() const {
-    return unencoded_byte_array_data_bytes_;
-  }
-
-  void Merge(const SizeStatistics& other) {
-    if (rep_level_histogram_.size() != other.repetition_level_histogram().size() ||
-        def_level_histogram_.size() != other.definition_level_histogram().size() ||
-        unencoded_byte_array_data_bytes_.has_value() !=
-            other.unencoded_byte_array_data_bytes().has_value()) {
-      throw ParquetException("Cannot merge incompatible SizeStatistics");
-    }
-
-    std::transform(rep_level_histogram_.begin(), rep_level_histogram_.end(),
-                   other.repetition_level_histogram().begin(),
-                   rep_level_histogram_.begin(), std::plus<>());
-
-    std::transform(def_level_histogram_.begin(), def_level_histogram_.end(),
-                   other.definition_level_histogram().begin(),
-                   def_level_histogram_.begin(), std::plus<>());
-    if (unencoded_byte_array_data_bytes_.has_value()) {
-      unencoded_byte_array_data_bytes_ = unencoded_byte_array_data_bytes_.value() +
-                                         other.unencoded_byte_array_data_bytes().value();
-    }
-  }
-
- private:
-  friend class SizeStatisticsBuilder;
-  std::vector<int64_t> rep_level_histogram_;
-  std::vector<int64_t> def_level_histogram_;
-  std::optional<int64_t> unencoded_byte_array_data_bytes_;
-};
-
-const std::vector<int64_t>& SizeStatistics::repetition_level_histogram() const {
-  return impl_->repetition_level_histogram();
-}
-
-const std::vector<int64_t>& SizeStatistics::definition_level_histogram() const {
-  return impl_->definition_level_histogram();
-}
-
-std::optional<int64_t> SizeStatistics::unencoded_byte_array_data_bytes() const {
-  return impl_->unencoded_byte_array_data_bytes();
-}
-
-void SizeStatistics::Merge(const SizeStatistics& other) { return impl_->Merge(other); }
-
-SizeStatistics::SizeStatistics(const void* size_statistics, const ColumnDescriptor* descr)
-    : impl_(std::make_unique<Impl>(
-          reinterpret_cast<const format::SizeStatistics*>(size_statistics), descr)) {}
-
-SizeStatistics::SizeStatistics() : impl_(std::make_unique<Impl>()) {}
-
-SizeStatistics::~SizeStatistics() = default;
-
-std::unique_ptr<SizeStatistics> SizeStatistics::Make(const void* size_statistics,
-                                                     const ColumnDescriptor* descr) {
-  return std::unique_ptr<SizeStatistics>(new SizeStatistics(size_statistics, descr));
 }
 
 class SizeStatisticsBuilder::Impl {
@@ -185,11 +126,8 @@ class SizeStatisticsBuilder::Impl {
   }
 
   std::unique_ptr<SizeStatistics> Build() {
-    auto stats = std::unique_ptr<SizeStatistics>(new SizeStatistics());
-    stats->impl_->rep_level_histogram_ = rep_level_histogram_;
-    stats->impl_->def_level_histogram_ = def_level_histogram_;
-    stats->impl_->unencoded_byte_array_data_bytes_ = unencoded_byte_array_data_bytes_;
-    return stats;
+    return std::make_unique<SizeStatistics>(SizeStatistics{
+        rep_level_histogram_, def_level_histogram_, unencoded_byte_array_data_bytes_});
   }
 
   void Reset() {
@@ -210,7 +148,6 @@ class SizeStatisticsBuilder::Impl {
     unencoded_byte_array_data_bytes_ = total_bytes;
   }
 
- private:
   std::vector<int64_t> rep_level_histogram_;
   std::vector<int64_t> def_level_histogram_;
   std::optional<int64_t> unencoded_byte_array_data_bytes_;

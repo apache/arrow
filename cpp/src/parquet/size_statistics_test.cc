@@ -77,8 +77,8 @@ TEST(SizeStatistics, WriteBatchLevels) {
   write_batch_levels(expected_rep_level_histogram,
                      &SizeStatisticsBuilder::AddRepetitionLevels);
   auto size_statistics = builder->Build();
-  EXPECT_EQ(size_statistics->definition_level_histogram(), expected_def_level_histogram);
-  EXPECT_EQ(size_statistics->repetition_level_histogram(), expected_rep_level_histogram);
+  EXPECT_EQ(size_statistics->definition_level_histogram, expected_def_level_histogram);
+  EXPECT_EQ(size_statistics->repetition_level_histogram, expected_rep_level_histogram);
 }
 
 TEST(SizeStatistics, WriteRepeatedLevels) {
@@ -100,9 +100,9 @@ TEST(SizeStatistics, WriteRepeatedLevels) {
   }
 
   auto size_statistics = builder->Build();
-  EXPECT_EQ(size_statistics->definition_level_histogram(),
+  EXPECT_EQ(size_statistics->definition_level_histogram,
             std::vector<int64_t>({55, 65, 75}));
-  EXPECT_EQ(size_statistics->repetition_level_histogram(),
+  EXPECT_EQ(size_statistics->repetition_level_histogram,
             std::vector<int64_t>({55, 65, 95, 145}));
 }
 
@@ -121,7 +121,7 @@ TEST(SizeStatistics, WriteDenseByteArrayValues) {
   }
 
   auto size_statistics = builder->Build();
-  EXPECT_EQ(size_statistics->unencoded_byte_array_data_bytes().value_or(-1),
+  EXPECT_EQ(size_statistics->unencoded_byte_array_data_bytes.value_or(-1),
             kNumValues * kValue.size());
 }
 
@@ -150,7 +150,7 @@ TEST(SizeStatistics, WriteSpacedByteArrayValues) {
   }
 
   auto size_statistics = builder->Build();
-  EXPECT_EQ(size_statistics->unencoded_byte_array_data_bytes().value_or(-1),
+  EXPECT_EQ(size_statistics->unencoded_byte_array_data_bytes.value_or(-1),
             not_null_count * kValue.size());
 }
 
@@ -165,7 +165,7 @@ TEST(SizeStatistics, WriteBinaryArray) {
     auto builder = SizeStatisticsBuilder::Make(descr.get());
     builder->AddValues(*array);
     auto size_statistics = builder->Build();
-    EXPECT_EQ(size_statistics->unencoded_byte_array_data_bytes().value_or(-1), 9);
+    EXPECT_EQ(size_statistics->unencoded_byte_array_data_bytes.value_or(-1), 9);
   }
 }
 
@@ -202,14 +202,14 @@ TEST(SizeStatistics, MergeStatistics) {
     auto size_statistics_2 = builder->Build();
 
     size_statistics_1->Merge(*size_statistics_2);
-    EXPECT_EQ(size_statistics_1->definition_level_histogram(), expected_histogram);
-    EXPECT_EQ(size_statistics_1->repetition_level_histogram(), expected_histogram);
+    EXPECT_EQ(size_statistics_1->definition_level_histogram, expected_histogram);
+    EXPECT_EQ(size_statistics_1->repetition_level_histogram, expected_histogram);
     if (descr->physical_type() == Type::BYTE_ARRAY) {
-      EXPECT_TRUE(size_statistics_1->unencoded_byte_array_data_bytes().has_value());
-      EXPECT_EQ(size_statistics_1->unencoded_byte_array_data_bytes().value(),
+      EXPECT_TRUE(size_statistics_1->unencoded_byte_array_data_bytes.has_value());
+      EXPECT_EQ(size_statistics_1->unencoded_byte_array_data_bytes.value(),
                 kByteArrayValue.size() * kNumValues * 2);
     } else {
-      EXPECT_FALSE(size_statistics_1->unencoded_byte_array_data_bytes().has_value());
+      EXPECT_FALSE(size_statistics_1->unencoded_byte_array_data_bytes.has_value());
     }
   }
 }
@@ -238,15 +238,15 @@ TEST(SizeStatistics, ThriftSerDe) {
     }
     auto size_statistics = builder->Build();
     auto thrift_statistics = ToThrift(*size_statistics);
-    auto restored_statistics = SizeStatistics::Make(&thrift_statistics, descr.get());
-    EXPECT_EQ(restored_statistics->definition_level_histogram(), expected_histogram);
-    EXPECT_EQ(restored_statistics->repetition_level_histogram(), expected_histogram);
+    auto restored_statistics = FromThrift(thrift_statistics);
+    EXPECT_EQ(restored_statistics.definition_level_histogram, expected_histogram);
+    EXPECT_EQ(restored_statistics.repetition_level_histogram, expected_histogram);
     if (descr->physical_type() == Type::BYTE_ARRAY) {
-      EXPECT_TRUE(restored_statistics->unencoded_byte_array_data_bytes().has_value());
-      EXPECT_EQ(restored_statistics->unencoded_byte_array_data_bytes().value(),
+      EXPECT_TRUE(restored_statistics.unencoded_byte_array_data_bytes.has_value());
+      EXPECT_EQ(restored_statistics.unencoded_byte_array_data_bytes.value(),
                 kByteArrayValue.size() * kNumValues);
     } else {
-      EXPECT_FALSE(restored_statistics->unencoded_byte_array_data_bytes().has_value());
+      EXPECT_FALSE(restored_statistics.unencoded_byte_array_data_bytes.has_value());
     }
   }
 }
@@ -318,9 +318,9 @@ class SizeStatisticsRoundTripTest : public ::testing::Test {
         auto size_stats = column_metadata->size_statistics();
         RowGroupSizeStatistics row_group_stats;
         if (size_stats != nullptr) {
-          row_group_stats = {size_stats->repetition_level_histogram(),
-                             size_stats->definition_level_histogram(),
-                             size_stats->unencoded_byte_array_data_bytes()};
+          row_group_stats = {size_stats->repetition_level_histogram,
+                             size_stats->definition_level_histogram,
+                             size_stats->unencoded_byte_array_data_bytes};
         }
         row_group_stats_.emplace_back(std::move(row_group_stats));
       }

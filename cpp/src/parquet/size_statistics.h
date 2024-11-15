@@ -25,28 +25,13 @@
 
 namespace parquet {
 
-struct ByteArray;
-
-/// \brief SizeStatistics is a proxy around format::SizeStatistics.
-///
 /// A structure for capturing metadata for estimating the unencoded,
 /// uncompressed size of data written. This is useful for readers to estimate
 /// how much memory is needed to reconstruct data in their memory model and for
 /// fine-grained filter push down on nested structures (the histograms contained
 /// in this structure can help determine the number of nulls at a particular
 /// nesting level and maximum length of lists).
-class PARQUET_EXPORT SizeStatistics {
- public:
-  /// \brief API convenience to get a SizeStatistics accessor
-  ///
-  /// \param size_statistics pointer to the thrift SizeStatistics structure.
-  /// \param descr column descriptor for the column.
-  /// \returns SizeStatistics object. Its lifetime is not bound to the input.
-  static std::unique_ptr<SizeStatistics> Make(const void* size_statistics,
-                                              const ColumnDescriptor* descr);
-
-  ~SizeStatistics();
-
+struct PARQUET_EXPORT SizeStatistics {
   /// When present, there is expected to be one element corresponding to each
   /// repetition (i.e. size=max repetition_level+1) where each element
   /// represents the number of times the repetition level was observed in the
@@ -54,17 +39,13 @@ class PARQUET_EXPORT SizeStatistics {
   ///
   /// This field may be omitted (a.k.a. zero-length vector) if max_repetition_level
   /// is 0 without loss of information.
-  ///
-  /// \returns repetition level histogram of all levels if not empty.
-  const std::vector<int64_t>& repetition_level_histogram() const;
+  std::vector<int64_t> repetition_level_histogram;
 
   /// Same as repetition_level_histogram except for definition levels.
   ///
   /// This field may be omitted (a.k.a. zero-length vector) if max_definition_level
   /// is 0 without loss of information.
-  ///
-  /// \returns definition level histogram of all levels if not empty.
-  const std::vector<int64_t>& definition_level_histogram() const;
+  std::vector<int64_t> definition_level_histogram;
 
   /// The number of physical bytes stored for BYTE_ARRAY data values assuming
   /// no encoding. This is exclusive of the bytes needed to store the length of
@@ -81,24 +62,10 @@ class PARQUET_EXPORT SizeStatistics {
   ///
   /// This field should only be set for types that use BYTE_ARRAY as their
   /// physical type.
-  ///
-  /// \returns unencoded and uncompressed byte size of the BYTE_ARRAY column,
-  /// or std::nullopt for other types.
-  std::optional<int64_t> unencoded_byte_array_data_bytes() const;
+  std::optional<int64_t> unencoded_byte_array_data_bytes;
 
-  /// \brief Merge two SizeStatistics of the same column.
-  ///
-  /// It is used to merge size statistics from all pages of the same column chunk.
+  /// \brief Merge two SizeStatistics.
   void Merge(const SizeStatistics& other);
-
- private:
-  friend class SizeStatisticsBuilder;
-  SizeStatistics(const void* size_statistics, const ColumnDescriptor* descr);
-
-  // PIMPL Idiom
-  SizeStatistics();
-  class Impl;
-  std::unique_ptr<Impl> impl_;
 };
 
 /// \brief Builder to create a SizeStatistics.
