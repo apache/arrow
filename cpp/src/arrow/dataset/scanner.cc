@@ -932,7 +932,7 @@ Status ScannerBuilder::Filter(const compute::Expression& filter) {
 }
 
 Status ScannerBuilder::Ordering(const compute::Ordering& ordering) {
-  ordering_ = ordering;
+  scan_options_->ordering = ordering;
   return Status::OK();
 }
 
@@ -1005,7 +1005,7 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   auto scan_options = scan_node_options.scan_options;
   auto dataset = scan_node_options.dataset;
   bool require_sequenced_output = scan_node_options.require_sequenced_output;
-  Ordering ordering = scan_node_options.ordering;
+  Ordering ordering = scan_node_options.scan_options->ordering;
 
   RETURN_NOT_OK(NormalizeScanOptions(scan_options, dataset->schema()));
 

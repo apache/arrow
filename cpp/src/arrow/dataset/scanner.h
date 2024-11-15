@@ -62,6 +62,11 @@ struct ARROW_DS_EXPORT ScanOptions {
   compute::Expression filter = compute::literal(true);
   /// A projection expression (which can add/remove/rename columns).
   compute::Expression projection;
+  /// An explicit ordering the scanned data provide. Scan fails on first un-ordered row.
+  /// Reading un-ordered data partially might succeed if un-ordered rows are not read.
+  /// Setting an ordering does not actually sort the data but asserts that data in the
+  /// dataset is ordered as stated during scan.
+  compute::Ordering ordering = Ordering::Unordered();
 
   /// Schema with which batches will be read from fragments. This is also known as the
   /// "reader schema" it will be used (for example) in constructing CSV file readers to
@@ -505,7 +510,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// An explicit ordering the scanned data provide. Scan fails on first un-ordered row.
   /// Reading un-ordered data partially might succeed if un-ordered rows are not read.
-  /// Setting an ordering does not actually order the data but asserts that data in the
+  /// Setting an ordering does not actually sort the data but asserts that data in the
   /// dataset is ordered as stated during scan.
   Status Ordering(const compute::Ordering& ordering);
 
@@ -572,23 +577,14 @@ class ARROW_DS_EXPORT ScanNodeOptions : public acero::ExecNodeOptions {
  public:
   explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
                            std::shared_ptr<ScanOptions> scan_options,
-                           bool require_sequenced_output,
-                           Ordering ordering = Ordering::Unordered())
+                           bool require_sequenced_output = false)
       : dataset(std::move(dataset)),
         scan_options(std::move(scan_options)),
-        require_sequenced_output(require_sequenced_output),
-        ordering(std::move(ordering)) {}
-
-  explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
-                           std::shared_ptr<ScanOptions> scan_options,
-                           Ordering ordering = Ordering::Unordered())
-      : ScanNodeOptions(std::move(dataset), std::move(scan_options), false,
-                        std::move(ordering)) {}
+        require_sequenced_output(require_sequenced_output) {}
 
   std::shared_ptr<Dataset> dataset;
   std::shared_ptr<ScanOptions> scan_options;
   bool require_sequenced_output;
-  Ordering ordering;
 };
 
 /// @}
