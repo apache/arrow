@@ -53,15 +53,19 @@
 #
 # See more in cpp/build-support/run-test.sh::print_coredumps
 
-x-common: &common
-  GITHUB_ACTIONS:
-
 x-ccache: &ccache
   CCACHE_COMPILERCHECK: content
   CCACHE_COMPRESS: 1
   CCACHE_COMPRESSLEVEL: 6
   CCACHE_MAXSIZE: 1G
   CCACHE_DIR: /ccache
+
+x-common: &common
+  GITHUB_ACTIONS:
+
+x-cpp: &cpp
+  ARROW_RUNTIME_SIMD_LEVEL:
+  ARROW_SIMD_LEVEL:
 
 x-sccache: &sccache
   AWS_ACCESS_KEY_ID:
@@ -70,9 +74,10 @@ x-sccache: &sccache
   SCCACHE_REGION:
   SCCACHE_S3_KEY_PREFIX: ${SCCACHE_S3_KEY_PREFIX:-sccache}
 
-x-cpp: &cpp
-  ARROW_RUNTIME_SIMD_LEVEL:
-  ARROW_SIMD_LEVEL:
+x-vcpkg-build-secrets: &vcpkg-build-secrets
+  - github_repository_owner
+  - github_token
+  - vcpkg_binary_sources
 
 # CPU/memory limit presets to pass to Docker.
 #
@@ -1123,14 +1128,15 @@ services:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
         base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-08-03-32dfa47
-        vcpkg: ${VCPKG}
+        manylinux: 2014
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
-        manylinux: 2014
+        vcpkg: ${VCPKG}
       context: .
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
+      secrets: *vcpkg-build-secrets
     environment:
       <<: [*common, *ccache]
     volumes:
@@ -1147,14 +1153,15 @@ services:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
         base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-08-03-32dfa47
-        vcpkg: ${VCPKG}
+        manylinux: 2_28
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
-        manylinux: 2_28
+        vcpkg: ${VCPKG}
       context: .
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-28-vcpkg-${VCPKG}
+      secrets: *vcpkg-build-secrets
     environment:
       <<: [*common, *ccache]
     volumes:
@@ -1239,8 +1246,8 @@ services:
     image: ${REPO}:python-${PYTHON}-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
-        vcpkg: ${VCPKG}
         python: ${PYTHON}
+        vcpkg: ${VCPKG}
       context: .
       dockerfile: ci/docker/python-wheel-windows-vs2019.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
@@ -2119,3 +2126,11 @@ services:
       /bin/bash -c "
         git config --global --add safe.directory /arrow &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
+
+secrets:
+  github_repository_owner:
+    environment: GITHUB_REPOSITORY_OWNER
+  github_token:
+    environment: GITHUB_TOKEN
+  vcpkg_binary_sources:
+    environment: VCPKG_BINARY_SOURCES
