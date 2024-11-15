@@ -151,6 +151,23 @@ class PARQUET_EXPORT StreamWriter {
   StreamWriter& operator<<(const std::string& v);
   StreamWriter& operator<<(::std::string_view v);
 
+  /// \brief Helper class to write variable length raw data.
+  struct PARQUET_EXPORT RawDataView {
+    RawDataView() = default;
+
+    explicit RawDataView(const char* data_ptr);
+    explicit RawDataView(const std::string& data_str);
+    explicit RawDataView(const std::string_view& data_stv);
+
+    RawDataView(const char* data_ptr, std::size_t data_len);
+
+    const char* data{NULLPTR};
+    std::size_t size{0};
+  };
+
+  /// \brief Output operators for variable length raw data.
+  StreamWriter& operator<<(RawDataView v);
+
   /// \brief Output operator for optional fields.
   template <typename T>
   StreamWriter& operator<<(const optional<T>& v) {
@@ -193,6 +210,8 @@ class PARQUET_EXPORT StreamWriter {
   StreamWriter& WriteVariableLength(const char* data_ptr, std::size_t data_len);
 
   StreamWriter& WriteFixedLength(const char* data_ptr, std::size_t data_len);
+
+  StreamWriter& WriteRawDataVariableLength(const char* data_ptr, std::size_t data_len);
 
   void CheckColumn(Type::type physical_type, ConvertedType::type converted_type,
                    int length = -1);

@@ -34,6 +34,18 @@ StreamWriter::FixedStringView::FixedStringView(const char* data_ptr)
 StreamWriter::FixedStringView::FixedStringView(const char* data_ptr, std::size_t data_len)
     : data{data_ptr}, size{data_len} {}
 
+StreamWriter::RawDataView::RawDataView(const char* data_ptr)
+    : data{data_ptr}, size{std::strlen(data_ptr)} {}
+
+StreamWriter::RawDataView::RawDataView(const std::string& data_str)
+    : data{data_str.data()}, size{data_str.size()} {}
+
+StreamWriter::RawDataView::RawDataView(const std::string_view& data_stv)
+    : data{data_stv.data()}, size{data_stv.size()} {}
+
+StreamWriter::RawDataView::RawDataView(const char* data_ptr, std::size_t data_len)
+    : data{data_ptr}, size{data_len} {}
+
 StreamWriter::StreamWriter(std::unique_ptr<ParquetFileWriter> writer)
     : file_writer_{std::move(writer)},
       row_group_writer_{file_writer_->AppendBufferedRowGroup()} {
@@ -140,6 +152,10 @@ StreamWriter& StreamWriter::operator<<(::std::string_view v) {
   return WriteVariableLength(v.data(), v.size());
 }
 
+StreamWriter& StreamWriter::operator<<(RawDataView v) {
+  return WriteRawDataVariableLength(v.data, v.size);
+}
+
 StreamWriter& StreamWriter::WriteVariableLength(const char* data_ptr,
                                                 std::size_t data_len) {
   CheckColumn(Type::BYTE_ARRAY, ConvertedType::UTF8);
@@ -174,6 +190,27 @@ StreamWriter& StreamWriter::WriteFixedLength(const char* data_ptr, std::size_t d
 
     flba_value.ptr = reinterpret_cast<const uint8_t*>(data_ptr);
     writer->WriteBatch(kBatchSizeOne, &kDefLevelOne, &kRepLevelZero, &flba_value);
+  } else {
+    writer->WriteBatch(kBatchSizeOne, &kDefLevelZero, &kRepLevelZero, nullptr);
+  }
+  if (max_row_group_size_ > 0) {
+    row_group_size_ += writer->estimated_buffered_value_bytes();
+  }
+  return *this;
+}
+
+StreamWriter& StreamWriter::WriteRawDataVariableLength(const char* data_ptr, std::size_t data_len) {
+  CheckColumn(Type::BYTE_ARRAY, ConvertedType::NONE);
+
+  auto writer = static_cast<ByteArrayWriter*>(row_group_writer_->column(column_index_++));
+
+  if (data_ptr != nullptr) {
+    ByteArray ba_value;
+
+    ba_value.ptr = reinterpret_cast<const uint8_t*>(data_ptr);
+    ba_value.len = static_cast<uint32_t>(data_len);
+
+    writer->WriteBatch(kBatchSizeOne, &kDefLevelOne, &kRepLevelZero, &ba_value);
   } else {
     writer->WriteBatch(kBatchSizeOne, &kDefLevelZero, &kRepLevelZero, nullptr);
   }
