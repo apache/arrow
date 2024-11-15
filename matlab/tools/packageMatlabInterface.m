@@ -20,7 +20,7 @@ outputFolder = string(getenv("ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER"));
 toolboxVersion = string(getenv("ARROW_MATLAB_TOOLBOX_VERSION"));
 if isempty(toolboxVersion)
     error("ARROW_MATLAB_TOOLBOX_VERSION environment variable value is empty." + ...
-        "ARROW_MATLAB_TOOLBOX_VERSION should follow the general form: ${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}.";
+        "ARROW_MATLAB_TOOLBOX_VERSION should follow the general form: ${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}.");
 end
 
 appendLicenseText(fullfile(toolboxFolder, "LICENSE.txt"));
