@@ -485,7 +485,7 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
   }
 
   void AddPage(const EncodedStatistics& stats,
-               const SizeStatistics* size_stats) override {
+               const SizeStatistics& size_stats) override {
     if (state_ == BuilderState::kFinished) {
       throw ParquetException("Cannot add page to finished ColumnIndexBuilder.");
     } else if (state_ == BuilderState::kDiscarded) {
@@ -519,9 +519,9 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
       column_index_.null_counts.clear();
     }
 
-    if (size_stats != nullptr) {
-      const auto& page_ref_level_hist = size_stats->repetition_level_histogram;
-      const auto& page_def_level_hist = size_stats->definition_level_histogram;
+    if (size_stats.is_set()) {
+      const auto& page_ref_level_hist = size_stats.repetition_level_histogram;
+      const auto& page_def_level_hist = size_stats.definition_level_histogram;
       column_index_.repetition_level_histograms.insert(
           column_index_.repetition_level_histograms.end(), page_ref_level_hist.cbegin(),
           page_ref_level_hist.cend());

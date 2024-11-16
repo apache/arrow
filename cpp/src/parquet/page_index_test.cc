@@ -484,14 +484,14 @@ struct PageLevelHistogram {
 
 std::unique_ptr<SizeStatistics> ConstructFakeSizeStatistics(
     const ColumnDescriptor* descr, const PageLevelHistogram& page_level_histogram) {
-  auto builder = SizeStatisticsBuilder::Make(descr);
+  auto stats = MakeSizeStatistics(descr);
   for (int16_t level = 0; level <= descr->max_repetition_level(); ++level) {
-    builder->AddRepeatedRepetitionLevels(page_level_histogram.rep_levels[level], level);
+    stats->repetition_level_histogram[level] = page_level_histogram.rep_levels[level];
   }
   for (int16_t level = 0; level <= descr->max_definition_level(); ++level) {
-    builder->AddRepeatedDefinitionLevels(page_level_histogram.def_levels[level], level);
+    stats->definition_level_histogram[level] = page_level_histogram.def_levels[level];
   }
-  return builder->Build();
+  return stats;
 }
 
 void VerifyPageLevelHistogram(int16_t max_level, size_t page_id,
@@ -519,8 +519,8 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
   for (size_t i = 0; i < page_stats.size(); ++i) {
     auto size_stats = build_size_stats
                           ? ConstructFakeSizeStatistics(descr.get(), page_levels[i])
-                          : nullptr;
-    builder->AddPage(page_stats[i], size_stats.get());
+                          : std::make_unique<SizeStatistics>();
+    builder->AddPage(page_stats[i], *size_stats);
   }
   ASSERT_NO_THROW(builder->Finish());
 

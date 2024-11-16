@@ -21,6 +21,7 @@
 #include "parquet/encryption/type_fwd.h"
 #include "parquet/type_fwd.h"
 #include "parquet/types.h"
+#include "size_statistics.h"
 
 #include <optional>
 #include <vector>
@@ -282,7 +283,7 @@ class PARQUET_EXPORT ColumnIndexBuilder {
   /// \param stats Page statistics in the encoded form.
   /// \param size_stats Size statistics of the page if available.
   virtual void AddPage(const EncodedStatistics& stats,
-                       const SizeStatistics* size_stats = NULLPTR) = 0;
+                       const SizeStatistics& size_stats = SizeStatistics{}) = 0;
 
   /// \brief Complete the column index.
   ///

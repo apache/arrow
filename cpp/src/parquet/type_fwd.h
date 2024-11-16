@@ -68,7 +68,6 @@ struct ParquetVersion {
   };
 };
 
-struct ByteArray;
 struct PageIndexLocation;
 
 class FileMetaData;

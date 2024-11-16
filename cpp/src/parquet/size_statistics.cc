@@ -31,17 +31,15 @@
 namespace parquet {
 
 void SizeStatistics::Merge(const SizeStatistics& other) {
-  if (repetition_level_histogram.size() != other.repetition_level_histogram.size() ||
-      definition_level_histogram.size() != other.definition_level_histogram.size() ||
-      unencoded_byte_array_data_bytes.has_value() !=
-          other.unencoded_byte_array_data_bytes.has_value()) {
-    throw ParquetException("Cannot merge incompatible SizeStatistics");
-  }
-
+  ARROW_CHECK_EQ(repetition_level_histogram.size(),
+                 other.repetition_level_histogram.size());
+  ARROW_CHECK_EQ(definition_level_histogram.size(),
+                 other.definition_level_histogram.size());
+  ARROW_CHECK_EQ(unencoded_byte_array_data_bytes.has_value(),
+                 other.unencoded_byte_array_data_bytes.has_value());
   std::transform(repetition_level_histogram.begin(), repetition_level_histogram.end(),
                  other.repetition_level_histogram.begin(),
                  repetition_level_histogram.begin(), std::plus<>());
-
   std::transform(definition_level_histogram.begin(), definition_level_histogram.end(),
                  other.definition_level_histogram.begin(),
                  definition_level_histogram.begin(), std::plus<>());
@@ -51,155 +49,27 @@ void SizeStatistics::Merge(const SizeStatistics& other) {
   }
 }
 
-class SizeStatisticsBuilder::Impl {
- public:
-  explicit Impl(const ColumnDescriptor* descr)
-      : rep_level_histogram_(descr->max_repetition_level() + 1, 0),
-        def_level_histogram_(descr->max_definition_level() + 1, 0) {
-    if (descr->physical_type() == Type::BYTE_ARRAY) {
-      unencoded_byte_array_data_bytes_ = 0;
-    }
-  }
-
-  void AddRepetitionLevels(::arrow::util::span<const int16_t> rep_levels) {
-    for (int16_t rep_level : rep_levels) {
-      ARROW_DCHECK_LT(rep_level, static_cast<int16_t>(rep_level_histogram_.size()));
-      ++rep_level_histogram_[rep_level];
-    }
-  }
-
-  void AddDefinitionLevels(::arrow::util::span<const int16_t> def_levels) {
-    for (int16_t def_level : def_levels) {
-      ARROW_DCHECK_LT(def_level, static_cast<int16_t>(def_level_histogram_.size()));
-      ++def_level_histogram_[def_level];
-    }
-  }
-
-  void AddRepeatedRepetitionLevels(int64_t num_levels, int16_t rep_level) {
-    ARROW_DCHECK_LT(rep_level, static_cast<int16_t>(rep_level_histogram_.size()));
-    rep_level_histogram_[rep_level] += num_levels;
-  }
-
-  void AddRepeatedDefinitionLevels(int64_t num_levels, int16_t def_level) {
-    ARROW_DCHECK_LT(def_level, static_cast<int16_t>(def_level_histogram_.size()));
-    def_level_histogram_[def_level] += num_levels;
-  }
-
-  void WriteValuesSpaced(const ByteArray* values, const uint8_t* valid_bits,
-                         int64_t valid_bits_offset, int64_t num_spaced_values) {
-    int64_t total_bytes = 0;
-    ::arrow::internal::VisitSetBitRunsVoid(valid_bits, valid_bits_offset,
-                                           num_spaced_values,
-                                           [&](int64_t pos, int64_t length) {
-                                             for (int64_t i = 0; i < length; i++) {
-                                               // Don't bother to check unlikely overflow.
-                                               total_bytes += values[i + pos].len;
-                                             }
-                                           });
-    IncrementUnencodedByteArrayDataBytes(total_bytes);
-  }
-
-  void WriteValues(const ByteArray* values, int64_t num_values) {
-    int64_t total_bytes = 0;
-    std::for_each(values, values + num_values,
-                  [&](const ByteArray& value) { total_bytes += values->len; });
-    IncrementUnencodedByteArrayDataBytes(total_bytes);
-  }
-
-  void WriteValues(const ::arrow::Array& values) {
-    int64_t total_bytes = 0;
-    const auto valid_func = [&](ByteArray val) { total_bytes += val.len; };
-    const auto null_func = [&]() {};
-
-    if (::arrow::is_binary_like(values.type_id())) {
-      ::arrow::VisitArraySpanInline<::arrow::BinaryType>(
-          *values.data(), std::move(valid_func), std::move(null_func));
-    } else if (::arrow::is_large_binary_like(values.type_id())) {
-      ::arrow::VisitArraySpanInline<::arrow::LargeBinaryType>(
-          *values.data(), std::move(valid_func), std::move(null_func));
-    } else {
-      // TODO: support StringViewType and BinaryViewType
-      throw ParquetException("Unsupported type: " + values.type()->ToString());
-    }
-
-    IncrementUnencodedByteArrayDataBytes(total_bytes);
-  }
-
-  std::unique_ptr<SizeStatistics> Build() {
-    return std::make_unique<SizeStatistics>(SizeStatistics{
-        rep_level_histogram_, def_level_histogram_, unencoded_byte_array_data_bytes_});
-  }
-
-  void Reset() {
-    rep_level_histogram_.assign(rep_level_histogram_.size(), 0);
-    def_level_histogram_.assign(def_level_histogram_.size(), 0);
-    if (unencoded_byte_array_data_bytes_.has_value()) {
-      unencoded_byte_array_data_bytes_ = 0;
-    }
-  }
-
- private:
-  void IncrementUnencodedByteArrayDataBytes(int64_t total_bytes) {
-    ARROW_DCHECK(unencoded_byte_array_data_bytes_.has_value());
-    if (::arrow::internal::AddWithOverflow(
-            total_bytes, unencoded_byte_array_data_bytes_.value(), &total_bytes)) {
-      throw ParquetException("unencoded byte array data bytes overflows to INT64_MAX");
-    }
-    unencoded_byte_array_data_bytes_ = total_bytes;
-  }
-
-  std::vector<int64_t> rep_level_histogram_;
-  std::vector<int64_t> def_level_histogram_;
-  std::optional<int64_t> unencoded_byte_array_data_bytes_;
-};
-
-void SizeStatisticsBuilder::AddRepetitionLevels(
-    ::arrow::util::span<const int16_t> rep_levels) {
-  impl_->AddRepetitionLevels(rep_levels);
+void SizeStatistics::IncrementUnencodedByteArrayDataBytes(int64_t value) {
+  ARROW_CHECK(unencoded_byte_array_data_bytes.has_value());
+  unencoded_byte_array_data_bytes = unencoded_byte_array_data_bytes.value() + value;
 }
 
-void SizeStatisticsBuilder::AddDefinitionLevels(
-    ::arrow::util::span<const int16_t> def_levels) {
-  impl_->AddDefinitionLevels(def_levels);
+void SizeStatistics::Reset() {
+  repetition_level_histogram.assign(repetition_level_histogram.size(), 0);
+  definition_level_histogram.assign(definition_level_histogram.size(), 0);
+  if (unencoded_byte_array_data_bytes.has_value()) {
+    unencoded_byte_array_data_bytes = 0;
+  }
 }
 
-void SizeStatisticsBuilder::AddRepeatedRepetitionLevels(int64_t num_levels,
-                                                        int16_t rep_level) {
-  impl_->AddRepeatedRepetitionLevels(num_levels, rep_level);
-}
-
-void SizeStatisticsBuilder::AddRepeatedDefinitionLevels(int64_t num_levels,
-                                                        int16_t def_level) {
-  impl_->AddRepeatedDefinitionLevels(num_levels, def_level);
-}
-
-void SizeStatisticsBuilder::AddValuesSpaced(const ByteArray* values,
-                                            const uint8_t* valid_bits,
-                                            int64_t valid_bits_offset,
-                                            int64_t num_spaced_values) {
-  impl_->WriteValuesSpaced(values, valid_bits, valid_bits_offset, num_spaced_values);
-}
-
-void SizeStatisticsBuilder::AddValues(const ByteArray* values, int64_t num_values) {
-  impl_->WriteValues(values, num_values);
-}
-
-void SizeStatisticsBuilder::AddValues(const ::arrow::Array& values) {
-  impl_->WriteValues(values);
-}
-
-std::unique_ptr<SizeStatistics> SizeStatisticsBuilder::Build() { return impl_->Build(); }
-
-void SizeStatisticsBuilder::Reset() { return impl_->Reset(); }
-
-SizeStatisticsBuilder::SizeStatisticsBuilder(const ColumnDescriptor* descr)
-    : impl_(std::make_unique<Impl>(descr)) {}
-
-SizeStatisticsBuilder::~SizeStatisticsBuilder() = default;
-
-std::unique_ptr<SizeStatisticsBuilder> SizeStatisticsBuilder::Make(
-    const ColumnDescriptor* descr) {
-  return std::unique_ptr<SizeStatisticsBuilder>(new SizeStatisticsBuilder(descr));
+std::unique_ptr<SizeStatistics> MakeSizeStatistics(const ColumnDescriptor* descr) {
+  auto size_stats = std::make_unique<SizeStatistics>();
+  size_stats->repetition_level_histogram.resize(descr->max_repetition_level() + 1, 0);
+  size_stats->definition_level_histogram.resize(descr->max_definition_level() + 1, 0);
+  if (descr->physical_type() == Type::BYTE_ARRAY) {
+    size_stats->unencoded_byte_array_data_bytes = 0;
+  }
+  return size_stats;
 }
 
 }  // namespace parquet

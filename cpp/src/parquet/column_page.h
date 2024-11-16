@@ -70,9 +70,7 @@ class DataPage : public Page {
   /// Currently it is only present from data pages created by ColumnWriter in order
   /// to collect page index.
   std::optional<int64_t> first_row_index() const { return first_row_index_; }
-  const std::shared_ptr<SizeStatistics>& size_statistics() const {
-    return size_statistics_;
-  }
+  const SizeStatistics& size_statistics() const { return size_statistics_; }
 
   virtual ~DataPage() = default;
 
@@ -80,7 +78,7 @@ class DataPage : public Page {
   DataPage(PageType::type type, const std::shared_ptr<Buffer>& buffer, int32_t num_values,
            Encoding::type encoding, int64_t uncompressed_size,
            EncodedStatistics statistics, std::optional<int64_t> first_row_index,
-           std::shared_ptr<SizeStatistics> size_statistics)
+           SizeStatistics size_statistics)
       : Page(buffer, type),
         num_values_(num_values),
         encoding_(encoding),
@@ -95,8 +93,7 @@ class DataPage : public Page {
   EncodedStatistics statistics_;
   /// Row ordinal within the row group to the first row in the data page.
   std::optional<int64_t> first_row_index_;
-  /// Size statistics for the data page. It may be null if unavailable.
-  std::shared_ptr<SizeStatistics> size_statistics_;
+  SizeStatistics size_statistics_;
 };
 
 class DataPageV1 : public DataPage {
@@ -106,7 +103,7 @@ class DataPageV1 : public DataPage {
              Encoding::type repetition_level_encoding, int64_t uncompressed_size,
              EncodedStatistics statistics = EncodedStatistics(),
              std::optional<int64_t> first_row_index = std::nullopt,
-             std::shared_ptr<SizeStatistics> size_statistics = NULLPTR)
+             SizeStatistics size_statistics = SizeStatistics())
       : DataPage(PageType::DATA_PAGE, buffer, num_values, encoding, uncompressed_size,
                  std::move(statistics), std::move(first_row_index),
                  std::move(size_statistics)),
@@ -130,7 +127,7 @@ class DataPageV2 : public DataPage {
              int64_t uncompressed_size, bool is_compressed = false,
              EncodedStatistics statistics = EncodedStatistics(),
              std::optional<int64_t> first_row_index = std::nullopt,
-             std::shared_ptr<SizeStatistics> size_statistics = NULLPTR)
+             SizeStatistics size_statistics = SizeStatistics())
       : DataPage(PageType::DATA_PAGE_V2, buffer, num_values, encoding, uncompressed_size,
                  std::move(statistics), std::move(first_row_index),
                  std::move(size_statistics)),
