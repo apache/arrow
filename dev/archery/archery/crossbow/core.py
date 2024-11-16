@@ -803,6 +803,19 @@ class Target(Serializable):
         self.r_version = r_version
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
         self.no_rc_r_version = re.sub(r'-rc\d+\Z', '', r_version)
+        # MAJOR.MINOR.PATCH Versioning
+        #
+        # Excludes:
+        #
+        #     1. Release Candidate (RC) string components (e.g. -rc123)
+        #     2. Dev string components (e.g. .dev123)
+        #
+        # Example:
+        #
+        #   '19.0.0.dev66' ->
+        #   '19.0.0'
+        self.no_rc_no_dev_version = \
+            re.sub(r'\.dev\d+\Z', '', self.no_rc_version)
         # Semantic Versioning 1.0.0: https://semver.org/spec/v1.0.0.html
         #
         # > A pre-release version number MAY be denoted by appending an
@@ -1195,6 +1208,7 @@ class Job(Serializable):
         versions = {
             'version': target.version,
             'no_rc_version': target.no_rc_version,
+            'no_rc_no_dev_version': target.no_rc_no_dev_version,
             'no_rc_semver_version': target.no_rc_semver_version,
             'no_rc_snapshot_version': target.no_rc_snapshot_version,
             'r_version': target.r_version,
