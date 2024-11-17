@@ -1098,6 +1098,15 @@ tasks:
         UBUNTU: 20.04
       image: ubuntu-cpp-bundled
 
+  test-ubuntu-24.04-cpp-bundled-offline:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 24.04
+      image: ubuntu-cpp-bundled-offline
+      timeout: 120
+
   test-ubuntu-24.04-cpp-gcc-13-bundled:
     ci: github
     template: docker-tests/github.linux.yml
