@@ -1093,6 +1093,7 @@ std::shared_ptr<::arrow::Array> EncodingAdHocTyped<FLBAType>::GetValues(int seed
 
 using EncodingAdHocTypedCases =
     ::testing::Types<BooleanType, Int32Type, Int64Type, FloatType, DoubleType, FLBAType>;
+
 TYPED_TEST_SUITE(EncodingAdHocTyped, EncodingAdHocTypedCases);
 
 TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut) {
