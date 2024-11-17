@@ -1761,7 +1761,7 @@ cdef class CompressedInputStream(NativeFile):
 
     Examples
     --------
-    Create an output stream wich compresses the data:
+    Create an output stream which compresses the data:
 
     >>> import pyarrow as pa
     >>> data = b"Compressed stream"
@@ -1818,7 +1818,7 @@ cdef class CompressedOutputStream(NativeFile):
 
     Examples
     --------
-    Create an output stream wich compresses the data:
+    Create an output stream which compresses the data:
 
     >>> import pyarrow as pa
     >>> data = b"Compressed stream"
@@ -2342,7 +2342,7 @@ cdef class CacheOptions(_Weakrefable):
     def from_network_metrics(time_to_first_byte_millis, transfer_bandwidth_mib_per_sec,
                              ideal_bandwidth_utilization_frac=0.9, max_ideal_request_size_mib=64):
         """
-        Create suiteable CacheOptions based on provided network metrics.
+        Create suitable CacheOptions based on provided network metrics.
 
         Typically this will be used with object storage solutions like Amazon S3,
         Google Cloud Storage and Azure Blob Storage.

@@ -249,7 +249,7 @@ cdef class S3FileSystem(FileSystem):
         rather than issue two dependent I/O calls.
         If true, when creating a directory the code will only create the directory when necessary
         at the cost of extra I/O calls. This can be used for key/value cloud storage which has
-        a hard rate limit to number of object mutation operations or scenerios such as
+        a hard rate limit to number of object mutation operations or scenarios such as
         the directories already exist and you do not have creation access.
     retry_strategy : S3RetryStrategy, default AwsStandardS3RetryStrategy(max_attempts=3)
         The retry strategy to use with S3; fail after max_attempts. Available
