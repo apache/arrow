@@ -713,7 +713,7 @@ TEST(PageIndex, WriteColumnIndexWithCorruptedStats) {
   ColumnDescriptor descr(schema::Int32("c1"), /*max_definition_level=*/1, 0);
   auto builder = ColumnIndexBuilder::Make(&descr);
   for (const auto& stats : page_stats) {
-    builder->AddPage(stats);
+    builder->AddPage(stats, SizeStatistics());
   }
   ASSERT_NO_THROW(builder->Finish());
   ASSERT_EQ(nullptr, builder->Build());
@@ -784,7 +784,8 @@ class PageIndexBuilderTest : public ::testing::Test {
       for (int column = 0; column < num_columns; ++column) {
         if (static_cast<size_t>(column) < page_stats[row_group].size()) {
           auto column_index_builder = builder->GetColumnIndexBuilder(column);
-          ASSERT_NO_THROW(column_index_builder->AddPage(page_stats[row_group][column]));
+          ASSERT_NO_THROW(
+              column_index_builder->AddPage(page_stats[row_group][column], {}));
           ASSERT_NO_THROW(column_index_builder->Finish());
         }
 
