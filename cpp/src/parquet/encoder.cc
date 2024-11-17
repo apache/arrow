@@ -362,7 +362,10 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
         }
       }
     }
-    unencoded_data_bytes_ += sizeof(uint8_t) * (data.length() - data.null_count());
+  }
+
+  int64_t ReportUnencodedDataBytes() override {
+    ParquetException::NYI("Unencoded data bytes for boolean type is not supported");
   }
 
  private:
@@ -378,7 +381,6 @@ void PlainEncoder<BooleanType>::PutImpl(const SequenceType& src, int num_values)
   for (int i = 0; i < num_values; ++i) {
     sink_.UnsafeAppend(src[i]);
   }
-  unencoded_data_bytes_ += sizeof(SequenceType) * num_values;
 }
 
 int64_t PlainEncoder<BooleanType>::EstimatedDataEncodedSize() {
@@ -1671,6 +1673,10 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
 
   void Put(const std::vector<bool>& src, int num_values) override;
 
+  int64_t ReportUnencodedDataBytes() override {
+    ParquetException::NYI("Unencoded data bytes for boolean type is not supported");
+  }
+
  protected:
   template <typename SequenceType>
   void PutImpl(const SequenceType& src, int num_values);
@@ -1701,7 +1707,6 @@ void RleBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
   for (int i = 0; i < num_values; ++i) {
     buffered_append_values_.push_back(src[i]);
   }
-  unencoded_data_bytes_ += sizeof(SequenceType) * num_values;
 }
 
 std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {

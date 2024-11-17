@@ -178,6 +178,7 @@ class TestEncodingBase : public ::testing::Test {
   void SetUp() {
     descr_ = ExampleDescr<Type>();
     type_length_ = descr_->type_length();
+    unencoded_data_bytes_ = 0;
     allocator_ = default_memory_pool();
   }
 
@@ -196,6 +197,18 @@ class TestEncodingBase : public ::testing::Test {
       for (int i = 0; i < nvalues; ++i) {
         draws_[nvalues * j + i] = draws_[i];
       }
+    }
+
+    // Calculate expected unencoded bytes based on type
+    if constexpr (std::is_same_v<Type, ByteArrayType>) {
+      unencoded_data_bytes_ = 0;
+      for (int i = 0; i < num_values_; i++) {
+        unencoded_data_bytes_ += draws_[i].len;
+      }
+    } else if constexpr (std::is_same_v<Type, FLBAType>) {
+      unencoded_data_bytes_ = num_values_ * type_length_;
+    } else {
+      unencoded_data_bytes_ = num_values_ * sizeof(c_type);
     }
   }
 
@@ -235,6 +248,7 @@ class TestEncodingBase : public ::testing::Test {
 
   std::shared_ptr<Buffer> encode_buffer_;
   std::shared_ptr<ColumnDescriptor> descr_;
+  int64_t unencoded_data_bytes_;  // unencoded data size for dense values
 };
 
 // Member variables are not visible to templated subclasses. Possibly figure
@@ -261,6 +275,11 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
     auto decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr_.get());
     encoder->Put(draws_, num_values_);
     encode_buffer_ = encoder->FlushValues();
+    if constexpr (std::is_same_v<Type, BooleanType>) {
+      ASSERT_THROW(encoder->ReportUnencodedDataBytes(), ParquetException);
+    } else {
+      ASSERT_EQ(encoder->ReportUnencodedDataBytes(), this->unencoded_data_bytes_);
+    }
 
     decoder->SetData(num_values_, encode_buffer_->data(),
                      static_cast<int>(encode_buffer_->size()));
@@ -346,6 +365,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
         AllocateBuffer(default_memory_pool(), dict_traits->dict_encoded_size());
     dict_traits->WriteDict(dict_buffer_->mutable_data());
     std::shared_ptr<Buffer> indices = encoder->FlushValues();
+    ASSERT_EQ(encoder->ReportUnencodedDataBytes(), this->unencoded_data_bytes_);
 
     auto base_spaced_encoder =
         MakeEncoder(Type::type_num, Encoding::PLAIN, true, descr_.get());
@@ -1073,7 +1093,6 @@ std::shared_ptr<::arrow::Array> EncodingAdHocTyped<FLBAType>::GetValues(int seed
 
 using EncodingAdHocTypedCases =
     ::testing::Types<BooleanType, Int32Type, Int64Type, FloatType, DoubleType, FLBAType>;
-
 TYPED_TEST_SUITE(EncodingAdHocTyped, EncodingAdHocTypedCases);
 
 TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut) {
@@ -1321,6 +1340,7 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     auto decoder = MakeTypedDecoder<Type>(Encoding::BYTE_STREAM_SPLIT, descr_.get());
     encoder->Put(draws_, num_values_);
     encode_buffer_ = encoder->FlushValues();
+    ASSERT_EQ(encoder->ReportUnencodedDataBytes(), this->unencoded_data_bytes_);
 
     {
       decoder->SetData(num_values_, encode_buffer_->data(),
@@ -1660,6 +1680,8 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
         draws_[nvalues * j + i] = draws_[i];
       }
     }
+
+    this->unencoded_data_bytes_ = num_values_ * sizeof(c_type);
   }
 
   void ExecuteBound(int nvalues, int repeats, c_type half_range) {
@@ -1703,6 +1725,7 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
     for (size_t i = 0; i < kNumRoundTrips; ++i) {
       encoder->Put(draws_, num_values_);
       encode_buffer_ = encoder->FlushValues();
+      ASSERT_EQ(encoder->ReportUnencodedDataBytes(), this->unencoded_data_bytes_);
       CheckDecoding();
     }
   }
@@ -1926,6 +1949,7 @@ class TestRleBooleanEncoding : public TestEncodingBase<BooleanType> {
     for (int i = 0; i < 3; ++i) {
       encoder->Put(draws_, num_values_);
       encode_buffer_ = encoder->FlushValues();
+      ASSERT_THROW(encoder->ReportUnencodedDataBytes(), ParquetException);
 
       decoder->SetData(num_values_, encode_buffer_->data(),
                        static_cast<int>(encode_buffer_->size()));
@@ -1992,6 +2016,7 @@ class TestDeltaLengthByteArrayEncoding : public TestEncodingBase<Type> {
 
     encoder->Put(draws_, num_values_);
     encode_buffer_ = encoder->FlushValues();
+    ASSERT_EQ(encoder->ReportUnencodedDataBytes(), this->unencoded_data_bytes_);
 
     decoder->SetData(num_values_, encode_buffer_->data(),
                      static_cast<int>(encode_buffer_->size()));
@@ -2295,6 +2320,15 @@ class TestDeltaByteArrayEncoding : public TestDeltaLengthByteArrayEncoding<Type>
       for (int i = 0; i < nvalues; ++i) {
         draws_[nvalues * j + i] = draws_[i];
       }
+    }
+
+    if constexpr (std::is_same_v<Type, ByteArrayType>) {
+      this->unencoded_data_bytes_ = 0;
+      for (int i = 0; i < num_values_; i++) {
+        this->unencoded_data_bytes_ += draws_[i].len;
+      }
+    } else if constexpr (std::is_same_v<Type, FLBAType>) {
+      this->unencoded_data_bytes_ = num_values_ * type_length_;
     }
   }
 
