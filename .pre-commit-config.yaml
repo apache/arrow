@@ -181,4 +181,5 @@ repos:
         files: >-
           (
           ?^ci/scripts/c_glib_build\.sh$|
+          ?^ci/scripts/c_glib_test\.sh$|
           )
