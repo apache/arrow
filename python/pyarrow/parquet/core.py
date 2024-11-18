@@ -1275,7 +1275,8 @@ Examples
 
     def __init__(self, path_or_paths, filesystem=None, schema=None, *, filters=None,
                  read_dictionary=None, memory_map=False, buffer_size=None,
-                 partitioning="hive", ignore_prefixes=None, pre_buffer=True,
+                 partitioning="hive", partition_base_dir=None,
+                 ignore_prefixes=None, pre_buffer=True,
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
@@ -1371,6 +1372,7 @@ Examples
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                                    schema=schema, format=parquet_format,
                                    partitioning=partitioning,
+                                   partition_base_dir=partition_base_dir,
                                    ignore_prefixes=ignore_prefixes)
 
     def equals(self, other):
