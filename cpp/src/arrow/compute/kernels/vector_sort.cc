@@ -118,18 +118,18 @@ class ChunkedArraySorter : public TypeVisitor {
             sorted[i], indices_begin_, chunked_indices_begin);
       }
 
-      auto merge_nulls = [&](ResolvedChunkIndex* nulls_begin,
-                             ResolvedChunkIndex* nulls_middle,
-                             ResolvedChunkIndex* nulls_end,
-                             ResolvedChunkIndex* temp_indices, int64_t null_count) {
+      auto merge_nulls = [&](CompressedChunkLocation* nulls_begin,
+                             CompressedChunkLocation* nulls_middle,
+                             CompressedChunkLocation* nulls_end,
+                             CompressedChunkLocation* temp_indices, int64_t null_count) {
         if (has_null_like_values<typename ArrayType::TypeClass>::value) {
           PartitionNullsOnly<StablePartitioner>(nulls_begin, nulls_end, arrays,
                                                 null_count, null_placement_);
         }
       };
       auto merge_non_nulls =
-          [&](ResolvedChunkIndex* range_begin, ResolvedChunkIndex* range_middle,
-              ResolvedChunkIndex* range_end, ResolvedChunkIndex* temp_indices) {
+          [&](CompressedChunkLocation* range_begin, CompressedChunkLocation* range_middle,
+              CompressedChunkLocation* range_end, CompressedChunkLocation* temp_indices) {
             MergeNonNulls<ArrayType>(range_begin, range_middle, range_end, arrays,
                                      temp_indices);
           };
@@ -175,20 +175,21 @@ class ChunkedArraySorter : public TypeVisitor {
   }
 
   template <typename ArrayType>
-  void MergeNonNulls(ResolvedChunkIndex* range_begin, ResolvedChunkIndex* range_middle,
-                     ResolvedChunkIndex* range_end, span<const Array* const> arrays,
-                     ResolvedChunkIndex* temp_indices) {
+  void MergeNonNulls(CompressedChunkLocation* range_begin,
+                     CompressedChunkLocation* range_middle,
+                     CompressedChunkLocation* range_end, span<const Array* const> arrays,
+                     CompressedChunkLocation* temp_indices) {
     using ArrowType = typename ArrayType::TypeClass;
 
     if (order_ == SortOrder::Ascending) {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
-                 [&](ResolvedChunkIndex left, ResolvedChunkIndex right) {
+                 [&](CompressedChunkLocation left, CompressedChunkLocation right) {
                    return ChunkValue<ArrowType>(arrays, left) <
                           ChunkValue<ArrowType>(arrays, right);
                  });
     } else {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
-                 [&](ResolvedChunkIndex left, ResolvedChunkIndex right) {
+                 [&](CompressedChunkLocation left, CompressedChunkLocation right) {
                    // We don't use 'left > right' here to reduce required
                    // operator. If we use 'right < left' here, '<' is only
                    // required.
@@ -201,7 +202,7 @@ class ChunkedArraySorter : public TypeVisitor {
   }
 
   template <typename ArrowType>
-  auto ChunkValue(span<const Array* const> arrays, ResolvedChunkIndex loc) const {
+  auto ChunkValue(span<const Array* const> arrays, CompressedChunkLocation loc) const {
     return ResolvedChunk(arrays[loc.chunk_index()],
                          static_cast<int64_t>(loc.index_in_chunk()))
         .template Value<ArrowType>();
@@ -744,16 +745,16 @@ class TableSorter {
   template <typename ArrowType>
   Status MergeInternal(std::vector<ChunkedNullPartitionResult>* sorted,
                        int64_t null_count) {
-    auto merge_nulls = [&](ResolvedChunkIndex* nulls_begin,
-                           ResolvedChunkIndex* nulls_middle,
-                           ResolvedChunkIndex* nulls_end,
-                           ResolvedChunkIndex* temp_indices, int64_t null_count) {
+    auto merge_nulls = [&](CompressedChunkLocation* nulls_begin,
+                           CompressedChunkLocation* nulls_middle,
+                           CompressedChunkLocation* nulls_end,
+                           CompressedChunkLocation* temp_indices, int64_t null_count) {
       MergeNulls<ArrowType>(nulls_begin, nulls_middle, nulls_end, temp_indices,
                             null_count);
     };
     auto merge_non_nulls =
-        [&](ResolvedChunkIndex* range_begin, ResolvedChunkIndex* range_middle,
-            ResolvedChunkIndex* range_end, ResolvedChunkIndex* temp_indices) {
+        [&](CompressedChunkLocation* range_begin, CompressedChunkLocation* range_middle,
+            CompressedChunkLocation* range_end, CompressedChunkLocation* temp_indices) {
           MergeNonNulls<ArrowType>(range_begin, range_middle, range_end, temp_indices);
         };
 
@@ -779,16 +780,17 @@ class TableSorter {
   }
 
   template <typename ArrowType>
-  void MergeNulls(ResolvedChunkIndex* nulls_begin, ResolvedChunkIndex* nulls_middle,
-                  ResolvedChunkIndex* nulls_end, ResolvedChunkIndex* temp_indices,
-                  int64_t null_count) {
+  void MergeNulls(CompressedChunkLocation* nulls_begin,
+                  CompressedChunkLocation* nulls_middle,
+                  CompressedChunkLocation* nulls_end,
+                  CompressedChunkLocation* temp_indices, int64_t null_count) {
     if constexpr (has_null_like_values<ArrowType>::value) {
       // Merge rows with a null or a null-like in the first sort key
       auto& comparator = comparator_;
       const auto& first_sort_key = sort_keys_[0];
 
       std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
-                 [&](ResolvedChunkIndex left, ResolvedChunkIndex right) {
+                 [&](CompressedChunkLocation left, CompressedChunkLocation right) {
                    // First column is either null or nan
                    const auto left_loc = ChunkLocation{left};
                    const auto right_loc = ChunkLocation{right};
@@ -811,14 +813,15 @@ class TableSorter {
     }
   }
 
-  void MergeNullsOnly(ResolvedChunkIndex* nulls_begin, ResolvedChunkIndex* nulls_middle,
-                      ResolvedChunkIndex* nulls_end, ResolvedChunkIndex* temp_indices,
-                      int64_t null_count) {
+  void MergeNullsOnly(CompressedChunkLocation* nulls_begin,
+                      CompressedChunkLocation* nulls_middle,
+                      CompressedChunkLocation* nulls_end,
+                      CompressedChunkLocation* temp_indices, int64_t null_count) {
     // Untyped implementation
     auto& comparator = comparator_;
 
     std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
-               [&](ResolvedChunkIndex left, ResolvedChunkIndex right) {
+               [&](CompressedChunkLocation left, CompressedChunkLocation right) {
                  // First column is always null
                  return comparator.Compare(ChunkLocation{left}, ChunkLocation{right}, 1);
                });
@@ -831,13 +834,13 @@ class TableSorter {
   //
   template <typename ArrowType>
   enable_if_t<!is_null_type<ArrowType>::value> MergeNonNulls(
-      ResolvedChunkIndex* range_begin, ResolvedChunkIndex* range_middle,
-      ResolvedChunkIndex* range_end, ResolvedChunkIndex* temp_indices) {
+      CompressedChunkLocation* range_begin, CompressedChunkLocation* range_middle,
+      CompressedChunkLocation* range_end, CompressedChunkLocation* temp_indices) {
     auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
 
     std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
-               [&](ResolvedChunkIndex left, ResolvedChunkIndex right) {
+               [&](CompressedChunkLocation left, CompressedChunkLocation right) {
                  // Both values are never null nor NaN.
                  const auto left_loc = ChunkLocation{left};
                  const auto right_loc = ChunkLocation{right};
@@ -867,10 +870,10 @@ class TableSorter {
   }
 
   template <typename ArrowType>
-  enable_if_null<ArrowType> MergeNonNulls(ResolvedChunkIndex* range_begin,
-                                          ResolvedChunkIndex* range_middle,
-                                          ResolvedChunkIndex* range_end,
-                                          ResolvedChunkIndex* temp_indices) {
+  enable_if_null<ArrowType> MergeNonNulls(CompressedChunkLocation* range_begin,
+                                          CompressedChunkLocation* range_middle,
+                                          CompressedChunkLocation* range_end,
+                                          CompressedChunkLocation* temp_indices) {
     const int64_t null_count = range_end - range_begin;
     MergeNullsOnly(range_begin, range_middle, range_end, temp_indices, null_count);
   }

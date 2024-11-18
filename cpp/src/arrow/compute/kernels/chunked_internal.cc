@@ -49,28 +49,28 @@ std::vector<int64_t> ChunkedIndexMapper::GetChunkLengths(
   return chunk_lengths;
 }
 
-Result<std::pair<ResolvedChunkIndex*, ResolvedChunkIndex*>>
+Result<std::pair<CompressedChunkLocation*, CompressedChunkLocation*>>
 ChunkedIndexMapper::LogicalToPhysical() {
-  // Check that indices would fall in bounds for ResolvedChunkIndex
+  // Check that indices would fall in bounds for CompressedChunkLocation
   if (ARROW_PREDICT_FALSE(chunk_lengths_.size() >
-                          ResolvedChunkIndex::kMaxChunkIndex + 1)) {
+                          CompressedChunkLocation::kMaxChunkIndex + 1)) {
     return Status::NotImplemented("Chunked array has more than ",
-                                  ResolvedChunkIndex::kMaxChunkIndex + 1, " chunks");
+                                  CompressedChunkLocation::kMaxChunkIndex + 1, " chunks");
   }
   for (int64_t chunk_length : chunk_lengths_) {
     if (ARROW_PREDICT_FALSE(static_cast<uint64_t>(chunk_length) >
-                            ResolvedChunkIndex::kMaxIndexInChunk + 1)) {
+                            CompressedChunkLocation::kMaxIndexInChunk + 1)) {
       return Status::NotImplemented("Individual chunk in chunked array has more than ",
-                                    ResolvedChunkIndex::kMaxIndexInChunk + 1,
+                                    CompressedChunkLocation::kMaxIndexInChunk + 1,
                                     " elements");
     }
   }
 
   const int64_t num_indices = static_cast<int64_t>(indices_end_ - indices_begin_);
-  ResolvedChunkIndex* physical_begin =
-      reinterpret_cast<ResolvedChunkIndex*>(indices_begin_);
+  CompressedChunkLocation* physical_begin =
+      reinterpret_cast<CompressedChunkLocation*>(indices_begin_);
   DCHECK_EQ(physical_begin + num_indices,
-            reinterpret_cast<ResolvedChunkIndex*>(indices_end_));
+            reinterpret_cast<CompressedChunkLocation*>(indices_end_));
 
   int64_t chunk_offset = 0;
   for (int64_t chunk_index = 0; chunk_index < static_cast<int64_t>(chunk_lengths_.size());
@@ -80,7 +80,7 @@ ChunkedIndexMapper::LogicalToPhysical() {
       DCHECK_GE(indices_begin_[chunk_offset + i], static_cast<uint64_t>(chunk_offset));
       DCHECK_LT(indices_begin_[chunk_offset + i],
                 static_cast<uint64_t>(chunk_offset + chunk_length));
-      physical_begin[chunk_offset + i] = ResolvedChunkIndex{
+      physical_begin[chunk_offset + i] = CompressedChunkLocation{
           static_cast<uint64_t>(chunk_index),
           indices_begin_[chunk_offset + i] - static_cast<uint64_t>(chunk_offset)};
     }
@@ -101,8 +101,8 @@ Status ChunkedIndexMapper::PhysicalToLogical() {
   }
 
   const int64_t num_indices = static_cast<int64_t>(indices_end_ - indices_begin_);
-  ResolvedChunkIndex* physical_begin =
-      reinterpret_cast<ResolvedChunkIndex*>(indices_begin_);
+  CompressedChunkLocation* physical_begin =
+      reinterpret_cast<CompressedChunkLocation*>(indices_begin_);
   for (int64_t i = 0; i < num_indices; ++i) {
     const auto loc = physical_begin[i];
     DCHECK_LT(loc.chunk_index(), chunk_offsets.size());

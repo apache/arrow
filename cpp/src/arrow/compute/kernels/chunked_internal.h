@@ -60,19 +60,20 @@ struct ResolvedChunk {
 // The goal of compression is to make it fit in 64 bits, allowing in place
 // replacement of logical uint64_t indices with physical indices.
 // (see ChunkedIndexMapper)
-struct ResolvedChunkIndex {
+struct CompressedChunkLocation {
   static constexpr int kChunkIndexBits = 24;
   static constexpr int KIndexInChunkBits = 64 - kChunkIndexBits;
 
   static constexpr uint64_t kMaxChunkIndex = (1ULL << kChunkIndexBits) - 1;
   static constexpr uint64_t kMaxIndexInChunk = (1ULL << KIndexInChunkBits) - 1;
 
-  ResolvedChunkIndex() = default;
+  CompressedChunkLocation() = default;
 
   constexpr uint64_t chunk_index() const { return data_ & kMaxChunkIndex; }
   constexpr uint64_t index_in_chunk() const { return data_ >> kChunkIndexBits; }
 
-  explicit constexpr ResolvedChunkIndex(uint64_t chunk_index, uint64_t index_in_chunk)
+  explicit constexpr CompressedChunkLocation(uint64_t chunk_index,
+                                             uint64_t index_in_chunk)
       : data_((index_in_chunk << kChunkIndexBits) | chunk_index) {}
 
   template <typename IndexType>
@@ -85,7 +86,7 @@ struct ResolvedChunkIndex {
   uint64_t data_;
 };
 
-static_assert(sizeof(uint64_t) == sizeof(ResolvedChunkIndex));
+static_assert(sizeof(uint64_t) == sizeof(CompressedChunkLocation));
 
 class ChunkedArrayResolver {
  private:
@@ -144,7 +145,8 @@ class ChunkedIndexMapper {
   // PhysicalToLogical() is called.
   //
   // This assumes that the logical indices are originally chunk-partitioned.
-  Result<std::pair<ResolvedChunkIndex*, ResolvedChunkIndex*>> LogicalToPhysical();
+  Result<std::pair<CompressedChunkLocation*, CompressedChunkLocation*>>
+  LogicalToPhysical();
 
   // Turn the physical indices back into logical, making the uint64_t indices
   // usable again.

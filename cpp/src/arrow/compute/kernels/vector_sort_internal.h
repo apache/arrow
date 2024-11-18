@@ -209,7 +209,7 @@ struct GenericNullPartitionResult {
 };
 
 using NullPartitionResult = GenericNullPartitionResult<uint64_t>;
-using ChunkedNullPartitionResult = GenericNullPartitionResult<ResolvedChunkIndex>;
+using ChunkedNullPartitionResult = GenericNullPartitionResult<CompressedChunkLocation>;
 
 // Move nulls (not null-like values) to end of array.
 //
@@ -289,7 +289,7 @@ NullPartitionResult PartitionNulls(uint64_t* indices_begin, uint64_t* indices_en
 //
 // Null partitioning on chunked arrays, in two flavors:
 // 1) with uint64_t indices and ChunkedArrayResolver
-// 2) with ResolvedChunkIndex and span of chunks
+// 2) with CompressedChunkLocation and span of chunks
 //
 
 template <typename Partitioner>
@@ -316,8 +316,8 @@ NullPartitionResult PartitionNullsOnly(uint64_t* indices_begin, uint64_t* indice
 }
 
 template <typename Partitioner>
-ChunkedNullPartitionResult PartitionNullsOnly(ResolvedChunkIndex* locations_begin,
-                                              ResolvedChunkIndex* locations_end,
+ChunkedNullPartitionResult PartitionNullsOnly(CompressedChunkLocation* locations_begin,
+                                              CompressedChunkLocation* locations_end,
                                               util::span<const Array* const> chunks,
                                               int64_t null_count,
                                               NullPlacement null_placement) {
@@ -328,7 +328,7 @@ ChunkedNullPartitionResult PartitionNullsOnly(ResolvedChunkIndex* locations_begi
   Partitioner partitioner;
   if (null_placement == NullPlacement::AtStart) {
     auto nulls_end =
-        partitioner(locations_begin, locations_end, [&](ResolvedChunkIndex loc) {
+        partitioner(locations_begin, locations_end, [&](CompressedChunkLocation loc) {
           return chunks[loc.chunk_index()]->IsNull(
               static_cast<int64_t>(loc.index_in_chunk()));
         });
@@ -336,7 +336,7 @@ ChunkedNullPartitionResult PartitionNullsOnly(ResolvedChunkIndex* locations_begi
                                                     nulls_end);
   } else {
     auto nulls_begin =
-        partitioner(locations_begin, locations_end, [&](ResolvedChunkIndex loc) {
+        partitioner(locations_begin, locations_end, [&](CompressedChunkLocation loc) {
           return !chunks[loc.chunk_index()]->IsNull(
               static_cast<int64_t>(loc.index_in_chunk()));
         });
@@ -501,7 +501,8 @@ struct GenericMergeImpl {
 };
 
 using MergeImpl = GenericMergeImpl<uint64_t, NullPartitionResult>;
-using ChunkedMergeImpl = GenericMergeImpl<ResolvedChunkIndex, ChunkedNullPartitionResult>;
+using ChunkedMergeImpl =
+    GenericMergeImpl<CompressedChunkLocation, ChunkedNullPartitionResult>;
 
 // TODO make this usable if indices are non trivial on input
 // (see ConcreteRecordBatchColumnSorter)
