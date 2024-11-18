@@ -176,6 +176,7 @@ set(PARQUET_SRCS
     metadata.cc
     xxhasher.cc
     page_index.cc
+    "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
     platform.cc
     printer.cc
     properties.cc
