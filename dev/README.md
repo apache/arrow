@@ -134,10 +134,10 @@ docker build -t arrow_integration_xenial_base -f docker_common/Dockerfile.xenial
 ## HDFS C++ / Python support
 
 ```shell
-docker-compose build conda-cpp
-docker-compose build conda-python
-docker-compose build conda-python-hdfs
-docker-compose run --rm conda-python-hdfs
+docker compose build conda-cpp
+docker compose build conda-python
+docker compose build conda-python-hdfs
+docker compose run --rm conda-python-hdfs
 ```
 
 ## Apache Spark Integration Tests
@@ -150,10 +150,10 @@ related unit tests in Spark for Java and Python. Any errors will exit with a
 non-zero value. To run, use the following command:
 
 ```shell
-docker-compose build conda-cpp
-docker-compose build conda-python
-docker-compose build conda-python-spark
-docker-compose run --rm conda-python-spark
+docker compose build conda-cpp
+docker compose build conda-python
+docker compose build conda-python-spark
+docker compose run --rm conda-python-spark
 ```
 
 If you already are building Spark, these commands will map your local Maven
@@ -162,7 +162,7 @@ Be aware, that docker write files as root, which can cause problems for maven
 on the host.
 
 ```shell
-docker-compose run --rm -v $HOME/.m2:/root/.m2 conda-python-spark
+docker compose run --rm -v $HOME/.m2:/root/.m2 conda-python-spark
 ```
 
 NOTE: If the Java API has breaking changes, a patched version of Spark might

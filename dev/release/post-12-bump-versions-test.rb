@@ -211,6 +211,18 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ],
         },
         {
+          path: "r/pkgdown/assets/versions.html",
+          hunks: [
+            [
+              "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
+              "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
+              "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
+              "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
+              "+<p><a href=\"../#{@previous_compatible_version}/r/\">#{@previous_r_version}</a></p>",
+            ],
+          ],
+        },
+        {
           path: "r/pkgdown/assets/versions.json",
           hunks: [
             [
@@ -228,6 +240,17 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       ]
     else
       expected_changes += [
+        {
+          path: "r/pkgdown/assets/versions.html",
+          hunks: [
+            [
+              "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
+              "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
+              "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
+              "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
+            ],
+          ],
+        },
         {
           path: "r/pkgdown/assets/versions.json",
           hunks: [
@@ -309,13 +332,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
             "+Package: libarrow#{@next_so_version}",
           ],
           path: "dev/tasks/linux-packages/apache-arrow/debian/control.in",
-        },
-        {
-          sampled_diff: [
-            "-      - libarrow-acero#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
-            "+      - libarrow-acero#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
-          ],
-          path: "dev/tasks/tasks.yml",
         },
       ]
     else

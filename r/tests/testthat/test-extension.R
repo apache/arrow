@@ -35,7 +35,7 @@ test_that("extension types can be created", {
   expect_r6_class(array$type, "ExtensionType")
 
   expect_true(array$type == type)
-  expect_true(all(array$storage() == storage))
+  expect_equal(array$storage(), storage)
 
   expect_identical(array$as_vector(), 1:10)
   expect_identical(chunked_array(array)$as_vector(), 1:10)

@@ -585,6 +585,31 @@ TEST_F(TestArray, TestValidateNullCount) {
   }
 }
 
+TEST_F(TestArray, TestValidValues) {
+  // GH-44541: The value_ should be valid when construct.
+  {
+    std::vector<int32_t> original_data{1, 2, 3, 4, 5, 6, 7};
+    std::shared_ptr<Int32Array> arr =
+        std::make_shared<Int32Array>(::arrow::int32(), 7, Buffer::Wrap(original_data));
+    for (size_t i = 0; i < original_data.size(); ++i) {
+      EXPECT_TRUE(arr->IsValid(i));
+      EXPECT_FALSE(arr->IsNull(i));
+      EXPECT_EQ(original_data[i], arr->Value(i));
+    }
+  }
+  {
+    // Test non parameter free type.
+    std::vector<int64_t> original_data{1, 2, 3, 4, 5, 6, 7};
+    std::shared_ptr<TimestampArray> arr = std::make_shared<TimestampArray>(
+        ::arrow::timestamp(TimeUnit::MICRO), 7, Buffer::Wrap(original_data));
+    for (size_t i = 0; i < original_data.size(); ++i) {
+      EXPECT_TRUE(arr->IsValid(i));
+      EXPECT_FALSE(arr->IsNull(i));
+      EXPECT_EQ(original_data[i], arr->Value(i));
+    }
+  }
+}
+
 void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar) {
   std::unique_ptr<arrow::ArrayBuilder> builder;
   auto null_scalar = MakeNullScalar(scalar->type);

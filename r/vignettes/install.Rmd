@@ -500,12 +500,12 @@ it should be as minimal as possible, containing only R and the dependencies it
 requires. For reference, see the images that
 [R-hub](https://github.com/r-hub/rhub-linux-builders) uses.
 
-You can test the arrow R package installation using the `docker-compose`
+You can test the arrow R package installation using the `docker compose`
 setup included in the `apache/arrow` git repository. For example,
 
 ```
-R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker-compose build r
-R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker-compose run r
+R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker compose build r
+R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker compose run r
 ```
 
 installs the arrow R package, including libarrow, on the

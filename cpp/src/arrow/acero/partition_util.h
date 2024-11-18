@@ -54,10 +54,11 @@ class PartitionSort {
   /// in_arr: [5, 7, 2, 3, 5, 4]
   /// num_prtns: 3
   /// prtn_id_impl: [&in_arr] (int row_id) { return in_arr[row_id] / 3; }
-  /// output_pos_impl: [&out_arr] (int row_id, int pos) { out_arr[pos] = row_id; }
+  /// output_pos_impl: [&sorted_row_ids] (int row_id, int pos) { sorted_row_ids[pos] =
+  /// row_id; }
   ///
   /// After Execution
-  /// out_arr: [2, 5, 3, 5, 4, 7]
+  /// sorted_row_ids: [2, 0, 3, 4, 5, 1]
   /// prtn_ranges: [0, 1, 5, 6]
   template <class INPUT_PRTN_ID_FN, class OUTPUT_POS_FN>
   static void Eval(int64_t num_rows, int num_prtns, uint16_t* prtn_ranges,

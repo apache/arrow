@@ -194,6 +194,7 @@ update_versions() {
                      "${base_version}" \
                      "${next_version}"
   git add docs/source/_static/versions.json
+  git add r/pkgdown/assets/versions.html
   git add r/pkgdown/assets/versions.json
   popd
 }
@@ -228,12 +229,6 @@ update_deb_package_names() {
     sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" debian*/control*
     rm -f debian*/control*.bak
     git add debian*/control*
-    popd
-
-    pushd ${ARROW_DIR}/dev/tasks
-    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" tasks.yml
-    rm -f tasks.yml.bak
-    git add tasks.yml
     popd
 
     pushd ${ARROW_DIR}/dev/release

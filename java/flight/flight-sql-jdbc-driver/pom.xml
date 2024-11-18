@@ -22,7 +22,7 @@ under the License.
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-flight</artifactId>
-    <version>18.0.0-SNAPSHOT</version>
+    <version>19.0.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>flight-sql-jdbc-driver</artifactId>
@@ -127,14 +127,14 @@ under the License.
                   <pattern>mozilla.</pattern>
                   <shadedPattern>org.apache.arrow.driver.jdbc.shaded.mozilla.</shadedPattern>
                 </relocation>
-                <!-- Entries to relocate netty native libraries  -->
+                <!-- Entries to relocate netty native libraries. Prefix has to match relocation prefix (dots replaced with underscore)  -->
                 <relocation>
                   <pattern>META-INF.native.libnetty_</pattern>
-                  <shadedPattern>META-INF.native.liboaadj_netty_</shadedPattern>
+                  <shadedPattern>META-INF.native.liborg_apache_arrow_driver_jdbc_shaded_netty_</shadedPattern>
                 </relocation>
                 <relocation>
                   <pattern>META-INF.native.netty_</pattern>
-                  <shadedPattern>META-INF.native.oaadj_netty_</shadedPattern>
+                  <shadedPattern>META-INF.native.org_apache_arrow_driver_jdbc_shaded_netty_</shadedPattern>
                 </relocation>
               </relocations>
               <transformers>
@@ -159,8 +159,11 @@ under the License.
                     <exclude>**/*.SF</exclude>
                     <exclude>**/*.RSA</exclude>
                     <exclude>**/*.DSA</exclude>
-                    <exclude>META-INF/native/libio_grpc_netty*</exclude>
-                    <exclude>META-INF/native/io_grpc_netty_shaded*</exclude>
+                    <!-- Requires some resource transformer -->
+                    <exclude>META-INF/native-image/</exclude>
+                    <exclude>META-INF/proguard/</exclude>
+                    <!-- Requires MSHADE-406 -->
+                    <exclude>META-INF/versions/</exclude>
                     <exclude>**/*.proto</exclude>
                     <exclude>**/module-info.class</exclude>
                   </excludes>

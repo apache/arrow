@@ -69,36 +69,47 @@ RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 ARG vcpkg
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*linux*.cmake \
+     ci/vcpkg/vcpkg.json \
      arrow/ci/vcpkg/
 COPY ci/scripts/install_vcpkg.sh \
      arrow/ci/scripts/
 ENV VCPKG_ROOT=/opt/vcpkg
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
-    VCPKG_FORCE_SYSTEM_BINARIES=1 \
-    VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
+    PATH="${PATH}:${VCPKG_ROOT}" \
     VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
-    VCPKG_FEATURE_FLAGS="manifests"
-
-RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg}
-ENV PATH="${PATH}:${VCPKG_ROOT}"
-
-COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
-# cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
-# ssl related fixes as well as we can patch the vcpkg portfile to support
-# arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
-# but we cannot patch those portfiles since vcpkg-tool handles the checkout of
-# previous versions => use bundled S3 build
-RUN vcpkg install \
+    VCPKG_FEATURE_FLAGS="manifests" \
+    VCPKG_FORCE_SYSTEM_BINARIES=1 \
+    VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg
+# For --mount=type=secret: The GITHUB_TOKEN is the only real secret but we use
+# --mount=type=secret for GITHUB_REPOSITORY_OWNER and
+# VCPKG_BINARY_SOURCES too because we don't want to store them
+# into the built image in order to easily reuse the built image cache.
+#
+# For vcpkg install: cannot use the S3 feature here because while
+# aws-sdk-cpp=1.9.160 contains ssl related fixes as well as we can
+# patch the vcpkg portfile to support arm machines it hits ARROW-15141
+# where we would need to fall back to 1.8.186 but we cannot patch
+# those portfiles since vcpkg-tool handles the checkout of previous
+# versions => use bundled S3 build
+RUN --mount=type=secret,id=github_repository_owner \
+    --mount=type=secret,id=github_token \
+    --mount=type=secret,id=vcpkg_binary_sources \
+      export GITHUB_REPOSITORY_OWNER=$(cat /run/secrets/github_repository_owner); \
+      export GITHUB_TOKEN=$(cat /run/secrets/github_token); \
+      export VCPKG_BINARY_SOURCES=$(cat /run/secrets/vcpkg_binary_sources); \
+      arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg} && \
+      vcpkg install \
         --clean-after-build \
         --x-install-root=${VCPKG_ROOT}/installed \
         --x-manifest-root=/arrow/ci/vcpkg \
-        --x-feature=azure \ 
+        --x-feature=azure \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
         --x-feature=parquet \
-        --x-feature=s3
+        --x-feature=s3 && \
+      rm -rf ~/.config/NuGet/
 
 # Make sure auditwheel is up-to-date
 RUN pipx upgrade auditwheel

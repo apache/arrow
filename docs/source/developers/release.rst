@@ -68,7 +68,7 @@ generated properly.
     - Install Python 3 as python
     - Create dev/release/.env from dev/release/.env.example. See the comments in dev/release/.env.example how to set each variable.
     - Setup :ref:`Crossbow<Crossbow>` as defined.
-    - Have Docker and docker-compose installed.
+    - Have Docker and Docker Compose installed.
 
 
 Before creating a Release Candidate

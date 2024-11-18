@@ -38,6 +38,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/binary_view_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
@@ -45,6 +46,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/range.h"
+#include "arrow/util/thread_pool.h"
 
 // TODO(GH-37221): Remove these ifdef checks when compute dependency is removed
 #ifdef ARROW_COMPUTE
@@ -5309,6 +5311,114 @@ TEST_F(TestArrayDeviceStreamRoundtrip, ChunkedArrayRoundtripEmpty) {
     AssertTypeEqual(*dst->type(), *src->type());
     AssertChunkedEqual(*dst, *src);
   });
+}
+
+class TestAsyncDeviceArrayStreamRoundTrip : public BaseArrayStreamTest {
+ public:
+  static Result<std::shared_ptr<ArrayData>> ToDeviceData(
+      const std::shared_ptr<MemoryManager>& mm, const ArrayData& data) {
+    arrow::BufferVector buffers;
+    for (const auto& buf : data.buffers) {
+      if (buf) {
+        ARROW_ASSIGN_OR_RAISE(auto dest, mm->CopyBuffer(buf, mm));
+        buffers.push_back(dest);
+      } else {
+        buffers.push_back(nullptr);
+      }
+    }
+
+    arrow::ArrayDataVector children;
+    for (const auto& child : data.child_data) {
+      ARROW_ASSIGN_OR_RAISE(auto dest, ToDeviceData(mm, *child));
+      children.push_back(dest);
+    }
+
+    return ArrayData::Make(data.type, data.length, buffers, children, data.null_count,
+                           data.offset);
+  }
+
+  static Result<std::shared_ptr<Array>> ToDevice(const std::shared_ptr<MemoryManager>& mm,
+                                                 const ArrayData& data) {
+    ARROW_ASSIGN_OR_RAISE(auto result, ToDeviceData(mm, data));
+    return MakeArray(result);
+  }
+};
+
+TEST_F(TestAsyncDeviceArrayStreamRoundTrip, Simple) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  ASSERT_OK_AND_ASSIGN(auto arr1,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[1, 2]")->data()));
+  ASSERT_EQ(device->device_type(), arr1->device_type());
+  ASSERT_OK_AND_ASSIGN(auto arr2,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_EQ(device->device_type(), arr2->device_type());
+  auto orig_schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(orig_schema, {arr1, arr2});
+
+  struct ArrowAsyncDeviceStreamHandler handler;
+  auto fut_gen = CreateAsyncDeviceStreamHandler(&handler, internal::GetCpuThreadPool(), 1,
+                                                TestDeviceArrayRoundtrip::DeviceMapper);
+  ASSERT_FALSE(fut_gen.is_finished());
+
+  ASSERT_OK_AND_ASSIGN(auto fut, internal::GetCpuThreadPool()->Submit([&]() {
+    return ExportAsyncRecordBatchReader(orig_schema, MakeVectorGenerator(batches),
+                                        device->device_type(), &handler);
+  }));
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto generator, fut_gen);
+  ASSERT_NO_FATAL_FAILURE(AssertSchemaEqual(*orig_schema, *generator.schema));
+
+  auto collect_fut = CollectAsyncGenerator(generator.generator);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto results, collect_fut);
+  ASSERT_FINISHES_OK(fut);
+  ASSERT_FINISHES_OK(fut_gen);
+
+  ASSERT_EQ(results.size(), 2);
+  AssertBatchesEqual(*results[0].batch, *batches[0]);
+  AssertBatchesEqual(*results[1].batch, *batches[1]);
+
+  internal::GetCpuThreadPool()->WaitForIdle();
+}
+
+TEST_F(TestAsyncDeviceArrayStreamRoundTrip, NullSchema) {
+  struct ArrowAsyncDeviceStreamHandler handler;
+  auto fut_gen = CreateAsyncDeviceStreamHandler(&handler, internal::GetCpuThreadPool(), 1,
+                                                TestDeviceArrayRoundtrip::DeviceMapper);
+  ASSERT_FALSE(fut_gen.is_finished());
+
+  auto fut = ExportAsyncRecordBatchReader(nullptr, nullptr, DeviceAllocationType::kCPU,
+                                          &handler);
+  ASSERT_FINISHES_AND_RAISES(Invalid, fut);
+  ASSERT_FINISHES_AND_RAISES(UnknownError, fut_gen);
+}
+
+TEST_F(TestAsyncDeviceArrayStreamRoundTrip, PropagateError) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto orig_schema = arrow::schema({field("ints", int32())});
+
+  struct ArrowAsyncDeviceStreamHandler handler;
+  auto fut_gen = CreateAsyncDeviceStreamHandler(&handler, internal::GetCpuThreadPool(), 1,
+                                                TestDeviceArrayRoundtrip::DeviceMapper);
+  ASSERT_FALSE(fut_gen.is_finished());
+
+  ASSERT_OK_AND_ASSIGN(auto fut, internal::GetCpuThreadPool()->Submit([&]() {
+    return ExportAsyncRecordBatchReader(
+        orig_schema,
+        MakeFailingGenerator<std::shared_ptr<RecordBatch>>(
+            Status::UnknownError("expected failure")),
+        device->device_type(), &handler);
+  }));
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto generator, fut_gen);
+  ASSERT_NO_FATAL_FAILURE(AssertSchemaEqual(*orig_schema, *generator.schema));
+
+  auto collect_fut = CollectAsyncGenerator(generator.generator);
+  ASSERT_FINISHES_AND_RAISES(UnknownError, collect_fut);
+  ASSERT_FINISHES_AND_RAISES(UnknownError, fut);
+
+  internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 }  // namespace arrow

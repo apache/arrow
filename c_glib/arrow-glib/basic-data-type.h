@@ -608,6 +608,46 @@ GARROW_AVAILABLE_IN_ALL
 gint32
 garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type);
 
+#define GARROW_TYPE_DECIMAL32_DATA_TYPE (garrow_decimal32_data_type_get_type())
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal32DataType,
+                         garrow_decimal32_data_type,
+                         GARROW,
+                         DECIMAL32_DATA_TYPE,
+                         GArrowDecimalDataType)
+struct _GArrowDecimal32DataTypeClass
+{
+  GArrowDecimalDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+gint32
+garrow_decimal32_data_type_max_precision();
+
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32DataType *
+garrow_decimal32_data_type_new(gint32 precision, gint32 scale, GError **error);
+
+#define GARROW_TYPE_DECIMAL64_DATA_TYPE (garrow_decimal64_data_type_get_type())
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal64DataType,
+                         garrow_decimal64_data_type,
+                         GARROW,
+                         DECIMAL64_DATA_TYPE,
+                         GArrowDecimalDataType)
+struct _GArrowDecimal64DataTypeClass
+{
+  GArrowDecimalDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+gint32
+garrow_decimal64_data_type_max_precision();
+
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal64DataType *
+garrow_decimal64_data_type_new(gint32 precision, gint32 scale, GError **error);
+
 #define GARROW_TYPE_DECIMAL128_DATA_TYPE (garrow_decimal128_data_type_get_type())
 GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal128DataType,
@@ -729,5 +769,37 @@ GARROW_AVAILABLE_IN_3_0
 GArrowExtensionDataType *
 garrow_extension_data_type_registry_lookup(GArrowExtensionDataTypeRegistry *registry,
                                            const gchar *name);
+
+#define GARROW_TYPE_BINARY_VIEW_DATA_TYPE (garrow_binary_view_data_type_get_type())
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowBinaryViewDataType,
+                         garrow_binary_view_data_type,
+                         GARROW,
+                         BINARY_VIEW_DATA_TYPE,
+                         GArrowDataType)
+struct _GArrowBinaryViewDataTypeClass
+{
+  GArrowDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+GArrowBinaryViewDataType *
+garrow_binary_view_data_type_new(void);
+
+#define GARROW_TYPE_STRING_VIEW_DATA_TYPE (garrow_string_view_data_type_get_type())
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowStringViewDataType,
+                         garrow_string_view_data_type,
+                         GARROW,
+                         STRING_VIEW_DATA_TYPE,
+                         GArrowBinaryViewDataType)
+struct _GArrowStringViewDataTypeClass
+{
+  GArrowBinaryViewDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+GArrowStringViewDataType *
+garrow_string_view_data_type_new(void);
 
 G_END_DECLS

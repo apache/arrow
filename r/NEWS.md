@@ -17,13 +17,14 @@
   under the License.
 -->
 
-# arrow 17.0.0.9000
+# arrow 18.0.0.9000
+
+# arrow 18.0.0
 
 ## Minor improvements and fixes
 
 * Fix bindings to allow filtering a factor column in a Dataset using `%in%` (#43446)
 * Update `str_sub` binding to properly handle negative `end` values (@coussens, #44141)
-* Fix summarize() performance regression (pushdown) (#43649)
 * Fix altrep string columns from readr (#43351)
 * Fix crash in ParquetFileWriter$WriteTable and add WriteBatch (#42241)
 * Fix bindings in Math group generics (@aboyoun, #43162)
