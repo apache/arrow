@@ -2,9 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
-using Apache.Arrow.Types;
 using Arrow.Flight.Protocol.Sql;
-using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 
@@ -88,9 +86,13 @@ public class FlightSqlClient
                 var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
                 var flightInfo = await GetFlightInfoAsync(descriptor, options);
                 var doGetResult = DoGetAsync(flightInfo.Endpoints[0].Ticket, options);
+                
                 await foreach (var recordBatch in doGetResult.ConfigureAwait(false))
                 {
-                    affectedRows += recordBatch.Column(0).Length;
+                    foreach (var rowCount in recordBatch.ExtractRowCount())
+                    {
+                        affectedRows += rowCount;
+                    }
                 }
             }
 
@@ -117,7 +119,7 @@ public class FlightSqlClient
 
         try
         {
-            using var flightInfoCall = _client.GetInfo(descriptor, options?.Headers);
+            var flightInfoCall = _client.GetInfo(descriptor, options?.Headers);
             var flightInfo = await flightInfoCall.ResponseAsync.ConfigureAwait(false);
             return flightInfo;
         }
@@ -138,7 +140,7 @@ public class FlightSqlClient
         if (action is null)
             throw new ArgumentNullException(nameof(action));
 
-        using var call = _client.DoAction(action, options?.Headers);
+        var call = _client.DoAction(action, options?.Headers);
 
         await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
         {
@@ -164,7 +166,7 @@ public class FlightSqlClient
             var prepareStatementRequest =
                 new ActionCreatePreparedStatementRequest { Query = query, TransactionId = transaction.TransactionId };
             var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
-            using var call = _client.DoAction(action, options?.Headers);
+            var call = _client.DoAction(action, options?.Headers);
             
             var preparedStatementResponse = await ReadPreparedStatementAsync(call).ConfigureAwait(false);
 
@@ -191,11 +193,6 @@ public class FlightSqlClient
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> GetCatalogsAsync(FlightCallOptions? options = default)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
         try
         {
             var command = new CommandGetCatalogs();
@@ -244,7 +241,7 @@ public class FlightSqlClient
 
         try
         {
-            using var schemaResultCall = _client.GetSchema(descriptor, options?.Headers);
+            var schemaResultCall = _client.GetSchema(descriptor, options?.Headers);
             var schemaResult = await schemaResultCall.ResponseAsync.ConfigureAwait(false);
             return schemaResult;
         }
@@ -297,11 +294,6 @@ public class FlightSqlClient
     /// <returns>The SchemaResult describing the schema of the database schemas.</returns>
     public async Task<Schema> GetDbSchemasSchemaAsync(FlightCallOptions? options = default)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
         try
         {
             var command = new CommandGetDbSchemas();
@@ -328,7 +320,7 @@ public class FlightSqlClient
             throw new ArgumentNullException(nameof(ticket));
         }
 
-        using var call = _client.GetStream(ticket, options?.Headers);
+        var call = _client.GetStream(ticket, options?.Headers);
         await foreach (var recordBatch in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
         {
             yield return recordBatch;
@@ -340,100 +332,40 @@ public class FlightSqlClient
     /// once they are done writing.
     /// </summary>
     /// <param name="descriptor">The descriptor of the stream.</param>
-    /// <param name="schema">The schema for the data to upload.</param>
+    /// <param name="recordBatch">The record for the data to upload.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>A Task representing the asynchronous operation. The task result contains a DoPutResult struct holding a reader and a writer.</returns>
-    public async Task<DoPutResult> DoPutAsync(FlightDescriptor descriptor, Schema schema, FlightCallOptions? options = default)
+    public async Task<FlightPutResult> DoPutAsync(FlightDescriptor descriptor, RecordBatch recordBatch, FlightCallOptions? options = default)
     {
         if (descriptor is null)
             throw new ArgumentNullException(nameof(descriptor));
 
-        if (schema is null)
-            throw new ArgumentNullException(nameof(schema));
+        if (recordBatch is null)
+            throw new ArgumentNullException(nameof(recordBatch));
         try
         {
             var doPutResult = _client.StartPut(descriptor, options?.Headers);
             var writer = doPutResult.RequestStream;
             var reader = doPutResult.ResponseStream;
 
-            var recordBatch = new RecordBatch(schema, BuildArrowArraysFromSchema(schema, schema.FieldsList.Count), 0);
+            if (recordBatch == null || recordBatch.Length == 0)
+                throw new InvalidOperationException("RecordBatch is empty or improperly initialized.");
+
             await writer.WriteAsync(recordBatch).ConfigureAwait(false);
             await writer.CompleteAsync().ConfigureAwait(false);
 
-            return new DoPutResult(writer, reader);
+            if (await reader.MoveNext().ConfigureAwait(false))
+            {
+                var putResult = reader.Current;
+                return new FlightPutResult(putResult.ApplicationMetadata);
+            }
+            return FlightPutResult.Empty;
         }
         catch (RpcException ex)
         {
             throw new InvalidOperationException("Failed to perform DoPut operation", ex);
         }
     }
-
-    public List<IArrowArray> BuildArrowArraysFromSchema(Schema schema, int rowCount)
-    {
-        var arrays = new List<IArrowArray>();
-
-        foreach (var field in schema.FieldsList)
-        {
-            switch (field.DataType)
-            {
-                case Int32Type _:
-                    // Create an Int32 array
-                    var intArrayBuilder = new Int32Array.Builder();
-                    for (int i = 0; i < rowCount; i++)
-                    {
-                        intArrayBuilder.Append(i); 
-                    }
-
-                    arrays.Add(intArrayBuilder.Build());
-                    break;
-
-                case StringType:
-                    var stringArrayBuilder = new StringArray.Builder();
-                    for (int i = 0; i < rowCount; i++)
-                    {
-                        stringArrayBuilder.Append($"Value-{i}");
-                    }
-
-                    arrays.Add(stringArrayBuilder.Build());
-                    break;
-
-                case Int64Type:
-                    var longArrayBuilder = new Int64Array.Builder();
-                    for (int i = 0; i < rowCount; i++)
-                    {
-                        longArrayBuilder.Append((long)i * 100);
-                    }
-
-                    arrays.Add(longArrayBuilder.Build());
-                    break;
-
-                case FloatType:
-                    var floatArrayBuilder = new FloatArray.Builder();
-                    for (int i = 0; i < rowCount; i++)
-                    {
-                        floatArrayBuilder.Append((float)(i * 1.1));
-                    }
-
-                    arrays.Add(floatArrayBuilder.Build());
-                    break;
-
-                case BooleanType:
-                    var boolArrayBuilder = new BooleanArray.Builder();
-                    for (int i = 0; i < rowCount; i++)
-                    {
-                        boolArrayBuilder.Append(i % 2 == 0);
-                    }
-                    arrays.Add(boolArrayBuilder.Build());
-                    break;
-
-                default:
-                    throw new NotSupportedException($"Data type {field.DataType} not supported yet.");
-            }
-        }
-
-        return arrays;
-    }
-
 
     /// <summary>
     /// Request the primary keys for a table.
@@ -452,8 +384,8 @@ public class FlightSqlClient
             {
                 Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
             };
-            byte[] packedRequest = getPrimaryKeysRequest.PackAndSerialize();
-            var descriptor = FlightDescriptor.CreateCommandDescriptor(packedRequest);
+            
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(getPrimaryKeysRequest.PackAndSerialize());
             var flightInfo = await GetFlightInfoAsync(descriptor, options).ConfigureAwait(false);
 
             return flightInfo;
@@ -474,8 +406,7 @@ public class FlightSqlClient
     /// <param name="tableTypes">The table types to include.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<IEnumerable<FlightInfo>> 
-        GetTablesAsync(string? catalog = null, string? dbSchemaFilterPattern = null, string? tableFilterPattern = null, bool includeSchema = false, IEnumerable<string>? tableTypes = null, FlightCallOptions? options = default)
+    public async Task<IEnumerable<FlightInfo>> GetTablesAsync(string? catalog = null, string? dbSchemaFilterPattern = null, string? tableFilterPattern = null, bool includeSchema = false, IEnumerable<string>? tableTypes = null, FlightCallOptions? options = default)
     {
         var command = new CommandGetTables
         {
@@ -530,18 +461,17 @@ public class FlightSqlClient
     /// <summary>
     /// Get the exported keys schema from the server.
     /// </summary>
+    /// <param name="tableRef">The table reference.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The SchemaResult describing the schema of the exported keys.</returns>
-    public async Task<Schema> GetExportedKeysSchemaAsync(FlightCallOptions? options = default)
+    public async Task<Schema> GetExportedKeysSchemaAsync(TableRef tableRef, FlightCallOptions? options = default)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
         try
         {
-            var commandGetExportedKeysSchema = new CommandGetExportedKeys();
+            var commandGetExportedKeysSchema = new CommandGetExportedKeys
+            {
+                Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
+            };
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetExportedKeysSchema.PackAndSerialize());
             var schemaResult = await GetSchemaAsync(descriptor, options).ConfigureAwait(false);
             return schemaResult;
@@ -586,11 +516,6 @@ public class FlightSqlClient
     /// <returns>The SchemaResult describing the schema of the imported keys.</returns>
     public async Task<Schema> GetImportedKeysSchemaAsync(FlightCallOptions? options = default)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
         try
         {
             var commandGetImportedKeysSchema = new CommandGetImportedKeys();
@@ -692,11 +617,6 @@ public class FlightSqlClient
     /// <returns>The SchemaResult describing the schema of the table types.</returns>
     public async Task<Schema> GetTableTypesSchemaAsync(FlightCallOptions? options = default)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
         try
         {
             var command = new CommandGetTableTypes();
@@ -718,11 +638,6 @@ public class FlightSqlClient
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> GetXdbcTypeInfoAsync(int dataType, FlightCallOptions? options = default)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
         try
         {
             var command = new CommandGetXdbcTypeInfo { DataType = dataType };
@@ -743,11 +658,6 @@ public class FlightSqlClient
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> GetXdbcTypeInfoAsync(FlightCallOptions? options = default)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
         try
         {
             var command = new CommandGetXdbcTypeInfo();
@@ -768,11 +678,6 @@ public class FlightSqlClient
     /// <returns>The SchemaResult describing the schema of the type info.</returns>
     public async Task<Schema> GetXdbcTypeInfoSchemaAsync(FlightCallOptions? options = default)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
         try
         {
             var command = new CommandGetXdbcTypeInfo();
@@ -794,11 +699,6 @@ public class FlightSqlClient
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> GetSqlInfoAsync(List<int>? sqlInfo = default, FlightCallOptions? options = default)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
         sqlInfo ??= new List<int>();
         try
         {
@@ -821,16 +721,11 @@ public class FlightSqlClient
     /// <returns>The SchemaResult describing the schema of the SQL information.</returns>
     public async Task<Schema> GetSqlInfoSchemaAsync(FlightCallOptions? options = default)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
         try
         {
             var command = new CommandGetSqlInfo();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-             var schemaResultCall = _client.GetSchema(descriptor, options.Headers);
+             var schemaResultCall = _client.GetSchema(descriptor, options?.Headers);
             var schemaResult = await schemaResultCall.ResponseAsync.ConfigureAwait(false);
 
             return schemaResult;
@@ -989,7 +884,6 @@ public class FlightSqlClient
     /// <returns>The created prepared statement.</returns>
     public async Task<PreparedStatement> PrepareAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
     {
-
         if (string.IsNullOrEmpty(query))
             throw new ArgumentException("Query cannot be null or empty", nameof(query));
 
@@ -1008,8 +902,9 @@ public class FlightSqlClient
             }
             
             var action = new FlightAction(SqlAction.CreateRequest, command.PackAndSerialize());
-            using var call = _client.DoAction(action, options?.Headers);
+            var call = _client.DoAction(action, options?.Headers);
             var preparedStatementResponse = await ReadPreparedStatementAsync(call).ConfigureAwait(false);
+            
             
             return new PreparedStatement(this,
                 preparedStatementResponse.PreparedStatementHandle.ToStringUtf8(),

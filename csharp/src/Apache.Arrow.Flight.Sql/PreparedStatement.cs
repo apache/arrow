@@ -12,6 +12,7 @@ using Arrow.Flight.Protocol.Sql;
 using Google.Protobuf;
 using Grpc.Core;
 using System.Threading.Channels;
+using Google.Protobuf.WellKnownTypes;
 
 namespace Apache.Arrow.Flight.Sql;
 
@@ -25,8 +26,7 @@ public class PreparedStatement : IDisposable
     private bool _isClosed;
     public bool IsClosed => _isClosed;
     public string Handle => _handle;
-    private FlightServerRecordBatchStreamReader? _parameterReader;
-    public FlightServerRecordBatchStreamReader? ParameterReader => _parameterReader;
+    public RecordBatch? ParametersBatch => _recordsBatch;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PreparedStatement"/> class.
@@ -198,57 +198,9 @@ public class PreparedStatement : IDisposable
     /// <param name="cancellationToken">A cancellation token for the binding operation.</param>
     /// <returns>A <see cref="Status"/> indicating success or failure.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="parameterBatch"/> is null.</exception>
-    public Status SetParameters(RecordBatch parameterBatch, CancellationToken cancellationToken = default)
+    public void SetParameters(RecordBatch parameterBatch)
     {
-        EnsureStatementIsNotClosed();
-
         _recordsBatch = parameterBatch ?? throw new ArgumentNullException(nameof(parameterBatch));
-        
-        var channel = Channel.CreateUnbounded<FlightData>();
-        var task = Task.Run(async () =>
-        {
-            try
-            {
-                using (var memoryStream = new MemoryStream())
-                {
-                    var writer = new ArrowStreamWriter(memoryStream, _recordsBatch.Schema);
-
-                    cancellationToken.ThrowIfCancellationRequested();
-                    await writer.WriteRecordBatchAsync(_recordsBatch, cancellationToken).ConfigureAwait(false);
-                    await writer.WriteEndAsync(cancellationToken).ConfigureAwait(false);
-
-                    memoryStream.Position = 0;
-
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    var flightData = new FlightData(
-                        FlightDescriptor.CreateCommandDescriptor(_handle),
-                        ByteString.CopyFrom(memoryStream.ToArray()),
-                        ByteString.Empty,
-                        ByteString.Empty
-                    );
-                    await channel.Writer.WriteAsync(flightData, cancellationToken).ConfigureAwait(false);
-                }
-
-                channel.Writer.Complete();
-            }
-            catch (OperationCanceledException)
-            {
-                channel.Writer.TryComplete(new OperationCanceledException("Task was canceled"));
-            }
-            catch (Exception ex)
-            {
-                channel.Writer.TryComplete(ex);
-            }
-        }, cancellationToken);
-
-        _parameterReader = new FlightServerRecordBatchStreamReader(new ChannelReaderStreamAdapter<FlightData>(channel.Reader));
-        if (task.IsCanceled || cancellationToken.IsCancellationRequested)
-        {
-            return Status.DefaultCancelled;
-        }
-
-        return Status.DefaultSuccess;
     }
 
     /// <summary>
@@ -263,7 +215,12 @@ public class PreparedStatement : IDisposable
     {
         EnsureStatementIsNotClosed();
 
-        var descriptor = FlightDescriptor.CreateCommandDescriptor(_handle);
+        var command = new CommandPreparedStatementQuery
+        {
+            PreparedStatementHandle = ByteString.CopyFrom(_handle, Encoding.UTF8),
+        };
+        
+        var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
         cancellationToken.ThrowIfCancellationRequested();
         
         if (_recordsBatch != null)
@@ -314,7 +271,13 @@ public class PreparedStatement : IDisposable
         {
             throw new ArgumentNullException(nameof(parameterBatch), "Parameter batch cannot be null.");
         }
-        var descriptor = FlightDescriptor.CreateCommandDescriptor(_handle);
+        
+        var command = new CommandPreparedStatementQuery
+        {
+            PreparedStatementHandle = ByteString.CopyFrom(_handle, Encoding.UTF8),
+        };
+
+        var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
         var metadata = await BindParametersAsync(descriptor, parameterBatch, options).ConfigureAwait(false);
 
         try
@@ -358,13 +321,10 @@ public class PreparedStatement : IDisposable
         {
             throw new ArgumentNullException(nameof(parameterBatch), "Parameter batch cannot be null.");
         }
-
-        var putResult = await _client.DoPutAsync(descriptor, parameterBatch.Schema, options).ConfigureAwait(false);
-
+        var putResult = await _client.DoPutAsync(descriptor, parameterBatch, options).ConfigureAwait(false);
         try
         {
-            var metadata = await putResult.ReadMetadataAsync().ConfigureAwait(false);
-            await putResult.CompleteAsync().ConfigureAwait(false);
+            var metadata = putResult.ApplicationMetadata;
             return metadata;
         }
         catch (OperationCanceledException)

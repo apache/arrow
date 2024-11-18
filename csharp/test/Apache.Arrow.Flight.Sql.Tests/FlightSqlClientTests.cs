@@ -520,7 +520,7 @@ public class FlightSqlClientTests : IDisposable
         var expectedBatch = _testUtils.CreateTestBatch(0, 100);
 
         // Act
-        var result = await _flightSqlClient.DoPutAsync(flightDescriptor, expectedBatch.Schema);
+        var result = await _flightSqlClient.DoPutAsync(flightDescriptor, expectedBatch);
 
         // Assert
         Assert.NotNull(result);
@@ -557,7 +557,8 @@ public class FlightSqlClientTests : IDisposable
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
         // Act
-        var schema = await _flightSqlClient.GetExportedKeysSchemaAsync(options);
+        var tableRef = new TableRef { Catalog = "test-catalog", Table = "test-table", DbSchema = "test-schema" };
+        var schema = await _flightSqlClient.GetExportedKeysSchemaAsync(tableRef);
 
         // Assert
         Assert.NotNull(schema);

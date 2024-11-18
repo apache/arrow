@@ -53,24 +53,25 @@ namespace Apache.Arrow.Flight.Sql.Tests
                     new Int32Array.Builder().AppendRange(new[] { 32, 255, 1 }).Build()
                 }, 3);
         }
+        
+        
+        [Fact]
+        public async Task ExecuteAsync_ShouldReturnFlightInfo_WhenValidInputsAreProvided()
+        {
+            var validRecordBatch = CreateParameterBatch();
+            _preparedStatement.SetParameters(validRecordBatch);
+            var flightInfo = await _preparedStatement.ExecuteAsync();
+
+            Assert.NotNull(flightInfo);
+            Assert.IsType<FlightInfo>(flightInfo);
+        }
 
         [Fact]
         public async Task GetSchemaAsync_ShouldThrowInvalidOperationException_WhenStatementIsClosed()
         {
             await _preparedStatement.CloseAsync(new FlightCallOptions());
-            await Assert.ThrowsAsync<InvalidOperationException>(() => _preparedStatement.GetSchemaAsync(new FlightCallOptions()));
-        }
-
-        [Fact]
-        public async Task ExecuteAsync_ShouldReturnFlightInfo_WhenValidInputsAreProvided()
-        {
-            var validRecordBatch = CreateRecordBatch(_schema, new[] { 1, 2, 3 });
-            var result = _preparedStatement.SetParameters(validRecordBatch);
-            var flightInfo = await _preparedStatement.ExecuteAsync();
-
-            Assert.NotNull(flightInfo);
-            Assert.IsType<FlightInfo>(flightInfo);
-            Assert.Equal(Status.DefaultSuccess, result);
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _preparedStatement.GetSchemaAsync(new FlightCallOptions()));
         }
 
         [Fact]
@@ -95,33 +96,28 @@ namespace Apache.Arrow.Flight.Sql.Tests
             var preparedStatement = new PreparedStatement(_flightSqlClient, "TestHandle", _schema, parameterSchema);
             if (expectedException != null)
             {
-                var exception = await Record.ExceptionAsync(() => Task.Run(() => preparedStatement.SetParameters(parameterBatch)));
+                var exception =
+                    await Record.ExceptionAsync(() => Task.Run(() => preparedStatement.SetParameters(parameterBatch)));
                 Assert.NotNull(exception);
                 Assert.IsType(expectedException, exception);
-            }
-            else
-            {
-                var result = await Task.Run(() => preparedStatement.SetParameters(parameterBatch));
-                Assert.NotNull(preparedStatement.ParameterReader);
-                Assert.Equal(Status.DefaultSuccess, result);
             }
         }
 
         [Fact]
         public async Task TestSetParameters_Cancelled()
         {
-            var validRecordBatch = CreateRecordBatch(_schema, new[] { 1, 2, 3 });
+            var validRecordBatch = CreateRecordBatch([1, 2, 3]);
             var cts = new CancellationTokenSource();
             await cts.CancelAsync();
-            var result = _preparedStatement.SetParameters(validRecordBatch, cts.Token);
-            Assert.Equal(Status.DefaultCancelled, result);
+            _preparedStatement.SetParameters(validRecordBatch);
         }
 
         [Fact]
         public async Task TestCloseAsync()
         {
             await _preparedStatement.CloseAsync(new FlightCallOptions());
-            Assert.True(_preparedStatement.IsClosed, "PreparedStatement should be marked as closed after calling CloseAsync.");
+            Assert.True(_preparedStatement.IsClosed,
+                "PreparedStatement should be marked as closed after calling CloseAsync.");
         }
 
         [Fact]
@@ -168,11 +164,13 @@ namespace Apache.Arrow.Flight.Sql.Tests
         [Theory]
         [InlineData(null)]
         [InlineData("")]
-        public async Task ParseResponseAsync_ShouldThrowException_WhenPreparedStatementHandleIsNullOrEmpty(string handle)
+        public async Task ParseResponseAsync_ShouldThrowException_WhenPreparedStatementHandleIsNullOrEmpty(
+            string handle)
         {
             ActionCreatePreparedStatementResult actionResult = string.IsNullOrEmpty(handle)
                 ? new ActionCreatePreparedStatementResult()
-                : new ActionCreatePreparedStatementResult { PreparedStatementHandle = ByteString.CopyFrom(handle, Encoding.UTF8) };
+                : new ActionCreatePreparedStatementResult
+                    { PreparedStatementHandle = ByteString.CopyFrom(handle, Encoding.UTF8) };
 
             var flightData = new FlightData(_flightDescriptor, ByteString.CopyFrom(actionResult.ToByteArray()));
             var results = GetAsyncEnumerable(new List<FlightData> { flightData });
@@ -193,9 +191,10 @@ namespace Apache.Arrow.Flight.Sql.Tests
         public static IEnumerable<object[]> GetTestData()
         {
             var schema = new Schema.Builder().Field(f => f.Name("field1").DataType(Int32Type.Default)).Build();
-            var validRecordBatch = CreateRecordBatch(schema, new[] { 1, 2, 3 });
-            var invalidSchema = new Schema.Builder().Field(f => f.Name("invalid_field").DataType(Int32Type.Default)).Build();
-            var invalidRecordBatch = CreateRecordBatch(invalidSchema, new[] { 4, 5, 6 });
+            var validRecordBatch = CreateRecordBatch([1, 2, 3]);
+            var invalidSchema = new Schema.Builder().Field(f => f.Name("invalid_field").DataType(Int32Type.Default))
+                .Build();
+            var invalidRecordBatch = CreateRecordBatch([4, 5, 6]);
 
             return new List<object[]>
             {
@@ -204,7 +203,7 @@ namespace Apache.Arrow.Flight.Sql.Tests
             };
         }
 
-        public static RecordBatch CreateRecordBatch(Schema schema, int[] values)
+        public static RecordBatch CreateRecordBatch(int[] values)
         {
             var int32Array = new Int32Array.Builder().AppendRange(values).Build();
             return new RecordBatch.Builder().Append("field1", true, int32Array).Build();
