@@ -302,7 +302,7 @@ void RowArray::DecodeFixedLength(ResizableArrayData* output, int output_start_ro
       RowArrayAccessor::Visit(
           rows_, column_id, num_rows_to_append, row_ids,
           [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-            reinterpret_cast<uint16_t*>(output->mutable_data(1))[output_start_row + i] =
+            output->mutable_data_as<uint16_t>(1)[output_start_row + i] =
                 *reinterpret_cast<const uint16_t*>(ptr);
           });
       break;
