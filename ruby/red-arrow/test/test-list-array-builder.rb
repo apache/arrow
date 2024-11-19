@@ -33,6 +33,15 @@ class ListArrayBuilderTest < Test::Unit::TestCase
       array = @builder.finish
       assert_equal([true, false, true], array[0].to_a)
     end
+
+    test("Struct[]") do
+      item_type = Arrow::StructDataType.new([{name: "visible", type: :boolean}])
+      data_type = Arrow::ListDataType.new(name: "struct", data_type: item_type)
+      builder = Arrow::ListArrayBuilder.new(data_type)
+      builder.append_value([])
+      array = builder.finish
+      assert_equal([], array[0].to_a)
+    end
   end
 
   sub_test_case("#append_values") do
