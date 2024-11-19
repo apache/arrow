@@ -23,16 +23,16 @@
 ARG base
 FROM ${base}
 
-# Define the full version number otherwise choco falls back to patch number 0 (3.9 => 3.9.0)
-ARG python=3.9
-RUN (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13") & \
-    (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11") & \
-    (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9") & \
-    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.5") & \
-    (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.0-rc1")
+SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+RUN $filename = 'python-3.13.0-amd64.exe'; \
+    $url = 'https://www.python.org/ftp/python/3.13.0/' + $filename; \
+    Invoke-WebRequest -Uri $url -OutFile $filename; \
+    Start-Process -FilePath $filename -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
 
-# Install archiver to extract xz archives
-RUN choco install -r -y --pre --no-progress --force python --version=%PYTHON_VERSION% && \
-    choco install --no-progress -r -y archiver
+RUN py -3.13t -m pip install -U pip setuptools
 
-ENV PYTHON=$python
+COPY python/requirements-wheel-build.txt arrow/python/
+RUN py -3.13t -m pip install --pre --prefer-binary --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" cython pandas
+RUN py -3.13t -m pip install -r arrow/python/requirements-wheel-build.txt
+
+ENV PYTHON="3.13t"

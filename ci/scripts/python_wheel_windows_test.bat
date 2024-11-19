@@ -45,7 +45,15 @@ set PYTHON_CMD=py -%PYTHON%
 %PYTHON_CMD% -m pip install -U pip setuptools || exit /B 1
 
 @REM Install testing dependencies
-%PYTHON_CMD% -m pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
+if "%PYTHON%"=="3.13t" (
+    %PYTHON_CMD% -m pip install ^
+    --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple ^
+    --pre ^
+    --prefer-binary ^
+    -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
+) ELSE (
+    %PYTHON_CMD% -m pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
+)
 
 @REM Install the built wheels
 %PYTHON_CMD% -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B 1
