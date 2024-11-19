@@ -19,6 +19,11 @@
 
 echo "Building windows wheel..."
 
+@REM List installed Pythons
+py -0p
+
+%PYTHON_CMD% -m sysconfig || exit /B 1
+
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
 @echo on
 
@@ -27,7 +32,7 @@ choco install -r -y --no-progress vcredist140
 choco upgrade -r -y --no-progress vcredist140
 dir C:\Windows\System32\msvcp140.dll
 
-echo "=== (%PYTHON_VERSION%) Clear output directories and leftovers ==="
+echo "=== (%PYTHON%) Clear output directories and leftovers ==="
 del /s /q C:\arrow-build
 del /s /q C:\arrow-dist
 del /s /q C:\arrow\python\dist
@@ -35,7 +40,7 @@ del /s /q C:\arrow\python\build
 del /s /q C:\arrow\python\pyarrow\*.so
 del /s /q C:\arrow\python\pyarrow\*.so.*
 
-echo "=== (%PYTHON_VERSION%) Building Arrow C++ libraries ==="
+echo "=== (%PYTHON%) Building Arrow C++ libraries ==="
 set ARROW_ACERO=ON
 set ARROW_DATASET=ON
 set ARROW_FLIGHT=ON
@@ -107,8 +112,9 @@ cmake ^
 cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
 
-echo "=== (%PYTHON_VERSION%) Building wheel ==="
+echo "=== (%PYTHON%) Building wheel ==="
 set PYARROW_BUILD_TYPE=%CMAKE_BUILD_TYPE%
+set PYARROW_BUILD_VERBOSE=1
 set PYARROW_BUNDLE_ARROW_CPP=ON
 set PYARROW_CMAKE_GENERATOR=%CMAKE_GENERATOR%
 set PYARROW_WITH_ACERO=%ARROW_ACERO%
@@ -131,7 +137,7 @@ pushd C:\arrow\python
 cp C:\Windows\System32\msvcp140.dll pyarrow\
 
 @REM Build wheel
-python setup.py bdist_wheel || exit /B 1
+%PYTHON_CMD% setup.py bdist_wheel || exit /B 1
 
 @REM Repair the wheel with delvewheel
 @REM
@@ -141,12 +147,13 @@ python setup.py bdist_wheel || exit /B 1
 @REM
 @REM For now this requires a custom version of delvewheel:
 @REM https://github.com/adang1345/delvewheel/pull/59
-pip install https://github.com/pitrou/delvewheel/archive/refs/heads/fixes-for-arrow.zip || exit /B 1
+%PYTHON_CMD% -m pip install https://github.com/pitrou/delvewheel/archive/refs/heads/fixes-for-arrow.zip || exit /B 1
 
 for /f %%i in ('dir dist\pyarrow-*.whl /B') do (set WHEEL_NAME=%cd%\dist\%%i) || exit /B 1
 echo "Wheel name: %WHEEL_NAME%"
 
-delvewheel repair -vv --mangle-only=msvcp140.dll --no-patch ^
+%PYTHON_CMD% -m delvewheel repair -vv ^
+    --mangle-only=msvcp140.dll --no-patch ^
     -w repaired_wheels %WHEEL_NAME% || exit /B 1
 
 popd

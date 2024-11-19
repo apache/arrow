@@ -40,6 +40,7 @@ repos:
           (
           ?^ci/docker/conda-python-emscripten\.dockerfile$|
           ?^ci/docker/python-wheel-windows-test-vs2019\.dockerfile$|
+          ?^ci/docker/python-wheel-windows-test-vs2019-base\.dockerfile$|
           )
         types: []
   - repo: https://github.com/pycqa/flake8
