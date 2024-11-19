@@ -32,7 +32,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
   // Number of rows processed together in a single iteration of the loop (single
   // call to the provided processing lambda).
   //
-  constexpr int unroll = 8;
+  constexpr int kUnroll = 8;
 
   bool is_fixed_length_column =
       rows.metadata().column_metadatas[column_id].is_fixed_length;
@@ -60,7 +60,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
       __m256i field_offset_within_row = _mm256_set1_epi32(rows.metadata().fixed_length);
       __m256i varbinary_end_array_offset =
           _mm256_set1_epi64x(rows.metadata().varbinary_end_array_offset);
-      for (int i = 0; i < num_rows / unroll; ++i) {
+      for (int i = 0; i < num_rows / kUnroll; ++i) {
         // Load 8 32-bit row ids.
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
@@ -83,7 +83,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
         // The final 8 32-bit field lengths, subtracting the field offset within row.
         __m256i field_length = _mm256_sub_epi32(
             _mm256_set_m128i(field_length_hi, field_length_lo), field_offset_within_row);
-        process_8_values_fn(i * unroll, row_ptr_base,
+        process_8_values_fn(i * kUnroll, row_ptr_base,
                             _mm256_add_epi64(row_offset_lo, field_offset_within_row),
                             _mm256_add_epi64(row_offset_hi, field_offset_within_row),
                             field_length);
@@ -96,7 +96,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
                              sizeof(uint32_t) * (varbinary_column_id - 1));
       auto row_ptr_base_i64 =
           reinterpret_cast<const arrow::util::int64_for_gather_t*>(row_ptr_base);
-      for (int i = 0; i < num_rows / unroll; ++i) {
+      for (int i = 0; i < num_rows / kUnroll; ++i) {
         // Load 8 32-bit row ids.
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
@@ -149,7 +149,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
         field_offset_within_row_B =
             _mm256_add_epi32(field_offset_within_row_B, alignment_padding);
 
-        process_8_values_fn(i * unroll, row_ptr_base,
+        process_8_values_fn(i * kUnroll, row_ptr_base,
                             _mm256_add_epi64(row_offset_lo, field_offset_within_row_A),
                             _mm256_add_epi64(row_offset_hi, field_offset_within_row_B),
                             field_length);
@@ -175,7 +175,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
       // Case 3: This is a fixed length column in fixed length row
       //
       const uint8_t* row_ptr_base = rows.data(1);
-      for (int i = 0; i < num_rows / unroll; ++i) {
+      for (int i = 0; i < num_rows / kUnroll; ++i) {
         // Load 8 32-bit row ids.
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
@@ -193,7 +193,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
             _mm256_add_epi64(row_offset_lo, field_offset_within_row);
         __m256i field_offset_hi =
             _mm256_add_epi64(row_offset_hi, field_offset_within_row);
-        process_8_values_fn(i * unroll, row_ptr_base, field_offset_lo, field_offset_hi,
+        process_8_values_fn(i * kUnroll, row_ptr_base, field_offset_lo, field_offset_hi,
                             field_length);
       }
     } else {
@@ -203,7 +203,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
       const RowTableImpl::offset_type* row_offsets = rows.offsets();
       auto row_offsets_i64 =
           reinterpret_cast<const arrow::util::int64_for_gather_t*>(row_offsets);
-      for (int i = 0; i < num_rows / unroll; ++i) {
+      for (int i = 0; i < num_rows / kUnroll; ++i) {
         // Load 8 32-bit row ids.
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
@@ -221,13 +221,13 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
             _mm256_add_epi64(row_offset_lo, field_offset_within_row);
         __m256i field_offset_hi =
             _mm256_add_epi64(row_offset_hi, field_offset_within_row);
-        process_8_values_fn(i * unroll, row_ptr_base, field_offset_lo, field_offset_hi,
+        process_8_values_fn(i * kUnroll, row_ptr_base, field_offset_lo, field_offset_hi,
                             field_length);
       }
     }
   }
 
-  return num_rows - (num_rows % unroll);
+  return num_rows - (num_rows % kUnroll);
 }
 
 template <class PROCESS_8_VALUES_FN>
@@ -237,14 +237,14 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
   // Number of rows processed together in a single iteration of the loop (single
   // call to the provided processing lambda).
   //
-  constexpr int unroll = 8;
+  constexpr int kUnroll = 8;
 
   const uint8_t* null_masks = rows.null_masks();
   __m256i null_bits_per_row =
       _mm256_set1_epi32(8 * rows.metadata().null_masks_bytes_per_row);
   __m256i pos_after_encoding =
       _mm256_set1_epi32(rows.metadata().pos_after_encoding(column_id));
-  for (int i = 0; i < num_rows / unroll; ++i) {
+  for (int i = 0; i < num_rows / kUnroll; ++i) {
     __m256i row_id = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
     __m256i bit_id = _mm256_mullo_epi32(row_id, null_bits_per_row);
     bit_id = _mm256_add_epi32(bit_id, pos_after_encoding);
@@ -263,10 +263,10 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
         _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_extracti128_si256(result, 1)));
     uint64_t null_bytes = null_bytes_lo | (null_bytes_hi << 32);
 
-    process_8_values_fn(i * unroll, null_bytes);
+    process_8_values_fn(i * kUnroll, null_bytes);
   }
 
-  return num_rows - (num_rows % unroll);
+  return num_rows - (num_rows % kUnroll);
 }
 
 namespace {
