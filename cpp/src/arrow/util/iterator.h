@@ -292,18 +292,17 @@ class TransformIterator {
         finished_ = true;
         return next_res.status();
       }
-      auto next = *next_res;
-      if (next.ReadyForNext()) {
+      if (next_res->ReadyForNext()) {
         if (IsIterationEnd(*last_value_)) {
           finished_ = true;
         }
         last_value_.reset();
       }
-      if (next.Finished()) {
+      if (next_res->Finished()) {
         finished_ = true;
       }
-      if (next.HasValue()) {
-        return next.Value();
+      if (next_res->HasValue()) {
+        return next_res->Value();
       }
     }
     if (finished_) {
