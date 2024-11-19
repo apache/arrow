@@ -300,12 +300,12 @@ inline void Decode8FixedLength0_avx2(uint8_t* output, const uint8_t* row_ptr_bas
 
 inline void Decode8FixedLength1_avx2(uint8_t* output, const uint8_t* row_ptr_base,
                                      __m256i offset_lo, __m256i offset_hi) {
-  // Gather the lower/higher 4 32-bit (only lower 8 bits interesting) rows based on the
+  // Gather the lower/higher 4 32-bit (only lower 8 bits interesting) values based on the
   // lower/higher 4 64-bit row offsets.
   __m128i row_lo = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_lo, 1);
   __m128i row_hi = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_hi, 1);
   __m256i row = _mm256_set_m128i(row_hi, row_lo);
-  // Shuffle the lower 8 bits of each 32-bit rows to the lower 32 bits of each 128-bit
+  // Shuffle the lower 8 bits of each 32-bit values to the lower 32 bits of each 128-bit
   // lane.
   constexpr uint64_t kByteSequence_0_4_8_12 = 0x0c080400ULL;
   const __m256i shuffle_const =
@@ -322,12 +322,12 @@ inline void Decode8FixedLength1_avx2(uint8_t* output, const uint8_t* row_ptr_bas
 
 inline void Decode8FixedLength2_avx2(uint16_t* output, const uint8_t* row_ptr_base,
                                      __m256i offset_lo, __m256i offset_hi) {
-  // Gather the lower/higher 4 32-bit (only lower 16 bits interesting) rows based on the
+  // Gather the lower/higher 4 32-bit (only lower 16 bits interesting) values based on the
   // lower/higher 4 64-bit row offsets.
   __m128i row_lo = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_lo, 1);
   __m128i row_hi = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_hi, 1);
   __m256i row = _mm256_set_m128i(row_hi, row_lo);
-  // Shuffle the lower 16 bits of each 32-bit rows to the lower 64 bits of each 128-bit
+  // Shuffle the lower 16 bits of each 32-bit values to the lower 64 bits of each 128-bit
   // lane.
   constexpr uint64_t kByteSequence_0_1_4_5_8_9_12_13 = 0x0d0c090805040100ULL;
   const __m256i shuffle_const = _mm256_setr_epi64x(kByteSequence_0_1_4_5_8_9_12_13, -1,
@@ -340,7 +340,8 @@ inline void Decode8FixedLength2_avx2(uint16_t* output, const uint8_t* row_ptr_ba
 
 inline void Decode8FixedLength4_avx2(uint32_t* output, const uint8_t* row_ptr_base,
                                      __m256i offset_lo, __m256i offset_hi) {
-  // Gather the lower/higher 4 32-bit rows based on the lower/higher 4 64-bit row offsets.
+  // Gather the lower/higher 4 32-bit values based on the lower/higher 4 64-bit row
+  // offsets.
   __m128i row_lo = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_lo, 1);
   __m128i row_hi = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_hi, 1);
   __m256i row = _mm256_set_m128i(row_hi, row_lo);
@@ -351,7 +352,8 @@ inline void Decode8FixedLength8_avx2(uint64_t* output, const uint8_t* row_ptr_ba
                                      __m256i offset_lo, __m256i offset_hi) {
   auto row_ptr_base_i64 =
       reinterpret_cast<const arrow::util::int64_for_gather_t*>(row_ptr_base);
-  // Gather the lower/higher 4 64-bit rows based on the lower/higher 4 64-bit row offsets.
+  // Gather the lower/higher 4 64-bit values based on the lower/higher 4 64-bit row
+  // offsets.
   __m256i row_lo = _mm256_i64gather_epi64(row_ptr_base_i64, offset_lo, 1);
   __m256i row_hi = _mm256_i64gather_epi64(row_ptr_base_i64, offset_hi, 1);
   _mm256_storeu_si256(reinterpret_cast<__m256i*>(output), row_lo);
