@@ -252,8 +252,8 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
                                            _mm256_srli_epi32(bit_id, 3), 1);
     __m256i bit_in_word = _mm256_sllv_epi32(
         _mm256_set1_epi32(1), _mm256_and_si256(bit_id, _mm256_set1_epi32(7)));
-    // `result` will contain one 32-bit word per tested null bit,
-    // either 0xffffffff if the null bit was set or 0 if it was unset.
+    // `result` will contain one 32-bit word per tested null bit, either 0xffffffff if the
+    // null bit was set or 0 if it was unset.
     __m256i result =
         _mm256_cmpeq_epi32(_mm256_and_si256(bytes, bit_in_word), bit_in_word);
     // NB: Be careful about sign-extension when casting the return value of
@@ -282,8 +282,8 @@ inline void Decode8FixedLength0_avx2(uint8_t* output, const uint8_t* row_ptr_bas
   // Extend to 64-bit.
   __m256i row_lo_64 = _mm256_cvtepi32_epi64(row_lo);
   __m256i row_hi_64 = _mm256_cvtepi32_epi64(row_hi);
-  // Keep the first 8 bits in each 64-bit value, as the other bits belong
-  // to other columns.
+  // Keep the first 8 bits in each 64-bit value, as the other bits belong to other
+  // columns.
   row_lo_64 = _mm256_and_si256(row_lo_64, _mm256_set1_epi64x(0xFF));
   row_hi_64 = _mm256_and_si256(row_hi_64, _mm256_set1_epi64x(0xFF));
   // If a 64-bit value is zero, then we get 64 set bits.
