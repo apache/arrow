@@ -275,7 +275,7 @@ namespace {
 
 inline void Decode8FixedLength0_avx2(uint8_t* output, const uint8_t* row_ptr_base,
                                      __m256i offset_lo, __m256i offset_hi) {
-  // Gather the lower/higher 4 32-bit (only lower 8 bits interesting) rows based on the
+  // Gather the lower/higher 4 32-bit (only lower 1 bit interesting) values based on the
   // lower/higher 4 64-bit row offsets.
   __m128i row_lo = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_lo, 1);
   __m128i row_hi = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_hi, 1);
