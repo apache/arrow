@@ -426,6 +426,7 @@ int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_star
           rows_, column_id, num_rows_to_append, row_ids,
           [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
               __m256i num_bytes) {
+            DCHECK_EQ(i % 8, 0);
             Decode8FixedLength0_avx2(output->mutable_data(1) + (output_start_row + i) / 8,
                                      row_ptr_base, offset_lo, offset_hi);
           });
@@ -518,6 +519,7 @@ int RowArray::DecodeNulls_avx2(ResizableArrayData* output, int output_start_row,
 
   return RowArrayAccessor::VisitNulls_avx2(
       rows_, column_id, num_rows_to_append, row_ids, [&](int i, uint64_t null_bytes) {
+        DCHECK_EQ(i % 8, 0);
         Decode8Null_avx2(output->mutable_data(0) + (output_start_row + i) / 8,
                          null_bytes);
       });
