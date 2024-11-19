@@ -350,6 +350,11 @@ class ARROW_EXPORT ResizableArrayData {
   /// length binary data
   uint8_t* mutable_data(int i) { return buffers_[i]->mutable_data(); }
 
+  template <typename T>
+  T* mutable_data_as(int i) {
+    return reinterpret_cast<T*>(mutable_data(i));
+  }
+
  private:
   static constexpr int64_t kNumPaddingBytes = 64;
   int log_num_rows_min_;

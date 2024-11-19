@@ -310,7 +310,7 @@ void RowArray::DecodeFixedLength(ResizableArrayData* output, int output_start_ro
       RowArrayAccessor::Visit(
           rows_, column_id, num_rows_to_append, row_ids,
           [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-            reinterpret_cast<uint32_t*>(output->mutable_data(1))[output_start_row + i] =
+            output->mutable_data_as<uint32_t>(1)[output_start_row + i] =
                 *reinterpret_cast<const uint32_t*>(ptr);
           });
       break;
@@ -318,7 +318,7 @@ void RowArray::DecodeFixedLength(ResizableArrayData* output, int output_start_ro
       RowArrayAccessor::Visit(
           rows_, column_id, num_rows_to_append, row_ids,
           [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-            reinterpret_cast<uint64_t*>(output->mutable_data(1))[output_start_row + i] =
+            output->mutable_data_as<uint64_t>(i)[output_start_row + i] =
                 *reinterpret_cast<const uint64_t*>(ptr);
           });
       break;
@@ -342,8 +342,7 @@ void RowArray::DecodeFixedLength(ResizableArrayData* output, int output_start_ro
 void RowArray::DecodeOffsets(ResizableArrayData* output, int output_start_row,
                              int column_id, int num_rows_to_append,
                              const uint32_t* row_ids) const {
-  uint32_t* offsets =
-      reinterpret_cast<uint32_t*>(output->mutable_data(1)) + output_start_row;
+  uint32_t* offsets = output->mutable_data_as<uint32_t>(1) + output_start_row;
   uint32_t sum = (output_start_row == 0) ? 0 : offsets[0];
   RowArrayAccessor::Visit(
       rows_, column_id, num_rows_to_append, row_ids,
@@ -363,8 +362,8 @@ void RowArray::DecodeVarLength(ResizableArrayData* output, int output_start_row,
       rows_, column_id, num_rows_to_append, row_ids,
       [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
         uint64_t* dst = reinterpret_cast<uint64_t*>(
-            output->mutable_data(2) + reinterpret_cast<const uint32_t*>(
-                                          output->mutable_data(1))[output_start_row + i]);
+            output->mutable_data(2) +
+            output->mutable_data_as<uint32_t>(1)[output_start_row + i]);
         const uint64_t* src = reinterpret_cast<const uint64_t*>(ptr);
         for (uint32_t word_id = 0;
              word_id < bit_util::CeilDiv(num_bytes, sizeof(uint64_t)); ++word_id) {
