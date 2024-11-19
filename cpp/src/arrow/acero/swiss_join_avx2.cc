@@ -445,9 +445,8 @@ int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_star
           [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
               __m256i num_bytes) {
             Decode8FixedLength2_avx2(
-                reinterpret_cast<uint16_t*>(output->mutable_data(1)) + output_start_row +
-                    i,
-                row_ptr_base, offset_lo, offset_hi);
+                output->mutable_data_as<uint16_t>(1) + output_start_row + i, row_ptr_base,
+                offset_lo, offset_hi);
           });
       break;
     case 4:
@@ -456,9 +455,8 @@ int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_star
           [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
               __m256i num_bytes) {
             Decode8FixedLength4_avx2(
-                reinterpret_cast<uint32_t*>(output->mutable_data(1)) + output_start_row +
-                    i,
-                row_ptr_base, offset_lo, offset_hi);
+                output->mutable_data_as<uint32_t>(1) + output_start_row + i, row_ptr_base,
+                offset_lo, offset_hi);
           });
       break;
     case 8:
@@ -467,9 +465,8 @@ int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_star
           [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
               __m256i num_bytes) {
             Decode8FixedLength8_avx2(
-                reinterpret_cast<uint64_t*>(output->mutable_data(1)) + output_start_row +
-                    i,
-                row_ptr_base, offset_lo, offset_hi);
+                output->mutable_data_as<uint64_t>(1) + output_start_row + i, row_ptr_base,
+                offset_lo, offset_hi);
           });
       break;
     default:
@@ -489,8 +486,7 @@ int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_star
 int RowArray::DecodeOffsets_avx2(ResizableArrayData* output, int output_start_row,
                                  int column_id, int num_rows_to_append,
                                  const uint32_t* row_ids) const {
-  uint32_t* offsets =
-      reinterpret_cast<uint32_t*>(output->mutable_data(1)) + output_start_row;
+  uint32_t* offsets = output->mutable_data_as<uint32_t>(1) + output_start_row;
   uint32_t current_length = (output_start_row == 0) ? 0 : offsets[0];
   int num_rows_processed = RowArrayAccessor::Visit_avx2(
       rows_, column_id, num_rows_to_append, row_ids,
@@ -505,14 +501,13 @@ int RowArray::DecodeOffsets_avx2(ResizableArrayData* output, int output_start_ro
 int RowArray::DecodeVarLength_avx2(ResizableArrayData* output, int output_start_row,
                                    int column_id, int num_rows_to_append,
                                    const uint32_t* row_ids) const {
-  RowArrayAccessor::Visit(rows_, column_id, num_rows_to_append, row_ids,
-                          [&](int i, const uint8_t* row_ptr, uint32_t num_bytes) {
-                            uint8_t* dst =
-                                output->mutable_data(2) +
-                                reinterpret_cast<const uint32_t*>(
-                                    output->mutable_data(1))[output_start_row + i];
-                            Decode1_avx2(dst, row_ptr, num_bytes);
-                          });
+  RowArrayAccessor::Visit(
+      rows_, column_id, num_rows_to_append, row_ids,
+      [&](int i, const uint8_t* row_ptr, uint32_t num_bytes) {
+        uint8_t* dst = output->mutable_data(2) +
+                       output->mutable_data_as<uint32_t>(1)[output_start_row + i];
+        Decode1_avx2(dst, row_ptr, num_bytes);
+      });
   return num_rows_to_append;
 }
 
