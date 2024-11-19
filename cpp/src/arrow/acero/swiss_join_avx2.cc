@@ -311,7 +311,7 @@ inline void Decode8FixedLength1_avx2(uint8_t* output, const uint8_t* row_ptr_bas
   const __m256i shuffle_const =
       _mm256_setr_epi64x(kByteSequence_0_4_8_12, -1, kByteSequence_0_4_8_12, -1);
   row = _mm256_shuffle_epi8(row, shuffle_const);
-  // Get the lower 32-bits (4 8-bit rows) from each 128-bit lane.
+  // Get the lower 32-bits (4 8-bit values) from each 128-bit lane.
   // NB: Be careful about sign-extension when casting the return value of
   // _mm256_extract_epi32 (signed 32-bit) to unsigned 64-bit, which will pollute the
   // higher bits of the following OR.
