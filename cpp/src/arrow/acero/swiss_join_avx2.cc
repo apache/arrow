@@ -381,6 +381,12 @@ inline uint32_t Decode8Offset_avx2(uint32_t* output, uint32_t current_length,
   __m256i length =
       _mm256_permutevar8x32_epi32(num_bytes, _mm256_setr_epi32(7, 0, 1, 2, 3, 4, 5, 6));
   length = _mm256_insert_epi32(length, 0, 0);
+  // `length` is now a sequence of 32-bit words such as:
+  //   - length[0] = 0
+  //   - length[1] = num_bytes[0]
+  //   ...
+  //   - length[7] = num_bytes[6]
+  // (note that num_bytes[7] is kept in `num_bytes_last`)
   for (int i = 0; i < 7; ++i) {
     offsets = _mm256_add_epi32(offsets, length);
     length =
