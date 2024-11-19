@@ -333,8 +333,8 @@ inline void Decode8FixedLength2_avx2(uint16_t* output, const uint8_t* row_ptr_ba
   const __m256i shuffle_const = _mm256_setr_epi64x(kByteSequence_0_1_4_5_8_9_12_13, -1,
                                                    kByteSequence_0_1_4_5_8_9_12_13, -1);
   row = _mm256_shuffle_epi8(row, shuffle_const);
-  // Swap the second and the third 64-bit lane, so that all
-  // 16-bit values end up in the lower half of `row`.
+  // Swap the second and the third 64-bit lane, so that all 16-bit values end up in the
+  // lower half of `row`.
   // (0xd8 = 0b 11 01 10 00)
   row = _mm256_permute4x64_epi64(row, 0xd8);
   _mm_storeu_si128(reinterpret_cast<__m128i*>(output), _mm256_castsi256_si128(row));
