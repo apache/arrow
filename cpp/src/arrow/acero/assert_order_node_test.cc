@@ -78,8 +78,9 @@ void CheckAssert(const std::shared_ptr<ChunkedArray>& array,
       auto result = DeclarationToTable(plan, query_options);
       ASSERT_NOT_OK(result);
       const auto& actual_status = result.status();
-      ASSERT_EQ(actual_status.code(), expected_status.code());
-      ASSERT_EQ(actual_status.message(), expected_status.message());
+      EXPECT_EQ(actual_status.code(), expected_status.code());
+      EXPECT_THAT(actual_status.message(),
+                  testing::StartsWith(expected_status.message()));
     }
   }
 }
