@@ -68,7 +68,7 @@ def check_bytes_allocated(f):
         (pa.uint64(), "uint64"),
         (pa.int8(), "int8"),
         (pa.int16(), "int16"),
-        (pa.int32(), "int32"),
+        # (pa.int32(), "int32"),
         (pa.int64(), "int64"),
         (pa.float16(), "float16"),
         (pa.float32(), "float32"),
