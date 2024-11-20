@@ -22,6 +22,10 @@ Arrays
 Base classes
 ============
 
+.. doxygenclass:: arrow::ArrayStatistics
+   :project: arrow_cpp
+   :members:
+
 .. doxygenclass:: arrow::ArrayData
    :project: arrow_cpp
    :members:

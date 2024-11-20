@@ -1174,7 +1174,12 @@ cdef class Array(_PandasConvertible):
                              "({0}) did not match the passed number "
                              "({1}).".format(type.num_fields, len(children)))
 
-        if type.num_buffers != len(buffers):
+        if type.has_variadic_buffers:
+            if type.num_buffers > len(buffers):
+                raise ValueError("Type's expected number of buffers is at least "
+                                 "{0}, but the passed number is "
+                                 "{1}.".format(type.num_buffers, len(buffers)))
+        elif type.num_buffers != len(buffers):
             raise ValueError("Type's expected number of buffers "
                              "({0}) did not match the passed number "
                              "({1}).".format(type.num_buffers, len(buffers)))
