@@ -497,9 +497,10 @@ class SerializedFile : public ParquetFileReader::Contents {
           "is not a parquet file.");
     }
     // Both encrypted/unencrypted footers have the same footer length check.
-    uint32_t metadata_len = ::arrow::util::SafeLoadAs<uint32_t>(
-        reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
-        kFooterSize);
+    uint32_t metadata_len =
+        ::arrow::bit_util::FromLittleEndian(::arrow::util::SafeLoadAs<uint32_t>(
+            reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
+            kFooterSize));
     if (metadata_len > source_size_ - kFooterSize) {
       throw ParquetInvalidOrCorruptedFileException(
           "Parquet file size is ", source_size_,

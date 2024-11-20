@@ -426,8 +426,10 @@ class FileSerializer : public ParquetFileWriter::Contents {
       WriteEncryptedFileMetadata(*file_metadata_, sink_.get(), footer_encryptor, true);
       PARQUET_ASSIGN_OR_THROW(position, sink_->Tell());
       uint32_t footer_and_crypto_len = static_cast<uint32_t>(position - metadata_start);
+      uint32_t footer_and_crypto_len_le =
+          ::arrow::bit_util::ToLittleEndian(footer_and_crypto_len);
       PARQUET_THROW_NOT_OK(
-          sink_->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4));
+          sink_->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len_le), 4));
       PARQUET_THROW_NOT_OK(sink_->Write(kParquetEMagic, 4));
     } else {  // Encrypted file with plaintext footer
       file_metadata_ = metadata_->Finish(key_value_metadata_);
@@ -539,7 +541,10 @@ void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sin
   metadata_len = static_cast<uint32_t>(position) - metadata_len;
 
   // Write Footer
-  PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4));
+  {
+    uint32_t metadata_len_le = ::arrow::bit_util::ToLittleEndian(metadata_len);
+    PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&metadata_len_le), 4));
+  }
   PARQUET_THROW_NOT_OK(sink->Write(kParquetMagic, 4));
 }
 
@@ -562,7 +567,10 @@ void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
     PARQUET_ASSIGN_OR_THROW(position, sink->Tell());
     metadata_len = static_cast<uint32_t>(position) - metadata_len;
 
-    PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4));
+    {
+      uint32_t metadata_len_le = ::arrow::bit_util::ToLittleEndian(metadata_len);
+      PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&metadata_len_le), 4));
+    }
     PARQUET_THROW_NOT_OK(sink->Write(kParquetMagic, 4));
   }
 }
