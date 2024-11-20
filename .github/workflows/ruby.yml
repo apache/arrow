@@ -159,6 +159,7 @@ jobs:
           brew bundle --file=c_glib/Brewfile
       - name: Install Ruby Dependencies
         run: |
+          export PKG_CONFIG=/opt/homebrew/bin/pkg-config
           export MAKEFLAGS="-j$(sysctl -n hw.ncpu)"
           bundle install --gemfile c_glib/Gemfile
           bundle install --gemfile ruby/Gemfile
