@@ -17,6 +17,7 @@
 
 import ctypes
 from functools import wraps
+import gc
 import pytest
 
 try:
@@ -50,6 +51,7 @@ def check_dlpack_export(arr, expected_arr):
 def check_bytes_allocated(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
+        gc.collect()
         allocated_bytes = pa.total_allocated_bytes()
         try:
             return f(*args, **kwargs)
@@ -68,7 +70,7 @@ def check_bytes_allocated(f):
         (pa.uint64(), "uint64"),
         (pa.int8(), "int8"),
         (pa.int16(), "int16"),
-        # (pa.int32(), "int32"),
+        (pa.int32(), "int32"),
         (pa.int64(), "int64"),
         (pa.float16(), "float16"),
         (pa.float32(), "float32"),
