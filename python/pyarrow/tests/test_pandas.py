@@ -4411,8 +4411,11 @@ def test_to_pandas_extension_dtypes_mapping():
     assert isinstance(result['a'].dtype, pd.PeriodDtype)
 
 
-
+ 
 def test_to_pandas_extension_dtypes_mapping_complex_type():
+    if Version(pd.__version__) < Version("1.5.2"):
+        pytest.skip("Test relies on pd.ArrowDtype")
+    # https://github.com/apache/arrow/pull/44720
     pa_type = pa.struct(
         [
             pa.field("bar", pa.bool_(), nullable=False),
