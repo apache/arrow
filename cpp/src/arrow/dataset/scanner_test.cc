@@ -1087,8 +1087,8 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
         next = it.Next();
       }
       // expect iteration to stop on failure status
-      ASSERT_NOT_OK(next);
-      ASSERT_EQ(next.status().message(), "Data is not ordered");
+      EXPECT_EQ(next.status().code(), StatusCode::ExecutionError);
+      EXPECT_THAT(next.status().message(), testing::StartsWith("Data is not ordered"));
     }
   }
 };
