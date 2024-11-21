@@ -4411,7 +4411,6 @@ def test_to_pandas_extension_dtypes_mapping():
     assert isinstance(result['a'].dtype, pd.PeriodDtype)
 
 
- 
 def test_to_pandas_extension_dtypes_mapping_complex_type():
     # https://github.com/apache/arrow/pull/44720
     if Version(pd.__version__) < Version("1.5.2"):
