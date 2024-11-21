@@ -31,8 +31,8 @@ jobs:
       - script: |
           set -ex
           docker -v
-          docker-compose -v
+          docker compose -v
           cd arrow
-          docker-compose pull --ignore-pull-failures r
-          docker-compose build r
+          docker compose pull --ignore-pull-failures r
+          docker compose build r
         displayName: Docker build

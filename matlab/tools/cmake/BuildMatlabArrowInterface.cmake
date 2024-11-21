@@ -24,7 +24,7 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_NAME libmexclass)
 # libmexclass is accessible for CI without permission issues.
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_GIT_REPOSITORY "https://github.com/mathworks/libmexclass.git")
 # Use a specific Git commit hash to avoid libmexclass version changing unexpectedly.
-set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_GIT_TAG "ca3cea6")
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_GIT_TAG "cac7c3630a086bd5ba41413af44c833cef189c09")
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_SOURCE_SUBDIR "libmexclass/cpp")
 
 # ------------------------------------------

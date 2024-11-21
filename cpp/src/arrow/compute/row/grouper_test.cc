@@ -64,5 +64,27 @@ TEST(Grouper, ResortedColumnsWithLargeNullRows) {
   }
 }
 
+// Reproduction of GH-43124: Provoke var length buffer size if a grouper produces zero
+// groups.
+TEST(Grouper, EmptyGroups) {
+  ASSERT_OK_AND_ASSIGN(auto grouper, Grouper::Make({int32(), utf8()}));
+  ASSERT_OK_AND_ASSIGN(auto groups, grouper->GetUniques());
+
+  ASSERT_TRUE(groups[0].is_array());
+  ASSERT_EQ(groups[0].array()->buffers.size(), 2);
+  ASSERT_EQ(groups[0].array()->buffers[0], nullptr);
+  ASSERT_NE(groups[0].array()->buffers[1], nullptr);
+  ASSERT_EQ(groups[0].array()->buffers[1]->size(), 0);
+
+  ASSERT_TRUE(groups[1].is_array());
+  ASSERT_EQ(groups[1].array()->buffers.size(), 3);
+  ASSERT_EQ(groups[1].array()->buffers[0], nullptr);
+  ASSERT_NE(groups[1].array()->buffers[1], nullptr);
+  ASSERT_EQ(groups[1].array()->buffers[1]->size(), 4);
+  ASSERT_EQ(groups[1].array()->buffers[1]->data_as<const uint32_t>()[0], 0);
+  ASSERT_NE(groups[1].array()->buffers[2], nullptr);
+  ASSERT_EQ(groups[1].array()->buffers[2]->size(), 0);
+}
+
 }  // namespace compute
 }  // namespace arrow

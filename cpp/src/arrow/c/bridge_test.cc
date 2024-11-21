@@ -3769,6 +3769,10 @@ TEST_F(TestSchemaRoundtrip, RegisteredExtension) {
 TEST_F(TestSchemaRoundtrip, Map) {
   TestWithTypeFactory([&]() { return map(utf8(), int32()); });
   TestWithTypeFactory([&]() { return map(utf8(), field("value", int32(), false)); });
+  TestWithTypeFactory([&]() {
+    return map(utf8(), field("value", int32(), false,
+                             KeyValueMetadata::Make({"meta key"}, {"meta value"})));
+  });
   // Field names are brought in line with the spec on import.
   TestWithTypeFactory(
       [&]() {
@@ -5315,6 +5319,13 @@ TEST_F(TestArrayDeviceStreamRoundtrip, ChunkedArrayRoundtripEmpty) {
 
 class TestAsyncDeviceArrayStreamRoundTrip : public BaseArrayStreamTest {
  public:
+  void SetUp() override {
+    BaseArrayStreamTest::SetUp();
+#ifndef ARROW_ENABLE_THREADING
+    GTEST_SKIP() << "Test requires ARROW_ENABLE_THREADING=ON";
+#endif
+  }
+
   static Result<std::shared_ptr<ArrayData>> ToDeviceData(
       const std::shared_ptr<MemoryManager>& mm, const ArrayData& data) {
     arrow::BufferVector buffers;

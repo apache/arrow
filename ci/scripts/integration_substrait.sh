@@ -28,4 +28,4 @@ python -c "from substrait_consumer.consumers.acero_consumer import AceroConsumer
 
 echo "Executing pytest"
 cd consumer-testing
-pytest -r s substrait_consumer/tests/functional/extension_functions/test_boolean_functions.py --producer IsthmusProducer --consumer AceroConsumer
+pytest -r s substrait_consumer/tests/functional/extension_functions/test_boolean_functions.py --producer isthmus --consumer acero

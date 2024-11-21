@@ -36,7 +36,7 @@ the top level directory install Archery by using the command
    $ pip install -e "dev/archery[all]"
 
 Many operations in Archery make use of `Docker <https://docs.docker.com/>`_
-and `docker-compose <https://docs.docker.com/compose/>`_, which you may
+and `Docker Compose <https://docs.docker.com/compose/>`_, which you may
 also want to install.
 
 Usage
@@ -63,7 +63,7 @@ You can inspect Archery usage by passing the ``--help`` flag:
      benchmark    Arrow benchmarking.
      build        Initialize an Arrow C++ build
      crossbow     Schedule packaging tasks or nightly builds on CI services.
-     docker       Interact with docker-compose based builds.
+     docker       Interact with Docker Compose based builds.
      integration  Execute protocol and Flight integration tests
      linking      Quick and dirty utilities for checking library linkage.
      lint         Check Arrow source tree for errors
@@ -79,16 +79,16 @@ help output, for example:
    $ archery docker --help
    Usage: archery docker [OPTIONS] COMMAND [ARGS]...
 
-     Interact with docker-compose based builds.
+     Interact with Docker Compose based builds.
 
    Options:
      --src <arrow_src>  Specify Arrow source directory.
      --help             Show this message and exit.
 
    Commands:
-     images  List the available docker-compose images.
-     push    Push the generated docker-compose image.
-     run     Execute docker-compose builds.
+     images  List the available Docker Compose images.
+     push    Push the generated Docker Compose image.
+     run     Execute Docker Compose builds.
 
 A more detailed introduction to using Docker with
 Archery is available at :doc:`docker`.

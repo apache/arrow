@@ -577,6 +577,7 @@ test_package_java() {
         normalized_arch=x86_64
         ;;
     esac
+    rm -fr ${dist_dir}
     mkdir -p ${dist_dir}
     mv ${install_dir}/lib/* ${dist_dir}
     mvn install \

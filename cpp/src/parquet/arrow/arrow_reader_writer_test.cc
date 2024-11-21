@@ -448,9 +448,8 @@ void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
   ASSERT_NO_FATAL_FAILURE(
       WriteTableToBuffer(table, row_group_size, arrow_properties, &buffer));
 
-  std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                              ::arrow::default_memory_pool(), &reader));
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                             ::arrow::default_memory_pool()));
 
   reader->set_use_threads(use_threads);
   if (column_subset.size() > 0) {
@@ -1095,8 +1094,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
 
   auto source = std::make_shared<BufferReader>(pbuffer);
   std::shared_ptr<::arrow::Table> out;
-  std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(OpenFile(source, ::arrow::default_memory_pool(), &reader));
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(source, ::arrow::default_memory_pool()));
   ASSERT_NO_FATAL_FAILURE(this->ReadTableFromFile(std::move(reader), &out));
   ASSERT_EQ(1, out->num_columns());
   ASSERT_EQ(values->length(), out->num_rows());
@@ -2295,9 +2293,8 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, num_rows / 2,
                                              default_arrow_writer_properties(), &buffer));
 
-  std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                              ::arrow::default_memory_pool(), &reader));
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                             ::arrow::default_memory_pool()));
 
   ASSERT_EQ(2, reader->num_row_groups());
 
@@ -2357,9 +2354,8 @@ TEST(TestArrowReadWrite, ReadTableManually) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(expected, num_rows / 2,
                                              default_arrow_writer_properties(), &buffer));
 
-  std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                              ::arrow::default_memory_pool(), &reader));
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                             ::arrow::default_memory_pool()));
 
   ASSERT_EQ(2, reader->num_row_groups());
 
@@ -2476,9 +2472,8 @@ TEST(TestArrowReadWrite, CoalescedReadsAndNonCoalescedReads) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(expected, num_rows / 2,
                                              default_arrow_writer_properties(), &buffer));
 
-  std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                              ::arrow::default_memory_pool(), &reader));
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                             ::arrow::default_memory_pool()));
 
   ASSERT_EQ(2, reader->num_row_groups());
 
@@ -2594,9 +2589,8 @@ TEST(TestArrowReadWrite, ScanContents) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, num_rows / 2,
                                              default_arrow_writer_properties(), &buffer));
 
-  std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                              ::arrow::default_memory_pool(), &reader));
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                             ::arrow::default_memory_pool()));
 
   int64_t num_rows_returned = 0;
   ASSERT_OK_NO_THROW(reader->ScanContents({}, 256, &num_rows_returned));
@@ -2689,9 +2683,8 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
                                              default_arrow_writer_properties(), &buffer));
 
-  std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                              ::arrow::default_memory_pool(), &reader));
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                             ::arrow::default_memory_pool()));
 
   // Read everything
   std::shared_ptr<Table> result;
@@ -2699,8 +2692,8 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 
   // Read 1 record at a time
-  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                              ::arrow::default_memory_pool(), &reader));
+  ASSERT_OK_AND_ASSIGN(reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                        ::arrow::default_memory_pool()));
 
   std::unique_ptr<ColumnReader> col_reader;
   ASSERT_OK(reader->GetColumn(0, &col_reader));
@@ -2974,9 +2967,8 @@ TEST(ArrowReadWrite, DecimalStats) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, /*row_group_size=*/100,
                                              default_arrow_writer_properties(), &buffer));
 
-  std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                              ::arrow::default_memory_pool(), &reader));
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                             ::arrow::default_memory_pool()));
 
   std::shared_ptr<Scalar> min, max;
   ReadSingleColumnFileStatistics(std::move(reader), &min, &max);
@@ -3575,8 +3567,8 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
 
   void InitReader() {
     ASSERT_OK_AND_ASSIGN(auto buffer, nested_parquet_->Finish());
-    ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                                ::arrow::default_memory_pool(), &reader_));
+    ASSERT_OK_AND_ASSIGN(reader_, OpenFile(std::make_shared<BufferReader>(buffer),
+                                           ::arrow::default_memory_pool()));
   }
 
   void InitNewParquetFile(const std::shared_ptr<GroupNode>& schema, int num_rows) {
@@ -5344,8 +5336,8 @@ TEST(TestArrowReadWrite, MultithreadedWrite) {
 
   // Read to verify the data.
   std::shared_ptr<Table> result;
-  std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer), pool, &reader));
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       OpenFile(std::make_shared<BufferReader>(buffer), pool));
   ASSERT_OK_NO_THROW(reader->ReadTable(&result));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 }

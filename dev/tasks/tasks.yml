@@ -693,7 +693,7 @@ tasks:
     ci: github
     template: matlab/github.yml
     artifacts:
-      - matlab-arrow-{no_rc_version}.mltbx
+      - matlab-arrow-{no_rc_no_dev_version}.mltbx
 
   ############################## Arrow JAR's ##################################
 
@@ -1097,6 +1097,15 @@ tasks:
       env:
         UBUNTU: 20.04
       image: ubuntu-cpp-bundled
+
+  test-ubuntu-24.04-cpp-bundled-offline:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 24.04
+      image: ubuntu-cpp-bundled-offline
+      timeout: 120
 
   test-ubuntu-24.04-cpp-gcc-13-bundled:
     ci: github

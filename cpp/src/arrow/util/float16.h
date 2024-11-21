@@ -111,11 +111,7 @@ class ARROW_EXPORT Float16 {
   }
   /// \brief Return the value's bytes in little-endian byte order
   constexpr std::array<uint8_t, 2> ToLittleEndian() const {
-#if ARROW_LITTLE_ENDIAN
     return {uint8_t(bits_ & 0xff), uint8_t(bits_ >> 8)};
-#else
-    return {uint8_t(bits_ >> 8), uint8_t(bits_ & 0xff)};
-#endif
   }
 
   /// \brief Copy the value's bytes in big-endian byte order
@@ -125,11 +121,7 @@ class ARROW_EXPORT Float16 {
   }
   /// \brief Return the value's bytes in big-endian byte order
   constexpr std::array<uint8_t, 2> ToBigEndian() const {
-#if ARROW_LITTLE_ENDIAN
     return {uint8_t(bits_ >> 8), uint8_t(bits_ & 0xff)};
-#else
-    return {uint8_t(bits_ & 0xff), uint8_t(bits_ >> 8)};
-#endif
   }
 
   constexpr Float16 operator-() const { return FromBits(bits_ ^ 0x8000); }

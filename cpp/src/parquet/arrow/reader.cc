@@ -1372,9 +1372,14 @@ Result<std::unique_ptr<FileReader>> FileReaderBuilder::Build() {
 
 Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,
                 std::unique_ptr<FileReader>* reader) {
+  return OpenFile(std::move(file), pool).Value(reader);
+}
+
+Result<std::unique_ptr<FileReader>> OpenFile(
+    std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool) {
   FileReaderBuilder builder;
   RETURN_NOT_OK(builder.Open(std::move(file)));
-  return builder.memory_pool(pool)->Build(reader);
+  return builder.memory_pool(pool)->Build();
 }
 
 namespace internal {
