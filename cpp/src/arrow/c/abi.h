@@ -287,7 +287,7 @@ struct ArrowAsyncTask {
   // calling this, and so it must be released separately.
   //
   // It is only valid to call this method exactly once.
-  int (*extract_data)(struct ArrowArrayTask* self, struct ArrowDeviceArray* out);
+  int (*extract_data)(struct ArrowAsyncTask* self, struct ArrowDeviceArray* out);
 
   // opaque task-specific data
   void* private_data;
@@ -298,6 +298,9 @@ struct ArrowAsyncTask {
 // control on the asynchronous stream processing. This object must be owned by the
 // producer who creates it, and thus is responsible for cleaning it up.
 struct ArrowAsyncProducer {
+  // The device type that this stream produces data on.
+  ArrowDeviceType device_type;
+
   // A consumer must call this function to start receiving on_next_task calls.
   //
   // It *must* be valid to call this synchronously from within `on_next_task` or

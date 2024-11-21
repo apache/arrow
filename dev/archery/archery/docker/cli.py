@@ -67,7 +67,7 @@ def _mock_compose_calls(compose):
 def docker(ctx, src, dry_run, using_legacy_docker_compose, using_docker_cli,
            using_docker_buildx):
     """
-    Interact with docker-compose based builds.
+    Interact with Docker Compose based builds.
     """
     ctx.ensure_object(dict)
 
@@ -78,8 +78,8 @@ def docker(ctx, src, dry_run, using_legacy_docker_compose, using_docker_cli,
             "try to pass the arrow source directory explicitly.".format(src)
         )
 
-    # take the docker-compose parameters like PYTHON, PANDAS, UBUNTU from the
-    # environment variables to keep the usage similar to docker-compose
+    # take the Docker Compose parameters like PYTHON, PANDAS, UBUNTU from the
+    # environment variables to keep the usage similar to docker compose
     using_docker_cli |= using_docker_buildx
     compose_bin = ("docker-compose" if using_legacy_docker_compose
                    else "docker compose")
@@ -98,7 +98,7 @@ def docker(ctx, src, dry_run, using_legacy_docker_compose, using_docker_cli,
 @click.pass_obj
 def check_config(obj):
     """
-    Validate docker-compose configuration.
+    Validate Docker Compose configuration.
     """
     # executes the body of the docker function above which does the validation
     # during the configuration loading
@@ -113,7 +113,7 @@ def check_config(obj):
 @click.pass_obj
 def docker_pull(obj, image, *, pull_leaf, ignore_pull_failures):
     """
-    Execute docker-compose pull.
+    Execute docker compose pull.
     """
     compose = obj['compose']
 
@@ -143,7 +143,7 @@ def docker_pull(obj, image, *, pull_leaf, ignore_pull_failures):
 @click.pass_obj
 def docker_build(obj, image, *, force_pull, use_cache, use_leaf_cache):
     """
-    Execute docker-compose builds.
+    Execute Docker Compose builds.
     """
     compose = obj['compose']
 
@@ -195,7 +195,7 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
                build_only, use_cache, use_leaf_cache, resource_limit,
                volume):
     """
-    Execute docker-compose builds.
+    Execute Docker Compose builds.
 
     To see the available builds run `archery docker images`.
 
@@ -207,7 +207,7 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
     # execute the builds but disable the image pulling
     archery docker run --no-cache conda-python
 
-    # pass a docker-compose parameter, like the python version
+    # pass a Docker Compose parameter, like the python version
     PYTHON=3.12 archery docker run conda-python
 
     # disable the cache only for the leaf image
@@ -265,7 +265,7 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
               help='Docker repository password')
 @click.pass_obj
 def docker_compose_push(obj, image, user, password):
-    """Push the generated docker-compose image."""
+    """Push the generated Docker Compose image."""
     compose = obj['compose']
     compose.push(image, user=user, password=password)
 
@@ -273,7 +273,7 @@ def docker_compose_push(obj, image, user, password):
 @docker.command('images')
 @click.pass_obj
 def docker_compose_images(obj):
-    """List the available docker-compose images."""
+    """List the available Docker Compose images."""
     compose = obj['compose']
     click.echo('Available images:')
     for image in compose.images():
@@ -283,14 +283,14 @@ def docker_compose_images(obj):
 @docker.command('info')
 @click.argument('service_name')
 @click.option('--show', '-s', required=False,
-              help="Show only specific docker-compose key. Examples of keys:"
+              help="Show only specific docker compose key. Examples of keys:"
                    " command, environment, build, dockerfile")
 @click.pass_obj
 def docker_compose_info(obj, service_name, show):
-    """Show docker-compose definition info for service_name.
+    """Show Docker Compose definition info for service_name.
 
-    SERVICE_NAME is the name of the docker service defined on
-    the docker-compose. Look at `archery docker images` output for names.
+    SERVICE_NAME is the name of the docker service defined in
+    docker-compose.yml. Look at `archery docker images` output for names.
     """
     compose = obj['compose']
     try:
@@ -299,6 +299,6 @@ def docker_compose_info(obj, service_name, show):
         click.echo(f'Service name {service_name} could not be found', err=True)
         sys.exit(1)
     else:
-        click.echo(f'Service {service_name} docker-compose config:')
+        click.echo(f'Service {service_name} Docker Compose config:')
         output = "\n".join(compose.info(service, show))
         click.echo(output)

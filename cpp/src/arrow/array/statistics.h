@@ -27,6 +27,7 @@
 
 namespace arrow {
 
+/// \class ArrayStatistics
 /// \brief Statistics for an Array
 ///
 /// Apache Arrow format doesn't have statistics but data source such

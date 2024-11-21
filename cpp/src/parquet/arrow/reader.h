@@ -357,10 +357,20 @@ class PARQUET_EXPORT FileReaderBuilder {
 /// \brief Build FileReader from Arrow file and MemoryPool
 ///
 /// Advanced settings are supported through the FileReaderBuilder class.
+///
+/// \deprecated Deprecated in 19.0.0. Use arrow::Result version instead.
+ARROW_DEPRECATED("Deprecated in 19.0.0. Use arrow::Result version instead.")
 PARQUET_EXPORT
 ::arrow::Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile>,
                          ::arrow::MemoryPool* allocator,
                          std::unique_ptr<FileReader>* reader);
+
+/// \brief Build FileReader from Arrow file and MemoryPool
+///
+/// Advanced settings are supported through the FileReaderBuilder class.
+PARQUET_EXPORT
+::arrow::Result<std::unique_ptr<FileReader>> OpenFile(
+    std::shared_ptr<::arrow::io::RandomAccessFile>, ::arrow::MemoryPool* allocator);
 
 /// @}
 

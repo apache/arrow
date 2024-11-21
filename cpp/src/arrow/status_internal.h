@@ -15,25 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/result.h"
+#pragma once
 
-#include <string>
-
-#include "arrow/status_internal.h"
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
 
 namespace arrow::internal {
 
-void DieWithMessage(const std::string& msg) { ARROW_LOG(FATAL) << msg; }
+class StatusConstant {
+ public:
+  StatusConstant(StatusCode code, std::string msg,
+                 std::shared_ptr<StatusDetail> detail = nullptr)
+      : state_{code, /*is_constant=*/true, std::move(msg), std::move(detail)} {
+    ARROW_CHECK_NE(code, StatusCode::OK)
+        << "StatusConstant is not intended for use with OK status codes";
+  }
 
-void InvalidValueOrDie(const Status& st) {
-  DieWithMessage(std::string("ValueOrDie called on an error: ") + st.ToString());
-}
+  operator Status() {  // NOLINT(runtime/explicit)
+    Status st;
+    st.state_ = &state_;
+    return st;
+  }
 
-Status UninitializedResult() {
-  static StatusConstant uninitialized_result{StatusCode::UnknownError,
-                                             "Uninitialized Result<T>"};
-  return uninitialized_result;
-}
+ private:
+  Status::State state_;
+};
 
 }  // namespace arrow::internal

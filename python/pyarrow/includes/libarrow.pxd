@@ -158,6 +158,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CDataTypeLayout" arrow::DataTypeLayout":
         vector[CBufferSpec] buffers
+        optional[CBufferSpec] variadic_spec
         c_bool has_dictionary
 
     cdef cppclass CDataType" arrow::DataType":

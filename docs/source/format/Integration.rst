@@ -144,12 +144,12 @@ To run all tests, including Flight and C Data Interface integration tests, do:
    archery integration --with-all --run-flight --run-ipc --run-c-data
 
 Note that we run these tests in continuous integration, and the CI job uses
-docker-compose. You may also run the docker-compose job locally, or at least
+Docker Compose. You may also run the Docker Compose job locally, or at least
 refer to it if you have questions about how to build other languages or enable
 certain tests.
 
 See :ref:`docker-builds` for more information about the project's
-``docker-compose`` configuration.
+``docker compose`` configuration.
 
 .. _format_json_integration:
 
