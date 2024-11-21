@@ -695,6 +695,8 @@ The C device async stream interface consists of three ``struct`` definitions:
     };
 
     struct ArrowAsyncProducer {
+      ArrowDeviceType device_type;
+
       void (*request)(struct ArrowAsyncProducer* self, int64_t n);
       void (*cancel)(struct ArrowAsyncProducer* self);
 
@@ -868,6 +870,12 @@ The ArrowAsyncProducer structure
 ''''''''''''''''''''''''''''''''
 
 This producer-provided and managed object has the following fields:
+
+.. c:member:: ArrowDeviceType ArrowAsyncProducer.device_type
+
+  *Mandatory.* The device type that this producer will provide data on. All
+  ``ArrowDeviceArray`` structs that are produced by this producer should have the
+  same device type as is set here.
 
 .. c:member:: void (*ArrowAsyncProducer.request)(struct ArrowAsyncProducer*, uint64_t)
 

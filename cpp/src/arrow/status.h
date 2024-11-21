@@ -82,6 +82,9 @@
 #endif
 
 namespace arrow {
+namespace internal {
+class StatusConstant;
+}
 
 enum class StatusCode : char {
   OK = 0,
@@ -135,10 +138,10 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   // Create a success status.
   constexpr Status() noexcept : state_(NULLPTR) {}
   ~Status() noexcept {
-    // ARROW-2400: On certain compilers, splitting off the slow path improves
-    // performance significantly.
     if (ARROW_PREDICT_FALSE(state_ != NULL)) {
-      DeleteState();
+      if (!state_->is_constant) {
+        DeleteState();
+      }
     }
   }
 
@@ -366,6 +369,7 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
  private:
   struct State {
     StatusCode code;
+    bool is_constant;
     std::string msg;
     std::shared_ptr<StatusDetail> detail;
   };
@@ -373,22 +377,28 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   // a `State` structure containing the error code and message(s)
   State* state_;
 
-  void DeleteState() {
+  void DeleteState() noexcept {
+    // ARROW-2400: On certain compilers, splitting off the slow path improves
+    // performance significantly.
     delete state_;
-    state_ = NULLPTR;
   }
   void CopyFrom(const Status& s);
   inline void MoveFrom(Status& s);
+
+  friend class internal::StatusConstant;
 };
 
 void Status::MoveFrom(Status& s) {
-  delete state_;
+  if (ARROW_PREDICT_FALSE(state_ != NULL)) {
+    if (!state_->is_constant) {
+      DeleteState();
+    }
+  }
   state_ = s.state_;
   s.state_ = NULLPTR;
 }
 
-Status::Status(const Status& s)
-    : state_((s.state_ == NULLPTR) ? NULLPTR : new State(*s.state_)) {}
+Status::Status(const Status& s) : state_{NULLPTR} { CopyFrom(s); }
 
 Status& Status::operator=(const Status& s) {
   // The following condition catches both aliasing (when this == &s),

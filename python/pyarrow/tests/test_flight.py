@@ -1179,19 +1179,9 @@ def test_flight_get_info():
         assert info.endpoints[0].expiration_time is None
         assert info.endpoints[0].app_metadata == b""
         assert info.endpoints[0].locations[0] == flight.Location('grpc://test')
-        # on macOS, system_clock::duration is milliseconds
-        # on Windows, system_clock::duration is 100 nanoseconds
-        # on Linux, system_clock::duration is nanoseconds
-        ts = None
-        if pa._platform.system() == 'Darwin':
-            ts = "2023-04-05T12:34:56.789012000+00:00"
-        elif pa._platform.system() == 'Windows':
-            ts = "2023-04-05T12:34:56.789012300+00:00"
-        elif pa._platform.system() == 'Linux':
-            ts = "2023-04-05T12:34:56.789012345+00:00"
-        if ts is not None:
-            assert info.endpoints[1].expiration_time == \
-                pa.scalar(ts).cast(pa.timestamp("ns", "UTC"))
+        assert info.endpoints[1].expiration_time == \
+            pa.scalar("2023-04-05T12:34:56.789012345+00:00") \
+              .cast(pa.timestamp("ns", "UTC"))
         assert info.endpoints[1].app_metadata == b"endpoint app metadata"
         assert info.endpoints[1].locations[0] == \
             flight.Location.for_grpc_tcp('localhost', 5005)

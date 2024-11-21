@@ -231,12 +231,6 @@ update_deb_package_names() {
     git add debian*/control*
     popd
 
-    pushd ${ARROW_DIR}/dev/tasks
-    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" tasks.yml
-    rm -f tasks.yml.bak
-    git add tasks.yml
-    popd
-
     pushd ${ARROW_DIR}/dev/release
     sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" rat_exclude_files.txt
     rm -f rat_exclude_files.txt.bak
