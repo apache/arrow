@@ -180,9 +180,7 @@ arrow::Status RunMain() {
   // (Doc section: Parquet OpenFile)
   // Note that Parquet's OpenFile() takes the reader by reference, rather than returning
   // a reader.
-  auto result = parquet::arrow::OpenFile(infile, arrow::default_memory_pool());
-  PARQUET_THROW_NOT_OK(result.status());
-  reader = std::move(result.ValueOrDie());
+  PARQUET_ASSIGN_OR_THROW(reader, parquet::arrow::OpenFile(infile, arrow::default_memory_pool()));
   // (Doc section: Parquet OpenFile)
 
   // (Doc section: Parquet Read)
