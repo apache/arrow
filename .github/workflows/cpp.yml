@@ -251,6 +251,10 @@ jobs:
           submodules: recursive
       - name: Install Dependencies
         run: |
+          # pkg-config formula is deprecated but it's still installed
+          # in GitHub Actions runner now. We can remove this once
+          # pkg-config formula is removed from GitHub Actions runner.
+          brew uninstall pkg-config || :
           brew bundle --file=cpp/Brewfile
       - name: Install MinIO
         run: |
