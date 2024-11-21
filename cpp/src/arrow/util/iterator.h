@@ -292,17 +292,18 @@ class TransformIterator {
         finished_ = true;
         return next_res.status();
       }
-      if (next_res->ReadyForNext()) {
+      auto next = std::move(*next_res);
+      if (next.ReadyForNext()) {
         if (IsIterationEnd(*last_value_)) {
           finished_ = true;
         }
         last_value_.reset();
       }
-      if (next_res->Finished()) {
+      if (next.Finished()) {
         finished_ = true;
       }
-      if (next_res->HasValue()) {
-        return next_res->Value();
+      if (next.HasValue()) {
+        return next.Value();
       }
     }
     if (finished_) {
