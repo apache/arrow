@@ -460,7 +460,10 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
             std::move(task.stop_callback)(stop_token->Poll());
           }
         }
-        ARROW_UNUSED(std::move(task));  // release resources before waiting for lock
+        {
+          auto tmp_task = std::move(task);  // release resources before waiting for lock
+          ARROW_UNUSED(tmp_task);
+        }
         lock.lock();
       }
       if (ARROW_PREDICT_FALSE(--state->tasks_queued_or_running_ == 0)) {
@@ -671,10 +674,10 @@ Result<std::shared_ptr<ThreadPool>> ThreadPool::Make(int threads) {
 
 Result<std::shared_ptr<ThreadPool>> ThreadPool::MakeEternal(int threads) {
   ARROW_ASSIGN_OR_RAISE(auto pool, Make(threads));
+#  ifdef _WIN32
   // On Windows, the ThreadPool destructor may be called after non-main threads
   // have been killed by the OS, and hang in a condition variable.
   // On Unix, we want to avoid leak reports by Valgrind.
-#  ifdef _WIN32
   pool->shutdown_on_destroy_ = false;
 #  endif
   return pool;
