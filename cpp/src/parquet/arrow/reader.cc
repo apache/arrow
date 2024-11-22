@@ -325,19 +325,19 @@ class FileReaderImpl : public FileReader {
     return ReadRowGroup(i, Iota(reader_->metadata()->num_columns()), table);
   }
 
-  Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                              const std::vector<int>& column_indices,
-                              std::unique_ptr<RecordBatchReader>* out) override;
+  Result<std::unique_ptr<RecordBatchReader>> GetRecordBatchReader(
+      const std::vector<int>& row_group_indices,
+      const std::vector<int>& column_indices) override;
 
-  Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                              std::unique_ptr<RecordBatchReader>* out) override {
+  Result<std::unique_ptr<RecordBatchReader>> GetRecordBatchReader(
+      const std::vector<int>& row_group_indices) override {
     return GetRecordBatchReader(row_group_indices,
-                                Iota(reader_->metadata()->num_columns()), out);
+                                Iota(reader_->metadata()->num_columns()));
   }
 
-  Status GetRecordBatchReader(std::unique_ptr<RecordBatchReader>* out) override {
+  Result<std::unique_ptr<RecordBatchReader>> GetRecordBatchReader() override {
     return GetRecordBatchReader(Iota(num_row_groups()),
-                                Iota(reader_->metadata()->num_columns()), out);
+                                Iota(reader_->metadata()->num_columns()));
   }
 
   ::arrow::Result<::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>>>
@@ -972,9 +972,8 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
 
 }  // namespace
 
-Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
-                                            const std::vector<int>& column_indices,
-                                            std::unique_ptr<RecordBatchReader>* out) {
+Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReader(
+    const std::vector<int>& row_groups, const std::vector<int>& column_indices) {
   RETURN_NOT_OK(BoundsCheck(row_groups, column_indices));
 
   if (reader_properties_.pre_buffer()) {
@@ -1008,10 +1007,8 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
       }
     }
 
-    *out = std::make_unique<RowGroupRecordBatchReader>(
+    return std::make_unique<RowGroupRecordBatchReader>(
         ::arrow::MakeVectorIterator(std::move(batches)), std::move(batch_schema));
-
-    return Status::OK();
   }
 
   int64_t num_rows = 0;
@@ -1062,10 +1059,8 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
             [table, table_reader] { return table_reader->Next(); });
       });
 
-  *out = std::make_unique<RowGroupRecordBatchReader>(
+  return std::make_unique<RowGroupRecordBatchReader>(
       ::arrow::MakeFlattenIterator(std::move(batches)), std::move(batch_schema));
-
-  return Status::OK();
 }
 
 /// Given a file reader and a list of row groups, this is a generator of record
@@ -1291,17 +1286,33 @@ std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {
 // ----------------------------------------------------------------------
 // Public factory functions
 
+Status FileReader::GetRecordBatchReader(std::unique_ptr<RecordBatchReader>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader());
+  return Status::OK();
+}
+
+Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                        std::unique_ptr<RecordBatchReader>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader(row_group_indices));
+  return Status::OK();
+}
+
+Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                        const std::vector<int>& column_indices,
+                                        std::unique_ptr<RecordBatchReader>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader(row_group_indices, column_indices));
+  return Status::OK();
+}
+
 Status FileReader::GetRecordBatchReader(std::shared_ptr<RecordBatchReader>* out) {
-  std::unique_ptr<RecordBatchReader> tmp;
-  RETURN_NOT_OK(GetRecordBatchReader(&tmp));
+  ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader());
   out->reset(tmp.release());
   return Status::OK();
 }
 
 Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                         std::shared_ptr<RecordBatchReader>* out) {
-  std::unique_ptr<RecordBatchReader> tmp;
-  RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, &tmp));
+  ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader(row_group_indices));
   out->reset(tmp.release());
   return Status::OK();
 }
@@ -1309,8 +1320,8 @@ Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indice
 Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                         const std::vector<int>& column_indices,
                                         std::shared_ptr<RecordBatchReader>* out) {
-  std::unique_ptr<RecordBatchReader> tmp;
-  RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
+  ARROW_ASSIGN_OR_RAISE(auto tmp,
+                        GetRecordBatchReader(row_group_indices, column_indices));
   out->reset(tmp.release());
   return Status::OK();
 }
