@@ -262,7 +262,7 @@ class ARROW_EXPORT ArrayBuilder {
     }
   }
 
-  void UnsafeAppendToBitmap(const std::vector<bool>& is_valid);
+  void UnsafeAppendToBitmap(const util::span<bool> is_valid);
 
   // Set the next validity bits to not null (i.e. valid).
   void UnsafeSetNotNull(int64_t length);

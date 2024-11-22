@@ -200,7 +200,7 @@ class NumericBuilder
     ARROW_RETURN_NOT_OK(Reserve(length));
     data_builder_.UnsafeAppend(values, length);
     // length_ is update by these
-    ArrayBuilder::UnsafeAppendToBitmap(is_valid);
+    ArrayBuilder::UnsafeAppendToBitmap(&is_valid);
     return Status::OK();
   }
 
@@ -443,36 +443,35 @@ class ARROW_EXPORT BooleanBuilder
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append
-  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// \param[in] is_valid an arrow::util::span<bool> indicating valid (1) or null
   /// (0). Equal in length to values
   /// \return Status
   Status AppendValues(const uint8_t* values, int64_t length,
-                      const std::vector<bool>& is_valid);
+                      const util::span<bool> is_valid);
 
   /// \brief Append a sequence of elements in one shot
-  /// \param[in] values a std::vector of bytes
-  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// \param[in] values an arrow::util::span of bytes
+  /// \param[in] is_valid an arrow::util::span<bool> indicating valid (1) or null
   /// (0). Equal in length to values
   /// \return Status
-  Status AppendValues(const std::vector<uint8_t>& values,
-                      const std::vector<bool>& is_valid);
+  Status AppendValues(const util::span<uint8_t> values, const util::span<bool> is_valid);
 
   /// \brief Append a sequence of elements in one shot
-  /// \param[in] values a std::vector of bytes
+  /// \param[in] values an arrow::util::span of bytes
   /// \return Status
-  Status AppendValues(const std::vector<uint8_t>& values);
+  Status AppendValues(const util::span<uint8_t> values);
 
   /// \brief Append a sequence of elements in one shot
-  /// \param[in] values an std::vector<bool> indicating true (1) or false
-  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// \param[in] values an arrow::util::span<bool> indicating true (1) or false
+  /// \param[in] is_valid an arrow::util::span<bool> indicating valid (1) or null
   /// (0). Equal in length to values
   /// \return Status
-  Status AppendValues(const std::vector<bool>& values, const std::vector<bool>& is_valid);
+  Status AppendValues(const util::span<bool> values, const util::span<bool> is_valid);
 
   /// \brief Append a sequence of elements in one shot
-  /// \param[in] values an std::vector<bool> indicating true (1) or false
+  /// \param[in] values an arrow::util::span<bool> indicating true (1) or false
   /// \return Status
-  Status AppendValues(const std::vector<bool>& values);
+  Status AppendValues(const util::span<bool> values);
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values_begin InputIterator to the beginning of the values

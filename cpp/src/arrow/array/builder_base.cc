@@ -382,7 +382,7 @@ Status ArrayBuilder::SetNotNull(int64_t length) {
   return Status::OK();
 }
 
-void ArrayBuilder::UnsafeAppendToBitmap(const std::vector<bool>& is_valid) {
+void ArrayBuilder::UnsafeAppendToBitmap(const util::span<bool> is_valid) {
   for (bool element_valid : is_valid) {
     UnsafeAppendToBitmap(element_valid);
   }
