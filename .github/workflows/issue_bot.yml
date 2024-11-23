@@ -36,6 +36,9 @@ jobs:
       - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
+            let repo_moved_msg = component => `The ${component} implementation has moved to https://github.com/apache/arrow-${component}.` +
+              "\nPlease close this one and open your issue there.";
+
             let split_body = context.payload.issue.body.split('### Component(s)');
             if (split_body.length != 2) throw new Error('No components found!');
 
@@ -53,10 +56,24 @@ jobs:
               label => !label.startsWith("Component: ")
             );
 
-            let component_labels = split_body[1]
+            let components = split_body[1]
               .split(',')
-              .map(component => component.trim())
-              .map(component => "Component: " + component);
+              .map(component => component.trim());
+            let moved_components = components.filter(comp => ["Go"].includes(comp));
+
+            if (moved_components.length != 0){
+               await github.rest.issues.createComment({
+                "owner": context.repo.owner,
+                "repo": context.repo.repo,
+                "issue_number": context.payload.issue.number,
+                "body": repo_moved_msg(moved_components[0]),
+              });
+              console.log("blub")
+              return;
+            }
+
+
+            let component_labels = components.map(component => "Component: " + component);
 
             let repo_labels = await github.rest.issues.listLabelsForRepo({
               "owner": context.repo.owner,
@@ -68,7 +85,7 @@ jobs:
             component_labels = component_labels.filter(
               label => repo_labels.data.some(repo_label => repo_label.name === label)
             );
-          
+
             if (component_labels.length == 0) throw new Error('No components found!');
 
             await github.rest.issues.setLabels({
