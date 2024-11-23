@@ -77,7 +77,7 @@ void BlockSplitBloomFilter::Init(const uint8_t* bitset, uint32_t num_bytes) {
 
 static constexpr uint32_t kBloomFilterHeaderSizeGuess = 256;
 
-static ::arrow::Status ValidateBloomFilterHeader(
+static ::arrow::Result<std::unique_ptr<FileReader>> ValidateBloomFilterHeader(
     const format::BloomFilterHeader& header) {
   if (!header.algorithm.__isset.BLOCK) {
     return ::arrow::Status::Invalid(

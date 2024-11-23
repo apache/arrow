@@ -116,15 +116,14 @@ class RowGroupReader;
 class PARQUET_EXPORT FileReader {
  public:
   /// Factory function to create a FileReader from a ParquetFileReader and properties
-  static ::arrow::Status Make(::arrow::MemoryPool* pool,
-                              std::unique_ptr<ParquetFileReader> reader,
-                              const ArrowReaderProperties& properties,
-                              std::unique_ptr<FileReader>* out);
+  static ::arrow::Result<std::unique_ptr<FileReader>> Make(
+      ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
+      const ArrowReaderProperties& properties, std::unique_ptr<FileReader>* out);
 
   /// Factory function to create a FileReader from a ParquetFileReader
-  static ::arrow::Status Make(::arrow::MemoryPool* pool,
-                              std::unique_ptr<ParquetFileReader> reader,
-                              std::unique_ptr<FileReader>* out);
+  static ::arrow::Result<std::unique_ptr<FileReader>> Make(
+      ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
+      std::unique_ptr<FileReader>* out);
 
   // Since the distribution of columns amongst a Parquet file's row groups may
   // be uneven (the number of values in each column chunk can be different), we

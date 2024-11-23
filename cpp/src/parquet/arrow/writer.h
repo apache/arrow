@@ -53,10 +53,11 @@ namespace arrow {
 /// file.
 class PARQUET_EXPORT FileWriter {
  public:
-  static ::arrow::Status Make(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
-                              std::shared_ptr<::arrow::Schema> schema,
-                              std::shared_ptr<ArrowWriterProperties> arrow_properties,
-                              std::unique_ptr<FileWriter>* out);
+  static ::arrow::Result<std::unique_ptr<FileReader>> Make(
+      MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+      std::shared_ptr<::arrow::Schema> schema,
+      std::shared_ptr<ArrowWriterProperties> arrow_properties,
+      std::unique_ptr<FileWriter>* out);
 
   /// \brief Try to create an Arrow to Parquet file writer.
   ///

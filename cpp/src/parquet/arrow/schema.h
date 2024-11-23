@@ -104,7 +104,7 @@ struct PARQUET_EXPORT SchemaField {
 /// Expose parquet columns as a tree structure. Useful traverse and link
 /// between arrow's Schema and parquet's Schema.
 struct PARQUET_EXPORT SchemaManifest {
-  static ::arrow::Status Make(
+  static ::arrow::Result<std::unique_ptr<FileReader>> Make(
       const SchemaDescriptor* schema,
       const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata,
       const ArrowReaderProperties& properties, SchemaManifest* manifest);

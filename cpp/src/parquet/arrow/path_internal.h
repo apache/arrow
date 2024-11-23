@@ -121,9 +121,9 @@ class PARQUET_EXPORT MultipathLevelBuilder {
   /// \param[in, out] context for use when allocating memory, etc.
   /// \param[out] write_leaf_callback Callback to receive results.
   /// There will be one call to the write_leaf_callback for each leaf node.
-  static ::arrow::Status Write(const ::arrow::Array& array, bool array_field_nullable,
-                               ArrowWriteContext* context,
-                               CallbackFunction write_leaf_callback);
+  static ::arrow::Result<std::unique_ptr<FileReader>> Write(
+      const ::arrow::Array& array, bool array_field_nullable, ArrowWriteContext* context,
+      CallbackFunction write_leaf_callback);
 
   /// \brief Construct a new instance of the builder.
   ///
