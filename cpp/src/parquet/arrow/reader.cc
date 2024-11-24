@@ -1315,7 +1315,7 @@ Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indice
   return Status::OK();
 }
 
-Status FileReader::Make(::arrow::MemoryPool* pool,
+Result<std::unique_ptr<FileReader>> Make(::arrow::MemoryPool* pool,
                         std::unique_ptr<ParquetFileReader> reader,
                         const ArrowReaderProperties& properties,
                         std::unique_ptr<FileReader>* out) {
@@ -1323,7 +1323,7 @@ Status FileReader::Make(::arrow::MemoryPool* pool,
   return static_cast<FileReaderImpl*>(out->get())->Init();
 }
 
-Status FileReader::Make(::arrow::MemoryPool* pool,
+Result<std::unique_ptr<FileReader>> Make(::arrow::MemoryPool* pool,
                         std::unique_ptr<ParquetFileReader> reader,
                         std::unique_ptr<FileReader>* out) {
   return Make(pool, std::move(reader), default_arrow_reader_properties(), out);
