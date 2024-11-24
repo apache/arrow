@@ -32,7 +32,12 @@ internal static class FlightExtensions
             var values = ExtractValues(array);
             foreach (var value in values)
             {
-                yield return value as long? ?? 0;
+                yield return value switch
+                {
+                    long l => l,
+                    int i => i != 0 ? i : 0,
+                    _ => 0L
+                };
             }
         }
     }

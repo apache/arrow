@@ -69,7 +69,7 @@ public class TestFlightSqlServer : FlightServer
 
                 var preparedStatementResponse = new ActionCreatePreparedStatementResult
                 {
-                    PreparedStatementHandle = ByteString.CopyFromUtf8("ample-testing-prepared-statement"),
+                    PreparedStatementHandle = ByteString.CopyFromUtf8("sample-testing-prepared-statement"),
                     DatasetSchema = ByteString.CopyFrom(datasetSchemaBytes),
                     ParameterSchema = ByteString.CopyFrom(parameterSchemaBytes)
                 };

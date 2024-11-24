@@ -153,7 +153,18 @@ public class FlightSqlClientTests : IDisposable
         string query = "UPDATE test_table SET column1 = 'value' WHERE column2 = 'condition'";
         var transaction = new Transaction("sample-transaction-id");
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
-        var recordBatch = _testUtils.CreateTestBatch(0, 100);
+        
+        var schema = new Schema.Builder()
+            .Field(f => f.Name("id").DataType(Int32Type.Default))
+            .Field(f => f.Name("name").DataType(StringType.Default))
+            .Build();
+
+        var recordBatch = new RecordBatch(schema, new Array[]
+        {
+            new Int32Array.Builder().Append(1).Build(),
+            new StringArray.Builder().Append("John Doe").Build()
+        }, 1);
+        
 
         var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
         flightHolder.AddBatch(new RecordBatchWithMetadata(recordBatch));
@@ -163,7 +174,7 @@ public class FlightSqlClientTests : IDisposable
         long affectedRows = await _flightSqlClient.ExecuteUpdateAsync(query, transaction);
 
         // Assert
-        Assert.Equal(100, affectedRows);
+        Assert.Equal(1, affectedRows);
     }
 
     [Fact]
