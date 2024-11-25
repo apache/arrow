@@ -72,7 +72,7 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           source ci/scripts/util_enable_core_dumps.sh
-          archery docker run debian-js
+          archery --quiet docker run debian-js
       - name: Docker Push
         if: >-
           success() &&
@@ -83,7 +83,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
-        run: archery docker push debian-js
+        run: archery --quiet docker push debian-js
 
   macos:
     name: AMD64 macOS 13 NodeJS ${{ matrix.node }}

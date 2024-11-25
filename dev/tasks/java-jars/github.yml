@@ -62,7 +62,7 @@ jobs:
           else
             export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
           fi
-          archery docker run \
+          archery --quiet docker run \
             -e ARROW_JAVA_BUILD=OFF \
             -e ARROW_JAVA_TEST=OFF \
             java-jni-manylinux-2014
@@ -77,7 +77,7 @@ jobs:
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker image
         shell: bash
-        run: archery docker push java-jni-manylinux-2014
+        run: archery --quiet docker push java-jni-manylinux-2014
     {% endif %}
 
   build-cpp-macos:

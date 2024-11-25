@@ -29,15 +29,15 @@ jobs:
 
       - name: Build sdist
         run: |
-          archery docker run python-sdist
+          archery --quiet docker run python-sdist
           {% if arrow.is_default_branch() %}
-          archery docker push python-sdist || :
+          archery --quiet docker push python-sdist || :
           {% endif %}
         env:
           PYARROW_VERSION: {{ arrow.no_rc_version }}
 
       - name: Test sdist
-        run: archery docker run ubuntu-python-sdist-test
+        run: archery --quiet docker run ubuntu-python-sdist-test
         env:
           UBUNTU: 22.04
           PYARROW_VERSION: {{ arrow.no_rc_version }}

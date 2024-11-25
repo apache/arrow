@@ -35,7 +35,7 @@ jobs:
           ARROW_JAVA_SKIP_GIT_PLUGIN: true
         run: |
           mkdir -p build
-          archery docker run \
+          archery --quiet docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
             -v $PWD/build/:/build/ \
             {{ flags|default("") }} \

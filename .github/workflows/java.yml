@@ -94,7 +94,7 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
           DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
         run: |
-          archery docker run \
+          archery --quiet docker run \
             -e CI=true \
             -e "DEVELOCITY_ACCESS_KEY=$DEVELOCITY_ACCESS_KEY" \
             ${{ matrix.image }}
@@ -108,7 +108,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
-        run: archery docker push ${{ matrix.image }}
+        run: archery --quiet docker push ${{ matrix.image }}
 
   macos:
     name: AMD64 macOS 13 Java JDK ${{ matrix.jdk }}

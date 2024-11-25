@@ -75,7 +75,7 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           source ci/scripts/util_enable_core_dumps.sh
-          archery docker run ubuntu-swift
+          archery --quiet docker run ubuntu-swift
       - name: Docker Push
         if: >-
           success() &&
@@ -86,4 +86,4 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
-        run: archery docker push ubuntu-swift
+        run: archery --quiet docker push ubuntu-swift

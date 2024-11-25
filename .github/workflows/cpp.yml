@@ -169,7 +169,7 @@ jobs:
           # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
-          archery docker run ${{ matrix.image }}
+          archery --quiet docker run ${{ matrix.image }}
       - name: Docker Push
         if: >-
           success() &&
@@ -180,7 +180,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
-        run: archery docker push ${{ matrix.image }}
+        run: archery --quiet docker push ${{ matrix.image }}
 
   build-example:
     name: C++ Minimal Build Example

@@ -24,6 +24,7 @@ from dotenv import dotenv_values
 from ruamel.yaml import YAML
 
 from ..utils.command import Command, default_bin
+from ..utils.logger import ctx as log_ctx
 from ..utils.source import arrow_path
 from ..compat import _ensure_path
 
@@ -41,6 +42,10 @@ def flatten(node, parents=None):
             yield from flatten(value, parents=parents + [key])
     else:
         raise TypeError(node)
+
+
+def verbosity_args():
+    return ['--quiet'] if log_ctx.quiet else []
 
 
 _arch_short_mapping = {
@@ -233,7 +238,7 @@ class DockerCompose(Command):
 
     def pull(self, service_name, pull_leaf=True, ignore_pull_failures=True):
         def _pull(service):
-            args = ['pull', '--quiet']
+            args = ['pull'] + verbosity_args()
             if service['image'] in self.pull_memory:
                 return
 
@@ -417,20 +422,23 @@ class DockerCompose(Command):
                     args.extend(shlex.split(cmd))
 
             # execute as a plain docker cli command
-            self._execute_docker('run', '--rm', *args)
+            # (we preserve stdout even with `--quiet` enabled, as we usually
+            #  expect to see execution output of the container)
+            self._execute_docker('run', '--rm', *args, stdout=None)
         else:
             # execute as a docker compose command
             args.append(service_name)
             if command is not None:
                 args.append(command)
-            self._execute_compose('run', '--rm', *args)
+            self._execute_compose('run', '--rm', *args, stdout=None)
 
     def push(self, service_name, user=None, password=None):
         def _push(service):
+            args = ['push'] + verbosity_args()
             if self.config.using_docker:
-                return self._execute_docker('push', '--quiet', service['image'])
+                return self._execute_docker(*args, service['image'])
             else:
-                return self._execute_compose('push', '--quiet', service['name'])
+                return self._execute_compose(*args, service['name'])
 
         if user is not None:
             try:

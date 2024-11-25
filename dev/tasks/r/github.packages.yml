@@ -141,7 +141,7 @@ jobs:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run \
+          archery --quiet docker run \
             -e EXTRA_CMAKE_FLAGS="{{ '${{ matrix.extra-cmake-flags }}' }}" \
             {{ '${{ matrix.os }}' }}-cpp-static
       - name: Bundle libarrow

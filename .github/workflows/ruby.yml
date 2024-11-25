@@ -101,7 +101,7 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           source ci/scripts/util_enable_core_dumps.sh
-          archery docker run \
+          archery --quiet docker run \
             -e ARROW_FLIGHT=ON \
             -e ARROW_FLIGHT_SQL=ON \
             -e ARROW_GCS=ON \
@@ -119,7 +119,7 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         shell: bash
-        run: archery docker push ubuntu-ruby
+        run: archery --quiet docker push ubuntu-ruby
 
   macos:
     name: ARM64 macOS 14 GLib & Ruby

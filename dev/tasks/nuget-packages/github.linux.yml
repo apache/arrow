@@ -35,7 +35,7 @@ jobs:
       - name: Build package
         run: |
           pushd arrow
-          archery docker run {{ run }}
+          archery --quiet docker run {{ run }}
           popd
 
       {% set patterns = ["arrow/csharp/artifacts/**/*.nupkg",

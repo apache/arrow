@@ -62,7 +62,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
           JDK: 17
-        run: archery docker run debian-docs
+        run: archery --quiet docker run debian-docs
       - name: Docker Push
         if: >-
           success() &&
@@ -73,4 +73,4 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
-        run: archery docker push debian-docs
+        run: archery --quiet docker push debian-docs

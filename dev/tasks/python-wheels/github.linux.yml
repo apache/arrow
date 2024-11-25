@@ -61,7 +61,7 @@ jobs:
           else
             export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
           fi
-          archery docker run \
+          archery --quiet docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} \
             python-wheel-manylinux-{{ manylinux_version }}
 
@@ -77,8 +77,8 @@ jobs:
         shell: bash
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run python-wheel-manylinux-test-imports
-          archery docker run python-wheel-manylinux-test-unittests
+          archery --quiet docker run python-wheel-manylinux-test-imports
+          archery --quiet docker run python-wheel-manylinux-test-unittests
 
       # Free-threaded wheels need to be tested using a different Docker Compose service
       - name: Test free-threaded wheel
@@ -87,8 +87,8 @@ jobs:
         shell: bash
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run python-free-threaded-wheel-manylinux-test-imports
-          archery docker run python-free-threaded-wheel-manylinux-test-unittests
+          archery --quiet docker run python-free-threaded-wheel-manylinux-test-imports
+          archery --quiet docker run python-free-threaded-wheel-manylinux-test-unittests
 
       - name: Test wheel on AlmaLinux 8
         shell: bash
@@ -97,7 +97,7 @@ jobs:
         env:
           ALMALINUX: "8"
         run: |
-          archery docker run \
+          archery --quiet docker run \
             -e ARROW_GANDIVA=OFF \
             -e TEST_DEFAULT=0 \
             -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
@@ -113,7 +113,7 @@ jobs:
         env:
           UBUNTU: "20.04"
         run: |
-          archery docker run \
+          archery --quiet docker run \
             -e TEST_DEFAULT=0 \
             -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
             -e TEST_PYTHON_VERSIONS={{ python_version }} \
@@ -128,7 +128,7 @@ jobs:
         env:
           UBUNTU: "22.04"
         run: |
-          archery docker run \
+          archery --quiet docker run \
             -e TEST_DEFAULT=0 \
             -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
             -e TEST_PYTHON_VERSIONS={{ python_version }} \
@@ -144,6 +144,6 @@ jobs:
       - name: Push Docker Image
         shell: bash
         run: |
-          archery docker push python-wheel-manylinux-{{ manylinux_version }}
-          archery docker push python-wheel-manylinux-test-unittests
+          archery --quiet docker push python-wheel-manylinux-{{ manylinux_version }}
+          archery --quiet docker push python-wheel-manylinux-test-unittests
       {% endif %}
