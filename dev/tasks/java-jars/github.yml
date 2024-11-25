@@ -129,7 +129,7 @@ jobs:
           done
           brew install --overwrite python
 
-          if [ "${ARCH}" = "arm64" ]; then
+          if [ "${ARCH}" == "arm64" ]; then
             # pkg-config formula is deprecated but it's still installed
             # in GitHub Actions runner now. We can remove this once
             # pkg-config formula is removed from GitHub Actions runner.
