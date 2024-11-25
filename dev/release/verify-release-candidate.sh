@@ -765,11 +765,6 @@ import pyarrow.parquet
 
 test_glib() {
   show_header "Build and test C GLib libraries"
-  if [ "$(uname)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ] && [ -n "$(command -v brew)" ]; then
-    # On macOS arm64 if brew is present, this is required for Meson.
-    # See also: https://github.com/mesonbuild/meson/issues/7701
-    export PKG_CONFIG=$(brew --prefix pkgconf)/bin/pkgconf
-  fi
 
   # Build and test C GLib
   maybe_setup_conda glib gobject-introspection meson ninja ruby
