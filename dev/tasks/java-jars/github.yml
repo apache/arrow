@@ -129,11 +129,13 @@ jobs:
           done
           brew install --overwrite python
 
+          {% if '${{ matrix.platform.runs_on }}' == 'macos-14' %}
           # pkg-config formula is deprecated but it's still installed
           # in GitHub Actions runner now. We can remove this once
           # pkg-config formula is removed from GitHub Actions runner.
           brew uninstall pkg-config || :
           brew uninstall pkg-config@0.29.2 || :
+          {% endif %}
 
           brew bundle --file=arrow/cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
