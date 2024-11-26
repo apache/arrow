@@ -349,23 +349,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ]
       end
 
-      Dir.glob("java/**/pom.xml") do |path|
-        version = "<version>#{@snapshot_version}</version>"
-        lines = File.readlines(path, chomp: true)
-        target_lines = lines.grep(/#{Regexp.escape(version)}/)
-        hunks = []
-        target_lines.each do |line|
-          new_line = line.gsub(@snapshot_version) do
-            @next_snapshot_version
-          end
-          hunks << [
-            "-#{line}",
-            "+#{new_line}",
-          ]
-        end
-        expected_changes << {hunks: hunks, path: path}
-      end
-
       Dir.glob("ruby/**/version.rb") do |path|
         version = "  VERSION = \"#{@snapshot_version}\""
         new_version = "  VERSION = \"#{@next_snapshot_version}\""
