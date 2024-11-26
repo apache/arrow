@@ -52,6 +52,13 @@ jobs:
 
           brew bundle --file=arrow/cpp/Brewfile
           brew bundle --file=arrow/c_glib/Brewfile
+
+          # For Meson.
+          # See also: https://github.com/mesonbuild/meson/issues/7701
+          pkgconf="$(brew --prefix pkgconf)/bin/pkgconf"
+          if [ -x "${pkgconf}" ]; then
+            echo "PKG_CONFIG=${pkgconf}" >> $GITHUB_ENV
+          fi
       {% endif %}
 
       - uses: actions/setup-java@v2
