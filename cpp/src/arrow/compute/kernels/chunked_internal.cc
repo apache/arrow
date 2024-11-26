@@ -67,6 +67,8 @@ ChunkedIndexMapper::LogicalToPhysical() {
   }
 
   const int64_t num_indices = static_cast<int64_t>(indices_end_ - indices_begin_);
+  DCHECK_EQ(num_indices, std::accumulate(chunk_lengths_.begin(), chunk_lengths_.end(),
+                                         static_cast<int64_t>(0)));
   CompressedChunkLocation* physical_begin =
       reinterpret_cast<CompressedChunkLocation*>(indices_begin_);
   DCHECK_EQ(physical_begin + num_indices,
@@ -77,6 +79,8 @@ ChunkedIndexMapper::LogicalToPhysical() {
        ++chunk_index) {
     const int64_t chunk_length = chunk_lengths_[chunk_index];
     for (int64_t i = 0; i < chunk_length; ++i) {
+      // Logical indices are expected to be chunk-partitioned, which avoids costly
+      // chunked index resolution.
       DCHECK_GE(indices_begin_[chunk_offset + i], static_cast<uint64_t>(chunk_offset));
       DCHECK_LT(indices_begin_[chunk_offset + i],
                 static_cast<uint64_t>(chunk_offset + chunk_length));
