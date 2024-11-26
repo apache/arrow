@@ -114,8 +114,7 @@ class ChunkedArraySorter : public TypeVisitor {
 
       std::vector<ChunkedNullPartitionResult> chunk_sorted(num_chunks);
       for (int i = 0; i < num_chunks; ++i) {
-        chunk_sorted[i] = ChunkedNullPartitionResult::TranslateFrom(
-            sorted[i], indices_begin_, chunked_indices_begin);
+        chunk_sorted[i] = sorted[i].TranslateTo(indices_begin_, chunked_indices_begin);
       }
 
       auto merge_nulls = [&](CompressedChunkLocation* nulls_begin,
@@ -158,8 +157,7 @@ class ChunkedArraySorter : public TypeVisitor {
 
       // Reverse everything
       sorted.resize(1);
-      sorted[0] = NullPartitionResult::TranslateFrom(
-          chunk_sorted[0], chunked_indices_begin, indices_begin_);
+      sorted[0] = chunk_sorted[0].TranslateTo(chunked_indices_begin, indices_begin_);
 
       RETURN_NOT_OK(chunked_mapper.PhysicalToLogical());
     }
@@ -706,8 +704,7 @@ class TableSorter {
 
       std::vector<ChunkedNullPartitionResult> chunk_sorted(num_batches);
       for (int64_t i = 0; i < num_batches; ++i) {
-        chunk_sorted[i] = ChunkedNullPartitionResult::TranslateFrom(
-            sorted[i], indices_begin_, chunked_indices_begin);
+        chunk_sorted[i] = sorted[i].TranslateTo(indices_begin_, chunked_indices_begin);
       }
 
       struct Visitor {

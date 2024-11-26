@@ -195,15 +195,14 @@ struct GenericNullPartitionResult {
     return {midpoint, indices_end, indices_begin, midpoint};
   }
 
-  template <typename SourceIndexType>
-  static GenericNullPartitionResult TranslateFrom(
-      GenericNullPartitionResult<SourceIndexType> source,
-      SourceIndexType* source_indices_begin, IndexType* target_indices_begin) {
+  template <typename TargetIndexType>
+  GenericNullPartitionResult<TargetIndexType> TranslateTo(
+      IndexType* indices_begin, TargetIndexType* target_indices_begin) const {
     return {
-        (source.non_nulls_begin - source_indices_begin) + target_indices_begin,
-        (source.non_nulls_end - source_indices_begin) + target_indices_begin,
-        (source.nulls_begin - source_indices_begin) + target_indices_begin,
-        (source.nulls_end - source_indices_begin) + target_indices_begin,
+        (non_nulls_begin - indices_begin) + target_indices_begin,
+        (non_nulls_end - indices_begin) + target_indices_begin,
+        (nulls_begin - indices_begin) + target_indices_begin,
+        (nulls_end - indices_begin) + target_indices_begin,
     };
   }
 };
