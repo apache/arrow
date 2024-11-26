@@ -4117,6 +4117,7 @@ TEST(TestArrowReaderAdHoc, LegacyTwoLevelList) {
         FileReader::Make(default_memory_pool(), std::move(file_reader), &reader));
     std::shared_ptr<Table> table;
     ASSERT_OK(reader->ReadTable(&table));
+    ASSERT_OK(table->ValidateFull());
     AssertTablesEqual(*expected_table, *table);
   };
 
