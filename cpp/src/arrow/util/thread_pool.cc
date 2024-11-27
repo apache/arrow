@@ -460,7 +460,10 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
             std::move(task.stop_callback)(stop_token->Poll());
           }
         }
-        ARROW_UNUSED(std::move(task));  // release resources before waiting for lock
+        {
+          auto tmp_task = std::move(task);  // release resources before waiting for lock
+          ARROW_UNUSED(tmp_task);
+        }
         lock.lock();
       }
       if (ARROW_PREDICT_FALSE(--state->tasks_queued_or_running_ == 0)) {
