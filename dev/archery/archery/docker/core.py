@@ -44,7 +44,6 @@ def flatten(node, parents=None):
         raise TypeError(node)
 
 
-
 _arch_short_mapping = {
     'arm64v8': 'arm64',
 }

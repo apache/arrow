@@ -30,16 +30,20 @@ class LoggingContext:
 
 ctx = LoggingContext()
 
+
 # Note: detection routines for many CI services can be found
 # in https://github.com/semantic-release/env-ci
 def in_appveyor():
     return os.environ.get("APPVEYOR", "").lower() == "true"
 
+
 def in_azure_pipelines():
     return os.environ.get("BUILD_BUILDURI", "") != ""
 
+
 def in_github_actions():
     return os.environ.get("GITHUB_ACTIONS") == "true"
+
 
 def running_in_ci():
     return in_appveyor() or in_azure_pipelines() or in_github_actions()
