@@ -478,27 +478,24 @@ TEST(PageIndex, WriteOffsetIndexWithSizeStats) {
 }
 
 struct PageLevelHistogram {
-  std::vector<int16_t> rep_levels;
-  std::vector<int16_t> def_levels;
+  std::vector<int64_t> def_levels;
+  std::vector<int64_t> rep_levels;
 };
 
 std::unique_ptr<SizeStatistics> ConstructFakeSizeStatistics(
     const ColumnDescriptor* descr, const PageLevelHistogram& page_level_histogram) {
-  auto stats = MakeSizeStatistics(descr);
-  for (int16_t level = 0; level <= descr->max_repetition_level(); ++level) {
-    stats->repetition_level_histogram[level] = page_level_histogram.rep_levels[level];
-  }
-  for (int16_t level = 0; level <= descr->max_definition_level(); ++level) {
-    stats->definition_level_histogram[level] = page_level_histogram.def_levels[level];
-  }
+  auto stats = SizeStatistics::Make(descr);
+  stats->definition_level_histogram = page_level_histogram.def_levels;
+  stats->repetition_level_histogram = page_level_histogram.rep_levels;
   return stats;
 }
 
-void VerifyPageLevelHistogram(int16_t max_level, size_t page_id,
-                              const std::vector<int16_t>& expected_page_levels,
+void VerifyPageLevelHistogram(size_t page_id,
+                              const std::vector<int64_t>& expected_page_levels,
                               const std::vector<int64_t>& all_page_levels) {
+  const size_t max_level = expected_page_levels.size() - 1;
   const size_t offset = page_id * (max_level + 1);
-  for (int16_t level = 0; level <= max_level; ++level) {
+  for (size_t level = 0; level <= max_level; ++level) {
     ASSERT_EQ(expected_page_levels[level], all_page_levels[offset + level]);
   }
 }
@@ -555,12 +552,10 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
         ASSERT_EQ(page_stats[i].null_count, column_index->null_counts()[i]);
       }
       if (build_size_stats) {
-        ASSERT_NO_FATAL_FAILURE(
-            VerifyPageLevelHistogram(max_repetition_level, i, page_levels[i].rep_levels,
-                                     column_index->repetition_level_histograms()));
-        ASSERT_NO_FATAL_FAILURE(
-            VerifyPageLevelHistogram(max_definition_level, i, page_levels[i].def_levels,
-                                     column_index->definition_level_histograms()));
+        ASSERT_NO_FATAL_FAILURE(VerifyPageLevelHistogram(
+            i, page_levels[i].def_levels, column_index->definition_level_histograms()));
+        ASSERT_NO_FATAL_FAILURE(VerifyPageLevelHistogram(
+            i, page_levels[i].rep_levels, column_index->repetition_level_histograms()));
       }
     }
   }
@@ -737,9 +732,12 @@ TEST(PageIndex, WriteInt64ColumnIndexWithSizeStats) {
 
   // Page level histograms.
   std::vector<PageLevelHistogram> page_levels;
-  page_levels.push_back(PageLevelHistogram{{1, 2, 3}, {2, 4, 6, 8}});
-  page_levels.push_back(PageLevelHistogram{{2, 3, 4}, {1, 3, 5, 7}});
-  page_levels.push_back(PageLevelHistogram{{3, 4, 5}, {0, 2, 4, 6}});
+  page_levels.push_back(
+      PageLevelHistogram{/*def_levels=*/{2, 4, 6, 8}, /*rep_levels=*/{10, 5, 5}});
+  page_levels.push_back(
+      PageLevelHistogram{/*def_levels=*/{1, 3, 5, 7}, /*rep_levels=*/{4, 8, 4}});
+  page_levels.push_back(
+      PageLevelHistogram{/*def_levels=*/{0, 2, 4, 6}, /*rep_levels=*/{3, 4, 5}});
 
   TestWriteTypedColumnIndex(schema::Int64("c1"), page_stats, BoundaryOrder::Descending,
                             /*has_null_counts=*/true, /*max_definition_level=*/3,
@@ -791,8 +789,8 @@ class PageIndexBuilderTest : public ::testing::Test {
 
         if (static_cast<size_t>(column) < page_locations[row_group].size()) {
           auto offset_index_builder = builder->GetOffsetIndexBuilder(column);
-          ASSERT_NO_THROW(
-              offset_index_builder->AddPage(page_locations[row_group][column]));
+          ASSERT_NO_THROW(offset_index_builder->AddPage(page_locations[row_group][column],
+                                                        /*size_stats=*/{}));
           ASSERT_NO_THROW(offset_index_builder->Finish(final_position));
         }
       }

@@ -52,7 +52,7 @@ TEST(SizeStatistics, ThriftSerDe) {
                                            /*max_rep_level=*/4),
         std::make_unique<ColumnDescriptor>(schema::ByteArray("a"), /*max_def_level=*/3,
                                            /*max_rep_level=*/4)}) {
-    auto size_statistics = MakeSizeStatistics(descr.get());
+    auto size_statistics = SizeStatistics::Make(descr.get());
     size_statistics->repetition_level_histogram = kRepLevels;
     size_statistics->definition_level_histogram = kDefLevels;
     if (descr->physical_type() == Type::BYTE_ARRAY) {
@@ -79,11 +79,11 @@ bool operator==(const SizeStatistics& lhs, const SizeStatistics& rhs) {
 }
 
 struct PageSizeStatistics {
-  std::vector<int64_t> ref_levels;
   std::vector<int64_t> def_levels;
+  std::vector<int64_t> rep_levels;
   std::vector<int64_t> byte_array_bytes;
   bool operator==(const PageSizeStatistics& other) const {
-    return ref_levels == other.ref_levels && def_levels == other.def_levels &&
+    return def_levels == other.def_levels && rep_levels == other.rep_levels &&
            byte_array_bytes == other.byte_array_bytes;
   }
 };
@@ -133,13 +133,7 @@ class SizeStatisticsRoundTripTest : public ::testing::Test {
       for (int j = 0; j < metadata->num_columns(); ++j) {
         auto column_metadata = row_group_metadata->ColumnChunk(j);
         auto size_stats = column_metadata->size_statistics();
-        SizeStatistics row_group_stats;
-        if (size_stats != nullptr) {
-          row_group_stats = {size_stats->repetition_level_histogram,
-                             size_stats->definition_level_histogram,
-                             size_stats->unencoded_byte_array_data_bytes};
-        }
-        row_group_stats_.emplace_back(std::move(row_group_stats));
+        row_group_stats_.push_back(size_stats ? *size_stats : SizeStatistics{});
       }
     }
 
@@ -156,11 +150,11 @@ class SizeStatisticsRoundTripTest : public ::testing::Test {
 
         auto column_index = row_group_index_reader->GetColumnIndex(j);
         if (column_index != nullptr) {
-          if (column_index->has_repetition_level_histograms()) {
-            page_stats.ref_levels = column_index->repetition_level_histograms();
-          }
           if (column_index->has_definition_level_histograms()) {
             page_stats.def_levels = column_index->definition_level_histograms();
+          }
+          if (column_index->has_repetition_level_histograms()) {
+            page_stats.rep_levels = column_index->repetition_level_histograms();
           }
         }
 
@@ -174,6 +168,12 @@ class SizeStatisticsRoundTripTest : public ::testing::Test {
     }
   }
 
+  void Reset() {
+    buffer_.reset();
+    row_group_stats_.clear();
+    page_stats_.clear();
+  }
+
  protected:
   std::shared_ptr<Buffer> buffer_;
   std::vector<SizeStatistics> row_group_stats_;
@@ -182,125 +182,97 @@ class SizeStatisticsRoundTripTest : public ::testing::Test {
   inline static const PageSizeStatistics kEmptyPageStats{};
 };
 
-TEST_F(SizeStatisticsRoundTripTest, DisableSizeStats) {
+TEST_F(SizeStatisticsRoundTripTest, EnableSizeStats) {
   auto schema = ::arrow::schema({
       ::arrow::field("a", ::arrow::list(::arrow::list(::arrow::int32()))),
       ::arrow::field("b", ::arrow::list(::arrow::list(::arrow::utf8()))),
   });
-  WriteFile(SizeStatisticsLevel::None, ::arrow::TableFromJSON(schema, {R"([
+  // First two rows are in one row group, and the other two rows are in another row group.
+  auto table = ::arrow::TableFromJSON(schema, {R"([
       [ [[1],[1,1],[1,1,1]], [["a"],["a","a"],["a","a","a"]] ],
       [ [[0,1,null]],        [["foo","bar",null]]            ],
       [ [],                  []                              ],
       [ [[],[null],null],    [[],[null],null]                ]
-    ])"}));
+    ])"});
 
-  ReadSizeStatistics();
-  EXPECT_THAT(row_group_stats_,
-              ::testing::ElementsAre(kEmptyRowGroupStats, kEmptyRowGroupStats,
-                                     kEmptyRowGroupStats, kEmptyRowGroupStats));
-  EXPECT_THAT(page_stats_, ::testing::ElementsAre(kEmptyPageStats, kEmptyPageStats,
-                                                  kEmptyPageStats, kEmptyPageStats));
-}
+  for (auto size_stats_level :
+       {SizeStatisticsLevel::None, SizeStatisticsLevel::ColumnChunk,
+        SizeStatisticsLevel::PageAndColumnChunk}) {
+    WriteFile(size_stats_level, table);
+    ReadSizeStatistics();
 
-TEST_F(SizeStatisticsRoundTripTest, EnableColumnChunkSizeStats) {
-  auto schema = ::arrow::schema({
-      ::arrow::field("a", ::arrow::list(::arrow::list(::arrow::int32()))),
-      ::arrow::field("b", ::arrow::list(::arrow::list(::arrow::utf8()))),
-  });
-  WriteFile(SizeStatisticsLevel::ColumnChunk, ::arrow::TableFromJSON(schema, {R"([
-      [ [[1],[1,1],[1,1,1]], [["a"],["a","a"],["a","a","a"]] ],
-      [ [[0,1,null]],        [["foo","bar",null]]            ],
-      [ [],                  []                              ],
-      [ [[],[null],null],    [[],[null],null]                ]
-    ])"}));
+    if (size_stats_level == SizeStatisticsLevel::None) {
+      EXPECT_THAT(row_group_stats_,
+                  ::testing::ElementsAre(kEmptyRowGroupStats, kEmptyRowGroupStats,
+                                         kEmptyRowGroupStats, kEmptyRowGroupStats));
+    } else {
+      EXPECT_THAT(row_group_stats_, ::testing::ElementsAre(
+                                        SizeStatistics{/*def_levels=*/{0, 0, 0, 0, 1, 8},
+                                                       /*rep_levels=*/{2, 2, 5},
+                                                       /*byte_array_bytes=*/std::nullopt},
+                                        SizeStatistics{/*def_levels=*/{0, 0, 0, 0, 1, 8},
+                                                       /*rep_levels=*/{2, 2, 5},
+                                                       /*byte_array_bytes=*/12},
+                                        SizeStatistics{/*def_levels=*/{0, 1, 1, 1, 1, 0},
+                                                       /*rep_levels=*/{2, 2, 0},
+                                                       /*byte_array_bytes=*/std::nullopt},
+                                        SizeStatistics{/*def_levels=*/{0, 1, 1, 1, 1, 0},
+                                                       /*rep_levels=*/{2, 2, 0},
+                                                       /*byte_array_bytes=*/0}));
+    }
 
-  ReadSizeStatistics();
-  EXPECT_THAT(row_group_stats_,
-              ::testing::ElementsAre(SizeStatistics{/*ref_levels=*/{2, 2, 5},
-                                                    /*def_levels=*/{0, 0, 0, 0, 1, 8},
-                                                    /*byte_array_bytes=*/std::nullopt},
-                                     SizeStatistics{/*ref_levels=*/{2, 2, 5},
-                                                    /*def_levels=*/{0, 0, 0, 0, 1, 8},
-                                                    /*byte_array_bytes=*/12},
-                                     SizeStatistics{/*ref_levels=*/{2, 2, 0},
-                                                    /*def_levels=*/{0, 1, 1, 1, 1, 0},
-                                                    /*byte_array_bytes=*/std::nullopt},
-                                     SizeStatistics{/*ref_levels=*/{2, 2, 0},
-                                                    /*def_levels=*/{0, 1, 1, 1, 1, 0},
-                                                    /*byte_array_bytes=*/0}));
-  EXPECT_THAT(page_stats_, ::testing::ElementsAre(kEmptyPageStats, kEmptyPageStats,
-                                                  kEmptyPageStats, kEmptyPageStats));
-}
+    if (size_stats_level == SizeStatisticsLevel::PageAndColumnChunk) {
+      EXPECT_THAT(
+          page_stats_,
+          ::testing::ElementsAre(
+              PageSizeStatistics{/*def_levels=*/{0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 1, 2},
+                                 /*rep_levels=*/{1, 2, 3, 1, 0, 2},
+                                 /*byte_array_bytes=*/{}},
+              PageSizeStatistics{/*def_levels=*/{0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 1, 2},
+                                 /*rep_levels=*/{1, 2, 3, 1, 0, 2},
+                                 /*byte_array_bytes=*/{6, 6}},
+              PageSizeStatistics{/*def_levels=*/{0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0},
+                                 /*rep_levels=*/{1, 0, 0, 1, 2, 0},
+                                 /*byte_array_bytes=*/{}},
+              PageSizeStatistics{/*def_levels=*/{0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0},
+                                 /*rep_levels=*/{1, 0, 0, 1, 2, 0},
+                                 /*byte_array_bytes=*/{0, 0}}));
+    } else {
+      EXPECT_THAT(page_stats_, ::testing::ElementsAre(kEmptyPageStats, kEmptyPageStats,
+                                                      kEmptyPageStats, kEmptyPageStats));
+    }
 
-TEST_F(SizeStatisticsRoundTripTest, EnablePageSizeStats) {
-  auto schema = ::arrow::schema({
-      ::arrow::field("a", ::arrow::list(::arrow::list(::arrow::int32()))),
-      ::arrow::field("b", ::arrow::list(::arrow::list(::arrow::utf8()))),
-  });
-  WriteFile(SizeStatisticsLevel::Page, ::arrow::TableFromJSON(schema, {R"([
-      [ [[1],[1,1],[1,1,1]], [["a"],["a","a"],["a","a","a"]] ],
-      [ [[0,1,null]],        [["foo","bar",null]]            ],
-      [ [],                  []                              ],
-      [ [[],[null],null],    [[],[null],null]                ]
-    ])"}));
-
-  ReadSizeStatistics();
-  EXPECT_THAT(row_group_stats_,
-              ::testing::ElementsAre(SizeStatistics{/*ref_levels=*/{2, 2, 5},
-                                                    /*def_levels=*/{0, 0, 0, 0, 1, 8},
-                                                    /*byte_array_bytes=*/std::nullopt},
-                                     SizeStatistics{/*ref_levels=*/{2, 2, 5},
-                                                    /*def_levels=*/{0, 0, 0, 0, 1, 8},
-                                                    /*byte_array_bytes=*/12},
-                                     SizeStatistics{/*ref_levels=*/{2, 2, 0},
-                                                    /*def_levels=*/{0, 1, 1, 1, 1, 0},
-                                                    /*byte_array_bytes=*/std::nullopt},
-                                     SizeStatistics{/*ref_levels=*/{2, 2, 0},
-                                                    /*def_levels=*/{0, 1, 1, 1, 1, 0},
-                                                    /*byte_array_bytes=*/0}));
-  EXPECT_THAT(page_stats_,
-              ::testing::ElementsAre(
-                  PageSizeStatistics{/*ref_levels=*/{1, 2, 3, 1, 0, 2},
-                                     /*def_levels=*/{0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 1, 2},
-                                     /*byte_array_bytes=*/{}},
-                  PageSizeStatistics{/*ref_levels=*/{1, 2, 3, 1, 0, 2},
-                                     /*def_levels=*/{0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 1, 2},
-                                     /*byte_array_bytes=*/{6, 6}},
-                  PageSizeStatistics{/*ref_levels=*/{1, 0, 0, 1, 2, 0},
-                                     /*def_levels=*/{0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0},
-                                     /*byte_array_bytes=*/{}},
-                  PageSizeStatistics{/*ref_levels=*/{1, 0, 0, 1, 2, 0},
-                                     /*def_levels=*/{0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0},
-                                     /*byte_array_bytes=*/{0, 0}}));
+    Reset();
+  }
 }
 
 TEST_F(SizeStatisticsRoundTripTest, WriteDictionaryArray) {
   auto schema = ::arrow::schema(
       {::arrow::field("a", ::arrow::dictionary(::arrow::int16(), ::arrow::utf8()))});
   WriteFile(
-      SizeStatisticsLevel::Page,
+      SizeStatisticsLevel::PageAndColumnChunk,
       ::arrow::TableFromJSON(schema, {R"([["aa"],["aaa"],[null],["a"],["aaa"],["a"]])"}));
 
   ReadSizeStatistics();
   EXPECT_THAT(row_group_stats_,
-              ::testing::ElementsAre(SizeStatistics{/*ref_levels=*/{2},
-                                                    /*def_levels=*/{0, 2},
+              ::testing::ElementsAre(SizeStatistics{/*def_levels=*/{0, 2},
+                                                    /*rep_levels=*/{2},
                                                     /*byte_array_bytes=*/5},
-                                     SizeStatistics{/*ref_levels=*/{2},
-                                                    /*def_levels=*/{1, 1},
+                                     SizeStatistics{/*def_levels=*/{1, 1},
+                                                    /*rep_levels=*/{2},
                                                     /*byte_array_bytes=*/1},
-                                     SizeStatistics{/*ref_levels=*/{2},
-                                                    /*def_levels=*/{0, 2},
+                                     SizeStatistics{/*def_levels=*/{0, 2},
+                                                    /*rep_levels=*/{2},
                                                     /*byte_array_bytes=*/4}));
   EXPECT_THAT(page_stats_,
-              ::testing::ElementsAre(PageSizeStatistics{/*ref_levels=*/{2},
-                                                        /*def_levels=*/{0, 2},
+              ::testing::ElementsAre(PageSizeStatistics{/*def_levels=*/{0, 2},
+                                                        /*rep_levels=*/{2},
                                                         /*byte_array_bytes=*/{5}},
-                                     PageSizeStatistics{/*ref_levels=*/{2},
-                                                        /*def_levels=*/{1, 1},
+                                     PageSizeStatistics{/*def_levels=*/{1, 1},
+                                                        /*rep_levels=*/{2},
                                                         /*byte_array_bytes=*/{1}},
-                                     PageSizeStatistics{/*ref_levels=*/{2},
-                                                        /*def_levels=*/{0, 2},
+                                     PageSizeStatistics{/*def_levels=*/{0, 2},
+                                                        /*rep_levels=*/{2},
                                                         /*byte_array_bytes=*/{4}}));
 }
 

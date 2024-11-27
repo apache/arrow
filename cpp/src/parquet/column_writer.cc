@@ -1071,14 +1071,14 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
                             combined->CopySlice(0, combined->size(), allocator_));
     std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV2>(
         combined, num_values, null_count, num_rows, encoding_, def_levels_byte_length,
-        rep_levels_byte_length, uncompressed_size, pager_->has_compressor(), page_stats,
-        first_row_index, std::move(page_size_stats));
+        rep_levels_byte_length, uncompressed_size, pager_->has_compressor(),
+        std::move(page_stats), first_row_index, std::move(page_size_stats));
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
     data_pages_.push_back(std::move(page_ptr));
   } else {
     DataPageV2 page(combined, num_values, null_count, num_rows, encoding_,
                     def_levels_byte_length, rep_levels_byte_length, uncompressed_size,
-                    pager_->has_compressor(), page_stats, first_row_index,
+                    pager_->has_compressor(), std::move(page_stats), first_row_index,
                     std::move(page_size_stats));
     WriteDataPage(page);
   }
@@ -1231,9 +1231,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       chunk_statistics_ = MakeStatistics<DType>(descr_, allocator_);
     }
     if (properties->size_statistics_level() == SizeStatisticsLevel::ColumnChunk ||
-        properties->size_statistics_level() == SizeStatisticsLevel::Page) {
-      page_size_statistics_ = MakeSizeStatistics(descr_);
-      chunk_size_statistics_ = MakeSizeStatistics(descr_);
+        properties->size_statistics_level() == SizeStatisticsLevel::PageAndColumnChunk) {
+      page_size_statistics_ = SizeStatistics::Make(descr_);
+      chunk_size_statistics_ = SizeStatistics::Make(descr_);
     }
     pages_change_on_record_boundaries_ =
         properties->data_page_version() == ParquetDataPageVersion::V2 ||
@@ -1374,7 +1374,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     if (page_statistics_) {
       result.encoded_stats = page_statistics_->Encode();
     }
-    if (properties_->size_statistics_level() == SizeStatisticsLevel::Page) {
+    if (properties_->size_statistics_level() == SizeStatisticsLevel::PageAndColumnChunk) {
       ARROW_DCHECK(page_size_statistics_ != nullptr);
       result.size_stats = *page_size_statistics_;
     }
@@ -1624,6 +1624,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
   }
 
+  // Update the unencoded data bytes for ByteArray only per the specification.
   void UpdateUnencodedDataBytes() const {
     if constexpr (std::is_same_v<T, ByteArray>) {
       if (page_size_statistics_ != nullptr) {

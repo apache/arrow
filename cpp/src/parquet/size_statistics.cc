@@ -19,24 +19,23 @@
 
 #include <algorithm>
 
-#include "arrow/type_traits.h"
-#include "arrow/util/bit_run_reader.h"
-#include "arrow/util/int_util_overflow.h"
-#include "arrow/visit_data_inline.h"
+#include "arrow/util/logging.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
-#include "parquet/thrift_internal.h"
-#include "parquet/types.h"
 
 namespace parquet {
 
 void SizeStatistics::Merge(const SizeStatistics& other) {
-  ARROW_CHECK_EQ(repetition_level_histogram.size(),
-                 other.repetition_level_histogram.size());
-  ARROW_CHECK_EQ(definition_level_histogram.size(),
-                 other.definition_level_histogram.size());
-  ARROW_CHECK_EQ(unencoded_byte_array_data_bytes.has_value(),
-                 other.unencoded_byte_array_data_bytes.has_value());
+  if (repetition_level_histogram.size() != other.repetition_level_histogram.size()) {
+    throw ParquetException("Repetition level histogram size mismatch");
+  }
+  if (definition_level_histogram.size() != other.definition_level_histogram.size()) {
+    throw ParquetException("Definition level histogram size mismatch");
+  }
+  if (unencoded_byte_array_data_bytes.has_value() !=
+      other.unencoded_byte_array_data_bytes.has_value()) {
+    throw ParquetException("Unencoded byte array data bytes are not consistent");
+  }
   std::transform(repetition_level_histogram.begin(), repetition_level_histogram.end(),
                  other.repetition_level_histogram.begin(),
                  repetition_level_histogram.begin(), std::plus<>());
@@ -54,6 +53,22 @@ void SizeStatistics::IncrementUnencodedByteArrayDataBytes(int64_t value) {
   unencoded_byte_array_data_bytes = unencoded_byte_array_data_bytes.value() + value;
 }
 
+void SizeStatistics::Validate(const ColumnDescriptor* descr) const {
+  if (repetition_level_histogram.size() !=
+      static_cast<size_t>(descr->max_repetition_level() + 1)) {
+    throw ParquetException("Repetition level histogram size mismatch");
+  }
+  if (definition_level_histogram.size() !=
+      static_cast<size_t>(descr->max_definition_level() + 1)) {
+    throw ParquetException("Definition level histogram size mismatch");
+  }
+  if (unencoded_byte_array_data_bytes.has_value() &&
+      descr->physical_type() != Type::BYTE_ARRAY) {
+    throw ParquetException("Unencoded byte array data bytes does not support " +
+                           TypeToString(descr->physical_type()));
+  }
+}
+
 void SizeStatistics::Reset() {
   repetition_level_histogram.assign(repetition_level_histogram.size(), 0);
   definition_level_histogram.assign(definition_level_histogram.size(), 0);
@@ -62,7 +77,7 @@ void SizeStatistics::Reset() {
   }
 }
 
-std::unique_ptr<SizeStatistics> MakeSizeStatistics(const ColumnDescriptor* descr) {
+std::unique_ptr<SizeStatistics> SizeStatistics::Make(const ColumnDescriptor* descr) {
   auto size_stats = std::make_unique<SizeStatistics>();
   size_stats->repetition_level_histogram.resize(descr->max_repetition_level() + 1, 0);
   size_stats->definition_level_histogram.resize(descr->max_definition_level() + 1, 0);

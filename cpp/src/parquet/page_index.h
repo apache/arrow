@@ -75,17 +75,17 @@ class PARQUET_EXPORT ColumnIndex {
   /// \brief A vector of page indices for non-null pages.
   virtual const std::vector<int32_t>& non_null_page_indices() const = 0;
 
-  /// \brief Whether repetition level histogram is available.
-  virtual bool has_repetition_level_histograms() const = 0;
-
   /// \brief Whether definition level histogram is available.
   virtual bool has_definition_level_histograms() const = 0;
 
-  /// \brief List of repetition level histograms for each page concatenated together.
-  virtual const std::vector<int64_t>& repetition_level_histograms() const = 0;
+  /// \brief Whether repetition level histogram is available.
+  virtual bool has_repetition_level_histograms() const = 0;
 
   /// \brief List of definition level histograms for each page concatenated together.
   virtual const std::vector<int64_t>& definition_level_histograms() const = 0;
+
+  /// \brief List of repetition level histograms for each page concatenated together.
+  virtual const std::vector<int64_t>& repetition_level_histograms() const = 0;
 };
 
 /// \brief Typed implementation of ColumnIndex.
@@ -316,13 +316,12 @@ class PARQUET_EXPORT OffsetIndexBuilder {
   virtual ~OffsetIndexBuilder() = default;
 
   /// \brief Add page location and size stats of a data page.
-  virtual void AddPage(
-      int64_t offset, int32_t compressed_page_size, int64_t first_row_index,
-      std::optional<int64_t> unencoded_byte_array_length = std::nullopt) = 0;
+  virtual void AddPage(int64_t offset, int32_t compressed_page_size,
+                       int64_t first_row_index,
+                       std::optional<int64_t> unencoded_byte_array_length = {}) = 0;
 
   /// \brief Add page location and size stats of a data page.
-  void AddPage(const PageLocation& page_location,
-               const SizeStatistics* size_stats = NULLPTR);
+  void AddPage(const PageLocation& page_location, const SizeStatistics& size_stats);
 
   /// \brief Complete the offset index.
   ///

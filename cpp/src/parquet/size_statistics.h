@@ -18,8 +18,8 @@
 #pragma once
 
 #include <optional>
+#include <vector>
 
-#include "arrow/util/span.h"
 #include "parquet/platform.h"
 #include "parquet/type_fwd.h"
 
@@ -33,19 +33,19 @@ namespace parquet {
 /// nesting level and maximum length of lists).
 struct PARQUET_EXPORT SizeStatistics {
   /// When present, there is expected to be one element corresponding to each
-  /// repetition (i.e. size=max repetition_level+1) where each element
-  /// represents the number of times the repetition level was observed in the
+  /// definition (i.e. size=max definition+1) where each element
+  /// represents the number of times the definition level was observed in the
   /// data.
-  ///
-  /// This field may be omitted (a.k.a. zero-length vector) if max_repetition_level
-  /// is 0 without loss of information.
-  std::vector<int64_t> repetition_level_histogram;
-
-  /// Same as repetition_level_histogram except for definition levels.
   ///
   /// This field may be omitted (a.k.a. zero-length vector) if max_definition_level
   /// is 0 without loss of information.
   std::vector<int64_t> definition_level_histogram;
+
+  /// Same as definition_level_histogram except for repetition levels.
+  ///
+  /// This field may be omitted (a.k.a. zero-length vector) if max_repetition_level
+  /// is 0 without loss of information.
+  std::vector<int64_t> repetition_level_histogram;
 
   /// The number of physical bytes stored for BYTE_ARRAY data values assuming
   /// no encoding. This is exclusive of the bytes needed to store the length of
@@ -74,12 +74,19 @@ struct PARQUET_EXPORT SizeStatistics {
   void IncrementUnencodedByteArrayDataBytes(int64_t value);
 
   /// \brief Merge two SizeStatistics.
+  /// \throws ParquetException if SizeStatistics to merge is not compatible.
   void Merge(const SizeStatistics& other);
 
-  void Reset();
-};
+  /// \brief Validate the SizeStatistics
+  /// \throws ParquetException if the histograms don't have the right length,
+  /// or if unencoded_byte_array_data_bytes is present for a non-BYTE_ARRAY column.
+  void Validate(const ColumnDescriptor* descr) const;
 
-PARQUET_EXPORT std::unique_ptr<SizeStatistics> MakeSizeStatistics(
-    const ColumnDescriptor* descr);
+  /// \brief Reset the SizeStatistics to be empty.
+  void Reset();
+
+  /// \brief Make an empty SizeStatistics object for specific type.
+  static std::unique_ptr<SizeStatistics> Make(const ColumnDescriptor* descr);
+};
 
 }  // namespace parquet

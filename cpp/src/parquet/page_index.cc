@@ -159,20 +159,20 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
 
   const std::vector<T>& max_values() const override { return max_values_; }
 
-  bool has_repetition_level_histograms() const override {
-    return column_index_.__isset.repetition_level_histograms;
-  }
-
   bool has_definition_level_histograms() const override {
     return column_index_.__isset.definition_level_histograms;
   }
 
-  const std::vector<int64_t>& repetition_level_histograms() const override {
-    return column_index_.repetition_level_histograms;
+  bool has_repetition_level_histograms() const override {
+    return column_index_.__isset.repetition_level_histograms;
   }
 
   const std::vector<int64_t>& definition_level_histograms() const override {
     return column_index_.definition_level_histograms;
+  }
+
+  const std::vector<int64_t>& repetition_level_histograms() const override {
+    return column_index_.repetition_level_histograms;
   }
 
  private:
@@ -520,14 +520,14 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     }
 
     if (size_stats.is_set()) {
-      const auto& page_ref_level_hist = size_stats.repetition_level_histogram;
       const auto& page_def_level_hist = size_stats.definition_level_histogram;
-      column_index_.repetition_level_histograms.insert(
-          column_index_.repetition_level_histograms.end(), page_ref_level_hist.cbegin(),
-          page_ref_level_hist.cend());
+      const auto& page_ref_level_hist = size_stats.repetition_level_histogram;
       column_index_.definition_level_histograms.insert(
           column_index_.definition_level_histograms.end(), page_def_level_hist.cbegin(),
           page_def_level_hist.cend());
+      column_index_.repetition_level_histograms.insert(
+          column_index_.repetition_level_histograms.end(), page_ref_level_hist.cbegin(),
+          page_ref_level_hist.cend());
     }
   }
 
@@ -572,16 +572,25 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
 
     // Finalize level histogram.
     const int64_t num_pages = column_index_.null_pages.size();
-    const int64_t rep_level_hist_size = column_index_.repetition_level_histograms.size();
     const int64_t def_level_hist_size = column_index_.definition_level_histograms.size();
-    ARROW_CHECK(rep_level_hist_size == 0 ||
-                rep_level_hist_size == (descr_->max_repetition_level() + 1) * num_pages);
-    ARROW_CHECK(def_level_hist_size == 0 ||
-                def_level_hist_size == (descr_->max_definition_level() + 1) * num_pages);
-    column_index_.__isset.repetition_level_histograms =
-        !column_index_.repetition_level_histograms.empty();
+    const int64_t rep_level_hist_size = column_index_.repetition_level_histograms.size();
+    if (def_level_hist_size != 0 &&
+        def_level_hist_size != (descr_->max_definition_level() + 1) * num_pages) {
+      std::stringstream ss;
+      ss << "Invalid definition level histogram size: " << def_level_hist_size
+         << ", expected: " << (descr_->max_definition_level() + 1) * num_pages;
+    }
+    if (rep_level_hist_size != 0 &&
+        rep_level_hist_size != (descr_->max_repetition_level() + 1) * num_pages) {
+      std::stringstream ss;
+      ss << "Invalid repetition level histogram size: " << rep_level_hist_size
+         << ", expected: " << (descr_->max_repetition_level() + 1) * num_pages;
+      throw ParquetException(ss.str());
+    }
     column_index_.__isset.definition_level_histograms =
         !column_index_.definition_level_histograms.empty();
+    column_index_.__isset.repetition_level_histograms =
+        !column_index_.repetition_level_histograms.empty();
   }
 
   void WriteTo(::arrow::io::OutputStream* sink, Encryptor* encryptor) const override {
@@ -880,10 +889,11 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
 }  // namespace
 
 void OffsetIndexBuilder::AddPage(const PageLocation& page_location,
-                                 const SizeStatistics* size_stats) {
-  this->AddPage(page_location.offset, page_location.compressed_page_size,
-                page_location.first_row_index,
-                size_stats ? size_stats->unencoded_byte_array_data_bytes : std::nullopt);
+                                 const SizeStatistics& size_stats) {
+  this->AddPage(
+      page_location.offset, page_location.compressed_page_size,
+      page_location.first_row_index,
+      size_stats.is_set() ? size_stats.unencoded_byte_array_data_bytes : std::nullopt);
 }
 
 RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(

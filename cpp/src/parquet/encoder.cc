@@ -1654,7 +1654,6 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
           },
           []() { return Status::OK(); }));
     }
-    unencoded_data_bytes_ += sizeof(bool) * (values.length() - values.null_count());
   }
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,

@@ -266,6 +266,11 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
                                  LoadEnumSafe(&encoding_stats.encoding),
                                  encoding_stats.count});
     }
+    if (column_metadata_->__isset.size_statistics) {
+      size_statistics_ =
+          std::make_shared<SizeStatistics>(FromThrift(column_metadata_->size_statistics));
+      size_statistics_->Validate(descr_);
+    }
     possible_stats_ = nullptr;
     InitKeyValueMetadata();
   }
@@ -309,12 +314,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return is_stats_set() ? possible_stats_ : nullptr;
   }
 
-  inline std::unique_ptr<SizeStatistics> size_statistics() const {
-    if (!column_metadata_->__isset.size_statistics) {
-      return nullptr;
-    }
-    return std::make_unique<SizeStatistics>(
-        FromThrift(column_metadata_->size_statistics));
+  inline std::shared_ptr<SizeStatistics> size_statistics() const {
+    return size_statistics_;
   }
 
   inline Compression::type compression() const {
@@ -405,6 +406,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   const ReaderProperties properties_;
   const ApplicationVersion* writer_version_;
   std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
+  std::shared_ptr<SizeStatistics> size_statistics_;
 };
 
 std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
@@ -448,7 +450,7 @@ std::shared_ptr<Statistics> ColumnChunkMetaData::statistics() const {
 
 bool ColumnChunkMetaData::is_stats_set() const { return impl_->is_stats_set(); }
 
-std::unique_ptr<SizeStatistics> ColumnChunkMetaData::size_statistics() const {
+std::shared_ptr<SizeStatistics> ColumnChunkMetaData::size_statistics() const {
   return impl_->size_statistics();
 }
 

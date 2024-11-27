@@ -142,7 +142,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool is_stats_set() const;
   std::shared_ptr<Statistics> statistics() const;
-  std::unique_ptr<SizeStatistics> size_statistics() const;
+  std::shared_ptr<SizeStatistics> size_statistics() const;
 
   Compression::type compression() const;
   // Indicate if the ColumnChunk compression is supported by the current
