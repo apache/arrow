@@ -80,9 +80,12 @@ class EncoderImpl : virtual public Encoder {
   MemoryPool* memory_pool() const override { return pool_; }
 
   int64_t ReportUnencodedDataBytes() override {
-    int64_t bytes = unencoded_data_bytes_;
-    unencoded_data_bytes_ = 0;
-    return bytes;
+    if (descr_->physical_type() != Type::BYTE_ARRAY) {
+      throw ParquetException("ReportUnencodedDataBytes is only supported for BYTE_ARRAY");
+    }
+    int64_t byte = unencoded_byte_array_data_bytes_;
+    unencoded_byte_array_data_bytes_ = 0;
+    return byte;
   }
 
  protected:
@@ -93,8 +96,8 @@ class EncoderImpl : virtual public Encoder {
 
   /// Type length from descr
   const int type_length_;
-  /// Number of unencoded bytes written to the encoder
-  int64_t unencoded_data_bytes_ = 0;
+  /// Number of unencoded bytes written to the encoder. Used for ByteArray type only.
+  int64_t unencoded_byte_array_data_bytes_ = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -140,7 +143,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     DCHECK(length == 0 || data != nullptr) << "Value ptr cannot be NULL";
     sink_.UnsafeAppend(&length, sizeof(uint32_t));
     sink_.UnsafeAppend(data, static_cast<int64_t>(length));
-    unencoded_data_bytes_ += length;
+    unencoded_byte_array_data_bytes_ += length;
   }
 
   void Put(const ByteArray& val) {
@@ -179,7 +182,6 @@ template <typename DType>
 void PlainEncoder<DType>::Put(const T* buffer, int num_values) {
   if (num_values > 0) {
     PARQUET_THROW_NOT_OK(sink_.Append(buffer, num_values * sizeof(T)));
-    unencoded_data_bytes_ += num_values * sizeof(T);
   }
 }
 
@@ -191,8 +193,7 @@ inline void PlainEncoder<ByteArrayType>::Put(const ByteArray* src, int num_value
 }
 
 template <typename ArrayType>
-[[nodiscard]] int64_t DirectPutImpl(const ::arrow::Array& values,
-                                    ::arrow::BufferBuilder* sink) {
+void DirectPutImpl(const ::arrow::Array& values, ::arrow::BufferBuilder* sink) {
   if (values.type_id() != ArrayType::TypeClass::type_id) {
     std::string type_name = ArrayType::TypeClass::type_name();
     throw ParquetException("direct put to " + type_name + " from " +
@@ -203,7 +204,6 @@ template <typename ArrayType>
   constexpr auto value_size = sizeof(value_type);
   auto raw_values = checked_cast<const ArrayType&>(values).raw_values();
 
-  int64_t original_length = sink->length();
   if (values.null_count() == 0) {
     // no nulls, just dump the data
     PARQUET_THROW_NOT_OK(sink->Append(raw_values, values.length() * value_size));
@@ -217,17 +217,16 @@ template <typename ArrayType>
       }
     }
   }
-  return sink->length() - original_length;
 }
 
 template <>
 void PlainEncoder<Int32Type>::Put(const ::arrow::Array& values) {
-  unencoded_data_bytes_ += DirectPutImpl<::arrow::Int32Array>(values, &sink_);
+  DirectPutImpl<::arrow::Int32Array>(values, &sink_);
 }
 
 template <>
 void PlainEncoder<Int64Type>::Put(const ::arrow::Array& values) {
-  unencoded_data_bytes_ += DirectPutImpl<::arrow::Int64Array>(values, &sink_);
+  DirectPutImpl<::arrow::Int64Array>(values, &sink_);
 }
 
 template <>
@@ -237,12 +236,12 @@ void PlainEncoder<Int96Type>::Put(const ::arrow::Array& values) {
 
 template <>
 void PlainEncoder<FloatType>::Put(const ::arrow::Array& values) {
-  unencoded_data_bytes_ += DirectPutImpl<::arrow::FloatArray>(values, &sink_);
+  DirectPutImpl<::arrow::FloatArray>(values, &sink_);
 }
 
 template <>
 void PlainEncoder<DoubleType>::Put(const ::arrow::Array& values) {
-  unencoded_data_bytes_ += DirectPutImpl<::arrow::DoubleArray>(values, &sink_);
+  DirectPutImpl<::arrow::DoubleArray>(values, &sink_);
 }
 
 template <typename DType>
@@ -288,7 +287,6 @@ inline void PlainEncoder<FLBAType>::Put(const ::arrow::Array& values) {
     // no nulls, just dump the data
     PARQUET_THROW_NOT_OK(
         sink_.Append(data.raw_values(), data.length() * data.byte_width()));
-    unencoded_data_bytes_ += data.length() * data.byte_width();
   } else {
     const int64_t total_bytes =
         data.length() * data.byte_width() - data.null_count() * data.byte_width();
@@ -298,7 +296,6 @@ inline void PlainEncoder<FLBAType>::Put(const ::arrow::Array& values) {
         sink_.UnsafeAppend(data.Value(i), data.byte_width());
       }
     }
-    unencoded_data_bytes_ += total_bytes;
   }
 }
 
@@ -312,7 +309,6 @@ inline void PlainEncoder<FLBAType>::Put(const FixedLenByteArray* src, int num_va
     DCHECK(src[i].ptr != nullptr) << "Value ptr cannot be NULL";
     PARQUET_THROW_NOT_OK(sink_.Append(src[i].ptr, descr_->type_length()));
   }
-  unencoded_data_bytes_ += num_values * descr_->type_length();
 }
 
 template <>
@@ -362,10 +358,6 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
         }
       }
     }
-  }
-
-  int64_t ReportUnencodedDataBytes() override {
-    ParquetException::NYI("Unencoded data bytes for boolean type is not supported");
   }
 
  private:
@@ -541,13 +533,9 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
                buffer_position - static_cast<size_t>(data.length() - data.null_count());
            idx < buffer_position; ++idx) {
         memo_table_.VisitValue(buffered_indices_[idx], [&](std::string_view value) {
-          unencoded_data_bytes_ += value.length();
+          unencoded_byte_array_data_bytes_ += value.length();
         });
       }
-    } else if constexpr (std::is_same_v<DType, FLBAType>) {
-      unencoded_data_bytes_ += type_length_ * (data.length() - data.null_count());
-    } else {
-      unencoded_data_bytes_ += sizeof(T) * (data.length() - data.null_count());
     }
   }
 
@@ -669,7 +657,6 @@ inline void DictEncoderImpl<DType>::Put(const T& v) {
   int32_t memo_index;
   PARQUET_THROW_NOT_OK(memo_table_.GetOrInsert(v, on_found, on_not_found, &memo_index));
   buffered_indices_.push_back(memo_index);
-  unencoded_data_bytes_ += sizeof(T);
 }
 
 template <typename DType>
@@ -693,7 +680,7 @@ inline void DictEncoderImpl<ByteArrayType>::PutByteArray(const void* ptr,
   PARQUET_THROW_NOT_OK(
       memo_table_.GetOrInsert(ptr, length, on_found, on_not_found, &memo_index));
   buffered_indices_.push_back(memo_index);
-  unencoded_data_bytes_ += length;
+  unencoded_byte_array_data_bytes_ += length;
 }
 
 template <>
@@ -714,7 +701,6 @@ inline void DictEncoderImpl<FLBAType>::Put(const FixedLenByteArray& v) {
   PARQUET_THROW_NOT_OK(
       memo_table_.GetOrInsert(ptr, type_length_, on_found, on_not_found, &memo_index));
   buffered_indices_.push_back(memo_index);
-  unencoded_data_bytes_ += type_length_;
 }
 
 template <>
@@ -909,7 +895,6 @@ class ByteStreamSplitEncoder : public ByteStreamSplitEncoderBase<DType> {
           this->sink_.Append(reinterpret_cast<const uint8_t*>(buffer),
                              num_values * static_cast<int64_t>(sizeof(T))));
       this->num_values_in_buffer_ += num_values;
-      this->unencoded_data_bytes_ += num_values * sizeof(T);
     }
   }
 
@@ -953,7 +938,6 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
       }
     }
     this->num_values_in_buffer_ += num_values;
-    this->unencoded_data_bytes_ += num_values * byte_width_;
   }
 
   void Put(const ::arrow::Array& values) override {
@@ -963,7 +947,6 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
       // no nulls, just buffer the data
       PARQUET_THROW_NOT_OK(sink_.Append(data.raw_values(), data.length() * byte_width_));
       this->num_values_in_buffer_ += data.length();
-      this->unencoded_data_bytes_ += data.length() * byte_width_;
     } else {
       const int64_t num_values = data.length() - data.null_count();
       const int64_t total_bytes = num_values * byte_width_;
@@ -975,7 +958,6 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
         }
       }
       this->num_values_in_buffer_ += num_values;
-      this->unencoded_data_bytes_ += total_bytes;
     }
   }
 };
@@ -1118,8 +1100,6 @@ void DeltaBitPackEncoder<DType>::Put(const T* src, int num_values) {
       FlushBlock();
     }
   }
-
-  unencoded_data_bytes_ += num_values * sizeof(T);
 }
 
 template <typename DType>
@@ -1313,7 +1293,7 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
           }
           length_encoder_.Put({static_cast<int32_t>(view.length())}, 1);
           PARQUET_THROW_NOT_OK(sink_.Append(view.data(), view.length()));
-          unencoded_data_bytes_ += view.size();
+          unencoded_byte_array_data_bytes_ += view.size();
           return Status::OK();
         },
         []() { return Status::OK(); }));
@@ -1359,7 +1339,7 @@ void DeltaLengthByteArrayEncoder::Put(const T* src, int num_values) {
   for (int idx = 0; idx < num_values; idx++) {
     sink_.UnsafeAppend(src[idx].ptr, src[idx].len);
   }
-  unencoded_data_bytes_ += total_increment_size;
+  unencoded_byte_array_data_bytes_ += total_increment_size;
 }
 
 void DeltaLengthByteArrayEncoder::PutSpaced(const T* src, int num_values,
@@ -1492,7 +1472,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
         const ByteArray suffix(suffix_length, suffix_ptr);
         suffixes[j] = suffix;
 
-        unencoded_data_bytes_ += len;
+        unencoded_byte_array_data_bytes_ += len;
       }
       suffix_encoder_.Put(suffixes.data(), batch_size);
       prefix_length_encoder_.Put(prefix_lengths.data(), batch_size);
@@ -1537,7 +1517,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           const ByteArray suffix(suffix_length, suffix_ptr);
           suffix_encoder_.Put(&suffix, 1);
 
-          unencoded_data_bytes_ += len;
+          unencoded_byte_array_data_bytes_ += len;
           return Status::OK();
         },
         []() { return Status::OK(); }));
@@ -1671,10 +1651,6 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
   }
 
   void Put(const std::vector<bool>& src, int num_values) override;
-
-  int64_t ReportUnencodedDataBytes() override {
-    ParquetException::NYI("Unencoded data bytes for boolean type is not supported");
-  }
 
  protected:
   template <typename SequenceType>

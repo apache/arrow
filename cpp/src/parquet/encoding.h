@@ -159,10 +159,9 @@ class Encoder {
 
   virtual void Put(const ::arrow::Array& values) = 0;
 
-  // Report the number of bytes before encoding that have been written
-  // to the encoder since the last report.
-  // This call is not idempotent because it resets the internal counter.
-  // Boolean encoders do not support this function and may throw.
+  // Report the number of bytes written to the encoder since the last report.
+  // It only works for BYTE_ARRAY type and throw for other types.
+  // This call is not idempotent since it resets the internal counter.
   virtual int64_t ReportUnencodedDataBytes() = 0;
 
   virtual MemoryPool* memory_pool() const = 0;
