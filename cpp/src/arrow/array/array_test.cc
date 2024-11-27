@@ -899,24 +899,9 @@ TEST_F(TestArray, TestMakeMaskArray) {
   ASSERT_OK(array->ValidateFull());
   ASSERT_EQ(array->length(), 10);
 
-  ASSERT_OK_AND_ASSIGN(auto true_scalar, MakeScalar(boolean(), true));
-  ASSERT_OK_AND_ASSIGN(auto false_scalar, MakeScalar(boolean(), false));
-
   // Only values at index 5 and 8 should be true.
-  ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(1));
-  AssertScalarsEqual(*scalar, *false_scalar);
-
-  ASSERT_OK_AND_ASSIGN(scalar, array->GetScalar(5));
-  AssertScalarsEqual(*scalar, *true_scalar);
-
-  ASSERT_OK_AND_ASSIGN(scalar, array->GetScalar(6));
-  AssertScalarsEqual(*scalar, *false_scalar);
-
-  ASSERT_OK_AND_ASSIGN(scalar, array->GetScalar(8));
-  AssertScalarsEqual(*scalar, *true_scalar);
-
-  ASSERT_OK_AND_ASSIGN(scalar, array->GetScalar(9));
-  AssertScalarsEqual(*scalar, *false_scalar);
+  auto expected = ArrayFromJSON(boolean(), "[false, false, false, false, false, true, false, false, true, false]");
+  AssertArraysEqual(*array, *expected);
 }
 
 TEST_F(TestArray, ExtensionSpanRoundTrip) {

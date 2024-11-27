@@ -918,25 +918,15 @@ Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
 
 Result<std::shared_ptr<Array>> MakeMaskArray(const std::vector<int64_t>& indices,
                                              int64_t length, MemoryPool* pool) {
-  BooleanBuilder builder(pool);
-  RETURN_NOT_OK(builder.Resize(length));
-
-  auto indices_end = indices.end();
-  auto i = indices.begin();
-  for (int64_t builder_i = 0; builder_i < length; builder_i++) {
-    if (i == indices_end) {
-      RETURN_NOT_OK(
-          builder.AppendValues(static_cast<int64_t>(length - builder.length()), false));
-      break;
-    } else if (builder_i == *i) {
-      builder.UnsafeAppend(true);
-      i++;
-    } else {
-      builder.UnsafeAppend(false);
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBitmap(length, pool));
+  bit_util::SetBitsTo(buffer->mutable_data(), 0, length, false);
+  for (int64_t index : indices) {
+    if (index < 0 || index >= length) {
+      return Status::IndexError("Index out of bounds: ", index);
     }
+    bit_util::SetBit(buffer->mutable_data(), index);
   }
-
-  return builder.Finish();
+  return std::make_shared<BooleanArray>(length, buffer);
 }
 
 namespace internal {
