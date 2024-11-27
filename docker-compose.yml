@@ -1293,7 +1293,8 @@ services:
     image: ${REPO}:python-${PYTHON}-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
-        base: ${REPO}:python-wheel-windows-vs2019-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+        repo: ${REPO}
+        tag: python-wheel-windows-vs2019-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
       context: .
       dockerfile: ci/docker/python-wheel-windows-vs2019.dockerfile

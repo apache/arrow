@@ -20,8 +20,11 @@
 
 # based on mcr.microsoft.com/windows/servercore:ltsc2019
 # contains choco and vs2019 preinstalled
-ARG base
-FROM ${base}
+ARG repo
+ARG tag
+FROM ${repo}:${tag}
+
+# hadolint shell=cmd.exe
 
 # Define the full version number otherwise choco falls back to patch number 0 (3.9 => 3.9.0)
 ARG python=3.9
