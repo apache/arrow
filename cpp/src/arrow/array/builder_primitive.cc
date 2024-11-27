@@ -95,7 +95,7 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
 }
 
 Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
-                                    const util::span<bool> is_valid) {
+                                    const std::vector<bool>& is_valid) {
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
   int64_t i = 0;
@@ -106,7 +106,7 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
 }
 
 Status BooleanBuilder::AppendValues(const util::span<uint8_t> values,
-                                    const util::span<bool> is_valid) {
+                                    const std::vector<bool>& is_valid) {
   return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
 }
 
@@ -114,8 +114,8 @@ Status BooleanBuilder::AppendValues(const util::span<uint8_t> values) {
   return AppendValues(values.data(), static_cast<int64_t>(values.size()));
 }
 
-Status BooleanBuilder::AppendValues(const util::span<bool> values,
-                                    const util::span<bool> is_valid) {
+Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
+                                    const std::vector<bool>& is_valid) {
   const int64_t length = static_cast<int64_t>(values.size());
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
@@ -126,7 +126,7 @@ Status BooleanBuilder::AppendValues(const util::span<bool> values,
   return Status::OK();
 }
 
-Status BooleanBuilder::AppendValues(const util::span<bool> values) {
+Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
   const int64_t length = static_cast<int64_t>(values.size());
   RETURN_NOT_OK(Reserve(length));
   int64_t i = 0;
