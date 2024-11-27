@@ -114,6 +114,8 @@ class UnmaterializedCompositeTable {
         MATERIALIZE_CASE(BINARY)
         MATERIALIZE_CASE(LARGE_BINARY)
         MATERIALIZE_CASE(FIXED_SIZE_LIST)
+        MATERIALIZE_CASE(LIST)
+        MATERIALIZE_CASE(STRUCT)
         default:
           return arrow::Status::Invalid("Unsupported data type ",
                                         field->type()->ToString(), " for field ",
@@ -167,8 +169,6 @@ class UnmaterializedCompositeTable {
     num_rows += slice.Size();
   }
 
- 
-
   template <class Type, class Builder = typename arrow::TypeTraits<Type>::BuilderType>
   arrow::Result<std::shared_ptr<arrow::Array>> materializeColumn(
       const std::shared_ptr<arrow::DataType>& type, int i_col) {
@@ -181,13 +181,8 @@ class UnmaterializedCompositeTable {
     for (const auto& unmaterialized_slice : slices) {
       const auto& [batch, start, end] = unmaterialized_slice.components[table_index];
       if (batch) {
-ARROW_RETURN_NOT_OK(builder.AppendArraySlice(*batch->column_data(column_index),start,end-start));
-
-        // for (uint64_t rowNum = start; rowNum < end; ++rowNum) {
-        //   arrow::Status st = BuilderAppend<Type, Builder>(
-        //       builder, batch->column_data(column_index), rowNum);
-        //   ARROW_RETURN_NOT_OK(st);
-        // }
+        ARROW_RETURN_NOT_OK(builder.AppendArraySlice(*batch->column_data(column_index),
+                                                     start, end - start));
       } else {
         for (uint64_t rowNum = start; rowNum < end; ++rowNum) {
           ARROW_RETURN_NOT_OK(builder.AppendNull());
