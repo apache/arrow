@@ -24,13 +24,6 @@ updates:
     commit-message:
       prefix: "MINOR: [CI] "
     open-pull-requests-limit: 10
-  - package-ecosystem: "maven"
-    directory: "/java/"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "MINOR: [Java] "
-    open-pull-requests-limit: 10
   - package-ecosystem: "npm"
     directory: "/js/"
     schedule:

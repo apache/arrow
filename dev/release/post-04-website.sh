@@ -29,6 +29,12 @@ if [ "$#" -ne 2 ]; then
   exit 1
 fi
 
+# Verify archery is available and stop if not
+if ! archery --help > /dev/null 2>&1; then
+  echo "This script requires archery. Please install it and try again."
+  exit 1
+fi
+
 previous_version=$1
 version=$2
 

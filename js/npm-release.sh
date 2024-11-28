@@ -24,6 +24,7 @@ yarn gulp
 
 read -p "Please enter your npm 2FA one-time password (or leave empty if you don't have 2FA enabled): " NPM_OTP </dev/tty
 
-# publish the JS target modules to npm
-find targets -type f -name package.json -execdir sh -c \
+# collect targets by finding package.json files
+# skips any in a bin dir, see GH-44585
+find targets -type f -name package.json ! -path "*/bin/*" -execdir sh -c \
   "npm publish \$(dirname \$(realpath {})) ${NPM_OTP:+ --otp=$NPM_OTP}" \;

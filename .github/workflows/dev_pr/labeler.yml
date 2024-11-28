@@ -16,56 +16,86 @@
 # under the License.
 
 "Component: C++":
-  - cpp/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - cpp/**/*
 
 "Component: GLib":
-  - c_glib/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - c_glib/**/*
 
 "Component: C#":
-  - csharp/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - csharp/**/*
 
 "Component: Go":
-  - go/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - go/**/*
 
 "Component: Java":
-  - java/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - java/**/*
 
 "Component: JavaScript":
-  - js/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - js/**/*
 
 "Component: MATLAB":
-  - matlab/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - matlab/**/*
 
 "Component: Python":
-  - python/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - python/**/*
 
 "Component: R":
-  - r/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - r/**/*
 
 "Component: Ruby":
-  - ruby/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - ruby/**/*
 
 "Component: Swift":
-  - swift/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - swift/**/*
 
 "Component: FlightRPC":
-  - cpp/src/arrow/flight/**/*
-  - r/R/flight.*
-  - python/pyarrow/*flight.*
+- changed-files:
+  - any-glob-to-any-file:
+    - cpp/src/arrow/flight/**/*
+    - r/R/flight.*
+    - python/pyarrow/*flight.*
 
 "Component: Gandiva":
-  - c_glib/gandiva-glib/**/*
-  - cpp/src/gandiva/**/*
-  - java/gandiva/**/*
-  - python/pyarrow/gandiva.*
-  - ruby/red-gandiva/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - c_glib/gandiva-glib/**/*
+    - cpp/src/gandiva/**/*
+    - java/gandiva/**/*
+    - python/pyarrow/gandiva.*
+    - ruby/red-gandiva/**/*
 
 "Component: Parquet":
-  - c_glib/parquet-glib/**/*
-  - cpp/src/parquet/**/*
-  - r/R/parquet.*
-  - ruby/red-parquet/**/*
+- changed-files:
+  - any-glob-to-any-file:
+    - c_glib/parquet-glib/**/*
+    - cpp/src/parquet/**/*
+    - r/R/parquet.*
+    - ruby/red-parquet/**/*
 
 "Component: Documentation":
-  - docs/**/*
-  - "**/*.{md, rst, Rmd, Rd}"
+- changed-files:
+  - any-glob-to-any-file:
+    - docs/**/*
+    - "**/*.{md, rst, Rmd, Rd}"

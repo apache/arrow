@@ -129,6 +129,14 @@ jobs:
           done
           brew install --overwrite python
 
+          if [ "$(uname -m)" = "arm64" ]; then
+            # pkg-config formula is deprecated but it's still installed
+            # in GitHub Actions runner now. We can remove this once
+            # pkg-config formula is removed from GitHub Actions runner.
+            brew uninstall pkg-config || :
+            brew uninstall pkg-config@0.29.2 || :
+          fi
+
           brew bundle --file=arrow/cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
           # aws-sdk-cpp provides only shared library. If we have

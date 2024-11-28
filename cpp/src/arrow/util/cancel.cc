@@ -50,7 +50,7 @@ struct StopSourceImpl {
   Status cancel_error_;
 };
 
-StopSource::StopSource() : impl_(new StopSourceImpl) {}
+StopSource::StopSource() : impl_(std::make_shared<StopSourceImpl>()) {}
 
 StopSource::~StopSource() = default;
 

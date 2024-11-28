@@ -155,8 +155,16 @@ jobs:
       - name: Install Homebrew Dependencies
         shell: bash
         run: |
+          # pkg-config formula is deprecated but it's still installed
+          # in GitHub Actions runner now. We can remove this once
+          # pkg-config formula is removed from GitHub Actions runner.
+          brew uninstall pkg-config || :
+          brew uninstall pkg-config@0.29.2 || :
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
+          # For Meson.
+          # See also: https://github.com/mesonbuild/meson/issues/7701
+          echo "PKG_CONFIG=$(brew --prefix pkgconf)/bin/pkgconf" >> $GITHUB_ENV
       - name: Install Ruby Dependencies
         run: |
           export MAKEFLAGS="-j$(sysctl -n hw.ncpu)"

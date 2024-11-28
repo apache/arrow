@@ -64,7 +64,7 @@ jobs:
     strategy:
       matrix:
         platform:
-            - { architecture: "AMD64", macos-version: "12", architecture-suffix: "x64"}
+            - { architecture: "AMD64", macos-version: "13", architecture-suffix: "x64"}
             - { architecture: "ARM64", macos-version: "14", architecture-suffix: "arm64"}
     steps:
       {{ macros.github_checkout_arrow()|indent }}

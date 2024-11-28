@@ -211,6 +211,9 @@ class NumericBuilder
   /// \return Status
   Status AppendValues(const std::vector<value_type>& values,
                       const std::vector<bool>& is_valid) {
+    if (values.empty()) {
+      return Status::OK();
+    }
     return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
   }
 
@@ -218,6 +221,9 @@ class NumericBuilder
   /// \param[in] values a std::vector of values
   /// \return Status
   Status AppendValues(const std::vector<value_type>& values) {
+    if (values.empty()) {
+      return Status::OK();
+    }
     return AppendValues(values.data(), static_cast<int64_t>(values.size()));
   }
 
