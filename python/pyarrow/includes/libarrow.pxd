@@ -46,6 +46,16 @@ cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
 
 
 cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
+    cdef cppclass CDecimal32" arrow::Decimal32":
+        c_string ToString(int32_t scale) const
+
+
+cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
+    cdef cppclass CDecimal64" arrow::Decimal64":
+        c_string ToString(int32_t scale) const
+
+
+cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
     cdef cppclass CDecimal128" arrow::Decimal128":
         c_string ToString(int32_t scale) const
 
@@ -110,6 +120,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_FLOAT" arrow::Type::FLOAT"
         _Type_DOUBLE" arrow::Type::DOUBLE"
 
+        _Type_DECIMAL32" arrow::Type::DECIMAL32"
+        _Type_DECIMAL64" arrow::Type::DECIMAL64"
         _Type_DECIMAL128" arrow::Type::DECIMAL128"
         _Type_DECIMAL256" arrow::Type::DECIMAL256"
 
@@ -1284,6 +1296,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CDoubleScalar" arrow::DoubleScalar"(CScalar):
         double value
+
+    cdef cppclass CDecimal32Scalar" arrow::Decimal32Scalar"(CScalar):
+        CDecimal32 value
+
+    cdef cppclass CDecimal64Scalar" arrow::Decimal64Scalar"(CScalar):
+        CDecimal64 value
 
     cdef cppclass CDecimal128Scalar" arrow::Decimal128Scalar"(CScalar):
         CDecimal128 value
