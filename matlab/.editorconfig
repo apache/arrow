@@ -15,14 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# This is a EditorConfig file: https://editorconfig.org/
+# This is an EditorConfig file: https://editorconfig.org/
 
 # See ../.editorconfig for inherited values
 
-[*.{c,cc,cpp,h,hh,hpp}]
-indent_size = 1
-indent_style = space
-
 [*.m]
-indent_size = 1
+indent_size = 4
 indent_style = space

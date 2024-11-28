@@ -15,16 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# This is a EditorConfig file: https://editorconfig.org/
+# This is an EditorConfig file: https://editorconfig.org/
 
-# Top-most config for this project
+# This is the top-most config for this project
 root = true
+
+# General settings
 
 [*]
 insert_final_newline = true
 trim_trailing_whitespace = true
 charset = utf-8
 spelling_language = en
+
+# Language-specific settings, in approximate alphabetical order
 
 [*.{c,cc,cpp,h,hh,hpp}]
 indent_size = 2
@@ -34,7 +38,7 @@ indent_style = space
 indent_size = 2
 indent_style = space
 
-[{CMakeLists.txt}]
+[CMakeLists.txt]
 indent_size = 2
 indent_style = space
 
@@ -73,6 +77,10 @@ indent_style = space
 
 [*.sh]
 indent_size = 2
+indent_style = space
+
+[*.vala]
+indent_size = 4
 indent_style = space
 
 [*.{yml,yaml}]
