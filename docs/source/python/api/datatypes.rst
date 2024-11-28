@@ -104,6 +104,8 @@ functions above.
    Time32Type
    Time64Type
    FixedSizeBinaryType
+   Decimal32Type
+   Decimal64Type
    Decimal128Type
    Decimal256Type
    Field
