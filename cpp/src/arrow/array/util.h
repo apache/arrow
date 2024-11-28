@@ -82,6 +82,11 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> MakeMaskArray(const std::vector<int64_t>& indices,
                                              int64_t length,
                                              MemoryPool* pool = default_memory_pool());
+
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> MakeMaskArray(const std::shared_ptr<Array> &indices,
+                                             int64_t length, 
+                                             MemoryPool* pool = default_memory_pool());
 /// @}
 
 namespace internal {
