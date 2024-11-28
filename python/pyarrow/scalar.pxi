@@ -336,6 +336,46 @@ cdef class DoubleScalar(Scalar):
         return sp.value if sp.is_valid else None
 
 
+cdef class Decimal32Scalar(Scalar):
+    """
+    Concrete class for decimal32 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python Decimal.
+        """
+        cdef:
+            CDecimal32Scalar* sp = <CDecimal32Scalar*> self.wrapped.get()
+            CDecimal32Type* dtype = <CDecimal32Type*> sp.type.get()
+        if sp.is_valid:
+            return _pydecimal.Decimal(
+                frombytes(sp.value.ToString(dtype.scale()))
+            )
+        else:
+            return None
+
+
+cdef class Decimal64Scalar(Scalar):
+    """
+    Concrete class for decimal64 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python Decimal.
+        """
+        cdef:
+            CDecimal64Scalar* sp = <CDecimal64Scalar*> self.wrapped.get()
+            CDecimal64Type* dtype = <CDecimal64Type*> sp.type.get()
+        if sp.is_valid:
+            return _pydecimal.Decimal(
+                frombytes(sp.value.ToString(dtype.scale()))
+            )
+        else:
+            return None
+
+
 cdef class Decimal128Scalar(Scalar):
     """
     Concrete class for decimal128 scalars.

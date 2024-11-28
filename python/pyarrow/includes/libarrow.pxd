@@ -453,6 +453,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int byte_width()
         int bit_width()
 
+    cdef cppclass CDecimal32Type \
+            " arrow::Decimal32Type"(CFixedSizeBinaryType):
+        CDecimal32Type(int precision, int scale)
+        int precision()
+        int scale()
+
+    cdef cppclass CDecimal64Type \
+            " arrow::Decimal64Type"(CFixedSizeBinaryType):
+        CDecimal64Type(int precision, int scale)
+        int precision()
+        int scale()
+
     cdef cppclass CDecimal128Type \
             " arrow::Decimal128Type"(CFixedSizeBinaryType):
         CDecimal128Type(int precision, int scale)
@@ -679,6 +691,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFixedSizeBinaryArray" arrow::FixedSizeBinaryArray"(CArray):
         const uint8_t* GetValue(int i)
+
+    cdef cppclass CDecimal32Array" arrow::Decimal32Array"(
+        CFixedSizeBinaryArray
+    ):
+        c_string FormatValue(int i)
+
+    cdef cppclass CDecimal64Array" arrow::Decimal64Array"(
+        CFixedSizeBinaryArray
+    ):
+        c_string FormatValue(int i)
 
     cdef cppclass CDecimal128Array" arrow::Decimal128Array"(
         CFixedSizeBinaryArray
