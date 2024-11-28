@@ -187,12 +187,12 @@ cdef class FixedSizeBinaryType(DataType):
 
 cdef class Decimal32Type(FixedSizeBinaryType):
     cdef:
-        const Decimal32Type* decimal32_type
+        const CDecimal32Type* decimal32_type
 
 
 cdef class Decimal64Type(FixedSizeBinaryType):
     cdef:
-        const Decimal64Type* decimal64_type
+        const CDecimal64Type* decimal64_type
 
 
 cdef class Decimal128Type(FixedSizeBinaryType):
@@ -437,6 +437,14 @@ cdef class DoubleArray(FloatingPointArray):
 
 
 cdef class FixedSizeBinaryArray(Array):
+    pass
+
+
+cdef class Decimal32Array(FixedSizeBinaryArray):
+    pass
+
+
+cdef class Decimal64Array(FixedSizeBinaryArray):
     pass
 
 

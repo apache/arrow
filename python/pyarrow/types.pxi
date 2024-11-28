@@ -73,7 +73,10 @@ def _get_pandas_type_map():
             _Type_STRING: np.object_,
             _Type_LIST: np.object_,
             _Type_MAP: np.object_,
+            _Type_DECIMAL32: np.object_,
+            _Type_DECIMAL64: np.object_,
             _Type_DECIMAL128: np.object_,
+            _Type_DECIMAL256: np.object_,
         })
     return _pandas_type_map
 

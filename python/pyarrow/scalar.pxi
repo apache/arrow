@@ -1172,6 +1172,8 @@ cdef dict _scalar_classes = {
     _Type_HALF_FLOAT: HalfFloatScalar,
     _Type_FLOAT: FloatScalar,
     _Type_DOUBLE: DoubleScalar,
+    _Type_DECIMAL32: Decimal32Scalar,
+    _Type_DECIMAL64: Decimal64Scalar,
     _Type_DECIMAL128: Decimal128Scalar,
     _Type_DECIMAL256: Decimal256Scalar,
     _Type_DATE32: Date32Scalar,
