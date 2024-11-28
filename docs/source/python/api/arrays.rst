@@ -86,6 +86,11 @@ may expose data type-specific methods or properties.
    ExtensionArray
    FixedShapeTensorArray
    OpaqueArray
+   JsonArray
+   UuidArray
+   Bool8Array
+   Decimal256Array
+
 
 .. _api.scalar:
 

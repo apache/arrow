@@ -72,6 +72,12 @@ These should be used to create Arrow data types and schemas.
    field
    schema
    from_numpy_dtype
+   bool8
+   uuid
+   json_
+   union
+   dense_union
+   sparse_union
 
 Utility Functions
 -----------------
@@ -109,6 +115,12 @@ functions above.
    Field
    Schema
    RunEndEncodedType
+   ListViewType
+   LargeListViewType
+   FixedSizeListType
+   SparseUnionType
+   DenseUnionType
+   DurationType
 
 Specific classes and functions for extension types.
 
@@ -117,6 +129,7 @@ Specific classes and functions for extension types.
 
    ExtensionType
    PyExtensionType
+   UnknownExtensionType
    register_extension_type
    unregister_extension_type
 
@@ -128,6 +141,9 @@ implemented by PyArrow.
 
    FixedShapeTensorType
    OpaqueType
+   JsonType
+   UuidType
+   Bool8Type
 
 .. _api.types.checking:
 .. currentmodule:: pyarrow.types
