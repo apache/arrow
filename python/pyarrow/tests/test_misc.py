@@ -165,6 +165,8 @@ def test_set_timezone_db_path_non_windows():
     pa.Time32Type,
     pa.Time64Type,
     pa.TimestampType,
+    pa.Decimal32Type,
+    pa.Decimal64Type,
     pa.Decimal128Type,
     pa.Decimal256Type,
     pa.DictionaryType,
