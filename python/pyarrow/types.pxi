@@ -4500,6 +4500,116 @@ def float64():
     return primitive_type(_Type_DOUBLE)
 
 
+cpdef DataType decimal32(int precision, int scale=0):
+    """
+    Create decimal type with precision and scale and 32-bit width.
+
+    Arrow decimals are fixed-point decimal numbers encoded as a scaled
+    integer.  The precision is the number of significant digits that the
+    decimal type can represent; the scale is the number of digits after
+    the decimal point (note the scale can be negative).
+
+    As an example, ``decimal32(7, 3)`` can exactly represent the numbers
+    1234.567 and -1234.567 (encoded internally as the 32-bit integers
+    1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+
+    ``decimal32(5, -3)`` can exactly represent the number 12345000
+    (encoded internally as the 32-bit integer 12345), but neither
+    123450000 nor 1234500.
+
+    If you need a precision higher than 9 significant digits, consider
+    using ``decimal64``, ``decimal128``, or ``decimal256``.
+
+    Parameters
+    ----------
+    precision : int
+        Must be between 1 and 9
+    scale : int
+
+    Returns
+    -------
+    decimal_type : Decimal32Type
+
+    Examples
+    --------
+    Create an instance of decimal type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal32(5, 2)
+    Decimal32Type(decimal32(5, 2))
+
+    Create an array with decimal type:
+
+    >>> import decimal
+    >>> a = decimal.Decimal('123.45')
+    >>> pa.array([a], pa.decimal32(5, 2))
+    <pyarrow.lib.Decimal32Array object at ...>
+    [
+      123.45
+    ]
+    """
+    cdef shared_ptr[CDataType] decimal_type
+    if precision < 1 or precision > 9:
+        raise ValueError("precision should be between 1 and 9")
+    decimal_type.reset(new CDecimal32Type(precision, scale))
+    return pyarrow_wrap_data_type(decimal_type)
+
+
+cpdef DataType decimal64(int precision, int scale=0):
+    """
+    Create decimal type with precision and scale and 64-bit width.
+
+    Arrow decimals are fixed-point decimal numbers encoded as a scaled
+    integer.  The precision is the number of significant digits that the
+    decimal type can represent; the scale is the number of digits after
+    the decimal point (note the scale can be negative).
+
+    As an example, ``decimal64(7, 3)`` can exactly represent the numbers
+    1234.567 and -1234.567 (encoded internally as the 64-bit integers
+    1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+
+    ``decimal64(5, -3)`` can exactly represent the number 12345000
+    (encoded internally as the 64-bit integer 12345), but neither
+    123450000 nor 1234500.
+
+    If you need a precision higher than 18 significant digits, consider
+    using ``decimal128``, or ``decimal256``.
+
+    Parameters
+    ----------
+    precision : int
+        Must be between 1 and 9
+    scale : int
+
+    Returns
+    -------
+    decimal_type : Decimal64Type
+
+    Examples
+    --------
+    Create an instance of decimal type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal64(5, 2)
+    Decimal64Type(decimal64(5, 2))
+
+    Create an array with decimal type:
+
+    >>> import decimal
+    >>> a = decimal.Decimal('123.45')
+    >>> pa.array([a], pa.decimal64(5, 2))
+    <pyarrow.lib.Decimal64Array object at ...>
+    [
+      123.45
+    ]
+    """
+    cdef shared_ptr[CDataType] decimal_type
+    if precision < 1 or precision > 9:
+        raise ValueError("precision should be between 1 and 9")
+    decimal_type.reset(new CDecimal64Type(precision, scale))
+    return pyarrow_wrap_data_type(decimal_type)
+
+
 cpdef DataType decimal128(int precision, int scale=0):
     """
     Create decimal type with precision and scale and 128-bit width.
