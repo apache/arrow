@@ -42,7 +42,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     (data || {})[:bump_type]
   end
 
-  def current_version
+  def released_version
     return @release_version if bump_type.nil?
 
     previous_version_components = @previous_version.split(".")
@@ -55,8 +55,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     previous_version_components.join(".")
   end
 
-  def current_compatible_version
-    compute_compatible_version(current_version)
+  def released_compatible_version
+    compute_compatible_version(released_version)
   end
 
   def bump_versions(*targets)
@@ -74,12 +74,12 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     when :minor, :patch
       sh(env,
          "dev/release/post-12-bump-versions.sh",
-         current_version,
+         released_version,
          @release_version)
     else
       sh(env,
          "dev/release/post-12-bump-versions.sh",
-         current_version,
+         released_version,
          @next_version)
     end
   end
@@ -99,7 +99,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           path: "ci/scripts/PKGBUILD",
           hunks: [
             ["-pkgver=#{@previous_version}.9000",
-             "+pkgver=#{current_version}.9000"],
+             "+pkgver=#{released_version}.9000"],
           ],
         },
       ]
@@ -126,16 +126,16 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           path: "r/DESCRIPTION",
           hunks: [
             ["-Version: #{@previous_version}.9000",
-             "+Version: #{current_version}.9000"],
+             "+Version: #{released_version}.9000"],
           ],
         },
         {
           path: "r/NEWS.md",
           hunks: [
             ["-# arrow #{@previous_version}.9000",
-             "+# arrow #{current_version}.9000",
+             "+# arrow #{released_version}.9000",
              "+",
-             "+# arrow #{current_version}",],
+             "+# arrow #{released_version}",],
           ],
         },
         {
@@ -144,8 +144,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
             [
               "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
               "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
-              "+<body><p><a href=\"../dev/r/\">#{current_version}.9000 (dev)</a></p>",
-              "+<p><a href=\"../r/\">#{current_version} (release)</a></p>",
+              "+<body><p><a href=\"../dev/r/\">#{released_version}.9000 (dev)</a></p>",
+              "+<p><a href=\"../r/\">#{released_version} (release)</a></p>",
             ],
           ],
         },
@@ -154,9 +154,9 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           hunks: [
             [
               "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
-              "+        \"name\": \"#{current_version}.9000 (dev)\",",
+              "+        \"name\": \"#{released_version}.9000 (dev)\",",
               "-        \"name\": \"#{@previous_r_version} (release)\",",
-              "+        \"name\": \"#{current_version} (release)\",",
+              "+        \"name\": \"#{released_version} (release)\",",
             ],
           ],
         },
