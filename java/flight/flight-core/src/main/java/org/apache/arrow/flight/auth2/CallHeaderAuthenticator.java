@@ -18,6 +18,7 @@ package org.apache.arrow.flight.auth2;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.FlightRuntimeException;
+import org.apache.arrow.flight.RequestInfo;
 
 /**
  * Interface for Server side authentication handlers.
@@ -76,6 +77,19 @@ public interface CallHeaderAuthenticator {
    *     or if credentials were supplied but were not valid.
    */
   AuthResult authenticate(CallHeaders incomingHeaders);
+
+  /**
+   * Validate the auth headers sent by the client.
+   *
+   * @param incomingHeaders The incoming headers to authenticate.
+   * @param requestInfo Information about the request.
+   * @return an auth result containing a peer identity and optionally a bearer token.
+   * @throws FlightRuntimeException with CallStatus.UNAUTHENTICATED if credentials were not supplied
+   *     or if credentials were supplied but were not valid.
+   */
+  default AuthResult authenticate(CallHeaders incomingHeaders, RequestInfo requestInfo) {
+    return authenticate(incomingHeaders);
+  }
 
   /** An auth handler that does nothing. */
   CallHeaderAuthenticator NO_OP =

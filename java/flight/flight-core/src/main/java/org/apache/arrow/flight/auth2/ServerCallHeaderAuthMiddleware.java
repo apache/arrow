@@ -46,7 +46,8 @@ public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
     @Override
     public ServerCallHeaderAuthMiddleware onCallStarted(
         CallInfo callInfo, CallHeaders incomingHeaders, RequestContext context) {
-      final AuthResult result = authHandler.authenticate(incomingHeaders);
+      final AuthResult result =
+          authHandler.authenticate(incomingHeaders, callInfo.getRequestInfo());
       context.put(Auth2Constants.PEER_IDENTITY_KEY, result.getPeerIdentity());
       return new ServerCallHeaderAuthMiddleware(result);
     }
