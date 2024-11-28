@@ -91,7 +91,9 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// \param[in] dictionary the new dictionary
   /// \param[in] transpose_map transposition array of this array's indices
   ///   into the target array's indices. The value of transpose_map should
-  ///   be in the range [0, this->length()).
+  ///   be in the range [0, this->length()). And the dictionary array's
+  ///   indices in the target array's indices should be in the range
+  ///   of [0, dictionary->length()).
   ///
   /// \param[in] pool a pool to allocate the array data from
   Result<std::shared_ptr<Array>> Transpose(
