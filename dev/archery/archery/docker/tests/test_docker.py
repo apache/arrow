@@ -217,10 +217,9 @@ def arrow_compose_path(tmpdir):
     return create_config(tmpdir, arrow_compose_yml, arrow_compose_env)
 
 
-# Make sure that the tests behave the same on CI as when run locally.
 @pytest.fixture(autouse=True)
 def no_ci_env_variables(monkeypatch):
-    """Remove requests.sessions.Session.request for all tests."""
+    """Make sure that the tests behave the same on CI as when run locally"""
     monkeypatch.delenv("APPVEYOR", raising=False)
     monkeypatch.delenv("BUILD_BUILDURI", raising=False)
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
