@@ -185,6 +185,16 @@ cdef class FixedSizeBinaryType(DataType):
         const CFixedSizeBinaryType* fixed_size_binary_type
 
 
+cdef class Decimal32Type(FixedSizeBinaryType):
+    cdef:
+        const Decimal32Type* decimal32_type
+
+
+cdef class Decimal64Type(FixedSizeBinaryType):
+    cdef:
+        const Decimal64Type* decimal64_type
+
+
 cdef class Decimal128Type(FixedSizeBinaryType):
     cdef:
         const CDecimal128Type* decimal128_type
