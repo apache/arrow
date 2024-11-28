@@ -116,6 +116,7 @@ class UnmaterializedCompositeTable {
         MATERIALIZE_CASE(FIXED_SIZE_LIST)
         MATERIALIZE_CASE(LIST)
         MATERIALIZE_CASE(STRUCT)
+        MATERIALIZE_CASE(MAP)
         default:
           return arrow::Status::Invalid("Unsupported data type ",
                                         field->type()->ToString(), " for field ",

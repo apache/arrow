@@ -1912,5 +1912,35 @@ TEST(AsofJoinTest, StructTestDataType) {
     ])");
   AssertExecBatchesEqual(result.schema, {exp_batch}, result.batches);
 }
+
+TEST(AsofJoinTest, MapTestDataType) {
+  auto map_type = map(int64(), int64());
+
+  auto left_batch = ExecBatchFromJSON({int64()}, R"([[1], [2], [3]])");
+  auto right_batch = ExecBatchFromJSON({map_type, int64()}, R"([
+      [[[11, 111], [22, 222]], 2],
+      [[[33, 333], [44, 444], [77, 777]], 3], 
+      [[[55, 555], [66, 666]], 4]
+    ])");
+
+  Declaration left{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(schema({field("on", int64())}),
+                                              {std::move(left_batch)})};
+  Declaration right{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("col", map_type), field("on", int64())}),
+                                 {std::move(right_batch)})};
+  AsofJoinNodeOptions asof_join_opts({{{"on"}, {}}, {{"on"}, {}}}, 1);
+  Declaration asof_join{
+      "asofjoin", {std::move(left), std::move(right)}, std::move(asof_join_opts)};
+
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(asof_join)));
+  auto exp_batch = ExecBatchFromJSON({int64(), map_type}, R"([
+      [1, [[11, 111], [22, 222]]],
+      [2, [[11, 111], [22, 222]]],
+      [3, [[33, 333], [44, 444], [77, 777]]]
+    ])");
+  AssertExecBatchesEqual(result.schema, {exp_batch}, result.batches);
+}
 }  // namespace acero
 }  // namespace arrow
