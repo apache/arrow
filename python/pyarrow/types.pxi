@@ -4607,8 +4607,8 @@ cpdef DataType decimal64(int precision, int scale=0):
     ]
     """
     cdef shared_ptr[CDataType] decimal_type
-    if precision < 1 or precision > 9:
-        raise ValueError("precision should be between 1 and 9")
+    if precision < 1 or precision > 18:
+        raise ValueError("precision should be between 1 and 18")
     decimal_type.reset(new CDecimal64Type(precision, scale))
     return pyarrow_wrap_data_type(decimal_type)
 
