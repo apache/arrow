@@ -110,7 +110,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
             hunks: [
               [
                 "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
-                "+        \"name\": \"#{current_compatible_version} (stable)\",",
+                "+        \"name\": \"#{released_compatible_version} (stable)\",",
                 "+    {",
                 "+        \"name\": \"#{@previous_compatible_version}\",",
                 "+        \"version\": \"#{@previous_compatible_version}/\",",
