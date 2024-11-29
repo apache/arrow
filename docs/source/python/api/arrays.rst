@@ -91,7 +91,6 @@ may expose data type-specific methods or properties.
    Bool8Array
    Decimal256Array
 
-
 .. _api.scalar:
 
 Scalars
