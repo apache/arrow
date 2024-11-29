@@ -68,16 +68,16 @@ These should be used to create Arrow data types and schemas.
    dictionary
    run_end_encoded
    fixed_shape_tensor
-   opaque
-   field
-   schema
-   from_numpy_dtype
-   bool8
-   uuid
-   json_
    union
    dense_union
    sparse_union
+   opaque
+   bool8
+   uuid
+   json_
+   field
+   schema
+   from_numpy_dtype
 
 Utility Functions
 -----------------
@@ -102,31 +102,32 @@ functions above.
    DataType
    DictionaryType
    ListType
+   ListViewType
+   FixedSizeListType
    LargeListType
+   LargeListViewType
    MapType
    StructType
    UnionType
+   DenseUnionType
+   SparseUnionType
    TimestampType
    Time32Type
    Time64Type
+   DurationType
    FixedSizeBinaryType
    Decimal128Type
    Decimal256Type
    Field
    Schema
    RunEndEncodedType
-   ListViewType
-   LargeListViewType
-   FixedSizeListType
-   SparseUnionType
-   DenseUnionType
-   DurationType
 
 Specific classes and functions for extension types.
 
 .. autosummary::
    :toctree: ../generated/
 
+   BaseExtensionType
    ExtensionType
    PyExtensionType
    UnknownExtensionType

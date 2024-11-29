@@ -73,6 +73,7 @@ may expose data type-specific methods or properties.
    DurationArray
    MonthDayNanoIntervalArray
    Decimal128Array
+   Decimal256Array
    DictionaryArray
    ListArray
    FixedSizeListArray
@@ -89,7 +90,6 @@ may expose data type-specific methods or properties.
    JsonArray
    UuidArray
    Bool8Array
-   Decimal256Array
 
 .. _api.scalar:
 
