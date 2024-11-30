@@ -337,6 +337,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   if (input.offset == output->offset) {
     output->buffers[0] = input.GetBuffer(0);
   } else {
+    // When the offsets are different (e.g., due to slice operation), we need to check if
+    // the null bitmap buffer is not null before copying it. The null bitmap buffer can be
+    // null if the input array value does not contain any null value.
     if (input.buffers[0].data != NULLPTR) {
       ARROW_ASSIGN_OR_RAISE(
           output->buffers[0],
@@ -346,16 +349,19 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   }
 
   // Set up offset and data buffer
-  DataBuilder data_builder(ctx->memory_pool());
   OffsetBuilder offset_builder(ctx->memory_pool());
   RETURN_NOT_OK(offset_builder.Reserve(batch.length + 1));
   offset_builder.UnsafeAppend(0);  // offsets start at 0
+  const int64_t sum_of_binary_view_sizes = util::SumOfBinaryViewSizes(
+      input.GetValues<BinaryViewType::c_type>(1), input.length);
+  DataBuilder data_builder(ctx->memory_pool());
+  RETURN_NOT_OK(data_builder.Reserve(sum_of_binary_view_sizes));
   RETURN_NOT_OK(VisitArraySpanInline<I>(
       batch[0].array,
       [&](std::string_view s) {
         // for non-null value, append string view to buffer and calculate offset
-        ARROW_RETURN_NOT_OK(data_builder.Append(
-            reinterpret_cast<const uint8_t*>(s.data()), static_cast<int64_t>(s.size())));
+        data_builder.UnsafeAppend(reinterpret_cast<const uint8_t*>(s.data()),
+                                  static_cast<int64_t>(s.size()));
         offset_builder.UnsafeAppend(static_cast<offset_type>(data_builder.length()));
         return Status::OK();
       },
@@ -364,8 +370,8 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
         offset_builder.UnsafeAppend(static_cast<offset_type>(data_builder.length()));
         return Status::OK();
       }));
-  RETURN_NOT_OK(data_builder.Finish(&output->buffers[2]));
   RETURN_NOT_OK(offset_builder.Finish(&output->buffers[1]));
+  RETURN_NOT_OK(data_builder.Finish(&output->buffers[2]));
   return Status::OK();
 }
 
