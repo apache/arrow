@@ -360,7 +360,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
         return Status::OK();
       },
       [&]() {
-        // for null value, no need to update buffer
+        // for null value, no need to update data buffer
         offset_builder.UnsafeAppend(static_cast<offset_type>(data_builder.length()));
         return Status::OK();
       }));
