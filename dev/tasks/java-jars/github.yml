@@ -19,6 +19,9 @@
 
 {{ macros.github_header() }}
 
+permissions:
+  packages: write
+
 jobs:
 
   build-cpp-ubuntu:
@@ -51,7 +54,14 @@ jobs:
       - name: Build C++ libraries
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
+          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
+          if [ "${ARCH}" = "arm64v8" ]; then
+            # We can't use NuGet on manylinux2014_aarch64 because Mono is old.
+            :
+          else
+            export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
+          fi
           archery docker run \
             -e ARROW_JAVA_BUILD=OFF \
             -e ARROW_JAVA_TEST=OFF \
@@ -118,6 +128,14 @@ jobs:
             brew install --overwrite ${python_package}
           done
           brew install --overwrite python
+
+          if [ "$(uname -m)" = "arm64" ]; then
+            # pkg-config formula is deprecated but it's still installed
+            # in GitHub Actions runner now. We can remove this once
+            # pkg-config formula is removed from GitHub Actions runner.
+            brew uninstall pkg-config || :
+            brew uninstall pkg-config@0.29.2 || :
+          fi
 
           brew bundle --file=arrow/cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's

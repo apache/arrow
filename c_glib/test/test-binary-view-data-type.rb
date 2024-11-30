@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,15 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+class TestBinaryViewDataType < Test::Unit::TestCase
+  def test_type
+    data_type = Arrow::BinaryViewDataType.new
+    assert_equal(Arrow::Type::BINARY_VIEW, data_type.id)
+  end
 
-# check that optional pyarrow modules are available
-# because pytest would just skip the substrait tests
-echo "Substrait Integration Tests"
-echo "Validating imports"
-python -c "import pyarrow.substrait"
-python -c "from substrait_consumer.consumers.acero_consumer import AceroConsumer"
+  def test_name
+    data_type = Arrow::BinaryViewDataType.new
+    assert_equal("binary_view", data_type.name)
+  end
 
-echo "Executing pytest"
-cd consumer-testing
-pytest -r s substrait_consumer/tests/functional/extension_functions/test_boolean_functions.py --producer isthmus --consumer acero
+  def test_to_s
+    data_type = Arrow::BinaryViewDataType.new
+    assert_equal("binary_view", data_type.to_s)
+  end
+end

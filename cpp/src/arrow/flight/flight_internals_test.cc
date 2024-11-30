@@ -184,12 +184,9 @@ TEST(FlightTypes, FlightDescriptor) {
 TEST(FlightTypes, FlightEndpoint) {
   ASSERT_OK_AND_ASSIGN(auto location1, Location::ForGrpcTcp("localhost", 1024));
   ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTls("localhost", 1024));
-  // 2023-06-19 03:14:06.004330100
-  // We must use microsecond resolution here for portability.
-  // std::chrono::system_clock::time_point may not provide nanosecond
-  // resolution on some platforms such as Windows.
+  // 2023-06-19 03:14:06.004339123
   const auto expiration_time_duration =
-      std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4339000};
+      std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4339123};
   Timestamp expiration_time(
       std::chrono::duration_cast<Timestamp::duration>(expiration_time_duration));
   std::vector<FlightEndpoint> values = {
@@ -210,7 +207,7 @@ TEST(FlightTypes, FlightEndpoint) {
       "<FlightEndpoint ticket=<Ticket ticket='bar'> locations=[] "
       "expiration_time=null app_metadata='DEADBEEF'>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
-      "expiration_time=2023-06-19 03:14:06.004339000 app_metadata=''>",
+      "expiration_time=2023-06-19 03:14:06.004339123 app_metadata=''>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
       "[grpc+tcp://localhost:1024] expiration_time=null app_metadata=''>",
       "<FlightEndpoint ticket=<Ticket ticket='bar'> locations="
@@ -271,12 +268,9 @@ TEST(FlightTypes, PollInfo) {
   auto desc = FlightDescriptor::Command("foo");
   auto endpoint = FlightEndpoint{Ticket{"foo"}, {}, std::nullopt, ""};
   auto info = MakeFlightInfo(schema, desc, {endpoint}, -1, 42, true, "");
-  // 2023-06-19 03:14:06.004330100
-  // We must use microsecond resolution here for portability.
-  // std::chrono::system_clock::time_point may not provide nanosecond
-  // resolution on some platforms such as Windows.
+  // 2023-06-19 03:14:06.004339123
   const auto expiration_time_duration =
-      std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4339000};
+      std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4339123};
   Timestamp expiration_time(
       std::chrono::duration_cast<Timestamp::duration>(expiration_time_duration));
   std::vector<PollInfo> values = {
@@ -292,7 +286,7 @@ TEST(FlightTypes, PollInfo) {
           "progress=null expiration_time=null>",
       "<PollInfo info=" + info.ToString() +
           " descriptor=<FlightDescriptor cmd='poll'> "
-          "progress=0.1 expiration_time=2023-06-19 03:14:06.004339000>",
+          "progress=0.1 expiration_time=2023-06-19 03:14:06.004339123>",
       "<PollInfo info=null descriptor=null progress=null expiration_time=null>",
   };
 

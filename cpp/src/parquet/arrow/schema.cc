@@ -513,11 +513,13 @@ Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
 }
 
 // Special case mentioned in the format spec:
-//   If the name is array or ends in _tuple, this should be a list of struct
-//   even for single child elements.
-bool HasStructListName(const GroupNode& node) {
+//   If the name is array or uses the parent's name with `_tuple` appended,
+//   this should be:
+//   - a list of list or map type if the repeated group node is LIST- or MAP-annotated.
+//   - otherwise, a list of struct even for single child elements.
+bool HasListElementName(const GroupNode& node, const GroupNode& parent) {
   ::std::string_view name{node.name()};
-  return name == "array" || EndsWith(name, "_tuple");
+  return name == "array" || name == (parent.name() + "_tuple");
 }
 
 Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
@@ -598,9 +600,9 @@ Status MapToSchemaField(const GroupNode& group, LevelInfo current_levels,
   ctx->LinkParent(value_field, key_value_field);
 
   // required/optional group name=whatever {
-  //   repeated group name=key_values{
+  //   repeated group name=key_values {
   //     required TYPE key;
-  // required/optional TYPE value;
+  //     required/optional TYPE value;
   //   }
   // }
   //
@@ -634,6 +636,7 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
   if (group.is_repeated()) {
     return Status::Invalid("LIST-annotated groups must not be repeated.");
   }
+
   current_levels.Increment(group);
 
   out->children.resize(group.field_count());
@@ -651,38 +654,62 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
 
   int16_t repeated_ancestor_def_level = current_levels.IncrementRepeated();
   if (list_node.is_group()) {
-    // Resolve 3-level encoding
-    //
-    // required/optional group name=whatever {
-    //   repeated group name=list {
-    //     required/optional TYPE item;
-    //   }
-    // }
-    //
-    // yields list<item: TYPE ?nullable> ?nullable
-    //
-    // We distinguish the special case that we have
-    //
-    // required/optional group name=whatever {
-    //   repeated group name=array or $SOMETHING_tuple {
-    //     required/optional TYPE item;
-    //   }
-    // }
-    //
-    // In this latter case, the inner type of the list should be a struct
-    // rather than a primitive value
-    //
-    // yields list<item: struct<item: TYPE ?nullable> not null> ?nullable
     const auto& list_group = static_cast<const GroupNode&>(list_node);
-    // Special case mentioned in the format spec:
-    //   If the name is array or ends in _tuple, this should be a list of struct
-    //   even for single child elements.
-    if (list_group.field_count() == 1 && !HasStructListName(list_group)) {
-      // List of primitive type
-      RETURN_NOT_OK(
-          NodeToSchemaField(*list_group.field(0), current_levels, ctx, out, child_field));
-    } else {
+    if (list_group.field_count() > 1) {
+      // The inner type of the list should be a struct when there are multiple fields
+      // in the repeated group
       RETURN_NOT_OK(GroupToStruct(list_group, current_levels, ctx, out, child_field));
+    } else if (list_group.field_count() == 1) {
+      const auto& repeated_field = list_group.field(0);
+      if (repeated_field->is_repeated()) {
+        // Special case where the inner type might be a list with two-level encoding
+        // like below:
+        //
+        // required/optional group name=SOMETHING (LIST) {
+        //   repeated group array (LIST) {
+        //     repeated TYPE item;
+        //   }
+        // }
+        //
+        // yields list<item: list<item: TYPE not null> not null> ?nullable
+        if (!list_group.logical_type()->is_list()) {
+          return Status::Invalid("Group with one repeated child must be LIST-annotated.");
+        }
+        // LIST-annotated group with three-level encoding cannot be repeated.
+        if (repeated_field->is_group() &&
+            !static_cast<const GroupNode&>(*repeated_field).field(0)->is_repeated()) {
+          return Status::Invalid("LIST-annotated groups must not be repeated.");
+        }
+        RETURN_NOT_OK(
+            NodeToSchemaField(*repeated_field, current_levels, ctx, out, child_field));
+      } else if (HasListElementName(list_group, group)) {
+        // We distinguish the special case that we have
+        //
+        // required/optional group name=SOMETHING {
+        //   repeated group name=array or $SOMETHING_tuple {
+        //     required/optional TYPE item;
+        //   }
+        // }
+        //
+        // The inner type of the list should be a struct rather than a primitive value
+        //
+        // yields list<item: struct<item: TYPE ?nullable> not null> ?nullable
+        RETURN_NOT_OK(GroupToStruct(list_group, current_levels, ctx, out, child_field));
+      } else {
+        // Resolve 3-level encoding
+        //
+        // required/optional group name=whatever {
+        //   repeated group name=list {
+        //     required/optional TYPE item;
+        //   }
+        // }
+        //
+        // yields list<item: TYPE ?nullable> ?nullable
+        RETURN_NOT_OK(
+            NodeToSchemaField(*repeated_field, current_levels, ctx, out, child_field));
+      }
+    } else {
+      return Status::Invalid("Group must have at least one child.");
     }
   } else {
     // Two-level list encoding
@@ -690,6 +717,10 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
     // required/optional group LIST {
     //   repeated TYPE;
     // }
+    //
+    // TYPE is a primitive type
+    //
+    // yields list<item: TYPE not null> ?nullable
     const auto& primitive_node = static_cast<const PrimitiveNode&>(list_node);
     int column_index = ctx->schema->GetColumnIndex(primitive_node);
     ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> type,

@@ -31,6 +31,16 @@ set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
 set(PYARROW_VERSION "19.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
+# Generate SO version and full SO version
+project(pyarrow VERSION "${PYARROW_BASE_VERSION}")
+set(PYARROW_VERSION_MAJOR "${pyarrow_VERSION_MAJOR}")
+set(PYARROW_VERSION_MINOR "${pyarrow_VERSION_MINOR}")
+set(PYARROW_VERSION_PATCH "${pyarrow_VERSION_PATCH}")
+# pyarrow 1.x.y => SO version is "10x", full SO version is "10x.y.0"
+# Example: for 18.0.0 --> PYARROW_SO_VERSION=1800, PYARROW_FULL_SO_VERSION=1800.0.0
+math(EXPR PYARROW_SO_VERSION "${PYARROW_VERSION_MAJOR} * 100 + ${PYARROW_VERSION_MINOR}")
+set(PYARROW_FULL_SO_VERSION "${PYARROW_SO_VERSION}.${PYARROW_VERSION_PATCH}.0")
+
 # Running from a Python sdist tarball
 set(LOCAL_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/cmake_modules")
 if(EXISTS "${LOCAL_CMAKE_MODULES}")
@@ -470,6 +480,8 @@ else()
 endif()
 target_link_libraries(arrow_python PUBLIC Python3::NumPy)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
+set_target_properties(arrow_python PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
+                                              SOVERSION "${PYARROW_SO_VERSION}")
 install(TARGETS arrow_python
         ARCHIVE DESTINATION .
         LIBRARY DESTINATION .
@@ -485,6 +497,9 @@ else()
                                                                  ${PARQUET_LINK_LIBS})
     target_compile_definitions(arrow_python_parquet_encryption
                                PRIVATE ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING)
+    set_target_properties(arrow_python_parquet_encryption
+                          PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
+                                     SOVERSION "${PYARROW_SO_VERSION}")
     install(TARGETS arrow_python_parquet_encryption
             ARCHIVE DESTINATION .
             LIBRARY DESTINATION .
@@ -515,6 +530,9 @@ if(PYARROW_BUILD_FLIGHT)
   target_link_libraries(arrow_python_flight PUBLIC arrow_python
                                                    ArrowFlight::arrow_flight_shared)
   target_compile_definitions(arrow_python_flight PRIVATE ARROW_PYFLIGHT_EXPORTING)
+  set_target_properties(arrow_python_flight
+                        PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
+                                   SOVERSION "${PYARROW_SO_VERSION}")
   install(TARGETS arrow_python_flight
           ARCHIVE DESTINATION .
           LIBRARY DESTINATION .

@@ -1180,6 +1180,16 @@ TEST_F(TestJSONWithLocalFile, JSONOutputFLBA) {
   EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
 }
 
+TEST_F(TestJSONWithLocalFile, JSONOutputSortColumns) {
+  std::string json_content = ReadFromLocalFile("sort_columns.parquet");
+
+  std::string json_contains = R"###("SortColumns": [
+         {"column_idx": 0, "descending": 1, "nulls_first": 1},
+         {"column_idx": 1, "descending": 0, "nulls_first": 0}
+       ])###";
+  EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
+}
+
 // GH-44101: Test that JSON output is valid JSON
 TEST_F(TestJSONWithLocalFile, ValidJsonOutput) {
   auto check_json_valid = [](std::string_view json_string) -> ::arrow::Status {
@@ -1195,8 +1205,11 @@ TEST_F(TestJSONWithLocalFile, ValidJsonOutput) {
   };
   std::vector<std::string_view> check_file_lists = {
       "data_index_bloom_encoding_with_length.parquet",
-      "data_index_bloom_encoding_stats.parquet", "alltypes_tiny_pages_plain.parquet",
-      "concatenated_gzip_members.parquet", "nulls.snappy.parquet"};
+      "data_index_bloom_encoding_stats.parquet",
+      "alltypes_tiny_pages_plain.parquet",
+      "concatenated_gzip_members.parquet",
+      "nulls.snappy.parquet",
+      "sort_columns.parquet"};
   for (const auto& file : check_file_lists) {
     std::string json_content = ReadFromLocalFile(file);
     ASSERT_OK(check_json_valid(json_content))

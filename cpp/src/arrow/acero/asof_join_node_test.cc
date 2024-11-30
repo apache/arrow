@@ -1736,5 +1736,36 @@ TEST(AsofJoinTest, RhsEmptinessRaceEmptyBy) {
   AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
 }
 
+// Reproduction of GH-44526: Provoke destruction of not started asofjoin node by providing
+// a sink that fails on creation
+TEST(AsofJoinTest, DestroyNonStartedAsofJoinNode) {
+  auto left_batch = ExecBatchFromJSON({int64()}, R"([[1], [2], [3]])");
+  auto right_batch =
+      ExecBatchFromJSON({utf8(), int64()}, R"([["Z", 2], ["B", 3], ["A", 4]])");
+
+  Declaration left{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(schema({field("on", int64())}),
+                                              {std::move(left_batch)})};
+  Declaration right{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("colVals", utf8()), field("on", int64())}),
+                                 {std::move(right_batch)})};
+  AsofJoinNodeOptions asof_join_opts({{{"on"}, {}}, {{"on"}, {}}}, 1);
+  Declaration asof_join{
+      "asofjoin", {std::move(left), std::move(right)}, std::move(asof_join_opts)};
+
+  // Setting invalid arguments, such as nullptr in generator or schema in SinkNodeOptions,
+  // causes the execution plan to terminate before the asofjoin node is started.
+  arrow::acero::SinkNodeOptions sink_node_options{/*generator=*/nullptr,
+                                                  /*schema=*/nullptr};
+  auto sink = Declaration::Sequence({asof_join, {"sink", sink_node_options}});
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "`generator` is a required SinkNode option and cannot be null"),
+      DeclarationToStatus(std::move(sink)));
+}
+
 }  // namespace acero
 }  // namespace arrow

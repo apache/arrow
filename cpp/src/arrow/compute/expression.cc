@@ -1263,7 +1263,7 @@ struct Inequality {
     if (!lhs.field_ref()) return std::nullopt;
     if (*lhs.field_ref() != guarantee.target) return std::nullopt;
 
-    FilterOptions::NullSelectionBehavior null_selection;
+    FilterOptions::NullSelectionBehavior null_selection{};
     switch (options->null_matching_behavior) {
       case SetLookupOptions::MATCH:
         null_selection =

@@ -4411,6 +4411,31 @@ def test_to_pandas_extension_dtypes_mapping():
     assert isinstance(result['a'].dtype, pd.PeriodDtype)
 
 
+def test_to_pandas_extension_dtypes_mapping_complex_type():
+    # https://github.com/apache/arrow/pull/44720
+    if Version(pd.__version__) < Version("1.5.2"):
+        pytest.skip("Test relies on pd.ArrowDtype")
+    pa_type = pa.struct(
+        [
+            pa.field("bar", pa.bool_(), nullable=False),
+            pa.field("baz", pa.float32(), nullable=True),
+        ],
+    )
+    pd_type = pd.ArrowDtype(pa_type)
+    schema = pa.schema([pa.field("foo", pa_type)])
+    df0 = pd.DataFrame(
+        [
+            {"foo": {"bar": True, "baz": np.float32(1)}},
+            {"foo": {"bar": True, "baz": None}},
+        ],
+    ).astype({"foo": pd_type})
+
+    # Round trip df0 into df1
+    table = pa.Table.from_pandas(df0, schema=schema)
+    df1 = table.to_pandas(types_mapper=pd.ArrowDtype)
+    pd.testing.assert_frame_equal(df0, df1)
+
+
 def test_array_to_pandas():
     if Version(pd.__version__) < Version("1.1"):
         pytest.skip("ExtensionDtype to_pandas method missing")

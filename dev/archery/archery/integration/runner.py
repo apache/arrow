@@ -130,10 +130,24 @@ class IntegrationRunner(object):
         Run Arrow Flight integration tests for the matrix of enabled
         implementations.
         """
-        servers = filter(lambda t: t.FLIGHT_SERVER, self.testers)
-        clients = filter(lambda t: (t.FLIGHT_CLIENT and t.CONSUMER),
-                         self.testers + self.other_testers)
-        for server, client in itertools.product(servers, clients):
+
+        def is_server(t):
+            return t.FLIGHT_SERVER
+
+        def is_client(t):
+            return t.FLIGHT_CLIENT and t.CONSUMER
+
+        for server, client in itertools.product(
+                filter(is_server, self.testers),
+                filter(is_client, self.testers)):
+            self._compare_flight_implementations(server, client)
+        for server, client in itertools.product(
+                filter(is_server, self.testers),
+                filter(is_client, self.other_testers)):
+            self._compare_flight_implementations(server, client)
+        for server, client in itertools.product(
+                filter(is_server, self.other_testers),
+                filter(is_client, self.testers)):
             self._compare_flight_implementations(server, client)
         log('\n')
 

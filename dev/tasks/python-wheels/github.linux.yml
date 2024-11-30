@@ -19,6 +19,9 @@
 
 {{ macros.github_header() }}
 
+permissions:
+  packages: write
+
 jobs:
   build:
     name: "Build wheel for manylinux {{ manylinux_version }}"
@@ -49,7 +52,18 @@ jobs:
 
       - name: Build wheel
         shell: bash
-        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
+        env:
+          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
+        run: |
+          if [ "{{ manylinux_version }}" = "2014" ] && [ "{{ arch }}" = "arm64" ]; then
+            # We can't use NuGet on manylinux2014_aarch64 because Mono is old.
+            :
+          else
+            export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
+          fi
+          archery docker run \
+            -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} \
+            python-wheel-manylinux-{{ manylinux_version }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -66,7 +80,7 @@ jobs:
           archery docker run python-wheel-manylinux-test-imports
           archery docker run python-wheel-manylinux-test-unittests
 
-      # Free-threaded wheels need to be tested using a different docker-compose service
+      # Free-threaded wheels need to be tested using a different Docker Compose service
       - name: Test free-threaded wheel
         if: |
           '{{ python_abi_tag }}' == 'cp313t'

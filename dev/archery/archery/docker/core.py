@@ -24,6 +24,7 @@ from dotenv import dotenv_values
 from ruamel.yaml import YAML
 
 from ..utils.command import Command, default_bin
+from ..utils.logger import running_in_ci
 from ..utils.source import arrow_path
 from ..compat import _ensure_path
 
@@ -130,7 +131,7 @@ class ComposeConfig:
                 '`x-hierarchy`'.format(name)
             )
 
-        # trigger docker-compose's own validation
+        # trigger Docker Compose's own validation
         if self.using_docker:
             compose = Docker()
             args = ['compose']
@@ -142,7 +143,7 @@ class ComposeConfig:
                              stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
         if result.returncode != 0:
-            # strip the intro line of docker-compose errors
+            # strip the intro line of docker compose errors
             errors += result.stderr.decode().splitlines()
 
         if errors:
@@ -167,6 +168,9 @@ class ComposeConfig:
 
     def __getitem__(self, service_name):
         return self.get(service_name)
+
+    def verbosity_args(self):
+        return ['--quiet'] if running_in_ci() else []
 
 
 class Docker(Command):
@@ -203,7 +207,7 @@ class DockerCompose(Command):
                 )
             msg = (
                 "`{cmd}` exited with a non-zero exit code {code}, see the "
-                "process log above.\n\nThe docker-compose command was "
+                "process log above.\n\nThe {bin} command was "
                 "invoked with the following parameters:\n\nDefaults defined "
                 "in .env:\n{dotenv}\n\nArchery was called with:\n{params}"
             )
@@ -211,6 +215,7 @@ class DockerCompose(Command):
                 msg.format(
                     cmd=' '.join(e.cmd),
                     code=e.returncode,
+                    bin=self.bin,
                     dotenv=formatdict(self.config.dotenv, template='  {}: {}'),
                     params=formatdict(
                         self.config.params, template='  export {}={}'
@@ -232,7 +237,7 @@ class DockerCompose(Command):
 
     def pull(self, service_name, pull_leaf=True, ignore_pull_failures=True):
         def _pull(service):
-            args = ['pull']
+            args = ['pull'] + self.config.verbosity_args()
             if service['image'] in self.pull_memory:
                 return
 
@@ -406,10 +411,10 @@ class DockerCompose(Command):
                 cmd = service.get('command', '')
                 if cmd:
                     # service command might be already defined as a list
-                    # on the docker-compose yaml file.
+                    # in docker-compose.yml.
                     if isinstance(cmd, list):
                         cmd = shlex.join(cmd)
-                    # Match behaviour from docker compose
+                    # Match behaviour from Docker Compose
                     # to interpolate environment variables
                     # https://docs.docker.com/compose/compose-file/12-interpolation/
                     cmd = cmd.replace("$$", "$")
@@ -418,7 +423,7 @@ class DockerCompose(Command):
             # execute as a plain docker cli command
             self._execute_docker('run', '--rm', *args)
         else:
-            # execute as a docker-compose command
+            # execute as a docker compose command
             args.append(service_name)
             if command is not None:
                 args.append(command)
@@ -426,10 +431,11 @@ class DockerCompose(Command):
 
     def push(self, service_name, user=None, password=None):
         def _push(service):
+            args = ['push'] + self.config.verbosity_args()
             if self.config.using_docker:
-                return self._execute_docker('push', service['image'])
+                return self._execute_docker(*args, service['image'])
             else:
-                return self._execute_compose('push', service['name'])
+                return self._execute_compose(*args, service['name'])
 
         if user is not None:
             try:

@@ -42,8 +42,23 @@ jobs:
       - name: Install System Dependencies
         shell: bash
         run: |
+          {% if github_runner in ("macos-14", "macos-latest") %}
+          # pkg-config formula is deprecated but it's still installed
+          # in GitHub Actions runner now. We can remove this once
+          # pkg-config formula is removed from GitHub Actions runner.
+          brew uninstall pkg-config || :
+          brew uninstall pkg-config@0.29.2 || :
+          {% endif %}
+
           brew bundle --file=arrow/cpp/Brewfile
           brew bundle --file=arrow/c_glib/Brewfile
+
+          # For Meson.
+          # See also: https://github.com/mesonbuild/meson/issues/7701
+          pkgconf="$(brew --prefix pkgconf)/bin/pkgconf"
+          if [ -x "${pkgconf}" ]; then
+            echo "PKG_CONFIG=${pkgconf}" >> $GITHUB_ENV
+          fi
       {% endif %}
 
       - uses: actions/setup-java@v2

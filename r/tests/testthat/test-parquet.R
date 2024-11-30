@@ -455,7 +455,7 @@ test_that("deprecated int96 timestamp unit can be specified when reading Parquet
   )
 
   expect_identical(result$some_datetime$type$unit(), TimeUnit$MILLI)
-  expect_true(result$some_datetime == table$some_datetime)
+  expect_equal(result$some_datetime, table$some_datetime$cast(result$some_datetime$type))
 })
 
 test_that("Can read parquet with nested lists and maps", {
