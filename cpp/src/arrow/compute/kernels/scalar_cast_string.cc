@@ -333,7 +333,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   output->length = input.length;
   output->SetNullCount(input.null_count);
 
-  // Set up bitmap
+  // Set up validity bitmap
   if (input.offset == output->offset) {
     output->buffers[0] = input.GetBuffer(0);
   } else {
