@@ -43,9 +43,11 @@ update_versions() {
   rm -f meson.build.bak
   git add meson.build
 
-  # Add a new version entry only when the next release is a new major release
-  if [ "${type}" = "snapshot" -a \
-       "${next_version}" = "${major_version}.0.0" ]; then
+  # Add a new version entry only when the next release is a new major
+  # release and it doesn't exist yet.
+  if [ "${type}" = "snapshot" ] && \
+     [ "${next_version}" = "${major_version}.0.0" ] && \
+     ! grep -q -F "(${major_version}, 0)" tool/generate-version-header.py; then
     sed -i.bak -E -e \
       "s/^ALL_VERSIONS = \[$/&\\n        (${major_version}, 0),/" \
       tool/generate-version-header.py

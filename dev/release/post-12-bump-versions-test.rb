@@ -42,6 +42,23 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     (data || {})[:bump_type]
   end
 
+  def released_version
+    return @release_version if bump_type.nil?
+
+    previous_version_components = @previous_version.split(".")
+    case bump_type
+    when :minor
+      previous_version_components[1].succ!
+    when :patch
+      previous_version_components[2].succ!
+    end
+    previous_version_components.join(".")
+  end
+
+  def released_compatible_version
+    compute_compatible_version(released_version)
+  end
+
   def bump_versions(*targets)
     if targets.last.is_a?(Hash)
       additional_env = targets.pop
@@ -55,159 +72,70 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     env = env.merge(additional_env)
     case bump_type
     when :minor, :patch
-      previous_version_components = @previous_version.split(".")
-      case bump_type
-      when :minor
-        previous_version_components[1].succ!
-      when :patch
-        previous_version_components[2].succ!
-      end
       sh(env,
          "dev/release/post-12-bump-versions.sh",
-         previous_version_components.join("."),
+         released_version,
          @release_version)
     else
       sh(env,
          "dev/release/post-12-bump-versions.sh",
-         @release_version,
+         released_version,
          @next_version)
     end
   end
 
-  data(:next_release_type, [:major, :minor, :patch])
+  data("X.0.0 -> X.0.1",      {next_release_type: :patch})
+  data("X.0.0 -> X.1.0",      {next_release_type: :minor})
+  data("X.0.0 -> ${X+1}.0.0", {next_release_type: :major})
+  data("X.0.1 -> ${X+1}.0.0", {bump_type: :patch})
+  data("X.1.0 -> ${X+1}.0.0", {bump_type: :minor})
   def test_version_post_tag
     omit_on_release_branch
 
-    expected_changes = [
-      {
-        path: "c_glib/meson.build",
-        hunks: [
-          ["-version = '#{@snapshot_version}'",
-           "+version = '#{@next_snapshot_version}'"],
-        ],
-      },
-      {
-        path: "c_glib/vcpkg.json",
-        hunks: [
-          ["-  \"version-string\": \"#{@snapshot_version}\",",
-           "+  \"version-string\": \"#{@next_snapshot_version}\","],
-        ],
-      },
-      {
-        path: "ci/scripts/PKGBUILD",
-        hunks: [
-          ["-pkgver=#{@previous_version}.9000",
-           "+pkgver=#{@release_version}.9000"],
-        ],
-      },
-      {
-        path: "cpp/CMakeLists.txt",
-        hunks: [
-          ["-set(ARROW_VERSION \"#{@snapshot_version}\")",
-           "+set(ARROW_VERSION \"#{@next_snapshot_version}\")"],
-        ],
-      },
-      {
-        path: "cpp/vcpkg.json",
-        hunks: [
-          ["-  \"version-string\": \"#{@snapshot_version}\",",
-           "+  \"version-string\": \"#{@next_snapshot_version}\","],
-        ],
-      },
-      {
-        path: "csharp/Directory.Build.props",
-        hunks: [
-          ["-    <Version>#{@snapshot_version}</Version>",
-           "+    <Version>#{@next_snapshot_version}</Version>"],
-        ],
-      },
-      {
-        path: "dev/tasks/homebrew-formulae/apache-arrow-glib.rb",
-        hunks: [
-          ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
-           "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
-        ],
-      },
-      {
-        path: "dev/tasks/homebrew-formulae/apache-arrow.rb",
-        hunks: [
-          ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
-           "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
-        ],
-      },
-    ]
-    unless next_release_type == :patch
-      expected_changes += [
+    case bump_type
+    when :patch, :minor
+      expected_changes = [
         {
-          path: "docs/source/_static/versions.json",
+          path: "ci/scripts/PKGBUILD",
           hunks: [
-            [
-              "-        \"name\": \"#{@release_compatible_version} (dev)\",",
-              "+        \"name\": \"#{@next_compatible_version} (dev)\",",
-              "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
-              "+        \"name\": \"#{@release_compatible_version} (stable)\",",
-              "+    {",
-              "+        \"name\": \"#{@previous_compatible_version}\",",
-              "+        \"version\": \"#{@previous_compatible_version}/\",",
-              "+        \"url\": \"https://arrow.apache.org/docs/#{@previous_compatible_version}/\"",
-              "+    },",
-            ],
+            ["-pkgver=#{@previous_version}.9000",
+             "+pkgver=#{released_version}.9000"],
           ],
         },
       ]
-    end
-    expected_changes += [
-      {
-        path: "js/package.json",
-        hunks: [
-          ["-  \"version\": \"#{@snapshot_version}\"",
-           "+  \"version\": \"#{@next_snapshot_version}\""],
-        ],
-      },
-      {
-        path: "matlab/CMakeLists.txt",
-        hunks: [
-          ["-set(MLARROW_VERSION \"#{@snapshot_version}\")",
-           "+set(MLARROW_VERSION \"#{@next_snapshot_version}\")"],
-        ],
-      },
-      {
-        path: "python/CMakeLists.txt",
-        hunks: [
-          ["-set(PYARROW_VERSION \"#{@snapshot_version}\")",
-           "+set(PYARROW_VERSION \"#{@next_snapshot_version}\")"],
-        ],
-      },
-      {
-        path: "python/pyproject.toml",
-        hunks: [
-          ["-fallback_version = '#{@release_version}a0'",
-           "+fallback_version = '#{@next_version}a0'"],
-        ],
-      },
-      {
-        path: "r/DESCRIPTION",
-        hunks: [
-          ["-Version: #{@previous_version}.9000",
-           "+Version: #{@release_version}.9000"],
-        ],
-      },
-      {
-        path: "r/NEWS.md",
-        hunks: [
-          ["-# arrow #{@previous_version}.9000",
-           "+# arrow #{@release_version}.9000",
-           "+",
-           "+# arrow #{@release_version}",],
-        ],
-      },
-    ]
-    if next_release_type == :major
+      if bump_type == :minor
+        expected_changes += [
+          {
+            path: "docs/source/_static/versions.json",
+            hunks: [
+              [
+                "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
+                "+        \"name\": \"#{released_compatible_version} (stable)\",",
+                "+    {",
+                "+        \"name\": \"#{@previous_compatible_version}\",",
+                "+        \"version\": \"#{@previous_compatible_version}/\",",
+                "+        \"url\": \"https://arrow.apache.org/docs/#{@previous_compatible_version}/\"",
+                "+    },",
+              ],
+            ],
+          },
+        ]
+      end
       expected_changes += [
         {
-          path: "c_glib/tool/generate-version-header.py",
+          path: "r/DESCRIPTION",
           hunks: [
-            ["+        (#{@next_major_version}, 0),"],
+            ["-Version: #{@previous_version}.9000",
+             "+Version: #{released_version}.9000"],
+          ],
+        },
+        {
+          path: "r/NEWS.md",
+          hunks: [
+            ["-# arrow #{@previous_version}.9000",
+             "+# arrow #{released_version}.9000",
+             "+",
+             "+# arrow #{released_version}",],
           ],
         },
         {
@@ -216,9 +144,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
             [
               "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
               "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
-              "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
-              "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
-              "+<p><a href=\"../#{@previous_compatible_version}/r/\">#{@previous_r_version}</a></p>",
+              "+<body><p><a href=\"../dev/r/\">#{released_version}.9000 (dev)</a></p>",
+              "+<p><a href=\"../r/\">#{released_version} (release)</a></p>",
             ],
           ],
         },
@@ -227,73 +154,231 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           hunks: [
             [
               "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
-              "+        \"name\": \"#{@release_version}.9000 (dev)\",",
+              "+        \"name\": \"#{released_version}.9000 (dev)\",",
               "-        \"name\": \"#{@previous_r_version} (release)\",",
-              "+        \"name\": \"#{@release_version} (release)\",",
-              "+    {",
-              "+        \"name\": \"#{@previous_r_version}\",",
-              "+        \"version\": \"#{@previous_compatible_version}/\"",
-              "+    },",
+              "+        \"name\": \"#{released_version} (release)\",",
             ],
           ],
         },
       ]
     else
-      expected_changes += [
+      expected_changes = [
         {
-          path: "r/pkgdown/assets/versions.html",
+          path: "c_glib/meson.build",
           hunks: [
-            [
-              "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
-              "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
-              "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
-              "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
-            ],
+            ["-version = '#{@snapshot_version}'",
+             "+version = '#{@next_snapshot_version}'"],
           ],
         },
         {
-          path: "r/pkgdown/assets/versions.json",
+          path: "c_glib/vcpkg.json",
           hunks: [
-            [
-              "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
-              "+        \"name\": \"#{@release_version}.9000 (dev)\",",
-              "-        \"name\": \"#{@previous_r_version} (release)\",",
-              "+        \"name\": \"#{@release_version} (release)\",",
-            ],
+            ["-  \"version-string\": \"#{@snapshot_version}\",",
+             "+  \"version-string\": \"#{@next_snapshot_version}\","],
+          ],
+        },
+        {
+          path: "ci/scripts/PKGBUILD",
+          hunks: [
+            ["-pkgver=#{@previous_version}.9000",
+             "+pkgver=#{@release_version}.9000"],
+          ],
+        },
+        {
+          path: "cpp/CMakeLists.txt",
+          hunks: [
+            ["-set(ARROW_VERSION \"#{@snapshot_version}\")",
+             "+set(ARROW_VERSION \"#{@next_snapshot_version}\")"],
+          ],
+        },
+        {
+          path: "cpp/vcpkg.json",
+          hunks: [
+            ["-  \"version-string\": \"#{@snapshot_version}\",",
+             "+  \"version-string\": \"#{@next_snapshot_version}\","],
+          ],
+        },
+        {
+          path: "csharp/Directory.Build.props",
+          hunks: [
+            ["-    <Version>#{@snapshot_version}</Version>",
+             "+    <Version>#{@next_snapshot_version}</Version>"],
+          ],
+        },
+        {
+          path: "dev/tasks/homebrew-formulae/apache-arrow-glib.rb",
+          hunks: [
+            ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
+             "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
+          ],
+        },
+        {
+          path: "dev/tasks/homebrew-formulae/apache-arrow.rb",
+          hunks: [
+            ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
+             "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
           ],
         },
       ]
-    end
-
-    Dir.glob("java/**/pom.xml") do |path|
-      version = "<version>#{@snapshot_version}</version>"
-      lines = File.readlines(path, chomp: true)
-      target_lines = lines.grep(/#{Regexp.escape(version)}/)
-      hunks = []
-      target_lines.each do |line|
-        new_line = line.gsub(@snapshot_version) do
-          @next_snapshot_version
-        end
-        hunks << [
-          "-#{line}",
-          "+#{new_line}",
+      unless next_release_type == :patch
+        expected_changes += [
+          {
+            path: "docs/source/_static/versions.json",
+            hunks: [
+              [
+                "-        \"name\": \"#{@release_compatible_version} (dev)\",",
+                "+        \"name\": \"#{@next_compatible_version} (dev)\",",
+                "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
+                "+        \"name\": \"#{@release_compatible_version} (stable)\",",
+                "+    {",
+                "+        \"name\": \"#{@previous_compatible_version}\",",
+                "+        \"version\": \"#{@previous_compatible_version}/\",",
+                "+        \"url\": \"https://arrow.apache.org/docs/#{@previous_compatible_version}/\"",
+                "+    },",
+              ],
+            ],
+          },
         ]
       end
-      expected_changes << {hunks: hunks, path: path}
-    end
+      expected_changes += [
+        {
+          path: "js/package.json",
+          hunks: [
+            ["-  \"version\": \"#{@snapshot_version}\"",
+             "+  \"version\": \"#{@next_snapshot_version}\""],
+          ],
+        },
+        {
+          path: "matlab/CMakeLists.txt",
+          hunks: [
+            ["-set(MLARROW_VERSION \"#{@snapshot_version}\")",
+             "+set(MLARROW_VERSION \"#{@next_snapshot_version}\")"],
+          ],
+        },
+        {
+          path: "python/CMakeLists.txt",
+          hunks: [
+            ["-set(PYARROW_VERSION \"#{@snapshot_version}\")",
+             "+set(PYARROW_VERSION \"#{@next_snapshot_version}\")"],
+          ],
+        },
+        {
+          path: "python/pyproject.toml",
+          hunks: [
+            ["-fallback_version = '#{@release_version}a0'",
+             "+fallback_version = '#{@next_version}a0'"],
+          ],
+        },
+        {
+          path: "r/DESCRIPTION",
+          hunks: [
+            ["-Version: #{@previous_version}.9000",
+             "+Version: #{@release_version}.9000"],
+          ],
+        },
+        {
+          path: "r/NEWS.md",
+          hunks: [
+            ["-# arrow #{@previous_version}.9000",
+             "+# arrow #{@release_version}.9000",
+             "+",
+             "+# arrow #{@release_version}",],
+          ],
+        },
+      ]
+      if next_release_type == :major
+        expected_changes += [
+          {
+            path: "c_glib/tool/generate-version-header.py",
+            hunks: [
+              ["+        (#{@next_major_version}, 0),"],
+            ],
+          },
+          {
+            path: "r/pkgdown/assets/versions.html",
+            hunks: [
+              [
+                "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
+                "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
+                "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
+                "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
+                "+<p><a href=\"../#{@previous_compatible_version}/r/\">#{@previous_r_version}</a></p>",
+              ],
+            ],
+          },
+          {
+            path: "r/pkgdown/assets/versions.json",
+            hunks: [
+              [
+                "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
+                "+        \"name\": \"#{@release_version}.9000 (dev)\",",
+                "-        \"name\": \"#{@previous_r_version} (release)\",",
+                "+        \"name\": \"#{@release_version} (release)\",",
+                "+    {",
+                "+        \"name\": \"#{@previous_r_version}\",",
+                "+        \"version\": \"#{@previous_compatible_version}/\"",
+                "+    },",
+              ],
+            ],
+          },
+        ]
+      else
+        expected_changes += [
+          {
+            path: "r/pkgdown/assets/versions.html",
+            hunks: [
+              [
+                "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
+                "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
+                "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
+                "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
+              ],
+            ],
+          },
+          {
+            path: "r/pkgdown/assets/versions.json",
+            hunks: [
+              [
+                "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
+                "+        \"name\": \"#{@release_version}.9000 (dev)\",",
+                "-        \"name\": \"#{@previous_r_version} (release)\",",
+                "+        \"name\": \"#{@release_version} (release)\",",
+              ],
+            ],
+          },
+        ]
+      end
 
-    Dir.glob("ruby/**/version.rb") do |path|
-      version = "  VERSION = \"#{@snapshot_version}\""
-      new_version = "  VERSION = \"#{@next_snapshot_version}\""
-      expected_changes << {
-        hunks: [
-          [
-            "-#{version}",
-            "+#{new_version}",
+      Dir.glob("java/**/pom.xml") do |path|
+        version = "<version>#{@snapshot_version}</version>"
+        lines = File.readlines(path, chomp: true)
+        target_lines = lines.grep(/#{Regexp.escape(version)}/)
+        hunks = []
+        target_lines.each do |line|
+          new_line = line.gsub(@snapshot_version) do
+            @next_snapshot_version
+          end
+          hunks << [
+            "-#{line}",
+            "+#{new_line}",
           ]
-        ],
-        path: path,
-      }
+        end
+        expected_changes << {hunks: hunks, path: path}
+      end
+
+      Dir.glob("ruby/**/version.rb") do |path|
+        version = "  VERSION = \"#{@snapshot_version}\""
+        new_version = "  VERSION = \"#{@next_snapshot_version}\""
+        expected_changes << {
+          hunks: [
+            [
+              "-#{version}",
+              "+#{new_version}",
+            ]
+          ],
+          path: path,
+        }
+      end
     end
 
     stdout = bump_versions("VERSION_POST_TAG")
