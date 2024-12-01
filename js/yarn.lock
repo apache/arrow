@@ -3851,10 +3851,10 @@ gulp-cli@^2.2.0:
     v8flags "^3.2.0"
     yargs "^7.1.0"
 
-gulp-esbuild@0.12.1:
-  version "0.12.1"
-  resolved "https://registry.yarnpkg.com/gulp-esbuild/-/gulp-esbuild-0.12.1.tgz#f91093f0f68e739f455530804aa533577ec6dfc6"
-  integrity sha512-dkcN2AHtXTVu+KNw0Zw8SWysziNwpYg6kw41E8frUkil5ZtwktIsot/OCLEpRT6clFpVQ7Hw3+YZQvoNdyTF1A==
+gulp-esbuild@0.13.0:
+  version "0.13.0"
+  resolved "https://registry.yarnpkg.com/gulp-esbuild/-/gulp-esbuild-0.13.0.tgz#6327433d23497dfc760d3742d34565996f0121d6"
+  integrity sha512-dydvBeM9JIrSVa9HbYrTCnKLqKX7v3J6Nu6Fe/bYhutUEqtVNFLAQAyRk14nJoI7TsrGmsVTjVKfDCgFGW+01Q==
   dependencies:
     esbuild "^0.21.5"
     plugin-error "^2.0.1"
