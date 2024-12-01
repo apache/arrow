@@ -544,7 +544,7 @@ def mask(indices, length, MemoryPool memory_pool=None):
 
     Parameters
     ----------
-    indices : list[int]
+    indices : array-like (a sequence, numpy.ndarray, pyarrow.Array) of integers
         The indices that have to be marked as True.
         All other indices will be False.
     length : int
@@ -572,7 +572,7 @@ def mask(indices, length, MemoryPool memory_pool=None):
     """
     cdef:
         CMemoryPool* c_pool = maybe_unbox_memory_pool(memory_pool)
-        vector[int64_t] c_indices = indices
+        shared_ptr[CArray] c_indices = pyarrow_unwrap_array(asarray(indices))
         int64_t c_length = length
 
     with nogil:

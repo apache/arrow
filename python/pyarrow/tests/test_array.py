@@ -4234,3 +4234,6 @@ def test_mask_array():
     expected = pa.array([False, False, True, False, True, False])
     mask_array = pa.mask([2, 4], 6)
     assert mask_array.equals(expected)
+
+    mask_array = pa.mask(pa.array([2, 4]), 6)
+    assert mask_array.equals(expected)
