@@ -65,7 +65,7 @@
   "devDependencies": {
     "@openpgp/web-stream-tools": "0.0.13",
     "@rollup/plugin-alias": "5.1.1",
-    "@rollup/plugin-node-resolve": "15.2.3",
+    "@rollup/plugin-node-resolve": "15.3.0",
     "@rollup/stream": "3.0.1",
     "@swc/core": "1.6.6",
     "@types/benchmark": "2.1.5",
