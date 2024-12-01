@@ -951,29 +951,29 @@ Result<std::shared_ptr<Array>> MakeMaskArray(const std::shared_ptr<Array>& indic
 
   switch (indices->type_id()) {
     case Type::INT8:
-      return MakeMaskArrayImpl(
-          checked_pointer_cast<NumericArray<Int8Type>>(indices), length, pool);
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<Int8Type>>(indices),
+                               length, pool);
     case Type::UINT8:
-      return MakeMaskArrayImpl(
-          checked_pointer_cast<NumericArray<UInt8Type>>(indices), length, pool);
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<UInt8Type>>(indices),
+                               length, pool);
     case Type::INT16:
-      return MakeMaskArrayImpl(
-          checked_pointer_cast<NumericArray<Int16Type>>(indices), length, pool);
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<Int16Type>>(indices),
+                               length, pool);
     case Type::UINT16:
-      return MakeMaskArrayImpl(
-          checked_pointer_cast<NumericArray<UInt16Type>>(indices), length, pool);
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<UInt16Type>>(indices),
+                               length, pool);
     case Type::INT32:
-      return MakeMaskArrayImpl(
-          checked_pointer_cast<NumericArray<Int32Type>>(indices), length, pool);
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<Int32Type>>(indices),
+                               length, pool);
     case Type::UINT32:
-      return MakeMaskArrayImpl(
-          checked_pointer_cast<NumericArray<UInt32Type>>(indices), length, pool);
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<UInt32Type>>(indices),
+                               length, pool);
     case Type::INT64:
-      return MakeMaskArrayImpl(
-          checked_pointer_cast<NumericArray<Int64Type>>(indices), length, pool);
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<Int64Type>>(indices),
+                               length, pool);
     case Type::UINT64:
-      return MakeMaskArrayImpl(
-          checked_pointer_cast<NumericArray<UInt64Type>>(indices), length, pool);
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<UInt64Type>>(indices),
+                               length, pool);
     default:
       return Status::Invalid("Indices array must be of integer type");
   }
