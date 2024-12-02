@@ -140,6 +140,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestMoveFile();
   void TestMoveDir();
   void TestCopyFile();
+  void TestCopyFiles();
   void TestGetFileInfo();
   void TestGetFileInfoVector();
   void TestGetFileInfoSelector();
@@ -201,6 +202,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestMoveFile(FileSystem* fs);
   void TestMoveDir(FileSystem* fs);
   void TestCopyFile(FileSystem* fs);
+  void TestCopyFiles(FileSystem* fs);
   void TestGetFileInfo(FileSystem* fs);
   void TestGetFileInfoVector(FileSystem* fs);
   void TestGetFileInfoSelector(FileSystem* fs);
@@ -233,6 +235,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, MoveFile)                         \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, MoveDir)                          \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CopyFile)                         \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CopyFiles)                        \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfo)                      \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoVector)                \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoSelector)              \
