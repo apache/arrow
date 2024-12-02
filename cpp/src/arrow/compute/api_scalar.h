@@ -684,7 +684,7 @@ Result<Datum> Power(const Datum& left, const Datum& right,
 ARROW_EXPORT
 Result<Datum> Exp(const Datum& arg, ExecContext* ctx = NULLPTR);
 
-/// \brief More accurately calculates `exp(arg) - 1` for values close to zero.
+/// \brief More accurately calculate `exp(arg) - 1` for values close to zero.
 /// If the exponent value is null the result will be null.
 ///
 /// This function is more accurate than calculating `exp(value) - 1` directly for values
