@@ -1574,8 +1574,8 @@ TYPED_TEST(TestUnaryArithmeticUnsigned, Expm1) {
   this->AssertUnaryOp(expm1, "[null]", ArrayFromJSON(float64(), "[null]"));
   this->AssertUnaryOp(expm1, this->MakeNullScalar(), arrow::MakeNullScalar(float64()));
   this->AssertUnaryOp(
-      expm1, "[null, 1, 10]",
-      ArrayFromJSON(float64(), "[null, 1.718281828459045, 22025.465794806718]"));
+      expm1, "[null, 0, 1, 10]",
+      ArrayFromJSON(float64(), "[null, 0.0, 1.718281828459045, 22025.465794806718]"));
   this->AssertUnaryOp(expm1, this->MakeScalar(1), arrow::MakeScalar(kEuler64 - 1.0));
 }
 
@@ -1609,12 +1609,15 @@ TYPED_TEST(TestUnaryArithmeticFloating, Expm1) {
   // Array with nulls
   this->AssertUnaryOp(expm1, "[null]", "[null]");
   this->AssertUnaryOp(expm1, this->MakeNullScalar(), this->MakeNullScalar());
-  this->AssertUnaryOp(expm1, "[-1.0, 0.0, null, 10.0]",
-                      "[-0.6321205588285577, 0.0, null, 22025.465794806718]");
+  this->AssertUnaryOp(expm1, "[-1.0, 0.0, 0.1, 0.00000001, null, 10.0]",
+                      "[-0.6321205588285577, 0.0, "
+                      "0.10517091807564763, 0.000000010000000050000001, "
+                      "null, 22025.465794806718]");
   // Ordinary arrays (positive, negative, fractional, and zero inputs)
-  this->AssertUnaryOp(
-      expm1, "[-10.0, 0.0, 0.5, 1.0]",
-      "[-0.9999546000702375, 0.0, 0.6487212707001282, 1.718281828459045]");
+  this->AssertUnaryOp(expm1, "[-10.0, 0.0, 0.1, 0.00000001, 0.5, 1.0]",
+                      "[-0.9999546000702375, 0.0, "
+                      "0.10517091807564763, 0.000000010000000050000001, "
+                      "0.6487212707001282, 1.718281828459045]");
   this->AssertUnaryOp(expm1, 1.3F, 2.6692964926535487F);
   this->AssertUnaryOp(expm1, this->MakeScalar(1.3F),
                       this->MakeScalar(2.6692964926535487F));
@@ -1635,8 +1638,11 @@ TEST_F(TestUnaryArithmeticDecimal, Expm1) {
   for (const auto& ty : PositiveScaleTypes()) {
     CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(float64(), "[]"));
     CheckScalar(
-        func, {ArrayFromJSON(ty, R"(["-1.00", "0.00", "10.00", null])")},
-        ArrayFromJSON(float64(), "[-0.6321205588285577, 0.0, 22025.465794806718, null]"));
+        func, {ArrayFromJSON(ty, R"(["-1.00", "0.00", "0.10", "0.01", "10.00", null])")},
+        ArrayFromJSON(float64(),
+                      "[-0.6321205588285577, 0.0, "
+                      "0.10517091807564763, 0.010050167084168058, "
+                      "22025.465794806718, null]"));
   }
   CheckScalar(func, {std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0))},
               ScalarFromJSON(float64(), "Inf"));
