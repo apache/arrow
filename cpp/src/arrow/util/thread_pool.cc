@@ -55,10 +55,14 @@ struct Task {
 struct QueuedTask {
   Task task;
   TaskHints hints;
+  u_int64_t spawn_index;
 
   // Implement comparison so that std::priority_queue will pop the low priorities more
   // urgently.
   bool operator<(const QueuedTask& other) const {
+    if (hints.priority == other.hints.priority) {
+      return spawn_index > other.spawn_index;
+    }
     return hints.priority > other.hints.priority;
   }
 };
@@ -398,6 +402,7 @@ struct ThreadPool::State {
   // Trashcan for finished threads
   std::vector<std::thread> finished_workers_;
   std::priority_queue<QueuedTask> pending_tasks_;
+  uint64_t spawned_tasks_count = 0;
 
   // Desired number of threads
   int desired_capacity_ = 0;
@@ -665,8 +670,10 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
       // We can still spin up more workers so spin up a new worker
       LaunchWorkersUnlocked(/*threads=*/1);
     }
-    state_->pending_tasks_.push(QueuedTask{
-        {std::move(task), std::move(stop_token), std::move(stop_callback)}, hints});
+    state_->pending_tasks_.push(
+        QueuedTask{{std::move(task), std::move(stop_token), std::move(stop_callback)},
+                   hints,
+                   state_->spawned_tasks_count++});
   }
   state_->cv_.notify_one();
   return Status::OK();
