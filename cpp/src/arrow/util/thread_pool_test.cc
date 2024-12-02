@@ -581,6 +581,7 @@ TEST_F(TestThreadPool, Spawn) {
 TEST_F(TestThreadPool, TasksRunInPriorityOrder) {
   auto pool = this->MakeThreadPool(1);
   auto recorded_times = std::vector<std::chrono::system_clock::time_point>(10);
+  auto futures = std::vector<Future<int>>(10);
   auto sleep_task = []() { SleepABit(); };
 
   // Spawn a sleep task to block the pool while we add the other tasks. This
@@ -591,15 +592,17 @@ TEST_F(TestThreadPool, TasksRunInPriorityOrder) {
   for (int i = 0; i < 10; ++i) {
     auto record_time = [&recorded_times, i]() {
       recorded_times[i] = std::chrono::system_clock::now();
+      return i;
     };
     // Spawn tasks in opposite order to urgency.
-    ASSERT_OK(pool->Spawn(TaskHints{10 - i}, record_time));
+    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit(TaskHints{10 - i}, record_time));
   }
 
   ASSERT_OK(pool->Shutdown());
 
   for (size_t i = 1; i < recorded_times.size(); ++i) {
     ASSERT_GE(recorded_times[i - 1], recorded_times[i]);
+    ASSERT_LT(futures[i - 1].result().ValueOrDie(), futures[i].result().ValueOrDie());
   }
 }
 
