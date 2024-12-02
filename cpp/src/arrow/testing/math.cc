@@ -30,7 +30,7 @@ constexpr Float kOneUlp;
 template <>
 constexpr float kOneUlp<float> = 5.9604645e-08f;
 template <>
-constexpr float kOneUlp<double> = 1.1102230246251565e-16;
+constexpr double kOneUlp<double> = 1.1102230246251565e-16;
 
 template <typename Float>
 bool WithinUlpOneWay(Float left, Float right, int n_ulp) {
