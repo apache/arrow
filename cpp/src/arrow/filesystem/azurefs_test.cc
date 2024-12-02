@@ -387,6 +387,30 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
   //     builddir/main/../../threads.c:580:10 #2 0x7fa914b1cd1e in xmlGetGlobalState
   //     builddir/main/../../threads.c:666:31
   bool have_false_positive_memory_leak_with_generator() const override { return true; }
+  // This false positive leak is similar to the one pinpointed in the
+  // have_false_positive_memory_leak_with_generator() comments above,
+  // though the stack trace is different. It happens when a block list
+  // is committed from a background thread.
+  //
+  // clang-format off
+  // Direct leak of 968 byte(s) in 1 object(s) allocated from:
+  //   #0 calloc
+  //   #1 (/lib/x86_64-linux-gnu/libxml2.so.2+0xe25a4)
+  //   #2 __xmlDefaultBufferSize
+  //   #3 xmlBufferCreate
+  //   #4 Azure::Storage::_internal::XmlWriter::XmlWriter()
+  //   #5 Azure::Storage::Blobs::_detail::BlockBlobClient::CommitBlockList
+  //   #6 Azure::Storage::Blobs::BlockBlobClient::CommitBlockList
+  //   #7 arrow::fs::(anonymous namespace)::CommitBlockList
+  //   #8 arrow::fs::(anonymous namespace)::ObjectAppendStream::FlushAsync()::'lambda'
+  // clang-format on
+  //
+  // TODO perhaps remove this skip once we can rely on
+  // https://github.com/Azure/azure-sdk-for-cpp/pull/5767
+  //
+  // Also note that ClickHouse has a workaround for a similar issue:
+  // https://github.com/ClickHouse/ClickHouse/pull/45796
+  bool have_false_positive_memory_leak_with_async_close() const override { return true; }
 
   BaseAzureEnv* env_;
   std::shared_ptr<AzureFileSystem> azure_fs_;
@@ -1536,29 +1560,7 @@ class TestAzureFileSystem : public ::testing::Test {
 
   void TestOpenOutputStreamCloseAsync() {
 #if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
-    // This false positive leak is similar to the one pinpointed in the
-    // have_false_positive_memory_leak_with_generator() comments above,
-    // though the stack trace is different. It happens when a block list
-    // is committed from a background thread.
-    //
-    // clang-format off
-    // Direct leak of 968 byte(s) in 1 object(s) allocated from:
-    //   #0 calloc
-    //   #1 (/lib/x86_64-linux-gnu/libxml2.so.2+0xe25a4)
-    //   #2 __xmlDefaultBufferSize
-    //   #3 xmlBufferCreate
-    //   #4 Azure::Storage::_internal::XmlWriter::XmlWriter()
-    //   #5 Azure::Storage::Blobs::_detail::BlockBlobClient::CommitBlockList
-    //   #6 Azure::Storage::Blobs::BlockBlobClient::CommitBlockList
-    //   #7 arrow::fs::(anonymous namespace)::CommitBlockList
-    //   #8 arrow::fs::(anonymous namespace)::ObjectAppendStream::FlushAsync()::'lambda'
-    // clang-format on
-    //
-    // TODO perhaps remove this skip once we can rely on
-    // https://github.com/Azure/azure-sdk-for-cpp/pull/5767
-    //
-    // Also note that ClickHouse has a workaround for a similar issue:
-    // https://github.com/ClickHouse/ClickHouse/pull/45796
+    // See comment about have_false_positive_memory_leak_with_generator above.
     if (options_.background_writes) {
       GTEST_SKIP() << "False positive memory leak in libxml2 with CloseAsync";
     }

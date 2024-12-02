@@ -579,6 +579,11 @@ void GenericFileSystemTest::TestCopyFile(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestCopyFiles(FileSystem* fs) {
+#if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
+  if (have_false_positive_memory_leak_with_async_close()) {
+    GTEST_SKIP() << "Filesystem have false positive memory leak with generator";
+  }
+#endif
   auto originalThreads = io::GetIOThreadPoolCapacity();
   // Needs to be smaller than the number of files we test with to catch GH-15233
   ASSERT_OK(io::SetIOThreadPoolCapacity(2));
