@@ -938,6 +938,9 @@ Result<std::shared_ptr<Array>> MakeMaskArrayImpl(
   bit_util::SetBitsTo(buffer->mutable_data(), 0, length, false);
   for (int64_t i = 0; i < indices->length(); ++i) {
     int64_t index = indices->Value(i);
+    if (index < 0 || index >= length) {
+      return Status::IndexError("Index out of bounds: ", index);
+    }
     bit_util::SetBit(buffer->mutable_data(), index);
   }
   return std::make_shared<BooleanArray>(length, buffer);

@@ -909,6 +909,10 @@ TEST_F(TestArray, TestMakeMaskArray) {
   ASSERT_OK(mask_array_from_array->ValidateFull());
   ASSERT_EQ(mask_array_from_array->length(), 10);
   AssertArraysEqual(*mask_array_from_array, *expected);
+
+  // Test out of bounds indices
+  ASSERT_RAISES(IndexError, MakeMaskArray({5, 10}, 8));
+  ASSERT_RAISES(IndexError, MakeMaskArray(ArrayFromJSON(int64(), "[5, 10]"), 8));
 }
 
 TEST_F(TestArray, ExtensionSpanRoundTrip) {
