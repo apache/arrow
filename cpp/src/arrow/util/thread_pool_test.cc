@@ -606,6 +606,27 @@ TEST_F(TestThreadPool, TasksRunInPriorityOrder) {
   }
 }
 
+TEST_F(TestThreadPool, TasksOfEqualPriorityRunInSpawnOrder) {
+  auto pool = this->MakeThreadPool(1);
+  auto recorded_times = std::vector<std::chrono::system_clock::time_point>(10);
+  auto futures = std::vector<Future<int>>(10);
+
+  for (int i = 0; i < 10; ++i) {
+    auto record_time = [&recorded_times, i]() {
+      recorded_times[i] = std::chrono::system_clock::now();
+      return i;
+    };
+    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit(record_time));
+  }
+
+  ASSERT_OK(pool->Shutdown());
+
+  for (size_t i = 1; i < recorded_times.size(); ++i) {
+    ASSERT_LE(recorded_times[i - 1], recorded_times[i]);
+    ASSERT_LT(futures[i - 1].result().ValueOrDie(), futures[i].result().ValueOrDie());
+  }
+}
+
 TEST_F(TestThreadPool, StressSpawn) {
   auto pool = this->MakeThreadPool(30);
   SpawnAdds(pool.get(), 1000, task_add<int>);
