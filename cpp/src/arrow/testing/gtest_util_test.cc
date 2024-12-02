@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -23,6 +25,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/math.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -169,6 +172,65 @@ TEST_F(TestTensorFromJSON, FromJSON) {
       "[9, 2]");
 
   EXPECT_TRUE(tensor_expected->Equals(*result));
+}
+
+template <typename Float>
+void CheckWithinUlpSingle(Float x, Float y, int n_ulp) {
+  ARROW_SCOPED_TRACE("x = ", x, ", y = ", x, ", n_ulp = ", n_ulp);
+  ASSERT_TRUE(WithinUlp(x, y, n_ulp));
+}
+
+template <typename Float>
+void CheckWithinUlp(Float x, Float y, int n_ulp) {
+  CheckWithinUlpSingle(x, y, n_ulp);
+  CheckWithinUlpSingle(y, x, n_ulp);
+  CheckWithinUlpSingle(x, y, n_ulp + 1);
+  CheckWithinUlpSingle(y, x, n_ulp + 1);
+
+  for (int exp : {1, -1, 10, -10}) {
+    Float x_scaled = std::ldexp(x, exp);
+    Float y_scaled = std::ldexp(y, exp);
+    CheckWithinUlpSingle(x_scaled, y_scaled, n_ulp);
+    CheckWithinUlpSingle(y_scaled, x_scaled, n_ulp);
+  }
+}
+
+template <typename Float>
+void CheckNotWithinUlp(Float x, Float y, int n_ulp) {
+  ARROW_SCOPED_TRACE("x = ", x, ", y = ", x, ", n_ulp = ", n_ulp);
+  ASSERT_FALSE(WithinUlp(x, y, n_ulp));
+  ASSERT_FALSE(WithinUlp(y, x, n_ulp));
+  if (n_ulp > 1) {
+    ASSERT_FALSE(WithinUlp(x, y, n_ulp - 1));
+    ASSERT_FALSE(WithinUlp(y, x, n_ulp - 1));
+  }
+
+  for (int exp : {1, -1, 10, -10}) {
+    Float x_scaled = std::ldexp(x, exp);
+    Float y_scaled = std::ldexp(y, exp);
+    ASSERT_FALSE(WithinUlp(x_scaled, y_scaled, n_ulp));
+    ASSERT_FALSE(WithinUlp(y_scaled, x_scaled, n_ulp));
+  }
+}
+
+TEST(TestWithinUlp, Double) {
+  for (double f : {0.0, 1e-20, 1.0, 2345678.9}) {
+    CheckWithinUlp(f, f, 1);
+    CheckWithinUlp(f, f, 42);
+  }
+  CheckWithinUlp(1.0, 1.0000000000000002, 1);
+  CheckWithinUlp(1.0, 1.0000000000000007, 3);
+  CheckNotWithinUlp(1.0, 1.0000000000000007, 2);
+  CheckNotWithinUlp(1.0, 1.0000000000000007, 1);
+
+  CheckWithinUlp(123.4567, 123.45670000000015, 11);
+  CheckNotWithinUlp(123.4567, 123.45670000000015, 10);
+
+  CheckNotWithinUlp(HUGE_VAL, -HUGE_VAL, 10);
+  CheckNotWithinUlp(12.34, -HUGE_VAL, 10);
+  CheckNotWithinUlp(12.34, std::nan(""), 10);
+  CheckNotWithinUlp(12.34, -12.34, 10);
+  CheckNotWithinUlp(0.0, 1e-20, 10);
 }
 
 }  // namespace arrow
