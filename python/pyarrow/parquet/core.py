@@ -45,8 +45,8 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileEncryptionProperties,
                               FileDecryptionProperties,
                               SortingColumn)
-from pyarrow.fs import (LocalFileSystem, FileSystem, FileType,
-                        _resolve_filesystem_and_path, _ensure_filesystem)
+from pyarrow.fs import (LocalFileSystem, FileType, _resolve_filesystem_and_path,
+                        _ensure_filesystem)
 from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
 
 
@@ -1337,14 +1337,9 @@ Examples
         self._base_dir = None
         if not isinstance(path_or_paths, list):
             if _is_path_like(path_or_paths):
-                path_or_paths = _stringify_path(path_or_paths)
-                if filesystem is None:
-                    # path might be a URI describing the FileSystem as well
-                    try:
-                        filesystem, path_or_paths = FileSystem.from_uri(
-                            path_or_paths)
-                    except ValueError:
-                        filesystem = LocalFileSystem(use_mmap=memory_map)
+                filesystem, path_or_paths = _resolve_filesystem_and_path(
+                    path_or_paths, filesystem, memory_map=memory_map
+                )
                 finfo = filesystem.get_file_info(path_or_paths)
                 if finfo.type == FileType.Directory:
                     self._base_dir = path_or_paths

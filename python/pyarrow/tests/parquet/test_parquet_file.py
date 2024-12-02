@@ -334,3 +334,12 @@ def test_parquet_file_with_filesystem(s3_example_fs, use_uri):
         assert f.read() == table
         assert not f.closed
     assert f.closed
+
+
+def test_parquet_file_fsspec_fallback():
+    pytest.importorskip("fsspec")
+
+    table = pa.table({"a": range(10)})
+    pq.write_table(table, "memory://example.parquet")
+    table2 = pq.read_table("memory://example.parquet")
+    assert table.equals(table2)
