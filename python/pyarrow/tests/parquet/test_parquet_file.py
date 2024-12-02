@@ -365,3 +365,12 @@ def test_read_undefined_logical_type(parquet_test_datadir):
         b"unknown string 2",
         b"unknown string 3"
     ]
+
+
+def test_parquet_file_fsspec_fallback():
+    pytest.importorskip("fsspec")
+
+    table = pa.table({"a": range(10)})
+    pq.write_table(table, "memory://example.parquet")
+    table2 = pq.read_table("memory://example.parquet")
+    assert table.equals(table2)
