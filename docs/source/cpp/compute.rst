@@ -476,6 +476,8 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+-------------------------+---------------------------+-------+
 | exp              | Unary  | Numeric                 | Float32/Float64           |       |
 +------------------+--------+-------------------------+---------------------------+-------+
+| expm1            | Unary  | Numeric                 | Float32/Float64           |       |
++------------------+--------+-------------------------+---------------------------+-------+
 | multiply         | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
 +------------------+--------+-------------------------+---------------------------+-------+
 | multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |

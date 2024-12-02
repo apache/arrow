@@ -684,6 +684,18 @@ Result<Datum> Power(const Datum& left, const Datum& right,
 ARROW_EXPORT
 Result<Datum> Exp(const Datum& arg, ExecContext* ctx = NULLPTR);
 
+/// \brief More accurately calculate `exp(arg) - 1` for values close to zero.
+/// If the exponent value is null the result will be null.
+///
+/// This function is more accurate than calculating `exp(value) - 1` directly for values
+/// close to zero.
+///
+/// \param[in] arg the exponent
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise Euler's number raised to the power of exponent minus 1
+ARROW_EXPORT
+Result<Datum> Expm1(const Datum& arg, ExecContext* ctx = NULLPTR);
+
 /// \brief Left shift the left array by the right array. Array values must be the
 /// same length. If either operand is null, the result will be null.
 ///
