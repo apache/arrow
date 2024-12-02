@@ -233,4 +233,6 @@ TEST(TestWithinUlp, Double) {
   CheckNotWithinUlp(0.0, 1e-20, 10);
 }
 
+// TODO float tests
+
 }  // namespace arrow
