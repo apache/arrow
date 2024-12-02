@@ -43,6 +43,9 @@ namespace arrow {
 namespace compute {
 namespace {
 
+// 2.718281828459045090795598298427648842334747314453125
+constexpr double kEuler64 = 0x1.5bf0a8b145769p+1;
+
 using IntegralTypes = testing::Types<Int8Type, Int16Type, Int32Type, Int64Type, UInt8Type,
                                      UInt16Type, UInt32Type, UInt64Type>;
 
@@ -1485,8 +1488,7 @@ TYPED_TEST(TestUnaryArithmeticUnsigned, Exp) {
   this->AssertUnaryOp(
       exp, "[null, 1, 10]",
       ArrayFromJSON(float64(), "[null, 2.718281828459045, 22026.465794806718]"));
-  this->AssertUnaryOp(exp, this->MakeScalar(1),
-                      arrow::MakeScalar<double>(2.718281828459045F));
+  this->AssertUnaryOp(exp, this->MakeScalar(1), arrow::MakeScalar(kEuler64));
 }
 
 TYPED_TEST(TestUnaryArithmeticSigned, Exp) {
@@ -1502,8 +1504,7 @@ TYPED_TEST(TestUnaryArithmeticSigned, Exp) {
                       ArrayFromJSON(float64(),
                                     "[0.000045399929762484854, 0.36787944117144233, "
                                     "null, 2.718281828459045, 22026.465794806718]"));
-  this->AssertUnaryOp(exp, this->MakeScalar(1),
-                      arrow::MakeScalar<double>(2.718281828459045F));
+  this->AssertUnaryOp(exp, this->MakeScalar(1), arrow::MakeScalar(kEuler64));
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, Exp) {
@@ -1575,8 +1576,7 @@ TYPED_TEST(TestUnaryArithmeticUnsigned, Expm1) {
   this->AssertUnaryOp(
       expm1, "[null, 1, 10]",
       ArrayFromJSON(float64(), "[null, 1.718281828459045, 22025.465794806718]"));
-  this->AssertUnaryOp(expm1, this->MakeScalar(1),
-                      arrow::MakeScalar<double>(1.718281828459045F));
+  this->AssertUnaryOp(expm1, this->MakeScalar(1), arrow::MakeScalar(kEuler64 - 1.0));
 }
 
 TYPED_TEST(TestUnaryArithmeticSigned, Expm1) {
@@ -1592,8 +1592,7 @@ TYPED_TEST(TestUnaryArithmeticSigned, Expm1) {
                       ArrayFromJSON(float64(),
                                     "[-0.9999546000702375, -0.6321205588285577, 0.0, "
                                     "null, 1.718281828459045, 22025.465794806718]"));
-  this->AssertUnaryOp(expm1, this->MakeScalar(1),
-                      arrow::MakeScalar<double>(1.718281828459045F));
+  this->AssertUnaryOp(expm1, this->MakeScalar(1), arrow::MakeScalar(kEuler64 - 1.0));
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, Expm1) {
