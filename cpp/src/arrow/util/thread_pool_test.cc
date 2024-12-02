@@ -578,6 +578,31 @@ TEST_F(TestThreadPool, Spawn) {
   SpawnAdds(pool.get(), 7, task_add<int>);
 }
 
+TEST_F(TestThreadPool, TasksRunInPriorityOrder) {
+  auto pool = this->MakeThreadPool(1);
+  auto recorded_times = std::vector<std::chrono::system_clock::time_point>(10);
+  auto sleep_task = []() { SleepABit(); };
+
+  // Spawn a sleep task to block the pool while we add the other tasks. This
+  // ensures all the tasks are queued before any of them start running, so that
+  // their running order is fully determined by their priority.
+  ASSERT_OK(pool->Spawn(sleep_task));
+
+  for (int i = 0; i < 10; ++i) {
+    auto record_time = [&recorded_times, i]() {
+      recorded_times[i] = std::chrono::system_clock::now();
+    };
+    // Spawn tasks in opposite order to urgency.
+    ASSERT_OK(pool->Spawn(TaskHints{10 - i}, record_time));
+  }
+
+  ASSERT_OK(pool->Shutdown());
+
+  for (size_t i = 1; i < recorded_times.size(); ++i) {
+    ASSERT_GE(recorded_times[i - 1], recorded_times[i]);
+  }
+}
+
 TEST_F(TestThreadPool, StressSpawn) {
   auto pool = this->MakeThreadPool(30);
   SpawnAdds(pool.get(), 1000, task_add<int>);
