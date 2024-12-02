@@ -52,6 +52,17 @@ struct Task {
   Executor::StopCallback stop_callback;
 };
 
+struct QueuedTask {
+  Task task;
+  TaskHints hints;
+
+  // Implement comparison so that std::priority_queue will pop the low priorities more
+  // urgently.
+  bool operator<(const QueuedTask& other) const {
+    return hints.priority > other.hints.priority;
+  }
+};
+
 }  // namespace
 
 struct SerialExecutor::State {
@@ -386,7 +397,7 @@ struct ThreadPool::State {
   std::list<std::thread> workers_;
   // Trashcan for finished threads
   std::vector<std::thread> finished_workers_;
-  std::deque<Task> pending_tasks_;
+  std::priority_queue<QueuedTask> pending_tasks_;
 
   // Desired number of threads
   int desired_capacity_ = 0;
@@ -449,8 +460,8 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
 
       DCHECK_GE(state->tasks_queued_or_running_, 0);
       {
-        Task task = std::move(state->pending_tasks_.front());
-        state->pending_tasks_.pop_front();
+        Task task = std::move(const_cast<Task&>(state->pending_tasks_.top().task));
+        state->pending_tasks_.pop();
         StopToken* stop_token = &task.stop_token;
         lock.unlock();
         if (!stop_token->IsStopRequested()) {
@@ -592,7 +603,8 @@ Status ThreadPool::Shutdown(bool wait) {
   if (!state_->quick_shutdown_) {
     DCHECK_EQ(state_->pending_tasks_.size(), 0);
   } else {
-    state_->pending_tasks_.clear();
+    std::priority_queue<QueuedTask> empty;
+    std::swap(state_->pending_tasks_, empty);
   }
   CollectFinishedWorkersUnlocked();
   return Status::OK();
@@ -653,8 +665,8 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
       // We can still spin up more workers so spin up a new worker
       LaunchWorkersUnlocked(/*threads=*/1);
     }
-    state_->pending_tasks_.push_back(
-        {std::move(task), std::move(stop_token), std::move(stop_callback)});
+    state_->pending_tasks_.push(QueuedTask{
+        {std::move(task), std::move(stop_token), std::move(stop_callback)}, hints});
   }
   state_->cv_.notify_one();
   return Status::OK();
