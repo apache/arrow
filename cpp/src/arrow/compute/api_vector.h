@@ -257,6 +257,38 @@ class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
   bool recursive = false;
 };
 
+/// \brief Options for inverse_permutation function
+class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
+ public:
+  explicit InversePermutationOptions(int64_t max_index = -1,
+                                     std::shared_ptr<DataType> output_type = NULLPTR);
+  static constexpr char const kTypeName[] = "InversePermutationOptions";
+  static InversePermutationOptions Defaults() { return InversePermutationOptions(); }
+
+  /// \brief The max value in the input indices to process. Any indices that are greater
+  /// than this value will be ignored. If negative, this value will be set to the length
+  /// of the input indices minus 1.
+  int64_t max_index = -1;
+  /// \brief The type of the output inverse permutation. If null, the output will be of
+  /// the same type as the input indices, otherwise must be integer types. An invalid
+  /// error will be reported if this type is not able to store the length of the input
+  /// indices.
+  std::shared_ptr<DataType> output_type = NULLPTR;
+};
+
+/// \brief Options for scatter function
+class ARROW_EXPORT ScatterOptions : public FunctionOptions {
+ public:
+  explicit ScatterOptions(int64_t max_index = -1);
+  static constexpr char const kTypeName[] = "ScatterOptions";
+  static ScatterOptions Defaults() { return ScatterOptions(); }
+
+  /// \brief The max value in the input indices to process. Any values with indices that
+  /// are greater than this value will be ignored. If negative, this value will be set to
+  /// the length of the input minus 1.
+  int64_t max_index = -1;
+};
+
 /// @}
 
 /// \brief Filter with a boolean selection filter
@@ -704,6 +736,53 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
                                             const PairwiseOptions& options,
                                             bool check_overflow = false,
                                             ExecContext* ctx = NULLPTR);
+
+/// \brief Return the inverse permutation of the given indices.
+///
+/// For indices[i] = x, inverse_permutation[x] = i. And inverse_permutation[x] = null if x
+/// does not appear in the input indices. For indices[i] = x where x < 0 or x > max_index,
+/// it is ignored. If multiple indices point to the same value, the last one is used.
+///
+/// For example, with indices = [null, 0, 3, 2, 4, 1, 1], the inverse permutation is
+///   [1, 6, 3]                    if max_index = 2,
+///   [1, 6, 3, 2, 4, null, null]  if max_index = 6.
+///
+/// \param[in] indices array-like indices
+/// \param[in] options configures the max index and the output type
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting inverse permutation
+///
+/// \since 19.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> InversePermutation(
+    const Datum& indices,
+    const InversePermutationOptions& options = InversePermutationOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Scatter the values into specified positions according to the indices.
+///
+/// For indices[i] = x, output[x] = values[i]. And output[x] = null if x does not appear
+/// in the input indices. For indices[i] = x where x < 0 or x > max_index, values[i]
+/// is ignored. If multiple indices point to the same value, the last one is used.
+///
+/// For example, with values = [a, b, c, d, e, f, g] and indices = [null, 0,
+/// 3, 2, 4, 1, 1], the output is
+///   [b, g, d]                    if max_index = 2,
+///   [b, g, d, c, e, null, null]  if max_index = 6.
+///
+/// \param[in] values datum to scatter
+/// \param[in] indices array-like indices
+/// \param[in] options configures the max index of to scatter
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 19.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Scatter(const Datum& values, const Datum& indices,
+                      const ScatterOptions& options = ScatterOptions::Defaults(),
+                      ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
