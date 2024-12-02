@@ -674,6 +674,7 @@ set(ARROW_TESTING_SRCS
     testing/fixed_width_test_util.cc
     testing/generator.cc
     testing/gtest_util.cc
+    testing/math.cc
     testing/process.cc
     testing/random.cc
     testing/util.cc)
