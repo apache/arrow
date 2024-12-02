@@ -532,6 +532,14 @@ struct Exp {
   }
 };
 
+struct Expm1 {
+  template <typename T, typename Arg>
+  static T Call(KernelContext*, Arg exp, Status*) {
+    static_assert(std::is_same<T, Arg>::value);
+    return std::expm1(exp);
+  }
+};
+
 struct Power {
   ARROW_NOINLINE
   static uint64_t IntegerPower(uint64_t base, uint64_t exp) {
