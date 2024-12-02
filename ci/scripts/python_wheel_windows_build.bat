@@ -65,7 +65,7 @@ cmake ^
     -DARROW_BUILD_TESTS=OFF ^
     -DARROW_COMPUTE=ON ^
     -DARROW_CSV=ON ^
-    -DARROW_CXXFLAGS="/MP" ^
+    -DARROW_CXXFLAGS="/MP /MT /nodefaultlib:libucrt.lib /nodefaultlib:libvcruntime.lib" ^
     -DARROW_DATASET=%ARROW_DATASET% ^
     -DARROW_DEPENDENCY_SOURCE=VCPKG ^
     -DARROW_DEPENDENCY_USE_SHARED=OFF ^
@@ -121,7 +121,5 @@ set ARROW_HOME=C:\arrow-dist
 set CMAKE_PREFIX_PATH=C:\arrow-dist
 
 pushd C:\arrow\python
-@REM bundle the msvc runtime
-cp "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Redist\MSVC\14.28.29325\x64\Microsoft.VC142.CRT\msvcp140.dll" pyarrow\
 python setup.py bdist_wheel || exit /B 1
 popd
