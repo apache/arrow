@@ -61,6 +61,9 @@ struct QueuedTask {
   // urgently.
   bool operator<(const QueuedTask& other) const {
     if (hints.priority == other.hints.priority) {
+      // Maintain spawn order for tasks with the same priority. TODO: Decide if this is
+      // really needed. Currently several test cases in arrow-acero-hash-aggregate-test
+      // depend on it.
       return spawn_index > other.spawn_index;
     }
     return hints.priority > other.hints.priority;
