@@ -190,6 +190,8 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool have_file_metadata() const { return false; }
   // - Whether the filesystem has a false positive memory leak with generator
   virtual bool have_false_positive_memory_leak_with_generator() const { return false; }
+  // - Whether the filesystem has a false positive memory leak in async close
+  virtual bool have_false_positive_memory_leak_with_async_close() const { return false; }
 
   void TestEmpty(FileSystem* fs);
   void TestNormalizePath(FileSystem* fs);

@@ -55,7 +55,7 @@ struct Task {
 struct QueuedTask {
   Task task;
   TaskHints hints;
-  u_int64_t spawn_index;
+  uint64_t spawn_index;
 
   // Implement comparison so that std::priority_queue will pop the low priorities more
   // urgently.
