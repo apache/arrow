@@ -19,6 +19,7 @@
 
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
+#include "arrow/extension_type.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type_fwd.h"
@@ -42,13 +43,29 @@ namespace {
 // Returns the type that controls how the buffers of this ArrayData (not its children)
 // should behave
 Type::type GetTypeForBuffers(const ArrayData& array) {
-  Type::type type_id = array.type->storage_id();
-  if (type_id == Type::DICTIONARY) {
-    return ::arrow::internal::checked_pointer_cast<DictionaryType>(array.type)
-        ->index_type()
-        ->id();
+  Type::type type_id = array.type->id();
+  Type::type storage_type_id = array.type->storage_id();
+  if (storage_type_id == Type::DICTIONARY) {
+    switch (type_id) {
+      case Type::DICTIONARY:
+        storage_type_id =
+            ::arrow::internal::checked_pointer_cast<DictionaryType>(array.type)
+                ->index_type()
+                ->id();
+        break;
+      case Type::EXTENSION: {
+        auto dictExtType =
+            ::arrow::internal::checked_pointer_cast<ExtensionType>(array.type);
+        storage_type_id = ::arrow::internal::checked_pointer_cast<DictionaryType>(
+                              dictExtType->storage_type())
+                              ->index_type()
+                              ->id();
+      } break;
+      default:
+        break;
+    }
   }
-  return type_id;
+  return storage_type_id;
 }
 
 // Checks to see if an array's own buffers are aligned but doesn't check
