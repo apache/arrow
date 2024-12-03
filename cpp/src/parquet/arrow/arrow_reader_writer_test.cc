@@ -3349,6 +3349,27 @@ TEST(TestArrowWrite, CheckChunkSize) {
                 WriteTable(*table, ::arrow::default_memory_pool(), sink, chunk_size));
 }
 
+void CheckWritingNonNullableColumnWithNulls(std::shared_ptr<::arrow::Field> field,
+                                            std::string json_batch) {
+  ARROW_SCOPED_TRACE("field = ", field, ", json_batch = ", json_batch);
+  auto schema = ::arrow::schema({field});
+  auto table = ::arrow::TableFromJSON(schema, {json_batch});
+  auto sink = CreateOutputStream();
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("is declared non-nullable but contains nulls"),
+      WriteTable(*table, ::arrow::default_memory_pool(), sink));
+}
+
+TEST(TestArrowWrite, InvalidSchema) {
+  // GH-41667: nulls in non-nullable column
+  CheckWritingNonNullableColumnWithNulls(
+      ::arrow::field("a", ::arrow::int32(), /*nullable=*/false),
+      R"([{"a": 456}, {"a": null}])");
+  CheckWritingNonNullableColumnWithNulls(
+      ::arrow::field("a", ::arrow::utf8(), /*nullable=*/false),
+      R"([{"a": "foo"}, {"a": null}])");
+}
+
 void DoNestedValidate(const std::shared_ptr<::arrow::DataType>& inner_type,
                       const std::shared_ptr<::arrow::Field>& outer_field,
                       const std::shared_ptr<Buffer>& buffer,
