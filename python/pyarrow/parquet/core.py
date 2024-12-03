@@ -1171,11 +1171,11 @@ default "hive"
     you need to specify the field names or a full schema. See the
     ``pyarrow.dataset.partitioning()`` function for more details.
 partition_base_dir : str, optional
-        For the purposes of applying the partitioning, paths will be
-        stripped of the partition_base_dir. Files not matching the
-        partition_base_dir prefix will be skipped for partitioning discovery.
-        The ignored files will still be part of the Dataset, but will not
-        have partition information."""
+    For the purposes of applying the partitioning, paths will be
+    stripped of the partition_base_dir. Files not matching the
+    partition_base_dir prefix will be skipped for partitioning discovery.
+    The ignored files will still be part of the Dataset, but will not
+    have partition information."""
 
 
 _parquet_dataset_example = """\
