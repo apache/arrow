@@ -23,7 +23,6 @@
 #include <gtest/gtest.h>
 
 #include "arrow/util/logging.h"
-#include "arrow/util/string_builder.h"
 
 namespace arrow {
 namespace {
@@ -71,8 +70,6 @@ template <typename Float>
 void AssertWithinUlpGeneric(Float left, Float right, int n_ulp) {
   if (!WithinUlpGeneric(left, right, n_ulp)) {
     FAIL() << left << " and " << right << " are not within " << n_ulp << " ulps";
-    //     FAIL << StringBuilder(left, " and ", right, " are not within ", n_ulp, "
-    //     ulps");
   }
 }
 
