@@ -20,7 +20,10 @@
 #include <cmath>
 #include <limits>
 
+#include <gtest/gtest.h>
+
 #include "arrow/util/logging.h"
+#include "arrow/util/string_builder.h"
 
 namespace arrow {
 namespace {
@@ -64,6 +67,15 @@ bool WithinUlpGeneric(Float left, Float right, int n_ulp) {
   return WithinUlpOneWay(left, right, n_ulp) || WithinUlpOneWay(right, left, n_ulp);
 }
 
+template <typename Float>
+void AssertWithinUlpGeneric(Float left, Float right, int n_ulp) {
+  if (!WithinUlpGeneric(left, right, n_ulp)) {
+    FAIL() << left << " and " << right << " are not within " << n_ulp << " ulps";
+    //     FAIL << StringBuilder(left, " and ", right, " are not within ", n_ulp, "
+    //     ulps");
+  }
+}
+
 }  // namespace
 
 bool WithinUlp(float left, float right, int n_ulp) {
@@ -72,6 +84,14 @@ bool WithinUlp(float left, float right, int n_ulp) {
 
 bool WithinUlp(double left, double right, int n_ulp) {
   return WithinUlpGeneric(left, right, n_ulp);
+}
+
+void AssertWithinUlp(float left, float right, int n_ulps) {
+  AssertWithinUlpGeneric(left, right, n_ulps);
+}
+
+void AssertWithinUlp(double left, double right, int n_ulps) {
+  AssertWithinUlpGeneric(left, right, n_ulps);
 }
 
 }  // namespace arrow

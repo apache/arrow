@@ -23,8 +23,12 @@ namespace arrow {
 
 ARROW_TESTING_EXPORT
 bool WithinUlp(float left, float right, int n_ulp);
-
 ARROW_TESTING_EXPORT
 bool WithinUlp(double left, double right, int n_ulp);
+
+ARROW_TESTING_EXPORT
+void AssertWithinUlp(float left, float right, int n_ulps);
+ARROW_TESTING_EXPORT
+void AssertWithinUlp(double left, double right, int n_ulps);
 
 }  // namespace arrow
