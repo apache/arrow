@@ -176,8 +176,14 @@ TEST_F(TestTensorFromJSON, FromJSON) {
 
 template <typename Float>
 void CheckWithinUlpSingle(Float x, Float y, int n_ulp) {
-  ARROW_SCOPED_TRACE("x = ", x, ", y = ", x, ", n_ulp = ", n_ulp);
+  ARROW_SCOPED_TRACE("x = ", x, ", y = ", y, ", n_ulp = ", n_ulp);
   ASSERT_TRUE(WithinUlp(x, y, n_ulp));
+}
+
+template <typename Float>
+void CheckNotWithinUlpSingle(Float x, Float y, int n_ulp) {
+  ARROW_SCOPED_TRACE("x = ", x, ", y = ", y, ", n_ulp = ", n_ulp);
+  ASSERT_FALSE(WithinUlp(x, y, n_ulp));
 }
 
 template <typename Float>
@@ -186,6 +192,8 @@ void CheckWithinUlp(Float x, Float y, int n_ulp) {
   CheckWithinUlpSingle(y, x, n_ulp);
   CheckWithinUlpSingle(x, y, n_ulp + 1);
   CheckWithinUlpSingle(y, x, n_ulp + 1);
+  CheckWithinUlpSingle(-x, -y, n_ulp);
+  CheckWithinUlpSingle(-y, -x, n_ulp);
 
   for (int exp : {1, -1, 10, -10}) {
     Float x_scaled = std::ldexp(x, exp);
@@ -197,19 +205,20 @@ void CheckWithinUlp(Float x, Float y, int n_ulp) {
 
 template <typename Float>
 void CheckNotWithinUlp(Float x, Float y, int n_ulp) {
-  ARROW_SCOPED_TRACE("x = ", x, ", y = ", x, ", n_ulp = ", n_ulp);
-  ASSERT_FALSE(WithinUlp(x, y, n_ulp));
-  ASSERT_FALSE(WithinUlp(y, x, n_ulp));
+  CheckNotWithinUlpSingle(x, y, n_ulp);
+  CheckNotWithinUlpSingle(y, x, n_ulp);
   if (n_ulp > 1) {
-    ASSERT_FALSE(WithinUlp(x, y, n_ulp - 1));
-    ASSERT_FALSE(WithinUlp(y, x, n_ulp - 1));
+    CheckNotWithinUlpSingle(x, y, n_ulp - 1);
+    CheckNotWithinUlpSingle(y, x, n_ulp - 1);
   }
+  CheckNotWithinUlpSingle(-x, -y, n_ulp);
+  CheckNotWithinUlpSingle(-y, -x, n_ulp);
 
   for (int exp : {1, -1, 10, -10}) {
     Float x_scaled = std::ldexp(x, exp);
     Float y_scaled = std::ldexp(y, exp);
-    ASSERT_FALSE(WithinUlp(x_scaled, y_scaled, n_ulp));
-    ASSERT_FALSE(WithinUlp(y_scaled, x_scaled, n_ulp));
+    CheckNotWithinUlpSingle(x_scaled, y_scaled, n_ulp);
+    CheckNotWithinUlpSingle(y_scaled, x_scaled, n_ulp);
   }
 }
 
@@ -218,6 +227,7 @@ TEST(TestWithinUlp, Double) {
     CheckWithinUlp(f, f, 1);
     CheckWithinUlp(f, f, 42);
   }
+  CheckWithinUlp(-0.0, 0.0, 1);
   CheckWithinUlp(1.0, 1.0000000000000002, 1);
   CheckWithinUlp(1.0, 1.0000000000000007, 3);
   CheckNotWithinUlp(1.0, 1.0000000000000007, 2);
@@ -233,6 +243,23 @@ TEST(TestWithinUlp, Double) {
   CheckNotWithinUlp(0.0, 1e-20, 10);
 }
 
-// TODO float tests
+TEST(TestWithinUlp, Float) {
+  for (float f : {0.0f, 1e-8f, 1.0f, 123.456f}) {
+    CheckWithinUlp(f, f, 1);
+    CheckWithinUlp(f, f, 42);
+  }
+  CheckWithinUlp(-0.0f, 0.0f, 1);
+  CheckWithinUlp(1.0f, 1.0000001f, 1);
+  CheckWithinUlp(1.0f, 1.0000013f, 11);
+  CheckNotWithinUlp(1.0f, 1.0000013f, 10);
+
+  CheckWithinUlp(123.456f, 123.456085f, 11);
+  CheckNotWithinUlp(123.456f, 123.456085f, 10);
+
+  CheckNotWithinUlp(HUGE_VALF, -HUGE_VALF, 10);
+  CheckNotWithinUlp(12.34f, -HUGE_VALF, 10);
+  CheckNotWithinUlp(12.34f, std::nanf(""), 10);
+  CheckNotWithinUlp(12.34f, -12.34f, 10);
+}
 
 }  // namespace arrow
