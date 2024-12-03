@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include "arrow/ipc/writer.h"
 #include "libmexclass/proxy/Proxy.h"
 
