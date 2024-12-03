@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/matlab/io/ipc/proxy/record_batch_file_writer.h"
 #include "arrow/io/file.h"
 #include "arrow/matlab/error/error.h"
-#include "arrow/matlab/io/ipc/proxy/record_batch_file_writer.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/util/utf8.h"
 

@@ -30,7 +30,6 @@ class RecordBatchFileWriter : public RecordBatchWriter {
 
   static libmexclass::proxy::MakeResult make(
       const libmexclass::proxy::FunctionArguments& constructor_arguments);
-
 };
 
 }  // namespace arrow::matlab::io::ipc::proxy

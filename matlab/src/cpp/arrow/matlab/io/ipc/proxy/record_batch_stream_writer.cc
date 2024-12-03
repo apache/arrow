@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/matlab/io/ipc/proxy/record_batch_stream_writer.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/matlab/error/error.h"
-#include "arrow/matlab/io/ipc/proxy/record_batch_stream_writer.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/util/utf8.h"
 
@@ -33,7 +33,8 @@ RecordBatchStreamWriter::RecordBatchStreamWriter(
 libmexclass::proxy::MakeResult RecordBatchStreamWriter::make(
     const libmexclass::proxy::FunctionArguments& constructor_arguments) {
   namespace mda = ::matlab::data;
-  using RecordBatchStreamWriterProxy = arrow::matlab::io::ipc::proxy::RecordBatchStreamWriter;
+  using RecordBatchStreamWriterProxy =
+      arrow::matlab::io::ipc::proxy::RecordBatchStreamWriter;
   using SchemaProxy = arrow::matlab::tabular::proxy::Schema;
 
   const mda::StructArray opts = constructor_arguments[0];

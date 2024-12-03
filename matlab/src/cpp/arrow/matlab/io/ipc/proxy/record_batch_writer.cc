@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/matlab/io/ipc/proxy/record_batch_writer.h"
 #include "arrow/io/file.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/matlab/tabular/proxy/table.h"
-#include "arrow/matlab/io/ipc/proxy/record_batch_writer.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
 
@@ -34,8 +34,7 @@ RecordBatchWriter::RecordBatchWriter(
   REGISTER_METHOD(RecordBatchWriter, writeTable);
 }
 
-void RecordBatchWriter::writeRecordBatch(
-    libmexclass::proxy::method::Context& context) {
+void RecordBatchWriter::writeRecordBatch(libmexclass::proxy::method::Context& context) {
   namespace mda = ::matlab::data;
   using RecordBatchProxy = ::arrow::matlab::tabular::proxy::RecordBatch;
 
