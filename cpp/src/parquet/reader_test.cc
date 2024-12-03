@@ -34,6 +34,8 @@
 #include <rapidjson/stringbuffer.h>
 
 #include "arrow/array.h"
+#include "arrow/array/array_binary.h"
+#include "arrow/array/builder_binary.h"
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/testing/future_util.h"
@@ -45,13 +47,17 @@
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
+#include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
+#include "parquet/geometry_statistics.h"
 #include "parquet/metadata.h"
 #include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/printer.h"
+#include "parquet/statistics.h"
 #include "parquet/test_util.h"
+#include "parquet/types.h"
 
 namespace rj = arrow::rapidjson;
 
@@ -1855,6 +1861,176 @@ TEST(PageIndexReaderTest, ReadFileWithoutPageIndex) {
   ASSERT_NE(nullptr, page_index_reader);
   auto row_group_index_reader = page_index_reader->RowGroup(0);
   ASSERT_EQ(nullptr, row_group_index_reader);
+}
+
+class TestGeometryLogicalType : public ::testing::Test {
+ public:
+  const int kNumRows = 1000;
+
+  void WriteTestData(ParquetDataPageVersion data_page_version,
+                     bool enable_write_page_index, bool write_arrow) {
+    // Make schema
+    schema::NodeVector fields;
+    fields.push_back(PrimitiveNode::Make(
+        "g", Repetition::REQUIRED,
+        GeometryLogicalType::Make("OGC:CRS84", LogicalType::GeometryEdges::PLANAR,
+                                  LogicalType::GeometryEncoding::WKB),
+        Type::BYTE_ARRAY));
+    auto schema = std::static_pointer_cast<GroupNode>(
+        GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+    // Write small batches and small data pages
+    auto writer_props_builder = WriterProperties::Builder();
+    writer_props_builder.write_batch_size(64)->data_pagesize(128)->data_page_version(
+        data_page_version);
+    if (enable_write_page_index) {
+      writer_props_builder.enable_write_page_index();
+    }
+
+    std::shared_ptr<WriterProperties> writer_props = writer_props_builder.build();
+
+    ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
+    std::shared_ptr<ParquetFileWriter> file_writer =
+        ParquetFileWriter::Open(out_file, schema, writer_props);
+    RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
+
+    // write WKB points to columns
+    auto* writer = static_cast<ByteArrayWriter*>(rg_writer->NextColumn());
+    if (!write_arrow) {
+      WriteTestDataUsingWriteBatch(writer);
+    } else {
+      WriteTestDataUsingWriteArrow(writer);
+    }
+
+    rg_writer->Close();
+    file_writer->Close();
+
+    ASSERT_OK_AND_ASSIGN(file_buf, out_file->Finish());
+  }
+
+  void WriteTestDataUsingWriteBatch(ByteArrayWriter* writer) {
+    std::vector<uint8_t> buffer(test::kWkbPointSize * kNumRows);
+    uint8_t* ptr = buffer.data();
+    std::vector<ByteArray> values(kNumRows);
+    for (int k = 0; k < kNumRows; k++) {
+      test::GenerateWKBPoint(ptr, k, k + 1);
+      values[k].len = test::kWkbPointSize;
+      values[k].ptr = ptr;
+      ptr += test::kWkbPointSize;
+    }
+    writer->WriteBatch(kNumRows, nullptr, nullptr, values.data());
+  }
+
+  void WriteTestDataUsingWriteArrow(ByteArrayWriter* writer) {
+    ::arrow::BinaryBuilder builder;
+    std::vector<uint8_t> buffer(test::kWkbPointSize * kNumRows);
+    uint8_t* ptr = buffer.data();
+    for (int k = 0; k < kNumRows; k++) {
+      test::GenerateWKBPoint(ptr, k, k + 1);
+      ASSERT_OK(builder.Append(ptr, test::kWkbPointSize));
+      ptr += test::kWkbPointSize;
+    }
+    std::shared_ptr<::arrow::BinaryArray> array;
+    ASSERT_OK(builder.Finish(&array));
+
+    std::shared_ptr<ArrowWriterProperties> properties =
+        ArrowWriterProperties::Builder().build();
+    MemoryPool* pool = ::arrow::default_memory_pool();
+    auto ctx = std::make_unique<ArrowWriteContext>(pool, properties.get());
+    ASSERT_OK(writer->WriteArrow(nullptr, nullptr, kNumRows, *array, ctx.get(), true));
+  }
+
+  void TestWriteAndRead(ParquetDataPageVersion data_page_version,
+                        bool enable_write_page_index, bool write_arrow) {
+    WriteTestData(data_page_version, enable_write_page_index, write_arrow);
+
+    auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
+
+    ReaderProperties reader_props;
+    reader_props.enable_buffered_stream();
+    reader_props.set_buffer_size(64);
+    auto file_reader = ParquetFileReader::Open(in_file, reader_props);
+
+    // Check that the geometry statistics are correctly written and read
+    auto metadata = file_reader->metadata();
+    auto page_index_reader = file_reader->GetPageIndexReader();
+    int num_row_groups = metadata->num_row_groups();
+    for (int i = 0; i < num_row_groups; i++) {
+      auto row_group_metadata = metadata->RowGroup(i);
+      auto column_chunk_metadata = row_group_metadata->ColumnChunk(0);
+      auto geometry_stats = column_chunk_metadata->geometry_statistics();
+      CheckGeometryStatistics(geometry_stats);
+    }
+
+    // Check the geometry values
+    int64_t total_values_read = 0;
+    for (int i = 0; i < num_row_groups; i++) {
+      auto row_group = file_reader->RowGroup(i);
+      std::shared_ptr<ByteArrayReader> reader =
+          std::static_pointer_cast<ByteArrayReader>(row_group->Column(0));
+      while (reader->HasNext()) {
+        std::vector<ByteArray> out(kNumRows);
+        int64_t values_read = 0;
+        int64_t levels_read =
+            reader->ReadBatch(kNumRows, nullptr, nullptr, out.data(), &values_read);
+        ASSERT_GE(levels_read, 1);
+        ASSERT_GE(values_read, 1);
+
+        // Check the batch
+        for (int64_t i = 0; i < values_read; i++) {
+          const ByteArray& value = out[i];
+          double x = 0;
+          double y = 0;
+          EXPECT_TRUE(test::GetWKBPointCoordinate(value, &x, &y));
+          auto expected_x = static_cast<double>(i + total_values_read);
+          auto expected_y = static_cast<double>(i + 1 + total_values_read);
+          EXPECT_DOUBLE_EQ(expected_x, x);
+          EXPECT_DOUBLE_EQ(expected_y, y);
+        }
+
+        total_values_read += values_read;
+      }
+    }
+    EXPECT_EQ(kNumRows, total_values_read);
+  }
+
+  void CheckGeometryStatistics(std::shared_ptr<GeometryStatistics> geom_stats) {
+    ASSERT_TRUE(geom_stats != nullptr);
+    std::vector<int32_t> geometry_types = geom_stats->GetGeometryTypes();
+    EXPECT_EQ(1, geometry_types.size());
+    EXPECT_EQ(1, geometry_types[0]);
+    EXPECT_GE(geom_stats->GetXMin(), 0);
+    EXPECT_GT(geom_stats->GetXMax(), geom_stats->GetXMin());
+    EXPECT_GT(geom_stats->GetYMin(), 0);
+    EXPECT_GT(geom_stats->GetYMax(), geom_stats->GetYMin());
+    EXPECT_FALSE(geom_stats->HasZ());
+    EXPECT_FALSE(geom_stats->HasM());
+  }
+
+ protected:
+  std::shared_ptr<Buffer> file_buf;
+};
+
+TEST_F(TestGeometryLogicalType, TestWriteAndReadWithPageStatistics) {
+  for (auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    TestWriteAndRead(data_page_version, false, false);
+  }
+}
+
+TEST_F(TestGeometryLogicalType, TestWriteAndReadWithColumnIndex) {
+  for (auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    TestWriteAndRead(data_page_version, true, false);
+  }
+}
+
+TEST_F(TestGeometryLogicalType, TestWriteArrowAndRead) {
+  for (auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    TestWriteAndRead(data_page_version, false, true);
+    TestWriteAndRead(data_page_version, true, true);
+  }
 }
 
 }  // namespace parquet
