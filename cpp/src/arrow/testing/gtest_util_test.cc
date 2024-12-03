@@ -233,6 +233,10 @@ TEST(TestWithinUlp, Double) {
   CheckWithinUlp(1.0, 1.0000000000000007, 3);
   CheckNotWithinUlp(1.0, 1.0000000000000007, 2);
   CheckNotWithinUlp(1.0, 1.0000000000000007, 1);
+  // left and right have a different exponent but are still very close
+  CheckWithinUlp(1.0, 0.9999999999999999, 1);
+  CheckWithinUlp(1.0, 0.9999999999999988, 11);
+  CheckNotWithinUlp(1.0, 0.9999999999999988, 10);
 
   CheckWithinUlp(123.4567, 123.45670000000015, 11);
   CheckNotWithinUlp(123.4567, 123.45670000000015, 10);
@@ -253,6 +257,10 @@ TEST(TestWithinUlp, Float) {
   CheckWithinUlp(1.0f, 1.0000001f, 1);
   CheckWithinUlp(1.0f, 1.0000013f, 11);
   CheckNotWithinUlp(1.0f, 1.0000013f, 10);
+  // left and right have a different exponent but are still very close
+  CheckWithinUlp(1.0f, 0.99999994f, 1);
+  CheckWithinUlp(1.0f, 0.99999934f, 11);
+  CheckNotWithinUlp(1.0f, 0.99999934f, 10);
 
   CheckWithinUlp(123.456f, 123.456085f, 11);
   CheckNotWithinUlp(123.456f, 123.456085f, 10);

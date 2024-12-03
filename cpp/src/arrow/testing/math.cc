@@ -63,7 +63,8 @@ bool WithinUlpGeneric(Float left, Float right, int n_ulp) {
   if (!std::isfinite(left) || !std::isfinite(right)) {
     return left == right;
   }
-  return WithinUlpOneWay(left, right, n_ulp) || WithinUlpOneWay(right, left, n_ulp);
+  return (std::abs(left) <= std::abs(right)) ? WithinUlpOneWay(left, right, n_ulp)
+                                             : WithinUlpOneWay(right, left, n_ulp);
 }
 
 template <typename Float>
