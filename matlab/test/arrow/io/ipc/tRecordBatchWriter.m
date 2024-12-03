@@ -1,4 +1,4 @@
-%TRECORDBATCHFILEWRITER Unit tests for arrow.io.ipc.RecordBatchFileWriter
+%TRECORDBATCHWRITER Unit tests for arrow.io.ipc.RecordBatchFileWriter
 % and arrow.io.ipc.RecordBatchStreamWriter.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
@@ -16,7 +16,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tRecordBatchFileWriter < matlab.unittest.TestCase
+classdef tRecordBatchWriter < matlab.unittest.TestCase
 
     properties(TestParameter)
         WriterConstructor = struct(...
