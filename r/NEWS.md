@@ -18,6 +18,16 @@
 -->
 
 # arrow 18.1.0
+# arrow 18.1.0.9000
+
+## Minor improvements and fixes
+
+* Fix bindings to allow filtering a factor column in a Dataset using `%in%` (#43446)
+* Update `str_sub` binding to properly handle negative `end` values (@coussens, #44141)
+* Fix altrep string columns from readr (#43351)
+* Fix crash in ParquetFileWriter$WriteTable and add WriteBatch (#42241)
+* Fix bindings in Math group generics (@aboyoun, #43162)
+* Fix pull on a grouped query returns the wrong column (#43172)
 
 # arrow 17.0.0
 
