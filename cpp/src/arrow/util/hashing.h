@@ -843,6 +843,14 @@ class BinaryMemoTable : public MemoTable {
     }
   }
 
+  // Visit the stored value at a specific index in insertion order.
+  // The visitor function should have the signature `void(std::string_view)`
+  // or `void(const std::string_view&)`.
+  template <typename VisitFunc>
+  void VisitValue(int32_t idx, VisitFunc&& visit) const {
+    visit(binary_builder_.GetView(idx));
+  }
+
  protected:
   struct Payload {
     int32_t memo_index;

@@ -181,6 +181,7 @@ set(PARQUET_SRCS
     printer.cc
     properties.cc
     schema.cc
+    size_statistics.cc
     statistics.cc
     stream_reader.cc
     stream_writer.cc
@@ -373,6 +374,7 @@ add_parquet_test(internals-test
                  metadata_test.cc
                  page_index_test.cc
                  public_api_test.cc
+                 size_statistics_test.cc
                  types_test.cc)
 
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
