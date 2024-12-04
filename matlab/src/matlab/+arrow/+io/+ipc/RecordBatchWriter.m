@@ -60,7 +60,7 @@ classdef (Abstract) RecordBatchWriter < matlab.mixin.Scalar
             elseif isa(tabularObj, "arrow.tabular.Table")
                 obj.writeTable(tabularObj);
             else
-                id = "arrow:matlab:io:ipc:write:InvalidType";
+                id = "arrow:io:ipc:write:InvalidType";
                 msg = "Input must be an instance of " + ...
                     "either arrow.tabular.RecordBatch or arrow.tabular.Table.";
                 error(id, msg);

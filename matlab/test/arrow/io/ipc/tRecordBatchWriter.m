@@ -111,7 +111,7 @@ classdef tRecordBatchWriter < matlab.unittest.TestCase
             schema = arrow.schema(arrow.field("A", arrow.float64()));
             writer = WriterConstructor(fname, schema);
             fcn = @() writer.write(schema);
-            testCase.verifyError(fcn, "arrow:matlab:ipc:write:InvalidType");
+            testCase.verifyError(fcn, "arrow:io:ipc:write:InvalidType");
         end
 
         function writeRecordBatchInvalidSchema(testCase, WriterConstructor)
