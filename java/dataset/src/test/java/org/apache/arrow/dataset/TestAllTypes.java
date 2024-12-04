@@ -95,11 +95,9 @@ public class TestAllTypes extends TestDataset {
     // DenseUnion
     List<Field> childFields = new ArrayList<>();
     childFields.add(
-        new Field(
-            "int-child", new FieldType(false, new ArrowType.Int(32, true), null, null), null));
+        new Field("int-child", FieldType.notNullable(new ArrowType.Int(32, true)), null));
     Field structField =
-        new Field(
-            "struct", new FieldType(true, ArrowType.Struct.INSTANCE, null, null), childFields);
+        new Field("struct", FieldType.nullable(ArrowType.Struct.INSTANCE), childFields);
     Field[] fields =
         new Field[] {
           Field.nullablePrimitive("null", ArrowType.Null.INSTANCE),
@@ -239,7 +237,11 @@ public class TestAllTypes extends TestDataset {
     largeListWriter.integer().writeInt(1);
     largeListWriter.endList();
 
-    ((StructVector) root.getVector("struct")).getChild("int-child", IntVector.class).set(1, 1);
+    var intChildVector =
+        ((StructVector) root.getVector("struct")).getChild("int-child", IntVector.class);
+    // set a non-null value at index 0 since the field is not nullable
+    intChildVector.set(0, 0);
+    intChildVector.set(1, 1);
     return root;
   }
 
