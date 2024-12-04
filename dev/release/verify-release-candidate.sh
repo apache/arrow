@@ -20,8 +20,6 @@
 
 # Requirements
 # - Ruby >= 2.3
-# - Maven >= 3.8.7
-# - JDK >= 11
 # - gcc >= 4.8
 # - Node.js >= 18
 # - Go >= 1.22
@@ -439,46 +437,6 @@ maybe_setup_conda() {
   fi
 }
 
-install_maven() {
-  MAVEN_VERSION=3.8.7
-  if command -v mvn > /dev/null; then
-    # --batch-mode is for disabling output color.
-    SYSTEM_MAVEN_VERSION=$(mvn --batch-mode -v | head -n 1 | awk '{print $3}')
-    show_info "Found Maven version ${SYSTEM_MAVEN_VERSION} at $(command -v mvn)."
-  else
-    SYSTEM_MAVEN_VERSION=0.0.0
-    show_info "Maven installation not found."
-  fi
-
-  if [[ "$MAVEN_VERSION" == "$SYSTEM_MAVEN_VERSION" ]]; then
-    show_info "System Maven version ${SYSTEM_MAVEN_VERSION} matches required Maven version ${MAVEN_VERSION}. Skipping installation."
-  else
-    # Append pipe character to make preview release versions like "X.Y.Z-beta-1" sort
-    # as older than their corresponding release version "X.Y.Z". This works because
-    # `sort -V` orders the pipe character lower than any version number character.
-    older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sed 's/$/|/' | sort -V | sed 's/|$//' | head -n1)
-    if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" ]]; then
-      show_info "Installing Maven version ${MAVEN_VERSION}..."
-      APACHE_MIRROR="https://www.apache.org/dyn/closer.lua?action=download&filename="
-      curl -sL -o apache-maven-${MAVEN_VERSION}-bin.tar.gz \
-        ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
-      tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
-      export PATH=$(pwd)/apache-maven-${MAVEN_VERSION}/bin:$PATH
-      # --batch-mode is for disabling output color.
-      show_info "Installed Maven version $(mvn --batch-mode -v | head -n 1 | awk '{print $3}')"
-    else
-      show_info "System Maven version ${SYSTEM_MAVEN_VERSION} is newer than minimum version ${MAVEN_VERSION}. Skipping installation."
-    fi
-  fi
-}
-
-maybe_setup_maven() {
-  show_info "Ensuring that Maven is installed..."
-  if [ "${USE_CONDA}" -eq 0 ]; then
-    install_maven
-  fi
-}
-
 maybe_setup_virtualenv() {
   # Optionally setup pip virtualenv with the passed dependencies
   local env="venv-${VENV_ENV:-source}"
@@ -533,66 +491,6 @@ maybe_setup_nodejs() {
   if [ "${USE_CONDA}" -eq 0 ]; then
     install_nodejs
   fi
-}
-
-test_package_java() {
-  show_header "Build and test Java libraries"
-
-  maybe_setup_maven
-  maybe_setup_conda maven openjdk
-
-  pushd java
-
-  if [ ${TEST_INTEGRATION_JAVA} -gt 0 ]; then
-    # Build JNI for C data interface
-    local -a cmake_options=()
-    # Enable only C data interface.
-    cmake_options+=(-DARROW_JAVA_JNI_ENABLE_C=ON)
-    cmake_options+=(-DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF)
-    # Disable Testing because GTest might not be present.
-    cmake_options+=(-DBUILD_TESTING=OFF)
-    if [ ! -z "${CMAKE_GENERATOR}" ]; then
-      cmake_options+=(-G "${CMAKE_GENERATOR}")
-    fi
-    local build_dir="${ARROW_TMPDIR}/java-jni-build"
-    local install_dir="${ARROW_TMPDIR}/java-jni-install"
-    local dist_dir="${ARROW_TMPDIR}/java-jni-dist"
-    cmake \
-      -S . \
-      -B "${build_dir}" \
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-release} \
-      -DCMAKE_INSTALL_LIBDIR=lib \
-      -DCMAKE_INSTALL_PREFIX="${install_dir}" \
-      -DCMAKE_PREFIX_PATH="${ARROW_HOME}" \
-      "${cmake_options[@]}"
-    cmake --build "${build_dir}"
-    cmake --install "${build_dir}"
-
-    local normalized_arch=$(arch)
-    case ${normalized_arch} in
-      aarch64|arm64)
-        normalized_arch=aarch_64
-        ;;
-      i386)
-        normalized_arch=x86_64
-        ;;
-    esac
-    rm -fr ${dist_dir}
-    mkdir -p ${dist_dir}
-    mv ${install_dir}/lib/* ${dist_dir}
-    mvn install \
-        -Darrow.c.jni.dist.dir=${dist_dir} \
-        -Parrow-c-data
-  fi
-
-  if [ ${TEST_JAVA} -gt 0 ]; then
-    mvn test
-  fi
-
-  # Build jars
-  mvn package
-
-  popd
 }
 
 test_and_install_cpp() {
@@ -893,13 +791,9 @@ test_integration() {
   maybe_setup_virtualenv
 
   pip install -e dev/archery[integration]
-  pip install -e dev/archery[integration-java]
 
-  JAVA_DIR=$ARROW_SOURCE_DIR/java
   CPP_BUILD_DIR=$ARROW_TMPDIR/cpp-build
 
-  files=( $JAVA_DIR/tools/target/arrow-tools-*-jar-with-dependencies.jar )
-  export ARROW_JAVA_INTEGRATION_JAR=${files[0]}
   export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
 
   INTEGRATION_TEST_ARGS=""
@@ -911,7 +805,6 @@ test_integration() {
   LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH archery integration \
     --run-ipc --run-flight --run-c-data \
     --with-cpp=${TEST_INTEGRATION_CPP} \
-    --with-java=${TEST_INTEGRATION_JAVA} \
     --with-js=${TEST_INTEGRATION_JS} \
     $INTEGRATION_TEST_ARGS
 }
@@ -1009,9 +902,6 @@ test_source_distribution() {
   if [ ${TEST_RUBY} -gt 0 ]; then
     test_ruby
   fi
-  if [ ${BUILD_JAVA} -gt 0 ]; then
-    test_package_java
-  fi
   if [ ${TEST_INTEGRATION} -gt 0 ]; then
     test_integration
   fi
@@ -1031,9 +921,6 @@ test_binary_distribution() {
   fi
   if [ ${TEST_WHEELS} -gt 0 ]; then
     test_wheels
-  fi
-  if [ ${TEST_JARS} -gt 0 ]; then
-    test_jars
   fi
 }
 
@@ -1170,30 +1057,6 @@ test_wheels() {
   popd
 }
 
-test_jars() {
-  show_header "Testing Java JNI jars"
-
-  maybe_setup_maven
-  maybe_setup_conda maven python
-
-  local download_dir=${ARROW_TMPDIR}/jars
-  mkdir -p ${download_dir}
-
-  ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
-         --dest=${download_dir} \
-         --package_type=jars
-
-  verify_dir_artifact_signatures ${download_dir}
-
-  # TODO: This should be replaced with real verification by ARROW-15486.
-  # https://issues.apache.org/jira/browse/ARROW-15486
-  # [Release][Java] Verify staged maven artifacts
-  if [ ! -d "${download_dir}/arrow-memory/${VERSION}" ]; then
-    echo "Artifacts for ${VERSION} isn't uploaded yet."
-    return 1
-  fi
-}
-
 # By default test all functionalities.
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
@@ -1206,12 +1069,10 @@ test_jars() {
 # Binary verification tasks
 : ${TEST_APT:=${TEST_BINARIES}}
 : ${TEST_BINARY:=${TEST_BINARIES}}
-: ${TEST_JARS:=${TEST_BINARIES}}
 : ${TEST_WHEELS:=${TEST_BINARIES}}
 : ${TEST_YUM:=${TEST_BINARIES}}
 
 # Source verification tasks
-: ${TEST_JAVA:=${TEST_SOURCE}}
 : ${TEST_CPP:=${TEST_SOURCE}}
 : ${TEST_CSHARP:=${TEST_SOURCE}}
 : ${TEST_GLIB:=${TEST_SOURCE}}
@@ -1222,15 +1083,13 @@ test_jars() {
 
 # For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
 : ${TEST_INTEGRATION_CPP:=${TEST_INTEGRATION}}
-: ${TEST_INTEGRATION_JAVA:=${TEST_INTEGRATION}}
 : ${TEST_INTEGRATION_JS:=${TEST_INTEGRATION}}
 
 # Automatically build/test if its activated by a dependent
 TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
 BUILD_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
-BUILD_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION_JAVA}))
 BUILD_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
-TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS}))
+TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JS}))
 
 # Execute tests in a conda environment
 : ${USE_CONDA:=0}
