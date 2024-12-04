@@ -6176,7 +6176,7 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
-def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none", **kwargs):
+def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none", int axis=0, **kwargs):
     """
     Concatenate pyarrow.Table objects.
 
@@ -6224,8 +6224,10 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     ----
     n_legs: [[2,4,5,100],[2,4]]
     animals: [["Flamingo","Horse","Brittle stars","Centipede"],["Parrot","Dog"]]
-
     """
+
+    cdef int axis_c = axis
+
     cdef:
         vector[shared_ptr[CTable]] c_tables
         shared_ptr[CTable] c_result_table
@@ -6256,7 +6258,41 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
         c_result_table = GetResultValue(
             ConcatenateTables(c_tables, options, pool))
 
-    return pyarrow_wrap_table(c_result_table)
+        
+    #### my constants/variables
+    cdef Table result
+    # Directly modify t1's columns and names
+    cdef list t1_columns = list(tables[0].columns)
+    cdef list t1_names = list(tables[0].schema.names)
+    # Directly modify t2's columns and names
+    cdef list t2_columns = list(tables[1].columns)
+    cdef list t2_names = list(tables[1].schema.names)
+    # Concatenate arrays and names
+    cdef list arrays = []
+    cdef list names = []
+    cdef int i
+
+    if axis_c == 0:
+        return pyarrow_wrap_table(c_result_table)
+
+    # mine
+    elif axis_c == 1:
+        if tables[0].num_columns == 0:
+            return tables[1]
+        elif tables[1].num_columns == 0:
+            return tables[0]
+
+        arrays.extend(t1_columns)
+        names.extend(t1_names)
+
+        for i in range(tables[1].num_columns):
+            arrays.extend(t2_columns[i])
+            names.extend(t2_names[i])
+
+        # Create a new table using the modified arrays and names
+        result = Table.from_arrays(arrays=arrays, names=names)
+        
+        return result
 
 
 def concat_batches(recordbatches, MemoryPool memory_pool=None):
