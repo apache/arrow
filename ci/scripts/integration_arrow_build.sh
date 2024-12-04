@@ -24,7 +24,6 @@ build_dir=${2}
 
 : ${ARROW_INTEGRATION_CPP:=ON}
 : ${ARROW_INTEGRATION_CSHARP:=ON}
-: ${ARROW_INTEGRATION_JAVA:=ON}
 : ${ARROW_INTEGRATION_JS:=ON}
 
 . ${arrow_dir}/ci/scripts/util_log.sh
@@ -56,12 +55,12 @@ fi
 github_actions_group_end
 
 github_actions_group_begin "Integration: Build: Java"
-if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
+if [ "${ARCHERY_INTEGRATION_WITH_JAVA}" -gt "0" ]; then
     export ARROW_JAVA_CDATA="ON"
     export JAVA_JNI_CMAKE_ARGS="-DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF -DARROW_JAVA_JNI_ENABLE_C=ON"
 
-    ${arrow_dir}/ci/scripts/java_jni_build.sh ${arrow_dir} ${ARROW_HOME} ${build_dir} /tmp/dist/java
-    ${arrow_dir}/ci/scripts/java_build.sh ${arrow_dir} ${build_dir} /tmp/dist/java
+    ${arrow_dir}/java/ci/scripts/java_jni_build.sh "${arrow_dir}/java" "${ARROW_HOME}" "${build_dir}/java/" /tmp/dist/java
+    ${arrow_dir}/java/ci/scripts/java_build.sh "${arrow_dir}/java" "${build_dir}/java" /tmp/dist/java
 fi
 github_actions_group_end
 
