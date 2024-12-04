@@ -16,7 +16,6 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-
 classdef (Abstract) RecordBatchWriter < matlab.mixin.Scalar
 
     properties(SetAccess=private, GetAccess=public, Hidden)
