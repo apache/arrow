@@ -15,21 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/ipc/writer.h"
-#include "arrow/matlab/io/ipc/proxy/record_batch_writer.h"
+#pragma once
 
+#include "arrow/ipc/writer.h"
 #include "libmexclass/proxy/Proxy.h"
 
 namespace arrow::matlab::io::ipc::proxy {
 
-class RecordBatchFileWriter : public RecordBatchWriter {
+class RecordBatchWriter : public libmexclass::proxy::Proxy {
  public:
-  RecordBatchFileWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter> writer);
+  RecordBatchWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter> writer);
 
-  virtual ~RecordBatchFileWriter() = default;
+  virtual ~RecordBatchWriter() = default;
 
-  static libmexclass::proxy::MakeResult make(
-      const libmexclass::proxy::FunctionArguments& constructor_arguments);
+ protected:
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> writer;
+
+  void writeRecordBatch(libmexclass::proxy::method::Context& context);
+
+  void writeTable(libmexclass::proxy::method::Context& context);
+
+  void close(libmexclass::proxy::method::Context& context);
 };
 
 }  // namespace arrow::matlab::io::ipc::proxy

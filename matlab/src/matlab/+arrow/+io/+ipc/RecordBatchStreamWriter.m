@@ -1,5 +1,5 @@
-%RECORDBATCHFILEWRITER Class for serializing record batches to the Arrow IPC File
-% format.
+%RECORDBATCHSTREAMWRITER Class for serializing record batches to the Arrow
+% IPC Streaming format.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -16,18 +16,19 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef RecordBatchFileWriter < arrow.io.ipc.RecordBatchWriter
-
+classdef RecordBatchStreamWriter < arrow.io.ipc.RecordBatchWriter
+    
     methods
-        function obj = RecordBatchFileWriter(filename, schema)
+        function obj = RecordBatchStreamWriter(filename, schema)
             arguments
                 filename(1, 1) string {mustBeNonzeroLengthText} 
                 schema(1, 1) arrow.tabular.Schema
             end
             args = struct(Filename=filename, SchemaProxyID=schema.Proxy.ID);
-            proxyName = "arrow.io.ipc.proxy.RecordBatchFileWriter";
+            proxyName = "arrow.io.ipc.proxy.RecordBatchStreamWriter";
             proxy = arrow.internal.proxy.create(proxyName, args);
             obj@arrow.io.ipc.RecordBatchWriter(proxy);
         end
     end
 end
+

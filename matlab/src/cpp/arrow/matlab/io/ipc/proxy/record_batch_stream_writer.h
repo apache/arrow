@@ -22,11 +22,11 @@
 
 namespace arrow::matlab::io::ipc::proxy {
 
-class RecordBatchFileWriter : public RecordBatchWriter {
+class RecordBatchStreamWriter : public RecordBatchWriter {
  public:
-  RecordBatchFileWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter> writer);
+  RecordBatchStreamWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter> writer);
 
-  virtual ~RecordBatchFileWriter() = default;
+  virtual ~RecordBatchStreamWriter() = default;
 
   static libmexclass::proxy::MakeResult make(
       const libmexclass::proxy::FunctionArguments& constructor_arguments);

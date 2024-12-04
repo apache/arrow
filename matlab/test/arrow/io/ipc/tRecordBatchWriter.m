@@ -1,4 +1,5 @@
-%TRECORDBATCHFILEWRITER Unit tests for arrow.io.ipc.RecordBatchFileWriter.
+%TRECORDBATCHWRITER Unit tests for arrow.io.ipc.RecordBatchFileWriter
+% and arrow.io.ipc.RecordBatchStreamWriter.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -15,7 +16,16 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tRecordBatchFileWriter < matlab.unittest.TestCase
+classdef tRecordBatchWriter < matlab.unittest.TestCase
+
+    properties(TestParameter)
+        WriterConstructor = struct(...
+            RecordBatchFileWriter=@arrow.io.ipc.RecordBatchFileWriter,...
+            RecordBatchStreamWriter=@arrow.io.ipc.RecordBatchStreamWriter...
+        );
+    end
+
+    
 
     methods
         function folder = setupTemporaryFolder(testCase)
@@ -26,45 +36,45 @@ classdef tRecordBatchFileWriter < matlab.unittest.TestCase
     end
 
     methods (Test)
-        function ZeroLengthFilenameError(testCase)
-            % Verify RecordBatchFileWriter throws an exception with the
+        function ZeroLengthFilenameError(testCase, WriterConstructor)
+            % Verify RecordBatchWriter throws an exception with the
             % identifier MATLAB:validators:mustBeNonzeroLengthText if the
             % filename input argument given is a zero length string.
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            fcn = @() arrow.io.ipc.RecordBatchFileWriter("", schema);
+            fcn = @() WriterConstructor("", schema);
             testCase.verifyError(fcn, "MATLAB:validators:mustBeNonzeroLengthText");
         end
 
-        function MissingStringFilenameError(testCase)
-            % Verify RecordBatchFileWriter throws an exception with the
+        function MissingStringFilenameError(testCase, WriterConstructor)
+            % Verify RecordBatchWriter throws an exception with the
             % identifier MATLAB:validators:mustBeNonzeroLengthText if the
             % filename input argument given is  a missing string.
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            fcn = @() arrow.io.ipc.RecordBatchFileWriter(string(missing), schema);
+            fcn = @() WriterConstructor(string(missing), schema);
             testCase.verifyError(fcn, "MATLAB:validators:mustBeNonzeroLengthText");
         end
 
-        function FilenameInvalidTypeError(testCase)
-            % Verify RecordBatchFileWriter throws an exception with the
+        function FilenameInvalidTypeError(testCase, WriterConstructor)
+            % Verify RecordBatchWriter throws an exception with the
             % identifier MATLAB:validators:UnableToConvert if the filename
             % input argument is neither a scalar string nor a char vector.
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            fcn = @() arrow.io.ipc.RecordBatchFileWriter(table, schema);
+            fcn = @() WriterConstructor(table, schema);
             testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
         end
 
-        function InvalidSchemaType(testCase)
-            % Verify RecordBatchFileWriter throws an exception with the
+        function InvalidSchemaType(testCase, WriterConstructor)
+            % Verify RecordBatchWriter throws an exception with the
             % identifier MATLAB:validators:UnableToConvert if the schema
             % input argument is not an arrow.tabular.Schema instance.
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.field("A", arrow.float64());
-            fcn = @() arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            fcn = @() WriterConstructor(fname, schema);
             testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
         end
 
-        function writeRecordBatchInvalidType(testCase)
+        function writeRecordBatchInvalidType(testCase, WriterConstructor)
             % Verify writeRecordBatch throws an exception with the
             % identifier MATLAB:validators:UnableToConvert if the
             % recordBatch input argument given is not an
@@ -72,26 +82,26 @@ classdef tRecordBatchFileWriter < matlab.unittest.TestCase
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            writer = WriterConstructor(fname, schema);
             arrowTable = arrow.table(table([1 2 3 4]', VariableNames="A"));
             fcn = @() writer.writeRecordBatch(arrowTable);
             testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
         end
 
-        function writeTableInvalidType(testCase)
+        function writeTableInvalidType(testCase, WriterConstructor)
             % Verify writeTable throws an exception with the
             % identifier MATLAB:validators:UnableToConvert if the table 
             % input argument given is not an arrow.tabular.Table instance.
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            writer = WriterConstructor(fname, schema);
             arrowRecordBatch = arrow.recordBatch(table([1 2 3 4]', VariableNames="A"));
             fcn = @() writer.writeTable(arrowRecordBatch);
             testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
         end
 
-        function writeInvalidType(testCase)
+        function writeInvalidType(testCase, WriterConstructor)
             % Verify writeTable throws an exception with the
             % identifier arrow:matlab:ipc:write:InvalidType if the 
             % tabularObj input argument given is neither an
@@ -99,12 +109,12 @@ classdef tRecordBatchFileWriter < matlab.unittest.TestCase
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            writer = WriterConstructor(fname, schema);
             fcn = @() writer.write(schema);
-            testCase.verifyError(fcn, "arrow:matlab:ipc:write:InvalidType");
+            testCase.verifyError(fcn, "arrow:io:ipc:write:InvalidType");
         end
 
-        function writeRecordBatchInvalidSchema(testCase)
+        function writeRecordBatchInvalidSchema(testCase, WriterConstructor)
             % Verify writeRecordBatch throws an exception with the
             % identifier arrow:io:ipc:FailedToWriteRecordBatch if the
             % schema of the given record batch does match the expected 
@@ -112,28 +122,28 @@ classdef tRecordBatchFileWriter < matlab.unittest.TestCase
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            writer = WriterConstructor(fname, schema);
 
             arrowRecordBatch = arrow.recordBatch(table([1 2 3 4]', VariableNames="B"));
             fcn = @() writer.writeRecordBatch(arrowRecordBatch);
             testCase.verifyError(fcn, "arrow:io:ipc:FailedToWriteRecordBatch");
         end
 
-         function writeTableInvalidSchema(testCase)
+         function writeTableInvalidSchema(testCase, WriterConstructor)
             % Verify writeTable throws an exception with the
             % identifier arrow:io:ipc:FailedToWriteRecordBatch if the
             % schema of the given table does match the expected schema.
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            writer = WriterConstructor(fname, schema);
 
             arrowTable = arrow.table(table([1 2 3 4]', VariableNames="B"));
             fcn = @() writer.writeTable(arrowTable);
             testCase.verifyError(fcn, "arrow:io:ipc:FailedToWriteRecordBatch");
          end
 
-         function writeInvalidSchema(testCase)
+         function writeInvalidSchema(testCase, WriterConstructor)
             % Verify write throws an exception with the
             % identifier arrow:io:ipc:FailedToWriteRecordBatch if the
             % schema of the given record batch or table does match the 
@@ -141,7 +151,7 @@ classdef tRecordBatchFileWriter < matlab.unittest.TestCase
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            writer = WriterConstructor(fname, schema);
 
             arrowTable = arrow.table(table([1 2 3 4]', VariableNames="B"));
             fcn = @() writer.write(arrowTable);
@@ -152,39 +162,39 @@ classdef tRecordBatchFileWriter < matlab.unittest.TestCase
             testCase.verifyError(fcn, "arrow:io:ipc:FailedToWriteRecordBatch");
          end
 
-         function writeRecordBatchSmoke(testCase)
+         function writeRecordBatchSmoke(testCase, WriterConstructor)
             % Verify writeRecordBatch does not error or issue a warning
             % if it successfully writes the record batch to the file.
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            writer = WriterConstructor(fname, schema);
             arrowRecordBatch = arrow.recordBatch(table([1 2 3 4]', VariableNames="A"));
 
             fcn = @() writer.writeRecordBatch(arrowRecordBatch);
             testCase.verifyWarningFree(fcn);
          end
 
-        function writeTableBatchSmoke(testCase)
+        function writeTableBatchSmoke(testCase, WriterConstructor)
             % Verify writeTable does not error or issue a warning
             % if it successfully writes the table to the file.
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            writer = WriterConstructor(fname, schema);
             arrowTable = arrow.table(table([1 2 3 4]', VariableNames="A"));
 
             fcn = @() writer.writeTable(arrowTable);
             testCase.verifyWarningFree(fcn);
         end
 
-        function writeSmoke(testCase)
+        function writeSmoke(testCase, WriterConstructor)
             % Verify write does not error or issue a warning if it
             % successfully writes the record batch or table to the file.
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            writer = WriterConstructor(fname, schema);
             arrowRecordBatch = arrow.recordBatch(table([1 2 3 4]', VariableNames="A"));
 
             fcn = @() writer.write(arrowRecordBatch);
@@ -195,13 +205,13 @@ classdef tRecordBatchFileWriter < matlab.unittest.TestCase
             testCase.verifyWarningFree(fcn);
         end
 
-        function closeSmoke(testCase)
+        function closeSmoke(testCase, WriterConstructor)
             % Verify close does not error or issue a warning if it was
             % successful.
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            writer = WriterConstructor(fname, schema);
             arrowTable = arrow.table(table([1 2 3 4]', VariableNames="A"));
             writer.write(arrowTable);
             fcn = @() writer.close();
