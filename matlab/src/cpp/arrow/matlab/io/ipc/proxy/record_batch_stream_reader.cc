@@ -82,7 +82,7 @@ void RecordBatchStreamReader::readRecordBatch(
   if (!nextRecordBatch) {
      MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(nextRecordBatch, reader->Next(), context, error::IPC_RECORD_BATCH_READ_FAILED);
   }
-  auto record_batch_proxy = std::make_shared<RecordBatchProxy>(std::move(nextRecordBatch));
+  auto record_batch_proxy = std::make_shared<RecordBatchProxy>(nextRecordBatch);
   const auto record_batch_proxy_id = libmexclass::proxy::ProxyManager::manageProxy(record_batch_proxy);
   // Once we have "consumed" the next RecordBatch, set nextRecordBatch to nullptr
   // so that the next call to hasNextRecordBatch correctly checks whether there are more record batches remaining in the IPC Stream.
@@ -108,6 +108,9 @@ void RecordBatchStreamReader::hasNextRecordBatch(
 		// so that we can return it on the next
 		// call to readRecordBatch.
 	  	nextRecordBatch = *maybe_record_batch;
+		if (!nextRecordBatch) {
+			has_next_record_batch = false;
+		}
 	  }
   }
 
