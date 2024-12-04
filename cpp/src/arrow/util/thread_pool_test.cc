@@ -580,8 +580,9 @@ TEST_F(TestThreadPool, Spawn) {
 
 TEST_F(TestThreadPool, TasksRunInPriorityOrder) {
   auto pool = this->MakeThreadPool(1);
-  auto recorded_times = std::vector<std::chrono::system_clock::time_point>(10);
-  auto futures = std::vector<Future<int>>(10);
+  constexpr int kNumTasks = 10;  
+  auto recorded_times = std::vector<std::chrono::steady_clock::time_point>(kNumTasks);
+  auto futures = std::vector<Future<int>>(kNumTasks);
   auto sleep_task = []() { SleepABit(); };
 
   // Spawn a sleep task to block the pool while we add the other tasks. This
@@ -589,13 +590,13 @@ TEST_F(TestThreadPool, TasksRunInPriorityOrder) {
   // their running order is fully determined by their priority.
   ASSERT_OK(pool->Spawn(sleep_task));
 
-  for (int i = 0; i < 10; ++i) {
+  for (int i = 0; i < kNumTasks; ++i) {
     auto record_time = [&recorded_times, i]() {
-      recorded_times[i] = std::chrono::system_clock::now();
+      recorded_times[i] = std::chrono::steady_clock::now();
       return i;
     };
     // Spawn tasks in opposite order to urgency.
-    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit(TaskHints{10 - i}, record_time));
+    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit(TaskHints{kNumTasks - i}, record_time));
   }
 
   ASSERT_OK(pool->Shutdown());
@@ -608,12 +609,13 @@ TEST_F(TestThreadPool, TasksRunInPriorityOrder) {
 
 TEST_F(TestThreadPool, TasksOfEqualPriorityRunInSpawnOrder) {
   auto pool = this->MakeThreadPool(1);
-  auto recorded_times = std::vector<std::chrono::system_clock::time_point>(10);
-  auto futures = std::vector<Future<int>>(10);
+  constexpr int kNumTasks = 10; 
+  auto recorded_times = std::vector<std::chrono::steady_clock::time_point>(kNumTasks);
+  auto futures = std::vector<Future<int>>(kNumTasks);
 
-  for (int i = 0; i < 10; ++i) {
+  for (int i = 0; i < kNumTasks; ++i) {
     auto record_time = [&recorded_times, i]() {
-      recorded_times[i] = std::chrono::system_clock::now();
+      recorded_times[i] = std::chrono::steady_clock::now();
       return i;
     };
     ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit(record_time));
