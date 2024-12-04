@@ -66,9 +66,9 @@ Arrow data interface. But we don't recommend this specification for
 the Arrow IPC format for now. Because we may be able to define better
 specification for the Arrow IPC format. The Arrow IPC format has some
 different features compared with the Arrow C data interface. For
-example, the Arrow IPC format can have :ref:`ipc-message-format
-metadata for each message`. If you're interested in the specification
-for passing statistics through the Arrow IPC format, please start a
+example, the Arrow IPC format can have :ref:`metadata for each message
+<ipc-message-format>`. If you're interested in the specification for
+passing statistics through the Arrow IPC format, please start a
 discussion on the `Arrow development mailing-list
 <https://arrow.apache.org/community/>`__.
 
@@ -219,6 +219,51 @@ systems, please propose it on the `Arrow development mailing-list
 <https://arrow.apache.org/community/>`__.
 
 Examples
---------
+========
 
-TODO: Add at least C++ example.
+Here are some examples to help you understand.
+
+C++
+---
+
+The C++ implementation provides convenience features to create a
+statistics array.
+
+You can attach statistics to an :cpp:class:`arrow::Array`. Statistics
+of an array is represented as :cpp:class:`arrow::ArrayStatistics`.
+
+If you build :cpp:class:`arrow::Array` s from a Parquet file, you
+don't need to attach statistics in a Parquet file
+explicitly. :cpp:class:`parquet::arrow::FileReader` attaches
+statistics in a Parquet file automatically.
+
+If you have a :cpp:class:`arrow::RecordBatch` that has
+:cpp:class:`arrow::Array` that has statistics, you can use
+:cpp:func:`arrow::RecordBatch::MakeStatisticsArray()`. It builds an
+:cpp:class:`arrow::Array` for statistics from attached statistics. The
+built statistics array uses the statistics schema defined in this
+documentation.
+
+Here is an example that reads record batches from a Parquet file and
+prints statistics array for each record batch. Each record batch has
+associated statistics when the Parquet file has statistics. The
+important part of this example is
+:cpp:func:`arrow::RecordBatch::MakeStatisticsArray` call. You can
+build a statistics :cpp:class:`arrow::Array` easily by it.
+
+.. literalinclude:: ../../../cpp/tools/parquet/parquet_dump_arrow_statistics.cc
+   :language: cpp
+   :start-after: doc: start: print-arrow-statistics
+   :end-before: doc: end: print-arrow-statistics
+
+You can pass a statistics :cpp:class:`arrow::Array` created by
+:cpp:func:`arrow::RecordBatch::MakeStatisticsArray` to another system
+in the same process with the normal C data interface. For example, you
+can use :cpp:func:`arrow::ExportArray` to export a statistics
+:cpp:class:`arrow::Array`:
+
+.. code-block:: cpp
+
+   ArrowArray exported_statistics_array;
+   arrow::Status status = arrow::ExportArray(*statistics_array, &exported_statistics_array);
+   // Pass exported_statistics_array to other system.
