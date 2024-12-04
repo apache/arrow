@@ -584,12 +584,14 @@ void GenericFileSystemTest::TestCopyFiles(FileSystem* fs) {
     GTEST_SKIP() << "Filesystem have false positive memory leak with generator";
   }
 #endif
-  auto original_threads = fs->io_context().executor()->GetCapacity();
+  auto io_thread_pool =
+      static_cast<arrow::internal::ThreadPool*>(fs->io_context().executor());
+  auto original_threads = io_thread_pool->GetCapacity();
   // Needs to be smaller than the number of files we test with to catch GH-15233
-  ASSERT_OK(io::SetIOThreadPoolCapacity(2));
+  ASSERT_OK(io_thread_pool->SetCapacity(2));
   // Ensure the thread pool capacity is set back to the original value after the test
-  auto reset_thread_pool = [original_threads](void*) {
-    ASSERT_OK(io::SetIOThreadPoolCapacity(original_threads));
+  auto reset_thread_pool = [io_thread_pool, original_threads](void*) {
+    ASSERT_OK(io_thread_pool->SetCapacity(original_threads));
   };
   std::unique_ptr<void, decltype(reset_thread_pool)> resetThreadPoolGuard(
       nullptr, reset_thread_pool);
