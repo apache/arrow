@@ -28,9 +28,6 @@ class RecordBatchWriter : public libmexclass::proxy::Proxy {
 
   virtual ~RecordBatchWriter() = default;
 
-  static libmexclass::proxy::MakeResult make(
-      const libmexclass::proxy::FunctionArguments& constructor_arguments);
-
  protected:
   std::shared_ptr<arrow::ipc::RecordBatchWriter> writer;
 
