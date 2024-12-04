@@ -580,7 +580,7 @@ TEST_F(TestThreadPool, Spawn) {
 
 TEST_F(TestThreadPool, TasksRunInPriorityOrder) {
   auto pool = this->MakeThreadPool(1);
-  constexpr int kNumTasks = 10;  
+  constexpr int kNumTasks = 10;
   auto recorded_times = std::vector<std::chrono::steady_clock::time_point>(kNumTasks);
   auto futures = std::vector<Future<int>>(kNumTasks);
   auto sleep_task = []() { SleepABit(); };
@@ -609,7 +609,7 @@ TEST_F(TestThreadPool, TasksRunInPriorityOrder) {
 
 TEST_F(TestThreadPool, TasksOfEqualPriorityRunInSpawnOrder) {
   auto pool = this->MakeThreadPool(1);
-  constexpr int kNumTasks = 10; 
+  constexpr int kNumTasks = 10;
   auto recorded_times = std::vector<std::chrono::steady_clock::time_point>(kNumTasks);
   auto futures = std::vector<Future<int>>(kNumTasks);
 
