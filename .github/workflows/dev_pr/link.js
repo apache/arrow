@@ -48,30 +48,6 @@ async function haveComment(github, context, pullRequestNumber, message) {
 }
 
 /**
- * Adds a comment on the Pull Request linking the JIRA issue.
- *
- * @param {Object} github
- * @param {Object} context
- * @param {String} pullRequestNumber
- * @param {String} jiraID
- */
-async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
-  const issueInfo = await helpers.getJiraInfo(jiraID);
-  const jiraURL = `https://issues.apache.org/jira/browse/${jiraID}`;
-  if (await haveComment(github, context, pullRequestNumber, jiraURL)) {
-    return;
-  }
-  if (issueInfo){
-    await github.rest.issues.createComment({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      issue_number: pullRequestNumber,
-      body: jiraURL
-    });
-  }
-}
-
-/**
  * Adds a comment on the Pull Request linking the GitHub issue.
  *
  * @param {Object} github
@@ -102,10 +78,6 @@ module.exports = async ({github, context}) => {
   const title = context.payload.pull_request.title;
   const issue = helpers.detectIssue(title);
   if (issue){
-    if (issue.kind == "jira") {
-      await commentJIRAURL(github, context, pullRequestNumber, issue.id);
-    } else if (issue.kind == "github") {
-      await commentGitHubURL(github, context, pullRequestNumber, issue.id);
-    }
+    await commentGitHubURL(github, context, pullRequestNumber, issue.id);
   }
 };

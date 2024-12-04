@@ -18,91 +18,6 @@
 const helpers = require("./helpers.js");
 
 /**
- * Performs checks on the JIRA Issue:
- * - The issue is started in JIRA.
- * - The issue contains components.
- *
- * @param {Object} github
- * @param {Object} context
- * @param {String} pullRequestNumber
- * @param {String} jiraID
- */
-async function verifyJIRAIssue(github, context, pullRequestNumber, jiraID) {
-    const ticketInfo = await helpers.getJiraInfo(jiraID);
-    if(!ticketInfo["fields"]["components"].length) {
-        await commentMissingComponents(github, context, pullRequestNumber);
-    }
-
-    if(ticketInfo["fields"]["status"]["id"] == 1) {
-        // "status": {"name":"Open","id":"1"
-        //            "description":"The issue is open and ready for the assignee to start work on it.", 
-        await commentNotStartedTicket(github, context, pullRequestNumber);
-    }
-}
-
-/**
- * Adds a comment to add components on the JIRA ticket.
- *
- * @param {Object} github
- * @param {Object} context
- * @param {String} pullRequestNumber
- */
-async function commentMissingComponents(github, context, pullRequestNumber) {
-    const {data: comments} = await github.rest.issues.listComments({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: pullRequestNumber,
-        per_page: 100
-    });
-
-    var found = false;
-    for(var i=0; i<comments.length; i++) { 
-        if (comments[i].body.includes("has no components in JIRA")) { 
-            found = true; 
-        } 
-    }
-    if (!found) {
-        await github.rest.issues.createComment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: pullRequestNumber,
-            body: ":warning: Ticket **has no components in JIRA**, make sure you assign one."
-        });
-    }
-}
-
-/**
- * Adds a comment to start the ticket in JIRA.
- *
- * @param {Object} github
- * @param {Object} context
- * @param {String} pullRequestNumber
- */
-async function commentNotStartedTicket(github, context, pullRequestNumber) {
-    const {data: comments} = await github.rest.issues.listComments({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: pullRequestNumber,
-        per_page: 100
-    });
-
-    var found = false;
-    for(var i=0; i<comments.length; i++) { 
-        if (comments[i].body.includes("has not been started in JIRA")) { 
-            found = true; 
-        } 
-    }
-    if (!found) {
-        await github.rest.issues.createComment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: pullRequestNumber,
-            body: ":warning: Ticket **has not been started in JIRA**, please click 'Start Progress'."
-        });
-    }
-}
-
-/**
  * Assigns the GitHub Issue to the PR creator.
  *
  * @param {Object} github
@@ -164,10 +79,6 @@ module.exports = async ({github, context}) => {
     const title = context.payload.pull_request.title;
     const issue = helpers.detectIssue(title)
     if (issue){
-        if (issue.kind == "jira") {
-            await verifyJIRAIssue(github, context, pullRequestNumber, issue.id);
-      } else if(issue.kind == "github") {
-          await verifyGitHubIssue(github, context, pullRequestNumber, issue.id);
-      }
+        await verifyGitHubIssue(github, context, pullRequestNumber, issue.id);
     }
 };

@@ -48,27 +48,6 @@ function detectIssue(title) {
 }
 
 /**
- * Retrieves information about a JIRA issue.
- * @param {String} jiraID 
- * @returns {Object} the information about a JIRA issue.
- */
-async function getJiraInfo(jiraID) {
-    const jiraURL = `https://issues.apache.org/jira/rest/api/2/issue/${jiraID}`;
-
-    return new Promise((resolve) => {
-        https.get(jiraURL, res => {
-            let data = '';
-
-            res.on('data', chunk => { data += chunk }) 
-
-            res.on('end', () => {
-               resolve(JSON.parse(data));
-            })
-        })
-    });
-}
-
-/**
  * Retrieves information about a GitHub issue.
  * @param {String} issueID
  * @returns {Object} the information about a GitHub issue.
