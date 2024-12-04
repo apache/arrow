@@ -380,7 +380,6 @@ class PullRequest(object):
     GITHUB_PR_TITLE_PATTERN = re.compile(r'^GH-([0-9]+)\b.*$')
 
     def __init__(self, cmd, github_api, git_remote, number):
-        breakpoint()
         self.cmd = cmd
         self._github_api = github_api
         self.git_remote = git_remote
