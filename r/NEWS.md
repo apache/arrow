@@ -18,7 +18,6 @@
 -->
 
 # arrow 18.1.0
-# arrow 18.1.0.9000
 
 ## Minor improvements and fixes
 
