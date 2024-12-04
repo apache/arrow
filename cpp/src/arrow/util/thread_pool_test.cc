@@ -601,7 +601,7 @@ TEST_F(TestThreadPool, TasksRunInPriorityOrder) {
 
   ASSERT_OK(pool->Shutdown());
 
-  for (size_t i = 1; i < recorded_times.size(); ++i) {
+  for (size_t i = 1; i < kNumTasks; ++i) {
     ASSERT_GE(recorded_times[i - 1], recorded_times[i]);
     ASSERT_LT(futures[i - 1].result().ValueOrDie(), futures[i].result().ValueOrDie());
   }
@@ -623,7 +623,7 @@ TEST_F(TestThreadPool, TasksOfEqualPriorityRunInSpawnOrder) {
 
   ASSERT_OK(pool->Shutdown());
 
-  for (size_t i = 1; i < recorded_times.size(); ++i) {
+  for (size_t i = 1; i < kNumTasks; ++i) {
     ASSERT_LE(recorded_times[i - 1], recorded_times[i]);
     ASSERT_LT(futures[i - 1].result().ValueOrDie(), futures[i].result().ValueOrDie());
   }
