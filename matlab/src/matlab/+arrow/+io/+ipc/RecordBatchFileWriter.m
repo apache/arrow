@@ -1,4 +1,4 @@
-%RECORDBATCHFILEWRITER Class for serializing record batches the IPC File
+%RECORDBATCHFILEWRITER Class for serializing record batches to the Arrow IPC File
 % format.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
