@@ -584,20 +584,18 @@ void GenericFileSystemTest::TestCopyFiles(FileSystem* fs) {
     GTEST_SKIP() << "Filesystem have false positive memory leak with generator";
   }
 #endif
-  auto originalThreads = io::GetIOThreadPoolCapacity();
+  auto original_threads = fs->io_context().executor()->GetCapacity();
   // Needs to be smaller than the number of files we test with to catch GH-15233
   ASSERT_OK(io::SetIOThreadPoolCapacity(2));
   // Ensure the thread pool capacity is set back to the original value after the test
-  auto resetThreadPool = [originalThreads](void*) {
-    ASSERT_OK(io::SetIOThreadPoolCapacity(originalThreads));
+  auto reset_thread_pool = [original_threads](void*) {
+    ASSERT_OK(io::SetIOThreadPoolCapacity(original_threads));
   };
-  std::unique_ptr<void, decltype(resetThreadPool)> resetThreadPoolGuard(nullptr,
-                                                                        resetThreadPool);
+  std::unique_ptr<void, decltype(reset_thread_pool)> resetThreadPoolGuard(
+      nullptr, reset_thread_pool);
 
   auto mock_fs = std::make_shared<arrow::fs::internal::MockFileSystem>(
       std::chrono::system_clock::now());
-  std::shared_ptr<FileSystem> shared_ptr_fs(fs, [](FileSystem*) {});
-
   std::vector<std::string> dirs0{"0", "0/AB", "0/AB/CD"};
   std::map<std::string, std::string> files0{
       {"0/123", "123 data"}, {"0/AB/abc", "abc data"}, {"0/AB/CD/def", "def data"}};
@@ -616,13 +614,13 @@ void GenericFileSystemTest::TestCopyFiles(FileSystem* fs) {
   selector0.base_dir = "0";
   selector0.recursive = true;
 
-  ASSERT_OK(CopyFiles(mock_fs, selector0, shared_ptr_fs, "0"));
+  ASSERT_OK(CopyFiles(mock_fs, selector0, fs->shared_from_this(), "0"));
   AssertAllDirs(fs, dirs0);
   for (const auto& kv : files0) {
     AssertFileContents(fs, kv.first, kv.second);
   }
 
-  ASSERT_OK(CopyFiles(shared_ptr_fs, selector0, shared_ptr_fs, "1"));
+  ASSERT_OK(CopyFiles(fs->shared_from_this(), selector0, fs->shared_from_this(), "1"));
   AssertAllDirs(fs, dirs0and1);
   for (const auto& kv : files0and1) {
     AssertFileContents(fs, kv.first, kv.second);
@@ -632,7 +630,7 @@ void GenericFileSystemTest::TestCopyFiles(FileSystem* fs) {
   selector1.base_dir = "1";
   selector1.recursive = true;
 
-  ASSERT_OK(CopyFiles(shared_ptr_fs, selector1, mock_fs, "1"));
+  ASSERT_OK(CopyFiles(fs->shared_from_this(), selector1, mock_fs, "1"));
   AssertAllDirs(mock_fs.get(), dirs0and1);
   for (const auto& kv : files0and1) {
     AssertFileContents(mock_fs.get(), kv.first, kv.second);

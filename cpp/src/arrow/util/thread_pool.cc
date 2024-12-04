@@ -54,19 +54,19 @@ struct Task {
 
 struct QueuedTask {
   Task task;
-  TaskHints hints;
+  int32_t priority;
   uint64_t spawn_index;
 
   // Implement comparison so that std::priority_queue will pop the low priorities more
   // urgently.
   bool operator<(const QueuedTask& other) const {
-    if (hints.priority == other.hints.priority) {
+    if (priority == other.priority) {
       // Maintain spawn order for tasks with the same priority. TODO: Decide if this is
       // really needed. Currently several test cases in arrow-acero-hash-aggregate-test
       // depend on it.
       return spawn_index > other.spawn_index;
     }
-    return hints.priority > other.hints.priority;
+    return priority > other.priority;
   }
 };
 
@@ -675,7 +675,7 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
     }
     state_->pending_tasks_.push(
         QueuedTask{{std::move(task), std::move(stop_token), std::move(stop_callback)},
-                   hints,
+                   hints.priority,
                    state_->spawned_tasks_count++});
   }
   state_->cv_.notify_one();
