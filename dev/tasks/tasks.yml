@@ -94,6 +94,7 @@ groups:
   r:
     - test*-r-*
     - r-binary-packages
+    - r-recheck-most
 
   ruby:
     - test-*ruby*
@@ -901,6 +902,20 @@ tasks:
       - r-pkg__bin__macosx__big-sur-arm64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
       - r-pkg__src__contrib__arrow_{no_rc_r_version}\.tar\.gz
 
+{% for which in ["strong", "most"] %}
+  # strong and most used here are defined by ?tools::package_dependencies as:
+  #
+  # strong: Depends, Imports, LinkingTo
+  # most: Depends, Imports, LinkingTo, Suggests
+  #
+  # So the key difference between strong and most is whether you want to expand
+  # the reverse dependency checking to Suggests (most) or not.
+  r-recheck-{{which}}:
+    ci: github
+    template: r/github.recheck.yml
+    params:
+      which: {{which}}
+{% endfor %}
 
   ########################### Release verification ############################
 
