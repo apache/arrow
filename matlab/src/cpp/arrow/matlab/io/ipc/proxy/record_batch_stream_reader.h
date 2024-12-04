@@ -33,12 +33,12 @@ class RecordBatchStreamReader : public libmexclass::proxy::Proxy {
 
  protected:
   std::shared_ptr<arrow::ipc::RecordBatchStreamReader> reader;
-  std::shared_ptr<arrow::ipc::RecordBatchStreamReader> nextRecordBatch;
+  std::shared_ptr<arrow::RecordBatch> nextRecordBatch;
 
   void getSchema(libmexclass::proxy::method::Context& context);
   void readRecordBatch(libmexclass::proxy::method::Context& context);
   void hasNextRecordBatch(libmexclass::proxy::method::Context& context);
-  void readTable(libmexclass::proxy::method::Context& context);
+  // void readTable(libmexclass::proxy::method::Context& context);
 };
 
 }  // namespace arrow::matlab::io::ipc::proxy

@@ -32,7 +32,7 @@ RecordBatchStreamReader::RecordBatchStreamReader(
   REGISTER_METHOD(RecordBatchStreamReader, getSchema);
   REGISTER_METHOD(RecordBatchStreamReader, readRecordBatch);
   REGISTER_METHOD(RecordBatchStreamReader, hasNextRecordBatch);
-  REGISTER_METHOD(RecordBatchStreamReader, readTable);
+  // REGISTER_METHOD(RecordBatchStreamReader, readTable);
 }
 
 libmexclass::proxy::MakeResult RecordBatchStreamReader::make(
@@ -90,7 +90,6 @@ void RecordBatchStreamReader::readRecordBatch(
   mda::ArrayFactory factory;
   const auto record_batch_proxy_id_mda = factory.createScalar(record_batch_proxy_id);
   context.outputs[0] = record_batch_proxy_id_mda;
-  }
 }
 
 void RecordBatchStreamReader::hasNextRecordBatch(
@@ -100,8 +99,8 @@ void RecordBatchStreamReader::hasNextRecordBatch(
   if (!nextRecordBatch) {
 	  // Try to read another RecordBatch from the
 	  // IPC Stream.
-	  const auto maybe_record_batch = reader->Next();
-	  if (!maybe_record_batch) {
+	  auto maybe_record_batch = reader->Next();
+	  if (!maybe_record_batch.ok()) {
 		has_next_record_batch = false;
 	  } else {
 		// If we read a RecordBatch successfully,
