@@ -62,7 +62,7 @@ for (path in binary_paths) {
   if (grepl("windows", path)) {
     cat(paste0("Converting ", path, " to windows style line endings\n"))
     # UNIX style line endings cause errors with mysys2 sha512sum
-    sed_status <- system2("sed", args = c("-i", "s/\\\\r//", file))
+    sed_status <- system2("sed", args = c("-i", "-e", "s/\\\\r//", file))
     if (sed_status != 0) {
       stop("Failed to remove \\r from windows checksum file. Exit code: ", sed_status)
     }
