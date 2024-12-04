@@ -24,10 +24,8 @@ const https = require('https');
  * @returns {Issue} or null if no issue detected.
  *
  * @typedef {Object} Issue
- * @property {string} kind - The kind of issue: minor, jira or github
- * @property {string} id   - The id of the issue:
- *                            PARQUET-XXXX for jira
- *                            The numeric issue id for github
+ * @property {string} kind - The kind of issue: minor or github
+ * @property {string} id   - The numeric issue id of the issue
  */
 function detectIssue(title) {
     if (!title) {
@@ -35,10 +33,6 @@ function detectIssue(title) {
     }
     if (title.startsWith("MINOR: ")) {
         return {"kind": "minor"};
-    }
-    const matched_jira = /^(WIP:?\s*)?((PARQUET)-\d+)/.exec(title);
-    if (matched_jira) {
-        return {"kind": "jira", "id": matched_jira[2]};
     }
     const matched_gh = /^(WIP:?\s*)?GH-(\d+)/.exec(title);
     if (matched_gh) {
