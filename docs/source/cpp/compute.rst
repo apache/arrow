@@ -721,6 +721,35 @@ Decimal values are accepted, but are cast to Float64 first.
 | tan_checked              | Unary      | Float32/Float64/Decimal | Float32/Float64     |
 +--------------------------+------------+-------------------------+---------------------+
 
+Hyperbolic trigonometric functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Hyperbolic trigonometric functions are also supported, and, where applicable, also offer
+``_checked`` variants that check for domain errors if needed.
+
+Decimal values are accepted, but are cast to Float64 first.
+
++--------------------------+------------+-------------------------+---------------------+
+| Function name            | Arity      | Input types             | Output type         |
++==========================+============+=========================+=====================+
+| acosh                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| acosh_checked            | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| asinh                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| atanh                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| atanh_checked            | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| cosh                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| sinh                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| tanh                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+
+
 Comparisons
 ~~~~~~~~~~~
 

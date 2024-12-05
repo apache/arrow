@@ -2507,7 +2507,6 @@ TYPED_TEST(TestUnaryArithmeticFloating, TrigSinh) {
     return Sinh(arg, ctx);
   };
 
-  this->SetNansEqual(true);
   this->AssertUnaryOp(sinh, "[Inf, -Inf]", "[Inf, -Inf]");
   this->AssertUnaryOp(sinh, "[]", "[]");
   this->AssertUnaryOp(sinh, "[null, NaN]", "[null, NaN]");

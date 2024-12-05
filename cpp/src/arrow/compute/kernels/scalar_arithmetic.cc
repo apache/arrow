@@ -1256,7 +1256,7 @@ const FunctionDoc sin_checked_doc{"Compute the sine",
                                    "to return NaN instead, see \"sin\"."),
                                   {"x"}};
 
-const FunctionDoc sinh_doc{"Compute the hyperblic sine", (""), {"x"}};
+const FunctionDoc sinh_doc{"Compute the hyperbolic sine", (""), {"x"}};
 
 const FunctionDoc cos_doc{"Compute the cosine",
                           ("NaN is returned for invalid input values;\n"
