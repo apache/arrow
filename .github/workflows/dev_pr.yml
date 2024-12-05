@@ -49,7 +49,7 @@ jobs:
           ref: main
           persist-credentials: false
 
-      - name: Comment JIRA link
+      - name: Add Issue link
         if: |
           (github.event.action == 'opened' ||
            github.event.action == 'edited')
