@@ -21,6 +21,8 @@
 Passing statistics through the Arrow C data interface
 =====================================================
 
+.. warning:: This specification should be considered experimental.
+
 Rationale
 =========
 
