@@ -58,7 +58,7 @@ GitHub](https://github.com/apache/arrow/issues).
 3. Submit the patch as a GitHub pull request against the main branch. For a
 tutorial, see the GitHub guides on [forking a repo](https://help.github.com/en/articles/fork-a-repo)
 and [sending a pull request](https://help.github.com/en/articles/creating-a-pull-request-from-a-fork). Prefix your pull request
-name with the GitHub issue id (ex: [ARROW-767: [C++] Filesystem abstraction](https://github.com/apache/arrow/pull/4225))
+name with the GitHub issue id (ex: [GH-767: [C++] Filesystem abstraction](https://github.com/apache/arrow/pull/4225))
 4. Make sure that your code passes the unit tests. You can find instructions
 how to run the unit tests for each Arrow component in its respective README
 file.
