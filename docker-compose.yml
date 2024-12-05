@@ -127,8 +127,6 @@ x-hierarchy:
         - conda-python-dask
         - conda-python-emscripten
         - conda-python-hdfs
-        - conda-python-java-integration
-        - conda-python-jpype
         - conda-python-no-numpy
         - conda-python-spark
         - conda-python-substrait
@@ -142,7 +140,6 @@ x-hierarchy:
   - debian-js
   - fedora-cpp:
     - fedora-python
-  - java
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
@@ -173,8 +170,7 @@ x-hierarchy:
   # helper services
   - impala
   - postgres
-  - python-wheel-manylinux-2014:
-    - java-jni-manylinux-2014
+  - python-wheel-manylinux-2014
   - python-wheel-manylinux-2-28
   - python-wheel-manylinux-test-imports
   - python-free-threaded-wheel-manylinux-test-imports
@@ -1301,28 +1297,6 @@ services:
         target: "C:/arrow"
     command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
 
-  java-jni-manylinux-2014:
-    image: ${REPO}:${ARCH}-java-jni-manylinux-2014-vcpkg-${VCPKG}
-    build:
-      args:
-        base: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
-        java: 11
-      context: .
-      dockerfile: ci/docker/java-jni-manylinux-201x.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-java-jni-manylinux-2014-vcpkg-${VCPKG}
-    environment:
-      <<: [*common, *ccache]
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
-      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
-    command:
-      ["pip install -e /arrow/dev/archery && \
-        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist && \
-        /arrow/ci/scripts/java_build.sh /arrow /build /arrow/java-dist && \
-        /arrow/ci/scripts/java_test.sh /arrow /build /arrow/java-dist"]
-
   ##############################  Integration #################################
 
   conda-python-pandas:
@@ -1477,79 +1451,6 @@ services:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_substrait.sh"]
-
-  conda-python-jpype:
-    # Usage:
-    #   docker compose build conda
-    #   docker compose build conda-cpp
-    #   docker compose build conda-python
-    #   docker compose build conda-python-jpype
-    #   docker compose run --rm conda-python-jpype
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-jpype
-    build:
-      context: .
-      dockerfile: ci/docker/conda-python-jpype.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}-jpype
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        python: ${PYTHON}
-    shm_size: *shm-size
-    environment:
-      <<: [*common, *ccache]
-      ARROW_FLIGHT: "OFF"
-      ARROW_FLIGHT_SQL: "OFF"
-      ARROW_GANDIVA: "OFF"
-    volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_test.sh /arrow"]
-
-  conda-python-java-integration:
-    # Usage:
-    #   docker compose build conda
-    #   docker compose build conda-cpp
-    #   docker compose build conda-python
-    #   docker compose build conda-python-java-integration
-    #   docker compose run --rm conda-python-java-integration
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-java-integration
-    build:
-      context: .
-      dockerfile: ci/docker/conda-python-jpype.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}-java-integration
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        python: ${PYTHON}
-        llvm: ${LLVM}
-    shm_size: *shm-size
-    environment:
-      <<: [*common, *ccache]
-      ARROW_ACERO: "OFF"
-      ARROW_DATASET: "OFF"
-      ARROW_FLIGHT: "OFF"
-      ARROW_FLIGHT_SQL: "OFF"
-      ARROW_GANDIVA: "OFF"
-      ARROW_JAVA_CDATA: "ON"
-      ARROW_ORC: "OFF"
-      ARROW_PARQUET: "OFF"
-      JAVA_JNI_CMAKE_ARGS: >-
-        -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
-        -DARROW_JAVA_JNI_ENABLE_C=ON
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
-      - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
-    command:
-      [ "/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-          /arrow/ci/scripts/python_build.sh /arrow /build &&
-          /arrow/ci/scripts/java_jni_build.sh /arrow $${ARROW_HOME} /build /tmp/dist/java/ &&
-          /arrow/ci/scripts/java_build.sh /arrow /build /tmp/dist/java &&
-          /arrow/ci/scripts/java_cdata_integration.sh /arrow /build" ]
 
   conda-python-cython2:
     # Usage:
@@ -1836,25 +1737,6 @@ services:
         /arrow/ci/scripts/csharp_test.sh /arrow &&
         /arrow/ci/scripts/csharp_pack.sh /arrow"
 
-  ################################ Java #######################################
-
-  java:
-    # Usage:
-    #   docker compose build java
-    #   docker compose run java
-    # Parameters:
-    #   MAVEN: 3.9.5
-    #   JDK: 11, 17, 21
-    image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
-    shm_size: *shm-size
-    volumes: &java-volumes
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
-    command: &java-command >
-      /bin/bash -c "
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_test.sh /arrow /build"
-
   ############################## Integration ##################################
 
   conda-integration:
@@ -2070,8 +1952,7 @@ services:
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_spark.sh /arrow /spark ${TEST_PYARROW_ONLY:-false}"]
+        /arrow/ci/scripts/integration_spark.sh /arrow /spark"]
 
   ################################# Source Verification #####################################
 
