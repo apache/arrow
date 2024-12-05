@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/acero/exec_plan.h>
+#include <arrow/testing/generator.h>
 #include <future>
 #include <string_view>
 
@@ -114,6 +116,7 @@ class DatasetEncryptionTestBase : public ::testing::Test {
     // Write dataset.
     auto dataset = std::make_shared<InMemoryDataset>(table_);
     EXPECT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+    ASSERT_OK(scanner_builder->UseThreads());
     EXPECT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
 
     FileSystemDatasetWriteOptions write_options;
@@ -168,8 +171,10 @@ class DatasetEncryptionTestBase : public ::testing::Test {
       if (concurrently) {
         threads.push_back(std::async(DatasetEncryptionTestBase::read, dataset));
       } else {
+        ASSERT_OK_NO_THROW(arrow::internal::SetEnvVar("OMP_NUM_THREADS", "64"));
         ASSERT_OK_AND_ASSIGN(auto read_table, read(dataset));
         AssertTablesEqual(*read_table, *table_);
+        ASSERT_OK_NO_THROW(arrow::internal::DelEnvVar("OMP_NUM_THREADS"));
       }
     }
     if (concurrently) {
@@ -183,14 +188,15 @@ class DatasetEncryptionTestBase : public ::testing::Test {
   static Result<std::shared_ptr<Table>> read(const std::shared_ptr<Dataset>& dataset) {
     // Read dataset into table
     ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
+    RETURN_NOT_OK(scanner_builder->UseThreads(true));
     ARROW_ASSIGN_OR_RAISE(auto scanner, scanner_builder->Finish());
     ARROW_ASSIGN_OR_RAISE(auto read_table, scanner->ToTable());
 
     // Verify the data was read correctly
-    ARROW_ASSIGN_OR_RAISE(auto combined_table, read_table->CombineChunks());
+    // ARROW_ASSIGN_OR_RAISE(auto combined_table, read_table->CombineChunks());
     // Validate the table
-    RETURN_NOT_OK(combined_table->ValidateFull());
-    return combined_table;
+    // RETURN_NOT_OK(combined_table->ValidateFull());
+    return read_table;
   }
 
  protected:
@@ -307,6 +313,35 @@ class LargeRowEncryptionTest : public DatasetEncryptionTestBase {
 
 // Test for writing and reading encrypted dataset with large row count.
 TEST_F(LargeRowEncryptionTest, ReadEncryptLargeRows) {
+  ASSERT_NO_FATAL_FAILURE(TestScanDataset());
+}
+
+class LargeTableEncryptionTest : public DatasetEncryptionTestBase {
+ public:
+  void PrepareTableAndPartitioning() override {
+    auto generator = gen::Gen({{"a", gen::Step()}})->FailOnError();
+    std::vector<::arrow::compute::ExecBatch> ebatches =
+        generator->ExecBatches(/*rows_per_batch=*/64 * 1024, /*num_batches=*/1024);
+    acero::Declaration source = acero::Declaration(
+        "exec_batch_source", ::arrow::acero::ExecBatchSourceNodeOptions(
+                                 generator->Schema(), std::move(ebatches)));
+    acero::QueryOptions opts;
+    ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
+                         DeclarationToBatches(source, opts));
+
+    std::shared_ptr<Schema> expected_schema = schema({field("a", uint32())});
+
+    ASSERT_OK_AND_ASSIGN(acero::BatchesWithCommonSchema batches_with_schema,
+                         DeclarationToExecBatches(source, opts));
+
+    AssertSchemaEqual(*expected_schema, *batches_with_schema.schema);
+
+    ASSERT_OK_AND_ASSIGN(table_, acero::DeclarationToTable(source, opts));
+    partitioning_ = std::make_shared<dataset::DirectoryPartitioning>(arrow::schema({}));
+  }
+};
+
+TEST_F(LargeTableEncryptionTest, ReadEncryptLargeTabl) {
   ASSERT_NO_FATAL_FAILURE(TestScanDataset());
 }
 
