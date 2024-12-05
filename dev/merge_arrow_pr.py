@@ -233,9 +233,7 @@ def format_issue_output(issue_type, issue_id, status,
     if "GH" in issue_id:
         url_id = issue_id.replace("GH-", "")
 
-    url = (
-        f'https://github.com/{ORG_NAME}/{PROJECT_NAME}/issues/{url_id}'
-    )
+    url = f'https://github.com/{ORG_NAME}/{PROJECT_NAME}/issues/{url_id}'
 
     return """=== {} {} ===
 Summary\t\t{}
