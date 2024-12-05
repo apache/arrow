@@ -707,7 +707,7 @@ Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(Executor* cpu_executor
   auto scan_options = scan_options_;
   ARROW_ASSIGN_OR_RAISE(
       auto positioned_batch_gen,
-      ScanBatchesUnorderedAsync(cpu_executor, /*sequence_fragments=*/false,
+      ScanBatchesUnorderedAsync(cpu_executor, /*sequence_fragments=*/true,
                                 /*use_legacy_batching=*/true));
   /// Wraps the state in a shared_ptr to ensure that failing ScanTasks don't
   /// invalidate concurrently running tasks when Finish() early returns
