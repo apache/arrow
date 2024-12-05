@@ -433,7 +433,7 @@ compatible with the current version of the R package.
 Please check the "Known installation issues" below to see if any apply, and if
 none apply, set the environment variable `ARROW_R_DEV=TRUE` for more verbose
 output and try installing again. Then,
-please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
+please [report an issue](https://github.com/apache/arrow/issues/new/choose)
 and include the full installation output.
 
 ### Using system libraries
@@ -465,7 +465,7 @@ update the libarrow system packages.
 
 If the R package finds and downloads a prebuilt binary of libarrow,
 but then the arrow package can't be loaded, perhaps with "undefined symbols" errors,
-please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
+please [report an issue](https://github.com/apache/arrow/issues/new/choose).
 This is likely a compiler mismatch and may be resolvable by setting some
 environment variables to instruct R to compile the packages to match libarrow.
 
@@ -475,7 +475,7 @@ instead of downloading the prebuilt binary.
 That should guarantee that the compiler settings match.
 
 If a prebuilt libarrow binary wasn't found for your operating system but you think it should have been,
-please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues) and share the console output.
+please [report an issue](https://github.com/apache/arrow/issues/new/choose) and share the console output.
 You may also set the environment variable `ARROW_R_DEV=TRUE` for additional
 debug messages.
 
@@ -485,7 +485,7 @@ If building libarrow from source fails, check the error message.
 (If you don't see an error message, only the `----- NOTE -----`,
 set the environment variable `ARROW_R_DEV=TRUE` to increase verbosity and retry installation.)
 The install script should work everywhere, so if libarrow fails to compile,
-please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
+please [report an issue](https://github.com/apache/arrow/issues/new/choose)
 so that we can improve the script.
 
 ## Contributing
