@@ -64,16 +64,6 @@ InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* propertie
   properties_->set_utilized();
 }
 
-void InternalFileDecryptor::WipeOutDecryptionKeys() {
-  std::lock_guard<std::mutex> lock(mutex_);
-  properties_->WipeOutDecryptionKeys();
-  for (auto const& i : all_decryptors_) {
-    if (auto aes_decryptor = i.lock()) {
-      aes_decryptor->WipeOut();
-    }
-  }
-}
-
 std::string InternalFileDecryptor::GetFooterKey() {
   std::string footer_key = properties_->footer_key();
   // ignore footer key metadata if footer key is explicitly set via API

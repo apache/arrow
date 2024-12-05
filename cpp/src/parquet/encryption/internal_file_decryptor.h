@@ -76,8 +76,6 @@ class InternalFileDecryptor {
 
   FileDecryptionProperties* properties() { return properties_; }
 
-  void WipeOutDecryptionKeys();
-
   ::arrow::MemoryPool* pool() { return pool_; }
 
   std::shared_ptr<Decryptor> GetFooterDecryptor();
