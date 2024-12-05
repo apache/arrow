@@ -320,7 +320,7 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
   ARROW_ASSIGN_OR_RAISE(auto transposed,
                         TransposeDictIndices(data_, data_->type, type, dictionary->data(),
                                              transpose_map, pool));
-  return MakeArray(transposed);
+  return MakeArray(std::move(transposed));
 }
 
 Result<std::shared_ptr<Array>> DictionaryArray::Compact(MemoryPool* pool) const {
