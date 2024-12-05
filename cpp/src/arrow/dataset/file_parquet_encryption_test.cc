@@ -55,6 +55,9 @@ namespace dataset {
 // Base class to test writing and reading encrypted dataset.
 class DatasetEncryptionTestBase : public ::testing::Test {
  public:
+  explicit DatasetEncryptionTestBase(bool uniform_encryption = false)
+      : uniform_encryption(uniform_encryption) {}
+
   // This function creates a mock file system using the current time point, creates a
   // directory with the given base directory path, and writes a dataset to it using
   // provided Parquet file write options. The function also checks if the written files
@@ -91,7 +94,11 @@ class DatasetEncryptionTestBase : public ::testing::Test {
     auto encryption_config =
         std::make_shared<parquet::encryption::EncryptionConfiguration>(
             std::string(kFooterKeyName));
-    encryption_config->column_keys = kColumnKeyMapping;
+    if (uniform_encryption) {
+      encryption_config->uniform_encryption = true;
+    } else {
+      encryption_config->column_keys = kColumnKeyMapping;
+    }
     auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
     // Directly assign shared_ptr objects to ParquetEncryptionConfig members
     parquet_encryption_config->crypto_factory = crypto_factory_;
@@ -159,31 +166,31 @@ class DatasetEncryptionTestBase : public ::testing::Test {
     const size_t attempts = concurrently ? 1000 : 2;
     for (size_t i = 0; i < attempts; ++i) {
       if (concurrently) {
-          threads.push_back(std::async(DatasetEncryptionTestBase::read, dataset));
+        threads.push_back(std::async(DatasetEncryptionTestBase::read, dataset));
       } else {
-          ASSERT_OK_AND_ASSIGN(auto read_table, read(dataset));
-          AssertTablesEqual(*read_table, *table_);
+        ASSERT_OK_AND_ASSIGN(auto read_table, read(dataset));
+        AssertTablesEqual(*read_table, *table_);
       }
     }
     if (concurrently) {
-        for (auto &thread : threads) {
-          ASSERT_OK_AND_ASSIGN(auto read_table, thread.get());
-          AssertTablesEqual(*read_table, *table_);
-        }
+      for (auto& thread : threads) {
+        ASSERT_OK_AND_ASSIGN(auto read_table, thread.get());
+        AssertTablesEqual(*read_table, *table_);
+      }
     }
   }
 
-  static Result<std::shared_ptr<Table>> read(const std::shared_ptr<Dataset> &dataset) {
-      // Read dataset into table
-      ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
-      ARROW_ASSIGN_OR_RAISE(auto scanner, scanner_builder->Finish());
-      ARROW_ASSIGN_OR_RAISE(auto read_table, scanner->ToTable());
+  static Result<std::shared_ptr<Table>> read(const std::shared_ptr<Dataset>& dataset) {
+    // Read dataset into table
+    ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
+    ARROW_ASSIGN_OR_RAISE(auto scanner, scanner_builder->Finish());
+    ARROW_ASSIGN_OR_RAISE(auto read_table, scanner->ToTable());
 
-      // Verify the data was read correctly
-      ARROW_ASSIGN_OR_RAISE(auto combined_table, read_table->CombineChunks());
-      // Validate the table
-      RETURN_NOT_OK(combined_table->ValidateFull());
-      return combined_table;
+    // Verify the data was read correctly
+    ARROW_ASSIGN_OR_RAISE(auto combined_table, read_table->CombineChunks());
+    // Validate the table
+    RETURN_NOT_OK(combined_table->ValidateFull());
+    return combined_table;
   }
 
  protected:
@@ -192,10 +199,16 @@ class DatasetEncryptionTestBase : public ::testing::Test {
   std::shared_ptr<Partitioning> partitioning_;
   std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory_;
   std::shared_ptr<parquet::encryption::KmsConnectionConfig> kms_connection_config_;
+
+ private:
+  bool uniform_encryption;
 };
 
 class DatasetEncryptionTest : public DatasetEncryptionTestBase {
  public:
+  explicit DatasetEncryptionTest(bool uniform_encryption = false)
+      : DatasetEncryptionTestBase(uniform_encryption) {}
+
   // The dataset is partitioned using a Hive partitioning scheme.
   void PrepareTableAndPartitioning() override {
     // Prepare table data.
@@ -218,6 +231,10 @@ class DatasetEncryptionTest : public DatasetEncryptionTestBase {
     partitioning_ = std::make_shared<HivePartitioning>(schema({field("part", utf8())}));
   }
 };
+class DatasetUniformEncryptionTest : public DatasetEncryptionTest {
+ public:
+  DatasetUniformEncryptionTest() : DatasetEncryptionTest(true) {}
+};
 
 // This test demonstrates the process of writing a partitioned Parquet file with the same
 // encryption properties applied to each file within the dataset. The encryption
@@ -229,7 +246,11 @@ TEST_F(DatasetEncryptionTest, WriteReadDatasetWithEncryption) {
 }
 
 TEST_F(DatasetEncryptionTest, WriteReadDatasetWithEncryptionThreaded) {
-    ASSERT_NO_FATAL_FAILURE(TestScanDataset(true));
+  ASSERT_NO_FATAL_FAILURE(TestScanDataset(true));
+}
+
+TEST_F(DatasetUniformEncryptionTest, WriteReadDatasetWithEncryption) {
+  ASSERT_NO_FATAL_FAILURE(TestScanDataset());
 }
 
 // Read a single parquet file with and without decryption properties.
