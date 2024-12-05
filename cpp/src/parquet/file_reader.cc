@@ -314,11 +314,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     }
   }
 
-  void Close() override {
-    if (file_metadata_ && file_metadata_->file_decryptor()) {
-      file_metadata_->file_decryptor()->WipeOutDecryptionKeys();
-    }
-  }
+  void Close() override {}
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap;

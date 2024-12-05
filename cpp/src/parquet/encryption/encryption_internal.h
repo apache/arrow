@@ -106,7 +106,6 @@ class PARQUET_EXPORT AesDecryptor {
       std::vector<std::weak_ptr<AesDecryptor>>* all_decryptors);
 
   ~AesDecryptor();
-  void WipeOut();
 
   /// The size of the plaintext, for this cipher and the specified ciphertext length.
   [[nodiscard]] int32_t PlaintextLength(int32_t ciphertext_len) const;
