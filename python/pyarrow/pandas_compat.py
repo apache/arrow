@@ -853,15 +853,24 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper, options, catego
     if _pandas_api.extension_dtype is None:
         return ext_columns
 
-    # for pandas 3.0+, use pandas' new default string dtype
-    if _pandas_api.uses_string_dtype() and not strings_to_categorical:
+    # use the specified mapping of built-in arrow types to pandas dtypes
+    if types_mapper:
         for field in table.schema:
-            if (
-                pa.types.is_string(field.type)
-                or pa.types.is_large_string(field.type)
-                or pa.types.is_string_view(field.type)
-            ) and field.name not in categories:
-                ext_columns[field.name] = _pandas_api.pd.StringDtype(na_value=np.nan)
+            typ = field.type
+            pandas_dtype = types_mapper(typ)
+            if pandas_dtype is not None:
+                ext_columns[field.name] = pandas_dtype
+
+    # infer from extension type in the schema
+    for field in table.schema:
+        typ = field.type
+        if field.name not in ext_columns and isinstance(typ, pa.BaseExtensionType):
+            try:
+                pandas_dtype = typ.to_pandas_dtype()
+            except NotImplementedError:
+                pass
+            else:
+                ext_columns[field.name] = pandas_dtype
 
     # infer the extension columns from the pandas metadata
     for col_meta in columns_metadata:
@@ -871,7 +880,7 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper, options, catego
             name = col_meta['name']
         dtype = col_meta['numpy_type']
 
-        if dtype not in _pandas_supported_numpy_types:
+        if name not in ext_columns and dtype not in _pandas_supported_numpy_types:
             # pandas_dtype is expensive, so avoid doing this for types
             # that are certainly numpy dtypes
             pandas_dtype = _pandas_api.pandas_dtype(dtype)
@@ -892,24 +901,15 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper, options, catego
                 if hasattr(pandas_dtype, "__from_arrow__"):
                     ext_columns[name] = pandas_dtype
 
-    # infer from extension type in the schema
-    for field in table.schema:
-        typ = field.type
-        if isinstance(typ, pa.BaseExtensionType):
-            try:
-                pandas_dtype = typ.to_pandas_dtype()
-            except NotImplementedError:
-                pass
-            else:
-                ext_columns[field.name] = pandas_dtype
-
-    # use the specified mapping of built-in arrow types to pandas dtypes
-    if types_mapper:
+    # for pandas 3.0+, use pandas' new default string dtype
+    if _pandas_api.uses_string_dtype() and not strings_to_categorical:
         for field in table.schema:
-            typ = field.type
-            pandas_dtype = types_mapper(typ)
-            if pandas_dtype is not None:
-                ext_columns[field.name] = pandas_dtype
+            if field.name not in ext_columns and (
+                pa.types.is_string(field.type)
+                or pa.types.is_large_string(field.type)
+                or pa.types.is_string_view(field.type)
+            ) and field.name not in categories:
+                ext_columns[field.name] = _pandas_api.pd.StringDtype(na_value=np.nan)
 
     return ext_columns
 

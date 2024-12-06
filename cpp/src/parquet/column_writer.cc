@@ -1301,6 +1301,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     bool single_nullable_element =
         (level_info_.def_level == level_info_.repeated_ancestor_def_level + 1) &&
         leaf_field_nullable;
+    if (!leaf_field_nullable && leaf_array.null_count() != 0) {
+      return Status::Invalid("Column '", descr_->name(),
+                             "' is declared non-nullable but contains nulls");
+    }
     bool maybe_parent_nulls = level_info_.HasNullableValues() && !single_nullable_element;
     if (maybe_parent_nulls) {
       ARROW_ASSIGN_OR_RAISE(

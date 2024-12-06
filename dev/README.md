@@ -51,8 +51,7 @@ you'll have to install Python dependencies yourself and then run
 The merge script requires tokens for access control. There are two options
 for configuring your tokens: environment variables or a configuration file.
 
-> Note: Arrow only requires a GitHub token. Parquet can use GitHub or
-JIRA tokens.
+> Note: Arrow and Parquet only requires a GitHub token.
 
 #### Pass tokens via Environment Variables
 
@@ -60,12 +59,6 @@ The merge script uses the GitHub REST API. You must set a
 `ARROW_GITHUB_API_TOKEN` environment variable to use a
 [Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
 You need to add `workflow` scope to the Personal Access Token.
-
-You can specify the
-[Personal Access Token](https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html)
-of your JIRA account in the
-`APACHE_JIRA_TOKEN` environment variable.
-If the variable is not set, the script will ask you for it.
 
 #### Pass tokens via configuration file
 
@@ -134,10 +127,10 @@ docker build -t arrow_integration_xenial_base -f docker_common/Dockerfile.xenial
 ## HDFS C++ / Python support
 
 ```shell
-docker-compose build conda-cpp
-docker-compose build conda-python
-docker-compose build conda-python-hdfs
-docker-compose run --rm conda-python-hdfs
+docker compose build conda-cpp
+docker compose build conda-python
+docker compose build conda-python-hdfs
+docker compose run --rm conda-python-hdfs
 ```
 
 ## Apache Spark Integration Tests
@@ -150,10 +143,10 @@ related unit tests in Spark for Java and Python. Any errors will exit with a
 non-zero value. To run, use the following command:
 
 ```shell
-docker-compose build conda-cpp
-docker-compose build conda-python
-docker-compose build conda-python-spark
-docker-compose run --rm conda-python-spark
+docker compose build conda-cpp
+docker compose build conda-python
+docker compose build conda-python-spark
+docker compose run --rm conda-python-spark
 ```
 
 If you already are building Spark, these commands will map your local Maven
@@ -162,7 +155,7 @@ Be aware, that docker write files as root, which can cause problems for maven
 on the host.
 
 ```shell
-docker-compose run --rm -v $HOME/.m2:/root/.m2 conda-python-spark
+docker compose run --rm -v $HOME/.m2:/root/.m2 conda-python-spark
 ```
 
 NOTE: If the Java API has breaking changes, a patched version of Spark might

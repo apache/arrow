@@ -2621,6 +2621,8 @@ static void CheckStructToStructSubset(
       d2 = ArrayFromJSON(dest_value_type, "[6, 51, 49]");
       e2 = ArrayFromJSON(dest_value_type, "[19, 17, 74]");
 
+      auto nulls = ArrayFromJSON(dest_value_type, "[null, null, null]");
+
       ASSERT_OK_AND_ASSIGN(auto src,
                            StructArray::Make({a1, b1, c1, d1, e1}, field_names));
       ASSERT_OK_AND_ASSIGN(auto dest1,
@@ -2646,34 +2648,38 @@ static void CheckStructToStructSubset(
       CheckCast(src, dest5);
 
       // field does not exist
-      const auto dest6 = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                         std::make_shared<Field>("d", int16()),
-                                         std::make_shared<Field>("f", int64())});
-      const auto options6 = CastOptions::Safe(dest6);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src, options6));
+      ASSERT_OK_AND_ASSIGN(auto dest6,
+                           StructArray::Make({a1, d1, nulls}, {"a", "d", "f"}));
+      CheckCast(src, dest6);
 
-      // fields in wrong order
-      const auto dest7 = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                         std::make_shared<Field>("c", int16()),
-                                         std::make_shared<Field>("b", int64())});
+      const auto dest7 = arrow::struct_(
+          {std::make_shared<Field>("a", int8()), std::make_shared<Field>("d", int16()),
+           std::make_shared<Field>("f", int64(), /*nullable=*/false)});
       const auto options7 = CastOptions::Safe(dest7);
       EXPECT_RAISES_WITH_MESSAGE_THAT(
           TypeError,
           ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
           Cast(src, options7));
 
-      // duplicate missing field names
-      const auto dest8 = arrow::struct_(
-          {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int16()),
-           std::make_shared<Field>("d", int32()), std::make_shared<Field>("a", int64())});
+      // fields in wrong order
+      const auto dest8 = arrow::struct_({std::make_shared<Field>("a", int8()),
+                                         std::make_shared<Field>("c", int16()),
+                                         std::make_shared<Field>("b", int64())});
       const auto options8 = CastOptions::Safe(dest8);
       EXPECT_RAISES_WITH_MESSAGE_THAT(
           TypeError,
           ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
           Cast(src, options8));
+
+      // duplicate missing field names
+      const auto dest9 = arrow::struct_(
+          {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int16()),
+           std::make_shared<Field>("d", int32()), std::make_shared<Field>("a", int64())});
+      const auto options9 = CastOptions::Safe(dest9);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          TypeError,
+          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
+          Cast(src, options9));
 
       // duplicate present field names
       ASSERT_OK_AND_ASSIGN(
@@ -2720,6 +2726,8 @@ static void CheckStructToStructSubsetWithNulls(
       d2 = ArrayFromJSON(dest_value_type, "[6, 51, null]");
       e2 = ArrayFromJSON(dest_value_type, "[null, 17, 74]");
 
+      auto nulls = ArrayFromJSON(dest_value_type, "[null, null, null]");
+
       std::shared_ptr<Buffer> null_bitmap;
       BitmapFromVector<int>({0, 1, 0}, &null_bitmap);
 
@@ -2755,34 +2763,39 @@ static void CheckStructToStructSubsetWithNulls(
       CheckCast(src_null, dest5_null);
 
       // field does not exist
-      const auto dest6_null = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                              std::make_shared<Field>("d", int16()),
-                                              std::make_shared<Field>("f", int64())});
-      const auto options6_null = CastOptions::Safe(dest6_null);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src_null, options6_null));
+      ASSERT_OK_AND_ASSIGN(
+          auto dest6_null,
+          StructArray::Make({a1, d1, nulls}, {"a", "d", "f"}, null_bitmap));
+      CheckCast(src_null, dest6_null);
 
-      // fields in wrong order
-      const auto dest7_null = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                              std::make_shared<Field>("c", int16()),
-                                              std::make_shared<Field>("b", int64())});
+      const auto dest7_null = arrow::struct_(
+          {std::make_shared<Field>("a", int8()), std::make_shared<Field>("d", int16()),
+           std::make_shared<Field>("f", int64(), /*nullable=*/false)});
       const auto options7_null = CastOptions::Safe(dest7_null);
       EXPECT_RAISES_WITH_MESSAGE_THAT(
           TypeError,
           ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
           Cast(src_null, options7_null));
 
-      // duplicate missing field names
-      const auto dest8_null = arrow::struct_(
-          {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int16()),
-           std::make_shared<Field>("d", int32()), std::make_shared<Field>("a", int64())});
+      // fields in wrong order
+      const auto dest8_null = arrow::struct_({std::make_shared<Field>("a", int8()),
+                                              std::make_shared<Field>("c", int16()),
+                                              std::make_shared<Field>("b", int64())});
       const auto options8_null = CastOptions::Safe(dest8_null);
       EXPECT_RAISES_WITH_MESSAGE_THAT(
           TypeError,
           ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
           Cast(src_null, options8_null));
+
+      // duplicate missing field names
+      const auto dest9_null = arrow::struct_(
+          {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int16()),
+           std::make_shared<Field>("d", int32()), std::make_shared<Field>("a", int64())});
+      const auto options9_null = CastOptions::Safe(dest9_null);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          TypeError,
+          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
+          Cast(src_null, options9_null));
 
       // duplicate present field values
       ASSERT_OK_AND_ASSIGN(
@@ -2818,20 +2831,26 @@ TEST(Cast, StructToStructSubsetWithNulls) {
 }
 
 TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
-  std::vector<std::string> field_names = {"a", "b"};
+  std::vector<std::string> src_field_names = {"a", "b"};
   std::shared_ptr<Array> a, b;
   a = ArrayFromJSON(int8(), "[1, 2]");
   b = ArrayFromJSON(int8(), "[3, 4]");
-  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
+  auto nulls = ArrayFromJSON(int8(), "[null, null]");
+  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, src_field_names));
 
-  const auto dest = arrow::struct_(
-      {std::make_shared<Field>("c", int8()), std::make_shared<Field>("d", int8())});
-  const auto options = CastOptions::Safe(dest);
+  std::vector<std::string> dest1_field_names = {"c", "d"};
+  ASSERT_OK_AND_ASSIGN(auto dest1, StructArray::Make({nulls, nulls}, dest1_field_names));
+  CheckCast(src, dest1);
+
+  const auto dest2 =
+      arrow::struct_({std::make_shared<Field>("c", int8(), /*nullable=*/false),
+                      std::make_shared<Field>("d", int8())});
+  const auto options2 = CastOptions::Safe(dest2);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
       ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-      Cast(src, options));
+      Cast(src, options2));
 }
 
 TEST(Cast, StructToBiggerStruct) {
@@ -2841,15 +2860,41 @@ TEST(Cast, StructToBiggerStruct) {
   b = ArrayFromJSON(int8(), "[3, 4]");
   ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
 
-  const auto dest = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                    std::make_shared<Field>("b", int8()),
-                                    std::make_shared<Field>("c", int8())});
-  const auto options = CastOptions::Safe(dest);
+  const auto dest1 = arrow::struct_(
+      {std::make_shared<Field>("a", int8()), std::make_shared<Field>("b", int8()),
+       std::make_shared<Field>("c", int8(), /*nullable=*/false)});
+  const auto options1 = CastOptions::Safe(dest1);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
       ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-      Cast(src, options));
+      Cast(src, options1));
+
+  const auto dest2 =
+      arrow::struct_({std::make_shared<Field>("a", int8()),
+                      std::make_shared<Field>("c", int8(), /*nullable=*/false),
+                      std::make_shared<Field>("b", int8())});
+  const auto options2 = CastOptions::Safe(dest2);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
+      Cast(src, options2));
+}
+
+TEST(Cast, StructToBiggerNullableStruct) {
+  std::vector<std::string> field_names = {"a", "b"};
+  std::shared_ptr<Array> a, b, c;
+  a = ArrayFromJSON(int8(), "[1, 2]");
+  b = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
+
+  c = ArrayFromJSON(int8(), "[null, null]");
+  ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a, b, c}, {"a", "b", "c"}));
+  CheckCast(src, dest);
+
+  ASSERT_OK_AND_ASSIGN(auto dest2, StructArray::Make({a, c, b}, {"a", "c", "b"}));
+  CheckCast(src, dest2);
 }
 
 TEST(Cast, StructToDifferentNullabilityStruct) {

@@ -964,7 +964,11 @@ Table/RecordBatch, or iterable of RecordBatch
     elif isinstance(data, (pa.RecordBatch, pa.Table)):
         schema = schema or data.schema
         data = InMemoryDataset(data, schema=schema)
-    elif isinstance(data, pa.ipc.RecordBatchReader) or _is_iterable(data):
+    elif (
+        isinstance(data, pa.ipc.RecordBatchReader)
+        or hasattr(data, "__arrow_c_stream__")
+        or _is_iterable(data)
+    ):
         data = Scanner.from_batches(data, schema=schema)
         schema = None
     elif not isinstance(data, (Dataset, Scanner)):

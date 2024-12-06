@@ -3517,6 +3517,7 @@ struct AwsInstance {
     // This configuration options is only available with AWS SDK 1.9.272 and later.
     aws_options_.httpOptions.compliantRfc3986Encoding = true;
 #endif
+    aws_options_.httpOptions.installSigPipeHandler = options.install_sigpipe_handler;
     Aws::InitAPI(aws_options_);
   }
 

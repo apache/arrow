@@ -22,10 +22,12 @@
 #include <string>
 #include <variant>
 
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
+/// \class ArrayStatistics
 /// \brief Statistics for an Array
 ///
 /// Apache Arrow format doesn't have statistics but data source such
@@ -33,6 +35,23 @@ namespace arrow {
 /// data source can be read unified API via this class.
 struct ARROW_EXPORT ArrayStatistics {
   using ValueType = std::variant<bool, int64_t, uint64_t, double, std::string>;
+
+  static const std::shared_ptr<DataType>& ValueToArrowType(
+      const std::optional<ValueType>& value) {
+    if (!value.has_value()) {
+      return null();
+    }
+
+    struct Visitor {
+      const std::shared_ptr<DataType>& operator()(const bool&) { return boolean(); }
+      const std::shared_ptr<DataType>& operator()(const int64_t&) { return int64(); }
+      const std::shared_ptr<DataType>& operator()(const uint64_t&) { return uint64(); }
+      const std::shared_ptr<DataType>& operator()(const double&) { return float64(); }
+      // GH-44579: How to support binary data?
+      const std::shared_ptr<DataType>& operator()(const std::string&) { return utf8(); }
+    } visitor;
+    return std::visit(visitor, value.value());
+  }
 
   /// \brief The number of null values, may not be set
   std::optional<int64_t> null_count = std::nullopt;
@@ -43,11 +62,15 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief The minimum value, may not be set
   std::optional<ValueType> min = std::nullopt;
 
+  const std::shared_ptr<DataType>& MinArrowType() { return ValueToArrowType(min); }
+
   /// \brief Whether the minimum value is exact or not
   bool is_min_exact = false;
 
   /// \brief The maximum value, may not be set
   std::optional<ValueType> max = std::nullopt;
+
+  const std::shared_ptr<DataType>& MaxArrowType() { return ValueToArrowType(max); }
 
   /// \brief Whether the maximum value is exact or not
   bool is_max_exact = false;

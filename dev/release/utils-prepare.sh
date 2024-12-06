@@ -43,9 +43,11 @@ update_versions() {
   rm -f meson.build.bak
   git add meson.build
 
-  # Add a new version entry only when the next release is a new major release
-  if [ "${type}" = "snapshot" -a \
-       "${next_version}" = "${major_version}.0.0" ]; then
+  # Add a new version entry only when the next release is a new major
+  # release and it doesn't exist yet.
+  if [ "${type}" = "snapshot" ] && \
+     [ "${next_version}" = "${major_version}.0.0" ] && \
+     ! grep -q -F "(${major_version}, 0)" tool/generate-version-header.py; then
     sed -i.bak -E -e \
       "s/^ALL_VERSIONS = \[$/&\\n        (${major_version}, 0),/" \
       tool/generate-version-header.py
@@ -80,17 +82,6 @@ update_versions() {
     vcpkg.json
   rm -f vcpkg.json.bak
   git add vcpkg.json
-  popd
-
-  pushd "${ARROW_DIR}/java"
-  mvn versions:set -DnewVersion=${version} -DprocessAllModules -DgenerateBackupPoms=false
-  if [ "${type}" = "release" ]; then
-    # versions-maven-plugin:set-scm-tag does not update the whole reactor. Invoking separately
-    mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-java-root
-    mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-bom
-  fi
-  git add "pom.xml"
-  git add "**/pom.xml"
   popd
 
   pushd "${ARROW_DIR}/csharp"
@@ -229,12 +220,6 @@ update_deb_package_names() {
     sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" debian*/control*
     rm -f debian*/control*.bak
     git add debian*/control*
-    popd
-
-    pushd ${ARROW_DIR}/dev/tasks
-    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" tasks.yml
-    rm -f tasks.yml.bak
-    git add tasks.yml
     popd
 
     pushd ${ARROW_DIR}/dev/release

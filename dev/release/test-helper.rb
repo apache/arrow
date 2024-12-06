@@ -103,6 +103,10 @@ module VersionDetectable
     (data || {})[:next_release_type] || :major
   end
 
+  def compute_compatible_version(version)
+    version.split(".")[0, 2].join(".")
+  end
+
   def detect_versions
     top_dir = Pathname(__dir__).parent.parent
     cpp_cmake_lists = top_dir + "cpp" + "CMakeLists.txt"
@@ -123,7 +127,7 @@ module VersionDetectable
       raise "unknown release type: #{release_type.inspect}"
     end
     @release_version = release_version_components.join(".")
-    @release_compatible_version = @release_version.split(".")[0, 2].join(".")
+    @release_compatible_version = compute_compatible_version(@release_version)
     @so_version = compute_so_version(@release_version)
     next_version_components = @release_version.split(".")
     case next_release_type
@@ -141,13 +145,13 @@ module VersionDetectable
     end
     @next_version = next_version_components.join(".")
     @next_major_version = @next_version.split(".")[0]
-    @next_compatible_version = @next_version.split(".")[0, 2].join(".")
+    @next_compatible_version = compute_compatible_version(@next_version)
     @next_snapshot_version = "#{@next_version}-SNAPSHOT"
     @next_so_version = compute_so_version(@next_version)
     r_description = top_dir + "r" + "DESCRIPTION"
     @previous_version = r_description.read[/^Version: (.+?)\.9000$/, 1]
     if @previous_version
-      @previous_compatible_version = @previous_version.split(".")[0, 2].join(".")
+      @previous_compatible_version = compute_compatible_version(@previous_version)
     else
       @previous_compatible_version = nil
     end

@@ -90,7 +90,7 @@ and look for the "custom options" section.
 .. note::
 
    There are a few low-level tests written directly in C++. These tests are
-   implemented in `pyarrow/src/python_test.cc <https://github.com/apache/arrow/blob/main/python/pyarrow/src/python_test.cc>`_,
+   implemented in `pyarrow/src/arrow/python/python_test.cc <https://github.com/apache/arrow/blob/main/python/pyarrow/src/arrow/python/python_test.cc>`_,
    but they are also wrapped in a ``pytest``-based
    `test module <https://github.com/apache/arrow/blob/main/python/pyarrow/tests/test_cpp_internals.py>`_
    run automatically as part of the PyArrow test suite.

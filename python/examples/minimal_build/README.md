@@ -42,13 +42,13 @@ docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_fedora_minimal /
 
 Alternatively you can use [Docker Compose][docker-compose] to build and run using:
 ```
-docker-compose build
+docker compose build
 
 # With conda
-docker-compose run --rm minimal-fedora-conda
+docker compose run --rm minimal-fedora-conda
 
 # With pip
-docker-compose run --rm minimal-fedora-venv
+docker compose run --rm minimal-fedora-venv
 ```
 
 ## Ubuntu 20.04
@@ -69,13 +69,13 @@ docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_ubuntu_minimal /
 
 Alternatively you can use [Docker Compose][docker-compose] to build and run using:
 ```
-docker-compose build
+docker compose build
 
 # With conda
-docker-compose run --rm minimal-ubuntu-conda
+docker compose run --rm minimal-ubuntu-conda
 
 # With pip
-docker-compose run --rm minimal-ubuntu-venv
+docker compose run --rm minimal-ubuntu-venv
 ```
 
 ## Building on Fedora - Podman and SELinux

@@ -140,8 +140,6 @@ set(PARQUET_THRIFT_SOURCE_DIR "${ARROW_SOURCE_DIR}/src/generated/")
 
 set_source_files_properties("${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
                             "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.h"
-                            "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
-                            "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.h"
                             PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                        SKIP_UNITY_BUILD_INCLUSION ON)
 
@@ -178,7 +176,6 @@ set(PARQUET_SRCS
     metadata.cc
     xxhasher.cc
     page_index.cc
-    "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
     "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
     platform.cc
     printer.cc
@@ -307,7 +304,6 @@ add_arrow_lib(parquet
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC
-              "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
               "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp")
   target_link_libraries(parquet_test_support thrift::thrift)
   list(PREPEND PARQUET_TEST_LINK_LIBS parquet_test_support)

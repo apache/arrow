@@ -43,6 +43,9 @@ namespace arrow {
 namespace compute {
 namespace {
 
+// 2.718281828459045090795598298427648842334747314453125
+constexpr double kEuler64 = 0x1.5bf0a8b145769p+1;
+
 using IntegralTypes = testing::Types<Int8Type, Int16Type, Int32Type, Int64Type, UInt8Type,
                                      UInt16Type, UInt32Type, UInt64Type>;
 
@@ -1485,8 +1488,7 @@ TYPED_TEST(TestUnaryArithmeticUnsigned, Exp) {
   this->AssertUnaryOp(
       exp, "[null, 1, 10]",
       ArrayFromJSON(float64(), "[null, 2.718281828459045, 22026.465794806718]"));
-  this->AssertUnaryOp(exp, this->MakeScalar(1),
-                      arrow::MakeScalar<double>(2.718281828459045F));
+  this->AssertUnaryOp(exp, this->MakeScalar(1), arrow::MakeScalar(kEuler64));
 }
 
 TYPED_TEST(TestUnaryArithmeticSigned, Exp) {
@@ -1502,8 +1504,7 @@ TYPED_TEST(TestUnaryArithmeticSigned, Exp) {
                       ArrayFromJSON(float64(),
                                     "[0.000045399929762484854, 0.36787944117144233, "
                                     "null, 2.718281828459045, 22026.465794806718]"));
-  this->AssertUnaryOp(exp, this->MakeScalar(1),
-                      arrow::MakeScalar<double>(2.718281828459045F));
+  this->AssertUnaryOp(exp, this->MakeScalar(1), arrow::MakeScalar(kEuler64));
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, Exp) {
@@ -1560,6 +1561,101 @@ TEST_F(TestUnaryArithmeticDecimal, Exp) {
     CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(float64(), "[]"));
     CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["12E2", "0", "-42E2", null])")},
                 ArrayFromJSON(float64(), "[Inf, 1.0, 0.0, null]"));
+  }
+}
+
+TYPED_TEST(TestUnaryArithmeticUnsigned, Expm1) {
+  auto expm1 = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Expm1(arg, ctx);
+  };
+  // Empty arrays
+  this->AssertUnaryOp(expm1, "[]", ArrayFromJSON(float64(), "[]"));
+  // Array with nulls
+  this->AssertUnaryOp(expm1, "[null]", ArrayFromJSON(float64(), "[null]"));
+  this->AssertUnaryOp(expm1, this->MakeNullScalar(), arrow::MakeNullScalar(float64()));
+  this->AssertUnaryOp(
+      expm1, "[null, 0, 1, 10]",
+      ArrayFromJSON(float64(), "[null, 0.0, 1.718281828459045, 22025.465794806718]"));
+  this->AssertUnaryOp(expm1, this->MakeScalar(1), arrow::MakeScalar(kEuler64 - 1.0));
+}
+
+TYPED_TEST(TestUnaryArithmeticSigned, Expm1) {
+  auto expm1 = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Expm1(arg, ctx);
+  };
+  // Empty arrays
+  this->AssertUnaryOp(expm1, "[]", ArrayFromJSON(float64(), "[]"));
+  // Array with nulls
+  this->AssertUnaryOp(expm1, "[null]", ArrayFromJSON(float64(), "[null]"));
+  this->AssertUnaryOp(expm1, this->MakeNullScalar(), arrow::MakeNullScalar(float64()));
+  this->AssertUnaryOp(expm1, "[-10, -1, 0, null, 1, 10]",
+                      ArrayFromJSON(float64(),
+                                    "[-0.9999546000702375, -0.6321205588285577, 0.0, "
+                                    "null, 1.718281828459045, 22025.465794806718]"));
+  this->AssertUnaryOp(expm1, this->MakeScalar(1), arrow::MakeScalar(kEuler64 - 1.0));
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, Expm1) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::lowest();
+  auto max = std::numeric_limits<CType>::max();
+
+  auto expm1 = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Expm1(arg, ctx);
+  };
+  // Empty arrays
+  this->AssertUnaryOp(expm1, "[]", "[]");
+  // Array with nulls
+  this->AssertUnaryOp(expm1, "[null]", "[null]");
+  this->AssertUnaryOp(expm1, this->MakeNullScalar(), this->MakeNullScalar());
+  this->AssertUnaryOp(expm1, "[-1.0, 0.0, 0.1, 0.00000001, null, 10.0]",
+                      "[-0.6321205588285577, 0.0, "
+                      "0.10517091807564763, 0.000000010000000050000001, "
+                      "null, 22025.465794806718]");
+  // Ordinary arrays (positive, negative, fractional, and zero inputs)
+  this->AssertUnaryOp(expm1, "[-10.0, 0.0, 0.1, 0.00000001, 0.5, 1.0]",
+                      "[-0.9999546000702375, 0.0, "
+                      "0.10517091807564763, 0.000000010000000050000001, "
+                      "0.6487212707001282, 1.718281828459045]");
+  this->AssertUnaryOp(expm1, 1.3F, 2.6692964926535487F);
+  this->AssertUnaryOp(expm1, this->MakeScalar(1.3F),
+                      this->MakeScalar(2.6692964926535487F));
+  // Arrays with infinites
+  this->AssertUnaryOp(expm1, "[-Inf, Inf]", "[-1, Inf]");
+  // Arrays with NaNs
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(expm1, "[NaN]", "[NaN]");
+  // Min/max
+  this->AssertUnaryOp(expm1, min, -1.0);
+  this->AssertUnaryOp(expm1, max, std::numeric_limits<CType>::infinity());
+}
+
+TEST_F(TestUnaryArithmeticDecimal, Expm1) {
+  auto max128 = Decimal128::GetMaxValue(38);
+  auto max256 = Decimal256::GetMaxValue(76);
+  const auto func = "expm1";
+  for (const auto& ty : PositiveScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(float64(), "[]"));
+    CheckScalar(
+        func, {ArrayFromJSON(ty, R"(["-1.00", "0.00", "0.10", "0.01", "10.00", null])")},
+        ArrayFromJSON(float64(),
+                      "[-0.6321205588285577, 0.0, "
+                      "0.10517091807564763, 0.010050167084168058, "
+                      "22025.465794806718, null]"));
+  }
+  CheckScalar(func, {std::make_shared<Decimal128Scalar>(max128, decimal128(38, 0))},
+              ScalarFromJSON(float64(), "Inf"));
+  CheckScalar(func, {std::make_shared<Decimal128Scalar>(-max128, decimal128(38, 0))},
+              ScalarFromJSON(float64(), "-1.0"));
+  CheckScalar(func, {std::make_shared<Decimal256Scalar>(max256, decimal256(76, 0))},
+              ScalarFromJSON(float64(), "Inf"));
+  CheckScalar(func, {std::make_shared<Decimal256Scalar>(-max256, decimal256(76, 0))},
+              ScalarFromJSON(float64(), "-1.0"));
+  for (const auto& ty : NegativeScaleTypes()) {
+    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(float64(), "[]"));
+    CheckScalar(func, {DecimalArrayFromJSON(ty, R"(["12E2", "0", "-42E2", null])")},
+                ArrayFromJSON(float64(), "[Inf, 0.0, -1.0, null]"));
   }
 }
 

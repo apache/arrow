@@ -733,7 +733,8 @@ def _set_default(opt, default):
 @click.option('--with-csharp', type=bool, default=False,
               help='Include C# in integration tests')
 @click.option('--with-java', type=bool, default=False,
-              help='Include Java in integration tests')
+              help='Include Java in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_JAVA")
 @click.option('--with-js', type=bool, default=False,
               help='Include JavaScript in integration tests')
 @click.option('--with-go', type=bool, default=False,

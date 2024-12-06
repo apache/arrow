@@ -57,10 +57,8 @@ apt-get install -y -q --no-install-recommends \
   libglib2.0-dev \
   libsqlite3-dev \
   libssl-dev \
-  maven \
   ninja-build \
   nlohmann-json${nlohmann_json}-dev \
-  openjdk-11-jdk \
   pkg-config \
   python${python}-dev \
   python${python}-venv \
