@@ -2639,14 +2639,14 @@ TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
 TYPED_TEST(TestUnaryArithmeticFloating, TrigAtanh) {
   this->SetNansEqual(true);
   this->AssertUnaryOp(Atanh, "[-Inf, Inf, -2, 2]", "[NaN, NaN, NaN, NaN]");
+  this->AssertUnaryOp(Atanh, "[-1, 1]", "[-Inf, Inf]");
   for (auto check_overflow : {false, true}) {
     this->SetOverflowCheck(check_overflow);
     this->AssertUnaryOp(Atanh, "[]", "[]");
     this->AssertUnaryOp(Atanh, "[null, NaN]", "[null, NaN]");
-    this->AssertUnaryOp(Atanh, "[-1, 1]", "[-Inf, Inf]");
     this->AssertUnaryOp(Atanh, "[0, 0.6]", MakeArray(0, M_LN2));
   }
-  this->AssertUnaryOpRaises(Atanh, "[-Inf, Inf, -2, 2]", "domain error");
+  this->AssertUnaryOpRaises(Atanh, "[-Inf, Inf, -1, 1, -2, 2]", "domain error");
 }
 
 TYPED_TEST(TestUnaryArithmeticIntegral, Trig) {
