@@ -27,8 +27,11 @@
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 
+ARROW_SUPPRESS_DEPRECATION_WARNING
 #include "substrait/plan.pb.h"  // IWYU pragma: export
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 namespace arrow {
 namespace engine {
