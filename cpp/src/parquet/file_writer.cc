@@ -448,9 +448,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
       WriteEncryptedFileMetadata(*file_metadata_, sink_.get(), footer_signing_encryptor,
                                  false);
     }
-    if (file_encryptor_) {
-      file_encryptor_->WipeOutEncryptionKeys();
-    }
   }
 
   void WritePageIndex() {
