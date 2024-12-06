@@ -337,6 +337,8 @@ arrow::Result<ActionBeginTransactionRequest> ParseActionBeginTransactionRequest(
   return result;
 }
 
+// ActionCancelQueryRequest is deprecated
+ARROW_SUPPRESS_DEPRECATION_WARNING
 arrow::Result<ActionCancelQueryRequest> ParseActionCancelQueryRequest(
     const Action& action) {
   pb::sql::ActionCancelQueryRequest command;
@@ -346,6 +348,7 @@ arrow::Result<ActionCancelQueryRequest> ParseActionCancelQueryRequest(
   ARROW_ASSIGN_OR_RAISE(result.info, FlightInfo::Deserialize(command.info()));
   return result;
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 arrow::Result<ActionCreatePreparedStatementRequest>
 ParseActionCreatePreparedStatementRequest(const Action& action) {
@@ -468,6 +471,8 @@ arrow::Result<Result> PackActionResult(const FlightEndpoint& endpoint) {
   return endpoint.SerializeToBuffer();
 }
 
+// ActionCancelQueryResult is deprecated
+ARROW_SUPPRESS_DEPRECATION_WARNING
 arrow::Result<Result> PackActionResult(CancelResult result) {
   pb::sql::ActionCancelQueryResult pb_result;
   switch (result) {
@@ -487,6 +492,7 @@ arrow::Result<Result> PackActionResult(CancelResult result) {
   }
   return PackActionResult(pb_result);
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult result) {
   pb::sql::ActionCreatePreparedStatementResult pb_result;

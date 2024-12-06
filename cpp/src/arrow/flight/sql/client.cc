@@ -829,6 +829,8 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   return results->Drain();
 }
 
+// ActionCancelQuery{Request,Result} are deprecated
+ARROW_SUPPRESS_DEPRECATION_WARNING
 ::arrow::Result<CancelResult> FlightSqlClient::CancelQuery(
     const FlightCallOptions& options, const FlightInfo& info) {
   flight_sql_pb::ActionCancelQueryRequest cancel_query;
@@ -855,6 +857,7 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   }
   return Status::IOError("Server returned unknown result ", result.result());
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 Status FlightSqlClient::Close() { return impl_->Close(); }
 
