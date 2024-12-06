@@ -29,6 +29,8 @@
 
 namespace arrow {
 
+using internal::checked_pointer_cast;
+
 namespace util {
 
 bool CheckAlignment(const Buffer& buffer, int64_t alignment) {
@@ -43,29 +45,17 @@ namespace {
 // Returns the type that controls how the buffers of this ArrayData (not its children)
 // should behave
 Type::type GetTypeForBuffers(const ArrayData& array) {
-  Type::type type_id = array.type->id();
-  Type::type storage_type_id = array.type->storage_id();
-  if (storage_type_id == Type::DICTIONARY) {
-    switch (type_id) {
-      case Type::DICTIONARY:
-        storage_type_id =
-            ::arrow::internal::checked_pointer_cast<DictionaryType>(array.type)
-                ->index_type()
-                ->id();
-        break;
-      case Type::EXTENSION: {
-        auto dictExtType =
-            ::arrow::internal::checked_pointer_cast<ExtensionType>(array.type);
-        storage_type_id = ::arrow::internal::checked_pointer_cast<DictionaryType>(
-                              dictExtType->storage_type())
-                              ->index_type()
-                              ->id();
-      } break;
-      default:
-        break;
+  Type::type type_id = array.type->storage_id();
+  if (type_id == Type::DICTIONARY) {
+    // return index type id, provided by the DictionaryType array.type or
+    // array.type->storage_type() if array.type is an ExtensionType
+    std::shared_ptr<DataType> dict_type = array.type;
+    if (array.type->id() == Type::EXTENSION) {
+      dict_type = checked_pointer_cast<ExtensionType>(array.type)->storage_type();
     }
+    return checked_pointer_cast<DictionaryType>(dict_type)->index_type()->id();
   }
-  return storage_type_id;
+  return type_id;
 }
 
 // Checks to see if an array's own buffers are aligned but doesn't check
