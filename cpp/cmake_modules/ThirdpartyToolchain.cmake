@@ -2062,6 +2062,7 @@ macro(build_substrait)
     # Missing dll-interface:
     list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "/wd4251")
   else()
+    # GH-44954: silence [[deprecated]] declarations in protobuf-generated code
     list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "-Wno-deprecated")
     if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                       "Clang")

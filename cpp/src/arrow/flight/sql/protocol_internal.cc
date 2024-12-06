@@ -16,6 +16,7 @@
 
 #include "arrow/util/macros.h"
 
+// GH-44954: silence [[deprecated]] declarations in protobuf-generated code
 ARROW_SUPPRESS_DEPRECATION_WARNING
 #include "arrow/flight/sql/protocol_internal.h"
 

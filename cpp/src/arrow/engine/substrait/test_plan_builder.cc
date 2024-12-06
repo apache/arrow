@@ -33,6 +33,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 
+// GH-44954: silence [[deprecated]] declarations in protobuf-generated code
 ARROW_SUPPRESS_DEPRECATION_WARNING
 #include "substrait/algebra.pb.h"  // IWYU pragma: export
 ARROW_UNSUPPRESS_DEPRECATION_WARNING
