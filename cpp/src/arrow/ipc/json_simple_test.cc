@@ -857,7 +857,8 @@ TEST(TestMap, StringToInteger) {
   ASSERT_OK_AND_ASSIGN(auto expected_keys,
                        ArrayFromJSON(utf8(), R"(["joe", "mark", "cap"])"));
   ASSERT_OK_AND_ASSIGN(auto expected_values, ArrayFromJSON(int32(), "[0, null, 8]"));
-  ASSERT_OK_AND_ASSIGN(auto expected_null_bitmap, BytesToBits({1, 0, 1, 1}));
+  ASSERT_OK_AND_ASSIGN(auto expected_null_bitmap,
+                       BytesToBits(std::vector<uint8_t>({1, 0, 1, 1})));
   auto expected =
       std::make_shared<MapArray>(type, 4, Buffer::Wrap(offsets), expected_keys,
                                  expected_values, expected_null_bitmap, 1);
