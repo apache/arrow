@@ -2118,9 +2118,8 @@ macro(build_substrait)
   set(SUBSTRAIT_INCLUDES ${SUBSTRAIT_CPP_DIR} ${PROTOBUF_INCLUDE_DIR})
 
   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
-  set_target_properties(substrait
-                        PROPERTIES POSITION_INDEPENDENT_CODE ON
-                                   COMPILE_OPTIONS "${SUBSTRAIT_SUPPRESSED_FLAGS}")
+  set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  target_compile_options(substrait PRIVATE "${SUBSTRAIT_SUPPRESSED_FLAGS}")
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
   target_link_libraries(substrait PUBLIC ${ARROW_PROTOBUF_LIBPROTOBUF})
   add_dependencies(substrait substrait_gen)
