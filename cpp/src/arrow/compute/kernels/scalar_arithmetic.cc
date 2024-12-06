@@ -333,6 +333,9 @@ struct Atanh {
   static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE((val < -1.0 || val > 1.0))) {
+      // N.B. This predicate does *not* match the predicate in AtanhChecked. In
+      // GH-44630 it was decided that the checked version should error when asked
+      // for +/- 1 as an input and the unchecked version should return +/- oo
       return std::numeric_limits<T>::quiet_NaN();
     }
     return std::atanh(val);
@@ -343,7 +346,10 @@ struct AtanhChecked {
   template <typename T, typename Arg0>
   static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
-    if (ARROW_PREDICT_FALSE((val < -1.0 || val > 1.0))) {
+    if (ARROW_PREDICT_FALSE((val <= -1.0 || val => 1.0))) {
+      // N.B. This predicate does *not* match the predicate in Atanh. In GH-44630 it was
+      // decided that the checked version should error when asked for +/- 1 as an input
+      // and the unchecked version should return +/- oo
       *st = Status::Invalid("domain error");
       return val;
     }
@@ -1305,12 +1311,12 @@ const FunctionDoc acos_checked_doc{"Compute the inverse cosine",
                                    {"x"}};
 
 const FunctionDoc acosh_doc{"Compute the inverse hyperbolic cosine",
-                            ("NaN is returned for invalid input values;\n"
+                            ("NaN is returned for input values < 1.0;\n"
                              "to raise an error instead, see \"acosh_checked\"."),
                             {"x"}};
 
 const FunctionDoc acosh_checked_doc{"Compute the inverse hyperbolic cosine",
-                                    ("Invalid input values raise an error;\n"
+                                    ("Input values < 1.0 raise an error;\n"
                                      "to return NaN instead, see \"acosh\"."),
                                     {"x"}};
 
@@ -1324,12 +1330,13 @@ const FunctionDoc atan2_doc{"Compute the inverse tangent of y/x",
                             {"y", "x"}};
 
 const FunctionDoc atanh_doc{"Compute the inverse hyperbolic tangent",
-                            ("NaN is returned for invalid input values;\n"
-                             "to raise an error instead, see \"atanh_checked\"."),
+                            ("NaN is returned for input values x with |x| > 1. "
+                             "At x = +/- 1, returns +/- infinity.\n"
+                             "To raise an error instead, see \"atanh_checked\"."),
                             {"x"}};
 
 const FunctionDoc atanh_checked_doc{"Compute the inverse hyperbolic tangent",
-                                    ("Invalid input values raise an error;\n"
+                                    ("Input values x with |x| >= 1.0 raise an error\n"
                                      "to return NaN instead, see \"atanh\"."),
                                     {"x"}};
 
