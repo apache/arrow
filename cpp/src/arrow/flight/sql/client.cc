@@ -31,6 +31,7 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace flight_sql_pb = arrow::flight::protocol::sql;
 

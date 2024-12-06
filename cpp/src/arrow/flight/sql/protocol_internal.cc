@@ -14,6 +14,8 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 
+#include "arrow/util/macros.h"
+
 ARROW_SUPPRESS_DEPRECATION_WARNING
 #include "arrow/flight/sql/protocol_internal.h"
 
