@@ -19,6 +19,7 @@
 #include "arrow/io/file.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
+#include "arrow/matlab/tabular/proxy/table.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/util/utf8.h"
 
@@ -32,7 +33,7 @@ RecordBatchStreamReader::RecordBatchStreamReader(
   REGISTER_METHOD(RecordBatchStreamReader, getSchema);
   REGISTER_METHOD(RecordBatchStreamReader, readRecordBatch);
   REGISTER_METHOD(RecordBatchStreamReader, hasNextRecordBatch);
-  // REGISTER_METHOD(RecordBatchStreamReader, readTable);
+  REGISTER_METHOD(RecordBatchStreamReader, readTable);
 }
 
 libmexclass::proxy::MakeResult RecordBatchStreamReader::make(
@@ -71,6 +72,20 @@ void RecordBatchStreamReader::getSchema(libmexclass::proxy::method::Context& con
   mda::ArrayFactory factory;
   const auto schema_proxy_id_mda = factory.createScalar(schema_proxy_id);
   context.outputs[0] = schema_proxy_id_mda;
+}
+
+void RecordBatchStreamReader::readTable(
+    libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+  using TableProxy = arrow::matlab::tabular::proxy::Table;
+
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto table, reader->ToTable(), context, error::IPC_TABLE_READ_FAILED);
+  auto table_proxy = std::make_shared<TableProxy>(table);
+  const auto table_proxy_id = libmexclass::proxy::ProxyManager::manageProxy(table_proxy);
+
+  mda::ArrayFactory factory;
+  const auto table_proxy_id_mda = factory.createScalar(table_proxy_id);
+  context.outputs[0] = table_proxy_id_mda;
 }
 
 void RecordBatchStreamReader::readRecordBatch(

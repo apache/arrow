@@ -43,15 +43,39 @@ classdef RecordBatchStreamReader < matlab.mixin.Scalar
             schema = arrow.tabular.Schema(proxy);
         end
 
-        function tf = hasNextRecordBatch(obj)
+        function tf = hasnext(obj)
             tf = obj.Proxy.hasNextRecordBatch();
         end
 
-        function rb = readRecordBatch(obj)
+        function tf = done(obj)
+            tf = ~obj.Proxy.hasNextRecordBatch();
+        end
+
+        function arrowRecordBatch = read(obj)
+	    % NOTE: This function is a "convenience alias" for the readRecordBatch
+	    % method, which has a longer name. This is the exact same implementation
+	    % as readRecordBatch. Since this method might be called in a tight loop,
+	    % it should be slightly more efficient to call the C++ code directly,
+	    % rather than invoking obj.readRecordBatch indirectly. We are intentionally
+	    % trading off code duplication for performance here.
             proxyID = obj.Proxy.readRecordBatch();
             proxyName = "arrow.tabular.proxy.RecordBatch";
             proxy = libmexclass.proxy.Proxy(ID=proxyID, Name=proxyName);
-            rb = arrow.tabular.RecordBatch(proxy);
+            arrowRecordBatch = arrow.tabular.RecordBatch(proxy);
+        end
+
+        function arrowRecordBatch = readRecordBatch(obj)
+            proxyID = obj.Proxy.readRecordBatch();
+            proxyName = "arrow.tabular.proxy.RecordBatch";
+            proxy = libmexclass.proxy.Proxy(ID=proxyID, Name=proxyName);
+            arrowRecordBatch = arrow.tabular.RecordBatch(proxy);
+        end
+
+        function arrowTable = readTable(obj)
+            proxyID = obj.Proxy.readTable();
+            proxyName = "arrow.tabular.proxy.Table";
+            proxy = libmexclass.proxy.Proxy(ID=proxyID, Name=proxyName);
+            arrowTable = arrow.tabular.Table(proxy);
         end
 
     end
