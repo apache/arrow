@@ -50,21 +50,6 @@ InternalFileEncryptor::InternalFileEncryptor(FileEncryptionProperties* propertie
   properties_->set_utilized();
 }
 
-void InternalFileEncryptor::WipeOutEncryptionKeys() {
-  properties_->WipeOutEncryptionKeys();
-
-  for (auto const& i : meta_encryptor_) {
-    if (i != nullptr) {
-      i->WipeOut();
-    }
-  }
-  for (auto const& i : data_encryptor_) {
-    if (i != nullptr) {
-      i->WipeOut();
-    }
-  }
-}
-
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
   if (footer_encryptor_ != nullptr) {
     return footer_encryptor_;
