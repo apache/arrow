@@ -77,10 +77,16 @@ void RecordBatchStreamReader::readRecordBatch(
     libmexclass::proxy::method::Context& context) {
   namespace mda = ::matlab::data;
   using RecordBatchProxy = arrow::matlab::tabular::proxy::RecordBatch;
+  using namespace libmexclass::error;
   // If we don't have a "pre-cached" record batch to return, then try reading another record batch
   // from the IPC Stream. If there are no more record batches in the stream, then error.
   if (!nextRecordBatch) {
      MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(nextRecordBatch, reader->Next(), context, error::IPC_RECORD_BATCH_READ_FAILED);
+  }
+  // Even if the read was "successful", the resulting record batch may be empty, signalling the end of the stream.
+  if (!nextRecordBatch) {
+	  context.error = Error{"arrow:io:ipc:EndOfStream", "Reached end of Arrow IPC Stream. No more record batches to read."};
+	  return;
   }
   auto record_batch_proxy = std::make_shared<RecordBatchProxy>(nextRecordBatch);
   const auto record_batch_proxy_id = libmexclass::proxy::ProxyManager::manageProxy(record_batch_proxy);
@@ -108,6 +114,10 @@ void RecordBatchStreamReader::hasNextRecordBatch(
 		// so that we can return it on the next
 		// call to readRecordBatch.
 	  	nextRecordBatch = *maybe_record_batch;
+
+		// Even if the read was "successful", the resulting
+		// record batch may be empty, signaling that
+		// the end of the IPC stream has been reached.
 		if (!nextRecordBatch) {
 			has_next_record_batch = false;
 		}
