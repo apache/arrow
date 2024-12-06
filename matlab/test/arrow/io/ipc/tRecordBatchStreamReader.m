@@ -21,6 +21,7 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
         ZeroBatchStreamFile
         OneBatchStreamFile
         MultipleBatchStreamFile
+        RandomAccessFile
     end
 
     properties (TestParameter)
@@ -33,6 +34,16 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             import matlab.unittest.fixtures.TemporaryFolderFixture
             fixture = testCase.applyFixture(TemporaryFolderFixture);
             testCase.DataFolder = string(fixture.Folder);
+        end
+
+        function setupRandomAccessFile(testCase)
+            fieldA = arrow.field("A", arrow.string());
+            fieldB = arrow.field("B", arrow.float32());
+            schema = arrow.schema([fieldA, fieldB]);
+            fname = fullfile(testCase.DataFolder, "RandomAccessFile.arrow");
+            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            writer.close();
+            testCase.RandomAccessFile = fname;
         end
 
         function setupZeroBatchStreamFile(testCase)
@@ -249,7 +260,7 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
 
         function ReadTableMultipleBatchStreamFile(testCase)
             % Verify read can successfully read an Arrow IPC Stream file
-            % containing one batch as an arrow.tabular.Table.
+            % containing multiple batches as an arrow.tabular.Table.
             reader = arrow.io.ipc.RecordBatchStreamReader(testCase.MultipleBatchStreamFile);
             matlabTable = table(["Row1"; "Row2"; "Row3"; "Row4"], single([1; 2; 3; 4]), VariableNames=["A", "B"]);
             expected = arrow.table(matlabTable);
@@ -310,6 +321,14 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
 
             testCase.verifyFalse(reader.hasnext());
             testCase.verifyTrue(reader.done());
+        end
+
+        function ErrorIfNotIpcStreamFile(testCase)
+            % Verify RecordBatchStreamReader throws an exception with the
+            % identifier arrow:io:ipc:FailedToOpenRecordBatchReader if
+            % the provided file is not an Arrow IPC Stream file.
+            fcn = @() arrow.io.ipc.RecordBatchStreamReader(testCase.RandomAccessFile);
+            testCase.verifyError(fcn, "arrow:io:ipc:FailedToOpenRecordBatchReader");
         end
 
     end
