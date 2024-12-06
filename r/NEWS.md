@@ -21,8 +21,6 @@
 
 # arrow 18.1.0
 
-# arrow 18.0.0
-
 ## Minor improvements and fixes
 
 * Fix bindings to allow filtering a factor column in a Dataset using `%in%` (#43446)
