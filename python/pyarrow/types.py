@@ -40,9 +40,6 @@ _TEMPORAL_TYPES = ({lib.Type_TIMESTAMP,
                     lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES |
                    _INTERVAL_TYPES)
 _UNION_TYPES = {lib.Type_SPARSE_UNION, lib.Type_DENSE_UNION}
-_NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
-                 lib.Type_LIST_VIEW, lib.Type_LARGE_LIST_VIEW,
-                 lib.Type_STRUCT, lib.Type_MAP} | _UNION_TYPES
 
 
 @doc(datatype="null")
@@ -174,7 +171,7 @@ def is_union(t):
 
 @doc(is_null, datatype="nested type")
 def is_nested(t):
-    return t.id in _NESTED_TYPES
+    return lib._is_nested(t)
 
 
 @doc(is_null, datatype="run-end encoded")
