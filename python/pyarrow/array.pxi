@@ -21,7 +21,6 @@ import os
 import warnings
 from cython import sizeof
 
-
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
     cdef:
