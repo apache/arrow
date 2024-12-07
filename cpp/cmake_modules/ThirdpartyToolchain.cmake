@@ -2061,10 +2061,14 @@ macro(build_substrait)
 
     # Missing dll-interface:
     list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "/wd4251")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
-                                                        "Clang")
-    # Protobuf generated files trigger some errors on CLANG TSAN builds
-    list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "-Wno-error=shorten-64-to-32")
+  else()
+    # GH-44954: silence [[deprecated]] declarations in protobuf-generated code
+    list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "-Wno-deprecated")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                      "Clang")
+      # Protobuf generated files trigger some errors on CLANG TSAN builds
+      list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "-Wno-error=shorten-64-to-32")
+    endif()
   endif()
 
   set(SUBSTRAIT_SOURCES)
@@ -2116,6 +2120,7 @@ macro(build_substrait)
 
   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
   set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  target_compile_options(substrait PRIVATE "${SUBSTRAIT_SUPPRESSED_FLAGS}")
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
   target_link_libraries(substrait PUBLIC ${ARROW_PROTOBUF_LIBPROTOBUF})
   add_dependencies(substrait substrait_gen)
