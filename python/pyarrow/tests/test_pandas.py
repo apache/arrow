@@ -349,10 +349,18 @@ class TestConvertMetadata:
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    def test_index_metadata_field_name(self, request):
-        if _pandas_api.uses_string_dtype():
-            # https://github.com/pandas-dev/pandas/issues/59879
-            request.applymarker(pytest.mark.xfail(reason="bug in pandas string dtype"))
+    def test_float_column_index_with_missing(self):
+        df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=[1.5, np.nan])
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+    @pytest.mark.filterwarnings(
+        "ignore:The DataFrame has column names of mixed type:UserWarning"
+    )
+    def test_string_column_index_with_missing(self):
+        df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=["A", None])
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+    def test_index_metadata_field_name(self):
         # test None case, and strangely named non-index columns
         df = pd.DataFrame(
             [(1, 'a', 3.1), (2, 'b', 2.2), (3, 'c', 1.3)],
@@ -362,8 +370,11 @@ class TestConvertMetadata:
             ),
             columns=['a', None, '__index_level_0__'],
         )
-        with pytest.warns(UserWarning):
+        if _pandas_api.uses_string_dtype():
             t = pa.Table.from_pandas(df, preserve_index=True)
+        else:
+            with pytest.warns(UserWarning):
+                t = pa.Table.from_pandas(df, preserve_index=True)
         js = t.schema.pandas_metadata
 
         col1, col2, col3, idx0, foo = js['columns']
@@ -371,8 +382,12 @@ class TestConvertMetadata:
         assert col1['name'] == 'a'
         assert col1['name'] == col1['field_name']
 
-        assert col2['name'] is None
-        assert col2['field_name'] == 'None'
+        if _pandas_api.uses_string_dtype():
+            assert np.isnan(col2['name'])
+            assert col2['field_name'] == 'nan'
+        else:
+            assert col2['name'] is None
+            assert col2['field_name'] == 'None'
 
         assert col3['name'] == '__index_level_0__'
         assert col3['name'] == col3['field_name']

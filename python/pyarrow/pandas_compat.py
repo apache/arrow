@@ -174,7 +174,11 @@ def get_column_metadata(column, name, arrow_type, field_name):
         }
         string_dtype = 'object'
 
-    if name is not None and not isinstance(name, str):
+    if (
+        name is not None
+        and not (isinstance(name, float) and np.isnan(name))
+        and not isinstance(name, str)
+    ):
         raise TypeError(
             'Column name must be a string. Got column {} of type {}'.format(
                 name, type(name).__name__
@@ -340,8 +344,8 @@ def _column_name_to_strings(name):
         return str(tuple(map(_column_name_to_strings, name)))
     elif isinstance(name, Sequence):
         raise TypeError("Unsupported type for MultiIndex level")
-    elif name is None:
-        return None
+    elif name is None or (isinstance(name, float) and np.isnan(name)):
+        return name
     return str(name)
 
 
@@ -1077,9 +1081,9 @@ def get_pandas_logical_type_map():
             'date': 'datetime64[D]',
             'datetime': 'datetime64[ns]',
             'datetimetz': 'datetime64[ns]',
-            'unicode': np.str_,
+            'unicode': 'str',
             'bytes': np.bytes_,
-            'string': np.str_,
+            'string': 'str',
             'integer': np.int64,
             'floating': np.float64,
             'decimal': np.object_,
