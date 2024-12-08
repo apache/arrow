@@ -78,6 +78,7 @@
       "name": "features-minimal",
       "hidden": true,
       "cacheVariables": {
+        "ARROW_MIMALLOC": "OFF",
         "ARROW_WITH_RE2": "OFF",
         "ARROW_WITH_UTF8PROC": "OFF"
       }
@@ -91,7 +92,8 @@
         "ARROW_CSV": "ON",
         "ARROW_DATASET": "ON",
         "ARROW_FILESYSTEM": "ON",
-        "ARROW_JSON": "ON"
+        "ARROW_JSON": "ON",
+        "ARROW_MIMALLOC": "ON"
       }
     },
     {
