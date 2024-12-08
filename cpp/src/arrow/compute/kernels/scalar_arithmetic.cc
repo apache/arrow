@@ -346,7 +346,7 @@ struct AtanhChecked {
   template <typename T, typename Arg0>
   static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
-    if (ARROW_PREDICT_FALSE((val <= -1.0 || val => 1.0))) {
+    if (ARROW_PREDICT_FALSE((val <= -1.0 || val >= 1.0))) {
       // N.B. This predicate does *not* match the predicate in Atanh. In GH-44630 it was
       // decided that the checked version should error when asked for +/- 1 as an input
       // and the unchecked version should return +/- oo
