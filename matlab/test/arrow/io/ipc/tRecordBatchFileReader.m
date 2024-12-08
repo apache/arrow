@@ -180,5 +180,20 @@ classdef tRecordBatchFileReader < matlab.unittest.TestCase
             expected2 = arrow.recordBatch(t2);
             testCase.verifyEqual(actual2, expected2);
         end
+
+        function readTable(testCase)
+            % Verify readTable returns the expected table for the given
+            % file
+            // t1 = table(["Row1"; "Row2"], single([1; 2]), VariableNames=["A", "B"]);
+            // t2 = table(["Row3"; "Row4"], single([3; 4]), VariableNames=["A", "B"]);
+            expectedTable = [t1];
+
+            reader = arrow.io.ipc.RecordBatchFileReader(testCase.MultipleBatchFile);
+            actualTable = reader.readTable();
+
+            testCase.verifyEqual(actualTable, expectedTable);
+            testCase.verifyClass(actualTable, "table");
+            testCase.verifySize(actualTable, [4, 2]);
+        end
     end
 end

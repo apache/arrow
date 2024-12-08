@@ -47,6 +47,7 @@ RecordBatchFileReader::RecordBatchFileReader(
   REGISTER_METHOD(RecordBatchFileReader, getNumRecordBatches);
   REGISTER_METHOD(RecordBatchFileReader, getSchema);
   REGISTER_METHOD(RecordBatchFileReader, readRecordBatchAtIndex);
+  REGISTER_METHOD(RecordBatchFileReader, readTable);
 }
 
 libmexclass::proxy::MakeResult RecordBatchFileReader::make(
@@ -123,6 +124,23 @@ void RecordBatchFileReader::readRecordBatchAtIndex(
   mda::ArrayFactory factory;
   const auto record_batch_proxyy_id_mda = factory.createScalar(record_batch_proxy_id);
   context.outputs[0] = record_batch_proxyy_id_mda;
+}
+
+void RecordBatchFileReader::readTable(
+    libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+  using TableProxy = arrow::matlab::tabular::proxy::Table;
+
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto table, 
+                                      reader->ToTable(), context,
+                                      error::IPC_TABLE_READ_FAILED);
+  auto table_proxy = std::make_shared<TableProxy>(std::move(table));
+  const auto table_proxy_id =
+      libmexclass::proxy::ProxyManager::manageProxy(table_proxy);
+
+  mda::ArrayFactory factory;
+  const auto table_proxy_id_mda = factory.createScalar(table_proxy_id);
+  context.outputs[0] = table_proxy_id_mda;
 }
 
 }  // namespace arrow::matlab::io::ipc::proxy
