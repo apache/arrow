@@ -27,6 +27,9 @@
 namespace arrow {
 namespace {
 
+// `kOneUlp` is equal to 1.0 - (1.0 - nextafter(1.0, -inf)).
+// That is, it is the delta between 1.0 and the FP value immediately before 1.0.
+// We're using this value because `frexp` returns a mantissa between 0.5 and 1.0.
 template <typename Float>
 constexpr Float kOneUlp;
 template <>
