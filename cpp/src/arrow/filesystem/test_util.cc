@@ -593,7 +593,7 @@ void GenericFileSystemTest::TestCopyFiles(FileSystem* fs) {
   auto reset_thread_pool = [io_thread_pool, original_threads](void*) {
     ASSERT_OK(io_thread_pool->SetCapacity(original_threads));
   };
-  std::unique_ptr<void, decltype(reset_thread_pool)> resetThreadPoolGuard(
+  std::unique_ptr<void, decltype(reset_thread_pool)> reset_thread_pool_guard(
       nullptr, reset_thread_pool);
 
   auto mock_fs = std::make_shared<arrow::fs::internal::MockFileSystem>(
