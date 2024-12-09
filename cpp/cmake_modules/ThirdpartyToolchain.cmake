@@ -739,8 +739,7 @@ if(DEFINED ENV{ARROW_ORC_URL})
 else()
   set_urls(ORC_SOURCE_URL
            "https://dlcdn.apache.org/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
-           #"https://downloads.apache.org/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
-           )
+  )
 endif()
 
 if(DEFINED ENV{ARROW_OPENTELEMETRY_URL})
