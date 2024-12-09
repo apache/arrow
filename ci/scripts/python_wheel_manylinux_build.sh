@@ -132,7 +132,7 @@ cmake \
     ${ARROW_EXTRA_CMAKE_FLAGS} \
     -G ${CMAKE_GENERATOR} \
     /arrow/cpp
-cmake --build . --target install
+cmake --build . --verbose --target install
 popd
 
 # Check that we don't expose any unwanted symbols
