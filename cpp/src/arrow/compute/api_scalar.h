@@ -784,6 +784,52 @@ Result<Datum> Atan(const Datum& arg, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> Atan2(const Datum& y, const Datum& x, ExecContext* ctx = NULLPTR);
 
+/// \brief Compute the hyperbolic sine of the array values.
+/// \param[in] arg The values to compute the hyperbolic sine for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hyperbolic sine of the values
+ARROW_EXPORT
+Result<Datum> Sinh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the hyperbolic cosine of the array values.
+/// \param[in] arg The values to compute the hyperbolic cosine for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hyperbolic cosine of the values
+ARROW_EXPORT
+Result<Datum> Cosh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the hyperbolic tangent of the array values.
+/// \param[in] arg The values to compute the hyperbolic tangent for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hyperbolic tangent of the values
+ARROW_EXPORT
+Result<Datum> Tanh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse hyperbolic sine of the array values.
+/// \param[in] arg The values to compute the inverse hyperbolic sine for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse hyperbolic sine of the values
+ARROW_EXPORT
+Result<Datum> Asinh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse hyperbolic cosine of the array values.
+/// \param[in] arg The values to compute the inverse hyperbolic cosine for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse hyperbolic cosine of the values
+ARROW_EXPORT
+Result<Datum> Acosh(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse hyperbolic tangent of the array values.
+/// \param[in] arg The values to compute the inverse hyperbolic tangent for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse hyperbolic tangent of the values
+ARROW_EXPORT
+Result<Datum> Atanh(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
+
 /// \brief Get the natural log of a value.
 ///
 /// If argument is null the result will be null.
