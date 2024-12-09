@@ -42,9 +42,8 @@ pushd ${spark_dir}
   build/mvn -B -DskipTests package
 
   # Run pyarrow related Python tests only
-  # TODO: Investigate why `"pyspark.sql.tests.arrow.test_arrow_grouped_map"` and
-  # `"pyspark.sql.tests.arrow.test_arrow_cogrouped_map"` are failing.
-  # They seem to require pandas too.
+  # "pyspark.sql.tests.arrow.test_arrow_grouped_map" and
+  # "pyspark.sql.tests.arrow.test_arrow_cogrouped_map" currently fail.
   spark_python_tests=(
     "pyspark.sql.tests.arrow.test_arrow"
     "pyspark.sql.tests.arrow.test_arrow_map"
