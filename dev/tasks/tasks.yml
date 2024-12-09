@@ -962,6 +962,18 @@ tasks:
       flags: -e CC=gcc-14 -e CXX=g++-14 -e RapidJSON_SOURCE=BUNDLED
       image: ubuntu-cpp
 
+  test-ubuntu-24.04-cpp-gcc-15:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        CLANG_TOOLS: 15
+        GCC_VERSION: 15
+        LLVM: 15
+        UBUNTU: 24.04
+      flags: -e CC=gcc-15 -e CXX=g++-15 -e RapidJSON_SOURCE=BUNDLED
+      image: ubuntu-cpp
+
   test-skyhook-integration:
     ci: github
     template: docker-tests/github.linux.yml
