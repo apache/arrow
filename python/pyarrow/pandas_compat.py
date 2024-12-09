@@ -1122,7 +1122,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         if dtype == np.bytes_:
             level = level.map(encoder)
         # ARROW-13756: if index is timezone aware DataTimeIndex
-        if pandas_dtype == "datetimetz":
+        elif pandas_dtype == "datetimetz":
             tz = pa.lib.string_to_tzinfo(
                 column_indexes[0]['metadata']['timezone'])
             level = pd.to_datetime(level, utc=True).tz_convert(tz)
