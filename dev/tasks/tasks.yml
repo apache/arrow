@@ -968,10 +968,10 @@ tasks:
     params:
       env:
         CLANG_TOOLS: 15
-        GCC_VERSION: 15
+        GCC_VERSION: snapshot
         LLVM: 15
         UBUNTU: 24.04
-      flags: -e CC=gcc-15 -e CXX=g++-15 -e RapidJSON_SOURCE=BUNDLED
+      flags: -e CC=gcc-snapshot -e CXX=g++-snapshot -e RapidJSON_SOURCE=BUNDLED
       image: ubuntu-cpp
 
   test-skyhook-integration:

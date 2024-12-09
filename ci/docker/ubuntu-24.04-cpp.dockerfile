@@ -141,14 +141,9 @@ RUN if [ "${gcc_version}" = "" ]; then \
           add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
       fi; \
       apt-get update -y -q && \
-      if [ "${gcc_version}" -gt "14" ]; then \
-          apt-get install -y -q --no-install-recommends \
-          gcc-snapshot; \
-      else \ 
-          apt-get install -y -q --no-install-recommends \
+      apt-get install -y -q --no-install-recommends \
           g++-${gcc_version} \
-          gcc-${gcc_version}; \
-      fi; \
+          gcc-${gcc_version} && \
       update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
       update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
       update-alternatives --install \
