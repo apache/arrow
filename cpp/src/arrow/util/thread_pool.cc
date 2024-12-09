@@ -61,9 +61,8 @@ struct QueuedTask {
   // urgently.
   bool operator<(const QueuedTask& other) const {
     if (priority == other.priority) {
-      // Maintain spawn order for tasks with the same priority. TODO: Decide if this is
-      // really needed. Currently several test cases in arrow-acero-hash-aggregate-test
-      // depend on it.
+      // Maintain execution order for tasks with the same priority. Its preferable to keep
+      // the execution order of tasks deterministic.
       return spawn_index > other.spawn_index;
     }
     return priority > other.priority;
