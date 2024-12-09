@@ -143,7 +143,6 @@ RUN if [ "${gcc_version}" = "" ]; then \
       apt-get update -y -q && \
       if [ "${gcc_version}" -gt "14" ]; then \
           apt-get install -y -q --no-install-recommends \
-          g++-snapshot \
           gcc-snapshot; \
       else \ 
           apt-get install -y -q --no-install-recommends \
