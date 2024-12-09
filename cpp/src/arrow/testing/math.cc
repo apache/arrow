@@ -27,21 +27,11 @@
 namespace arrow {
 namespace {
 
-// `kOneUlp` is equal to 1.0 - nextafter(1.0, -inf).
-// That is, it is the delta between 1.0 and the FP value immediately before it.
-// We're using this value because `frexp` returns a mantissa between 0.5 and 1.0.
-template <typename Float>
-constexpr Float kOneUlp;
-template <>
-constexpr float kOneUlp<float> = 5.9604645e-08f;
-template <>
-constexpr double kOneUlp<double> = 1.1102230246251565e-16;
-
 template <typename Float>
 bool WithinUlpOneWay(Float left, Float right, int n_ulp) {
-  // Ideally these would be compile-time (constexpr) checks
-  DCHECK_LT(Float(1.0) - kOneUlp<Float>, Float(1.0));
-  DCHECK_EQ(std::nextafter(Float(1.0) - kOneUlp<Float>, Float(1.0)), Float(1.0));
+  // The delta between 1.0 and the FP value immediately before it.
+  // We're using this value because `frexp` returns a mantissa between 0.5 and 1.0.
+  static const Float kOneUlp = Float(1.0) - std::nextafter(Float(1.0), Float(0.0));
 
   DCHECK_GE(n_ulp, 1);
 
@@ -55,7 +45,7 @@ bool WithinUlpOneWay(Float left, Float right, int n_ulp) {
 
   int left_exp;
   Float left_mant = std::frexp(left, &left_exp);
-  Float delta = static_cast<Float>(n_ulp) * kOneUlp<Float>;
+  Float delta = static_cast<Float>(n_ulp) * kOneUlp;
   Float lower_bound = std::ldexp(left_mant - delta, left_exp);
   Float upper_bound = std::ldexp(left_mant + delta, left_exp);
   return right >= lower_bound && right <= upper_bound;
