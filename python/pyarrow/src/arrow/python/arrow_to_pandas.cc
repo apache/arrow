@@ -1317,62 +1317,46 @@ struct ObjectWriterVisitor {
                                                         out_values);
   }
 
+  template <typename DecimalT, typename DecimalArrayT>
+  Status VisitDecimal(const DecimalT& type) {
+    OwnedRef decimal;
+    OwnedRef Decimal;
+    RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
+    RETURN_NOT_OK(internal::ImportFromModule(decimal.obj(), "Decimal", &Decimal));
+    PyObject* decimal_constructor = Decimal.obj();
+
+    for (int c = 0; c < data.num_chunks(); c++) {
+      const auto& arr = checked_cast<const DecimalArrayT&>(*data.chunk(c));
+
+      for (int64_t i = 0; i < arr.length(); ++i) {
+        if (arr.IsNull(i)) {
+          Py_INCREF(Py_None);
+          *out_values++ = Py_None;
+        } else {
+          *out_values++ =
+              internal::DecimalFromString(decimal_constructor, arr.FormatValue(i));
+          RETURN_IF_PYERROR();
+        }
+      }
+    }
+
+    return Status::OK();
+  }
+
   Status Visit(const Decimal32Type& type) {
-    return Status::NotImplemented("Decimal32 type not yet implemented");
+    return VisitDecimal<Decimal32Type, Decimal32Array>(type);
   }
 
   Status Visit(const Decimal64Type& type) {
-    return Status::NotImplemented("Decimal64 type not yet implemented");
+    return VisitDecimal<Decimal64Type, Decimal64Array>(type);
   }
 
   Status Visit(const Decimal128Type& type) {
-    OwnedRef decimal;
-    OwnedRef Decimal;
-    RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
-    RETURN_NOT_OK(internal::ImportFromModule(decimal.obj(), "Decimal", &Decimal));
-    PyObject* decimal_constructor = Decimal.obj();
-
-    for (int c = 0; c < data.num_chunks(); c++) {
-      const auto& arr = checked_cast<const arrow::Decimal128Array&>(*data.chunk(c));
-
-      for (int64_t i = 0; i < arr.length(); ++i) {
-        if (arr.IsNull(i)) {
-          Py_INCREF(Py_None);
-          *out_values++ = Py_None;
-        } else {
-          *out_values++ =
-              internal::DecimalFromString(decimal_constructor, arr.FormatValue(i));
-          RETURN_IF_PYERROR();
-        }
-      }
-    }
-
-    return Status::OK();
+    return VisitDecimal<Decimal128Type, Decimal128Array>(type);
   }
 
   Status Visit(const Decimal256Type& type) {
-    OwnedRef decimal;
-    OwnedRef Decimal;
-    RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
-    RETURN_NOT_OK(internal::ImportFromModule(decimal.obj(), "Decimal", &Decimal));
-    PyObject* decimal_constructor = Decimal.obj();
-
-    for (int c = 0; c < data.num_chunks(); c++) {
-      const auto& arr = checked_cast<const arrow::Decimal256Array&>(*data.chunk(c));
-
-      for (int64_t i = 0; i < arr.length(); ++i) {
-        if (arr.IsNull(i)) {
-          Py_INCREF(Py_None);
-          *out_values++ = Py_None;
-        } else {
-          *out_values++ =
-              internal::DecimalFromString(decimal_constructor, arr.FormatValue(i));
-          RETURN_IF_PYERROR();
-        }
-      }
-    }
-
-    return Status::OK();
+    return VisitDecimal<Decimal256Type, Decimal256Array>(type);
   }
 
   template <typename T>
