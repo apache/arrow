@@ -54,8 +54,8 @@ module Arrow
         when nil
           append_null
         when ::Array
-          return if value.empty?
           append_value_raw
+          return if value.empty?
           @value_builder ||= value_builder
           @value_builder.append(*value)
         else

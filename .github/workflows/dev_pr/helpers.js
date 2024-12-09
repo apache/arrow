@@ -20,7 +20,7 @@ const https = require('https');
 /**
  * Given the title of a PullRequest return the Issue
  *
- * @param {String} title 
+ * @param {String} title
  * @returns {Issue} or null if no issue detected.
  *
  * @typedef {Object} Issue
@@ -62,6 +62,5 @@ function detectIssue(title) {
 
 module.exports = {
     detectIssue,
-    getJiraInfo,
     getGitHubInfo
 };

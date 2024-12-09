@@ -26,11 +26,8 @@ test_that("distinct()", {
   compare_dplyr_binding(
     .input %>%
       distinct(some_grouping, lgl) %>%
-      collect() %>%
-      # GH-14947: column output order changed in dplyr 1.1.0, so we need
-      # to make the column order explicit until dplyr 1.1.0 is on CRAN
-      select(some_grouping, lgl) %>%
-      arrange(some_grouping, lgl),
+      arrange(some_grouping, lgl) %>%
+      collect(),
     tbl
   )
 })
@@ -60,11 +57,8 @@ test_that("distinct() can retain groups", {
     .input %>%
       group_by(some_grouping, int) %>%
       distinct(lgl) %>%
-      collect() %>%
-      # GH-14947: column output order changed in dplyr 1.1.0, so we need
-      # to make the column order explicit until dplyr 1.1.0 is on CRAN
-      select(some_grouping, int, lgl) %>%
-      arrange(lgl, int),
+      arrange(lgl, int) %>%
+      collect(),
     tbl
   )
 
@@ -73,11 +67,8 @@ test_that("distinct() can retain groups", {
     .input %>%
       group_by(y = some_grouping, int) %>%
       distinct(x = lgl) %>%
-      collect() %>%
-      # GH-14947: column output order changed in dplyr 1.1.0, so we need
-      # to make the column order explicit until dplyr 1.1.0 is on CRAN
-      select(y, int, x) %>%
-      arrange(int),
+      arrange(int) %>%
+      collect(),
     tbl
   )
 })
@@ -95,11 +86,8 @@ test_that("distinct() can contain expressions", {
     .input %>%
       group_by(lgl, int) %>%
       distinct(x = some_grouping + 1) %>%
-      collect() %>%
-      # GH-14947: column output order changed in dplyr 1.1.0, so we need
-      # to make the column order explicit until dplyr 1.1.0 is on CRAN
-      select(lgl, int, x) %>%
-      arrange(int),
+      arrange(int) %>%
+      collect(),
     tbl
   )
 })
@@ -115,12 +103,57 @@ test_that("across() works in distinct()", {
 })
 
 test_that("distinct() can return all columns", {
-  skip("ARROW-14045")
-  compare_dplyr_binding(
-    .input %>%
-      distinct(lgl, .keep_all = TRUE) %>%
-      collect() %>%
-      arrange(int),
-    tbl
-  )
+  # hash_one prefers to keep non-null values, which is different from .keep_all in dplyr
+  # so we can't compare the result directly
+  expected <- tbl %>%
+    # Drop factor because of #44661:
+    # NotImplemented: Function 'hash_one' has no kernel matching input types
+    #   (dictionary<values=string, indices=int8, ordered=0>, uint8)
+    select(-fct) %>%
+    distinct(lgl, .keep_all = TRUE) %>%
+    arrange(int)
+
+  with_table <- tbl %>%
+    arrow_table() %>%
+    select(-fct) %>%
+    distinct(lgl, .keep_all = TRUE) %>%
+    arrange(int) %>%
+    collect()
+
+  expect_identical(dim(with_table), dim(expected))
+  expect_identical(names(with_table), names(expected))
+
+  # Test with some mutation in there
+  expected <- tbl %>%
+    select(-fct) %>%
+    distinct(lgl, bigger = int * 10L, .keep_all = TRUE) %>%
+    arrange(int)
+
+  with_table <- tbl %>%
+    arrow_table() %>%
+    select(-fct) %>%
+    distinct(lgl, bigger = int * 10, .keep_all = TRUE) %>%
+    arrange(int) %>%
+    collect()
+
+  expect_identical(dim(with_table), dim(expected))
+  expect_identical(names(with_table), names(expected))
+  expect_identical(with_table$bigger, expected$bigger)
+
+  # Mutation that overwrites
+  expected <- tbl %>%
+    select(-fct) %>%
+    distinct(lgl, int = int * 10L, .keep_all = TRUE) %>%
+    arrange(int)
+
+  with_table <- tbl %>%
+    arrow_table() %>%
+    select(-fct) %>%
+    distinct(lgl, int = int * 10, .keep_all = TRUE) %>%
+    arrange(int) %>%
+    collect()
+
+  expect_identical(dim(with_table), dim(expected))
+  expect_identical(names(with_table), names(expected))
+  expect_identical(with_table$int, expected$int)
 })
