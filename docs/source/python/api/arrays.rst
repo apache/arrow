@@ -31,6 +31,7 @@ These functions create new Arrow arrays:
 
    array
    nulls
+   mask
 
 Array Types
 -----------
