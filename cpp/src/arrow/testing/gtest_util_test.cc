@@ -208,12 +208,14 @@ template <typename Float>
 void CheckNotWithinUlp(Float x, Float y, int n_ulp) {
   CheckNotWithinUlpSingle(x, y, n_ulp);
   CheckNotWithinUlpSingle(y, x, n_ulp);
+  CheckNotWithinUlpSingle(-x, -y, n_ulp);
+  CheckNotWithinUlpSingle(-y, -x, n_ulp);
   if (n_ulp > 1) {
     CheckNotWithinUlpSingle(x, y, n_ulp - 1);
     CheckNotWithinUlpSingle(y, x, n_ulp - 1);
+    CheckNotWithinUlpSingle(-x, -y, n_ulp - 1);
+    CheckNotWithinUlpSingle(-y, -x, n_ulp - 1);
   }
-  CheckNotWithinUlpSingle(-x, -y, n_ulp);
-  CheckNotWithinUlpSingle(-y, -x, n_ulp);
 
   for (int exp : {1, -1, 10, -10}) {
     Float x_scaled = std::ldexp(x, exp);
