@@ -158,7 +158,7 @@ DEPENDENCIES=(
   "ARROW_NLOHMANN_JSON_URL nlohmann-json-${ARROW_NLOHMANN_JSON_BUILD_VERSION}.tar.gz https://github.com/nlohmann/json/archive/refs/tags/${ARROW_NLOHMANN_JSON_BUILD_VERSION}.tar.gz"
   "ARROW_OPENTELEMETRY_URL opentelemetry-cpp-${ARROW_OPENTELEMETRY_BUILD_VERSION}.tar.gz https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/${ARROW_OPENTELEMETRY_BUILD_VERSION}.tar.gz"
   "ARROW_OPENTELEMETRY_PROTO_URL opentelemetry-proto-${ARROW_OPENTELEMETRY_PROTO_BUILD_VERSION}.tar.gz https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/${ARROW_OPENTELEMETRY_PROTO_BUILD_VERSION}.tar.gz"
-  "ARROW_ORC_URL orc-${ARROW_ORC_BUILD_VERSION}.tar.gz https://archive.apache.org/dist/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+  "ARROW_ORC_URL orc-${ARROW_ORC_BUILD_VERSION}.tar.gz https://dlcdn.apache.org/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
   "ARROW_PROTOBUF_URL protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz https://github.com/google/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_BUILD_VERSION:1}.tar.gz"
   "ARROW_RAPIDJSON_URL rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
   "ARROW_RE2_URL re2-${ARROW_RE2_BUILD_VERSION}.tar.gz https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
