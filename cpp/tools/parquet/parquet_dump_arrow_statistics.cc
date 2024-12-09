@@ -23,6 +23,7 @@
 #include <iostream>
 
 namespace {
+// doc: start: print-arrow-statistics
 arrow::Status PrintArrowStatistics(const char* path) {
   ARROW_ASSIGN_OR_RAISE(
       auto input, arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ));
@@ -39,6 +40,7 @@ arrow::Status PrintArrowStatistics(const char* path) {
   }
   return arrow::Status::OK();
 }
+// doc: end: print-arrow-statistics
 };  // namespace
 
 int main(int argc, char** argv) {
