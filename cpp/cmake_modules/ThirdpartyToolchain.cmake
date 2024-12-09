@@ -4971,7 +4971,6 @@ if(ARROW_WITH_OPENTELEMETRY)
   # cURL is required whether we build from source or use an existing installation
   # (OTel's cmake files do not call find_curl for you)
   find_curl()
-  set(opentelemetry-cpp_SOURCE "AUTO")
   resolve_dependency(opentelemetry-cpp)
   set(ARROW_OPENTELEMETRY_LIBS
       opentelemetry-cpp::trace
