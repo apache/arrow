@@ -919,8 +919,7 @@ Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
 
 Result<std::shared_ptr<Array>> MakeMaskArray(const std::vector<int64_t>& indices,
                                              int64_t length, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBitmap(length, pool));
-  bit_util::SetBitsTo(buffer->mutable_data(), 0, length, false);
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(length, pool));
   for (int64_t index : indices) {
     if (index < 0 || index >= length) {
       return Status::IndexError("Index out of bounds: ", index);
