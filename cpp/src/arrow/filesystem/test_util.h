@@ -140,6 +140,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestMoveFile();
   void TestMoveDir();
   void TestCopyFile();
+  void TestCopyFiles();
   void TestGetFileInfo();
   void TestGetFileInfoVector();
   void TestGetFileInfoSelector();
@@ -189,6 +190,8 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool have_file_metadata() const { return false; }
   // - Whether the filesystem has a false positive memory leak with generator
   virtual bool have_false_positive_memory_leak_with_generator() const { return false; }
+  // - Whether the filesystem has a false positive memory leak in async close
+  virtual bool have_false_positive_memory_leak_with_async_close() const { return false; }
 
   void TestEmpty(FileSystem* fs);
   void TestNormalizePath(FileSystem* fs);
@@ -201,6 +204,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestMoveFile(FileSystem* fs);
   void TestMoveDir(FileSystem* fs);
   void TestCopyFile(FileSystem* fs);
+  void TestCopyFiles(FileSystem* fs);
   void TestGetFileInfo(FileSystem* fs);
   void TestGetFileInfoVector(FileSystem* fs);
   void TestGetFileInfoSelector(FileSystem* fs);
@@ -233,6 +237,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, MoveFile)                         \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, MoveDir)                          \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CopyFile)                         \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CopyFiles)                        \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfo)                      \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoVector)                \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoSelector)              \
