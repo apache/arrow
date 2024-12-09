@@ -28,12 +28,12 @@ namespace arrow {
 namespace {
 
 template <typename Float>
-bool WithinUlpOneWay(Float left, Float right, int n_ulp) {
+bool WithinUlpOneWay(Float left, Float right, int n_ulps) {
   // The delta between 1.0 and the FP value immediately before it.
   // We're using this value because `frexp` returns a mantissa between 0.5 and 1.0.
   static const Float kOneUlp = Float(1.0) - std::nextafter(Float(1.0), Float(0.0));
 
-  DCHECK_GE(n_ulp, 1);
+  DCHECK_GE(n_ulps, 1);
 
   if (left == 0) {
     return left == right;
@@ -45,36 +45,36 @@ bool WithinUlpOneWay(Float left, Float right, int n_ulp) {
 
   int left_exp;
   Float left_mant = std::frexp(left, &left_exp);
-  Float delta = static_cast<Float>(n_ulp) * kOneUlp;
+  Float delta = static_cast<Float>(n_ulps) * kOneUlp;
   Float lower_bound = std::ldexp(left_mant - delta, left_exp);
   Float upper_bound = std::ldexp(left_mant + delta, left_exp);
   return right >= lower_bound && right <= upper_bound;
 }
 
 template <typename Float>
-bool WithinUlpGeneric(Float left, Float right, int n_ulp) {
+bool WithinUlpGeneric(Float left, Float right, int n_ulps) {
   if (!std::isfinite(left) || !std::isfinite(right)) {
     return left == right;
   }
-  return (std::abs(left) <= std::abs(right)) ? WithinUlpOneWay(left, right, n_ulp)
-                                             : WithinUlpOneWay(right, left, n_ulp);
+  return (std::abs(left) <= std::abs(right)) ? WithinUlpOneWay(left, right, n_ulps)
+                                             : WithinUlpOneWay(right, left, n_ulps);
 }
 
 template <typename Float>
-void AssertWithinUlpGeneric(Float left, Float right, int n_ulp) {
-  if (!WithinUlpGeneric(left, right, n_ulp)) {
-    FAIL() << left << " and " << right << " are not within " << n_ulp << " ulps";
+void AssertWithinUlpGeneric(Float left, Float right, int n_ulps) {
+  if (!WithinUlpGeneric(left, right, n_ulps)) {
+    FAIL() << left << " and " << right << " are not within " << n_ulps << " ulps";
   }
 }
 
 }  // namespace
 
-bool WithinUlp(float left, float right, int n_ulp) {
-  return WithinUlpGeneric(left, right, n_ulp);
+bool WithinUlp(float left, float right, int n_ulps) {
+  return WithinUlpGeneric(left, right, n_ulps);
 }
 
-bool WithinUlp(double left, double right, int n_ulp) {
-  return WithinUlpGeneric(left, right, n_ulp);
+bool WithinUlp(double left, double right, int n_ulps) {
+  return WithinUlpGeneric(left, right, n_ulps);
 }
 
 void AssertWithinUlp(float left, float right, int n_ulps) {
