@@ -933,8 +933,7 @@ template <typename IndexType>
 Result<std::shared_ptr<Array>> MakeMaskArrayImpl(
     const std::shared_ptr<NumericArray<IndexType>>& indices, int64_t length,
     MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBitmap(length, pool));
-  bit_util::SetBitsTo(buffer->mutable_data(), 0, length, false);
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(length, pool));
   for (int64_t i = 0; i < indices->length(); ++i) {
     int64_t index = indices->Value(i);
     if (index < 0 || index >= length) {
