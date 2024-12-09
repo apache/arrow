@@ -43,7 +43,11 @@ pushd ${spark_dir}
 
   # Run pyarrow related Python tests only
   spark_python_tests=(
-    "pyspark.sql.tests.test_arrow")
+    "pyspark.sql.tests.arrow.test_arrow"
+    "pyspark.sql.tests.arrow.test_arrow_cogrouped_map"
+    "pyspark.sql.tests.arrow.test_arrow_grouped_map"
+    "pyspark.sql.tests.arrow.test_arrow_map"
+    "pyspark.sql.tests.arrow.test_arrow_python_udf")
 
   case "${SPARK_VERSION}" in
     v1.*|v2.*|v3.0.*|v3.1.*|v3.2.*|v3.3.*)
