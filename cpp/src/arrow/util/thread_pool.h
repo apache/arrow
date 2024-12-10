@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <memory>
 #include <queue>
-#include <thread>
 #include <type_traits>
 #include <unordered_set>
 #include <utility>
