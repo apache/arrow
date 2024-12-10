@@ -141,7 +141,7 @@ RUN if [ "${gcc_version}" = "" ]; then \
           add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
       fi; \
       apt-get update -y -q && \
-      if [ "${gcc_version}" -eq "snapshot" ]; then \
+      if [ "${gcc_version}" == "snapshot" ]; then \
           apt-get install -y -q --no-install-recommends \
           gcc-${gcc_version} && \
       else \
