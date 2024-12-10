@@ -1571,6 +1571,7 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
+        cmake: ${CMAKE}
     shm_size: *shm-size
     environment:
       <<: [*common, *sccache]
