@@ -25,10 +25,10 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_primitive.h"
-#include "arrow/compute/key_hash.h"
-#include "arrow/compute/util.h"
 #include "arrow/compute/kernels/common_internal.h"
-#include "arrow/compute/light_array.h"
+#include "arrow/compute/key_hash_internal.h"
+#include "arrow/compute/light_array_internal.h"
+#include "arrow/compute/util.h"
 #include "arrow/result.h"
 
 namespace arrow {
@@ -51,20 +51,84 @@ const FunctionDoc hash_64_doc{
 // ------------------------------
 // Kernel implementations
 // It is expected that HashArrowType is either UInt32Type or UInt64Type (default)
-template <typename HashArrowType = UInt64Type>
+// template <typename HashArrowType = UInt64Type>
 struct FastHashScalar {
-  using OutputCType = typename TypeTraits<HashArrowType>::CType;
-  using KeyColumnArrayVec = std::vector<KeyColumnArray>;
-
-  // Internal wrapper functions to resolve Hashing32 vs Hashing64 using parameter types
-  static void FastHashMultiColumn(KeyColumnArrayVec& cols, LightContext* ctx,
-                                  uint32_t* hashes) {
-    Hashing32::HashMultiColumn(cols, ctx, hashes);
+  static Result<KeyColumnArray> ToColumnArray(const ArraySpan& array, LightContext* ctx) {
+    auto type_id = array.type->id();
+    KeyColumnMetadata metadata;
+    if (type_id == Type::NA) {
+      metadata = KeyColumnMetadata(true, 0, true);
+    } else if (type_id == Type::BOOL) {
+      metadata = KeyColumnMetadata(true, 0);
+    } else if (is_fixed_width(type_id)) {
+      metadata = KeyColumnMetadata(true, array.type->bit_width() / 8);
+    } else if (is_binary_like(type_id)) {
+      metadata = KeyColumnMetadata(false, sizeof(uint32_t));
+    } else if (is_large_binary_like(type_id)) {
+      metadata = KeyColumnMetadata(false, sizeof(uint64_t));
+    } else {
+      return Status::TypeError("Unsupported column data type ", array.type->name(),
+                               " used with KeyColumnMetadata");
+    }
+    const uint8_t* validity_buffer = nullptr;
+    const uint8_t* fixed_length_buffer = nullptr;
+    const uint8_t* var_length_buffer = nullptr;
+    if (array.GetBuffer(0) != nullptr) {
+      validity_buffer = array.GetBuffer(0)->data();
+    }
+    if (array.GetBuffer(1) != nullptr) {
+      fixed_length_buffer = array.GetBuffer(1)->data();
+    }
+    if (array.GetBuffer(2) != nullptr) {
+      var_length_buffer = array.GetBuffer(2)->data();
+    }
+    return KeyColumnArray(metadata, array.length, validity_buffer, fixed_length_buffer,
+                          var_length_buffer);
   }
 
-  static void FastHashMultiColumn(KeyColumnArrayVec& cols, LightContext* ctx,
-                                  uint64_t* hashes) {
-    Hashing64::HashMultiColumn(cols, ctx, hashes);
+  static Result<std::shared_ptr<ArrayData>> HashChild(const ArraySpan& array,
+                                                      const ArraySpan& child,
+                                                      LightContext* hash_ctx,
+                                                      MemoryPool* memory_pool) {
+    auto buffer_size = child.length * sizeof(uint64_t);
+    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(buffer_size, memory_pool));
+    ARROW_RETURN_NOT_OK(
+        HashArray(child, hash_ctx, memory_pool, buffer->mutable_data_as<uint64_t>()));
+    return ArrayData::Make(uint64(), child.length,
+                           {array.GetBuffer(0), std::move(buffer)}, array.null_count);
+  }
+
+  static Status HashArray(const ArraySpan& array, LightContext* hash_ctx,
+                          MemoryPool* memory_pool, uint64_t* out) {
+    std::vector<KeyColumnArray> columns(1);
+
+    auto type_id = array.type->id();
+    if (is_list_like(type_id)) {
+      auto values = array.child_data[0];
+      if (is_nested(values.type->id())) {
+        ARROW_ASSIGN_OR_RAISE(auto value_hashes,
+                              HashChild(array, values, hash_ctx, memory_pool));
+        ARROW_ASSIGN_OR_RAISE(columns[0], ToColumnArray(*value_hashes, hash_ctx));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(columns[0], ToColumnArray(values, hash_ctx));
+      }
+    } else if (type_id == Type::STRUCT) {
+      columns.resize(array.child_data.size());
+      for (size_t i = 0; i < array.child_data.size(); i++) {
+        auto child = array.child_data[i];
+        if (is_nested(child.type->id())) {
+          ARROW_ASSIGN_OR_RAISE(auto child_hashes,
+                                HashChild(array, child, hash_ctx, memory_pool));
+          ARROW_ASSIGN_OR_RAISE(columns[i], ToColumnArray(*child_hashes, hash_ctx));
+        } else {
+          ARROW_ASSIGN_OR_RAISE(columns[i], ToColumnArray(child, hash_ctx));
+        }
+      }
+    } else {
+      ARROW_ASSIGN_OR_RAISE(columns[0], ToColumnArray(array, hash_ctx));
+    }
+    Hashing64::HashMultiColumn(columns, hash_ctx, out);
+    return Status::OK();
   }
 
   static Status Exec(KernelContext* ctx, const ExecSpan& input_arg, ExecResult* out) {
@@ -89,14 +153,11 @@ struct FastHashScalar {
     hash_ctx.hardware_flags = exec_ctx->cpu_info()->hardware_flags();
     hash_ctx.stack = &stack_memallocator;
 
-    // Construct vector<KeyColumnArray> from input ArraySpan; this essentially
-    // flattens the input array span, lifting nested Array buffers into a single level
-    ARROW_ASSIGN_OR_RAISE(KeyColumnArrayVec input_keycols,
-                          ColumnArraysFromArraySpan(hash_input, hash_input.length));
-
     // Call the hashing function, overloaded based on OutputCType
     ArraySpan* result_span = out->array_span_mutable();
-    FastHashMultiColumn(input_keycols, &hash_ctx, result_span->GetValues<OutputCType>(1));
+    uint64_t* result_ptr = result_span->GetValues<uint64_t>(1);
+    ARROW_RETURN_NOT_OK(
+        HashArray(hash_input, &hash_ctx, exec_ctx->memory_pool(), result_ptr));
 
     return Status::OK();
   }
@@ -112,14 +173,14 @@ std::shared_ptr<ScalarFunction> RegisterKernelsFastHash64() {
   // Associate kernel with function
   for (auto& simple_inputtype : PrimitiveTypes()) {
     DCHECK_OK(fn_hash_64->AddKernel({InputType(simple_inputtype)}, OutputType(uint64()),
-                                    FastHashScalar<UInt64Type>::Exec));
+                                    FastHashScalar::Exec));
   }
 
   for (const auto nested_type :
        {Type::STRUCT, Type::DENSE_UNION, Type::SPARSE_UNION, Type::LIST,
         Type::FIXED_SIZE_LIST, Type::MAP, Type::DICTIONARY}) {
     DCHECK_OK(fn_hash_64->AddKernel({InputType(nested_type)}, OutputType(uint64()),
-                                    FastHashScalar<UInt64Type>::Exec));
+                                    FastHashScalar::Exec));
   }
 
   // Return function to be registered
