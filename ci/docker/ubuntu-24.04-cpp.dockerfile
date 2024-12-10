@@ -143,11 +143,11 @@ RUN if [ "${gcc_version}" = "" ]; then \
       apt-get update -y -q && \
       if [ "${gcc_version}" -eq "snapshot" ]; then \
           apt-get install -y -q --no-install-recommends \
-          gcc-${gcc_version} \
+          gcc-${gcc_version} && \
       else \
           apt-get install -y -q --no-install-recommends \
           g++-${gcc_version} \
-          gcc-${gcc_version} \
+          gcc-${gcc_version} && \
       fi; \
       update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
       update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
