@@ -24,8 +24,7 @@ pkgdesc="Apache Arrow is a cross-language development platform for in-memory dat
 arch=("any")
 url="https://arrow.apache.org/"
 license=("Apache-2.0")
-depends=("${MINGW_PACKAGE_PREFIX}-aws-sdk-cpp"
-         "${MINGW_PACKAGE_PREFIX}-bzip2"
+depends=("${MINGW_PACKAGE_PREFIX}-bzip2"
          "${MINGW_PACKAGE_PREFIX}-curl" # for google-cloud-cpp bundled build
          "${MINGW_PACKAGE_PREFIX}-libutf8proc"
          "${MINGW_PACKAGE_PREFIX}-re2"
@@ -36,7 +35,6 @@ depends=("${MINGW_PACKAGE_PREFIX}-aws-sdk-cpp"
          "${MINGW_PACKAGE_PREFIX}-zstd"
          "${MINGW_PACKAGE_PREFIX}-brotli")
 makedepends=("${MINGW_PACKAGE_PREFIX}-ccache"
-             "${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-gcc")
 options=("staticlibs" "strip" "!buildflags")
 
@@ -82,8 +80,13 @@ build() {
   # CMAKE_UNITY_BUILD is set to OFF as otherwise some compute functionality
   # segfaults in tests
 
+  # MSYS2_ARG_CONV_EXCL is needed to prevent autoconverting CMAKE_INSTALL_PREFIX
+  # to Windows paths. See https://www.msys2.org/docs/filesystem-paths/#process-arguments
+
+  # We install CMake via the msys2 GitHub action. We have to use the installed
+  # CMake to build Arrow which is in the Program Files directory.
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
-    ${MINGW_PREFIX}/bin/cmake.exe \
+    "${PROGRAMFILES}\CMake\bin\cmake.exe" \
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
     -DARROW_ACERO=ON \
@@ -116,6 +119,7 @@ build() {
     -DARROW_WITH_BZ2=ON \
     -DARROW_ZSTD_USE_SHARED=OFF \
     -DARROW_CXXFLAGS="${CPPFLAGS}" \
+    -DAWSSDK_SOURCE=BUNDLED \
     -DCMAKE_BUILD_TYPE="release" \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
     -DCMAKE_UNITY_BUILD=OFF \
