@@ -290,6 +290,11 @@ jobs:
           r-version: "4.1"
           rtools-version: 40
           Ncpus: 2
+      - name: Install CMake 3.25.0
+        shell: bash
+        run: |
+          ci/scripts/install_cmake.sh 3.25.0 /c/cmake
+          echo "c:\\cmake\\bin" >> $GITHUB_PATH
       - name: Build Arrow C++
         shell: bash
         env:
