@@ -447,7 +447,6 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
                    scan_options_->projection.call()->options.get())
                    ->field_names;
 
-  // This is where the node is added to the plan.
   RETURN_NOT_OK(
       acero::Declaration::Sequence(
           {
@@ -609,7 +608,6 @@ Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
     Executor* cpu_executor) {
-  // Is this part of the code path?
   ARROW_ASSIGN_OR_RAISE(
       auto unordered, ScanBatchesUnorderedAsync(cpu_executor, /*sequence_fragments=*/true,
                                                 /*use_legacy_batching=*/true));
@@ -1183,7 +1181,6 @@ Result<acero::ExecNode*> MakeOrderedSinkNode(acero::ExecPlan* plan,
 
 namespace internal {
 void InitializeScanner(arrow::acero::ExecFactoryRegistry* registry) {
-  // This is where it's registered.
   DCHECK_OK(registry->AddFactory("scan", MakeScanNode));
   DCHECK_OK(registry->AddFactory("ordered_sink", MakeOrderedSinkNode));
   DCHECK_OK(registry->AddFactory("augmented_project", MakeAugmentedProjectNode));
