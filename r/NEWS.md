@@ -39,9 +39,9 @@ For what's changed in Arrow C++ 19.0.1, please see the [blog
 post](https://arrow.apache.org/blog/2025/02/16/19.0.1-release/) and
 [changelog](https://arrow.apache.org/release/19.0.1.html#changelog).
 
-- Added missing dplyr binding for atan (#44953)
-- Added bindings for hyperbolig trig functions sinh, cosh, tanh, asinh, acosh, and tanh (#44953)
-- Added bindings for expm1 (#44953)
+## Minor improvements and fixes
+
+- Added bindings for atan, sinh, cosh, tanh, asinh, acosh, and tanh, and expm1 (#44953)
 
 # arrow 18.1.0
 
