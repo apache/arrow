@@ -119,6 +119,7 @@
 #' * [`^`][^()]
 #' * [`abs()`][base::abs()]
 #' * [`acos()`][base::acos()]
+#' * [`acosh()`][base::acosh()]
 #' * [`all()`][base::all()]
 #' * [`any()`][base::any()]
 #' * [`as.Date()`][base::as.Date()]: Multiple `tryFormats` not supported in Arrow.
@@ -130,14 +131,19 @@
 #' * [`as.logical()`][base::as.logical()]
 #' * [`as.numeric()`][base::as.numeric()]
 #' * [`asin()`][base::asin()]
+#' * [`asinh()`][base::asinh()]
+#' * [`atan()`][base::atan()]
+#' * [`atanh()`][base::atanh()]
 #' * [`ceiling()`][base::ceiling()]
 #' * [`cos()`][base::cos()]
+#' * [`cosh()`][base::cosh()]
 #' * [`data.frame()`][base::data.frame()]: `row.names` and `check.rows` arguments not supported;
 #' `stringsAsFactors` must be `FALSE`
 #' * [`difftime()`][base::difftime()]: only supports `units = "secs"` (the default);
 #' `tz` argument not supported
 #' * [`endsWith()`][base::endsWith()]
 #' * [`exp()`][base::exp()]
+#' * [`expm1()`][base::expm1()]
 #' * [`floor()`][base::floor()]
 #' * [`format()`][base::format()]
 #' * [`grepl()`][base::grepl()]
@@ -171,6 +177,7 @@
 #' * [`round()`][base::round()]
 #' * [`sign()`][base::sign()]
 #' * [`sin()`][base::sin()]
+#' * [`sinh()`][base::sinh()]
 #' * [`sqrt()`][base::sqrt()]
 #' * [`startsWith()`][base::startsWith()]
 #' * [`strftime()`][base::strftime()]
@@ -183,6 +190,7 @@
 #' * [`substring()`][base::substring()]
 #' * [`sum()`][base::sum()]
 #' * [`tan()`][base::tan()]
+#' * [`tanh()`][base::tanh()]
 #' * [`tolower()`][base::tolower()]
 #' * [`toupper()`][base::toupper()]
 #' * [`trunc()`][base::trunc()]

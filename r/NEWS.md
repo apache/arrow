@@ -19,6 +19,10 @@
 
 # arrow 18.1.0.9000
 
+- Added missing dplyr binding for atan (#44953)
+- Added bindings for hyperbolig trig functions sinh, cosh, tanh, asinh, acosh, and tanh (#44953)
+- Added bindings for expm1 (#44953)
+
 # arrow 18.1.0
 
 ## Minor improvements and fixes
