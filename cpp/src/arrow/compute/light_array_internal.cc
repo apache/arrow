@@ -116,213 +116,37 @@ KeyColumnArray KeyColumnArray::Slice(int64_t offset, int64_t length) const {
 
 Result<KeyColumnMetadata> ColumnMetadataFromDataType(
     const std::shared_ptr<DataType>& type) {
-  // "ptype" is the "physical" type
-  const DataType* ptype = type.get();
+  const bool is_extension = type->id() == Type::EXTENSION;
+  const std::shared_ptr<DataType>& typ =
+      is_extension ? arrow::internal::checked_cast<const ExtensionType*>(type.get())
+                         ->storage_type()
+                   : type;
 
-  // For ExtensionType, use the backing physical type (storage_type() is a shared ptr)
-  if (ARROW_PREDICT_FALSE(type->id() == Type::EXTENSION)) {
-    const ExtensionType* ext_type = static_cast<const ExtensionType*>(type);
-    ptype = ext_type->storage_type().get();
-  }
-
-  if (ptype->id() == Type::DICTIONARY) {
+  if (typ->id() == Type::DICTIONARY) {
     auto bit_width =
-        arrow::internal::checked_cast<const FixedWidthType&>(*ptype).bit_width();
+        arrow::internal::checked_cast<const FixedWidthType&>(*typ).bit_width();
     ARROW_DCHECK(bit_width % 8 == 0);
     return KeyColumnMetadata(true, bit_width / 8);
   }
-  if (ptype->id() == Type::BOOL) {
+  if (typ->id() == Type::BOOL) {
     return KeyColumnMetadata(true, 0);
   }
-  if (is_fixed_width(ptype->id())) {
+  if (is_fixed_width(typ->id())) {
     return KeyColumnMetadata(
-        true,
-        arrow::internal::checked_cast<const FixedWidthType&>(*ptype).bit_width() / 8);
+        true, arrow::internal::checked_cast<const FixedWidthType&>(*typ).bit_width() / 8);
   }
-  if (is_binary_like(ptype->id())) {
+  if (is_binary_like(typ->id())) {
     return KeyColumnMetadata(false, sizeof(uint32_t));
   }
-  if (is_large_binary_like(ptype->id())) {
+  if (is_large_binary_like(typ->id())) {
     return KeyColumnMetadata(false, sizeof(uint64_t));
   }
-  if (ptype->id() == Type::NA) {
+  if (typ->id() == Type::NA) {
     return KeyColumnMetadata(true, 0, true);
   }
   // Caller attempted to create a KeyColumnArray from an invalid type
-  return Status::TypeError("Unsupported column data type ", ptype->name(),
+  return Status::TypeError("Unsupported column data type ", typ->name(),
                            " used with KeyColumnMetadata");
-}
-
-Result<KeyColumnMetadata> ColumnMetadataFromDataType(
-    const std::shared_ptr<DataType>& type) {
-  return ColumnMetadataFromDataType(type.get());
-}
-
-/**
- * Constructs metadata that tells hashing functions how to iterate over the
- * KeyColumnArray.
- *
- * This function assumes ColumnMetadataFromDataType has already failed, which makes this
- * function distinct because it should only be called when the input Array is flattened in
- * a particular way.
- */
-Result<KeyColumnMetadata> ColumnMetadataFromListType(const DataType* type) {
-  if (type->id() == Type::LIST) {
-    return KeyColumnMetadata(false, sizeof(uint32_t));
-  } else if (type->id() == Type::LARGE_LIST) {
-    return KeyColumnMetadata(false, sizeof(uint64_t));
-  }
-
-  // Caller attempted to create a KeyColumnArray from an invalid type
-  return Status::TypeError("Unsupported column data type ", type->name(),
-                           " used with KeyColumnMetadata");
-}
-
-Result<KeyColumnMetadata> ColumnMetadataFromListType(
-    const std::shared_ptr<DataType>& type) {
-  return ColumnMetadataFromListType(type.get());
-}
-
-/**
- * TODO: figure out how to handle nested validity
- * Precondition: array_span is a nested array of primitive types (one level of nesting).
- * Returns a KeyColumnArray for values of a ListArray or MapArray so that each element in
- * the ListArray is properly treated as a row value.
- */
-Result<KeyColumnArray> ColumnArrayFromListArray(const ArraySpan& array_span,
-                                                int64_t start_row, int64_t num_rows) {
-  // Construct KeyColumnMetadata
-  ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata metadata,
-                        ColumnMetadataFromListType(array_span.type));
-
-  auto child_span = array_span.child_data[0];
-  if (!is_primitive(child_span.type->id())) {
-    return Status::NotImplemented("A ListArray with non-primitive types is unsupported.");
-  }
-
-  uint8_t* list_validity = nullptr;
-  if (array_span.GetBuffer(0) != nullptr) {
-    list_validity = (uint8_t*)array_span.GetBuffer(0)->data();
-  }
-
-  uint8_t* buffer_varlength = nullptr;
-  if (child_span.num_buffers() > 2 && child_span.GetBuffer(2) != NULLPTR) {
-    buffer_varlength = (uint8_t*)child_span.GetBuffer(2)->data();
-  }
-
-  KeyColumnArray column_array =
-      KeyColumnArray(metadata, array_span.offset + start_row + num_rows, list_validity,
-                     child_span.GetBuffer(1)->data(), buffer_varlength);
-
-  return column_array.Slice(array_span.offset + start_row, num_rows);
-}
-
-Result<KeyColumnArray> ColumnArrayFromArraySpan(const ArraySpan& array_span,
-                                                int64_t start_row, int64_t num_rows) {
-  ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata metadata,
-                        ColumnMetadataFromDataType(array_span.type));
-
-  uint8_t* buffer_validity = nullptr;
-  if (array_span.GetBuffer(0) != nullptr) {
-    buffer_validity = (uint8_t*)array_span.GetBuffer(0)->data();
-  }
-
-  uint8_t* buffer_varlength = nullptr;
-  if (array_span.num_buffers() > 2 && array_span.GetBuffer(2) != NULLPTR) {
-    buffer_varlength = (uint8_t*)array_span.GetBuffer(2)->data();
-  }
-
-  KeyColumnArray column_array =
-      KeyColumnArray(metadata, array_span.offset + start_row + num_rows, buffer_validity,
-                     array_span.GetBuffer(1)->data(), buffer_varlength);
-
-  return column_array.Slice(array_span.offset + start_row, num_rows);
-}
-
-Status ColumnArraysFromStructArray(const ArraySpan& array_span, int64_t start_row,
-                                   int64_t num_rows, KeyColumnVector* column_arrays) {
-  // Validate our precondition
-  for (size_t child_ndx = 0; child_ndx < array_span.child_data.size(); ++child_ndx) {
-    if (ARROW_PREDICT_FALSE(is_nested(child_span.type->id()))) {
-      return Status::NotImplemented("Hashing a multi-nested array is unsupported.");
-    }
-  }
-
-  // Construct KeyColumnVector from child arrays
-  column_arrays->resize(array_span.child_data.size());
-  for (size_t child_ndx = 0; child_ndx < array_span.child_data.size(); ++child_ndx) {
-    auto child_span = array_span.child_data[child_ndx];
-
-    ARROW_ASSIGN_OR_RAISE((*column_arrays)[child_ndx],
-                          ColumnArrayFromArraySpan(child_span, start_row, num_rows));
-  }
-}
-
-/**
- * Precondition: array_span is a MapArray of fixed width primitives.
- */
-Status ColumnArraysFromMapArray(const ArraySpan& array_span, int64_t start_row,
-                                int64_t num_rows, KeyColumnArray* column_arrays) {
-  auto map_childspan = array_span.child_data[0];
-  auto key_span = map_childspan.child_data[0];
-  auto val_span = map_childspan.child_data[1];
-
-  // Validate precondition
-  //  assumptions: we assume keys are strings and values are primitives
-  if (ARROW_PREDICT_TRUE(!is_primitive(key_span.type->id())) ||
-      ARROW_PREDICT_FALSE(!is_primitive(val_span.type->id()))) {
-    return Status::NotImplemented("A MapArray with non-primitive types is unsupported.");
-  }
-
-  // If precondition is valid, then we should produce two KeyColumnArrays
-  ARROW_ASSIGN_OR_RAISE((*column_arrays)[0],
-                        ColumnArrayFromArraySpan(key_span, start_row, num_rows));
-
-  ARROW_ASSIGN_OR_RAISE((*column_arrays)[1],
-                        ColumnArrayFromArraySpan(val_span, start_row, num_rows));
-}
-
-Status ColumnArraysFromArraySpan(const ArraySpan& array_span, int64_t start_row,
-                                 int64_t num_rows, KeyColumnVector* column_arrays) {
-  // If array is not nested, we extract a single KeyColumn
-  if (!is_nested(array_span.type->id())) {
-    column_arrays->resize(1);
-    ARROW_ASSIGN_OR_RAISE((*column_arrays)[0],
-                          ColumnArrayFromArraySpan(array_span, num_rows));
-  }
-
-  // If array is nested, we may extract many KeyColumns but we need to traverse
-  else if (is_nested(array_span.type->id())) {
-    switch (array_span.type->id()) {
-      case Type::LIST:
-      case Type::LARGE_LIST: {
-        column_arrays->resize(1);
-        ARROW_ASSIGN_OR_RAISE((*column_arrays)[0],
-                              ColumnArrayFromListArray(array_span, num_rows);
-        break;
-      }
-
-      case Type::STRUCT: {
-        ARROW_RETURN_NOT_OK(
-            ColumnArraysFromStructArray(array_span, start_row, num_rows, column_arrays));
-        break;
-      }
-
-      case Type::MAP: {
-        ARROW_RETURN_NOT_OK(
-            ColumnArraysFromMapArray(array_span, start_row, num_rows, column_arrays));
-        break;
-      }
-
-      // TODO: add support for unions
-      case Type::SPARSE_UNION:
-      case Type::DENSE_UNION:
-      case Type::MAP:
-      default:
-        ARROW_WARN_NOT_OK(keycol_result.status(), "Unsupported nested type for hashing");
-        break;
-    }
-  }
 }
 
 Result<KeyColumnArray> ColumnArrayFromArrayData(
