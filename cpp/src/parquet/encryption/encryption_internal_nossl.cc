@@ -38,8 +38,6 @@ int32_t AesEncryptor::SignedFooterEncrypt(::arrow::util::span<const uint8_t> foo
   return -1;
 }
 
-void AesEncryptor::WipeOut() { ThrowOpenSSLRequiredException(); }
-
 int32_t AesEncryptor::CiphertextLength(int64_t plaintext_len) const {
   ThrowOpenSSLRequiredException();
   return -1;
@@ -67,8 +65,6 @@ int32_t AesDecryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
   ThrowOpenSSLRequiredException();
   return -1;
 }
-
-void AesDecryptor::WipeOut() { ThrowOpenSSLRequiredException(); }
 
 AesDecryptor::~AesDecryptor() {}
 
