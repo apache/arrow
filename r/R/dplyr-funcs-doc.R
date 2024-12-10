@@ -142,6 +142,7 @@
 #' `tz` argument not supported
 #' * [`endsWith()`][base::endsWith()]
 #' * [`exp()`][base::exp()]
+#' * [`expm1()`][base::expm1()]
 #' * [`floor()`][base::floor()]
 #' * [`format()`][base::format()]
 #' * [`grepl()`][base::grepl()]

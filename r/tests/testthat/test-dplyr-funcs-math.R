@@ -491,3 +491,17 @@ test_that("sqrt()", {
     df
   )
 })
+
+test_that("expm1()", {
+  df <- tibble(x = c(1:5))
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y = expm1(x),
+        y2 = base::expm1(x)
+      ) %>%
+      collect(),
+    df
+  )
+})

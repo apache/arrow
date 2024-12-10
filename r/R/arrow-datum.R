@@ -128,6 +128,7 @@ Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
     log10 = eval_array_expression("log10_checked", x),
     log2 = eval_array_expression("log2_checked", x),
     log1p = eval_array_expression("log1p_checked", x),
+    expm1 = eval_array_expression("expm1", x),
     round = eval_array_expression(
       "round",
       x,
@@ -146,7 +147,6 @@ Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
     asinh = eval_array_expression("asinh", x),
     atanh = eval_array_expression("atanh_checked", x),
     signif = ,
-    expm1 = ,
     cospi = ,
     sinpi = ,
     tanpi = ,
