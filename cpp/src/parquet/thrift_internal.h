@@ -43,6 +43,7 @@
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
+#include "parquet/size_statistics.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
 
@@ -254,6 +255,14 @@ static inline SortingColumn FromThrift(format::SortingColumn thrift_sorting_colu
   return sorting_column;
 }
 
+static inline SizeStatistics FromThrift(const format::SizeStatistics& size_stats) {
+  return SizeStatistics{
+      size_stats.definition_level_histogram, size_stats.repetition_level_histogram,
+      size_stats.__isset.unencoded_byte_array_data_bytes
+          ? std::make_optional(size_stats.unencoded_byte_array_data_bytes)
+          : std::nullopt};
+}
+
 // ----------------------------------------------------------------------
 // Convert Thrift enums from Parquet enums
 
@@ -381,6 +390,17 @@ static inline format::EncryptionAlgorithm ToThrift(EncryptionAlgorithm encryptio
     encryption_algorithm.__set_AES_GCM_CTR_V1(ToAesGcmCtrV1Thrift(encryption.aad));
   }
   return encryption_algorithm;
+}
+
+static inline format::SizeStatistics ToThrift(const SizeStatistics& size_stats) {
+  format::SizeStatistics size_statistics;
+  size_statistics.__set_definition_level_histogram(size_stats.definition_level_histogram);
+  size_statistics.__set_repetition_level_histogram(size_stats.repetition_level_histogram);
+  if (size_stats.unencoded_byte_array_data_bytes.has_value()) {
+    size_statistics.__set_unencoded_byte_array_data_bytes(
+        size_stats.unencoded_byte_array_data_bytes.value());
+  }
+  return size_statistics;
 }
 
 // ----------------------------------------------------------------------

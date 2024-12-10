@@ -28,22 +28,8 @@
 #include "parquet/encryption/type_fwd.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
-#include "parquet/schema.h"
-#include "parquet/types.h"
 
 namespace parquet {
-
-class ColumnDescriptor;
-class EncodedStatistics;
-class FileCryptoMetaData;
-class Statistics;
-class SchemaDescriptor;
-
-namespace schema {
-
-class ColumnPath;
-
-}  // namespace schema
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
 
@@ -156,6 +142,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool is_stats_set() const;
   std::shared_ptr<Statistics> statistics() const;
+  std::shared_ptr<SizeStatistics> size_statistics() const;
 
   Compression::type compression() const;
   // Indicate if the ColumnChunk compression is supported by the current
@@ -451,6 +438,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
 
   // column metadata
   void SetStatistics(const EncodedStatistics& stats);
+  void SetSizeStatistics(const SizeStatistics& size_stats);
 
   void SetKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata);
 
