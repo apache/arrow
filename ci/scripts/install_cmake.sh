@@ -17,29 +17,49 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
+
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <prefix>"
+  exit 1
+fi
 
 declare -A archs
-archs=([amd64]=x86_64
-       [arch64]=aarch64
+archs=([x86_64]=x86_64
        [arm64]=aarch64
-       [arm64v8]=aarch64
-       [x86_64]=x86_64)
+       [aarch64]=aarch64)
+
+arch=$(uname -m)
+if [ -z ${archs[$arch]} ]; then
+  echo "Unsupported architecture: ${arch}"
+  exit 0
+fi
+arch=${archs[$arch]}
 
 declare -A platforms
 platforms=([linux]=linux
            [macos]=macos
            [windows]=windows)
 
-if [ "$#" -ne 4 ]; then
-  echo "Usage: $0 <architecture> <platform> <version> <prefix>"
-  exit 1
-fi
+version=$1
+prefix=$2
 
-arch=${archs[$1]}
-platform=${platforms[$2]}
-version=$3
-prefix=$4
+platform=$(uname)
+case ${platform} in
+  Linux)
+    platform=linux
+    ;;
+  Darwin)
+    platform=macos
+    ;;
+  MSYS_NT*|MINGW64_NT*)
+    platform=windows
+    ;;
+  *)
+    echo "Unsupported platform: ${platform}"
+    exit 0
+    ;;
+esac
 
 mkdir -p ${prefix}
 url="https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}-${platform}-"

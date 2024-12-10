@@ -5050,6 +5050,12 @@ macro(build_awssdk)
     string(APPEND AWS_C_FLAGS " -Wno-deprecated")
     string(APPEND AWS_CXX_FLAGS " -Wno-deprecated")
   endif()
+  # GH-44950: This is required to build under Rtools40 and we may be able to
+  # remove it if/when we no longer need to build under Rtools40
+  if(WIN32 AND NOT MSVC)
+    string(APPEND AWS_C_FLAGS " -D_WIN32_WINNT=0x0601 -Wno-error -Wno-error=format= -Wno-error=format-extra-args")
+    string(APPEND AWS_CXX_FLAGS " -D_WIN32_WINNT=0x0601 -Wno-error -Wno-error=format= -Wno-error=format-extra-args")
+  endif()
 
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
@@ -5086,6 +5092,29 @@ macro(build_awssdk)
     list(APPEND AWSSDK_PATCH_COMMAND rm -rf)
   endif()
   list(APPEND AWSSDK_PATCH_COMMAND ${AWSSDK_UNUSED_DIRECTORIES})
+
+  # WIP GH-44950
+  # Patch parts of the AWSSDK EP so it builds cleanly under Rtools40
+  if(WIN32 AND NOT MSVC)
+    find_program(PATCH patch REQUIRED)
+    # Patch aws_c_common to build under Rtools40
+    set(AWS_C_COMMON_PATCH_COMMAND ${PATCH} -p1 -i
+                                   ${CMAKE_SOURCE_DIR}/../ci/rtools/BuildAwsCCommon.patch)
+    message(STATUS "Hello ${AWS_C_COMMON_PATCH_COMMAND}")
+    # aws_c_io_ep to build under Rtools40
+    set(AWS_C_IO_PATCH_COMMAND ${PATCH} -p1 -i
+                               ${CMAKE_SOURCE_DIR}/../ci/rtools/aws_c_io_ep.patch)
+    message(STATUS "Hello ${AWS_C_IO_PATCH_COMMAND}")
+    # awssdk_ep to build under Rtools40
+    list(APPEND
+         AWSSDK_PATCH_COMMAND
+         &&
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_SOURCE_DIR}/../ci/rtools/awssdk_ep.patch)
+    message(STATUS "Hello ${AWSSDK_PATCH_COMMAND}")
+  endif()
 
   if(UNIX)
     # on Linux and macOS curl seems to be required
@@ -5181,6 +5210,7 @@ macro(build_awssdk)
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_C_COMMON_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWS_C_COMMON_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${AWS_C_COMMON_PATCH_COMMAND}
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_COMMON_STATIC_LIBRARY})
   add_dependencies(AWS::aws-c-common aws_c_common_ep)
@@ -5276,6 +5306,7 @@ macro(build_awssdk)
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_C_IO_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWS_C_IO_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${AWS_C_IO_PATCH_COMMAND}
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_IO_STATIC_LIBRARY}
                       DEPENDS ${AWS_C_IO_DEPENDS})

@@ -71,7 +71,6 @@ RUN apt-get update -y -q && \
         ceph \
         ceph-fuse \
         ceph-mds \
-        cmake \
         curl \
         gdb \
         git \
@@ -167,6 +166,10 @@ RUN if [ "${gcc}" = "" ]; then \
 
 # make sure zlib is cached in the EMSDK folder
 RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
+
+ARG cmake
+COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
