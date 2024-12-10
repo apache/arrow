@@ -225,6 +225,7 @@ else
     -DgRPC_SOURCE=${gRPC_SOURCE:-} \
     -DGTest_SOURCE=${GTest_SOURCE:-} \
     -Dlz4_SOURCE=${lz4_SOURCE:-} \
+    -Dopentelemetry-cpp_SOURCE=${opentelemetry_cpp_SOURCE:-} \
     -DORC_SOURCE=${ORC_SOURCE:-} \
     -DPARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-OFF} \
     -DPARQUET_BUILD_EXECUTABLES=${PARQUET_BUILD_EXECUTABLES:-OFF} \
