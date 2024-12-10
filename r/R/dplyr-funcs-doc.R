@@ -132,6 +132,7 @@
 #' * [`as.numeric()`][base::as.numeric()]
 #' * [`asin()`][base::asin()]
 #' * [`asinh()`][base::asinh()]
+#' * [`atan()`][base::atan()]
 #' * [`atanh()`][base::atanh()]
 #' * [`ceiling()`][base::ceiling()]
 #' * [`cos()`][base::cos()]
