@@ -386,6 +386,7 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         gcc: ${GCC}
         llvm: ${LLVM}
     shm_size: *shm-size

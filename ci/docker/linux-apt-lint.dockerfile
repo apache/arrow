@@ -66,11 +66,6 @@ COPY --from=hadolint /bin/hadolint /usr/bin/hadolint
 COPY ci/scripts/install_iwyu.sh /arrow/ci/scripts/
 RUN arrow/ci/scripts/install_iwyu.sh /tmp/iwyu /usr/local ${clang_tools}
 
-# Update CMake
-ARG cmake=3.25.0
-COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_cmake.sh $(arch) ${cmake} /usr/local/
-
 # Use python3 by default in scripts
 RUN ln -s /usr/bin/python3 /usr/local/bin/python
 
