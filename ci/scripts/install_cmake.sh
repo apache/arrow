@@ -31,15 +31,31 @@ platforms=([linux]=linux
            [macos]=macos
            [windows]=windows)
 
-if [ "$#" -ne 4 ]; then
-  echo "Usage: $0 <architecture> <platform> <version> <prefix>"
+if [ "$#" -ne 3 ]; then
+  echo "Usage: $0 <architecture> <version> <prefix>"
   exit 1
 fi
 
 arch=${archs[$1]}
-platform=${platforms[$2]}
-version=$3
-prefix=$4
+version=$2
+prefix=$3
+
+platform=$(uname)
+case ${platform} in
+  Linux)
+    platform=linux
+    ;;
+  Darwin)
+    platform=macos
+    ;;
+  MSYS_NT*|MINGW64_NT*)
+    platform=windows
+    ;;
+  *)
+    echo "Unsupported platform: ${platform}"
+    exit 0
+    ;;
+esac
 
 mkdir -p ${prefix}
 url="https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}-${platform}-"
