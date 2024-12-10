@@ -621,6 +621,7 @@ services:
       args:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
