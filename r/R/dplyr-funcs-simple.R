@@ -40,6 +40,12 @@
   "base::cos" = "cos_checked",
   "base::sin" = "sin_checked",
   "base::tan" = "tan_checked",
+  "base::cosh" = "cosh",
+  "base::sinh" = "sinh",
+  "base::tanh" = "tanh",
+  "base::acosh" = "acosh_checked",
+  "base::asinh" = "asinh",
+  "base::atanh" = "atanh_checked",
 
   # logical functions
   "!" = "invert",
