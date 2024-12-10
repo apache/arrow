@@ -233,9 +233,9 @@ ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(const DataType
 /// The caller should ensure this is only called on "key" columns. Some nested types are
 /// supported up to 1 level of nesting (e.g. List<int8> but not List<List<int8>>).
 /// \see ColumnMetadataFromDataType for details
-ARROW_EXPORT Status ColumnArraysFromArraySpan(const ArraySpan& array_span,
-                                              int64_t start_row, int64_t num_rows,
-                                              KeyColumnVector* column_arrays);
+ARROW_EXPORT Result<KeyColumnArray> ColumnArrayFromArraySpan(const ArraySpan& array_span,
+                                                             int64_t start_row,
+                                                             int64_t num_rows);
 
 /// \brief Create KeyColumnArray from ArrayData
 ///
