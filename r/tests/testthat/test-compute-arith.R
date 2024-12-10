@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+source("../../extra-tests/helpers.R")
+
 test_that("Addition", {
   a <- Array$create(c(1:4, NA_integer_))
   expect_type_equal(a, int32())
@@ -155,14 +157,6 @@ test_that("Math group generics work on Array objects", {
   expect_equal(acos(Array$create(c(0.6, 0.9))), Array$create(acos(c(0.6, 0.9))))
   expect_equal(asin(Array$create(c(0.6, 0.9))), Array$create(asin(c(0.6, 0.9))))
   expect_equal(atan(Array$create(c(0.6, 0.9))), Array$create(atan(c(0.6, 0.9))))
-  expect_equal(sinh(Array$create(c(0.6, 0.9))), Array$create(sinh(c(0.6, 0.9))))
-  expect_equal(cosh(Array$create(c(0.6, 0.9))), Array$create(cosh(c(0.6, 0.9))))
-  expect_equal(tanh(Array$create(c(0.6, 0.9))), Array$create(tanh(c(0.6, 0.9))))
-  expect_equal(asinh(Array$create(c(0.6, 0.9))), Array$create(asinh(c(0.6, 0.9))))
-  expect_error(acosh(Array$create(c(0.6, 0.9))), "Invalid: domain error")
-  expect_equal(acosh(Array$create(c(1, 2))), Array$create(acosh(c(1, 2))))
-  expect_error(atanh(Array$create(c(-1, 1))), "Invalid: domain error")
-  expect_equal(atanh(Array$create(c(0.6, 0.9))), Array$create(atanh(c(0.6, 0.9))))
 
   expect_equal(log(Array$create(c(0.6, 2.1))), Array$create(log(c(0.6, 2.1))))
   expect_equal(
@@ -185,8 +179,6 @@ test_that("Math group generics work on Array objects", {
     round(exp(Array$create(c(2L, 1L))), digits = 10),
     Array$create(round(exp(c(2L, 1L)), 10))
   )
-
-  expect_equal(expm1(Array$create(c(0.00000001, 10))), Array$create(expm1(c(0.00000001, 10))))
 
   expect_as_vector(
     cumsum(Array$create(c(2.3, -1.0, 7.9, NA_real_, 1.0))),
@@ -242,4 +234,23 @@ test_that("Math group generics work on Array objects", {
   expect_error(gamma(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
   expect_error(digamma(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
   expect_error(trigamma(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+})
+
+test_that("hyperbolic trig functions work on Array objects", {
+  skip_if_version_less_than("18.1.0.9000", "Hyperbolic trig functions not available until version 19.")
+
+  expect_equal(sinh(Array$create(c(0.6, 0.9))), Array$create(sinh(c(0.6, 0.9))))
+  expect_equal(cosh(Array$create(c(0.6, 0.9))), Array$create(cosh(c(0.6, 0.9))))
+  expect_equal(tanh(Array$create(c(0.6, 0.9))), Array$create(tanh(c(0.6, 0.9))))
+  expect_equal(asinh(Array$create(c(0.6, 0.9))), Array$create(asinh(c(0.6, 0.9))))
+  expect_error(acosh(Array$create(c(0.6, 0.9))), "Invalid: domain error")
+  expect_equal(acosh(Array$create(c(1, 2))), Array$create(acosh(c(1, 2))))
+  expect_error(atanh(Array$create(c(-1, 1))), "Invalid: domain error")
+  expect_equal(atanh(Array$create(c(0.6, 0.9))), Array$create(atanh(c(0.6, 0.9))))
+})
+
+test_that("expm1 works on Array objects", {
+  skip_if_version_less_than("18.1.0.9000", "expm1 not available until version 19.")
+
+  expect_equal(expm1(Array$create(c(0.00000001, 10))), Array$create(expm1(c(0.00000001, 10))))
 })
