@@ -103,6 +103,7 @@ ENV ARROW_ACERO=ON \
     CC=gcc \
     CXX=g++ \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
+    opentelemetry_cpp_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
