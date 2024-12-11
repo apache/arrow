@@ -163,6 +163,8 @@ The colon symbol ``:`` is to be used as a namespace separator like
 
 The ``ARROW`` pattern is a reserved namespace for pre-defined
 statistics keys. User-defined statistics must not use it.
+For example, you can use your product name as namespace
+such as `MY_PRODUCT:my_statistics:exact`.
 
 Here are pre-defined statistics keys:
 
