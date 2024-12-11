@@ -1900,7 +1900,7 @@ DecimalTypeTraits = namedtuple('DecimalTypeTraits',
 FloatToDecimalCase = namedtuple('FloatToDecimalCase',
                                 ('precision', 'scale', 'float_val'))
 
-decimal_type_traits = [DecimalTypeTraits('decimal32', pa.decimal32, 8),
+decimal_type_traits = [DecimalTypeTraits('decimal32', pa.decimal32, 9),
                        DecimalTypeTraits('decimal64', pa.decimal64, 18),
                        DecimalTypeTraits('decimal128', pa.decimal128, 38),
                        DecimalTypeTraits('decimal256', pa.decimal256, 76)]
