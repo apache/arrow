@@ -63,6 +63,7 @@ void AssertInversePermutation(const Datum& indices, int64_t max_index,
                               const std::shared_ptr<DataType>& output_type,
                               const Datum& expected, bool validity_must_be_null) {
   ASSERT_OK_AND_ASSIGN(auto result, InversePermutation(indices, max_index, output_type));
+  ValidateOutput(result);
   ASSERT_EQ(indices.kind(), result.kind());
   std::shared_ptr<Array> result_array;
   if (result.is_array()) {
