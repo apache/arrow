@@ -29,7 +29,7 @@
 #include "arrow/util/hashing.h"
 
 #include "arrow/array/builder_primitive.h"
-#include "arrow/compute/key_hash.h"
+#include "arrow/compute/key_hash_internal.h"
 
 namespace arrow {
 namespace internal {
