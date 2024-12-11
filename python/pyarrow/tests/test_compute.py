@@ -3871,10 +3871,11 @@ def test_winsorize():
     assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]
 hash_types = st.deferred(
     lambda: (
-        past.null_type |
-        past.numeric_types |
-        past.binary_like_types |
+        past.primitive_types |
+        past.list_types(include_views=False) |
+        past.struct_types() |
         past.dictionary_types() |
+        past.map_types() |
         past.list_types(hash_types, include_views=False) |
         past.struct_types(hash_types)
     )
