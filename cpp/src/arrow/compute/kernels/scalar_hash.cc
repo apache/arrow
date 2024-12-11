@@ -15,13 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/**
- * @file  scalar_hash.cc
- * @brief Element-wise (scalar) kernels for hashing values.
- */
-
 #include <algorithm>
-//#include <iostream>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_primitive.h"

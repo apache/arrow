@@ -34,10 +34,6 @@
 namespace arrow {
 namespace compute {
 
-// Forward declaration of KeyColumnArray for convenience of creating a type alias
-class KeyColumnArray;
-using KeyColumnVector = std::vector<KeyColumnArray>;
-
 /// \brief Context needed by various execution engine operations
 ///
 /// In the execution engine this context is provided by either the node or the
@@ -89,7 +85,6 @@ class ARROW_EXPORT KeyColumnArray {
  public:
   /// \brief Create an uninitialized KeyColumnArray
   KeyColumnArray() = default;
-
   /// \brief Create a read-only view from buffers
   ///
   /// This is a view only and does not take ownership of the buffers.  The lifetime
@@ -225,17 +220,6 @@ class ARROW_EXPORT KeyColumnArray {
 /// a non-key column will return Status::TypeError.
 ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
     const std::shared_ptr<DataType>& type);
-
-ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(const DataType* type);
-
-/// \brief Create KeyColumnArray instances from an ArraySpan (nested types supported)
-///
-/// The caller should ensure this is only called on "key" columns. Some nested types are
-/// supported up to 1 level of nesting (e.g. List<int8> but not List<List<int8>>).
-/// \see ColumnMetadataFromDataType for details
-ARROW_EXPORT Result<KeyColumnArray> ColumnArrayFromArraySpan(const ArraySpan& array_span,
-                                                             int64_t start_row,
-                                                             int64_t num_rows);
 
 /// \brief Create KeyColumnArray from ArrayData
 ///
