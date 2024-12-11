@@ -88,28 +88,6 @@ struct InversePermutationImpl {
                            {std::move(impl.validity_buf), std::move(impl.data_buf)});
   }
 
- private:
-  KernelContext* ctx;
-  const ShapeType& indices;
-  const int64_t input_length;
-  const int64_t output_length;
-
-  std::shared_ptr<Buffer> validity_buf = nullptr;
-  std::shared_ptr<Buffer> data_buf = nullptr;
-
- private:
-  InversePermutationImpl(KernelContext* ctx, const ShapeType& indices,
-                         int64_t input_length, int64_t output_length)
-      : ctx(ctx),
-        indices(indices),
-        input_length(input_length),
-        output_length(output_length) {}
-
-  Status Visit(const DataType& output_type) {
-    DCHECK(false) << "Shouldn't reach here";
-    return Status::Invalid("Shouldn't reach here");
-  }
-
   template <typename Type>
   enable_if_t<is_integer_type<Type>::value, Status> Visit(const Type& output_type) {
     using OutputCType = typename Type::c_type;
@@ -135,6 +113,27 @@ struct InversePermutationImpl {
       return Execute<Type, false>();
     }
   }
+
+  Status Visit(const DataType& output_type) {
+    DCHECK(false) << "Shouldn't reach here";
+    return Status::Invalid("Shouldn't reach here");
+  }
+
+ private:
+  KernelContext* ctx;
+  const ShapeType& indices;
+  const int64_t input_length;
+  const int64_t output_length;
+
+  std::shared_ptr<Buffer> validity_buf = nullptr;
+  std::shared_ptr<Buffer> data_buf = nullptr;
+
+  InversePermutationImpl(KernelContext* ctx, const ShapeType& indices,
+                         int64_t input_length, int64_t output_length)
+      : ctx(ctx),
+        indices(indices),
+        input_length(input_length),
+        output_length(output_length) {}
 
   template <typename Type>
   Status CheckInput(const Type& output_type) {
@@ -235,9 +234,6 @@ struct InversePermutationImpl {
 
     return Status::OK();
   }
-
-  template <typename VISITOR, typename... ARGS>
-  friend Status arrow::VisitTypeInline(const DataType&, VISITOR*, ARGS&&... args);
 };
 
 template <typename Ignored, typename Type>
