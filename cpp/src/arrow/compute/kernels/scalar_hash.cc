@@ -53,9 +53,22 @@ const FunctionDoc hash_64_doc{
 // It is expected that HashArrowType is either UInt32Type or UInt64Type (default)
 // template <typename HashArrowType = UInt64Type>
 struct FastHashScalar {
-  static Result<KeyColumnArray> ToColumnArray(const ArraySpan& array, LightContext* ctx) {
-    auto type_id = array.type->id();
+  static Result<KeyColumnArray> ToColumnArray(
+      const ArraySpan& array, LightContext* ctx,
+      const uint8_t* list_values_buffer = nullptr) {
     KeyColumnMetadata metadata;
+    const uint8_t* validity_buffer = nullptr;
+    const uint8_t* fixed_length_buffer = nullptr;
+    const uint8_t* var_length_buffer = nullptr;
+
+    if (array.GetBuffer(0) != nullptr) {
+      validity_buffer = array.GetBuffer(0)->data();
+    }
+    if (array.GetBuffer(1) != nullptr) {
+      fixed_length_buffer = array.GetBuffer(1)->data();
+    }
+
+    auto type_id = array.type->id();
     if (type_id == Type::NA) {
       metadata = KeyColumnMetadata(true, 0, true);
     } else if (type_id == Type::BOOL) {
@@ -64,24 +77,28 @@ struct FastHashScalar {
       metadata = KeyColumnMetadata(true, array.type->bit_width() / 8);
     } else if (is_binary_like(type_id)) {
       metadata = KeyColumnMetadata(false, sizeof(uint32_t));
+      var_length_buffer = array.GetBuffer(2)->data();
     } else if (is_large_binary_like(type_id)) {
       metadata = KeyColumnMetadata(false, sizeof(uint64_t));
+      var_length_buffer = array.GetBuffer(2)->data();
+    } else if (type_id == Type::MAP) {
+      metadata = KeyColumnMetadata(false, sizeof(uint32_t));
+      var_length_buffer = list_values_buffer;
+    } else if (type_id == Type::LIST) {
+      metadata = KeyColumnMetadata(false, sizeof(uint32_t));
+      var_length_buffer = list_values_buffer;
+    } else if (type_id == Type::LARGE_LIST) {
+      metadata = KeyColumnMetadata(false, sizeof(uint64_t));
+      var_length_buffer = list_values_buffer;
+    } else if (type_id == Type::FIXED_SIZE_LIST) {
+      auto list_type = checked_cast<const FixedSizeListType*>(array.type);
+      metadata = KeyColumnMetadata(true, list_type->list_size());
+      fixed_length_buffer = list_values_buffer;
     } else {
       return Status::TypeError("Unsupported column data type ", array.type->name(),
                                " used with KeyColumnMetadata");
     }
-    const uint8_t* validity_buffer = nullptr;
-    const uint8_t* fixed_length_buffer = nullptr;
-    const uint8_t* var_length_buffer = nullptr;
-    if (array.GetBuffer(0) != nullptr) {
-      validity_buffer = array.GetBuffer(0)->data();
-    }
-    if (array.GetBuffer(1) != nullptr) {
-      fixed_length_buffer = array.GetBuffer(1)->data();
-    }
-    if (array.GetBuffer(2) != nullptr) {
-      var_length_buffer = array.GetBuffer(2)->data();
-    }
+
     return KeyColumnArray(metadata, array.length, validity_buffer, fixed_length_buffer,
                           var_length_buffer);
   }
@@ -103,17 +120,8 @@ struct FastHashScalar {
     std::vector<KeyColumnArray> columns(1);
 
     auto type_id = array.type->id();
-    if (is_list_like(type_id)) {
-      auto values = array.child_data[0];
-      if (is_nested(values.type->id())) {
-        ARROW_ASSIGN_OR_RAISE(auto value_hashes,
-                              HashChild(array, values, hash_ctx, memory_pool));
-        ARROW_ASSIGN_OR_RAISE(columns[0], ToColumnArray(*value_hashes, hash_ctx));
-      } else {
-        ARROW_ASSIGN_OR_RAISE(columns[0], ToColumnArray(values, hash_ctx));
-      }
-    } else if (type_id == Type::STRUCT) {
-      columns.resize(array.child_data.size());
+    if (type_id == Type::STRUCT) {
+      columns.reserve(array.child_data.size());
       for (size_t i = 0; i < array.child_data.size(); i++) {
         auto child = array.child_data[i];
         if (is_nested(child.type->id())) {
@@ -124,6 +132,12 @@ struct FastHashScalar {
           ARROW_ASSIGN_OR_RAISE(columns[i], ToColumnArray(child, hash_ctx));
         }
       }
+    } else if (is_list_like(type_id)) {
+      auto values = array.child_data[0];
+      ARROW_ASSIGN_OR_RAISE(auto value_hashes,
+                            HashChild(array, values, hash_ctx, memory_pool));
+      ARROW_ASSIGN_OR_RAISE(
+          columns[0], ToColumnArray(array, hash_ctx, value_hashes->buffers[1]->data()));
     } else {
       ARROW_ASSIGN_OR_RAISE(columns[0], ToColumnArray(array, hash_ctx));
     }
@@ -170,20 +184,11 @@ std::shared_ptr<ScalarFunction> RegisterKernelsFastHash64() {
   auto fn_hash_64 =
       std::make_shared<ScalarFunction>("hash_64", Arity::Unary(), hash_64_doc);
 
-  // Associate kernel with function
-  for (auto& simple_inputtype : PrimitiveTypes()) {
-    DCHECK_OK(fn_hash_64->AddKernel({InputType(simple_inputtype)}, OutputType(uint64()),
-                                    FastHashScalar::Exec));
-  }
+  // Add 64-bit hash kernel
+  ScalarKernel kernel({InputType()}, OutputType(uint64()), FastHashScalar::Exec);
+  kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  DCHECK_OK(fn_hash_64->AddKernel(std::move(kernel)));
 
-  for (const auto nested_type :
-       {Type::STRUCT, Type::DENSE_UNION, Type::SPARSE_UNION, Type::LIST,
-        Type::FIXED_SIZE_LIST, Type::MAP, Type::DICTIONARY}) {
-    DCHECK_OK(fn_hash_64->AddKernel({InputType(nested_type)}, OutputType(uint64()),
-                                    FastHashScalar::Exec));
-  }
-
-  // Return function to be registered
   return fn_hash_64;
 }
 
