@@ -96,6 +96,7 @@
 #'
 #' * [`add_filename()`][arrow::add_filename()]
 #' * [`cast()`][arrow::cast()]
+#' * [`one()`][arrow::one()]
 #'
 #' ## base
 #'
