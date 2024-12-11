@@ -270,7 +270,7 @@ class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
   /// of the input indices minus 1.
   int64_t max_index = -1;
   /// \brief The type of the output inverse permutation. If null, the output will be of
-  /// the same type as the input indices, otherwise must be integer types. An invalid
+  /// the same type as the input indices, otherwise must be integer type. An invalid
   /// error will be reported if this type is not able to store the length of the input
   /// indices.
   std::shared_ptr<DataType> output_type = NULLPTR;
