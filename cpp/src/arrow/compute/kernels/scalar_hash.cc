@@ -96,7 +96,7 @@ struct FastHashScalar {
       fixed_length_buffer = list_values_buffer;
     } else {
       return Status::TypeError("Unsupported column data type ", array.type->name(),
-                               " used with KeyColumnMetadata");
+                               " used with hash_64 compute kernel");
     }
 
     return KeyColumnArray(metadata, array.length, validity_buffer, fixed_length_buffer,
@@ -117,7 +117,11 @@ struct FastHashScalar {
 
   static Status HashArray(const ArraySpan& array, LightContext* hash_ctx,
                           MemoryPool* memory_pool, uint64_t* out) {
+    // KeyColumnArray objects are being passed to the hashing utility
     std::vector<KeyColumnArray> columns(1);
+    // ensure that we keep the converted child arrays alive because KeyColumnArray
+    // only provides a view into the original array data
+    std::vector<std::shared_ptr<ArrayData>> children;
 
     auto type_id = array.type->id();
     if (type_id == Type::STRUCT) {
@@ -127,6 +131,7 @@ struct FastHashScalar {
         if (is_nested(child.type->id())) {
           ARROW_ASSIGN_OR_RAISE(auto child_hashes,
                                 HashChild(array, child, hash_ctx, memory_pool));
+          children.push_back(child_hashes);
           ARROW_ASSIGN_OR_RAISE(columns[i], ToColumnArray(*child_hashes, hash_ctx));
         } else {
           ARROW_ASSIGN_OR_RAISE(columns[i], ToColumnArray(child, hash_ctx));
@@ -136,6 +141,7 @@ struct FastHashScalar {
       auto values = array.child_data[0];
       ARROW_ASSIGN_OR_RAISE(auto value_hashes,
                             HashChild(array, values, hash_ctx, memory_pool));
+      children.push_back(value_hashes);
       ARROW_ASSIGN_OR_RAISE(
           columns[0], ToColumnArray(array, hash_ctx, value_hashes->buffers[1]->data()));
     } else {
