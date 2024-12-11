@@ -103,8 +103,8 @@ class ARROW_ACERO_EXPORT SourceNodeOptions : public ExecNodeOptions {
   std::shared_ptr<Schema> output_schema;
   /// \brief an asynchronous stream of batches ending with std::nullopt
   std::function<Future<std::optional<ExecBatch>>()> generator;
-
-  Ordering ordering = Ordering::Unordered();
+  /// \brief the order of the data, defaults to Ordering::Unordered
+  Ordering ordering;
 };
 
 /// \brief a node that generates data from a table already loaded in memory
