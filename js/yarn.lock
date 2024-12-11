@@ -974,10 +974,10 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@openpgp/web-stream-tools@0.0.13":
-  version "0.0.13"
-  resolved "https://registry.yarnpkg.com/@openpgp/web-stream-tools/-/web-stream-tools-0.0.13.tgz#f0be50120c152efb11b65df29ab482dc192dbbd7"
-  integrity sha512-VQ0O0lUcD9ilLcMLQMJMgPhp8fDgMd4copd+UhSBGjud0vbI1ONQ3ffAhixEMml/AApLJtqCpd7PJcccPliFSA==
+"@openpgp/web-stream-tools@0.1.3":
+  version "0.1.3"
+  resolved "https://registry.yarnpkg.com/@openpgp/web-stream-tools/-/web-stream-tools-0.1.3.tgz#a9750f12a634b5a15e711b6c1de559511fb53732"
+  integrity sha512-mT/ds43cH6c+AO5RFpxs+LkACr7KjC3/dZWHrP6KPrWJu4uJ/XJ+p7telaoYiqUfdjiiIvdNSOfhezW9fkmboQ==
 
 "@pkgjs/parseargs@^0.11.0":
   version "0.11.0"
