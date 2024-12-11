@@ -4581,7 +4581,7 @@ cpdef DataType decimal64(int precision, int scale=0):
     Parameters
     ----------
     precision : int
-        Must be between 1 and 9
+        Must be between 1 and 18
     scale : int
 
     Returns
