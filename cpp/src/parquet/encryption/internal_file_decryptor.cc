@@ -64,6 +64,10 @@ InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* propertie
   properties_->set_utilized();
 }
 
+void InternalFileDecryptor::WipeOutDecryptionKeys() {
+  properties_->WipeOutDecryptionKeys();
+}
+
 std::string InternalFileDecryptor::GetFooterKey() {
   std::string footer_key = properties_->footer_key();
   // ignore footer key metadata if footer key is explicitly set via API
