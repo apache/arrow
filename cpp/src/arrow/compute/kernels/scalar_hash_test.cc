@@ -128,8 +128,23 @@ TEST(TestScalarHash, Hash64String) {
   }
 }
 
-TEST(TestScalarHash, Hash64IntList) {
-  auto test_vals = ArrayFromJSON(list(int32()), "[[], [1], [1, 2], [1, 2, 3]]");
+// TEST(TestScalarHash, Hash64IntList) {
+//   auto test_vals = ArrayFromJSON(list(int32()), "[[], [1], [1, 2], [1, 2, 3]]");
+
+//   ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_vals}));
+// }
+
+// def test_h():
+//     arr = pa.array([
+//         [1, 2, 3, 4, 5],
+//         [6, 7, 8, 9, 10, 11, 12]
+//     ])
+//     print(arr.type)
+//     pc.hash_64(arr)
+
+TEST(TestScalarHash, Hash64IntList2) {
+  auto test_vals =
+      ArrayFromJSON(list(int32()), "[[1, 2, 3, 4, 5], [6, 7, 8, 9, 10, 11, 12]]");
 
   ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_vals}));
 }
