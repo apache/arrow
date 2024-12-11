@@ -154,7 +154,7 @@ Statistics key
 Statistics key is string. ``dictionary<int32, utf8>`` is used for
 efficiency.
 
-We assign different statistics keys for variants instead of using
+We assign different statistics keys for individual statistics instead of using
 flags. For example, we assign different statistics keys for exact
 value and approximate value.
 
