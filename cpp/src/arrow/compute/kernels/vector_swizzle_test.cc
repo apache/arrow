@@ -312,7 +312,9 @@ namespace {
 
 Result<Datum> Scatter(const Datum& values, const Datum& indices, int64_t max_index) {
   ScatterOptions options{max_index};
-  return Scatter(values, indices, options);
+  ARROW_ASSIGN_OR_RAISE(Datum result, Scatter(values, indices, options));
+  ValidateOutput(result);
+  return result;
 }
 
 void AssertScatterAAA(const std::shared_ptr<Array>& values,
