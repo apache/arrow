@@ -139,13 +139,13 @@ if_arrow_version_less_than <- function(version) {
 }
 
 skip_if_arrow_version_less_than <- function(version, msg) {
-  if (if_version(version, `<`)) {
+  if (if_arrow_version(version, `<`)) {
     skip(msg)
   }
 }
 
 skip_if_arrow_version_equals <- function(version, msg) {
-  if (if_version(version, `==`)) {
+  if (if_arrow_version(version, `==`)) {
     skip(msg)
   }
 }
