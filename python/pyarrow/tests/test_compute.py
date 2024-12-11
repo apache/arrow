@@ -27,6 +27,8 @@ import pytest
 import random
 import sys
 import textwrap
+import hypothesis as h
+import hypothesis.strategies as st
 
 try:
     import numpy as np
@@ -41,6 +43,7 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.lib import ArrowNotImplementedError
+import pyarrow.tests.strategies as past
 
 try:
     import pyarrow.substrait as pas
@@ -3866,3 +3869,22 @@ def test_winsorize():
     result = pc.winsorize(
         arr, options=pc.WinsorizeOptions(lower_limit=0.1, upper_limit=0.8))
     assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]
+hash_types = st.deferred(
+    lambda: (
+        past.null_type |
+        past.numeric_types |
+        past.binary_like_types |
+        past.dictionary_types() |
+        past.list_types(hash_types, include_views=False) |
+        past.struct_types(hash_types)
+    )
+)
+
+
+@pytest.mark.numpy
+@h.given(past.arrays(hash_types, nullable=True))
+def test_hash_64(arr):
+    result1 = pc.hash_64(arr)
+    result2 = pc.hash_64(arr)
+    assert result1.type == pa.uint64()
+    assert result1.equals(result2)
