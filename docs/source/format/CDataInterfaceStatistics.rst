@@ -34,19 +34,33 @@ be read as Apache Arrow data may have statistics. For example, the
 Apache Parquet C++ implementation can read an Apache Parquet file as
 Apache Arrow data and the Apache Parquet file may have statistics.
 
-One of :ref:`c-data-interface` use cases is the following:
+Use case
+--------
+
+One of :ref:`c-stream-interface` use cases is the following:
 
 1. Module A reads Apache Parquet file as Apache Arrow data.
 2. Module A passes the read Apache Arrow data to module B through the
-   Arrow C data interface.
+   Arrow C stream interface.
 3. Module B processes the passed Apache Arrow data.
 
 If module A can pass the statistics associated with the Apache Parquet
-file to module B through the Arrow C data interface, module B can use
-the statistics to optimize its query plan.
+file to module B through the Arrow C stream interface, module B can
+use the statistics to optimize its query plan.
+
+For example, DuckDB uses this approach but DuckDB couldn't use
+statistics because there wasn't the standardized way to pass
+statistics.
+
+.. seealso::
+
+   `duckdb::ArrowTableFunction::ArrowScanBind() in DuckDB 1.1.3
+   <https://github.com/duckdb/duckdb/blob/v1.1.3/src/function/table/arrow.cpp#L373-L403>`_
 
 Goals
 -----
+
+TODO: Remove the C data interface limitation?
 
 * Establish a standard way to pass statistics through the Arrow C data
   interface.
@@ -55,6 +69,8 @@ Goals
 
 Non-goals
 ---------
+
+TODO: Remove the C data interface limitation?
 
 * Provide a common way to pass statistics that can be used for
   other interfaces such Arrow Flight too.
@@ -92,7 +108,7 @@ Here is the outline of the schema for statistics::
           indices: int32,
           dictionary: utf8
         >,
-        items: dense_union<...all needed types...>,
+        items: dense_union<...all needed types...>
       >
     >
 
@@ -110,6 +126,9 @@ Here is the details of top-level ``struct``:
      - ``true``
      - The zero-based column index, or null if the statistics
        describe the whole table or record batch.
+
+       The column index is computed as the same rule used by
+       :ref:`ipc-recordbatch-message`.
    * - ``statistics``
      - ``map``
      - ``false``
@@ -176,40 +195,40 @@ Here are pre-defined statistics keys:
      - Notes
    * - ``ARROW:average_byte_width:exact``
      - ``float64``
-     - The average size in bytes of a row in the target. (exact)
+     - The average size in bytes of a row in the target column. (exact)
    * - ``ARROW:average_byte_width:approximate``
-     - ``float64``
-     - The average size in bytes of a row in the target. (approximate)
+     - ``float64``: TODO: Should we use ``int64`` instead?
+     - The average size in bytes of a row in the target column. (approximate)
    * - ``ARROW:distinct_count:exact``
      - ``int64``
-     - The number of distinct values in the target. (exact)
+     - The number of distinct values in the target column. (exact)
    * - ``ARROW:distinct_count:approximate``
      - ``float64``
-     - The number of distinct values in the target. (approximate)
+     - The number of distinct values in the target column. (approximate)
    * - ``ARROW:max_byte_width:exact``
      - ``int64``
-     - The maximum size in bytes of a row in the target. (exact)
+     - The maximum size in bytes of a row in the target column. (exact)
    * - ``ARROW:max_byte_width:approximate``
      - ``float64``
-     - The maximum size in bytes of a row in the target. (approximate)
+     - The maximum size in bytes of a row in the target column. (approximate)
    * - ``ARROW:max_value:exact``
      - Target dependent
-     - The maximum value in the target. (exact)
+     - The maximum value in the target column. (exact)
    * - ``ARROW:max_value:approximate``
      - Target dependent
-     - The maximum value in the target. (approximate)
+     - The maximum value in the target column. (approximate)
    * - ``ARROW:min_value:exact``
      - Target dependent
-     - The minimum value in the target. (exact)
+     - The minimum value in the target column. (exact)
    * - ``ARROW:min_value:approximate``
      - Target dependent
-     - The minimum value in the target. (approximate)
+     - The minimum value in the target column. (approximate)
    * - ``ARROW:null_count:exact``
      - ``int64``
-     - The number of nulls in the target. (exact)
+     - The number of nulls in the target column. (exact)
    * - ``ARROW:null_count:approximate``
      - ``float64``
-     - The number of nulls in the target. (approximate)
+     - The number of nulls in the target column. (approximate)
    * - ``ARROW:row_count:exact``
      - ``int64``
      - The number of rows in the target table or record batch. (exact)
@@ -227,47 +246,89 @@ Examples
 
 Here are some examples to help you understand.
 
-C++
----
+Simple record batch
+-------------------
 
-The C++ implementation provides convenience features to create a
-statistics array.
+Schema::
 
-You can attach statistics to an :cpp:class:`arrow::Array`. Statistics
-of an array is represented as :cpp:class:`arrow::ArrayStatistics`.
+    vendor_id: int32
+    passenger_count: int64
 
-If you build :cpp:class:`arrow::Array` s from a Parquet file, you
-don't need to attach statistics in a Parquet file
-explicitly. :cpp:class:`parquet::arrow::FileReader` attaches
-statistics in a Parquet file automatically.
+Data::
 
-If you have a :cpp:class:`arrow::RecordBatch` that has
-:cpp:class:`arrow::Array` that has statistics, you can use
-:cpp:func:`arrow::RecordBatch::MakeStatisticsArray()`. It builds an
-:cpp:class:`arrow::Array` for statistics from attached statistics. The
-built statistics array uses the statistics schema defined in this
-documentation.
+    vendor_id:       [5, 1, 5, 1, 5]
+    passenger_count: [1, 1, 2, 0, null]
 
-Here is an example that reads record batches from a Parquet file and
-prints statistics array for each record batch. Each record batch has
-associated statistics when the Parquet file has statistics. The
-important part of this example is
-:cpp:func:`arrow::RecordBatch::MakeStatisticsArray` call. You can
-build a statistics :cpp:class:`arrow::Array` easily by it.
+Statistics schema::
 
-.. literalinclude:: ../../../cpp/tools/parquet/parquet_dump_arrow_statistics.cc
-   :language: cpp
-   :start-after: doc: start: print-arrow-statistics
-   :end-before: doc: end: print-arrow-statistics
+    struct<
+      column: int32,
+      statistics: map<
+        key: dictionary<
+          indices: int32,
+          dictionary: utf8
+        >,
+        items: dense_union<int64>
+      >
+    >
 
-You can pass a statistics :cpp:class:`arrow::Array` created by
-:cpp:func:`arrow::RecordBatch::MakeStatisticsArray` to another system
-in the same process with the normal C data interface. For example, you
-can use :cpp:func:`arrow::ExportArray` to export a statistics
-:cpp:class:`arrow::Array`:
+Statistics array::
 
-.. code-block:: cpp
+    column: [
+      null, # record batch
+      0,    # vendor_id
+      0,    # vendor_id
+      0,    # vendor_id
+      0,    # vendor_id
+      1,    # passenger_count
+      1,    # passenger_count
+      1,    # passenger_count
+      1,    # passenger_count
+    ]
+    statistics:
+      key:
+        indices: [
+          0, # "ARROW:row_count:exact"
+          1, # "ARROW:null_count:exact"
+          2, # "ARROW:distinct_count:exact"
+          3, # "ARROW:max_value:exact"
+          4, # "ARROW:min_value:exact"
+          1, # "ARROW:null_count:exact"
+          2, # "ARROW:distinct_count:exact"
+          3, # "ARROW:max_value:exact"
+          4, # "ARROW:min_value:exact"
+        ]
+        dictionary: [
+          "ARROW:row_count:exact",
+          "ARROW:null_count:exact",
+          "ARROW:distinct_count:exact",
+          "ARROW:max_value:exact",
+          "ARROW:min_value:exact",
+        ],
+      items: [
+        5, # record batch: "ARROW:row_count:exact"
+        0, # vendor_id: "ARROW:null_count:exact"
+        2, # vendor_id: "ARROW:distinct_count:exact"
+        5, # vendor_id: "ARROW:max_value:exact"
+        1, # vendor_id: "ARROW:min_value:exact"
+        1, # passenger_count: "ARROW:null_count:exact"
+        3, # passenger_count: "ARROW:distinct_count:exact"
+        4, # passenger_count: "ARROW:max_value:exact"
+        0, # passenger_count: "ARROW:min_value:exact"
+      ]
 
-   ArrowArray exported_statistics_array;
-   arrow::Status status = arrow::ExportArray(*statistics_array, &exported_statistics_array);
-   // Pass exported_statistics_array to other system.
+Complex record batch
+--------------------
+
+TODO: It uses nested type.
+
+
+Simple array
+------------
+
+TODO
+
+Complex array
+-------------
+
+TODO: It uses nested type.
