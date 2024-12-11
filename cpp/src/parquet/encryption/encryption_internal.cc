@@ -79,15 +79,6 @@ class AesEncryptionContext {
   virtual ~AesEncryptionContext() = default;
 
  protected:
-  void InitCipherContext() {
-    if (ctx_) return;
-
-    ctx_ = std::unique_ptr<EVP_CIPHER_CTX, decltype(ctxDeleter)>(EVP_CIPHER_CTX_new(),
-                                                                 ctxDeleter);
-    if (!ctx_) throw ParquetException("Couldn't init cipher context");
-    InitCipherContext(ctx_.get());
-  }
-
   virtual void InitCipherContext(EVP_CIPHER_CTX* ctx) = 0;
 
   std::function<void(EVP_CIPHER_CTX*)> ctxDeleter = [](EVP_CIPHER_CTX* ctx) {
@@ -95,16 +86,11 @@ class AesEncryptionContext {
   };
 
   /// Create a new cipher context that auto-frees
-  /// This duplicates un unused but initialized private context to avoid going through
-  /// initialization
-  std::unique_ptr<EVP_CIPHER_CTX, decltype(ctxDeleter)> GetCipherContext() {
-    // could use EVP_CIPHER_CTX_dup instead (requires OpenSSL 3.2.0 and above)
+  std::unique_ptr<EVP_CIPHER_CTX, decltype(ctxDeleter)> NewCipherContext() {
     auto ctx = std::unique_ptr<EVP_CIPHER_CTX, decltype(ctxDeleter)>(EVP_CIPHER_CTX_new(),
                                                                      ctxDeleter);
-    if (ctx && !EVP_CIPHER_CTX_copy(ctx.get(), ctx_.get())) {
-      // ctx gets freed when leaving this method
-      throw ParquetException("Couldn't init cipher context");
-    }
+    if (!ctx) throw ParquetException("Couldn't init cipher context");
+    InitCipherContext(ctx.get());
     return ctx;
   }
 
@@ -112,10 +98,6 @@ class AesEncryptionContext {
   int32_t key_length_;
   int32_t ciphertext_size_delta_;
   int32_t length_buffer_length_;
-
- private:
-  // a EVP_CIPHER_CTX that gets auto-freed
-  std::unique_ptr<EVP_CIPHER_CTX, decltype(ctxDeleter)> ctx_;
 };
 
 class AesEncryptor::AesEncryptorImpl : public AesEncryptionContext {
@@ -163,9 +145,7 @@ class AesEncryptor::AesEncryptorImpl : public AesEncryptionContext {
 AesEncryptor::AesEncryptorImpl::AesEncryptorImpl(ParquetCipher::type alg_id,
                                                  int32_t key_len, bool metadata,
                                                  bool write_length)
-    : AesEncryptionContext(alg_id, key_len, metadata, write_length) {
-  AesEncryptionContext::InitCipherContext();
-}
+    : AesEncryptionContext(alg_id, key_len, metadata, write_length) { }
 
 void AesEncryptor::AesEncryptorImpl::InitCipherContext(EVP_CIPHER_CTX* ctx) {
   if (kGcmMode == aes_mode_) {
@@ -257,7 +237,7 @@ int32_t AesEncryptor::AesEncryptorImpl::GcmEncrypt(span<const uint8_t> plaintext
     throw ParquetException(ss.str());
   }
 
-  auto ctx = GetCipherContext();
+  auto ctx = NewCipherContext();
 
   // Setting key and IV (nonce)
   if (1 != EVP_EncryptInit_ex(ctx.get(), nullptr, nullptr, key.data(), nonce.data())) {
@@ -341,7 +321,7 @@ int32_t AesEncryptor::AesEncryptorImpl::CtrEncrypt(span<const uint8_t> plaintext
   std::copy(nonce.begin(), nonce.begin() + kNonceLength, iv.begin());
   iv[kCtrIvLength - 1] = 1;
 
-  auto ctx = GetCipherContext();
+  auto ctx = NewCipherContext();
 
   // Setting key and IV
   if (1 != EVP_EncryptInit_ex(ctx.get(), nullptr, nullptr, key.data(), iv.data())) {
@@ -469,9 +449,7 @@ AesDecryptor::~AesDecryptor() {}
 AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id,
                                                  int32_t key_len, bool metadata,
                                                  bool contains_length)
-    : AesEncryptionContext(alg_id, key_len, metadata, contains_length) {
-  AesEncryptionContext::InitCipherContext();
-}
+    : AesEncryptionContext(alg_id, key_len, metadata, contains_length) { }
 
 void AesDecryptor::AesDecryptorImpl::InitCipherContext(EVP_CIPHER_CTX* ctx) {
   if (kGcmMode == aes_mode_) {
@@ -613,7 +591,8 @@ int32_t AesDecryptor::AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertex
             ciphertext.begin() + length_buffer_length_ + kNonceLength, nonce.begin());
   std::copy(ciphertext.begin() + ciphertext_len - kGcmTagLength,
             ciphertext.begin() + ciphertext_len, tag.begin());
-  auto ctx = GetCipherContext();
+
+  auto ctx = NewCipherContext();
 
   // Setting key and IV
   if (1 != EVP_DecryptInit_ex(ctx.get(), nullptr, nullptr, key.data(), nonce.data())) {
@@ -689,7 +668,7 @@ int32_t AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertex
   // is set to 1.
   iv[kCtrIvLength - 1] = 1;
 
-  auto ctx = GetCipherContext();
+  auto ctx = NewCipherContext();
 
   // Setting key and IV
   if (1 != EVP_DecryptInit_ex(ctx.get(), nullptr, nullptr, key.data(), iv.data())) {
