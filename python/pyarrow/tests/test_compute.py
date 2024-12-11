@@ -3369,9 +3369,10 @@ def create_sample_expressions():
     g = pc.scalar(pa.scalar(1))
     h = pc.scalar(np.int64(2))
     j = pc.scalar(False)
+    k = pc.scalar(0)
 
     # These expression consist entirely of literals
-    literal_exprs = [a, b, c, d, e, g, h, j]
+    literal_exprs = [a, b, c, d, e, g, h, j, k]
 
     # These expressions include at least one function call
     exprs_with_call = [a == b, a != b, a > b, c & j, c | j, ~c, d.is_valid(),
@@ -3380,6 +3381,8 @@ def create_sample_expressions():
                        pc.multiply(a, b), pc.power(a, a), pc.sqrt(a),
                        pc.exp(b), pc.cos(b), pc.sin(b), pc.tan(b),
                        pc.acos(b), pc.atan(b), pc.asin(b), pc.atan2(b, b),
+                       pc.sinh(a), pc.cosh(a), pc.tanh(a),
+                       pc.asinh(a), pc.acosh(b), pc.atanh(k),
                        pc.abs(b), pc.sign(a), pc.bit_wise_not(a),
                        pc.bit_wise_and(a, a), pc.bit_wise_or(a, a),
                        pc.bit_wise_xor(a, a), pc.is_nan(b), pc.is_finite(b),

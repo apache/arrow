@@ -166,8 +166,7 @@ if(WIN32)
   list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32")
 endif()
 
-if(NOT WIN32 AND NOT APPLE)
-  # Pass -lrt on Linux only
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   list(APPEND ARROW_SYSTEM_LINK_LIBS rt)
 endif()
 
@@ -674,6 +673,7 @@ set(ARROW_TESTING_SRCS
     testing/fixed_width_test_util.cc
     testing/generator.cc
     testing/gtest_util.cc
+    testing/math.cc
     testing/process.cc
     testing/random.cc
     testing/util.cc)
@@ -726,9 +726,6 @@ set(ARROW_COMPUTE_SRCS
     compute/function.cc
     compute/function_internal.cc
     compute/kernel.cc
-    compute/key_hash_internal.cc
-    compute/key_map_internal.cc
-    compute/light_array_internal.cc
     compute/ordering.cc
     compute/registry.cc
     compute/kernels/chunked_internal.cc
@@ -747,20 +744,7 @@ set(ARROW_COMPUTE_SRCS
     compute/kernels/vector_selection.cc
     compute/kernels/vector_selection_filter_internal.cc
     compute/kernels/vector_selection_internal.cc
-    compute/kernels/vector_selection_take_internal.cc
-    compute/row/encode_internal.cc
-    compute/row/compare_internal.cc
-    compute/row/grouper.cc
-    compute/row/row_encoder_internal.cc
-    compute/row/row_internal.cc
-    compute/util.cc
-    compute/util_internal.cc)
-
-append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_internal_avx2.cc)
-append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_internal_avx2.cc)
-append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/compare_internal_avx2.cc)
-append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/encode_internal_avx2.cc)
-append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/util_avx2.cc)
+    compute/kernels/vector_selection_take_internal.cc)
 
 if(ARROW_COMPUTE)
   # Include the remaining kernels
@@ -793,10 +777,25 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_replace.cc
        compute/kernels/vector_run_end_encode.cc
        compute/kernels/vector_select_k.cc
-       compute/kernels/vector_sort.cc)
+       compute/kernels/vector_sort.cc
+       compute/key_hash_internal.cc
+       compute/key_map_internal.cc
+       compute/light_array_internal.cc
+       compute/row/encode_internal.cc
+       compute/row/compare_internal.cc
+       compute/row/grouper.cc
+       compute/row/row_encoder_internal.cc
+       compute/row/row_internal.cc
+       compute/util.cc
+       compute/util_internal.cc)
 
   append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/kernels/aggregate_basic_avx2.cc)
   append_runtime_avx512_src(ARROW_COMPUTE_SRCS compute/kernels/aggregate_basic_avx512.cc)
+  append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_internal_avx2.cc)
+  append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_internal_avx2.cc)
+  append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/compare_internal_avx2.cc)
+  append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/encode_internal_avx2.cc)
+  append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/util_avx2.cc)
 endif()
 
 arrow_add_object_library(ARROW_COMPUTE ${ARROW_COMPUTE_SRCS})
