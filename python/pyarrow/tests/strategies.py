@@ -175,18 +175,22 @@ def fields(draw, type_strategy=primitive_types):
     return pa.field(name, type=typ, nullable=nullable, metadata=meta)
 
 
-def list_types(item_strategy=primitive_types):
-    return (
+def list_types(item_strategy=primitive_types, include_views=True):
+    types = (
         st.builds(pa.list_, item_strategy) |
         st.builds(pa.large_list, item_strategy) |
         st.builds(
             pa.list_,
             item_strategy,
             st.integers(min_value=0, max_value=16)
-        ) |
-        st.builds(pa.list_view, item_strategy) |
-        st.builds(pa.large_list_view, item_strategy)
+        )
     )
+    if include_views:
+        types |= (
+            st.builds(pa.list_view, item_strategy) |
+            st.builds(pa.large_list_view, item_strategy)
+        )
+    return types
 
 
 @st.composite
@@ -307,6 +311,7 @@ def arrays(draw, type, size=None, nullable=True):
             pytest.skip('no module named zoneinfo (or tzdata on Windows)')
         if ty.tz is None:
             pytest.skip('requires timezone not None')
+        h.assume(ty.tz is not None)
         min_int64 = -(2**63)
         max_int64 = 2**63 - 1
         min_datetime = datetime.datetime.fromtimestamp(
