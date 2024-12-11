@@ -44,8 +44,6 @@ constexpr int8_t kOffsetIndex = 7;
 constexpr int8_t kBloomFilterHeader = 8;
 constexpr int8_t kBloomFilterBitset = 9;
 
-class AesEncryptionContext;
-
 /// Performs AES encryption operations with GCM or CTR ciphers.
 class PARQUET_EXPORT AesEncryptor {
  public:
