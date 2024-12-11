@@ -120,6 +120,7 @@ struct ARROW_EXPORT AzureOptions {
     kDefault,
     kAnonymous,
     kStorageSharedKey,
+    kSasToken,
     kClientSecret,
     kManagedIdentity,
     kCLI,
@@ -129,6 +130,7 @@ struct ARROW_EXPORT AzureOptions {
 
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
+  std::string sas_token_;
   mutable std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
 
  public:
@@ -189,6 +191,7 @@ struct ARROW_EXPORT AzureOptions {
   Status ConfigureDefaultCredential();
   Status ConfigureAnonymousCredential();
   Status ConfigureAccountKeyCredential(const std::string& account_key);
+  Status ConfigureSasCredential(const std::string& sas_token);
   Status ConfigureClientSecretCredential(const std::string& tenant_id,
                                          const std::string& client_id,
                                          const std::string& client_secret);

@@ -520,6 +520,14 @@ TEST(AzureFileSystem, InitializeWithWorkloadIdentityCredential) {
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
+TEST(AzureFileSystem, InitializeWithSasCredential) {
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
+  // This SAS token is not secret - its taken from an example in the Azure docs. 
+  ARROW_EXPECT_OK(options.ConfigureSasCredential("sv=2015-02-21&st=2015-07-01T08%3a49Z&se=2015-07-02T08%3a49Z&sr=c&sp=w&si=YWJjZGVmZw%3d%3d&sig=Rcp6gQRfV7WDlURdVTqCa%2bqEArnfJxDgE%2bKH3TCChIs%3d"));
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+}
+
 TEST(AzureFileSystem, InitializeWithEnvironmentCredential) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
