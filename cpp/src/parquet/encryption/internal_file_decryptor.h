@@ -19,7 +19,6 @@
 
 #include <map>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -75,6 +74,8 @@ class InternalFileDecryptor {
   std::string& footer_key_metadata() { return footer_key_metadata_; }
 
   FileDecryptionProperties* properties() { return properties_; }
+
+  void WipeOutDecryptionKeys();
 
   ::arrow::MemoryPool* pool() { return pool_; }
 
