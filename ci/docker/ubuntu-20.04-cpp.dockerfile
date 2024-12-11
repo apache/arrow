@@ -135,7 +135,8 @@ RUN /arrow/ci/scripts/install_ceph.sh
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
-# Prioritize system packages and local installation
+# Prioritize system packages and local installation.
+#
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
 # - Abseil is not packaged
@@ -143,8 +144,10 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # - flatbuffer is not packaged
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
+# - opentelemetry-cpp-dev is not packaged
+#
 # ARROW-17051: this build uses static Protobuf, so we must also use
-# static Arrow to run Flight/Flight SQL tests
+# static Arrow to run Flight/Flight SQL tests.
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
     ARROW_AZURE=OFF \
@@ -179,6 +182,7 @@ ENV absl_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     gRPC_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
+    opentelemetry_cpp_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \

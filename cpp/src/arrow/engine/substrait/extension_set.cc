@@ -1071,7 +1071,8 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
 
     // Mappings either without a _checked variant or substrait has no overflow option
     for (const auto& function_name :
-         {"exp", "sign", "cos", "sin", "tan", "acos", "asin", "atan", "atan2"}) {
+         {"exp", "sign", "cos", "cosh", "sin", "sinh", "tan", "tanh", "acos", "acosh",
+          "asin", "asinh", "atan", "atanh", "atan2"}) {
       DCHECK_OK(
           AddSubstraitCallToArrow({kSubstraitArithmeticFunctionsUri, function_name},
                                   DecodeOptionlessUncheckedArithmetic(function_name)));
@@ -1207,7 +1208,13 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
              {kSubstraitArithmeticFunctionsUri, "acos"},
              {kSubstraitArithmeticFunctionsUri, "asin"},
              {kSubstraitArithmeticFunctionsUri, "atan"},
-             {kSubstraitArithmeticFunctionsUri, "atan2"}}) {
+             {kSubstraitArithmeticFunctionsUri, "atan2"},
+             {kSubstraitArithmeticFunctionsUri, "cosh"},
+             {kSubstraitArithmeticFunctionsUri, "sinh"},
+             {kSubstraitArithmeticFunctionsUri, "tanh"},
+             {kSubstraitArithmeticFunctionsUri, "acosh"},
+             {kSubstraitArithmeticFunctionsUri, "asinh"},
+             {kSubstraitArithmeticFunctionsUri, "atanh"}}) {
       Id fn_id{fn_pair.first, fn_pair.second};
       DCHECK_OK(AddArrowToSubstraitCall(std::string(fn_pair.second), EncodeBasic(fn_id)));
     }

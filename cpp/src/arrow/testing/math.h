@@ -13,17 +13,22 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
+// under the License.
 
 #pragma once
 
-// This addresses platform-specific defines, e.g. on Windows
-#include "arrow/flight/platform.h"  // IWYU pragma: keep
-#include "arrow/util/macros.h"
+#include "arrow/testing/visibility.h"
 
-// This header holds the Flight SQL definitions.
+namespace arrow {
 
-#include "arrow/flight/sql/visibility.h"
+ARROW_TESTING_EXPORT
+bool WithinUlp(float left, float right, int n_ulps);
+ARROW_TESTING_EXPORT
+bool WithinUlp(double left, double right, int n_ulps);
 
-ARROW_SUPPRESS_DEPRECATION_WARNING
-#include "arrow/flight/sql/FlightSql.pb.h"  // IWYU pragma: export
-ARROW_UNSUPPRESS_DEPRECATION_WARNING
+ARROW_TESTING_EXPORT
+void AssertWithinUlp(float left, float right, int n_ulps);
+ARROW_TESTING_EXPORT
+void AssertWithinUlp(double left, double right, int n_ulps);
+
+}  // namespace arrow
