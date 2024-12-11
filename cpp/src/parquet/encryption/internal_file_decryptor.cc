@@ -141,10 +141,10 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
   std::shared_ptr<encryption::AesDecryptor> aes_metadata_decryptor;
   std::shared_ptr<encryption::AesDecryptor> aes_data_decryptor;
 
-  aes_metadata_decryptor = encryption::AesDecryptor::Make(
-      algorithm_, key_len, /*metadata=*/true);
-  aes_data_decryptor = encryption::AesDecryptor::Make(
-      algorithm_, key_len, /*metadata=*/false);
+  aes_metadata_decryptor =
+      encryption::AesDecryptor::Make(algorithm_, key_len, /*metadata=*/true);
+  aes_data_decryptor =
+      encryption::AesDecryptor::Make(algorithm_, key_len, /*metadata=*/false);
 
   footer_metadata_decryptor_ = std::make_shared<Decryptor>(
       std::move(aes_metadata_decryptor), footer_key, file_aad_, aad, pool_);
@@ -189,8 +189,7 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
   }
 
   auto key_len = static_cast<int32_t>(column_key.size());
-  auto aes_decryptor =
-      encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
+  auto aes_decryptor = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
   return std::make_shared<Decryptor>(std::move(aes_decryptor), column_key, file_aad_, aad,
                                      pool_);
 }
