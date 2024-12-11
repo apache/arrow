@@ -191,8 +191,9 @@ def get_column_metadata(column, name, arrow_type, field_name):
     }
 
 
-def construct_metadata(columns_to_convert, df, column_names, column_field_names,
-                       index_levels, index_descriptors, preserve_index, types):
+def construct_metadata(columns_to_convert, df, column_names, index_levels,
+                       index_descriptors, preserve_index, types,
+                       column_field_names=None):
     """Returns a dictionary containing enough metadata to reconstruct a pandas
     DataFrame as an Arrow Table, including index columns.
 
@@ -211,6 +212,9 @@ def construct_metadata(columns_to_convert, df, column_names, column_field_names,
     -------
     dict
     """
+    if column_field_names is None:
+        column_field_names = column_names
+
     num_serialized_index_levels = len([descr for descr in index_descriptors
                                        if not isinstance(descr, dict)])
     # Use ntypes instead of Python shorthand notation [:-len(x)] as [:-0]
@@ -565,8 +569,8 @@ def dataframe_to_types(df, preserve_index, columns=None):
         types.append(type_)
 
     metadata = construct_metadata(
-        columns_to_convert, df, column_names, column_field_names, index_columns,
-        index_descriptors, preserve_index, types
+        columns_to_convert, df, column_names, index_columns, index_descriptors,
+        preserve_index, types, column_field_names=column_field_names
     )
 
     return all_names, types, metadata
@@ -649,8 +653,8 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
         schema = pa.schema(fields)
 
     pandas_metadata = construct_metadata(
-        columns_to_convert, df, column_names, column_field_names, index_columns,
-        index_descriptors, preserve_index, types
+        columns_to_convert, df, column_names, index_columns, index_descriptors,
+        preserve_index, types, column_field_names=column_field_names
     )
     metadata = deepcopy(schema.metadata) if schema.metadata else dict()
     metadata.update(pandas_metadata)
