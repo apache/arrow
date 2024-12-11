@@ -175,7 +175,7 @@ Here are pre-defined statistics keys:
      - Data type
      - Notes
    * - ``ARROW:average_byte_width:exact``
-     - ``float``
+     - ``float64``
      - The average size in bytes of a row in the target. (exact)
    * - ``ARROW:average_byte_width:approximate``
      - ``float64``
