@@ -265,7 +265,7 @@ class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "InversePermutationOptions";
   static InversePermutationOptions Defaults() { return InversePermutationOptions(); }
 
-  /// \brief The max value in the input indices to process. Any indices that are greater
+  /// \brief The max value in the input indices to allow. Any indices that are greater
   /// than this value will be ignored. If negative, this value will be set to the length
   /// of the input indices minus 1.
   int64_t max_index = -1;
