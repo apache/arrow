@@ -518,19 +518,14 @@ AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int32_t key_len, bool met
           new AesDecryptorImpl(alg_id, key_len, metadata, contains_length))} {}
 
 std::shared_ptr<AesDecryptor> AesDecryptor::Make(
-    ParquetCipher::type alg_id, int32_t key_len, bool metadata,
-    std::vector<std::weak_ptr<AesDecryptor>>* all_decryptors) {
+    ParquetCipher::type alg_id, int32_t key_len, bool metadata) {
   if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
     std::stringstream ss;
     ss << "Crypto algorithm " << alg_id << " is not supported";
     throw ParquetException(ss.str());
   }
 
-  auto decryptor = std::make_shared<AesDecryptor>(alg_id, key_len, metadata);
-  if (all_decryptors != nullptr) {
-    all_decryptors->push_back(decryptor);
-  }
-  return decryptor;
+  return std::make_shared<AesDecryptor>(alg_id, key_len, metadata);
 }
 
 int32_t AesDecryptor::PlaintextLength(int32_t ciphertext_len) const {
