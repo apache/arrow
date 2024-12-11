@@ -79,6 +79,9 @@ For example, ADBC has `the statistics related APIs
 <https://arrow.apache.org/adbc/current/format/specification.html#statistics>`__.
 This specification doesn't replace them.
 
+TODO: Should we deprecate the current ADBC's statistics API and
+redesign with this specification?
+
 This specification may fit some use cases of :ref:`format-ipc` not the
 Arrow data interface. But we don't recommend this specification for
 the Arrow IPC format for now. Because we may be able to define better
