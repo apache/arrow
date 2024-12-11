@@ -2043,6 +2043,11 @@ def test_cast_float_to_decimal_random(float_ty, decimal_traits):
     mantissa_digits = math.floor(math.log10(2**mantissa_bits))
     max_precision = decimal_traits.max_precision
 
+    # For example, decimal32 <-> float64
+    if max_precision < mantissa_digits:
+        mantissa_bits = math.floor(math.log2(10**max_precision))
+        mantissa_digits = math.floor(math.log10(2**mantissa_bits))
+
     with decimal.localcontext() as ctx:
         precision = mantissa_digits
         ctx.prec = precision
