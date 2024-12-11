@@ -81,14 +81,14 @@ class AesEncryptionContext {
  protected:
   virtual void InitCipherContext(EVP_CIPHER_CTX* ctx) = 0;
 
-  std::function<void(EVP_CIPHER_CTX*)> ctxDeleter = [](EVP_CIPHER_CTX* ctx) {
+  static inline std::function<void(EVP_CIPHER_CTX*)> ctx_deleter_ = [](EVP_CIPHER_CTX* ctx) {
     EVP_CIPHER_CTX_free(ctx);
   };
 
   /// Create a new cipher context that auto-frees
-  std::unique_ptr<EVP_CIPHER_CTX, decltype(ctxDeleter)> NewCipherContext() {
-    auto ctx = std::unique_ptr<EVP_CIPHER_CTX, decltype(ctxDeleter)>(EVP_CIPHER_CTX_new(),
-                                                                     ctxDeleter);
+  std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter_)> NewCipherContext() {
+    auto ctx = std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter_)>(EVP_CIPHER_CTX_new(),
+                                                                     ctx_deleter_);
     if (!ctx) throw ParquetException("Couldn't init cipher context");
     InitCipherContext(ctx.get());
     return ctx;
