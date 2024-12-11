@@ -42,7 +42,8 @@ const InversePermutationOptions* GetDefaultInversePermutationOptions() {
 using InversePermutationState = OptionsWrapper<InversePermutationOptions>;
 
 /// Resolve the output type of inverse_permutation. The output type is specified in the
-/// options, and if null, set it to the input type. The output type must be integer.
+/// options, and if null, set it to the input type. The output type must be signed
+/// integer.
 Result<TypeHolder> ResolveInversePermutationOutputType(
     KernelContext* ctx, const std::vector<TypeHolder>& input_types) {
   DCHECK_EQ(input_types.size(), 1);
@@ -52,9 +53,10 @@ Result<TypeHolder> ResolveInversePermutationOutputType(
   if (!output_type) {
     output_type = input_types[0].owned_type;
   }
-  if (!is_integer(output_type->id())) {
-    return Status::Invalid("Output type of inverse_permutation must be integer, got " +
-                           output_type->ToString());
+  if (!is_signed_integer(output_type->id())) {
+    return Status::Invalid(
+        "Output type of inverse_permutation must be signed integer, got " +
+        output_type->ToString());
   }
 
   return TypeHolder(std::move(output_type));
@@ -311,7 +313,7 @@ void RegisterVectorInversePermutation(FunctionRegistry* registry) {
     kernel.output_chunked = false;
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   };
-  for (const auto& t : IntTypes()) {
+  for (const auto& t : SignedIntTypes()) {
     add_kernel(t->id());
   }
 
@@ -387,14 +389,15 @@ class ScatterMetaFunction : public MetaFunction {
  private:
   static std::shared_ptr<DataType> InferSmallestInversePermutationType(
       int64_t input_length) {
-    if (input_length <= std::numeric_limits<uint8_t>::max()) {
-      return uint8();
-    } else if (input_length <= std::numeric_limits<uint16_t>::max()) {
-      return uint16();
-    } else if (input_length <= std::numeric_limits<uint32_t>::max()) {
-      return uint32();
+    DCHECK_GE(input_length, 0);
+    if (input_length <= std::numeric_limits<int8_t>::max()) {
+      return int8();
+    } else if (input_length <= std::numeric_limits<int16_t>::max()) {
+      return int16();
+    } else if (input_length <= std::numeric_limits<int32_t>::max()) {
+      return int32();
     } else {
-      return uint64();
+      return int64();
     }
   }
 };

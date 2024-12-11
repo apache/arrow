@@ -1937,13 +1937,13 @@ Swizzle functions
 
 Swizzle functions reorder the input array based on the specified indices.
 
-+---------------------+--------+--------------+--------------+--------------+-------------------------------------+-------+
-| Function name       | Arity  | Input type 1 | Input type 2 | Output type  | Options class                       | Notes |
-+=====================+========+==============+==============+==============+=====================================+=======+
-| inverse_permutation | Unary  | Integer      |              | Integer \(1) | :struct:`InversePermutationOptions` | \(2)  |
-+---------------------+--------+--------------+--------------+--------------+-------------------------------------+-------+
-| scatter             | Binary | Any          | Integer      | Input type 1 | :struct:`ScatterOptions`            | \(3)  |
-+---------------------+--------+--------------+--------------+--------------+-------------------------------------+-------+
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| Function name       | Arity  | Input type 1   | Input type 2 | Output type         | Options class                       | Notes |
++=====================+========+================+==============+=====================+=====================================+=======+
+| inverse_permutation | Unary  | Signed Integer |              | Signed Integer \(1) | :struct:`InversePermutationOptions` | \(2)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| scatter             | Binary | Any            | Integer      | Input type 1        | :struct:`ScatterOptions`            | \(3)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
 
 * \(1) The output type is specified in :struct:`InversePermutationOptions`.
 
