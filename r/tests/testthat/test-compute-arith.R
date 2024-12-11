@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-source("../../extra-tests/helpers.R")
-
 test_that("Addition", {
   a <- Array$create(c(1:4, NA_integer_))
   expect_type_equal(a, int32())
@@ -237,7 +235,7 @@ test_that("Math group generics work on Array objects", {
 })
 
 test_that("hyperbolic trig functions work on Array objects", {
-  skip_if_version_less_than("18.1.0.9000", "Hyperbolic trig functions not available until version 19.")
+  skip_if_arrow_version_less_than("18.1.0.9000", "Hyperbolic trig functions not available until version 19.")
 
   expect_equal(sinh(Array$create(c(0.6, 0.9))), Array$create(sinh(c(0.6, 0.9))))
   expect_equal(cosh(Array$create(c(0.6, 0.9))), Array$create(cosh(c(0.6, 0.9))))
@@ -250,7 +248,7 @@ test_that("hyperbolic trig functions work on Array objects", {
 })
 
 test_that("expm1 works on Array objects", {
-  skip_if_version_less_than("18.1.0.9000", "expm1 not available until version 19.")
+  skip_if_arrow_version_less_than("18.1.0.9000", "expm1 not available until version 19.")
 
   expect_equal(expm1(Array$create(c(0.00000001, 10))), Array$create(expm1(c(0.00000001, 10))))
 })

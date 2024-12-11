@@ -21,8 +21,6 @@ skip_if_not_available("acero")
 # Skip these tests on CRAN due to build times > 10 mins
 skip_on_cran()
 
-source("../../extra-tests/helpers.R")
-
 test_that("abs()", {
   df <- tibble(x = c(-127, -10, -1, -0, 0, 1, 10, 127, NA))
 
@@ -341,7 +339,7 @@ test_that("trig functions", {
 })
 
 test_that("hyperbolic trig functions", {
-  skip_if_version_less_than("18.1.0.9000", "Hyperbolic trig functions not available until version 19.")
+  skip_if_arrow_version_less_than("18.1.0.9000", "Hyperbolic trig functions not available until version 19.")
 
   # Note: We change df mid-test because domains differ by function
   df <- tibble(x = c(seq(from = 0, to = 1, by = 0.1), NA))
@@ -497,7 +495,7 @@ test_that("sqrt()", {
 })
 
 test_that("expm1()", {
-  skip_if_version_less_than("18.1.0.9000", "expm1 not available until version 19.")
+  skip_if_arrow_version_less_than("18.1.0.9000", "expm1 not available until version 19.")
 
   df <- tibble(x = c(1:5))
 
