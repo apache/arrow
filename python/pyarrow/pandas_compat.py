@@ -213,7 +213,10 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
     dict
     """
     if column_field_names is None:
-        column_field_names = column_names
+        # backwards compatibility for external projects that are using
+        # `construct_metadata` such as cudf
+        # see https://github.com/apache/arrow/pull/44963#discussion_r1875771953
+        column_field_names = [str(name) for name in column_names]
 
     num_serialized_index_levels = len([descr for descr in index_descriptors
                                        if not isinstance(descr, dict)])
