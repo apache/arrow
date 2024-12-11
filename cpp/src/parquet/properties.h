@@ -56,6 +56,9 @@ constexpr int32_t kDefaultThriftStringSizeLimit = 100 * 1000 * 1000;
 // kDefaultStringSizeLimit.
 constexpr int32_t kDefaultThriftContainerSizeLimit = 1000 * 1000;
 
+// PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
+static constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
+
 class PARQUET_EXPORT ReaderProperties {
  public:
   explicit ReaderProperties(MemoryPool* pool = ::arrow::default_memory_pool())
@@ -120,6 +123,9 @@ class PARQUET_EXPORT ReaderProperties {
     page_checksum_verification_ = check_crc;
   }
 
+  size_t footer_read_size() const { return footer_read_size_; }
+  void set_footer_read_size(size_t size) { footer_read_size_ = size; }
+
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
@@ -129,6 +135,7 @@ class PARQUET_EXPORT ReaderProperties {
   bool page_checksum_verification_ = false;
   // Used with a RecordReader.
   bool read_dense_for_nullable_ = false;
+  size_t footer_read_size_ = kDefaultFooterReadSize;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
 
