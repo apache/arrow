@@ -1420,6 +1420,104 @@ cdef class FixedSizeBinaryType(DataType):
         return binary, (self.byte_width,)
 
 
+cdef class Decimal32Type(FixedSizeBinaryType):
+    """
+    Concrete class for decimal32 data types.
+
+    Examples
+    --------
+    Create an instance of decimal32 type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal32(5, 2)
+    Decimal32Type(decimal32(5, 2))
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        FixedSizeBinaryType.init(self, type)
+        self.decimal32_type = <const CDecimal32Type*> type.get()
+
+    def __reduce__(self):
+        return decimal32, (self.precision, self.scale)
+
+    @property
+    def precision(self):
+        """
+        The decimal precision, in number of decimal digits (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal32(5, 2)
+        >>> t.precision
+        5
+        """
+        return self.decimal32_type.precision()
+
+    @property
+    def scale(self):
+        """
+        The decimal scale (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal32(5, 2)
+        >>> t.scale
+        2
+        """
+        return self.decimal32_type.scale()
+
+
+cdef class Decimal64Type(FixedSizeBinaryType):
+    """
+    Concrete class for decimal64 data types.
+
+    Examples
+    --------
+    Create an instance of decimal64 type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal64(5, 2)
+    Decimal64Type(decimal64(5, 2))
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        FixedSizeBinaryType.init(self, type)
+        self.decimal64_type = <const CDecimal64Type*> type.get()
+
+    def __reduce__(self):
+        return decimal64, (self.precision, self.scale)
+
+    @property
+    def precision(self):
+        """
+        The decimal precision, in number of decimal digits (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal64(5, 2)
+        >>> t.precision
+        5
+        """
+        return self.decimal64_type.precision()
+
+    @property
+    def scale(self):
+        """
+        The decimal scale (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal64(5, 2)
+        >>> t.scale
+        2
+        """
+        return self.decimal64_type.scale()
+
+
 cdef class Decimal128Type(FixedSizeBinaryType):
     """
     Concrete class for decimal128 data types.
