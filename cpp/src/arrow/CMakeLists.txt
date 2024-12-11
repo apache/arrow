@@ -166,8 +166,7 @@ if(WIN32)
   list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32")
 endif()
 
-if(NOT WIN32 AND NOT APPLE)
-  # Pass -lrt on Linux only
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   list(APPEND ARROW_SYSTEM_LINK_LIBS rt)
 endif()
 
