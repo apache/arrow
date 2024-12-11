@@ -32,7 +32,8 @@ _UNSIGNED_INTEGER_TYPES = {lib.Type_UINT8, lib.Type_UINT16, lib.Type_UINT32,
                            lib.Type_UINT64}
 _INTEGER_TYPES = _SIGNED_INTEGER_TYPES | _UNSIGNED_INTEGER_TYPES
 _FLOATING_TYPES = {lib.Type_HALF_FLOAT, lib.Type_FLOAT, lib.Type_DOUBLE}
-_DECIMAL_TYPES = {lib.Type_DECIMAL128, lib.Type_DECIMAL256, lib.Type.DECIMAL64, lib.Type.DECIMAL32}
+_DECIMAL_TYPES = {lib.Type.DECIMAL32, lib.Type.DECIMAL64, lib.Type_DECIMAL128,
+                  lib.Type_DECIMAL256}
 _DATE_TYPES = {lib.Type_DATE32, lib.Type_DATE64}
 _TIME_TYPES = {lib.Type_TIME32, lib.Type_TIME64}
 _INTERVAL_TYPES = {lib.Type_INTERVAL_MONTH_DAY_NANO}
