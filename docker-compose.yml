@@ -1806,7 +1806,6 @@ services:
       ARROW_SUBSTRAIT: "ON"
       BUILD_DOCS_C_GLIB: "ON"
       BUILD_DOCS_CPP: "ON"
-      BUILD_DOCS_JAVA: "ON"
       BUILD_DOCS_JS: "ON"
       BUILD_DOCS_PYTHON: "ON"
       BUILD_DOCS_R: "ON"
@@ -1819,8 +1818,7 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
         /arrow/ci/scripts/r_build.sh /arrow /build &&
-        /arrow/ci/scripts/js_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_build.sh /arrow /build"
+        /arrow/ci/scripts/js_build.sh /arrow /build"
 
   ################################# Tools #####################################
 
