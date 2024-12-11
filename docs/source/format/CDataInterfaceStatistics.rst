@@ -165,6 +165,8 @@ Here is the details of the ``map`` of the ``statistics``:
        consumers can access to proper field by type code not name. So
        producers can use any valid name for fields.
 
+       TODO: Should we standardize field names?
+
 .. _c-data-interface-statistics-key:
 
 Statistics key
