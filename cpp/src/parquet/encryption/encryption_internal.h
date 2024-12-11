@@ -98,8 +98,8 @@ class PARQUET_EXPORT AesDecryptor {
   /// \param metadata if true then this is a metadata decryptor
   /// out when decryption is finished
   /// \return shared pointer to a new AesDecryptor
-  static std::shared_ptr<AesDecryptor> Make(
-      ParquetCipher::type alg_id, int32_t key_len, bool metadata);
+  static std::shared_ptr<AesDecryptor> Make(ParquetCipher::type alg_id, int32_t key_len,
+                                            bool metadata);
 
   ~AesDecryptor();
 
