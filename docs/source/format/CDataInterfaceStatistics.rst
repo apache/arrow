@@ -143,7 +143,7 @@ Here is the details of the ``map`` of the ``statistics``:
        for statistics key.
 
        We don't standardize field names for the dense union because
-       consumers can access to proper field by index not name. So
+       consumers can access to proper field by type code not name. So
        producers can use any valid name for fields.
 
 .. _c-data-interface-statistics-key:
