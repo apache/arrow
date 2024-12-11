@@ -79,9 +79,8 @@ class AesEncryptionContext {
   virtual ~AesEncryptionContext() = default;
 
  protected:
-  static inline std::function<void(EVP_CIPHER_CTX*)> ctx_deleter_ = [](EVP_CIPHER_CTX* ctx) {
-    EVP_CIPHER_CTX_free(ctx);
-  };
+  static inline std::function<void(EVP_CIPHER_CTX*)> ctx_deleter_ =
+      [](EVP_CIPHER_CTX* ctx) { EVP_CIPHER_CTX_free(ctx); };
 
   int32_t aes_mode_;
   int32_t key_length_;
@@ -120,7 +119,8 @@ class AesEncryptor::AesEncryptorImpl : public AesEncryptionContext {
   }
 
  private:
-  [[nodiscard]] std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter_)> NewCipherContext() const;
+  [[nodiscard]] std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter_)> NewCipherContext()
+      const;
 
   int32_t GcmEncrypt(span<const uint8_t> plaintext, span<const uint8_t> key,
                      span<const uint8_t> nonce, span<const uint8_t> aad,
@@ -133,11 +133,12 @@ class AesEncryptor::AesEncryptorImpl : public AesEncryptionContext {
 AesEncryptor::AesEncryptorImpl::AesEncryptorImpl(ParquetCipher::type alg_id,
                                                  int32_t key_len, bool metadata,
                                                  bool write_length)
-    : AesEncryptionContext(alg_id, key_len, metadata, write_length) { }
+    : AesEncryptionContext(alg_id, key_len, metadata, write_length) {}
 
-std::unique_ptr<EVP_CIPHER_CTX, decltype(AesEncryptionContext::ctx_deleter_)> AesEncryptor::AesEncryptorImpl::NewCipherContext() const {
+std::unique_ptr<EVP_CIPHER_CTX, decltype(AesEncryptionContext::ctx_deleter_)>
+AesEncryptor::AesEncryptorImpl::NewCipherContext() const {
   auto ctx = std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter_)>(EVP_CIPHER_CTX_new(),
-                                                                   ctx_deleter_);
+                                                                     ctx_deleter_);
   if (!ctx) throw ParquetException("Couldn't init cipher context");
   if (kGcmMode == aes_mode_) {
     // Init AES-GCM with specified key length
@@ -417,7 +418,8 @@ class AesDecryptor::AesDecryptorImpl : AesEncryptionContext {
   }
 
  private:
-  [[nodiscard]] std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter_)> NewCipherContext() const;
+  [[nodiscard]] std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter_)> NewCipherContext()
+      const;
 
   /// Get the actual ciphertext length, inclusive of the length buffer length,
   /// and validate that the provided buffer size is large enough.
@@ -440,11 +442,12 @@ AesDecryptor::~AesDecryptor() {}
 AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id,
                                                  int32_t key_len, bool metadata,
                                                  bool contains_length)
-    : AesEncryptionContext(alg_id, key_len, metadata, contains_length) { }
+    : AesEncryptionContext(alg_id, key_len, metadata, contains_length) {}
 
-std::unique_ptr<EVP_CIPHER_CTX, decltype(AesEncryptionContext::ctx_deleter_)> AesDecryptor::AesDecryptorImpl::NewCipherContext() const {
+std::unique_ptr<EVP_CIPHER_CTX, decltype(AesEncryptionContext::ctx_deleter_)>
+AesDecryptor::AesDecryptorImpl::NewCipherContext() const {
   auto ctx = std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter_)>(EVP_CIPHER_CTX_new(),
-                                                                   ctx_deleter_);
+                                                                     ctx_deleter_);
   if (!ctx) throw ParquetException("Couldn't init cipher context");
   if (kGcmMode == aes_mode_) {
     // Init AES-GCM with specified key length
@@ -490,8 +493,8 @@ AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int32_t key_len, bool met
     : impl_{std::unique_ptr<AesDecryptorImpl>(
           new AesDecryptorImpl(alg_id, key_len, metadata, contains_length))} {}
 
-std::shared_ptr<AesDecryptor> AesDecryptor::Make(
-    ParquetCipher::type alg_id, int32_t key_len, bool metadata) {
+std::shared_ptr<AesDecryptor> AesDecryptor::Make(ParquetCipher::type alg_id,
+                                                 int32_t key_len, bool metadata) {
   if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
     std::stringstream ss;
     ss << "Crypto algorithm " << alg_id << " is not supported";
