@@ -200,6 +200,8 @@ def construct_metadata(columns_to_convert, df, column_names, column_field_names,
     ----------
     columns_to_convert : list[pd.Series]
     df : pandas.DataFrame
+    column_names : list[str | None]
+    column_field_names: list[str]
     index_levels : List[pd.Index]
     index_descriptors : List[Dict]
     preserve_index : bool
