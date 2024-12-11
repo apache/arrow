@@ -155,6 +155,7 @@ rmdir /s /q %USERPROFILE%\Downloads\tzdata
 @rem (only needed for testing purposes)
 set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
 
+set AWS_EC2_METADATA_DISABLED=true
 set PYTHONDEVMODE=1
 
 python -m pytest -r sxX --durations=15 pyarrow/tests || exit /B
