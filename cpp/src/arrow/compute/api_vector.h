@@ -265,8 +265,10 @@ class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "InversePermutationOptions";
   static InversePermutationOptions Defaults() { return InversePermutationOptions(); }
 
-  /// \brief The max value in the input indices to allow. If negative, this value will be
-  /// set to the length of the input indices minus 1.
+  /// \brief The max value in the input indices to allow. The length of the function's
+  /// output will be this value plus 1. If negative, this value will be set to the length
+  /// of the input indices minus 1 and the length of the function's output will be the
+  /// length of the input indices.
   int64_t max_index = -1;
   /// \brief The type of the output inverse permutation. If null, the output will be of
   /// the same type as the input indices, otherwise must be signed integer type. An
@@ -282,8 +284,10 @@ class ARROW_EXPORT ScatterOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "ScatterOptions";
   static ScatterOptions Defaults() { return ScatterOptions(); }
 
-  /// \brief The max value in the input indices to allow. If negative, this value will be
-  /// set to the length of the input minus 1.
+  /// \brief The max value in the input indices to allow. The length of the function's
+  /// output will be this value plus 1. If negative, this value will be set to the length
+  /// of the input indices minus 1 and the length of the function's output will be the
+  /// length of the input indices.
   int64_t max_index = -1;
 };
 
