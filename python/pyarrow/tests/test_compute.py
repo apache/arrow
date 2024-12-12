@@ -1900,7 +1900,9 @@ DecimalTypeTraits = namedtuple('DecimalTypeTraits',
 FloatToDecimalCase = namedtuple('FloatToDecimalCase',
                                 ('precision', 'scale', 'float_val'))
 
-decimal_type_traits = [DecimalTypeTraits('decimal128', pa.decimal128, 38),
+decimal_type_traits = [DecimalTypeTraits('decimal32', pa.decimal32, 9),
+                       DecimalTypeTraits('decimal64', pa.decimal64, 18),
+                       DecimalTypeTraits('decimal128', pa.decimal128, 38),
                        DecimalTypeTraits('decimal256', pa.decimal256, 76)]
 
 
@@ -2040,6 +2042,11 @@ def test_cast_float_to_decimal_random(float_ty, decimal_traits):
     }[float_ty]
     mantissa_digits = math.floor(math.log10(2**mantissa_bits))
     max_precision = decimal_traits.max_precision
+
+    # For example, decimal32 <-> float64
+    if max_precision < mantissa_digits:
+        mantissa_bits = math.floor(math.log2(10**max_precision))
+        mantissa_digits = math.floor(math.log10(2**mantissa_bits))
 
     with decimal.localcontext() as ctx:
         precision = mantissa_digits
