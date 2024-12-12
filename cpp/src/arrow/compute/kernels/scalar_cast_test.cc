@@ -2164,7 +2164,8 @@ TEST(Cast, Decimal256ToDecimal128) {
 
 TEST(Cast, FloatingToDecimal) {
   for (auto float_type : {float32(), float64()}) {
-    for (auto decimal_type : {decimal32(5, 2), decimal64(5, 2), decimal128(5, 2), decimal256(5, 2)}) {
+    for (auto decimal_type :
+         {decimal32(5, 2), decimal64(5, 2), decimal128(5, 2), decimal256(5, 2)}) {
       CheckCast(
           ArrayFromJSON(float_type, "[0.0, null, 123.45, 123.456, 999.994]"),
           ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "123.46", "999.99"])"));
@@ -2208,7 +2209,8 @@ TEST(Cast, FloatingToDecimal) {
 
 TEST(Cast, DecimalToFloating) {
   for (auto float_type : {float32(), float64()}) {
-    for (auto decimal_type : {decimal32(5, 2), decimal64(5, 2), decimal128(5, 2), decimal256(5, 2)}) {
+    for (auto decimal_type :
+         {decimal32(5, 2), decimal64(5, 2), decimal128(5, 2), decimal256(5, 2)}) {
       CheckCast(ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "999.99"])"),
                 ArrayFromJSON(float_type, "[0.0, null, 123.45, 999.99]"));
     }
@@ -2220,7 +2222,8 @@ TEST(Cast, DecimalToFloating) {
 
 TEST(Cast, DecimalToString) {
   for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
-    for (auto decimal_type : {decimal32(5, 2), decimal64(5, 2), decimal128(5, 2), decimal256(5, 2)}) {
+    for (auto decimal_type :
+         {decimal32(5, 2), decimal64(5, 2), decimal128(5, 2), decimal256(5, 2)}) {
       CheckCast(ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "999.99"])"),
                 ArrayFromJSON(string_type, R"(["0.00", null, "123.45", "999.99"])"));
     }
@@ -3132,7 +3135,8 @@ TEST(Cast, StringToFloating) {
 
 TEST(Cast, StringToDecimal) {
   for (auto string_type : {utf8(), large_utf8()}) {
-    for (auto decimal_type : {decimal32(5, 2), decimal64(5, 2), decimal128(5, 2), decimal256(5, 2)}) {
+    for (auto decimal_type :
+         {decimal32(5, 2), decimal64(5, 2), decimal128(5, 2), decimal256(5, 2)}) {
       auto strings =
           ArrayFromJSON(string_type, R"(["0.01", null, "127.32", "200.43", "0.54"])");
       auto decimals =
