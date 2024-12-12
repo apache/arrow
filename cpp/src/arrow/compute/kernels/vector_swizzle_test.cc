@@ -143,24 +143,27 @@ TEST(InversePermutation, InvalidOutputType) {
     ARROW_SCOPED_TRACE("Output type unsigned");
     auto indices = ArrayFromJSON(int32(), "[]");
     ASSERT_RAISES_WITH_MESSAGE(
-        Invalid,
-        "Invalid: Output type of inverse_permutation must be signed integer, got uint32",
+        TypeError,
+        "Type error: Output type of inverse_permutation must be signed integer, got "
+        "uint32",
         InversePermutation(indices, /*max_index=*/0, /*output_type=*/uint32()));
   }
   {
     ARROW_SCOPED_TRACE("Output type float");
     auto indices = ArrayFromJSON(int32(), "[]");
     ASSERT_RAISES_WITH_MESSAGE(
-        Invalid,
-        "Invalid: Output type of inverse_permutation must be signed integer, got float",
+        TypeError,
+        "Type error: Output type of inverse_permutation must be signed integer, got "
+        "float",
         InversePermutation(indices, /*max_index=*/0, /*output_type=*/float32()));
   }
   {
     ARROW_SCOPED_TRACE("Output type string");
     auto indices = ArrayFromJSON(int32(), "[]");
     ASSERT_RAISES_WITH_MESSAGE(
-        Invalid,
-        "Invalid: Output type of inverse_permutation must be signed integer, got string",
+        TypeError,
+        "Type error: Output type of inverse_permutation must be signed integer, got "
+        "string",
         InversePermutation(indices, /*max_index=*/0, /*output_type=*/utf8()));
   }
 }
@@ -494,16 +497,16 @@ TEST(Scatter, Invalid) {
       ARROW_SCOPED_TRACE("uint32");
       auto indices = ArrayFromJSON(uint32(), R"([0])");
       ASSERT_RAISES_WITH_MESSAGE(
-          Invalid,
-          "Invalid: Indices of scatter must be of signed integer type, got uint32",
+          TypeError,
+          "Type error: Indices of scatter must be of signed integer type, got uint32",
           Scatter(values, indices));
     }
     {
       ARROW_SCOPED_TRACE("string");
       auto indices = ArrayFromJSON(utf8(), R"(["a"])");
       ASSERT_RAISES_WITH_MESSAGE(
-          Invalid,
-          "Invalid: Indices of scatter must be of signed integer type, got string",
+          TypeError,
+          "Type error: Indices of scatter must be of signed integer type, got string",
           Scatter(values, indices));
     }
   }

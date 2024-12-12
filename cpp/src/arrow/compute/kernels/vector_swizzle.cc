@@ -54,7 +54,7 @@ Result<TypeHolder> ResolveInversePermutationOutputType(
     output_type = input_types[0].owned_type;
   }
   if (!is_signed_integer(output_type->id())) {
-    return Status::Invalid(
+    return Status::TypeError(
         "Output type of inverse_permutation must be signed integer, got " +
         output_type->ToString());
   }
@@ -357,8 +357,8 @@ class ScatterMetaFunction : public MetaFunction {
           std::to_string(values.length()) + " and " + std::to_string(indices.length()));
     }
     if (!is_signed_integer(indices.type()->id())) {
-      return Status::Invalid("Indices of scatter must be of signed integer type, got ",
-                             indices.type()->ToString());
+      return Status::TypeError("Indices of scatter must be of signed integer type, got ",
+                               indices.type()->ToString());
     }
     // Internally invoke Take(values, InversePermutation(indices)) to implement scatter.
     // For example, with
