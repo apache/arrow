@@ -430,7 +430,7 @@ Result<std::string> AzureOptions::GenerateSASToken(
   using SasProtocol = Storage::Sas::SasProtocol;
   builder->Protocol =
       blob_storage_scheme == "http" ? SasProtocol::HttpsAndHttp : SasProtocol::HttpsOnly;
-  if (storage_shared_key_credential_) {
+  if (credential_kind_ == CredentialKind::kStorageSharedKey) {
     return builder->GenerateSasToken(*storage_shared_key_credential_);
   } else {
     // GH-39344: This part isn't tested. This may not work.
