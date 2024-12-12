@@ -36,7 +36,7 @@ static const std::vector<std::shared_ptr<DataType>> kSignedIntegerTypes = {
 static const std::vector<std::shared_ptr<DataType>> kBinaryTypes = {
     binary(), utf8(), large_binary(), large_utf8()};
 
-using SmallOutputTypes = ::testing::Types<Int8Type, Int16Type>;
+using SmallSignedIntegerTypes = ::testing::Types<Int8Type, Int16Type>;
 
 }  // namespace
 
@@ -262,7 +262,7 @@ class TestInversePermutationSmallOutputType : public ::testing::Test {
   }
 };
 
-TYPED_TEST_SUITE(TestInversePermutationSmallOutputType, SmallOutputTypes);
+TYPED_TEST_SUITE(TestInversePermutationSmallOutputType, SmallSignedIntegerTypes);
 
 TYPED_TEST(TestInversePermutationSmallOutputType, JustEnoughOutputType) {
   auto output_type = this->type_singleton();
@@ -561,7 +561,7 @@ class TestScatterSmallIndicesTypes : public ::testing::Test {
   }
 };
 
-TYPED_TEST_SUITE(TestScatterSmallIndicesTypes, SmallOutputTypes);
+TYPED_TEST_SUITE(TestScatterSmallIndicesTypes, SmallSignedIntegerTypes);
 
 TYPED_TEST(TestScatterSmallIndicesTypes, MaxIntegerIndex) {
   auto values = ArrayFromJSON(utf8(), R"(["a"])");
