@@ -245,6 +245,26 @@ TEST(TestTableFromTupleVector, ListType) {
   ASSERT_TRUE(expected_table->Equals(*table));
 }
 
+TEST(TestTableFromTupleVector, FixedSizeListType) {
+  using tuple_type = std::tuple<std::array<int64_t, 4>>;
+
+  auto expected_schema = std::make_shared<Schema>(
+      FieldVector{field("column1", fixed_size_list(int64(), 4), false)});
+  std::shared_ptr<Array> expected_array =
+      ArrayFromJSON(fixed_size_list(int64(), 4), "[[1, 1, 2, 34], [2, -4, 1, 1]]");
+  std::shared_ptr<Table> expected_table = Table::Make(expected_schema, {expected_array});
+  std::cout << expected_table->ToString() << std::endl;
+
+  std::vector<tuple_type> rows{tuple_type(std::array<int64_t, 4>{1, 1, 2, 34}),
+                               tuple_type(std::array<int64_t, 4>{2, -4, 1, 1})};
+  std::vector<std::string> names{"column1"};
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(TableFromTupleRange(default_memory_pool(), rows, names, &table));
+
+  ASSERT_TRUE(expected_table->Equals(*table));
+}
+
 TEST(TestTableFromTupleVector, ReferenceTuple) {
   std::vector<std::string> names{"column1", "column2", "column3", "column4", "column5",
                                  "column6", "column7", "column8", "column9", "column10"};
