@@ -21,6 +21,7 @@
 #endif
 
 #include <algorithm>
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
@@ -576,6 +577,62 @@ TEST_F(TestThreadPool, ConstructDestruct) {
 TEST_F(TestThreadPool, Spawn) {
   auto pool = this->MakeThreadPool(3);
   SpawnAdds(pool.get(), 7, task_add<int>);
+}
+
+TEST_F(TestThreadPool, TasksRunInPriorityOrder) {
+  auto pool = this->MakeThreadPool(1);
+  constexpr int kNumTasks = 10;
+  auto recorded_times = std::vector<std::chrono::steady_clock::time_point>(kNumTasks);
+  auto futures = std::vector<Future<int>>(kNumTasks);
+  std::mutex mutex;
+
+  auto wait_task = [&mutex] { std::unique_lock<std::mutex> lock(mutex); };
+  {
+    std::unique_lock<std::mutex> lock(mutex);
+    // Spawn wait_task to block the pool while we add the other tasks. This
+    // ensures all the tasks are queued before any of them start running, so that
+    // their running order is fully determined by their priority.
+    ASSERT_OK(pool->Spawn(wait_task));
+
+    for (int i = 0; i < kNumTasks; ++i) {
+      auto record_time = [&recorded_times, i]() {
+        recorded_times[i] = std::chrono::steady_clock::now();
+        return i;
+      };
+      // Spawn tasks in opposite order to urgency.
+      ASSERT_OK_AND_ASSIGN(futures[i],
+                           pool->Submit(TaskHints{kNumTasks - i}, record_time));
+    }
+  }
+
+  ASSERT_OK(pool->Shutdown());
+
+  for (size_t i = 1; i < kNumTasks; ++i) {
+    ASSERT_GE(recorded_times[i - 1], recorded_times[i]);
+    ASSERT_LT(futures[i - 1].result().ValueOrDie(), futures[i].result().ValueOrDie());
+  }
+}
+
+TEST_F(TestThreadPool, TasksOfEqualPriorityRunInSpawnOrder) {
+  auto pool = this->MakeThreadPool(1);
+  constexpr int kNumTasks = 10;
+  auto recorded_times = std::vector<std::chrono::steady_clock::time_point>(kNumTasks);
+  auto futures = std::vector<Future<int>>(kNumTasks);
+
+  for (int i = 0; i < kNumTasks; ++i) {
+    auto record_time = [&recorded_times, i]() {
+      recorded_times[i] = std::chrono::steady_clock::now();
+      return i;
+    };
+    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit(record_time));
+  }
+
+  ASSERT_OK(pool->Shutdown());
+
+  for (size_t i = 1; i < kNumTasks; ++i) {
+    ASSERT_LE(recorded_times[i - 1], recorded_times[i]);
+    ASSERT_LT(futures[i - 1].result().ValueOrDie(), futures[i].result().ValueOrDie());
+  }
 }
 
 TEST_F(TestThreadPool, StressSpawn) {
