@@ -270,7 +270,7 @@ struct CompactTransposeMapVisitor {
                           AllocateBuffer(dict_length * sizeof(int32_t), pool));
     auto* output_map_raw = output_map->mutable_data_as<int32_t>();
     int32_t current_index = 0;
-    for (CType i = 0; i < dict_len; i++) {
+    for (CType i = 0; i < dict_len; ++i) {
       if (dict_used[i]) {
         dict_indices_builder.UnsafeAppend(i);
         output_map_raw[i] = current_index;
@@ -309,7 +309,7 @@ Result<std::unique_ptr<Buffer>> CompactTransposeMap(
   CompactTransposeMapVisitor visitor{data, pool, nullptr, nullptr};
   RETURN_NOT_OK(VisitTypeInline(*dict_type.index_type(), &visitor));
 
-  out_compact_dictionary = visitor.out_compact_dictionary;
+  out_compact_dictionary = std::move(visitor.out_compact_dictionary);
   return std::move(visitor.output_map);
 }
 }  // namespace
@@ -520,8 +520,8 @@ struct RecursiveUnifier {
 
 Result<std::unique_ptr<DictionaryUnifier>> DictionaryUnifier::Make(
     std::shared_ptr<DataType> value_type, MemoryPool* pool) {
-  MakeUnifier maker(pool, value_type);
-  RETURN_NOT_OK(VisitTypeInline(*value_type, &maker));
+  MakeUnifier maker(pool, std::move(value_type));
+  RETURN_NOT_OK(VisitTypeInline(*maker.value_type, &maker));
   return std::move(maker.result);
 }
 
