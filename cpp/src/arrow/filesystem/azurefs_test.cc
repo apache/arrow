@@ -1629,19 +1629,20 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestSasCredential() {
-    ASSERT_OK_AND_ASSIGN(auto env, AzuriteEnv::GetInstance());
-    ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env));
-    // constexpr auto container_name = "sas-container";
     auto data = SetUpPreexistingData();
-    // const std::string path = data.ContainerPath("test-write-object");
 
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env));
     ASSERT_OK_AND_ASSIGN(auto sas_token, GetContainerSasToken(data.container_name));
     ARROW_EXPECT_OK(options.ConfigureSasCredential(sas_token));
     EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 
     AssertFileInfo(fs.get(), data.ObjectPath(), FileType::File);
-    // ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenOutputStream(path));
-    // ASSERT_OK(stream->Write(payload));
+
+    // Test copying because it has the extra complexity that it requires generating
+    // a sas token internally.
+    ASSERT_OK(fs->CopyFile(data.ObjectPath(), data.ObjectPath() + "_copy"));
+    AssertFileInfo(fs.get(), data.ObjectPath() + "_copy", FileType::File);
   }
 
  private:
