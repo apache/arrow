@@ -74,7 +74,7 @@ class AesEncryptionContext {
     }
 
     key_length_ = key_len;
-  };
+  }
 
   virtual ~AesEncryptionContext() = default;
 
