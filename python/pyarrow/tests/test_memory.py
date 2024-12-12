@@ -238,7 +238,7 @@ def test_debug_memory_pool_warn(pool_factory):
 
 def check_debug_memory_pool_disabled(pool_factory, env_value, msg):
     if sys.maxsize < 2**32:
-        # mimalloc may print warnings in this test on 32-bit Linux, ignore.
+        # GH-45011: mimalloc may print warnings in this test on 32-bit Linux, ignore.
         pytest.skip("Test may fail on 32-bit platforms")
     res = run_debug_memory_pool(pool_factory.__name__, env_value)
     # The subprocess either returned successfully or was killed by a signal
