@@ -96,16 +96,17 @@ struct InversePermutationImpl {
 
     // Dispatch the execution based on whether there are likely many nulls in the output.
     // - If many nulls (i.e. the output is "sparse"), preallocate an all-false validity
-    // buffer and an uninitialized data buffer. The subsequent processing will fill the
-    // valid values only.
+    // buffer and a zero-initialized data buffer (just to avoid exposing previous memory
+    // contents - even if it is shadowed by the validity bit). The subsequent processing
+    // will fill the valid values only.
     // - Otherwise (i.e. the output is "dense"), the validity buffer is lazily allocated
     // and initialized all-true in the subsequent processing only when needed. The data
-    // buffer is preallocated and filled with all "impossible" values (that is,
-    // input_length - note that the range of inverse_permutation is [0, input_length)) for
-    // the subsequent processing to detect validity.
+    // buffer is preallocated and filled with "impossible" values (that is, input_length -
+    // note that the range of inverse_permutation is [0, input_length)) for the subsequent
+    // processing to detect validity.
     if (LikelyManyNulls()) {
       RETURN_NOT_OK(AllocateValidityBufAndFill(false));
-      RETURN_NOT_OK(AllocateDataBuf(output_type));
+      RETURN_NOT_OK(AllocateDataBufAndFill(output_type, static_cast<OutputCType>(0)));
       return Execute<Type, true>();
     } else {
       RETURN_NOT_OK(
@@ -161,18 +162,12 @@ struct InversePermutationImpl {
     return Status::OK();
   }
 
-  Status AllocateDataBuf(const DataType& output_type) {
+  template <typename Type, typename OutputCType = typename Type::c_type>
+  Status AllocateDataBufAndFill(const Type& output_type, OutputCType value) {
     DCHECK_EQ(data_buf, nullptr);
 
     ARROW_ASSIGN_OR_RAISE(data_buf,
                           ctx->Allocate(output_length * output_type.byte_width()));
-
-    return Status::OK();
-  }
-
-  template <typename Type, typename OutputCType = typename Type::c_type>
-  Status AllocateDataBufAndFill(const Type& output_type, OutputCType value) {
-    RETURN_NOT_OK(AllocateDataBuf(output_type));
 
     OutputCType* data = data_buf->mutable_data_as<OutputCType>();
     for (int64_t i = 0; i < output_length; ++i) {
