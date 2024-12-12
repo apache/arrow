@@ -385,7 +385,7 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
                                                         storage_shared_key_credential_);
     case CredentialKind::kSasToken:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name) +
-                                                        "?" + sas_token_);
+                                                        sas_token_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
@@ -420,7 +420,7 @@ AzureOptions::MakeDataLakeServiceClient() const {
           AccountDfsUrl(account_name), storage_shared_key_credential_);
     case CredentialKind::kSasToken:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountBlobUrl(account_name) + "?" + sas_token_);
+          AccountBlobUrl(account_name) + sas_token_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }

@@ -520,14 +520,6 @@ TEST(AzureFileSystem, InitializeWithWorkloadIdentityCredential) {
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
-TEST(AzureFileSystem, InitializeWithSasCredential) {
-  AzureOptions options;
-  options.account_name = "dummy-account-name";
-  // This SAS token is not secret - its taken from an example in the Azure docs. 
-  ARROW_EXPECT_OK(options.ConfigureSasCredential("sv=2015-02-21&st=2015-07-01T08%3a49Z&se=2015-07-02T08%3a49Z&sr=c&sp=w&si=YWJjZGVmZw%3d%3d&sig=Rcp6gQRfV7WDlURdVTqCa%2bqEArnfJxDgE%2bKH3TCChIs%3d"));
-  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
-}
-
 TEST(AzureFileSystem, InitializeWithEnvironmentCredential) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
@@ -918,6 +910,17 @@ class TestAzureFileSystem : public ::testing::Test {
         .GetBlobClient(blob_name)
         .GetProperties()
         .Value;
+  }
+
+  Result<std::string> GetContainerSasToken(const std::string& container_name) {
+    std::string sas_token;
+    Azure::Storage::Sas::BlobSasBuilder builder;
+    std::chrono::seconds available_period(60);
+    builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
+    builder.BlobContainerName = container_name;
+    builder.Resource = Azure::Storage::Sas::BlobSasResource::BlobContainer;
+    builder.SetPermissions(Azure::Storage::Sas::BlobContainerSasPermissions::All);
+    return options_.GenerateSASToken(&builder, blob_service_client_.get());
   }
 
   void UploadLines(const std::vector<std::string>& lines, const std::string& path,
@@ -1623,6 +1626,22 @@ class TestAzureFileSystem : public ::testing::Test {
     stream.reset();
 
     AssertObjectContents(fs.get(), path, payload);
+  }
+
+  void TestSasCredential() {
+    ASSERT_OK_AND_ASSIGN(auto env, AzuriteEnv::GetInstance());
+    ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env));
+    // constexpr auto container_name = "sas-container";
+    auto data = SetUpPreexistingData();
+    // const std::string path = data.ContainerPath("test-write-object");
+
+    ASSERT_OK_AND_ASSIGN(auto sas_token, GetContainerSasToken(data.container_name));
+    ARROW_EXPECT_OK(options.ConfigureSasCredential(sas_token));
+    EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+
+    AssertFileInfo(fs.get(), data.ObjectPath(), FileType::File);
+    // ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenOutputStream(path));
+    // ASSERT_OK(stream->Write(payload));
   }
 
  private:
@@ -2335,6 +2354,10 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateContainerFromPath) {
 }
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, MovePath) { this->TestMovePath(); }
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, SasCredential) {
+  this->TestSasCredential();
+}
 
 // Tests using Azurite (the local Azure emulator)
 
