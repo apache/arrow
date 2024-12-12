@@ -690,6 +690,36 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kEnvironment);
   }
 
+  void TestFromUriCredentialSasToken() {
+    const std::string sas_token =
+        "?se=2024-12-12T18:57:47Z&sig=pAs7qEBdI6sjUhqX1nrhNAKsTY%2B1SqLxPK%"
+        "2BbAxLiopw%3D&sp=racwdxylti&spr=https,http&sr=c&sv=2024-08-04";
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri(
+            "abfs://file_system@account.dfs.core.windows.net/" + sas_token, nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kSasToken);
+    ASSERT_EQ(options.sas_token_, sas_token);
+  }
+
+  void TestFromUriCredentialSasTokenWithOtherParameters() {
+    const std::string uri_query_string =
+        "?enable_tls=false&se=2024-12-12T18:57:47Z&sig=pAs7qEBdI6sjUhqX1nrhNAKsTY%"
+        "2B1SqLxPK%"
+        "2BbAxLiopw%3D&sp=racwdxylti&spr=https,http&sr=c&sv=2024-08-04";
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri(
+            "abfs://account@127.0.0.1:10000/container/dir/blob" + uri_query_string,
+            nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kSasToken);
+    ASSERT_EQ(options.sas_token_, uri_query_string);
+    ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.blob_storage_scheme, "http");
+    ASSERT_EQ(options.dfs_storage_scheme, "http");
+  }
+
   void TestFromUriCredentialInvalid() {
     ASSERT_RAISES(Invalid, AzureOptions::FromUri(
                                "abfs://file_system@account.dfs.core.windows.net/dir/file?"
@@ -712,13 +742,6 @@ class TestAzureOptions : public ::testing::Test {
                               "dfs_storage_authority=.dfs.local",
                               nullptr));
     ASSERT_EQ(options.dfs_storage_authority, ".dfs.local");
-  }
-
-  void TestFromUriInvalidQueryParameter() {
-    ASSERT_RAISES(Invalid, AzureOptions::FromUri(
-                               "abfs://file_system@account.dfs.core.windows.net/dir/file?"
-                               "unknown=invalid",
-                               nullptr));
   }
 
   void TestMakeBlobServiceClientInvalidAccountName() {
@@ -777,14 +800,15 @@ TEST_F(TestAzureOptions, FromUriCredentialWorkloadIdentity) {
 TEST_F(TestAzureOptions, FromUriCredentialEnvironment) {
   TestFromUriCredentialEnvironment();
 }
+TEST_F(TestAzureOptions, FromUriCredentialSasToken) { TestFromUriCredentialSasToken(); }
+TEST_F(TestAzureOptions, FromUriCredentialSasTokenWithOtherParameters) {
+  TestFromUriCredentialSasTokenWithOtherParameters();
+}
 TEST_F(TestAzureOptions, FromUriCredentialInvalid) { TestFromUriCredentialInvalid(); }
 TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
   TestFromUriBlobStorageAuthority();
 }
 TEST_F(TestAzureOptions, FromUriDfsStorageAuthority) { TestFromUriDfsStorageAuthority(); }
-TEST_F(TestAzureOptions, FromUriInvalidQueryParameter) {
-  TestFromUriInvalidQueryParameter();
-}
 TEST_F(TestAzureOptions, MakeBlobServiceClientInvalidAccountName) {
   TestMakeBlobServiceClientInvalidAccountName();
 }
@@ -1639,7 +1663,7 @@ class TestAzureFileSystem : public ::testing::Test {
 
     AssertFileInfo(fs.get(), data.ObjectPath(), FileType::File);
 
-    // Test copying because it follows a different code path to other authentications 
+    // Test copying because it follows a different code path to other authentications
     // because it usually requires generating a SAS token at runtime.
     ASSERT_OK(fs->CopyFile(data.ObjectPath(), data.ObjectPath() + "_copy"));
     AssertFileInfo(fs.get(), data.ObjectPath() + "_copy", FileType::File);

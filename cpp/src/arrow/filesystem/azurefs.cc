@@ -148,8 +148,10 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
       ARROW_ASSIGN_OR_RAISE(background_writes,
                             ::arrow::internal::ParseBoolean(kv.second));
     } else {
-      return Status::Invalid(
-          "Unexpected query parameter in Azure Blob File System URI: '", kv.first, "'");
+      // Assume these are part of a SAS token. Its not ideal to make such an assumption
+      // but given that a SAS token is a complex set of URI parameters, that could be
+      // tricky to enumerate I think its the best option.
+      credential_kind = CredentialKind::kSasToken;
     }
   }
 
@@ -179,6 +181,13 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
         break;
       case CredentialKind::kEnvironment:
         RETURN_NOT_OK(ConfigureEnvironmentCredential());
+        break;
+      case CredentialKind::kSasToken:
+        // Reconstructing the SAS token without the other URI query parameters is awkward
+        // because some parts are URI escaped and some parts are not. Instead we just
+        // pass through the entire query string and Azure ignores the extra query
+        // parameters.
+        RETURN_NOT_OK(ConfigureSasCredential("?" + uri.query_string()));
         break;
       default:
         // Default credential
@@ -225,7 +234,6 @@ Result<AzureOptions> AzureOptions::FromUri(const std::string& uri_string,
 }
 
 bool AzureOptions::Equals(const AzureOptions& other) const {
-  // TODO(GH-38598): update here when more auth methods are added.
   const bool equals = blob_storage_authority == other.blob_storage_authority &&
                       dfs_storage_authority == other.dfs_storage_authority &&
                       blob_storage_scheme == other.blob_storage_scheme &&
