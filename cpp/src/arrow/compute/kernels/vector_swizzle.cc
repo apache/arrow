@@ -221,7 +221,7 @@ struct InversePermutationImpl {
     // and initialized all-true when the first "impossible" value is seen.
     if constexpr (!likely_many_nulls) {
       for (int64_t i = 0; i < output_length; ++i) {
-        if (ARROW_PREDICT_FALSE(data[i] == static_cast<OutputCType>(input_length))) {
+        if (data[i] == static_cast<OutputCType>(input_length)) {
           if (ARROW_PREDICT_FALSE(!validity_buf)) {
             RETURN_NOT_OK(AllocateValidityBufAndFill(true));
             validity = validity_buf->mutable_data_as<uint8_t>();
