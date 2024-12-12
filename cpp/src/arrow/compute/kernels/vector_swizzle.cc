@@ -106,7 +106,7 @@ struct InversePermutationImpl {
     // processing to detect validity.
     if (LikelyManyNulls()) {
       RETURN_NOT_OK(AllocateValidityBufAndFill(false));
-      RETURN_NOT_OK(AllocateDataBufAndFill(output_type, static_cast<OutputCType>(0)));
+      RETURN_NOT_OK(AllocateDataBufAndZero(output_type));
       return Execute<Type, true>();
     } else {
       RETURN_NOT_OK(
@@ -155,19 +155,35 @@ struct InversePermutationImpl {
   Status AllocateValidityBufAndFill(bool valid) {
     DCHECK_EQ(validity_buf_, nullptr);
 
-    ARROW_ASSIGN_OR_RAISE(validity_buf_, ctx_->AllocateBitmap(output_length_));
+    ARROW_ASSIGN_OR_RAISE(validity_buf_,
+                          AllocateEmptyBitmap(output_length_, ctx_->memory_pool()));
     auto validity = validity_buf_->mutable_data_as<uint8_t>();
     std::memset(validity, valid ? 0xff : 0, validity_buf_->size());
 
     return Status::OK();
   }
 
-  template <typename Type, typename OutputCType = typename Type::c_type>
-  Status AllocateDataBufAndFill(const Type& output_type, OutputCType value) {
+  Status AllocateDataBuf(const DataType& output_type) {
     DCHECK_EQ(data_buf_, nullptr);
 
     ARROW_ASSIGN_OR_RAISE(data_buf_,
                           ctx_->Allocate(output_length_ * output_type.byte_width()));
+
+    return Status::OK();
+  }
+
+  Status AllocateDataBufAndZero(const DataType& output_type) {
+    RETURN_NOT_OK(AllocateDataBuf(output_type));
+
+    uint8_t* data = data_buf_->mutable_data();
+    std::memset(data, 0, output_length_ * output_type.byte_width());
+
+    return Status::OK();
+  }
+
+  template <typename Type, typename OutputCType = typename Type::c_type>
+  Status AllocateDataBufAndFill(const Type& output_type, OutputCType value) {
+    RETURN_NOT_OK(AllocateDataBuf(output_type));
 
     OutputCType* data = data_buf_->mutable_data_as<OutputCType>();
     for (int64_t i = 0; i < output_length_; ++i) {
