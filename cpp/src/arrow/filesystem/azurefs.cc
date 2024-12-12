@@ -444,13 +444,6 @@ Result<std::string> AzureOptions::GenerateSASToken(
   }
 }
 
-std::optional<std::string> AzureOptions::GetSASToken() const {
-  if (credential_kind_ == CredentialKind::kSasToken) {
-    return sas_token_;
-  }
-  return {};
-}
-
 namespace {
 
 // An AzureFileSystem represents an Azure storage account. An AzureLocation describes a
@@ -3186,8 +3179,10 @@ class AzureFileSystem::Impl {
       return Status::OK();
     }
     std::string sas_token;
-    if (auto token = options_.GetSASToken()) {
-      sas_token = token.value();
+    if (options_.UsesSasCredential()) {
+      // When authenticated with SAS token GetUrl() automatically provides an
+      // authenticated URL with the SAS token appended.
+      sas_token = "";
     } else {
       Storage::Sas::BlobSasBuilder builder;
       std::chrono::seconds available_period(60);
