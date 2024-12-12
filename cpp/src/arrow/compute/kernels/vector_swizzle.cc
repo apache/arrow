@@ -207,7 +207,7 @@ struct InversePermutationImpl {
     DCHECK_NE(data_buf_, nullptr);
     OutputCType* data = data_buf_->mutable_data_as<OutputCType>();
     int64_t inverse = 0;
-    RETURN_NOT_OK(ExecType::template VisitIndices(
+    RETURN_NOT_OK(ExecType::VisitIndices(
         indices_,
         [&](IndexCType index) {
           if (ARROW_PREDICT_FALSE(index < 0 ||
