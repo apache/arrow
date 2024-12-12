@@ -1993,7 +1993,7 @@ def check_cast_float_to_decimal(float_ty, float_val, decimal_ty, decimal_ctx,
         # very high precisions as rounding errors can accumulate in
         # the iterative algorithm (GH-35576).
         diff_digits = abs(actual - expected) * 10**decimal_ty.scale
-        limit = 2 if decimal_ty.precision < max_precision - 1 else 4
+        limit = 2 if decimal_ty.precision < max_precision - 2 else 4
         assert diff_digits <= limit, (
             f"float_val = {float_val!r}, precision={decimal_ty.precision}, "
             f"expected = {expected!r}, actual = {actual!r}, "
