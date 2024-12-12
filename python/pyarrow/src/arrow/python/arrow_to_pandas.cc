@@ -2539,7 +2539,8 @@ Status ConvertCategoricals(const PandasOptions& options, ChunkedArrayVector* arr
   }
   if (options.strings_to_categorical) {
     for (int i = 0; i < static_cast<int>(arrays->size()); i++) {
-      if (is_base_binary_like((*arrays)[i]->type()->id())) {
+      if (is_base_binary_like((*arrays)[i]->type()->id()) ||
+          is_binary_view_like((*arrays)[i]->type()->id())) {
         columns_to_encode.push_back(i);
       }
     }
@@ -2573,7 +2574,8 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
     py_ref = nullptr;
   }
 
-  if (options.strings_to_categorical && is_base_binary_like(arr->type()->id())) {
+  if (options.strings_to_categorical && (is_base_binary_like(arr->type()->id()) ||
+                                         is_binary_view_like(arr->type()->id()))) {
     if (options.zero_copy_only) {
       return Status::Invalid("Need to dictionary encode a column, but ",
                              "only zero-copy conversions allowed");
