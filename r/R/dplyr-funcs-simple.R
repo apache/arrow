@@ -32,14 +32,22 @@
   "base::log1p" = "log1p_checked",
   "base::log2" = "log2_checked",
   "base::sign" = "sign",
+  "base::expm1" = "expm1",
   # trunc is defined in dplyr-functions.R
 
   # trigonometric functions
   "base::acos" = "acos_checked",
   "base::asin" = "asin_checked",
   "base::cos" = "cos_checked",
+  "base::atan" = "atan",
   "base::sin" = "sin_checked",
   "base::tan" = "tan_checked",
+  "base::cosh" = "cosh",
+  "base::sinh" = "sinh",
+  "base::tanh" = "tanh",
+  "base::acosh" = "acosh_checked",
+  "base::asinh" = "asinh",
+  "base::atanh" = "atanh_checked",
 
   # logical functions
   "!" = "invert",
