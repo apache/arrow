@@ -32,6 +32,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/future.h"
+#include "arrow/util/thread_pool.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -51,8 +53,14 @@ using arrow::internal::checked_pointer_cast;
 namespace arrow {
 namespace dataset {
 
+// Tests come in these variations
+enum CompressionParam {
+  COLUMN_KEY,
+  UNIFORM,
+};
+
 // Base class to test writing and reading encrypted dataset.
-class DatasetEncryptionTestBase : public ::testing::Test {
+class DatasetEncryptionTestBase : public testing::TestWithParam<CompressionParam> {
  public:
   // This function creates a mock file system using the current time point, creates a
   // directory with the given base directory path, and writes a dataset to it using
@@ -90,7 +98,15 @@ class DatasetEncryptionTestBase : public ::testing::Test {
     auto encryption_config =
         std::make_shared<parquet::encryption::EncryptionConfiguration>(
             std::string(kFooterKeyName));
-    encryption_config->column_keys = kColumnKeyMapping;
+
+    if (GetParam() == COLUMN_KEY) {
+      encryption_config->column_keys = kColumnKeyMapping;
+    } else if (GetParam() == UNIFORM) {
+      encryption_config->uniform_encryption = true;
+    } else {
+      FAIL() << "Unsupported compression type " << GetParam();
+    }
+
     auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
     // Directly assign shared_ptr objects to ParquetEncryptionConfig members
     parquet_encryption_config->crypto_factory = crypto_factory_;
@@ -119,7 +135,7 @@ class DatasetEncryptionTestBase : public ::testing::Test {
 
   virtual void PrepareTableAndPartitioning() = 0;
 
-  void TestScanDataset() {
+  void TestScanDataset(bool concurrently = false) {
     // Create decryption properties.
     auto decryption_config =
         std::make_shared<parquet::encryption::DecryptionConfiguration>();
@@ -151,19 +167,51 @@ class DatasetEncryptionTestBase : public ::testing::Test {
     // Create the dataset
     ASSERT_OK_AND_ASSIGN(auto dataset, dataset_factory->Finish());
 
-    // Reuse the dataset above to scan it twice to make sure decryption works correctly.
-    for (size_t i = 0; i < 2; ++i) {
-      // Read dataset into table
-      ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
-      ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
-      ASSERT_OK_AND_ASSIGN(auto read_table, scanner->ToTable());
+    if (concurrently) {
+      // start with a single thread so we are more likely to build up a queue of jobs
+      ASSERT_OK_AND_ASSIGN(auto pool, arrow::internal::ThreadPool::Make(1));
+      std::vector<Future<std::shared_ptr<Table>>> threads;
 
-      // Verify the data was read correctly
-      ASSERT_OK_AND_ASSIGN(auto combined_table, read_table->CombineChunks());
-      // Validate the table
-      ASSERT_OK(combined_table->ValidateFull());
-      AssertTablesEqual(*combined_table, *table_);
+      // Read dataset above multiple times concurrently to see that is thread-safe.
+      for (size_t i = 0; i < 100; ++i) {
+        threads.push_back(
+            DeferNotOk(pool->Submit(DatasetEncryptionTestBase::read, dataset)));
+      }
+
+      // ramp up parallelism
+      ASSERT_OK(pool->SetCapacity(16));
+      // ensure there are sufficient jobs to see concurrent processing
+      ASSERT_GT(pool->GetNumTasks(), 16);
+      printf("%d", pool->GetNumTasks());
+
+      // wait for all jobs to finish
+      pool->WaitForIdle();
+
+      // assert correctness of jobs
+      for (auto& thread : threads) {
+        ASSERT_OK_AND_ASSIGN(auto read_table, thread.result());
+        AssertTablesEqual(*read_table, *table_);
+      }
+    } else {
+      // Reuse the dataset above to scan it twice to make sure decryption works correctly.
+      for (size_t i = 0; i < 2; ++i) {
+        ASSERT_OK_AND_ASSIGN(auto read_table, read(dataset));
+        AssertTablesEqual(*read_table, *table_);
+      }
     }
+  }
+
+  static Result<std::shared_ptr<Table>> read(const std::shared_ptr<Dataset>& dataset) {
+    // Read dataset into table
+    ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
+    ARROW_ASSIGN_OR_RAISE(auto scanner, scanner_builder->Finish());
+    ARROW_ASSIGN_OR_RAISE(auto read_table, scanner->ToTable());
+
+    // Verify the data was read correctly
+    ARROW_ASSIGN_OR_RAISE(auto combined_table, read_table->CombineChunks());
+    // Validate the table
+    RETURN_NOT_OK(combined_table->ValidateFull());
+    return combined_table;
   }
 
  protected:
@@ -204,12 +252,16 @@ class DatasetEncryptionTest : public DatasetEncryptionTestBase {
 // properties are determined based on the selected columns. After writing the dataset, the
 // test reads the data back and verifies that it can be successfully decrypted and
 // scanned.
-TEST_F(DatasetEncryptionTest, WriteReadDatasetWithEncryption) {
+TEST_P(DatasetEncryptionTest, WriteReadDatasetWithEncryption) {
   ASSERT_NO_FATAL_FAILURE(TestScanDataset());
 }
 
+TEST_P(DatasetEncryptionTest, WriteReadDatasetWithEncryptionThreaded) {
+  ASSERT_NO_FATAL_FAILURE(TestScanDataset(true));
+}
+
 // Read a single parquet file with and without decryption properties.
-TEST_F(DatasetEncryptionTest, ReadSingleFile) {
+TEST_P(DatasetEncryptionTest, ReadSingleFile) {
   // Open the Parquet file.
   ASSERT_OK_AND_ASSIGN(auto input, file_system_->OpenInputFile("part=a/part0.parquet"));
 
@@ -240,6 +292,11 @@ TEST_F(DatasetEncryptionTest, ReadSingleFile) {
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(2)->chunk(0))->GetView(0), 1);
 }
 
+INSTANTIATE_TEST_SUITE_P(DatasetColumnKeyEncryptionTest, DatasetEncryptionTest,
+                         ::testing::Values(COLUMN_KEY));
+INSTANTIATE_TEST_SUITE_P(DatasetUniformEncryptionTest, DatasetEncryptionTest,
+                         ::testing::Values(UNIFORM));
+
 // GH-39444: This test covers the case where parquet dataset scanner crashes when
 // processing encrypted datasets over 2^15 rows in multi-threaded mode.
 class LargeRowEncryptionTest : public DatasetEncryptionTestBase {
@@ -261,9 +318,14 @@ class LargeRowEncryptionTest : public DatasetEncryptionTestBase {
 };
 
 // Test for writing and reading encrypted dataset with large row count.
-TEST_F(LargeRowEncryptionTest, ReadEncryptLargeRows) {
+TEST_P(LargeRowEncryptionTest, ReadEncryptLargeRows) {
   ASSERT_NO_FATAL_FAILURE(TestScanDataset());
 }
+
+INSTANTIATE_TEST_SUITE_P(LargeRowColumnKeyEncryptionTest, LargeRowEncryptionTest,
+                         ::testing::Values(COLUMN_KEY));
+INSTANTIATE_TEST_SUITE_P(LargeRowUniformEncryptionTest, LargeRowEncryptionTest,
+                         ::testing::Values(UNIFORM));
 
 }  // namespace dataset
 }  // namespace arrow
