@@ -77,7 +77,7 @@ void DoTestInversePermutationForInputTypes(
     const Datum& expected, bool validity_must_be_null = false) {
   for (const auto& input_type : input_types) {
     ARROW_SCOPED_TRACE("Input type: " + input_type->ToString());
-    auto indices = input(input_type);
+    ASSERT_OK_AND_ASSIGN(auto indices, input(input_type));
     AssertInversePermutation(indices, max_index, output_type, expected,
                              validity_must_be_null);
   }
@@ -100,14 +100,15 @@ void DoTestInversePermutationForInputOutputTypes(
 void TestInversePermutationForInputOutputTypes(
     const std::vector<std::shared_ptr<DataType>>& input_types,
     const std::vector<std::shared_ptr<DataType>>& output_types,
-    const std::string& indices_str, const std::vector<std::string>& indices_chunked_str,
-    int64_t max_index, const std::string& expected_str, bool validity_must_be_null) {
+    const std::vector<std::string>& indices_chunked_str, int64_t max_index,
+    const std::string& expected_str, bool validity_must_be_null) {
   {
     ARROW_SCOPED_TRACE("Array");
     DoTestInversePermutationForInputOutputTypes(
         input_types, output_types,
-        [&](const std::shared_ptr<DataType>& input_type) {
-          return ArrayFromJSON(input_type, indices_str);
+        [&](const std::shared_ptr<DataType>& input_type) -> Result<Datum> {
+          auto chunked = ChunkedArrayFromJSON(input_type, indices_chunked_str);
+          return Concatenate(chunked->chunks());
         },
         max_index, expected_str, validity_must_be_null);
   }
@@ -115,20 +116,19 @@ void TestInversePermutationForInputOutputTypes(
     ARROW_SCOPED_TRACE("Chunked");
     DoTestInversePermutationForInputOutputTypes(
         input_types, output_types,
-        [&](const std::shared_ptr<DataType>& input_type) {
+        [&](const std::shared_ptr<DataType>& input_type) -> Result<Datum> {
           return ChunkedArrayFromJSON(input_type, indices_chunked_str);
         },
         max_index, expected_str, validity_must_be_null);
   }
 }
 
-void TestInversePermutation(const std::string& indices_str,
-                            const std::vector<std::string>& indices_chunked_str,
+void TestInversePermutation(const std::vector<std::string>& indices_chunked_str,
                             int64_t max_index, const std::string& expected_str,
                             bool validity_must_be_null = false) {
   TestInversePermutationForInputOutputTypes(kSignedIntegerTypes, kSignedIntegerTypes,
-                                            indices_str, indices_chunked_str, max_index,
-                                            expected_str, validity_must_be_null);
+                                            indices_chunked_str, max_index, expected_str,
+                                            validity_must_be_null);
 }
 
 }  // namespace
@@ -200,55 +200,49 @@ TEST(InversePermutation, InvalidIndex) {
 TEST(InversePermutation, Basic) {
   {
     ARROW_SCOPED_TRACE("Basic");
-    auto indices = "[9, 7, 5, 3, 1, 0, 2, 4, 6, 8]";
     std::vector<std::string> indices_chunked{
         "[]", "[9, 7, 5, 3, 1]", "[0]", "[2, 4, 6]", "[8]", "[]"};
     int64_t max_index = 9;
     auto expected = "[5, 4, 6, 3, 7, 2, 8, 1, 9, 0]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected,
+    TestInversePermutation(indices_chunked, max_index, expected,
                            /*validity_must_be_null=*/true);
   }
   {
     ARROW_SCOPED_TRACE("Basic with nulls");
-    auto indices = "[9, 7, 5, 3, 1, null, null, null, null, null]";
     std::vector<std::string> indices_chunked{
         "[]", "[9, 7, 5, 3, 1]", "[null]", "[null, null, null]", "[null]", "[]"};
     int64_t max_index = 9;
     auto expected = "[null, 4, null, 3, null, 2, null, 1, null, 0]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected);
+    TestInversePermutation(indices_chunked, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Output greater than input");
-    auto indices = "[1, 2]";
     std::vector<std::string> indices_chunked{"[]", "[1]", "[]", "[2]"};
     int64_t max_index = 6;
     auto expected = "[null, 0, 1, null, null, null, null]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected);
+    TestInversePermutation(indices_chunked, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Input all null");
-    auto indices = "[null, null]";
     std::vector<std::string> indices_chunked{"[]", "[null]", "[]", "[null]"};
     int64_t max_index = 1;
     auto expected = "[null, null]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected);
+    TestInversePermutation(indices_chunked, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Empty input output null");
-    auto indices = "[]";
     std::vector<std::string> indices_chunked{"[]", "[]", "[]", "[]"};
     int64_t max_index = 6;
     auto expected = "[null, null, null, null, null, null, null]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected);
+    TestInversePermutation(indices_chunked, max_index, expected);
   }
   {
     ARROW_SCOPED_TRACE("Input duplicated indices");
-    auto indices = "[1, 2, 3, 1, 2, 3, 1, 2, 3]";
     std::vector<std::string> indices_chunked{"[]", "[1, 2]", "[3, 1, 2, 3, 1]",
                                              "[]", "[2]",    "[3]"};
     int64_t max_index = 4;
     auto expected = "[null, 6, 7, 8, null]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected);
+    TestInversePermutation(indices_chunked, max_index, expected);
   }
 }
 
@@ -272,7 +266,7 @@ TYPED_TEST(TestInversePermutationSmallOutputType, JustEnoughOutputType) {
       ArrayFromJSON(output_type, "[" + std::to_string(input_length - 1) + "]");
   DoTestInversePermutationForInputTypes(
       kSignedIntegerTypes,
-      [&](const std::shared_ptr<DataType>& input_type) {
+      [&](const std::shared_ptr<DataType>& input_type) -> Result<Datum> {
         return ConstantArrayGenerator::Zeroes(input_length, input_type);
       },
       /*max_index=*/0, output_type, expected);
