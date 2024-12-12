@@ -17,7 +17,6 @@
 
 import contextlib
 import os
-import platform
 import signal
 import subprocess
 import sys
@@ -30,15 +29,19 @@ import pytest
 pytestmark = pytest.mark.processes
 
 possible_backends = ["system", "jemalloc", "mimalloc"]
+# Backends which are expected to be present in all builds of PyArrow,
+# except if the user manually recompiled Arrow C++.
+mandatory_backends = ["system", "mimalloc"]
 
-should_have_jemalloc = (sys.platform == "linux" and platform.machine() == 'x86_64')
-should_have_mimalloc = sys.platform == "win32"
+
+def backend_factory(backend_name):
+    return getattr(pa, f"{backend_name}_memory_pool")
 
 
 def supported_factories():
     yield pa.default_memory_pool
-    for backend in pa.supported_memory_backends():
-        yield getattr(pa, f"{backend}_memory_pool")
+    for backend_name in pa.supported_memory_backends():
+        yield backend_factory(backend_name)
 
 
 @contextlib.contextmanager
@@ -149,17 +152,12 @@ def check_env_var(name, expected, *, expect_warning=False):
 
 
 def test_env_var():
-    check_env_var("system", ["system"])
-    if should_have_jemalloc:
-        check_env_var("jemalloc", ["jemalloc"])
-    if should_have_mimalloc:
-        check_env_var("mimalloc", ["mimalloc"])
+    for backend_name in mandatory_backends:
+        check_env_var(backend_name, [backend_name])
     check_env_var("nonexistent", possible_backends, expect_warning=True)
 
 
-def test_specific_memory_pools():
-    specific_pools = set()
-
+def test_memory_pool_factories():
     def check(factory, name, *, can_fail=False):
         if can_fail:
             try:
@@ -169,23 +167,16 @@ def test_specific_memory_pools():
         else:
             pool = factory()
         assert pool.backend_name == name
-        specific_pools.add(pool)
 
-    check(pa.system_memory_pool, "system")
-    check(pa.jemalloc_memory_pool, "jemalloc",
-          can_fail=not should_have_jemalloc)
-    check(pa.mimalloc_memory_pool, "mimalloc",
-          can_fail=not should_have_mimalloc)
+    for backend_name in possible_backends:
+        check(backend_factory(backend_name), backend_name,
+              can_fail=backend_name not in mandatory_backends)
 
 
 def test_supported_memory_backends():
     backends = pa.supported_memory_backends()
-
-    assert "system" in backends
-    if should_have_jemalloc:
-        assert "jemalloc" in backends
-    if should_have_mimalloc:
-        assert "mimalloc" in backends
+    assert set(backends) >= set(mandatory_backends)
+    assert set(backends) <= set(possible_backends)
 
 
 def run_debug_memory_pool(pool_factory, env_value):
@@ -246,6 +237,9 @@ def test_debug_memory_pool_warn(pool_factory):
 
 
 def check_debug_memory_pool_disabled(pool_factory, env_value, msg):
+    if sys.maxsize < 2**32:
+        # GH-45011: mimalloc may print warnings in this test on 32-bit Linux, ignore.
+        pytest.skip("Test may fail on 32-bit platforms")
     res = run_debug_memory_pool(pool_factory.__name__, env_value)
     # The subprocess either returned successfully or was killed by a signal
     # (due to writing out of bounds), depending on the underlying allocator.
