@@ -207,7 +207,7 @@ struct ConversionTraits<std::array<CType_, N>>
         ::arrow::internal::checked_cast<const ElementArrayType&>(*array.values());
 
     std::array<CType_, N> arr;
-    for (int64_t i = 0; i < N; i++) {
+    for (size_t i = 0; i < N; i++) {
       arr[i] =
           stl::ConversionTraits<CType_>::GetEntry(value_array, array.value_offset(j) + i);
     }

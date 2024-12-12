@@ -540,6 +540,7 @@ struct CTypeTraits<std::vector<CType>> : public TypeTraits<ListType> {
   }
 };
 
+/// \addtogroup c-type-traits
 template <typename CType, std::size_t N>
 struct CTypeTraits<std::array<CType, N>> : public TypeTraits<FixedSizeListType> {
   using ArrowType = FixedSizeListType;
