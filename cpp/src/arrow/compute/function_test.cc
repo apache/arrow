@@ -136,6 +136,10 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new SelectKOptions(5, {{SortKey("key", SortOrder::Ascending)}}));
   options.emplace_back(new Utf8NormalizeOptions());
   options.emplace_back(new Utf8NormalizeOptions(Utf8NormalizeOptions::NFD));
+  options.emplace_back(
+      new InversePermutationOptions(/*max_index=*/42, /*output_type=*/int32()));
+  options.emplace_back(new ScatterOptions());
+  options.emplace_back(new ScatterOptions(/*max_index=*/42));
 
   for (size_t i = 0; i < options.size(); i++) {
     const size_t prev_i = i == 0 ? options.size() - 1 : i - 1;
