@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <future>
 #include <string_view>
 
 #include "gtest/gtest.h"
@@ -33,6 +32,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/future.h"
+#include "arrow/util/thread_pool.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -166,22 +167,35 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<CompressionParam
     // Create the dataset
     ASSERT_OK_AND_ASSIGN(auto dataset, dataset_factory->Finish());
 
-    std::vector<std::future<Result<std::shared_ptr<Table>>>> threads;
+    if (concurrently) {
+      // start with a single thread so we are more likely to build up a queue of jobs
+      ASSERT_OK_AND_ASSIGN(auto pool, arrow::internal::ThreadPool::Make(1));
+      std::vector<Future<std::shared_ptr<Table>>> threads;
 
-    // Read dataset above multiple times concurrently to see that is thread-safe.
-    // Reuse the dataset above to scan it twice to make sure decryption works correctly.
-    const size_t attempts = concurrently ? 1000 : 2;
-    for (size_t i = 0; i < attempts; ++i) {
-      if (concurrently) {
-        threads.push_back(std::async(DatasetEncryptionTestBase::read, dataset));
-      } else {
-        ASSERT_OK_AND_ASSIGN(auto read_table, read(dataset));
+      // Read dataset above multiple times concurrently to see that is thread-safe.
+      for (size_t i = 0; i < 100; ++i) {
+        threads.push_back(
+            DeferNotOk(pool->Submit(DatasetEncryptionTestBase::read, dataset)));
+      }
+
+      // ramp up parallelism
+      ASSERT_OK(pool->SetCapacity(16));
+      // ensure there are sufficient jobs to see concurrent processing
+      ASSERT_GT(pool->GetNumTasks(), 16);
+      printf("%d", pool->GetNumTasks());
+
+      // wait for all jobs to finish
+      pool->WaitForIdle();
+
+      // assert correctness of jobs
+      for (auto& thread : threads) {
+        ASSERT_OK_AND_ASSIGN(auto read_table, thread.result());
         AssertTablesEqual(*read_table, *table_);
       }
-    }
-    if (concurrently) {
-      for (auto& thread : threads) {
-        ASSERT_OK_AND_ASSIGN(auto read_table, thread.get());
+    } else {
+      // Reuse the dataset above to scan it twice to make sure decryption works correctly.
+      for (size_t i = 0; i < 2; ++i) {
+        ASSERT_OK_AND_ASSIGN(auto read_table, read(dataset));
         AssertTablesEqual(*read_table, *table_);
       }
     }
