@@ -289,13 +289,16 @@ def is_map(t):
 def is_decimal(t):
     return t.id in _DECIMAL_TYPES
 
+
 @doc(is_null, datatype="decimal32")
 def is_decimal32(t):
     return t.id == lib.Type_DECIMAL32
 
+
 @doc(is_null, datatype="decimal64")
 def is_decimal64(t):
     return t.id == lib.Type_DECIMAL64
+
 
 @doc(is_null, datatype="decimal128")
 def is_decimal128(t):
