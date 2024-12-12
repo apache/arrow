@@ -52,12 +52,15 @@ using arrow::internal::checked_pointer_cast;
 namespace arrow {
 namespace dataset {
 
-// Base class to test writing and reading encrypted dataset.
-class DatasetEncryptionTestBase : public ::testing::Test {
- public:
-  explicit DatasetEncryptionTestBase(bool uniform_encryption = false)
-      : uniform_encryption(uniform_encryption) {}
+// Tests come in these variations
+enum CompressionParam {
+  COLUMN_KEY,
+  UNIFORM,
+};
 
+// Base class to test writing and reading encrypted dataset.
+class DatasetEncryptionTestBase : public testing::TestWithParam<CompressionParam> {
+ public:
   // This function creates a mock file system using the current time point, creates a
   // directory with the given base directory path, and writes a dataset to it using
   // provided Parquet file write options. The function also checks if the written files
@@ -94,11 +97,15 @@ class DatasetEncryptionTestBase : public ::testing::Test {
     auto encryption_config =
         std::make_shared<parquet::encryption::EncryptionConfiguration>(
             std::string(kFooterKeyName));
-    if (uniform_encryption) {
+
+    if (GetParam() == COLUMN_KEY) {
+      encryption_config->column_keys = kColumnKeyMapping;
+    } else if (GetParam() == UNIFORM) {
       encryption_config->uniform_encryption = true;
     } else {
-      encryption_config->column_keys = kColumnKeyMapping;
+      FAIL() << "Unsupported compression type " << GetParam();
     }
+
     auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
     // Directly assign shared_ptr objects to ParquetEncryptionConfig members
     parquet_encryption_config->crypto_factory = crypto_factory_;
@@ -199,16 +206,10 @@ class DatasetEncryptionTestBase : public ::testing::Test {
   std::shared_ptr<Partitioning> partitioning_;
   std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory_;
   std::shared_ptr<parquet::encryption::KmsConnectionConfig> kms_connection_config_;
-
- private:
-  bool uniform_encryption;
 };
 
 class DatasetEncryptionTest : public DatasetEncryptionTestBase {
  public:
-  explicit DatasetEncryptionTest(bool uniform_encryption = false)
-      : DatasetEncryptionTestBase(uniform_encryption) {}
-
   // The dataset is partitioned using a Hive partitioning scheme.
   void PrepareTableAndPartitioning() override {
     // Prepare table data.
@@ -231,30 +232,22 @@ class DatasetEncryptionTest : public DatasetEncryptionTestBase {
     partitioning_ = std::make_shared<HivePartitioning>(schema({field("part", utf8())}));
   }
 };
-class DatasetUniformEncryptionTest : public DatasetEncryptionTest {
- public:
-  DatasetUniformEncryptionTest() : DatasetEncryptionTest(true) {}
-};
 
 // This test demonstrates the process of writing a partitioned Parquet file with the same
 // encryption properties applied to each file within the dataset. The encryption
 // properties are determined based on the selected columns. After writing the dataset, the
 // test reads the data back and verifies that it can be successfully decrypted and
 // scanned.
-TEST_F(DatasetEncryptionTest, WriteReadDatasetWithEncryption) {
+TEST_P(DatasetEncryptionTest, WriteReadDatasetWithEncryption) {
   ASSERT_NO_FATAL_FAILURE(TestScanDataset());
 }
 
-TEST_F(DatasetEncryptionTest, WriteReadDatasetWithEncryptionThreaded) {
+TEST_P(DatasetEncryptionTest, WriteReadDatasetWithEncryptionThreaded) {
   ASSERT_NO_FATAL_FAILURE(TestScanDataset(true));
 }
 
-TEST_F(DatasetUniformEncryptionTest, WriteReadDatasetWithEncryption) {
-  ASSERT_NO_FATAL_FAILURE(TestScanDataset());
-}
-
 // Read a single parquet file with and without decryption properties.
-TEST_F(DatasetEncryptionTest, ReadSingleFile) {
+TEST_P(DatasetEncryptionTest, ReadSingleFile) {
   // Open the Parquet file.
   ASSERT_OK_AND_ASSIGN(auto input, file_system_->OpenInputFile("part=a/part0.parquet"));
 
@@ -285,6 +278,11 @@ TEST_F(DatasetEncryptionTest, ReadSingleFile) {
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(2)->chunk(0))->GetView(0), 1);
 }
 
+INSTANTIATE_TEST_SUITE_P(DatasetColumnKeyEncryptionTest, DatasetEncryptionTest,
+                         ::testing::Values(COLUMN_KEY));
+INSTANTIATE_TEST_SUITE_P(DatasetUniformEncryptionTest, DatasetEncryptionTest,
+                         ::testing::Values(UNIFORM));
+
 // GH-39444: This test covers the case where parquet dataset scanner crashes when
 // processing encrypted datasets over 2^15 rows in multi-threaded mode.
 class LargeRowEncryptionTest : public DatasetEncryptionTestBase {
@@ -306,9 +304,14 @@ class LargeRowEncryptionTest : public DatasetEncryptionTestBase {
 };
 
 // Test for writing and reading encrypted dataset with large row count.
-TEST_F(LargeRowEncryptionTest, ReadEncryptLargeRows) {
+TEST_P(LargeRowEncryptionTest, ReadEncryptLargeRows) {
   ASSERT_NO_FATAL_FAILURE(TestScanDataset());
 }
+
+INSTANTIATE_TEST_SUITE_P(LargeRowColumnKeyEncryptionTest, LargeRowEncryptionTest,
+                         ::testing::Values(COLUMN_KEY));
+INSTANTIATE_TEST_SUITE_P(LargeRowUniformEncryptionTest, LargeRowEncryptionTest,
+                         ::testing::Values(UNIFORM));
 
 }  // namespace dataset
 }  // namespace arrow
