@@ -319,6 +319,9 @@ class ARROW_EXPORT ResizableArrayData {
   /// \brief The current length (in rows) of the array
   int num_rows() const { return num_rows_; }
 
+  /// \brief The current allocated length (in rows) of the array
+  int num_rows_allocated() const { return num_rows_allocated_; }
+
   /// \brief A non-owning view into this array
   KeyColumnArray column_array() const;
 
@@ -346,6 +349,11 @@ class ARROW_EXPORT ResizableArrayData {
   /// If i is 2 (kVariableLengthBuffer) then this returns the buffer used for variable
   /// length binary data
   uint8_t* mutable_data(int i) { return buffers_[i]->mutable_data(); }
+
+  template <typename T>
+  T* mutable_data_as(int i) {
+    return reinterpret_cast<T*>(mutable_data(i));
+  }
 
  private:
   static constexpr int64_t kNumPaddingBytes = 64;
