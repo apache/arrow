@@ -183,6 +183,77 @@ TEST(InversePermutation, DefaultOptions) {
   }
 }
 
+TEST(InversePermutation, InvalidIndex) {
+  {
+    ARROW_SCOPED_TRACE("Negative index");
+    auto indices = ArrayFromJSON(int32(), "[-1]");
+    ASSERT_RAISES_WITH_MESSAGE(IndexError, "Index error: Index out of bounds: -1",
+                               InversePermutation(indices));
+  }
+  {
+    ARROW_SCOPED_TRACE("Exceeds max_index");
+    auto indices = ArrayFromJSON(int32(), "[42]");
+    ASSERT_RAISES_WITH_MESSAGE(
+        IndexError, "Index error: Index out of bounds: 42",
+        InversePermutation(indices, /*max_index=*/1, /*output_type=*/int32()));
+  }
+}
+
+TEST(InversePermutation, Basic) {
+  {
+    ARROW_SCOPED_TRACE("Basic");
+    auto indices = "[9, 7, 5, 3, 1, 0, 2, 4, 6, 8]";
+    std::vector<std::string> indices_chunked{
+        "[]", "[9, 7, 5, 3, 1]", "[0]", "[2, 4, 6]", "[8]", "[]"};
+    int64_t max_index = 9;
+    auto expected = "[5, 4, 6, 3, 7, 2, 8, 1, 9, 0]";
+    TestInversePermutation(indices, indices_chunked, max_index, expected,
+                           /*validity_must_be_null=*/true);
+  }
+  {
+    ARROW_SCOPED_TRACE("Basic with nulls");
+    auto indices = "[9, 7, 5, 3, 1, null, null, null, null, null]";
+    std::vector<std::string> indices_chunked{
+        "[]", "[9, 7, 5, 3, 1]", "[null]", "[null, null, null]", "[null]", "[]"};
+    int64_t max_index = 9;
+    auto expected = "[null, 4, null, 3, null, 2, null, 1, null, 0]";
+    TestInversePermutation(indices, indices_chunked, max_index, expected);
+  }
+  {
+    ARROW_SCOPED_TRACE("Output greater than input");
+    auto indices = "[1, 2]";
+    std::vector<std::string> indices_chunked{"[]", "[1]", "[]", "[2]"};
+    int64_t max_index = 6;
+    auto expected = "[null, 0, 1, null, null, null, null]";
+    TestInversePermutation(indices, indices_chunked, max_index, expected);
+  }
+  {
+    ARROW_SCOPED_TRACE("Input all null");
+    auto indices = "[null, null]";
+    std::vector<std::string> indices_chunked{"[]", "[null]", "[]", "[null]"};
+    int64_t max_index = 1;
+    auto expected = "[null, null]";
+    TestInversePermutation(indices, indices_chunked, max_index, expected);
+  }
+  {
+    ARROW_SCOPED_TRACE("Empty input output null");
+    auto indices = "[]";
+    std::vector<std::string> indices_chunked{"[]", "[]", "[]", "[]"};
+    int64_t max_index = 6;
+    auto expected = "[null, null, null, null, null, null, null]";
+    TestInversePermutation(indices, indices_chunked, max_index, expected);
+  }
+  {
+    ARROW_SCOPED_TRACE("Input duplicated indices");
+    auto indices = "[1, 2, 3, 1, 2, 3, 1, 2, 3]";
+    std::vector<std::string> indices_chunked{"[]", "[1, 2]", "[3, 1, 2, 3, 1]",
+                                             "[]", "[2]",    "[3]"};
+    int64_t max_index = 4;
+    auto expected = "[null, 6, 7, 8, null]";
+    TestInversePermutation(indices, indices_chunked, max_index, expected);
+  }
+}
+
 template <typename ArrowType>
 class TestInversePermutationSmallOutputType : public ::testing::Test {
  protected:
@@ -222,78 +293,6 @@ TYPED_TEST(TestInversePermutationSmallOutputType, InsufficientOutputType) {
             " of inverse_permutation is insufficient to store indices of length " +
             std::to_string(input_length),
         InversePermutation(indices, /*max_index=*/0, output_type));
-  }
-}
-
-TEST(InversePermutation, Basic) {
-  {
-    ARROW_SCOPED_TRACE("Basic");
-    auto indices = "[9, 7, 5, 3, 1, 0, 2, 4, 6, 8]";
-    std::vector<std::string> indices_chunked{
-        "[]", "[9, 7, 5, 3, 1]", "[0]", "[2, 4, 6]", "[8]", "[]"};
-    int64_t max_index = 9;
-    auto expected = "[5, 4, 6, 3, 7, 2, 8, 1, 9, 0]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected,
-                           /*validity_must_be_null=*/true);
-  }
-  {
-    ARROW_SCOPED_TRACE("Basic with nulls");
-    auto indices = "[9, 7, 5, 3, 1, null, null, null, null, null]";
-    std::vector<std::string> indices_chunked{
-        "[]", "[9, 7, 5, 3, 1]", "[null]", "[null, null, null]", "[null]", "[]"};
-    int64_t max_index = 9;
-    auto expected = "[null, 4, null, 3, null, 2, null, 1, null, 0]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("Basic with negatives");
-    auto indices = "[9, 7, 5, 3, 1, -1, -2, -3, -4, -5]";
-    std::vector<std::string> indices_chunked{
-        "[]", "[9, 7, 5, 3, 1]", "[-1]", "[-2, -3, -4]", "[-5]", "[]"};
-    int64_t max_index = 9;
-    auto expected = "[null, 4, null, 3, null, 2, null, 1, null, 0]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("Output greater than input");
-    auto indices = "[1, 2]";
-    std::vector<std::string> indices_chunked{"[]", "[1]", "[]", "[2]"};
-    int64_t max_index = 6;
-    auto expected = "[null, 0, 1, null, null, null, null]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("Input all null");
-    auto indices = "[null, null]";
-    std::vector<std::string> indices_chunked{"[]", "[null]", "[]", "[null]"};
-    int64_t max_index = 1;
-    auto expected = "[null, null]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("Output all null");
-    auto indices = "[2, 3]";
-    std::vector<std::string> indices_chunked{"[]", "[2]", "[]", "[3]"};
-    int64_t max_index = 1;
-    auto expected = "[null, null]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("Empty input output null");
-    auto indices = "[]";
-    std::vector<std::string> indices_chunked{"[]", "[]", "[]", "[]"};
-    int64_t max_index = 6;
-    auto expected = "[null, null, null, null, null, null, null]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("Input duplicated indices");
-    auto indices = "[1, 2, 3, 1, 2, 3, 1, 2, 3]";
-    std::vector<std::string> indices_chunked{"[]", "[1, 2]", "[3, 1, 2, 3, 1]",
-                                             "[]", "[2]",    "[3]"};
-    int64_t max_index = 4;
-    auto expected = "[null, 6, 7, 8, null]";
-    TestInversePermutation(indices, indices_chunked, max_index, expected);
   }
 }
 
@@ -470,12 +469,6 @@ void DoTestScatterForIndicesTypes(
   }
 }
 
-void DoTestScatterSignedIndices(const std::shared_ptr<Array>& values,
-                                const std::shared_ptr<Array>& indices, int64_t max_index,
-                                const std::shared_ptr<Array>& expected) {
-  DoTestScatterForIndicesTypes(kSignedIntegerTypes, values, indices, max_index, expected);
-}
-
 void DoTestScatter(const std::shared_ptr<Array>& values,
                    const std::shared_ptr<Array>& indices, int64_t max_index,
                    const std::shared_ptr<Array>& expected) {
@@ -497,10 +490,22 @@ TEST(Scatter, Invalid) {
   {
     ARROW_SCOPED_TRACE("Invalid input type");
     auto values = ArrayFromJSON(int32(), "[0]");
-    auto indices = ArrayFromJSON(utf8(), R"(["a"])");
-    ASSERT_RAISES_WITH_MESSAGE(
-        Invalid, "Invalid: Indices of scatter must be of integer type, got string",
-        Scatter(values, indices));
+    {
+      ARROW_SCOPED_TRACE("uint32");
+      auto indices = ArrayFromJSON(uint32(), R"([0])");
+      ASSERT_RAISES_WITH_MESSAGE(
+          Invalid,
+          "Invalid: Indices of scatter must be of signed integer type, got uint32",
+          Scatter(values, indices));
+    }
+    {
+      ARROW_SCOPED_TRACE("string");
+      auto indices = ArrayFromJSON(utf8(), R"(["a"])");
+      ASSERT_RAISES_WITH_MESSAGE(
+          Invalid,
+          "Invalid: Indices of scatter must be of signed integer type, got string",
+          Scatter(values, indices));
+    }
   }
 }
 
@@ -519,6 +524,23 @@ TEST(Scatter, DefaultOptions) {
       ASSERT_OK_AND_ASSIGN(Datum result, Scatter(values, indices));
       AssertDatumsEqual(values, result);
     }
+  }
+}
+
+TEST(Scatter, InvalidIndex) {
+  {
+    ARROW_SCOPED_TRACE("Negative index");
+    auto values = ArrayFromJSON(utf8(), R"(["a"])");
+    auto indices = ArrayFromJSON(int32(), "[-1]");
+    ASSERT_RAISES_WITH_MESSAGE(IndexError, "Index error: Index out of bounds: -1",
+                               Scatter(values, indices));
+  }
+  {
+    ARROW_SCOPED_TRACE("Exceeds max_index");
+    auto values = ArrayFromJSON(utf8(), R"(["a"])");
+    auto indices = ArrayFromJSON(int32(), "[42]");
+    ASSERT_RAISES_WITH_MESSAGE(IndexError, "Index error: Index out of bounds: 42",
+                               Scatter(values, indices, /*max_index=*/1));
   }
 }
 
@@ -558,13 +580,6 @@ class TestScatterTyped : public ::testing::Test {
       EXPECT_TRUE(false) << "values_type() must be overridden for parameterized types";
       return nullptr;
     }
-  }
-
-  void TestScatterSignedIndices(const std::string& values_str,
-                                const std::string& indices_str, int64_t max_index,
-                                const std::string& expected_str) {
-    TestScatter(DoTestScatterSignedIndices, values_str, indices_str, max_index,
-                expected_str);
   }
 
   void TestScatter(const std::string& values_str, const std::string& indices_str,
@@ -612,22 +627,6 @@ TEST_F(TestScatterBoolean, Basic) {
     TestScatter(values, indices, max_index, expected);
   }
   {
-    ARROW_SCOPED_TRACE("Indices with negatives");
-    auto values = "[true, false, true, true, false, false, true, true, true, false]";
-    auto indices = "[9, -1, 7, -2, 5, -3, 3, -4, 1, -5]";
-    int64_t max_index = 9;
-    auto expected = "[null, true, null, true, null, false, null, true, null, true]";
-    TestScatterSignedIndices(values, indices, max_index, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("Output less than input");
-    auto values = "[false, true]";
-    auto indices = "[1, 0]";
-    int64_t max_index = 0;
-    auto expected = "[true]";
-    TestScatter(values, indices, max_index, expected);
-  }
-  {
     ARROW_SCOPED_TRACE("Output greater than input");
     auto values = "[true, true, true, false, false, false]";
     auto indices = "[0, 3, 6, 1, 4, 7]";
@@ -647,14 +646,6 @@ TEST_F(TestScatterBoolean, Basic) {
     ARROW_SCOPED_TRACE("Indices all null");
     auto values = "[true, false]";
     auto indices = "[null, null]";
-    int64_t max_index = 1;
-    auto expected = "[null, null]";
-    TestScatter(values, indices, max_index, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("Output all null");
-    auto values = "[true, false]";
-    auto indices = "[2, 3]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
     TestScatter(values, indices, max_index, expected);
@@ -708,22 +699,6 @@ TYPED_TEST(TestScatterNumeric, Basic) {
     this->TestScatter(values, indices, max_index, expected);
   }
   {
-    ARROW_SCOPED_TRACE("Indices with negatives");
-    auto values = "[10, 11, 12, 13, 14, 15, 16, 17, 18, 19]";
-    auto indices = "[9, -1, 7, -2, 5, -3, 3, -4, 1, -5]";
-    int64_t max_index = 9;
-    auto expected = "[null, 18, null, 16, null, 14, null, 12, null, 10]";
-    this->TestScatterSignedIndices(values, indices, max_index, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("Output less than input");
-    auto values = "[1, 0]";
-    auto indices = "[1, 0]";
-    int64_t max_index = 0;
-    auto expected = "[0]";
-    this->TestScatter(values, indices, max_index, expected);
-  }
-  {
     ARROW_SCOPED_TRACE("Output greater than input");
     auto values = "[0, 0, 0, 1, 1, 1]";
     auto indices = "[0, 3, 6, 1, 4, 7]";
@@ -743,14 +718,6 @@ TYPED_TEST(TestScatterNumeric, Basic) {
     ARROW_SCOPED_TRACE("Indices all null");
     auto values = "[0, 1]";
     auto indices = "[null, null]";
-    int64_t max_index = 1;
-    auto expected = "[null, null]";
-    this->TestScatter(values, indices, max_index, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("Output all null");
-    auto values = "[0, 1]";
-    auto indices = "[2, 3]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
     this->TestScatter(values, indices, max_index, expected);
@@ -804,22 +771,6 @@ TYPED_TEST(TestScatterString, Basic) {
     this->TestScatter(values, indices, max_index, expected);
   }
   {
-    ARROW_SCOPED_TRACE("Indices with negatives");
-    auto values = R"(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"])";
-    auto indices = "[9, -1, 7, -2, 5, -3, 3, -4, 1, -5]";
-    int64_t max_index = 9;
-    auto expected = R"([null, "i", null, "g", null, "e", null, "c", null, "a"])";
-    this->TestScatterSignedIndices(values, indices, max_index, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("Output less than input");
-    auto values = R"(["b", "a"])";
-    auto indices = "[1, 0]";
-    int64_t max_index = 0;
-    auto expected = R"(["a"])";
-    this->TestScatter(values, indices, max_index, expected);
-  }
-  {
     ARROW_SCOPED_TRACE("Output greater than input");
     auto values = R"(["a", "a", "a", "b", "b", "b"])";
     auto indices = "[0, 3, 6, 1, 4, 7]";
@@ -839,14 +790,6 @@ TYPED_TEST(TestScatterString, Basic) {
     ARROW_SCOPED_TRACE("Indices all null");
     auto values = R"(["a", "b"])";
     auto indices = "[null, null]";
-    int64_t max_index = 1;
-    auto expected = "[null, null]";
-    this->TestScatter(values, indices, max_index, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("Output all null");
-    auto values = R"(["a", "b"])";
-    auto indices = "[2, 3]";
     int64_t max_index = 1;
     auto expected = "[null, null]";
     this->TestScatter(values, indices, max_index, expected);

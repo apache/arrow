@@ -1948,11 +1948,11 @@ Swizzle functions reorder the input array based on the specified indices.
 * \(1) The output type is specified in :struct:`InversePermutationOptions`.
 
 * \(2) For ``indices[i] = x``, ``inverse_permutation[x] = i``. And ``inverse_permutation[x]
-  = null`` if ``x`` does not appear in the input ``indices``. For ``indices[i] = x``
-  where ``x < 0`` or ``x > max_index``, it is ignored. If multiple indices point
-  to the same value, the last one is used.
+  = null`` if ``x`` does not appear in the input ``indices``. Indices must be in the range
+  of ``[0, max_index]``, or null, which will be ignored. If multiple indices point to the
+  same value, the last one is used.
 
 * \(3) For ``indices[i] = x``, ``output[x] = values[i]``. And ``output[x] = null``
-  if ``x`` does not appear in the input ``indices``. For ``indices[i] = x`` where
-  ``x < 0`` or ``x > max_index``, ``values[i]`` is ignored. If multiple indices
-  point to the same value, the last one is used.
+  if ``x`` does not appear in the input ``indices``. Indices must be in the range
+  of ``[0, max_index]``, or null, in which case the corresponding value will be
+  ignored. If multiple indices point to the same value, the last one is used.

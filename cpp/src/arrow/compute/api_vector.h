@@ -265,14 +265,13 @@ class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "InversePermutationOptions";
   static InversePermutationOptions Defaults() { return InversePermutationOptions(); }
 
-  /// \brief The max value in the input indices to allow. Any indices that are greater
-  /// than this value will be ignored. If negative, this value will be set to the length
-  /// of the input indices minus 1.
+  /// \brief The max value in the input indices to allow. If negative, this value will be
+  /// set to the length of the input indices minus 1.
   int64_t max_index = -1;
   /// \brief The type of the output inverse permutation. If null, the output will be of
-  /// the same type as the input indices, otherwise must be integer type. An invalid
-  /// error will be reported if this type is not able to store the length of the input
-  /// indices.
+  /// the same type as the input indices, otherwise must be signed integer type. An
+  /// invalid error will be reported if this type is not able to store the length of the
+  /// input indices.
   std::shared_ptr<DataType> output_type = NULLPTR;
 };
 
@@ -283,9 +282,8 @@ class ARROW_EXPORT ScatterOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "ScatterOptions";
   static ScatterOptions Defaults() { return ScatterOptions(); }
 
-  /// \brief The max value in the input indices to process. Any values with indices that
-  /// are greater than this value will be ignored. If negative, this value will be set to
-  /// the length of the input minus 1.
+  /// \brief The max value in the input indices to allow. If negative, this value will be
+  /// set to the length of the input minus 1.
   int64_t max_index = -1;
 };
 
@@ -740,12 +738,12 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
 /// \brief Return the inverse permutation of the given indices.
 ///
 /// For indices[i] = x, inverse_permutation[x] = i. And inverse_permutation[x] = null if x
-/// does not appear in the input indices. For indices[i] = x where x < 0 or x > max_index,
-/// it is ignored. If multiple indices point to the same value, the last one is used.
+/// does not appear in the input indices. Indices must be in the range of [0, max_index],
+/// or null, which will be ignored. If multiple indices point to the same value, the last
+/// one is used.
 ///
 /// For example, with indices = [null, 0, 3, 2, 4, 1, 1], the inverse permutation is
-///   [1, 6, 3]                    if max_index = 2,
-///   [1, 6, 3, 2, 4, null, null]  if max_index = 6.
+/// [1, 6, 3, 2, 4, null, null] if max_index = 6.
 ///
 /// \param[in] indices array-like indices
 /// \param[in] options configures the max index and the output type
@@ -763,13 +761,13 @@ Result<Datum> InversePermutation(
 /// \brief Scatter the values into specified positions according to the indices.
 ///
 /// For indices[i] = x, output[x] = values[i]. And output[x] = null if x does not appear
-/// in the input indices. For indices[i] = x where x < 0 or x > max_index, values[i]
-/// is ignored. If multiple indices point to the same value, the last one is used.
+/// in the input indices. Indices must be in the range of [0, max_index], or null, in
+/// which case the corresponding value will be ignored. If multiple indices point to the
+/// same value, the last one is used.
 ///
 /// For example, with values = [a, b, c, d, e, f, g] and indices = [null, 0,
 /// 3, 2, 4, 1, 1], the output is
-///   [b, g, d]                    if max_index = 2,
-///   [b, g, d, c, e, null, null]  if max_index = 6.
+/// [b, g, d, c, e, null, null] if max_index = 6.
 ///
 /// \param[in] values datum to scatter
 /// \param[in] indices array-like indices

@@ -139,13 +139,11 @@ struct InversePermutationImpl {
   Status CheckInput(const Type& output_type) {
     using OutputCType = typename Type::c_type;
 
-    if constexpr (!std::is_same_v<OutputCType, uint64_t>) {
-      if (static_cast<int64_t>(std::numeric_limits<OutputCType>::max()) < input_length) {
-        return Status::Invalid(
-            "Output type " + output_type.ToString() +
-            " of inverse_permutation is insufficient to store indices of length " +
-            std::to_string(input_length));
-      }
+    if (static_cast<int64_t>(std::numeric_limits<OutputCType>::max()) < input_length) {
+      return Status::Invalid(
+          "Output type " + output_type.ToString() +
+          " of inverse_permutation is insufficient to store indices of length " +
+          std::to_string(input_length));
     }
 
     return Status::OK();
@@ -201,13 +199,14 @@ struct InversePermutationImpl {
     RETURN_NOT_OK(ExecType::template VisitIndices(
         indices,
         [&](IndexCType index) {
-          if (ARROW_PREDICT_TRUE(index >= 0 &&
-                                 static_cast<int64_t>(index) < output_length)) {
-            data[index] = static_cast<OutputCType>(inverse);
-            // If many nulls, set validity to true for valid values.
-            if constexpr (likely_many_nulls) {
-              bit_util::SetBitTo(validity, index, true);
-            }
+          if (ARROW_PREDICT_FALSE(index < 0 ||
+                                  static_cast<int64_t>(index) >= output_length)) {
+            return Status::IndexError("Index out of bounds: ", std::to_string(index));
+          }
+          data[index] = static_cast<OutputCType>(inverse);
+          // If many nulls, set validity to true for valid values.
+          if constexpr (likely_many_nulls) {
+            bit_util::SetBitTo(validity, index, true);
           }
           ++inverse;
           return Status::OK();
@@ -357,8 +356,8 @@ class ScatterMetaFunction : public MetaFunction {
           "Input and indices of scatter must have the same length, got " +
           std::to_string(values.length()) + " and " + std::to_string(indices.length()));
     }
-    if (!is_integer(indices.type()->id())) {
-      return Status::Invalid("Indices of scatter must be of integer type, got ",
+    if (!is_signed_integer(indices.type()->id())) {
+      return Status::Invalid("Indices of scatter must be of signed integer type, got ",
                              indices.type()->ToString());
     }
     // Internally invoke Take(values, InversePermutation(indices)) to implement scatter.
@@ -366,11 +365,9 @@ class ScatterMetaFunction : public MetaFunction {
     //   values = [a, b, c, d, e, f, g]
     //   indices = [null, 0, 3, 2, 4, 1, 1]
     // the InversePermutation(indices) is
-    //   [1, 6, 3]                    if max_index = 2,
-    //   [1, 6, 3, 2, 4, null, null]  if max_index = 6.
+    // [1, 6, 3, 2, 4, null, null]  if max_index = 6.
     // and Take(values, InversePermutation(indices)) is
-    //   [b, g, d]                    if max_index = 2,
-    //   [b, g, d, c, e, null, null]  if max_index = 6.
+    // [b, g, d, c, e, null, null]  if max_index = 6.
     InversePermutationOptions inverse_permutation_options{
         scatter_options->max_index,
         // Use the smallest possible uint type to store inverse permutation.
