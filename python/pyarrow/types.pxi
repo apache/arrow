@@ -2549,7 +2549,11 @@ cdef class Field(_Weakrefable):
     @property
     def metadata(self):
         """
-        The field metadata.
+        The field metadata (if any is set).
+
+        Returns
+        -------
+        metadata : dict or None
 
         Examples
         --------
@@ -2982,11 +2986,11 @@ cdef class Schema(_Weakrefable):
     @property
     def metadata(self):
         """
-        The schema's metadata.
+        The schema's metadata (if any is set).
 
         Returns
         -------
-        metadata: dict
+        metadata: dict or None
 
         Examples
         --------
