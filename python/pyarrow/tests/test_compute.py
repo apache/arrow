@@ -3747,9 +3747,18 @@ hash_types = st.deferred(
 
 
 @pytest.mark.numpy
-@h.given(past.arrays(hash_types, nullable=True))
-def test_hash_64(arr):
-    result1 = pc.hash_64(arr)
-    result2 = pc.hash_64(arr)
+@h.given(past.arrays(hash_types))
+def test_hash32(arr):
+    result1 = pc.hash32(arr)
+    result2 = pc.hash32(arr)
+    assert result1.type == pa.uint32()
+    assert result1.equals(result2)
+
+
+@pytest.mark.numpy
+@h.given(past.arrays(hash_types))
+def test_hash64(arr):
+    result1 = pc.hash64(arr)
+    result2 = pc.hash64(arr)
     assert result1.type == pa.uint64()
     assert result1.equals(result2)

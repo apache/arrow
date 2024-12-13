@@ -936,8 +936,12 @@ Result<Datum> MapLookup(const Datum& arg, MapLookupOptions options, ExecContext*
 
 // ----------------------------------------------------------------------
 // Hash functions
+Result<Datum> Hash32(const Datum& input_array, ExecContext* ctx) {
+  return CallFunction("hash32", {input_array}, ctx);
+}
+
 Result<Datum> Hash64(const Datum& input_array, ExecContext* ctx) {
-  return CallFunction("hash_64", {input_array}, ctx);
+  return CallFunction("hash64", {input_array}, ctx);
 }
 
 // ----------------------------------------------------------------------

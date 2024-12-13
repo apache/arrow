@@ -1239,11 +1239,13 @@ Not to be confused with the "group by" functions, Hash functions produce an arra
 values corresponding to the length of the input. Currently, these functions take a single
 array as input.
 
-+-----------------------+-------+-----------------------------------+-------------+---------------+-------+
-| Function name         | Arity | Input types                       | Output type | Options class | Notes |
-+=======================+=======+===================================+=============+===============+=======+
-| hash_64               | Unary | Any                               | UInt64      |               | \(1)  |
-+-----------------------+-------+-----------------------------------+-------------+---------------+-------+
++---------------+-------+-------------+-------------+---------------+-------+
+| Function name | Arity | Input types | Output type | Options class | Notes |
++===============+=======+=============+=============+===============+=======+
+| hash32        | Unary | Any         | UInt32      |               | \(1)  |
++---------------+-------+-------------+-------------+---------------+-------+
+| hash64        | Unary | Any         | UInt64      |               | \(1)  |
++---------------+-------+-------------+-------------+---------------+-------+
 
 * \(1) The hashing algorithm is "xxHash-like", making some minor trade-offs in favor of
   performance. Arrays containing nested types are recursively walked and flattened; such
