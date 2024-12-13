@@ -36,6 +36,7 @@ enum class BloomFilterBuildStrategy;
 //
 class ARROW_EXPORT Hashing32 {
   friend class TestVectorHash;
+  friend class TestScalarHash;
   template <typename T>
   friend void TestBloomLargeHashHelper(int64_t, int64_t, const std::vector<uint64_t>&,
                                        int64_t, int, T*);
@@ -159,13 +160,11 @@ class ARROW_EXPORT Hashing32 {
 
 class ARROW_EXPORT Hashing64 {
   friend class TestVectorHash;
+  friend class TestScalarHash;
   template <typename T>
   friend void TestBloomLargeHashHelper(int64_t, int64_t, const std::vector<uint64_t>&,
                                        int64_t, int, T*);
   friend void TestBloomSmall(BloomFilterBuildStrategy, int64_t, int, bool, bool);
-  friend void TestHashVarLen(bool should_incr, uint32_t row_count,
-                             const uint32_t* var_offsets, const uint8_t* var_data,
-                             uint64_t* hash_results);
 
  public:
   static void HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
