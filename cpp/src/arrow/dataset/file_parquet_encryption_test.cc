@@ -54,13 +54,13 @@ namespace arrow {
 namespace dataset {
 
 // Tests come in these variations
-enum CompressionParam {
+enum EncryptionParam {
   COLUMN_KEY,
   UNIFORM,
 };
 
 // Base class to test writing and reading encrypted dataset.
-class DatasetEncryptionTestBase : public testing::TestWithParam<CompressionParam> {
+class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionParam> {
  public:
   // This function creates a mock file system using the current time point, creates a
   // directory with the given base directory path, and writes a dataset to it using
@@ -104,7 +104,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<CompressionParam
     } else if (GetParam() == UNIFORM) {
       encryption_config->uniform_encryption = true;
     } else {
-      FAIL() << "Unsupported compression type " << GetParam();
+      FAIL() << "Unsupported encryption type " << GetParam();
     }
 
     auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
