@@ -77,10 +77,10 @@ add_arrow_compute_test(scalar_math_test
 
 add_arrow_compute_test(scalar_utility_test
                        SOURCES
+                       scalar_hash_test.cc
                        scalar_random_test.cc
                        scalar_set_lookup_test.cc
                        scalar_validity_test.cc
-                       scalar_hash_test.cc
                        EXTRA_LINK_LIBS
                        arrow_compute_kernels_testing
                        arrow_compute_testing)
