@@ -126,8 +126,8 @@ class PARQUET_EXPORT ReaderProperties {
   // Set the default read size to read the footer from a file. For high latency
   // file systems and files with large metadata (>64KB) this can increase performance
   // by reducing the number of round-trips to retrieve the entire file metadata.
-  size_t footer_read_size() const { return footer_read_size_; }
   void set_footer_read_size(size_t size) { footer_read_size_ = size; }
+  size_t footer_read_size() const { return footer_read_size_; }
 
  private:
   MemoryPool* pool_;
