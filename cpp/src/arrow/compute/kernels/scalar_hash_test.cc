@@ -26,281 +26,162 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/testing/random.h"
+#include "arrow/testing/util.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace compute {
 
-/** A test helper that is a friend function for Hashing64 **/
-void TestHashVarLen(bool should_incr, uint32_t row_count, const uint32_t* var_offsets,
-                    const uint8_t* var_data, uint64_t* hash_results) {
-  Hashing64::HashVarLen(should_incr, row_count, var_offsets, var_data, hash_results);
+constexpr auto kSeed = 0x94378165;
+constexpr auto array_lengths = {0, 10, 100, 1000};
+constexpr auto null_probabilities = {0.0, 0.5, 1.0};
+
+class TestScalarHash : public ::testing::Test {
+ public:
+  std::vector<uint64_t> HashPrimitive(const std::shared_ptr<Array>& arr) {
+    std::vector<uint64_t> hashes(arr->length());
+    Hashing64::HashFixed(false, static_cast<uint32_t>(arr->length()),
+                         arr->type()->bit_width() / 8, arr->data()->GetValues<uint8_t>(1),
+                         hashes.data());
+    return hashes;
+  }
+
+  std::vector<uint64_t> HashBinaryLike(const std::shared_ptr<Array>& arr) {
+    std::vector<uint64_t> hashes(arr->length());
+    if (arr->type_id() == Type::LARGE_BINARY || arr->type_id() == Type::LARGE_STRING) {
+      Hashing64::HashVarLen(false, static_cast<uint32_t>(arr->length()),
+                            arr->data()->GetValues<uint64_t>(1),
+                            arr->data()->GetValues<uint8_t>(2), hashes.data());
+    } else {
+      Hashing64::HashVarLen(false, static_cast<uint32_t>(arr->length()),
+                            arr->data()->GetValues<uint32_t>(1),
+                            arr->data()->GetValues<uint8_t>(2), hashes.data());
+    }
+    return hashes;
+  }
+
+  void CheckDeterminisic(const std::shared_ptr<Array>& arr) {
+    // Check that the hash is deterministic
+    ASSERT_OK_AND_ASSIGN(Datum res1, CallFunction("hash64", {arr}));
+    ASSERT_OK_AND_ASSIGN(Datum res2, CallFunction("hash64", {arr}));
+    ASSERT_EQ(res1.length(), arr->length());
+    ASSERT_EQ(res2.type()->id(), Type::UINT64);
+    AssertDatumsEqual(res1, res2);
+  }
+
+  void CheckPrimitive(const std::shared_ptr<Array>& arr) {
+    CheckDeterminisic(arr);
+
+    ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {arr}));
+    auto result_data = hash_result.array();
+    auto expected_hashes = HashPrimitive(arr);
+
+    for (int64_t val_ndx = 0; val_ndx < arr->length(); ++val_ndx) {
+      uint64_t actual_hash = result_data->GetValues<uint64_t>(1)[val_ndx];
+      if (arr->IsNull(val_ndx)) {
+        ASSERT_EQ(0, actual_hash);
+      } else {
+        ASSERT_EQ(expected_hashes[val_ndx], actual_hash);
+      }
+    }
+  }
+
+  void CheckBinary(const std::shared_ptr<Array>& arr) {
+    CheckDeterminisic(arr);
+
+    ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {arr}));
+    auto result_data = hash_result.array();
+    auto expected_hashes = HashBinaryLike(arr);
+
+    for (int64_t val_ndx = 0; val_ndx < arr->length(); ++val_ndx) {
+      uint64_t actual_hash = result_data->GetValues<uint64_t>(1)[val_ndx];
+      if (arr->IsNull(val_ndx)) {
+        ASSERT_EQ(0, actual_hash);
+      } else {
+        ASSERT_EQ(expected_hashes[val_ndx], actual_hash);
+      }
+    }
+  }
+};
+
+TEST_F(TestScalarHash, NumericLike) {
+  auto types = {int8(),   int16(),  int32(),  int64(),   uint8(),
+                uint16(), uint32(), uint64(), float32(), float64()};
+  for (auto type : types) {
+    CheckPrimitive(ArrayFromJSON(type, R"([])"));
+    CheckPrimitive(ArrayFromJSON(type, R"([null])"));
+    CheckPrimitive(ArrayFromJSON(type, R"([1])"));
+    CheckPrimitive(ArrayFromJSON(type, R"([1, 2, null])"));
+    CheckPrimitive(ArrayFromJSON(type, R"([null, 2, 3])"));
+    CheckPrimitive(ArrayFromJSON(type, R"([1, 2, 3, 4])"));
+  }
 }
 
-namespace {
-
-// combining based on key_hash.h:CombineHashesImp (96a3af4)
-// static const uint64_t combiner_const = 0x9e3779b9UL;
-// static inline uint64_t hash_combine(uint64_t h1, uint64_t h2) {
-//   uint64_t combiner_result = combiner_const + h2 + (h1 << 6) + (h1 >> 2);
-//   return h1 ^ combiner_result;
-// }
-
-// hash_int based on key_hash.cc:HashIntImp (672431b)
-template <typename T>
-uint64_t hash_int(T val) {
-  constexpr uint64_t int_const = 11400714785074694791ULL;
-  uint64_t cast_val = static_cast<uint64_t>(val);
-
-  return static_cast<uint64_t>(BYTESWAP(cast_val * int_const));
+TEST_F(TestScalarHash, BinaryLike) {
+  auto types = {binary(), utf8(), large_binary(), large_utf8()};
+  for (auto type : types) {
+    CheckBinary(ArrayFromJSON(type, R"([])"));
+    CheckBinary(ArrayFromJSON(type, R"([null])"));
+    CheckBinary(ArrayFromJSON(type, R"([""])"));
+    CheckBinary(ArrayFromJSON(type, R"(["first", "second", null])"));
+    CheckBinary(ArrayFromJSON(type, R"(["first", "second", "third"])"));
+  }
 }
 
-template <typename T>
-uint64_t hash_int_add(T val, uint64_t first_hash) {
-  return hash_combine(first_hash, hash_int(val));
-}
-
-}  // namespace
-
-TEST(TestScalarHash, Hash64Primitive) {
-  constexpr int data_bufndx{1};
-  std::vector<int32_t> test_values{3, 1, 2, 0, 127, 64};
-  std::string test_inputs_str{"[3, 1, 2, 0, 127, 64]"};
-
-  for (auto input_dtype : {int32(), uint32(), int8(), uint8()}) {
-    auto test_inputs = ArrayFromJSON(input_dtype, test_inputs_str);
-
-    ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_inputs}));
-    auto result_data = *(hash_result.array());
-
-    // validate each value
-    for (int val_ndx = 0; val_ndx < test_inputs->length(); ++val_ndx) {
-      uint64_t expected_hash = hash_int<int32_t>(test_values[val_ndx]);
-      uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
-      ASSERT_EQ(expected_hash, actual_hash);
+TEST_F(TestScalarHash, RandomBinaryLike) {
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto types = {binary(), utf8(), large_binary(), large_utf8()};
+  for (auto type : types) {
+    for (auto length : array_lengths) {
+      for (auto null_probability : null_probabilities) {
+        CheckBinary(rand.ArrayOf(type, length, null_probability));
+      }
     }
   }
 }
 
-// NOTE: oddly, if int32_t or uint64_t is used for hash_int<>, this fails
-TEST(TestScalarHash, Hash64Negative) {
-  constexpr int data_bufndx{1};
-  std::vector<int32_t> test_values{-3, 1, -2, 0, -127, 64};
-
-  Int32Builder input_builder;
-  ASSERT_OK(input_builder.Reserve(test_values.size()));
-  ASSERT_OK(input_builder.AppendValues(test_values));
-  ASSERT_OK_AND_ASSIGN(auto test_inputs, input_builder.Finish());
-
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_inputs}));
-  auto result_data = *(hash_result.array());
-
-  // validate each value
-  for (int val_ndx = 0; val_ndx < test_inputs->length(); ++val_ndx) {
-    uint64_t expected_hash = hash_int<uint32_t>(test_values[val_ndx]);
-    uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
-    ASSERT_EQ(expected_hash, actual_hash);
+TEST_F(TestScalarHash, RandomNumericLike) {
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto types = {int8(),   int16(),  int32(),  int64(),   uint8(),
+                uint16(), uint32(), uint64(), float32(), float64()};
+  for (auto type : types) {
+    for (auto length : array_lengths) {
+      for (auto null_probability : null_probabilities) {
+        CheckPrimitive(rand.ArrayOf(type, length, null_probability));
+      }
+    }
   }
 }
 
-TEST(TestScalarHash, Hash64String) {
-  constexpr int data_bufndx{1};
-  constexpr int varoffs_bufndx{1};
-  constexpr int vardata_bufndx{2};
-
-  // for expected values
-  auto test_vals = ArrayFromJSON(utf8(), R"(["first", "second", "third"])");
-  uint64_t expected_hashes[test_vals->length()];
-
-  TestHashVarLen(/*combine_hashes=*/false, /*num_rows=*/3,
-                 test_vals->data()->GetValues<uint32_t>(varoffs_bufndx),
-                 test_vals->data()->GetValues<uint8_t>(vardata_bufndx), expected_hashes);
-
-  // for actual values
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_vals}));
-  auto result_data = *(hash_result.array());
-
-  // compare actual and expected
-  for (int64_t val_ndx = 0; val_ndx < test_vals->length(); ++val_ndx) {
-    uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
-
-    ASSERT_EQ(expected_hashes[val_ndx], actual_hash);
+TEST_F(TestScalarHash, RandomListLike) {
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto types = {
+      list(int32()),
+      list(uint64()),
+      list(float32()),
+      list(float64()),
+      list(binary()),
+      list(utf8()),
+      list(large_binary()),
+      list(large_utf8()),
+      large_list(int64()),
+      large_list(float64()),
+      large_list(binary()),
+      large_list(utf8()),
+      large_list(large_binary()),
+      large_list(large_utf8()),
+      list(list(int16())),
+      list(list(list(uint8()))),
+  };
+  for (auto type : types) {
+    for (auto length : array_lengths) {
+      for (auto null_probability : null_probabilities) {
+        CheckDeterminisic(rand.ArrayOf(type, length, null_probability));
+      }
+    }
   }
-}
-
-// TEST(TestScalarHash, Hash64IntList) {
-//   auto test_vals = ArrayFromJSON(list(int32()), "[[], [1], [1, 2], [1, 2, 3]]");
-
-//   ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_vals}));
-// }
-
-// def test_h():
-//     arr = pa.array([
-//         [1, 2, 3, 4, 5],
-//         [6, 7, 8, 9, 10, 11, 12]
-//     ])
-//     print(arr.type)
-//     pc.hash64(arr)
-
-TEST(TestScalarHash, Hash64IntList2) {
-  auto test_vals =
-      ArrayFromJSON(list(int32()), "[[1, 2, 3, 4, 5], [6, 7, 8, 9, 10, 11, 12]]");
-
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_vals}));
-}
-
-TEST(TestScalarHash, Hash64StringList) {
-  // for expected values
-  auto test_vals = ArrayFromJSON(list(utf8()), R"([[], ["first"], ["first", "second"],
-                                                   ["first", "second", "third"]])");
-
-  // for actual values
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_vals}));
-}
-
-TEST(TestScalarHash, Hash64IntMap) {
-  // constexpr int data_bufndx{1};
-  std::vector<uint16_t> test_vals_first{7, 67, 3, 31, 17, 29};
-  std::vector<int16_t> test_vals_second{67, 7, 31, 3, 29, 17};
-
-  auto test_map = ArrayFromJSON(map(uint16(), int16()),
-                                R"([[[ 7, 67]], [[67,  7]], [[ 3, 31]],
-                                    [[31,  3]], [[17, 29]], [[29, 17]]])");
-
-  ARROW_LOG(INFO) << "test map: " << test_map->type()->ToString();
-
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_map}));
-  auto result_data = *(hash_result.array());
-
-  // validate each value
-  // for (size_t val_ndx = 0; val_ndx < test_vals_first.size(); ++val_ndx) {
-  //   uint64_t expected_hash = hash_combine(hash_int<uint16_t>(test_vals_first[val_ndx]),
-  //                                         hash_int<int16_t>(test_vals_second[val_ndx]));
-  //   uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
-  //   ASSERT_EQ(expected_hash, actual_hash);
-  // }
-}
-
-TEST(TestScalarHash, Hash64StringMap) {
-  // constexpr int data_bufndx{1};
-  constexpr int varoffs_bufndx{1};
-  constexpr int vardata_bufndx{2};
-
-  // for expected values
-  auto test_vals_first = ArrayFromJSON(utf8(), R"(["first-A", "second-A",
-  "third-A"])");
-  auto test_vals_second = ArrayFromJSON(utf8(), R"(["first-B",
-  "second-B", "third-B"])");
-  uint64_t expected_hashes[test_vals_first->length()];
-
-  TestHashVarLen(/*combine_hashes=*/false, /*num_rows=*/3,
-                 test_vals_first->data()->GetValues<uint32_t>(varoffs_bufndx),
-                 test_vals_first->data()->GetValues<uint8_t>(vardata_bufndx),
-                 expected_hashes);
-
-  TestHashVarLen(/*combine_hashes=*/true, /*num_rows=*/3,
-                 test_vals_second->data()->GetValues<uint32_t>(varoffs_bufndx),
-                 test_vals_second->data()->GetValues<uint8_t>(vardata_bufndx),
-                 expected_hashes);
-
-  // for actual values
-  auto test_map = ArrayFromJSON(map(utf8(), utf8()),
-                                R"([[["first-A", "first-B"]],
-                                    [["second-A", "second-B"]],
-                                    [["third-A", "third-B"]]])");
-
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_map}));
-  auto result_data = *(hash_result.array());
-
-  // compare actual and expected
-  // for (int64_t val_ndx = 0; val_ndx < test_vals_first->length(); ++val_ndx) {
-  //   uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
-
-  //   ASSERT_EQ(expected_hashes[val_ndx], actual_hash);
-  // }
-}
-
-TEST(TestScalarHash, Hash64Map) {
-  // constexpr int data_bufndx{1};
-  constexpr int varoffs_bufndx{1};
-  constexpr int vardata_bufndx{2};
-
-  // For expected values
-  auto test_vals_first = ArrayFromJSON(utf8(),
-                                       R"(["first-A", "second-A", "first-B",
-                                           "second-B", "first-C", "second-C"])");
-
-  std::vector<uint8_t> test_vals_second{1, 3, 11, 23, 111, 223};
-  uint64_t expected_hashes[test_vals_first->length()];
-
-  // compute initial hashes from the string column (array)
-  TestHashVarLen(/*combine_hashes=*/false, /*num_rows=*/6,
-                 test_vals_first->data()->GetValues<uint32_t>(varoffs_bufndx),
-                 test_vals_first->data()->GetValues<uint8_t>(vardata_bufndx),
-                 expected_hashes);
-
-  // For actual values
-  auto test_map = ArrayFromJSON(map(utf8(), uint8()),
-                                R"([[["first-A", 1]], [["second-A", 3]],
-                                    [["first-B", 11]], [["second-B", 23]],
-                                    [["first-C", 111]], [["second-C", 223]]])");
-
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_map}));
-  auto result_data = *(hash_result.array());
-
-  // compare actual and expected
-  // for (int64_t val_ndx = 0; val_ndx < test_vals_first->length(); ++val_ndx) {
-  //   // compute final hashes by combining int hashes with initial string hashes
-  //   expected_hashes[val_ndx] = hash_combine(expected_hashes[val_ndx],
-  //                                           hash_int<uint8_t>(test_vals_second[val_ndx]));
-
-  //   uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
-
-  //   ASSERT_EQ(expected_hashes[val_ndx], actual_hash);
-  // }
-}
-
-TEST(TestScalarHash, Hash64List) {
-  // constexpr int data_bufndx{1};
-  constexpr int varoffs_bufndx{1};
-  constexpr int vardata_bufndx{2};
-
-  // for expected values
-  auto test_vals1 = ArrayFromJSON(utf8(), R"(["first-A", "second-A", "third-A"])");
-  auto test_vals2 = ArrayFromJSON(utf8(), R"(["first-B", "second-B", "third-B"])");
-  auto test_vals3 = ArrayFromJSON(utf8(), R"(["first-A", "first-B",
-                                              "second-A", "second-B",
-                                              "third-A", "third-B"])");
-  uint64_t expected_hashes[test_vals1->length()];
-  uint64_t test_hashes[test_vals3->length()];
-
-  TestHashVarLen(/*combine_hashes=*/false, /*num_rows=*/3,
-                 test_vals1->data()->GetValues<uint32_t>(varoffs_bufndx),
-                 test_vals1->data()->GetValues<uint8_t>(vardata_bufndx), expected_hashes);
-
-  TestHashVarLen(/*combine_hashes=*/true, /*num_rows=*/3,
-                 test_vals2->data()->GetValues<uint32_t>(varoffs_bufndx),
-                 test_vals2->data()->GetValues<uint8_t>(vardata_bufndx), expected_hashes);
-
-  TestHashVarLen(/*combine_hashes=*/false, /*num_rows=*/6,
-                 test_vals3->data()->GetValues<uint32_t>(varoffs_bufndx),
-                 test_vals3->data()->GetValues<uint8_t>(vardata_bufndx), test_hashes);
-
-  // for actual values
-  auto test_list = ArrayFromJSON(list(utf8()),
-                                 R"([["first-A", "first-B"],
-                                     ["second-A", "second-B"],
-                                     ["third-A", "third-B"]])");
-
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_list}));
-  auto result_data = *(hash_result.array());
-
-  // // compare actual and expected
-  // // for (int64_t val_ndx = 0; val_ndx < test_list->length(); ++val_ndx) {
-  // for (int64_t val_ndx = 0; val_ndx < result_data.length; ++val_ndx) {
-  //   uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
-  //   ARROW_LOG(INFO) << "actual hash: " << actual_hash;
-  // }
 }
 
 }  // namespace compute
