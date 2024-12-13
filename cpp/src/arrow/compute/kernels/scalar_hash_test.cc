@@ -40,6 +40,20 @@ constexpr auto null_probabilities = {0.0, 0.5, 1.0};
 
 class TestScalarHash : public ::testing::Test {
  public:
+  template <typename c_type>
+  void AssertHashesEqual(const std::shared_ptr<Array>& arr, Datum res,
+                         std::vector<c_type> exp) {
+    auto res_array = res.array();
+    for (int64_t val_ndx = 0; val_ndx < arr->length(); ++val_ndx) {
+      uint64_t actual_hash = res_array->GetValues<uint64_t>(1)[val_ndx];
+      if (arr->IsNull(val_ndx)) {
+        ASSERT_EQ(0, actual_hash);
+      } else {
+        ASSERT_EQ(exp[val_ndx], actual_hash);
+      }
+    }
+  }
+
   std::vector<uint64_t> HashPrimitive(const std::shared_ptr<Array>& arr) {
     std::vector<uint64_t> hashes(arr->length());
     Hashing64::HashFixed(false, static_cast<uint32_t>(arr->length()),
@@ -72,41 +86,40 @@ class TestScalarHash : public ::testing::Test {
   }
 
   void CheckPrimitive(const std::shared_ptr<Array>& arr) {
-    CheckDeterminisic(arr);
-
     ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {arr}));
-    auto result_data = hash_result.array();
-    auto expected_hashes = HashPrimitive(arr);
-
-    for (int64_t val_ndx = 0; val_ndx < arr->length(); ++val_ndx) {
-      uint64_t actual_hash = result_data->GetValues<uint64_t>(1)[val_ndx];
-      if (arr->IsNull(val_ndx)) {
-        ASSERT_EQ(0, actual_hash);
-      } else {
-        ASSERT_EQ(expected_hashes[val_ndx], actual_hash);
-      }
-    }
+    AssertHashesEqual<uint64_t>(arr, hash_result, HashPrimitive(arr));
+    CheckDeterminisic(arr);
   }
 
   void CheckBinary(const std::shared_ptr<Array>& arr) {
-    CheckDeterminisic(arr);
-
     ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {arr}));
-    auto result_data = hash_result.array();
-    auto expected_hashes = HashBinaryLike(arr);
-
-    for (int64_t val_ndx = 0; val_ndx < arr->length(); ++val_ndx) {
-      uint64_t actual_hash = result_data->GetValues<uint64_t>(1)[val_ndx];
-      if (arr->IsNull(val_ndx)) {
-        ASSERT_EQ(0, actual_hash);
-      } else {
-        ASSERT_EQ(expected_hashes[val_ndx], actual_hash);
-      }
-    }
+    AssertHashesEqual<uint64_t>(arr, hash_result, HashBinaryLike(arr));
+    CheckDeterminisic(arr);
   }
 };
 
-// TODO(kszucs): test null, bool, fixed size binary, dictionary encoded
+// TODO(kszucs): test bool, fixed size binary, dictionary encoded
+
+TEST_F(TestScalarHash, Null) {
+  Datum res;
+
+  auto arr = ArrayFromJSON(null(), R"([])");
+  auto exp = ArrayFromJSON(uint64(), "[]");
+  ASSERT_OK_AND_ASSIGN(res, CallFunction("hash64", {arr}));
+  AssertArraysEqual(*res.make_array(), *exp);
+  CheckDeterminisic(arr);
+
+  arr = ArrayFromJSON(null(), R"([null, null, null])");
+  exp = ArrayFromJSON(uint64(), "[0, 0, 0]");
+  ASSERT_OK_AND_ASSIGN(res, CallFunction("hash64", {arr}));
+  AssertArraysEqual(*res.make_array(), *exp);
+  CheckDeterminisic(arr);
+}
+
+TEST_F(TestScalarHash, Boolean) {
+  auto arr = ArrayFromJSON(boolean(), R"([true, false, null, true, null])");
+  CheckDeterminisic(arr);
+}
 
 TEST_F(TestScalarHash, NumericLike) {
   auto types = {int8(),   int16(),  int32(),  int64(),   uint8(),
@@ -175,6 +188,7 @@ TEST_F(TestScalarHash, RandomNested) {
       map(utf8(), list(int16())),
       struct_({field("f0", int32()), field("f1", utf8())}),
       struct_({field("f0", list(int32())), field("f1", large_binary())}),
+      struct_({field("f0", struct_({field("f0", int32()), field("f1", utf8())}))}),
   };
   for (auto type : types) {
     for (auto length : array_lengths) {
