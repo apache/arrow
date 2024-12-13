@@ -168,8 +168,8 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionParam>
     ASSERT_OK_AND_ASSIGN(auto dataset, dataset_factory->Finish());
 
     if (concurrently) {
-      // start with a single thread so we are more likely to build up a queue of jobs
-      ASSERT_OK_AND_ASSIGN(auto pool, arrow::internal::ThreadPool::Make(1));
+      // have a notable number of threads to exhibit multi-threading issues
+      ASSERT_OK_AND_ASSIGN(auto pool, arrow::internal::ThreadPool::Make(16));
       std::vector<Future<std::shared_ptr<Table>>> threads;
 
       // Read dataset above multiple times concurrently to see that is thread-safe.
@@ -177,14 +177,6 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionParam>
         threads.push_back(
             DeferNotOk(pool->Submit(DatasetEncryptionTestBase::read, dataset)));
       }
-
-      // ramp up parallelism
-      ASSERT_OK(pool->SetCapacity(16));
-      // ensure there are sufficient jobs to see concurrent processing
-      ASSERT_GT(pool->GetNumTasks(), 16);
-      printf("%d", pool->GetNumTasks());
-
-      // wait for all jobs to finish
       pool->WaitForIdle();
 
       // assert correctness of jobs
