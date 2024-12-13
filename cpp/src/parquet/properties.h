@@ -57,7 +57,7 @@ constexpr int32_t kDefaultThriftStringSizeLimit = 100 * 1000 * 1000;
 constexpr int32_t kDefaultThriftContainerSizeLimit = 1000 * 1000;
 
 // PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
-static constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
+constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
 
 class PARQUET_EXPORT ReaderProperties {
  public:
