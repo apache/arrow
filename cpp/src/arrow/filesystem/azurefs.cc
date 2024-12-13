@@ -441,7 +441,7 @@ Result<std::string> AzureOptions::GenerateSASToken(
   if (credential_kind_ == CredentialKind::kStorageSharedKey) {
     return builder->GenerateSasToken(*storage_shared_key_credential_);
   } else {
-    // GH-39344: This part isn't tested. This may not work.
+    // GH-39344: This part isn't tested.
     try {
       auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
       return builder->GenerateSasToken(delegation_key_response.Value, account_name);
@@ -3193,7 +3193,7 @@ class AzureFileSystem::Impl {
       sas_token = "";
     } else {
       Storage::Sas::BlobSasBuilder builder;
-      std::chrono::seconds available_period(60);
+      std::chrono::seconds available_period(600);
       builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
       builder.BlobContainerName = src.container;
       builder.BlobName = src.path;
