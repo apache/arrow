@@ -125,9 +125,9 @@ table FixedSizeList {
 /// may be set in the metadata for this field.
 ///
 /// In a field with Map type, the field has a child Struct field, which then
-/// has two children: key type and the second the value type. The names of the
-/// child fields may be respectively "entries", "key", and "value", but this is
-/// not enforced.
+/// has two children: the first of the key type and second of the value type.
+/// The names of the child fields may be respectively "entries", "key", and "value",
+/// but this is not enforced.
 ///
 /// Map
 /// ```text
