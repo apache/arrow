@@ -70,7 +70,7 @@ TEST(TestScalarHash, Hash64Primitive) {
   for (auto input_dtype : {int32(), uint32(), int8(), uint8()}) {
     auto test_inputs = ArrayFromJSON(input_dtype, test_inputs_str);
 
-    ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_inputs}));
+    ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_inputs}));
     auto result_data = *(hash_result.array());
 
     // validate each value
@@ -92,7 +92,7 @@ TEST(TestScalarHash, Hash64Negative) {
   ASSERT_OK(input_builder.AppendValues(test_values));
   ASSERT_OK_AND_ASSIGN(auto test_inputs, input_builder.Finish());
 
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_inputs}));
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_inputs}));
   auto result_data = *(hash_result.array());
 
   // validate each value
@@ -117,7 +117,7 @@ TEST(TestScalarHash, Hash64String) {
                  test_vals->data()->GetValues<uint8_t>(vardata_bufndx), expected_hashes);
 
   // for actual values
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_vals}));
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_vals}));
   auto result_data = *(hash_result.array());
 
   // compare actual and expected
@@ -131,7 +131,7 @@ TEST(TestScalarHash, Hash64String) {
 // TEST(TestScalarHash, Hash64IntList) {
 //   auto test_vals = ArrayFromJSON(list(int32()), "[[], [1], [1, 2], [1, 2, 3]]");
 
-//   ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_vals}));
+//   ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_vals}));
 // }
 
 // def test_h():
@@ -140,13 +140,13 @@ TEST(TestScalarHash, Hash64String) {
 //         [6, 7, 8, 9, 10, 11, 12]
 //     ])
 //     print(arr.type)
-//     pc.hash_64(arr)
+//     pc.hash64(arr)
 
 TEST(TestScalarHash, Hash64IntList2) {
   auto test_vals =
       ArrayFromJSON(list(int32()), "[[1, 2, 3, 4, 5], [6, 7, 8, 9, 10, 11, 12]]");
 
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_vals}));
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_vals}));
 }
 
 TEST(TestScalarHash, Hash64StringList) {
@@ -155,7 +155,7 @@ TEST(TestScalarHash, Hash64StringList) {
                                                    ["first", "second", "third"]])");
 
   // for actual values
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_vals}));
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_vals}));
 }
 
 TEST(TestScalarHash, Hash64IntMap) {
@@ -169,7 +169,7 @@ TEST(TestScalarHash, Hash64IntMap) {
 
   ARROW_LOG(INFO) << "test map: " << test_map->type()->ToString();
 
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_map}));
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_map}));
   auto result_data = *(hash_result.array());
 
   // validate each value
@@ -209,7 +209,7 @@ TEST(TestScalarHash, Hash64StringMap) {
                                     [["second-A", "second-B"]],
                                     [["third-A", "third-B"]]])");
 
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_map}));
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_map}));
   auto result_data = *(hash_result.array());
 
   // compare actual and expected
@@ -245,7 +245,7 @@ TEST(TestScalarHash, Hash64Map) {
                                     [["first-B", 11]], [["second-B", 23]],
                                     [["first-C", 111]], [["second-C", 223]]])");
 
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_map}));
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_map}));
   auto result_data = *(hash_result.array());
 
   // compare actual and expected
@@ -292,7 +292,7 @@ TEST(TestScalarHash, Hash64List) {
                                      ["second-A", "second-B"],
                                      ["third-A", "third-B"]])");
 
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_list}));
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash64", {test_list}));
   auto result_data = *(hash_result.array());
 
   // // compare actual and expected
