@@ -510,7 +510,7 @@ table DictionaryEncoding {
 /// nested type.
 
 table Field {
-  /// Name is not required, in i.e. a List
+  /// Name is not required (e.g., in a List)
   name: string;
 
   /// Whether or not this field can contain nulls. Should be true in general.
