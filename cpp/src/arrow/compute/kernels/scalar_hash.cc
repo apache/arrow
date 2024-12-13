@@ -33,20 +33,14 @@ namespace internal {
 // these symbols are not visible outside of this file.
 namespace {
 
-// Function documentation
-const FunctionDoc hash_64_doc{
-    "Construct a hash for every element of the input argument",
-    ("An element-wise function that uses an xxHash-like algorithm.\n"
-     "This function is not suitable for cryptographic purposes.\n"
-     "Hash results are 64-bit and emitted for each valid row.\n"
-     "Null (or invalid) rows emit a null in the output."),
-    {"hash_input"}};
-
 // ------------------------------
 // Kernel implementations
 // It is expected that HashArrowType is either UInt32Type or UInt64Type (default)
-// template <typename HashArrowType = UInt64Type>
+
+template <typename ArrowType, typename Hasher>
 struct FastHashScalar {
+  using c_type = typename ArrowType::c_type;
+
   static Result<KeyColumnArray> ToColumnArray(
       const ArraySpan& array, LightContext* ctx,
       const uint8_t* list_values_buffer = nullptr) {
@@ -90,7 +84,7 @@ struct FastHashScalar {
       fixed_length_buffer = list_values_buffer;
     } else {
       return Status::TypeError("Unsupported column data type ", array.type->name(),
-                               " used with hash_64 compute kernel");
+                               " used with hash64 compute kernel");
     }
 
     return KeyColumnArray(metadata, array.length, validity_buffer, fixed_length_buffer,
@@ -101,16 +95,16 @@ struct FastHashScalar {
                                                       const ArraySpan& child,
                                                       LightContext* hash_ctx,
                                                       MemoryPool* memory_pool) {
-    auto buffer_size = child.length * sizeof(uint64_t);
+    auto buffer_size = child.length * sizeof(c_type);
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(buffer_size, memory_pool));
     ARROW_RETURN_NOT_OK(
-        HashArray(child, hash_ctx, memory_pool, buffer->mutable_data_as<uint64_t>()));
+        HashArray(child, hash_ctx, memory_pool, buffer->mutable_data_as<c_type>()));
     return ArrayData::Make(uint64(), child.length,
                            {array.GetBuffer(0), std::move(buffer)}, array.null_count);
   }
 
   static Status HashArray(const ArraySpan& array, LightContext* hash_ctx,
-                          MemoryPool* memory_pool, uint64_t* out) {
+                          MemoryPool* memory_pool, c_type* out) {
     // KeyColumnArray objects are being passed to the hashing utility
     std::vector<KeyColumnArray> columns(1);
     // ensure that we keep the converted child arrays alive because KeyColumnArray
@@ -141,7 +135,7 @@ struct FastHashScalar {
     } else {
       ARROW_ASSIGN_OR_RAISE(columns[0], ToColumnArray(array, hash_ctx));
     }
-    Hashing64::HashMultiColumn(columns, hash_ctx, out);
+    Hasher::HashMultiColumn(columns, hash_ctx, out);
     return Status::OK();
   }
 
@@ -169,7 +163,7 @@ struct FastHashScalar {
 
     // Call the hashing function, overloaded based on OutputCType
     ArraySpan* result_span = out->array_span_mutable();
-    uint64_t* result_ptr = result_span->GetValues<uint64_t>(1);
+    c_type* result_ptr = result_span->GetValues<c_type>(1);
     ARROW_RETURN_NOT_OK(
         HashArray(hash_input, &hash_ctx, exec_ctx->memory_pool(), result_ptr));
 
@@ -177,26 +171,42 @@ struct FastHashScalar {
   }
 };
 
-// ------------------------------
-// Function construction and kernel registration
-std::shared_ptr<ScalarFunction> RegisterKernelsFastHash64() {
-  // Create function instance
-  auto fn_hash_64 =
-      std::make_shared<ScalarFunction>("hash_64", Arity::Unary(), hash_64_doc);
+const FunctionDoc hash32_doc{
+    "Construct a hash for every element of the input argument",
+    ("An element-wise function that uses an xxHash-like algorithm.\n"
+     "This function is not suitable for cryptographic purposes.\n"
+     "Hash results are 32-bit and emitted for each valid row.\n"
+     "Null (or invalid) rows emit a null in the output."),
+    {"hash_input"}};
 
-  // Add 64-bit hash kernel
-  ScalarKernel kernel({InputType()}, OutputType(uint64()), FastHashScalar::Exec);
-  kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
-  DCHECK_OK(fn_hash_64->AddKernel(std::move(kernel)));
-
-  return fn_hash_64;
-}
+const FunctionDoc hash64_doc{
+    "Construct a hash for every element of the input argument",
+    ("An element-wise function that uses an xxHash-like algorithm.\n"
+     "This function is not suitable for cryptographic purposes.\n"
+     "Hash results are 64-bit and emitted for each valid row.\n"
+     "Null (or invalid) rows emit a null in the output."),
+    {"hash_input"}};
 
 }  // namespace
 
 void RegisterScalarHash(FunctionRegistry* registry) {
-  auto fn_scalarhash64 = RegisterKernelsFastHash64();
-  DCHECK_OK(registry->AddFunction(std::move(fn_scalarhash64)));
+  // Create hash64 function instance
+  auto hash32 = std::make_shared<ScalarFunction>("hash32", Arity::Unary(), hash32_doc);
+  auto hash64 = std::make_shared<ScalarFunction>("hash64", Arity::Unary(), hash64_doc);
+
+  // Add 32-bit and 64-bit kernels to hash32 and hash64 functions
+  ScalarKernel kernel32({InputType()}, OutputType(uint32()),
+                        FastHashScalar<UInt32Type, Hashing32>::Exec);
+  ScalarKernel kernel64({InputType()}, OutputType(uint64()),
+                        FastHashScalar<UInt64Type, Hashing64>::Exec);
+  kernel32.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  kernel64.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  DCHECK_OK(hash32->AddKernel(std::move(kernel32)));
+  DCHECK_OK(hash64->AddKernel(std::move(kernel64)));
+
+  // Register hash32 and hash64 functions
+  DCHECK_OK(registry->AddFunction(std::move(hash32)));
+  DCHECK_OK(registry->AddFunction(std::move(hash64)));
 }
 
 }  // namespace internal
