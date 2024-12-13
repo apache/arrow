@@ -639,6 +639,7 @@ services:
       ARROW_FLIGHT_SQL: "OFF"
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
+      ARROW_MIMALLOC: "OFF"
       ARROW_ORC: "OFF"
       ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
@@ -677,6 +678,7 @@ services:
       ARROW_FLIGHT: "OFF"
       ARROW_FLIGHT_SQL: "OFF"
       ARROW_JEMALLOC: "OFF"
+      ARROW_MIMALLOC: "OFF"
       ARROW_ORC: "OFF"
       ARROW_USE_TSAN: "ON"
     command: *cpp-command
