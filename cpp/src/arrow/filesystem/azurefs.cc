@@ -150,7 +150,7 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
     } else {
       // Assume these are part of a SAS token. Its not ideal to make such an assumption
       // but given that a SAS token is a complex set of URI parameters, that could be
-      // tricky to enumerate I think its the best option.
+      // tricky to exhaustively list I think its the best option.
       credential_kind = CredentialKind::kSasToken;
     }
   }
