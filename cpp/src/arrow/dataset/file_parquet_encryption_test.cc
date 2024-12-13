@@ -60,7 +60,7 @@ enum EncryptionParam {
 };
 
 // Base class to test writing and reading encrypted dataset.
-class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionParam> {
+class DatasetEncryptionTestBase : public testing::TestWithParam<std::tuple<EncryptionParam, bool>> {
  public:
   // This function creates a mock file system using the current time point, creates a
   // directory with the given base directory path, and writes a dataset to it using
@@ -98,13 +98,13 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionParam>
     auto encryption_config =
         std::make_shared<parquet::encryption::EncryptionConfiguration>(
             std::string(kFooterKeyName));
-
-    if (GetParam() == COLUMN_KEY) {
+    auto encryption = std::get<0>(GetParam());
+    if (encryption == COLUMN_KEY) {
       encryption_config->column_keys = kColumnKeyMapping;
-    } else if (GetParam() == UNIFORM) {
+    } else if (encryption == UNIFORM) {
       encryption_config->uniform_encryption = true;
     } else {
-      FAIL() << "Unsupported encryption type " << GetParam();
+      FAIL() << "Unsupported encryption type " << encryption;
     }
 
     auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
@@ -135,7 +135,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionParam>
 
   virtual void PrepareTableAndPartitioning() = 0;
 
-  void TestScanDataset(bool concurrently = false) {
+  void TestScanDataset() {
     // Create decryption properties.
     auto decryption_config =
         std::make_shared<parquet::encryption::DecryptionConfiguration>();
@@ -167,6 +167,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionParam>
     // Create the dataset
     ASSERT_OK_AND_ASSIGN(auto dataset, dataset_factory->Finish());
 
+    auto concurrently = std::get<1>(GetParam());
     if (concurrently) {
       // have a notable number of threads to exhibit multi-threading issues
       ASSERT_OK_AND_ASSIGN(auto pool, arrow::internal::ThreadPool::Make(16));
@@ -248,10 +249,6 @@ TEST_P(DatasetEncryptionTest, WriteReadDatasetWithEncryption) {
   ASSERT_NO_FATAL_FAILURE(TestScanDataset());
 }
 
-TEST_P(DatasetEncryptionTest, WriteReadDatasetWithEncryptionThreaded) {
-  ASSERT_NO_FATAL_FAILURE(TestScanDataset(true));
-}
-
 // Read a single parquet file with and without decryption properties.
 TEST_P(DatasetEncryptionTest, ReadSingleFile) {
   // Open the Parquet file.
@@ -284,10 +281,10 @@ TEST_P(DatasetEncryptionTest, ReadSingleFile) {
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(2)->chunk(0))->GetView(0), 1);
 }
 
-INSTANTIATE_TEST_SUITE_P(DatasetColumnKeyEncryptionTest, DatasetEncryptionTest,
-                         ::testing::Values(COLUMN_KEY));
-INSTANTIATE_TEST_SUITE_P(DatasetUniformEncryptionTest, DatasetEncryptionTest,
-                         ::testing::Values(UNIFORM));
+INSTANTIATE_TEST_SUITE_P(DatasetEncryptionTest, DatasetEncryptionTest,
+                         ::testing::Values(std::tuple<EncryptionParam, bool>(COLUMN_KEY, false), std::tuple<EncryptionParam, bool>(UNIFORM, false)));
+INSTANTIATE_TEST_SUITE_P(DatasetEncryptionTestThreaded, DatasetEncryptionTest,
+                         ::testing::Values(std::tuple<EncryptionParam, bool>(COLUMN_KEY, true), std::tuple<EncryptionParam, bool>(UNIFORM, true)));
 
 // GH-39444: This test covers the case where parquet dataset scanner crashes when
 // processing encrypted datasets over 2^15 rows in multi-threaded mode.
@@ -314,10 +311,10 @@ TEST_P(LargeRowEncryptionTest, ReadEncryptLargeRows) {
   ASSERT_NO_FATAL_FAILURE(TestScanDataset());
 }
 
-INSTANTIATE_TEST_SUITE_P(LargeRowColumnKeyEncryptionTest, LargeRowEncryptionTest,
-                         ::testing::Values(COLUMN_KEY));
-INSTANTIATE_TEST_SUITE_P(LargeRowUniformEncryptionTest, LargeRowEncryptionTest,
-                         ::testing::Values(UNIFORM));
+INSTANTIATE_TEST_SUITE_P(LargeRowEncryptionTest, LargeRowEncryptionTest,
+                         ::testing::Values(std::tuple<EncryptionParam, bool>(COLUMN_KEY, false), std::tuple<EncryptionParam, bool>(UNIFORM, false)));
+INSTANTIATE_TEST_SUITE_P(LargeRowEncryptionTestThreaded, LargeRowEncryptionTest,
+                         ::testing::Values(std::tuple<EncryptionParam, bool>(COLUMN_KEY, true), std::tuple<EncryptionParam, bool>(UNIFORM, true)));
 
 }  // namespace dataset
 }  // namespace arrow
