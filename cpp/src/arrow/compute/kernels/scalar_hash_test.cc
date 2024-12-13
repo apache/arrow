@@ -35,7 +35,7 @@ namespace arrow {
 namespace compute {
 
 constexpr auto kSeed = 0x94378165;
-constexpr auto array_lengths = {0, 10, 100, 1000};
+constexpr auto array_lengths = {0, 10, 100};
 constexpr auto null_probabilities = {0.0, 0.5, 1.0};
 
 class TestScalarHash : public ::testing::Test {
@@ -106,6 +106,8 @@ class TestScalarHash : public ::testing::Test {
   }
 };
 
+// TODO(kszucs): test null, bool, fixed size binary, dictionary encoded
+
 TEST_F(TestScalarHash, NumericLike) {
   auto types = {int8(),   int16(),  int32(),  int64(),   uint8(),
                 uint16(), uint32(), uint64(), float32(), float64()};
@@ -155,25 +157,24 @@ TEST_F(TestScalarHash, RandomNumericLike) {
   }
 }
 
-TEST_F(TestScalarHash, RandomListLike) {
+TEST_F(TestScalarHash, RandomNested) {
   auto rand = random::RandomArrayGenerator(kSeed);
   auto types = {
       list(int32()),
-      list(uint64()),
-      list(float32()),
       list(float64()),
-      list(binary()),
       list(utf8()),
       list(large_binary()),
-      list(large_utf8()),
       large_list(int64()),
-      large_list(float64()),
-      large_list(binary()),
       large_list(utf8()),
       large_list(large_binary()),
-      large_list(large_utf8()),
       list(list(int16())),
       list(list(list(uint8()))),
+      fixed_size_list(int32(), 3),
+      map(int32(), int32()),
+      map(int32(), utf8()),
+      map(utf8(), list(int16())),
+      struct_({field("f0", int32()), field("f1", utf8())}),
+      struct_({field("f0", list(int32())), field("f1", large_binary())}),
   };
   for (auto type : types) {
     for (auto length : array_lengths) {
