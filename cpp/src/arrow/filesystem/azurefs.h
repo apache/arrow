@@ -182,9 +182,9 @@ struct ARROW_EXPORT AzureOptions {
   ///   AzureOptions::ConfigureClientSecretCredential() is called.
   /// * client_secret: You must specify "tenant_id" and "client_id"
   ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
-  /// * A SAS token is made up of several query parameters. Appending a SAS 
-  ///   token to the URI configures SAS token auth by calling 
-  ///   AzureOptions::ConfigureSasCredential(). 
+  /// * A SAS token is made up of several query parameters. Appending a SAS
+  ///   token to the URI configures SAS token auth by calling
+  ///   AzureOptions::ConfigureSasCredential().
   ///
   /// [1]:
   /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
