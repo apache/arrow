@@ -3467,7 +3467,8 @@ int main() {
                               field("key2", int64()), field("c0", int64())});
 
   const int64_t key_min = 0;
-  const int64_t key_max = std::numeric_limits<int16_t>::max();
+  // const int64_t key_max = std::numeric_limits<int32_t>::max() / 8;
+  const int64_t key_max = num_large_rows / 8;
   const double null_probability = 0;
 
   auto small_key0_arr = RandomArrayGenerator(seed).Int64(
