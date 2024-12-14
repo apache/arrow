@@ -1667,8 +1667,8 @@ class TestAzureFileSystem : public ::testing::Test {
 
     AssertFileInfo(fs.get(), data.ObjectPath(), FileType::File);
 
-    // Test copying because it follows a different code path to other authentications
-    // because it usually requires generating a SAS token at runtime.
+    // Test copying because the most obvious implementation requires generating a SAS
+    // token at runtime which doesn't work when the original auth is SAS token.
     ASSERT_OK(fs->CopyFile(data.ObjectPath(), data.ObjectPath() + "_copy"));
     AssertFileInfo(fs.get(), data.ObjectPath() + "_copy", FileType::File);
   }
