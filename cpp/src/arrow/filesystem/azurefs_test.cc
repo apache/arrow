@@ -967,8 +967,6 @@ class TestAzureFileSystem : public ::testing::Test {
     } else {
       auto container_client = CreateContainer(data.container_name);
       CreateBlob(container_client, data.kObjectName, PreexistingData::kLoremIpsum);
-      // CreateBlob(container_client, data.kObjectName, data.RandomChars((1 << 30),
-      // rng_));
     }
     return data;
   }
