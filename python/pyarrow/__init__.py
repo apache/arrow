@@ -380,6 +380,9 @@ def create_library_symlinks():
         if _os.path.exists(symlink_path):
             continue
         try:
+            if _os.path.islink(symlink_path):
+                # broken symlink
+                _os.unlink(symlink_path)
             _os.symlink(lib_hard_path, symlink_path)
         except PermissionError:
             print("Tried creating symlink {}. If you need to link to "
