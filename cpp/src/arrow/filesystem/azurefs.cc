@@ -3199,20 +3199,7 @@ class AzureFileSystem::Impl {
     if (src == dest) {
       return Status::OK();
     }
-    std::string sas_token;
-    Storage::Sas::BlobSasBuilder builder;
-    // Shorter lived SAS tokens are more secure but we need it to last comfortably long
-    // enough for the copy to complete, including possible retries. Copying a single 1GiB 
-    // file in Azure can take over a minute. 
-    std::chrono::seconds available_period(600);
-    builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
-    builder.BlobContainerName = src.container;
-    builder.BlobName = src.path;
-    builder.Resource = Storage::Sas::BlobSasResource::Blob;
-    builder.SetPermissions(Storage::Sas::BlobSasPermissions::Read);
-    ARROW_ASSIGN_OR_RAISE(
-        sas_token, options_.GenerateSASToken(&builder, blob_service_client_.get()));
-    auto src_url = GetBlobClient(src.container, src.path).GetUrl() + sas_token;
+    auto src_url = GetBlobClient(src.container, src.path).GetUrl();
     auto dest_blob_client = GetBlobClient(dest.container, dest.path);
     if (!dest.path.empty()) {
       auto dest_parent = dest.parent();
@@ -3225,9 +3212,19 @@ class AzureFileSystem::Impl {
       }
     }
     try {
-      dest_blob_client.CopyFromUri(src_url);
+      // We use StartCopyFromUri instead of CopyFromUri because it supports blobs larger
+      // than 256 MiB and it doesn't require generating a SAS token to authenticate
+      // reading the source blob.
+      auto copy_operation = dest_blob_client.StartCopyFromUri(src_url);
+      copy_operation.PollUntilDone(std::chrono::milliseconds(1000));
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(exception, "Failed to copy a blob. (", src_url, " -> ",
+      // StartCopyFromUri failed or a GetProperties call inside PollUntilDone failed.
+      return ExceptionToStatus(
+          exception, "Failed to start blob copy or poll status of ongoing copy. (",
+          src_url, " -> ", dest_blob_client.GetUrl(), ")");
+    } catch (const Azure::Core::RequestFailedException& exception) {
+      // A GetProperties call inside PollUntilDone returned a failed CopyStatus.
+      return ExceptionToStatus(exception, "Failed to copy blob. (", src_url, " -> ",
                                dest_blob_client.GetUrl(), ")");
     }
     return Status::OK();
