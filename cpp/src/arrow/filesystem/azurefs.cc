@@ -151,7 +151,7 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
       // Assume these are part of a SAS token. Its not ideal to make such an assumption
       // but given that a SAS token is a complex set of URI parameters, that could be
       // tricky to exhaustively list I think its the best option.
-      credential_kind = CredentialKind::kSasToken;
+      credential_kind = CredentialKind::kSASToken;
     }
   }
 
@@ -182,7 +182,7 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
       case CredentialKind::kEnvironment:
         RETURN_NOT_OK(ConfigureEnvironmentCredential());
         break;
-      case CredentialKind::kSasToken:
+      case CredentialKind::kSASToken:
         // Reconstructing the SAS token without the other URI query parameters is awkward
         // because some parts are URI escaped and some parts are not. Instead we just
         // pass through the entire query string and Azure ignores the extra query
@@ -251,7 +251,7 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
     case CredentialKind::kStorageSharedKey:
       return storage_shared_key_credential_->AccountName ==
              other.storage_shared_key_credential_->AccountName;
-    case CredentialKind::kSasToken:
+    case CredentialKind::kSASToken:
       return sas_token_ == other.sas_token_;
     case CredentialKind::kClientSecret:
     case CredentialKind::kCLI:
@@ -322,7 +322,7 @@ Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_ke
 }
 
 Status AzureOptions::ConfigureSasCredential(const std::string& sas_token) {
-  credential_kind_ = CredentialKind::kSasToken;
+  credential_kind_ = CredentialKind::kSASToken;
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
@@ -391,7 +391,7 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     case CredentialKind::kStorageSharedKey:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         storage_shared_key_credential_);
-    case CredentialKind::kSasToken:
+    case CredentialKind::kSASToken:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name) +
                                                         sas_token_);
   }
@@ -426,7 +426,7 @@ AzureOptions::MakeDataLakeServiceClient() const {
     case CredentialKind::kStorageSharedKey:
       return std::make_unique<DataLake::DataLakeServiceClient>(
           AccountDfsUrl(account_name), storage_shared_key_credential_);
-    case CredentialKind::kSasToken:
+    case CredentialKind::kSASToken:
       return std::make_unique<DataLake::DataLakeServiceClient>(
           AccountBlobUrl(account_name) + sas_token_);
   }
@@ -438,18 +438,31 @@ Result<std::string> AzureOptions::GenerateSASToken(
   using SasProtocol = Storage::Sas::SasProtocol;
   builder->Protocol =
       blob_storage_scheme == "http" ? SasProtocol::HttpsAndHttp : SasProtocol::HttpsOnly;
-  if (credential_kind_ == CredentialKind::kStorageSharedKey) {
-    return builder->GenerateSasToken(*storage_shared_key_credential_);
-  } else {
-    // GH-39344: This part isn't tested.
-    try {
-      auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
-      return builder->GenerateSasToken(delegation_key_response.Value, account_name);
-    } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(exception, "GetUserDelegationKey failed for '",
-                               client->GetUrl(), "'.");
-    }
+  switch (credential_kind_) {
+    case CredentialKind::kAnonymous:
+      // Anonymous is for public storage accounts so no SAS token needed.
+    case CredentialKind::kSASToken:
+      // When using SAS token auth BlobClient::GetUrl() will return a URL with the
+      // original SAS token, so we don't need to generate a new one.
+      return "";
+    case CredentialKind::kStorageSharedKey:
+      return builder->GenerateSasToken(*storage_shared_key_credential_);
+    case CredentialKind::kClientSecret:
+    case CredentialKind::kManagedIdentity:
+    case CredentialKind::kCLI:
+    case CredentialKind::kWorkloadIdentity:
+    case CredentialKind::kEnvironment:
+    case CredentialKind::kDefault:
+      // GH-39344: This part isn't tested.
+      try {
+        auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
+        return builder->GenerateSasToken(delegation_key_response.Value, account_name);
+      } catch (const Storage::StorageException& exception) {
+        return ExceptionToStatus(exception, "GetUserDelegationKey failed for '",
+                                 client->GetUrl(), "'.");
+      }
   }
+  return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
 
 namespace {
@@ -3187,21 +3200,18 @@ class AzureFileSystem::Impl {
       return Status::OK();
     }
     std::string sas_token;
-    if (options_.UsesSasCredential()) {
-      // When authenticated with SAS token GetUrl() automatically provides an
-      // authenticated URL with the SAS token appended.
-      sas_token = "";
-    } else {
-      Storage::Sas::BlobSasBuilder builder;
-      std::chrono::seconds available_period(600);
-      builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
-      builder.BlobContainerName = src.container;
-      builder.BlobName = src.path;
-      builder.Resource = Storage::Sas::BlobSasResource::Blob;
-      builder.SetPermissions(Storage::Sas::BlobSasPermissions::Read);
-      ARROW_ASSIGN_OR_RAISE(
-          sas_token, options_.GenerateSASToken(&builder, blob_service_client_.get()));
-    }
+    Storage::Sas::BlobSasBuilder builder;
+    // Shorter lived SAS tokens are more secure but we need it to last comfortably long
+    // enough for the copy to complete, including possible retries. Copying a single 1GiB 
+    // file in Azure can take over a minute. 
+    std::chrono::seconds available_period(600);
+    builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
+    builder.BlobContainerName = src.container;
+    builder.BlobName = src.path;
+    builder.Resource = Storage::Sas::BlobSasResource::Blob;
+    builder.SetPermissions(Storage::Sas::BlobSasPermissions::Read);
+    ARROW_ASSIGN_OR_RAISE(
+        sas_token, options_.GenerateSASToken(&builder, blob_service_client_.get()));
     auto src_url = GetBlobClient(src.container, src.path).GetUrl() + sas_token;
     auto dest_blob_client = GetBlobClient(dest.container, dest.path);
     if (!dest.path.empty()) {

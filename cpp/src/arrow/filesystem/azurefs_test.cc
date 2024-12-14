@@ -698,7 +698,7 @@ class TestAzureOptions : public ::testing::Test {
         auto options,
         AzureOptions::FromUri(
             "abfs://file_system@account.dfs.core.windows.net/" + sas_token, nullptr));
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kSasToken);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kSASToken);
     ASSERT_EQ(options.sas_token_, sas_token);
   }
 
@@ -712,7 +712,7 @@ class TestAzureOptions : public ::testing::Test {
         AzureOptions::FromUri(
             "abfs://account@127.0.0.1:10000/container/dir/blob" + uri_query_string,
             nullptr));
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kSasToken);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kSASToken);
     ASSERT_EQ(options.sas_token_, uri_query_string);
     ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");

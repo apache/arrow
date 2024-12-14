@@ -120,7 +120,7 @@ struct ARROW_EXPORT AzureOptions {
     kDefault,
     kAnonymous,
     kStorageSharedKey,
-    kSasToken,
+    kSASToken,
     kClientSecret,
     kManagedIdentity,
     kCLI,
@@ -217,8 +217,6 @@ struct ARROW_EXPORT AzureOptions {
   Result<std::string> GenerateSASToken(
       Azure::Storage::Sas::BlobSasBuilder* builder,
       Azure::Storage::Blobs::BlobServiceClient* client) const;
-
-  bool UsesSasCredential() const { return credential_kind_ == CredentialKind::kSasToken; }
 };
 
 /// \brief FileSystem implementation backed by Azure Blob Storage (ABS) [1] and
