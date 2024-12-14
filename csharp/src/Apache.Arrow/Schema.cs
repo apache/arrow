@@ -31,6 +31,7 @@ namespace Apache.Arrow
         private readonly List<Field> _fieldsList;
 
         public ILookup<string, Field> FieldsLookup { get; }
+        private readonly ILookup<string, int> _fieldsIndexLookup;
 
         public IReadOnlyDictionary<string, string> Metadata { get; }
 
@@ -43,17 +44,11 @@ namespace Apache.Arrow
         public Schema(
             IEnumerable<Field> fields,
             IEnumerable<KeyValuePair<string, string>> metadata)
+            : this(
+                fields?.ToList() ?? throw new ArgumentNullException(nameof(fields)),
+                metadata?.ToDictionary(kv => kv.Key, kv => kv.Value),
+                false)
         {
-            if (fields is null)
-            {
-                throw new ArgumentNullException(nameof(fields));
-            }
-
-            _fieldsList = fields.ToList();
-            FieldsLookup = _fieldsList.ToLookup(f => f.Name);
-            _fieldsDictionary = FieldsLookup.ToDictionary(g => g.Key, g => g.First());
-
-            Metadata = metadata?.ToDictionary(kv => kv.Key, kv => kv.Value);
         }
 
         internal Schema(List<Field> fieldsList, IReadOnlyDictionary<string, string> metadata, bool copyCollections)
@@ -66,6 +61,10 @@ namespace Apache.Arrow
             _fieldsDictionary = FieldsLookup.ToDictionary(g => g.Key, g => g.First());
 
             Metadata = metadata;
+
+            _fieldsIndexLookup = _fieldsList
+                .Select((x, idx) => (Name: x.Name, Index: idx))
+                .ToLookup(x => x.Name, x => x.Index, StringComparer.CurrentCulture);
         }
 
         public Field GetFieldByIndex(int i) => _fieldsList[i];
@@ -80,15 +79,20 @@ namespace Apache.Arrow
 
         public int GetFieldIndex(string name, IEqualityComparer<string> comparer = default)
         {
-            comparer ??= StringComparer.CurrentCulture;
-
-            for (int i = 0; i < _fieldsList.Count; i++)
+            if (comparer == null || comparer.Equals(StringComparer.CurrentCulture))
             {
-                if (comparer.Equals(_fieldsList[i].Name, name))
-                    return i;
+                return _fieldsIndexLookup[name].First();
             }
 
-            return -1;
+            for (var i = 0; i < _fieldsList.Count; ++i)
+            {
+                if (comparer.Equals(_fieldsList[i].Name, name))
+                {
+                    return i;
+                }
+            }
+
+            throw new InvalidOperationException();
         }
 
         public Schema RemoveField(int fieldIndex)
