@@ -3214,7 +3214,7 @@ class AzureFileSystem::Impl {
     try {
       // We use StartCopyFromUri instead of CopyFromUri because it supports blobs larger
       // than 256 MiB and it doesn't require generating a SAS token to authenticate
-      // reading the source blob.
+      // reading a source blob in the same storage account.
       auto copy_operation = dest_blob_client.StartCopyFromUri(src_url);
       copy_operation.PollUntilDone(std::chrono::milliseconds(1000));
     } catch (const Storage::StorageException& exception) {

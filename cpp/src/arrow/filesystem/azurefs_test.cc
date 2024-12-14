@@ -2694,6 +2694,17 @@ TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationNonexistent) {
   EXPECT_EQ(PreexistingData::kLoremIpsum, buffer->ToString());
 }
 
+TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationDifferentContainer) {
+  auto data = SetUpPreexistingData();
+  auto data2 = SetUpPreexistingData();
+  const auto destination_path = data2.ContainerPath("copy-destionation");
+  ASSERT_OK(fs()->CopyFile(data.ObjectPath(), destination_path));
+  ASSERT_OK_AND_ASSIGN(auto info, fs()->GetFileInfo(destination_path));
+  ASSERT_OK_AND_ASSIGN(auto stream, fs()->OpenInputStream(info));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
+  EXPECT_EQ(PreexistingData::kLoremIpsum, buffer->ToString());
+}
+
 TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationSame) {
   auto data = SetUpPreexistingData();
   ASSERT_OK(fs()->CopyFile(data.ObjectPath(), data.ObjectPath()));
