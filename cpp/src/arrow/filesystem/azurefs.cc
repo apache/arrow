@@ -433,38 +433,6 @@ AzureOptions::MakeDataLakeServiceClient() const {
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
 
-Result<std::string> AzureOptions::GenerateSASToken(
-    Storage::Sas::BlobSasBuilder* builder, Blobs::BlobServiceClient* client) const {
-  using SasProtocol = Storage::Sas::SasProtocol;
-  builder->Protocol =
-      blob_storage_scheme == "http" ? SasProtocol::HttpsAndHttp : SasProtocol::HttpsOnly;
-  switch (credential_kind_) {
-    case CredentialKind::kAnonymous:
-      // Anonymous is for public storage accounts so no SAS token needed.
-    case CredentialKind::kSASToken:
-      // When using SAS token auth BlobClient::GetUrl() will return a URL with the
-      // original SAS token, so we don't need to generate a new one.
-      return "";
-    case CredentialKind::kStorageSharedKey:
-      return builder->GenerateSasToken(*storage_shared_key_credential_);
-    case CredentialKind::kClientSecret:
-    case CredentialKind::kManagedIdentity:
-    case CredentialKind::kCLI:
-    case CredentialKind::kWorkloadIdentity:
-    case CredentialKind::kEnvironment:
-    case CredentialKind::kDefault:
-      // GH-39344: This part isn't tested.
-      try {
-        auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
-        return builder->GenerateSasToken(delegation_key_response.Value, account_name);
-      } catch (const Storage::StorageException& exception) {
-        return ExceptionToStatus(exception, "GetUserDelegationKey failed for '",
-                                 client->GetUrl(), "'.");
-      }
-  }
-  return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
-}
-
 namespace {
 
 // An AzureFileSystem represents an Azure storage account. An AzureLocation describes a

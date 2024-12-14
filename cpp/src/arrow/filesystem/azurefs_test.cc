@@ -936,7 +936,9 @@ class TestAzureFileSystem : public ::testing::Test {
         .Value;
   }
 
-  Result<std::string> GetContainerSasToken(const std::string& container_name) {
+  Result<std::string> GetContainerSasToken(
+      const std::string& container_name,
+      Azure::Storage::StorageSharedKeyCredential storage_shared_key_credential) {
     std::string sas_token;
     Azure::Storage::Sas::BlobSasBuilder builder;
     std::chrono::seconds available_period(60);
@@ -944,7 +946,8 @@ class TestAzureFileSystem : public ::testing::Test {
     builder.BlobContainerName = container_name;
     builder.Resource = Azure::Storage::Sas::BlobSasResource::BlobContainer;
     builder.SetPermissions(Azure::Storage::Sas::BlobContainerSasPermissions::All);
-    return options_.GenerateSASToken(&builder, blob_service_client_.get());
+    builder.Protocol = Azure::Storage::Sas::SasProtocol::HttpsAndHttp;
+    return builder.GenerateSasToken(storage_shared_key_credential);
   }
 
   void UploadLines(const std::vector<std::string>& lines, const std::string& path,
@@ -964,6 +967,8 @@ class TestAzureFileSystem : public ::testing::Test {
     } else {
       auto container_client = CreateContainer(data.container_name);
       CreateBlob(container_client, data.kObjectName, PreexistingData::kLoremIpsum);
+      // CreateBlob(container_client, data.kObjectName, data.RandomChars((1 << 30),
+      // rng_));
     }
     return data;
   }
@@ -1657,7 +1662,11 @@ class TestAzureFileSystem : public ::testing::Test {
 
     ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
     ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env));
-    ASSERT_OK_AND_ASSIGN(auto sas_token, GetContainerSasToken(data.container_name));
+    ASSERT_OK_AND_ASSIGN(
+        auto sas_token,
+        GetContainerSasToken(data.container_name,
+                             Azure::Storage::StorageSharedKeyCredential(
+                                 env->account_name(), env->account_key())));
     // AzureOptions::FromUri will not cut off extra query parameters that it consumes, so
     // make sure these don't cause problems.
     ARROW_EXPECT_OK(options.ConfigureSasCredential(
@@ -1667,7 +1676,7 @@ class TestAzureFileSystem : public ::testing::Test {
 
     AssertFileInfo(fs.get(), data.ObjectPath(), FileType::File);
 
-    // Test copying because the most obvious implementation requires generating a SAS
+    // Test CopyFile because the most obvious implementation requires generating a SAS
     // token at runtime which doesn't work when the original auth is SAS token.
     ASSERT_OK(fs->CopyFile(data.ObjectPath(), data.ObjectPath() + "_copy"));
     AssertFileInfo(fs.get(), data.ObjectPath() + "_copy", FileType::File);
