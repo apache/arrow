@@ -106,6 +106,18 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
   std::string tenant_id;
   std::string client_id;
   std::string client_secret;
+
+  // These query parameters are the union of the following docs:
+  // https://learn.microsoft.com/en-us/rest/api/storageservices/create-account-sas#specify-the-account-sas-parameters
+  // https://learn.microsoft.com/en-us/rest/api/storageservices/create-service-sas#construct-a-service-sas
+  // (excluding parameters for table storage only)
+  // https://learn.microsoft.com/en-us/rest/api/storageservices/create-user-delegation-sas#construct-a-user-delegation-sas
+  constexpr std::array<const char*, 27> sas_token_query_parameters = {
+      "sv",    "ss",    "sr",  "st",  "se",   "sp",   "si",   "sip",   "spr",
+      "skoid", "sktid", "srt", "skt", "ske",  "skv",  "sks",  "saoid", "suoid",
+      "scid",  "sdd",   "ses", "sig", "rscc", "rscd", "rsce", "rscl",  "rsct",
+  };
+
   ARROW_ASSIGN_OR_RAISE(const auto options_items, uri.query_items());
   for (const auto& kv : options_items) {
     if (kv.first == "blob_storage_authority") {
@@ -147,11 +159,13 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
     } else if (kv.first == "background_writes") {
       ARROW_ASSIGN_OR_RAISE(background_writes,
                             ::arrow::internal::ParseBoolean(kv.second));
-    } else {
-      // Assume these are part of a SAS token. Its not ideal to make such an assumption
-      // but given that a SAS token is a complex set of URI parameters, that could be
-      // tricky to exhaustively list I think its the best option.
+    } else if (std::find(sas_token_query_parameters.begin(),
+                         sas_token_query_parameters.end(),
+                         kv.first) != sas_token_query_parameters.end()) {
       credential_kind = CredentialKind::kSASToken;
+    } else {
+      return Status::Invalid(
+          "Unexpected query parameter in Azure Blob File System URI: '", kv.first, "'");
     }
   }
 

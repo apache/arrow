@@ -744,6 +744,13 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_authority, ".dfs.local");
   }
 
+  void TestFromUriInvalidQueryParameter() {
+    ASSERT_RAISES(Invalid, AzureOptions::FromUri(
+                               "abfs://file_system@account.dfs.core.windows.net/dir/file?"
+                               "unknown=invalid",
+                               nullptr));
+  }
+
   void TestMakeBlobServiceClientInvalidAccountName() {
     AzureOptions options;
     ASSERT_RAISES_WITH_MESSAGE(
@@ -809,6 +816,9 @@ TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
   TestFromUriBlobStorageAuthority();
 }
 TEST_F(TestAzureOptions, FromUriDfsStorageAuthority) { TestFromUriDfsStorageAuthority(); }
+TEST_F(TestAzureOptions, FromUriInvalidQueryParameter) {
+  TestFromUriInvalidQueryParameter();
+}
 TEST_F(TestAzureOptions, MakeBlobServiceClientInvalidAccountName) {
   TestMakeBlobServiceClientInvalidAccountName();
 }
