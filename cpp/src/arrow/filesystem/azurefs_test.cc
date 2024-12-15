@@ -690,7 +690,7 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kEnvironment);
   }
 
-  void TestFromUriCredentialSasToken() {
+  void TestFromUriCredentialSASToken() {
     const std::string sas_token =
         "?se=2024-12-12T18:57:47Z&sig=pAs7qEBdI6sjUhqX1nrhNAKsTY%2B1SqLxPK%"
         "2BbAxLiopw%3D&sp=racwdxylti&spr=https,http&sr=c&sv=2024-08-04";
@@ -702,7 +702,7 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.sas_token_, sas_token);
   }
 
-  void TestFromUriCredentialSasTokenWithOtherParameters() {
+  void TestFromUriCredentialSASTokenWithOtherParameters() {
     const std::string uri_query_string =
         "?enable_tls=false&se=2024-12-12T18:57:47Z&sig=pAs7qEBdI6sjUhqX1nrhNAKsTY%"
         "2B1SqLxPK%"
@@ -807,9 +807,9 @@ TEST_F(TestAzureOptions, FromUriCredentialWorkloadIdentity) {
 TEST_F(TestAzureOptions, FromUriCredentialEnvironment) {
   TestFromUriCredentialEnvironment();
 }
-TEST_F(TestAzureOptions, FromUriCredentialSasToken) { TestFromUriCredentialSasToken(); }
-TEST_F(TestAzureOptions, FromUriCredentialSasTokenWithOtherParameters) {
-  TestFromUriCredentialSasTokenWithOtherParameters();
+TEST_F(TestAzureOptions, FromUriCredentialSASToken) { TestFromUriCredentialSASToken(); }
+TEST_F(TestAzureOptions, FromUriCredentialSASTokenWithOtherParameters) {
+  TestFromUriCredentialSASTokenWithOtherParameters();
 }
 TEST_F(TestAzureOptions, FromUriCredentialInvalid) { TestFromUriCredentialInvalid(); }
 TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
@@ -946,7 +946,7 @@ class TestAzureFileSystem : public ::testing::Test {
         .Value;
   }
 
-  Result<std::string> GetContainerSasToken(
+  Result<std::string> GetContainerSASToken(
       const std::string& container_name,
       Azure::Storage::StorageSharedKeyCredential storage_shared_key_credential) {
     std::string sas_token;
@@ -1665,14 +1665,14 @@ class TestAzureFileSystem : public ::testing::Test {
     AssertObjectContents(fs.get(), path, payload);
   }
 
-  void TestSasCredential() {
+  void TestSASCredential() {
     auto data = SetUpPreexistingData();
 
     ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
     ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env));
     ASSERT_OK_AND_ASSIGN(
         auto sas_token,
-        GetContainerSasToken(data.container_name,
+        GetContainerSASToken(data.container_name,
                              Azure::Storage::StorageSharedKeyCredential(
                                  env->account_name(), env->account_key())));
     // AzureOptions::FromUri will not cut off extra query parameters that it consumes, so
@@ -2401,8 +2401,8 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateContainerFromPath) {
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, MovePath) { this->TestMovePath(); }
 
-TYPED_TEST(TestAzureFileSystemOnAllScenarios, SasCredential) {
-  this->TestSasCredential();
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, SASCredential) {
+  this->TestSASCredential();
 }
 
 // Tests using Azurite (the local Azure emulator)
