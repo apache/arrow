@@ -37,10 +37,6 @@ namespace Azure::Storage::Blobs {
 class BlobServiceClient;
 }
 
-namespace Azure::Storage::Sas {
-struct BlobSasBuilder;
-}
-
 namespace Azure::Storage::Files::DataLake {
 class DataLakeFileSystemClient;
 class DataLakeServiceClient;
@@ -184,7 +180,7 @@ struct ARROW_EXPORT AzureOptions {
   ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
   /// * A SAS token is made up of several query parameters. Appending a SAS
   ///   token to the URI configures SAS token auth by calling
-  ///   AzureOptions::ConfigureSasCredential().
+  ///   AzureOptions::ConfigureSASCredential().
   ///
   /// [1]:
   /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
@@ -194,7 +190,7 @@ struct ARROW_EXPORT AzureOptions {
   Status ConfigureDefaultCredential();
   Status ConfigureAnonymousCredential();
   Status ConfigureAccountKeyCredential(const std::string& account_key);
-  Status ConfigureSasCredential(const std::string& sas_token);
+  Status ConfigureSASCredential(const std::string& sas_token);
   Status ConfigureClientSecretCredential(const std::string& tenant_id,
                                          const std::string& client_id,
                                          const std::string& client_secret);

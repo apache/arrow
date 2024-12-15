@@ -1667,7 +1667,7 @@ class TestAzureFileSystem : public ::testing::Test {
                                  env->account_name(), env->account_key())));
     // AzureOptions::FromUri will not cut off extra query parameters that it consumes, so
     // make sure these don't cause problems.
-    ARROW_EXPECT_OK(options.ConfigureSasCredential(
+    ARROW_EXPECT_OK(options.ConfigureSASCredential(
         "?blob_storage_authority=dummy_value0&" + sas_token.substr(1) +
         "&credential_kind=dummy-value1"));
     EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));

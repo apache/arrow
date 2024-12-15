@@ -187,7 +187,7 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
         // because some parts are URI escaped and some parts are not. Instead we just
         // pass through the entire query string and Azure ignores the extra query
         // parameters.
-        RETURN_NOT_OK(ConfigureSasCredential("?" + uri.query_string()));
+        RETURN_NOT_OK(ConfigureSASCredential("?" + uri.query_string()));
         break;
       default:
         // Default credential
@@ -321,7 +321,7 @@ Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_ke
   return Status::OK();
 }
 
-Status AzureOptions::ConfigureSasCredential(const std::string& sas_token) {
+Status AzureOptions::ConfigureSASCredential(const std::string& sas_token) {
   credential_kind_ = CredentialKind::kSASToken;
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
