@@ -172,6 +172,24 @@ TEST_F(TestScalarHash, Null) {
   CheckDeterminisic("hash64", arr);
 }
 
+TEST_F(TestScalarHash, NullHashIsZero) {
+  auto arr1 = ArrayFromJSON(int32(), R"([null, 0, 1])");
+  ASSERT_OK_AND_ASSIGN(auto res1, CallFunction("hash64", {arr1}));
+  auto buf1 = res1.array()->GetValues<uint64_t>(1);
+  ASSERT_EQ(buf1[0], 0);
+  ASSERT_NE(buf1[1], 0);
+  ASSERT_NE(buf1[2], 0);
+  ASSERT_NE(buf1[1], buf1[2]);
+
+  auto arr2 = ArrayFromJSON(int8(), R"([null, 0, 1])");
+  ASSERT_OK_AND_ASSIGN(auto res2, CallFunction("hash32", {arr2}));
+  auto buf2 = res2.array()->GetValues<uint32_t>(1);
+  ASSERT_EQ(buf2[0], 0);
+  ASSERT_NE(buf2[1], 0);
+  ASSERT_NE(buf2[2], 0);
+  ASSERT_NE(buf2[1], buf2[2]);
+}
+
 TEST_F(TestScalarHash, Boolean) {
   auto arr = ArrayFromJSON(boolean(), R"([true, false, null, true, null])");
   CheckDeterminisic("hash32", arr);
