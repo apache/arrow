@@ -26,10 +26,10 @@
 
 @PACKAGE_INIT@
 
-set(ARROW_DATASET_DEPENDENCIES "@ARROW_DATASET_REQUIRED_DEPENDENCIES@")
+set(ARROW_DATASET_REQUIRED_DEPENDENCIES "@ARROW_DATASET_REQUIRED_DEPENDENCIES@")
 
 include(CMakeFindDependencyMacro)
-foreach(dependency ${dependencies})
+foreach(dependency ${ARROW_DATASET_REQUIRED_DEPENDENCIES})
     find_dependency(${dependency})
 endforeach()
 
