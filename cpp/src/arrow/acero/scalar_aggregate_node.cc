@@ -294,6 +294,14 @@ Status ScalarAggregateNode::OutputResult(bool is_last) {
   // First, insert segment keys
   PlaceFields(batch, /*base=*/0, segmenter_values_);
 
+  // Move away the states and recreate them eagerly, to make sure that any error
+  // below does not leave us with empty states.
+  auto states = std::move(states_);
+  states_.resize(kernels_.size());
+  if (!is_last) {
+    RETURN_NOT_OK(ResetKernelStates());
+  }
+
   // Followed by aggregate values
   std::size_t base = segment_field_ids_.size();
   for (size_t i = 0; i < kernels_.size(); ++i) {
@@ -305,7 +313,7 @@ Status ScalarAggregateNode::OutputResult(bool is_last) {
                         {"function.kind", std::string(kind_name()) + "::Finalize"}});
     KernelContext ctx{plan()->query_context()->exec_context()};
     ARROW_ASSIGN_OR_RAISE(auto merged, ScalarAggregateKernel::MergeAll(
-                                           kernels_[i], &ctx, std::move(states_[i])));
+                                           kernels_[i], &ctx, std::move(states[i])));
     RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[base + i]));
   }
 
@@ -313,8 +321,6 @@ Status ScalarAggregateNode::OutputResult(bool is_last) {
   total_output_batches_++;
   if (is_last) {
     ARROW_RETURN_NOT_OK(output_->InputFinished(this, total_output_batches_));
-  } else {
-    ARROW_RETURN_NOT_OK(ResetKernelStates());
   }
   return Status::OK();
 }
