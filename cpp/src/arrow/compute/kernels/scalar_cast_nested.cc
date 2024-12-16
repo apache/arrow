@@ -341,6 +341,12 @@ struct CastFixedList {
 
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    // The equivalent logic for top level columns is
+    // https://github.com/apache/arrow/blob/6252e9ceeb0f8544c14f79d895a37ac198131f88/cpp/src/arrow/compute/expression.cc#L669
+    // - For top level columns duplicate names are considered an error when reading
+    // - When casting tables, reordering or filling top level columns with null is not
+    //   supported. These behaviours are implemented in MakeExecBatch which seems to be
+    //   used for scanning datasets and constructing data from expressions.
     static constexpr int kFillNullSentinel = -2;
 
     const CastOptions& options = CastState::Get(ctx);
