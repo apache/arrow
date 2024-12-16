@@ -30,7 +30,7 @@ set(ARROW_DATASET_REQUIRED_DEPENDENCIES "@ARROW_DATASET_REQUIRED_DEPENDENCIES@")
 
 include(CMakeFindDependencyMacro)
 foreach(dependency ${ARROW_DATASET_REQUIRED_DEPENDENCIES})
-    find_dependency(${dependency})
+  find_dependency(${dependency})
 endforeach()
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowDatasetTargets.cmake")
