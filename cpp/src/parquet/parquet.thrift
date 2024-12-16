@@ -61,14 +61,14 @@ enum ConvertedType {
    * values */
   LIST = 3;
 
-  /** an enum is converted into a binary field */
+  /** an enum is converted into a BYTE_ARRAY field */
   ENUM = 4;
 
   /**
    * A decimal value.
    *
-   * This may be used to annotate binary or fixed primitive types. The
-   * underlying byte array stores the unscaled value encoded as two's
+   * This may be used to annotate BYTE_ARRAY or FIXED_LEN_BYTE_ARRAY primitive
+   * types. The underlying byte array stores the unscaled value encoded as two's
    * complement using big-endian byte order (the most significant byte is the
    * zeroth element). The value of the decimal is the value * 10^{-scale}.
    *
@@ -159,7 +159,7 @@ enum ConvertedType {
   /**
    * An embedded BSON document
    *
-   * A BSON document embedded within a single BINARY column.
+   * A BSON document embedded within a single BYTE_ARRAY column.
    */
   BSON = 20;
 
@@ -182,10 +182,10 @@ enum ConvertedType {
  * Representation of Schemas
  */
 enum FieldRepetitionType {
-  /** This field is required (can not be null) and each record has exactly 1 value. */
+  /** This field is required (can not be null) and each row has exactly 1 value. */
   REQUIRED = 0;
 
-  /** The field is optional (can be null) and each record has 0 or 1 values. */
+  /** The field is optional (can be null) and each row has 0 or 1 values. */
   OPTIONAL = 1;
 
   /** The field is repeated and can contain 0 or more values */
@@ -239,6 +239,37 @@ struct SizeStatistics {
 }
 
 /**
+ * Bounding box of geometries in the representation of min/max value pair of
+ * coordinates from each axis.
+ */
+struct BoundingBox {
+  /** Min X value when edges = PLANAR, westmost value if edges = SPHERICAL */
+  1: required double xmin;
+  /** Max X value when edges = PLANAR, eastmost value if edges = SPHERICAL */
+  2: required double xmax;
+  /** Min Y value when edges = PLANAR, southmost value if edges = SPHERICAL */
+  3: required double ymin;
+  /** Max Y value when edges = PLANAR, northmost value if edges = SPHERICAL */
+  4: required double ymax;
+  /** Min Z value if the axis exists */
+  5: optional double zmin;
+  /** Max Z value if the axis exists */
+  6: optional double zmax;
+  /** Min M value if the axis exists */
+  7: optional double mmin;
+  /** Max M value if the axis exists */
+  8: optional double mmax;
+}
+
+/** Statistics specific to GEOMETRY logical type */
+struct GeometryStatistics {
+  /** A bounding box of geometries */
+  1: optional BoundingBox bbox;
+  /** Geometry type codes of all geometries, or an empty list if not known */
+  2: optional list<i32> geometry_types;
+}
+
+/**
  * Statistics per row group and per page
  * All fields are optional.
  */
@@ -258,7 +289,14 @@ struct Statistics {
     */
    1: optional binary max;
    2: optional binary min;
-   /** count of null value in the column */
+   /**
+    * Count of null values in the column.
+    *
+    * Writers SHOULD always write this field even if it is zero (i.e. no null value)
+    * or the column is not nullable.
+    * Readers MUST distinguish between null_count not being present and null_count == 0.
+    * If null_count is not present, readers MUST NOT assume null_count == 0.
+    */
    3: optional i64 null_count;
    /** count of distinct values occurring */
    4: optional i64 distinct_count;
@@ -283,11 +321,11 @@ struct Statistics {
 }
 
 /** Empty structs to use as logical type annotations */
-struct StringType {}  // allowed for BINARY, must be encoded with UTF-8
+struct StringType {}  // allowed for BYTE_ARRAY, must be encoded with UTF-8
 struct UUIDType {}    // allowed for FIXED[16], must encoded raw UUID bytes
 struct MapType {}     // see LogicalTypes.md
 struct ListType {}    // see LogicalTypes.md
-struct EnumType {}    // allowed for BINARY, must be encoded with UTF-8
+struct EnumType {}    // allowed for BYTE_ARRAY, must be encoded with UTF-8
 struct DateType {}    // allowed for INT32
 struct Float16Type {} // allowed for FIXED[2], must encoded raw FLOAT16 bytes
 
@@ -309,7 +347,7 @@ struct NullType {}    // allowed for any physical type, only null values stored
  * To maintain forward-compatibility in v1, implementations using this logical
  * type must also set scale and precision on the annotated SchemaElement.
  *
- * Allowed for physical types: INT32, INT64, FIXED, and BINARY
+ * Allowed for physical types: INT32, INT64, FIXED_LEN_BYTE_ARRAY, and BYTE_ARRAY.
  */
 struct DecimalType {
   1: required i32 scale
@@ -361,7 +399,7 @@ struct IntType {
 /**
  * Embedded JSON logical type annotation
  *
- * Allowed for physical types: BINARY
+ * Allowed for physical types: BYTE_ARRAY
  */
 struct JsonType {
 }
@@ -369,9 +407,43 @@ struct JsonType {
 /**
  * Embedded BSON logical type annotation
  *
- * Allowed for physical types: BINARY
+ * Allowed for physical types: BYTE_ARRAY
  */
 struct BsonType {
+}
+
+/** Physical type and encoding for the geometry type */
+enum GeometryEncoding {
+  /**
+   * Allowed for physical type: BYTE_ARRAY.
+   *
+   * Well-known binary (WKB) representations of geometries.
+   */
+  WKB = 0;
+}
+
+/** Interpretation for edges of elements of a GEOMETRY type */
+enum Edges {
+  PLANAR = 0;
+  SPHERICAL = 1;
+}
+
+/**
+ * GEOMETRY logical type annotation (added in 2.11.0)
+ *
+ * GeometryEncoding and Edges are required. In order to correctly interpret
+ * geometry data, writer implementations SHOULD always them, and reader
+ * implementations SHOULD fail for unknown values.
+ *
+ * CRS is optional. Once CRS is set, it MUST be a key to an entry in the
+ * `key_value_metadata` field of `FileMetaData`.
+ *
+ * See LogicalTypes.md for detail.
+ */
+struct GeometryType {
+  1: required GeometryEncoding encoding;
+  2: required Edges edges;
+  3: optional string crs;
 }
 
 /**
@@ -404,6 +476,7 @@ union LogicalType {
   13: BsonType BSON           // use ConvertedType BSON
   14: UUIDType UUID           // no compatible ConvertedType
   15: Float16Type FLOAT16     // no compatible ConvertedType
+  16: GeometryType GEOMETRY   // no compatible ConvertedType
 }
 
 /**
@@ -527,12 +600,15 @@ enum Encoding {
    */
   RLE_DICTIONARY = 8;
 
-  /** Encoding for floating-point data.
+  /** Encoding for fixed-width data (FLOAT, DOUBLE, INT32, INT64, FIXED_LEN_BYTE_ARRAY).
       K byte-streams are created where K is the size in bytes of the data type.
-      The individual bytes of an FP value are scattered to the corresponding stream and
+      The individual bytes of a value are scattered to the corresponding stream and
       the streams are concatenated.
       This itself does not reduce the size of the data but can lead to better compression
       afterwards.
+
+      Added in 2.8 for FLOAT and DOUBLE.
+      Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
    */
   BYTE_STREAM_SPLIT = 9;
 }
@@ -576,7 +652,13 @@ enum BoundaryOrder {
 
 /** Data page header */
 struct DataPageHeader {
-  /** Number of values, including NULLs, in this data page. **/
+  /**
+   * Number of values, including NULLs, in this data page.
+   *
+   * If a OffsetIndex is present, a page must begin at a row
+   * boundary (repetition_level = 0). Otherwise, pages may begin
+   * within a row (repetition_level > 0).
+   **/
   1: required i32 num_values
 
   /** Encoding used for this data page **/
@@ -623,7 +705,11 @@ struct DataPageHeaderV2 {
   /** Number of NULL values, in this data page.
       Number of non-null = num_values - num_nulls which is also the number of values in the data section **/
   2: required i32 num_nulls
-  /** Number of rows in this data page. which means pages change on record boundaries (r = 0) **/
+  /**
+   * Number of rows in this data page. Every page must begin at a
+   * row boundary (repetition_level = 0): rows must **not** be
+   * split across page boundaries when using V2 data pages.
+   **/
   3: required i32 num_rows
   /** Encoding used for data in this page **/
   4: required Encoding encoding
@@ -736,10 +822,10 @@ struct PageHeader {
 }
 
 /**
- * Wrapper struct to specify sort order
+ * Sort order within a RowGroup of a leaf column
  */
 struct SortingColumn {
-  /** The column index (in this row group) **/
+  /** The ordinal position of the column (in this row group) **/
   1: required i32 column_idx
 
   /** If true, indicates this column is sorted in descending order. **/
@@ -789,7 +875,7 @@ struct ColumnMetaData {
   /** total byte size of all uncompressed pages in this column chunk (including the headers) **/
   6: required i64 total_uncompressed_size
 
-  /** total byte size of all compressed, and potentially encrypted, pages 
+  /** total byte size of all compressed, and potentially encrypted, pages
    *  in this column chunk (including the headers) **/
   7: required i64 total_compressed_size
 
@@ -831,6 +917,9 @@ struct ColumnMetaData {
    * filter pushdown.
    */
   16: optional SizeStatistics size_statistics;
+
+  /** Optional statistics specific to GEOMETRY logical type */
+  17: optional GeometryStatistics geometry_stats;
 }
 
 struct EncryptionWithFooterKey {
@@ -855,12 +944,21 @@ struct ColumnChunk {
     **/
   1: optional string file_path
 
-  /** Byte offset in file_path to the ColumnMetaData **/
-  2: required i64 file_offset
+  /** Deprecated: Byte offset in file_path to the ColumnMetaData
+   *
+   * Past use of this field has been inconsistent, with some implementations
+   * using it to point to the ColumnMetaData and some using it to point to
+   * the first page in the column chunk. In many cases, the ColumnMetaData at this
+   * location is wrong. This field is now deprecated and should not be used.
+   * Writers should set this field to 0 if no ColumnMetaData has been written outside
+   * the footer.
+   */
+  2: required i64 file_offset = 0
 
-  /** Column metadata for this chunk. This is the same content as what is at
-   * file_path/file_offset.  Having it here has it replicated in the file
-   * metadata.
+  /** Column metadata for this chunk. Some writers may also replicate this at the
+   * location pointed to by file_path/file_offset.
+   * Note: while marked as optional, this field is in fact required by most major
+   * Parquet implementations. As such, writers MUST populate this field.
    **/
   3: optional ColumnMetaData meta_data
 
@@ -904,10 +1002,10 @@ struct RowGroup {
    * in this row group **/
   5: optional i64 file_offset
 
-  /** Total byte size of all compressed (and potentially encrypted) column data 
+  /** Total byte size of all compressed (and potentially encrypted) column data
    *  in this row group **/
   6: optional i64 total_compressed_size
-  
+
   /** Row group ordinal in the file **/
   7: optional i16 ordinal
 }
@@ -946,12 +1044,13 @@ union ColumnOrder {
    *   TIME_MICROS - signed comparison
    *   TIMESTAMP_MILLIS - signed comparison
    *   TIMESTAMP_MICROS - signed comparison
-   *   INTERVAL - unsigned comparison
+   *   INTERVAL - undefined
    *   JSON - unsigned byte-wise comparison
    *   BSON - unsigned byte-wise comparison
    *   ENUM - unsigned byte-wise comparison
    *   LIST - undefined
    *   MAP - undefined
+   *   GEOMETRY - undefined
    *
    * In the absence of logical types, the sort order is determined by the physical type:
    *   BOOLEAN - false, true
@@ -971,7 +1070,7 @@ union ColumnOrder {
    *     - If the min is +0, the row group may contain -0 values as well.
    *     - If the max is -0, the row group may contain +0 values as well.
    *     - When looking for NaN values, min and max should be ignored.
-   * 
+   *
    *     When writing statistics the following rules should be followed:
    *     - NaNs should not be written to min or max statistics fields.
    *     - If the computed max value is zero (whether negative or positive),
@@ -993,12 +1092,20 @@ struct PageLocation {
   2: required i32 compressed_page_size
 
   /**
-   * Index within the RowGroup of the first row of the page; this means pages
-   * change on record boundaries (r = 0).
+   * Index within the RowGroup of the first row of the page. When an
+   * OffsetIndex is present, pages must begin on row boundaries
+   * (repetition_level = 0).
    */
   3: required i64 first_row_index
 }
 
+/**
+ * Optional offsets for each data page in a ColumnChunk.
+ *
+ * Forms part of the page index, along with ColumnIndex.
+ *
+ * OffsetIndex may be present even if ColumnIndex is not.
+ */
 struct OffsetIndex {
   /**
    * PageLocations, ordered by increasing PageLocation.offset. It is required
@@ -1015,8 +1122,14 @@ struct OffsetIndex {
 }
 
 /**
- * Description for ColumnIndex.
- * Each <array-field>[i] refers to the page at OffsetIndex.page_locations[i]
+ * Optional statistics for each data page in a ColumnChunk.
+ *
+ * Forms part the page index, along with OffsetIndex.
+ *
+ * If this structure is present, OffsetIndex must also be present.
+ *
+ * For each field in this structure, <field>[i] refers to the page at
+ * OffsetIndex.page_locations[i]
  */
 struct ColumnIndex {
   /**
@@ -1049,7 +1162,16 @@ struct ColumnIndex {
    */
   4: required BoundaryOrder boundary_order
 
-  /** A list containing the number of null values for each page **/
+  /**
+   * A list containing the number of null values for each page
+   *
+   * Writers SHOULD always write this field even if no null values
+   * are present or the column is not nullable.
+   * Readers MUST distinguish between null_counts not being present
+   * and null_count being 0.
+   * If null_counts are not present, readers MUST NOT assume all
+   * null counts are 0.
+   */
   5: optional list<i64> null_counts
 
   /**
@@ -1069,7 +1191,6 @@ struct ColumnIndex {
     * Same as repetition_level_histograms except for definitions levels.
     **/
    7: optional list<i64> definition_level_histograms;
-
 }
 
 struct AesGcmV1 {
@@ -1149,31 +1270,30 @@ struct FileMetaData {
    */
   7: optional list<ColumnOrder> column_orders;
 
-  /** 
+  /**
    * Encryption algorithm. This field is set only in encrypted files
    * with plaintext footer. Files with encrypted footer store algorithm id
    * in FileCryptoMetaData structure.
    */
   8: optional EncryptionAlgorithm encryption_algorithm
 
-  /** 
-   * Retrieval metadata of key used for signing the footer. 
-   * Used only in encrypted files with plaintext footer. 
-   */ 
+  /**
+   * Retrieval metadata of key used for signing the footer.
+   * Used only in encrypted files with plaintext footer.
+   */
   9: optional binary footer_signing_key_metadata
 }
 
 /** Crypto metadata for files with encrypted footer **/
 struct FileCryptoMetaData {
-  /** 
+  /**
    * Encryption algorithm. This field is only used for files
    * with encrypted footer. Files with plaintext footer store algorithm id
    * inside footer (FileMetaData structure).
    */
   1: required EncryptionAlgorithm encryption_algorithm
-    
-  /** Retrieval metadata of key used for encryption of footer, 
+
+  /** Retrieval metadata of key used for encryption of footer,
    *  and (possibly) columns **/
   2: optional binary key_metadata
 }
-
