@@ -183,7 +183,7 @@ const FunctionDoc hash32_doc{
     ("An element-wise function that uses an xxHash-like algorithm.\n"
      "This function is not suitable for cryptographic purposes.\n"
      "Hash results are 32-bit and emitted for each valid row.\n"
-     "Null (or invalid) rows emit a null in the output."),
+     "Null (or invalid) rows emit a `0` in the output."),
     {"hash_input"}};
 
 const FunctionDoc hash64_doc{
@@ -191,7 +191,7 @@ const FunctionDoc hash64_doc{
     ("An element-wise function that uses an xxHash-like algorithm.\n"
      "This function is not suitable for cryptographic purposes.\n"
      "Hash results are 64-bit and emitted for each valid row.\n"
-     "Null (or invalid) rows emit a null in the output."),
+     "Null (or invalid) rows emit a `0` in the output."),
     {"hash_input"}};
 
 }  // namespace
