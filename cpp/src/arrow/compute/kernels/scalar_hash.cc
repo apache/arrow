@@ -56,13 +56,14 @@ struct FastHashScalar {
       fixed_length_buffer = array.GetBuffer(1)->data();
     }
 
-    auto type_id = array.type->id();
+    auto type = array.type;
+    auto type_id = type->id();
     if (type_id == Type::NA) {
       metadata = KeyColumnMetadata(true, 0, true);
     } else if (type_id == Type::BOOL) {
       metadata = KeyColumnMetadata(true, 0);
     } else if (is_fixed_width(type_id)) {
-      metadata = KeyColumnMetadata(true, array.type->bit_width() / 8);
+      metadata = KeyColumnMetadata(true, type->bit_width() / 8);
     } else if (is_binary_like(type_id)) {
       metadata = KeyColumnMetadata(false, sizeof(uint32_t));
       var_length_buffer = array.GetBuffer(2)->data();
@@ -79,11 +80,11 @@ struct FastHashScalar {
       metadata = KeyColumnMetadata(false, sizeof(uint64_t));
       var_length_buffer = list_values_buffer;
     } else if (type_id == Type::FIXED_SIZE_LIST) {
-      auto list_type = checked_cast<const FixedSizeListType*>(array.type);
+      auto list_type = checked_cast<const FixedSizeListType*>(type);
       metadata = KeyColumnMetadata(true, list_type->list_size());
       fixed_length_buffer = list_values_buffer;
     } else {
-      return Status::TypeError("Unsupported column data type ", array.type->name(),
+      return Status::TypeError("Unsupported column data type ", type->name(),
                                " used with hash64 compute kernel");
     }
 
@@ -95,11 +96,12 @@ struct FastHashScalar {
                                                       const ArraySpan& child,
                                                       LightContext* hash_ctx,
                                                       MemoryPool* memory_pool) {
+    auto arrow_type = std::make_shared<ArrowType>();
     auto buffer_size = child.length * sizeof(c_type);
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(buffer_size, memory_pool));
     ARROW_RETURN_NOT_OK(
         HashArray(child, hash_ctx, memory_pool, buffer->mutable_data_as<c_type>()));
-    return ArrayData::Make(uint64(), child.length,
+    return ArrayData::Make(arrow_type, child.length,
                            {array.GetBuffer(0), std::move(buffer)}, array.null_count);
   }
 
@@ -107,35 +109,40 @@ struct FastHashScalar {
                           MemoryPool* memory_pool, c_type* out) {
     // KeyColumnArray objects are being passed to the hashing utility
     std::vector<KeyColumnArray> columns(1);
-    // ensure that we keep the converted child arrays alive because KeyColumnArray
-    // only provides a view into the original array data
-    std::vector<std::shared_ptr<ArrayData>> children;
 
     auto type_id = array.type->id();
+    if (type_id == Type::EXTENSION) {
+      auto extension_type = checked_cast<const ExtensionType*>(array.type);
+      auto storage_array = array;
+      storage_array.type = extension_type->storage_type().get();
+      return HashArray(storage_array, hash_ctx, memory_pool, out);
+    }
+
     if (type_id == Type::STRUCT) {
+      std::vector<std::shared_ptr<ArrayData>> child_hashes(array.child_data.size());
       columns.reserve(array.child_data.size());
       for (size_t i = 0; i < array.child_data.size(); i++) {
         auto child = array.child_data[i];
         if (is_nested(child.type->id())) {
-          ARROW_ASSIGN_OR_RAISE(auto child_hashes,
+          ARROW_ASSIGN_OR_RAISE(child_hashes[i],
                                 HashChild(array, child, hash_ctx, memory_pool));
-          children.push_back(child_hashes);
-          ARROW_ASSIGN_OR_RAISE(columns[i], ToColumnArray(*child_hashes, hash_ctx));
+          ARROW_ASSIGN_OR_RAISE(columns[i], ToColumnArray(*child_hashes[i], hash_ctx));
         } else {
           ARROW_ASSIGN_OR_RAISE(columns[i], ToColumnArray(child, hash_ctx));
         }
       }
+      Hasher::HashMultiColumn(columns, hash_ctx, out);
     } else if (is_list_like(type_id)) {
       auto values = array.child_data[0];
       ARROW_ASSIGN_OR_RAISE(auto value_hashes,
                             HashChild(array, values, hash_ctx, memory_pool));
-      children.push_back(value_hashes);
       ARROW_ASSIGN_OR_RAISE(
           columns[0], ToColumnArray(array, hash_ctx, value_hashes->buffers[1]->data()));
+      Hasher::HashMultiColumn(columns, hash_ctx, out);
     } else {
       ARROW_ASSIGN_OR_RAISE(columns[0], ToColumnArray(array, hash_ctx));
+      Hasher::HashMultiColumn(columns, hash_ctx, out);
     }
-    Hasher::HashMultiColumn(columns, hash_ctx, out);
     return Status::OK();
   }
 
