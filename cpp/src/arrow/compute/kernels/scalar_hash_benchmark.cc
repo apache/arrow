@@ -69,8 +69,7 @@ static void Hash64Int64(benchmark::State& state) {  // NOLINT non-const referenc
   auto test_vals = hashing_rng.Int64(10000, 0, std::numeric_limits<int64_t>::max());
 
   while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("hash_64", {test_vals}));
+    ASSERT_OK_AND_ASSIGN(Datum hash_result, compute::CallFunction("hash64", {test_vals}));
     benchmark::DoNotOptimize(hash_result);
   }
 
@@ -92,7 +91,7 @@ static void Hash64StructSmallStrings(
 
   while (state.KeepRunning()) {
     ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("hash_64", {values_array}));
+                         compute::CallFunction("hash64", {values_array}));
     benchmark::DoNotOptimize(hash_result);
   }
 
@@ -117,7 +116,7 @@ static void Hash64StructMediumStrings(
 
   while (state.KeepRunning()) {
     ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("hash_64", {values_array}));
+                         compute::CallFunction("hash64", {values_array}));
     benchmark::DoNotOptimize(hash_result);
   }
 
@@ -142,7 +141,7 @@ static void Hash64StructLargeStrings(
 
   while (state.KeepRunning()) {
     ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("hash_64", {values_array}));
+                         compute::CallFunction("hash64", {values_array}));
     benchmark::DoNotOptimize(hash_result);
   }
 
@@ -165,7 +164,7 @@ static void Hash64Map(benchmark::State& state) {  // NOLINT non-const reference
 
   while (state.KeepRunning()) {
     ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("hash_64", {test_keyvals}));
+                         compute::CallFunction("hash64", {test_keyvals}));
     benchmark::DoNotOptimize(hash_result);
   }
 
