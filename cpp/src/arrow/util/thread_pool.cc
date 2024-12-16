@@ -73,7 +73,7 @@ struct QueuedTask {
 
 struct SerialExecutor::State {
   std::priority_queue<QueuedTask> task_queue;
-  uint64_t spawned_tasks_count = 0;
+  uint64_t spawned_tasks_count_ = 0;
   std::mutex mutex;
   std::condition_variable wait_for_tasks;
   std::thread::id current_thread;
@@ -173,7 +173,7 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
     }
     state->task_queue.push(QueuedTask{std::move(task), std::move(stop_token),
                                       std::move(stop_callback), hints.priority,
-                                      state_->spawned_tasks_count++});
+                                      state_->spawned_tasks_count_++});
   }
   state->wait_for_tasks.notify_one();
   return Status::OK();
@@ -210,7 +210,7 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
 
   state_->task_queue.push(QueuedTask{std::move(task), std::move(stop_token),
                                      std::move(stop_callback), hints.priority,
-                                     state_->spawned_tasks_count++});
+                                     state_->spawned_tasks_count_++});
 
   return Status::OK();
 }
@@ -407,7 +407,7 @@ struct ThreadPool::State {
   // Trashcan for finished threads
   std::vector<std::thread> finished_workers_;
   std::priority_queue<QueuedTask> pending_tasks_;
-  uint64_t spawned_tasks_count = 0;
+  uint64_t spawned_tasks_count_ = 0;
 
   // Desired number of threads
   int desired_capacity_ = 0;
@@ -678,7 +678,7 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
     state_->pending_tasks_.push(
         QueuedTask{{std::move(task), std::move(stop_token), std::move(stop_callback)},
                    hints.priority,
-                   state_->spawned_tasks_count++});
+                   state_->spawned_tasks_count_++});
   }
   state_->cv_.notify_one();
   return Status::OK();
