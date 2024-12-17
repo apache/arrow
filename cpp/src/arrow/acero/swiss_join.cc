@@ -329,6 +329,10 @@ void RowArray::DecodeFixedLength(ResizableArrayData* output, int output_start_ro
             uint64_t* dst = reinterpret_cast<uint64_t*>(
                 output->mutable_data(1) + num_bytes * (output_start_row + i));
             const uint64_t* src = reinterpret_cast<const uint64_t*>(ptr);
+            // Note that both `output` and `ptr` have been allocated with enough padding
+            // to accommodate the memory overshoot. See the allocations for
+            // `ResizableArrayData` in `JoinResultMaterialize` and `JoinResidualFilter`
+            // for `output`, and `RowTableImpl::kPaddingForVectors` for `ptr`.
             for (uint32_t word_id = 0;
                  word_id < bit_util::CeilDiv(num_bytes, sizeof(uint64_t)); ++word_id) {
               arrow::util::SafeStore<uint64_t>(dst + word_id,
@@ -365,6 +369,10 @@ void RowArray::DecodeVarLength(ResizableArrayData* output, int output_start_row,
             output->mutable_data(2) +
             output->mutable_data_as<uint32_t>(1)[output_start_row + i]);
         const uint64_t* src = reinterpret_cast<const uint64_t*>(ptr);
+        // Note that both `output` and `ptr` have been allocated with enough padding to
+        // accommodate the memory overshoot. See the allocations for `ResizableArrayData`
+        // in `JoinResultMaterialize` and `JoinResidualFilter` for `output`, and
+        // `RowTableImpl::kPaddingForVectors` for `ptr`.
         for (uint32_t word_id = 0;
              word_id < bit_util::CeilDiv(num_bytes, sizeof(uint64_t)); ++word_id) {
           arrow::util::SafeStore<uint64_t>(dst + word_id,
