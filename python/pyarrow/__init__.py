@@ -62,7 +62,24 @@ except ImportError:
 # to workaround Cython bug in https://github.com/cython/cython/issues/3603
 _gc_enabled = _gc.isenabled()
 _gc.disable()
-import pyarrow.lib as _lib
+
+try:
+    import pyarrow.lib as _lib
+except ImportError:
+    if _os.name == 'nt':
+        # Give a clearer error message if the import failed because of missing
+        # the C++ runtime for MSVC (see GH-44855).
+        import ctypes
+        try:
+            ctypes.CDLL('msvcp140.dll')
+        except OSError:
+            raise ImportError(
+                "PyArrow import failure, presumably because the Microsoft Visual C++ "
+                "Redistributable is not installed. You can download it from "
+                "https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist")
+    # Other cases: re-raise original error
+    raise
+
 if _gc_enabled:
     _gc.enable()
 
