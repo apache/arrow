@@ -143,9 +143,9 @@ def test_example_using_json(filename, datadir):
     check_example_file(path, table, need_fix=True)
 
 
-def test_unknown_timezone(datadir):
+def test_timezone_database_absent(datadir):
     # Example file relies on the timezone "US/Pacific". It should gracefully
-    # fail, not crash, if the timezone is not found.
+    # fail, not crash, if the timezone database is not found.
     path = datadir / 'TestOrcFile.testDate1900.orc'
     code = f"""if 1:
         import os
