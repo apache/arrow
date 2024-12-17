@@ -564,7 +564,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   template <typename T = Type>
   static enable_if_decimal<T, std::shared_ptr<DataType>> GetOutType(
       const std::shared_ptr<DataType>& in_type) {
-    return in_type;
+    return WidenDecimalToMaxPrecision(in_type).ValueOrDie();
   }
 
   int64_t num_groups_ = 0;
