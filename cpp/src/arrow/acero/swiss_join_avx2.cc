@@ -372,6 +372,10 @@ inline void Decode8FixedLength8_avx2(uint64_t* output, const uint8_t* row_ptr_ba
 
 inline void Decode1_avx2(uint8_t* output, const uint8_t* row_ptr, uint32_t num_bytes) {
   // Copy 32 bytes at a time.
+  // Note that both `output` and `row_ptr` have been allocated with enough padding to
+  // accommodate the memory overshoot. See the allocations for `ResizableArrayData` in
+  // `JoinResultMaterialize` and `JoinResidualFilter` for `output`, and
+  // `RowTableImpl::kPaddingForVectors` for `row_ptr`.
   __m256i* output_i256 = reinterpret_cast<__m256i*>(output);
   const __m256i* row_ptr_i256 = reinterpret_cast<const __m256i*>(row_ptr);
   for (int istripe = 0; istripe < bit_util::CeilDiv(num_bytes, 32); ++istripe) {
