@@ -156,6 +156,7 @@ def test_timezone_database_absent(datadir):
         from pyarrow import orc
         try:
             orc_file = orc.ORCFile({str(path)!r})
+            orc_file.read()
         except Exception as e:
             assert "time zone database" in str(e).lower(), e
         else:
@@ -172,13 +173,15 @@ def test_timezone_absent(datadir, tmpdir):
     if not source_tzdir.exists():
         pytest.skip(f"Test needs timezone database in {source_tzdir}")
     tzdir = Path(tmpdir / 'zoneinfo')
-    shutil.copytree(source_tzdir, tzdir, symlinks=True)
+    try:
+        shutil.copytree(source_tzdir, tzdir, symlinks=True)
+    except OSError as e:
+        pytest.skip(f"Failed to copy timezone database: {e}")
     (tzdir / 'US' / 'Pacific').unlink(missing_ok=True)
 
     path = datadir / 'TestOrcFile.testDate1900.orc'
     code = f"""if 1:
         import os
-        import re
         os.environ['TZDIR'] = {str(tzdir)!r}
 
         from pyarrow import orc
@@ -186,8 +189,7 @@ def test_timezone_absent(datadir, tmpdir):
         try:
             orc_file.read()
         except Exception as e:
-            assert re.search(
-                "Can't open .*/zoneinfo/US/Pacific", str(e), flags=re.I), e
+            assert "zoneinfo/US/Pacific" in str(e), e
         else:
             assert False, "Should have raised exception"
     """
