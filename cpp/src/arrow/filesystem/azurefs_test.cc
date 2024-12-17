@@ -714,6 +714,36 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kEnvironment);
   }
 
+  void TestFromUriCredentialSASToken() {
+    const std::string sas_token =
+        "?se=2024-12-12T18:57:47Z&sig=pAs7qEBdI6sjUhqX1nrhNAKsTY%2B1SqLxPK%"
+        "2BbAxLiopw%3D&sp=racwdxylti&spr=https,http&sr=c&sv=2024-08-04";
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri(
+            "abfs://file_system@account.dfs.core.windows.net/" + sas_token, nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kSASToken);
+    ASSERT_EQ(options.sas_token_, sas_token);
+  }
+
+  void TestFromUriCredentialSASTokenWithOtherParameters() {
+    const std::string uri_query_string =
+        "?enable_tls=false&se=2024-12-12T18:57:47Z&sig=pAs7qEBdI6sjUhqX1nrhNAKsTY%"
+        "2B1SqLxPK%"
+        "2BbAxLiopw%3D&sp=racwdxylti&spr=https,http&sr=c&sv=2024-08-04";
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri(
+            "abfs://account@127.0.0.1:10000/container/dir/blob" + uri_query_string,
+            nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kSASToken);
+    ASSERT_EQ(options.sas_token_, uri_query_string);
+    ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.blob_storage_scheme, "http");
+    ASSERT_EQ(options.dfs_storage_scheme, "http");
+  }
+
   void TestFromUriCredentialInvalid() {
     ASSERT_RAISES(Invalid, AzureOptions::FromUri(
                                "abfs://file_system@account.dfs.core.windows.net/dir/file?"
@@ -800,6 +830,10 @@ TEST_F(TestAzureOptions, FromUriCredentialWorkloadIdentity) {
 }
 TEST_F(TestAzureOptions, FromUriCredentialEnvironment) {
   TestFromUriCredentialEnvironment();
+}
+TEST_F(TestAzureOptions, FromUriCredentialSASToken) { TestFromUriCredentialSASToken(); }
+TEST_F(TestAzureOptions, FromUriCredentialSASTokenWithOtherParameters) {
+  TestFromUriCredentialSASTokenWithOtherParameters();
 }
 TEST_F(TestAzureOptions, FromUriCredentialInvalid) { TestFromUriCredentialInvalid(); }
 TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
@@ -934,6 +968,20 @@ class TestAzureFileSystem : public ::testing::Test {
         .GetBlobClient(blob_name)
         .GetProperties()
         .Value;
+  }
+
+  Result<std::string> GetContainerSASToken(
+      const std::string& container_name,
+      Azure::Storage::StorageSharedKeyCredential storage_shared_key_credential) {
+    std::string sas_token;
+    Azure::Storage::Sas::BlobSasBuilder builder;
+    std::chrono::seconds available_period(60);
+    builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
+    builder.BlobContainerName = container_name;
+    builder.Resource = Azure::Storage::Sas::BlobSasResource::BlobContainer;
+    builder.SetPermissions(Azure::Storage::Sas::BlobContainerSasPermissions::All);
+    builder.Protocol = Azure::Storage::Sas::SasProtocol::HttpsAndHttp;
+    return builder.GenerateSasToken(storage_shared_key_credential);
   }
 
   void UploadLines(const std::vector<std::string>& lines, const std::string& path,
@@ -1617,6 +1665,31 @@ class TestAzureFileSystem : public ::testing::Test {
     stream.reset();
 
     AssertObjectContents(fs.get(), path, payload);
+  }
+
+  void TestSASCredential() {
+    auto data = SetUpPreexistingData();
+
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env));
+    ASSERT_OK_AND_ASSIGN(
+        auto sas_token,
+        GetContainerSASToken(data.container_name,
+                             Azure::Storage::StorageSharedKeyCredential(
+                                 env->account_name(), env->account_key())));
+    // AzureOptions::FromUri will not cut off extra query parameters that it consumes, so
+    // make sure these don't cause problems.
+    ARROW_EXPECT_OK(options.ConfigureSASCredential(
+        "?blob_storage_authority=dummy_value0&" + sas_token.substr(1) +
+        "&credential_kind=dummy-value1"));
+    EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+
+    AssertFileInfo(fs.get(), data.ObjectPath(), FileType::File);
+
+    // Test CopyFile because the most obvious implementation requires generating a SAS
+    // token at runtime which doesn't work when the original auth is SAS token.
+    ASSERT_OK(fs->CopyFile(data.ObjectPath(), data.ObjectPath() + "_copy"));
+    AssertFileInfo(fs.get(), data.ObjectPath() + "_copy", FileType::File);
   }
 
  private:
@@ -2330,6 +2403,10 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateContainerFromPath) {
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, MovePath) { this->TestMovePath(); }
 
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, SASCredential) {
+  this->TestSASCredential();
+}
+
 // Tests using Azurite (the local Azure emulator)
 
 TEST_F(TestAzuriteFileSystem, CheckIfHierarchicalNamespaceIsEnabledRuntimeError) {
@@ -2629,6 +2706,17 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsFailureNonexistent) {
 TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationNonexistent) {
   auto data = SetUpPreexistingData();
   const auto destination_path = data.ContainerPath("copy-destionation");
+  ASSERT_OK(fs()->CopyFile(data.ObjectPath(), destination_path));
+  ASSERT_OK_AND_ASSIGN(auto info, fs()->GetFileInfo(destination_path));
+  ASSERT_OK_AND_ASSIGN(auto stream, fs()->OpenInputStream(info));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
+  EXPECT_EQ(PreexistingData::kLoremIpsum, buffer->ToString());
+}
+
+TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationDifferentContainer) {
+  auto data = SetUpPreexistingData();
+  auto data2 = SetUpPreexistingData();
+  const auto destination_path = data2.ContainerPath("copy-destionation");
   ASSERT_OK(fs()->CopyFile(data.ObjectPath(), destination_path));
   ASSERT_OK_AND_ASSIGN(auto info, fs()->GetFileInfo(destination_path));
   ASSERT_OK_AND_ASSIGN(auto stream, fs()->OpenInputStream(info));
