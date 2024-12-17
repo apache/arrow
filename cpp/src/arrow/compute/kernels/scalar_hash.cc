@@ -120,7 +120,7 @@ struct FastHashScalar {
 
     if (type_id == Type::STRUCT) {
       std::vector<std::shared_ptr<ArrayData>> child_hashes(array.child_data.size());
-      columns.reserve(array.child_data.size());
+      columns.resize(array.child_data.size());
       for (size_t i = 0; i < array.child_data.size(); i++) {
         auto child = array.child_data[i];
         if (is_nested(child.type->id())) {
