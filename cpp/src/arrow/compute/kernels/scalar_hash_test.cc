@@ -268,7 +268,7 @@ TEST_F(TestScalarHash, RandomNumericLike) {
   }
 }
 
-TEST_F(TestScalarHash, RandomNested) {
+TEST_F(TestScalarHash, RandomList) {
   auto rand = random::RandomArrayGenerator(kSeed);
   auto types = {
       list(int32()),
@@ -282,12 +282,44 @@ TEST_F(TestScalarHash, RandomNested) {
       list(list(int16())),
       list(list(list(uint8()))),
       fixed_size_list(int32(), 3),
-      map(int32(), int32()),
-      map(int32(), utf8()),
-      map(utf8(), list(int16())),
+  };
+  for (auto type : types) {
+    for (auto length : array_lengths) {
+      for (auto null_probability : null_probabilities) {
+        auto arr = rand.ArrayOf(type, length, null_probability);
+        CheckDeterminisic("hash32", arr);
+        CheckDeterminisic("hash64", arr);
+      }
+    }
+  }
+}
+
+TEST_F(TestScalarHash, RandomStruct) {
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto types = {
+      struct_({field("f0", int32())}),
       struct_({field("f0", int32()), field("f1", utf8())}),
       struct_({field("f0", list(int32()))}),
       struct_({field("f0", struct_({field("f0", int32()), field("f1", utf8())}))}),
+  };
+  for (auto type : types) {
+    for (auto length : array_lengths) {
+      for (auto null_probability : null_probabilities) {
+        auto arr = rand.ArrayOf(type, length, null_probability);
+        CheckDeterminisic("hash32", arr);
+        CheckDeterminisic("hash64", arr);
+      }
+    }
+  }
+}
+
+TEST_F(TestScalarHash, RandomMap) {
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto types = {
+      map(int32(), int32()),
+      map(int32(), utf8()),
+      map(utf8(), list(int16())),
+      map(utf8(), map(int32(), int32())),
   };
   for (auto type : types) {
     for (auto length : array_lengths) {
