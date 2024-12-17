@@ -739,7 +739,7 @@ class ParquetIOTestBase : public ::testing::Test {
     ASSERT_OK_NO_THROW(FileWriter::Make(::arrow::default_memory_pool(),
                                         MakeWriter(schema), arrow_schema,
                                         default_arrow_writer_properties(), &writer));
-    ASSERT_OK_NO_THROW(writer->NewRowGroup(values->length()));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup());
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*values));
     ASSERT_OK_NO_THROW(writer->Close());
     // writer->Close() should be idempotent
@@ -1053,7 +1053,7 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredChunkedWrite) {
                                       this->MakeWriter(schema), arrow_schema,
                                       default_arrow_writer_properties(), &writer));
   for (int i = 0; i < 4; i++) {
-    ASSERT_OK_NO_THROW(writer->NewRowGroup(chunk_size));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup());
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*sliced_array));
   }
@@ -1126,7 +1126,7 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
                                       this->MakeWriter(schema), arrow_schema,
                                       default_arrow_writer_properties(), &writer));
   for (int i = 0; i < 4; i++) {
-    ASSERT_OK_NO_THROW(writer->NewRowGroup(chunk_size));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup());
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*sliced_array));
   }
@@ -5149,7 +5149,7 @@ class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
         ::arrow::default_memory_pool(),
         ParquetFileWriter::Open(this->sink_, schema_node, writer_properties),
         arrow_schema, default_arrow_writer_properties(), &writer));
-    ASSERT_OK_NO_THROW(writer->NewRowGroup(values->length()));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup());
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*values));
     ASSERT_OK_NO_THROW(writer->Close());
   }
@@ -5481,7 +5481,7 @@ TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
   // Operations on closed writer are invalid
   ASSERT_OK(writer->Close());
 
-  ASSERT_RAISES(Invalid, writer->NewRowGroup(1));
+  ASSERT_RAISES(Invalid, writer->NewRowGroup());
   ASSERT_RAISES(Invalid, writer->WriteColumnChunk(table->column(0), 0, 1));
   ASSERT_RAISES(Invalid, writer->NewBufferedRowGroup());
   ASSERT_OK_AND_ASSIGN(auto record_batch, table->CombineChunksToBatch());
