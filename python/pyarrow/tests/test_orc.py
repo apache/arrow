@@ -15,9 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pytest
 import decimal
 import datetime
+import subprocess
+import sys
+
+import pytest
 
 import pyarrow as pa
 from pyarrow import fs
@@ -138,6 +141,33 @@ def test_example_using_json(filename, datadir):
     path = datadir / filename
     table = pd.read_json(str(path.with_suffix('.jsn.gz')), lines=True)
     check_example_file(path, table, need_fix=True)
+
+
+def test_unknown_timezone(datadir):
+    # Example file relies on the timezone "US/Pacific". It should gracefully
+    # fail, not crash, if the timezone is not found.
+    path = datadir / 'TestOrcFile.testDate1900.orc'
+    code = f"""if 1:
+        import os
+        import re
+        os.environ['TZDIR'] = '/tmp/non_existent'
+
+        from pyarrow import orc
+        orc_file = orc.ORCFile({str(path)!r})
+        try:
+            orc_file.read()
+        except Exception as e:
+            assert re.search("Time zone file .* does not exist", str(e)), e
+        else:
+            assert False, "Should have raised exception"
+        try:
+            orc_file.read_stripe(0)
+        except Exception as e:
+            assert re.search("Time zone file .* does not exist", str(e)), e
+        else:
+            assert False, "Should have raised exception"
+    """
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 def test_orcfile_empty(datadir):
