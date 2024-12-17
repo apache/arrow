@@ -139,7 +139,7 @@ jobs:
       {{ macros.github_upload_wheel_scientific_python("arrow/python/repaired_wheels/*.whl")|indent }}
 
       {% if arrow.is_default_branch() %}
-      - name: Push Docker image for wheel build
+      - name: Push Docker images
         shell: bash
         run: |
           archery docker push python-wheel-manylinux-{{ manylinux_version }}
