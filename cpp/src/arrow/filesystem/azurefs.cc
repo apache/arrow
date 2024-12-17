@@ -112,7 +112,7 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
   // https://learn.microsoft.com/en-us/rest/api/storageservices/create-service-sas#construct-a-service-sas
   // (excluding parameters for table storage only)
   // https://learn.microsoft.com/en-us/rest/api/storageservices/create-user-delegation-sas#construct-a-user-delegation-sas
-  constexpr std::array<const char*, 27> sas_token_query_parameters = {
+  static const std::set<std::string> sas_token_query_parameters = {
       "sv",    "ss",    "sr",  "st",  "se",   "sp",   "si",   "sip",   "spr",
       "skoid", "sktid", "srt", "skt", "ske",  "skv",  "sks",  "saoid", "suoid",
       "scid",  "sdd",   "ses", "sig", "rscc", "rscd", "rsce", "rscl",  "rsct",
@@ -159,9 +159,8 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
     } else if (kv.first == "background_writes") {
       ARROW_ASSIGN_OR_RAISE(background_writes,
                             ::arrow::internal::ParseBoolean(kv.second));
-    } else if (std::find(sas_token_query_parameters.begin(),
-                         sas_token_query_parameters.end(),
-                         kv.first) != sas_token_query_parameters.end()) {
+    } else if (sas_token_query_parameters.find(kv.first) !=
+               sas_token_query_parameters.end()) {
       credential_kind = CredentialKind::kSASToken;
     } else {
       return Status::Invalid(
