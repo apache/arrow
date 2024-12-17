@@ -17,6 +17,8 @@
 
 import decimal
 import datetime
+from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -149,21 +151,43 @@ def test_timezone_database_absent(datadir):
     path = datadir / 'TestOrcFile.testDate1900.orc'
     code = f"""if 1:
         import os
-        import re
         os.environ['TZDIR'] = '/tmp/non_existent'
+
+        from pyarrow import orc
+        try:
+            orc_file = orc.ORCFile({str(path)!r})
+        except Exception as e:
+            assert "time zone database" in str(e).lower(), e
+        else:
+            assert False, "Should have raised exception"
+    """
+    subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_timezone_absent(datadir, tmpdir):
+    # Example file relies on the timezone "US/Pacific". It should gracefully
+    # fail, not crash, if the timezone database is present but the timezone
+    # is not found (GH-40633).
+    source_tzdir = Path('/usr/share/zoneinfo')
+    if not source_tzdir.exists():
+        pytest.skip(f"Test needs timezone database in {source_tzdir}")
+    tzdir = Path(tmpdir / 'zoneinfo')
+    shutil.copytree(source_tzdir, tzdir, symlinks=True)
+    (tzdir / 'US' / 'Pacific').unlink(missing_ok=True)
+
+    path = datadir / 'TestOrcFile.testDate1900.orc'
+    code = f"""if 1:
+        import os
+        import re
+        os.environ['TZDIR'] = {str(tzdir)!r}
 
         from pyarrow import orc
         orc_file = orc.ORCFile({str(path)!r})
         try:
             orc_file.read()
         except Exception as e:
-            assert "time zone" in e.lower(), e
-        else:
-            assert False, "Should have raised exception"
-        try:
-            orc_file.read_stripe(0)
-        except Exception as e:
-            assert "time zone" in e.lower(), e
+            assert re.search(
+                "Can't open .*/zoneinfo/US/Pacific", str(e), flags=re.I), e
         else:
             assert False, "Should have raised exception"
     """
