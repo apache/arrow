@@ -107,6 +107,7 @@ RUN --mount=type=secret,id=github_repository_owner \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
+        --x-feature=orc \
         --x-feature=parquet \
         --x-feature=s3 && \
       rm -rf ~/.config/NuGet/
