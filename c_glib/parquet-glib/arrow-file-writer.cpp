@@ -590,7 +590,7 @@ gparquet_arrow_file_writer_new_row_group(GParquetArrowFileWriter *writer,
 {
   auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
   return garrow::check(error,
-                       parquet_arrow_file_writer->NewRowGroup(chunk_size),
+                       parquet_arrow_file_writer->NewRowGroup(),
                        "[parquet][arrow][file-writer][new-row-group]");
 }
 
