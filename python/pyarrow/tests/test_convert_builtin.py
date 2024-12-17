@@ -1592,7 +1592,7 @@ def test_sequence_mixed_types_with_specified_type_fails():
 
 def test_sequence_decimal():
     data = [decimal.Decimal('1234.183'), decimal.Decimal('8094.234')]
-    for type in [pa.decimal128, pa.decimal256]:
+    for type in [pa.decimal32, pa.decimal64, pa.decimal128, pa.decimal256]:
         arr = pa.array(data, type=type(precision=7, scale=3))
         assert arr.to_pylist() == data
 
@@ -1601,28 +1601,28 @@ def test_sequence_decimal_different_precisions():
     data = [
         decimal.Decimal('1234234983.183'), decimal.Decimal('80943244.234')
     ]
-    for type in [pa.decimal128, pa.decimal256]:
+    for type in [pa.decimal64, pa.decimal128, pa.decimal256]:
         arr = pa.array(data, type=type(precision=13, scale=3))
         assert arr.to_pylist() == data
 
 
 def test_sequence_decimal_no_scale():
     data = [decimal.Decimal('1234234983'), decimal.Decimal('8094324')]
-    for type in [pa.decimal128, pa.decimal256]:
+    for type in [pa.decimal64, pa.decimal128, pa.decimal256]:
         arr = pa.array(data, type=type(precision=10))
         assert arr.to_pylist() == data
 
 
 def test_sequence_decimal_negative():
     data = [decimal.Decimal('-1234.234983'), decimal.Decimal('-8.094324')]
-    for type in [pa.decimal128, pa.decimal256]:
+    for type in [pa.decimal64, pa.decimal128, pa.decimal256]:
         arr = pa.array(data, type=type(precision=10, scale=6))
         assert arr.to_pylist() == data
 
 
 def test_sequence_decimal_no_whole_part():
     data = [decimal.Decimal('-.4234983'), decimal.Decimal('.0103943')]
-    for type in [pa.decimal128, pa.decimal256]:
+    for type in [pa.decimal32, pa.decimal64, pa.decimal128, pa.decimal256]:
         arr = pa.array(data, type=type(precision=7, scale=7))
         assert arr.to_pylist() == data
 
