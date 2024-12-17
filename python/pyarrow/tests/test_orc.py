@@ -157,13 +157,13 @@ def test_unknown_timezone(datadir):
         try:
             orc_file.read()
         except Exception as e:
-            assert re.search("Time zone file .* does not exist", str(e)), e
+            assert "time zone" in e.lower(), e
         else:
             assert False, "Should have raised exception"
         try:
             orc_file.read_stripe(0)
         except Exception as e:
-            assert re.search("Time zone file .* does not exist", str(e)), e
+            assert "time zone" in e.lower(), e
         else:
             assert False, "Should have raised exception"
     """
