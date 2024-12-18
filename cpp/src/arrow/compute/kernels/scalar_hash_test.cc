@@ -193,9 +193,32 @@ TEST_F(TestScalarHash, NullHashIsZero) {
 }
 
 TEST_F(TestScalarHash, Boolean) {
-  auto arr = ArrayFromJSON(boolean(), R"([true, false, null, true, null])");
-  CheckDeterministic("hash32", arr);
-  CheckDeterministic("hash64", arr);
+  Datum result;
+  std::shared_ptr<Array> array;
+  auto input = ArrayFromJSON(boolean(), R"([true, false, null, true, null, false])");
+  CheckDeterministic("hash32", input);
+  CheckDeterministic("hash64", input);
+
+  ASSERT_OK_AND_ASSIGN(result, CallFunction("hash32", {input}));
+
+  array = result.make_array();
+  auto array32 = checked_cast<const UInt32Array*>(array.get());
+  ASSERT_NE(array32->Value(0), array32->Value(1));
+  ASSERT_NE(array32->Value(0), array32->Value(2));
+  ASSERT_NE(array32->Value(1), array32->Value(2));
+  ASSERT_EQ(array32->Value(0), array32->Value(3));
+  ASSERT_EQ(array32->Value(2), array32->Value(4));
+  ASSERT_EQ(array32->Value(1), array32->Value(5));
+
+  ASSERT_OK_AND_ASSIGN(result, CallFunction("hash64", {input}));
+  array = result.make_array();
+  auto array64 = checked_cast<const UInt64Array*>(array.get());
+  ASSERT_NE(array64->Value(0), array64->Value(1));
+  ASSERT_NE(array64->Value(0), array64->Value(2));
+  ASSERT_NE(array64->Value(1), array64->Value(2));
+  ASSERT_EQ(array64->Value(0), array64->Value(3));
+  ASSERT_EQ(array64->Value(2), array64->Value(4));
+  ASSERT_EQ(array64->Value(1), array64->Value(5));
 }
 
 TEST_F(TestScalarHash, NumericLike) {
