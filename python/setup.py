@@ -223,6 +223,7 @@ class build_ext(_build_ext):
         '_hdfs',
         'gandiva']
 
+
     def _run_cmake(self):
         # check if build_type is correctly passed / set
         if self.build_type.lower() not in ('release', 'debug',
@@ -268,7 +269,7 @@ class build_ext(_build_ext):
                 f'-DCMAKE_INSTALL_PREFIX={install_prefix}',
                 f'-DPYTHON_EXECUTABLE={sys.executable}',
                 f'-DPython3_EXECUTABLE={sys.executable}',
-                f'-DPYARROW_CXXFLAGS={self.cmake_cxxflags}',
+                f'-DPYARROW_CXXFLAGS={self._get_cxxflags()}',
             ]
 
             def append_cmake_bool(value, varname):
@@ -366,6 +367,13 @@ class build_ext(_build_ext):
         # This is the name of the arrow C-extension
         filename = name + ext_suffix
         return pjoin(self._get_build_dir(), filename)
+
+    def _get_cxxflags(self):
+        # Workaround for https://github.com/pypa/setuptools/issues/4662
+        cxxflags = self.cmake_cxxflags
+        if os.name == 'nt' and bool(sysconfig.get_config_var('Py_GIL_DISABLED')):
+            cxxflags += " -DPy_GIL_DISABLED=1"
+        return cxxflags
 
     def get_ext_generated_cpp_source(self, name):
         if sys.platform == 'win32':
