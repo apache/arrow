@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-test_dir="$(cd "$(dirname "$0")" || exit; pwd)"
+test_dir="$(cd "$(dirname "$0")" && pwd)"
 build_dir="$(cd .; pwd)"
 
 modules=(
