@@ -86,9 +86,8 @@ you will need to override. In particular you will need:
 
 #. ``CMAKE_TOOLCHAIN_FILE`` set by using ``emcmake cmake`` instead of just ``cmake``.
 
-#. You will quite likely need to set ``ARROW_ENABLE_THREADING`` to ``OFF``
-   for builds targeting single threaded Emscripten environments such as
-   Pyodide.
+#. You will need to set ``ARROW_ENABLE_THREADING`` to ``OFF`` for builds
+   targeting single-threaded Emscripten environments such as Pyodide.
 
 #. ``ARROW_FLIGHT`` and anything else that uses network probably won't
    work.
