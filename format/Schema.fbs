@@ -62,7 +62,7 @@ enum MetadataVersion:short {
 ///  2.  A means of negotiating between a client and server
 ///      what features a stream is allowed to use. The enums
 ///      values here are intended to represent higher level
-///      features, additional details maybe negotiated
+///      features, additional details may be negotiated
 ///      with key-value pairs specific to the protocol.
 ///
 /// Enums added to this list should be assigned power-of-two values
