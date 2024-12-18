@@ -147,9 +147,8 @@ struct FastHashScalar {
   }
 
   static Status Exec(KernelContext* ctx, const ExecSpan& input_arg, ExecResult* out) {
-    if (input_arg.num_values() != 1 || !input_arg[0].is_array()) {
-      return Status::Invalid("FastHash currently supports a single array input");
-    }
+    DCHECK_EQ(input_arg.num_values(), 1);
+    DCHECK(input_arg[0].is_array());
     ArraySpan hash_input = input_arg[0].array;
 
     auto exec_ctx = default_exec_context();
