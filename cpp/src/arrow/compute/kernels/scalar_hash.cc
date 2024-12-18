@@ -108,6 +108,7 @@ struct FastHashScalar {
   static Status HashArray(const ArraySpan& array, LightContext* hash_ctx,
                           MemoryPool* memory_pool, c_type* out) {
     // KeyColumnArray objects are being passed to the hashing utility
+    KeyColumnArray column;
     std::vector<KeyColumnArray> columns(1);
 
     auto type_id = array.type->id();
@@ -126,10 +127,11 @@ struct FastHashScalar {
         if (is_nested(child.type->id())) {
           ARROW_ASSIGN_OR_RAISE(child_hashes[i],
                                 HashChild(array, child, hash_ctx, memory_pool));
-          ARROW_ASSIGN_OR_RAISE(columns[i], ToColumnArray(*child_hashes[i], hash_ctx));
+          ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(*child_hashes[i], hash_ctx));
         } else {
-          ARROW_ASSIGN_OR_RAISE(columns[i], ToColumnArray(child, hash_ctx));
+          ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(child, hash_ctx));
         }
+        columns[i] = column.Slice(array.offset, array.length);
       }
       Hasher::HashMultiColumn(columns, hash_ctx, out);
     } else if (is_list_like(type_id)) {
@@ -137,10 +139,12 @@ struct FastHashScalar {
       ARROW_ASSIGN_OR_RAISE(auto value_hashes,
                             HashChild(array, values, hash_ctx, memory_pool));
       ARROW_ASSIGN_OR_RAISE(
-          columns[0], ToColumnArray(array, hash_ctx, value_hashes->buffers[1]->data()));
+          column, ToColumnArray(array, hash_ctx, value_hashes->buffers[1]->data()));
+      columns[0] = column.Slice(array.offset, array.length);
       Hasher::HashMultiColumn(columns, hash_ctx, out);
     } else {
-      ARROW_ASSIGN_OR_RAISE(columns[0], ToColumnArray(array, hash_ctx));
+      ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(array, hash_ctx));
+      columns[0] = column.Slice(array.offset, array.length);
       Hasher::HashMultiColumn(columns, hash_ctx, out);
     }
     return Status::OK();
