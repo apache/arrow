@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/io/file.h"
 #include "arrow/matlab/io/ipc/proxy/record_batch_stream_reader.h"
+#include "arrow/io/file.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
@@ -106,7 +106,7 @@ void RecordBatchStreamReader::readRecordBatch(
   if (!nextRecordBatch) {
     context.error =
         Error{error::IPC_END_OF_STREAM,
-	    "Reached end of Arrow IPC Stream. No more record batches to read."};
+              "Reached end of Arrow IPC Stream. No more record batches to read."};
     return;
   }
   auto record_batch_proxy = std::make_shared<RecordBatchProxy>(nextRecordBatch);
