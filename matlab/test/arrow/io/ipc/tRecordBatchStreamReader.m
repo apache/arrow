@@ -131,9 +131,9 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             testCase.verifyError(@() setfield(reader, "Schema", schema), "MATLAB:class:SetProhibited");
         end
 
-        function ReadZeroBatchStreamFile(testCase, RecordBatchReadFcn)
-            % Verify read can successfully read an Arrow IPC Stream file
-            % containing zero batches.
+        function ReadErrorIfEndOfStream(testCase, RecordBatchReadFcn)
+            % Verify read throws an execption with the identifier arrow:io:ipc:EndOfStream
+            % on an Arrow IPC Stream file containing zero batches.
             reader = arrow.io.ipc.RecordBatchStreamReader(testCase.ZeroBatchStreamFile);
             fcn = @() RecordBatchReadFcn(reader);
             testCase.verifyError(fcn, "arrow:io:ipc:EndOfStream");
