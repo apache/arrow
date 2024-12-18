@@ -574,7 +574,6 @@ gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
 /**
  * gparquet_arrow_file_writer_new_row_group:
  * @writer: A #GParquetArrowFileWriter.
- * @chunk_size: The max number of rows in a row group.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Start a new row group.
@@ -584,9 +583,7 @@ gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
  * Since: 18.0.0
  */
 gboolean
-gparquet_arrow_file_writer_new_row_group(GParquetArrowFileWriter *writer,
-                                         gsize chunk_size,
-                                         GError **error)
+gparquet_arrow_file_writer_new_row_group(GParquetArrowFileWriter *writer, GError **error)
 {
   auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
   return garrow::check(error,
