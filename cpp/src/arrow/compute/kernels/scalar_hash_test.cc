@@ -36,8 +36,8 @@ namespace arrow {
 namespace compute {
 
 constexpr auto kSeed = 0x94378165;
-constexpr auto array_lengths = {0, 50, 100};
-constexpr auto null_probabilities = {0.0, 0.5, 1.0};
+constexpr auto kArrayLengths = {0, 50, 100};
+constexpr auto kNullProbabilities = {0.0, 0.5, 1.0};
 
 class TestScalarHash : public ::testing::Test {
  public:
@@ -102,10 +102,12 @@ class TestScalarHash : public ::testing::Test {
     return hashes;
   }
 
-  void CheckDeterminisic(const std::string& func, const std::shared_ptr<Array>& arr) {
+  void CheckDeterministic(const std::string& func, const std::shared_ptr<Array>& arr) {
     // Check that the hash is deterministic
     ASSERT_OK_AND_ASSIGN(Datum res1, CallFunction(func, {arr}));
     ASSERT_OK_AND_ASSIGN(Datum res2, CallFunction(func, {arr}));
+    ValidateOutput(res1);
+    ValidateOutput(res2);
     ASSERT_EQ(res1.length(), arr->length());
     if (func == "hash64") {
       ASSERT_EQ(res1.type()->id(), Type::UINT64);
@@ -114,12 +116,12 @@ class TestScalarHash : public ::testing::Test {
     } else {
       FAIL() << "Unknown function: " << func;
     }
-    AssertDatumsEqual(res1, res2, true);
+    AssertDatumsEqual(res1, res2);
   }
 
   void CheckPrimitive(const std::string& func, const std::shared_ptr<Array>& arr) {
     ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction(func, {arr}));
-    CheckDeterminisic(func, arr);
+    CheckDeterministic(func, arr);
     if (func == "hash64") {
       AssertHashesEqual<uint64_t>(arr, hash_result, HashPrimitive<uint64_t>(arr));
     } else if (func == "hash32") {
@@ -131,7 +133,7 @@ class TestScalarHash : public ::testing::Test {
 
   void CheckBinary(const std::string& func, const std::shared_ptr<Array>& arr) {
     ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction(func, {arr}));
-    CheckDeterminisic(func, arr);
+    CheckDeterministic(func, arr);
     if (func == "hash64") {
       AssertHashesEqual<uint64_t>(arr, hash_result, HashBinaryLike<uint64_t>(arr));
     } else if (func == "hash32") {
@@ -151,25 +153,25 @@ TEST_F(TestScalarHash, Null) {
   exp = ArrayFromJSON(uint32(), "[]");
   ASSERT_OK_AND_ASSIGN(res, CallFunction("hash32", {arr}));
   AssertArraysEqual(*res.make_array(), *exp);
-  CheckDeterminisic("hash32", arr);
+  CheckDeterministic("hash32", arr);
 
   arr = ArrayFromJSON(null(), R"([])");
   exp = ArrayFromJSON(uint64(), "[]");
   ASSERT_OK_AND_ASSIGN(res, CallFunction("hash64", {arr}));
   AssertArraysEqual(*res.make_array(), *exp);
-  CheckDeterminisic("hash64", arr);
+  CheckDeterministic("hash64", arr);
 
   arr = ArrayFromJSON(null(), R"([null, null, null])");
   exp = ArrayFromJSON(uint32(), "[0, 0, 0]");
   ASSERT_OK_AND_ASSIGN(res, CallFunction("hash32", {arr}));
   AssertArraysEqual(*res.make_array(), *exp);
-  CheckDeterminisic("hash32", arr);
+  CheckDeterministic("hash32", arr);
 
   arr = ArrayFromJSON(null(), R"([null, null, null])");
   exp = ArrayFromJSON(uint64(), "[0, 0, 0]");
   ASSERT_OK_AND_ASSIGN(res, CallFunction("hash64", {arr}));
   AssertArraysEqual(*res.make_array(), *exp);
-  CheckDeterminisic("hash64", arr);
+  CheckDeterministic("hash64", arr);
 }
 
 TEST_F(TestScalarHash, NullHashIsZero) {
@@ -192,8 +194,8 @@ TEST_F(TestScalarHash, NullHashIsZero) {
 
 TEST_F(TestScalarHash, Boolean) {
   auto arr = ArrayFromJSON(boolean(), R"([true, false, null, true, null])");
-  CheckDeterminisic("hash32", arr);
-  CheckDeterminisic("hash64", arr);
+  CheckDeterministic("hash32", arr);
+  CheckDeterministic("hash64", arr);
 }
 
 TEST_F(TestScalarHash, NumericLike) {
@@ -244,8 +246,8 @@ TEST_F(TestScalarHash, RandomBinaryLike) {
   auto types = {binary(), utf8(), large_binary(), large_utf8()};
   for (auto func : {"hash32", "hash64"}) {
     for (auto type : types) {
-      for (auto length : array_lengths) {
-        for (auto null_probability : null_probabilities) {
+      for (auto length : kArrayLengths) {
+        for (auto null_probability : kNullProbabilities) {
           CheckBinary(func, rand.ArrayOf(type, length, null_probability));
         }
       }
@@ -259,8 +261,8 @@ TEST_F(TestScalarHash, RandomNumericLike) {
                 uint16(), uint32(), uint64(), float32(), float64()};
   for (auto func : {"hash32", "hash64"}) {
     for (auto type : types) {
-      for (auto length : array_lengths) {
-        for (auto null_probability : null_probabilities) {
+      for (auto length : kArrayLengths) {
+        for (auto null_probability : kNullProbabilities) {
           CheckPrimitive(func, rand.ArrayOf(type, length, null_probability));
         }
       }
@@ -284,11 +286,11 @@ TEST_F(TestScalarHash, RandomList) {
       fixed_size_list(int32(), 3),
   };
   for (auto type : types) {
-    for (auto length : array_lengths) {
-      for (auto null_probability : null_probabilities) {
+    for (auto length : kArrayLengths) {
+      for (auto null_probability : kNullProbabilities) {
         auto arr = rand.ArrayOf(type, length, null_probability);
-        CheckDeterminisic("hash32", arr);
-        CheckDeterminisic("hash64", arr);
+        CheckDeterministic("hash32", arr);
+        CheckDeterministic("hash64", arr);
       }
     }
   }
@@ -303,11 +305,11 @@ TEST_F(TestScalarHash, RandomStruct) {
       struct_({field("f0", struct_({field("f0", int32()), field("f1", utf8())}))}),
   };
   for (auto type : types) {
-    for (auto length : array_lengths) {
-      for (auto null_probability : null_probabilities) {
+    for (auto length : kArrayLengths) {
+      for (auto null_probability : kNullProbabilities) {
         auto arr = rand.ArrayOf(type, length, null_probability);
-        CheckDeterminisic("hash32", arr);
-        CheckDeterminisic("hash64", arr);
+        CheckDeterministic("hash32", arr);
+        CheckDeterministic("hash64", arr);
       }
     }
   }
@@ -322,11 +324,11 @@ TEST_F(TestScalarHash, RandomMap) {
       map(utf8(), map(int32(), int32())),
   };
   for (auto type : types) {
-    for (auto length : array_lengths) {
-      for (auto null_probability : null_probabilities) {
+    for (auto length : kArrayLengths) {
+      for (auto null_probability : kNullProbabilities) {
         auto arr = rand.ArrayOf(type, length, null_probability);
-        CheckDeterminisic("hash32", arr);
-        CheckDeterminisic("hash64", arr);
+        CheckDeterministic("hash32", arr);
+        CheckDeterministic("hash64", arr);
       }
     }
   }
