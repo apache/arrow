@@ -211,7 +211,7 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             % batches in an Arrow IPC Stream format.
 
             reader = arrow.io.ipc.RecordBatchStreamReader(testCase.ZeroBatchStreamFile);
-            % done should return true 0 times for a 0 batch file.
+            % done should return false 0 times for a 0 batch file.
             iterations = 0;
             while ~reader.done()
                 RecordBatchReadFcn(reader);
@@ -220,7 +220,7 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             testCase.verifyEqual(iterations, 0);
 
             reader = arrow.io.ipc.RecordBatchStreamReader(testCase.OneBatchStreamFile);
-            % done should return true 0 times for a 1 batch file.
+            % done should return false 1 time for a 1 batch file.
             iterations = 0;
             while ~reader.done()
                 RecordBatchReadFcn(reader);
@@ -229,7 +229,7 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             testCase.verifyEqual(iterations, 1);
 
             reader = arrow.io.ipc.RecordBatchStreamReader(testCase.MultipleBatchStreamFile);
-            % done should return true 2 times for a 2 batch file.
+            % done should return false 2 times for a 2 batch file.
             iterations = 0;
             while ~reader.done()
                 RecordBatchReadFcn(reader);
