@@ -25,7 +25,7 @@
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
-#include "arrow/result_internal.h"
+#include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
@@ -484,8 +484,8 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
 ::arrow::Result<std::shared_ptr<ArrowType>> GetTypeForNode(
     int column_index, const schema::PrimitiveNode& primitive_node,
     SchemaTreeContext* ctx) {
-  ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> storage_type,
-                  GetArrowType(primitive_node, ctx->properties));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> storage_type,
+                        GetArrowType(primitive_node, ctx->properties));
   if (ctx->properties.read_dictionary(column_index) &&
       IsDictionaryReadSupported(*storage_type)) {
     return ::arrow::dictionary(::arrow::int32(), storage_type);
@@ -723,8 +723,8 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
     // yields list<item: TYPE not null> ?nullable
     const auto& primitive_node = static_cast<const PrimitiveNode&>(list_node);
     int column_index = ctx->schema->GetColumnIndex(primitive_node);
-    ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> type,
-                    GetTypeForNode(column_index, primitive_node, ctx));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> type,
+                          GetTypeForNode(column_index, primitive_node, ctx));
     auto item_field = ::arrow::field(list_node.name(), type, /*nullable=*/false,
                                      FieldIdMetadata(list_node.field_id()));
     RETURN_NOT_OK(
@@ -799,8 +799,8 @@ Status NodeToSchemaField(const Node& node, LevelInfo current_levels,
     // repeated $TYPE $FIELD_NAME
     const auto& primitive_node = static_cast<const PrimitiveNode&>(node);
     int column_index = ctx->schema->GetColumnIndex(primitive_node);
-    ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> type,
-                    GetTypeForNode(column_index, primitive_node, ctx));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> type,
+                          GetTypeForNode(column_index, primitive_node, ctx));
     if (node.is_repeated()) {
       // One-level list encoding, e.g.
       // a: repeated int32;
