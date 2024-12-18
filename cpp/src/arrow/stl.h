@@ -187,29 +187,29 @@ struct ConversionTraits<std::vector<ValueCType>>
   }
 };
 
-template <class CType_, std::size_t N>
-struct ConversionTraits<std::array<CType_, N>>
-    : public CTypeTraits<std::array<CType_, N>> {
+template <class ValueCType, std::size_t N>
+struct ConversionTraits<std::array<ValueCType, N>>
+    : public CTypeTraits<std::array<ValueCType, N>> {
   static arrow::Status AppendRow(FixedSizeListBuilder& builder,
-                                 const std::array<CType_, N>& values) {
-    auto vb = ::arrow::internal::checked_cast<typename CTypeTraits<CType_>::BuilderType*>(
+                                 const std::array<ValueCType, N>& values) {
+    auto vb = ::arrow::internal::checked_cast<typename CTypeTraits<ValueCType>::BuilderType*>(
         builder.value_builder());
     ARROW_RETURN_NOT_OK(builder.Append());
     return vb->AppendValues(values.data(), N);
   }
 
-  static std::array<CType_, N> GetEntry(const ::arrow::FixedSizeListArray& array,
+  static std::array<ValueCType, N> GetEntry(const ::arrow::FixedSizeListArray& array,
                                         size_t j) {
     using ElementArrayType =
-        typename TypeTraits<typename stl::ConversionTraits<CType_>::ArrowType>::ArrayType;
+        typename TypeTraits<typename stl::ConversionTraits<ValueCType>::ArrowType>::ArrayType;
 
     const ElementArrayType& value_array =
         ::arrow::internal::checked_cast<const ElementArrayType&>(*array.values());
 
-    std::array<CType_, N> arr;
+    std::array<ValueCType, N> arr;
     for (size_t i = 0; i < N; i++) {
       arr[i] =
-          stl::ConversionTraits<CType_>::GetEntry(value_array, array.value_offset(j) + i);
+          stl::ConversionTraits<ValueCType>::GetEntry(value_array, array.value_offset(j) + i);
     }
     return arr;
   }
