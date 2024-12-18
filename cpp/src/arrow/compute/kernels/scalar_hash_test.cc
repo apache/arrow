@@ -123,14 +123,9 @@ class TestScalarHash : public ::testing::Test {
 
     // Check that slicing the array does not affect the hash
     auto hashes = res1.make_array();
-
-    ARROW_LOG(INFO) << "Truth: " << hashes->ToString();
-
     if (arr->length() >= 1) {
       auto in1 = arr->Slice(1);
       ASSERT_OK_AND_ASSIGN(Datum out1, CallFunction(func, {in1}));
-      ARROW_LOG(INFO) << "Result: " << out1.make_array()->ToString();
-      ARROW_LOG(INFO) << "Hashes: " << hashes->Slice(1)->ToString();
       ValidateOutput(out1);
       AssertArraysEqual(*out1.make_array(), *hashes->Slice(1));
     } else if (arr->length() >= 4) {
@@ -268,7 +263,21 @@ TEST_F(TestScalarHash, BinaryLike) {
       CheckBinary(func, ArrayFromJSON(type, R"([""])"));
       CheckBinary(func, ArrayFromJSON(type, R"(["first", "second", null])"));
       CheckBinary(func, ArrayFromJSON(type, R"(["first", "second", "third"])"));
+      CheckBinary(func, ArrayFromJSON(type, R"(["first", "second", "third"])"));
     }
+  }
+  for (auto func : {"hash32", "hash64"}) {
+    auto type = fixed_size_binary(1);
+    CheckPrimitive(func, ArrayFromJSON(type, R"([])"));
+    CheckPrimitive(func, ArrayFromJSON(type, R"([null])"));
+    CheckPrimitive(func, ArrayFromJSON(type, R"(["a", "b"])"));
+    CheckPrimitive(func, ArrayFromJSON(type, R"([null, "b"])"));
+
+    type = fixed_size_binary(3);
+    CheckPrimitive(func, ArrayFromJSON(type, R"([])"));
+    CheckPrimitive(func, ArrayFromJSON(type, R"([null])"));
+    CheckPrimitive(func, ArrayFromJSON(type, R"(["alt", "blt"])"));
+    CheckPrimitive(func, ArrayFromJSON(type, R"([null, "blt"])"));
   }
 }
 
@@ -291,11 +300,16 @@ TEST_F(TestScalarHash, RandomBinaryLike) {
   auto rand = random::RandomArrayGenerator(kSeed);
   auto types = {binary(), utf8(), large_binary(), large_utf8()};
   for (auto func : {"hash32", "hash64"}) {
-    for (auto type : types) {
-      for (auto length : kArrayLengths) {
-        for (auto null_probability : kNullProbabilities) {
+    for (auto length : kArrayLengths) {
+      for (auto null_probability : kNullProbabilities) {
+        for (auto type : types) {
           CheckBinary(func, rand.ArrayOf(type, length, null_probability));
         }
+        for (auto type : {fixed_size_binary(1), fixed_size_binary(3)}) {
+          CheckPrimitive(func, rand.ArrayOf(type, length, null_probability));
+        }
+        CheckDeterministic(func,
+                           rand.ArrayOf(fixed_size_binary(0), length, null_probability));
       }
     }
   }
