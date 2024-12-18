@@ -35,6 +35,7 @@ TEST(TestReaderProperties, Basics) {
   ReaderProperties props;
 
   ASSERT_EQ(props.buffer_size(), kDefaultBufferSize);
+  ASSERT_EQ(props.footer_read_size(), kDefaultFooterReadSize);
   ASSERT_FALSE(props.is_buffered_stream_enabled());
   ASSERT_FALSE(props.page_checksum_verification());
 }

@@ -72,6 +72,8 @@ may expose data type-specific methods or properties.
    TimestampArray
    DurationArray
    MonthDayNanoIntervalArray
+   Decimal32Array
+   Decimal64Array
    Decimal128Array
    Decimal256Array
    DictionaryArray

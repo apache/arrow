@@ -26,7 +26,7 @@
 
 arrow::Status ReadFullFile(std::string path_to_file) {
   // #include "arrow/io/api.h"
-  // #include "arrow/parquet/arrow/reader.h"
+  // #include "parquet/arrow/reader.h"
 
   arrow::MemoryPool* pool = arrow::default_memory_pool();
   std::shared_ptr<arrow::io::RandomAccessFile> input;
@@ -44,7 +44,7 @@ arrow::Status ReadFullFile(std::string path_to_file) {
 
 arrow::Status ReadInBatches(std::string path_to_file) {
   // #include "arrow/io/api.h"
-  // #include "arrow/parquet/arrow/reader.h"
+  // #include "parquet/arrow/reader.h"
 
   arrow::MemoryPool* pool = arrow::default_memory_pool();
 

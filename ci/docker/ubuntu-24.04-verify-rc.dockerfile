@@ -14,25 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
-# This config sets the following variables in your project::
-#
-#   ArrowAcero_FOUND - true if Arrow Acero found on the system
-#
-# This config sets the following targets in your project::
-#
-#   ArrowAcero::arrow_acero_shared - for linked as shared library if shared library is built
-#   ArrowAcero::arrow_acero_static - for linked as static library if static library is built
 
-@PACKAGE_INIT@
+ARG arch=amd64
+FROM ${arch}/ubuntu:24.04
 
-include(CMakeFindDependencyMacro)
-find_dependency(Arrow)
-
-include("${CMAKE_CURRENT_LIST_DIR}/ArrowAceroTargets.cmake")
-
-arrow_keep_backward_compatibility(ArrowAcero arrow_acero)
-
-check_required_components(ArrowAcero)
-
-arrow_show_details(ArrowAcero ARROW_ACERO)
+ENV DEBIAN_FRONTEND=noninteractive
+COPY dev/release/setup-ubuntu.sh /
+RUN /setup-ubuntu.sh && \
+    rm /setup-ubuntu.sh && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists*
