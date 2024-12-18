@@ -51,7 +51,7 @@ libmexclass::proxy::MakeResult RecordBatchStreamReader::make(
                          error::UNICODE_CONVERSION_ERROR_ID);
 
   MATLAB_ASSIGN_OR_ERROR(auto input_stream, arrow::io::ReadableFile::Open(filename_utf8),
-                         error::FAILED_TO_OPEN_FILE_FOR_WRITE);
+                         error::FAILED_TO_OPEN_FILE_FOR_READ);
 
   MATLAB_ASSIGN_OR_ERROR(auto reader,
                          arrow::ipc::RecordBatchStreamReader::Open(input_stream),
