@@ -102,7 +102,7 @@ void RecordBatchStreamReader::readRecordBatch(
                                         error::IPC_RECORD_BATCH_READ_FAILED);
   }
   // Even if the read was "successful", the resulting record batch may be empty,
-  // signalling the end of the stream.
+  // signaling the end of the stream.
   if (!nextRecordBatch) {
     context.error =
         Error{error::IPC_END_OF_STREAM,
