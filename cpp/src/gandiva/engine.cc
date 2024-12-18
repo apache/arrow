@@ -193,8 +193,13 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf, bool cached,
   // original Module.
   auto module_ptr = module.get();
 
-  auto opt_level =
-      conf->optimize() ? llvm::CodeGenOpt::Aggressive : llvm::CodeGenOpt::None;
+#if LLVM_VERSION_MAJOR >= 18
+  using CodeGenOptLevel = llvm::CodeGenOptLevel;
+#else
+  using CodeGenOptLevel = llvm::CodeGenOpt::Level;
+#endif
+  auto const opt_level =                                                                                                                                                                                                                 
+      conf->optimize() ? CodeGenOptLevel::Aggressive : CodeGenOptLevel::None;
 
   // Note that the lifetime of the error string is not captured by the
   // ExecutionEngine but only for the lifetime of the builder. Found by
