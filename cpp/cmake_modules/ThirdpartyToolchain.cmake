@@ -3023,8 +3023,8 @@ macro(build_absl)
       vlog_config_internal)
   # Abseil creates a number of header-only targets, which are needed to resolve dependencies.
   # The list can be refreshed using:
-  #   comm -13 <(ls -l lib/libabsl_*.a | sed -e 's/.*libabsl_//' -e 's/.a$//' | sort -u) \
-  #            <(ls -1 lib/pkgconfig/absl_*.pc | sed -e 's/.*absl_//' -e 's/.pc$//' | sort -u)
+  #   comm -13 <(ls -l $PREFIX/lib/libabsl_*.a | sed -e 's/.*libabsl_//' -e 's/.a$//' | sort -u) \
+  #            <(ls -1 $PREFIX/lib/pkgconfig/absl_*.pc | sed -e 's/.*absl_//' -e 's/.pc$//' | sort -u)
   set(_ABSL_INTERFACE_LIBS
       absl::check
       absl::log
@@ -4491,7 +4491,6 @@ macro(build_grpc)
       absl::malloc_internal
       absl::time
       absl::civil_time
-      absl::status
       absl::strings
       absl::strings_internal
       absl::base
