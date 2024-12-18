@@ -158,9 +158,8 @@ struct FastHashScalar {
 
     // Initialize stack-based memory allocator used by Hashing32 and Hashing64
     util::TempVectorStack stack_memallocator;
-    ARROW_RETURN_NOT_OK(
-        stack_memallocator.Init(exec_ctx->memory_pool(),
-                                3 * sizeof(int32_t) * util::MiniBatch::kMiniBatchLength));
+    ARROW_RETURN_NOT_OK(stack_memallocator.Init(exec_ctx->memory_pool(),
+                                                Hasher::kHashBatchTempStackUsage));
 
     // Prepare context used by Hashing32 and Hashing64
     LightContext hash_ctx;
