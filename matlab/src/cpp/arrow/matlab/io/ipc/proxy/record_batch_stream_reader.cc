@@ -105,8 +105,8 @@ void RecordBatchStreamReader::readRecordBatch(
   // signalling the end of the stream.
   if (!nextRecordBatch) {
     context.error =
-        Error{"arrow:io:ipc:EndOfStream",
-              "Reached end of Arrow IPC Stream. No more record batches to read."};
+        Error{error::IPC_END_OF_STREAM,
+	    "Reached end of Arrow IPC Stream. No more record batches to read."};
     return;
   }
   auto record_batch_proxy = std::make_shared<RecordBatchProxy>(nextRecordBatch);
