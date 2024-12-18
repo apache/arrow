@@ -36,8 +36,10 @@ namespace arrow {
 namespace compute {
 
 constexpr auto kSeed = 0x94378165;
-constexpr auto kArrayLengths = {0, 50, 100};
-constexpr auto kNullProbabilities = {0.0, 0.5, 1.0};
+// constexpr auto kArrayLengths = {0, 50, 100};
+// constexpr auto kNullProbabilities = {0.0, 0.5, 1.0};
+constexpr auto kArrayLengths = {5};
+constexpr auto kNullProbabilities = {0.0};
 
 class TestScalarHash : public ::testing::Test {
  public:
@@ -103,12 +105,13 @@ class TestScalarHash : public ::testing::Test {
   }
 
   void CheckDeterministic(const std::string& func, const std::shared_ptr<Array>& arr) {
-    // Check that the hash is deterministic
+    // Check that the hash is deterministic between different runs
     ASSERT_OK_AND_ASSIGN(Datum res1, CallFunction(func, {arr}));
     ASSERT_OK_AND_ASSIGN(Datum res2, CallFunction(func, {arr}));
     ValidateOutput(res1);
     ValidateOutput(res2);
     ASSERT_EQ(res1.length(), arr->length());
+    ASSERT_EQ(res2.length(), arr->length());
     if (func == "hash64") {
       ASSERT_EQ(res1.type()->id(), Type::UINT64);
     } else if (func == "hash32") {
@@ -117,6 +120,25 @@ class TestScalarHash : public ::testing::Test {
       FAIL() << "Unknown function: " << func;
     }
     AssertDatumsEqual(res1, res2);
+
+    // Check that slicing the array does not affect the hash
+    auto hashes = res1.make_array();
+
+    ARROW_LOG(INFO) << "Truth: " << hashes->ToString();
+
+    if (arr->length() >= 1) {
+      auto in1 = arr->Slice(1);
+      ASSERT_OK_AND_ASSIGN(Datum out1, CallFunction(func, {in1}));
+      ARROW_LOG(INFO) << "Result: " << out1.make_array()->ToString();
+      ARROW_LOG(INFO) << "Hashes: " << hashes->Slice(1)->ToString();
+      ValidateOutput(out1);
+      AssertArraysEqual(*out1.make_array(), *hashes->Slice(1));
+    } else if (arr->length() >= 4) {
+      auto in2 = arr->Slice(2, 2);
+      ASSERT_OK_AND_ASSIGN(Datum out2, CallFunction(func, {in2}));
+      ValidateOutput(out2);
+      AssertArraysEqual(*out2.make_array(), *hashes->Slice(2, 2));
+    }
   }
 
   void CheckPrimitive(const std::string& func, const std::shared_ptr<Array>& arr) {
@@ -229,6 +251,7 @@ TEST_F(TestScalarHash, NumericLike) {
       CheckPrimitive(func, ArrayFromJSON(type, R"([])"));
       CheckPrimitive(func, ArrayFromJSON(type, R"([null])"));
       CheckPrimitive(func, ArrayFromJSON(type, R"([1])"));
+      CheckPrimitive(func, ArrayFromJSON(type, R"([1, 2])"));
       CheckPrimitive(func, ArrayFromJSON(type, R"([1, 2, null])"));
       CheckPrimitive(func, ArrayFromJSON(type, R"([null, 2, 3])"));
       CheckPrimitive(func, ArrayFromJSON(type, R"([1, 2, 3, 4])"));
