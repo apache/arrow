@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/matlab/io/ipc/proxy/record_batch_stream_reader.h"
 #include "arrow/io/file.h"
+#include "arrow/matlab/io/ipc/proxy/record_batch_stream_reader.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
