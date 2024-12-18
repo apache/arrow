@@ -187,7 +187,7 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             testCase.verifyEqual(iterations, 0);
 
             reader = arrow.io.ipc.RecordBatchStreamReader(testCase.OneBatchStreamFile);
-            % hasnext should return true 0 times for a 1 batch file.
+            % hasnext should return true 1 time for a 1 batch file.
             iterations = 0;
             while reader.hasnext()
                 RecordBatchReadFcn(reader);
