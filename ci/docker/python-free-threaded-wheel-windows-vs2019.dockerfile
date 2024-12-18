@@ -24,8 +24,8 @@ ARG base
 FROM ${base}
 
 SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
-RUN $filename = 'python-3.13.0-amd64.exe'; \
-    $url = 'https://www.python.org/ftp/python/3.13.0/' + $filename; \
+RUN $filename = 'python-3.13.1-amd64.exe'; \
+    $url = 'https://www.python.org/ftp/python/3.13.1/' + $filename; \
     Invoke-WebRequest -Uri $url -OutFile $filename; \
     Start-Process -FilePath $filename -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
 

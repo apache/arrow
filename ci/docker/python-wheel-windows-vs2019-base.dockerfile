@@ -23,7 +23,7 @@
 FROM abrarov/msvc-2019:2.11.0
 
 # Install CMake and Ninja
-ARG cmake=3.21.4
+ARG cmake=3.31.2
 RUN choco install --no-progress -r -y cmake --version=%cmake% --installargs 'ADD_CMAKE_TO_PATH=System' && \
     choco install --no-progress -r -y gzip wget ninja
 
