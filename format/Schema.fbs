@@ -421,7 +421,7 @@ table Interval {
 // An absolute length of time unrelated to any calendar artifacts.
 //
 // For the purposes of Arrow Implementations, adding this value to a Timestamp
-// ("t1") naively (i.e. simply summing the two number) is acceptable even
+// ("t1") naively (i.e. simply summing the two numbers) is acceptable even
 // though in some cases the resulting Timestamp (t2) would not account for
 // leap-seconds during the elapsed time between "t1" and "t2".  Similarly,
 // representing the difference between two Unix timestamp is acceptable, but
