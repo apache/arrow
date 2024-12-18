@@ -155,7 +155,7 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
 
         function ReadMultipleBatchStreamFile(testCase, RecordBatchReadFcn)
             % Verify read can successfully read an Arrow IPC Stream file
-            % containing zero batches.
+            % containing mulitple batches.
             reader = arrow.io.ipc.RecordBatchStreamReader(testCase.MultipleBatchStreamFile);
 
             expectedMatlabTable1 = table(["Row1"; "Row2"], single([1; 2]), VariableNames=["A", "B"]);
