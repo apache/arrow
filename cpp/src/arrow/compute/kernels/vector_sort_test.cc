@@ -2205,9 +2205,9 @@ TEST_F(TestNestedSortIndices, SortRecordBatch) { TestSort(GetRecordBatch()); }
 TEST_F(TestNestedSortIndices, SortTable) { TestSort(GetTable()); }
 
 // ----------------------------------------------------------------------
-// Tests for Rank
+// Tests for Rank and Percentile Rank
 
-class TestRank : public ::testing::Test {
+class BaseTestRank : public ::testing::Test {
  protected:
   // Create several test datums from `array`. One of which is the unmodified Array
   // while the rest are chunked variants based on it.
@@ -2236,6 +2236,11 @@ class TestRank : public ::testing::Test {
     datums_ = {chunked_array};
   }
 
+  DatumVector datums_;
+};
+
+class TestRank : public BaseTestRank {
+ protected:
   static void AssertRank(const DatumVector& datums, SortOrder order,
                          NullPlacement null_placement, RankOptions::Tiebreaker tiebreaker,
                          const std::shared_ptr<Array>& expected) {
@@ -2310,8 +2315,6 @@ class TestRank : public ::testing::Test {
     AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Dense,
                ArrayFromJSON(uint64(), "[3, 4, 2, 1, 2, 1, 4]"));
   }
-
-  DatumVector datums_;
 };
 
 TEST_F(TestRank, Real) {
@@ -2464,6 +2467,153 @@ TEST_F(TestRank, EmptyChunks) {
       AssertRankSimple(null_placement, tiebreaker);
     }
   }
+}
+
+class TestRankPercentile : public BaseTestRank {
+ public:
+  void AssertRankPercentile(const DatumVector& datums, SortOrder order,
+                            NullPlacement null_placement, double factor,
+                            const std::shared_ptr<Array>& expected) {
+    const std::vector<SortKey> sort_keys{SortKey("foo", order)};
+    RankPercentileOptions options(sort_keys, null_placement, factor);
+    ARROW_SCOPED_TRACE("options = ", options.ToString());
+    for (const auto& datum : datums) {
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           CallFunction("rank_percentile", {datum}, &options));
+      ValidateOutput(actual);
+      AssertDatumsEqual(expected, actual, /*verbose=*/true);
+    }
+  }
+
+  void AssertRankPercentile(const DatumVector& datums, SortOrder order,
+                            NullPlacement null_placement, double factor,
+                            const std::string& expected) {
+    AssertRankPercentile(datums, order, null_placement, factor,
+                         ArrayFromJSON(float64(), expected));
+  }
+
+  void AssertRankPercentile(SortOrder order, NullPlacement null_placement, double factor,
+                            const std::shared_ptr<Array>& expected) {
+    AssertRankPercentile(datums_, order, null_placement, factor, expected);
+  }
+
+  void AssertRankPercentile(SortOrder order, NullPlacement null_placement, double factor,
+                            const std::string& expected) {
+    AssertRankPercentile(datums_, order, null_placement, factor,
+                         ArrayFromJSON(float64(), expected));
+  }
+
+  void AssertRankPercentileEmpty(std::shared_ptr<DataType> type) {
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto order : AllOrders()) {
+        AssertRankPercentile({ArrayFromJSON(type, "[]")}, order, null_placement,
+                             /*factor=*/1.0, "[]");
+        AssertRankPercentile({ArrayFromJSON(type, "[null]")}, order, null_placement,
+                             /*factor=*/1.0, "[0.5]");
+        AssertRankPercentile({ArrayFromJSON(type, "[null]")}, order, null_placement,
+                             /*factor=*/10.0, "[5]");
+        AssertRankPercentile({ArrayFromJSON(type, "[null, null, null]")}, order,
+                             null_placement, /*factor=*/1.0, "[0.5, 0.5, 0.5]");
+        AssertRankPercentile({ArrayFromJSON(type, "[null, null, null]")}, order,
+                             null_placement, /*factor=*/100.0, "[50, 50, 50]");
+      }
+    }
+  }
+
+  // Expecting an input ordered like [1, 2, 1, 2, 1]
+  void AssertRankPercentile_12121() {
+    for (auto null_placement : AllNullPlacements()) {
+      AssertRankPercentile(SortOrder::Ascending, null_placement, 100.0,
+                           "[30.0, 80.0, 30.0, 80.0, 30.0]");
+      AssertRankPercentile(SortOrder::Descending, null_placement, 100.0,
+                           "[70.0, 20.0, 70.0, 20.0, 70.0]");
+    }
+  }
+
+  // Expecting an input ordered like [null, 1, null, 2, null]
+  void AssertRankPercentile_N1N2N() {
+    AssertRankPercentile(SortOrder::Ascending, NullPlacement::AtStart, 1.0,
+                         "[0.3, 0.7, 0.3, 0.9, 0.3]");
+    AssertRankPercentile(SortOrder::Ascending, NullPlacement::AtEnd, 1.0,
+                         "[0.7, 0.1, 0.7, 0.3, 0.7]");
+    AssertRankPercentile(SortOrder::Descending, NullPlacement::AtStart, 1.0,
+                         "[0.3, 0.9, 0.3, 0.7, 0.3]");
+    AssertRankPercentile(SortOrder::Descending, NullPlacement::AtEnd, 1.0,
+                         "[0.7, 0.3, 0.7, 0.1, 0.7]");
+  }
+
+  void AssertRankPercentileNumeric(std::shared_ptr<DataType> type) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    AssertRankPercentileEmpty(type);
+
+    // Reproduce the example from https://en.wikipedia.org/wiki/Percentile_rank
+    SetInput(ArrayFromJSON(type, "[7, 5, 5, 4, 4, 3, 3, 3, 2, 1]"));
+    for (auto null_placement : AllNullPlacements()) {
+      AssertRankPercentile(SortOrder::Ascending, null_placement, 10.0,
+                           "[9.5, 8.0, 8.0, 6.0, 6.0, 3.5, 3.5, 3.5, 1.5, 0.5]");
+      AssertRankPercentile(SortOrder::Ascending, null_placement, 100.0,
+                           "[95, 80, 80, 60, 60, 35, 35, 35, 15, 5]");
+      AssertRankPercentile(SortOrder::Descending, null_placement, 10.0,
+                           "[0.5, 2.0, 2.0, 4.0, 4.0, 6.5, 6.5, 6.5, 8.5, 9.5]");
+      AssertRankPercentile(SortOrder::Descending, null_placement, 100.0,
+                           "[5, 20, 20, 40, 40, 65, 65, 65, 85, 95]");
+    }
+
+    // With nulls
+    SetInput(ArrayFromJSON(type, "[null, 1, null, 2, null]"));
+    AssertRankPercentile_N1N2N();
+  }
+
+  void AssertRankPercentileBinaryLike(std::shared_ptr<DataType> type) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    AssertRankPercentileEmpty(type);
+
+    SetInput(ArrayFromJSON(type, R"(["", "ab", "", "ab", ""])"));
+    AssertRankPercentile_12121();
+    // With nulls
+    SetInput(ArrayFromJSON(type, R"([null, "", null, "ab", null])"));
+    AssertRankPercentile_N1N2N();
+  }
+};
+
+TEST_F(TestRankPercentile, Real) {
+  for (auto type : ::arrow::FloatingPointTypes()) {
+    AssertRankPercentileNumeric(type);
+  }
+}
+
+TEST_F(TestRankPercentile, Integral) {
+  for (auto type : ::arrow::IntTypes()) {
+    AssertRankPercentileNumeric(type);
+  }
+}
+
+TEST_F(TestRankPercentile, Boolean) {
+  auto type = boolean();
+  AssertRankPercentileEmpty(type);
+
+  SetInput(ArrayFromJSON(type, "[false, true, false, true, false]"));
+  AssertRankPercentile_12121();
+  // With nulls
+  SetInput(ArrayFromJSON(type, "[null, false, null, true, null]"));
+  AssertRankPercentile_N1N2N();
+}
+
+TEST_F(TestRankPercentile, BinaryLike) {
+  for (auto type : BaseBinaryTypes()) {
+    AssertRankPercentileBinaryLike(type);
+  }
+}
+
+TEST_F(TestRankPercentile, FixedSizeBinary) {
+  auto type = fixed_size_binary(3);
+  AssertRankPercentileEmpty(type);
+
+  SetInput(ArrayFromJSON(type, R"(["abc", "def", "abc", "def", "abc"])"));
+  AssertRankPercentile_12121();
+  // With nulls
+  SetInput(ArrayFromJSON(type, R"([null, "abc", null, "def", null])"));
+  AssertRankPercentile_N1N2N();
 }
 
 }  // namespace compute
