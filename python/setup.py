@@ -223,7 +223,6 @@ class build_ext(_build_ext):
         '_hdfs',
         'gandiva']
 
-
     def _run_cmake(self):
         # check if build_type is correctly passed / set
         if self.build_type.lower() not in ('release', 'debug',

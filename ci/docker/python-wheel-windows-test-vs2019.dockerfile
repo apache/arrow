@@ -20,9 +20,8 @@
 
 # based on mcr.microsoft.com/windows/servercore:ltsc2019
 # contains choco and vs2019 preinstalled
-ARG repo
-ARG tag
-FROM ${repo}:${tag}
+ARG base
+FROM ${base}
 
 # hadolint shell=cmd.exe
 
