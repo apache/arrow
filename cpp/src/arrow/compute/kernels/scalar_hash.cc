@@ -180,24 +180,19 @@ struct FastHashScalar {
 
 const FunctionDoc hash32_doc{
     "Construct a hash for every element of the input argument",
-    ("An element-wise function that uses an xxHash-like algorithm.\n"
-     "This function is not suitable for cryptographic purposes.\n"
-     "Hash results are 32-bit and emitted for each valid row.\n"
-     "Null (or invalid) rows emit a `0` in the output."),
+    ("This function is not suitable for cryptographic purposes.\n"
+     "Hash results are 32-bit and emitted for each row, including NULLs."),
     {"hash_input"}};
 
 const FunctionDoc hash64_doc{
     "Construct a hash for every element of the input argument",
-    ("An element-wise function that uses an xxHash-like algorithm.\n"
-     "This function is not suitable for cryptographic purposes.\n"
-     "Hash results are 64-bit and emitted for each valid row.\n"
-     "Null (or invalid) rows emit a `0` in the output."),
+    ("This function is not suitable for cryptographic purposes.\n"
+     "Hash results are 64-bit and emitted for each row, including NULLs."),
     {"hash_input"}};
-
 }  // namespace
 
 void RegisterScalarHash(FunctionRegistry* registry) {
-  // Create hash64 function instance
+  // Create hash32 and hash64 function instances
   auto hash32 = std::make_shared<ScalarFunction>("hash32", Arity::Unary(), hash32_doc);
   auto hash64 = std::make_shared<ScalarFunction>("hash64", Arity::Unary(), hash64_doc);
 
