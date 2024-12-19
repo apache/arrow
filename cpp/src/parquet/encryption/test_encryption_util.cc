@@ -116,9 +116,9 @@ ColumnData<Int64Type> GenerateSampleData<Int64Type>(int rows) {
     int64_t value = i * 1000 * 1000;
     value *= 1000 * 1000;
     int16_t definition_level = 1;
-    int16_t repetition_level = 0;
+    int16_t repetition_level = 1;
     if ((i % 2) == 0) {
-      repetition_level = 1;  // start of a new record
+      repetition_level = 0;  // start of a new record
     }
     int64_col.values.push_back(value);
     int64_col.definition_levels.push_back(definition_level);
