@@ -25,11 +25,13 @@ export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
 # Uncomment L38-41 if you're testing a new rtools dependency that hasn't yet sync'd to CRAN
 # curl https://raw.githubusercontent.com/r-windows/rtools-packages/master/pacman.conf > /etc/pacman.conf
-# curl -OSsl "http://repo.msys2.org/msys/x86_64/msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz"
-# pacman -U --noconfirm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz && rm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz
-# pacman --noconfirm -Scc
+cat /etc/pacman.conf || echo "/etc/pacman.conf not found"
+curl -OSsl "http://repo.msys2.org/msys/x86_64/msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz"
+pacman -U --noconfirm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz && rm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz
+pacman --noconfirm -Scc
 
 pacman --noconfirm -Syy
+pacman --noconfirm -S ${MINGW_PACKAGE_PREFIX}-cmake
 RWINLIB_LIB_DIR="lib"
 : ${MINGW_ARCH:="mingw32 mingw64 ucrt64"}
 
