@@ -396,8 +396,8 @@ TEST_F(TestScalarHash, RandomPrimitive) {
         CheckPrimitive("hash64", arr);
         if (type->bit_width() >= 16) {
           // the generated arrays contain unique values at the given lengths
-          CheckHashQuality("hash32", arr);
-          CheckHashQuality("hash64", arr);
+          CheckHashQuality("hash32", arr, 0.98);
+          CheckHashQuality("hash64", arr, 0.98);
         }
       }
     }
