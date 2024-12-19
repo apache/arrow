@@ -20,6 +20,13 @@
 echo "Building windows wheel..."
 
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+@echo on
+
+@REM Install a more recent msvcp140.dll in C:\Windows\System
+choco install -r -y --no-progress vcredist140
+choco upgrade -r -y --no-progress vcredist140
+
+dir C:\Windows\System32\msvcp140.dll
 
 echo "=== (%PYTHON_VERSION%) Clear output directories and leftovers ==="
 del /s /q C:\arrow-build
@@ -104,7 +111,7 @@ popd
 
 echo "=== (%PYTHON_VERSION%) Building wheel ==="
 set PYARROW_BUILD_TYPE=%CMAKE_BUILD_TYPE%
-set PYARROW_BUNDLE_ARROW_CPP=ON
+set PYARROW_BUNDLE_ARROW_CPP=OFF
 set PYARROW_CMAKE_GENERATOR=%CMAKE_GENERATOR%
 set PYARROW_WITH_ACERO=%ARROW_ACERO%
 set PYARROW_WITH_DATASET=%ARROW_DATASET%
@@ -121,7 +128,20 @@ set ARROW_HOME=C:\arrow-dist
 set CMAKE_PREFIX_PATH=C:\arrow-dist
 
 pushd C:\arrow\python
-@REM bundle the msvc runtime
-cp "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Redist\MSVC\14.28.29325\x64\Microsoft.VC142.CRT\msvcp140.dll" pyarrow\
+
+@REM build wheel
 python setup.py bdist_wheel || exit /B 1
+
+@REM Repair the wheel with delvewheel
+pip install delvewheel || exit /B 1
+for /f %%i in ('dir dist\pyarrow-*.whl /B') do set WHEEL_NAME=%cd%\dist\%%i || exit /B 1
+echo "Wheel name: %WHEEL_NAME%"
+for /f %%i in ('dir build\lib* /B') do set WHEEL_BUILD_DIR=%cd%\build\%%i || exit /B 1
+echo "Wheel build dir: %WHEEL_BUILD_DIR%"
+
+dir "%WHEEL_BUILD_DIR%\pyarrow"
+
+delvewheel show -vv --add-path "%WHEEL_BUILD_DIR%\pyarrow";C:\Windows\System32 %WHEEL_NAME% || exit /B 1
+delvewheel repair -vv --add-path "%WHEEL_BUILD_DIR%\pyarrow";C:\Windows\System32 %WHEEL_NAME% -w repaired_wheels || exit /B 1
+
 popd
