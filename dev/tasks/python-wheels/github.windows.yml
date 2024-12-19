@@ -26,6 +26,7 @@ jobs:
     env:
       # archery uses this environment variable
       PYTHON: "{{ python_version }}"
+      PYTHON_ABI_TAG: "{{ python_abi_tag }}"
       # this is a private repository at the moment (mostly because of licensing
       # consideration of windows images with visual studio), but anyone can
       # recreate the image by manually building it via:
@@ -43,6 +44,16 @@ jobs:
       {{ macros.github_login_ghcr()|indent }}
       {{ macros.github_install_archery()|indent }}
 
+      - name: Prepare
+        shell: bash
+        run: |
+          if [ "${PYTHON_ABI_TAG}" = "cp313t" ]; then
+            test_image_prefix=python-free-threaded
+          else
+            test_image_prefix=python
+          fi
+          echo "TEST_IMAGE_PREFIX=${test_image_prefix}" >> ${GITHUB_ENV}
+
       - name: Build wheel
         shell: cmd
         run: |
@@ -54,11 +65,11 @@ jobs:
           @rem We can remove this workaround once we find a way to use
           @rem pulled caches when build an image.
           echo on
-          archery docker pull --no-ignore-pull-failures python-wheel-windows-vs2019
+          archery docker pull --no-ignore-pull-failures %TEST_IMAGE_PREFIX%-wheel-windows-vs2019
           if errorlevel 1 (
-            archery docker build --no-pull python-wheel-windows-vs2019 || exit /B 1
+            archery docker build --no-pull %TEST_IMAGE_PREFIX%-wheel-windows-vs2019 || exit /B 1
           )
-          archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2019
+          archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} %TEST_IMAGE_PREFIX%-wheel-windows-vs2019
 
       - uses: actions/upload-artifact@v4
         with:
@@ -69,16 +80,18 @@ jobs:
         shell: cmd
         run: |
           cd arrow
-          archery docker run python-wheel-windows-test
+          archery docker run %TEST_IMAGE_PREFIX%-wheel-windows-test
+
+      - name: Push Docker image
+        shell: cmd
+        run: |
+          cd arrow
+          archery docker push %TEST_IMAGE_PREFIX%-wheel-windows-vs2019
+          archery docker push %TEST_IMAGE_PREFIX%-wheel-windows-test
 
       {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
       {{ macros.github_upload_wheel_scientific_python("arrow/python/dist/*.whl")|indent }}
 
       {% if arrow.is_default_branch() %}
-      - name: Push Docker Image
-        shell: cmd
-        run: |
-          cd arrow
-          archery docker push python-wheel-windows-vs2019
       {% endif %}
