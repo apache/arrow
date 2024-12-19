@@ -269,9 +269,25 @@ TEST_F(TestScalarHash, Boolean) {
   ASSERT_EQ(array64->Value(1), array64->Value(5));
 }
 
-TEST_F(TestScalarHash, NumericLike) {
-  auto types = {int8(),   int16(),  int32(),  int64(),   uint8(),
-                uint16(), uint32(), uint64(), float32(), float64()};
+TEST_F(TestScalarHash, Primitive) {
+  auto types = {int8(),
+                int16(),
+                int32(),
+                int64(),
+                uint8(),
+                uint16(),
+                uint32(),
+                uint64(),
+                float16(),
+                float32(),
+                float64(),
+                time32(TimeUnit::SECOND),
+                time64(TimeUnit::NANO),
+                date32(),
+                date64(),
+                timestamp(TimeUnit::SECOND),
+                duration(TimeUnit::MILLI)};
+
   for (auto func : {"hash32", "hash64"}) {
     for (auto type : types) {
       CheckPrimitive(func, ArrayFromJSON(type, R"([])"));
@@ -330,31 +346,56 @@ TEST_F(TestScalarHash, DictionaryType) {
 TEST_F(TestScalarHash, RandomBinaryLike) {
   auto rand = random::RandomArrayGenerator(kSeed);
   auto types = {binary(), utf8(), large_binary(), large_utf8()};
-  for (auto func : {"hash32", "hash64"}) {
-    for (auto length : kArrayLengths) {
-      for (auto null_probability : kNullProbabilities) {
-        for (auto type : types) {
-          CheckBinary(func, rand.ArrayOf(type, length, null_probability));
-        }
-        for (auto type : {fixed_size_binary(1), fixed_size_binary(3)}) {
-          CheckPrimitive(func, rand.ArrayOf(type, length, null_probability));
-        }
-        CheckDeterministic(func,
-                           rand.ArrayOf(fixed_size_binary(0), length, null_probability));
+
+  for (auto length : kArrayLengths) {
+    for (auto null_probability : kNullProbabilities) {
+      for (auto type : types) {
+        auto arr = rand.ArrayOf(type, length, null_probability);
+        CheckBinary("hash32", arr);
+        CheckBinary("hash64", arr);
       }
+      for (auto type : {fixed_size_binary(1), fixed_size_binary(3)}) {
+        auto arr = rand.ArrayOf(type, length, null_probability);
+        CheckPrimitive("hash32", arr);
+        CheckPrimitive("hash64", arr);
+      }
+      auto arr = rand.ArrayOf(fixed_size_binary(0), length, null_probability);
+      CheckDeterministic("hash32", arr);
+      CheckDeterministic("hash64", arr);
     }
   }
 }
 
-TEST_F(TestScalarHash, RandomNumericLike) {
+TEST_F(TestScalarHash, RandomPrimitive) {
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto types = {int8(),   int16(),  int32(),  int64(),   uint8(),
-                uint16(), uint32(), uint64(), float32(), float64()};
-  for (auto func : {"hash32", "hash64"}) {
-    for (auto type : types) {
-      for (auto length : kArrayLengths) {
-        for (auto null_probability : kNullProbabilities) {
-          CheckPrimitive(func, rand.ArrayOf(type, length, null_probability));
+  auto types = {int8(),
+                int16(),
+                int32(),
+                int64(),
+                uint8(),
+                uint16(),
+                uint32(),
+                uint64(),
+                float16(),
+                float32(),
+                float64(),
+                time32(TimeUnit::SECOND),
+                time64(TimeUnit::NANO),
+                date32(),
+                date64(),
+                timestamp(TimeUnit::SECOND),
+                duration(TimeUnit::MILLI)};
+
+  for (auto type : types) {
+    for (auto length : kArrayLengths) {
+      for (auto null_probability : kNullProbabilities) {
+        auto arr = rand.ArrayOf(type, length, null_probability);
+        CheckPrimitive("hash32", arr);
+        CheckPrimitive("hash64", arr);
+        if (type->bit_width() >= 16) {
+          // the generated arrays contain unique values at the given lengths
+          CheckHashQuality("hash32", arr);
+          CheckHashQuality("hash64", arr);
         }
       }
     }
