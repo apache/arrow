@@ -19,9 +19,15 @@
 
 echo "Building windows wheel..."
 
+@REM List installed Pythons
+py -0p
+
+set PYTHON_CMD=py -%PYTHON%
+%PYTHON_CMD% -m sysconfig || exit /B 1
+
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
 
-echo "=== (%PYTHON_VERSION%) Clear output directories and leftovers ==="
+echo "=== (%PYTHON%) Clear output directories and leftovers ==="
 del /s /q C:\arrow-build
 del /s /q C:\arrow-dist
 del /s /q C:\arrow\python\dist
@@ -29,7 +35,7 @@ del /s /q C:\arrow\python\build
 del /s /q C:\arrow\python\pyarrow\*.so
 del /s /q C:\arrow\python\pyarrow\*.so.*
 
-echo "=== (%PYTHON_VERSION%) Building Arrow C++ libraries ==="
+echo "=== (%PYTHON%) Building Arrow C++ libraries ==="
 set ARROW_ACERO=ON
 set ARROW_DATASET=ON
 set ARROW_FLIGHT=ON
@@ -102,7 +108,7 @@ cmake ^
 cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
 
-echo "=== (%PYTHON_VERSION%) Building wheel ==="
+echo "=== (%PYTHON%) Building wheel ==="
 set PYARROW_BUILD_TYPE=%CMAKE_BUILD_TYPE%
 set PYARROW_BUILD_VERBOSE=1
 set PYARROW_BUNDLE_ARROW_CPP=ON
@@ -124,5 +130,5 @@ set CMAKE_PREFIX_PATH=C:\arrow-dist
 pushd C:\arrow\python
 @REM bundle the msvc runtime
 cp "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Redist\MSVC\14.28.29325\x64\Microsoft.VC142.CRT\msvcp140.dll" pyarrow\
-py -%PYTHON% setup.py bdist_wheel || exit /B 1
+%PYTHON_CMD% setup.py bdist_wheel || exit /B 1
 popd
