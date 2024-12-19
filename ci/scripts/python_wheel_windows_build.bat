@@ -139,9 +139,15 @@ echo "Wheel name: %WHEEL_NAME%"
 for /f %%i in ('dir build\lib* /B') do (set WHEEL_BUILD_DIR=%cd%\build\%%i) || exit /B 1
 echo "Wheel build dir: %WHEEL_BUILD_DIR%"
 
-dir "%WHEEL_BUILD_DIR%\pyarrow"
+dir "%WHEEL_BUILD_DIR%\pyarrow" || exit /B 1
 
-delvewheel show -vv --add-path "%WHEEL_BUILD_DIR%\pyarrow";C:\Windows\System32 %WHEEL_NAME% || exit /B 1
-delvewheel repair -vv --add-path "%WHEEL_BUILD_DIR%\pyarrow";C:\Windows\System32 %WHEEL_NAME% -w repaired_wheels || exit /B 1
+delvewheel show -vv ^
+    --add-path "%WHEEL_BUILD_DIR%\pyarrow";C:\Windows\System32 ^
+    --add-path "%ARROW_HOME%\lib" ^
+    %WHEEL_NAME% || exit /B 1
+delvewheel repair -vv ^
+    --add-path "%WHEEL_BUILD_DIR%\pyarrow";C:\Windows\System32 ^
+    --add-path "%ARROW_HOME%\lib" ^
+    %WHEEL_NAME% -w repaired_wheels || exit /B 1
 
 popd
