@@ -38,6 +38,9 @@ RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
     curl https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z \
         --output "C:\Windows\Minio.exe"
 
+# Install archiver to extract xz archives (for timezone database)
+RUN choco install --no-progress -r -y archiver
+
 # Install the GCS testbench using a well-known Python version.
 # NOTE: cannot use pipx's `--fetch-missing-python` because of
 # https://github.com/pypa/pipx/issues/1521, therefore download Python ourselves.
