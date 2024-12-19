@@ -20,9 +20,10 @@
 echo "Building windows wheel..."
 
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+@echo on
 
 @REM Install a more recent msvcp140.dll in C:\Windows\System
-RUN choco install -r -y --no-progress vcredist140
+choco install -r -y --no-progress vcredist140
 
 echo "=== (%PYTHON_VERSION%) Clear output directories and leftovers ==="
 del /s /q C:\arrow-build
@@ -130,9 +131,9 @@ python setup.py bdist_wheel || exit /B 1
 
 @REM Repair the wheel with delvewheel
 pip install delvewheel || exit /B 1
-for /f %%i in ('dir dist\pyarrow-*.whl /B') do set WHEEL_NAME="%%~fi" || exit /B 1
+for /f %%i in ('dir dist\pyarrow-*.whl /B') do set WHEEL_NAME="%cd%\dist\%%i" || exit /B 1
 echo "Wheel name: %WHEEL_NAME%"
-for /f %%i in ('dir build\lib* /B') do set WHEEL_BUILD_DIR="%%~fi" || exit /B 1
+for /f %%i in ('dir build\lib* /B') do set WHEEL_BUILD_DIR="%cd%\build\%%i" || exit /B 1
 echo "Wheel build dir: %WHEEL_BUILD_DIR%"
 
 delvewheel show -vv --add-path "%WHEEL_BUILD_DIR%\pyarrow" %WHEEL_NAME% || exit /B 1
