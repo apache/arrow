@@ -19,16 +19,6 @@
 
 {{ macros.github_header() }}
 
-# Testing free-threaded wheels uses a different Docker setup
-{% set test_imports_image = (
-    'python-free-threaded-wheel-manylinux-test-imports' if python_abi_tag == 'cp313t'
-    else 'python-wheel-manylinux-test-imports')
-%}
-{% set test_unittests_image = (
-    'python-free-threaded-wheel-manylinux-test-unittests' if python_abi_tag == 'cp313t'
-    else 'python-wheel-manylinux-test-unittests')
-%}
-
 permissions:
   packages: write
 
@@ -60,6 +50,15 @@ jobs:
       {{ macros.github_install_archery()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
 
+      - name: Prepare
+        run: |
+          if [ "${PYTHON_ABI_TAG}" = "cp313t" ]; then
+            test_image_prefix=python-free-threaded
+          else
+            test_image_prefix=python
+          fi
+          echo "TEST_IMAGE_PREFIX=${test_image_prefix}" >> ${GITHUB_ENV}
+
       - name: Build wheel
         shell: bash
         env:
@@ -85,8 +84,8 @@ jobs:
         shell: bash
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run {{ test_imports_image }}
-          archery docker run {{ test_unittests_image }}
+          archery docker run ${TEST_IMAGE_PREFIX}-wheel-manylinux-test-imports
+          archery docker run ${TEST_IMAGE_PREFIX}-wheel-manylinux-test-unittests
 
       - name: Test wheel on AlmaLinux 8
         shell: bash
@@ -158,5 +157,5 @@ jobs:
         shell: bash
         run: |
           archery docker push python-wheel-manylinux-{{ manylinux_version }}
-          archery docker push {{ test_unittests_image }}
+          archery docker push ${TEST_IMAGE_PREFIX}-wheel-manylinux-test-unittests
       {% endif %}
