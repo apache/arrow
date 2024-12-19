@@ -24,6 +24,9 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary
 
 @REM Install a more recent msvcp140.dll in C:\Windows\System
 choco install -r -y --no-progress vcredist140
+choco upgrade -r -y --no-progress vcredist140
+
+dir C:\Windows\System32\msvcp140.dll
 
 echo "=== (%PYTHON_VERSION%) Clear output directories and leftovers ==="
 del /s /q C:\arrow-build
@@ -136,7 +139,7 @@ echo "Wheel name: %WHEEL_NAME%"
 for /f %%i in ('dir build\lib* /B') do set WHEEL_BUILD_DIR="%cd%\build\%%i" || exit /B 1
 echo "Wheel build dir: %WHEEL_BUILD_DIR%"
 
-delvewheel show -vv --add-path "%WHEEL_BUILD_DIR%\pyarrow" %WHEEL_NAME% || exit /B 1
-delvewheel repair -vv --add-path "%WHEEL_BUILD_DIR%\pyarrow" %WHEEL_NAME% -w repaired_wheels || exit /B 1
+delvewheel show -vv --add-path "%WHEEL_BUILD_DIR%\pyarrow";C:\Windows\System32 %WHEEL_NAME% || exit /B 1
+delvewheel repair -vv --add-path "%WHEEL_BUILD_DIR%\pyarrow";C:\Windows\System32 %WHEEL_NAME% -w repaired_wheels || exit /B 1
 
 popd
