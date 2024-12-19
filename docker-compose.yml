@@ -389,6 +389,7 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE_VERSION}
         llvm: ${LLVM}
         gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
@@ -620,6 +621,7 @@ services:
       args:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE_VERSION}
         llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
@@ -1571,6 +1573,7 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
+        cmake: ${CMAKE_VERSION}
     shm_size: *shm-size
     environment:
       <<: [*common, *sccache]
