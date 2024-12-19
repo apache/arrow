@@ -63,7 +63,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: wheel
-          path: arrow/python/dist/*.whl
+          path: arrow/python/repaired_wheels/*.whl
 
       - name: Test wheel
         shell: cmd
@@ -73,7 +73,7 @@ jobs:
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
-      {{ macros.github_upload_wheel_scientific_python("arrow/repaired_wheels/dist/*.whl")|indent }}
+      {{ macros.github_upload_wheel_scientific_python("arrow/repaired_wheels/repaired_wheels/*.whl")|indent }}
 
       {% if arrow.is_default_branch() %}
       - name: Push Docker Image
