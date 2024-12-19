@@ -104,7 +104,7 @@ popd
 
 echo "=== (%PYTHON_VERSION%) Building wheel ==="
 set PYARROW_BUILD_TYPE=%CMAKE_BUILD_TYPE%
-set PYARROW_BUNDLE_ARROW_CPP=ON
+set PYARROW_BUNDLE_ARROW_CPP=OFF
 set PYARROW_CMAKE_GENERATOR=%CMAKE_GENERATOR%
 set PYARROW_WITH_ACERO=%ARROW_ACERO%
 set PYARROW_WITH_DATASET=%ARROW_DATASET%
@@ -129,7 +129,7 @@ python setup.py bdist_wheel || exit /B 1
 pip install delvewheel || exit /B 1
 for /f %%i in ('dir dist\pyarrow-*.whl /B') do set WHEEL_NAME=dist\%%i || exit /B 1
 echo "Wheel name: %WHEEL_NAME%"
-for /f %%i in ('dir dist\lib* /B') do set WHEEL_BUILD_DIR=dist\%%i || exit /B 1
+for /f %%i in ('dir build\lib* /B') do set WHEEL_BUILD_DIR=build\%%i || exit /B 1
 echo "Wheel build dir: %WHEEL_BUILD_DIR%"
 dir %WHEEL_BUILD_DIR% || exit /B 1
 
