@@ -17,6 +17,7 @@
 
 #include "parquet/stream_writer.h"
 
+#include <set>
 #include <utility>
 
 namespace parquet {
@@ -27,6 +28,19 @@ constexpr int16_t StreamWriter::kDefLevelZero;
 constexpr int16_t StreamWriter::kDefLevelOne;
 constexpr int16_t StreamWriter::kRepLevelZero;
 constexpr int64_t StreamWriter::kBatchSizeOne;
+
+// The converted type may be NONE to store raw data in a byte array
+// The following is a list of converted types which are allowed instead of the
+// expected converted type.
+// Each pair given is:
+//   {<StreamReader expected type>, <Parquet file converted type>}
+// So for example {ConvertedType::INT_32, ConvertedType::NONE} means
+// that if the StreamWriter was expecting the converted type INT_32,
+// then it will allow to write a Parquet file using the converted type
+// NONE.
+//
+static const std::set<std::pair<ConvertedType::type, ConvertedType::type>>
+    write_converted_type_exceptions = {{ConvertedType::UTF8, ConvertedType::NONE}};
 
 StreamWriter::FixedStringView::FixedStringView(const char* data_ptr)
     : data{data_ptr}, size{std::strlen(data_ptr)} {}
@@ -198,10 +212,15 @@ void StreamWriter::CheckColumn(Type::type physical_type,
                            "' not '" + TypeToString(physical_type) + "'");
   }
   if (converted_type != node->converted_type()) {
-    throw ParquetException("Column converted type mismatch.  Column '" + node->name() +
-                           "' has converted type[" +
-                           ConvertedTypeToString(node->converted_type()) + "] not '" +
-                           ConvertedTypeToString(converted_type) + "'");
+    // The converted type does not always match with the value
+    // provided so check the set of exceptions.
+    if (write_converted_type_exceptions.find({converted_type, node->converted_type()}) ==
+        write_converted_type_exceptions.end()) {
+      throw ParquetException("Column converted type mismatch.  Column '" + node->name() +
+                             "' has converted type[" +
+                             ConvertedTypeToString(node->converted_type()) + "] not '" +
+                             ConvertedTypeToString(converted_type) + "'");
+    }
   }
   // Length must be exact.
   // A shorter length fixed array is not acceptable as it would
