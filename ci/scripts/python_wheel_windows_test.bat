@@ -48,7 +48,7 @@ set PYTHON_CMD=py -%PYTHON%
 %PYTHON_CMD% -m pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
 
 @REM Install the built wheels
-%PYTHON_CMD% -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B 1
+%PYTHON_CMD% -m pip install --no-index --find-links=C:\arrow\python\repaired_wheels pyarrow || exit /B 1
 
 @REM Test that the modules are importable
 %PYTHON_CMD% -c "import pyarrow" || exit /B 1
@@ -65,7 +65,7 @@ set PYTHON_CMD=py -%PYTHON%
 %PYTHON_CMD% -c "import pyarrow.substrait" || exit /B 1
 
 @REM Validate wheel contents
-%PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_validate_contents.py --path C:\arrow\python\dist || exit /B 1
+%PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_validate_contents.py --path C:\arrow\python\repaired_wheels || exit /B 1
 
 @rem Download IANA Timezone Database for ORC C++
 curl https://cygwin.osuosl.org/noarch/release/tzdata/tzdata-2024a-1.tar.xz --output tzdata.tar.xz || exit /B
