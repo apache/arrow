@@ -82,7 +82,7 @@ build() {
   # segfaults in tests
 
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
-    cmake \
+    cmake.exe \
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
     -DARROW_ACERO=ON \
