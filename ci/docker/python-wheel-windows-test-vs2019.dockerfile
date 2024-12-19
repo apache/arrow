@@ -21,6 +21,7 @@
 # based on mcr.microsoft.com/windows/servercore:ltsc2019
 # contains choco and vs2019 preinstalled
 ARG base
+# hadolint ignore=DL3006
 FROM ${base}
 
 # hadolint shell=cmd.exe

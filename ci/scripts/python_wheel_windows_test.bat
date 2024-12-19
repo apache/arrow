@@ -51,8 +51,10 @@ if "%PYTHON%"=="3.13t" (
         --pre ^
         --prefer-binary ^
         -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
-    @REM Avoid crash when importing cffi from test_cffi
-    %PYTHON_CMD% -m pip uninstall -y cffi || exit /B 1
+    @REM 1. cffi-based tests would crash when importing cffi.
+    @REM 2. cython-based tests would crash when importing the compiled extension module
+    @REM    (presumably because of https://github.com/pypa/setuptools/issues/4662)
+    %PYTHON_CMD% -m pip uninstall -y cffi cython || exit /B 1
 ) ELSE (
     %PYTHON_CMD% -m pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
 )
