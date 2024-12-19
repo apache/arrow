@@ -166,8 +166,17 @@ if($ENV{PYODIDE})
   # modules (at least under Pyodide it does).
   set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
   set(Python3_LIBRARY $ENV{CPYTHONLIB})
-  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
   set(Python3_EXECUTABLE)
+  execute_process(COMMAND ${Python3_EXECUTABLE} -c
+                          "import numpy; print(numpy.__version__)"
+                  OUTPUT_VARIABLE PYODIDE_NUMPY_VERSION
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  string(REGEX MATCH "^([0-9]+)" PYODIDE_NUMPY_MAJOR_VERSION ${PYODIDE_NUMPY_VERSION})
+  if(PYODIDE_NUMPY_MAJOR_VERSION GREATER_EQUAL 2)
+    set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/_core/include)
+  else()
+    set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
+  endif()
   set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
   # we set the c and cxx compiler manually to bypass pywasmcross
   # which is pyodide's way of messing with C++ build parameters.

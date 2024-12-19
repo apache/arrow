@@ -27,14 +27,14 @@ ARG required_python_min="(3,12)"
 # fail if python version < 3.12
 RUN echo "check PYTHON>=${required_python_min}" && python -c "import sys;sys.exit(0 if sys.version_info>=${required_python_min} else 1)"
 
-# install selenium and pyodide-build and recent python
+# install selenium and recent pyodide-build and recent python
 
 # needs to be a login shell so ~/.profile is read
 SHELL ["/bin/bash", "--login", "-c", "-o", "pipefail"]
 
 RUN python -m pip install --no-cache-dir selenium==${selenium_version} && \
-    python -m pip install --no-cache-dir --upgrade pyodide-build==${pyodide_version}
-    
+    python -m pip install --no-cache-dir --upgrade pyodide-build>=${pyodide_version}
+
 # install pyodide dist directory to /pyodide
 RUN pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2" && \
     wget -q "${pyodide_dist_url}" -O- | tar -xj -C /
