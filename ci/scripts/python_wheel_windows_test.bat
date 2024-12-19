@@ -52,7 +52,7 @@ if "%PYTHON%"=="3.13t" (
         --prefer-binary ^
         -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
     @REM Avoid crash when importing cffi from test_cffi
-    %PYTHON_CMD% -m pip uninstall cffi || exit /B 1
+    %PYTHON_CMD% -m pip uninstall -y cffi || exit /B 1
 ) ELSE (
     %PYTHON_CMD% -m pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
 )
