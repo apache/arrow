@@ -38,13 +38,12 @@ RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
     curl https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z \
         --output "C:\Windows\Minio.exe"
 
-# Install archiver to extract xz archives (for timezone database)
-RUN choco install --no-progress -r -y archiver
-
+# Install archiver to extract xz archives (for timezone database).
 # Install the GCS testbench using a well-known Python version.
 # NOTE: cannot use pipx's `--fetch-missing-python` because of
 # https://github.com/pypa/pipx/issues/1521, therefore download Python ourselves.
-RUN choco install -r -y --pre --no-progress python --version=3.11.9
+RUN choco install --no-progress -r -y archiver && \
+    choco install -r -y --pre --no-progress python --version=3.11.9
 ENV PIPX_BIN_DIR=C:\\Windows\\
 ENV PIPX_PYTHON="C:\Python311\python.exe"
 COPY ci/scripts/install_gcs_testbench.bat C:/arrow/ci/scripts/

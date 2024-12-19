@@ -33,6 +33,8 @@ RUN (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13") & \
     (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9") & \
     (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.5") & \
     (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.0-rc2")
+
+# hadolint ignore=DL3059
 RUN choco install -r -y --pre --no-progress --force python --version=%PYTHON_VERSION%
 
 ENV PYTHON=$python
