@@ -129,8 +129,11 @@ python setup.py bdist_wheel || exit /B 1
 pip install delvewheel || exit /B 1
 for /f %%i in ('dir dist\pyarrow-*.whl /B') do set WHEEL_NAME=dist\%%i || exit /B 1
 echo "Wheel name: %WHEEL_NAME%"
+for /f %%i in ('dir dist\lib* /B') do set WHEEL_BUILD_DIR=dist\%%i || exit /B 1
+echo "Wheel build dir: %WHEEL_BUILD_DIR%"
+dir %WHEEL_BUILD_DIR% || exit /B 1
 
-delvewheel show -vv %WHEEL_NAME% || exit /B 1
-delvewheel repair -vv %WHEEL_NAME% -w repaired_wheels || exit /B 1
+delvewheel show -vv --add-path %WHEEL_BUILD_DIR%\pyarrow %WHEEL_NAME% || exit /B 1
+delvewheel repair -vv --add-path %WHEEL_BUILD_DIR%\pyarrow %WHEEL_NAME% -w repaired_wheels || exit /B 1
 
 popd
