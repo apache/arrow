@@ -305,7 +305,7 @@ class FileWriterImpl : public FileWriter {
                                 default_arrow_reader_properties(), &schema_manifest_);
   }
 
-  Status NewRowGroup(int64_t chunk_size) override {
+  Status NewRowGroup() override {
     RETURN_NOT_OK(CheckClosed());
     if (row_group_writer_ != nullptr) {
       PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
@@ -379,7 +379,7 @@ class FileWriterImpl : public FileWriter {
     }
 
     auto WriteRowGroup = [&](int64_t offset, int64_t size) {
-      RETURN_NOT_OK(NewRowGroup(size));
+      RETURN_NOT_OK(NewRowGroup());
       for (int i = 0; i < table.num_columns(); i++) {
         RETURN_NOT_OK(WriteColumnChunk(table.column(i), offset, size));
       }
