@@ -41,7 +41,7 @@
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/util.h"
 #include "arrow/record_batch.h"
-#include "arrow/result_internal.h"
+#include "arrow/result.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -840,8 +840,8 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
 
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
                               const IpcWriteOptions& options, io::OutputStream* dst) {
-  ASSIGN_OR_RAISE(std::shared_ptr<RecordBatchWriter> writer,
-                  MakeStreamWriter(dst, batches[0]->schema(), options));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatchWriter> writer,
+                        MakeStreamWriter(dst, batches[0]->schema(), options));
   for (const auto& batch : batches) {
     DCHECK(batch->schema()->Equals(*batches[0]->schema())) << "Schemas unequal";
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));

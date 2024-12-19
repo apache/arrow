@@ -27,7 +27,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
-#include "arrow/result_internal.h"
+#include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/type.h"
@@ -287,19 +287,19 @@ class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
   template <typename Data>
   Result<std::string> ToCsvString(const Data& data, const WriteOptions& options) {
     std::shared_ptr<io::BufferOutputStream> out;
-    ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
+    ARROW_ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
 
     RETURN_NOT_OK(WriteCSV(data, options, out.get()));
-    ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
     return std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size());
   }
 
   Result<std::string> ToCsvStringUsingWriter(const Table& data,
                                              const WriteOptions& options) {
     std::shared_ptr<io::BufferOutputStream> out;
-    ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
+    ARROW_ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
     // Write row-by-row
-    ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(out, data.schema(), options));
+    ARROW_ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(out, data.schema(), options));
     TableBatchReader reader(data);
     reader.set_chunksize(1);
     std::shared_ptr<RecordBatch> batch;
@@ -310,7 +310,7 @@ class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
     }
     RETURN_NOT_OK(writer->Close());
     EXPECT_EQ(data.num_rows(), writer->stats().num_record_batches);
-    ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
     return std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size());
   }
 };
