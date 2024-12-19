@@ -180,6 +180,26 @@ struct FastHashScalar {
   }
 };
 
+class HashableMatcher : public TypeMatcher {
+ public:
+  HashableMatcher() {}
+
+  bool Matches(const DataType& type) const override {
+    return !(is_union(type) || is_binary_view_like(type) || is_list_view(type) ||
+             type.id() == Type::RUN_END_ENCODED);
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const HashableMatcher*>(&other);
+    return casted != nullptr;
+  }
+
+  std::string ToString() const override { return "hashable"; }
+};
+
 const FunctionDoc hash32_doc{
     "Construct a hash for every element of the input argument",
     ("This function is not suitable for cryptographic purposes.\n"
@@ -191,6 +211,7 @@ const FunctionDoc hash64_doc{
     ("This function is not suitable for cryptographic purposes.\n"
      "Hash results are 64-bit and emitted for each row, including NULLs."),
     {"hash_input"}};
+
 }  // namespace
 
 void RegisterScalarHash(FunctionRegistry* registry) {
@@ -199,9 +220,10 @@ void RegisterScalarHash(FunctionRegistry* registry) {
   auto hash64 = std::make_shared<ScalarFunction>("hash64", Arity::Unary(), hash64_doc);
 
   // Add 32-bit and 64-bit kernels to hash32 and hash64 functions
-  ScalarKernel kernel32({InputType()}, OutputType(uint32()),
+  auto type_matcher = std::make_shared<HashableMatcher>();
+  ScalarKernel kernel32({InputType(type_matcher)}, OutputType(uint32()),
                         FastHashScalar<UInt32Type, Hashing32>::Exec);
-  ScalarKernel kernel64({InputType()}, OutputType(uint64()),
+  ScalarKernel kernel64({InputType(type_matcher)}, OutputType(uint64()),
                         FastHashScalar<UInt64Type, Hashing64>::Exec);
   kernel32.null_handling = NullHandling::OUTPUT_NOT_NULL;
   kernel64.null_handling = NullHandling::OUTPUT_NOT_NULL;
