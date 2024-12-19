@@ -121,6 +121,7 @@ set ARROW_HOME=C:\arrow-dist
 set CMAKE_PREFIX_PATH=C:\arrow-dist
 
 pushd C:\arrow\python
+
 @REM build wheel
 python setup.py bdist_wheel || exit /B 1
 
@@ -129,8 +130,7 @@ pip install delvewheel || exit /B 1
 for /f %%i in ('dir dist\pyarrow-*.whl /B') do set WHEEL_NAME=dist\%%i || exit /B 1
 echo "Wheel name: %WHEEL_NAME%"
 
-delvewheel show -v --analyze-existing %WHEEL_NAME% || exit /B 1
-
-delvewheel repair -v %WHEEL_NAME% --add-path C:\arrow\python\build\bdist.win-amd64\wheel\pyarrow -w repaired_wheels || exit /B 1
+delvewheel show -v --ignore-existing --include msvcp140.dll %WHEEL_NAME% || exit /B 1
+delvewheel repair -v --ignore-existing --include msvcp140.dll %WHEEL_NAME% -w repaired_wheels || exit /B 1
 
 popd
