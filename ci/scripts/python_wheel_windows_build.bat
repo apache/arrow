@@ -130,7 +130,7 @@ pip install delvewheel || exit /B 1
 for /f %%i in ('dir dist\pyarrow-*.whl /B') do set WHEEL_NAME=dist\%%i || exit /B 1
 echo "Wheel name: %WHEEL_NAME%"
 
-delvewheel show -vv --ignore-existing --include msvcp140.dll %WHEEL_NAME% || exit /B 1
-delvewheel repair -vv --ignore-existing --include msvcp140.dll %WHEEL_NAME% -w repaired_wheels || exit /B 1
+delvewheel show -vv %WHEEL_NAME% || exit /B 1
+delvewheel repair -vv %WHEEL_NAME% -w repaired_wheels || exit /B 1
 
 popd
