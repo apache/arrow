@@ -45,7 +45,20 @@ set PYTHON_CMD=py -%PYTHON%
 %PYTHON_CMD% -m pip install -U pip setuptools || exit /B 1
 
 @REM Install testing dependencies
-%PYTHON_CMD% -m pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
+if "%PYTHON%"=="3.13t" (
+    %PYTHON_CMD% -m pip install ^
+        --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple ^
+        --pre ^
+        --prefer-binary ^
+        -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
+    @REM 1. cffi-based tests would crash when importing cffi.
+    @REM 2. cython-based tests would crash when importing the compiled extension module
+    @REM    (presumably because of https://github.com/pypa/setuptools/issues/4662)
+    %PYTHON_CMD% -m pip uninstall -y cffi cython || exit /B 1
+    set PYARROW_TEST_CYTHON=OFF
+) ELSE (
+    %PYTHON_CMD% -m pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
+)
 
 @REM Install the built wheels
 %PYTHON_CMD% -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B 1
@@ -70,8 +83,9 @@ set PYTHON_CMD=py -%PYTHON%
 @rem Download IANA Timezone Database for ORC C++
 curl https://cygwin.osuosl.org/noarch/release/tzdata/tzdata-2024a-1.tar.xz --output tzdata.tar.xz || exit /B
 mkdir %USERPROFILE%\Downloads\test\tzdata
-arc unarchive tzdata.tar.xz %USERPROFILE%\Downloads\test\tzdata
+arc unarchive tzdata.tar.xz %USERPROFILE%\Downloads\test\tzdata || exit /B
 set TZDIR=%USERPROFILE%\Downloads\test\tzdata\usr\share\zoneinfo
+dir %TZDIR%
 
 @REM Execute unittest
 %PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1
