@@ -1247,10 +1247,8 @@ array as input.
 | hash64        | Unary | Any         | UInt64      |               | \(1)  |
 +---------------+-------+-------------+-------------+---------------+-------+
 
-* \(1) The hashing algorithm is "xxHash-like", making some minor trade-offs in favor of
-  performance. Arrays containing nested types are recursively walked and flattened; such
-  that each field or attribute (corresponding to the same row) are hashed and combined
-  into a single hash value.
+* \(1) The implementation doesn't guarantee hash stability across different versions of
+       the library. Union-, view- and run end encoded types are not supported yet.
 
 
 Categorizations
