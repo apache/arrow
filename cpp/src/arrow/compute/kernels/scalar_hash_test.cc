@@ -379,6 +379,8 @@ TEST_F(TestScalarHash, RandomPrimitive) {
                 float16(),
                 float32(),
                 float64(),
+                decimal128(18, 5),
+                decimal256(38, 5),
                 time32(TimeUnit::SECOND),
                 time64(TimeUnit::NANO),
                 date32(),
