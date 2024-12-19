@@ -85,7 +85,7 @@ struct FastHashScalar {
       fixed_length_buffer = list_values_buffer;
     } else {
       return Status::TypeError("Unsupported column data type ", type->name(),
-                               " used with hash64 compute kernel");
+                               " used with hash32/hash64 compute kernel");
     }
 
     return KeyColumnArray(metadata, array.length, validity_buffer, fixed_length_buffer,
