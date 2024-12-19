@@ -468,6 +468,22 @@ TEST_F(TestScalarHash, RandomMap) {
   }
 }
 
+TEST_F(TestScalarHash, UnsuppoertedTypes) {
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto types = {list_view(int64()),
+                large_list_view(int64()),
+                binary_view(),
+                utf8_view(),
+                dense_union({field("a", int64()), field("b", binary())}),
+                sparse_union({field("a", int64()), field("b", binary())}),
+                run_end_encoded(int16(), utf8())};
+  for (auto type : types) {
+    auto arr = rand.ArrayOf(type, 1, 0);
+    ASSERT_RAISES(NotImplemented, CallFunction("hash32", {arr}));
+    ASSERT_RAISES(NotImplemented, CallFunction("hash64", {arr}));
+  }
+}
+
 // copied from cpp/src/arrow/util/hashing_test.cc
 template <typename Integer>
 static std::unordered_set<Integer> MakeSequentialIntegers(int32_t n_values) {
