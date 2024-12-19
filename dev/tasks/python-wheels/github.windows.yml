@@ -82,16 +82,15 @@ jobs:
           cd arrow
           archery docker run %TEST_IMAGE_PREFIX%-wheel-windows-test
 
+      {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_wheel_scientific_python("arrow/python/dist/*.whl")|indent }}
+
+      {% if arrow.is_default_branch() %}
       - name: Push Docker image
         shell: cmd
         run: |
           cd arrow
           archery docker push %TEST_IMAGE_PREFIX%-wheel-windows-vs2019
           archery docker push %TEST_IMAGE_PREFIX%-wheel-windows-test
-
-      {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
-      {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
-      {{ macros.github_upload_wheel_scientific_python("arrow/python/dist/*.whl")|indent }}
-
-      {% if arrow.is_default_branch() %}
       {% endif %}
