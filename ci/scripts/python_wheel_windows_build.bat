@@ -143,11 +143,11 @@ dir "%WHEEL_BUILD_DIR%\pyarrow" || exit /B 1
 
 delvewheel show -vv ^
     --add-path "%WHEEL_BUILD_DIR%\pyarrow";C:\Windows\System32 ^
-    --add-path "%ARROW_HOME%\lib" ^
+    --add-path "%ARROW_HOME%\bin" ^
     %WHEEL_NAME% || exit /B 1
 delvewheel repair -vv ^
     --add-path "%WHEEL_BUILD_DIR%\pyarrow";C:\Windows\System32 ^
-    --add-path "%ARROW_HOME%\lib" ^
+    --add-path "%ARROW_HOME%\bin" ^
     %WHEEL_NAME% -w repaired_wheels || exit /B 1
 
 popd
