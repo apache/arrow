@@ -18,6 +18,7 @@
 #include "benchmark/benchmark.h"
 
 #include <cstdint>
+#include <numeric>
 
 #include "parquet/arrow/writer.h"
 #include "parquet/platform.h"
