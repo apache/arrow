@@ -82,7 +82,42 @@ func writeDoubleData() {
 	writeBytes(rec, "testdata_double.arrow")
 }
 
+func writeStructData() {
+	alloc := memory.NewGoAllocator()
+	dt := arrow.StructOf(
+		arrow.Field{Name: "nullable_bool", Type: new(arrow.BooleanType), Nullable: true},
+		arrow.Field{Name: "non_nullable_bool", Type: new(arrow.BooleanType)},
+	)
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "struct1", Type: dt},
+	}, nil)
+
+	b := array.NewRecordBuilder(alloc, schema)
+	defer b.Release()
+
+	builder := b.Field(0).(*array.StructBuilder)
+	nullableBld := builder.FieldBuilder(0).(*array.BooleanBuilder)
+	nonNullableBld := builder.FieldBuilder(1).(*array.BooleanBuilder)
+
+	builder.Append(true)
+	nullableBld.Append(true)
+	nonNullableBld.Append(true)
+
+	builder.Append(true)
+	nullableBld.AppendNull()
+	nonNullableBld.Append(true)
+
+	builder.AppendNull()
+
+	rec := b.NewRecord()
+	defer rec.Release()
+	writeBytes(rec, "testdata_struct.arrow")
+
+}
+
 func main() {
 	writeBoolData()
 	writeDoubleData()
+	writeStructData()
 }
