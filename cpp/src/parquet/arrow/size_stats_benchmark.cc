@@ -74,7 +74,7 @@ void WriteColumn(::benchmark::State& state,
     state.ResumeTiming();
     ARROW_EXPECT_OK(::parquet::arrow::WriteTable(*table, ::arrow::default_memory_pool(),
                                                  output, kRowGroupSize, properties));
-    state.counters["output_size"] = output->Tell().ValueOrDie();
+    state.counters["output_size"] = static_cast<double>(output->Tell().ValueOrDie());
   }
 
   int64_t bytes_processed = 0;
