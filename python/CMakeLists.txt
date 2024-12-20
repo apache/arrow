@@ -18,7 +18,7 @@
 # Includes code assembled from BSD/MIT/Apache-licensed code from some 3rd-party
 # projects, including Kudu, Impala, and libdynd. See python/LICENSE.txt
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 project(pyarrow)
 
 # This is needed for 3.13 free-threading. CMake used to add Python
