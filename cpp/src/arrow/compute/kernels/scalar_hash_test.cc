@@ -136,7 +136,7 @@ class TestScalarHash : public ::testing::Test {
   }
 
   void CheckHashQuality(const std::string& func, const std::shared_ptr<Array>& arr,
-                        float tolerance = 1.0) {
+                        double tolerance = 1.0) {
     ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
     auto hashes = result.make_array();
 
