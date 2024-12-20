@@ -3449,11 +3449,11 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBVarLength)) {
 }  // namespace acero
 }  // namespace arrow
 
-// TEST(HashJoin, LargeBuildSide) {
-
 using namespace arrow;
 using namespace arrow::acero;
-int main() {
+
+TEST(HashJoin, GH44513) {
+  // int main() {
   const int64_t num_small_rows = 18201475;
   const int64_t num_large_rows = 360449051;
   const int64_t num_batches = 8;
@@ -3464,11 +3464,11 @@ int main() {
               field("c1", int64()), field("c2", int64()), field("key2", int64()),
               field("c3", int64()), field("c4", int64()), field("c5", int64())});
   auto large_schema = schema({field("key0", int64()), field("key1", int64()),
-                              field("key2", int64()), field("c0", int64())});
+                              field("key2", int64()), field("payload", int64())});
 
   const int64_t key_min = 0;
-  // const int64_t key_max = std::numeric_limits<int32_t>::max() / 8;
-  const int64_t key_max = num_large_rows / 8;
+  const int64_t key_max = std::numeric_limits<int64_t>::max();
+  // const int64_t key_max = num_large_rows / 8;
   const double null_probability = 0;
 
   auto small_key0_arr = RandomArrayGenerator(seed).Int64(
@@ -3490,8 +3490,12 @@ int main() {
       num_large_rows / num_batches, key_min, key_max, null_probability);
   auto large_key2_arr = RandomArrayGenerator(seed).Int64(
       num_large_rows / num_batches, key_min, key_max, null_probability);
-  ExecBatch large_batch({large_key0_arr, large_key1_arr, large_key2_arr, large_key0_arr},
-                        num_large_rows / num_batches);
+  ASSERT_OK_AND_ASSIGN(
+      auto large_payload_arr,
+      Constant(MakeScalar(int64_t(2)))->Generate(num_large_rows / num_batches));
+  ExecBatch large_batch(
+      {large_key0_arr, large_key1_arr, large_key2_arr, large_payload_arr},
+      num_large_rows / num_batches);
   auto large_batches =
       BatchesWithSchema{std::vector<ExecBatch>(num_batches, large_batch), large_schema};
 
@@ -3513,12 +3517,12 @@ int main() {
   Declaration join{
       "hashjoin", {std::move(small_source), std::move(large_source)}, join_opts};
 
-  Declaration agg{"aggregate",
-                  {std::move(join)},
-                  AggregateNodeOptions{/*aggregates=*/{{"count_all", "count(*)"}}}};
+  AggregateNodeOptions agg_opts{/*aggregates=*/{
+      {"count_all", "count(*)"}, {"sum", nullptr, "payload", "sum(payload)"}}};
+  Declaration agg{"aggregate", {std::move(join)}, std::move(agg_opts)};
 
   // ASSERT_OK_AND_ASSIGN(std::ignore, DeclarationToTable(std::move(join)));
   auto result = DeclarationToTable(std::move(agg)).ValueOrDie();
   std::cout << result->ToString() << std::endl;
-  return 0;
+  // return 0;
 }
