@@ -111,12 +111,13 @@ def test_parse_options(pickle_module):
                                  newlines_in_values=False,
                                  unexpected_field_behavior="ignore")
 
+
 class BaseTestJSON(abc.ABC):
     @abc.abstractmethod
     def read_bytes(self, b, **kwargs):
         """
         :param b: bytes to be parsed
-        :param kwargs: arguments passed on to open the csv file
+        :param kwargs: arguments passed on to open the json file
         :return: b parsed as a single RecordBatch
         """
         raise NotImplementedError
@@ -332,11 +333,12 @@ class BaseTestJSON(abc.ABC):
                         # Better error output
                         assert table.to_pydict() == expected.to_pydict()
 
+
 class BaseTestJSONRead(BaseTestJSON):
 
     def read_bytes(self, b, **kwargs):
         return self.read_json(pa.py_buffer(b), **kwargs)
-    
+
     def test_file_object(self):
         data = b'{"a": 1, "b": 2}\n'
         expected_data = {'a': [1], 'b': [2]}
@@ -347,7 +349,7 @@ class BaseTestJSONRead(BaseTestJSON):
         sio = io.StringIO(data.decode())
         with pytest.raises(TypeError):
             self.read_json(sio)
-    
+
     def test_reconcile_accross_blocks(self):
         # ARROW-12065: reconciling inferred types across blocks
         first_row = b'{                               }\n'
@@ -627,11 +629,15 @@ class TestParallelJSONRead(BaseTestJSONRead, unittest.TestCase):
         return table
 
 
-class TestSerialStreamingJSONRead(
-    BaseTestStreamingJSONRead,
-    unittest.TestCase
-):
+class TestSerialStreamingJSONRead(BaseTestStreamingJSONRead, unittest.TestCase):
 
     @property
     def use_threads(self):
         return False
+
+
+@pytest.mark.threading
+class TestThreadedStreamingJSONRead(BaseTestStreamingJSONRead, unittest.TestCase):
+    @property
+    def use_threads(self):
+        return True
