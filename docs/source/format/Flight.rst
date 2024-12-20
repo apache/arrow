@@ -339,6 +339,7 @@ schemes for the given transports:
 Notes:
 
 * \(1) Flight UCX transport has been deprecated on the 19.0.0 release.
+  The :ref:`dissociated-ipc` section proposes an alternative solution.
 
 .. _UCX: https://openucx.org/
 
