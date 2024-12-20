@@ -608,6 +608,25 @@ class BaseTestStreamingJSONRead(BaseTestJSON):
         assert reader.schema == expected_schema
         assert reader.read_next_batch().to_pydict() == expected_data
 
+    def test_reconcile_across_blocks(self):
+        # Modified from BaseTestJSON.test_reconcile_across_blocks
+        # Because in `open_json`, the inference is done on the first block.
+        # The inferred schema will be used to parse the rest of the data,
+        # which will fail if the schema is not compatible with the following
+        # blocks.
+        first_row = b'{                               }\n'
+        read_options = ReadOptions(block_size=len(first_row))
+        for next_rows in [
+            b'{"a": 0}',
+            b'{"a": []}',
+            b'{"a": []}\n{"a": [[1]]}',
+            b'{"a": {}}',
+            b'{"a": {}}\n{"a": {"b": {"c": 1}}}',
+        ]:
+            with pytest.raises(pa.ArrowInvalid):
+                _ = self.read_bytes(first_row + next_rows,
+                                    read_options=read_options)
+
 
 class TestSerialJSONRead(BaseTestJSONRead, unittest.TestCase):
 
