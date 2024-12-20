@@ -45,12 +45,12 @@ int64_t GetTotalBytes(const std::shared_ptr<::arrow::ArrayData>& data) {
     return 0;
   }
   int64_t total_bytes =
-      std::accumulate(data->buffers.cbegin(), data->buffers.cend(), 0L,
+      std::accumulate(data->buffers.cbegin(), data->buffers.cend(), int64_t{0},
                       [](int64_t acc, const auto& buffer) {
-                        return acc + (buffer != nullptr ? buffer->size() : 0L);
+                        return acc + (buffer != nullptr ? buffer->size() : int64_t{0});
                       });
   total_bytes += std::accumulate(
-      data->child_data.cbegin(), data->child_data.cend(), 0L,
+      data->child_data.cbegin(), data->child_data.cend(), int64_t{0},
       [](int64_t acc, const auto& child) { return acc + GetTotalBytes(child); });
   total_bytes += GetTotalBytes(data->dictionary);
   return total_bytes;
