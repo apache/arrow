@@ -176,18 +176,22 @@ def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
         try:
             filesystem, path = FileSystem.from_uri(path)
         except ValueError as e:
-            try:
-                import fsspec
-            except ImportError:
-                # neither an URI nor a locally existing path, so assume that
-                # local path was given and propagate a nicer file not found error
-                # instead of a more confusing scheme parsing error
-                if "empty scheme" not in str(e) \
-                        and "Cannot parse URI" not in str(e):
+            msg = str(e)
+            if "Unrecognized filesystem type" in msg:
+                # try loading fsspec to handle not recognized filesystems
+                try:
+                    import fsspec
+                    fs, path = fsspec.url_to_fs(path)
+                    filesystem = _ensure_filesystem(fs)
+                except (ImportError, ValueError):
                     raise e
+            elif "empty scheme" in msg or "Cannot parse URI" in msg:
+                # neither an URI nor a locally existing path, so assume that
+                # local path was given and propagate a nicer file not found
+                # error instead of a more confusing scheme parsing error
+                pass
             else:
-                fs, path = fsspec.url_to_fs(path)
-                filesystem = _ensure_filesystem(fs)
+                raise e
     else:
         path = filesystem.normalize_path(path)
 

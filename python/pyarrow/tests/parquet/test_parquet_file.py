@@ -374,3 +374,7 @@ def test_parquet_file_fsspec_fallback():
     pq.write_table(table, "memory://example.parquet")
     table2 = pq.read_table("memory://example.parquet")
     assert table.equals(table2)
+
+    msg = "Unrecognized filesystem type in URI"
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pq.read_table("non-existing://example.parquet")
