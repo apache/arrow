@@ -363,10 +363,6 @@ struct CastStruct {
         const auto& in_field = in_type.field(in_field_index);
         // If there are more in_fields check if they match the out_field.
         if (in_field->name() == out_field->name()) {
-          if (in_field->nullable() && !out_field->nullable()) {
-            return Status::TypeError("cannot cast nullable field to non-nullable field: ",
-                                     in_type.ToString(), " ", out_type.ToString());
-          }
           // Found matching in_field and out_field.
           fields_to_select[out_field_index++] = in_field_index;
           // Using the same in_field for multiple out_fields is not allowed.
@@ -404,7 +400,8 @@ struct CastStruct {
 
     int out_field_index = 0;
     for (int field_index : fields_to_select) {
-      const auto& target_type = out->type()->field(out_field_index++)->type();
+      const auto& target_field = out->type()->field(out_field_index++);
+      const auto& target_type = target_field->type();
       if (field_index == kFillNullSentinel) {
         ARROW_ASSIGN_OR_RAISE(auto nulls,
                               MakeArrayOfNull(target_type->GetSharedPtr(), batch.length));
@@ -412,6 +409,11 @@ struct CastStruct {
       } else {
         const auto& values = (in_array.child_data[field_index].ToArrayData()->Slice(
             in_array.offset, in_array.length));
+        if (!target_field->nullable() && values->null_count > 0) {
+          return Status::TypeError("field '", target_field->name(),
+                                   "' has nulls. Can't cast to non-nullable type ",
+                                   target_type->ToString());
+        }
         ARROW_ASSIGN_OR_RAISE(Datum cast_values,
                               Cast(values, target_type, options, ctx->exec_context()));
         DCHECK(cast_values.is_array());
