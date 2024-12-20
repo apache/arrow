@@ -19,6 +19,19 @@
 
 {{ macros.github_header() }}
 
+# Testing free-threaded wheels uses a different Docker setup
+{% set test_imports_image = (
+    'python-free-threaded-wheel-manylinux-test-imports' if python_abi_tag == 'cp313t'
+    else 'python-wheel-manylinux-test-imports')
+%}
+{% set test_unittests_image = (
+    'python-free-threaded-wheel-manylinux-test-unittests' if python_abi_tag == 'cp313t'
+    else 'python-wheel-manylinux-test-unittests')
+%}
+
+permissions:
+  packages: write
+
 jobs:
   build:
     name: "Build wheel for manylinux {{ manylinux_version }}"
@@ -49,7 +62,18 @@ jobs:
 
       - name: Build wheel
         shell: bash
-        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
+        env:
+          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
+        run: |
+          if [ "{{ manylinux_version }}" = "2014" ] && [ "{{ arch }}" = "arm64" ]; then
+            # We can't use NuGet on manylinux2014_aarch64 because Mono is old.
+            :
+          else
+            export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
+          fi
+          archery docker run \
+            -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} \
+            python-wheel-manylinux-{{ manylinux_version }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -58,23 +82,11 @@ jobs:
 
       # TODO(kszucs): auditwheel show
       - name: Test wheel
-        if: |
-          '{{ python_abi_tag }}' != 'cp313t'
         shell: bash
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run python-wheel-manylinux-test-imports
-          archery docker run python-wheel-manylinux-test-unittests
-
-      # Free-threaded wheels need to be tested using a different docker-compose service
-      - name: Test free-threaded wheel
-        if: |
-          '{{ python_abi_tag }}' == 'cp313t'
-        shell: bash
-        run: |
-          source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run python-free-threaded-wheel-manylinux-test-imports
-          archery docker run python-free-threaded-wheel-manylinux-test-unittests
+          archery docker run {{ test_imports_image }}
+          archery docker run {{ test_unittests_image }}
 
       - name: Test wheel on AlmaLinux 8
         shell: bash
@@ -122,14 +134,29 @@ jobs:
             -e TEST_WHEELS=1 \
             ubuntu-verify-rc
 
+      - name: Test wheel on Ubuntu 24.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.12'
+        env:
+          UBUNTU: "24.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
+
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_wheel_scientific_python("arrow/python/repaired_wheels/*.whl")|indent }}
 
       {% if arrow.is_default_branch() %}
-      - name: Push Docker Image
+      - name: Push Docker images
         shell: bash
         run: |
           archery docker push python-wheel-manylinux-{{ manylinux_version }}
-          archery docker push python-wheel-manylinux-test-unittests
+          archery docker push {{ test_unittests_image }}
       {% endif %}

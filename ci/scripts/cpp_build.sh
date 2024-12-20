@@ -22,6 +22,7 @@ set -ex
 source_dir=${1}/cpp
 build_dir=${2}/cpp
 
+: ${ARROW_OFFLINE:=OFF}
 : ${ARROW_USE_CCACHE:=OFF}
 : ${BUILD_DOCS_CPP:=OFF}
 
@@ -98,6 +99,16 @@ esac
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
+if [ "${ARROW_OFFLINE}" = "ON" ]; then
+  ${source_dir}/thirdparty/download_dependencies.sh ${PWD}/thirdparty > \
+    enable_offline_build.sh
+  . enable_offline_build.sh
+  # We can't use mv because we can't remove /etc/resolv.conf in Docker
+  # container.
+  cp /etc/resolv.conf{,.bak}
+  echo > /etc/resolv.conf
+fi
+
 if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   if [ "${UBUNTU}" = "20.04" ]; then
     echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
@@ -160,10 +171,10 @@ else
     -DARROW_GCS=${ARROW_GCS:-OFF} \
     -DARROW_HDFS=${ARROW_HDFS:-ON} \
     -DARROW_INSTALL_NAME_RPATH=${ARROW_INSTALL_NAME_RPATH:-ON} \
-    -DARROW_JEMALLOC=${ARROW_JEMALLOC:-ON} \
+    -DARROW_JEMALLOC=${ARROW_JEMALLOC:-OFF} \
     -DARROW_JSON=${ARROW_JSON:-ON} \
     -DARROW_LARGE_MEMORY_TESTS=${ARROW_LARGE_MEMORY_TESTS:-OFF} \
-    -DARROW_MIMALLOC=${ARROW_MIMALLOC:-OFF} \
+    -DARROW_MIMALLOC=${ARROW_MIMALLOC:-ON} \
     -DARROW_ORC=${ARROW_ORC:-OFF} \
     -DARROW_PARQUET=${ARROW_PARQUET:-OFF} \
     -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
@@ -214,6 +225,7 @@ else
     -DgRPC_SOURCE=${gRPC_SOURCE:-} \
     -DGTest_SOURCE=${GTest_SOURCE:-} \
     -Dlz4_SOURCE=${lz4_SOURCE:-} \
+    -Dopentelemetry-cpp_SOURCE=${opentelemetry_cpp_SOURCE:-} \
     -DORC_SOURCE=${ORC_SOURCE:-} \
     -DPARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-OFF} \
     -DPARQUET_BUILD_EXECUTABLES=${PARQUET_BUILD_EXECUTABLES:-OFF} \
@@ -236,6 +248,10 @@ time cmake --build . --target install
 
 # Save disk space by removing large temporary build products
 find . -name "*.o" -delete
+
+if [ "${ARROW_OFFLINE}" = "ON" ]; then
+  cp /etc/resolv.conf{.bak,}
+fi
 
 popd
 

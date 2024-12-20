@@ -83,8 +83,6 @@ bool IsColumnChunkFullyDictionaryEncoded(const ColumnChunkMetaData& col) {
 }
 }  // namespace
 
-// PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
-static constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
 static constexpr uint32_t kFooterSize = 8;
 
 // For PARQUET-816
@@ -482,7 +480,8 @@ class SerializedFile : public ParquetFileReader::Contents {
           "Parquet file size is ", source_size_,
           " bytes, smaller than the minimum file footer (", kFooterSize, " bytes)");
     }
-    return std::min(source_size_, kDefaultFooterReadSize);
+
+    return std::min(static_cast<size_t>(source_size_), properties_.footer_read_size());
   }
 
   // Validate the magic bytes and get the length of the full footer.
@@ -497,9 +496,10 @@ class SerializedFile : public ParquetFileReader::Contents {
           "is not a parquet file.");
     }
     // Both encrypted/unencrypted footers have the same footer length check.
-    uint32_t metadata_len = ::arrow::util::SafeLoadAs<uint32_t>(
-        reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
-        kFooterSize);
+    uint32_t metadata_len =
+        ::arrow::bit_util::FromLittleEndian(::arrow::util::SafeLoadAs<uint32_t>(
+            reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
+            kFooterSize));
     if (metadata_len > source_size_ - kFooterSize) {
       throw ParquetInvalidOrCorruptedFileException(
           "Parquet file size is ", source_size_,

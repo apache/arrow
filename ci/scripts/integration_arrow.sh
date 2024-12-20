@@ -26,10 +26,9 @@ gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
 : ${ARROW_INTEGRATION_CPP:=ON}
 : ${ARROW_INTEGRATION_CSHARP:=ON}
-: ${ARROW_INTEGRATION_JAVA:=ON}
 : ${ARROW_INTEGRATION_JS:=ON}
 
-: ${ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS:=cpp,csharp,java,js}
+: ${ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS:=cpp,csharp,js}
 export ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS
 
 . ${arrow_dir}/ci/scripts/util_log.sh
@@ -43,7 +42,7 @@ github_actions_group_begin "Integration: Prepare: Dependencies"
 if [ "${ARROW_INTEGRATION_CSHARP}" == "ON" ]; then
     pip install pythonnet
 fi
-if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
+if [ "${ARCHERY_INTEGRATION_WITH_JAVA}" -gt "0" ]; then
     pip install jpype1
 fi
 github_actions_group_end
@@ -66,7 +65,6 @@ time archery integration \
     --run-flight \
     --with-cpp=$([ "$ARROW_INTEGRATION_CPP" == "ON" ] && echo "1" || echo "0") \
     --with-csharp=$([ "$ARROW_INTEGRATION_CSHARP" == "ON" ] && echo "1" || echo "0") \
-    --with-java=$([ "$ARROW_INTEGRATION_JAVA" == "ON" ] && echo "1" || echo "0") \
     --with-js=$([ "$ARROW_INTEGRATION_JS" == "ON" ] && echo "1" || echo "0") \
     --gold-dirs=$gold_dir/0.14.1 \
     --gold-dirs=$gold_dir/0.17.1 \

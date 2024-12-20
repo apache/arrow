@@ -17,7 +17,13 @@
 
 @echo on
 
-set "PATH=C:\Miniconda38-x64;C:\Miniconda38-x64\Scripts;C:\Miniconda38-x64\Library\bin;%PATH%"
+@rem
+@rem The miniconda install on AppVeyor is very outdated, use Mambaforge instead
+@rem
+
+appveyor DownloadFile https://github.com/conda-forge/miniforge/releases/download/24.9.2-0/Mambaforge-Windows-x86_64.exe || exit /B
+start /wait "" Mambaforge-Windows-x86_64.exe /InstallationType=JustMe /RegisterPython=0 /S /D=C:\Mambaforge
+set "PATH=C:\Mambaforge\scripts;C:\Mambaforge\condabin;%PATH%"
 
 @rem
 @rem Avoid picking up AppVeyor-installed OpenSSL (linker errors with gRPC)
@@ -33,26 +39,15 @@ rd /s /q C:\OpenSSL-v30-Win32
 rd /s /q C:\OpenSSL-v30-Win64
 
 @rem
-@rem Configure miniconda
+@rem Configure conda
 @rem
 conda config --set auto_update_conda false
-conda config --set show_channel_urls True
+conda config --set show_channel_urls true
+conda config --set always_yes true
 @rem Help with SSL timeouts to S3
 conda config --set remote_connect_timeout_secs 12
-@rem Workaround for ARROW-13636
-conda config --append disallowed_packages pypy3
-conda info -a
 
-@rem
-@rem Install Python to the base environment
-@rem
-conda install -q -y -c conda-forge python=%PYTHON% || exit /B
-
-@rem Can't use conda-libmamba-solver 2.0.0
-conda config --set solver classic
-
-@rem Update for newer CA certificates
-conda update -q -y -c conda-forge --all || exit /B
+conda info -a || exit /B
 
 @rem
 @rem Create conda environment
@@ -66,11 +61,8 @@ if "%ARROW_BUILD_GANDIVA%" == "ON" (
 )
 @rem Install pre-built "toolchain" packages for faster builds
 set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.txt
-@rem Force conda to use conda-forge
-conda config --add channels conda-forge
-conda config --remove channels defaults
 @rem Arrow conda environment
-conda create -n arrow -y -c conda-forge ^
+conda create -n arrow ^
   --file=ci\conda_env_python.txt ^
   %CONDA_PACKAGES%  ^
   "ccache" ^
@@ -96,7 +88,6 @@ set CXX=cl.exe
 if "%ARROW_S3%" == "ON" (
   appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z -FileName C:\Windows\Minio.exe || exit /B
 )
-
 
 @rem
 @rem Download IANA Timezone Database for unit tests

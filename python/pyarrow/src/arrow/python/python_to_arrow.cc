@@ -260,6 +260,18 @@ class PyValue {
     return value;
   }
 
+  static Result<Decimal32> Convert(const Decimal32Type* type, const O&, I obj) {
+    Decimal32 value;
+    RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *type, &value));
+    return value;
+  }
+
+  static Result<Decimal64> Convert(const Decimal64Type* type, const O&, I obj) {
+    Decimal64 value;
+    RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *type, &value));
+    return value;
+  }
+
   static Result<Decimal128> Convert(const Decimal128Type* type, const O&, I obj) {
     Decimal128 value;
     RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *type, &value));

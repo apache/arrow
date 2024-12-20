@@ -19,10 +19,6 @@ or
 
     MINOR: [${COMPONENT}] ${SUMMARY}
 
-In the case of PARQUET issues on JIRA the title also supports:
-
-    PARQUET-${JIRA_ISSUE_ID}: [${COMPONENT}] ${SUMMARY}
-
 -->
 
 ### Rationale for this change

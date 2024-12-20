@@ -57,6 +57,8 @@ def get_many_types():
         pa.float16(),
         pa.float32(),
         pa.float64(),
+        pa.decimal32(9, 4),
+        pa.decimal64(18, 4),
         pa.decimal128(19, 4),
         pa.decimal256(76, 38),
         pa.string(),
@@ -139,18 +141,38 @@ def test_null_field_may_not_be_non_nullable():
 
 
 def test_is_decimal():
+    decimal32 = pa.decimal32(9, 4)
+    decimal64 = pa.decimal64(18, 4)
     decimal128 = pa.decimal128(19, 4)
     decimal256 = pa.decimal256(76, 38)
     int32 = pa.int32()
 
+    assert types.is_decimal(decimal32)
+    assert types.is_decimal(decimal64)
     assert types.is_decimal(decimal128)
     assert types.is_decimal(decimal256)
     assert not types.is_decimal(int32)
 
+    assert types.is_decimal32(decimal32)
+    assert not types.is_decimal32(decimal64)
+    assert not types.is_decimal32(decimal128)
+    assert not types.is_decimal32(decimal256)
+    assert not types.is_decimal32(int32)
+
+    assert not types.is_decimal64(decimal32)
+    assert types.is_decimal64(decimal64)
+    assert not types.is_decimal64(decimal128)
+    assert not types.is_decimal64(decimal256)
+    assert not types.is_decimal64(int32)
+
+    assert not types.is_decimal128(decimal32)
+    assert not types.is_decimal128(decimal64)
     assert types.is_decimal128(decimal128)
     assert not types.is_decimal128(decimal256)
     assert not types.is_decimal128(int32)
 
+    assert not types.is_decimal256(decimal32)
+    assert not types.is_decimal256(decimal64)
     assert not types.is_decimal256(decimal128)
     assert types.is_decimal256(decimal256)
     assert not types.is_decimal256(int32)
@@ -887,6 +909,14 @@ def test_types_weakref():
     assert wr() is None  # not a singleton
 
 
+def test_types_has_variadic_buffers():
+    for ty in get_many_types():
+        if ty in (pa.string_view(), pa.binary_view()):
+            assert ty.has_variadic_buffers
+        else:
+            assert not ty.has_variadic_buffers
+
+
 def test_fields_hashable():
     in_dict = {}
     fields = [pa.field('a', pa.int32()),
@@ -962,6 +992,8 @@ def test_bit_and_byte_width():
         (pa.float16(), 16, 2),
         (pa.timestamp('s'), 64, 8),
         (pa.date32(), 32, 4),
+        (pa.decimal32(9, 4), 32, 4),
+        (pa.decimal64(18, 4), 64, 8),
         (pa.decimal128(19, 4), 128, 16),
         (pa.decimal256(76, 38), 256, 32),
         (pa.binary(42), 42 * 8, 42),
@@ -994,6 +1026,14 @@ def test_fixed_size_binary_byte_width():
 
 
 def test_decimal_properties():
+    ty = pa.decimal32(9, 4)
+    assert ty.byte_width == 4
+    assert ty.precision == 9
+    assert ty.scale == 4
+    ty = pa.decimal64(18, 4)
+    assert ty.byte_width == 8
+    assert ty.precision == 18
+    assert ty.scale == 4
     ty = pa.decimal128(19, 4)
     assert ty.byte_width == 16
     assert ty.precision == 19
@@ -1005,6 +1045,18 @@ def test_decimal_properties():
 
 
 def test_decimal_overflow():
+    pa.decimal32(1, 0)
+    pa.decimal32(9, 0)
+    for i in (0, -1, 10):
+        with pytest.raises(ValueError):
+            pa.decimal32(i, 0)
+
+    pa.decimal64(1, 0)
+    pa.decimal64(18, 0)
+    for i in (0, -1, 19):
+        with pytest.raises(ValueError):
+            pa.decimal64(i, 0)
+
     pa.decimal128(1, 0)
     pa.decimal128(38, 0)
     for i in (0, -1, 39):

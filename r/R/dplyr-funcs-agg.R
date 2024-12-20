@@ -150,6 +150,13 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
+  register_binding("arrow::one", function(...) {
+    set_agg(
+      fun = "one",
+      data = ensure_one_arg(list2(...), "one"),
+      options = list()
+    )
+  })
 }
 
 set_agg <- function(...) {

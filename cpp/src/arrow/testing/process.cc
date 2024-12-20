@@ -85,9 +85,14 @@
 #  include <thread>
 
 #  ifdef BOOST_PROCESS_USE_V2
-namespace asio = BOOST_PROCESS_V2_ASIO_NAMESPACE;
 namespace process = BOOST_PROCESS_V2_NAMESPACE;
 namespace filesystem = process::filesystem;
+// For Boost < 1.87.0
+#    ifdef BOOST_PROCESS_V2_ASIO_NAMESPACE
+namespace asio = BOOST_PROCESS_V2_ASIO_NAMESPACE;
+#    else
+namespace asio = process::net;
+#    endif
 #  elif defined(BOOST_PROCESS_HAVE_V1)
 namespace process = boost::process::v1;
 namespace filesystem = boost::process::v1::filesystem;

@@ -30,7 +30,6 @@
 # variables.
 #
 # Configuration environment variables:
-#   - APACHE_JIRA_TOKEN: your Apache JIRA Personal Access Token
 #   - ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests
 #   - ARROW_GITHUB_ORG: the GitHub organisation ('apache' by default)
 #   - DEBUG: use for testing to avoid pushing to apache (0 by default)
@@ -43,15 +42,6 @@ import subprocess
 import sys
 import requests
 import getpass
-
-try:
-    import jira.client
-    import jira.exceptions
-except ImportError:
-    print("Could not find jira library. "
-          "Run 'pip install jira' to install.")
-    print("Exiting without trying to close the associated JIRA.")
-    sys.exit(1)
 
 # Remote name which points to the GitHub site
 ORG_NAME = (
@@ -66,9 +56,6 @@ DEBUG = bool(int(os.environ.get("DEBUG", 0)))
 
 if DEBUG:
     print("**************** DEBUGGING ****************")
-
-
-JIRA_API_BASE = "https://issues.apache.org/jira"
 
 
 def get_json(url, headers=None):
@@ -133,92 +120,6 @@ def fix_version_from_branch(versions):
 MIGRATION_COMMENT_REGEX = re.compile(
     r"This issue has been migrated to \[issue #(?P<issue_id>(\d+))"
 )
-
-
-class JiraIssue(object):
-
-    def __init__(self, jira_con, jira_id, project, cmd):
-        self.jira_con = jira_con
-        self.jira_id = jira_id
-        self.project = project
-        self.cmd = cmd
-
-        try:
-            self.issue = jira_con.issue(jira_id)
-        except Exception as e:
-            self.cmd.fail("ASF JIRA could not find %s\n%s" % (jira_id, e))
-
-    @property
-    def current_fix_versions(self):
-        return self.issue.fields.fixVersions
-
-    @property
-    def current_versions(self):
-        # Only suggest versions starting with a number, like 0.x but not JS-0.x
-        all_versions = self.jira_con.project_versions(self.project)
-        unreleased_versions = [x for x in all_versions
-                               if not x.raw['released']]
-
-        mainline_versions = self._filter_mainline_versions(unreleased_versions)
-        return mainline_versions
-
-    def _filter_mainline_versions(self, versions):
-        if self.project == 'PARQUET':
-            mainline_regex = re.compile(r'cpp-\d.*')
-        else:
-            mainline_regex = re.compile(r'\d.*')
-
-        return [x for x in versions if mainline_regex.match(x.name)]
-
-    def resolve(self, fix_version, comment, *args):
-        fields = self.issue.fields
-        cur_status = fields.status.name
-
-        if cur_status == "Resolved" or cur_status == "Closed":
-            self.cmd.fail("JIRA issue %s already has status '%s'"
-                          % (self.jira_id, cur_status))
-
-        resolve = [x for x in self.jira_con.transitions(self.jira_id)
-                   if x['name'] == "Resolve Issue"][0]
-
-        # ARROW-6915: do not overwrite existing fix versions corresponding to
-        # point releases
-        fix_versions = [v.raw for v in self.jira_con.project_versions(
-            self.project) if v.name == fix_version]
-        fix_version_names = set(x['name'] for x in fix_versions)
-        for version in self.current_fix_versions:
-            major, minor, patch = version.name.split('.')
-            if patch != '0' and version.name not in fix_version_names:
-                fix_versions.append(version.raw)
-
-        if DEBUG:
-            print("JIRA issue %s untouched -> %s" %
-                  (self.jira_id, [v["name"] for v in fix_versions]))
-        else:
-            self.jira_con.transition_issue(self.jira_id, resolve["id"],
-                                           comment=comment,
-                                           fixVersions=fix_versions)
-            print("Successfully resolved %s!" % (self.jira_id))
-
-        self.issue = self.jira_con.issue(self.jira_id)
-        self.show()
-
-    def show(self):
-        fields = self.issue.fields
-        print(format_issue_output("jira", self.jira_id, fields.status.name,
-                                  fields.summary, fields.assignee,
-                                  fields.components))
-
-    def github_issue_id(self):
-        try:
-            last_jira_comment = self.issue.fields.comment.comments[-1].body
-        except Exception:
-            # If no comment found or other issues ignore
-            return None
-        matches = MIGRATION_COMMENT_REGEX.search(last_jira_comment)
-        if matches:
-            values = matches.groupdict()
-            return "GH-" + values['issue_id']
 
 
 class GitHubIssue(object):
@@ -328,12 +229,11 @@ def format_issue_output(issue_type, issue_id, status,
     else:
         components = ', '.join((getattr(x, "name", x) for x in components))
 
-    if issue_type == "jira":
-        url = '/'.join((JIRA_API_BASE, 'browse', issue_id))
-    else:
-        url = (
-            f'https://github.com/{ORG_NAME}/{PROJECT_NAME}/issues/{issue_id}'
-        )
+    url_id = issue_id
+    if "GH" in issue_id:
+        url_id = issue_id.replace("GH-", "")
+
+    url = f'https://github.com/{ORG_NAME}/{PROJECT_NAME}/issues/{url_id}'
 
     return """=== {} {} ===
 Summary\t\t{}
@@ -476,19 +376,11 @@ class CommandInput(object):
 
 class PullRequest(object):
     GITHUB_PR_TITLE_PATTERN = re.compile(r'^GH-([0-9]+)\b.*$')
-    # We can merge PARQUET patches from JIRA or GH prefixed issues
-    JIRA_SUPPORTED_PROJECTS = ['PARQUET']
-    JIRA_PR_TITLE_REGEXEN = [
-        (project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
-        for project in JIRA_SUPPORTED_PROJECTS
-    ]
-    JIRA_UNSUPPORTED_ARROW = re.compile(r'^(ARROW-[0-9]+)\b.*$')
 
-    def __init__(self, cmd, github_api, git_remote, jira_con, number):
+    def __init__(self, cmd, github_api, git_remote, number):
         self.cmd = cmd
         self._github_api = github_api
         self.git_remote = git_remote
-        self.con = jira_con
         self.number = number
         self._pr_data = github_api.get_pr_data(number)
         try:
@@ -536,28 +428,8 @@ class PullRequest(object):
             github_id = m.group(1)
             return GitHubIssue(self._github_api, github_id, self.cmd)
 
-        m = self.JIRA_UNSUPPORTED_ARROW.search(self.title)
-        if m:
-            old_jira_id = m.group(1)
-            jira_issue = JiraIssue(self.con, old_jira_id, 'ARROW', self.cmd)
-            self.cmd.fail("PR titles with ARROW- prefixed tickets on JIRA "
-                          "are unsupported, update the PR title from "
-                          f"{old_jira_id}. Possible GitHub id could be: "
-                          f"{jira_issue.github_issue_id()}")
-
-        for project, regex in self.JIRA_PR_TITLE_REGEXEN:
-            m = regex.search(self.title)
-            if m:
-                jira_id = m.group(1)
-                return JiraIssue(self.con, jira_id, project, self.cmd)
-
-        options = ' or '.join(
-            '{0}-XXX'.format(project)
-            for project in self.JIRA_SUPPORTED_PROJECTS + ["GH"]
-        )
-        self.cmd.fail("PR title should be prefixed by a GitHub ID or a "
-                      "Jira ID, like: {0}, but found {1}".format(
-                          options, self.title))
+        self.cmd.fail("PR title should be prefixed by a GitHub ID, like: "
+                      "GH-XXX, but found {0}".format(self.title))
 
     def merge(self):
         """
@@ -706,31 +578,6 @@ def load_configuration():
     return config
 
 
-def get_credentials(cmd):
-    token = None
-
-    config = load_configuration()
-    if "jira" in config.sections():
-        token = config["jira"].get("token")
-
-    # Fallback to environment variables
-    if not token:
-        token = os.environ.get("APACHE_JIRA_TOKEN")
-
-    # Fallback to user tty prompt
-    if not token:
-        token = cmd.prompt("Env APACHE_JIRA_TOKEN not set, "
-                           "please enter your Jira API token "
-                           "(Jira personal access token):")
-
-    return token
-
-
-def connect_jira(cmd):
-    return jira.client.JIRA(options={'server': JIRA_API_BASE},
-                            token_auth=get_credentials(cmd))
-
-
 def get_pr_num():
     if len(sys.argv) == 2:
         return sys.argv[1]
@@ -752,9 +599,7 @@ def cli():
     os.chdir(ARROW_HOME)
 
     github_api = GitHubAPI(PROJECT_NAME, cmd)
-
-    jira_con = connect_jira(cmd)
-    pr = PullRequest(cmd, github_api, ORG_NAME, jira_con, pr_num)
+    pr = PullRequest(cmd, github_api, ORG_NAME, pr_num)
 
     if pr.is_merged:
         print("Pull request %s has already been merged" % pr_num)

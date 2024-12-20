@@ -309,6 +309,12 @@ struct ARROW_EXPORT RecordBatchWithMetadata {
   std::shared_ptr<KeyValueMetadata> custom_metadata;
 };
 
+template <>
+struct IterationTraits<RecordBatchWithMetadata> {
+  static RecordBatchWithMetadata End() { return {NULLPTR, NULLPTR}; }
+  static bool IsEnd(const RecordBatchWithMetadata& val) { return val.batch == NULLPTR; }
+};
+
 /// \brief Abstract interface for reading stream of record batches
 class ARROW_EXPORT RecordBatchReader {
  public:

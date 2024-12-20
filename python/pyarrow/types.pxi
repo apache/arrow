@@ -73,7 +73,10 @@ def _get_pandas_type_map():
             _Type_STRING: np.object_,
             _Type_LIST: np.object_,
             _Type_MAP: np.object_,
+            _Type_DECIMAL32: np.object_,
+            _Type_DECIMAL64: np.object_,
             _Type_DECIMAL128: np.object_,
+            _Type_DECIMAL256: np.object_,
         })
     return _pandas_type_map
 
@@ -325,6 +328,22 @@ cdef class DataType(_Weakrefable):
         3
         """
         return self.type.layout().buffers.size()
+
+    @property
+    def has_variadic_buffers(self):
+        """
+        If True, the number of expected buffers is only
+        lower-bounded by num_buffers.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.int64().has_variadic_buffers
+        False
+        >>> pa.string_view().has_variadic_buffers
+        True
+        """
+        return self.type.layout().variadic_spec.has_value()
 
     def __str__(self):
         return frombytes(self.type.ToString(), safe=True)
@@ -1399,6 +1418,104 @@ cdef class FixedSizeBinaryType(DataType):
 
     def __reduce__(self):
         return binary, (self.byte_width,)
+
+
+cdef class Decimal32Type(FixedSizeBinaryType):
+    """
+    Concrete class for decimal32 data types.
+
+    Examples
+    --------
+    Create an instance of decimal32 type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal32(5, 2)
+    Decimal32Type(decimal32(5, 2))
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        FixedSizeBinaryType.init(self, type)
+        self.decimal32_type = <const CDecimal32Type*> type.get()
+
+    def __reduce__(self):
+        return decimal32, (self.precision, self.scale)
+
+    @property
+    def precision(self):
+        """
+        The decimal precision, in number of decimal digits (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal32(5, 2)
+        >>> t.precision
+        5
+        """
+        return self.decimal32_type.precision()
+
+    @property
+    def scale(self):
+        """
+        The decimal scale (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal32(5, 2)
+        >>> t.scale
+        2
+        """
+        return self.decimal32_type.scale()
+
+
+cdef class Decimal64Type(FixedSizeBinaryType):
+    """
+    Concrete class for decimal64 data types.
+
+    Examples
+    --------
+    Create an instance of decimal64 type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal64(5, 2)
+    Decimal64Type(decimal64(5, 2))
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        FixedSizeBinaryType.init(self, type)
+        self.decimal64_type = <const CDecimal64Type*> type.get()
+
+    def __reduce__(self):
+        return decimal64, (self.precision, self.scale)
+
+    @property
+    def precision(self):
+        """
+        The decimal precision, in number of decimal digits (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal64(5, 2)
+        >>> t.precision
+        5
+        """
+        return self.decimal64_type.precision()
+
+    @property
+    def scale(self):
+        """
+        The decimal scale (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal64(5, 2)
+        >>> t.scale
+        2
+        """
+        return self.decimal64_type.scale()
 
 
 cdef class Decimal128Type(FixedSizeBinaryType):
@@ -2533,7 +2650,11 @@ cdef class Field(_Weakrefable):
     @property
     def metadata(self):
         """
-        The field metadata.
+        The field metadata (if any is set).
+
+        Returns
+        -------
+        metadata : dict or None
 
         Examples
         --------
@@ -2966,11 +3087,11 @@ cdef class Schema(_Weakrefable):
     @property
     def metadata(self):
         """
-        The schema's metadata.
+        The schema's metadata (if any is set).
 
         Returns
         -------
-        metadata: dict
+        metadata: dict or None
 
         Examples
         --------
@@ -4478,6 +4599,116 @@ def float64():
     ]
     """
     return primitive_type(_Type_DOUBLE)
+
+
+cpdef DataType decimal32(int precision, int scale=0):
+    """
+    Create decimal type with precision and scale and 32-bit width.
+
+    Arrow decimals are fixed-point decimal numbers encoded as a scaled
+    integer.  The precision is the number of significant digits that the
+    decimal type can represent; the scale is the number of digits after
+    the decimal point (note the scale can be negative).
+
+    As an example, ``decimal32(7, 3)`` can exactly represent the numbers
+    1234.567 and -1234.567 (encoded internally as the 32-bit integers
+    1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+
+    ``decimal32(5, -3)`` can exactly represent the number 12345000
+    (encoded internally as the 32-bit integer 12345), but neither
+    123450000 nor 1234500.
+
+    If you need a precision higher than 9 significant digits, consider
+    using ``decimal64``, ``decimal128``, or ``decimal256``.
+
+    Parameters
+    ----------
+    precision : int
+        Must be between 1 and 9
+    scale : int
+
+    Returns
+    -------
+    decimal_type : Decimal32Type
+
+    Examples
+    --------
+    Create an instance of decimal type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal32(5, 2)
+    Decimal32Type(decimal32(5, 2))
+
+    Create an array with decimal type:
+
+    >>> import decimal
+    >>> a = decimal.Decimal('123.45')
+    >>> pa.array([a], pa.decimal32(5, 2))
+    <pyarrow.lib.Decimal32Array object at ...>
+    [
+      123.45
+    ]
+    """
+    cdef shared_ptr[CDataType] decimal_type
+    if precision < 1 or precision > 9:
+        raise ValueError("precision should be between 1 and 9")
+    decimal_type.reset(new CDecimal32Type(precision, scale))
+    return pyarrow_wrap_data_type(decimal_type)
+
+
+cpdef DataType decimal64(int precision, int scale=0):
+    """
+    Create decimal type with precision and scale and 64-bit width.
+
+    Arrow decimals are fixed-point decimal numbers encoded as a scaled
+    integer.  The precision is the number of significant digits that the
+    decimal type can represent; the scale is the number of digits after
+    the decimal point (note the scale can be negative).
+
+    As an example, ``decimal64(7, 3)`` can exactly represent the numbers
+    1234.567 and -1234.567 (encoded internally as the 64-bit integers
+    1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+
+    ``decimal64(5, -3)`` can exactly represent the number 12345000
+    (encoded internally as the 64-bit integer 12345), but neither
+    123450000 nor 1234500.
+
+    If you need a precision higher than 18 significant digits, consider
+    using ``decimal128``, or ``decimal256``.
+
+    Parameters
+    ----------
+    precision : int
+        Must be between 1 and 18
+    scale : int
+
+    Returns
+    -------
+    decimal_type : Decimal64Type
+
+    Examples
+    --------
+    Create an instance of decimal type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal64(5, 2)
+    Decimal64Type(decimal64(5, 2))
+
+    Create an array with decimal type:
+
+    >>> import decimal
+    >>> a = decimal.Decimal('123.45')
+    >>> pa.array([a], pa.decimal64(5, 2))
+    <pyarrow.lib.Decimal64Array object at ...>
+    [
+      123.45
+    ]
+    """
+    cdef shared_ptr[CDataType] decimal_type
+    if precision < 1 or precision > 18:
+        raise ValueError("precision should be between 1 and 18")
+    decimal_type.reset(new CDecimal64Type(precision, scale))
+    return pyarrow_wrap_data_type(decimal_type)
 
 
 cpdef DataType decimal128(int precision, int scale=0):

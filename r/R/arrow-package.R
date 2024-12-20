@@ -62,7 +62,10 @@ supported_dplyr_methods <- list(
   relocate = NULL,
   compute = NULL,
   collapse = NULL,
-  distinct = "`.keep_all = TRUE` not supported",
+  distinct = c(
+    "`.keep_all = TRUE` returns a non-missing value if present,",
+    "only returning missing values if all are missing."
+  ),
   left_join = "the `copy` argument is ignored",
   right_join = "the `copy` argument is ignored",
   inner_join = "the `copy` argument is ignored",

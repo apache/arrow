@@ -90,7 +90,9 @@ class NumericArray : public PrimitiveArray {
   using value_type = typename TypeClass::c_type;
   using IteratorType = stl::ArrayIterator<NumericArray<TYPE>>;
 
-  explicit NumericArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+  explicit NumericArray(const std::shared_ptr<ArrayData>& data) {
+    NumericArray::SetData(data);
+  }
 
   // Only enable this constructor without a type argument for types without additional
   // metadata
@@ -99,8 +101,16 @@ class NumericArray : public PrimitiveArray {
                const std::shared_ptr<Buffer>& data,
                const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
                int64_t null_count = kUnknownNullCount, int64_t offset = 0) {
-    SetData(ArrayData::Make(TypeTraits<T1>::type_singleton(), length, {null_bitmap, data},
-                            null_count, offset));
+    NumericArray::SetData(ArrayData::Make(TypeTraits<T1>::type_singleton(), length,
+                                          {null_bitmap, data}, null_count, offset));
+  }
+
+  NumericArray(std::shared_ptr<DataType> type, int64_t length,
+               const std::shared_ptr<Buffer>& data,
+               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+               int64_t null_count = kUnknownNullCount, int64_t offset = 0) {
+    NumericArray::SetData(ArrayData::Make(std::move(type), length, {null_bitmap, data},
+                                          null_count, offset));
   }
 
   const value_type* raw_values() const { return values_; }
@@ -119,7 +129,7 @@ class NumericArray : public PrimitiveArray {
   IteratorType end() const { return IteratorType(*this, length()); }
 
  protected:
-  using PrimitiveArray::PrimitiveArray;
+  NumericArray() : values_(NULLPTR) {}
 
   void SetData(const std::shared_ptr<ArrayData>& data) {
     this->PrimitiveArray::SetData(data);
