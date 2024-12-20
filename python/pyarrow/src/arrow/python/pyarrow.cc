@@ -26,6 +26,10 @@
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/compute/api.h"
+#include "arrow/dataset/api.h"
+#include "arrow/filesystem/api.h"
+
 #include "arrow/python/common.h"
 #include "arrow/python/datetime.h"
 namespace {
@@ -83,6 +87,16 @@ DEFINE_WRAP_FUNCTIONS(tensor, Tensor)
 
 DEFINE_WRAP_FUNCTIONS(batch, RecordBatch)
 DEFINE_WRAP_FUNCTIONS(table, Table)
+
+DEFINE_WRAP_FUNCTIONS(expression, Expression)
+DEFINE_WRAP_FUNCTIONS(filesystem, FileSystem)
+
+DEFINE_WRAP_FUNCTIONS(dataset, Dataset)
+DEFINE_WRAP_FUNCTIONS(fragment, Fragment)
+DEFINE_WRAP_FUNCTIONS(partitioning, Partitioning)
+
+DEFINE_WRAP_FUNCTIONS(scanner, Scanner)
+DEFINE_WRAP_FUNCTIONS(record_batch_reader, RecordBatchReader)
 
 #undef DEFINE_WRAP_FUNCTIONS
 
