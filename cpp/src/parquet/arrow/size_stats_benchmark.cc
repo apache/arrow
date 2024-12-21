@@ -36,8 +36,7 @@
 namespace parquet::benchmark {
 
 // This should result in multiple pages for most primitive types
-constexpr int64_t kBenchmarkSize = 10 * 1024 * 1024;
-constexpr int64_t kRowGroupSize = DEFAULT_MAX_ROW_GROUP_LENGTH;
+constexpr int64_t kBenchmarkSize = 1024 * 1024;
 constexpr double kNullProbability = 0.5;
 
 int64_t GetTotalBytes(const std::shared_ptr<::arrow::ArrayData>& data) {
@@ -79,28 +78,20 @@ int64_t GetTotalPageIndexSize(const std::shared_ptr<::parquet::FileMetaData>& me
   return total_page_index_size;
 }
 
-void WriteColumn(::benchmark::State& state,
-                 const std::shared_ptr<::arrow::DataType>& type,
-                 SizeStatisticsLevel stats_level,
-                 Compression::type codec = Compression::UNCOMPRESSED) {
-  ::arrow::random::RandomArrayGenerator generator(/*seed=*/42);
-  std::shared_ptr<::arrow::Array> arr =
-      generator.ArrayOf(type, kBenchmarkSize, kNullProbability);
-  auto table = ::arrow::Table::Make(
-      ::arrow::schema({::arrow::field("column", type, kNullProbability > 0)}), {arr});
+void WriteColumn(::benchmark::State& state, const std::shared_ptr<::arrow::Table>& table,
+                 SizeStatisticsLevel stats_level) {
   auto properties = WriterProperties::Builder()
                         .enable_statistics()
                         ->enable_write_page_index()
                         ->set_size_statistics_level(stats_level)
-                        ->compression(codec)
                         ->build();
 
   for (auto _ : state) {
     auto output = parquet::CreateOutputStream();
     ARROW_EXPECT_OK(::parquet::arrow::WriteTable(
         *table, ::arrow::default_memory_pool(),
-        std::static_pointer_cast<::arrow::io::OutputStream>(output), kRowGroupSize,
-        properties));
+        std::static_pointer_cast<::arrow::io::OutputStream>(output),
+        DEFAULT_MAX_ROW_GROUP_LENGTH, properties));
 
     state.PauseTiming();
 
@@ -115,73 +106,54 @@ void WriteColumn(::benchmark::State& state,
   state.SetBytesProcessed(state.iterations() * GetTotalBytes(table));
 }
 
-template <SizeStatisticsLevel level, typename ArrowType, Compression::type codec>
+template <SizeStatisticsLevel level, typename ArrowType>
 void BM_WritePrimitiveColumn(::benchmark::State& state) {
-  WriteColumn(state, std::make_shared<ArrowType>(), level, codec);
+  ::arrow::random::RandomArrayGenerator generator(/*seed=*/42);
+  auto type = std::make_shared<ArrowType>();
+  auto array = generator.ArrayOf(type, kBenchmarkSize, kNullProbability);
+  auto table = ::arrow::Table::Make(
+      ::arrow::schema({::arrow::field("column", type, kNullProbability > 0)}), {array});
+  WriteColumn(state, table, level);
 }
 
-template <SizeStatisticsLevel level, typename ArrowType, Compression::type codec>
+template <SizeStatisticsLevel level, typename ArrowType>
 void BM_WriteListColumn(::benchmark::State& state) {
-  WriteColumn(state, ::arrow::list(std::make_shared<ArrowType>()), level, codec);
+  ::arrow::random::RandomArrayGenerator generator(/*seed=*/42);
+  auto element_type = std::make_shared<ArrowType>();
+  auto element_array = generator.ArrayOf(element_type, kBenchmarkSize, kNullProbability);
+  auto list_type = ::arrow::list(element_type);
+  auto list_array = generator.List(*element_array, kBenchmarkSize / 10, kNullProbability);
+  auto table = ::arrow::Table::Make(
+      ::arrow::schema({::arrow::field("column", list_type, kNullProbability > 0)}),
+      {list_array});
+  WriteColumn(state, table, level);
 }
 
-BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::None, ::arrow::Int64Type,
-                   Compression::UNCOMPRESSED);
+BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::None,
+                   ::arrow::Int64Type);
 BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::ColumnChunk,
-                   ::arrow::Int64Type, Compression::UNCOMPRESSED);
+                   ::arrow::Int64Type);
 BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::PageAndColumnChunk,
-                   ::arrow::Int64Type, Compression::UNCOMPRESSED);
+                   ::arrow::Int64Type);
 
 BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::None,
-                   ::arrow::StringType, Compression::UNCOMPRESSED);
+                   ::arrow::StringType);
 BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::ColumnChunk,
-                   ::arrow::StringType, Compression::UNCOMPRESSED);
+                   ::arrow::StringType);
 BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::PageAndColumnChunk,
-                   ::arrow::StringType, Compression::UNCOMPRESSED);
+                   ::arrow::StringType);
 
-BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::None, ::arrow::Int64Type,
-                   Compression::UNCOMPRESSED);
+BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::None, ::arrow::Int64Type);
 BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::ColumnChunk,
-                   ::arrow::Int64Type, Compression::UNCOMPRESSED);
+                   ::arrow::Int64Type);
 BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::PageAndColumnChunk,
-                   ::arrow::Int64Type, Compression::UNCOMPRESSED);
+                   ::arrow::Int64Type);
 
-BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::None, ::arrow::StringType,
-                   Compression::UNCOMPRESSED);
+BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::None, ::arrow::StringType);
 BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::ColumnChunk,
-                   ::arrow::StringType, Compression::UNCOMPRESSED);
+                   ::arrow::StringType);
 BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::PageAndColumnChunk,
-                   ::arrow::StringType, Compression::UNCOMPRESSED);
-
-#ifdef ARROW_WITH_ZSTD
-BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::None, ::arrow::Int64Type,
-                   Compression::ZSTD);
-BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::ColumnChunk,
-                   ::arrow::Int64Type, Compression::ZSTD);
-BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::PageAndColumnChunk,
-                   ::arrow::Int64Type, Compression::ZSTD);
-
-BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::None,
-                   ::arrow::StringType, Compression::ZSTD);
-BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::ColumnChunk,
-                   ::arrow::StringType, Compression::ZSTD);
-BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::PageAndColumnChunk,
-                   ::arrow::StringType, Compression::ZSTD);
-
-BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::None, ::arrow::Int64Type,
-                   Compression::ZSTD);
-BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::ColumnChunk,
-                   ::arrow::Int64Type, Compression::ZSTD);
-BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::PageAndColumnChunk,
-                   ::arrow::Int64Type, Compression::ZSTD);
-
-BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::None, ::arrow::StringType,
-                   Compression::ZSTD);
-BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::ColumnChunk,
-                   ::arrow::StringType, Compression::ZSTD);
-BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::PageAndColumnChunk,
-                   ::arrow::StringType, Compression::ZSTD);
-#endif
+                   ::arrow::StringType);
 
 }  // namespace parquet::benchmark
 
