@@ -135,9 +135,7 @@ gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
 
 GPARQUET_AVAILABLE_IN_18_0
 gboolean
-gparquet_arrow_file_writer_new_row_group(GParquetArrowFileWriter *writer,
-                                         gsize chunk_size,
-                                         GError **error);
+gparquet_arrow_file_writer_new_row_group(GParquetArrowFileWriter *writer, GError **error);
 
 GPARQUET_AVAILABLE_IN_18_0
 gboolean
