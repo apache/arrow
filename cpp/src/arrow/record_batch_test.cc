@@ -1116,7 +1116,7 @@ Result<std::shared_ptr<Array>> MakeStatisticsArray(
       }
       keys_indices.push_back(key_index);
 
-      auto values_type = ArrayStatistics::ValueToArrowType(value);
+      auto values_type = ArrayStatistics::ValueToArrowType(value, arrow::null());
       int8_t values_type_code = 0;
       for (; values_type_code < static_cast<int32_t>(values_types.size());
            ++values_type_code) {
