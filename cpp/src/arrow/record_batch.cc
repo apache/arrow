@@ -493,8 +493,10 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
   RETURN_NOT_OK(on_statistics(statistics));
   statistics.start_new_column = false;
 
-  const auto num_fields = record_batch.schema()->num_fields();
+  const auto& schema = record_batch.schema();
+  const auto num_fields = schema->num_fields();
   for (int nth_column = 0; nth_column < num_fields; ++nth_column) {
+    const auto& field = schema->field(nth_column);
     auto column_statistics = record_batch.column(nth_column)->statistics();
     if (!column_statistics) {
       continue;
@@ -527,7 +529,7 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
       } else {
         statistics.key = ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE;
       }
-      statistics.type = column_statistics->MinArrowType();
+      statistics.type = column_statistics->MinArrowType(field->type());
       statistics.value = column_statistics->min.value();
       RETURN_NOT_OK(on_statistics(statistics));
       statistics.start_new_column = false;
@@ -540,7 +542,7 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
       } else {
         statistics.key = ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE;
       }
-      statistics.type = column_statistics->MaxArrowType();
+      statistics.type = column_statistics->MaxArrowType(field->type());
       statistics.value = column_statistics->max.value();
       RETURN_NOT_OK(on_statistics(statistics));
       statistics.start_new_column = false;
