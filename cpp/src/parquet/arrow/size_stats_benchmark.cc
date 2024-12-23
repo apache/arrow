@@ -83,6 +83,8 @@ void WriteColumn(::benchmark::State& state, const std::shared_ptr<::arrow::Table
   auto properties = WriterProperties::Builder()
                         .enable_statistics()
                         ->enable_write_page_index()
+                        ->disable_dictionary()
+                        ->encoding(Encoding::PLAIN)
                         ->set_size_statistics_level(stats_level)
                         ->build();
 
