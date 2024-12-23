@@ -51,7 +51,7 @@ index 50caf02..7f2ab55 100644
  #define SECURITY_WIN32
 
  #include <aws/io/tls_channel_handler.h>
-@@ -35,6 +36,33 @@
+@@ -35,6 +36,25 @@
  #    pragma warning(disable : 4306) /* Identifier is type cast to a larger pointer. */
  #endif
 
@@ -73,14 +73,6 @@ index 50caf02..7f2ab55 100644
 +#ifndef SECBUFFER_ALERT
 +#define SECBUFFER_ALERT 0x11
 +#endif
-+#ifndef SEC_APPLICATION_PROTOCOL_NEGOTIATION_EXT_H
-+#define SEC_APPLICATION_PROTOCOL_NEGOTIATION_EXT_H
-+typedef enum _SEC_APPLICATION_PROTOCOL_NEGOTIATION_EXT {
-+    SecApplicationProtocolNegotiationExt_None,
-+    SecApplicationProtocolNegotiationExt_NPN,
-+    SecApplicationProtocolNegotiationExt_ALPN
-+} SEC_APPLICATION_PROTOCOL_NEGOTIATION_EXT, *PSEC_APPLICATION_PROTOCOL_NEGOTIATION_EXT;
-+#endif /* SEC_APPLICATION_PROTOCOL_NEGOTIATION_EXT_H */
 +
  #define KB_1 1024
  #define READ_OUT_SIZE (16 * KB_1)
