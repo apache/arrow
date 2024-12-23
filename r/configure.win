@@ -62,7 +62,7 @@ function configure_binaries() {
   MIMALLOC_LIBS="-lbcrypt -lpsapi"
   BROTLI_LIBS="-lbrotlienc -lbrotlidec -lbrotlicommon" # Common goes last since dec and enc depend on it
   # AWS specific libs for Windows are bundled
-  AWS_LIBS="-luserenv -lversion -lws2_32 -lbcrypt -lwininet -lwinhttp -lsecur32 -lshlwapi"
+  AWS_LIBS="-luserenv -lversion -lws2_32 -lbcrypt -lwininet -lwinhttp -lsecur32 -lshlwapi -lncrypt"
   # pkg-config --libs libcurl
   GCS_LIBS="-lcurl -lnormaliz -lssh2 -lgdi32 -lssl -lcrypto -lcrypt32 -lwldap32 \
             -lz -lws2_32 -lnghttp2 -ldbghelp"
