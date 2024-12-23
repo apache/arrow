@@ -97,7 +97,7 @@ if [ -d ucrt64/lib/ ]; then
   ls $MSYS_LIB_DIR/ucrt64/lib/
   mkdir -p $DST_DIR/lib/x64-ucrt
   mv ucrt64/lib/*.a $DST_DIR/lib/x64-ucrt
-  cp $MSYS_LIB_DIR/ucrt64/lib/lib{thrift,snappy,zstd,lz4,brotli*,bz2,crypto,curl,ss*,utf8proc,re2,aws*,nghttp2}.a $DST_DIR/lib/x64-ucrt
+  cp $MSYS_LIB_DIR/ucrt64/lib/lib{thrift,snappy,zstd,lz4,brotli*,bz2,crypto,curl,ss*,utf8proc,re2,nghttp2}.a $DST_DIR/lib/x64-ucrt
 fi
 
 # Create build artifact
