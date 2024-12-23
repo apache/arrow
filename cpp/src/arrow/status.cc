@@ -141,6 +141,11 @@ std::string Status::ToStringWithoutContextLines() const {
   return message;
 }
 
+const std::string& Status::message() const {
+  static const std::string no_message = "";
+  return ok() ? no_message : state_->msg;
+}
+
 void Status::Abort() const { Abort(std::string()); }
 
 void Status::Abort(const std::string& message) const {

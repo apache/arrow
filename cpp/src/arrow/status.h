@@ -332,10 +332,7 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   constexpr StatusCode code() const { return ok() ? StatusCode::OK : state_->code; }
 
   /// \brief Return the specific error message attached to this status.
-  const std::string& message() const {
-    static const std::string no_message = "";
-    return ok() ? no_message : state_->msg;
-  }
+  const std::string& message() const;
 
   /// \brief Return the status detail attached to this message.
   const std::shared_ptr<StatusDetail>& detail() const {
