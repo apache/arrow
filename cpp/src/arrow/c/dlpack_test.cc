@@ -21,6 +21,7 @@
 #include "arrow/c/dlpack.h"
 #include "arrow/c/dlpack_abi.h"
 #include "arrow/memory_pool.h"
+#include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow::dlpack {
@@ -48,7 +49,6 @@ void CheckDLTensor(const std::shared_ptr<Array>& arr,
   ASSERT_EQ(1, dltensor.ndim);
 
   ASSERT_EQ(dlpack_type, dltensor.dtype.code);
-
   ASSERT_EQ(arrow_type->bit_width(), dltensor.dtype.bits);
   ASSERT_EQ(1, dltensor.dtype.lanes);
   ASSERT_EQ(DLDeviceType::kDLCPU, dltensor.device.device_type);
@@ -124,6 +124,95 @@ TEST_F(TestExportArray, TestErrors) {
   ASSERT_RAISES_WITH_MESSAGE(
       TypeError, "Type error: Bit-packed boolean data type not supported by DLPack.",
       arrow::dlpack::ExportDevice(array_boolean));
+}
+
+class TestExportTensor : public ::testing::Test {
+ public:
+  void SetUp() {}
+};
+
+void CheckDLTensor(const std::shared_ptr<Tensor>& t,
+                   const std::shared_ptr<DataType>& tensor_type,
+                   DLDataTypeCode dlpack_type, std::vector<int64_t> shape,
+                   std::vector<int64_t> strides) {
+  ASSERT_OK_AND_ASSIGN(auto dlmtensor, arrow::dlpack::ExportTensor(t));
+  auto dltensor = dlmtensor->dl_tensor;
+
+  ASSERT_EQ(t->data()->data(), dltensor.data);
+  ASSERT_EQ(t->ndim(), dltensor.ndim);
+  ASSERT_EQ(0, dltensor.byte_offset);
+  for (int i = 0; i < t->ndim(); i++) {
+    ASSERT_EQ(shape.data()[i], dltensor.shape[i]);
+    ASSERT_EQ(strides.data()[i], dltensor.strides[i]);
+  }
+
+  ASSERT_EQ(dlpack_type, dltensor.dtype.code);
+  ASSERT_EQ(tensor_type->bit_width(), dltensor.dtype.bits);
+  ASSERT_EQ(1, dltensor.dtype.lanes);
+  ASSERT_EQ(DLDeviceType::kDLCPU, dltensor.device.device_type);
+  ASSERT_EQ(0, dltensor.device.device_id);
+
+  ASSERT_OK_AND_ASSIGN(auto device, arrow::dlpack::ExportDevice(t));
+  ASSERT_EQ(DLDeviceType::kDLCPU, device.device_type);
+  ASSERT_EQ(0, device.device_id);
+
+  dlmtensor->deleter(dlmtensor);
+}
+
+TEST_F(TestExportTensor, TestTensor) {
+  const std::vector<std::pair<std::shared_ptr<DataType>, DLDataTypeCode>> cases = {
+      {int8(), DLDataTypeCode::kDLInt},
+      {uint8(), DLDataTypeCode::kDLUInt},
+      {
+          int16(),
+          DLDataTypeCode::kDLInt,
+      },
+      {uint16(), DLDataTypeCode::kDLUInt},
+      {
+          int32(),
+          DLDataTypeCode::kDLInt,
+      },
+      {uint32(), DLDataTypeCode::kDLUInt},
+      {
+          int64(),
+          DLDataTypeCode::kDLInt,
+      },
+      {uint64(), DLDataTypeCode::kDLUInt},
+      {float16(), DLDataTypeCode::kDLFloat},
+      {float32(), DLDataTypeCode::kDLFloat},
+      {float64(), DLDataTypeCode::kDLFloat}};
+
+  const auto allocated_bytes = arrow::default_memory_pool()->bytes_allocated();
+
+  for (auto [arrow_type, dlpack_type] : cases) {
+    std::vector<int64_t> shape = {3, 6};
+    std::vector<int64_t> dlpack_strides = {6, 1};
+    std::shared_ptr<Tensor> tensor = TensorFromJSON(
+        arrow_type, "[1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9]", shape);
+
+    CheckDLTensor(tensor, arrow_type, dlpack_type, shape, dlpack_strides);
+  }
+
+  ASSERT_EQ(allocated_bytes, arrow::default_memory_pool()->bytes_allocated());
+}
+
+TEST_F(TestExportTensor, TestTensorStrided) {
+  std::vector<int64_t> shape = {2, 2, 2};
+  std::vector<int64_t> strides = {sizeof(float) * 4, sizeof(float) * 2,
+                                  sizeof(float) * 1};
+  std::vector<int64_t> dlpack_strides = {4, 2, 1};
+  std::shared_ptr<Tensor> tensor =
+      TensorFromJSON(float32(), "[1, 2, 3, 4, 5, 6, 1, 1]", shape, strides);
+
+  CheckDLTensor(tensor, float32(), DLDataTypeCode::kDLFloat, shape, dlpack_strides);
+
+  std::vector<int64_t> f_strides = {sizeof(float) * 1, sizeof(float) * 2,
+                                    sizeof(float) * 4};
+  std::vector<int64_t> f_dlpack_strides = {1, 2, 4};
+  std::shared_ptr<Tensor> f_tensor =
+      TensorFromJSON(float32(), "[1, 2, 3, 4, 5, 6, 1, 1]", shape, f_strides);
+
+  CheckDLTensor(f_tensor, float32(), DLDataTypeCode::kDLFloat, shape, f_dlpack_strides);
 }
 
 }  // namespace arrow::dlpack
