@@ -5046,18 +5046,27 @@ macro(build_awssdk)
 
   # WIP GH-44950
   # Patch parts of the AWSSDK EP so it builds cleanly under Rtools40
-  # TODO: if-guard so it only runs on MSYS/Rtools40
-  find_program(PATCH patch REQUIRED)
-  # Patch aws_c_common to build under Rtools40
-  set(AWS_C_COMMON_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_SOURCE_DIR}/../ci/rtools/BuildAwsCCommon.patch)
-  message(STATUS "Hello ${AWS_C_COMMON_PATCH_COMMAND}")
-  # aws_c_io_ep to build under Rtools40
-  set(AWS_C_IO_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_SOURCE_DIR}/../ci/rtools/aws_c_io_ep.patch)
-  message(STATUS "Hello ${AWS_C_IO_PATCH_COMMAND}")
-  # awssdk_ep to build under Rtools40
-  list(APPEND AWSSDK_PATCH_COMMAND && ${PATCH} -p1 -i ${CMAKE_SOURCE_DIR}/../ci/rtools/awssdk_ep.patch)
-  message(STATUS "Hello ${AWSSDK_PATCH_COMMAND}")
-  # TODO: endif()
+  if(CMAKE_CXX_COMPILER MATCHES "mingw")
+    message(STATUS "############ Using MinGW compiler")
+    find_program(PATCH patch REQUIRED)
+    # Patch aws_c_common to build under Rtools40
+    set(AWS_C_COMMON_PATCH_COMMAND ${PATCH} -p1 -i
+                                   ${CMAKE_SOURCE_DIR}/../ci/rtools/BuildAwsCCommon.patch)
+    message(STATUS "Hello ${AWS_C_COMMON_PATCH_COMMAND}")
+    # aws_c_io_ep to build under Rtools40
+    set(AWS_C_IO_PATCH_COMMAND ${PATCH} -p1 -i
+                               ${CMAKE_SOURCE_DIR}/../ci/rtools/aws_c_io_ep.patch)
+    message(STATUS "Hello ${AWS_C_IO_PATCH_COMMAND}")
+    # awssdk_ep to build under Rtools40
+    list(APPEND
+         AWSSDK_PATCH_COMMAND
+         &&
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_SOURCE_DIR}/../ci/rtools/awssdk_ep.patch)
+    message(STATUS "Hello ${AWSSDK_PATCH_COMMAND}")
+  endif()
 
   if(UNIX)
     # on Linux and macOS curl seems to be required
