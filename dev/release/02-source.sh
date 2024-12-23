@@ -59,7 +59,7 @@ echo "Using commit $release_hash"
 tarball=apache-arrow-${version}.tar.gz
 
 if [ ${SOURCE_DOWNLOAD} -gt 0 ]; then
-  # Wait for the release candidate workflow to finish before attempting 
+  # Wait for the release candidate workflow to finish before attempting
   # to download the tarball from the GitHub Release.
   . $SOURCE_DIR/utils-watch-gh-workflow.sh ${tag} "release_candidate.yml"
   rm -f ${tarball}
@@ -163,13 +163,13 @@ This release candidate is based on commit:
 ${release_hash} [2]
 
 The source release rc${rc} is hosted at [3].
-The binary artifacts are hosted at [4][5][6][7][8][9][10][11].
-The changelog is located at [12].
+The binary artifacts are hosted at [4][5][6][7][8][9][10].
+The changelog is located at [11].
 
 Please download, verify checksums and signatures, run the unit tests,
-and vote on the release. See [13] for how to validate a release candidate.
+and vote on the release. See [12] for how to validate a release candidate.
 
-See also a verification result on GitHub pull request [14].
+See also a verification result on GitHub pull request [13].
 
 The vote will be open for at least 72 hours.
 
@@ -184,13 +184,12 @@ The vote will be open for at least 72 hours.
 [5]: https://apache.jfrog.io/artifactory/arrow/amazon-linux-rc/
 [6]: https://apache.jfrog.io/artifactory/arrow/centos-rc/
 [7]: https://apache.jfrog.io/artifactory/arrow/debian-rc/
-[8]: https://apache.jfrog.io/artifactory/arrow/java-rc/${version}-rc${rc}
-[9]: https://apache.jfrog.io/artifactory/arrow/nuget-rc/${version}-rc${rc}
-[10]: https://apache.jfrog.io/artifactory/arrow/python-rc/${version}-rc${rc}
-[11]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
-[12]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
-[13]: https://arrow.apache.org/docs/developers/release_verification.html
-[14]: ${verify_pr_url}
+[8]: https://apache.jfrog.io/artifactory/arrow/nuget-rc/${version}-rc${rc}
+[9]: https://apache.jfrog.io/artifactory/arrow/python-rc/${version}-rc${rc}
+[10]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
+[11]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
+[12]: https://arrow.apache.org/docs/developers/release_verification.html
+[13]: ${verify_pr_url}
 MAIL
   echo "---------------------------------------------------------"
 fi

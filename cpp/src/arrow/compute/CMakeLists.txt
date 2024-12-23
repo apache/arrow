@@ -87,16 +87,18 @@ add_arrow_test(internals_test
                function_test.cc
                exec_test.cc
                kernel_test.cc
-               light_array_test.cc
-               registry_test.cc
-               key_hash_test.cc
-               row/compare_test.cc
-               row/grouper_test.cc
-               row/row_encoder_internal_test.cc
-               row/row_test.cc
-               util_internal_test.cc)
+               registry_test.cc)
 
 add_arrow_compute_test(expression_test SOURCES expression_test.cc)
+add_arrow_compute_test(row_test
+                       SOURCES
+                       key_hash_test.cc
+                       light_array_test.cc
+                       row/compare_test.cc
+                       row/grouper_test.cc
+                       row/row_encoder_internal_test.cc
+                       row/row_test.cc
+                       util_internal_test.cc)
 
 add_arrow_benchmark(function_benchmark PREFIX "arrow-compute")
 

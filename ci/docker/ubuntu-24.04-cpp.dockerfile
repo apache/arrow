@@ -172,7 +172,11 @@ RUN /arrow/ci/scripts/install_azurite.sh
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
-# Prioritize system packages and local installation
+# Prioritize system packages and local installation.
+#
+# The following dependencies will be downloaded due to missing/invalid packages
+# provided by the distribution:
+# - opentelemetry-cpp-dev is not packaged
 ENV ARROW_ACERO=ON \
     ARROW_AZURE=ON \
     ARROW_BUILD_STATIC=ON \
@@ -186,6 +190,7 @@ ENV ARROW_ACERO=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
+    ARROW_JEMALLOC=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
@@ -205,6 +210,7 @@ ENV ARROW_ACERO=ON \
     AWSSDK_SOURCE=BUNDLED \
     Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
+    opentelemetry_cpp_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \

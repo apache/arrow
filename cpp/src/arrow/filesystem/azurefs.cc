@@ -106,6 +106,18 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
   std::string tenant_id;
   std::string client_id;
   std::string client_secret;
+
+  // These query parameters are the union of the following docs:
+  // https://learn.microsoft.com/en-us/rest/api/storageservices/create-account-sas#specify-the-account-sas-parameters
+  // https://learn.microsoft.com/en-us/rest/api/storageservices/create-service-sas#construct-a-service-sas
+  // (excluding parameters for table storage only)
+  // https://learn.microsoft.com/en-us/rest/api/storageservices/create-user-delegation-sas#construct-a-user-delegation-sas
+  static const std::set<std::string> sas_token_query_parameters = {
+      "sv",    "ss",    "sr",  "st",  "se",   "sp",   "si",   "sip",   "spr",
+      "skoid", "sktid", "srt", "skt", "ske",  "skv",  "sks",  "saoid", "suoid",
+      "scid",  "sdd",   "ses", "sig", "rscc", "rscd", "rsce", "rscl",  "rsct",
+  };
+
   ARROW_ASSIGN_OR_RAISE(const auto options_items, uri.query_items());
   for (const auto& kv : options_items) {
     if (kv.first == "blob_storage_authority") {
@@ -147,6 +159,9 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
     } else if (kv.first == "background_writes") {
       ARROW_ASSIGN_OR_RAISE(background_writes,
                             ::arrow::internal::ParseBoolean(kv.second));
+    } else if (sas_token_query_parameters.find(kv.first) !=
+               sas_token_query_parameters.end()) {
+      credential_kind = CredentialKind::kSASToken;
     } else {
       return Status::Invalid(
           "Unexpected query parameter in Azure Blob File System URI: '", kv.first, "'");
@@ -179,6 +194,13 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
         break;
       case CredentialKind::kEnvironment:
         RETURN_NOT_OK(ConfigureEnvironmentCredential());
+        break;
+      case CredentialKind::kSASToken:
+        // Reconstructing the SAS token without the other URI query parameters is awkward
+        // because some parts are URI escaped and some parts are not. Instead we just
+        // pass through the entire query string and Azure ignores the extra query
+        // parameters.
+        RETURN_NOT_OK(ConfigureSASCredential("?" + uri.query_string()));
         break;
       default:
         // Default credential
@@ -225,7 +247,6 @@ Result<AzureOptions> AzureOptions::FromUri(const std::string& uri_string,
 }
 
 bool AzureOptions::Equals(const AzureOptions& other) const {
-  // TODO(GH-38598): update here when more auth methods are added.
   const bool equals = blob_storage_authority == other.blob_storage_authority &&
                       dfs_storage_authority == other.dfs_storage_authority &&
                       blob_storage_scheme == other.blob_storage_scheme &&
@@ -243,6 +264,8 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
     case CredentialKind::kStorageSharedKey:
       return storage_shared_key_credential_->AccountName ==
              other.storage_shared_key_credential_->AccountName;
+    case CredentialKind::kSASToken:
+      return sas_token_ == other.sas_token_;
     case CredentialKind::kClientSecret:
     case CredentialKind::kCLI:
     case CredentialKind::kManagedIdentity:
@@ -311,6 +334,15 @@ Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_ke
   return Status::OK();
 }
 
+Status AzureOptions::ConfigureSASCredential(const std::string& sas_token) {
+  credential_kind_ = CredentialKind::kSASToken;
+  if (account_name.empty()) {
+    return Status::Invalid("AzureOptions doesn't contain a valid account name");
+  }
+  sas_token_ = sas_token;
+  return Status::OK();
+}
+
 Status AzureOptions::ConfigureClientSecretCredential(const std::string& tenant_id,
                                                      const std::string& client_id,
                                                      const std::string& client_secret) {
@@ -372,6 +404,9 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     case CredentialKind::kStorageSharedKey:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         storage_shared_key_credential_);
+    case CredentialKind::kSASToken:
+      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name) +
+                                                        sas_token_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
@@ -404,27 +439,11 @@ AzureOptions::MakeDataLakeServiceClient() const {
     case CredentialKind::kStorageSharedKey:
       return std::make_unique<DataLake::DataLakeServiceClient>(
           AccountDfsUrl(account_name), storage_shared_key_credential_);
+    case CredentialKind::kSASToken:
+      return std::make_unique<DataLake::DataLakeServiceClient>(
+          AccountBlobUrl(account_name) + sas_token_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
-}
-
-Result<std::string> AzureOptions::GenerateSASToken(
-    Storage::Sas::BlobSasBuilder* builder, Blobs::BlobServiceClient* client) const {
-  using SasProtocol = Storage::Sas::SasProtocol;
-  builder->Protocol =
-      blob_storage_scheme == "http" ? SasProtocol::HttpsAndHttp : SasProtocol::HttpsOnly;
-  if (storage_shared_key_credential_) {
-    return builder->GenerateSasToken(*storage_shared_key_credential_);
-  } else {
-    // GH-39344: This part isn't tested. This may not work.
-    try {
-      auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
-      return builder->GenerateSasToken(delegation_key_response.Value, account_name);
-    } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(exception, "GetUserDelegationKey failed for '",
-                               client->GetUrl(), "'.");
-    }
-  }
 }
 
 namespace {
@@ -3161,19 +3180,7 @@ class AzureFileSystem::Impl {
     if (src == dest) {
       return Status::OK();
     }
-    std::string sas_token;
-    {
-      Storage::Sas::BlobSasBuilder builder;
-      std::chrono::seconds available_period(60);
-      builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
-      builder.BlobContainerName = src.container;
-      builder.BlobName = src.path;
-      builder.Resource = Storage::Sas::BlobSasResource::Blob;
-      builder.SetPermissions(Storage::Sas::BlobSasPermissions::Read);
-      ARROW_ASSIGN_OR_RAISE(
-          sas_token, options_.GenerateSASToken(&builder, blob_service_client_.get()));
-    }
-    auto src_url = GetBlobClient(src.container, src.path).GetUrl() + sas_token;
+    auto src_url = GetBlobClient(src.container, src.path).GetUrl();
     auto dest_blob_client = GetBlobClient(dest.container, dest.path);
     if (!dest.path.empty()) {
       auto dest_parent = dest.parent();
@@ -3186,9 +3193,21 @@ class AzureFileSystem::Impl {
       }
     }
     try {
-      dest_blob_client.CopyFromUri(src_url);
+      // We use StartCopyFromUri instead of CopyFromUri because it supports blobs larger
+      // than 256 MiB and it doesn't require generating a SAS token to authenticate
+      // reading a source blob in the same storage account.
+      auto copy_operation = dest_blob_client.StartCopyFromUri(src_url);
+      // For large blobs, the copy operation may be slow so we need to poll until it
+      // completes. We use a polling interval of 1 second.
+      copy_operation.PollUntilDone(std::chrono::milliseconds(1000));
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(exception, "Failed to copy a blob. (", src_url, " -> ",
+      // StartCopyFromUri failed or a GetProperties call inside PollUntilDone failed.
+      return ExceptionToStatus(
+          exception, "Failed to start blob copy or poll status of ongoing copy. (",
+          src_url, " -> ", dest_blob_client.GetUrl(), ")");
+    } catch (const Azure::Core::RequestFailedException& exception) {
+      // A GetProperties call inside PollUntilDone returned a failed CopyStatus.
+      return ExceptionToStatus(exception, "Failed to copy blob. (", src_url, " -> ",
                                dest_blob_client.GetUrl(), ")");
     }
     return Status::OK();

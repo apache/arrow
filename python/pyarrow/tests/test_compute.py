@@ -1900,7 +1900,9 @@ DecimalTypeTraits = namedtuple('DecimalTypeTraits',
 FloatToDecimalCase = namedtuple('FloatToDecimalCase',
                                 ('precision', 'scale', 'float_val'))
 
-decimal_type_traits = [DecimalTypeTraits('decimal128', pa.decimal128, 38),
+decimal_type_traits = [DecimalTypeTraits('decimal32', pa.decimal32, 9),
+                       DecimalTypeTraits('decimal64', pa.decimal64, 18),
+                       DecimalTypeTraits('decimal128', pa.decimal128, 38),
                        DecimalTypeTraits('decimal256', pa.decimal256, 76)]
 
 
@@ -1991,7 +1993,7 @@ def check_cast_float_to_decimal(float_ty, float_val, decimal_ty, decimal_ctx,
         # very high precisions as rounding errors can accumulate in
         # the iterative algorithm (GH-35576).
         diff_digits = abs(actual - expected) * 10**decimal_ty.scale
-        limit = 2 if decimal_ty.precision < max_precision - 1 else 4
+        limit = 2 if decimal_ty.precision < max_precision - 2 else 4
         assert diff_digits <= limit, (
             f"float_val = {float_val!r}, precision={decimal_ty.precision}, "
             f"expected = {expected!r}, actual = {actual!r}, "
@@ -2040,6 +2042,11 @@ def test_cast_float_to_decimal_random(float_ty, decimal_traits):
     }[float_ty]
     mantissa_digits = math.floor(math.log10(2**mantissa_bits))
     max_precision = decimal_traits.max_precision
+
+    # For example, decimal32 <-> float64
+    if max_precision < mantissa_digits:
+        mantissa_bits = math.floor(math.log2(10**max_precision))
+        mantissa_digits = math.floor(math.log10(2**mantissa_bits))
 
     with decimal.localcontext() as ctx:
         precision = mantissa_digits
@@ -3369,9 +3376,10 @@ def create_sample_expressions():
     g = pc.scalar(pa.scalar(1))
     h = pc.scalar(np.int64(2))
     j = pc.scalar(False)
+    k = pc.scalar(0)
 
     # These expression consist entirely of literals
-    literal_exprs = [a, b, c, d, e, g, h, j]
+    literal_exprs = [a, b, c, d, e, g, h, j, k]
 
     # These expressions include at least one function call
     exprs_with_call = [a == b, a != b, a > b, c & j, c | j, ~c, d.is_valid(),
@@ -3380,6 +3388,8 @@ def create_sample_expressions():
                        pc.multiply(a, b), pc.power(a, a), pc.sqrt(a),
                        pc.exp(b), pc.cos(b), pc.sin(b), pc.tan(b),
                        pc.acos(b), pc.atan(b), pc.asin(b), pc.atan2(b, b),
+                       pc.sinh(a), pc.cosh(a), pc.tanh(a),
+                       pc.asinh(a), pc.acosh(b), pc.atanh(k),
                        pc.abs(b), pc.sign(a), pc.bit_wise_not(a),
                        pc.bit_wise_and(a, a), pc.bit_wise_or(a, a),
                        pc.bit_wise_xor(a, a), pc.is_nan(b), pc.is_finite(b),

@@ -32,6 +32,7 @@ namespace arrow {
 using compute::ExecBatchBuilder;
 using compute::KeyColumnArray;
 using compute::KeyColumnMetadata;
+using compute::LightContext;
 using compute::ResizableArrayData;
 using compute::RowTableEncoder;
 using compute::RowTableImpl;
@@ -47,16 +48,6 @@ class RowArrayAccessor {
   //
   static int VarbinaryColumnId(const RowTableMetadata& row_metadata, int column_id);
 
-  // Calculate how many rows to skip from the tail of the
-  // sequence of selected rows, such that the total size of skipped rows is at
-  // least equal to the size specified by the caller. Skipping of the tail rows
-  // is used to allow for faster processing by the caller of remaining rows
-  // without checking buffer bounds (useful with SIMD or fixed size memory loads
-  // and stores).
-  //
-  static int NumRowsToSkip(const RowTableImpl& rows, int column_id, int num_rows,
-                           const uint32_t* row_ids, int num_tail_bytes_to_skip);
-
   // The supplied lambda will be called for each row in the given list of rows.
   // The arguments given to it will be:
   // - index of a row (within the set of selected rows),
@@ -68,7 +59,80 @@ class RowArrayAccessor {
   //
   template <class PROCESS_VALUE_FN>
   static void Visit(const RowTableImpl& rows, int column_id, int num_rows,
-                    const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn);
+                    const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
+    bool is_fixed_length_column =
+        rows.metadata().column_metadatas[column_id].is_fixed_length;
+
+    // There are 4 cases, each requiring different steps:
+    // 1. Varying length column that is the first varying length column in a row
+    // 2. Varying length column that is not the first varying length column in a
+    // row
+    // 3. Fixed length column in a fixed length row
+    // 4. Fixed length column in a varying length row
+
+    if (!is_fixed_length_column) {
+      int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
+      const uint8_t* row_ptr_base = rows.data(2);
+      const RowTableImpl::offset_type* row_offsets = rows.offsets();
+      uint32_t field_offset_within_row, field_length;
+
+      if (varbinary_column_id == 0) {
+        // Case 1: This is the first varbinary column
+        //
+        for (int i = 0; i < num_rows; ++i) {
+          uint32_t row_id = row_ids[i];
+          const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
+          rows.metadata().first_varbinary_offset_and_length(
+              row_ptr, &field_offset_within_row, &field_length);
+          process_value_fn(i, row_ptr + field_offset_within_row, field_length);
+        }
+      } else {
+        // Case 2: This is second or later varbinary column
+        //
+        for (int i = 0; i < num_rows; ++i) {
+          uint32_t row_id = row_ids[i];
+          const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
+          rows.metadata().nth_varbinary_offset_and_length(
+              row_ptr, varbinary_column_id, &field_offset_within_row, &field_length);
+          process_value_fn(i, row_ptr + field_offset_within_row, field_length);
+        }
+      }
+    }
+
+    if (is_fixed_length_column) {
+      uint32_t field_offset_within_row = rows.metadata().encoded_field_offset(
+          rows.metadata().pos_after_encoding(column_id));
+      uint32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
+      // Bit column is encoded as a single byte
+      //
+      if (field_length == 0) {
+        field_length = 1;
+      }
+      uint32_t row_length = rows.metadata().fixed_length;
+
+      bool is_fixed_length_row = rows.metadata().is_fixed_length;
+      if (is_fixed_length_row) {
+        // Case 3: This is a fixed length column in a fixed length row
+        //
+        const uint8_t* row_ptr_base = rows.data(1) + field_offset_within_row;
+        for (int i = 0; i < num_rows; ++i) {
+          uint32_t row_id = row_ids[i];
+          const uint8_t* row_ptr = row_ptr_base + row_length * row_id;
+          process_value_fn(i, row_ptr, field_length);
+        }
+      } else {
+        // Case 4: This is a fixed length column in a varying length row
+        //
+        const uint8_t* row_ptr_base = rows.data(2) + field_offset_within_row;
+        const RowTableImpl::offset_type* row_offsets = rows.offsets();
+        for (int i = 0; i < num_rows; ++i) {
+          uint32_t row_id = row_ids[i];
+          const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
+          process_value_fn(i, row_ptr, field_length);
+        }
+      }
+    }
+  }
 
   // The supplied lambda will be called for each row in the given list of rows.
   // The arguments given to it will be:
@@ -77,9 +141,17 @@ class RowArrayAccessor {
   //
   template <class PROCESS_VALUE_FN>
   static void VisitNulls(const RowTableImpl& rows, int column_id, int num_rows,
-                         const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn);
+                         const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
+    const uint8_t* null_masks = rows.null_masks();
+    uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
+    uint32_t pos_after_encoding = rows.metadata().pos_after_encoding(column_id);
+    for (int i = 0; i < num_rows; ++i) {
+      uint32_t row_id = row_ids[i];
+      int64_t bit_id = row_id * null_mask_num_bytes * 8 + pos_after_encoding;
+      process_value_fn(i, bit_util::GetBit(null_masks, bit_id) ? 0xff : 0);
+    }
+  }
 
- private:
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   // This is equivalent to Visit method, but processing 8 rows at a time in a
   // loop.
@@ -108,13 +180,15 @@ class RowArrayAccessor {
 // can be called by multiple threads concurrently.
 //
 struct RowArray {
-  RowArray() : is_initialized_(false) {}
+  RowArray() : is_initialized_(false), hardware_flags_(0) {}
 
-  Status InitIfNeeded(MemoryPool* pool, const ExecBatch& batch);
-  Status InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_metadata);
+  Status InitIfNeeded(MemoryPool* pool, int64_t hardware_flags, const ExecBatch& batch);
+  Status InitIfNeeded(MemoryPool* pool, int64_t hardware_flags,
+                      const RowTableMetadata& row_metadata);
 
-  Status AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch, int begin_row_id,
-                              int end_row_id, int num_row_ids, const uint16_t* row_ids,
+  Status AppendBatchSelection(MemoryPool* pool, int64_t hardware_flags,
+                              const ExecBatch& batch, int begin_row_id, int end_row_id,
+                              int num_row_ids, const uint16_t* row_ids,
                               std::vector<KeyColumnArray>& temp_column_arrays);
 
   // This can only be called for a minibatch.
@@ -122,12 +196,10 @@ struct RowArray {
   void Compare(const ExecBatch& batch, int begin_row_id, int end_row_id, int num_selected,
                const uint16_t* batch_selection_maybe_null, const uint32_t* array_row_ids,
                uint32_t* out_num_not_equal, uint16_t* out_not_equal_selection,
-               int64_t hardware_flags, arrow::util::TempVectorStack* temp_stack,
+               arrow::util::TempVectorStack* temp_stack,
                std::vector<KeyColumnArray>& temp_column_arrays,
                uint8_t* out_match_bitvector_maybe_null = NULLPTR);
 
-  // TODO: add AVX2 version
-  //
   Status DecodeSelected(ResizableArrayData* target, int column_id, int num_rows_to_append,
                         const uint32_t* row_ids, MemoryPool* pool) const;
 
@@ -135,10 +207,43 @@ struct RowArray {
 
   int64_t num_rows() const { return is_initialized_ ? rows_.length() : 0; }
 
+  void EnsureHasAnyNullsComputed(const LightContext& ctx) {
+    std::ignore = rows_.has_any_nulls(&ctx);
+  }
+
+ private:
   bool is_initialized_;
+
+  int64_t hardware_flags_;
   RowTableEncoder encoder_;
   RowTableImpl rows_;
   RowTableImpl rows_temp_;
+
+ private:
+  void DecodeFixedLength(ResizableArrayData* output, int output_start_row, int column_id,
+                         uint32_t fixed_length, int num_rows_to_append,
+                         const uint32_t* row_ids) const;
+  void DecodeOffsets(ResizableArrayData* output, int output_start_row, int column_id,
+                     int num_rows_to_append, const uint32_t* row_ids) const;
+  void DecodeVarLength(ResizableArrayData* output, int output_start_row, int column_id,
+                       int num_rows_to_append, const uint32_t* row_ids) const;
+  void DecodeNulls(ResizableArrayData* output, int output_start_row, int column_id,
+                   int num_rows_to_append, const uint32_t* row_ids) const;
+
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+  int DecodeFixedLength_avx2(ResizableArrayData* output, int output_start_row,
+                             int column_id, uint32_t fixed_length, int num_rows_to_append,
+                             const uint32_t* row_ids) const;
+  int DecodeOffsets_avx2(ResizableArrayData* output, int output_start_row, int column_id,
+                         int num_rows_to_append, const uint32_t* row_ids) const;
+  int DecodeVarLength_avx2(ResizableArrayData* output, int output_start_row,
+                           int column_id, int num_rows_to_append,
+                           const uint32_t* row_ids) const;
+  int DecodeNulls_avx2(ResizableArrayData* output, int output_start_row, int column_id,
+                       int num_rows_to_append, const uint32_t* row_ids) const;
+#endif
+
+  friend class RowArrayMerge;
 };
 
 // Implements concatenating multiple row arrays into a single one, using
@@ -161,7 +266,7 @@ class RowArrayMerge {
   //
   static Status PrepareForMerge(RowArray* target, const std::vector<RowArray*>& sources,
                                 std::vector<int64_t>* first_target_row_id,
-                                MemoryPool* pool);
+                                MemoryPool* pool, int64_t hardware_flags);
 
   // Copy rows from source array to target array.
   // Both arrays must have the same row metadata.

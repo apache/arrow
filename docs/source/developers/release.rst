@@ -55,13 +55,6 @@ generated properly.
         default-key ${YOUR_GPG_KEY_ID}
 
     - The GPG key needs to be added to this `SVN repo <https://dist.apache.org/repos/dist/dev/arrow/>`_ and `this one <https://dist.apache.org/repos/dist/release/arrow/>`_.
-    - Configure Maven to `publish artifacts to Apache repositories <http://www.apache.org/dev/publishing-maven-artifacts.html>`_. You will need to `setup a master password <https://maven.apache.org/guides/mini/guide-encryption.html>`_ at ``~/.m2/settings-security.xml`` and ``settings.xml`` as specified on the `Apache guide <http://www.apache.org/dev/publishing-maven-artifacts.html#dev-env>`_. It can be tested with the following command:
-
-    .. code-block::
-
-        # You might need to export GPG_TTY=$(tty) to properly prompt for a passphrase
-        mvn clean install -Papache-release
-
     - Have the build requirements for cpp and c_glib installed.
     - Set the ``CROSSBOW_GITHUB_TOKEN`` environment variable to automatically create the verify release Pull Request.
     - Install ``en_US.UTF-8`` locale. You can confirm available locales by ``locale -a``.
@@ -220,20 +213,13 @@ Build source and binaries and submit them
     # otherwise I got errors referencing "ioctl" errors.
     dev/release/05-binary-upload.sh <version> <rc-number>
 
-    # Sign and upload the Java artifacts
-    #
-    # Note that you need to press the "Close" button manually by Web interface
-    # after you complete the script:
-    #   https://repository.apache.org/#stagingRepositories
-    dev/release/06-java-upload.sh <version> <rc-number>
-
     # Sign and upload MATLAB artifacts to the GitHub Releases area.
     #
     # Note that you need to have GitHub CLI installed to run this script.
-    dev/release/07-matlab-upload.sh <version> <rc-number>
+    dev/release/06-matlab-upload.sh <version> <rc-number>
 
     # Start verifications for binaries and wheels
-    dev/release/08-binary-verify.sh <version> <rc-number>
+    dev/release/07-binary-verify.sh <version> <rc-number>
 
 Verify the Release
 ------------------
@@ -276,7 +262,6 @@ Be sure to go through on the following checklist:
 #. Upload C# packages
 #. Update conda recipes
 #. Upload wheels/sdist to pypi
-#. Publish Maven artifacts
 #. Update R packages
 #. Update vcpkg port
 #. Update Conan recipe
@@ -531,15 +516,6 @@ Be sure to go through on the following checklist:
 
       # dev/release/post-11-python.sh 10.0.0
       dev/release/post-11-python.sh <version>
-
-.. dropdown:: Publish Maven packages
-   :animate: fade-in-slide-down
-   :class-title: sd-fs-5
-   :class-container: sd-shadow-md
-
-   - Logon to the Apache repository: https://repository.apache.org/#stagingRepositories
-   - Select the Arrow staging repository you created for RC: ``orgapachearrow-XXXX``
-   - Click the ``release`` button
 
 .. dropdown:: Update R packages
    :animate: fade-in-slide-down

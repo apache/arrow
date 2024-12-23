@@ -35,11 +35,6 @@
   - any-glob-to-any-file:
     - go/**/*
 
-"Component: Java":
-- changed-files:
-  - any-glob-to-any-file:
-    - java/**/*
-
 "Component: JavaScript":
 - changed-files:
   - any-glob-to-any-file:
@@ -82,7 +77,6 @@
   - any-glob-to-any-file:
     - c_glib/gandiva-glib/**/*
     - cpp/src/gandiva/**/*
-    - java/gandiva/**/*
     - python/pyarrow/gandiva.*
     - ruby/red-gandiva/**/*
 

@@ -989,22 +989,19 @@
   resolved "https://registry.yarnpkg.com/@polka/url/-/url-1.0.0-next.25.tgz#f077fdc0b5d0078d30893396ff4827a13f99e817"
   integrity sha512-j7P6Rgr3mmtdkeDGTe0E/aYyWEWVtc5yFXtHCRHs28/jptDEWfaVOc5T7cblqy1XKPPfCxJc/8DwQ5YgLOZOVQ==
 
-"@rollup/plugin-alias@5.1.0":
-  version "5.1.0"
-  resolved "https://registry.yarnpkg.com/@rollup/plugin-alias/-/plugin-alias-5.1.0.tgz#99a94accc4ff9a3483be5baeedd5d7da3b597e93"
-  integrity sha512-lpA3RZ9PdIG7qqhEfv79tBffNaoDuukFDrmhLqg9ifv99u/ehn+lOg30x2zmhf8AQqQUZaMk/B9fZraQ6/acDQ==
-  dependencies:
-    slash "^4.0.0"
+"@rollup/plugin-alias@5.1.1":
+  version "5.1.1"
+  resolved "https://registry.yarnpkg.com/@rollup/plugin-alias/-/plugin-alias-5.1.1.tgz#53601d88cda8b1577aa130b4a6e452283605bf26"
+  integrity sha512-PR9zDb+rOzkRb2VD+EuKB7UC41vU5DIwZ5qqCpk0KJudcWAyi8rvYOhS7+L5aZCspw1stTViLgN5v6FF1p5cgQ==
 
-"@rollup/plugin-node-resolve@15.2.3":
-  version "15.2.3"
-  resolved "https://registry.yarnpkg.com/@rollup/plugin-node-resolve/-/plugin-node-resolve-15.2.3.tgz#e5e0b059bd85ca57489492f295ce88c2d4b0daf9"
-  integrity sha512-j/lym8nf5E21LwBT4Df1VD6hRO2L2iwUeUmP7litikRsVp1H6NWx20NEp0Y7su+7XGc476GnXXc4kFeZNGmaSQ==
+"@rollup/plugin-node-resolve@15.3.0":
+  version "15.3.0"
+  resolved "https://registry.yarnpkg.com/@rollup/plugin-node-resolve/-/plugin-node-resolve-15.3.0.tgz#efbb35515c9672e541c08d59caba2eff492a55d5"
+  integrity sha512-9eO5McEICxMzJpDW9OnMYSv4Sta3hmt7VtBFz5zR9273suNOydOyq/FrGeGy+KsTRFm8w0SLVhzig2ILFT63Ag==
   dependencies:
     "@rollup/pluginutils" "^5.0.1"
     "@types/resolve" "1.20.2"
     deepmerge "^4.2.2"
-    is-builtin-module "^3.2.1"
     is-module "^1.0.0"
     resolve "^1.22.1"
 
@@ -3853,10 +3850,10 @@ gulp-cli@^2.2.0:
     v8flags "^3.2.0"
     yargs "^7.1.0"
 
-gulp-esbuild@0.12.1:
-  version "0.12.1"
-  resolved "https://registry.yarnpkg.com/gulp-esbuild/-/gulp-esbuild-0.12.1.tgz#f91093f0f68e739f455530804aa533577ec6dfc6"
-  integrity sha512-dkcN2AHtXTVu+KNw0Zw8SWysziNwpYg6kw41E8frUkil5ZtwktIsot/OCLEpRT6clFpVQ7Hw3+YZQvoNdyTF1A==
+gulp-esbuild@0.13.0:
+  version "0.13.0"
+  resolved "https://registry.yarnpkg.com/gulp-esbuild/-/gulp-esbuild-0.13.0.tgz#6327433d23497dfc760d3742d34565996f0121d6"
+  integrity sha512-dydvBeM9JIrSVa9HbYrTCnKLqKX7v3J6Nu6Fe/bYhutUEqtVNFLAQAyRk14nJoI7TsrGmsVTjVKfDCgFGW+01Q==
   dependencies:
     esbuild "^0.21.5"
     plugin-error "^2.0.1"

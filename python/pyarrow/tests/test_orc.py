@@ -15,9 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pytest
 import decimal
 import datetime
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+import pytest
 
 import pyarrow as pa
 from pyarrow import fs
@@ -138,6 +143,57 @@ def test_example_using_json(filename, datadir):
     path = datadir / filename
     table = pd.read_json(str(path.with_suffix('.jsn.gz')), lines=True)
     check_example_file(path, table, need_fix=True)
+
+
+def test_timezone_database_absent(datadir):
+    # Example file relies on the timezone "US/Pacific". It should gracefully
+    # fail, not crash, if the timezone database is not found.
+    path = datadir / 'TestOrcFile.testDate1900.orc'
+    code = f"""if 1:
+        import os
+        os.environ['TZDIR'] = '/tmp/non_existent'
+
+        from pyarrow import orc
+        try:
+            orc_file = orc.ORCFile({str(path)!r})
+            orc_file.read()
+        except Exception as e:
+            assert "time zone database" in str(e).lower(), e
+        else:
+            assert False, "Should have raised exception"
+    """
+    subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_timezone_absent(datadir, tmpdir):
+    # Example file relies on the timezone "US/Pacific". It should gracefully
+    # fail, not crash, if the timezone database is present but the timezone
+    # is not found (GH-40633).
+    source_tzdir = Path('/usr/share/zoneinfo')
+    if not source_tzdir.exists():
+        pytest.skip(f"Test needs timezone database in {source_tzdir}")
+    tzdir = Path(tmpdir / 'zoneinfo')
+    try:
+        shutil.copytree(source_tzdir, tzdir, symlinks=True)
+    except OSError as e:
+        pytest.skip(f"Failed to copy timezone database: {e}")
+    (tzdir / 'US' / 'Pacific').unlink(missing_ok=True)
+
+    path = datadir / 'TestOrcFile.testDate1900.orc'
+    code = f"""if 1:
+        import os
+        os.environ['TZDIR'] = {str(tzdir)!r}
+
+        from pyarrow import orc
+        orc_file = orc.ORCFile({str(path)!r})
+        try:
+            orc_file.read()
+        except Exception as e:
+            assert "zoneinfo/US/Pacific" in str(e), e
+        else:
+            assert False, "Should have raised exception"
+    """
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 def test_orcfile_empty(datadir):

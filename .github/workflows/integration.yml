@@ -91,6 +91,11 @@ jobs:
         with:
           repository: apache/arrow-go
           path: go
+      - name: Checkout Arrow Java
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          repository: apache/arrow-java
+          path: java
       - name: Free up disk space
         run: |
           ci/scripts/util_free_space.sh
@@ -115,6 +120,7 @@ jobs:
           archery docker run \
             -e ARCHERY_DEFAULT_BRANCH=${{ github.event.repository.default_branch }} \
             -e ARCHERY_INTEGRATION_WITH_GO=1 \
+            -e ARCHERY_INTEGRATION_WITH_JAVA=1 \
             -e ARCHERY_INTEGRATION_WITH_NANOARROW=1 \
             -e ARCHERY_INTEGRATION_WITH_RUST=1 \
             conda-integration
