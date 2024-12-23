@@ -5078,8 +5078,10 @@ macro(build_awssdk)
 
   # WIP GH-44950
   # Patch parts of the AWSSDK EP so it builds cleanly under Rtools40
-  if(CMAKE_CXX_COMPILER MATCHES "mingw")
-    message(STATUS "############ Using MinGW compiler")
+  if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+    message(STATUS "############ On Windows")
+    message(STATUS "############ Using Windows compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER}"
+    )
     find_program(PATCH patch REQUIRED)
     # Patch aws_c_common to build under Rtools40
     set(AWS_C_COMMON_PATCH_COMMAND ${PATCH} -p1 -i
