@@ -147,8 +147,6 @@ Here is the details of the ``map`` of the ``statistics``:
        can access to proper field by type code not name. So we can use
        any valid name for fields.
 
-       TODO: Should we standardize field names?
-
 .. _statistics-schema-key:
 
 Statistics key
@@ -197,7 +195,7 @@ Here are pre-defined statistics keys:
      - The maximum size in bytes of a row in the target
        column. (exact)
    * - ``ARROW:max_byte_width:approximate``
-     - ``float64``: TODO: Should we use ``int64`` instead?
+     - ``float64``
      - The maximum size in bytes of a row in the target
        column. (approximate)
    * - ``ARROW:max_value:exact``
