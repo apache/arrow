@@ -1,0 +1,49 @@
+diff --git a/cmake/AwsCFlags.cmake b/cmake/AwsCFlags.cmake
+index b717bca..5aa8ac9 100644
+--- a/cmake/AwsCFlags.cmake
++++ b/cmake/AwsCFlags.cmake
+@@ -120,6 +120,10 @@ function(aws_set_common_properties target)
+             list(APPEND AWS_C_FLAGS -Wno-strict-aliasing)
+         endif()
+
++         if(CMAKE_C_IMPLICIT_LINK_LIBRARIES MATCHES "mingw32")
++            list(APPEND AWS_C_FLAGS -D__USE_MINGW_ANSI_STDIO=1 -Wno-unused-local-typedefs)
++        endif()
++
+         # -moutline-atomics generates code for both older load/store exclusive atomics and also
+         # Arm's Large System Extensions (LSE) which scale substantially better on large core count systems.
+         #
+diff --git a/include/aws/common/byte_order.inl b/include/aws/common/byte_order.inl
+index 1204be0..0abd9cb 100644
+--- a/include/aws/common/byte_order.inl
++++ b/include/aws/common/byte_order.inl
+@@ -13,7 +13,7 @@
+ #    include <stdlib.h>
+ #else
+ #    include <netinet/in.h>
+-#endif /* _MSC_VER */
++#endif /* _WIN32 */
+
+ AWS_EXTERN_C_BEGIN
+
+@@ -39,7 +39,7 @@ AWS_STATIC_IMPL uint64_t aws_hton64(uint64_t x) {
+     uint64_t v;
+     __asm__("bswap %q0" : "=r"(v) : "0"(x));
+     return v;
+-#elif defined(_MSC_VER)
++#elif defined(_WIN32)
+     return _byteswap_uint64(x);
+ #else
+     uint32_t low = x & UINT32_MAX;
+diff --git a/source/windows/thread.c b/source/windows/thread.c
+index 447fcd2..01e643f 100644
+--- a/source/windows/thread.c
++++ b/source/windows/thread.c
+@@ -10,6 +10,7 @@
+ #include <aws/common/private/thread_shared.h>
+ #include <aws/common/string.h>
+
++#define _WIN32_WINNT 0x0601
+ #include <Windows.h>
+
+ #include <inttypes.h>

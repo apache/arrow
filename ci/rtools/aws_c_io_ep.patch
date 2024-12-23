@@ -1,0 +1,87 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+diff --git a/source/windows/host_resolver.c b/source/windows/host_resolver.c
+index 59fbb85..ad4a99e 100644
+--- a/source/windows/host_resolver.c
++++ b/source/windows/host_resolver.c
+@@ -4,6 +4,7 @@
+  */
+
+ /* don't move this below the Windows.h include!!!!*/
++#define _WIN32_WINNT 0x0601
+ #include <winsock2.h>
+ #include <ws2tcpip.h>
+
+diff --git a/source/windows/iocp/iocp_event_loop.c b/source/windows/iocp/iocp_event_loop.c
+index 9ccce30..5cbbef7 100644
+--- a/source/windows/iocp/iocp_event_loop.c
++++ b/source/windows/iocp/iocp_event_loop.c
+@@ -12,6 +12,7 @@
+
+ #include <aws/io/logging.h>
+
++#define _WIN32_WINNT 0x0601
+ #include <Windows.h>
+
+ /* The next set of struct definitions are taken directly from the
+diff --git a/source/windows/secure_channel_tls_handler.c b/source/windows/secure_channel_tls_handler.c
+index 50caf02..7f2ab55 100644
+--- a/source/windows/secure_channel_tls_handler.c
++++ b/source/windows/secure_channel_tls_handler.c
+@@ -2,6 +2,7 @@
+  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+  * SPDX-License-Identifier: Apache-2.0.
+  */
++#define _WIN32_WINNT 0x0601
+ #define SECURITY_WIN32
+
+ #include <aws/io/tls_channel_handler.h>
+@@ -35,6 +36,33 @@
+ #    pragma warning(disable : 4306) /* Identifier is type cast to a larger pointer. */
+ #endif
+
++#ifndef SP_PROT_TLS1_0_SERVER
++#define SP_PROT_TLS1_0_SERVER SP_PROT_TLS1_SERVER
++#endif
++#ifndef SP_PROT_TLS1_0_CLIENT
++#define SP_PROT_TLS1_0_CLIENT SP_PROT_TLS1_CLIENT
++#endif
++#ifndef SP_PROT_TLS1_1_SERVER
++#define SP_PROT_TLS1_1_SERVER 0x00000100
++#endif
++#ifndef SP_PROT_TLS1_1_CLIENT
++#define SP_PROT_TLS1_1_CLIENT 0x00000200
++#endif
++#ifndef SCH_USE_STRONG_CRYPTO
++#define SCH_USE_STRONG_CRYPTO 0x00400000
++#endif
++#ifndef SECBUFFER_ALERT
++#define SECBUFFER_ALERT 0x11
++#endif
++#ifndef SEC_APPLICATION_PROTOCOL_NEGOTIATION_EXT_H
++#define SEC_APPLICATION_PROTOCOL_NEGOTIATION_EXT_H
++typedef enum _SEC_APPLICATION_PROTOCOL_NEGOTIATION_EXT {
++    SecApplicationProtocolNegotiationExt_None,
++    SecApplicationProtocolNegotiationExt_NPN,
++    SecApplicationProtocolNegotiationExt_ALPN
++} SEC_APPLICATION_PROTOCOL_NEGOTIATION_EXT, *PSEC_APPLICATION_PROTOCOL_NEGOTIATION_EXT;
++#endif /* SEC_APPLICATION_PROTOCOL_NEGOTIATION_EXT_H */
++
+ #define KB_1 1024
+ #define READ_OUT_SIZE (16 * KB_1)
+ #define READ_IN_SIZE READ_OUT_SIZE
