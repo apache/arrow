@@ -220,11 +220,12 @@ Here are pre-defined statistics keys:
      - The number of nulls in the target column. (approximate)
    * - ``ARROW:row_count:exact``
      - ``int64``
-     - The number of rows in the target table or record batch. (exact)
+     - The number of rows in the target table, record batch or
+       array. (exact)
    * - ``ARROW:row_count:approximate``
      - ``float64``
-     - The number of rows in the target table or record
-       batch. (approximate)
+     - The number of rows in the target table, record batch or
+       array. (approximate)
 
 If you find a missing statistics key that is usable for multiple
 systems, please propose it on the `Apache Arrow development
@@ -482,7 +483,7 @@ Statistics schema::
           dictionary: utf8
         >,
         items: dense_union<
-          # For the number of rows, the number of nulls and so on
+          # For the number of rows, the number of nulls and so on.
           0: int64,
           # For the max/min values of col1.c.
           1: float64
@@ -538,18 +539,18 @@ Statistics array::
       items:
         children:
           0: [ # int64
-            3,    # record batch: "ARROW:row_count:exact"
-            0,    # col1: "ARROW:null_count:exact"
-            0,    # col1.a: "ARROW:null_count:exact"
-            3,    # col1.a: "ARROW:distinct_count:exact"
-            5,    # col1.a: "ARROW:max_value:approximate"
-            0,    # col1.a: "ARROW:min_value:approximate"
-            1,    # col1.b: "ARROW:null_count:exact"
-            99,   # col1.b.item: "ARROW:max_value:exact"
-            20,   # col1.b.item: "ARROW:min_value:exact"
-            1,    # col1.c: "ARROW:null_count:exact"
-            1,    # col2: "ARROW:null_count:exact"
-            2,    # col2: "ARROW:distinct_count:exact"
+            3,  # record batch: "ARROW:row_count:exact"
+            0,  # col1: "ARROW:null_count:exact"
+            0,  # col1.a: "ARROW:null_count:exact"
+            3,  # col1.a: "ARROW:distinct_count:exact"
+            5,  # col1.a: "ARROW:max_value:approximate"
+            0,  # col1.a: "ARROW:min_value:approximate"
+            1,  # col1.b: "ARROW:null_count:exact"
+            99, # col1.b.item: "ARROW:max_value:exact"
+            20, # col1.b.item: "ARROW:min_value:exact"
+            1,  # col1.c: "ARROW:null_count:exact"
+            1,  # col2: "ARROW:null_count:exact"
+            2,  # col2: "ARROW:distinct_count:exact"
           ]
           1: [ # float64
             3.0,  # col1.c: "ARROW:max_value:approximate"
@@ -581,20 +582,304 @@ Statistics array::
           6,  # int64: col1.b: "ARROW:null_count:exact"
           7,  # int64: col1.b.item: "ARROW:max_value:exact"
           8,  # int64: col1.b.item: "ARROW:min_value:exact"
-          9, # int64: col1.c: "ARROW:null_count:exact"
+          9,  # int64: col1.c: "ARROW:null_count:exact"
           0,  # float64: col1.c: "ARROW:max_value:approximate"
           1,  # float64: col1.c: "ARROW:min_value:approximate"
           10, # int64: col2: "ARROW:null_count:exact"
           11, # int64: col2: "ARROW:distinct_count:exact"
         ]
 
-
 Simple array
 ------------
 
-TODO
+Schema::
+
+    int64
+
+Data::
+
+    [1, 1, 2, 0, null]
+
+Statistics:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Target
+     - Key
+     - Value
+   * - Array
+     - The number of rows
+     - ``5``
+   * - Array
+     - The number of nulls
+     - ``1``
+   * - Array
+     - The number of distinct values
+     - ``3``
+   * - Array
+     - The max value
+     - ``2``
+   * - Array
+     - The min value
+     - ``0``
+
+Column indexes:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Index
+     - Target
+   * - ``0``
+     - Array
+
+Statistics schema::
+
+    struct<
+      column: int32,
+      statistics: map<
+        key: dictionary<
+          indices: int32,
+          dictionary: utf8
+        >,
+        items: dense_union<0: int64>
+      >
+    >
+
+Statistics array::
+
+    column: [
+      0, # array
+      0, # array
+      0, # array
+      0, # array
+      0, # array
+    ]
+    statistics:
+      key:
+        indices: [
+          0, # "ARROW:row_count:exact"
+          1, # "ARROW:null_count:exact"
+          2, # "ARROW:distinct_count:exact"
+          3, # "ARROW:max_value:exact"
+          4, # "ARROW:min_value:exact"
+        ]
+        dictionary: [
+          "ARROW:row_count:exact",
+          "ARROW:null_count:exact",
+          "ARROW:distinct_count:exact",
+          "ARROW:max_value:exact",
+          "ARROW:min_value:exact",
+        ],
+      items:
+        children:
+          0: [ # int64
+            5, # array: "ARROW:row_count:exact"
+            1, # array: "ARROW:null_count:exact"
+            3, # array: "ARROW:distinct_count:exact"
+            2, # array: "ARROW:max_value:exact"
+            0, # array: "ARROW:min_value:exact"
+          ]
+        types: [ # all values are int64
+          0,
+          0,
+          0,
+          0,
+          0,
+        ]
+        offsets: [
+          0,
+          1,
+          2,
+          3,
+          4,
+        ]
 
 Complex array
 -------------
 
-TODO: It uses nested type.
+This uses nested types.
+
+Schema::
+
+    struct<a: int32, b: list<item: int64>, c: float64>
+
+Data::
+
+    [
+      {a: 1, b: [20, 30, 40], c: 2.9},
+      {a: 2, b: null,         c: -2.9},
+      {a: 3, b: [99],         c: null},
+    ]
+
+Statistics:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Target
+     - Key
+     - Value
+   * - Array
+     - The number of rows
+     - ``3``
+   * - Array
+     - The number of nulls
+     - ``0``
+   * - ``a``
+     - The number of nulls
+     - ``0``
+   * - ``a``
+     - The number of distinct values
+     - ``3``
+   * - ``a``
+     - The approximate max value
+     - ``5``
+   * - ``a``
+     - The approximate min value
+     - ``0``
+   * - ``b``
+     - The number of nulls
+     - ``1``
+   * - ``b.item``
+     - The max value
+     - ``99``
+   * - ``b.item``
+     - The min value
+     - ``20``
+   * - ``c``
+     - The number of nulls
+     - ``1``
+   * - ``c``
+     - The approximate max value
+     - ``3.0``
+   * - ``c``
+     - The approximate min value
+     - ``-3.0``
+
+Column indexes:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Index
+     - Target
+   * - ``0``
+     - Array
+   * - ``1``
+     - ``a``
+   * - ``2``
+     - ``b``
+   * - ``3``
+     - ``b.item``
+   * - ``4``
+     - ``c``
+
+See also :ref:`ipc-recordbatch-message` how to compute column indexes.
+
+Statistics schema::
+
+    struct<
+      column: int32,
+      statistics: map<
+        key: dictionary<
+          indices: int32,
+          dictionary: utf8
+        >,
+        items: dense_union<
+          # For the number of rows, the number of nulls and so on.
+          0: int64,
+          # For the max/min values of c.
+          1: float64
+        >
+      >
+    >
+
+Statistics array::
+
+    column: [
+      0, # array
+      0, # array
+      1, # a
+      1, # a
+      1, # a
+      1, # a
+      2, # b
+      3, # b.item
+      3, # b.item
+      4, # c
+      4, # c
+      4, # c
+    ]
+    statistics:
+      key:
+        indices: [
+          0, # "ARROW:row_count:exact"
+          1, # "ARROW:null_count:exact"
+          1, # "ARROW:null_count:exact"
+          2, # "ARROW:distinct_count:exact"
+          3, # "ARROW:max_value:approximate"
+          4, # "ARROW:min_value:approximate"
+          1, # "ARROW:null_count:exact"
+          5, # "ARROW:max_value:exact"
+          6, # "ARROW:min_value:exact"
+          1, # "ARROW:null_count:exact"
+          3, # "ARROW:max_value:approximate"
+          4, # "ARROW:min_value:approximate"
+        ]
+        dictionary: [
+          "ARROW:row_count:exact",
+          "ARROW:null_count:exact",
+          "ARROW:distinct_count:exact",
+          "ARROW:max_value:approximate",
+          "ARROW:min_value:approximate",
+          "ARROW:max_value:exact",
+          "ARROW:min_value:exact",
+        ],
+      items:
+        children:
+          0: [ # int64
+            3,  # array: "ARROW:row_count:exact"
+            0,  # array: "ARROW:null_count:exact"
+            0,  # a: "ARROW:null_count:exact"
+            3,  # a: "ARROW:distinct_count:exact"
+            5,  # a: "ARROW:max_value:approximate"
+            0,  # a: "ARROW:min_value:approximate"
+            1,  # b: "ARROW:null_count:exact"
+            99, # b.item: "ARROW:max_value:exact"
+            20, # b.item: "ARROW:min_value:exact"
+            1,  # c: "ARROW:null_count:exact"
+          ]
+          1: [ # float64
+            3.0,  # c: "ARROW:max_value:approximate"
+            -3.0, # c: "ARROW:min_value:approximate"
+          ]
+        types: [
+          0, # int64: array: "ARROW:row_count:exact"
+          0, # int64: array: "ARROW:null_count:exact"
+          0, # int64: a: "ARROW:null_count:exact"
+          0, # int64: a: "ARROW:distinct_count:exact"
+          0, # int64: a: "ARROW:max_value:approximate"
+          0, # int64: a: "ARROW:min_value:approximate"
+          0, # int64: b: "ARROW:null_count:exact"
+          0, # int64: b.item: "ARROW:max_value:exact"
+          0, # int64: b.item: "ARROW:min_value:exact"
+          0, # int64: c: "ARROW:null_count:exact"
+          1, # float64: c: "ARROW:max_value:approximate"
+          1, # float64: c: "ARROW:min_value:approximate"
+        ]
+        offsets: [
+          0, # int64: array: "ARROW:row_count:exact"
+          1, # int64: array: "ARROW:null_count:exact"
+          2, # int64: a: "ARROW:null_count:exact"
+          3, # int64: a: "ARROW:distinct_count:exact"
+          4, # int64: a: "ARROW:max_value:approximate"
+          5, # int64: a: "ARROW:min_value:approximate"
+          6, # int64: b: "ARROW:null_count:exact"
+          7, # int64: b.item: "ARROW:max_value:exact"
+          8, # int64: b.item: "ARROW:min_value:exact"
+          9, # int64: c: "ARROW:null_count:exact"
+          0, # float64: c: "ARROW:max_value:approximate"
+          1, # float64: c: "ARROW:min_value:approximate"
+        ]
