@@ -404,11 +404,11 @@ class SerializedFile : public ParquetFileReader::Contents {
   ::arrow::Result<std::vector<::arrow::io::ReadRange>> GetReadRanges(
       const std::vector<int>& row_groups, const std::vector<int>& column_indices,
       int64_t hole_size_limit, int64_t range_size_limit) {
-    std::vector<::arrow::io::ReadRange> ranges;    
-    for (int row : row_groups) {
+    std::vector<::arrow::io::ReadRange> ranges;
+    for (int row_group : row_groups) {
       for (int col : column_indices) {
         ranges.push_back(
-            ComputeColumnChunkRange(file_metadata_.get(), source_size_, row, col));
+            ComputeColumnChunkRange(file_metadata_.get(), source_size_, row_group, col));
       }
     }
 

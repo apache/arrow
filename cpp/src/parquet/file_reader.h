@@ -206,13 +206,13 @@ class PARQUET_EXPORT ParquetFileReader {
   //
   // A reader can optionally call this if they wish to handle their own
   // caching and management of file reads (or offload them to other readers).
-  // Unlike PreBuffer, this method will not perform any actual caching or 
+  // Unlike PreBuffer, this method will not perform any actual caching or
   // reads, instead just using the file metadata to determine the byte ranges
   // that would need to be read if you were to consume the entirety of the column
   // chunks for the provided columns in the specified row groups.
   //
   // If row_groups or column_indices are empty, then the result of this will be empty.
-  // 
+  //
   // hole_size_limit represents the maximum distance, in bytes, between two
   // consecutive ranges; beyond this value, ranges will not be combined. The default
   // value is 1MB.
