@@ -203,22 +203,6 @@ class ARROW_EXPORT SwissTable {
   // Resize large hash tables when 75% full.
   Status grow_double();
 
-  uint32_t block_id_and_stamp(uint32_t hash) const {
-    if (ARROW_PREDICT_FALSE(log_blocks_ + bits_stamp_ >= bits_hash_)) {
-      return hash;
-    }
-    return hash >> (bits_hash_ - log_blocks_ - bits_stamp_);
-  }
-
-  uint32_t block_id(uint32_t block_id_and_stamp) const {
-    if (ARROW_PREDICT_FALSE(log_blocks_ + bits_stamp_ >= bits_hash_)) {
-      return block_id_and_stamp >> (bits_hash_ - log_blocks_);
-      // return block_id_and_stamp >> (bits_stamp_ - (log_blocks_ + bits_stamp_ -
-      // bits_hash_));
-    }
-    return block_id_and_stamp >> bits_stamp_;
-  }
-
   // Number of hash bits stored in slots in a block.
   // The highest bits of hash determine block id.
   // The next set of highest bits is a "stamp" stored in a slot in a block.
@@ -230,6 +214,8 @@ class ARROW_EXPORT SwissTable {
   int log_minibatch_;
   // Base 2 log of the number of blocks
   int log_blocks_ = 0;
+  int bits_shift_for_block_and_stamp_ = bits_hash_ - log_blocks_ - bits_stamp_;
+  int bits_shift_for_stamp_ = bits_stamp_;
   // Number of keys inserted into hash table
   uint32_t num_inserted_ = 0;
 
@@ -287,7 +273,7 @@ void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
   constexpr uint64_t stamp_mask = 0x7f;
 
   int start_slot = (slot_id & 7);
-  int stamp = static_cast<int>(block_id_and_stamp(hash) & stamp_mask);
+  int stamp = static_cast<int>((hash << bits_shift_for_block_and_stamp_) & stamp_mask);
   uint64_t block_id = slot_id >> 3;
   uint8_t* blockbase = blocks_->mutable_data() + num_block_bytes * block_id;
 
