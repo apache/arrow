@@ -258,7 +258,7 @@ void SwissTable::early_filter_imp(const int num_keys, const uint32_t* hashes,
     uint32_t hash = hashes[i];
     uint32_t iblock = hash << bits_shift_for_block_and_stamp_;
     uint32_t stamp = iblock & stamp_mask;
-    iblock <<= bits_shift_for_stamp_;
+    iblock >>= bits_shift_for_stamp_;
 
     uint32_t num_block_bytes = num_groupid_bits + 8;
     const uint8_t* blockbase =
