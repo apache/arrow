@@ -145,33 +145,33 @@ Here is the details of the ``map`` of the ``statistics``:
        field by type code not name. So we can use any valid name for
        fields.
 
-.. _statistics-schema-key:
+.. _statistics-schema-name:
 
 Standard statistics
 -------------------
 
 Each statistic kind has a name that appears as a key in the statistics
 map for each column or entire table. ``dictionary<values: utf8,
-indices: int32>`` is used to encode the key for space-efficiency.
+indices: int32>`` is used to encode the name for space-efficiency.
 
 We assign different names for variations of the same statistic instead
 of using flags. For example, we assign different statistic names for
 exact and approximate values of the "distinct count" statistic.
 
 The colon symbol ``:`` is to be used as a namespace separator like
-:ref:`format_metadata`. It can be used multiple times in a key.
+:ref:`format_metadata`. It can be used multiple times in a name.
 
 The ``ARROW`` prefix is a reserved namespace for pre-defined statistic
 names in current and future versions of this specification.
 User-defined statistics must not use it. For example, you can use your
 product name as namespace such as ``MY_PRODUCT:my_statistics:exact``.
 
-Here are pre-defined statistics keys:
+Here are pre-defined statistics names:
 
 .. list-table::
    :header-rows: 1
 
-   * - Key
+   * - Name
      - Data type
      - Notes
    * - ``ARROW:average_byte_width:exact``
@@ -257,7 +257,7 @@ Statistics:
    :header-rows: 1
 
    * - Target
-     - Key
+     - Name
      - Value
    * - Record batch
      - The number of rows
@@ -403,7 +403,7 @@ Statistics:
    :header-rows: 1
 
    * - Target
-     - Key
+     - Name
      - Value
    * - Record batch
      - The number of rows
@@ -600,7 +600,7 @@ Statistics:
    :header-rows: 1
 
    * - Target
-     - Key
+     - Name
      - Value
    * - Array
      - The number of rows
@@ -710,7 +710,7 @@ Statistics:
    :header-rows: 1
 
    * - Target
-     - Key
+     - Name
      - Value
    * - Array
      - The number of rows
