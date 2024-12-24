@@ -656,6 +656,12 @@ Status SwissTable::grow_double() {
   int num_group_id_bits_after = num_groupid_bits_from_log_blocks(log_blocks_ + 1);
   uint64_t group_id_mask_before = ~0ULL >> (64 - num_group_id_bits_before);
   int log_blocks_after = log_blocks_ + 1;
+  int bits_shift_for_block_and_stamp_after = bits_hash_ - log_blocks_after - bits_stamp_;
+  int bits_shift_for_stamp_after = bits_stamp_;
+  if (bits_shift_for_block_and_stamp_after < 0) {
+    bits_shift_for_block_and_stamp_after = 0;
+    bits_shift_for_stamp_after = bits_hash_ - log_blocks_;
+  }
   uint64_t block_size_before = (8 + num_group_id_bits_before);
   uint64_t block_size_after = (8 + num_group_id_bits_after);
   uint64_t block_size_total_after = (block_size_after << log_blocks_after) + padding_;
@@ -698,7 +704,7 @@ Status SwissTable::grow_double() {
       }
 
       int ihalf = block_id_new & 1;
-      uint8_t stamp_new = (hash << bits_shift_for_block_and_stamp_) & stamp_mask;
+      uint8_t stamp_new = (hash << bits_shift_for_block_and_stamp_after) & stamp_mask;
       uint64_t group_id_bit_offs = j * num_group_id_bits_before;
       uint64_t group_id =
           (util::SafeLoadAs<uint64_t>(block_base + 8 + (group_id_bit_offs >> 3)) >>
@@ -740,7 +746,7 @@ Status SwissTable::grow_double() {
           (util::SafeLoadAs<uint64_t>(block_base + 8 + (group_id_bit_offs >> 3)) >>
            (group_id_bit_offs & 7)) &
           group_id_mask_before;
-      uint8_t stamp_new = (hash << bits_shift_for_block_and_stamp_) & stamp_mask;
+      uint8_t stamp_new = (hash << bits_shift_for_block_and_stamp_after) & stamp_mask;
 
       uint8_t* block_base_new =
           blocks_new->mutable_data() + block_id_new * block_size_after;
@@ -768,13 +774,8 @@ Status SwissTable::grow_double() {
   blocks_ = std::move(blocks_new);
   hashes_ = std::move(hashes_new_buffer);
   log_blocks_ = log_blocks_after;
-  if (log_blocks_ + bits_stamp_ > bits_hash_) {
-    bits_shift_for_block_and_stamp_ = 0;
-    bits_shift_for_stamp_ = bits_hash_ - log_blocks_;
-  } else {
-    bits_shift_for_block_and_stamp_ = bits_hash_ - log_blocks_ - bits_stamp_;
-    bits_shift_for_stamp_ = bits_stamp_;
-  }
+  bits_shift_for_block_and_stamp_ = bits_shift_for_block_and_stamp_after;
+  bits_shift_for_stamp_ = bits_shift_for_stamp_after;
 
   return Status::OK();
 }
