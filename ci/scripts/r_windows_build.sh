@@ -25,11 +25,21 @@ export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
 # Uncomment L38-41 if you're testing a new rtools dependency that hasn't yet sync'd to CRAN
 # curl https://raw.githubusercontent.com/r-windows/rtools-packages/master/pacman.conf > /etc/pacman.conf
+# cp /etc/pacman.conf /etc/pacman.conf.bak
+# curl https://raw.githubusercontent.com/r-windows/rtools-packages/master/pacman.conf > /etc/pacman.conf
+# cat /etc/pacman.conf
 # curl -OSsl "http://repo.msys2.org/msys/x86_64/msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz"
 # pacman -U --noconfirm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz && rm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz
 # pacman --noconfirm -Scc
 
+# pacman --noconfirm -Syy
+# pacman --noconfirm -S ${MINGW_PACKAGE_PREFIX}-cmake
+
+#Try reverting to the original pacman.conf
+# cp /etc/pacman.conf.bak /etc/pacman.conf
+# cat /etc/pacman.conf
 pacman --noconfirm -Syy
+
 RWINLIB_LIB_DIR="lib"
 : ${MINGW_ARCH:="mingw32 mingw64 ucrt64"}
 
@@ -87,7 +97,7 @@ if [ -d ucrt64/lib/ ]; then
   ls $MSYS_LIB_DIR/ucrt64/lib/
   mkdir -p $DST_DIR/lib/x64-ucrt
   mv ucrt64/lib/*.a $DST_DIR/lib/x64-ucrt
-  cp $MSYS_LIB_DIR/ucrt64/lib/lib{thrift,snappy,zstd,lz4,brotli*,bz2,crypto,curl,ss*,utf8proc,re2,aws*,nghttp2}.a $DST_DIR/lib/x64-ucrt
+  cp $MSYS_LIB_DIR/ucrt64/lib/lib{thrift,snappy,zstd,lz4,brotli*,bz2,crypto,curl,ss*,utf8proc,re2,nghttp2}.a $DST_DIR/lib/x64-ucrt
 fi
 
 # Create build artifact
