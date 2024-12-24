@@ -281,7 +281,7 @@ void SwissTable::early_filter_imp(const int num_keys, const uint32_t* hashes,
 // When we reach this limit, we need to break processing of any further rows and resize.
 //
 uint64_t SwissTable::num_groups_for_resize() const {
-  // Resize small hash tables when 50% full (up to 12KB).
+  // Resize small hash tables when 50% full (up to 32KB).
   // Resize large hash tables when 75% full.
   constexpr int log_blocks_small_ = 9;
   uint64_t num_slots = 1ULL << (log_blocks_ + 3);
