@@ -3452,7 +3452,7 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBVarLength)) {
 using namespace arrow;
 using namespace arrow::acero;
 
-TEST(HashJoin, GH44513) {
+TEST(HashJoin, GH44513_Old) {
   // int main() {
   const int64_t num_small_rows = 18201475;
   const int64_t num_large_rows = 360449051;
@@ -3466,63 +3466,210 @@ TEST(HashJoin, GH44513) {
   auto large_schema = schema({field("key0", int64()), field("key1", int64()),
                               field("key2", int64()), field("payload", int64())});
 
-  const int64_t key_min = 0;
-  const int64_t key_max = std::numeric_limits<int64_t>::max();
-  // const int64_t key_max = num_large_rows / 8;
-  const double null_probability = 0;
+  const int64_t small_key_min = 28487150299;
+  const int64_t small_key_max = 98486720299;
+  const double small_key_null_probability = 0;
+  auto small_key_arr =
+      RandomArrayGenerator(seed).Int64(num_small_rows / num_batches, small_key_min,
+                                       small_key_max, small_key_null_probability);
 
-  auto small_key0_arr = RandomArrayGenerator(seed).Int64(
-      num_small_rows / num_batches, key_min, key_max, null_probability);
-  auto small_key1_arr = RandomArrayGenerator(seed).Int64(
-      num_small_rows / num_batches, key_min, key_max, null_probability);
-  auto small_key2_arr = RandomArrayGenerator(seed).Int64(
-      num_small_rows / num_batches, key_min, key_max, null_probability);
+  // const int64_t num_matching_rows = 17060116;
+  // const double matching_rate = double(num_matching_rows) / double(num_small_rows) /
+  //                              (double(num_small_rows) / double(small_key_max));
+  const int64_t large_key_min = 2018570299;
+  const int64_t large_key_max = 99756520299;
+  // const int64_t large_key_min = small_key_max * (1 - matching_rate);
+  // const int64_t large_key_max = 391014 + large_key_min;
+  const double large_key_null_probability = 0;
+  auto large_key_arr =
+      RandomArrayGenerator(seed).Int64(num_large_rows / num_batches, large_key_min,
+                                       large_key_max, large_key_null_probability);
+
+  const int64_t payload_min = 0;
+  const int64_t payload_max = 96920;
+  const double payload_null_probability = 283328672.0 / num_large_rows;
+
+  // auto small_key0_arr = RandomArrayGenerator(seed).Int64(
+  //     num_small_rows / num_batches, key_min, key_max, key_null_probability);
+  // auto small_key1_arr = RandomArrayGenerator(seed).Int64(
+  //     num_small_rows / num_batches, key_min, key_max, key_null_probability);
+  // auto small_key2_arr = RandomArrayGenerator(seed).Int64(
+  //     num_small_rows / num_batches, key_min, key_max, key_null_probability);
   ExecBatch small_batch(
-      {small_key0_arr, small_key0_arr, small_key1_arr, small_key0_arr, small_key0_arr,
-       small_key2_arr, small_key0_arr, small_key0_arr, small_key0_arr},
+      {small_key_arr, small_key_arr, small_key_arr, small_key_arr, small_key_arr,
+       small_key_arr, small_key_arr, small_key_arr, small_key_arr},
       num_small_rows / num_batches);
   auto small_batches =
       BatchesWithSchema{std::vector<ExecBatch>(num_batches, small_batch), small_schema};
 
-  auto large_key0_arr = RandomArrayGenerator(seed).Int64(
-      num_large_rows / num_batches, key_min, key_max, null_probability);
-  auto large_key1_arr = RandomArrayGenerator(seed).Int64(
-      num_large_rows / num_batches, key_min, key_max, null_probability);
-  auto large_key2_arr = RandomArrayGenerator(seed).Int64(
-      num_large_rows / num_batches, key_min, key_max, null_probability);
-  ASSERT_OK_AND_ASSIGN(
-      auto large_payload_arr,
-      Constant(MakeScalar(int64_t(2)))->Generate(num_large_rows / num_batches));
-  ExecBatch large_batch(
-      {large_key0_arr, large_key1_arr, large_key2_arr, large_payload_arr},
-      num_large_rows / num_batches);
+  // auto large_key0_arr = RandomArrayGenerator(seed).Int64(
+  //     num_large_rows / num_batches, key_min, key_max, key_null_probability);
+  // auto large_key1_arr = RandomArrayGenerator(seed).Int64(
+  //     num_large_rows / num_batches, key_min, key_max, key_null_probability);
+  // auto large_key2_arr = RandomArrayGenerator(seed).Int64(
+  //     num_large_rows / num_batches, key_min, key_max, key_null_probability);
+  auto large_payload_arr = RandomArrayGenerator(seed).Int64(
+      num_large_rows / num_batches, payload_min, payload_max, payload_null_probability);
+  ExecBatch large_batch({large_key_arr, large_key_arr, large_key_arr, large_payload_arr},
+                        num_large_rows / num_batches);
   auto large_batches =
       BatchesWithSchema{std::vector<ExecBatch>(num_batches, large_batch), large_schema};
 
-  Declaration small_source{"exec_batch_source",
-                           ExecBatchSourceNodeOptions(std::move(small_batches.schema),
-                                                      std::move(small_batches.batches))};
-  Declaration large_source{"exec_batch_source",
-                           ExecBatchSourceNodeOptions(std::move(large_batches.schema),
-                                                      std::move(large_batches.batches))};
+  {
+    Declaration small_source{
+        "exec_batch_source",
+        ExecBatchSourceNodeOptions(small_batches.schema, small_batches.batches)};
+    Declaration large_source{
+        "exec_batch_source",
+        ExecBatchSourceNodeOptions(large_batches.schema, large_batches.batches)};
 
-  // HashJoinNodeOptions join_opts(JoinType::RIGHT_OUTER,
-  //                               /*left_keys=*/{"key0", "key1", "key2"},
-  //                               /*right_keys=*/{"key0", "key1", "key2"});
-  // Declaration join{
-  //     "hashjoin", {std::move(large_source), std::move(small_source)}, join_opts};
-  HashJoinNodeOptions join_opts(JoinType::LEFT_OUTER,
-                                /*left_keys=*/{"key0", "key1", "key2"},
-                                /*right_keys=*/{"key0", "key1", "key2"});
-  Declaration join{
-      "hashjoin", {std::move(small_source), std::move(large_source)}, join_opts};
+    HashJoinNodeOptions join_opts(JoinType::RIGHT_OUTER,
+                                  /*left_keys=*/{"key0", "key1", "key2"},
+                                  /*right_keys=*/{"key0", "key1", "key2"});
+    Declaration join{
+        "hashjoin", {std::move(large_source), std::move(small_source)}, join_opts};
 
-  AggregateNodeOptions agg_opts{/*aggregates=*/{
-      {"count_all", "count(*)"}, {"sum", nullptr, "payload", "sum(payload)"}}};
-  Declaration agg{"aggregate", {std::move(join)}, std::move(agg_opts)};
+    AggregateNodeOptions agg_opts{/*aggregates=*/{
+        {"count_all", "count(*)"}, {"sum", nullptr, "payload", "sum(payload)"}}};
+    Declaration agg{"aggregate", {std::move(join)}, std::move(agg_opts)};
 
-  // ASSERT_OK_AND_ASSIGN(std::ignore, DeclarationToTable(std::move(join)));
-  auto result = DeclarationToTable(std::move(agg)).ValueOrDie();
-  std::cout << result->ToString() << std::endl;
+    auto result = DeclarationToTable(std::move(agg)).ValueOrDie();
+    std::cout << result->ToString() << std::endl;
+  }
+  {
+    Declaration small_source{
+        "exec_batch_source",
+        ExecBatchSourceNodeOptions(small_batches.schema, small_batches.batches)};
+    Declaration large_source{
+        "exec_batch_source",
+        ExecBatchSourceNodeOptions(large_batches.schema, large_batches.batches)};
+
+    HashJoinNodeOptions join_opts(JoinType::LEFT_OUTER,
+                                  /*left_keys=*/{"key0", "key1", "key2"},
+                                  /*right_keys=*/{"key0", "key1", "key2"});
+    Declaration join{
+        "hashjoin", {std::move(small_source), std::move(large_source)}, join_opts};
+
+    AggregateNodeOptions agg_opts{/*aggregates=*/{
+        {"count_all", "count(*)"}, {"sum", nullptr, "payload", "sum(payload)"}}};
+    Declaration agg{"aggregate", {std::move(join)}, std::move(agg_opts)};
+
+    auto result = DeclarationToTable(std::move(agg)).ValueOrDie();
+    std::cout << result->ToString() << std::endl;
+  }
+
   // return 0;
 }
+
+TEST(HashJoin, GH44513) {
+  const int64_t num_large_rows = 360449051;
+  const int64_t num_batches = 8;
+  const int64_t seed = 42;
+
+  auto small_schema =
+      schema({field("key0", int64()), field("key1", int64()), field("key2", int64())});
+  auto large_schema = schema({field("key0", int64()), field("key1", int64()),
+                              field("key2", int64()), field("payload", int64())});
+
+  const int64_t key0_match = 88506230299;
+  const int64_t key1_match = 16556030299;
+  const int64_t key2_match = 11240299;
+
+  const int64_t small_key_min = 28487150299;
+  const int64_t small_key_max = 98486720299;
+  const double small_key_null_probability = 0;
+  auto small_key_arr =
+      RandomArrayGenerator(seed).Int64(num_small_rows / num_batches, small_key_min,
+                                       small_key_max, small_key_null_probability);
+
+  // const int64_t num_matching_rows = 17060116;
+  // const double matching_rate = double(num_matching_rows) / double(num_small_rows) /
+  //                              (double(num_small_rows) / double(small_key_max));
+  const int64_t large_key_min = 2018570299;
+  const int64_t large_key_max = 99756520299;
+      // const int64_t large_key_min = small_key_max * (1 - matching_rate);
+      // const int64_t large_key_max = 391014 + large_key_min;
+      const double large_key_null_probability = 0;
+      auto large_key_arr =
+          RandomArrayGenerator(seed).Int64(num_large_rows / num_batches, large_key_min,
+                                           large_key_max, large_key_null_probability);
+
+      const int64_t payload_min = 0;
+      const int64_t payload_max = 96920;
+      const double payload_null_probability = 283328672.0 / num_large_rows;
+
+      // auto small_key0_arr = RandomArrayGenerator(seed).Int64(
+      //     num_small_rows / num_batches, key_min, key_max, key_null_probability);
+      // auto small_key1_arr = RandomArrayGenerator(seed).Int64(
+      //     num_small_rows / num_batches, key_min, key_max, key_null_probability);
+      // auto small_key2_arr = RandomArrayGenerator(seed).Int64(
+      //     num_small_rows / num_batches, key_min, key_max, key_null_probability);
+      ExecBatch small_batch(
+          {small_key_arr, small_key_arr, small_key_arr, small_key_arr, small_key_arr,
+           small_key_arr, small_key_arr, small_key_arr, small_key_arr},
+          num_small_rows / num_batches);
+      auto small_batches =
+          BatchesWithSchema{std::vector<ExecBatch>(num_batches, small_batch),
+          small_schema};
+
+      // auto large_key0_arr = RandomArrayGenerator(seed).Int64(
+      //     num_large_rows / num_batches, key_min, key_max, key_null_probability);
+      // auto large_key1_arr = RandomArrayGenerator(seed).Int64(
+      //     num_large_rows / num_batches, key_min, key_max, key_null_probability);
+      // auto large_key2_arr = RandomArrayGenerator(seed).Int64(
+      //     num_large_rows / num_batches, key_min, key_max, key_null_probability);
+      auto large_payload_arr = RandomArrayGenerator(seed).Int64(
+          num_large_rows / num_batches, payload_min, payload_max,
+          payload_null_probability);
+      ExecBatch large_batch({large_key_arr, large_key_arr, large_key_arr,
+      large_payload_arr},
+                            num_large_rows / num_batches);
+      auto large_batches =
+          BatchesWithSchema{std::vector<ExecBatch>(num_batches, large_batch),
+          large_schema};
+
+      {
+        Declaration small_source{
+            "exec_batch_source",
+            ExecBatchSourceNodeOptions(small_batches.schema, small_batches.batches)};
+        Declaration large_source{
+            "exec_batch_source",
+            ExecBatchSourceNodeOptions(large_batches.schema, large_batches.batches)};
+
+        HashJoinNodeOptions join_opts(JoinType::RIGHT_OUTER,
+                                      /*left_keys=*/{"key0", "key1", "key2"},
+                                      /*right_keys=*/{"key0", "key1", "key2"});
+        Declaration join{
+            "hashjoin", {std::move(large_source), std::move(small_source)}, join_opts};
+
+        AggregateNodeOptions agg_opts{/*aggregates=*/{
+            {"count_all", "count(*)"}, {"sum", nullptr, "payload", "sum(payload)"}}};
+        Declaration agg{"aggregate", {std::move(join)}, std::move(agg_opts)};
+
+        auto result = DeclarationToTable(std::move(agg)).ValueOrDie();
+        std::cout << result->ToString() << std::endl;
+      }
+      {
+        Declaration small_source{
+            "exec_batch_source",
+            ExecBatchSourceNodeOptions(small_batches.schema, small_batches.batches)};
+        Declaration large_source{
+            "exec_batch_source",
+            ExecBatchSourceNodeOptions(large_batches.schema, large_batches.batches)};
+
+        HashJoinNodeOptions join_opts(JoinType::LEFT_OUTER,
+                                      /*left_keys=*/{"key0", "key1", "key2"},
+                                      /*right_keys=*/{"key0", "key1", "key2"});
+        Declaration join{
+            "hashjoin", {std::move(small_source), std::move(large_source)}, join_opts};
+
+        AggregateNodeOptions agg_opts{/*aggregates=*/{
+            {"count_all", "count(*)"}, {"sum", nullptr, "payload", "sum(payload)"}}};
+        Declaration agg{"aggregate", {std::move(join)}, std::move(agg_opts)};
+
+        auto result = DeclarationToTable(std::move(agg)).ValueOrDie();
+        std::cout << result->ToString() << std::endl;
+      }
+
+      // return 0;
+    }
