@@ -86,10 +86,7 @@ Here is the outline of the schema for statistics::
     struct<
       column: int32,
       statistics: map<
-        key: dictionary<
-          indices: int32,
-          dictionary: utf8
-        >,
+        key: dictionary<values=utf8, indices=int32>,
         items: dense_union<...all needed types...>
       >
     >
@@ -127,7 +124,7 @@ Here is the details of the ``map`` of the ``statistics``:
      - Nullable
      - Notes
    * - key
-     - ``dictionary<indices: int32, dictionary: utf8>``
+     - ``dictionary<values=utf8, indices=int32>``
      - ``false``
      - The string key is the name of the statistic. Dictionary-encoding is used for
        efficiency as the same statistic may be repeated for different columns.
