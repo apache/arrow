@@ -273,7 +273,7 @@ void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
   constexpr uint64_t stamp_mask = 0x7f;
 
   int start_slot = (slot_id & 7);
-  int stamp = static_cast<int>((hash << bits_shift_for_block_and_stamp_) & stamp_mask);
+  int stamp = static_cast<int>((hash >> bits_shift_for_block_and_stamp_) & stamp_mask);
   uint64_t block_id = slot_id >> 3;
   uint8_t* blockbase = blocks_->mutable_data() + num_block_bytes * block_id;
 
