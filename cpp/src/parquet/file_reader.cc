@@ -29,6 +29,7 @@
 #include "arrow/io/caching.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
@@ -398,6 +399,21 @@ class SerializedFile : public ParquetFileReader::Contents {
       }
     }
     PARQUET_THROW_NOT_OK(cached_source_->Cache(ranges));
+  }
+
+  ::arrow::Result<std::vector<::arrow::io::ReadRange>> GetReadRanges(
+      const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+      int64_t hole_size_limit, int64_t range_size_limit) {
+    std::vector<::arrow::io::ReadRange> ranges;
+    for (int row_group : row_groups) {
+      for (int col : column_indices) {
+        ranges.push_back(
+            ComputeColumnChunkRange(file_metadata_.get(), source_size_, row_group, col));
+      }
+    }
+
+    return ::arrow::io::internal::CoalesceReadRanges(std::move(ranges), hole_size_limit,
+                                                     range_size_limit);
   }
 
   ::arrow::Future<> WhenBuffered(const std::vector<int>& row_groups,
