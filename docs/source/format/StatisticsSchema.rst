@@ -34,8 +34,8 @@ be read as Apache Arrow data may have statistics. For example, the
 Apache Parquet C++ implementation can read an Apache Parquet file as
 Apache Arrow data and the Apache Parquet file may have statistics.
 
-We standardize how to represent statistics as an Apache Arrow array
-for easy to exchange.
+We standardize the representation of statistics as an Apache Arrow array
+for ease of exchange.
 
 Use case
 --------
@@ -52,8 +52,8 @@ file to module B, module B can use the statistics to optimize its
 query plan.
 
 For example, DuckDB uses this approach but DuckDB couldn't use
-statistics because there wasn't the standardized way to represent
-statistics for an Apache Arrow data.
+statistics because there wasn't a standardized way to represent
+statistics for the Apache Arrow data.
 
 .. seealso::
 
@@ -71,8 +71,8 @@ Non-goals
 
 * Establish a standard way to pass an Apache Arrow array that
   represents statistics.
-* Establish a standard way to embed statistics to an Apache Arrow
-  array.
+* Establish a standard way to embed statistics into an Apache Arrow
+  array itself.
 
 Schema
 ======
@@ -129,10 +129,10 @@ Here is the details of the ``map`` of the ``statistics``:
    * - key
      - ``dictionary<indices: int32, dictionary: utf8>``
      - ``false``
-     - Statistics key is string. Dictionary is used for
-       efficiency. Different keys are assigned for exact value and
-       approximate value. Also see the separate description below for
-       statistics key.
+     - The string key is the name of the statistic. Dictionary-encoding is used for
+       efficiency as the same statistic may be repeated for different columns.
+       Different keys are assigned for exact and
+       approximate statistic values. Each statistic has their own description below.
    * - items
      - ``dense_union``
      - ``false``
@@ -140,8 +140,7 @@ Here is the details of the ``map`` of the ``statistics``:
        types based on statistics kinds in the keys. For example, you
        need at least ``int64`` and ``float64`` types when you have a
        ``int64`` distinct count statistic and a ``float64`` average
-       byte width statistic. Also see the separate description below
-       for statistics key.
+       byte width statistic. See the description of each statistic below.
 
        We don't standardize field names for the dense union because we
        can access to proper field by type code not name. So we can use
@@ -149,21 +148,23 @@ Here is the details of the ``map`` of the ``statistics``:
 
 .. _statistics-schema-key:
 
-Statistics key
---------------
+Standard statistics
+-------------------
 
-Statistics key is string. ``dictionary<int32, utf8>`` is used for
-efficiency.
+Each statistic kind has a name that appears as a key in the statistics map
+for each column or entire table. ``dictionary<values=utf8, indices=int32>``
+is used to encode the key for space-efficiency.
 
-We assign different statistics keys for individual statistics instead
-of using flags. For example, we assign different statistics keys for
-exact value and approximate value.
+We assign different names for variations of the same statistic instead
+of using flags. For example, we assign different statistic names for
+exact and approximate values of the "distinct_count" statistic.
 
 The colon symbol ``:`` is to be used as a namespace separator like
 :ref:`format_metadata`. It can be used multiple times in a key.
 
-The ``ARROW`` pattern is a reserved namespace for pre-defined
-statistics keys. User-defined statistics must not use it.
+The ``ARROW`` prefix is a reserved namespace for pre-defined
+statistic names in current and future versions of this specification.
+User-defined statistics must not use it.
 For example, you can use your product name as namespace
 such as ``MY_PRODUCT:my_statistics:exact``.
 
@@ -225,9 +226,13 @@ Here are pre-defined statistics keys:
      - The number of rows in the target table, record batch or
        array. (approximate)
 
-If you find a missing statistics key that is usable for multiple
+If you find a statistic that might be useful to multiple
 systems, please propose it on the `Apache Arrow development
 mailing-list <https://arrow.apache.org/community/>`__.
+
+Interoperability improves when producers and consumers of
+statistics follow a previously agreed upon statistic
+specification.
 
 .. _statistics-schema-examples:
 
