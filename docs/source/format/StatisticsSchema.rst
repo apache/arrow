@@ -34,8 +34,8 @@ be read as Apache Arrow data may have statistics. For example, the
 Apache Parquet C++ implementation can read an Apache Parquet file as
 Apache Arrow data and the Apache Parquet file may have statistics.
 
-We standardize the representation of statistics as an Apache Arrow array
-for ease of exchange.
+We standardize the representation of statistics as an Apache Arrow
+array for ease of exchange.
 
 Use case
 --------
@@ -86,7 +86,7 @@ Here is the outline of the schema for statistics::
     struct<
       column: int32,
       statistics: map<
-        key: dictionary<values=utf8, indices=int32>,
+        key: dictionary<values: utf8, indices: int32>,
         items: dense_union<...all needed types...>
       >
     >
@@ -124,12 +124,13 @@ Here is the details of the ``map`` of the ``statistics``:
      - Nullable
      - Notes
    * - key
-     - ``dictionary<values=utf8, indices=int32>``
+     - ``dictionary<values: utf8, indices: int32>``
      - ``false``
-     - The string key is the name of the statistic. Dictionary-encoding is used for
-       efficiency as the same statistic may be repeated for different columns.
-       Different keys are assigned for exact and
-       approximate statistic values. Each statistic has their own description below.
+     - The string key is the name of the
+       statistic. Dictionary-encoding is used for efficiency as the
+       same statistic may be repeated for different columns.
+       Different keys are assigned for exact and approximate statistic
+       values. Each statistic has their own description below.
    * - items
      - ``dense_union``
      - ``false``
@@ -139,31 +140,31 @@ Here is the details of the ``map`` of the ``statistics``:
        ``int64`` distinct count statistic and a ``float64`` average
        byte width statistic. See the description of each statistic below.
 
-       Dense union has name for each field but we don't standardize field names for the dense union because we
-       can access to proper field by type code not name. So we can use
-       any valid name for fields.
+       Dense union has name for each field but we don't standardize
+       field names for the dense union because we can access to proper
+       field by type code not name. So we can use any valid name for
+       fields.
 
 .. _statistics-schema-key:
 
 Standard statistics
 -------------------
 
-Each statistic kind has a name that appears as a key in the statistics map
-for each column or entire table. ``dictionary<values=utf8, indices=int32>``
-is used to encode the key for space-efficiency.
+Each statistic kind has a name that appears as a key in the statistics
+map for each column or entire table. ``dictionary<values: utf8,
+indices: int32>`` is used to encode the key for space-efficiency.
 
 We assign different names for variations of the same statistic instead
 of using flags. For example, we assign different statistic names for
-exact and approximate values of the "distinct_count" statistic.
+exact and approximate values of the "distinct count" statistic.
 
 The colon symbol ``:`` is to be used as a namespace separator like
 :ref:`format_metadata`. It can be used multiple times in a key.
 
-The ``ARROW`` prefix is a reserved namespace for pre-defined
-statistic names in current and future versions of this specification.
-User-defined statistics must not use it.
-For example, you can use your product name as namespace
-such as ``MY_PRODUCT:my_statistics:exact``.
+The ``ARROW`` prefix is a reserved namespace for pre-defined statistic
+names in current and future versions of this specification.
+User-defined statistics must not use it. For example, you can use your
+product name as namespace such as ``MY_PRODUCT:my_statistics:exact``.
 
 Here are pre-defined statistics keys:
 
@@ -223,13 +224,12 @@ Here are pre-defined statistics keys:
      - The number of rows in the target table, record batch or
        array. (approximate)
 
-If you find a statistic that might be useful to multiple
-systems, please propose it on the `Apache Arrow development
-mailing-list <https://arrow.apache.org/community/>`__.
+If you find a statistic that might be useful to multiple systems,
+please propose it on the `Apache Arrow development mailing-list
+<https://arrow.apache.org/community/>`__.
 
-Interoperability improves when producers and consumers of
-statistics follow a previously agreed upon statistic
-specification.
+Interoperability improves when producers and consumers of statistics
+follow a previously agreed upon statistic specification.
 
 .. _statistics-schema-examples:
 
@@ -304,10 +304,7 @@ Statistics schema::
     struct<
       column: int32,
       statistics: map<
-        key: dictionary<
-          indices: int32,
-          dictionary: utf8
-        >,
+        key: dictionary<values: utf8, indices: int32>,
         items: dense_union<0: int64>
       >
     >
@@ -327,6 +324,13 @@ Statistics array::
     ]
     statistics:
       key:
+        values: [
+          "ARROW:row_count:exact",
+          "ARROW:null_count:exact",
+          "ARROW:distinct_count:exact",
+          "ARROW:max_value:exact",
+          "ARROW:min_value:exact",
+        ],
         indices: [
           0, # "ARROW:row_count:exact"
           1, # "ARROW:null_count:exact"
@@ -338,13 +342,6 @@ Statistics array::
           3, # "ARROW:max_value:exact"
           4, # "ARROW:min_value:exact"
         ]
-        dictionary: [
-          "ARROW:row_count:exact",
-          "ARROW:null_count:exact",
-          "ARROW:distinct_count:exact",
-          "ARROW:max_value:exact",
-          "ARROW:min_value:exact",
-        ],
       items:
         children:
           0: [ # int64
@@ -478,10 +475,7 @@ Statistics schema::
     struct<
       column: int32,
       statistics: map<
-        key: dictionary<
-          indices: int32,
-          dictionary: utf8
-        >,
+        key: dictionary<values: utf8, indices: int32>,
         items: dense_union<
           # For the number of rows, the number of nulls and so on.
           0: int64,
@@ -511,6 +505,15 @@ Statistics array::
     ]
     statistics:
       key:
+        values: [
+          "ARROW:row_count:exact",
+          "ARROW:null_count:exact",
+          "ARROW:distinct_count:exact",
+          "ARROW:max_value:approximate",
+          "ARROW:min_value:approximate",
+          "ARROW:max_value:exact",
+          "ARROW:min_value:exact",
+        ]
         indices: [
           0, # "ARROW:row_count:exact"
           1, # "ARROW:null_count:exact"
@@ -527,15 +530,6 @@ Statistics array::
           1, # "ARROW:null_count:exact"
           2, # "ARROW:distinct_count:exact"
         ]
-        dictionary: [
-          "ARROW:row_count:exact",
-          "ARROW:null_count:exact",
-          "ARROW:distinct_count:exact",
-          "ARROW:max_value:approximate",
-          "ARROW:min_value:approximate",
-          "ARROW:max_value:exact",
-          "ARROW:min_value:exact",
-        ],
       items:
         children:
           0: [ # int64
@@ -639,10 +633,7 @@ Statistics schema::
     struct<
       column: int32,
       statistics: map<
-        key: dictionary<
-          indices: int32,
-          dictionary: utf8
-        >,
+        key: dictionary<values: utf8, indices: int32>,
         items: dense_union<0: int64>
       >
     >
@@ -658,6 +649,13 @@ Statistics array::
     ]
     statistics:
       key:
+        values: [
+          "ARROW:row_count:exact",
+          "ARROW:null_count:exact",
+          "ARROW:distinct_count:exact",
+          "ARROW:max_value:exact",
+          "ARROW:min_value:exact",
+        ]
         indices: [
           0, # "ARROW:row_count:exact"
           1, # "ARROW:null_count:exact"
@@ -665,13 +663,6 @@ Statistics array::
           3, # "ARROW:max_value:exact"
           4, # "ARROW:min_value:exact"
         ]
-        dictionary: [
-          "ARROW:row_count:exact",
-          "ARROW:null_count:exact",
-          "ARROW:distinct_count:exact",
-          "ARROW:max_value:exact",
-          "ARROW:min_value:exact",
-        ],
       items:
         children:
           0: [ # int64
@@ -783,10 +774,7 @@ Statistics schema::
     struct<
       column: int32,
       statistics: map<
-        key: dictionary<
-          indices: int32,
-          dictionary: utf8
-        >,
+        key: dictionary<values: utf8, indices: int32>,
         items: dense_union<
           # For the number of rows, the number of nulls and so on.
           0: int64,
@@ -814,6 +802,15 @@ Statistics array::
     ]
     statistics:
       key:
+        values: [
+          "ARROW:row_count:exact",
+          "ARROW:null_count:exact",
+          "ARROW:distinct_count:exact",
+          "ARROW:max_value:approximate",
+          "ARROW:min_value:approximate",
+          "ARROW:max_value:exact",
+          "ARROW:min_value:exact",
+        ]
         indices: [
           0, # "ARROW:row_count:exact"
           1, # "ARROW:null_count:exact"
@@ -828,15 +825,6 @@ Statistics array::
           3, # "ARROW:max_value:approximate"
           4, # "ARROW:min_value:approximate"
         ]
-        dictionary: [
-          "ARROW:row_count:exact",
-          "ARROW:null_count:exact",
-          "ARROW:distinct_count:exact",
-          "ARROW:max_value:approximate",
-          "ARROW:min_value:approximate",
-          "ARROW:max_value:exact",
-          "ARROW:min_value:exact",
-        ],
       items:
         children:
           0: [ # int64
