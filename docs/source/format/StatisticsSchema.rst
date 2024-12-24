@@ -140,10 +140,10 @@ Here is the details of the ``map`` of the ``statistics``:
        ``int64`` distinct count statistic and a ``float64`` average
        byte width statistic. See the description of each statistic below.
 
-       Dense union has name for each field but we don't standardize
-       field names for the dense union because we can access to proper
-       field by type code not name. So we can use any valid name for
-       fields.
+       Dense union arrays have names for each field but we don't standardize
+       field names for these because we can access the proper
+       field by type code instead. So we can use any valid name for
+       the fields.
 
 .. _statistics-schema-name:
 
