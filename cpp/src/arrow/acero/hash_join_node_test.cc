@@ -3562,7 +3562,7 @@ TEST(HashJoin, GH44513_Old) {
 }
 
 TEST(HashJoin, GH44513) {
-  const int64_t num_large_rows = 360449051;
+  const int64_t num_large_rows = 360449051 * 4;
   // const int64_t num_large_rows = 18201475;
   const int64_t num_batches = 8;
   const int64_t seed = 42;
@@ -3585,8 +3585,8 @@ TEST(HashJoin, GH44513) {
                        Constant(MakeScalar(key2_match))->Generate(1));
   ExecBatch small_batch({small_key0_arr, small_key1_arr, small_key2_arr}, 1);
 
-  auto large_unmatch_key_arr =
-      RandomArrayGenerator(seed).Int64(num_large_rows / num_batches, 0, key0_match - 1);
+  auto large_unmatch_key_arr = RandomArrayGenerator(seed).Int64(
+      num_large_rows / num_batches, key0_match + 1, 99756520299);
   ASSERT_OK_AND_ASSIGN(auto large_unmatch_payload_arr,
                        MakeArrayOfNull(int64(), num_large_rows / num_batches));
   ExecBatch large_unmatch_batch({large_unmatch_key_arr, large_unmatch_key_arr,
@@ -3608,6 +3608,27 @@ TEST(HashJoin, GH44513) {
       std::vector<ExecBatch>(num_batches, large_unmatch_batch), large_schema};
   large_batches.batches.push_back(large_match_batch);
 
+  // {
+  //   Declaration small_source{
+  //       "exec_batch_source",
+  //       ExecBatchSourceNodeOptions(small_batches.schema, small_batches.batches)};
+  //   Declaration large_source{
+  //       "exec_batch_source",
+  //       ExecBatchSourceNodeOptions(large_batches.schema, large_batches.batches)};
+
+  //   HashJoinNodeOptions join_opts(JoinType::INNER,
+  //                                 /*left_keys=*/{"key0", "key1", "key2"},
+  //                                 /*right_keys=*/{"key0", "key1", "key2"});
+  //   Declaration join{
+  //       "hashjoin", {std::move(large_source), std::move(small_source)}, join_opts};
+
+  //   AggregateNodeOptions agg_opts{/*aggregates=*/{
+  //       {"count_all", "count(*)"}, {"sum", nullptr, "payload", "sum(payload)"}}};
+  //   Declaration agg{"aggregate", {std::move(join)}, std::move(agg_opts)};
+
+  //   auto result = DeclarationToTable(std::move(agg)).ValueOrDie();
+  //   std::cout << result->ToString() << std::endl;
+  // }
   {
     Declaration small_source{
         "exec_batch_source",
@@ -3617,27 +3638,6 @@ TEST(HashJoin, GH44513) {
         ExecBatchSourceNodeOptions(large_batches.schema, large_batches.batches)};
 
     HashJoinNodeOptions join_opts(JoinType::INNER,
-                                  /*left_keys=*/{"key0", "key1", "key2"},
-                                  /*right_keys=*/{"key0", "key1", "key2"});
-    Declaration join{
-        "hashjoin", {std::move(large_source), std::move(small_source)}, join_opts};
-
-    AggregateNodeOptions agg_opts{/*aggregates=*/{
-        {"count_all", "count(*)"}, {"sum", nullptr, "payload", "sum(payload)"}}};
-    Declaration agg{"aggregate", {std::move(join)}, std::move(agg_opts)};
-
-    auto result = DeclarationToTable(std::move(agg)).ValueOrDie();
-    std::cout << result->ToString() << std::endl;
-  }
-  {
-    Declaration small_source{
-        "exec_batch_source",
-        ExecBatchSourceNodeOptions(small_batches.schema, small_batches.batches)};
-    Declaration large_source{
-        "exec_batch_source",
-        ExecBatchSourceNodeOptions(large_batches.schema, large_batches.batches)};
-
-    HashJoinNodeOptions join_opts(JoinType::LEFT_OUTER,
                                   /*left_keys=*/{"key0", "key1", "key2"},
                                   /*right_keys=*/{"key0", "key1", "key2"});
     Declaration join{
