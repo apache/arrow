@@ -415,7 +415,7 @@ int SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashe
       pos_hi = _mm256_add_epi64(pos_hi, local_slot_hi);
       __m128i group_id_lo = _mm256_i64gather_epi32(elements, pos_lo, 1);
       __m128i group_id_hi = _mm256_i64gather_epi32(elements, pos_hi, 1);
-      __m256i group_id = _mm256_set_m128i(group_id_lo, group_id_hi);
+      __m256i group_id = _mm256_set_m128i(group_id_hi, group_id_lo);
       group_id = _mm256_and_si256(group_id, _mm256_set1_epi32(mask));
       _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_group_ids) + i, group_id);
     }
