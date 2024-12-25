@@ -45,12 +45,13 @@ int SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* h
     // Calculate block index and hash stamp for a byte in a block
     //
     __m256i vhash = _mm256_loadu_si256(vhash_ptr + i);
-    __m256i vblock_id = _mm256_srlv_epi32(
-        vhash, _mm256_set1_epi32(bits_hash_ - bits_stamp_ - log_blocks_));
-    // _mm256_srlv_epi32(vhash, _mm256_set1_epi32(bits_shift_for_block_and_stamp_));
+    // __m256i vblock_id = _mm256_srlv_epi32(
+    //     vhash, _mm256_set1_epi32(bits_hash_ - bits_stamp_ - log_blocks_));
+    __m256i vblock_id =
+        _mm256_srlv_epi32(vhash, _mm256_set1_epi32(bits_shift_for_block_and_stamp_));
     __m256i vstamp = _mm256_and_si256(vblock_id, vstamp_mask);
-    vblock_id = _mm256_srli_epi32(vblock_id, bits_stamp_);
-    // vblock_id = _mm256_srli_epi32(vblock_id, bits_shift_for_stamp_);
+    // vblock_id = _mm256_srli_epi32(vblock_id, bits_stamp_);
+    vblock_id = _mm256_srli_epi32(vblock_id, bits_shift_for_block_);
 
     // We now split inputs and process 4 at a time,
     // in order to process 64-bit blocks
