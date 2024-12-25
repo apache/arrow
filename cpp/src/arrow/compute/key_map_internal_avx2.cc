@@ -395,8 +395,9 @@ int SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashe
   } else {
     for (int i = 0; i < num_keys / unroll; ++i) {
       __m256i hash = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(hashes) + i);
-      __m256i hash_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(hash));
-      __m256i hash_hi = _mm256_cvtepi32_epi64(_mm256_extracti128_si256(hash, 1));
+      // NB: Use zero-extend conversion for unsigned hash.
+      __m256i hash_lo = _mm256_cvtepu32_epi64(_mm256_castsi256_si128(hash));
+      __m256i hash_hi = _mm256_cvtepu32_epi64(_mm256_extracti128_si256(hash, 1));
       __m256i local_slot =
           _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(local_slots)[i]);
       local_slot = _mm256_shuffle_epi8(
