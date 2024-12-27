@@ -392,6 +392,9 @@ int SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashe
   } else {
     for (int i = 0; i < num_keys / unroll; ++i) {
       __m256i hash = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(hashes) + i);
+      // Extend hash and local_slot to 64-bit to compute 64-bit group id offsets to
+      // gather.
+      // This is to prevent index overflow issues in GH-44513.
       // NB: Use zero-extend conversion for unsigned hash.
       __m256i hash_lo = _mm256_cvtepu32_epi64(_mm256_castsi256_si128(hash));
       __m256i hash_hi = _mm256_cvtepu32_epi64(_mm256_extracti128_si256(hash, 1));
