@@ -439,8 +439,9 @@ of the same length.
 An ordered collection of fields that communicates all the data types of an object
 like a RecordBatch or Table. Schemas can contain optional key/value metadata.
 
-A Field includes a field name, a data type, a nullability flag and optional key-value metadata
-for a specific column in a RecordBatch.
+**Field**
+A Field includes a field name, a data type, a nullability flag and
+optional key-value metadata for a specific column in a RecordBatch.
 
 **Table**
 A discontiguous, two-dimensional chunk of data consisting of an ordered collection of Chunked
