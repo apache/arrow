@@ -1777,13 +1777,28 @@ macro(build_thrift)
     set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
   endif()
 
+  set(THRIFT_PATCH_COMMAND)
+  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15.0)
+    # Thrift 0.21.0 doesn't support GCC 15.
+    # https://github.com/apache/arrow/issues/45096
+    # https://github.com/apache/thrift/pull/3078
+    find_program(PATCH patch REQUIRED)
+    list(APPEND
+         THRIFT_PATCH_COMMAND
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_CURRENT_LIST_DIR}/thrift-cstdint.patch)
+  endif()
+
   externalproject_add(thrift_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${THRIFT_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS "${THRIFT_LIB}"
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
-                      DEPENDS ${THRIFT_DEPENDENCIES})
+                      DEPENDS ${THRIFT_DEPENDENCIES}
+                      PATCH_COMMAND ${THRIFT_PATCH_COMMAND})
 
   add_library(thrift::thrift STATIC IMPORTED)
   # The include directory must exist before it is referenced by a target.
