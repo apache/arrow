@@ -135,14 +135,20 @@ RUN if [ "${gcc_version}" = "" ]; then \
           g++ \
           gcc; \
     else \
-      if [ "${gcc_version}" -gt "14" ]; then \
+      if [ "${gcc_version}" == "snapshot" ]; then \
           apt-get update -y -q && \
           apt-get install -y -q --no-install-recommends software-properties-common && \
-          add-apt-repository ppa:ubuntu-toolchain-r/ppa; \
-      fi; \
-      apt-get update -y -q && \
-      if [ "${gcc_version}" == "snapshot" ]; then \
+          add-apt-repository ppa:ubuntu-toolchain-r/ppa && \
+          apt-get update -y -q && \
           apt-get install -y -q --no-install-recommends \
+          gcc-${gcc_version} ; \
+      elif [ "${gcc_version}" -gt "14" ]; then \
+          apt-get update -y -q && \
+          apt-get install -y -q --no-install-recommends software-properties-common && \
+          add-apt-repository ppa:ubuntu-toolchain-r/ppa && \
+          apt-get update -y -q && \
+          apt-get install -y -q --no-install-recommends \
+          g++-${gcc_version} \
           gcc-${gcc_version} ; \
       else \
           apt-get install -y -q --no-install-recommends \
