@@ -57,4 +57,4 @@ RUN bash /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV \
   ARROW_R_DEV=TRUE \
-  CMAKE=/usr/bin/cmake3
+  CMAKE=/usr/local/bin/cmake
