@@ -11,14 +11,14 @@ export DH_OPTIONS
 
 override_dh_auto_build:
 	gpg \
-	  --import KEYS \
+	  --no-default-keyring \
 	  --keyring ./apache-arrow-apt-source.gpg \
-	  --no-default-keyring
+	  --import KEYS
 	gpg \
-	  --armor \
-	  --export \
+	  --no-default-keyring \
 	  --keyring ./apache-arrow-apt-source.gpg \
-	  --no-default-keyring > ./apache-arrow-apt-source.asc
+	  --armor \
+	  --export > apache-arrow-apt-source.asc
 
 	( \
 	  distribution=$$(lsb_release --id --short | tr 'A-Z' 'a-z'); \
