@@ -80,8 +80,9 @@ build() {
   # CMAKE_UNITY_BUILD is set to OFF as otherwise some compute functionality
   # segfaults in tests
 
-  MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
-    "${PROGRAMFILES}\CMake\bin\cmake.exe" \
+  # We install CMake via the msys2 GitHub action. We have to use the installed
+  # CMake to build Arrow which is in the Program Files directory.
+  MSYS2_ARG_CONV_EXCL="${PROGRAMFILES}\CMake\bin\cmake.exe" \
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
     -DARROW_ACERO=ON \
@@ -114,11 +115,11 @@ build() {
     -DARROW_WITH_BZ2=ON \
     -DARROW_ZSTD_USE_SHARED=OFF \
     -DARROW_CXXFLAGS="${CPPFLAGS}" \
+    -DAWSSDK_SOURCE=BUNDLED \
     -DCMAKE_BUILD_TYPE="release" \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
     -DCMAKE_UNITY_BUILD=OFF \
-    -DCMAKE_VERBOSE_MAKEFILE=ON \
-    -DAWSSDK_SOURCE=BUNDLED
+    -DCMAKE_VERBOSE_MAKEFILE=ON
 
   make -j3
   popd
