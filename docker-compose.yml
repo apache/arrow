@@ -568,6 +568,7 @@ services:
         arch: ${ARCH}
         base: nvidia/cuda:${CUDA}-devel-ubuntu${UBUNTU}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE_VERSION}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
