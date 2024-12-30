@@ -129,7 +129,7 @@ package() {
   make -C ${cpp_build_dir} DESTDIR="${pkgdir}" install
 
   local PREFIX_DEPS=$(cygpath -am ${MINGW_PREFIX})
-  pushd "${pkgdir}${MINGW_PREFIX}/lib/pkgconfig"
+  pushd "${pkgdir}rtools40/${MINGW_PREFIX}/lib/pkgconfig"
   for pc in *.pc; do
     sed -s "s|${PREFIX_DEPS}|${MINGW_PREFIX}|g" -i $pc
   done
