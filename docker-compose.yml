@@ -423,6 +423,7 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE_VERSION}
         gcc: ${GCC}
         llvm: ${LLVM}
     shm_size: *shm-size
@@ -452,6 +453,8 @@ services:
       dockerfile: ci/docker/centos-7-cpp.dockerfile
       cache_from:
         - ${REPO}:centos-7-cpp-static
+      args:
+        cmake: ${CMAKE_VERSION}
     shm_size: *shm-size
     volumes:
       - .:/arrow:delegated

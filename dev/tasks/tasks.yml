@@ -1376,7 +1376,6 @@ tasks:
     template: docker-tests/github.cuda.yml
     params:
       env:
-        CMAKE_VERSION: 3.25.0
         UBUNTU: 20.04
       image: ubuntu-cuda-cpp
 
@@ -1385,7 +1384,6 @@ tasks:
     template: docker-tests/github.cuda.yml
     params:
       env:
-        CMAKE_VERSION: 3.25.0
         CUDA: 11.7.1
         UBUNTU: 22.04
       image: ubuntu-cuda-cpp
@@ -1395,7 +1393,6 @@ tasks:
     template: docker-tests/github.cuda.yml
     params:
       env:
-        CMAKE_VERSION: 3.25.0
         CUDA: 11.7.1
         UBUNTU: 22.04
       image: ubuntu-cuda-python
