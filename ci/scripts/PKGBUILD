@@ -82,7 +82,7 @@ build() {
 
   # We install CMake via the msys2 GitHub action. We have to use the installed
   # CMake to build Arrow which is in the Program Files directory.
-  MSYS2_ARG_CONV_EXCL="${PROGRAMFILES}\CMake\bin\cmake.exe" \
+"${PROGRAMFILES}\CMake\bin\cmake.exe" \
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
     -DARROW_ACERO=ON \
