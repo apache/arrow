@@ -1599,6 +1599,7 @@ services:
         - ${REPO}:amd64-ubuntu-20.04-r-sanitizer
       args:
         base: wch1/r-debug:latest
+        cmake: ${CMAKE_VERSION}
         r_bin: RDsan
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
@@ -1619,6 +1620,7 @@ services:
         - ${REPO}:r-rhub-clang-devel-latest
       args:
         base: rhub/clang-asan
+        cmake: ${CMAKE_VERSION}
         r_dev: ${ARROW_R_DEV}
         r_bin: R
         tz: ${TZ}
@@ -1650,6 +1652,7 @@ services:
         - ${REPO}:amd64-ubuntu-20.04-r-valgrind
       args:
         base: wch1/r-debug:latest
+        cmake: ${CMAKE_VERSION}
         r_bin: RDvalgrind
         tz: ${TZ}
     environment:
