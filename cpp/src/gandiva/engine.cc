@@ -198,7 +198,7 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf, bool cached,
 #else
   using CodeGenOptLevel = llvm::CodeGenOpt::Level;
 #endif
-  auto const opt_level =                                                                                                                                                                                                                 
+  auto const opt_level =
       conf->optimize() ? CodeGenOptLevel::Aggressive : CodeGenOptLevel::None;
 
   // Note that the lifetime of the error string is not captured by the
