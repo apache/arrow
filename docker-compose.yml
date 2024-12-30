@@ -474,6 +474,7 @@ services:
       args:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
+        cmake: ${CMAKE_VERSION}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
@@ -699,6 +700,7 @@ services:
       args:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE_VERSION}
         llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
