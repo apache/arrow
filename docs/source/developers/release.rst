@@ -290,7 +290,6 @@ Be sure to go through on the following checklist:
 #. Update vcpkg port
 #. Update Conan recipe
 #. Bump versions
-#. Update tags for Go modules
 #. Update docs
 #. Update version in Apache Arrow Cookbook
 #. Announce the new release
