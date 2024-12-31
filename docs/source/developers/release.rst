@@ -628,7 +628,8 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   The documentations are generated in the release process. We just need to upload the generated documentations:
+   Documentation is generated as part of the release process. We just need to
+   upload the generated documentation:
 
    .. code-block:: Bash
 
