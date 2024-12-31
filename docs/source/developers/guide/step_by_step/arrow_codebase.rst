@@ -32,8 +32,8 @@ Working on the Arrow codebase 🧐
 Finding your way around Arrow
 =============================
 
-The `Apache Arrow repository <https://github.com/apache/arrow>`_ includes implementations for
-most of the libraries for which Arrow is available.
+The `Apache Arrow repository <https://github.com/apache/arrow>`_ includes
+implementations for most of the libraries for which Arrow is available.
 
 Languages like GLib (``c_glib/``), C++ (``cpp/``), C# (``csharp/``),
 JavaScript (``js/``), MATLAB (``matlab/``), Python (``python/``), R (``r/``)
