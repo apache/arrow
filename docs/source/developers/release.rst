@@ -180,7 +180,7 @@ Create the Release Candidate branch from the updated maintenance branch
     # place the necessary commits updating the version number and then create a git tag
     # on OSX use gnu-sed with homebrew: brew install gnu-sed (and export to $PATH)
     #
-    # <rc-number> starts at 0 and increments every time the Release Candidate is burned
+    # <rc-number> starts at 0 and increments every time the Release Candidate is created
     # so for the first RC this would be: dev/release/01-prepare.sh 4.0.0 5.0.0 0
     dev/release/01-prepare.sh <version> <next-version> <rc-number>
 
