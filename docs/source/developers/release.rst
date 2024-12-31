@@ -168,6 +168,22 @@ Create or update the corresponding maintenance branch
             # Push the updated maintenance branch to the remote repository
             git push -u apache maint-X.Y.Z
 
+Optional: Test Before Creating a Release Candidate
+---------------------------------------------
+
+Some release managers prefer to perform testing before creating the first
+release candidate to avoid the need to create multiple release candidates within
+a given release.
+
+To test before creating a release candiate:
+
+* Create a pull request from the up-to-date maint-X.Y.Z branch onto main
+* Title the pull request "WIP: Dummy PR to check maint-X.Y.Z status"
+* Comment on the pull request to trigger the relevant Crossbow jobs:
+
+  * ``@github-actions crossbow submit --group verify-rc-source``
+  * ``@github-actions crossbow submit --group packaging``
+
 Create the Release Candidate branch from the updated maintenance branch
 -----------------------------------------------------------------------
 
