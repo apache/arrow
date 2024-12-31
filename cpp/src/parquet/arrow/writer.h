@@ -87,9 +87,14 @@ class PARQUET_EXPORT FileWriter {
   /// \brief Start a new row group.
   ///
   /// Returns an error if not all columns have been written.
+  virtual ::arrow::Status NewRowGroup() = 0;
+
+  /// \brief Start a new row group.
   ///
-  /// \param chunk_size the number of rows in the next row group.
-  virtual ::arrow::Status NewRowGroup(int64_t chunk_size) = 0;
+  /// \deprecated Deprecated in 19.0.0.
+  ARROW_DEPRECATED(
+      "Deprecated in 19.0.0. Use NewRowGroup() without the `chunk_size` argument.")
+  virtual ::arrow::Status NewRowGroup(int64_t chunk_size) { return NewRowGroup(); }
 
   /// \brief Write ColumnChunk in row group using an array.
   virtual ::arrow::Status WriteColumnChunk(const ::arrow::Array& data) = 0;
