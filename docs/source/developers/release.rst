@@ -215,8 +215,8 @@ Build source and binaries and submit them
 
     # Build the source release tarball and create Pull Request with verification tasks
     #
+    # NOTE: This must be run a PMC member
     # NOTE: You need to have GitHub CLI installed to run this script.
-    # NOTE: This must be run by a PMC member (someone in the KEYS file)
     dev/release/02-source.sh <version> <rc-number>
 
     # Submit binary tasks using crossbow, the command will output the crossbow build id
@@ -231,13 +231,17 @@ Build source and binaries and submit them
 
     # Sign and upload the binaries
     #
+    # NOTE: This must be run by a PMC member
+    #
     # On macOS the only way I could get this to work was running "echo "UPDATESTARTUPTTY" | gpg-connect-agent" before running this comment
     # otherwise I got errors referencing "ioctl" errors.
+
     dev/release/05-binary-upload.sh <version> <rc-number>
 
     # Sign and upload MATLAB artifacts to the GitHub Releases area.
     #
-    # Note that you need to have GitHub CLI installed to run this script.
+    # NOTE: This must be run by a PMC member
+    # NOTE: You need to have GitHub CLI installed to run this script.
     dev/release/06-matlab-upload.sh <version> <rc-number>
 
     # Start verifications for binaries and wheels
