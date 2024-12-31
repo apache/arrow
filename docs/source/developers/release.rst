@@ -679,7 +679,7 @@ Be sure to go through on the following checklist:
      the filename and YAML metadata.
 
      * Set the date in the filename and in the YAML metadata to the date that the
-       release candidate vote thread for the release closed.
+       release candidate vote thread for the release closed (in GMT).
 
    * *For minor releases only*, remove any section about community updates (new
      committers, PMC members, etc).
