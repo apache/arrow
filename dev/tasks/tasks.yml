@@ -74,9 +74,13 @@ groups:
 
   test:
     - test-*
+    # Can be removed after we improved C++20 support
+    - ~test-debian-experimental-cpp-gcc-15
 
   cpp:
     - test-*cpp*
+    # Can be removed after we improved C++20 support
+    - ~test-debian-experimental-cpp-gcc-15
     - example-*cpp*
 
   c-glib:
@@ -157,6 +161,8 @@ groups:
 
   nightly-tests:
     - test-*
+    # Can be removed after we improved C++20 support
+    - ~test-debian-experimental-cpp-gcc-15
     - example-*
 
   nightly-packaging:
