@@ -197,6 +197,7 @@ Build source and binaries and submit them
     # Build the source release tarball and create Pull Request with verification tasks
     #
     # NOTE: You need to have GitHub CLI installed to run this script.
+    # NOTE: This must be run by a PMC member (someone in the KEYS file)
     dev/release/02-source.sh <version> <rc-number>
 
     # Submit binary tasks using crossbow, the command will output the crossbow build id
