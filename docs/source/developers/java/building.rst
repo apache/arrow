@@ -47,7 +47,7 @@ repository:
 .. code-block::
 
     $ git clone https://github.com/apache/arrow-java.git
-    $ cd arrow
+    $ cd arrow-java
     $ git submodule update --init --recursive
 
 These are the options available to compile Arrow Java modules with:
