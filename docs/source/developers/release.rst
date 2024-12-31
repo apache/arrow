@@ -689,14 +689,18 @@ Be sure to go through on the following checklist:
      filling in the details for each section.
 
 
-.. dropdown:: Announce the release on Twitter
+.. dropdown:: Announce the release on social media
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   Post the release blog post on Twitter from the `@ApacheArrow <https://twitter.com/ApacheArrow>`_ handle.
+   Post about the release and link to the blog post on social media. The project
+   has two official accounts:
 
-   PMC members have access or can request access, after which they can post via `TweetDeck <https://tweetdeck.twitter.com>`_.
+   * Twitter/X: `@ApacheArrow <https://twitter.com/ApacheArrow>`_
+   * LinkedIn: https://www.linkedin.com/company/apache-arrow/
+
+   PMC members have access or can request access to post under these accounts.
 
 .. dropdown:: Remove old artifacts
    :animate: fade-in-slide-down
