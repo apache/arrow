@@ -712,3 +712,5 @@ Be sure to go through on the following checklist:
    .. code-block:: Bash
 
       dev/release/post-09-remove-old-artifacts.sh
+
+   Note: This step must be done by a PMC member.
