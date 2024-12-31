@@ -235,7 +235,6 @@ Build source and binaries and submit them
     #
     # On macOS the only way I could get this to work was running "echo "UPDATESTARTUPTTY" | gpg-connect-agent" before running this comment
     # otherwise I got errors referencing "ioctl" errors.
-
     dev/release/05-binary-upload.sh <version> <rc-number>
 
     # Sign and upload MATLAB artifacts to the GitHub Releases area.
