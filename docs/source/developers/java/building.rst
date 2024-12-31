@@ -46,7 +46,7 @@ repository:
 
 .. code-block::
 
-    $ git clone https://github.com/apache/arrow.git
+    $ git clone https://github.com/apache/arrow-java.git
     $ cd arrow
     $ git submodule update --init --recursive
 
