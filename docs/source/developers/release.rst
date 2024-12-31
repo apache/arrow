@@ -36,8 +36,8 @@ Preparing for the release
 =========================
 
 Before creating a source release, the Release Manager must ensure that any
-resolved JIRAs have the appropriate Fix Version set so that the changelog is
-generated properly.
+resolved GitHub issues and any MINOR pull requests have the appropriate
+milestone set so that the changelog is generated properly.
 
 .. dropdown:: Requirements
    :animate: fade-in-slide-down
@@ -67,7 +67,8 @@ generated properly.
 Before creating a Release Candidate
 ===================================
 
-Ensure local tags are removed, gpg-agent is set and JIRA tickets are correctly assigned.
+Ensure local tags are removed, gpg-agent is set and GitHub issues and pull
+requests are correctly assigned.
 
 .. code-block::
 
@@ -78,7 +79,8 @@ Ensure local tags are removed, gpg-agent is set and JIRA tickets are correctly a
     source dev/release/setup-gpg-agent.sh
 
     # Curate the release
-    # The end of the generated report shows the JIRA tickets with wrong version number assigned.
+    # The end of the generated report shows any GitHub issues with the wrong
+    # version number assigned.
     archery release curate <version>
 
 Ensure a major version milestone for a follow up release is created on GitHub. This will
@@ -149,7 +151,7 @@ Create or update the corresponding maintenance branch
             # This will create a branch locally called maint-X.Y.Z.
             # X.Y.Z corresponds with the Major, Minor and Patch version number
             # of the release respectively. As an example 9.0.0
-            archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --execute
+            archery release cherry-pick X.Y.Z --execute
             # Push the maintenance branch to the remote repository
             git push -u apache maint-X.Y.Z
 
@@ -158,11 +160,11 @@ Create or update the corresponding maintenance branch
       .. code-block::
 
             # First run in dry-mode to see which commits will be cherry-picked.
-            # If there are commits that we don't want to get applied ensure the version on
-            # JIRA is set to the following release.
-            archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --continue
+            # If there are commits that we don't want to get applied, ensure the
+            # milestone on GitHub is set to the following release.
+            archery release cherry-pick X.Y.Z --continue
             # Update the maintenance branch with the previous commits
-            archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --continue --execute
+            archery release cherry-pick X.Y.Z --continue --execute
             # Push the updated maintenance branch to the remote repository
             git push -u apache maint-X.Y.Z
 
@@ -246,8 +248,6 @@ After the release vote, we must undertake many tasks to update source artifacts,
 Be sure to go through on the following checklist:
 
 #. Update the released milestone Date and set to "Closed" on GitHub
-#. Make the CPP PARQUET related version as "RELEASED" on JIRA
-#. Start the new version on JIRA for the related CPP PARQUET version
 #. Merge changes on release branch to maintenance branch for patch releases
 #. Add the new release to the Apache Reporter System
 #. Push release tag
@@ -273,28 +273,6 @@ Be sure to go through on the following checklist:
 #. Publish release blog posts
 #. Announce the release on Twitter
 #. Remove old artifacts
-
-.. dropdown:: Mark the released version as "RELEASED" on JIRA
-   :animate: fade-in-slide-down
-   :class-title: sd-fs-5
-   :class-container: sd-shadow-md
-
-   - Open https://issues.apache.org/jira/plugins/servlet/project-config/ARROW/administer-versions
-   - Click "..." for the release version in "Actions" column
-   - Select "Release"
-   - Set "Release date"
-   - Click "Release" button
-
-.. dropdown:: Start the new version on JIRA
-   :animate: fade-in-slide-down
-   :class-title: sd-fs-5
-   :class-container: sd-shadow-md
-
-   - Open https://issues.apache.org/jira/plugins/servlet/project-config/ARROW/administer-versions
-   - Click "..." for the next version in "Actions" column
-   - Select "Edit"
-   - Set "Start date"
-   - Click "Save" button
 
 .. dropdown:: Merge changes on release branch to maintenance branch for patch releases
    :animate: fade-in-slide-down
