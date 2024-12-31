@@ -589,7 +589,7 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   Open a pull request to vcpkg:
+   Open a pull request to Conan:
 
    .. code-block:: Bash
 
@@ -605,8 +605,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/conan-io/conan-center-index.git
       cd -
 
-      # dev/release/post-17-conan.sh 10.0.1 ../conan-center-index
-      dev/release/post-17-conan.sh X.Y.Z <YOUR_CONAN_CENTER_INDEX_FORK>
+      # dev/release/post-16-conan.sh 10.0.1 ../conan-center-index
+      dev/release/post-16-conan.sh X.Y.Z <YOUR_CONAN_CENTER_INDEX_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``conan-io/conan-center-index`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch on your Web browser.
 
