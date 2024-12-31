@@ -652,7 +652,8 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   TODO
+   Follow `the documentation <https://github.com/apache/arrow-cookbook/tree/main/dev/release>`_
+   in the Apache Arrow Cookbook repository
 
 .. dropdown:: Announce the new release
    :animate: fade-in-slide-down
