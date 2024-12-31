@@ -24,7 +24,10 @@ Release Management Guide
 This page provides detailed information on the steps followed to perform
 a release. It can be used both as a guide to learn the Apache Arrow release
 process and as a comprehensive checklist for the Release Manager when
-performing a release.
+performing a release. The person acting as Release Manager must at least have
+committer status in order to perform the tasks below. If the Release Manager is
+a committer but not a member of the PMC, some tasks will need to be delegated
+to a PMC member and these are marked below accordingly.
 
 Principles
 ==========
