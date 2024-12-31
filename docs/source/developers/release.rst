@@ -669,7 +669,25 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   TODO
+   The blog post process isn't automated. The rough set of steps we usually take
+   are:
+
+   * Clone https://github.com/apache/arrow-site.
+   * Create a new branch off ``main`` for the blog post pull request we're
+     creating.
+   * Duplicate a recent blog post entry in the ``_posts`` subfolder and update
+     the filename and YAML metadata.
+
+     * Set the date in the filename and in the YAML metadata to the date that the
+       release candidate vote thread for the release closed.
+
+   * *For minor releases only*, remove any section about community updates (new
+     committers, PMC members, etc).
+   * Update the remainder of the text as needed
+   * Create the pull request
+   * In the pull request, ping contributors in each section requesting help
+     filling in the details for each section.
+
 
 .. dropdown:: Announce the release on Twitter
    :animate: fade-in-slide-down
