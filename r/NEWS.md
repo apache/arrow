@@ -19,6 +19,10 @@
 
 # arrow 18.1.0.9000
 
+## Minor improvements and fixes
+
+- Added bindings for atan, sinh, cosh, tanh, asinh, acosh, and tanh, and expm1 (#44953)
+
 # arrow 18.1.0
 
 ## Minor improvements and fixes
