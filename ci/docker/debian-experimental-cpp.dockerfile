@@ -73,6 +73,7 @@ RUN if [ -n "${gcc}" ]; then \
         libutf8proc-dev \
         libxml2-dev \
         libxsimd-dev \
+        libxxhash-dev \
         libzstd-dev \
         make \
         ninja-build \
@@ -125,7 +126,7 @@ ENV ARROW_ACERO=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
     ARROW_SUBSTRAIT=ON \
-    ARROW_USE_CCACHE=OFF \
+    ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
