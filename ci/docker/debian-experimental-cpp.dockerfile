@@ -111,7 +111,7 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # Prioritize system packages and local installation.
 ENV ARROW_ACERO=ON \
     ARROW_AZURE=ON \
-    ARROW_BUILD_TESTS=ON \
+    ARROW_BUILD_TESTS=OFF \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
