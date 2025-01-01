@@ -172,7 +172,7 @@ Create or update the corresponding maintenance branch
             git push -u apache maint-X.Y.Z
 
 Optional: Test Before Creating a Release Candidate
----------------------------------------------
+--------------------------------------------------
 
 Some release managers prefer to perform testing before creating the first
 release candidate to avoid the need to create multiple release candidates within
