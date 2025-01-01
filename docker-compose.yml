@@ -188,8 +188,6 @@ volumes:
     name: ${ARCH}-conda-ccache
   debian-ccache:
     name: ${ARCH}-debian-${DEBIAN}-ccache
-  debian-rust:
-    name: ${ARCH}-debian-${DEBIAN}-rust
   fedora-ccache:
     name: ${ARCH}-fedora-${FEDORA}-ccache
   maven-cache:
@@ -346,7 +344,7 @@ services:
     #   docker compose run --rm debian-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 12
+    #   DEBIAN: 12, experimental
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
     build:
       context: .
@@ -355,6 +353,7 @@ services:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
       args:
         arch: ${ARCH}
+        gcc: ${GCC}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
@@ -389,8 +388,8 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        gcc: ${GCC}
         llvm: ${LLVM}
-        gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
     cap_add:
       - SYS_ADMIN
@@ -425,8 +424,8 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        gcc: ${GCC}
         llvm: ${LLVM}
-        gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
     cap_add:
       - SYS_ADMIN
@@ -1517,12 +1516,12 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-r-${R}
       args:
         arch: ${ARCH}
-        r: ${R}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        gcc_version: ${GCC_VERSION}
-        tz: ${TZ}
-        r_prune_deps: ${R_PRUNE_DEPS}
+        gcc: ${GCC}
+        r: ${R}
         r_duckdb_dev: ${R_DUCKDB_DEV:-}
+        r_prune_deps: ${R_PRUNE_DEPS}
+        tz: ${TZ}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]

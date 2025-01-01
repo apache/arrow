@@ -74,9 +74,13 @@ groups:
 
   test:
     - test-*
+    # Can be removed after we improved C++20 support
+    - ~test-debian-experimental-cpp-gcc-15
 
   cpp:
     - test-*cpp*
+    # Can be removed after we improved C++20 support
+    - ~test-debian-experimental-cpp-gcc-15
     - example-*cpp*
 
   c-glib:
@@ -157,6 +161,8 @@ groups:
 
   nightly-tests:
     - test-*
+    # Can be removed after we improved C++20 support
+    - ~test-debian-experimental-cpp-gcc-15
     - example-*
 
   nightly-packaging:
@@ -935,7 +941,7 @@ tasks:
     params:
       env:
         UBUNTU: 24.04
-        GCC_VERSION: 13
+        GCC: 13
       image: ubuntu-cpp-bundled
 
   test-ubuntu-24.04-cpp:
@@ -954,7 +960,7 @@ tasks:
     params:
       env:
         CLANG_TOOLS: 15
-        GCC_VERSION: 14
+        GCC: 14
         LLVM: 15
         UBUNTU: 24.04
       # rapidjson 1.1.0 has an error caught by gcc 14.
@@ -996,6 +1002,17 @@ tasks:
       flags: "-e ARROW_AZURE=OFF -e ARROW_S3=OFF -e ARROW_GANDIVA=OFF"
       image: debian-cpp
 {% endfor %}
+
+  test-debian-experimental-cpp-gcc-15:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        ARCH: "amd64"
+        DEBIAN: "experimental"
+        GCC: "15"
+      flags: "-e CMAKE_CXX_STANDARD=20"
+      image: debian-cpp
 
   test-fedora-39-cpp:
     ci: github
@@ -1301,7 +1318,7 @@ tasks:
     params:
       env:
         UBUNTU: 22.04
-        GCC_VERSION: 11
+        GCC: 11
       image: ubuntu-r-only-r
 
   # This also has -flto=auto
@@ -1311,7 +1328,7 @@ tasks:
     params:
       env:
         UBUNTU: 22.04
-        GCC_VERSION: 12
+        GCC: 12
       image: ubuntu-r-only-r
 
   test-r-minimal-build:
