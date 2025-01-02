@@ -22,10 +22,9 @@ echo "Building windows wheel..."
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
 @echo on
 
-@REM Install a more recent msvcp140.dll in C:\Windows\System
+@REM Install a more recent msvcp140.dll in C:\Windows\System32
 choco install -r -y --no-progress vcredist140
 choco upgrade -r -y --no-progress vcredist140
-
 dir C:\Windows\System32\msvcp140.dll
 
 echo "=== (%PYTHON_VERSION%) Clear output directories and leftovers ==="
@@ -111,7 +110,7 @@ popd
 
 echo "=== (%PYTHON_VERSION%) Building wheel ==="
 set PYARROW_BUILD_TYPE=%CMAKE_BUILD_TYPE%
-set PYARROW_BUNDLE_ARROW_CPP=OFF
+set PYARROW_BUNDLE_ARROW_CPP=ON
 set PYARROW_CMAKE_GENERATOR=%CMAKE_GENERATOR%
 set PYARROW_WITH_ACERO=%ARROW_ACERO%
 set PYARROW_WITH_DATASET=%ARROW_DATASET%
@@ -133,21 +132,15 @@ pushd C:\arrow\python
 python setup.py bdist_wheel || exit /B 1
 
 @REM Repair the wheel with delvewheel
-pip install delvewheel || exit /B 1
+@REM
+@REM Since we bundled the Arrow C++ libraries ourselves, we only need to
+@REM mangle msvcp140.dll so as to avoid ABI issues when msvcp140.dll is
+@REM required by multiple Python libraries in the same process.
+pip install https://github.com/pitrou/delvewheel/archive/refs/heads/fixes-for-arrow.zip || exit /B 1
+
 for /f %%i in ('dir dist\pyarrow-*.whl /B') do (set WHEEL_NAME=%cd%\dist\%%i) || exit /B 1
 echo "Wheel name: %WHEEL_NAME%"
-for /f %%i in ('dir build\lib* /B') do (set WHEEL_BUILD_DIR=%cd%\build\%%i) || exit /B 1
-echo "Wheel build dir: %WHEEL_BUILD_DIR%"
 
-dir "%WHEEL_BUILD_DIR%\pyarrow" || exit /B 1
-
-delvewheel show -vv ^
-    --add-path "%WHEEL_BUILD_DIR%\pyarrow";C:\Windows\System32 ^
-    --add-path "%ARROW_HOME%\bin" ^
-    %WHEEL_NAME% || exit /B 1
-delvewheel repair -vv ^
-    --add-path "%WHEEL_BUILD_DIR%\pyarrow";C:\Windows\System32 ^
-    --add-path "%ARROW_HOME%\bin" ^
-    %WHEEL_NAME% -w repaired_wheels || exit /B 1
+delvewheel repair -vv --mangle-only=msvcp140.dll %WHEEL_NAME% -w repaired_wheels || exit /B 1
 
 popd
