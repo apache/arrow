@@ -251,7 +251,14 @@ static void SetDataLayout(llvm::Module* module) {
   llvm::SubtargetFeatures features;
   llvm::StringMap<bool> host_features;
 
-  if (llvm::sys::getHostCPUFeatures(host_features)) {
+#if LLVM_VERSION_MAJOR >= 19
+  auto host_features = llvm::sys::getHostCPUFeatures();
+  const bool have_host_features = true;
+#else
+  llvm::StringMap<bool> host_features;
+  const auto have_host_features = llvm::sys::getHostCPUFeatures(host_features);
+#endif
+  if (have_host_features) {
     for (auto& f : host_features) {
       features.AddFeature(f.first(), f.second);
     }
