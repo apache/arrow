@@ -39,11 +39,7 @@ jobs:
       {% endif %}
       PYTHON: "{{ python_version }}"
       PYTHON_ABI_TAG: "{{ python_abi_tag }}"
-      {% if python_version == "3.13" %}
-      PYTHON_IMAGE_TAG: "3.13-rc"
-      {% else %}
       PYTHON_IMAGE_TAG: "{{ python_version }}"
-      {% endif %}
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
