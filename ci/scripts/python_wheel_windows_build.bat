@@ -128,7 +128,10 @@ set CMAKE_PREFIX_PATH=C:\arrow-dist
 
 pushd C:\arrow\python
 
-@REM build wheel
+@REM Bundle the C++ runtime
+cp C:\Windows\System32\msvcp140.dll pyarrow\
+
+@REM Build wheel
 python setup.py bdist_wheel || exit /B 1
 
 @REM Repair the wheel with delvewheel
