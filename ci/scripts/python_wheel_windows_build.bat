@@ -144,6 +144,7 @@ pip install https://github.com/pitrou/delvewheel/archive/refs/heads/fixes-for-ar
 for /f %%i in ('dir dist\pyarrow-*.whl /B') do (set WHEEL_NAME=%cd%\dist\%%i) || exit /B 1
 echo "Wheel name: %WHEEL_NAME%"
 
-delvewheel repair -vv --mangle-only=msvcp140.dll %WHEEL_NAME% -w repaired_wheels || exit /B 1
+delvewheel repair -vv --mangle-only=msvcp140.dll --no-patch ^
+    -w repaired_wheels %WHEEL_NAME% || exit /B 1
 
 popd
