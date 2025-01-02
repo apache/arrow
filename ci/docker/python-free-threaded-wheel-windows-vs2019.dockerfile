@@ -32,7 +32,7 @@ RUN $filename = 'python-3.13.1-amd64.exe'; \
 RUN py -3.13t -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt arrow/python/
-@REM Cython wheels for 3.13 free-threaded are not released yet
+# Cython wheels for 3.13 free-threaded are not released yet
 RUN py -3.13t -m pip install --pre --prefer-binary --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" cython
 RUN py -3.13t -m pip install -r arrow/python/requirements-wheel-build.txt
 
