@@ -40,7 +40,7 @@ index 9ccce30..5cbbef7 100644
 
  /* The next set of struct definitions are taken directly from the
 diff --git a/source/windows/secure_channel_tls_handler.c b/source/windows/secure_channel_tls_handler.c
-index 50caf02..7f2ab55 100644
+index 50caf02..29fe850 100644
 --- a/source/windows/secure_channel_tls_handler.c
 +++ b/source/windows/secure_channel_tls_handler.c
 @@ -2,6 +2,7 @@
@@ -77,3 +77,12 @@ index 50caf02..7f2ab55 100644
  #define KB_1 1024
  #define READ_OUT_SIZE (16 * KB_1)
  #define READ_IN_SIZE READ_OUT_SIZE
+@@ -456,7 +476,7 @@ static int s_fillin_alpn_data(
+ 
+     *extension_length += sizeof(uint32_t) + sizeof(uint16_t);
+ 
+-    *extension_name = SecApplicationProtocolNegotiationExt_ALPN;
++    *extension_name = 2;
+     /*now add the protocols*/
+     for (size_t i = 0; i < protocols_count; ++i) {
+         struct aws_byte_cursor *protocol_ptr = NULL;
