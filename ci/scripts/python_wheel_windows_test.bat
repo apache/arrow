@@ -46,6 +46,7 @@ set PYTHON_CMD=py -%PYTHON%
 
 @REM Install testing dependencies
 if "%PYTHON%"=="3.13t" (
+    @REM Cython and Pandas wheels for 3.13 free-threaded are not released yet
     %PYTHON_CMD% -m pip install ^
         --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple ^
         --pre ^
