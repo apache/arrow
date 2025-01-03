@@ -676,9 +676,14 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
           return Status::Invalid("Group with one repeated child must be LIST-annotated.");
         }
         // LIST-annotated group with three-level encoding cannot be repeated.
-        if (repeated_field->is_group() &&
-            !static_cast<const GroupNode&>(*repeated_field).field(0)->is_repeated()) {
-          return Status::Invalid("LIST-annotated groups must not be repeated.");
+        if (repeated_field->is_group()) {
+          auto& repeated_group_field = static_cast<const GroupNode&>(*repeated_field);
+          if (repeated_group_field.field_count() == 0) {
+            return Status::Invalid("LIST-annotated groups must have at least one child.");
+          }
+          if (!repeated_group_field.field(0)->is_repeated()) {
+            return Status::Invalid("LIST-annotated groups must not be repeated.");
+          }
         }
         RETURN_NOT_OK(
             NodeToSchemaField(*repeated_field, current_levels, ctx, out, child_field));
