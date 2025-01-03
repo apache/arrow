@@ -281,13 +281,18 @@ void SwissTable::early_filter_imp(const int num_keys, const uint32_t* hashes,
 // When we reach this limit, we need to break processing of any further rows and resize.
 //
 uint64_t SwissTable::num_groups_for_resize() const {
-  // Resize small hash tables when 50% full (up to 12KB).
-  // Resize large hash tables when 75% full.
+  // Consider N = 9 (aka 2 ^ 9 = 512 blocks) as small.
+  // When N = 9, a slot id takes N + 3 = 12 bits, rounded up to 16 bits. This is also the
+  // number of bits needed for a key id. Since each slot stores a status byte and a key
+  // id, then a slot takes 1 byte + 16 bits = 3 bytes. Therefore a block of 8 slots takes
+  // 24 bytes. The threshold of a small hash table ends up being 24 bytes * 512 = 12 KB.
   constexpr int log_blocks_small_ = 9;
   uint64_t num_slots = 1ULL << (log_blocks_ + 3);
   if (log_blocks_ <= log_blocks_small_) {
+    // Resize small hash tables when 50% full.
     return num_slots / 2;
   } else {
+    // Resize large hash tables when 75% full.
     return num_slots * 3 / 4;
   }
 }

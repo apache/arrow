@@ -22,27 +22,20 @@
 
 set -exu
 
-codename=$(. /etc/os-release && echo ${UBUNTU_CODENAME})
+version=$(. /etc/os-release && echo ${VERSION_ID})
 
-case ${codename} in
-  *)
-    nlohmann_json=3
-    python=3
-    apt-get update -y -q
-    apt-get install -y -q --no-install-recommends \
-      llvm-dev
-    ;;
-esac
+apt-get update -y -q
 
-case ${codename} in
-  focal)
-    ;;
-  *)
-    apt-get update -y -q
-    apt-get install -y -q --no-install-recommends \
-      libxsimd-dev
-    ;;
-esac
+if [ ${version} \> "20.04" ]; then
+  apt-get install -y -q --no-install-recommends \
+    libxsimd-dev
+fi
+
+if [ ${version} \> "22.04" ]; then
+  # Some tests rely on legacy timezone aliases such as "US/Pacific"
+  apt-get install -y -q --no-install-recommends \
+    tzdata-legacy
+fi
 
 apt-get install -y -q --no-install-recommends \
   build-essential \
@@ -58,10 +51,10 @@ apt-get install -y -q --no-install-recommends \
   libsqlite3-dev \
   libssl-dev \
   ninja-build \
-  nlohmann-json${nlohmann_json}-dev \
+  nlohmann-json3-dev \
   pkg-config \
-  python${python}-dev \
-  python${python}-venv \
+  python3-dev \
+  python3-venv \
   python3-pip \
   ruby-dev \
   tzdata \

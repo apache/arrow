@@ -2329,6 +2329,15 @@ cdef class FixedSizeBinaryArray(Array):
     Concrete class for Arrow arrays of a fixed-size binary data type.
     """
 
+cdef class Decima32Array(FixedSizeBinaryArray):
+    """
+    Concrete class for Arrow arrays of decimal32 data type.
+    """
+
+cdef class Decimal64Array(FixedSizeBinaryArray):
+    """
+    Concrete class for Arrow arrays of decimal64 data type.
+    """
 
 cdef class Decimal128Array(FixedSizeBinaryArray):
     """
@@ -4045,7 +4054,7 @@ cdef class StructArray(Array):
         memory_pool : MemoryPool (optional)
             For memory allocations, if required, otherwise uses default pool.
         type : pyarrow.StructType (optional)
-            Struct type for name and type of each child. 
+            Struct type for name and type of each child.
 
         Returns
         -------
@@ -4707,6 +4716,8 @@ cdef dict _array_classes = {
     _Type_STRING_VIEW: StringViewArray,
     _Type_DICTIONARY: DictionaryArray,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
+    _Type_DECIMAL32: Decimal32Array,
+    _Type_DECIMAL64: Decimal64Array,
     _Type_DECIMAL128: Decimal128Array,
     _Type_DECIMAL256: Decimal256Array,
     _Type_STRUCT: StructArray,

@@ -291,7 +291,6 @@ class SerializedPageReader : public PageReader {
   std::shared_ptr<ArrowInputStream> stream_;
 
   format::PageHeader current_page_header_;
-  std::shared_ptr<Page> current_page_;
 
   // Compression codec to use.
   std::unique_ptr<::arrow::util::Codec> decompressor_;

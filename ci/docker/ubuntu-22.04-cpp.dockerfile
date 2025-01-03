@@ -137,32 +137,27 @@ RUN cd ~ && git clone https://github.com/emscripten-core/emsdk.git && \
     echo "Installed emsdk to:" ~/emsdk
 
 
-ARG gcc_version=""
-RUN if [ "${gcc_version}" = "" ]; then \
+ARG gcc=""
+RUN if [ "${gcc}" = "" ]; then \
       apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
           g++ \
           gcc; \
     else \
-      if [ "${gcc_version}" -gt "12" ]; then \
-          apt-get update -y -q && \
-          apt-get install -y -q --no-install-recommends software-properties-common && \
-          add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
-      fi; \
       apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
-          g++-${gcc_version} \
-          gcc-${gcc_version} && \
-      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
-      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+          g++-${gcc} \
+          gcc-${gcc} && \
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc} 100 && \
+      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc} 100 && \
       update-alternatives --install \
         /usr/bin/$(uname --machine)-linux-gnu-gcc \
         $(uname --machine)-linux-gnu-gcc \
-        /usr/bin/$(uname --machine)-linux-gnu-gcc-${gcc_version} 100 && \
+        /usr/bin/$(uname --machine)-linux-gnu-gcc-${gcc} 100 && \
       update-alternatives --install \
         /usr/bin/$(uname --machine)-linux-gnu-g++ \
         $(uname --machine)-linux-gnu-g++ \
-        /usr/bin/$(uname --machine)-linux-gnu-g++-${gcc_version} 100 && \
+        /usr/bin/$(uname --machine)-linux-gnu-g++-${gcc} 100 && \
       update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 100 && \
       update-alternatives --set cc /usr/bin/gcc && \
       update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 100 && \
@@ -205,6 +200,7 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
+    ARROW_JEMALLOC=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \

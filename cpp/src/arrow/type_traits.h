@@ -540,6 +540,16 @@ struct CTypeTraits<std::vector<CType>> : public TypeTraits<ListType> {
   }
 };
 
+/// \addtogroup c-type-traits
+template <typename CType, std::size_t N>
+struct CTypeTraits<std::array<CType, N>> : public TypeTraits<FixedSizeListType> {
+  using ArrowType = FixedSizeListType;
+
+  static auto type_singleton() {
+    return fixed_size_list(CTypeTraits<CType>::type_singleton(), N);
+  }
+};
+
 /// \addtogroup type-traits
 /// @{
 template <>
