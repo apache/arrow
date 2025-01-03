@@ -595,7 +595,25 @@ shape: {0.shape}""".format(self)
 
 cdef class SparseCSRMatrix(_Weakrefable):
     """
-    A sparse CSR matrix.
+    SparseCSRMatrix represents a sparse matrix in Compressed Sparse Row (CSR) format.
+
+    Attributes:
+        indptr : array
+            Index pointer array.
+        indices : array
+            Column indices of the corresponding non-zero values.
+        shape : tuple
+            Shape of the matrix.
+        dim_names : list, optional
+            Names of the dimensions.
+
+    Example:
+        >>> import pyarrow as pa
+        >>> indptr = pa.array([0, 2, 3])
+        >>> indices = pa.array([0, 2, 1])
+        >>> shape = (2, 3)
+        >>> tensor = pa.SparseCSRMatrix(indptr, indices, shape)
+        >>> print(tensor)
     """
 
     def __init__(self):
