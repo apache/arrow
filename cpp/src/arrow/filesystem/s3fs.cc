@@ -1220,7 +1220,7 @@ class RegionResolver {
   }
 
   static Result<std::shared_ptr<RegionResolver>> DefaultInstance() {
-    auto resolver = std::atomic_load(&instance_);
+    auto resolver = std::atomic(&instance_);
     if (resolver) {
       return resolver;
     }
@@ -1239,7 +1239,7 @@ class RegionResolver {
   }
 
   static void ResetDefaultInstance() {
-    std::atomic_store(&instance_, std::shared_ptr<RegionResolver>());
+    std::atomic(&instance_, std::shared_ptr<RegionResolver>());
   }
 
   Result<std::string> ResolveRegion(const std::string& bucket) {

@@ -100,10 +100,10 @@ class SimpleRecordBatch : public RecordBatch {
   }
 
   std::shared_ptr<Array> column(int i) const override {
-    std::shared_ptr<Array> result = std::atomic_load(&boxed_columns_[i]);
+    std::shared_ptr<Array> result = std::atomic(&boxed_columns_[i]);
     if (!result) {
       result = MakeArray(columns_[i]);
-      std::atomic_store(&boxed_columns_[i], result);
+      std::atomic(&boxed_columns_[i], result);
     }
     return result;
   }
