@@ -45,10 +45,10 @@ int SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* h
     // Calculate block index and hash stamp for a byte in a block
     //
     __m256i vhash = _mm256_loadu_si256(vhash_ptr + i);
-    __m256i vblock_id = _mm256_srlv_epi32(
-        vhash, _mm256_set1_epi32(bits_hash_ - bits_stamp_ - log_blocks_));
+    __m256i vblock_id =
+        _mm256_srlv_epi32(vhash, _mm256_set1_epi32(bits_shift_for_block_and_stamp_));
     __m256i vstamp = _mm256_and_si256(vblock_id, vstamp_mask);
-    vblock_id = _mm256_srli_epi32(vblock_id, bits_stamp_);
+    vblock_id = _mm256_srli_epi32(vblock_id, bits_shift_for_block_);
 
     // We now split inputs and process 4 at a time,
     // in order to process 64-bit blocks
@@ -392,16 +392,32 @@ int SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashe
   } else {
     for (int i = 0; i < num_keys / unroll; ++i) {
       __m256i hash = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(hashes) + i);
+      // Extend hash and local_slot to 64-bit to compute 64-bit group id offsets to
+      // gather.
+      // This is to prevent index overflow issues in GH-44513.
+      // NB: Use zero-extend conversion for unsigned hash.
+      __m256i hash_lo = _mm256_cvtepu32_epi64(_mm256_castsi256_si128(hash));
+      __m256i hash_hi = _mm256_cvtepu32_epi64(_mm256_extracti128_si256(hash, 1));
       __m256i local_slot =
           _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(local_slots)[i]);
       local_slot = _mm256_shuffle_epi8(
           local_slot, _mm256_setr_epi32(0x80808000, 0x80808001, 0x80808002, 0x80808003,
                                         0x80808004, 0x80808005, 0x80808006, 0x80808007));
       local_slot = _mm256_mullo_epi32(local_slot, _mm256_set1_epi32(byte_size));
-      __m256i pos = _mm256_srlv_epi32(hash, _mm256_set1_epi32(bits_hash_ - log_blocks_));
-      pos = _mm256_mullo_epi32(pos, _mm256_set1_epi32(byte_multiplier));
-      pos = _mm256_add_epi32(pos, local_slot);
-      __m256i group_id = _mm256_i32gather_epi32(elements, pos, 1);
+      __m256i local_slot_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(local_slot));
+      __m256i local_slot_hi =
+          _mm256_cvtepi32_epi64(_mm256_extracti128_si256(local_slot, 1));
+      __m256i pos_lo =
+          _mm256_srlv_epi64(hash_lo, _mm256_set1_epi64x(bits_hash_ - log_blocks_));
+      __m256i pos_hi =
+          _mm256_srlv_epi64(hash_hi, _mm256_set1_epi64x(bits_hash_ - log_blocks_));
+      pos_lo = _mm256_mul_epi32(pos_lo, _mm256_set1_epi32(byte_multiplier));
+      pos_hi = _mm256_mul_epi32(pos_hi, _mm256_set1_epi32(byte_multiplier));
+      pos_lo = _mm256_add_epi64(pos_lo, local_slot_lo);
+      pos_hi = _mm256_add_epi64(pos_hi, local_slot_hi);
+      __m128i group_id_lo = _mm256_i64gather_epi32(elements, pos_lo, 1);
+      __m128i group_id_hi = _mm256_i64gather_epi32(elements, pos_hi, 1);
+      __m256i group_id = _mm256_set_m128i(group_id_hi, group_id_lo);
       group_id = _mm256_and_si256(group_id, _mm256_set1_epi32(mask));
       _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_group_ids) + i, group_id);
     }

@@ -214,6 +214,14 @@ class ARROW_EXPORT SwissTable {
   int log_minibatch_;
   // Base 2 log of the number of blocks
   int log_blocks_ = 0;
+  // When log_blocks_ is greater than 25, there will be overlapping bits between block id
+  // and stamp within a 32-bit hash value. So we must check if this is the case when
+  // right-shifting a hash value to retrieve block id and stamp. The following two
+  // variables will be derived from log_blocks_ as log_blocks changes, and use them as the
+  // number of bits to right shift, rather than branching on whether log_blocks_ > 25
+  // every time in tight loops.
+  int bits_shift_for_block_and_stamp_ = bits_hash_ - log_blocks_ - bits_stamp_;
+  int bits_shift_for_block_ = bits_stamp_;
   // Number of keys inserted into hash table
   uint32_t num_inserted_ = 0;
 
@@ -271,8 +279,7 @@ void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
   constexpr uint64_t stamp_mask = 0x7f;
 
   int start_slot = (slot_id & 7);
-  int stamp =
-      static_cast<int>((hash >> (bits_hash_ - log_blocks_ - bits_stamp_)) & stamp_mask);
+  int stamp = static_cast<int>((hash >> bits_shift_for_block_and_stamp_) & stamp_mask);
   uint64_t block_id = slot_id >> 3;
   uint8_t* blockbase = blocks_->mutable_data() + num_block_bytes * block_id;
 
