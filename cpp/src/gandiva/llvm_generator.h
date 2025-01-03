@@ -18,9 +18,7 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -49,17 +47,15 @@ class FunctionHolder;
 class GANDIVA_EXPORT LLVMGenerator {
  public:
   /// \brief Factory method to initialize the generator.
-  static Result<std::unique_ptr<LLVMGenerator>> Make(
-      const std::shared_ptr<Configuration>& config, bool cached,
-      std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache =
-          std::nullopt);
+  static Status Make(const std::shared_ptr<Configuration>& config, bool cached,
+                     std::unique_ptr<LLVMGenerator>* llvm_generator);
 
   /// \brief Get the cache to be used for LLVM ObjectCache.
   static std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
   GetCache();
 
   /// \brief Set LLVM ObjectCache.
-  Status SetLLVMObjectCache(GandivaObjectCache& object_cache);
+  void SetLLVMObjectCache(GandivaObjectCache& object_cache);
 
   /// \brief Build the code for the expression trees for default mode with a LLVM
   /// ObjectCache. Each element in the vector represents an expression tree
@@ -83,7 +79,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   SelectionVector::Mode selection_vector_mode() { return selection_vector_mode_; }
   LLVMTypes* types() { return engine_->types(); }
   llvm::Module* module() { return engine_->module(); }
-  const std::string& ir() { return engine_->ir(); }
+  std::string DumpIR() { return engine_->DumpIR(); }
 
  private:
   explicit LLVMGenerator(bool cached,

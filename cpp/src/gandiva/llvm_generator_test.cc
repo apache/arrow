@@ -47,7 +47,8 @@ class TestLLVMGenerator : public ::testing::Test {
     auto external_registry = std::make_shared<FunctionRegistry>();
     auto config = config_factory(std::move(external_registry));
 
-    ASSERT_OK_AND_ASSIGN(auto generator, LLVMGenerator::Make(config, false));
+    std::unique_ptr<LLVMGenerator> generator;
+    ASSERT_OK(LLVMGenerator::Make(config, false, &generator));
 
     auto module = generator->module();
     ASSERT_OK(generator->engine_->LoadFunctionIRs());
@@ -57,7 +58,8 @@ class TestLLVMGenerator : public ::testing::Test {
 
 // Verify that a valid pc function exists for every function in the registry.
 TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
-  ASSERT_OK_AND_ASSIGN(auto generator, LLVMGenerator::Make(TestConfiguration(), false));
+  std::unique_ptr<LLVMGenerator> generator;
+  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), false, &generator));
 
   llvm::Module* module = generator->module();
   ASSERT_OK(generator->engine_->LoadFunctionIRs());
@@ -68,8 +70,8 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
 
 TEST_F(TestLLVMGenerator, TestAdd) {
   // Setup LLVM generator to do an arithmetic add of two vectors
-  ASSERT_OK_AND_ASSIGN(auto generator,
-                       LLVMGenerator::Make(TestConfigWithIrDumping(), false));
+  std::unique_ptr<LLVMGenerator> generator;
+  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), false, &generator));
   Annotator annotator;
 
   auto field0 = std::make_shared<arrow::Field>("f0", arrow::int32());
@@ -98,22 +100,18 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   auto field_sum = std::make_shared<arrow::Field>("out", arrow::int32());
   auto desc_sum = annotator.CheckAndAddInputFieldDescriptor(field_sum);
 
-  // LLVM 10 doesn't like the expr function name to be the same as the module name when
-  // LLJIT is used
-  std::string fn_name = "llvm_gen_test_add_expr";
+  std::string fn_name = "codegen";
 
   ASSERT_OK(generator->engine_->LoadFunctionIRs());
   ASSERT_OK(generator->CodeGenExprValue(func_dex, 4, desc_sum, 0, fn_name,
                                         SelectionVector::MODE_NONE));
 
   ASSERT_OK(generator->engine_->FinalizeModule());
-  auto const& ir = generator->engine_->ir();
+  auto ir = generator->engine_->DumpIR();
   EXPECT_THAT(ir, testing::HasSubstr("vector.body"));
 
-  ASSERT_OK_AND_ASSIGN(auto fn_ptr, generator->engine_->CompiledFunction(fn_name));
-  ASSERT_TRUE(fn_ptr);
+  EvalFunc eval_func = (EvalFunc)generator->engine_->CompiledFunction(fn_name);
 
-  auto eval_func = reinterpret_cast<EvalFunc>(fn_ptr);
   constexpr size_t kNumRecords = 4;
   std::array<uint32_t, kNumRecords> a0{1, 2, 3, 4};
   std::array<uint32_t, kNumRecords> a1{5, 6, 7, 8};
@@ -128,7 +126,6 @@ TEST_F(TestLLVMGenerator, TestAdd) {
       reinterpret_cast<uint8_t*>(out.data()), reinterpret_cast<uint8_t*>(&out_bitmap),
   };
   std::array<int64_t, 6> addr_offsets{0, 0, 0, 0, 0, 0};
-
   eval_func(addrs.data(), addr_offsets.data(), nullptr, nullptr, nullptr,
             0 /* dummy context ptr */, kNumRecords);
 

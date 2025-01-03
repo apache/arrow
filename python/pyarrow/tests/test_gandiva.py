@@ -47,9 +47,8 @@ def test_tree_exp_builder():
 
     assert expr.result().type == pa.int32()
 
-    config = gandiva.Configuration(dump_ir=True)
     projector = gandiva.make_projector(
-        schema, [expr], pa.default_memory_pool(), "NONE", config)
+        schema, [expr], pa.default_memory_pool())
 
     # Gandiva generates compute kernel function named `@expr_X`
     assert projector.llvm_ir.find("@expr_") != -1
@@ -105,8 +104,7 @@ def test_filter():
 
     assert condition.result().type == pa.bool_()
 
-    config = gandiva.Configuration(dump_ir=True)
-    filter = gandiva.make_filter(table.schema, condition, config)
+    filter = gandiva.make_filter(table.schema, condition)
     # Gandiva generates compute kernel function named `@expr_X`
     assert filter.llvm_ir.find("@expr_") != -1
 
