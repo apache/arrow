@@ -445,19 +445,15 @@ tasks:
 
 {############################## Wheel Windows ################################}
 
-# TODO: Remove this when there's NumPy wheels for Windows.
-# See https://github.com/numpy/numpy/issues/26157 for more info.
-{% if abi_tag != "cp313t" %}
-
-  wheel-windows-{{ python_tag }}-amd64:
+  wheel-windows-{{ python_tag }}-{{ abi_tag }}-amd64:
     ci: github
     template: python-wheels/github.windows.yml
     params:
       python_version: "{{ python_version }}"
+      python_abi_tag: "{{ abi_tag }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-win_amd64.whl
 
-{% endif %}
 {% endfor %}
 
 {############################ Python sdist ####################################}
