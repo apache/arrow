@@ -832,7 +832,7 @@ TEST_F(TestConvertParquetSchema, IllegalParquetNestedSchema) {
         Invalid, testing::HasSubstr("LIST-annotated groups must not be repeated."),
         ConvertSchema(parquet_fields));
   }
-  // List<List<String>>: outer list is two-level encoding, inner list is empty.
+  // List<List<>>: outer list is two-level encoding, inner list is empty.
   //
   // optional group my_list (LIST) {
   //   repeated group array (LIST) {
