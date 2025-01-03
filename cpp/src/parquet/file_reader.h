@@ -218,8 +218,8 @@ class PARQUET_EXPORT ParquetFileReader {
   /// value is 1MB.
   ///
   /// range_size_limit is the maximum size in bytes of a combined range; if combining
-  /// two consecutive ranges would produce a range larger than this, they are not combined.
-  /// The default values is 64MB. This *must* be larger than hole_size_limit.
+  /// two consecutive ranges would produce a range larger than this, they are not
+  /// combined. The default values is 64MB. This *must* be larger than hole_size_limit.
   ///
   /// This will not take into account page indexes or any other predicate push down
   /// benefits that may be available.
