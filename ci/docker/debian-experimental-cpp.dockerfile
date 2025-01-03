@@ -73,6 +73,7 @@ RUN if [ -n "${gcc}" ]; then \
         libutf8proc-dev \
         libxml2-dev \
         libxsimd-dev \
+        libxxhash-dev \
         libzstd-dev \
         make \
         ninja-build \
@@ -111,13 +112,13 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # Prioritize system packages and local installation.
 ENV ARROW_ACERO=ON \
     ARROW_AZURE=ON \
-    ARROW_BUILD_TESTS=ON \
+    ARROW_BUILD_TESTS=OFF \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=ON \
     ARROW_FLIGHT_SQL=ON \
-    ARROW_GANDIVA=ON \
+    ARROW_GANDIVA=OFF \
     ARROW_GCS=ON \
     ARROW_HOME=/usr/local \
     ARROW_JEMALLOC=ON \

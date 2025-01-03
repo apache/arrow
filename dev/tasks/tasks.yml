@@ -1011,7 +1011,7 @@ tasks:
         ARCH: "amd64"
         DEBIAN: "experimental"
         GCC: "15"
-      flags: "-e CMAKE_CXX_STANDARD=20"
+      flags: "-e CMAKE_CXX_STANDARD=17"
       image: debian-cpp
 
   test-fedora-39-cpp:
