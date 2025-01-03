@@ -139,6 +139,9 @@ python setup.py bdist_wheel || exit /B 1
 @REM Since we bundled the Arrow C++ libraries ourselves, we only need to
 @REM mangle msvcp140.dll so as to avoid ABI issues when msvcp140.dll is
 @REM required by multiple Python libraries in the same process.
+@REM
+@REM For now this requires a custom version of delvewheel:
+@REM https://github.com/adang1345/delvewheel/pull/59
 pip install https://github.com/pitrou/delvewheel/archive/refs/heads/fixes-for-arrow.zip || exit /B 1
 
 for /f %%i in ('dir dist\pyarrow-*.whl /B') do (set WHEEL_NAME=%cd%\dist\%%i) || exit /B 1
