@@ -2156,8 +2156,9 @@ TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
       ["1970-01-01T00:00:59.123", "2021-08-18T15:11:50.456", null])";
 #ifdef ARROW_WITH_MUSL
   // musl-locales uses Capital case for month name.
+  // musl doesn't use "," for milliseconds separator.
   const char* expected = R"(
-      ["01 Janvier 1970 00:00:59,123", "18 Août 2021 15:11:50,456", null])";
+      ["01 Janvier 1970 00:00:59.123", "18 Août 2021 15:11:50.456", null])";
 #else
   const char* expected = R"(
       ["01 janvier 1970 00:00:59,123", "18 août 2021 15:11:50,456", null])";
