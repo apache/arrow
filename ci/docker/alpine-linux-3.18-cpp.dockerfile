@@ -100,4 +100,5 @@ ENV ARROW_ACERO=ON \
     ARROW_WITH_ZSTD=ON \
     AWSSDK_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
-    PATH=/usr/lib/ccache/:$PATH
+    MUSL_LOCPATH=/usr/share/i18n/locales/musl \
+    PATH=/usr/lib/ccache/bin:$PATH
