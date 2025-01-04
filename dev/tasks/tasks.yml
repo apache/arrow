@@ -1011,6 +1011,7 @@ tasks:
         ARCH: "amd64"
         DEBIAN: "experimental"
         GCC: "15"
+        LLVM: "19"
       flags: "-e CMAKE_CXX_STANDARD=17"
       image: debian-cpp
 
