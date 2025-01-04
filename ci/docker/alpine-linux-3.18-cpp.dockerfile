@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/alpine:3.16
+FROM ${arch}/alpine:3.18
 
 RUN apk add \
         bash \
@@ -39,8 +39,8 @@ RUN apk add \
         grpc-dev \
         gtest-dev \
         libxml2-dev \
-        llvm13-dev \
-        llvm13-static \
+        llvm16-dev \
+        llvm16-static \
         lz4-dev \
         make \
         musl-locales \

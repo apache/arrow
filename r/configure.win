@@ -61,10 +61,9 @@ function configure_binaries() {
   OPENSSL_LIBS="-lcrypto -lcrypt32"
   MIMALLOC_LIBS="-lbcrypt -lpsapi"
   BROTLI_LIBS="-lbrotlienc -lbrotlidec -lbrotlicommon" # Common goes last since dec and enc depend on it
-  AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management \
-            -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 \
-            -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common \
-            -luserenv -lversion -lws2_32 -lbcrypt -lwininet -lwinhttp"
+  # We build aws-sdk-cpp bundled now, so the AWS libs are included in arrow_bundled_dependencies
+  # but we also need to include these Windows system libraries
+  AWS_LIBS="-luserenv -lversion -lws2_32 -lbcrypt -lwininet -lwinhttp -lsecur32 -lshlwapi -lncrypt"
   # pkg-config --libs libcurl
   GCS_LIBS="-lcurl -lnormaliz -lssh2 -lgdi32 -lssl -lcrypto -lcrypt32 -lwldap32 \
             -lz -lws2_32 -lnghttp2 -ldbghelp"

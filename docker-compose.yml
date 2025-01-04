@@ -219,7 +219,7 @@ services:
     #   docker compose build alpine-linux-cpp
     #   docker compose run --rm alpine-linux-cpp
     # Parameters:
-    #   ALPINE_LINUX: 3.16
+    #   ALPINE_LINUX: 3.18
     #   ARCH: amd64, arm64v8, ...
     image: ${REPO}:${ARCH}-alpine-linux-${ALPINE_LINUX}-cpp
     build:
@@ -388,6 +388,7 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE_VERSION}
         gcc: ${GCC}
         llvm: ${LLVM}
     shm_size: *shm-size
@@ -424,6 +425,7 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE_VERSION}
         gcc: ${GCC}
         llvm: ${LLVM}
     shm_size: *shm-size
@@ -453,6 +455,8 @@ services:
       dockerfile: ci/docker/centos-7-cpp.dockerfile
       cache_from:
         - ${REPO}:centos-7-cpp-static
+      args:
+        cmake: ${CMAKE_VERSION}
     shm_size: *shm-size
     volumes:
       - .:/arrow:delegated
@@ -475,6 +479,7 @@ services:
       args:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
+        cmake: ${CMAKE_VERSION}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
@@ -569,6 +574,7 @@ services:
         arch: ${ARCH}
         base: nvidia/cuda:${CUDA}-devel-ubuntu${UBUNTU}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE_VERSION}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
@@ -619,6 +625,7 @@ services:
       args:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE_VERSION}
         llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
@@ -698,6 +705,7 @@ services:
       args:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE_VERSION}
         llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
@@ -1570,6 +1578,7 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
+        cmake: ${CMAKE_VERSION}
     shm_size: *shm-size
     environment:
       <<: [*common, *sccache]
@@ -1599,6 +1608,7 @@ services:
         - ${REPO}:amd64-ubuntu-20.04-r-sanitizer
       args:
         base: wch1/r-debug:latest
+        cmake: ${CMAKE_VERSION}
         r_bin: RDsan
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
@@ -1619,6 +1629,7 @@ services:
         - ${REPO}:r-rhub-clang-devel-latest
       args:
         base: rhub/clang-asan
+        cmake: ${CMAKE_VERSION}
         r_dev: ${ARROW_R_DEV}
         r_bin: R
         tz: ${TZ}
@@ -1650,6 +1661,7 @@ services:
         - ${REPO}:amd64-ubuntu-20.04-r-valgrind
       args:
         base: wch1/r-debug:latest
+        cmake: ${CMAKE_VERSION}
         r_bin: RDvalgrind
         tz: ${TZ}
     environment:
