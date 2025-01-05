@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 18.1.1
+# arrow 18.1.0.1
 
 * Patched Thrift to work with the unreleased GCC 15 (#45097)
 
