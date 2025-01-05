@@ -115,6 +115,16 @@ Implementations
    Rust <https://docs.rs/crate/arrow/>
    status
 
+Tensors
+-------
+
+.. _toc.tensors:
+
+.. toctree::
+   :maxdepth: 2
+
+   <python/api/tensors.rst>
+
 Examples
 --------
 
