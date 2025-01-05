@@ -111,3 +111,4 @@ Example:
 
    sparse_tensor = pa.SparseCSFTensor.from_numpy(data, indptr, indices, shape)
    print(sparse_tensor)
+   
