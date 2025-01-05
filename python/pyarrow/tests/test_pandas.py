@@ -1854,6 +1854,15 @@ class TestConvertStringLikeTypes:
             table.to_pandas(strings_to_categorical=True,
                             zero_copy_only=True)
 
+        # chunked array
+        result = table["strings"].to_pandas(strings_to_categorical=True)
+        expected = pd.Series(pd.Categorical(values), name="strings")
+        tm.assert_series_equal(result, expected)
+
+        with pytest.raises(pa.ArrowInvalid):
+            table["strings"].to_pandas(strings_to_categorical=True,
+                                       zero_copy_only=True)
+
     @pytest.mark.parametrize(
         "string_type", [pa.string(), pa.large_string(), pa.string_view()]
     )
@@ -1871,6 +1880,15 @@ class TestConvertStringLikeTypes:
         with pytest.raises(pa.ArrowInvalid):
             table.to_pandas(strings_to_categorical=True,
                             zero_copy_only=True)
+
+        # chunked array
+        result = table["strings"].to_pandas(strings_to_categorical=True)
+        expected = pd.Series(pd.Categorical(values), name="strings")
+        tm.assert_series_equal(result, expected)
+
+        with pytest.raises(pa.ArrowInvalid):
+            table["strings"].to_pandas(strings_to_categorical=True,
+                                       zero_copy_only=True)
 
     # Regression test for ARROW-2101
     def test_array_of_bytes_to_strings(self):
