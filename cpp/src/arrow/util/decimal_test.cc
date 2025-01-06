@@ -219,6 +219,18 @@ class DecimalFromStringTest : public ::testing::Test {
   }
 };
 
+TEST(Decimal32Test, TestIntMinNegate) {
+  Decimal32 d(INT32_MIN);
+  auto neg = d.Negate();
+  ASSERT_EQ(neg, Decimal32(arrow::internal::SafeSignedNegate(INT32_MIN)));
+}
+
+TEST(Decimal64Test, TestIntMinNegate) {
+  Decimal64 d(INT64_MIN);
+  auto neg = d.Negate();
+  ASSERT_EQ(neg, Decimal64(arrow::internal::SafeSignedNegate(INT64_MIN)));
+}
+
 TYPED_TEST_SUITE(DecimalFromStringTest, DecimalTypes);
 
 TYPED_TEST(DecimalFromStringTest, Basics) { this->TestBasics(); }
