@@ -115,16 +115,6 @@ Implementations
    Rust <https://docs.rs/crate/arrow/>
    status
 
-Tensors
--------
-
-.. _toc.tensors:
-
-.. toctree::
-   :maxdepth: 2
-
-   <python/api/tensors.rst>
-
 Examples
 --------
 
@@ -137,4 +127,3 @@ Examples
    Java cookbook <https://arrow.apache.org/cookbook/java/>
    Python cookbook <https://arrow.apache.org/cookbook/py/>
    R cookbook <https://arrow.apache.org/cookbook/r/>
-   

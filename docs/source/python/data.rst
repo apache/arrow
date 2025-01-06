@@ -240,7 +240,7 @@ dictionaries:
 
    pa.array([{'x': 1, 'y': True}, {'z': 3.4, 'x': 4}])
 
-Struct arrays can be initialized from a sequence of Python dicts or tuples. For tuples, 
+Struct arrays can be initialized from a sequence of Python dicts or tuples. For tuples,
 you must explicitly pass the type:
 
 .. ipython:: python
@@ -282,10 +282,10 @@ the type is explicitly passed into :meth:`array`:
    ty = pa.map_(pa.string(), pa.int64())
    pa.array(data, type=ty)
 
-MapArrays can also be constructed from offset, key, and item arrays. Offsets represent the 
+MapArrays can also be constructed from offset, key, and item arrays. Offsets represent the
 starting position of each map. Note that the :attr:`MapArray.keys` and :attr:`MapArray.items`
-properties give the *flattened* keys and items. To keep the keys and items associated to 
-their row, use the :meth:`ListArray.from_arrays` constructor with the 
+properties give the *flattened* keys and items. To keep the keys and items associated to
+their row, use the :meth:`ListArray.from_arrays` constructor with the
 :attr:`MapArray.offsets` property.
 
 .. ipython:: python
@@ -536,3 +536,88 @@ schema without having to get any of the batches.::
    x: int64
 
 It can also be sent between languages using the :ref:`C stream interface <c-stream-interface>`.
+
+SparseCOOTensor
+===============
+
+The ``SparseCOOTensor`` represents a sparse tensor in Coordinate (COO) format, where non-zero elements are stored as tuples of row and column indices.
+
+Example Usage:
+--------------
+
+.. code-block:: python
+
+    >>> import pyarrow as pa
+    >>> indices = [
+    ...     pa.array([0, 1]),
+    ...     pa.array([1, 0])
+    ... ]
+    >>> data = pa.array([1, 2])
+    >>> shape = (2, 3)
+
+    >>> tensor = pa.SparseCOOTensor.from_numpy(indices, data, shape)
+    >>> print(tensor)
+    <pyarrow.SparseCOOTensor object at 0x7fbce1234567>
+
+
+SparseCSRMatrix
+================
+
+`SparseCSRMatrix` represents a sparse tensor in Coordinate (COO) format, where non-zero elements are stored as tuples of row and column indices.
+
+Example Usage:
+--------------
+
+.. code-block:: python
+
+    >>> import pyarrow as pa
+    >>> data = pa.array([1, 2, 3])
+    >>> indptr = pa.array([0, 2, 3])
+    >>> indices = pa.array([0, 2, 1])
+    >>> shape = (2, 3)
+    >>> sparse_matrix = pa.SparseCSRMatrix.from_numpy(data, indptr, indices, shape)
+    >>> print(sparse_matrix)
+    <pyarrow.SparseCSRMatrix object at 0x7fabcde12345>
+
+
+SparseCSCMatrix
+===============
+
+`SparseCSCMatrix` represents a sparse matrix in Compressed Sparse Column (CSC) format, where non-zero elements are stored in a compressed manner using arrays for data, indices, and indptr.
+
+Example Usage:
+--------------
+
+.. code-block:: python
+
+    >>> import pyarrow as pa
+    >>> data = pa.array([4, 5, 6])
+    >>> indptr = pa.array([0, 1, 3])
+    >>> indices = pa.array([0, 2, 1])
+    >>> shape = (3, 2)
+
+    >>> sparse_matrix = pa.SparseCSCMatrix.from_numpy(data, indptr, indices, shape)
+    >>> print(sparse_matrix)
+    <pyarrow.SparseCSCMatrix object at 0x7fabcde12345>
+
+SparseCSFTensor
+===============
+
+`SparseCSFTensor` represents a sparse tensor in Compressed Sparse Fiber (CSF) format, optimized for multi-dimensional sparse data storage.
+
+Example Usage:
+--------------
+
+.. code-block:: python
+
+    >>> import pyarrow as pa
+    >>> data = pa.array([1, 2, 3])
+    >>> indices = [
+    ...     pa.array([0, 0, 1]),
+    ...     pa.array([0, 1, 2]),
+    ... ]
+    >>> shape = (2, 3)
+
+    >>> sparse_tensor = pa.SparseCSFTensor.from_numpy(data, indices, shape)
+    >>> print(sparse_tensor)
+    <pyarrow.SparseCSFTensor object at 0x7fabcde54321>

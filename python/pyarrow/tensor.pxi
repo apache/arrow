@@ -597,23 +597,18 @@ cdef class SparseCSRMatrix(_Weakrefable):
     """
     SparseCSRMatrix represents a sparse matrix in Compressed Sparse Row (CSR) format.
 
-    Attributes:
-        indptr : array
-            Index pointer array.
-        indices : array
-            Column indices of the corresponding non-zero values.
-        shape : tuple
-            Shape of the matrix.
-        dim_names : list, optional
-            Names of the dimensions.
-
     Example:
         >>> import pyarrow as pa
-        >>> indptr = pa.array([0, 2, 3])
-        >>> indices = pa.array([0, 2, 1])
+        >>> import numpy as np
+        >>> data = np.array([1, 2, 3])
+        >>> indptr = np.array([0, 2, 3])
+        >>> indices = np.array([0, 2, 1])
         >>> shape = (2, 3)
-        >>> tensor = pa.SparseCSRMatrix(indptr, indices, shape)
+        >>> tensor = pa.SparseCSRMatrix.from_numpy(data, indptr, indices, shape)
         >>> print(tensor)
+        <pyarrow.SparseCSRMatrix>
+        type: int64
+        shape: (2, 3)
     """
 
     def __init__(self):
