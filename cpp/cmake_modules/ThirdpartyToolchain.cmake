@@ -1311,18 +1311,12 @@ if(ARROW_USE_BOOST)
     endif()
   endforeach()
 
+  set(BOOST_PROCESS_HAVE_V2 FALSE)
   if(TARGET Boost::process)
     # Boost >= 1.86
     target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V1")
     target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
-    if(NOT WIN32)
-      # We can't use v2 API on Windows because v2 API doesn't support
-      # process group [1] and GCS testbench uses multiple processes [2].
-      #
-      # [1] https://github.com/boostorg/process/issues/259
-      # [2] https://github.com/googleapis/storage-testbench/issues/669
-      target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_USE_V2")
-    endif()
+    set(BOOST_PROCESS_HAVE_V2 TRUE)
   else()
     # Boost < 1.86
     add_library(Boost::process INTERFACE IMPORTED)
@@ -1337,19 +1331,7 @@ if(ARROW_USE_BOOST)
     endif()
     if(Boost_VERSION VERSION_GREATER_EQUAL 1.80)
       target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
-      if((NOT WIN32) AND (NOT ARROW_WITH_MUSL))
-        # We can't use v2 API on Windows because v2 API doesn't support
-        # process group [1] and GCS testbench uses multiple processes [2].
-        #
-        # [1] https://github.com/boostorg/process/issues/259
-        # [2] https://github.com/googleapis/storage-testbench/issues/669
-        #
-        # We can't use v2 API with musl libc because Boost Process < 1.86
-        # doesn't support musl libc [3].
-        #
-        # [3] https://github.com/boostorg/process/commit/aea22dbf6be1695ceb42367590b6ca34d9433500
-        target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_USE_V2")
-      endif()
+      set(BOOST_PROCESS_HAVE_V2 TRUE)
       # Boost < 1.86 has a bug that
       # boost::process::v2::process_environment::on_setup() isn't
       # defined. We need to build Boost Process source to define it.
@@ -1361,6 +1343,20 @@ if(ARROW_USE_BOOST)
         target_link_libraries(Boost::process INTERFACE bcrypt ntdll)
       endif()
     endif()
+  endif()
+  if(BOOST_PROCESS_HAVE_V2
+     AND # We can't use v2 API on Windows because v2 API doesn't support
+         # process group[1] and GCS testbench uses multiple processes[2].
+         #
+         # [1] https://github.com/boostorg/process/issues/259
+         # [2] https://github.com/googleapis/storage-testbench/issues/669
+         (NOT WIN32)
+     AND # We can't use v2 API with musl libc with Boost Process < 1.86
+         # because Boost Process < 1.86 doesn't support musl libc[3].
+         #
+         # [3] https://github.com/boostorg/process/commit/aea22dbf6be1695ceb42367590b6ca34d9433500
+         (NOT (ARROW_WITH_MUSL AND (Boost_VERSION VERSION_LESS 1.86))))
+    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_USE_V2")
   endif()
 
   message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
