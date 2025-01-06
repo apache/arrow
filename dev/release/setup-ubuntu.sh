@@ -42,6 +42,7 @@ apt-get install -y -q --no-install-recommends \
   bundler \
   clang \
   cmake \
+  llvm-dev \
   curl \
   git \
   gnupg \
