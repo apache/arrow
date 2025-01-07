@@ -45,8 +45,7 @@ int SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* h
     // Calculate block index and hash stamp for a byte in a block
     //
     __m256i vhash = _mm256_loadu_si256(vhash_ptr + i);
-    __m256i vblock_id =
-        _mm256_srlv_epi32(vhash, _mm256_set1_epi32(bits_shift_for_block_and_stamp_));
+    __m256i vblock_id = _mm256_srli_epi32(vhash, bits_shift_for_block_and_stamp_);
     __m256i vstamp = _mm256_and_si256(vblock_id, vstamp_mask);
     vblock_id = _mm256_srli_epi32(vblock_id, bits_shift_for_block_);
 
@@ -301,19 +300,15 @@ int SwissTable::early_filter_imp_avx2_x32(const int num_hashes, const uint32_t* 
                              _mm256_and_si256(vhash2, _mm256_set1_epi32(0xffff0000)));
     vhash1 = _mm256_or_si256(_mm256_srli_epi32(vhash1, 16),
                              _mm256_and_si256(vhash3, _mm256_set1_epi32(0xffff0000)));
-    __m256i vstamp_A = _mm256_and_si256(
-        _mm256_srlv_epi32(vhash0, _mm256_set1_epi32(16 - log_blocks_ - 7)),
-        _mm256_set1_epi16(0x7f));
-    __m256i vstamp_B = _mm256_and_si256(
-        _mm256_srlv_epi32(vhash1, _mm256_set1_epi32(16 - log_blocks_ - 7)),
-        _mm256_set1_epi16(0x7f));
+    __m256i vstamp_A = _mm256_and_si256(_mm256_srli_epi32(vhash0, 16 - log_blocks_ - 7),
+                                        _mm256_set1_epi16(0x7f));
+    __m256i vstamp_B = _mm256_and_si256(_mm256_srli_epi32(vhash1, 16 - log_blocks_ - 7),
+                                        _mm256_set1_epi16(0x7f));
     __m256i vstamp = _mm256_or_si256(vstamp_A, _mm256_slli_epi16(vstamp_B, 8));
-    __m256i vblock_id_A =
-        _mm256_and_si256(_mm256_srlv_epi32(vhash0, _mm256_set1_epi32(16 - log_blocks_)),
-                         _mm256_set1_epi16(block_id_mask));
-    __m256i vblock_id_B =
-        _mm256_and_si256(_mm256_srlv_epi32(vhash1, _mm256_set1_epi32(16 - log_blocks_)),
-                         _mm256_set1_epi16(block_id_mask));
+    __m256i vblock_id_A = _mm256_and_si256(_mm256_srli_epi32(vhash0, 16 - log_blocks_),
+                                           _mm256_set1_epi16(block_id_mask));
+    __m256i vblock_id_B = _mm256_and_si256(_mm256_srli_epi32(vhash1, 16 - log_blocks_),
+                                           _mm256_set1_epi16(block_id_mask));
     __m256i vblock_id = _mm256_or_si256(vblock_id_A, _mm256_slli_epi16(vblock_id_B, 8));
 
     // Visit all block bytes in reverse order (overwriting data on multiple matches)
@@ -407,10 +402,8 @@ int SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashe
       __m256i local_slot_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(local_slot));
       __m256i local_slot_hi =
           _mm256_cvtepi32_epi64(_mm256_extracti128_si256(local_slot, 1));
-      __m256i pos_lo =
-          _mm256_srlv_epi64(hash_lo, _mm256_set1_epi64x(bits_hash_ - log_blocks_));
-      __m256i pos_hi =
-          _mm256_srlv_epi64(hash_hi, _mm256_set1_epi64x(bits_hash_ - log_blocks_));
+      __m256i pos_lo = _mm256_srli_epi64(hash_lo, bits_hash_ - log_blocks_);
+      __m256i pos_hi = _mm256_srli_epi64(hash_hi, bits_hash_ - log_blocks_);
       pos_lo = _mm256_mul_epi32(pos_lo, _mm256_set1_epi32(byte_multiplier));
       pos_hi = _mm256_mul_epi32(pos_hi, _mm256_set1_epi32(byte_multiplier));
       pos_lo = _mm256_add_epi64(pos_lo, local_slot_lo);
