@@ -3990,6 +3990,12 @@ TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   TryReadDataFile(path, ::arrow::StatusCode::IOError);
 }
 
+TEST(TestArrowReaderAdHoc, InvalidRepetitionLevels) {
+  // GH-45185 - Repetition levels start with 1 instead of 0
+  auto path = test::get_data_file("ARROW-GH-45185.parquet", /*is_good=*/false);
+  TryReadDataFile(path, ::arrow::StatusCode::IOError);
+}
+
 TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   // ARROW-3762
   ::arrow::StringBuilder builder;
