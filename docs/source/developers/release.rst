@@ -39,8 +39,15 @@ Preparing for the release
 =========================
 
 Before creating a source release, the Release Manager must ensure that any
-resolved GitHub issues and any MINOR pull requests have the appropriate
-milestone set so that the changelog is generated properly.
+resolved GitHub issues have the appropriate milestone set so that the changelog
+is generated properly.
+
+Note that pull requests without a corresponding GitHub issue won't be detected
+by the cherry-pick script and must be cherry-picked manually by the release
+manager onto the maintenance branch. Examples include MINOR and Dependabot pull
+requests. For this reason, it's encouraged to avoid the need for manual
+cherry-picking by creating issues for any pull requests that are merged to the
+default branch after the release maintenance branch has been created.
 
 .. dropdown:: Requirements
    :animate: fade-in-slide-down
