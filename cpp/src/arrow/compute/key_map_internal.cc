@@ -654,12 +654,9 @@ Status SwissTable::grow_double() {
   int num_group_id_bits_after = num_groupid_bits_from_log_blocks(log_blocks_ + 1);
   uint64_t group_id_mask_before = ~0ULL >> (64 - num_group_id_bits_before);
   int log_blocks_after = log_blocks_ + 1;
-  int bits_shift_for_block_and_stamp_after = bits_hash_ - log_blocks_after - bits_stamp_;
-  int bits_shift_for_block_after = bits_stamp_;
-  if (bits_shift_for_block_and_stamp_after < 0) {
-    bits_shift_for_block_and_stamp_after = 0;
-    bits_shift_for_block_after = bits_hash_ - log_blocks_after;
-  }
+  int bits_shift_for_block_and_stamp_after =
+      ComputeBitsShiftForBlockAndStamp(log_blocks_after);
+  int bits_shift_for_block_after = ComputeBitsShiftForBlock(log_blocks_after);
   uint64_t block_size_before = (8 + num_group_id_bits_before);
   uint64_t block_size_after = (8 + num_group_id_bits_after);
   uint64_t block_size_total_after = (block_size_after << log_blocks_after) + padding_;
@@ -785,13 +782,8 @@ Status SwissTable::init(int64_t hardware_flags, MemoryPool* pool, int log_blocks
   log_minibatch_ = util::MiniBatch::kLogMiniBatchLength;
 
   log_blocks_ = log_blocks;
-  if (log_blocks_ + bits_stamp_ > bits_hash_) {
-    bits_shift_for_block_and_stamp_ = 0;
-    bits_shift_for_block_ = bits_hash_ - log_blocks_;
-  } else {
-    bits_shift_for_block_and_stamp_ = bits_hash_ - log_blocks_ - bits_stamp_;
-    bits_shift_for_block_ = bits_stamp_;
-  }
+  bits_shift_for_block_and_stamp_ = ComputeBitsShiftForBlockAndStamp(log_blocks_);
+  bits_shift_for_block_ = ComputeBitsShiftForBlock(log_blocks_);
   int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
   num_inserted_ = 0;
 
@@ -828,8 +820,8 @@ void SwissTable::cleanup() {
     hashes_ = nullptr;
   }
   log_blocks_ = 0;
-  bits_shift_for_block_and_stamp_ = bits_hash_ - log_blocks_ - bits_stamp_;
-  bits_shift_for_block_ = bits_stamp_;
+  bits_shift_for_block_and_stamp_ = ComputeBitsShiftForBlockAndStamp(log_blocks_);
+  bits_shift_for_block_ = ComputeBitsShiftForBlock(log_blocks_);
   num_inserted_ = 0;
 }
 

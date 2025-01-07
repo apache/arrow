@@ -203,6 +203,23 @@ class ARROW_EXPORT SwissTable {
   // Resize large hash tables when 75% full.
   Status grow_double();
 
+  // When log_blocks is greater than 25, there will be overlapping bits between block id
+  // and stamp within a 32-bit hash value. So we must check if this is the case when
+  // right shifting a hash value to retrieve block id and stamp. The following two
+  // functions derive the number of bits to right shift from the given log_blocks.
+  static int ComputeBitsShiftForBlockAndStamp(int log_blocks) {
+    if (ARROW_PREDICT_FALSE(log_blocks + bits_stamp_ > bits_hash_)) {
+      return 0;
+    }
+    return bits_hash_ - log_blocks - bits_stamp_;
+  }
+  static int ComputeBitsShiftForBlock(int log_blocks) {
+    if (ARROW_PREDICT_FALSE(log_blocks + bits_stamp_ > bits_hash_)) {
+      return bits_hash_ - log_blocks;
+    }
+    return bits_stamp_;
+  }
+
   // Number of hash bits stored in slots in a block.
   // The highest bits of hash determine block id.
   // The next set of highest bits is a "stamp" stored in a slot in a block.
@@ -214,14 +231,11 @@ class ARROW_EXPORT SwissTable {
   int log_minibatch_;
   // Base 2 log of the number of blocks
   int log_blocks_ = 0;
-  // When log_blocks_ is greater than 25, there will be overlapping bits between block id
-  // and stamp within a 32-bit hash value. So we must check if this is the case when
-  // right-shifting a hash value to retrieve block id and stamp. The following two
-  // variables will be derived from log_blocks_ as log_blocks changes, and use them as the
-  // number of bits to right shift, rather than branching on whether log_blocks_ > 25
-  // every time in tight loops.
-  int bits_shift_for_block_and_stamp_ = bits_hash_ - log_blocks_ - bits_stamp_;
-  int bits_shift_for_block_ = bits_stamp_;
+  // The following two variables are derived from log_blocks_ as log_blocks_ changes, and
+  // used in tight loops to avoid calling the ComputeXXX functions (introducing a
+  // branching on whether log_blocks_ + bits_stamp_ > bits_hash_).
+  int bits_shift_for_block_and_stamp_ = ComputeBitsShiftForBlockAndStamp(log_blocks_);
+  int bits_shift_for_block_ = ComputeBitsShiftForBlock(log_blocks_);
   // Number of keys inserted into hash table
   uint32_t num_inserted_ = 0;
 
