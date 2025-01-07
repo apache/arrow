@@ -278,7 +278,7 @@ class ARROW_EXPORT BasicDecimal32 : public SmallBasicDecimal<int32_t> {
 
   /// \brief Negate the current value (in-place)
   BasicDecimal32& Negate() {
-    value_ = arrow::internal::SafeSignedNegate(value_);    
+    value_ = arrow::internal::SafeSignedNegate(value_);
     return *this;
   }
 
