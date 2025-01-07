@@ -91,11 +91,6 @@ RUN python -m pip install -U pip setuptools
 COPY python/requirements-wheel-build.txt arrow/python/
 RUN python -m pip install -r arrow/python/requirements-wheel-build.txt
 
-# ENV CLCACHE_DIR="C:\clcache"
-# ENV CLCACHE_COMPRESS=1
-# ENV CLCACHE_COMPRESSLEVEL=6
-# RUN pip install git+https://github.com/Nuitka/clcache.git
-
 # For debugging purposes
 # RUN wget --no-check-certificate https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip
 # RUN unzip Dependencies_x64_Release.zip -d Dependencies && setx path "%path%;C:\Dependencies"
