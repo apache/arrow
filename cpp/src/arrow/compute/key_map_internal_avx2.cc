@@ -395,13 +395,14 @@ int SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashe
       __m256i hash_hi = _mm256_cvtepu32_epi64(_mm256_extracti128_si256(hash, 1));
       __m256i local_slot =
           _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(local_slots)[i]);
-      local_slot = _mm256_shuffle_epi8(
-          local_slot, _mm256_setr_epi32(0x80808000, 0x80808001, 0x80808002, 0x80808003,
-                                        0x80808004, 0x80808005, 0x80808006, 0x80808007));
-      local_slot = _mm256_mullo_epi32(local_slot, _mm256_set1_epi32(byte_size));
-      __m256i local_slot_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(local_slot));
-      __m256i local_slot_hi =
-          _mm256_cvtepi32_epi64(_mm256_extracti128_si256(local_slot, 1));
+      __m256i local_slot_lo = _mm256_shuffle_epi8(
+          local_slot, _mm256_setr_epi32(0x80808000, 0x80808080, 0x80808001, 0x80808080,
+                                        0x80808002, 0x80808080, 0x80808003, 0x80808080));
+      __m256i local_slot_hi = _mm256_shuffle_epi8(
+          local_slot, _mm256_setr_epi32(0x80808004, 0x80808080, 0x80808005, 0x80808080,
+                                        0x80808006, 0x80808080, 0x80808007, 0x80808080));
+      local_slot_lo = _mm256_mul_epi32(local_slot_lo, _mm256_set1_epi32(byte_size));
+      local_slot_lo = _mm256_mul_epi32(local_slot_hi, _mm256_set1_epi32(byte_size));
       __m256i pos_lo = _mm256_srli_epi64(hash_lo, bits_hash_ - log_blocks_);
       __m256i pos_hi = _mm256_srli_epi64(hash_hi, bits_hash_ - log_blocks_);
       pos_lo = _mm256_mul_epi32(pos_lo, _mm256_set1_epi32(byte_multiplier));
