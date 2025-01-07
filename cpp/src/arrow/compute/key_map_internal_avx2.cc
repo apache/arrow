@@ -400,12 +400,12 @@ int SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashe
       __m256i local_slot_hi = _mm256_shuffle_epi8(
           local_slot, _mm256_setr_epi32(0x80808004, 0x80808080, 0x80808005, 0x80808080,
                                         0x80808006, 0x80808080, 0x80808007, 0x80808080));
-      local_slot_lo = _mm256_mul_epi32(local_slot_lo, _mm256_set1_epi32(byte_size));
-      local_slot_lo = _mm256_mul_epi32(local_slot_hi, _mm256_set1_epi32(byte_size));
+      local_slot_lo = _mm256_mul_epu32(local_slot_lo, _mm256_set1_epi32(byte_size));
+      local_slot_lo = _mm256_mul_epu32(local_slot_hi, _mm256_set1_epi32(byte_size));
       __m256i pos_lo = _mm256_srli_epi64(hash_lo, bits_hash_ - log_blocks_);
       __m256i pos_hi = _mm256_srli_epi64(hash_hi, bits_hash_ - log_blocks_);
-      pos_lo = _mm256_mul_epi32(pos_lo, _mm256_set1_epi32(byte_multiplier));
-      pos_hi = _mm256_mul_epi32(pos_hi, _mm256_set1_epi32(byte_multiplier));
+      pos_lo = _mm256_mul_epu32(pos_lo, _mm256_set1_epi32(byte_multiplier));
+      pos_hi = _mm256_mul_epu32(pos_hi, _mm256_set1_epi32(byte_multiplier));
       pos_lo = _mm256_add_epi64(pos_lo, local_slot_lo);
       pos_hi = _mm256_add_epi64(pos_hi, local_slot_hi);
       __m128i group_id_lo = _mm256_i64gather_epi32(elements, pos_lo, 1);
