@@ -19,6 +19,7 @@
 # when you update this file.
 
 ARG base
+# hadolint ignore=DL3006
 FROM ${base}
 
 ARG python=3.13
@@ -42,6 +43,7 @@ RUN %PYTHON_CMD% -m pip install \
     --prefer-binary \
     -r C:/arrow/python/requirements-wheel-test.txt
 # cffi-based tests would crash when importing cffi.
+# hadolint ignore=DL3059
 RUN %PYTHON_CMD% -m pip uninstall -y cffi
 
 ENV PYTHON="${python}t"

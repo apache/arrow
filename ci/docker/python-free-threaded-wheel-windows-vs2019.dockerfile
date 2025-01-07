@@ -19,6 +19,7 @@
 # when you update this file.
 
 ARG base
+# hadolint ignore=DL3006
 FROM ${base}
 
 ARG python=3.13
