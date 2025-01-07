@@ -77,8 +77,8 @@ default branch after the release maintenance branch has been created.
 Before creating a Release Candidate
 ===================================
 
-Ensure local tags are removed, gpg-agent is set and GitHub issues and pull
-requests are correctly assigned.
+Ensure local tags are removed, gpg-agent is set and GitHub issues are correctly
+assigned.
 
 .. code-block::
 
