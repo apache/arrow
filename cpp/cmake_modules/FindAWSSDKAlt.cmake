@@ -33,12 +33,7 @@ if(DEFINED ENV{CONDA_PREFIX})
   endif()
   set(BUILD_SHARED_LIBS ON)
 endif()
-find_package(AWSSDK ${find_package_args}
-             COMPONENTS config
-                        s3
-                        transfer
-                        identity-management
-                        sts)
+find_package(AWSSDK ${find_package_args} COMPONENTS s3 transfer identity-management sts)
 # Restore previous value of BUILD_SHARED_LIBS
 if(DEFINED ENV{CONDA_PREFIX})
   if(BUILD_SHARED_LIBS_WAS_SET)
