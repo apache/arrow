@@ -50,6 +50,7 @@ apt-get install -y -q --no-install-recommends \
   libglib2.0-dev \
   libsqlite3-dev \
   libssl-dev \
+  llvm-dev \
   ninja-build \
   nlohmann-json3-dev \
   pkg-config \
