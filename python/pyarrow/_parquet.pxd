@@ -484,11 +484,9 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
                               const vector[int]& column_indices,
                               shared_ptr[CTable]* out)
 
-        CStatus GetRecordBatchReader(const vector[int]& row_group_indices,
-                                     const vector[int]& column_indices,
-                                     unique_ptr[CRecordBatchReader]* out)
-        CStatus GetRecordBatchReader(const vector[int]& row_group_indices,
-                                     unique_ptr[CRecordBatchReader]* out)
+        CResult[unique_ptr[CRecordBatchReader]] GetRecordBatchReader(const vector[int]& row_group_indices,
+                                                                     const vector[int]& column_indices)
+        CResult[unique_ptr[CRecordBatchReader]] GetRecordBatchReader(const vector[int]& row_group_indices)
 
         CStatus ReadTable(shared_ptr[CTable]* out)
         CStatus ReadTable(const vector[int]& column_indices,
