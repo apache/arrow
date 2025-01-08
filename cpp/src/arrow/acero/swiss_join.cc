@@ -2598,16 +2598,16 @@ class SwissJoin : public HashJoinImpl {
       return Status::OK();
     }
 
+    if (build_side_batches_[batch_id].length == 0) {
+      return Status::OK();
+    }
+
     const HashJoinProjectionMaps* schema = schema_[1];
     bool no_payload = hash_table_build_.no_payload();
 
     ExecBatch input_batch;
     ARROW_ASSIGN_OR_RAISE(
         input_batch, KeyPayloadFromInput(/*side=*/1, &build_side_batches_[batch_id]));
-
-    if (input_batch.length == 0) {
-      return Status::OK();
-    }
 
     // Split batch into key batch and optional payload batch
     //
@@ -2636,10 +2636,6 @@ class SwissJoin : public HashJoinImpl {
     RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PushNextBatch(
         static_cast<int64_t>(thread_id), key_batch, no_payload ? nullptr : &payload_batch,
         temp_stack)));
-
-    // Release input batch
-    //
-    input_batch.values.clear();
 
     return Status::OK();
   }
