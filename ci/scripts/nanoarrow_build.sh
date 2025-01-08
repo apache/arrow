@@ -48,7 +48,7 @@ pushd ${build_dir}
 
 cmake ${source_dir} \
   -DNANOARROW_IPC=ON \
-  -DNANOARROW_IPC_WITH_ZSTD \
+  -DNANOARROW_IPC_WITH_ZSTD=ON \
   -DNANOARROW_BUILD_INTEGRATION_TESTS=ON
 cmake --build .
 
