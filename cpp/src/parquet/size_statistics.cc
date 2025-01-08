@@ -25,6 +25,17 @@
 
 namespace parquet {
 
+namespace {
+
+void MergeLevelHistogram(::arrow::util::span<int64_t> histogram,
+                         ::arrow::util::span<const int64_t> other) {
+  ARROW_DCHECK_EQ(histogram.size(), other.size());
+  std::transform(histogram.begin(), histogram.end(), other.begin(), histogram.begin(),
+                 std::plus<>());
+}
+
+}  // namespace
+
 void SizeStatistics::Merge(const SizeStatistics& other) {
   if (repetition_level_histogram.size() != other.repetition_level_histogram.size()) {
     throw ParquetException("Repetition level histogram size mismatch");
@@ -36,12 +47,8 @@ void SizeStatistics::Merge(const SizeStatistics& other) {
       other.unencoded_byte_array_data_bytes.has_value()) {
     throw ParquetException("Unencoded byte array data bytes are not consistent");
   }
-  std::transform(repetition_level_histogram.begin(), repetition_level_histogram.end(),
-                 other.repetition_level_histogram.begin(),
-                 repetition_level_histogram.begin(), std::plus<>());
-  std::transform(definition_level_histogram.begin(), definition_level_histogram.end(),
-                 other.definition_level_histogram.begin(),
-                 definition_level_histogram.begin(), std::plus<>());
+  MergeLevelHistogram(repetition_level_histogram, other.repetition_level_histogram);
+  MergeLevelHistogram(definition_level_histogram, other.definition_level_histogram);
   if (unencoded_byte_array_data_bytes.has_value()) {
     unencoded_byte_array_data_bytes = unencoded_byte_array_data_bytes.value() +
                                       other.unencoded_byte_array_data_bytes.value();
@@ -89,6 +96,57 @@ std::unique_ptr<SizeStatistics> SizeStatistics::Make(const ColumnDescriptor* des
     size_stats->unencoded_byte_array_data_bytes = 0;
   }
   return size_stats;
+}
+
+void UpdateLevelHistogram(::arrow::util::span<const int16_t> levels,
+                          ::arrow::util::span<int64_t> histogram) {
+  const int64_t num_levels = static_cast<int64_t>(levels.size());
+  const int16_t max_level = static_cast<int16_t>(histogram.size() - 1);
+  if (max_level == 0) {
+    histogram[0] += num_levels;
+    return;
+  }
+  // The goal of the two specialized paths below is to accelerate common cases
+  // by keeping histogram values in registers.
+  // The fallback implementation (`++histogram[level]`) issues a series of
+  // load-stores with frequent conflicts.
+  if (max_level == 1) {
+    // Specialize the common case for non-repeated non-nested columns
+    // by keeping histogram values in a register, which avoids being limited
+    // by CPU cache latency.
+    int64_t hist0 = 0;
+    for (int16_t level : levels) {
+      ARROW_DCHECK_LE(level, max_level);
+      hist0 += (level == 0);
+    }
+    // max_level is usually the most frequent case, update it in one single step
+    histogram[1] += num_levels - hist0;
+    histogram[0] += hist0;
+    return;
+  }
+
+  // The general case cannot avoid repeated loads/stores in the CPU cache,
+  // but it limits store-to-load dependencies by interleaving partial histogram
+  // updates.
+  constexpr int kUnroll = 4;
+  std::array<std::vector<int64_t>, kUnroll> partial_hist;
+  for (auto& hist : partial_hist) {
+    hist.assign(histogram.size(), 0);
+  }
+  int64_t i = 0;
+  for (; i <= num_levels - kUnroll; i += kUnroll) {
+    for (int j = 0; j < kUnroll; ++j) {
+      ARROW_DCHECK_LE(levels[i + j], max_level);
+      ++partial_hist[j][levels[i + j]];
+    }
+  }
+  for (; i < num_levels; ++i) {
+    ARROW_DCHECK_LE(levels[i], max_level);
+    ++partial_hist[0][levels[i]];
+  }
+  for (const auto& hist : partial_hist) {
+    MergeLevelHistogram(histogram, hist);
+  }
 }
 
 }  // namespace parquet

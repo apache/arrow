@@ -276,4 +276,6 @@ TEST_F(SizeStatisticsRoundTripTest, WriteDictionaryArray) {
                                                         /*byte_array_bytes=*/{4}}));
 }
 
+// TODO add tests for UpdateLevelHistogram
+
 }  // namespace parquet
