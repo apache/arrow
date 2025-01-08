@@ -37,7 +37,8 @@ namespace parquet::benchmark {
 
 // This should result in multiple pages for most primitive types
 constexpr int64_t kBenchmarkSize = 1024 * 1024;
-constexpr double kNullProbability = 0.5;
+// Use a skewed null probability to reduce levels encoding overhead
+constexpr double kNullProbability = 0.95;
 
 int64_t GetTotalBytes(const std::shared_ptr<::arrow::ArrayData>& data) {
   if (data == nullptr) {
@@ -80,6 +81,8 @@ int64_t GetTotalPageIndexSize(const std::shared_ptr<::parquet::FileMetaData>& me
 
 void WriteColumn(::benchmark::State& state, const std::shared_ptr<::arrow::Table>& table,
                  SizeStatisticsLevel stats_level) {
+  // Use the fastest possible encoding and compression settings, to better exhibit
+  // the size statistics overhead.
   auto properties = WriterProperties::Builder()
                         .enable_statistics()
                         ->enable_write_page_index()
