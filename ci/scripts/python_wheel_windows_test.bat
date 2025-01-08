@@ -25,27 +25,18 @@ set PYARROW_TEST_GANDIVA=OFF
 set PYARROW_TEST_GCS=ON
 set PYARROW_TEST_HDFS=ON
 set PYARROW_TEST_ORC=ON
+set PYARROW_TEST_PANDAS=ON
 set PYARROW_TEST_PARQUET=ON
 set PYARROW_TEST_PARQUET_ENCRYPTION=ON
 set PYARROW_TEST_SUBSTRAIT=ON
 set PYARROW_TEST_S3=ON
 set PYARROW_TEST_TENSORFLOW=ON
 
-@REM Enable again once https://github.com/scipy/oldest-supported-numpy/pull/27 gets merged
-@REM set PYARROW_TEST_PANDAS=ON
-
 set ARROW_TEST_DATA=C:\arrow\testing\data
 set PARQUET_TEST_DATA=C:\arrow\cpp\submodules\parquet-testing\data
 
 @REM List installed Pythons
 py -0p
-
-set PYTHON_CMD=py -%PYTHON%
-
-%PYTHON_CMD% -m pip install -U pip setuptools || exit /B 1
-
-@REM Install testing dependencies
-%PYTHON_CMD% -m pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
 
 @REM Install the built wheels
 %PYTHON_CMD% -m pip install --no-index --find-links=C:\arrow\python\repaired_wheels pyarrow || exit /B 1
@@ -70,8 +61,9 @@ set PYTHON_CMD=py -%PYTHON%
 @rem Download IANA Timezone Database for ORC C++
 curl https://cygwin.osuosl.org/noarch/release/tzdata/tzdata-2024a-1.tar.xz --output tzdata.tar.xz || exit /B
 mkdir %USERPROFILE%\Downloads\test\tzdata
-arc unarchive tzdata.tar.xz %USERPROFILE%\Downloads\test\tzdata
+arc unarchive tzdata.tar.xz %USERPROFILE%\Downloads\test\tzdata || exit /B
 set TZDIR=%USERPROFILE%\Downloads\test\tzdata\usr\share\zoneinfo
+dir %TZDIR%
 
 @REM Execute unittest
 %PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1

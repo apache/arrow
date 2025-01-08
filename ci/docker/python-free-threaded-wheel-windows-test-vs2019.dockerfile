@@ -24,22 +24,29 @@ ARG base
 # hadolint ignore=DL3006
 FROM ${base}
 
-# hadolint shell=cmd.exe
+ARG python=3.13
 
-# Define the full version number otherwise choco falls back to patch number 0 (3.9 => 3.9.0)
-ARG python=3.9
-RUN (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13" && setx PYTHON_CMD "C:\Python39\python") & \
-    (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11" && setx PYTHON_CMD "py -3.10") & \
-    (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9" && setx PYTHON_CMD "py -3.11") & \
-    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.8" && setx PYTHON_CMD "py -3.12") & \
-    (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.1" && setx PYTHON_CMD "py -3.13")
+SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+RUN $filename = 'python-3.13.1-amd64.exe'; \
+    $url = 'https://www.python.org/ftp/python/3.13.1/' + $filename; \
+    Invoke-WebRequest -Uri $url -OutFile $filename; \
+    Start-Process -FilePath $filename -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
 
-# hadolint ignore=DL3059
-RUN choco install -r -y --pre --no-progress --force python --version=%PYTHON_VERSION%
-# hadolint ignore=DL3059
+ENV PYTHON_CMD="py -${python}t"
+
+SHELL ["cmd", "/S", "/C"]
 RUN %PYTHON_CMD% -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-test.txt C:/arrow/python/
-RUN %PYTHON_CMD% -m pip install -r C:/arrow/python/requirements-wheel-test.txt
+# Cython and Pandas wheels for 3.13 free-threaded are not released yet
+RUN %PYTHON_CMD% -m pip install \
+    --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
+    --pre \
+    --prefer-binary \
+    -r C:/arrow/python/requirements-wheel-test.txt
+# cffi-based tests would crash when importing cffi.
+# hadolint ignore=DL3059
+RUN %PYTHON_CMD% -m pip uninstall -y cffi
 
-ENV PYTHON=$python
+ENV PYTHON="${python}t"
+ENV PYTHON_GIL=0
