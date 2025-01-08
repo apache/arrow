@@ -52,15 +52,3 @@ index 1204be0..0abd9cb 100644
      return _byteswap_uint64(x);
  #else
      uint32_t low = x & UINT32_MAX;
-diff --git a/source/windows/thread.c b/source/windows/thread.c
-index 447fcd2..01e643f 100644
---- a/source/windows/thread.c
-+++ b/source/windows/thread.c
-@@ -10,6 +10,7 @@
- #include <aws/common/private/thread_shared.h>
- #include <aws/common/string.h>
-
-+#define _WIN32_WINNT 0x0601
- #include <Windows.h>
-
- #include <inttypes.h>
