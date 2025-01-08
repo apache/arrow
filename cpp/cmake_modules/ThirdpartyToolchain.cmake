@@ -5042,8 +5042,8 @@ macro(build_awssdk)
   # GH-44950: This is required to build under Rtools40 and we may be able to
   # remove it if/when we no longer need to build under Rtools40
   if(WIN32 AND NOT MSVC)
-    string(APPEND AWS_C_FLAGS " -D_WIN32_WINNT=0x0601")
-    string(APPEND AWS_CXX_FLAGS " -D_WIN32_WINNT=0x0601")
+    string(APPEND AWS_C_FLAGS " -D_WIN32_WINNT=0x0601 -Wno-error -Wno-error=format= -Wno-error=format-extra-args")
+    string(APPEND AWS_CXX_FLAGS " -D_WIN32_WINNT=0x0601 -Wno-error -Wno-error=format= -Wno-error=format-extra-args")
   endif()
 
   set(AWSSDK_COMMON_CMAKE_ARGS

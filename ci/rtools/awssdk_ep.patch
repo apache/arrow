@@ -75,27 +75,6 @@ index e26e36b60..3e7189b70 100644
 
              class SecureRandomBytes_BCrypt : public SecureRandomBytes
              {
-diff --git a/aws-cpp-sdk-core/source/external/cjson/cJSON.cpp b/aws-cpp-sdk-core/source/external/cjson/cJSON.cpp
-index cdcbf103e..03bcf0258 100644
---- a/aws-cpp-sdk-core/source/external/cjson/cJSON.cpp
-+++ b/aws-cpp-sdk-core/source/external/cjson/cJSON.cpp
-@@ -2483,7 +2483,15 @@ CJSON_AS4CPP_PUBLIC(cJSON *) cJSON_AS4CPP_CreateInt64(long long num)
-         if (num > INT_MAX || num < INT_MIN)
-         {
-             char buf[21];
--            snprintf(buf, sizeof(buf), "%lld", num);
-+#ifdef __MINGW32__
-+#pragma GCC diagnostic push
-+#pragma GCC diagnostic ignored "-Wformat"
-+#pragma GCC diagnostic ignored "-Wformat-extra-args"
-+#endif
-+           snprintf(buf, sizeof(buf), "%lld", num);
-+#ifdef __MINGW32__
-+#pragma GCC diagnostic pop
-+#endif
-             item->valuestring = (char*)cJSON_AS4CPP_strdup((const unsigned char*)buf, &global_hooks);
-         }
-
 diff --git a/aws-cpp-sdk-core/source/http/windows/WinHttpSyncHttpClient.cpp b/aws-cpp-sdk-core/source/http/windows/WinHttpSyncHttpClient.cpp
 index 4dade6489..a0456cf8e 100644
 --- a/aws-cpp-sdk-core/source/http/windows/WinHttpSyncHttpClient.cpp
