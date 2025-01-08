@@ -19,6 +19,8 @@
 # when you update this file.
 
 ARG base
+# https://github.com/hadolint/hadolint/wiki/DL3006
+# (Hadolint does not expand variables and thinks '${base}' is an untagged image)
 # hadolint ignore=DL3006
 FROM ${base}
 
