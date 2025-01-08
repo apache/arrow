@@ -95,13 +95,15 @@ void WriteColumn(::benchmark::State& state, const std::shared_ptr<::arrow::Table
         std::static_pointer_cast<::arrow::io::OutputStream>(output),
         DEFAULT_MAX_ROW_GROUP_LENGTH, properties));
 
-    state.PauseTiming();
-
-    auto metadata = parquet::ReadMetaData(
-        std::make_shared<::arrow::io::BufferReader>(output->Finish().ValueOrDie()));
-    state.counters["output_size"] = static_cast<double>(output->Tell().ValueOrDie());
-    state.counters["page_index_size"] =
-        static_cast<double>(GetTotalPageIndexSize(metadata));
+    if (state.counters.find("page_index_size") == state.counters.end()) {
+      state.PauseTiming();
+      auto metadata = parquet::ReadMetaData(
+          std::make_shared<::arrow::io::BufferReader>(output->Finish().ValueOrDie()));
+      state.counters["output_size"] = static_cast<double>(output->Tell().ValueOrDie());
+      state.counters["page_index_size"] =
+          static_cast<double>(GetTotalPageIndexSize(metadata));
+      state.ResumeTiming();
+    }
   }
 
   state.SetItemsProcessed(state.iterations() * kBenchmarkSize);
@@ -158,5 +160,3 @@ BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::PageAndColumnChunk,
                    ::arrow::StringType);
 
 }  // namespace parquet::benchmark
-
-BENCHMARK_MAIN();
