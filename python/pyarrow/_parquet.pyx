@@ -1602,7 +1602,7 @@ cdef class ParquetReader(_Weakrefable):
             vector[int] c_row_groups
             vector[int] c_column_indices
             shared_ptr[CRecordBatch] record_batch
-            SharedPtrNoGIL[CRecordBatchReader] recordbatchreader
+            UniquePtrNoGIL[CRecordBatchReader] recordbatchreader
 
         self.set_batch_size(batch_size)
 
