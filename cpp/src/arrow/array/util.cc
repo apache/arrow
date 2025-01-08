@@ -29,6 +29,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_base.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
@@ -51,6 +52,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 // ----------------------------------------------------------------------
 // Loading from ArrayData
@@ -913,6 +915,69 @@ Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
   RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
   RETURN_NOT_OK(builder->Resize(0));
   return builder->Finish();
+}
+
+Result<std::shared_ptr<Array>> MakeMaskArray(const std::vector<int64_t>& indices,
+                                             int64_t length, MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(length, pool));
+  for (int64_t index : indices) {
+    if (index < 0 || index >= length) {
+      return Status::IndexError("Index out of bounds: ", index);
+    }
+    bit_util::SetBit(buffer->mutable_data(), index);
+  }
+  return std::make_shared<BooleanArray>(length, buffer);
+}
+
+template <typename IndexType>
+Result<std::shared_ptr<Array>> MakeMaskArrayImpl(
+    const std::shared_ptr<NumericArray<IndexType>>& indices, int64_t length,
+    MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(length, pool));
+  for (int64_t i = 0; i < indices->length(); ++i) {
+    int64_t index = indices->Value(i);
+    if (index < 0 || index >= length) {
+      return Status::IndexError("Index out of bounds: ", index);
+    }
+    bit_util::SetBit(buffer->mutable_data(), index);
+  }
+  return std::make_shared<BooleanArray>(length, buffer);
+}
+
+Result<std::shared_ptr<Array>> MakeMaskArray(const std::shared_ptr<Array>& indices,
+                                             int64_t length, MemoryPool* pool) {
+  if (indices->null_count() > 0) {
+    return Status::Invalid("Indices array must not contain null values");
+  }
+
+  switch (indices->type_id()) {
+    case Type::INT8:
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<Int8Type>>(indices),
+                               length, pool);
+    case Type::UINT8:
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<UInt8Type>>(indices),
+                               length, pool);
+    case Type::INT16:
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<Int16Type>>(indices),
+                               length, pool);
+    case Type::UINT16:
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<UInt16Type>>(indices),
+                               length, pool);
+    case Type::INT32:
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<Int32Type>>(indices),
+                               length, pool);
+    case Type::UINT32:
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<UInt32Type>>(indices),
+                               length, pool);
+    case Type::INT64:
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<Int64Type>>(indices),
+                               length, pool);
+    case Type::UINT64:
+      return MakeMaskArrayImpl(checked_pointer_cast<NumericArray<UInt64Type>>(indices),
+                               length, pool);
+    default:
+      return Status::Invalid("Indices array must be of integer type");
+  }
 }
 
 namespace internal {
