@@ -568,20 +568,16 @@ class HashJoinBasicImpl : public HashJoinImpl {
     if (has_payload) {
       InitEncoder(1, HashJoinProjection::PAYLOAD, &hash_table_payloads_);
     }
-    hash_table_empty_ = true;
+    hash_table_empty_ = batches.empty();
+    RETURN_NOT_OK(dict_build_.Init(*schema_[1], hash_table_empty_ ? nullptr : &batches[0],
+                                   ctx_->exec_context()));
 
     for (size_t ibatch = 0; ibatch < batches.batch_count(); ++ibatch) {
       if (cancelled_) {
         return Status::Cancelled("Hash join cancelled");
       }
       const ExecBatch& batch = batches[ibatch];
-      if (batch.length == 0) {
-        continue;
-      } else if (hash_table_empty_) {
-        hash_table_empty_ = false;
-
-        RETURN_NOT_OK(dict_build_.Init(*schema_[1], &batch, ctx_->exec_context()));
-      }
+      DCHECK_GT(batch.length, 0);
       int32_t num_rows_before = hash_table_keys_.num_rows();
       RETURN_NOT_OK(dict_build_.EncodeBatch(thread_index, *schema_[1], batch,
                                             &hash_table_keys_, ctx_->exec_context()));
@@ -593,10 +589,6 @@ class HashJoinBasicImpl : public HashJoinImpl {
       for (int32_t irow = num_rows_before; irow < num_rows_after; ++irow) {
         hash_table_.insert(std::make_pair(hash_table_keys_.encoded_row(irow), irow));
       }
-    }
-
-    if (hash_table_empty_) {
-      RETURN_NOT_OK(dict_build_.Init(*schema_[1], nullptr, ctx_->exec_context()));
     }
 
     return Status::OK();

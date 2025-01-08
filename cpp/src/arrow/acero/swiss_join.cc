@@ -2598,9 +2598,7 @@ class SwissJoin : public HashJoinImpl {
       return Status::OK();
     }
 
-    if (build_side_batches_[batch_id].length == 0) {
-      return Status::OK();
-    }
+    DCHECK_GT(build_side_batches_[batch_id].length, 0);
 
     const HashJoinProjectionMaps* schema = schema_[1];
     bool no_payload = hash_table_build_.no_payload();
