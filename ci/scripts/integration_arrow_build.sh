@@ -60,7 +60,7 @@ if [ "${ARCHERY_INTEGRATION_WITH_JAVA}" -gt "0" ]; then
     export JAVA_JNI_CMAKE_ARGS="-DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF -DARROW_JAVA_JNI_ENABLE_C=ON"
 
     ${arrow_dir}/java/ci/scripts/jni_build.sh "${arrow_dir}/java" "${ARROW_HOME}" "${build_dir}/java/" /tmp/dist/java
-    ${arrow_dir}/java/ci/scripts/java_build.sh "${arrow_dir}/java" "${build_dir}/java" /tmp/dist/java
+    ${arrow_dir}/java/ci/scripts/build.sh "${arrow_dir}/java" "${build_dir}/java" /tmp/dist/java
 fi
 github_actions_group_end
 
