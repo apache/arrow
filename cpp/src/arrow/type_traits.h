@@ -1069,6 +1069,13 @@ constexpr bool is_floating(Type::type type_id) {
   return false;
 }
 
+/// \brief Check for a physical floating point type
+///
+/// This predicate matches floating-point types, except half-float.
+constexpr bool is_physical_floating(Type::type type_id) {
+  return is_floating(type_id) && type_id != Type::HALF_FLOAT;
+}
+
 /// \brief Check for a numeric type
 ///
 /// This predicate doesn't match decimals (see `is_decimal`).
