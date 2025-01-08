@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <iosfwd>
 #include <optional>
 #include <vector>
 
@@ -90,6 +91,9 @@ struct PARQUET_EXPORT SizeStatistics {
   /// \brief Make an empty SizeStatistics object for specific type.
   static std::unique_ptr<SizeStatistics> Make(const ColumnDescriptor* descr);
 };
+
+PARQUET_EXPORT
+std::ostream& operator<<(std::ostream&, const SizeStatistics&);
 
 PARQUET_EXPORT
 void UpdateLevelHistogram(::arrow::util::span<const int16_t> levels,

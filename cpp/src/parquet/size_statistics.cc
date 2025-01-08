@@ -18,6 +18,8 @@
 #include "parquet/size_statistics.h"
 
 #include <algorithm>
+#include <ostream>
+#include <string_view>
 
 #include "arrow/util/logging.h"
 #include "parquet/exception.h"
@@ -96,6 +98,34 @@ std::unique_ptr<SizeStatistics> SizeStatistics::Make(const ColumnDescriptor* des
     size_stats->unencoded_byte_array_data_bytes = 0;
   }
   return size_stats;
+}
+
+std::ostream& operator<<(std::ostream& os, const SizeStatistics& size_stats) {
+  constexpr std::string_view kComma = ", ";
+  os << "SizeStatistics{";
+  std::string_view sep = "";
+  if (size_stats.unencoded_byte_array_data_bytes.has_value()) {
+    os << "unencoded_byte_array_data_bytes="
+       << *size_stats.unencoded_byte_array_data_bytes;
+    sep = kComma;
+  }
+  auto print_histogram = [&](std::string_view name,
+                             const std::vector<int64_t>& histogram) {
+    if (!histogram.empty()) {
+      os << sep << name << "={";
+      sep = kComma;
+      std::string_view value_sep = "";
+      for (int64_t v : histogram) {
+        os << value_sep << v;
+        value_sep = kComma;
+      }
+      os << "}";
+    }
+  };
+  print_histogram("repetition_level_histogram", size_stats.repetition_level_histogram);
+  print_histogram("definition_level_histogram", size_stats.definition_level_histogram);
+  os << "}";
+  return os;
 }
 
 void UpdateLevelHistogram(::arrow::util::span<const int16_t> levels,
