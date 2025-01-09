@@ -132,6 +132,7 @@ std::ostream& operator<<(std::ostream& os, const SizeStatistics& size_stats) {
 void UpdateLevelHistogram(::arrow::util::span<const int16_t> levels,
                           ::arrow::util::span<int64_t> histogram) {
   const int64_t num_levels = static_cast<int64_t>(levels.size());
+  DCHECK_GE(histogram.size(), 1);
   const int16_t max_level = static_cast<int16_t>(histogram.size() - 1);
   if (max_level == 0) {
     histogram[0] += num_levels;
