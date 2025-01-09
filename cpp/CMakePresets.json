@@ -233,6 +233,33 @@
       }
     },
     {
+      "name": "sanitizer-asan",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_USE_ASAN": "ON",
+        "ARROW_JEMALLOC": "OFF",
+        "ARROW_MIMALLOC": "OFF"
+      }
+    },
+    {
+      "name": "sanitizer-tsan",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_USE_TSAN": "ON",
+        "ARROW_JEMALLOC": "OFF",
+        "ARROW_MIMALLOC": "OFF"
+      }
+    },
+    {
+      "name": "sanitizer-ubsan",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_USE_UBSAN": "ON",
+        "ARROW_JEMALLOC": "OFF",
+        "ARROW_MIMALLOC": "OFF"
+      }
+    },
+    {
       "name": "ninja-debug-minimal",
       "inherits": [
         "base-debug",
@@ -528,15 +555,47 @@
       "cacheVariables": {}
     },
     {
+      "name": "ninja-debug-asan",
+      "inherits": [
+        "base-debug",
+        "features-main",
+        "sanitizer-asan"
+      ],
+      "displayName": "Debug ASAN build with tests and more optional components",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-tsan",
+      "inherits": [
+        "base-debug",
+        "features-main",
+        "sanitizer-tsan"
+      ],
+      "displayName": "Debug TSAN build with tests and more optional components",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-ubsan",
+      "inherits": [
+        "base-debug",
+        "features-main",
+        "sanitizer-ubsan"
+      ],
+      "displayName": "Debug UBSAN build with tests and more optional components",
+      "cacheVariables": {}
+    },
+    {
       "name": "fuzzing",
-      "inherits": "base",
+      "inherits": [
+        "base",
+        "sanitizer-asan",
+        "sanitizer-ubsan"
+      ],
       "displayName": "Debug build with IPC and Parquet fuzzing targets",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
-        "ARROW_USE_ASAN": "ON",
-        "ARROW_USE_UBSAN": "ON",
         "ARROW_IPC": "ON",
         "ARROW_PARQUET": "ON",
         "ARROW_FUZZING": "ON"
