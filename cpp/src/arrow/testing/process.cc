@@ -32,17 +32,6 @@
 // work if windows.h is already included.
 #  include <boost/asio/io_context.hpp>
 
-#  ifdef BOOST_PROCESS_HAVE_V2
-// We can't use v2 API on Windows because v2 API doesn't support
-// process group [1] and GCS testbench uses multiple processes [2].
-//
-// [1] https://github.com/boostorg/process/issues/259
-// [2] https://github.com/googleapis/storage-testbench/issues/669
-#    ifndef _WIN32
-#      define BOOST_PROCESS_USE_V2
-#    endif
-#  endif
-
 #  ifdef BOOST_PROCESS_USE_V2
 #    ifdef BOOST_PROCESS_NEED_SOURCE
 // Workaround for https://github.com/boostorg/process/issues/312

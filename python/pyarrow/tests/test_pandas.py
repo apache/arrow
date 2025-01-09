@@ -1859,10 +1859,13 @@ class TestConvertStringLikeTypes:
         result = table.to_pandas(categories=['col'])
         assert table.to_pandas().equals(result)
 
-    def test_table_str_to_categorical_without_na(self):
+    @pytest.mark.parametrize(
+        "string_type", [pa.string(), pa.large_string(), pa.string_view()]
+    )
+    def test_table_str_to_categorical_without_na(self, string_type):
         values = ['a', 'a', 'b', 'b', 'c']
         df = pd.DataFrame({'strings': values})
-        field = pa.field('strings', pa.string())
+        field = pa.field('strings', string_type)
         schema = pa.schema([field])
         table = pa.Table.from_pandas(df, schema=schema)
 
@@ -1874,10 +1877,22 @@ class TestConvertStringLikeTypes:
             table.to_pandas(strings_to_categorical=True,
                             zero_copy_only=True)
 
-    def test_table_str_to_categorical_with_na(self):
+        # chunked array
+        result = table["strings"].to_pandas(strings_to_categorical=True)
+        expected = pd.Series(pd.Categorical(values), name="strings")
+        tm.assert_series_equal(result, expected)
+
+        with pytest.raises(pa.ArrowInvalid):
+            table["strings"].to_pandas(strings_to_categorical=True,
+                                       zero_copy_only=True)
+
+    @pytest.mark.parametrize(
+        "string_type", [pa.string(), pa.large_string(), pa.string_view()]
+    )
+    def test_table_str_to_categorical_with_na(self, string_type):
         values = [None, 'a', 'b', np.nan]
         df = pd.DataFrame({'strings': values})
-        field = pa.field('strings', pa.string())
+        field = pa.field('strings', string_type)
         schema = pa.schema([field])
         table = pa.Table.from_pandas(df, schema=schema)
 
@@ -1888,6 +1903,15 @@ class TestConvertStringLikeTypes:
         with pytest.raises(pa.ArrowInvalid):
             table.to_pandas(strings_to_categorical=True,
                             zero_copy_only=True)
+
+        # chunked array
+        result = table["strings"].to_pandas(strings_to_categorical=True)
+        expected = pd.Series(pd.Categorical(values), name="strings")
+        tm.assert_series_equal(result, expected)
+
+        with pytest.raises(pa.ArrowInvalid):
+            table["strings"].to_pandas(strings_to_categorical=True,
+                                       zero_copy_only=True)
 
     # Regression test for ARROW-2101
     def test_array_of_bytes_to_strings(self):

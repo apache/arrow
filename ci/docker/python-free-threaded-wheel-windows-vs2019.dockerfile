@@ -19,21 +19,31 @@
 # when you update this file.
 
 ARG base
+# https://github.com/hadolint/hadolint/wiki/DL3006
+# (Hadolint does not expand variables and thinks '${base}' is an untagged image)
+# hadolint ignore=DL3006
 FROM ${base}
 
-# Define the full version number otherwise choco falls back to patch number 0 (3.9 => 3.9.0)
-# Note that Python 3.9 does not come with the "py" launcher
-ARG python=3.9
-RUN (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13" && setx PYTHON_CMD "C:\Python39\python") & \
-    (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11" && setx PYTHON_CMD "py -3.10") & \
-    (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9" && setx PYTHON_CMD "py -3.11") & \
-    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.8" && setx PYTHON_CMD "py -3.12") & \
-    (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.1" && setx PYTHON_CMD "py -3.13")
+ARG python=3.13
 
-RUN choco install -r -y --pre --no-progress python --version=%PYTHON_VERSION%
+SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+RUN $filename = 'python-3.13.1-amd64.exe'; \
+    $url = 'https://www.python.org/ftp/python/3.13.1/' + $filename; \
+    Invoke-WebRequest -Uri $url -OutFile $filename; \
+    Start-Process -FilePath $filename -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
+
+ENV PYTHON_CMD="py -${python}t"
+
+SHELL ["cmd", "/S", "/C"]
 RUN %PYTHON_CMD% -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt C:/arrow/python/
+# Cython wheels for 3.13 free-threaded are not released yet
+RUN %PYTHON_CMD% -m pip install \
+    --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
+    --pre \
+    --prefer-binary \
+    cython
 RUN %PYTHON_CMD% -m pip install -r C:/arrow/python/requirements-wheel-build.txt
 
-ENV PYTHON=${python}
+ENV PYTHON="${python}t"
