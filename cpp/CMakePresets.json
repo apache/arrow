@@ -557,8 +557,7 @@
     {
       "name": "ninja-debug-asan",
       "inherits": [
-        "base-debug",
-        "features-main",
+        "ninja-debug",
         "sanitizer-asan"
       ],
       "displayName": "Debug ASAN build with tests and more optional components",
@@ -567,8 +566,7 @@
     {
       "name": "ninja-debug-tsan",
       "inherits": [
-        "base-debug",
-        "features-main",
+        "ninja-debug",
         "sanitizer-tsan"
       ],
       "displayName": "Debug TSAN build with tests and more optional components",
@@ -577,8 +575,7 @@
     {
       "name": "ninja-debug-ubsan",
       "inherits": [
-        "base-debug",
-        "features-main",
+        "ninja-debug",
         "sanitizer-ubsan"
       ],
       "displayName": "Debug UBSAN build with tests and more optional components",
