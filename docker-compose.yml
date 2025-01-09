@@ -1375,6 +1375,7 @@ services:
       PYTEST_ARGS:  # inherit
       HYPOTHESIS_PROFILE:  # inherit
       PYARROW_TEST_HYPOTHESIS:  # inherit
+      PANDAS_FUTURE_INFER_STRING:  # inherit
     volumes: *conda-volumes
     command: *python-conda-command
 
