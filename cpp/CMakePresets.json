@@ -557,8 +557,8 @@
     {
       "name": "ninja-debug-asan",
       "inherits": [
-        "ninja-debug",
-        "sanitizer-asan"
+        "sanitizer-asan",
+        "ninja-debug"
       ],
       "displayName": "Debug ASAN build with tests and more optional components",
       "cacheVariables": {}
@@ -566,8 +566,8 @@
     {
       "name": "ninja-debug-tsan",
       "inherits": [
-        "ninja-debug",
-        "sanitizer-tsan"
+        "sanitizer-tsan",
+        "ninja-debug"
       ],
       "displayName": "Debug TSAN build with tests and more optional components",
       "cacheVariables": {}
@@ -575,8 +575,8 @@
     {
       "name": "ninja-debug-ubsan",
       "inherits": [
-        "ninja-debug",
-        "sanitizer-ubsan"
+        "sanitizer-ubsan",
+        "ninja-debug"
       ],
       "displayName": "Debug UBSAN build with tests and more optional components",
       "cacheVariables": {}
@@ -584,9 +584,9 @@
     {
       "name": "fuzzing",
       "inherits": [
-        "base",
         "sanitizer-asan",
-        "sanitizer-ubsan"
+        "sanitizer-ubsan",
+        "base"
       ],
       "displayName": "Debug build with IPC and Parquet fuzzing targets",
       "cacheVariables": {
