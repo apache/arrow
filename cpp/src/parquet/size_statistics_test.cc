@@ -348,4 +348,32 @@ TEST_F(SizeStatisticsRoundTripTest, WritePageInBatches) {
   }
 }
 
+TEST_F(SizeStatisticsRoundTripTest, LargePage) {
+  // When max_level is 1, the levels are summed in 2**30 chunks, exercise this
+  // by testing with a 90000 rows table;
+  auto schema = ::arrow::schema({::arrow::field("a", ::arrow::utf8())});
+  auto seed_batch = ::arrow::RecordBatchFromJSON(schema, R"([
+    [ "a" ],
+    [ "bc" ],
+    [ null ]
+  ])");
+  ASSERT_OK_AND_ASSIGN(auto table, ::arrow::Table::FromRecordBatches(
+                                       ::arrow::RecordBatchVector(30000, seed_batch)));
+  ASSERT_OK_AND_ASSIGN(table, table->CombineChunks());
+  ASSERT_EQ(table->num_rows(), 90000);
+
+  WriteFile(SizeStatisticsLevel::PageAndColumnChunk, table,
+            /*max_row_group_length=*/1 << 30, /*page_size=*/1 << 30,
+            /*write_batch_size=*/50000);
+  ReadSizeStatistics();
+  EXPECT_THAT(row_group_stats_,
+              ::testing::ElementsAre(SizeStatistics{/*def_levels=*/{30000, 60000},
+                                                    /*rep_levels=*/{90000},
+                                                    /*byte_array_bytes=*/90000}));
+  EXPECT_THAT(page_stats_,
+              ::testing::ElementsAre(PageSizeStatistics{/*def_levels=*/{30000, 60000},
+                                                        /*rep_levels=*/{90000},
+                                                        /*byte_array_bytes=*/{90000}}));
+}
+
 }  // namespace parquet

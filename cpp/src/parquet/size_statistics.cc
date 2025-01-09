@@ -18,6 +18,7 @@
 #include "parquet/size_statistics.h"
 
 #include <algorithm>
+#include <numeric>
 #include <ostream>
 #include <string_view>
 
@@ -136,27 +137,33 @@ void UpdateLevelHistogram(::arrow::util::span<const int16_t> levels,
     histogram[0] += num_levels;
     return;
   }
-  // The goal of the two specialized paths below is to accelerate common cases
-  // by keeping histogram values in registers.
-  // The fallback implementation (`++histogram[level]`) issues a series of
-  // load-stores with frequent conflicts.
+
+#ifndef NDEBUG
+  for (auto level : levels) {
+    ARROW_DCHECK_LE(level, max_level);
+  }
+#endif
+
   if (max_level == 1) {
-    // Specialize the common case for non-repeated non-nested columns
-    // by keeping histogram values in a register, which avoids being limited
-    // by CPU cache latency.
-    int64_t hist0 = 0;
-    for (int16_t level : levels) {
-      ARROW_DCHECK_LE(level, max_level);
-      hist0 += (level == 0);
+    // Specialize the common case for non-repeated non-nested columns.
+    // Summing the levels gives us the number of 1s, and the number of 0s follows.
+    // We do repeated sums in the int16_t space, which the compiler is likely
+    // to vectorize efficiently.
+    constexpr int64_t kChunkSize = 1 << 14;  // to avoid int16_t overflows
+    int64_t hist1 = 0;
+    auto it = levels.begin();
+    while (it != levels.end()) {
+      const auto chunk_size = std::min<int64_t>(levels.end() - it, kChunkSize);
+      hist1 += std::accumulate(levels.begin(), levels.begin() + chunk_size, int16_t{0});
+      it += chunk_size;
     }
-    // max_level is usually the most frequent case, update it in one single step
-    histogram[1] += num_levels - hist0;
-    histogram[0] += hist0;
+    histogram[0] += num_levels - hist1;
+    histogram[1] += hist1;
     return;
   }
 
-  // The general case cannot avoid repeated loads/stores in the CPU cache,
-  // but it limits store-to-load dependencies by interleaving partial histogram
+  // The generic implementation issues a series of histogram load-stores.
+  // However, it limits store-to-load dependencies by interleaving partial histogram
   // updates.
   constexpr int kUnroll = 4;
   std::array<std::vector<int64_t>, kUnroll> partial_hist;
@@ -166,12 +173,10 @@ void UpdateLevelHistogram(::arrow::util::span<const int16_t> levels,
   int64_t i = 0;
   for (; i <= num_levels - kUnroll; i += kUnroll) {
     for (int j = 0; j < kUnroll; ++j) {
-      ARROW_DCHECK_LE(levels[i + j], max_level);
       ++partial_hist[j][levels[i + j]];
     }
   }
   for (; i < num_levels; ++i) {
-    ARROW_DCHECK_LE(levels[i], max_level);
     ++partial_hist[0][levels[i]];
   }
   for (const auto& hist : partial_hist) {
