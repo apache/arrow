@@ -7,7 +7,7 @@
   },
   "configurePresets": [
     {
-      "name": "_allocator-none",
+      "name": "_allocators-none",
       "hidden": true,
       "cacheVariables": {
         "ARROW_JEMALLOC": "OFF",
@@ -15,7 +15,7 @@
       }
     },
     {
-      "name": "_allocator-jemalloc",
+      "name": "_allocators-jemalloc",
       "hidden": true,
       "cacheVariables": {
         "ARROW_JEMALLOC": "ON",
@@ -23,10 +23,18 @@
       }
     },
     {
-      "name": "_allocator-mimalloc",
+      "name": "_allocators-mimalloc",
       "hidden": true,
       "cacheVariables": {
         "ARROW_JEMALLOC": "OFF",
+        "ARROW_MIMALLOC": "ON"
+      }
+    },
+    {
+      "name": "_allocators-all",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_JEMALLOC": "ON",
         "ARROW_MIMALLOC": "ON"
       }
     },
@@ -73,7 +81,7 @@
     {
       "name": "features-minimal",
       "inherits": [
-        "_allocator-none"
+        "_allocators-none"
       ],
       "hidden": true,
       "cacheVariables": {
@@ -84,7 +92,7 @@
     {
       "name": "features-basic",
       "inherits": [
-        "_allocator-mimalloc",
+        "_allocators-mimalloc",
         "features-minimal"
       ],
       "hidden": true,
@@ -198,6 +206,7 @@
     {
       "name": "features-maximal",
       "inherits": [
+        "_allocators-all",
         "features-python-maximal"
       ],
       "hidden": true,
@@ -213,7 +222,7 @@
     {
       "name": "features-emscripten",
       "inherits": [
-        "_allocator-none"
+        "_allocators-none"
       ],
       "hidden": true,
       "cacheVariables": {
@@ -250,7 +259,7 @@
     {
       "name": "sanitizer-asan",
       "inherits": [
-        "_allocator-none"
+        "_allocators-none"
       ],
       "hidden": true,
       "cacheVariables": {
@@ -260,7 +269,7 @@
     {
       "name": "sanitizer-tsan",
       "inherits": [
-        "_allocator-none"
+        "_allocators-none"
       ],
       "hidden": true,
       "cacheVariables": {
@@ -270,7 +279,7 @@
     {
       "name": "sanitizer-ubsan",
       "inherits": [
-        "_allocator-none"
+        "_allocators-none"
       ],
       "hidden": true,
       "cacheVariables": {
@@ -436,7 +445,7 @@
     {
       "name": "ninja-debug-asan",
       "inherits": [
-        "_allocator-none",
+        "_allocators-none",
         "ninja-debug",
         "sanitizer-asan"
       ],
@@ -446,7 +455,7 @@
     {
       "name": "ninja-debug-tsan",
       "inherits": [
-        "_allocator-none",
+        "_allocators-none",
         "ninja-debug",
         "sanitizer-tsan"
       ],
@@ -456,7 +465,7 @@
     {
       "name": "ninja-debug-ubsan",
       "inherits": [
-        "_allocator-none",
+        "_allocators-none",
         "ninja-debug",
         "sanitizer-ubsan"
       ],
