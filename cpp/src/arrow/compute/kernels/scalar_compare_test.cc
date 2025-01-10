@@ -680,6 +680,72 @@ TYPED_TEST(TestCompareDecimal, DifferentParameters) {
   }
 }
 
+template <typename ArrowType>
+class TestCompareList : public ::testing::Test {};
+TYPED_TEST_SUITE(TestCompareList, ListArrowTypes);
+
+TYPED_TEST(TestCompareList, ArrayScalar) {
+  auto value_typ = std::make_shared<Int32Type>();
+  auto ty = std::make_shared<TypeParam>(std::move(value_typ));
+
+  std::vector<std::pair<std::string, std::string>> cases = {
+      {"equal", "[1, 0, 0, null]"},
+      {"not_equal", "[0, 1, 1, null]"},
+  };
+  auto lhs = ArrayFromJSON(ty, R"([[1, 2, 3], [4, 5, 6], [42], null])");
+  auto rhs = ScalarFromJSON(ty, R"([1, 2, 3])");
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+    CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+  }
+}
+
+TYPED_TEST(TestCompareList, ScalarArray) {
+  auto value_typ = std::make_shared<Int32Type>();
+  auto ty = std::make_shared<TypeParam>(std::move(value_typ));
+
+  std::vector<std::pair<std::string, std::string>> cases = {
+      {"equal", "[1, 0, 0, null]"},
+      {"not_equal", "[0, 1, 1, null]"},
+  };
+  auto lhs = ScalarFromJSON(ty, R"([1, 2, 3])");
+  auto rhs = ArrayFromJSON(ty, R"([[1, 2, 3], [4, 5, 6], [42], null])");
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+    CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+  }
+}
+
+TYPED_TEST(TestCompareList, ArrayArray) {
+  auto value_typ = std::make_shared<Int32Type>();
+  auto ty = std::make_shared<TypeParam>(std::move(value_typ));
+
+  std::vector<std::pair<std::string, std::string>> cases = {
+      {"equal", "[1, 0, 0, null]"},
+      {"not_equal", "[0, 1, 1, null]"},
+  };
+  auto lhs = ArrayFromJSON(ty, R"([[1, 2, 3], [4, 5, 6], [7], null])");
+  auto rhs = ArrayFromJSON(ty, R"([[1, 2, 3], [4, 5], [6, 7, 8], null])");
+  for (const auto& op : cases) {
+    const auto& function = op.first;
+    const auto& expected = op.second;
+
+    SCOPED_TRACE(function);
+    CheckScalarBinary(function, ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])"),
+                      ArrayFromJSON(boolean(), "[]"));
+    CheckScalarBinary(function, ArrayFromJSON(ty, R"([null])"),
+                      ArrayFromJSON(ty, R"([null])"), ArrayFromJSON(boolean(), "[null]"));
+
+    CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+  }
+}
+
 // Helper to organize tests for fixed size binary comparisons
 struct CompareCase {
   std::shared_ptr<DataType> lhs_type;
