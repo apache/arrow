@@ -434,9 +434,9 @@
     {
       "name": "fuzzing",
       "inherits": [
-        "base",
         "sanitizer-asan",
-        "sanitizer-ubsan"
+        "sanitizer-ubsan",
+        "base"
       ],
       "displayName": "Debug build with IPC and Parquet fuzzing targets",
       "cacheVariables": {
