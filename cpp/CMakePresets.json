@@ -47,34 +47,6 @@
       }
     },
     {
-      "name": "features-emscripten",
-      "hidden": true,
-      "cacheVariables": {
-        "ARROW_ACERO": "ON",
-        "ARROW_BUILD_SHARED": "OFF",
-        "ARROW_BUILD_STATIC": "ON",
-        "ARROW_CSV": "ON",
-        "ARROW_CUDA": "OFF",
-        "ARROW_DEPENDENCY_SOURCE": "BUNDLED",
-        "ARROW_DEPENDENCY_USE_SHARED": "OFF",
-        "ARROW_ENABLE_THREADING": "OFF",
-        "ARROW_FLIGHT": "OFF",
-        "ARROW_IPC": "ON",
-        "ARROW_JEMALLOC": "OFF",
-        "ARROW_JSON": "ON",
-        "ARROW_MIMALLOC": "OFF",
-        "ARROW_ORC": "ON",
-        "ARROW_RUNTIME_SIMD_LEVEL": "NONE",
-        "ARROW_S3": "OFF",
-        "ARROW_SIMD_LEVEL": "NONE",
-        "ARROW_SUBSTRAIT": "ON",
-        "ARROW_WITH_BROTLI": "ON",
-        "ARROW_WITH_OPENTELEMETRY": "OFF",
-        "ARROW_WITH_SNAPPY": "ON",
-        "CMAKE_C_BYTE_ORDER": "LITTLE_ENDIAN"
-      }
-    },
-    {
       "name": "features-minimal",
       "hidden": true,
       "cacheVariables": {
@@ -85,7 +57,9 @@
     },
     {
       "name": "features-basic",
-      "inherits": "features-minimal",
+      "inherits": [
+        "features-minimal"
+      ],
       "hidden": true,
       "cacheVariables": {
         "ARROW_COMPUTE": "ON",
@@ -103,7 +77,6 @@
       "cacheVariables": {
         "ARROW_SUBSTRAIT": "ON",
         "ARROW_ACERO": "ON",
-        "ARROW_MIMALLOC": "ON",
         "ARROW_PARQUET": "ON",
         "ARROW_WITH_BROTLI": "ON",
         "ARROW_WITH_BZ2": "ON",
@@ -174,15 +147,11 @@
     {
       "name": "features-python",
       "inherits": [
-        "features-main"
+        "features-main",
+        "features-python-minimal"
       ],
       "hidden": true,
       "cacheVariables": {
-        "ARROW_COMPUTE": "ON",
-        "ARROW_CSV": "ON",
-        "ARROW_DATASET": "ON",
-        "ARROW_FILESYSTEM": "ON",
-        "ARROW_JSON": "ON",
         "ARROW_ORC": "ON"
       }
     },
@@ -193,12 +162,10 @@
         "features-filesystems",
         "features-flight-sql",
         "features-gandiva",
-        "features-main",
-        "features-python-minimal"
+        "features-python"
       ],
       "hidden": true,
       "cacheVariables": {
-        "ARROW_ORC": "ON",
         "PARQUET_REQUIRE_ENCRYPTION": "ON"
       }
     },
@@ -206,22 +173,44 @@
       "name": "features-maximal",
       "inherits": [
         "features-main",
-        "features-cuda",
-        "features-filesystems",
-        "features-flight-sql",
-        "features-gandiva",
         "features-python-maximal"
       ],
       "hidden": true,
       "cacheVariables": {
         "ARROW_BUILD_EXAMPLES": "ON",
         "ARROW_BUILD_UTILITIES": "ON",
-        "ARROW_ORC": "ON",
         "ARROW_SKYHOOK": "ON",
         "ARROW_TENSORFLOW": "ON",
         "PARQUET_BUILD_EXAMPLES": "ON",
-        "PARQUET_BUILD_EXECUTABLES": "ON",
-        "PARQUET_REQUIRE_ENCRYPTION": "ON"
+        "PARQUET_BUILD_EXECUTABLES": "ON"
+      }
+    },
+    {
+      "name": "features-emscripten",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_ACERO": "ON",
+        "ARROW_BUILD_SHARED": "OFF",
+        "ARROW_BUILD_STATIC": "ON",
+        "ARROW_CSV": "ON",
+        "ARROW_CUDA": "OFF",
+        "ARROW_DEPENDENCY_SOURCE": "BUNDLED",
+        "ARROW_DEPENDENCY_USE_SHARED": "OFF",
+        "ARROW_ENABLE_THREADING": "OFF",
+        "ARROW_FLIGHT": "OFF",
+        "ARROW_IPC": "ON",
+        "ARROW_JEMALLOC": "OFF",
+        "ARROW_JSON": "ON",
+        "ARROW_MIMALLOC": "OFF",
+        "ARROW_ORC": "ON",
+        "ARROW_RUNTIME_SIMD_LEVEL": "NONE",
+        "ARROW_S3": "OFF",
+        "ARROW_SIMD_LEVEL": "NONE",
+        "ARROW_SUBSTRAIT": "ON",
+        "ARROW_WITH_BROTLI": "ON",
+        "ARROW_WITH_OPENTELEMETRY": "OFF",
+        "ARROW_WITH_SNAPPY": "ON",
+        "CMAKE_C_BYTE_ORDER": "LITTLE_ENDIAN"
       }
     },
     {
@@ -236,34 +225,34 @@
       "name": "sanitizer-asan",
       "hidden": true,
       "cacheVariables": {
-        "ARROW_USE_ASAN": "ON",
         "ARROW_JEMALLOC": "OFF",
-        "ARROW_MIMALLOC": "OFF"
+        "ARROW_MIMALLOC": "OFF",
+        "ARROW_USE_ASAN": "ON"
       }
     },
     {
       "name": "sanitizer-tsan",
       "hidden": true,
       "cacheVariables": {
-        "ARROW_USE_TSAN": "ON",
         "ARROW_JEMALLOC": "OFF",
-        "ARROW_MIMALLOC": "OFF"
+        "ARROW_MIMALLOC": "OFF",
+        "ARROW_USE_TSAN": "ON"
       }
     },
     {
       "name": "sanitizer-ubsan",
       "hidden": true,
       "cacheVariables": {
-        "ARROW_USE_UBSAN": "ON",
         "ARROW_JEMALLOC": "OFF",
-        "ARROW_MIMALLOC": "OFF"
+        "ARROW_MIMALLOC": "OFF",
+        "ARROW_USE_UBSAN": "ON"
       }
     },
     {
       "name": "ninja-debug-minimal",
       "inherits": [
-        "base-debug",
-        "features-minimal"
+        "features-minimal",
+        "base-debug"
       ],
       "displayName": "Debug build without anything enabled",
       "cacheVariables": {
@@ -274,8 +263,8 @@
     {
       "name": "ninja-debug-basic",
       "inherits": [
-        "base-debug",
-        "features-basic"
+        "features-basic",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and reduced dependencies",
       "cacheVariables": {}
@@ -283,8 +272,8 @@
     {
       "name": "ninja-debug",
       "inherits": [
-        "base-debug",
-        "features-main"
+        "features-main",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and more optional components",
       "cacheVariables": {}
@@ -292,8 +281,8 @@
     {
       "name": "ninja-debug-cuda",
       "inherits": [
-        "base-debug",
-        "features-cuda"
+        "features-cuda",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and CUDA integration",
       "cacheVariables": {}
@@ -301,8 +290,8 @@
     {
       "name": "ninja-debug-filesystems",
       "inherits": [
-        "base-debug",
-        "features-filesystems"
+        "features-filesystems",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and filesystems",
       "cacheVariables": {}
@@ -310,8 +299,8 @@
     {
       "name": "ninja-debug-flight",
       "inherits": [
-        "base-debug",
-        "features-flight"
+        "features-flight",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and Flight",
       "cacheVariables": {}
@@ -319,8 +308,8 @@
     {
       "name": "ninja-debug-flight-sql",
       "inherits": [
-        "base-debug",
-        "features-flight-sql"
+        "features-flight-sql",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and Flight SQL",
       "cacheVariables": {}
@@ -328,8 +317,8 @@
     {
       "name": "ninja-debug-gandiva",
       "inherits": [
-        "base-debug",
-        "features-gandiva"
+        "features-gandiva",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and Gandiva",
       "cacheVariables": {}
@@ -337,8 +326,8 @@
     {
       "name": "ninja-debug-python-minimal",
       "inherits": [
-        "base-debug",
-        "features-python-minimal"
+        "features-python-minimal",
+        "base-debug"
       ],
       "displayName": "Debug build for PyArrow with minimal features",
       "cacheVariables": {}
@@ -346,8 +335,8 @@
     {
       "name": "ninja-debug-python",
       "inherits": [
-        "base-debug",
-        "features-python"
+        "features-python",
+        "base-debug"
       ],
       "displayName": "Debug build for PyArrow with common features (for backward compatibility)",
       "cacheVariables": {}
@@ -355,8 +344,8 @@
     {
       "name": "ninja-debug-python-maximal",
       "inherits": [
-        "base-debug",
-        "features-python-maximal"
+        "features-python-maximal",
+        "base-debug"
       ],
       "displayName": "Debug build for PyArrow with everything enabled",
       "cacheVariables": {}
@@ -364,86 +353,10 @@
     {
       "name": "ninja-debug-maximal",
       "inherits": [
-        "base-debug",
-        "features-maximal"
+        "features-maximal",
+        "base-debug"
       ],
       "displayName": "Debug build with everything enabled (except benchmarks)",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-debug-valgrind-basic",
-      "inherits": [
-        "base-debug",
-        "features-basic",
-        "features-valgrind"
-      ],
-      "displayName": "Debug build for Valgrind with reduced dependencies",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-debug-valgrind",
-      "inherits": [
-        "base-debug",
-        "features-main",
-        "features-valgrind"
-      ],
-      "displayName": "Debug build for Valgrind with more optional components",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-debug-valgrind-minimal",
-      "inherits": [
-        "base-debug",
-        "features-minimal",
-        "features-valgrind"
-      ],
-      "displayName": "Debug build for Valgrind without anything enabled",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-debug-valgrind-maximal",
-      "inherits": [
-        "base-debug",
-        "features-maximal",
-        "features-valgrind"
-      ],
-      "displayName": "Debug build for Valgrind with everything enabled",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-release-minimal",
-      "inherits": [
-        "base-release",
-        "features-minimal"
-      ],
-      "displayName": "Release build without anything enabled",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-release-basic",
-      "inherits": [
-        "base-release",
-        "features-basic"
-      ],
-      "displayName": "Release build with reduced dependencies",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-release",
-      "inherits": [
-        "base-release",
-        "features-main"
-      ],
-      "displayName": "Release build with more optional components",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-release-cuda",
-      "inherits": [
-        "base-release",
-        "features-cuda"
-      ],
-      "displayName": "Release build with CUDA integration",
       "cacheVariables": {}
     },
     {
@@ -456,137 +369,74 @@
       "cacheVariables": {}
     },
     {
-      "name": "ninja-release-emscripten",
+      "name": "ninja-debug-valgrind-minimal",
       "inherits": [
-        "features-emscripten",
-        "base-release"
+        "features-valgrind",
+        "ninja-debug-minimal"
       ],
-      "displayName": "Release build which builds an Emscripten library",
+      "displayName": "Debug build for Valgrind without anything enabled",
       "cacheVariables": {}
     },
     {
-      "name": "ninja-release-flight",
+      "name": "ninja-debug-valgrind-basic",
       "inherits": [
-        "base-release",
-        "features-flight"
+        "features-valgrind",
+        "ninja-debug-basic"
       ],
-      "displayName": "Release build with Flight",
+      "displayName": "Debug build for Valgrind with tests and reduced dependencies",
       "cacheVariables": {}
     },
     {
-      "name": "ninja-release-flight-sql",
+      "name": "ninja-debug-valgrind",
       "inherits": [
-        "base-release",
-        "features-flight-sql"
+        "features-valgrind",
+        "ninja-debug"
       ],
-      "displayName": "Release build with Flight SQL",
+      "displayName": "Debug build for Valgrind with tests and more optional components",
       "cacheVariables": {}
     },
     {
-      "name": "ninja-release-gandiva",
+      "name": "ninja-debug-valgrind-maximal",
       "inherits": [
-        "base-release",
-        "features-gandiva"
+        "features-valgrind",
+        "ninja-debug-maximal"
       ],
-      "displayName": "Release build with Gandiva",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-release-python-minimal",
-      "inherits": [
-        "base-release",
-        "features-python-minimal"
-      ],
-      "displayName": "Release build for PyArrow with minimal features",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-release-python",
-      "inherits": [
-        "base-release",
-        "features-python"
-      ],
-      "displayName": "Release build for PyArrow with common features (for backward compatibility)",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-release-python-maximal",
-      "inherits": [
-        "base-release",
-        "features-python-maximal"
-      ],
-      "displayName": "Release build for PyArrow with everything enabled",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-release-maximal",
-      "inherits": [
-        "base-release",
-        "features-maximal"
-      ],
-      "displayName": "Release build with everything enabled (except benchmarks)",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-benchmarks-basic",
-      "inherits": [
-        "base-benchmarks",
-        "features-basic"
-      ],
-      "displayName": "Benchmarking build with reduced dependencies",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-benchmarks",
-      "inherits": [
-        "base-benchmarks",
-        "features-main"
-      ],
-      "displayName": "Benchmarking build with more optional components",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-benchmarks-maximal",
-      "inherits": [
-        "base-benchmarks",
-        "features-maximal"
-      ],
-      "displayName": "Benchmarking build with everything enabled",
+      "displayName": "Debug build for Valgrind with tests and everything enabled",
       "cacheVariables": {}
     },
     {
       "name": "ninja-debug-asan",
       "inherits": [
-        "ninja-debug",
-        "sanitizer-asan"
+        "sanitizer-asan",
+        "ninja-debug"
       ],
-      "displayName": "Debug ASAN build with tests and more optional components",
+      "displayName": "Debug build for ASAN with tests and more optional components",
       "cacheVariables": {}
     },
     {
       "name": "ninja-debug-tsan",
       "inherits": [
-        "ninja-debug",
-        "sanitizer-tsan"
+        "sanitizer-tsan",
+        "ninja-debug"
       ],
-      "displayName": "Debug TSAN build with tests and more optional components",
+      "displayName": "Debug build for TSAN with tests and more optional components",
       "cacheVariables": {}
     },
     {
       "name": "ninja-debug-ubsan",
       "inherits": [
-        "ninja-debug",
-        "sanitizer-ubsan"
+        "sanitizer-ubsan",
+        "ninja-debug"
       ],
-      "displayName": "Debug UBSAN build with tests and more optional components",
+      "displayName": "Debug build for UBSAN with tests and more optional components",
       "cacheVariables": {}
     },
     {
       "name": "fuzzing",
       "inherits": [
-        "base",
         "sanitizer-asan",
-        "sanitizer-ubsan"
+        "sanitizer-ubsan",
+        "base"
       ],
       "displayName": "Debug build with IPC and Parquet fuzzing targets",
       "cacheVariables": {
@@ -597,6 +447,141 @@
         "ARROW_PARQUET": "ON",
         "ARROW_FUZZING": "ON"
       }
+    },
+    {
+      "name": "ninja-release-minimal",
+      "inherits": [
+        "features-minimal",
+        "base-release"
+      ],
+      "displayName": "Release build without anything enabled",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-basic",
+      "inherits": [
+        "features-basic",
+        "base-release"
+      ],
+      "displayName": "Release build with reduced dependencies",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release",
+      "inherits": [
+        "features-main",
+        "base-release"
+      ],
+      "displayName": "Release build with more optional components",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-cuda",
+      "inherits": [
+        "features-cuda",
+        "base-release"
+      ],
+      "displayName": "Release build with CUDA integration",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-flight",
+      "inherits": [
+        "features-flight",
+        "base-release"
+      ],
+      "displayName": "Release build with Flight",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-flight-sql",
+      "inherits": [
+        "features-flight-sql",
+        "base-release"
+      ],
+      "displayName": "Release build with Flight SQL",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-gandiva",
+      "inherits": [
+        "features-gandiva",
+        "base-release"
+      ],
+      "displayName": "Release build with Gandiva",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-python-minimal",
+      "inherits": [
+        "features-python-minimal",
+        "base-release"
+      ],
+      "displayName": "Release build for PyArrow with minimal features",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-python",
+      "inherits": [
+        "features-python",
+        "base-release"
+      ],
+      "displayName": "Release build for PyArrow with common features (for backward compatibility)",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-python-maximal",
+      "inherits": [
+        "features-python-maximal",
+        "base-release"
+      ],
+      "displayName": "Release build for PyArrow with everything enabled",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-maximal",
+      "inherits": [
+        "features-maximal",
+        "base-release"
+      ],
+      "displayName": "Release build with everything enabled (except benchmarks)",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-emscripten",
+      "inherits": [
+        "features-emscripten",
+        "base-release"
+      ],
+      "displayName": "Release build which builds an Emscripten library",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-benchmarks-basic",
+      "inherits": [
+        "features-basic",
+        "base-benchmarks"
+      ],
+      "displayName": "Benchmarking build with reduced dependencies",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-benchmarks",
+      "inherits": [
+        "features-main",
+        "base-benchmarks"
+      ],
+      "displayName": "Benchmarking build with more optional components",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-benchmarks-maximal",
+      "inherits": [
+        "features-maximal",
+        "base-benchmarks"
+      ],
+      "displayName": "Benchmarking build with everything enabled",
+      "cacheVariables": {}
     }
   ]
 }
