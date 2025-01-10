@@ -186,6 +186,12 @@ env:
   - name: Upload wheel to Anaconda scientific-python
     shell: bash
     run: |
+      # check if completion actually expands to wheel files
+      # to prevent empty dirs from failing silently
+      if ! compgen -G "{{ pattern }}" > /dev/null; then
+          echo "No wheel files found!"
+          exit 1
+      fi
       python3 -m pip install git+https://github.com/Anaconda-Platform/anaconda-client.git@1.12.3
       anaconda -t ${CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN} upload --force -u scientific-python-nightly-wheels --label main {{ pattern }}
     env:
