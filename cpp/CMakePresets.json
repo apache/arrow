@@ -72,24 +72,28 @@
     },
     {
       "name": "features-minimal",
+      "inherits": [
+        "_allocator-none"
+      ],
       "hidden": true,
       "cacheVariables": {
-        "ARROW_MIMALLOC": "OFF",
         "ARROW_WITH_RE2": "OFF",
         "ARROW_WITH_UTF8PROC": "OFF"
       }
     },
     {
       "name": "features-basic",
-      "inherits": "features-minimal",
+      "inherits": [
+        "_allocator-mimalloc",
+        "features-minimal"
+      ],
       "hidden": true,
       "cacheVariables": {
         "ARROW_COMPUTE": "ON",
         "ARROW_CSV": "ON",
         "ARROW_DATASET": "ON",
         "ARROW_FILESYSTEM": "ON",
-        "ARROW_JSON": "ON",
-        "ARROW_MIMALLOC": "ON"
+        "ARROW_JSON": "ON"
       }
     },
     {
@@ -208,6 +212,9 @@
     },
     {
       "name": "features-emscripten",
+      "inherits": [
+        "_allocator-none"
+      ],
       "hidden": true,
       "cacheVariables": {
         "ARROW_ACERO": "ON",
@@ -220,9 +227,7 @@
         "ARROW_ENABLE_THREADING": "OFF",
         "ARROW_FLIGHT": "OFF",
         "ARROW_IPC": "ON",
-        "ARROW_JEMALLOC": "OFF",
         "ARROW_JSON": "ON",
-        "ARROW_MIMALLOC": "OFF",
         "ARROW_ORC": "ON",
         "ARROW_RUNTIME_SIMD_LEVEL": "NONE",
         "ARROW_S3": "OFF",
@@ -244,29 +249,32 @@
     },
     {
       "name": "sanitizer-asan",
+      "inherits": [
+        "_allocator-none"
+      ],
       "hidden": true,
       "cacheVariables": {
-        "ARROW_USE_ASAN": "ON",
-        "ARROW_JEMALLOC": "OFF",
-        "ARROW_MIMALLOC": "OFF"
+        "ARROW_USE_ASAN": "ON"
       }
     },
     {
       "name": "sanitizer-tsan",
+      "inherits": [
+        "_allocator-none"
+      ],
       "hidden": true,
       "cacheVariables": {
-        "ARROW_USE_TSAN": "ON",
-        "ARROW_JEMALLOC": "OFF",
-        "ARROW_MIMALLOC": "OFF"
+        "ARROW_USE_TSAN": "ON"
       }
     },
     {
       "name": "sanitizer-ubsan",
+      "inherits": [
+        "_allocator-none"
+      ],
       "hidden": true,
       "cacheVariables": {
-        "ARROW_USE_UBSAN": "ON",
-        "ARROW_JEMALLOC": "OFF",
-        "ARROW_MIMALLOC": "OFF"
+        "ARROW_USE_UBSAN": "ON"
       }
     },
     {
