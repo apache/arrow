@@ -23,7 +23,6 @@ try:
     import pyarrow.parquet as pq
 except ImportError:
     pq = None
-
 from pyarrow.tests.util import rands
 
 

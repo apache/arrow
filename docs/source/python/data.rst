@@ -674,11 +674,10 @@ nulls. They will be converted to ``NaN``:
 
     >>> import pyarrow as pa
     >>> batch = pa.record_batch(
-    ...     [
+    ... [
     ...         pa.array([1, 2, 3, 4, None], type=pa.int32()),
     ...         pa.array([10, 20, 30, 40, None], type=pa.float32()),
-    ...     ], names=["a", "b"]
-    ... )
+    ... ], names=["a", "b"])
     >>> batch.to_tensor(null_to_nan=True).to_numpy()
     array([[ 1., 10.],
            [ 2., 20.],
