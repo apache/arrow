@@ -537,13 +537,16 @@ schema without having to get any of the batches.::
 
 It can also be sent between languages using the :ref:`C stream interface <c-stream-interface>`.
 
+Sparse Tensor Classes
+=====================
+
 SparseCOOTensor
-===============
+---------------
 
 The ``SparseCOOTensor`` represents a sparse tensor in Coordinate (COO) format, where non-zero elements are stored as tuples of row and column indices.
 
 Example Usage:
---------------
+^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -561,12 +564,12 @@ Example Usage:
 
 
 SparseCSRMatrix
-================
+---------------
 
-`SparseCSRMatrix` represents a sparse tensor in Coordinate (COO) format, where non-zero elements are stored as tuples of row and column indices.
+`SparseCSRMatrix` represents a sparse matrix in Compressed Sparse Row (CSR) format, where non-zero elements are stored in a compressed manner using arrays for data, indices, and indptr.
 
 Example Usage:
---------------
+^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -581,12 +584,12 @@ Example Usage:
 
 
 SparseCSCMatrix
-===============
+---------------
 
 `SparseCSCMatrix` represents a sparse matrix in Compressed Sparse Column (CSC) format, where non-zero elements are stored in a compressed manner using arrays for data, indices, and indptr.
 
 Example Usage:
---------------
+^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -600,13 +603,14 @@ Example Usage:
     >>> print(sparse_matrix)
     <pyarrow.SparseCSCMatrix object at 0x7fabcde12345>
 
+
 SparseCSFTensor
-===============
+---------------
 
 `SparseCSFTensor` represents a sparse tensor in Compressed Sparse Fiber (CSF) format, optimized for multi-dimensional sparse data storage.
 
 Example Usage:
---------------
+^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -621,3 +625,63 @@ Example Usage:
     >>> sparse_tensor = pa.SparseCSFTensor.from_numpy(data, indices, shape)
     >>> print(sparse_tensor)
     <pyarrow.SparseCSFTensor object at 0x7fabcde54321>
+
+
+Conversion of RecordBatch to Tensor
+-----------------------------------
+
+Each array of the ``RecordBatch`` has its own contiguous memory that is not necessarily
+adjacent to other arrays. A different memory structure that is used in machine learning
+libraries is a two-dimensional array (also called a 2-dim tensor or a matrix) which takes
+only one contiguous block of memory.
+
+For this reason, there is a function ``pyarrow.RecordBatch.to_tensor()`` available
+to efficiently convert tabular columnar data into a tensor.
+
+Data types supported in this conversion are unsigned, signed integer, and float
+types. Currently, only column-major conversion is supported.
+
+Example Usage:
+^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+    >>> import pyarrow as pa
+    >>> arr1 = [1, 2, 3, 4, 5]
+    >>> arr2 = [10, 20, 30, 40, 50]
+    >>> batch = pa.RecordBatch.from_arrays(
+    ...      [
+    ...          pa.array(arr1, type=pa.uint16()),
+    ...          pa.array(arr2, type=pa.int16()),
+    ...      ], ["a", "b"]
+    ...  )
+    >>> batch.to_tensor()
+    <pyarrow.Tensor>
+    type: int32
+    shape: (9, 2)
+    strides: (4, 36)
+    >>> batch.to_tensor().to_numpy()
+    array([[ 1, 10],
+           [ 2, 20],
+           [ 3, 30],
+           [ 4, 40],
+           [ 5, 50]], dtype=int32)
+
+With ``null_to_nan`` set to ``True`` one can also convert data with
+nulls. They will be converted to ``NaN``:
+
+.. code-block:: python
+
+    >>> import pyarrow as pa
+    >>> batch = pa.record_batch(
+    ...     [
+    ...         pa.array([1, 2, 3, 4, None], type=pa.int32()),
+    ...         pa.array([10, 20, 30, 40, None], type=pa.float32()),
+    ...     ], names=["a", "b"]
+    ... )
+    >>> batch.to_tensor(null_to_nan=True).to_numpy()
+    array([[ 1., 10.],
+           [ 2., 20.],
+           [ 3., 30.],
+           [ 4., 40.],
+           [nan, nan]])

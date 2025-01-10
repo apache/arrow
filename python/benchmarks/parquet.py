@@ -15,14 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pandas.testing import rands
-import numpy as np
 
+import numpy as np
 import pyarrow as pa
+
 try:
     import pyarrow.parquet as pq
 except ImportError:
     pq = None
+
+from pyarrow.tests.util import rands
 
 
 class ParquetWriteBinary(object):
@@ -34,7 +36,7 @@ class ParquetWriteBinary(object):
         num_cols = 10
 
         unique_values = np.array([rands(value_size) for
-                                  i in range(nuniques)], dtype='O')
+                                  _ in range(nuniques)], dtype='O')
         values = unique_values[np.random.randint(0, nuniques, size=length)]
         self.table = pa.table([pa.array(values) for i in range(num_cols)],
                               names=['f{}'.format(i) for i in range(num_cols)])
@@ -58,7 +60,7 @@ class ParquetWriteBinary(object):
 
 
 def generate_dict_strings(string_size, nunique, length, random_order=True):
-    uniques = np.array([rands(string_size) for i in range(nunique)], dtype='O')
+    uniques = np.array([rands(string_size) for _ in range(nunique)], dtype='O')
     if random_order:
         indices = np.random.randint(0, nunique, size=length).astype('i4')
     else:
@@ -71,7 +73,7 @@ def generate_dict_table(num_cols, string_size, nunique, length,
     data = generate_dict_strings(string_size, nunique, length,
                                  random_order=random_order)
     return pa.table([
-        data for i in range(num_cols)
+        data for _ in range(num_cols)
     ], names=['f{}'.format(i) for i in range(num_cols)])
 
 
