@@ -7,38 +7,6 @@
   },
   "configurePresets": [
     {
-      "name": "_allocators-none",
-      "hidden": true,
-      "cacheVariables": {
-        "ARROW_JEMALLOC": "OFF",
-        "ARROW_MIMALLOC": "OFF"
-      }
-    },
-    {
-      "name": "_allocators-jemalloc",
-      "hidden": true,
-      "cacheVariables": {
-        "ARROW_JEMALLOC": "ON",
-        "ARROW_MIMALLOC": "OFF"
-      }
-    },
-    {
-      "name": "_allocators-mimalloc",
-      "hidden": true,
-      "cacheVariables": {
-        "ARROW_JEMALLOC": "OFF",
-        "ARROW_MIMALLOC": "ON"
-      }
-    },
-    {
-      "name": "_allocators-all",
-      "hidden": true,
-      "cacheVariables": {
-        "ARROW_JEMALLOC": "ON",
-        "ARROW_MIMALLOC": "ON"
-      }
-    },
-    {
       "name": "base",
       "hidden": true,
       "generator": "Ninja",
@@ -80,11 +48,9 @@
     },
     {
       "name": "features-minimal",
-      "inherits": [
-        "_allocators-none"
-      ],
       "hidden": true,
       "cacheVariables": {
+        "ARROW_MIMALLOC": "OFF",
         "ARROW_WITH_RE2": "OFF",
         "ARROW_WITH_UTF8PROC": "OFF"
       }
@@ -92,7 +58,6 @@
     {
       "name": "features-basic",
       "inherits": [
-        "_allocators-mimalloc",
         "features-minimal"
       ],
       "hidden": true,
@@ -101,7 +66,8 @@
         "ARROW_CSV": "ON",
         "ARROW_DATASET": "ON",
         "ARROW_FILESYSTEM": "ON",
-        "ARROW_JSON": "ON"
+        "ARROW_JSON": "ON",
+        "ARROW_MIMALLOC": "ON"
       }
     },
     {
@@ -206,7 +172,6 @@
     {
       "name": "features-maximal",
       "inherits": [
-        "_allocators-all",
         "features-python-maximal"
       ],
       "hidden": true,
@@ -221,9 +186,6 @@
     },
     {
       "name": "features-emscripten",
-      "inherits": [
-        "_allocators-none"
-      ],
       "hidden": true,
       "cacheVariables": {
         "ARROW_ACERO": "ON",
@@ -236,7 +198,9 @@
         "ARROW_ENABLE_THREADING": "OFF",
         "ARROW_FLIGHT": "OFF",
         "ARROW_IPC": "ON",
+        "ARROW_JEMALLOC": "OFF",
         "ARROW_JSON": "ON",
+        "ARROW_MIMALLOC": "OFF",
         "ARROW_ORC": "ON",
         "ARROW_RUNTIME_SIMD_LEVEL": "NONE",
         "ARROW_S3": "OFF",
@@ -258,39 +222,36 @@
     },
     {
       "name": "sanitizer-asan",
-      "inherits": [
-        "_allocators-none"
-      ],
       "hidden": true,
       "cacheVariables": {
+        "ARROW_JEMALLOC": "OFF",
+        "ARROW_MIMALLOC": "OFF",
         "ARROW_USE_ASAN": "ON"
       }
     },
     {
       "name": "sanitizer-tsan",
-      "inherits": [
-        "_allocators-none"
-      ],
       "hidden": true,
       "cacheVariables": {
+        "ARROW_JEMALLOC": "OFF",
+        "ARROW_MIMALLOC": "OFF",
         "ARROW_USE_TSAN": "ON"
       }
     },
     {
       "name": "sanitizer-ubsan",
-      "inherits": [
-        "_allocators-none"
-      ],
       "hidden": true,
       "cacheVariables": {
+        "ARROW_JEMALLOC": "OFF",
+        "ARROW_MIMALLOC": "OFF",
         "ARROW_USE_UBSAN": "ON"
       }
     },
     {
       "name": "ninja-debug-minimal",
       "inherits": [
-        "base-debug",
-        "features-minimal"
+        "features-minimal",
+        "base-debug"
       ],
       "displayName": "Debug build without anything enabled",
       "cacheVariables": {
@@ -301,8 +262,8 @@
     {
       "name": "ninja-debug-basic",
       "inherits": [
-        "base-debug",
-        "features-basic"
+        "features-basic",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and reduced dependencies",
       "cacheVariables": {}
@@ -310,8 +271,8 @@
     {
       "name": "ninja-debug",
       "inherits": [
-        "base-debug",
-        "features-main"
+        "features-main",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and more optional components",
       "cacheVariables": {}
@@ -319,8 +280,8 @@
     {
       "name": "ninja-debug-cuda",
       "inherits": [
-        "base-debug",
-        "features-cuda"
+        "features-cuda",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and CUDA integration",
       "cacheVariables": {}
@@ -328,8 +289,8 @@
     {
       "name": "ninja-debug-filesystems",
       "inherits": [
-        "base-debug",
-        "features-filesystems"
+        "features-filesystems",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and filesystems",
       "cacheVariables": {}
@@ -337,8 +298,8 @@
     {
       "name": "ninja-debug-flight",
       "inherits": [
-        "base-debug",
-        "features-flight"
+        "features-flight",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and Flight",
       "cacheVariables": {}
@@ -346,8 +307,8 @@
     {
       "name": "ninja-debug-flight-sql",
       "inherits": [
-        "base-debug",
-        "features-flight-sql"
+        "features-flight-sql",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and Flight SQL",
       "cacheVariables": {}
@@ -355,8 +316,8 @@
     {
       "name": "ninja-debug-gandiva",
       "inherits": [
-        "base-debug",
-        "features-gandiva"
+        "features-gandiva",
+        "base-debug"
       ],
       "displayName": "Debug build with tests and Gandiva",
       "cacheVariables": {}
@@ -364,8 +325,8 @@
     {
       "name": "ninja-debug-python-minimal",
       "inherits": [
-        "base-debug",
-        "features-python-minimal"
+        "features-python-minimal",
+        "base-debug"
       ],
       "displayName": "Debug build for PyArrow with minimal features",
       "cacheVariables": {}
@@ -373,8 +334,8 @@
     {
       "name": "ninja-debug-python",
       "inherits": [
-        "base-debug",
-        "features-python"
+        "features-python",
+        "base-debug"
       ],
       "displayName": "Debug build for PyArrow with common features (for backward compatibility)",
       "cacheVariables": {}
@@ -382,8 +343,8 @@
     {
       "name": "ninja-debug-python-maximal",
       "inherits": [
-        "base-debug",
-        "features-python-maximal"
+        "features-python-maximal",
+        "base-debug"
       ],
       "displayName": "Debug build for PyArrow with everything enabled",
       "cacheVariables": {}
@@ -391,8 +352,8 @@
     {
       "name": "ninja-debug-maximal",
       "inherits": [
-        "base-debug",
-        "features-maximal"
+        "features-maximal",
+        "base-debug"
       ],
       "displayName": "Debug build with everything enabled (except benchmarks)",
       "cacheVariables": {}
@@ -400,8 +361,8 @@
     {
       "name": "ninja-debug-emscripten",
       "inherits": [
-        "base-debug",
-        "features-emscripten"
+        "features-emscripten",
+        "base-debug"
       ],
       "displayName": "Debug build which builds an Emscripten library",
       "cacheVariables": {}
@@ -445,9 +406,8 @@
     {
       "name": "ninja-debug-asan",
       "inherits": [
-        "_allocators-none",
-        "ninja-debug",
-        "sanitizer-asan"
+        "sanitizer-asan",
+        "ninja-debug"
       ],
       "displayName": "Debug build for ASAN with tests and more optional components",
       "cacheVariables": {}
@@ -455,9 +415,8 @@
     {
       "name": "ninja-debug-tsan",
       "inherits": [
-        "_allocators-none",
-        "ninja-debug",
-        "sanitizer-tsan"
+        "sanitizer-tsan",
+        "ninja-debug"
       ],
       "displayName": "Debug build for TSAN with tests and more optional components",
       "cacheVariables": {}
@@ -465,9 +424,8 @@
     {
       "name": "ninja-debug-ubsan",
       "inherits": [
-        "_allocators-none",
-        "ninja-debug",
-        "sanitizer-ubsan"
+        "sanitizer-ubsan",
+        "ninja-debug"
       ],
       "displayName": "Debug build for UBSAN with tests and more optional components",
       "cacheVariables": {}
@@ -492,8 +450,8 @@
     {
       "name": "ninja-release-minimal",
       "inherits": [
-        "base-release",
-        "features-minimal"
+        "features-minimal",
+        "base-release"
       ],
       "displayName": "Release build without anything enabled",
       "cacheVariables": {}
@@ -501,8 +459,8 @@
     {
       "name": "ninja-release-basic",
       "inherits": [
-        "base-release",
-        "features-basic"
+        "features-basic",
+        "base-release"
       ],
       "displayName": "Release build with reduced dependencies",
       "cacheVariables": {}
@@ -510,8 +468,8 @@
     {
       "name": "ninja-release",
       "inherits": [
-        "base-release",
-        "features-main"
+        "features-main",
+        "base-release"
       ],
       "displayName": "Release build with more optional components",
       "cacheVariables": {}
@@ -519,8 +477,8 @@
     {
       "name": "ninja-release-cuda",
       "inherits": [
-        "base-release",
-        "features-cuda"
+        "features-cuda",
+        "base-release"
       ],
       "displayName": "Release build with CUDA integration",
       "cacheVariables": {}
@@ -528,8 +486,8 @@
     {
       "name": "ninja-release-flight",
       "inherits": [
-        "base-release",
-        "features-flight"
+        "features-flight",
+        "base-release"
       ],
       "displayName": "Release build with Flight",
       "cacheVariables": {}
@@ -537,8 +495,8 @@
     {
       "name": "ninja-release-flight-sql",
       "inherits": [
-        "base-release",
-        "features-flight-sql"
+        "features-flight-sql",
+        "base-release"
       ],
       "displayName": "Release build with Flight SQL",
       "cacheVariables": {}
@@ -546,8 +504,8 @@
     {
       "name": "ninja-release-gandiva",
       "inherits": [
-        "base-release",
-        "features-gandiva"
+        "features-gandiva",
+        "base-release"
       ],
       "displayName": "Release build with Gandiva",
       "cacheVariables": {}
@@ -555,8 +513,8 @@
     {
       "name": "ninja-release-python-minimal",
       "inherits": [
-        "base-release",
-        "features-python-minimal"
+        "features-python-minimal",
+        "base-release"
       ],
       "displayName": "Release build for PyArrow with minimal features",
       "cacheVariables": {}
@@ -564,8 +522,8 @@
     {
       "name": "ninja-release-python",
       "inherits": [
-        "base-release",
-        "features-python"
+        "features-python",
+        "base-release"
       ],
       "displayName": "Release build for PyArrow with common features (for backward compatibility)",
       "cacheVariables": {}
@@ -573,8 +531,8 @@
     {
       "name": "ninja-release-python-maximal",
       "inherits": [
-        "base-release",
-        "features-python-maximal"
+        "features-python-maximal",
+        "base-release"
       ],
       "displayName": "Release build for PyArrow with everything enabled",
       "cacheVariables": {}
@@ -582,8 +540,8 @@
     {
       "name": "ninja-release-maximal",
       "inherits": [
-        "base-release",
-        "features-maximal"
+        "features-maximal",
+        "base-release"
       ],
       "displayName": "Release build with everything enabled (except benchmarks)",
       "cacheVariables": {}
@@ -600,8 +558,8 @@
     {
       "name": "ninja-benchmarks-basic",
       "inherits": [
-        "base-benchmarks",
-        "features-basic"
+        "features-basic",
+        "base-benchmarks"
       ],
       "displayName": "Benchmarking build with reduced dependencies",
       "cacheVariables": {}
@@ -609,8 +567,8 @@
     {
       "name": "ninja-benchmarks",
       "inherits": [
-        "base-benchmarks",
-        "features-main"
+        "features-main",
+        "base-benchmarks"
       ],
       "displayName": "Benchmarking build with more optional components",
       "cacheVariables": {}
@@ -618,8 +576,8 @@
     {
       "name": "ninja-benchmarks-maximal",
       "inherits": [
-        "base-benchmarks",
-        "features-maximal"
+        "features-maximal",
+        "base-benchmarks"
       ],
       "displayName": "Benchmarking build with everything enabled",
       "cacheVariables": {}
