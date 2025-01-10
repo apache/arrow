@@ -1316,7 +1316,7 @@ depending on a condition.
   input. If the nulls present on the first input, they will be promoted to the
   output, otherwise nulls will be chosen based on the first input values.
 
-  Also see: :ref:`replace_with_mask <cpp-compute-vector-structural-transforms>`.
+  Also see: :ref:`replace_with_mask <replace-functions>`.
 
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
