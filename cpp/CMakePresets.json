@@ -172,6 +172,7 @@
     {
       "name": "features-maximal",
       "inherits": [
+        "features-main",
         "features-python-maximal"
       ],
       "hidden": true,
