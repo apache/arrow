@@ -447,6 +447,14 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
 
+  if constexpr (std::is_same_v<Op, Equal> || std::is_same_v<Op, NotEqual>) {
+    for (const auto id : {Type::LIST, Type::LARGE_LIST}) {
+      auto exec = GenerateList<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
+      DCHECK_OK(
+          func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
+    }
+  }
+
   return func;
 }
 
