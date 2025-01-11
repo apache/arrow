@@ -187,7 +187,7 @@ env:
     run: |
       # check if completion actually expands to wheel files
       # to prevent empty dirs from failing silently
-      if ! test -n "$(find . -wholename '{{ pattern }}' -print -quit)"; then
+      if ! compgen -G "{{ pattern }}" > /dev/null; then
           echo "No wheel files found!"
           exit 1
       fi
