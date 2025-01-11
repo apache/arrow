@@ -27,23 +27,24 @@
 
 /* Change header height to make the logo a bit larger */
 /* only on wider screens */
-@media only screen and (min-width: 1170px){
+
+@media only screen and (min-width: 1180px){
   :root {
     --pst-header-height: 6rem;
   }
 }
 
-/* Adjust layout on narrower screens */
-@media only screen and (max-width: 1170px){
+/* Adjust layout of nav to fit narrower screens */
+
+@media only screen and (max-width: 1179px){
   /* Condense link text in nav to preserve layout */
-  .navbar-header-items__center .nav-item {
-    font-stretch: ultra-condensed;
+  .navbar-header-items__center .nav-item:not(.dropdown-item) {
+    font-stretch: condensed;
   }
-  /* Reduce horizontal space between icons in nav and sidebar */
-  div.sidebar-header-items__end,
-  div.navbar-header-items__end,
-  ul.navbar-icon-links {
-    column-gap: 0.75rem;
+  /* Shrink search button */
+  .search-button__default-text,
+  .search-button__kbd-shortcut {
+    display:none !important;
   }
 }
 
@@ -97,4 +98,12 @@ dl.cpp.enumerator {
 
 p.breathe-sectiondef-title {
   margin-top: 1rem;
+}
+
+/* Reduce horizontal space between icons in nav and sidebar */
+
+div.sidebar-header-items__end,
+div.navbar-header-items__end,
+ul.navbar-icon-links {
+  column-gap: 0.75rem !important;
 }
