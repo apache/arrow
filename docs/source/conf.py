@@ -350,6 +350,11 @@ html_theme_options = {
             "icon": "fa-brands fa-square-github",
         },
         {
+            "name": "LinkedIn",
+            "url": "https://www.linkedin.com/company/apache-arrow/",
+            "icon": "fa-brands fa-linkedin",
+        },
+        {
             "name": "X",
             "url": "https://twitter.com/ApacheArrow",
             "icon": "fa-brands fa-square-x-twitter",
