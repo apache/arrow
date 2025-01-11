@@ -25,11 +25,25 @@
   --pst-font-weight-heading: 600;
 }
 
-/* Change header hight to make the logo a bit larger */
+/* Change header height to make the logo a bit larger */
 /* only on wider screens */
 @media only screen and (min-width: 1170px){
   :root {
     --pst-header-height: 6rem;
+  }
+}
+
+/* Adjust layout on narrower screens */
+@media only screen and (max-width: 1170px){
+  /* Condense link text in nav to preserve layout */
+  .navbar-header-items__center .nav-item {
+    font-stretch: ultra-condensed;
+  }
+  /* Reduce horizontal space between icons in nav and sidebar */
+  div.sidebar-header-items__end,
+  div.navbar-header-items__end,
+  ul.navbar-icon-links {
+    column-gap: 0.75rem;
   }
 }
 
