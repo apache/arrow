@@ -293,6 +293,23 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
 
     file_writer->Close();
   }
+
+  void ManyRowGroups(const int num_row_groups) {
+    auto sink = CreateOutputStream();
+    auto gnode = std::static_pointer_cast<GroupNode>(this->node_);
+    std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
+    auto file_writer = ParquetFileWriter::Open(sink, gnode, props);
+    for (int i = 0; i < num_row_groups; ++i) {
+      auto row_group_writer = file_writer->AppendRowGroup();
+      for (int col = 0; col < num_columns_; ++col) {
+        auto column_writer =
+            static_cast<TypedColumnWriter<TestType>*>(row_group_writer->NextColumn());
+        column_writer->Close();
+      }
+      row_group_writer->Close();
+    }
+    file_writer->Close();
+  }
 };
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
@@ -321,6 +338,23 @@ TYPED_TEST(TestSerialize, ZeroRows) { ASSERT_NO_THROW(this->ZeroRowsRowGroup());
 
 TYPED_TEST(TestSerialize, RepeatedTooFewRows) {
   ASSERT_THROW(this->RepeatedUnequalRows(), ParquetException);
+}
+
+TYPED_TEST(TestSerialize, ManyRowGroups) {
+  ASSERT_NO_THROW(this->ManyRowGroups(INT16_MAX));
+  ASSERT_THROW(
+      {
+        try {
+          this->ManyRowGroups(INT16_MAX + 1);
+        } catch (const ParquetException& e) {
+          EXPECT_STREQ(
+              "Parquet does not support more than 32767 row groups per file (currently: "
+              "32767)",
+              e.what());
+          throw;
+        }
+      },
+      ParquetException);
 }
 
 #ifdef ARROW_WITH_SNAPPY

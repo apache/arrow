@@ -152,7 +152,7 @@ class PARQUET_EXPORT ParquetFileWriter {
 
     virtual int64_t num_rows() const = 0;
     virtual int num_columns() const = 0;
-    virtual int num_row_groups() const = 0;
+    virtual int16_t num_row_groups() const = 0;
 
     virtual const std::shared_ptr<WriterProperties>& properties() const = 0;
 
@@ -219,7 +219,7 @@ class PARQUET_EXPORT ParquetFileWriter {
   int64_t num_rows() const;
 
   /// Number of started RowGroups.
-  int num_row_groups() const;
+  int16_t num_row_groups() const;
 
   /// Configuration passed to the writer, e.g. the used Parquet format version.
   const std::shared_ptr<WriterProperties>& properties() const;

@@ -347,7 +347,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   int num_columns() const override { return schema_.num_columns(); }
 
-  int num_row_groups() const override { return num_row_groups_; }
+  int16_t num_row_groups() const override { return num_row_groups_; }
 
   int64_t num_rows() const override { return num_rows_; }
 
@@ -359,14 +359,17 @@ class FileSerializer : public ParquetFileWriter::Contents {
     if (row_group_writer_) {
       row_group_writer_->Close();
     }
-    num_row_groups_++;
+    if (num_row_groups_ == INT16_MAX) {
+      throw ParquetException("Parquet does not support more than ", INT16_MAX,
+                             " row groups per file (currently: ", num_row_groups_, ")");
+    }
     auto rg_metadata = metadata_->AppendRowGroup();
     if (page_index_builder_) {
       page_index_builder_->AppendRowGroup();
     }
     std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
-        sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
-        buffered_row_group, file_encryptor_.get(), page_index_builder_.get()));
+        sink_, rg_metadata, num_row_groups_++, properties_.get(), buffered_row_group,
+        file_encryptor_.get(), page_index_builder_.get()));
     row_group_writer_ = std::make_unique<RowGroupWriter>(std::move(contents));
     return row_group_writer_.get();
   }
@@ -456,7 +459,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
   std::shared_ptr<ArrowOutputStream> sink_;
   bool is_open_;
   const std::shared_ptr<WriterProperties> properties_;
-  int num_row_groups_;
+  int16_t num_row_groups_;
   int64_t num_rows_;
   std::unique_ptr<FileMetaDataBuilder> metadata_;
   // Only one of the row group writers is active at a time
@@ -590,7 +593,7 @@ int ParquetFileWriter::num_columns() const { return contents_->num_columns(); }
 
 int64_t ParquetFileWriter::num_rows() const { return contents_->num_rows(); }
 
-int ParquetFileWriter::num_row_groups() const { return contents_->num_row_groups(); }
+int16_t ParquetFileWriter::num_row_groups() const { return contents_->num_row_groups(); }
 
 const std::shared_ptr<const KeyValueMetadata>& ParquetFileWriter::key_value_metadata()
     const {
