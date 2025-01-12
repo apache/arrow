@@ -109,3 +109,9 @@ dl.cpp.enumerator {
 p.breathe-sectiondef-title {
   margin-top: 1rem;
 }
+
+/* Keep social icons arranged horizontally in sidebar */
+
+.sidebar-header-items__end {
+  flex-wrap: wrap;
+}
