@@ -28,7 +28,7 @@
 /* Change header height to make the logo a bit larger */
 /* only on wider screens */
 
-@media only screen and (min-width: 1200px){
+@media only screen and (min-width: 1200px) {
   :root {
     --pst-header-height: 6rem;
   }
@@ -36,7 +36,7 @@
 
 /* Adjust layout of nav to fit narrower screens */
 
-@media only screen and (max-width: 1199px){
+@media only screen and (max-width: 1199px) {
 
   /* Condense link text in nav to preserve layout */
   .navbar-header-items__center a.nav-link:not(.dropdown-item),
