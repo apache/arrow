@@ -41,7 +41,7 @@
   /* Condense link text in nav to preserve layout */
   .navbar-header-items__center a.nav-link:not(.dropdown-item),
   .navbar-header-items__center button.nav-item {
-    font-stretch: condensed;
+    letter-spacing: -0.02em;
   }
 
   /* Shrink search button */
