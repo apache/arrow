@@ -1,0 +1,15 @@
+diff --git a/c++/src/CMakeLists.txt b/c++/src/CMakeLists.txt
+index 694667c06..af13a94aa 100644
+--- a/c++/src/CMakeLists.txt
++++ b/c++/src/CMakeLists.txt
+@@ -218,8 +218,8 @@ target_include_directories (orc
+   INTERFACE
+     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+   PUBLIC
+-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/c++/include>
+-    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/c++/include>
++    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/c++/include>
++    $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/c++/include>
+   PRIVATE
+     ${CMAKE_CURRENT_SOURCE_DIR}
+     ${CMAKE_CURRENT_BINARY_DIR}

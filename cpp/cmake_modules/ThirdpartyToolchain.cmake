@@ -4574,10 +4574,14 @@ function(build_orc)
   message(STATUS "Building Apache ORC from source")
 
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
+    find_program(PATCH patch REQUIRED)
+    set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/orc.diff)
+
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
                          URL ${ORC_SOURCE_URL}
-                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
+                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
+                         PATCH_COMMAND ${ORC_PATCH_COMMAND})
     prepare_fetchcontent()
 
     set(CMAKE_UNITY_BUILD FALSE)
@@ -4667,7 +4671,8 @@ function(build_orc)
         OFF
         CACHE BOOL "" FORCE)
 
-    # We can remove this with ORC 2.0.2 or later.
+    # We can remove this with ORC 2.1.1 or later
+    # See https://github.com/apache/orc/blob/5bbafbb847f6e23b5a25d83c4d817741d36d9cc8/CMakeLists.txt#L33
     list(PREPEND CMAKE_MODULE_PATH
          ${CMAKE_CURRENT_BINARY_DIR}/_deps/orc-src/cmake_modules)
 
@@ -4675,8 +4680,6 @@ function(build_orc)
 
     add_library(orc::orc INTERFACE IMPORTED)
     target_link_libraries(orc::orc INTERFACE orc)
-    target_include_directories(orc::orc INTERFACE "${orc_BINARY_DIR}/c++/include"
-                                                  "${orc_SOURCE_DIR}/c++/include")
 
     list(APPEND ARROW_BUNDLED_STATIC_LIBS orc)
   else()
