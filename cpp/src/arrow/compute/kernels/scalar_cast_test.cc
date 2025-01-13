@@ -3825,7 +3825,7 @@ static void CheckStructToStructSubset(
 
       // field does not exist
       ASSERT_OK_AND_ASSIGN(auto dest6,
-                           StructArray::Make({a1, d1, nulls}, {"a", "d", "f"}));
+                           StructArray::Make({a2, d2, nulls}, {"a", "d", "f"}));
       CheckCast(src, dest6);
 
       const auto dest7 = arrow::struct_(
@@ -3838,24 +3838,13 @@ static void CheckStructToStructSubset(
           Cast(src, options7));
 
       // fields in wrong order
-      const auto dest8 = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                         std::make_shared<Field>("c", int16()),
-                                         std::make_shared<Field>("b", int64())});
-      const auto options8 = CastOptions::Safe(dest8);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src, options8));
+      ASSERT_OK_AND_ASSIGN(auto dest8, StructArray::Make({a2, c2, b2}, {"a", "c", "b"}));
+      CheckCast(src, dest8);
 
       // duplicate missing field names
-      const auto dest9 = arrow::struct_(
-          {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int16()),
-           std::make_shared<Field>("d", int32()), std::make_shared<Field>("a", int64())});
-      const auto options9 = CastOptions::Safe(dest9);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src, options9));
+      ASSERT_OK_AND_ASSIGN(auto dest9,
+                           StructArray::Make({a2, c2, d2, a2}, {"a", "c", "d", "a"}));
+      CheckCast(src, dest9);
 
       // duplicate present field names
       ASSERT_OK_AND_ASSIGN(
@@ -3941,7 +3930,7 @@ static void CheckStructToStructSubsetWithNulls(
       // field does not exist
       ASSERT_OK_AND_ASSIGN(
           auto dest6_null,
-          StructArray::Make({a1, d1, nulls}, {"a", "d", "f"}, null_bitmap));
+          StructArray::Make({a2, d2, nulls}, {"a", "d", "f"}, null_bitmap));
       CheckCast(src_null, dest6_null);
 
       const auto dest7_null = arrow::struct_(
@@ -3954,24 +3943,15 @@ static void CheckStructToStructSubsetWithNulls(
           Cast(src_null, options7_null));
 
       // fields in wrong order
-      const auto dest8_null = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                              std::make_shared<Field>("c", int16()),
-                                              std::make_shared<Field>("b", int64())});
-      const auto options8_null = CastOptions::Safe(dest8_null);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src_null, options8_null));
+      ASSERT_OK_AND_ASSIGN(auto dest8_null,
+                           StructArray::Make({a2, c2, b2}, {"a", "c", "b"}, null_bitmap));
+      CheckCast(src_null, dest8_null);
 
       // duplicate missing field names
-      const auto dest9_null = arrow::struct_(
-          {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int16()),
-           std::make_shared<Field>("d", int32()), std::make_shared<Field>("a", int64())});
-      const auto options9_null = CastOptions::Safe(dest9_null);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src_null, options9_null));
+      ASSERT_OK_AND_ASSIGN(
+          auto dest9_null,
+          StructArray::Make({a2, c2, d2, a2}, {"a", "c", "d", "a"}, null_bitmap));
+      CheckCast(src_null, dest9_null);
 
       // duplicate present field values
       ASSERT_OK_AND_ASSIGN(
