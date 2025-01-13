@@ -344,16 +344,19 @@ struct CastStruct {
 
     std::vector<int> fields_to_select(out_field_count, -1);
 
-    std::map<std::string, int> in_fields;
+    std::multimap<std::string, int> in_fields;
     for (int in_field_index = 0; in_field_index < in_field_count; ++in_field_index) {
       in_fields.insert({in_type.field(in_field_index)->name(), in_field_index});
     }
 
     for (int out_field_index = 0; out_field_index < out_field_count; ++out_field_index) {
       const auto& out_field = out_type.field(out_field_index);
-      auto maybe_in_field_index = in_fields.find(out_field->name());
-      if (maybe_in_field_index != in_fields.end()) {
-        fields_to_select[out_field_index] = maybe_in_field_index->second;
+      auto maybe_in_field_index = in_fields.extract(out_field->name());
+      if (!maybe_in_field_index.empty()) {
+        fields_to_select[out_field_index] = maybe_in_field_index.mapped();
+        // Re-inserting the element puts it as the last element with the same key
+        // so field order is preserved in case of duplicate field names. 
+        in_fields.insert(std::move(maybe_in_field_index));
       } else if (out_field->nullable()) {
         fields_to_select[out_field_index] = kFillNullSentinel;
       } else {
