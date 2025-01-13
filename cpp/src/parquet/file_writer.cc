@@ -369,7 +369,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
       // Parquet thrifts using int16 for row group ordinal, so we can't have more than
       // 32767 row groups in a file.
       throw ParquetException(
-          "Too many row groups in the file when writing row group with encryption.");
+          "Cannot write more than 32767 row groups in an encrypted file");
     }
     num_row_groups_++;
     auto rg_metadata = metadata_->AppendRowGroup();
