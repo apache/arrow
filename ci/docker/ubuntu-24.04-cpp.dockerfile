@@ -111,6 +111,7 @@ RUN apt-get update -y -q && \
         ninja-build \
         nlohmann-json3-dev \
         npm \
+        patch \
         pkg-config \
         protobuf-compiler \
         protobuf-compiler-grpc \
