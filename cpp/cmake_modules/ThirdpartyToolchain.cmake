@@ -4672,11 +4672,6 @@ function(build_orc)
         OFF
         CACHE BOOL "" FORCE)
 
-    # We can remove this with ORC 2.1.1 or later
-    # See https://github.com/apache/orc/blob/5bbafbb847f6e23b5a25d83c4d817741d36d9cc8/CMakeLists.txt#L33
-    list(PREPEND CMAKE_MODULE_PATH
-         ${CMAKE_CURRENT_BINARY_DIR}/_deps/orc-src/cmake_modules)
-
     fetchcontent_makeavailable(orc)
 
     add_library(orc::orc INTERFACE IMPORTED)

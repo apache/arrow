@@ -16,9 +16,19 @@
 # under the License.
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 1f8931508..7bfc71aea 100644
+index 1f8931508..f8e57bf5f 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
+@@ -30,8 +30,8 @@ SET(CPACK_PACKAGE_VERSION_MAJOR "2")
+ SET(CPACK_PACKAGE_VERSION_MINOR "1")
+ SET(CPACK_PACKAGE_VERSION_PATCH "0")
+ SET(ORC_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
+ set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # For clang-tidy.
++list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
+ 
+ option (BUILD_JAVA
+     "Include ORC Java library in the build process"
 @@ -225,5 +225,3 @@ if (BUILD_CPP_TESTS)
      )
    endif ()
