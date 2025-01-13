@@ -15,13 +15,9 @@
 
 namespace Apache.Arrow.Flight.Sql;
 
-public static class SqlAction
+public class TableRef
 {
-    public const string CreateRequest = "CreatePreparedStatement";
-    public const string CloseRequest = "ClosePreparedStatement";
-    public const string CancelFlightInfoRequest = "CancelFlightInfo";
-    public const string BeginTransactionRequest = "BeginTransaction";
-    public const string CommitRequest = "Commit";
-    public const string RollbackRequest = "Rollback";
-    public const string GetPrimaryKeysRequest = "GetPrimaryKeys";
+    public string? Catalog { get; set; }
+    public string DbSchema { get; set; } = null!;
+    public string Table { get; set; } = null!;
 }
