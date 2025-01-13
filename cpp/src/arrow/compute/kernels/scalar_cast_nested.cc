@@ -357,8 +357,9 @@ struct CastStruct {
       } else if (out_field->nullable()) {
         fields_to_select[out_field_index] = kFillNullSentinel;
       } else {
-        return Status::TypeError("cannot cast non-nullable field to nullable field: ",
-                                 in_type.ToString(), " ", out_type.ToString());
+        return Status::TypeError("struct fields don't match or are in the wrong order");
+        // return Status::TypeError("cannot cast non-nullable field to nullable field: ",
+        //                          in_type.ToString(), " ", out_type.ToString());
       }
     }
 
