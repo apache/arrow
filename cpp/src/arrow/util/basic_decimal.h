@@ -276,10 +276,7 @@ class ARROW_EXPORT BasicDecimal32 : public SmallBasicDecimal<int32_t> {
   using ValueType = int32_t;
 
   /// \brief Negate the current value (in-place)
-  BasicDecimal32& Negate() {
-    value_ = -value_;
-    return *this;
-  }
+  BasicDecimal32& Negate();
 
   /// \brief Absolute value (in-place)
   BasicDecimal32& Abs() { return *this < 0 ? Negate() : *this; }
@@ -429,10 +426,7 @@ class ARROW_EXPORT BasicDecimal64 : public SmallBasicDecimal<int64_t> {
   using ValueType = int64_t;
 
   /// \brief Negate the current value (in-place)
-  BasicDecimal64& Negate() {
-    value_ = -value_;
-    return *this;
-  }
+  BasicDecimal64& Negate();
 
   /// \brief Absolute value (in-place)
   BasicDecimal64& Abs() { return *this < 0 ? Negate() : *this; }
