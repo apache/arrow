@@ -254,9 +254,9 @@ void SwissTable::early_filter_imp(const int num_keys, const uint32_t* hashes,
     // Extract from hash: block index and stamp
     //
     uint32_t hash = hashes[i];
-    uint32_t iblock = hash >> (bits_hash_ - bits_stamp_ - log_blocks_);
+    uint32_t iblock = hash >> bits_shift_for_block_and_stamp_;
     uint32_t stamp = iblock & stamp_mask;
-    iblock >>= bits_stamp_;
+    iblock >>= bits_shift_for_block_;
 
     uint32_t num_block_bytes = num_groupid_bits + 8;
     const uint8_t* blockbase =
@@ -399,7 +399,7 @@ bool SwissTable::find_next_stamp_match(const uint32_t hash, const uint32_t in_sl
   const uint64_t num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
   constexpr uint64_t stamp_mask = 0x7f;
   const int stamp =
-      static_cast<int>((hash >> (bits_hash_ - log_blocks_ - bits_stamp_)) & stamp_mask);
+      static_cast<int>((hash >> bits_shift_for_block_and_stamp_) & stamp_mask);
   uint64_t start_slot_id = wrap_global_slot_id(in_slot_id);
   int match_found;
   int local_slot;
@@ -659,6 +659,9 @@ Status SwissTable::grow_double() {
   int num_group_id_bits_after = num_groupid_bits_from_log_blocks(log_blocks_ + 1);
   uint64_t group_id_mask_before = ~0ULL >> (64 - num_group_id_bits_before);
   int log_blocks_after = log_blocks_ + 1;
+  int bits_shift_for_block_and_stamp_after =
+      ComputeBitsShiftForBlockAndStamp(log_blocks_after);
+  int bits_shift_for_block_after = ComputeBitsShiftForBlock(log_blocks_after);
   uint64_t block_size_before = (8 + num_group_id_bits_before);
   uint64_t block_size_after = (8 + num_group_id_bits_after);
   uint64_t block_size_total_after = (block_size_after << log_blocks_after) + padding_;
@@ -701,8 +704,7 @@ Status SwissTable::grow_double() {
       }
 
       int ihalf = block_id_new & 1;
-      uint8_t stamp_new =
-          hash >> ((bits_hash_ - log_blocks_after - bits_stamp_)) & stamp_mask;
+      uint8_t stamp_new = (hash >> bits_shift_for_block_and_stamp_after) & stamp_mask;
       uint64_t group_id_bit_offs = j * num_group_id_bits_before;
       uint64_t group_id =
           (util::SafeLoadAs<uint64_t>(block_base + 8 + (group_id_bit_offs >> 3)) >>
@@ -744,8 +746,7 @@ Status SwissTable::grow_double() {
           (util::SafeLoadAs<uint64_t>(block_base + 8 + (group_id_bit_offs >> 3)) >>
            (group_id_bit_offs & 7)) &
           group_id_mask_before;
-      uint8_t stamp_new =
-          hash >> ((bits_hash_ - log_blocks_after - bits_stamp_)) & stamp_mask;
+      uint8_t stamp_new = (hash >> bits_shift_for_block_and_stamp_after) & stamp_mask;
 
       uint8_t* block_base_new =
           blocks_new->mutable_data() + block_id_new * block_size_after;
@@ -773,6 +774,8 @@ Status SwissTable::grow_double() {
   blocks_ = std::move(blocks_new);
   hashes_ = std::move(hashes_new_buffer);
   log_blocks_ = log_blocks_after;
+  bits_shift_for_block_and_stamp_ = bits_shift_for_block_and_stamp_after;
+  bits_shift_for_block_ = bits_shift_for_block_after;
 
   return Status::OK();
 }
@@ -784,6 +787,8 @@ Status SwissTable::init(int64_t hardware_flags, MemoryPool* pool, int log_blocks
   log_minibatch_ = util::MiniBatch::kLogMiniBatchLength;
 
   log_blocks_ = log_blocks;
+  bits_shift_for_block_and_stamp_ = ComputeBitsShiftForBlockAndStamp(log_blocks_);
+  bits_shift_for_block_ = ComputeBitsShiftForBlock(log_blocks_);
   int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
   num_inserted_ = 0;
 
@@ -820,6 +825,8 @@ void SwissTable::cleanup() {
     hashes_ = nullptr;
   }
   log_blocks_ = 0;
+  bits_shift_for_block_and_stamp_ = ComputeBitsShiftForBlockAndStamp(log_blocks_);
+  bits_shift_for_block_ = ComputeBitsShiftForBlock(log_blocks_);
   num_inserted_ = 0;
 }
 
