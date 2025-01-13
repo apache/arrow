@@ -1854,7 +1854,7 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
     row_group_->__set_file_offset(file_offset);
     row_group_->__set_total_compressed_size(total_compressed_size);
     row_group_->__set_total_byte_size(total_bytes_written);
-    if (row_group_ordinal > 0) {
+    if (row_group_ordinal >= 0) {
       row_group_->__set_ordinal(row_group_ordinal);
     }
   }
