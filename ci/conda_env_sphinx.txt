@@ -30,9 +30,5 @@ sphinx-lint
 sphinxcontrib-jquery
 sphinxcontrib-mermaid
 sphinx==6.2
-# Requirement for doctest-cython
-# Needs upper pin of 0.3.0, see:
-# https://github.com/lgpage/pytest-cython/issues/67
-# With 0.3.* bug fix release, the pin can be removed
-pytest-cython==0.2.2
+pytest-cython
 pandas
