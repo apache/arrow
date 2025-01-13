@@ -180,6 +180,7 @@ set(PARQUET_SRCS
     platform.cc
     printer.cc
     properties.cc
+    row_range.cc
     schema.cc
     size_statistics.cc
     statistics.cc
