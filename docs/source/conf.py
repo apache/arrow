@@ -342,12 +342,18 @@ html_theme_options = {
     },
     "header_links_before_dropdown": 2,
     "header_dropdown_text": "Implementations",
+    "navbar_align": "left",
     "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
     "icon_links": [
         {
             "name": "GitHub",
             "url": "https://github.com/apache/arrow",
             "icon": "fa-brands fa-square-github",
+        },
+        {
+            "name": "LinkedIn",
+            "url": "https://www.linkedin.com/company/apache-arrow/",
+            "icon": "fa-brands fa-linkedin",
         },
         {
             "name": "X",
