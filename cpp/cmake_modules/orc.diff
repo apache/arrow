@@ -51,7 +51,7 @@ index 694667c06..af13a94aa 100644
      ${CMAKE_CURRENT_SOURCE_DIR}
      ${CMAKE_CURRENT_BINARY_DIR}
 diff --git a/cmake_modules/ThirdpartyToolchain.cmake b/cmake_modules/ThirdpartyToolchain.cmake
-index 017e6c5b8..ca233ea65 100644
+index 017e6c5b8..fe376ed16 100644
 --- a/cmake_modules/ThirdpartyToolchain.cmake
 +++ b/cmake_modules/ThirdpartyToolchain.cmake
 @@ -103,13 +103,13 @@ endif ()
@@ -59,8 +59,9 @@ index 017e6c5b8..ca233ea65 100644
  # ----------------------------------------------------------------------
  # Macros for adding third-party libraries
 -macro (add_resolved_library target_name link_lib include_dir)
+-  add_library (${target_name} INTERFACE IMPORTED)
 +macro (orc_add_resolved_library target_name link_lib include_dir)
-   add_library (${target_name} INTERFACE IMPORTED)
++  add_library (${target_name} INTERFACE IMPORTED GLOBAL)
    target_link_libraries (${target_name} INTERFACE ${link_lib})
    target_include_directories (${target_name} SYSTEM INTERFACE ${include_dir})
  endmacro ()
