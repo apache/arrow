@@ -40,3 +40,25 @@ index 694667c06..af13a94aa 100644
    PRIVATE
      ${CMAKE_CURRENT_SOURCE_DIR}
      ${CMAKE_CURRENT_BINARY_DIR}
+diff --git a/cmake_modules/ThirdpartyToolchain.cmake b/cmake_modules/ThirdpartyToolchain.cmake
+index 017e6c5b8..26bb5c69a 100644
+--- a/cmake_modules/ThirdpartyToolchain.cmake
++++ b/cmake_modules/ThirdpartyToolchain.cmake
+@@ -122,7 +122,7 @@ macro (add_built_library external_project_name target_name link_lib include_dir)
+   endif ()
+ endmacro ()
+ 
+-function(provide_cmake_module MODULE_NAME)
++function(orc_provide_cmake_module MODULE_NAME)
+   set(module "${CMAKE_SOURCE_DIR}/cmake_modules/${MODULE_NAME}.cmake")
+   if(EXISTS "${module}")
+     message(STATUS "Providing CMake module for ${MODULE_NAME} as part of CMake package")
+@@ -131,7 +131,7 @@ function(provide_cmake_module MODULE_NAME)
+ endfunction()
+ 
+ function(provide_find_module PACKAGE_NAME)
+-  provide_cmake_module("Find${PACKAGE_NAME}")
++  orc_provide_cmake_module("Find${PACKAGE_NAME}")
+ endfunction()
+ 
+ # ----------------------------------------------------------------------
