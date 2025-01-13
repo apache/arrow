@@ -351,22 +351,29 @@ struct CastStruct {
 
     for (int out_field_index = 0; out_field_index < out_field_count; ++out_field_index) {
       const auto& out_field = out_type.field(out_field_index);
-      auto maybe_in_field_index = in_fields.extract(out_field->name());
-      if (!maybe_in_field_index.empty()) {
-        const auto& in_field = in_type.field(maybe_in_field_index.mapped());
+      auto maybe_in_field_indexes = in_fields.equal_range(out_field->name());
+      if (maybe_in_field_indexes.first != in_fields.end()) {
+        // There is at least one in_field with matching name.
+        const auto& in_field_index = maybe_in_field_indexes.first->second;
+        const auto& in_field = in_type.field(maybe_in_field_indexes.first->second);
         if (in_field->nullable() && !out_field->nullable()) {
           return Status::TypeError("cannot cast nullable field to non-nullable field: ",
                                    in_type.ToString(), " ", out_type.ToString());
         }
-        fields_to_select[out_field_index] = maybe_in_field_index.mapped();
-        // Re-inserting the element puts it as the last element with the same key
-        // so field order is preserved in case of duplicate field names. 
-        in_fields.insert(std::move(maybe_in_field_index));
+
+        if (maybe_in_field_indexes.first != --maybe_in_field_indexes.second) {
+          // There is more than one `in_field` with matching name. Remove the one we are
+          // using to maintain column order in the case that the output struct also has
+          // duplicate field names.
+          in_fields.erase(maybe_in_field_indexes.first);
+        }
+        fields_to_select[out_field_index] = in_field_index;
       } else if (out_field->nullable()) {
         fields_to_select[out_field_index] = kFillNullSentinel;
       } else {
         return Status::TypeError("struct fields don't match or are in the wrong order");
-        // return Status::TypeError("cannot cast non-nullable field to nullable field: ",
+        // return Status::TypeError("cannot cast non-nullable field to nullable field:
+        // ",
         //                          in_type.ToString(), " ", out_type.ToString());
       }
     }
