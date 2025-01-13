@@ -29,9 +29,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 // Visit all physical types for which sorting is implemented.
 #define VISIT_SORTABLE_PHYSICAL_TYPES(VISIT) \
@@ -71,49 +69,17 @@ struct StablePartitioner {
   }
 };
 
-template <typename TypeClass, typename Enable = void>
-struct NullTraits {
-  using has_null_like_values = std::false_type;
-};
-
 template <typename TypeClass>
-struct NullTraits<TypeClass, enable_if_physical_floating_point<TypeClass>> {
-  using has_null_like_values = std::true_type;
-};
-
-template <typename TypeClass>
-using has_null_like_values = typename NullTraits<TypeClass>::has_null_like_values;
+constexpr bool has_null_like_values() {
+  return is_physical_floating(TypeClass::type_id);
+}
 
 // Compare two values, taking NaNs into account
 
-template <typename Type, typename Enable = void>
-struct ValueComparator;
-
-template <typename Type>
-struct ValueComparator<Type, enable_if_t<!has_null_like_values<Type>::value>> {
-  template <typename Value>
-  static int Compare(const Value& left, const Value& right, SortOrder order,
-                     NullPlacement null_placement) {
-    int compared;
-    if (left == right) {
-      compared = 0;
-    } else if (left > right) {
-      compared = 1;
-    } else {
-      compared = -1;
-    }
-    if (order == SortOrder::Descending) {
-      compared = -compared;
-    }
-    return compared;
-  }
-};
-
-template <typename Type>
-struct ValueComparator<Type, enable_if_t<has_null_like_values<Type>::value>> {
-  template <typename Value>
-  static int Compare(const Value& left, const Value& right, SortOrder order,
-                     NullPlacement null_placement) {
+template <typename Type, typename Value>
+int CompareTypeValues(Value&& left, Value&& right, SortOrder order,
+                      NullPlacement null_placement) {
+  if constexpr (has_null_like_values<Type>()) {
     const bool is_nan_left = std::isnan(left);
     const bool is_nan_right = std::isnan(right);
     if (is_nan_left && is_nan_right) {
@@ -123,25 +89,19 @@ struct ValueComparator<Type, enable_if_t<has_null_like_values<Type>::value>> {
     } else if (is_nan_right) {
       return null_placement == NullPlacement::AtStart ? 1 : -1;
     }
-    int compared;
-    if (left == right) {
-      compared = 0;
-    } else if (left > right) {
-      compared = 1;
-    } else {
-      compared = -1;
-    }
-    if (order == SortOrder::Descending) {
-      compared = -compared;
-    }
-    return compared;
   }
-};
-
-template <typename Type, typename Value>
-int CompareTypeValues(const Value& left, const Value& right, SortOrder order,
-                      NullPlacement null_placement) {
-  return ValueComparator<Type>::Compare(left, right, order, null_placement);
+  int compared;
+  if (left == right) {
+    compared = 0;
+  } else if (left > right) {
+    compared = 1;
+  } else {
+    compared = -1;
+  }
+  if (order == SortOrder::Descending) {
+    compared = -compared;
+  }
+  return compared;
 }
 
 template <typename IndexType>
@@ -238,33 +198,28 @@ NullPartitionResult PartitionNullsOnly(uint64_t* indices_begin, uint64_t* indice
 //
 // `offset` is used when this is called on a chunk of a chunked array
 template <typename ArrayType, typename Partitioner>
-enable_if_t<!has_null_like_values<typename ArrayType::TypeClass>::value,
-            NullPartitionResult>
-PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
-                   const ArrayType& values, int64_t offset,
-                   NullPlacement null_placement) {
-  return NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement);
-}
-
-template <typename ArrayType, typename Partitioner>
-enable_if_t<has_null_like_values<typename ArrayType::TypeClass>::value,
-            NullPartitionResult>
-PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
-                   const ArrayType& values, int64_t offset,
-                   NullPlacement null_placement) {
-  Partitioner partitioner;
-  if (null_placement == NullPlacement::AtStart) {
-    auto null_likes_end =
-        partitioner(indices_begin, indices_end, [&values, &offset](uint64_t ind) {
-          return std::isnan(values.GetView(ind - offset));
-        });
-    return NullPartitionResult::NullsAtStart(indices_begin, indices_end, null_likes_end);
+NullPartitionResult PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
+                                       const ArrayType& values, int64_t offset,
+                                       NullPlacement null_placement) {
+  if constexpr (has_null_like_values<typename ArrayType::TypeClass>()) {
+    Partitioner partitioner;
+    if (null_placement == NullPlacement::AtStart) {
+      auto null_likes_end =
+          partitioner(indices_begin, indices_end, [&values, &offset](uint64_t ind) {
+            return std::isnan(values.GetView(ind - offset));
+          });
+      return NullPartitionResult::NullsAtStart(indices_begin, indices_end,
+                                               null_likes_end);
+    } else {
+      auto null_likes_begin =
+          partitioner(indices_begin, indices_end, [&values, &offset](uint64_t ind) {
+            return !std::isnan(values.GetView(ind - offset));
+          });
+      return NullPartitionResult::NullsAtEnd(indices_begin, indices_end,
+                                             null_likes_begin);
+    }
   } else {
-    auto null_likes_begin =
-        partitioner(indices_begin, indices_end, [&values, &offset](uint64_t ind) {
-          return !std::isnan(values.GetView(ind - offset));
-        });
-    return NullPartitionResult::NullsAtEnd(indices_begin, indices_end, null_likes_begin);
+    return NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement);
   }
 }
 
@@ -344,32 +299,30 @@ ChunkedNullPartitionResult PartitionNullsOnly(CompressedChunkLocation* locations
   }
 }
 
-template <typename ArrayType, typename Partitioner>
-enable_if_t<!has_null_like_values<typename ArrayType::TypeClass>::value,
-            NullPartitionResult>
-PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
-                   const ChunkedArrayResolver& resolver, NullPlacement null_placement) {
-  return NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement);
-}
-
 template <typename ArrayType, typename Partitioner,
           typename TypeClass = typename ArrayType::TypeClass>
-enable_if_t<has_null_like_values<TypeClass>::value, NullPartitionResult>
-PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
-                   const ChunkedArrayResolver& resolver, NullPlacement null_placement) {
-  Partitioner partitioner;
-  if (null_placement == NullPlacement::AtStart) {
-    auto null_likes_end = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve(ind);
-      return std::isnan(chunk.Value<TypeClass>());
-    });
-    return NullPartitionResult::NullsAtStart(indices_begin, indices_end, null_likes_end);
+NullPartitionResult PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
+                                       const ChunkedArrayResolver& resolver,
+                                       NullPlacement null_placement) {
+  if constexpr (has_null_like_values<typename ArrayType::TypeClass>()) {
+    Partitioner partitioner;
+    if (null_placement == NullPlacement::AtStart) {
+      auto null_likes_end = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
+        const auto chunk = resolver.Resolve(ind);
+        return std::isnan(chunk.Value<TypeClass>());
+      });
+      return NullPartitionResult::NullsAtStart(indices_begin, indices_end,
+                                               null_likes_end);
+    } else {
+      auto null_likes_begin = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
+        const auto chunk = resolver.Resolve(ind);
+        return !std::isnan(chunk.Value<TypeClass>());
+      });
+      return NullPartitionResult::NullsAtEnd(indices_begin, indices_end,
+                                             null_likes_begin);
+    }
   } else {
-    auto null_likes_begin = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve(ind);
-      return !std::isnan(chunk.Value<TypeClass>());
-    });
-    return NullPartitionResult::NullsAtEnd(indices_begin, indices_end, null_likes_begin);
+    return NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement);
   }
 }
 
@@ -853,6 +806,4 @@ inline Result<std::shared_ptr<ArrayData>> MakeMutableUInt64Array(
   return ArrayData::Make(uint64(), length, {nullptr, std::move(data)}, /*null_count=*/0);
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal
