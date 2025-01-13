@@ -4573,10 +4573,11 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 function(build_orc)
   message(STATUS "Building Apache ORC from source")
 
-  if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
-    find_program(PATCH patch REQUIRED)
-    set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/orc.diff)
+  # Remove this once we have a patch for ORC 2.1.1
+  find_program(PATCH patch REQUIRED)
+  set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/orc.diff)
 
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
                          URL ${ORC_SOURCE_URL}
@@ -4746,7 +4747,8 @@ function(build_orc)
                                 ${ARROW_ZSTD_LIBZSTD}
                                 ${Snappy_TARGET}
                                 LZ4::lz4
-                                ZLIB::ZLIB)
+                                ZLIB::ZLIB
+                        PATCH_COMMAND ${ORC_PATCH_COMMAND})
     add_library(orc::orc STATIC IMPORTED)
     set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
     target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")

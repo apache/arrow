@@ -15,6 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1f8931508..7bfc71aea 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -225,5 +225,3 @@ if (BUILD_CPP_TESTS)
+     )
+   endif ()
+ endif ()
+-
+-INCLUDE(CheckFormat)
 diff --git a/c++/src/CMakeLists.txt b/c++/src/CMakeLists.txt
 index 694667c06..af13a94aa 100644
 --- a/c++/src/CMakeLists.txt
