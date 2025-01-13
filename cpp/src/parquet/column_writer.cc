@@ -1478,42 +1478,43 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   // which case we call back to the dense write path)
   std::shared_ptr<::arrow::Array> preserved_dictionary_;
 
-  int64_t WriteLevels(int64_t num_values, const int16_t* def_levels,
+  int64_t WriteLevels(int64_t num_levels, const int16_t* def_levels,
                       const int16_t* rep_levels) {
+    // Update histograms now, to maximize cache efficiency.
+    UpdateLevelHistogram(num_levels, def_levels, rep_levels);
+
     int64_t values_to_write = 0;
     // If the field is required and non-repeated, there are no definition levels
     if (descr_->max_definition_level() > 0) {
-      for (int64_t i = 0; i < num_values; ++i) {
+      for (int64_t i = 0; i < num_levels; ++i) {
         if (def_levels[i] == descr_->max_definition_level()) {
           ++values_to_write;
         }
       }
 
-      WriteDefinitionLevels(num_values, def_levels);
+      WriteDefinitionLevels(num_levels, def_levels);
     } else {
       // Required field, write all values
-      values_to_write = num_values;
+      values_to_write = num_levels;
     }
 
     // Not present for non-repeated fields
     if (descr_->max_repetition_level() > 0) {
       // A row could include more than one value
       // Count the occasions where we start a new row
-      for (int64_t i = 0; i < num_values; ++i) {
+      for (int64_t i = 0; i < num_levels; ++i) {
         if (rep_levels[i] == 0) {
           rows_written_++;
           num_buffered_rows_++;
         }
       }
 
-      WriteRepetitionLevels(num_values, rep_levels);
+      WriteRepetitionLevels(num_levels, rep_levels);
     } else {
       // Each value is exactly one row
-      rows_written_ += num_values;
-      num_buffered_rows_ += num_values;
+      rows_written_ += num_levels;
+      num_buffered_rows_ += num_levels;
     }
-
-    UpdateLevelHistogram(num_values, def_levels, rep_levels);
     return values_to_write;
   }
 
@@ -1585,6 +1586,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
   void WriteLevelsSpaced(int64_t num_levels, const int16_t* def_levels,
                          const int16_t* rep_levels) {
+    // Update histograms now, to maximize cache efficiency.
+    UpdateLevelHistogram(num_levels, def_levels, rep_levels);
+
     // If the field is required and non-repeated, there are no definition levels
     if (descr_->max_definition_level() > 0) {
       WriteDefinitionLevels(num_levels, def_levels);
@@ -1605,8 +1609,6 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       rows_written_ += num_levels;
       num_buffered_rows_ += num_levels;
     }
-
-    UpdateLevelHistogram(num_levels, def_levels, rep_levels);
   }
 
   void UpdateLevelHistogram(int64_t num_levels, const int16_t* def_levels,
@@ -1616,26 +1618,17 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
 
     auto add_levels = [](std::vector<int64_t>& level_histogram,
-                         ::arrow::util::span<const int16_t> levels) {
-      for (int16_t level : levels) {
-        ARROW_DCHECK_LT(level, static_cast<int16_t>(level_histogram.size()));
-        ++level_histogram[level];
-      }
+                         ::arrow::util::span<const int16_t> levels, int16_t max_level) {
+      ARROW_DCHECK_EQ(static_cast<size_t>(max_level) + 1, level_histogram.size());
+      ::parquet::UpdateLevelHistogram(levels, level_histogram);
     };
 
-    if (descr_->max_definition_level() > 0) {
-      add_levels(page_size_statistics_->definition_level_histogram,
-                 {def_levels, static_cast<size_t>(num_levels)});
-    } else {
-      page_size_statistics_->definition_level_histogram[0] += num_levels;
-    }
-
-    if (descr_->max_repetition_level() > 0) {
-      add_levels(page_size_statistics_->repetition_level_histogram,
-                 {rep_levels, static_cast<size_t>(num_levels)});
-    } else {
-      page_size_statistics_->repetition_level_histogram[0] += num_levels;
-    }
+    add_levels(page_size_statistics_->definition_level_histogram,
+               {def_levels, static_cast<size_t>(num_levels)},
+               descr_->max_definition_level());
+    add_levels(page_size_statistics_->repetition_level_histogram,
+               {rep_levels, static_cast<size_t>(num_levels)},
+               descr_->max_repetition_level());
   }
 
   // Update the unencoded data bytes for ByteArray only per the specification.

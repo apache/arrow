@@ -158,14 +158,12 @@ env:
   - name: Install gemfury client on ARM self-hosted
     if: runner.arch != 'X64'
     run: |
-      # GH-36692: Pin gemfury due to wrong faraday dependency declaration.
-      gem install --user-install gemfury -v 0.12.0
+      gem install --user-install gemfury
       ruby -r rubygems -e 'puts("#{Gem.user_dir}/bin")' >> $GITHUB_PATH
   - name: Install gemfury client
     if: runner.arch == 'X64'
     run: |
-      # GH-36692: Pin gemfury due to wrong faraday dependency declaration.
-      gem install gemfury -v 0.12.0
+      gem install gemfury
   - name: Upload package to Gemfury
     shell: bash
     run: |

@@ -200,6 +200,7 @@ class IntegrationRunner(object):
                 skip_testers.add("Rust")
             if prefix == '2.0.0-compression':
                 skip_testers.add("JS")
+            if prefix == '2.0.0-compression' and 'lz4' in name:
                 # https://github.com/apache/arrow-nanoarrow/issues/621
                 skip_testers.add("nanoarrow")
 

@@ -1619,6 +1619,7 @@ example as above, an alternate encoding could be: ::
     0
     EOS
 
+.. _format_metadata:
 
 Custom Application Metadata
 ---------------------------

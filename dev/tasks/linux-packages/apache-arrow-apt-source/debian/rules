@@ -12,8 +12,13 @@ export DH_OPTIONS
 override_dh_auto_build:
 	gpg \
 	  --no-default-keyring \
-	  --keyring ./apache-arrow-apt-source.gpg \
+	  --keyring ./apache-arrow-apt-source.kbx \
 	  --import KEYS
+	gpg \
+	  --no-default-keyring \
+	  --keyring ./apache-arrow-apt-source.kbx \
+	  --armor \
+	  --export > apache-arrow-apt-source.asc
 
 	( \
 	  distribution=$$(lsb_release --id --short | tr 'A-Z' 'a-z'); \
@@ -22,12 +27,12 @@ override_dh_auto_build:
 	  echo "URIs: https://apache.jfrog.io/artifactory/arrow/$${distribution}/"; \
 	  echo "Suites: $${code_name}"; \
 	  echo "Components: main"; \
-	  echo "Signed-By: /usr/share/keyrings/apache-arrow-apt-source.gpg"; \
+	  echo "Signed-By: /usr/share/keyrings/apache-arrow-apt-source.asc"; \
 	) > apache-arrow.sources
 
 override_dh_install:
 	install -d debian/tmp/usr/share/keyrings/
-	install -m 0644 apache-arrow-apt-source.gpg \
+	install -m 0644 apache-arrow-apt-source.asc \
 	  debian/tmp/usr/share/keyrings/
 
 	install -d debian/tmp/etc/apt/sources.list.d/

@@ -105,8 +105,6 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
         __m256i row_offset_lo =
             _mm256_i32gather_epi64(row_offsets_i64, _mm256_castsi256_si128(row_id),
                                    sizeof(RowTableImpl::offset_type));
-        // Gather the lower/higher 4 32-bit field lengths based on the lower/higher 4
-        // 64-bit row offsets.
         __m256i row_offset_hi =
             _mm256_i32gather_epi64(row_offsets_i64, _mm256_extracti128_si256(row_id, 1),
                                    sizeof(RowTableImpl::offset_type));

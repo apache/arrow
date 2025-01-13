@@ -26,7 +26,7 @@ pushd $ARROW_BUILD_DIR
 # Enable the CSV reader as it's used by the example third-party build
 cmake /arrow/cpp \
     -DARROW_CSV=ON \
-    -DARROW_JEMALLOC=OFF \
+    -DARROW_MIMALLOC=OFF \
     $ARROW_CMAKE_OPTIONS
 
 make -j$NPROC

@@ -298,6 +298,7 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(properties.created_by()),
           store_decimal_as_integer_(properties.store_decimal_as_integer()),
           page_checksum_enabled_(properties.page_checksum_enabled()),
+          size_statistics_level_(properties.size_statistics_level()),
           sorting_columns_(properties.sorting_columns()),
           default_column_properties_(properties.default_column_properties()) {}
 

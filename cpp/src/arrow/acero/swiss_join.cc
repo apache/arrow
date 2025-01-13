@@ -2462,7 +2462,6 @@ class SwissJoin : public HashJoinImpl {
     output_batch_callback_ = std::move(output_batch_callback);
     finished_callback_ = std::move(finished_callback);
 
-    hash_table_ready_.store(false);
     cancelled_.store(false);
     {
       std::lock_guard<std::mutex> lock(state_mutex_);
@@ -2474,7 +2473,6 @@ class SwissJoin : public HashJoinImpl {
     local_states_.resize(num_threads_);
     for (int i = 0; i < num_threads_; ++i) {
       RETURN_NOT_OK(local_states_[i].stack.Init(pool_, kTempStackUsage));
-      local_states_[i].hash_table_ready = false;
       local_states_[i].num_output_batches = 0;
       local_states_[i].materialize.Init(pool_, proj_map_left, proj_map_right);
     }
@@ -2519,11 +2517,6 @@ class SwissJoin : public HashJoinImpl {
     if (IsCancelled()) {
       return status();
     }
-
-    if (!local_states_[thread_index].hash_table_ready) {
-      local_states_[thread_index].hash_table_ready = hash_table_ready_.load();
-    }
-    ARROW_DCHECK(local_states_[thread_index].hash_table_ready);
 
     ExecBatch keypayload_batch;
     ARROW_ASSIGN_OR_RAISE(keypayload_batch, KeyPayloadFromInput(/*side=*/0, &batch));
@@ -2605,16 +2598,14 @@ class SwissJoin : public HashJoinImpl {
       return Status::OK();
     }
 
+    DCHECK_GT(build_side_batches_[batch_id].length, 0);
+
     const HashJoinProjectionMaps* schema = schema_[1];
     bool no_payload = hash_table_build_.no_payload();
 
     ExecBatch input_batch;
     ARROW_ASSIGN_OR_RAISE(
         input_batch, KeyPayloadFromInput(/*side=*/1, &build_side_batches_[batch_id]));
-
-    if (input_batch.length == 0) {
-      return Status::OK();
-    }
 
     // Split batch into key batch and optional payload batch
     //
@@ -2643,10 +2634,6 @@ class SwissJoin : public HashJoinImpl {
     RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PushNextBatch(
         static_cast<int64_t>(thread_id), key_batch, no_payload ? nullptr : &payload_batch,
         temp_stack)));
-
-    // Release input batch
-    //
-    input_batch.values.clear();
 
     return Status::OK();
   }
@@ -2689,7 +2676,6 @@ class SwissJoin : public HashJoinImpl {
                                                 hash_table_.payloads(),
                                                 hash_table_.key_to_payload() == nullptr);
     }
-    hash_table_ready_.store(true);
 
     residual_filter_.OnBuildFinished();
 
@@ -2910,7 +2896,6 @@ class SwissJoin : public HashJoinImpl {
     JoinResultMaterialize materialize;
     std::vector<KeyColumnArray> temp_column_arrays;
     int64_t num_output_batches;
-    bool hash_table_ready;
   };
   std::vector<ThreadLocalState> local_states_;
 
@@ -2927,7 +2912,6 @@ class SwissJoin : public HashJoinImpl {
   // The other flags that follow them, protected by mutex, will be queried or
   // updated only a fixed number of times during entire join processing.
   //
-  std::atomic<bool> hash_table_ready_;
   std::atomic<bool> cancelled_;
 
   // Mutex protecting state flags.

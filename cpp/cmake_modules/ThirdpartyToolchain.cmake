@@ -1311,10 +1311,12 @@ if(ARROW_USE_BOOST)
     endif()
   endforeach()
 
+  set(BOOST_PROCESS_HAVE_V2 FALSE)
   if(TARGET Boost::process)
     # Boost >= 1.86
     target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V1")
     target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
+    set(BOOST_PROCESS_HAVE_V2 TRUE)
   else()
     # Boost < 1.86
     add_library(Boost::process INTERFACE IMPORTED)
@@ -1329,6 +1331,7 @@ if(ARROW_USE_BOOST)
     endif()
     if(Boost_VERSION VERSION_GREATER_EQUAL 1.80)
       target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
+      set(BOOST_PROCESS_HAVE_V2 TRUE)
       # Boost < 1.86 has a bug that
       # boost::process::v2::process_environment::on_setup() isn't
       # defined. We need to build Boost Process source to define it.
@@ -1340,6 +1343,20 @@ if(ARROW_USE_BOOST)
         target_link_libraries(Boost::process INTERFACE bcrypt ntdll)
       endif()
     endif()
+  endif()
+  if(BOOST_PROCESS_HAVE_V2
+     AND # We can't use v2 API on Windows because v2 API doesn't support
+         # process group[1] and GCS testbench uses multiple processes[2].
+         #
+         # [1] https://github.com/boostorg/process/issues/259
+         # [2] https://github.com/googleapis/storage-testbench/issues/669
+         (NOT WIN32)
+     AND # We can't use v2 API with musl libc with Boost Process < 1.86
+         # because Boost Process < 1.86 doesn't support musl libc[3].
+         #
+         # [3] https://github.com/boostorg/process/commit/aea22dbf6be1695ceb42367590b6ca34d9433500
+         (NOT (ARROW_WITH_MUSL AND (Boost_VERSION VERSION_LESS 1.86))))
+    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_USE_V2")
   endif()
 
   message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
@@ -1777,13 +1794,28 @@ macro(build_thrift)
     set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
   endif()
 
+  set(THRIFT_PATCH_COMMAND)
+  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15.0)
+    # Thrift 0.21.0 doesn't support GCC 15.
+    # https://github.com/apache/arrow/issues/45096
+    # https://github.com/apache/thrift/pull/3078
+    find_program(PATCH patch REQUIRED)
+    list(APPEND
+         THRIFT_PATCH_COMMAND
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_CURRENT_LIST_DIR}/thrift-cstdint.patch)
+  endif()
+
   externalproject_add(thrift_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${THRIFT_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS "${THRIFT_LIB}"
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
-                      DEPENDS ${THRIFT_DEPENDENCIES})
+                      DEPENDS ${THRIFT_DEPENDENCIES}
+                      PATCH_COMMAND ${THRIFT_PATCH_COMMAND})
 
   add_library(thrift::thrift STATIC IMPORTED)
   # The include directory must exist before it is referenced by a target.

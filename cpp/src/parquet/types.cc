@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -95,31 +96,46 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val) {
 
   const char* bytes = val.data();
   switch (parquet_type) {
-    case Type::BOOLEAN:
-      result << reinterpret_cast<const bool*>(bytes)[0];
+    case Type::BOOLEAN: {
+      bool value{};
+      std::memcpy(&value, bytes, sizeof(bool));
+      result << value;
       break;
-    case Type::INT32:
-      result << reinterpret_cast<const int32_t*>(bytes)[0];
+    }
+    case Type::INT32: {
+      int32_t value{};
+      std::memcpy(&value, bytes, sizeof(int32_t));
+      result << value;
       break;
-    case Type::INT64:
-      result << reinterpret_cast<const int64_t*>(bytes)[0];
+    }
+    case Type::INT64: {
+      int64_t value{};
+      std::memcpy(&value, bytes, sizeof(int64_t));
+      result << value;
       break;
-    case Type::DOUBLE:
-      result << reinterpret_cast<const double*>(bytes)[0];
+    }
+    case Type::DOUBLE: {
+      double value{};
+      std::memcpy(&value, bytes, sizeof(double));
+      result << value;
       break;
-    case Type::FLOAT:
-      result << reinterpret_cast<const float*>(bytes)[0];
+    }
+    case Type::FLOAT: {
+      float value{};
+      std::memcpy(&value, bytes, sizeof(float));
+      result << value;
       break;
+    }
     case Type::INT96: {
-      auto const i32_val = reinterpret_cast<const int32_t*>(bytes);
-      result << i32_val[0] << " " << i32_val[1] << " " << i32_val[2];
+      std::array<int32_t, 3> values{};
+      std::memcpy(values.data(), bytes, 3 * sizeof(int32_t));
+      result << values[0] << " " << values[1] << " " << values[2];
       break;
     }
-    case Type::BYTE_ARRAY: {
-      return std::string(val);
-    }
+    case Type::BYTE_ARRAY:
     case Type::FIXED_LEN_BYTE_ARRAY: {
-      return std::string(val);
+      result << val;
+      break;
     }
     case Type::UNDEFINED:
     default:

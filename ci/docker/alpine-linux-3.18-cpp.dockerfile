@@ -16,9 +16,10 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/alpine:3.16
+FROM ${arch}/alpine:3.18
 
 RUN apk add \
+        apache-orc-dev \
         bash \
         benchmark-dev \
         boost-dev \
@@ -39,8 +40,8 @@ RUN apk add \
         grpc-dev \
         gtest-dev \
         libxml2-dev \
-        llvm13-dev \
-        llvm13-static \
+        llvm16-dev \
+        llvm16-static \
         lz4-dev \
         make \
         musl-locales \
@@ -61,6 +62,7 @@ RUN apk add \
         thrift-dev \
         tzdata \
         utf8proc-dev \
+        xsimd-dev \
         zlib-dev \
         zstd-dev && \
     rm -rf /var/cache/apk/* && \
@@ -98,6 +100,5 @@ ENV ARROW_ACERO=ON \
     ARROW_WITH_ZSTD=ON \
     AWSSDK_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
-    ORC_SOURCE=BUNDLED \
-    PATH=/usr/lib/ccache/:$PATH \
-    xsimd_SOURCE=BUNDLED
+    MUSL_LOCPATH=/usr/share/i18n/locales/musl \
+    PATH=/usr/lib/ccache/bin:$PATH
