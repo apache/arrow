@@ -266,9 +266,12 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     ARROW_DCHECK_NE(meta_decryptor, nullptr);
     ARROW_DCHECK_NE(data_decryptor, nullptr);
 
-    constexpr auto kEncryptedRowGroupsLimit = 32767;
-    if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedRowGroupsLimit)) {
+    constexpr auto kEncryptedOrdinalLimit = 32767;
+    if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedOrdinalLimit)) {
       throw ParquetException("Encrypted files cannot contain more than 32767 row groups");
+    }
+    if (ARROW_PREDICT_FALSE(i > kEncryptedOrdinalLimit)) {
+      throw ParquetException("Encrypted files cannot contain more than 32767 columns");
     }
 
     CryptoContext ctx(col->has_dictionary_page(),
