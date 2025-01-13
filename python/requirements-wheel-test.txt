@@ -1,14 +1,9 @@
-# Remove pre and extra index url once there's NumPy and Cython wheels for 3.13
-# on PyPI
---pre
---prefer-binary
---extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
-
 cffi
 cython
 hypothesis
 pytest
 pytz
+pyuwsgi; sys.platform != 'win32' and python_version < '3.13'
 tzdata; sys_platform == 'win32'
 
 # We generally test with the oldest numpy version that supports a given Python

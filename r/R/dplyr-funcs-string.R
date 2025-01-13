@@ -570,10 +570,12 @@ register_bindings_string_other <- function() {
       end <- .Machine$integer.max
     }
 
-    # An end value lower than a start value returns an empty string in
-    # stringr::str_sub so set end to 0 here to match this behavior
-    if (end < start) {
-      end <- 0
+    # strings returned by utf8_slice_codeunits are exclusive of the `end` position.
+    # stringr::str_sub returns strings inclusive of the `end` position, so add 1 to `end`.
+    # NOTE:this isn't necessary for positive values of `end`, because utf8_slice_codeunits
+    # is 0-based while R is 1-based, which cancels out the effect of the exclusive `end`
+    if (end < -1) {
+      end <- end + 1L
     }
 
     # subtract 1 from `start` because C++ is 0-based and R is 1-based

@@ -46,6 +46,16 @@ cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
 
 
 cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
+    cdef cppclass CDecimal32" arrow::Decimal32":
+        c_string ToString(int32_t scale) const
+
+
+cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
+    cdef cppclass CDecimal64" arrow::Decimal64":
+        c_string ToString(int32_t scale) const
+
+
+cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
     cdef cppclass CDecimal128" arrow::Decimal128":
         c_string ToString(int32_t scale) const
 
@@ -110,6 +120,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_FLOAT" arrow::Type::FLOAT"
         _Type_DOUBLE" arrow::Type::DOUBLE"
 
+        _Type_DECIMAL32" arrow::Type::DECIMAL32"
+        _Type_DECIMAL64" arrow::Type::DECIMAL64"
         _Type_DECIMAL128" arrow::Type::DECIMAL128"
         _Type_DECIMAL256" arrow::Type::DECIMAL256"
 
@@ -158,6 +170,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CDataTypeLayout" arrow::DataTypeLayout":
         vector[CBufferSpec] buffers
+        optional[CBufferSpec] variadic_spec
         c_bool has_dictionary
 
     cdef cppclass CDataType" arrow::DataType":
@@ -452,6 +465,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int byte_width()
         int bit_width()
 
+    cdef cppclass CDecimal32Type \
+            " arrow::Decimal32Type"(CFixedSizeBinaryType):
+        CDecimal32Type(int precision, int scale)
+        int precision()
+        int scale()
+
+    cdef cppclass CDecimal64Type \
+            " arrow::Decimal64Type"(CFixedSizeBinaryType):
+        CDecimal64Type(int precision, int scale)
+        int precision()
+        int scale()
+
     cdef cppclass CDecimal128Type \
             " arrow::Decimal128Type"(CFixedSizeBinaryType):
         CDecimal128Type(int precision, int scale)
@@ -678,6 +703,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFixedSizeBinaryArray" arrow::FixedSizeBinaryArray"(CArray):
         const uint8_t* GetValue(int i)
+
+    cdef cppclass CDecimal32Array" arrow::Decimal32Array"(
+        CFixedSizeBinaryArray
+    ):
+        c_string FormatValue(int i)
+
+    cdef cppclass CDecimal64Array" arrow::Decimal64Array"(
+        CFixedSizeBinaryArray
+    ):
+        c_string FormatValue(int i)
 
     cdef cppclass CDecimal128Array" arrow::Decimal128Array"(
         CFixedSizeBinaryArray
@@ -1262,6 +1297,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDoubleScalar" arrow::DoubleScalar"(CScalar):
         double value
 
+    cdef cppclass CDecimal32Scalar" arrow::Decimal32Scalar"(CScalar):
+        CDecimal32 value
+
+    cdef cppclass CDecimal64Scalar" arrow::Decimal64Scalar"(CScalar):
+        CDecimal64 value
+
     cdef cppclass CDecimal128Scalar" arrow::Decimal128Scalar"(CScalar):
         CDecimal128 value
 
@@ -1354,6 +1395,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     CResult[shared_ptr[CTable]] ConcatenateTables(
         const vector[shared_ptr[CTable]]& tables,
         CConcatenateTablesOptions options,
+        CMemoryPool* memory_pool)
+
+    CResult[shared_ptr[CRecordBatch]] ConcatenateRecordBatches(
+        const vector[shared_ptr[CRecordBatch]]& batches,
         CMemoryPool* memory_pool)
 
     cdef cppclass CDictionaryUnifier" arrow::DictionaryUnifier":
@@ -2865,6 +2910,13 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         CExtensionArray(shared_ptr[CDataType], shared_ptr[CArray] storage)
 
         shared_ptr[CArray] storage()
+
+
+cdef extern from "arrow/extension/json.h" namespace "arrow::extension" nogil:
+    cdef cppclass CJsonType" arrow::extension::JsonExtensionType"(CExtensionType):
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make(shared_ptr[CDataType]& storage_type)
 
 
 cdef extern from "arrow/extension/uuid.h" namespace "arrow::extension" nogil:

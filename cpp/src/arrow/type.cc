@@ -80,6 +80,10 @@ constexpr Type::type FixedSizeBinaryType::type_id;
 
 constexpr Type::type StructType::type_id;
 
+constexpr Type::type Decimal32Type::type_id;
+
+constexpr Type::type Decimal64Type::type_id;
+
 constexpr Type::type Decimal128Type::type_id;
 
 constexpr Type::type Decimal256Type::type_id;
@@ -122,6 +126,8 @@ std::vector<Type::type> AllTypeIds() {
           Type::HALF_FLOAT,
           Type::FLOAT,
           Type::DOUBLE,
+          Type::DECIMAL32,
+          Type::DECIMAL64,
           Type::DECIMAL128,
           Type::DECIMAL256,
           Type::DATE32,
@@ -192,6 +198,8 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(HALF_FLOAT)
     TO_STRING_CASE(FLOAT)
     TO_STRING_CASE(DOUBLE)
+    TO_STRING_CASE(DECIMAL32)
+    TO_STRING_CASE(DECIMAL64)
     TO_STRING_CASE(DECIMAL128)
     TO_STRING_CASE(DECIMAL256)
     TO_STRING_CASE(DATE32)
@@ -391,7 +399,7 @@ Result<std::shared_ptr<DataType>> WidenDecimals(
   const auto& right = checked_cast<const DecimalType&>(*other_type);
   if (!options.promote_numeric_width && left.bit_width() != right.bit_width()) {
     return Status::TypeError(
-        "Cannot promote decimal128 to decimal256 without promote_numeric_width=true");
+        "Cannot promote decimal types without promote_numeric_width=true");
   }
   const int32_t max_scale = std::max<int32_t>(left.scale(), right.scale());
   const int32_t common_precision =
@@ -400,8 +408,14 @@ Result<std::shared_ptr<DataType>> WidenDecimals(
   if (left.id() == Type::DECIMAL256 || right.id() == Type::DECIMAL256 ||
       common_precision > BasicDecimal128::kMaxPrecision) {
     return DecimalType::Make(Type::DECIMAL256, common_precision, max_scale);
+  } else if (left.id() == Type::DECIMAL128 || right.id() == Type::DECIMAL128 ||
+             common_precision > BasicDecimal64::kMaxPrecision) {
+    return DecimalType::Make(Type::DECIMAL128, common_precision, max_scale);
+  } else if (left.id() == Type::DECIMAL64 || right.id() == Type::DECIMAL64 ||
+             common_precision > BasicDecimal32::kMaxPrecision) {
+    return DecimalType::Make(Type::DECIMAL64, common_precision, max_scale);
   }
-  return DecimalType::Make(Type::DECIMAL128, common_precision, max_scale);
+  return DecimalType::Make(Type::DECIMAL32, common_precision, max_scale);
 }
 
 Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
@@ -480,7 +494,7 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
     ARROW_ASSIGN_OR_RAISE(const int32_t precision,
                           MaxDecimalDigitsForInteger(other_type->id()));
     ARROW_ASSIGN_OR_RAISE(const auto promoted_decimal,
-                          DecimalType::Make(promoted_type->id(), precision, 0));
+                          DecimalType::Make(promoted_type->id(), precision - 1, 0));
     ARROW_ASSIGN_OR_RAISE(promoted_type,
                           WidenDecimals(promoted_type, promoted_decimal, options));
     return promoted_type;
@@ -1428,12 +1442,17 @@ Result<std::shared_ptr<StructType>> StructType::SetField(
 
 Result<std::shared_ptr<DataType>> DecimalType::Make(Type::type type_id, int32_t precision,
                                                     int32_t scale) {
-  if (type_id == Type::DECIMAL128) {
-    return Decimal128Type::Make(precision, scale);
-  } else if (type_id == Type::DECIMAL256) {
-    return Decimal256Type::Make(precision, scale);
-  } else {
-    return Status::Invalid("Not a decimal type_id: ", type_id);
+  switch (type_id) {
+    case Type::DECIMAL32:
+      return Decimal32Type::Make(precision, scale);
+    case Type::DECIMAL64:
+      return Decimal64Type::Make(precision, scale);
+    case Type::DECIMAL128:
+      return Decimal128Type::Make(precision, scale);
+    case Type::DECIMAL256:
+      return Decimal256Type::Make(precision, scale);
+    default:
+      return Status::Invalid("Not a decimal type_id: ", type_id);
   }
 }
 
@@ -1459,20 +1478,51 @@ int32_t DecimalType::DecimalSize(int32_t precision) {
   return static_cast<int32_t>(std::ceil((precision / 8.0) * std::log2(10) + 1));
 }
 
+template <typename D>
+static Status ValidateDecimalPrecision(int32_t precision) {
+  if (precision < D::kMinPrecision || precision > D::kMaxPrecision) {
+    return Status::Invalid("Decimal precision out of range [", int32_t(D::kMinPrecision),
+                           ", ", int32_t(D::kMaxPrecision), "]: ", precision);
+  }
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+// Decimal32 type
+
+Decimal32Type::Decimal32Type(int32_t precision, int32_t scale)
+    : DecimalType(type_id, 4, precision, scale) {
+  ARROW_CHECK_OK(ValidateDecimalPrecision<Decimal32Type>(precision));
+}
+
+Result<std::shared_ptr<DataType>> Decimal32Type::Make(int32_t precision, int32_t scale) {
+  RETURN_NOT_OK(ValidateDecimalPrecision<Decimal32Type>(precision));
+  return std::make_shared<Decimal32Type>(precision, scale);
+}
+
+// ----------------------------------------------------------------------
+// Decimal64 type
+
+Decimal64Type::Decimal64Type(int32_t precision, int32_t scale)
+    : DecimalType(type_id, 8, precision, scale) {
+  ARROW_CHECK_OK(ValidateDecimalPrecision<Decimal64Type>(precision));
+}
+
+Result<std::shared_ptr<DataType>> Decimal64Type::Make(int32_t precision, int32_t scale) {
+  RETURN_NOT_OK(ValidateDecimalPrecision<Decimal64Type>(precision));
+  return std::make_shared<Decimal64Type>(precision, scale);
+}
+
 // ----------------------------------------------------------------------
 // Decimal128 type
 
 Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
     : DecimalType(type_id, 16, precision, scale) {
-  ARROW_CHECK_GE(precision, kMinPrecision);
-  ARROW_CHECK_LE(precision, kMaxPrecision);
+  ARROW_CHECK_OK(ValidateDecimalPrecision<Decimal128Type>(precision));
 }
 
 Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_t scale) {
-  if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
-                           ", ", int32_t(kMaxPrecision), "]: ", precision);
-  }
+  RETURN_NOT_OK(ValidateDecimalPrecision<Decimal128Type>(precision));
   return std::make_shared<Decimal128Type>(precision, scale);
 }
 
@@ -1481,15 +1531,11 @@ Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_
 
 Decimal256Type::Decimal256Type(int32_t precision, int32_t scale)
     : DecimalType(type_id, 32, precision, scale) {
-  ARROW_CHECK_GE(precision, kMinPrecision);
-  ARROW_CHECK_LE(precision, kMaxPrecision);
+  ARROW_CHECK_OK(ValidateDecimalPrecision<Decimal256Type>(precision));
 }
 
 Result<std::shared_ptr<DataType>> Decimal256Type::Make(int32_t precision, int32_t scale) {
-  if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
-                           ", ", int32_t(kMaxPrecision), "]: ", precision);
-  }
+  RETURN_NOT_OK(ValidateDecimalPrecision<Decimal256Type>(precision));
   return std::make_shared<Decimal256Type>(precision, scale);
 }
 
@@ -3305,12 +3351,39 @@ std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {
                                                     : decimal256(precision, scale);
 }
 
+std::shared_ptr<DataType> smallest_decimal(int32_t precision, int32_t scale) {
+  return precision <= Decimal32Type::kMaxPrecision    ? decimal32(precision, scale)
+         : precision <= Decimal64Type::kMaxPrecision  ? decimal64(precision, scale)
+         : precision <= Decimal128Type::kMaxPrecision ? decimal128(precision, scale)
+                                                      : decimal256(precision, scale);
+}
+
+std::shared_ptr<DataType> decimal32(int32_t precision, int32_t scale) {
+  return std::make_shared<Decimal32Type>(precision, scale);
+}
+
+std::shared_ptr<DataType> decimal64(int32_t precision, int32_t scale) {
+  return std::make_shared<Decimal64Type>(precision, scale);
+}
+
 std::shared_ptr<DataType> decimal128(int32_t precision, int32_t scale) {
   return std::make_shared<Decimal128Type>(precision, scale);
 }
 
 std::shared_ptr<DataType> decimal256(int32_t precision, int32_t scale) {
   return std::make_shared<Decimal256Type>(precision, scale);
+}
+
+std::string Decimal32Type::ToString(bool show_metadata) const {
+  std::stringstream s;
+  s << "decimal32(" << precision_ << ", " << scale_ << ")";
+  return s.str();
+}
+
+std::string Decimal64Type::ToString(bool show_metadata) const {
+  std::stringstream s;
+  s << "decimal64(" << precision_ << ", " << scale_ << ")";
+  return s.str();
 }
 
 std::string Decimal128Type::ToString(bool show_metadata) const {
@@ -3333,6 +3406,7 @@ std::vector<std::shared_ptr<DataType>> g_int_types;
 std::vector<std::shared_ptr<DataType>> g_floating_types;
 std::vector<std::shared_ptr<DataType>> g_numeric_types;
 std::vector<std::shared_ptr<DataType>> g_base_binary_types;
+std::vector<std::shared_ptr<DataType>> g_binary_view_types;
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
 std::vector<std::shared_ptr<DataType>> g_interval_types;
 std::vector<std::shared_ptr<DataType>> g_duration_types;
@@ -3384,6 +3458,9 @@ void InitStaticData() {
   // Base binary types (without FixedSizeBinary)
   g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};
 
+  // Binary view types
+  g_binary_view_types = {utf8_view(), binary_view()};
+
   // Non-parametric, non-nested types. This also DOES NOT include
   //
   // * Decimal
@@ -3391,9 +3468,10 @@ void InitStaticData() {
   // * Time32
   // * Time64
   // * Timestamp
-  g_primitive_types = {null(), boolean(), date32(), date64(), binary_view(), utf8_view()};
+  g_primitive_types = {null(), boolean(), date32(), date64()};
   Extend(g_numeric_types, &g_primitive_types);
   Extend(g_base_binary_types, &g_primitive_types);
+  Extend(g_binary_view_types, &g_primitive_types);
 }
 
 }  // namespace
@@ -3411,6 +3489,11 @@ const std::vector<std::shared_ptr<DataType>>& BinaryTypes() {
 const std::vector<std::shared_ptr<DataType>>& StringTypes() {
   static DataTypeVector types = {utf8(), large_utf8()};
   return types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& BinaryViewTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_binary_view_types;
 }
 
 const std::vector<std::shared_ptr<DataType>>& SignedIntTypes() {

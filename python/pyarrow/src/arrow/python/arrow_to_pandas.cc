@@ -1317,7 +1317,8 @@ struct ObjectWriterVisitor {
                                                         out_values);
   }
 
-  Status Visit(const Decimal128Type& type) {
+  template <typename DecimalT, typename DecimalArrayT>
+  Status VisitDecimal(const DecimalT& type) {
     OwnedRef decimal;
     OwnedRef Decimal;
     RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
@@ -1325,7 +1326,7 @@ struct ObjectWriterVisitor {
     PyObject* decimal_constructor = Decimal.obj();
 
     for (int c = 0; c < data.num_chunks(); c++) {
-      const auto& arr = checked_cast<const arrow::Decimal128Array&>(*data.chunk(c));
+      const auto& arr = checked_cast<const DecimalArrayT&>(*data.chunk(c));
 
       for (int64_t i = 0; i < arr.length(); ++i) {
         if (arr.IsNull(i)) {
@@ -1342,29 +1343,20 @@ struct ObjectWriterVisitor {
     return Status::OK();
   }
 
+  Status Visit(const Decimal32Type& type) {
+    return VisitDecimal<Decimal32Type, Decimal32Array>(type);
+  }
+
+  Status Visit(const Decimal64Type& type) {
+    return VisitDecimal<Decimal64Type, Decimal64Array>(type);
+  }
+
+  Status Visit(const Decimal128Type& type) {
+    return VisitDecimal<Decimal128Type, Decimal128Array>(type);
+  }
+
   Status Visit(const Decimal256Type& type) {
-    OwnedRef decimal;
-    OwnedRef Decimal;
-    RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
-    RETURN_NOT_OK(internal::ImportFromModule(decimal.obj(), "Decimal", &Decimal));
-    PyObject* decimal_constructor = Decimal.obj();
-
-    for (int c = 0; c < data.num_chunks(); c++) {
-      const auto& arr = checked_cast<const arrow::Decimal256Array&>(*data.chunk(c));
-
-      for (int64_t i = 0; i < arr.length(); ++i) {
-        if (arr.IsNull(i)) {
-          Py_INCREF(Py_None);
-          *out_values++ = Py_None;
-        } else {
-          *out_values++ =
-              internal::DecimalFromString(decimal_constructor, arr.FormatValue(i));
-          RETURN_IF_PYERROR();
-        }
-      }
-    }
-
-    return Status::OK();
+    return VisitDecimal<Decimal256Type, Decimal256Array>(type);
   }
 
   template <typename T>
@@ -2531,7 +2523,8 @@ Status ConvertCategoricals(const PandasOptions& options, ChunkedArrayVector* arr
   }
   if (options.strings_to_categorical) {
     for (int i = 0; i < static_cast<int>(arrays->size()); i++) {
-      if (is_base_binary_like((*arrays)[i]->type()->id())) {
+      if (is_base_binary_like((*arrays)[i]->type()->id()) ||
+          is_binary_view_like((*arrays)[i]->type()->id())) {
         columns_to_encode.push_back(i);
       }
     }
@@ -2565,7 +2558,8 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
     py_ref = nullptr;
   }
 
-  if (options.strings_to_categorical && is_base_binary_like(arr->type()->id())) {
+  if (options.strings_to_categorical && (is_base_binary_like(arr->type()->id()) ||
+                                         is_binary_view_like(arr->type()->id()))) {
     if (options.zero_copy_only) {
       return Status::Invalid("Need to dictionary encode a column, but ",
                              "only zero-copy conversions allowed");

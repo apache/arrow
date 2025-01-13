@@ -67,7 +67,11 @@ inline Status VisitSequenceGeneric(PyObject* obj, int64_t offset, VisitorFunc&& 
   }
 
   if (PySequence_Check(obj)) {
+#ifdef Py_GIL_DISABLED
+    if (PyTuple_Check(obj)) {
+#else
     if (PyList_Check(obj) || PyTuple_Check(obj)) {
+#endif
       // Use fast item access
       const Py_ssize_t size = PySequence_Fast_GET_SIZE(obj);
       for (Py_ssize_t i = offset; keep_going && i < size; ++i) {

@@ -97,8 +97,8 @@ jobs:
         run: cat arrow-tests/testthat.Rout*
         if: failure()
       - name: Save the test output
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: test-output
+          name: test-output-{{ "${{ matrix.os }}" }}
           path: arrow-tests/testthat.Rout*
         if: always()

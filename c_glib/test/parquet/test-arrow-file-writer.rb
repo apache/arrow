@@ -40,14 +40,17 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
 
     writer = Parquet::ArrowFileWriter.new(record_batch.schema, @file.path)
     writer.write_record_batch(record_batch)
+    writer.new_buffered_row_group
+    writer.write_record_batch(record_batch)
     writer.close
 
     reader = Parquet::ArrowFileReader.new(@file.path)
     begin
       reader.use_threads = true
       assert_equal([
-                     1,
-                     Arrow::Table.new(record_batch.schema, [record_batch]),
+                     2,
+                     Arrow::Table.new(record_batch.schema,
+                                      [record_batch, record_batch]),
                    ],
                    [
                      reader.n_row_groups,
@@ -73,6 +76,36 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
       assert_equal([
                      enabled_values.length / chunk_size,
                      table,
+                   ],
+                   [
+                     reader.n_row_groups,
+                     reader.read_table,
+                   ])
+    ensure
+      reader.unref
+    end
+  end
+
+  def test_write_chunked_array
+    schema = build_schema("enabled" => :boolean)
+    writer = Parquet::ArrowFileWriter.new(schema, @file.path)
+    writer.new_row_group(2)
+    chunked_array = Arrow::ChunkedArray.new([build_boolean_array([true, nil])])
+    writer.write_chunked_array(chunked_array)
+    writer.new_row_group(1)
+    chunked_array = Arrow::ChunkedArray.new([build_boolean_array([false])])
+    writer.write_chunked_array(chunked_array)
+    writer.close
+
+    reader = Parquet::ArrowFileReader.new(@file.path)
+    begin
+      reader.use_threads = true
+      assert_equal([
+                     2,
+                     build_table("enabled" => [
+                                   build_boolean_array([true, nil]),
+                                   build_boolean_array([false]),
+                                 ]),
                    ],
                    [
                      reader.n_row_groups,

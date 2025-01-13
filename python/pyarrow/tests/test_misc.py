@@ -165,6 +165,8 @@ def test_set_timezone_db_path_non_windows():
     pa.Time32Type,
     pa.Time64Type,
     pa.TimestampType,
+    pa.Decimal32Type,
+    pa.Decimal64Type,
     pa.Decimal128Type,
     pa.Decimal256Type,
     pa.DictionaryType,
@@ -253,6 +255,9 @@ def test_set_timezone_db_path_non_windows():
     pa.Bool8Array,
     pa.Bool8Scalar,
     pa.Bool8Type,
+    pa.JsonArray,
+    pa.JsonScalar,
+    pa.JsonType,
 ])
 def test_extension_type_constructor_errors(klass):
     # ARROW-2638: prevent calling extension class constructors directly

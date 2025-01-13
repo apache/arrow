@@ -28,8 +28,18 @@ project(pyarrow)
 # which in turn meant that Py_GIL_DISABLED was not set.
 set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
 
-set(PYARROW_VERSION "18.0.0-SNAPSHOT")
+set(PYARROW_VERSION "19.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
+
+# Generate SO version and full SO version
+project(pyarrow VERSION "${PYARROW_BASE_VERSION}")
+set(PYARROW_VERSION_MAJOR "${pyarrow_VERSION_MAJOR}")
+set(PYARROW_VERSION_MINOR "${pyarrow_VERSION_MINOR}")
+set(PYARROW_VERSION_PATCH "${pyarrow_VERSION_PATCH}")
+# pyarrow 1.x.y => SO version is "10x", full SO version is "10x.y.0"
+# Example: for 18.0.0 --> PYARROW_SO_VERSION=1800, PYARROW_FULL_SO_VERSION=1800.0.0
+math(EXPR PYARROW_SO_VERSION "${PYARROW_VERSION_MAJOR} * 100 + ${PYARROW_VERSION_MINOR}")
+set(PYARROW_FULL_SO_VERSION "${PYARROW_SO_VERSION}.${PYARROW_VERSION_PATCH}.0")
 
 # Running from a Python sdist tarball
 set(LOCAL_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/cmake_modules")
@@ -156,8 +166,17 @@ if($ENV{PYODIDE})
   # modules (at least under Pyodide it does).
   set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
   set(Python3_LIBRARY $ENV{CPYTHONLIB})
-  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
   set(Python3_EXECUTABLE)
+  execute_process(COMMAND ${Python3_EXECUTABLE} -c
+                          "import numpy; print(numpy.__version__)"
+                  OUTPUT_VARIABLE PYODIDE_NUMPY_VERSION
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  string(REGEX MATCH "^([0-9]+)" PYODIDE_NUMPY_MAJOR_VERSION ${PYODIDE_NUMPY_VERSION})
+  if(PYODIDE_NUMPY_MAJOR_VERSION GREATER_EQUAL 2)
+    set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/_core/include)
+  else()
+    set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
+  endif()
   set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
   # we set the c and cxx compiler manually to bypass pywasmcross
   # which is pyodide's way of messing with C++ build parameters.
@@ -454,7 +473,7 @@ endif()
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
                                                ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
-if(NOT CMAKE_VERSION VERSION_LESS 3.16)
+if(ARROW_USE_PRECOMPILED_HEADERS)
   target_precompile_headers(arrow_python PUBLIC
                             "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>")
 endif()
@@ -470,6 +489,8 @@ else()
 endif()
 target_link_libraries(arrow_python PUBLIC Python3::NumPy)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
+set_target_properties(arrow_python PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
+                                              SOVERSION "${PYARROW_SO_VERSION}")
 install(TARGETS arrow_python
         ARCHIVE DESTINATION .
         LIBRARY DESTINATION .
@@ -485,6 +506,9 @@ else()
                                                                  ${PARQUET_LINK_LIBS})
     target_compile_definitions(arrow_python_parquet_encryption
                                PRIVATE ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING)
+    set_target_properties(arrow_python_parquet_encryption
+                          PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
+                                     SOVERSION "${PYARROW_SO_VERSION}")
     install(TARGETS arrow_python_parquet_encryption
             ARCHIVE DESTINATION .
             LIBRARY DESTINATION .
@@ -515,6 +539,9 @@ if(PYARROW_BUILD_FLIGHT)
   target_link_libraries(arrow_python_flight PUBLIC arrow_python
                                                    ArrowFlight::arrow_flight_shared)
   target_compile_definitions(arrow_python_flight PRIVATE ARROW_PYFLIGHT_EXPORTING)
+  set_target_properties(arrow_python_flight
+                        PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
+                                   SOVERSION "${PYARROW_SO_VERSION}")
   install(TARGETS arrow_python_flight
           ARCHIVE DESTINATION .
           LIBRARY DESTINATION .

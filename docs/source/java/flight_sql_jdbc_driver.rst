@@ -48,7 +48,7 @@ To add a dependency via Maven, use a ``pom.xml`` like the following:
      <artifactId>demo</artifactId>
      <version>1.0-SNAPSHOT</version>
      <properties>
-       <arrow.version>10.0.0</arrow.version>
+       <arrow.version>18.1.0</arrow.version>
      </properties>
      <dependencies>
        <dependency>

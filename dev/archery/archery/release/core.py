@@ -25,7 +25,6 @@ import warnings
 
 from git import Repo
 from github import Github
-from jira import JIRA
 from semver import VersionInfo as SemVer
 
 from ..utils.source import ArrowSources
@@ -51,14 +50,6 @@ class Version(SemVer):
         return cls(**SemVer.parse(version).to_dict(), **kwargs)
 
     @classmethod
-    def from_jira(cls, jira_version):
-        return cls.parse(
-            jira_version.name,
-            released=jira_version.released,
-            release_date=getattr(jira_version, 'releaseDate', None)
-        )
-
-    @classmethod
     def from_milestone(cls, milestone):
         return cls.parse(
             milestone.title,
@@ -75,14 +66,6 @@ class Issue:
         self.summary = summary
         self.github_issue_id = getattr(github_issue, "number", None)
         self._github_issue = github_issue
-
-    @classmethod
-    def from_jira(cls, jira_issue):
-        return cls(
-            key=jira_issue.key,
-            type=jira_issue.fields.issuetype.name,
-            summary=jira_issue.fields.summary
-        )
 
     @classmethod
     def from_github(cls, github_issue):
@@ -115,15 +98,6 @@ class Issue:
     @cached_property
     def is_pr(self):
         return bool(self._github_issue and self._github_issue.pull_request)
-
-
-class Jira(JIRA):
-
-    def __init__(self, url='https://issues.apache.org/jira'):
-        super().__init__(url)
-
-    def issue(self, key):
-        return Issue.from_jira(super().issue(key))
 
 
 class IssueTracker:
@@ -402,10 +376,6 @@ class Release:
         return list(map(Commit, self.repo.iter_commits(commit_range)))
 
     @cached_property
-    def jira_instance(self):
-        return Jira()
-
-    @cached_property
     def default_branch(self):
         default_branch_name = os.getenv("ARCHERY_DEFAULT_BRANCH")
 
@@ -459,20 +429,12 @@ class Release:
                 else:
                     outside.append(
                         (self.issue_tracker.issue(int(c.issue_id)), c))
-            elif c.project == 'ARROW':
-                if c.issue in release_issues:
-                    within.append((release_issues[c.issue], c))
-                else:
-                    outside.append((self.jira_instance.issue(c.issue), c))
-            elif c.project == 'PARQUET':
-                parquet.append((self.jira_instance.issue(c.issue), c))
             else:
                 warnings.warn(
-                    f'Issue {c.issue} does not pertain to GH' +
-                    ', ARROW or PARQUET')
+                    f'Issue {c.issue} does not pertain to GH')
                 outside.append((c.issue, c))
 
-        # remaining jira tickets
+        # remaining tickets
         within_keys = {i.key for i, c in within}
         # Take into account that some issues milestoned are prs
         nopatch = [issue for key, issue in release_issues.items()
@@ -488,12 +450,10 @@ class Release:
         # get organized report for the release
         curation = self.curate()
 
-        # jira tickets having patches in the release
+        # issues having patches in the release
         issue_commit_pairs.extend(curation.within)
-        # parquet patches in the release
-        issue_commit_pairs.extend(curation.parquet)
 
-        # jira tickets without patches
+        # issues without patches
         for issue in curation.nopatch:
             issue_commit_pairs.append((issue, None))
 
@@ -576,7 +536,7 @@ class Release:
             logger.info(f"Checking out branch {self.branch}")
             self.repo.git.checkout(self.branch)
 
-        # cherry pick the commits based on the jira tickets
+        # cherry pick the commits based on the GH issue
         for commit in self.commits_to_pick():
             logger.info(f"Cherry-picking commit {commit.hexsha}")
             self.repo.git.cherry_pick(commit.hexsha)

@@ -34,7 +34,6 @@ IF "%ARROW_DEBUG_MEMORY_POOL%"=="" (
 set CMAKE_BUILD_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
 set CTEST_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
 
-
 call activate arrow
 
 @rem The "main" C++ build script for Windows CI
@@ -113,11 +112,11 @@ ctest --output-on-failure || exit /B
 
 popd
 
+pushd python
+
 @rem
 @rem Build and install pyarrow
 @rem
-
-pushd python
 
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
 set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
@@ -137,9 +136,15 @@ set ARROW_HOME=%CONDA_PREFIX%\Library
 @rem ARROW-3075; pkgconfig is broken for Parquet for now
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 
+pip install --no-deps --no-build-isolation -vv --editable .
+
+@rem
+@rem Run pyarrow tests
+@rem
+
 @rem Download IANA Timezone Database to a non-standard location to
 @rem test the configurability of the timezone database path
-curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz || exit /B
+curl https://data.iana.org/time-zones/releases/tzdata2024b.tar.gz --output tzdata.tar.gz || exit /B
 mkdir %USERPROFILE%\Downloads\test\tzdata
 tar --extract --file tzdata.tar.gz --directory %USERPROFILE%\Downloads\test\tzdata
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
@@ -150,12 +155,9 @@ rmdir /s /q %USERPROFILE%\Downloads\tzdata
 @rem (only needed for testing purposes)
 set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
 
-python setup.py develop -q || exit /B
-
+set AWS_EC2_METADATA_DISABLED=true
 set PYTHONDEVMODE=1
 
-py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
+python -m pytest -r sxX --durations=15 pyarrow/tests || exit /B
 
-@rem
-@rem Wheels are built and tested separately (see ARROW-5142).
-@rem
+popd

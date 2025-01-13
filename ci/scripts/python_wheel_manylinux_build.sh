@@ -55,7 +55,6 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_GANDIVA:=OFF}
 : ${ARROW_GCS:=ON}
 : ${ARROW_HDFS:=ON}
-: ${ARROW_JEMALLOC:=ON}
 : ${ARROW_MIMALLOC:=ON}
 : ${ARROW_ORC:=ON}
 : ${ARROW_PARQUET:=ON}
@@ -81,6 +80,9 @@ if [[ "$(uname -m)" == arm* ]] || [[ "$(uname -m)" == aarch* ]]; then
     # 4k and 64k page arm64 systems. For more context see
     # https://github.com/apache/arrow/issues/10929
     export ARROW_EXTRA_CMAKE_FLAGS="-DARROW_JEMALLOC_LG_PAGE=16"
+    : ${ARROW_JEMALLOC:=OFF}
+else
+    : ${ARROW_JEMALLOC:=ON}
 fi
 
 mkdir /tmp/arrow-build
@@ -123,7 +125,6 @@ cmake \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=/tmp/arrow-dist \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
-    -DORC_SOURCE=BUNDLED \
     -DPARQUET_REQUIRE_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION} \
     -DVCPKG_MANIFEST_MODE=OFF \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \

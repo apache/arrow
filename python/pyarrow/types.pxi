@@ -73,7 +73,10 @@ def _get_pandas_type_map():
             _Type_STRING: np.object_,
             _Type_LIST: np.object_,
             _Type_MAP: np.object_,
+            _Type_DECIMAL32: np.object_,
+            _Type_DECIMAL64: np.object_,
             _Type_DECIMAL128: np.object_,
+            _Type_DECIMAL256: np.object_,
         })
     return _pandas_type_map
 
@@ -325,6 +328,22 @@ cdef class DataType(_Weakrefable):
         3
         """
         return self.type.layout().buffers.size()
+
+    @property
+    def has_variadic_buffers(self):
+        """
+        If True, the number of expected buffers is only
+        lower-bounded by num_buffers.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.int64().has_variadic_buffers
+        False
+        >>> pa.string_view().has_variadic_buffers
+        True
+        """
+        return self.type.layout().variadic_spec.has_value()
 
     def __str__(self):
         return frombytes(self.type.ToString(), safe=True)
@@ -1401,6 +1420,104 @@ cdef class FixedSizeBinaryType(DataType):
         return binary, (self.byte_width,)
 
 
+cdef class Decimal32Type(FixedSizeBinaryType):
+    """
+    Concrete class for decimal32 data types.
+
+    Examples
+    --------
+    Create an instance of decimal32 type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal32(5, 2)
+    Decimal32Type(decimal32(5, 2))
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        FixedSizeBinaryType.init(self, type)
+        self.decimal32_type = <const CDecimal32Type*> type.get()
+
+    def __reduce__(self):
+        return decimal32, (self.precision, self.scale)
+
+    @property
+    def precision(self):
+        """
+        The decimal precision, in number of decimal digits (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal32(5, 2)
+        >>> t.precision
+        5
+        """
+        return self.decimal32_type.precision()
+
+    @property
+    def scale(self):
+        """
+        The decimal scale (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal32(5, 2)
+        >>> t.scale
+        2
+        """
+        return self.decimal32_type.scale()
+
+
+cdef class Decimal64Type(FixedSizeBinaryType):
+    """
+    Concrete class for decimal64 data types.
+
+    Examples
+    --------
+    Create an instance of decimal64 type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal64(5, 2)
+    Decimal64Type(decimal64(5, 2))
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        FixedSizeBinaryType.init(self, type)
+        self.decimal64_type = <const CDecimal64Type*> type.get()
+
+    def __reduce__(self):
+        return decimal64, (self.precision, self.scale)
+
+    @property
+    def precision(self):
+        """
+        The decimal precision, in number of decimal digits (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal64(5, 2)
+        >>> t.precision
+        5
+        """
+        return self.decimal64_type.precision()
+
+    @property
+    def scale(self):
+        """
+        The decimal scale (an integer).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.decimal64(5, 2)
+        >>> t.scale
+        2
+        """
+        return self.decimal64_type.scale()
+
+
 cdef class Decimal128Type(FixedSizeBinaryType):
     """
     Concrete class for decimal128 data types.
@@ -1627,59 +1744,97 @@ cdef class ExtensionType(BaseExtensionType):
 
     Examples
     --------
-    Define a UuidType extension type subclassing ExtensionType:
+    Define a RationalType extension type subclassing ExtensionType:
 
     >>> import pyarrow as pa
-    >>> class UuidType(pa.ExtensionType):
-    ...    def __init__(self):
-    ...       pa.ExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
-    ...    def __arrow_ext_serialize__(self):
-    ...       # since we don't have a parameterized type, we don't need extra
-    ...       # metadata to be deserialized
-    ...       return b''
-    ...    @classmethod
-    ...    def __arrow_ext_deserialize__(self, storage_type, serialized):
-    ...       # return an instance of this subclass given the serialized
-    ...       # metadata.
-    ...       return UuidType()
-    ...
+    >>> class RationalType(pa.ExtensionType):
+    ...     def __init__(self, data_type: pa.DataType):
+    ...         if not pa.types.is_integer(data_type):
+    ...             raise TypeError(f"data_type must be an integer type not {data_type}")
+    ...         super().__init__(
+    ...             pa.struct(
+    ...                 [
+    ...                     ("numer", data_type),
+    ...                     ("denom", data_type),
+    ...                 ],
+    ...             ),
+    ...             # N.B. This name does _not_ reference `data_type` so deserialization
+    ...             # will work for _any_ integer `data_type` after registration
+    ...             "my_package.rational",
+    ...         )
+    ...     def __arrow_ext_serialize__(self) -> bytes:
+    ...         # No parameters are necessary
+    ...         return b""
+    ...     @classmethod
+    ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
+    ...         # return an instance of this subclass
+    ...         return RationalType(storage_type[0].type)
 
     Register the extension type:
 
-    >>> pa.register_extension_type(UuidType())
+    >>> pa.register_extension_type(RationalType(pa.int64()))
 
-    Create an instance of UuidType extension type:
+    Create an instance of RationalType extension type:
 
-    >>> uuid_type = UuidType()
+    >>> rational_type = RationalType(pa.int32())
 
     Inspect the extension type:
 
-    >>> uuid_type.extension_name
-    'my_package.uuid'
-    >>> uuid_type.storage_type
-    FixedSizeBinaryType(fixed_size_binary[16])
+    >>> rational_type.extension_name
+    'my_package.rational'
+    >>> rational_type.storage_type
+    StructType(struct<numer: int32, denom: int32>)
 
     Wrap an array as an extension array:
 
-    >>> import uuid
-    >>> storage_array = pa.array([uuid.uuid4().bytes for _ in range(4)], pa.binary(16))
-    >>> uuid_type.wrap_array(storage_array)
+    >>> storage_array = pa.array(
+    ...     [
+    ...         {"numer": 10, "denom": 17},
+    ...         {"numer": 20, "denom": 13},
+    ...     ],
+    ...     type=rational_type.storage_type
+    ... )
+    >>> rational_array = rational_type.wrap_array(storage_array)
+    >>> rational_array
     <pyarrow.lib.ExtensionArray object at ...>
-    [
-      ...
-    ]
+    -- is_valid: all not null
+    -- child 0 type: int32
+      [
+        10,
+        20
+      ]
+    -- child 1 type: int32
+      [
+        17,
+        13
+      ]
 
     Or do the same with creating an ExtensionArray:
 
-    >>> pa.ExtensionArray.from_storage(uuid_type, storage_array)
+    >>> rational_array = pa.ExtensionArray.from_storage(rational_type, storage_array)
+    >>> rational_array
     <pyarrow.lib.ExtensionArray object at ...>
-    [
-      ...
-    ]
+    -- is_valid: all not null
+    -- child 0 type: int32
+      [
+        10,
+        20
+      ]
+    -- child 1 type: int32
+      [
+        17,
+        13
+      ]
 
     Unregister the extension type:
 
-    >>> pa.unregister_extension_type("my_package.uuid")
+    >>> pa.unregister_extension_type("my_package.rational")
+
+    Note that even though we registered the concrete type
+    ``RationalType(pa.int64())``, PyArrow will be able to deserialize
+    ``RationalType(integer_type)`` for any ``integer_type``, as the deserializer
+    will reference the name ``my_package.rational`` and the ``@classmethod``
+    ``__arrow_ext_deserialize__``.
     """
 
     def __cinit__(self):
@@ -1739,7 +1894,7 @@ cdef class ExtensionType(BaseExtensionType):
         return NotImplementedError
 
     @classmethod
-    def __arrow_ext_deserialize__(self, storage_type, serialized):
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
         """
         Return an extension type instance from the storage type and serialized
         metadata.
@@ -1772,6 +1927,43 @@ cdef class ExtensionType(BaseExtensionType):
         extension type scalar will be a built-in ExtensionScalar instance.
         """
         return ExtensionScalar
+
+
+cdef class JsonType(BaseExtensionType):
+    """
+    Concrete class for JSON extension type.
+
+    Examples
+    --------
+    Define the extension type for JSON array
+
+    >>> import pyarrow as pa
+    >>> json_type = pa.json_(pa.large_utf8())
+
+    Create an extension array
+
+    >>> arr = [None, '{ "id":30, "values":["a", "b"] }']
+    >>> storage = pa.array(arr, pa.large_utf8())
+    >>> pa.ExtensionArray.from_storage(json_type, storage)
+    <pyarrow.lib.JsonArray object at ...>
+    [
+      null,
+      "{ "id":30, "values":["a", "b"] }"
+    ]
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.json_ext_type = <const CJsonType*> type.get()
+
+    def __arrow_ext_class__(self):
+        return JsonArray
+
+    def __reduce__(self):
+        return json_, (self.storage_type,)
+
+    def __arrow_ext_scalar_class__(self):
+        return JsonScalar
 
 
 cdef class UuidType(BaseExtensionType):
@@ -2067,30 +2259,39 @@ def register_extension_type(ext_type):
 
     Examples
     --------
-    Define a UuidType extension type subclassing ExtensionType:
+    Define a RationalType extension type subclassing ExtensionType:
 
     >>> import pyarrow as pa
-    >>> class UuidType(pa.ExtensionType):
-    ...    def __init__(self):
-    ...       pa.ExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
-    ...    def __arrow_ext_serialize__(self):
-    ...       # since we don't have a parameterized type, we don't need extra
-    ...       # metadata to be deserialized
-    ...       return b''
-    ...    @classmethod
-    ...    def __arrow_ext_deserialize__(self, storage_type, serialized):
-    ...       # return an instance of this subclass given the serialized
-    ...       # metadata.
-    ...       return UuidType()
-    ...
+    >>> class RationalType(pa.ExtensionType):
+    ...     def __init__(self, data_type: pa.DataType):
+    ...         if not pa.types.is_integer(data_type):
+    ...             raise TypeError(f"data_type must be an integer type not {data_type}")
+    ...         super().__init__(
+    ...             pa.struct(
+    ...                 [
+    ...                     ("numer", data_type),
+    ...                     ("denom", data_type),
+    ...                 ],
+    ...             ),
+    ...             # N.B. This name does _not_ reference `data_type` so deserialization
+    ...             # will work for _any_ integer `data_type` after registration
+    ...             "my_package.rational",
+    ...         )
+    ...     def __arrow_ext_serialize__(self) -> bytes:
+    ...         # No parameters are necessary
+    ...         return b""
+    ...     @classmethod
+    ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
+    ...         # return an instance of this subclass
+    ...         return RationalType(storage_type[0].type)
 
     Register the extension type:
 
-    >>> pa.register_extension_type(UuidType())
+    >>> pa.register_extension_type(RationalType(pa.int64()))
 
     Unregister the extension type:
 
-    >>> pa.unregister_extension_type("my_package.uuid")
+    >>> pa.unregister_extension_type("my_package.rational")
     """
     cdef:
         DataType _type = ensure_type(ext_type, allow_none=False)
@@ -2117,30 +2318,39 @@ def unregister_extension_type(type_name):
 
     Examples
     --------
-    Define a UuidType extension type subclassing ExtensionType:
+    Define a RationalType extension type subclassing ExtensionType:
 
     >>> import pyarrow as pa
-    >>> class UuidType(pa.ExtensionType):
-    ...    def __init__(self):
-    ...       pa.ExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
-    ...    def __arrow_ext_serialize__(self):
-    ...       # since we don't have a parameterized type, we don't need extra
-    ...       # metadata to be deserialized
-    ...       return b''
-    ...    @classmethod
-    ...    def __arrow_ext_deserialize__(self, storage_type, serialized):
-    ...       # return an instance of this subclass given the serialized
-    ...       # metadata.
-    ...       return UuidType()
-    ...
+    >>> class RationalType(pa.ExtensionType):
+    ...     def __init__(self, data_type: pa.DataType):
+    ...         if not pa.types.is_integer(data_type):
+    ...             raise TypeError(f"data_type must be an integer type not {data_type}")
+    ...         super().__init__(
+    ...             pa.struct(
+    ...                 [
+    ...                     ("numer", data_type),
+    ...                     ("denom", data_type),
+    ...                 ],
+    ...             ),
+    ...             # N.B. This name does _not_ reference `data_type` so deserialization
+    ...             # will work for _any_ integer `data_type` after registration
+    ...             "my_package.rational",
+    ...         )
+    ...     def __arrow_ext_serialize__(self) -> bytes:
+    ...         # No parameters are necessary
+    ...         return b""
+    ...     @classmethod
+    ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
+    ...         # return an instance of this subclass
+    ...         return RationalType(storage_type[0].type)
 
     Register the extension type:
 
-    >>> pa.register_extension_type(UuidType())
+    >>> pa.register_extension_type(RationalType(pa.int64()))
 
     Unregister the extension type:
 
-    >>> pa.unregister_extension_type("my_package.uuid")
+    >>> pa.unregister_extension_type("my_package.rational")
     """
     cdef:
         c_string c_type_name = tobytes(type_name)
@@ -2440,7 +2650,11 @@ cdef class Field(_Weakrefable):
     @property
     def metadata(self):
         """
-        The field metadata.
+        The field metadata (if any is set).
+
+        Returns
+        -------
+        metadata : dict or None
 
         Examples
         --------
@@ -2873,11 +3087,11 @@ cdef class Schema(_Weakrefable):
     @property
     def metadata(self):
         """
-        The schema's metadata.
+        The schema's metadata (if any is set).
 
         Returns
         -------
-        metadata: dict
+        metadata: dict or None
 
         Examples
         --------
@@ -3620,8 +3834,8 @@ def field(name, type=None, nullable=None, metadata=None):
         Name of the field.
         Alternatively, you can also pass an object that implements the Arrow
         PyCapsule Protocol for schemas (has an ``__arrow_c_schema__`` method).
-    type : pyarrow.DataType
-        Arrow datatype of the field.
+    type : pyarrow.DataType or str
+        Arrow datatype of the field or a string matching one.
     nullable : bool, default True
         Whether the field's values are nullable.
     metadata : dict, default None
@@ -3653,6 +3867,11 @@ def field(name, type=None, nullable=None, metadata=None):
 
     >>> pa.struct([field])
     StructType(struct<key: int32>)
+
+    A str can also be passed for the type parameter:
+
+    >>> pa.field('key', 'int32')
+    pyarrow.Field<key: int32>
     """
     if hasattr(name, "__arrow_c_schema__"):
         if type is not None:
@@ -4318,8 +4537,12 @@ def float16():
       15872,
       32256
     ]
-    >>> a.to_pylist()
-    [np.float16(1.5), np.float16(nan)]
+
+    Note that unlike other float types, if you convert this array
+    to a python list, the types of its elements will be ``np.float16``
+
+    >>> [type(val) for val in a.to_pylist()]
+    [<class 'numpy.float16'>, <class 'numpy.float16'>]
     """
     return primitive_type(_Type_HALF_FLOAT)
 
@@ -4376,6 +4599,116 @@ def float64():
     ]
     """
     return primitive_type(_Type_DOUBLE)
+
+
+cpdef DataType decimal32(int precision, int scale=0):
+    """
+    Create decimal type with precision and scale and 32-bit width.
+
+    Arrow decimals are fixed-point decimal numbers encoded as a scaled
+    integer.  The precision is the number of significant digits that the
+    decimal type can represent; the scale is the number of digits after
+    the decimal point (note the scale can be negative).
+
+    As an example, ``decimal32(7, 3)`` can exactly represent the numbers
+    1234.567 and -1234.567 (encoded internally as the 32-bit integers
+    1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+
+    ``decimal32(5, -3)`` can exactly represent the number 12345000
+    (encoded internally as the 32-bit integer 12345), but neither
+    123450000 nor 1234500.
+
+    If you need a precision higher than 9 significant digits, consider
+    using ``decimal64``, ``decimal128``, or ``decimal256``.
+
+    Parameters
+    ----------
+    precision : int
+        Must be between 1 and 9
+    scale : int
+
+    Returns
+    -------
+    decimal_type : Decimal32Type
+
+    Examples
+    --------
+    Create an instance of decimal type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal32(5, 2)
+    Decimal32Type(decimal32(5, 2))
+
+    Create an array with decimal type:
+
+    >>> import decimal
+    >>> a = decimal.Decimal('123.45')
+    >>> pa.array([a], pa.decimal32(5, 2))
+    <pyarrow.lib.Decimal32Array object at ...>
+    [
+      123.45
+    ]
+    """
+    cdef shared_ptr[CDataType] decimal_type
+    if precision < 1 or precision > 9:
+        raise ValueError("precision should be between 1 and 9")
+    decimal_type.reset(new CDecimal32Type(precision, scale))
+    return pyarrow_wrap_data_type(decimal_type)
+
+
+cpdef DataType decimal64(int precision, int scale=0):
+    """
+    Create decimal type with precision and scale and 64-bit width.
+
+    Arrow decimals are fixed-point decimal numbers encoded as a scaled
+    integer.  The precision is the number of significant digits that the
+    decimal type can represent; the scale is the number of digits after
+    the decimal point (note the scale can be negative).
+
+    As an example, ``decimal64(7, 3)`` can exactly represent the numbers
+    1234.567 and -1234.567 (encoded internally as the 64-bit integers
+    1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+
+    ``decimal64(5, -3)`` can exactly represent the number 12345000
+    (encoded internally as the 64-bit integer 12345), but neither
+    123450000 nor 1234500.
+
+    If you need a precision higher than 18 significant digits, consider
+    using ``decimal128``, or ``decimal256``.
+
+    Parameters
+    ----------
+    precision : int
+        Must be between 1 and 18
+    scale : int
+
+    Returns
+    -------
+    decimal_type : Decimal64Type
+
+    Examples
+    --------
+    Create an instance of decimal type:
+
+    >>> import pyarrow as pa
+    >>> pa.decimal64(5, 2)
+    Decimal64Type(decimal64(5, 2))
+
+    Create an array with decimal type:
+
+    >>> import decimal
+    >>> a = decimal.Decimal('123.45')
+    >>> pa.array([a], pa.decimal64(5, 2))
+    <pyarrow.lib.Decimal64Array object at ...>
+    [
+      123.45
+    ]
+    """
+    cdef shared_ptr[CDataType] decimal_type
+    if precision < 1 or precision > 18:
+        raise ValueError("precision should be between 1 and 18")
+    decimal_type.reset(new CDecimal64Type(precision, scale))
+    return pyarrow_wrap_data_type(decimal_type)
 
 
 cpdef DataType decimal128(int precision, int scale=0):
@@ -5236,6 +5569,44 @@ def run_end_encoded(run_end_type, value_type):
     return pyarrow_wrap_data_type(ree_type)
 
 
+def json_(DataType storage_type=utf8()):
+    """
+    Create instance of JSON extension type.
+
+    Parameters
+    ----------
+    storage_type : DataType, default pyarrow.string()
+        The underlying data type. Can be on of the following types:
+        string, large_string, string_view.
+
+    Returns
+    -------
+    type : JsonType
+
+    Examples
+    --------
+    Create an instance of JSON extension type:
+
+    >>> import pyarrow as pa
+    >>> pa.json_(pa.utf8())
+    JsonType(extension<arrow.json>)
+
+    Use the JSON type to create an array:
+
+    >>> pa.array(['{"a": 1}', '{"b": 2}'], type=pa.json_(pa.utf8()))
+    <pyarrow.lib.JsonArray object at ...>
+    [
+      "{"a": 1}",
+      "{"b": 2}"
+    ]
+    """
+
+    cdef JsonType out = JsonType.__new__(JsonType)
+    c_json_ext_type = GetResultValue(CJsonType.Make(storage_type.sp_type))
+    out.init(c_json_ext_type)
+    return out
+
+
 def uuid():
     """
     Create UuidType instance.
@@ -5578,6 +5949,25 @@ def schema(fields, metadata=None):
     >>> pa.schema([
     ...     pa.field('some_int', pa.int32()),
     ...     pa.field('some_string', pa.string())
+    ... ])
+    some_int: int32
+    some_string: string
+
+    DataTypes can also be passed as strings. The following is equivalent to the
+    above example:
+
+    >>> pa.schema([
+    ...     pa.field('some_int', "int32"),
+    ...     pa.field('some_string', "string")
+    ... ])
+    some_int: int32
+    some_string: string
+
+    Or more concisely:
+
+    >>> pa.schema([
+    ...     ('some_int', "int32"),
+    ...     ('some_string', "string")
     ... ])
     some_int: int32
     some_string: string

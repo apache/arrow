@@ -160,6 +160,7 @@ using internal::IsNotFound;
 using internal::OutcomeToResult;
 using internal::OutcomeToStatus;
 using internal::S3Backend;
+using internal::SetSSECustomerKey;
 using internal::ToAwsString;
 using internal::ToURLEncodedAwsString;
 
@@ -403,6 +404,13 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
     } else if (kv.first == "allow_bucket_deletion") {
       ARROW_ASSIGN_OR_RAISE(options.allow_bucket_deletion,
                             ::arrow::internal::ParseBoolean(kv.second));
+    } else if (kv.first == "tls_ca_file_path") {
+      options.tls_ca_file_path = kv.second;
+    } else if (kv.first == "tls_ca_dir_path") {
+      options.tls_ca_dir_path = kv.second;
+    } else if (kv.first == "tls_verify_certificates") {
+      ARROW_ASSIGN_OR_RAISE(options.tls_verify_certificates,
+                            ::arrow::internal::ParseBoolean(kv.second));
     } else {
       return Status::Invalid("Unexpected query parameter in S3 URI: '", kv.first, "'");
     }
@@ -439,7 +447,11 @@ bool S3Options::Equals(const S3Options& other) const {
           background_writes == other.background_writes &&
           allow_bucket_creation == other.allow_bucket_creation &&
           allow_bucket_deletion == other.allow_bucket_deletion &&
-          default_metadata_equals && GetAccessKey() == other.GetAccessKey() &&
+          tls_ca_file_path == other.tls_ca_file_path &&
+          tls_ca_dir_path == other.tls_ca_dir_path &&
+          tls_verify_certificates == other.tls_verify_certificates &&
+          sse_customer_key == other.sse_customer_key && default_metadata_equals &&
+          GetAccessKey() == other.GetAccessKey() &&
           GetSecretKey() == other.GetSecretKey() &&
           GetSessionToken() == other.GetSessionToken());
 }
@@ -1125,12 +1137,17 @@ class ClientBuilder {
     } else {
       client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
     }
-    if (!internal::global_options.tls_ca_file_path.empty()) {
+    if (!options_.tls_ca_file_path.empty()) {
+      client_config_.caFile = ToAwsString(options_.tls_ca_file_path);
+    } else if (!internal::global_options.tls_ca_file_path.empty()) {
       client_config_.caFile = ToAwsString(internal::global_options.tls_ca_file_path);
     }
-    if (!internal::global_options.tls_ca_dir_path.empty()) {
+    if (!options_.tls_ca_dir_path.empty()) {
+      client_config_.caPath = ToAwsString(options_.tls_ca_dir_path);
+    } else if (!internal::global_options.tls_ca_dir_path.empty()) {
       client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
     }
+    client_config_.verifySSL = options_.tls_verify_certificates;
 
     // Set proxy options if provided
     if (!options_.proxy_options.scheme.empty()) {
@@ -1292,11 +1309,14 @@ Aws::IOStreamFactory AwsWriteableStreamFactory(void* data, int64_t nbytes) {
 }
 
 Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
-                                                const S3Path& path, int64_t start,
-                                                int64_t length, void* out) {
+                                                const S3Path& path,
+                                                const std::string& sse_customer_key,
+                                                int64_t start, int64_t length,
+                                                void* out) {
   S3Model::GetObjectRequest req;
   req.SetBucket(ToAwsString(path.bucket));
   req.SetKey(ToAwsString(path.key));
+  RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key));
   req.SetRange(ToAwsString(FormatRange(start, length)));
   req.SetResponseStreamFactory(AwsWriteableStreamFactory(out, length));
   return OutcomeToResult("GetObject", client->GetObject(req));
@@ -1433,11 +1453,13 @@ bool IsDirectory(std::string_view key, const S3Model::HeadObjectResult& result) 
 class ObjectInputFile final : public io::RandomAccessFile {
  public:
   ObjectInputFile(std::shared_ptr<S3ClientHolder> holder, const io::IOContext& io_context,
-                  const S3Path& path, int64_t size = kNoSize)
+                  const S3Path& path, int64_t size = kNoSize,
+                  const std::string& sse_customer_key = "")
       : holder_(std::move(holder)),
         io_context_(io_context),
         path_(path),
-        content_length_(size) {}
+        content_length_(size),
+        sse_customer_key_(sse_customer_key) {}
 
   Status Init() {
     // Issue a HEAD Object to get the content-length and ensure any
@@ -1450,6 +1472,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
     S3Model::HeadObjectRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
+    RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
 
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
     auto outcome = client_lock.Move()->HeadObject(req);
@@ -1534,9 +1557,9 @@ class ObjectInputFile final : public io::RandomAccessFile {
 
     // Read the desired range of bytes
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
-    ARROW_ASSIGN_OR_RAISE(
-        S3Model::GetObjectResult result,
-        GetObjectRange(client_lock.get(), path_, position, nbytes, out));
+    ARROW_ASSIGN_OR_RAISE(S3Model::GetObjectResult result,
+                          GetObjectRange(client_lock.get(), path_, sse_customer_key_,
+                                         position, nbytes, out));
 
     auto& stream = result.GetBody();
     stream.ignore(nbytes);
@@ -1584,6 +1607,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   int64_t pos_ = 0;
   int64_t content_length_ = kNoSize;
   std::shared_ptr<const KeyValueMetadata> metadata_;
+  std::string sse_customer_key_;
 };
 
 // Upload size per part. While AWS and Minio support different sizes for each
@@ -1620,7 +1644,8 @@ class ObjectOutputStream final : public io::OutputStream {
         metadata_(metadata),
         default_metadata_(options.default_metadata),
         background_writes_(options.background_writes),
-        allow_delayed_open_(options.allow_delayed_open) {}
+        allow_delayed_open_(options.allow_delayed_open),
+        sse_customer_key_(options.sse_customer_key) {}
 
   ~ObjectOutputStream() override {
     // For compliance with the rest of the IO stack, Close rather than Abort,
@@ -1668,6 +1693,7 @@ class ObjectOutputStream final : public io::OutputStream {
     S3Model::CreateMultipartUploadRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
+    RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
     RETURN_NOT_OK(SetMetadataInRequest(&req));
 
     auto outcome = client_lock.Move()->CreateMultipartUpload(req);
@@ -1771,6 +1797,7 @@ class ObjectOutputStream final : public io::OutputStream {
     req.SetKey(ToAwsString(path_.key));
     req.SetUploadId(multipart_upload_id_);
     req.SetMultipartUpload(std::move(completed_upload));
+    RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
 
     auto outcome =
         client_lock.Move()->CompleteMultipartUploadWithErrorFixup(std::move(req));
@@ -1784,15 +1811,23 @@ class ObjectOutputStream final : public io::OutputStream {
     return Status::OK();
   }
 
+  Status CleanupIfFailed(Status status) {
+    if (!status.ok()) {
+      RETURN_NOT_OK(CleanupAfterClose());
+      return status;
+    }
+    return Status::OK();
+  }
+
   Status Close() override {
     if (closed_) return Status::OK();
 
-    RETURN_NOT_OK(EnsureReadyToFlushFromClose());
+    RETURN_NOT_OK(CleanupIfFailed(EnsureReadyToFlushFromClose()));
 
-    RETURN_NOT_OK(Flush());
+    RETURN_NOT_OK(CleanupIfFailed(Flush()));
 
     if (IsMultipartCreated()) {
-      RETURN_NOT_OK(FinishPartUploadAfterFlush());
+      RETURN_NOT_OK(CleanupIfFailed(FinishPartUploadAfterFlush()));
     }
 
     return CleanupAfterClose();
@@ -1801,12 +1836,12 @@ class ObjectOutputStream final : public io::OutputStream {
   Future<> CloseAsync() override {
     if (closed_) return Status::OK();
 
-    RETURN_NOT_OK(EnsureReadyToFlushFromClose());
+    RETURN_NOT_OK(CleanupIfFailed(EnsureReadyToFlushFromClose()));
 
     // Wait for in-progress uploads to finish (if async writes are enabled)
     return FlushAsync().Then([self = Self()]() {
       if (self->IsMultipartCreated()) {
-        RETURN_NOT_OK(self->FinishPartUploadAfterFlush());
+        RETURN_NOT_OK(self->CleanupIfFailed(self->FinishPartUploadAfterFlush()));
       }
       return self->CleanupAfterClose();
     });
@@ -1950,6 +1985,7 @@ class ObjectOutputStream final : public io::OutputStream {
     req.SetKey(ToAwsString(path_.key));
     req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
     req.SetContentLength(nbytes);
+    RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
 
     if (!background_writes_) {
       req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
@@ -2021,7 +2057,7 @@ class ObjectOutputStream final : public io::OutputStream {
                                     std::shared_ptr<UploadState> state,
                                     int32_t part_number,
                                     Aws::S3::Model::PutObjectOutcome outcome) {
-      HandleUploadUsingSingleRequestOutcome(state, request, outcome.GetResult());
+      HandleUploadUsingSingleRequestOutcome(state, request, outcome);
       return Status::OK();
     };
 
@@ -2072,7 +2108,7 @@ class ObjectOutputStream final : public io::OutputStream {
                                     std::shared_ptr<UploadState> state,
                                     int32_t part_number,
                                     Aws::S3::Model::UploadPartOutcome outcome) {
-      HandleUploadPartOutcome(state, part_number, request, outcome.GetResult());
+      HandleUploadPartOutcome(state, part_number, request, outcome);
       return Status::OK();
     };
 
@@ -2083,16 +2119,12 @@ class ObjectOutputStream final : public io::OutputStream {
 
   static void HandleUploadUsingSingleRequestOutcome(
       const std::shared_ptr<UploadState>& state, const S3Model::PutObjectRequest& req,
-      const Result<S3Model::PutObjectOutcome>& result) {
+      const S3Model::PutObjectOutcome& outcome) {
     std::unique_lock<std::mutex> lock(state->mutex);
-    if (!result.ok()) {
-      state->status &= result.status();
-    } else {
-      const auto& outcome = *result;
-      if (!outcome.IsSuccess()) {
-        state->status &= UploadUsingSingleRequestError(req, outcome);
-      }
+    if (!outcome.IsSuccess()) {
+      state->status &= UploadUsingSingleRequestError(req, outcome);
     }
+
     // GH-41862: avoid potential deadlock if the Future's callback is called
     // with the mutex taken.
     auto fut = state->pending_uploads_completed;
@@ -2103,18 +2135,14 @@ class ObjectOutputStream final : public io::OutputStream {
   static void HandleUploadPartOutcome(const std::shared_ptr<UploadState>& state,
                                       int part_number,
                                       const S3Model::UploadPartRequest& req,
-                                      const Result<S3Model::UploadPartOutcome>& result) {
+                                      const S3Model::UploadPartOutcome& outcome) {
     std::unique_lock<std::mutex> lock(state->mutex);
-    if (!result.ok()) {
-      state->status &= result.status();
+    if (!outcome.IsSuccess()) {
+      state->status &= UploadPartError(req, outcome);
     } else {
-      const auto& outcome = *result;
-      if (!outcome.IsSuccess()) {
-        state->status &= UploadPartError(req, outcome);
-      } else {
-        AddCompletedPart(state, part_number, outcome.GetResult());
-      }
+      AddCompletedPart(state, part_number, outcome.GetResult());
     }
+
     // Notify completion
     if (--state->uploads_in_progress == 0) {
       // GH-41862: avoid potential deadlock if the Future's callback is called
@@ -2171,6 +2199,7 @@ class ObjectOutputStream final : public io::OutputStream {
     Future<> pending_uploads_completed = Future<>::MakeFinished(Status::OK());
   };
   std::shared_ptr<UploadState> upload_state_;
+  std::string sse_customer_key_;
 };
 
 // This function assumes info->path() is already set
@@ -2218,11 +2247,28 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     return std::string(FromAwsString(builder_.config().region));
   }
 
+  // TODO: for every returned error, call GetOrSetBackend()?
+
   template <typename Error>
-  void SaveBackend(const Aws::Client::AWSError<Error>& error) {
+  S3Backend GetOrSetBackend(const Aws::Client::AWSError<Error>& error) {
     if (!backend_ || *backend_ == S3Backend::Other) {
       backend_ = DetectS3Backend(error);
     }
+    DCHECK(backend_.has_value());
+    return *backend_;
+  }
+
+  Result<S3Backend> GetBackend() {
+    if (!backend_) {
+      ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
+      S3Model::HeadBucketRequest req;
+      req.SetBucket("$extremelyunlikelytoexist$");
+      auto outcome = client_lock.Move()->HeadBucket(req);
+      DCHECK(!outcome.IsSuccess());
+      return GetOrSetBackend(outcome.GetError());
+    }
+    return *backend_;
   }
 
   // Tests to see if a bucket exists
@@ -2322,6 +2368,17 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     S3Model::CopyObjectRequest req;
     req.SetBucket(ToAwsString(dest_path.bucket));
     req.SetKey(ToAwsString(dest_path.key));
+    ARROW_ASSIGN_OR_RAISE(auto maybe_sse_headers,
+                          internal::GetSSECustomerKeyHeaders(options().sse_customer_key));
+    if (maybe_sse_headers.has_value()) {
+      auto sse_headers = std::move(maybe_sse_headers).value();
+      req.SetSSECustomerKey(sse_headers.sse_customer_key);
+      req.SetSSECustomerKeyMD5(sse_headers.sse_customer_key_md5);
+      req.SetSSECustomerAlgorithm(sse_headers.sse_customer_algorithm);
+      req.SetCopySourceSSECustomerKey(sse_headers.sse_customer_key);
+      req.SetCopySourceSSECustomerKeyMD5(sse_headers.sse_customer_key_md5);
+      req.SetCopySourceSSECustomerAlgorithm(sse_headers.sse_customer_algorithm);
+    }
     // ARROW-13048: Copy source "Must be URL-encoded" according to AWS SDK docs.
     // However at least in 1.8 and 1.9 the SDK URL-encodes the path for you
     req.SetCopySource(src_path.ToAwsString());
@@ -2345,12 +2402,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
     if (previous_outcome) {
       // Fetch the backend from the previous error
-      DCHECK(!previous_outcome->IsSuccess());
-      if (!backend_) {
-        SaveBackend(previous_outcome->GetError());
-        DCHECK(backend_);
-      }
-      if (backend_ != S3Backend::Minio) {
+      if (GetOrSetBackend(previous_outcome->GetError()) != S3Backend::Minio) {
         // HEAD already returned a 404, nothing more to do
         return false;
       }
@@ -2373,9 +2425,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       return true;
     }
     if (!backend_) {
-      SaveBackend(outcome.GetError());
-      DCHECK(backend_);
-      if (*backend_ == S3Backend::Minio) {
+      if (GetOrSetBackend(outcome.GetError()) == S3Backend::Minio) {
         // Try again with separator-terminated key (see above)
         return IsEmptyDirectory(bucket, key);
       }
@@ -2972,7 +3022,8 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
     RETURN_NOT_OK(CheckS3Initialized());
 
-    auto ptr = std::make_shared<ObjectInputFile>(holder_, fs->io_context(), path);
+    auto ptr = std::make_shared<ObjectInputFile>(holder_, fs->io_context(), path, kNoSize,
+                                                 fs->options().sse_customer_key);
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
@@ -2992,8 +3043,8 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
     RETURN_NOT_OK(CheckS3Initialized());
 
-    auto ptr =
-        std::make_shared<ObjectInputFile>(holder_, fs->io_context(), path, info.size());
+    auto ptr = std::make_shared<ObjectInputFile>(
+        holder_, fs->io_context(), path, info.size(), fs->options().sse_customer_key);
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
@@ -3053,6 +3104,7 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
 
     auto outcome = client_lock.Move()->HeadBucket(req);
     if (!outcome.IsSuccess()) {
+      impl_->GetOrSetBackend(outcome.GetError());
       if (!IsNotFound(outcome.GetError())) {
         const auto msg = "When getting information for bucket '" + path.bucket + "': ";
         return ErrorToStatus(msg, "HeadBucket", outcome.GetError(),
@@ -3077,6 +3129,7 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
       FileObjectToInfo(path.key, outcome.GetResult(), &info);
       return info;
     }
+    impl_->GetOrSetBackend(outcome.GetError());
     if (!IsNotFound(outcome.GetError())) {
       const auto msg = "When getting information for key '" + path.key + "' in bucket '" +
                        path.bucket + "': ";
@@ -3124,8 +3177,9 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
     return impl_->CreateBucket(path.bucket);
   }
 
+  ARROW_ASSIGN_OR_RAISE(auto backend, impl_->GetBackend());
+
   FileInfo file_info;
-  // Create object
   if (recursive) {
     // Ensure bucket exists
     ARROW_ASSIGN_OR_RAISE(bool bucket_exists, impl_->BucketExists(path.bucket));
@@ -3135,7 +3189,8 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
 
     auto key_i = path.key_parts.begin();
     std::string parent_key{};
-    if (options().check_directory_existence_before_creation) {
+    if (options().check_directory_existence_before_creation ||
+        backend == S3Backend::Minio) {
       // Walk up the directory first to find the first existing parent
       for (const auto& part : path.key_parts) {
         parent_key += part;
@@ -3146,6 +3201,10 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
                               this->GetFileInfo(path.bucket + kSep + parent_key));
         if (file_info.type() != FileType::NotFound) {
           // Found!
+          if (file_info.type() != FileType::Directory) {
+            return Status::IOError("Cannot create directory '", file_info.path(),
+                                   "': a non-directory entry already exists");
+          }
           break;
         } else {
           // remove the kSep and the part
@@ -3178,15 +3237,23 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
     }
   }
 
-  // Check if the directory exists already
-  if (options().check_directory_existence_before_creation) {
+  // Non-recursive operation
+
+  // Check if the entry exists already
+  if (options().check_directory_existence_before_creation ||
+      backend == S3Backend::Minio) {
     ARROW_ASSIGN_OR_RAISE(file_info, this->GetFileInfo(path.full_path));
     if (file_info.type() != FileType::NotFound) {
+      if (file_info.type() != FileType::Directory) {
+        return Status::IOError("Cannot create directory '", file_info.path(),
+                               "': a non-directory entry already exists");
+      }
       return Status::OK();
     }
   }
-  // XXX Should we check that no non-directory entry exists?
-  // Minio does it for us, not sure about other S3 implementations.
+  // NOTE: this won't check that no non-directory entry exists with the same name
+  // (unlike when `check_directory_existence_before_creation` is enabled).
+  // Old versions of Minio do it for us, newer versions don't.
   return impl_->CreateEmptyDir(path.bucket, path.key);
 }
 
@@ -3389,6 +3456,12 @@ struct AwsInstance {
         ARROW_LOG(WARNING)
             << " arrow::fs::FinalizeS3 was not called even though S3 was initialized.  "
                "This could lead to a segmentation fault at exit";
+        // Leak the S3ClientFinalizer to avoid crashes when destroying remaining
+        // S3Client instances (GH-44071).
+        auto* leaked_shared_ptr =
+            new std::shared_ptr<S3ClientFinalizer>(GetClientFinalizer());
+        ARROW_UNUSED(leaked_shared_ptr);
+        return;
       }
       GetClientFinalizer()->Finalize();
 #ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
@@ -3444,6 +3517,7 @@ struct AwsInstance {
     // This configuration options is only available with AWS SDK 1.9.272 and later.
     aws_options_.httpOptions.compliantRfc3986Encoding = true;
 #endif
+    aws_options_.httpOptions.installSigPipeHandler = options.install_sigpipe_handler;
     Aws::InitAPI(aws_options_);
   }
 
@@ -3480,7 +3554,14 @@ Status EnsureS3Initialized() {
 }
 
 Status FinalizeS3() {
-  GetAwsInstance()->Finalize();
+  auto instance = GetAwsInstance();
+  // The AWS instance might already be destroyed in case FinalizeS3
+  // is called from an atexit handler (which is a bad idea anyway as the
+  // AWS SDK is not safe anymore to shutdown by this time). See GH-44071.
+  if (instance == nullptr) {
+    return Status::Invalid("FinalizeS3 called too late");
+  }
+  instance->Finalize();
   return Status::OK();
 }
 

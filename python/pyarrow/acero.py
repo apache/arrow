@@ -56,8 +56,10 @@ except ImportError:
     ds = DatasetModuleStub
 
 
-def _dataset_to_decl(dataset, use_threads=True):
-    decl = Declaration("scan", ScanNodeOptions(dataset, use_threads=use_threads))
+def _dataset_to_decl(dataset, use_threads=True, require_sequenced_output=False):
+    decl = Declaration("scan", ScanNodeOptions(
+        dataset, use_threads=use_threads,
+        require_sequenced_output=require_sequenced_output))
 
     # Get rid of special dataset columns
     # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
@@ -311,13 +313,18 @@ def _perform_join_asof(left_operand, left_on, left_by,
 
     # Add the join node to the execplan
     if isinstance(left_operand, ds.Dataset):
-        left_source = _dataset_to_decl(left_operand, use_threads=use_threads)
+        left_source = _dataset_to_decl(
+            left_operand,
+            use_threads=use_threads,
+            require_sequenced_output=True)
     else:
         left_source = Declaration(
             "table_source", TableSourceNodeOptions(left_operand),
         )
     if isinstance(right_operand, ds.Dataset):
-        right_source = _dataset_to_decl(right_operand, use_threads=use_threads)
+        right_source = _dataset_to_decl(
+            right_operand, use_threads=use_threads,
+            require_sequenced_output=True)
     else:
         right_source = Declaration(
             "table_source", TableSourceNodeOptions(right_operand)

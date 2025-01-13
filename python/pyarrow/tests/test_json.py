@@ -256,7 +256,9 @@ class BaseTestJSONRead:
         expected = {
             'a': [Decimal("1"), Decimal("1.45"), Decimal("-23.456"), None],
         }
-        for type_factory in (pa.decimal128, pa.decimal256):
+
+        decimal_types = (pa.decimal32, pa.decimal64, pa.decimal128, pa.decimal256)
+        for type_factory in decimal_types:
             schema = pa.schema([('a', type_factory(9, 4))])
             opts = ParseOptions(explicit_schema=schema)
             table = self.read_bytes(rows, parse_options=opts)

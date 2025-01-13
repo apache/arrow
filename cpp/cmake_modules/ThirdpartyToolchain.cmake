@@ -738,9 +738,8 @@ if(DEFINED ENV{ARROW_ORC_URL})
   set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
 else()
   set_urls(ORC_SOURCE_URL
-           "https://www.apache.org/dyn/closer.cgi?action=download&filename=/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
-           "https://downloads.apache.org/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
-           "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+           "https://www.apache.org/dyn/closer.lua/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz?action=download"
+           "https://dlcdn.apache.org/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -816,21 +815,10 @@ endif()
 if(DEFINED ENV{ARROW_THRIFT_URL})
   set(THRIFT_SOURCE_URL "$ENV{ARROW_THRIFT_URL}")
 else()
-  set_urls(THRIFT_SOURCE_URL
-           "https://www.apache.org/dyn/closer.cgi?action=download&filename=/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://downloads.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://apache.claz.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://apache.cs.utah.edu/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://apache.mirrors.lucidnetworks.net/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://apache.osuosl.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://ftp.wayne.edu/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://mirror.olnevhost.net/pub/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://mirrors.gigenet.com/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://mirrors.koehn.com/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://mirrors.ocf.berkeley.edu/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://mirrors.sonic.net/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://us.mirrors.quenda.co/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "${THIRDPARTY_MIRROR_URL}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz")
+  set(THRIFT_SOURCE_URL
+      "https://www.apache.org/dyn/closer.lua/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz?action=download"
+      "https://dlcdn.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_UCX_URL})
@@ -1323,10 +1311,12 @@ if(ARROW_USE_BOOST)
     endif()
   endforeach()
 
+  set(BOOST_PROCESS_HAVE_V2 FALSE)
   if(TARGET Boost::process)
     # Boost >= 1.86
     target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V1")
     target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
+    set(BOOST_PROCESS_HAVE_V2 TRUE)
   else()
     # Boost < 1.86
     add_library(Boost::process INTERFACE IMPORTED)
@@ -1341,6 +1331,7 @@ if(ARROW_USE_BOOST)
     endif()
     if(Boost_VERSION VERSION_GREATER_EQUAL 1.80)
       target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
+      set(BOOST_PROCESS_HAVE_V2 TRUE)
       # Boost < 1.86 has a bug that
       # boost::process::v2::process_environment::on_setup() isn't
       # defined. We need to build Boost Process source to define it.
@@ -1352,6 +1343,20 @@ if(ARROW_USE_BOOST)
         target_link_libraries(Boost::process INTERFACE bcrypt ntdll)
       endif()
     endif()
+  endif()
+  if(BOOST_PROCESS_HAVE_V2
+     AND # We can't use v2 API on Windows because v2 API doesn't support
+         # process group[1] and GCS testbench uses multiple processes[2].
+         #
+         # [1] https://github.com/boostorg/process/issues/259
+         # [2] https://github.com/googleapis/storage-testbench/issues/669
+         (NOT WIN32)
+     AND # We can't use v2 API with musl libc with Boost Process < 1.86
+         # because Boost Process < 1.86 doesn't support musl libc[3].
+         #
+         # [3] https://github.com/boostorg/process/commit/aea22dbf6be1695ceb42367590b6ca34d9433500
+         (NOT (ARROW_WITH_MUSL AND (Boost_VERSION VERSION_LESS 1.86))))
+    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_USE_V2")
   endif()
 
   message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
@@ -1775,6 +1780,7 @@ macro(build_thrift)
       set(THRIFT_LIB_SUFFIX "md")
       list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=OFF")
     endif()
+    # NOTE(amoeba): When you bump Thrift to >=0.21.0, change bin to lib
     set(THRIFT_LIB
         "${THRIFT_PREFIX}/bin/${CMAKE_IMPORT_LIBRARY_PREFIX}thrift${THRIFT_LIB_SUFFIX}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
     )
@@ -1788,13 +1794,28 @@ macro(build_thrift)
     set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
   endif()
 
+  set(THRIFT_PATCH_COMMAND)
+  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15.0)
+    # Thrift 0.21.0 doesn't support GCC 15.
+    # https://github.com/apache/arrow/issues/45096
+    # https://github.com/apache/thrift/pull/3078
+    find_program(PATCH patch REQUIRED)
+    list(APPEND
+         THRIFT_PATCH_COMMAND
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_CURRENT_LIST_DIR}/thrift-cstdint.patch)
+  endif()
+
   externalproject_add(thrift_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${THRIFT_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS "${THRIFT_LIB}"
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
-                      DEPENDS ${THRIFT_DEPENDENCIES})
+                      DEPENDS ${THRIFT_DEPENDENCIES}
+                      PATCH_COMMAND ${THRIFT_PATCH_COMMAND})
 
   add_library(thrift::thrift STATIC IMPORTED)
   # The include directory must exist before it is referenced by a target.
@@ -2072,10 +2093,14 @@ macro(build_substrait)
 
     # Missing dll-interface:
     list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "/wd4251")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
-                                                        "Clang")
-    # Protobuf generated files trigger some errors on CLANG TSAN builds
-    list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "-Wno-error=shorten-64-to-32")
+  else()
+    # GH-44954: silence [[deprecated]] declarations in protobuf-generated code
+    list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "-Wno-deprecated")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                      "Clang")
+      # Protobuf generated files trigger some errors on CLANG TSAN builds
+      list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "-Wno-error=shorten-64-to-32")
+    endif()
   endif()
 
   set(SUBSTRAIT_SOURCES)
@@ -2127,6 +2152,7 @@ macro(build_substrait)
 
   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
   set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  target_compile_options(substrait PRIVATE "${SUBSTRAIT_SUPPRESSED_FLAGS}")
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
   target_link_libraries(substrait PUBLIC ${ARROW_PROTOBUF_LIBPROTOBUF})
   add_dependencies(substrait substrait_gen)
@@ -4169,7 +4195,7 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
                      ARROW_PC_PACKAGE_NAME
                      ${ARROW_ABSL_PC_PACKAGE_NAME}
                      HAVE_ALT
-                     FALSE
+                     TRUE
                      FORCE_ANY_NEWER_VERSION
                      TRUE
                      REQUIRED_VERSION
@@ -4222,6 +4248,14 @@ if(ARROW_WITH_GRPC)
                                  INTERFACE "GRPC_ASAN_SUPPRESSED")
       target_link_libraries(gRPC::grpc++ INTERFACE gRPC::grpc_asan_suppressed)
     endif()
+  endif()
+
+  if(ARROW_GRPC_CPP_PLUGIN)
+    if(NOT TARGET gRPC::grpc_cpp_plugin)
+      add_executable(gRPC::grpc_cpp_plugin IMPORTED)
+    endif()
+    set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES IMPORTED_LOCATION
+                                                           ${ARROW_GRPC_CPP_PLUGIN})
   endif()
 endif()
 
@@ -4969,7 +5003,6 @@ if(ARROW_WITH_OPENTELEMETRY)
   # cURL is required whether we build from source or use an existing installation
   # (OTel's cmake files do not call find_curl for you)
   find_curl()
-  set(opentelemetry-cpp_SOURCE "AUTO")
   resolve_dependency(opentelemetry-cpp)
   set(ARROW_OPENTELEMETRY_LIBS
       opentelemetry-cpp::trace
@@ -5001,6 +5034,10 @@ macro(build_awssdk)
     # Negate warnings that AWS SDK cannot build under
     string(APPEND AWS_C_FLAGS " -Wno-error=shorten-64-to-32")
     string(APPEND AWS_CXX_FLAGS " -Wno-error=shorten-64-to-32")
+  endif()
+  if(NOT MSVC)
+    string(APPEND AWS_C_FLAGS " -Wno-deprecated")
+    string(APPEND AWS_CXX_FLAGS " -Wno-deprecated")
   endif()
 
   set(AWSSDK_COMMON_CMAKE_ARGS

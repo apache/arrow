@@ -102,6 +102,12 @@ else
 fi
 
 %changelog
+* Wed Nov 13 2024 Bryce Mecum <petridish@gmail.com> - 18.1.0-1
+- New upstream release.
+
+* Wed Oct 16 2024 Sutou Kouhei <kou@clear-code.com> - 18.0.0-1
+- New upstream release.
+
 * Thu Jul 11 2024 Raúl Cumplido <raulcumplido@gmail.com> - 17.0.0-1
 - New upstream release.
 

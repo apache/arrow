@@ -461,8 +461,8 @@ gaflight_server_call_context_class_init(GAFlightServerCallContextClass *klass)
 /**
  * gaflight_server_call_context_foreach_incoming_header:
  * @context: A #GAFlightServerCallContext.
- * @func: (scope call): The user's callback function.
- * @user_data: (closure): Data for @func.
+ * @func: (scope call) (closure user_data): The user's callback function.
+ * @user_data: Data for @func.
  *
  * Iterates over all incoming headers.
  *

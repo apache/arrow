@@ -476,6 +476,8 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+-------------------------+---------------------------+-------+
 | exp              | Unary  | Numeric                 | Float32/Float64           |       |
 +------------------+--------+-------------------------+---------------------------+-------+
+| expm1            | Unary  | Numeric                 | Float32/Float64           |       |
++------------------+--------+-------------------------+---------------------------+-------+
 | multiply         | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
 +------------------+--------+-------------------------+---------------------------+-------+
 | multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
@@ -718,6 +720,35 @@ Decimal values are accepted, but are cast to Float64 first.
 +--------------------------+------------+-------------------------+---------------------+
 | tan_checked              | Unary      | Float32/Float64/Decimal | Float32/Float64     |
 +--------------------------+------------+-------------------------+---------------------+
+
+Hyperbolic trigonometric functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Hyperbolic trigonometric functions are also supported, and, where applicable, also offer
+``_checked`` variants that check for domain errors if needed.
+
+Decimal values are accepted, but are cast to Float64 first.
+
++--------------------------+------------+-------------------------+---------------------+
+| Function name            | Arity      | Input types             | Output type         |
++==========================+============+=========================+=====================+
+| acosh                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| acosh_checked            | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| asinh                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| atanh                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| atanh_checked            | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| cosh                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| sinh                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| tanh                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+
 
 Comparisons
 ~~~~~~~~~~~
@@ -1707,7 +1738,7 @@ These functions select and return a subset of their input.
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1)      |
+| drop_null     | Unary  | Any          |              | Input type 1 |                         | \(1)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
@@ -1851,15 +1882,18 @@ Structural transforms
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
 
+Replace functions
+~~~~~~~~~~~~~~~~~
+
 These functions create a copy of the first input with some elements
 replaced, based on the remaining inputs.
 
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
 | Function name            | Arity      | Input type 1          | Input type 2 | Input type 3 | Output type  | Notes |
 +==========================+============+=======================+==============+==============+==============+=======+
-| fill_null_backward       | Unary      | Fixed-width or binary | N/A          | N/A          | N/A          | \(1)  |
+| fill_null_backward       | Unary      | Fixed-width or binary |              |              | Input type 1 | \(1)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
-| fill_null_forward        | Unary      | Fixed-width or binary | N/A          | N/A          | N/A          | \(1)  |
+| fill_null_forward        | Unary      | Fixed-width or binary |              |              | Input type 1 | \(1)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
 | replace_with_mask        | Ternary    | Fixed-width or binary | Boolean      | Input type 1 | Input type 1 | \(2)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
@@ -1872,7 +1906,7 @@ replaced, based on the remaining inputs.
   Also see: :ref:`if_else <cpp-compute-scalar-selections>`.
 
 Pairwise functions
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 Pairwise functions are unary vector functions that perform a binary operation on
 a pair of elements in the input array, typically on adjacent elements. The n-th
 output is computed by applying the binary operation to the n-th and (n-p)-th inputs,

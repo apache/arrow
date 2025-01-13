@@ -61,7 +61,7 @@ class MinioFixture : public benchmark::Fixture {
  public:
   void SetUp(const ::benchmark::State& state) override {
     minio_.reset(new MinioTestServer());
-    ASSERT_OK(minio_->Start());
+    ASSERT_OK(minio_->Start(/*enable_tls=*/false));
 
     const char* region_str = std::getenv(kEnvAwsRegion);
     if (region_str) {
@@ -110,7 +110,7 @@ class MinioFixture : public benchmark::Fixture {
 
   void MakeFileSystem() {
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
-    options_.scheme = "http";
+    options_.scheme = minio_->scheme();
     if (!region_.empty()) {
       options_.region = region_;
     }

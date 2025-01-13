@@ -18,10 +18,6 @@
 # Configuration for the merge_arrow_pr.py tool
 # Install a copy of this file at ~/.config/arrow/merge.conf
 
-[jira]
-# issues.apache.org Jira personal access token
-token=abc123
-
 [github]
 # GitHub's personal access token. "workflow" scope is needed.
 api_token=ghp_ABC

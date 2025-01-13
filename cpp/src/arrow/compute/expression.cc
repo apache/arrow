@@ -23,6 +23,7 @@
 #include <unordered_set>
 
 #include "arrow/chunked_array.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/expression_internal.h"
@@ -1242,6 +1243,72 @@ struct Inequality {
                             /*insert_implicit_casts=*/false, &exec_context);
   }
 
+  /// Simplify an `is_in` call against an inequality guarantee.
+  ///
+  /// We avoid the complexity of fully simplifying EQUAL comparisons to true
+  /// literals (e.g., 'x is_in [1, 2, 3]' given the guarantee 'x = 2') due to
+  /// potential complications with null matching behavior. This is ok for the
+  /// predicate pushdown use case because the overall aim is to simplify to an
+  /// unsatisfiable expression.
+  ///
+  /// \pre `is_in_call` is a call to the `is_in` function
+  /// \return a simplified expression, or nullopt if no simplification occurred
+  static Result<std::optional<Expression>> SimplifyIsIn(
+      const Inequality& guarantee, const Expression::Call* is_in_call) {
+    DCHECK_EQ(is_in_call->function_name, "is_in");
+
+    auto options = checked_pointer_cast<SetLookupOptions>(is_in_call->options);
+
+    const auto& lhs = Comparison::StripOrderPreservingCasts(is_in_call->arguments[0]);
+    if (!lhs.field_ref()) return std::nullopt;
+    if (*lhs.field_ref() != guarantee.target) return std::nullopt;
+
+    FilterOptions::NullSelectionBehavior null_selection{};
+    switch (options->null_matching_behavior) {
+      case SetLookupOptions::MATCH:
+        null_selection =
+            guarantee.nullable ? FilterOptions::EMIT_NULL : FilterOptions::DROP;
+        break;
+      case SetLookupOptions::SKIP:
+        null_selection = FilterOptions::DROP;
+        break;
+      case SetLookupOptions::EMIT_NULL:
+        if (guarantee.nullable) return std::nullopt;
+        null_selection = FilterOptions::DROP;
+        break;
+      case SetLookupOptions::INCONCLUSIVE:
+        if (guarantee.nullable) return std::nullopt;
+        ARROW_ASSIGN_OR_RAISE(Datum is_null, IsNull(options->value_set));
+        ARROW_ASSIGN_OR_RAISE(Datum any_null, Any(is_null));
+        if (any_null.scalar_as<BooleanScalar>().value) return std::nullopt;
+        null_selection = FilterOptions::DROP;
+        break;
+    }
+
+    std::string func_name = Comparison::GetName(guarantee.cmp);
+    DCHECK_NE(func_name, "na");
+    std::vector<Datum> args{options->value_set, guarantee.bound};
+    ARROW_ASSIGN_OR_RAISE(Datum filter_mask, CallFunction(func_name, args));
+    FilterOptions filter_options(null_selection);
+    ARROW_ASSIGN_OR_RAISE(Datum simplified_value_set,
+                          Filter(options->value_set, filter_mask, filter_options));
+
+    if (simplified_value_set.length() == 0) return literal(false);
+    if (simplified_value_set.length() == options->value_set.length()) return std::nullopt;
+
+    ExecContext exec_context;
+    Expression::Call simplified_call;
+    simplified_call.function_name = "is_in";
+    simplified_call.arguments = is_in_call->arguments;
+    simplified_call.options = std::make_shared<SetLookupOptions>(
+        simplified_value_set, options->null_matching_behavior);
+    ARROW_ASSIGN_OR_RAISE(
+        Expression simplified_expr,
+        BindNonRecursive(std::move(simplified_call),
+                         /*insert_implicit_casts=*/false, &exec_context));
+    return simplified_expr;
+  }
+
   /// \brief Simplify the given expression given this inequality as a guarantee.
   Result<Expression> Simplify(Expression expr) {
     const auto& guarantee = *this;
@@ -1256,6 +1323,12 @@ struct Inequality {
       if (*lhs.field_ref() != guarantee.target) return expr;
 
       return call->function_name == "is_valid" ? literal(true) : literal(false);
+    }
+
+    if (call->function_name == "is_in") {
+      ARROW_ASSIGN_OR_RAISE(std::optional<Expression> result,
+                            SimplifyIsIn(guarantee, call));
+      return result.value_or(expr);
     }
 
     auto cmp = Comparison::Get(expr);

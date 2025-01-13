@@ -59,7 +59,7 @@ export PARQUET_TEST_DATA=${source_dir}/cpp/submodules/parquet-testing/data
 
 if [ "${INSTALL_PYARROW}" == "ON" ]; then
   # Install the built wheels
-  pip install ${source_dir}/python/repaired_wheels/*.whl
+  python -m pip install ${source_dir}/python/repaired_wheels/*.whl
 fi
 
 if [ "${CHECK_IMPORTS}" == "ON" ]; then
@@ -88,6 +88,13 @@ import pyarrow.parquet
   fi
 fi
 
+if [ "${CHECK_VERSION}" == "ON" ]; then
+  pyarrow_version=$(python -c "import pyarrow; print(pyarrow.__version__)")
+  [ "${pyarrow_version}" = "${ARROW_VERSION}" ]
+  arrow_cpp_version=$(python -c "import pyarrow; print(pyarrow.cpp_build_info.version)")
+  [ "${arrow_cpp_version}" = "${ARROW_VERSION}" ]
+fi
+
 if [ "${CHECK_WHEEL_CONTENT}" == "ON" ]; then
   python ${source_dir}/ci/scripts/python_wheel_validate_contents.py \
     --path ${source_dir}/python/repaired_wheels
@@ -95,7 +102,7 @@ fi
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
-  pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
+  python -m pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
 
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'

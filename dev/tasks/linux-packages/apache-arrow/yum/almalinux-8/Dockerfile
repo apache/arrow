@@ -41,6 +41,7 @@ RUN \
     gobject-introspection-devel \
     json-devel \
     libarchive \
+    libxml2-devel \
     libzstd-devel \
     llvm-devel \
     llvm-static \

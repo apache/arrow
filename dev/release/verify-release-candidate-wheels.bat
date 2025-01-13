@@ -55,10 +55,8 @@ python arrow\dev\release\download_rc_binaries.py %ARROW_VERSION% %RC_NUMBER% ^
 call deactivate
 
 set ARROW_TEST_DATA=%cd%\arrow\testing\data
+set PARQUET_TEST_DATA=%cd%\arrow\cpp\submodules\parquet-testing\data
 
-
-CALL :verify_wheel 3.8
-if errorlevel 1 GOTO error
 
 CALL :verify_wheel 3.9
 if errorlevel 1 GOTO error
@@ -67,6 +65,12 @@ CALL :verify_wheel 3.10
 if errorlevel 1 GOTO error
 
 CALL :verify_wheel 3.11
+if errorlevel 1 GOTO error
+
+CALL :verify_wheel 3.12
+if errorlevel 1 GOTO error
+
+CALL :verify_wheel 3.13
 if errorlevel 1 GOTO error
 
 :done
@@ -104,6 +108,7 @@ python -c "import pyarrow.dataset" || EXIT /B 1
 pip install -r arrow\python\requirements-test.txt || EXIT /B 1
 
 set PYARROW_TEST_CYTHON=OFF
+set TZDIR=%CONDA_ENV_PATH%\share\zoneinfo
 pytest %CONDA_ENV_PATH%\Lib\site-packages\pyarrow --pdb -v || EXIT /B 1
 
 :done

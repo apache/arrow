@@ -137,7 +137,7 @@ struct ARROW_EXPORT DictionaryKeyEncoder : FixedWidthKeyEncoder {
 };
 
 template <typename T>
-struct ARROW_EXPORT VarLengthKeyEncoder : KeyEncoder {
+struct VarLengthKeyEncoder : KeyEncoder {
   using Offset = typename T::offset_type;
 
   void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override {

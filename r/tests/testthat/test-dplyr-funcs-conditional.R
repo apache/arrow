@@ -26,6 +26,16 @@ tbl <- example_data
 tbl$verses <- verses[[1]]
 tbl$another_chr <- tail(letters, 10)
 
+test_that("%in% handles dictionary type", {
+  df <- tibble::tibble(x = factor(c("a", "b", "c")))
+  compare_dplyr_binding(
+    .input %>%
+      filter(x %in% "a") %>%
+      collect(),
+    df
+  )
+})
+
 test_that("if_else and ifelse", {
   compare_dplyr_binding(
     .input %>%

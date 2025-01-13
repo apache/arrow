@@ -97,28 +97,43 @@ function(arrow_create_merged_static_lib output_target)
   endforeach()
 
   if(APPLE)
-    # The apple-distributed libtool is what we want for bundling, but there is
-    # a GNU libtool that has a namecollision (and happens to be bundled with R, too).
-    # We are not compatible with GNU libtool, so we need to avoid it.
+    if(CMAKE_LIBTOOL)
+      set(LIBTOOL_MACOS ${CMAKE_LIBTOOL})
+    else()
+      # The apple-distributed libtool is what we want for bundling, but there is
+      # a GNU libtool that has a namecollision (and happens to be bundled with R, too).
+      # We are not compatible with GNU libtool, so we need to avoid it.
 
-    # check in the obvious places first to find Apple's libtool
-    # HINTS is used before system paths and before PATHS, so we use that
-    # even though hard coded paths should go in PATHS
-    # TODO: use a VALIDATOR when we require cmake >= 3.25
-    find_program(LIBTOOL_MACOS libtool HINTS /usr/bin
-                                             /Library/Developer/CommandLineTools/usr/bin)
+      # check in the obvious places first to find Apple's libtool
+      # HINTS is used before system paths and before PATHS, so we use that
+      # even though hard coded paths should go in PATHS
+      # TODO: use a VALIDATOR when we require cmake >= 3.25
+      find_program(LIBTOOL_MACOS libtool
+                   HINTS /usr/bin /Library/Developer/CommandLineTools/usr/bin)
+    endif()
 
-    # confirm that the libtool we found is not GNU libtool
+    # confirm that the libtool we found is Apple's libtool
     execute_process(COMMAND ${LIBTOOL_MACOS} -V
                     OUTPUT_VARIABLE LIBTOOL_V_OUTPUT
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(NOT "${LIBTOOL_V_OUTPUT}" MATCHES ".*cctools-([0-9.]+).*")
-      message(FATAL_ERROR "libtool found appears to be the incompatible GNU libtool: ${LIBTOOL_MACOS}"
+      message(FATAL_ERROR "libtool found appears not to be Apple's libtool: ${LIBTOOL_MACOS}"
       )
     endif()
 
     set(BUNDLE_COMMAND ${LIBTOOL_MACOS} "-no_warning_for_no_symbols" "-static" "-o"
                        ${output_lib_path} ${all_library_paths})
+  elseif(MSVC)
+    if(CMAKE_LIBTOOL)
+      set(BUNDLE_TOOL ${CMAKE_LIBTOOL})
+    else()
+      find_program(BUNDLE_TOOL lib HINTS "${CMAKE_CXX_COMPILER}/..")
+      if(NOT BUNDLE_TOOL)
+        message(FATAL_ERROR "Cannot locate lib.exe to bundle libraries")
+      endif()
+    endif()
+    set(BUNDLE_COMMAND ${BUNDLE_TOOL} /NOLOGO /OUT:${output_lib_path}
+                       ${all_library_paths})
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(Clang|GNU|Intel|IntelLLVM)$")
     set(ar_script_path ${CMAKE_BINARY_DIR}/${ARG_NAME}.ar)
 
@@ -140,18 +155,6 @@ function(arrow_create_merged_static_lib output_target)
     endif()
 
     set(BUNDLE_COMMAND ${ar_tool} -M < ${ar_script_path})
-
-  elseif(MSVC)
-    if(CMAKE_LIBTOOL)
-      set(BUNDLE_TOOL ${CMAKE_LIBTOOL})
-    else()
-      find_program(BUNDLE_TOOL lib HINTS "${CMAKE_CXX_COMPILER}/..")
-      if(NOT BUNDLE_TOOL)
-        message(FATAL_ERROR "Cannot locate lib.exe to bundle libraries")
-      endif()
-    endif()
-    set(BUNDLE_COMMAND ${BUNDLE_TOOL} /NOLOGO /OUT:${output_lib_path}
-                       ${all_library_paths})
   else()
     message(FATAL_ERROR "Unknown bundle scenario!")
   endif()

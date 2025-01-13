@@ -18,6 +18,7 @@
 // Implementation of casting to (or between) list types
 
 #include <limits>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -340,6 +341,8 @@ struct CastFixedList {
 
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    static constexpr int kFillNullSentinel = -2;
+
     const CastOptions& options = CastState::Get(ctx);
     const auto& in_type = checked_cast<const StructType&>(*batch[0].type());
     const auto& out_type = checked_cast<const StructType&>(*out->type());
@@ -348,25 +351,46 @@ struct CastStruct {
 
     std::vector<int> fields_to_select(out_field_count, -1);
 
-    int out_field_index = 0;
-    for (int in_field_index = 0;
-         in_field_index < in_field_count && out_field_index < out_field_count;
-         ++in_field_index) {
-      const auto& in_field = in_type.field(in_field_index);
-      const auto& out_field = out_type.field(out_field_index);
-      if (in_field->name() == out_field->name()) {
-        if (in_field->nullable() && !out_field->nullable()) {
-          return Status::TypeError("cannot cast nullable field to non-nullable field: ",
-                                   in_type.ToString(), " ", out_type.ToString());
-        }
-        fields_to_select[out_field_index++] = in_field_index;
-      }
+    std::set<std::string> all_in_field_names;
+    for (int in_field_index = 0; in_field_index < in_field_count; ++in_field_index) {
+      all_in_field_names.insert(in_type.field(in_field_index)->name());
     }
 
-    if (out_field_index < out_field_count) {
-      return Status::TypeError(
-          "struct fields don't match or are in the wrong order: Input fields: ",
-          in_type.ToString(), " output fields: ", out_type.ToString());
+    for (int in_field_index = 0, out_field_index = 0;
+         out_field_index < out_field_count;) {
+      const auto& out_field = out_type.field(out_field_index);
+      if (in_field_index < in_field_count) {
+        const auto& in_field = in_type.field(in_field_index);
+        // If there are more in_fields check if they match the out_field.
+        if (in_field->name() == out_field->name()) {
+          if (in_field->nullable() && !out_field->nullable()) {
+            return Status::TypeError("cannot cast nullable field to non-nullable field: ",
+                                     in_type.ToString(), " ", out_type.ToString());
+          }
+          // Found matching in_field and out_field.
+          fields_to_select[out_field_index++] = in_field_index;
+          // Using the same in_field for multiple out_fields is not allowed.
+          in_field_index++;
+          continue;
+        }
+      }
+      if (all_in_field_names.count(out_field->name()) == 0 && out_field->nullable()) {
+        // Didn't match current in_field, but we can fill with null.
+        // Filling with null is only acceptable on nullable fields when there
+        // is definitely no in_field with matching name.
+
+        fields_to_select[out_field_index++] = kFillNullSentinel;
+      } else if (in_field_index < in_field_count) {
+        // Didn't match current in_field, and the we cannot fill with null, so
+        // try next in_field.
+        in_field_index++;
+      } else {
+        // Didn't match current in_field, we cannot fill with null, and there
+        // are no more in_fields to try, so fail.
+        return Status::TypeError(
+            "struct fields don't match or are in the wrong order: Input fields: ",
+            in_type.ToString(), " output fields: ", out_type.ToString());
+      }
     }
 
     const ArraySpan& in_array = batch[0].array;
@@ -378,17 +402,21 @@ struct CastStruct {
                                        in_array.offset, in_array.length));
     }
 
-    out_field_index = 0;
+    int out_field_index = 0;
     for (int field_index : fields_to_select) {
-      const auto& values = (in_array.child_data[field_index].ToArrayData()->Slice(
-          in_array.offset, in_array.length));
       const auto& target_type = out->type()->field(out_field_index++)->type();
-
-      ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-                            Cast(values, target_type, options, ctx->exec_context()));
-
-      DCHECK(cast_values.is_array());
-      out_array->child_data.push_back(cast_values.array());
+      if (field_index == kFillNullSentinel) {
+        ARROW_ASSIGN_OR_RAISE(auto nulls,
+                              MakeArrayOfNull(target_type->GetSharedPtr(), batch.length));
+        out_array->child_data.push_back(nulls->data());
+      } else {
+        const auto& values = (in_array.child_data[field_index].ToArrayData()->Slice(
+            in_array.offset, in_array.length));
+        ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                              Cast(values, target_type, options, ctx->exec_context()));
+        DCHECK(cast_values.is_array());
+        out_array->child_data.push_back(cast_values.array());
+      }
     }
 
     return Status::OK();

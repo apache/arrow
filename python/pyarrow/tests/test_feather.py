@@ -426,7 +426,11 @@ def test_empty_strings(version):
 @pytest.mark.pandas
 def test_all_none(version):
     df = pd.DataFrame({'all_none': [None] * 10})
-    _check_pandas_roundtrip(df, version=version)
+    if version == 1 and pa.pandas_compat._pandas_api.uses_string_dtype():
+        expected = df.astype("str")
+    else:
+        expected = df
+    _check_pandas_roundtrip(df, version=version, expected=expected)
 
 
 @pytest.mark.pandas

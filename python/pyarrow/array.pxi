@@ -117,6 +117,8 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
                         "return a pyarrow Array or ChunkedArray.")
     if isinstance(res, ChunkedArray) and res.num_chunks==1:
         res = res.chunk(0)
+    if type is not None and res.type != type:
+        res = res.cast(type)
     return res
 
 
@@ -1174,7 +1176,12 @@ cdef class Array(_PandasConvertible):
                              "({0}) did not match the passed number "
                              "({1}).".format(type.num_fields, len(children)))
 
-        if type.num_buffers != len(buffers):
+        if type.has_variadic_buffers:
+            if type.num_buffers > len(buffers):
+                raise ValueError("Type's expected number of buffers is at least "
+                                 "{0}, but the passed number is "
+                                 "{1}.".format(type.num_buffers, len(buffers)))
+        elif type.num_buffers != len(buffers):
             raise ValueError("Type's expected number of buffers "
                              "({0}) did not match the passed number "
                              "({1}).".format(type.num_buffers, len(buffers)))
@@ -1437,7 +1444,8 @@ cdef class Array(_PandasConvertible):
 
         Returns
         -------
-        sliced : RecordBatch
+        sliced : Array
+            An array with the same datatype, containing the sliced values.
         """
         cdef shared_ptr[CArray] result
 
@@ -2321,6 +2329,15 @@ cdef class FixedSizeBinaryArray(Array):
     Concrete class for Arrow arrays of a fixed-size binary data type.
     """
 
+cdef class Decima32Array(FixedSizeBinaryArray):
+    """
+    Concrete class for Arrow arrays of decimal32 data type.
+    """
+
+cdef class Decimal64Array(FixedSizeBinaryArray):
+    """
+    Concrete class for Arrow arrays of decimal64 data type.
+    """
 
 cdef class Decimal128Array(FixedSizeBinaryArray):
     """
@@ -4037,7 +4054,7 @@ cdef class StructArray(Array):
         memory_pool : MemoryPool (optional)
             For memory allocations, if required, otherwise uses default pool.
         type : pyarrow.StructType (optional)
-            Struct type for name and type of each child. 
+            Struct type for name and type of each child.
 
         Returns
         -------
@@ -4341,6 +4358,33 @@ cdef class ExtensionArray(Array):
         cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
         result.validate()
         return result
+
+
+class JsonArray(ExtensionArray):
+    """
+    Concrete class for Arrow arrays of JSON data type.
+
+    This does not guarantee that the JSON data actually
+    is valid JSON.
+
+    Examples
+    --------
+    Define the extension type for JSON array
+
+    >>> import pyarrow as pa
+    >>> json_type = pa.json_(pa.large_utf8())
+
+    Create an extension array
+
+    >>> arr = [None, '{ "id":30, "values":["a", "b"] }']
+    >>> storage = pa.array(arr, pa.large_utf8())
+    >>> pa.ExtensionArray.from_storage(json_type, storage)
+    <pyarrow.lib.JsonArray object at ...>
+    [
+      null,
+      "{ "id":30, "values":["a", "b"] }"
+    ]
+    """
 
 
 class UuidArray(ExtensionArray):
@@ -4672,6 +4716,8 @@ cdef dict _array_classes = {
     _Type_STRING_VIEW: StringViewArray,
     _Type_DICTIONARY: DictionaryArray,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
+    _Type_DECIMAL32: Decimal32Array,
+    _Type_DECIMAL64: Decimal64Array,
     _Type_DECIMAL128: Decimal128Array,
     _Type_DECIMAL256: Decimal256Array,
     _Type_STRUCT: StructArray,

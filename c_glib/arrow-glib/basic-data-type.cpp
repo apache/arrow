@@ -114,6 +114,10 @@ G_BEGIN_DECLS
  *
  * #GArrowDecimalDataType is a base class for the decimal data types.
  *
+ * #GArrowDecimal32DataType is a class for the 32-bit decimal data type.
+ *
+ * #GArrowDecimal64DataType is a class for the 64-bit decimal data type.
+ *
  * #GArrowDecimal128DataType is a class for the 128-bit decimal data type.
  *
  * #GArrowDecimal256DataType is a class for the 256-bit decimal data type.
@@ -123,6 +127,10 @@ G_BEGIN_DECLS
  *
  * #GArrowExtensionDataTypeRegistry is a class to manage extension
  * data types.
+ *
+ * #GArrowStringViewDataType is a class for the string view data type.
+ *
+ * #GArrowBinaryViewDataType is a class for the binary view data type.
  */
 
 struct GArrowDataTypePrivate
@@ -1491,16 +1499,23 @@ garrow_decimal_data_type_class_init(GArrowDecimalDataTypeClass *klass)
  * Returns: (nullable):
  *   The newly created decimal data type on success, %NULL on error.
  *
- *   #GArrowDecimal256DataType is used if @precision is larger than
- *   garrow_decimal128_data_type_max_precision(),
- *   #GArrowDecimal128DataType is used otherwise.
+ *   * #GArrowDecimal32DataType is used if @precision up to 9
+ *   * #GArrowDecimal64DataType is used if @precision up to 19
+ *   * #GArrowDecimal128DataType is used if @precision up to 38
+ *   * #GArrowDecimal256DataType is used otherwise
  *
  * Since: 0.10.0
  */
 GArrowDecimalDataType *
 garrow_decimal_data_type_new(gint32 precision, gint32 scale, GError **error)
 {
-  if (precision <= garrow_decimal128_data_type_max_precision()) {
+  if (precision <= garrow_decimal32_data_type_max_precision()) {
+    return GARROW_DECIMAL_DATA_TYPE(
+      garrow_decimal32_data_type_new(precision, scale, error));
+  } else if (precision <= garrow_decimal64_data_type_max_precision()) {
+    return GARROW_DECIMAL_DATA_TYPE(
+      garrow_decimal64_data_type_new(precision, scale, error));
+  } else if (precision <= garrow_decimal128_data_type_max_precision()) {
     return GARROW_DECIMAL_DATA_TYPE(
       garrow_decimal128_data_type_new(precision, scale, error));
   } else {
@@ -1543,6 +1558,108 @@ garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type)
   const auto arrow_decimal_type =
     std::static_pointer_cast<arrow::DecimalType>(arrow_data_type);
   return arrow_decimal_type->scale();
+}
+
+G_DEFINE_TYPE(GArrowDecimal32DataType,
+              garrow_decimal32_data_type,
+              GARROW_TYPE_DECIMAL_DATA_TYPE)
+
+static void
+garrow_decimal32_data_type_init(GArrowDecimal32DataType *object)
+{
+}
+
+static void
+garrow_decimal32_data_type_class_init(GArrowDecimal32DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_decimal32_data_type_max_precision:
+ *
+ * Returns: The max precision of 32-bit decimal data type.
+ *
+ * Since: 19.0.0
+ */
+gint32
+garrow_decimal32_data_type_max_precision()
+{
+  return arrow::Decimal32Type::kMaxPrecision;
+}
+
+/**
+ * garrow_decimal32_data_type_new:
+ * @precision: The precision of decimal data.
+ * @scale: The scale of decimal data.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   The newly created 32-bit decimal data type on success, %NULL on error.
+ *
+ * Since: 19.0.0
+ */
+GArrowDecimal32DataType *
+garrow_decimal32_data_type_new(gint32 precision, gint32 scale, GError **error)
+{
+  auto arrow_data_type_result = arrow::Decimal32Type::Make(precision, scale);
+  if (garrow::check(error, arrow_data_type_result, "[decimal32-data-type][new]")) {
+    auto arrow_data_type = *arrow_data_type_result;
+    return GARROW_DECIMAL32_DATA_TYPE(
+      g_object_new(GARROW_TYPE_DECIMAL32_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  } else {
+    return NULL;
+  }
+}
+
+G_DEFINE_TYPE(GArrowDecimal64DataType,
+              garrow_decimal64_data_type,
+              GARROW_TYPE_DECIMAL_DATA_TYPE)
+
+static void
+garrow_decimal64_data_type_init(GArrowDecimal64DataType *object)
+{
+}
+
+static void
+garrow_decimal64_data_type_class_init(GArrowDecimal64DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_decimal64_data_type_max_precision:
+ *
+ * Returns: The max precision of 64-bit decimal data type.
+ *
+ * Since: 19.0.0
+ */
+gint32
+garrow_decimal64_data_type_max_precision()
+{
+  return arrow::Decimal64Type::kMaxPrecision;
+}
+
+/**
+ * garrow_decimal64_data_type_new:
+ * @precision: The precision of decimal data.
+ * @scale: The scale of decimal data.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   The newly created 64-bit decimal data type on success, %NULL on error.
+ *
+ * Since: 19.0.0
+ */
+GArrowDecimal64DataType *
+garrow_decimal64_data_type_new(gint32 precision, gint32 scale, GError **error)
+{
+  auto arrow_data_type_result = arrow::Decimal64Type::Make(precision, scale);
+  if (garrow::check(error, arrow_data_type_result, "[decimal64-data-type][new]")) {
+    auto arrow_data_type = *arrow_data_type_result;
+    return GARROW_DECIMAL64_DATA_TYPE(
+      g_object_new(GARROW_TYPE_DECIMAL64_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  } else {
+    return NULL;
+  }
 }
 
 G_DEFINE_TYPE(GArrowDecimal128DataType,
@@ -1660,9 +1777,9 @@ enum {
   PROP_STORAGE_DATA_TYPE = 1
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowExtensionDataType,
-                           garrow_extension_data_type,
-                           GARROW_TYPE_DATA_TYPE)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowExtensionDataType,
+                                    garrow_extension_data_type,
+                                    GARROW_TYPE_DATA_TYPE)
 
 #define GARROW_EXTENSION_DATA_TYPE_GET_PRIVATE(obj)                                      \
   static_cast<GArrowExtensionDataTypePrivate *>(                                         \
@@ -2094,6 +2211,62 @@ garrow_extension_data_type_registry_lookup(GArrowExtensionDataTypeRegistry *regi
   return GARROW_EXTENSION_DATA_TYPE(data_type);
 }
 
+G_DEFINE_TYPE(GArrowBinaryViewDataType,
+              garrow_binary_view_data_type,
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_binary_view_data_type_init(GArrowBinaryViewDataType *object)
+{
+}
+
+static void
+garrow_binary_view_data_type_class_init(GArrowBinaryViewDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_binary_view_data_type_new:
+ *
+ * Returns: The newly created binary view data type.
+ */
+GArrowBinaryViewDataType *
+garrow_binary_view_data_type_new(void)
+{
+  auto arrow_data_type = arrow::binary_view();
+  GArrowBinaryViewDataType *data_type = GARROW_BINARY_VIEW_DATA_TYPE(
+    g_object_new(GARROW_TYPE_BINARY_VIEW_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  return data_type;
+}
+
+G_DEFINE_TYPE(GArrowStringViewDataType,
+              garrow_string_view_data_type,
+              GARROW_TYPE_BINARY_VIEW_DATA_TYPE)
+
+static void
+garrow_string_view_data_type_init(GArrowStringViewDataType *object)
+{
+}
+
+static void
+garrow_string_view_data_type_class_init(GArrowStringViewDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_string_view_data_type_new:
+ *
+ * Returns: The newly created string view data type.
+ */
+GArrowStringViewDataType *
+garrow_string_view_data_type_new(void)
+{
+  auto arrow_data_type = arrow::utf8_view();
+  GArrowStringViewDataType *data_type = GARROW_STRING_VIEW_DATA_TYPE(
+    g_object_new(GARROW_TYPE_STRING_VIEW_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  return data_type;
+}
+
 G_END_DECLS
 
 GArrowDataType *
@@ -2192,6 +2365,12 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     break;
   case arrow::Type::type::MAP:
     type = GARROW_TYPE_MAP_DATA_TYPE;
+    break;
+  case arrow::Type::type::DECIMAL32:
+    type = GARROW_TYPE_DECIMAL32_DATA_TYPE;
+    break;
+  case arrow::Type::type::DECIMAL64:
+    type = GARROW_TYPE_DECIMAL64_DATA_TYPE;
     break;
   case arrow::Type::type::DECIMAL128:
     type = GARROW_TYPE_DECIMAL128_DATA_TYPE;

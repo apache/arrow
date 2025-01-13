@@ -58,7 +58,7 @@ class ARROW_EXPORT StopSource {
 class ARROW_EXPORT StopToken {
  public:
   // Public for Cython
-  StopToken() {}
+  StopToken() = default;
 
   explicit StopToken(std::shared_ptr<StopSourceImpl> impl) : impl_(std::move(impl)) {}
 

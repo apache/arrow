@@ -364,9 +364,9 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
   std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
 
   bool have_implicit_directories() const override { return true; }
-  bool allow_write_file_over_dir() const override { return true; }
-  bool allow_read_dir_as_file() const override { return true; }
-  bool allow_move_dir() const override { return false; }
+  bool allow_write_file_over_dir() const override { return false; }
+  bool allow_read_dir_as_file() const override { return false; }
+  bool allow_move_dir() const override { return true; }
   bool allow_move_file() const override { return true; }
   bool allow_append_to_file() const override { return true; }
   bool have_directory_mtimes() const override { return true; }
@@ -387,6 +387,30 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
   //     builddir/main/../../threads.c:580:10 #2 0x7fa914b1cd1e in xmlGetGlobalState
   //     builddir/main/../../threads.c:666:31
   bool have_false_positive_memory_leak_with_generator() const override { return true; }
+  // This false positive leak is similar to the one pinpointed in the
+  // have_false_positive_memory_leak_with_generator() comments above,
+  // though the stack trace is different. It happens when a block list
+  // is committed from a background thread.
+  //
+  // clang-format off
+  // Direct leak of 968 byte(s) in 1 object(s) allocated from:
+  //   #0 calloc
+  //   #1 (/lib/x86_64-linux-gnu/libxml2.so.2+0xe25a4)
+  //   #2 __xmlDefaultBufferSize
+  //   #3 xmlBufferCreate
+  //   #4 Azure::Storage::_internal::XmlWriter::XmlWriter()
+  //   #5 Azure::Storage::Blobs::_detail::BlockBlobClient::CommitBlockList
+  //   #6 Azure::Storage::Blobs::BlockBlobClient::CommitBlockList
+  //   #7 arrow::fs::(anonymous namespace)::CommitBlockList
+  //   #8 arrow::fs::(anonymous namespace)::ObjectAppendStream::FlushAsync()::'lambda'
+  // clang-format on
+  //
+  // TODO perhaps remove this skip once we can rely on
+  // https://github.com/Azure/azure-sdk-for-cpp/pull/5767
+  //
+  // Also note that ClickHouse has a workaround for a similar issue:
+  // https://github.com/ClickHouse/ClickHouse/pull/45796
+  bool have_false_positive_memory_leak_with_async_close() const override { return true; }
 
   BaseAzureEnv* env_;
   std::shared_ptr<AzureFileSystem> azure_fs_;
@@ -404,7 +428,11 @@ class TestAzuriteGeneric : public TestGeneric {
   }
 
  protected:
-  // Azurite doesn't support moving files over containers.
+  // Azurite doesn't block writing files over directories.
+  bool allow_write_file_over_dir() const override { return true; }
+  // Azurite doesn't support moving directories.
+  bool allow_move_dir() const override { return false; }
+  // Azurite doesn't support moving files.
   bool allow_move_file() const override { return false; }
   // Azurite doesn't support directory mtime.
   bool have_directory_mtimes() const override { return false; }
@@ -426,7 +454,11 @@ class TestAzureFlatNSGeneric : public TestGeneric {
   }
 
  protected:
-  // Flat namespace account doesn't support moving files over containers.
+  // Flat namespace account doesn't block writing files over directories.
+  bool allow_write_file_over_dir() const override { return true; }
+  // Flat namespace account doesn't support moving directories.
+  bool allow_move_dir() const override { return false; }
+  // Flat namespace account doesn't support moving files.
   bool allow_move_file() const override { return false; }
   // Flat namespace account doesn't support directory mtime.
   bool have_directory_mtimes() const override { return false; }
@@ -467,10 +499,10 @@ TEST(AzureFileSystem, InitializeWithDefaultCredential) {
 TEST(AzureFileSystem, InitializeWithDefaultCredentialImplicitly) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
-  AzureOptions explictly_default_options;
-  explictly_default_options.account_name = "dummy-account-name";
-  ARROW_EXPECT_OK(explictly_default_options.ConfigureDefaultCredential());
-  ASSERT_TRUE(options.Equals(explictly_default_options));
+  AzureOptions explicitly_default_options;
+  explicitly_default_options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(explicitly_default_options.ConfigureDefaultCredential());
+  ASSERT_TRUE(options.Equals(explicitly_default_options));
 }
 
 TEST(AzureFileSystem, InitializeWithAnonymousCredential) {
@@ -562,16 +594,15 @@ class TestAzureOptions : public ::testing::Test {
 
   void TestFromUriAbfs() {
     std::string path;
-    ASSERT_OK_AND_ASSIGN(
-        auto options,
-        AzureOptions::FromUri(
-            "abfs://account:password@127.0.0.1:10000/container/dir/blob", &path));
+    ASSERT_OK_AND_ASSIGN(auto options,
+                         AzureOptions::FromUri(
+                             "abfs://account@127.0.0.1:10000/container/dir/blob", &path));
     ASSERT_EQ(options.account_name, "account");
     ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.blob_storage_scheme, "https");
     ASSERT_EQ(options.dfs_storage_scheme, "https");
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
     ASSERT_EQ(options.background_writes, true);
   }
@@ -579,43 +610,42 @@ class TestAzureOptions : public ::testing::Test {
   void TestFromUriAbfss() {
     std::string path;
     ASSERT_OK_AND_ASSIGN(
-        auto options,
-        AzureOptions::FromUri(
-            "abfss://account:password@127.0.0.1:10000/container/dir/blob", &path));
+        auto options, AzureOptions::FromUri(
+                          "abfss://account@127.0.0.1:10000/container/dir/blob", &path));
     ASSERT_EQ(options.account_name, "account");
     ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.blob_storage_scheme, "https");
     ASSERT_EQ(options.dfs_storage_scheme, "https");
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
     ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriEnableTls() {
     std::string path;
-    ASSERT_OK_AND_ASSIGN(auto options,
-                         AzureOptions::FromUri(
-                             "abfs://account:password@127.0.0.1:10000/container/dir/blob?"
-                             "enable_tls=false",
-                             &path));
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account@127.0.0.1:10000/container/dir/blob?"
+                              "enable_tls=false",
+                              &path));
     ASSERT_EQ(options.account_name, "account");
     ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.blob_storage_scheme, "http");
     ASSERT_EQ(options.dfs_storage_scheme, "http");
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
     ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriDisableBackgroundWrites() {
     std::string path;
-    ASSERT_OK_AND_ASSIGN(auto options,
-                         AzureOptions::FromUri(
-                             "abfs://account:password@127.0.0.1:10000/container/dir/blob?"
-                             "background_writes=false",
-                             &path));
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account@127.0.0.1:10000/container/dir/blob?"
+                              "background_writes=false",
+                              &path));
     ASSERT_EQ(options.background_writes, false);
   }
 
@@ -635,15 +665,6 @@ class TestAzureOptions : public ::testing::Test {
                               "credential_kind=anonymous",
                               nullptr));
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kAnonymous);
-  }
-
-  void TestFromUriCredentialStorageSharedKey() {
-    ASSERT_OK_AND_ASSIGN(
-        auto options,
-        AzureOptions::FromUri(
-            "abfs://:password@account.blob.core.windows.net/container/dir/blob",
-            nullptr));
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
   }
 
   void TestFromUriCredentialClientSecret() {
@@ -691,6 +712,36 @@ class TestAzureOptions : public ::testing::Test {
                               "credential_kind=environment",
                               nullptr));
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kEnvironment);
+  }
+
+  void TestFromUriCredentialSASToken() {
+    const std::string sas_token =
+        "?se=2024-12-12T18:57:47Z&sig=pAs7qEBdI6sjUhqX1nrhNAKsTY%2B1SqLxPK%"
+        "2BbAxLiopw%3D&sp=racwdxylti&spr=https,http&sr=c&sv=2024-08-04";
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri(
+            "abfs://file_system@account.dfs.core.windows.net/" + sas_token, nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kSASToken);
+    ASSERT_EQ(options.sas_token_, sas_token);
+  }
+
+  void TestFromUriCredentialSASTokenWithOtherParameters() {
+    const std::string uri_query_string =
+        "?enable_tls=false&se=2024-12-12T18:57:47Z&sig=pAs7qEBdI6sjUhqX1nrhNAKsTY%"
+        "2B1SqLxPK%"
+        "2BbAxLiopw%3D&sp=racwdxylti&spr=https,http&sr=c&sv=2024-08-04";
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri(
+            "abfs://account@127.0.0.1:10000/container/dir/blob" + uri_query_string,
+            nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kSASToken);
+    ASSERT_EQ(options.sas_token_, uri_query_string);
+    ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.blob_storage_scheme, "http");
+    ASSERT_EQ(options.dfs_storage_scheme, "http");
   }
 
   void TestFromUriCredentialInvalid() {
@@ -767,9 +818,6 @@ TEST_F(TestAzureOptions, FromUriDisableBackgroundWrites) {
 }
 TEST_F(TestAzureOptions, FromUriCredentialDefault) { TestFromUriCredentialDefault(); }
 TEST_F(TestAzureOptions, FromUriCredentialAnonymous) { TestFromUriCredentialAnonymous(); }
-TEST_F(TestAzureOptions, FromUriCredentialStorageSharedKey) {
-  TestFromUriCredentialStorageSharedKey();
-}
 TEST_F(TestAzureOptions, FromUriCredentialClientSecret) {
   TestFromUriCredentialClientSecret();
 }
@@ -782,6 +830,10 @@ TEST_F(TestAzureOptions, FromUriCredentialWorkloadIdentity) {
 }
 TEST_F(TestAzureOptions, FromUriCredentialEnvironment) {
   TestFromUriCredentialEnvironment();
+}
+TEST_F(TestAzureOptions, FromUriCredentialSASToken) { TestFromUriCredentialSASToken(); }
+TEST_F(TestAzureOptions, FromUriCredentialSASTokenWithOtherParameters) {
+  TestFromUriCredentialSASTokenWithOtherParameters();
 }
 TEST_F(TestAzureOptions, FromUriCredentialInvalid) { TestFromUriCredentialInvalid(); }
 TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
@@ -916,6 +968,20 @@ class TestAzureFileSystem : public ::testing::Test {
         .GetBlobClient(blob_name)
         .GetProperties()
         .Value;
+  }
+
+  Result<std::string> GetContainerSASToken(
+      const std::string& container_name,
+      Azure::Storage::StorageSharedKeyCredential storage_shared_key_credential) {
+    std::string sas_token;
+    Azure::Storage::Sas::BlobSasBuilder builder;
+    std::chrono::seconds available_period(60);
+    builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
+    builder.BlobContainerName = container_name;
+    builder.Resource = Azure::Storage::Sas::BlobSasResource::BlobContainer;
+    builder.SetPermissions(Azure::Storage::Sas::BlobContainerSasPermissions::All);
+    builder.Protocol = Azure::Storage::Sas::SasProtocol::HttpsAndHttp;
+    return builder.GenerateSasToken(storage_shared_key_credential);
   }
 
   void UploadLines(const std::vector<std::string>& lines, const std::string& path,
@@ -1542,29 +1608,7 @@ class TestAzureFileSystem : public ::testing::Test {
 
   void TestOpenOutputStreamCloseAsync() {
 #if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
-    // This false positive leak is similar to the one pinpointed in the
-    // have_false_positive_memory_leak_with_generator() comments above,
-    // though the stack trace is different. It happens when a block list
-    // is committed from a background thread.
-    //
-    // clang-format off
-    // Direct leak of 968 byte(s) in 1 object(s) allocated from:
-    //   #0 calloc
-    //   #1 (/lib/x86_64-linux-gnu/libxml2.so.2+0xe25a4)
-    //   #2 __xmlDefaultBufferSize
-    //   #3 xmlBufferCreate
-    //   #4 Azure::Storage::_internal::XmlWriter::XmlWriter()
-    //   #5 Azure::Storage::Blobs::_detail::BlockBlobClient::CommitBlockList
-    //   #6 Azure::Storage::Blobs::BlockBlobClient::CommitBlockList
-    //   #7 arrow::fs::(anonymous namespace)::CommitBlockList
-    //   #8 arrow::fs::(anonymous namespace)::ObjectAppendStream::FlushAsync()::'lambda'
-    // clang-format on
-    //
-    // TODO perhaps remove this skip once we can rely on
-    // https://github.com/Azure/azure-sdk-for-cpp/pull/5767
-    //
-    // Also note that ClickHouse has a workaround for a similar issue:
-    // https://github.com/ClickHouse/ClickHouse/pull/45796
+    // See comment about have_false_positive_memory_leak_with_generator above.
     if (options_.background_writes) {
       GTEST_SKIP() << "False positive memory leak in libxml2 with CloseAsync";
     }
@@ -1621,6 +1665,31 @@ class TestAzureFileSystem : public ::testing::Test {
     stream.reset();
 
     AssertObjectContents(fs.get(), path, payload);
+  }
+
+  void TestSASCredential() {
+    auto data = SetUpPreexistingData();
+
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env));
+    ASSERT_OK_AND_ASSIGN(
+        auto sas_token,
+        GetContainerSASToken(data.container_name,
+                             Azure::Storage::StorageSharedKeyCredential(
+                                 env->account_name(), env->account_key())));
+    // AzureOptions::FromUri will not cut off extra query parameters that it consumes, so
+    // make sure these don't cause problems.
+    ARROW_EXPECT_OK(options.ConfigureSASCredential(
+        "?blob_storage_authority=dummy_value0&" + sas_token.substr(1) +
+        "&credential_kind=dummy-value1"));
+    EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+
+    AssertFileInfo(fs.get(), data.ObjectPath(), FileType::File);
+
+    // Test CopyFile because the most obvious implementation requires generating a SAS
+    // token at runtime which doesn't work when the original auth is SAS token.
+    ASSERT_OK(fs->CopyFile(data.ObjectPath(), data.ObjectPath() + "_copy"));
+    AssertFileInfo(fs.get(), data.ObjectPath() + "_copy", FileType::File);
   }
 
  private:
@@ -2079,6 +2148,20 @@ void TestAzureFileSystem::TestGetFileInfoObjectWithNestedStructure() {
   ASSERT_OK(output->Write(lorem_ipsum));
   ASSERT_OK(output->Close());
 
+  // . is immediately before "/" lexicographically, ensure that this doesn't
+  // cause unexpected issues. NOTE: Its seems real Azure blob storage doesn't
+  // allow blob names to end in `.`
+  ASSERT_OK_AND_ASSIGN(output, fs()->OpenOutputStream(
+                                   data.ContainerPath("test-object-dir/some_other_dir.a"),
+                                   /*metadata=*/{}));
+  ASSERT_OK(output->Write(lorem_ipsum));
+  ASSERT_OK(output->Close());
+  ASSERT_OK_AND_ASSIGN(output,
+                       fs()->OpenOutputStream(data.ContainerPath(kObjectName + ".a"),
+                                              /*metadata=*/{}));
+  ASSERT_OK(output->Write(lorem_ipsum));
+  ASSERT_OK(output->Close());
+
   AssertFileInfo(fs(), data.ContainerPath(kObjectName), FileType::File);
   AssertFileInfo(fs(), data.ContainerPath(kObjectName) + "/", FileType::NotFound);
   AssertFileInfo(fs(), data.ContainerPath("test-object-dir"), FileType::Directory);
@@ -2320,7 +2403,29 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateContainerFromPath) {
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, MovePath) { this->TestMovePath(); }
 
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, SASCredential) {
+  this->TestSASCredential();
+}
+
 // Tests using Azurite (the local Azure emulator)
+
+TEST_F(TestAzuriteFileSystem, CheckIfHierarchicalNamespaceIsEnabledRuntimeError) {
+  ASSERT_OK(options_.ConfigureAccountKeyCredential("not-base64"));
+  ASSERT_OK_AND_ASSIGN(auto datalake_service_client,
+                       options_.MakeDataLakeServiceClient());
+  auto adlfs_client = datalake_service_client->GetFileSystemClient("nonexistent");
+  ASSERT_RAISES(UnknownError,
+                internal::CheckIfHierarchicalNamespaceIsEnabled(adlfs_client, options_));
+}
+
+TEST_F(TestAzuriteFileSystem, CheckIfHierarchicalNamespaceIsEnabledTransportError) {
+  options_.dfs_storage_authority = "127.0.0.1:20000";  // Wrong port
+  ASSERT_OK_AND_ASSIGN(auto datalake_service_client,
+                       options_.MakeDataLakeServiceClient());
+  auto adlfs_client = datalake_service_client->GetFileSystemClient("nonexistent");
+  ASSERT_RAISES(IOError,
+                internal::CheckIfHierarchicalNamespaceIsEnabled(adlfs_client, options_));
+}
 
 TEST_F(TestAzuriteFileSystem, GetFileInfoSelector) {
   SetUpSmallFileSystemTree();
@@ -2601,6 +2706,17 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsFailureNonexistent) {
 TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationNonexistent) {
   auto data = SetUpPreexistingData();
   const auto destination_path = data.ContainerPath("copy-destionation");
+  ASSERT_OK(fs()->CopyFile(data.ObjectPath(), destination_path));
+  ASSERT_OK_AND_ASSIGN(auto info, fs()->GetFileInfo(destination_path));
+  ASSERT_OK_AND_ASSIGN(auto stream, fs()->OpenInputStream(info));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
+  EXPECT_EQ(PreexistingData::kLoremIpsum, buffer->ToString());
+}
+
+TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationDifferentContainer) {
+  auto data = SetUpPreexistingData();
+  auto data2 = SetUpPreexistingData();
+  const auto destination_path = data2.ContainerPath("copy-destionation");
   ASSERT_OK(fs()->CopyFile(data.ObjectPath(), destination_path));
   ASSERT_OK_AND_ASSIGN(auto info, fs()->GetFileInfo(destination_path));
   ASSERT_OK_AND_ASSIGN(auto stream, fs()->OpenInputStream(info));

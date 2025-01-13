@@ -651,6 +651,32 @@ def test_string_binary_from_buffers():
     assert copied.null_count == 0
 
 
+def test_string_view_from_buffers():
+    array = pa.array(
+        [
+            "String longer than 12 characters",
+            None,
+            "short",
+            "Length is 12"
+        ], type=pa.string_view())
+
+    buffers = array.buffers()
+    copied = pa.StringViewArray.from_buffers(
+        pa.string_view(), len(array), buffers)
+    copied.validate(full=True)
+    assert copied.to_pylist() == [
+        "String longer than 12 characters",
+        None,
+        "short",
+        "Length is 12"
+    ]
+
+    match = r"number of buffers is at least 2"
+    with pytest.raises(ValueError, match=match):
+        pa.StringViewArray.from_buffers(
+            pa.string_view(), len(array), buffers[0:1])
+
+
 @pytest.mark.parametrize('list_type_factory', [
     pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
 def test_list_from_buffers(list_type_factory):

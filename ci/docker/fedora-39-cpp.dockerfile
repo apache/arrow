@@ -34,6 +34,7 @@ RUN dnf update -y && \
         curl-devel \
         gcc \
         gcc-c++ \
+        gdb \
         gflags-devel \
         git \
         glog-devel \
@@ -86,6 +87,7 @@ ENV ARROW_ACERO=ON \
     ARROW_GANDIVA=ON \
     ARROW_GCS=ON \
     ARROW_HOME=/usr/local \
+    ARROW_JEMALLOC=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
@@ -102,6 +104,7 @@ ENV ARROW_ACERO=ON \
     CC=gcc \
     CXX=g++ \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
+    opentelemetry_cpp_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \

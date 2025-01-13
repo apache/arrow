@@ -106,7 +106,8 @@ struct SourceNode : ExecNode, public TracedNode {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "SourceNode"));
     const auto& source_options = checked_cast<const SourceNodeOptions&>(options);
     return plan->EmplaceNode<SourceNode>(plan, source_options.output_schema,
-                                         source_options.generator);
+                                         source_options.generator,
+                                         source_options.ordering);
   }
 
   const char* kind_name() const override { return "SourceNode"; }
@@ -406,7 +407,7 @@ struct SchemaSourceNode : public SourceNode {
 struct RecordBatchReaderSourceNode : public SourceNode {
   RecordBatchReaderSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
                               arrow::AsyncGenerator<std::optional<ExecBatch>> generator)
-      : SourceNode(plan, schema, generator) {}
+      : SourceNode(plan, schema, generator, Ordering::Implicit()) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {

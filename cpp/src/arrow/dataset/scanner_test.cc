@@ -2332,7 +2332,7 @@ DatasetAndBatches MakeNestedDataset() {
       field("b", boolean()),
       field("c", struct_({
                      field("d", int64()),
-                     field("e", float64()),
+                     field("e", int64()),
                  })),
   });
   const auto physical_schema = ::arrow::schema({
@@ -2535,14 +2535,14 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
 TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
   TestPlan plan;
 
-  auto basic = MakeNestedDataset();
+  auto nested = MakeNestedDataset();
 
   auto options = std::make_shared<ScanOptions>();
   options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
   ASSERT_OK(acero::Declaration::Sequence(
                 {
-                    {"scan", ScanNodeOptions{basic.dataset, options}},
+                    {"scan", ScanNodeOptions{nested.dataset, options}},
                     {"augmented_project",
                      acero::ProjectNodeOptions{
                          {field_ref("a"), field_ref("b"), field_ref("c")}}},
@@ -2550,11 +2550,20 @@ TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
                 })
                 .AddToPlan(plan.get()));
 
-  // TODO(ARROW-1888): allow scanner to "patch up" structs with casts
-  EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-      plan.Run());
+  auto expected = nested.batches;
+
+  for (auto& batch : expected) {
+    // Scan will fill in "c.d" with nulls.
+    ASSERT_OK_AND_ASSIGN(auto nulls,
+                         MakeArrayOfNull(int64()->GetSharedPtr(), batch.length));
+    auto c_data = batch.values[2].array()->Copy();
+    c_data->child_data.insert(c_data->child_data.begin(), nulls->data());
+    c_data->type = nested.dataset->schema()->field(2)->type();
+    auto c_array = std::make_shared<StructArray>(c_data);
+    batch.values[2] = c_array;
+  }
+
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 TEST(ScanNode, MinimalEndToEnd) {

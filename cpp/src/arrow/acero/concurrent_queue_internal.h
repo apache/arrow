@@ -65,16 +65,18 @@ class ConcurrentQueue {
     return queue_.empty();
   }
 
-  // Un-synchronized access to front
-  // For this to be "safe":
-  // 1) the caller logically guarantees that queue is not empty
-  // 2) pop/try_pop cannot be called concurrently with this
-  const T& UnsyncFront() const { return queue_.front(); }
-
-  size_t UnsyncSize() const { return queue_.size(); }
+  const T& Front() const {
+    // Need to lock the queue because `front()` may be implemented in terms
+    // of `begin()`, which isn't safe with concurrent calls to e.g. `push()`.
+    // (see GH-44846)
+    std::unique_lock<std::mutex> lock(mutex_);
+    return queue_.front();
+  }
 
  protected:
   std::mutex& GetMutex() { return mutex_; }
+
+  size_t SizeUnlocked() const { return queue_.size(); }
 
   T PopUnlocked() {
     auto item = queue_.front();
@@ -111,12 +113,12 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
  private:
   struct DoHandle {
     explicit DoHandle(BackpressureConcurrentQueue& queue)
-        : queue_(queue), start_size_(queue_.UnsyncSize()) {}
+        : queue_(queue), start_size_(queue_.SizeUnlocked()) {}
 
     ~DoHandle() {
       // unsynced access is safe since DoHandle is internally only used when the
       // lock is held
-      size_t end_size = queue_.UnsyncSize();
+      size_t end_size = queue_.SizeUnlocked();
       queue_.handler_.Handle(start_size_, end_size);
     }
 
