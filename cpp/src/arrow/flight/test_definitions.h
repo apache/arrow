@@ -311,7 +311,8 @@ class ARROW_FLIGHT_EXPORT AsyncClientTest : public FlightTest {
                 ARROW_STRINGIFY(FIXTURE) " must inherit from AsyncClientTest"); \
   TEST_F(FIXTURE, TestGetFlightInfo) { TestGetFlightInfo(); }                   \
   TEST_F(FIXTURE, TestGetFlightInfoFuture) { TestGetFlightInfoFuture(); }       \
-  TEST_F(FIXTURE, TestListenerLifetime) { TestListenerLifetime(); }
+  /* XXX: https://github.com/apache/arrow/issues/45120 */                       \
+  TEST_F(FIXTURE, DISABLED_TestListenerLifetime) { TestListenerLifetime(); }
 
 }  // namespace flight
 }  // namespace arrow
