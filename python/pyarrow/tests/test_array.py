@@ -22,6 +22,7 @@ import hypothesis as h
 import hypothesis.strategies as st
 import itertools
 import pytest
+import re
 import struct
 import subprocess
 import sys
@@ -4150,13 +4151,22 @@ def test_non_cpu_array():
     ctx = cuda.Context(0)
 
     data = np.arange(4, dtype=np.int32)
-    validity = np.array([True, False, True, False], dtype=np.bool_)
+    validity_data = np.array([True, False, True, False], dtype=np.bool_)
+    bool_data = np.array([True, False, True, False], dtype=np.bool_)
+
     cuda_data_buf = ctx.buffer_from_data(data)
-    cuda_validity_buf = ctx.buffer_from_data(validity)
+    cuda_validity_buf = ctx.buffer_from_data(validity_data)
+    cuda_bool_buf = ctx.buffer_from_data(bool_data)
+
     arr = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
     arr2 = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
+
     arr_with_nulls = pa.Array.from_buffers(
         pa.int32(), 4, [cuda_validity_buf, cuda_data_buf])
+    arr_bool = pa.Array.from_buffers(pa.bool_(), 4, [cuda_validity_buf, cuda_bool_buf])
+    # REE array using arr as run-ends and arr_bool as values
+    arr_ree = pa.Array.from_buffers(pa.run_end_encoded(pa.int32(), pa.bool_()), 6,
+                                    [None], 0, 0, [arr, arr_bool])
 
     # Supported
     arr.validate()
@@ -4175,20 +4185,35 @@ def test_non_cpu_array():
     with pytest.raises(NotImplementedError):
         arr.__dlpack_device__()
 
+    def bad_device_msg(func_name, arg_index=0):
+        if arg_index == 0:
+            ordinal = "1st"
+        elif arg_index == 1:
+            ordinal = "2nd"
+        elif arg_index == 2:
+            ordinal = "3rd"
+        else:
+            ordinal = (arg_index + 1) + "th"
+        pattern = f"'(array_)?{func_name}(_.+)?'"
+        pattern += re.escape(f" expects {ordinal} argument's device allocation "
+                             f"types(s) to be in {'{CPU}'} but got {'{CUDA}'}.")
+        return pattern
+
     # Not Supported
     with pytest.raises(NotImplementedError):
         arr.diff(arr2)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("cast")):
         arr.cast(pa.int64())
     with pytest.raises(NotImplementedError):
         arr.view(pa.int64())
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("sum")):
         arr.sum()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("unique")):
         arr.unique()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError,
+                       match=bad_device_msg("dictionary_encode")):
         arr.dictionary_encode()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("value_counts")):
         arr.value_counts()
     with pytest.raises(NotImplementedError):
         arr_with_nulls.null_count
@@ -4200,25 +4225,36 @@ def test_non_cpu_array():
         [i for i in iter(arr)]
     with pytest.raises(NotImplementedError):
         arr == arr2
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("is_null", 0)):
         arr.is_null()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("is_nan", 0)):
         arr.is_nan()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("is_valid", 0)):
         arr.is_valid()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("coalesce", 0)):
         arr.fill_null(0)
     with pytest.raises(NotImplementedError):
         arr[0]
     with pytest.raises(NotImplementedError):
+        arr[1:2]
+    with pytest.raises(NotImplementedError, match=bad_device_msg("take", 0)):
         arr.take([0])
-    with pytest.raises(NotImplementedError):
-        arr.drop_null()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("take", 1)):
+        pa.array([0, 1]).take(arr)
+    with pytest.raises(NotImplementedError, match=bad_device_msg("filter", 0)):
+        arr_with_nulls.drop_null()
+    # TODO(GH-11399): drop_null currently does nothing on union and REE arrays.
+    # This invocation here guarantees that once that issue is fixed, this test
+    # will crash unless the code is careful to not access CUDA memory from CPU.
+    arr_ree.drop_null()
+    with pytest.raises(NotImplementedError, match=bad_device_msg("filter", 0)):
         arr.filter([True, True, False, False])
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("filter", 1)):
+        pa.array([0, 1]).filter(arr_bool)
+    with pytest.raises(NotImplementedError, match="index"):
         arr.index(0)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError,
+                       match=bad_device_msg("sort_indices", 0)):
         arr.sort()
     with pytest.raises(NotImplementedError):
         arr.__array__()
