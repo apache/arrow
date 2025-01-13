@@ -359,10 +359,17 @@ class FileSerializer : public ParquetFileWriter::Contents {
     if (row_group_writer_) {
       row_group_writer_->Close();
     }
-    if (num_row_groups_ >= std::numeric_limits<int16_t>::max()) {
+    int16_t row_group_ordinal = 0;
+    if (num_row_groups_ < std::numeric_limits<int16_t>::max()) {
+      row_group_ordinal = static_cast<int16_t>(num_row_groups_);
+    } else if (file_encryptor_ == nullptr) {
+      // Unencrypted parquet can have more than 32767 row groups.
+      row_group_ordinal = -1;
+    } else {
       // Parquet thrifts using int16 for row group ordinal, so we can't have more than
       // 32767 row groups in a file.
-      throw ParquetException("Too many row groups in the file when writing row group");
+      throw ParquetException(
+          "Too many row groups in the file when writing row group with encryption.");
     }
     num_row_groups_++;
     auto rg_metadata = metadata_->AppendRowGroup();
@@ -370,8 +377,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
       page_index_builder_->AppendRowGroup();
     }
     std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
-        sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
-        buffered_row_group, file_encryptor_.get(), page_index_builder_.get()));
+        sink_, rg_metadata, row_group_ordinal, properties_.get(), buffered_row_group,
+        file_encryptor_.get(), page_index_builder_.get()));
     row_group_writer_ = std::make_unique<RowGroupWriter>(std::move(contents));
     return row_group_writer_.get();
   }
