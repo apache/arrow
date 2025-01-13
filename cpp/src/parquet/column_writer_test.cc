@@ -1765,7 +1765,7 @@ TestBloomFilterWriter<TestType>::BuildWriterWithBloomFilter(
       this->sink_, column_properties.compression(), this->metadata_.get());
   builder_ =
       internal::BloomFilterBuilder::Make(&this->schema_, this->writer_properties_.get());
-  // Initial RowGroup
+  // Initialize RowGroup
   builder_->AppendRowGroup();
   bloom_filter_ = builder_->GetOrCreateBloomFilter(0);
   std::shared_ptr<ColumnWriter> writer =
@@ -1791,7 +1791,7 @@ TYPED_TEST(TestBloomFilterWriter, Basic) {
   writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
   writer->Close();
 
-  // Read all rows so we are sure that also the non-dictionary pages are read correctly
+  // Make sure that column values are read correctly
   this->SetupValuesOut(SMALL_SIZE);
   this->ReadColumnFully();
   ASSERT_EQ(SMALL_SIZE, this->values_read_);

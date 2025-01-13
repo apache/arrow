@@ -1976,7 +1976,6 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
               auto& column = row_group_metadata.columns[column_id];
               auto& column_metadata = column.meta_data;
               column_metadata.__set_bloom_filter_offset(bloom_filter_location.offset);
-              // bloom_filter_length is added by Parquet format 2.10.0
               column_metadata.__set_bloom_filter_length(bloom_filter_location.length);
             }
           }

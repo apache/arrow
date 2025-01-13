@@ -58,7 +58,7 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   /// Make sure column ordinal is not out of bound and the builder is in good state.
   void CheckState(int32_t column_ordinal) const {
     if (finished_) {
-      throw ParquetException("Cannot call WriteTo() twice on BloomFilterBuilder.");
+      throw ParquetException("BloomFilterBuilder is already finished.");
     }
     if (column_ordinal < 0 || column_ordinal >= schema_->num_columns()) {
       throw ParquetException("Invalid column ordinal: ", column_ordinal);
@@ -84,8 +84,7 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
 
 void BloomFilterBuilderImpl::AppendRowGroup() {
   if (finished_) {
-    throw ParquetException(
-        "Cannot call AppendRowGroup() to BloomFilterBuilder::WriteTo is called");
+    throw ParquetException("Cannot append to a finished BloomFilterBuilder");
   }
   file_bloom_filters_.emplace_back(std::make_unique<RowGroupBloomFilters>());
 }
@@ -112,11 +111,10 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordin
         bloom_filter_options.ndv, bloom_filter_options.fpp));
     auto insert_result = row_group_bloom_filter.emplace(
         column_ordinal, std::move(block_split_bloom_filter));
-    DCHECK(insert_result.second);
     iter = insert_result.first;
   }
   if (iter->second == nullptr) {
-    throw ParquetException("Bloom filter state is invalid for column ",
+    throw ParquetException("Bloom filter should not be null for column ",
                            column_descr->path());
   }
   return iter->second.get();
@@ -125,7 +123,7 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordin
 void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
                                      BloomFilterLocation* location) {
   if (finished_) {
-    throw ParquetException("Cannot call WriteTo() multiple times.");
+    throw ParquetException("Cannot write a finished BloomFilterBuilder");
   }
   finished_ = true;
 
@@ -143,17 +141,19 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
     // serialize bloom filter in ascending order of column id
     for (auto& [column_id, filter] : row_group_bloom_filters) {
       if (ARROW_PREDICT_FALSE(filter == nullptr)) {
-        throw ParquetException("Bloom filter state is invalid for column ", column_id);
+        throw ParquetException("Bloom filter is null for column ", column_id);
       }
       if (ARROW_PREDICT_FALSE(column_id < 0 || column_id >= num_columns)) {
-        throw ParquetException("Invalid column ordinal when serailizing: ", column_id);
+        throw ParquetException("Invalid column ordinal when serializing bloom filter: ",
+                               column_id);
       }
       PARQUET_ASSIGN_OR_THROW(int64_t offset, sink->Tell());
+      // TODO(GH-43138): Estimate the quality of the bloom filter before writing it.
       filter->WriteTo(sink);
       PARQUET_ASSIGN_OR_THROW(int64_t pos, sink->Tell());
       if (pos - offset > std::numeric_limits<int32_t>::max()) {
         throw ParquetException("Bloom filter is too large to be serialized, size: ",
-                               pos - offset);
+                               pos - offset, " for column ", column_id);
       }
       locations[column_id] = IndexLocation{offset, static_cast<int32_t>(pos - offset)};
     }

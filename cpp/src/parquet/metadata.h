@@ -529,9 +529,6 @@ struct PageIndexLocation {
 /// \brief Public struct for location to all bloom filters in a parquet file.
 struct BloomFilterLocation {
   /// Row group bloom filter index locations which uses row group ordinal as the key.
-  ///
-  /// Note: Before Parquet 2.10, the bloom filter index only have "offset". But here
-  /// we use "IndexLocation" with length to support the future extension.
   FileBloomFilterLocation bloom_filter_location;
 };
 

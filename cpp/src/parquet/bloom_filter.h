@@ -120,10 +120,12 @@ class PARQUET_EXPORT BloomFilter {
   uint64_t Hash(const FLBA& value, uint32_t type_len) const {
     return Hash(&value, type_len);
   }
+
   /// Compute hash for Int96 value by using its plain encoding result.
   ///
   /// @param value the value to hash.
   uint64_t Hash(const Int96& value) const { return Hash(&value); }
+
   /// Compute hash for std::string_view value by using its plain encoding result.
   ///
   /// @param value the value to hash.

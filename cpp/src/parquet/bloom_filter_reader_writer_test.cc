@@ -84,7 +84,7 @@ TEST(BloomFilterReader, FileNotHaveBloomFilter) {
 }
 
 // <c1:BYTE_ARRAY, c2:BYTE_ARRAY>, c1 has bloom filter.
-TEST(BloomFilterBuilderTest, BasicRoundTrip) {
+TEST(BloomFilterBuilder, BasicRoundTrip) {
   SchemaDescriptor schema;
   schema::NodePtr root = schema::GroupNode::Make(
       "schema", Repetition::REPEATED, {schema::ByteArray("c1"), schema::ByteArray("c2")});
@@ -152,7 +152,7 @@ TEST(BloomFilterBuilderTest, BasicRoundTrip) {
   }
 }
 
-TEST(BloomFilterBuilderTest, InvalidOperations) {
+TEST(BloomFilterBuilder, InvalidOperations) {
   SchemaDescriptor schema;
   schema::NodePtr root = schema::GroupNode::Make(
       "schema", Repetition::REPEATED, {schema::ByteArray("c1"), schema::Boolean("c2")});
@@ -196,7 +196,7 @@ TEST(BloomFilterBuilderTest, InvalidOperations) {
                           ::testing::HasSubstr("Cannot call WriteTo() multiple times")));
 }
 
-TEST(BloomFilterBuilderTest, GetOrCreate) {
+TEST(BloomFilterBuilder, GetOrCreate) {
   SchemaDescriptor schema;
   schema::NodePtr root = schema::GroupNode::Make(
       "schema", Repetition::REPEATED, {schema::ByteArray("c1"), schema::Boolean("c2")});

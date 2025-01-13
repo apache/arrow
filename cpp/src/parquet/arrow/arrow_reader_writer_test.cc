@@ -5543,7 +5543,7 @@ auto encode_double = [](double value) {
 
 }  // namespace
 
-class ParquetIndexRoundTripTest {
+class TestingWithPageIndex {
  public:
   void WriteFile(const std::shared_ptr<WriterProperties>& writer_properties,
                  const std::shared_ptr<::arrow::Table>& table) {
@@ -5572,7 +5572,7 @@ class ParquetIndexRoundTripTest {
 };
 
 class ParquetPageIndexRoundTripTest : public ::testing::Test,
-                                      public ParquetIndexRoundTripTest {
+                                      public TestingWithPageIndex {
  public:
   void ReadPageIndexes(int expect_num_row_groups, int expect_num_pages,
                        const std::set<int>& expect_columns_without_index = {}) {
@@ -5878,7 +5878,7 @@ TEST_F(ParquetPageIndexRoundTripTest, EnablePerColumn) {
 }
 
 class ParquetBloomFilterRoundTripTest : public ::testing::Test,
-                                        public ParquetIndexRoundTripTest {
+                                        public TestingWithPageIndex {
  public:
   void ReadBloomFilters(int expect_num_row_groups,
                         const std::set<int>& expect_columns_without_filter = {}) {
