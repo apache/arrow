@@ -357,7 +357,8 @@ struct CastStruct {
         fields_to_select[out_field_index] = kFillNullSentinel;
       } else {
         return Status::TypeError("struct fields don't match: non-nullable out field `",
-                                 out_field->name(), "` not found in in fields ", in_type.ToString());
+                                 out_field->name(), "` not found in in fields ",
+                                 in_type.ToString());
       }
     }
 
