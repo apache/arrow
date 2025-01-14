@@ -100,7 +100,7 @@ describe(`BN`, () => {
     });
 
     test(`bigNumToNumber`, () => {
-        const n1 = BN.decimal(new Uint32Array([3, 2, 1, 0]));
+        const n1 = new BN(new Uint32Array([3, 2, 1, 0]));
         expect(() => bigNumToNumber(n1)).toThrow('18446744082299486211');
         /* eslint-disable @typescript-eslint/no-loss-of-precision */
         expect(bigNumToNumber(n1, 10)).toBeCloseTo(1844674408.2299486);

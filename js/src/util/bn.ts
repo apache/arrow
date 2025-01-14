@@ -94,8 +94,8 @@ export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number)
     if (typeof scale === 'number' && scale > 0) {
         const denominator = BigInt('1' + '0'.repeat(scale));
         const quotient = number / denominator;
-        const remainder = number % denominator;
-        return negative ? bigIntToNumber(quotient) - Number('0.' + padStart((-remainder).toString(), scale)) : bigIntToNumber(quotient) + Number('0.' + padStart(remainder.toString(), scale));
+        const remainder = negative? -(number % denominator) : number % denominator;
+        return Number(`${bigIntToNumber(quotient)}.${padStart((remainder).toString(), scale)}`);
     }
     return bigIntToNumber(number);
 }
