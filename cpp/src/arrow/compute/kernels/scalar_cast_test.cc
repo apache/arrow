@@ -3832,10 +3832,9 @@ static void CheckStructToStructSubset(
           {std::make_shared<Field>("a", int8()), std::make_shared<Field>("d", int16()),
            std::make_shared<Field>("f", int64(), /*nullable=*/false)});
       const auto options7 = CastOptions::Safe(dest7);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src, options7));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                      ::testing::HasSubstr("struct fields don't match"),
+                                      Cast(src, options7));
 
       // fields in wrong order
       ASSERT_OK_AND_ASSIGN(auto dest8, StructArray::Make({a2, c2, b2}, {"a", "c", "b"}));
@@ -3851,10 +3850,9 @@ static void CheckStructToStructSubset(
            std::make_shared<Field>("d", int64()),
            std::make_shared<Field>("a", int8(), /*nullable=*/false)});
       const auto options10 = CastOptions::Safe(dest10);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src, options10));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                      ::testing::HasSubstr("struct fields don't match"),
+                                      Cast(src, options10));
 
       // duplicate present field names
       ASSERT_OK_AND_ASSIGN(
@@ -3887,8 +3885,7 @@ static void CheckStructToStructSubset(
       const auto options5_duplicate_field_names =
           CastOptions::Safe(dest5_duplicate_field_names);
       EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
+          TypeError, ::testing::HasSubstr("struct fields don't match"),
           Cast(src_duplicate_field_names, options5_duplicate_field_names));
     }
   }
@@ -3963,10 +3960,9 @@ static void CheckStructToStructSubsetWithNulls(
           {std::make_shared<Field>("a", int8()), std::make_shared<Field>("d", int16()),
            std::make_shared<Field>("f", int64(), /*nullable=*/false)});
       const auto options7_null = CastOptions::Safe(dest7_null);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src_null, options7_null));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                      ::testing::HasSubstr("struct fields don't match"),
+                                      Cast(src_null, options7_null));
 
       // fields in wrong order
       ASSERT_OK_AND_ASSIGN(auto dest8_null,
@@ -3984,10 +3980,9 @@ static void CheckStructToStructSubsetWithNulls(
            std::make_shared<Field>("d", int64()),
            std::make_shared<Field>("a", int8(), /*nullable=*/false)});
       const auto options10_null = CastOptions::Safe(dest10_null);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src_null, options10_null));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                      ::testing::HasSubstr("struct fields don't match"),
+                                      Cast(src_null, options10_null));
 
       // duplicate present field values
       ASSERT_OK_AND_ASSIGN(
@@ -4024,8 +4019,7 @@ static void CheckStructToStructSubsetWithNulls(
       const auto options5_duplicate_field_names_null =
           CastOptions::Safe(dest5_duplicate_field_names_null);
       EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
+          TypeError, ::testing::HasSubstr("struct fields don't match"),
           Cast(src_duplicate_field_names_null, options5_duplicate_field_names_null));
     }
   }
@@ -4057,9 +4051,7 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   const auto options2 = CastOptions::Safe(dest2);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-      Cast(src, options2));
+      TypeError, ::testing::HasSubstr("struct fields don't match"), Cast(src, options2));
 }
 
 TEST(Cast, StructToBiggerStruct) {
@@ -4075,9 +4067,7 @@ TEST(Cast, StructToBiggerStruct) {
   const auto options1 = CastOptions::Safe(dest1);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-      Cast(src, options1));
+      TypeError, ::testing::HasSubstr("struct fields don't match"), Cast(src, options1));
 
   const auto dest2 =
       arrow::struct_({std::make_shared<Field>("a", int8()),
@@ -4086,9 +4076,7 @@ TEST(Cast, StructToBiggerStruct) {
   const auto options2 = CastOptions::Safe(dest2);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-      Cast(src, options2));
+      TypeError, ::testing::HasSubstr("struct fields don't match"), Cast(src, options2));
 }
 
 TEST(Cast, StructToBiggerNullableStruct) {
