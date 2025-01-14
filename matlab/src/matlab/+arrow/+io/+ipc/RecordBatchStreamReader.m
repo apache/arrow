@@ -30,13 +30,15 @@ classdef RecordBatchStreamReader < matlab.mixin.Scalar
 	    function obj = fromBytes(bytes)
                 args = struct(Bytes=bytes, Type="Bytes");
                 proxyName = "arrow.io.ipc.proxy.RecordBatchStreamReader";
-                obj.Proxy = arrow.internal.proxy.create(proxyName, args);
+                proxy = arrow.internal.proxy.create(proxyName, args);
+		obj = arrow.io.ipc.RecordBatchStreamReader(proxy);
 	    end
 
 	    function obj = fromFile(filename)
                 args = struct(Filename=filename, Type="File");
                 proxyName = "arrow.io.ipc.proxy.RecordBatchStreamReader";
-                obj.Proxy = arrow.internal.proxy.create(proxyName, args);
+                proxy = arrow.internal.proxy.create(proxyName, args);
+		obj = arrow.io.ipc.RecordBatchStreamReader(proxy);
 	    end
     end
 
