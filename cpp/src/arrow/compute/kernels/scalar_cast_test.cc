@@ -4033,10 +4033,10 @@ static void CheckStructToStructSubsetWithNulls(
 
 TEST(Cast, StructToSameSizedAndNamedStruct) { CheckStructToStruct(NumericTypes()); }
 
-TEST(Cast, StructToStructSubset) { CheckStructToStructSubset({int8()}); }
+TEST(Cast, StructToStructSubset) { CheckStructToStructSubset(NumericTypes()); }
 
 TEST(Cast, StructToStructSubsetWithNulls) {
-  CheckStructToStructSubsetWithNulls({int8()});
+  CheckStructToStructSubsetWithNulls(NumericTypes());
 }
 
 TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
