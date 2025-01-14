@@ -108,6 +108,7 @@ class RowArrayAccessor {
       if (field_length == 0) {
         field_length = 1;
       }
+      // int64_t row_length = rows.metadata().fixed_length;
       uint32_t row_length = rows.metadata().fixed_length;
 
       bool is_fixed_length_row = rows.metadata().is_fixed_length;
@@ -143,6 +144,7 @@ class RowArrayAccessor {
   static void VisitNulls(const RowTableImpl& rows, int column_id, int num_rows,
                          const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
     const uint8_t* null_masks = rows.null_masks();
+    // int64_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
     uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
     uint32_t pos_after_encoding = rows.metadata().pos_after_encoding(column_id);
     for (int i = 0; i < num_rows; ++i) {
