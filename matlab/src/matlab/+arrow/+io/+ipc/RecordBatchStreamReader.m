@@ -26,14 +26,26 @@ classdef RecordBatchStreamReader < matlab.mixin.Scalar
         Schema
     end
 
+    methods (Static)
+	    function obj = fromBytes(bytes)
+                args = struct(Bytes=bytes, Type="Bytes");
+                proxyName = "arrow.io.ipc.proxy.RecordBatchStreamReader";
+                obj.Proxy = arrow.internal.proxy.create(proxyName, args);
+	    end
+
+	    function obj = fromFile(filename)
+                args = struct(Filename=filename, Type="File");
+                proxyName = "arrow.io.ipc.proxy.RecordBatchStreamReader";
+                obj.Proxy = arrow.internal.proxy.create(proxyName, args);
+	    end
+    end
+
     methods
-        function obj = RecordBatchStreamReader(filename)
+        function obj = RecordBatchStreamReader(proxy)
             arguments
-                filename(1, 1) string {mustBeNonzeroLengthText}
+                proxy(1, 1) libmexclass.proxy.Proxy
             end
-            args = struct(Filename=filename);
-            proxyName = "arrow.io.ipc.proxy.RecordBatchStreamReader";
-            obj.Proxy = arrow.internal.proxy.create(proxyName, args);
+            obj.Proxy = proxy;
         end
 
         function schema = get.Schema(obj)
