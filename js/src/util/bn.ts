@@ -92,10 +92,10 @@ export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number)
         }
     }
     if (typeof scale === 'number') {
-        const denominator = BigInt(Math.pow(10, scale));
+        const denominator = BigInt(10) ** BigInt(scale);
         const quotient = number / denominator;
         const remainder = number % denominator;
-        return bigIntToNumber(quotient) + (bigIntToNumber(remainder) / bigIntToNumber(denominator));
+        return bigIntToNumber(quotient) + Number('0.' + `${remainder}`.padStart(scale, '0'));
     }
     return bigIntToNumber(number);
 }
