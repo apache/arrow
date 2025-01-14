@@ -39,6 +39,10 @@ RecordBatchStreamReader::RecordBatchStreamReader(
 }
 
 libmexclass::proxy::MakeResult RecordBatchStreamReader::fromFile(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+	namespace mda = ::matlab::data;
+	using RecordBatchStreamReaderProxy =
+      arrow::matlab::io::ipc::proxy::RecordBatchStreamReader;
+
         const mda::StructArray opts = constructor_arguments[0];
 	const mda::StringArray filename_mda = opts[0]["Filename"];
 	const auto filename_utf16 = std::u16string(filename_mda[0]);
@@ -57,10 +61,14 @@ libmexclass::proxy::MakeResult RecordBatchStreamReader::fromFile(const libmexcla
 }
 
 libmexclass::proxy::MakeResult RecordBatchStreamReader::fromBytes(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+	namespace mda = ::matlab::data;
+	using RecordBatchStreamReaderProxy =
+		arrow::matlab::io::ipc::proxy::RecordBatchStreamReader;
+
         const mda::StructArray opts = constructor_arguments[0];
 	const ::matlab::data::TypedArray<uint8_t> bytes_mda = opts[0]["Bytes"];
-	const auto matlab_buffer = std::make_shared<matlab::arrow::MatlabBuffer>(bytes_mda);
-	auto buffer_reader = std::make_shared<arrow::io::memory::BufferReader>(matlab_buffer);
+	const auto matlab_buffer = std::make_shared<arrow::matlab::buffer::MatlabBuffer>(bytes_mda);
+	auto buffer_reader = std::make_shared<arrow::io::BufferReader>(matlab_buffer);
 	MATLAB_ASSIGN_OR_ERROR(auto reader,
 			arrow::ipc::RecordBatchStreamReader::Open(buffer_reader),
 			error::IPC_RECORD_BATCH_READER_OPEN_FAILED);
@@ -69,19 +77,16 @@ libmexclass::proxy::MakeResult RecordBatchStreamReader::fromBytes(const libmexcl
 
 libmexclass::proxy::MakeResult RecordBatchStreamReader::make(
     const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-  namespace mda = ::matlab::data;
-  using RecordBatchStreamReaderProxy =
-      arrow::matlab::io::ipc::proxy::RecordBatchStreamReader;
-
+	namespace mda = ::matlab::data;
   const mda::StructArray opts = constructor_arguments[0];
 
   // Dispatch to the appropriate static "make" method depending
   // on the input type.
   const mda::StringArray type_mda = opts[0]["Type"];
   const auto type_utf16 = std::u16string(type_mda[0]);
-  if (type_utf16.equals(u"Bytes")) {
+  if (type_utf16 == u"Bytes") {
 	  return RecordBatchStreamReader::fromBytes(constructor_arguments);
-  } else if (type_utf16.equals(u"Filename")) {
+  } else if (type_utf16 == u"Filename") {
 	  return RecordBatchStreamReader::fromFile(constructor_arguments);
   } else {
 	  // TODO: Create static error id string
