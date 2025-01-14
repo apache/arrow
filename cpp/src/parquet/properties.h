@@ -164,7 +164,9 @@ static constexpr int64_t DEFAULT_MAX_STATISTICS_SIZE = 4096;
 static constexpr Encoding::type DEFAULT_ENCODING = Encoding::UNKNOWN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
-static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = false;
+static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = true;
+static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
+    SizeStatisticsLevel::PageAndColumnChunk;
 
 class PARQUET_EXPORT ColumnProperties {
  public:
@@ -258,7 +260,7 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(DEFAULT_CREATED_BY),
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false),
-          size_statistics_level_(SizeStatisticsLevel::None) {}
+          size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL) {}
 
     explicit Builder(const WriterProperties& properties)
         : pool_(properties.memory_pool()),
