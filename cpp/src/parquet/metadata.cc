@@ -239,7 +239,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
               ccmd.ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
           const std::string& key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
 
-          const std::string& aad_column_metadata = encryption::CreateModuleAad(
+          std::string aad_column_metadata = encryption::CreateModuleAad(
               file_decryptor->file_aad(), encryption::kColumnMetaData, row_group_ordinal,
               column_ordinal, /*page_ordinal=*/static_cast<int16_t>(-1));
           auto decryptor = file_decryptor->GetColumnMetaDecryptor(
