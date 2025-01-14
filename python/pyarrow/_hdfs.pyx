@@ -17,8 +17,6 @@
 
 # cython: language_level = 3
 
-from cython cimport binding
-
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *
@@ -137,7 +135,6 @@ replication=1)``
         return self
 
     @staticmethod
-    @binding(True)  # Required for cython < 3
     def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.

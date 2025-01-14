@@ -16,7 +16,6 @@
 # under the License.
 
 import collections
-from cython cimport binding
 from uuid import UUID
 
 
@@ -895,7 +894,6 @@ cdef class DictionaryScalar(Scalar):
     """
 
     @staticmethod
-    @binding(True)  # Required for cython < 3
     def _reconstruct(type, is_valid, index, dictionary):
         cdef:
             CDictionaryScalarIndexAndDictionary value

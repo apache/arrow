@@ -17,8 +17,6 @@
 
 # cython: language_level = 3
 
-from cython cimport binding
-
 
 from pyarrow.lib import frombytes, tobytes
 from pyarrow.includes.libarrow_fs cimport *
@@ -115,7 +113,6 @@ cdef class AzureFileSystem(FileSystem):
         self.azurefs = <CAzureFileSystem*> wrapped.get()
 
     @staticmethod
-    @binding(True)  # Required for cython < 3
     def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.

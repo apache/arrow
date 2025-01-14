@@ -19,7 +19,6 @@
 
 """Dataset support for Parquet file format."""
 
-from cython cimport binding
 from cython.operator cimport dereference as deref
 
 import os
