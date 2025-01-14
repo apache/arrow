@@ -17,15 +17,10 @@
 
 #pragma once
 
-#include <cinttypes>
-#include <functional>
 #include <memory>
-#include <optional>
 #include <set>
 #include <string>
 #include <vector>
-
-#include <llvm/Analysis/TargetTransformInfo.h>
 
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -35,34 +30,23 @@
 #include "gandiva/llvm_types.h"
 #include "gandiva/visibility.h"
 
-namespace llvm::orc {
-class LLJIT;
-}  // namespace llvm::orc
-
 namespace gandiva {
 
 /// \brief LLVM Execution engine wrapper.
 class GANDIVA_EXPORT Engine {
  public:
-  ~Engine();
   llvm::LLVMContext* context() { return context_.get(); }
   llvm::IRBuilder<>* ir_builder() { return ir_builder_.get(); }
   LLVMTypes* types() { return &types_; }
-
-  /// Retrieve LLVM module in the engine.
-  /// This should only be called before `FinalizeModule` is called
-  llvm::Module* module();
+  llvm::Module* module() { return module_; }
 
   /// Factory method to create and initialize the engine object.
   ///
   /// \param[in] config the engine configuration
   /// \param[in] cached flag to mark if the module is already compiled and cached
-  /// \param[in] object_cache an optional object_cache used for building the module
-  /// \return arrow::Result containing the created engine
-  static Result<std::unique_ptr<Engine>> Make(
-      const std::shared_ptr<Configuration>& config, bool cached,
-      std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache =
-          std::nullopt);
+  /// \param[out] engine the created engine
+  static Status Make(const std::shared_ptr<Configuration>& config, bool cached,
+                     std::unique_ptr<Engine>* engine);
 
   /// Add the function to the list of IR functions that need to be compiled.
   /// Compiling only the functions that are used by the module saves time.
@@ -75,30 +59,35 @@ class GANDIVA_EXPORT Engine {
   Status FinalizeModule();
 
   /// Set LLVM ObjectCache.
-  Status SetLLVMObjectCache(GandivaObjectCache& object_cache);
+  void SetLLVMObjectCache(GandivaObjectCache& object_cache) {
+    execution_engine_->setObjectCache(&object_cache);
+  }
 
   /// Get the compiled function corresponding to the irfunction.
-  Result<void*> CompiledFunction(const std::string& function);
+  void* CompiledFunction(std::string& function);
 
   // Create and add a mapping for the cpp function to make it accessible from LLVM.
   void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                const std::vector<llvm::Type*>& args, void* func);
 
   /// Return the generated IR for the module.
-  const std::string& ir();
+  std::string DumpIR();
 
   /// Load the function IRs that can be accessed in the module.
   Status LoadFunctionIRs();
 
  private:
   Engine(const std::shared_ptr<Configuration>& conf,
-         std::unique_ptr<llvm::orc::LLJIT> lljit,
-         std::unique_ptr<llvm::TargetMachine> target_machine, bool cached);
+         std::unique_ptr<llvm::LLVMContext> ctx,
+         std::unique_ptr<llvm::ExecutionEngine> engine, llvm::Module* module,
+         bool cached);
 
   // Post construction init. This _must_ be called after the constructor.
   Status Init();
 
   static void InitOnce();
+
+  llvm::ExecutionEngine& execution_engine() { return *execution_engine_; }
 
   /// load pre-compiled IR modules from precompiled_bitcode.cc and merge them into
   /// the main module.
@@ -114,9 +103,9 @@ class GANDIVA_EXPORT Engine {
   Status RemoveUnusedFunctions();
 
   std::unique_ptr<llvm::LLVMContext> context_;
-  std::unique_ptr<llvm::orc::LLJIT> lljit_;
+  std::unique_ptr<llvm::ExecutionEngine> execution_engine_;
   std::unique_ptr<llvm::IRBuilder<>> ir_builder_;
-  std::unique_ptr<llvm::Module> module_;
+  llvm::Module* module_;
   LLVMTypes types_;
 
   std::vector<std::string> functions_to_compile_;
@@ -126,9 +115,6 @@ class GANDIVA_EXPORT Engine {
   bool cached_;
   bool functions_loaded_ = false;
   std::shared_ptr<FunctionRegistry> function_registry_;
-  std::string module_ir_;
-  std::unique_ptr<llvm::TargetMachine> target_machine_;
-  const std::shared_ptr<Configuration> conf_;
 };
 
 }  // namespace gandiva
