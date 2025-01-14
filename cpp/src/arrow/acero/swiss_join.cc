@@ -439,11 +439,11 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     num_rows = 0;
     num_bytes = 0;
     for (size_t i = 0; i < sources.size(); ++i) {
-      target->rows_.mutable_offsets()[num_rows] = static_cast<uint32_t>(num_bytes);
+      target->rows_.mutable_offsets()[num_rows] = num_bytes;
       num_rows += sources[i]->rows_.length();
       num_bytes += sources[i]->rows_.offsets()[sources[i]->rows_.length()];
     }
-    target->rows_.mutable_offsets()[num_rows] = static_cast<uint32_t>(num_bytes);
+    target->rows_.mutable_offsets()[num_rows] = num_bytes;
   }
 
   return Status::OK();
