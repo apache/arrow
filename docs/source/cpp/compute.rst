@@ -1316,7 +1316,7 @@ depending on a condition.
   input. If the nulls present on the first input, they will be promoted to the
   output, otherwise nulls will be chosen based on the first input values.
 
-  Also see: :ref:`replace_with_mask <cpp-compute-vector-structural-transforms>`.
+  Also see: :ref:`replace_with_mask <cpp-compute-vector-replace-functions>`.
 
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
@@ -1881,6 +1881,8 @@ Structural transforms
     at an index *n* if and only if the child array ``a`` is valid at
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
+
+.. _cpp-compute-vector-replace-functions:
 
 Replace functions
 ~~~~~~~~~~~~~~~~~
