@@ -3370,8 +3370,10 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBVarLength)) {
   constexpr int value_no_match_length_min = 128;
   constexpr int value_no_match_length_max = 129;
   constexpr int value_match_length = 130;
+  // The value "DDD..." will be hashed to the partition over 4GB of the hash table.
+  // Matching at this area gives us more coverage.
   const auto value_match =
-      std::make_shared<StringScalar>(std::string(value_match_length, 'X'));
+      std::make_shared<StringScalar>(std::string(value_match_length, 'D'));
   constexpr int16_t num_rows_per_batch_left = 128;
   constexpr int16_t num_rows_per_batch_right = 4096;
   const int64_t num_batches_left = 8;
