@@ -1774,5 +1774,29 @@ TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
   ASSERT_EQ("bar", value);
 }
 
+TEST_F(TestValuesWriterInt32Type, AllNullsInPageV2) {
+#ifndef ARROW_WITH_SNAPPY
+  GTEST_SKIP() << "Test requires snappy compression";
+#endif
+  // Optional and non-repeated, with definition levels
+  // but no repetition levels
+  this->SetUpSchema(Repetition::OPTIONAL);
+  this->GenerateData(SMALL_SIZE);
+  std::fill(this->def_levels_.begin(), this->def_levels_.end(), 0);
+  ColumnProperties column_properties;
+  column_properties.set_compression(Compression::SNAPPY);
+
+  auto writer =
+      this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                        ParquetDataPageVersion::V2);
+  writer->WriteBatch(this->values_.size(), this->def_levels_.data(), nullptr,
+                     this->values_ptr_);
+  writer->Close();
+
+  ASSERT_EQ(100, this->metadata_num_values());
+  this->ReadColumn(Compression::SNAPPY);
+  ASSERT_EQ(0, this->values_read_);
+}
+
 }  // namespace test
 }  // namespace parquet
