@@ -17,6 +17,7 @@
 
 // Implementation of casting to (or between) list types
 
+#include <iostream>
 #include <limits>
 #include <map>
 #include <utility>
@@ -352,7 +353,12 @@ struct CastStruct {
     for (int out_field_index = 0; out_field_index < out_field_count; ++out_field_index) {
       const auto& out_field = out_type.field(out_field_index);
       auto maybe_in_field_indexes = in_fields.equal_range(out_field->name());
-      if (maybe_in_field_indexes.first != in_fields.end()) {
+      // for (const auto& field : in_fields) {
+      //   std::cout << "Field name: " << field.first << ", Field index: " << field.second
+      //             << std::endl;
+      // }
+      // std::cout << std::endl;
+      if (maybe_in_field_indexes.first != maybe_in_field_indexes.second) {
         // There is at least one in_field with matching name.
         const auto& in_field_index = maybe_in_field_indexes.first->second;
         const auto& in_field = in_type.field(maybe_in_field_indexes.first->second);
@@ -361,12 +367,13 @@ struct CastStruct {
                                    in_type.ToString(), " ", out_type.ToString());
         }
 
-        if (maybe_in_field_indexes.first != --maybe_in_field_indexes.second) {
-          // There is more than one `in_field` with matching name. Remove the one we are
-          // using to maintain column order in the case that the output struct also has
-          // duplicate field names.
-          in_fields.erase(maybe_in_field_indexes.first);
-        }
+        in_fields.erase(maybe_in_field_indexes.first);
+        // if (maybe_in_field_indexes.first != --maybe_in_field_indexes.second) {
+        //   // There is more than one `in_field` with matching name. Remove the one we
+        //   are
+        //   // using to maintain column order in the case that the output struct also has
+        //   // duplicate field names.
+        // }
         fields_to_select[out_field_index] = in_field_index;
       } else if (out_field->nullable()) {
         fields_to_select[out_field_index] = kFillNullSentinel;
