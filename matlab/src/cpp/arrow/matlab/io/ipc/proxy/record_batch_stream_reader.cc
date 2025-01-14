@@ -86,11 +86,10 @@ libmexclass::proxy::MakeResult RecordBatchStreamReader::make(
   const auto type_utf16 = std::u16string(type_mda[0]);
   if (type_utf16 == u"Bytes") {
 	  return RecordBatchStreamReader::fromBytes(constructor_arguments);
-  } else if (type_utf16 == u"Filename") {
+  } else if (type_utf16 == u"File") {
 	  return RecordBatchStreamReader::fromFile(constructor_arguments);
   } else {
-	  // TODO: Create static error id string
-	  return libmexclass::error::Error{"arrow:some:test:id", "Invalid construction type for RecordBatchStreamReader."};
+	  return libmexclass::error::Error{"arrow:io:ipc:InvalidConstructionType", "Invalid construction type for RecordBatchStreamReader."};
   }
 }
 
