@@ -85,7 +85,6 @@ class ParquetFormatHelper {
   static Status WriteRecordBatch(const RecordBatch& batch,
                                  parquet::arrow::FileWriter* writer) {
     auto schema = batch.schema();
-    auto size = batch.num_rows();
 
     if (!schema->Equals(*writer->schema(), false)) {
       return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
@@ -93,7 +92,7 @@ class ParquetFormatHelper {
                              "'");
     }
 
-    RETURN_NOT_OK(writer->NewRowGroup(size));
+    RETURN_NOT_OK(writer->NewRowGroup());
     for (int i = 0; i < batch.num_columns(); i++) {
       RETURN_NOT_OK(writer->WriteColumnChunk(*batch.column(i)));
     }
