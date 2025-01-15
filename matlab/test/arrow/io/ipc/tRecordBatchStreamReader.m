@@ -30,9 +30,9 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
     end
 
     methods (Static)
-        % Read the given file into memory as an array of bytes (uint8)
-        % and then construct a RecordBatchStreamReader from the bytes.
-        function reader = FromBytes(filename)
+
+        % Read the given file into memory as an array of bytes (uint8).
+        function bytes = readBytes(filename)
             if ismissing(filename)
                 % Simulate the behavior of fromFile when a filename
                 % that is a missing string value is supplied.
@@ -47,8 +47,15 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
                 error(message("MATLAB:validators:mustBeNonzeroLengthText", ""))
             end
             fclose(fid);
+        end
+
+        % Read the given file into memory as bytes and then construct a
+        % RecordBatchStreamReader from the bytes.
+        function reader = FromBytes(filename)
+            bytes = tRecordBatchStreamReader.readBytes(filename);
             reader = arrow.io.ipc.RecordBatchStreamReader.fromBytes(bytes);
         end
+
     end
 
     methods(TestClassSetup)
