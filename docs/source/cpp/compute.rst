@@ -1731,19 +1731,23 @@ Selections
 
 These functions select and return a subset of their input.
 
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| Function name | Arity  | Input type 1 | Input type 2 | Output type  | Options class           | Notes     |
-+===============+========+==============+==============+==============+=========================+===========+
-| array_filter  | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| drop_null     | Unary  | Any          |              | Input type 1 |                         | \(1)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| Function name       | Arity  | Input type 1   | Input type 2 | Output type         | Options class                       | Notes |
++=====================+========+================+==============+=====================+=====================================+=======+
+| array_filter        | Binary | Any            | Boolean      | Input type 1        | :struct:`FilterOptions`             | \(2)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| array_take          | Binary | Any            | Integer      | Input type 1        | :struct:`TakeOptions`               | \(3)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| drop_null           | Unary  | Any            |              | Input type 1        |                                     | \(1)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| filter              | Binary | Any            | Boolean      | Input type 1        | :struct:`FilterOptions`             | \(2)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| inverse_permutation | Unary  | Signed Integer |              | Signed Integer \(4) | :struct:`InversePermutationOptions` | \(5)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| scatter             | Binary | Any            | Integer      | Input type 1        | :struct:`ScatterOptions`            | \(6)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| take                | Binary | Any            | Integer      | Input type 1        | :struct:`TakeOptions`               | \(3)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
 
 * \(1) Each element in the input is appended to the output iff it is non-null.
   If the input is a record batch or table, any null value in a column drops
@@ -1755,6 +1759,18 @@ These functions select and return a subset of their input.
 
 * \(3) For each element *i* in input 2 (the indices), the *i*'th element
   in input 1 (the values) is appended to the output.
+
+* \(4) The output type is specified in :struct:`InversePermutationOptions`.
+
+* \(5) For *indices[i] = x*, *inverse_permutation[x] = i*. And *inverse_permutation[x]
+  = null* if *x* does not appear in the input indices. Indices must be in the range
+  of *[0, max_index]*, or null, which will be ignored. If multiple indices point to the
+  same value, the last one is used.
+
+* \(6) For *indices[i] = x*, *output[x] = values[i]*. And *output[x] = null*
+  if *x* does not appear in the input indices. Indices must be in the range
+  of *[0, max_index]*, or null, in which case the corresponding value will be
+  ignored. If multiple indices point to the same value, the last one is used.
 
 Containment tests
 ~~~~~~~~~~~~~~~~~
@@ -1931,28 +1947,3 @@ operation to the n-th and (n+abs(p))-th inputs.
   ``Subtract``. The period can be specified in :struct:`PairwiseOptions`.
 * \(2) Wraps around the result when overflow is detected.
 * \(3) Returns an ``Invalid`` :class:`Status` when overflow is detected.
-
-Swizzle functions
-~~~~~~~~~~~~~~~~~~~
-
-Swizzle functions reorder the input array based on the specified indices.
-
-+---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
-| Function name       | Arity  | Input type 1   | Input type 2 | Output type         | Options class                       | Notes |
-+=====================+========+================+==============+=====================+=====================================+=======+
-| inverse_permutation | Unary  | Signed Integer |              | Signed Integer \(1) | :struct:`InversePermutationOptions` | \(2)  |
-+---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
-| scatter             | Binary | Any            | Integer      | Input type 1        | :struct:`ScatterOptions`            | \(3)  |
-+---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
-
-* \(1) The output type is specified in :struct:`InversePermutationOptions`.
-
-* \(2) For ``indices[i] = x``, ``inverse_permutation[x] = i``. And ``inverse_permutation[x]
-  = null`` if ``x`` does not appear in the input ``indices``. Indices must be in the range
-  of ``[0, max_index]``, or null, which will be ignored. If multiple indices point to the
-  same value, the last one is used.
-
-* \(3) For ``indices[i] = x``, ``output[x] = values[i]``. And ``output[x] = null``
-  if ``x`` does not appear in the input ``indices``. Indices must be in the range
-  of ``[0, max_index]``, or null, in which case the corresponding value will be
-  ignored. If multiple indices point to the same value, the last one is used.
