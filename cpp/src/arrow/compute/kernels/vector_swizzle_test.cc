@@ -30,12 +30,6 @@ namespace arrow::compute {
 
 namespace {
 
-static const std::vector<std::shared_ptr<DataType>> kSignedIntegerTypes = {
-    int8(), int16(), int32(), int64()};
-
-static const std::vector<std::shared_ptr<DataType>> kBinaryTypes = {
-    binary(), utf8(), large_binary(), large_utf8()};
-
 using SmallSignedIntegerTypes = ::testing::Types<Int8Type, Int16Type>;
 
 }  // namespace
@@ -126,7 +120,7 @@ void TestInversePermutationForInputOutputTypes(
 void TestInversePermutation(const std::vector<std::string>& indices_chunked_str,
                             int64_t max_index, const std::string& expected_str,
                             bool validity_must_be_null = false) {
-  TestInversePermutationForInputOutputTypes(kSignedIntegerTypes, kSignedIntegerTypes,
+  TestInversePermutationForInputOutputTypes(SignedIntTypes(), SignedIntTypes(),
                                             indices_chunked_str, max_index, expected_str,
                                             validity_must_be_null);
 }
@@ -172,7 +166,7 @@ TEST(InversePermutation, DefaultOptions) {
   }
   {
     ARROW_SCOPED_TRACE("Default options semantics");
-    for (const auto& input_type : kSignedIntegerTypes) {
+    for (const auto& input_type : SignedIntTypes()) {
       ARROW_SCOPED_TRACE("Input type: " + input_type->ToString());
       auto indices = ArrayFromJSON(input_type, "[0]");
       ASSERT_OK_AND_ASSIGN(Datum result, InversePermutation(indices));
@@ -265,7 +259,7 @@ TYPED_TEST(TestInversePermutationSmallOutputType, JustEnoughOutputType) {
   auto expected =
       ArrayFromJSON(output_type, "[" + std::to_string(input_length - 1) + "]");
   DoTestInversePermutationForInputTypes(
-      kSignedIntegerTypes,
+      SignedIntTypes(),
       [&](const std::shared_ptr<DataType>& input_type) -> Result<Datum> {
         return ConstantArrayGenerator::Zeroes(input_length, input_type);
       },
@@ -276,7 +270,7 @@ TYPED_TEST(TestInversePermutationSmallOutputType, InsufficientOutputType) {
   auto output_type = this->type_singleton();
   int64_t input_length =
       static_cast<int64_t>(std::numeric_limits<typename TestFixture::CType>::max()) + 1;
-  for (const auto& input_type : kSignedIntegerTypes) {
+  for (const auto& input_type : SignedIntTypes()) {
     ARROW_SCOPED_TRACE("Input type: " + input_type->ToString());
     auto indices = ConstantArrayGenerator::Zeroes(input_length, input_type);
     ASSERT_RAISES_WITH_MESSAGE(
@@ -445,7 +439,7 @@ void DoTestScatterForIndicesTypes(
 void DoTestScatter(const std::shared_ptr<Array>& values,
                    const std::shared_ptr<Array>& indices, int64_t max_index,
                    const std::shared_ptr<Array>& expected) {
-  DoTestScatterForIndicesTypes(kSignedIntegerTypes, values, indices, max_index, expected);
+  DoTestScatterForIndicesTypes(SignedIntTypes(), values, indices, max_index, expected);
 }
 
 void TestScatter(const std::shared_ptr<DataType>& value_type,
@@ -500,7 +494,7 @@ TEST(Scatter, DefaultOptions) {
   {
     ARROW_SCOPED_TRACE("Default options semantics");
     auto values = ArrayFromJSON(utf8(), R"(["a"])");
-    for (const auto& indices_type : kSignedIntegerTypes) {
+    for (const auto& indices_type : SignedIntTypes()) {
       ARROW_SCOPED_TRACE("Indices type: " + indices_type->ToString());
       auto indices = ArrayFromJSON(indices_type, "[0]");
       ASSERT_OK_AND_ASSIGN(Datum result, Scatter(values, indices));
@@ -620,7 +614,7 @@ TEST(Scatter, Boolean) {
 }
 
 TEST(Scatter, Numeric) {
-  for (const auto& value_type : kSignedIntegerTypes) {
+  for (const auto& value_type : NumericTypes()) {
     ARROW_SCOPED_TRACE(value_type->ToString());
     {
       ARROW_SCOPED_TRACE("Basic");
@@ -690,7 +684,7 @@ TEST(Scatter, Numeric) {
 }
 
 TEST(Scatter, Binary) {
-  for (const auto& value_type : kBinaryTypes) {
+  for (const auto& value_type : BaseBinaryTypes()) {
     ARROW_SCOPED_TRACE(value_type->ToString());
     {
       ARROW_SCOPED_TRACE("Basic");
