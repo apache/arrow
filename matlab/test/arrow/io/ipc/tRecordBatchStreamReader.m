@@ -361,6 +361,14 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             testCase.verifyError(fcn, "arrow:io:ipc:FailedToOpenRecordBatchReader");
         end
 
+        function ErrorIfNotProxy(testCase)
+            % Verify the RecordBatchStreamReader constructor throws an exception
+            % with the identifier MATLAB:validation:UnableToConvert if the input
+            % is not a Proxy object.
+            fcn = @() arrow.io.ipc.RecordBatchStreamReader(testCase.RandomAccessFile);
+            testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
+        end
+
     end
 
 end
