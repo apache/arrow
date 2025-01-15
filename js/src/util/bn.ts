@@ -95,7 +95,10 @@ export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number)
         const denominator = BigInt('1' + '0'.repeat(scale));
         const quotient = number / denominator;
         const remainder = negative? -(number % denominator) : number % denominator;
-        return Number(`${bigIntToNumber(quotient)}.${padStart((remainder).toString(), scale)}`);
+        const integerPart = bigIntToNumber(quotient);
+        const fractionPart = padStart((remainder).toString(), scale);
+        const sign: string = negative && integerPart === 0 ? '-' : '';
+        return Number(`${sign}${integerPart}.${fractionPart}`);
     }
     return bigIntToNumber(number);
 }
