@@ -746,8 +746,11 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
 /// or null, which will be ignored. If multiple indices point to the same value, the last
 /// one is used.
 ///
-/// For example, with indices = [null, 0, 3, 2, 4, 1, 1], the inverse permutation is
-/// [1, 6, 3, 2, 4, null, null] if max_index = 6.
+/// For example, with
+///   indices = [null, 0, null, 2, 4, 1, 1]
+/// the inverse permutation is
+///   [1, 6, 3, null, 4, null, null]
+/// if max_index = 6.
 ///
 /// \param[in] indices array-like indices
 /// \param[in] options configures the max index and the output type
@@ -769,9 +772,12 @@ Result<Datum> InversePermutation(
 /// which case the corresponding value will be ignored. If multiple indices point to the
 /// same value, the last one is used.
 ///
-/// For example, with values = [a, b, c, d, e, f, g] and indices = [null, 0,
-/// 3, 2, 4, 1, 1], the output is
-/// [b, g, d, c, e, null, null] if max_index = 6.
+/// For example, with
+///   values = [a, b, c, d, e, f, g]
+///   indices = [null, 0, null, 2, 4, 1, 1]
+/// the output is
+///   [b, g, d, null, e, null, null]
+/// if max_index = 6.
 ///
 /// \param[in] values datum to scatter
 /// \param[in] indices array-like indices
