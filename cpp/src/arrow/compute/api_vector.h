@@ -754,7 +754,7 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting inverse permutation
 ///
-/// \since 19.0.0
+/// \since 20.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> InversePermutation(
@@ -779,7 +779,7 @@ Result<Datum> InversePermutation(
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 19.0.0
+/// \since 20.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Scatter(const Datum& values, const Datum& indices,
