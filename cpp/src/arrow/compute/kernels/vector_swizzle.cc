@@ -155,10 +155,9 @@ struct InversePermutationImpl {
   Status AllocateValidityBufAndFill(bool valid) {
     DCHECK_EQ(validity_buf_, nullptr);
 
-    ARROW_ASSIGN_OR_RAISE(validity_buf_,
-                          AllocateEmptyBitmap(output_length_, ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(validity_buf_, ctx_->Allocate(output_length_));
     auto validity = validity_buf_->mutable_data_as<uint8_t>();
-    std::memset(validity, valid ? 0xff : 0, validity_buf_->size());
+    std::memset(validity, valid ? 0xff : 0, validity_buf_->capacity());
 
     return Status::OK();
   }
