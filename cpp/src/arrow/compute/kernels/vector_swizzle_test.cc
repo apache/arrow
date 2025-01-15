@@ -467,12 +467,12 @@ void DoTestScatter(const std::shared_ptr<Array>& values,
   DoTestScatterForIndicesTypes(kSignedIntegerTypes, values, indices, max_index, expected);
 }
 
-void TestScatter(const std::shared_ptr<DataType>& type, const std::string& values_str,
-                 const std::string& indices_str, int64_t max_index,
-                 const std::string& expected_str) {
-  auto values = ArrayFromJSON(type, values_str);
+void TestScatter(const std::shared_ptr<DataType>& value_type,
+                 const std::string& values_str, const std::string& indices_str,
+                 int64_t max_index, const std::string& expected_str) {
+  auto values = ArrayFromJSON(value_type, values_str);
   auto indices = ArrayFromJSON(int8(), indices_str);
-  auto expected = ArrayFromJSON(type, expected_str);
+  auto expected = ArrayFromJSON(value_type, expected_str);
   DoTestScatter(values, indices, max_index, expected);
 }
 
@@ -639,15 +639,15 @@ TEST(Scatter, Boolean) {
 }
 
 TEST(Scatter, Numeric) {
-  for (const auto& type : kSignedIntegerTypes) {
-    ARROW_SCOPED_TRACE(type->ToString());
+  for (const auto& value_type : kSignedIntegerTypes) {
+    ARROW_SCOPED_TRACE(value_type->ToString());
     {
       ARROW_SCOPED_TRACE("Basic");
       auto values = "[10, 11, 12, 13, 14, 15, 16, 17, 18, 19]";
       auto indices = "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]";
       int64_t max_index = 9;
       auto expected = "[19, 18, 17, 16, 15, 14, 13, 12, 11, 10]";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Values with nulls");
@@ -655,7 +655,7 @@ TEST(Scatter, Numeric) {
       auto indices = "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]";
       int64_t max_index = 9;
       auto expected = "[19, null, 17, null, 15, null, 13, null, 11, null]";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Indices with nulls");
@@ -663,7 +663,7 @@ TEST(Scatter, Numeric) {
       auto indices = "[9, null, 7, null, 5, null, 3, null, 1, null]";
       int64_t max_index = 9;
       auto expected = "[null, 18, null, 16, null, 14, null, 12, null, 10]";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Output greater than input");
@@ -671,7 +671,7 @@ TEST(Scatter, Numeric) {
       auto indices = "[0, 3, 6, 1, 4, 7]";
       int64_t max_index = 8;
       auto expected = "[0, 1, null, 0, 1, null, 0, 1, null]";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Values all null");
@@ -679,7 +679,7 @@ TEST(Scatter, Numeric) {
       auto indices = "[0, 1]";
       int64_t max_index = 1;
       auto expected = "[null, null]";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Indices all null");
@@ -687,7 +687,7 @@ TEST(Scatter, Numeric) {
       auto indices = "[null, null]";
       int64_t max_index = 1;
       auto expected = "[null, null]";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Empty input output null");
@@ -695,7 +695,7 @@ TEST(Scatter, Numeric) {
       auto indices = "[]";
       int64_t max_index = 1;
       auto expected = "[null, null]";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Indices duplicated indices");
@@ -703,21 +703,21 @@ TEST(Scatter, Numeric) {
       auto indices = "[0, 1, 0, 1]";
       int64_t max_index = 3;
       auto expected = "[null, null, null, null]";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
   }
 }
 
 TEST(Scatter, Binary) {
-  for (const auto& type : kBinaryTypes) {
-    ARROW_SCOPED_TRACE(type->ToString());
+  for (const auto& value_type : kBinaryTypes) {
+    ARROW_SCOPED_TRACE(value_type->ToString());
     {
       ARROW_SCOPED_TRACE("Basic");
       auto values = R"(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"])";
       auto indices = "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]";
       int64_t max_index = 9;
       auto expected = R"(["j", "i", "h", "g", "f", "e", "d", "c", "b", "a"])";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Values with nulls");
@@ -725,7 +725,7 @@ TEST(Scatter, Binary) {
       auto indices = "[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]";
       int64_t max_index = 9;
       auto expected = R"(["j", null, "h", null, "f", null, "d", null, "b", null])";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Indices with nulls");
@@ -733,7 +733,7 @@ TEST(Scatter, Binary) {
       auto indices = "[9, null, 7, null, 5, null, 3, null, 1, null]";
       int64_t max_index = 9;
       auto expected = R"([null, "i", null, "g", null, "e", null, "c", null, "a"])";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Output greater than input");
@@ -741,7 +741,7 @@ TEST(Scatter, Binary) {
       auto indices = "[0, 3, 6, 1, 4, 7]";
       int64_t max_index = 8;
       auto expected = R"(["a", "b", null, "a", "b", null, "a", "b", null])";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Values all null");
@@ -749,7 +749,7 @@ TEST(Scatter, Binary) {
       auto indices = "[0, 1]";
       int64_t max_index = 1;
       auto expected = "[null, null]";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Indices all null");
@@ -757,7 +757,7 @@ TEST(Scatter, Binary) {
       auto indices = "[null, null]";
       int64_t max_index = 1;
       auto expected = "[null, null]";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Empty input output null");
@@ -765,7 +765,7 @@ TEST(Scatter, Binary) {
       auto indices = "[]";
       int64_t max_index = 1;
       auto expected = "[null, null]";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
     {
       ARROW_SCOPED_TRACE("Indices duplicated indices");
@@ -773,7 +773,7 @@ TEST(Scatter, Binary) {
       auto indices = "[0, 1, 0, 1]";
       int64_t max_index = 3;
       auto expected = "[null, null, null, null]";
-      TestScatter(type, values, indices, max_index, expected);
+      TestScatter(value_type, values, indices, max_index, expected);
     }
   }
 }
