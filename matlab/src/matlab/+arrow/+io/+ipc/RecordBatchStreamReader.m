@@ -28,18 +28,24 @@ classdef RecordBatchStreamReader < matlab.mixin.Scalar
 
     methods (Static)
 	    function obj = fromBytes(bytes)
+	        arguments
+                    bytes(:, 1) uint8
+                end
                 args = struct(Bytes=bytes, Type="Bytes");
                 proxyName = "arrow.io.ipc.proxy.RecordBatchStreamReader";
                 proxy = arrow.internal.proxy.create(proxyName, args);
 		obj = arrow.io.ipc.RecordBatchStreamReader(proxy);
-	    end
+            end
 
 	    function obj = fromFile(filename)
+	        arguments
+                    filename(1, 1) string {mustBeNonzeroLengthText}
+                end
                 args = struct(Filename=filename, Type="File");
                 proxyName = "arrow.io.ipc.proxy.RecordBatchStreamReader";
                 proxy = arrow.internal.proxy.create(proxyName, args);
 		obj = arrow.io.ipc.RecordBatchStreamReader(proxy);
-	    end
+            end
     end
 
     methods
