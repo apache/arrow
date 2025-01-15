@@ -346,40 +346,21 @@ void DoTestScatterAAA(const std::shared_ptr<Array>& values,
 }
 
 /// The following helper functions are based on the invariant:
-/// Scatter([V, V], [I', I''], 2 * (m + 1) - 1) == Concat(E, E)
+/// Scatter([V, V], [I, I'], 2 * (m + 1) - 1) == Concat(E, E)
 ///
 /// where
 ///   V = values
 ///   I = indices
 ///   m = max_index
-///   I' = ReplaceWithMask(I, i > m, null)
-///   I'' = ReplaceWithMask(I, i < 0, null) + m + 1
+///   I' = I + (m + 1)
 ///   E = Scatter(V, I, m)
 
-/// Make indices prefix I' = ReplaceWithMask(I, i > m, null).
-Result<std::shared_ptr<Array>> MakeIndicesPrefix(const std::shared_ptr<Array>& indices,
-                                                 int64_t max_index) {
-  ARROW_ASSIGN_OR_RAISE(auto m, MakeScalar(indices->type(), max_index));
-  ARROW_ASSIGN_OR_RAISE(auto ge_than_l, CallFunction("greater", {indices, m}));
-  ARROW_ASSIGN_OR_RAISE(auto all_null,
-                        MakeArrayOfNull(indices->type(), indices->length()));
-  ARROW_ASSIGN_OR_RAISE(auto prefix, ReplaceWithMask(indices, ge_than_l, all_null));
-  return prefix.make_array();
-}
-
-/// Make indices suffix I'' = ReplaceWithMask(I, i < 0, null) + m + 1.
+/// Make indices suffix I' = I + (m + 1).
 Result<std::shared_ptr<Array>> MakeIndicesSuffix(const std::shared_ptr<Array>& indices,
                                                  int64_t max_index) {
-  ARROW_ASSIGN_OR_RAISE(auto zero, MakeScalar(indices->type(), 0));
-  ARROW_ASSIGN_OR_RAISE(auto negative, CallFunction("less", {indices, zero}));
-  ARROW_ASSIGN_OR_RAISE(auto all_null,
-                        MakeArrayOfNull(indices->type(), indices->length()));
-  ARROW_ASSIGN_OR_RAISE(auto replaced, ReplaceWithMask(indices, negative, all_null));
-  ARROW_ASSIGN_OR_RAISE(auto m, MakeScalar(indices->type(), max_index));
-  ARROW_ASSIGN_OR_RAISE(auto replaced_plus_m, Add(replaced, m));
-  ARROW_ASSIGN_OR_RAISE(auto one, MakeScalar(indices->type(), 1));
-  ARROW_ASSIGN_OR_RAISE(auto suffix, Add(replaced_plus_m, one));
-  return suffix.make_array();
+  ARROW_ASSIGN_OR_RAISE(auto m_plus_one, MakeScalar(indices->type(), max_index + 1));
+  ARROW_ASSIGN_OR_RAISE(auto indices_plus_m_plus_one, Add(indices, m_plus_one));
+  return indices_plus_m_plus_one.make_array();
 }
 
 void DoTestScatterCACWithArrays(const std::shared_ptr<Array>& values,
@@ -387,7 +368,7 @@ void DoTestScatterCACWithArrays(const std::shared_ptr<Array>& values,
                                 const std::shared_ptr<Array>& expected) {
   auto chunked_values2 = std::make_shared<ChunkedArray>(ArrayVector{values, values});
 
-  ASSERT_OK_AND_ASSIGN(auto indices_prefix, MakeIndicesPrefix(indices, max_index));
+  auto indices_prefix = indices;
   ASSERT_OK_AND_ASSIGN(auto indices_suffix, MakeIndicesSuffix(indices, max_index));
   ASSERT_OK_AND_ASSIGN(auto concat_indices2,
                        Concatenate({indices_prefix, indices_suffix}));
@@ -404,7 +385,7 @@ void DoTestScatterACCWithArrays(const std::shared_ptr<Array>& values,
                                 const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(auto concat_values2, Concatenate(ArrayVector{values, values}));
 
-  ASSERT_OK_AND_ASSIGN(auto indices_prefix, MakeIndicesPrefix(indices, max_index));
+  auto indices_prefix = indices;
   ASSERT_OK_AND_ASSIGN(auto indices_suffix, MakeIndicesSuffix(indices, max_index));
   auto chunked_indices2 =
       std::make_shared<ChunkedArray>(ArrayVector{indices_prefix, indices_suffix});
@@ -421,7 +402,7 @@ void DoTestScatterCCCWithArrays(const std::shared_ptr<Array>& values,
                                 const std::shared_ptr<Array>& expected) {
   auto chunked_values2 = std::make_shared<ChunkedArray>(ArrayVector{values, values});
 
-  ASSERT_OK_AND_ASSIGN(auto indices_prefix, MakeIndicesPrefix(indices, max_index));
+  auto indices_prefix = indices;
   ASSERT_OK_AND_ASSIGN(auto indices_suffix, MakeIndicesSuffix(indices, max_index));
   auto chunked_indices2 =
       std::make_shared<ChunkedArray>(ArrayVector{indices_prefix, indices_suffix});
