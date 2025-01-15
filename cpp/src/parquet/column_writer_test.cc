@@ -1775,6 +1775,9 @@ TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
 }
 
 TEST_F(TestValuesWriterInt32Type, AllNullsCompressionInPageV2) {
+  // GH-31992: In DataPageV2, the levels and data will not be compressed together,
+  // so, when all values are null, the compressed values should be empty. And
+  // we should handle this case correctly.
   std::vector<Compression::type> compressions = {Compression::SNAPPY, Compression::GZIP,
                                                  Compression::ZSTD, Compression::BROTLI,
                                                  Compression::LZ4};
@@ -1782,7 +1785,7 @@ TEST_F(TestValuesWriterInt32Type, AllNullsCompressionInPageV2) {
     if (!Codec::IsAvailable(compression)) {
       continue;
     }
-    SCOPED_TRACE(compression);
+    ARROW_SCOPED_TRACE("compression = ", Codec::GetCodecAsString(compression));
     // Optional and non-repeated, with definition levels
     // but no repetition levels
     this->SetUpSchema(Repetition::OPTIONAL);
