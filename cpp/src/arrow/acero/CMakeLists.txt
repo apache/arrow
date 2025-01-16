@@ -109,8 +109,7 @@ endforeach()
 if(ARROW_TESTING)
   # test_nodes.cc isn't used by all tests but link to it for simple
   # CMakeLists.txt.
-  add_library(arrow_acero_testing OBJECT test_nodes.cc test_util_internal.cc
-                                         ../compute/test_util_internal.cc)
+  add_library(arrow_acero_testing OBJECT test_nodes.cc test_util_internal.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
   target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_ACERO_TEST_LINK_LIBS})
@@ -118,7 +117,7 @@ if(ARROW_TESTING)
   if(ARROW_WITH_OPENTELEMETRY)
     target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
   endif()
-  list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing)
+  list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing arrow_compute_testing)
 endif()
 # Only for hash_aggregate_test.cc.
 if(ARROW_USE_BOOST)
