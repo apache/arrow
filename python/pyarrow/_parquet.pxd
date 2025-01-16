@@ -446,6 +446,11 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_write_page_index()
             Builder* enable_page_checksum()
             Builder* disable_page_checksum()
+            Builder* enable_cdc()
+            Builder* disable_cdc()
+            Builder* cdc_mask(uint64_t mask)
+            Builder* cdc_min_size(uint64_t min_size)
+            Builder* cdc_max_size(uint64_t max_size)
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:
@@ -597,6 +602,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     write_page_checksum=*,
     sorting_columns=*,
     store_decimal_as_integer=*,
+    content_defined_chunking=*
 ) except *
 
 
