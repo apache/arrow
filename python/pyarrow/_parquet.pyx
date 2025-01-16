@@ -1851,7 +1851,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         write_page_index=False,
         write_page_checksum=False,
         sorting_columns=None,
-        store_decimal_as_integer=False) except *:
+        store_decimal_as_integer=False,
+        content_defined_chunking=False) except *:
 
     """General writer properties"""
     cdef:
@@ -1987,6 +1988,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
             raise TypeError(
                 "'column_encoding' should be a dictionary or a string")
 
+    # size limits
+
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
 
@@ -1995,6 +1998,23 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
 
     if dictionary_pagesize_limit is not None:
         props.dictionary_pagesize_limit(dictionary_pagesize_limit)
+
+    # content defined chunking
+
+    if content_defined_chunking is False:
+        props.disable_cdc()
+    elif content_defined_chunking is True:
+        props.enable_cdc()
+    elif isinstance(content_defined_chunking, tuple):
+        mask, min_size, max_size = content_defined_chunking
+        props.enable_cdc()
+        props.cdc_mask(mask)
+        props.cdc_min_size(min_size)
+        props.cdc_max_size(max_size)
+    else:
+        raise ValueError(
+            "Unsupported value for content_defined_chunking: {0}"
+            .format(content_defined_chunking))
 
     # encryption
 
@@ -2169,7 +2189,8 @@ cdef class ParquetWriter(_Weakrefable):
                   write_page_index=False,
                   write_page_checksum=False,
                   sorting_columns=None,
-                  store_decimal_as_integer=False):
+                  store_decimal_as_integer=False,
+                  content_defined_chunking=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2204,6 +2225,7 @@ cdef class ParquetWriter(_Weakrefable):
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
+            content_defined_chunking=content_defined_chunking
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
