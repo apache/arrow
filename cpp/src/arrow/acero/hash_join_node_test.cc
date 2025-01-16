@@ -49,6 +49,7 @@ using compute::and_;
 using compute::call;
 using compute::default_exec_context;
 using compute::ExecBatchBuilder;
+using compute::ExecBatchFromJSON;
 using compute::ExecSpan;
 using compute::field_ref;
 using compute::SortIndices;

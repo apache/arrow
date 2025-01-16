@@ -22,7 +22,7 @@
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/function.h"
+#include "arrow/compute/exec.h"
 #include "arrow/datum.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"

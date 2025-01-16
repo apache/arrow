@@ -60,6 +60,7 @@ namespace arrow {
 using arrow::internal::CpuInfo;
 using arrow::internal::Executor;
 
+using compute::ExecBatchFromJSON;
 using compute::SortKey;
 using compute::Take;
 

@@ -23,7 +23,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/type_fwd.h"
 
-namespace arrow {
+namespace arrow::compute {
 
 using compute::ExecBatch;
 
@@ -39,4 +39,4 @@ ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
 
 void ValidateOutput(const Datum& output);
 
-}  // namespace arrow
+}  // namespace arrow::compute

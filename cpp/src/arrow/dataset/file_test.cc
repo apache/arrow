@@ -43,6 +43,7 @@ namespace cp = arrow::compute;
 
 namespace arrow {
 
+using compute::ExecBatchFromJSON;
 using internal::TemporaryDir;
 
 namespace dataset {

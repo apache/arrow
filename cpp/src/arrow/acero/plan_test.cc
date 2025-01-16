@@ -52,8 +52,10 @@ using testing::UnorderedElementsAreArray;
 
 namespace arrow {
 
+using compute::ArgShape;
 using compute::call;
 using compute::CountOptions;
+using compute::ExecBatchFromJSON;
 using compute::field_ref;
 using compute::ScalarAggregateOptions;
 using compute::SortKey;

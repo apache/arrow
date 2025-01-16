@@ -29,7 +29,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/vector.h"
 
-namespace arrow {
+namespace arrow::compute {
 
 using compute::ExecBatch;
 using internal::MapVector;
@@ -120,4 +120,4 @@ void ValidateOutput(const Datum& output) {
   }
 }
 
-}  // namespace arrow
+}  // namespace arrow::compute

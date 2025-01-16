@@ -69,9 +69,11 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::ToChars;
 
+using compute::ArgShape;
 using compute::CallFunction;
 using compute::CountOptions;
 using compute::default_exec_context;
+using compute::ExecBatchFromJSON;
 using compute::ExecSpan;
 using compute::FunctionOptions;
 using compute::Grouper;
@@ -83,6 +85,7 @@ using compute::SortKey;
 using compute::SortOrder;
 using compute::Take;
 using compute::TDigestOptions;
+using compute::ValidateOutput;
 using compute::VarianceOptions;
 
 namespace acero {

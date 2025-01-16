@@ -20,7 +20,7 @@
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/function.h"
+#include "arrow/compute/exec.h"
 #include "arrow/datum.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"

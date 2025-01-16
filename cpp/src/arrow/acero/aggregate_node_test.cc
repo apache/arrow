@@ -33,6 +33,8 @@
 
 namespace arrow {
 
+using compute::ExecBatchFromJSON;
+
 namespace acero {
 
 Result<std::shared_ptr<Table>> TableGroupBy(

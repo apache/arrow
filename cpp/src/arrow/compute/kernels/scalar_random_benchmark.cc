@@ -19,7 +19,6 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/function.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/benchmark_util.h"
 

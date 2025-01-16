@@ -68,6 +68,7 @@ namespace arrow {
 
 using compute::Cast;
 using compute::Divide;
+using compute::ExecBatchFromJSON;
 using compute::Multiply;
 using compute::Subtract;
 
