@@ -78,16 +78,29 @@ namespace Apache.Arrow
                     return new ListViewArray.Builder(dataType as ListViewType);
                 case ArrowTypeId.FixedSizeList:
                     return new FixedSizeListArray.Builder(dataType as FixedSizeListType);
+                case ArrowTypeId.Decimal32:
+                    return new Decimal32Array.Builder(dataType as Decimal32Type);
+                case ArrowTypeId.Decimal64:
+                    return new Decimal64Array.Builder(dataType as Decimal64Type);
                 case ArrowTypeId.Decimal128:
                     return new Decimal128Array.Builder(dataType as Decimal128Type);
                 case ArrowTypeId.Decimal256:
                     return new Decimal256Array.Builder(dataType as Decimal256Type);
+                case ArrowTypeId.Interval:
+                    var intervalType = (IntervalType)dataType;
+                    return intervalType.Unit switch
+                    {
+                        IntervalUnit.YearMonth => new YearMonthIntervalArray.Builder(),
+                        IntervalUnit.DayTime => new DayTimeIntervalArray.Builder(),
+                        IntervalUnit.MonthDayNanosecond => new MonthDayNanosecondIntervalArray.Builder(),
+                        _ => throw new ArgumentOutOfRangeException($"unsupported interval unit <{intervalType.Unit}>")
+                    };
+                case ArrowTypeId.Map:
+                    return new MapArray.Builder(dataType as MapType);
                 case ArrowTypeId.Struct:
                 case ArrowTypeId.Union:
                 case ArrowTypeId.Dictionary:
                 case ArrowTypeId.FixedSizedBinary:
-                case ArrowTypeId.Interval:
-                case ArrowTypeId.Map:
                 default:
                     throw new NotSupportedException($"An ArrowArrayBuilder cannot be built for type {dataType.TypeId}.");
             }

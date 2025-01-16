@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -e
 
 arrow_dir=${1}
 build_dir=${2}
@@ -26,19 +26,28 @@ gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
 : ${ARROW_INTEGRATION_CPP:=ON}
 : ${ARROW_INTEGRATION_CSHARP:=ON}
-: ${ARROW_INTEGRATION_GO:=ON}
-: ${ARROW_INTEGRATION_JAVA:=ON}
 : ${ARROW_INTEGRATION_JS:=ON}
 
-pip install -e $arrow_dir/dev/archery[integration]
+: ${ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS:=cpp,csharp,js}
+export ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS
 
+. ${arrow_dir}/ci/scripts/util_log.sh
+
+github_actions_group_begin "Integration: Prepare: Archery"
+pip install -e $arrow_dir/dev/archery[integration]
+github_actions_group_end
+
+github_actions_group_begin "Integration: Prepare: Dependencies"
 # For C Data Interface testing
 if [ "${ARROW_INTEGRATION_CSHARP}" == "ON" ]; then
     pip install pythonnet
 fi
-if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
+if [ "${ARCHERY_INTEGRATION_WITH_JAVA}" -gt "0" ]; then
     pip install jpype1
 fi
+github_actions_group_end
+
+export ARROW_BUILD_ROOT=${build_dir}
 
 # Get more detailed context on crashes
 export PYTHONFAULTHANDLER=1
@@ -56,8 +65,6 @@ time archery integration \
     --run-flight \
     --with-cpp=$([ "$ARROW_INTEGRATION_CPP" == "ON" ] && echo "1" || echo "0") \
     --with-csharp=$([ "$ARROW_INTEGRATION_CSHARP" == "ON" ] && echo "1" || echo "0") \
-    --with-go=$([ "$ARROW_INTEGRATION_GO" == "ON" ] && echo "1" || echo "0") \
-    --with-java=$([ "$ARROW_INTEGRATION_JAVA" == "ON" ] && echo "1" || echo "0") \
     --with-js=$([ "$ARROW_INTEGRATION_JS" == "ON" ] && echo "1" || echo "0") \
     --gold-dirs=$gold_dir/0.14.1 \
     --gold-dirs=$gold_dir/0.17.1 \

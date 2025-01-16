@@ -45,23 +45,23 @@ G_BEGIN_DECLS
  * batches in file format into output.
  */
 
-typedef struct GArrowRecordBatchWriterPrivate_ {
+struct GArrowRecordBatchWriterPrivate
+{
   std::shared_ptr<arrow::ipc::RecordBatchWriter> record_batch_writer;
-} GArrowRecordBatchWriterPrivate;
+  bool is_closed;
+};
 
 enum {
-  PROP_0,
-  PROP_RECORD_BATCH_WRITER
+  PROP_RECORD_BATCH_WRITER = 1,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchWriter,
                            garrow_record_batch_writer,
                            G_TYPE_OBJECT);
 
-#define GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(obj)         \
-  static_cast<GArrowRecordBatchWriterPrivate *>(            \
-     garrow_record_batch_writer_get_instance_private(       \
-       GARROW_RECORD_BATCH_WRITER(obj)))
+#define GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(obj)                                      \
+  static_cast<GArrowRecordBatchWriterPrivate *>(                                         \
+    garrow_record_batch_writer_get_instance_private(GARROW_RECORD_BATCH_WRITER(obj)))
 
 static void
 garrow_record_batch_writer_finalize(GObject *object)
@@ -84,7 +84,8 @@ garrow_record_batch_writer_set_property(GObject *object,
   switch (prop_id) {
   case PROP_RECORD_BATCH_WRITER:
     priv->record_batch_writer =
-      *static_cast<std::shared_ptr<arrow::ipc::RecordBatchWriter> *>(g_value_get_pointer(value));
+      *static_cast<std::shared_ptr<arrow::ipc::RecordBatchWriter> *>(
+        g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -109,7 +110,8 @@ static void
 garrow_record_batch_writer_init(GArrowRecordBatchWriter *object)
 {
   auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
-  new(&priv->record_batch_writer) std::shared_ptr<arrow::ipc::RecordBatchWriter>;
+  new (&priv->record_batch_writer) std::shared_ptr<arrow::ipc::RecordBatchWriter>;
+  priv->is_closed = false;
 }
 
 static void
@@ -120,15 +122,15 @@ garrow_record_batch_writer_class_init(GArrowRecordBatchWriterClass *klass)
 
   gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_record_batch_writer_finalize;
+  gobject_class->finalize = garrow_record_batch_writer_finalize;
   gobject_class->set_property = garrow_record_batch_writer_set_property;
   gobject_class->get_property = garrow_record_batch_writer_get_property;
 
-  spec = g_param_spec_pointer("record-batch-writer",
-                              "arrow::ipc::RecordBatchWriter",
-                              "The raw std::shared<arrow::ipc::RecordBatchWriter> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "record-batch-writer",
+    "arrow::ipc::RecordBatchWriter",
+    "The raw std::shared<arrow::ipc::RecordBatchWriter> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_RECORD_BATCH_WRITER, spec);
 }
 
@@ -152,9 +154,7 @@ garrow_record_batch_writer_write_record_batch(GArrowRecordBatchWriter *writer,
   auto arrow_record_batch_raw = arrow_record_batch.get();
 
   auto status = arrow_writer->WriteRecordBatch(*arrow_record_batch_raw);
-  return garrow_error_check(error,
-                            status,
-                            "[record-batch-writer][write-record-batch]");
+  return garrow_error_check(error, status, "[record-batch-writer][write-record-batch]");
 }
 
 /**
@@ -176,9 +176,7 @@ garrow_record_batch_writer_write_table(GArrowRecordBatchWriter *writer,
   auto arrow_table = garrow_table_get_raw(table);
 
   auto status = arrow_writer->WriteTable(*arrow_table);
-  return garrow_error_check(error,
-                            status,
-                            "[record-batch-writer][write-table]");
+  return garrow_error_check(error, status, "[record-batch-writer][write-table]");
 }
 
 /**
@@ -191,15 +189,33 @@ garrow_record_batch_writer_write_table(GArrowRecordBatchWriter *writer,
  * Since: 0.4.0
  */
 gboolean
-garrow_record_batch_writer_close(GArrowRecordBatchWriter *writer,
-                                 GError **error)
+garrow_record_batch_writer_close(GArrowRecordBatchWriter *writer, GError **error)
 {
   auto arrow_writer = garrow_record_batch_writer_get_raw(writer);
 
   auto status = arrow_writer->Close();
-  return garrow_error_check(error, status, "[record-batch-writer][close]");
+  auto success = garrow_error_check(error, status, "[record-batch-writer][close]");
+  if (success) {
+    auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(writer);
+    priv->is_closed = true;
+  }
+  return success;
 }
 
+/**
+ * garrow_record_batch_writer_is_closed:
+ * @writer: A #GArrowRecordBatchWriter.
+ *
+ * Returns: %TRUE if the writer is closed, %FALSE otherwise.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+garrow_record_batch_writer_is_closed(GArrowRecordBatchWriter *writer)
+{
+  auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(writer);
+  return priv->is_closed;
+}
 
 G_DEFINE_TYPE(GArrowRecordBatchStreamWriter,
               garrow_record_batch_stream_writer,
@@ -233,18 +249,14 @@ garrow_record_batch_stream_writer_new(GArrowOutputStream *sink,
 {
   auto arrow_sink = garrow_output_stream_get_raw(sink);
   auto arrow_schema = garrow_schema_get_raw(schema);
-  auto arrow_writer_result =
-    arrow::ipc::MakeStreamWriter(arrow_sink, arrow_schema);
-  if (garrow::check(error,
-                    arrow_writer_result,
-                    "[record-batch-stream-writer][open]")) {
+  auto arrow_writer_result = arrow::ipc::MakeStreamWriter(arrow_sink, arrow_schema);
+  if (garrow::check(error, arrow_writer_result, "[record-batch-stream-writer][open]")) {
     auto arrow_writer = *arrow_writer_result;
     return garrow_record_batch_stream_writer_new_raw(&arrow_writer);
   } else {
     return NULL;
   }
 }
-
 
 G_DEFINE_TYPE(GArrowRecordBatchFileWriter,
               garrow_record_batch_file_writer,
@@ -273,17 +285,14 @@ garrow_record_batch_file_writer_class_init(GArrowRecordBatchFileWriterClass *kla
  */
 GArrowRecordBatchFileWriter *
 garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
-                       GArrowSchema *schema,
-                       GError **error)
+                                    GArrowSchema *schema,
+                                    GError **error)
 {
   auto arrow_sink = garrow_output_stream_get_raw(sink);
   auto arrow_schema = garrow_schema_get_raw(schema);
   std::shared_ptr<arrow::ipc::RecordBatchWriter> arrow_writer;
-  auto arrow_writer_result =
-    arrow::ipc::MakeFileWriter(arrow_sink, arrow_schema);
-  if (garrow::check(error,
-                    arrow_writer_result,
-                    "[record-batch-file-writer][open]")) {
+  auto arrow_writer_result = arrow::ipc::MakeFileWriter(arrow_sink, arrow_schema);
+  if (garrow::check(error, arrow_writer_result, "[record-batch-file-writer][open]")) {
     auto arrow_writer = *arrow_writer_result;
     return garrow_record_batch_file_writer_new_raw(&arrow_writer);
   } else {
@@ -294,13 +303,13 @@ garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
 G_END_DECLS
 
 GArrowRecordBatchWriter *
-garrow_record_batch_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
+garrow_record_batch_writer_new_raw(
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
 {
-  auto writer =
-    GARROW_RECORD_BATCH_WRITER(
-      g_object_new(GARROW_TYPE_RECORD_BATCH_WRITER,
-                   "record-batch-writer", arrow_writer,
-                   NULL));
+  auto writer = GARROW_RECORD_BATCH_WRITER(g_object_new(GARROW_TYPE_RECORD_BATCH_WRITER,
+                                                        "record-batch-writer",
+                                                        arrow_writer,
+                                                        NULL));
   return writer;
 }
 
@@ -312,23 +321,25 @@ garrow_record_batch_writer_get_raw(GArrowRecordBatchWriter *writer)
 }
 
 GArrowRecordBatchStreamWriter *
-garrow_record_batch_stream_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
+garrow_record_batch_stream_writer_new_raw(
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
 {
   auto writer =
-    GARROW_RECORD_BATCH_STREAM_WRITER(
-      g_object_new(GARROW_TYPE_RECORD_BATCH_STREAM_WRITER,
-                   "record-batch-writer", arrow_writer,
-                   NULL));
+    GARROW_RECORD_BATCH_STREAM_WRITER(g_object_new(GARROW_TYPE_RECORD_BATCH_STREAM_WRITER,
+                                                   "record-batch-writer",
+                                                   arrow_writer,
+                                                   NULL));
   return writer;
 }
 
 GArrowRecordBatchFileWriter *
-garrow_record_batch_file_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
+garrow_record_batch_file_writer_new_raw(
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
 {
   auto writer =
-    GARROW_RECORD_BATCH_FILE_WRITER(
-      g_object_new(GARROW_TYPE_RECORD_BATCH_FILE_WRITER,
-                   "record-batch-writer", arrow_writer,
-                   NULL));
+    GARROW_RECORD_BATCH_FILE_WRITER(g_object_new(GARROW_TYPE_RECORD_BATCH_FILE_WRITER,
+                                                 "record-batch-writer",
+                                                 arrow_writer,
+                                                 NULL));
   return writer;
 }

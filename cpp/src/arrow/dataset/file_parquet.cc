@@ -279,7 +279,7 @@ Status ResolveOneFieldRef(
 // names) based on the dataset schema. Returns `false` if no conversion was needed.
 Result<FieldRef> MaybeConvertFieldRef(FieldRef ref, const Schema& dataset_schema) {
   if (ARROW_PREDICT_TRUE(ref.IsNameSequence())) {
-    return std::move(ref);
+    return ref;
   }
 
   ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOne(dataset_schema));
@@ -366,8 +366,12 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     const parquet::Statistics& statistics) {
   auto field_expr = compute::field_ref(field_ref);
 
+  bool may_have_null = !statistics.HasNullCount() || statistics.null_count() > 0;
   // Optimize for corner case where all values are nulls
-  if (statistics.num_values() == 0 && statistics.null_count() > 0) {
+  if (statistics.num_values() == 0) {
+    // If there are no non-null values, column `field_ref` in the fragment
+    // might be empty or all values are nulls. In this case, we also return
+    // a null expression.
     return is_null(std::move(field_expr));
   }
 
@@ -378,7 +382,6 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
 
   auto maybe_min = Cast(min, field.type());
   auto maybe_max = Cast(max, field.type());
-
   if (maybe_min.ok() && maybe_max.ok()) {
     min = maybe_min.MoveValueUnsafe().scalar();
     max = maybe_max.MoveValueUnsafe().scalar();
@@ -386,7 +389,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     if (min->Equals(*max)) {
       auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
 
-      if (statistics.null_count() == 0) {
+      if (!may_have_null) {
         return single_value;
       }
       return compute::or_(std::move(single_value), is_null(std::move(field_expr)));
@@ -412,9 +415,8 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     } else {
       in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
     }
-
-    if (statistics.null_count() != 0) {
-      return compute::or_(std::move(in_range), compute::is_null(field_expr));
+    if (may_have_null) {
+      return compute::or_(std::move(in_range), compute::is_null(std::move(field_expr)));
     }
     return in_range;
   }
@@ -423,7 +425,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
 
 std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
     const Field& field, const parquet::Statistics& statistics) {
-  const auto field_name = field.name();
+  auto field_name = field.name();
   return EvaluateStatisticsAsExpression(field, FieldRef(std::move(field_name)),
                                         statistics);
 }
@@ -504,7 +506,8 @@ Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
   RETURN_NOT_OK(parquet::arrow::FileReader::Make(
       options->pool, std::move(reader), std::move(arrow_properties), &arrow_reader));
-  return std::move(arrow_reader);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<parquet::arrow::FileReader>(std::move(arrow_reader));
 }
 
 Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReaderAsync(
@@ -543,7 +546,9 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
                           reader)),
                       std::move(arrow_properties), &arrow_reader));
 
-                  return std::move(arrow_reader);
+                  // R build with openSUSE155 requires an explicit shared_ptr construction
+                  return std::shared_ptr<parquet::arrow::FileReader>(
+                      std::move(arrow_reader));
                 },
                 [path = source.path()](const Status& status)
                     -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
@@ -779,6 +784,11 @@ ParquetFileFragment::ParquetFileFragment(FileSource source,
       parquet_format_(checked_cast<ParquetFileFormat&>(*format_)),
       row_groups_(std::move(row_groups)) {}
 
+std::shared_ptr<parquet::FileMetaData> ParquetFileFragment::metadata() {
+  auto lock = physical_schema_mutex_.Lock();
+  return metadata_;
+}
+
 Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* reader) {
   auto lock = physical_schema_mutex_.Lock();
   if (metadata_ != nullptr) {
@@ -813,11 +823,17 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
 
 Status ParquetFileFragment::SetMetadata(
     std::shared_ptr<parquet::FileMetaData> metadata,
-    std::shared_ptr<parquet::arrow::SchemaManifest> manifest) {
+    std::shared_ptr<parquet::arrow::SchemaManifest> manifest,
+    std::shared_ptr<parquet::FileMetaData> original_metadata) {
   DCHECK(row_groups_.has_value());
 
   metadata_ = std::move(metadata);
   manifest_ = std::move(manifest);
+  original_metadata_ = original_metadata ? std::move(original_metadata) : metadata_;
+  // The SchemaDescriptor needs to be owned by a FileMetaData instance,
+  // because SchemaManifest only stores a raw pointer (GH-39562).
+  DCHECK_EQ(manifest_->descr, original_metadata_->schema())
+      << "SchemaDescriptor should be owned by the original FileMetaData";
 
   statistics_expressions_.resize(row_groups_->size(), compute::literal(true));
   statistics_expressions_complete_.resize(manifest_->descr->num_columns(), false);
@@ -846,7 +862,8 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
                           parquet_format_.MakeFragment(source_, partition_expression(),
                                                        physical_schema_, {row_group}));
 
-    RETURN_NOT_OK(fragment->SetMetadata(metadata_, manifest_));
+    RETURN_NOT_OK(fragment->SetMetadata(metadata_, manifest_,
+                                        /*original_metadata=*/original_metadata_));
     fragments[i++] = std::move(fragment);
   }
 
@@ -1106,7 +1123,8 @@ ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning)
         format_->MakeFragment({path, filesystem_}, std::move(partition_expression),
                               physical_schema_, std::move(row_groups)));
 
-    RETURN_NOT_OK(fragment->SetMetadata(metadata_subset, manifest_));
+    RETURN_NOT_OK(fragment->SetMetadata(metadata_subset, manifest_,
+                                        /*original_metadata=*/metadata_));
     fragments[i++] = std::move(fragment);
   }
 

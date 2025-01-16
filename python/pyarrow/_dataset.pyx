@@ -39,6 +39,11 @@ from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
 from pyarrow._json cimport ParseOptions as JsonParseOptions
 from pyarrow._json cimport ReadOptions as JsonReadOptions
 
+try:
+    import pyarrow.substrait as pa_substrait
+except ImportError:
+    pa_substrait = None
+
 
 _DEFAULT_BATCH_SIZE = 2**17
 _DEFAULT_BATCH_READAHEAD = 16
@@ -272,6 +277,13 @@ cdef class Dataset(_Weakrefable):
 
         # at the moment only support filter
         requested_filter = options.get("filter")
+        if pa_substrait and isinstance(requested_filter, pa_substrait.BoundExpressions):
+            expressions = list(requested_filter.expressions.values())
+            if len(expressions) != 1:
+                raise ValueError(
+                    "Only one BoundExpressions with a single expression are supported")
+            new_options["filter"] = requested_filter = expressions[0]
+
         current_filter = self._scan_options.get("filter")
         if requested_filter is not None and current_filter is not None:
             new_options["filter"] = current_filter & requested_filter
@@ -282,7 +294,7 @@ cdef class Dataset(_Weakrefable):
 
     def scanner(self,
                 object columns=None,
-                Expression filter=None,
+                object filter=None,
                 int batch_size=_DEFAULT_BATCH_SIZE,
                 int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                 int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
@@ -879,6 +891,70 @@ cdef class Dataset(_Weakrefable):
             use_threads=use_threads, coalesce_keys=coalesce_keys,
             output_type=InMemoryDataset
         )
+
+    def join_asof(self, right_dataset, on, by, tolerance, right_on=None, right_by=None):
+        """
+        Perform an asof join between this dataset and another one.
+
+        This is similar to a left-join except that we match on nearest key rather
+        than equal keys. Both datasets must be sorted by the key. This type of join
+        is most useful for time series data that are not perfectly aligned.
+
+        Optionally match on equivalent keys with "by" before searching with "on".
+
+        Result of the join will be a new Dataset, where further
+        operations can be applied.
+
+        Parameters
+        ----------
+        right_dataset : dataset
+            The dataset to join to the current one, acting as the right dataset
+            in the join operation.
+        on : str
+            The column from current dataset that should be used as the "on" key
+            of the join operation left side.
+
+            An inexact match is used on the "on" key, i.e. a row is considered a
+            match if and only if left_on - tolerance <= right_on <= left_on.
+
+            The input table must be sorted by the "on" key. Must be a single
+            field of a common type.
+
+            Currently, the "on" key must be an integer, date, or timestamp type.
+        by : str or list[str]
+            The columns from current dataset that should be used as the keys
+            of the join operation left side. The join operation is then done
+            only for the matches in these columns.
+        tolerance : int
+            The tolerance for inexact "on" key matching. A right row is considered
+            a match with the left row `right.on - left.on <= tolerance`. The
+            `tolerance` may be:
+
+            - negative, in which case a past-as-of-join occurs;
+            - or positive, in which case a future-as-of-join occurs;
+            - or zero, in which case an exact-as-of-join occurs.
+
+            The tolerance is interpreted in the same units as the "on" key.
+        right_on : str or list[str], default None
+            The columns from the right_dataset that should be used as the on key
+            on the join operation right side.
+            When ``None`` use the same key name as the left dataset.
+        right_by : str or list[str], default None
+            The columns from the right_dataset that should be used as by keys
+            on the join operation right side.
+            When ``None`` use the same key names as the left dataset.
+
+        Returns
+        -------
+        InMemoryDataset
+        """
+        if right_on is None:
+            right_on = on
+        if right_by is None:
+            right_by = by
+        return _pac()._perform_join_asof(self, on, by,
+                                         right_dataset, right_on, right_by,
+                                         tolerance, output_type=InMemoryDataset)
 
 
 cdef class InMemoryDataset(Dataset):
@@ -2441,6 +2517,43 @@ cdef class Partitioning(_Weakrefable):
         result = self.partitioning.Parse(tobytes(path))
         return Expression.wrap(GetResultValue(result))
 
+    def format(self, expr):
+        """
+        Convert a filter expression into a tuple of (directory, filename) using 
+        the current partitioning scheme
+
+        Parameters
+        ----------
+        expr : pyarrow.dataset.Expression
+
+        Returns
+        -------
+        tuple[str, str]
+
+        Examples
+        --------
+
+        Specify the Schema for paths like "/2009/June":
+
+        >>> import pyarrow as pa
+        >>> import pyarrow.dataset as ds
+        >>> import pyarrow.compute as pc
+        >>> part = ds.partitioning(pa.schema([("year", pa.int16()),
+        ...                                   ("month", pa.string())]))
+        >>> part.format(
+        ...     (pc.field("year") == 1862) & (pc.field("month") == "Jan")
+        ... )
+        ('1862/Jan', '')
+        """
+        cdef:
+            CPartitionPathFormat result
+
+        result = GetResultValue(self.partitioning.Format(
+            Expression.unwrap(expr)
+        ))
+
+        return frombytes(result.directory), frombytes(result.filename)
+
     @property
     def schema(self):
         """The arrow Schema attached to the partitioning."""
@@ -3139,6 +3252,13 @@ cdef class FileSystemFactoryOptions(_Weakrefable):
         self.options.selector_ignore_prefixes = [tobytes(v) for v in values]
 
 
+cdef vector[CFileInfo] unwrap_finfos(finfos):
+    cdef vector[CFileInfo] o_vect
+    for fi in finfos:
+        o_vect.push_back((<FileInfo> fi).unwrap())
+    return o_vect
+
+
 cdef class FileSystemDatasetFactory(DatasetFactory):
     """
     Create a DatasetFactory from a list of paths with schema inspection.
@@ -3163,6 +3283,7 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                  FileSystemFactoryOptions options=None):
         cdef:
             vector[c_string] paths
+            vector[CFileInfo] finfos
             CFileSelector c_selector
             CResult[shared_ptr[CDatasetFactory]] result
             shared_ptr[CFileSystem] c_filesystem
@@ -3184,14 +3305,24 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                     c_options
                 )
         elif isinstance(paths_or_selector, (list, tuple)):
-            paths = [tobytes(s) for s in paths_or_selector]
-            with nogil:
-                result = CFileSystemDatasetFactory.MakeFromPaths(
-                    c_filesystem,
-                    paths,
-                    c_format,
-                    c_options
-                )
+            if len(paths_or_selector) > 0 and isinstance(paths_or_selector[0], FileInfo):
+                finfos = unwrap_finfos(paths_or_selector)
+                with nogil:
+                    result = CFileSystemDatasetFactory.MakeFromFileInfos(
+                        c_filesystem,
+                        finfos,
+                        c_format,
+                        c_options
+                    )
+            else:
+                paths = [tobytes(s) for s in paths_or_selector]
+                with nogil:
+                    result = CFileSystemDatasetFactory.MakeFromPaths(
+                        c_filesystem,
+                        paths,
+                        c_format,
+                        c_options
+                    )
         else:
             raise TypeError('Must pass either paths or a FileSelector, but '
                             'passed {}'.format(type(paths_or_selector)))
@@ -3328,6 +3459,9 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
         filter, pyarrow_wrap_schema(builder.schema()))))
 
     if columns is not None:
+        if pa_substrait and isinstance(columns, pa_substrait.BoundExpressions):
+            columns = columns.expressions
+
         if isinstance(columns, dict):
             for expr in columns.values():
                 if not isinstance(expr, Expression):
@@ -3408,7 +3542,7 @@ cdef class Scanner(_Weakrefable):
     @staticmethod
     def from_dataset(Dataset dataset not None, *,
                      object columns=None,
-                     Expression filter=None,
+                     object filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                      int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
@@ -3582,10 +3716,13 @@ cdef class Scanner(_Weakrefable):
 
         Parameters
         ----------
-        source : Iterator
-            The iterator of Batches.
+        source : Iterator or Arrow-compatible stream object
+            The iterator of Batches. This can be a pyarrow RecordBatchReader,
+            any object that implements the Arrow PyCapsule Protocol for
+            streams, or an actual Python iterator of RecordBatches.
         schema : Schema
-            The schema of the batches.
+            The schema of the batches (required when passing a Python
+            iterator).
         columns : list[str] or dict[str, Expression], default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
@@ -3641,6 +3778,12 @@ cdef class Scanner(_Weakrefable):
                 raise ValueError('Cannot specify a schema when providing '
                                  'a RecordBatchReader')
             reader = source
+        elif hasattr(source, "__arrow_c_stream__"):
+            if schema:
+                raise ValueError(
+                    'Cannot specify a schema when providing an object '
+                    'implementing the Arrow PyCapsule Protocol')
+            reader = pa.ipc.RecordBatchReader.from_stream(source)
         elif _is_iterable(source):
             if schema is None:
                 raise ValueError('Must provide schema to construct scanner '
@@ -3933,11 +4076,14 @@ cdef class _ScanNodeOptions(ExecNodeOptions):
     def _set_options(self, Dataset dataset, dict scan_options):
         cdef:
             shared_ptr[CScanOptions] c_scan_options
+            bint require_sequenced_output=False
 
         c_scan_options = Scanner._make_scan_options(dataset, scan_options)
 
+        require_sequenced_output=scan_options.get("require_sequenced_output", False)
+
         self.wrapped.reset(
-            new CScanNodeOptions(dataset.unwrap(), c_scan_options)
+            new CScanNodeOptions(dataset.unwrap(), c_scan_options, require_sequenced_output)
         )
 
 
@@ -3963,7 +4109,9 @@ class ScanNodeOptions(_ScanNodeOptions):
     dataset : pyarrow.dataset.Dataset
         The table which acts as the data source.
     **kwargs : dict, optional
-        Scan options. See `Scanner.from_dataset` for possible arguments.
+        Scan options. See `Scanner.from_dataset` for possible arguments.        
+    require_sequenced_output : bool, default False
+        Assert implicit ordering on data.
     """
 
     def __init__(self, Dataset dataset, **kwargs):

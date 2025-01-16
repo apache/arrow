@@ -144,12 +144,12 @@ To run all tests, including Flight and C Data Interface integration tests, do:
    archery integration --with-all --run-flight --run-ipc --run-c-data
 
 Note that we run these tests in continuous integration, and the CI job uses
-docker-compose. You may also run the docker-compose job locally, or at least
+Docker Compose. You may also run the Docker Compose job locally, or at least
 refer to it if you have questions about how to build other languages or enable
 certain tests.
 
 See :ref:`docker-builds` for more information about the project's
-``docker-compose`` configuration.
+``docker compose`` configuration.
 
 .. _format_json_integration:
 
@@ -390,20 +390,37 @@ but can be of any type.
 
 Extension types are, as in the IPC format, represented as their underlying
 storage type plus some dedicated field metadata to reconstruct the extension
-type.  For example, assuming a "uuid" extension type backed by a
-FixedSizeBinary(16) storage, here is how a "uuid" field would be represented::
+type.  For example, assuming a "rational" extension type backed by a
+``struct<numer: int32, denom: int32>`` storage, here is how a "rational" field
+would be represented::
 
     {
       "name" : "name_of_the_field",
       "nullable" : /* boolean */,
       "type" : {
-         "name" : "fixedsizebinary",
-         "byteWidth" : 16
+        "name" : "struct"
       },
-      "children" : [],
+      "children" : [
+        {
+          "name": "numer",
+          "type": {
+            "name": "int",
+            "bitWidth": 32,
+            "isSigned": true
+          }
+        },
+        {
+          "name": "denom",
+          "type": {
+            "name": "int",
+            "bitWidth": 32,
+            "isSigned": true
+          }
+        }
+      ],
       "metadata" : [
-         {"key": "ARROW:extension:name", "value": "uuid"},
-         {"key": "ARROW:extension:metadata", "value": "uuid-serialized"}
+         {"key": "ARROW:extension:name", "value": "rational"},
+         {"key": "ARROW:extension:metadata", "value": "rational-serialized"}
       ]
     }
 
@@ -455,6 +472,7 @@ or ``DATA``.
 * ``VARIADIC_DATA_BUFFERS``: a JSON array of data buffers represented as
   hex encoded strings.
 * ``VIEWS``: a JSON array of encoded views, which are JSON objects with:
+
   * ``SIZE``: an integer indicating the size of the view,
   * ``INLINED``: an encoded value (this field will be present if ``SIZE``
     is smaller than 12, otherwise the next three fields will be present),
@@ -501,14 +519,14 @@ integration testing actually tests.
 
 There are two types of integration test cases: the ones populated on the fly
 by the data generator in the Archery utility, and *gold* files that exist
-in the `arrow-testing <https://github.com/apache/arrow-testing/tree/master/data/arrow-ipc-stream/integration>` 
+in the `arrow-testing <https://github.com/apache/arrow-testing/tree/master/data/arrow-ipc-stream/integration>`_
 repository.
 
 Data Generator Tests
 ~~~~~~~~~~~~~~~~~~~~
 
 This is the high-level description of the cases which are generated and
-tested using the ``archery integration`` command (see ``get_generated_json_files`` 
+tested using the ``archery integration`` command (see ``get_generated_json_files``
 in ``datagen.py``):
 
 * Primitive Types
@@ -549,7 +567,7 @@ Gold File Integration Tests
 Pre-generated json and arrow IPC files (both file and stream format) exist
 in the `arrow-testing <https://github.com/apache/arrow-testing>`__ repository
 in the ``data/arrow-ipc-stream/integration`` directory. These serve as
-*gold* files that are assumed to be correct for use in testing. They are 
+*gold* files that are assumed to be correct for use in testing. They are
 referenced by ``runner.py`` in the code for the :ref:`Archery <archery>`
 utility. Below are the test cases which are covered by them:
 
@@ -563,7 +581,7 @@ utility. Below are the test cases which are covered by them:
     + intervals
     + maps
     + nested types (list, struct)
-    + primitives 
+    + primitives
     + primitive with no batches
     + primitive with zero length batches
 

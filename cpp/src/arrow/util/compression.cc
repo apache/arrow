@@ -24,6 +24,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/compression_internal.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -215,7 +216,7 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
 
   DCHECK_NE(codec, nullptr);
   RETURN_NOT_OK(codec->Init());
-  return std::move(codec);
+  return codec;
 }
 
 // use compression level to create Codec

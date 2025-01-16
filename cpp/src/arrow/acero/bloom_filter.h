@@ -17,10 +17,6 @@
 
 #pragma once
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-#include <immintrin.h>
-#endif
-
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -30,6 +26,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/simd.h"
 
 namespace arrow {
 namespace acero {

@@ -19,6 +19,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -44,8 +45,10 @@ class PARQUET_EXPORT Decryptor {
   void UpdateAad(const std::string& aad) { aad_ = aad; }
   ::arrow::MemoryPool* pool() { return pool_; }
 
-  int CiphertextSizeDelta();
-  int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* plaintext);
+  [[nodiscard]] int32_t PlaintextLength(int32_t ciphertext_len) const;
+  [[nodiscard]] int32_t CiphertextLength(int32_t plaintext_len) const;
+  int32_t Decrypt(::arrow::util::span<const uint8_t> ciphertext,
+                  ::arrow::util::span<uint8_t> plaintext);
 
  private:
   std::shared_ptr<encryption::AesDecryptor> aes_decryptor_;
@@ -91,15 +94,15 @@ class InternalFileDecryptor {
   FileDecryptionProperties* properties_;
   // Concatenation of aad_prefix (if exists) and aad_file_unique
   std::string file_aad_;
-  std::map<std::string, std::shared_ptr<Decryptor>> column_data_map_;
-  std::map<std::string, std::shared_ptr<Decryptor>> column_metadata_map_;
 
   std::shared_ptr<Decryptor> footer_metadata_decryptor_;
   std::shared_ptr<Decryptor> footer_data_decryptor_;
   ParquetCipher::type algorithm_;
   std::string footer_key_metadata_;
+  // Mutex to guard access to all_decryptors_
+  mutable std::mutex mutex_;
   // A weak reference to all decryptors that need to be wiped out when decryption is
-  // finished
+  // finished, guarded by mutex_ for thread safety
   std::vector<std::weak_ptr<encryption::AesDecryptor>> all_decryptors_;
 
   ::arrow::MemoryPool* pool_;

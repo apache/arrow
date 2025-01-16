@@ -22,16 +22,17 @@
 #include "arrow/acero/partition_util.h"
 #include "arrow/acero/schema_util.h"
 #include "arrow/acero/task_util.h"
-#include "arrow/compute/kernels/row_encoder_internal.h"
-#include "arrow/compute/key_map.h"
-#include "arrow/compute/light_array.h"
+#include "arrow/compute/key_map_internal.h"
+#include "arrow/compute/light_array_internal.h"
 #include "arrow/compute/row/encode_internal.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 
 namespace arrow {
 
 using compute::ExecBatchBuilder;
 using compute::KeyColumnArray;
 using compute::KeyColumnMetadata;
+using compute::LightContext;
 using compute::ResizableArrayData;
 using compute::RowTableEncoder;
 using compute::RowTableImpl;
@@ -47,16 +48,6 @@ class RowArrayAccessor {
   //
   static int VarbinaryColumnId(const RowTableMetadata& row_metadata, int column_id);
 
-  // Calculate how many rows to skip from the tail of the
-  // sequence of selected rows, such that the total size of skipped rows is at
-  // least equal to the size specified by the caller. Skipping of the tail rows
-  // is used to allow for faster processing by the caller of remaining rows
-  // without checking buffer bounds (useful with SIMD or fixed size memory loads
-  // and stores).
-  //
-  static int NumRowsToSkip(const RowTableImpl& rows, int column_id, int num_rows,
-                           const uint32_t* row_ids, int num_tail_bytes_to_skip);
-
   // The supplied lambda will be called for each row in the given list of rows.
   // The arguments given to it will be:
   // - index of a row (within the set of selected rows),
@@ -68,7 +59,80 @@ class RowArrayAccessor {
   //
   template <class PROCESS_VALUE_FN>
   static void Visit(const RowTableImpl& rows, int column_id, int num_rows,
-                    const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn);
+                    const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
+    bool is_fixed_length_column =
+        rows.metadata().column_metadatas[column_id].is_fixed_length;
+
+    // There are 4 cases, each requiring different steps:
+    // 1. Varying length column that is the first varying length column in a row
+    // 2. Varying length column that is not the first varying length column in a
+    // row
+    // 3. Fixed length column in a fixed length row
+    // 4. Fixed length column in a varying length row
+
+    if (!is_fixed_length_column) {
+      int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
+      const uint8_t* row_ptr_base = rows.data(2);
+      const RowTableImpl::offset_type* row_offsets = rows.offsets();
+      uint32_t field_offset_within_row, field_length;
+
+      if (varbinary_column_id == 0) {
+        // Case 1: This is the first varbinary column
+        //
+        for (int i = 0; i < num_rows; ++i) {
+          uint32_t row_id = row_ids[i];
+          const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
+          rows.metadata().first_varbinary_offset_and_length(
+              row_ptr, &field_offset_within_row, &field_length);
+          process_value_fn(i, row_ptr + field_offset_within_row, field_length);
+        }
+      } else {
+        // Case 2: This is second or later varbinary column
+        //
+        for (int i = 0; i < num_rows; ++i) {
+          uint32_t row_id = row_ids[i];
+          const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
+          rows.metadata().nth_varbinary_offset_and_length(
+              row_ptr, varbinary_column_id, &field_offset_within_row, &field_length);
+          process_value_fn(i, row_ptr + field_offset_within_row, field_length);
+        }
+      }
+    }
+
+    if (is_fixed_length_column) {
+      uint32_t field_offset_within_row = rows.metadata().encoded_field_offset(
+          rows.metadata().pos_after_encoding(column_id));
+      uint32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
+      // Bit column is encoded as a single byte
+      //
+      if (field_length == 0) {
+        field_length = 1;
+      }
+      uint32_t row_length = rows.metadata().fixed_length;
+
+      bool is_fixed_length_row = rows.metadata().is_fixed_length;
+      if (is_fixed_length_row) {
+        // Case 3: This is a fixed length column in a fixed length row
+        //
+        const uint8_t* row_ptr_base = rows.data(1) + field_offset_within_row;
+        for (int i = 0; i < num_rows; ++i) {
+          uint32_t row_id = row_ids[i];
+          const uint8_t* row_ptr = row_ptr_base + row_length * row_id;
+          process_value_fn(i, row_ptr, field_length);
+        }
+      } else {
+        // Case 4: This is a fixed length column in a varying length row
+        //
+        const uint8_t* row_ptr_base = rows.data(2) + field_offset_within_row;
+        const RowTableImpl::offset_type* row_offsets = rows.offsets();
+        for (int i = 0; i < num_rows; ++i) {
+          uint32_t row_id = row_ids[i];
+          const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
+          process_value_fn(i, row_ptr, field_length);
+        }
+      }
+    }
+  }
 
   // The supplied lambda will be called for each row in the given list of rows.
   // The arguments given to it will be:
@@ -77,9 +141,17 @@ class RowArrayAccessor {
   //
   template <class PROCESS_VALUE_FN>
   static void VisitNulls(const RowTableImpl& rows, int column_id, int num_rows,
-                         const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn);
+                         const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
+    const uint8_t* null_masks = rows.null_masks();
+    uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
+    uint32_t pos_after_encoding = rows.metadata().pos_after_encoding(column_id);
+    for (int i = 0; i < num_rows; ++i) {
+      uint32_t row_id = row_ids[i];
+      int64_t bit_id = row_id * null_mask_num_bytes * 8 + pos_after_encoding;
+      process_value_fn(i, bit_util::GetBit(null_masks, bit_id) ? 0xff : 0);
+    }
+  }
 
- private:
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   // This is equivalent to Visit method, but processing 8 rows at a time in a
   // loop.
@@ -108,13 +180,15 @@ class RowArrayAccessor {
 // can be called by multiple threads concurrently.
 //
 struct RowArray {
-  RowArray() : is_initialized_(false) {}
+  RowArray() : is_initialized_(false), hardware_flags_(0) {}
 
-  Status InitIfNeeded(MemoryPool* pool, const ExecBatch& batch);
-  Status InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_metadata);
+  Status InitIfNeeded(MemoryPool* pool, int64_t hardware_flags, const ExecBatch& batch);
+  Status InitIfNeeded(MemoryPool* pool, int64_t hardware_flags,
+                      const RowTableMetadata& row_metadata);
 
-  Status AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch, int begin_row_id,
-                              int end_row_id, int num_row_ids, const uint16_t* row_ids,
+  Status AppendBatchSelection(MemoryPool* pool, int64_t hardware_flags,
+                              const ExecBatch& batch, int begin_row_id, int end_row_id,
+                              int num_row_ids, const uint16_t* row_ids,
                               std::vector<KeyColumnArray>& temp_column_arrays);
 
   // This can only be called for a minibatch.
@@ -122,12 +196,10 @@ struct RowArray {
   void Compare(const ExecBatch& batch, int begin_row_id, int end_row_id, int num_selected,
                const uint16_t* batch_selection_maybe_null, const uint32_t* array_row_ids,
                uint32_t* out_num_not_equal, uint16_t* out_not_equal_selection,
-               int64_t hardware_flags, arrow::util::TempVectorStack* temp_stack,
+               arrow::util::TempVectorStack* temp_stack,
                std::vector<KeyColumnArray>& temp_column_arrays,
                uint8_t* out_match_bitvector_maybe_null = NULLPTR);
 
-  // TODO: add AVX2 version
-  //
   Status DecodeSelected(ResizableArrayData* target, int column_id, int num_rows_to_append,
                         const uint32_t* row_ids, MemoryPool* pool) const;
 
@@ -135,10 +207,43 @@ struct RowArray {
 
   int64_t num_rows() const { return is_initialized_ ? rows_.length() : 0; }
 
+  void EnsureHasAnyNullsComputed(const LightContext& ctx) {
+    std::ignore = rows_.has_any_nulls(&ctx);
+  }
+
+ private:
   bool is_initialized_;
+
+  int64_t hardware_flags_;
   RowTableEncoder encoder_;
   RowTableImpl rows_;
   RowTableImpl rows_temp_;
+
+ private:
+  void DecodeFixedLength(ResizableArrayData* output, int output_start_row, int column_id,
+                         uint32_t fixed_length, int num_rows_to_append,
+                         const uint32_t* row_ids) const;
+  void DecodeOffsets(ResizableArrayData* output, int output_start_row, int column_id,
+                     int num_rows_to_append, const uint32_t* row_ids) const;
+  void DecodeVarLength(ResizableArrayData* output, int output_start_row, int column_id,
+                       int num_rows_to_append, const uint32_t* row_ids) const;
+  void DecodeNulls(ResizableArrayData* output, int output_start_row, int column_id,
+                   int num_rows_to_append, const uint32_t* row_ids) const;
+
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+  int DecodeFixedLength_avx2(ResizableArrayData* output, int output_start_row,
+                             int column_id, uint32_t fixed_length, int num_rows_to_append,
+                             const uint32_t* row_ids) const;
+  int DecodeOffsets_avx2(ResizableArrayData* output, int output_start_row, int column_id,
+                         int num_rows_to_append, const uint32_t* row_ids) const;
+  int DecodeVarLength_avx2(ResizableArrayData* output, int output_start_row,
+                           int column_id, int num_rows_to_append,
+                           const uint32_t* row_ids) const;
+  int DecodeNulls_avx2(ResizableArrayData* output, int output_start_row, int column_id,
+                       int num_rows_to_append, const uint32_t* row_ids) const;
+#endif
+
+  friend class RowArrayMerge;
 };
 
 // Implements concatenating multiple row arrays into a single one, using
@@ -161,7 +266,7 @@ class RowArrayMerge {
   //
   static Status PrepareForMerge(RowArray* target, const std::vector<RowArray*>& sources,
                                 std::vector<int64_t>* first_target_row_id,
-                                MemoryPool* pool);
+                                MemoryPool* pool, int64_t hardware_flags);
 
   // Copy rows from source array to target array.
   // Both arrays must have the same row metadata.
@@ -367,7 +472,13 @@ class SwissTableForJoin {
   friend class SwissTableForJoinBuild;
 
  public:
+  // Update all payloads corresponding to the given keys as having a match.
+  //
   void UpdateHasMatchForKeys(int64_t thread_id, int num_rows, const uint32_t* key_ids);
+  // Update the given payloads as having a match.
+  //
+  void UpdateHasMatchForPayloads(int64_t thread_id, int num_rows,
+                                 const uint32_t* payload_ids);
   void MergeHasMatch();
 
   const SwissTableWithKeys* keys() const { return &map_; }
@@ -385,10 +496,6 @@ class SwissTableForJoin {
   }
 
   uint32_t payload_id_to_key_id(uint32_t payload_id) const;
-  // Input payload ids must form an increasing sequence.
-  //
-  void payload_ids_to_key_ids(int num_rows, const uint32_t* payload_ids,
-                              uint32_t* key_ids) const;
 
  private:
   uint8_t* local_has_match(int64_t thread_id);
@@ -397,8 +504,10 @@ class SwissTableForJoin {
   int dop_;
 
   struct ThreadLocalState {
+    // Bit-vector for keeping track of whether each payload in the hash table had a match.
     std::vector<uint8_t> has_match;
   };
+  // Bit-vector for keeping track of whether each payload in the hash table had a match.
   std::vector<ThreadLocalState> local_states_;
   std::vector<uint8_t> has_match_;
 
@@ -714,8 +823,20 @@ class JoinMatchIterator {
   void SetLookupResult(int num_batch_rows, int start_batch_row,
                        const uint8_t* batch_has_match, const uint32_t* key_ids,
                        bool no_duplicate_keys, const uint32_t* key_to_payload);
+  // Get the next batch of matching rows by outputting the batch row ids, key ids and
+  // payload ids. If the row_id_to_skip is not kInvalidRowId, then the row with that id
+  // will be skipped. This is useful for left-anti and left-semi joins, where we can
+  // safely skip the subsequent matchings of the row that already has a match in the
+  // previous batch.
+  //
   bool GetNextBatch(int num_rows_max, int* out_num_rows, uint16_t* batch_row_ids,
-                    uint32_t* key_ids, uint32_t* payload_ids);
+                    uint32_t* key_ids, uint32_t* payload_ids,
+                    int row_id_to_skip = kInvalidRowId);
+
+  // The row id that will never exist in an ExecBatch. Used to indicate that there is no
+  // row to skip.
+  //
+  static constexpr uint32_t kInvalidRowId = std::numeric_limits<uint16_t>::max() + 1;
 
  private:
   int num_batch_rows_;
@@ -736,6 +857,135 @@ class JoinMatchIterator {
   int current_match_for_row_;
 };
 
+// Implement the residual filter support used when processing the probe side exec batches.
+// There are four filtering patterns, each with a corresponding public FilterXXX method:
+// - LeftSemi and LeftAnti, each for its co-naming join type, opposite to each other.
+// - RightSemiAnti for both right-semi and right-anti joins: they have the same filtering
+// logic and differ only in the scanning phase.
+// - Inner for inner joins and the inner part of outer joins: caller should take care of
+// filtering the outer part.
+// All the public Filter* methods have zero-cost shortcut for trivial filter.
+//
+class JoinResidualFilter {
+ public:
+  void Init(Expression filter, QueryContext* ctx, MemoryPool* pool,
+            int64_t hardware_flags, const HashJoinProjectionMaps* probe_schemas,
+            const HashJoinProjectionMaps* build_schemas, SwissTableForJoin* hash_table);
+
+  void OnBuildFinished();
+
+  int NumBuildKeysReferred() const { return num_build_keys_referred_; }
+  int NumBuildPayloadsReferred() const { return num_build_payloads_referred_; }
+
+  // Left-outer and full-outer joins can result in a different bit-vector than the one of
+  // probing the hash table if the residual filter is not a literal true. If so, caller
+  // should setup a bit-vector for filtering properly and call `UpdateFilterBitVector`
+  // accordingly.
+  //
+  bool NeedFilterBitVector(JoinType join_type) const {
+    return (join_type == JoinType::LEFT_OUTER || join_type == JoinType::FULL_OUTER) &&
+           filter_ != literal(true);
+  }
+
+  // Init the bit-vector for filtering. Caller should make sure the bit-vector has enough
+  // size for a particular probe side batch.
+  //
+  void InitFilterBitVector(int num_batch_rows, uint8_t* filter_bitvector);
+
+  // Update the bit-vector for filtering according to the given batch row ids.
+  //
+  void UpdateFilterBitVector(int batch_start_row, int num_batch_rows,
+                             const uint16_t* batch_row_ids, uint8_t* filter_bitvector);
+
+  // Left row is passing if filter evaluates true. Output all the passing row ids in
+  // the input batch. Like the left-semi join semantic, each passing row is output only
+  // once.
+  // Zero-overhead shortcut guarantee for trivial filter.
+  //
+  Status FilterLeftSemi(const ExecBatch& keypayload_batch, int batch_start_row,
+                        int num_batch_rows, const uint8_t* match_bitvector,
+                        const uint32_t* key_ids, bool no_duplicate_keys,
+                        arrow::util::TempVectorStack* temp_stack, int* num_passing_ids,
+                        uint16_t* passing_batch_row_ids) const;
+
+  // Logically the opposite of FilterLeftSemi. Output all the passing row ids in the input
+  // batch. Like the left-anti join semantic, each passing row is output only once.
+  // Zero-overhead shortcut guarantee for trivial filter.
+  //
+  Status FilterLeftAnti(const ExecBatch& keypayload_batch, int batch_start_row,
+                        int num_batch_rows, const uint8_t* match_bitvector,
+                        const uint32_t* key_ids, bool no_duplicate_keys,
+                        arrow::util::TempVectorStack* temp_stack, int* num_passing_ids,
+                        uint16_t* passing_batch_row_ids) const;
+
+  // Right row is passing if filter evaluates true. Mark a match for all the passing
+  // payload ids in the hash table. This applies for both right-semi and right-anti joins:
+  // they differ in scanning phase.
+  // Zero-overhead shortcut guarantee for trivial filter.
+  //
+  Status FilterRightSemiAnti(int64_t thread_id, const ExecBatch& keypayload_batch,
+                             int batch_start_row, int num_batch_rows,
+                             const uint8_t* match_bitvector, const uint32_t* key_ids,
+                             bool no_duplicate_keys,
+                             arrow::util::TempVectorStack* temp_stack) const;
+
+  // For a given batch of an inner match (an inner-join or the inner part of an
+  // outer-join), row is passing if filter evaluates true. Does not do any outer filtering
+  // because this method is usually called within a inner match loop, which doesn't have
+  // the full scope of outer join. This requires caller to handle the outer part properly.
+  // All batch_row_ids, key_ids and payload_ids_maybe_null are input and output, this is
+  // for efficient shortcut.
+  // Zero-overhead shortcut guarantee for trivial filter.
+  //
+  Status FilterInner(const ExecBatch& keypayload_batch, int num_batch_rows,
+                     uint16_t* batch_row_ids, uint32_t* key_ids,
+                     uint32_t* payload_ids_maybe_null, bool output_payload_ids,
+                     arrow::util::TempVectorStack* temp_stack,
+                     int* num_passing_rows) const;
+
+ private:
+  // Evaluates the filter for a given batch of matching rows, and outputs the passing
+  // rows. Always introduces overhead of materialization and evaluation, so caller must do
+  // shortcut properly for trivial filters.
+  //
+  Status FilterOneBatch(const ExecBatch& keypayload_batch, int num_batch_rows,
+                        uint16_t* batch_row_ids, uint32_t* key_ids_maybe_null,
+                        uint32_t* payload_ids_maybe_null, bool output_key_ids,
+                        bool output_payload_ids, arrow::util::TempVectorStack* temp_stack,
+                        int* num_passing_rows) const;
+
+  Result<Datum> EvalFilter(const ExecBatch& keypayload_batch, int num_batch_rows,
+                           const uint16_t* batch_row_ids,
+                           const uint32_t* key_ids_maybe_null,
+                           const uint32_t* payload_ids_maybe_null) const;
+
+  Result<ExecBatch> MaterializeFilterInput(const ExecBatch& keypayload_batch,
+                                           int num_batch_rows,
+                                           const uint16_t* batch_row_ids,
+                                           const uint32_t* key_ids_maybe_null,
+                                           const uint32_t* payload_ids_maybe_null) const;
+
+ private:
+  Expression filter_;
+
+  QueryContext* ctx_;
+  MemoryPool* pool_;
+  int64_t hardware_flags_;
+
+  const HashJoinProjectionMaps* probe_schemas_;
+  const HashJoinProjectionMaps* build_schemas_;
+
+  SwissTableForJoin* hash_table_;
+  std::vector<int> probe_filter_to_key_and_payload_;
+  int num_build_keys_referred_ = 0;
+  int num_build_payloads_referred_ = 0;
+
+  int minibatch_size_;
+  const RowArray* build_keys_;
+  const RowArray* build_payloads_;
+  const uint32_t* key_to_payload_;
+};
+
 // Implements entire processing of a probe side exec batch,
 // provided the join hash table is already built and available.
 //
@@ -744,6 +994,7 @@ class JoinProbeProcessor {
   using OutputBatchFn = std::function<Status(int64_t, ExecBatch)>;
 
   void Init(int num_key_columns, JoinType join_type, SwissTableForJoin* hash_table,
+            JoinResidualFilter* residual_filter,
             std::vector<JoinResultMaterialize*> materialize,
             const std::vector<JoinKeyCmp>* cmp, OutputBatchFn output_batch_fn);
   Status OnNextBatch(int64_t thread_id, const ExecBatch& keypayload_batch,
@@ -760,6 +1011,7 @@ class JoinProbeProcessor {
   JoinType join_type_;
 
   SwissTableForJoin* hash_table_;
+  JoinResidualFilter* residual_filter_;
   // One element per thread
   //
   std::vector<JoinResultMaterialize*> materialize_;

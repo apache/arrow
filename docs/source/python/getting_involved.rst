@@ -54,7 +54,7 @@ used as foundations to build easier to use entities.
   exposed to the user are declared. In some cases, those files might directly
   import the entities from inner implementation if they want to expose it
   as is without modification.
-* The ``lib.pyx`` file is where the majority of the core C++ libarrow 
+* The ``lib.pyx`` file is where the majority of the core C++ libarrow
   capabilities are exposed to Python. Most of the implementation of this
   module relies on included ``*.pxi`` files where the specific pieces
   are built. While being exposed to Python as ``pyarrow.lib`` its content

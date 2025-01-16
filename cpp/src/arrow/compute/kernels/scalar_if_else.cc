@@ -1309,9 +1309,10 @@ void AddFixedWidthIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_fun
 }
 
 void AddNestedIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_function) {
-  for (const auto type_id : {Type::LIST, Type::LARGE_LIST, Type::LIST_VIEW,
-                             Type::LARGE_LIST_VIEW, Type::FIXED_SIZE_LIST, Type::STRUCT,
-                             Type::DENSE_UNION, Type::SPARSE_UNION, Type::DICTIONARY}) {
+  for (const auto type_id :
+       {Type::LIST, Type::LARGE_LIST, Type::LIST_VIEW, Type::LARGE_LIST_VIEW,
+        Type::FIXED_SIZE_LIST, Type::MAP, Type::STRUCT, Type::DENSE_UNION,
+        Type::SPARSE_UNION, Type::DICTIONARY}) {
     ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)}, LastType,
                         NestedIfElseExec::Exec);
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
@@ -1482,39 +1483,27 @@ Status ExecScalarCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult*
     result = temp.get();
   }
 
-  // TODO(wesm): clean this up to have less duplication
-  if (out->is_array_data()) {
-    ArrayData* output = out->array_data().get();
-    if (is_dictionary_type<Type>::value) {
-      const ExecValue& dict_from = has_result ? result : batch[1];
-      if (dict_from.is_scalar()) {
-        output->dictionary = checked_cast<const DictionaryScalar&>(*dict_from.scalar)
-                                 .value.dictionary->data();
-      } else {
-        output->dictionary = dict_from.array.ToArrayData()->dictionary;
-      }
+  // Only input types of non-fixed length (which cannot be pre-allocated)
+  // will save the output data in ArrayData. And make sure the FixedLength
+  // types must be output in ArraySpan.
+  static_assert(is_fixed_width(Type::type_id));
+  DCHECK(out->is_array_span());
+
+  ArraySpan* output = out->array_span_mutable();
+  if (is_dictionary_type<Type>::value) {
+    const ExecValue& dict_from = has_result ? result : batch[1];
+    output->child_data.resize(1);
+    if (dict_from.is_scalar()) {
+      output->child_data[0].SetMembers(
+          *checked_cast<const DictionaryScalar&>(*dict_from.scalar)
+               .value.dictionary->data());
+    } else {
+      output->child_data[0] = dict_from.array;
     }
-    CopyValues<Type>(result, /*in_offset=*/0, batch.length,
-                     output->GetMutableValues<uint8_t>(0, 0),
-                     output->GetMutableValues<uint8_t>(1, 0), output->offset);
-  } else {
-    // ArraySpan
-    ArraySpan* output = out->array_span_mutable();
-    if (is_dictionary_type<Type>::value) {
-      const ExecValue& dict_from = has_result ? result : batch[1];
-      output->child_data.resize(1);
-      if (dict_from.is_scalar()) {
-        output->child_data[0].SetMembers(
-            *checked_cast<const DictionaryScalar&>(*dict_from.scalar)
-                 .value.dictionary->data());
-      } else {
-        output->child_data[0] = dict_from.array;
-      }
-    }
-    CopyValues<Type>(result, /*in_offset=*/0, batch.length,
-                     output->GetValues<uint8_t>(0, 0), output->GetValues<uint8_t>(1, 0),
-                     output->offset);
   }
+  CopyValues<Type>(result, /*in_offset=*/0, batch.length,
+                   output->GetValues<uint8_t>(0, 0), output->GetValues<uint8_t>(1, 0),
+                   output->offset);
   return Status::OK();
 }
 
@@ -1808,6 +1797,48 @@ struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
 
 template <typename Type>
 struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
+  using offset_type = typename Type::offset_type;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    return ExecVarWidthArrayCaseWhen(
+        ctx, batch, out,
+        // ReserveData
+        [&](ArrayBuilder* raw_builder) {
+          auto builder = checked_cast<BuilderType*>(raw_builder);
+          auto child_builder = builder->value_builder();
+
+          int64_t reservation = 0;
+          for (int arg = 1; arg < batch.num_values(); arg++) {
+            const ExecValue& source = batch[arg];
+            if (!source.is_array()) {
+              const auto& scalar = checked_cast<const BaseListScalar&>(*source.scalar);
+              if (!scalar.value) continue;
+              reservation =
+                  std::max<int64_t>(reservation, batch.length * scalar.value->length());
+            } else {
+              const ArraySpan& array = source.array;
+              reservation = std::max<int64_t>(reservation, array.child_data[0].length);
+            }
+          }
+          return child_builder->Reserve(reservation);
+        });
+  }
+};
+
+// TODO(GH-41453): a more efficient implementation for list-views is possible
+template <typename Type>
+struct CaseWhenFunctor<Type, enable_if_list_view<Type>> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -2712,6 +2743,25 @@ void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_fu
   }
 }
 
+template <typename ArrowNestedType>
+void AddNestedCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function) {
+  AddCaseWhenKernel(scalar_function, ArrowNestedType::type_id,
+                    CaseWhenFunctor<ArrowNestedType>::Exec);
+}
+
+void AddNestedCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function) {
+  AddNestedCaseWhenKernel<FixedSizeListType>(scalar_function);
+  AddNestedCaseWhenKernel<ListType>(scalar_function);
+  AddNestedCaseWhenKernel<LargeListType>(scalar_function);
+  AddNestedCaseWhenKernel<ListViewType>(scalar_function);
+  AddNestedCaseWhenKernel<LargeListViewType>(scalar_function);
+  AddNestedCaseWhenKernel<MapType>(scalar_function);
+  AddNestedCaseWhenKernel<StructType>(scalar_function);
+  AddNestedCaseWhenKernel<DenseUnionType>(scalar_function);
+  AddNestedCaseWhenKernel<SparseUnionType>(scalar_function);
+  AddNestedCaseWhenKernel<DictionaryType>(scalar_function);
+}
+
 void AddCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
                        detail::GetTypeId get_id, ArrayKernelExec exec) {
   ScalarKernel kernel(KernelSignature::Make({InputType(get_id.id)}, FirstType,
@@ -2729,6 +2779,25 @@ void AddPrimitiveCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_f
     auto exec = GenerateTypeAgnosticPrimitive<CoalesceFunctor>(*type);
     AddCoalesceKernel(scalar_function, type, std::move(exec));
   }
+}
+
+template <typename ArrowNestedType>
+void AddNestedCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function) {
+  AddCoalesceKernel(scalar_function, ArrowNestedType::type_id,
+                    CoalesceFunctor<ArrowNestedType>::Exec);
+}
+
+void AddNestedCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_function) {
+  AddNestedCoalesceKernel<FixedSizeListType>(scalar_function);
+  AddNestedCoalesceKernel<ListType>(scalar_function);
+  AddNestedCoalesceKernel<LargeListType>(scalar_function);
+  AddNestedCoalesceKernel<ListViewType>(scalar_function);
+  AddNestedCoalesceKernel<LargeListViewType>(scalar_function);
+  AddNestedCoalesceKernel<MapType>(scalar_function);
+  AddNestedCoalesceKernel<StructType>(scalar_function);
+  AddNestedCoalesceKernel<DenseUnionType>(scalar_function);
+  AddNestedCoalesceKernel<SparseUnionType>(scalar_function);
+  AddNestedCoalesceKernel<DictionaryType>(scalar_function);
 }
 
 void AddChooseKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
@@ -2822,15 +2891,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
     AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
     AddBinaryCaseWhenKernels(func, BaseBinaryTypes());
-    AddCaseWhenKernel(func, Type::FIXED_SIZE_LIST,
-                      CaseWhenFunctor<FixedSizeListType>::Exec);
-    AddCaseWhenKernel(func, Type::LIST, CaseWhenFunctor<ListType>::Exec);
-    AddCaseWhenKernel(func, Type::LARGE_LIST, CaseWhenFunctor<LargeListType>::Exec);
-    AddCaseWhenKernel(func, Type::MAP, CaseWhenFunctor<MapType>::Exec);
-    AddCaseWhenKernel(func, Type::STRUCT, CaseWhenFunctor<StructType>::Exec);
-    AddCaseWhenKernel(func, Type::DENSE_UNION, CaseWhenFunctor<DenseUnionType>::Exec);
-    AddCaseWhenKernel(func, Type::SPARSE_UNION, CaseWhenFunctor<SparseUnionType>::Exec);
-    AddCaseWhenKernel(func, Type::DICTIONARY, CaseWhenFunctor<DictionaryType>::Exec);
+    AddNestedCaseWhenKernels(func);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
@@ -2848,15 +2909,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     for (const auto& ty : BaseBinaryTypes()) {
       AddCoalesceKernel(func, ty, GenerateTypeAgnosticVarBinaryBase<CoalesceFunctor>(ty));
     }
-    AddCoalesceKernel(func, Type::FIXED_SIZE_LIST,
-                      CoalesceFunctor<FixedSizeListType>::Exec);
-    AddCoalesceKernel(func, Type::LIST, CoalesceFunctor<ListType>::Exec);
-    AddCoalesceKernel(func, Type::LARGE_LIST, CoalesceFunctor<LargeListType>::Exec);
-    AddCoalesceKernel(func, Type::MAP, CoalesceFunctor<MapType>::Exec);
-    AddCoalesceKernel(func, Type::STRUCT, CoalesceFunctor<StructType>::Exec);
-    AddCoalesceKernel(func, Type::DENSE_UNION, CoalesceFunctor<DenseUnionType>::Exec);
-    AddCoalesceKernel(func, Type::SPARSE_UNION, CoalesceFunctor<SparseUnionType>::Exec);
-    AddCoalesceKernel(func, Type::DICTIONARY, CoalesceFunctor<DictionaryType>::Exec);
+    AddNestedCoalesceKernels(func);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {

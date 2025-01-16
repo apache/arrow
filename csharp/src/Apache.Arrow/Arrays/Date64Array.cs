@@ -24,9 +24,9 @@ namespace Apache.Arrow
     /// stored as the number of milliseconds since the dawn of (UNIX) time, excluding leap seconds, in multiples of
     /// 86400000.
     /// </summary>
-    public class Date64Array : PrimitiveArray<long>, IReadOnlyList<DateTime?>
+    public class Date64Array : PrimitiveArray<long>, IReadOnlyList<DateTime?>, ICollection<DateTime?>
 #if NET6_0_OR_GREATER
-        , IReadOnlyList<DateOnly?>
+        , IReadOnlyList<DateOnly?>, ICollection<DateOnly?>
 #endif
     {
         private const long MillisecondsPerDay = 86400000;
@@ -45,10 +45,9 @@ namespace Apache.Arrow
         {
             private class DateBuilder : PrimitiveArrayBuilder<long, Date64Array, DateBuilder>
             {
-                protected override Date64Array Build(
-                    ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
-                    int length, int nullCount, int offset) =>
-                    new Date64Array(valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+                protected override Date64Array Build(ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer, int length,
+                    int nullCount, int offset) =>
+                    new(valueBuffer, nullBitmapBuffer, length, nullCount, offset);
             }
 
             /// <summary>
@@ -151,6 +150,31 @@ namespace Apache.Arrow
                 yield return GetDateOnly(index);
             };
         }
+
+        int ICollection<DateOnly?>.Count => Length;
+        bool ICollection<DateOnly?>.IsReadOnly => true;
+        void ICollection<DateOnly?>.Add(DateOnly? item) => throw new NotSupportedException("Collection is read-only.");
+        bool ICollection<DateOnly?>.Remove(DateOnly? item) => throw new NotSupportedException("Collection is read-only.");
+        void ICollection<DateOnly?>.Clear() => throw new NotSupportedException("Collection is read-only.");
+
+        bool ICollection<DateOnly?>.Contains(DateOnly? item)
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                if (GetDateOnly(index).Equals(item))
+                    return true;
+            }
+
+            return false;
+        }
+
+        void ICollection<DateOnly?>.CopyTo(DateOnly?[] array, int arrayIndex)
+        {
+            for (int srcIndex = 0, destIndex = arrayIndex; srcIndex < Length; srcIndex++, destIndex++)
+            {
+                array[destIndex] = GetDateOnly(srcIndex);
+            }
+        }
 #endif
 
         int IReadOnlyCollection<DateTime?>.Count => Length;
@@ -162,7 +186,32 @@ namespace Apache.Arrow
             for (int index = 0; index < Length; index++)
             {
                 yield return GetDateTime(index);
-            };
+            }
+        }
+
+        int ICollection<DateTime?>.Count => Length;
+        bool ICollection<DateTime?>.IsReadOnly => true;
+        void ICollection<DateTime?>.Add(DateTime? item) => throw new NotSupportedException("Collection is read-only.");
+        bool ICollection<DateTime?>.Remove(DateTime? item) => throw new NotSupportedException("Collection is read-only.");
+        void ICollection<DateTime?>.Clear() => throw new NotSupportedException("Collection is read-only.");
+
+        bool ICollection<DateTime?>.Contains(DateTime? item)
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                if (GetDateTime(index).Equals(item))
+                    return true;
+            }
+
+            return false;
+        }
+
+        void ICollection<DateTime?>.CopyTo(DateTime?[] array, int arrayIndex)
+        {
+            for (int srcIndex = 0, destIndex = arrayIndex; srcIndex < Length; srcIndex++, destIndex++)
+            {
+                array[destIndex] = GetDateTime(srcIndex);
+            }
         }
     }
 }

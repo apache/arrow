@@ -171,7 +171,10 @@ using PrimitiveArrowTypes =
 using TemporalArrowTypes =
     ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
 
-using DecimalArrowTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
+// we can uncomment Decimal32Type and Decimal64Type once the cast
+// functions are implemented for those types
+using DecimalArrowTypes =
+    ::testing::Types</*Decimal32Type, Decimal64Type,*/ Decimal128Type, Decimal256Type>;
 
 using BaseBinaryArrowTypes =
     ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
@@ -355,6 +358,19 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
                                      const std::vector<std::string>& json);
 
 ARROW_TESTING_EXPORT
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       std::string_view data, std::string_view shape,
+                                       std::string_view strides = "[]",
+                                       std::string_view dim_names = "[]");
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       std::string_view data,
+                                       const std::vector<int64_t>& shape,
+                                       const std::vector<int64_t>& strides = {},
+                                       const std::vector<std::string>& dim_names = {});
+
+ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
     const Table& table, const std::vector<int>& column_indices);
 
@@ -444,9 +460,9 @@ class ARROW_TESTING_EXPORT SignalHandlerGuard {
 };
 
 #ifndef ARROW_LARGE_MEMORY_TESTS
-#define LARGE_MEMORY_TEST(name) DISABLED_##name
+#  define LARGE_MEMORY_TEST(name) DISABLED_##name
 #else
-#define LARGE_MEMORY_TEST(name) name
+#  define LARGE_MEMORY_TEST(name) name
 #endif
 
 inline void PrintTo(const Status& st, std::ostream* os) { *os << st.ToString(); }

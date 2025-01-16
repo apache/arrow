@@ -46,12 +46,6 @@ jobs:
 
   {{ macros.azure_checkout_arrow() }}
 
-  - task: CondaEnvironment@1
-    inputs:
-      packageSpecs: 'anaconda-client shyaml'
-      installOptions: '-c conda-forge'
-      updateConda: false
-
   - script: |
       mkdir build_artifacts
       CI=azure arrow/dev/tasks/conda-recipes/run_docker_build.sh $(pwd)/build_artifacts

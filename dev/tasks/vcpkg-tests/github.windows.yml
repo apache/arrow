@@ -15,14 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   test-vcpkg-win:
@@ -31,12 +26,14 @@ jobs:
     env:
       VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
     steps:
-      - name: Checkout Arrow
+      {{ macros.github_checkout_arrow()|indent }}
+      # CMake 3.29.1 that is pre-installed on the Windows image has a problem.
+      # See also: https://github.com/microsoft/vcpkg/issues/37968
+      - name: Install CMake 3.29.0
+        shell: bash
         run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
+          arrow/ci/scripts/install_cmake.sh amd64 windows 3.29.0 /c/cmake
+          echo "c:\\cmake\\bin" >> $GITHUB_PATH
       - name: Download Timezone Database
         shell: bash
         run: arrow/ci/scripts/download_tz_database.sh
@@ -59,7 +56,7 @@ jobs:
           CALL setx PATH "%PATH%;C:\vcpkg"
       - name: Setup NuGet Credentials
         shell: bash
-        env: 
+        env:
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
           `vcpkg fetch nuget | tail -n 1` \

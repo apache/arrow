@@ -74,6 +74,10 @@ struct ScalarFromArraySlotImpl {
     return Finish(a.Value(index_));
   }
 
+  Status Visit(const Decimal32Array& a) { return Finish(Decimal32(a.GetValue(index_))); }
+
+  Status Visit(const Decimal64Array& a) { return Finish(Decimal64(a.GetValue(index_))); }
+
   Status Visit(const Decimal128Array& a) {
     return Finish(Decimal128(a.GetValue(index_)));
   }
@@ -305,6 +309,18 @@ Result<std::shared_ptr<Array>> Array::View(
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> result,
                         internal::GetArrayView(data_, out_type));
   return MakeArray(result);
+}
+
+Result<std::shared_ptr<Array>> Array::CopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  ARROW_ASSIGN_OR_RAISE(auto copied_data, data()->CopyTo(to));
+  return MakeArray(copied_data);
+}
+
+Result<std::shared_ptr<Array>> Array::ViewOrCopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  ARROW_ASSIGN_OR_RAISE(auto new_data, data()->ViewOrCopyTo(to));
+  return MakeArray(new_data);
 }
 
 // ----------------------------------------------------------------------

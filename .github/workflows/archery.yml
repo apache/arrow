@@ -19,19 +19,27 @@ name: Archery & Crossbow
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
+      - '.dockerignore'
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
       - 'dev/tasks/**'
       - 'docker-compose.yml'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
       - 'dev/tasks/**'
       - 'docker-compose.yml'
 
 env:
+  ARCHERY_DEBUG: 1
   ARCHERY_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
 concurrency:
@@ -57,9 +65,9 @@ jobs:
         shell: bash
         run: git branch $ARCHERY_DEFAULT_BRANCH origin/$ARCHERY_DEFAULT_BRANCH || true
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.3.0
         with:
-          python-version: '3.8'
+          python-version: '3.9'
       - name: Install pygit2 binary wheel
         run: pip install pygit2 --only-binary pygit2
       - name: Install Archery, Crossbow- and Test Dependencies

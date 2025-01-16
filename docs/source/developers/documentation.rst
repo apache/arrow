@@ -259,7 +259,7 @@ Build the docs in the target directory:
    sphinx-build ./source/developers ./source/developers/_build -c ./source -D master_doc=temp_index
 
 This builds everything in the target directory to a folder inside of it
-called ``_build`` using the config file in the `source` directory.
+called ``_build`` using the config file in the ``source`` directory.
 
 Once you have verified the HTML documents, you can remove temporary index file:
 

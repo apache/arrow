@@ -19,7 +19,8 @@
 
 #pragma once
 
-#include <arrow-glib/gobject-type.h>
+#include <glib-object.h>
+
 #include <arrow-glib/version.h>
 
 #include <arrow-glib/array.h>
@@ -29,6 +30,7 @@
 #include <arrow-glib/compute.h>
 #include <arrow-glib/data-type.h>
 #include <arrow-glib/datum.h>
+#include <arrow-glib/decoder.h>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.h>
 #include <arrow-glib/expression.h>

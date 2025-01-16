@@ -22,30 +22,31 @@
 // The LLVM IR code doesn't have an NDEBUG mode. And, it shouldn't include references to
 // streams or stdc++. So, making the DCHECK calls void in that case.
 
-#define ARROW_IGNORE_EXPR(expr) ((void)(expr))
+#  define ARROW_IGNORE_EXPR(expr) ((void)(expr))
 
-#define DCHECK(condition) ARROW_IGNORE_EXPR(condition)
-#define DCHECK_OK(status) ARROW_IGNORE_EXPR(status)
-#define DCHECK_EQ(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_NE(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_LE(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_LT(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_GE(val1, val2) ARROW_IGNORE_EXPR(val1)
-#define DCHECK_GT(val1, val2) ARROW_IGNORE_EXPR(val1)
+#  define DCHECK(condition) ARROW_IGNORE_EXPR(condition)
+#  define DCHECK_OK(status) ARROW_IGNORE_EXPR(status)
+#  define DCHECK_EQ(val1, val2) ARROW_IGNORE_EXPR(val1)
+#  define DCHECK_NE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#  define DCHECK_LE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#  define DCHECK_LT(val1, val2) ARROW_IGNORE_EXPR(val1)
+#  define DCHECK_GE(val1, val2) ARROW_IGNORE_EXPR(val1)
+#  define DCHECK_GT(val1, val2) ARROW_IGNORE_EXPR(val1)
 
 #else  // !GANDIVA_IR
 
-#include <memory>
-#include <ostream>
-#include <string>
+#  include <memory>
+#  include <ostream>
+#  include <string>
 
-#include "arrow/util/macros.h"
-#include "arrow/util/visibility.h"
+#  include "arrow/util/macros.h"
+#  include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace util {
 
 enum class ArrowLogLevel : int {
+  ARROW_TRACE = -2,
   ARROW_DEBUG = -1,
   ARROW_INFO = 0,
   ARROW_WARNING = 1,
@@ -53,98 +54,115 @@ enum class ArrowLogLevel : int {
   ARROW_FATAL = 3
 };
 
-#define ARROW_LOG_INTERNAL(level) ::arrow::util::ArrowLog(__FILE__, __LINE__, level)
-#define ARROW_LOG(level) ARROW_LOG_INTERNAL(::arrow::util::ArrowLogLevel::ARROW_##level)
+#  define ARROW_LOG_INTERNAL(level) ::arrow::util::ArrowLog(__FILE__, __LINE__, level)
+#  define ARROW_LOG(level) ARROW_LOG_INTERNAL(::arrow::util::ArrowLogLevel::ARROW_##level)
 
-#define ARROW_IGNORE_EXPR(expr) ((void)(expr))
+#  define ARROW_IGNORE_EXPR(expr) ((void)(expr))
 
-#define ARROW_CHECK_OR_LOG(condition, level) \
-  ARROW_PREDICT_TRUE(condition)              \
-  ? ARROW_IGNORE_EXPR(0)                     \
-  : ::arrow::util::Voidify() & ARROW_LOG(level) << " Check failed: " #condition " "
+#  define ARROW_CHECK_OR_LOG(condition, level) \
+    ARROW_PREDICT_TRUE(condition)              \
+    ? ARROW_IGNORE_EXPR(0)                     \
+    : ::arrow::util::Voidify() & ARROW_LOG(level) << " Check failed: " #condition " "
 
-#define ARROW_CHECK(condition) ARROW_CHECK_OR_LOG(condition, FATAL)
+#  define ARROW_CHECK(condition) ARROW_CHECK_OR_LOG(condition, FATAL)
 
 // If 'to_call' returns a bad status, CHECK immediately with a logged message
 // of 'msg' followed by the status.
-#define ARROW_CHECK_OK_PREPEND(to_call, msg, level)                 \
-  do {                                                              \
-    ::arrow::Status _s = (to_call);                                 \
-    ARROW_CHECK_OR_LOG(_s.ok(), level)                              \
-        << "Operation failed: " << ARROW_STRINGIFY(to_call) << "\n" \
-        << (msg) << ": " << _s.ToString();                          \
-  } while (false)
+#  define ARROW_CHECK_OK_PREPEND(to_call, msg, level)                 \
+    do {                                                              \
+      ::arrow::Status _s = (to_call);                                 \
+      ARROW_CHECK_OR_LOG(_s.ok(), level)                              \
+          << "Operation failed: " << ARROW_STRINGIFY(to_call) << "\n" \
+          << (msg) << ": " << _s.ToString();                          \
+    } while (false)
 
 // If the status is bad, CHECK immediately, appending the status to the
 // logged message.
-#define ARROW_CHECK_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status", FATAL)
+#  define ARROW_CHECK_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status", FATAL)
 
-#define ARROW_CHECK_EQ(val1, val2) ARROW_CHECK((val1) == (val2))
-#define ARROW_CHECK_NE(val1, val2) ARROW_CHECK((val1) != (val2))
-#define ARROW_CHECK_LE(val1, val2) ARROW_CHECK((val1) <= (val2))
-#define ARROW_CHECK_LT(val1, val2) ARROW_CHECK((val1) < (val2))
-#define ARROW_CHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
-#define ARROW_CHECK_GT(val1, val2) ARROW_CHECK((val1) > (val2))
+#  define ARROW_CHECK_EQ(val1, val2) ARROW_CHECK((val1) == (val2))
+#  define ARROW_CHECK_NE(val1, val2) ARROW_CHECK((val1) != (val2))
+#  define ARROW_CHECK_LE(val1, val2) ARROW_CHECK((val1) <= (val2))
+#  define ARROW_CHECK_LT(val1, val2) ARROW_CHECK((val1) < (val2))
+#  define ARROW_CHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
+#  define ARROW_CHECK_GT(val1, val2) ARROW_CHECK((val1) > (val2))
 
-#ifdef NDEBUG
-#define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_WARNING
+#  ifdef NDEBUG
+#    define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_WARNING
 
 // CAUTION: DCHECK_OK() always evaluates its argument, but other DCHECK*() macros
 // only do so in debug mode.
 
-#define ARROW_DCHECK(condition)               \
-  while (false) ARROW_IGNORE_EXPR(condition); \
-  while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_OK(s) \
-  ARROW_IGNORE_EXPR(s);    \
-  while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_EQ(val1, val2)      \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
-  while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_NE(val1, val2)      \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
-  while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_LE(val1, val2)      \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
-  while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_LT(val1, val2)      \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
-  while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_GE(val1, val2)      \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
-  while (false) ::arrow::util::detail::NullLog()
-#define ARROW_DCHECK_GT(val1, val2)      \
-  while (false) ARROW_IGNORE_EXPR(val1); \
-  while (false) ARROW_IGNORE_EXPR(val2); \
-  while (false) ::arrow::util::detail::NullLog()
+#    define ARROW_DCHECK(condition)               \
+      while (false) ARROW_IGNORE_EXPR(condition); \
+      while (false) ::arrow::util::detail::NullLog()
+#    define ARROW_DCHECK_OK(s) \
+      ARROW_IGNORE_EXPR(s);    \
+      while (false) ::arrow::util::detail::NullLog()
+#    define ARROW_DCHECK_EQ(val1, val2)      \
+      while (false) ARROW_IGNORE_EXPR(val1); \
+      while (false) ARROW_IGNORE_EXPR(val2); \
+      while (false) ::arrow::util::detail::NullLog()
+#    define ARROW_DCHECK_NE(val1, val2)      \
+      while (false) ARROW_IGNORE_EXPR(val1); \
+      while (false) ARROW_IGNORE_EXPR(val2); \
+      while (false) ::arrow::util::detail::NullLog()
+#    define ARROW_DCHECK_LE(val1, val2)      \
+      while (false) ARROW_IGNORE_EXPR(val1); \
+      while (false) ARROW_IGNORE_EXPR(val2); \
+      while (false) ::arrow::util::detail::NullLog()
+#    define ARROW_DCHECK_LT(val1, val2)      \
+      while (false) ARROW_IGNORE_EXPR(val1); \
+      while (false) ARROW_IGNORE_EXPR(val2); \
+      while (false) ::arrow::util::detail::NullLog()
+#    define ARROW_DCHECK_GE(val1, val2)      \
+      while (false) ARROW_IGNORE_EXPR(val1); \
+      while (false) ARROW_IGNORE_EXPR(val2); \
+      while (false) ::arrow::util::detail::NullLog()
+#    define ARROW_DCHECK_GT(val1, val2)      \
+      while (false) ARROW_IGNORE_EXPR(val1); \
+      while (false) ARROW_IGNORE_EXPR(val2); \
+      while (false) ::arrow::util::detail::NullLog()
 
-#else
-#define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
+#  else
+#    define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_FATAL
 
-#define ARROW_DCHECK ARROW_CHECK
-#define ARROW_DCHECK_OK ARROW_CHECK_OK
-#define ARROW_DCHECK_EQ ARROW_CHECK_EQ
-#define ARROW_DCHECK_NE ARROW_CHECK_NE
-#define ARROW_DCHECK_LE ARROW_CHECK_LE
-#define ARROW_DCHECK_LT ARROW_CHECK_LT
-#define ARROW_DCHECK_GE ARROW_CHECK_GE
-#define ARROW_DCHECK_GT ARROW_CHECK_GT
+#    define ARROW_DCHECK ARROW_CHECK
+#    define ARROW_DCHECK_OK ARROW_CHECK_OK
+#    define ARROW_DCHECK_EQ ARROW_CHECK_EQ
+#    define ARROW_DCHECK_NE ARROW_CHECK_NE
+#    define ARROW_DCHECK_LE ARROW_CHECK_LE
+#    define ARROW_DCHECK_LT ARROW_CHECK_LT
+#    define ARROW_DCHECK_GE ARROW_CHECK_GE
+#    define ARROW_DCHECK_GT ARROW_CHECK_GT
 
-#endif  // NDEBUG
+#  endif  // NDEBUG
 
-#define DCHECK ARROW_DCHECK
-#define DCHECK_OK ARROW_DCHECK_OK
-#define DCHECK_EQ ARROW_DCHECK_EQ
-#define DCHECK_NE ARROW_DCHECK_NE
-#define DCHECK_LE ARROW_DCHECK_LE
-#define DCHECK_LT ARROW_DCHECK_LT
-#define DCHECK_GE ARROW_DCHECK_GE
-#define DCHECK_GT ARROW_DCHECK_GT
+// These are internal-use macros and should not be used in public headers.
+#  ifndef DCHECK
+#    define DCHECK ARROW_DCHECK
+#  endif
+#  ifndef DCHECK_OK
+#    define DCHECK_OK ARROW_DCHECK_OK
+#  endif
+#  ifndef DCHECK_EQ
+#    define DCHECK_EQ ARROW_DCHECK_EQ
+#  endif
+#  ifndef DCHECK_NE
+#    define DCHECK_NE ARROW_DCHECK_NE
+#  endif
+#  ifndef DCHECK_LE
+#    define DCHECK_LE ARROW_DCHECK_LE
+#  endif
+#  ifndef DCHECK_LT
+#    define DCHECK_LT ARROW_DCHECK_LT
+#  endif
+#  ifndef DCHECK_GE
+#    define DCHECK_GE ARROW_DCHECK_GE
+#  endif
+#  ifndef DCHECK_GT
+#    define DCHECK_GT ARROW_DCHECK_GT
+#  endif
 
 // This code is adapted from
 // https://github.com/ray-project/ray/blob/master/src/ray/util/logging.h.

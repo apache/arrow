@@ -17,9 +17,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as fs from 'fs';
-import * as Path from 'path';
-import { finished as eos } from 'stream/promises';
+import * as fs from 'node:fs';
+import * as Path from 'node:path';
+import { finished as eos } from 'node:stream/promises';
 import { RecordBatchReader, RecordBatchStreamWriter } from '../index.ts';
 
 (async () => {

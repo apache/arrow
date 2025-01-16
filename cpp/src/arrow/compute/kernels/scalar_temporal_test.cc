@@ -2143,7 +2143,10 @@ TEST_F(ScalarTemporalTest, StrftimeCLocale) {
 TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
 #ifdef _WIN32
   GTEST_SKIP() << "There is a known bug in strftime for locales on Windows (ARROW-15922)";
-#else
+#elif defined(__EMSCRIPTEN__)
+  GTEST_SKIP() << "Emscripten doesn't build with multiple locales as default";
+#endif
+
   if (!LocaleExists("fr_FR.UTF-8")) {
     GTEST_SKIP() << "locale 'fr_FR.UTF-8' doesn't exist on this system";
   }
@@ -2151,14 +2154,26 @@ TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
   auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "fr_FR.UTF-8");
   const char* milliseconds = R"(
       ["1970-01-01T00:00:59.123", "2021-08-18T15:11:50.456", null])";
+#ifdef ARROW_WITH_MUSL
+  // musl-locales uses Capital case for month name.
+  // musl doesn't use "," for milliseconds separator.
+  const char* expected = R"(
+      ["01 Janvier 1970 00:00:59.123", "18 Août 2021 15:11:50.456", null])";
+#else
   const char* expected = R"(
       ["01 janvier 1970 00:00:59,123", "18 août 2021 15:11:50,456", null])";
+#endif
   CheckScalarUnary("strftime", timestamp(TimeUnit::MILLI, "UTC"), milliseconds, utf8(),
                    expected, &options);
-#endif
 }
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
+#ifdef ARROW_WITH_MUSL
+  GTEST_SKIP() << "musl doesn't report an error for invalid locale";
+#endif
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "Emscripten doesn't build with multiple locales as default";
+#endif
   auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "nonexistent");
   const char* seconds = R"(["1970-01-01T00:00:59", null])";
   auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), seconds);

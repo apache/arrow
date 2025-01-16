@@ -16,6 +16,7 @@
 # under the License.
 
 require "cgi/util"
+require "digest/sha1"
 require "digest/sha2"
 require "io/console"
 require "json"
@@ -531,7 +532,8 @@ class BinaryTask
              OpenSSL::OpenSSLError,
              SocketError,
              SystemCallError,
-             Timeout::Error => error
+             Timeout::Error,
+             Error => error
         n_retries += 1
         if n_retries <= max_n_retries
           $stderr.puts
@@ -1083,12 +1085,11 @@ class BinaryTask
 
   def available_apt_targets
     [
-      ["debian", "bullseye", "main"],
       ["debian", "bookworm", "main"],
       ["debian", "trixie", "main"],
       ["ubuntu", "focal", "main"],
       ["ubuntu", "jammy", "main"],
-      ["ubuntu", "mantic", "main"],
+      ["ubuntu", "noble", "main"],
     ]
   end
 
@@ -1895,7 +1896,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               :docs,
                               "#{rc_dir}/docs/#{full_version}",
                               "#{release_dir}/docs/#{full_version}",
-                              "test-ubuntu-22.04-docs/**/*")
+                              "test-debian-12-docs/**/*")
   end
 
   def define_nuget_tasks
@@ -2111,8 +2112,6 @@ class LocalBinaryTask < BinaryTask
     # Disable arm64 targets by default for now
     # because they require some setups on host.
     [
-      "debian-bullseye",
-      # "debian-bullseye-arm64",
       "debian-bookworm",
       # "debian-bookworm-arm64",
       "debian-trixie",
@@ -2121,8 +2120,8 @@ class LocalBinaryTask < BinaryTask
       # "ubuntu-focal-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
-      "ubuntu-lunar",
-      # "ubuntu-lunar-arm64",
+      "ubuntu-noble",
+      # "ubuntu-noble-arm64",
     ]
   end
 

@@ -35,4 +35,5 @@ struct _GArrowFileInterface
   std::shared_ptr<arrow::io::FileInterface> (*get_raw)(GArrowFile *file);
 };
 
-std::shared_ptr<arrow::io::FileInterface> garrow_file_get_raw(GArrowFile *file);
+std::shared_ptr<arrow::io::FileInterface>
+garrow_file_get_raw(GArrowFile *file);

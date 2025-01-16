@@ -21,7 +21,7 @@
 #'
 #' The `arrow` package contains methods for 37 `dplyr` table functions, many of
 #' which are "verbs" that do transformations to one or more tables.
-#' The package also has mappings of 211 R functions to the corresponding
+#' The package also has mappings of 212 R functions to the corresponding
 #' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
@@ -36,7 +36,7 @@
 #' which returns an `arrow` [Table], or `collect()`, which pulls the resulting
 #' Table into an R `tibble`.
 #'
-#' * [`anti_join()`][dplyr::anti_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`anti_join()`][dplyr::anti_join()]: the `copy` argument is ignored
 #' * [`arrange()`][dplyr::arrange()]
 #' * [`collapse()`][dplyr::collapse()]
 #' * [`collect()`][dplyr::collect()]
@@ -45,29 +45,29 @@
 #' * [`distinct()`][dplyr::distinct()]: `.keep_all = TRUE` not supported
 #' * [`explain()`][dplyr::explain()]
 #' * [`filter()`][dplyr::filter()]
-#' * [`full_join()`][dplyr::full_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`full_join()`][dplyr::full_join()]: the `copy` argument is ignored
 #' * [`glimpse()`][dplyr::glimpse()]
 #' * [`group_by()`][dplyr::group_by()]
 #' * [`group_by_drop_default()`][dplyr::group_by_drop_default()]
 #' * [`group_vars()`][dplyr::group_vars()]
 #' * [`groups()`][dplyr::groups()]
-#' * [`inner_join()`][dplyr::inner_join()]: the `copy` and `na_matches` arguments are ignored
-#' * [`left_join()`][dplyr::left_join()]: the `copy` and `na_matches` arguments are ignored
-#' * [`mutate()`][dplyr::mutate()]: window functions (e.g. things that require aggregation within groups) not currently supported
+#' * [`inner_join()`][dplyr::inner_join()]: the `copy` argument is ignored
+#' * [`left_join()`][dplyr::left_join()]: the `copy` argument is ignored
+#' * [`mutate()`][dplyr::mutate()]
 #' * [`pull()`][dplyr::pull()]: the `name` argument is not supported; returns an R vector by default but this behavior is deprecated and will return an Arrow [ChunkedArray] in a future release. Provide `as_vector = TRUE/FALSE` to control this behavior, or set `options(arrow.pull_as_vector)` globally.
 #' * [`relocate()`][dplyr::relocate()]
 #' * [`rename()`][dplyr::rename()]
 #' * [`rename_with()`][dplyr::rename_with()]
-#' * [`right_join()`][dplyr::right_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`right_join()`][dplyr::right_join()]: the `copy` argument is ignored
 #' * [`select()`][dplyr::select()]
-#' * [`semi_join()`][dplyr::semi_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`semi_join()`][dplyr::semi_join()]: the `copy` argument is ignored
 #' * [`show_query()`][dplyr::show_query()]
 #' * [`slice_head()`][dplyr::slice_head()]: slicing within groups not supported; Arrow datasets do not have row order, so head is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_max()`][dplyr::slice_max()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_min()`][dplyr::slice_min()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_sample()`][dplyr::slice_sample()]: slicing within groups not supported; `replace = TRUE` and the `weight_by` argument not supported; `n` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_tail()`][dplyr::slice_tail()]: slicing within groups not supported; Arrow datasets do not have row order, so tail is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
-#' * [`summarise()`][dplyr::summarise()]: window functions not currently supported; arguments `.drop = FALSE` and `.groups = "rowwise" not supported
+#' * [`summarise()`][dplyr::summarise()]: window functions not currently supported; arguments `.drop = FALSE` and `.groups = "rowwise"` not supported
 #' * [`tally()`][dplyr::tally()]
 #' * [`transmute()`][dplyr::transmute()]
 #' * [`ungroup()`][dplyr::ungroup()]
@@ -83,7 +83,7 @@
 #' Functions can be called either as `pkg::fun()` or just `fun()`, i.e. both
 #' `str_sub()` and `stringr::str_sub()` work.
 #'
-#' In addition to these functions, you can call any of Arrow's 254 compute
+#' In addition to these functions, you can call any of Arrow's 262 compute
 #' functions directly. Arrow has many functions that don't map to an existing R
 #' function. In other cases where there is an R function mapping, you can still
 #' call the Arrow function directly if you don't want the adaptations that the R

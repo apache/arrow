@@ -19,7 +19,13 @@ name: Python
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
+      - '.dockerignore'
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
@@ -27,6 +33,7 @@ on:
       - 'python/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
@@ -41,6 +48,7 @@ permissions:
   contents: read
 
 env:
+  ARCHERY_DEBUG: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
@@ -55,36 +63,42 @@ jobs:
       matrix:
         name:
           - conda-python-docs
-          - conda-python-3.9-nopandas
-          - conda-python-3.8-pandas-1.0
-          - conda-python-3.10-pandas-latest
+          - conda-python-3.10-nopandas
+          - conda-python-3.9-pandas-1.1.3
+          - conda-python-3.11-pandas-latest
+          - conda-python-3.11-no-numpy
         include:
           - name: conda-python-docs
-            cache: conda-python-3.9
-            image: conda-python-docs
-            title: AMD64 Conda Python 3.9 Sphinx & Numpydoc
-            python: 3.9
-          - name: conda-python-3.9-nopandas
-            cache: conda-python-3.9
-            image: conda-python
-            title: AMD64 Conda Python 3.9 Without Pandas
-            python: 3.9
-          - name: conda-python-3.8-pandas-1.0
-            cache: conda-python-3.8
-            image: conda-python-pandas
-            title: AMD64 Conda Python 3.8 Pandas 1.0
-            python: 3.8
-            pandas: "1.0"
-            numpy: 1.16
-          - name: conda-python-3.10-pandas-latest
             cache: conda-python-3.10
-            image: conda-python-pandas
-            title: AMD64 Conda Python 3.10 Pandas latest
+            image: conda-python-docs
+            title: AMD64 Conda Python 3.10 Sphinx & Numpydoc
             python: "3.10"
+          - name: conda-python-3.10-nopandas
+            cache: conda-python-3.10
+            image: conda-python
+            title: AMD64 Conda Python 3.10 Without Pandas
+            python: "3.10"
+          - name: conda-python-3.9-pandas-1.1.3
+            cache: conda-python-3.9
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.9 Pandas 1.1.3
+            python: 3.9
+            pandas: "1.1.3"
+            numpy: 1.19.5
+          - name: conda-python-3.11-pandas-latest
+            cache: conda-python-3.11
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.11 Pandas latest
+            python: "3.11"
             pandas: latest
+          - name: conda-python-3.11-no-numpy
+            cache: conda-python-3.11
+            image: conda-python-no-numpy
+            title: AMD64 Conda Python 3.11 without NumPy
+            python: "3.11"
     env:
-      PYTHON: ${{ matrix.python || 3.8 }}
-      UBUNTU: ${{ matrix.ubuntu || 20.04 }}
+      PYTHON: ${{ matrix.python || 3.9 }}
+      UBUNTU: ${{ matrix.ubuntu || 22.04 }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
       NUMPY: ${{ matrix.numpy || 'latest' }}
     steps:
@@ -94,15 +108,15 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
         with:
           path: .docker
           key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
           restore-keys: ${{ matrix.cache }}-
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -110,8 +124,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run ${{ matrix.image }}
       - name: Docker Push
         if: >-
@@ -126,12 +139,21 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: AMD64 macOS 12 Python 3
-    runs-on: macos-latest
+    name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} Python 3
+    runs-on: macos-${{ matrix.macos-version }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: AMD64
+            macos-version: "13"
+          - architecture: ARM64
+            macos-version: "14"
     env:
-      ARROW_HOME: /usr/local
+      ARROW_HOME: /tmp/local
+      ARROW_AZURE: ON
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
@@ -153,7 +175,7 @@ jobs:
       ARROW_BUILD_TESTS: OFF
       PYARROW_TEST_LARGE_MEMORY: ON
       # Current oldest supported version according to https://endoflife.date/macos
-      MACOSX_DEPLOYMENT_TARGET: 10.15
+      MACOSX_DEPLOYMENT_TARGET: 12.0
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v4
@@ -161,16 +183,38 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.3.0
         with:
           python-version: '3.11'
       - name: Install Dependencies
         shell: bash
         run: |
+          # pkg-config formula is deprecated but it's still installed
+          # in GitHub Actions runner now. We can remove this once
+          # pkg-config formula is removed from GitHub Actions runner.
+          brew uninstall pkg-config || :
+          brew uninstall pkg-config@0.29.2 || :
           brew bundle --file=cpp/Brewfile
           python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt
+      - name: Install MinIO
+        run: |
+          $(brew --prefix bash)/bin/bash \
+            ci/scripts/install_minio.sh latest /usr/local
+      - name: Setup ccache
+        shell: bash
+        run: ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: python-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**', 'python/**') }}
+          restore-keys: python-ccache-macos-${{ matrix.macos-version }}-
       - name: Build
         shell: bash
         run: |

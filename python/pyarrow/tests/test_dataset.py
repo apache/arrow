@@ -20,6 +20,7 @@ import datetime
 import os
 import pathlib
 import posixpath
+import random
 import sys
 import tempfile
 import textwrap
@@ -28,7 +29,10 @@ import time
 from shutil import copytree
 from urllib.parse import quote
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
@@ -37,6 +41,7 @@ import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
 import pyarrow.json
+from pyarrow.lib import is_threading_enabled
 from pyarrow.tests.util import (FSProtocolClass, ProxyHandler,
                                 _configure_s3_limited_user, _filesystem_uri,
                                 change_cwd)
@@ -59,6 +64,14 @@ except ImportError:
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'
 pytestmark = pytest.mark.dataset
+
+
+class TableStreamWrapper:
+    def __init__(self, table):
+        self.table = table
+
+    def __arrow_c_stream__(self, requested_schema=None):
+        return self.table.__arrow_c_stream__(requested_schema)
 
 
 def _generate_data(n):
@@ -100,7 +113,6 @@ def assert_dataset_fragment_convenience_methods(dataset):
 
 
 @pytest.fixture
-@pytest.mark.parquet
 def mockfs():
     mockfs = fs._MockFileSystem()
 
@@ -178,12 +190,14 @@ def multisourcefs(request):
 
     # simply split the dataframe into four chunks to construct a data source
     # from each chunk into its own directory
-    df_a, df_b, df_c, df_d = np.array_split(df, 4)
+    n = len(df)
+    df_a, df_b, df_c, df_d = [df.iloc[i:i+n//4] for i in range(0, n, n//4)]
 
     # create a directory containing a flat sequence of parquet files without
     # any partitioning involved
     mockfs.create_dir('plain')
-    for i, chunk in enumerate(np.array_split(df_a, 10)):
+    n = len(df_a)
+    for i, chunk in enumerate([df_a.iloc[i:i+n//10] for i in range(0, n, n//10)]):
         path = 'plain/chunk-{}.parquet'.format(i)
         with mockfs.open_output_stream(path) as out:
             pq.write_table(_table_from_pandas(chunk), out)
@@ -219,7 +233,6 @@ def multisourcefs(request):
 
 
 @pytest.fixture
-@pytest.mark.parquet
 def dataset(mockfs):
     format = ds.ParquetFileFormat()
     selector = fs.FileSelector('subdir', recursive=True)
@@ -683,8 +696,8 @@ def test_partitioning():
 
     # test partitioning roundtrip
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))],
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)],
         names=["f1", "f2", "part"]
     )
     partitioning_schema = pa.schema([("part", pa.string())])
@@ -698,6 +711,17 @@ def test_partitioning():
                                    partitioning=partitioning)
             load_back_table = load_back.to_table()
             assert load_back_table.equals(table)
+
+    # test invalid partitioning input
+    with tempfile.TemporaryDirectory() as tempdir:
+        partitioning = ds.DirectoryPartitioning(partitioning_schema)
+        ds.write_dataset(table, tempdir,
+                         format='ipc', partitioning=partitioning)
+        load_back = None
+        with pytest.raises(ValueError,
+                           match="Expected Partitioning or PartitioningFactory"):
+            load_back = ds.dataset(tempdir, format='ipc', partitioning=int(0))
+        assert load_back is None
 
 
 def test_partitioning_pickling(pickle_module):
@@ -716,6 +740,73 @@ def test_partitioning_pickling(pickle_module):
 
     for part in parts:
         assert pickle_module.loads(pickle_module.dumps(part)) == part
+
+
+@pytest.mark.parametrize(
+    "flavor, expected_defined_partition, expected_undefined_partition",
+    [
+        ("HivePartitioning", (r"foo=A/bar=ant%20bee", ""), ("", "")),
+        ("DirectoryPartitioning", (r"A/ant bee", ""), ("", "")),
+        ("FilenamePartitioning", ("", r"A_ant bee_"), ("", "_")),
+    ],
+)
+def test_dataset_partitioning_format(
+    flavor: str,
+    expected_defined_partition: tuple,
+    expected_undefined_partition: tuple,
+):
+
+    partitioning_schema = pa.schema([("foo", pa.string()), ("bar", pa.string())])
+
+    partitioning = getattr(ds, flavor)(schema=partitioning_schema)
+
+    # test forward transformation (format)
+    assert (
+        partitioning.format((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
+        == expected_defined_partition
+    )
+
+    # test backward transformation (parse)
+    assert partitioning.parse("/".join(expected_defined_partition)).equals(
+        (pc.field("foo") == "A") & (pc.field("bar") == "ant bee")
+    )
+
+    # test complex expression can still be parsed into useful directory/path
+    assert (
+        partitioning.format(
+            ((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
+            & ((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
+        )
+        == expected_defined_partition
+    )
+
+    # test a different complex expression cannot be parsed into directory/path
+    # and just returns the same value as if no filter were applied.
+    assert (
+        partitioning.format(
+            ((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
+            | ((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
+        )
+        == expected_undefined_partition
+    )
+
+    if flavor != "HivePartitioning":
+        # Raises error upon filtering for lower level partition without filtering for
+        # higher level partition
+        with pytest.raises(
+            pa.ArrowInvalid,
+            match=(
+                "No partition key for foo but a key was provided"
+                " subsequently for bar"
+            )
+        ):
+            partitioning.format(((pc.field("bar") == "ant bee")))
+    else:
+        # Hive partitioning allows this to pass
+        assert partitioning.format(((pc.field("bar") == "ant bee"))) == (
+            r"bar=ant%20bee",
+            "",
+        )
 
 
 def test_expression_arithmetic_operators():
@@ -797,29 +888,34 @@ def test_parquet_scan_options():
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
-    assert opts1.pre_buffer is True
+    if is_threading_enabled():  # pre buffering requires threads
+        assert opts1.pre_buffer is True
     assert opts1.thrift_string_size_limit == 100_000_000  # default in C++
     assert opts1.thrift_container_size_limit == 1_000_000  # default in C++
     assert opts1.page_checksum_verification is False
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
-    assert opts2.pre_buffer is True
+    if is_threading_enabled():  # pre buffering requires threads
+        assert opts2.pre_buffer is True
 
     assert opts3.use_buffered_stream is True
     assert opts3.buffer_size == 2**13
-    assert opts3.pre_buffer is True
+    if is_threading_enabled():  # pre buffering requires threads
+        assert opts3.pre_buffer is True
 
     assert opts4.use_buffered_stream is False
     assert opts4.buffer_size == 2**13
-    assert opts4.pre_buffer is False
+    if is_threading_enabled():  # pre buffering requires threads
+        assert opts4.pre_buffer is False
 
     assert opts5.thrift_string_size_limit == 123456
     assert opts5.thrift_container_size_limit == 987654
 
     assert opts6.page_checksum_verification is True
 
-    assert opts7.pre_buffer is True
+    if is_threading_enabled():  # pre buffering requires threads
+        assert opts7.pre_buffer is True
     assert opts7.cache_options == cache_opts
     assert opts7.cache_options != opts1.cache_options
 
@@ -2455,6 +2551,7 @@ def test_scan_iterator(use_threads):
     for factory, schema in (
             (lambda: pa.RecordBatchReader.from_batches(
                 batch.schema, [batch]), None),
+            (lambda: TableStreamWrapper(table), None),
             (lambda: (batch for _ in range(1)), batch.schema),
     ):
         # Scanning the fragment consumes the underlying iterator
@@ -2477,7 +2574,7 @@ def _create_partitioned_dataset(basedir):
         pq.write_table(table.slice(3*i, 3), part / "test.parquet")
 
     full_table = table.append_column(
-        "part", pa.array(np.repeat([0, 1, 2], 3), type=pa.int32()))
+        "part", pa.array([0] * 3 + [1] * 3 + [2] * 3, type=pa.int32()))
 
     return full_table, path
 
@@ -2515,7 +2612,7 @@ def test_open_dataset_partitioned_directory(tempdir, dataset_reader, pickle_modu
 
     result = dataset.to_table()
     expected = table.append_column(
-        "part", pa.array(np.repeat([0, 1, 2], 3), type=pa.int8()))
+        "part", pa.array([0] * 3 + [1] * 3 + [2] * 3, type=pa.int8()))
     assert result.equals(expected)
 
 
@@ -2679,7 +2776,6 @@ def test_dataset_partitioned_dictionary_type_reconstruct(tempdir, pickle_module)
 
 
 @pytest.fixture
-@pytest.mark.parquet
 def s3_example_simple(s3_server):
     from pyarrow.fs import FileSystem
 
@@ -2712,6 +2808,16 @@ def test_open_dataset_from_uri_s3(s3_example_simple, dataset_reader):
 
     # passing filesystem object
     dataset = ds.dataset(path, format="parquet", filesystem=fs)
+    assert dataset_reader.to_table(dataset).equals(table)
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_open_dataset_from_fileinfos(s3_example_simple, dataset_reader):
+    table, path, filesystem, uri, _, _, _, _ = s3_example_simple
+    selector = fs.FileSelector("mybucket")
+    finfos = filesystem.get_file_info(selector)
+    dataset = ds.dataset(finfos, format="parquet", filesystem=filesystem)
     assert dataset_reader.to_table(dataset).equals(table)
 
 
@@ -3541,7 +3647,7 @@ def _create_parquet_dataset_simple(root_path):
     metadata_collector = []
 
     for i in range(4):
-        table = pa.table({'f1': [i] * 10, 'f2': np.random.randn(10)})
+        table = pa.table({'f1': [i] * 10, 'f2': [random.random() for _ in range(10)]})
         pq.write_to_dataset(
             table, str(root_path), metadata_collector=metadata_collector
         )
@@ -4086,6 +4192,7 @@ def test_write_dataset_with_scanner(tempdir):
 
 
 @pytest.mark.parquet
+@pytest.mark.threading
 def test_write_dataset_with_backpressure(tempdir):
     consumer_gate = threading.Event()
 
@@ -4228,7 +4335,7 @@ def test_write_dataset_existing_data(tempdir):
 
 
 def _generate_random_int_array(size=4, min=1, max=10):
-    return np.random.randint(min, max, size)
+    return [random.randint(min, max) for _ in range(size)]
 
 
 def _generate_data_and_columns(num_of_columns, num_of_records):
@@ -4486,8 +4593,8 @@ def test_write_dataset_use_threads(tempdir):
 
 def test_write_table(tempdir):
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)
     ], names=["f1", "f2", "part"])
 
     base_dir = tempdir / 'single'
@@ -4533,8 +4640,8 @@ def test_write_table(tempdir):
 
 def test_write_table_multiple_fragments(tempdir):
     table = pa.table([
-        pa.array(range(10)), pa.array(np.random.randn(10)),
-        pa.array(np.repeat(['a', 'b'], 5))
+        pa.array(range(10)), pa.array(random.random() for _ in range(10)),
+        pa.array(['a'] * 5 + ['b'] * 5)
     ], names=["f1", "f2", "part"])
     table = pa.concat_tables([table]*2)
 
@@ -4569,30 +4676,35 @@ def test_write_table_multiple_fragments(tempdir):
 
 def test_write_iterable(tempdir):
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)
     ], names=["f1", "f2", "part"])
 
     base_dir = tempdir / 'inmemory_iterable'
     ds.write_dataset((batch for batch in table.to_batches()), base_dir,
                      schema=table.schema,
-                     basename_template='dat_{i}.arrow', format="feather")
+                     basename_template='dat_{i}.arrow', format="ipc")
     result = ds.dataset(base_dir, format="ipc").to_table()
     assert result.equals(table)
 
     base_dir = tempdir / 'inmemory_reader'
     reader = pa.RecordBatchReader.from_batches(table.schema,
                                                table.to_batches())
-    ds.write_dataset(reader, base_dir,
-                     basename_template='dat_{i}.arrow', format="feather")
+    ds.write_dataset(reader, base_dir, basename_template='dat_{i}.arrow', format="ipc")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
+
+    base_dir = tempdir / 'inmemory_pycapsule'
+    stream = TableStreamWrapper(table)
+    ds.write_dataset(stream, base_dir, basename_template='dat_{i}.arrow', format="ipc")
     result = ds.dataset(base_dir, format="ipc").to_table()
     assert result.equals(table)
 
 
 def test_write_scanner(tempdir, dataset_reader):
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)
     ], names=["f1", "f2", "part"])
     dataset = ds.dataset(table)
 
@@ -4620,7 +4732,7 @@ def test_write_table_partitioned_dict(tempdir):
     # specifying the dictionary values explicitly
     table = pa.table([
         pa.array(range(20)),
-        pa.array(np.repeat(['a', 'b'], 10)).dictionary_encode(),
+        pa.array(['a'] * 10 + ['b'] * 10).dictionary_encode(),
     ], names=['col', 'part'])
 
     partitioning = ds.partitioning(table.select(["part"]).schema)
@@ -4639,6 +4751,7 @@ def test_write_table_partitioned_dict(tempdir):
     assert result.equals(table)
 
 
+@pytest.mark.numpy
 @pytest.mark.parquet
 def test_write_dataset_parquet(tempdir):
     table = pa.table([
@@ -4685,8 +4798,8 @@ def test_write_dataset_parquet(tempdir):
 
 def test_write_dataset_csv(tempdir):
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)
     ], names=["f1", "f2", "chr1"])
 
     base_dir = tempdir / 'csv_dataset'
@@ -4712,8 +4825,8 @@ def test_write_dataset_csv(tempdir):
 @pytest.mark.parquet
 def test_write_dataset_parquet_file_visitor(tempdir):
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)
     ], names=["f1", "f2", "part"])
 
     visitor_called = False
@@ -4736,7 +4849,7 @@ def test_partition_dataset_parquet_file_visitor(tempdir):
     f1_vals = [item for chunk in range(4) for item in [chunk] * 10]
     f2_vals = [item*10 for chunk in range(4) for item in [chunk] * 10]
     table = pa.table({'f1': f1_vals, 'f2': f2_vals,
-                      'part': np.repeat(['a', 'b'], 20)})
+                      'part': ['a'] * 20 + ['b'] * 20})
 
     root_path = tempdir / 'partitioned'
     partitioning = ds.partitioning(
@@ -4814,8 +4927,8 @@ def test_write_dataset_s3(s3_example_simple):
     )
 
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))],
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)],
         names=["f1", "f2", "part"]
     )
     part = ds.partitioning(pa.schema([("part", pa.string())]), flavor="hive")
@@ -4882,17 +4995,19 @@ def test_write_dataset_s3_put_only(s3_server):
 
     # write dataset with s3 filesystem
     host, port, _, _ = s3_server['connection']
+
+    _configure_s3_limited_user(s3_server, _minio_put_only_policy,
+                               'test_dataset_limited_user', 'limited123')
     fs = S3FileSystem(
-        access_key='limited',
+        access_key='test_dataset_limited_user',
         secret_key='limited123',
         endpoint_override='{}:{}'.format(host, port),
         scheme='http'
     )
-    _configure_s3_limited_user(s3_server, _minio_put_only_policy)
 
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))],
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a']*10 + ['b'] * 10)],
         names=["f1", "f2", "part"]
     )
     part = ds.partitioning(pa.schema([("part", pa.string())]), flavor="hive")
@@ -4938,7 +5053,7 @@ def test_write_dataset_s3_put_only(s3_server):
         scheme='http',
         allow_bucket_creation=True,
     )
-    with pytest.raises(OSError, match="Access Denied"):
+    with pytest.raises(OSError, match="(Access Denied|ACCESS_DENIED)"):
         ds.write_dataset(
             table, "non-existing-bucket", filesystem=fs,
             format="feather", create_dir=True,
@@ -5053,6 +5168,120 @@ def test_dataset_join_collisions(tempdir):
         [10, 20, None, 99],
         ["A", "B", None, "Z"],
     ], names=["colA", "colB", "colVals", "colB_r", "colVals_r"])
+
+
+@pytest.mark.dataset
+def test_dataset_join_asof(tempdir):
+    t1 = pa.Table.from_pydict({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"]
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    t2 = pa.Table.from_pydict({
+        "colB": [2, 9, 15],
+        "col3": ["a", "b", "g"],
+        "colC": [1., 3., 5.]
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    result = ds1.join_asof(
+        ds2, on="colA", by="col2", tolerance=1,
+        right_on="colB", right_by="col3",
+    )
+    assert result.to_table().sort_by("colA") == pa.table({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"],
+        "colC": [1., None, None, None, None],
+    })
+
+
+@pytest.mark.dataset
+def test_dataset_join_asof_multiple_by(tempdir):
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    t2 = pa.table({
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    result = ds1.join_asof(
+        ds2, on="on", by=["colA", "colB"], tolerance=1
+    )
+    assert result.to_table().sort_by("colA") == pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+        "colVals": [None, "B", None],
+    })
+
+
+@pytest.mark.dataset
+def test_dataset_join_asof_empty_by(tempdir):
+    t1 = pa.table({
+        "on": [1, 2, 3],
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "on": [2, 3, 4],
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    result = ds1.join_asof(
+        ds2, on="on", by=[], tolerance=1
+    )
+    assert result.to_table() == pa.table({
+        "on": [1, 2, 3],
+        "colVals": ["Z", "Z", "B"],
+    })
+
+
+@pytest.mark.dataset
+def test_dataset_join_asof_collisions(tempdir):
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+        "colVals": ["a", "b", "f"]
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    t2 = pa.table({
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    msg = (
+        "Columns {'colVals'} present in both tables. "
+        "AsofJoin does not support column collisions."
+    )
+    with pytest.raises(ValueError, match=msg):
+        ds1.join_asof(
+            ds2, on="on", by=["colA", "colB"], tolerance=1,
+            right_on="on", right_by=["colA", "colB"],
+        )
 
 
 @pytest.mark.parametrize('dstype', [
@@ -5496,3 +5725,56 @@ def test_checksum_write_dataset_read_dataset_to_table(tempdir):
             corrupted_dir_path,
             format=pq_read_format_crc
         ).to_table()
+
+
+def test_make_write_options_error():
+    # GH-39440: calling make_write_options as a static class method
+    msg_1 = ("make_write_options() should be called on an "
+             "instance of ParquetFileFormat")
+    # GH-41043: In Cython2 all Cython methods were "regular" C extension methods
+    # see: https://github.com/cython/cython/issues/6127#issuecomment-2038153359
+    msg_2 = ("descriptor 'make_write_options' for "
+             "'pyarrow._dataset_parquet.ParquetFileFormat' objects "
+             "doesn't apply to a 'int'")
+    with pytest.raises(TypeError) as excinfo:
+        pa.dataset.ParquetFileFormat.make_write_options(43)
+    assert msg_1 in str(excinfo.value) or msg_2 in str(excinfo.value)
+
+    pformat = pa.dataset.ParquetFileFormat()
+    msg = "make_write_options\\(\\) takes exactly 0 positional arguments"
+    with pytest.raises(TypeError, match=msg):
+        pformat.make_write_options(43)
+
+
+def test_scanner_from_substrait(dataset):
+    try:
+        import pyarrow.substrait as ps
+    except ImportError:
+        pytest.skip("substrait NOT enabled")
+
+    # SELECT str WHERE i64 = 4
+    projection = (b'\nS\x08\x0c\x12Ohttps://github.com/apache/arrow/blob/main/format'
+                  b'/substrait/extension_types.yaml\x12\t\n\x07\x08\x0c\x1a\x03u64'
+                  b'\x12\x0b\n\t\x08\x0c\x10\x01\x1a\x03u32\x1a\x0f\n\x08\x12\x06'
+                  b'\n\x04\x12\x02\x08\x02\x1a\x03str"i\n\x03i64\n\x03f64\n\x03str'
+                  b'\n\x05const\n\x06struct\n\x01a\n\x01b\n\x05group\n\x03key'
+                  b'\x127\n\x04:\x02\x10\x01\n\x04Z\x02\x10\x01\n\x04b\x02\x10'
+                  b'\x01\n\x04:\x02\x10\x01\n\x11\xca\x01\x0e\n\x04:\x02\x10\x01'
+                  b'\n\x04b\x02\x10\x01\x18\x01\n\x04*\x02\x10\x01\n\x04b\x02\x10\x01')
+    filtering = (b'\n\x1e\x08\x06\x12\x1a/functions_comparison.yaml\nS\x08\x0c\x12'
+                 b'Ohttps://github.com/apache/arrow/blob/main/format'
+                 b'/substrait/extension_types.yaml\x12\x18\x1a\x16\x08\x06\x10\xc5'
+                 b'\x01\x1a\x0fequal:any1_any1\x12\t\n\x07\x08\x0c\x1a\x03u64\x12'
+                 b'\x0b\n\t\x08\x0c\x10\x01\x1a\x03u32\x1a\x1f\n\x1d\x1a\x1b\x08'
+                 b'\xc5\x01\x1a\x04\n\x02\x10\x02"\x08\x1a\x06\x12\x04\n\x02\x12\x00'
+                 b'"\x06\x1a\x04\n\x02(\x04"i\n\x03i64\n\x03f64\n\x03str\n\x05const'
+                 b'\n\x06struct\n\x01a\n\x01b\n\x05group\n\x03key\x127\n\x04:\x02'
+                 b'\x10\x01\n\x04Z\x02\x10\x01\n\x04b\x02\x10\x01\n\x04:\x02\x10'
+                 b'\x01\n\x11\xca\x01\x0e\n\x04:\x02\x10\x01\n\x04b\x02\x10\x01'
+                 b'\x18\x01\n\x04*\x02\x10\x01\n\x04b\x02\x10\x01')
+
+    result = dataset.scanner(
+        columns=ps.BoundExpressions.from_substrait(projection),
+        filter=ps.BoundExpressions.from_substrait(filtering)
+    ).to_table()
+    assert result.to_pydict() == {'str': ['4', '4']}

@@ -24,18 +24,19 @@ permissions:
   contents: read
 
 env:
+  ARCHERY_DEBUG: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
 
   complete:
-    name: AMD64 Ubuntu 22.04 Complete Documentation
+    name: AMD64 Debian 12 Complete Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 150
     env:
-      UBUNTU: "22.04"
+      JDK: 17
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
@@ -45,22 +46,23 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
         with:
           path: .docker
-          key: ubuntu-docs-${{ hashFiles('cpp/**') }}
-          restore-keys: ubuntu-docs-
+          key: debian-docs-${{ hashFiles('cpp/**') }}
+          restore-keys: debian-docs-
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: archery docker run ubuntu-docs
+          JDK: 17
+        run: archery docker run debian-docs
       - name: Docker Push
         if: >-
           success() &&
@@ -71,4 +73,4 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
-        run: archery docker push ubuntu-docs
+        run: archery docker push debian-docs

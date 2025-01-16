@@ -18,42 +18,51 @@
 #include "arrow/matlab/array/proxy/boolean_array.h"
 #include "arrow/matlab/type/proxy/primitive_ctype.h"
 
-#include "arrow/matlab/error/error.h"
 #include "arrow/matlab/bit/pack.h"
 #include "arrow/matlab/bit/unpack.h"
+#include "arrow/matlab/error/error.h"
 
 namespace arrow::matlab::array::proxy {
 
-        BooleanArray::BooleanArray(std::shared_ptr<arrow::BooleanArray> array) 
-            : arrow::matlab::array::proxy::Array{std::move(array)} {
-                REGISTER_METHOD(BooleanArray, toMATLAB);
-            }
-
-        libmexclass::proxy::MakeResult BooleanArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-            ::matlab::data::StructArray opts = constructor_arguments[0];
-
-            // Get the mxArray from constructor arguments
-            const ::matlab::data::TypedArray<bool> logical_mda = opts[0]["MatlabArray"];
-            const ::matlab::data::TypedArray<bool> validity_bitmap_mda = opts[0]["Valid"];
-
-            // Pack the logical data values.
-            MATLAB_ASSIGN_OR_ERROR(auto data_buffer, bit::pack(logical_mda), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
-
-            // Pack the validity bitmap values.
-            MATLAB_ASSIGN_OR_ERROR(const auto validity_bitmap_buffer, bit::packValid(validity_bitmap_mda), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
-
-            const auto data_type = arrow::boolean();
-            const auto array_length = logical_mda.getNumberOfElements();
-
-            auto array_data = arrow::ArrayData::Make(data_type, array_length, {validity_bitmap_buffer, data_buffer});
-            auto arrow_array = std::static_pointer_cast<arrow::BooleanArray>(arrow::MakeArray(array_data));
-            return std::make_shared<arrow::matlab::array::proxy::BooleanArray>(std::move(arrow_array));
-        }
-
-        void BooleanArray::toMATLAB(libmexclass::proxy::method::Context& context) {
-            auto array_length = array->length();
-            auto packed_logical_data_buffer = std::static_pointer_cast<arrow::BooleanArray>(array)->values();
-            auto logical_array_mda = bit::unpack(packed_logical_data_buffer, array_length, array->offset());
-            context.outputs[0] = logical_array_mda;
-        }
+BooleanArray::BooleanArray(std::shared_ptr<arrow::BooleanArray> array)
+    : arrow::matlab::array::proxy::Array{std::move(array)} {
+  REGISTER_METHOD(BooleanArray, toMATLAB);
 }
+
+libmexclass::proxy::MakeResult BooleanArray::make(
+    const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+  ::matlab::data::StructArray opts = constructor_arguments[0];
+
+  // Get the mxArray from constructor arguments
+  const ::matlab::data::TypedArray<bool> logical_mda = opts[0]["MatlabArray"];
+  const ::matlab::data::TypedArray<bool> validity_bitmap_mda = opts[0]["Valid"];
+
+  // Pack the logical data values.
+  MATLAB_ASSIGN_OR_ERROR(auto data_buffer, bit::pack(logical_mda),
+                         error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
+
+  // Pack the validity bitmap values.
+  MATLAB_ASSIGN_OR_ERROR(const auto validity_bitmap_buffer,
+                         bit::packValid(validity_bitmap_mda),
+                         error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
+
+  const auto data_type = arrow::boolean();
+  const auto array_length = logical_mda.getNumberOfElements();
+
+  auto array_data = arrow::ArrayData::Make(data_type, array_length,
+                                           {validity_bitmap_buffer, data_buffer});
+  auto arrow_array =
+      std::static_pointer_cast<arrow::BooleanArray>(arrow::MakeArray(array_data));
+  return std::make_shared<arrow::matlab::array::proxy::BooleanArray>(
+      std::move(arrow_array));
+}
+
+void BooleanArray::toMATLAB(libmexclass::proxy::method::Context& context) {
+  auto array_length = array->length();
+  auto packed_logical_data_buffer =
+      std::static_pointer_cast<arrow::BooleanArray>(array)->values();
+  auto logical_array_mda =
+      bit::unpack(packed_logical_data_buffer, array_length, array->offset());
+  context.outputs[0] = logical_array_mda;
+}
+}  // namespace arrow::matlab::array::proxy

@@ -341,7 +341,8 @@ static auto kMatchSubstringOptionsType = GetFunctionOptionsType<MatchSubstringOp
 static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
     DataMember("nan_is_null", &NullOptions::nan_is_null));
 static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
-    DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding));
+    DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding),
+    DataMember("lean_left_on_odd_padding", &PadOptions::lean_left_on_odd_padding));
 static auto kReplaceSliceOptionsType = GetFunctionOptionsType<ReplaceSliceOptions>(
     DataMember("start", &ReplaceSliceOptions::start),
     DataMember("stop", &ReplaceSliceOptions::stop),
@@ -480,10 +481,11 @@ NullOptions::NullOptions(bool nan_is_null)
     : FunctionOptions(internal::kNullOptionsType), nan_is_null(nan_is_null) {}
 constexpr char NullOptions::kTypeName[];
 
-PadOptions::PadOptions(int64_t width, std::string padding)
+PadOptions::PadOptions(int64_t width, std::string padding, bool lean_left_on_odd_padding)
     : FunctionOptions(internal::kPadOptionsType),
       width(width),
-      padding(std::move(padding)) {}
+      padding(std::move(padding)),
+      lean_left_on_odd_padding(lean_left_on_odd_padding) {}
 PadOptions::PadOptions() : PadOptions(0, " ") {}
 constexpr char PadOptions::kTypeName[];
 
@@ -730,19 +732,26 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
 
 SCALAR_ARITHMETIC_UNARY(AbsoluteValue, "abs", "abs_checked")
 SCALAR_ARITHMETIC_UNARY(Acos, "acos", "acos_checked")
+SCALAR_ARITHMETIC_UNARY(Acosh, "acosh", "acosh_checked")
 SCALAR_ARITHMETIC_UNARY(Asin, "asin", "asin_checked")
+SCALAR_ARITHMETIC_UNARY(Atanh, "atanh", "atanh_checked")
 SCALAR_ARITHMETIC_UNARY(Cos, "cos", "cos_checked")
 SCALAR_ARITHMETIC_UNARY(Ln, "ln", "ln_checked")
 SCALAR_ARITHMETIC_UNARY(Log10, "log10", "log10_checked")
 SCALAR_ARITHMETIC_UNARY(Log1p, "log1p", "log1p_checked")
 SCALAR_ARITHMETIC_UNARY(Log2, "log2", "log2_checked")
-SCALAR_ARITHMETIC_UNARY(Sqrt, "sqrt", "sqrt_checked")
 SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
 SCALAR_ARITHMETIC_UNARY(Sin, "sin", "sin_checked")
+SCALAR_ARITHMETIC_UNARY(Sqrt, "sqrt", "sqrt_checked")
 SCALAR_ARITHMETIC_UNARY(Tan, "tan", "tan_checked")
+SCALAR_EAGER_UNARY(Asinh, "asinh")
 SCALAR_EAGER_UNARY(Atan, "atan")
+SCALAR_EAGER_UNARY(Cosh, "cosh")
 SCALAR_EAGER_UNARY(Exp, "exp")
+SCALAR_EAGER_UNARY(Expm1, "expm1")
 SCALAR_EAGER_UNARY(Sign, "sign")
+SCALAR_EAGER_UNARY(Sinh, "sinh")
+SCALAR_EAGER_UNARY(Tanh, "tanh")
 
 Result<Datum> Round(const Datum& arg, RoundOptions options, ExecContext* ctx) {
   return CallFunction("round", {arg}, &options, ctx);

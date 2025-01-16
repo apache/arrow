@@ -35,6 +35,7 @@ add_arrow_test(adapter_test
                PREFIX
                "arrow-orc"
                STATIC_LINK_LIBS
+               orc::orc
                ${ARROW_ORC_STATIC_LINK_LIBS})
 
 set_source_files_properties(adapter_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON

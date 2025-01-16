@@ -53,6 +53,11 @@ namespace Apache.Arrow.Types
         BinaryView,
         StringView,
         ListView,
+        LargeList,
+        LargeBinary,
+        LargeString,
+        Decimal32,
+        Decimal64,
     }
 
     public interface IArrowType

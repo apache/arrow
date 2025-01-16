@@ -177,8 +177,10 @@ namespace Apache.Arrow.IntegrationTest
                 "decimal" => ToDecimalArrowType(type),
                 "binary" => BinaryType.Default,
                 "binaryview" => BinaryViewType.Default,
+                "largebinary" => LargeBinaryType.Default,
                 "utf8" => StringType.Default,
                 "utf8view" => StringViewType.Default,
+                "largeutf8" => LargeStringType.Default,
                 "fixedsizebinary" => new FixedSizeBinaryType(type.ByteWidth),
                 "date" => ToDateArrowType(type),
                 "time" => ToTimeArrowType(type),
@@ -188,6 +190,7 @@ namespace Apache.Arrow.IntegrationTest
                 "timestamp" => ToTimestampArrowType(type),
                 "list" => ToListArrowType(type, children),
                 "listview" => ToListViewArrowType(type, children),
+                "largelist" => ToLargeListArrowType(type, children),
                 "fixedsizelist" => ToFixedSizeListArrowType(type, children),
                 "struct" => ToStructArrowType(type, children),
                 "union" => ToUnionArrowType(type, children),
@@ -228,7 +231,11 @@ namespace Apache.Arrow.IntegrationTest
             return type.BitWidth switch
             {
                 256 => new Decimal256Type(type.DecimalPrecision, type.Scale),
-                _ => new Decimal128Type(type.DecimalPrecision, type.Scale),
+                128 => new Decimal128Type(type.DecimalPrecision, type.Scale),
+                64 => new Decimal64Type(type.DecimalPrecision, type.Scale),
+                32 => new Decimal32Type(type.DecimalPrecision, type.Scale),
+                0 => new Decimal128Type(type.DecimalPrecision, type.Scale),
+                _ => throw new NotSupportedException($"Decimal type not supported. BitWidth: {type.BitWidth}"),
             };
         }
 
@@ -301,6 +308,11 @@ namespace Apache.Arrow.IntegrationTest
         private static IArrowType ToListViewArrowType(JsonArrowType type, Field[] children)
         {
             return new ListViewType(children[0]);
+        }
+
+        private static IArrowType ToLargeListArrowType(JsonArrowType type, Field[] children)
+        {
+            return new LargeListType(children[0]);
         }
 
         private static IArrowType ToFixedSizeListArrowType(JsonArrowType type, Field[] children)
@@ -450,6 +462,8 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<UInt64Type>,
             IArrowTypeVisitor<FloatType>,
             IArrowTypeVisitor<DoubleType>,
+            IArrowTypeVisitor<Decimal32Type>,
+            IArrowTypeVisitor<Decimal64Type>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<Date32Type>,
@@ -461,11 +475,14 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<StringViewType>,
+            IArrowTypeVisitor<LargeStringType>,
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<BinaryViewType>,
+            IArrowTypeVisitor<LargeBinaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<ListViewType>,
+            IArrowTypeVisitor<LargeListType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
@@ -540,6 +557,16 @@ namespace Apache.Arrow.IntegrationTest
                     default:
                         throw new InvalidOperationException($"unsupported interval unit <{type.Unit}>");
                 }
+            }
+
+            public void Visit(Decimal32Type type)
+            {
+                Array = new Decimal32Array(GetDecimalArrayData(type));
+            }
+
+            public void Visit(Decimal64Type type)
+            {
+                Array = new Decimal64Array(GetDecimalArrayData(type));
             }
 
             public void Visit(Decimal128Type type)
@@ -696,6 +723,24 @@ namespace Apache.Arrow.IntegrationTest
                 Array = new StringViewArray(arrayData);
             }
 
+            public void Visit(LargeStringType type)
+            {
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+                ArrowBuffer offsetBuffer = GetLargeOffsetBuffer();
+
+                var json = JsonFieldData.Data.GetRawText();
+                string[] values = JsonSerializer.Deserialize<string[]>(json, s_options);
+
+                ArrowBuffer.Builder<byte> valueBuilder = new ArrowBuffer.Builder<byte>();
+                foreach (string value in values)
+                {
+                    valueBuilder.Append(Encoding.UTF8.GetBytes(value));
+                }
+                ArrowBuffer valueBuffer = valueBuilder.Build(default);
+
+                Array = new LargeStringArray(JsonFieldData.Count, offsetBuffer, valueBuffer, validityBuffer, nullCount);
+            }
+
             public void Visit(BinaryType type)
             {
                 ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
@@ -747,6 +792,25 @@ namespace Apache.Arrow.IntegrationTest
                 Array = new BinaryViewArray(arrayData);
             }
 
+            public void Visit(LargeBinaryType type)
+            {
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+                ArrowBuffer offsetBuffer = GetLargeOffsetBuffer();
+
+                var json = JsonFieldData.Data.GetRawText();
+                string[] values = JsonSerializer.Deserialize<string[]>(json, s_options);
+
+                ArrowBuffer.Builder<byte> valueBuilder = new ArrowBuffer.Builder<byte>();
+                foreach (string value in values)
+                {
+                    valueBuilder.Append(ConvertHexStringToByteArray(value));
+                }
+                ArrowBuffer valueBuffer = valueBuilder.Build(default);
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0, new[] { validityBuffer, offsetBuffer, valueBuffer });
+                Array = new LargeBinaryArray(arrayData);
+            }
+
             public void Visit(FixedSizeBinaryType type)
             {
                 ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
@@ -794,6 +858,21 @@ namespace Apache.Arrow.IntegrationTest
                 ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
                     new[] { validityBuffer, offsetBuffer, sizeBuffer }, new[] { Array.Data });
                 Array = new ListViewArray(arrayData);
+            }
+
+            public void Visit(LargeListType type)
+            {
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+                ArrowBuffer offsetBuffer = GetLargeOffsetBuffer();
+
+                var data = JsonFieldData;
+                JsonFieldData = data.Children[0];
+                type.ValueDataType.Accept(this);
+                JsonFieldData = data;
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
+                    new[] { validityBuffer, offsetBuffer }, new[] { Array.Data });
+                Array = new LargeListArray(arrayData);
             }
 
             public void Visit(FixedSizeListType type)
@@ -908,8 +987,8 @@ namespace Apache.Arrow.IntegrationTest
             };
 
             private void GenerateArray<T, TArray>(Func<ArrowBuffer, ArrowBuffer, int, int, int, TArray> createArray)
+                where T : struct, IEquatable<T>
                 where TArray : PrimitiveArray<T>
-                where T : struct
             {
                 ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
 
@@ -929,8 +1008,8 @@ namespace Apache.Arrow.IntegrationTest
             }
 
             private void GenerateLongArray<T, TArray>(Func<ArrowBuffer, ArrowBuffer, int, int, int, TArray> createArray, Func<string, T> parse)
+                where T : struct, IEquatable<T>
                 where TArray : PrimitiveArray<T>
-                where T : struct
             {
                 ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
 
@@ -950,8 +1029,8 @@ namespace Apache.Arrow.IntegrationTest
             }
 
             private void GenerateArray<T, TArray>(Func<ArrowBuffer, ArrowBuffer, int, int, int, TArray> createArray, Func<JsonElement, T> construct)
+                where T : struct, IEquatable<T>
                 where TArray : PrimitiveArray<T>
-                where T : struct
             {
                 ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
 
@@ -972,6 +1051,13 @@ namespace Apache.Arrow.IntegrationTest
             {
                 ArrowBuffer.Builder<int> valueOffsets = new ArrowBuffer.Builder<int>(JsonFieldData.Offset.Count);
                 valueOffsets.AppendRange(JsonFieldData.IntOffset);
+                return valueOffsets.Build(default);
+            }
+
+            private ArrowBuffer GetLargeOffsetBuffer()
+            {
+                ArrowBuffer.Builder<long> valueOffsets = new ArrowBuffer.Builder<long>(JsonFieldData.Offset.Count);
+                valueOffsets.AppendRange(JsonFieldData.LongOffset);
                 return valueOffsets.Build(default);
             }
 
@@ -1040,6 +1126,12 @@ namespace Apache.Arrow.IntegrationTest
         }
 
         [JsonIgnore]
+        public IEnumerable<long> LongOffset
+        {
+            get { return Offset.Select(GetLong); }
+        }
+
+        [JsonIgnore]
         public IEnumerable<int> IntSize
         {
             get { return Size.Select(GetInt); }
@@ -1054,6 +1146,18 @@ namespace Apache.Arrow.IntegrationTest
             catch
             {
                 return int.Parse(node.GetValue<string>());
+            }
+        }
+
+        static long GetLong(JsonNode node)
+        {
+            try
+            {
+                return node.GetValue<long>();
+            }
+            catch
+            {
+                return long.Parse(node.GetValue<string>());
             }
         }
     }

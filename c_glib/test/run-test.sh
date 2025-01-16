@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-test_dir="$(cd $(dirname $0); pwd)"
+test_dir="$(cd "$(dirname "$0")" && pwd)"
 build_dir="$(cd .; pwd)"
 
 modules=(
@@ -47,7 +47,7 @@ if [ "${BUILD}" != "no" ]; then
 fi
 
 for module in "${modules[@]}"; do
-  MODULE_TYPELIB_DIR_VAR_NAME="$(echo ${module} | tr a-z- A-Z_)_TYPELIB_DIR"
+  MODULE_TYPELIB_DIR_VAR_NAME="$(echo "${module}" | tr a-z- A-Z_)_TYPELIB_DIR"
   module_typelib_dir=$(eval "echo \${${MODULE_TYPELIB_DIR_VAR_NAME}}")
   if [ -z "${module_typelib_dir}" ]; then
     module_typelib_dir="${build_dir}/${module}"
@@ -74,4 +74,4 @@ case "${DEBUGGER}" in
     DEBUGGER_ARGS+=(--)
     ;;
 esac
-${DEBUGGER} "${DEBUGGER_ARGS[@]}" "${RUBY}" ${test_dir}/run-test.rb "$@"
+${DEBUGGER} "${DEBUGGER_ARGS[@]}" "${RUBY}" "${test_dir}"/run-test.rb "$@"

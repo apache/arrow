@@ -57,6 +57,8 @@ using internal::checked_cast;
 constexpr Type::type NullType::type_id;
 constexpr Type::type ListType::type_id;
 constexpr Type::type LargeListType::type_id;
+constexpr Type::type ListViewType::type_id;
+constexpr Type::type LargeListViewType::type_id;
 
 constexpr Type::type MapType::type_id;
 
@@ -77,6 +79,10 @@ constexpr Type::type LargeStringType::type_id;
 constexpr Type::type FixedSizeBinaryType::type_id;
 
 constexpr Type::type StructType::type_id;
+
+constexpr Type::type Decimal32Type::type_id;
+
+constexpr Type::type Decimal64Type::type_id;
 
 constexpr Type::type Decimal128Type::type_id;
 
@@ -120,6 +126,8 @@ std::vector<Type::type> AllTypeIds() {
           Type::HALF_FLOAT,
           Type::FLOAT,
           Type::DOUBLE,
+          Type::DECIMAL32,
+          Type::DECIMAL64,
           Type::DECIMAL128,
           Type::DECIMAL256,
           Type::DATE32,
@@ -190,6 +198,8 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(HALF_FLOAT)
     TO_STRING_CASE(FLOAT)
     TO_STRING_CASE(DOUBLE)
+    TO_STRING_CASE(DECIMAL32)
+    TO_STRING_CASE(DECIMAL64)
     TO_STRING_CASE(DECIMAL128)
     TO_STRING_CASE(DECIMAL256)
     TO_STRING_CASE(DATE32)
@@ -389,7 +399,7 @@ Result<std::shared_ptr<DataType>> WidenDecimals(
   const auto& right = checked_cast<const DecimalType&>(*other_type);
   if (!options.promote_numeric_width && left.bit_width() != right.bit_width()) {
     return Status::TypeError(
-        "Cannot promote decimal128 to decimal256 without promote_numeric_width=true");
+        "Cannot promote decimal types without promote_numeric_width=true");
   }
   const int32_t max_scale = std::max<int32_t>(left.scale(), right.scale());
   const int32_t common_precision =
@@ -398,8 +408,14 @@ Result<std::shared_ptr<DataType>> WidenDecimals(
   if (left.id() == Type::DECIMAL256 || right.id() == Type::DECIMAL256 ||
       common_precision > BasicDecimal128::kMaxPrecision) {
     return DecimalType::Make(Type::DECIMAL256, common_precision, max_scale);
+  } else if (left.id() == Type::DECIMAL128 || right.id() == Type::DECIMAL128 ||
+             common_precision > BasicDecimal64::kMaxPrecision) {
+    return DecimalType::Make(Type::DECIMAL128, common_precision, max_scale);
+  } else if (left.id() == Type::DECIMAL64 || right.id() == Type::DECIMAL64 ||
+             common_precision > BasicDecimal32::kMaxPrecision) {
+    return DecimalType::Make(Type::DECIMAL64, common_precision, max_scale);
   }
-  return DecimalType::Make(Type::DECIMAL128, common_precision, max_scale);
+  return DecimalType::Make(Type::DECIMAL32, common_precision, max_scale);
 }
 
 Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
@@ -478,7 +494,7 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
     ARROW_ASSIGN_OR_RAISE(const int32_t precision,
                           MaxDecimalDigitsForInteger(other_type->id()));
     ARROW_ASSIGN_OR_RAISE(const auto promoted_decimal,
-                          DecimalType::Make(promoted_type->id(), precision, 0));
+                          DecimalType::Make(promoted_type->id(), precision - 1, 0));
     ARROW_ASSIGN_OR_RAISE(promoted_type,
                           WidenDecimals(promoted_type, promoted_decimal, options));
     return promoted_type;
@@ -729,7 +745,7 @@ Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
         auto item_field,
         left.item_field()->MergeWith(
             *right.item_field()->WithName(left.item_field()->name()), options));
-    return map(std::move(key_field->type()), std::move(item_field),
+    return map(key_field->type(), std::move(item_field),
                /*keys_sorted=*/left.keys_sorted() && right.keys_sorted());
   } else if (promoted_type->id() == Type::STRUCT && other_type->id() == Type::STRUCT) {
     return MergeStructs(promoted_type, other_type, options);
@@ -874,7 +890,7 @@ bool Field::IsCompatibleWith(const std::shared_ptr<Field>& other) const {
 
 std::string Field::ToString(bool show_metadata) const {
   std::stringstream ss;
-  ss << name_ << ": " << type_->ToString();
+  ss << name_ << ": " << type_->ToString(show_metadata);
   if (!nullable_) {
     ss << " not null";
   }
@@ -919,14 +935,15 @@ std::ostream& operator<<(std::ostream& os, const TypeHolder& type) {
 // ----------------------------------------------------------------------
 // TypeHolder
 
-std::string TypeHolder::ToString(const std::vector<TypeHolder>& types) {
+std::string TypeHolder::ToString(const std::vector<TypeHolder>& types,
+                                 bool show_metadata) {
   std::stringstream ss;
   ss << "(";
   for (size_t i = 0; i < types.size(); ++i) {
     if (i > 0) {
       ss << ", ";
     }
-    ss << types[i].type->ToString();
+    ss << types[i].type->ToString(show_metadata);
   }
   ss << ")";
   return ss.str();
@@ -984,27 +1001,27 @@ BaseBinaryType::~BaseBinaryType() {}
 
 BaseListType::~BaseListType() {}
 
-std::string ListType::ToString() const {
+std::string ListType::ToString(bool show_metadata) const {
   std::stringstream s;
-  s << "list<" << value_field()->ToString() << ">";
+  s << "list<" << value_field()->ToString(show_metadata) << ">";
   return s.str();
 }
 
-std::string LargeListType::ToString() const {
+std::string LargeListType::ToString(bool show_metadata) const {
   std::stringstream s;
-  s << "large_list<" << value_field()->ToString() << ">";
+  s << "large_list<" << value_field()->ToString(show_metadata) << ">";
   return s.str();
 }
 
-std::string ListViewType::ToString() const {
+std::string ListViewType::ToString(bool show_metadata) const {
   std::stringstream s;
-  s << "list_view<" << value_field()->ToString() << ">";
+  s << "list_view<" << value_field()->ToString(show_metadata) << ">";
   return s.str();
 }
 
-std::string LargeListViewType::ToString() const {
+std::string LargeListViewType::ToString(bool show_metadata) const {
   std::stringstream s;
-  s << "large_list_view<" << value_field()->ToString() << ">";
+  s << "large_list_view<" << value_field()->ToString(show_metadata) << ">";
   return s.str();
 }
 
@@ -1047,7 +1064,7 @@ Result<std::shared_ptr<DataType>> MapType::Make(std::shared_ptr<Field> value_fie
   return std::make_shared<MapType>(std::move(value_field), keys_sorted);
 }
 
-std::string MapType::ToString() const {
+std::string MapType::ToString(bool show_metadata) const {
   std::stringstream s;
 
   const auto print_field_name = [](std::ostream& os, const Field& field,
@@ -1058,7 +1075,7 @@ std::string MapType::ToString() const {
   };
   const auto print_field = [&](std::ostream& os, const Field& field,
                                const char* std_name) {
-    os << field.type()->ToString();
+    os << field.type()->ToString(show_metadata);
     print_field_name(os, field, std_name);
   };
 
@@ -1074,23 +1091,24 @@ std::string MapType::ToString() const {
   return s.str();
 }
 
-std::string FixedSizeListType::ToString() const {
+std::string FixedSizeListType::ToString(bool show_metadata) const {
   std::stringstream s;
-  s << "fixed_size_list<" << value_field()->ToString() << ">[" << list_size_ << "]";
+  s << "fixed_size_list<" << value_field()->ToString(show_metadata) << ">[" << list_size_
+    << "]";
   return s.str();
 }
 
-std::string BinaryType::ToString() const { return "binary"; }
+std::string BinaryType::ToString(bool show_metadata) const { return "binary"; }
 
-std::string BinaryViewType::ToString() const { return "binary_view"; }
+std::string BinaryViewType::ToString(bool show_metadata) const { return "binary_view"; }
 
-std::string LargeBinaryType::ToString() const { return "large_binary"; }
+std::string LargeBinaryType::ToString(bool show_metadata) const { return "large_binary"; }
 
-std::string StringType::ToString() const { return "string"; }
+std::string StringType::ToString(bool show_metadata) const { return "string"; }
 
-std::string StringViewType::ToString() const { return "string_view"; }
+std::string StringViewType::ToString(bool show_metadata) const { return "string_view"; }
 
-std::string LargeStringType::ToString() const { return "large_string"; }
+std::string LargeStringType::ToString(bool show_metadata) const { return "large_string"; }
 
 int FixedSizeBinaryType::bit_width() const { return CHAR_BIT * byte_width(); }
 
@@ -1105,7 +1123,7 @@ Result<std::shared_ptr<DataType>> FixedSizeBinaryType::Make(int32_t byte_width) 
   return std::make_shared<FixedSizeBinaryType>(byte_width);
 }
 
-std::string FixedSizeBinaryType::ToString() const {
+std::string FixedSizeBinaryType::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "fixed_size_binary[" << byte_width_ << "]";
   return ss.str();
@@ -1122,9 +1140,13 @@ Date32Type::Date32Type() : DateType(Type::DATE32) {}
 
 Date64Type::Date64Type() : DateType(Type::DATE64) {}
 
-std::string Date64Type::ToString() const { return std::string("date64[ms]"); }
+std::string Date64Type::ToString(bool show_metadata) const {
+  return std::string("date64[ms]");
+}
 
-std::string Date32Type::ToString() const { return std::string("date32[day]"); }
+std::string Date32Type::ToString(bool show_metadata) const {
+  return std::string("date32[day]");
+}
 
 // ----------------------------------------------------------------------
 // Time types
@@ -1137,7 +1159,7 @@ Time32Type::Time32Type(TimeUnit::type unit) : TimeType(Type::TIME32, unit) {
       << "Must be seconds or milliseconds";
 }
 
-std::string Time32Type::ToString() const {
+std::string Time32Type::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "time32[" << this->unit_ << "]";
   return ss.str();
@@ -1148,7 +1170,7 @@ Time64Type::Time64Type(TimeUnit::type unit) : TimeType(Type::TIME64, unit) {
       << "Must be microseconds or nanoseconds";
 }
 
-std::string Time64Type::ToString() const {
+std::string Time64Type::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "time64[" << this->unit_ << "]";
   return ss.str();
@@ -1175,7 +1197,7 @@ std::ostream& operator<<(std::ostream& os, TimeUnit::type unit) {
 // ----------------------------------------------------------------------
 // Timestamp types
 
-std::string TimestampType::ToString() const {
+std::string TimestampType::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "timestamp[" << this->unit_;
   if (this->timezone_.size() > 0) {
@@ -1186,7 +1208,7 @@ std::string TimestampType::ToString() const {
 }
 
 // Duration types
-std::string DurationType::ToString() const {
+std::string DurationType::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "duration[" << this->unit_ << "]";
   return ss.str();
@@ -1245,7 +1267,7 @@ uint8_t UnionType::max_type_code() const {
              : *std::max_element(type_codes_.begin(), type_codes_.end());
 }
 
-std::string UnionType::ToString() const {
+std::string UnionType::ToString(bool show_metadata) const {
   std::stringstream s;
 
   s << name() << "<";
@@ -1254,7 +1276,7 @@ std::string UnionType::ToString() const {
     if (i) {
       s << ", ";
     }
-    s << children_[i]->ToString() << "=" << static_cast<int>(type_codes_[i]);
+    s << children_[i]->ToString(show_metadata) << "=" << static_cast<int>(type_codes_[i]);
   }
   s << ">";
   return s.str();
@@ -1291,10 +1313,10 @@ RunEndEncodedType::RunEndEncodedType(std::shared_ptr<DataType> run_end_type,
 
 RunEndEncodedType::~RunEndEncodedType() = default;
 
-std::string RunEndEncodedType::ToString() const {
+std::string RunEndEncodedType::ToString(bool show_metadata) const {
   std::stringstream s;
-  s << name() << "<run_ends: " << run_end_type()->ToString()
-    << ", values: " << value_type()->ToString() << ">";
+  s << name() << "<run_ends: " << run_end_type()->ToString(show_metadata)
+    << ", values: " << value_type()->ToString(show_metadata) << ">";
   return s.str();
 }
 
@@ -1350,7 +1372,7 @@ StructType::StructType(const FieldVector& fields)
 
 StructType::~StructType() {}
 
-std::string StructType::ToString() const {
+std::string StructType::ToString(bool show_metadata) const {
   std::stringstream s;
   s << "struct<";
   for (int i = 0; i < this->num_fields(); ++i) {
@@ -1358,7 +1380,7 @@ std::string StructType::ToString() const {
       s << ", ";
     }
     std::shared_ptr<Field> field = this->field(i);
-    s << field->ToString();
+    s << field->ToString(show_metadata);
   }
   s << ">";
   return s.str();
@@ -1420,12 +1442,17 @@ Result<std::shared_ptr<StructType>> StructType::SetField(
 
 Result<std::shared_ptr<DataType>> DecimalType::Make(Type::type type_id, int32_t precision,
                                                     int32_t scale) {
-  if (type_id == Type::DECIMAL128) {
-    return Decimal128Type::Make(precision, scale);
-  } else if (type_id == Type::DECIMAL256) {
-    return Decimal256Type::Make(precision, scale);
-  } else {
-    return Status::Invalid("Not a decimal type_id: ", type_id);
+  switch (type_id) {
+    case Type::DECIMAL32:
+      return Decimal32Type::Make(precision, scale);
+    case Type::DECIMAL64:
+      return Decimal64Type::Make(precision, scale);
+    case Type::DECIMAL128:
+      return Decimal128Type::Make(precision, scale);
+    case Type::DECIMAL256:
+      return Decimal256Type::Make(precision, scale);
+    default:
+      return Status::Invalid("Not a decimal type_id: ", type_id);
   }
 }
 
@@ -1451,20 +1478,51 @@ int32_t DecimalType::DecimalSize(int32_t precision) {
   return static_cast<int32_t>(std::ceil((precision / 8.0) * std::log2(10) + 1));
 }
 
+template <typename D>
+static Status ValidateDecimalPrecision(int32_t precision) {
+  if (precision < D::kMinPrecision || precision > D::kMaxPrecision) {
+    return Status::Invalid("Decimal precision out of range [", int32_t(D::kMinPrecision),
+                           ", ", int32_t(D::kMaxPrecision), "]: ", precision);
+  }
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+// Decimal32 type
+
+Decimal32Type::Decimal32Type(int32_t precision, int32_t scale)
+    : DecimalType(type_id, 4, precision, scale) {
+  ARROW_CHECK_OK(ValidateDecimalPrecision<Decimal32Type>(precision));
+}
+
+Result<std::shared_ptr<DataType>> Decimal32Type::Make(int32_t precision, int32_t scale) {
+  RETURN_NOT_OK(ValidateDecimalPrecision<Decimal32Type>(precision));
+  return std::make_shared<Decimal32Type>(precision, scale);
+}
+
+// ----------------------------------------------------------------------
+// Decimal64 type
+
+Decimal64Type::Decimal64Type(int32_t precision, int32_t scale)
+    : DecimalType(type_id, 8, precision, scale) {
+  ARROW_CHECK_OK(ValidateDecimalPrecision<Decimal64Type>(precision));
+}
+
+Result<std::shared_ptr<DataType>> Decimal64Type::Make(int32_t precision, int32_t scale) {
+  RETURN_NOT_OK(ValidateDecimalPrecision<Decimal64Type>(precision));
+  return std::make_shared<Decimal64Type>(precision, scale);
+}
+
 // ----------------------------------------------------------------------
 // Decimal128 type
 
 Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
     : DecimalType(type_id, 16, precision, scale) {
-  ARROW_CHECK_GE(precision, kMinPrecision);
-  ARROW_CHECK_LE(precision, kMaxPrecision);
+  ARROW_CHECK_OK(ValidateDecimalPrecision<Decimal128Type>(precision));
 }
 
 Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_t scale) {
-  if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
-                           ", ", int32_t(kMaxPrecision), "]: ", precision);
-  }
+  RETURN_NOT_OK(ValidateDecimalPrecision<Decimal128Type>(precision));
   return std::make_shared<Decimal128Type>(precision, scale);
 }
 
@@ -1473,15 +1531,11 @@ Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_
 
 Decimal256Type::Decimal256Type(int32_t precision, int32_t scale)
     : DecimalType(type_id, 32, precision, scale) {
-  ARROW_CHECK_GE(precision, kMinPrecision);
-  ARROW_CHECK_LE(precision, kMaxPrecision);
+  ARROW_CHECK_OK(ValidateDecimalPrecision<Decimal256Type>(precision));
 }
 
 Result<std::shared_ptr<DataType>> Decimal256Type::Make(int32_t precision, int32_t scale) {
-  if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
-                           ", ", int32_t(kMaxPrecision), "]: ", precision);
-  }
+  RETURN_NOT_OK(ValidateDecimalPrecision<Decimal256Type>(precision));
   return std::make_shared<Decimal256Type>(precision, scale);
 }
 
@@ -1523,17 +1577,18 @@ DataTypeLayout DictionaryType::layout() const {
   return layout;
 }
 
-std::string DictionaryType::ToString() const {
+std::string DictionaryType::ToString(bool show_metadata) const {
   std::stringstream ss;
-  ss << this->name() << "<values=" << value_type_->ToString()
-     << ", indices=" << index_type_->ToString() << ", ordered=" << ordered_ << ">";
+  ss << this->name() << "<values=" << value_type_->ToString(show_metadata)
+     << ", indices=" << index_type_->ToString(show_metadata) << ", ordered=" << ordered_
+     << ">";
   return ss.str();
 }
 
 // ----------------------------------------------------------------------
 // Null type
 
-std::string NullType::ToString() const { return name(); }
+std::string NullType::ToString(bool show_metadata) const { return name(); }
 
 // ----------------------------------------------------------------------
 // FieldPath
@@ -1689,7 +1744,7 @@ class NestedSelector {
       }
     }
 
-    return std::move(child_data);
+    return child_data;
   }
 
   static Result<std::shared_ptr<Array>> GetChild(const Array& array, int i,
@@ -3142,20 +3197,20 @@ std::shared_ptr<DataType> time64(TimeUnit::type unit) {
   return std::make_shared<Time64Type>(unit);
 }
 
-std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {
-  return std::make_shared<ListType>(value_type);
+std::shared_ptr<DataType> list(std::shared_ptr<DataType> value_type) {
+  return std::make_shared<ListType>(std::move(value_type));
 }
 
-std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_field) {
-  return std::make_shared<ListType>(value_field);
+std::shared_ptr<DataType> list(std::shared_ptr<Field> value_field) {
+  return std::make_shared<ListType>(std::move(value_field));
 }
 
-std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type) {
-  return std::make_shared<LargeListType>(value_type);
+std::shared_ptr<DataType> large_list(std::shared_ptr<DataType> value_type) {
+  return std::make_shared<LargeListType>(std::move(value_type));
 }
 
-std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_field) {
-  return std::make_shared<LargeListType>(value_field);
+std::shared_ptr<DataType> large_list(std::shared_ptr<Field> value_field) {
+  return std::make_shared<LargeListType>(std::move(value_field));
 }
 
 std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
@@ -3176,14 +3231,14 @@ std::shared_ptr<DataType> map(std::shared_ptr<Field> key_field,
                                    keys_sorted);
 }
 
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
+std::shared_ptr<DataType> fixed_size_list(std::shared_ptr<DataType> value_type,
                                           int32_t list_size) {
-  return std::make_shared<FixedSizeListType>(value_type, list_size);
+  return std::make_shared<FixedSizeListType>(std::move(value_type), list_size);
 }
 
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_field,
+std::shared_ptr<DataType> fixed_size_list(std::shared_ptr<Field> value_field,
                                           int32_t list_size) {
-  return std::make_shared<FixedSizeListType>(value_field, list_size);
+  return std::make_shared<FixedSizeListType>(std::move(value_field), list_size);
 }
 
 std::shared_ptr<DataType> list_view(std::shared_ptr<DataType> value_type) {
@@ -3296,6 +3351,21 @@ std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {
                                                     : decimal256(precision, scale);
 }
 
+std::shared_ptr<DataType> smallest_decimal(int32_t precision, int32_t scale) {
+  return precision <= Decimal32Type::kMaxPrecision    ? decimal32(precision, scale)
+         : precision <= Decimal64Type::kMaxPrecision  ? decimal64(precision, scale)
+         : precision <= Decimal128Type::kMaxPrecision ? decimal128(precision, scale)
+                                                      : decimal256(precision, scale);
+}
+
+std::shared_ptr<DataType> decimal32(int32_t precision, int32_t scale) {
+  return std::make_shared<Decimal32Type>(precision, scale);
+}
+
+std::shared_ptr<DataType> decimal64(int32_t precision, int32_t scale) {
+  return std::make_shared<Decimal64Type>(precision, scale);
+}
+
 std::shared_ptr<DataType> decimal128(int32_t precision, int32_t scale) {
   return std::make_shared<Decimal128Type>(precision, scale);
 }
@@ -3304,13 +3374,25 @@ std::shared_ptr<DataType> decimal256(int32_t precision, int32_t scale) {
   return std::make_shared<Decimal256Type>(precision, scale);
 }
 
-std::string Decimal128Type::ToString() const {
+std::string Decimal32Type::ToString(bool show_metadata) const {
+  std::stringstream s;
+  s << "decimal32(" << precision_ << ", " << scale_ << ")";
+  return s.str();
+}
+
+std::string Decimal64Type::ToString(bool show_metadata) const {
+  std::stringstream s;
+  s << "decimal64(" << precision_ << ", " << scale_ << ")";
+  return s.str();
+}
+
+std::string Decimal128Type::ToString(bool show_metadata) const {
   std::stringstream s;
   s << "decimal128(" << precision_ << ", " << scale_ << ")";
   return s.str();
 }
 
-std::string Decimal256Type::ToString() const {
+std::string Decimal256Type::ToString(bool show_metadata) const {
   std::stringstream s;
   s << "decimal256(" << precision_ << ", " << scale_ << ")";
   return s.str();
@@ -3324,6 +3406,7 @@ std::vector<std::shared_ptr<DataType>> g_int_types;
 std::vector<std::shared_ptr<DataType>> g_floating_types;
 std::vector<std::shared_ptr<DataType>> g_numeric_types;
 std::vector<std::shared_ptr<DataType>> g_base_binary_types;
+std::vector<std::shared_ptr<DataType>> g_binary_view_types;
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
 std::vector<std::shared_ptr<DataType>> g_interval_types;
 std::vector<std::shared_ptr<DataType>> g_duration_types;
@@ -3375,6 +3458,9 @@ void InitStaticData() {
   // Base binary types (without FixedSizeBinary)
   g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};
 
+  // Binary view types
+  g_binary_view_types = {utf8_view(), binary_view()};
+
   // Non-parametric, non-nested types. This also DOES NOT include
   //
   // * Decimal
@@ -3382,9 +3468,10 @@ void InitStaticData() {
   // * Time32
   // * Time64
   // * Timestamp
-  g_primitive_types = {null(), boolean(), date32(), date64(), binary_view(), utf8_view()};
+  g_primitive_types = {null(), boolean(), date32(), date64()};
   Extend(g_numeric_types, &g_primitive_types);
   Extend(g_base_binary_types, &g_primitive_types);
+  Extend(g_binary_view_types, &g_primitive_types);
 }
 
 }  // namespace
@@ -3402,6 +3489,11 @@ const std::vector<std::shared_ptr<DataType>>& BinaryTypes() {
 const std::vector<std::shared_ptr<DataType>>& StringTypes() {
   static DataTypeVector types = {utf8(), large_utf8()};
   return types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& BinaryViewTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_binary_view_types;
 }
 
 const std::vector<std::shared_ptr<DataType>>& SignedIntTypes() {

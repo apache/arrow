@@ -18,6 +18,7 @@
 #include "arrow/record_batch.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <memory>
 #include <sstream>
@@ -25,15 +26,22 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_union.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/array/validate.h"
+#include "arrow/c/abi.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/vector.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -55,17 +63,31 @@ int RecordBatch::num_columns() const { return schema_->num_fields(); }
 class SimpleRecordBatch : public RecordBatch {
  public:
   SimpleRecordBatch(std::shared_ptr<Schema> schema, int64_t num_rows,
-                    std::vector<std::shared_ptr<Array>> columns)
-      : RecordBatch(std::move(schema), num_rows), boxed_columns_(std::move(columns)) {
+                    std::vector<std::shared_ptr<Array>> columns,
+                    std::shared_ptr<Device::SyncEvent> sync_event = nullptr)
+      : RecordBatch(std::move(schema), num_rows),
+        boxed_columns_(std::move(columns)),
+        device_type_(DeviceAllocationType::kCPU),
+        sync_event_(std::move(sync_event)) {
+    if (boxed_columns_.size() > 0) {
+      device_type_ = boxed_columns_[0]->device_type();
+    }
+
     columns_.resize(boxed_columns_.size());
     for (size_t i = 0; i < columns_.size(); ++i) {
       columns_[i] = boxed_columns_[i]->data();
+      DCHECK_EQ(device_type_, columns_[i]->device_type());
     }
   }
 
   SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-                    std::vector<std::shared_ptr<ArrayData>> columns)
-      : RecordBatch(std::move(schema), num_rows), columns_(std::move(columns)) {
+                    std::vector<std::shared_ptr<ArrayData>> columns,
+                    DeviceAllocationType device_type = DeviceAllocationType::kCPU,
+                    std::shared_ptr<Device::SyncEvent> sync_event = nullptr)
+      : RecordBatch(std::move(schema), num_rows),
+        columns_(std::move(columns)),
+        device_type_(device_type),
+        sync_event_(std::move(sync_event)) {
     boxed_columns_.resize(schema_->num_fields());
   }
 
@@ -95,6 +117,7 @@ class SimpleRecordBatch : public RecordBatch {
       const std::shared_ptr<Array>& column) const override {
     ARROW_CHECK(field != nullptr);
     ARROW_CHECK(column != nullptr);
+    ARROW_CHECK(column->device_type() == device_type_);
 
     if (!field->type()->Equals(column->type())) {
       return Status::TypeError("Column data type ", field->type()->name(),
@@ -109,7 +132,8 @@ class SimpleRecordBatch : public RecordBatch {
 
     ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->AddField(i, field));
     return RecordBatch::Make(std::move(new_schema), num_rows_,
-                             internal::AddVectorElement(columns_, i, column->data()));
+                             internal::AddVectorElement(columns_, i, column->data()),
+                             device_type_, sync_event_);
   }
 
   Result<std::shared_ptr<RecordBatch>> SetColumn(
@@ -117,6 +141,7 @@ class SimpleRecordBatch : public RecordBatch {
       const std::shared_ptr<Array>& column) const override {
     ARROW_CHECK(field != nullptr);
     ARROW_CHECK(column != nullptr);
+    ARROW_CHECK(column->device_type() == device_type_);
 
     if (!field->type()->Equals(column->type())) {
       return Status::TypeError("Column data type ", field->type()->name(),
@@ -131,19 +156,22 @@ class SimpleRecordBatch : public RecordBatch {
 
     ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->SetField(i, field));
     return RecordBatch::Make(std::move(new_schema), num_rows_,
-                             internal::ReplaceVectorElement(columns_, i, column->data()));
+                             internal::ReplaceVectorElement(columns_, i, column->data()),
+                             device_type_, sync_event_);
   }
 
   Result<std::shared_ptr<RecordBatch>> RemoveColumn(int i) const override {
     ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->RemoveField(i));
     return RecordBatch::Make(std::move(new_schema), num_rows_,
-                             internal::DeleteVectorElement(columns_, i));
+                             internal::DeleteVectorElement(columns_, i), device_type_,
+                             sync_event_);
   }
 
   std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const override {
     auto new_schema = schema_->WithMetadata(metadata);
-    return RecordBatch::Make(std::move(new_schema), num_rows_, columns_);
+    return RecordBatch::Make(std::move(new_schema), num_rows_, columns_, device_type_,
+                             sync_event_);
   }
 
   std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const override {
@@ -153,7 +181,8 @@ class SimpleRecordBatch : public RecordBatch {
       arrays.emplace_back(field->Slice(offset, length));
     }
     int64_t num_rows = std::min(num_rows_ - offset, length);
-    return std::make_shared<SimpleRecordBatch>(schema_, num_rows, std::move(arrays));
+    return std::make_shared<SimpleRecordBatch>(schema_, num_rows, std::move(arrays),
+                                               device_type_, sync_event_);
   }
 
   Status Validate() const override {
@@ -163,11 +192,22 @@ class SimpleRecordBatch : public RecordBatch {
     return RecordBatch::Validate();
   }
 
+  const std::shared_ptr<Device::SyncEvent>& GetSyncEvent() const override {
+    return sync_event_;
+  }
+
+  DeviceAllocationType device_type() const override { return device_type_; }
+
  private:
   std::vector<std::shared_ptr<ArrayData>> columns_;
 
   // Caching boxed array data
   mutable std::vector<std::shared_ptr<Array>> boxed_columns_;
+
+  // the type of device that the buffers for columns are allocated on.
+  // all columns should be on the same type of device.
+  DeviceAllocationType device_type_;
+  std::shared_ptr<Device::SyncEvent> sync_event_;
 };
 
 RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows)
@@ -175,18 +215,21 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Schema> schema, int64_t num_rows,
-    std::vector<std::shared_ptr<Array>> columns) {
+    std::vector<std::shared_ptr<Array>> columns,
+    std::shared_ptr<Device::SyncEvent> sync_event) {
   DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows,
-                                             std::move(columns));
+                                             std::move(columns), std::move(sync_event));
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Schema> schema, int64_t num_rows,
-    std::vector<std::shared_ptr<ArrayData>> columns) {
+    std::vector<std::shared_ptr<ArrayData>> columns, DeviceAllocationType device_type,
+    std::shared_ptr<Device::SyncEvent> sync_event) {
   DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows,
-                                             std::move(columns));
+                                             std::move(columns), device_type,
+                                             std::move(sync_event));
 }
 
 Result<std::shared_ptr<RecordBatch>> RecordBatch::MakeEmpty(
@@ -247,6 +290,14 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
                                        /*offset=*/0);
 }
 
+Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(bool null_to_nan, bool row_major,
+                                                      MemoryPool* pool) const {
+  std::shared_ptr<Tensor> tensor;
+  ARROW_RETURN_NOT_OK(
+      internal::RecordBatchToTensor(*this, null_to_nan, row_major, pool, &tensor));
+  return tensor;
+}
+
 const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name();
 }
@@ -261,6 +312,10 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
     return false;
   }
 
+  if (device_type() != other.device_type()) {
+    return false;
+  }
+
   for (int i = 0; i < num_columns(); ++i) {
     if (!column(i)->Equals(other.column(i), opts)) {
       return false;
@@ -272,6 +327,10 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
 
 bool RecordBatch::ApproxEquals(const RecordBatch& other, const EqualOptions& opts) const {
   if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
+    return false;
+  }
+
+  if (device_type() != other.device_type()) {
     return false;
   }
 
@@ -300,7 +359,36 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::ReplaceSchema(
           ", did not match new schema field type: ", replace_type->ToString());
     }
   }
-  return RecordBatch::Make(std::move(schema), num_rows(), columns());
+  return RecordBatch::Make(std::move(schema), num_rows(), columns(), GetSyncEvent());
+}
+
+std::vector<std::string> RecordBatch::ColumnNames() const {
+  std::vector<std::string> names(num_columns());
+  for (int i = 0; i < num_columns(); ++i) {
+    names[i] = schema()->field(i)->name();
+  }
+  return names;
+}
+
+Result<std::shared_ptr<RecordBatch>> RecordBatch::RenameColumns(
+    const std::vector<std::string>& names) const {
+  int n = num_columns();
+
+  if (static_cast<int>(names.size()) != n) {
+    return Status::Invalid("tried to rename a record batch of ", n, " columns but only ",
+                           names.size(), " names were provided");
+  }
+
+  ArrayVector columns(n);
+  FieldVector fields(n);
+
+  for (int i = 0; i < n; ++i) {
+    columns[i] = column(i);
+    fields[i] = schema()->field(i)->WithName(names[i]);
+  }
+
+  return RecordBatch::Make(::arrow::schema(std::move(fields)), num_rows(),
+                           std::move(columns), GetSyncEvent());
 }
 
 Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
@@ -321,7 +409,8 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
 
   auto new_schema =
       std::make_shared<arrow::Schema>(std::move(fields), schema()->metadata());
-  return RecordBatch::Make(std::move(new_schema), num_rows(), std::move(columns));
+  return RecordBatch::Make(std::move(new_schema), num_rows(), std::move(columns),
+                           GetSyncEvent());
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) const {
@@ -357,6 +446,246 @@ Status ValidateBatch(const RecordBatch& batch, bool full_validation) {
 
 }  // namespace
 
+Result<std::shared_ptr<RecordBatch>> RecordBatch::CopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  ArrayVector copied_columns;
+  copied_columns.reserve(num_columns());
+  for (const auto& col : columns()) {
+    ARROW_ASSIGN_OR_RAISE(auto c, col->CopyTo(to));
+    copied_columns.push_back(std::move(c));
+  }
+
+  return Make(schema_, num_rows(), std::move(copied_columns));
+}
+
+Result<std::shared_ptr<RecordBatch>> RecordBatch::ViewOrCopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  ArrayVector copied_columns;
+  copied_columns.reserve(num_columns());
+  for (const auto& col : columns()) {
+    ARROW_ASSIGN_OR_RAISE(auto c, col->ViewOrCopyTo(to));
+    copied_columns.push_back(std::move(c));
+  }
+
+  return Make(schema_, num_rows(), std::move(copied_columns));
+}
+
+namespace {
+struct EnumeratedStatistics {
+  int nth_statistics = 0;
+  bool start_new_column = false;
+  std::optional<int32_t> nth_column = std::nullopt;
+  const char* key = nullptr;
+  std::shared_ptr<DataType> type = nullptr;
+  ArrayStatistics::ValueType value = false;
+};
+using OnStatistics =
+    std::function<Status(const EnumeratedStatistics& enumerated_statistics)>;
+Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_statistics) {
+  EnumeratedStatistics statistics;
+  statistics.nth_statistics = 0;
+  statistics.start_new_column = true;
+  statistics.nth_column = std::nullopt;
+
+  statistics.key = ARROW_STATISTICS_KEY_ROW_COUNT_EXACT;
+  statistics.type = int64();
+  statistics.value = record_batch.num_rows();
+  RETURN_NOT_OK(on_statistics(statistics));
+  statistics.start_new_column = false;
+
+  const auto& schema = record_batch.schema();
+  const auto num_fields = schema->num_fields();
+  for (int nth_column = 0; nth_column < num_fields; ++nth_column) {
+    const auto& field = schema->field(nth_column);
+    auto column_statistics = record_batch.column(nth_column)->statistics();
+    if (!column_statistics) {
+      continue;
+    }
+
+    statistics.start_new_column = true;
+    statistics.nth_column = nth_column;
+    if (column_statistics->null_count.has_value()) {
+      statistics.nth_statistics++;
+      statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_EXACT;
+      statistics.type = int64();
+      statistics.value = column_statistics->null_count.value();
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->distinct_count.has_value()) {
+      statistics.nth_statistics++;
+      statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT;
+      statistics.type = int64();
+      statistics.value = column_statistics->distinct_count.value();
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->min.has_value()) {
+      statistics.nth_statistics++;
+      if (column_statistics->is_min_exact) {
+        statistics.key = ARROW_STATISTICS_KEY_MIN_VALUE_EXACT;
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE;
+      }
+      statistics.type = column_statistics->MinArrowType(field->type());
+      statistics.value = column_statistics->min.value();
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->max.has_value()) {
+      statistics.nth_statistics++;
+      if (column_statistics->is_max_exact) {
+        statistics.key = ARROW_STATISTICS_KEY_MAX_VALUE_EXACT;
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE;
+      }
+      statistics.type = column_statistics->MaxArrowType(field->type());
+      statistics.value = column_statistics->max.value();
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+  }
+  return Status::OK();
+}
+}  // namespace
+
+Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
+    MemoryPool* memory_pool) const {
+  // Statistics schema:
+  // struct<
+  //   column: int32,
+  //   statistics: map<
+  //     key: dictionary<
+  //       indices: int32,
+  //       dictionary: utf8,
+  //     >,
+  //     items: dense_union<...all needed types...>,
+  //   >
+  // >
+
+  // Statistics schema doesn't define static dense union type for
+  // values. Each statistics schema have a dense union type that has
+  // needled value types. The following block collects these types.
+  std::vector<std::shared_ptr<Field>> values_types;
+  std::vector<int8_t> values_type_indexes;
+  RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
+    int8_t i = 0;
+    for (const auto& field : values_types) {
+      if (field->type()->id() == statistics.type->id()) {
+        break;
+      }
+      i++;
+    }
+    if (i == static_cast<int8_t>(values_types.size())) {
+      values_types.push_back(field(statistics.type->name(), statistics.type));
+    }
+    values_type_indexes.push_back(i);
+    return Status::OK();
+  }));
+
+  // statistics.key: dictionary<indices: int32, dictionary: utf8>
+  auto keys_type = dictionary(int32(), utf8(), false);
+  // statistics.items: dense_union<...all needed types...>
+  auto values_type = dense_union(values_types);
+  // struct<
+  //   column: int32,
+  //   statistics: map<
+  //     key: dictionary<
+  //       indices: int32,
+  //       dictionary: utf8,
+  //     >,
+  //     items: dense_union<...all needed types...>,
+  //   >
+  // >
+  auto statistics_type =
+      struct_({field("column", int32()),
+               field("statistics", map(keys_type, values_type, false))});
+
+  std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
+  // columns: int32
+  auto columns_builder = std::make_shared<Int32Builder>(memory_pool);
+  field_builders.push_back(std::static_pointer_cast<ArrayBuilder>(columns_builder));
+  // statistics.key: dictionary<indices: int32, dictionary: utf8>
+  auto keys_builder = std::make_shared<StringDictionary32Builder>();
+  // statistics.items: dense_union<...all needed types...>
+  std::vector<std::shared_ptr<ArrayBuilder>> values_builders;
+  for (const auto& values_type : values_types) {
+    std::unique_ptr<ArrayBuilder> values_builder;
+    RETURN_NOT_OK(MakeBuilder(memory_pool, values_type->type(), &values_builder));
+    values_builders.push_back(std::shared_ptr<ArrayBuilder>(std::move(values_builder)));
+  }
+  auto items_builder = std::make_shared<DenseUnionBuilder>(
+      memory_pool, std::move(values_builders), values_type);
+  // statistics:
+  //   map<
+  //     key: dictionary<
+  //       indices: int32,
+  //       dictionary: utf8,
+  //     >,
+  //     items: dense_union<...all needed types...>,
+  //   >
+  auto values_builder = std::make_shared<MapBuilder>(
+      memory_pool, std::static_pointer_cast<ArrayBuilder>(keys_builder),
+      std::static_pointer_cast<ArrayBuilder>(items_builder));
+  field_builders.push_back(std::static_pointer_cast<ArrayBuilder>(values_builder));
+  // struct<
+  //   column: int32,
+  //   statistics: map<
+  //     key: dictionary<
+  //       indices: int32,
+  //       dictionary: utf8,
+  //     >,
+  //     items: dense_union<...all needed types...>,
+  //   >
+  // >
+  StructBuilder builder(statistics_type, memory_pool, std::move(field_builders));
+
+  // Append statistics.
+  RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
+    if (statistics.start_new_column) {
+      RETURN_NOT_OK(builder.Append());
+      if (statistics.nth_column.has_value()) {
+        RETURN_NOT_OK(columns_builder->Append(statistics.nth_column.value()));
+      } else {
+        RETURN_NOT_OK(columns_builder->AppendNull());
+      }
+      RETURN_NOT_OK(values_builder->Append());
+    }
+    RETURN_NOT_OK(keys_builder->Append(statistics.key,
+                                       static_cast<int32_t>(strlen(statistics.key))));
+    const auto values_type_index = values_type_indexes[statistics.nth_statistics];
+    RETURN_NOT_OK(items_builder->Append(values_type_index));
+    struct Visitor {
+      ArrayBuilder* builder;
+
+      Status operator()(const bool& value) {
+        return static_cast<BooleanBuilder*>(builder)->Append(value);
+      }
+      Status operator()(const int64_t& value) {
+        return static_cast<Int64Builder*>(builder)->Append(value);
+      }
+      Status operator()(const uint64_t& value) {
+        return static_cast<UInt64Builder*>(builder)->Append(value);
+      }
+      Status operator()(const double& value) {
+        return static_cast<DoubleBuilder*>(builder)->Append(value);
+      }
+      Status operator()(const std::string& value) {
+        return static_cast<StringBuilder*>(builder)->Append(
+            value.data(), static_cast<int32_t>(value.size()));
+      }
+    } visitor;
+    visitor.builder = values_builders[values_type_index].get();
+    RETURN_NOT_OK(std::visit(visitor, statistics.value));
+    return Status::OK();
+  }));
+
+  return builder.Finish();
+}
+
 Status RecordBatch::Validate() const {
   return ValidateBatch(*this, /*full_validation=*/false);
 }
@@ -389,12 +718,16 @@ Result<std::shared_ptr<Table>> RecordBatchReader::ToTable() {
 class SimpleRecordBatchReader : public RecordBatchReader {
  public:
   SimpleRecordBatchReader(Iterator<std::shared_ptr<RecordBatch>> it,
-                          std::shared_ptr<Schema> schema)
-      : schema_(std::move(schema)), it_(std::move(it)) {}
+                          std::shared_ptr<Schema> schema,
+                          DeviceAllocationType device_type = DeviceAllocationType::kCPU)
+      : schema_(std::move(schema)), it_(std::move(it)), device_type_(device_type) {}
 
   SimpleRecordBatchReader(std::vector<std::shared_ptr<RecordBatch>> batches,
-                          std::shared_ptr<Schema> schema)
-      : schema_(std::move(schema)), it_(MakeVectorIterator(std::move(batches))) {}
+                          std::shared_ptr<Schema> schema,
+                          DeviceAllocationType device_type = DeviceAllocationType::kCPU)
+      : schema_(std::move(schema)),
+        it_(MakeVectorIterator(std::move(batches))),
+        device_type_(device_type) {}
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
     return it_.Next().Value(batch);
@@ -402,13 +735,17 @@ class SimpleRecordBatchReader : public RecordBatchReader {
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
+  DeviceAllocationType device_type() const override { return device_type_; }
+
  protected:
   std::shared_ptr<Schema> schema_;
   Iterator<std::shared_ptr<RecordBatch>> it_;
+  DeviceAllocationType device_type_;
 };
 
 Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
-    std::vector<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema) {
+    std::vector<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema,
+    DeviceAllocationType device_type) {
   if (schema == nullptr) {
     if (batches.size() == 0 || batches[0] == nullptr) {
       return Status::Invalid("Cannot infer schema from empty vector or nullptr");
@@ -417,16 +754,19 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
     schema = batches[0]->schema();
   }
 
-  return std::make_shared<SimpleRecordBatchReader>(std::move(batches), std::move(schema));
+  return std::make_shared<SimpleRecordBatchReader>(std::move(batches), std::move(schema),
+                                                   device_type);
 }
 
 Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::MakeFromIterator(
-    Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema) {
+    Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema,
+    DeviceAllocationType device_type) {
   if (schema == nullptr) {
     return Status::Invalid("Schema cannot be nullptr");
   }
 
-  return std::make_shared<SimpleRecordBatchReader>(std::move(batches), std::move(schema));
+  return std::make_shared<SimpleRecordBatchReader>(std::move(batches), std::move(schema),
+                                                   device_type);
 }
 
 RecordBatchReader::~RecordBatchReader() {
@@ -443,6 +783,10 @@ Result<std::shared_ptr<RecordBatch>> ConcatenateRecordBatches(
   int cols = batches[0]->num_columns();
   auto schema = batches[0]->schema();
   for (size_t i = 0; i < batches.size(); ++i) {
+    if (auto sync = batches[i]->GetSyncEvent()) {
+      ARROW_RETURN_NOT_OK(sync->Wait());
+    }
+
     length += batches[i]->num_rows();
     if (!schema->Equals(batches[i]->schema())) {
       return Status::Invalid(

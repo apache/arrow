@@ -56,6 +56,7 @@ def test_io_thread_count():
         pa.set_io_thread_count(n)
 
 
+@pytest.mark.processes
 def test_env_var_io_thread_count():
     # Test that the number of IO threads can be overridden with the
     # ARROW_IO_THREADS environment variable.
@@ -117,6 +118,7 @@ def test_runtime_info():
         subprocess.check_call([sys.executable, "-c", code], env=env)
 
 
+@pytest.mark.processes
 def test_import_at_shutdown():
     # GH-38626: importing PyArrow at interpreter shutdown would crash
     code = """if 1:
@@ -154,6 +156,8 @@ def test_set_timezone_db_path_non_windows():
     pa.ListType,
     pa.LargeListType,
     pa.FixedSizeListType,
+    pa.ListViewType,
+    pa.LargeListViewType,
     pa.UnionType,
     pa.SparseUnionType,
     pa.DenseUnionType,
@@ -161,6 +165,8 @@ def test_set_timezone_db_path_non_windows():
     pa.Time32Type,
     pa.Time64Type,
     pa.TimestampType,
+    pa.Decimal32Type,
+    pa.Decimal64Type,
     pa.Decimal128Type,
     pa.Decimal256Type,
     pa.DictionaryType,
@@ -185,6 +191,8 @@ def test_set_timezone_db_path_non_windows():
     pa.UnionArray,
     pa.BinaryArray,
     pa.StringArray,
+    pa.BinaryViewArray,
+    pa.StringViewArray,
     pa.FixedSizeBinaryArray,
     pa.DictionaryArray,
     pa.Date32Array,
@@ -221,19 +229,35 @@ def test_set_timezone_db_path_non_windows():
     pa.StringScalar,
     pa.BinaryScalar,
     pa.FixedSizeBinaryScalar,
+    pa.BinaryViewScalar,
+    pa.StringViewScalar,
     pa.ListScalar,
     pa.LargeListScalar,
+    pa.ListViewScalar,
+    pa.LargeListViewScalar,
     pa.MapScalar,
     pa.FixedSizeListScalar,
     pa.UnionScalar,
     pa.StructScalar,
     pa.DictionaryScalar,
     pa.RunEndEncodedScalar,
+    pa.RecordBatchReader,
     pa.ipc.Message,
     pa.ipc.MessageReader,
     pa.MemoryPool,
     pa.LoggingMemoryPool,
     pa.ProxyMemoryPool,
+    pa.Device,
+    pa.MemoryManager,
+    pa.OpaqueArray,
+    pa.OpaqueScalar,
+    pa.OpaqueType,
+    pa.Bool8Array,
+    pa.Bool8Scalar,
+    pa.Bool8Type,
+    pa.JsonArray,
+    pa.JsonScalar,
+    pa.JsonType,
 ])
 def test_extension_type_constructor_errors(klass):
     # ARROW-2638: prevent calling extension class constructors directly

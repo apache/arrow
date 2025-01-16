@@ -31,7 +31,7 @@ case ${normalized_arch} in
     ;;
 esac
 # The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}/${normalized_arch}
+dist_dir=${3}
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
@@ -82,7 +82,6 @@ cmake \
   -DARROW_S3=${ARROW_S3} \
   -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-  -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${install_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
   -DGTest_SOURCE=BUNDLED \
@@ -138,8 +137,8 @@ archery linking check-dependencies \
   --allow libncurses \
   --allow libobjc \
   --allow libz \
-  libarrow_cdata_jni.dylib \
-  libarrow_dataset_jni.dylib \
-  libarrow_orc_jni.dylib \
-  libgandiva_jni.dylib
+  arrow_cdata_jni/${normalized_arch}/libarrow_cdata_jni.dylib \
+  arrow_dataset_jni/${normalized_arch}/libarrow_dataset_jni.dylib \
+  arrow_orc_jni/${normalized_arch}/libarrow_orc_jni.dylib \
+  gandiva_jni/${normalized_arch}/libgandiva_jni.dylib
 popd

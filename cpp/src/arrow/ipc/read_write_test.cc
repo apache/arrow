@@ -336,7 +336,7 @@ TEST_F(TestSchemaMetadata, NestedDictionaryFields) {
     auto dict_type1 = dictionary(int8(), utf8(), /*ordered=*/true);
     auto dict_type2 = dictionary(int32(), fixed_size_binary(24));
     auto dict_type3 = dictionary(int32(), binary());
-    auto dict_type4 = dictionary(int8(), decimal(19, 7));
+    auto dict_type4 = dictionary(int8(), decimal128(19, 7));
 
     auto struct_type1 = struct_({field("s1", dict_type1), field("s2", dict_type2)});
     auto struct_type2 = struct_({field("s3", dict_type3), field("s4", dict_type4)});
@@ -1046,6 +1046,9 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
 };
 
 TEST_F(RecursionLimits, WriteLimit) {
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "This crashes the Emscripten runtime.";
+#endif
   int32_t metadata_length = -1;
   int64_t body_length = -1;
   std::shared_ptr<Schema> schema;
@@ -1078,6 +1081,10 @@ TEST_F(RecursionLimits, ReadLimit) {
 // Test fails with a structured exception on Windows + Debug
 #if !defined(_WIN32) || defined(NDEBUG)
 TEST_F(RecursionLimits, StressLimit) {
+#  ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "This crashes the Emscripten runtime.";
+#  endif
+
   auto CheckDepth = [this](int recursion_depth, bool* it_works) {
     int32_t metadata_length = -1;
     int64_t body_length = -1;
@@ -1105,10 +1112,10 @@ TEST_F(RecursionLimits, StressLimit) {
   ASSERT_TRUE(it_works);
 
 // Mitigate Valgrind's slowness
-#if !defined(ARROW_VALGRIND)
+#  if !defined(ARROW_VALGRIND)
   CheckDepth(500, &it_works);
   ASSERT_TRUE(it_works);
-#endif
+#  endif
 }
 #endif  // !defined(_WIN32) || defined(NDEBUG)
 
@@ -1336,30 +1343,11 @@ class CopyCollectListener : public CollectListener {
 
   Status OnRecordBatchWithMetadataDecoded(
       RecordBatchWithMetadata record_batch_with_metadata) override {
-    auto& record_batch = record_batch_with_metadata.batch;
-    for (auto column_data : record_batch->column_data()) {
-      ARROW_RETURN_NOT_OK(CopyArrayData(column_data));
-    }
-    return CollectListener::OnRecordBatchWithMetadataDecoded(record_batch_with_metadata);
-  }
+    ARROW_ASSIGN_OR_RAISE(
+        record_batch_with_metadata.batch,
+        record_batch_with_metadata.batch->CopyTo(default_cpu_memory_manager()));
 
- private:
-  Status CopyArrayData(std::shared_ptr<ArrayData> data) {
-    auto& buffers = data->buffers;
-    for (size_t i = 0; i < buffers.size(); ++i) {
-      auto& buffer = buffers[i];
-      if (!buffer) {
-        continue;
-      }
-      ARROW_ASSIGN_OR_RAISE(buffers[i], Buffer::Copy(buffer, buffer->memory_manager()));
-    }
-    for (auto child_data : data->child_data) {
-      ARROW_RETURN_NOT_OK(CopyArrayData(child_data));
-    }
-    if (data->dictionary) {
-      ARROW_RETURN_NOT_OK(CopyArrayData(data->dictionary));
-    }
-    return Status::OK();
+    return CollectListener::OnRecordBatchWithMetadataDecoded(record_batch_with_metadata);
   }
 };
 

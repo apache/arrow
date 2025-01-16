@@ -23,18 +23,7 @@ import { compareArrayLike } from '../util/buffer.js';
 /** @ignore */
 type RangeLike = { length: number; stride?: number };
 /** @ignore */
-type ClampThen<T extends RangeLike> = (source: T, index: number) => any;
-/** @ignore */
 type ClampRangeThen<T extends RangeLike> = (source: T, offset: number, length: number) => any;
-
-export function clampIndex<T extends RangeLike>(source: T, index: number): number;
-export function clampIndex<T extends RangeLike, N extends ClampThen<T> = ClampThen<T>>(source: T, index: number, then: N): ReturnType<N>;
-/** @ignore */
-export function clampIndex<T extends RangeLike, N extends ClampThen<T> = ClampThen<T>>(source: T, index: number, then?: N) {
-    const length = source.length;
-    const adjust = index > -1 ? index : (length + (index % length));
-    return then ? then(source, adjust) : adjust;
-}
 
 /** @ignore */
 let tmp: number;
@@ -59,6 +48,9 @@ export function clampRange<T extends RangeLike, N extends ClampRangeThen<T> = Cl
 
     return then ? then(source, lhs, rhs) : [lhs, rhs];
 }
+
+/** @ignore */
+export const wrapIndex = (index: number, len: number) => index < 0 ? (len + index) : index;
 
 const isNaNFast = (value: any) => value !== value;
 

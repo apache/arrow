@@ -18,8 +18,13 @@
 name: Dev
 
 on:
-  # always trigger
+  # always trigger except Dependabot "push"
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
   pull_request:
 
 concurrency:
@@ -29,30 +34,46 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  ARCHERY_DEBUG: 1
+
 jobs:
 
   lint:
     name: Lint C++, Python, R, Docker, RAT
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 15
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: 3.8
+          python-version: 3.12
+      - name: Install pre-commit
+        run: |
+          python -m pip install pre-commit
+          pre-commit run --show-diff-on-failure --color=always
+      - name: Cache pre-commit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: Run pre-commit
+        run: |
+          pre-commit run --all-files --color=always --show-diff-on-failure
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          UBUNTU: 22.04
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run -e GITHUB_ACTIONS=true ubuntu-lint
       - name: Docker Push
         if: >-
@@ -88,22 +109,22 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: '3.8'
+          python-version: '3.12'
       - name: Install Ruby
-        uses: ruby/setup-ruby@250fcd6a742febb1123a77a841497ccaa8b9e939 # v1.152.0
+        uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '2.7'
+          ruby-version: ruby
       - name: Install .NET
-        uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4.0.0
+        uses: actions/setup-dotnet@87b7050bc53ea08284295505d98d2aa94301e852 # v4.2.0
         with:
-          dotnet-version: '7.0.x'
+          dotnet-version: '8.0.x'
       - name: Install Dependencies
         shell: bash
         run: |
           gem install test-unit
-          pip install "cython>=0.29.31" setuptools six pytest jira
+          pip install "cython>=0.29.31" setuptools pytest requests setuptools-scm
       - name: Run Release Test
         env:
           ARROW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}

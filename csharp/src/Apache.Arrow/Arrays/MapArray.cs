@@ -135,6 +135,19 @@ namespace Apache.Arrow
         {
         }
 
+        public override void Accept(IArrowArrayVisitor visitor)
+        {
+            switch (visitor)
+            {
+                case IArrowArrayVisitor<MapArray> typedVisitor:
+                    typedVisitor.Visit(this);
+                    break;
+                default:
+                    base.Accept(visitor);
+                    break;
+            }
+        }
+
         public IEnumerable<Tuple<K, V>> GetTuples<TKeyArray, K, TValueArray, V>(int index, Func<TKeyArray, int, K> getKey, Func<TValueArray, int, V> getValue)
             where TKeyArray : Array where TValueArray : Array
         {
@@ -142,10 +155,9 @@ namespace Apache.Arrow
             // Get key values
             int start = offsets[index];
             int end = offsets[index + 1];
-            StructArray array = KeyValues.Slice(start, end - start) as StructArray;
 
-            TKeyArray keyArray = array.Fields[0] as TKeyArray;
-            TValueArray valueArray = array.Fields[1] as TValueArray;
+            TKeyArray keyArray = KeyValues.Fields[0] as TKeyArray;
+            TValueArray valueArray = KeyValues.Fields[1] as TValueArray;
 
             for (int i = start; i < end; i++)
             {
@@ -160,10 +172,9 @@ namespace Apache.Arrow
             // Get key values
             int start = offsets[index];
             int end = offsets[index + 1];
-            StructArray array = KeyValues.Slice(start, end - start) as StructArray;
 
-            TKeyArray keyArray = array.Fields[0] as TKeyArray;
-            TValueArray valueArray = array.Fields[1] as TValueArray;
+            TKeyArray keyArray = KeyValues.Fields[0] as TKeyArray;
+            TValueArray valueArray = KeyValues.Fields[1] as TValueArray;
 
             for (int i = start; i < end; i++)
             {

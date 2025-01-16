@@ -19,8 +19,10 @@ from datetime import datetime, timezone, timedelta
 import gzip
 import os
 import pathlib
+from urllib.request import urlopen
 import subprocess
 import sys
+import time
 
 import pytest
 import weakref
@@ -34,6 +36,10 @@ from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
                         FileSystemHandler, PyFileSystem, FSSpecHandler,
                         copy_files)
+from pyarrow.util import find_free_port
+
+
+here = os.path.dirname(os.path.abspath(__file__))
 
 
 class DummyHandler(FileSystemHandler):
@@ -292,6 +298,35 @@ _minio_limited_policy = """{
 
 
 @pytest.fixture
+def azurefs(request, azure_server):
+    request.config.pyarrow.requires('azure')
+    from pyarrow.fs import AzureFileSystem
+
+    host, port, account_name, account_key = azure_server['connection']
+    azurite_authority = f"{host}:{port}"
+    azurite_scheme = "http"
+
+    container = 'pyarrow-filesystem/'
+
+    fs = AzureFileSystem(account_name=account_name,
+                         account_key=account_key,
+                         blob_storage_authority=azurite_authority,
+                         dfs_storage_authority=azurite_authority,
+                         blob_storage_scheme=azurite_scheme,
+                         dfs_storage_scheme=azurite_scheme)
+
+    fs.create_dir(container)
+
+    yield dict(
+        fs=fs,
+        pathfn=container.__add__,
+        allow_move_dir=True,
+        allow_append_to_file=True,
+    )
+    fs.delete_dir(container)
+
+
+@pytest.fixture
 def hdfs(request, hdfs_connection):
     request.config.pyarrow.requires('hdfs')
     if not pa.have_libhdfs():
@@ -362,79 +397,84 @@ def py_fsspec_s3fs(request, s3_server):
 
 @pytest.fixture(params=[
     pytest.param(
-        pytest.lazy_fixture('localfs'),
+        'localfs',
         id='LocalFileSystem()'
     ),
     pytest.param(
-        pytest.lazy_fixture('localfs_with_mmap'),
+        'localfs_with_mmap',
         id='LocalFileSystem(use_mmap=True)'
     ),
     pytest.param(
-        pytest.lazy_fixture('subtree_localfs'),
+        'subtree_localfs',
         id='SubTreeFileSystem(LocalFileSystem())'
     ),
     pytest.param(
-        pytest.lazy_fixture('s3fs'),
+        's3fs',
         id='S3FileSystem',
         marks=pytest.mark.s3
     ),
     pytest.param(
-        pytest.lazy_fixture('gcsfs'),
+        'gcsfs',
         id='GcsFileSystem',
         marks=pytest.mark.gcs
     ),
     pytest.param(
-        pytest.lazy_fixture('hdfs'),
+        'azurefs',
+        id='AzureFileSystem',
+        marks=pytest.mark.azure
+    ),
+    pytest.param(
+        'hdfs',
         id='HadoopFileSystem',
         marks=pytest.mark.hdfs
     ),
     pytest.param(
-        pytest.lazy_fixture('mockfs'),
+        'mockfs',
         id='_MockFileSystem()'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_localfs'),
+        'py_localfs',
         id='PyFileSystem(ProxyHandler(LocalFileSystem()))'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_mockfs'),
+        'py_mockfs',
         id='PyFileSystem(ProxyHandler(_MockFileSystem()))'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_fsspec_localfs'),
+        'py_fsspec_localfs',
         id='PyFileSystem(FSSpecHandler(fsspec.LocalFileSystem()))'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_fsspec_memoryfs'),
+        'py_fsspec_memoryfs',
         id='PyFileSystem(FSSpecHandler(fsspec.filesystem("memory")))'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_fsspec_s3fs'),
+        'py_fsspec_s3fs',
         id='PyFileSystem(FSSpecHandler(s3fs.S3FileSystem()))',
         marks=pytest.mark.s3
     ),
 ])
 def filesystem_config(request):
-    return request.param
+    return request.getfixturevalue(request.param)
 
 
 @pytest.fixture
-def fs(request, filesystem_config):
+def fs(filesystem_config):
     return filesystem_config['fs']
 
 
 @pytest.fixture
-def pathfn(request, filesystem_config):
+def pathfn(filesystem_config):
     return filesystem_config['pathfn']
 
 
 @pytest.fixture
-def allow_move_dir(request, filesystem_config):
+def allow_move_dir(filesystem_config):
     return filesystem_config['allow_move_dir']
 
 
 @pytest.fixture
-def allow_append_to_file(request, filesystem_config):
+def allow_append_to_file(filesystem_config):
     return filesystem_config['allow_append_to_file']
 
 
@@ -467,14 +507,20 @@ def skip_fsspec_s3fs(fs):
         pytest.xfail(reason="Not working with fsspec's s3fs")
 
 
+def skip_azure(fs, reason):
+    if fs.type_name == "abfs":
+        pytest.skip(reason=reason)
+
+
 @pytest.mark.s3
 def test_s3fs_limited_permissions_create_bucket(s3_server):
     from pyarrow.fs import S3FileSystem
-    _configure_s3_limited_user(s3_server, _minio_limited_policy)
+    _configure_s3_limited_user(s3_server, _minio_limited_policy,
+                               'test_fs_limited_user', 'limited123')
     host, port, _, _ = s3_server['connection']
 
     fs = S3FileSystem(
-        access_key='limited',
+        access_key='test_fs_limited_user',
         secret_key='limited123',
         endpoint_override='{}:{}'.format(host, port),
         scheme='http'
@@ -857,6 +903,9 @@ def test_copy_file(fs, pathfn):
 
 
 def test_move_directory(fs, pathfn, allow_move_dir):
+    # TODO(GH-40025): Stop skipping this test
+    skip_azure(fs, "Not implemented yet in for Azure. See GH-40025")
+
     # move directory (doesn't work with S3)
     s = pathfn('source-dir/')
     t = pathfn('target-dir/')
@@ -877,6 +926,9 @@ def test_move_file(fs, pathfn):
     # s3fs moving a file with recursive=True on latest 0.5 version
     # (https://github.com/dask/s3fs/issues/394)
     skip_fsspec_s3fs(fs)
+
+    # TODO(GH-40025): Stop skipping this test
+    skip_azure(fs, "Not implemented yet in for Azure. See GH-40025")
 
     s = pathfn('test-move-source-file')
     t = pathfn('test-move-target-file')
@@ -1029,7 +1081,11 @@ def test_open_output_stream_metadata(fs, pathfn):
         assert f.read() == data
         got_metadata = f.metadata()
 
-    if fs.type_name in ['s3', 'gcs'] or 'mock' in fs.type_name:
+    if fs.type_name in ['s3', 'gcs', 'abfs'] or 'mock' in fs.type_name:
+        # TODO(GH-40026): Stop skipping this test
+        skip_azure(
+            fs, "Azure filesystem currently only returns system metadata not user "
+            "metadata. See GH-40026")
         for k, v in metadata.items():
             assert got_metadata[k] == v.encode()
     else:
@@ -1177,6 +1233,11 @@ def test_s3_options(pickle_module):
     assert isinstance(fs, S3FileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs)) == fs
 
+    fs = S3FileSystem(allow_bucket_creation=True, allow_bucket_deletion=True,
+                      check_directory_existence_before_creation=True)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs)) == fs
+
     fs = S3FileSystem(request_timeout=0.5, connect_timeout=0.25)
     assert isinstance(fs, S3FileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs)) == fs
@@ -1185,6 +1246,10 @@ def test_s3_options(pickle_module):
     assert isinstance(fs2, S3FileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs2)) == fs2
     assert fs2 != fs
+
+    fs = S3FileSystem(endpoint_override='localhost:8999', force_virtual_addressing=True)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs)) == fs
 
     with pytest.raises(ValueError):
         S3FileSystem(access_key='access')
@@ -1373,6 +1438,33 @@ def test_s3fs_wrong_region():
 
     fs = S3FileSystem(region='us-east-2', anonymous=True)
     fs.get_file_info("voltrondata-labs-datasets")
+
+
+@pytest.mark.azure
+def test_azurefs_options(pickle_module):
+    from pyarrow.fs import AzureFileSystem
+
+    fs1 = AzureFileSystem(account_name='fake-account-name')
+    assert isinstance(fs1, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs1)) == fs1
+
+    fs2 = AzureFileSystem(account_name='fake-account-name',
+                          account_key='fakeaccountkey')
+    assert isinstance(fs2, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs2)) == fs2
+    assert fs2 != fs1
+
+    fs3 = AzureFileSystem(account_name='fake-account', account_key='fakeaccount',
+                          blob_storage_authority='fake-blob-authority',
+                          dfs_storage_authority='fake-dfs-authority',
+                          blob_storage_scheme='https',
+                          dfs_storage_scheme='https')
+    assert isinstance(fs3, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs3)) == fs3
+    assert fs3 != fs2
+
+    with pytest.raises(TypeError):
+        AzureFileSystem()
 
 
 @pytest.mark.hdfs
@@ -1900,3 +1992,61 @@ def test_s3_finalize_region_resolver():
             resolve_s3_region('voltrondata-labs-datasets')
         """
     subprocess.check_call([sys.executable, "-c", code])
+
+
+@pytest.mark.processes
+@pytest.mark.threading
+@pytest.mark.s3
+def test_concurrent_s3fs_init():
+    # GH-39897: lazy concurrent initialization of S3 subsystem should not crash
+    code = """if 1:
+        import threading
+        import pytest
+        from pyarrow.fs import (FileSystem, S3FileSystem,
+                                ensure_s3_initialized, finalize_s3)
+        threads = []
+        fn = lambda: FileSystem.from_uri('s3://mf-nwp-models/README.txt')
+        for i in range(4):
+            thread = threading.Thread(target = fn)
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        finalize_s3()
+        """
+    subprocess.check_call([sys.executable, "-c", code])
+
+
+@pytest.mark.s3
+def test_uwsgi_integration():
+    # GH-44071: using S3FileSystem under uwsgi shouldn't lead to a crash at shutdown
+    try:
+        subprocess.check_call(["uwsgi", "--version"])
+    except FileNotFoundError:
+        pytest.skip("uwsgi not installed on this Python")
+
+    port = find_free_port()
+    args = ["uwsgi", "-i", "--http", f"127.0.0.1:{port}",
+            "--wsgi-file", os.path.join(here, "wsgi_examples.py")]
+    proc = subprocess.Popen(args, stdin=subprocess.DEVNULL)
+    # Try to fetch URL, it should return 200 Ok...
+    try:
+        url = f"http://127.0.0.1:{port}/s3/"
+        start_time = time.time()
+        error = None
+        while time.time() < start_time + 5:
+            try:
+                with urlopen(url) as resp:
+                    assert resp.status == 200
+                break
+            except OSError as e:
+                error = e
+                time.sleep(0.1)
+        else:
+            pytest.fail(f"Could not fetch {url!r}: {error}")
+    finally:
+        proc.terminate()
+    # ... and uwsgi should gracefully shutdown after it's been asked above
+    assert proc.wait() == 30  # UWSGI_END_CODE = 30

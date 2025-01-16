@@ -252,8 +252,7 @@ void GenericFileSystemTest::TestCreateDir(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteDir(FileSystem* fs) {
-  if (have_flaky_directory_tree_deletion())
-    GTEST_SKIP() << "Flaky directory deletion on Windows";
+  if (have_flaky_directory_tree_deletion()) GTEST_SKIP() << "Flaky directory deletion";
 
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   ASSERT_OK(fs->CreateDir("AB/GH/IJ"));
@@ -281,8 +280,7 @@ void GenericFileSystemTest::TestDeleteDir(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteDirContents(FileSystem* fs) {
-  if (have_flaky_directory_tree_deletion())
-    GTEST_SKIP() << "Flaky directory deletion on Windows";
+  if (have_flaky_directory_tree_deletion()) GTEST_SKIP() << "Flaky directory deletion";
 
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   ASSERT_OK(fs->CreateDir("AB/GH/IJ"));
@@ -313,6 +311,8 @@ void GenericFileSystemTest::TestDeleteDirContents(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteRootDirContents(FileSystem* fs) {
+  if (have_flaky_directory_tree_deletion()) GTEST_SKIP() << "Flaky directory deletion";
+
   ASSERT_OK(fs->CreateDir("AB/CD"));
   CreateFile(fs, "AB/abc", "");
 
@@ -323,9 +323,7 @@ void GenericFileSystemTest::TestDeleteRootDirContents(FileSystem* fs) {
     AssertAllDirs(fs, {"AB", "AB/CD"});
     AssertAllFiles(fs, {"AB/abc"});
   } else {
-    if (!have_flaky_directory_tree_deletion()) {
-      AssertAllDirs(fs, {});
-    }
+    AssertAllDirs(fs, {});
     AssertAllFiles(fs, {});
   }
 }
@@ -385,6 +383,10 @@ void GenericFileSystemTest::TestDeleteFiles(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestMoveFile(FileSystem* fs) {
+  if (!allow_move_file()) {
+    GTEST_SKIP() << "Filesystem doesn't allow moving files";
+  }
+
   ASSERT_OK(fs->CreateDir("AB/CD"));
   ASSERT_OK(fs->CreateDir("EF"));
   CreateFile(fs, "abc", "data");
@@ -445,7 +447,9 @@ void GenericFileSystemTest::TestMoveFile(FileSystem* fs) {
   }
   // Parent destination is not a directory
   CreateFile(fs, "xxx", "");
-  ASSERT_RAISES(IOError, fs->Move("AB/pqr", "xxx/mno"));
+  if (!allow_write_implicit_dir_over_file()) {
+    ASSERT_RAISES(IOError, fs->Move("AB/pqr", "xxx/mno"));
+  }
   if (!allow_write_file_over_dir()) {
     // Destination is a directory
     ASSERT_RAISES(IOError, fs->Move("AB/pqr", "EF"));
@@ -566,10 +570,73 @@ void GenericFileSystemTest::TestCopyFile(FileSystem* fs) {
     // Parent destination doesn't exist
     ASSERT_RAISES(IOError, fs->CopyFile("AB/abc", "XX/mno"));
   }
-  // Parent destination is not a directory
-  ASSERT_RAISES(IOError, fs->CopyFile("AB/abc", "def/mno"));
+  // Parent destination is not a directory ("def" is a file)
+  if (!allow_write_implicit_dir_over_file()) {
+    ASSERT_RAISES(IOError, fs->CopyFile("AB/abc", "def/mno"));
+  }
   AssertAllDirs(fs, all_dirs);
   AssertAllFiles(fs, {"AB/abc", "EF/ghi", "def"});
+}
+
+void GenericFileSystemTest::TestCopyFiles(FileSystem* fs) {
+#if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
+  if (have_false_positive_memory_leak_with_async_close()) {
+    GTEST_SKIP() << "Filesystem have false positive memory leak with generator";
+  }
+#endif
+  auto io_thread_pool =
+      static_cast<arrow::internal::ThreadPool*>(fs->io_context().executor());
+  auto original_threads = io_thread_pool->GetCapacity();
+  // Needs to be smaller than the number of files we test with to catch GH-15233
+  ASSERT_OK(io_thread_pool->SetCapacity(2));
+  // Ensure the thread pool capacity is set back to the original value after the test
+  auto reset_thread_pool = [io_thread_pool, original_threads](void*) {
+    ASSERT_OK(io_thread_pool->SetCapacity(original_threads));
+  };
+  std::unique_ptr<void, decltype(reset_thread_pool)> reset_thread_pool_guard(
+      nullptr, reset_thread_pool);
+
+  auto mock_fs = std::make_shared<arrow::fs::internal::MockFileSystem>(
+      std::chrono::system_clock::now());
+  std::vector<std::string> dirs0{"0", "0/AB", "0/AB/CD"};
+  std::map<std::string, std::string> files0{
+      {"0/123", "123 data"}, {"0/AB/abc", "abc data"}, {"0/AB/CD/def", "def data"}};
+
+  std::vector<std::string> dirs0and1{"0", "0/AB", "0/AB/CD", "1", "1/AB", "1/AB/CD"};
+  std::map<std::string, std::string> files0and1{
+      {"0/123", "123 data"}, {"0/AB/abc", "abc data"}, {"0/AB/CD/def", "def data"},
+      {"1/123", "123 data"}, {"1/AB/abc", "abc data"}, {"1/AB/CD/def", "def data"}};
+
+  ASSERT_OK(mock_fs->CreateDir("0/AB/CD"));
+  for (const auto& kv : files0) {
+    CreateFile(mock_fs.get(), kv.first, kv.second);
+  }
+
+  auto selector0 = arrow::fs::FileSelector{};
+  selector0.base_dir = "0";
+  selector0.recursive = true;
+
+  ASSERT_OK(CopyFiles(mock_fs, selector0, fs->shared_from_this(), "0"));
+  AssertAllDirs(fs, dirs0);
+  for (const auto& kv : files0) {
+    AssertFileContents(fs, kv.first, kv.second);
+  }
+
+  ASSERT_OK(CopyFiles(fs->shared_from_this(), selector0, fs->shared_from_this(), "1"));
+  AssertAllDirs(fs, dirs0and1);
+  for (const auto& kv : files0and1) {
+    AssertFileContents(fs, kv.first, kv.second);
+  }
+
+  auto selector1 = arrow::fs::FileSelector{};
+  selector1.base_dir = "1";
+  selector1.recursive = true;
+
+  ASSERT_OK(CopyFiles(fs->shared_from_this(), selector1, mock_fs, "1"));
+  AssertAllDirs(mock_fs.get(), dirs0and1);
+  for (const auto& kv : files0and1) {
+    AssertFileContents(mock_fs.get(), kv.first, kv.second);
+  }
 }
 
 void GenericFileSystemTest::TestGetFileInfo(FileSystem* fs) {
@@ -750,6 +817,12 @@ void GenericFileSystemTest::TestGetFileInfoSelector(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestGetFileInfoGenerator(FileSystem* fs) {
+#if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
+  if (have_false_positive_memory_leak_with_generator()) {
+    GTEST_SKIP() << "Filesystem have false positive memory leak with generator";
+  }
+#endif
+
   ASSERT_OK(fs->CreateDir("AB/CD"));
   CreateFile(fs, "abc", "data");
   CreateFile(fs, "AB/def", "some data");
@@ -1177,8 +1250,12 @@ void GenericFileSystemTest::TestSpecialChars(FileSystem* fs) {
   AssertFileContents(fs, "Special and%different.txt", "data");
 
   ASSERT_OK(fs->DeleteFile("Special and%different.txt"));
-  ASSERT_OK(fs->DeleteDir("Blank Char"));
-  AssertAllDirs(fs, {});
+  if (have_flaky_directory_tree_deletion()) {
+    ASSERT_OK(fs->DeleteFile("Blank Char/Special%Char.txt"));
+  } else {
+    ASSERT_OK(fs->DeleteDir("Blank Char"));
+    AssertAllDirs(fs, {});
+  }
   AssertAllFiles(fs, {});
 }
 
@@ -1196,6 +1273,7 @@ GENERIC_FS_TEST_DEFINE(TestDeleteFiles)
 GENERIC_FS_TEST_DEFINE(TestMoveFile)
 GENERIC_FS_TEST_DEFINE(TestMoveDir)
 GENERIC_FS_TEST_DEFINE(TestCopyFile)
+GENERIC_FS_TEST_DEFINE(TestCopyFiles)
 GENERIC_FS_TEST_DEFINE(TestGetFileInfo)
 GENERIC_FS_TEST_DEFINE(TestGetFileInfoVector)
 GENERIC_FS_TEST_DEFINE(TestGetFileInfoSelector)

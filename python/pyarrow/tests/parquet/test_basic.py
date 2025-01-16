@@ -15,17 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 from collections import OrderedDict
 import io
 import warnings
 from shutil import copytree
+from decimal import Decimal
 
-import numpy as np
 import pytest
 
 import pyarrow as pa
 from pyarrow import fs
-from pyarrow.filesystem import LocalFileSystem, FileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
                                           _test_dataframe)
@@ -46,6 +46,10 @@ try:
 except ImportError:
     pd = tm = None
 
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not parquet'
@@ -259,11 +263,11 @@ def test_fspath(tempdir):
 
     # combined with non-local filesystem raises
     with pytest.raises(TypeError):
-        _read_table(fs_protocol_obj, filesystem=FileSystem())
+        _read_table(fs_protocol_obj, filesystem=fs.FileSystem())
 
 
 @pytest.mark.parametrize("filesystem", [
-    None, fs.LocalFileSystem(), LocalFileSystem._get_instance()
+    None, fs.LocalFileSystem()
 ])
 @pytest.mark.parametrize("name", ("data.parquet", "例.parquet"))
 def test_relative_paths(tempdir, filesystem, name):
@@ -324,6 +328,7 @@ def test_byte_stream_split():
     # This is only a smoke test.
     arr_float = pa.array(list(map(float, range(100))))
     arr_int = pa.array(list(map(int, range(100))))
+    arr_bool = pa.array([True, False] * 50)
     data_float = [arr_float, arr_float]
     table = pa.Table.from_arrays(data_float, names=['a', 'b'])
 
@@ -343,18 +348,72 @@ def test_byte_stream_split():
                      use_byte_stream_split=['a', 'b'])
 
     # Check with mixed column types.
-    mixed_table = pa.Table.from_arrays([arr_float, arr_int],
-                                       names=['a', 'b'])
+    mixed_table = pa.Table.from_arrays([arr_float, arr_float, arr_int, arr_int],
+                                       names=['a', 'b', 'c', 'd'])
     _check_roundtrip(mixed_table, expected=mixed_table,
-                     use_dictionary=['b'],
-                     use_byte_stream_split=['a'])
+                     use_dictionary=['b', 'd'],
+                     use_byte_stream_split=['a', 'c'])
 
     # Try to use the wrong data type with the byte_stream_split encoding.
     # This should throw an exception.
-    table = pa.Table.from_arrays([arr_int], names=['tmp'])
-    with pytest.raises(IOError):
+    table = pa.Table.from_arrays([arr_bool], names=['tmp'])
+    with pytest.raises(IOError, match='BYTE_STREAM_SPLIT only supports'):
         _check_roundtrip(table, expected=table, use_byte_stream_split=True,
                          use_dictionary=False)
+
+
+def test_store_decimal_as_integer(tempdir):
+    arr_decimal_1_9 = pa.array(list(map(Decimal, range(100))),
+                               type=pa.decimal128(5, 2))
+    arr_decimal_10_18 = pa.array(list(map(Decimal, range(100))),
+                                 type=pa.decimal128(16, 9))
+    arr_decimal_gt18 = pa.array(list(map(Decimal, range(100))),
+                                type=pa.decimal128(22, 2))
+    arr_bool = pa.array([True, False] * 50)
+    data_decimal = [arr_decimal_1_9, arr_decimal_10_18, arr_decimal_gt18]
+    table = pa.Table.from_arrays(data_decimal, names=['a', 'b', 'c'])
+
+    # Check with store_decimal_as_integer.
+    _check_roundtrip(table,
+                     expected=table,
+                     compression="gzip",
+                     use_dictionary=False,
+                     store_decimal_as_integer=True)
+
+    # Check physical type in parquet schema
+    pqtestfile_path = os.path.join(tempdir, 'test.parquet')
+    pq.write_table(table, pqtestfile_path,
+                   compression="gzip",
+                   use_dictionary=False,
+                   store_decimal_as_integer=True)
+
+    pqtestfile = pq.ParquetFile(pqtestfile_path)
+    pqcol_decimal_1_9 = pqtestfile.schema.column(0)
+    pqcol_decimal_10_18 = pqtestfile.schema.column(1)
+
+    assert pqcol_decimal_1_9.physical_type == 'INT32'
+    assert pqcol_decimal_10_18.physical_type == 'INT64'
+
+    # Check with store_decimal_as_integer and delta-int encoding.
+    # DELTA_BINARY_PACKED requires parquet physical type to be INT64 or INT32
+    _check_roundtrip(table,
+                     expected=table,
+                     compression="gzip",
+                     use_dictionary=False,
+                     store_decimal_as_integer=True,
+                     column_encoding={
+                         'a': 'DELTA_BINARY_PACKED',
+                         'b': 'DELTA_BINARY_PACKED'
+                     })
+
+    # Check with mixed column types.
+    mixed_table = pa.Table.from_arrays(
+        [arr_decimal_1_9, arr_decimal_10_18, arr_decimal_gt18, arr_bool],
+        names=['a', 'b', 'c', 'd'])
+    _check_roundtrip(mixed_table,
+                     expected=mixed_table,
+                     use_dictionary=False,
+                     store_decimal_as_integer=True)
 
 
 def test_column_encoding():
@@ -368,12 +427,13 @@ def test_column_encoding():
         [arr_float, arr_int, arr_bin, arr_flba, arr_bool],
         names=['a', 'b', 'c', 'd', 'e'])
 
-    # Check "BYTE_STREAM_SPLIT" for column 'a' and "PLAIN" column_encoding for
-    # column 'b' and 'c'.
+    # Check "BYTE_STREAM_SPLIT" for columns 'a', 'b', 'd'
+    # and "PLAIN" column_encoding for column 'c'.
     _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
                      column_encoding={'a': "BYTE_STREAM_SPLIT",
-                                      'b': "PLAIN",
-                                      'c': "PLAIN"})
+                                      'b': "BYTE_STREAM_SPLIT",
+                                      'c': "PLAIN",
+                                      'd': "BYTE_STREAM_SPLIT"})
 
     # Check "PLAIN" for all columns.
     _check_roundtrip(mixed_table, expected=mixed_table,
@@ -407,20 +467,20 @@ def test_column_encoding():
                      use_dictionary=False,
                      column_encoding={'e': "RLE"})
 
-    # Try to pass "BYTE_STREAM_SPLIT" column encoding for integer column 'b'.
-    # This should throw an error as it is only supports FLOAT and DOUBLE.
+    # Try to pass "BYTE_STREAM_SPLIT" column encoding for boolean column 'e'.
+    # This should throw an error as it is does not support BOOLEAN.
     with pytest.raises(IOError,
-                       match="BYTE_STREAM_SPLIT only supports FLOAT and"
-                             " DOUBLE"):
+                       match="BYTE_STREAM_SPLIT only supports"):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding={'a': "PLAIN",
-                                          'b': "BYTE_STREAM_SPLIT",
-                                          'c': "PLAIN"})
+                                          'c': "PLAIN",
+                                          'e': "BYTE_STREAM_SPLIT"})
 
     # Try to pass use "DELTA_BINARY_PACKED" encoding on float column.
     # This should throw an error as only integers are supported.
-    with pytest.raises(OSError):
+    with pytest.raises(OSError,
+                       match="DELTA_BINARY_PACKED encoder only supports"):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding={'a': "DELTA_BINARY_PACKED",
@@ -430,13 +490,15 @@ def test_column_encoding():
     # Try to pass "RLE_DICTIONARY".
     # This should throw an error as dictionary encoding is already used by
     # default and not supported to be specified as "fallback" encoding
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError,
+                       match="'RLE_DICTIONARY' is already used by default"):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding="RLE_DICTIONARY")
 
     # Try to pass unsupported encoding.
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError,
+                       match="Unsupported column encoding: 'MADE_UP_ENCODING'"):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding={'a': "MADE_UP_ENCODING"})

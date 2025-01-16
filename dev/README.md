@@ -48,16 +48,24 @@ After installed, it runs the merge script.
 you'll have to install Python dependencies yourself and then run
 `dev/merge_arrow_pr.py` directly.)
 
+The merge script requires tokens for access control. There are two options
+for configuring your tokens: environment variables or a configuration file.
+
+> Note: Arrow and Parquet only requires a GitHub token.
+
+#### Pass tokens via Environment Variables
+
 The merge script uses the GitHub REST API. You must set a
-`ARROW_GITHUB_API_TOKEN` environment variable to use a 
-[Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token). 
+`ARROW_GITHUB_API_TOKEN` environment variable to use a
+[Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
 You need to add `workflow` scope to the Personal Access Token.
 
-You can specify the 
-[Personal Access Token](https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html)
-of your JIRA account in the 
-`APACHE_JIRA_TOKEN` environment variable.
-If the variable is not set, the script will ask you for it.
+#### Pass tokens via configuration file
+
+```
+cp ./merge.conf.sample ~/.config/arrow/merge.conf
+```
+Update your new `merge.conf` file with your Personal Access Tokens.
 
 Example output:
 
@@ -108,25 +116,6 @@ Status		closed
 URL		https://github.com/apache/arrow/issues/Y
 ```
 
-## Verifying Release Candidates
-
-We have provided a script to assist with verifying release candidates on Linux
-and macOS:
-
-```shell
-bash dev/release/verify-release-candidate.sh 0.7.0 0
-```
-
-Read the script and check the notes in dev/release for information about system 
-dependencies.
-
-On Windows, we have a script that verifies C++ and Python (requires Visual
-Studio 2015):
-
-```
-dev/release/verify-release-candidate.bat apache-arrow-0.7.0.tar.gz
-```
-
 # Integration testing
 
 Build the following base image used by multiple tests:
@@ -138,10 +127,10 @@ docker build -t arrow_integration_xenial_base -f docker_common/Dockerfile.xenial
 ## HDFS C++ / Python support
 
 ```shell
-docker-compose build conda-cpp
-docker-compose build conda-python
-docker-compose build conda-python-hdfs
-docker-compose run --rm conda-python-hdfs
+docker compose build conda-cpp
+docker compose build conda-python
+docker compose build conda-python-hdfs
+docker compose run --rm conda-python-hdfs
 ```
 
 ## Apache Spark Integration Tests
@@ -154,10 +143,10 @@ related unit tests in Spark for Java and Python. Any errors will exit with a
 non-zero value. To run, use the following command:
 
 ```shell
-docker-compose build conda-cpp
-docker-compose build conda-python
-docker-compose build conda-python-spark
-docker-compose run --rm conda-python-spark
+docker compose build conda-cpp
+docker compose build conda-python
+docker compose build conda-python-spark
+docker compose run --rm conda-python-spark
 ```
 
 If you already are building Spark, these commands will map your local Maven
@@ -166,7 +155,7 @@ Be aware, that docker write files as root, which can cause problems for maven
 on the host.
 
 ```shell
-docker-compose run --rm -v $HOME/.m2:/root/.m2 conda-python-spark
+docker compose run --rm -v $HOME/.m2:/root/.m2 conda-python-spark
 ```
 
 NOTE: If the Java API has breaking changes, a patched version of Spark might

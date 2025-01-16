@@ -26,13 +26,13 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/testing/future_util.h"
 #ifndef NDEBUG
-#include <sstream>
+#  include <sstream>
 #endif
 #include <unordered_set>
 
 #include "arrow/acero/options.h"
 #ifndef NDEBUG
-#include "arrow/acero/options_internal.h"
+#  include "arrow/acero/options_internal.h"
 #endif
 #include "arrow/acero/map_node.h"
 #include "arrow/acero/query_context.h"
@@ -41,8 +41,8 @@
 #include "arrow/acero/util.h"
 #include "arrow/api.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -101,6 +101,7 @@ Result<BatchesWithSchema> MakeBatchesFromNumString(
   BatchesWithSchema batches;
   batches.schema = schema;
   int n_fields = schema->num_fields();
+  size_t batch_index = 0;
   for (auto num_batch : num_batches.batches) {
     Datum two(Int32Scalar(2));
     std::vector<Datum> values;
@@ -128,6 +129,7 @@ Result<BatchesWithSchema> MakeBatchesFromNumString(
       }
     }
     ExecBatch batch(values, num_batch.length);
+    batch.index = batch_index++;
     batches.batches.push_back(batch);
   }
   return batches;
@@ -185,6 +187,7 @@ Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string fr
                           replace_key ? batches.schema->SetField(from_index, new_field)
                                       : batches.schema->AddField(from_index, new_field));
   }
+  size_t batch_index = 0;
   for (const ExecBatch& batch : batches.batches) {
     std::vector<Datum> new_values;
     for (int i = 0; i < n_fields; i++) {
@@ -233,6 +236,7 @@ Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string fr
       new_values.push_back(value);
     }
     new_batches.batches.emplace_back(new_values, batch.length);
+    new_batches.batches.back().index = batch_index++;
   }
   return new_batches;
 }
@@ -1571,7 +1575,7 @@ void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
       "asofjoin", {l_src, r_src}, GetRepeatedOptions(2, "time", {"key"}, 1000)};
 
   QueryOptions query_options;
-  query_options.use_threads = false;
+  query_options.use_threads = true;
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches,
                        DeclarationToExecBatches(asofjoin, query_options));
 
@@ -1579,7 +1583,71 @@ void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
 }
 
 TEST(AsofJoinTest, BatchSequencing) {
-  return TestSequencing(MakeIntegerBatches, /*num_batches=*/32, /*batch_size=*/1);
+  return TestSequencing(MakeIntegerBatches, /*num_batches=*/1000, /*batch_size=*/1);
+}
+
+template <typename BatchesMaker>
+void TestSchemaResolution(BatchesMaker maker, int num_batches, int batch_size) {
+  // GH-39803: The key hasher needs to resolve the types of key columns. All other
+  // tests use int32 for all columns, but this test converts the key columns to
+  // strings via a projection node to test that the column is correctly resolved
+  // to string.
+  auto l_schema =
+      schema({field("time", int32()), field("key", int32()), field("l_value", int32())});
+  auto r_schema =
+      schema({field("time", int32()), field("key", int32()), field("r0_value", int32())});
+
+  auto make_shift = [&maker, num_batches, batch_size](
+                        const std::shared_ptr<Schema>& schema, int shift) {
+    return maker({[](int row) -> int64_t { return row; },
+                  [num_batches](int row) -> int64_t { return row / num_batches; },
+                  [shift](int row) -> int64_t { return row * 10 + shift; }},
+                 schema, num_batches, batch_size);
+  };
+  ASSERT_OK_AND_ASSIGN(auto l_batches, make_shift(l_schema, 0));
+  ASSERT_OK_AND_ASSIGN(auto r_batches, make_shift(r_schema, 1));
+
+  Declaration l_src = {"source",
+                       SourceNodeOptions(l_schema, l_batches.gen(false, false))};
+  Declaration r_src = {"source",
+                       SourceNodeOptions(r_schema, r_batches.gen(false, false))};
+  Declaration l_project = {
+      "project",
+      {std::move(l_src)},
+      ProjectNodeOptions({compute::field_ref("time"),
+                          compute::call("cast", {compute::field_ref("key")},
+                                        compute::CastOptions::Safe(utf8())),
+                          compute::field_ref("l_value")},
+                         {"time", "key", "l_value"})};
+  Declaration r_project = {
+      "project",
+      {std::move(r_src)},
+      ProjectNodeOptions({compute::call("cast", {compute::field_ref("key")},
+                                        compute::CastOptions::Safe(utf8())),
+                          compute::field_ref("r0_value"), compute::field_ref("time")},
+                         {"key", "r0_value", "time"})};
+
+  Declaration asofjoin = {
+      "asofjoin", {l_project, r_project}, GetRepeatedOptions(2, "time", {"key"}, 1000)};
+
+  QueryOptions query_options;
+  query_options.use_threads = false;
+  ASSERT_OK_AND_ASSIGN(auto table, DeclarationToTable(asofjoin, query_options));
+
+  Int32Builder expected_r0_b;
+  for (int i = 1; i <= 91; i += 10) {
+    ASSERT_OK(expected_r0_b.Append(i));
+  }
+  ASSERT_OK_AND_ASSIGN(auto expected_r0, expected_r0_b.Finish());
+
+  auto actual_r0 = table->GetColumnByName("r0_value");
+  std::vector<std::shared_ptr<arrow::Array>> chunks = {expected_r0};
+  auto expected_r0_chunked = std::make_shared<arrow::ChunkedArray>(chunks);
+  ASSERT_TRUE(actual_r0->Equals(expected_r0_chunked));
+}
+
+TEST(AsofJoinTest, OutputSchemaResolution) {
+  return TestSchemaResolution(MakeIntegerBatches, /*num_batches=*/1, /*batch_size=*/10);
 }
 
 namespace {
@@ -1612,6 +1680,91 @@ TEST(AsofJoinTest, BackpressureWithBatchesGen) {
                           /*num_l_batches=*/num_batches,
                           /*num_r0_batches=*/num_batches, /*num_r1_batches=*/num_batches,
                           /*slow_r0=*/false);
+}
+
+// Reproduction of GH-40675: A logical race between Process() and Push() that can be more
+// easily observed with single small batch.
+TEST(AsofJoinTest, RhsEmptinessRace) {
+  auto left_batch = ExecBatchFromJSON(
+      {int64(), utf8()}, R"([[1, "a"], [1, "b"], [5, "a"], [6, "b"], [7, "f"]])");
+  auto right_batch = ExecBatchFromJSON(
+      {int64(), utf8(), float64()}, R"([[2, "a", 1.0], [9, "b", 3.0], [15, "g", 5.0]])");
+
+  Declaration left{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("colA", int64()), field("col2", utf8())}),
+                                 {std::move(left_batch)})};
+  Declaration right{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("colB", int64()), field("col3", utf8()),
+                                         field("colC", float64())}),
+                                 {std::move(right_batch)})};
+  AsofJoinNodeOptions asof_join_opts({{{"colA"}, {{"col2"}}}, {{"colB"}, {{"col3"}}}}, 1);
+  Declaration asof_join{
+      "asofjoin", {std::move(left), std::move(right)}, std::move(asof_join_opts)};
+
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(asof_join)));
+
+  auto exp_batch = ExecBatchFromJSON(
+      {int64(), utf8(), float64()},
+      R"([[1, "a", 1.0], [1, "b", null], [5, "a", null], [6, "b", null], [7, "f", null]])");
+  AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
+}
+
+// Reproduction of GH-41149: Another case of the same root cause as GH-40675, but with
+// empty "by" columns.
+TEST(AsofJoinTest, RhsEmptinessRaceEmptyBy) {
+  auto left_batch = ExecBatchFromJSON({int64()}, R"([[1], [2], [3]])");
+  auto right_batch =
+      ExecBatchFromJSON({utf8(), int64()}, R"([["Z", 2], ["B", 3], ["A", 4]])");
+
+  Declaration left{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(schema({field("on", int64())}),
+                                              {std::move(left_batch)})};
+  Declaration right{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("colVals", utf8()), field("on", int64())}),
+                                 {std::move(right_batch)})};
+  AsofJoinNodeOptions asof_join_opts({{{"on"}, {}}, {{"on"}, {}}}, 1);
+  Declaration asof_join{
+      "asofjoin", {std::move(left), std::move(right)}, std::move(asof_join_opts)};
+
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(asof_join)));
+
+  auto exp_batch =
+      ExecBatchFromJSON({int64(), utf8()}, R"([[1, "Z"], [2, "Z"], [3, "B"]])");
+  AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
+}
+
+// Reproduction of GH-44526: Provoke destruction of not started asofjoin node by providing
+// a sink that fails on creation
+TEST(AsofJoinTest, DestroyNonStartedAsofJoinNode) {
+  auto left_batch = ExecBatchFromJSON({int64()}, R"([[1], [2], [3]])");
+  auto right_batch =
+      ExecBatchFromJSON({utf8(), int64()}, R"([["Z", 2], ["B", 3], ["A", 4]])");
+
+  Declaration left{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(schema({field("on", int64())}),
+                                              {std::move(left_batch)})};
+  Declaration right{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("colVals", utf8()), field("on", int64())}),
+                                 {std::move(right_batch)})};
+  AsofJoinNodeOptions asof_join_opts({{{"on"}, {}}, {{"on"}, {}}}, 1);
+  Declaration asof_join{
+      "asofjoin", {std::move(left), std::move(right)}, std::move(asof_join_opts)};
+
+  // Setting invalid arguments, such as nullptr in generator or schema in SinkNodeOptions,
+  // causes the execution plan to terminate before the asofjoin node is started.
+  arrow::acero::SinkNodeOptions sink_node_options{/*generator=*/nullptr,
+                                                  /*schema=*/nullptr};
+  auto sink = Declaration::Sequence({asof_join, {"sink", sink_node_options}});
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "`generator` is a required SinkNode option and cannot be null"),
+      DeclarationToStatus(std::move(sink)));
 }
 
 }  // namespace acero

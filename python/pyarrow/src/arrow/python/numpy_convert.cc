@@ -46,7 +46,7 @@ NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
     PyArrayObject* ndarray = reinterpret_cast<PyArrayObject*>(ao);
     auto ptr = reinterpret_cast<uint8_t*>(PyArray_DATA(ndarray));
     data_ = const_cast<const uint8_t*>(ptr);
-    size_ = PyArray_SIZE(ndarray) * PyArray_DESCR(ndarray)->elsize;
+    size_ = PyArray_NBYTES(ndarray);
     capacity_ = size_;
     is_mutable_ = !!(PyArray_FLAGS(ndarray) & NPY_ARRAY_WRITEABLE);
   }
@@ -59,12 +59,11 @@ NumPyBuffer::~NumPyBuffer() {
 
 #define TO_ARROW_TYPE_CASE(NPY_NAME, FACTORY) \
   case NPY_##NPY_NAME:                        \
-    *out = FACTORY();                         \
-    break;
+    return FACTORY();
 
 namespace {
 
-Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
+Result<std::shared_ptr<DataType>> GetTensorType(PyObject* dtype) {
   if (!PyObject_TypeCheck(dtype, &PyArrayDescr_Type)) {
     return Status::TypeError("Did not pass numpy.dtype object");
   }
@@ -84,11 +83,8 @@ Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
     TO_ARROW_TYPE_CASE(FLOAT16, float16);
     TO_ARROW_TYPE_CASE(FLOAT32, float32);
     TO_ARROW_TYPE_CASE(FLOAT64, float64);
-    default: {
-      return Status::NotImplemented("Unsupported numpy type ", descr->type_num);
-    }
   }
-  return Status::OK();
+  return Status::NotImplemented("Unsupported numpy type ", descr->type_num);
 }
 
 Status GetNumPyType(const DataType& type, int* type_num) {
@@ -120,15 +116,21 @@ Status GetNumPyType(const DataType& type, int* type_num) {
 
 }  // namespace
 
-Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
+Result<std::shared_ptr<DataType>> NumPyScalarToArrowDataType(PyObject* scalar) {
+  PyArray_Descr* descr = PyArray_DescrFromScalar(scalar);
+  OwnedRef descr_ref(reinterpret_cast<PyObject*>(descr));
+  return NumPyDtypeToArrow(descr);
+}
+
+Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyObject* dtype) {
   if (!PyObject_TypeCheck(dtype, &PyArrayDescr_Type)) {
     return Status::TypeError("Did not pass numpy.dtype object");
   }
   PyArray_Descr* descr = reinterpret_cast<PyArray_Descr*>(dtype);
-  return NumPyDtypeToArrow(descr, out);
+  return NumPyDtypeToArrow(descr);
 }
 
-Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
+Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyArray_Descr* descr) {
   int type_num = fix_numpy_type_num(descr->type_num);
 
   switch (type_num) {
@@ -148,23 +150,18 @@ Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
     TO_ARROW_TYPE_CASE(UNICODE, utf8);
     case NPY_DATETIME: {
       auto date_dtype =
-          reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
+          reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(PyDataType_C_METADATA(descr));
       switch (date_dtype->meta.base) {
         case NPY_FR_s:
-          *out = timestamp(TimeUnit::SECOND);
-          break;
+          return timestamp(TimeUnit::SECOND);
         case NPY_FR_ms:
-          *out = timestamp(TimeUnit::MILLI);
-          break;
+          return timestamp(TimeUnit::MILLI);
         case NPY_FR_us:
-          *out = timestamp(TimeUnit::MICRO);
-          break;
+          return timestamp(TimeUnit::MICRO);
         case NPY_FR_ns:
-          *out = timestamp(TimeUnit::NANO);
-          break;
+          return timestamp(TimeUnit::NANO);
         case NPY_FR_D:
-          *out = date32();
-          break;
+          return date32();
         case NPY_FR_GENERIC:
           return Status::NotImplemented("Unbound or generic datetime64 time unit");
         default:
@@ -173,32 +170,25 @@ Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
     } break;
     case NPY_TIMEDELTA: {
       auto timedelta_dtype =
-          reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
+          reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(PyDataType_C_METADATA(descr));
       switch (timedelta_dtype->meta.base) {
         case NPY_FR_s:
-          *out = duration(TimeUnit::SECOND);
-          break;
+          return duration(TimeUnit::SECOND);
         case NPY_FR_ms:
-          *out = duration(TimeUnit::MILLI);
-          break;
+          return duration(TimeUnit::MILLI);
         case NPY_FR_us:
-          *out = duration(TimeUnit::MICRO);
-          break;
+          return duration(TimeUnit::MICRO);
         case NPY_FR_ns:
-          *out = duration(TimeUnit::NANO);
-          break;
+          return duration(TimeUnit::NANO);
         case NPY_FR_GENERIC:
           return Status::NotImplemented("Unbound or generic timedelta64 time unit");
         default:
           return Status::NotImplemented("Unsupported timedelta64 time unit");
       }
     } break;
-    default: {
-      return Status::NotImplemented("Unsupported numpy type ", descr->type_num);
-    }
   }
 
-  return Status::OK();
+  return Status::NotImplemented("Unsupported numpy type ", descr->type_num);
 }
 
 #undef TO_ARROW_TYPE_CASE
@@ -230,9 +220,8 @@ Status NdarrayToTensor(MemoryPool* pool, PyObject* ao,
     strides[i] = array_strides[i];
   }
 
-  std::shared_ptr<DataType> type;
-  RETURN_NOT_OK(
-      GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray)), &type));
+  ARROW_ASSIGN_OR_RAISE(
+      auto type, GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray))));
   *out = std::make_shared<Tensor>(type, data, shape, strides, dim_names);
   return Status::OK();
 }
@@ -435,9 +424,9 @@ Status NdarraysToSparseCOOTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
 
   PyArrayObject* ndarray_data = reinterpret_cast<PyArrayObject*>(data_ao);
   std::shared_ptr<Buffer> data = std::make_shared<NumPyBuffer>(data_ao);
-  std::shared_ptr<DataType> type_data;
-  RETURN_NOT_OK(GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_data)),
-                              &type_data));
+  ARROW_ASSIGN_OR_RAISE(
+      auto type_data,
+      GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_data))));
 
   std::shared_ptr<Tensor> coords;
   RETURN_NOT_OK(NdarrayToTensor(pool, coords_ao, {}, &coords));
@@ -462,9 +451,9 @@ Status NdarraysToSparseCSXMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* 
 
   PyArrayObject* ndarray_data = reinterpret_cast<PyArrayObject*>(data_ao);
   std::shared_ptr<Buffer> data = std::make_shared<NumPyBuffer>(data_ao);
-  std::shared_ptr<DataType> type_data;
-  RETURN_NOT_OK(GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_data)),
-                              &type_data));
+  ARROW_ASSIGN_OR_RAISE(
+      auto type_data,
+      GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_data))));
 
   std::shared_ptr<Tensor> indptr, indices;
   RETURN_NOT_OK(NdarrayToTensor(pool, indptr_ao, {}, &indptr));
@@ -491,15 +480,21 @@ Status NdarraysToSparseCSFTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
   const int ndim = static_cast<const int>(shape.size());
   PyArrayObject* ndarray_data = reinterpret_cast<PyArrayObject*>(data_ao);
   std::shared_ptr<Buffer> data = std::make_shared<NumPyBuffer>(data_ao);
-  std::shared_ptr<DataType> type_data;
-  RETURN_NOT_OK(GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_data)),
-                              &type_data));
+  ARROW_ASSIGN_OR_RAISE(
+      auto type_data,
+      GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_data))));
 
   std::vector<std::shared_ptr<Tensor>> indptr(ndim - 1);
   std::vector<std::shared_ptr<Tensor>> indices(ndim);
 
   for (int i = 0; i < ndim - 1; ++i) {
+#ifdef Py_GIL_DISABLED
+    PyObject* item = PySequence_ITEM(indptr_ao, i);
+    RETURN_IF_PYERROR();
+    OwnedRef item_ref(item);
+#else
     PyObject* item = PySequence_Fast_GET_ITEM(indptr_ao, i);
+#endif
     if (!PyArray_Check(item)) {
       return Status::TypeError("Did not pass ndarray object for indptr");
     }
@@ -508,7 +503,13 @@ Status NdarraysToSparseCSFTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
   }
 
   for (int i = 0; i < ndim; ++i) {
+#ifdef Py_GIL_DISABLED
+    PyObject* item = PySequence_ITEM(indices_ao, i);
+    RETURN_IF_PYERROR();
+    OwnedRef item_ref(item);
+#else
     PyObject* item = PySequence_Fast_GET_ITEM(indices_ao, i);
+#endif
     if (!PyArray_Check(item)) {
       return Status::TypeError("Did not pass ndarray object for indices");
     }

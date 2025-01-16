@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Readable } from 'stream';
+import { Readable, ReadableOptions as ReadableOptions_ } from 'node:stream';
 import { isIterable, isAsyncIterable } from '../../util/compat.js';
 
 /** @ignore */
-type ReadableOptions = import('stream').ReadableOptions;
+type ReadableOptions = ReadableOptions_;
 /** @ignore */
 type SourceIterator<T> = Generator<T, void, number | null>;
 /** @ignore */

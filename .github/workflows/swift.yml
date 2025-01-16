@@ -19,7 +19,13 @@ name: Swift
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
+      - '.dockerignore'
       - '.github/workflows/swift.yml'
       - 'ci/docker/*swift*'
       - 'ci/scripts/swift_*'
@@ -27,6 +33,7 @@ on:
       - 'swift/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/swift.yml'
       - 'ci/docker/*swift*'
       - 'ci/scripts/swift_*'
@@ -41,6 +48,7 @@ permissions:
   contents: read
 
 env:
+  ARCHERY_DEBUG: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
@@ -55,6 +63,10 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Setup Python on hosted runner
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: 3
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -62,8 +74,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run ubuntu-swift
       - name: Docker Push
         if: >-

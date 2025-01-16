@@ -63,7 +63,7 @@ jobs:
         run: |
           set -e
           pushd arrow/dev/tasks/linux-packages
-          rake version:update
+          rake version:update ARROW_RELEASE_TIME="$(date --iso-8601=seconds)"
           rake docker:pull || :
           rake --trace {{ task_namespace }}:build BUILD_DIR=build
           popd
@@ -83,6 +83,10 @@ jobs:
           APT_TARGETS: {{ target }}
           REPO: {{ '${{ secrets.REPO }}' }}
           YUM_TARGETS: {{ target }}
+
+      {% set patterns = upload_extensions | format_all("arrow/dev/tasks/linux-packages/*/*/repositories/**/*{}") %}
+      {{ macros.github_upload_releases(patterns)|indent }}
+
       - name: Set up test
         run: |
           sudo apt install -y \
@@ -123,6 +127,3 @@ jobs:
           APT_TARGETS: {{ target }}
           ARROW_VERSION: {{ arrow.version }}
           YUM_TARGETS: {{ target }}
-
-      {% set patterns = upload_extensions | format_all("arrow/dev/tasks/linux-packages/*/*/repositories/**/*{}") %}
-      {{ macros.github_upload_releases(patterns)|indent }}

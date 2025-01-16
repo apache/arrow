@@ -30,7 +30,7 @@
 
 // Can be defined by utfcpp
 #ifdef NOEXCEPT
-#undef NOEXCEPT
+#  undef NOEXCEPT
 #endif
 
 namespace arrow {

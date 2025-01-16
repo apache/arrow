@@ -22,7 +22,6 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
-#include "arrow/result_internal.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -32,7 +31,7 @@
 #include <memory>
 
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-#include <xsimd/xsimd.hpp>
+#  include <xsimd/xsimd.hpp>
 #endif
 
 namespace arrow {
@@ -128,10 +127,20 @@ class ColumnPopulator {
     // Populators are intented to be applied to reasonably small data.  In most cases
     // threading overhead would not be justified.
     ctx.set_use_threads(false);
-    ASSIGN_OR_RAISE(
-        std::shared_ptr<Array> casted,
-        compute::Cast(data, /*to_type=*/utf8(), compute::CastOptions(), &ctx));
-    casted_array_ = checked_pointer_cast<StringArray>(casted);
+    if (data.type() && is_large_binary_like(data.type()->id())) {
+      ARROW_ASSIGN_OR_RAISE(array_, compute::Cast(data, /*to_type=*/large_utf8(),
+                                                  compute::CastOptions(), &ctx));
+    } else {
+      auto casted = compute::Cast(data, /*to_type=*/utf8(), compute::CastOptions(), &ctx);
+      if (casted.ok()) {
+        array_ = std::move(casted).ValueOrDie();
+      } else if (casted.status().IsCapacityError()) {
+        ARROW_ASSIGN_OR_RAISE(array_, compute::Cast(data, /*to_type=*/large_utf8(),
+                                                    compute::CastOptions(), &ctx));
+      } else {
+        return casted.status();
+      }
+    }
     return UpdateRowLengths(row_lengths);
   }
 
@@ -146,7 +155,8 @@ class ColumnPopulator {
 
  protected:
   virtual Status UpdateRowLengths(int64_t* row_lengths) = 0;
-  std::shared_ptr<StringArray> casted_array_;
+  // It must be a `StringArray` or `LargeStringArray`.
+  std::shared_ptr<Array> array_;
   const std::string end_chars_;
   std::shared_ptr<Buffer> null_string_;
 
@@ -181,15 +191,28 @@ class UnquotedColumnPopulator : public ColumnPopulator {
         reject_values_with_quotes_(reject_values_with_quotes) {}
 
   Status UpdateRowLengths(int64_t* row_lengths) override {
+    if (ARROW_PREDICT_TRUE(array_->type_id() == Type::STRING)) {
+      return UpdateRowLengths<StringArray>(row_lengths);
+    } else if (ARROW_PREDICT_TRUE(array_->type_id() == Type::LARGE_STRING)) {
+      return UpdateRowLengths<LargeStringArray>(row_lengths);
+    } else {
+      return Status::TypeError("The array must be StringArray or LargeStringArray.");
+    }
+  }
+
+  template <typename StringArrayType>
+  Status UpdateRowLengths(int64_t* row_lengths) {
+    auto casted_array = checked_pointer_cast<StringArrayType>(array_);
     if (reject_values_with_quotes_) {
       // When working on values that, after casting, could produce quotes,
       // we need to return an error in accord with RFC4180.
-      RETURN_NOT_OK(CheckStringArrayHasNoStructuralChars(*casted_array_, delimiter_));
+      RETURN_NOT_OK(CheckStringArrayHasNoStructuralChars<StringArrayType>(*casted_array,
+                                                                          delimiter_));
     }
 
     int64_t row_number = 0;
-    VisitArraySpanInline<StringType>(
-        *casted_array_->data(),
+    VisitArraySpanInline<typename StringArrayType::TypeClass>(
+        *casted_array->data(),
         [&](std::string_view s) {
           row_lengths[row_number] += static_cast<int64_t>(s.length());
           row_number++;
@@ -202,6 +225,17 @@ class UnquotedColumnPopulator : public ColumnPopulator {
   }
 
   Status PopulateRows(char* output, int64_t* offsets) const override {
+    if (ARROW_PREDICT_TRUE(array_->type_id() == Type::STRING)) {
+      return PopulateRows<StringArray>(output, offsets);
+    } else if (ARROW_PREDICT_TRUE(array_->type_id() == Type::LARGE_STRING)) {
+      return PopulateRows<LargeStringArray>(output, offsets);
+    } else {
+      return Status::TypeError("The array must be StringArray or LargeStringArray.");
+    }
+  }
+
+  template <typename StringArrayType>
+  Status PopulateRows(char* output, int64_t* offsets) const {
     // Function applied to valid values cast to string.
     auto valid_function = [&](std::string_view s) {
       memcpy(output + *offsets, s.data(), s.length());
@@ -222,13 +256,14 @@ class UnquotedColumnPopulator : public ColumnPopulator {
       return Status::OK();
     };
 
-    return VisitArraySpanInline<StringType>(*casted_array_->data(), valid_function,
-                                            null_function);
+    return VisitArraySpanInline<typename StringArrayType::TypeClass>(
+        *array_->data(), valid_function, null_function);
   }
 
  private:
   // Returns an error status if string array has any structural characters.
-  static Status CheckStringArrayHasNoStructuralChars(const StringArray& array,
+  template <typename ArrayType>
+  static Status CheckStringArrayHasNoStructuralChars(const ArrayType& array,
                                                      const char delimiter) {
     // scan the underlying string array buffer as a single big string
     const uint8_t* const data = array.raw_data() + array.value_offset(0);
@@ -282,14 +317,26 @@ class QuotedColumnPopulator : public ColumnPopulator {
       : ColumnPopulator(pool, std::move(end_chars), std::move(null_string)) {}
 
   Status UpdateRowLengths(int64_t* row_lengths) override {
-    const StringArray& input = *casted_array_;
+    if (ARROW_PREDICT_TRUE(array_->type_id() == Type::STRING)) {
+      return UpdateRowLengths<StringArray>(row_lengths);
+    } else if (ARROW_PREDICT_TRUE(array_->type_id() == Type::LARGE_STRING)) {
+      return UpdateRowLengths<LargeStringArray>(row_lengths);
+    } else {
+      return Status::TypeError("The array must be StringArray or LargeStringArray.");
+    }
+  }
 
-    row_needs_escaping_.resize(casted_array_->length(), false);
+  template <typename StringArrayType>
+  Status UpdateRowLengths(int64_t* row_lengths) {
+    auto casted_array = checked_pointer_cast<StringArrayType>(array_);
+    const StringArrayType& input = *casted_array;
+
+    row_needs_escaping_.resize(casted_array->length(), false);
 
     if (NoQuoteInArray(input)) {
       // fast path if no quote
       int row_number = 0;
-      VisitArraySpanInline<StringType>(
+      VisitArraySpanInline<typename StringArrayType::TypeClass>(
           *input.data(),
           [&](std::string_view s) {
             row_lengths[row_number] += static_cast<int64_t>(s.length()) + kQuoteCount;
@@ -301,7 +348,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
           });
     } else {
       int row_number = 0;
-      VisitArraySpanInline<StringType>(
+      VisitArraySpanInline<typename StringArrayType::TypeClass>(
           *input.data(),
           [&](std::string_view s) {
             // Each quote in the value string needs to be escaped.
@@ -320,9 +367,20 @@ class QuotedColumnPopulator : public ColumnPopulator {
   }
 
   Status PopulateRows(char* output, int64_t* offsets) const override {
+    if (ARROW_PREDICT_TRUE(array_->type_id() == Type::STRING)) {
+      return PopulateRows<StringArray>(output, offsets);
+    } else if (ARROW_PREDICT_TRUE(array_->type_id() == Type::LARGE_STRING)) {
+      return PopulateRows<LargeStringArray>(output, offsets);
+    } else {
+      return Status::TypeError("The array must be StringArray or LargeStringArray.");
+    }
+  }
+
+  template <typename StringArrayType>
+  Status PopulateRows(char* output, int64_t* offsets) const {
     auto needs_escaping = row_needs_escaping_.begin();
-    VisitArraySpanInline<StringType>(
-        *(casted_array_->data()),
+    VisitArraySpanInline<typename StringArrayType::TypeClass>(
+        *array_->data(),
         [&](std::string_view s) {
           // still needs string content length to be added
           char* row = output + *offsets;
@@ -355,7 +413,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
 
  private:
   // Returns true if there's no quote in the string array
-  static bool NoQuoteInArray(const StringArray& array) {
+  template <typename StringArrayType>
+  static bool NoQuoteInArray(const StringArrayType& array) {
     const uint8_t* data = array.raw_data() + array.value_offset(0);
     const int64_t buffer_size = array.total_values_length();
     return std::memchr(data, '"', buffer_size) == nullptr;
@@ -441,8 +500,8 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       return Status::Invalid("Null string cannot contain quotes.");
     }
 
-    ASSIGN_OR_RAISE(std::shared_ptr<Buffer> null_string,
-                    arrow::AllocateBuffer(options.null_string.length()));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> null_string,
+                          arrow::AllocateBuffer(options.null_string.length()));
     memcpy(null_string->mutable_data(), options.null_string.data(),
            options.null_string.length());
 
@@ -451,7 +510,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     for (int col = 0; col < schema->num_fields(); col++) {
       const std::string& end_chars =
           col < schema->num_fields() - 1 ? delimiter : options.eol;
-      ASSIGN_OR_RAISE(
+      ARROW_ASSIGN_OR_RAISE(
           populators[col],
           MakePopulator(*schema->field(col), end_chars, options.delimiter, null_string,
                         options.quoting_style, options.io_context.pool()));
@@ -468,7 +527,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
   Status WriteRecordBatch(const RecordBatch& batch) override {
     RecordBatchIterator iterator = RecordBatchSliceIterator(batch, options_.batch_size);
     for (auto maybe_slice : iterator) {
-      ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> slice, maybe_slice);
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> slice, maybe_slice);
       RETURN_NOT_OK(TranslateMinimalBatch(*slice));
       RETURN_NOT_OK(sink_->Write(data_buffer_));
       stats_.num_record_batches++;
@@ -510,10 +569,11 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
   Status PrepareForContentsWrite() {
     // Only called once, as part of initialization
     if (data_buffer_ == nullptr) {
-      ASSIGN_OR_RAISE(data_buffer_,
-                      AllocateResizableBuffer(
-                          options_.batch_size * schema_->num_fields() * kColumnSizeGuess,
-                          options_.io_context.pool()));
+      ARROW_ASSIGN_OR_RAISE(
+          data_buffer_,
+          AllocateResizableBuffer(
+              options_.batch_size * schema_->num_fields() * kColumnSizeGuess,
+              options_.io_context.pool()));
     }
     return Status::OK();
   }
@@ -605,24 +665,24 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
 
 Status WriteCSV(const Table& table, const WriteOptions& options,
                 arrow::io::OutputStream* output) {
-  ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, table.schema(), options));
+  ARROW_ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, table.schema(), options));
   RETURN_NOT_OK(writer->WriteTable(table));
   return writer->Close();
 }
 
 Status WriteCSV(const RecordBatch& batch, const WriteOptions& options,
                 arrow::io::OutputStream* output) {
-  ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, batch.schema(), options));
+  ARROW_ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, batch.schema(), options));
   RETURN_NOT_OK(writer->WriteRecordBatch(batch));
   return writer->Close();
 }
 
 Status WriteCSV(const std::shared_ptr<RecordBatchReader>& reader,
                 const WriteOptions& options, arrow::io::OutputStream* output) {
-  ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, reader->schema(), options));
+  ARROW_ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, reader->schema(), options));
   std::shared_ptr<RecordBatch> batch;
   while (true) {
-    ASSIGN_OR_RAISE(batch, reader->Next());
+    ARROW_ASSIGN_OR_RAISE(batch, reader->Next());
     if (batch == nullptr) break;
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }

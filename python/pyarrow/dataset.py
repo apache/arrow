@@ -292,8 +292,8 @@ def _ensure_partitioning(scheme):
     elif isinstance(scheme, (Partitioning, PartitioningFactory)):
         pass
     else:
-        ValueError("Expected Partitioning or PartitioningFactory, got {}"
-                   .format(type(scheme)))
+        raise ValueError("Expected Partitioning or PartitioningFactory, got {}"
+                         .format(type(scheme)))
     return scheme
 
 
@@ -456,11 +456,22 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     -------
     FileSystemDataset
     """
+    from pyarrow.fs import LocalFileSystem, _ensure_filesystem, FileInfo
+
     format = _ensure_format(format or 'parquet')
     partitioning = _ensure_partitioning(partitioning)
 
     if isinstance(source, (list, tuple)):
-        fs, paths_or_selector = _ensure_multiple_sources(source, filesystem)
+        if source and isinstance(source[0], FileInfo):
+            if filesystem is None:
+                # fall back to local file system as the default
+                fs = LocalFileSystem()
+            else:
+                # construct a filesystem if it is a valid URI
+                fs = _ensure_filesystem(filesystem)
+            paths_or_selector = source
+        else:
+            fs, paths_or_selector = _ensure_multiple_sources(source, filesystem)
     else:
         fs, paths_or_selector = _ensure_single_source(source, filesystem)
 
@@ -767,6 +778,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
     ...     dataset("local/path/to/data", format="ipc")
     ... ]) # doctest: +SKIP
     """
+    from pyarrow.fs import FileInfo
     # collect the keyword arguments for later reuse
     kwargs = dict(
         schema=schema,
@@ -781,7 +793,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
     if _is_path_like(source):
         return _filesystem_dataset(source, **kwargs)
     elif isinstance(source, (tuple, list)):
-        if all(_is_path_like(elem) for elem in source):
+        if all(_is_path_like(elem) or isinstance(elem, FileInfo) for elem in source):
             return _filesystem_dataset(source, **kwargs)
         elif all(isinstance(elem, Dataset) for elem in source):
             return _union_dataset(source, **kwargs)
@@ -952,7 +964,11 @@ Table/RecordBatch, or iterable of RecordBatch
     elif isinstance(data, (pa.RecordBatch, pa.Table)):
         schema = schema or data.schema
         data = InMemoryDataset(data, schema=schema)
-    elif isinstance(data, pa.ipc.RecordBatchReader) or _is_iterable(data):
+    elif (
+        isinstance(data, pa.ipc.RecordBatchReader)
+        or hasattr(data, "__arrow_c_stream__")
+        or _is_iterable(data)
+    ):
         data = Scanner.from_batches(data, schema=schema)
         schema = None
     elif not isinstance(data, (Dataset, Scanner)):

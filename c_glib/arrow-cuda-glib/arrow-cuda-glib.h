@@ -21,4 +21,6 @@
 
 #include <arrow-glib/arrow-glib.h>
 
+#include <arrow-cuda-glib/version.h>
+
 #include <arrow-cuda-glib/cuda.h>

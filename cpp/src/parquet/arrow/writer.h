@@ -74,18 +74,6 @@ class PARQUET_EXPORT FileWriter {
       std::shared_ptr<ArrowWriterProperties> arrow_properties =
           default_arrow_writer_properties());
 
-  ARROW_DEPRECATED("Deprecated in 11.0.0. Use Result-returning variants instead.")
-  static ::arrow::Status Open(const ::arrow::Schema& schema, MemoryPool* pool,
-                              std::shared_ptr<::arrow::io::OutputStream> sink,
-                              std::shared_ptr<WriterProperties> properties,
-                              std::unique_ptr<FileWriter>* writer);
-  ARROW_DEPRECATED("Deprecated in 11.0.0. Use Result-returning variants instead.")
-  static ::arrow::Status Open(const ::arrow::Schema& schema, MemoryPool* pool,
-                              std::shared_ptr<::arrow::io::OutputStream> sink,
-                              std::shared_ptr<WriterProperties> properties,
-                              std::shared_ptr<ArrowWriterProperties> arrow_properties,
-                              std::unique_ptr<FileWriter>* writer);
-
   /// Return the Arrow schema to be written to.
   virtual std::shared_ptr<::arrow::Schema> schema() const = 0;
 
@@ -143,6 +131,16 @@ class PARQUET_EXPORT FileWriter {
   virtual ~FileWriter();
 
   virtual MemoryPool* memory_pool() const = 0;
+  /// \brief Add key-value metadata to the file.
+  /// \param[in] key_value_metadata the metadata to add.
+  /// \note This will overwrite any existing metadata with the same key.
+  /// \return Error if Close() has been called.
+  ///
+  /// WARNING: If `store_schema` is enabled, `ARROW:schema` would be stored
+  /// in the key-value metadata. Overwriting this key would result in
+  /// `store_schema` being unusable during read.
+  virtual ::arrow::Status AddKeyValueMetadata(
+      const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata) = 0;
   /// \brief Return the file metadata, only available after calling Close().
   virtual const std::shared_ptr<FileMetaData> metadata() const = 0;
 };

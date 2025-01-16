@@ -305,7 +305,7 @@ class ArrayLoader {
       RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
     } else {
       buffer_index_++;
-      out_->buffers[1].reset(new Buffer(nullptr, 0));
+      out_->buffers[1] = std::make_shared<Buffer>(nullptr, 0);
     }
     return Status::OK();
   }
@@ -540,7 +540,8 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
                            actual_decompressed);
   }
 
-  return std::move(uncompressed);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(uncompressed));
 }
 
 Status DecompressBuffers(Compression::type compression, const IpcReadOptions& options,
@@ -643,11 +644,11 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>& inclusion_mask, const IpcReadContext& context,
     io::RandomAccessFile* file) {
-  if (inclusion_mask.size() > 0) {
-    return LoadRecordBatchSubset(metadata, schema, &inclusion_mask, context, file);
-  } else {
+  if (inclusion_mask.empty()) {
     return LoadRecordBatchSubset(metadata, schema, /*inclusion_mask=*/nullptr, context,
                                  file);
+  } else {
+    return LoadRecordBatchSubset(metadata, schema, &inclusion_mask, context, file);
   }
 }
 
@@ -1174,7 +1175,7 @@ static Result<std::unique_ptr<Message>> ReadMessageFromBlock(
 
   ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
                                                   file, fields_loader));
-  return std::move(message);
+  return message;
 }
 
 static Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
@@ -1446,7 +1447,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     // Prebuffering's read patterns are also slightly worse than the alternative
     // when doing whole-file reads because the logic is not in place to recognize
     // we can just read the entire file up-front
-    if (options_.included_fields.size() != 0 &&
+    if (!options_.included_fields.empty() &&
         options_.included_fields.size() != schema_->fields().size() &&
         !file_->supports_zero_copy()) {
       RETURN_NOT_OK(state->PreBufferMetadata({}));
@@ -1536,7 +1537,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     ARROW_ASSIGN_OR_RAISE(auto message,
                           arrow::ipc::ReadMessageFromBlock(block, file_, fields_loader));
     stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
-    return std::move(message);
+    return message;
   }
 
   Status ReadDictionaries() {
@@ -1632,7 +1633,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     }
     context.compression = compression;
     context.metadata_version = internal::GetMetadataVersion(message->version());
-    return std::move(context);
+    return context;
   }
 
   Result<const flatbuf::RecordBatch*> GetBatchFromMessage(
@@ -1906,7 +1907,7 @@ Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(
 Future<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::OpenAsync(
     const std::shared_ptr<io::RandomAccessFile>& file, const IpcReadOptions& options) {
   ARROW_ASSIGN_OR_RAISE(int64_t footer_offset, file->GetSize());
-  return OpenAsync(std::move(file), footer_offset, options);
+  return OpenAsync(file, footer_offset, options);
 }
 
 Future<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::OpenAsync(
@@ -2704,7 +2705,7 @@ Result<std::shared_ptr<Buffer>> IoRecordedRandomAccessFile::Read(int64_t nbytes)
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, ReadAt(position_, nbytes));
   auto num_bytes_read = std::min(file_size_, position_ + nbytes) - position_;
   position_ += num_bytes_read;
-  return std::move(buffer);
+  return buffer;
 }
 
 const io::IOContext& IoRecordedRandomAccessFile::io_context() const {

@@ -35,11 +35,9 @@ dnf -y install \
   cmake \
   git \
   gobject-introspection-devel \
-  java-1.8.0-openjdk-devel \
   libcurl-devel \
   llvm-devel \
   llvm-toolset \
-  maven \
   ncurses-devel \
   ninja-build \
   nodejs \

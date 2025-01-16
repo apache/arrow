@@ -212,7 +212,7 @@ std::unique_ptr<FutureImpl> FutureImpl::Make() {
 std::unique_ptr<FutureImpl> FutureImpl::MakeFinished(FutureState state) {
   std::unique_ptr<ConcreteFutureImpl> ptr(new ConcreteFutureImpl());
   ptr->state_ = state;
-  return std::move(ptr);
+  return ptr;
 }
 
 FutureImpl::FutureImpl() : state_(FutureState::PENDING) {}

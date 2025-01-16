@@ -44,6 +44,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -59,6 +60,7 @@ using internal::BitmapReader;
 using internal::BitmapUInt64Reader;
 using internal::checked_cast;
 using internal::OptionalBitmapEquals;
+using util::Float16;
 
 // ----------------------------------------------------------------------
 // Public method implementations
@@ -93,6 +95,30 @@ struct FloatingEquality {
   }
 
   const T epsilon;
+};
+
+// For half-float equality.
+template <typename Flags>
+struct FloatingEquality<uint16_t, Flags> {
+  explicit FloatingEquality(const EqualOptions& options)
+      : epsilon(static_cast<float>(options.atol())) {}
+
+  bool operator()(uint16_t x, uint16_t y) const {
+    Float16 f_x = Float16::FromBits(x);
+    Float16 f_y = Float16::FromBits(y);
+    if (x == y) {
+      return Flags::signed_zeros_equal || (f_x.signbit() == f_y.signbit());
+    }
+    if (Flags::nans_equal && f_x.is_nan() && f_y.is_nan()) {
+      return true;
+    }
+    if (Flags::approximate && (fabs(f_x.ToFloat() - f_y.ToFloat()) <= epsilon)) {
+      return true;
+    }
+    return false;
+  }
+
+  const float epsilon;
 };
 
 template <typename T, typename Visitor>
@@ -258,6 +284,8 @@ class RangeDataEqualsImpl {
   Status Visit(const FloatType& type) { return CompareFloating(type); }
 
   Status Visit(const DoubleType& type) { return CompareFloating(type); }
+
+  Status Visit(const HalfFloatType& type) { return CompareFloating(type); }
 
   // Also matches StringType
   Status Visit(const BinaryType& type) { return CompareBinary(type); }
@@ -722,15 +750,10 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const Decimal128Type& left) {
-    const auto& right = checked_cast<const Decimal128Type&>(right_);
-    result_ = left.precision() == right.precision() && left.scale() == right.scale();
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal256Type& left) {
-    const auto& right = checked_cast<const Decimal256Type&>(right_);
-    result_ = left.precision() == right.precision() && left.scale() == right.scale();
+  Status Visit(const DecimalType& left) {
+    const auto& right = checked_cast<const DecimalType&>(right_);
+    result_ = left.byte_width() == right.byte_width() &&
+              left.precision() == right.precision() && left.scale() == right.scale();
     return Status::OK();
   }
 
@@ -863,10 +886,24 @@ class ScalarEqualsVisitor {
 
   Status Visit(const DoubleScalar& left) { return CompareFloating(left); }
 
+  Status Visit(const HalfFloatScalar& left) { return CompareFloating(left); }
+
   template <typename T>
   enable_if_t<std::is_base_of<BaseBinaryScalar, T>::value, Status> Visit(const T& left) {
     const auto& right = checked_cast<const BaseBinaryScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal32Scalar& left) {
+    const auto& right = checked_cast<const Decimal32Scalar&>(right_);
+    result_ = left.value == right.value;
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal64Scalar& left) {
+    const auto& right = checked_cast<const Decimal64Scalar&>(right_);
+    result_ = left.value == right.value;
     return Status::OK();
   }
 

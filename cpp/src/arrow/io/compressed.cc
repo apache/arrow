@@ -201,7 +201,7 @@ Result<std::shared_ptr<CompressedOutputStream>> CompressedOutputStream::Make(
     util::Codec* codec, const std::shared_ptr<OutputStream>& raw, MemoryPool* pool) {
   // CAUTION: codec is not owned
   std::shared_ptr<CompressedOutputStream> res(new CompressedOutputStream);
-  res->impl_.reset(new Impl(pool, std::move(raw)));
+  res->impl_.reset(new Impl(pool, raw));
   RETURN_NOT_OK(res->impl_->Init(codec));
   return res;
 }
@@ -233,8 +233,10 @@ class CompressedInputStream::Impl {
       : pool_(pool),
         raw_(raw),
         is_open_(true),
+        supports_zero_copy_from_raw_(raw_->supports_zero_copy()),
         compressed_pos_(0),
         decompressed_pos_(0),
+        fresh_decompressor_(false),
         total_pos_(0) {}
 
   Status Init(Codec* codec) {
@@ -261,31 +263,59 @@ class CompressedInputStream::Impl {
     }
   }
 
-  bool closed() { return !is_open_; }
+  bool closed() const { return !is_open_; }
 
   Result<int64_t> Tell() const { return total_pos_; }
 
   // Read compressed data if necessary
   Status EnsureCompressedData() {
-    int64_t compressed_avail = compressed_ ? compressed_->size() - compressed_pos_ : 0;
+    int64_t compressed_avail = compressed_buffer_available();
     if (compressed_avail == 0) {
-      // No compressed data available, read a full chunk
-      ARROW_ASSIGN_OR_RAISE(compressed_, raw_->Read(kChunkSize));
+      // Ensure compressed_ buffer is allocated with kChunkSize.
+      if (!supports_zero_copy_from_raw_) {
+        if (compressed_for_non_zero_copy_ == nullptr) {
+          ARROW_ASSIGN_OR_RAISE(compressed_for_non_zero_copy_,
+                                AllocateResizableBuffer(kChunkSize, pool_));
+        } else if (compressed_for_non_zero_copy_->size() != kChunkSize) {
+          RETURN_NOT_OK(
+              compressed_for_non_zero_copy_->Resize(kChunkSize, /*shrink_to_fit=*/false));
+        }
+        ARROW_ASSIGN_OR_RAISE(
+            int64_t read_size,
+            raw_->Read(kChunkSize,
+                       compressed_for_non_zero_copy_->mutable_data_as<void>()));
+        if (read_size != compressed_for_non_zero_copy_->size()) {
+          RETURN_NOT_OK(
+              compressed_for_non_zero_copy_->Resize(read_size, /*shrink_to_fit=*/false));
+        }
+        compressed_ = compressed_for_non_zero_copy_;
+      } else {
+        ARROW_ASSIGN_OR_RAISE(compressed_, raw_->Read(kChunkSize));
+      }
       compressed_pos_ = 0;
     }
     return Status::OK();
   }
 
-  // Decompress some data from the compressed_ buffer.
-  // Call this function only if the decompressed_ buffer is empty.
+  // Decompress some data from the compressed_ buffer into decompressor_.
+  // Call this function only if the decompressed_ buffer is fully consumed.
   Status DecompressData() {
+    // compressed_buffer_available() could be 0 here because there might
+    // still be some decompressed data left to emit even though the compressed
+    // data was entirely consumed (especially if the expansion factor is large)
     DCHECK_NE(compressed_->data(), nullptr);
+    DCHECK_EQ(0, decompressed_buffer_available());
 
     int64_t decompress_size = kDecompressSize;
 
     while (true) {
-      ARROW_ASSIGN_OR_RAISE(decompressed_,
-                            AllocateResizableBuffer(decompress_size, pool_));
+      if (decompressed_ == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(decompressed_,
+                              AllocateResizableBuffer(decompress_size, pool_));
+      } else {
+        // Shrinking the buffer if it's already large enough
+        RETURN_NOT_OK(decompressed_->Resize(decompress_size, /*shrink_to_fit=*/true));
+      }
       decompressed_pos_ = 0;
 
       int64_t input_len = compressed_->size() - compressed_pos_;
@@ -300,7 +330,9 @@ class CompressedInputStream::Impl {
         fresh_decompressor_ = false;
       }
       if (result.bytes_written > 0 || !result.need_more_output || input_len == 0) {
-        RETURN_NOT_OK(decompressed_->Resize(result.bytes_written));
+        // Not calling shrink_to_fit here because we're likely to reusing the buffer.
+        RETURN_NOT_OK(
+            decompressed_->Resize(result.bytes_written, /*shrink_to_fit=*/false));
         break;
       }
       DCHECK_EQ(result.bytes_written, 0);
@@ -310,7 +342,7 @@ class CompressedInputStream::Impl {
     return Status::OK();
   }
 
-  // Read a given number of bytes from the decompressed_ buffer.
+  // Copying a given number of bytes from the decompressed_ buffer.
   int64_t ReadFromDecompressed(int64_t nbytes, uint8_t* out) {
     int64_t readable = decompressed_ ? (decompressed_->size() - decompressed_pos_) : 0;
     int64_t read_bytes = std::min(readable, nbytes);
@@ -318,19 +350,16 @@ class CompressedInputStream::Impl {
     if (read_bytes > 0) {
       memcpy(out, decompressed_->data() + decompressed_pos_, read_bytes);
       decompressed_pos_ += read_bytes;
-
-      if (decompressed_pos_ == decompressed_->size()) {
-        // Decompressed data is exhausted, release buffer
-        decompressed_.reset();
-      }
     }
 
     return read_bytes;
   }
 
   // Try to feed more data into the decompressed_ buffer.
-  Status RefillDecompressed(bool* has_data) {
-    // First try to read data from the decompressor
+  // Returns whether there is more data to read.
+  Result<bool> RefillDecompressed() {
+    // First try to read data from the decompressor, unless we haven't read any
+    // compressed data yet.
     if (compressed_ && compressed_->size() != 0) {
       if (decompressor_->IsFinished()) {
         // We just went over the end of a previous compressed stream.
@@ -339,25 +368,25 @@ class CompressedInputStream::Impl {
       }
       RETURN_NOT_OK(DecompressData());
     }
-    if (!decompressed_ || decompressed_->size() == 0) {
-      // Got nothing, need to read more compressed data
+    int64_t decompress_avail = decompressed_buffer_available();
+    if (decompress_avail == 0) {
+      // Got nothing from existing `compressed_` and `decompressor_`,
+      // need to read more compressed data.
       RETURN_NOT_OK(EnsureCompressedData());
-      if (compressed_pos_ == compressed_->size()) {
+      if (compressed_buffer_available() == 0) {
         // No more data to decompress
         if (!fresh_decompressor_ && !decompressor_->IsFinished()) {
           return Status::IOError("Truncated compressed stream");
         }
-        *has_data = false;
-        return Status::OK();
+        return false;
       }
       RETURN_NOT_OK(DecompressData());
     }
-    *has_data = true;
-    return Status::OK();
+    return true;
   }
 
   Result<int64_t> Read(int64_t nbytes, void* out) {
-    auto out_data = reinterpret_cast<uint8_t*>(out);
+    auto* out_data = reinterpret_cast<uint8_t*>(out);
 
     int64_t total_read = 0;
     bool decompressor_has_data = true;
@@ -371,7 +400,7 @@ class CompressedInputStream::Impl {
 
       // At this point, no more decompressed data remains, so we need to
       // decompress more
-      RETURN_NOT_OK(RefillDecompressed(&decompressor_has_data));
+      ARROW_ASSIGN_OR_RAISE(decompressor_has_data, RefillDecompressed());
     }
 
     total_pos_ += total_read;
@@ -382,10 +411,20 @@ class CompressedInputStream::Impl {
     ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes, pool_));
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buf->mutable_data()));
     RETURN_NOT_OK(buf->Resize(bytes_read));
-    return std::move(buf);
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(buf));
   }
 
-  std::shared_ptr<InputStream> raw() const { return raw_; }
+  const std::shared_ptr<InputStream>& raw() const { return raw_; }
+
+ private:
+  int64_t compressed_buffer_available() const {
+    return compressed_ ? compressed_->size() - compressed_pos_ : 0;
+  }
+
+  int64_t decompressed_buffer_available() const {
+    return decompressed_ ? decompressed_->size() - decompressed_pos_ : 0;
+  }
 
  private:
   // Read 64 KB compressed data at a time
@@ -396,7 +435,12 @@ class CompressedInputStream::Impl {
   MemoryPool* pool_;
   std::shared_ptr<InputStream> raw_;
   bool is_open_;
+  const bool supports_zero_copy_from_raw_;
   std::shared_ptr<Decompressor> decompressor_;
+  // If `raw_->supports_zero_copy()`, this buffer would not allocate memory.
+  // Otherwise, this buffer would allocate `kChunkSize` memory and read data from
+  // `raw_`.
+  std::shared_ptr<ResizableBuffer> compressed_for_non_zero_copy_;
   std::shared_ptr<Buffer> compressed_;
   // Position in compressed buffer
   int64_t compressed_pos_;
@@ -413,10 +457,9 @@ Result<std::shared_ptr<CompressedInputStream>> CompressedInputStream::Make(
     Codec* codec, const std::shared_ptr<InputStream>& raw, MemoryPool* pool) {
   // CAUTION: codec is not owned
   std::shared_ptr<CompressedInputStream> res(new CompressedInputStream);
-  res->impl_.reset(new Impl(pool, std::move(raw)));
+  res->impl_.reset(new Impl(pool, raw));
   RETURN_NOT_OK(res->impl_->Init(codec));
   return res;
-  return Status::OK();
 }
 
 CompressedInputStream::~CompressedInputStream() { internal::CloseFromDestructor(this); }

@@ -27,9 +27,9 @@ module Arrow
         text << ("=" * 20 + " #{start_offset + nth_row} " + "=" * 20 + "\n")
         row.each_with_index do |column_value, nth_column|
           column_formatter = column_formatters[nth_column]
-          formatted_name = column_formatter.name
-          formatted_value = column_formatter.format_value(column_value)
-          text << "#{formatted_name}: #{formatted_value}\n"
+          text << column_formatter.name
+          text << "(#{column_formatter.data_type.name})" if show_column_type?
+          text << ": #{column_formatter.format_value(column_value)}\n"
         end
       end
     end

@@ -58,6 +58,20 @@ void SetListData(VarLengthListLikeArray<TYPE>* self,
                  const std::shared_ptr<ArrayData>& data,
                  Type::type expected_type_id = TYPE::type_id);
 
+/// \brief A version of Flatten that keeps recursively flattening until an array of
+/// non-list values is reached.
+///
+/// Array types considered to be lists by this function:
+///  - list
+///  - large_list
+///  - list_view
+///  - large_list_view
+///  - fixed_size_list
+///
+/// \see ListArray::Flatten
+ARROW_EXPORT Result<std::shared_ptr<Array>> FlattenLogicalListRecursively(
+    const Array& in_array, MemoryPool* memory_pool);
+
 }  // namespace internal
 
 /// Base class for variable-sized list and list-view arrays, regardless of offset size.
@@ -80,15 +94,11 @@ class VarLengthListLikeArray : public Array {
   const std::shared_ptr<DataType>& value_type() const { return list_type_->value_type(); }
 
   /// Return pointer to raw value offsets accounting for any slice offset
-  const offset_type* raw_value_offsets() const {
-    return raw_value_offsets_ + data_->offset;
-  }
+  const offset_type* raw_value_offsets() const { return raw_value_offsets_; }
 
   // The following functions will not perform boundschecking
 
-  offset_type value_offset(int64_t i) const {
-    return raw_value_offsets_[i + data_->offset];
-  }
+  offset_type value_offset(int64_t i) const { return raw_value_offsets_[i]; }
 
   /// \brief Return the size of the value at a particular index
   ///
@@ -101,6 +111,15 @@ class VarLengthListLikeArray : public Array {
   /// \pre IsValid(i)
   std::shared_ptr<Array> value_slice(int64_t i) const {
     return values_->Slice(value_offset(i), value_length(i));
+  }
+
+  /// \brief Flatten all level recursively until reach a non-list type, and return
+  /// a non-list type Array.
+  ///
+  /// \see internal::FlattenLogicalListRecursively
+  Result<std::shared_ptr<Array>> FlattenRecursively(
+      MemoryPool* memory_pool = default_memory_pool()) const {
+    return internal::FlattenLogicalListRecursively(*this, memory_pool);
   }
 
  protected:
@@ -131,7 +150,6 @@ class BaseListArray : public VarLengthListLikeArray<TYPE> {
   ///
   /// \pre IsValid(i)
   offset_type value_length(int64_t i) const final {
-    i += this->data_->offset;
     return this->raw_value_offsets_[i + 1] - this->raw_value_offsets_[i];
   }
 };
@@ -279,9 +297,7 @@ class BaseListViewArray : public VarLengthListLikeArray<TYPE> {
   const std::shared_ptr<Buffer>& value_sizes() const { return this->data_->buffers[2]; }
 
   /// \brief Return pointer to raw value offsets accounting for any slice offset
-  const offset_type* raw_value_sizes() const {
-    return raw_value_sizes_ + this->data_->offset;
-  }
+  const offset_type* raw_value_sizes() const { return raw_value_sizes_; }
 
   /// \brief Return the size of the value at a particular index
   ///
@@ -290,9 +306,7 @@ class BaseListViewArray : public VarLengthListLikeArray<TYPE> {
   /// length of the child values array.
   ///
   /// \pre IsValid(i)
-  offset_type value_length(int64_t i) const final {
-    return this->raw_value_sizes_[i + this->data_->offset];
-  }
+  offset_type value_length(int64_t i) const final { return this->raw_value_sizes_[i]; }
 
  protected:
   const offset_type* raw_value_sizes_ = NULLPTR;
@@ -509,15 +523,18 @@ class ARROW_EXPORT MapArray : public ListArray {
   /// \param[in] keys Array containing key values
   /// \param[in] items Array containing item values
   /// \param[in] pool MemoryPool in case new offsets array needs to be
+  /// \param[in] null_bitmap Optional validity bitmap
   /// allocated because of null values
   static Result<std::shared_ptr<Array>> FromArrays(
       const std::shared_ptr<Array>& offsets, const std::shared_ptr<Array>& keys,
-      const std::shared_ptr<Array>& items, MemoryPool* pool = default_memory_pool());
+      const std::shared_ptr<Array>& items, MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR);
 
   static Result<std::shared_ptr<Array>> FromArrays(
       std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
       const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
-      MemoryPool* pool = default_memory_pool());
+      MemoryPool* pool = default_memory_pool(),
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR);
 
   const MapType* map_type() const { return map_type_; }
 
@@ -537,7 +554,7 @@ class ARROW_EXPORT MapArray : public ListArray {
   static Result<std::shared_ptr<Array>> FromArraysInternal(
       std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
       const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
-      MemoryPool* pool);
+      MemoryPool* pool, std::shared_ptr<Buffer> null_bitmap = NULLPTR);
 
  private:
   const MapType* map_type_;
@@ -594,6 +611,15 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   /// consideration null elements (they are skipped, thus copying may be needed).
   Result<std::shared_ptr<Array>> Flatten(
       MemoryPool* memory_pool = default_memory_pool()) const;
+
+  /// \brief Flatten all level recursively until reach a non-list type, and return
+  /// a non-list type Array.
+  ///
+  /// \see internal::FlattenLogicalListRecursively
+  Result<std::shared_ptr<Array>> FlattenRecursively(
+      MemoryPool* memory_pool = default_memory_pool()) const {
+    return internal::FlattenLogicalListRecursively(*this, memory_pool);
+  }
 
   /// \brief Construct FixedSizeListArray from child value array and value_length
   ///
@@ -709,15 +735,13 @@ class ARROW_EXPORT UnionArray : public Array {
   /// Note that this buffer does not account for any slice offset
   const std::shared_ptr<Buffer>& type_codes() const { return data_->buffers[1]; }
 
-  const type_code_t* raw_type_codes() const { return raw_type_codes_ + data_->offset; }
+  const type_code_t* raw_type_codes() const { return raw_type_codes_; }
 
   /// The logical type code of the value at index.
-  type_code_t type_code(int64_t i) const { return raw_type_codes_[i + data_->offset]; }
+  type_code_t type_code(int64_t i) const { return raw_type_codes_[i]; }
 
   /// The physical child id containing value at index.
-  int child_id(int64_t i) const {
-    return union_type_->child_ids()[raw_type_codes_[i + data_->offset]];
-  }
+  int child_id(int64_t i) const { return union_type_->child_ids()[raw_type_codes_[i]]; }
 
   const UnionType* union_type() const { return union_type_; }
 
@@ -848,9 +872,9 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
   /// Note that this buffer does not account for any slice offset
   const std::shared_ptr<Buffer>& value_offsets() const { return data_->buffers[2]; }
 
-  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
+  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i]; }
 
-  const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
+  const int32_t* raw_value_offsets() const { return raw_value_offsets_; }
 
  protected:
   const int32_t* raw_value_offsets_;

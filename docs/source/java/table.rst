@@ -75,7 +75,7 @@ Tables are created from a ``VectorSchemaRoot`` as shown below. The memory buffer
 
     Table t = new Table(someVectorSchemaRoot);
 
-If you now update the vectors held by the ``VectorSchemaRoot`` (using some version of  `ValueVector#setSafe()`), it would reflect those changes, but the values in table *t* are unchanged.
+If you now update the vectors held by the ``VectorSchemaRoot`` (using some version of  ``ValueVector#setSafe()``), it would reflect those changes, but the values in table *t* are unchanged.
 
 Creating a Table from FieldVectors
 **********************************
@@ -243,7 +243,7 @@ It is important to recognize that rows are NOT reified as objects, but rather op
 Getting a row
 *************
 
-Calling `immutableRow()` on any table instance returns a new ``Row`` instance.
+Calling ``immutableRow()`` on any table instance returns a new ``Row`` instance.
 
 .. code-block:: Java
 
@@ -262,7 +262,7 @@ Since rows are iterable, you can traverse a table using a standard while loop:
       // do something useful here
     }
 
-``Table`` implements `Iterable<Row>` so you can access rows directly from a table in an enhanced *for* loop:
+``Table`` implements ``Iterable<Row>`` so you can access rows directly from a table in an enhanced *for* loop:
 
 .. code-block:: Java
 
@@ -272,7 +272,7 @@ Since rows are iterable, you can traverse a table using a standard while loop:
       ...
     }
 
-Finally, while rows are usually iterated in the order of the underlying data vectors, but they are also positionable using the `Row#setPosition()` method, so you can skip to a specific row. Row numbers are 0-based.
+Finally, while rows are usually iterated in the order of the underlying data vectors, but they are also positionable using the ``Row#setPosition()`` method, so you can skip to a specific row. Row numbers are 0-based.
 
 .. code-block:: Java
 
@@ -281,7 +281,7 @@ Finally, while rows are usually iterated in the order of the underlying data vec
 
 Any changes to position are applied to all the columns in the table.
 
-Note that you must call `next()`, or `setPosition()` before accessing values via a row. Failure to do so results in a runtime exception.
+Note that you must call ``next()``, or ``setPosition()`` before accessing values via a row. Failure to do so results in a runtime exception.
 
 Read operations using rows
 **************************
@@ -304,7 +304,7 @@ You can also get value using a nullable ``ValueHolder``. For example:
 
 This can be used to retrieve values without creating a new Object for each.
 
-In addition to getting values, you can check if a value is null using `isNull()`. This is important if the vector contains any nulls, as asking for a value from a vector can cause NullPointerExceptions in some cases.
+In addition to getting values, you can check if a value is null using ``isNull()``. This is important if the vector contains any nulls, as asking for a value from a vector can cause NullPointerExceptions in some cases.
 
 .. code-block:: Java
 
@@ -352,13 +352,13 @@ Working with the C-Data interface
 
 The ability to work with native code is required for many Arrow features. This section describes how tables can be be exported for use with native code
 
-Exporting works by converting the data to a ``VectorSchemaRoot`` instance and using the existing facilities to transfer the data. You could do it yourself, but that isn't ideal because conversion to a vector schema root breaks the immutability guarantees. Using the `exportTable()` methods in the `Data`_ class avoids this concern.
+Exporting works by converting the data to a ``VectorSchemaRoot`` instance and using the existing facilities to transfer the data. You could do it yourself, but that isn't ideal because conversion to a vector schema root breaks the immutability guarantees. Using the ``exportTable()`` methods in the `Data`_ class avoids this concern.
 
 .. code-block:: Java
 
     Data.exportTable(bufferAllocator, table, dictionaryProvider, outArrowArray);
 
-If the table contains dictionary-encoded vectors and was constructed with a ``DictionaryProvider``, the provider argument to `exportTable()` can be omitted and the table's provider attribute will be used:
+If the table contains dictionary-encoded vectors and was constructed with a ``DictionaryProvider``, the provider argument to ``exportTable()`` can be omitted and the table's provider attribute will be used:
 
 .. code-block:: Java
 

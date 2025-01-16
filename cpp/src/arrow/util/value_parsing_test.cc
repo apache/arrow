@@ -24,9 +24,13 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
+
+using util::Float16;
+
 namespace internal {
 
 template <typename T>
@@ -152,6 +156,25 @@ TEST(StringConversion, ToDouble) {
   AssertConversionFails(&converter, "1.5");
 }
 
+TEST(StringConversion, ToHalfFloat) {
+  AssertConversion<HalfFloatType>("1.5", Float16(1.5f).bits());
+  AssertConversion<HalfFloatType>("0", Float16(0.0f).bits());
+  AssertConversion<HalfFloatType>("-0.0", Float16(-0.0f).bits());
+  AssertConversion<HalfFloatType>("-1e15", Float16(-1e15).bits());
+  AssertConversion<HalfFloatType>("+Infinity", 0x7c00);
+  AssertConversion<HalfFloatType>("-Infinity", 0xfc00);
+  AssertConversion<HalfFloatType>("Infinity", 0x7c00);
+
+  AssertConversionFails<HalfFloatType>("");
+  AssertConversionFails<HalfFloatType>("e");
+  AssertConversionFails<HalfFloatType>("1,5");
+
+  StringConverter<HalfFloatType> converter(/*decimal_point=*/',');
+  AssertConversion(&converter, "1,5", Float16(1.5f).bits());
+  AssertConversion(&converter, "0", Float16(0.0f).bits());
+  AssertConversionFails(&converter, "1.5");
+}
+
 #if !defined(_WIN32) || defined(NDEBUG)
 
 TEST(StringConversion, ToFloatLocale) {
@@ -176,6 +199,19 @@ TEST(StringConversion, ToDoubleLocale) {
 
   StringConverter<DoubleType> converter(/*decimal_point=*/'#');
   AssertConversion(&converter, "1#5", 1.5);
+  AssertConversionFails(&converter, "1.5");
+  AssertConversionFails(&converter, "1,5");
+}
+
+TEST(StringConversion, ToHalfFloatLocale) {
+  // French locale uses the comma as decimal point
+  LocaleGuard locale_guard("fr_FR.UTF-8");
+
+  AssertConversion<HalfFloatType>("1.5", Float16(1.5).bits());
+  AssertConversionFails<HalfFloatType>("1,5");
+
+  StringConverter<HalfFloatType> converter(/*decimal_point=*/'#');
+  AssertConversion(&converter, "1#5", Float16(1.5).bits());
   AssertConversionFails(&converter, "1.5");
   AssertConversionFails(&converter, "1,5");
 }
@@ -794,15 +830,33 @@ TEST(TimestampParser, StrptimeZoneOffset) {
   if (!kStrptimeSupportsZone) {
     GTEST_SKIP() << "strptime does not support %z on this platform";
   }
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "Test temporarily disabled due to emscripten bug "
+                  "https://github.com/emscripten-core/emscripten/issues/20467 ";
+#endif
+
   std::string format = "%Y-%d-%m %H:%M:%S%z";
   auto parser = TimestampParser::MakeStrptime(format);
+
+  std::vector<std::string> values = {
+    "2018-01-01 00:00:00+0000",
+    "2018-01-01 00:00:00+0100",
+#if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
+// glibc < 2.28 doesn't support "-0117" timezone offset.
+// See also: https://github.com/apache/arrow/issues/43808
+#  if ((__GLIBC__ == 2) && (__GLIBC_MINOR__ >= 28)) || (__GLIBC__ >= 3)
+    "2018-01-01 00:00:00-0117",
+#  endif
+#else
+    "2018-01-01 00:00:00-0117",
+#endif
+    "2018-01-01 00:00:00+0130"
+  };
 
   // N.B. GNU %z supports ISO8601 format while BSD %z supports only
   // +HHMM or -HHMM and POSIX doesn't appear to define %z at all
   for (auto unit : TimeUnit::values()) {
-    for (const std::string value :
-         {"2018-01-01 00:00:00+0000", "2018-01-01 00:00:00+0100",
-          "2018-01-01 00:00:00+0130", "2018-01-01 00:00:00-0117"}) {
+    for (const std::string& value : values) {
       SCOPED_TRACE(value);
       int64_t converted = 0;
       int64_t expected = 0;

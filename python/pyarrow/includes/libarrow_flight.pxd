@@ -19,6 +19,7 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport CTimePoint
 
 
 cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
@@ -134,6 +135,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
         CTicket ticket
         vector[CLocation] locations
+        optional[CTimePoint] expiration_time
+        c_string app_metadata
 
         bint operator==(CFlightEndpoint)
         CResult[c_string] SerializeToString()
@@ -146,6 +149,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightInfo(CFlightInfo info)
         int64_t total_records()
         int64_t total_bytes()
+        c_bool ordered()
+        c_string app_metadata()
         CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
         CFlightDescriptor& descriptor()
         const vector[CFlightEndpoint]& endpoints()
@@ -608,6 +613,8 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         vector[CFlightEndpoint] endpoints,
         int64_t total_records,
         int64_t total_bytes,
+        c_bool ordered,
+        const c_string& app_metadata,
         unique_ptr[CFlightInfo]* out)
 
     cdef CStatus CreateSchemaResult" arrow::py::flight::CreateSchemaResult"(

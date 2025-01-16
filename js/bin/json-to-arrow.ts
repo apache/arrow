@@ -17,10 +17,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as fs from 'fs';
-import * as Path from 'path';
+import * as fs from 'node:fs';
+import * as Path from 'node:path';
 import commandLineArgs from 'command-line-args';
-import { finished as eos } from 'stream/promises';
+import { finished as eos } from 'node:stream/promises';
 // @ts-ignore
 import { parse as bignumJSONParse } from 'json-bignum';
 import { RecordBatchReader, RecordBatchFileWriter, RecordBatchStreamWriter } from '../index.ts';
@@ -31,7 +31,7 @@ const arrowPaths = [...(argv.arrow || [])];
 
 (async () => {
 
-    if (!jsonPaths.length || !arrowPaths.length || (jsonPaths.length !== arrowPaths.length)) {
+    if (jsonPaths.length === 0 || arrowPaths.length === 0 || (jsonPaths.length !== arrowPaths.length)) {
         return print_usage();
     }
 
@@ -51,7 +51,7 @@ const arrowPaths = [...(argv.arrow || [])];
         await eos(jsonToArrow);
     }));
 
-    return undefined;
+    return;
 })()
     .then((x) => x ?? 0, (e) => {
         e && process.stderr.write(`${e}`);

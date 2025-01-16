@@ -870,7 +870,7 @@ std::vector<TestCase> GetCppTestCases() {
        TestInferAllLeadingZerosExponentialNotationPositive},
       {"test_infer_all_leading_zeros_exponential_notation_negative",
        TestInferAllLeadingZerosExponentialNotationNegative},
-      {"test_object_block_write_fails", TestObjectBlockWriteFails},
+      {"test_object_block_write_fails_pandas_convert", TestObjectBlockWriteFails},
       {"test_mixed_type_fails", TestMixedTypeFails},
       {"test_from_python_decimal_rescale_not_truncateable",
        TestFromPythonDecimalRescaleNotTruncateable},

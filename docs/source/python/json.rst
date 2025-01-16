@@ -21,7 +21,7 @@
 Reading JSON files
 ==================
 
-Arrow supports reading columnar data from line-delimited JSON files. 
+Arrow supports reading columnar data from line-delimited JSON files.
 In this context, a JSON file consists of multiple JSON objects, one per line,
 representing individual data rows.  For example, this file represents
 two rows of data with four columns "a", "b", "c", "d":

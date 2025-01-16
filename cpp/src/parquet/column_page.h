@@ -26,6 +26,7 @@
 #include <optional>
 #include <string>
 
+#include "parquet/size_statistics.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
 
@@ -69,20 +70,22 @@ class DataPage : public Page {
   /// Currently it is only present from data pages created by ColumnWriter in order
   /// to collect page index.
   std::optional<int64_t> first_row_index() const { return first_row_index_; }
+  const SizeStatistics& size_statistics() const { return size_statistics_; }
 
   virtual ~DataPage() = default;
 
  protected:
   DataPage(PageType::type type, const std::shared_ptr<Buffer>& buffer, int32_t num_values,
            Encoding::type encoding, int64_t uncompressed_size,
-           const EncodedStatistics& statistics = EncodedStatistics(),
-           std::optional<int64_t> first_row_index = std::nullopt)
+           EncodedStatistics statistics, std::optional<int64_t> first_row_index,
+           SizeStatistics size_statistics)
       : Page(buffer, type),
         num_values_(num_values),
         encoding_(encoding),
         uncompressed_size_(uncompressed_size),
-        statistics_(statistics),
-        first_row_index_(std::move(first_row_index)) {}
+        statistics_(std::move(statistics)),
+        first_row_index_(std::move(first_row_index)),
+        size_statistics_(std::move(size_statistics)) {}
 
   int32_t num_values_;
   Encoding::type encoding_;
@@ -90,6 +93,7 @@ class DataPage : public Page {
   EncodedStatistics statistics_;
   /// Row ordinal within the row group to the first row in the data page.
   std::optional<int64_t> first_row_index_;
+  SizeStatistics size_statistics_;
 };
 
 class DataPageV1 : public DataPage {
@@ -97,10 +101,12 @@ class DataPageV1 : public DataPage {
   DataPageV1(const std::shared_ptr<Buffer>& buffer, int32_t num_values,
              Encoding::type encoding, Encoding::type definition_level_encoding,
              Encoding::type repetition_level_encoding, int64_t uncompressed_size,
-             const EncodedStatistics& statistics = EncodedStatistics(),
-             std::optional<int64_t> first_row_index = std::nullopt)
+             EncodedStatistics statistics = EncodedStatistics(),
+             std::optional<int64_t> first_row_index = std::nullopt,
+             SizeStatistics size_statistics = SizeStatistics())
       : DataPage(PageType::DATA_PAGE, buffer, num_values, encoding, uncompressed_size,
-                 statistics, std::move(first_row_index)),
+                 std::move(statistics), std::move(first_row_index),
+                 std::move(size_statistics)),
         definition_level_encoding_(definition_level_encoding),
         repetition_level_encoding_(repetition_level_encoding) {}
 
@@ -119,10 +125,12 @@ class DataPageV2 : public DataPage {
              int32_t num_rows, Encoding::type encoding,
              int32_t definition_levels_byte_length, int32_t repetition_levels_byte_length,
              int64_t uncompressed_size, bool is_compressed = false,
-             const EncodedStatistics& statistics = EncodedStatistics(),
-             std::optional<int64_t> first_row_index = std::nullopt)
+             EncodedStatistics statistics = EncodedStatistics(),
+             std::optional<int64_t> first_row_index = std::nullopt,
+             SizeStatistics size_statistics = SizeStatistics())
       : DataPage(PageType::DATA_PAGE_V2, buffer, num_values, encoding, uncompressed_size,
-                 statistics, std::move(first_row_index)),
+                 std::move(statistics), std::move(first_row_index),
+                 std::move(size_statistics)),
         num_nulls_(num_nulls),
         num_rows_(num_rows),
         definition_levels_byte_length_(definition_levels_byte_length),

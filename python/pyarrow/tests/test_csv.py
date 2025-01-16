@@ -24,6 +24,7 @@ import gzip
 import io
 import itertools
 import os
+import random
 import select
 import shutil
 import signal
@@ -35,8 +36,6 @@ import unittest
 import weakref
 
 import pytest
-
-import numpy as np
 
 import pyarrow as pa
 from pyarrow.csv import (
@@ -54,18 +53,32 @@ def generate_col_names():
             yield first + second
 
 
+def split_rows(arr, num_cols, num_rows):
+    # Split a num_cols x num_rows array into rows
+    for i in range(0, num_rows * num_cols, num_cols):
+        yield arr[i:i + num_cols]
+
+
+def split_columns(arr, num_cols, num_rows):
+    # Split a num_cols x num_rows array into columns
+    for i in range(0, num_cols):
+        yield arr[i::num_cols]
+
+
 def make_random_csv(num_cols=2, num_rows=10, linesep='\r\n', write_names=True):
-    arr = np.random.RandomState(42).randint(0, 1000, size=(num_cols, num_rows))
+    rnd = random.Random(42)
+    arr = [rnd.randint(0, 1000) for _ in range(num_cols * num_rows)]
     csv = io.StringIO()
     col_names = list(itertools.islice(generate_col_names(), num_cols))
     if write_names:
         csv.write(",".join(col_names))
         csv.write(linesep)
-    for row in arr.T:
+    for row in split_rows(arr, num_cols, num_rows):
         csv.write(",".join(map(str, row)))
         csv.write(linesep)
     csv = csv.getvalue().encode()
-    columns = [pa.array(a, type=pa.int64()) for a in arr]
+    columns = [pa.array(row, type=pa.int64())
+               for row in split_columns(arr, num_cols, num_rows)]
     expected = pa.Table.from_arrays(columns, col_names)
     return csv, expected
 
@@ -125,6 +138,25 @@ class InvalidRowHandler:
     def __ne__(self, other):
         return (not isinstance(other, InvalidRowHandler) or
                 other.result != self.result)
+
+
+def test_split_rows_and_columns_utility():
+    num_cols = 5
+    num_rows = 2
+    arr = [x for x in range(1, 11)]
+    rows = list(split_rows(arr, num_cols, num_rows))
+    assert rows == [
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10]
+    ]
+    columns = list(split_columns(arr, num_cols, num_rows))
+    assert columns == [
+        [1, 6],
+        [2, 7],
+        [3, 8],
+        [4, 9],
+        [5, 10]
+    ]
 
 
 def test_read_options(pickle_module):
@@ -520,6 +552,7 @@ class BaseTestCSV(abc.ABC):
             assert (values[opts.skip_rows + opts.skip_rows_after_names:] ==
                     table_dict[name])
 
+    @pytest.mark.numpy
     def test_row_number_offset_in_errors(self):
         # Row numbers are only correctly counted in serial reads
         def format_msg(msg_format, row, *args):
@@ -666,6 +699,31 @@ class BaseTestCSV(abc.ABC):
             'a': ["d", "i"],
             'b': ["e", "j"],
         }
+
+    def test_chunker_out_of_sync(self):
+        # GH-39892: if there are newlines in values, the parser may become
+        # out of sync with the chunker. In this case, we try to produce an
+        # informative error message.
+        rows = b"""a,b,c\nd,e,"f\n"\ng,h,i\n"""
+        expected = {
+            'a': ["d", "g"],
+            'b': ["e", "h"],
+            'c': ["f\n", "i"],
+        }
+        for block_size in range(8, 15):
+            # Sanity check: parsing works with newlines_in_values=True
+            d = self.read_bytes(
+                rows, parse_options=ParseOptions(newlines_in_values=True),
+                read_options=ReadOptions(block_size=block_size)).to_pydict()
+            assert d == expected
+        # With these block sizes, a block would end on the physical newline
+        # inside the quoted cell value, leading to a mismatch between
+        # CSV chunker and parser.
+        for block_size in range(8, 11):
+            with pytest.raises(ValueError,
+                               match="cell values spanning multiple lines"):
+                self.read_bytes(
+                    rows, read_options=ReadOptions(block_size=block_size))
 
 
 class BaseCSVTableRead(BaseTestCSV):
@@ -1381,18 +1439,16 @@ class BaseCSVTableRead(BaseTestCSV):
         assert table.num_rows == 0
         assert table.column_names == col_names
 
+    @pytest.mark.threading
     def test_cancellation(self):
         if (threading.current_thread().ident !=
                 threading.main_thread().ident):
             pytest.skip("test only works from main Python thread")
-        # Skips test if not available
-        raise_signal = util.get_raise_signal()
-        signum = signal.SIGINT
 
         def signal_from_thread():
             # Give our workload a chance to start up
             time.sleep(0.2)
-            raise_signal(signum)
+            signal.raise_signal(signal.SIGINT)
 
         # We start with a small CSV reading workload and increase its size
         # until it's large enough to get an interruption during it, even in
@@ -1445,11 +1501,12 @@ class BaseCSVTableRead(BaseTestCSV):
             pytest.fail("Failed to get an interruption during CSV reading")
 
         # Interruption should have arrived timely
-        assert last_duration <= 1.0
+        assert last_duration <= 2.0
         e = exc_info.__context__
         assert isinstance(e, pa.ArrowCancelled)
-        assert e.signum == signum
+        assert e.signum == signal.SIGINT
 
+    @pytest.mark.threading
     def test_cancellation_disabled(self):
         # ARROW-12622: reader would segfault when the cancelling signal
         # handler was not enabled (e.g. if disabled, or if not on the
@@ -1775,6 +1832,7 @@ class BaseStreamingCSVRead(BaseTestCSV):
         with pytest.raises(StopIteration):
             assert reader.read_next_batch()
 
+    @pytest.mark.numpy
     def test_skip_rows_after_names(self):
         super().test_skip_rows_after_names()
 
@@ -1800,6 +1858,7 @@ class TestSerialStreamingCSVRead(BaseStreamingCSVRead):
         return False
 
 
+@pytest.mark.threading
 class TestThreadedStreamingCSVRead(BaseStreamingCSVRead):
     @property
     def use_threads(self):

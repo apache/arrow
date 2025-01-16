@@ -32,24 +32,6 @@
 
 namespace arrow {
 
-/// \brief EXPERIMENTAL: Device type enum which matches up with C Data Device types
-enum class DeviceAllocationType : char {
-  kCPU = 1,
-  kCUDA = 2,
-  kCUDA_HOST = 3,
-  kOPENCL = 4,
-  kVULKAN = 7,
-  kMETAL = 8,
-  kVPI = 9,
-  kROCM = 10,
-  kROCM_HOST = 11,
-  kEXT_DEV = 12,
-  kCUDA_MANAGED = 13,
-  kONEAPI = 14,
-  kWEBGPU = 15,
-  kHEXAGON = 16,
-};
-
 class MemoryManager;
 
 /// \brief EXPERIMENTAL: Abstract interface for hardware devices
@@ -139,7 +121,8 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// This should create the appropriate stream type for the device,
   /// derived from Device::Stream to allow for stream ordered events
   /// and memory allocations.
-  virtual Result<std::shared_ptr<Stream>> MakeStream(unsigned int flags) {
+  virtual Result<std::shared_ptr<Stream>> MakeStream(
+      unsigned int ARROW_ARG_UNUSED(flags)) {
     return NULLPTR;
   }
 
@@ -149,8 +132,9 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// @param release_fn a function to call during destruction, `nullptr` or
   ///        a no-op function can be passed to indicate ownership is maintained
   ///        externally
-  virtual Result<std::shared_ptr<Stream>> WrapStream(void* device_stream,
-                                                     Stream::release_fn_t release_fn) {
+  virtual Result<std::shared_ptr<Stream>> WrapStream(
+      void* ARROW_ARG_UNUSED(device_stream),
+      Stream::release_fn_t ARROW_ARG_UNUSED(release_fn)) {
     return NULLPTR;
   }
 
@@ -246,6 +230,10 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   /// See also the Buffer::View shorthand.
   static Result<std::shared_ptr<Buffer>> ViewBuffer(
       const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
+
+  /// \brief Copy a slice of a buffer into a CPU pointer
+  static Status CopyBufferSliceToCPU(const std::shared_ptr<Buffer>& buf, int64_t offset,
+                                     int64_t length, uint8_t* out_data);
 
   /// \brief Create a new SyncEvent.
   ///
@@ -362,5 +350,33 @@ class ARROW_EXPORT CPUMemoryManager : public MemoryManager {
 /// `CPUDevice::Instance()->default_memory_manager()`.
 ARROW_EXPORT
 std::shared_ptr<MemoryManager> default_cpu_memory_manager();
+
+using DeviceMapper =
+    std::function<Result<std::shared_ptr<MemoryManager>>(int64_t device_id)>;
+
+/// \brief Register a function to retrieve a MemoryManager for a Device type
+///
+/// This registers the device type globally. A specific device type can only
+/// be registered once. This method is thread-safe.
+///
+/// Currently, this registry is only used for importing data through the C Device
+/// Data Interface (for the default Device to MemoryManager mapper in
+/// arrow::ImportDeviceArray/ImportDeviceRecordBatch).
+///
+/// \param[in] device_type the device type for which to register a MemoryManager
+/// \param[in] mapper function that takes a device id and returns the appropriate
+/// MemoryManager for the registered device type and given device id
+/// \return Status
+ARROW_EXPORT
+Status RegisterDeviceMapper(DeviceAllocationType device_type, DeviceMapper mapper);
+
+/// \brief Get the registered function to retrieve a MemoryManager for the
+/// given Device type
+///
+/// \param[in] device_type the device type
+/// \return function that takes a device id and returns the appropriate
+/// MemoryManager for the registered device type and given device id
+ARROW_EXPORT
+Result<DeviceMapper> GetDeviceMapper(DeviceAllocationType device_type);
 
 }  // namespace arrow

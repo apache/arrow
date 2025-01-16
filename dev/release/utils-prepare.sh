@@ -26,10 +26,12 @@ update_versions() {
     release)
       local version=${base_version}
       local r_version=${base_version}
+      local python_version=${base_version}
       ;;
     snapshot)
       local version=${next_version}-SNAPSHOT
       local r_version=${base_version}.9000
+      local python_version=${next_version}a0
       ;;
   esac
   local major_version=${version%%.*}
@@ -40,6 +42,24 @@ update_versions() {
     meson.build
   rm -f meson.build.bak
   git add meson.build
+
+  # Add a new version entry only when the next release is a new major
+  # release and it doesn't exist yet.
+  if [ "${type}" = "snapshot" ] && \
+     [ "${next_version}" = "${major_version}.0.0" ] && \
+     ! grep -q -F "(${major_version}, 0)" tool/generate-version-header.py; then
+    sed -i.bak -E -e \
+      "s/^ALL_VERSIONS = \[$/&\\n        (${major_version}, 0),/" \
+      tool/generate-version-header.py
+    rm -f tool/generate-version-header.py.bak
+    git add tool/generate-version-header.py
+  fi
+
+  sed -i.bak -E -e \
+    "s/\"version-string\": \".+\"/\"version-string\": \"${version}\"/" \
+    vcpkg.json
+  rm -f vcpkg.json.bak
+  git add vcpkg.json
   popd
 
   pushd "${ARROW_DIR}/ci/scripts"
@@ -62,13 +82,6 @@ update_versions() {
     vcpkg.json
   rm -f vcpkg.json.bak
   git add vcpkg.json
-  popd
-
-  pushd "${ARROW_DIR}/java"
-  mvn versions:set -DnewVersion=${version} -DprocessAllModules
-  find . -type f -name pom.xml.versionsBackup -delete
-  git add "pom.xml"
-  git add "**/pom.xml"
   popd
 
   pushd "${ARROW_DIR}/csharp"
@@ -110,10 +123,10 @@ update_versions() {
 
   pushd "${ARROW_DIR}/python"
   sed -i.bak -E -e \
-    "s/^default_version = '.+'/default_version = '${version}'/" \
-    setup.py
-  rm -f setup.py.bak
-  git add setup.py
+    "s/^fallback_version = '.+'/fallback_version = '${python_version}'/" \
+    pyproject.toml
+  rm -f pyproject.toml.bak
+  git add pyproject.toml
   sed -i.bak -E -e \
     "s/^set\(PYARROW_VERSION \".+\"\)/set(PYARROW_VERSION \"${version}\")/" \
     CMakeLists.txt
@@ -127,6 +140,7 @@ update_versions() {
     DESCRIPTION
   rm -f DESCRIPTION.bak
   git add DESCRIPTION
+
   # Replace dev version with release version
   sed -i.bak -E -e \
     "/^<!--/,/^# arrow /s/^# arrow .+/# arrow ${base_version}/" \
@@ -139,6 +153,13 @@ update_versions() {
   fi
   rm -f NEWS.md.bak
   git add NEWS.md
+
+  # godoc link must reference current version, will reference v0.0.0 (2018) otherwise
+  sed -i.bak -E -e \
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" \
+    _pkgdown.yml
+  rm -f _pkgdown.yml.bak
+  git add _pkgdown.yml
   popd
 
   pushd "${ARROW_DIR}/ruby"
@@ -149,19 +170,13 @@ update_versions() {
   git add */*/*/version.rb
   popd
 
-  pushd "${ARROW_DIR}/go"
-  find . "(" -name "*.go*" -o -name "go.mod" -o -name README.md ")" -exec sed -i.bak -E -e \
-    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" {} \;
-  # update parquet writer version
+  pushd "${ARROW_DIR}/docs/source"
+  # godoc link must reference current version, will reference v0.0.0 (2018) otherwise
   sed -i.bak -E -e \
-    "s/\"parquet-go version .+\"/\"parquet-go version ${version}\"/" \
-    parquet/writer_properties.go
-  sed -i.bak -E -e \
-    "s/const PkgVersion = \".*/const PkgVersion = \"${version}\"/" \
-    arrow/doc.go
-
-  find . -name "*.bak" -exec rm {} \;
-  git add .
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" \
+    index.rst
+  rm -f index.rst.bak
+  git add index.rst
   popd
 
   pushd "${ARROW_DIR}"
@@ -170,6 +185,62 @@ update_versions() {
                      "${base_version}" \
                      "${next_version}"
   git add docs/source/_static/versions.json
+  git add r/pkgdown/assets/versions.html
   git add r/pkgdown/assets/versions.json
+  popd
+}
+
+current_version() {
+  grep ARROW_VERSION "${ARROW_DIR}/cpp/CMakeLists.txt" | \
+    head -n1 | \
+    grep -E -o '([0-9]+\.[0-9]+\.[0-9]+)'
+}
+
+so_version() {
+  local version=$1
+  local major_version=$(echo ${version} | cut -d. -f1)
+  local minor_version=$(echo ${version} | cut -d. -f2)
+  expr ${major_version} \* 100 + ${minor_version}
+}
+
+update_deb_package_names() {
+  local version=$1
+  local next_version=$2
+  echo "Updating .deb package names for ${next_version}"
+  deb_lib_suffix=$(so_version ${version})
+  next_deb_lib_suffix=$(so_version ${next_version})
+  if [ "${deb_lib_suffix}" != "${next_deb_lib_suffix}" ]; then
+    pushd ${ARROW_DIR}/dev/tasks/linux-packages/apache-arrow
+    for target in debian*/lib*${deb_lib_suffix}.install; do
+      git mv \
+        ${target} \
+        $(echo ${target} | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
+    done
+    deb_lib_suffix_substitute_pattern="s/(lib(arrow|gandiva|parquet)[-a-z]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
+    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" debian*/control*
+    rm -f debian*/control*.bak
+    git add debian*/control*
+    popd
+
+    pushd ${ARROW_DIR}/dev/release
+    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" rat_exclude_files.txt
+    rm -f rat_exclude_files.txt.bak
+    git add rat_exclude_files.txt
+    git commit -m "MINOR: [Release] Update .deb package names for ${next_version}"
+    popd
+  fi
+}
+
+update_linux_packages() {
+  local version=$1
+  local release_time=$2
+  echo "Updating .deb/.rpm changelogs for ${version}"
+  pushd ${ARROW_DIR}/dev/tasks/linux-packages
+  rake \
+    version:update \
+    ARROW_RELEASE_TIME="${release_time}" \
+    ARROW_VERSION=${version}
+  git add */debian*/changelog */yum/*.spec.in
+  git commit -m "MINOR: [Release] Update .deb/.rpm changelogs for ${version}"
   popd
 }

@@ -24,7 +24,9 @@ include(CheckCXXSourceCompiles)
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
 if(NOT DEFINED ARROW_CPU_FLAG)
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|amd64|X86|x86|i[3456]86|x64")
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    set(ARROW_CPU_FLAG "emscripten")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|amd64|X86|x86|i[3456]86|x64")
     set(ARROW_CPU_FLAG "x86")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")
     set(ARROW_CPU_FLAG "aarch64")
@@ -160,21 +162,6 @@ if(WIN32)
   # TODO(wesm): Change usages of C runtime functions that MSVC says are
   # insecure, like std::getenv
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-
-  # Disable static assertion in Microsoft C++ standard library.
-  #
-  # """[...]\include\type_traits(1271): error C2338:
-  # You've instantiated std::aligned_storage<Len, Align> with an extended
-  # alignment (in other words, Align > alignof(max_align_t)).
-  # Before VS 2017 15.8, the member type would non-conformingly have an
-  # alignment of only alignof(max_align_t). VS 2017 15.8 was fixed to handle
-  # this correctly, but the fix inherently changes layout and breaks binary
-  # compatibility (*only* for uses of aligned_storage with extended alignments).
-  # Please define either (1) _ENABLE_EXTENDED_ALIGNED_STORAGE to acknowledge
-  # that you understand this message and that you actually want a type with
-  # an extended alignment, or (2) _DISABLE_EXTENDED_ALIGNED_STORAGE to silence
-  # this message and get the old non-conformant behavior."""
-  add_definitions(-D_ENABLE_EXTENDED_ALIGNED_STORAGE)
 
   if(MSVC)
     # ARROW-1931 See https://github.com/google/googletest/issues/1318
@@ -312,7 +299,13 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdocumentation")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wshorten-64-to-32")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -DARROW_WARN_DOCUMENTATION")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+      # size_t is 32 bit in Emscripten wasm32 - ignore conversion errors
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-shorten-64-to-32")
+    else()
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wshorten-64-to-32")
+    endif()
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-missing-braces")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-constant-logical-operand")
@@ -322,8 +315,10 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-conversion")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-sign-conversion")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdate-time")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wimplicit-fallthrough")
+    string(APPEND CXX_ONLY_FLAGS " -Wredundant-move")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                    "IntelLLVM")
     if(WIN32)
@@ -625,6 +620,74 @@ if(NOT WIN32 AND NOT APPLE)
   endif()
 endif()
 
+if(NOT WIN32 AND NOT APPLE)
+  if(ARROW_USE_MOLD)
+    find_program(LD_MOLD ld.mold)
+    if(LD_MOLD)
+      unset(MOLD_LINKER_FLAGS)
+      if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.1.0")
+          set(MOLD_LINKER_FLAGS "-fuse-ld=mold")
+        else()
+          message(STATUS "Need GCC 12.1.0 or later to use mold linker: ${CMAKE_CXX_COMPILER_VERSION}"
+          )
+        endif()
+      elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0.0")
+          set(MOLD_LINKER_FLAGS "--ld-path=${LD_MOLD}")
+        else()
+          message(STATUS "Need clang 12.0.0 or later to use mold linker: ${CMAKE_CXX_COMPILER_VERSION}"
+          )
+        endif()
+      else()
+        message(STATUS "Using the default linker because compiler doesn't support mold: ${CMAKE_CXX_COMPILER_ID}"
+        )
+      endif()
+      if(MOLD_LINKER_FLAGS)
+        message(STATUS "Using optional mold linker")
+        string(APPEND CMAKE_EXE_LINKER_FLAGS " ${MOLD_LINKER_FLAGS}")
+        string(APPEND CMAKE_MODULE_LINKER_FLAGS " ${MOLD_LINKER_FLAGS}")
+        string(APPEND CMAKE_SHARED_LINKER_FLAGS " ${MOLD_LINKER_FLAGS}")
+      endif()
+    else()
+      message(STATUS "Using the default linker because mold isn't found")
+    endif()
+  endif()
+endif()
+
+if(ARROW_USE_LLD)
+  find_program(LD_LLD ld.lld)
+  if(LD_LLD)
+    unset(LLD_LINKER_FLAGS)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "9.1.0")
+        set(LLD_LINKER_FLAGS "-fuse-ld=lld")
+      else()
+        message(STATUS "Need GCC 9.1.0 or later to use LLD linker: ${CMAKE_CXX_COMPILER_VERSION}"
+        )
+      endif()
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+      if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0.0")
+        set(LLD_LINKER_FLAGS "--ld-path=${LD_LLD}")
+      else()
+        message(STATUS "Need clang 12.0.0 or later to use LLD linker: ${CMAKE_CXX_COMPILER_VERSION}"
+        )
+      endif()
+    else()
+      message(STATUS "Using the default linker because compiler doesn't support LLD: ${CMAKE_CXX_COMPILER_ID}"
+      )
+    endif()
+    if(LLD_LINKER_FLAGS)
+      message(STATUS "Using optional LLVM LLD linker")
+      string(APPEND CMAKE_EXE_LINKER_FLAGS " ${LLD_LINKER_FLAGS}")
+      string(APPEND CMAKE_MODULE_LINKER_FLAGS " ${LLD_LINKER_FLAGS}")
+      string(APPEND CMAKE_SHARED_LINKER_FLAGS " ${LLD_LINKER_FLAGS}")
+    else()
+      message(STATUS "Using the default linker because the LLD isn't supported")
+    endif()
+  endif()
+endif()
+
 # compiler flags for different build types (run 'cmake -DCMAKE_BUILD_TYPE=<type> .')
 # For all builds:
 # For CMAKE_BUILD_TYPE=Debug
@@ -661,17 +724,36 @@ if(NOT MSVC)
   set(C_DEBUG_FLAGS "")
   set(CXX_DEBUG_FLAGS "")
   if(NOT MSVC)
-    if(NOT CMAKE_C_FLAGS_DEBUG MATCHES "-O")
-      string(APPEND C_DEBUG_FLAGS " -O0")
-    endif()
-    if(NOT CMAKE_CXX_FLAGS_DEBUG MATCHES "-O")
-      string(APPEND CXX_DEBUG_FLAGS " -O0")
-    endif()
-    if(ARROW_GGDB_DEBUG)
-      string(APPEND C_DEBUG_FLAGS " -ggdb")
-      string(APPEND CXX_DEBUG_FLAGS " -ggdb")
-      string(APPEND C_RELWITHDEBINFO_FLAGS " -ggdb")
-      string(APPEND CXX_RELWITHDEBINFO_FLAGS " -ggdb")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+      # with -g it uses DWARF debug info, which is really slow to build
+      # on emscripten (and uses tons of memory)
+      string(REPLACE "-g" " " CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
+      string(REPLACE "-g" " " CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
+      string(APPEND C_DEBUG_FLAGS " -g2")
+      string(APPEND CXX_DEBUG_FLAGS " -g2")
+      string(APPEND C_RELWITHDEBINFO_FLAGS " -g2")
+      string(APPEND CXX_RELWITHDEBINFO_FLAGS " -g2")
+      # without -O1, emscripten executables are *MASSIVE*. Don't use -O0
+      if(NOT CMAKE_C_FLAGS_DEBUG MATCHES "-O")
+        string(APPEND C_DEBUG_FLAGS " -O1")
+      endif()
+      if(NOT CMAKE_CXX_FLAGS_DEBUG MATCHES "-O")
+        string(APPEND CXX_DEBUG_FLAGS " -O1")
+      endif()
+    else()
+      if(NOT CMAKE_C_FLAGS_DEBUG MATCHES "-O")
+        string(APPEND C_DEBUG_FLAGS " -O0")
+      endif()
+      if(NOT CMAKE_CXX_FLAGS_DEBUG MATCHES "-O")
+        string(APPEND CXX_DEBUG_FLAGS " -O0")
+      endif()
+
+      if(ARROW_GGDB_DEBUG)
+        string(APPEND C_DEBUG_FLAGS " -ggdb")
+        string(APPEND CXX_DEBUG_FLAGS " -ggdb")
+        string(APPEND C_RELWITHDEBINFO_FLAGS " -ggdb")
+        string(APPEND CXX_RELWITHDEBINFO_FLAGS " -ggdb")
+      endif()
     endif()
   endif()
 
@@ -700,5 +782,42 @@ if(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${MSVC_LINKER_FLAGS}")
     set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${MSVC_LINKER_FLAGS}")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${MSVC_LINKER_FLAGS}")
+  endif()
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  # flags are:
+  # 1) We force *everything* to build as position independent
+  # 2) And with support for C++ exceptions
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -fexceptions")
+  # deprecated-literal-operator error is thrown in datetime (vendored lib in arrow)
+  set(CMAKE_CXX_FLAGS
+      "${CMAKE_CXX_FLAGS} -fPIC -fexceptions -Wno-error=deprecated-literal-operator")
+
+  # flags for creating shared libraries (only used in pyarrow, because
+  # Emscripten builds libarrow as static)
+  # flags are:
+  # 1) Tell it to use JavaScript / WebAssembly 64 bit number support.
+  # 2) Tell it to build with support for C++ exceptions
+  # 3) Skip linker flags error which happens with -soname parameter
+  set(ARROW_EMSCRIPTEN_LINKER_FLAGS "-sWASM_BIGINT=1 -fexceptions -Wno-error=linkflags")
+  set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS
+      "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
+  set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS
+      "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
+  set(CMAKE_SHARED_LINKER_FLAGS "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
+  if(ARROW_TESTING)
+    # flags for building test executables for use in node
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+      set(CMAKE_EXE_LINKER_FLAGS
+          "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
+      )
+    else()
+      set(CMAKE_EXE_LINKER_FLAGS
+          "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sERROR_ON_WASM_CHANGES_AFTER_LINK=1 -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
+      )
+    endif()
+  else()
+    set(CMAKE_EXE_LINKER_FLAGS "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sALLOW_MEMORY_GROWTH")
   endif()
 endif()

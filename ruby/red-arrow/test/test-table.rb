@@ -87,24 +87,26 @@ class TableTest < Test::Unit::TestCase
       target_rows_raw = [nil, true, true, false, true, false, true, true]
       target_rows = Arrow::BooleanArray.new(target_rows_raw)
       assert_equal(<<-TABLE, @table.slice(target_rows).to_s)
-	count	visible
-0	    2	false  
-1	    4	 (null)
-2	   16	true   
-3	   64	 (null)
-4	  128	 (null)
+	  count	visible
+	(uint8)	 (bool)
+0	      2	false  
+1	      4	 (null)
+2	     16	true   
+3	     64	 (null)
+4	    128	 (null)
       TABLE
     end
 
     test("Array: boolean") do
       target_rows_raw = [nil, true, true, false, true, false, true, true]
       assert_equal(<<-TABLE, @table.slice(target_rows_raw).to_s)
-	count	visible
-0	    2	false  
-1	    4	 (null)
-2	   16	true   
-3	   64	 (null)
-4	  128	 (null)
+	  count	visible
+	(uint8)	 (bool)
+0	      2	false  
+1	      4	 (null)
+2	     16	true   
+3	     64	 (null)
+4	    128	 (null)
       TABLE
     end
 
@@ -131,83 +133,93 @@ class TableTest < Test::Unit::TestCase
 
     test("Range: positive: include end") do
       assert_equal(<<-TABLE, @table.slice(2..4).to_s)
-	count	visible
-0	    4	 (null)
-1	    8	true   
-2	   16	true   
+	  count	visible
+	(uint8)	 (bool)
+0	      4	 (null)
+1	      8	true   
+2	     16	true   
       TABLE
     end
 
     test("Range: positive: exclude end") do
       assert_equal(<<-TABLE, @table.slice(2...4).to_s)
-	count	visible
-0	    4	 (null)
-1	    8	true   
+	  count	visible
+	(uint8)	 (bool)
+0	      4	 (null)
+1	      8	true   
       TABLE
     end
 
     test("Range: negative: include end") do
       assert_equal(<<-TABLE, @table.slice(-4..-2).to_s)
-	count	visible
-0	   16	true   
-1	   32	false  
-2	   64	 (null)
+	  count	visible
+	(uint8)	 (bool)
+0	     16	true   
+1	     32	false  
+2	     64	 (null)
       TABLE
     end
 
     test("Range: negative: exclude end") do
       assert_equal(<<-TABLE, @table.slice(-4...-2).to_s)
-	count	visible
-0	   16	true   
-1	   32	false  
+	  count	visible
+	(uint8)	 (bool)
+0	     16	true   
+1	     32	false  
       TABLE
     end
 
     test("[from, to]: positive") do
       assert_equal(<<-TABLE, @table.slice(0, 2).to_s)
-	count	visible
-0	    1	true   
-1	    2	false  
+	  count	visible
+	(uint8)	 (bool)
+0	      1	true   
+1	      2	false  
       TABLE
     end
 
     test("[from, to]: negative") do
       assert_equal(<<-TABLE, @table.slice(-4, 2).to_s)
-	count	visible
-0	   16	true   
-1	   32	false  
+	  count	visible
+	(uint8)	 (bool)
+0	     16	true   
+1	     32	false  
       TABLE
     end
 
     test("{key: Number}") do
       assert_equal(<<-TABLE, @table.slice(count: 16).to_s)
-	count	visible
-0	   16	true   
+	  count	visible
+	(uint8)	 (bool)
+0	     16	true   
       TABLE
     end
 
     test("{key: String}") do
       table = Arrow::Table.new(name: Arrow::StringArray.new(["a", "b", "c"]))
       assert_equal(<<-TABLE, table.slice(name: 'b').to_s)
-	name
-0	b   
+	  name
+	(utf8)
+0	b     
       TABLE
     end
 
     test("{key: true}") do
       assert_equal(<<-TABLE, @table.slice(visible: true).to_s)
-	count	visible
-0	    1	true   
-1	    8	true   
-2	   16	true   
+	  count	visible
+	(uint8)	 (bool)
+0	      1	true   
+1	      8	true   
+2	     16	true   
       TABLE
     end
 
     test("{key: false}") do
       assert_equal(<<-TABLE, @table.slice(visible: false).to_s)
-	count	visible
-0	    2	false  
-1	   32	false  
+	  count	visible
+	(uint8)	 (bool)
+0	      2	false  
+1	     32	false  
       TABLE
     end
 
@@ -218,11 +230,12 @@ class TableTest < Test::Unit::TestCase
         omit("beginless range isn't supported")
       end
       assert_equal(<<-TABLE, @table.slice(count: range).to_s)
-	count	visible
-0	    1	true   
-1	    2	false  
-2	    4	 (null)
-3	    8	true   
+	  count	visible
+	(uint8)	 (bool)
+0	      1	true   
+1	      2	false  
+2	      4	 (null)
+3	      8	true   
       TABLE
     end
 
@@ -233,10 +246,11 @@ class TableTest < Test::Unit::TestCase
         omit("beginless range isn't supported")
       end
       assert_equal(<<-TABLE, @table.slice(count: range).to_s)
-	count	visible
-0	    1	true   
-1	    2	false  
-2	    4	 (null)
+	  count	visible
+	(uint8)	 (bool)
+0	      1	true   
+1	      2	false  
+2	      4	 (null)
       TABLE
     end
 
@@ -247,39 +261,43 @@ class TableTest < Test::Unit::TestCase
         omit("endless range isn't supported")
       end
       assert_equal(<<-TABLE, @table.slice(count: range).to_s)
-	count	visible
-0	   16	true   
-1	   32	false  
-2	   64	 (null)
-3	  128	 (null)
+	  count	visible
+	(uint8)	 (bool)
+0	     16	true   
+1	     32	false  
+2	     64	 (null)
+3	    128	 (null)
       TABLE
     end
 
     test("{key: Range}: include end") do
       assert_equal(<<-TABLE, @table.slice(count: 1..16).to_s)
-	count	visible
-0	    1	true   
-1	    2	false  
-2	    4	 (null)
-3	    8	true   
-4	   16	true   
+	  count	visible
+	(uint8)	 (bool)
+0	      1	true   
+1	      2	false  
+2	      4	 (null)
+3	      8	true   
+4	     16	true   
       TABLE
     end
 
     test("{key: Range}: exclude end") do
       assert_equal(<<-TABLE, @table.slice(count: 1...16).to_s)
-	count	visible
-0	    1	true   
-1	    2	false  
-2	    4	 (null)
-3	    8	true   
+	  count	visible
+	(uint8)	 (bool)
+0	      1	true   
+1	      2	false  
+2	      4	 (null)
+3	      8	true   
       TABLE
     end
 
     test("{key1: Range, key2: true}") do
       assert_equal(<<-TABLE, @table.slice(count: 0..8, visible: false).to_s)
-	count	visible
-0	    2	false  
+	  count	visible
+	(uint8)	 (bool)
+0	      2	false  
       TABLE
     end
 
@@ -372,44 +390,47 @@ class TableTest < Test::Unit::TestCase
       test("add") do
         name_array = Arrow::StringArray.new(["a", "b", "c", "d", "e", "f", "g", "h"])
         assert_equal(<<-TABLE, @table.merge(:name => name_array).to_s)
-	count	visible	name
-0	    1	true   	a   
-1	    2	false  	b   
-2	    4	 (null)	c   
-3	    8	true   	d   
-4	   16	true   	e   
-5	   32	false  	f   
-6	   64	 (null)	g   
-7	  128	 (null)	h   
+	  count	visible	  name
+	(uint8)	 (bool)	(utf8)
+0	      1	true   	a     
+1	      2	false  	b     
+2	      4	 (null)	c     
+3	      8	true   	d     
+4	     16	true   	e     
+5	     32	false  	f     
+6	     64	 (null)	g     
+7	    128	 (null)	h     
         TABLE
       end
 
       test("remove") do
         assert_equal(<<-TABLE, @table.merge(:visible => nil).to_s)
-	count
-0	    1
-1	    2
-2	    4
-3	    8
-4	   16
-5	   32
-6	   64
-7	  128
+	  count
+	(uint8)
+0	      1
+1	      2
+2	      4
+3	      8
+4	     16
+5	     32
+6	     64
+7	    128
         TABLE
       end
 
       test("replace") do
         visible_array = Arrow::Int32Array.new([1] * @visible_array.length)
         assert_equal(<<-TABLE, @table.merge(:visible => visible_array).to_s)
-	count	visible
-0	    1	      1
-1	    2	      1
-2	    4	      1
-3	    8	      1
-4	   16	      1
-5	   32	      1
-6	   64	      1
-7	  128	      1
+	  count	visible
+	(uint8)	(int32)
+0	      1	      1
+1	      2	      1
+2	      4	      1
+3	      8	      1
+4	     16	      1
+5	     32	      1
+6	     64	      1
+7	    128	      1
         TABLE
       end
     end
@@ -419,15 +440,16 @@ class TableTest < Test::Unit::TestCase
         name_array = Arrow::StringArray.new(["a", "b", "c", "d", "e", "f", "g", "h"])
         table = Arrow::Table.new("name" => name_array)
         assert_equal(<<-TABLE, @table.merge(table).to_s)
-	count	visible	name
-0	    1	true   	a   
-1	    2	false  	b   
-2	    4	 (null)	c   
-3	    8	true   	d   
-4	   16	true   	e   
-5	   32	false  	f   
-6	   64	 (null)	g   
-7	  128	 (null)	h   
+	  count	visible	  name
+	(uint8)	 (bool)	(utf8)
+0	      1	true   	a     
+1	      2	false  	b     
+2	      4	 (null)	c     
+3	      8	true   	d     
+4	     16	true   	e     
+5	     32	false  	f     
+6	     64	 (null)	g     
+7	    128	 (null)	h     
         TABLE
       end
 
@@ -435,15 +457,16 @@ class TableTest < Test::Unit::TestCase
         visible_array = Arrow::Int32Array.new([1] * @visible_array.length)
         table = Arrow::Table.new("visible" => visible_array)
         assert_equal(<<-TABLE, @table.merge(table).to_s)
-	count	visible
-0	    1	      1
-1	    2	      1
-2	    4	      1
-3	    8	      1
-4	   16	      1
-5	   32	      1
-6	   64	      1
-7	  128	      1
+	  count	visible
+	(uint8)	(int32)
+0	      1	      1
+1	      2	      1
+2	      4	      1
+3	      8	      1
+4	     16	      1
+5	     32	      1
+6	     64	      1
+7	    128	      1
         TABLE
       end
     end
@@ -457,29 +480,31 @@ class TableTest < Test::Unit::TestCase
   sub_test_case("#remove_column") do
     test("String") do
       assert_equal(<<-TABLE, @table.remove_column("visible").to_s)
-	count
-0	    1
-1	    2
-2	    4
-3	    8
-4	   16
-5	   32
-6	   64
-7	  128
+	  count
+	(uint8)
+0	      1
+1	      2
+2	      4
+3	      8
+4	     16
+5	     32
+6	     64
+7	    128
       TABLE
     end
 
     test("Symbol") do
       assert_equal(<<-TABLE, @table.remove_column(:visible).to_s)
-	count
-0	    1
-1	    2
-2	    4
-3	    8
-4	   16
-5	   32
-6	   64
-7	  128
+	  count
+	(uint8)
+0	      1
+1	      2
+2	      4
+3	      8
+4	     16
+5	     32
+6	     64
+7	    128
       TABLE
     end
 
@@ -491,29 +516,31 @@ class TableTest < Test::Unit::TestCase
 
     test("Integer") do
       assert_equal(<<-TABLE, @table.remove_column(1).to_s)
-	count
-0	    1
-1	    2
-2	    4
-3	    8
-4	   16
-5	   32
-6	   64
-7	  128
+	  count
+	(uint8)
+0	      1
+1	      2
+2	      4
+3	      8
+4	     16
+5	     32
+6	     64
+7	    128
       TABLE
     end
 
     test("negative integer") do
       assert_equal(<<-TABLE, @table.remove_column(-1).to_s)
-	count
-0	    1
-1	    2
-2	    4
-3	    8
-4	   16
-5	   32
-6	   64
-7	  128
+	  count
+	(uint8)
+0	      1
+1	      2
+2	      4
+3	      8
+4	     16
+5	     32
+6	     64
+7	    128
       TABLE
     end
 
@@ -544,29 +571,33 @@ class TableTest < Test::Unit::TestCase
 
     test("names") do
       assert_equal(<<-TABLE, @table.select_columns(:c, :a).to_s)
-	c	a
-0	1	1
+	      c	      a
+	(uint8)	(uint8)
+0	      1	      1
       TABLE
     end
 
     test("range") do
       assert_equal(<<-TABLE, @table.select_columns(2...4).to_s)
-	c	d
-0	1	1
+	      c	      d
+	(uint8)	(uint8)
+0	      1	      1
       TABLE
     end
 
     test("indexes") do
       assert_equal(<<-TABLE, @table.select_columns(0, -1, 2).to_s)
-	a	e	c
-0	1	1	1
+	      a	      e	      c
+	(uint8)	(uint8)	(uint8)
+0	      1	      1	      1
       TABLE
     end
 
     test("mixed") do
       assert_equal(<<-TABLE, @table.select_columns(:a, -1, 2..3).to_s)
-	a	e	c	d
-0	1	1	1	1
+	      a	      e	      c	      d
+	(uint8)	(uint8)	(uint8)	(uint8)
+0	      1	      1	      1	      1
       TABLE
     end
 
@@ -575,8 +606,9 @@ class TableTest < Test::Unit::TestCase
         column.name == "a" or i.odd?
       end
       assert_equal(<<-TABLE, selected_table.to_s)
-	a	b	d
-0	1	1	1
+	      a	      b	      d
+	(uint8)	(uint8)	(uint8)
+0	      1	      1	      1
       TABLE
     end
 
@@ -585,15 +617,17 @@ class TableTest < Test::Unit::TestCase
         column.name == "a"
       end
       assert_equal(<<-TABLE, selected_table.to_s)
-	a
-0	1
+	      a
+	(uint8)
+0	      1
       TABLE
     end
 
     test("empty result") do
       selected_table = @table.filter([false] * @table.size).select_columns(:a)
       assert_equal(<<-TABLE, selected_table.to_s)
-	a
+	      a
+	(uint8)
       TABLE
     end
   end
@@ -682,7 +716,7 @@ class TableTest < Test::Unit::TestCase
         output = create_output(".json")
         # TODO: Implement this.
         # @table.save(output, format: :json)
-        columns = ""
+        columns = +""
         @table.each_record.each do |record|
           column = {
             "count" => record.count,
@@ -789,10 +823,11 @@ class TableTest < Test::Unit::TestCase
             path = fixture_path("with-header.csv")
             table = Arrow::Table.load(path, skip_lines: /^\#/)
             assert_equal(<<-TABLE, table.to_s)
-	name	score
-0	alice	   10
-1	bob 	   29
-2	chris	   -1
+	  name	 score
+	(utf8)	(int8)
+0	alice 	    10
+1	bob   	    29
+2	chris 	    -1
             TABLE
           end
 
@@ -808,10 +843,11 @@ chris,-1
               CSV
             end
             assert_equal(<<-TABLE, Arrow::Table.load(file.path).to_s)
-	name	score
-0	alice	   10
-1	bob 	   29
-2	chris	   -1
+	  name	  score
+	(utf8)	(int64)
+0	alice 	     10
+1	bob   	     29
+2	chris 	     -1
             TABLE
           end
 
@@ -826,10 +862,11 @@ chris\t-1
             file.close
             table = Arrow::Table.load(file.path)
             assert_equal(<<-TABLE, table.to_s)
-	name	score
-0	alice	   10
-1	bob 	   29
-2	chris	   -1
+	  name	  score
+	(utf8)	(int64)
+0	alice 	     10
+1	bob   	     29
+2	chris 	     -1
             TABLE
           end
         end
@@ -881,7 +918,7 @@ chris\t-1
                          output.data.to_s,
                          content_type) do |port|
           input = URI("http://127.0.0.1:#{port}#{path}")
-          loaded_table = Arrow::Table.load(input)
+          loaded_table = Arrow::Table.load(input, schema: @table.schema)
           assert_equal(@table.to_s, loaded_table.to_s)
         end
       end
@@ -962,15 +999,16 @@ chris\t-1
     packed_table = @table.pack
     column_n_chunks = packed_table.columns.collect {|c| c.data.n_chunks}
     assert_equal([[1, 1], <<-TABLE], [column_n_chunks, packed_table.to_s])
-	count	visible
-0	    1	true   
-1	    2	false  
-2	    4	 (null)
-3	    8	true   
-4	   16	true   
-5	   32	false  
-6	   64	 (null)
-7	  128	 (null)
+	  count	visible
+	(uint8)	 (bool)
+0	      1	true   
+1	      2	false  
+2	      4	 (null)
+3	      8	true   
+4	     16	true   
+5	     32	false  
+6	     64	 (null)
+7	    128	 (null)
     TABLE
   end
 
@@ -1009,6 +1047,43 @@ visible:
       test(":list") do
         assert_equal(<<-TABLE, @table.to_s(format: :list))
 ==================== 0 ====================
+count(uint8): 1
+visible(bool): true
+==================== 1 ====================
+count(uint8): 2
+visible(bool): false
+        TABLE
+      end
+
+      test(":table") do
+        assert_equal(<<-TABLE, @table.to_s(format: :table))
+	  count	visible
+	(uint8)	 (bool)
+0	      1	true   
+1	      2	false  
+        TABLE
+      end
+
+      test("invalid") do
+        message = ":format must be :column, :list, :table or nil: <:invalid>"
+        assert_raise(ArgumentError.new(message)) do
+          @table.to_s(format: :invalid)
+        end
+      end
+    end
+
+    sub_test_case(":show_column_type") do
+      def setup
+        columns = {
+          "count" => Arrow::UInt8Array.new([1, 2]),
+          "visible" => Arrow::BooleanArray.new([true, false]),
+        }
+        @table = Arrow::Table.new(columns)
+      end
+
+      test(":list") do
+        assert_equal(<<-TABLE, @table.to_s(format: :list, show_column_type: false))
+==================== 0 ====================
 count: 1
 visible: true
 ==================== 1 ====================
@@ -1018,18 +1093,11 @@ visible: false
       end
 
       test(":table") do
-        assert_equal(<<-TABLE, @table.to_s(format: :table))
+        assert_equal(<<-TABLE, @table.to_s(format: :table, show_column_type: false))
 	count	visible
 0	    1	true   
 1	    2	false  
         TABLE
-      end
-
-      test("invalid") do
-        message = ":format must be :column, :list, :table or nil: <:invalid>"
-        assert_raise(ArgumentError.new(message)) do
-          @table.to_s(format: :invalid)
-        end
       end
     end
 
@@ -1058,13 +1126,14 @@ visible: false
     test("Array: boolean") do
       filter = [nil, true, true, false, true, false, true, true]
       assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
-	 count	visible
-0	(null)	 (null)
-1	     2	false  
-2	     4	 (null)
-3	    16	true   
-4	    64	 (null)
-5	   128	 (null)
+	  count	visible
+	(uint8)	 (bool)
+0	 (null)	 (null)
+1	      2	false  
+2	      4	 (null)
+3	     16	true   
+4	     64	 (null)
+5	    128	 (null)
       TABLE
     end
 
@@ -1072,13 +1141,14 @@ visible: false
       array = [nil, true, true, false, true, false, true, true]
       filter = Arrow::BooleanArray.new(array)
       assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
-	 count	visible
-0	(null)	 (null)
-1	     2	false  
-2	     4	 (null)
-3	    16	true   
-4	    64	 (null)
-5	   128	 (null)
+	  count	visible
+	(uint8)	 (bool)
+0	 (null)	 (null)
+1	      2	false  
+2	      4	 (null)
+3	     16	true   
+4	     64	 (null)
+5	    128	 (null)
       TABLE
     end
 
@@ -1090,13 +1160,14 @@ visible: false
       ]
       filter = Arrow::ChunkedArray.new(filter_chunks)
       assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
-	 count	visible
-0	(null)	 (null)
-1	     2	false  
-2	     4	 (null)
-3	    16	true   
-4	    64	 (null)
-5	   128	 (null)
+	  count	visible
+	(uint8)	 (bool)
+0	 (null)	 (null)
+1	      2	false  
+2	      4	 (null)
+3	     16	true   
+4	     64	 (null)
+5	    128	 (null)
       TABLE
     end
   end
@@ -1105,20 +1176,22 @@ visible: false
     test("Arrow: boolean") do
       indices = [1, 0, 2]
       assert_equal(<<-TABLE, @table.take(indices).to_s)
-	count	visible
-0	    2	false  
-1	    1	true   
-2	    4	 (null)
+	  count	visible
+	(uint8)	 (bool)
+0	      2	false  
+1	      1	true   
+2	      4	 (null)
       TABLE
     end
 
     test("Arrow::Array") do
       indices = Arrow::Int16Array.new([1, 0, 2])
       assert_equal(<<-TABLE, @table.take(indices).to_s)
-	count	visible
-0	    2	false  
-1	    1	true   
-2	    4	 (null)
+	  count	visible
+	(uint8)	 (bool)
+0	      2	false  
+1	      1	true   
+2	      4	 (null)
       TABLE
     end
 
@@ -1129,10 +1202,11 @@ visible: false
       ]
       indices = Arrow::ChunkedArray.new(chunks)
       assert_equal(<<-TABLE, @table.take(indices).to_s)
-	count	visible
-0	    2	false  
-1	    1	true   
-2	    4	 (null)
+	  count	visible
+	(uint8)	 (bool)
+0	      2	false  
+1	      1	true   
+2	      4	 (null)
       TABLE
     end
   end
@@ -1144,9 +1218,10 @@ visible: false
       table2 = Arrow::Table.new(b: [false])
       concatenated = table1.concatenate([table2], unify_schemas: true)
       assert_equal(<<-TABLE, concatenated.to_s)
-	a	b
-0	true	false
-1	(null)	false
+	     a	     b
+	(bool)	(bool)
+0	true  	false 
+1	(null)	false 
       TABLE
     end
   end

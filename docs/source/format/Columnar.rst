@@ -21,9 +21,12 @@
 Arrow Columnar Format
 *********************
 
-*Version: 1.4*
+*Version: 1.5*
 
-The "Arrow Columnar Format" includes a language-agnostic in-memory
+.. seealso:: :ref:`Additions to the Arrow columnar format since version 1.0.0
+   <post-1-0-0-format-versions>`
+
+The **Arrow columnar format** includes a language-agnostic in-memory
 data structure specification, metadata serialization, and a protocol
 for serialization and generic data transport.
 
@@ -67,21 +70,133 @@ concepts, here is a small glossary to help disambiguate.
   without taking into account any value semantics. For example, a
   32-bit signed integer array and 32-bit floating point array have the
   same layout.
-* **Parent** and **child arrays**: names to express relationships
-  between physical value arrays in a nested type structure. For
-  example, a ``List<T>``-type parent array has a T-type array as its
-  child (see more on lists below).
+* **Data type**: An application-facing semantic value type that is
+  implemented using some physical layout. For example, Decimal128
+  values are stored as 16 bytes in a fixed-size binary
+  layout. A timestamp may be stored as 64-bit fixed-size layout.
 * **Primitive type**: a data type having no child types. This includes
   such types as fixed bit-width, variable-size binary, and null types.
 * **Nested type**: a data type whose full structure depends on one or
   more other child types. Two fully-specified nested types are equal
   if and only if their child types are equal. For example, ``List<U>``
   is distinct from ``List<V>`` iff U and V are different types.
-* **Logical type**: An application-facing semantic value type that is
-  implemented using some physical layout. For example, Decimal
-  values are stored as 16 bytes in a fixed-size binary
-  layout. Similarly, strings can be stored as ``List<1-byte>``. A
-  timestamp may be stored as 64-bit fixed-size layout.
+* **Parent** and **child arrays**: names to express relationships
+  between physical value arrays in a nested type structure. For
+  example, a ``List<T>``-type parent array has a T-type array as its
+  child (see more on lists below).
+* **Parametric type**: a type which requires additional parameters
+  for full determination of its semantics. For example, all nested types
+  are parametric by construction. A timestamp is also parametric as it needs
+  a unit (such as microseconds) and a timezone.
+
+.. _data_types:
+
+Data Types
+==========
+
+The file `Schema.fbs`_ defines built-in data types supported by the
+Arrow columnar format. Each data type uses a well-defined physical layout.
+
+`Schema.fbs`_ is the authoritative source for the description of the
+standard Arrow data types. However, we also provide the below table for
+convenience:
+
++--------------------+------------------------------+------------------------------------------------------------+
+| Type               | Type Parameters *(1)*        | Physical Memory Layout                                     |
++====================+==============================+============================================================+
+| Null               |                              | Null                                                       |
++--------------------+------------------------------+------------------------------------------------------------+
+| Boolean            |                              | Fixed-size Primitive                                       |
++--------------------+------------------------------+------------------------------------------------------------+
+| Int                | * bit width                  | *" (same as above)*                                        |
+|                    | * signedness                 |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Floating Point     | * precision                  | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Decimal            | * bit width                  | *"*                                                        |
+|                    | * scale                      |                                                            |
+|                    | * precision                  |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Date               | * unit                       | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Time               | * bit width *(2)*            | *"*                                                        |
+|                    | * unit                       |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Timestamp          | * unit                       | *"*                                                        |
+|                    | * timezone                   |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Interval           | * unit                       | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Duration           | * unit                       | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Fixed-Size Binary  | * byte width                 | Fixed-size Binary                                          |
++--------------------+------------------------------+------------------------------------------------------------+
+| Binary             |                              | Variable-size Binary with 32-bit offsets                   |
++--------------------+------------------------------+------------------------------------------------------------+
+| Utf8               |                              | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Large Binary       |                              | Variable-size Binary with 64-bit offsets                   |
++--------------------+------------------------------+------------------------------------------------------------+
+| Large Utf8         |                              | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Binary View        |                              | Variable-size Binary View                                  |
++--------------------+------------------------------+------------------------------------------------------------+
+| Utf8 View          |                              | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Fixed-Size List    | * *value type*               | Fixed-size List                                            |
+|                    | * list size                  |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| List               | * *value type*               | Variable-size List with 32-bit offsets                     |
++--------------------+------------------------------+------------------------------------------------------------+
+| Large List         | * *value type*               | Variable-size List with 64-bit offsets                     |
++--------------------+------------------------------+------------------------------------------------------------+
+| List View          | * *value type*               | Variable-size List View with 32-bit offsets and sizes      |
++--------------------+------------------------------+------------------------------------------------------------+
+| Large List View    | * *value type*               | Variable-size List View with 64-bit offsets and sizes      |
++--------------------+------------------------------+------------------------------------------------------------+
+| Struct             | * *children*                 | Struct                                                     |
++--------------------+------------------------------+------------------------------------------------------------+
+| Map                | * *children*                 | Variable-size List of Structs                              |
+|                    | * keys sortedness            |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Union              | * *children*                 | Dense or Sparse Union *(3)*                                |
+|                    | * mode                       |                                                            |
+|                    | * type ids                   |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Dictionary         | * *index type* *(4)*         | Dictionary Encoded                                         |
+|                    | * *value type*               |                                                            |
+|                    | * orderedness                |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Run-End Encoded    | * *run end type* *(5)*       | Run-End Encoded                                            |
+|                    | * *value type*               |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+
+* \(1) Type parameters listed in *italics* denote a data type's child types.
+
+* \(2) The *bit width* parameter of a Time type is technically redundant as
+  each *unit* mandates a single bit width.
+
+* \(3) Whether a Union type uses the Sparse or Dense layout is denoted by its
+  *mode* parameter.
+
+* \(4) The *index type* of a Dictionary type can only be an integer type,
+  preferably signed, with width 8 to 64 bits.
+
+* \(5) The *run end type* of a Run-End Encoded type can only be a signed integer type
+  with width 16 to 64 bits.
+
+.. note::
+   Sometimes the term "logical type" is used to denote the Arrow data types
+   and distinguish them from their respective physical layouts. However,
+   unlike other type systems such as `Apache Parquet <https://parquet.apache.org/>`__'s,
+   the Arrow type system doesn't have separate notions of physical types and
+   logical types.
+
+   The Arrow type system separately provides
+   :ref:`extension types <format_metadata_extension_types>`, which allow
+   annotating standard Arrow data types with richer application-facing semantics
+   (for example defining a "JSON" type laid upon the standard String data type).
+
 
 .. _format_layout:
 
@@ -90,7 +205,7 @@ Physical Memory Layout
 
 Arrays are defined by a few pieces of metadata and data:
 
-* A logical data type.
+* A data type.
 * A sequence of buffers.
 * A length as a 64-bit signed integer. Implementations are permitted
   to be limited to 32-bit lengths, see more on this below.
@@ -100,8 +215,8 @@ Arrays are defined by a few pieces of metadata and data:
 Nested arrays additionally have a sequence of one or more sets of
 these items, called the **child arrays**.
 
-Each logical data type has a well-defined physical layout. Here are
-the different physical layouts defined by Arrow:
+Each data type has a well-defined physical layout. Here are the different
+physical layouts defined by Arrow:
 
 * **Primitive (fixed-size)**: a sequence of values each having the
   same byte or bit width
@@ -135,7 +250,7 @@ the different physical layouts defined by Arrow:
 * **Run-End Encoded (REE)**: a nested layout consisting of two child arrays,
   one representing values, and one representing the logical index where
   the run of a corresponding value ends.
-* **Null**: a sequence of all null values, having null logical type
+* **Null**: a sequence of all null values.
 
 The Arrow columnar memory layout only applies to *data* and not
 *metadata*. Implementations are free to represent metadata in-memory
@@ -309,8 +424,8 @@ Each value in this layout consists of 0 or more bytes. While primitive
 arrays have a single values buffer, variable-size binary have an
 **offsets** buffer and **data** buffer.
 
-The offsets buffer contains `length + 1` signed integers (either
-32-bit or 64-bit, depending on the logical type), which encode the
+The offsets buffer contains ``length + 1`` signed integers (either
+32-bit or 64-bit, depending on the data type), which encode the
 start position of each slot in the data buffer. The length of the
 value in each slot is computed using the difference between the offset
 at that slot's index and the subsequent offset. For example, the
@@ -359,6 +474,8 @@ will be represented as follows: ::
     |----------------|-----------------------|
     | joemark        | unspecified (padding) |
 
+.. _variable-size-binary-view-layout:
+
 Variable-size Binary View Layout
 --------------------------------
 
@@ -369,7 +486,7 @@ locations are indicated using a **views** buffer, which may point to one
 of potentially several **data** buffers or may contain the characters
 inline.
 
-The views buffer contains `length` view structures with the following layout:
+The views buffer contains ``length`` view structures with the following layout:
 
 ::
 
@@ -388,7 +505,8 @@ length of the string and can be used to determine how the rest of the view
 should be interpreted.
 
 In the short string case the string's bytes are inlined — stored inside the
-view itself, in the twelve bytes which follow the length.
+view itself, in the twelve bytes which follow the length. Any remaining bytes
+after the string itself are padded with ``0``.
 
 In the long string case, a buffer index indicates which data buffer
 stores the data bytes and an offset indicates where in that buffer the
@@ -403,6 +521,9 @@ within the first four bytes.
 All integers (length, buffer index, and offset) are signed.
 
 This layout is adapted from TU Munich's `UmbraDB`_.
+
+Note that this layout uses one additional buffer to store the variadic buffer
+lengths in the :ref:`Arrow C data interface <c-data-interface-binary-view-arrays>`.
 
 .. _variable-size-list-layout:
 
@@ -499,8 +620,12 @@ will be represented as follows: ::
           |-------------------------------|-----------------------|
           | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 | unspecified (padding) |
 
+.. _listview-layout:
+
 ListView Layout
 ~~~~~~~~~~~~~~~
+
+.. versionadded:: Arrow Columnar Format 1.4
 
 The ListView layout is defined by three buffers: a validity bitmap, an offsets
 buffer, and an additional sizes buffer. Sizes and offsets have the identical bit
@@ -957,6 +1082,8 @@ below.
 Run-End Encoded Layout
 ----------------------
 
+.. versionadded:: Arrow Columnar Format 1.3
+
 Run-end encoding (REE) is a variation of run-length encoding (RLE). These
 encodings are well-suited for representing data containing sequences of the
 same value, called runs. In run-end encoding, each run is represented as a
@@ -1047,6 +1174,7 @@ of memory buffers for each layout.
    "Variable Binary",validity,offsets,data,
    "Variable Binary View",validity,views,,data
    "List",validity,offsets,,
+   "List View",validity,offsets,sizes,
    "Fixed-size List",validity,,,
    "Struct",validity,,,
    "Sparse Union",type ids,,,
@@ -1054,17 +1182,6 @@ of memory buffers for each layout.
    "Null",,,,
    "Dictionary-encoded",validity,data (indices),,
    "Run-end encoded",,,,
-
-Logical Types
-=============
-
-The `Schema.fbs`_ defines built-in logical types supported by the
-Arrow columnar format. Each logical type uses one of the above
-physical layouts. Nested logical types may have different physical
-layouts depending on the particular realization of the type.
-
-We do not go into detail about the logical types definitions in this
-document as we consider `Schema.fbs`_ to be authoritative.
 
 .. _format-ipc:
 
@@ -1092,6 +1209,8 @@ We specify a so-called *encapsulated IPC message* format which
 includes a serialized Flatbuffer type along with an optional message
 body. We define this message format before describing how to serialize
 each constituent IPC message type.
+
+.. _ipc-message-format:
 
 Encapsulated message format
 ---------------------------
@@ -1143,17 +1262,16 @@ Schema message
 --------------
 
 The Flatbuffers files `Schema.fbs`_ contains the definitions for all
-built-in logical data types and the ``Schema`` metadata type which
-represents the schema of a given record batch. A schema consists of
-an ordered sequence of fields, each having a name and type. A
-serialized ``Schema`` does not contain any data buffers, only type
-metadata.
+built-in data types and the ``Schema`` metadata type which represents
+the schema of a given record batch. A schema consists of an ordered
+sequence of fields, each having a name and type. A serialized ``Schema``
+does not contain any data buffers, only type metadata.
 
 The ``Field`` Flatbuffers type contains the metadata for a single
 array. This includes:
 
 * The field's name
-* The field's logical type
+* The field's data type
 * Whether the field is semantically nullable. While this has no
   bearing on the array's physical layout, many systems distinguish
   nullable and non-nullable fields and we want to allow them to
@@ -1167,6 +1285,8 @@ array. This includes:
 We additionally provide both schema-level and field-level
 ``custom_metadata`` attributes allowing for systems to insert their
 own application defined metadata to customize behavior.
+
+.. _ipc-recordbatch-message:
 
 RecordBatch message
 -------------------
@@ -1232,8 +1352,12 @@ bytes. Since this metadata can be used to communicate in-memory pointer
 addresses between libraries, it is recommended to set ``size`` to the actual
 memory size rather than the padded size.
 
+.. _variadic-buffers:
+
 Variadic buffers
 ----------------
+
+.. versionadded:: Arrow Columnar Format 1.4
 
 Some types such as Utf8View are represented using a variable number of buffers.
 For each such Field in the pre-ordered flattened logical schema, there will be
@@ -1264,6 +1388,65 @@ have two entries in each RecordBatch. For a RecordBatch of this schema with
     buffer 12: col2    data
     buffer 13: col2    data
 
+
+Compression
+-----------
+
+There are three different options for compression of record batch
+body buffers: Buffers can be uncompressed, buffers can be
+compressed with the ``lz4`` compression codec, or buffers can be
+compressed with the ``zstd`` compression codec. Buffers in the
+flat sequence of a message body must be compressed separately using
+the same codec. Specific buffers in the sequence of compressed
+buffers may be left uncompressed (for example if compressing those
+specific buffers would not appreciably reduce their size).
+
+The compression type used is defined in the ``data header``
+of the :ref:`ipc-recordbatch-message` in the optional ``compression``
+field with the default being uncompressed.
+
+.. note::
+
+   ``lz4`` compression codec means the
+   `LZ4 frame format <https://github.com/lz4/lz4/blob/dev/doc/lz4_Frame_format.md>`_
+   and should not to be confused with
+   `"raw" (also called "block") format <https://github.com/lz4/lz4/blob/dev/doc/lz4_Block_format.md>`_.
+
+The difference between compressed and uncompressed buffers in the
+serialized form is as follows:
+
+* If the buffers in the :ref:`ipc-recordbatch-message` are **compressed**
+
+  - the ``data header`` includes the length and memory offset
+    of each **compressed buffer** in the record batch's body together
+    with the compression type
+
+  - the ``body`` includes a flat sequence of **compressed buffers**
+    together with the **length of the uncompressed buffer** as a 64-bit
+    little-endian signed integer stored in the first 8 bytes of each
+    buffer in the sequence. This uncompressed length can be set to ``-1`` to indicate
+    that that specific buffer is left uncompressed.
+
+* If the buffers in the :ref:`ipc-recordbatch-message` are **uncompressed**
+
+  - the ``data header`` includes the length and memory offset
+    of each **uncompressed buffer** in the record batch's body
+
+  - the ``body`` includes a flat sequence of **uncompressed buffers**.
+
+.. note::
+
+   Some Arrow implementations lack support for producing and consuming
+   IPC data with compressed buffers using one or either of the codecs
+   listed above. See :doc:`../status` for details.
+
+   Some applications might apply compression in the protocol they use
+   to store or transport Arrow IPC data. (For example, an HTTP server
+   might serve gzip-compressed Arrow IPC streams.) Applications that
+   already use compression in their storage or transport protocols
+   should avoid using buffer compression. Double compression typically
+   worsens performance and does not substantially improve compression
+   ratios.
 
 Byte Order (`Endianness`_)
 ---------------------------
@@ -1436,6 +1619,7 @@ example as above, an alternate encoding could be: ::
     0
     EOS
 
+.. _format_metadata:
 
 Custom Application Metadata
 ---------------------------
@@ -1476,12 +1660,12 @@ structure. These extension keys are:
    they should not be used for third-party extension types.
 
 This extension metadata can annotate any of the built-in Arrow logical
-types. The intent is that an implementation that does not support an
-extension type can still handle the underlying data. For example a
-16-byte UUID value could be embedded in ``FixedSizeBinary(16)``, and
-implementations that do not have this extension type can still work
-with the underlying binary values and pass along the
-``custom_metadata`` in subsequent Arrow protocol messages.
+types. For example, Arrow specifies a canonical extension type that
+represents a UUID as a ``FixedSizeBinary(16)``. Arrow implementations are
+not required to support canonical extensions, so an implementation that
+does not support this UUID type will simply interpret it as a
+``FixedSizeBinary(16)`` and pass along the ``custom_metadata`` in
+subsequent Arrow protocol messages.
 
 Extension types may or may not use the
 ``'ARROW:extension:metadata'`` field. Let's consider some example
@@ -1536,8 +1720,8 @@ the Arrow spec.
 .. _Message.fbs: https://github.com/apache/arrow/blob/main/format/Message.fbs
 .. _File.fbs: https://github.com/apache/arrow/blob/main/format/File.fbs
 .. _least-significant bit (LSB) numbering: https://en.wikipedia.org/wiki/Bit_numbering
-.. _Intel performance guide: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
+.. _Intel performance guide: https://web.archive.org/web/20151101074635/https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
-.. _SIMD: https://software.intel.com/en-us/cpp-compiler-developer-guide-and-reference-introduction-to-the-simd-data-layout-templates
+.. _SIMD: https://www.intel.com/content/www/us/en/docs/cpp-compiler/developer-guide-reference/2021-8/simd-data-layout-templates.html
 .. _Parquet: https://parquet.apache.org/docs/
 .. _UmbraDB: https://db.in.tum.de/~freitag/papers/p29-neumann-cidr20.pdf

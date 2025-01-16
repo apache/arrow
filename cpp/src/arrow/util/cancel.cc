@@ -33,7 +33,7 @@
 namespace arrow {
 
 #if ATOMIC_INT_LOCK_FREE != 2
-#error Lock-free atomic int required for signal safety
+#  error Lock-free atomic int required for signal safety
 #endif
 
 using internal::AtForkHandler;
@@ -50,7 +50,7 @@ struct StopSourceImpl {
   Status cancel_error_;
 };
 
-StopSource::StopSource() : impl_(new StopSourceImpl) {}
+StopSource::StopSource() : impl_(std::make_shared<StopSourceImpl>()) {}
 
 StopSource::~StopSource() = default;
 

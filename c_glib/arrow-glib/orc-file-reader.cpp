@@ -36,7 +36,8 @@ G_BEGIN_DECLS
  * format from input.
  */
 
-typedef struct GArrowORCFileReaderPrivate_ {
+typedef struct GArrowORCFileReaderPrivate_
+{
   GArrowSeekableInputStream *input;
   arrow::adapters::orc::ORCFileReader *orc_file_reader;
   GArray *field_indices;
@@ -48,14 +49,11 @@ enum {
   PROP_ORC_FILE_READER
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowORCFileReader,
-                           garrow_orc_file_reader,
-                           G_TYPE_OBJECT);
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowORCFileReader, garrow_orc_file_reader, G_TYPE_OBJECT);
 
-#define GARROW_ORC_FILE_READER_GET_PRIVATE(obj)         \
-  static_cast<GArrowORCFileReaderPrivate *>(            \
-     garrow_orc_file_reader_get_instance_private(       \
-       GARROW_ORC_FILE_READER(obj)))
+#define GARROW_ORC_FILE_READER_GET_PRIVATE(obj)                                          \
+  static_cast<GArrowORCFileReaderPrivate *>(                                             \
+    garrow_orc_file_reader_get_instance_private(GARROW_ORC_FILE_READER(obj)))
 
 static void
 garrow_orc_file_reader_dispose(GObject *object)
@@ -134,28 +132,27 @@ garrow_orc_file_reader_class_init(GArrowORCFileReaderClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_orc_file_reader_dispose;
-  gobject_class->finalize     = garrow_orc_file_reader_finalize;
+  gobject_class->dispose = garrow_orc_file_reader_dispose;
+  gobject_class->finalize = garrow_orc_file_reader_finalize;
   gobject_class->set_property = garrow_orc_file_reader_set_property;
   gobject_class->get_property = garrow_orc_file_reader_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("input",
-                             "Input",
-                             "The input stream",
-                             GARROW_TYPE_SEEKABLE_INPUT_STREAM,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "input",
+    "Input",
+    "The input stream",
+    GARROW_TYPE_SEEKABLE_INPUT_STREAM,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_INPUT, spec);
 
-  spec = g_param_spec_pointer("orc-file-reader",
-                              "arrow::adapters::orc::ORCFileReader",
-                              "The raw arrow::adapters::orc::ORCFileReader *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "orc-file-reader",
+    "arrow::adapters::orc::ORCFileReader",
+    "The raw arrow::adapters::orc::ORCFileReader *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ORC_FILE_READER, spec);
 }
-
 
 /**
  * garrow_orc_file_reader_new:
@@ -168,17 +165,14 @@ garrow_orc_file_reader_class_init(GArrowORCFileReaderClass *klass)
  * Since: 0.10.0
  */
 GArrowORCFileReader *
-garrow_orc_file_reader_new(GArrowSeekableInputStream *input,
-                           GError **error)
+garrow_orc_file_reader_new(GArrowSeekableInputStream *input, GError **error)
 {
   auto arrow_random_access_file = garrow_seekable_input_stream_get_raw(input);
   auto pool = arrow::default_memory_pool();
   auto arrow_reader_result =
-    arrow::adapters::orc::ORCFileReader::Open(arrow_random_access_file,
-                                              pool);
+    arrow::adapters::orc::ORCFileReader::Open(arrow_random_access_file, pool);
   if (garrow::check(error, arrow_reader_result, "[orc-file-reader][new]")) {
-    return garrow_orc_file_reader_new_raw(input,
-                                          (*arrow_reader_result).release());
+    return garrow_orc_file_reader_new_raw(input, (*arrow_reader_result).release());
   } else {
     return NULL;
   }
@@ -201,9 +195,7 @@ garrow_orc_file_reader_set_field_indexes(GArrowORCFileReader *reader,
                                          const gint *field_indexes,
                                          guint n_field_indexes)
 {
-  garrow_orc_file_reader_set_field_indices(reader,
-                                           field_indexes,
-                                           n_field_indexes);
+  garrow_orc_file_reader_set_field_indices(reader, field_indexes, n_field_indexes);
 }
 
 /**
@@ -227,10 +219,7 @@ garrow_orc_file_reader_set_field_indices(GArrowORCFileReader *reader,
   if (n_field_indices == 0) {
     priv->field_indices = NULL;
   } else {
-    priv->field_indices = g_array_sized_new(FALSE,
-                                            FALSE,
-                                            sizeof(gint),
-                                            n_field_indices);
+    priv->field_indices = g_array_sized_new(FALSE, FALSE, sizeof(gint), n_field_indices);
     g_array_append_vals(priv->field_indices, field_indices, n_field_indices);
   }
 }
@@ -290,14 +279,11 @@ garrow_orc_file_reader_get_field_indices(GArrowORCFileReader *reader,
  * Since: 0.10.0
  */
 GArrowSchema *
-garrow_orc_file_reader_read_type(GArrowORCFileReader *reader,
-                                 GError **error)
+garrow_orc_file_reader_read_type(GArrowORCFileReader *reader, GError **error)
 {
   auto arrow_reader = garrow_orc_file_reader_get_raw(reader);
   auto arrow_schema_result = arrow_reader->ReadSchema();
-  if (garrow::check(error,
-                    arrow_schema_result,
-                    "[orc-file-reader][read-type]")) {
+  if (garrow::check(error, arrow_schema_result, "[orc-file-reader][read-type]")) {
     auto arrow_schema = *arrow_schema_result;
     return garrow_schema_new_raw(&arrow_schema);
   } else {
@@ -316,8 +302,7 @@ garrow_orc_file_reader_read_type(GArrowORCFileReader *reader,
  * Since: 0.10.0
  */
 GArrowTable *
-garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader,
-                                    GError **error)
+garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader, GError **error)
 {
   auto arrow_reader = garrow_orc_file_reader_get_raw(reader);
   auto priv = GARROW_ORC_FILE_READER_GET_PRIVATE(reader);
@@ -328,9 +313,7 @@ garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader,
       arrow_field_indices.push_back(g_array_index(field_indices, gint, i));
     }
     auto arrow_table_result = arrow_reader->Read(arrow_field_indices);
-    if (garrow::check(error,
-                      arrow_table_result,
-                      "[orc-file-reader][read-stripes]")) {
+    if (garrow::check(error, arrow_table_result, "[orc-file-reader][read-stripes]")) {
       auto arrow_table = *arrow_table_result;
       return garrow_table_new_raw(&arrow_table);
     } else {
@@ -338,9 +321,7 @@ garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader,
     }
   } else {
     auto arrow_table_result = arrow_reader->Read();
-    if (garrow::check(error,
-                      arrow_table_result,
-                      "[orc-file-reader][read-stripes]")) {
+    if (garrow::check(error, arrow_table_result, "[orc-file-reader][read-stripes]")) {
       auto arrow_table = *arrow_table_result;
       return garrow_table_new_raw(&arrow_table);
     } else {
@@ -361,9 +342,7 @@ garrow_orc_file_reader_read_stripes(GArrowORCFileReader *reader,
  * Since: 0.10.0
  */
 GArrowRecordBatch *
-garrow_orc_file_reader_read_stripe(GArrowORCFileReader *reader,
-                                   gint64 i,
-                                   GError **error)
+garrow_orc_file_reader_read_stripe(GArrowORCFileReader *reader, gint64 i, GError **error)
 {
   auto arrow_reader = garrow_orc_file_reader_get_raw(reader);
   if (i < 0) {
@@ -377,8 +356,7 @@ garrow_orc_file_reader_read_stripe(GArrowORCFileReader *reader,
       arrow_field_indices.push_back(g_array_index(field_indices, gint, j));
     }
     std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
-    auto arrow_record_batch_result =
-      arrow_reader->ReadStripe(i, arrow_field_indices);
+    auto arrow_record_batch_result = arrow_reader->ReadStripe(i, arrow_field_indices);
     if (garrow::check(error,
                       arrow_record_batch_result,
                       "[orc-file-reader][read-stripe]")) {
@@ -430,19 +408,18 @@ garrow_orc_file_reader_get_n_rows(GArrowORCFileReader *reader)
   return arrow_reader->NumberOfRows();
 }
 
-
 G_END_DECLS
-
 
 GArrowORCFileReader *
 garrow_orc_file_reader_new_raw(GArrowSeekableInputStream *input,
                                arrow::adapters::orc::ORCFileReader *arrow_reader)
 {
-  auto reader =
-    GARROW_ORC_FILE_READER(g_object_new(GARROW_TYPE_ORC_FILE_READER,
-                                        "input", input,
-                                        "orc-file-reader", arrow_reader,
-                                        NULL));
+  auto reader = GARROW_ORC_FILE_READER(g_object_new(GARROW_TYPE_ORC_FILE_READER,
+                                                    "input",
+                                                    input,
+                                                    "orc-file-reader",
+                                                    arrow_reader,
+                                                    NULL));
   return reader;
 }
 

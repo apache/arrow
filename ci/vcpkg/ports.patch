@@ -1,43 +1,57 @@
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index 5a14562..924b1b7 100644
+index 7cab6f726..697ab1bb4 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -87,8 +87,11 @@ vcpkg_cmake_configure(
-         -DENABLE_MANUAL=OFF
+@@ -84,9 +84,12 @@ vcpkg_cmake_configure(
+         -DBUILD_TESTING=OFF
+         -DENABLE_CURL_MANUAL=OFF
          -DCURL_CA_FALLBACK=ON
-         -DCURL_USE_LIBPSL=OFF
 +        -DCURL_CA_PATH=none
 +        -DCURL_CA_BUNDLE=none
+         -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
      OPTIONS_DEBUG
          -DENABLE_DEBUG=ON
 +        ${EXTRA_ARGS_DEBUG}
  )
  vcpkg_cmake_install()
  vcpkg_copy_pdbs()
+diff --git a/ports/llvm/portfile.cmake b/ports/llvm/portfile.cmake
+index a79c72a59..6b7fa6a66 100644
+--- a/ports/llvm/portfile.cmake
++++ b/ports/llvm/portfile.cmake
+@@ -292,6 +292,8 @@ vcpkg_cmake_configure(
+         ${FEATURE_OPTIONS}
+     MAYBE_UNUSED_VARIABLES 
+         COMPILER_RT_ENABLE_IOS
++        BOLT_TOOLS_INSTALL_DIR
++        LIBOMP_INSTALL_ALIASES
+ )
+ 
+ vcpkg_cmake_install(ADD_BIN_TO_PATH)
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 8f3f3f9..745b0fb 100644
+index 0c7098082..c603c3653 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
-@@ -9,6 +9,7 @@ vcpkg_from_github(
-     HEAD_REF master
+@@ -10,6 +10,7 @@ vcpkg_from_github(
      PATCHES
          fix_clang-cl_build.patch
+         no-werror.patch
 +        "snappy-disable-bmi.patch"
  )
  
  vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 0000000..a57ce0c
+index 000000000..e839c93a4
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
 @@ -0,0 +1,19 @@
 +diff --git a/snappy.cc b/snappy.cc
-+index 79dc0e8..f3153ea 100644
++index d414718..7b49d2a 100644
 +--- a/snappy.cc
 ++++ b/snappy.cc
-+@@ -965,14 +965,10 @@ static inline void Report(const char *algorithm, size_t compressed_size,
-+ static inline uint32_t ExtractLowBytes(uint32_t v, int n) {
++@@ -1014,14 +1014,10 @@ static inline void Report(const char *algorithm, size_t compressed_size,
++ static inline uint32_t ExtractLowBytes(const uint32_t& v, int n) {
 +   assert(n >= 0);
 +   assert(n <= 4);
 +-#if SNAPPY_HAVE_BMI2
@@ -51,16 +65,56 @@ index 0000000..a57ce0c
 + }
 + 
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
-diff --git a/ports/llvm/portfile.cmake b/ports/llvm/portfile.cmake
-index 4d7e26a..1f054a2 100644
---- a/ports/llvm/portfile.cmake
-+++ b/ports/llvm/portfile.cmake
-@@ -274,6 +274,8 @@ vcpkg_cmake_configure(
-         COMPILER_RT_ENABLE_IOS
-         OPENMP_TOOLS_INSTALL_DIR
-         MLIR_TOOLS_INSTALL_DIR
-+        BOLT_TOOLS_INSTALL_DIR
-+        LIBOMP_INSTALL_ALIASES
- )
- 
- vcpkg_cmake_install(ADD_BIN_TO_PATH)
+diff --git a/ports/thrift/portfile.cmake b/ports/thrift/portfile.cmake
+index 1501782..71d2147 100644
+--- a/ports/thrift/portfile.cmake
++++ b/ports/thrift/portfile.cmake
+@@ -12,7 +12,7 @@ vcpkg_find_acquire_program(BISON)
+ vcpkg_from_github(
+     OUT_SOURCE_PATH SOURCE_PATH
+     REPO apache/thrift
+-    REF "${VERSION}"
++    REF "v${VERSION}"
+     SHA512 5e4ee9870b30fe5ba484d39781c435716f7f3903793dc8aae96594ca813b1a5a73363b84719038ca8fa3ab8ef0a419a28410d936ff7b3bbadf36fc085a6883ae
+     HEAD_REF master
+     PATCHES
+diff --git a/ports/thrift/vcpkg.json b/ports/thrift/vcpkg.json
+index 2d5a854..9ff49ec 100644
+--- a/ports/thrift/vcpkg.json
++++ b/ports/thrift/vcpkg.json
+@@ -1,6 +1,7 @@
+ {
+   "name": "thrift",
+   "version": "0.20.0",
++  "port-version": 1,
+   "description": "Apache Thrift is a software project spanning a variety of programming languages and use cases. Our goal is to make reliable, performant communication and data serialization across languages as efficient and seamless as possible.",
+   "homepage": "https://github.com/apache/thrift",
+   "license": "Apache-2.0",
+diff --git a/versions/baseline.json b/versions/baseline.json
+index c6ce736..9ad1d63 100644
+--- a/versions/baseline.json
++++ b/versions/baseline.json
+@@ -8622,7 +8622,7 @@
+     },
+     "thrift": {
+       "baseline": "0.20.0",
+-      "port-version": 0
++      "port-version": 1
+     },
+     "tidy-html5": {
+       "baseline": "5.8.0",
+diff --git a/versions/t-/thrift.json b/versions/t-/thrift.json
+index 3db38c5..7464bde 100644
+--- a/versions/t-/thrift.json
++++ b/versions/t-/thrift.json
+@@ -1,5 +1,10 @@
+ {
+   "versions": [
++    {
++      "git-tree": "13757a6b05741cf3c9c39e3a1dcc5e5cd685e025",
++      "version": "0.20.0",
++      "port-version": 1
++    },
+     {
+       "git-tree": "6855be1ce96497811d4eb0a9879baf6cf1b3610c",
+       "version": "0.20.0",

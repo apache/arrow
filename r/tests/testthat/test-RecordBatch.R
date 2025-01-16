@@ -42,7 +42,7 @@ test_that("RecordBatch", {
   expect_equal(batch$column_name(2), "lgl")
   expect_equal(batch$column_name(3), "chr")
   expect_equal(batch$column_name(4), "fct")
-  expect_equal(names(batch), c("int", "dbl", "lgl", "chr", "fct"))
+  expect_named(batch, c("int", "dbl", "lgl", "chr", "fct"))
 
   # input validation
   expect_error(batch$column_name(NA), "'i' cannot be NA")
@@ -497,9 +497,9 @@ test_that("RecordBatch$Equals(check_metadata)", {
 
 test_that("RecordBatch name assignment", {
   rb <- record_batch(x = 1:10, y = 1:10)
-  expect_identical(names(rb), c("x", "y"))
+  expect_named(rb, c("x", "y"))
   names(rb) <- c("a", "b")
-  expect_identical(names(rb), c("a", "b"))
+  expect_named(rb, c("a", "b"))
   expect_error(names(rb) <- "f")
   expect_error(names(rb) <- letters)
   expect_error(names(rb) <- character(0))
@@ -595,14 +595,10 @@ test_that("RecordBatch supports cbind", {
   )
 
   # Rejects Table and ChunkedArray arguments
-  if (getRversion() >= "4.0.0") {
-    # R 3.6 cbind dispatch rules cause cbind to fall back to default impl if
-    # there are multiple arguments with distinct cbind implementations
-    expect_error(
-      cbind(record_batch(a = 1:2), arrow_table(b = 3:4)),
-      regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
-    )
-  }
+  expect_error(
+    cbind(record_batch(a = 1:2), arrow_table(b = 3:4)),
+    regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
+  )
   expect_error(
     cbind(record_batch(a = 1:2), b = chunked_array(1, 2)),
     regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
@@ -622,10 +618,6 @@ test_that("Handling string data with embedded nuls", {
   batch_with_nul <- record_batch(a = 1:5, b = raws)
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
 
-  # The behavior of the warnings/errors is slightly different with and without
-  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
-  # on `as.vector()` where as with it, the error only happens on materialization)
-  skip_on_r_older_than("3.6")
   df <- as.data.frame(batch_with_nul)
 
   expect_error(

@@ -31,23 +31,18 @@ namespace Apache.Arrow.Tests
 {
     public class CDataSchemaPythonTest : IClassFixture<CDataSchemaPythonTest.PythonNet>
     {
-        class PythonNet : IDisposable
+        public class PythonNet : IDisposable
         {
+            public bool Initialized { get; }
+
             public PythonNet()
             {
-                bool inCIJob = Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
-                bool inVerificationJob = Environment.GetEnvironmentVariable("TEST_CSHARP") == "1";
                 bool pythonSet = Environment.GetEnvironmentVariable("PYTHONNET_PYDLL") != null;
-                // We only skip if this is not in CI
-                if (inCIJob && !inVerificationJob && !pythonSet)
+                if (!pythonSet)
                 {
-                    throw new Exception("PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
+                    Initialized = false;
+                    return;
                 }
-                else
-                {
-                    Skip.If(!pythonSet, "PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
-                }
-
 
                 PythonEngine.Initialize();
 
@@ -57,11 +52,28 @@ namespace Apache.Arrow.Tests
                     dynamic sys = Py.Import("sys");
                     sys.path.append(Path.Combine(Path.GetDirectoryName(Environment.GetEnvironmentVariable("PYTHONNET_PYDLL")), "DLLs"));
                 }
+
+                Initialized = true;
             }
 
             public void Dispose()
             {
                 PythonEngine.Shutdown();
+            }
+        }
+
+        public CDataSchemaPythonTest(PythonNet pythonNet)
+        {
+            if (!pythonNet.Initialized)
+            {
+                bool inCIJob = Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
+                bool inVerificationJob = Environment.GetEnvironmentVariable("TEST_CSHARP") == "1";
+
+                // Skip these tests if this is not in CI or is a verification job and PythonNet couldn't be initialized
+                Skip.If(inVerificationJob || !inCIJob, "PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
+
+                // Otherwise throw
+                throw new Exception("PYTHONNET_PYDLL not set; cannot run C Data Interface tests.");
             }
         }
 
@@ -742,12 +754,55 @@ namespace Apache.Arrow.Tests
         public unsafe void RoundTripTestBatch()
         {
             // TODO: Enable these once this the version of pyarrow referenced during testing supports them
-            HashSet<ArrowTypeId> unsupported = new HashSet<ArrowTypeId> { ArrowTypeId.ListView, ArrowTypeId.BinaryView, ArrowTypeId.StringView };
+            HashSet<ArrowTypeId> unsupported = new HashSet<ArrowTypeId> { ArrowTypeId.ListView, ArrowTypeId.BinaryView, ArrowTypeId.StringView, ArrowTypeId.Decimal32, ArrowTypeId.Decimal64 };
             RecordBatch batch1 = TestData.CreateSampleRecordBatch(4, excludedTypes: unsupported);
             RecordBatch batch2 = batch1.Clone();
 
             CArrowArray* cExportArray = CArrowArray.Create();
             CArrowArrayExporter.ExportRecordBatch(batch1, cExportArray);
+
+            CArrowSchema* cExportSchema = CArrowSchema.Create();
+            CArrowSchemaExporter.ExportSchema(batch1.Schema, cExportSchema);
+
+            CArrowArray* cImportArray = CArrowArray.Create();
+            CArrowSchema* cImportSchema = CArrowSchema.Create();
+
+            // For Python, we need to provide the pointers
+            long exportArrayPtr = ((IntPtr)cExportArray).ToInt64();
+            long exportSchemaPtr = ((IntPtr)cExportSchema).ToInt64();
+            long importArrayPtr = ((IntPtr)cImportArray).ToInt64();
+            long importSchemaPtr = ((IntPtr)cImportSchema).ToInt64();
+
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic exportedPyArray = pa.RecordBatch._import_from_c(exportArrayPtr, exportSchemaPtr);
+                exportedPyArray._export_to_c(importArrayPtr, importSchemaPtr);
+            }
+
+            Schema schema = CArrowSchemaImporter.ImportSchema(cImportSchema);
+            RecordBatch importedBatch = CArrowArrayImporter.ImportRecordBatch(cImportArray, schema);
+
+            ArrowReaderVerifier.CompareBatches(batch2, importedBatch, strictCompare: false); // Non-strict because span lengths won't match.
+
+            // Since we allocated, we are responsible for freeing the pointer.
+            CArrowArray.Free(cExportArray);
+            CArrowSchema.Free(cExportSchema);
+            CArrowArray.Free(cImportArray);
+            CArrowSchema.Free(cImportSchema);
+        }
+
+        [SkippableFact]
+        public unsafe void RoundTripTestSlicedBatch()
+        {
+            // TODO: Enable these once this the version of pyarrow referenced during testing supports them
+            HashSet<ArrowTypeId> unsupported = new HashSet<ArrowTypeId> { ArrowTypeId.ListView, ArrowTypeId.BinaryView, ArrowTypeId.StringView, ArrowTypeId.Decimal32, ArrowTypeId.Decimal64 };
+            RecordBatch batch1 = TestData.CreateSampleRecordBatch(4, excludedTypes: unsupported);
+            RecordBatch batch1slice = batch1.Slice(1, 2);
+            RecordBatch batch2 = batch1slice.Clone();
+
+            CArrowArray* cExportArray = CArrowArray.Create();
+            CArrowArrayExporter.ExportRecordBatch(batch1slice, cExportArray);
 
             CArrowSchema* cExportSchema = CArrowSchema.Create();
             CArrowSchemaExporter.ExportSchema(batch1.Schema, cExportSchema);

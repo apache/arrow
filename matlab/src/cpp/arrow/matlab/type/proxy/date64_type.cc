@@ -19,13 +19,15 @@
 
 namespace arrow::matlab::type::proxy {
 
-    Date64Type::Date64Type(std::shared_ptr<arrow::Date64Type> date64_type) : DateType(std::move(date64_type)) {}
+Date64Type::Date64Type(std::shared_ptr<arrow::Date64Type> date64_type)
+    : DateType(std::move(date64_type)) {}
 
-    libmexclass::proxy::MakeResult Date64Type::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-        using Date64TypeProxy = arrow::matlab::type::proxy::Date64Type;
+libmexclass::proxy::MakeResult Date64Type::make(
+    const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+  using Date64TypeProxy = arrow::matlab::type::proxy::Date64Type;
 
-        const auto type = arrow::date64();
-        const auto date64_type = std::static_pointer_cast<arrow::Date64Type>(type);
-        return std::make_shared<Date64TypeProxy>(std::move(date64_type));
-    }
+  const auto type = arrow::date64();
+  const auto date64_type = std::static_pointer_cast<arrow::Date64Type>(type);
+  return std::make_shared<Date64TypeProxy>(std::move(date64_type));
 }
+}  // namespace arrow::matlab::type::proxy

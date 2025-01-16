@@ -28,7 +28,7 @@ This driver can be used with any database that implements Flight SQL.
 Installation and Requirements
 =============================
 
-The driver is compatible with JDK 8+.  On JDK 9+, the following JVM
+The driver is compatible with JDK 11+. Note that the following JVM
 parameter is required:
 
 .. code-block:: shell
@@ -48,7 +48,7 @@ To add a dependency via Maven, use a ``pom.xml`` like the following:
      <artifactId>demo</artifactId>
      <version>1.0-SNAPSHOT</version>
      <properties>
-       <arrow.version>10.0.0</arrow.version>
+       <arrow.version>18.1.0</arrow.version>
      </properties>
      <dependencies>
        <dependency>
@@ -162,15 +162,15 @@ the Flight SQL service as gRPC headers. For example, the following URI ::
 
 This will connect without authentication or encryption, to a Flight
 SQL service running on ``localhost`` on port 12345. Each request will
-also include a `database=mydb` gRPC header.
+also include a ``database=mydb`` gRPC header.
 
 Connection parameters may also be supplied using the Properties object
 when using the JDBC Driver Manager to connect. When supplying using
 the Properties object, values should *not* be URI-encoded.
 
 Parameters specified by the URI supercede parameters supplied by the
-Properties object. When calling the `user/password overload of 
-DriverManager#getConnection() 
+Properties object. When calling the `user/password overload of
+DriverManager#getConnection()
 <https://docs.oracle.com/javase/8/docs/api/java/sql/DriverManager.html#getConnection-java.lang.String-java.lang.String-java.lang.String->`_,
 the username and password supplied on the URI supercede the username and
 password arguments to the function call.

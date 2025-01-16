@@ -65,8 +65,12 @@ RUN latest_system_llvm=14 && \
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
+        bzip2 \
         ca-certificates \
         ccache \
+        ceph \
+        ceph-fuse \
+        ceph-mds \
         cmake \
         curl \
         gdb \
@@ -90,6 +94,7 @@ RUN apt-get update -y -q && \
         libprotobuf-dev \
         libprotoc-dev \
         libpsl-dev \
+        libradospp-dev \
         libre2-dev \
         librtmp-dev \
         libsnappy-dev \
@@ -102,6 +107,7 @@ RUN apt-get update -y -q && \
         libxml2-dev \
         libzstd-dev \
         make \
+        mold \
         ninja-build \
         nlohmann-json3-dev \
         npm \
@@ -110,45 +116,56 @@ RUN apt-get update -y -q && \
         protobuf-compiler-grpc \
         python3-dev \
         python3-pip \
+        python3-rados \
         python3-venv \
+        rados-objclass-dev \
         rapidjson-dev \
         rsync \
         tzdata \
-        wget && \
+        uuid-runtime \
+        wget \
+        xz-utils && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
-ARG gcc_version=""
-RUN if [ "${gcc_version}" = "" ]; then \
+# install emscripten using EMSDK
+ARG emscripten_version="3.1.45"
+RUN cd ~ && git clone https://github.com/emscripten-core/emsdk.git && \
+    cd emsdk && \
+    ./emsdk install ${emscripten_version} && \
+    ./emsdk activate ${emscripten_version} && \
+    echo "Installed emsdk to:" ~/emsdk
+
+
+ARG gcc=""
+RUN if [ "${gcc}" = "" ]; then \
       apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
           g++ \
           gcc; \
     else \
-      if [ "${gcc_version}" -gt "12" ]; then \
-          apt-get update -y -q && \
-          apt-get install -y -q --no-install-recommends software-properties-common && \
-          add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
-      fi; \
       apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
-          g++-${gcc_version} \
-          gcc-${gcc_version} && \
-      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
-      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+          g++-${gcc} \
+          gcc-${gcc} && \
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc} 100 && \
+      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc} 100 && \
       update-alternatives --install \
         /usr/bin/$(uname --machine)-linux-gnu-gcc \
         $(uname --machine)-linux-gnu-gcc \
-        /usr/bin/$(uname --machine)-linux-gnu-gcc-${gcc_version} 100 && \
+        /usr/bin/$(uname --machine)-linux-gnu-gcc-${gcc} 100 && \
       update-alternatives --install \
         /usr/bin/$(uname --machine)-linux-gnu-g++ \
         $(uname --machine)-linux-gnu-g++ \
-        /usr/bin/$(uname --machine)-linux-gnu-g++-${gcc_version} 100 && \
+        /usr/bin/$(uname --machine)-linux-gnu-g++-${gcc} 100 && \
       update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 100 && \
       update-alternatives --set cc /usr/bin/gcc && \
       update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 100 && \
       update-alternatives --set c++ /usr/bin/g++; \
     fi
+
+# make sure zlib is cached in the EMSDK folder
+RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
@@ -162,11 +179,13 @@ RUN /arrow/ci/scripts/install_azurite.sh
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
-# Prioritize system packages and local installation
+# Prioritize system packages and local installation.
+#
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
 # - Abseil is old
 # - libc-ares-dev does not install CMake config files
+# - opentelemetry-cpp-dev is not packaged
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
     ARROW_AZURE=ON \
@@ -181,13 +200,14 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
+    ARROW_JEMALLOC=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
+    ARROW_USE_MOLD=ON \
     ARROW_USE_UBSAN=OFF \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
@@ -200,6 +220,7 @@ ENV absl_SOURCE=BUNDLED \
     AWSSDK_SOURCE=BUNDLED \
     Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
+    opentelemetry_cpp_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \

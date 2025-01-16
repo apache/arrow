@@ -22,19 +22,14 @@
 #include <arrow-glib/arrow-glib.h>
 
 #define EXAMPLE_TYPE_UUID_ARRAY (example_uuid_array_get_type())
-G_DECLARE_DERIVABLE_TYPE(ExampleUUIDArray,
-                         example_uuid_array,
-                         EXAMPLE,
-                         UUID_ARRAY,
-                         GArrowExtensionArray)
+G_DECLARE_DERIVABLE_TYPE(
+  ExampleUUIDArray, example_uuid_array, EXAMPLE, UUID_ARRAY, GArrowExtensionArray)
 struct _ExampleUUIDArrayClass
 {
   GArrowExtensionArrayClass parent_class;
 };
 
-G_DEFINE_TYPE(ExampleUUIDArray,
-              example_uuid_array,
-              GARROW_TYPE_EXTENSION_ARRAY)
+G_DEFINE_TYPE(ExampleUUIDArray, example_uuid_array, GARROW_TYPE_EXTENSION_ARRAY)
 
 static void
 example_uuid_array_init(ExampleUUIDArray *object)
@@ -46,7 +41,6 @@ example_uuid_array_class_init(ExampleUUIDArrayClass *klass)
 {
 }
 
-
 #define EXAMPLE_TYPE_UUID_DATA_TYPE (example_uuid_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(ExampleUUIDDataType,
                          example_uuid_data_type,
@@ -57,7 +51,6 @@ struct _ExampleUUIDDataTypeClass
 {
   GArrowExtensionDataTypeClass parent_class;
 };
-
 
 G_DEFINE_TYPE(ExampleUUIDDataType,
               example_uuid_data_type,
@@ -78,7 +71,8 @@ example_uuid_data_type_equal(GArrowExtensionDataType *data_type,
 }
 
 static const gchar *example_uuid_data_type_serialize_id = "uuid-serialized";
-static ExampleUUIDDataType *example_uuid_data_type_new(void);
+static ExampleUUIDDataType *
+example_uuid_data_type_new(void);
 
 static GArrowDataType *
 example_uuid_data_type_deserialize(GArrowExtensionDataType *data_type,
@@ -89,9 +83,7 @@ example_uuid_data_type_deserialize(GArrowExtensionDataType *data_type,
   gsize raw_data_size;
   gconstpointer raw_data = g_bytes_get_data(serialized_data, &raw_data_size);
   if (!(raw_data_size == strlen(example_uuid_data_type_serialize_id) &&
-        strncmp(raw_data,
-                example_uuid_data_type_serialize_id,
-                raw_data_size) == 0)) {
+        strncmp(raw_data, example_uuid_data_type_serialize_id, raw_data_size) == 0)) {
     g_set_error(error,
                 GARROW_ERROR,
                 GARROW_ERROR_INVALID,
@@ -104,11 +96,8 @@ example_uuid_data_type_deserialize(GArrowExtensionDataType *data_type,
   }
 
   GArrowDataType *expected_storage_data_type;
-  g_object_get(data_type,
-               "storage-data-type", &expected_storage_data_type,
-               NULL);
-  if (!garrow_data_type_equal(storage_data_type,
-                              expected_storage_data_type)) {
+  g_object_get(data_type, "storage-data-type", &expected_storage_data_type, NULL);
+  if (!garrow_data_type_equal(storage_data_type, expected_storage_data_type)) {
     gchar *expected = garrow_data_type_to_string(expected_storage_data_type);
     gchar *actual = garrow_data_type_to_string(storage_data_type);
     g_set_error(error,
@@ -147,13 +136,11 @@ example_uuid_data_type_init(ExampleUUIDDataType *object)
 static void
 example_uuid_data_type_class_init(ExampleUUIDDataTypeClass *klass)
 {
-  GArrowExtensionDataTypeClass *extension_klass =
-    GARROW_EXTENSION_DATA_TYPE_CLASS(klass);
-  extension_klass->get_extension_name =
-    example_uuid_data_type_get_extension_name;
-  extension_klass->equal           = example_uuid_data_type_equal;
-  extension_klass->deserialize     = example_uuid_data_type_deserialize;
-  extension_klass->serialize       = example_uuid_data_type_serialize;
+  GArrowExtensionDataTypeClass *extension_klass = GARROW_EXTENSION_DATA_TYPE_CLASS(klass);
+  extension_klass->get_extension_name = example_uuid_data_type_get_extension_name;
+  extension_klass->equal = example_uuid_data_type_equal;
+  extension_klass->deserialize = example_uuid_data_type_deserialize;
+  extension_klass->serialize = example_uuid_data_type_serialize;
   extension_klass->get_array_gtype = example_uuid_data_type_get_array_gtype;
 }
 
@@ -163,10 +150,10 @@ example_uuid_data_type_new(void)
   GArrowFixedSizeBinaryDataType *storage_data_type =
     garrow_fixed_size_binary_data_type_new(16);
   return g_object_new(EXAMPLE_TYPE_UUID_DATA_TYPE,
-                      "storage-data-type", storage_data_type,
+                      "storage-data-type",
+                      storage_data_type,
                       NULL);
 }
-
 
 int
 main(int argc, char **argv)
@@ -192,9 +179,7 @@ main(int argc, char **argv)
   {
     /* Build storage data for the created UUID extension data type. */
     GArrowFixedSizeBinaryDataType *storage_data_type;
-    g_object_get(extension_data_type,
-                 "storage-data-type", &storage_data_type,
-                 NULL);
+    g_object_get(extension_data_type, "storage-data-type", &storage_data_type, NULL);
     GArrowFixedSizeBinaryArrayBuilder *builder =
       garrow_fixed_size_binary_array_builder_new(storage_data_type);
     g_object_unref(storage_data_type);
@@ -230,16 +215,14 @@ main(int argc, char **argv)
 
     /* Wrap the created storage data as the created UUID extension array. */
     GArrowExtensionArray *extension_array =
-      garrow_extension_data_type_wrap_array(extension_data_type,
-                                            storage);
+      garrow_extension_data_type_wrap_array(extension_data_type, storage);
     g_object_unref(storage);
     gint64 n_rows = garrow_array_get_length(GARROW_ARRAY(extension_array));
 
     /* Create a record batch to serialize the created UUID extension array. */
     GList *fields = NULL;
-    fields = g_list_append(fields,
-                           garrow_field_new("uuid",
-                                            GARROW_DATA_TYPE(uuid_data_type)));
+    fields =
+      g_list_append(fields, garrow_field_new("uuid", GARROW_DATA_TYPE(uuid_data_type)));
     GArrowSchema *schema = garrow_schema_new(fields);
     g_list_free_full(fields, g_object_unref);
     GList *columns = NULL;
@@ -264,8 +247,7 @@ main(int argc, char **argv)
       goto exit;
     }
     {
-      GArrowBufferOutputStream *output =
-        garrow_buffer_output_stream_new(buffer);
+      GArrowBufferOutputStream *output = garrow_buffer_output_stream_new(buffer);
       GArrowRecordBatchStreamWriter *writer =
         garrow_record_batch_stream_writer_new(GARROW_OUTPUT_STREAM(output),
                                               schema,
@@ -279,10 +261,9 @@ main(int argc, char **argv)
         g_object_unref(record_batch);
         goto exit;
       }
-      garrow_record_batch_writer_write_record_batch(
-        GARROW_RECORD_BATCH_WRITER(writer),
-        record_batch,
-        &error);
+      garrow_record_batch_writer_write_record_batch(GARROW_RECORD_BATCH_WRITER(writer),
+                                                    record_batch,
+                                                    &error);
       if (error) {
         g_print("failed to write record batch: %s\n", error->message);
         g_error_free(error);
@@ -295,8 +276,7 @@ main(int argc, char **argv)
       }
       g_object_unref(schema);
       g_object_unref(record_batch);
-      garrow_record_batch_writer_close(GARROW_RECORD_BATCH_WRITER(writer),
-                                       &error);
+      garrow_record_batch_writer_close(GARROW_RECORD_BATCH_WRITER(writer), &error);
       g_object_unref(writer);
       g_object_unref(output);
       if (error) {
@@ -312,8 +292,7 @@ main(int argc, char **argv)
       GArrowBufferInputStream *input =
         garrow_buffer_input_stream_new(GARROW_BUFFER(buffer));
       GArrowRecordBatchStreamReader *reader =
-        garrow_record_batch_stream_reader_new(GARROW_INPUT_STREAM(input),
-                                              &error);
+        garrow_record_batch_stream_reader_new(GARROW_INPUT_STREAM(input), &error);
       if (error) {
         g_print("failed to create reader: %s\n", error->message);
         g_error_free(error);
@@ -322,8 +301,7 @@ main(int argc, char **argv)
         goto exit;
       }
       record_batch =
-        garrow_record_batch_reader_read_next(GARROW_RECORD_BATCH_READER(reader),
-                                             &error);
+        garrow_record_batch_reader_read_next(GARROW_RECORD_BATCH_READER(reader), &error);
       if (error) {
         g_print("failed to read record batch: %s\n", error->message);
         g_error_free(error);
@@ -333,9 +311,7 @@ main(int argc, char **argv)
         goto exit;
       }
       /* Show the deserialize record batch. */
-      gchar *record_batch_content =
-        garrow_record_batch_to_string(record_batch,
-                                      &error);
+      gchar *record_batch_content = garrow_record_batch_to_string(record_batch, &error);
       if (error) {
         g_print("failed to dump record batch content: %s\n", error->message);
         g_error_free(error);
@@ -363,9 +339,7 @@ exit:
     gchar *data_type_name =
       garrow_extension_data_type_get_extension_name(extension_data_type);
     gboolean success =
-      garrow_extension_data_type_registry_unregister(registry,
-                                                     data_type_name,
-                                                     &error);
+      garrow_extension_data_type_registry_unregister(registry, data_type_name, &error);
     g_free(data_type_name);
     if (!success) {
       g_print("failed to unregister: %s\n", error->message);

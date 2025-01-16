@@ -286,7 +286,7 @@ test_that("median passes ... args to quantile", {
     Scalar$create(2)
   )
   expect_error(
-    median(Array$create(c(1, 2)), probs = c(.25, .75))
+    median(Array$create(c(1, 2)), probs = c(0.25, 0.75))
   )
 })
 

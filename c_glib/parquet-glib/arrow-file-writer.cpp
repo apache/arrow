@@ -34,7 +34,8 @@ G_BEGIN_DECLS
  * file as Apache Parquet format.
  */
 
-typedef struct GParquetWriterPropertiesPrivate_ {
+typedef struct GParquetWriterPropertiesPrivate_
+{
   std::shared_ptr<parquet::WriterProperties> properties;
   parquet::WriterProperties::Builder *builder;
   gboolean changed;
@@ -44,10 +45,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GParquetWriterProperties,
                            gparquet_writer_properties,
                            G_TYPE_OBJECT)
 
-#define GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(object) \
-  static_cast<GParquetWriterPropertiesPrivate *>(      \
-    gparquet_writer_properties_get_instance_private(   \
-      GPARQUET_WRITER_PROPERTIES(object)))
+#define GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(object)                                   \
+  static_cast<GParquetWriterPropertiesPrivate *>(                                        \
+    gparquet_writer_properties_get_instance_private(GPARQUET_WRITER_PROPERTIES(object)))
 
 static void
 gparquet_writer_properties_finalize(GObject *object)
@@ -64,7 +64,7 @@ static void
 gparquet_writer_properties_init(GParquetWriterProperties *object)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(object);
-  new(&priv->properties) std::shared_ptr<parquet::WriterProperties>;
+  new (&priv->properties) std::shared_ptr<parquet::WriterProperties>;
   priv->builder = new parquet::WriterProperties::Builder();
   priv->changed = TRUE;
 }
@@ -74,7 +74,7 @@ gparquet_writer_properties_class_init(GParquetWriterPropertiesClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = gparquet_writer_properties_finalize;
+  gobject_class->finalize = gparquet_writer_properties_finalize;
 }
 
 /**
@@ -87,8 +87,7 @@ gparquet_writer_properties_class_init(GParquetWriterPropertiesClass *klass)
 GParquetWriterProperties *
 gparquet_writer_properties_new(void)
 {
-  auto writer_properties = g_object_new(GPARQUET_TYPE_WRITER_PROPERTIES,
-                                        NULL);
+  auto writer_properties = g_object_new(GPARQUET_TYPE_WRITER_PROPERTIES, NULL);
   return GPARQUET_WRITER_PROPERTIES(writer_properties);
 }
 
@@ -200,8 +199,8 @@ gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *prope
  * Since: 0.17.0
  */
 void
-gparquet_writer_properties_set_dictionary_page_size_limit(GParquetWriterProperties *properties,
-                                                          gint64 limit)
+gparquet_writer_properties_set_dictionary_page_size_limit(
+  GParquetWriterProperties *properties, gint64 limit)
 {
   auto priv = GPARQUET_WRITER_PROPERTIES_GET_PRIVATE(properties);
   priv->builder->dictionary_pagesize_limit(limit);
@@ -217,7 +216,8 @@ gparquet_writer_properties_set_dictionary_page_size_limit(GParquetWriterProperti
  * Since: 0.17.0
  */
 gint64
-gparquet_writer_properties_get_dictionary_page_size_limit(GParquetWriterProperties *properties)
+gparquet_writer_properties_get_dictionary_page_size_limit(
+  GParquetWriterProperties *properties)
 {
   auto parquet_properties = gparquet_writer_properties_get_raw(properties);
   return parquet_properties->dictionary_pagesize_limit();
@@ -316,24 +316,22 @@ gparquet_writer_properties_get_data_page_size(GParquetWriterProperties *properti
   return parquet_properties->data_pagesize();
 }
 
-
-typedef struct GParquetArrowFileWriterPrivate_ {
+struct GParquetArrowFileWriterPrivate
+{
   parquet::arrow::FileWriter *arrow_file_writer;
-} GParquetArrowFileWriterPrivate;
+};
 
 enum {
-  PROP_0,
-  PROP_ARROW_FILE_WRITER
+  PROP_ARROW_FILE_WRITER = 1,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GParquetArrowFileWriter,
                            gparquet_arrow_file_writer,
                            G_TYPE_OBJECT)
 
-#define GPARQUET_ARROW_FILE_WRITER_GET_PRIVATE(obj)     \
-  static_cast<GParquetArrowFileWriterPrivate *>(        \
-     gparquet_arrow_file_writer_get_instance_private(   \
-       GPARQUET_ARROW_FILE_WRITER(obj)))
+#define GPARQUET_ARROW_FILE_WRITER_GET_PRIVATE(obj)                                      \
+  static_cast<GParquetArrowFileWriterPrivate *>(                                         \
+    gparquet_arrow_file_writer_get_instance_private(GPARQUET_ARROW_FILE_WRITER(obj)))
 
 static void
 gparquet_arrow_file_writer_finalize(GObject *object)
@@ -389,15 +387,15 @@ gparquet_arrow_file_writer_class_init(GParquetArrowFileWriterClass *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = gparquet_arrow_file_writer_finalize;
+  gobject_class->finalize = gparquet_arrow_file_writer_finalize;
   gobject_class->set_property = gparquet_arrow_file_writer_set_property;
   gobject_class->get_property = gparquet_arrow_file_writer_get_property;
 
-  spec = g_param_spec_pointer("arrow-file-writer",
-                              "ArrowFileWriter",
-                              "The raw std::shared<parquet::arrow::FileWriter> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "arrow-file-writer",
+    "ArrowFileWriter",
+    "The raw std::shared<parquet::arrow::FileWriter> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ARROW_FILE_WRITER, spec);
 }
 
@@ -406,7 +404,7 @@ gparquet_arrow_file_writer_class_init(GParquetArrowFileWriterClass *klass)
  * @schema: Arrow schema for written data.
  * @sink: Arrow output stream to be written.
  * @writer_properties: (nullable): A #GParquetWriterProperties.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GParquetArrowFileWriter.
  *
@@ -424,7 +422,8 @@ gparquet_arrow_file_writer_new_arrow(GArrowSchema *schema,
   std::unique_ptr<parquet::arrow::FileWriter> parquet_arrow_file_writer;
   arrow::Result<std::unique_ptr<parquet::arrow::FileWriter>> maybe_writer;
   if (writer_properties) {
-    auto parquet_writer_properties = gparquet_writer_properties_get_raw(writer_properties);
+    auto parquet_writer_properties =
+      gparquet_writer_properties_get_raw(writer_properties);
     maybe_writer = parquet::arrow::FileWriter::Open(*arrow_schema,
                                                     arrow_memory_pool,
                                                     arrow_output_stream,
@@ -436,9 +435,7 @@ gparquet_arrow_file_writer_new_arrow(GArrowSchema *schema,
                                                     arrow_output_stream,
                                                     parquet_writer_properties);
   }
-  if (garrow::check(error,
-                    maybe_writer,
-                    "[parquet][arrow][file-writer][new-arrow]")) {
+  if (garrow::check(error, maybe_writer, "[parquet][arrow][file-writer][new-arrow]")) {
     parquet_arrow_file_writer = std::move(*maybe_writer);
     return gparquet_arrow_file_writer_new_raw(parquet_arrow_file_writer.release());
   } else {
@@ -451,7 +448,7 @@ gparquet_arrow_file_writer_new_arrow(GArrowSchema *schema,
  * @schema: Arrow schema for written data.
  * @path: Path to be read.
  * @writer_properties: (nullable): A #GParquetWriterProperties.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GParquetArrowFileWriter.
  *
@@ -463,8 +460,7 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
                                     GParquetWriterProperties *writer_properties,
                                     GError **error)
 {
-  auto arrow_file_output_stream =
-    arrow::io::FileOutputStream::Open(path, false);
+  auto arrow_file_output_stream = arrow::io::FileOutputStream::Open(path, false);
   if (!garrow::check(error,
                      arrow_file_output_stream,
                      "[parquet][arrow][file-writer][new-path]")) {
@@ -478,7 +474,8 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
   std::unique_ptr<parquet::arrow::FileWriter> parquet_arrow_file_writer;
   arrow::Result<std::unique_ptr<parquet::arrow::FileWriter>> maybe_writer;
   if (writer_properties) {
-    auto parquet_writer_properties = gparquet_writer_properties_get_raw(writer_properties);
+    auto parquet_writer_properties =
+      gparquet_writer_properties_get_raw(writer_properties);
     maybe_writer = parquet::arrow::FileWriter::Open(*arrow_schema,
                                                     arrow_memory_pool,
                                                     arrow_output_stream,
@@ -490,9 +487,7 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
                                                     arrow_output_stream,
                                                     parquet_writer_properties);
   }
-  if (garrow::check(error,
-                    maybe_writer,
-                    "[parquet][arrow][file-writer][new-path]")) {
+  if (garrow::check(error, maybe_writer, "[parquet][arrow][file-writer][new-path]")) {
     parquet_arrow_file_writer = std::move(*maybe_writer);
     return gparquet_arrow_file_writer_new_raw(parquet_arrow_file_writer.release());
   } else {
@@ -501,11 +496,63 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
 }
 
 /**
+ * gparquet_arrow_file_writer_get_schema:
+ * @writer: A #GParquetArrowFileWriter.
+ *
+ * Returns: (transfer full): The schema to be written to.
+ *
+ * Since: 18.0.0
+ */
+GArrowSchema *
+gparquet_arrow_file_writer_get_schema(GParquetArrowFileWriter *writer)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  auto arrow_schema = parquet_arrow_file_writer->schema();
+  return garrow_schema_new_raw(&arrow_schema);
+}
+
+/**
+ * gparquet_arrow_file_writer_write_record_batch:
+ * @writer: A #GParquetArrowFileWriter.
+ * @record_batch: A record batch to be written.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Write a record batch into the buffered row group.
+ *
+ * Multiple record batches can be written into the same row group
+ * through this function.
+ *
+ * gparquet_writer_properties_get_max_row_group_length() is respected
+ * and a new row group will be created if the current row group
+ * exceeds the limit.
+ *
+ * Record batches get flushed to the output stream once
+ * gparquet_file_writer_new_buffered_row_group() or
+ * gparquet_file_writer_close() is called.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gparquet_arrow_file_writer_write_record_batch(GParquetArrowFileWriter *writer,
+                                              GArrowRecordBatch *record_batch,
+                                              GError **error)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  auto arrow_record_batch = garrow_record_batch_get_raw(record_batch).get();
+  auto status = parquet_arrow_file_writer->WriteRecordBatch(*arrow_record_batch);
+  return garrow_error_check(error,
+                            status,
+                            "[parquet][arrow][file-writer][write-record-batch]");
+}
+
+/**
  * gparquet_arrow_file_writer_write_table:
  * @writer: A #GParquetArrowFileWriter.
  * @table: A table to be written.
  * @chunk_size: The max number of rows in a row group.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
@@ -514,37 +561,100 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
 gboolean
 gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
                                        GArrowTable *table,
-                                       guint64 chunk_size,
+                                       gsize chunk_size,
                                        GError **error)
 {
   auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
   auto arrow_table = garrow_table_get_raw(table).get();
-  auto status = parquet_arrow_file_writer->WriteTable(*arrow_table, chunk_size);
-  return garrow_error_check(error,
-                            status,
-                            "[parquet][arrow][file-writer][write-table]");
+  return garrow::check(error,
+                       parquet_arrow_file_writer->WriteTable(*arrow_table, chunk_size),
+                       "[parquet][arrow][file-writer][write-table]");
+}
+
+/**
+ * gparquet_arrow_file_writer_new_row_group:
+ * @writer: A #GParquetArrowFileWriter.
+ * @chunk_size: The max number of rows in a row group.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Start a new row group.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gparquet_arrow_file_writer_new_row_group(GParquetArrowFileWriter *writer,
+                                         gsize chunk_size,
+                                         GError **error)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  return garrow::check(error,
+                       parquet_arrow_file_writer->NewRowGroup(chunk_size),
+                       "[parquet][arrow][file-writer][new-row-group]");
+}
+
+/**
+ * gparquet_arrow_file_writer_new_buffered_row_group:
+ * @writer: A #GParquetArrowFileWriter.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Start a new buffered row group.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gparquet_arrow_file_writer_new_buffered_row_group(GParquetArrowFileWriter *writer,
+                                                  GError **error)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  return garrow::check(error,
+                       parquet_arrow_file_writer->NewBufferedRowGroup(),
+                       "[parquet][arrow][file-writer][new-buffered-row-group]");
+}
+
+/**
+ * gparquet_arrow_file_writer_write_chunked_array:
+ * @writer: A #GParquetArrowFileWriter.
+ * @chunked_array: A #GArrowChunkedArray to be written.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Start a chunked array as a column chunk.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gparquet_arrow_file_writer_write_chunked_array(GParquetArrowFileWriter *writer,
+                                               GArrowChunkedArray *chunked_array,
+                                               GError **error)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  return garrow::check(error,
+                       parquet_arrow_file_writer->WriteColumnChunk(arrow_chunked_array),
+                       "[parquet][arrow][file-writer][write-chunked-array]");
 }
 
 /**
  * gparquet_arrow_file_writer_close:
  * @writer: A #GParquetArrowFileWriter.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 0.11.0
  */
 gboolean
-gparquet_arrow_file_writer_close(GParquetArrowFileWriter *writer,
-                                 GError **error)
+gparquet_arrow_file_writer_close(GParquetArrowFileWriter *writer, GError **error)
 {
   auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
   auto status = parquet_arrow_file_writer->Close();
-  return garrow_error_check(error,
-                            status,
-                            "[parquet][arrow][file-writer][close]");
+  return garrow_error_check(error, status, "[parquet][arrow][file-writer][close]");
 }
-
 
 G_END_DECLS
 
@@ -553,7 +663,8 @@ gparquet_arrow_file_writer_new_raw(parquet::arrow::FileWriter *parquet_arrow_fil
 {
   auto arrow_file_writer =
     GPARQUET_ARROW_FILE_WRITER(g_object_new(GPARQUET_TYPE_ARROW_FILE_WRITER,
-                                            "arrow-file-writer", parquet_arrow_file_writer,
+                                            "arrow-file-writer",
+                                            parquet_arrow_file_writer,
                                             NULL));
   return arrow_file_writer;
 }

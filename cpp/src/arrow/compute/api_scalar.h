@@ -358,7 +358,8 @@ class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
 
 class ARROW_EXPORT PadOptions : public FunctionOptions {
  public:
-  explicit PadOptions(int64_t width, std::string padding = " ");
+  explicit PadOptions(int64_t width, std::string padding = " ",
+                      bool lean_left_on_odd_padding = true);
   PadOptions();
   static constexpr char const kTypeName[] = "PadOptions";
 
@@ -366,6 +367,10 @@ class ARROW_EXPORT PadOptions : public FunctionOptions {
   int64_t width;
   /// What to pad the string with. Should be one codepoint (Unicode)/byte (ASCII).
   std::string padding;
+  /// What to do if there is an odd number of padding characters (in case of centered
+  /// padding). Defaults to aligning on the left (i.e. adding the extra padding character
+  /// on the right)
+  bool lean_left_on_odd_padding = true;
 };
 
 class ARROW_EXPORT TrimOptions : public FunctionOptions {
@@ -679,6 +684,18 @@ Result<Datum> Power(const Datum& left, const Datum& right,
 ARROW_EXPORT
 Result<Datum> Exp(const Datum& arg, ExecContext* ctx = NULLPTR);
 
+/// \brief More accurately calculate `exp(arg) - 1` for values close to zero.
+/// If the exponent value is null the result will be null.
+///
+/// This function is more accurate than calculating `exp(value) - 1` directly for values
+/// close to zero.
+///
+/// \param[in] arg the exponent
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise Euler's number raised to the power of exponent minus 1
+ARROW_EXPORT
+Result<Datum> Expm1(const Datum& arg, ExecContext* ctx = NULLPTR);
+
 /// \brief Left shift the left array by the right array. Array values must be the
 /// same length. If either operand is null, the result will be null.
 ///
@@ -766,6 +783,52 @@ Result<Datum> Atan(const Datum& arg, ExecContext* ctx = NULLPTR);
 /// \return the elementwise inverse tangent of the values
 ARROW_EXPORT
 Result<Datum> Atan2(const Datum& y, const Datum& x, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the hyperbolic sine of the array values.
+/// \param[in] arg The values to compute the hyperbolic sine for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hyperbolic sine of the values
+ARROW_EXPORT
+Result<Datum> Sinh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the hyperbolic cosine of the array values.
+/// \param[in] arg The values to compute the hyperbolic cosine for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hyperbolic cosine of the values
+ARROW_EXPORT
+Result<Datum> Cosh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the hyperbolic tangent of the array values.
+/// \param[in] arg The values to compute the hyperbolic tangent for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hyperbolic tangent of the values
+ARROW_EXPORT
+Result<Datum> Tanh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse hyperbolic sine of the array values.
+/// \param[in] arg The values to compute the inverse hyperbolic sine for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse hyperbolic sine of the values
+ARROW_EXPORT
+Result<Datum> Asinh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse hyperbolic cosine of the array values.
+/// \param[in] arg The values to compute the inverse hyperbolic cosine for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse hyperbolic cosine of the values
+ARROW_EXPORT
+Result<Datum> Acosh(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse hyperbolic tangent of the array values.
+/// \param[in] arg The values to compute the inverse hyperbolic tangent for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse hyperbolic tangent of the values
+ARROW_EXPORT
+Result<Datum> Atanh(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
 
 /// \brief Get the natural log of a value.
 ///

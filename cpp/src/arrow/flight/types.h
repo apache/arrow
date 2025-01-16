@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Data structure for Flight RPC. API should be considered experimental for now
+// Data structure for Flight RPC.
 
 #pragma once
 
@@ -28,8 +28,10 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
+#include "arrow/buffer.h"
 #include "arrow/flight/type_fwd.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/ipc/options.h"
@@ -39,25 +41,31 @@
 
 namespace arrow {
 
-class Buffer;
 class RecordBatch;
 class Schema;
-class Status;
 class Table;
 
 namespace ipc {
-
 class DictionaryMemo;
-
 }  // namespace ipc
 
-namespace internal {
-
+namespace util {
 class Uri;
-
-}  // namespace internal
+}  // namespace util
 
 namespace flight {
+
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpc;
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpcTcp;
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpcUnix;
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpcTls;
+
+class FlightClient;
+class FlightServerBase;
 
 /// \brief A timestamp compatible with Protocol Buffer's
 /// google.protobuf.Timestamp:
@@ -72,7 +80,8 @@ namespace flight {
 /// > all minutes are 60 seconds long, i.e. leap seconds are "smeared"
 /// > so that no leap second table is needed for interpretation. Range
 /// > is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z.
-using Timestamp = std::chrono::system_clock::time_point;
+using Timestamp =
+    std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
 
 /// \brief A Flight-specific status code.  Used to encode some
 ///   additional status codes into an Arrow Status.
@@ -96,8 +105,8 @@ enum class FlightStatusCode : int8_t {
 // Silence warning
 // "non dll-interface class RecordBatchReader used as base for dll-interface class"
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4275)
+#  pragma warning(push)
+#  pragma warning(disable : 4275)
 #endif
 
 /// \brief Flight-specific error information in a Status.
@@ -131,7 +140,7 @@ class ARROW_FLIGHT_EXPORT FlightStatusDetail : public arrow::StatusDetail {
 };
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 /// \brief Make an appropriate Arrow status for the given
@@ -158,387 +167,212 @@ struct ARROW_FLIGHT_EXPORT CertKeyPair {
   std::string pem_key;
 };
 
+namespace internal {
+
+template <typename T>
+struct remove_unique_ptr {
+  using type = T;
+};
+
+template <typename T>
+struct remove_unique_ptr<std::unique_ptr<T>> {
+  using type = T;
+};
+
+// Base CRTP type
+template <class T>
+struct BaseType {
+ protected:
+  using SuperT = BaseType<T>;
+  using SelfT = typename remove_unique_ptr<T>::type;
+
+  const SelfT& self() const { return static_cast<const SelfT&>(*this); }
+  SelfT& self() { return static_cast<SelfT&>(*this); }
+
+ public:
+  BaseType() = default;
+
+  friend bool operator==(const SelfT& left, const SelfT& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const SelfT& left, const SelfT& right) {
+    return !left.Equals(right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  inline arrow::Result<std::string> SerializeToString() const {
+    std::string out;
+    ARROW_RETURN_NOT_OK(self().SelfT::SerializeToString(&out));
+    return out;
+  }
+
+  inline static arrow::Result<T> Deserialize(std::string_view serialized) {
+    T out;
+    ARROW_RETURN_NOT_OK(SelfT::Deserialize(serialized, &out));
+    return out;
+  }
+
+  inline arrow::Result<std::shared_ptr<Buffer>> SerializeToBuffer() const {
+    std::string out;
+    ARROW_RETURN_NOT_OK(self().SelfT::SerializeToString(&out));
+    return Buffer::FromString(std::move(out));
+  }
+};
+
+}  // namespace internal
+
+//------------------------------------------------------------
+// Wrapper types for Flight RPC protobuf messages
+
+// A wrapper around arrow.flight.protocol.HandshakeRequest is not defined
+// A wrapper around arrow.flight.protocol.HandshakeResponse is not defined
+
+/// \brief message for simple auth
+struct ARROW_FLIGHT_EXPORT BasicAuth : public internal::BaseType<BasicAuth> {
+  std::string username;
+  std::string password;
+
+  BasicAuth() = default;
+  BasicAuth(std::string username, std::string password)
+      : username(std::move(username)), password(std::move(password)) {}
+
+  std::string ToString() const;
+  bool Equals(const BasicAuth& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, BasicAuth* out);
+};
+
+// A wrapper around arrow.flight.protocol.Empty is not defined
+
 /// \brief A type of action that can be performed with the DoAction RPC.
-struct ARROW_FLIGHT_EXPORT ActionType {
+struct ARROW_FLIGHT_EXPORT ActionType : public internal::BaseType<ActionType> {
   /// \brief The name of the action.
   std::string type;
 
   /// \brief A human-readable description of the action.
   std::string description;
 
+  ActionType() = default;
+
+  ActionType(std::string type, std::string description)
+      : type(std::move(type)), description(std::move(description)) {}
+
   std::string ToString() const;
   bool Equals(const ActionType& other) const;
 
-  friend bool operator==(const ActionType& left, const ActionType& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const ActionType& left, const ActionType& right) {
-    return !(left == right);
-  }
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
 
   /// \brief Serialize this message to its wire-format representation.
-  arrow::Result<std::string> SerializeToString() const;
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<ActionType> Deserialize(std::string_view serialized);
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, ActionType* out);
 
   static const ActionType kCancelFlightInfo;
   static const ActionType kRenewFlightEndpoint;
+  static const ActionType kSetSessionOptions;
+  static const ActionType kGetSessionOptions;
+  static const ActionType kCloseSession;
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC
-struct ARROW_FLIGHT_EXPORT Criteria {
+struct ARROW_FLIGHT_EXPORT Criteria : public internal::BaseType<Criteria> {
   /// Opaque criteria expression, dependent on server implementation
   std::string expression;
+
+  Criteria() = default;
+  Criteria(std::string expression)  // NOLINT runtime/explicit
+      : expression(std::move(expression)) {}
 
   std::string ToString() const;
   bool Equals(const Criteria& other) const;
 
-  friend bool operator==(const Criteria& left, const Criteria& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const Criteria& left, const Criteria& right) {
-    return !(left == right);
-  }
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
 
   /// \brief Serialize this message to its wire-format representation.
-  arrow::Result<std::string> SerializeToString() const;
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<Criteria> Deserialize(std::string_view serialized);
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, Criteria* out);
 };
 
 /// \brief An action to perform with the DoAction RPC
-struct ARROW_FLIGHT_EXPORT Action {
+struct ARROW_FLIGHT_EXPORT Action : public internal::BaseType<Action> {
   /// The action type
   std::string type;
 
   /// The action content as a Buffer
   std::shared_ptr<Buffer> body;
 
+  Action() = default;
+  Action(std::string type, std::shared_ptr<Buffer> body)
+      : type(std::move(type)), body(std::move(body)) {}
+
   std::string ToString() const;
   bool Equals(const Action& other) const;
 
-  friend bool operator==(const Action& left, const Action& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const Action& left, const Action& right) {
-    return !(left == right);
-  }
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
 
   /// \brief Serialize this message to its wire-format representation.
-  arrow::Result<std::string> SerializeToString() const;
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<Action> Deserialize(std::string_view serialized);
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, Action* out);
 };
 
 /// \brief Opaque result returned after executing an action
-struct ARROW_FLIGHT_EXPORT Result {
+struct ARROW_FLIGHT_EXPORT Result : public internal::BaseType<Result> {
   std::shared_ptr<Buffer> body;
+
+  Result() = default;
+  Result(std::shared_ptr<Buffer> body)  // NOLINT runtime/explicit
+      : body(std::move(body)) {}
 
   std::string ToString() const;
   bool Equals(const Result& other) const;
 
-  friend bool operator==(const Result& left, const Result& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const Result& left, const Result& right) {
-    return !(left == right);
-  }
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
 
   /// \brief Serialize this message to its wire-format representation.
-  arrow::Result<std::string> SerializeToString() const;
-
-  /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<Result> Deserialize(std::string_view serialized);
-};
-
-enum class CancelStatus {
-  /// The cancellation status is unknown. Servers should avoid using
-  /// this value (send a kNotCancellable if the requested FlightInfo
-  /// is not known). Clients can retry the request.
-  kUnspecified = 0,
-  /// The cancellation request is complete. Subsequent requests with
-  /// the same payload may return kCancelled or a kNotCancellable error.
-  kCancelled = 1,
-  /// The cancellation request is in progress. The client may retry
-  /// the cancellation request.
-  kCancelling = 2,
-  // The FlightInfo is not cancellable. The client should not retry the
-  // cancellation request.
-  kNotCancellable = 3,
-};
-
-/// \brief The result of the CancelFlightInfo action.
-struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult {
-  CancelStatus status;
-
-  std::string ToString() const;
-  bool Equals(const CancelFlightInfoResult& other) const;
-
-  friend bool operator==(const CancelFlightInfoResult& left,
-                         const CancelFlightInfoResult& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const CancelFlightInfoResult& left,
-                         const CancelFlightInfoResult& right) {
-    return !(left == right);
-  }
-
-  /// \brief Serialize this message to its wire-format representation.
-  arrow::Result<std::string> SerializeToString() const;
-
-  /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<CancelFlightInfoResult> Deserialize(std::string_view serialized);
-};
-
-ARROW_FLIGHT_EXPORT
-std::ostream& operator<<(std::ostream& os, CancelStatus status);
-
-/// \brief message for simple auth
-struct ARROW_FLIGHT_EXPORT BasicAuth {
-  std::string username;
-  std::string password;
-
-  std::string ToString() const;
-  bool Equals(const BasicAuth& other) const;
-
-  friend bool operator==(const BasicAuth& left, const BasicAuth& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const BasicAuth& left, const BasicAuth& right) {
-    return !(left == right);
-  }
-
-  /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<BasicAuth> Deserialize(std::string_view serialized);
-  /// \brief Serialize this message to its wire-format representation.
-  arrow::Result<std::string> SerializeToString() const;
-};
-
-/// \brief A request to retrieve or generate a dataset
-struct ARROW_FLIGHT_EXPORT FlightDescriptor {
-  enum DescriptorType {
-    UNKNOWN = 0,  /// Unused
-    PATH = 1,     /// Named path identifying a dataset
-    CMD = 2       /// Opaque command to generate a dataset
-  };
-
-  /// The descriptor type
-  DescriptorType type;
-
-  /// Opaque value used to express a command. Should only be defined when type
-  /// is CMD
-  std::string cmd;
-
-  /// List of strings identifying a particular dataset. Should only be defined
-  /// when type is PATH
-  std::vector<std::string> path;
-
-  bool Equals(const FlightDescriptor& other) const;
-
-  /// \brief Get a human-readable form of this descriptor.
-  std::string ToString() const;
-
-  /// \brief Get the wire-format representation of this type.
   ///
-  /// Useful when interoperating with non-Flight systems (e.g. REST
-  /// services) that may want to return Flight types.
-  arrow::Result<std::string> SerializeToString() const;
-
-  /// \brief Parse the wire-format representation of this type.
-  ///
-  /// Useful when interoperating with non-Flight systems (e.g. REST
-  /// services) that may want to return Flight types.
-  static arrow::Result<FlightDescriptor> Deserialize(std::string_view serialized);
-
-  // Convenience factory functions
-
-  static FlightDescriptor Command(const std::string& c) {
-    return FlightDescriptor{CMD, c, {}};
-  }
-
-  static FlightDescriptor Path(const std::vector<std::string>& p) {
-    return FlightDescriptor{PATH, "", p};
-  }
-
-  friend bool operator==(const FlightDescriptor& left, const FlightDescriptor& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const FlightDescriptor& left, const FlightDescriptor& right) {
-    return !(left == right);
-  }
-};
-
-/// \brief Data structure providing an opaque identifier or credential to use
-/// when requesting a data stream with the DoGet RPC
-struct ARROW_FLIGHT_EXPORT Ticket {
-  std::string ticket;
-
-  std::string ToString() const;
-  bool Equals(const Ticket& other) const;
-
-  friend bool operator==(const Ticket& left, const Ticket& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const Ticket& left, const Ticket& right) {
-    return !(left == right);
-  }
-
-  /// \brief Get the wire-format representation of this type.
-  ///
-  /// Useful when interoperating with non-Flight systems (e.g. REST
-  /// services) that may want to return Flight types.
-  arrow::Result<std::string> SerializeToString() const;
-
-  /// \brief Parse the wire-format representation of this type.
-  ///
-  /// Useful when interoperating with non-Flight systems (e.g. REST
-  /// services) that may want to return Flight types.
-  static arrow::Result<Ticket> Deserialize(std::string_view serialized);
-};
-
-class FlightClient;
-class FlightServerBase;
-
-ARROW_FLIGHT_EXPORT
-extern const char* kSchemeGrpc;
-ARROW_FLIGHT_EXPORT
-extern const char* kSchemeGrpcTcp;
-ARROW_FLIGHT_EXPORT
-extern const char* kSchemeGrpcUnix;
-ARROW_FLIGHT_EXPORT
-extern const char* kSchemeGrpcTls;
-
-/// \brief A host location (a URI)
-struct ARROW_FLIGHT_EXPORT Location {
- public:
-  /// \brief Initialize a blank location.
-  Location();
-
-  /// \brief Initialize a location by parsing a URI string
-  static arrow::Result<Location> Parse(const std::string& uri_string);
-
-  /// \brief Initialize a location for a non-TLS, gRPC-based Flight
-  /// service from a host and port
-  /// \param[in] host The hostname to connect to
-  /// \param[in] port The port
-  /// \return Arrow result with the resulting location
-  static arrow::Result<Location> ForGrpcTcp(const std::string& host, const int port);
-
-  /// \brief Initialize a location for a TLS-enabled, gRPC-based Flight
-  /// service from a host and port
-  /// \param[in] host The hostname to connect to
-  /// \param[in] port The port
-  /// \return Arrow result with the resulting location
-  static arrow::Result<Location> ForGrpcTls(const std::string& host, const int port);
-
-  /// \brief Initialize a location for a domain socket-based Flight
-  /// service
-  /// \param[in] path The path to the domain socket
-  /// \return Arrow result with the resulting location
-  static arrow::Result<Location> ForGrpcUnix(const std::string& path);
-
-  /// \brief Initialize a location based on a URI scheme
-  static arrow::Result<Location> ForScheme(const std::string& scheme,
-                                           const std::string& host, const int port);
-
-  /// \brief Get a representation of this URI as a string.
-  std::string ToString() const;
-
-  /// \brief Get the scheme of this URI.
-  std::string scheme() const;
-
-  bool Equals(const Location& other) const;
-
-  friend bool operator==(const Location& left, const Location& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const Location& left, const Location& right) {
-    return !(left == right);
-  }
-
- private:
-  friend class FlightClient;
-  friend class FlightServerBase;
-  std::shared_ptr<arrow::internal::Uri> uri_;
-};
-
-/// \brief A flight ticket and list of locations where the ticket can be
-/// redeemed
-struct ARROW_FLIGHT_EXPORT FlightEndpoint {
-  /// Opaque ticket identify; use with DoGet RPC
-  Ticket ticket;
-
-  /// List of locations where ticket can be redeemed. If the list is empty, the
-  /// ticket can only be redeemed on the current service where the ticket was
-  /// generated
-  std::vector<Location> locations;
-
-  /// Expiration time of this stream. If present, clients may assume
-  /// they can retry DoGet requests. Otherwise, clients should avoid
-  /// retrying DoGet requests.
-  std::optional<Timestamp> expiration_time;
-
-  /// Opaque Application-defined metadata
-  std::string app_metadata;
-
-  std::string ToString() const;
-  bool Equals(const FlightEndpoint& other) const;
-
-  friend bool operator==(const FlightEndpoint& left, const FlightEndpoint& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const FlightEndpoint& left, const FlightEndpoint& right) {
-    return !(left == right);
-  }
-
-  /// \brief Serialize this message to its wire-format representation.
-  arrow::Result<std::string> SerializeToString() const;
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<FlightEndpoint> Deserialize(std::string_view serialized);
-};
-
-/// \brief The request of the RenewFlightEndpoint action.
-struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest {
-  FlightEndpoint endpoint;
-
-  std::string ToString() const;
-  bool Equals(const RenewFlightEndpointRequest& other) const;
-
-  friend bool operator==(const RenewFlightEndpointRequest& left,
-                         const RenewFlightEndpointRequest& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const RenewFlightEndpointRequest& left,
-                         const RenewFlightEndpointRequest& right) {
-    return !(left == right);
-  }
-
-  /// \brief Serialize this message to its wire-format representation.
-  arrow::Result<std::string> SerializeToString() const;
-
-  /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<RenewFlightEndpointRequest> Deserialize(
-      std::string_view serialized);
-};
-
-/// \brief Staging data structure for messages about to be put on the wire
-///
-/// This structure corresponds to FlightData in the protocol.
-struct ARROW_FLIGHT_EXPORT FlightPayload {
-  std::shared_ptr<Buffer> descriptor;
-  std::shared_ptr<Buffer> app_metadata;
-  ipc::IpcPayload ipc_message;
-
-  /// \brief Check that the payload can be written to the wire.
-  Status Validate() const;
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, Result* out);
 };
 
 /// \brief Schema result returned after a schema request RPC
-struct ARROW_FLIGHT_EXPORT SchemaResult {
+struct ARROW_FLIGHT_EXPORT SchemaResult : public internal::BaseType<SchemaResult> {
  public:
   SchemaResult() = default;
   explicit SchemaResult(std::string schema) : raw_schema_(std::move(schema)) {}
@@ -558,26 +392,86 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
   std::string ToString() const;
   bool Equals(const SchemaResult& other) const;
 
-  friend bool operator==(const SchemaResult& left, const SchemaResult& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const SchemaResult& left, const SchemaResult& right) {
-    return !(left == right);
-  }
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
 
   /// \brief Serialize this message to its wire-format representation.
-  arrow::Result<std::string> SerializeToString() const;
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<SchemaResult> Deserialize(std::string_view serialized);
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, SchemaResult* out);
 
  private:
   std::string raw_schema_;
 };
 
+/// \brief A request to retrieve or generate a dataset
+struct ARROW_FLIGHT_EXPORT FlightDescriptor
+    : public internal::BaseType<FlightDescriptor> {
+  enum DescriptorType {
+    UNKNOWN = 0,  /// Unused
+    PATH = 1,     /// Named path identifying a dataset
+    CMD = 2       /// Opaque command to generate a dataset
+  };
+
+  /// The descriptor type
+  DescriptorType type = UNKNOWN;
+
+  /// Opaque value used to express a command. Should only be defined when type
+  /// is CMD
+  std::string cmd;
+
+  /// List of strings identifying a particular dataset. Should only be defined
+  /// when type is PATH
+  std::vector<std::string> path;
+
+  FlightDescriptor();
+  FlightDescriptor(DescriptorType type, std::string cmd,
+                   std::vector<std::string> path) noexcept;
+  ~FlightDescriptor();
+
+  /// \brief Get a human-readable form of this descriptor.
+  std::string ToString() const;
+  bool Equals(const FlightDescriptor& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Get the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Parse the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, FlightDescriptor* out);
+
+  // Convenience factory functions
+
+  static FlightDescriptor Command(std::string cmd) {
+    return FlightDescriptor{CMD, std::move(cmd), {}};
+  }
+
+  static FlightDescriptor Path(std::vector<std::string> path) {
+    return FlightDescriptor{PATH, "", std::move(path)};
+  }
+};
+
 /// \brief The access coordinates for retrieval of a dataset, returned by
 /// GetFlightInfo
-class ARROW_FLIGHT_EXPORT FlightInfo {
+class ARROW_FLIGHT_EXPORT FlightInfo
+    : public internal::BaseType<std::unique_ptr<FlightInfo>> {
  public:
   struct Data {
     std::string schema;
@@ -629,18 +523,25 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   /// Application-defined opaque metadata
   const std::string& app_metadata() const { return data_.app_metadata; }
 
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
   /// \brief Get the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  arrow::Result<std::string> SerializeToString() const;
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
 
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static arrow::Result<std::unique_ptr<FlightInfo>> Deserialize(
-      std::string_view serialized);
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized,
+                                   std::unique_ptr<FlightInfo>* out);
 
   std::string ToString() const;
 
@@ -649,13 +550,6 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   /// the schemas.
   bool Equals(const FlightInfo& other) const;
 
-  friend bool operator==(const FlightInfo& left, const FlightInfo& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const FlightInfo& left, const FlightInfo& right) {
-    return !(left == right);
-  }
-
  private:
   Data data_;
   mutable std::shared_ptr<Schema> schema_;
@@ -663,7 +557,8 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
 };
 
 /// \brief The information to process a long-running query.
-class ARROW_FLIGHT_EXPORT PollInfo {
+class ARROW_FLIGHT_EXPORT PollInfo
+    : public internal::BaseType<std::unique_ptr<PollInfo>> {
  public:
   /// The currently available results so far.
   std::unique_ptr<FlightInfo> info = NULLPTR;
@@ -684,33 +579,48 @@ class ARROW_FLIGHT_EXPORT PollInfo {
         progress(std::nullopt),
         expiration_time(std::nullopt) {}
 
-  explicit PollInfo(std::unique_ptr<FlightInfo> info,
-                    std::optional<FlightDescriptor> descriptor,
-                    std::optional<double> progress,
-                    std::optional<Timestamp> expiration_time)
+  PollInfo(std::unique_ptr<FlightInfo> info, std::optional<FlightDescriptor> descriptor,
+           std::optional<double> progress, std::optional<Timestamp> expiration_time)
       : info(std::move(info)),
         descriptor(std::move(descriptor)),
         progress(progress),
         expiration_time(expiration_time) {}
 
-  explicit PollInfo(const PollInfo& other)
+  PollInfo(const PollInfo& other)
       : info(other.info ? std::make_unique<FlightInfo>(*other.info) : NULLPTR),
         descriptor(other.descriptor),
         progress(other.progress),
         expiration_time(other.expiration_time) {}
+  PollInfo(PollInfo&& other) noexcept = default;
+  ~PollInfo() = default;
+  PollInfo& operator=(const PollInfo& other) {
+    info = other.info ? std::make_unique<FlightInfo>(*other.info) : NULLPTR;
+    descriptor = other.descriptor;
+    progress = other.progress;
+    expiration_time = other.expiration_time;
+    return *this;
+  }
+  PollInfo& operator=(PollInfo&& other) = default;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
 
   /// \brief Get the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  arrow::Result<std::string> SerializeToString() const;
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
 
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static arrow::Result<std::unique_ptr<PollInfo>> Deserialize(
-      std::string_view serialized);
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized,
+                                   std::unique_ptr<PollInfo>* out);
 
   std::string ToString() const;
 
@@ -718,37 +628,493 @@ class ARROW_FLIGHT_EXPORT PollInfo {
   /// serialized schema representations, NOT the logical equality of
   /// the schemas.
   bool Equals(const PollInfo& other) const;
-
-  friend bool operator==(const PollInfo& left, const PollInfo& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const PollInfo& left, const PollInfo& right) {
-    return !(left == right);
-  }
 };
 
 /// \brief The request of the CancelFlightInfoRequest action.
-struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
+struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest
+    : public internal::BaseType<CancelFlightInfoRequest> {
   std::unique_ptr<FlightInfo> info;
+
+  CancelFlightInfoRequest() = default;
+  CancelFlightInfoRequest(std::unique_ptr<FlightInfo> info)  // NOLINT runtime/explicit
+      : info(std::move(info)) {}
 
   std::string ToString() const;
   bool Equals(const CancelFlightInfoRequest& other) const;
 
-  friend bool operator==(const CancelFlightInfoRequest& left,
-                         const CancelFlightInfoRequest& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const CancelFlightInfoRequest& left,
-                         const CancelFlightInfoRequest& right) {
-    return !(left == right);
-  }
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
 
   /// \brief Serialize this message to its wire-format representation.
-  arrow::Result<std::string> SerializeToString() const;
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<CancelFlightInfoRequest> Deserialize(std::string_view serialized);
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized,
+                                   CancelFlightInfoRequest* out);
 };
+
+enum class CancelStatus {
+  /// The cancellation status is unknown. Servers should avoid using
+  /// this value (send a kNotCancellable if the requested FlightInfo
+  /// is not known). Clients can retry the request.
+  kUnspecified = 0,
+  /// The cancellation request is complete. Subsequent requests with
+  /// the same payload may return kCancelled or a kNotCancellable error.
+  kCancelled = 1,
+  /// The cancellation request is in progress. The client may retry
+  /// the cancellation request.
+  kCancelling = 2,
+  // The FlightInfo is not cancellable. The client should not retry the
+  // cancellation request.
+  kNotCancellable = 3,
+};
+
+/// \brief The result of the CancelFlightInfo action.
+struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult
+    : public internal::BaseType<CancelFlightInfoResult> {
+  CancelStatus status = CancelStatus::kUnspecified;
+
+  CancelFlightInfoResult() = default;
+  CancelFlightInfoResult(CancelStatus status)  // NOLINT runtime/explicit
+      : status(status) {}
+
+  std::string ToString() const;
+  bool Equals(const CancelFlightInfoResult& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized,
+                                   CancelFlightInfoResult* out);
+};
+
+ARROW_FLIGHT_EXPORT
+std::ostream& operator<<(std::ostream& os, CancelStatus status);
+
+/// \brief Data structure providing an opaque identifier or credential to use
+/// when requesting a data stream with the DoGet RPC
+struct ARROW_FLIGHT_EXPORT Ticket : public internal::BaseType<Ticket> {
+  std::string ticket;
+
+  Ticket() = default;
+  Ticket(std::string ticket)  // NOLINT runtime/explicit
+      : ticket(std::move(ticket)) {}
+
+  std::string ToString() const;
+  bool Equals(const Ticket& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Get the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Parse the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, Ticket* out);
+};
+
+/// \brief A host location (a URI)
+struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
+ public:
+  /// \brief Initialize a blank location.
+  Location();
+
+  ~Location();
+
+  /// \brief Initialize a location by parsing a URI string
+  static arrow::Result<Location> Parse(const std::string& uri_string);
+
+  /// \brief Get the fallback URI.
+  ///
+  /// arrow-flight-reuse-connection://? means that a client may attempt to
+  /// reuse an existing connection to a Flight service to fetch data instead
+  /// of creating a new connection to one of the other locations listed in a
+  /// FlightEndpoint response.
+  static const Location& ReuseConnection();
+
+  /// \brief Initialize a location for a non-TLS, gRPC-based Flight
+  /// service from a host and port
+  /// \param[in] host The hostname to connect to
+  /// \param[in] port The port
+  /// \return Arrow result with the resulting location
+  static arrow::Result<Location> ForGrpcTcp(const std::string& host, const int port);
+
+  /// \brief Initialize a location for a TLS-enabled, gRPC-based Flight
+  /// service from a host and port
+  /// \param[in] host The hostname to connect to
+  /// \param[in] port The port
+  /// \return Arrow result with the resulting location
+  static arrow::Result<Location> ForGrpcTls(const std::string& host, const int port);
+
+  /// \brief Initialize a location for a domain socket-based Flight
+  /// service
+  /// \param[in] path The path to the domain socket
+  /// \return Arrow result with the resulting location
+  static arrow::Result<Location> ForGrpcUnix(const std::string& path);
+
+  /// \brief Initialize a location based on a URI scheme
+  static arrow::Result<Location> ForScheme(const std::string& scheme,
+                                           const std::string& host, const int port);
+
+  /// \brief Get the scheme of this URI.
+  std::string scheme() const;
+
+  /// \brief Get a representation of this URI as a string.
+  std::string ToString() const;
+  bool Equals(const Location& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, Location* out);
+
+ private:
+  friend class FlightClient;
+  friend class FlightServerBase;
+  std::shared_ptr<arrow::util::Uri> uri_;
+};
+
+/// \brief A flight ticket and list of locations where the ticket can be
+/// redeemed
+struct ARROW_FLIGHT_EXPORT FlightEndpoint : public internal::BaseType<FlightEndpoint> {
+  /// Opaque ticket identify; use with DoGet RPC
+  Ticket ticket;
+
+  /// List of locations where ticket can be redeemed. If the list is empty, the
+  /// ticket can only be redeemed on the current service where the ticket was
+  /// generated
+  std::vector<Location> locations;
+
+  /// Expiration time of this stream. If present, clients may assume
+  /// they can retry DoGet requests. Otherwise, clients should avoid
+  /// retrying DoGet requests.
+  std::optional<Timestamp> expiration_time;
+
+  /// Opaque Application-defined metadata
+  std::string app_metadata;
+
+  FlightEndpoint() = default;
+  FlightEndpoint(Ticket ticket, std::vector<Location> locations,
+                 std::optional<Timestamp> expiration_time, std::string app_metadata)
+      : ticket(std::move(ticket)),
+        locations(std::move(locations)),
+        expiration_time(expiration_time),
+        app_metadata(std::move(app_metadata)) {}
+
+  std::string ToString() const;
+  bool Equals(const FlightEndpoint& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, FlightEndpoint* out);
+};
+
+/// \brief The request of the RenewFlightEndpoint action.
+struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest
+    : public internal::BaseType<RenewFlightEndpointRequest> {
+  FlightEndpoint endpoint;
+
+  RenewFlightEndpointRequest() = default;
+  explicit RenewFlightEndpointRequest(FlightEndpoint endpoint)
+      : endpoint(std::move(endpoint)) {}
+
+  std::string ToString() const;
+  bool Equals(const RenewFlightEndpointRequest& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized,
+                                   RenewFlightEndpointRequest* out);
+};
+
+// FlightData in Flight.proto maps to FlightPayload here.
+
+/// \brief Staging data structure for messages about to be put on the wire
+///
+/// This structure corresponds to FlightData in the protocol.
+struct ARROW_FLIGHT_EXPORT FlightPayload {
+  std::shared_ptr<Buffer> descriptor;
+  std::shared_ptr<Buffer> app_metadata;
+  ipc::IpcPayload ipc_message;
+
+  FlightPayload() = default;
+  FlightPayload(std::shared_ptr<Buffer> descriptor, std::shared_ptr<Buffer> app_metadata,
+                ipc::IpcPayload ipc_message)
+      : descriptor(std::move(descriptor)),
+        app_metadata(std::move(app_metadata)),
+        ipc_message(std::move(ipc_message)) {}
+
+  /// \brief Check that the payload can be written to the wire.
+  Status Validate() const;
+};
+
+// A wrapper around arrow.flight.protocol.PutResult is not defined
+
+// Session management messages
+
+/// \brief Variant supporting all possible value types for {Set,Get}SessionOptions
+///
+/// By convention, an attempt to set a valueless (std::monostate) SessionOptionValue
+/// should attempt to unset or clear the named option value on the server.
+using SessionOptionValue = std::variant<std::monostate, std::string, bool, int64_t,
+                                        double, std::vector<std::string>>;
+std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v);
+
+/// \brief A request to set a set of session options by name/value.
+struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest
+    : public internal::BaseType<SetSessionOptionsRequest> {
+  std::map<std::string, SessionOptionValue> session_options;
+
+  SetSessionOptionsRequest() = default;
+  explicit SetSessionOptionsRequest(
+      std::map<std::string, SessionOptionValue> session_options)
+      : session_options(std::move(session_options)) {}
+
+  std::string ToString() const;
+  bool Equals(const SetSessionOptionsRequest& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized,
+                                   SetSessionOptionsRequest* out);
+};
+
+/// \brief The result of setting a session option.
+enum class SetSessionOptionErrorValue : int8_t {
+  /// \brief The status of setting the option is unknown.
+  ///
+  /// Servers should avoid using this value (send a NOT_FOUND error if the requested
+  /// session is not known). Clients can retry the request.
+  kUnspecified,
+  /// \brief The given session option name is invalid.
+  kInvalidName,
+  /// \brief The session option value or type is invalid.
+  kInvalidValue,
+  /// \brief The session option cannot be set.
+  kError
+};
+std::string ToString(const SetSessionOptionErrorValue& error_value);
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionErrorValue& error_value);
+
+/// \brief The result(s) of setting session option(s).
+struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult
+    : public internal::BaseType<SetSessionOptionsResult> {
+  struct Error {
+    SetSessionOptionErrorValue value;
+
+    bool Equals(const Error& other) const { return value == other.value; }
+    friend bool operator==(const Error& left, const Error& right) {
+      return left.Equals(right);
+    }
+    friend bool operator!=(const Error& left, const Error& right) {
+      return !(left == right);
+    }
+  };
+
+  std::map<std::string, Error> errors;
+
+  SetSessionOptionsResult() = default;
+  SetSessionOptionsResult(std::map<std::string, Error> errors)  // NOLINT runtime/explicit
+      : errors(std::move(errors)) {}
+
+  std::string ToString() const;
+  bool Equals(const SetSessionOptionsResult& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized,
+                                   SetSessionOptionsResult* out);
+};
+
+/// \brief A request to get current session options.
+struct ARROW_FLIGHT_EXPORT GetSessionOptionsRequest
+    : public internal::BaseType<GetSessionOptionsRequest> {
+  GetSessionOptionsRequest() = default;
+
+  std::string ToString() const;
+  bool Equals(const GetSessionOptionsRequest& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized,
+                                   GetSessionOptionsRequest* out);
+};
+
+/// \brief The current session options.
+struct ARROW_FLIGHT_EXPORT GetSessionOptionsResult
+    : public internal::BaseType<GetSessionOptionsResult> {
+  std::map<std::string, SessionOptionValue> session_options;
+
+  GetSessionOptionsResult() = default;
+  GetSessionOptionsResult(  // NOLINT runtime/explicit
+      std::map<std::string, SessionOptionValue> session_options)
+      : session_options(std::move(session_options)) {}
+
+  std::string ToString() const;
+  bool Equals(const GetSessionOptionsResult& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized,
+                                   GetSessionOptionsResult* out);
+};
+
+/// \brief A request to close the open client session.
+struct ARROW_FLIGHT_EXPORT CloseSessionRequest
+    : public internal::BaseType<CloseSessionRequest> {
+  CloseSessionRequest() = default;
+
+  std::string ToString() const;
+  bool Equals(const CloseSessionRequest& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, CloseSessionRequest* out);
+};
+
+/// \brief The result of closing a session.
+enum class CloseSessionStatus : int8_t {
+  // \brief The session close status is unknown.
+  //
+  // Servers should avoid using this value (send a NOT_FOUND error if the requested
+  // session is not known). Clients can retry the request.
+  kUnspecified,
+  // \brief The session close request is complete.
+  //
+  // Subsequent requests with the same session produce a NOT_FOUND error.
+  kClosed,
+  // \brief The session close request is in progress.
+  //
+  // The client may retry the request.
+  kClosing,
+  // \brief The session is not closeable.
+  //
+  // The client should not retry the request.
+  kNotClosable
+};
+std::string ToString(const CloseSessionStatus& status);
+std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status);
+
+/// \brief The result of attempting to close the client session.
+struct ARROW_FLIGHT_EXPORT CloseSessionResult
+    : public internal::BaseType<CloseSessionResult> {
+  CloseSessionStatus status;
+
+  CloseSessionResult() = default;
+  CloseSessionResult(CloseSessionStatus status)  // NOLINT runtime/explicit
+      : status(status) {}
+
+  std::string ToString() const;
+  bool Equals(const CloseSessionResult& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, CloseSessionResult* out);
+};
+
+//------------------------------------------------------------
 
 /// \brief An iterator to FlightInfo instances returned by ListFlights.
 class ARROW_FLIGHT_EXPORT FlightListing {
@@ -779,6 +1145,9 @@ class ARROW_FLIGHT_EXPORT ResultStream {
 /// \brief A holder for a RecordBatch with associated Flight metadata.
 struct ARROW_FLIGHT_EXPORT FlightStreamChunk {
  public:
+  FlightStreamChunk() noexcept;
+  ~FlightStreamChunk();
+
   std::shared_ptr<RecordBatch> data;
   std::shared_ptr<Buffer> app_metadata;
 };
@@ -899,8 +1268,6 @@ std::string ToString(TransportStatusCode code);
 ///   instead of trying to translate to Arrow Status.
 ///
 /// Currently, only attached to the Status passed to AsyncListener::OnFinish.
-///
-/// This API is EXPERIMENTAL.
 class ARROW_FLIGHT_EXPORT TransportStatusDetail : public StatusDetail {
  public:
   constexpr static const char* kTypeId = "flight::TransportStatusDetail";

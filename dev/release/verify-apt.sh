@@ -80,12 +80,6 @@ esac
 
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
-  debian-bullseye)
-    sed \
-      -i"" \
-      -e "s/ main$/ main contrib non-free/g" \
-      /etc/apt/sources.list
-    ;;
   debian-*)
     sed \
       -i"" \
@@ -130,8 +124,13 @@ if [ "${TYPE}" = "local" ]; then
   if [ -f "${keys}" ]; then
     gpg \
       --no-default-keyring \
-      --keyring /usr/share/keyrings/apache-arrow-apt-source.gpg \
+      --keyring /tmp/apache-arrow-apt-source.kbx \
       --import "${keys}"
+    gpg \
+      --no-default-keyring \
+      --keyring /tmp/apache-arrow-apt-source.kbx \
+      --armor \
+      --export > /usr/share/keyrings/apache-arrow-apt-source.asc
   fi
 else
   case "${TYPE}" in

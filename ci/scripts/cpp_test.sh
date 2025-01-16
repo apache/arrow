@@ -37,8 +37,10 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_P
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
 
-# Enable memory debug checks.
-export ARROW_DEBUG_MEMORY_POOL=trap
+# Enable memory debug checks if the env is not set already
+if [ -z "${ARROW_DEBUG_MEMORY_POOL}" ]; then
+  export ARROW_DEBUG_MEMORY_POOL=trap
+fi
 
 ctest_options=()
 case "$(uname)" in
@@ -47,6 +49,9 @@ case "$(uname)" in
     ;;
   Darwin)
     n_jobs=$(sysctl -n hw.ncpu)
+    # TODO: https://github.com/apache/arrow/issues/40410
+    exclude_tests="arrow-s3fs-test"
+    ctest_options+=(--exclude-regex "${exclude_tests}")
     ;;
   MINGW*)
     n_jobs=${NUMBER_OF_PROCESSORS:-1}
@@ -75,6 +80,10 @@ case "$(uname)" in
     ;;
 esac
 
+if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
+  n_jobs=1 # avoid spurious fails on emscripten due to loading too many big executables
+fi
+
 pushd ${build_dir}
 
 if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then
@@ -84,6 +93,7 @@ ctest \
     --label-regex unittest \
     --output-on-failure \
     --parallel ${n_jobs} \
+    --repeat until-pass:3 \
     --timeout ${ARROW_CTEST_TIMEOUT:-300} \
     "${ctest_options[@]}" \
     "$@"

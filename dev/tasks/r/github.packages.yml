@@ -40,7 +40,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r@v2
         with:
-          install-r: false
+          install-r: true
 
       - name: Build R source package
         shell: bash
@@ -51,7 +51,7 @@ jobs:
           R CMD build --no-build-vignettes .
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-pkg__src__contrib
           path: arrow/r/arrow_*.tar.gz
@@ -66,16 +66,14 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: ["self-hosted", "macos-10.13"], arch: "x86_64" }
-
-          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "arm64" }
+          - { runs_on: macos-13, arch: "x86_64" }
+          - { runs_on: macos-14, arch: "arm64" }
         openssl: ['3.0', '1.1']
 
     steps:
       {{ macros.github_checkout_arrow(action_v="3")|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       - name: Install Deps
-        if: {{ "${{ !contains(matrix.platform.runs_on, 'macos-10.13') }}" }}
         run: |
           brew install sccache ninja
           brew install openssl@{{ '${{ matrix.openssl }}' }}
@@ -108,7 +106,7 @@ jobs:
           cd arrow/r/libarrow/dist
           shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-lib__libarrow__bin__darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}
           path: arrow/r/libarrow/dist/arrow-*.zip*
@@ -142,8 +140,7 @@ jobs:
           UBUNTU: {{ '"${{ matrix.ubuntu }}"' }}
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source arrow/ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e EXTRA_CMAKE_FLAGS="{{ '${{ matrix.extra-cmake-flags }}' }}" \
             {{ '${{ matrix.os }}' }}-cpp-static
@@ -153,7 +150,7 @@ jobs:
           PKG_FILE: arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
           VERSION: {{ '${{ needs.source.outputs.pkg_version }}' }}
         run: |
-          # These files were created by the docker user so we have to chown them 
+          # These files were created by the docker user so we have to chown them
           sudo chown -R $USER:$USER arrow/r/libarrow
 
           cd arrow/r/libarrow/dist
@@ -164,7 +161,7 @@ jobs:
           cd arrow/r/libarrow/dist
           shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-lib__libarrow__bin__linux-openssl-{{ '${{ matrix.openssl }}' }}
           path: arrow/r/libarrow/dist/arrow-*.zip*
@@ -197,63 +194,52 @@ jobs:
           cd build
           sha512sum arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-lib__libarrow__bin__windows
           path: build/arrow-*.zip*
 
   r-packages:
     needs: [source, windows-cpp, macos-cpp]
-    name: {{ '${{ matrix.platform.name }} ${{ matrix.r_version.r }}' }}
+    name: {{ '${{ matrix.platform.name }} ${{ matrix.r_version }}' }}
     runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     strategy:
       fail-fast: false
       matrix:
         platform:
           - { runs_on: 'windows-latest', name: "Windows"}
-          - { runs_on: macos-11 , name: "macOS Big Sur"}
-          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], name: "macOS Big Sur (M1)" }
+          - { runs_on: macos-13, name: "macOS x86_64"}
+          - { runs_on: macos-14, name: "macOS arm64" }
         r_version: [oldrel, release]
     steps:
       - uses: r-lib/actions/setup-r@v2
-        # expression marker prevents the ! being parsed as yaml tag
-        if: {{ "${{ !contains(matrix.platform.runs_on, 'self-hosted') }}" }}
         with:
           r-version: {{ '${{ matrix.r_version }}' }}
-      - name: Setup R Self-Hosted
-        if: contains(matrix.platform.runs_on, 'self-hosted')
-        run: |
-          # rig is a system utility that allows for switching
-          # between pre-installed R version on the self-hosted runners
-          # rig add {{ '${{ matrix.r_version }}' }} #uncomment this to install latest release/oldrel
-          rig default {{ '${{ matrix.r_version }}' }}
-
-          rig system setup-user-lib
       {{ macros.github_setup_local_r_repo(false, true, true)|indent }}
       - name: Prepare Dependency Installation
         shell: bash
         run: |
           tar -xzf repo/src/contrib/arrow_*.tar.gz arrow/DESCRIPTION
       - name: Install dependencies
-        if: {{ "${{ !contains(matrix.platform.runs_on, 'self-hosted') }}" }}
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
            working-directory: 'arrow'
            extra-packages: cpp11
-      - name: Install dependencies self-hosted
-        if: {{ "${{ contains(matrix.platform.runs_on, 'self-hosted') }}" }}
-        shell: Rscript {0}
-        run: |
-          if (!requireNamespace("devtools", quietly = TRUE)) {
-            install.packages("devtools")
-          }
-          devtools::install_dev_deps('./arrow')
       - name: Set CRAN like openssl
-        if: contains(matrix.platform.runs_on, 'arm64')
+        if: contains(matrix.platform.name, 'macOS')
+        # The -E forwards the GITHUB_* envvars
+        shell: sudo -E Rscript {0}
         run: |
-          # The arm64 runners contain openssl 1.1.1t in this path that is always included first so we need to override the
-          # default setting of the brew --prefix as root dir to avoid version conflicts.
-          echo "OPENSSL_ROOT_DIR=/opt/R/arm64" >> $GITHUB_ENV
+          # get the mac-recipes version of openssl from CRAN
+          source("https://mac.R-project.org/bin/install.R") 
+          install.libs("openssl")
+
+          # override our cmakes default setting of the brew --prefix as root dir to avoid version conflicts.
+          if (Sys.info()[["machine"]] == "arm64"){
+            cat("OPENSSL_ROOT_DIR=/opt/R/arm64\n", file=Sys.getenv("GITHUB_ENV"), append = TRUE)
+          } else {
+            cat("OPENSSL_ROOT_DIR=/opt/R/x86_64\n", file=Sys.getenv("GITHUB_ENV"), append = TRUE)
+          }
       - name: Build Binary
         id: build
         shell: Rscript {0}
@@ -261,6 +247,7 @@ jobs:
           NOT_CRAN: "false" # actions/setup-r sets this implicitly
           ARROW_R_DEV: "true"
           LIBARROW_BINARY: "true" # has to be set as long as allowlist not updated
+          LIBARROW_BUILD: "false"
           ARROW_R_ENFORCE_CHECKSUM: "true"
           ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow/bin"
         run: |
@@ -304,7 +291,7 @@ jobs:
           cat(cmd, file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-pkg{{ '${{ steps.build.outputs.path }}' }}
           path: arrow_*
@@ -321,17 +308,15 @@ jobs:
           # choosing a binary on this OS. If libarrow_binary is TRUE, we're on
           # an OS that is not in the allowlist, so we have to opt-in to use the
           # binary. Other env vars used in r_docker_configure.sh can be added
-          # here (like devtoolset) and wired up in the later steps.
-          - {image: "rhub/debian-clang-devel", libarrow_binary: "TRUE"}
+          # here and wired up in the later steps.
+          - {image: "rhub/ubuntu-clang", libarrow_binary: "TRUE"}
           # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
           # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
-          - {image: "rhub/ubuntu-gcc-release"} # currently ubuntu-20.04 (focal)
-          - {image: "rocker/r-ubuntu:22.04"} # openssl3
-          - {image: "rocker/r-ver"} # whatever is latest ubuntu LTS
+          - {image: "rhub/ubuntu-release"} # currently ubuntu-22.04
           - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
-          - {image: "rocker/r-ver:3.6.3", libarrow_binary: "TRUE"} # debian:buster (10)
-          - {image: "rstudio/r-base:4.1-focal"} # ubuntu-20.04
-          - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
+          - {image: "rstudio/r-base:4.1-focal"}
+          - {image: "rstudio/r-base:4.2-jammy"}
+          - {image: "rstudio/r-base:4.3-noble"}
     steps:
       # Get the arrow checkout just for the docker config scripts
       # Don't need submodules for this (hence false arg to macro): they fail on
@@ -341,7 +326,6 @@ jobs:
       - name: Install system requirements
         env:
           ARROW_R_DEV: "TRUE" # To install curl/openssl in r_docker_configure.sh
-          DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
         shell: bash
         run: |
           # Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)
@@ -363,7 +347,7 @@ jobs:
           '
       - name: Upload binary artifact
         if: matrix.config.devtoolset
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: r-pkg_centos7
           path: arrow_*
@@ -375,7 +359,7 @@ jobs:
     runs-on: ubuntu-latest
     container: "rstudio/r-base:4.2-centos7"
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: r-pkg_centos7
       - name: Install DTS Package
@@ -405,10 +389,9 @@ jobs:
       matrix:
         platform:
           - {runs_on: "ubuntu-latest", name: "Linux"}
-          - {runs_on: ["self-hosted", "macos-10.13"] , name: "macOS"}
+          - {runs_on: "macos-13" , name: "macOS"}
     steps:
       - name: Install R
-        if: matrix.platform.name == 'Linux'
         uses: r-lib/actions/setup-r@v2
       {{ macros.github_setup_local_r_repo(false, false)|indent }}
       {{ macros.github_checkout_arrow(action_v="3")|indent }}
@@ -420,6 +403,9 @@ jobs:
       - name: Install R package system dependencies (Linux)
         if: matrix.platform.name == 'Linux'
         run: sudo apt-get install -y libcurl4-openssl-dev libssl-dev
+      - name: Install R package system dependencies (macOS)
+        if: matrix.platform.name == 'macOS'
+        run: brew install sccache openssl curl
       - name: Remove arrow/
         run: |
           rm -rf arrow/
@@ -455,13 +441,13 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Download Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
       - name: Install R
         uses: r-lib/actions/setup-r@v2
         with:
-          install-r: false
+          install-r: true
       - name: Rename artifacts
         shell: Rscript {0}
         run: |

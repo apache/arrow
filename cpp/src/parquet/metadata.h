@@ -28,22 +28,8 @@
 #include "parquet/encryption/type_fwd.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
-#include "parquet/schema.h"
-#include "parquet/types.h"
 
 namespace parquet {
-
-class ColumnDescriptor;
-class EncodedStatistics;
-class FileCryptoMetaData;
-class Statistics;
-class SchemaDescriptor;
-
-namespace schema {
-
-class ColumnPath;
-
-}  // namespace schema
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
 
@@ -127,14 +113,6 @@ struct IndexLocation {
 class PARQUET_EXPORT ColumnChunkMetaData {
  public:
   // API convenience to get a MetaData accessor
-
-  ARROW_DEPRECATED("Use the ReaderProperties-taking overload")
-  static std::unique_ptr<ColumnChunkMetaData> Make(
-      const void* metadata, const ColumnDescriptor* descr,
-      const ApplicationVersion* writer_version, int16_t row_group_ordinal = -1,
-      int16_t column_ordinal = -1,
-      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
-
   static std::unique_ptr<ColumnChunkMetaData> Make(
       const void* metadata, const ColumnDescriptor* descr,
       const ReaderProperties& properties = default_reader_properties(),
@@ -146,7 +124,12 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 
   bool Equals(const ColumnChunkMetaData& other) const;
 
-  // column chunk
+  // Byte offset of `ColumnMetaData` in `file_path()`.
+  //
+  // Note that the meaning of this field has been inconsistent among implementations
+  // so its use has since been deprecated in the Parquet specification. Modern
+  // implementations will set this to `0` to indicate that the `ColumnMetaData` is solely
+  // contained in the `ColumnChunk` struct.
   int64_t file_offset() const;
 
   // parameter is only used when a dataset is spread across multiple files
@@ -159,6 +142,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool is_stats_set() const;
   std::shared_ptr<Statistics> statistics() const;
+  std::shared_ptr<SizeStatistics> size_statistics() const;
 
   Compression::type compression() const;
   // Indicate if the ColumnChunk compression is supported by the current
@@ -179,6 +163,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const;
   std::optional<IndexLocation> GetColumnIndexLocation() const;
   std::optional<IndexLocation> GetOffsetIndexLocation() const;
+  const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const;
 
  private:
   explicit ColumnChunkMetaData(
@@ -194,12 +179,6 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 /// \brief RowGroupMetaData is a proxy around format::RowGroupMetaData.
 class PARQUET_EXPORT RowGroupMetaData {
  public:
-  ARROW_DEPRECATED("Use the ReaderProperties-taking overload")
-  static std::unique_ptr<RowGroupMetaData> Make(
-      const void* metadata, const SchemaDescriptor* schema,
-      const ApplicationVersion* writer_version,
-      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
-
   /// \brief Create a RowGroupMetaData from a serialized thrift message.
   static std::unique_ptr<RowGroupMetaData> Make(
       const void* metadata, const SchemaDescriptor* schema,
@@ -267,11 +246,6 @@ class FileMetaDataBuilder;
 /// \brief FileMetaData is a proxy around format::FileMetaData.
 class PARQUET_EXPORT FileMetaData {
  public:
-  ARROW_DEPRECATED("Use the ReaderProperties-taking overload")
-  static std::shared_ptr<FileMetaData> Make(
-      const void* serialized_metadata, uint32_t* inout_metadata_len,
-      std::shared_ptr<InternalFileDecryptor> file_decryptor);
-
   /// \brief Create a FileMetaData from a serialized thrift message.
   static std::shared_ptr<FileMetaData> Make(
       const void* serialized_metadata, uint32_t* inout_metadata_len,
@@ -306,9 +280,15 @@ class PARQUET_EXPORT FileMetaData {
   int num_schema_elements() const;
 
   /// \brief The total number of rows.
+  ///
+  /// If the FileMetaData was obtained by calling `SubSet()`, this is the total
+  /// number of rows in the selected row groups.
   int64_t num_rows() const;
 
   /// \brief The number of row groups in the file.
+  ///
+  /// If the FileMetaData was obtained by calling `SubSet()`, this is the number
+  /// of selected row groups.
   int num_row_groups() const;
 
   /// \brief Return the RowGroupMetaData of the corresponding row group ordinal.
@@ -338,7 +318,7 @@ class PARQUET_EXPORT FileMetaData {
   /// \brief Size of the original thrift encoded metadata footer.
   uint32_t size() const;
 
-  /// \brief Indicate if all of the FileMetadata's RowGroups can be decompressed.
+  /// \brief Indicate if all of the FileMetaData's RowGroups can be decompressed.
   ///
   /// This will return false if any of the RowGroup's page is compressed with a
   /// compression format which is not compiled in the current parquet library.
@@ -390,15 +370,24 @@ class PARQUET_EXPORT FileMetaData {
   /// FileMetaData.
   std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) const;
 
+  /// \brief Serialize metadata unencrypted as string
+  ///
+  /// \param[in] scrub whether to remove sensitive information from the metadata.
+  /// \param[in] debug whether to serialize the metadata as Thrift (if false) or
+  /// debug text (if true).
+  std::string SerializeUnencrypted(bool scrub, bool debug) const;
+
  private:
   friend FileMetaDataBuilder;
   friend class SerializedFile;
+  friend class SerializedRowGroup;
 
   explicit FileMetaData(const void* serialized_metadata, uint32_t* metadata_len,
                         const ReaderProperties& properties,
                         std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor);
+  const std::shared_ptr<InternalFileDecryptor>& file_decryptor() const;
 
   // PIMPL Idiom
   FileMetaData();
@@ -446,8 +435,13 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   // column chunk
   // Used when a dataset is spread across multiple files
   void set_file_path(const std::string& path);
+
   // column metadata
   void SetStatistics(const EncodedStatistics& stats);
+  void SetSizeStatistics(const SizeStatistics& size_stats);
+
+  void SetKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata);
+
   // get the column descriptor
   const ColumnDescriptor* descr() const;
 
@@ -522,11 +516,6 @@ struct PageIndexLocation {
 
 class PARQUET_EXPORT FileMetaDataBuilder {
  public:
-  ARROW_DEPRECATED("Deprecated in 12.0.0. Use overload without KeyValueMetadata instead.")
-  static std::unique_ptr<FileMetaDataBuilder> Make(
-      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-      std::shared_ptr<const KeyValueMetadata> key_value_metadata);
-
   // API convenience to get a MetaData builder
   static std::unique_ptr<FileMetaDataBuilder> Make(
       const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props);
@@ -547,9 +536,8 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   std::unique_ptr<FileCryptoMetaData> GetCryptoMetaData();
 
  private:
-  explicit FileMetaDataBuilder(
-      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-      std::shared_ptr<const KeyValueMetadata> key_value_metadata = NULLPTR);
+  explicit FileMetaDataBuilder(const SchemaDescriptor* schema,
+                               std::shared_ptr<WriterProperties> props);
   // PIMPL Idiom
   class FileMetaDataBuilderImpl;
   std::unique_ptr<FileMetaDataBuilderImpl> impl_;

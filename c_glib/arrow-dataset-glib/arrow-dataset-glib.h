@@ -21,6 +21,8 @@
 
 #include <arrow-glib/arrow-glib.h>
 
+#include <arrow-dataset-glib/version.h>
+
 #include <arrow-dataset-glib/dataset-factory.h>
 #include <arrow-dataset-glib/dataset.h>
 #include <arrow-dataset-glib/enums.h>

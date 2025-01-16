@@ -24,28 +24,28 @@
 namespace arrow::matlab::array::proxy {
 
 class ChunkedArray : public libmexclass::proxy::Proxy {
-    public:
-        ChunkedArray(std::shared_ptr<arrow::ChunkedArray> chunked_array);
-    
-        ~ChunkedArray() {}
+ public:
+  ChunkedArray(std::shared_ptr<arrow::ChunkedArray> chunked_array);
 
-        std::shared_ptr<arrow::ChunkedArray> unwrap();
+  ~ChunkedArray() {}
 
-        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+  std::shared_ptr<arrow::ChunkedArray> unwrap();
 
-    protected:
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-        void getNumElements(libmexclass::proxy::method::Context& context);
+ protected:
+  void getNumElements(libmexclass::proxy::method::Context& context);
 
-        void getNumChunks(libmexclass::proxy::method::Context& context);
+  void getNumChunks(libmexclass::proxy::method::Context& context);
 
-        void getChunk(libmexclass::proxy::method::Context& context);
+  void getChunk(libmexclass::proxy::method::Context& context);
 
-        void getType(libmexclass::proxy::method::Context& context);
+  void getType(libmexclass::proxy::method::Context& context);
 
-        void isEqual(libmexclass::proxy::method::Context& context);
+  void isEqual(libmexclass::proxy::method::Context& context);
 
-        std::shared_ptr<arrow::ChunkedArray> chunked_array;
+  std::shared_ptr<arrow::ChunkedArray> chunked_array;
 };
 
-}
+}  // namespace arrow::matlab::array::proxy

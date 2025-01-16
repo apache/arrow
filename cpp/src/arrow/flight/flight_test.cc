@@ -44,7 +44,7 @@
 #include "arrow/util/logging.h"
 
 #ifdef GRPCPP_GRPCPP_H
-#error "gRPC headers should not be in public API"
+#  error "gRPC headers should not be in public API"
 #endif
 
 #include <grpcpp/grpcpp.h>
@@ -52,7 +52,9 @@
 // Include before test_util.h (boost), contains Windows fixes
 #include "arrow/flight/platform.h"
 #include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/test_auth_handlers.h"
 #include "arrow/flight/test_definitions.h"
+#include "arrow/flight/test_flight_server.h"
 #include "arrow/flight/test_util.h"
 // OTel includes must come after any gRPC includes, and
 // client_header_internal.h includes gRPC. See:
@@ -69,10 +71,11 @@
 // > between the two different versions of Abseil.
 #include "arrow/util/tracing_internal.h"
 #ifdef ARROW_WITH_OPENTELEMETRY
-#include <opentelemetry/context/propagation/global_propagator.h>
-#include <opentelemetry/context/propagation/text_map_propagator.h>
-#include <opentelemetry/sdk/trace/tracer_provider.h>
-#include <opentelemetry/trace/propagation/http_trace_context.h>
+#  include <opentelemetry/context/propagation/global_propagator.h>
+#  include <opentelemetry/context/propagation/text_map_propagator.h>
+#  include <opentelemetry/sdk/trace/processor.h>
+#  include <opentelemetry/sdk/trace/tracer_provider.h>
+#  include <opentelemetry/trace/propagation/http_trace_context.h>
 #endif
 
 namespace arrow {
@@ -201,7 +204,7 @@ ARROW_FLIGHT_TEST_ASYNC_CLIENT(GrpcAsyncClientTest);
 
 TEST(TestFlight, ConnectUri) {
   TestServer server("flight-test-server");
-  server.Start();
+  ASSERT_OK(server.Start());
   ASSERT_TRUE(server.IsRunning());
 
   std::stringstream ss;
@@ -227,7 +230,7 @@ TEST(TestFlight, InvalidUriScheme) {
 #ifndef _WIN32
 TEST(TestFlight, ConnectUriUnix) {
   TestServer server("flight-test-server", "/tmp/flight-test.sock");
-  server.Start();
+  ASSERT_OK(server.Start());
   ASSERT_TRUE(server.IsRunning());
 
   std::stringstream ss;
@@ -246,7 +249,7 @@ TEST(TestFlight, ConnectUriUnix) {
 
 // CI environments don't have an IPv6 interface configured
 TEST(TestFlight, DISABLED_IpV6Port) {
-  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+  std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("[::1]", 0));
   FlightServerOptions options(location);
@@ -260,7 +263,7 @@ TEST(TestFlight, DISABLED_IpV6Port) {
 }
 
 TEST(TestFlight, ServerCallContextIncomingHeaders) {
-  auto server = ExampleTestServer();
+  auto server = TestFlightServer::Make();
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
@@ -289,7 +292,7 @@ TEST(TestFlight, ServerCallContextIncomingHeaders) {
 class TestFlightClient : public ::testing::Test {
  public:
   void SetUp() {
-    server_ = ExampleTestServer();
+    server_ = TestFlightServer::Make();
 
     ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
     FlightServerOptions options(location);
@@ -997,7 +1000,8 @@ TEST_F(TestFlightClient, ListFlights) {
 }
 
 TEST_F(TestFlightClient, ListFlightsWithCriteria) {
-  ASSERT_OK_AND_ASSIGN(auto listing, client_->ListFlights(FlightCallOptions(), {"foo"}));
+  ASSERT_OK_AND_ASSIGN(auto listing,
+                       client_->ListFlights(FlightCallOptions{}, Criteria{"foo"}));
   std::unique_ptr<FlightInfo> info;
   ASSERT_OK_AND_ASSIGN(info, listing->Next());
   ASSERT_TRUE(info == nullptr);

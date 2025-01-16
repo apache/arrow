@@ -43,7 +43,7 @@ function text = getSchemaString(schema)
         classNameAndIDs = strings([1 numel(typeIDs) * 2]);
         classNameAndIDs(1:2:end-1) = classNames;
         classNameAndIDs(2:2:end) = typeIDs;
-        typeIDs = compose("<a href=""matlab:helpPopup %s"" style=""font-weight:bold"">%s</a>", classNameAndIDs);
+        typeIDs = compose("<a href=""matlab:helpPopup('%s')"" style=""font-weight:bold"">%s</a>", classNameAndIDs);
     end
 
     text = names + ": " + typeIDs;

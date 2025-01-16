@@ -134,6 +134,13 @@ struct WrapBytes<LargeStringType> {
 };
 
 template <>
+struct WrapBytes<StringViewType> {
+  static inline PyObject* Wrap(const char* data, int64_t length) {
+    return PyUnicode_FromStringAndSize(data, length);
+  }
+};
+
+template <>
 struct WrapBytes<BinaryType> {
   static inline PyObject* Wrap(const char* data, int64_t length) {
     return PyBytes_FromStringAndSize(data, length);
@@ -142,6 +149,13 @@ struct WrapBytes<BinaryType> {
 
 template <>
 struct WrapBytes<LargeBinaryType> {
+  static inline PyObject* Wrap(const char* data, int64_t length) {
+    return PyBytes_FromStringAndSize(data, length);
+  }
+};
+
+template <>
+struct WrapBytes<BinaryViewType> {
   static inline PyObject* Wrap(const char* data, int64_t length) {
     return PyBytes_FromStringAndSize(data, length);
   }
@@ -189,7 +203,9 @@ static inline bool ListTypeSupported(const DataType& type) {
       return true;
     case Type::FIXED_SIZE_LIST:
     case Type::LIST:
-    case Type::LARGE_LIST: {
+    case Type::LARGE_LIST:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW: {
       const auto& list_type = checked_cast<const BaseListType&>(type);
       return ListTypeSupported(*list_type.value_type());
     }
@@ -241,7 +257,8 @@ Status SetBufferBase(PyArrayObject* arr, const std::shared_ptr<Buffer>& buffer) 
 }
 
 inline void set_numpy_metadata(int type, const DataType* datatype, PyArray_Descr* out) {
-  auto metadata = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(out->c_metadata);
+  auto metadata =
+      reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(PyDataType_C_METADATA(out));
   if (type == NPY_DATETIME) {
     if (datatype->id() == Type::TIMESTAMP) {
       const auto& timestamp_type = checked_cast<const TimestampType&>(*datatype);
@@ -262,7 +279,7 @@ Status PyArray_NewFromPool(int nd, npy_intp* dims, PyArray_Descr* descr, MemoryP
   //
   // * Track allocations
   // * Get better performance through custom allocators
-  int64_t total_size = descr->elsize;
+  int64_t total_size = PyDataType_ELSIZE(descr);
   for (int i = 0; i < nd; ++i) {
     total_size *= dims[i];
   }
@@ -523,8 +540,9 @@ class PandasWriter {
 
   void SetDatetimeUnit(NPY_DATETIMEUNIT unit) {
     PyAcquireGIL lock;
-    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(
-        PyArray_DESCR(reinterpret_cast<PyArrayObject*>(block_arr_.obj()))->c_metadata);
+    auto date_dtype =
+        reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(PyDataType_C_METADATA(
+            PyArray_DESCR(reinterpret_cast<PyArrayObject*>(block_arr_.obj()))));
     date_dtype->meta.base = unit;
   }
 
@@ -606,40 +624,40 @@ inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArra
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using Scalar = typename MemoizationTraits<Type>::Scalar;
 
-  ::arrow::internal::ScalarMemoTable<Scalar> memo_table(options.pool);
-  std::vector<PyObject*> unique_values;
-  int32_t memo_size = 0;
-
-  auto WrapMemoized = [&](const Scalar& value, PyObject** out_values) {
-    int32_t memo_index;
-    RETURN_NOT_OK(memo_table.GetOrInsert(value, &memo_index));
-    if (memo_index == memo_size) {
-      // New entry
-      RETURN_NOT_OK(wrap_func(value, out_values));
-      unique_values.push_back(*out_values);
-      ++memo_size;
-    } else {
-      // Duplicate entry
-      Py_INCREF(unique_values[memo_index]);
-      *out_values = unique_values[memo_index];
+  auto convert_chunks = [&](auto&& wrap_func) -> Status {
+    for (int c = 0; c < data.num_chunks(); c++) {
+      const auto& arr = arrow::internal::checked_cast<const ArrayType&>(*data.chunk(c));
+      RETURN_NOT_OK(internal::WriteArrayObjects(arr, wrap_func, out_values));
+      out_values += arr.length();
     }
     return Status::OK();
   };
 
-  auto WrapUnmemoized = [&](const Scalar& value, PyObject** out_values) {
-    return wrap_func(value, out_values);
-  };
+  if (options.deduplicate_objects) {
+    // GH-40316: only allocate a memo table if deduplication is enabled.
+    ::arrow::internal::ScalarMemoTable<Scalar> memo_table(options.pool);
+    std::vector<PyObject*> unique_values;
+    int32_t memo_size = 0;
 
-  for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = arrow::internal::checked_cast<const ArrayType&>(*data.chunk(c));
-    if (options.deduplicate_objects) {
-      RETURN_NOT_OK(internal::WriteArrayObjects(arr, WrapMemoized, out_values));
-    } else {
-      RETURN_NOT_OK(internal::WriteArrayObjects(arr, WrapUnmemoized, out_values));
-    }
-    out_values += arr.length();
+    auto WrapMemoized = [&](const Scalar& value, PyObject** out_values) {
+      int32_t memo_index;
+      RETURN_NOT_OK(memo_table.GetOrInsert(value, &memo_index));
+      if (memo_index == memo_size) {
+        // New entry
+        RETURN_NOT_OK(wrap_func(value, out_values));
+        unique_values.push_back(*out_values);
+        ++memo_size;
+      } else {
+        // Duplicate entry
+        Py_INCREF(unique_values[memo_index]);
+        *out_values = unique_values[memo_index];
+      }
+      return Status::OK();
+    };
+    return convert_chunks(std::move(WrapMemoized));
+  } else {
+    return convert_chunks(std::forward<WrapFunction>(wrap_func));
   }
-  return Status::OK();
 }
 
 Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
@@ -736,9 +754,11 @@ Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& den
   return Status::OK();
 }
 
-template <typename ListArrayT>
-Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
-                        PyObject** out_values) {
+template <typename T>
+enable_if_list_like<T, Status> ConvertListsLike(PandasOptions options,
+                                                const ChunkedArray& data,
+                                                PyObject** out_values) {
+  using ListArrayT = typename TypeTraits<T>::ArrayType;
   // Get column of underlying value arrays
   ArrayVector value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
@@ -810,6 +830,26 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   }
 
   return Status::OK();
+}
+
+// TODO GH-40579: optimize ListView conversion to avoid unnecessary copies
+template <typename T>
+enable_if_list_view<T, Status> ConvertListsLike(PandasOptions options,
+                                                const ChunkedArray& data,
+                                                PyObject** out_values) {
+  using ListViewArrayType = typename TypeTraits<T>::ArrayType;
+  using NonViewType =
+      std::conditional_t<T::type_id == Type::LIST_VIEW, ListType, LargeListType>;
+  using NonViewClass = typename TypeTraits<NonViewType>::ArrayType;
+  ArrayVector list_arrays;
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = checked_cast<const ListViewArrayType&>(*data.chunk(c));
+    ARROW_ASSIGN_OR_RAISE(auto non_view_array,
+                          NonViewClass::FromListView(arr, options.pool));
+    list_arrays.emplace_back(non_view_array);
+  }
+  auto chunked_array = std::make_shared<ChunkedArray>(list_arrays);
+  return ConvertListsLike<NonViewType>(options, *chunked_array, out_values);
 }
 
 template <typename F1, typename F2, typename F3>
@@ -1154,7 +1194,8 @@ struct ObjectWriterVisitor {
   }
 
   template <typename Type>
-  enable_if_t<is_base_binary_type<Type>::value || is_fixed_size_binary_type<Type>::value,
+  enable_if_t<is_base_binary_type<Type>::value || is_binary_view_like_type<Type>::value ||
+                  is_fixed_size_binary_type<Type>::value,
               Status>
   Visit(const Type& type) {
     auto WrapValue = [](const std::string_view& view, PyObject** out) {
@@ -1276,7 +1317,8 @@ struct ObjectWriterVisitor {
                                                         out_values);
   }
 
-  Status Visit(const Decimal128Type& type) {
+  template <typename DecimalT, typename DecimalArrayT>
+  Status VisitDecimal(const DecimalT& type) {
     OwnedRef decimal;
     OwnedRef Decimal;
     RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
@@ -1284,7 +1326,7 @@ struct ObjectWriterVisitor {
     PyObject* decimal_constructor = Decimal.obj();
 
     for (int c = 0; c < data.num_chunks(); c++) {
-      const auto& arr = checked_cast<const arrow::Decimal128Array&>(*data.chunk(c));
+      const auto& arr = checked_cast<const DecimalArrayT&>(*data.chunk(c));
 
       for (int64_t i = 0; i < arr.length(); ++i) {
         if (arr.IsNull(i)) {
@@ -1299,44 +1341,33 @@ struct ObjectWriterVisitor {
     }
 
     return Status::OK();
+  }
+
+  Status Visit(const Decimal32Type& type) {
+    return VisitDecimal<Decimal32Type, Decimal32Array>(type);
+  }
+
+  Status Visit(const Decimal64Type& type) {
+    return VisitDecimal<Decimal64Type, Decimal64Array>(type);
+  }
+
+  Status Visit(const Decimal128Type& type) {
+    return VisitDecimal<Decimal128Type, Decimal128Array>(type);
   }
 
   Status Visit(const Decimal256Type& type) {
-    OwnedRef decimal;
-    OwnedRef Decimal;
-    RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
-    RETURN_NOT_OK(internal::ImportFromModule(decimal.obj(), "Decimal", &Decimal));
-    PyObject* decimal_constructor = Decimal.obj();
-
-    for (int c = 0; c < data.num_chunks(); c++) {
-      const auto& arr = checked_cast<const arrow::Decimal256Array&>(*data.chunk(c));
-
-      for (int64_t i = 0; i < arr.length(); ++i) {
-        if (arr.IsNull(i)) {
-          Py_INCREF(Py_None);
-          *out_values++ = Py_None;
-        } else {
-          *out_values++ =
-              internal::DecimalFromString(decimal_constructor, arr.FormatValue(i));
-          RETURN_IF_PYERROR();
-        }
-      }
-    }
-
-    return Status::OK();
+    return VisitDecimal<Decimal256Type, Decimal256Array>(type);
   }
 
   template <typename T>
-  enable_if_t<is_fixed_size_list_type<T>::value || is_var_length_list_type<T>::value,
-              Status>
-  Visit(const T& type) {
-    using ArrayType = typename TypeTraits<T>::ArrayType;
+  enable_if_t<is_list_like_type<T>::value || is_list_view_type<T>::value, Status> Visit(
+      const T& type) {
     if (!ListTypeSupported(*type.value_type())) {
       return Status::NotImplemented(
           "Not implemented type for conversion from List to Pandas: ",
           type.value_type()->ToString());
     }
-    return ConvertListsLike<ArrayType>(options, data, out_values);
+    return ConvertListsLike<T>(options, data, out_values);
   }
 
   Status Visit(const MapType& type) { return ConvertMap(options, data, out_values); }
@@ -1350,13 +1381,10 @@ struct ObjectWriterVisitor {
                   std::is_same<DictionaryType, Type>::value ||
                   std::is_same<DurationType, Type>::value ||
                   std::is_same<RunEndEncodedType, Type>::value ||
-                  std::is_same<ListViewType, Type>::value ||
-                  std::is_same<LargeListViewType, Type>::value ||
                   std::is_same<ExtensionType, Type>::value ||
                   (std::is_base_of<IntervalType, Type>::value &&
                    !std::is_same<MonthDayNanoIntervalType, Type>::value) ||
-                  std::is_base_of<UnionType, Type>::value ||
-                  std::is_base_of<BinaryViewType, Type>::value,
+                  std::is_base_of<UnionType, Type>::value,
               Status>
   Visit(const Type& type) {
     return Status::NotImplemented("No implemented conversion to object dtype: ",
@@ -2086,8 +2114,10 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
       break;
     case Type::STRING:        // fall through
     case Type::LARGE_STRING:  // fall through
+    case Type::STRING_VIEW:   // fall through
     case Type::BINARY:        // fall through
     case Type::LARGE_BINARY:
+    case Type::BINARY_VIEW:
     case Type::NA:                       // fall through
     case Type::FIXED_SIZE_BINARY:        // fall through
     case Type::STRUCT:                   // fall through
@@ -2189,6 +2219,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::FIXED_SIZE_LIST:
     case Type::LIST:
     case Type::LARGE_LIST:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW:
     case Type::MAP: {
       auto list_type = std::static_pointer_cast<BaseListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
@@ -2273,6 +2305,14 @@ std::shared_ptr<ChunkedArray> GetStorageChunkedArray(std::shared_ptr<ChunkedArra
   return std::make_shared<ChunkedArray>(std::move(storage_arrays), value_type);
 };
 
+// Helper function to decode RunEndEncodedArray
+Result<std::shared_ptr<ChunkedArray>> GetDecodedChunkedArray(
+    std::shared_ptr<ChunkedArray> arr) {
+  ARROW_ASSIGN_OR_RAISE(Datum decoded, compute::RunEndDecode(arr));
+  DCHECK(decoded.is_chunked_array());
+  return decoded.chunked_array();
+};
+
 class ConsolidatedBlockCreator : public PandasBlockCreator {
  public:
   using PandasBlockCreator::PandasBlockCreator;
@@ -2301,6 +2341,11 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
       // In case of an extension array default to the storage type
       if (arrays_[column_index]->type()->id() == Type::EXTENSION) {
         arrays_[column_index] = GetStorageChunkedArray(arrays_[column_index]);
+      }
+      // In case of a RunEndEncodedArray default to the values type
+      else if (arrays_[column_index]->type()->id() == Type::RUN_END_ENCODED) {
+        ARROW_ASSIGN_OR_RAISE(arrays_[column_index],
+                              GetDecodedChunkedArray(arrays_[column_index]));
       }
       return GetPandasWriterType(*arrays_[column_index], options_, out);
     }
@@ -2478,7 +2523,8 @@ Status ConvertCategoricals(const PandasOptions& options, ChunkedArrayVector* arr
   }
   if (options.strings_to_categorical) {
     for (int i = 0; i < static_cast<int>(arrays->size()); i++) {
-      if (is_base_binary_like((*arrays)[i]->type()->id())) {
+      if (is_base_binary_like((*arrays)[i]->type()->id()) ||
+          is_binary_view_like((*arrays)[i]->type()->id())) {
         columns_to_encode.push_back(i);
       }
     }
@@ -2499,6 +2545,8 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
                                    std::shared_ptr<ChunkedArray> arr, PyObject* py_ref,
                                    PyObject** out) {
   if (options.decode_dictionaries && arr->type()->id() == Type::DICTIONARY) {
+    // XXX we should return an error as below if options.zero_copy_only
+    // is true, but that would break compatibility with existing tests.
     const auto& dense_type =
         checked_cast<const DictionaryType&>(*arr->type()).value_type();
     RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &arr));
@@ -2510,7 +2558,8 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
     py_ref = nullptr;
   }
 
-  if (options.strings_to_categorical && is_base_binary_like(arr->type()->id())) {
+  if (options.strings_to_categorical && (is_base_binary_like(arr->type()->id()) ||
+                                         is_binary_view_like(arr->type()->id()))) {
     if (options.zero_copy_only) {
       return Status::Invalid("Need to dictionary encode a column, but ",
                              "only zero-copy conversions allowed");
@@ -2533,6 +2582,18 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   // In case of an extension array default to the storage type
   if (arr->type()->id() == Type::EXTENSION) {
     arr = GetStorageChunkedArray(arr);
+  }
+  // In case of a RunEndEncodedArray decode the array
+  else if (arr->type()->id() == Type::RUN_END_ENCODED) {
+    if (options.zero_copy_only) {
+      return Status::Invalid("Need to dencode a RunEndEncodedArray, but ",
+                             "only zero-copy conversions allowed");
+    }
+    ARROW_ASSIGN_OR_RAISE(arr, GetDecodedChunkedArray(arr));
+
+    // Because we built a new array when we decoded the RunEndEncodedArray
+    // the final resulting numpy array should own the memory through a Capsule
+    py_ref = nullptr;
   }
 
   PandasWriter::type output_type;

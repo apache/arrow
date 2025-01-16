@@ -45,6 +45,7 @@ class DataLakeServiceClient;
 namespace arrow::fs {
 
 class TestAzureFileSystem;
+class TestAzureOptions;
 
 /// Options for the AzureFileSystem implementation.
 ///
@@ -59,6 +60,8 @@ class TestAzureFileSystem;
 ///
 /// Functions are provided for explicit configuration of credentials if that is preferred.
 struct ARROW_EXPORT AzureOptions {
+  friend class TestAzureOptions;
+
   /// \brief The name of the Azure Storage Account being accessed.
   ///
   /// All service URLs will be constructed using this storage account name.
@@ -105,32 +108,96 @@ struct ARROW_EXPORT AzureOptions {
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
   std::shared_ptr<const KeyValueMetadata> default_metadata;
 
+  /// Whether OutputStream writes will be issued in the background, without blocking.
+  bool background_writes = true;
+
  private:
   enum class CredentialKind {
     kDefault,
     kAnonymous,
     kStorageSharedKey,
+    kSASToken,
     kClientSecret,
     kManagedIdentity,
+    kCLI,
     kWorkloadIdentity,
+    kEnvironment,
   } credential_kind_ = CredentialKind::kDefault;
 
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
+  std::string sas_token_;
   mutable std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
 
  public:
   AzureOptions();
   ~AzureOptions();
 
+ private:
+  void ExtractFromUriSchemeAndHierPart(const Uri& uri, std::string* out_path);
+  Status ExtractFromUriQuery(const Uri& uri);
+
+ public:
+  /// \brief Construct a new AzureOptions from an URI.
+  ///
+  /// Supported formats:
+  ///
+  /// 1. abfs[s]://\<account\>.blob.core.windows.net[/\<container\>[/\<path\>]]
+  /// 2. abfs[s]://\<container\>\@\<account\>.dfs.core.windows.net[/path]
+  /// 3. abfs[s]://[\<account@]\<host[.domain]\>[\<:port\>][/\<container\>[/path]]
+  /// 4. abfs[s]://[\<account@]\<container\>[/path]
+  ///
+  /// (1) and (2) are compatible with the Azure Data Lake Storage Gen2 URIs
+  /// [1], (3) is for Azure Blob Storage compatible service including Azurite,
+  /// and (4) is a shorter version of (1) and (2).
+  ///
+  /// Note that there is no difference between abfs and abfss. HTTPS is
+  /// used with abfs by default. You can force to use HTTP by specifying
+  /// "enable_tls=false" query.
+  ///
+  /// Supported query parameters:
+  ///
+  /// * blob_storage_authority: Set AzureOptions::blob_storage_authority
+  /// * dfs_storage_authority: Set AzureOptions::dfs_storage_authority
+  /// * enable_tls: If it's "false" or "0", HTTP not HTTPS is used.
+  /// * credential_kind: One of "default", "anonymous", "workload_identity",
+  ///   "environment" or "cli". If "default" is specified, it's
+  ///   just ignored.  If "anonymous" is specified,
+  ///   AzureOptions::ConfigureAnonymousCredential() is called. If
+  ///   "workload_identity" is specified,
+  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called. If
+  ///   "environment" is specified,
+  ///   AzureOptions::ConfigureEnvironmentCredential() is called. If "cli" is
+  ///   specified, AzureOptions::ConfigureCLICredential() is called.
+  /// * tenant_id: You must specify "client_id" and "client_secret"
+  ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
+  /// * client_id: If you don't specify "tenant_id" and
+  ///   "client_secret",
+  ///   AzureOptions::ConfigureManagedIdentityCredential() is
+  ///   called. If you specify "tenant_id" and "client_secret" too,
+  ///   AzureOptions::ConfigureClientSecretCredential() is called.
+  /// * client_secret: You must specify "tenant_id" and "client_id"
+  ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
+  /// * A SAS token is made up of several query parameters. Appending a SAS
+  ///   token to the URI configures SAS token auth by calling
+  ///   AzureOptions::ConfigureSASCredential().
+  ///
+  /// [1]:
+  /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
+  static Result<AzureOptions> FromUri(const Uri& uri, std::string* out_path);
+  static Result<AzureOptions> FromUri(const std::string& uri, std::string* out_path);
+
   Status ConfigureDefaultCredential();
   Status ConfigureAnonymousCredential();
   Status ConfigureAccountKeyCredential(const std::string& account_key);
+  Status ConfigureSASCredential(const std::string& sas_token);
   Status ConfigureClientSecretCredential(const std::string& tenant_id,
                                          const std::string& client_id,
                                          const std::string& client_secret);
   Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
+  Status ConfigureCLICredential();
   Status ConfigureWorkloadIdentityCredential();
+  Status ConfigureEnvironmentCredential();
 
   bool Equals(const AzureOptions& other) const;
 
@@ -164,7 +231,7 @@ struct ARROW_EXPORT AzureOptions {
 ///   overwriting.
 /// - When you use the ListBlobs operation without specifying a delimiter, the results
 ///   include both directories and blobs. If you choose to use a delimiter, use only a
-///   forward slash (/) -- the only supported delimiter.
+///   forward slash (/) \--- the only supported delimiter.
 /// - If you use the DeleteBlob API to delete a directory, that directory is deleted only
 ///   if it's empty. This means that you can't use the Blob API delete directories
 ///   recursively.
@@ -196,20 +263,87 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   bool Equals(const FileSystem& other) const override;
 
+  /// \cond FALSE
+  using FileSystem::CreateDir;
+  using FileSystem::DeleteDirContents;
+  using FileSystem::GetFileInfo;
+  using FileSystem::OpenAppendStream;
+  using FileSystem::OpenOutputStream;
+  /// \endcond
+
   Result<FileInfo> GetFileInfo(const std::string& path) override;
 
   Result<FileInfoVector> GetFileInfo(const FileSelector& select) override;
 
-  Status CreateDir(const std::string& path, bool recursive = true) override;
+  Status CreateDir(const std::string& path, bool recursive) override;
 
+  /// \brief Delete a directory and its contents recursively.
+  ///
+  /// Atomicity is guaranteed only on Hierarchical Namespace Storage accounts.
   Status DeleteDir(const std::string& path) override;
 
-  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
+  /// \brief Non-atomically deletes the contents of a directory.
+  ///
+  /// This function can return a bad Status after only partially deleting the
+  /// contents of the directory.
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok) override;
 
+  /// \brief Deletion of all the containers in the storage account (not
+  /// implemented for safety reasons).
+  ///
+  /// \return Status::NotImplemented
   Status DeleteRootDirContents() override;
 
+  /// \brief Deletes a file.
+  ///
+  /// Supported on both flat namespace and Hierarchical Namespace storage
+  /// accounts. A check is made to guarantee the parent directory doesn't
+  /// disappear after the blob is deleted and while this operation is running,
+  /// no other client can delete the parent directory due to the use of leases.
+  ///
+  /// This means applications can safely retry this operation without coordination to
+  /// guarantee only one client/process is trying to delete the same file.
   Status DeleteFile(const std::string& path) override;
 
+  /// \brief Move/rename a file or directory.
+  ///
+  /// There are no files immediately at the root directory, so paths like
+  /// "/segment" always refer to a container of the storage account and are
+  /// treated as directories.
+  ///
+  /// If `dest` exists but the operation fails for some reason, `Move`
+  /// guarantees `dest` is not lost.
+  ///
+  /// Conditions for a successful move:
+  ///
+  /// 1. `src` must exist.
+  /// 2. `dest` can't contain a strict path prefix of `src`. More generally,
+  ///    a directory can't be made a subdirectory of itself.
+  /// 3. If `dest` already exists and it's a file, `src` must also be a file.
+  ///    `dest` is then replaced by `src`.
+  /// 4. All components of `dest` must exist, except for the last.
+  /// 5. If `dest` already exists and it's a directory, `src` must also be a
+  ///    directory and `dest` must be empty. `dest` is then replaced by `src`
+  ///    and its contents.
+  ///
+  /// Leases are used to guarantee the pre-condition checks and the rename
+  /// operation are atomic: other clients can't invalidate the pre-condition in
+  /// the time between the checks and the actual rename operation.
+  ///
+  /// This is possible because Move() is only support on storage accounts with
+  /// Hierarchical Namespace Support enabled.
+  ///
+  /// ## Limitations
+  ///
+  /// - Moves are not supported on storage accounts without
+  ///   Hierarchical Namespace support enabled
+  /// - Moves across different containers are not supported
+  /// - Moving a path of the form `/container` is not supported as it would
+  ///   require moving all the files in a container to another container.
+  ///   The only exception is a `Move("/container_a", "/container_b")` where
+  ///   both containers are empty or `container_b` doesn't even exist.
+  ///   The atomicity of the emptiness checks followed by the renaming operation
+  ///   is guaranteed by the use of leases.
   Status Move(const std::string& src, const std::string& dest) override;
 
   Status CopyFile(const std::string& src, const std::string& dest) override;
@@ -227,11 +361,13 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
+
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 };
 
 }  // namespace arrow::fs

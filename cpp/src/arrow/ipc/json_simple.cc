@@ -36,6 +36,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
 
@@ -52,6 +53,7 @@ namespace rj = arrow::rapidjson;
 namespace arrow {
 
 using internal::ParseValue;
+using util::Float16;
 
 namespace ipc {
 namespace internal {
@@ -232,9 +234,9 @@ enable_if_physical_signed_integer<T, Status> ConvertNumber(const rj::Value& json
 
 // Convert single unsigned integer value
 template <typename T>
-enable_if_physical_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
-                                                             const DataType& type,
-                                                             typename T::c_type* out) {
+enable_if_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
+                                                    const DataType& type,
+                                                    typename T::c_type* out) {
   if (json_obj.IsUint64()) {
     uint64_t v64 = json_obj.GetUint64();
     *out = static_cast<typename T::c_type>(v64);
@@ -245,6 +247,30 @@ enable_if_physical_unsigned_integer<T, Status> ConvertNumber(const rj::Value& js
     }
   } else {
     *out = static_cast<typename T::c_type>(0);
+    return JSONTypeError("unsigned int", json_obj.GetType());
+  }
+}
+
+// Convert float16/HalfFloatType
+template <typename T>
+enable_if_half_float<T, Status> ConvertNumber(const rj::Value& json_obj,
+                                              const DataType& type, uint16_t* out) {
+  if (json_obj.IsDouble()) {
+    double f64 = json_obj.GetDouble();
+    *out = Float16(f64).bits();
+    return Status::OK();
+  } else if (json_obj.IsUint()) {
+    uint32_t u32t = json_obj.GetUint();
+    double f64 = static_cast<double>(u32t);
+    *out = Float16(f64).bits();
+    return Status::OK();
+  } else if (json_obj.IsInt()) {
+    int32_t i32t = json_obj.GetInt();
+    double f64 = static_cast<double>(i32t);
+    *out = Float16(f64).bits();
+    return Status::OK();
+  } else {
+    *out = static_cast<uint16_t>(0);
     return JSONTypeError("unsigned int", json_obj.GetType());
   }
 }
@@ -360,6 +386,10 @@ class DecimalConverter final
   const DecimalSubtype* decimal_type_;
 };
 
+template <typename BuilderType = typename TypeTraits<Decimal32Type>::BuilderType>
+using Decimal32Converter = DecimalConverter<Decimal32Type, Decimal32, BuilderType>;
+template <typename BuilderType = typename TypeTraits<Decimal64Type>::BuilderType>
+using Decimal64Converter = DecimalConverter<Decimal64Type, Decimal64, BuilderType>;
 template <typename BuilderType = typename TypeTraits<Decimal128Type>::BuilderType>
 using Decimal128Converter = DecimalConverter<Decimal128Type, Decimal128, BuilderType>;
 template <typename BuilderType = typename TypeTraits<Decimal256Type>::BuilderType>
@@ -860,6 +890,8 @@ Status GetDictConverter(const std::shared_ptr<DataType>& type,
     PARAM_CONVERTER_CASE(Type::BINARY_VIEW, StringConverter, BinaryViewType)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter,
                           FixedSizeBinaryType)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL32, Decimal32Converter, Decimal32Type)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL64, Decimal64Converter, Decimal64Type)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL128, Decimal128Converter, Decimal128Type)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL256, Decimal256Converter, Decimal256Type)
     default:
@@ -922,6 +954,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::STRING_VIEW, StringConverter<StringViewType>)
     SIMPLE_CONVERTER_CASE(Type::BINARY_VIEW, StringConverter<BinaryViewType>)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter<>)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL32, Decimal32Converter<>)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL64, Decimal64Converter<>)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL128, Decimal128Converter<>)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL256, Decimal256Converter<>)
     SIMPLE_CONVERTER_CASE(Type::SPARSE_UNION, UnionConverter)

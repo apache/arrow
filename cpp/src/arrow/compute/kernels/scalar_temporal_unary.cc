@@ -1510,7 +1510,7 @@ struct ISOCalendar {
     for (int i = 0; i < 3; i++) {
       field_builders.push_back(
           checked_cast<BuilderType*>(struct_builder->field_builder(i)));
-      RETURN_NOT_OK(field_builders[i]->Reserve(1));
+      RETURN_NOT_OK(field_builders[i]->Reserve(in.length));
     }
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
     std::function<Status(typename InType::c_type arg)> visit_value;
@@ -1741,7 +1741,7 @@ const FunctionDoc millisecond_doc{
 
 const FunctionDoc microsecond_doc{
     "Extract microsecond values",
-    ("Millisecond returns number of microseconds since the last full millisecond.\n"
+    ("Microsecond returns number of microseconds since the last full millisecond.\n"
      "Null values emit null.\n"
      "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),

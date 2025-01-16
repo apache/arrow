@@ -34,7 +34,7 @@ git config --global --add safe.directory $ARROW_ROOT
 # Run these only once
 
 function setup_miniconda() {
-  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh"
+  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh"
   wget -O miniconda.sh $MINICONDA_URL
   bash miniconda.sh -b -p $MINICONDA
   rm -f miniconda.sh
@@ -97,9 +97,8 @@ export CMAKE_PREFIX_PATH=${ARROW_HOME}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}
 export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
 
-# You can run either "develop" or "build_ext --inplace". Your pick
+# Use the same command that we use on python_build.sh
+python -m pip install --no-deps --no-build-isolation -vv .
+popd
 
-# python setup.py build_ext --inplace
-python setup.py develop
-
-py.test pyarrow
+pytest -vv -r s ${PYTEST_ARGS} --pyargs pyarrow

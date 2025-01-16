@@ -304,7 +304,8 @@ def format_timestamp(val, unit):
     seconds, subseconds = divmod(val, traits.multiplier)
     try:
         dt = datetime.datetime.utcfromtimestamp(seconds)
-    except (ValueError, OSError):  # value out of range for datetime.datetime
+    except (ValueError, OSError, OverflowError):
+        # value out of range for datetime.datetime
         pretty = "too large to represent"
     else:
         pretty = dt.isoformat().replace('T', ' ')
@@ -956,10 +957,12 @@ class ExtensionType:
 
     def to_string(self):
         """
-        The result of calling ToString().
+        The result of calling ToString(show_metadata=True).
         """
+        # XXX `show_metadata` is an optional argument, but gdb doesn't allow
+        # omitting it.
         return StdString(gdb.parse_and_eval(
-            f"{for_evaluation(self.val)}.ToString()"))
+            f"{for_evaluation(self.val)}.ToString(true)"))
 
 
 class Schema:

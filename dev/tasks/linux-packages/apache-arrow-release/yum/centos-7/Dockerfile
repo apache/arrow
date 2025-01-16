@@ -19,6 +19,14 @@ FROM centos:7
 
 ARG DEBUG
 
+# GH-42128
+# Switch repos to point to to vault.centos.org because Centos Stream 8 is EOL
+RUN sed -i \
+  -e 's/^mirrorlist/#mirrorlist/' \
+  -e 's/^#baseurl/baseurl/' \
+  -e 's/mirror\.centos\.org/vault.centos.org/' \
+  /etc/yum.repos.d/*.repo
+
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
   yum install -y ${quiet} \

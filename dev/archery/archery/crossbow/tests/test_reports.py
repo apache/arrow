@@ -96,8 +96,8 @@ def test_crossbow_export_report(load_fixture):
         'https://github.com/apache/crossbow/tree/'
         'ursabot-1-circle-docker-cpp-cmake32',
         'circle',
-        {'commands': ['docker-compose build cpp-cmake32',
-                      'docker-compose run cpp-cmake32']},
+        {'commands': ['docker compose build cpp-cmake32',
+                      'docker compose run cpp-cmake32']},
         'docker-tests/circle.linux.yml',
         'f766a1d615dd1b7ee706d05102e579195951a61c'
     ]

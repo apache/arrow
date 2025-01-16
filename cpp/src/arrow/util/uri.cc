@@ -27,8 +27,7 @@
 #include "arrow/util/value_parsing.h"
 #include "arrow/vendored/uriparser/Uri.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::util {
 
 namespace {
 
@@ -111,7 +110,7 @@ bool IsValidUriScheme(std::string_view s) {
 }
 
 struct Uri::Impl {
-  Impl() : string_rep_(""), port_(-1) { memset(&uri_, 0, sizeof(uri_)); }
+  Impl() { memset(&uri_, 0, sizeof(uri_)); }
 
   ~Impl() { uriFreeUriMembersA(&uri_); }
 
@@ -133,7 +132,7 @@ struct Uri::Impl {
   // Keep alive strings that uriparser stores pointers to
   std::vector<std::string> data_;
   std::string string_rep_;
-  int32_t port_;
+  int32_t port_ = -1;
   std::vector<std::string_view> path_segments_;
   bool is_file_uri_;
   bool is_absolute_path_;
@@ -141,7 +140,7 @@ struct Uri::Impl {
 
 Uri::Uri() : impl_(new Impl) {}
 
-Uri::~Uri() {}
+Uri::~Uri() = default;
 
 Uri::Uri(Uri&& u) : impl_(std::move(u.impl_)) {}
 
@@ -169,21 +168,19 @@ int32_t Uri::port() const { return impl_->port_; }
 std::string Uri::username() const {
   auto userpass = TextRangeToView(impl_->uri_.userInfo);
   auto sep_pos = userpass.find_first_of(':');
-  if (sep_pos == std::string_view::npos) {
-    return UriUnescape(userpass);
-  } else {
-    return UriUnescape(userpass.substr(0, sep_pos));
+  if (sep_pos != std::string_view::npos) {
+    userpass = userpass.substr(0, sep_pos);
   }
+  return UriUnescape(userpass);
 }
 
 std::string Uri::password() const {
   auto userpass = TextRangeToView(impl_->uri_.userInfo);
   auto sep_pos = userpass.find_first_of(':');
   if (sep_pos == std::string_view::npos) {
-    return std::string();
-  } else {
-    return UriUnescape(userpass.substr(sep_pos + 1));
+    return "";
   }
+  return UriUnescape(userpass.substr(sep_pos + 1));
 }
 
 std::string Uri::path() const {
@@ -253,9 +250,16 @@ Status Uri::Parse(const std::string& uri_string) {
   const auto& s = impl_->KeepString(uri_string);
   impl_->string_rep_ = s;
   const char* error_pos;
-  if (uriParseSingleUriExA(&impl_->uri_, s.data(), s.data() + s.size(), &error_pos) !=
-      URI_SUCCESS) {
-    return Status::Invalid("Cannot parse URI: '", uri_string, "'");
+  int retval =
+      uriParseSingleUriExA(&impl_->uri_, s.data(), s.data() + s.size(), &error_pos);
+  if (retval != URI_SUCCESS) {
+    if (retval == URI_ERROR_SYNTAX) {
+      return Status::Invalid("Cannot parse URI: '", uri_string,
+                             "' due to syntax error at character '", *error_pos,
+                             "' (position ", error_pos - s.data(), ")");
+    } else {
+      return Status::Invalid("Cannot parse URI: '", uri_string, "'");
+    }
   }
 
   const auto scheme = TextRangeToView(impl_->uri_.scheme);
@@ -301,7 +305,8 @@ Status Uri::Parse(const std::string& uri_string) {
   auto port_text = TextRangeToView(impl_->uri_.portText);
   if (port_text.size()) {
     uint16_t port_num;
-    if (!ParseValue<UInt16Type>(port_text.data(), port_text.size(), &port_num)) {
+    if (!::arrow::internal::ParseValue<UInt16Type>(port_text.data(), port_text.size(),
+                                                   &port_num)) {
       return Status::Invalid("Invalid port number '", port_text, "' in URI '", uri_string,
                              "'");
     }
@@ -309,6 +314,12 @@ Status Uri::Parse(const std::string& uri_string) {
   }
 
   return Status::OK();
+}
+
+Result<Uri> Uri::FromString(const std::string& uri_string) {
+  Uri uri;
+  ARROW_RETURN_NOT_OK(uri.Parse(uri_string));
+  return uri;
 }
 
 Result<std::string> UriFromAbsolutePath(std::string_view path) {
@@ -336,5 +347,4 @@ Result<std::string> UriFromAbsolutePath(std::string_view path) {
   return out;
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::util

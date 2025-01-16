@@ -50,9 +50,12 @@ class ARROW_EXPORT ExtensionType : public DataType {
 
   DataTypeLayout layout() const override;
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "extension"; }
+
+  int32_t byte_width() const override { return storage_type_->byte_width(); }
+  int bit_width() const override { return storage_type_->bit_width(); }
 
   /// \brief Unique name of extension type used to identify type for
   /// serialization
@@ -95,7 +98,7 @@ class ARROW_EXPORT ExtensionType : public DataType {
 
  protected:
   explicit ExtensionType(std::shared_ptr<DataType> storage_type)
-      : DataType(Type::EXTENSION), storage_type_(storage_type) {}
+      : DataType(Type::EXTENSION), storage_type_(std::move(storage_type)) {}
 
   std::shared_ptr<DataType> storage_type_;
 };

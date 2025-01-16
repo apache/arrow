@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Avoid name clash with `pa.struct` function
+import struct as _struct
+
 
 cdef class Tensor(_Weakrefable):
     """
@@ -40,6 +43,14 @@ cdef class Tensor(_Weakrefable):
         self.sp_tensor = sp_tensor
         self.tp = sp_tensor.get()
         self.type = pyarrow_wrap_data_type(self.tp.type())
+        self._ssize_t_shape = self._make_shape_or_strides_buffer(self.shape)
+        self._ssize_t_strides = self._make_shape_or_strides_buffer(self.strides)
+
+    def _make_shape_or_strides_buffer(self, values):
+        """
+        Make a bytes object holding an array of `values` cast to `Py_ssize_t`.
+        """
+        return _struct.pack(f"{len(values)}n", *values)
 
     def __repr__(self):
         return """<pyarrow.Tensor>
@@ -96,6 +107,9 @@ strides: {0.strides}""".format(self)
         array([[  2,   2,   4],
                [  4,   5, 100]], dtype=int32)
         """
+        if np is None:
+            raise ImportError(
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out
 
         check_status(TensorToNdarray(self.sp_tensor, self, &out))
@@ -282,10 +296,8 @@ strides: {0.strides}""".format(self)
             buffer.readonly = 0
         else:
             buffer.readonly = 1
-        # NOTE: This assumes Py_ssize_t == int64_t, and that the shape
-        # and strides arrays lifetime is tied to the tensor's
-        buffer.shape = <Py_ssize_t *> &self.tp.shape()[0]
-        buffer.strides = <Py_ssize_t *> &self.tp.strides()[0]
+        buffer.shape = <Py_ssize_t *> cp.PyBytes_AsString(self._ssize_t_shape)
+        buffer.strides = <Py_ssize_t *> cp.PyBytes_AsString(self._ssize_t_strides)
         buffer.suboffsets = NULL
 
 
@@ -469,6 +481,9 @@ shape: {0.shape}""".format(self)
         """
         Convert arrow::SparseCOOTensor to numpy.ndarrays with zero copy.
         """
+        if np is None:
+            raise ImportError(
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_coords
 
@@ -747,6 +762,9 @@ shape: {0.shape}""".format(self)
         """
         Convert arrow::SparseCSRMatrix to numpy.ndarrays with zero copy.
         """
+        if np is None:
+            raise ImportError(
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_indptr
         cdef PyObject* out_indices
@@ -985,6 +1003,9 @@ shape: {0.shape}""".format(self)
         """
         Convert arrow::SparseCSCMatrix to numpy.ndarrays with zero copy
         """
+        if np is None:
+            raise ImportError(
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_indptr
         cdef PyObject* out_indices
@@ -1220,6 +1241,9 @@ shape: {0.shape}""".format(self)
         """
         Convert arrow::SparseCSFTensor to numpy.ndarrays with zero copy
         """
+        if np is None:
+            raise ImportError(
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_indptr
         cdef PyObject* out_indices

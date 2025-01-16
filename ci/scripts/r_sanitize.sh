@@ -46,10 +46,12 @@ unset ARROW_R_DEV
 export ARROW_R_VERBOSE_TEST=TRUE
 
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"
+# From the old rhub image https://github.com/r-hub/rhub-linux-builders/blob/master/fedora-clang-devel-san/Dockerfile
+export ASAN_OPTIONS="alloc_dealloc_mismatch=0:detect_leaks=0:detect_odr_violation=0"
 
 # run tests
 pushd tests
-${R_BIN} < testthat.R > testthat.out 2>&1 || { cat testthat.out; exit 1; }
+${R_BIN} --no-save < testthat.R > testthat.out 2>&1 || { cat testthat.out; exit 1; }
 
 cat testthat.out
 if grep -q "runtime error" testthat.out; then
@@ -58,7 +60,7 @@ fi
 
 # run examples
 popd
-${R_BIN} -e 'library(arrow); testthat::test_examples(".")' >> examples.out 2>&1 || { cat examples.out; exit 1; }
+${R_BIN} --no-save -e 'library(arrow); testthat::test_examples(".")' >> examples.out 2>&1 || { cat examples.out; exit 1; }
 
 cat examples.out
 if grep -q "runtime error" examples.out; then

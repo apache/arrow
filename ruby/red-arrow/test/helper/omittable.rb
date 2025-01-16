@@ -37,5 +37,13 @@ module Helper
         GObjectIntrospection::Version::STRING
       omit(message)
     end
+
+    def require_glib(major, minor, micro)
+      return if GLib::Version.or_later?(major, minor, micro)
+      message =
+        "Require GLib #{major}.#{minor}.#{micro} or later: " +
+        GLib::Version::STRING
+      omit(message)
+    end
   end
 end

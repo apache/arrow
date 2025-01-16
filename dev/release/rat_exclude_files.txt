@@ -25,8 +25,6 @@ cpp/build-support/iwyu/*
 cpp/cmake_modules/FindPythonLibsNew.cmake
 cpp/examples/parquet/parquet-arrow/cmake_modules/FindArrow.cmake
 cpp/src/parquet/.parquetcppversion
-cpp/src/generated/parquet_constants.cpp
-cpp/src/generated/parquet_constants.h
 cpp/src/generated/parquet_types.cpp
 cpp/src/generated/parquet_types.h
 cpp/src/generated/substrait/*
@@ -63,6 +61,7 @@ go.work.sum
 go/go.sum
 go/arrow/Gopkg.lock
 go/arrow/flight/gen/flight/*.pb.go
+go/arrow/util/util_message/*.pb.go
 go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/arrow/cdata/test/go.sum
@@ -80,6 +79,8 @@ go/parquet/internal/gen-go/parquet/GoUnusedProtection__.go
 go/parquet/internal/gen-go/parquet/parquet-consts.go
 go/parquet/internal/gen-go/parquet/parquet.go
 go/parquet/version_string.go
+java/vector/src/main/java/org/apache/arrow/vector/util/IntObjectMap.java
+java/vector/src/main/java/org/apache/arrow/vector/util/IntObjectHashMap.java
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
@@ -92,6 +93,7 @@ python/manylinux1/.dockerignore
 python/pyarrow/includes/__init__.pxd
 python/pyarrow/tests/__init__.py
 python/pyarrow/vendored/*
+python/pyarrow/src/arrow/python/vendored/*
 python/requirements*.txt
 pax_global_header
 MANIFEST.in
@@ -112,6 +114,7 @@ csharp/src/Apache.Arrow.Flight.AspNetCore/Apache.Arrow.Flight.AspNetCore.csproj
 csharp/src/Apache.Arrow.Compression/Apache.Arrow.Compression.csproj
 csharp/src/Apache.Arrow.Flight.Sql/Apache.Arrow.Flight.Sql.csproj
 csharp/test/Apache.Arrow.Benchmarks/Apache.Arrow.Benchmarks.csproj
+csharp/test/Apache.Arrow.Flight.IntegrationTest/Apache.Arrow.Flight.IntegrationTest.csproj
 csharp/test/Apache.Arrow.Flight.Tests/Apache.Arrow.Flight.Tests.csproj
 csharp/test/Apache.Arrow.Flight.Sql.Tests/Apache.Arrow.Flight.Sql.Tests.csproj
 csharp/test/Apache.Arrow.Flight.TestWeb/Apache.Arrow.Flight.TestWeb.csproj
@@ -148,3 +151,4 @@ r/tools/nixlibs-allowlist.txt
 ruby/red-arrow/.yardopts
 .github/pull_request_template.md
 swift/data-generator/swift-datagen/go.sum
+swift/CDataWGo/go.sum

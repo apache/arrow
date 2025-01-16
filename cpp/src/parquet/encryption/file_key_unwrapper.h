@@ -44,14 +44,20 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   /// KmsClient in the cache.
   /// If the file uses external key material then the Parquet file path and file
   /// system must be specified.
+  FileKeyUnwrapper(std::shared_ptr<KeyToolkit> key_toolkit,
+                   const KmsConnectionConfig& kms_connection_config,
+                   double cache_lifetime_seconds, const std::string& file_path = "",
+                   const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
+
+  /// Constructor overload that takes a raw pointer to the KeyToolkit
   FileKeyUnwrapper(KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
                    double cache_lifetime_seconds, const std::string& file_path = "",
                    const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
-  /// Constructor overload that accepts an existing key_material_store rather than using
-  /// the file path and file system to create one when needed. This is useful for key
-  /// rotation to allow accessing the key material store after it is used.
+  /// Constructor overload that takes a raw pointer to the KeyToolkit and
+  /// accepts an existing key_material_store rather than using
+  /// the file path and file system to create one when needed.
   FileKeyUnwrapper(KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
                    double cache_lifetime_seconds,
@@ -64,11 +70,19 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material);
 
  private:
+  FileKeyUnwrapper(std::shared_ptr<KeyToolkit> key_toolkit_owner, KeyToolkit* key_toolkit,
+                   const KmsConnectionConfig& kms_connection_config,
+                   double cache_lifetime_seconds,
+                   std::shared_ptr<FileKeyMaterialStore> key_material_store,
+                   const std::string& file_path,
+                   const std::shared_ptr<::arrow::fs::FileSystem>& file_system);
+
   std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(
       const KeyMaterial& key_material);
 
   /// A map of Key Encryption Key (KEK) ID -> KEK bytes, for the current token
   std::shared_ptr<::arrow::util::ConcurrentMap<std::string, std::string>> kek_per_kek_id_;
+  std::shared_ptr<KeyToolkit> key_toolkit_owner_;
   KeyToolkit* key_toolkit_;
   KmsConnectionConfig kms_connection_config_;
   const double cache_entry_lifetime_seconds_;

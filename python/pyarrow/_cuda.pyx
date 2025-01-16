@@ -185,6 +185,28 @@ cdef class Context(_Weakrefable):
             cudabuf = GetResultValue(self.context.get().Allocate(nbytes))
         return pyarrow_wrap_cudabuffer(cudabuf)
 
+    @property
+    def memory_manager(self):
+        """
+        The default memory manager tied to this context's device.
+
+        Returns
+        -------
+        MemoryManager
+        """
+        return MemoryManager.wrap(self.context.get().memory_manager())
+
+    @property
+    def device(self):
+        """
+        The device instance associated with this context.
+
+        Returns
+        -------
+        Device
+        """
+        return Device.wrap(self.context.get().device())
+
     def foreign_buffer(self, address, size, base=None):
         """
         Create device buffer from address and size as a view.

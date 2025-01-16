@@ -29,7 +29,8 @@ std::shared_ptr<arrow::cuda::CudaContext>
 garrow_cuda_context_get_raw(GArrowCUDAContext *context);
 
 GArrowCUDAIPCMemoryHandle *
-garrow_cuda_ipc_memory_handle_new_raw(std::shared_ptr<arrow::cuda::CudaIpcMemHandle> *arrow_handle);
+garrow_cuda_ipc_memory_handle_new_raw(
+  std::shared_ptr<arrow::cuda::CudaIpcMemHandle> *arrow_handle);
 std::shared_ptr<arrow::cuda::CudaIpcMemHandle>
 garrow_cuda_ipc_memory_handle_get_raw(GArrowCUDAIPCMemoryHandle *handle);
 
@@ -39,16 +40,19 @@ std::shared_ptr<arrow::cuda::CudaBuffer>
 garrow_cuda_buffer_get_raw(GArrowCUDABuffer *buffer);
 
 GArrowCUDAHostBuffer *
-garrow_cuda_host_buffer_new_raw(std::shared_ptr<arrow::cuda::CudaHostBuffer> *arrow_buffer);
+garrow_cuda_host_buffer_new_raw(
+  std::shared_ptr<arrow::cuda::CudaHostBuffer> *arrow_buffer);
 std::shared_ptr<arrow::cuda::CudaHostBuffer>
 garrow_cuda_host_buffer_get_raw(GArrowCUDAHostBuffer *buffer);
 
 GArrowCUDABufferInputStream *
-garrow_cuda_buffer_input_stream_new_raw(std::shared_ptr<arrow::cuda::CudaBufferReader> *arrow_reader);
+garrow_cuda_buffer_input_stream_new_raw(
+  std::shared_ptr<arrow::cuda::CudaBufferReader> *arrow_reader);
 std::shared_ptr<arrow::cuda::CudaBufferReader>
 garrow_cuda_buffer_input_stream_get_raw(GArrowCUDABufferInputStream *input_stream);
 
 GArrowCUDABufferOutputStream *
-garrow_cuda_buffer_output_stream_new_raw(std::shared_ptr<arrow::cuda::CudaBufferWriter> *arrow_writer);
+garrow_cuda_buffer_output_stream_new_raw(
+  std::shared_ptr<arrow::cuda::CudaBufferWriter> *arrow_writer);
 std::shared_ptr<arrow::cuda::CudaBufferWriter>
 garrow_cuda_buffer_output_stream_get_raw(GArrowCUDABufferOutputStream *output_stream);

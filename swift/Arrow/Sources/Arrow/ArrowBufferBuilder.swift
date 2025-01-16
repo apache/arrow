@@ -30,18 +30,14 @@ public protocol ArrowBufferBuilder {
     func finish() -> [ArrowBuffer]
 }
 
-public class BaseBufferBuilder<T> {
-    var values: ArrowBuffer
+public class BaseBufferBuilder {
     var nulls: ArrowBuffer
-    var stride: Int
     public var offset: UInt = 0
-    public var capacity: UInt {return self.values.capacity}
+    public var capacity: UInt {return self.nulls.capacity}
     public var length: UInt = 0
     public var nullCount: UInt  = 0
 
-    init(values: ArrowBuffer, nulls: ArrowBuffer, stride: Int = MemoryLayout<T>.stride) {
-        self.stride = stride
-        self.values = values
+    init(_ nulls: ArrowBuffer) {
         self.nulls = nulls
     }
 
@@ -61,7 +57,19 @@ public class BaseBufferBuilder<T> {
     }
 }
 
-public class FixedBufferBuilder<T>: BaseBufferBuilder<T>, ArrowBufferBuilder {
+public class ValuesBufferBuilder<T>: BaseBufferBuilder {
+    var values: ArrowBuffer
+    var stride: Int
+    public override var capacity: UInt {return self.values.capacity}
+
+    init(values: ArrowBuffer, nulls: ArrowBuffer, stride: Int = MemoryLayout<T>.stride) {
+        self.stride = stride
+        self.values = values
+        super.init(nulls)
+    }
+}
+
+public class FixedBufferBuilder<T>: ValuesBufferBuilder<T>, ArrowBufferBuilder {
     public typealias ItemType = T
     private let defaultVal: ItemType
     public required init() throws {
@@ -138,7 +146,7 @@ public class FixedBufferBuilder<T>: BaseBufferBuilder<T>, ArrowBufferBuilder {
     }
 }
 
-public class BoolBufferBuilder: BaseBufferBuilder<Bool>, ArrowBufferBuilder {
+public class BoolBufferBuilder: ValuesBufferBuilder<Bool>, ArrowBufferBuilder {
     public typealias ItemType = Bool
     public required init() throws {
         let values = ArrowBuffer.createBuffer(0, size: UInt(MemoryLayout<UInt8>.stride))
@@ -190,7 +198,7 @@ public class BoolBufferBuilder: BaseBufferBuilder<Bool>, ArrowBufferBuilder {
     }
 }
 
-public class VariableBufferBuilder<T>: BaseBufferBuilder<T>, ArrowBufferBuilder {
+public class VariableBufferBuilder<T>: ValuesBufferBuilder<T>, ArrowBufferBuilder {
     public typealias ItemType = T
     var offsets: ArrowBuffer
     let binaryStride = MemoryLayout<UInt8>.stride
@@ -325,5 +333,49 @@ public class Date64BufferBuilder: AbstractWrapperBufferBuilder<Date, Int64> {
         } else {
             self.bufferBuilder.append(nil)
         }
+    }
+}
+
+public final class StructBufferBuilder: BaseBufferBuilder, ArrowBufferBuilder {
+    public typealias ItemType = [Any?]
+    var info: ArrowNestedType?
+    public init() throws {
+        let nulls = ArrowBuffer.createBuffer(0, size: UInt(MemoryLayout<UInt8>.stride))
+        super.init(nulls)
+    }
+
+    public func initializeTypeInfo(_ fields: [ArrowField]) {
+        info = ArrowNestedType(ArrowType.ArrowStruct, fields: fields)
+    }
+
+    public func append(_ newValue: [Any?]?) {
+        let index = UInt(self.length)
+        self.length += 1
+        if length > self.nulls.length {
+            self.resize(length)
+        }
+
+        if newValue != nil {
+            BitUtility.setBit(index + self.offset, buffer: self.nulls)
+        } else {
+            self.nullCount += 1
+            BitUtility.clearBit(index + self.offset, buffer: self.nulls)
+        }
+    }
+
+    public func resize(_ length: UInt) {
+        if length > self.nulls.length {
+            let resizeLength = resizeLength(self.nulls)
+            var nulls = ArrowBuffer.createBuffer(resizeLength/8 + 1, size: UInt(MemoryLayout<UInt8>.size))
+            ArrowBuffer.copyCurrent(self.nulls, to: &nulls, len: self.nulls.capacity)
+            self.nulls = nulls
+        }
+    }
+
+    public func finish() -> [ArrowBuffer] {
+        let length = self.length
+        var nulls = ArrowBuffer.createBuffer(length/8 + 1, size: UInt(MemoryLayout<UInt8>.size))
+        ArrowBuffer.copyCurrent(self.nulls, to: &nulls, len: nulls.capacity)
+        return [nulls]
     }
 }

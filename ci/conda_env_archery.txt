@@ -25,7 +25,7 @@ jira
 pygit2
 pygithub
 ruamel.yaml
-setuptools_scm<8.0.0
+setuptools_scm
 toolz
 
 # benchmark

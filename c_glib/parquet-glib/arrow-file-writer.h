@@ -20,11 +20,12 @@
 #pragma once
 
 #include <arrow-glib/arrow-glib.h>
+#include <parquet-glib/version.h>
 
 G_BEGIN_DECLS
 
-#define GPARQUET_TYPE_WRITER_PROPERTIES         \
-  (gparquet_writer_properties_get_type())
+#define GPARQUET_TYPE_WRITER_PROPERTIES (gparquet_writer_properties_get_type())
+GPARQUET_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(GParquetWriterProperties,
                          gparquet_writer_properties,
                          GPARQUET,
@@ -35,60 +36,62 @@ struct _GParquetWriterPropertiesClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_0_17
-GParquetWriterProperties *gparquet_writer_properties_new(void);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
+GParquetWriterProperties *
+gparquet_writer_properties_new(void);
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
                                            GArrowCompressionType compression_type,
                                            const gchar *path);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 GArrowCompressionType
 gparquet_writer_properties_get_compression_path(GParquetWriterProperties *properties,
                                                 const gchar *path);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *properties,
                                              const gchar *path);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properties,
                                               const gchar *path);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 gboolean
 gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *properties,
                                                  const gchar *path);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 void
-gparquet_writer_properties_set_dictionary_page_size_limit(GParquetWriterProperties *properties,
-                                                          gint64 limit);
-GARROW_AVAILABLE_IN_0_17
+gparquet_writer_properties_set_dictionary_page_size_limit(
+  GParquetWriterProperties *properties, gint64 limit);
+GPARQUET_AVAILABLE_IN_0_17
 gint64
-gparquet_writer_properties_get_dictionary_page_size_limit(GParquetWriterProperties *properties);
-GARROW_AVAILABLE_IN_0_17
+gparquet_writer_properties_get_dictionary_page_size_limit(
+  GParquetWriterProperties *properties);
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_set_batch_size(GParquetWriterProperties *properties,
                                           gint64 batch_size);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 gint64
 gparquet_writer_properties_get_batch_size(GParquetWriterProperties *properties);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_set_max_row_group_length(GParquetWriterProperties *properties,
                                                     gint64 length);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 gint64
 gparquet_writer_properties_get_max_row_group_length(GParquetWriterProperties *properties);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_set_data_page_size(GParquetWriterProperties *properties,
                                               gint64 data_page_size);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 gint64
 gparquet_writer_properties_get_data_page_size(GParquetWriterProperties *properties);
 
-
 #define GPARQUET_TYPE_ARROW_FILE_WRITER (gparquet_arrow_file_writer_get_type())
+GPARQUET_AVAILABLE_IN_0_11
 G_DECLARE_DERIVABLE_TYPE(GParquetArrowFileWriter,
                          gparquet_arrow_file_writer,
                          GPARQUET,
@@ -99,25 +102,56 @@ struct _GParquetArrowFileWriterClass
   GObjectClass parent_class;
 };
 
+GPARQUET_AVAILABLE_IN_0_11
 GParquetArrowFileWriter *
 gparquet_arrow_file_writer_new_arrow(GArrowSchema *schema,
                                      GArrowOutputStream *sink,
                                      GParquetWriterProperties *writer_properties,
                                      GError **error);
+
+GPARQUET_AVAILABLE_IN_0_11
 GParquetArrowFileWriter *
 gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
                                     const gchar *path,
                                     GParquetWriterProperties *writer_properties,
                                     GError **error);
 
+GPARQUET_AVAILABLE_IN_18_0
+GArrowSchema *
+gparquet_arrow_file_writer_get_schema(GParquetArrowFileWriter *writer);
+
+GPARQUET_AVAILABLE_IN_18_0
+gboolean
+gparquet_arrow_file_writer_write_record_batch(GParquetArrowFileWriter *writer,
+                                              GArrowRecordBatch *record_batch,
+                                              GError **error);
+
+GPARQUET_AVAILABLE_IN_0_11
 gboolean
 gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
                                        GArrowTable *table,
-                                       guint64 chunk_size,
+                                       gsize chunk_size,
                                        GError **error);
 
+GPARQUET_AVAILABLE_IN_18_0
 gboolean
-gparquet_arrow_file_writer_close(GParquetArrowFileWriter *writer,
-                                 GError **error);
+gparquet_arrow_file_writer_new_row_group(GParquetArrowFileWriter *writer,
+                                         gsize chunk_size,
+                                         GError **error);
+
+GPARQUET_AVAILABLE_IN_18_0
+gboolean
+gparquet_arrow_file_writer_new_buffered_row_group(GParquetArrowFileWriter *writer,
+                                                  GError **error);
+
+GPARQUET_AVAILABLE_IN_18_0
+gboolean
+gparquet_arrow_file_writer_write_chunked_array(GParquetArrowFileWriter *writer,
+                                               GArrowChunkedArray *chunked_array,
+                                               GError **error);
+
+GPARQUET_AVAILABLE_IN_0_11
+gboolean
+gparquet_arrow_file_writer_close(GParquetArrowFileWriter *writer, GError **error);
 
 G_END_DECLS

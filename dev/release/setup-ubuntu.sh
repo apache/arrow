@@ -22,44 +22,20 @@
 
 set -exu
 
-codename=$(. /etc/os-release && echo ${UBUNTU_CODENAME})
+version=$(. /etc/os-release && echo ${VERSION_ID})
 
-case ${codename} in
-  bionic)
-    llvm=12
-    nlohmann_json=
-    python=3.8
-    apt-get update -y -q
-    apt-get install -y -q --no-install-recommends \
-      apt-transport-https \
-      ca-certificates \
-      gnupg \
-      wget
-    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    echo "deb https://apt.llvm.org/${codename}/ llvm-toolchain-${codename}-${llvm} main" > \
-      /etc/apt/sources.list.d/llvm.list
-    apt-get update -y -q
-    apt-get install -y -q --no-install-recommends \
-      llvm-${llvm}-dev
-    ;;
-  *)
-    nlohmann_json=3
-    python=3
-    apt-get update -y -q
-    apt-get install -y -q --no-install-recommends \
-      llvm-dev
-    ;;
-esac
+apt-get update -y -q
 
-case ${codename} in
-  bionic|focal)
-    ;;
-  *)
-    apt-get update -y -q
-    apt-get install -y -q --no-install-recommends \
-      libxsimd-dev
-    ;;
-esac
+if [ ${version} \> "20.04" ]; then
+  apt-get install -y -q --no-install-recommends \
+    libxsimd-dev
+fi
+
+if [ ${version} \> "22.04" ]; then
+  # Some tests rely on legacy timezone aliases such as "US/Pacific"
+  apt-get install -y -q --no-install-recommends \
+    tzdata-legacy
+fi
 
 apt-get install -y -q --no-install-recommends \
   build-essential \
@@ -74,22 +50,13 @@ apt-get install -y -q --no-install-recommends \
   libglib2.0-dev \
   libsqlite3-dev \
   libssl-dev \
-  maven \
+  llvm-dev \
   ninja-build \
-  nlohmann-json${nlohmann_json}-dev \
-  openjdk-11-jdk \
+  nlohmann-json3-dev \
   pkg-config \
-  python${python}-dev \
-  python${python}-venv \
+  python3-dev \
+  python3-venv \
   python3-pip \
   ruby-dev \
   tzdata \
   wget
-
-case ${codename} in
-  bionic)
-    python${python} -m pip install -U pip
-    update-alternatives \
-      --install /usr/bin/python3 python3 /usr/bin/python${python} 1
-    ;;
-esac

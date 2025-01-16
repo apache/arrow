@@ -30,6 +30,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/options.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -40,6 +41,8 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using arrow::ipc::test::RoundtripBatch;
 
 class Parametric1Array : public ExtensionArray {
  public:
@@ -178,7 +181,7 @@ class ExtStructType : public ExtensionType {
 
 class TestExtensionType : public ::testing::Test {
  public:
-  void SetUp() { ASSERT_OK(RegisterExtensionType(std::make_shared<UuidType>())); }
+  void SetUp() { ASSERT_OK(RegisterExtensionType(std::make_shared<ExampleUuidType>())); }
 
   void TearDown() {
     if (GetExtensionType("uuid")) {
@@ -196,6 +199,8 @@ TEST_F(TestExtensionType, ExtensionTypeTest) {
 
   auto type = uuid();
   ASSERT_EQ(type->id(), Type::EXTENSION);
+  ASSERT_EQ(type->bit_width(), 128);
+  ASSERT_EQ(type->byte_width(), 16);
 
   const auto& ext_type = static_cast<const ExtensionType&>(*type);
   std::string serialized = ext_type.Serialize();
@@ -204,35 +209,24 @@ TEST_F(TestExtensionType, ExtensionTypeTest) {
                        ext_type.Deserialize(fixed_size_binary(16), serialized));
   ASSERT_TRUE(deserialized->Equals(*type));
   ASSERT_FALSE(deserialized->Equals(*fixed_size_binary(16)));
+  ASSERT_EQ(deserialized->id(), Type::EXTENSION);
+  ASSERT_EQ(deserialized->bit_width(), 128);
+  ASSERT_EQ(deserialized->byte_width(), 16);
 }
-
-auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
-                         std::shared_ptr<RecordBatch>* out) {
-  ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
-  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
-                                        out_stream.get()));
-
-  ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
-
-  io::BufferReader reader(complete_ipc_stream);
-  std::shared_ptr<RecordBatchReader> batch_reader;
-  ASSERT_OK_AND_ASSIGN(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
-  ASSERT_OK(batch_reader->ReadNext(out));
-};
 
 TEST_F(TestExtensionType, IpcRoundtrip) {
   auto ext_arr = ExampleUuid();
   auto batch = RecordBatch::Make(schema({field("f0", uuid())}), 4, {ext_arr});
 
   std::shared_ptr<RecordBatch> read_batch;
-  RoundtripBatch(batch, &read_batch);
+  ASSERT_OK(RoundtripBatch(batch, &read_batch));
   CompareBatch(*batch, *read_batch, false /* compare_metadata */);
 
   // Wrap type in a ListArray and ensure it also makes it
   auto offsets_arr = ArrayFromJSON(int32(), "[0, 0, 2, 4]");
   ASSERT_OK_AND_ASSIGN(auto list_arr, ListArray::FromArrays(*offsets_arr, *ext_arr));
   batch = RecordBatch::Make(schema({field("f0", list(uuid()))}), 3, {list_arr});
-  RoundtripBatch(batch, &read_batch);
+  ASSERT_OK(RoundtripBatch(batch, &read_batch));
   CompareBatch(*batch, *read_batch, false /* compare_metadata */);
 }
 
@@ -295,7 +289,7 @@ TEST_F(TestExtensionType, ParametricTypes) {
                                  4, {p1, p2, p3, p4});
 
   std::shared_ptr<RecordBatch> read_batch;
-  RoundtripBatch(batch, &read_batch);
+  ASSERT_OK(RoundtripBatch(batch, &read_batch));
   CompareBatch(*batch, *read_batch, false /* compare_metadata */);
 }
 

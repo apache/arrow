@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#nullable enable
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -23,7 +25,7 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class Decimal256Array : FixedSizeBinaryArray, IReadOnlyList<SqlDecimal?>, IReadOnlyList<string>
+    public class Decimal256Array : FixedSizeBinaryArray, IReadOnlyList<SqlDecimal?>, IReadOnlyList<string?>
     {
         public class Builder : BuilderBase<Decimal256Array, Builder>
         {
@@ -151,7 +153,7 @@ namespace Apache.Arrow
                 return null;
             }
 
-            return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
+            return DecimalUtility.GetDecimal(ValueBuffer, Offset + index, Scale, ByteWidth);
         }
 
         public IList<decimal?> ToList(bool includeNulls = false)
@@ -178,13 +180,13 @@ namespace Apache.Arrow
             return list;
         }
 
-        public string GetString(int index)
+        public string? GetString(int index)
         {
             if (IsNull(index))
             {
                 return null;
             }
-            return DecimalUtility.GetString(ValueBuffer, index, Precision, Scale, ByteWidth);
+            return DecimalUtility.GetString(ValueBuffer, Offset + index, Precision, Scale, ByteWidth);
         }
 
         public bool TryGetSqlDecimal(int index, out SqlDecimal? value)
@@ -196,11 +198,11 @@ namespace Apache.Arrow
             }
 
             const int longWidth = 4;
-            var span = ValueBuffer.Span.CastTo<long>().Slice(index * longWidth);
+            var span = ValueBuffer.Span.CastTo<long>().Slice((Offset + index) * longWidth);
             if ((span[2] == 0 && span[3] == 0) ||
                 (span[2] == -1 && span[3] == -1))
             {
-                value = DecimalUtility.GetSqlDecimal128(ValueBuffer, 2 * index, Precision, Scale);
+                value = DecimalUtility.GetSqlDecimal128(ValueBuffer, 2 * (Offset + index), Precision, Scale);
                 return true;
             }
 
@@ -230,10 +232,10 @@ namespace Apache.Arrow
             }
         }
 
-        int IReadOnlyCollection<string>.Count => Length;
-        string? IReadOnlyList<string>.this[int index] => GetString(index);
+        int IReadOnlyCollection<string?>.Count => Length;
+        string? IReadOnlyList<string?>.this[int index] => GetString(index);
 
-        IEnumerator<string> IEnumerable<string>.GetEnumerator()
+        IEnumerator<string?> IEnumerable<string?>.GetEnumerator()
         {
             for (int index = 0; index < Length; index++)
             {
@@ -241,6 +243,6 @@ namespace Apache.Arrow
             }
         }
 
-        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<string>)this).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<string?>)this).GetEnumerator();
     }
 }

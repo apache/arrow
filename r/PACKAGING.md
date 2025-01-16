@@ -26,12 +26,13 @@ For a high-level overview of the release process see the
 ## Before the release candidate is cut
 
 - [ ] [Create a GitHub issue](https://github.com/apache/arrow/issues/new/) entitled `[R] CRAN packaging checklist for version X.X.X` and copy this checklist to the issue.
+- [ ] Review deprecated functions to advance their deprecation status, including removing preprocessor directives that no longer apply (search for `ARROW_VERSION_MAJOR` in r/src).
 - [ ] Evaluate the status of any failing [nightly tests and nightly packaging builds](http://crossbow.voltrondata.com). These checks replicate most of the checks that CRAN runs, so we need them all to be passing or to understand that the failures may (though won't necessarily) result in a rejection from CRAN.
 - [ ] Check [current CRAN check results](https://cran.rstudio.org/web/checks/check_results_arrow.html)
 - [ ] Ensure the contents of the README are accurate and up to date.
 - [ ] Run `urlchecker::url_check()` on the R directory at the release candidate.
   commit. Ignore any errors with badges as they will be removed in the CRAN release branch.
-- [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later). You can find commits by, for example, `git log --oneline aa057d0..HEAD | grep "\[R\]"`
+- [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later). You can find commits by, for example, `git log --oneline <sha of last release>..HEAD | grep "\[R\]"`
 - [ ] Run preliminary reverse dependency checks using `archery docker run r-revdepcheck`.
 - [ ] For major releases, prepare tweet thread highlighting new features.
 
@@ -39,7 +40,7 @@ Wait for the release candidate to be cut:
 
 ## After release candidate has been cut
 
-- [ ] Create a CRAN-release branch from the release candidate commit
+- [ ] Create a CRAN-release branch from the release candidate commit, name the new branch e.g. `maint-X.X.X-r` and push to upstream
 
 ## Prepare and check the .tar.gz that will be released to CRAN.
 
@@ -71,15 +72,10 @@ Wait for the release candidate to be cut:
 - [ ] Run `Rscript tools/update-checksums.R <libarrow version>` to download the checksums for the pre-compiled binaries from the ASF artifactory into the tools directory.
 - [ ] Regenerate arrow_X.X.X.tar.gz (i.e., `make build`)
 
-Ensure linux binary packages are available:
-- [ ] Ensure linux binaries are available in the artifactory:
-  https://apache.jfrog.io/ui/repos/tree/General/arrow/r
-
 ## Check binary Arrow C++ distributions specific to the R package
 
 - [ ] Upload the .tar.gz to [win-builder](https://win-builder.r-project.org/upload.aspx) (r-devel only)
-  and confirm (with Nic, who will automatically receive an email about the results) that the check is clean.
-  This step cannot be completed before Jeroen has put the binaries in the MinGW repository, i.e. [here](https://ftp.opencpu.org/rtools/ucrt64/), [here](https://ftp.opencpu.org/rtools/mingw64/), and [here](https://ftp.opencpu.org/rtools/mingw32/).
+  and confirm (with Jon, who will automatically receive an email about the results) that the check is clean.
 - [ ] Upload the .tar.gz to [MacBuilder](https://mac.r-project.org/macbuilder/submit.html)
   and confirm that the check is clean
 - [ ] Check `install.packages("arrow_X.X.X.tar.gz")` on Ubuntu and ensure that the
@@ -93,7 +89,7 @@ Ensure linux binary packages are available:
 
 Wait for CRAN...
 - [ ] Accepted!
-- [ ] Tag the tip of the CRAN-specific release branch
+- [ ] Tag the tip of the CRAN-specific release branch with `r-universe-release`
 - [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/main/dev/tasks/r/github.linux.arrow.version.back.compat.yml)
 - [ ] (patch releases only) Update the package version in `ci/scripts/PKGBUILD`, `dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb`, `r/DESCRIPTION`, and `r/NEWS.md`
 - [ ] (CRAN-only releases) Rebuild news page with `pkgdown::build_news()` and submit a PR to the asf-site branch of the docs site with the contents of `arrow/r/docs/news/index.html` replacing the current contents of `arrow-site/docs/r/news/index.html`
@@ -104,3 +100,4 @@ Wait for CRAN...
   [CRAN package page](https://cran.r-project.org/package=arrow) to reflect the
   new version
 - [ ] Tweet!
+  - Use Bryce's [script](https://gist.githubusercontent.com/amoeba/4e26c064d1a0d0227cd8c2260cf0072a/raw/bc0d983152bdde4820de9074d4caee9986624bc5/new_contributors.R) for contributor calculation.

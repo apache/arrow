@@ -23,12 +23,25 @@ ENV \
 
 ARG DEBUG
 
+# GH-42128
+# Switch repos to point to to vault.centos.org because CentOS 7 is EOL
+RUN sed -i \
+  -e 's/^mirrorlist/#mirrorlist/' \
+  -e 's/^#baseurl/baseurl/' \
+  -e 's/mirror\.centos\.org/vault.centos.org/' \
+  /etc/yum.repos.d/*.repo
+
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
   yum update -y ${quiet} && \
   yum install -y ${quiet} \
     centos-release-scl-rh \
     epel-release && \
+  sed -i \
+    -e 's/^mirrorlist/#mirrorlist/' \
+    -e 's/^#baseurl/baseurl/' \
+    -e 's/mirror\.centos\.org/vault.centos.org/' \
+    /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo && \
   yum install -y ${quiet} \
     ${SCL}-gcc-c++ \
     ${SCL}-make \
@@ -44,8 +57,8 @@ RUN \
     git \
     glog-devel \
     gobject-introspection-devel \
-    gtk-doc \
     json-devel \
+    libxml2-devel \
     libzstd-devel \
     lz4-devel \
     ninja-build \
@@ -58,6 +71,7 @@ RUN \
     tar \
     thrift-devel \
     vala \
+    which \
     zlib-devel && \
   yum clean ${quiet} all
 

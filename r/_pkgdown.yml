@@ -57,10 +57,10 @@ home:
   sidebar:
     structure:
       - project
-      - implementations
       - links
       - license
       - community
+      - implementations
       - citation
       - authors
       - dev
@@ -76,7 +76,7 @@ home:
           [C GLib](https://arrow.apache.org/docs/c_glib) <br>
           [C++](https://arrow.apache.org/docs/cpp) <br>
           [C#](https://github.com/apache/arrow/blob/main/csharp/README.md) <br>
-          [Go](https://pkg.go.dev/github.com/apache/arrow/go) <br>
+          [Go](https://arrow.apache.org/go/) <br>
           [Java](https://arrow.apache.org/docs/java) <br>
           [JavaScript](https://arrow.apache.org/docs/js) <br>
           [Julia](https://github.com/apache/arrow-julia/blob/main/README.md) <br>
@@ -85,6 +85,10 @@ home:
           [R](index.html) <br>
           [Ruby](https://github.com/apache/arrow/blob/main/ruby/README.md) <br>
           [Rust](https://docs.rs/crate/arrow/latest)
+      community:
+        title: Community
+        text: >
+          [Code of conduct](https://www.apache.org/foundation/policies/conduct.html)
 
 navbar:
   bg: black
@@ -133,7 +137,6 @@ articles:
       - developers/workflow
       - developers/debugging
       - developers/docker
-      - developers/writing_bindings
       - developers/install_details
       - developers/data_object_layout
 

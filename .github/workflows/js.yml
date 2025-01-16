@@ -19,13 +19,20 @@ name: NodeJS
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
+      - '.dockerignore'
       - '.github/workflows/js.yml'
       - 'ci/docker/*js.dockerfile'
       - 'ci/scripts/js_*'
       - 'js/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/js.yml'
       - 'ci/docker/*js.dockerfile'
       - 'ci/scripts/js_*'
@@ -38,10 +45,13 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  ARCHERY_DEBUG: 1
+
 jobs:
 
   docker:
-    name: AMD64 Debian 11 NodeJS 18
+    name: AMD64 Debian 12 NodeJS 18
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -51,9 +61,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -61,8 +71,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run debian-js
       - name: Docker Push
         if: >-
@@ -77,10 +86,10 @@ jobs:
         run: archery docker push debian-js
 
   macos:
-    name: AMD64 macOS 11 NodeJS ${{ matrix.node }}
-    runs-on: macos-latest
-    if: github.event_name == 'push'
-    timeout-minutes: 90
+    name: AMD64 macOS 13 NodeJS ${{ matrix.node }}
+    runs-on: macos-13
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -91,7 +100,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Jest Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: js/.jest-cache
           key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/src/**/*.ts', 'js/test/**/*.ts', 'js/yarn.lock') }}
@@ -102,15 +111,16 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Build
         shell: bash
-        run: ci/scripts/js_build.sh $(pwd)
+        run: ci/scripts/js_build.sh $(pwd) build
       - name: Test
         shell: bash
-        run: ci/scripts/js_test.sh $(pwd)
+        run: ci/scripts/js_test.sh $(pwd) build
 
   windows:
     name: AMD64 Windows NodeJS ${{ matrix.node }}
     runs-on: windows-latest
-    if: github.event_name == 'push'
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -121,7 +131,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Jest Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: js/.jest-cache
           key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/src/**/*.ts', 'js/test/**/*.ts', 'js/yarn.lock') }}
@@ -132,7 +142,7 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Build
         shell: bash
-        run: ci/scripts/js_build.sh $(pwd)
+        run: ci/scripts/js_build.sh $(pwd) build
       - name: Test
         shell: bash
-        run: ci/scripts/js_test.sh $(pwd)
+        run: ci/scripts/js_test.sh $(pwd) build

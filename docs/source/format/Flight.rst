@@ -68,9 +68,8 @@ Downloading Data
 
 A client that wishes to download the data would:
 
-.. figure:: ./Flight/DoGet.mmd.svg
-
-   Retrieving data via ``DoGet``.
+.. mermaid:: ./Flight/DoGet.mmd
+   :caption: Retrieving data via ``DoGet``.
 
 #. Construct or acquire a ``FlightDescriptor`` for the data set they
    are interested in.
@@ -121,6 +120,13 @@ A client that wishes to download the data would:
    connection to the original server to fetch data. Otherwise, the
    client must connect to one of the indicated locations.
 
+   The server may list "itself" as a location alongside other server
+   locations.  Normally this requires the server to know its public
+   address, but it may also use the special URI string
+   ``arrow-flight-reuse-connection://?`` to tell clients that they may
+   reuse an existing connection to the same server, without having to
+   be able to name itself.  See `Connection Reuse`_ below.
+
    In this way, the locations inside an endpoint can also be thought
    of as performing look-aside load balancing or service discovery
    functions. And the endpoints can represent data that is partitioned
@@ -161,9 +167,8 @@ data. However, ``GetFlightInfo`` doesn't return until the query
 completes, so the client is blocked. In this situation, the client
 can use ``PollFlightInfo`` instead of ``GetFlightInfo``:
 
-.. figure:: ./Flight/PollFlightInfo.mmd.svg
-
-   Polling a long-running query by ``PollFlightInfo``.
+.. mermaid:: ./Flight/PollFlightInfo.mmd
+   :caption: Polling a long-running query by ``PollFlightInfo``.
 
 #. Construct or acquire a ``FlightDescriptor``, as before.
 #. Call ``PollFlightInfo(FlightDescriptor)`` to get a ``PollInfo``
@@ -222,9 +227,8 @@ Uploading Data
 
 To upload data, a client would:
 
-.. figure:: ./Flight/DoPut.mmd.svg
-
-   Uploading data via ``DoPut``.
+.. mermaid:: ./Flight/DoPut.mmd
+   :caption: Uploading data via ``DoPut``.
 
 #. Construct or acquire a ``FlightDescriptor``, as before.
 #. Call ``DoPut(FlightData)`` and upload a stream of Arrow record
@@ -250,9 +254,8 @@ require being stateful if implemented using ``DoGet`` and
 ``DoPut``. Instead, ``DoExchange`` allows this to be implemented as a
 single call. A client would:
 
-.. figure:: ./Flight/DoExchange.mmd.svg
-
-   Complex data flow with ``DoExchange``.
+.. mermaid:: ./Flight/DoExchange.mmd
+   :caption: Complex data flow with ``DoExchange``.
 
 #. Construct or acquire a ``FlightDescriptor``, as before.
 #. Call ``DoExchange(FlightData)``.
@@ -307,28 +310,64 @@ well, in which case any `authentication method supported by gRPC
 
 .. _Mutual TLS (mTLS): https://grpc.io/docs/guides/auth/#supported-auth-mechanisms
 
-Transport Implementations
-=========================
+.. _flight-location-uris:
+
+Location URIs
+=============
 
 Flight is primarily defined in terms of its Protobuf and gRPC
 specification below, but Arrow implementations may also support
-alternative transports (see :ref:`status-flight-rpc`). In that case,
-implementations should use the following URI schemes for the given
-transport implementations:
+alternative transports (see :ref:`status-flight-rpc`).  Clients and
+servers need to know which transport to use for a given URI in a
+Location, so Flight implementations should use the following URI
+schemes for the given transports:
 
-+----------------------------+----------------------------+
-| Transport                  | URI Scheme                 |
-+============================+============================+
-| gRPC (plaintext)           | grpc: or grpc+tcp:         |
-+----------------------------+----------------------------+
-| gRPC (TLS)                 | grpc+tls:                  |
-+----------------------------+----------------------------+
-| gRPC (Unix domain socket)  | grpc+unix:                 |
-+----------------------------+----------------------------+
-| UCX_ (plaintext)           | ucx:                       |
-+----------------------------+----------------------------+
++----------------------------+--------------------------------+
+| Transport                  | URI Scheme                     |
++============================+================================+
+| gRPC (plaintext)           | grpc: or grpc+tcp:             |
++----------------------------+--------------------------------+
+| gRPC (TLS)                 | grpc+tls:                      |
++----------------------------+--------------------------------+
+| gRPC (Unix domain socket)  | grpc+unix:                     |
++----------------------------+--------------------------------+
+| (reuse connection)         | arrow-flight-reuse-connection: |
++----------------------------+--------------------------------+
+| UCX_ (plaintext) (1)       | ucx:                           |
++----------------------------+--------------------------------+
+
+Notes:
+
+* \(1) Flight UCX transport has been deprecated on the 19.0.0 release.
+  The :ref:`dissociated-ipc` section proposes an alternative solution.
 
 .. _UCX: https://openucx.org/
+
+Connection Reuse
+----------------
+
+"Reuse connection" above is not a particular transport.  Instead, it
+means that the client may try to execute DoGet against the same server
+(and through the same connection) that it originally obtained the
+FlightInfo from (i.e., that it called GetFlightInfo against).  This is
+interpreted the same way as when no specific ``Location`` are
+returned.
+
+This allows the server to return "itself" as one possible location to
+fetch data without having to know its own public address, which can be
+useful in deployments where knowing this would be difficult or
+impossible.  For example, a developer may forward a remote service in
+a cloud environment to their local machine; in this case, the remote
+service would have no way to know the local hostname and port that it
+is being accessed over.
+
+For compatibility reasons, the URI should always be
+``arrow-flight-reuse-connection://?``, with the trailing empty query
+string.  Java's URI implementation does not accept ``scheme:`` or
+``scheme://``, and C++'s implementation does not accept an empty
+string, so the obvious candidates are not compatible.  The chosen
+representation can be parsed by both implementations, as well as Go's
+``net/url`` and Python's ``urllib.parse``.
 
 Error Handling
 ==============

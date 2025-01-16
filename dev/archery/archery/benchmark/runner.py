@@ -123,6 +123,8 @@ class CppBenchmarkRunner(BenchmarkRunner):
             with_csv=True,
             with_dataset=True,
             with_json=True,
+            with_jemalloc=True,
+            with_mimalloc=True,
             with_parquet=True,
             with_python=False,
             with_brotli=True,
@@ -210,6 +212,7 @@ class CppBenchmarkRunner(BenchmarkRunner):
         """
         build = None
         if StaticBenchmarkRunner.is_json_result(rev_or_path):
+            kwargs.pop('benchmark_extras', None)
             return StaticBenchmarkRunner.from_json(rev_or_path, **kwargs)
         elif CMakeBuild.is_build_dir(rev_or_path):
             build = CMakeBuild.from_path(rev_or_path)

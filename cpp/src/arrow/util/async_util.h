@@ -226,6 +226,7 @@ class ARROW_EXPORT ThrottledAsyncTaskScheduler : public AsyncTaskScheduler {
     virtual bool Empty() = 0;
     /// Purge the queue of all items
     virtual void Purge() = 0;
+    virtual std::size_t Size() const = 0;
   };
 
   class Throttle {
@@ -277,6 +278,8 @@ class ARROW_EXPORT ThrottledAsyncTaskScheduler : public AsyncTaskScheduler {
   /// Allows task to be submitted again.  If there is a max_concurrent_cost limit then
   /// it will still apply.
   virtual void Resume() = 0;
+  /// Return the number of tasks queued but not yet submitted
+  virtual std::size_t QueueSize() = 0;
 
   /// Create a throttled view of a scheduler
   ///

@@ -128,6 +128,7 @@ class SerialSequencingQueue {
   /// Strategy that describes how to handle items
   class Processor {
    public:
+    virtual ~Processor() = default;
     /// Process the batch
     ///
     /// This method will be called on each batch in order.  Calls to this method

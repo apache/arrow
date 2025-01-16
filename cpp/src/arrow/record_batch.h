@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/compare.h"
+#include "arrow/device.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -45,9 +46,12 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] num_rows length of fields in the record batch. Each array
   /// should have the same length as num_rows
   /// \param[in] columns the record batch fields as vector of arrays
-  static std::shared_ptr<RecordBatch> Make(std::shared_ptr<Schema> schema,
-                                           int64_t num_rows,
-                                           std::vector<std::shared_ptr<Array>> columns);
+  /// \param[in] sync_event optional synchronization event for non-CPU device
+  /// memory used by buffers
+  static std::shared_ptr<RecordBatch> Make(
+      std::shared_ptr<Schema> schema, int64_t num_rows,
+      std::vector<std::shared_ptr<Array>> columns,
+      std::shared_ptr<Device::SyncEvent> sync_event = NULLPTR);
 
   /// \brief Construct record batch from vector of internal data structures
   /// \since 0.5.0
@@ -58,9 +62,15 @@ class ARROW_EXPORT RecordBatch {
   /// \param num_rows the number of semantic rows in the record batch. This
   /// should be equal to the length of each field
   /// \param columns the data for the batch's columns
+  /// \param device_type the type of the device that the Arrow columns are
+  /// allocated on
+  /// \param sync_event optional synchronization event for non-CPU device
+  /// memory used by buffers
   static std::shared_ptr<RecordBatch> Make(
       std::shared_ptr<Schema> schema, int64_t num_rows,
-      std::vector<std::shared_ptr<ArrayData>> columns);
+      std::vector<std::shared_ptr<ArrayData>> columns,
+      DeviceAllocationType device_type = DeviceAllocationType::kCPU,
+      std::shared_ptr<Device::SyncEvent> sync_event = NULLPTR);
 
   /// \brief Create an empty RecordBatch of a given schema
   ///
@@ -79,6 +89,20 @@ class ARROW_EXPORT RecordBatch {
   /// Note that the record batch's top-level field metadata cannot be reflected
   /// in the resulting struct array.
   Result<std::shared_ptr<StructArray>> ToStructArray() const;
+
+  /// \brief Convert record batch with one data type to Tensor
+  ///
+  /// Create a Tensor object with shape (number of rows, number of columns) and
+  /// strides (type size in bytes, type size in bytes * number of rows).
+  /// Generated Tensor will have column-major layout.
+  ///
+  /// \param[in] null_to_nan if true, convert nulls to NaN
+  /// \param[in] row_major if true, create row-major Tensor else column-major Tensor
+  /// \param[in] pool the memory pool to allocate the tensor buffer
+  /// \return the resulting Tensor
+  Result<std::shared_ptr<Tensor>> ToTensor(
+      bool null_to_nan = false, bool row_major = true,
+      MemoryPool* pool = default_memory_pool()) const;
 
   /// \brief Construct record batch from struct array
   ///
@@ -186,6 +210,25 @@ class ARROW_EXPORT RecordBatch {
   /// \return the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
 
+  /// \brief Copy the entire RecordBatch to destination MemoryManager
+  ///
+  /// This uses Array::CopyTo on each column of the record batch to create
+  /// a new record batch where all underlying buffers for the columns have
+  /// been copied to the destination MemoryManager. This uses
+  /// MemoryManager::CopyBuffer under the hood.
+  Result<std::shared_ptr<RecordBatch>> CopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
+
+  /// \brief View or Copy the entire RecordBatch to destination MemoryManager
+  ///
+  /// This uses Array::ViewOrCopyTo on each column of the record batch to create
+  /// a new record batch where all underlying buffers for the columns have
+  /// been zero-copy viewed on the destination MemoryManager, falling back
+  /// to performing a copy if it can't be viewed as a zero-copy buffer. This uses
+  /// Buffer::ViewOrCopy under the hood.
+  Result<std::shared_ptr<RecordBatch>> ViewOrCopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
+
   /// \brief Slice each of the arrays in the record batch
   /// \param[in] offset the starting offset to slice, through end of batch
   /// \return new record batch
@@ -199,6 +242,13 @@ class ARROW_EXPORT RecordBatch {
 
   /// \return PrettyPrint representation suitable for debugging
   std::string ToString() const;
+
+  /// \brief Return names of all columns
+  std::vector<std::string> ColumnNames() const;
+
+  /// \brief Rename columns with provided names
+  Result<std::shared_ptr<RecordBatch>> RenameColumns(
+      const std::vector<std::string>& names) const;
 
   /// \brief Return new record batch with specified columns
   Result<std::shared_ptr<RecordBatch>> SelectColumns(
@@ -220,6 +270,30 @@ class ARROW_EXPORT RecordBatch {
   /// \return Status
   virtual Status ValidateFull() const;
 
+  /// \brief EXPERIMENTAL: Return a top-level sync event object for this record batch
+  ///
+  /// If all of the data for this record batch is in CPU memory, then this
+  /// will return null. If the data for this batch is
+  /// on a device, then if synchronization is needed before accessing the
+  /// data the returned sync event will allow for it.
+  ///
+  /// \return null or a Device::SyncEvent
+  virtual const std::shared_ptr<Device::SyncEvent>& GetSyncEvent() const = 0;
+
+  virtual DeviceAllocationType device_type() const = 0;
+
+  /// \brief Create a statistics array of this record batch
+  ///
+  /// The created array follows the C data interface statistics
+  /// specification. See
+  /// https://arrow.apache.org/docs/format/CDataInterfaceStatistics.html
+  /// for details.
+  ///
+  /// \param[in] pool the memory pool to allocate memory from
+  /// \return the statistics array of this record batch
+  Result<std::shared_ptr<Array>> MakeStatisticsArray(
+      MemoryPool* pool = default_memory_pool()) const;
+
  protected:
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);
 
@@ -235,6 +309,12 @@ struct ARROW_EXPORT RecordBatchWithMetadata {
   std::shared_ptr<KeyValueMetadata> custom_metadata;
 };
 
+template <>
+struct IterationTraits<RecordBatchWithMetadata> {
+  static RecordBatchWithMetadata End() { return {NULLPTR, NULLPTR}; }
+  static bool IsEnd(const RecordBatchWithMetadata& val) { return val.batch == NULLPTR; }
+};
+
 /// \brief Abstract interface for reading stream of record batches
 class ARROW_EXPORT RecordBatchReader {
  public:
@@ -248,7 +328,22 @@ class ARROW_EXPORT RecordBatchReader {
   /// \brief Read the next record batch in the stream. Return null for batch
   /// when reaching end of stream
   ///
-  /// \param[out] batch the next loaded batch, null at end of stream
+  /// Example:
+  ///
+  /// ```
+  /// while (true) {
+  ///   std::shared_ptr<RecordBatch> batch;
+  ///   ARROW_RETURN_NOT_OK(reader->ReadNext(&batch));
+  ///   if (!batch) {
+  ///     break;
+  ///   }
+  ///   // handling the `batch`, the `batch->num_rows()`
+  ///   // might be 0.
+  /// }
+  /// ```
+  ///
+  /// \param[out] batch the next loaded batch, null at end of stream. Returning
+  /// an empty batch doesn't mean the end of stream because it is valid data.
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 
@@ -265,6 +360,11 @@ class ARROW_EXPORT RecordBatchReader {
 
   /// \brief finalize reader
   virtual Status Close() { return Status::OK(); }
+
+  /// \brief EXPERIMENTAL: Get the device type for record batches this reader produces
+  ///
+  /// default implementation is to return DeviceAllocationType::kCPU
+  virtual DeviceAllocationType device_type() const { return DeviceAllocationType::kCPU; }
 
   class RecordBatchReaderIterator {
    public:
@@ -339,15 +439,19 @@ class ARROW_EXPORT RecordBatchReader {
   /// \param[in] batches the vector of RecordBatch to read from
   /// \param[in] schema schema to conform to. Will be inferred from the first
   ///            element if not provided.
+  /// \param[in] device_type the type of device that the batches are allocated on
   static Result<std::shared_ptr<RecordBatchReader>> Make(
-      RecordBatchVector batches, std::shared_ptr<Schema> schema = NULLPTR);
+      RecordBatchVector batches, std::shared_ptr<Schema> schema = NULLPTR,
+      DeviceAllocationType device_type = DeviceAllocationType::kCPU);
 
   /// \brief Create a RecordBatchReader from an Iterator of RecordBatch.
   ///
   /// \param[in] batches an iterator of RecordBatch to read from.
   /// \param[in] schema schema that each record batch in iterator will conform to.
+  /// \param[in] device_type the type of device that the batches are allocated on
   static Result<std::shared_ptr<RecordBatchReader>> MakeFromIterator(
-      Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema);
+      Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema,
+      DeviceAllocationType device_type = DeviceAllocationType::kCPU);
 };
 
 /// \brief Concatenate record batches

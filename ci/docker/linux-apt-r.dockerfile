@@ -27,10 +27,15 @@ ENV R_PRUNE_DEPS=${r_prune_deps}
 ARG r_duckdb_dev=FALSE
 ENV R_DUCKDB_DEV=${r_duckdb_dev}
 
+# This is needed to avoid errors with utf8 characters in some
+# R package's DESCRIPTION files
+# https://github.com/statnmap/HatchedPolygons/issues/4
+ENV LANG=C.UTF-8
+
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
-ARG r=3.6
+ARG r=4.4
 RUN apt-get update -y && \
     apt-get install -y \
         dirmngr \
@@ -53,16 +58,17 @@ RUN apt-get update -y && \
         locales \
         # Need Python to check py-to-r bridge
         python3 \
+        python3-venv \
         python3-pip \
         python3-dev && \
     locale-gen en_US.UTF-8 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-ARG gcc_version=""
-RUN if [ "${gcc_version}" != "" ]; then \
-      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
-      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+ARG gcc=""
+RUN if [ "${gcc}" != "" ]; then \
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc} 100 && \
+      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc} 100 && \
       update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30 && \
       update-alternatives --set cc /usr/bin/gcc && \
       update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 30 && \
@@ -76,24 +82,22 @@ RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
 # Also ensure parallel compilation of C/C++ code
 RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Renviron.site
 
-# Set up Python 3 and its dependencies
-RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
-    ln -s /usr/bin/pip3 /usr/local/bin/pip
-
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow
 
-RUN pip install -U pip setuptools wheel
+ENV ARROW_PYTHON_VENV /arrow-dev
+COPY python/requirements-build.txt /arrow/python/
+RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
+    source ${ARROW_PYTHON_VENV}/bin/activate && \
+    pip install -U pip setuptools wheel && \
+    pip install -r arrow/python/requirements-build.txt
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
-
-COPY python/requirements-build.txt /arrow/python/
-RUN pip install -r arrow/python/requirements-build.txt
 
 ENV \
     ARROW_ACERO=ON \
@@ -108,7 +112,6 @@ ENV \
     ARROW_GANDIVA=OFF \
     ARROW_HDFS=OFF \
     ARROW_JSON=ON \
-    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \

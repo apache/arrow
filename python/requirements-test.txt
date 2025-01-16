@@ -2,5 +2,5 @@ cffi
 hypothesis
 pandas
 pytest
-pytest-lazy-fixture
 pytz
+pyuwsgi; sys.platform != 'win32' and python_version < '3.13'

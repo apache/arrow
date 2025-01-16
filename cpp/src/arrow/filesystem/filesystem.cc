@@ -15,20 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <mutex>
+#include <shared_mutex>
 #include <sstream>
+#include <unordered_map>
 #include <utility>
 
+#include "arrow/type_fwd.h"
 #include "arrow/util/config.h"
 
 #include "arrow/filesystem/filesystem.h"
-#ifdef ARROW_HDFS
-#include "arrow/filesystem/hdfs.h"
+#ifdef ARROW_AZURE
+#  include "arrow/filesystem/azurefs.h"
 #endif
 #ifdef ARROW_GCS
-#include "arrow/filesystem/gcsfs.h"
+#  include "arrow/filesystem/gcsfs.h"
+#endif
+#ifdef ARROW_HDFS
+#  include "arrow/filesystem/hdfs.h"
 #endif
 #ifdef ARROW_S3
-#include "arrow/filesystem/s3fs.h"
+#  include "arrow/filesystem/s3fs.h"
 #endif
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
@@ -43,19 +50,19 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parallel.h"
+#include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/vector.h"
+#include "arrow/util/visibility.h"
 #include "arrow/util/windows_fixup.h"
 
-namespace arrow {
+namespace arrow::fs {
 
-using internal::checked_pointer_cast;
-using internal::TaskHints;
-using internal::Uri;
-using io::internal::SubmitIO;
-
-namespace fs {
-
+using arrow::internal::checked_pointer_cast;
+using arrow::internal::GetEnvVar;
+using arrow::internal::TaskHints;
+using arrow::io::internal::SubmitIO;
+using arrow::util::Uri;
 using internal::ConcatAbstractPath;
 using internal::EnsureTrailingSlash;
 using internal::GetAbstractPathParent;
@@ -128,7 +135,7 @@ std::string FileInfo::extension() const {
 //////////////////////////////////////////////////////////////////////////
 // FileSystem default method implementations
 
-FileSystem::~FileSystem() {}
+FileSystem::~FileSystem() = default;
 
 Result<std::string> FileSystem::NormalizePath(std::string path) { return path; }
 
@@ -203,6 +210,10 @@ Future<> FileSystem::DeleteDirContentsAsync(const std::string& path,
                          });
 }
 
+Future<> FileSystem::DeleteDirContentsAsync(const std::string& path) {
+  return DeleteDirContentsAsync(path, false);
+}
+
 Result<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStream(
     const FileInfo& info) {
   RETURN_NOT_OK(ValidateInputFileInfo(info));
@@ -259,6 +270,11 @@ Result<std::string> FileSystem::PathFromUri(const std::string& uri_string) const
   return Status::NotImplemented("PathFromUri is not yet supported on this filesystem");
 }
 
+Result<std::string> FileSystem::MakeUri(std::string path) const {
+  return Status::NotImplemented("MakeUri is not yet supported for ", type_name(),
+                                " filesystems");
+}
+
 //////////////////////////////////////////////////////////////////////////
 // SubTreeFileSystem implementation
 
@@ -279,7 +295,7 @@ SubTreeFileSystem::SubTreeFileSystem(const std::string& base_path,
       base_path_(NormalizeBasePath(base_path, base_fs).ValueOrDie()),
       base_fs_(base_fs) {}
 
-SubTreeFileSystem::~SubTreeFileSystem() {}
+SubTreeFileSystem::~SubTreeFileSystem() = default;
 
 Result<std::string> SubTreeFileSystem::NormalizeBasePath(
     std::string base_path, const std::shared_ptr<FileSystem>& base_fs) {
@@ -614,9 +630,12 @@ Status CopyFiles(const std::vector<FileLocator>& sources,
                            destinations.size(), " paths.");
   }
 
-  auto copy_one_file = [&](int i) {
-    if (sources[i].filesystem->Equals(destinations[i].filesystem)) {
-      return sources[i].filesystem->CopyFile(sources[i].path, destinations[i].path);
+  auto copy_one_file = [&](size_t i,
+                           const FileLocator& source_file_locator) -> Result<Future<>> {
+    if (source_file_locator.filesystem->Equals(destinations[i].filesystem)) {
+      RETURN_NOT_OK(source_file_locator.filesystem->CopyFile(source_file_locator.path,
+                                                             destinations[i].path));
+      return Future<>::MakeFinished();
     }
 
     ARROW_ASSIGN_OR_RAISE(auto source,
@@ -626,12 +645,31 @@ Status CopyFiles(const std::vector<FileLocator>& sources,
     ARROW_ASSIGN_OR_RAISE(auto destination, destinations[i].filesystem->OpenOutputStream(
                                                 destinations[i].path, metadata));
     RETURN_NOT_OK(internal::CopyStream(source, destination, chunk_size, io_context));
-    return destination->Close();
+    // Using the blocking Close() here can cause reduced performance and deadlocks because
+    // FileSystem implementations that implement background_writes need to queue and wait
+    // for other IO thread(s). There is a risk that most or all the threads in the IO
+    // thread pool are blocking on a call Close(), leaving no IO threads left to actually
+    // fulfil the background writes.
+    return destination->CloseAsync();
   };
 
-  return ::arrow::internal::OptionalParallelFor(
-      use_threads, static_cast<int>(sources.size()), std::move(copy_one_file),
-      io_context.executor());
+  // Spawn copy_one_file less urgently than default, so that background_writes are done
+  // with higher priority. Otherwise copy_one_file will keep buffering more data in memory
+  // without giving the background_writes any chance to upload the data and drop it from
+  // memory. Therefore, without this large copies would cause OOMs.
+  TaskHints hints{10};
+  auto future = ::arrow::internal::OptionalParallelForAsync(
+      use_threads, sources, std::move(copy_one_file), io_context.executor(), hints);
+
+  // Wait for all the copy_one_file instances to complete.
+  ARROW_ASSIGN_OR_RAISE(auto copy_close_async_future, future.result());
+
+  // Wait for all the futures returned by copy_one_file to complete. When the destination
+  // filesystem uses background_writes this is when most of the upload happens.
+  for (const auto& result : copy_close_async_future) {
+    result.Wait();
+  }
+  return Status::OK();
 }
 
 Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
@@ -674,6 +712,161 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
   return CopyFiles(sources, destinations, io_context, chunk_size, use_threads);
 }
 
+class FileSystemFactoryRegistry {
+ public:
+  static FileSystemFactoryRegistry* GetInstance() {
+    static FileSystemFactoryRegistry registry;
+    if (registry.merged_into_ != nullptr) {
+      return registry.merged_into_;
+    }
+    return &registry;
+  }
+
+  Result<const FileSystemFactory*> FactoryForScheme(const std::string& scheme) {
+    std::shared_lock lock{mutex_};
+    RETURN_NOT_OK(CheckValid());
+
+    auto it = scheme_to_factory_.find(scheme);
+    if (it == scheme_to_factory_.end()) return nullptr;
+
+    return it->second.Map([](const auto& r) { return &r.factory; });
+  }
+
+  Status MergeInto(FileSystemFactoryRegistry* main_registry) {
+    std::unique_lock lock{mutex_};
+    RETURN_NOT_OK(CheckValid());
+
+    std::unique_lock main_lock{main_registry->mutex_};
+    RETURN_NOT_OK(main_registry->CheckValid());
+
+    std::vector<std::string_view> duplicated_schemes;
+    for (auto& [scheme, registered] : scheme_to_factory_) {
+      if (!registered.ok()) {
+        duplicated_schemes.emplace_back(scheme);
+        continue;
+      }
+
+      auto [it, success] =
+          main_registry->scheme_to_factory_.emplace(std::move(scheme), registered);
+      if (success) continue;
+
+      if (it->second.ok()) {
+        if (registered->factory == it->second->factory) continue;
+      }
+
+      duplicated_schemes.emplace_back(it->first);
+    }
+    scheme_to_factory_.clear();
+    merged_into_ = main_registry;
+
+    if (duplicated_schemes.empty()) return Status::OK();
+    return Status::KeyError("Attempted to register ", duplicated_schemes.size(),
+                            " factories for schemes ['",
+                            arrow::internal::JoinStrings(duplicated_schemes, "', '"),
+                            "'] but those schemes were already registered.");
+  }
+
+  void EnsureFinalized() {
+    std::unique_lock lock{mutex_};
+    if (finalized_) return;
+
+    for (const auto& [_, registered_or_error] : scheme_to_factory_) {
+      if (!registered_or_error.ok()) continue;
+      registered_or_error->finalizer();
+    }
+    finalized_ = true;
+  }
+
+  Status RegisterFactory(std::string scheme, FileSystemFactory factory,
+                         std::function<void()> finalizer, bool defer_error) {
+    std::unique_lock lock{mutex_};
+    RETURN_NOT_OK(CheckValid());
+
+    auto [it, success] = scheme_to_factory_.emplace(
+        std::move(scheme), Registered{factory, std::move(finalizer)});
+    if (success || (it->second.ok() && it->second->factory == factory)) {
+      return Status::OK();
+    }
+
+    auto st = Status::KeyError(
+        "Attempted to register factory for "
+        "scheme '",
+        it->first,
+        "' but that scheme is already "
+        "registered.");
+    if (!defer_error) return st;
+
+    it->second = std::move(st);
+    return Status::OK();
+  }
+
+ private:
+  struct Registered {
+    FileSystemFactory factory;
+    std::function<void()> finalizer;
+  };
+
+  Status CheckValid() {
+    if (finalized_) {
+      return Status::Invalid("FileSystem factories were already finalized!");
+    }
+    if (merged_into_ != nullptr) {
+      return Status::Invalid(
+          "FileSystem factories were merged into a different registry!");
+    }
+    return Status::OK();
+  }
+
+  std::shared_mutex mutex_;
+  std::unordered_map<std::string, Result<Registered>> scheme_to_factory_;
+  bool finalized_ = false;
+  FileSystemFactoryRegistry* merged_into_ = nullptr;
+};
+
+Status RegisterFileSystemFactory(std::string scheme, FileSystemFactory factory,
+                                 std::function<void()> finalizer) {
+  return FileSystemFactoryRegistry::GetInstance()->RegisterFactory(
+      std::move(scheme), factory, std::move(finalizer),
+      /*defer_error=*/false);
+}
+
+void EnsureFinalized() { FileSystemFactoryRegistry::GetInstance()->EnsureFinalized(); }
+
+FileSystemRegistrar::FileSystemRegistrar(std::string scheme, FileSystemFactory factory,
+                                         std::function<void()> finalizer) {
+  DCHECK_OK(FileSystemFactoryRegistry::GetInstance()->RegisterFactory(
+      std::move(scheme), std::move(factory), std::move(finalizer),
+      /*defer_error=*/true));
+}
+
+namespace internal {
+void* GetFileSystemRegistry() { return FileSystemFactoryRegistry::GetInstance(); }
+}  // namespace internal
+
+Status LoadFileSystemFactories(const char* libpath) {
+  using ::arrow::internal::GetSymbolAs;
+  using ::arrow::internal::LoadDynamicLibrary;
+
+  ARROW_ASSIGN_OR_RAISE(void* lib, LoadDynamicLibrary(libpath));
+  auto* get_instance =
+      GetSymbolAs<void*()>(lib, "arrow_filesystem_get_registry").ValueOr(nullptr);
+  if (get_instance == nullptr) {
+    // If a third party library is linked such that registry deduplication is not
+    // necessary (for example if built with `ARROW_BUILD_SHARED`), we do not require that
+    // library to export arrow_filesystem_get_registry() since that symbol is not used
+    // except for deduplication.
+    return Status::OK();
+  }
+
+  auto* lib_registry = static_cast<FileSystemFactoryRegistry*>(get_instance());
+  auto* main_registry = FileSystemFactoryRegistry::GetInstance();
+  if (lib_registry != main_registry) {
+    RETURN_NOT_OK(lib_registry->MergeInto(main_registry));
+  }
+
+  return Status::OK();
+}
+
 namespace {
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
@@ -682,23 +875,35 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
                                                           std::string* out_path) {
   const auto scheme = uri.scheme();
 
-  if (scheme == "file") {
-    std::string path;
-    ARROW_ASSIGN_OR_RAISE(auto options, LocalFileSystemOptions::FromUri(uri, &path));
-    if (out_path != nullptr) {
-      *out_path = path;
+  {
+    ARROW_ASSIGN_OR_RAISE(
+        auto* factory,
+        FileSystemFactoryRegistry::GetInstance()->FactoryForScheme(scheme));
+    if (factory != nullptr) {
+      return factory->function(uri, io_context, out_path);
     }
-    return std::make_shared<LocalFileSystem>(options, io_context);
+  }
+
+  if (scheme == "abfs" || scheme == "abfss") {
+#ifdef ARROW_AZURE
+    ARROW_ASSIGN_OR_RAISE(auto options, AzureOptions::FromUri(uri, out_path));
+    return AzureFileSystem::Make(options, io_context);
+#else
+    return Status::NotImplemented(
+        "Got Azure Blob File System URI but Arrow compiled without Azure Blob File "
+        "System support");
+#endif
   }
   if (scheme == "gs" || scheme == "gcs") {
 #ifdef ARROW_GCS
     ARROW_ASSIGN_OR_RAISE(auto options, GcsOptions::FromUri(uri, out_path));
     return GcsFileSystem::Make(options, io_context);
 #else
-    return Status::NotImplemented("Got GCS URI but Arrow compiled without GCS support");
+    return Status::NotImplemented(
+        "Got GCS URI but Arrow compiled "
+        "without GCS support");
 #endif
   }
-
   if (scheme == "hdfs" || scheme == "viewfs") {
 #ifdef ARROW_HDFS
     ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));
@@ -708,7 +913,9 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options, io_context));
     return hdfs;
 #else
-    return Status::NotImplemented("Got HDFS URI but Arrow compiled without HDFS support");
+    return Status::NotImplemented(
+        "Got HDFS URI but Arrow compiled "
+        "without HDFS support");
 #endif
   }
   if (scheme == "s3") {
@@ -718,13 +925,17 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     ARROW_ASSIGN_OR_RAISE(auto s3fs, S3FileSystem::Make(options, io_context));
     return s3fs;
 #else
-    return Status::NotImplemented("Got S3 URI but Arrow compiled without S3 support");
+    return Status::NotImplemented(
+        "Got S3 URI but Arrow compiled "
+        "without S3 support");
 #endif
   }
 
   if (scheme == "mock") {
-    // MockFileSystem does not have an absolute / relative path distinction,
-    // normalize path by removing leading slash.
+    // MockFileSystem does not have an
+    // absolute / relative path distinction,
+    // normalize path by removing leading
+    // slash.
     if (out_path != nullptr) {
       *out_path = std::string(RemoveLeadingSlash(uri.path()));
     }
@@ -760,8 +971,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
   if (internal::DetectAbsolutePath(uri_string)) {
     // Normalize path separators
     if (out_path != nullptr) {
-      *out_path =
-          std::string(RemoveTrailingSlash(ToSlashes(uri_string), /*preserve_root=*/true));
+      *out_path = std::string(RemoveTrailingSlash(ToSlashes(uri_string),
+                                                  /*preserve_root=*/true));
     }
     return std::make_shared<LocalFileSystem>();
   }
@@ -778,5 +989,4 @@ Status Initialize(const FileSystemGlobalOptions& options) {
   return Status::OK();
 }
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs

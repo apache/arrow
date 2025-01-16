@@ -92,5 +92,23 @@ namespace Apache.Arrow.Tests
             GC.KeepAlive(releaseCallback);
         }
 #endif
+
+        [Fact]
+        public unsafe void RoundTripInt32ArrayWithOffset()
+        {
+            Int32Array array = new Int32Array.Builder()
+                .AppendRange(new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 })
+                .Build();
+            IArrowArray sliced = array.Slice(2, 6);
+            CArrowArray* cArray = CArrowArray.Create();
+            CArrowArrayExporter.ExportArray(sliced, cArray);
+            using (var importedSlice = (Int32Array)CArrowArrayImporter.ImportArray(cArray, array.Data.DataType))
+            {
+                Assert.Equal(6, importedSlice.Length);
+                Assert.Equal(2, importedSlice.Offset);
+                Assert.Equal(2, importedSlice.GetValue(0));
+            }
+            CArrowArray.Free(cArray);
+        }
     }
 }

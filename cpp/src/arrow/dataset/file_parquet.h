@@ -165,7 +165,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   }
 
   /// \brief Return the FileMetaData associated with this fragment.
-  const std::shared_ptr<parquet::FileMetaData>& metadata() const { return metadata_; }
+  std::shared_ptr<parquet::FileMetaData> metadata();
 
   /// \brief Ensure this fragment's FileMetaData is in memory.
   Status EnsureCompleteMetadata(parquet::arrow::FileReader* reader = NULLPTR);
@@ -188,7 +188,8 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
                       std::optional<std::vector<int>> row_groups);
 
   Status SetMetadata(std::shared_ptr<parquet::FileMetaData> metadata,
-                     std::shared_ptr<parquet::arrow::SchemaManifest> manifest);
+                     std::shared_ptr<parquet::arrow::SchemaManifest> manifest,
+                     std::shared_ptr<parquet::FileMetaData> original_metadata = {});
 
   // Overridden to opportunistically set metadata since a reader must be opened anyway.
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
@@ -219,6 +220,8 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   std::vector<bool> statistics_expressions_complete_;
   std::shared_ptr<parquet::FileMetaData> metadata_;
   std::shared_ptr<parquet::arrow::SchemaManifest> manifest_;
+  // The FileMetaData that owns the SchemaDescriptor pointed by SchemaManifest.
+  std::shared_ptr<parquet::FileMetaData> original_metadata_;
 
   friend class ParquetFileFormat;
   friend class ParquetDatasetFactory;

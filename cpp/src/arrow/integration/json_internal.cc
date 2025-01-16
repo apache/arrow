@@ -314,14 +314,7 @@ class SchemaWriter {
     writer_->Int(type.list_size());
   }
 
-  void WriteTypeMetadata(const Decimal128Type& type) {
-    writer_->Key("precision");
-    writer_->Int(type.precision());
-    writer_->Key("scale");
-    writer_->Int(type.scale());
-  }
-
-  void WriteTypeMetadata(const Decimal256Type& type) {
+  void WriteTypeMetadata(const DecimalType& type) {
     writer_->Key("precision");
     writer_->Int(type.precision());
     writer_->Key("scale");
@@ -399,6 +392,8 @@ class SchemaWriter {
     return WritePrimitive("fixedsizebinary", type);
   }
 
+  Status Visit(const Decimal32Type& type) { return WritePrimitive("decimal32", type); }
+  Status Visit(const Decimal64Type& type) { return WritePrimitive("decimal64", type); }
   Status Visit(const Decimal128Type& type) { return WritePrimitive("decimal", type); }
   Status Visit(const Decimal256Type& type) { return WritePrimitive("decimal256", type); }
   Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
@@ -592,6 +587,30 @@ class ArrayWriter {
         writer_->Int(dm.milliseconds);
       }
       writer_->EndObject();
+    }
+  }
+
+  void WriteDataValues(const Decimal32Array& arr) {
+    static const char null_string[] = "0";
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        const Decimal32 value(arr.GetValue(i));
+        writer_->String(value.ToIntegerString());
+      } else {
+        writer_->String(null_string, sizeof(null_string));
+      }
+    }
+  }
+
+  void WriteDataValues(const Decimal64Array& arr) {
+    static const char null_string[] = "0";
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        const Decimal64 value(arr.GetValue(i));
+        writer_->String(value.ToIntegerString());
+      } else {
+        writer_->String(null_string, sizeof(null_string));
+      }
     }
   }
 
@@ -969,12 +988,18 @@ Result<std::shared_ptr<DataType>> GetDecimal(const RjObject& json_type) {
     bit_width = maybe_bit_width.ValueOrDie();
   }
 
-  if (bit_width == 128) {
-    return decimal128(precision, scale);
-  } else if (bit_width == 256) {
-    return decimal256(precision, scale);
+  switch (bit_width) {
+    case 32:
+      return decimal32(precision, scale);
+    case 64:
+      return decimal64(precision, scale);
+    case 128:
+      return decimal128(precision, scale);
+    case 256:
+      return decimal256(precision, scale);
   }
-  return Status::Invalid("Only 128 bit and 256 Decimals are supported. Received",
+
+  return Status::Invalid("Only 32/64/128/256-bit Decimals are supported. Received ",
                          bit_width);
 }
 
@@ -1069,9 +1094,9 @@ Result<std::shared_ptr<DataType>> GetUnion(const RjObject& json_type,
   }
 
   if (mode == UnionMode::SPARSE) {
-    return sparse_union(std::move(children), std::move(type_codes));
+    return sparse_union(children, std::move(type_codes));
   } else {
-    return dense_union(std::move(children), std::move(type_codes));
+    return dense_union(children, std::move(type_codes));
   }
 }
 
@@ -1849,7 +1874,7 @@ class ArrayReader {
   Result<std::shared_ptr<ArrayData>> Parse() {
     ARROW_ASSIGN_OR_RAISE(length_, GetMemberInt<int32_t>(obj_, "count"));
 
-    if (::arrow::internal::HasValidityBitmap(type_->id())) {
+    if (::arrow::internal::may_have_validity_bitmap(type_->id())) {
       // Null and union types don't have a validity bitmap
       RETURN_NOT_OK(ParseValidityBitmap());
     }

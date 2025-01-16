@@ -47,11 +47,14 @@ endif()
 
 set(ARROW_CUDA_SRCS cuda_arrow_ipc.cc cuda_context.cc cuda_internal.cc cuda_memory.cc)
 
+set(ARROW_CUDA_PKG_CONFIG_NAME_ARGS)
+if(NOT WINDOWS)
+  list(APPEND ARROW_CUDA_PKG_CONFIG_NAME_ARGS PKG_CONFIG_NAME arrow-cuda)
+endif()
 add_arrow_lib(arrow_cuda
               CMAKE_PACKAGE_NAME
               ArrowCUDA
-              PKG_CONFIG_NAME
-              arrow-cuda
+              ${ARROW_CUDA_PKG_CONFIG_NAME_ARGS}
               SOURCES
               ${ARROW_CUDA_SRCS}
               OUTPUTS
@@ -59,8 +62,8 @@ add_arrow_lib(arrow_cuda
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
-              arrow_shared
               ${ARROW_CUDA_LINK_LIBS}
+              arrow_shared
               ${ARROW_CUDA_SHARED_LINK_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
               Arrow::arrow_shared

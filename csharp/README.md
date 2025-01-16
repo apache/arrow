@@ -115,10 +115,10 @@ for currently available features.
 
 ### Compression
 
-- Buffer compression is not supported when writing IPC files or streams
-- Buffer decompression is supported, but requires installing the `Apache.Arrow.Compression` package,
-  and passing an `Apache.Arrow.Compression.CompressionCodecFactory` instance to the
-  `ArrowFileReader` or `ArrowStreamReader` constructor.
+- Buffer compression and decompression is supported, but requires installing the `Apache.Arrow.Compression` package.
+  When reading compressed data, you must pass an `Apache.Arrow.Compression.CompressionCodecFactory` instance to the
+  `ArrowFileReader` or `ArrowStreamReader` constructor, and when writing compressed data a
+  `CompressionCodecFactory` must be set in the `IpcOptions`.
   Alternatively, a custom implementation of `ICompressionCodecFactory` can be used.
 
 ## Not Implemented
@@ -129,7 +129,8 @@ for currently available features.
 - Types
     - Tensor
 - Arrays
-    - Large Arrays
+    - Large Arrays. There are large array types provided to help with interoperability with other libraries,
+      but these do not support buffers larger than 2 GiB and an exception will be raised if trying to import an array that is too large.
         - Large Binary
         - Large List
         - Large String

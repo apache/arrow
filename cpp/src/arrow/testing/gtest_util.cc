@@ -20,13 +20,13 @@
 #include "arrow/testing/extension_type.h"
 
 #ifdef _WIN32
-#include <crtdbg.h>
-#include <io.h>
+#  include <crtdbg.h>
+#  include <io.h>
 #else
-#include <fcntl.h>     // IWYU pragma: keep
-#include <sys/stat.h>  // IWYU pragma: keep
-#include <sys/wait.h>  // IWYU pragma: keep
-#include <unistd.h>    // IWYU pragma: keep
+#  include <fcntl.h>     // IWYU pragma: keep
+#  include <sys/stat.h>  // IWYU pragma: keep
+#  include <sys/wait.h>  // IWYU pragma: keep
+#  include <unistd.h>    // IWYU pragma: keep
 #endif
 
 #include <algorithm>
@@ -49,10 +49,17 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
+#include "arrow/extension/json.h"
+#include "arrow/io/memory.h"
 #include "arrow/ipc/json_simple.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/pretty_print.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
@@ -61,6 +68,10 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/windows_compatibility.h"
+
+#include <rapidjson/document.h>
+
+namespace rj = arrow::rapidjson;
 
 namespace arrow {
 
@@ -233,20 +244,11 @@ void AssertBufferEqual(const Buffer& buffer, const Buffer& expected) {
 }
 
 template <typename T>
-std::string ToStringWithMetadata(const T& t, bool show_metadata) {
-  return t.ToString(show_metadata);
-}
-
-std::string ToStringWithMetadata(const DataType& t, bool show_metadata) {
-  return t.ToString();
-}
-
-template <typename T>
 void AssertFingerprintablesEqual(const T& left, const T& right, bool check_metadata,
                                  const char* types_plural) {
   ASSERT_TRUE(left.Equals(right, check_metadata))
-      << types_plural << " '" << ToStringWithMetadata(left, check_metadata) << "' and '"
-      << ToStringWithMetadata(right, check_metadata) << "' should have compared equal";
+      << types_plural << " '" << left.ToString(check_metadata) << "' and '"
+      << right.ToString(check_metadata) << "' should have compared equal";
   auto lfp = left.fingerprint();
   auto rfp = right.fingerprint();
   // Note: all types tested in this file should implement fingerprinting,
@@ -256,9 +258,8 @@ void AssertFingerprintablesEqual(const T& left, const T& right, bool check_metad
     rfp += right.metadata_fingerprint();
   }
   ASSERT_EQ(lfp, rfp) << "Fingerprints for " << types_plural << " '"
-                      << ToStringWithMetadata(left, check_metadata) << "' and '"
-                      << ToStringWithMetadata(right, check_metadata)
-                      << "' should have compared equal";
+                      << left.ToString(check_metadata) << "' and '"
+                      << right.ToString(check_metadata) << "' should have compared equal";
 }
 
 template <typename T>
@@ -274,8 +275,8 @@ template <typename T>
 void AssertFingerprintablesNotEqual(const T& left, const T& right, bool check_metadata,
                                     const char* types_plural) {
   ASSERT_FALSE(left.Equals(right, check_metadata))
-      << types_plural << " '" << ToStringWithMetadata(left, check_metadata) << "' and '"
-      << ToStringWithMetadata(right, check_metadata) << "' should have compared unequal";
+      << types_plural << " '" << left.ToString(check_metadata) << "' and '"
+      << right.ToString(check_metadata) << "' should have compared unequal";
   auto lfp = left.fingerprint();
   auto rfp = right.fingerprint();
   // Note: all types tested in this file should implement fingerprinting,
@@ -286,8 +287,8 @@ void AssertFingerprintablesNotEqual(const T& left, const T& right, bool check_me
       rfp += right.metadata_fingerprint();
     }
     ASSERT_NE(lfp, rfp) << "Fingerprints for " << types_plural << " '"
-                        << ToStringWithMetadata(left, check_metadata) << "' and '"
-                        << ToStringWithMetadata(right, check_metadata)
+                        << left.ToString(check_metadata) << "' and '"
+                        << right.ToString(check_metadata)
                         << "' should have compared unequal";
   }
 }
@@ -433,6 +434,43 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
     batches.push_back(RecordBatchFromJSON(schema, batch_json));
   }
   return *Table::FromRecordBatches(schema, std::move(batches));
+}
+
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       std::string_view data, std::string_view shape,
+                                       std::string_view strides,
+                                       std::string_view dim_names) {
+  std::shared_ptr<Array> array = ArrayFromJSON(type, data);
+
+  rj::Document json_shape;
+  json_shape.Parse(shape.data(), shape.length());
+  std::vector<int64_t> shape_vector;
+  for (auto& x : json_shape.GetArray()) {
+    shape_vector.emplace_back(x.GetInt64());
+  }
+  rj::Document json_strides;
+  json_strides.Parse(strides.data(), strides.length());
+  std::vector<int64_t> strides_vector;
+  for (auto& x : json_strides.GetArray()) {
+    strides_vector.emplace_back(x.GetInt64());
+  }
+  rj::Document json_dim_names;
+  json_dim_names.Parse(dim_names.data(), dim_names.length());
+  std::vector<std::string> dim_names_vector;
+  for (auto& x : json_dim_names.GetArray()) {
+    dim_names_vector.emplace_back(x.GetString());
+  }
+  return *Tensor::Make(type, array->data()->buffers[1], shape_vector, strides_vector,
+                       dim_names_vector);
+}
+
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       std::string_view data,
+                                       const std::vector<int64_t>& shape,
+                                       const std::vector<int64_t>& strides,
+                                       const std::vector<std::string>& dim_names) {
+  std::shared_ptr<Array> array = ArrayFromJSON(type, data);
+  return *Tensor::Make(type, array->data()->buffers[1], shape, strides, dim_names);
 }
 
 Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
@@ -814,17 +852,17 @@ Future<> SleepABitAsync() {
 ///////////////////////////////////////////////////////////////////////////
 // Extension types
 
-bool UuidType::ExtensionEquals(const ExtensionType& other) const {
+bool ExampleUuidType::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
 
-std::shared_ptr<Array> UuidType::MakeArray(std::shared_ptr<ArrayData> data) const {
+std::shared_ptr<Array> ExampleUuidType::MakeArray(std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("uuid", static_cast<const ExtensionType&>(*data->type).extension_name());
-  return std::make_shared<UuidArray>(data);
+  return std::make_shared<ExampleUuidArray>(data);
 }
 
-Result<std::shared_ptr<DataType>> UuidType::Deserialize(
+Result<std::shared_ptr<DataType>> ExampleUuidType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
   if (serialized != "uuid-serialized") {
     return Status::Invalid("Type identifier did not match: '", serialized, "'");
@@ -833,7 +871,7 @@ Result<std::shared_ptr<DataType>> UuidType::Deserialize(
     return Status::Invalid("Invalid storage type for UuidType: ",
                            storage_type->ToString());
   }
-  return std::make_shared<UuidType>();
+  return std::make_shared<ExampleUuidType>();
 }
 
 bool SmallintType::ExtensionEquals(const ExtensionType& other) const {
@@ -949,7 +987,7 @@ Result<std::shared_ptr<DataType>> Complex128Type::Deserialize(
   return std::make_shared<Complex128Type>();
 }
 
-std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
+std::shared_ptr<DataType> uuid() { return std::make_shared<ExampleUuidType>(); }
 
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
 

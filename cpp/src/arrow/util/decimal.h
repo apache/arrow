@@ -31,6 +31,243 @@
 
 namespace arrow {
 
+class Decimal64;
+
+/// Represents a signed 32-bit decimal value in two's complement.
+/// Calulations wrap around and overflow is ignored.
+/// The max decimal precision that can be safely represented is
+/// 9 significant digits.
+///
+/// The implementation is split into two parts :
+///
+/// 1. BasicDecimal32
+///    - can be safely compiled to IR without references to libstdc++
+/// 2. Decimal32
+///    - has additional functionality on top of BasicDecimal32 to deal with
+///      strings and streams
+class ARROW_EXPORT Decimal32 : public BasicDecimal32 {
+ public:
+  /// \cond FALSE
+  // (need to avoid a duplicate definition in sphinx)
+  using BasicDecimal32::BasicDecimal32;
+  /// \endcond
+
+  /// \brief constructor creates a Decimal32 from a BasicDecimal32
+  constexpr Decimal32(const BasicDecimal32& value) noexcept  // NOLINT runtime/explicit
+      : BasicDecimal32(value) {}
+
+  /// \brief Parse the number from a base 10 string representation
+  explicit Decimal32(const std::string& value);
+
+  /// \brief Empty constructor creates a Decimal32 with a value of 0
+  /// this is required for some older compilers
+  constexpr Decimal32() noexcept : BasicDecimal32() {}
+
+  /// \brief Divide this number by right and return the result.
+  ///
+  /// This operation is not destructive.
+  /// The answer rounds to zero. Signs work like:
+  ///   21 /  5 ->  4,  1
+  ///  -21 /  5 -> -4, -1
+  ///   21 / -5 -> -4,  1
+  ///  -21 / -5 ->  4, -1
+  /// \param[in] divisor the number to divide by
+  /// \return the pair of the quotient and the remainder
+  Result<std::pair<Decimal32, Decimal32>> Divide(const Decimal32& divisor) const {
+    std::pair<Decimal32, Decimal32> result;
+    auto dstatus = BasicDecimal32::Divide(divisor, &result.first, &result.second);
+    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    return result;
+  }
+
+  /// \brief Convert the Decimal32 value to a base 10 decimal string with the given scale
+  std::string ToString(int32_t scale) const;
+
+  /// \brief Convert the value to an integer string
+  std::string ToIntegerString() const;
+
+  /// \brief Cast this value to an int64_t
+  explicit operator int64_t() const;
+
+  explicit operator Decimal64() const;
+
+  /// \brief Convert a decimal string to a Decimal value, optionally including
+  /// precision and scale if they're passed in and not null.
+  static Status FromString(std::string_view s, Decimal32* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Status FromString(const std::string& s, Decimal32* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Status FromString(const char* s, Decimal32* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Result<Decimal32> FromString(std::string_view s);
+  static Result<Decimal32> FromString(const std::string& s);
+  static Result<Decimal32> FromString(const char* s);
+
+  static Result<Decimal32> FromReal(double real, int32_t precision, int32_t scale);
+  static Result<Decimal32> FromReal(float real, int32_t precision, int32_t scale);
+
+  /// \brief Convert from a big-endian byte representation. The length must be
+  ///        between 1 and 4
+  /// \return error statis if the length is an invalid value
+  static Result<Decimal32> FromBigEndian(const uint8_t* data, int32_t length);
+
+  /// \brief Convert Decimal32 from one scale to another
+  Result<Decimal32> Rescale(int32_t original_scale, int32_t new_scale) const {
+    Decimal32 out;
+    auto dstatus = BasicDecimal32::Rescale(original_scale, new_scale, &out);
+    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    return out;
+  }
+
+  /// \brief Convert to a signed integer
+  template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
+  Result<T> ToInteger() const {
+    return static_cast<T>(value_);
+  }
+
+  /// \brief Convert to a signed integer
+  template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
+  Status ToInteger(T* out) const {
+    return ToInteger<T>().Value(out);
+  }
+
+  /// \brief Convert to a floating-point number (scaled)
+  float ToFloat(int32_t scale) const;
+  /// \brief Convert to a floating-point number (scaled)
+  double ToDouble(int32_t scale) const;
+
+  /// \brief Convert to a floating-point number (scaled)
+  template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
+  T ToReal(int32_t scale) const {
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                  "Unexpected floating-point type");
+    if constexpr (std::is_same_v<T, float>) {
+      return ToFloat(scale);
+    } else {
+      return ToDouble(scale);
+    }
+  }
+
+  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os,
+                                                      const Decimal32& decimal);
+
+ private:
+  /// Converts internal error code to Status
+  Status ToArrowStatus(DecimalStatus dstatus) const;
+};
+
+class ARROW_EXPORT Decimal64 : public BasicDecimal64 {
+ public:
+  /// \cond FALSE
+  // (need to avoid a duplicate definition in sphinx)
+  using BasicDecimal64::BasicDecimal64;
+  /// \endcond
+
+  /// \brief constructor creates a Decimal64 from a BasicDecimal64
+  constexpr Decimal64(const BasicDecimal64& value) noexcept  // NOLINT runtime/explicit
+      : BasicDecimal64(value) {}
+
+  explicit Decimal64(const BasicDecimal32& value) noexcept
+      : BasicDecimal64(static_cast<int64_t>(value.value())) {}
+
+  /// \brief Parse the number from a base 10 string representation
+  explicit Decimal64(const std::string& value);
+
+  /// \brief Empty constructor creates a Decimal64 with a value of 0
+  /// this is required for some older compilers
+  constexpr Decimal64() noexcept : BasicDecimal64() {}
+
+  /// \brief Divide this number by right and return the result.
+  ///
+  /// This operation is not destructive.
+  /// The answer rounds to zero. Signs work like:
+  ///   21 /  5 ->  4,  1
+  ///  -21 /  5 -> -4, -1
+  ///   21 / -5 -> -4,  1
+  ///  -21 / -5 ->  4, -1
+  /// \param[in] divisor the number to divide by
+  /// \return the pair of the quotient and the remainder
+  Result<std::pair<Decimal64, Decimal64>> Divide(const Decimal64& divisor) const {
+    std::pair<Decimal64, Decimal64> result;
+    auto dstatus = BasicDecimal64::Divide(divisor, &result.first, &result.second);
+    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    return result;
+  }
+
+  /// \brief Convert the Decimal64 value to a base 10 decimal string with the given scale
+  std::string ToString(int32_t scale) const;
+
+  /// \brief Convert the value to an integer string
+  std::string ToIntegerString() const;
+
+  /// \brief Cast this value to an int64_t
+  explicit operator int64_t() const;
+
+  /// \brief Convert a decimal string to a Decimal value, optionally including
+  /// precision and scale if they're passed in and not null.
+  static Status FromString(std::string_view s, Decimal64* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Status FromString(const std::string& s, Decimal64* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Status FromString(const char* s, Decimal64* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Result<Decimal64> FromString(std::string_view s);
+  static Result<Decimal64> FromString(const std::string& s);
+  static Result<Decimal64> FromString(const char* s);
+
+  static Result<Decimal64> FromReal(double real, int32_t precision, int32_t scale);
+  static Result<Decimal64> FromReal(float real, int32_t precision, int32_t scale);
+
+  /// \brief Convert from a big-endian byte representation. The length must be
+  ///        between 1 and 4
+  /// \return error statis if the length is an invalid value
+  static Result<Decimal64> FromBigEndian(const uint8_t* data, int32_t length);
+
+  /// \brief Convert Decimal64 from one scale to another
+  Result<Decimal64> Rescale(int32_t original_scale, int32_t new_scale) const {
+    Decimal64 out;
+    auto dstatus = BasicDecimal64::Rescale(original_scale, new_scale, &out);
+    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    return out;
+  }
+
+  /// \brief Convert to a signed integer
+  template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
+  Result<T> ToInteger() const {
+    return static_cast<T>(value_);
+  }
+
+  /// \brief Convert to a signed integer
+  template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
+  Status ToInteger(T* out) const {
+    return ToInteger<T>().Value(out);
+  }
+
+  /// \brief Convert to a floating-point number (scaled)
+  float ToFloat(int32_t scale) const;
+  /// \brief Convert to a floating-point number (scaled)
+  double ToDouble(int32_t scale) const;
+
+  /// \brief Convert to a floating-point number (scaled)
+  template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
+  T ToReal(int32_t scale) const {
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                  "Unexpected floating-point type");
+    if constexpr (std::is_same_v<T, float>) {
+      return ToFloat(scale);
+    } else {
+      return ToDouble(scale);
+    }
+  }
+
+  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os,
+                                                      const Decimal64& decimal);
+
+ private:
+  /// Converts internal error code to Status
+  Status ToArrowStatus(DecimalStatus dstatus) const;
+};
+
 /// Represents a signed 128-bit integer in two's complement.
 /// Calculations wrap around and overflow is ignored.
 /// The max decimal precision that can be safely represented is
@@ -80,7 +317,7 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
     std::pair<Decimal128, Decimal128> result;
     auto dstatus = BasicDecimal128::Divide(divisor, &result.first, &result.second);
     ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
-    return std::move(result);
+    return result;
   }
 
   /// \brief Convert the Decimal128 value to a base 10 decimal string with the given
@@ -118,7 +355,7 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
     Decimal128 out;
     auto dstatus = BasicDecimal128::Rescale(original_scale, new_scale, &out);
     ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
-    return std::move(out);
+    return out;
   }
 
   /// \brief Convert to a signed integer
@@ -218,7 +455,7 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
     Decimal256 out;
     auto dstatus = BasicDecimal256::Rescale(original_scale, new_scale, &out);
     ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
-    return std::move(out);
+    return out;
   }
 
   /// Divide this number by right and return the result.
@@ -235,7 +472,7 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
     std::pair<Decimal256, Decimal256> result;
     auto dstatus = BasicDecimal256::Divide(divisor, &result.first, &result.second);
     ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
-    return std::move(result);
+    return result;
   }
 
   /// \brief Convert from a big-endian byte representation. The length must be

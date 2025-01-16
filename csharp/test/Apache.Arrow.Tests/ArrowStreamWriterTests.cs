@@ -57,14 +57,15 @@ namespace Apache.Arrow.Tests
         }
 
         [Theory]
-        [InlineData(true, 32153)]
-        [InlineData(false, 32154)]
-        public void CanWriteToNetworkStream(bool createDictionaryArray, int port)
+        [InlineData(true)]
+        [InlineData(false)]
+        public void CanWriteToNetworkStream(bool createDictionaryArray)
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
 
-            TcpListener listener = new TcpListener(IPAddress.Loopback, port);
+            TcpListener listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
+            int port = ((IPEndPoint)listener.LocalEndpoint).Port;
 
             using (TcpClient sender = new TcpClient())
             {
@@ -92,14 +93,15 @@ namespace Apache.Arrow.Tests
         }
 
         [Theory]
-        [InlineData(true, 32155)]
-        [InlineData(false, 32156)]
-        public async Task CanWriteToNetworkStreamAsync(bool createDictionaryArray, int port)
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task CanWriteToNetworkStreamAsync(bool createDictionaryArray)
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
 
-            TcpListener listener = new TcpListener(IPAddress.Loopback, port);
+            TcpListener listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
+            int port = ((IPEndPoint)listener.LocalEndpoint).Port;
 
             using (TcpClient sender = new TcpClient())
             {
@@ -203,7 +205,37 @@ namespace Apache.Arrow.Tests
             await TestRoundTripRecordBatchAsync(originalBatch);
         }
 
-        private static void TestRoundTripRecordBatches(List<RecordBatch> originalBatches, IpcOptions options = null)
+        [Theory]
+        [InlineData(0, 45)]
+        [InlineData(3, 45)]
+        [InlineData(16, 45)]
+        public void WriteSlicedArrays(int sliceOffset, int sliceLength)
+        {
+            var originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            var slicedArrays = originalBatch.Arrays
+                .Select(array => ArrowArrayFactory.Slice(array, sliceOffset, sliceLength))
+                .ToList();
+            var slicedBatch = new RecordBatch(originalBatch.Schema, slicedArrays, sliceLength);
+
+            TestRoundTripRecordBatch(slicedBatch, strictCompare: false);
+        }
+
+        [Theory]
+        [InlineData(0, 45)]
+        [InlineData(3, 45)]
+        [InlineData(16, 45)]
+        public async Task WriteSlicedArraysAsync(int sliceOffset, int sliceLength)
+        {
+            var originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            var slicedArrays = originalBatch.Arrays
+                .Select(array => ArrowArrayFactory.Slice(array, sliceOffset, sliceLength))
+                .ToList();
+            var slicedBatch = new RecordBatch(originalBatch.Schema, slicedArrays, sliceLength);
+
+            await TestRoundTripRecordBatchAsync(slicedBatch, strictCompare: false);
+        }
+
+        private static void TestRoundTripRecordBatches(List<RecordBatch> originalBatches, IpcOptions options = null, bool strictCompare = true)
         {
             using (MemoryStream stream = new MemoryStream())
             {
@@ -223,13 +255,13 @@ namespace Apache.Arrow.Tests
                     foreach (RecordBatch originalBatch in originalBatches)
                     {
                         RecordBatch newBatch = reader.ReadNextRecordBatch();
-                        ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                        ArrowReaderVerifier.CompareBatches(originalBatch, newBatch, strictCompare: strictCompare);
                     }
                 }
             }
         }
 
-        private static async Task TestRoundTripRecordBatchesAsync(List<RecordBatch> originalBatches, IpcOptions options = null)
+        private static async Task TestRoundTripRecordBatchesAsync(List<RecordBatch> originalBatches, IpcOptions options = null, bool strictCompare = true)
         {
             using (MemoryStream stream = new MemoryStream())
             {
@@ -249,20 +281,20 @@ namespace Apache.Arrow.Tests
                     foreach (RecordBatch originalBatch in originalBatches)
                     {
                         RecordBatch newBatch = reader.ReadNextRecordBatch();
-                        ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                        ArrowReaderVerifier.CompareBatches(originalBatch, newBatch, strictCompare: strictCompare);
                     }
                 }
             }
         }
 
-        private static void TestRoundTripRecordBatch(RecordBatch originalBatch, IpcOptions options = null)
+        private static void TestRoundTripRecordBatch(RecordBatch originalBatch, IpcOptions options = null, bool strictCompare = true)
         {
-            TestRoundTripRecordBatches(new List<RecordBatch> { originalBatch }, options);
+            TestRoundTripRecordBatches(new List<RecordBatch> { originalBatch }, options, strictCompare: strictCompare);
         }
 
-        private static async Task TestRoundTripRecordBatchAsync(RecordBatch originalBatch, IpcOptions options = null)
+        private static async Task TestRoundTripRecordBatchAsync(RecordBatch originalBatch, IpcOptions options = null, bool strictCompare = true)
         {
-            await TestRoundTripRecordBatchesAsync(new List<RecordBatch> { originalBatch }, options);
+            await TestRoundTripRecordBatchesAsync(new List<RecordBatch> { originalBatch }, options, strictCompare: strictCompare);
         }
 
         [Fact]

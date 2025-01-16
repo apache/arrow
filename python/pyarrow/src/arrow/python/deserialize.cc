@@ -46,6 +46,7 @@
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/serialize.h"
+#include "arrow/python/vendored/pythoncapi_compat.h"
 
 namespace arrow {
 
@@ -88,8 +89,13 @@ Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
     // The latter two steal references whereas PyDict_SetItem does not. So we need
     // to make sure the reference count is decremented by letting the OwnedRef
     // go out of scope at the end.
-    int ret = PyDict_SetItem(result.obj(), PyList_GET_ITEM(keys.obj(), i - start_idx),
-                             PyList_GET_ITEM(vals.obj(), i - start_idx));
+    PyObject* key = PyList_GetItemRef(keys.obj(), i - start_idx);
+    RETURN_IF_PYERROR();
+    OwnedRef keyref(key);
+    PyObject* val = PyList_GetItemRef(vals.obj(), i - start_idx);
+    RETURN_IF_PYERROR();
+    OwnedRef valref(val);
+    int ret = PyDict_SetItem(result.obj(), key, val);
     if (ret != 0) {
       return ConvertPyError();
     }
@@ -398,7 +404,9 @@ Status GetSerializedFromComponents(int num_tensors,
 
   auto GetBuffer = [&data](Py_ssize_t index, std::shared_ptr<Buffer>* out) {
     ARROW_CHECK_LE(index, PyList_Size(data));
-    PyObject* py_buf = PyList_GET_ITEM(data, index);
+    PyObject* py_buf = PyList_GetItemRef(data, index);
+    RETURN_IF_PYERROR();
+    OwnedRef py_buf_ref(py_buf);
     return unwrap_buffer(py_buf).Value(out);
   };
 

@@ -23,7 +23,10 @@ import json
 import string
 import unittest
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
@@ -253,7 +256,9 @@ class BaseTestJSONRead:
         expected = {
             'a': [Decimal("1"), Decimal("1.45"), Decimal("-23.456"), None],
         }
-        for type_factory in (pa.decimal128, pa.decimal256):
+
+        decimal_types = (pa.decimal32, pa.decimal64, pa.decimal128, pa.decimal256)
+        for type_factory in decimal_types:
             schema = pa.schema([('a', type_factory(9, 4))])
             opts = ParseOptions(explicit_schema=schema)
             table = self.read_bytes(rows, parse_options=opts)
@@ -297,6 +302,7 @@ class BaseTestJSONRead:
                            match="JSON parse error: unexpected field"):
             self.read_bytes(rows, parse_options=opts)
 
+    @pytest.mark.numpy
     def test_small_random_json(self):
         data, expected = make_random_json(num_cols=2, num_rows=10)
         table = self.read_bytes(data)
@@ -304,6 +310,7 @@ class BaseTestJSONRead:
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
 
+    @pytest.mark.numpy
     def test_load_large_json(self):
         data, expected = make_random_json(num_cols=2, num_rows=100100)
         # set block size is 10MB
@@ -312,6 +319,7 @@ class BaseTestJSONRead:
         assert table.num_rows == 100100
         assert expected.num_rows == 100100
 
+    @pytest.mark.numpy
     def test_stress_block_sizes(self):
         # Test a number of small block sizes to stress block stitching
         data_base, expected = make_random_json(num_cols=2, num_rows=100)

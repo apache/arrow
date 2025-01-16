@@ -94,6 +94,8 @@ namespace Apache.Arrow.Tests
         {
             await TestReaderFromMemory((reader, originalBatch) =>
             {
+                Assert.NotNull(reader.Schema);
+
                 ArrowReaderVerifier.VerifyReader(reader, originalBatch);
                 return Task.CompletedTask;
             }, writeEnd);

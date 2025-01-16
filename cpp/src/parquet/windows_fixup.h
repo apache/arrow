@@ -22,8 +22,8 @@
 #ifdef _WIN32
 
 // parquet.thrift's OPTIONAL RepetitionType conflicts with a Windows #define
-#ifdef OPTIONAL
-#undef OPTIONAL
-#endif
+#  ifdef OPTIONAL
+#    undef OPTIONAL
+#  endif
 
 #endif  // _WIN32

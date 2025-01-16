@@ -81,8 +81,8 @@
 Schema <- R6Class("Schema",
   inherit = ArrowObject,
   public = list(
-    ToString = function() {
-      fields <- print_schema_fields(self)
+    ToString = function(truncate = FALSE) {
+      fields <- print_schema_fields(self, truncate)
       if (self$HasMetadata) {
         fields <- paste0(fields, "\n\nSee $metadata for additional Schema metadata")
       }
@@ -224,9 +224,19 @@ prepare_key_value_metadata <- function(metadata) {
   map_chr(metadata, as.character)
 }
 
-print_schema_fields <- function(s) {
-  # Alternative to Schema__ToString that doesn't print metadata
-  paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
+# Alternative to Schema__ToString that doesn't print metadata
+print_schema_fields <- function(s, truncate = FALSE, max_fields = 20L) {
+  assert_that(max_fields > 0)
+  num_fields <- length(s$fields)
+  if (truncate && num_fields > max_fields) {
+    fields_out <- paste(map_chr(s$fields[seq_len(max_fields)], ~ .$ToString()), collapse = "\n")
+    fields_out <- paste0(fields_out, "\n...\n")
+    fields_out <- paste0(fields_out, num_fields - max_fields, " more columns\n")
+    fields_out <- paste0(fields_out, "Use `schema()` to see entire schema")
+  } else {
+    fields_out <- paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
+  }
+  fields_out
 }
 
 #' Create a schema or extract one from an object.
@@ -460,3 +470,14 @@ as.data.frame.Schema <- function(x, row.names = NULL, optional = FALSE, ...) {
 
 #' @export
 `names<-.Schema` <- function(x, value) x$WithNames(value)
+
+#' Get a string representing a Dataset or RecordBatchReader object's schema
+#' @param obj a Dataset or RecordBatchReader
+#' @return A string containing a formatted representation of the schema of `obj`
+#' @keywords internal
+format_schema <- function(obj) {
+  assert_is(obj, c("Dataset", "RecordBatchReader"))
+  n_fields_out <- paste0(length(obj$schema$fields), " columns", "\n")
+  schema <- obj$schema$ToString(truncate = TRUE)
+  paste0(n_fields_out, schema)
+}

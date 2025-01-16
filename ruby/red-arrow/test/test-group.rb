@@ -43,6 +43,7 @@ class GroupTest < Test::Unit::TestCase
       table = Arrow::Table.new(raw_table)
       assert_equal(<<-TABLE, table.group(:time).count.to_s)
 	                     time	count(int)
+	              (timestamp)	   (int64)
 0	#{time_values[0].iso8601}	         1
 1	#{time_values[1].iso8601}	         1
       TABLE
@@ -53,6 +54,7 @@ class GroupTest < Test::Unit::TestCase
     test("single") do
       assert_equal(<<-TABLE, @table.group(:group_key1).count.to_s)
 	group_key1	count(group_key2)	count(int)	count(uint)	count(float)	count(string)
+	   (uint8)	          (int64)	   (int64)	    (int64)	     (int64)	      (int64)
 0	         1	                2	         2	          1	           1	            2
 1	         2	                1	         0	          1	           1	            1
 2	         3	                3	         3	          3	           3	            2
@@ -62,6 +64,7 @@ class GroupTest < Test::Unit::TestCase
     test("multiple") do
       assert_equal(<<-TABLE, @table.group(:group_key1, :group_key2).count.to_s)
 	group_key1	group_key2	count(int)	count(uint)	count(float)	count(string)
+	   (uint8)	   (uint8)	   (int64)	    (int64)	     (int64)	      (int64)
 0	         1	         1	         2	          1	           1	            2
 1	         2	         1	         0	          1	           1	            1
 2	         3	         1	         1	          1	           1	            0
@@ -73,6 +76,7 @@ class GroupTest < Test::Unit::TestCase
       group = @table.group(:group_key1, :group_key2)
       assert_equal(<<-TABLE, group.count(:int, :uint).to_s)
 	group_key1	group_key2	count(int)	count(uint)
+	   (uint8)	   (uint8)	   (int64)	    (int64)
 0	         1	         1	         2	          1
 1	         2	         1	         0	          1
 2	         3	         1	         1	          1
@@ -85,6 +89,7 @@ class GroupTest < Test::Unit::TestCase
     test("single") do
       assert_equal(<<-TABLE, @table.group(:group_key1).sum.to_s)
 	group_key1	sum(group_key2)	sum(int)	sum(uint)	sum(float)
+	   (uint8)	       (uint64)	 (int64)	 (uint64)	  (double)
 0	         1	              2	      -3	        1	  2.200000
 1	         2	              1	  (null)	        3	  3.300000
 2	         3	              5	     -15	       15	 16.500000
@@ -94,6 +99,7 @@ class GroupTest < Test::Unit::TestCase
     test("multiple") do
       assert_equal(<<-TABLE, @table.group(:group_key1, :group_key2).sum.to_s)
 	group_key1	group_key2	sum(int)	sum(uint)	sum(float)
+	   (uint8)	   (uint8)	 (int64)	 (uint64)	  (double)
 0	         1	         1	      -3	        1	  2.200000
 1	         2	         1	  (null)	        3	  3.300000
 2	         3	         1	      -4	        4	  4.400000
@@ -106,6 +112,7 @@ class GroupTest < Test::Unit::TestCase
     test("single") do
       assert_equal(<<-TABLE, @table.group(:group_key1).mean.to_s)
 	group_key1	mean(group_key2)	 mean(int)	mean(uint)	mean(float)
+	   (uint8)	        (double)	  (double)	  (double)	   (double)
 0	         1	        1.000000	 -1.500000	  1.000000	   2.200000
 1	         2	        1.000000	    (null)	  3.000000	   3.300000
 2	         3	        1.666667	 -5.000000	  5.000000	   5.500000
@@ -115,6 +122,7 @@ class GroupTest < Test::Unit::TestCase
     test("multiple") do
       assert_equal(<<-TABLE, @table.group(:group_key1, :group_key2).mean.to_s)
 	group_key1	group_key2	 mean(int)	mean(uint)	mean(float)
+	   (uint8)	   (uint8)	  (double)	  (double)	   (double)
 0	         1	         1	 -1.500000	  1.000000	   2.200000
 1	         2	         1	    (null)	  3.000000	   3.300000
 2	         3	         1	 -4.000000	  4.000000	   4.400000
@@ -127,6 +135,7 @@ class GroupTest < Test::Unit::TestCase
     test("single") do
       assert_equal(<<-TABLE, @table.group(:group_key1).min.to_s)
 	group_key1	min(group_key2)	min(int)	min(uint)	min(float)
+	   (uint8)	        (uint8)	 (int32)	 (uint32)	   (float)
 0	         1	              1	      -2	        1	  2.200000
 1	         2	              1	  (null)	        3	  3.300000
 2	         3	              1	      -6	        4	  4.400000
@@ -136,6 +145,7 @@ class GroupTest < Test::Unit::TestCase
     test("multiple") do
       assert_equal(<<-TABLE, @table.group(:group_key1, :group_key2).min.to_s)
 	group_key1	group_key2	min(int)	min(uint)	min(float)
+	   (uint8)	   (uint8)	 (int32)	 (uint32)	   (float)
 0	         1	         1	      -2	        1	  2.200000
 1	         2	         1	  (null)	        3	  3.300000
 2	         3	         1	      -4	        4	  4.400000
@@ -148,6 +158,7 @@ class GroupTest < Test::Unit::TestCase
     test("single") do
       assert_equal(<<-TABLE, @table.group(:group_key1).max.to_s)
 	group_key1	max(group_key2)	max(int)	max(uint)	max(float)
+	   (uint8)	        (uint8)	 (int32)	 (uint32)	   (float)
 0	         1	              1	      -1	        1	  2.200000
 1	         2	              1	  (null)	        3	  3.300000
 2	         3	              2	      -4	        6	  6.600000
@@ -157,6 +168,7 @@ class GroupTest < Test::Unit::TestCase
     test("multiple") do
       assert_equal(<<-TABLE, @table.group(:group_key1, :group_key2).max.to_s)
 	group_key1	group_key2	max(int)	max(uint)	max(float)
+	   (uint8)	   (uint8)	 (int32)	 (uint32)	   (float)
 0	         1	         1	      -1	        1	  2.200000
 1	         2	         1	  (null)	        3	  3.300000
 2	         3	         1	      -4	        4	  4.400000
@@ -170,6 +182,7 @@ class GroupTest < Test::Unit::TestCase
       group = @table.group(:group_key1, :group_key2)
       assert_equal(<<-TABLE, group.aggregate("count(int)", "sum(uint)").to_s)
 	group_key1	group_key2	count(int)	sum(uint)
+	   (uint8)	   (uint8)	   (int64)	 (uint64)
 0	         1	         1	         2	        1
 1	         2	         1	         0	        3
 2	         3	         1	         1	        4

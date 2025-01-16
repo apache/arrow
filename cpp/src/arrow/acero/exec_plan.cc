@@ -128,7 +128,7 @@ struct ExecPlanImpl : public ExecPlan {
     Future<> scheduler_finished = arrow::util::AsyncTaskScheduler::Make(
         [this](arrow::util::AsyncTaskScheduler* async_scheduler) {
           QueryContext* ctx = query_context();
-          RETURN_NOT_OK(ctx->Init(ctx->max_concurrency(), async_scheduler));
+          RETURN_NOT_OK(ctx->Init(async_scheduler));
 
 #ifdef ARROW_WITH_OPENTELEMETRY
           if (HasMetadata()) {

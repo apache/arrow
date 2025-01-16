@@ -25,11 +25,10 @@ jobs:
       Docker Test {{ flags|default("") }} {{ image }} {{ command|default("") }}
     runs-on: ubuntu-latest
 {{ macros.github_set_env(env) }}
+    timeout-minutes: {{ timeout|default(60) }}
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
-    {% if image in ["ubuntu-r-only-r"] %}
       {{ macros.github_free_space()|indent }}
-    {% endif %}
       {{ macros.github_install_archery()|indent }}
 
       - name: Execute Docker Build
@@ -37,6 +36,9 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
+          # GH-40558: reduce ASLR to avoid TSAN crashing
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          source arrow/ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
             {{ flags|default("") }} \
@@ -61,7 +63,7 @@ jobs:
           done
       - name: Save the R test output
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: test-output
           path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
@@ -70,6 +72,7 @@ jobs:
     {% if arrow.is_default_branch() %}
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker Image
+        if: {{ push|default("true") }}
         shell: bash
         run: archery docker push {{ image }}
     {% endif %}

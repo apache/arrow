@@ -19,7 +19,13 @@ name: C GLib & Ruby
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
+      - '.dockerignore'
       - '.github/workflows/ruby.yml'
       - 'ci/docker/**'
       - 'ci/scripts/c_glib_*'
@@ -33,6 +39,7 @@ on:
       - 'ruby/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/ruby.yml'
       - 'ci/docker/**'
       - 'ci/scripts/c_glib_*'
@@ -53,6 +60,7 @@ permissions:
   contents: read
 
 env:
+  ARCHERY_DEBUG: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
@@ -76,15 +84,15 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
         with:
           path: .docker
           key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
           restore-keys: ubuntu-${{ matrix.ubuntu }}-ruby-
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -92,8 +100,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e ARROW_FLIGHT=ON \
             -e ARROW_FLIGHT_SQL=ON \
@@ -115,7 +122,7 @@ jobs:
         run: archery docker push ubuntu-ruby
 
   macos:
-    name: AMD64 macOS 12 GLib & Ruby
+    name: ARM64 macOS 14 GLib & Ruby
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -130,7 +137,7 @@ jobs:
       ARROW_GCS: ON
       ARROW_GLIB_GTK_DOC: true
       ARROW_GLIB_WERROR: true
-      ARROW_HOME: /usr/local
+      ARROW_HOME: /tmp/local
       ARROW_JEMALLOC: OFF
       ARROW_ORC: OFF
       ARROW_PARQUET: ON
@@ -139,7 +146,6 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      XML_CATALOG_FILES: /usr/local/etc/xml/catalog
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v4
@@ -149,8 +155,16 @@ jobs:
       - name: Install Homebrew Dependencies
         shell: bash
         run: |
+          # pkg-config formula is deprecated but it's still installed
+          # in GitHub Actions runner now. We can remove this once
+          # pkg-config formula is removed from GitHub Actions runner.
+          brew uninstall pkg-config || :
+          brew uninstall pkg-config@0.29.2 || :
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
+          # For Meson.
+          # See also: https://github.com/mesonbuild/meson/issues/7701
+          echo "PKG_CONFIG=$(brew --prefix pkgconf)/bin/pkgconf" >> $GITHUB_ENV
       - name: Install Ruby Dependencies
         run: |
           export MAKEFLAGS="-j$(sysctl -n hw.ncpu)"
@@ -167,7 +181,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: ruby-ccache-macos-${{ hashFiles('cpp/**') }}
@@ -185,7 +199,7 @@ jobs:
         shell: bash
         run: ci/scripts/ruby_test.sh $(pwd) $(pwd)/build
 
-  windows:
+  windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
@@ -196,9 +210,7 @@ jobs:
         mingw-n-bits:
           - 64
         ruby-version:
-          # TODO: Use the latest Ruby again when we fix GH-39130.
-          # - ruby
-          - "3.1"
+          - ruby
     env:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
@@ -252,7 +264,7 @@ jobs:
         run: |
           ridk exec bash ci\scripts\msys2_setup.sh ruby
       - name: Cache ccache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ccache
           key: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
@@ -266,7 +278,6 @@ jobs:
           ridk exec bash ci\scripts\cpp_build.sh "${source_dir}" "${build_dir}"
       - name: Build GLib
         run: |
-          $Env:CMAKE_BUILD_PARALLEL_LEVEL = $Env:NUMBER_OF_PROCESSORS
           $source_dir = "$(ridk exec cygpath --unix "$(Get-Location)")"
           $build_dir = "$(ridk exec cygpath --unix "$(Get-Location)\build")"
           $ErrorActionPreference = "Continue"
@@ -277,7 +288,7 @@ jobs:
           Write-Output "gem-dir=$(ridk exec gem env gemdir)" | `
             Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
       - name: Cache RubyGems
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.rubygems-info.outputs.gem-dir }}
           key: ruby-rubygems-ucrt${{ matrix.mingw-n-bits }}-${{ hashFiles('**/Gemfile', 'ruby/*/*.gemspec') }}
@@ -304,3 +315,122 @@ jobs:
           $Env:MAKE = "ridk exec make"
           $ErrorActionPreference = "Continue"
           rake -f ruby\Rakefile
+
+  windows-msvc:
+    name: AMD64 Windows MSVC GLib
+    runs-on: windows-2019
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+    env:
+      ARROW_ACERO: ON
+      ARROW_BOOST_USE_SHARED: OFF
+      ARROW_BUILD_BENCHMARKS: OFF
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_TESTS: OFF
+      ARROW_DATASET: ON
+      ARROW_DEPENDENCY_SOURCE: VCPKG
+      ARROW_DEPENDENCY_USE_SHARED: OFF
+      ARROW_FLIGHT: ON
+      ARROW_FLIGHT_SQL: ON
+      ARROW_GANDIVA: OFF
+      ARROW_GLIB_VAPI: "false"
+      ARROW_HDFS: OFF
+      ARROW_HOME: "${{ github.workspace }}/dist"
+      ARROW_JEMALLOC: OFF
+      ARROW_MIMALLOC: ON
+      ARROW_ORC: OFF
+      ARROW_PARQUET: ON
+      ARROW_SUBSTRAIT: OFF
+      ARROW_USE_GLOG: OFF
+      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+      ARROW_WITH_BROTLI: OFF
+      ARROW_WITH_BZ2: OFF
+      ARROW_WITH_LZ4: OFF
+      ARROW_WITH_OPENTELEMETRY: OFF
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
+      CMAKE_CXX_STANDARD: "17"
+      CMAKE_GENERATOR: Ninja
+      CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
+      CMAKE_UNITY_BUILD: ON
+      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+      VCPKG_ROOT: "${{ github.workspace }}/vcpkg"
+      VCPKG_TRIPLET: x64-windows
+    permissions:
+      packages: write
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Checkout Arrow
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Install vcpkg
+        shell: bash
+        run: |
+          ci/scripts/install_vcpkg.sh "${VCPKG_ROOT}"
+      - name: Install meson
+        run: |
+          python -m pip install meson
+      - name: Install ccache
+        shell: bash
+        run: |
+          ci/scripts/install_ccache.sh 4.6.3 /usr
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: |
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: glib-ccache-msvc-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
+          restore-keys: glib-ccache-msvc-${{ env.CACHE_VERSION }}-
+        env:
+          # We can invalidate the current cache by updating this.
+          CACHE_VERSION: "2024-05-09"
+      - name: Setup NuGet credentials for vcpkg caching
+        shell: bash
+        run: |
+          $(vcpkg/vcpkg.exe fetch nuget | tail -n 1) \
+            sources add \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
+            -storepasswordincleartext \
+            -name "GitHub" \
+            -username "$GITHUB_REPOSITORY_OWNER" \
+            -password "${{ secrets.GITHUB_TOKEN }}"
+          $(vcpkg/vcpkg.exe fetch nuget | tail -n 1) \
+            setapikey "${{ secrets.GITHUB_TOKEN }}" \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
+      - name: Build C++ vcpkg dependencies
+        run: |
+          vcpkg\vcpkg.exe install `
+            --triplet $env:VCPKG_TRIPLET `
+            --x-manifest-root cpp `
+            --x-install-root build\cpp\vcpkg_installed
+      - name: Build C++
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Build GLib
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          bash -c "ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"

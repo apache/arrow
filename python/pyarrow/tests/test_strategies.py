@@ -17,6 +17,8 @@
 
 import hypothesis as h
 
+import pytest
+
 import pyarrow as pa
 import pyarrow.tests.strategies as past
 
@@ -36,11 +38,13 @@ def test_schemas(schema):
     assert isinstance(schema, pa.lib.Schema)
 
 
+@pytest.mark.numpy
 @h.given(past.all_arrays)
 def test_arrays(array):
     assert isinstance(array, pa.lib.Array)
 
 
+@pytest.mark.numpy
 @h.given(past.arrays(past.primitive_types, nullable=False))
 def test_array_nullability(array):
     assert array.null_count == 0
@@ -56,6 +60,7 @@ def test_record_batches(record_bath):
     assert isinstance(record_bath, pa.lib.RecordBatch)
 
 
+@pytest.mark.numpy
 @h.given(past.all_tables)
 def test_tables(table):
     assert isinstance(table, pa.lib.Table)

@@ -72,7 +72,7 @@ PyObject* DeserializeExtInstance(PyObject* type_class,
 
 static const char* kExtensionName = "arrow.py_extension_type";
 
-std::string PyExtensionType::ToString() const {
+std::string PyExtensionType::ToString(bool show_metadata) const {
   PyAcquireGIL lock;
 
   std::stringstream ss;

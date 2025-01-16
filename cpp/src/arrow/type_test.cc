@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -1218,12 +1219,16 @@ TEST_F(TestUnifySchemas, Decimal) {
   auto options = Field::MergeOptions::Defaults();
 
   options.promote_decimal_to_float = true;
+  CheckPromoteTo(decimal32(3, 2), {float32(), float64()}, options);
+  CheckPromoteTo(decimal64(3, 2), {float32(), float64()}, options);
   CheckPromoteTo(decimal128(3, 2), {float32(), float64()}, options);
   CheckPromoteTo(decimal256(3, 2), {float32(), float64()}, options);
 
   options.promote_integer_to_decimal = true;
-  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(12, 2), options);
-  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(10, 0), options);
+  CheckPromoteTo(int32(), decimal32(3, 2), decimal64(11, 2), options);
+  CheckPromoteTo(int32(), decimal64(3, -2), decimal64(9, 0), options);
+  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(11, 2), options);
+  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(9, 0), options);
 
   options.promote_decimal = true;
   CheckPromoteTo(decimal128(3, 2), decimal128(5, 2), decimal128(5, 2), options);
@@ -1240,15 +1245,15 @@ TEST_F(TestUnifySchemas, Decimal) {
   CheckPromoteTo(decimal256(3, -2), decimal256(5, -2), decimal256(5, -2), options);
 
   // int32() is essentially decimal128(10, 0)
-  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(12, 2), options);
-  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(10, 0), options);
-  CheckPromoteTo(int64(), decimal128(38, 37), decimal256(56, 37), options);
+  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(11, 2), options);
+  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(9, 0), options);
+  CheckPromoteTo(int64(), decimal128(38, 37), decimal256(55, 37), options);
 
   CheckUnifyFailsTypeError(decimal256(1, 0), decimal128(1, 0), options);
 
   options.promote_numeric_width = true;
   CheckPromoteTo(decimal128(3, 2), decimal256(5, 2), decimal256(5, 2), options);
-  CheckPromoteTo(int32(), decimal128(38, 37), decimal256(47, 37), options);
+  CheckPromoteTo(int32(), decimal128(38, 37), decimal256(46, 37), options);
   CheckUnifyFailsInvalid(decimal128(38, 10), decimal256(76, 5), options);
 
   CheckUnifyFailsInvalid(int64(), decimal256(76, 75), options);
@@ -1306,6 +1311,7 @@ TEST_F(TestUnifySchemas, Binary) {
   options.promote_binary = false;
   CheckUnifyFailsTypeError({utf8(), binary()}, {large_utf8(), large_binary()});
   CheckUnifyFailsTypeError(fixed_size_binary(2), BaseBinaryTypes());
+  CheckUnifyFailsTypeError(fixed_size_binary(2), BinaryViewTypes());
   CheckUnifyFailsTypeError(utf8(), {binary(), large_binary(), fixed_size_binary(2)});
 }
 
@@ -1893,96 +1899,66 @@ TEST(TestListViewType, Equals) {
 
   AssertTypeEqual(list_view_type, list_view_type_named);
   ASSERT_FALSE(list_view_type.Equals(list_view_type_named, /*check_metadata=*/true));
+  ASSERT_NE(list_view_type.ToString(), list_view_type_named.ToString());
+}
+
+using ListListTypeFactory =
+    std::function<std::shared_ptr<DataType>(std::shared_ptr<Field>)>;
+
+void CheckListListTypeMetadata(ListListTypeFactory list_type_factory) {
+  auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md3 = key_value_metadata({"foo"}, {"foo value"});
+
+  auto f1 = field("item", utf8(), /*nullable =*/true, md1);
+  auto f2 = field("item", utf8(), /*nullable =*/true, md2);
+  auto f3 = field("item", utf8(), /*nullable =*/true, md3);
+  auto f4 = field("item", utf8());
+  auto f5 = field("item", utf8(), /*nullable =*/false, md1);
+
+  auto t1 = list_type_factory(f1);
+  auto t2 = list_type_factory(f2);
+  auto t3 = list_type_factory(f3);
+  auto t4 = list_type_factory(f4);
+  auto t5 = list_type_factory(f5);
+
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
+  ASSERT_EQ(t1->ToString(/*show_metadata=*/true), t2->ToString(/*show_metadata=*/true));
+
+  AssertTypeEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
+  ASSERT_EQ(t1->ToString(/*show_metadata=*/false), t3->ToString(/*show_metadata=*/false));
+  ASSERT_NE(t1->ToString(/*show_metadata=*/true), t3->ToString(/*show_metadata=*/true));
+
+  AssertTypeEqual(*t1, *t4);
+  AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
+  ASSERT_EQ(t1->ToString(/*show_metadata=*/false), t4->ToString(/*show_metadata=*/false));
+  ASSERT_NE(t1->ToString(/*show_metadata=*/true), t4->ToString(/*show_metadata=*/true));
+
+  AssertTypeNotEqual(*t1, *t5);
+  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
+  ASSERT_NE(t1->ToString(/*show_metadata=*/false), t5->ToString(/*show_metadata=*/false));
+  ASSERT_NE(t1->ToString(/*show_metadata=*/true), t5->ToString(/*show_metadata=*/true));
 }
 
 TEST(TestListType, Metadata) {
-  auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
-  auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
-  auto md3 = key_value_metadata({"foo"}, {"foo value"});
+  CheckListListTypeMetadata([](std::shared_ptr<Field> field) { return list(field); });
+}
 
-  auto f1 = field("item", utf8(), /*nullable =*/true, md1);
-  auto f2 = field("item", utf8(), /*nullable =*/true, md2);
-  auto f3 = field("item", utf8(), /*nullable =*/true, md3);
-  auto f4 = field("item", utf8());
-  auto f5 = field("item", utf8(), /*nullable =*/false, md1);
-
-  auto t1 = list(f1);
-  auto t2 = list(f2);
-  auto t3 = list(f3);
-  auto t4 = list(f4);
-  auto t5 = list(f5);
-
-  AssertTypeEqual(*t1, *t2);
-  AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
-
-  AssertTypeEqual(*t1, *t3);
-  AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
-
-  AssertTypeEqual(*t1, *t4);
-  AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
-
-  AssertTypeNotEqual(*t1, *t5);
-  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
+TEST(TestLargeListType, Metadata) {
+  CheckListListTypeMetadata(
+      [](std::shared_ptr<Field> field) { return large_list(field); });
 }
 
 TEST(TestListViewType, Metadata) {
-  auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
-  auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
-  auto md3 = key_value_metadata({"foo"}, {"foo value"});
-
-  auto f1 = field("item", utf8(), /*nullable =*/true, md1);
-  auto f2 = field("item", utf8(), /*nullable =*/true, md2);
-  auto f3 = field("item", utf8(), /*nullable =*/true, md3);
-  auto f4 = field("item", utf8());
-  auto f5 = field("item", utf8(), /*nullable =*/false, md1);
-
-  auto t1 = list_view(f1);
-  auto t2 = list_view(f2);
-  auto t3 = list_view(f3);
-  auto t4 = list_view(f4);
-  auto t5 = list_view(f5);
-
-  AssertTypeEqual(*t1, *t2);
-  AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
-
-  AssertTypeEqual(*t1, *t3);
-  AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
-
-  AssertTypeEqual(*t1, *t4);
-  AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
-
-  AssertTypeNotEqual(*t1, *t5);
-  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
+  CheckListListTypeMetadata(
+      [](std::shared_ptr<Field> field) { return list_view(field); });
 }
 
 TEST(TestLargeListViewType, Metadata) {
-  auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
-  auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
-  auto md3 = key_value_metadata({"foo"}, {"foo value"});
-
-  auto f1 = field("item", utf8(), /*nullable =*/true, md1);
-  auto f2 = field("item", utf8(), /*nullable =*/true, md2);
-  auto f3 = field("item", utf8(), /*nullable =*/true, md3);
-  auto f4 = field("item", utf8());
-  auto f5 = field("item", utf8(), /*nullable =*/false, md1);
-
-  auto t1 = large_list_view(f1);
-  auto t2 = large_list_view(f2);
-  auto t3 = large_list_view(f3);
-  auto t4 = large_list_view(f4);
-  auto t5 = large_list_view(f5);
-
-  AssertTypeEqual(*t1, *t2);
-  AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
-
-  AssertTypeEqual(*t1, *t3);
-  AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
-
-  AssertTypeEqual(*t1, *t4);
-  AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
-
-  AssertTypeNotEqual(*t1, *t5);
-  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
+  CheckListListTypeMetadata(
+      [](std::shared_ptr<Field> field) { return large_list_view(field); });
 }
 
 TEST(TestNestedType, Equals) {
@@ -2124,6 +2100,12 @@ TEST(TestStructType, TestFieldsDifferOnlyInMetadata) {
 
   AssertTypeEqual(s0, s1);
   AssertTypeNotEqual(s0, s1, /* check_metadata = */ true);
+  ASSERT_NE(s0.ToString(), s1.ToString(/*show_metadata=*/true));
+
+  std::string expected = R"(struct<f: string
+-- metadata --
+foo: baz, f: string>)";
+  ASSERT_EQ(s1.ToString(/*show_metadata=*/true), expected);
 
   ASSERT_EQ(s0.fingerprint(), s1.fingerprint());
   ASSERT_NE(s0.metadata_fingerprint(), s1.metadata_fingerprint());
@@ -2239,6 +2221,50 @@ TEST(TestDictionaryType, Equals) {
   auto t5 = dictionary(int8(), int32(), /*ordered=*/false);
   auto t6 = dictionary(int8(), int32(), /*ordered=*/true);
   AssertTypeNotEqual(*t5, *t6);
+}
+
+TEST(TypesTest, SmallestDecimal) {
+  for (int32_t i = 1; i < 76; ++i) {
+    auto t = smallest_decimal(i, 4);
+
+    if (i <= 9) {
+      EXPECT_EQ(t->id(), Type::DECIMAL32);
+    } else if (i <= 18) {
+      EXPECT_EQ(t->id(), Type::DECIMAL64);
+    } else if (i <= 38) {
+      EXPECT_EQ(t->id(), Type::DECIMAL128);
+    } else {
+      EXPECT_EQ(t->id(), Type::DECIMAL256);
+    }
+  }
+}
+
+TEST(TypesTest, TestDecimal32) {
+  Decimal32Type t1(4, 4);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL32);
+  EXPECT_EQ(t1.precision(), 4);
+  EXPECT_EQ(t1.scale(), 4);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal32(4, 4)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 4);
+  EXPECT_EQ(t1.bit_width(), 32);
+}
+
+TEST(TypesTest, TestDecimal64) {
+  Decimal64Type t1(12, 4);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL64);
+  EXPECT_EQ(t1.precision(), 12);
+  EXPECT_EQ(t1.scale(), 4);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal64(12, 4)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 8);
+  EXPECT_EQ(t1.bit_width(), 64);
 }
 
 TEST(TypesTest, TestDecimal128Small) {
@@ -2453,6 +2479,7 @@ TEST(TypesTest, TestMembership) {
   TEST_PREDICATE(all_types, is_large_binary_like);
   TEST_PREDICATE(all_types, is_binary);
   TEST_PREDICATE(all_types, is_string);
+  TEST_PREDICATE(all_types, is_binary_view_like);
   TEST_PREDICATE(all_types, is_temporal);
   TEST_PREDICATE(all_types, is_interval);
   TEST_PREDICATE(all_types, is_dictionary);

@@ -44,13 +44,17 @@
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 
 #if defined(_MSC_VER)
 // "warning C4307: '+': integral constant overflow"
-#pragma warning(disable : 4307)
+#  pragma warning(disable : 4307)
 #endif
 
 namespace arrow {
+
+using util::Float16;
+
 namespace ipc {
 namespace internal {
 namespace json {
@@ -269,7 +273,6 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestIntegers, UInt8Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestIntegers, UInt16Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestIntegers, UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestIntegers, UInt64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestHalfFloat, TestIntegers, HalfFloatType);
 
 template <typename T>
 class TestStrings : public ::testing::Test {
@@ -565,6 +568,14 @@ void TestDecimalBasic(std::shared_ptr<DataType> type) {
   AssertArraysEqual(*expected, *actual);
 }
 
+TEST(TestDecimal32, Basics) {
+  TestDecimalBasic<Decimal32, Decimal32Builder>(decimal32(8, 4));
+}
+
+TEST(TestDecimal64, Basics) {
+  TestDecimalBasic<Decimal64, Decimal64Builder>(decimal64(10, 4));
+}
+
 TEST(TestDecimal128, Basics) {
   TestDecimalBasic<Decimal128, Decimal128Builder>(decimal128(10, 4));
 }
@@ -574,7 +585,8 @@ TEST(TestDecimal256, Basics) {
 }
 
 TEST(TestDecimal, Errors) {
-  for (std::shared_ptr<DataType> type : {decimal128(10, 4), decimal256(10, 4)}) {
+  for (std::shared_ptr<DataType> type :
+       {decimal32(8, 4), decimal64(10, 4), decimal128(10, 4), decimal256(10, 4)}) {
     std::shared_ptr<Array> array;
 
     ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]"));
@@ -586,7 +598,8 @@ TEST(TestDecimal, Errors) {
 }
 
 TEST(TestDecimal, Dictionary) {
-  for (std::shared_ptr<DataType> type : {decimal128(10, 2), decimal256(10, 2)}) {
+  for (std::shared_ptr<DataType> type :
+       {decimal32(8, 2), decimal64(10, 2), decimal128(10, 2), decimal256(10, 2)}) {
     AssertJSONDictArray(int32(), type,
                         R"(["123.45", "-78.90", "-78.90", null, "123.45"])",
                         /*indices=*/"[0, 1, 1, null, 0]",
@@ -844,7 +857,8 @@ TEST(TestMap, StringToInteger) {
   ASSERT_OK_AND_ASSIGN(auto expected_keys,
                        ArrayFromJSON(utf8(), R"(["joe", "mark", "cap"])"));
   ASSERT_OK_AND_ASSIGN(auto expected_values, ArrayFromJSON(int32(), "[0, null, 8]"));
-  ASSERT_OK_AND_ASSIGN(auto expected_null_bitmap, BytesToBits({1, 0, 1, 1}));
+  ASSERT_OK_AND_ASSIGN(auto expected_null_bitmap,
+                       BytesToBits(std::vector<uint8_t>({1, 0, 1, 1})));
   auto expected =
       std::make_shared<MapArray>(type, 4, Buffer::Wrap(offsets), expected_keys,
                                  expected_values, expected_null_bitmap, 1);

@@ -1,2 +1,3 @@
-usr/share/doc/arrow-glib/
-usr/share/gtk-doc/html/arrow-glib
+usr/share/arrow-glib/*.md
+usr/share/arrow-glib/*.txt
+usr/share/doc/arrow-glib usr/share/doc/libarrow-glib-doc/

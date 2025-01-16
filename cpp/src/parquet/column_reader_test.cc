@@ -125,58 +125,6 @@ class TestPrimitiveReader : public ::testing::Test {
     ASSERT_EQ(0, batch_actual);
     ASSERT_EQ(0, values_read);
   }
-  void CheckResultsSpaced() {
-    std::vector<int32_t> vresult(num_levels_, -1);
-    std::vector<int16_t> dresult(num_levels_, -1);
-    std::vector<int16_t> rresult(num_levels_, -1);
-    std::vector<uint8_t> valid_bits(num_levels_, 255);
-    int total_values_read = 0;
-    int batch_actual = 0;
-    int levels_actual = 0;
-    int64_t null_count = -1;
-    int64_t levels_read = 0;
-    int64_t values_read;
-
-    Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
-    int32_t batch_size = 8;
-    int batch = 0;
-    // This will cover both the cases
-    // 1) batch_size < page_size (multiple ReadBatch from a single page)
-    // 2) batch_size > page_size (BatchRead limits to a single page)
-    do {
-      ARROW_SUPPRESS_DEPRECATION_WARNING
-      batch = static_cast<int>(reader->ReadBatchSpaced(
-          batch_size, dresult.data() + levels_actual, rresult.data() + levels_actual,
-          vresult.data() + batch_actual, valid_bits.data() + batch_actual, 0,
-          &levels_read, &values_read, &null_count));
-      ARROW_UNSUPPRESS_DEPRECATION_WARNING
-      total_values_read += batch - static_cast<int>(null_count);
-      batch_actual += batch;
-      levels_actual += static_cast<int>(levels_read);
-      batch_size = std::min(1 << 24, std::max(batch_size * 2, 4096));
-    } while ((batch > 0) || (levels_read > 0));
-
-    ASSERT_EQ(num_levels_, levels_actual);
-    ASSERT_EQ(num_values_, total_values_read);
-    if (max_def_level_ > 0) {
-      ASSERT_TRUE(vector_equal(def_levels_, dresult));
-      ASSERT_TRUE(vector_equal_with_def_levels(values_, dresult, max_def_level_,
-                                               max_rep_level_, vresult));
-    } else {
-      ASSERT_TRUE(vector_equal(values_, vresult));
-    }
-    if (max_rep_level_ > 0) {
-      ASSERT_TRUE(vector_equal(rep_levels_, rresult));
-    }
-    // catch improper writes at EOS
-    ARROW_SUPPRESS_DEPRECATION_WARNING
-    batch_actual = static_cast<int>(
-        reader->ReadBatchSpaced(5, nullptr, nullptr, nullptr, valid_bits.data(), 0,
-                                &levels_read, &values_read, &null_count));
-    ARROW_UNSUPPRESS_DEPRECATION_WARNING
-    ASSERT_EQ(0, batch_actual);
-    ASSERT_EQ(0, null_count);
-  }
 
   void Clear() {
     values_.clear();
@@ -194,14 +142,6 @@ class TestPrimitiveReader : public ::testing::Test {
     InitReader(d);
     CheckResults();
     Clear();
-
-    num_values_ =
-        MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
-                             values_, data_buffer_, pages_, Encoding::PLAIN);
-    num_levels_ = num_pages * levels_per_page;
-    InitReader(d);
-    CheckResultsSpaced();
-    Clear();
   }
 
   void ExecuteDict(int num_pages, int levels_per_page, const ColumnDescriptor* d) {
@@ -211,14 +151,6 @@ class TestPrimitiveReader : public ::testing::Test {
     num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResults();
-    Clear();
-
-    num_values_ =
-        MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
-                             values_, data_buffer_, pages_, Encoding::RLE_DICTIONARY);
-    num_levels_ = num_pages * levels_per_page;
-    InitReader(d);
-    CheckResultsSpaced();
     Clear();
   }
 
@@ -415,7 +347,7 @@ TEST_F(TestPrimitiveReader, TestReadValuesMissing) {
       &descr, values, /*num_values=*/2, Encoding::PLAIN, /*indices=*/{},
       /*indices_size=*/0, /*def_levels=*/input_def_levels, max_def_level_,
       /*rep_levels=*/{},
-      /*max_rep_level=*/0);
+      /*max_rep_level=*/max_rep_level_);
   pages_.push_back(data_page);
   InitReader(&descr);
   auto reader = static_cast<BoolReader*>(reader_.get());
@@ -429,6 +361,80 @@ TEST_F(TestPrimitiveReader, TestReadValuesMissing) {
   ASSERT_THROW(reader->ReadBatch(batch_size, def_levels.data(), rep_levels.data(),
                                  values_out, &values_read),
                ParquetException);
+}
+
+// GH-41321: When max_def_level > 0 or max_rep_level > 0, and
+// Page has more or less levels than the `num_values` in
+// PageHeader. We should detect and throw exception.
+TEST_F(TestPrimitiveReader, DefRepLevelNotExpected) {
+  auto do_check = [&](const NodePtr& type, const std::vector<int16_t>& input_def_levels,
+                      const std::vector<int16_t>& input_rep_levels, int num_values) {
+    std::vector<bool> values(num_values, false);
+    const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+
+    // The data page falls back to plain encoding
+    std::shared_ptr<ResizableBuffer> dummy = AllocateBuffer();
+    std::shared_ptr<DataPageV1> data_page = MakeDataPage<BooleanType>(
+        &descr, values, /*num_values=*/num_values, Encoding::PLAIN, /*indices=*/{},
+        /*indices_size=*/0, /*def_levels=*/input_def_levels, max_def_level_,
+        /*rep_levels=*/input_rep_levels,
+        /*max_rep_level=*/max_rep_level_);
+    pages_.push_back(data_page);
+    InitReader(&descr);
+    auto reader = static_cast<BoolReader*>(reader_.get());
+    ASSERT_TRUE(reader->HasNext());
+
+    constexpr int batch_size = 10;
+    std::vector<int16_t> def_levels(batch_size, 0);
+    std::vector<int16_t> rep_levels(batch_size, 0);
+    bool values_out[batch_size];
+    int64_t values_read;
+    EXPECT_THROW_THAT(
+        [&]() {
+          reader->ReadBatch(batch_size, def_levels.data(), rep_levels.data(), values_out,
+                            &values_read);
+        },
+        ParquetException,
+        ::testing::Property(&ParquetException::what,
+                            ::testing::HasSubstr("Number of decoded rep / def levels do "
+                                                 "not match num_values in page header")));
+  };
+  // storing def-levels less than value in page-header
+  {
+    max_def_level_ = 1;
+    max_rep_level_ = 0;
+    NodePtr type = schema::Boolean("a", Repetition::OPTIONAL);
+    std::vector<int16_t> input_def_levels(1, 1);
+    std::vector<int16_t> input_rep_levels{};
+    do_check(type, input_def_levels, input_rep_levels, /*num_values=*/3);
+  }
+  // storing def-levels more than value in page-header
+  {
+    max_def_level_ = 1;
+    max_rep_level_ = 0;
+    NodePtr type = schema::Boolean("a", Repetition::OPTIONAL);
+    std::vector<int16_t> input_def_levels(2, 1);
+    std::vector<int16_t> input_rep_levels{};
+    do_check(type, input_def_levels, input_rep_levels, /*num_values=*/1);
+  }
+  // storing rep-levels less than value in page-header
+  {
+    max_def_level_ = 0;
+    max_rep_level_ = 1;
+    NodePtr type = schema::Boolean("a", Repetition::REPEATED);
+    std::vector<int16_t> input_def_levels{};
+    std::vector<int16_t> input_rep_levels(3, 0);
+    do_check(type, input_def_levels, input_rep_levels, /*num_values=*/4);
+  }
+  // storing rep-levels more than value in page-header
+  {
+    max_def_level_ = 0;
+    max_rep_level_ = 1;
+    NodePtr type = schema::Boolean("a", Repetition::REPEATED);
+    std::vector<int16_t> input_def_levels{};
+    std::vector<int16_t> input_rep_levels(2, 1);
+    do_check(type, input_def_levels, input_rep_levels, /*num_values=*/1);
+  }
 }
 
 // Repetition level byte length reported in Page but Max Repetition level
@@ -1604,6 +1610,33 @@ TEST_P(ByteArrayRecordReaderTest, ReadAndSkipOptional) {
   // so only 30 is left.
   ASSERT_EQ(record_reader_->ReadRecords(/*num_records=*/60), 30);
   CheckReadValues(60, 90);
+  record_reader_->Reset();
+}
+
+// Test skipping buffered records when reading/skipping more than kMinLevelBatchSize
+// levels at a time.
+TEST_P(ByteArrayRecordReaderTest, ReadAndBatchSkipOptional) {
+  MakeRecordReader(/*levels_per_page=*/9000, /*num_pages=*/1);
+
+  // Read 100 records and buffer some records.
+  ASSERT_EQ(record_reader_->ReadRecords(/*num_records=*/100), 100);
+  CheckReadValues(0, 100);
+  record_reader_->Reset();
+
+  // Skip 3000 records. The buffered records will be skipped.
+  ASSERT_EQ(record_reader_->SkipRecords(/*num_records=*/3000), 3000);
+
+  // Read 900 records and buffer some records again.
+  ASSERT_EQ(record_reader_->ReadRecords(/*num_records=*/900), 900);
+  CheckReadValues(3100, 4000);
+  record_reader_->Reset();
+
+  // Skip 3000 records. The buffered records will be skipped.
+  ASSERT_EQ(record_reader_->SkipRecords(/*num_records=*/3000), 3000);
+
+  // Read 3000 records. Only 2000 records are left to be read.
+  ASSERT_EQ(record_reader_->ReadRecords(/*num_records=*/3000), 2000);
+  CheckReadValues(7000, 9000);
   record_reader_->Reset();
 }
 

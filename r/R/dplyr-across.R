@@ -34,7 +34,11 @@ expand_across <- function(.data, quos_in, exclude_cols = NULL) {
       )
 
       if (!all(names(across_call[-1]) %in% c(".cols", ".fns", ".names"))) {
-        abort("`...` argument to `across()` is deprecated in dplyr and not supported in Arrow")
+        arrow_not_supported(
+          "`...` argument to `across()` is deprecated in dplyr and",
+          body = c(">" = "Convert your call into a function or formula including the arguments"),
+          call = rlang::caller_call()
+        )
       }
 
       if (!is.null(across_call[[".cols"]])) {
@@ -145,7 +149,6 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE, ex
     fns <- call_args(fns)
   }
 
-  # ARROW-14071
   if (all(map_lgl(fns, is_call, name = "function"))) {
     abort("Anonymous functions are not yet supported in Arrow")
   }

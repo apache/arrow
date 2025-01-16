@@ -796,6 +796,8 @@ PARQUET_EXPORT std::string ConvertedTypeToString(ConvertedType::type t);
 
 PARQUET_EXPORT std::string TypeToString(Type::type t);
 
+PARQUET_EXPORT std::string TypeToString(Type::type t, int type_length);
+
 PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type,
                                            ::std::string_view val);
 
@@ -808,5 +810,11 @@ PARQUET_EXPORT SortOrder::type GetSortOrder(ConvertedType::type converted,
 
 PARQUET_EXPORT SortOrder::type GetSortOrder(
     const std::shared_ptr<const LogicalType>& logical_type, Type::type primitive);
+
+// PLAIN_DICTIONARY is deprecated but used to be used as a dictionary index
+// encoding.
+constexpr bool IsDictionaryIndexEncoding(Encoding::type e) {
+  return e == Encoding::RLE_DICTIONARY || e == Encoding::PLAIN_DICTIONARY;
+}
 
 }  // namespace parquet

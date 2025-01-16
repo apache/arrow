@@ -21,6 +21,7 @@
 set -eu
 
 : ${SOURCE_DEFAULT:=1}
+: ${SOURCE_DOWNLOAD:=${SOURCE_DEFAULT}}
 : ${SOURCE_RAT:=${SOURCE_DEFAULT}}
 : ${SOURCE_UPLOAD:=${SOURCE_DEFAULT}}
 : ${SOURCE_PR:=${SOURCE_DEFAULT}}
@@ -37,11 +38,10 @@ fi
 version=$1
 rc=$2
 
-tag=apache-arrow-${version}
+tag=apache-arrow-${version}-rc${rc}
 maint_branch=maint-${version}
 rc_branch="release-${version}-rc${rc}"
-tagrc=${tag}-rc${rc}
-rc_url="https://dist.apache.org/repos/dist/dev/arrow/${tagrc}"
+rc_url="https://dist.apache.org/repos/dist/dev/arrow/${tag}"
 
 echo "Preparing source for tag ${tag}"
 
@@ -56,35 +56,19 @@ fi
 
 echo "Using commit $release_hash"
 
-tarball=${tag}.tar.gz
+tarball=apache-arrow-${version}.tar.gz
 
-rm -rf ${tag}
-# be conservative and use the release hash, even though git produces the same
-# archive (identical hashes) using the scm tag
-(cd "${SOURCE_TOP_DIR}" && \
-  git archive ${release_hash} --prefix ${tag}/) | \
-  tar xf -
-
-# Resolve all hard and symbolic links.
-# If we change this, we must change ArrowSources.archive in
-# dev/archery/archery/utils/source.py too.
-rm -rf ${tag}.tmp
-mv ${tag} ${tag}.tmp
-cp -R -L ${tag}.tmp ${tag}
-rm -rf ${tag}.tmp
-
-# Create a dummy .git/ directory to download the source files from GitHub with Source Link in C#.
-dummy_git=${tag}/csharp/dummy.git
-mkdir ${dummy_git}
-pushd ${dummy_git}
-echo ${release_hash} > HEAD
-echo '[remote "origin"] url = https://github.com/apache/arrow.git' >> config
-mkdir objects refs
-popd
-
-# Create new tarball from modified source directory
-tar czf ${tarball} ${tag}
-rm -rf ${tag}
+if [ ${SOURCE_DOWNLOAD} -gt 0 ]; then
+  # Wait for the release candidate workflow to finish before attempting
+  # to download the tarball from the GitHub Release.
+  . $SOURCE_DIR/utils-watch-gh-workflow.sh ${tag} "release_candidate.yml"
+  rm -f ${tarball}
+  gh release download \
+    ${tag} \
+    --repo apache/arrow \
+    --dir . \
+    --pattern "${tarball}"
+fi
 
 if [ ${SOURCE_RAT} -gt 0 ]; then
   "${SOURCE_DIR}/run-rat.sh" ${tarball}
@@ -105,18 +89,21 @@ if [ ${SOURCE_UPLOAD} -gt 0 ]; then
   ${sha256_generate} $tarball > ${tarball}.sha256
   ${sha512_generate} $tarball > ${tarball}.sha512
 
+  # Upload signed tarballs to GitHub Release
+  gh release upload --repo apache/arrow ${tag} ${tarball}.sha256 ${tarball}.sha512
+
   # check out the arrow RC folder
   svn co --depth=empty https://dist.apache.org/repos/dist/dev/arrow tmp
 
   # add the release candidate for the tag
-  mkdir -p tmp/${tagrc}
+  mkdir -p tmp/${tag}
 
   # copy the rc tarball into the tmp dir
-  cp ${tarball}* tmp/${tagrc}
+  cp ${tarball}* tmp/${tag}
 
   # commit to svn
-  svn add tmp/${tagrc}
-  svn ci -m "Apache Arrow ${version} RC${rc}" tmp/${tagrc}
+  svn add tmp/${tag}
+  svn ci -m "Apache Arrow ${version} RC${rc}" tmp/${tag}
 
   # clean up
   rm -rf tmp
@@ -176,13 +163,13 @@ This release candidate is based on commit:
 ${release_hash} [2]
 
 The source release rc${rc} is hosted at [3].
-The binary artifacts are hosted at [4][5][6][7][8][9][10][11].
-The changelog is located at [12].
+The binary artifacts are hosted at [4][5][6][7][8][9][10].
+The changelog is located at [11].
 
 Please download, verify checksums and signatures, run the unit tests,
-and vote on the release. See [13] for how to validate a release candidate.
+and vote on the release. See [12] for how to validate a release candidate.
 
-See also a verification result on GitHub pull request [14].
+See also a verification result on GitHub pull request [13].
 
 The vote will be open for at least 72 hours.
 
@@ -197,13 +184,12 @@ The vote will be open for at least 72 hours.
 [5]: https://apache.jfrog.io/artifactory/arrow/amazon-linux-rc/
 [6]: https://apache.jfrog.io/artifactory/arrow/centos-rc/
 [7]: https://apache.jfrog.io/artifactory/arrow/debian-rc/
-[8]: https://apache.jfrog.io/artifactory/arrow/java-rc/${version}-rc${rc}
-[9]: https://apache.jfrog.io/artifactory/arrow/nuget-rc/${version}-rc${rc}
-[10]: https://apache.jfrog.io/artifactory/arrow/python-rc/${version}-rc${rc}
-[11]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
-[12]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
-[13]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
-[14]: ${verify_pr_url}
+[8]: https://apache.jfrog.io/artifactory/arrow/nuget-rc/${version}-rc${rc}
+[9]: https://apache.jfrog.io/artifactory/arrow/python-rc/${version}-rc${rc}
+[10]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
+[11]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
+[12]: https://arrow.apache.org/docs/developers/release_verification.html
+[13]: ${verify_pr_url}
 MAIL
   echo "---------------------------------------------------------"
 fi

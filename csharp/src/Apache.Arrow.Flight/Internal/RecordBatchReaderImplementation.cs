@@ -48,51 +48,65 @@ namespace Apache.Arrow.Flight.Internal
         {
             if (!HasReadSchema)
             {
-                await ReadSchema().ConfigureAwait(false);
+                await ReadSchemaAsync(CancellationToken.None).ConfigureAwait(false);
             }
             return _flightDescriptor;
         }
 
-        public async ValueTask<Schema> ReadSchema()
+        public async ValueTask<Schema> GetSchemaAsync()
         {
-            if (HasReadSchema)
+            if (!HasReadSchema)
             {
-                return Schema;
+                await ReadSchemaAsync(CancellationToken.None).ConfigureAwait(false);
             }
+            return _schema;
+        }
 
-            var moveNextResult = await _flightDataStream.MoveNext().ConfigureAwait(false);
+        public override void ReadSchema()
+        {
+            ReadSchemaAsync(CancellationToken.None).AsTask().Wait();
+        }
 
-            if (!moveNextResult)
+        public override async ValueTask ReadSchemaAsync(CancellationToken cancellationToken)
+        {
+            while (!HasReadSchema)
             {
-                throw new Exception("No records or schema in this flight");
+                var moveNextResult = await _flightDataStream.MoveNext(cancellationToken).ConfigureAwait(false);
+                if (!moveNextResult)
+                {
+                    throw new Exception("No records or schema in this flight");
+                }
+
+                if (_flightDescriptor == null && _flightDataStream.Current.FlightDescriptor != null)
+                {
+                    _flightDescriptor = new FlightDescriptor(_flightDataStream.Current.FlightDescriptor);
+                }
+
+                // AppMetadata will never be null, but length 0 if empty
+                // Those are skipped
+                if(_flightDataStream.Current.AppMetadata.Length > 0)
+                {
+                    _applicationMetadatas.Add(_flightDataStream.Current.AppMetadata);
+                }
+
+                var header = _flightDataStream.Current.DataHeader.Memory;
+                if (header.IsEmpty)
+                {
+                    // Clients may send a first message with a descriptor only and no schema
+                    continue;
+                }
+
+                Message message = Message.GetRootAsMessage(ArrowReaderImplementation.CreateByteBuffer(header));
+
+                switch (message.HeaderType)
+                {
+                    case MessageHeader.Schema:
+                        _schema = FlightMessageSerializer.DecodeSchema(message.ByteBuffer);
+                        break;
+                    default:
+                        throw new Exception($"Expected schema as the first message, but got: {message.HeaderType.ToString()}");
+                }
             }
-
-            //AppMetadata will never be null, but length 0 if empty
-            //Those are skipped
-            if(_flightDataStream.Current.AppMetadata.Length > 0)
-            {
-                _applicationMetadatas.Add(_flightDataStream.Current.AppMetadata);
-            }
-
-            var header = _flightDataStream.Current.DataHeader.Memory;
-            Message message = Message.GetRootAsMessage(
-                ArrowReaderImplementation.CreateByteBuffer(header));
-
-
-            if(_flightDataStream.Current.FlightDescriptor != null)
-            {
-                _flightDescriptor = new FlightDescriptor(_flightDataStream.Current.FlightDescriptor);
-            }
-
-            switch (message.HeaderType)
-            {
-                case MessageHeader.Schema:
-                    Schema = FlightMessageSerializer.DecodeSchema(message.ByteBuffer);
-                    break;
-                default:
-                    throw new Exception($"Expected schema as the first message, but got: {message.HeaderType.ToString()}");
-            }
-            return Schema;
         }
 
         public override async ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
@@ -101,7 +115,7 @@ namespace Apache.Arrow.Flight.Internal
 
             if (!HasReadSchema)
             {
-                await ReadSchema().ConfigureAwait(false);
+                await ReadSchemaAsync(cancellationToken).ConfigureAwait(false);
             }
             var moveNextResult = await _flightDataStream.MoveNext().ConfigureAwait(false);
             if (moveNextResult)

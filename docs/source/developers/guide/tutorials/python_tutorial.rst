@@ -137,7 +137,7 @@ function is defined in the ``compute.py`` file.
 
 After examining the ``compute.py`` file we can see that together
 with ``_compute.pyx`` the functions from C++ get wrapped into Python.
-We will define the new feature at the end of the ``compute.py`` file. 
+We will define the new feature at the end of the ``compute.py`` file.
 
 Lets run some code in the Python console from ``arrow/python``
 directory in order to learn more about ``pc.min_max``.
@@ -147,10 +147,10 @@ directory in order to learn more about ``pc.min_max``.
    $ cd python
    $ python
 
-   Python 3.9.7 (default, Oct 22 2021, 13:24:00) 
+   Python 3.9.7 (default, Oct 22 2021, 13:24:00)
    [Clang 13.0.0 (clang-1300.0.29.3)] on darwin
    Type "help", "copyright", "credits" or "license" for more information.
-   
+
 We have entered into the Python console from the shell and we can
 do some research:
 
@@ -278,7 +278,7 @@ options for the ``pc.min_max`` function we can finish the work.
       return pa.scalar([('min-', min_t), ('max+', max_t)], type=ty)
 
 .. TODO seealso
-   .. For more information about the Arrow codebase visit 
+   .. For more information about the Arrow codebase visit
    .. :ref:``. (link to working on the Arrow codebase section)
 
 Adding a test
@@ -303,24 +303,24 @@ a specific unit test, pass in the test name to the ``-k`` parameter.
 .. code:: console
 
    $ cd python
-   $ python -m pytest pyarrow/tests/test_compute.py -k test_tutorial_min_max                    
+   $ python -m pytest pyarrow/tests/test_compute.py -k test_tutorial_min_max
    ======================== test session starts ==========================
    platform darwin -- Python 3.9.7, pytest-6.2.5, py-1.10.0, pluggy-1.0.0
    rootdir: /Users/alenkafrim/repos/arrow/python, configfile: setup.cfg
    plugins: hypothesis-6.24.1, lazy-fixture-0.6.3
-   collected 204 items / 203 deselected / 1 selected                                                                                   
+   collected 204 items / 203 deselected / 1 selected
 
    pyarrow/tests/test_compute.py .                                  [100%]
 
    ======================== 1 passed, 203 deselected in 0.16s ============
-   
 
-   $ python -m pytest pyarrow/tests/test_compute.py                       
+
+   $ python -m pytest pyarrow/tests/test_compute.py
    ======================== test session starts ===========================
    platform darwin -- Python 3.9.7, pytest-6.2.5, py-1.10.0, pluggy-1.0.0
    rootdir: /Users/alenkafrim/repos/arrow/python, configfile: setup.cfg
    plugins: hypothesis-6.24.1, lazy-fixture-0.6.3
-   collected 204 items                                                                                                                 
+   collected 204 items
 
    pyarrow/tests/test_compute.py ................................... [ 46%]
    .................................................                 [100%]
@@ -339,7 +339,7 @@ utility called `Archery <https://arrow.apache.org/docs/developers/archery.html>`
 to check if code is in line with PEP 8 style guide.
 
 .. code:: console
-   
+
    $ archery lint --python --fix
    INFO:archery:Running Python formatter (autopep8)
    INFO:archery:Running Python linter (flake8)
@@ -430,7 +430,7 @@ to the branch history):
    $ git commit -am "Adding a new compute feature for tutorial purposes"
    [ARROW-14977 170ef85be] Adding a new compute feature for tutorial purposes
     2 files changed, 51 insertions(+)
-   
+
 
 We can use ``git log`` to check the history of commits:
 
@@ -448,12 +448,12 @@ We can use ``git log`` to check the history of commits:
    Date:   Sun Dec 5 15:19:46 2021 +0900
 
        ARROW-14981: [CI][Docs] Upload built documents
-       
+
        We can use this in release process instead of building on release
        manager's local environment.
-       
+
        Closes #11856 from kou/ci-docs-upload
-       
+
        Authored-by: Sutou Kouhei <kou@clear-code.com>
        Signed-off-by: Sutou Kouhei <kou@clear-code.com>
    ...
@@ -478,10 +478,10 @@ called ``origin``.
    Writing objects: 100% (7/7), 1.19 KiB | 1.19 MiB/s, done.
    Total 7 (delta 6), reused 0 (delta 0), pack-reused 0
    remote: Resolving deltas: 100% (6/6), completed with 6 local objects.
-   remote: 
+   remote:
    remote: Create a pull request for 'ARROW-14977' on GitHub by visiting:
    remote:      https://github.com/AlenkaF/arrow/pull/new/ARROW-14977
-   remote: 
+   remote:
    To https://github.com/AlenkaF/arrow.git
     * [new branch]          ARROW-14977 -> ARROW-14977
 
@@ -490,7 +490,7 @@ to create a Pull Request. On the GitHub Arrow
 page (main or forked) we will see a yellow notice
 bar with a note that we made recent pushes to the branch
 ARROW-14977. That’s great, now we can make the Pull Request
-by clicking on **Compare & pull request**. 
+by clicking on **Compare & pull request**.
 
 .. figure:: ../../images/python_tutorial_github_pr_notice.jpeg
    :scale: 50 %
@@ -527,5 +527,5 @@ the code, comment, resolve conversations and so on. The Pull Request
 we made can be viewed `here <https://github.com/apache/arrow/pull/11900>`_.
 
 .. seealso::
-   
+
    For more information about Pull Request workflow see :ref:`pr_lifecycle`.

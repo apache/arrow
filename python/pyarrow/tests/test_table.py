@@ -20,10 +20,15 @@ from collections.abc import Iterable
 import sys
 import weakref
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
+from pyarrow.interchange import from_dataframe
+from pyarrow.vendored.version import Version
 
 
 def test_chunked_array_basics():
@@ -124,6 +129,7 @@ def test_chunked_array_can_combine_chunks_with_no_chunks():
     ).combine_chunks() == pa.array([], type=pa.bool_())
 
 
+@pytest.mark.numpy
 def test_chunked_array_to_numpy():
     data = pa.chunked_array([
         [1, 2, 3],
@@ -172,6 +178,7 @@ def test_chunked_array_str():
 ]"""
 
 
+@pytest.mark.numpy
 def test_chunked_array_getitem():
     data = [
         pa.array([1, 2, 3]),
@@ -488,83 +495,74 @@ def test_chunked_array_unify_dictionaries():
     assert arr.to_pylist() == ["foo", "bar", None, "foo", "quux", None, "foo"]
 
 
-def test_recordbatch_basics():
-    data = [
-        pa.array(range(5), type='int16'),
-        pa.array([-10, -5, 0, None, 10], type='int32')
-    ]
-
-    batch = pa.record_batch(data, ['c0', 'c1'])
-    assert not batch.schema.metadata
-
-    assert len(batch) == 5
-    assert batch.num_rows == 5
-    assert batch.num_columns == len(data)
-    # (only the second array has a null bitmap)
-    assert batch.get_total_buffer_size() == (5 * 2) + (5 * 4 + 1)
-    batch.nbytes == (5 * 2) + (5 * 4 + 1)
-    assert sys.getsizeof(batch) >= object.__sizeof__(
-        batch) + batch.get_total_buffer_size()
-    pydict = batch.to_pydict()
-    assert pydict == OrderedDict([
-        ('c0', [0, 1, 2, 3, 4]),
-        ('c1', [-10, -5, 0, None, 10])
-    ])
-    assert isinstance(pydict, dict)
-
-    with pytest.raises(IndexError):
-        # bounds checking
-        batch[2]
-
-    # Schema passed explicitly
-    schema = pa.schema([pa.field('c0', pa.int16(),
-                                 metadata={'key': 'value'}),
-                        pa.field('c1', pa.int32())],
-                       metadata={b'foo': b'bar'})
-    batch = pa.record_batch(data, schema=schema)
-    assert batch.schema == schema
-    # schema as first positional argument
-    batch = pa.record_batch(data, schema)
-    assert batch.schema == schema
-    assert str(batch) == """pyarrow.RecordBatch
-c0: int16
-c1: int32
-----
-c0: [0,1,2,3,4]
-c1: [-10,-5,0,null,10]"""
-
-    assert batch.to_string(show_metadata=True) == """\
-pyarrow.RecordBatch
-c0: int16
-  -- field metadata --
-  key: 'value'
-c1: int32
--- schema metadata --
-foo: 'bar'"""
-
-    wr = weakref.ref(batch)
-    assert wr() is not None
-    del batch
-    assert wr() is None
-
-
 def test_recordbatch_dunder_init():
     with pytest.raises(TypeError, match='RecordBatch'):
         pa.RecordBatch()
 
 
-def test_recordbatch_c_array_interface():
-    class BatchWrapper:
-        def __init__(self, batch):
-            self.batch = batch
+def test_chunked_array_c_array_interface():
+    class ArrayWrapper:
+        def __init__(self, array):
+            self.array = array
 
         def __arrow_c_array__(self, requested_schema=None):
-            return self.batch.__arrow_c_array__(requested_schema)
+            return self.array.__arrow_c_array__(requested_schema)
 
+    data = pa.array([1, 2, 3], pa.int64())
+    chunked = pa.chunked_array([data])
+    wrapper = ArrayWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.chunked_array(wrapper)
+    assert result == chunked
+
+    # Can also import with a type that implementer can cast to.
+    result = pa.chunked_array(wrapper, type=pa.int16())
+    assert result == chunked.cast(pa.int16())
+
+
+def test_chunked_array_c_stream_interface():
+    class ChunkedArrayWrapper:
+        def __init__(self, chunked):
+            self.chunked = chunked
+
+        def __arrow_c_stream__(self, requested_schema=None):
+            return self.chunked.__arrow_c_stream__(requested_schema)
+
+    data = pa.chunked_array([[1, 2, 3], [4, None, 6]])
+    wrapper = ChunkedArrayWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.chunked_array(wrapper)
+    assert result == data
+
+    # Can also import with a type that implementer can cast to.
+    result = pa.chunked_array(wrapper, type=pa.int16())
+    assert result == data.cast(pa.int16())
+
+
+class BatchWrapper:
+    def __init__(self, batch):
+        self.batch = batch
+
+    def __arrow_c_array__(self, requested_schema=None):
+        return self.batch.__arrow_c_array__(requested_schema)
+
+
+class BatchDeviceWrapper:
+    def __init__(self, batch):
+        self.batch = batch
+
+    def __arrow_c_device_array__(self, requested_schema=None, **kwargs):
+        return self.batch.__arrow_c_device_array__(requested_schema, **kwargs)
+
+
+@pytest.mark.parametrize("wrapper_class", [BatchWrapper, BatchDeviceWrapper])
+def test_recordbatch_c_array_interface(wrapper_class):
     data = pa.record_batch([
         pa.array([1, 2, 3], type=pa.int64())
     ], names=['a'])
-    wrapper = BatchWrapper(data)
+    wrapper = wrapper_class(data)
 
     # Can roundtrip through the wrapper.
     result = pa.record_batch(wrapper)
@@ -581,18 +579,28 @@ def test_recordbatch_c_array_interface():
     assert result == expected
 
 
-def test_table_c_array_interface():
-    class BatchWrapper:
-        def __init__(self, batch):
-            self.batch = batch
+def test_recordbatch_c_array_interface_device_unsupported_keyword():
+    # For the device-aware version, we raise a specific error for unsupported keywords
+    data = pa.record_batch(
+        [pa.array([1, 2, 3], type=pa.int64())], names=['a']
+    )
 
-        def __arrow_c_array__(self, requested_schema=None):
-            return self.batch.__arrow_c_array__(requested_schema)
+    with pytest.raises(
+        NotImplementedError,
+        match=r"Received unsupported keyword argument\(s\): \['other'\]"
+    ):
+        data.__arrow_c_device_array__(other="not-none")
 
+    # but with None value it is ignored
+    _ = data.__arrow_c_device_array__(other=None)
+
+
+@pytest.mark.parametrize("wrapper_class", [BatchWrapper, BatchDeviceWrapper])
+def test_table_c_array_interface(wrapper_class):
     data = pa.record_batch([
         pa.array([1, 2, 3], type=pa.int64())
     ], names=['a'])
-    wrapper = BatchWrapper(data)
+    wrapper = wrapper_class(data)
 
     # Can roundtrip through the wrapper.
     result = pa.table(wrapper)
@@ -635,9 +643,18 @@ def test_table_c_stream_interface():
     result = pa.table(wrapper, schema=data[0].schema)
     assert result == expected
 
+    # Passing a different schema will cast
+    good_schema = pa.schema([pa.field('a', pa.int32())])
+    result = pa.table(wrapper, schema=good_schema)
+    assert result == expected.cast(good_schema)
+
     # If schema doesn't match, raises NotImplementedError
-    with pytest.raises(NotImplementedError):
-        pa.table(wrapper, schema=pa.schema([pa.field('a', pa.int32())]))
+    with pytest.raises(
+        pa.lib.ArrowTypeError, match="Field 0 cannot be cast"
+    ):
+        pa.table(
+            wrapper, schema=pa.schema([pa.field('a', pa.list_(pa.int32()))])
+        )
 
 
 def test_recordbatch_itercolumns():
@@ -953,6 +970,289 @@ def test_table_to_struct_array_with_max_chunksize():
     ))
 
 
+def check_tensors(tensor, expected_tensor, type, size):
+    assert tensor.equals(expected_tensor)
+    assert tensor.size == size
+    assert tensor.type == type
+    assert tensor.shape == expected_tensor.shape
+    assert tensor.strides == expected_tensor.strides
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize('typ_str', [
+    "uint8", "uint16", "uint32", "uint64",
+    "int8", "int16", "int32", "int64",
+    "float32", "float64",
+])
+def test_recordbatch_to_tensor_uniform_type(typ_str):
+    typ = np.dtype(typ_str)
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 100, 100, 100, 100, 100, 100, 100, 100]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.from_numpy_dtype(typ)),
+            pa.array(arr2, type=pa.from_numpy_dtype(typ)),
+            pa.array(arr3, type=pa.from_numpy_dtype(typ)),
+        ], ["a", "b", "c"]
+    )
+
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
+
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
+
+    # Test offset
+    batch1 = batch.slice(1)
+    arr1 = [2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 100, 100, 100, 100, 100, 100, 100]
+
+    result = batch1.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
+
+    result = batch1.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
+
+    batch2 = batch.slice(1, 5)
+    arr1 = [2, 3, 4, 5, 6]
+    arr2 = [20, 30, 40, 50, 60]
+    arr3 = [100, 100, 100, 100, 100]
+
+    result = batch2.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
+
+    result = batch2.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
+
+
+@pytest.mark.numpy
+def test_recordbatch_to_tensor_uniform_float_16():
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 100, 100, 100, 100, 100, 100, 100, 100]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(np.array(arr1, dtype=np.float16), type=pa.float16()),
+            pa.array(np.array(arr2, dtype=np.float16), type=pa.float16()),
+            pa.array(np.array(arr3, dtype=np.float16), type=pa.float16()),
+        ], ["a", "b", "c"]
+    )
+
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float16, order="F")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.float16(), 27)
+
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float16, order="C")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.float16(), 27)
+
+
+@pytest.mark.numpy
+def test_recordbatch_to_tensor_mixed_type():
+    # uint16 + int16 = int32
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 200, 300, np.nan, 500, 600, 700, 800, 900]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.uint16()),
+            pa.array(arr2, type=pa.int16()),
+        ], ["a", "b"]
+    )
+
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2]).astype(np.int32, order="F")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.int32(), 18)
+
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2]).astype(np.int32, order="C")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.int32(), 18)
+
+    # uint16 + int16 + float32 = float64
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.uint16()),
+            pa.array(arr2, type=pa.int16()),
+            pa.array(arr3, type=pa.float32()),
+        ], ["a", "b", "c"]
+    )
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float64, order="F")
+    expected = pa.Tensor.from_numpy(x)
+
+    np.testing.assert_equal(result.to_numpy(), x)
+    assert result.size == 27
+    assert result.type == pa.float64()
+    assert result.shape == expected.shape
+    assert result.strides == expected.strides
+
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float64, order="C")
+    expected = pa.Tensor.from_numpy(x)
+
+    np.testing.assert_equal(result.to_numpy(), x)
+    assert result.size == 27
+    assert result.type == pa.float64()
+    assert result.shape == expected.shape
+    assert result.strides == expected.strides
+
+
+@pytest.mark.numpy
+def test_recordbatch_to_tensor_unsupported_mixed_type_with_float16():
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 200, 300, 400, 500, 600, 700, 800, 900]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.uint16()),
+            pa.array(np.array(arr2, dtype=np.float16), type=pa.float16()),
+            pa.array(arr3, type=pa.float32()),
+        ], ["a", "b", "c"]
+    )
+
+    with pytest.raises(
+        NotImplementedError,
+        match="Casting from or to halffloat is not supported."
+    ):
+        batch.to_tensor()
+
+
+@pytest.mark.numpy
+def test_recordbatch_to_tensor_nan():
+    arr1 = [1, 2, 3, 4, np.nan, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, np.nan, 90]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.float32()),
+            pa.array(arr2, type=pa.float32()),
+        ], ["a", "b"]
+    )
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2]).astype(np.float32, order="F")
+    expected = pa.Tensor.from_numpy(x)
+
+    np.testing.assert_equal(result.to_numpy(), x)
+    assert result.size == 18
+    assert result.type == pa.float32()
+    assert result.shape == expected.shape
+    assert result.strides == expected.strides
+
+
+@pytest.mark.numpy
+def test_recordbatch_to_tensor_null():
+    arr1 = [1, 2, 3, 4, None, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, None, 90]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.int32()),
+            pa.array(arr2, type=pa.float32()),
+        ], ["a", "b"]
+    )
+    with pytest.raises(
+        pa.ArrowTypeError,
+        match="Can only convert a RecordBatch with no nulls."
+    ):
+        batch.to_tensor()
+
+    result = batch.to_tensor(null_to_nan=True, row_major=False)
+    x = np.column_stack([arr1, arr2]).astype(np.float64, order="F")
+    expected = pa.Tensor.from_numpy(x)
+
+    np.testing.assert_equal(result.to_numpy(), x)
+    assert result.size == 18
+    assert result.type == pa.float64()
+    assert result.shape == expected.shape
+    assert result.strides == expected.strides
+
+    # int32 -> float64
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.int32()),
+            pa.array(arr2, type=pa.int32()),
+        ], ["a", "b"]
+    )
+
+    result = batch.to_tensor(null_to_nan=True, row_major=False)
+
+    np.testing.assert_equal(result.to_numpy(), x)
+    assert result.size == 18
+    assert result.type == pa.float64()
+    assert result.shape == expected.shape
+    assert result.strides == expected.strides
+
+    # int8 -> float32
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.int8()),
+            pa.array(arr2, type=pa.int8()),
+        ], ["a", "b"]
+    )
+
+    result = batch.to_tensor(null_to_nan=True, row_major=False)
+    x = np.column_stack([arr1, arr2]).astype(np.float32, order="F")
+    expected = pa.Tensor.from_numpy(x)
+
+    np.testing.assert_equal(result.to_numpy(), x)
+    assert result.size == 18
+    assert result.type == pa.float32()
+    assert result.shape == expected.shape
+    assert result.strides == expected.strides
+
+
+@pytest.mark.numpy
+def test_recordbatch_to_tensor_empty():
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array([], type=pa.float32()),
+            pa.array([], type=pa.float32()),
+        ], ["a", "b"]
+    )
+    result = batch.to_tensor()
+
+    x = np.column_stack([[], []]).astype(np.float32, order="F")
+    expected = pa.Tensor.from_numpy(x)
+
+    assert result.size == expected.size
+    assert result.type == pa.float32()
+    assert result.shape == expected.shape
+    assert result.strides == (4, 4)
+
+
+def test_recordbatch_to_tensor_unsupported():
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    # Unsupported data type
+    arr2 = ["a", "b", "c", "a", "b", "c", "a", "b", "c"]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.int32()),
+            pa.array(arr2, type=pa.utf8()),
+        ], ["a", "b"]
+    )
+    with pytest.raises(
+        pa.ArrowTypeError,
+        match="DataType is not supported"
+    ):
+        batch.to_tensor()
+
+
 def _table_like_slice_tests(factory):
     data = [
         pa.array(range(5)),
@@ -1009,6 +1309,7 @@ def test_slice_zero_length_table():
     table.to_pandas()
 
 
+@pytest.mark.numpy
 def test_recordbatchlist_schema_equals():
     a1 = np.array([1], dtype='uint32')
     a2 = np.array([4.0, 5.0], dtype='float64')
@@ -1089,45 +1390,80 @@ def test_table_to_batches():
     table_from_iter = pa.Table.from_batches(iter([batch1, batch2, batch1]))
     assert table.equals(table_from_iter)
 
+    with pytest.raises(ValueError):
+        table.to_batches(max_chunksize=0)
 
-def test_table_basics():
-    data = [
-        pa.array(range(5), type='int64'),
-        pa.array([-10, -5, 0, 5, 10], type='int64')
+
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
     ]
-    table = pa.table(data, names=('a', 'b'))
+)
+def test_table_basics(cls):
+    data = [
+        pa.array(range(5), type='int16'),
+        pa.array([-10, -5, 0, None, 10], type='int32')
+    ]
+    table = cls.from_arrays(data, names=('a', 'b'))
     table.validate()
+
+    assert not table.schema.metadata
     assert len(table) == 5
     assert table.num_rows == 5
-    assert table.num_columns == 2
+    assert table.num_columns == len(data)
     assert table.shape == (5, 2)
-    assert table.get_total_buffer_size() == 2 * (5 * 8)
-    assert table.nbytes == 2 * (5 * 8)
+    # (only the second array has a null bitmap)
+    assert table.get_total_buffer_size() == (5 * 2) + (5 * 4 + 1)
+    assert table.nbytes == (5 * 2) + (5 * 4 + 1)
     assert sys.getsizeof(table) >= object.__sizeof__(
         table) + table.get_total_buffer_size()
+
     pydict = table.to_pydict()
     assert pydict == OrderedDict([
         ('a', [0, 1, 2, 3, 4]),
-        ('b', [-10, -5, 0, 5, 10])
+        ('b', [-10, -5, 0, None, 10])
     ])
     assert isinstance(pydict, dict)
+    assert table == cls.from_pydict(pydict, schema=table.schema)
+
+    with pytest.raises(IndexError):
+        # bounds checking
+        table[2]
 
     columns = []
     for col in table.itercolumns():
+
+        if cls is pa.Table:
+            assert type(col) is pa.ChunkedArray
+
+            for chunk in col.iterchunks():
+                assert chunk is not None
+
+            with pytest.raises(IndexError):
+                col.chunk(-1)
+
+            with pytest.raises(IndexError):
+                col.chunk(col.num_chunks)
+
+        else:
+            assert issubclass(type(col), pa.Array)
+
         columns.append(col)
-        for chunk in col.iterchunks():
-            assert chunk is not None
-
-        with pytest.raises(IndexError):
-            col.chunk(-1)
-
-        with pytest.raises(IndexError):
-            col.chunk(col.num_chunks)
 
     assert table.columns == columns
-    assert table == pa.table(columns, names=table.column_names)
-    assert table != pa.table(columns[1:], names=table.column_names[1:])
+    assert table == cls.from_arrays(columns, names=table.column_names)
+    assert table != cls.from_arrays(columns[1:], names=table.column_names[1:])
     assert table != columns
+
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+    table = cls.from_arrays(data, schema=schema)
+    assert table.schema == schema
 
     wr = weakref.ref(table)
     assert wr() is not None
@@ -1251,60 +1587,81 @@ def test_table_column_with_duplicates():
         table.column('a')
 
 
-def test_table_add_column():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_add_column(cls):
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
         pa.array(range(5, 10))
     ]
-    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+    table = cls.from_arrays(data, names=('a', 'b', 'c'))
 
     new_field = pa.field('d', data[1].type)
     t2 = table.add_column(3, new_field, data[1])
     t3 = table.append_column(new_field, data[1])
 
-    expected = pa.Table.from_arrays(data + [data[1]],
-                                    names=('a', 'b', 'c', 'd'))
+    expected = cls.from_arrays(data + [data[1]],
+                               names=('a', 'b', 'c', 'd'))
     assert t2.equals(expected)
     assert t3.equals(expected)
 
     t4 = table.add_column(0, new_field, data[1])
-    expected = pa.Table.from_arrays([data[1]] + data,
-                                    names=('d', 'a', 'b', 'c'))
+    expected = cls.from_arrays([data[1]] + data,
+                               names=('d', 'a', 'b', 'c'))
     assert t4.equals(expected)
 
 
-def test_table_set_column():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_set_column(cls):
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
         pa.array(range(5, 10))
     ]
-    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+    table = cls.from_arrays(data, names=('a', 'b', 'c'))
 
     new_field = pa.field('d', data[1].type)
     t2 = table.set_column(0, new_field, data[1])
 
     expected_data = list(data)
     expected_data[0] = data[1]
-    expected = pa.Table.from_arrays(expected_data,
-                                    names=('d', 'b', 'c'))
+    expected = cls.from_arrays(expected_data,
+                               names=('d', 'b', 'c'))
     assert t2.equals(expected)
 
 
-def test_table_drop_columns():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_drop_columns(cls):
     """ drop one or more columns given labels"""
     a = pa.array(range(5))
     b = pa.array([-10, -5, 0, 5, 10])
     c = pa.array(range(5, 10))
 
-    table = pa.Table.from_arrays([a, b, c], names=('a', 'b', 'c'))
+    table = cls.from_arrays([a, b, c], names=('a', 'b', 'c'))
     t2 = table.drop_columns(['a', 'b'])
     t3 = table.drop_columns('a')
 
-    exp_t2 = pa.Table.from_arrays([c], names=('c',))
+    exp_t2 = cls.from_arrays([c], names=('c',))
     assert exp_t2.equals(t2)
-    exp_t3 = pa.Table.from_arrays([b, c], names=('b', 'c',))
+    exp_t3 = cls.from_arrays([b, c], names=('b', 'c',))
     assert exp_t3.equals(t3)
 
     # -- raise KeyError if column not in Table
@@ -1332,26 +1689,40 @@ def test_table_drop():
         table.drop(['d'])
 
 
-def test_table_remove_column():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_remove_column(cls):
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
         pa.array(range(5, 10))
     ]
-    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+    table = cls.from_arrays(data, names=('a', 'b', 'c'))
 
     t2 = table.remove_column(0)
     t2.validate()
-    expected = pa.Table.from_arrays(data[1:], names=('b', 'c'))
+    expected = cls.from_arrays(data[1:], names=('b', 'c'))
     assert t2.equals(expected)
 
 
-def test_table_remove_column_empty():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_remove_column_empty(cls):
     # ARROW-1865
     data = [
         pa.array(range(5)),
     ]
-    table = pa.Table.from_arrays(data, names=['a'])
+    table = cls.from_arrays(data, names=['a'])
 
     t2 = table.remove_column(0)
     t2.validate()
@@ -1379,21 +1750,72 @@ def test_empty_table():
     assert table.equals(pa.Table.from_arrays([], []))
 
 
-def test_table_rename_columns():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_rename_columns(cls):
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
         pa.array(range(5, 10))
     ]
-    table = pa.Table.from_arrays(data, names=['a', 'b', 'c'])
+    table = cls.from_arrays(data, names=['a', 'b', 'c'])
     assert table.column_names == ['a', 'b', 'c']
 
+    expected = cls.from_arrays(data, names=['eh', 'bee', 'sea'])
+
+    # Testing with list
     t2 = table.rename_columns(['eh', 'bee', 'sea'])
     t2.validate()
     assert t2.column_names == ['eh', 'bee', 'sea']
-
-    expected = pa.Table.from_arrays(data, names=['eh', 'bee', 'sea'])
     assert t2.equals(expected)
+
+    # Testing with tuple
+    t3 = table.rename_columns(('eh', 'bee', 'sea'))
+    t3.validate()
+    assert t3.column_names == ['eh', 'bee', 'sea']
+    assert t3.equals(expected)
+
+    message = "names must be a list or dict not <class 'str'>"
+    with pytest.raises(TypeError, match=message):
+        table.rename_columns('not a list')
+
+
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_rename_columns_mapping(cls):
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = cls.from_arrays(data, names=['a', 'b', 'c'])
+    assert table.column_names == ['a', 'b', 'c']
+
+    expected = cls.from_arrays(data, names=['eh', 'b', 'sea'])
+    t1 = table.rename_columns({'a': 'eh', 'c': 'sea'})
+    t1.validate()
+    assert t1 == expected
+
+    # Test renaming duplicate column names
+    table = cls.from_arrays(data, names=['a', 'a', 'c'])
+    expected = cls.from_arrays(data, names=['eh', 'eh', 'sea'])
+    t2 = table.rename_columns({'a': 'eh', 'c': 'sea'})
+    t2.validate()
+    assert t2 == expected
+
+    # Test column not found
+    with pytest.raises(KeyError, match=r"Column 'd' not found"):
+        table.rename_columns({'a': 'eh', 'd': 'sea'})
 
 
 def test_table_flatten():
@@ -1615,12 +2037,62 @@ def test_table_negative_indexing():
         table[4]
 
 
-def test_table_cast_to_incompatible_schema():
+def test_concat_batches():
+    data = [
+        list(range(5)),
+        [-10., -5., 0., 5., 10.]
+    ]
+    data2 = [
+        list(range(5, 10)),
+        [1., 2., 3., 4., 5.]
+    ]
+
+    t1 = pa.RecordBatch.from_arrays([pa.array(x) for x in data],
+                                    names=('a', 'b'))
+    t2 = pa.RecordBatch.from_arrays([pa.array(x) for x in data2],
+                                    names=('a', 'b'))
+
+    result = pa.concat_batches([t1, t2])
+    result.validate()
+    assert len(result) == 10
+
+    expected = pa.RecordBatch.from_arrays([pa.array(x + y)
+                                           for x, y in zip(data, data2)],
+                                          names=('a', 'b'))
+
+    assert result.equals(expected)
+
+
+def test_concat_batches_different_schema():
+    t1 = pa.RecordBatch.from_arrays(
+        [pa.array([1, 2], type=pa.int64())], ["f"])
+    t2 = pa.RecordBatch.from_arrays(
+        [pa.array([1, 2], type=pa.float32())], ["f"])
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match="not match index 0 recordbatch schema"):
+        pa.concat_batches([t1, t2])
+
+
+def test_concat_batches_none_batches():
+    # ARROW-11997
+    with pytest.raises(AttributeError):
+        pa.concat_batches([None])
+
+
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_cast_to_incompatible_schema(cls):
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
     ]
-    table = pa.Table.from_arrays(data, names=tuple('ab'))
+    table = cls.from_arrays(data, names=tuple('ab'))
 
     target_schema1 = pa.schema([
         pa.field('A', pa.int32()),
@@ -1629,22 +2101,35 @@ def test_table_cast_to_incompatible_schema():
     target_schema2 = pa.schema([
         pa.field('a', pa.int32()),
     ])
-    message = ("Target schema's field names are not matching the table's "
-               "field names:.*")
+
+    if cls is pa.Table:
+        cls_name = 'table'
+    else:
+        cls_name = 'record batch'
+    message = ("Target schema's field names are not matching the "
+               f"{cls_name}'s field names:.*")
+
     with pytest.raises(ValueError, match=message):
         table.cast(target_schema1)
     with pytest.raises(ValueError, match=message):
         table.cast(target_schema2)
 
 
-def test_table_safe_casting():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_safe_casting(cls):
     data = [
         pa.array(range(5), type=pa.int64()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
         pa.array([1.0, 2.0, 3.0, 4.0, 5.0], type=pa.float64()),
         pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
-    table = pa.Table.from_arrays(data, names=tuple('abcd'))
+    table = cls.from_arrays(data, names=tuple('abcd'))
 
     expected_data = [
         pa.array(range(5), type=pa.int32()),
@@ -1652,7 +2137,7 @@ def test_table_safe_casting():
         pa.array([1, 2, 3, 4, 5], type=pa.int64()),
         pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
-    expected_table = pa.Table.from_arrays(expected_data, names=tuple('abcd'))
+    expected_table = cls.from_arrays(expected_data, names=tuple('abcd'))
 
     target_schema = pa.schema([
         pa.field('a', pa.int32()),
@@ -1665,14 +2150,21 @@ def test_table_safe_casting():
     assert casted_table.equals(expected_table)
 
 
-def test_table_unsafe_casting():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_unsafe_casting(cls):
     data = [
         pa.array(range(5), type=pa.int64()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
         pa.array([1.1, 2.2, 3.3, 4.4, 5.5], type=pa.float64()),
         pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
-    table = pa.Table.from_arrays(data, names=tuple('abcd'))
+    table = cls.from_arrays(data, names=tuple('abcd'))
 
     expected_data = [
         pa.array(range(5), type=pa.int32()),
@@ -1680,7 +2172,7 @@ def test_table_unsafe_casting():
         pa.array([1, 2, 3, 4, 5], type=pa.int64()),
         pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
-    expected_table = pa.Table.from_arrays(expected_data, names=tuple('abcd'))
+    expected_table = cls.from_arrays(expected_data, names=tuple('abcd'))
 
     target_schema = pa.schema([
         pa.field('a', pa.int32()),
@@ -1696,6 +2188,7 @@ def test_table_unsafe_casting():
     assert casted_table.equals(expected_table)
 
 
+@pytest.mark.numpy
 def test_invalid_table_construct():
     array = np.array([0, 1], dtype=np.uint8)
     u8 = pa.uint8()
@@ -2127,6 +2620,67 @@ c0: [[1,2,3,4,1,...,4,1,2,3,4]]
 c1: [[10,20,30,40,10,...,40,10,20,30,40]]"""
 
 
+def test_record_batch_repr_to_string():
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+
+    batch = pa.record_batch([pa.array([1, 2, 3, 4], type='int16'),
+                             pa.array([10, 20, 30, 40], type='int32')],
+                            schema=schema)
+    assert str(batch) == """pyarrow.RecordBatch
+c0: int16
+c1: int32
+----
+c0: [1,2,3,4]
+c1: [10,20,30,40]"""
+
+    assert batch.to_string(show_metadata=True) == """\
+pyarrow.RecordBatch
+c0: int16
+  -- field metadata --
+  key: 'value'
+c1: int32
+-- schema metadata --
+foo: 'bar'"""
+
+    assert batch.to_string(preview_cols=5) == """\
+pyarrow.RecordBatch
+c0: int16
+c1: int32
+----
+c0: [1,2,3,4]
+c1: [10,20,30,40]"""
+
+    assert batch.to_string(preview_cols=1) == """\
+pyarrow.RecordBatch
+c0: int16
+c1: int32
+----
+c0: [1,2,3,4]
+..."""
+
+
+def test_record_batch_repr_to_string_ellipsis():
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+
+    batch = pa.record_batch([pa.array([1, 2, 3, 4]*10, type='int16'),
+                             pa.array([10, 20, 30, 40]*10, type='int32')],
+                            schema=schema)
+    assert str(batch) == """pyarrow.RecordBatch
+c0: int16
+c1: int32
+----
+c0: [1,2,3,4,1,2,3,4,1,2,...,3,4,1,2,3,4,1,2,3,4]
+c1: [10,20,30,40,10,20,30,40,10,20,...,30,40,10,20,30,40,10,20,30,40]"""
+
+
 def test_table_function_unicode_schema():
     col_a = "äääh"
     col_b = "öööf"
@@ -2491,13 +3045,29 @@ def test_table_join_collisions():
 
 
 @pytest.mark.acero
-def test_table_filter_expression():
+@pytest.mark.parametrize('cls', [(pa.Table), (pa.RecordBatch)])
+def test_table_filter_expression(cls):
+    t1 = cls.from_pydict({
+        "colA": [1, 2, 3, 6],
+        "colB": [10, 20, None, 60],
+        "colVals": ["a", "b", "c", "f"]
+    })
+
+    result = t1.filter(pc.field("colB") < 50)
+    assert result == cls.from_pydict({
+        "colA": [1, 2],
+        "colB": [10, 20],
+        "colVals": ["a", "b"]
+    })
+
+
+@pytest.mark.acero
+def test_table_filter_expression_chunks():
     t1 = pa.table({
         "colA": [1, 2, 6],
         "colB": [10, 20, 60],
         "colVals": ["a", "b", "f"]
     })
-
     t2 = pa.table({
         "colA": [99, 2, 1],
         "colB": [99, 20, 10],
@@ -2553,20 +3123,199 @@ def test_table_join_many_columns():
     })
 
 
-def test_table_cast_invalid():
+@pytest.mark.dataset
+def test_table_join_asof():
+    t1 = pa.Table.from_pydict({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"]
+    })
+
+    t2 = pa.Table.from_pydict({
+        "colB": [2, 9, 15],
+        "col3": ["a", "b", "g"],
+        "colC": [1., 3., 5.]
+    })
+
+    r = t1.join_asof(
+        t2, on="colA", by="col2", tolerance=1,
+        right_on="colB", right_by="col3",
+    )
+    assert r.combine_chunks() == pa.table({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"],
+        "colC": [1., None, None, None, None],
+    })
+
+
+@pytest.mark.dataset
+def test_table_join_asof_multiple_by():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+
+    result = t1.join_asof(
+        t2, on="on", by=["colA", "colB"], tolerance=1
+    )
+    assert result.sort_by("colA") == pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+        "colVals": [None, "B", None],
+    })
+
+
+@pytest.mark.dataset
+def test_table_join_asof_empty_by():
+    t1 = pa.table({
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "on": [2, 3, 4],
+    })
+
+    result = t1.join_asof(
+        t2, on="on", by=[], tolerance=1
+    )
+    assert result == pa.table({
+        "on": [1, 2, 3],
+        "colVals": ["Z", "Z", "B"],
+    })
+
+
+@pytest.mark.dataset
+def test_table_join_asof_collisions():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+        "colVals": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+
+    msg = (
+        "Columns {'colVals'} present in both tables. "
+        "AsofJoin does not support column collisions."
+    )
+    with pytest.raises(ValueError, match=msg):
+        t1.join_asof(
+            t2, on="on", by=["colA", "colB"], tolerance=1,
+            right_on="on", right_by=["colA", "colB"],
+        )
+
+
+@pytest.mark.dataset
+def test_table_join_asof_by_length_mismatch():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+
+    msg = "inconsistent size of by-key across inputs"
+    with pytest.raises(pa.lib.ArrowInvalid, match=msg):
+        t1.join_asof(
+            t2, on="on", by=["colA", "colB"], tolerance=1,
+            right_on="on", right_by=["colA"],
+        )
+
+
+@pytest.mark.dataset
+def test_table_join_asof_by_type_mismatch():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99., 2., 1.],
+        "on": [2, 3, 4],
+    })
+
+    msg = "Expected by-key type int64 but got double for field colA in input 1"
+    with pytest.raises(pa.lib.ArrowInvalid, match=msg):
+        t1.join_asof(
+            t2, on="on", by=["colA"], tolerance=1,
+            right_on="on", right_by=["colA"],
+        )
+
+
+@pytest.mark.dataset
+def test_table_join_asof_on_type_mismatch():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
+        "on": [2., 3., 4.],
+    })
+
+    msg = "Expected on-key type int64 but got double for field on in input 1"
+    with pytest.raises(pa.lib.ArrowInvalid, match=msg):
+        t1.join_asof(
+            t2, on="on", by=["colA"], tolerance=1,
+            right_on="on", right_by=["colA"],
+        )
+
+
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_cast_invalid(cls):
     # Casting a nullable field to non-nullable should be invalid!
-    table = pa.table({'a': [None, 1], 'b': [None, True]})
+    table = cls.from_pydict({'a': [None, 1], 'b': [None, True]})
     new_schema = pa.schema([pa.field("a", "int64", nullable=True),
                             pa.field("b", "bool", nullable=False)])
     with pytest.raises(ValueError):
         table.cast(new_schema)
 
-    table = pa.table({'a': [None, 1], 'b': [False, True]})
+    table = cls.from_pydict({'a': [None, 1], 'b': [False, True]})
     assert table.cast(new_schema).schema == new_schema
 
 
-def test_table_sort_by():
-    table = pa.table([
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_sort_by(cls):
+    table = cls.from_arrays([
         pa.array([3, 1, 4, 2, 5]),
         pa.array(["b", "a", "b", "a", "c"]),
     ], names=["values", "keys"])
@@ -2581,7 +3330,7 @@ def test_table_sort_by():
         "values": [5, 4, 3, 2, 1]
     }
 
-    tab = pa.Table.from_arrays([
+    tab = cls.from_arrays([
         pa.array([5, 7, 7, 35], type=pa.int64()),
         pa.array(["foo", "car", "bar", "foobar"])
     ], names=["a", "b"])
@@ -2597,26 +3346,7 @@ def test_table_sort_by():
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
 
 
-def test_record_batch_sort():
-    rb = pa.RecordBatch.from_arrays([
-        pa.array([7, 35, 7, 5], type=pa.int64()),
-        pa.array([4, 1, 3, 2], type=pa.int64()),
-        pa.array(["foo", "car", "bar", "foobar"])
-    ], names=["a", "b", "c"])
-
-    sorted_rb = rb.sort_by([("a", "descending"), ("b", "descending")])
-    sorted_rb_dict = sorted_rb.to_pydict()
-    assert sorted_rb_dict["a"] == [35, 7, 7, 5]
-    assert sorted_rb_dict["b"] == [1, 4, 3, 2]
-    assert sorted_rb_dict["c"] == ["car", "foo", "bar", "foobar"]
-
-    sorted_rb = rb.sort_by([("a", "ascending"), ("b", "ascending")])
-    sorted_rb_dict = sorted_rb.to_pydict()
-    assert sorted_rb_dict["a"] == [5, 7, 7, 35]
-    assert sorted_rb_dict["b"] == [2, 3, 4, 1]
-    assert sorted_rb_dict["c"] == ["foobar", "bar", "foo", "car"]
-
-
+@pytest.mark.numpy
 @pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
 def test_numpy_asarray(constructor):
     table = constructor([[1, 2, 3], [4.0, 5.0, 6.0]], names=["a", "b"])
@@ -2649,6 +3379,22 @@ def test_numpy_asarray(constructor):
     assert result.dtype == "int32"
 
 
+@pytest.mark.numpy
+@pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
+def test_numpy_array_protocol(constructor):
+    table = constructor([[1, 2, 3], [4.0, 5.0, 6.0]], names=["a", "b"])
+    expected = np.array([[1, 4], [2, 5], [3, 6]], dtype="float64")
+
+    if Version(np.__version__) < Version("2.0.0.dev0"):
+        # copy keyword is not strict and not passed down to __array__
+        result = np.array(table, copy=False)
+        np.testing.assert_array_equal(result, expected)
+    else:
+        # starting with numpy 2.0, the copy=False keyword is assumed to be strict
+        with pytest.raises(ValueError, match="Unable to avoid a copy"):
+            np.array(table, copy=False)
+
+
 @pytest.mark.acero
 def test_invalid_non_join_column():
     NUM_ITEMS = 30
@@ -2672,3 +3418,587 @@ def test_invalid_non_join_column():
     with pytest.raises(pa.lib.ArrowInvalid) as excinfo:
         t2.join(t1, 'id', join_type='inner')
     assert exp_error_msg in str(excinfo.value)
+
+
+@pytest.fixture
+def cuda_context():
+    cuda = pytest.importorskip("pyarrow.cuda")
+    return cuda.Context(0)
+
+
+@pytest.fixture
+def schema():
+    return pa.schema([pa.field('c0', pa.int32()), pa.field('c1', pa.int32())])
+
+
+@pytest.fixture
+def cpu_arrays(schema):
+    return [pa.array([1, 2, 3, 4, 5], schema.field(0).type),
+            pa.array([-10, -5, 0, None, 10], schema.field(1).type)]
+
+
+@pytest.fixture
+def cuda_arrays(cuda_context, cpu_arrays):
+    return [arr.copy_to(cuda_context.memory_manager) for arr in cpu_arrays]
+
+
+@pytest.fixture
+def cpu_chunked_array(cpu_arrays):
+    chunked_array = pa.chunked_array(cpu_arrays)
+    assert chunked_array.is_cpu is True
+    return chunked_array
+
+
+@pytest.fixture
+def cuda_chunked_array(cuda_arrays):
+    chunked_array = pa.chunked_array(cuda_arrays)
+    assert chunked_array.is_cpu is False
+    return chunked_array
+
+
+@pytest.fixture
+def cpu_and_cuda_chunked_array(cpu_arrays, cuda_arrays):
+    chunked_array = pa.chunked_array(cpu_arrays + cuda_arrays)
+    assert chunked_array.is_cpu is False
+    return chunked_array
+
+
+@pytest.fixture
+def cpu_recordbatch(cpu_arrays, schema):
+    return pa.record_batch(cpu_arrays, schema=schema)
+
+
+@pytest.fixture
+def cuda_recordbatch(cuda_context, cpu_recordbatch):
+    return cpu_recordbatch.copy_to(cuda_context.memory_manager)
+
+
+@pytest.fixture
+def cpu_table(schema, cpu_chunked_array):
+    return pa.table([cpu_chunked_array, cpu_chunked_array], schema=schema)
+
+
+@pytest.fixture
+def cuda_table(schema, cuda_chunked_array):
+    return pa.table([cuda_chunked_array, cuda_chunked_array], schema=schema)
+
+
+@pytest.fixture
+def cpu_and_cuda_table(schema, cpu_chunked_array, cuda_chunked_array):
+    return pa.table([cpu_chunked_array, cuda_chunked_array], schema=schema)
+
+
+def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_array,
+                               cpu_and_cuda_chunked_array):
+    # type test
+    assert cuda_chunked_array.type == cpu_chunked_array.type
+
+    # length() test
+    assert cuda_chunked_array.length() == cpu_chunked_array.length()
+
+    # str() test
+    assert str(cuda_chunked_array) == str(cpu_chunked_array)
+
+    # repr() test
+    assert str(cuda_chunked_array) in repr(cuda_chunked_array)
+
+    # validate() test
+    cuda_chunked_array.validate()
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.validate(full=True)
+
+    # null_count test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.null_count
+
+    # nbytes() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.nbytes
+
+    # get_total_buffer_size() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.get_total_buffer_size()
+
+    # getitem() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array[0]
+
+    # is_null() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.is_null()
+
+    # is_nan() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.is_nan()
+
+    # is_valid() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.is_valid()
+
+    # fill_null() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.fill_null(0)
+
+    # equals() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array == cuda_chunked_array
+
+    # to_pandas() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.to_pandas()
+
+    # to_numpy() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.to_numpy()
+
+    # __array__() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.__array__()
+
+    # cast() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.cast()
+
+    # dictionary_encode() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.dictionary_encode()
+
+    # flatten() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.flatten()
+
+    # combine_chunks() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.combine_chunks()
+
+    # unique() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.unique()
+
+    # value_counts() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.value_counts()
+
+    # filter() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.filter([True, False, True, False, True])
+
+    # index() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.index(5)
+
+    # slice() test
+    cuda_chunked_array.slice(2, 2)
+
+    # take() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.take([1])
+
+    # drop_null() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.drop_null()
+
+    # sort() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.sort()
+
+    # unify_dictionaries() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.unify_dictionaries()
+
+    # num_chunks test
+    assert cuda_chunked_array.num_chunks == cpu_chunked_array.num_chunks
+
+    # chunks test
+    assert len(cuda_chunked_array.chunks) == len(cpu_chunked_array.chunks)
+
+    # chunk() test
+    chunk = cuda_chunked_array.chunk(0)
+    assert chunk.device_type == pa.DeviceAllocationType.CUDA
+
+    # to_pylist() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.to_pylist()
+
+    # __arrow_c_stream__() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.__arrow_c_stream__()
+
+    # __reduce__() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.__reduce__()
+
+
+def verify_cuda_recordbatch(batch, expected_schema):
+    batch.validate()
+    assert batch.device_type == pa.DeviceAllocationType.CUDA
+    assert batch.is_cpu is False
+    assert batch.num_columns == len(expected_schema.names)
+    assert batch.column_names == expected_schema.names
+    assert str(batch) in repr(batch)
+    for c in batch.columns:
+        assert c.device_type == pa.DeviceAllocationType.CUDA
+    assert batch.schema == expected_schema
+
+
+def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
+                             cuda_arrays, schema):
+    verify_cuda_recordbatch(cuda_recordbatch, expected_schema=schema)
+    N = cuda_recordbatch.num_rows
+
+    # shape test
+    assert cuda_recordbatch.shape == (5, 2)
+
+    # columns() test
+    assert len(cuda_recordbatch.columns) == 2
+
+    # add_column(), set_column() test
+    for fn in [cuda_recordbatch.add_column, cuda_recordbatch.set_column]:
+        col = pa.array([-2, -1, 0, 1, 2], pa.int8()
+                       ).copy_to(cuda_context.memory_manager)
+        new_batch = fn(2, 'c2', col)
+        verify_cuda_recordbatch(
+            new_batch, expected_schema=schema.append(pa.field('c2', pa.int8())))
+        err_msg = ("Got column on device <DeviceAllocationType.CPU: 1>, "
+                   "but expected <DeviceAllocationType.CUDA: 2>.")
+        with pytest.raises(TypeError, match=err_msg):
+            fn(2, 'c2', [1] * N)
+
+    # remove_column() test
+    new_batch = cuda_recordbatch.remove_column(1)
+    verify_cuda_recordbatch(new_batch, expected_schema=schema.remove(1))
+
+    # drop_columns() test
+    new_batch = cuda_recordbatch.drop_columns(['c1'])
+    verify_cuda_recordbatch(new_batch, expected_schema=schema.remove(1))
+    empty_batch = cuda_recordbatch.drop_columns(['c0', 'c1'])
+    assert len(empty_batch.columns) == 0
+    assert empty_batch.device_type == pa.DeviceAllocationType.CUDA
+
+    # select() test
+    new_batch = cuda_recordbatch.select(['c0'])
+    verify_cuda_recordbatch(new_batch, expected_schema=schema.remove(1))
+
+    # cast() test
+    new_schema = pa.schema([pa.field('c0', pa.int64()), pa.field('c1', pa.int64())])
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.cast(new_schema)
+
+    # drop_null() test
+    null_col = pa.array([1] * N, mask=[True, False, True, False, True]).copy_to(
+        cuda_context.memory_manager)
+    cuda_recordbatch_with_nulls = cuda_recordbatch.add_column(2, 'c2', null_col)
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch_with_nulls.drop_null()
+
+    # filter() test
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.filter([True] * N)
+
+    # take() test
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.take([0])
+
+    # sort_by() test
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.sort_by('c0')
+
+    # field() test
+    assert cuda_recordbatch.field(0) == schema.field(0)
+    assert cuda_recordbatch.field(1) == schema.field(1)
+
+    # equals() test
+    new_batch = cpu_recordbatch.copy_to(cuda_context.memory_manager)
+    with pytest.raises(NotImplementedError):
+        assert cuda_recordbatch.equals(new_batch) is True
+
+    # from_arrays() test
+    new_batch = pa.RecordBatch.from_arrays(cuda_arrays, ['c0', 'c1'])
+    verify_cuda_recordbatch(new_batch, expected_schema=schema)
+    assert new_batch.copy_to(pa.default_cpu_memory_manager()).equals(cpu_recordbatch)
+
+    # from_pydict() test
+    new_batch = pa.RecordBatch.from_pydict({'c0': cuda_arrays[0], 'c1': cuda_arrays[1]})
+    verify_cuda_recordbatch(new_batch, expected_schema=schema)
+    assert new_batch.copy_to(pa.default_cpu_memory_manager()).equals(cpu_recordbatch)
+
+    # from_struct_array() test
+    fields = [schema.field(i) for i in range(len(schema.names))]
+    struct_array = pa.StructArray.from_arrays(cuda_arrays, fields=fields)
+    with pytest.raises(NotImplementedError):
+        pa.RecordBatch.from_struct_array(struct_array)
+
+    # nbytes test
+    with pytest.raises(NotImplementedError):
+        assert cuda_recordbatch.nbytes
+
+    # get_total_buffer_size() test
+    with pytest.raises(NotImplementedError):
+        assert cuda_recordbatch.get_total_buffer_size()
+
+    # to_pydict() test
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.to_pydict()
+
+    # to_pylist() test
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.to_pylist()
+
+    # to_pandas() test
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.to_pandas()
+
+    # to_tensor() test
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.to_tensor()
+
+    # to_struct_array() test
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.to_struct_array()
+
+    # serialize() test
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.serialize()
+
+    # slice() test
+    new_batch = cuda_recordbatch.slice(1, 3)
+    verify_cuda_recordbatch(new_batch, expected_schema=schema)
+    assert new_batch.num_rows == 3
+    cpu_batch = new_batch.copy_to(pa.default_cpu_memory_manager())
+    assert cpu_batch == cpu_recordbatch.slice(1, 3)
+
+    # replace_schema_metadata() test
+    new_batch = cuda_recordbatch.replace_schema_metadata({b'key': b'value'})
+    verify_cuda_recordbatch(new_batch, expected_schema=schema)
+    assert new_batch.schema.metadata == {b'key': b'value'}
+
+    # rename_columns() test
+    new_batch = cuda_recordbatch.rename_columns(['col0', 'col1'])
+    expected_schema = pa.schema(
+        [pa.field('col0', schema.field(0).type),
+         pa.field('col1', schema.field(1).type)])
+    verify_cuda_recordbatch(new_batch, expected_schema=expected_schema)
+
+    # validate() test
+    cuda_recordbatch.validate()
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.validate(full=True)
+
+    # __array__() test
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.__array__()
+
+    # __arrow_c_array__() test
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.__arrow_c_array__()
+
+    # __arrow_c_stream__() test
+    with pytest.raises(NotImplementedError):
+        cuda_recordbatch.__arrow_c_stream__()
+
+    # __dataframe__() test
+    with pytest.raises(NotImplementedError):
+        from_dataframe(cuda_recordbatch.__dataframe__())
+
+
+def verify_cuda_table(table, expected_schema):
+    table.validate()
+    assert table.is_cpu is False
+    assert table.num_columns == len(expected_schema.names)
+    assert table.column_names == expected_schema.names
+    assert str(table) in repr(table)
+    for c in table.columns:
+        assert c.is_cpu is False
+        for chunk in c.iterchunks():
+            assert chunk.is_cpu is False
+            assert chunk.device_type == pa.DeviceAllocationType.CUDA
+    assert table.schema == expected_schema
+
+
+def test_table_non_cpu(cuda_context, cpu_table, cuda_table,
+                       cuda_arrays, cuda_recordbatch, schema):
+    verify_cuda_table(cuda_table, expected_schema=schema)
+    N = cuda_table.num_rows
+
+    # shape test
+    assert cuda_table.shape == (10, 2)
+
+    # columns() test
+    assert len(cuda_table.columns) == 2
+
+    # add_column(), set_column() test
+    for fn in [cuda_table.add_column, cuda_table.set_column]:
+        cpu_col = pa.array([1] * N, pa.int8())
+        cuda_col = cpu_col.copy_to(cuda_context.memory_manager)
+        new_table = fn(2, 'c2', cuda_col)
+        verify_cuda_table(new_table, expected_schema=schema.append(
+            pa.field('c2', pa.int8())))
+        new_table = fn(2, 'c2', cpu_col)
+        assert new_table.is_cpu is False
+        assert new_table.column(0).is_cpu is False
+        assert new_table.column(1).is_cpu is False
+        assert new_table.column(2).is_cpu is True
+
+    # remove_column() test
+    new_table = cuda_table.remove_column(1)
+    verify_cuda_table(new_table, expected_schema=schema.remove(1))
+
+    # drop_columns() test
+    new_table = cuda_table.drop_columns(['c1'])
+    verify_cuda_table(new_table, expected_schema=schema.remove(1))
+    new_table = cuda_table.drop_columns(['c0', 'c1'])
+    assert len(new_table.columns) == 0
+    assert new_table.is_cpu
+
+    # select() test
+    new_table = cuda_table.select(['c0'])
+    verify_cuda_table(new_table, expected_schema=schema.remove(1))
+
+    # cast() test
+    new_schema = pa.schema([pa.field('c0', pa.int64()), pa.field('c1', pa.int64())])
+    with pytest.raises(NotImplementedError):
+        cuda_table.cast(new_schema)
+
+    # drop_null() test
+    null_col = pa.array([1] * N, mask=[True] * N).copy_to(cuda_context.memory_manager)
+    cuda_table_with_nulls = cuda_table.add_column(2, 'c2', null_col)
+    with pytest.raises(NotImplementedError):
+        cuda_table_with_nulls.drop_null()
+
+    # filter() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.filter([True] * N)
+
+    # take() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.take([0])
+
+    # sort_by() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.sort_by('c0')
+
+    # field() test
+    assert cuda_table.field(0) == schema.field(0)
+    assert cuda_table.field(1) == schema.field(1)
+
+    # equals() test
+    with pytest.raises(NotImplementedError):
+        assert cuda_table.equals(cpu_table)
+
+    # from_arrays() test
+    new_table = pa.Table.from_arrays(cuda_arrays, ['c0', 'c1'])
+    verify_cuda_table(new_table, expected_schema=schema)
+
+    # from_pydict() test
+    new_table = pa.Table.from_pydict({'c0': cuda_arrays[0], 'c1': cuda_arrays[1]})
+    verify_cuda_table(new_table, expected_schema=schema)
+
+    # from_struct_array() test
+    fields = [schema.field(i) for i in range(len(schema.names))]
+    struct_array = pa.StructArray.from_arrays(cuda_arrays, fields=fields)
+    with pytest.raises(NotImplementedError):
+        pa.Table.from_struct_array(struct_array)
+
+    # from_batches() test
+    new_table = pa.Table.from_batches([cuda_recordbatch, cuda_recordbatch], schema)
+    verify_cuda_table(new_table, expected_schema=schema)
+
+    # nbytes test
+    with pytest.raises(NotImplementedError):
+        assert cuda_table.nbytes
+
+    # get_total_buffer_size() test
+    with pytest.raises(NotImplementedError):
+        assert cuda_table.get_total_buffer_size()
+
+    # to_pydict() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.to_pydict()
+
+    # to_pylist() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.to_pylist()
+
+    # to_pandas() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.to_pandas()
+
+    # to_struct_array() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.to_struct_array()
+
+    # to_batches() test
+    batches = cuda_table.to_batches(max_chunksize=5)
+    for batch in batches:
+        # GH-44049
+        with pytest.raises(AssertionError):
+            verify_cuda_recordbatch(batch, expected_schema=schema)
+
+    # to_reader() test
+    reader = cuda_table.to_reader(max_chunksize=5)
+    for batch in reader:
+        # GH-44049
+        with pytest.raises(AssertionError):
+            verify_cuda_recordbatch(batch, expected_schema=schema)
+
+    # slice() test
+    new_table = cuda_table.slice(1, 3)
+    verify_cuda_table(new_table, expected_schema=schema)
+    assert new_table.num_rows == 3
+
+    # replace_schema_metadata() test
+    new_table = cuda_table.replace_schema_metadata({b'key': b'value'})
+    verify_cuda_table(new_table, expected_schema=schema)
+    assert new_table.schema.metadata == {b'key': b'value'}
+
+    # rename_columns() test
+    new_table = cuda_table.rename_columns(['col0', 'col1'])
+    expected_schema = pa.schema(
+        [pa.field('col0', schema.field(0).type),
+         pa.field('col1', schema.field(1).type)])
+    verify_cuda_table(new_table, expected_schema=expected_schema)
+
+    # validate() test
+    cuda_table.validate()
+    with pytest.raises(NotImplementedError):
+        cuda_table.validate(full=True)
+
+    # flatten() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.flatten()
+
+    # combine_chunks() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.flatten()
+
+    # unify_dictionaries() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.unify_dictionaries()
+
+    # group_by() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.group_by('c0')
+
+    # join() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.join(cuda_table, 'c0')
+
+    # join_asof() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.join_asof(cuda_table, 'c0', 'c0', 0)
+
+    # __array__() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.__array__()
+
+    # __arrow_c_stream__() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.__arrow_c_stream__()
+
+    # __dataframe__() test
+    with pytest.raises(NotImplementedError):
+        from_dataframe(cuda_table.__dataframe__())
+
+    # __reduce__() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.__reduce__()

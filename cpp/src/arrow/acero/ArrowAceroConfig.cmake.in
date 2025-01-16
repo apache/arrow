@@ -28,7 +28,6 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
-find_dependency(Parquet)
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowAceroTargets.cmake")
 

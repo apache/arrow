@@ -21,6 +21,7 @@ import sys
 import click
 
 from ..utils.cli import validate_arrow_sources
+from ..utils.logger import group
 from .core import DockerCompose, UndefinedImage
 
 
@@ -28,17 +29,17 @@ def _mock_compose_calls(compose):
     from types import MethodType
     from subprocess import CompletedProcess
 
-    def _mock(compose, executable):
+    def _mock(compose, command_tuple):
         def _execute(self, *args, **kwargs):
-            params = ['{}={}'.format(k, v)
+            params = [f'{k}={v}'
                       for k, v in self.config.params.items()]
-            command = ' '.join(params + [executable] + list(args))
+            command = ' '.join(params + command_tuple + args)
             click.echo(command)
             return CompletedProcess([], 0)
         return MethodType(_execute, compose)
 
-    compose._execute_docker = _mock(compose, executable='docker')
-    compose._execute_compose = _mock(compose, executable='docker-compose')
+    compose._execute_docker = _mock(compose, command_tuple=('docker',))
+    compose._execute_compose = _mock(compose, command_tuple=('docker', 'compose'))
 
 
 @click.group()
@@ -46,12 +47,27 @@ def _mock_compose_calls(compose):
               callback=validate_arrow_sources,
               help="Specify Arrow source directory.")
 @click.option('--dry-run/--execute', default=False,
-              help="Display the docker-compose commands instead of executing "
-                   "them.")
+              help="Display the docker commands instead of executing them.")
+@click.option('--using-legacy-docker-compose', default=False, is_flag=True,
+              envvar='ARCHERY_USE_LEGACY_DOCKER_COMPOSE',
+              help="Use legacy docker-compose utility instead of the built-in "
+                   "`docker compose` subcommand. This may be necessary if the "
+                   "Docker client is too old for some options.")
+@click.option('--using-docker-cli', default=False, is_flag=True,
+              envvar='ARCHERY_USE_DOCKER_CLI',
+              help="Use docker CLI directly for building instead of calling "
+                   "`docker compose`. This may help to reuse cached layers.")
+@click.option('--using-docker-buildx', default=False, is_flag=True,
+              envvar='ARCHERY_USE_DOCKER_BUILDX',
+              help="Use buildx with docker CLI directly for building instead "
+                   "of calling `docker compose` or the plain docker build "
+                   "command. This option makes the build cache reusable "
+                   "across hosts.")
 @click.pass_context
-def docker(ctx, src, dry_run):
+def docker(ctx, src, dry_run, using_legacy_docker_compose, using_docker_cli,
+           using_docker_buildx):
     """
-    Interact with docker-compose based builds.
+    Interact with Docker Compose based builds.
     """
     ctx.ensure_object(dict)
 
@@ -62,9 +78,17 @@ def docker(ctx, src, dry_run):
             "try to pass the arrow source directory explicitly.".format(src)
         )
 
-    # take the docker-compose parameters like PYTHON, PANDAS, UBUNTU from the
-    # environment variables to keep the usage similar to docker-compose
-    compose = DockerCompose(config_path, params=os.environ)
+    # take the Docker Compose parameters like PYTHON, PANDAS, UBUNTU from the
+    # environment variables to keep the usage similar to docker compose
+    using_docker_cli |= using_docker_buildx
+    compose_bin = ("docker-compose" if using_legacy_docker_compose
+                   else "docker compose")
+    with group("Docker: Prepare"):
+        compose = DockerCompose(config_path, params=os.environ,
+                                using_docker=using_docker_cli,
+                                using_buildx=using_docker_buildx,
+                                debug=ctx.obj.get('debug', False),
+                                compose_bin=compose_bin)
     if dry_run:
         _mock_compose_calls(compose)
     ctx.obj['compose'] = compose
@@ -74,7 +98,7 @@ def docker(ctx, src, dry_run):
 @click.pass_obj
 def check_config(obj):
     """
-    Validate docker-compose configuration.
+    Validate Docker Compose configuration.
     """
     # executes the body of the docker function above which does the validation
     # during the configuration loading
@@ -82,24 +106,19 @@ def check_config(obj):
 
 @docker.command('pull')
 @click.argument('image')
-@click.option('--using-docker-cli', default=False, is_flag=True,
-              envvar='ARCHERY_USE_DOCKER_CLI',
-              help="Use docker CLI directly for pulling instead of calling "
-                   "docker-compose. This may help to reuse cached layers.")
 @click.option('--pull-leaf/--no-leaf', default=True,
               help="Whether to pull leaf images too.")
 @click.option('--ignore-pull-failures/--no-ignore-pull-failures', default=True,
               help="Whether to ignore pull failures.")
 @click.pass_obj
-def docker_pull(obj, image, *, using_docker_cli, pull_leaf,
-                ignore_pull_failures):
+def docker_pull(obj, image, *, pull_leaf, ignore_pull_failures):
     """
-    Execute docker-compose pull.
+    Execute docker compose pull.
     """
     compose = obj['compose']
 
     try:
-        compose.pull(image, pull_leaf=pull_leaf, using_docker=using_docker_cli,
+        compose.pull(image, pull_leaf=pull_leaf,
                      ignore_pull_failures=ignore_pull_failures)
     except UndefinedImage as e:
         raise click.ClickException(
@@ -114,16 +133,6 @@ def docker_pull(obj, image, *, using_docker_cli, pull_leaf,
 @click.argument('image')
 @click.option('--force-pull/--no-pull', default=True,
               help="Whether to force pull the image and its ancestor images")
-@click.option('--using-docker-cli', default=False, is_flag=True,
-              envvar='ARCHERY_USE_DOCKER_CLI',
-              help="Use docker CLI directly for building instead of calling "
-                   "docker-compose. This may help to reuse cached layers.")
-@click.option('--using-docker-buildx', default=False, is_flag=True,
-              envvar='ARCHERY_USE_DOCKER_BUILDX',
-              help="Use buildx with docker CLI directly for building instead "
-                   "of calling docker-compose or the plain docker build "
-                   "command. This option makes the build cache reusable "
-                   "across hosts.")
 @click.option('--use-cache/--no-cache', default=True,
               help="Whether to use cache when building the image and its "
                    "ancestor images")
@@ -132,22 +141,17 @@ def docker_pull(obj, image, *, using_docker_cli, pull_leaf,
                    "passed as the argument. To disable caching for both the "
                    "image and its ancestors use --no-cache option.")
 @click.pass_obj
-def docker_build(obj, image, *, force_pull, using_docker_cli,
-                 using_docker_buildx, use_cache, use_leaf_cache):
+def docker_build(obj, image, *, force_pull, use_cache, use_leaf_cache):
     """
-    Execute docker-compose builds.
+    Execute Docker Compose builds.
     """
     compose = obj['compose']
 
-    using_docker_cli |= using_docker_buildx
     try:
         if force_pull:
-            compose.pull(image, pull_leaf=use_leaf_cache,
-                         using_docker=using_docker_cli)
+            compose.pull(image, pull_leaf=use_leaf_cache)
         compose.build(image, use_cache=use_cache,
                       use_leaf_cache=use_leaf_cache,
-                      using_docker=using_docker_cli,
-                      using_buildx=using_docker_buildx,
                       pull_parents=force_pull)
     except UndefinedImage as e:
         raise click.ClickException(
@@ -171,16 +175,6 @@ def docker_build(obj, image, *, force_pull, using_docker_cli,
               help="Whether to force build the image and its ancestor images")
 @click.option('--build-only', default=False, is_flag=True,
               help="Pull and/or build the image, but do not run it")
-@click.option('--using-docker-cli', default=False, is_flag=True,
-              envvar='ARCHERY_USE_DOCKER_CLI',
-              help="Use docker CLI directly for building instead of calling "
-                   "docker-compose. This may help to reuse cached layers.")
-@click.option('--using-docker-buildx', default=False, is_flag=True,
-              envvar='ARCHERY_USE_DOCKER_BUILDX',
-              help="Use buildx with docker CLI directly for building instead "
-                   "of calling docker-compose or the plain docker build "
-                   "command. This option makes the build cache reusable "
-                   "across hosts.")
 @click.option('--use-cache/--no-cache', default=True,
               help="Whether to use cache when building the image and its "
                    "ancestor images")
@@ -190,7 +184,7 @@ def docker_build(obj, image, *, force_pull, using_docker_cli,
                    "image and its ancestors use --no-cache option.")
 @click.option('--resource-limit', default=None,
               help="A CPU/memory limit preset to mimic CI environments like "
-                   "GitHub Actions. Implies --using-docker-cli. Note that "
+                   "GitHub Actions. Mandates --using-docker-cli. Note that "
                    "exporting ARCHERY_DOCKER_BIN=\"sudo docker\" is likely "
                    "required, unless Docker is configured with cgroups v2 "
                    "(else Docker will silently ignore the limits).")
@@ -198,10 +192,10 @@ def docker_build(obj, image, *, force_pull, using_docker_cli,
               help="Set volume within the container")
 @click.pass_obj
 def docker_run(obj, image, command, *, env, user, force_pull, force_build,
-               build_only, using_docker_cli, using_docker_buildx, use_cache,
-               use_leaf_cache, resource_limit, volume):
+               build_only, use_cache, use_leaf_cache, resource_limit,
+               volume):
     """
-    Execute docker-compose builds.
+    Execute Docker Compose builds.
 
     To see the available builds run `archery docker images`.
 
@@ -213,8 +207,8 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
     # execute the builds but disable the image pulling
     archery docker run --no-cache conda-python
 
-    # pass a docker-compose parameter, like the python version
-    PYTHON=3.8 archery docker run conda-python
+    # pass a Docker Compose parameter, like the python version
+    PYTHON=3.12 archery docker run conda-python
 
     # disable the cache only for the leaf image
     PANDAS=upstream_devel archery docker run --no-leaf-cache \
@@ -233,18 +227,16 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
     archery docker run ubuntu-cpp bash
     """
     compose = obj['compose']
-    using_docker_cli |= using_docker_buildx
 
     env = dict(kv.split('=', 1) for kv in env)
     try:
         if force_pull:
-            compose.pull(image, pull_leaf=use_leaf_cache,
-                         using_docker=using_docker_cli)
+            with group("Docker: Pull"):
+                compose.pull(image, pull_leaf=use_leaf_cache)
         if force_build:
-            compose.build(image, use_cache=use_cache,
-                          use_leaf_cache=use_leaf_cache,
-                          using_docker=using_docker_cli,
-                          using_buildx=using_docker_buildx)
+            with group("Docker: Build"):
+                compose.build(image, use_cache=use_cache,
+                              use_leaf_cache=use_leaf_cache)
         if build_only:
             return
         compose.run(
@@ -252,7 +244,6 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
             command=command,
             env=env,
             user=user,
-            using_docker=using_docker_cli,
             resource_limit=resource_limit,
             volumes=volume
         )
@@ -272,21 +263,17 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
 @click.option('--password', '-p', required=False,
               envvar='ARCHERY_DOCKER_PASSWORD',
               help='Docker repository password')
-@click.option('--using-docker-cli', default=False, is_flag=True,
-              help="Use docker CLI directly for building instead of calling "
-                   "docker-compose. This may help to reuse cached layers.")
 @click.pass_obj
-def docker_compose_push(obj, image, user, password, using_docker_cli):
-    """Push the generated docker-compose image."""
+def docker_compose_push(obj, image, user, password):
+    """Push the generated Docker Compose image."""
     compose = obj['compose']
-    compose.push(image, user=user, password=password,
-                 using_docker=using_docker_cli)
+    compose.push(image, user=user, password=password)
 
 
 @docker.command('images')
 @click.pass_obj
 def docker_compose_images(obj):
-    """List the available docker-compose images."""
+    """List the available Docker Compose images."""
     compose = obj['compose']
     click.echo('Available images:')
     for image in compose.images():
@@ -296,14 +283,14 @@ def docker_compose_images(obj):
 @docker.command('info')
 @click.argument('service_name')
 @click.option('--show', '-s', required=False,
-              help="Show only specific docker-compose key. Examples of keys:"
+              help="Show only specific docker compose key. Examples of keys:"
                    " command, environment, build, dockerfile")
 @click.pass_obj
 def docker_compose_info(obj, service_name, show):
-    """Show docker-compose definition info for service_name.
+    """Show Docker Compose definition info for service_name.
 
-    SERVICE_NAME is the name of the docker service defined on
-    the docker-compose. Look at `archery docker images` output for names.
+    SERVICE_NAME is the name of the docker service defined in
+    docker-compose.yml. Look at `archery docker images` output for names.
     """
     compose = obj['compose']
     try:
@@ -312,6 +299,6 @@ def docker_compose_info(obj, service_name, show):
         click.echo(f'Service name {service_name} could not be found', err=True)
         sys.exit(1)
     else:
-        click.echo(f'Service {service_name} docker-compose config:')
+        click.echo(f'Service {service_name} Docker Compose config:')
         output = "\n".join(compose.info(service, show))
         click.echo(output)

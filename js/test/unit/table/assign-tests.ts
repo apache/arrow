@@ -17,7 +17,7 @@
 
 /* eslint-disable jest/no-standalone-expect */
 
-import { zip } from 'ix/iterable';
+import { zip } from 'ix/Ix.iterable';
 
 import '../../jest-extensions.js';
 import * as generate from '../../generate-test-data.js';

@@ -23,16 +23,19 @@ Specifications
 .. toctree::
    :maxdepth: 2
 
-   Versioning
+   Intro
    Columnar
+   Versioning
+   Changing
    CanonicalExtensions
    Other
    CDataInterface
    CStreamInterface
    CDeviceDataInterface
+   StatisticsSchema
+   DissociatedIPC
    Flight
    FlightSql
    ADBC
-   Changing
    Integration
    Glossary

@@ -24,8 +24,8 @@ import time
 import urllib.request
 
 import pytest
-from pytest_lazyfixture import lazy_fixture
 import hypothesis as h
+
 from ..conftest import groups, defaults
 
 from pyarrow import set_timezone_db_path
@@ -151,7 +151,7 @@ def hdfs_connection():
 
 @pytest.fixture(scope='session')
 def s3_connection():
-    host, port = 'localhost', find_free_port()
+    host, port = '127.0.0.1', find_free_port()
     access_key, secret_key = 'arrow', 'apachearrow'
     return host, port, access_key, secret_key
 
@@ -193,9 +193,9 @@ def retry(attempts=3, delay=1.0, max_delay=None, backoff=1):
 
 @pytest.fixture(scope='session')
 def s3_server(s3_connection, tmpdir_factory):
-    @retry(attempts=5, delay=0.1, backoff=2)
+    @retry(attempts=5, delay=1, backoff=2)
     def minio_server_health_check(address):
-        resp = urllib.request.urlopen(f"http://{address}/minio/health/cluster")
+        resp = urllib.request.urlopen(f"http://{address}/minio/health/live")
         assert resp.getcode() == 200
 
     tmpdir = tmpdir_factory.getbasetemp()
@@ -234,17 +234,16 @@ def s3_server(s3_connection, tmpdir_factory):
 def gcs_server():
     port = find_free_port()
     env = os.environ.copy()
-    args = [sys.executable, '-m', 'testbench', '--port', str(port)]
+    exe = 'storage-testbench'
+    args = [exe, '--port', str(port)]
     proc = None
     try:
-        # check first if testbench module is available
-        import testbench  # noqa:F401
         # start server
         proc = subprocess.Popen(args, env=env)
         # Make sure the server is alive.
         if proc.poll() is not None:
             pytest.skip(f"Command {args} did not start server successfully!")
-    except (ModuleNotFoundError, OSError) as e:
+    except OSError as e:
         pytest.skip(f"Command {args} failed to execute: {e}")
     else:
         yield {
@@ -257,15 +256,49 @@ def gcs_server():
             proc.wait()
 
 
+@pytest.fixture(scope='session')
+def azure_server(tmpdir_factory):
+    port = find_free_port()
+    env = os.environ.copy()
+    tmpdir = tmpdir_factory.getbasetemp()
+    # We only need blob service emulator, not queue or table.
+    args = ['azurite-blob', "--location", tmpdir, "--blobPort", str(port)]
+    # For old Azurite. We can't install the latest Azurite with old
+    # Node.js on old Ubuntu.
+    args += ["--skipApiVersionCheck"]
+    proc = None
+    try:
+        proc = subprocess.Popen(args, env=env)
+        # Make sure the server is alive.
+        if proc.poll() is not None:
+            pytest.skip(f"Command {args} did not start server successfully!")
+    except (ModuleNotFoundError, OSError) as e:
+        pytest.skip(f"Command {args} failed to execute: {e}")
+    else:
+        yield {
+            # Use the standard azurite account_name and account_key.
+            # https://learn.microsoft.com/en-us/azure/storage/common/storage-use-emulator#authorize-with-shared-key-credentials
+            'connection': ('127.0.0.1', port, 'devstoreaccount1',
+                           'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2'
+                           'UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='),
+            'process': proc,
+            'tempdir': tmpdir,
+        }
+    finally:
+        if proc is not None:
+            proc.kill()
+            proc.wait()
+
+
 @pytest.fixture(
     params=[
-        lazy_fixture('builtin_pickle'),
-        lazy_fixture('cloudpickle')
+        'builtin_pickle',
+        'cloudpickle'
     ],
     scope='session'
 )
 def pickle_module(request):
-    return request.param
+    return request.getfixturevalue(request.param)
 
 
 @pytest.fixture(scope='session')

@@ -121,17 +121,29 @@ class Downloader:
             dest_path,
             url,
         ]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-        stdout, stderr = proc.communicate()
-        if proc.returncode != 0:
-            try:
-                # Don't leave possibly partial file around
-                os.remove(dest_path)
-            except IOError:
-                pass
-            raise Exception(f"Downloading {url} failed\n"
-                            f"stdout: {stdout}\nstderr: {stderr}")
+        # Retry subprocess in case it fails with OpenSSL Connection errors
+        # https://issues.apache.org/jira/browse/INFRA-25274
+        for attempt in range(5):
+            if attempt > 0:
+                delay = attempt * 3
+                print(f"Waiting {delay} seconds before retrying {url}")
+                time.sleep(delay)
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+            stdout, stderr = proc.communicate()
+            if proc.returncode != 0:
+                try:
+                    # Don't leave possibly partial file around
+                    os.remove(dest_path)
+                except IOError:
+                    pass
+                if "OpenSSL" not in stderr:
+                    # We assume curl has already retried on other errors.
+                    break
+            else:
+                return
+        raise Exception(f"Downloading {url} failed\n"
+                        f"stdout: {stdout}\nstderr: {stderr}")
 
     def _curl_version(self):
         cmd = ["curl", "--version"]
@@ -158,17 +170,22 @@ class GitHub(Downloader):
             raise ValueError("--tag is required")
         self._repository = repository
         self._tag = tag
+        # use the same name as the gh CLI
+        self._token = os.environ.get("GH_TOKEN")
 
     def get_file_list(self, prefix, filter=None):
         url = (f"https://api.github.com/repos/{self._repository}/"
                f"releases/tags/{self._tag}")
         print("Fetching release from", url)
+        headers = {
+            "Accept": "application/vnd.github+json",
+        }
+        if self._token:
+            headers["Authorization"] = f"Bearer {self._token}"
         request = urllib.request.Request(
             url,
             method="GET",
-            headers={
-                "Accept": "application/vnd.github+json",
-            },
+            headers=headers,
         )
         raw_response = urllib.request.urlopen(request).read().decode()
         response = json.loads(raw_response)

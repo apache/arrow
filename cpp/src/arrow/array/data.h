@@ -24,18 +24,17 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/statistics.h"
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-struct ArrayData;
 
 namespace internal {
 // ----------------------------------------------------------------------
@@ -48,6 +47,7 @@ ARROW_EXPORT bool IsNullRunEndEncoded(const ArrayData& data, int64_t i);
 ARROW_EXPORT bool UnionMayHaveLogicalNulls(const ArrayData& data);
 ARROW_EXPORT bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data);
 ARROW_EXPORT bool DictionaryMayHaveLogicalNulls(const ArrayData& data);
+
 }  // namespace internal
 
 // When slicing, we do not know the null count of the sliced range without
@@ -102,6 +102,11 @@ struct ARROW_EXPORT ArrayData {
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
       : ArrayData(std::move(type), length, null_count, offset) {
     this->buffers = std::move(buffers);
+#ifndef NDEBUG
+    // in debug mode, call the `device_type` function to trigger
+    // the DCHECKs that validate all the buffers are on the same device
+    ARROW_UNUSED(this->device_type());
+#endif
   }
 
   ArrayData(std::shared_ptr<DataType> type, int64_t length,
@@ -111,6 +116,12 @@ struct ARROW_EXPORT ArrayData {
       : ArrayData(std::move(type), length, null_count, offset) {
     this->buffers = std::move(buffers);
     this->child_data = std::move(child_data);
+#ifndef NDEBUG
+    // in debug mode, call the `device_type` function to trigger
+    // the DCHECKs that validate all the buffers (including children)
+    // are on the same device
+    ARROW_UNUSED(this->device_type());
+#endif
   }
 
   static std::shared_ptr<ArrayData> Make(std::shared_ptr<DataType> type, int64_t length,
@@ -139,23 +150,23 @@ struct ARROW_EXPORT ArrayData {
   ArrayData(ArrayData&& other) noexcept
       : type(std::move(other.type)),
         length(other.length),
+        null_count(other.null_count.load()),
         offset(other.offset),
         buffers(std::move(other.buffers)),
         child_data(std::move(other.child_data)),
-        dictionary(std::move(other.dictionary)) {
-    SetNullCount(other.null_count);
-  }
+        dictionary(std::move(other.dictionary)),
+        statistics(std::move(other.statistics)) {}
 
   // Copy constructor
   ArrayData(const ArrayData& other) noexcept
       : type(other.type),
         length(other.length),
+        null_count(other.null_count.load()),
         offset(other.offset),
         buffers(other.buffers),
         child_data(other.child_data),
-        dictionary(other.dictionary) {
-    SetNullCount(other.null_count);
-  }
+        dictionary(other.dictionary),
+        statistics(other.statistics) {}
 
   // Move assignment
   ArrayData& operator=(ArrayData&& other) {
@@ -166,6 +177,7 @@ struct ARROW_EXPORT ArrayData {
     buffers = std::move(other.buffers);
     child_data = std::move(other.child_data);
     dictionary = std::move(other.dictionary);
+    statistics = std::move(other.statistics);
     return *this;
   }
 
@@ -178,10 +190,26 @@ struct ARROW_EXPORT ArrayData {
     buffers = other.buffers;
     child_data = other.child_data;
     dictionary = other.dictionary;
+    statistics = other.statistics;
     return *this;
   }
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
+
+  /// \brief Copy all buffers and children recursively to destination MemoryManager
+  ///
+  /// This utilizes MemoryManager::CopyBuffer to create a new ArrayData object
+  /// recursively copying the buffers and all child buffers to the destination
+  /// memory manager. This includes dictionaries if applicable.
+  Result<std::shared_ptr<ArrayData>> CopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
+  /// \brief View or Copy this ArrayData to destination memory manager.
+  ///
+  /// Tries to view the buffer contents on the given memory manager's device
+  /// if possible (to avoid a copy) but falls back to copying if a no-copy view
+  /// isn't supported.
+  Result<std::shared_ptr<ArrayData>> ViewOrCopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
 
   bool IsNull(int64_t i) const { return !IsValid(i); }
 
@@ -249,6 +277,18 @@ struct ARROW_EXPORT ArrayData {
   }
 
   /// \brief Construct a zero-copy slice of the data with the given offset and length
+  ///
+  /// The associated `ArrayStatistics` is always discarded in a sliced
+  /// `ArrayData`. Because `ArrayStatistics` in the original
+  /// `ArrayData` may be invalid in a sliced `ArrayData`. If you want
+  /// to reuse statistics in the original `ArrayData`, you need to do
+  /// it by yourself.
+  ///
+  /// If the specified slice range has the same range as the original
+  /// `ArrayData`, we can reuse statistics in the original
+  /// `ArrayData`. Because it has the same data as the original
+  /// `ArrayData`. But the associated `ArrayStatistics` is discarded
+  /// in this case too. Use `Copy()` instead for the case.
   std::shared_ptr<ArrayData> Slice(int64_t offset, int64_t length) const;
 
   /// \brief Input-checking variant of Slice
@@ -282,7 +322,7 @@ struct ARROW_EXPORT ArrayData {
 
   /// \brief Return true if the validity bitmap may have 0's in it, or if the
   /// child arrays (in the case of types without a validity bitmap) may have
-  /// nulls, or if the dictionary of dictionay array may have nulls.
+  /// nulls, or if the dictionary of dictionary array may have nulls.
   ///
   /// This is not a drop-in replacement for MayHaveNulls, as historically
   /// MayHaveNulls() has been used to check for the presence of a validity
@@ -344,6 +384,16 @@ struct ARROW_EXPORT ArrayData {
   /// \see GetNullCount
   int64_t ComputeLogicalNullCount() const;
 
+  /// \brief Return the device_type of the underlying buffers and children
+  ///
+  /// If there are no buffers in this ArrayData object, it just returns
+  /// DeviceAllocationType::kCPU as a default. We also assume that all buffers
+  /// should be allocated on the same device type and perform DCHECKs to confirm
+  /// this in debug mode.
+  ///
+  /// \return DeviceAllocationType
+  DeviceAllocationType device_type() const;
+
   std::shared_ptr<DataType> type;
   int64_t length = 0;
   mutable std::atomic<int64_t> null_count{0};
@@ -355,6 +405,9 @@ struct ARROW_EXPORT ArrayData {
 
   // The dictionary for this Array, if any. Only used for dictionary type
   std::shared_ptr<ArrayData> dictionary;
+
+  // The statistics for this Array.
+  std::shared_ptr<ArrayStatistics> statistics;
 };
 
 /// \brief A non-owning Buffer reference
@@ -584,7 +637,7 @@ struct ARROW_EXPORT ArraySpan {
   bool HasVariadicBuffers() const;
 
  private:
-  ARROW_FRIEND_EXPORT friend bool internal::IsNullRunEndEncoded(const ArrayData& span,
+  ARROW_FRIEND_EXPORT friend bool internal::IsNullRunEndEncoded(const ArrayData& data,
                                                                 int64_t i);
 
   bool IsNullSparseUnion(int64_t i) const;

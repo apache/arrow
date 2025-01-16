@@ -71,14 +71,13 @@ Contributing
 
 - :ref:`contributing`
 - `Arrow R Developer Guide <https://arrow.apache.org/docs/r/articles/developing.html>`_
-- `Writing Bindings article for R package <https://arrow.apache.org/docs/r/articles/developers/bindings.html>`_.
 
 Reproducible examples:
 
 - `Tidyverse: Make a reprex <https://www.tidyverse.org/help/#reprex>`_
 - `Craft Minimal Bug Reports by Matthew Rocklin <https://matthewrocklin.com/blog/work/2018/02/28/minimal-bug-reports>`_
 
-Recommended references 
+Recommended references
 ----------------------
 
 - Slatkin, Brett, *Effective Python: 90 Specific Ways to Write Better Python*, Addison-Wesley Professional, 2019

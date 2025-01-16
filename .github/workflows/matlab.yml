@@ -19,6 +19,11 @@ name: MATLAB
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
       - '.github/workflows/matlab.yml'
       - 'ci/scripts/matlab*.sh'
@@ -42,7 +47,23 @@ jobs:
 
   ubuntu:
     name: AMD64 Ubuntu 20.04 MATLAB
-    runs-on: ubuntu-latest
+    # Explicitly pin the Ubuntu version to 20.04 for the time being because:
+    #
+    #     1. The version of GLIBCXX shipped with Ubuntu 22.04 is not binary compatible
+    #        with the GLIBCXX bundled with MATLAB R2023a. This is a relatively common
+    #        issue.
+    #
+    #        For example, see:
+    #
+    #        https://www.mathworks.com/matlabcentral/answers/1907290-how-to-manually-select-the-libstdc-library-to-use-to-resolve-a-version-glibcxx_-not-found
+    #
+    #     2. The version of GLIBCXX shipped with Ubuntu 22.04 is not binary compatible with
+    #        the version of GLIBCXX shipped with Debian 11. Several of the Arrow community
+    #        members who work on the MATLAB bindings use Debian 11 locally for qualification.
+    #        Using Ubuntu 20.04 eases development workflows for these community members.
+    #
+    # In the future, we can investigate adding support for building against more Linux (e.g. `ubuntu-22.04`) and MATLAB versions (e.g. R2023b).
+    runs-on: ubuntu-20.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
@@ -52,9 +73,9 @@ jobs:
       - name: Install ninja-build
         run: sudo apt-get install ninja-build
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v1
+        uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2023a
+          release: R2024b
       - name: Install ccache
         run: sudo apt-get install ccache
       - name: Setup ccache
@@ -65,7 +86,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: matlab-ccache-ubuntu-${{ hashFiles('cpp/**', 'matlab/**') }}
@@ -74,24 +95,24 @@ jobs:
         run: ci/scripts/matlab_build.sh $(pwd)
       - name: Run MATLAB Tests
         env:
-          # libarrow.so requires a more recent version of libstdc++.so
-          # than is bundled with MATLAB under <matlabroot>/sys/os/glnxa64.
-          # Therefore, if a MEX function that depends on libarrow.so
-          # is executed within the MATLAB address space, runtime linking
-          # errors will occur. To work around this issue, we can explicitly
-          # force MATLAB to use the system libstdc++.so via LD_PRELOAD.
-          LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
-
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
-        uses: matlab-actions/run-tests@v1
+        uses: matlab-actions/run-tests@v2
         with:
           select-by-folder: matlab/test
+          strict: true
   macos:
-    name: AMD64 macOS 11 MATLAB
-    runs-on: macos-latest
+    name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} MATLAB
+    runs-on: macos-${{ matrix.macos-version }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      matrix:
+        include:
+          - architecture: AMD64
+            macos-version: "13"
+          - architecture: ARM64
+            macos-version: "14"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -100,9 +121,9 @@ jobs:
       - name: Install ninja-build
         run: brew install ninja
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v1
+        uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2023a
+          release: R2024b
       - name: Install ccache
         run: brew install ccache
       - name: Setup ccache
@@ -113,7 +134,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: matlab-ccache-macos-${{ hashFiles('cpp/**', 'matlab/**') }}
@@ -125,9 +146,10 @@ jobs:
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
-        uses: matlab-actions/run-tests@v1
+        uses: matlab-actions/run-tests@v2
         with:
-          select-by-folder: matlab/test 
+          select-by-folder: matlab/test
+          strict: true
   windows:
     name: AMD64 Windows 2022 MATLAB
     runs-on: windows-2022
@@ -138,9 +160,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v1
+        uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2023a
+          release: R2024b
       - name: Download Timezone Database
         shell: bash
         run: ci/scripts/download_tz_database.sh
@@ -155,7 +177,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ${{ steps.ccache-info.outputs.cache-dir }}
@@ -171,6 +193,7 @@ jobs:
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
-        uses: matlab-actions/run-tests@v1
+        uses: matlab-actions/run-tests@v2
         with:
-          select-by-folder: matlab/test 
+          select-by-folder: matlab/test
+          strict: true

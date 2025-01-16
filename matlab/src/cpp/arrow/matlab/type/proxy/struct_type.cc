@@ -21,25 +21,27 @@
 
 namespace arrow::matlab::type::proxy {
 
-    StructType::StructType(std::shared_ptr<arrow::StructType> struct_type) : Type(std::move(struct_type)) {}
+StructType::StructType(std::shared_ptr<arrow::StructType> struct_type)
+    : Type(std::move(struct_type)) {}
 
-    libmexclass::proxy::MakeResult StructType::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-        namespace mda = ::matlab::data;
-        using StructTypeProxy = arrow::matlab::type::proxy::StructType;
+libmexclass::proxy::MakeResult StructType::make(
+    const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+  namespace mda = ::matlab::data;
+  using StructTypeProxy = arrow::matlab::type::proxy::StructType;
 
-        mda::StructArray args = constructor_arguments[0];
-        const mda::TypedArray<uint64_t> field_proxy_ids_mda = args[0]["FieldProxyIDs"];
+  mda::StructArray args = constructor_arguments[0];
+  const mda::TypedArray<uint64_t> field_proxy_ids_mda = args[0]["FieldProxyIDs"];
 
-        std::vector<std::shared_ptr<arrow::Field>> fields;
-        fields.reserve(field_proxy_ids_mda.getNumberOfElements());
-        for (const auto proxy_id : field_proxy_ids_mda) {
-            using namespace libmexclass::proxy;
-            auto proxy = std::static_pointer_cast<proxy::Field>(ProxyManager::getProxy(proxy_id));
-            auto field = proxy->unwrap();
-            fields.push_back(field);
-        }
+  std::vector<std::shared_ptr<arrow::Field>> fields;
+  fields.reserve(field_proxy_ids_mda.getNumberOfElements());
+  for (const auto proxy_id : field_proxy_ids_mda) {
+    using namespace libmexclass::proxy;
+    auto proxy = std::static_pointer_cast<proxy::Field>(ProxyManager::getProxy(proxy_id));
+    auto field = proxy->unwrap();
+    fields.push_back(field);
+  }
 
-        auto struct_type = std::static_pointer_cast<arrow::StructType>(arrow::struct_(fields));
-        return std::make_shared<StructTypeProxy>(std::move(struct_type));
-    }
+  auto struct_type = std::static_pointer_cast<arrow::StructType>(arrow::struct_(fields));
+  return std::make_shared<StructTypeProxy>(std::move(struct_type));
 }
+}  // namespace arrow::matlab::type::proxy

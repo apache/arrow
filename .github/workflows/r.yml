@@ -19,26 +19,35 @@ name: R
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
+      - '.dockerignore'
       - ".github/workflows/r.yml"
-      - "ci/scripts/r_*.sh"
-      - "ci/scripts/cpp_*.sh"
-      - "ci/scripts/PKGBUILD"
-      - "ci/etc/rprofile"
       - "ci/docker/**"
+      - "ci/etc/rprofile"
+      - "ci/scripts/PKGBUILD"
+      - "ci/scripts/cpp_*.sh"
+      - "ci/scripts/install_minio.sh"
+      - "ci/scripts/r_*.sh"
       - "cpp/**"
-      - 'docker-compose.yml'
+      - "docker-compose.yml"
       - "r/**"
   pull_request:
     paths:
+      - '.dockerignore'
       - ".github/workflows/r.yml"
-      - "ci/scripts/r_*.sh"
-      - "ci/scripts/cpp_*.sh"
-      - "ci/scripts/PKGBUILD"
-      - "ci/etc/rprofile"
       - "ci/docker/**"
+      - "ci/etc/rprofile"
+      - "ci/scripts/PKGBUILD"
+      - "ci/scripts/cpp_*.sh"
+      - "ci/scripts/install_minio.sh"
+      - "ci/scripts/r_*.sh"
       - "cpp/**"
-      - 'docker-compose.yml'
+      - "docker-compose.yml"
       - "r/**"
 
 concurrency:
@@ -49,9 +58,69 @@ permissions:
   contents: read
 
 env:
+  ARCHERY_DEBUG: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
+  ubuntu-minimum-cpp-version:
+    name: Check minimum supported Arrow C++ Version (${{ matrix.cpp_version }})
+    # We don't provide Apache Arrow C++ 15.0.2 deb packages for Ubuntu 24.04.
+    # So we use ubuntu-22.04 here.
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - cpp_version: "15.0.2"
+    steps:
+    - name: Checkout Arrow
+      uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      with:
+        path: src
+        submodules: recursive
+
+    - name: Install Arrow C++ (${{ matrix.cpp_version }})
+      run: |
+        sudo apt update
+        sudo apt install -y -V ca-certificates lsb-release wget
+        wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+        sudo apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+        sudo apt update
+        # We have to list all packages to avoid version conflicts.
+        sudo apt install -y -V libarrow-dev=${{ matrix.cpp_version }}-1 \
+                               libarrow-acero-dev=${{ matrix.cpp_version }}-1 \
+                               libparquet-dev=${{ matrix.cpp_version }}-1 \
+                               libarrow-dataset-dev=${{ matrix.cpp_version }}-1
+
+    - name: Install checkbashisms
+      run: |
+        sudo apt-get install devscripts
+
+    - uses: r-lib/actions/setup-r@v2
+      with:
+        use-public-rspm: true
+        install-r: false
+
+    - uses: r-lib/actions/setup-r-dependencies@v2
+      with:
+        extra-packages: any::rcmdcheck
+        needs: check
+        working-directory: src/r
+
+    - uses: r-lib/actions/check-r-package@v2
+      with:
+        working-directory: src/r
+      env:
+        LIBARROW_BINARY: "false"
+        LIBARROW_BUILD: "false"
+        ARROW_R_VERBOSE_TEST: "true"
+        ARROW_R_ALLOW_CPP_VERSION_MISMATCH: "true"
+
+    - name: Show install output
+      if: always()
+      run: find src/r/check -name '00install.out*' -exec cat '{}' \; || true
+      shell: bash
+
+
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }} Force-Tests ${{ matrix.force-tests }}
     runs-on: ubuntu-latest
@@ -60,8 +129,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.3"]
-        ubuntu: [20.04]
+        r: ["4.4"]
+        ubuntu: [24.04]
         force-tests: ["true"]
     env:
       R: ${{ matrix.r }}
@@ -72,8 +141,11 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Free up disk space
+        run: |
+          ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
         with:
           path: .docker
           # As this key is identical on both matrix builds only one will be able to successfully cache,
@@ -83,9 +155,9 @@ jobs:
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -93,8 +165,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           # Setting a non-default and non-probable Marquesas French Polynesia time
           # it has both with a .45 offset and very very few people who live there.
           archery docker run -e TZ=MART -e ARROW_R_FORCE_TESTS=${{ matrix.force-tests }} ubuntu-r
@@ -106,9 +177,9 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
-          name: test-output
+          name: test-output-${{ matrix.ubuntu }}-${{ matrix.r }}
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: >-
@@ -131,12 +202,11 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { org: "rhub", image: "debian-gcc-devel", tag: "latest", devtoolset: "" }
+          - { org: "rhub", image: "ubuntu-gcc12", tag: "latest" }
     env:
       R_ORG: ${{ matrix.config.org }}
       R_IMAGE: ${{ matrix.config.image }}
       R_TAG: ${{ matrix.config.tag }}
-      DEVTOOLSET_VERSION: ${{ matrix.config.devtoolset }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
@@ -144,9 +214,9 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -154,8 +224,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           # Don't set a TZ here to test that case. These builds will have the following warning in them:
           #   System has not been booted with systemd as init system (PID 1). Can't operate.
           #   Failed to connect to bus: Host is down
@@ -168,9 +237,9 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
-          name: test-output
+          name: test-output-bundled
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: >-
@@ -206,7 +275,7 @@ jobs:
           ci/scripts/ccache_setup.sh
           echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
       - name: Cache ccache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ccache
           key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
@@ -230,7 +299,7 @@ jobs:
         # So that they're unique when multiple are downloaded in the next step
         shell: bash
         run: mv libarrow.zip libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
           path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
@@ -256,9 +325,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # This must be done before r-lib/actions/setup-r because curl in
+      # Rtools doesn't work on non Rtools' MSYS2 environment. If we
+      # use "shell: bash" after r-lib/actions/setup-r, bash in Rtools
+      # is used on non Rtools' MSYS2 environment.
+      - name: Install MinIO
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          ci/scripts/install_minio.sh latest "$HOME/.local"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: mkdir r/windows
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.8
         with:
           name: libarrow-rtools40-ucrt64.zip
           path: r/windows
@@ -282,15 +361,6 @@ jobs:
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
-      - name: Install MinIO
-        shell: bash
-        run: |
-          mkdir -p "$HOME/.local/bin"
-          curl \
-            --output "$HOME/.local/bin/minio.exe" \
-            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
-          chmod +x "$HOME/.local/bin/minio.exe"
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
       # TODO(ARROW-17149): figure out why the GCS tests are hanging on Windows
       # - name: Install Google Cloud Storage Testbench
       #   shell: bash
@@ -309,11 +379,12 @@ jobs:
             MAKEFLAGS = paste0("-j", parallel::detectCores()),
             ARROW_R_DEV = TRUE,
             "_R_CHECK_FORCE_SUGGESTS_" = FALSE,
-            "_R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_" = TRUE
+            "_R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_" = TRUE,
+            "_R_CHECK_DONTTEST_EXAMPLES_" = TRUE
           )
           rcmdcheck::rcmdcheck(".",
             build_args = '--no-build-vignettes',
-            args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
+            args = c('--no-manual', '--as-cran', '--ignore-vignettes'),
             error_on = 'warning',
             check_dir = 'check',
             timeout = 3600

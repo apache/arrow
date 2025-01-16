@@ -27,30 +27,17 @@ function roundLengthUpToNearest64Bytes(len: number, BPE: number) {
 
 /** @ignore */
 function resizeArray<T extends TypedArray | BigIntArray>(arr: T, len = 0): T {
-    // TODO: remove when https://github.com/microsoft/TypeScript/issues/54636 is fixed
-    const buffer = arr.buffer as ArrayBufferLike & { resizable: boolean; resize: (byteLength: number) => void; maxByteLength: number };
-    const byteLength = len * arr.BYTES_PER_ELEMENT;
-    if (buffer.resizable && byteLength <= buffer.maxByteLength) {
-        buffer.resize(byteLength);
-        return arr;
-    }
-
-    // Fallback for non-resizable buffers
     return arr.length >= len ?
         arr.subarray(0, len) as T :
         memcpy(new (arr.constructor as any)(len), arr, 0);
 }
 
 /** @ignore */
-export const SAFE_ARRAY_SIZE = 2 ** 32 - 1;
-
-/** @ignore */
 export class BufferBuilder<T extends TypedArray | BigIntArray> {
 
     constructor(bufferType: ArrayCtor<T>, initialSize = 0, stride = 1) {
         this.length = Math.ceil(initialSize / stride);
-        // TODO: remove as any when https://github.com/microsoft/TypeScript/issues/54636 is fixed
-        this.buffer = new bufferType(new (ArrayBuffer as any)(this.length * bufferType.BYTES_PER_ELEMENT, { maxByteLength: SAFE_ARRAY_SIZE })) as T;
+        this.buffer = new bufferType(this.length) as T;
         this.stride = stride;
         this.BYTES_PER_ELEMENT = bufferType.BYTES_PER_ELEMENT;
         this.ArrayType = bufferType;
@@ -94,8 +81,7 @@ export class BufferBuilder<T extends TypedArray | BigIntArray> {
     }
     public clear() {
         this.length = 0;
-        // TODO: remove as any when https://github.com/microsoft/TypeScript/issues/54636 is fixed
-        this.buffer = new this.ArrayType(new (ArrayBuffer as any)(0, { maxByteLength: SAFE_ARRAY_SIZE })) as T;
+        this.buffer = new this.ArrayType() as T;
         return this;
     }
     protected _resize(newLength: number) {

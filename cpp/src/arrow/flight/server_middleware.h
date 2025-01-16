@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Interfaces for defining middleware for Flight servers. Currently
-// experimental.
+// Interfaces for defining middleware for Flight servers.
 
 #pragma once
 

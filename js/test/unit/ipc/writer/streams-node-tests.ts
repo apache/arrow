@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { as, from } from 'ix/asynciterable';
-import { flatMap, tap } from 'ix/asynciterable/operators';
+import { as, from } from 'ix/Ix.asynciterable';
+import { flatMap, tap } from 'ix/Ix.asynciterable.operators';
 import 'ix/Ix.node';
 
 import { generateRandomTables } from '../../../data/tables.js';

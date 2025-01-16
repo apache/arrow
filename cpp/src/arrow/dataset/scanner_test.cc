@@ -1103,7 +1103,8 @@ TEST_P(TestScanner, ProjectionDefaults) {
   }
   // If we only specify a projection expression then infer the projected schema
   // from the projection expression
-  auto projection_desc = ProjectionDescr::FromNames({"i32"}, *schema_);
+  auto projection_desc =
+      ProjectionDescr::FromNames({"i32"}, *schema_, /*add_augmented_fields=*/true);
   {
     ARROW_SCOPED_TRACE("User only specifies projection");
     options_->projection = projection_desc->expression;
@@ -1148,7 +1149,8 @@ TEST_P(TestScanner, ProjectedScanNestedFromNames) {
   });
   ASSERT_OK_AND_ASSIGN(auto descr,
                        ProjectionDescr::FromNames({".struct.i32", "nested.right.f64"},
-                                                  *options_->dataset_schema))
+                                                  *options_->dataset_schema,
+                                                  options_->add_augmented_fields))
   SetProjection(options_.get(), std::move(descr));
   auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   auto batch_out = ConstantArrayGenerator::Zeroes(
@@ -2106,7 +2108,8 @@ TEST(ScanOptions, TestMaterializedFields) {
 
   auto set_projection_from_names = [&opts](std::vector<std::string> names) {
     ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::FromNames(
-                                              std::move(names), *opts->dataset_schema));
+                                              std::move(names), *opts->dataset_schema,
+                                              opts->add_augmented_fields));
     SetProjection(opts.get(), std::move(projection));
   };
 
@@ -2160,7 +2163,8 @@ TEST(ScanOptions, TestMaterializedFields) {
   // project top-level field, filter nothing
   opts->filter = literal(true);
   ASSERT_OK_AND_ASSIGN(projection,
-                       ProjectionDescr::FromNames({"nested"}, *opts->dataset_schema));
+                       ProjectionDescr::FromNames({"nested"}, *opts->dataset_schema,
+                                                  opts->add_augmented_fields));
   SetProjection(opts.get(), std::move(projection));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre(FieldRef("nested")));
 
@@ -2328,7 +2332,7 @@ DatasetAndBatches MakeNestedDataset() {
       field("b", boolean()),
       field("c", struct_({
                      field("d", int64()),
-                     field("e", float64()),
+                     field("e", int64()),
                  })),
   });
   const auto physical_schema = ::arrow::schema({
@@ -2531,14 +2535,14 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
 TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
   TestPlan plan;
 
-  auto basic = MakeNestedDataset();
+  auto nested = MakeNestedDataset();
 
   auto options = std::make_shared<ScanOptions>();
   options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
   ASSERT_OK(acero::Declaration::Sequence(
                 {
-                    {"scan", ScanNodeOptions{basic.dataset, options}},
+                    {"scan", ScanNodeOptions{nested.dataset, options}},
                     {"augmented_project",
                      acero::ProjectNodeOptions{
                          {field_ref("a"), field_ref("b"), field_ref("c")}}},
@@ -2546,11 +2550,20 @@ TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
                 })
                 .AddToPlan(plan.get()));
 
-  // TODO(ARROW-1888): allow scanner to "patch up" structs with casts
-  EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-      plan.Run());
+  auto expected = nested.batches;
+
+  for (auto& batch : expected) {
+    // Scan will fill in "c.d" with nulls.
+    ASSERT_OK_AND_ASSIGN(auto nulls,
+                         MakeArrayOfNull(int64()->GetSharedPtr(), batch.length));
+    auto c_data = batch.values[2].array()->Copy();
+    c_data->child_data.insert(c_data->child_data.begin(), nulls->data());
+    c_data->type = nested.dataset->schema()->field(2)->type();
+    auto c_array = std::make_shared<StructArray>(c_data);
+    batch.values[2] = c_array;
+  }
+
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 TEST(ScanNode, MinimalEndToEnd) {

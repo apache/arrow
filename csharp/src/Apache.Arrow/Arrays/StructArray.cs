@@ -25,7 +25,7 @@ namespace Apache.Arrow
         private IReadOnlyList<IArrowArray> _fields;
 
         public IReadOnlyList<IArrowArray> Fields =>
-            LazyInitializer.EnsureInitialized(ref _fields, () => InitializeFields());
+            LazyInitializer.EnsureInitialized(ref _fields, InitializeFields);
 
         public StructArray(
             IArrowType dataType, int length,
@@ -35,7 +35,6 @@ namespace Apache.Arrow
                 dataType, length, nullCount, offset, new[] { nullBitmapBuffer },
                 children.Select(child => child.Data)))
         {
-            _fields = children.ToArray();
         }
 
         public StructArray(ArrayData data)
@@ -65,7 +64,12 @@ namespace Apache.Arrow
             IArrowArray[] result = new IArrowArray[Data.Children.Length];
             for (int i = 0; i < Data.Children.Length; i++)
             {
-                result[i] = ArrowArrayFactory.BuildArray(Data.Children[i]);
+                var childData = Data.Children[i];
+                if (Data.Offset != 0 || childData.Length != Data.Length)
+                {
+                    childData = childData.Slice(Data.Offset, Data.Length);
+                }
+                result[i] = ArrowArrayFactory.BuildArray(childData);
             }
             return result;
         }

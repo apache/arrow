@@ -26,11 +26,13 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/formatting.h"
 
 namespace arrow {
 
 using internal::StringFormatter;
+using util::Float16;
 
 class StringAppender {
  public:
@@ -280,6 +282,32 @@ TEST(Formatting, Double) {
   AssertFormatting(formatter, -HUGE_VAL, "-inf");
 }
 
+TEST(Formatting, HalfFloat) {
+  StringFormatter<HalfFloatType> formatter;
+
+  AssertFormatting(formatter, Float16(0.0f).bits(), "0");
+  AssertFormatting(formatter, Float16(-0.0f).bits(), "-0");
+  AssertFormatting(formatter, Float16(1.5f).bits(), "1.5");
+
+  // Slightly adapted from values present here
+  // https://blogs.mathworks.com/cleve/2017/05/08/half-precision-16-bit-floating-point-arithmetic/
+  AssertFormatting(formatter, 0x3c00, "1");
+  AssertFormatting(formatter, 0x3c01, "1.0009765625");
+  AssertFormatting(formatter, 0x0400, "0.00006103515625");
+  AssertFormatting(formatter, 0x0001, "5.960464477539063e-8");
+
+  // Can't avoid loss of precision here.
+  AssertFormatting(formatter, Float16(1234.567f).bits(), "1235");
+  AssertFormatting(formatter, Float16(1e3f).bits(), "1000");
+  AssertFormatting(formatter, Float16(1e4f).bits(), "10000");
+  AssertFormatting(formatter, Float16(1e10f).bits(), "inf");
+  AssertFormatting(formatter, Float16(1e15f).bits(), "inf");
+
+  AssertFormatting(formatter, 0xffff, "nan");
+  AssertFormatting(formatter, 0x7c00, "inf");
+  AssertFormatting(formatter, 0xfc00, "-inf");
+}
+
 template <typename T>
 void TestDecimalFormatter() {
   struct TestParam {
@@ -290,22 +318,22 @@ void TestDecimalFormatter() {
 
   // Borrow from Decimal::ToString test
   const auto decimalTestData = std::vector<TestParam>{
-      {0, -1, "0.E+1"},
+      {0, -1, "0E+1"},
       {0, 0, "0"},
       {0, 1, "0.0"},
       {0, 6, "0.000000"},
-      {2, 7, "2.E-7"},
-      {2, -1, "2.E+1"},
+      {2, 7, "2E-7"},
+      {2, -1, "2E+1"},
       {2, 0, "2"},
       {2, 1, "0.2"},
       {2, 6, "0.000002"},
-      {-2, 7, "-2.E-7"},
-      {-2, 7, "-2.E-7"},
-      {-2, -1, "-2.E+1"},
+      {-2, 7, "-2E-7"},
+      {-2, 7, "-2E-7"},
+      {-2, -1, "-2E+1"},
       {-2, 0, "-2"},
       {-2, 1, "-0.2"},
       {-2, 6, "-0.000002"},
-      {-2, 7, "-2.E-7"},
+      {-2, 7, "-2E-7"},
       {123, -3, "1.23E+5"},
       {123, -1, "1.23E+3"},
       {123, 1, "12.3"},
@@ -355,15 +383,27 @@ void TestDecimalFormatter() {
   };
 
   for (const auto& data : decimalTestData) {
+    using value_type = typename TypeTraits<T>::CType;
+    if (data.scale > value_type::kMaxScale) {
+      continue;
+    }
+
+    if constexpr (std::is_same_v<T, Decimal32Type>) {
+      if (data.test_value > 999999999 || data.test_value < -999999999) {
+        continue;
+      }
+    }
+
     const auto type = T(T::kMaxPrecision, data.scale);
     StringFormatter<T> formatter(&type);
-    using value_type = typename TypeTraits<T>::CType;
 
     AssertFormatting(formatter, value_type(data.test_value), data.expected_string);
   }
 }
 
 TEST(Formatting, Decimals) {
+  TestDecimalFormatter<Decimal32Type>();
+  TestDecimalFormatter<Decimal64Type>();
   TestDecimalFormatter<Decimal128Type>();
   TestDecimalFormatter<Decimal256Type>();
 }
@@ -531,6 +571,14 @@ TEST(Formatting, Timestamp) {
 
       AssertFormatting(formatter, 0, "1970-01-01 00:00:00Z");
     }
+  }
+
+  {
+    constexpr int64_t kMillisInDay = 24 * 60 * 60 * 1000;
+    auto ty = timestamp(TimeUnit::MILLI, "+01:00");
+    StringFormatter<TimestampType> formatter(ty.get());
+    AssertFormatting(formatter, -15000 * 365 * kMillisInDay + 1,
+                     "-13021-12-17 00:00:00.001Z");
   }
 
   {

@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _glossary:
+
 ========
 Glossary
 ========
@@ -174,7 +176,7 @@ Glossary
        .. seealso:: :term:`data type`
 
    record batch
-       **In the :ref:`IPC format <format-ipc>`**: the primitive unit
+       **In the** :ref:`IPC format <format-ipc>`: the primitive unit
        of data.  A record batch consists of an ordered list of
        :term:`buffers <buffer>` corresponding to a :term:`schema`.
 
@@ -211,7 +213,7 @@ Glossary
        its bindings, and Go).
 
        .. image:: ../cpp/tables-versus-record-batches.svg
-          :alt: A graphical representation of an Arrow Table and a 
+          :alt: A graphical representation of an Arrow Table and a
                 Record Batch, with structure as described in text above.
 
        .. seealso:: :term:`chunked array`, :term:`record batch`

@@ -19,7 +19,6 @@ import pytest
 
 import pyarrow as pa
 from pyarrow import fs
-from pyarrow.filesystem import FileSystem, LocalFileSystem
 
 try:
     import pyarrow.parquet as pq
@@ -161,7 +160,6 @@ def test_parquet_writer_context_obj_with_exception(tempdir):
 @pytest.mark.pandas
 @pytest.mark.parametrize("filesystem", [
     None,
-    LocalFileSystem._get_instance(),
     fs.LocalFileSystem(),
 ])
 def test_parquet_writer_write_wrappers(tempdir, filesystem):
@@ -250,7 +248,6 @@ def test_parquet_writer_chunk_size(tempdir):
 @pytest.mark.pandas
 @pytest.mark.parametrize("filesystem", [
     None,
-    LocalFileSystem._get_instance(),
     fs.LocalFileSystem(),
 ])
 def test_parquet_writer_filesystem_local(tempdir, filesystem):
@@ -330,46 +327,6 @@ def test_parquet_writer_filesystem_buffer_raises():
         )
 
 
-@pytest.mark.pandas
-def test_parquet_writer_with_caller_provided_filesystem():
-    out = pa.BufferOutputStream()
-
-    class CustomFS(FileSystem):
-        def __init__(self):
-            self.path = None
-            self.mode = None
-
-        def open(self, path, mode='rb'):
-            self.path = path
-            self.mode = mode
-            return out
-
-    fs = CustomFS()
-    fname = 'expected_fname.parquet'
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
-
-    with pq.ParquetWriter(fname, table.schema, filesystem=fs, version='2.6') \
-            as writer:
-        writer.write_table(table)
-
-    assert fs.path == fname
-    assert fs.mode == 'wb'
-    assert out.closed
-
-    buf = out.getvalue()
-    table_read = _read_table(pa.BufferReader(buf))
-    df_read = table_read.to_pandas()
-    tm.assert_frame_equal(df_read, df)
-
-    # Should raise ValueError when filesystem is passed with file-like object
-    with pytest.raises(ValueError) as err_info:
-        pq.ParquetWriter(pa.BufferOutputStream(), table.schema, filesystem=fs)
-        expected_msg = ("filesystem passed but where is file-like, so"
-                        " there is nothing to open with filesystem.")
-        assert str(err_info) == expected_msg
-
-
 def test_parquet_writer_store_schema(tempdir):
     table = pa.table({'a': [1, 2, 3]})
 
@@ -389,3 +346,18 @@ def test_parquet_writer_store_schema(tempdir):
 
     meta = pq.read_metadata(path2)
     assert meta.metadata is None
+
+
+def test_parquet_writer_append_key_value_metadata(tempdir):
+    table = pa.Table.from_arrays([pa.array([], type='int32')], ['f0'])
+    path = tempdir / 'metadata.parquet'
+
+    with pq.ParquetWriter(path, table.schema) as writer:
+        writer.write_table(table)
+        writer.add_key_value_metadata({'key1': '1', 'key2': 'x'})
+        writer.add_key_value_metadata({'key2': '2', 'key3': '3'})
+    reader = pq.ParquetFile(path)
+    metadata = reader.metadata.metadata
+    assert metadata[b'key1'] == b'1'
+    assert metadata[b'key2'] == b'2'
+    assert metadata[b'key3'] == b'3'

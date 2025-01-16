@@ -9,7 +9,7 @@
 \description{
 The \code{arrow} package contains methods for 37 \code{dplyr} table functions, many of
 which are "verbs" that do transformations to one or more tables.
-The package also has mappings of 211 R functions to the corresponding
+The package also has mappings of 212 R functions to the corresponding
 functions in the Arrow compute library. These allow you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
@@ -23,7 +23,7 @@ the query on the data. To run the query, call either \code{compute()},
 which returns an \code{arrow} \link{Table}, or \code{collect()}, which pulls the resulting
 Table into an R \code{tibble}.
 \itemize{
-\item \code{\link[dplyr:filter-joins]{anti_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
+\item \code{\link[dplyr:filter-joins]{anti_join()}}: the \code{copy} argument is ignored
 \item \code{\link[dplyr:arrange]{arrange()}}
 \item \code{\link[dplyr:compute]{collapse()}}
 \item \code{\link[dplyr:compute]{collect()}}
@@ -32,29 +32,29 @@ Table into an R \code{tibble}.
 \item \code{\link[dplyr:distinct]{distinct()}}: \code{.keep_all = TRUE} not supported
 \item \code{\link[dplyr:explain]{explain()}}
 \item \code{\link[dplyr:filter]{filter()}}
-\item \code{\link[dplyr:mutate-joins]{full_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
+\item \code{\link[dplyr:mutate-joins]{full_join()}}: the \code{copy} argument is ignored
 \item \code{\link[dplyr:glimpse]{glimpse()}}
 \item \code{\link[dplyr:group_by]{group_by()}}
 \item \code{\link[dplyr:group_by_drop_default]{group_by_drop_default()}}
 \item \code{\link[dplyr:group_data]{group_vars()}}
 \item \code{\link[dplyr:group_data]{groups()}}
-\item \code{\link[dplyr:mutate-joins]{inner_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
-\item \code{\link[dplyr:mutate-joins]{left_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
-\item \code{\link[dplyr:mutate]{mutate()}}: window functions (e.g. things that require aggregation within groups) not currently supported
+\item \code{\link[dplyr:mutate-joins]{inner_join()}}: the \code{copy} argument is ignored
+\item \code{\link[dplyr:mutate-joins]{left_join()}}: the \code{copy} argument is ignored
+\item \code{\link[dplyr:mutate]{mutate()}}
 \item \code{\link[dplyr:pull]{pull()}}: the \code{name} argument is not supported; returns an R vector by default but this behavior is deprecated and will return an Arrow \link{ChunkedArray} in a future release. Provide \code{as_vector = TRUE/FALSE} to control this behavior, or set \code{options(arrow.pull_as_vector)} globally.
 \item \code{\link[dplyr:relocate]{relocate()}}
 \item \code{\link[dplyr:rename]{rename()}}
 \item \code{\link[dplyr:rename]{rename_with()}}
-\item \code{\link[dplyr:mutate-joins]{right_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
+\item \code{\link[dplyr:mutate-joins]{right_join()}}: the \code{copy} argument is ignored
 \item \code{\link[dplyr:select]{select()}}
-\item \code{\link[dplyr:filter-joins]{semi_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
+\item \code{\link[dplyr:filter-joins]{semi_join()}}: the \code{copy} argument is ignored
 \item \code{\link[dplyr:explain]{show_query()}}
 \item \code{\link[dplyr:slice]{slice_head()}}: slicing within groups not supported; Arrow datasets do not have row order, so head is non-deterministic; \code{prop} only supported on queries where \code{nrow()} is knowable without evaluating
 \item \code{\link[dplyr:slice]{slice_max()}}: slicing within groups not supported; \code{with_ties = TRUE} (dplyr default) is not supported; \code{prop} only supported on queries where \code{nrow()} is knowable without evaluating
 \item \code{\link[dplyr:slice]{slice_min()}}: slicing within groups not supported; \code{with_ties = TRUE} (dplyr default) is not supported; \code{prop} only supported on queries where \code{nrow()} is knowable without evaluating
 \item \code{\link[dplyr:slice]{slice_sample()}}: slicing within groups not supported; \code{replace = TRUE} and the \code{weight_by} argument not supported; \code{n} only supported on queries where \code{nrow()} is knowable without evaluating
 \item \code{\link[dplyr:slice]{slice_tail()}}: slicing within groups not supported; Arrow datasets do not have row order, so tail is non-deterministic; \code{prop} only supported on queries where \code{nrow()} is knowable without evaluating
-\item \code{\link[dplyr:summarise]{summarise()}}: window functions not currently supported; arguments \code{.drop = FALSE} and `.groups = "rowwise" not supported
+\item \code{\link[dplyr:summarise]{summarise()}}: window functions not currently supported; arguments \code{.drop = FALSE} and \code{.groups = "rowwise"} not supported
 \item \code{\link[dplyr:count]{tally()}}
 \item \code{\link[dplyr:transmute]{transmute()}}
 \item \code{\link[dplyr:group_by]{ungroup()}}
@@ -71,7 +71,7 @@ can assume that the function works in Acero just as it does in R.
 Functions can be called either as \code{pkg::fun()} or just \code{fun()}, i.e. both
 \code{str_sub()} and \code{stringr::str_sub()} work.
 
-In addition to these functions, you can call any of Arrow's 254 compute
+In addition to these functions, you can call any of Arrow's 262 compute
 functions directly. Arrow has many functions that don't map to an existing R
 function. In other cases where there is an R function mapping, you can still
 call the Arrow function directly if you don't want the adaptations that the R

@@ -26,11 +26,13 @@ git submodule update --init || exit /B
 set ARROW_TEST_DATA=%CD%\testing\data
 set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 
-set ARROW_DEBUG_MEMORY_POOL=trap
+@rem Enable memory debug checks if the env is not set already
+IF "%ARROW_DEBUG_MEMORY_POOL%"=="" (
+  set ARROW_DEBUG_MEMORY_POOL=trap
+)
 
 set CMAKE_BUILD_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
 set CTEST_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
-
 
 call activate arrow
 
@@ -43,7 +45,9 @@ set ARROW_CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
 set ARROW_CXXFLAGS=/WX /MP
 
 @rem Install GCS testbench
+set PIPX_BIN_DIR=C:\Windows\
 call %CD%\ci\scripts\install_gcs_testbench.bat
+storage-testbench -h || exit /B
 
 @rem
 @rem Build and test Arrow C++ libraries (including Parquet)
@@ -77,7 +81,7 @@ cmake -G "%GENERATOR%" %ARROW_CMAKE_ARGS% ^
       -DARROW_HDFS=ON ^
       -DARROW_JSON=ON ^
       -DARROW_MIMALLOC=ON ^
-      -DARROW_ORC=ON ^
+      -DARROW_ORC=%ARROW_ORC% ^
       -DARROW_PARQUET=ON ^
       -DARROW_S3=%ARROW_S3% ^
       -DARROW_SUBSTRAIT=ON ^
@@ -108,11 +112,11 @@ ctest --output-on-failure || exit /B
 
 popd
 
+pushd python
+
 @rem
 @rem Build and install pyarrow
 @rem
-
-pushd python
 
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
 set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
@@ -122,19 +126,25 @@ set PYARROW_WITH_DATASET=ON
 set PYARROW_WITH_FLIGHT=%ARROW_BUILD_FLIGHT%
 set PYARROW_WITH_GANDIVA=%ARROW_BUILD_GANDIVA%
 set PYARROW_WITH_GCS=%ARROW_GCS%
+set PYARROW_WITH_ORC=%ARROW_ORC%
 set PYARROW_WITH_PARQUET=ON
 set PYARROW_WITH_PARQUET_ENCRYPTION=ON
 set PYARROW_WITH_S3=%ARROW_S3%
-set PYARROW_WITH_STATIC_BOOST=ON
 set PYARROW_WITH_SUBSTRAIT=ON
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
 @rem ARROW-3075; pkgconfig is broken for Parquet for now
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 
+pip install --no-deps --no-build-isolation -vv --editable .
+
+@rem
+@rem Run pyarrow tests
+@rem
+
 @rem Download IANA Timezone Database to a non-standard location to
 @rem test the configurability of the timezone database path
-curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz || exit /B
+curl https://data.iana.org/time-zones/releases/tzdata2024b.tar.gz --output tzdata.tar.gz || exit /B
 mkdir %USERPROFILE%\Downloads\test\tzdata
 tar --extract --file tzdata.tar.gz --directory %USERPROFILE%\Downloads\test\tzdata
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
@@ -145,12 +155,9 @@ rmdir /s /q %USERPROFILE%\Downloads\tzdata
 @rem (only needed for testing purposes)
 set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
 
-python setup.py develop -q || exit /B
-
+set AWS_EC2_METADATA_DISABLED=true
 set PYTHONDEVMODE=1
 
-py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
+python -m pytest -r sxX --durations=15 pyarrow/tests || exit /B
 
-@rem
-@rem Wheels are built and tested separately (see ARROW-5142).
-@rem
+popd
