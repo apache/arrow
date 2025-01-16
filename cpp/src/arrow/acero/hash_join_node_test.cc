@@ -26,9 +26,9 @@
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/api.h"
-#include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/light_array_internal.h"
 #include "arrow/compute/row/row_encoder_internal.h"
+#include "arrow/compute/test_util_internal.h"
 #include "arrow/extension/uuid.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/generator.h"
@@ -2350,7 +2350,7 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
                             [null, null, "r_payload"],
                             [null, 0, "r_payload"],
-                            [null, 42, "r_payload"], 
+                            [null, 42, "r_payload"],
                             ["both1", null, "r_payload"],
                             ["both2", null, "r_payload"],
                             ["right_only", null, "r_payload"],
@@ -2519,7 +2519,7 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
                             [null, null, "r_payload"],
                             [null, 0, "r_payload"],
-                            [null, 42, "r_payload"], 
+                            [null, 42, "r_payload"],
                             ["both1", null, "r_payload"],
                             ["both1", 0, "r_payload"],
                             ["both1", 42, "r_payload"],
@@ -2704,7 +2704,7 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
                             [null, null, "r_payload"],
                             [null, 0, "r_payload"],
-                            [null, 42, "r_payload"], 
+                            [null, 42, "r_payload"],
                             ["right_only", null, "r_payload"],
                             ["right_only", 0, "r_payload"],
                             ["right_only", 42, "r_payload"]])");
@@ -2879,7 +2879,7 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
                             [null, null, "r_payload"],
                             [null, 0, "r_payload"],
-                            [null, 42, "r_payload"], 
+                            [null, 42, "r_payload"],
                             ["both1", null, "r_payload"],
                             ["both1", 0, "r_payload"],
                             ["both2", null, "r_payload"],
@@ -3054,7 +3054,7 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
                             [null, null, "r_payload"],
                             [null, 0, "r_payload"],
-                            [null, 42, "r_payload"], 
+                            [null, 42, "r_payload"],
                             ["both1", null, "r_payload"],
                             ["both2", null, "r_payload"],
                             ["right_only", null, "r_payload"],
