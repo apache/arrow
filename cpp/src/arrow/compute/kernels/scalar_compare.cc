@@ -385,6 +385,54 @@ struct VarArgsCompareFunction : ScalarFunction {
   }
 };
 
+class DecimalTypesCompareMatcher : public TypeMatcher {
+ public:
+  explicit DecimalTypesCompareMatcher(std::shared_ptr<TypeMatcher> decimal_type_matcher)
+      : decimal_type_matcher(std::move(decimal_type_matcher)) {}
+
+  bool Matches(const DataType& type) const override {
+    return decimal_type_matcher->Matches(type);
+  }
+
+  bool Matches(const std::vector<TypeHolder>& types) const override {
+    DCHECK_EQ(types.size(), 2);
+    if (!is_decimal(*types[0]) || !is_decimal(*types[1])) {
+      return true;
+    }
+
+    // Below match logic should only be executed when types are both decimal
+    //
+    const auto& left_type = checked_cast<const DecimalType&>(*types[0]);
+    const auto& right_type = checked_cast<const DecimalType&>(*types[1]);
+
+    // check the decimal types' scales according kAdd promotion rule
+    const int32_t s1 = left_type.scale();
+    const int32_t s2 = right_type.scale();
+    if (s1 != s2) {
+      return false;
+    }
+    return true;
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    const auto* casted = dynamic_cast<const DecimalTypesCompareMatcher*>(&other);
+    return casted != nullptr &&
+           decimal_type_matcher->Equals(*casted->decimal_type_matcher);
+  }
+
+  std::string ToString() const override { return "decimal-types-matcher"; }
+
+ private:
+  std::shared_ptr<TypeMatcher> decimal_type_matcher;
+};
+
+std::shared_ptr<TypeMatcher> DecimalTypesMatcher(Type::type type_id) {
+  return std::make_shared<DecimalTypesCompareMatcher>(match::SameTypeId(type_id));
+}
+
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDoc doc) {
   auto func = std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
@@ -433,9 +481,9 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
   }
 
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
+    InputType in_type(DecimalTypesMatcher(id));
     auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
-    DCHECK_OK(
-        func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
   }
 
   {
