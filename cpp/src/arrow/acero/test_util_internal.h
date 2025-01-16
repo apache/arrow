@@ -36,8 +36,6 @@
 
 namespace arrow::acero {
 
-void ValidateOutput(const Datum& output);
-
 // Enumerate all hardware flags that can be tested on this platform
 // and would lead to different code paths being tested in Acero.
 std::vector<int64_t> HardwareFlagsForTesting();
@@ -49,16 +47,6 @@ using StopProducingFunc = std::function<void(ExecNode*)>;
 ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*> inputs,
                         bool is_sink = false, StartProducingFunc = {},
                         StopProducingFunc = {});
-
-ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types, std::string_view json);
-
-/// \brief Shape qualifier for value types. In certain instances
-/// (e.g. "map_lookup" kernel), an argument may only be a scalar, where in
-/// other kernels arguments can be arrays or scalars
-enum class ArgShape { ANY, ARRAY, SCALAR };
-
-ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
-                            const std::vector<ArgShape>& shapes, std::string_view json);
 
 struct BatchesWithSchema {
   std::vector<ExecBatch> batches;

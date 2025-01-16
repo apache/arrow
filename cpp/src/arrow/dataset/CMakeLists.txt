@@ -106,10 +106,10 @@ endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static arrow_acero_testing
-                                   ${ARROW_TEST_STATIC_LINK_LIBS})
+                                   arrow_compute_testing ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
   set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared arrow_acero_testing
-                                   ${ARROW_TEST_SHARED_LINK_LIBS})
+                                   arrow_compute_testing ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
 foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
