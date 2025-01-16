@@ -407,8 +407,18 @@ optional<std::pair<FLBA, FLBA>> CleanStatistic(std::pair<FLBA, FLBA> min_max,
 
 optional<std::pair<ByteArray, ByteArray>> CleanStatistic(
     std::pair<ByteArray, ByteArray> min_max, LogicalType::Type::type) {
-  if (min_max.first.ptr == nullptr || min_max.second.ptr == nullptr) {
-    return ::std::nullopt;
+  static ByteArray empty("");
+  if (min_max.first.ptr == nullptr) {
+    if (min_max.first.len != 0) {
+      return ::std::nullopt;
+    }
+    min_max.first = empty;
+  }
+  if (min_max.second.ptr == nullptr) {
+    if (min_max.second.len != 0) {
+      return ::std::nullopt;
+    }
+    min_max.second = empty;
   }
   return min_max;
 }
