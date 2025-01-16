@@ -612,7 +612,7 @@ Iterator<T> IterateSynchronously(
     FnOnce<Result<std::function<Future<T>()>>(Executor*)> get_gen, bool use_threads,
     Executor* executor) {
   if (use_threads) {
-    auto used_executor = executor != nullptr ? executor : GetCpuThreadPool();
+    auto used_executor = executor != NULLPTR ? executor : GetCpuThreadPool();
     auto maybe_gen = std::move(get_gen)(used_executor);
     if (!maybe_gen.ok()) {
       return MakeErrorIterator<T>(maybe_gen.status());
@@ -638,7 +638,7 @@ Iterator<T> IterateSynchronously(
 template <typename T>
 Iterator<T> IterateSynchronously(
     FnOnce<Result<std::function<Future<T>()>>(Executor*)> get_gen, bool use_threads) {
-  return IterateSynchronously(std::move(get_gen), use_threads, nullptr);
+  return IterateSynchronously(std::move(get_gen), use_threads, NULLPTR);
 }
 
 }  // namespace internal
