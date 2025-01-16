@@ -45,6 +45,7 @@
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/visit_array_inline.h"
+#include "parquet/column_chunker.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -752,7 +753,9 @@ class ColumnWriterImpl {
         closed_(false),
         fallback_(false),
         definition_levels_sink_(allocator_),
-        repetition_levels_sink_(allocator_) {
+        repetition_levels_sink_(allocator_),
+        content_defined_chunker_(level_info_, properties->cdc_mask(),
+                                 properties->cdc_min_size(), properties->cdc_max_size()) {
     definition_levels_rle_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     repetition_levels_rle_ =
@@ -891,6 +894,8 @@ class ColumnWriterImpl {
   std::shared_ptr<ResizableBuffer> compressor_temp_buffer_;
 
   std::vector<std::unique_ptr<DataPage>> data_pages_;
+
+  internal::GearHash content_defined_chunker_;
 
  private:
   void InitSinks() {
@@ -1332,13 +1337,37 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       bits_buffer_->ZeroPadding();
     }
 
-    if (leaf_array.type()->id() == ::arrow::Type::DICTIONARY) {
-      return WriteArrowDictionary(def_levels, rep_levels, num_levels, leaf_array, ctx,
-                                  maybe_parent_nulls);
+    if (this->properties_->cdc_enabled()) {
+      ARROW_ASSIGN_OR_RAISE(auto boundaries,
+                            content_defined_chunker_.GetBoundaries(
+                                def_levels, rep_levels, num_levels, leaf_array));
+      for (auto boundary : boundaries) {
+        auto level_offset = std::get<0>(boundary);
+        auto array_offset = std::get<1>(boundary);
+        auto levels_to_write = std::get<2>(boundary);
+        auto sliced_array = leaf_array.Slice(array_offset);
+        if (leaf_array.type()->id() == ::arrow::Type::DICTIONARY) {
+          ARROW_CHECK_OK(WriteArrowDictionary(def_levels + level_offset,
+                                              rep_levels + level_offset, levels_to_write,
+                                              *sliced_array, ctx, maybe_parent_nulls));
+        } else {
+          ARROW_CHECK_OK(WriteArrowDense(def_levels + level_offset,
+                                         rep_levels + level_offset, levels_to_write,
+                                         *sliced_array, ctx, maybe_parent_nulls));
+        }
+        AddDataPage();
+      }
+      return Status::OK();
     } else {
-      return WriteArrowDense(def_levels, rep_levels, num_levels, leaf_array, ctx,
-                             maybe_parent_nulls);
+      if (leaf_array.type()->id() == ::arrow::Type::DICTIONARY) {
+        return WriteArrowDictionary(def_levels, rep_levels, num_levels, leaf_array, ctx,
+                                    maybe_parent_nulls);
+      } else {
+        return WriteArrowDense(def_levels, rep_levels, num_levels, leaf_array, ctx,
+                               maybe_parent_nulls);
+      }
     }
+
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
