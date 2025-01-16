@@ -376,4 +376,22 @@ TEST_F(SizeStatisticsRoundTripTest, LargePage) {
                                                         /*byte_array_bytes=*/{90000}}));
 }
 
+TEST_F(SizeStatisticsRoundTripTest, MaxLevelZero) {
+  auto schema =
+      ::arrow::schema({::arrow::field("a", ::arrow::utf8(), /*nullable=*/false)});
+  WriteFile(SizeStatisticsLevel::PageAndColumnChunk,
+            ::arrow::TableFromJSON(schema, {R"([["foo"],["bar"]])"}),
+            /*max_row_group_length=*/2,
+            /*page_size=*/1024);
+  ReadSizeStatistics();
+  EXPECT_THAT(row_group_stats_,
+              ::testing::ElementsAre(SizeStatistics{/*def_levels=*/{},
+                                                    /*rep_levels=*/{},
+                                                    /*byte_array_bytes=*/6}));
+  EXPECT_THAT(page_stats_,
+              ::testing::ElementsAre(PageSizeStatistics{/*def_levels=*/{},
+                                                        /*rep_levels=*/{},
+                                                        /*byte_array_bytes=*/{6}}));
+}
+
 }  // namespace parquet
