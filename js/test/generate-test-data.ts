@@ -755,8 +755,8 @@ function createDate64(length: number, nullBitmap: Uint8Array, values: (number | 
     return BigInt64Array.from(data32, x => BigInt(x * 86400000));
 }
 
-function divideBigInts(number: bigint, divisor: bigint): number {
-    return Number(number / divisor) + Number(number % divisor) / Number(divisor);
+function divideBigInts(numerator: bigint, denominator: bigint): number {
+    return Number(numerator / denominator) + Number(numerator % denominator) / Number(denominator);
 }
 
 function createTimestamp(length: number, nullBitmap: Uint8Array, multiple: number, values: (number | null)[] = []) {

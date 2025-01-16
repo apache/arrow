@@ -26,14 +26,14 @@ export function bigIntToNumber(number: bigint | number): number {
 }
 
 /**
- * Duivides the bigint number by the divisor and returns the result as a number.
+ * Divides the bigint numerator by the denominator and returns the result as a number.
  * Dividing bigints always results in bigints so we don't get the remainder.
  * This function gives us the remainder but assumes that the result fits into a number.
  *
- * @param number The number to divide.
- * @param divisor The divisor.
+ * @param numerator The number to divide.
+ * @param denominator The denominator.
  * @returns The result of the division as a number.
  */
-export function divideBigInts(number: bigint, divisor: bigint): number {
-    return bigIntToNumber(number / divisor) + bigIntToNumber(number % divisor) / bigIntToNumber(divisor);
+export function divideBigInts(numerator: bigint, denominator: bigint): number {
+    return bigIntToNumber(numerator / denominator) + bigIntToNumber(numerator % denominator) / bigIntToNumber(denominator);
 }

@@ -18,10 +18,7 @@
 import { ArrayBufferViewInput, toArrayBufferView } from './buffer.js';
 import { TypedArray, TypedArrayConstructor } from '../interfaces.js';
 import { BigIntArray, BigIntArrayConstructor } from '../interfaces.js';
-import { bigIntToNumber } from './bigint.js';
-
-/** @ignore */
-export const isArrowBigNumSymbol = Symbol.for('isArrowBigNum');
+import { bigIntToNumber, divideBigInts } from './bigint.js';
 
 /** @ignore */ type BigNumArray = IntArray | UintArray;
 /** @ignore */ type IntArray = Int8Array | Int16Array | Int32Array;
@@ -35,13 +32,12 @@ function BigNum(this: any, x: any, ...xs: any) {
     return Object.setPrototypeOf(new this['TypedArray'](x, ...xs), this.constructor.prototype);
 }
 
-BigNum.prototype[isArrowBigNumSymbol] = true;
 BigNum.prototype.toJSON = function <T extends BN<BigNumArray>>(this: T) { return `"${bigNumToString(this)}"`; };
-BigNum.prototype.valueOf = function <T extends BN<BigNumArray>>(this: T, scale?: number) { return bigNumToNumber(this, scale); };
+BigNum.prototype.valueOf = function <T extends BN<BigNumArray>>(this: T, scale: number) { return bigNumToNumber(this, scale ?? (this as any)['scale']); };
 BigNum.prototype.toString = function <T extends BN<BigNumArray>>(this: T) { return bigNumToString(this); };
 BigNum.prototype[Symbol.toPrimitive] = function <T extends BN<BigNumArray>>(this: T, hint: 'string' | 'number' | 'default' = 'default') {
     switch (hint) {
-        case 'number': return bigNumToNumber(this);
+        case 'number': return bigNumToNumber(this, (this as any)['scale']);
         case 'string': return bigNumToString(this);
         case 'default': return bigNumToBigInt(this);
     }
@@ -92,16 +88,13 @@ export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number)
         }
     }
     if (typeof scale === 'number') {
-        const denominator = BigInt(Math.pow(10, scale));
-        const quotient = number / denominator;
-        const remainder = number % denominator;
-        return bigIntToNumber(quotient) + (bigIntToNumber(remainder) / bigIntToNumber(denominator));
+        return divideBigInts(number, BigInt(Math.pow(10, scale)));
     }
     return bigIntToNumber(number);
 }
 
 /** @ignore */
-export function bigNumToString<T extends BN<BigNumArray>>(a: T): string {
+function bigNumToString<T extends BN<BigNumArray>>(a: T): string {
     // use BigInt native implementation
     if (a.byteLength === 8) {
         const bigIntArray = new a['BigIntArray'](a.buffer, a.byteOffset, 1);
@@ -136,7 +129,7 @@ export function bigNumToString<T extends BN<BigNumArray>>(a: T): string {
 }
 
 /** @ignore */
-export function bigNumToBigInt<T extends BN<BigNumArray>>(a: T): bigint {
+function bigNumToBigInt<T extends BN<BigNumArray>>(a: T): bigint {
     if (a.byteLength === 8) {
         const bigIntArray = new a['BigIntArray'](a.buffer, a.byteOffset, 1);
         return bigIntArray[0];
@@ -194,8 +187,10 @@ export class BN<T extends BigNumArray> {
         return new (<any>UnsignedBigNum)(num) as (T & BN<T>);
     }
     /** @nocollapse */
-    public static decimal<T extends UintArray>(num: T): (T & BN<T>) {
-        return new (<any>DecimalBigNum)(num) as (T & BN<T>);
+    public static decimal<T extends UintArray>(num: T, scale = 0): (T & BN<T>) {
+        const decimal = new (<any>DecimalBigNum)(num) as (T & BN<T>);
+        (decimal as any)['scale'] = scale;
+        return decimal;
     }
     constructor(num: T, isSigned?: boolean) {
         return BN.new(num, isSigned) as any;
