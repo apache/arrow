@@ -200,10 +200,6 @@ if(MSVC)
   # seem harmless, and probably not worth the effort of working around it
   string(APPEND CMAKE_CXX_FLAGS " /wd4800")
 
-  # See https://github.com/cython/cython/issues/2731. Change introduced in
-  # Cython 0.29.1 causes "unsafe use of type 'bool' in operation"
-  string(APPEND CMAKE_CXX_FLAGS " /wd4804")
-
   # See https://github.com/cython/cython/issues/4445.
   #
   # Cython 3 emits "(void)__Pyx_PyObject_CallMethod0;" to suppress a
