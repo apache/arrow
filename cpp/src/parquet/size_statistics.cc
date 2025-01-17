@@ -86,10 +86,6 @@ void SizeStatistics::Validate(const ColumnDescriptor* descr) const {
     throw ParquetException("Unencoded byte array data bytes does not support " +
                            TypeToString(descr->physical_type()));
   }
-  if (!unencoded_byte_array_data_bytes.has_value() &&
-      descr->physical_type() == Type::BYTE_ARRAY) {
-    throw ParquetException("Missing unencoded byte array data bytes");
-  }
 }
 
 void SizeStatistics::Reset() {
