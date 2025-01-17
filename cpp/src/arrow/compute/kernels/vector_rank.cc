@@ -63,129 +63,6 @@ void MarkDuplicates(const NullPartitionResult& sorted, ValueSelector&& value_sel
   }
 }
 
-struct RankingsEmitter {
-  virtual ~RankingsEmitter() = default;
-  virtual bool NeedsDuplicates() = 0;
-  virtual Result<Datum> CreateRankings(ExecContext* ctx,
-                                       const NullPartitionResult& sorted) = 0;
-};
-
-// A helper class that emits rankings for the "rank_percentile" function
-struct PercentileRankingsEmitter : public RankingsEmitter {
-  explicit PercentileRankingsEmitter(double factor) : factor_(factor) {}
-
-  bool NeedsDuplicates() override { return true; }
-
-  Result<Datum> CreateRankings(ExecContext* ctx,
-                               const NullPartitionResult& sorted) override {
-    const int64_t length = sorted.overall_end() - sorted.overall_begin();
-    ARROW_ASSIGN_OR_RAISE(auto rankings,
-                          MakeMutableFloat64Array(length, ctx->memory_pool()));
-    auto out_begin = rankings->GetMutableValues<double>(1);
-
-    auto is_duplicate = [](uint64_t index) { return (index & kDuplicateMask) != 0; };
-    auto original_index = [](uint64_t index) { return index & ~kDuplicateMask; };
-
-    // The count of values strictly less than the value being considered
-    int64_t cum_freq = 0;
-    auto it = sorted.overall_begin();
-
-    while (it < sorted.overall_end()) {
-      // Look for a run of duplicate values
-      DCHECK(!is_duplicate(*it));
-      auto run_end = it;
-      while (++run_end < sorted.overall_end() && is_duplicate(*run_end)) {
-      }
-      // The run length, i.e. the frequency of the current value
-      int64_t freq = run_end - it;
-      double percentile = (cum_freq + 0.5 * freq) * factor_ / static_cast<double>(length);
-      // Output percentile rank values
-      for (; it < run_end; ++it) {
-        out_begin[original_index(*it)] = percentile;
-      }
-      cum_freq += freq;
-    }
-    DCHECK_EQ(cum_freq, length);
-    return Datum(rankings);
-  }
-
- private:
-  const double factor_;
-};
-
-// A helper class that emits rankings for the "rank" function
-struct OrdinalRankingsEmitter : public RankingsEmitter {
-  explicit OrdinalRankingsEmitter(RankOptions::Tiebreaker tiebreaker)
-      : tiebreaker_(tiebreaker) {}
-
-  bool NeedsDuplicates() override { return tiebreaker_ != RankOptions::First; }
-
-  Result<Datum> CreateRankings(ExecContext* ctx,
-                               const NullPartitionResult& sorted) override {
-    const int64_t length = sorted.overall_end() - sorted.overall_begin();
-    ARROW_ASSIGN_OR_RAISE(auto rankings,
-                          MakeMutableUInt64Array(length, ctx->memory_pool()));
-    auto out_begin = rankings->GetMutableValues<uint64_t>(1);
-    uint64_t rank;
-
-    auto is_duplicate = [](uint64_t index) { return (index & kDuplicateMask) != 0; };
-    auto original_index = [](uint64_t index) { return index & ~kDuplicateMask; };
-
-    switch (tiebreaker_) {
-      case RankOptions::Dense: {
-        rank = 0;
-        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); ++it) {
-          if (!is_duplicate(*it)) {
-            ++rank;
-          }
-          out_begin[original_index(*it)] = rank;
-        }
-        break;
-      }
-
-      case RankOptions::First: {
-        rank = 0;
-        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); it++) {
-          // No duplicate marks expected for RankOptions::First
-          DCHECK(!is_duplicate(*it));
-          out_begin[*it] = ++rank;
-        }
-        break;
-      }
-
-      case RankOptions::Min: {
-        rank = 0;
-        for (auto it = sorted.overall_begin(); it < sorted.overall_end(); ++it) {
-          if (!is_duplicate(*it)) {
-            rank = (it - sorted.overall_begin()) + 1;
-          }
-          out_begin[original_index(*it)] = rank;
-        }
-        break;
-      }
-
-      case RankOptions::Max: {
-        rank = length;
-        for (auto it = sorted.overall_end() - 1; it >= sorted.overall_begin(); --it) {
-          out_begin[original_index(*it)] = rank;
-          // If the current index isn't marked as duplicate, then it's the last
-          // tie in a row (since we iterate in reverse order), so update rank
-          // for the next row of ties.
-          if (!is_duplicate(*it)) {
-            rank = it - sorted.overall_begin();
-          }
-        }
-        break;
-      }
-    }
-
-    return Datum(rankings);
-  }
-
- private:
-  const RankOptions::Tiebreaker tiebreaker_;
-};
-
 const RankOptions* GetDefaultRankOptions() {
   static const auto kDefaultRankOptions = RankOptions::Defaults();
   return &kDefaultRankOptions;
@@ -196,118 +73,15 @@ const RankPercentileOptions* GetDefaultPercentileRankOptions() {
   return &kDefaultPercentileRankOptions;
 }
 
-template <typename InputType, typename RankerType>
-class RankerMixin : public TypeVisitor {
- public:
-  RankerMixin(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
-              const InputType& input, const SortOrder order,
-              const NullPlacement null_placement, RankingsEmitter* emitter)
-      : TypeVisitor(),
-        ctx_(ctx),
-        indices_begin_(indices_begin),
-        indices_end_(indices_end),
-        input_(input),
-        order_(order),
-        null_placement_(null_placement),
-        physical_type_(GetPhysicalType(input.type())),
-        emitter_(emitter) {}
+template <typename ArrowType>
+Result<NullPartitionResult> DoSortAndMarkDuplicate(
+    ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end, const Array& input,
+    const std::shared_ptr<DataType>& physical_type, const SortOrder order,
+    const NullPlacement null_placement, bool needs_duplicates) {
+  using GetView = GetViewType<ArrowType>;
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
-  Result<Datum> Run() {
-    RETURN_NOT_OK(physical_type_->Accept(this));
-    return emitter_->CreateRankings(ctx_, sorted_);
-  }
-
-#define VISIT(TYPE)                                                                \
-  Status Visit(const TYPE& type) {                                                 \
-    return static_cast<RankerType*>(this)->template SortAndMarkDuplicates<TYPE>(); \
-  }
-
-  VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
-
-#undef VISIT
-
- protected:
-  ExecContext* ctx_;
-  uint64_t* indices_begin_;
-  uint64_t* indices_end_;
-  const InputType& input_;
-  const SortOrder order_;
-  const NullPlacement null_placement_;
-  const std::shared_ptr<DataType> physical_type_;
-  RankingsEmitter* emitter_;
-  NullPartitionResult sorted_{};
-};
-
-template <typename T>
-class Ranker;
-
-template <>
-class Ranker<Array> : public RankerMixin<Array, Ranker<Array>> {
- public:
-  using RankerMixin::RankerMixin;
-
-  template <typename InType>
-  Status SortAndMarkDuplicates() {
-    using GetView = GetViewType<InType>;
-    using ArrayType = typename TypeTraits<InType>::ArrayType;
-
-    ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type_));
-
-    ArrayType array(input_.data());
-    ARROW_ASSIGN_OR_RAISE(sorted_,
-                          array_sorter(indices_begin_, indices_end_, array, 0,
-                                       ArraySortOptions(order_, null_placement_), ctx_));
-
-    if (emitter_->NeedsDuplicates()) {
-      auto value_selector = [&array](int64_t index) {
-        return GetView::LogicalValue(array.GetView(index));
-      };
-      MarkDuplicates(sorted_, value_selector);
-    }
-    return Status::OK();
-  }
-};
-
-template <>
-class Ranker<ChunkedArray> : public RankerMixin<ChunkedArray, Ranker<ChunkedArray>> {
- public:
-  template <typename... Args>
-  explicit Ranker(Args&&... args)
-      : RankerMixin(std::forward<Args>(args)...),
-        physical_chunks_(GetPhysicalChunks(input_, physical_type_)) {}
-
-  template <typename InType>
-  Status SortAndMarkDuplicates() {
-    if (physical_chunks_.empty()) {
-      return Status::OK();
-    }
-    ARROW_ASSIGN_OR_RAISE(
-        sorted_, SortChunkedArray(ctx_, indices_begin_, indices_end_, physical_type_,
-                                  physical_chunks_, order_, null_placement_));
-    if (emitter_->NeedsDuplicates()) {
-      const auto arrays = GetArrayPointers(physical_chunks_);
-      auto value_selector = [resolver =
-                                 ChunkedArrayResolver(span(arrays))](int64_t index) {
-        return resolver.Resolve(index).Value<InType>();
-      };
-      MarkDuplicates(sorted_, value_selector);
-    }
-    return Status::OK();
-  }
-
- private:
-  const ArrayVector physical_chunks_;
-};
-
-template <typename InType>
-Result<NullPartitionResult> SortAndMarkDup(const Array& input, uint64_t* indices_begin,
-                                           uint64_t* indices_end, SortOrder order,
-                                           NullPlacement null_placement,
-                                           bool needs_duplicates, ExecContext* ctx) {
-  using GetView = GetViewType<InType>;
-  using ArrayType = typename TypeTraits<InType>::ArrayType;
-
-  ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*input.type()));
+  ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type));
 
   ArrayType array(input.data());
   ARROW_ASSIGN_OR_RAISE(auto sorted,
@@ -323,12 +97,11 @@ Result<NullPartitionResult> SortAndMarkDup(const Array& input, uint64_t* indices
   return sorted;
 }
 
-template <typename InType>
-Result<NullPartitionResult> SortAndMarkDup(const ChunkedArray& input,
-                                           uint64_t* indices_begin, uint64_t* indices_end,
-                                           SortOrder order, NullPlacement null_placement,
-                                           bool needs_duplicates, ExecContext* ctx) {
-  auto physical_type = GetPhysicalType(input.type());
+template <typename ArrowType>
+Result<NullPartitionResult> DoSortAndMarkDuplicate(
+    ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+    const ChunkedArray& input, const std::shared_ptr<DataType>& physical_type,
+    const SortOrder order, const NullPlacement null_placement, bool needs_duplicates) {
   auto physical_chunks = GetPhysicalChunks(input, physical_type);
   if (physical_chunks.empty()) {
     return NullPartitionResult{};
@@ -339,12 +112,58 @@ Result<NullPartitionResult> SortAndMarkDup(const ChunkedArray& input,
   if (needs_duplicates) {
     const auto arrays = GetArrayPointers(physical_chunks);
     auto value_selector = [resolver = ChunkedArrayResolver(span(arrays))](int64_t index) {
-      return resolver.Resolve(index).Value<InType>();
+      return resolver.Resolve(index).Value<ArrowType>();
     };
     MarkDuplicates(sorted, value_selector);
   }
   return sorted;
 }
+
+template <typename InputType>
+class SortAndMarkDuplicate : public TypeVisitor {
+ public:
+  SortAndMarkDuplicate(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+                       const InputType& input, const SortOrder order,
+                       const NullPlacement null_placement, const bool needs_duplicate)
+      : TypeVisitor(),
+        ctx_(ctx),
+        indices_begin_(indices_begin),
+        indices_end_(indices_end),
+        input_(input),
+        order_(order),
+        null_placement_(null_placement),
+        needs_duplicates_(needs_duplicate),
+        physical_type_(GetPhysicalType(input.type())) {}
+
+  Result<NullPartitionResult> Run() {
+    RETURN_NOT_OK(physical_type_->Accept(this));
+    return std::move(sorted_);
+  }
+
+#define VISIT(TYPE)                                                                 \
+  Status Visit(const TYPE& type) {                                                  \
+    ARROW_ASSIGN_OR_RAISE(                                                          \
+        sorted_, DoSortAndMarkDuplicate<TYPE>(ctx_, indices_begin_, indices_end_,   \
+                                              input_, physical_type_, order_,       \
+                                              null_placement_, needs_duplicates_)); \
+    return Status::OK();                                                            \
+  }
+
+  VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
+
+#undef VISIT
+
+ private:
+  ExecContext* ctx_;
+  uint64_t* indices_begin_;
+  uint64_t* indices_end_;
+  const InputType& input_;
+  const SortOrder order_;
+  const NullPlacement null_placement_;
+  const bool needs_duplicates_;
+  const std::shared_ptr<DataType> physical_type_;
+  NullPartitionResult sorted_{};
+};
 
 struct PercentileRanker {
   explicit PercentileRanker(double factor) : factor_(factor) {}
@@ -504,24 +323,16 @@ class RankMetaFunctionBase : public MetaFunction {
   }
 
  protected:
-  struct UnpackedOptions {
-    SortOrder order{SortOrder::Ascending};
-    NullPlacement null_placement;
-    std::unique_ptr<RankingsEmitter> emitter;
-  };
-
-  virtual UnpackedOptions UnpackOptions(const FunctionOptions&) const = 0;
-
   template <typename T>
   Result<Datum> Rank(const T& input, const FunctionOptions& function_options,
                      ExecContext* ctx) const {
     const auto& options =
         checked_cast<const typename Impl::FunctionOptionsType&>(function_options);
 
-    // SortOrder order = SortOrder::Ascending;
-    // if (!options.sort_keys.empty()) {
-    //   order = options.sort_keys[0].order;
-    // }
+    SortOrder order = SortOrder::Ascending;
+    if (!options.sort_keys.empty()) {
+      order = options.sort_keys[0].order;
+    }
 
     int64_t length = input.length();
     ARROW_ASSIGN_OR_RAISE(auto indices,
@@ -529,15 +340,13 @@ class RankMetaFunctionBase : public MetaFunction {
     auto* indices_begin = indices->GetMutableValues<uint64_t>(1);
     auto* indices_end = indices_begin + length;
     std::iota(indices_begin, indices_end, 0);
+    auto needs_duplicates = Impl::NeedsDuplicates(options);
+    ARROW_ASSIGN_OR_RAISE(
+        auto sorted, SortAndMarkDuplicate(ctx, indices_begin, indices_end, input, order,
+                                          options.null_placement, needs_duplicates)
+                         .Run());
 
-    // auto needs_duplicates = static_cast<const Impl*>(this)->NeedsDuplicates(options);
-    // ARROW_ASSIGN_OR_RAISE(auto sorted,
-    //                       SortAndMarkDup(input, indices_begin, indices_end, order,
-    //                                      options.null_placement, needs_duplicates,
-    //                                      ctx));
-    NullPartitionResult sorted;
-    auto ranker = static_cast<const Impl*>(this)->GetRanker(options);
-
+    auto ranker = Impl::GetRanker(options);
     return ranker.CreateRankings(ctx, sorted);
   }
 };
@@ -547,55 +356,33 @@ class RankMetaFunction : public RankMetaFunctionBase<RankMetaFunction> {
   using FunctionOptionsType = RankOptions;
   using RankerType = OrdinalRanker;
 
-  RankMetaFunction()
-      : RankMetaFunctionBase("rank", Arity::Unary(), rank_doc, GetDefaultRankOptions()) {}
-
-  bool NeedsDuplicates(const RankOptions& options) const {
+  static bool NeedsDuplicates(const RankOptions& options) {
     return options.tiebreaker != RankOptions::First;
   }
 
-  RankerType GetRanker(const RankOptions& options) const {
+  static RankerType GetRanker(const RankOptions& options) {
     return RankerType(options.tiebreaker);
   }
 
- protected:
-  UnpackedOptions UnpackOptions(const FunctionOptions& function_options) const override {
-    const auto& options = checked_cast<const RankOptions&>(function_options);
-    UnpackedOptions unpacked{
-        SortOrder::Ascending, options.null_placement,
-        std::make_unique<OrdinalRankingsEmitter>(options.tiebreaker)};
-    if (!options.sort_keys.empty()) {
-      unpacked.order = options.sort_keys[0].order;
-    }
-    return unpacked;
-  }
+  RankMetaFunction()
+      : RankMetaFunctionBase("rank", Arity::Unary(), rank_doc, GetDefaultRankOptions()) {}
 };
 
-class RankPercentileMetaFunction : public RankMetaFunctionBase<RankMetaFunction> {
+class RankPercentileMetaFunction
+    : public RankMetaFunctionBase<RankPercentileMetaFunction> {
  public:
   using FunctionOptionsType = RankPercentileOptions;
   using RankerType = PercentileRanker;
 
-  RankPercentileMetaFunction()
-      : RankMetaFunctionBase("rank_percentile", Arity::Unary(), rank_percentile_doc,
-                             GetDefaultPercentileRankOptions()) {}
+  static bool NeedsDuplicates(const RankPercentileOptions&) { return true; }
 
-  bool NeedsDuplicates(const RankPercentileOptions&) const { return true; }
-
-  RankerType GetRanker(const RankPercentileOptions& options) const {
+  static RankerType GetRanker(const RankPercentileOptions& options) {
     return RankerType(options.factor);
   }
 
- protected:
-  UnpackedOptions UnpackOptions(const FunctionOptions& function_options) const override {
-    const auto& options = checked_cast<const RankPercentileOptions&>(function_options);
-    UnpackedOptions unpacked{SortOrder::Ascending, options.null_placement,
-                             std::make_unique<PercentileRankingsEmitter>(options.factor)};
-    if (!options.sort_keys.empty()) {
-      unpacked.order = options.sort_keys[0].order;
-    }
-    return unpacked;
-  }
+  RankPercentileMetaFunction()
+      : RankMetaFunctionBase("rank_percentile", Arity::Unary(), rank_percentile_doc,
+                             GetDefaultPercentileRankOptions()) {}
 };
 
 }  // namespace
