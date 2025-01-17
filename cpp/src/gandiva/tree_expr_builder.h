@@ -134,6 +134,9 @@ class GANDIVA_EXPORT TreeExprBuilder {
   /// \brief Timestamp as millis since epoch.
   static NodePtr MakeInExpressionTimeStamp(NodePtr node,
                                            const std::unordered_set<int64_t>& constants);
+
+  static NodePtr MakePreEvalInExpression(NodePtr eval_expr,
+                                         NodeVector condition_eval_exprs);
 };
 
 }  // namespace gandiva
