@@ -66,11 +66,15 @@ void SizeStatistics::IncrementUnencodedByteArrayDataBytes(int64_t value) {
 void SizeStatistics::Validate(const ColumnDescriptor* descr) const {
   auto validate_histogram = [](const std::vector<int64_t>& histogram, int16_t max_level,
                                const std::string& name) {
-    if (max_level == 0 && histogram.empty()) {
+    if (histogram.empty()) {
+      // A levels histogram is always allowed to be missing.
       return;
     }
     if (histogram.size() != static_cast<size_t>(max_level + 1)) {
-      throw ParquetException(name + " level histogram size mismatch");
+      std::stringstream ss;
+      ss << name << " level histogram size mismatch, size: " << histogram.size()
+         << ", expected: " << (max_level + 1);
+      throw ParquetException(ss.str());
     }
   };
   validate_histogram(repetition_level_histogram, descr->max_repetition_level(),
