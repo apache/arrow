@@ -21,6 +21,11 @@ namespace gandiva {
 
 // Content of precompiled bitcode file.
 extern const unsigned char kPrecompiledBitcode[] = { <DATA_CHARS> };
+
+extern const unsigned char kPrecompiledMandatoryBitcode[] = { <MANDATORY_DATA_CHARS> };
+
 extern const size_t kPrecompiledBitcodeSize = sizeof(kPrecompiledBitcode);
+
+extern const size_t kPrecompiledMandatoryBitcodeSize = sizeof(kPrecompiledMandatoryBitcode);
 
 } // namespace gandiva
