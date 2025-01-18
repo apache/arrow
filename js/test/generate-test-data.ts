@@ -33,12 +33,13 @@ import {
     Struct,
     Union, DenseUnion, SparseUnion,
     Dictionary,
-    Interval, IntervalDayTime, IntervalYearMonth,
+    Interval, IntervalDayTime, IntervalYearMonth, IntervalMonthDayNano,
     Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     FixedSizeList,
     Map_,
     DateUnit, TimeUnit, UnionMode,
-    util
+    util,
+    IntervalUnit
 } from 'apache-arrow';
 
 import { randomString } from './random-string.js';
@@ -242,6 +243,7 @@ export const sparseUnion = (length = 100, nullCount = Math.trunc(length * 0.2), 
 export const dictionary = <T extends DataType = Utf8, TKey extends TKeys = Int32>(length = 100, nullCount = Math.trunc(length * 0.2), dict: T = <any>new Utf8(), keys: TKey = <any>new Int32()) => vectorGenerator.visit(new Dictionary(dict, keys), length, nullCount);
 export const intervalDayTime = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new IntervalDayTime(), length, nullCount);
 export const intervalYearMonth = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new IntervalYearMonth(), length, nullCount);
+export const intervalMonthDayNano = (length = 2, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new IntervalMonthDayNano(), length, nullCount);
 export const durationSecond = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new DurationSecond(), length, nullCount);
 export const durationMillisecond = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new DurationMillisecond(), length, nullCount);
 export const durationMicrosecond = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new DurationMicrosecond(), length, nullCount);
@@ -250,7 +252,7 @@ export const fixedSizeList = (length = 100, nullCount = Math.trunc(length * 0.2)
 export const map = <TKey extends DataType = any, TValue extends DataType = any>(length = 100, nullCount = Math.trunc(length * 0.2), child: Field<Struct<{ key: TKey; value: TValue }>> = <any>defaultMapChild()) => vectorGenerator.visit(new Map_<TKey, TValue>(child), length, nullCount);
 
 export const vecs = {
-    null_, bool, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, utf8, largeUtf8, binary, largeBinary, fixedSizeBinary, dateDay, dateMillisecond, timestampSecond, timestampMillisecond, timestampMicrosecond, timestampNanosecond, timeSecond, timeMillisecond, timeMicrosecond, timeNanosecond, decimal, list, struct, denseUnion, sparseUnion, dictionary, intervalDayTime, intervalYearMonth, fixedSizeList, map, durationSecond, durationMillisecond, durationMicrosecond, durationNanosecond
+    null_, bool, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, utf8, largeUtf8, binary, largeBinary, fixedSizeBinary, dateDay, dateMillisecond, timestampSecond, timestampMillisecond, timestampMicrosecond, timestampNanosecond, timeSecond, timeMillisecond, timeMicrosecond, timeNanosecond, decimal, list, struct, denseUnion, sparseUnion, dictionary, intervalDayTime, intervalYearMonth, intervalMonthDayNano, fixedSizeList, map, durationSecond, durationMillisecond, durationMicrosecond, durationNanosecond
 } as { [k: string]: (...args: any[]) => any };
 
 function generateNull<T extends Null>(this: TestDataVectorGenerator, type: T, length = 100): GeneratedVector<T> {
@@ -448,13 +450,13 @@ function generateDecimal<T extends Decimal>(this: TestDataVectorGenerator, type:
 }
 
 function generateInterval<T extends Interval>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
-    const stride = (1 + type.unit);
+    const stride = type.unit === IntervalUnit.MONTH_DAY_NANO ? 4 : (1 + type.unit);
     const nullBitmap = createBitmap(length, nullCount);
     const data = fillRandom(Int32Array, length * stride);
     const values = memoize(() => {
         const values = [] as (Int32Array | null)[];
         iterateBitmap(length, nullBitmap, (i: number, valid: boolean) => {
-            values[i] = !valid ? null : stride === 2
+            values[i] = !valid ? null : (stride === 2 || stride === 4)
                 ? new Int32Array(data.buffer, 4 * i * stride, stride)
                 : new Int32Array([Math.trunc(data[i] / 12), Math.trunc(data[i] % 12)]);
         });
