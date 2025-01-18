@@ -91,13 +91,23 @@ export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number)
             number |= word * (BigInt(1) << BigInt(64 * i++));
         }
     }
-    if (typeof scale === 'number') {
-        const denominator = BigInt(Math.pow(10, scale));
+    if (typeof scale === 'number' && scale > 0) {
+        const denominator = BigInt('1' + '0'.repeat(scale));
         const quotient = number / denominator;
-        const remainder = number % denominator;
-        return bigIntToNumber(quotient) + (bigIntToNumber(remainder) / bigIntToNumber(denominator));
+        const remainder = negative? -(number % denominator) : number % denominator;
+        const integerPart = bigIntToNumber(quotient);
+        const fractionPart = padStart((remainder).toString(), scale);
+        const sign: string = negative && integerPart === 0 ? '-' : '';
+        return Number(`${sign}${integerPart}.${fractionPart}`);
     }
     return bigIntToNumber(number);
+}
+
+function padStart(str: string, targetLength: number) {
+    while (str.length < targetLength) {
+        str = '0' + str;
+    }
+    return str;
 }
 
 /** @ignore */

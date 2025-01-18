@@ -16,7 +16,7 @@
 // under the License.
 
 import * as Arrow from 'apache-arrow';
-const { BN } = Arrow.util;
+const { BN, bigNumToNumber } = Arrow.util;
 
 describe(`BN`, () => {
     test(`to detect signed numbers, unsigned numbers and decimals`, () => {
@@ -97,5 +97,16 @@ describe(`BN`, () => {
         // expect(n5.valueOf()).toBe(1.7014118346046923e+38);
         // const n6 = new BN(new Uint32Array([0x00000000, 0x00000000, 0x00000000, 0x80000000]), false);
         // expect(n6.valueOf(1)).toBe(1.7014118346046923e+37);
+    });
+
+    test(`bigNumToNumber`, () => {
+        const n1 = new BN(new Uint32Array([3, 2, 1, 0]));
+        expect(() => bigNumToNumber(n1)).toThrow('18446744082299486211');
+        /* eslint-disable @typescript-eslint/no-loss-of-precision */
+        expect(bigNumToNumber(n1, 10)).toBeCloseTo(1844674408.2299486);
+        expect(bigNumToNumber(n1, 15)).toBeCloseTo(18446.744082299486);
+        expect(bigNumToNumber(n1, 20)).toBeCloseTo(0.18446744082299486);
+        expect(bigNumToNumber(n1, 25)).toBeCloseTo(0.0000018446744082299486);
+        /* eslint-enable @typescript-eslint/no-loss-of-precision */
     });
 });
