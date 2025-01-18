@@ -141,6 +141,13 @@ struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
   static T LogicalValue(PhysicalType value) { return value; }
 };
 
+template <typename Type>
+struct GetViewType<Type, enable_if_list_type<Type>> {
+  using T = typename TypeTraits<Type>::ScalarType;
+
+  static T LogicalValue(T value) { return value; }
+};
+
 template <>
 struct GetViewType<Decimal32Type> {
   using T = Decimal32;
@@ -322,6 +329,47 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
   }
 };
 
+template <typename Type>
+struct ArrayIterator<Type, enable_if_list_type<Type>> {
+  using T = typename TypeTraits<Type>::ScalarType;
+  using ArrayT = typename TypeTraits<Type>::ArrayType;
+  using offset_type = typename Type::offset_type;
+
+  const ArraySpan& arr;
+  const offset_type* offsets;
+  offset_type cur_offset;
+  const ArraySpan& values;
+  const uint8_t* data;
+  int64_t position;
+
+  explicit ArrayIterator(const ArraySpan& arr)
+      : arr(arr),
+        offsets(reinterpret_cast<const offset_type*>(arr.buffers[1].data)),
+        cur_offset(offsets[arr.offset]),
+        values(arr.child_data[0]),
+        position(arr.offset) {}
+
+  T operator()() {
+    offset_type next_offset = offsets[++position];
+    const auto len = next_offset - cur_offset;
+    const auto null_count = values.null_count;
+    const std::shared_ptr<Buffer> nulls_buffer =
+        null_count > 0 ? *values.buffers[0].owner : nullptr;
+    std::vector<std::shared_ptr<Buffer>> bufs = {nulls_buffer, *values.buffers[1].owner};
+    const auto child_offset = values.offset;
+
+    // TODO: do not hard code child type. also need to be aware of non-primitive children
+    const auto array_data = ArrayData::Make(int32(), len, std::move(bufs), null_count,
+                                            cur_offset + child_offset);
+    const auto array = MakeArray(array_data);
+    const auto result = T{array};
+
+    cur_offset = next_offset;
+
+    return result;
+  }
+};
+
 template <>
 struct ArrayIterator<FixedSizeBinaryType> {
   const ArraySpan& arr;
@@ -388,6 +436,12 @@ struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
     if (!val.is_valid) return std::string_view();
     return checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
   }
+};
+
+template <typename Type>
+struct UnboxScalar<Type, enable_if_list_type<Type>> {
+  using T = typename TypeTraits<Type>::ScalarType;
+  static const T& Unbox(const Scalar& val) { return checked_cast<const T&>(val); }
 };
 
 template <>
@@ -1377,6 +1431,22 @@ ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
       return Generator<Type0, Decimal128Type, Args...>::Exec;
     case Type::DECIMAL256:
       return Generator<Type0, Decimal256Type, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return nullptr;
+  }
+}
+
+// Generate a kernel given a templated functor for list types
+//
+// See "Numeric" above for description of the generator functor
+template <template <typename...> class Generator, typename Type0, typename... Args>
+ArrayKernelExec GenerateList(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::LIST:
+      return Generator<Type0, ListType, Args...>::Exec;
+    case Type::LARGE_LIST:
+      return Generator<Type0, LargeListType, Args...>::Exec;
     default:
       DCHECK(false);
       return nullptr;
