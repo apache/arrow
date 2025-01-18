@@ -1,4 +1,5 @@
-% Test class for arrow.type.Date32Type and arrow.date32
+% Shared superclass for DateType-related tests
+
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -15,24 +16,13 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tDate32Type < tDateTypeTest
-
-    properties
-        ConstructionFcn = @arrow.date32
-        ArrowType = arrow.date32
-        TypeID = arrow.type.ID.Date32
-        BitWidth = int32(32)
-        ClassName = "arrow.type.Date32Type"
+classdef hDateType < hFixedWidthType
+    
+    properties (Abstract)
+        ConstructionFcn
     end
-
-    methods (Access = private)
-        function defaultUnit = getDefaultDateUnit(~)
-            % Define the default DateUnit for Date32Type
-            defaultUnit = arrow.type.DateUnit.Day;
-        end
-    end
-
-    methods(Test)
+    
+    methods (Test)
         function TestClass(testCase)
             % Verify ArrowType is an object of the expected class type.
             name = string(class(testCase.ArrowType));
@@ -40,60 +30,62 @@ classdef tDate32Type < tDateTypeTest
         end
 
         function DefaultDateUnit(testCase)
-            % Verify the default DateUnit is Day.
-            type = testCase.ArrowType;
+            type = testCase.ConstructionFcn;
             actualUnit = type.DateUnit;
-            expectedUnit = arrow.type.DateUnit.Day;
+            expectedUnit = testCase.retrieveDefaultDateUnit();
             testCase.verifyEqual(actualUnit, expectedUnit);
         end
 
         function DateUnitNoSetter(testCase)
             % Verify that an error is thrown when trying to set the value
             % of the DateUnit property.
-            type = arrow.date32();
+            type = testCase.ConstructionFcn();
             testCase.verifyError(@() setfield(type, "DateUnit", "Millisecond"), "MATLAB:class:SetProhibited");
         end
 
         function InvalidProxy(testCase)
             % Verify that an error is thrown when a Proxy of an unexpected
-            % type is passed to the arrow.type.Date32Type constructor.
+            % type is passed to the DateType constructor.
             array = arrow.array([1, 2, 3]);
             proxy = array.Proxy;
-            testCase.verifyError(@() arrow.type.Date32Type(proxy), "arrow:proxy:ProxyNameMismatch");
+            testCase.verifyError(@() testCase.ConstructionFcn(proxy), "arrow:proxy:ProxyNameMismatch");
         end
 
         function IsEqualTrue(testCase)
-            % Verifies isequal method of arrow.type.Date32Type returns true if
-            % these conditions are met:
+            % Verifies isequal method of DateType returns true if
+            % conditions are met:
             %
-            % 1. All input arguments have a class type arrow.type.Date32Type
+            % 1. All input arguments have a class type DateType
             % 2. All inputs have the same size
 
-            % Scalar Date32Type arrays
-            date32Type1 = arrow.date32();
-            date32Type2 = arrow.date32();
-            testCase.verifyTrue(isequal(date32Type1, date32Type2));
+            % Scalar DateType arrays
+            dateType1 = testCase.ConstructionFcn();
+            dateType2 = testCase.ConstructionFcn();
+            testCase.verifyTrue(isequal(dateType1, dateType2));
 
-            % Non-scalar Date32Type arrays
-            typeArray1 = [date32Type1 date32Type1];
-            typeArray2 = [date32Type2 date32Type2];
+            % Non-scalar DateType arrays
+            typeArray1 = [dateType1 dateType1];
+            typeArray2 = [dateType2 dateType2];
             testCase.verifyTrue(isequal(typeArray1, typeArray2));
         end
 
         function IsEqualFalse(testCase)
-            % Verifies the isequal method of arrow.type.Date32Type returns
-            % false when expected.
-            
+            % Verifies the isequal method of DateType returns false when expected.
             % Pass a different arrow.type.Type subclass to isequal
-            date32Type = arrow.date32();
+            dateType = testCase.ConstructionFcn();
             int32Type = arrow.int32();
-            testCase.verifyFalse(isequal(date32Type, int32Type));
-            testCase.verifyFalse(isequal([date32Type date32Type], [int32Type int32Type]));
+            testCase.verifyFalse(isequal(dateType, int32Type));
+            testCase.verifyFalse(isequal([dateType dateType], [int32Type int32Type]));
 
-            % Date32Type arrays have different sizes
-            typeArray1 = [date32Type date32Type];
-            typeArray2 = [date32Type date32Type]';
+            % DateType arrays have different sizes
+            typeArray1 = [dateType dateType];
+            typeArray2 = [dateType dateType]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
     end
+
+    methods (Access = protected, Abstract)
+        DefaultDateUnit;
+    end
+
 end
