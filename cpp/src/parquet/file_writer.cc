@@ -359,14 +359,25 @@ class FileSerializer : public ParquetFileWriter::Contents {
     if (row_group_writer_) {
       row_group_writer_->Close();
     }
+    int16_t row_group_ordinal = -1;  // row group ordinal not set
+    if (file_encryptor_ != nullptr) {
+      // Parquet thrifts using int16 for row group ordinal, so we can't have more than
+      // 32767 row groups in a file.
+      if (num_row_groups_ <= std::numeric_limits<int16_t>::max()) {
+        row_group_ordinal = static_cast<int16_t>(num_row_groups_);
+      } else {
+        throw ParquetException(
+            "Cannot write more than 32767 row groups in an encrypted file");
+      }
+    }
     num_row_groups_++;
     auto rg_metadata = metadata_->AppendRowGroup();
     if (page_index_builder_) {
       page_index_builder_->AppendRowGroup();
     }
     std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
-        sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
-        buffered_row_group, file_encryptor_.get(), page_index_builder_.get()));
+        sink_, rg_metadata, row_group_ordinal, properties_.get(), buffered_row_group,
+        file_encryptor_.get(), page_index_builder_.get()));
     row_group_writer_ = std::make_unique<RowGroupWriter>(std::move(contents));
     return row_group_writer_.get();
   }
