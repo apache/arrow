@@ -195,6 +195,30 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   Tiebreaker tiebreaker;
 };
 
+/// \brief Percentile rank options
+class ARROW_EXPORT RankPercentileOptions : public FunctionOptions {
+ public:
+  explicit RankPercentileOptions(std::vector<SortKey> sort_keys = {},
+                                 NullPlacement null_placement = NullPlacement::AtEnd,
+                                 double factor = 1.0);
+  /// Convenience constructor for array inputs
+  explicit RankPercentileOptions(SortOrder order,
+                                 NullPlacement null_placement = NullPlacement::AtEnd,
+                                 double factor = 1.0)
+      : RankPercentileOptions({SortKey("", order)}, null_placement, factor) {}
+
+  static constexpr char const kTypeName[] = "RankPercentileOptions";
+  static RankPercentileOptions Defaults() { return RankPercentileOptions(); }
+
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
+  /// Factor to apply to the output.
+  /// Use 1.0 for results in (0, 1), 100.0 for percentages, etc.
+  double factor;
+};
+
 /// \brief Partitioning options for NthToIndices
 class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:

@@ -806,4 +806,11 @@ inline Result<std::shared_ptr<ArrayData>> MakeMutableUInt64Array(
   return ArrayData::Make(uint64(), length, {nullptr, std::move(data)}, /*null_count=*/0);
 }
 
+inline Result<std::shared_ptr<ArrayData>> MakeMutableFloat64Array(
+    int64_t length, MemoryPool* memory_pool) {
+  auto buffer_size = length * sizeof(double);
+  ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(buffer_size, memory_pool));
+  return ArrayData::Make(float64(), length, {nullptr, std::move(data)}, /*null_count=*/0);
+}
+
 }  // namespace arrow::compute::internal
