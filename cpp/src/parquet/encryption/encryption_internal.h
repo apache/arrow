@@ -77,8 +77,6 @@ class PARQUET_EXPORT AesEncryptor {
                               ::arrow::util::span<const uint8_t> nonce,
                               ::arrow::util::span<uint8_t> encrypted_footer);
 
-  void WipeOut();
-
  private:
   // PIMPL Idiom
   class AesEncryptorImpl;
@@ -98,15 +96,12 @@ class PARQUET_EXPORT AesDecryptor {
   /// \param alg_id the encryption algorithm to use
   /// \param key_len key length. Possible values: 16, 24, 32 bytes.
   /// \param metadata if true then this is a metadata decryptor
-  /// \param all_decryptors A weak reference to all decryptors that need to be wiped
   /// out when decryption is finished
   /// \return shared pointer to a new AesDecryptor
-  static std::shared_ptr<AesDecryptor> Make(
-      ParquetCipher::type alg_id, int32_t key_len, bool metadata,
-      std::vector<std::weak_ptr<AesDecryptor>>* all_decryptors);
+  static std::shared_ptr<AesDecryptor> Make(ParquetCipher::type alg_id, int32_t key_len,
+                                            bool metadata);
 
   ~AesDecryptor();
-  void WipeOut();
 
   /// The size of the plaintext, for this cipher and the specified ciphertext length.
   [[nodiscard]] int32_t PlaintextLength(int32_t ciphertext_len) const;
