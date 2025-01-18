@@ -64,22 +64,27 @@ void SizeStatistics::IncrementUnencodedByteArrayDataBytes(int64_t value) {
 }
 
 void SizeStatistics::Validate(const ColumnDescriptor* descr) const {
-  if (repetition_level_histogram.size() !=
-      static_cast<size_t>(descr->max_repetition_level() + 1)) {
-    throw ParquetException("Repetition level histogram size mismatch");
-  }
-  if (definition_level_histogram.size() !=
-      static_cast<size_t>(descr->max_definition_level() + 1)) {
-    throw ParquetException("Definition level histogram size mismatch");
-  }
+  auto validate_histogram = [](const std::vector<int64_t>& histogram, int16_t max_level,
+                               const std::string& name) {
+    if (histogram.empty()) {
+      // A levels histogram is always allowed to be missing.
+      return;
+    }
+    if (histogram.size() != static_cast<size_t>(max_level + 1)) {
+      std::stringstream ss;
+      ss << name << " level histogram size mismatch, size: " << histogram.size()
+         << ", expected: " << (max_level + 1);
+      throw ParquetException(ss.str());
+    }
+  };
+  validate_histogram(repetition_level_histogram, descr->max_repetition_level(),
+                     "Repetition");
+  validate_histogram(definition_level_histogram, descr->max_definition_level(),
+                     "Definition");
   if (unencoded_byte_array_data_bytes.has_value() &&
       descr->physical_type() != Type::BYTE_ARRAY) {
     throw ParquetException("Unencoded byte array data bytes does not support " +
                            TypeToString(descr->physical_type()));
-  }
-  if (!unencoded_byte_array_data_bytes.has_value() &&
-      descr->physical_type() == Type::BYTE_ARRAY) {
-    throw ParquetException("Missing unencoded byte array data bytes");
   }
 }
 
@@ -93,8 +98,15 @@ void SizeStatistics::Reset() {
 
 std::unique_ptr<SizeStatistics> SizeStatistics::Make(const ColumnDescriptor* descr) {
   auto size_stats = std::make_unique<SizeStatistics>();
-  size_stats->repetition_level_histogram.resize(descr->max_repetition_level() + 1, 0);
-  size_stats->definition_level_histogram.resize(descr->max_definition_level() + 1, 0);
+  // If the max level is 0, the level histogram can be omitted because it contains
+  // only single level (a.k.a. 0) and its count is equivalent to `num_values` of the
+  // column chunk or data page.
+  if (descr->max_repetition_level() != 0) {
+    size_stats->repetition_level_histogram.resize(descr->max_repetition_level() + 1, 0);
+  }
+  if (descr->max_definition_level() != 0) {
+    size_stats->definition_level_histogram.resize(descr->max_definition_level() + 1, 0);
+  }
   if (descr->physical_type() == Type::BYTE_ARRAY) {
     size_stats->unencoded_byte_array_data_bytes = 0;
   }
