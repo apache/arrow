@@ -185,11 +185,13 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
       {"string", LogicalType::String(), ParquetType::BYTE_ARRAY, -1, ::arrow::utf8()},
       {"enum", LogicalType::Enum(), ParquetType::BYTE_ARRAY, -1, ::arrow::binary()},
       {"decimal(8, 2)", LogicalType::Decimal(8, 2), ParquetType::INT32, -1,
-       ::arrow::decimal128(8, 2)},
+       ::arrow::decimal32(8, 2)},
       {"decimal(16, 4)", LogicalType::Decimal(16, 4), ParquetType::INT64, -1,
-       ::arrow::decimal128(16, 4)},
+       ::arrow::decimal64(16, 4)},
       {"decimal(32, 8)", LogicalType::Decimal(32, 8), ParquetType::FIXED_LEN_BYTE_ARRAY,
        16, ::arrow::decimal128(32, 8)},
+      {"decimal(73, 38)", LogicalType::Decimal(73, 38), ParquetType::FIXED_LEN_BYTE_ARRAY,
+       31, ::arrow::decimal256(73, 38)},
       {"date", LogicalType::Date(), ParquetType::INT32, -1, ::arrow::date32()},
       {"time(ms)", LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
        ParquetType::INT32, -1, ::arrow::time32(::arrow::TimeUnit::MILLI)},
@@ -970,12 +972,12 @@ class TestConvertArrowSchema : public ::testing::Test {
   ::arrow::Status ConvertSchema(
       const std::vector<std::shared_ptr<Field>>& fields,
       std::shared_ptr<::parquet::ArrowWriterProperties> arrow_properties =
-          ::parquet::default_arrow_writer_properties()) {
+          ::parquet::default_arrow_writer_properties(),
+      std::shared_ptr<::parquet::WriterProperties> parquet_properties =
+          ::parquet::default_writer_properties()) {
     arrow_schema_ = ::arrow::schema(fields);
-    std::shared_ptr<::parquet::WriterProperties> properties =
-        ::parquet::default_writer_properties();
-    return ToParquetSchema(arrow_schema_.get(), *properties.get(), *arrow_properties,
-                           &result_schema_);
+    return ToParquetSchema(arrow_schema_.get(), *parquet_properties.get(),
+                           *arrow_properties, &result_schema_);
   }
 
  protected:
@@ -1069,14 +1071,16 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
       {"utf8", ::arrow::utf8(), LogicalType::String(), ParquetType::BYTE_ARRAY, -1},
       {"large_utf8", ::arrow::large_utf8(), LogicalType::String(),
        ParquetType::BYTE_ARRAY, -1},
-      {"decimal(1, 0)", ::arrow::decimal128(1, 0), LogicalType::Decimal(1, 0),
+      {"decimal(1, 0)", ::arrow::decimal32(1, 0), LogicalType::Decimal(1, 0),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 1},
-      {"decimal(8, 2)", ::arrow::decimal128(8, 2), LogicalType::Decimal(8, 2),
+      {"decimal(8, 2)", ::arrow::decimal32(8, 2), LogicalType::Decimal(8, 2),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 4},
-      {"decimal(16, 4)", ::arrow::decimal128(16, 4), LogicalType::Decimal(16, 4),
+      {"decimal(16, 4)", ::arrow::decimal64(16, 4), LogicalType::Decimal(16, 4),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 7},
       {"decimal(32, 8)", ::arrow::decimal128(32, 8), LogicalType::Decimal(32, 8),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 14},
+      {"decimal(73, 38)", ::arrow::decimal256(73, 38), LogicalType::Decimal(73, 38),
+       ParquetType::FIXED_LEN_BYTE_ARRAY, 31},
       {"float16", ::arrow::float16(), LogicalType::Float16(),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 2},
       {"time32", ::arrow::time32(::arrow::TimeUnit::MILLI),
@@ -1132,6 +1136,44 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
   ASSERT_OK(ConvertSchema(arrow_fields));
   CheckFlatSchema(parquet_fields);
   // ASSERT_NO_FATAL_FAILURE();
+}
+
+TEST_F(TestConvertArrowSchema, ArrowDecimalFieldsStoredAsInt) {
+  struct FieldConstructionArguments {
+    std::string name;
+    std::shared_ptr<::arrow::DataType> datatype;
+    std::shared_ptr<const LogicalType> logical_type;
+    parquet::Type::type physical_type;
+    int physical_length;
+  };
+
+  std::vector<FieldConstructionArguments> cases = {
+      {"decimal(1, 0)", ::arrow::decimal32(1, 0), LogicalType::Decimal(1, 0),
+       ParquetType::INT32, 1},
+      {"decimal(8, 2)", ::arrow::decimal32(8, 2), LogicalType::Decimal(8, 2),
+       ParquetType::INT32, 4},
+      {"decimal(16, 4)", ::arrow::decimal64(16, 4), LogicalType::Decimal(16, 4),
+       ParquetType::INT64, 7},
+      {"decimal(32, 8)", ::arrow::decimal128(32, 8), LogicalType::Decimal(32, 8),
+       ParquetType::FIXED_LEN_BYTE_ARRAY, 14},
+      {"decimal(73, 38)", ::arrow::decimal256(73, 38), LogicalType::Decimal(73, 38),
+       ParquetType::FIXED_LEN_BYTE_ARRAY, 31}};
+
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+  std::vector<NodePtr> parquet_fields;
+
+  for (const FieldConstructionArguments& c : cases) {
+    arrow_fields.push_back(::arrow::field(c.name, c.datatype, false));
+    parquet_fields.push_back(PrimitiveNode::Make(c.name, Repetition::REQUIRED,
+                                                 c.logical_type, c.physical_type,
+                                                 c.physical_length));
+  }
+
+  auto parquet_properties_builder = ::parquet::WriterProperties::Builder();
+  ASSERT_OK(ConvertSchema(
+      arrow_fields, ::parquet::default_arrow_writer_properties(),
+      parquet_properties_builder.enable_store_decimal_as_integer()->build()));
+  CheckFlatSchema(parquet_fields);
 }
 
 TEST_F(TestConvertArrowSchema, ArrowNonconvertibleFields) {
