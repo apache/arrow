@@ -2059,9 +2059,6 @@ Status TypedColumnWriterImpl<Int32Type>::WriteArrowDense(
       WRITE_SERIALIZE_CASE(DATE64, Date64Type, Int32Type)
       WRITE_SERIALIZE_CASE(TIME32, Time32Type, Int32Type)
       WRITE_SERIALIZE_CASE(DECIMAL32, Decimal32Type, Int32Type)
-      WRITE_SERIALIZE_CASE(DECIMAL64, Decimal64Type, Int32Type)
-      WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, Int32Type)
-      WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, Int32Type)
     default:
       ARROW_UNSUPPORTED()
   }
@@ -2232,10 +2229,7 @@ Status TypedColumnWriterImpl<Int64Type>::WriteArrowDense(
       WRITE_SERIALIZE_CASE(UINT64, UInt64Type, Int64Type)
       WRITE_ZERO_COPY_CASE(TIME64, Time64Type, Int64Type)
       WRITE_ZERO_COPY_CASE(DURATION, DurationType, Int64Type)
-      WRITE_SERIALIZE_CASE(DECIMAL32, Decimal32Type, Int64Type)
       WRITE_SERIALIZE_CASE(DECIMAL64, Decimal64Type, Int64Type)
-      WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, Int64Type)
-      WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, Int64Type)
     default:
       ARROW_UNSUPPORTED();
   }
