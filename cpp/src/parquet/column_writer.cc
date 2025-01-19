@@ -1999,10 +1999,20 @@ struct SerializeFunctor<
 
   template <int byte_width>
   value_type TransferValue(const uint8_t* in) const {
-    static_assert(byte_width == 16 || byte_width == 32,
-                  "only 16 and 32 byte Decimals supported");
+    static_assert(byte_width == ::arrow::Decimal32Type::kByteWidth ||
+                      byte_width == ::arrow::Decimal64Type::kByteWidth ||
+                      byte_width == ::arrow::Decimal128Type::kByteWidth ||
+                      byte_width == ::arrow::Decimal256Type::kByteWidth,
+                  "only 4/8/16/32 byte Decimals supported");
+
     value_type value = 0;
-    if constexpr (byte_width == 16) {
+    if constexpr (byte_width == ::arrow::Decimal32Type::kByteWidth) {
+      ::arrow::Decimal32 decimal_value(in);
+      PARQUET_THROW_NOT_OK(decimal_value.ToInteger(&value));
+    } else if constexpr (byte_width == ::arrow::Decimal64Type::kByteWidth) {
+      ::arrow::Decimal64 decimal_value(in);
+      PARQUET_THROW_NOT_OK(decimal_value.ToInteger(&value));
+    } else if constexpr (byte_width == ::arrow::Decimal128Type::kByteWidth) {
       ::arrow::Decimal128 decimal_value(in);
       PARQUET_THROW_NOT_OK(decimal_value.ToInteger(&value));
     } else {
@@ -2048,6 +2058,8 @@ Status TypedColumnWriterImpl<Int32Type>::WriteArrowDense(
       WRITE_ZERO_COPY_CASE(DATE32, Date32Type, Int32Type)
       WRITE_SERIALIZE_CASE(DATE64, Date64Type, Int32Type)
       WRITE_SERIALIZE_CASE(TIME32, Time32Type, Int32Type)
+      WRITE_SERIALIZE_CASE(DECIMAL32, Decimal32Type, Int32Type)
+      WRITE_SERIALIZE_CASE(DECIMAL64, Decimal64Type, Int32Type)
       WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, Int32Type)
       WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, Int32Type)
     default:
@@ -2220,6 +2232,8 @@ Status TypedColumnWriterImpl<Int64Type>::WriteArrowDense(
       WRITE_SERIALIZE_CASE(UINT64, UInt64Type, Int64Type)
       WRITE_ZERO_COPY_CASE(TIME64, Time64Type, Int64Type)
       WRITE_ZERO_COPY_CASE(DURATION, DurationType, Int64Type)
+      WRITE_SERIALIZE_CASE(DECIMAL32, Decimal32Type, Int64Type)
+      WRITE_SERIALIZE_CASE(DECIMAL64, Decimal64Type, Int64Type)
       WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, Int64Type)
       WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, Int64Type)
     default:
@@ -2441,6 +2455,8 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
     WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
+    WRITE_SERIALIZE_CASE(DECIMAL32, Decimal32Type, FLBAType)
+    WRITE_SERIALIZE_CASE(DECIMAL64, Decimal64Type, FLBAType)
     WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, FLBAType)
     WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, FLBAType)
     WRITE_SERIALIZE_CASE(HALF_FLOAT, HalfFloatType, FLBAType)
