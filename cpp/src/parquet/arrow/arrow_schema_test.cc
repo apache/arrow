@@ -67,7 +67,7 @@ const auto TIMESTAMP_MS = ::arrow::timestamp(TimeUnit::MILLI);
 const auto TIMESTAMP_US = ::arrow::timestamp(TimeUnit::MICRO);
 const auto TIMESTAMP_NS = ::arrow::timestamp(TimeUnit::NANO);
 const auto BINARY = ::arrow::binary();
-const auto DECIMAL_8_4 = std::make_shared<::arrow::Decimal128Type>(8, 4);
+const auto DECIMAL_8_4 = std::make_shared<::arrow::Decimal32Type>(8, 4);
 
 class TestConvertParquetSchema : public ::testing::Test {
  public:
