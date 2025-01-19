@@ -369,17 +369,25 @@ Status TaskSchedulerImpl::ScheduleMore(size_t thread_id, int num_tasks_finished)
     int group_id = tasks[i].first;
     int64_t task_id = tasks[i].second;
     RETURN_NOT_OK(schedule_impl_([this, group_id, task_id](size_t thread_id) -> Status {
-      RETURN_NOT_OK(ScheduleMore(thread_id, 1));
-
       bool task_group_finished = false;
-      RETURN_NOT_OK(ExecuteTask(thread_id, group_id, task_id, &task_group_finished));
+      auto st = [&]() {
+        RETURN_NOT_OK(ScheduleMore(thread_id, 1));
+        RETURN_NOT_OK(ExecuteTask(thread_id, group_id, task_id, &task_group_finished));
+        return Status::OK();
+      }();
+      if (!st.ok()) {
+        task_group_finished = PostExecuteTask(thread_id, group_id);
+      }
 
       if (task_group_finished) {
         bool all_task_groups_finished = false;
-        return OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished);
+        auto all_finished_st =
+            OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished);
+        if (st.ok()) {
+          st = all_finished_st;
+        }
       }
-
-      return Status::OK();
+      return st;
     }));
   }
 
