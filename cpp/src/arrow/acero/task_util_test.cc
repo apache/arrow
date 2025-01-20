@@ -231,5 +231,66 @@ TEST(TaskScheduler, StressTwo) {
   }
 }
 
+TEST(TaskScheduler, AbortContOnErrorSerial) {
+  constexpr int kNumTasks = 3;
+
+  auto scheduler = TaskScheduler::Make();
+  auto task = [](std::size_t, int64_t) { return Status::Invalid("Task failed"); };
+
+  int task_group =
+      scheduler->RegisterTaskGroup(task, [](std::size_t) { return Status::OK(); });
+  scheduler->RegisterEnd();
+
+  ASSERT_OK(scheduler->StartScheduling(
+      0, [](TaskScheduler::TaskGroupContinuationImpl) { return Status::OK(); }, 1, true));
+  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Task failed",
+                             scheduler->StartTaskGroup(0, task_group, kNumTasks));
+
+  std::atomic<bool> abort_cont_called = false;
+  auto abort_cont = [&]() { abort_cont_called = true; };
+  scheduler->Abort(abort_cont);
+  ASSERT_TRUE(abort_cont_called);
+}
+
+TEST(TaskScheduler, AbortContOnErrorParallel) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+  constexpr int kNumThreads = 16;
+  constexpr int kNumTasks = kNumThreads;
+
+  ThreadIndexer thread_indexer;
+  int num_threads = std::min(static_cast<int>(thread_indexer.Capacity()), kNumThreads);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ThreadPool> thread_pool,
+                       MakePrimedThreadPool(num_threads));
+  auto scheduler = TaskScheduler::Make();
+  auto task = [](std::size_t, int64_t) { return Status::Invalid("Task failed"); };
+  std::atomic<bool> abort_cont_called = false;
+  auto abort_cont = [&]() { abort_cont_called = true; };
+  // scheduler->Abort(abort_cont);
+  auto task_cont = [&](std::size_t) {
+    scheduler->Abort(abort_cont);
+    return Status::OK();
+  };
+
+  int task_group = scheduler->RegisterTaskGroup(task, task_cont);
+  scheduler->RegisterEnd();
+
+  TaskScheduler::ScheduleImpl schedule =
+      [&](TaskScheduler::TaskGroupContinuationImpl task) {
+        return thread_pool->Spawn([&, task] {
+          std::size_t thread_id = thread_indexer();
+          // ASSERT_RAISES_WITH_MESSAGE(Invalid, "Task failed", task(thread_id));
+          std::ignore = task(thread_id);
+        });
+      };
+  ASSERT_OK(scheduler->StartScheduling(0, schedule, kNumTasks, false));
+  ASSERT_OK(scheduler->StartTaskGroup(0, task_group, kNumTasks));
+
+  while (!abort_cont_called) {
+  }
+  // ASSERT_TRUE(abort_cont_called);
+}
+
 }  // namespace acero
 }  // namespace arrow
