@@ -580,9 +580,10 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
     memcpy(decompressed, page_buffer->data(), levels_byte_len);
   }
 
-  // GH-31992: DataPageV2 may store only levels and no values
-  // when all values are null. In this case, we can avoid decompressing
-  // the rest of the page.
+  // GH-31992: DataPageV2 may store only levels and no values when all
+  // values are null. In this case, Parquet java is known to produce a
+  // 0-len compressed area (which is invalid compressed input).
+  // See https://github.com/apache/parquet-java/issues/3122
   int64_t decompressed_len = 0;
   if (uncompressed_len - levels_byte_len != 0) {
     // Decompress the values
