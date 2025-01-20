@@ -21,7 +21,6 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
-#include "arrow/util/logging.h"
 
 namespace arrow::compute::internal {
 
@@ -68,9 +67,9 @@ const RankOptions* GetDefaultRankOptions() {
   return &kDefaultRankOptions;
 }
 
-const RankPercentileOptions* GetDefaultPercentileRankOptions() {
-  static const auto kDefaultPercentileRankOptions = RankPercentileOptions::Defaults();
-  return &kDefaultPercentileRankOptions;
+const RankQuantileOptions* GetDefaultQuantileRankOptions() {
+  static const auto kDefaultQuantileRankOptions = RankQuantileOptions::Defaults();
+  return &kDefaultQuantileRankOptions;
 }
 
 template <typename ArrowType>
@@ -165,9 +164,9 @@ class SortAndMarkDuplicate : public TypeVisitor {
   NullPartitionResult sorted_{};
 };
 
-// A helper class that emits rankings for the "rank_percentile" function
-struct PercentileRanker {
-  explicit PercentileRanker(double factor) : factor_(factor) {}
+// A helper class that emits rankings for the "rank_quantile" function
+struct QuantileRanker {
+  explicit QuantileRanker(double factor) : factor_(factor) {}
 
   Result<Datum> CreateRankings(ExecContext* ctx, const NullPartitionResult& sorted) {
     const int64_t length = sorted.overall_end() - sorted.overall_begin();
@@ -190,10 +189,10 @@ struct PercentileRanker {
       }
       // The run length, i.e. the frequency of the current value
       int64_t freq = run_end - it;
-      double percentile = (cum_freq + 0.5 * freq) * factor_ / static_cast<double>(length);
-      // Output percentile rank values
+      double quantile = (cum_freq + 0.5 * freq) * factor_ / static_cast<double>(length);
+      // Output quantile rank values
       for (; it < run_end; ++it) {
-        out_begin[original_index(*it)] = percentile;
+        out_begin[original_index(*it)] = quantile;
       }
       cum_freq += freq;
     }
@@ -286,18 +285,18 @@ const FunctionDoc rank_doc(
      "The handling of nulls, NaNs and tiebreakers can be changed in RankOptions."),
     {"input"}, "RankOptions");
 
-const FunctionDoc rank_percentile_doc(
-    "Compute percentile ranks of an array",
-    ("This function computes a percentile rank of the input array.\n"
+const FunctionDoc rank_quantile_doc(
+    "Compute quantile ranks of an array",
+    ("This function computes a quantile rank of the input array.\n"
      "By default, null values are considered greater than any other value and\n"
      "are therefore sorted at the end of the input. For floating-point types,\n"
      "NaNs are considered greater than any other non-null value, but smaller\n"
      "than null values.\n"
-     "Results are computed as in https://en.wikipedia.org/wiki/Percentile_rank\n"
+     "Results are computed as in https://en.wikipedia.org/wiki/Quantile_rank\n"
      "\n"
      "The handling of nulls and NaNs, and the constant factor can be changed\n"
-     "in RankPercentileOptions."),
-    {"input"}, "RankPercentileOptions");
+     "in RankQuantileOptions."),
+    {"input"}, "RankQuantileOptions");
 
 template <typename Derived>
 class RankMetaFunctionBase : public MetaFunction {
@@ -369,28 +368,27 @@ class RankMetaFunction : public RankMetaFunctionBase<RankMetaFunction> {
       : RankMetaFunctionBase("rank", Arity::Unary(), rank_doc, GetDefaultRankOptions()) {}
 };
 
-class RankPercentileMetaFunction
-    : public RankMetaFunctionBase<RankPercentileMetaFunction> {
+class RankQuantileMetaFunction : public RankMetaFunctionBase<RankQuantileMetaFunction> {
  public:
-  using FunctionOptionsType = RankPercentileOptions;
-  using RankerType = PercentileRanker;
+  using FunctionOptionsType = RankQuantileOptions;
+  using RankerType = QuantileRanker;
 
-  static bool NeedsDuplicates(const RankPercentileOptions&) { return true; }
+  static bool NeedsDuplicates(const RankQuantileOptions&) { return true; }
 
-  static RankerType GetRanker(const RankPercentileOptions& options) {
+  static RankerType GetRanker(const RankQuantileOptions& options) {
     return RankerType(options.factor);
   }
 
-  RankPercentileMetaFunction()
-      : RankMetaFunctionBase("rank_percentile", Arity::Unary(), rank_percentile_doc,
-                             GetDefaultPercentileRankOptions()) {}
+  RankQuantileMetaFunction()
+      : RankMetaFunctionBase("rank_quantile", Arity::Unary(), rank_quantile_doc,
+                             GetDefaultQuantileRankOptions()) {}
 };
 
 }  // namespace
 
 void RegisterVectorRank(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<RankMetaFunction>()));
-  DCHECK_OK(registry->AddFunction(std::make_shared<RankPercentileMetaFunction>()));
+  DCHECK_OK(registry->AddFunction(std::make_shared<RankQuantileMetaFunction>()));
 }
 
 }  // namespace arrow::compute::internal

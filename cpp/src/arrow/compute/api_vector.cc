@@ -48,7 +48,7 @@ using compute::DictionaryEncodeOptions;
 using compute::FilterOptions;
 using compute::NullPlacement;
 using compute::RankOptions;
-using compute::RankPercentileOptions;
+using compute::RankQuantileOptions;
 
 template <>
 struct EnumTraits<FilterOptions::NullSelectionBehavior>
@@ -152,10 +152,10 @@ static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("null_placement", &RankOptions::null_placement),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
-static auto kRankPercentileOptionsType = GetFunctionOptionsType<RankPercentileOptions>(
-    DataMember("sort_keys", &RankPercentileOptions::sort_keys),
-    DataMember("null_placement", &RankPercentileOptions::null_placement),
-    DataMember("factor", &RankPercentileOptions::factor));
+static auto kRankQuantileOptionsType = GetFunctionOptionsType<RankQuantileOptions>(
+    DataMember("sort_keys", &RankQuantileOptions::sort_keys),
+    DataMember("null_placement", &RankQuantileOptions::null_placement),
+    DataMember("factor", &RankQuantileOptions::factor));
 static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
 static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>(
@@ -233,13 +233,13 @@ RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_plac
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
 
-RankPercentileOptions::RankPercentileOptions(std::vector<SortKey> sort_keys,
-                                             NullPlacement null_placement, double factor)
-    : FunctionOptions(internal::kRankPercentileOptionsType),
+RankQuantileOptions::RankQuantileOptions(std::vector<SortKey> sort_keys,
+                                         NullPlacement null_placement, double factor)
+    : FunctionOptions(internal::kRankQuantileOptionsType),
       sort_keys(std::move(sort_keys)),
       null_placement(null_placement),
       factor(factor) {}
-constexpr char RankPercentileOptions::kTypeName[];
+constexpr char RankQuantileOptions::kTypeName[];
 
 PairwiseOptions::PairwiseOptions(int64_t periods)
     : FunctionOptions(internal::kPairwiseOptionsType), periods(periods) {}

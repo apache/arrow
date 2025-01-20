@@ -195,20 +195,20 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   Tiebreaker tiebreaker;
 };
 
-/// \brief Percentile rank options
-class ARROW_EXPORT RankPercentileOptions : public FunctionOptions {
+/// \brief Quantile rank options
+class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
  public:
-  explicit RankPercentileOptions(std::vector<SortKey> sort_keys = {},
-                                 NullPlacement null_placement = NullPlacement::AtEnd,
-                                 double factor = 1.0);
+  explicit RankQuantileOptions(std::vector<SortKey> sort_keys = {},
+                               NullPlacement null_placement = NullPlacement::AtEnd,
+                               double factor = 1.0);
   /// Convenience constructor for array inputs
-  explicit RankPercentileOptions(SortOrder order,
-                                 NullPlacement null_placement = NullPlacement::AtEnd,
-                                 double factor = 1.0)
-      : RankPercentileOptions({SortKey("", order)}, null_placement, factor) {}
+  explicit RankQuantileOptions(SortOrder order,
+                               NullPlacement null_placement = NullPlacement::AtEnd,
+                               double factor = 1.0)
+      : RankQuantileOptions({SortKey("", order)}, null_placement, factor) {}
 
-  static constexpr char const kTypeName[] = "RankPercentileOptions";
-  static RankPercentileOptions Defaults() { return RankPercentileOptions(); }
+  static constexpr char const kTypeName[] = "RankQuantileOptions";
+  static RankQuantileOptions Defaults() { return RankQuantileOptions(); }
 
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
