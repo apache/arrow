@@ -56,6 +56,11 @@ cmake_policy(SET CMP0068 NEW)
 # find_package() uses <PackageName>_ROOT variables.
 cmake_policy(SET CMP0074 NEW)
 
+# https://cmake.org/cmake/help/latest/policy/CMP0077.html
+#
+# option() honors normal variables.
+cmake_policy(SET CMP0077 NEW)
+
 # https://cmake.org/cmake/help/latest/policy/CMP0091.html
 #
 # MSVC runtime library flags are selected by an abstraction.
