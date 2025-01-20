@@ -103,13 +103,6 @@ export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number)
     return bigIntToNumber(number);
 }
 
-function padStart(str: string, targetLength: number) {
-    while (str.length < targetLength) {
-        str = '0' + str;
-    }
-    return str;
-}
-
 /** @ignore */
 export function bigNumToString<T extends BN<BigNumArray>>(a: T): string {
     // use BigInt native implementation
