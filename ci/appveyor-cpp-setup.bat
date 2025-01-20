@@ -70,7 +70,6 @@ conda create -n arrow ^
   "ninja" ^
   "nomkl" ^
   "pandas" ^
-  "fsspec" ^
   "python=%PYTHON%" ^
   || exit /B
 conda list -n arrow
