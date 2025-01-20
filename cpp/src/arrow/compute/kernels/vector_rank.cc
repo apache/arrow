@@ -137,7 +137,7 @@ class SortAndMarkDuplicate : public TypeVisitor {
 
   Result<NullPartitionResult> Run() {
     RETURN_NOT_OK(physical_type_->Accept(this));
-    return std::move(sorted_);
+    return sorted_;
   }
 
 #define VISIT(TYPE)                                                                 \
@@ -165,6 +165,7 @@ class SortAndMarkDuplicate : public TypeVisitor {
   NullPartitionResult sorted_{};
 };
 
+// A helper class that emits rankings for the "rank_percentile" function
 struct PercentileRanker {
   explicit PercentileRanker(double factor) : factor_(factor) {}
 
@@ -298,7 +299,7 @@ const FunctionDoc rank_percentile_doc(
      "in RankPercentileOptions."),
     {"input"}, "RankPercentileOptions");
 
-template <typename Impl>
+template <typename Derived>
 class RankMetaFunctionBase : public MetaFunction {
  public:
   using MetaFunction::MetaFunction;
@@ -327,7 +328,7 @@ class RankMetaFunctionBase : public MetaFunction {
   Result<Datum> Rank(const T& input, const FunctionOptions& function_options,
                      ExecContext* ctx) const {
     const auto& options =
-        checked_cast<const typename Impl::FunctionOptionsType&>(function_options);
+        checked_cast<const typename Derived::FunctionOptionsType&>(function_options);
 
     SortOrder order = SortOrder::Ascending;
     if (!options.sort_keys.empty()) {
@@ -340,13 +341,13 @@ class RankMetaFunctionBase : public MetaFunction {
     auto* indices_begin = indices->GetMutableValues<uint64_t>(1);
     auto* indices_end = indices_begin + length;
     std::iota(indices_begin, indices_end, 0);
-    auto needs_duplicates = Impl::NeedsDuplicates(options);
+    auto needs_duplicates = Derived::NeedsDuplicates(options);
     ARROW_ASSIGN_OR_RAISE(
         auto sorted, SortAndMarkDuplicate(ctx, indices_begin, indices_end, input, order,
                                           options.null_placement, needs_duplicates)
                          .Run());
 
-    auto ranker = Impl::GetRanker(options);
+    auto ranker = Derived::GetRanker(options);
     return ranker.CreateRankings(ctx, sorted);
   }
 };
