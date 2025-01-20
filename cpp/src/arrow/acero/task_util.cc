@@ -212,11 +212,16 @@ std::vector<std::pair<int, int64_t>> TaskSchedulerImpl::PickTasks(int num_tasks,
 
 Status TaskSchedulerImpl::ExecuteTask(size_t thread_id, int group_id, int64_t task_id,
                                       bool* task_group_finished) {
+  Status status;
   if (!aborted_) {
-    RETURN_NOT_OK(task_groups_[group_id].task_impl_(thread_id, task_id));
+    status = task_groups_[group_id].task_impl_(thread_id, task_id);
   }
   *task_group_finished = PostExecuteTask(thread_id, group_id);
-  return Status::OK();
+  if (*task_group_finished) {
+    bool all_task_groups_finished = false;
+    RETURN_NOT_OK(OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished));
+  }
+  return status;
 }
 
 bool TaskSchedulerImpl::PostExecuteTask(size_t thread_id, int group_id) {
@@ -372,18 +377,18 @@ Status TaskSchedulerImpl::ScheduleMore(size_t thread_id, int num_tasks_finished)
       RETURN_NOT_OK(ScheduleMore(thread_id, 1));
 
       bool task_group_finished = false;
-      Status status = ExecuteTask(thread_id, group_id, task_id, &task_group_finished);
-      if (!status.ok()) {
-        if (PostExecuteTask(thread_id, group_id)) {
-          bool all_task_groups_finished = false;
-          RETURN_NOT_OK(
-              OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished));
-        }
-        return status;
-      } else if (task_group_finished) {
-        bool all_task_groups_finished = false;
-        return OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished);
-      }
+      RETURN_NOT_OK(ExecuteTask(thread_id, group_id, task_id, &task_group_finished));
+      // if (!status.ok()) {
+      //   if (PostExecuteTask(thread_id, group_id)) {
+      //     bool all_task_groups_finished = false;
+      //     RETURN_NOT_OK(
+      //         OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished));
+      //   }
+      //   return status;
+      // } else if (task_group_finished) {
+      //   bool all_task_groups_finished = false;
+      //   return OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished);
+      // }
 
       return Status::OK();
     }));

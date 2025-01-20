@@ -231,7 +231,7 @@ TEST(TaskScheduler, StressTwo) {
   }
 }
 
-TEST(TaskScheduler, AbortContOnErrorSerial) {
+TEST(TaskScheduler, AbortContOnTaskErrorSerial) {
   constexpr int kNumTasks = 3;
 
   auto scheduler = TaskScheduler::Make();
@@ -252,30 +252,16 @@ TEST(TaskScheduler, AbortContOnErrorSerial) {
   ASSERT_TRUE(abort_cont_called);
 }
 
-TEST(TaskScheduler, AbortContOnErrorParallel) {
+TEST(TaskScheduler, AbortContOnTaskErrorParallel) {
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
 #endif
   constexpr int kNumThreads = 16;
-  constexpr int kNumTasks = kNumThreads;
 
   ThreadIndexer thread_indexer;
   int num_threads = std::min(static_cast<int>(thread_indexer.Capacity()), kNumThreads);
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ThreadPool> thread_pool,
                        MakePrimedThreadPool(num_threads));
-  auto scheduler = TaskScheduler::Make();
-  auto task = [](std::size_t, int64_t) { return Status::Invalid("Task failed"); };
-  std::atomic<bool> abort_cont_called = false;
-  auto abort_cont = [&]() { abort_cont_called = true; };
-  // scheduler->Abort(abort_cont);
-  auto task_cont = [&](std::size_t) {
-    scheduler->Abort(abort_cont);
-    return Status::OK();
-  };
-
-  int task_group = scheduler->RegisterTaskGroup(task, task_cont);
-  scheduler->RegisterEnd();
-
   TaskScheduler::ScheduleImpl schedule =
       [&](TaskScheduler::TaskGroupContinuationImpl task) {
         return thread_pool->Spawn([&, task] {
@@ -284,11 +270,75 @@ TEST(TaskScheduler, AbortContOnErrorParallel) {
           std::ignore = task(thread_id);
         });
       };
-  ASSERT_OK(scheduler->StartScheduling(0, schedule, kNumTasks, false));
-  ASSERT_OK(scheduler->StartTaskGroup(0, task_group, kNumTasks));
 
-  while (!abort_cont_called) {
+  int num_tasks = num_threads * 2;
+  for (int i = 0; i < num_tasks; i++) {
+    auto scheduler = TaskScheduler::Make();
+
+    std::mutex abort_mutex;
+    std::condition_variable abort_cv;
+    bool abort_done = false;
+    auto abort_cont = [&]() {
+      std::lock_guard<std::mutex> lock(abort_mutex);
+      ASSERT_FALSE(abort_done);
+      abort_done = true;
+      abort_cv.notify_one();
+      // ASSERT_FALSE(abort_cont_called);
+      // abort_cont_called = true;
+    };
+
+    // std::mutex task_mutex;
+    // std::condition_variable task_cv;
+    // int task_done = 0;
+    auto task = [&](std::size_t, int64_t task_id) {
+      // {
+      //   std::unique_lock<std::mutex> lock(task_mutex);
+      //   task_done++;
+      //   task_cv.notify_one();
+      // }
+      if (task_id == i) {
+        scheduler->Abort(abort_cont);
+      }
+      if (task_id % 2 == 0) {
+        return Status::Invalid("Task failed");
+      };
+      return Status::OK();
+    };
+    std::mutex task_mutex;
+    std::condition_variable task_cv;
+    bool all_tasks_done = false;
+    auto task_cont = [&](std::size_t) {
+      std::unique_lock<std::mutex> lock(task_mutex);
+      all_tasks_done = true;
+      task_cv.notify_one();
+      return Status::OK();
+    };
+
+    int task_group = scheduler->RegisterTaskGroup(task, task_cont);
+    scheduler->RegisterEnd();
+
+    ASSERT_OK(scheduler->StartScheduling(0, schedule, num_tasks, false));
+    ASSERT_OK(scheduler->StartTaskGroup(0, task_group, num_tasks));
+
+    {
+      std::unique_lock<std::mutex> lock(task_mutex);
+      task_cv.wait(lock, [&] { return all_tasks_done; });
+    }
+
+    {
+      std::unique_lock<std::mutex> lock(abort_mutex);
+      abort_cv.wait(lock, [&] { return abort_done; });
+    }
   }
+  // scheduler->Abort(abort_cont);
+  // auto task_cont = [&](std::size_t) {
+  //   scheduler->Abort(abort_cont);
+  //   return Status::OK();
+  // };
+
+  // while (!abort_cont_called) {
+  // }
+
   // ASSERT_TRUE(abort_cont_called);
 }
 
