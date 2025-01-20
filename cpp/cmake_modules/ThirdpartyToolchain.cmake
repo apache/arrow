@@ -1022,11 +1022,12 @@ macro(prepare_fetchcontent)
   set(BUILD_STATIC_LIBS ON)
   set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
   set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
-  set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
   # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
   # We should remove it once we have updated the dependencies:
   # https://github.com/apache/arrow/issues/45985
   set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+  set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
+  set(ENABLE_TESTING OFF)
 
   if(MSVC)
     string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
@@ -1035,7 +1036,6 @@ macro(prepare_fetchcontent)
     string(APPEND CMAKE_C_FLAGS_DEBUG " -Wno-error")
     string(APPEND CMAKE_CXX_FLAGS_DEBUG " -Wno-error")
   endif()
-  set(ENABLE_TESTING OFF)
 endmacro()
 
 # ----------------------------------------------------------------------
@@ -5062,12 +5062,10 @@ function(build_awssdk)
   message(STATUS "Building AWS SDK for C++ from source")
 
   set(AWSSDK_PRODUCTS aws-c-common aws-checksums)
-  # aws-lc and s2n-tls only needed on Linux.
+  # s2n-tls only needed on Linux.
   # We can use LINUX with CMake 3.25 or later.
   if(UNIX AND NOT APPLE)
-    list(APPEND AWSSDK_PRODUCTS
-         # aws-lc
-         s2n-tls)
+    list(APPEND AWSSDK_PRODUCTS s2n-tls)
   endif()
   list(APPEND
        AWSSDK_PRODUCTS
