@@ -69,26 +69,6 @@ env:
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
-  docker-targets:
-    name: Docker targets
-    runs-on: ubuntu-latest
-    outputs:
-      targets: ${{ steps.detect-targets.outputs.targets }}
-    steps:
-      - name: Detect targets
-        id: detect-targets
-        run: |
-          JSON
-          if [ "$GITHUB_REPOSITORY_OWNER" = "apache" ]; then
-            echo "," >> "$GITHUB_OUTPUT"
-            cat <<JSON >> "$GITHUB_OUTPUT"
-          {
-          }
-          JSON
-          fi
-          echo "]" >> "$GITHUB_OUTPUT"
-          echo "JSON" >> "$GITHUB_OUTPUT"
-
   docker:
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
