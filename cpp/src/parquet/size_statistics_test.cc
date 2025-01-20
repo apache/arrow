@@ -225,7 +225,7 @@ class SizeStatisticsRoundTripTest : public ::testing::Test {
       auto row_group_reader = reader->RowGroup(i);
       for (int j = 0; j < metadata->num_columns(); ++j) {
         auto column_reader = row_group_reader->RecordReader(j);
-        ASSERT_EQ(column_reader->ReadRecords(num_rows), num_rows);
+        ASSERT_EQ(column_reader->ReadRecords(num_rows + 1), num_rows);
       }
     }
   }
