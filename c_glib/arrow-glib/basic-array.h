@@ -890,6 +890,10 @@ GARROW_AVAILABLE_IN_ALL
 GArrowDecimal256 *
 garrow_decimal256_array_get_value(GArrowDecimal256Array *array, gint64 i);
 
+GARROW_AVAILABLE_IN_20_0
+gboolean
+garrow_array_validate(GArrowArray *array, GError **error);
+
 GARROW_AVAILABLE_IN_3_0
 GArrowArray *
 garrow_extension_array_get_storage(GArrowExtensionArray *array);

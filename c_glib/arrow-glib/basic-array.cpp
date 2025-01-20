@@ -3316,6 +3316,22 @@ garrow_decimal256_array_get_value(GArrowDecimal256Array *array, gint64 i)
   return garrow_decimal256_new_raw(&arrow_decimal256);
 }
 
+/**
+ * garrow_array_validate:
+ * @array: A #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 20.0.0
+ */
+gboolean
+garrow_array_validate(GArrowArray *array, GError **error)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  return garrow::check(error, arrow_array->Validate(), "[array][validate]");
+}
+
 typedef struct GArrowExtensionArrayPrivate_
 {
   GArrowArray *storage;
