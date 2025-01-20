@@ -1,0 +1,28 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+diff -ru aws-sdk-cpp-src.orig/CMakeLists.txt aws-sdk-cpp-src/CMakeLists.txt
+--- aws-sdk-cpp-src.orig/CMakeLists.txt	2025-01-20 14:51:21.180004943 +0900
++++ aws-sdk-cpp-src/CMakeLists.txt	2025-01-20 15:00:20.256077009 +0900
+@@ -245,7 +245,6 @@
+         # Append that generated list to the module search path
+         list(APPEND CMAKE_MODULE_PATH ${AWS_MODULE_PATH})
+         include(AwsFindPackage)
+-        set(IN_SOURCE_BUILD OFF)
+     endif ()
+     aws_use_package(aws-crt-cpp)
+     aws_use_package(aws-c-http)
