@@ -98,7 +98,7 @@ export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number)
         const integerPart = bigIntToNumber(quotient);
         const fractionPart = `${remainder}`.padStart(scale, '0');
         const sign: string = negative && integerPart === 0 ? '-' : '';
-        return Number(`${sign}${integerPart}.${fractionPart}`);
+        return +`${sign}${integerPart}.${fractionPart}`;
     }
     return bigIntToNumber(number);
 }
