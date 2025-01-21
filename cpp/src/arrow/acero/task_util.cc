@@ -406,16 +406,16 @@ void TaskSchedulerImpl::Abort(AbortContinuationImpl impl) {
         if (task_group.state_ == TaskGroupState::NOT_READY) {
           task_group.state_ = TaskGroupState::ALL_TASKS_FINISHED;
         } else if (task_group.state_ == TaskGroupState::READY) {
-          int64_t started_before = task_group.num_tasks_started_.value.load();
+          int64_t expected = task_group.num_tasks_started_.value.load();
           for (;;) {
             if (task_group.num_tasks_started_.value.compare_exchange_strong(
-                    started_before, task_group.num_tasks_present_)) {
+                    expected, task_group.num_tasks_present_)) {
               break;
             }
           }
-          int64_t finished_before = task_group.num_tasks_finished_.value.fetch_add(
-              task_group.num_tasks_present_ - started_before);
-          if (finished_before >= started_before) {
+          int64_t before_add = task_group.num_tasks_finished_.value.fetch_add(
+              task_group.num_tasks_present_ - expected);
+          if (before_add >= expected) {
             task_group.state_ = TaskGroupState::ALL_TASKS_FINISHED;
           } else {
             all_finished = false;
