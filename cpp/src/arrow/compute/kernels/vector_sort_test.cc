@@ -2522,22 +2522,22 @@ class TestRankQuantile : public BaseTestRank {
   // Expecting an input ordered like [1, 2, 1, 2, 1]
   void AssertRankQuantile_12121() {
     for (auto null_placement : AllNullPlacements()) {
-      AssertRankQuantile(SortOrder::Ascending, null_placement, 100.0,
+      AssertRankQuantile(SortOrder::Ascending, null_placement, /*factor=*/100.0,
                          "[30.0, 80.0, 30.0, 80.0, 30.0]");
-      AssertRankQuantile(SortOrder::Descending, null_placement, 100.0,
+      AssertRankQuantile(SortOrder::Descending, null_placement, /*factor=*/100.0,
                          "[70.0, 20.0, 70.0, 20.0, 70.0]");
     }
   }
 
   // Expecting an input ordered like [null, 1, null, 2, null]
   void AssertRankQuantile_N1N2N() {
-    AssertRankQuantile(SortOrder::Ascending, NullPlacement::AtStart, 1.0,
+    AssertRankQuantile(SortOrder::Ascending, NullPlacement::AtStart, /*factor=*/1.0,
                        "[0.3, 0.7, 0.3, 0.9, 0.3]");
-    AssertRankQuantile(SortOrder::Ascending, NullPlacement::AtEnd, 1.0,
+    AssertRankQuantile(SortOrder::Ascending, NullPlacement::AtEnd, /*factor=*/1.0,
                        "[0.7, 0.1, 0.7, 0.3, 0.7]");
-    AssertRankQuantile(SortOrder::Descending, NullPlacement::AtStart, 1.0,
+    AssertRankQuantile(SortOrder::Descending, NullPlacement::AtStart, /*factor=*/1.0,
                        "[0.3, 0.9, 0.3, 0.7, 0.3]");
-    AssertRankQuantile(SortOrder::Descending, NullPlacement::AtEnd, 1.0,
+    AssertRankQuantile(SortOrder::Descending, NullPlacement::AtEnd, /*factor=*/1.0,
                        "[0.7, 0.3, 0.7, 0.1, 0.7]");
   }
 
@@ -2548,13 +2548,13 @@ class TestRankQuantile : public BaseTestRank {
     // Reproduce the example from https://en.wikipedia.org/wiki/Percentile_rank
     SetInput(ArrayFromJSON(type, "[7, 5, 5, 4, 4, 3, 3, 3, 2, 1]"));
     for (auto null_placement : AllNullPlacements()) {
-      AssertRankQuantile(SortOrder::Ascending, null_placement, 10.0,
+      AssertRankQuantile(SortOrder::Ascending, null_placement, /*factor=*/10.0,
                          "[9.5, 8.0, 8.0, 6.0, 6.0, 3.5, 3.5, 3.5, 1.5, 0.5]");
-      AssertRankQuantile(SortOrder::Ascending, null_placement, 100.0,
+      AssertRankQuantile(SortOrder::Ascending, null_placement, /*factor=*/100.0,
                          "[95, 80, 80, 60, 60, 35, 35, 35, 15, 5]");
-      AssertRankQuantile(SortOrder::Descending, null_placement, 10.0,
+      AssertRankQuantile(SortOrder::Descending, null_placement, /*factor=*/10.0,
                          "[0.5, 2.0, 2.0, 4.0, 4.0, 6.5, 6.5, 6.5, 8.5, 9.5]");
-      AssertRankQuantile(SortOrder::Descending, null_placement, 100.0,
+      AssertRankQuantile(SortOrder::Descending, null_placement, /*factor=*/100.0,
                          "[5, 20, 20, 40, 40, 65, 65, 65, 85, 95]");
     }
 
