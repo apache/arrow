@@ -39,3 +39,15 @@ API Reference
    api/dataset
    api/cuda
    api/misc
+   api/tensors
+
+*************
+Tensors
+*************
+
+.. _toc.tensors:
+
+.. toctree::
+   :maxdepth: 2
+
+   <python/api/tensors.rst>
