@@ -3963,7 +3963,8 @@ TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
 }
 
 void TryReadDataFile(const std::string& path,
-                     ::arrow::StatusCode expected_code = ::arrow::StatusCode::OK) {
+                     ::arrow::StatusCode expected_code = ::arrow::StatusCode::OK,
+                     const std::string& expected_message = "") {
   auto pool = ::arrow::default_memory_pool();
 
   std::unique_ptr<FileReader> arrow_reader;
@@ -3977,6 +3978,12 @@ void TryReadDataFile(const std::string& path,
   ASSERT_EQ(s.code(), expected_code)
       << "Expected reading file to return " << arrow::Status::CodeAsString(expected_code)
       << ", but got " << s.ToString();
+
+  if (!expected_message.empty()) {
+    ASSERT_EQ(s.message().find(expected_message), 0)
+        << "Expected an error message beginning with '" << expected_message
+        << "', but got '" << s.message() << "'";
+  }
 }
 
 TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
@@ -3993,7 +4000,8 @@ TEST(TestArrowReaderAdHoc, CorruptedSchema) {
 TEST(TestArrowReaderAdHoc, InvalidRepetitionLevels) {
   // GH-45185 - Repetition levels start with 1 instead of 0
   auto path = test::get_data_file("ARROW-GH-45185.parquet", /*is_good=*/false);
-  TryReadDataFile(path, ::arrow::StatusCode::IOError);
+  TryReadDataFile(path, ::arrow::StatusCode::IOError,
+                  "The repetition level at the start of a record must be 0 but got 1");
 }
 
 TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
