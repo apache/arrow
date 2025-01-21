@@ -2545,7 +2545,7 @@ class TestRankQuantile : public BaseTestRank {
     ARROW_SCOPED_TRACE("type = ", type->ToString());
     AssertRankQuantileEmpty(type);
 
-    // Reproduce the example from https://en.wikipedia.org/wiki/Quantile_rank
+    // Reproduce the example from https://en.wikipedia.org/wiki/Percentile_rank
     SetInput(ArrayFromJSON(type, "[7, 5, 5, 4, 4, 3, 3, 3, 2, 1]"));
     for (auto null_placement : AllNullPlacements()) {
       AssertRankQuantile(SortOrder::Ascending, null_placement, 10.0,
