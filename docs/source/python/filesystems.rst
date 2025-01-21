@@ -232,7 +232,7 @@ generate a credentials file in the default location::
    gcloud auth application-default login
 
 To connect to a public bucket without using any credentials, you must pass
-``anonymous=True`` to :class:`GcsFileSystem`. Otherwise, the filesystem
+``bool_anonymous=True`` to :class:`GcsFileSystem`. Otherwise, the filesystem
 will report ``Couldn't resolve host name`` since there are different host
 names for authenticated and public access.
 
@@ -240,7 +240,7 @@ Example showing how you can read contents from a GCS bucket::
 
    >>> from datetime import timedelta
    >>> from pyarrow import fs
-   >>> gcs = fs.GcsFileSystem(anonymous=True, retry_time_limit=timedelta(seconds=15))
+   >>> gcs = fs.GcsFileSystem(bool_anonymous=True, retry_time_limit=timedelta(seconds=15))
 
    # List all contents in a bucket, recursively
    >>> uri = "gcp-public-data-landsat/LC08/01/001/003/"
