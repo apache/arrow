@@ -105,7 +105,7 @@ Inspecting the directories and files on a filesystem can be done with the
 :meth:`FileSystem.get_file_info` method. To list the contents of a directory,
 use the :class:`FileSelector` object to specify the selection::
 
-   >>> local.get_file_info(fs.FileSelector("dataset/", recursive=True))
+   >>> local.get_file_info(fs.FileSelector("dataset/", bool_recursive=True))
    [<FileInfo for 'dataset/part=B': type=FileType.Directory>,
     <FileInfo for 'dataset/part=B/data0.parquet': type=FileType.File, size=1564>,
     <FileInfo for 'dataset/part=A': type=FileType.Directory>,
@@ -164,7 +164,7 @@ Example how you can read contents from a S3 bucket::
    >>> s3 = fs.S3FileSystem(region='eu-west-3')
 
    # List all contents in a bucket, recursively
-   >>> s3.get_file_info(fs.FileSelector('my-test-bucket', recursive=True))
+   >>> s3.get_file_info(fs.FileSelector('my-test-bucket', bool_recursive=True))
    [<FileInfo for 'my-test-bucket/File1': type=FileType.File, size=10>,
     <FileInfo for 'my-test-bucket/File5': type=FileType.File, size=10>,
     <FileInfo for 'my-test-bucket/Dir1': type=FileType.Directory>,
@@ -244,7 +244,7 @@ Example showing how you can read contents from a GCS bucket::
 
    # List all contents in a bucket, recursively
    >>> uri = "gcp-public-data-landsat/LC08/01/001/003/"
-   >>> file_list = gcs.get_file_info(fs.FileSelector(uri, recursive=True))
+   >>> file_list = gcs.get_file_info(fs.FileSelector(uri, bool_recursive=True))
 
    # Open a file for reading and download its contents
    >>> f = gcs.open_input_stream(file_list[0].path)
