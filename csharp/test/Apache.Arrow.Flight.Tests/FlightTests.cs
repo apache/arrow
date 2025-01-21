@@ -57,6 +57,13 @@ namespace Apache.Arrow.Flight.Tests
             return batchBuilder.Build();
         }
 
+        private Schema GetStoreSchema(FlightDescriptor flightDescriptor)
+        {
+            Assert.Contains(flightDescriptor, (IReadOnlyDictionary<FlightDescriptor, FlightHolder>)_flightStore.Flights);
+
+            var flightHolder = _flightStore.Flights[flightDescriptor];
+            return flightHolder.GetFlightInfo().Schema;
+        }
 
         private IEnumerable<RecordBatchWithMetadata> GetStoreBatch(FlightDescriptor flightDescriptor)
         {
@@ -121,6 +128,23 @@ namespace Apache.Arrow.Flight.Tests
 
             ArrowReaderVerifier.CompareBatches(expectedBatch1, actualBatches[0].RecordBatch);
             ArrowReaderVerifier.CompareBatches(expectedBatch2, actualBatches[1].RecordBatch);
+        }
+
+        [Fact]
+        public async Task TestPutZeroRecordBatches()
+        {
+            var flightDescriptor = FlightDescriptor.CreatePathDescriptor("test");
+            var schema = CreateTestBatch(0, 1).Schema;
+
+            var putStream = await _flightClient.StartPut(flightDescriptor, schema);
+            await putStream.RequestStream.CompleteAsync();
+            var putResults = await putStream.ResponseStream.ToListAsync();
+
+            Assert.Empty(putResults);
+
+            var actualSchema = GetStoreSchema(flightDescriptor);
+
+            SchemaComparer.Compare(schema, actualSchema);
         }
 
         [Fact]

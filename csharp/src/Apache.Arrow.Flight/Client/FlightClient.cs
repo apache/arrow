@@ -103,6 +103,11 @@ namespace Apache.Arrow.Flight.Client
             return StartPut(flightDescriptor, headers, null, CancellationToken.None);
         }
 
+        public Task<FlightRecordBatchDuplexStreamingCall> StartPut(FlightDescriptor flightDescriptor, Schema schema, Metadata headers = null)
+        {
+            return StartPut(flightDescriptor, schema, headers, null, CancellationToken.None);
+        }
+
         public FlightRecordBatchDuplexStreamingCall StartPut(FlightDescriptor flightDescriptor, Metadata headers, System.DateTime? deadline, CancellationToken cancellationToken = default)
         {
             var channels = _client.DoPut(headers, deadline, cancellationToken);
@@ -115,6 +120,22 @@ namespace Apache.Arrow.Flight.Client
                 channels.GetStatus,
                 channels.GetTrailers,
                 channels.Dispose);
+        }
+
+        public async Task<FlightRecordBatchDuplexStreamingCall> StartPut(FlightDescriptor flightDescriptor, Schema schema, Metadata headers, System.DateTime? deadline, CancellationToken cancellationToken = default)
+        {
+            var channels = _client.DoPut(headers, deadline, cancellationToken);
+            var requestStream = new FlightClientRecordBatchStreamWriter(channels.RequestStream, flightDescriptor);
+            var readStream = new StreamReader<Protocol.PutResult, FlightPutResult>(channels.ResponseStream, putResult => new FlightPutResult(putResult));
+            var streamingCall = new FlightRecordBatchDuplexStreamingCall(
+                requestStream,
+                readStream,
+                channels.ResponseHeadersAsync,
+                channels.GetStatus,
+                channels.GetTrailers,
+                channels.Dispose);
+            await streamingCall.RequestStream.SetupStream(schema).ConfigureAwait(false);
+            return streamingCall;
         }
 
         public AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse> Handshake(Metadata headers = null)
