@@ -98,16 +98,25 @@ namespace Apache.Arrow.Flight.Client
                 flightInfoResult.Dispose);
         }
 
+        [System.Obsolete("Use an async overload that takes a Schema")]
         public FlightRecordBatchDuplexStreamingCall StartPut(FlightDescriptor flightDescriptor, Metadata headers = null)
         {
             return StartPut(flightDescriptor, headers, null, CancellationToken.None);
         }
 
+        /// <summary>
+        /// Start a Flight Put request.
+        /// </summary>
+        /// <param name="flightDescriptor">Descriptor for the data to be put</param>
+        /// <param name="schema">The schema of the data</param>
+        /// <param name="headers">gRPC headers to send with the request</param>
+        /// <returns>A <see cref="FlightRecordBatchDuplexStreamingCall" /> object used to write data batches and receive responses</returns>
         public Task<FlightRecordBatchDuplexStreamingCall> StartPut(FlightDescriptor flightDescriptor, Schema schema, Metadata headers = null)
         {
             return StartPut(flightDescriptor, schema, headers, null, CancellationToken.None);
         }
 
+        [System.Obsolete("Use an async overload that takes a Schema")]
         public FlightRecordBatchDuplexStreamingCall StartPut(FlightDescriptor flightDescriptor, Metadata headers, System.DateTime? deadline, CancellationToken cancellationToken = default)
         {
             var channels = _client.DoPut(headers, deadline, cancellationToken);
@@ -122,6 +131,15 @@ namespace Apache.Arrow.Flight.Client
                 channels.Dispose);
         }
 
+        /// <summary>
+        /// Start a Flight Put request.
+        /// </summary>
+        /// <param name="flightDescriptor">Descriptor for the data to be put</param>
+        /// <param name="schema">The schema of the data</param>
+        /// <param name="headers">gRPC headers to send with the request</param>
+        /// <param name="deadline">Optional deadline. The request will be cancelled if this deadline is reached.</param>
+        /// <param name="cancellationToken">Optional token for cancelling the request</param>
+        /// <returns>A <see cref="FlightRecordBatchDuplexStreamingCall" /> object used to write data batches and receive responses</returns>
         public async Task<FlightRecordBatchDuplexStreamingCall> StartPut(FlightDescriptor flightDescriptor, Schema schema, Metadata headers, System.DateTime? deadline, CancellationToken cancellationToken = default)
         {
             var channels = _client.DoPut(headers, deadline, cancellationToken);

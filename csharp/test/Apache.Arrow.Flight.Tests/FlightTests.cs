@@ -95,7 +95,7 @@ namespace Apache.Arrow.Flight.Tests
             var flightDescriptor = FlightDescriptor.CreatePathDescriptor("test");
             var expectedBatch = CreateTestBatch(0, 100);
 
-            var putStream = _flightClient.StartPut(flightDescriptor);
+            var putStream = await _flightClient.StartPut(flightDescriptor, expectedBatch.Schema);
             await putStream.RequestStream.WriteAsync(expectedBatch);
             await putStream.RequestStream.CompleteAsync();
             var putResults = await putStream.ResponseStream.ToListAsync();
@@ -115,7 +115,7 @@ namespace Apache.Arrow.Flight.Tests
             var expectedBatch1 = CreateTestBatch(0, 100);
             var expectedBatch2 = CreateTestBatch(0, 100);
 
-            var putStream = _flightClient.StartPut(flightDescriptor);
+            var putStream = await _flightClient.StartPut(flightDescriptor, expectedBatch1.Schema);
             await putStream.RequestStream.WriteAsync(expectedBatch1);
             await putStream.RequestStream.WriteAsync(expectedBatch2);
             await putStream.RequestStream.CompleteAsync();
@@ -254,7 +254,7 @@ namespace Apache.Arrow.Flight.Tests
             var expectedBatch = CreateTestBatch(0, 100);
             var expectedMetadata = ByteString.CopyFromUtf8("test metadata");
 
-            var putStream = _flightClient.StartPut(flightDescriptor);
+            var putStream = await _flightClient.StartPut(flightDescriptor, expectedBatch.Schema);
             await putStream.RequestStream.WriteAsync(expectedBatch, expectedMetadata);
             await putStream.RequestStream.CompleteAsync();
             var putResults = await putStream.ResponseStream.ToListAsync();
@@ -495,8 +495,7 @@ namespace Apache.Arrow.Flight.Tests
             exception = await Assert.ThrowsAsync<RpcException>(async () => await duplexStreamingCall.RequestStream.WriteAsync(batch));
             Assert.Equal(StatusCode.DeadlineExceeded, exception.StatusCode);
 
-            var putStream = _flightClient.StartPut(flightDescriptor, null, deadline);
-            exception = await Assert.ThrowsAsync<RpcException>(async () => await putStream.RequestStream.WriteAsync(batch));
+            exception = await Assert.ThrowsAsync<RpcException>(async () => await _flightClient.StartPut(flightDescriptor, batch.Schema, null, deadline));
             Assert.Equal(StatusCode.DeadlineExceeded, exception.StatusCode);
 
             exception = await Assert.ThrowsAsync<RpcException>(async () => await _flightClient.GetSchema(flightDescriptor, null, deadline));
@@ -538,8 +537,7 @@ namespace Apache.Arrow.Flight.Tests
             exception = await Assert.ThrowsAsync<RpcException>(async () => await duplexStreamingCall.RequestStream.WriteAsync(batch));
             Assert.Equal(StatusCode.Cancelled, exception.StatusCode);
 
-            var putStream = _flightClient.StartPut(flightDescriptor, null, null, cts.Token);
-            exception = await Assert.ThrowsAsync<RpcException>(async () => await putStream.RequestStream.WriteAsync(batch));
+            exception = await Assert.ThrowsAsync<RpcException>(async () => await _flightClient.StartPut(flightDescriptor, batch.Schema, null, null, cts.Token));
             Assert.Equal(StatusCode.Cancelled, exception.StatusCode);
 
             exception = await Assert.ThrowsAsync<RpcException>(async () => await _flightClient.GetSchema(flightDescriptor, null, null, cts.Token));

@@ -38,6 +38,14 @@ namespace Apache.Arrow.Flight
             _flightDescriptor = flightDescriptor;
         }
 
+        /// <summary>
+        /// Configure the data stream to write to.
+        /// </summary>
+        /// <remarks>
+        /// The stream will be set up automatically when writing a RecordBatch if required,
+        /// but calling this method before writing any data allows handling empty streams.
+        /// </remarks>
+        /// <param name="schema">The schema of data to be written to this stream</param>
         public async Task SetupStream(Schema schema)
         {
             if (_flightDataStream != null)
