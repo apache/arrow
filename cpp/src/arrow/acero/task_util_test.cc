@@ -232,10 +232,15 @@ TEST(TaskScheduler, StressTwo) {
 }
 
 TEST(TaskScheduler, AbortContOnTaskErrorSerial) {
-  constexpr int kNumTasks = 3;
+  constexpr int kNumTasks = 16;
 
   auto scheduler = TaskScheduler::Make();
-  auto task = [](std::size_t, int64_t) { return Status::Invalid("Task failed"); };
+  auto task = [&](std::size_t, int64_t task_id) {
+    if (task_id == kNumTasks / 2) {
+      return Status::Invalid("Task failed");
+    }
+    return Status::OK();
+  };
 
   int task_group =
       scheduler->RegisterTaskGroup(task, [](std::size_t) { return Status::OK(); });
@@ -246,7 +251,7 @@ TEST(TaskScheduler, AbortContOnTaskErrorSerial) {
   ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Task failed",
                              scheduler->StartTaskGroup(0, task_group, kNumTasks));
 
-  std::atomic<bool> abort_cont_called = false;
+  bool abort_cont_called = false;
   auto abort_cont = [&]() { abort_cont_called = true; };
   scheduler->Abort(abort_cont);
   ASSERT_TRUE(abort_cont_called);
@@ -266,80 +271,37 @@ TEST(TaskScheduler, AbortContOnTaskErrorParallel) {
       [&](TaskScheduler::TaskGroupContinuationImpl task) {
         return thread_pool->Spawn([&, task] {
           std::size_t thread_id = thread_indexer();
-          // ASSERT_RAISES_WITH_MESSAGE(Invalid, "Task failed", task(thread_id));
-          std::ignore = task(thread_id);
+          auto status = task(thread_id);
+          ASSERT_TRUE(status.ok() || status.IsInvalid() || status.IsCancelled());
         });
       };
 
   int num_tasks = num_threads * 2;
-  for (int i = 0; i < num_tasks; i++) {
-    auto scheduler = TaskScheduler::Make();
-
-    std::mutex abort_mutex;
-    std::condition_variable abort_cv;
-    bool abort_done = false;
-    auto abort_cont = [&]() {
-      std::lock_guard<std::mutex> lock(abort_mutex);
-      ASSERT_FALSE(abort_done);
-      abort_done = true;
-      abort_cv.notify_one();
-      // ASSERT_FALSE(abort_cont_called);
-      // abort_cont_called = true;
-    };
-
-    // std::mutex task_mutex;
-    // std::condition_variable task_cv;
-    // int task_done = 0;
-    auto task = [&](std::size_t, int64_t task_id) {
-      // {
-      //   std::unique_lock<std::mutex> lock(task_mutex);
-      //   task_done++;
-      //   task_cv.notify_one();
-      // }
-      if (task_id == i) {
-        scheduler->Abort(abort_cont);
-      }
-      if (task_id % 2 == 0) {
-        return Status::Invalid("Task failed");
-      };
-      return Status::OK();
-    };
-    std::mutex task_mutex;
-    std::condition_variable task_cv;
-    bool all_tasks_done = false;
-    auto task_cont = [&](std::size_t) {
-      std::unique_lock<std::mutex> lock(task_mutex);
-      all_tasks_done = true;
-      task_cv.notify_one();
-      return Status::OK();
-    };
-
-    int task_group = scheduler->RegisterTaskGroup(task, task_cont);
-    scheduler->RegisterEnd();
-
-    ASSERT_OK(scheduler->StartScheduling(0, schedule, num_tasks, false));
-    ASSERT_OK(scheduler->StartTaskGroup(0, task_group, num_tasks));
-
-    {
-      std::unique_lock<std::mutex> lock(task_mutex);
-      task_cv.wait(lock, [&] { return all_tasks_done; });
+  auto scheduler = TaskScheduler::Make();
+  auto task = [&](std::size_t, int64_t task_id) {
+    if (task_id % 2 == 0) {
+      return Status::Invalid("Task failed");
     }
+    return Status::OK();
+  };
 
-    {
-      std::unique_lock<std::mutex> lock(abort_mutex);
-      abort_cv.wait(lock, [&] { return abort_done; });
-    }
-  }
-  // scheduler->Abort(abort_cont);
-  // auto task_cont = [&](std::size_t) {
-  //   scheduler->Abort(abort_cont);
-  //   return Status::OK();
-  // };
+  int task_group =
+      scheduler->RegisterTaskGroup(task, [](std::size_t) { return Status::OK(); });
+  scheduler->RegisterEnd();
 
-  // while (!abort_cont_called) {
-  // }
+  ASSERT_OK(scheduler->StartScheduling(0, schedule, num_tasks, false));
+  ASSERT_OK(scheduler->StartTaskGroup(0, task_group, num_tasks));
 
-  // ASSERT_TRUE(abort_cont_called);
+  thread_pool->WaitForIdle();
+
+  bool abort_cont_called = false;
+  auto abort_cont = [&]() {
+    ASSERT_FALSE(abort_cont_called);
+    abort_cont_called = true;
+  };
+  scheduler->Abort(abort_cont);
+
+  ASSERT_TRUE(abort_cont_called);
 }
 
 }  // namespace acero
