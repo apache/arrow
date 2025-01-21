@@ -252,8 +252,13 @@ TEST(TaskScheduler, AbortContOnTaskErrorSerial) {
                              scheduler->StartTaskGroup(0, task_group, kNumTasks));
 
   bool abort_cont_called = false;
-  auto abort_cont = [&]() { abort_cont_called = true; };
+  auto abort_cont = [&]() {
+    ASSERT_FALSE(abort_cont_called);
+    abort_cont_called = true;
+  };
+
   scheduler->Abort(abort_cont);
+
   ASSERT_TRUE(abort_cont_called);
 }
 
@@ -276,39 +281,44 @@ TEST(TaskScheduler, AbortContOnTaskErrorParallel) {
         });
       };
 
-  int num_tasks = num_threads * 2;
+  for (int num_tasks :
+       {2, num_threads - 1, num_threads, num_threads + 1, 2 * num_threads}) {
+    ARROW_SCOPED_TRACE("num_tasks = ", num_tasks);
+    for (int num_concurrent_tasks :
+         {1, num_tasks - 1, num_tasks, num_tasks + 1, 2 * num_tasks}) {
+      ARROW_SCOPED_TRACE("num_concurrent_tasks = ", num_concurrent_tasks);
+      for (int aborting_task_id = 0; aborting_task_id < num_tasks; ++aborting_task_id) {
+        ARROW_SCOPED_TRACE("aborting_task_id = ", aborting_task_id);
+        auto scheduler = TaskScheduler::Make();
 
-  for (int i = 0; i < num_tasks; ++i) {
-    std::cout << "Aborting in task " << i << std::endl;
-    auto scheduler = TaskScheduler::Make();
+        bool abort_cont_called = false;
+        auto abort_cont = [&]() {
+          ASSERT_FALSE(abort_cont_called);
+          abort_cont_called = true;
+        };
 
-    bool abort_cont_called = false;
-    auto abort_cont = [&]() {
-      ASSERT_FALSE(abort_cont_called);
-      abort_cont_called = true;
-    };
-    // scheduler->Abort(abort_cont);
+        auto task = [&](std::size_t, int64_t task_id) {
+          if (task_id == aborting_task_id) {
+            scheduler->Abort(abort_cont);
+          }
+          if (task_id % 2 == 0) {
+            return Status::Invalid("Task failed");
+          }
+          return Status::OK();
+        };
 
-    auto task = [&](std::size_t, int64_t task_id) {
-      if (task_id == i) {
-        scheduler->Abort(abort_cont);
+        int task_group =
+            scheduler->RegisterTaskGroup(task, [](std::size_t) { return Status::OK(); });
+        scheduler->RegisterEnd();
+
+        ASSERT_OK(scheduler->StartScheduling(0, schedule, num_concurrent_tasks, false));
+        ASSERT_OK(scheduler->StartTaskGroup(0, task_group, num_tasks));
+
+        thread_pool->WaitForIdle();
+
+        ASSERT_TRUE(abort_cont_called);
       }
-      if (task_id % 2 == 0) {
-        return Status::Invalid("Task failed");
-      }
-      return Status::OK();
-    };
-
-    int task_group =
-        scheduler->RegisterTaskGroup(task, [](std::size_t) { return Status::OK(); });
-    scheduler->RegisterEnd();
-
-    ASSERT_OK(scheduler->StartScheduling(0, schedule, 1, false));
-    ASSERT_OK(scheduler->StartTaskGroup(0, task_group, num_tasks));
-
-    thread_pool->WaitForIdle();
-
-    ASSERT_TRUE(abort_cont_called);
+    }
   }
 }
 

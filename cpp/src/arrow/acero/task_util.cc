@@ -210,28 +210,13 @@ std::vector<std::pair<int, int64_t>> TaskSchedulerImpl::PickTasks(int num_tasks,
   return result;
 }
 
-// Status TaskSchedulerImpl::ExecuteTask(size_t thread_id, int group_id, int64_t task_id,
-//                                       bool* task_group_finished) {
-//   if (!aborted_) {
-//     RETURN_NOT_OK(task_groups_[group_id].task_impl_(thread_id, task_id));
-//   }
-//   *task_group_finished = PostExecuteTask(thread_id, group_id);
-//   return Status::OK();
-// }
-
-// My version.
 Status TaskSchedulerImpl::ExecuteTask(size_t thread_id, int group_id, int64_t task_id,
                                       bool* task_group_finished) {
-  Status status;
   if (!aborted_) {
-    status = task_groups_[group_id].task_impl_(thread_id, task_id);
+    RETURN_NOT_OK(task_groups_[group_id].task_impl_(thread_id, task_id));
   }
   *task_group_finished = PostExecuteTask(thread_id, group_id);
-  if (*task_group_finished) {
-    bool all_task_groups_finished = false;
-    RETURN_NOT_OK(OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished));
-  }
-  return status;
+  return Status::OK();
 }
 
 bool TaskSchedulerImpl::PostExecuteTask(size_t thread_id, int group_id) {
@@ -293,8 +278,8 @@ Status TaskSchedulerImpl::ExecuteMore(size_t thread_id, int num_tasks_to_execute
       bool task_group_finished = false;
       Status status = ExecuteTask(thread_id, group_id, task_id, &task_group_finished);
       if (!status.ok()) {
-        // Mark the remaining picked tasks as finished
-        for (size_t j = i + 1; j < tasks.size(); ++j) {
+        // Mark the current and remaining picked tasks as finished
+        for (size_t j = i; j < tasks.size(); ++j) {
           if (PostExecuteTask(thread_id, tasks[j].first)) {
             bool all_task_groups_finished = false;
             RETURN_NOT_OK(
@@ -383,47 +368,26 @@ Status TaskSchedulerImpl::ScheduleMore(size_t thread_id, int num_tasks_finished)
   for (size_t i = 0; i < tasks.size(); ++i) {
     int group_id = tasks[i].first;
     int64_t task_id = tasks[i].second;
-    // Orig version.
-    // RETURN_NOT_OK(schedule_impl_([this, group_id, task_id](size_t thread_id) -> Status
-    // {
-    //   RETURN_NOT_OK(ScheduleMore(thread_id, 1));
-    //   bool task_group_finished = false;
-    //   RETURN_NOT_OK(ExecuteTask(thread_id, group_id, task_id, &task_group_finished));
-
-    //   if (task_group_finished) {
-    //     bool all_task_groups_finished = false;
-    //     return OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished);
-    //   }
-    //   return Status::OK();
-    // }));
-    // Fix version.
-    // RETURN_NOT_OK(schedule_impl_([this, group_id, task_id](size_t thread_id) -> Status
-    // {
-    //   bool task_group_finished = false;
-    //   auto st = [&]() {
-    //     RETURN_NOT_OK(ScheduleMore(thread_id, 1));
-    //     RETURN_NOT_OK(ExecuteTask(thread_id, group_id, task_id, &task_group_finished));
-    //     return Status::OK();
-    //   }();
-    //   if (!st.ok()) {
-    //     task_group_finished = PostExecuteTask(thread_id, group_id);
-    //   }
-
-    //   if (task_group_finished) {
-    //     bool all_task_groups_finished = false;
-    //     auto all_finished_st =
-    //         OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished);
-    //     if (st.ok()) {
-    //       st = all_finished_st;
-    //     }
-    //   }
-    //   return st;
-    // }));
-    // My version.
     RETURN_NOT_OK(schedule_impl_([this, group_id, task_id](size_t thread_id) -> Status {
-      RETURN_NOT_OK(ScheduleMore(thread_id, 1));
       bool task_group_finished = false;
-      return ExecuteTask(thread_id, group_id, task_id, &task_group_finished);
+      // PostExecuteTask must be called later if any error ocurres during task execution
+      // (including ScheduleMore), so we preserve the status.
+      auto status = [&]() {
+        RETURN_NOT_OK(ScheduleMore(thread_id, 1));
+        return ExecuteTask(thread_id, group_id, task_id, &task_group_finished);
+      }();
+
+      if (!status.ok()) {
+        task_group_finished = PostExecuteTask(thread_id, group_id);
+      }
+
+      if (task_group_finished) {
+        bool all_task_groups_finished = false;
+        RETURN_NOT_OK(
+            OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished));
+      }
+
+      return status;
     }));
   }
 
@@ -457,6 +421,8 @@ void TaskSchedulerImpl::Abort(AbortContinuationImpl impl) {
             all_finished = false;
             task_group.state_ = TaskGroupState::ALL_TASKS_STARTED;
           }
+        } else if (task_group.state_ == TaskGroupState::ALL_TASKS_STARTED) {
+          all_finished = false;
         }
       }
     }
