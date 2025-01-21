@@ -5053,8 +5053,14 @@ macro(build_awssdk)
   # GH-44950: This is required to build under Rtools40 and we may be able to
   # remove it if/when we no longer need to build under Rtools40
   if(WIN32 AND NOT MSVC)
-    string(APPEND AWS_C_FLAGS " -D_WIN32_WINNT=0x0601 -Wno-error -Wno-error=format= -Wno-error=format-extra-args")
-    string(APPEND AWS_CXX_FLAGS " -D_WIN32_WINNT=0x0601 -Wno-error -Wno-error=format= -Wno-error=format-extra-args")
+    string(APPEND
+           AWS_C_FLAGS
+           " -D_WIN32_WINNT=0x0601 -Wno-error -Wno-error=format= -Wno-error=format-extra-args"
+    )
+    string(APPEND
+           AWS_CXX_FLAGS
+           " -D_WIN32_WINNT=0x0601 -Wno-error -Wno-error=format= -Wno-error=format-extra-args"
+    )
   endif()
 
   set(AWSSDK_COMMON_CMAKE_ARGS
@@ -5099,7 +5105,7 @@ macro(build_awssdk)
     find_program(PATCH patch REQUIRED)
     # Patch aws_c_common to build under Rtools40
     set(AWS_C_COMMON_PATCH_COMMAND ${PATCH} -p1 -i
-                                   ${CMAKE_SOURCE_DIR}/../ci/rtools/BuildAwsCCommon.patch)
+                                   ${CMAKE_SOURCE_DIR}/../ci/rtools/aws_c_common_ep.patch)
     message(STATUS "Hello ${AWS_C_COMMON_PATCH_COMMAND}")
     # aws_c_io_ep to build under Rtools40
     set(AWS_C_IO_PATCH_COMMAND ${PATCH} -p1 -i
