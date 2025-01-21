@@ -210,13 +210,28 @@ std::vector<std::pair<int, int64_t>> TaskSchedulerImpl::PickTasks(int num_tasks,
   return result;
 }
 
+// Status TaskSchedulerImpl::ExecuteTask(size_t thread_id, int group_id, int64_t task_id,
+//                                       bool* task_group_finished) {
+//   if (!aborted_) {
+//     RETURN_NOT_OK(task_groups_[group_id].task_impl_(thread_id, task_id));
+//   }
+//   *task_group_finished = PostExecuteTask(thread_id, group_id);
+//   return Status::OK();
+// }
+
+// My version.
 Status TaskSchedulerImpl::ExecuteTask(size_t thread_id, int group_id, int64_t task_id,
                                       bool* task_group_finished) {
+  Status status;
   if (!aborted_) {
-    RETURN_NOT_OK(task_groups_[group_id].task_impl_(thread_id, task_id));
+    status = task_groups_[group_id].task_impl_(thread_id, task_id);
   }
   *task_group_finished = PostExecuteTask(thread_id, group_id);
-  return Status::OK();
+  if (*task_group_finished) {
+    bool all_task_groups_finished = false;
+    RETURN_NOT_OK(OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished));
+  }
+  return status;
 }
 
 bool TaskSchedulerImpl::PostExecuteTask(size_t thread_id, int group_id) {
@@ -368,26 +383,47 @@ Status TaskSchedulerImpl::ScheduleMore(size_t thread_id, int num_tasks_finished)
   for (size_t i = 0; i < tasks.size(); ++i) {
     int group_id = tasks[i].first;
     int64_t task_id = tasks[i].second;
-    RETURN_NOT_OK(schedule_impl_([this, group_id, task_id](size_t thread_id) -> Status {
-      bool task_group_finished = false;
-      auto st = [&]() {
-        RETURN_NOT_OK(ScheduleMore(thread_id, 1));
-        RETURN_NOT_OK(ExecuteTask(thread_id, group_id, task_id, &task_group_finished));
-        return Status::OK();
-      }();
-      if (!st.ok()) {
-        task_group_finished = PostExecuteTask(thread_id, group_id);
-      }
+    // Orig version.
+    // RETURN_NOT_OK(schedule_impl_([this, group_id, task_id](size_t thread_id) -> Status
+    // {
+    //   RETURN_NOT_OK(ScheduleMore(thread_id, 1));
+    //   bool task_group_finished = false;
+    //   RETURN_NOT_OK(ExecuteTask(thread_id, group_id, task_id, &task_group_finished));
 
-      if (task_group_finished) {
-        bool all_task_groups_finished = false;
-        auto all_finished_st =
-            OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished);
-        if (st.ok()) {
-          st = all_finished_st;
-        }
-      }
-      return st;
+    //   if (task_group_finished) {
+    //     bool all_task_groups_finished = false;
+    //     return OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished);
+    //   }
+    //   return Status::OK();
+    // }));
+    // Fix version.
+    // RETURN_NOT_OK(schedule_impl_([this, group_id, task_id](size_t thread_id) -> Status
+    // {
+    //   bool task_group_finished = false;
+    //   auto st = [&]() {
+    //     RETURN_NOT_OK(ScheduleMore(thread_id, 1));
+    //     RETURN_NOT_OK(ExecuteTask(thread_id, group_id, task_id, &task_group_finished));
+    //     return Status::OK();
+    //   }();
+    //   if (!st.ok()) {
+    //     task_group_finished = PostExecuteTask(thread_id, group_id);
+    //   }
+
+    //   if (task_group_finished) {
+    //     bool all_task_groups_finished = false;
+    //     auto all_finished_st =
+    //         OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished);
+    //     if (st.ok()) {
+    //       st = all_finished_st;
+    //     }
+    //   }
+    //   return st;
+    // }));
+    // My version.
+    RETURN_NOT_OK(schedule_impl_([this, group_id, task_id](size_t thread_id) -> Status {
+      RETURN_NOT_OK(ScheduleMore(thread_id, 1));
+      bool task_group_finished = false;
+      return ExecuteTask(thread_id, group_id, task_id, &task_group_finished);
     }));
   }
 
@@ -406,16 +442,16 @@ void TaskSchedulerImpl::Abort(AbortContinuationImpl impl) {
         if (task_group.state_ == TaskGroupState::NOT_READY) {
           task_group.state_ = TaskGroupState::ALL_TASKS_FINISHED;
         } else if (task_group.state_ == TaskGroupState::READY) {
-          int64_t expected = task_group.num_tasks_started_.value.load();
+          int64_t started_before = task_group.num_tasks_started_.value.load();
           for (;;) {
             if (task_group.num_tasks_started_.value.compare_exchange_strong(
-                    expected, task_group.num_tasks_present_)) {
+                    started_before, task_group.num_tasks_present_)) {
               break;
             }
           }
-          int64_t before_add = task_group.num_tasks_finished_.value.fetch_add(
-              task_group.num_tasks_present_ - expected);
-          if (before_add >= expected) {
+          int64_t finished_before = task_group.num_tasks_finished_.value.fetch_add(
+              task_group.num_tasks_present_ - started_before);
+          if (finished_before >= started_before) {
             task_group.state_ = TaskGroupState::ALL_TASKS_FINISHED;
           } else {
             all_finished = false;
