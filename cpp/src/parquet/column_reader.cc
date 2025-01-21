@@ -1611,7 +1611,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // another record start or exhausting the ColumnChunk
     int64_t level = levels_position_;
     if (at_record_start_) {
-      if (rep_levels[levels_position_] != 0) {
+      if (ARROW_PREDICT_FALSE(rep_levels[levels_position_] != 0)) {
         std::stringstream ss;
         ss << "The repetition level at the start of a record must be 0 but got "
            << rep_levels[levels_position_];
