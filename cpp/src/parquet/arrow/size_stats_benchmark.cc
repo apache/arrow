@@ -80,12 +80,16 @@ int64_t GetTotalPageIndexSize(const std::shared_ptr<::parquet::FileMetaData>& me
 }
 
 void WriteColumn(::benchmark::State& state, const std::shared_ptr<::arrow::Table>& table,
-                 SizeStatisticsLevel stats_level) {
+                 SizeStatisticsLevel stats_level, bool enable_page_index) {
   // Use the fastest possible encoding and compression settings, to better exhibit
   // the size statistics overhead.
-  auto properties = WriterProperties::Builder()
-                        .enable_statistics()
-                        ->enable_write_page_index()
+  auto builder = WriterProperties::Builder();
+  if (enable_page_index) {
+    builder.enable_write_page_index();
+  } else {
+    builder.disable_write_page_index();
+  }
+  auto properties = builder.enable_statistics()
                         ->disable_dictionary()
                         ->encoding(Encoding::PLAIN)
                         ->set_size_statistics_level(stats_level)
@@ -113,17 +117,17 @@ void WriteColumn(::benchmark::State& state, const std::shared_ptr<::arrow::Table
   state.SetBytesProcessed(state.iterations() * GetTotalBytes(table));
 }
 
-template <SizeStatisticsLevel level, typename ArrowType>
+template <SizeStatisticsLevel level, typename ArrowType, bool enable_page_index>
 void BM_WritePrimitiveColumn(::benchmark::State& state) {
   ::arrow::random::RandomArrayGenerator generator(/*seed=*/42);
   auto type = std::make_shared<ArrowType>();
   auto array = generator.ArrayOf(type, kBenchmarkSize, kNullProbability);
   auto table = ::arrow::Table::Make(
       ::arrow::schema({::arrow::field("column", type, kNullProbability > 0)}), {array});
-  WriteColumn(state, table, level);
+  WriteColumn(state, table, level, enable_page_index);
 }
 
-template <SizeStatisticsLevel level, typename ArrowType>
+template <SizeStatisticsLevel level, typename ArrowType, bool enable_page_index>
 void BM_WriteListColumn(::benchmark::State& state) {
   ::arrow::random::RandomArrayGenerator generator(/*seed=*/42);
   auto element_type = std::make_shared<ArrowType>();
@@ -133,33 +137,43 @@ void BM_WriteListColumn(::benchmark::State& state) {
   auto table = ::arrow::Table::Make(
       ::arrow::schema({::arrow::field("column", list_type, kNullProbability > 0)}),
       {list_array});
-  WriteColumn(state, table, level);
+  WriteColumn(state, table, level, enable_page_index);
 }
 
-BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::None,
-                   ::arrow::Int64Type);
+BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::None, ::arrow::Int64Type,
+                   /*enable_page_index=*/false);
+BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::None, ::arrow::Int64Type,
+                   /*enable_page_index=*/true);
 BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::ColumnChunk,
-                   ::arrow::Int64Type);
+                   ::arrow::Int64Type, /*enable_page_index=*/true);
 BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::PageAndColumnChunk,
-                   ::arrow::Int64Type);
+                   ::arrow::Int64Type, /*enable_page_index=*/true);
 
 BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::None,
-                   ::arrow::StringType);
+                   ::arrow::StringType, /*enable_page_index=*/false);
+BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::None,
+                   ::arrow::StringType, /*enable_page_index=*/true);
 BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::ColumnChunk,
-                   ::arrow::StringType);
+                   ::arrow::StringType, /*enable_page_index=*/true);
 BENCHMARK_TEMPLATE(BM_WritePrimitiveColumn, SizeStatisticsLevel::PageAndColumnChunk,
-                   ::arrow::StringType);
+                   ::arrow::StringType, /*enable_page_index=*/true);
 
-BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::None, ::arrow::Int64Type);
+BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::None, ::arrow::Int64Type,
+                   /*enable_page_index=*/false);
+BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::None, ::arrow::Int64Type,
+                   /*enable_page_index=*/true);
 BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::ColumnChunk,
-                   ::arrow::Int64Type);
+                   ::arrow::Int64Type, /*enable_page_index=*/true);
 BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::PageAndColumnChunk,
-                   ::arrow::Int64Type);
+                   ::arrow::Int64Type, /*enable_page_index=*/true);
 
-BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::None, ::arrow::StringType);
+BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::None, ::arrow::StringType,
+                   /*enable_page_index=*/false);
+BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::None, ::arrow::StringType,
+                   /*enable_page_index=*/true);
 BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::ColumnChunk,
-                   ::arrow::StringType);
+                   ::arrow::StringType, /*enable_page_index=*/true);
 BENCHMARK_TEMPLATE(BM_WriteListColumn, SizeStatisticsLevel::PageAndColumnChunk,
-                   ::arrow::StringType);
+                   ::arrow::StringType, /*enable_page_index=*/true);
 
 }  // namespace parquet::benchmark
