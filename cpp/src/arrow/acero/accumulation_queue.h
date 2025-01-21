@@ -22,6 +22,7 @@
 #include <optional>
 #include <vector>
 
+#include "arrow/acero/visibility.h"
 #include "arrow/compute/exec.h"
 #include "arrow/result.h"
 
@@ -70,7 +71,7 @@ class AccumulationQueue {
 /// For example, in a top-n node, the process callback should determine how many
 /// rows need to be delivered for the given batch, and then return a task to actually
 /// deliver those rows.
-class SequencingQueue {
+class ARROW_ACERO_EXPORT SequencingQueue {
  public:
   using Task = std::function<Status()>;
 
@@ -82,7 +83,7 @@ class SequencingQueue {
     /// This method will be called on each batch in order.  Calls to this method
     /// will be serialized and it will not be called reentrantly.  This makes it
     /// safe to do things that rely on order but minimal time should be spent here
-    /// to avoid becoming a bottlneck.
+    /// to avoid becoming a bottleneck.
     ///
     /// \return a follow-up task that will be scheduled.  The follow-up task(s) are
     ///         is not guaranteed to run in any particular order.  If nullopt is
@@ -123,11 +124,12 @@ class SequencingQueue {
 ///
 /// It can be helpful to think of this as if a dedicated thread is running Process as
 /// batches arrive
-class SerialSequencingQueue {
+class ARROW_ACERO_EXPORT SerialSequencingQueue {
  public:
   /// Strategy that describes how to handle items
   class Processor {
    public:
+    virtual ~Processor() = default;
     /// Process the batch
     ///
     /// This method will be called on each batch in order.  Calls to this method

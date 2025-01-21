@@ -22,16 +22,19 @@ set -ex
 source_dir=${1}/c_glib
 build_dir=${2}/c_glib
 
-: ${ARROW_GLIB_VAPI:=true}
+: "${ARROW_GLIB_VAPI:=true}"
 
+export DYLD_LIBRARY_PATH=${ARROW_HOME}/lib:${DYLD_LIBRARY_PATH}
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
 export GI_TYPELIB_PATH=${ARROW_HOME}/lib/girepository-1.0
 
-# Enable memory debug checks.
-export ARROW_DEBUG_MEMORY_POOL=trap
+# Enable memory debug checks if the env is not set already
+if [ -z "${ARROW_DEBUG_MEMORY_POOL}" ]; then
+  export ARROW_DEBUG_MEMORY_POOL=trap
+fi
 
-pushd ${source_dir}
+pushd "${source_dir}"
 
 ruby test/run-test.rb
 
@@ -48,7 +51,7 @@ fi
 
 popd
 
-pushd ${build_dir}
+pushd "${build_dir}"
 example/build
 example/extension-type
 if [ "${ARROW_GLIB_VAPI}" = "true" ]; then

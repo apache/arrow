@@ -154,6 +154,9 @@ Status IntegerScalarToFloat32Safe(PyObject* obj, float* result);
 // \brief Print Python object __repr__
 void DebugPrint(PyObject* obj);
 
+ARROW_PYTHON_EXPORT
+bool IsThreadingEnabled();
+
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow

@@ -110,14 +110,20 @@ struct GenerateImpl {
     return OK(writer.Double(val));
   }
 
-  template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T&) {
+  Status GenerateAscii(const DataType&) {
     auto size = std::poisson_distribution<>{4}(e);
     std::uniform_int_distribution<uint16_t> gen_char(32, 126);  // FIXME generate UTF8
     std::string s(size, '\0');
     for (char& ch : s) ch = static_cast<char>(gen_char(e));
     return OK(writer.String(s.c_str()));
   }
+
+  template <typename T>
+  enable_if_base_binary<T, Status> Visit(const T& t) {
+    return GenerateAscii(t);
+  }
+
+  Status Visit(const BinaryViewType& t) { return GenerateAscii(t); }
 
   template <typename T>
   enable_if_list_like<T, Status> Visit(const T& t) {
@@ -128,6 +134,10 @@ struct GenerateImpl {
     }
     return OK(writer.EndArray(size));
   }
+
+  Status Visit(const ListViewType& t) { return NotImplemented(t); }
+
+  Status Visit(const LargeListViewType& t) { return NotImplemented(t); }
 
   Status Visit(const StructType& t) { return Generate(t.fields(), e, &writer, options); }
 

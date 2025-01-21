@@ -47,7 +47,7 @@ namespace flight {
 
 namespace {
 #if (ATOMIC_INT_LOCK_FREE != 2 || ATOMIC_POINTER_LOCK_FREE != 2)
-#error "atomic ints and atomic pointers not always lock-free!"
+#  error "atomic ints and atomic pointers not always lock-free!"
 #endif
 
 using ::arrow::internal::SelfPipe;
@@ -228,6 +228,12 @@ Status FlightServerBase::ListFlights(const ServerCallContext& context,
 Status FlightServerBase::GetFlightInfo(const ServerCallContext& context,
                                        const FlightDescriptor& request,
                                        std::unique_ptr<FlightInfo>* info) {
+  return Status::NotImplemented("NYI");
+}
+
+Status FlightServerBase::PollFlightInfo(const ServerCallContext& context,
+                                        const FlightDescriptor& request,
+                                        std::unique_ptr<PollInfo>* info) {
   return Status::NotImplemented("NYI");
 }
 

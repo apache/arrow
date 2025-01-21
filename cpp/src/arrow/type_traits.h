@@ -67,6 +67,8 @@ TYPE_ID_TRAIT(INTERVAL_DAY_TIME, DayTimeIntervalType)
 TYPE_ID_TRAIT(INTERVAL_MONTH_DAY_NANO, MonthDayNanoIntervalType)
 TYPE_ID_TRAIT(INTERVAL_MONTHS, MonthIntervalType)
 TYPE_ID_TRAIT(DURATION, DurationType)
+TYPE_ID_TRAIT(DECIMAL32, Decimal32Type)
+TYPE_ID_TRAIT(DECIMAL64, Decimal64Type)
 TYPE_ID_TRAIT(DECIMAL128, Decimal128Type)
 TYPE_ID_TRAIT(DECIMAL256, Decimal256Type)
 TYPE_ID_TRAIT(STRUCT, StructType)
@@ -305,12 +307,31 @@ struct TypeTraits<HalfFloatType> {
   using BuilderType = HalfFloatBuilder;
   using ScalarType = HalfFloatScalar;
   using TensorType = HalfFloatTensor;
+  using CType = uint16_t;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(uint16_t));
   }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return float16(); }
+};
+
+template <>
+struct TypeTraits<Decimal32Type> {
+  using ArrayType = Decimal32Array;
+  using BuilderType = Decimal32Builder;
+  using ScalarType = Decimal32Scalar;
+  using CType = Decimal32;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<Decimal64Type> {
+  using ArrayType = Decimal64Array;
+  using BuilderType = Decimal64Builder;
+  using ScalarType = Decimal64Scalar;
+  using CType = Decimal64;
+  constexpr static bool is_parameter_free = false;
 };
 
 template <>
@@ -339,6 +360,16 @@ struct TypeTraits<BinaryType> {
   using OffsetType = Int32Type;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return binary(); }
+};
+
+template <>
+struct TypeTraits<BinaryViewType> {
+  using ArrayType = BinaryViewArray;
+  using BuilderType = BinaryViewBuilder;
+  using ScalarType = BinaryViewScalar;
+  using CType = BinaryViewType::c_type;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return binary_view(); }
 };
 
 template <>
@@ -372,6 +403,16 @@ struct TypeTraits<StringType> {
 };
 
 template <>
+struct TypeTraits<StringViewType> {
+  using ArrayType = StringViewArray;
+  using BuilderType = StringViewBuilder;
+  using ScalarType = StringViewScalar;
+  using CType = BinaryViewType::c_type;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return utf8_view(); }
+};
+
+template <>
 struct TypeTraits<LargeStringType> {
   using ArrayType = LargeStringArray;
   using BuilderType = LargeStringBuilder;
@@ -400,6 +441,11 @@ struct CTypeTraits<std::string> : public TypeTraits<StringType> {
 };
 
 template <>
+struct CTypeTraits<BinaryViewType::c_type> : public TypeTraits<BinaryViewType> {
+  using ArrowType = BinaryViewType;
+};
+
+template <>
 struct CTypeTraits<const char*> : public CTypeTraits<std::string> {};
 
 template <size_t N>
@@ -424,6 +470,7 @@ struct TypeTraits<ListType> {
   using OffsetBuilderType = Int32Builder;
   using OffsetScalarType = Int32Scalar;
   constexpr static bool is_parameter_free = false;
+  using LargeType = LargeListType;
 };
 
 template <>
@@ -431,6 +478,31 @@ struct TypeTraits<LargeListType> {
   using ArrayType = LargeListArray;
   using BuilderType = LargeListBuilder;
   using ScalarType = LargeListScalar;
+  using OffsetType = Int64Type;
+  using OffsetArrayType = Int64Array;
+  using OffsetBuilderType = Int64Builder;
+  using OffsetScalarType = Int64Scalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<ListViewType> {
+  using ArrayType = ListViewArray;
+  using BuilderType = ListViewBuilder;
+  using ScalarType = ListViewScalar;
+  using OffsetType = Int32Type;
+  using OffsetArrayType = Int32Array;
+  using OffsetBuilderType = Int32Builder;
+  using OffsetScalarType = Int32Scalar;
+  constexpr static bool is_parameter_free = false;
+  using LargeType = LargeListViewType;
+};
+
+template <>
+struct TypeTraits<LargeListViewType> {
+  using ArrayType = LargeListViewArray;
+  using BuilderType = LargeListViewBuilder;
+  using ScalarType = LargeListViewScalar;
   using OffsetType = Int64Type;
   using OffsetArrayType = Int64Array;
   using OffsetBuilderType = Int64Builder;
@@ -465,6 +537,16 @@ struct CTypeTraits<std::vector<CType>> : public TypeTraits<ListType> {
 
   static inline std::shared_ptr<DataType> type_singleton() {
     return list(CTypeTraits<CType>::type_singleton());
+  }
+};
+
+/// \addtogroup c-type-traits
+template <typename CType, std::size_t N>
+struct CTypeTraits<std::array<CType, N>> : public TypeTraits<FixedSizeListType> {
+  using ArrowType = FixedSizeListType;
+
+  static auto type_singleton() {
+    return fixed_size_list(CTypeTraits<CType>::type_singleton(), N);
   }
 };
 
@@ -615,6 +697,24 @@ template <typename T, typename R = void>
 using enable_if_string = enable_if_t<is_string_type<T>::value, R>;
 
 template <typename T>
+using is_binary_view_like_type = std::is_base_of<BinaryViewType, T>;
+
+template <typename T>
+using is_binary_view_type = std::is_same<BinaryViewType, T>;
+
+template <typename T>
+using is_string_view_type = std::is_same<StringViewType, T>;
+
+template <typename T, typename R = void>
+using enable_if_binary_view_like = enable_if_t<is_binary_view_like_type<T>::value, R>;
+
+template <typename T, typename R = void>
+using enable_if_binary_view = enable_if_t<is_binary_view_type<T>::value, R>;
+
+template <typename T, typename R = void>
+using enable_if_string_view = enable_if_t<is_string_view_type<T>::value, R>;
+
+template <typename T>
 using is_string_like_type =
     std::integral_constant<bool, is_base_binary_type<T>::value && T::is_utf8>;
 
@@ -652,6 +752,18 @@ using is_decimal_type = std::is_base_of<DecimalType, T>;
 
 template <typename T, typename R = void>
 using enable_if_decimal = enable_if_t<is_decimal_type<T>::value, R>;
+
+template <typename T>
+using is_decimal32_type = std::is_base_of<Decimal32Type, T>;
+
+template <typename T, typename R = void>
+using enable_if_decimal32 = enable_if_t<is_decimal32_type<T>::value, R>;
+
+template <typename T>
+using is_decimal64_type = std::is_base_of<Decimal64Type, T>;
+
+template <typename T, typename R = void>
+using enable_if_decimal64 = enable_if_t<is_decimal64_type<T>::value, R>;
 
 template <typename T>
 using is_decimal128_type = std::is_base_of<Decimal128Type, T>;
@@ -708,12 +820,27 @@ template <typename T, typename R = void>
 using enable_if_list_type = enable_if_t<is_list_type<T>::value, R>;
 
 template <typename T>
+using is_list_view_type =
+    std::disjunction<std::is_same<T, ListViewType>, std::is_same<T, LargeListViewType>>;
+
+template <typename T, typename R = void>
+using enable_if_list_view = enable_if_t<is_list_view_type<T>::value, R>;
+
+template <typename T>
 using is_list_like_type =
     std::integral_constant<bool, is_var_length_list_type<T>::value ||
                                      is_fixed_size_list_type<T>::value>;
 
 template <typename T, typename R = void>
 using enable_if_list_like = enable_if_t<is_list_like_type<T>::value, R>;
+
+template <typename T>
+using is_var_length_list_like_type =
+    std::disjunction<is_var_length_list_type<T>, is_list_view_type<T>>;
+
+template <typename T, typename R = void>
+using enable_if_var_length_list_like =
+    enable_if_t<is_var_length_list_like_type<T>::value, R>;
 
 template <typename T>
 using is_struct_type = std::is_base_of<StructType, T>;
@@ -801,8 +928,10 @@ using enable_if_has_c_type = enable_if_t<has_c_type<T>::value, R>;
 template <typename T>
 using has_string_view =
     std::integral_constant<bool, std::is_same<BinaryType, T>::value ||
+                                     std::is_same<BinaryViewType, T>::value ||
                                      std::is_same<LargeBinaryType, T>::value ||
                                      std::is_same<StringType, T>::value ||
+                                     std::is_same<StringViewType, T>::value ||
                                      std::is_same<LargeStringType, T>::value ||
                                      std::is_same<FixedSizeBinaryType, T>::value>;
 
@@ -940,6 +1069,13 @@ constexpr bool is_floating(Type::type type_id) {
   return false;
 }
 
+/// \brief Check for a physical floating point type
+///
+/// This predicate matches floating-point types, except half-float.
+constexpr bool is_physical_floating(Type::type type_id) {
+  return is_floating(type_id) && type_id != Type::HALF_FLOAT;
+}
+
 /// \brief Check for a numeric type
 ///
 /// This predicate doesn't match decimals (see `is_decimal`).
@@ -972,6 +1108,8 @@ constexpr bool is_numeric(Type::type type_id) {
 /// \return whether type-id is a decimal type one
 constexpr bool is_decimal(Type::type type_id) {
   switch (type_id) {
+    case Type::DECIMAL32:
+    case Type::DECIMAL64:
     case Type::DECIMAL128:
     case Type::DECIMAL256:
       return true;
@@ -1114,6 +1252,21 @@ constexpr bool is_string(Type::type type_id) {
   return false;
 }
 
+/// \brief Check for a binary-view-like type (i.e. string view and binary view)
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a binary-view-like type one
+constexpr bool is_binary_view_like(Type::type type_id) {
+  switch (type_id) {
+    case Type::STRING_VIEW:
+    case Type::BINARY_VIEW:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 /// \brief Check for a temporal type
 ///
 /// \param[in] type_id the type-id to check
@@ -1125,6 +1278,36 @@ constexpr bool is_temporal(Type::type type_id) {
     case Type::TIME32:
     case Type::TIME64:
     case Type::TIMESTAMP:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a time type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a primitive type one
+constexpr bool is_time(Type::type type_id) {
+  switch (type_id) {
+    case Type::TIME32:
+    case Type::TIME64:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a date type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a primitive type one
+constexpr bool is_date(Type::type type_id) {
+  switch (type_id) {
+    case Type::DATE32:
+    case Type::DATE64:
       return true;
     default:
       break;
@@ -1161,6 +1344,8 @@ constexpr bool is_dictionary(Type::type type_id) { return type_id == Type::DICTI
 /// \return whether type-id is a fixed-size-binary type one
 constexpr bool is_fixed_size_binary(Type::type type_id) {
   switch (type_id) {
+    case Type::DECIMAL32:
+    case Type::DECIMAL64:
     case Type::DECIMAL128:
     case Type::DECIMAL256:
     case Type::FIXED_SIZE_BINARY:
@@ -1195,6 +1380,22 @@ constexpr bool is_var_length_list(Type::type type_id) {
   return false;
 }
 
+/// \brief Check for a list type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a list type one
+constexpr bool is_list(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST:
+    case Type::LARGE_LIST:
+    case Type::FIXED_SIZE_LIST:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 /// \brief Check for a list-like type
 ///
 /// \param[in] type_id the type-id to check
@@ -1212,6 +1413,39 @@ constexpr bool is_list_like(Type::type type_id) {
   return false;
 }
 
+/// \brief Check for a var-length list or list-view like type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a var-length list or list-view like type
+constexpr bool is_var_length_list_like(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST:
+    case Type::LARGE_LIST:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW:
+    case Type::MAP:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a list-view type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a list-view type one
+constexpr bool is_list_view(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 /// \brief Check for a nested type
 ///
 /// \param[in] type_id the type-id to check
@@ -1220,6 +1454,8 @@ constexpr bool is_nested(Type::type type_id) {
   switch (type_id) {
     case Type::LIST:
     case Type::LARGE_LIST:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW:
     case Type::FIXED_SIZE_LIST:
     case Type::MAP:
     case Type::STRUCT:
@@ -1292,6 +1528,10 @@ static inline int bit_width(Type::type type_id) {
     case Type::INTERVAL_MONTH_DAY_NANO:
       return 128;
 
+    case Type::DECIMAL32:
+      return 32;
+    case Type::DECIMAL64:
+      return 64;
     case Type::DECIMAL128:
       return 128;
     case Type::DECIMAL256:
@@ -1312,12 +1552,14 @@ static inline int offset_bit_width(Type::type type_id) {
     case Type::STRING:
     case Type::BINARY:
     case Type::LIST:
+    case Type::LIST_VIEW:
     case Type::MAP:
     case Type::DENSE_UNION:
       return 32;
     case Type::LARGE_STRING:
     case Type::LARGE_BINARY:
     case Type::LARGE_LIST:
+    case Type::LARGE_LIST_VIEW:
       return 64;
     default:
       break;
@@ -1454,6 +1696,16 @@ static inline bool is_binary(const DataType& type) { return is_binary(type.id())
 /// Convenience for checking using the type's id
 static inline bool is_string(const DataType& type) { return is_string(type.id()); }
 
+/// \brief Check for a binary-view-like type
+///
+/// \param[in] type the type to check
+/// \return whether type is a binary-view-like type
+///
+/// Convenience for checking using the type's id
+static inline bool is_binary_view_like(const DataType& type) {
+  return is_binary_view_like(type.id());
+}
+
 /// \brief Check for a temporal type, including time and timestamps for each unit
 ///
 /// \param[in] type the type to check
@@ -1517,6 +1769,24 @@ static inline bool is_var_length_list(const DataType& type) {
 ///
 /// Convenience for checking using the type's id
 static inline bool is_list_like(const DataType& type) { return is_list_like(type.id()); }
+
+/// \brief Check for a var-length list or list-view like type
+///
+/// \param[in] type the type to check
+/// \return whether type is a var-length list or list-view like type
+///
+/// Convenience for checking using the type's id
+static inline bool is_var_length_list_like(const DataType& type) {
+  return is_var_length_list_like(type.id());
+}
+
+/// \brief Check for a list-view type
+///
+/// \param[in] type the type to check
+/// \return whether type is a list-view type
+///
+/// Convenience for checking using the type's id
+static inline bool is_list_view(const DataType& type) { return is_list_view(type.id()); }
 
 /// \brief Check for a nested type
 ///

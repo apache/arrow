@@ -17,7 +17,6 @@
     "brotli",
     "bzip2",
     "curl",
-    "flatbuffers",
     "gflags",
     "glog",
     "lz4",
@@ -81,8 +80,11 @@
           "default-features": false,
           "features": [
             "clang",
-            "default-options",
             "default-targets",
+            "enable-bindings",
+            "enable-terminfo",
+            "enable-zlib",
+            "enable-zstd",
             "enable-rtti",
             "lld",
             "tools"
@@ -100,6 +102,16 @@
             "storage"
           ]
         }
+      ]
+    },
+    "azure": {
+      "description": "Azure blob storage support",
+      "dependencies": [
+        "azure-core-cpp",
+        "azure-identity-cpp",
+        "azure-storage-blobs-cpp",
+        "azure-storage-common-cpp",
+        "azure-storage-files-datalake-cpp"
       ]
     },
     "orc": {

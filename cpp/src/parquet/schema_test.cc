@@ -908,7 +908,7 @@ static void ConfirmFactoryEquivalence(
 TEST(TestLogicalTypeConstruction, FactoryEquivalence) {
   // For each legacy converted type, ensure that the equivalent logical type object
   // can be obtained from either the base class's FromConvertedType() factory method or
-  // the logical type type class's Make() method (accessed via convenience methods on the
+  // the logical type class's Make() method (accessed via convenience methods on the
   // base class) and that these logical type objects are equivalent
 
   struct ConfirmFactoryEquivalenceArguments {
@@ -1147,6 +1147,9 @@ TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
   auto check_is_UUID = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_UUID();
   };
+  auto check_is_float16 = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_float16();
+  };
   auto check_is_null = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_null();
   };
@@ -1159,6 +1162,7 @@ TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
 
   std::vector<ConfirmNewTypeIncompatibilityArguments> cases = {
       {LogicalType::UUID(), check_is_UUID},
+      {LogicalType::Float16(), check_is_float16},
       {LogicalType::Null(), check_is_null},
       {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS), check_is_time},
       {LogicalType::Time(false, LogicalType::TimeUnit::MICROS), check_is_time},
@@ -1242,6 +1246,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
       {JSONLogicalType::Make(), false, true, true},
       {BSONLogicalType::Make(), false, true, true},
       {UUIDLogicalType::Make(), false, true, true},
+      {Float16LogicalType::Make(), false, true, true},
       {NoLogicalType::Make(), false, false, true},
   };
 
@@ -1351,7 +1356,8 @@ TEST(TestLogicalTypeOperation, LogicalTypeApplicability) {
     int physical_length;
   };
 
-  std::vector<InapplicableType> inapplicable_types = {{Type::FIXED_LEN_BYTE_ARRAY, 8},
+  std::vector<InapplicableType> inapplicable_types = {{Type::FIXED_LEN_BYTE_ARRAY, 1},
+                                                      {Type::FIXED_LEN_BYTE_ARRAY, 8},
                                                       {Type::FIXED_LEN_BYTE_ARRAY, 20},
                                                       {Type::BOOLEAN, -1},
                                                       {Type::INT32, -1},
@@ -1371,6 +1377,12 @@ TEST(TestLogicalTypeOperation, LogicalTypeApplicability) {
 
   logical_type = LogicalType::UUID();
   ASSERT_TRUE(logical_type->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, 16));
+  for (const InapplicableType& t : inapplicable_types) {
+    ASSERT_FALSE(logical_type->is_applicable(t.physical_type, t.physical_length));
+  }
+
+  logical_type = LogicalType::Float16();
+  ASSERT_TRUE(logical_type->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, 2));
   for (const InapplicableType& t : inapplicable_types) {
     ASSERT_FALSE(logical_type->is_applicable(t.physical_type, t.physical_length));
   }
@@ -1531,6 +1543,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
       {LogicalType::JSON(), "JSON", R"({"Type": "JSON"})"},
       {LogicalType::BSON(), "BSON", R"({"Type": "BSON"})"},
       {LogicalType::UUID(), "UUID", R"({"Type": "UUID"})"},
+      {LogicalType::Float16(), "Float16", R"({"Type": "Float16"})"},
       {LogicalType::None(), "None", R"({"Type": "None"})"},
   };
 
@@ -1580,6 +1593,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
       {LogicalType::JSON(), SortOrder::UNSIGNED},
       {LogicalType::BSON(), SortOrder::UNSIGNED},
       {LogicalType::UUID(), SortOrder::UNSIGNED},
+      {LogicalType::Float16(), SortOrder::SIGNED},
       {LogicalType::None(), SortOrder::UNKNOWN}};
 
   for (const ExpectedSortOrder& c : cases) {
@@ -1712,6 +1726,15 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   ASSERT_ANY_THROW(PrimitiveNode::Make("uuid", Repetition::REQUIRED,
                                        UUIDLogicalType::Make(),
                                        Type::FIXED_LEN_BYTE_ARRAY, 64));
+
+  // Incompatible primitive type ...
+  ASSERT_ANY_THROW(PrimitiveNode::Make("float16", Repetition::REQUIRED,
+                                       Float16LogicalType::Make(), Type::BYTE_ARRAY, 2));
+  // Incompatible primitive length ...
+  ASSERT_ANY_THROW(PrimitiveNode::Make("float16", Repetition::REQUIRED,
+                                       Float16LogicalType::Make(),
+                                       Type::FIXED_LEN_BYTE_ARRAY, 3));
+
   // Non-positive length argument for fixed length binary ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("negative_length", Repetition::REQUIRED,
                                        NoLogicalType::Make(), Type::FIXED_LEN_BYTE_ARRAY,
@@ -1847,7 +1870,7 @@ class TestSchemaElementConstruction : public ::testing::Test {
     if (expect_logicalType_) {
       ASSERT_TRUE(element_->__isset.logicalType)
           << node_->logical_type()->ToString()
-          << " logical type unexpectedly failed to genverate a logicalType in the Thrift "
+          << " logical type unexpectedly failed to generate a logicalType in the Thrift "
              "intermediate object";
       ASSERT_TRUE(check_logicalType_())
           << node_->logical_type()->ToString()
@@ -1902,6 +1925,9 @@ TEST_F(TestSchemaElementConstruction, SimpleCases) {
        [this]() { return element_->logicalType.__isset.BSON; }},
       {"uuid", LogicalType::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16, false,
        ConvertedType::NA, true, [this]() { return element_->logicalType.__isset.UUID; }},
+      {"float16", LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY, 2, false,
+       ConvertedType::NA, true,
+       [this]() { return element_->logicalType.__isset.FLOAT16; }},
       {"none", LogicalType::None(), Type::INT64, -1, false, ConvertedType::NA, false,
        check_nothing}};
 
@@ -2238,6 +2264,7 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
       {LogicalType::JSON(), Type::BYTE_ARRAY, -1},
       {LogicalType::BSON(), Type::BYTE_ARRAY, -1},
       {LogicalType::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16},
+      {LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY, 2},
       {LogicalType::None(), Type::BOOLEAN, -1}};
 
   for (const AnnotatedPrimitiveNodeFactoryArguments& c : cases) {

@@ -17,8 +17,14 @@
 
 try:
     from pyarrow._substrait import (  # noqa
+        BoundExpressions,
         get_supported_functions,
         run_query,
+        deserialize_expressions,
+        serialize_expressions,
+        deserialize_schema,
+        serialize_schema,
+        SubstraitSchema
     )
 except ImportError as exc:
     raise ImportError(

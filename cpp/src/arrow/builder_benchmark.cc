@@ -56,6 +56,7 @@ constexpr int64_t kRounds = 256;
 static VectorType kData = AlmostU8CompressibleVector();
 constexpr int64_t kBytesProcessPerRound = kNumberOfElements * sizeof(ValueType);
 constexpr int64_t kBytesProcessed = kRounds * kBytesProcessPerRound;
+constexpr int64_t kItemsProcessed = kRounds * kNumberOfElements;
 
 static const char* kBinaryString = "12345678";
 static std::string_view kBinaryView(kBinaryString);
@@ -73,6 +74,7 @@ static void BuildIntArrayNoNulls(benchmark::State& state) {  // NOLINT non-const
   }
 
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+  state.SetItemsProcessed(state.iterations() * kItemsProcessed);
 }
 
 static void BuildAdaptiveIntNoNulls(
@@ -89,6 +91,7 @@ static void BuildAdaptiveIntNoNulls(
   }
 
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+  state.SetItemsProcessed(state.iterations() * kItemsProcessed);
 }
 
 static void BuildAdaptiveIntNoNullsScalarAppend(
@@ -107,6 +110,7 @@ static void BuildAdaptiveIntNoNullsScalarAppend(
   }
 
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+  state.SetItemsProcessed(state.iterations() * kItemsProcessed);
 }
 
 static void BuildBooleanArrayNoNulls(
@@ -127,6 +131,7 @@ static void BuildBooleanArrayNoNulls(
   }
 
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+  state.SetItemsProcessed(state.iterations() * kItemsProcessed);
 }
 
 static void BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const reference
@@ -142,6 +147,45 @@ static void BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const ref
   }
 
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+  state.SetItemsProcessed(state.iterations() * kItemsProcessed);
+}
+
+static void BuildInlineBinaryViewArray(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::string_view kBinaryStrings[] = {"1",  "12345678", "12345", "123456789",
+                                       "12", "",         "   "};
+
+  for (auto _ : state) {
+    BinaryViewBuilder builder(memory_tracker.memory_pool());
+
+    for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
+      ABORT_NOT_OK(builder.Append(kBinaryStrings[i % 7]));
+    }
+
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+  state.SetItemsProcessed(state.iterations() * kItemsProcessed);
+}
+
+static void BuildNonInlineBinaryViewArray(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const char* kLargeBinaryString = "12345678901234567890123456789012345678901234567890";
+  for (auto _ : state) {
+    BinaryViewBuilder builder(memory_tracker.memory_pool());
+
+    for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
+      ABORT_NOT_OK(builder.Append(kLargeBinaryString));
+    }
+
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+  state.SetItemsProcessed(state.iterations() * kItemsProcessed);
 }
 
 static void BuildChunkedBinaryArray(
@@ -161,6 +205,7 @@ static void BuildChunkedBinaryArray(
   }
 
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+  state.SetItemsProcessed(state.iterations() * kItemsProcessed);
 }
 
 static void BuildFixedSizeBinaryArray(
@@ -179,10 +224,11 @@ static void BuildFixedSizeBinaryArray(
   }
 
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+  state.SetItemsProcessed(state.iterations() * kItemsProcessed);
 }
 
 static void BuildDecimalArray(benchmark::State& state) {  // NOLINT non-const reference
-  auto type = decimal(10, 5);
+  auto type = decimal128(10, 5);
   Decimal128 value;
   int32_t precision = 0;
   int32_t scale = 0;
@@ -199,6 +245,7 @@ static void BuildDecimalArray(benchmark::State& state) {  // NOLINT non-const re
   }
 
   state.SetBytesProcessed(state.iterations() * kRounds * kNumberOfElements * 16);
+  state.SetItemsProcessed(state.iterations() * kRounds * kNumberOfElements);
 }
 
 // ----------------------------------------------------------------------
@@ -317,6 +364,7 @@ static void BenchmarkDictionaryArray(
     fodder_nbytes = fodder.size() * sizeof(Scalar);
   }
   state.SetBytesProcessed(state.iterations() * fodder_nbytes * kRounds);
+  state.SetItemsProcessed(state.iterations() * fodder.size() * kRounds);
 }
 
 static void BuildInt64DictionaryArrayRandom(
@@ -361,6 +409,7 @@ static void ArrayDataConstructDestruct(
     InitArrays();
     arrays.clear();
   }
+  state.SetItemsProcessed(state.iterations() * kNumArrays);
 }
 
 // ----------------------------------------------------------------------
@@ -430,6 +479,7 @@ static void ReferenceBuildVectorNoNulls(
   }
 
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+  state.SetItemsProcessed(state.iterations() * kItemsProcessed);
 }
 
 BENCHMARK(ReferenceBuildVectorNoNulls);
@@ -446,6 +496,8 @@ BENCHMARK(BuildBinaryArray);
 BENCHMARK(BuildChunkedBinaryArray);
 BENCHMARK(BuildFixedSizeBinaryArray);
 BENCHMARK(BuildDecimalArray);
+BENCHMARK(BuildInlineBinaryViewArray);
+BENCHMARK(BuildNonInlineBinaryViewArray);
 
 BENCHMARK(BuildInt64DictionaryArrayRandom);
 BENCHMARK(BuildInt64DictionaryArraySequential);

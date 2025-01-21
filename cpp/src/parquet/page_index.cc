@@ -17,6 +17,9 @@
 
 #include "parquet/page_index.h"
 #include "parquet/encoding.h"
+#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/internal_file_decryptor.h"
+#include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
 #include "parquet/schema.h"
@@ -88,9 +91,8 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
  public:
   using T = typename DType::c_type;
 
-  TypedColumnIndexImpl(const ColumnDescriptor& descr,
-                       const format::ColumnIndex& column_index)
-      : column_index_(column_index) {
+  TypedColumnIndexImpl(const ColumnDescriptor& descr, format::ColumnIndex column_index)
+      : column_index_(std::move(column_index)) {
     // Make sure the number of pages is valid and it does not overflow to int32_t.
     const size_t num_pages = column_index_.null_pages.size();
     if (num_pages >= static_cast<size_t>(std::numeric_limits<int32_t>::max()) ||
@@ -157,6 +159,22 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
 
   const std::vector<T>& max_values() const override { return max_values_; }
 
+  bool has_definition_level_histograms() const override {
+    return column_index_.__isset.definition_level_histograms;
+  }
+
+  bool has_repetition_level_histograms() const override {
+    return column_index_.__isset.repetition_level_histograms;
+  }
+
+  const std::vector<int64_t>& definition_level_histograms() const override {
+    return column_index_.definition_level_histograms;
+  }
+
+  const std::vector<int64_t>& repetition_level_histograms() const override {
+    return column_index_.repetition_level_histograms;
+  }
+
  private:
   /// Wrapped thrift column index.
   const format::ColumnIndex column_index_;
@@ -176,14 +194,22 @@ class OffsetIndexImpl : public OffsetIndex {
                                                 page_location.compressed_page_size,
                                                 page_location.first_row_index});
     }
+    if (offset_index.__isset.unencoded_byte_array_data_bytes) {
+      unencoded_byte_array_data_bytes_ = offset_index.unencoded_byte_array_data_bytes;
+    }
   }
 
   const std::vector<PageLocation>& page_locations() const override {
     return page_locations_;
   }
 
+  const std::vector<int64_t>& unencoded_byte_array_data_bytes() const override {
+    return unencoded_byte_array_data_bytes_;
+  }
+
  private:
   std::vector<PageLocation> page_locations_;
+  std::vector<int64_t> unencoded_byte_array_data_bytes_;
 };
 
 class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
@@ -193,13 +219,13 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                               const ReaderProperties& properties,
                               int32_t row_group_ordinal,
                               const RowGroupIndexReadRange& index_read_range,
-                              std::shared_ptr<InternalFileDecryptor> file_decryptor)
+                              InternalFileDecryptor* file_decryptor)
       : input_(input),
         row_group_metadata_(std::move(row_group_metadata)),
         properties_(properties),
         row_group_ordinal_(row_group_ordinal),
         index_read_range_(index_read_range),
-        file_decryptor_(std::move(file_decryptor)) {}
+        file_decryptor_(file_decryptor) {}
 
   /// Read column index of a column chunk.
   std::shared_ptr<ColumnIndex> GetColumnIndex(int32_t i) override {
@@ -208,11 +234,6 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     }
 
     auto col_chunk = row_group_metadata_->ColumnChunk(i);
-    std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col_chunk->crypto_metadata();
-    if (crypto_metadata != nullptr) {
-      ParquetException::NYI("Cannot read encrypted column index yet");
-    }
-
     auto column_index_location = col_chunk->GetColumnIndexLocation();
     if (!column_index_location.has_value()) {
       return nullptr;
@@ -233,8 +254,17 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     // uint32_t
     uint32_t length = static_cast<uint32_t>(column_index_location->length);
     auto descr = row_group_metadata_->schema()->Column(i);
+
+    // Get decryptor of column index if encrypted.
+    std::shared_ptr<Decryptor> decryptor = parquet::GetColumnMetaDecryptor(
+        col_chunk->crypto_metadata().get(), file_decryptor_);
+    if (decryptor != nullptr) {
+      UpdateDecryptor(decryptor, row_group_ordinal_, /*column_ordinal=*/i,
+                      encryption::kColumnIndex);
+    }
+
     return ColumnIndex::Make(*descr, column_index_buffer_->data() + buffer_offset, length,
-                             properties_);
+                             properties_, decryptor.get());
   }
 
   /// Read offset index of a column chunk.
@@ -244,11 +274,6 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     }
 
     auto col_chunk = row_group_metadata_->ColumnChunk(i);
-    std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col_chunk->crypto_metadata();
-    if (crypto_metadata != nullptr) {
-      ParquetException::NYI("Cannot read encrypted offset index yet");
-    }
-
     auto offset_index_location = col_chunk->GetOffsetIndexLocation();
     if (!offset_index_location.has_value()) {
       return nullptr;
@@ -268,8 +293,17 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     // OffsetIndex::Make() requires the type of serialized thrift message to be
     // uint32_t
     uint32_t length = static_cast<uint32_t>(offset_index_location->length);
+
+    // Get decryptor of offset index if encrypted.
+    std::shared_ptr<Decryptor> decryptor =
+        GetColumnMetaDecryptor(col_chunk->crypto_metadata().get(), file_decryptor_);
+    if (decryptor != nullptr) {
+      UpdateDecryptor(decryptor, row_group_ordinal_, /*column_ordinal=*/i,
+                      encryption::kOffsetIndex);
+    }
+
     return OffsetIndex::Make(offset_index_buffer_->data() + buffer_offset, length,
-                             properties_);
+                             properties_, decryptor.get());
   }
 
  private:
@@ -326,7 +360,7 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
   RowGroupIndexReadRange index_read_range_;
 
   /// File-level decryptor.
-  std::shared_ptr<InternalFileDecryptor> file_decryptor_;
+  InternalFileDecryptor* file_decryptor_;
 
   /// Buffer to hold the raw bytes of the page index.
   /// Will be set lazily when the corresponding page index is accessed for the 1st time.
@@ -339,11 +373,11 @@ class PageIndexReaderImpl : public PageIndexReader {
   PageIndexReaderImpl(::arrow::io::RandomAccessFile* input,
                       std::shared_ptr<FileMetaData> file_metadata,
                       const ReaderProperties& properties,
-                      std::shared_ptr<InternalFileDecryptor> file_decryptor)
+                      InternalFileDecryptor* file_decryptor)
       : input_(input),
         file_metadata_(std::move(file_metadata)),
         properties_(properties),
-        file_decryptor_(std::move(file_decryptor)) {}
+        file_decryptor_(file_decryptor) {}
 
   std::shared_ptr<RowGroupPageIndexReader> RowGroup(int i) override {
     if (i < 0 || i >= file_metadata_->num_row_groups()) {
@@ -418,8 +452,8 @@ class PageIndexReaderImpl : public PageIndexReader {
   /// Reader properties used to deserialize thrift object.
   const ReaderProperties& properties_;
 
-  /// File-level decrypter.
-  std::shared_ptr<InternalFileDecryptor> file_decryptor_;
+  /// File-level decryptor.
+  InternalFileDecryptor* file_decryptor_;
 
   /// Coalesced read ranges of page index of row groups that have been suggested by
   /// WillNeed(). Key is the row group ordinal.
@@ -450,7 +484,8 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     column_index_.boundary_order = format::BoundaryOrder::UNORDERED;
   }
 
-  void AddPage(const EncodedStatistics& stats) override {
+  void AddPage(const EncodedStatistics& stats,
+               const SizeStatistics& size_stats) override {
     if (state_ == BuilderState::kFinished) {
       throw ParquetException("Cannot add page to finished ColumnIndexBuilder.");
     } else if (state_ == BuilderState::kDiscarded) {
@@ -482,6 +517,17 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     } else {
       column_index_.__isset.null_counts = false;
       column_index_.null_counts.clear();
+    }
+
+    if (size_stats.is_set()) {
+      const auto& page_def_level_hist = size_stats.definition_level_histogram;
+      const auto& page_ref_level_hist = size_stats.repetition_level_histogram;
+      column_index_.definition_level_histograms.insert(
+          column_index_.definition_level_histograms.end(), page_def_level_hist.cbegin(),
+          page_def_level_hist.cend());
+      column_index_.repetition_level_histograms.insert(
+          column_index_.repetition_level_histograms.end(), page_ref_level_hist.cbegin(),
+          page_ref_level_hist.cend());
     }
   }
 
@@ -523,11 +569,34 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     /// Decide the boundary order from decoded min/max values.
     auto boundary_order = DetermineBoundaryOrder(min_values, max_values);
     column_index_.__set_boundary_order(ToThrift(boundary_order));
+
+    // Finalize level histogram.
+    const int64_t num_pages = column_index_.null_pages.size();
+    const int64_t def_level_hist_size = column_index_.definition_level_histograms.size();
+    const int64_t rep_level_hist_size = column_index_.repetition_level_histograms.size();
+    if (def_level_hist_size != 0 &&
+        def_level_hist_size != (descr_->max_definition_level() + 1) * num_pages) {
+      std::stringstream ss;
+      ss << "Invalid definition level histogram size: " << def_level_hist_size
+         << ", expected: " << (descr_->max_definition_level() + 1) * num_pages;
+      throw ParquetException(ss.str());
+    }
+    if (rep_level_hist_size != 0 &&
+        rep_level_hist_size != (descr_->max_repetition_level() + 1) * num_pages) {
+      std::stringstream ss;
+      ss << "Invalid repetition level histogram size: " << rep_level_hist_size
+         << ", expected: " << (descr_->max_repetition_level() + 1) * num_pages;
+      throw ParquetException(ss.str());
+    }
+    column_index_.__isset.definition_level_histograms =
+        !column_index_.definition_level_histograms.empty();
+    column_index_.__isset.repetition_level_histograms =
+        !column_index_.repetition_level_histograms.empty();
   }
 
-  void WriteTo(::arrow::io::OutputStream* sink) const override {
+  void WriteTo(::arrow::io::OutputStream* sink, Encryptor* encryptor) const override {
     if (state_ == BuilderState::kFinished) {
-      ThriftSerializer{}.Serialize(&column_index_, sink);
+      ThriftSerializer{}.Serialize(&column_index_, sink, encryptor);
     }
   }
 
@@ -594,8 +663,8 @@ class OffsetIndexBuilderImpl final : public OffsetIndexBuilder {
  public:
   OffsetIndexBuilderImpl() = default;
 
-  void AddPage(int64_t offset, int32_t compressed_page_size,
-               int64_t first_row_index) override {
+  void AddPage(int64_t offset, int32_t compressed_page_size, int64_t first_row_index,
+               std::optional<int64_t> unencoded_byte_array_length) override {
     if (state_ == BuilderState::kFinished) {
       throw ParquetException("Cannot add page to finished OffsetIndexBuilder.");
     } else if (state_ == BuilderState::kDiscarded) {
@@ -610,6 +679,10 @@ class OffsetIndexBuilderImpl final : public OffsetIndexBuilder {
     page_location.__set_compressed_page_size(compressed_page_size);
     page_location.__set_first_row_index(first_row_index);
     offset_index_.page_locations.emplace_back(std::move(page_location));
+    if (unencoded_byte_array_length.has_value()) {
+      offset_index_.unencoded_byte_array_data_bytes.emplace_back(
+          unencoded_byte_array_length.value());
+    }
   }
 
   void Finish(int64_t final_position) override {
@@ -626,6 +699,19 @@ class OffsetIndexBuilderImpl final : public OffsetIndexBuilder {
             page_location.__set_offset(page_location.offset + final_position);
           }
         }
+
+        // Finalize unencoded_byte_array_data_bytes and make sure page sizes match.
+        if (offset_index_.page_locations.size() ==
+            offset_index_.unencoded_byte_array_data_bytes.size()) {
+          offset_index_.__isset.unencoded_byte_array_data_bytes = true;
+        } else if (!offset_index_.unencoded_byte_array_data_bytes.empty()) {
+          std::stringstream ss;
+          ss << "Invalid count of unencoded BYTE_ARRAY data bytes: "
+             << offset_index_.unencoded_byte_array_data_bytes.size()
+             << ", expected page count: " << offset_index_.page_locations.size();
+          throw ParquetException(ss.str());
+        }
+
         state_ = BuilderState::kFinished;
         break;
       }
@@ -635,9 +721,9 @@ class OffsetIndexBuilderImpl final : public OffsetIndexBuilder {
     }
   }
 
-  void WriteTo(::arrow::io::OutputStream* sink) const override {
+  void WriteTo(::arrow::io::OutputStream* sink, Encryptor* encryptor) const override {
     if (state_ == BuilderState::kFinished) {
-      ThriftSerializer{}.Serialize(&offset_index_, sink);
+      ThriftSerializer{}.Serialize(&offset_index_, sink, encryptor);
     }
   }
 
@@ -655,7 +741,9 @@ class OffsetIndexBuilderImpl final : public OffsetIndexBuilder {
 
 class PageIndexBuilderImpl final : public PageIndexBuilder {
  public:
-  explicit PageIndexBuilderImpl(const SchemaDescriptor* schema) : schema_(schema) {}
+  explicit PageIndexBuilderImpl(const SchemaDescriptor* schema,
+                                InternalFileEncryptor* file_encryptor)
+      : schema_(schema), file_encryptor_(file_encryptor) {}
 
   void AppendRowGroup() override {
     if (finished_) {
@@ -725,12 +813,31 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
     }
   }
 
+  std::shared_ptr<Encryptor> GetColumnMetaEncryptor(int row_group_ordinal,
+                                                    int column_ordinal,
+                                                    int8_t module_type) const {
+    std::shared_ptr<Encryptor> encryptor;
+    if (file_encryptor_ != nullptr) {
+      const auto column_path = schema_->Column(column_ordinal)->path()->ToDotString();
+      encryptor = file_encryptor_->GetColumnMetaEncryptor(column_path);
+      if (encryptor != nullptr) {
+        encryptor->UpdateAad(encryption::CreateModuleAad(
+            encryptor->file_aad(), module_type, row_group_ordinal, column_ordinal,
+            kNonPageOrdinal));
+      }
+    }
+    return encryptor;
+  }
+
   template <typename Builder>
   void SerializeIndex(
       const std::vector<std::vector<std::unique_ptr<Builder>>>& page_index_builders,
       ::arrow::io::OutputStream* sink,
       std::map<size_t, std::vector<std::optional<IndexLocation>>>* location) const {
     const auto num_columns = static_cast<size_t>(schema_->num_columns());
+    constexpr int8_t module_type = std::is_same_v<Builder, ColumnIndexBuilder>
+                                       ? encryption::kColumnIndex
+                                       : encryption::kOffsetIndex;
 
     /// Serialize the same kind of page index row group by row group.
     for (size_t row_group = 0; row_group < page_index_builders.size(); ++row_group) {
@@ -744,9 +851,13 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
       for (size_t column = 0; column < num_columns; ++column) {
         const auto& column_page_index_builder = row_group_page_index_builders[column];
         if (column_page_index_builder != nullptr) {
+          /// Get encryptor if encryption is enabled.
+          std::shared_ptr<Encryptor> encryptor = GetColumnMetaEncryptor(
+              static_cast<int>(row_group), static_cast<int>(column), module_type);
+
           /// Try serializing the page index.
           PARQUET_ASSIGN_OR_THROW(int64_t pos_before_write, sink->Tell());
-          column_page_index_builder->WriteTo(sink);
+          column_page_index_builder->WriteTo(sink, encryptor.get());
           PARQUET_ASSIGN_OR_THROW(int64_t pos_after_write, sink->Tell());
           int64_t len = pos_after_write - pos_before_write;
 
@@ -770,12 +881,21 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
   }
 
   const SchemaDescriptor* schema_;
+  InternalFileEncryptor* file_encryptor_;
   std::vector<std::vector<std::unique_ptr<ColumnIndexBuilder>>> column_index_builders_;
   std::vector<std::vector<std::unique_ptr<OffsetIndexBuilder>>> offset_index_builders_;
   bool finished_ = false;
 };
 
 }  // namespace
+
+void OffsetIndexBuilder::AddPage(const PageLocation& page_location,
+                                 const SizeStatistics& size_stats) {
+  this->AddPage(
+      page_location.offset, page_location.compressed_page_size,
+      page_location.first_row_index,
+      size_stats.is_set() ? size_stats.unencoded_byte_array_data_bytes : std::nullopt);
+}
 
 RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
     const RowGroupMetaData& row_group_metadata, const std::vector<int32_t>& columns) {
@@ -833,28 +953,37 @@ RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
 std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
                                                const void* serialized_index,
                                                uint32_t index_len,
-                                               const ReaderProperties& properties) {
+                                               const ReaderProperties& properties,
+                                               Decryptor* decryptor) {
   format::ColumnIndex column_index;
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
-                                  &index_len, &column_index);
+                                  &index_len, &column_index, decryptor);
   switch (descr.physical_type()) {
     case Type::BOOLEAN:
-      return std::make_unique<TypedColumnIndexImpl<BooleanType>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<BooleanType>>(descr,
+                                                                 std::move(column_index));
     case Type::INT32:
-      return std::make_unique<TypedColumnIndexImpl<Int32Type>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<Int32Type>>(descr,
+                                                               std::move(column_index));
     case Type::INT64:
-      return std::make_unique<TypedColumnIndexImpl<Int64Type>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<Int64Type>>(descr,
+                                                               std::move(column_index));
     case Type::INT96:
-      return std::make_unique<TypedColumnIndexImpl<Int96Type>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<Int96Type>>(descr,
+                                                               std::move(column_index));
     case Type::FLOAT:
-      return std::make_unique<TypedColumnIndexImpl<FloatType>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<FloatType>>(descr,
+                                                               std::move(column_index));
     case Type::DOUBLE:
-      return std::make_unique<TypedColumnIndexImpl<DoubleType>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<DoubleType>>(descr,
+                                                                std::move(column_index));
     case Type::BYTE_ARRAY:
-      return std::make_unique<TypedColumnIndexImpl<ByteArrayType>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<ByteArrayType>>(
+          descr, std::move(column_index));
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_unique<TypedColumnIndexImpl<FLBAType>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<FLBAType>>(descr,
+                                                              std::move(column_index));
     case Type::UNDEFINED:
       return nullptr;
   }
@@ -864,20 +993,20 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
 
 std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,
                                                uint32_t index_len,
-                                               const ReaderProperties& properties) {
+                                               const ReaderProperties& properties,
+                                               Decryptor* decryptor) {
   format::OffsetIndex offset_index;
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
-                                  &index_len, &offset_index);
+                                  &index_len, &offset_index, decryptor);
   return std::make_unique<OffsetIndexImpl>(offset_index);
 }
 
 std::shared_ptr<PageIndexReader> PageIndexReader::Make(
     ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
-    const ReaderProperties& properties,
-    std::shared_ptr<InternalFileDecryptor> file_decryptor) {
-  return std::make_shared<PageIndexReaderImpl>(input, file_metadata, properties,
-                                               std::move(file_decryptor));
+    const ReaderProperties& properties, InternalFileDecryptor* file_decryptor) {
+  return std::make_shared<PageIndexReaderImpl>(input, std::move(file_metadata),
+                                               properties, file_decryptor);
 }
 
 std::unique_ptr<ColumnIndexBuilder> ColumnIndexBuilder::Make(
@@ -910,8 +1039,9 @@ std::unique_ptr<OffsetIndexBuilder> OffsetIndexBuilder::Make() {
   return std::make_unique<OffsetIndexBuilderImpl>();
 }
 
-std::unique_ptr<PageIndexBuilder> PageIndexBuilder::Make(const SchemaDescriptor* schema) {
-  return std::make_unique<PageIndexBuilderImpl>(schema);
+std::unique_ptr<PageIndexBuilder> PageIndexBuilder::Make(
+    const SchemaDescriptor* schema, InternalFileEncryptor* file_encryptor) {
+  return std::make_unique<PageIndexBuilderImpl>(schema, file_encryptor);
 }
 
 std::ostream& operator<<(std::ostream& out, const PageIndexSelection& selection) {

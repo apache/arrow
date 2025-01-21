@@ -19,6 +19,7 @@
 
 #include <cstdlib>
 #include <mutex>
+#include <sstream>
 #include <string>
 
 #include "arrow/memory_pool.h"
@@ -90,9 +91,15 @@ class PythonErrorDetail : public StatusDetail {
 
   std::string ToString() const override {
     // This is simple enough not to need the GIL
-    const auto ty = reinterpret_cast<const PyTypeObject*>(exc_type_.obj());
-    // XXX Should we also print traceback?
-    return std::string("Python exception: ") + ty->tp_name;
+    Result<std::string> result = FormatImpl();
+
+    if (result.ok()) {
+      return result.ValueOrDie();
+    } else {
+      // Fallback to just the exception type
+      const auto ty = reinterpret_cast<const PyTypeObject*>(exc_type_.obj());
+      return std::string("Python exception: ") + ty->tp_name;
+    }
   }
 
   void RestorePyError() const {
@@ -131,6 +138,42 @@ class PythonErrorDetail : public StatusDetail {
   }
 
  protected:
+  Result<std::string> FormatImpl() const {
+    PyAcquireGIL lock;
+
+    // Use traceback.format_exception()
+    OwnedRef traceback_module;
+    RETURN_NOT_OK(internal::ImportModule("traceback", &traceback_module));
+
+    OwnedRef fmt_exception;
+    RETURN_NOT_OK(internal::ImportFromModule(traceback_module.obj(), "format_exception",
+                                             &fmt_exception));
+
+    OwnedRef formatted;
+    formatted.reset(PyObject_CallFunctionObjArgs(fmt_exception.obj(), exc_type_.obj(),
+                                                 exc_value_.obj(), exc_traceback_.obj(),
+                                                 NULL));
+    RETURN_IF_PYERROR();
+
+    std::stringstream ss;
+    ss << "Python exception: ";
+    Py_ssize_t num_lines = PySequence_Length(formatted.obj());
+    RETURN_IF_PYERROR();
+
+    for (Py_ssize_t i = 0; i < num_lines; ++i) {
+      Py_ssize_t line_size;
+
+      PyObject* line = PySequence_GetItem(formatted.obj(), i);
+      RETURN_IF_PYERROR();
+
+      const char* data = PyUnicode_AsUTF8AndSize(line, &line_size);
+      RETURN_IF_PYERROR();
+
+      ss << std::string_view(data, line_size);
+    }
+    return ss.str();
+  }
+
   PythonErrorDetail() = default;
 
   OwnedRefNoGIL exc_type_, exc_value_, exc_traceback_;

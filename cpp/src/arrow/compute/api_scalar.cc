@@ -275,6 +275,29 @@ struct EnumTraits<compute::MapLookupOptions::Occurrence>
   }
 };
 
+template <>
+struct EnumTraits<compute::SetLookupOptions::NullMatchingBehavior>
+    : BasicEnumTraits<compute::SetLookupOptions::NullMatchingBehavior,
+                      compute::SetLookupOptions::NullMatchingBehavior::MATCH,
+                      compute::SetLookupOptions::NullMatchingBehavior::SKIP,
+                      compute::SetLookupOptions::NullMatchingBehavior::EMIT_NULL,
+                      compute::SetLookupOptions::NullMatchingBehavior::INCONCLUSIVE> {
+  static std::string name() { return "SetLookupOptions::NullMatchingBehavior"; }
+  static std::string value_name(compute::SetLookupOptions::NullMatchingBehavior value) {
+    switch (value) {
+      case compute::SetLookupOptions::NullMatchingBehavior::MATCH:
+        return "MATCH";
+      case compute::SetLookupOptions::NullMatchingBehavior::SKIP:
+        return "SKIP";
+      case compute::SetLookupOptions::NullMatchingBehavior::EMIT_NULL:
+        return "EMIT_NULL";
+      case compute::SetLookupOptions::NullMatchingBehavior::INCONCLUSIVE:
+        return "INCONCLUSIVE";
+    }
+    return "<INVALID>";
+  }
+};
+
 }  // namespace internal
 
 namespace compute {
@@ -286,6 +309,7 @@ using ::arrow::internal::checked_cast;
 
 namespace internal {
 namespace {
+using ::arrow::internal::CoercedDataMember;
 using ::arrow::internal::DataMember;
 static auto kArithmeticOptionsType = GetFunctionOptionsType<ArithmeticOptions>(
     DataMember("check_overflow", &ArithmeticOptions::check_overflow));
@@ -317,7 +341,8 @@ static auto kMatchSubstringOptionsType = GetFunctionOptionsType<MatchSubstringOp
 static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
     DataMember("nan_is_null", &NullOptions::nan_is_null));
 static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
-    DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding));
+    DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding),
+    DataMember("lean_left_on_odd_padding", &PadOptions::lean_left_on_odd_padding));
 static auto kReplaceSliceOptionsType = GetFunctionOptionsType<ReplaceSliceOptions>(
     DataMember("start", &ReplaceSliceOptions::start),
     DataMember("stop", &ReplaceSliceOptions::stop),
@@ -344,7 +369,8 @@ static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultiple
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
 static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
     DataMember("value_set", &SetLookupOptions::value_set),
-    DataMember("skip_nulls", &SetLookupOptions::skip_nulls));
+    CoercedDataMember("null_matching_behavior", &SetLookupOptions::null_matching_behavior,
+                      &SetLookupOptions::GetNullMatchingBehavior));
 static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
     DataMember("start", &SliceOptions::start), DataMember("stop", &SliceOptions::stop),
     DataMember("step", &SliceOptions::step));
@@ -455,10 +481,11 @@ NullOptions::NullOptions(bool nan_is_null)
     : FunctionOptions(internal::kNullOptionsType), nan_is_null(nan_is_null) {}
 constexpr char NullOptions::kTypeName[];
 
-PadOptions::PadOptions(int64_t width, std::string padding)
+PadOptions::PadOptions(int64_t width, std::string padding, bool lean_left_on_odd_padding)
     : FunctionOptions(internal::kPadOptionsType),
       width(width),
-      padding(std::move(padding)) {}
+      padding(std::move(padding)),
+      lean_left_on_odd_padding(lean_left_on_odd_padding) {}
 PadOptions::PadOptions() : PadOptions(0, " ") {}
 constexpr char PadOptions::kTypeName[];
 
@@ -540,8 +567,29 @@ constexpr char RoundToMultipleOptions::kTypeName[];
 SetLookupOptions::SetLookupOptions(Datum value_set, bool skip_nulls)
     : FunctionOptions(internal::kSetLookupOptionsType),
       value_set(std::move(value_set)),
-      skip_nulls(skip_nulls) {}
-SetLookupOptions::SetLookupOptions() : SetLookupOptions({}, false) {}
+      skip_nulls(skip_nulls) {
+  if (skip_nulls) {
+    this->null_matching_behavior = SetLookupOptions::SKIP;
+  } else {
+    this->null_matching_behavior = SetLookupOptions::MATCH;
+  }
+}
+SetLookupOptions::SetLookupOptions(
+    Datum value_set, SetLookupOptions::NullMatchingBehavior null_matching_behavior)
+    : FunctionOptions(internal::kSetLookupOptionsType),
+      value_set(std::move(value_set)),
+      null_matching_behavior(std::move(null_matching_behavior)) {}
+SetLookupOptions::SetLookupOptions()
+    : SetLookupOptions({}, SetLookupOptions::NullMatchingBehavior::MATCH) {}
+SetLookupOptions::NullMatchingBehavior SetLookupOptions::GetNullMatchingBehavior() const {
+  if (!this->skip_nulls.has_value()) {
+    return this->null_matching_behavior;
+  } else if (this->skip_nulls.value()) {
+    return SetLookupOptions::SKIP;
+  } else {
+    return SetLookupOptions::MATCH;
+  }
+}
 constexpr char SetLookupOptions::kTypeName[];
 
 SliceOptions::SliceOptions(int64_t start, int64_t stop, int64_t step)
@@ -684,19 +732,26 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
 
 SCALAR_ARITHMETIC_UNARY(AbsoluteValue, "abs", "abs_checked")
 SCALAR_ARITHMETIC_UNARY(Acos, "acos", "acos_checked")
+SCALAR_ARITHMETIC_UNARY(Acosh, "acosh", "acosh_checked")
 SCALAR_ARITHMETIC_UNARY(Asin, "asin", "asin_checked")
+SCALAR_ARITHMETIC_UNARY(Atanh, "atanh", "atanh_checked")
 SCALAR_ARITHMETIC_UNARY(Cos, "cos", "cos_checked")
 SCALAR_ARITHMETIC_UNARY(Ln, "ln", "ln_checked")
 SCALAR_ARITHMETIC_UNARY(Log10, "log10", "log10_checked")
 SCALAR_ARITHMETIC_UNARY(Log1p, "log1p", "log1p_checked")
 SCALAR_ARITHMETIC_UNARY(Log2, "log2", "log2_checked")
-SCALAR_ARITHMETIC_UNARY(Sqrt, "sqrt", "sqrt_checked")
 SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
 SCALAR_ARITHMETIC_UNARY(Sin, "sin", "sin_checked")
+SCALAR_ARITHMETIC_UNARY(Sqrt, "sqrt", "sqrt_checked")
 SCALAR_ARITHMETIC_UNARY(Tan, "tan", "tan_checked")
+SCALAR_EAGER_UNARY(Asinh, "asinh")
 SCALAR_EAGER_UNARY(Atan, "atan")
+SCALAR_EAGER_UNARY(Cosh, "cosh")
 SCALAR_EAGER_UNARY(Exp, "exp")
+SCALAR_EAGER_UNARY(Expm1, "expm1")
 SCALAR_EAGER_UNARY(Sign, "sign")
+SCALAR_EAGER_UNARY(Sinh, "sinh")
+SCALAR_EAGER_UNARY(Tanh, "tanh")
 
 Result<Datum> Round(const Datum& arg, RoundOptions options, ExecContext* ctx) {
   return CallFunction("round", {arg}, &options, ctx);

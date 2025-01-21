@@ -83,6 +83,15 @@ cdef class ReadOptions(_Weakrefable):
         )
 
     def equals(self, ReadOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.json.ReadOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.use_threads == other.use_threads and
             self.block_size == other.block_size
@@ -212,6 +221,15 @@ cdef class ParseOptions(_Weakrefable):
         self.options.unexpected_field_behavior = v
 
     def equals(self, ParseOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.json.ParseOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.explicit_schema == other.explicit_schema and
             self.newlines_in_values == other.newlines_in_values and

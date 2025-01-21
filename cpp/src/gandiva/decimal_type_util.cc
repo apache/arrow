@@ -30,7 +30,8 @@ constexpr int32_t DecimalTypeUtil::kMinAdjustedScale;
 
 // Implementation of decimal rules.
 Status DecimalTypeUtil::GetResultType(Op op, const Decimal128TypeVector& in_types,
-                                      Decimal128TypePtr* out_type) {
+                                      Decimal128TypePtr* out_type,
+                                      bool use_compute_rules) {
   DCHECK_EQ(in_types.size(), 2);
 
   *out_type = nullptr;
@@ -59,7 +60,9 @@ Status DecimalTypeUtil::GetResultType(Op op, const Decimal128TypeVector& in_type
       break;
 
     case kOpDivide:
-      result_scale = std::max(kMinAdjustedScale, s1 + p2 + 1);
+      result_scale = use_compute_rules
+                         ? std::max(kMinComputeAdjustedScale, s1 + p2 - s2 + 1)
+                         : std::max(kMinAdjustedScale, s1 + p2 + 1);
       result_precision = p1 - s1 + s2 + result_scale;
       break;
 
@@ -68,7 +71,17 @@ Status DecimalTypeUtil::GetResultType(Op op, const Decimal128TypeVector& in_type
       result_precision = std::min(p1 - s1, p2 - s2) + result_scale;
       break;
   }
-  *out_type = MakeAdjustedType(result_precision, result_scale);
+
+  if (use_compute_rules) {
+    if (result_precision < kMinPrecision || result_precision > kMaxPrecision) {
+      return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
+                             ", ", int32_t(kMaxPrecision), "]: ", result_precision);
+    }
+    *out_type = MakeType(result_precision, result_scale);
+  } else {
+    *out_type = MakeAdjustedType(result_precision, result_scale);
+  }
+
   return Status::OK();
 }
 

@@ -138,7 +138,7 @@ class ARROW_EXPORT ORCFileReader {
   /// \brief Get a stripe level record batch iterator.
   ///
   /// Each record batch will have up to `batch_size` rows.
-  /// NextStripeReader serves as a fine grained alternative to ReadStripe
+  /// NextStripeReader serves as a fine-grained alternative to ReadStripe
   /// which may cause OOM issues by loading the whole stripe into memory.
   ///
   /// Note this will only read rows for the current stripe, not the entire
@@ -151,7 +151,7 @@ class ARROW_EXPORT ORCFileReader {
   /// \brief Get a stripe level record batch iterator.
   ///
   /// Each record batch will have up to `batch_size` rows.
-  /// NextStripeReader serves as a fine grained alternative to ReadStripe
+  /// NextStripeReader serves as a fine-grained alternative to ReadStripe
   /// which may cause OOM issues by loading the whole stripe into memory.
   ///
   /// Note this will only read rows for the current stripe, not the entire
@@ -256,7 +256,7 @@ class ARROW_EXPORT ORCFileReader {
   int64_t GetFileLength();
 
   /// \brief Get the serialized file tail.
-  ///         Usefull if another reader of the same file wants to avoid re-reading
+  ///         Useful if another reader of the same file wants to avoid re-reading
   ///         the file tail. See ReadOptions.SetSerializedFileTail().
   ///
   /// \return a string of bytes with the file tail

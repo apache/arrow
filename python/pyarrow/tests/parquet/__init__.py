@@ -21,7 +21,4 @@ import pytest
 # Ignore these with pytest ... -m 'not parquet'
 pytestmark = [
     pytest.mark.parquet,
-    pytest.mark.filterwarnings(
-        "ignore:Passing 'use_legacy_dataset=True':FutureWarning"
-    ),
 ]

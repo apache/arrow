@@ -22,4 +22,40 @@ classdef tInt16Type < hFixedWidthType
         BitWidth = int32(16)
         ClassName = "arrow.type.Int16Type"
     end
+
+    methods(Test)
+        function IsEqualTrue(testCase)
+            % Verifies isequal method of arrow.type.Int16Type returns true if
+            % these conditions are met:
+            %
+            % 1. All input arguments have a class type arrow.type.Int16Type
+            % 2. All inputs have the same size
+
+            % Scalar Int16Type arrays
+            int16Type1 = arrow.int16();
+            int16Type2 = arrow.int16();
+            testCase.verifyTrue(isequal(int16Type1, int16Type2));
+
+            % Non-scalar Int16Type arrays
+            typeArray1 = [int16Type1 int16Type1];
+            typeArray2 = [int16Type2 int16Type2];
+            testCase.verifyTrue(isequal(typeArray1, typeArray2));
+        end
+
+        function IsEqualFalse(testCase)
+            % Verifies the isequal method of arrow.type.Int16Type returns
+            % false when expected.
+            
+            % Pass a different arrow.type.Type subclass to isequal
+            int16Type = arrow.int16();
+            int32Type = arrow.int32();
+            testCase.verifyFalse(isequal(int16Type, int32Type));
+            testCase.verifyFalse(isequal([int16Type int16Type], [int32Type int32Type]));
+
+            % Int16Type arrays have different sizes
+            typeArray1 = [int16Type int16Type];
+            typeArray2 = [int16Type int16Type]';
+            testCase.verifyFalse(isequal(typeArray1, typeArray2));
+        end
+    end
 end

@@ -16,18 +16,28 @@
 classdef Float32Array < arrow.array.NumericArray
 % arrow.array.Float32Array
 
-    properties (Access=protected)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue = single(NaN);
     end
 
     methods
-        function obj = Float32Array(data, varargin)
-            obj@arrow.array.NumericArray(data, "single", ...
-                "arrow.array.proxy.Float32Array", varargin{:});
+        function obj = Float32Array(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.Float32Array")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.array.NumericArray(proxy);
         end
 
         function data = single(obj)
             data = obj.toMATLAB();
+        end
+    end
+    
+    methods (Static)
+        function array = fromMATLAB(data, varargin)
+            traits = arrow.type.traits.Float32Traits;
+            array = arrow.array.NumericArray.fromMATLAB(data, traits, varargin{:});
         end
     end
 end

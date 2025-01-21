@@ -20,12 +20,12 @@ using System.Threading;
 
 namespace Apache.Arrow
 {
-    public class StructArray : Array
+    public class StructArray : Array, IArrowRecord
     {
         private IReadOnlyList<IArrowArray> _fields;
 
         public IReadOnlyList<IArrowArray> Fields =>
-            LazyInitializer.EnsureInitialized(ref _fields, () => InitializeFields());
+            LazyInitializer.EnsureInitialized(ref _fields, InitializeFields);
 
         public StructArray(
             IArrowType dataType, int length,
@@ -35,7 +35,6 @@ namespace Apache.Arrow
                 dataType, length, nullCount, offset, new[] { nullBitmapBuffer },
                 children.Select(child => child.Data)))
         {
-            _fields = children.ToArray();
         }
 
         public StructArray(ArrayData data)
@@ -44,16 +43,44 @@ namespace Apache.Arrow
             data.EnsureDataType(ArrowTypeId.Struct);
         }
 
-        public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
+        public override void Accept(IArrowArrayVisitor visitor)
+        {
+            switch (visitor)
+            {
+                case IArrowArrayVisitor<StructArray> structArrayVisitor:
+                    structArrayVisitor.Visit(this);
+                    break;
+                case IArrowArrayVisitor<IArrowRecord> arrowStructVisitor:
+                    arrowStructVisitor.Visit(this);
+                    break;
+                default:
+                    visitor.Visit(this);
+                    break;
+            }
+        }
 
         private IReadOnlyList<IArrowArray> InitializeFields()
         {
             IArrowArray[] result = new IArrowArray[Data.Children.Length];
             for (int i = 0; i < Data.Children.Length; i++)
             {
-                result[i] = ArrowArrayFactory.BuildArray(Data.Children[i]);
+                var childData = Data.Children[i];
+                if (Data.Offset != 0 || childData.Length != Data.Length)
+                {
+                    childData = childData.Slice(Data.Offset, Data.Length);
+                }
+                result[i] = ArrowArrayFactory.BuildArray(childData);
             }
             return result;
         }
+
+        IRecordType IArrowRecord.Schema => (StructType)Data.DataType;
+
+        int IArrowRecord.ColumnCount => Fields.Count;
+
+        IArrowArray IArrowRecord.Column(string columnName, IEqualityComparer<string> comparer) =>
+            Fields[((StructType)Data.DataType).GetFieldIndex(columnName, comparer)];
+
+        IArrowArray IArrowRecord.Column(int columnIndex) => Fields[columnIndex];
     }
 }

@@ -14,6 +14,13 @@ BUILD_TYPE=release
 	dh $@ --with gir
 
 override_dh_auto_configure:
+	code_name="$$(. /etc/os-release &&			\
+                        echo $${VERSION_CODENAME})";		\
+	if [ "$${code_name}" = "focal" ]; then			\
+	  ARROW_AZURE=OFF;					\
+	else							\
+	  ARROW_AZURE=ON;					\
+	fi;							\
 	if dpkg -l nvidia-cuda-toolkit > /dev/null 2>&1; then	\
 	  ARROW_CUDA=ON;					\
 	else							\
@@ -24,6 +31,7 @@ override_dh_auto_configure:
 	  --builddirectory=cpp_build				\
 	  --buildsystem=cmake+ninja				\
 	  --							\
+	  -DARROW_AZURE=$${ARROW_AZURE}				\
 	  -DARROW_BUILD_UTILITIES=ON				\
 	  -DARROW_COMPUTE=ON					\
 	  -DARROW_CSV=ON					\
@@ -42,6 +50,7 @@ override_dh_auto_configure:
 	  -DARROW_PARQUET=ON					\
 	  -DARROW_S3=ON						\
 	  -DARROW_USE_CCACHE=OFF				\
+	  -DARROW_USE_MOLD=ON					\
 	  -DARROW_WITH_BROTLI=ON				\
 	  -DARROW_WITH_BZ2=ON					\
 	  -DARROW_WITH_LZ4=ON					\
@@ -50,6 +59,7 @@ override_dh_auto_configure:
 	  -DARROW_WITH_ZSTD=ON					\
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
 	  -DCUDAToolkit_ROOT=/usr				\
+	  -DFETCHCONTENT_FULLY_DISCONNECTED=OFF			\
 	  -DPARQUET_BUILD_EXECUTABLES=ON			\
 	  -DPARQUET_REQUIRE_ENCRYPTION=ON
 
@@ -64,7 +74,7 @@ override_dh_auto_build:
 	  --						\
 	  -Darrow_cpp_build_type=$(BUILD_TYPE)		\
 	  -Darrow_cpp_build_dir=../cpp_build		\
-	  -Dgtk_doc=true				\
+	  -Ddoc=true					\
 	  -Dvapi=true
 	env							\
 	  LD_LIBRARY_PATH=$(CURDIR)/cpp_build/$(BUILD_TYPE)	\
@@ -105,8 +115,10 @@ override_dh_auto_test:
 
 # libarrow.so: avoid failing with "Unknown DWARF DW_OP_172"
 # libgandiva.so: avoid failing with "Unknown DWARF DW_OP_255"
+# libparquet.so: avoid failing with "Unknown DWARF DW_OP_4"
 #   See also: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=949296
 override_dh_dwz:
 	dh_dwz \
 	  --exclude=libarrow.so \
-	  --exclude=libgandiva.so
+	  --exclude=libgandiva.so \
+	  --exclude=libparquet.so

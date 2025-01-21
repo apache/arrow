@@ -169,12 +169,12 @@ class DarwinSymbolizer(Symbolizer):
     atos_line = self.pipe.stdout.readline().rstrip()
     # A well-formed atos response looks like this:
     #   foo(type1, type2) (in object.name) (filename.cc:80)
-    match = re.match('^(.*) \(in (.*)\) \((.*:\d*)\)$', atos_line)
+    match = re.match(r'^(.*) \(in (.*)\) \((.*:\d*)\)$', atos_line)
     if DEBUG:
       print('atos_line: {0}'.format(atos_line))
     if match:
       function_name = match.group(1)
-      function_name = re.sub('\(.*?\)', '', function_name)
+      function_name = re.sub(r'\(.*?\)', '', function_name)
       file_name = fix_filename(match.group(3))
       return ['%s in %s %s' % (addr, function_name, file_name)]
     else:
@@ -342,7 +342,7 @@ class SymbolizationLoop(object):
       self.current_line = line.rstrip()
       #0 0x7f6e35cf2e45  (/blah/foo.so+0x11fe45)
       stack_trace_line_format = (
-          '^( *#([0-9]+) *)(0x[0-9a-f]+) *\((.*)\+(0x[0-9a-f]+)\)')
+          r'^( *#([0-9]+) *)(0x[0-9a-f]+) *\((.*)\+(0x[0-9a-f]+)\)')
       match = re.match(stack_trace_line_format, line)
       if not match:
         print(self.current_line)

@@ -21,23 +21,56 @@ import Foundation
 let FILEMARKER = "ARROW1"
 let CONTINUATIONMARKER = -1
 
-public class ArrowReader {
-    private struct DataLoadInfo {
+public class ArrowReader { // swiftlint:disable:this type_body_length
+    private class RecordBatchData {
+        let schema: org_apache_arrow_flatbuf_Schema
         let recordBatch: org_apache_arrow_flatbuf_RecordBatch
-        let field: org_apache_arrow_flatbuf_Field
-        let nodeIndex: Int32
-        let bufferIndex: Int32
+        private var fieldIndex: Int32 = 0
+        private var nodeIndex: Int32 = 0
+        private var bufferIndex: Int32 = 0
+        init(_ recordBatch: org_apache_arrow_flatbuf_RecordBatch,
+             schema: org_apache_arrow_flatbuf_Schema) {
+            self.recordBatch = recordBatch
+            self.schema = schema
+        }
+
+        func nextNode() -> org_apache_arrow_flatbuf_FieldNode? {
+            if nodeIndex >= self.recordBatch.nodesCount {return nil}
+            defer {nodeIndex += 1}
+            return self.recordBatch.nodes(at: nodeIndex)
+        }
+
+        func nextBuffer() -> org_apache_arrow_flatbuf_Buffer? {
+            if bufferIndex >= self.recordBatch.buffersCount {return nil}
+            defer {bufferIndex += 1}
+            return self.recordBatch.buffers(at: bufferIndex)
+        }
+
+        func nextField() -> org_apache_arrow_flatbuf_Field? {
+            if fieldIndex >= self.schema.fieldsCount {return nil}
+            defer {fieldIndex += 1}
+            return self.schema.fields(at: fieldIndex)
+        }
+
+        func isDone() -> Bool {
+            return nodeIndex >= self.recordBatch.nodesCount
+        }
+    }
+
+    private struct DataLoadInfo {
         let fileData: Data
         let messageOffset: Int64
+        var batchData: RecordBatchData
     }
 
     public class ArrowReaderResult {
+        fileprivate var messageSchema: org_apache_arrow_flatbuf_Schema?
         public var schema: ArrowSchema?
         public var batches = [RecordBatch]()
     }
-    
+
     public init() {}
-    
+
     private func loadSchema(_ schema: org_apache_arrow_flatbuf_Schema) -> Result<ArrowSchema, ArrowError> {
         let builder = ArrowSchema.Builder()
         for index in 0 ..< schema.fieldsCount {
@@ -53,81 +86,140 @@ public class ArrowReader {
         return .success(builder.finish())
     }
 
-    private func loadPrimitiveData(_ loadInfo: DataLoadInfo) -> Result<ArrowArrayHolder, ArrowError> {
-        do {
-            let node = loadInfo.recordBatch.nodes(at: loadInfo.nodeIndex)!
-            try validateBufferIndex(loadInfo.recordBatch, index: loadInfo.bufferIndex)
-            let nullBuffer = loadInfo.recordBatch.buffers(at: loadInfo.bufferIndex)!
-            let arrowNullBuffer = makeBuffer(nullBuffer, fileData: loadInfo.fileData,
-                                             length: UInt(node.nullCount), messageOffset: loadInfo.messageOffset)
-            try validateBufferIndex(loadInfo.recordBatch, index: loadInfo.bufferIndex + 1)
-            let valueBuffer = loadInfo.recordBatch.buffers(at: loadInfo.bufferIndex + 1)!
-            let arrowValueBuffer = makeBuffer(valueBuffer, fileData: loadInfo.fileData,
-                                              length: UInt(node.length), messageOffset: loadInfo.messageOffset)
-            return makeArrayHolder(loadInfo.field, buffers: [arrowNullBuffer, arrowValueBuffer])
-        } catch let error as ArrowError {
-            return .failure(error)
-        } catch {
-            return .failure(.unknownError("\(error)"))
+    private func loadStructData(_ loadInfo: DataLoadInfo,
+                                field: org_apache_arrow_flatbuf_Field)
+    -> Result<ArrowArrayHolder, ArrowError> {
+        guard let node = loadInfo.batchData.nextNode() else {
+            return .failure(.invalid("Node not found"))
         }
-    }
 
-    private func loadVariableData(_ loadInfo: DataLoadInfo) -> Result<ArrowArrayHolder, ArrowError> {
-        let node = loadInfo.recordBatch.nodes(at: loadInfo.nodeIndex)!
-        do {
-            try validateBufferIndex(loadInfo.recordBatch, index: loadInfo.bufferIndex)
-            let nullBuffer = loadInfo.recordBatch.buffers(at: loadInfo.bufferIndex)!
-            let arrowNullBuffer = makeBuffer(nullBuffer, fileData: loadInfo.fileData,
-                                             length: UInt(node.nullCount), messageOffset: loadInfo.messageOffset)
-            try validateBufferIndex(loadInfo.recordBatch, index: loadInfo.bufferIndex + 1)
-            let offsetBuffer = loadInfo.recordBatch.buffers(at: loadInfo.bufferIndex + 1)!
-            let arrowOffsetBuffer = makeBuffer(offsetBuffer, fileData: loadInfo.fileData,
-                                               length: UInt(node.length), messageOffset: loadInfo.messageOffset)
-            try validateBufferIndex(loadInfo.recordBatch, index: loadInfo.bufferIndex + 2)
-            let valueBuffer = loadInfo.recordBatch.buffers(at: loadInfo.bufferIndex + 2)!
-            let arrowValueBuffer = makeBuffer(valueBuffer, fileData: loadInfo.fileData,
-                                              length: UInt(node.length), messageOffset: loadInfo.messageOffset)
-            return makeArrayHolder(loadInfo.field, buffers: [arrowNullBuffer, arrowOffsetBuffer, arrowValueBuffer])
-        } catch let error as ArrowError {
-            return .failure(error)
-        } catch {
-            return .failure(.unknownError("\(error)"))
+        guard let nullBuffer = loadInfo.batchData.nextBuffer() else {
+            return .failure(.invalid("Null buffer not found"))
         }
-    }
 
-    private func loadRecordBatch(_ message: org_apache_arrow_flatbuf_Message, schema: org_apache_arrow_flatbuf_Schema,
-                                 arrowSchema: ArrowSchema, data: Data, messageEndOffset: Int64) -> Result<RecordBatch, ArrowError> {
-        let recordBatch = message.header(type: org_apache_arrow_flatbuf_RecordBatch.self)
-        let nodesCount = recordBatch?.nodesCount ?? 0
-        var bufferIndex: Int32 = 0
-        var columns: [ArrowArrayHolder] = []
-        for nodeIndex in 0 ..< nodesCount {
-            let field = schema.fields(at: nodeIndex)!
-            let loadInfo = DataLoadInfo(recordBatch: recordBatch!, field: field,
-                                        nodeIndex: nodeIndex, bufferIndex: bufferIndex,
-                                        fileData: data, messageOffset: messageEndOffset)
-            var result: Result<ArrowArrayHolder, ArrowError>
-            if isFixedPrimitive(field.typeType) {
-                result = loadPrimitiveData(loadInfo)
-                bufferIndex += 2
-            } else {
-                result = loadVariableData(loadInfo)
-                bufferIndex += 3
+        let nullLength = UInt(ceil(Double(node.length) / 8))
+        let arrowNullBuffer = makeBuffer(nullBuffer, fileData: loadInfo.fileData,
+                                         length: nullLength, messageOffset: loadInfo.messageOffset)
+        var children = [ArrowData]()
+        for index in 0..<field.childrenCount {
+            let childField = field.children(at: index)!
+            switch loadField(loadInfo, field: childField) {
+            case .success(let holder):
+                children.append(holder.array.arrowData)
+            case .failure(let error):
+                return .failure(error)
             }
-            
+        }
+
+        return makeArrayHolder(field, buffers: [arrowNullBuffer],
+                               nullCount: UInt(node.nullCount), children: children,
+                               rbLength: UInt(loadInfo.batchData.recordBatch.length))
+    }
+
+    private func loadPrimitiveData(
+        _ loadInfo: DataLoadInfo,
+        field: org_apache_arrow_flatbuf_Field)
+    -> Result<ArrowArrayHolder, ArrowError> {
+        guard let node = loadInfo.batchData.nextNode() else {
+            return .failure(.invalid("Node not found"))
+        }
+
+        guard let nullBuffer = loadInfo.batchData.nextBuffer() else {
+            return .failure(.invalid("Null buffer not found"))
+        }
+
+        guard let valueBuffer = loadInfo.batchData.nextBuffer() else {
+            return .failure(.invalid("Value buffer not found"))
+        }
+
+        let nullLength = UInt(ceil(Double(node.length) / 8))
+        let arrowNullBuffer = makeBuffer(nullBuffer, fileData: loadInfo.fileData,
+                                         length: nullLength, messageOffset: loadInfo.messageOffset)
+        let arrowValueBuffer = makeBuffer(valueBuffer, fileData: loadInfo.fileData,
+                                          length: UInt(node.length), messageOffset: loadInfo.messageOffset)
+        return makeArrayHolder(field, buffers: [arrowNullBuffer, arrowValueBuffer],
+                               nullCount: UInt(node.nullCount), children: nil,
+                               rbLength: UInt(loadInfo.batchData.recordBatch.length))
+    }
+
+    private func loadVariableData(
+        _ loadInfo: DataLoadInfo,
+        field: org_apache_arrow_flatbuf_Field)
+    -> Result<ArrowArrayHolder, ArrowError> {
+        guard let node = loadInfo.batchData.nextNode() else {
+            return .failure(.invalid("Node not found"))
+        }
+
+        guard let nullBuffer = loadInfo.batchData.nextBuffer() else {
+            return .failure(.invalid("Null buffer not found"))
+        }
+
+        guard let offsetBuffer = loadInfo.batchData.nextBuffer() else {
+            return .failure(.invalid("Offset buffer not found"))
+        }
+
+        guard let valueBuffer = loadInfo.batchData.nextBuffer() else {
+            return .failure(.invalid("Value buffer not found"))
+        }
+
+        let nullLength = UInt(ceil(Double(node.length) / 8))
+        let arrowNullBuffer = makeBuffer(nullBuffer, fileData: loadInfo.fileData,
+                                         length: nullLength, messageOffset: loadInfo.messageOffset)
+        let arrowOffsetBuffer = makeBuffer(offsetBuffer, fileData: loadInfo.fileData,
+                                           length: UInt(node.length), messageOffset: loadInfo.messageOffset)
+        let arrowValueBuffer = makeBuffer(valueBuffer, fileData: loadInfo.fileData,
+                                          length: UInt(node.length), messageOffset: loadInfo.messageOffset)
+        return makeArrayHolder(field, buffers: [arrowNullBuffer, arrowOffsetBuffer, arrowValueBuffer],
+                               nullCount: UInt(node.nullCount), children: nil,
+                               rbLength: UInt(loadInfo.batchData.recordBatch.length))
+    }
+
+    private func loadField(
+        _ loadInfo: DataLoadInfo,
+        field: org_apache_arrow_flatbuf_Field)
+    -> Result<ArrowArrayHolder, ArrowError> {
+        if isNestedType(field.typeType) {
+            return loadStructData(loadInfo, field: field)
+        } else if isFixedPrimitive(field.typeType) {
+            return loadPrimitiveData(loadInfo, field: field)
+        } else {
+            return loadVariableData(loadInfo, field: field)
+        }
+    }
+
+    private func loadRecordBatch(
+        _ recordBatch: org_apache_arrow_flatbuf_RecordBatch,
+        schema: org_apache_arrow_flatbuf_Schema,
+        arrowSchema: ArrowSchema,
+        data: Data,
+        messageEndOffset: Int64
+    ) -> Result<RecordBatch, ArrowError> {
+        var columns: [ArrowArrayHolder] = []
+        let batchData = RecordBatchData(recordBatch, schema: schema)
+        let loadInfo = DataLoadInfo(fileData: data,
+                                    messageOffset: messageEndOffset,
+                                    batchData: batchData)
+        while !batchData.isDone() {
+            guard let field = batchData.nextField() else {
+                return .failure(.invalid("Field not found"))
+            }
+
+            let result = loadField(loadInfo, field: field)
             switch result {
             case .success(let holder):
                 columns.append(holder)
             case .failure(let error):
                 return .failure(error)
             }
-            
         }
-        
+
         return .success(RecordBatch(arrowSchema, columns: columns))
     }
 
-    public func fromStream(_ fileData: Data) -> Result<ArrowReaderResult, ArrowError> {
+    public func fromStream( // swiftlint:disable:this function_body_length
+        _ fileData: Data,
+        useUnalignedBuffers: Bool = false
+    ) -> Result<ArrowReaderResult, ArrowError> {
         let footerLength = fileData.withUnsafeBytes { rawBuffer in
             rawBuffer.loadUnaligned(fromByteOffset: fileData.count - 4, as: Int32.self)
         }
@@ -135,7 +227,9 @@ public class ArrowReader {
         let result = ArrowReaderResult()
         let footerStartOffset = fileData.count - Int(footerLength + 4)
         let footerData = fileData[footerStartOffset...]
-        let footerBuffer = ByteBuffer(data: footerData)
+        let footerBuffer = ByteBuffer(
+            data: footerData,
+            allowReadingUnalignedBuffers: useUnalignedBuffers)
         let footer = org_apache_arrow_flatbuf_Footer.getRootAsFooter(bb: footerBuffer)
         let schemaResult = loadSchema(footer.schema!)
         switch schemaResult {
@@ -164,13 +258,20 @@ public class ArrowReader {
             let messageStartOffset = recordBatch.offset + (Int64(MemoryLayout<Int32>.size) * messageOffset)
             let messageEndOffset = messageStartOffset + Int64(messageLength)
             let recordBatchData = fileData[messageStartOffset ..< messageEndOffset]
-            let mbb = ByteBuffer(data: recordBatchData)
+            let mbb = ByteBuffer(
+                data: recordBatchData,
+                allowReadingUnalignedBuffers: useUnalignedBuffers)
             let message = org_apache_arrow_flatbuf_Message.getRootAsMessage(bb: mbb)
             switch message.headerType {
             case .recordbatch:
                 do {
-                    let recordBatch = try loadRecordBatch(message, schema: footer.schema!, arrowSchema: result.schema!,
-                                                          data: fileData, messageEndOffset: messageEndOffset).get()
+                    let rbMessage = message.header(type: org_apache_arrow_flatbuf_RecordBatch.self)!
+                    let recordBatch = try loadRecordBatch(
+                        rbMessage,
+                        schema: footer.schema!,
+                        arrowSchema: result.schema!,
+                        data: fileData,
+                        messageEndOffset: messageEndOffset).get()
                     result.batches.append(recordBatch)
                 } catch let error as ArrowError {
                     return .failure(error)
@@ -200,4 +301,49 @@ public class ArrowReader {
             return .failure(.unknownError("Error loading file: \(error)"))
         }
     }
+
+    static public func makeArrowReaderResult() -> ArrowReaderResult {
+        return ArrowReaderResult()
+    }
+
+    public func fromMessage(
+        _ dataHeader: Data,
+        dataBody: Data,
+        result: ArrowReaderResult,
+        useUnalignedBuffers: Bool = false
+    ) -> Result<Void, ArrowError> {
+        let mbb = ByteBuffer(
+            data: dataHeader,
+            allowReadingUnalignedBuffers: useUnalignedBuffers)
+        let message = org_apache_arrow_flatbuf_Message.getRootAsMessage(bb: mbb)
+        switch message.headerType {
+        case .schema:
+            let sMessage = message.header(type: org_apache_arrow_flatbuf_Schema.self)!
+            switch loadSchema(sMessage) {
+            case .success(let schema):
+                result.schema = schema
+                result.messageSchema = sMessage
+                return .success(())
+            case .failure(let error):
+                return .failure(error)
+            }
+        case .recordbatch:
+            let rbMessage = message.header(type: org_apache_arrow_flatbuf_RecordBatch.self)!
+            do {
+                let recordBatch = try loadRecordBatch(
+                    rbMessage, schema: result.messageSchema!, arrowSchema: result.schema!,
+                    data: dataBody, messageEndOffset: 0).get()
+                result.batches.append(recordBatch)
+                return .success(())
+            } catch let error as ArrowError {
+                return .failure(error)
+            } catch {
+                return .failure(.unknownError("Unexpected error: \(error)"))
+            }
+
+        default:
+            return .failure(.unknownError("Unhandled header type: \(message.headerType)"))
+        }
+    }
+
 }

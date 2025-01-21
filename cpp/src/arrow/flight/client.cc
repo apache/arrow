@@ -32,6 +32,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/client_auth.h"
@@ -39,10 +40,47 @@
 #include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/grpc_client.h"
 #include "arrow/flight/types.h"
+#include "arrow/flight/types_async.h"
 
 namespace arrow {
 
 namespace flight {
+
+namespace {
+template <typename T>
+class UnaryUnaryAsyncListener : public AsyncListener<T> {
+ public:
+  UnaryUnaryAsyncListener() : future_(arrow::Future<T>::Make()) {}
+
+  void OnNext(T result) override {
+    DCHECK(!result_.ok());
+    result_ = std::move(result);
+  }
+
+  void OnFinish(Status status) override {
+    if (status.ok()) {
+      DCHECK(result_.ok());
+    } else {
+      // Default-initialized result is not ok
+      DCHECK(!result_.ok());
+      result_ = std::move(status);
+    }
+    future_.MarkFinished(std::move(result_));
+  }
+
+  static std::pair<std::shared_ptr<AsyncListener<T>>, arrow::Future<T>> Make() {
+    auto self = std::make_shared<UnaryUnaryAsyncListener<T>>();
+    // Keep the listener alive by stashing it in the future
+    self->future_.AddCallback([self](const arrow::Result<T>&) {});
+    auto future = self->future_;
+    return std::make_pair(std::move(self), std::move(future));
+  }
+
+ private:
+  arrow::Result<T> result_;
+  arrow::Future<T> future_;
+};
+}  // namespace
 
 const char* kWriteSizeDetailTypeId = "flight::FlightWriteSizeStatusDetail";
 
@@ -546,26 +584,26 @@ arrow::Result<std::unique_ptr<ResultStream>> FlightClient::DoAction(
 
 arrow::Result<CancelFlightInfoResult> FlightClient::CancelFlightInfo(
     const FlightCallOptions& options, const CancelFlightInfoRequest& request) {
-  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
-  Action action{ActionType::kCancelFlightInfo.type, Buffer::FromString(body)};
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToBuffer());
+  Action action{ActionType::kCancelFlightInfo.type, std::move(body)};
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
   ARROW_ASSIGN_OR_RAISE(auto cancel_result, CancelFlightInfoResult::Deserialize(
                                                 std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
-  return std::move(cancel_result);
+  return cancel_result;
 }
 
 arrow::Result<FlightEndpoint> FlightClient::RenewFlightEndpoint(
     const FlightCallOptions& options, const RenewFlightEndpointRequest& request) {
-  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
-  Action action{ActionType::kRenewFlightEndpoint.type, Buffer::FromString(body)};
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToBuffer());
+  Action action{ActionType::kRenewFlightEndpoint.type, std::move(body)};
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
   ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint,
                         FlightEndpoint::Deserialize(std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
-  return std::move(renewed_endpoint);
+  return renewed_endpoint;
 }
 
 arrow::Result<std::vector<ActionType>> FlightClient::ListActions(
@@ -581,6 +619,32 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightClient::GetFlightInfo(
   std::unique_ptr<FlightInfo> info;
   RETURN_NOT_OK(CheckOpen());
   RETURN_NOT_OK(transport_->GetFlightInfo(options, descriptor, &info));
+  return info;
+}
+
+void FlightClient::GetFlightInfoAsync(
+    const FlightCallOptions& options, const FlightDescriptor& descriptor,
+    std::shared_ptr<AsyncListener<FlightInfo>> listener) {
+  if (auto status = CheckOpen(); !status.ok()) {
+    listener->OnFinish(std::move(status));
+    return;
+  }
+  transport_->GetFlightInfoAsync(options, descriptor, std::move(listener));
+}
+
+arrow::Future<FlightInfo> FlightClient::GetFlightInfoAsync(
+    const FlightCallOptions& options, const FlightDescriptor& descriptor) {
+  RETURN_NOT_OK(CheckOpen());
+  auto [listener, future] = UnaryUnaryAsyncListener<FlightInfo>::Make();
+  transport_->GetFlightInfoAsync(options, descriptor, std::move(listener));
+  return future;
+}
+
+arrow::Result<std::unique_ptr<PollInfo>> FlightClient::PollFlightInfo(
+    const FlightCallOptions& options, const FlightDescriptor& descriptor) {
+  std::unique_ptr<PollInfo> info;
+  RETURN_NOT_OK(CheckOpen());
+  RETURN_NOT_OK(transport_->PollFlightInfo(options, descriptor, &info));
   return info;
 }
 
@@ -649,6 +713,47 @@ arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
   return result;
 }
 
+::arrow::Result<SetSessionOptionsResult> FlightClient::SetSessionOptions(
+    const FlightCallOptions& options, const SetSessionOptionsRequest& request) {
+  RETURN_NOT_OK(CheckOpen());
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToBuffer());
+  Action action{ActionType::kSetSessionOptions.type, std::move(body)};
+  ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
+  ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
+  ARROW_ASSIGN_OR_RAISE(
+      auto set_session_options_result,
+      SetSessionOptionsResult::Deserialize(std::string_view(*result->body)));
+  ARROW_RETURN_NOT_OK(stream->Drain());
+  return set_session_options_result;
+}
+
+::arrow::Result<GetSessionOptionsResult> FlightClient::GetSessionOptions(
+    const FlightCallOptions& options, const GetSessionOptionsRequest& request) {
+  RETURN_NOT_OK(CheckOpen());
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToBuffer());
+  Action action{ActionType::kGetSessionOptions.type, std::move(body)};
+  ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
+  ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
+  ARROW_ASSIGN_OR_RAISE(
+      auto get_session_options_result,
+      GetSessionOptionsResult::Deserialize(std::string_view(*result->body)));
+  ARROW_RETURN_NOT_OK(stream->Drain());
+  return get_session_options_result;
+}
+
+::arrow::Result<CloseSessionResult> FlightClient::CloseSession(
+    const FlightCallOptions& options, const CloseSessionRequest& request) {
+  RETURN_NOT_OK(CheckOpen());
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToBuffer());
+  Action action{ActionType::kCloseSession.type, std::move(body)};
+  ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
+  ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
+  ARROW_ASSIGN_OR_RAISE(auto close_session_result,
+                        CloseSessionResult::Deserialize(std::string_view(*result->body)));
+  ARROW_RETURN_NOT_OK(stream->Drain());
+  return close_session_result;
+}
+
 Status FlightClient::Close() {
   if (!closed_) {
     closed_ = true;
@@ -657,6 +762,10 @@ Status FlightClient::Close() {
   }
   return Status::OK();
 }
+
+bool FlightClient::supports_async() const { return transport_->CheckAsyncSupport().ok(); }
+
+Status FlightClient::CheckAsyncSupport() const { return transport_->CheckAsyncSupport(); }
 
 Status FlightClient::CheckOpen() const {
   if (closed_) {

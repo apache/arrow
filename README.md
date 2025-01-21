@@ -25,8 +25,9 @@
 
 ## Powering In-Memory Analytics
 
-Apache Arrow is a development platform for in-memory analytics. It contains a
-set of technologies that enable big data systems to process and move data fast.
+Apache Arrow is a universal columnar format and multi-language toolbox for fast
+data interchange and in-memory analytics. It contains a set of technologies that
+enable data systems to efficiently store, process, and move data.
 
 Major components of the project include:
 
@@ -43,7 +44,7 @@ Major components of the project include:
  - [C# .NET libraries](https://github.com/apache/arrow/tree/main/csharp)
  - [Gandiva](https://github.com/apache/arrow/tree/main/cpp/src/gandiva):
    an [LLVM](https://llvm.org)-based Arrow expression compiler, part of the C++ codebase
- - [Go libraries](https://github.com/apache/arrow/tree/main/go)
+ - [Go libraries](https://github.com/apache/arrow-go)
  - [Java libraries](https://github.com/apache/arrow/tree/main/java)
  - [JavaScript libraries](https://github.com/apache/arrow/tree/main/js)
  - [Python libraries](https://github.com/apache/arrow/tree/main/python)
@@ -99,4 +100,4 @@ integrations in other projects, we'd be happy to have you involved:
 [2]: https://github.com/apache/arrow/tree/main/format
 [3]: https://github.com/apache/arrow/issues
 [4]: https://github.com/apache/arrow
-[5]: https://arrow.apache.org/docs/dev/developers/contributing.html
+[5]: https://arrow.apache.org/docs/dev/developers/index.html

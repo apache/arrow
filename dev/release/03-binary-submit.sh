@@ -28,11 +28,12 @@ version=$1
 rc=$2
 version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"
-release_tag="apache-arrow-${version}"
+release_tag="apache-arrow-${version}-rc${rc}"
 rc_branch="release-${version_with_rc}"
 
 : ${ARROW_REPOSITORY:="apache/arrow"}
-: ${ARROW_BRANCH:=$release_tag}
+: ${ARROW_BRANCH:=${release_tag}}
+: ${ARROW_SHA:=${release_tag}}
 
 # archery will submit a job with id: "${crossbow_job_prefix}-0" unless there
 # are jobs submitted with the same prefix (the integer at the end is auto
@@ -43,6 +44,7 @@ archery crossbow submit \
     --arrow-version ${version_with_rc} \
     --arrow-remote "https://github.com/${ARROW_REPOSITORY}" \
     --arrow-branch ${ARROW_BRANCH} \
+    --arrow-sha ${ARROW_SHA} \
     --group packaging
 
 # archery will add a comment to the automatically generated PR to track

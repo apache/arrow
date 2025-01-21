@@ -185,6 +185,28 @@ cdef class Context(_Weakrefable):
             cudabuf = GetResultValue(self.context.get().Allocate(nbytes))
         return pyarrow_wrap_cudabuffer(cudabuf)
 
+    @property
+    def memory_manager(self):
+        """
+        The default memory manager tied to this context's device.
+
+        Returns
+        -------
+        MemoryManager
+        """
+        return MemoryManager.wrap(self.context.get().memory_manager())
+
+    @property
+    def device(self):
+        """
+        The device instance associated with this context.
+
+        Returns
+        -------
+        Device
+        """
+        return Device.wrap(self.context.get().device())
+
     def foreign_buffer(self, address, size, base=None):
         """
         Create device buffer from address and size as a view.
@@ -493,7 +515,7 @@ cdef class CudaBuffer(Buffer):
                     raise ValueError(
                         'requested more to copy than available from '
                         'device buffer')
-                # copy nbytes starting from position to new host buffeer
+                # copy nbytes starting from position to new host buffer
                 c_nbytes = nbytes
             buf = allocate_buffer(c_nbytes, memory_pool=memory_pool,
                                   resizable=resizable)

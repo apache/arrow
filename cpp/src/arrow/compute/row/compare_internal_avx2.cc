@@ -15,11 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <immintrin.h>
-
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/simd.h"
 
 namespace arrow {
 namespace compute {
@@ -39,12 +38,14 @@ template <bool use_selection>
 uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
     uint32_t id_col, uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
     const uint32_t* left_to_right_map, LightContext* ctx, const KeyColumnArray& col,
-    const RowTableImpl& rows, uint8_t* match_bytevector) {
+    const RowTableImpl& rows, bool are_cols_in_encoding_order,
+    uint8_t* match_bytevector) {
   if (!rows.has_any_nulls(ctx) && !col.data(0)) {
     return num_rows_to_compare;
   }
 
-  uint32_t null_bit_id = rows.metadata().pos_after_encoding(id_col);
+  const uint32_t null_bit_id =
+      ColIdInEncodingOrder(rows, id_col, are_cols_in_encoding_order);
 
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null
@@ -204,12 +205,26 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_to_right_map) + i);
       }
 
-      __m256i offset_right =
-          _mm256_mullo_epi32(irow_right, _mm256_set1_epi32(fixed_length));
-      offset_right = _mm256_add_epi32(offset_right, _mm256_set1_epi32(offset_within_row));
+      // Widen the 32-bit row ids to 64-bit and store the first/last 4 of them into 2
+      // 256-bit registers.
+      __m256i irow_right_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(irow_right));
+      __m256i irow_right_hi =
+          _mm256_cvtepi32_epi64(_mm256_extracti128_si256(irow_right, 1));
+      // Calculate the lower/higher 4 64-bit row offsets based on the lower/higher 4
+      // 64-bit row ids and the fixed length.
+      __m256i offset_right_lo =
+          _mm256_mul_epi32(irow_right_lo, _mm256_set1_epi64x(fixed_length));
+      __m256i offset_right_hi =
+          _mm256_mul_epi32(irow_right_hi, _mm256_set1_epi64x(fixed_length));
+      // Calculate the lower/higher 4 64-bit field offsets based on the lower/higher 4
+      // 64-bit row offsets and field offset within row.
+      offset_right_lo =
+          _mm256_add_epi64(offset_right_lo, _mm256_set1_epi64x(offset_within_row));
+      offset_right_hi =
+          _mm256_add_epi64(offset_right_hi, _mm256_set1_epi64x(offset_within_row));
 
-      reinterpret_cast<uint64_t*>(match_bytevector)[i] =
-          compare8_fn(rows_left, rows_right, i * unroll, irow_left, offset_right);
+      reinterpret_cast<uint64_t*>(match_bytevector)[i] = compare8_fn(
+          rows_left, rows_right, i * unroll, irow_left, offset_right_lo, offset_right_hi);
 
       if (!use_selection) {
         irow_left = _mm256_add_epi32(irow_left, _mm256_set1_epi32(8));
@@ -218,7 +233,7 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
     return num_rows_to_compare - (num_rows_to_compare % unroll);
   } else {
     const uint8_t* rows_left = col.data(1);
-    const uint32_t* offsets_right = rows.offsets();
+    const RowTableImpl::offset_type* offsets_right = rows.offsets();
     const uint8_t* rows_right = rows.data(2);
     constexpr uint32_t unroll = 8;
     __m256i irow_left = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
@@ -234,12 +249,29 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
         irow_right =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_to_right_map) + i);
       }
-      __m256i offset_right =
-          _mm256_i32gather_epi32((const int*)offsets_right, irow_right, 4);
-      offset_right = _mm256_add_epi32(offset_right, _mm256_set1_epi32(offset_within_row));
 
-      reinterpret_cast<uint64_t*>(match_bytevector)[i] =
-          compare8_fn(rows_left, rows_right, i * unroll, irow_left, offset_right);
+      static_assert(sizeof(RowTableImpl::offset_type) == sizeof(int64_t),
+                    "KeyCompare::CompareBinaryColumnToRowHelper_avx2 only supports "
+                    "64-bit RowTableImpl::offset_type");
+      auto offsets_right_i64 =
+          reinterpret_cast<const arrow::util::int64_for_gather_t*>(offsets_right);
+      // Gather the lower/higher 4 64-bit row offsets based on the lower/higher 4 32-bit
+      // row ids.
+      __m256i offset_right_lo =
+          _mm256_i32gather_epi64(offsets_right_i64, _mm256_castsi256_si128(irow_right),
+                                 sizeof(RowTableImpl::offset_type));
+      __m256i offset_right_hi = _mm256_i32gather_epi64(
+          offsets_right_i64, _mm256_extracti128_si256(irow_right, 1),
+          sizeof(RowTableImpl::offset_type));
+      // Calculate the lower/higher 4 64-bit field offsets based on the lower/higher 4
+      // 64-bit row offsets and field offset within row.
+      offset_right_lo =
+          _mm256_add_epi64(offset_right_lo, _mm256_set1_epi64x(offset_within_row));
+      offset_right_hi =
+          _mm256_add_epi64(offset_right_hi, _mm256_set1_epi64x(offset_within_row));
+
+      reinterpret_cast<uint64_t*>(match_bytevector)[i] = compare8_fn(
+          rows_left, rows_right, i * unroll, irow_left, offset_right_lo, offset_right_hi);
 
       if (!use_selection) {
         irow_left = _mm256_add_epi32(irow_left, _mm256_set1_epi32(8));
@@ -251,8 +283,8 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
 
 template <int column_width>
 inline uint64_t CompareSelected8_avx2(const uint8_t* left_base, const uint8_t* right_base,
-                                      __m256i irow_left, __m256i offset_right,
-                                      int bit_offset = 0) {
+                                      __m256i irow_left, __m256i offset_right_lo,
+                                      __m256i offset_right_hi, int bit_offset = 0) {
   __m256i left;
   switch (column_width) {
     case 0: {
@@ -279,7 +311,9 @@ inline uint64_t CompareSelected8_avx2(const uint8_t* left_base, const uint8_t* r
       ARROW_DCHECK(false);
   }
 
-  __m256i right = _mm256_i32gather_epi32((const int*)right_base, offset_right, 1);
+  __m128i right_lo = _mm256_i64gather_epi32((int const*)right_base, offset_right_lo, 1);
+  __m128i right_hi = _mm256_i64gather_epi32((int const*)right_base, offset_right_hi, 1);
+  __m256i right = _mm256_set_m128i(right_hi, right_lo);
   if (column_width != sizeof(uint32_t)) {
     constexpr uint32_t mask = column_width == 0 || column_width == 1 ? 0xff : 0xffff;
     right = _mm256_and_si256(right, _mm256_set1_epi32(mask));
@@ -297,8 +331,8 @@ inline uint64_t CompareSelected8_avx2(const uint8_t* left_base, const uint8_t* r
 
 template <int column_width>
 inline uint64_t Compare8_avx2(const uint8_t* left_base, const uint8_t* right_base,
-                              uint32_t irow_left_first, __m256i offset_right,
-                              int bit_offset = 0) {
+                              uint32_t irow_left_first, __m256i offset_right_lo,
+                              __m256i offset_right_hi, int bit_offset = 0) {
   __m256i left;
   switch (column_width) {
     case 0: {
@@ -328,7 +362,9 @@ inline uint64_t Compare8_avx2(const uint8_t* left_base, const uint8_t* right_bas
       ARROW_DCHECK(false);
   }
 
-  __m256i right = _mm256_i32gather_epi32((const int*)right_base, offset_right, 1);
+  __m128i right_lo = _mm256_i64gather_epi32((int const*)right_base, offset_right_lo, 1);
+  __m128i right_hi = _mm256_i64gather_epi32((int const*)right_base, offset_right_hi, 1);
+  __m256i right = _mm256_set_m128i(right_hi, right_lo);
   if (column_width != sizeof(uint32_t)) {
     constexpr uint32_t mask = column_width == 0 || column_width == 1 ? 0xff : 0xffff;
     right = _mm256_and_si256(right, _mm256_set1_epi32(mask));
@@ -347,7 +383,7 @@ inline uint64_t Compare8_avx2(const uint8_t* left_base, const uint8_t* right_bas
 template <bool use_selection>
 inline uint64_t Compare8_64bit_avx2(const uint8_t* left_base, const uint8_t* right_base,
                                     __m256i irow_left, uint32_t irow_left_first,
-                                    __m256i offset_right) {
+                                    __m256i offset_right_lo, __m256i offset_right_hi) {
   auto left_base_i64 =
       reinterpret_cast<const arrow::util::int64_for_gather_t*>(left_base);
   __m256i left_lo, left_hi;
@@ -364,10 +400,8 @@ inline uint64_t Compare8_64bit_avx2(const uint8_t* left_base, const uint8_t* rig
   }
   auto right_base_i64 =
       reinterpret_cast<const arrow::util::int64_for_gather_t*>(right_base);
-  __m256i right_lo =
-      _mm256_i32gather_epi64(right_base_i64, _mm256_castsi256_si128(offset_right), 1);
-  __m256i right_hi = _mm256_i32gather_epi64(right_base_i64,
-                                            _mm256_extracti128_si256(offset_right, 1), 1);
+  __m256i right_lo = _mm256_i64gather_epi64(right_base_i64, offset_right_lo, 1);
+  __m256i right_hi = _mm256_i64gather_epi64(right_base_i64, offset_right_hi, 1);
   uint32_t result_lo = _mm256_movemask_epi8(_mm256_cmpeq_epi64(left_lo, right_lo));
   uint32_t result_hi = _mm256_movemask_epi8(_mm256_cmpeq_epi64(left_hi, right_hi));
   return result_lo | (static_cast<uint64_t>(result_hi) << 32);
@@ -376,13 +410,19 @@ inline uint64_t Compare8_64bit_avx2(const uint8_t* left_base, const uint8_t* rig
 template <bool use_selection>
 inline uint64_t Compare8_Binary_avx2(uint32_t length, const uint8_t* left_base,
                                      const uint8_t* right_base, __m256i irow_left,
-                                     uint32_t irow_left_first, __m256i offset_right) {
+                                     uint32_t irow_left_first, __m256i offset_right_lo,
+                                     __m256i offset_right_hi) {
   uint32_t irow_left_array[8];
-  uint32_t offset_right_array[8];
+  RowTableImpl::offset_type offset_right_array[8];
   if (use_selection) {
     _mm256_storeu_si256(reinterpret_cast<__m256i*>(irow_left_array), irow_left);
   }
-  _mm256_storeu_si256(reinterpret_cast<__m256i*>(offset_right_array), offset_right);
+  static_assert(
+      sizeof(RowTableImpl::offset_type) * 4 == sizeof(__m256i),
+      "Unexpected RowTableImpl::offset_type size in KeyCompare::Compare8_Binary_avx2");
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(offset_right_array), offset_right_lo);
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(&offset_right_array[4]),
+                      offset_right_hi);
 
   // Non-zero length guarantees no underflow
   int32_t num_loops_less_one = (static_cast<int32_t>(length) + 31) / 32 - 1;
@@ -427,13 +467,14 @@ uint32_t KeyCompare::CompareBinaryColumnToRowImp_avx2(
         offset_within_row, num_rows_to_compare, sel_left_maybe_null, left_to_right_map,
         ctx, col, rows, match_bytevector,
         [bit_offset](const uint8_t* left_base, const uint8_t* right_base,
-                     uint32_t irow_left_base, __m256i irow_left, __m256i offset_right) {
+                     uint32_t irow_left_base, __m256i irow_left, __m256i offset_right_lo,
+                     __m256i offset_right_hi) {
           if (use_selection) {
             return CompareSelected8_avx2<0>(left_base, right_base, irow_left,
-                                            offset_right, bit_offset);
+                                            offset_right_lo, offset_right_hi, bit_offset);
           } else {
-            return Compare8_avx2<0>(left_base, right_base, irow_left_base, offset_right,
-                                    bit_offset);
+            return Compare8_avx2<0>(left_base, right_base, irow_left_base,
+                                    offset_right_lo, offset_right_hi, bit_offset);
           }
         });
   } else if (col_width == 1) {
@@ -441,12 +482,13 @@ uint32_t KeyCompare::CompareBinaryColumnToRowImp_avx2(
         offset_within_row, num_rows_to_compare, sel_left_maybe_null, left_to_right_map,
         ctx, col, rows, match_bytevector,
         [](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left_base,
-           __m256i irow_left, __m256i offset_right) {
+           __m256i irow_left, __m256i offset_right_lo, __m256i offset_right_hi) {
           if (use_selection) {
             return CompareSelected8_avx2<1>(left_base, right_base, irow_left,
-                                            offset_right);
+                                            offset_right_lo, offset_right_hi);
           } else {
-            return Compare8_avx2<1>(left_base, right_base, irow_left_base, offset_right);
+            return Compare8_avx2<1>(left_base, right_base, irow_left_base,
+                                    offset_right_lo, offset_right_hi);
           }
         });
   } else if (col_width == 2) {
@@ -454,12 +496,13 @@ uint32_t KeyCompare::CompareBinaryColumnToRowImp_avx2(
         offset_within_row, num_rows_to_compare, sel_left_maybe_null, left_to_right_map,
         ctx, col, rows, match_bytevector,
         [](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left_base,
-           __m256i irow_left, __m256i offset_right) {
+           __m256i irow_left, __m256i offset_right_lo, __m256i offset_right_hi) {
           if (use_selection) {
             return CompareSelected8_avx2<2>(left_base, right_base, irow_left,
-                                            offset_right);
+                                            offset_right_lo, offset_right_hi);
           } else {
-            return Compare8_avx2<2>(left_base, right_base, irow_left_base, offset_right);
+            return Compare8_avx2<2>(left_base, right_base, irow_left_base,
+                                    offset_right_lo, offset_right_hi);
           }
         });
   } else if (col_width == 4) {
@@ -467,12 +510,13 @@ uint32_t KeyCompare::CompareBinaryColumnToRowImp_avx2(
         offset_within_row, num_rows_to_compare, sel_left_maybe_null, left_to_right_map,
         ctx, col, rows, match_bytevector,
         [](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left_base,
-           __m256i irow_left, __m256i offset_right) {
+           __m256i irow_left, __m256i offset_right_lo, __m256i offset_right_hi) {
           if (use_selection) {
             return CompareSelected8_avx2<4>(left_base, right_base, irow_left,
-                                            offset_right);
+                                            offset_right_lo, offset_right_hi);
           } else {
-            return Compare8_avx2<4>(left_base, right_base, irow_left_base, offset_right);
+            return Compare8_avx2<4>(left_base, right_base, irow_left_base,
+                                    offset_right_lo, offset_right_hi);
           }
         });
   } else if (col_width == 8) {
@@ -480,19 +524,22 @@ uint32_t KeyCompare::CompareBinaryColumnToRowImp_avx2(
         offset_within_row, num_rows_to_compare, sel_left_maybe_null, left_to_right_map,
         ctx, col, rows, match_bytevector,
         [](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left_base,
-           __m256i irow_left, __m256i offset_right) {
+           __m256i irow_left, __m256i offset_right_lo, __m256i offset_right_hi) {
           return Compare8_64bit_avx2<use_selection>(left_base, right_base, irow_left,
-                                                    irow_left_base, offset_right);
+                                                    irow_left_base, offset_right_lo,
+                                                    offset_right_hi);
         });
   } else {
     return CompareBinaryColumnToRowHelper_avx2<use_selection>(
         offset_within_row, num_rows_to_compare, sel_left_maybe_null, left_to_right_map,
         ctx, col, rows, match_bytevector,
         [&col](const uint8_t* left_base, const uint8_t* right_base,
-               uint32_t irow_left_base, __m256i irow_left, __m256i offset_right) {
+               uint32_t irow_left_base, __m256i irow_left, __m256i offset_right_lo,
+               __m256i offset_right_hi) {
           uint32_t length = col.metadata().fixed_length;
-          return Compare8_Binary_avx2<use_selection>(
-              length, left_base, right_base, irow_left, irow_left_base, offset_right);
+          return Compare8_Binary_avx2<use_selection>(length, left_base, right_base,
+                                                     irow_left, irow_left_base,
+                                                     offset_right_lo, offset_right_hi);
         });
   }
 }
@@ -505,7 +552,7 @@ void KeyCompare::CompareVarBinaryColumnToRowImp_avx2(
     LightContext* ctx, const KeyColumnArray& col, const RowTableImpl& rows,
     uint8_t* match_bytevector) {
   const uint32_t* offsets_left = col.offsets();
-  const uint32_t* offsets_right = rows.offsets();
+  const RowTableImpl::offset_type* offsets_right = rows.offsets();
   const uint8_t* rows_left = col.data(2);
   const uint8_t* rows_right = rows.data(2);
   for (uint32_t i = 0; i < num_rows_to_compare; ++i) {
@@ -513,7 +560,7 @@ void KeyCompare::CompareVarBinaryColumnToRowImp_avx2(
     uint32_t irow_right = left_to_right_map[irow_left];
     uint32_t begin_left = offsets_left[irow_left];
     uint32_t length_left = offsets_left[irow_left + 1] - begin_left;
-    uint32_t begin_right = offsets_right[irow_right];
+    RowTableImpl::offset_type begin_right = offsets_right[irow_right];
     uint32_t length_right;
     uint32_t offset_within_row;
     if (!is_first_varbinary_col) {
@@ -569,7 +616,7 @@ uint32_t KeyCompare::NullUpdateColumnToRow_avx2(
     bool use_selection, uint32_t id_col, uint32_t num_rows_to_compare,
     const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
     LightContext* ctx, const KeyColumnArray& col, const RowTableImpl& rows,
-    uint8_t* match_bytevector) {
+    bool are_cols_in_encoding_order, uint8_t* match_bytevector) {
   int64_t num_rows_safe =
       TailSkipForSIMD::FixBitAccess(sizeof(uint32_t), col.length(), col.bit_offset(0));
   if (sel_left_maybe_null) {
@@ -580,13 +627,13 @@ uint32_t KeyCompare::NullUpdateColumnToRow_avx2(
   }
 
   if (use_selection) {
-    return NullUpdateColumnToRowImp_avx2<true>(id_col, num_rows_to_compare,
-                                               sel_left_maybe_null, left_to_right_map,
-                                               ctx, col, rows, match_bytevector);
+    return NullUpdateColumnToRowImp_avx2<true>(
+        id_col, num_rows_to_compare, sel_left_maybe_null, left_to_right_map, ctx, col,
+        rows, are_cols_in_encoding_order, match_bytevector);
   } else {
-    return NullUpdateColumnToRowImp_avx2<false>(id_col, num_rows_to_compare,
-                                                sel_left_maybe_null, left_to_right_map,
-                                                ctx, col, rows, match_bytevector);
+    return NullUpdateColumnToRowImp_avx2<false>(
+        id_col, num_rows_to_compare, sel_left_maybe_null, left_to_right_map, ctx, col,
+        rows, are_cols_in_encoding_order, match_bytevector);
   }
 }
 

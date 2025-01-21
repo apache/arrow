@@ -260,7 +260,9 @@ Result<uintptr_t> GetDeviceAddress(const uint8_t* cpu_data,
 ARROW_EXPORT
 Result<uint8_t*> GetHostAddress(uintptr_t device_ptr);
 
-ARROW_EXPORT
+ARROW_DEPRECATED(
+    "Deprecated in 16.0.0. The CUDA device is registered by default, and you can use "
+    "arrow::DefaultDeviceMapper instead.")
 Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType device_type,
                                                            int64_t device_id);
 

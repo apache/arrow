@@ -127,7 +127,7 @@ TEST(DefLevelsToBitmap, WithRepetitionLevelFiltersOutEmptyListValues) {
   level_info.repeated_ancestor_def_level = 1;
   level_info.def_level = 2;
   level_info.rep_level = 1;
-  // All zeros should be ignored, ones should be unset in the bitmp and 2 should be set.
+  // All zeros should be ignored, ones should be unset in the bitmap and 2 should be set.
   std::vector<int16_t> def_levels = {0, 0, 0, 2, 2, 1, 0, 2};
   DefLevelsToBitmap(def_levels.data(), def_levels.size(), level_info, &io);
 

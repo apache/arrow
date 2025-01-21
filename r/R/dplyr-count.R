@@ -56,7 +56,7 @@ tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
 
 tally.Dataset <- tally.ArrowTabular <- tally.RecordBatchReader <- tally.arrow_dplyr_query
 
-# we don't want to depend on dplyr, but we refrence these above
+# we don't want to depend on dplyr, but we reference these above
 utils::globalVariables(c("n", "desc"))
 
 check_n_name <- function(name,

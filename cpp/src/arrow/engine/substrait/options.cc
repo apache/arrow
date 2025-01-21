@@ -81,7 +81,7 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
       rel.UnpackTo(&seg_agg_rel);
       return MakeSegmentedAggregateRel(conv_opts, inputs, seg_agg_rel, ext_set);
     }
-    return Status::NotImplemented("Unrecognized extension in Susbstrait plan: ",
+    return Status::NotImplemented("Unrecognized extension in Substrait plan: ",
                                   rel.DebugString());
   }
 

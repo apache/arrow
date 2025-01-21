@@ -16,8 +16,8 @@
 // under the License.
 
 #ifndef _WIN32
-#include <fcntl.h>  // IWYU pragma: keep
-#include <unistd.h>
+#  include <fcntl.h>  // IWYU pragma: keep
+#  include <unistd.h>
 #endif
 
 #include <algorithm>
@@ -46,8 +46,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 using ::arrow::internal::TemporaryDir;
 
@@ -321,7 +320,7 @@ TEST_F(TestBufferedOutputStream, TruncatesFile) {
 // ----------------------------------------------------------------------
 // BufferedInputStream tests
 
-const char kExample1[] = "informaticacrobaticsimmolation";
+const std::string_view kExample1 = "informaticacrobaticsimmolation";
 
 class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
  public:
@@ -330,7 +329,8 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
     local_pool_ = MemoryPool::CreateDefault();
   }
 
-  void MakeExample1(int64_t buffer_size, MemoryPool* pool = default_memory_pool()) {
+  void MakeExample1(int64_t buffer_size, MemoryPool* pool = default_memory_pool(),
+                    int64_t raw_read_bound = -1) {
     test_data_ = kExample1;
 
     ASSERT_OK_AND_ASSIGN(auto file_out, FileOutputStream::Open(path_));
@@ -339,7 +339,8 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
 
     ASSERT_OK_AND_ASSIGN(auto file_in, ReadableFile::Open(path_));
     raw_ = file_in;
-    ASSERT_OK_AND_ASSIGN(buffered_, BufferedInputStream::Create(buffer_size, pool, raw_));
+    ASSERT_OK_AND_ASSIGN(
+        buffered_, BufferedInputStream::Create(buffer_size, pool, raw_, raw_read_bound));
   }
 
  protected:
@@ -471,6 +472,46 @@ TEST_F(TestBufferedInputStream, SetBufferSize) {
 
   // Shrinking to exactly number of buffered bytes is ok
   ASSERT_OK(buffered_->SetBufferSize(5));
+}
+
+// GH-43060: Internal buffer should not greater than the
+// bytes could buffer.
+TEST_F(TestBufferedInputStream, BufferSizeLimit) {
+  {
+    // Buffer size should not exceeds raw_read_bound
+    MakeExample1(/*buffer_size=*/100000, default_memory_pool(), /*raw_read_bound=*/15);
+    EXPECT_EQ(15, buffered_->buffer_size());
+  }
+  {
+    // Set a buffer size after read.
+    MakeExample1(/*buffer_size=*/10, default_memory_pool(), /*raw_read_bound=*/15);
+    ASSERT_OK(buffered_->Read(10));
+    ASSERT_OK(buffered_->SetBufferSize(/*new_buffer_size=*/100000));
+    EXPECT_EQ(5, buffered_->buffer_size());
+  }
+}
+
+TEST_F(TestBufferedInputStream, PeekPastBufferedBytes) {
+  // GH-43949: Peek and SetBufferSize should not affect the
+  // buffered bytes.
+  MakeExample1(/*buffer_size=*/10, default_memory_pool(), /*raw_read_bound=*/15);
+  ASSERT_OK_AND_ASSIGN(auto bytes, buffered_->Read(9));
+  EXPECT_EQ(std::string_view(*bytes), kExample1.substr(0, 9));
+  ASSERT_EQ(1, buffered_->bytes_buffered());
+  ASSERT_EQ(10, buffered_->buffer_size());
+  ASSERT_OK_AND_ASSIGN(auto view, buffered_->Peek(3));
+  EXPECT_EQ(view, kExample1.substr(9, 3));
+  ASSERT_EQ(3, buffered_->bytes_buffered());
+  ASSERT_EQ(12, buffered_->buffer_size());
+  ASSERT_OK_AND_ASSIGN(view, buffered_->Peek(10));
+  // Peek() cannot go past the `raw_read_bound`
+  EXPECT_EQ(view, kExample1.substr(9, 6));
+  ASSERT_EQ(6, buffered_->bytes_buffered());
+  ASSERT_EQ(15, buffered_->buffer_size());
+  // Do read
+  ASSERT_OK_AND_ASSIGN(bytes, buffered_->Read(6));
+  EXPECT_EQ(std::string_view(*bytes), kExample1.substr(9, 6));
+  ASSERT_EQ(0, buffered_->bytes_buffered());
 }
 
 class TestBufferedInputStreamBound : public ::testing::Test {
@@ -672,5 +713,271 @@ TEST_F(TestBufferedInputStreamBound, BufferExactlyExhausted) {
   }
 }
 
-}  // namespace io
-}  // namespace arrow
+// These tests exercise the buffering algorithm by checking the reads issued
+// to the underlying raw stream.
+class TestBufferedInputStreamChunk : public TestBufferedInputStream {
+ public:
+  void SetUp() { TestBufferedInputStream::SetUp(); }
+
+  void TearDown() {
+    buffered_ = nullptr;
+    tracked_ = nullptr;
+    raw_ = nullptr;
+  }
+
+  void MakeExample(int64_t buffer_size,
+                   std::optional<int64_t> read_bound = std::nullopt) {
+    test_data_ = kExample1;
+    MemoryPool* pool = default_memory_pool();
+
+    ASSERT_OK_AND_ASSIGN(auto file_out, FileOutputStream::Open(path_));
+    ASSERT_OK(file_out->Write(test_data_));
+    ASSERT_OK(file_out->Close());
+
+    ASSERT_OK_AND_ASSIGN(auto file_in, ReadableFile::Open(path_));
+    raw_ = file_in;
+    tracked_ = TrackedRandomAccessFile::Make(dynamic_cast<RandomAccessFile*>(raw_.get()));
+    ASSERT_OK_AND_ASSIGN(buffered_,
+                         BufferedInputStream::Create(buffer_size, pool, tracked_,
+                                                     read_bound.value_or(-1)));
+  }
+
+ protected:
+  std::shared_ptr<TrackedRandomAccessFile> tracked_;
+};
+
+TEST_F(TestBufferedInputStreamChunk, NoRead) {
+  const int64_t kBufferSize = 5;
+  MakeExample(kBufferSize);
+
+  EXPECT_TRUE(tracked_->get_read_ranges().empty());
+}
+
+TEST_F(TestBufferedInputStreamChunk, LargeRead) {
+  const int64_t kBufferSize = 5;
+  MakeExample(kBufferSize);
+
+  // Read bytes greater than buffer_size would not buffer.
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(6));
+  AssertBufferEqual(*buf, kExample1.substr(0, 6));
+
+  EXPECT_EQ(0, buffered_->bytes_buffered());
+  std::vector<ReadRange> read_ranges = {ReadRange{0, 6}};
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+}
+
+TEST_F(TestBufferedInputStreamChunk, SmallReadThenLargeRead) {
+  const int64_t kBufferSize = 5;
+  MakeExample(kBufferSize);
+
+  // Small read would trigger buffer the whole chunk
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(1));
+  AssertBufferEqual(*buf, kExample1.substr(0, 1));
+  EXPECT_EQ(4, buffered_->bytes_buffered());
+  std::vector<ReadRange> read_ranges = {ReadRange{0, 5}};
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+
+  // Large read with pre-buffered will copy the
+  // pre-buffered data first, then read the remaining without filling
+  // the buffer.
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(20));
+  AssertBufferEqual(*buf, kExample1.substr(1, 20));
+  EXPECT_EQ(0, buffered_->bytes_buffered());
+  read_ranges.push_back(ReadRange{5, 16});
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+
+  // Small read again
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(2));
+  AssertBufferEqual(*buf, kExample1.substr(21, 2));
+  EXPECT_EQ(kBufferSize - 2, buffered_->bytes_buffered());
+  read_ranges.push_back(ReadRange{21, 5});
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+}
+
+TEST_F(TestBufferedInputStreamChunk, BufferWholeChunk) {
+  const int64_t kBufferSize = 5;
+  MakeExample(kBufferSize);
+
+  // Small read
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(1));
+  AssertBufferEqual(*buf, kExample1.substr(0, 1));
+  EXPECT_EQ(kBufferSize - 1, buffered_->bytes_buffered());
+  std::vector<ReadRange> read_ranges = {ReadRange{0, 5}};
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+
+  // Whole read size is larger than buffer size, but raw read size would be
+  // smaller than buffer size => buffer is filled anew
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(6));
+  AssertBufferEqual(*buf, kExample1.substr(1, 6));
+  EXPECT_EQ(kBufferSize * 2 - 1 - 6, buffered_->bytes_buffered());
+  read_ranges.push_back(ReadRange{5, 5});
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+}
+
+TEST_F(TestBufferedInputStreamChunk, BufferLargerThanFileSize) {
+  const int64_t kFileSize = static_cast<int64_t>(kExample1.size());
+  const int64_t kBufferSize = kFileSize + 10;
+  MakeExample(kBufferSize);
+
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(1));
+  AssertBufferEqual(*buf, kExample1.substr(0, 1));
+  EXPECT_EQ(kFileSize - 1, buffered_->bytes_buffered());
+  std::vector<ReadRange> read_ranges = {ReadRange{0, kBufferSize}};
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(kFileSize - 3));
+  AssertBufferEqual(*buf, kExample1.substr(1, kFileSize - 3));
+  EXPECT_EQ(2, buffered_->bytes_buffered());
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+
+  // Short read up to EOF
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(20));
+  AssertBufferEqual(*buf, kExample1.substr(kFileSize - 2, 2));
+  EXPECT_EQ(0, buffered_->bytes_buffered());
+  read_ranges.push_back(ReadRange{kFileSize, kBufferSize});
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+
+  // EOF
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(20));
+  AssertBufferEqual(*buf, "");
+  EXPECT_EQ(0, buffered_->bytes_buffered());
+  // (BufferedInputStream still tries to fetch more bytes)
+  read_ranges.push_back(ReadRange{kFileSize, kBufferSize});
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+}
+
+TEST_F(TestBufferedInputStreamChunk, BufferLargerThanReadBound) {
+  const int64_t kBufferSize = 6;
+  const int64_t kReadBound = 5;
+  MakeExample(kBufferSize, kReadBound);
+
+  // Small read
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(1));
+  AssertBufferEqual(*buf, kExample1.substr(0, 1));
+  EXPECT_EQ(kReadBound - 1, buffered_->bytes_buffered());
+  std::vector<ReadRange> read_ranges = {ReadRange{0, 5}};
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+
+  // Longer read, but truncated due to the read bound
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(10));
+  AssertBufferEqual(*buf, kExample1.substr(1, 4));
+  EXPECT_EQ(0, buffered_->bytes_buffered());
+  // Due to the read bound, no more row reads were issued
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+
+  // EOF
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(10));
+  AssertBufferEqual(*buf, "");
+  EXPECT_EQ(0, buffered_->bytes_buffered());
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+}
+
+TEST_F(TestBufferedInputStreamChunk, BufferSmallerThanReadBound) {
+  const int64_t kBufferSize = 3;
+  const int64_t kReadBound = 5;
+  MakeExample(kBufferSize, kReadBound);
+
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(6));
+  AssertBufferEqual(*buf, kExample1.substr(0, 5));
+  EXPECT_EQ(0, buffered_->bytes_buffered());
+  std::vector<ReadRange> read_ranges = {ReadRange{0, 5}};
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+
+  // EOF
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(10));
+  AssertBufferEqual(*buf, "");
+  EXPECT_EQ(0, buffered_->bytes_buffered());
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
+}
+
+class TestBufferedInputStreamRandom : public ::testing::Test {
+ public:
+  void MakeBuffered(int64_t data_size, int64_t buffer_size,
+                    std::optional<int64_t> read_bound = std::nullopt) {
+    buffer_size_ = buffer_size;
+    data_.clear();
+    data_.reserve(data_size);
+    while (data_.size() < static_cast<size_t>(data_size)) {
+      data_.append(kExample1, /*pos*/ 0,
+                   /*count*/ static_cast<size_t>(data_size) - data_.size());
+    }
+    EXPECT_EQ(data_.size(), data_size);
+
+    // Clear dependent streams in reverse order
+    buffered_.reset();
+    tracked_.reset();
+    // Read from a copy of data, so that data_.substr() below doesn't invalidate it
+    raw_ = BufferReader::FromString(data_);
+    tracked_ = TrackedRandomAccessFile::Make(raw_.get());
+    EXPECT_OK_AND_ASSIGN(buffered_,
+                         BufferedInputStream::Create(buffer_size, default_memory_pool(),
+                                                     tracked_, read_bound.value_or(-1)));
+    if (read_bound) {
+      data_ = data_.substr(0, *read_bound);
+    }
+  }
+
+  void TestReads() {
+    std::default_random_engine gen(/*seed*/ 42);
+    std::uniform_int_distribution<int64_t> read_len_dist(1, 80);
+
+    int64_t pos = 0;
+    const int64_t size = static_cast<int64_t>(data_.size());
+    while (pos < size) {
+      const int64_t read_len = read_len_dist(gen);
+      ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(read_len));
+      AssertBufferEqual(*buf, std::string_view(data_).substr(pos, read_len));
+      pos += buf->size();
+    }
+
+    // EOF was reached
+    ASSERT_EQ(pos, size);
+
+    // Number of reads should not be excessive given the buffer size
+    int64_t max_reads = (size + buffer_size_ - 1) / buffer_size_;
+    EXPECT_LE(tracked_->num_reads(), max_reads);
+    const auto& read_ranges = tracked_->get_read_ranges();
+    pos = 0;
+    for (size_t i = 0; i < read_ranges.size(); ++i) {
+      const auto cur = read_ranges[i];
+      ASSERT_EQ(cur.offset, pos);
+      // Never read less than buffer size bytes, except perhaps if fewer bytes remain
+      ASSERT_GE(cur.length, std::min(buffer_size_, size - pos));
+      // Bump actual position in the file
+      pos += std::min(cur.length, size - pos);
+    }
+
+    // Further reads return an empty buffer
+    ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(buffer_size_ - 1));
+    AssertBufferEqual(*buf, "");
+    ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(buffer_size_ + 1));
+    AssertBufferEqual(*buf, "");
+  }
+
+ protected:
+  std::string data_;
+  int64_t buffer_size_;
+  std::shared_ptr<RandomAccessFile> raw_;
+  std::shared_ptr<TrackedRandomAccessFile> tracked_;
+  std::shared_ptr<BufferedInputStream> buffered_;
+};
+
+TEST_F(TestBufferedInputStreamRandom, ReadsWithoutReadBound) {
+  constexpr int kNumIters = 10;
+
+  for (int i = 0; i < kNumIters; ++i) {
+    MakeBuffered(/*data_size=*/3000, /*buffer_size=*/11);
+    TestReads();
+  }
+}
+
+TEST_F(TestBufferedInputStreamRandom, ReadsWithReadBound) {
+  constexpr int kNumIters = 10;
+
+  for (int i = 0; i < kNumIters; ++i) {
+    MakeBuffered(/*data_size=*/3000, /*buffer_size=*/11, /*read_bound=*/2000);
+    TestReads();
+  }
+}
+
+}  // namespace arrow::io

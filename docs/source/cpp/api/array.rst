@@ -19,6 +19,13 @@
 Arrays
 ======
 
+Base classes
+============
+
+.. doxygenclass:: arrow::ArrayStatistics
+   :project: arrow_cpp
+   :members:
+
 .. doxygenclass:: arrow::ArrayData
    :project: arrow_cpp
    :members:
@@ -26,6 +33,12 @@ Arrays
 .. doxygenclass:: arrow::Array
    :project: arrow_cpp
    :members:
+
+Factory functions
+=================
+
+.. doxygengroup:: array-factories
+   :content-only:
 
 Concrete array subclasses
 =========================
@@ -79,6 +92,16 @@ Chunked Arrays
    :project: arrow_cpp
    :members:
 
+.. doxygentypedef:: arrow::ChunkLocation
+   :project: arrow_cpp
+
+.. doxygenstruct:: arrow::TypedChunkLocation
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::ChunkResolver
+   :project: arrow_cpp
+   :members:
 
 Utilities
 =========

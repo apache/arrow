@@ -18,25 +18,36 @@
 import Foundation
 
 public class ArrowBuffer {
-    static let min_length: UInt = 1 << 5
-    static let max_length = UInt.max    
+    static let minLength: UInt = 1 << 5
+    static let maxLength = UInt.max
     fileprivate(set) var length: UInt
     let capacity: UInt
-    let rawPointer: UnsafeMutableRawPointer
+    public let rawPointer: UnsafeMutableRawPointer
+    let isMemoryOwner: Bool
 
-    init(length: UInt, capacity: UInt, rawPointer: UnsafeMutableRawPointer) {
+    init(length: UInt, capacity: UInt, rawPointer: UnsafeMutableRawPointer, isMemoryOwner: Bool = true) {
         self.length = length
         self.capacity = capacity
         self.rawPointer = rawPointer
+        self.isMemoryOwner = isMemoryOwner
     }
 
     deinit {
-        self.rawPointer.deallocate()
+        if isMemoryOwner {
+            self.rawPointer.deallocate()
+        }
     }
 
     func append(to data: inout Data) {
         let ptr  = UnsafePointer(rawPointer.assumingMemoryBound(to: UInt8.self))
-        data.append(ptr, count: Int(capacity));
+        data.append(ptr, count: Int(capacity))
+    }
+
+    static func createEmptyBuffer() -> ArrowBuffer {
+        return ArrowBuffer(
+            length: 0,
+            capacity: 0,
+            rawPointer: UnsafeMutableRawPointer.allocate(byteCount: 0, alignment: .zero))
     }
 
     static func createBuffer(_ data: [UInt8], length: UInt) -> ArrowBuffer {
@@ -49,13 +60,13 @@ public class ArrowBuffer {
     }
 
     static func createBuffer(_ length: UInt, size: UInt, doAlign: Bool = true) -> ArrowBuffer {
-        let actualLen = max(length, ArrowBuffer.min_length)
+        let actualLen = max(length, ArrowBuffer.minLength)
         let byteCount = size * actualLen
         var capacity = byteCount
         if doAlign {
             capacity = alignTo64(byteCount)
         }
-        
+
         let memory = MemoryAllocator(64)
         let rawPointer = memory.allocateArray(Int(capacity))
         rawPointer.initializeMemory(as: UInt8.self, repeating: 0, count: Int(capacity))
@@ -64,14 +75,14 @@ public class ArrowBuffer {
 
     static func copyCurrent(_ from: ArrowBuffer, to: inout ArrowBuffer, len: UInt) {
         to.rawPointer.copyMemory(from: from.rawPointer, byteCount: Int(len))
-    }    
+    }
 
     private static func alignTo64(_ length: UInt) -> UInt {
-        let buf_alignment = length % 64;
-        if buf_alignment != 0 {
-            return length + (64 - buf_alignment) + 8;
+        let bufAlignment = length % 64
+        if bufAlignment != 0 {
+            return length + (64 - bufAlignment) + 8
         }
 
-        return length + 8;
+        return length + 8
     }
 }

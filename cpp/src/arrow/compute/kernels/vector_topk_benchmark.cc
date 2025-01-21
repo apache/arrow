@@ -17,8 +17,11 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/array.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/exec.h"
+#include "arrow/datum.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
@@ -52,7 +55,6 @@ BENCHMARK(SelectKInt64)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 100})
     ->Args({1 << 23, 100})
-    ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
 }  // namespace compute

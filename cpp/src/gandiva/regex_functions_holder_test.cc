@@ -19,7 +19,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <memory>
-#include <vector>
+
+#include "arrow/testing/gtest_util.h"
 #include "gandiva/regex_util.h"
 
 namespace gandiva {
@@ -27,11 +28,13 @@ namespace gandiva {
 class TestLikeHolder : public ::testing::Test {
  public:
   RE2::Options regex_op;
+  void SetUp() { regex_op.set_dot_nl(true); }
+
   FunctionNode BuildLike(std::string pattern) {
     auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
     auto pattern_node =
         std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
-    return FunctionNode("like", {field, pattern_node}, arrow::boolean());
+    return {"like", {field, pattern_node}, arrow::boolean()};
   }
 
   FunctionNode BuildLike(std::string pattern, char escape_char) {
@@ -40,16 +43,12 @@ class TestLikeHolder : public ::testing::Test {
         std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
     auto escape_char_node = std::make_shared<LiteralNode>(
         arrow::utf8(), LiteralHolder(std::string(1, escape_char)), false);
-    return FunctionNode("like", {field, pattern_node, escape_char_node},
-                        arrow::boolean());
+    return {"like", {field, pattern_node, escape_char_node}, arrow::boolean()};
   }
 };
 
 TEST_F(TestLikeHolder, TestMatchAny) {
-  std::shared_ptr<LikeHolder> like_holder;
-
-  auto status = LikeHolder::Make("ab%", &like_holder, regex_op);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab%", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like("ab"));
@@ -61,10 +60,7 @@ TEST_F(TestLikeHolder, TestMatchAny) {
 }
 
 TEST_F(TestLikeHolder, TestMatchOne) {
-  std::shared_ptr<LikeHolder> like_holder;
-
-  auto status = LikeHolder::Make("ab_", &like_holder, regex_op);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab_", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like("abc"));
@@ -76,46 +72,51 @@ TEST_F(TestLikeHolder, TestMatchOne) {
 }
 
 TEST_F(TestLikeHolder, TestPcreSpecial) {
-  std::shared_ptr<LikeHolder> like_holder;
-
-  auto status = LikeHolder::Make(".*ab_", &like_holder, regex_op);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make(".*ab_", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like(".*abc"));  // . and * aren't special in sql regex
   EXPECT_FALSE(like("xxabc"));
 }
 
+TEST_F(TestLikeHolder, TestPcreSpecialWithNewLine) {
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("%Space1.%", regex_op));
+
+  auto& like = *like_holder;
+  EXPECT_TRUE(
+      like("[name: \"Space1.protect\"\nargs: \"count\"\ncolumn_name: \"pass_count\"]"));
+}
+
 TEST_F(TestLikeHolder, TestRegexEscape) {
   std::string res;
-  auto status = RegexUtil::SqlLikePatternToPcre("#%hello#_abc_def##", '#', res);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ARROW_EXPECT_OK(RegexUtil::SqlLikePatternToPcre("#%hello#_abc_def##", '#', res));
 
   EXPECT_EQ(res, "%hello_abc.def#");
 }
 
 TEST_F(TestLikeHolder, TestDot) {
-  std::shared_ptr<LikeHolder> like_holder;
-
-  auto status = LikeHolder::Make("abc.", &like_holder, regex_op);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("abc.", regex_op));
 
   auto& like = *like_holder;
   EXPECT_FALSE(like("abcd"));
 }
 
-TEST_F(TestLikeHolder, TestMatchSubString) {
-  std::shared_ptr<LikeHolder> like_holder;
+TEST_F(TestLikeHolder, TestMatchWithNewLine) {
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("%abc%", regex_op));
 
-  auto status = LikeHolder::Make("%abc%", "\\", &like_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  auto& like = *like_holder;
+  EXPECT_TRUE(like("abc\nd"));
+}
+
+TEST_F(TestLikeHolder, TestMatchSubString) {
+  EXPECT_OK_AND_ASSIGN(auto like_holder, LikeHolder::Make("%abc%", "\\", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like("abc"));
   EXPECT_FALSE(like("xxabdc"));
 
-  status = LikeHolder::Make("%ab-.^$*+?()[]{}|—/c\\%%", "\\", &like_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(like_holder,
+                       LikeHolder::Make("%ab-.^$*+?()[]{}|—/c\\%%", "\\", regex_op));
 
   auto& like_reserved_char = *like_holder;
   EXPECT_TRUE(like_reserved_char("XXab-.^$*+?()[]{}|—/c%d"));
@@ -190,10 +191,7 @@ TEST_F(TestLikeHolder, TestOptimise) {
 }
 
 TEST_F(TestLikeHolder, TestMatchOneEscape) {
-  std::shared_ptr<LikeHolder> like_holder;
-
-  auto status = LikeHolder::Make("ab\\_", "\\", &like_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab\\_", "\\", regex_op));
 
   auto& like = *like_holder;
 
@@ -207,10 +205,7 @@ TEST_F(TestLikeHolder, TestMatchOneEscape) {
 }
 
 TEST_F(TestLikeHolder, TestMatchManyEscape) {
-  std::shared_ptr<LikeHolder> like_holder;
-
-  auto status = LikeHolder::Make("ab\\%", "\\", &like_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab\\%", "\\", regex_op));
 
   auto& like = *like_holder;
 
@@ -224,10 +219,8 @@ TEST_F(TestLikeHolder, TestMatchManyEscape) {
 }
 
 TEST_F(TestLikeHolder, TestMatchEscape) {
-  std::shared_ptr<LikeHolder> like_holder;
-
-  auto status = LikeHolder::Make("ab\\\\", "\\", &like_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const like_holder,
+                       LikeHolder::Make("ab\\\\", "\\", regex_op));
 
   auto& like = *like_holder;
 
@@ -237,10 +230,7 @@ TEST_F(TestLikeHolder, TestMatchEscape) {
 }
 
 TEST_F(TestLikeHolder, TestEmptyEscapeChar) {
-  std::shared_ptr<LikeHolder> like_holder;
-
-  auto status = LikeHolder::Make("ab\\_", "", &like_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab\\_", "", regex_op));
 
   auto& like = *like_holder;
 
@@ -252,10 +242,7 @@ TEST_F(TestLikeHolder, TestEmptyEscapeChar) {
 }
 
 TEST_F(TestLikeHolder, TestMultipleEscapeChar) {
-  std::shared_ptr<LikeHolder> like_holder;
-
-  auto status = LikeHolder::Make("ab\\_", "\\\\", &like_holder);
-  EXPECT_EQ(status.ok(), false) << status.message();
+  ASSERT_RAISES(Invalid, LikeHolder::Make("ab\\_", "\\\\", regex_op).status());
 }
 
 class TestILikeHolder : public ::testing::Test {
@@ -265,16 +252,14 @@ class TestILikeHolder : public ::testing::Test {
     auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
     auto pattern_node =
         std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
-    return FunctionNode("ilike", {field, pattern_node}, arrow::boolean());
+    return {"ilike", {field, pattern_node}, arrow::boolean()};
   }
 };
 
 TEST_F(TestILikeHolder, TestMatchAny) {
-  std::shared_ptr<LikeHolder> like_holder;
-
   regex_op.set_case_sensitive(false);
-  auto status = LikeHolder::Make("ab%", &like_holder, regex_op);
-  EXPECT_EQ(status.ok(), true) << status.message();
+
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab%", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like("ab"));
@@ -286,11 +271,8 @@ TEST_F(TestILikeHolder, TestMatchAny) {
 }
 
 TEST_F(TestILikeHolder, TestMatchOne) {
-  std::shared_ptr<LikeHolder> like_holder;
-
   regex_op.set_case_sensitive(false);
-  auto status = LikeHolder::Make("Ab_", &like_holder, regex_op);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("Ab_", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like("abc"));
@@ -302,11 +284,8 @@ TEST_F(TestILikeHolder, TestMatchOne) {
 }
 
 TEST_F(TestILikeHolder, TestPcreSpecial) {
-  std::shared_ptr<LikeHolder> like_holder;
-
   regex_op.set_case_sensitive(false);
-  auto status = LikeHolder::Make(".*aB_", &like_holder, regex_op);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make(".*aB_", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like(".*Abc"));  // . and * aren't special in sql regex
@@ -314,11 +293,8 @@ TEST_F(TestILikeHolder, TestPcreSpecial) {
 }
 
 TEST_F(TestILikeHolder, TestDot) {
-  std::shared_ptr<LikeHolder> like_holder;
-
   regex_op.set_case_sensitive(false);
-  auto status = LikeHolder::Make("aBc.", &like_holder, regex_op);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("aBc.", regex_op));
 
   auto& like = *like_holder;
   EXPECT_FALSE(like("abcd"));
@@ -330,10 +306,7 @@ class TestReplaceHolder : public ::testing::Test {
 };
 
 TEST_F(TestReplaceHolder, TestMultipleReplace) {
-  std::shared_ptr<ReplaceHolder> replace_holder;
-
-  auto status = ReplaceHolder::Make("ana", &replace_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const replace_holder, ReplaceHolder::Make("ana"));
 
   std::string input_string = "banana";
   std::string replace_string;
@@ -378,10 +351,7 @@ TEST_F(TestReplaceHolder, TestMultipleReplace) {
 }
 
 TEST_F(TestReplaceHolder, TestNoMatchPattern) {
-  std::shared_ptr<ReplaceHolder> replace_holder;
-
-  auto status = ReplaceHolder::Make("ana", &replace_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const replace_holder, ReplaceHolder::Make("ana"));
 
   std::string input_string = "apple";
   std::string replace_string;
@@ -398,10 +368,7 @@ TEST_F(TestReplaceHolder, TestNoMatchPattern) {
 }
 
 TEST_F(TestReplaceHolder, TestReplaceSameSize) {
-  std::shared_ptr<ReplaceHolder> replace_holder;
-
-  auto status = ReplaceHolder::Make("a", &replace_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const replace_holder, ReplaceHolder::Make("a"));
 
   std::string input_string = "ananindeua";
   std::string replace_string = "b";
@@ -418,11 +385,7 @@ TEST_F(TestReplaceHolder, TestReplaceSameSize) {
 }
 
 TEST_F(TestReplaceHolder, TestReplaceInvalidPattern) {
-  std::shared_ptr<ReplaceHolder> replace_holder;
-
-  auto status = ReplaceHolder::Make("+", &replace_holder);
-  EXPECT_EQ(status.ok(), false) << status.message();
-
+  ASSERT_RAISES(Invalid, ReplaceHolder::Make("+"));
   execution_context_.Reset();
 }
 
@@ -433,11 +396,8 @@ class TestExtractHolder : public ::testing::Test {
 };
 
 TEST_F(TestExtractHolder, TestSimpleExtract) {
-  std::shared_ptr<ExtractHolder> extract_holder;
-
   // Pattern to match of two group of letters
-  auto status = ExtractHolder::Make(R"((\w+) (\w+))", &extract_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto extract_holder, ExtractHolder::Make(R"((\w+) (\w+))"));
 
   std::string input_string = "John Doe";
   int32_t extract_index = 2;  // Retrieve the surname
@@ -469,8 +429,7 @@ TEST_F(TestExtractHolder, TestSimpleExtract) {
   EXPECT_EQ(out_length, 9);
   EXPECT_EQ(ret_as_str, "Paul Test");
 
-  status = ExtractHolder::Make(R"((\w+) (\w+) - (\d+))", &extract_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(extract_holder, ExtractHolder::Make(R"((\w+) (\w+) - (\d+))"));
 
   auto& extract2 = *extract_holder;
 
@@ -502,8 +461,7 @@ TEST_F(TestExtractHolder, TestSimpleExtract) {
   EXPECT_EQ(ret_as_str, "John Doe - 124");
 
   // Pattern to match only numbers
-  status = ExtractHolder::Make(R"(((\w+)))", &extract_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(extract_holder, ExtractHolder::Make(R"(((\w+)))"));
 
   auto& extract_numbers = *extract_holder;
 
@@ -569,11 +527,8 @@ TEST_F(TestExtractHolder, TestSimpleExtract) {
 }
 
 TEST_F(TestExtractHolder, TestNoMatches) {
-  std::shared_ptr<ExtractHolder> extract_holder;
-
   // Pattern to match of two group of letters
-  auto status = ExtractHolder::Make(R"((\w+) (\w+))", &extract_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto extract_holder, ExtractHolder::Make(R"((\w+) (\w+))"));
 
   std::string input_string = "John";
   int32_t extract_index = 2;  // The regex will not match with the input string
@@ -588,8 +543,7 @@ TEST_F(TestExtractHolder, TestNoMatches) {
   EXPECT_FALSE(execution_context_.has_error());
 
   // Pattern to match only numbers
-  status = ExtractHolder::Make(R"(\d+)", &extract_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(extract_holder, ExtractHolder::Make(R"(\d+)"));
 
   auto& extract_numbers = *extract_holder;
 
@@ -616,11 +570,8 @@ TEST_F(TestExtractHolder, TestNoMatches) {
 }
 
 TEST_F(TestExtractHolder, TestInvalidRange) {
-  std::shared_ptr<ExtractHolder> extract_holder;
-
   // Pattern to match of two group of letters
-  auto status = ExtractHolder::Make(R"((\w+) (\w+))", &extract_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto const extract_holder, ExtractHolder::Make(R"((\w+) (\w+))"));
 
   std::string input_string = "John Doe";
   int32_t extract_index = -1;
@@ -650,17 +601,11 @@ TEST_F(TestExtractHolder, TestInvalidRange) {
 }
 
 TEST_F(TestExtractHolder, TestExtractInvalidPattern) {
-  std::shared_ptr<ExtractHolder> extract_holder;
-
-  auto status = ExtractHolder::Make("+", &extract_holder);
-  EXPECT_EQ(status.ok(), false) << status.message();
-
+  ASSERT_RAISES(Invalid, ExtractHolder::Make("+"));
   execution_context_.Reset();
 }
 
 TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
-  std::shared_ptr<ExtractHolder> extract_holder;
-
   // Create function with incorrect number of params
   auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
   auto pattern_node = std::make_shared<LiteralNode>(
@@ -668,10 +613,10 @@ TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
   auto function_node =
       FunctionNode("regexp_extract", {field, pattern_node}, arrow::utf8());
 
-  auto status = ExtractHolder::Make(function_node, &extract_holder);
-  EXPECT_EQ(status.ok(), false);
-  EXPECT_THAT(status.message(),
-              ::testing::HasSubstr("'extract' function requires three parameters"));
+  auto extract_holder = ExtractHolder::Make(function_node);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("'extract' function requires three parameters"),
+      extract_holder.status());
 
   execution_context_.Reset();
 
@@ -682,11 +627,12 @@ TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
   function_node =
       FunctionNode("regexp_extract", {field, pattern_node, index_node}, arrow::utf8());
 
-  status = ExtractHolder::Make(function_node, &extract_holder);
-  EXPECT_EQ(status.ok(), false);
-  EXPECT_THAT(status.message(),
-              ::testing::HasSubstr(
-                  "'extract' function requires a literal as the second parameter"));
+  extract_holder = ExtractHolder::Make(function_node);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "'extract' function requires a literal as the second parameter"),
+      extract_holder.status());
 
   execution_context_.Reset();
 
@@ -698,11 +644,12 @@ TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
   function_node =
       FunctionNode("regexp_extract", {field, pattern_as_node, index_node}, arrow::utf8());
 
-  status = ExtractHolder::Make(function_node, &extract_holder);
-  EXPECT_EQ(status.ok(), false);
-  EXPECT_THAT(status.message(),
-              ::testing::HasSubstr(
-                  "'extract' function requires a literal as the second parameter"));
+  extract_holder = ExtractHolder::Make(function_node);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "'extract' function requires a literal as the second parameter"),
+      extract_holder.status());
 
   execution_context_.Reset();
 }

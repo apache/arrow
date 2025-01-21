@@ -20,12 +20,12 @@ import { Table } from './table.js';
 import { Vector } from './vector.js';
 import { Schema, Field } from './schema.js';
 import { DataType, Struct, Null, TypeMap } from './type.js';
+import { wrapIndex } from './util/vector.js';
 
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
-import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
 /** @ignore */
 export interface RecordBatch<T extends TypeMap = any> {
@@ -117,7 +117,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * Check whether an element is null.
+     * Check whether an row is null.
      * @param index The index at which to read the validity bitmap.
      */
     public isValid(index: number) {
@@ -126,15 +126,23 @@ export class RecordBatch<T extends TypeMap = any> {
 
     /**
      * Get a row by position.
-     * @param index The index of the element to read.
+     * @param index The index of the row to read.
      */
     public get(index: number) {
         return getVisitor.visit(this.data, index);
     }
 
     /**
+      * Get a row value by position.
+      * @param index The index of the row to read. A negative index will count back from the last row.
+      */
+    public at(index: number) {
+        return this.get(wrapIndex(index, this.numRows));
+    }
+
+    /**
      * Set a row by position.
-     * @param index The index of the element to write.
+     * @param index The index of the row to write.
      * @param value The value to set.
      */
     public set(index: number, value: Struct<T>['TValue']) {
@@ -148,14 +156,6 @@ export class RecordBatch<T extends TypeMap = any> {
      */
     public indexOf(element: Struct<T>['TValue'], offset?: number): number {
         return indexOfVisitor.visit(this.data, element, offset);
-    }
-
-    /**
-     * Get the size (in bytes) of a row by index.
-     * @param index The row index for which to compute the byteLength.
-     */
-    public getByteLength(index: number): number {
-        return byteLengthVisitor.visit(this.data, index);
     }
 
     /**
@@ -184,7 +184,7 @@ export class RecordBatch<T extends TypeMap = any> {
     /**
      * Return a zero-copy sub-section of this RecordBatch.
      * @param start The beginning of the specified portion of the RecordBatch.
-     * @param end The end of the specified portion of the RecordBatch. This is exclusive of the element at the index 'end'.
+     * @param end The end of the specified portion of the RecordBatch. This is exclusive of the row at the index 'end'.
      */
     public slice(begin?: number, end?: number): RecordBatch<T> {
         const [slice] = new Vector([this.data]).slice(begin, end).data;
@@ -203,7 +203,7 @@ export class RecordBatch<T extends TypeMap = any> {
      * Returns a child Vector by index, or null if this Vector has no child at the supplied index.
      * @param index The index of the child to retrieve.
      */
-    public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
+    public getChildAt<R extends T[keyof T] = any>(index: number): Vector<R> | null {
         if (index > -1 && index < this.schema.fields.length) {
             return new Vector([this.data.children[index]]) as Vector<R>;
         }
@@ -315,22 +315,24 @@ function ensureSameLengthData<T extends TypeMap = any>(
 }
 
 /** @ignore */
-function collectDictionaries(fields: Field[], children: Data[], dictionaries = new Map<number, Vector>()): Map<number, Vector> {
-    for (let i = -1, n = fields.length; ++i < n;) {
-        const field = fields[i];
-        const type = field.type;
-        const data = children[i];
-        if (DataType.isDictionary(type)) {
-            if (!dictionaries.has(type.id)) {
-                if (data.dictionary) {
-                    dictionaries.set(type.id, data.dictionary);
-                }
-            } else if (dictionaries.get(type.id) !== data.dictionary) {
-                throw new Error(`Cannot create Schema containing two different dictionaries with the same Id`);
+function collectDictionaries(fields: Field[], children: readonly Data[], dictionaries = new Map<number, Vector>()): Map<number, Vector> {
+    if ((fields?.length ?? 0) > 0 && (fields?.length === children?.length)) {
+        for (let i = -1, n = fields.length; ++i < n;) {
+            const { type } = fields[i];
+            const data = children[i];
+            for (const next of [data, ...(data?.dictionary?.data || [])]) {
+                collectDictionaries(type.children, next?.children, dictionaries);
             }
-        }
-        if (type.children && type.children.length > 0) {
-            collectDictionaries(type.children, data.children, dictionaries);
+            if (DataType.isDictionary(type)) {
+                const { id } = type;
+                if (!dictionaries.has(id)) {
+                    if (data?.dictionary) {
+                        dictionaries.set(id, data.dictionary);
+                    }
+                } else if (dictionaries.get(id) !== data.dictionary) {
+                    throw new Error(`Cannot create Schema containing two different dictionaries with the same Id`);
+                }
+            }
         }
     }
     return dictionaries;

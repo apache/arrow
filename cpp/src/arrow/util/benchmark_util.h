@@ -161,7 +161,7 @@ class MemoryPoolMemoryManager : public benchmark::MemoryManager {
     int64_t new_default_allocations =
         default_pool->num_allocations() - global_allocations_start;
 
-    // Only record metrics metrics if (1) there were allocations and (2) we
+    // Only record metrics if (1) there were allocations and (2) we
     // recorded at least one.
     if (new_default_allocations > 0 && memory_pool->num_allocations() > 0) {
       if (new_default_allocations > memory_pool->num_allocations()) {

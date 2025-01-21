@@ -31,12 +31,13 @@ Encryptor::Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string&
       aad_(aad),
       pool_(pool) {}
 
-int Encryptor::CiphertextSizeDelta() { return aes_encryptor_->CiphertextSizeDelta(); }
+int32_t Encryptor::CiphertextLength(int64_t plaintext_len) const {
+  return aes_encryptor_->CiphertextLength(plaintext_len);
+}
 
-int Encryptor::Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* ciphertext) {
-  return aes_encryptor_->Encrypt(plaintext, plaintext_len, str2bytes(key_),
-                                 static_cast<int>(key_.size()), str2bytes(aad_),
-                                 static_cast<int>(aad_.size()), ciphertext);
+int32_t Encryptor::Encrypt(::arrow::util::span<const uint8_t> plaintext,
+                           ::arrow::util::span<uint8_t> ciphertext) {
+  return aes_encryptor_->Encrypt(plaintext, str2span(key_), str2span(aad_), ciphertext);
 }
 
 // InternalFileEncryptor
@@ -52,8 +53,15 @@ InternalFileEncryptor::InternalFileEncryptor(FileEncryptionProperties* propertie
 void InternalFileEncryptor::WipeOutEncryptionKeys() {
   properties_->WipeOutEncryptionKeys();
 
-  for (auto const& i : all_encryptors_) {
-    i->WipeOut();
+  for (auto const& i : meta_encryptor_) {
+    if (i != nullptr) {
+      i->WipeOut();
+    }
+  }
+  for (auto const& i : data_encryptor_) {
+    if (i != nullptr) {
+      i->WipeOut();
+    }
   }
 }
 
@@ -135,7 +143,7 @@ InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
   return encryptor;
 }
 
-int InternalFileEncryptor::MapKeyLenToEncryptorArrayIndex(int key_len) {
+int InternalFileEncryptor::MapKeyLenToEncryptorArrayIndex(int32_t key_len) const {
   if (key_len == 16)
     return 0;
   else if (key_len == 24)
@@ -147,22 +155,20 @@ int InternalFileEncryptor::MapKeyLenToEncryptorArrayIndex(int key_len) {
 
 encryption::AesEncryptor* InternalFileEncryptor::GetMetaAesEncryptor(
     ParquetCipher::type algorithm, size_t key_size) {
-  int key_len = static_cast<int>(key_size);
+  auto key_len = static_cast<int32_t>(key_size);
   int index = MapKeyLenToEncryptorArrayIndex(key_len);
   if (meta_encryptor_[index] == nullptr) {
-    meta_encryptor_[index].reset(
-        encryption::AesEncryptor::Make(algorithm, key_len, true, &all_encryptors_));
+    meta_encryptor_[index] = encryption::AesEncryptor::Make(algorithm, key_len, true);
   }
   return meta_encryptor_[index].get();
 }
 
 encryption::AesEncryptor* InternalFileEncryptor::GetDataAesEncryptor(
     ParquetCipher::type algorithm, size_t key_size) {
-  int key_len = static_cast<int>(key_size);
+  auto key_len = static_cast<int32_t>(key_size);
   int index = MapKeyLenToEncryptorArrayIndex(key_len);
   if (data_encryptor_[index] == nullptr) {
-    data_encryptor_[index].reset(
-        encryption::AesEncryptor::Make(algorithm, key_len, false, &all_encryptors_));
+    data_encryptor_[index] = encryption::AesEncryptor::Make(algorithm, key_len, false);
   }
   return data_encryptor_[index].get();
 }

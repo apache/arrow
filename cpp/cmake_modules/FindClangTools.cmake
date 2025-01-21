@@ -40,7 +40,8 @@ set(CLANG_TOOLS_SEARCH_PATHS
     /usr/local/bin
     /usr/bin
     "C:/Program Files/LLVM/bin" # Windows, non-conda
-    "$ENV{CONDA_PREFIX}/Library/bin") # Windows, conda
+    "$ENV{CONDA_PREFIX}/Library/bin" # Windows, conda
+    "$ENV{CONDA_PREFIX}/bin") # Unix, conda
 if(APPLE)
   find_program(BREW brew)
   if(BREW)
@@ -108,7 +109,7 @@ else()
 endif()
 
 find_clang_tool(clang-format CLANG_FORMAT_BIN
-                "^clang-format version ${ARROW_CLANG_TOOLS_VERSION_ESCAPED}")
+                "clang-format version ${ARROW_CLANG_TOOLS_VERSION_ESCAPED}")
 if(CLANG_FORMAT_BIN)
   set(CLANG_FORMAT_FOUND 1)
   message(STATUS "clang-format found at ${CLANG_FORMAT_BIN}")

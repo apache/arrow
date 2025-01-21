@@ -17,10 +17,14 @@
 
 #pragma once
 
+#ifndef _WIN32
+#  define USE_OS_TZDB 1
+#endif
+
 #if defined(ARROW_STATIC)
 // intentially empty
 #elif defined(ARROW_EXPORTING)
-#define DATE_BUILD_DLL
+#  define DATE_BUILD_DLL
 #else
-#define DATE_USE_DLL
+#  define DATE_USE_DLL
 #endif

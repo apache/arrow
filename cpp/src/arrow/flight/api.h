@@ -27,3 +27,4 @@
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/server_tracing_middleware.h"
 #include "arrow/flight/types.h"
+#include "arrow/flight/types_async.h"

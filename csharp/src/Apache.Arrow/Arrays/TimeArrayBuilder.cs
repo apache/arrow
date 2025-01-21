@@ -88,7 +88,7 @@ namespace Apache.Arrow
         /// Append a null time to the array.
         /// </summary>
         /// <returns>Returns the builder (for fluent-style composition).</returns>
-        public TBuilder AppendNull()
+        public override TBuilder AppendNull()
         {
             InnerBuilder.AppendNull();
             return this as TBuilder;

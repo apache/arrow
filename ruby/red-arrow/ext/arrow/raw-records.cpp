@@ -144,6 +144,128 @@ namespace red_arrow {
       // The number of columns.
       const int n_columns_;
     };
+
+    class RawRecordsProducer : private Converter, public arrow::ArrayVisitor {
+    public:
+      explicit RawRecordsProducer()
+        : Converter(),
+          record_(Qnil),
+          column_index_(0),
+          row_offset_(0) {
+      }
+
+      void produce(const arrow::RecordBatch& record_batch) {
+        rb::protect([&] {
+          const auto n_columns = record_batch.num_columns();
+          const auto n_rows = record_batch.num_rows();
+          for (int64_t i = 0; i < n_rows; ++i) {
+            record_ = rb_ary_new_capa(n_columns);
+            row_offset_ = i;
+            for (int i = 0; i < n_columns; ++i) {
+              const auto array = record_batch.column(i).get();
+              column_index_ = i;
+              check_status(array->Accept(this),
+                           "[record-batch][each-raw-record]");
+            }
+            rb_yield(record_);
+          }
+          return Qnil;
+        });
+      }
+
+      void produce(const arrow::Table& table) {
+        rb::protect([&] {
+          const auto n_columns = table.num_columns();
+          const auto n_rows = table.num_rows();
+          std::vector<int> chunk_indexes(n_columns);
+          std::vector<int64_t> row_offsets(n_columns);
+          for (int64_t i_row = 0; i_row < n_rows; ++i_row) {
+            record_ = rb_ary_new_capa(n_columns);
+            for (int i_column = 0; i_column < n_columns; ++i_column) {
+              column_index_ = i_column;
+              const auto chunked_array = table.column(i_column).get();
+              auto& chunk_index = chunk_indexes[i_column];
+              auto& row_offset = row_offsets[i_column];
+              auto array = chunked_array->chunk(chunk_index).get();
+              while (array->length() == row_offset) {
+                ++chunk_index;
+                row_offset = 0;
+                array = chunked_array->chunk(chunk_index).get();
+              }
+              row_offset_ = row_offset;
+              check_status(array->Accept(this),
+                           "[table][each-raw-record]");
+              ++row_offset;
+            }
+            rb_yield(record_);
+          }
+
+          return Qnil;
+        });
+      }
+
+#define VISIT(TYPE)                                                     \
+      arrow::Status Visit(const arrow::TYPE ## Array& array) override { \
+        convert(array);                                                 \
+        return arrow::Status::OK();                                     \
+      }
+
+      VISIT(Null)
+      VISIT(Boolean)
+      VISIT(Int8)
+      VISIT(Int16)
+      VISIT(Int32)
+      VISIT(Int64)
+      VISIT(UInt8)
+      VISIT(UInt16)
+      VISIT(UInt32)
+      VISIT(UInt64)
+      VISIT(HalfFloat)
+      VISIT(Float)
+      VISIT(Double)
+      VISIT(Binary)
+      VISIT(String)
+      VISIT(FixedSizeBinary)
+      VISIT(Date32)
+      VISIT(Date64)
+      VISIT(Time32)
+      VISIT(Time64)
+      VISIT(Timestamp)
+      VISIT(MonthInterval)
+      VISIT(DayTimeInterval)
+      VISIT(MonthDayNanoInterval)
+      VISIT(List)
+      VISIT(Struct)
+      VISIT(Map)
+      VISIT(SparseUnion)
+      VISIT(DenseUnion)
+      VISIT(Dictionary)
+      VISIT(Decimal128)
+      VISIT(Decimal256)
+      // TODO
+      // VISIT(Extension)
+
+#undef VISIT
+
+    private:
+        template <typename ArrayType>
+        void convert(const ArrayType& array) {
+          auto value = Qnil;
+          if (!array.IsNull(row_offset_)) {
+            value = convert_value(array, row_offset_);
+          }
+          rb_ary_store(record_, column_index_, value);
+        }
+
+        // Destination for converted record.
+        VALUE record_;
+
+        // The current column index.
+        int column_index_;
+
+        // The current row offset.
+        int64_t row_offset_;
+    };
   }
 
   VALUE
@@ -180,5 +302,37 @@ namespace red_arrow {
     }
 
     return records;
+  }
+
+  VALUE
+  record_batch_each_raw_record(VALUE rb_record_batch) {
+    auto garrow_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(rb_record_batch));
+    auto record_batch = garrow_record_batch_get_raw(garrow_record_batch).get();
+    RETURN_SIZED_ENUMERATOR(rb_record_batch, 0, nullptr, record_batch->num_rows());
+
+    try {
+      RawRecordsProducer producer;
+      producer.produce(*record_batch);
+    } catch (rb::State& state) {
+      state.jump();
+    }
+
+    return Qnil;
+  }
+
+  VALUE
+  table_each_raw_record(VALUE rb_table) {
+    auto garrow_table = GARROW_TABLE(RVAL2GOBJ(rb_table));
+    auto table = garrow_table_get_raw(garrow_table).get();
+    RETURN_SIZED_ENUMERATOR(rb_table, 0, nullptr, table->num_rows());
+
+    try {
+      RawRecordsProducer producer;
+      producer.produce(*table);
+    } catch (rb::State& state) {
+      state.jump();
+    }
+
+    return Qnil;
   }
 }

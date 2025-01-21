@@ -33,14 +33,12 @@ def test_docker_run_with_custom_command(run, build, pull):
 
     assert result.exit_code == 0
     pull.assert_called_once_with(
-        "ubuntu-cpp", pull_leaf=True, using_docker=False
+        "ubuntu-cpp", pull_leaf=True,
     )
     build.assert_called_once_with(
         "ubuntu-cpp",
         use_cache=True,
         use_leaf_cache=True,
-        using_docker=False,
-        using_buildx=False
     )
     run.assert_called_once_with(
         "ubuntu-cpp",
@@ -48,7 +46,6 @@ def test_docker_run_with_custom_command(run, build, pull):
         env={},
         resource_limit=None,
         user=None,
-        using_docker=False,
         volumes=(),
     )
 
@@ -75,14 +72,12 @@ def test_docker_run_options(run, build, pull):
     result = CliRunner().invoke(docker, args)
     assert result.exit_code == 0
     pull.assert_called_once_with(
-        "ubuntu-cpp", pull_leaf=True, using_docker=False
+        "ubuntu-cpp", pull_leaf=True,
     )
     build.assert_called_once_with(
         "ubuntu-cpp",
         use_cache=True,
         use_leaf_cache=True,
-        using_docker=False,
-        using_buildx=False
     )
     run.assert_called_once_with(
         "ubuntu-cpp",
@@ -90,7 +85,6 @@ def test_docker_run_options(run, build, pull):
         env={"ARROW_GANDIVA": "OFF", "ARROW_FLIGHT": "ON"},
         resource_limit=None,
         user="root",
-        using_docker=False,
         volumes=(
             "./build:/build",
             "./ccache:/ccache:delegated",
@@ -126,7 +120,6 @@ def test_docker_limit_options(run):
         env={"ARROW_GANDIVA": "OFF", "ARROW_FLIGHT": "ON"},
         resource_limit="github",
         user="root",
-        using_docker=False,
         volumes=(
             "./build:/build",
             "./ccache:/ccache:delegated",
@@ -145,7 +138,6 @@ def test_docker_run_without_pulling_or_building(run):
         env={},
         resource_limit=None,
         user=None,
-        using_docker=False,
         volumes=(),
     )
 
@@ -157,14 +149,12 @@ def test_docker_run_only_pulling_and_building(build, pull):
     result = CliRunner().invoke(docker, args)
     assert result.exit_code == 0
     pull.assert_called_once_with(
-        "ubuntu-cpp", pull_leaf=True, using_docker=False
+        "ubuntu-cpp", pull_leaf=True,
     )
     build.assert_called_once_with(
         "ubuntu-cpp",
         use_cache=True,
         use_leaf_cache=True,
-        using_docker=False,
-        using_buildx=False
     )
 
 
@@ -187,8 +177,6 @@ def test_docker_run_without_build_cache(run, build):
         "ubuntu-cpp",
         use_cache=False,
         use_leaf_cache=False,
-        using_docker=False,
-        using_buildx=False
     )
     run.assert_called_once_with(
         "ubuntu-cpp",
@@ -196,6 +184,5 @@ def test_docker_run_without_build_cache(run, build):
         env={},
         resource_limit=None,
         user="me",
-        using_docker=False,
         volumes=(),
     )

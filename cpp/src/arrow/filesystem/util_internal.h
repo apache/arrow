@@ -28,7 +28,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-using internal::Uri;
+using util::Uri;
 namespace fs {
 namespace internal {
 
@@ -44,7 +44,13 @@ ARROW_EXPORT
 Status PathNotFound(std::string_view path);
 
 ARROW_EXPORT
+Status IsADir(std::string_view path);
+
+ARROW_EXPORT
 Status NotADir(std::string_view path);
+
+ARROW_EXPORT
+Status NotEmpty(std::string_view path);
 
 ARROW_EXPORT
 Status NotAFile(std::string_view path);

@@ -23,11 +23,13 @@ namespace Apache.Arrow.Tests
         IArrowTypeVisitor<TimestampType>,
         IArrowTypeVisitor<Date32Type>,
         IArrowTypeVisitor<Date64Type>,
-        IArrowTypeVisitor<Time32Type>,
-        IArrowTypeVisitor<Time64Type>,
+        IArrowTypeVisitor<TimeBasedType>,
         IArrowTypeVisitor<FixedSizeBinaryType>,
         IArrowTypeVisitor<ListType>,
-        IArrowTypeVisitor<StructType>
+        IArrowTypeVisitor<FixedSizeListType>,
+        IArrowTypeVisitor<StructType>,
+        IArrowTypeVisitor<UnionType>,
+        IArrowTypeVisitor<MapType>
     {
         private readonly IArrowType _expectedType;
 
@@ -63,18 +65,11 @@ namespace Apache.Arrow.Tests
             Assert.Equal(expectedType.Unit, actualType.Unit);
         }
 
-        public void Visit(Time32Type actualType)
+        public void Visit(TimeBasedType actualType)
         {
-            Assert.IsAssignableFrom<Time32Type>(_expectedType);
-            var expectedType = (Time32Type)_expectedType;
-
-            Assert.Equal(expectedType.Unit, actualType.Unit);
-        }
-
-        public void Visit(Time64Type actualType)
-        {
-            Assert.IsAssignableFrom<Time64Type>(_expectedType);
-            var expectedType = (Time64Type)_expectedType;
+            Assert.IsAssignableFrom<TimeBasedType>(_expectedType);
+            Assert.Equal(_expectedType.TypeId, actualType.TypeId);
+            var expectedType = (TimeBasedType)_expectedType;
 
             Assert.Equal(expectedType.Unit, actualType.Unit);
         }
@@ -95,10 +90,46 @@ namespace Apache.Arrow.Tests
             CompareNested(expectedType, actualType);
         }
 
+        public void Visit(FixedSizeListType actualType)
+        {
+            Assert.IsAssignableFrom<FixedSizeListType>(_expectedType);
+            var expectedType = (FixedSizeListType)_expectedType;
+
+            Assert.Equal(expectedType.ListSize, actualType.ListSize);
+
+            CompareNested(expectedType, actualType);
+        }
+
         public void Visit(StructType actualType)
         {
             Assert.IsAssignableFrom<StructType>(_expectedType);
             var expectedType = (StructType)_expectedType;
+
+            CompareNested(expectedType, actualType);
+        }
+
+        public void Visit(UnionType actualType)
+        {
+            Assert.IsAssignableFrom<UnionType>(_expectedType);
+            UnionType expectedType = (UnionType)_expectedType;
+
+            Assert.Equal(expectedType.Mode, actualType.Mode);
+
+            Assert.Equal(expectedType.TypeIds.Length, actualType.TypeIds.Length);
+            for (int i = 0; i < expectedType.TypeIds.Length; i++)
+            {
+                Assert.Equal(expectedType.TypeIds[i], actualType.TypeIds[i]);
+            }
+
+            CompareNested(expectedType, actualType);
+        }
+
+        public void Visit(MapType actualType)
+        {
+            Assert.IsAssignableFrom<MapType>(_expectedType);
+            var expectedType = (MapType)_expectedType;
+
+            Assert.Equal(expectedType.KeySorted, actualType.KeySorted);
 
             CompareNested(expectedType, actualType);
         }

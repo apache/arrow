@@ -51,7 +51,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CExpression filter
 
     cdef cppclass CScanNodeOptions "arrow::dataset::ScanNodeOptions"(CExecNodeOptions):
-        CScanNodeOptions(shared_ptr[CDataset] dataset, shared_ptr[CScanOptions] scan_options)
+        CScanNodeOptions(shared_ptr[CDataset] dataset, shared_ptr[CScanOptions] scan_options, bint require_sequenced_output)
 
         shared_ptr[CScanOptions] scan_options
 
@@ -178,6 +178,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const c_string& path() const
         const shared_ptr[CFileSystem]& filesystem() const
         const shared_ptr[CBuffer]& buffer() const
+        const int64_t size() const
         # HACK: Cython can't handle all the overloads so don't declare them.
         # This means invalid construction of CFileSource won't be caught in
         # the C++ generation phase (though it will still be caught when
@@ -284,9 +285,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CJSONParseOptions parse_options
         CJSONReadOptions read_options
 
+    cdef struct CPartitionPathFormat "arrow::dataset::PartitionPathFormat":
+        c_string directory
+        c_string filename
+
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const
         CResult[CExpression] Parse(const c_string & path) const
+        CResult[CPartitionPathFormat] Format(const CExpression & expr) const
         const shared_ptr[CSchema] & schema()
         c_bool Equals(const CPartitioning& other) const
 
@@ -399,6 +405,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CDatasetFactory]] MakeFromSelector "Make"(
             shared_ptr[CFileSystem] filesystem,
             CFileSelector,
+            shared_ptr[CFileFormat] format,
+            CFileSystemFactoryOptions options
+        )
+
+        @staticmethod
+        CResult[shared_ptr[CDatasetFactory]] MakeFromFileInfos "Make"(
+            shared_ptr[CFileSystem] filesystem,
+            vector[CFileInfo] files,
             shared_ptr[CFileFormat] format,
             CFileSystemFactoryOptions options
         )

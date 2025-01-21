@@ -49,6 +49,7 @@ else()
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/GandivaTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/GandivaAddBitcode.cmake")
 
 arrow_keep_backward_compatibility(Gandiva gandiva)
 

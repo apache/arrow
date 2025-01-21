@@ -16,18 +16,28 @@
 classdef UInt8Array < arrow.array.NumericArray
 % arrow.array.UInt8Array
 
-    properties (Access=protected)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue = uint8(0)
     end
 
     methods
-        function obj = UInt8Array(data, varargin)
-            obj@arrow.array.NumericArray(data, "uint8", ...
-                "arrow.array.proxy.UInt8Array", varargin{:});
+        function obj = UInt8Array(proxy)
+          arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.UInt8Array")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.array.NumericArray(proxy);
         end
 
         function data = uint8(obj)
             data = obj.toMATLAB();
+        end
+    end
+
+        methods (Static)
+        function array = fromMATLAB(data, varargin)
+            traits = arrow.type.traits.UInt8Traits;
+            array = arrow.array.NumericArray.fromMATLAB(data, traits, varargin{:});
         end
     end
 end

@@ -60,7 +60,7 @@ class TestScalarDatum < Test::Unit::TestCase
   end
 
   def test_to_string
-    assert_equal("Scalar", @datum.to_s)
+    assert_equal("Scalar(true)", @datum.to_s)
   end
 
   def test_value

@@ -49,7 +49,8 @@ G_BEGIN_DECLS
  * batches.
  */
 
-typedef struct GArrowRecordBatchPrivate_ {
+typedef struct GArrowRecordBatchPrivate_
+{
   std::shared_ptr<arrow::RecordBatch> record_batch;
 } GArrowRecordBatchPrivate;
 
@@ -57,14 +58,11 @@ enum {
   PROP_RECORD_BATCH = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatch,
-                           garrow_record_batch,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatch, garrow_record_batch, G_TYPE_OBJECT)
 
-#define GARROW_RECORD_BATCH_GET_PRIVATE(obj)         \
-  static_cast<GArrowRecordBatchPrivate *>(           \
-     garrow_record_batch_get_instance_private(       \
-       GARROW_RECORD_BATCH(obj)))
+#define GARROW_RECORD_BATCH_GET_PRIVATE(obj)                                             \
+  static_cast<GArrowRecordBatchPrivate *>(                                               \
+    garrow_record_batch_get_instance_private(GARROW_RECORD_BATCH(obj)))
 
 static void
 garrow_record_batch_finalize(GObject *object)
@@ -112,7 +110,7 @@ static void
 garrow_record_batch_init(GArrowRecordBatch *object)
 {
   auto priv = GARROW_RECORD_BATCH_GET_PRIVATE(object);
-  new(&priv->record_batch) std::shared_ptr<arrow::RecordBatch>;
+  new (&priv->record_batch) std::shared_ptr<arrow::RecordBatch>;
 }
 
 static void
@@ -123,15 +121,15 @@ garrow_record_batch_class_init(GArrowRecordBatchClass *klass)
 
   gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_record_batch_finalize;
+  gobject_class->finalize = garrow_record_batch_finalize;
   gobject_class->set_property = garrow_record_batch_set_property;
   gobject_class->get_property = garrow_record_batch_get_property;
 
-  spec = g_param_spec_pointer("record-batch",
-                              "RecordBatch",
-                              "The raw std::shared<arrow::RecordBatch> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "record-batch",
+    "RecordBatch",
+    "The raw std::shared<arrow::RecordBatch> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_RECORD_BATCH, spec);
 }
 
@@ -150,17 +148,12 @@ garrow_record_batch_class_init(GArrowRecordBatchClass *klass)
  * Since: 6.0.0
  */
 GArrowRecordBatch *
-garrow_record_batch_import(gpointer c_abi_array,
-                           GArrowSchema *schema,
-                           GError **error)
+garrow_record_batch_import(gpointer c_abi_array, GArrowSchema *schema, GError **error)
 {
   auto arrow_schema = garrow_schema_get_raw(schema);
   auto arrow_record_batch_result =
-    arrow::ImportRecordBatch(static_cast<ArrowArray *>(c_abi_array),
-                             arrow_schema);
-  if (garrow::check(error,
-                    arrow_record_batch_result,
-                    "[record-batch][import]")) {
+    arrow::ImportRecordBatch(static_cast<ArrowArray *>(c_abi_array), arrow_schema);
+  if (garrow::check(error, arrow_record_batch_result, "[record-batch][import]")) {
     return garrow_record_batch_new_raw(&(*arrow_record_batch_result));
   } else {
     return NULL;
@@ -192,14 +185,12 @@ garrow_record_batch_new(GArrowSchema *schema,
 
   const auto &arrow_schema = garrow_schema_get_raw(schema);
   if (arrow_schema->num_fields() != static_cast<int>(arrow_columns.size())) {
-    auto status =
-      arrow::Status::Invalid("Number of columns did not match schema");
+    auto status = arrow::Status::Invalid("Number of columns did not match schema");
     garrow_error_check(error, status, tag);
     return NULL;
   }
 
-  auto arrow_record_batch =
-    arrow::RecordBatch::Make(arrow_schema, n_rows, arrow_columns);
+  auto arrow_record_batch = arrow::RecordBatch::Make(arrow_schema, n_rows, arrow_columns);
   auto status = arrow_record_batch->Validate();
   if (garrow_error_check(error, status, tag)) {
     return garrow_record_batch_new_raw(&arrow_record_batch);
@@ -270,8 +261,7 @@ garrow_record_batch_equal(GArrowRecordBatch *record_batch,
                           GArrowRecordBatch *other_record_batch)
 {
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
-  const auto arrow_other_record_batch =
-    garrow_record_batch_get_raw(other_record_batch);
+  const auto arrow_other_record_batch = garrow_record_batch_get_raw(other_record_batch);
   return arrow_record_batch->Equals(*arrow_other_record_batch);
 }
 
@@ -323,8 +313,7 @@ garrow_record_batch_get_schema(GArrowRecordBatch *record_batch)
  * Since: 0.15.0
  */
 GArrowArray *
-garrow_record_batch_get_column_data(GArrowRecordBatch *record_batch,
-                                    gint i)
+garrow_record_batch_get_column_data(GArrowRecordBatch *record_batch, gint i)
 {
   const auto &arrow_record_batch = garrow_record_batch_get_raw(record_batch);
   if (!garrow_internal_index_adjust(i, arrow_record_batch->num_columns())) {
@@ -345,8 +334,7 @@ garrow_record_batch_get_column_data(GArrowRecordBatch *record_batch,
  *   on success, %NULL on out of index
  */
 const gchar *
-garrow_record_batch_get_column_name(GArrowRecordBatch *record_batch,
-                                    gint i)
+garrow_record_batch_get_column_name(GArrowRecordBatch *record_batch, gint i)
 {
   const auto &arrow_record_batch = garrow_record_batch_get_raw(record_batch);
   if (!garrow_internal_index_adjust(i, arrow_record_batch->num_columns())) {
@@ -393,9 +381,7 @@ garrow_record_batch_get_n_rows(GArrowRecordBatch *record_batch)
  *   #GArrowRecordBatch.
  */
 GArrowRecordBatch *
-garrow_record_batch_slice(GArrowRecordBatch *record_batch,
-                          gint64 offset,
-                          gint64 length)
+garrow_record_batch_slice(GArrowRecordBatch *record_batch, gint64 offset, gint64 length)
 {
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
   auto arrow_sub_record_batch = arrow_record_batch->Slice(offset, length);
@@ -447,9 +433,7 @@ garrow_record_batch_add_column(GArrowRecordBatch *record_batch,
   const auto arrow_column = garrow_array_get_raw(column);
   auto arrow_new_record_batch =
     arrow_record_batch->AddColumn(i, arrow_field, arrow_column);
-  if (garrow::check(error,
-                    arrow_new_record_batch,
-                    "[record-batch][add-column]")) {
+  if (garrow::check(error, arrow_new_record_batch, "[record-batch][add-column]")) {
     return garrow_record_batch_new_raw(&(*arrow_new_record_batch));
   } else {
     return NULL;
@@ -474,9 +458,7 @@ garrow_record_batch_remove_column(GArrowRecordBatch *record_batch,
 {
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
   auto arrow_new_record_batch = arrow_record_batch->RemoveColumn(i);
-  if (garrow::check(error,
-                    arrow_new_record_batch,
-                    "[record-batch][remove-column]")) {
+  if (garrow::check(error, arrow_new_record_batch, "[record-batch][remove-column]")) {
     return garrow_record_batch_new_raw(&(*arrow_new_record_batch));
   } else {
     return NULL;
@@ -504,8 +486,8 @@ garrow_record_batch_serialize(GArrowRecordBatch *record_batch,
   arrow::Result<std::shared_ptr<arrow::Buffer>> arrow_buffer;
   if (options) {
     auto arrow_options = garrow_write_options_get_raw(options);
-    auto arrow_buffer = arrow::ipc::SerializeRecordBatch(*arrow_record_batch,
-                                                         *arrow_options);
+    auto arrow_buffer =
+      arrow::ipc::SerializeRecordBatch(*arrow_record_batch, *arrow_options);
     if (garrow::check(error, arrow_buffer, "[record-batch][serialize]")) {
       return garrow_buffer_new_raw(&(*arrow_buffer));
     } else {
@@ -513,8 +495,8 @@ garrow_record_batch_serialize(GArrowRecordBatch *record_batch,
     }
   } else {
     const auto arrow_options = arrow::ipc::IpcWriteOptions::Defaults();
-    auto arrow_buffer = arrow::ipc::SerializeRecordBatch(*arrow_record_batch,
-                                                         arrow_options);
+    auto arrow_buffer =
+      arrow::ipc::SerializeRecordBatch(*arrow_record_batch, arrow_options);
     if (garrow::check(error, arrow_buffer, "[record-batch][serialize]")) {
       return garrow_buffer_new_raw(&(*arrow_buffer));
     } else {
@@ -523,8 +505,8 @@ garrow_record_batch_serialize(GArrowRecordBatch *record_batch,
   }
 }
 
-
-typedef struct GArrowRecordBatchIteratorPrivate_ {
+typedef struct GArrowRecordBatchIteratorPrivate_
+{
   arrow::RecordBatchIterator iterator;
 } GArrowRecordBatchIteratorPrivate;
 
@@ -536,10 +518,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchIterator,
                            garrow_record_batch_iterator,
                            G_TYPE_OBJECT)
 
-#define GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(obj)        \
-  static_cast<GArrowRecordBatchIteratorPrivate *>(           \
-     garrow_record_batch_iterator_get_instance_private(      \
-       GARROW_RECORD_BATCH_ITERATOR(obj)))
+#define GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(obj)                                    \
+  static_cast<GArrowRecordBatchIteratorPrivate *>(                                       \
+    garrow_record_batch_iterator_get_instance_private(                                   \
+      GARROW_RECORD_BATCH_ITERATOR(obj)))
 
 static void
 garrow_record_batch_iterator_finalize(GObject *object)
@@ -574,7 +556,7 @@ static void
 garrow_record_batch_iterator_init(GArrowRecordBatchIterator *object)
 {
   auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(object);
-  new(&priv->iterator) arrow::RecordBatchIterator;
+  new (&priv->iterator) arrow::RecordBatchIterator;
 }
 
 static void
@@ -582,16 +564,16 @@ garrow_record_batch_iterator_class_init(GArrowRecordBatchIteratorClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_record_batch_iterator_finalize;
+  gobject_class->finalize = garrow_record_batch_iterator_finalize;
   gobject_class->set_property = garrow_record_batch_iterator_set_property;
 
   GParamSpec *spec;
 
-  spec = g_param_spec_pointer("iterator",
-                              "Iterator",
-                              "The raw arrow::RecordBatchIterator",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "iterator",
+    "Iterator",
+    "The raw arrow::RecordBatchIterator",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ITERATOR, spec);
 }
 
@@ -628,8 +610,7 @@ garrow_record_batch_iterator_new(GList *record_batches)
  * Since: 0.17.0
  */
 GArrowRecordBatch *
-garrow_record_batch_iterator_next(GArrowRecordBatchIterator *iterator,
-                                  GError **error)
+garrow_record_batch_iterator_next(GArrowRecordBatchIterator *iterator, GError **error)
 {
   auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(iterator);
 
@@ -671,9 +652,8 @@ garrow_record_batch_iterator_equal(GArrowRecordBatchIterator *iterator,
  *
  * Since: 0.17.0
  */
-GList*
-garrow_record_batch_iterator_to_list(GArrowRecordBatchIterator *iterator,
-                                     GError **error)
+GList *
+garrow_record_batch_iterator_to_list(GArrowRecordBatchIterator *iterator, GError **error)
 {
   auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(iterator);
   GList *record_batches = NULL;
@@ -696,10 +676,8 @@ G_END_DECLS
 GArrowRecordBatch *
 garrow_record_batch_new_raw(std::shared_ptr<arrow::RecordBatch> *arrow_record_batch)
 {
-  auto record_batch =
-    GARROW_RECORD_BATCH(g_object_new(GARROW_TYPE_RECORD_BATCH,
-                                     "record-batch", arrow_record_batch,
-                                     NULL));
+  auto record_batch = GARROW_RECORD_BATCH(
+    g_object_new(GARROW_TYPE_RECORD_BATCH, "record-batch", arrow_record_batch, NULL));
   return record_batch;
 }
 
@@ -713,9 +691,8 @@ garrow_record_batch_get_raw(GArrowRecordBatch *record_batch)
 GArrowRecordBatchIterator *
 garrow_record_batch_iterator_new_raw(arrow::RecordBatchIterator *arrow_iterator)
 {
-  auto iterator = g_object_new(GARROW_TYPE_RECORD_BATCH_ITERATOR,
-                               "iterator", arrow_iterator,
-                               NULL);
+  auto iterator =
+    g_object_new(GARROW_TYPE_RECORD_BATCH_ITERATOR, "iterator", arrow_iterator, NULL);
   return GARROW_RECORD_BATCH_ITERATOR(iterator);
 }
 

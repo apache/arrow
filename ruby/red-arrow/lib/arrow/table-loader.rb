@@ -252,7 +252,13 @@ module Arrow
 
     def load_as_json
       open_input_stream do |input|
-        reader = JSONReader.new(input)
+        options = JSONReadOptions.new
+        @options.each do |key, value|
+          next if value.nil?
+          setter = :"#{key}="
+          options.__send__(setter, value) if options.respond_to?(setter)
+        end
+        reader = JSONReader.new(input, options)
         table = reader.read
         table.refer_input(input)
         table

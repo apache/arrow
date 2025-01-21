@@ -14,8 +14,10 @@
 // limitations under the License.
 
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace Apache.Arrow.Memory
 {
@@ -23,6 +25,8 @@ namespace Apache.Arrow.Memory
     {
         private readonly List<IntPtr> _pointers = new List<IntPtr>();
         private int _allocationSize;
+        private long _referenceCount;
+        private bool _disposed;
 
         ~ExportedAllocationOwner()
         {
@@ -47,8 +51,25 @@ namespace Apache.Arrow.Memory
             throw new InvalidOperationException();
         }
 
+        public void IncRef()
+        {
+            Interlocked.Increment(ref _referenceCount);
+        }
+
+        public void DecRef()
+        {
+            if (Interlocked.Decrement(ref _referenceCount) == 0)
+            {
+                Dispose();
+            }
+        }
+
         public void Dispose()
         {
+            if (_disposed)
+            {
+                return;
+            }
             for (int i = 0; i < _pointers.Count; i++)
             {
                 if (_pointers[i] != IntPtr.Zero)
@@ -59,6 +80,7 @@ namespace Apache.Arrow.Memory
             }
             GC.RemoveMemoryPressure(_allocationSize);
             GC.SuppressFinalize(this);
+            _disposed = true;
         }
     }
 }

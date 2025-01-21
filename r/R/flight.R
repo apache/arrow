@@ -56,7 +56,8 @@ flight_disconnect <- function(client) {
 #' @param overwrite logical: if `path` exists on `client` already, should we
 #' replace it with the contents of `data`? Default is `TRUE`; if `FALSE` and
 #' `path` exists, the function will error.
-#' @param max_chunksize integer: Maximum size for RecordBatch chunks when a `data.frame` is sent.
+#' @param max_chunksize integer: Maximum number of rows for RecordBatch chunks
+#'   when a `data.frame` is sent.
 #' Individual chunks may be smaller depending on the chunk layout of individual columns.
 #' @return `client`, invisibly.
 #' @export

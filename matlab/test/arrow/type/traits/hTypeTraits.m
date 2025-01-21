@@ -22,6 +22,7 @@ classdef hTypeTraits < matlab.unittest.TestCase
         ArrayConstructor
         ArrayClassName
         ArrayProxyClassName
+        ArrayStaticConstructor
         TypeConstructor
         TypeClassName
         TypeProxyClassName
@@ -51,6 +52,10 @@ classdef hTypeTraits < matlab.unittest.TestCase
 
         function TestArrayProxyClassName(testCase)
             testCase.verifyEqual(testCase.Traits.ArrayProxyClassName, testCase.ArrayProxyClassName);
+        end
+
+        function TestArrayStaticConstructor(testCase)
+            testCase.verifyEqual(testCase.Traits.ArrayStaticConstructor, testCase.ArrayStaticConstructor);
         end
 
         function TestTypeConstructor(testCase)

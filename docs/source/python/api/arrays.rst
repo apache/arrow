@@ -63,6 +63,8 @@ may expose data type-specific methods or properties.
    FixedSizeBinaryArray
    LargeBinaryArray
    LargeStringArray
+   BinaryViewArray
+   StringViewArray
    Time32Array
    Time64Array
    Date32Array
@@ -70,17 +72,26 @@ may expose data type-specific methods or properties.
    TimestampArray
    DurationArray
    MonthDayNanoIntervalArray
+   Decimal32Array
+   Decimal64Array
    Decimal128Array
+   Decimal256Array
    DictionaryArray
    ListArray
    FixedSizeListArray
    LargeListArray
+   ListViewArray
+   LargeListViewArray
    MapArray
    RunEndEncodedArray
    StructArray
    UnionArray
    ExtensionArray
    FixedShapeTensorArray
+   OpaqueArray
+   JsonArray
+   UuidArray
+   Bool8Array
 
 .. _api.scalar:
 
@@ -107,6 +118,7 @@ classes may expose data type-specific methods or properties.
    Int16Scalar
    Int32Scalar
    Int64Scalar
+   NullScalar
    UInt8Scalar
    UInt16Scalar
    UInt32Scalar
@@ -119,6 +131,8 @@ classes may expose data type-specific methods or properties.
    FixedSizeBinaryScalar
    LargeBinaryScalar
    LargeStringScalar
+   BinaryViewScalar
+   StringViewScalar
    Time32Scalar
    Time64Scalar
    Date32Scalar
@@ -127,11 +141,20 @@ classes may expose data type-specific methods or properties.
    DurationScalar
    MonthDayNanoIntervalScalar
    Decimal128Scalar
+   Decimal256Scalar
    DictionaryScalar
    RunEndEncodedScalar
    ListScalar
+   FixedSizeListScalar
    LargeListScalar
+   ListViewScalar
+   LargeListViewScalar
    MapScalar
    StructScalar
    UnionScalar
    ExtensionScalar
+   FixedShapeTensorScalar
+   OpaqueScalar
+   JsonScalar
+   UuidScalar
+   Bool8Scalar

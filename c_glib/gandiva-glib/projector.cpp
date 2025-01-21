@@ -42,7 +42,8 @@ G_BEGIN_DECLS
  * Since: 0.12.0
  */
 
-typedef struct GGandivaProjectorPrivate_ {
+typedef struct GGandivaProjectorPrivate_
+{
   std::shared_ptr<gandiva::Projector> projector;
   GArrowSchema *schema;
   GList *expressions;
@@ -54,14 +55,11 @@ enum {
   PROP_EXPRESSIONS,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaProjector,
-                           ggandiva_projector,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GGandivaProjector, ggandiva_projector, G_TYPE_OBJECT)
 
-#define GGANDIVA_PROJECTOR_GET_PRIVATE(obj)         \
-  static_cast<GGandivaProjectorPrivate *>(          \
-     ggandiva_projector_get_instance_private(       \
-       GGANDIVA_PROJECTOR(obj)))
+#define GGANDIVA_PROJECTOR_GET_PRIVATE(obj)                                              \
+  static_cast<GGandivaProjectorPrivate *>(                                               \
+    ggandiva_projector_get_instance_private(GGANDIVA_PROJECTOR(obj)))
 
 static void
 ggandiva_projector_dispose(GObject *object)
@@ -106,10 +104,9 @@ ggandiva_projector_set_property(GObject *object,
     priv->schema = GARROW_SCHEMA(g_value_dup_object(value));
     break;
   case PROP_EXPRESSIONS:
-    priv->expressions =
-      g_list_copy_deep(static_cast<GList *>(g_value_get_pointer(value)),
-                       reinterpret_cast<GCopyFunc>(g_object_ref),
-                       nullptr);
+    priv->expressions = g_list_copy_deep(static_cast<GList *>(g_value_get_pointer(value)),
+                                         reinterpret_cast<GCopyFunc>(g_object_ref),
+                                         nullptr);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -139,7 +136,7 @@ static void
 ggandiva_projector_init(GGandivaProjector *object)
 {
   auto priv = GGANDIVA_PROJECTOR_GET_PRIVATE(object);
-  new(&priv->projector) std::shared_ptr<gandiva::Projector>;
+  new (&priv->projector) std::shared_ptr<gandiva::Projector>;
 }
 
 static void
@@ -147,32 +144,32 @@ ggandiva_projector_class_init(GGandivaProjectorClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = ggandiva_projector_dispose;
-  gobject_class->finalize     = ggandiva_projector_finalize;
+  gobject_class->dispose = ggandiva_projector_dispose;
+  gobject_class->finalize = ggandiva_projector_finalize;
   gobject_class->set_property = ggandiva_projector_set_property;
   gobject_class->get_property = ggandiva_projector_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("projector",
-                              "Projector",
-                              "The raw std::shared<gandiva::Projector> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "projector",
+    "Projector",
+    "The raw std::shared<gandiva::Projector> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_PROJECTOR, spec);
 
-  spec = g_param_spec_object("schema",
-                             "Schema",
-                             "The schema of the projector",
-                             GARROW_TYPE_SCHEMA,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "schema",
+    "Schema",
+    "The schema of the projector",
+    GARROW_TYPE_SCHEMA,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SCHEMA, spec);
 
-  spec = g_param_spec_pointer("expressions",
-                              "Expressions",
-                              "The expressions for the projector",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "expressions",
+    "Expressions",
+    "The expressions for the projector",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_EXPRESSIONS, spec);
 }
 
@@ -188,9 +185,7 @@ ggandiva_projector_class_init(GGandivaProjectorClass *klass)
  * Since: 0.12.0
  */
 GGandivaProjector *
-ggandiva_projector_new(GArrowSchema *schema,
-                       GList *expressions,
-                       GError **error)
+ggandiva_projector_new(GArrowSchema *schema, GList *expressions, GError **error)
 {
   auto arrow_schema = garrow_schema_get_raw(schema);
   std::vector<std::shared_ptr<gandiva::Expression>> gandiva_expressions;
@@ -201,13 +196,9 @@ ggandiva_projector_new(GArrowSchema *schema,
   }
   std::shared_ptr<gandiva::Projector> gandiva_projector;
   auto status =
-    gandiva_projector->Make(arrow_schema,
-                            gandiva_expressions,
-                            &gandiva_projector);
+    gandiva_projector->Make(arrow_schema, gandiva_expressions, &gandiva_projector);
   if (garrow_error_check(error, status, "[gandiva][projector][new]")) {
-    return ggandiva_projector_new_raw(&gandiva_projector,
-                                      schema,
-                                      expressions);
+    return ggandiva_projector_new_raw(&gandiva_projector, schema, expressions);
   } else {
     return NULL;
   }
@@ -234,9 +225,7 @@ ggandiva_projector_evaluate(GGandivaProjector *projector,
   auto memory_pool = arrow::default_memory_pool();
   arrow::ArrayVector arrow_arrays;
   auto status =
-    gandiva_projector->Evaluate(*arrow_record_batch,
-                                memory_pool,
-                                &arrow_arrays);
+    gandiva_projector->Evaluate(*arrow_record_batch, memory_pool, &arrow_arrays);
   if (garrow_error_check(error, status, "[gandiva][projector][evaluate]")) {
     GList *arrays = NULL;
     for (auto arrow_array : arrow_arrays) {
@@ -248,7 +237,6 @@ ggandiva_projector_evaluate(GGandivaProjector *projector,
     return NULL;
   }
 }
-
 
 G_DEFINE_TYPE(GGandivaSelectableProjector,
               ggandiva_selectable_projector,
@@ -290,20 +278,15 @@ ggandiva_selectable_projector_new(GArrowSchema *schema,
     gandiva_expressions.push_back(gandiva_expression);
   }
   auto gandiva_mode = static_cast<gandiva::SelectionVector::Mode>(mode);
-  auto gandiva_configuration =
-    gandiva::ConfigurationBuilder::DefaultConfiguration();
+  auto gandiva_configuration = gandiva::ConfigurationBuilder::DefaultConfiguration();
   std::shared_ptr<gandiva::Projector> gandiva_projector;
   auto status = gandiva_projector->Make(arrow_schema,
                                         gandiva_expressions,
                                         gandiva_mode,
                                         gandiva_configuration,
                                         &gandiva_projector);
-  if (garrow_error_check(error,
-                         status,
-                         "[gandiva][selectable-projector][new]")) {
-    return ggandiva_selectable_projector_new_raw(&gandiva_projector,
-                                                 schema,
-                                                 expressions);
+  if (garrow_error_check(error, status, "[gandiva][selectable-projector][new]")) {
+    return ggandiva_selectable_projector_new_raw(&gandiva_projector, schema, expressions);
   } else {
     return NULL;
   }
@@ -323,27 +306,22 @@ ggandiva_selectable_projector_new(GArrowSchema *schema,
  * Since: 4.0.0
  */
 GList *
-ggandiva_selectable_projector_evaluate(
-  GGandivaSelectableProjector *projector,
-  GArrowRecordBatch *record_batch,
-  GGandivaSelectionVector *selection_vector,
-  GError **error)
+ggandiva_selectable_projector_evaluate(GGandivaSelectableProjector *projector,
+                                       GArrowRecordBatch *record_batch,
+                                       GGandivaSelectionVector *selection_vector,
+                                       GError **error)
 {
-  auto gandiva_projector =
-    ggandiva_projector_get_raw(GGANDIVA_PROJECTOR(projector));
+  auto gandiva_projector = ggandiva_projector_get_raw(GGANDIVA_PROJECTOR(projector));
   auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
   auto gandiva_selection_vector =
     ggandiva_selection_vector_get_raw(selection_vector).get();
   auto memory_pool = arrow::default_memory_pool();
   arrow::ArrayVector arrow_arrays;
-  auto status =
-    gandiva_projector->Evaluate(*arrow_record_batch,
-                                gandiva_selection_vector,
-                                memory_pool,
-                                &arrow_arrays);
-  if (garrow_error_check(error,
-                         status,
-                         "[gandiva][selectable-projector][evaluate]")) {
+  auto status = gandiva_projector->Evaluate(*arrow_record_batch,
+                                            gandiva_selection_vector,
+                                            memory_pool,
+                                            &arrow_arrays);
+  if (garrow_error_check(error, status, "[gandiva][selectable-projector][evaluate]")) {
     GList *arrays = NULL;
     for (auto arrow_array : arrow_arrays) {
       auto array = garrow_array_new_raw(&arrow_array);
@@ -358,15 +336,17 @@ ggandiva_selectable_projector_evaluate(
 G_END_DECLS
 
 GGandivaProjector *
-ggandiva_projector_new_raw(
-  std::shared_ptr<gandiva::Projector> *gandiva_projector,
-  GArrowSchema *schema,
-  GList *expressions)
+ggandiva_projector_new_raw(std::shared_ptr<gandiva::Projector> *gandiva_projector,
+                           GArrowSchema *schema,
+                           GList *expressions)
 {
   auto projector = g_object_new(GGANDIVA_TYPE_PROJECTOR,
-                                "projector", gandiva_projector,
-                                "schema", schema,
-                                "expressions", expressions,
+                                "projector",
+                                gandiva_projector,
+                                "schema",
+                                schema,
+                                "expressions",
+                                expressions,
                                 NULL);
   return GGANDIVA_PROJECTOR(projector);
 }
@@ -378,7 +358,8 @@ ggandiva_selectable_projector_new_raw(
   GList *expressions)
 {
   auto projector = g_object_new(GGANDIVA_TYPE_SELECTABLE_PROJECTOR,
-                                "projector", gandiva_projector,
+                                "projector",
+                                gandiva_projector,
                                 NULL);
   return GGANDIVA_SELECTABLE_PROJECTOR(projector);
 }

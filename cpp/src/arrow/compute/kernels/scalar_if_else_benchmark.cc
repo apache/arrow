@@ -21,6 +21,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/function.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/key_value_metadata.h"
@@ -67,11 +68,15 @@ struct GetBytesProcessedVisitor {
   }
 
   template <typename ArrowType>
-  enable_if_var_size_list<ArrowType, Status> Visit(const ArrowType& type) {
+  enable_if_var_length_list_like<ArrowType, Status> Visit(const ArrowType& type) {
     using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
     using OffsetType = typename TypeTraits<ArrowType>::OffsetType::c_type;
 
-    total_bytes += (arr->length() + 1) * sizeof(OffsetType);
+    const auto num_offsets = is_list_view(type) ? arr->length() : arr->length() + 1;
+    total_bytes += num_offsets * sizeof(OffsetType);
+    // NOTE: the sizes buffer is not counted when type is a list-view as that
+    // can make the throughput numbers look better just because the sizes
+    // increase the number of bytes in the input.
     auto child_array = internal::checked_cast<const ArrayType*>(arr)->values();
     return RecurseInto(child_array.get());
   }
@@ -126,7 +131,7 @@ static void IfElseBench(benchmark::State& state) {
 }
 
 template <typename ListType, typename ValueType>
-static void IfElseBenchList(benchmark::State& state) {
+static void IfElseBenchVarLengthListLike(benchmark::State& state) {
   auto value_type = TypeTraits<ValueType>::type_singleton();
   auto list_type = std::make_shared<ListType>(value_type);
   return IfElseBench<ListType>(state, list_type);
@@ -172,7 +177,7 @@ static void IfElseBenchContiguous(benchmark::State& state) {
 }
 
 template <typename ListType, typename ValueType>
-static void IfElseBenchListContiguous(benchmark::State& state) {
+static void IfElseBenchVarLengthListLikeContiguous(benchmark::State& state) {
   auto value_type = TypeTraits<ValueType>::type_singleton();
   auto list_type = std::make_shared<ListType>(value_type);
   return IfElseBenchContiguous<ListType>(state, list_type);
@@ -187,11 +192,11 @@ static void IfElseBench32(benchmark::State& state) {
 }
 
 static void IfElseBenchListUInt32(benchmark::State& state) {
-  return IfElseBenchList<ListType, UInt32Type>(state);
+  return IfElseBenchVarLengthListLike<ListType, UInt32Type>(state);
 }
 
 static void IfElseBenchListString32(benchmark::State& state) {
-  return IfElseBenchList<ListType, StringType>(state);
+  return IfElseBenchVarLengthListLike<ListType, StringType>(state);
 }
 
 static void IfElseBenchString32(benchmark::State& state) {
@@ -211,11 +216,27 @@ static void IfElseBench32Contiguous(benchmark::State& state) {
 }
 
 static void IfElseBenchListUInt32Contiguous(benchmark::State& state) {
-  return IfElseBenchListContiguous<ListType, UInt32Type>(state);
+  return IfElseBenchVarLengthListLikeContiguous<ListType, UInt32Type>(state);
 }
 
 static void IfElseBenchListString32Contiguous(benchmark::State& state) {
-  return IfElseBenchListContiguous<ListType, StringType>(state);
+  return IfElseBenchVarLengthListLikeContiguous<ListType, StringType>(state);
+}
+
+static void IfElseBenchListViewUInt32(benchmark::State& state) {
+  return IfElseBenchVarLengthListLike<ListViewType, UInt32Type>(state);
+}
+
+static void IfElseBenchListViewString32(benchmark::State& state) {
+  return IfElseBenchVarLengthListLike<ListViewType, StringType>(state);
+}
+
+static void IfElseBenchListViewUInt32Contiguous(benchmark::State& state) {
+  return IfElseBenchVarLengthListLikeContiguous<ListViewType, UInt32Type>(state);
+}
+
+static void IfElseBenchListViewString32Contiguous(benchmark::State& state) {
+  return IfElseBenchVarLengthListLikeContiguous<ListViewType, StringType>(state);
 }
 
 static void IfElseBenchString64Contiguous(benchmark::State& state) {
@@ -263,8 +284,11 @@ static void CaseWhenBench(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
-static void CaseWhenBenchList(benchmark::State& state) {
-  auto type = list(int64());
+template <typename Type>
+static void CaseWhenBenchList(benchmark::State& state,
+                              const std::shared_ptr<DataType>& type) {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+
   auto fld = field("", type);
 
   int64_t len = state.range(0);
@@ -274,17 +298,17 @@ static void CaseWhenBenchList(benchmark::State& state) {
 
   auto cond_field =
       field("cond", boolean(), key_value_metadata({{"null_probability", "0.01"}}));
-  auto cond = rand.ArrayOf(*field("", struct_({cond_field, cond_field, cond_field}),
-                                  key_value_metadata({{"null_probability", "0.0"}})),
-                           len);
-  auto val1 = rand.ArrayOf(*fld, len);
-  auto val2 = rand.ArrayOf(*fld, len);
-  auto val3 = rand.ArrayOf(*fld, len);
-  auto val4 = rand.ArrayOf(*fld, len);
+  auto cond = std::static_pointer_cast<BooleanArray>(
+                  rand.ArrayOf(*field("", struct_({cond_field, cond_field, cond_field}),
+                                      key_value_metadata({{"null_probability", "0.0"}})),
+                               len))
+                  ->Slice(offset);
+  auto val1 = std::static_pointer_cast<ArrayType>(rand.ArrayOf(*fld, len))->Slice(offset);
+  auto val2 = std::static_pointer_cast<ArrayType>(rand.ArrayOf(*fld, len))->Slice(offset);
+  auto val3 = std::static_pointer_cast<ArrayType>(rand.ArrayOf(*fld, len))->Slice(offset);
+  auto val4 = std::static_pointer_cast<ArrayType>(rand.ArrayOf(*fld, len))->Slice(offset);
   for (auto _ : state) {
-    ABORT_NOT_OK(
-        CaseWhen(cond->Slice(offset), {val1->Slice(offset), val2->Slice(offset),
-                                       val3->Slice(offset), val4->Slice(offset)}));
+    ABORT_NOT_OK(CaseWhen(cond, {val1, val2, val3, val4}));
   }
 
   // Set bytes processed to ~length of output
@@ -349,6 +373,21 @@ static void CaseWhenBenchString(benchmark::State& state) {
 
 static void CaseWhenBenchStringContiguous(benchmark::State& state) {
   return CaseWhenBenchContiguous<StringType>(state);
+}
+
+template <typename ListType, typename ValueType>
+static void CaseWhenBenchVarLengthListLike(benchmark::State& state) {
+  auto value_type = TypeTraits<ValueType>::type_singleton();
+  auto list_type = std::make_shared<ListType>(value_type);
+  return CaseWhenBenchList<ListType>(state, list_type);
+}
+
+static void CaseWhenBenchListInt64(benchmark::State& state) {
+  return CaseWhenBenchVarLengthListLike<ListType, Int64Type>(state);
+}
+
+static void CaseWhenBenchListViewInt64(benchmark::State& state) {
+  CaseWhenBenchVarLengthListLike<ListViewType, Int64Type>(state);
 }
 
 struct CoalesceParams {
@@ -494,6 +533,12 @@ BENCHMARK(IfElseBenchListString32)->Args({kNumItems, 0});
 BENCHMARK(IfElseBenchListUInt32Contiguous)->Args({kNumItems, 0});
 BENCHMARK(IfElseBenchListString32Contiguous)->Args({kNumItems, 0});
 
+// IfElse: ListViews
+BENCHMARK(IfElseBenchListViewUInt32)->Args({kNumItems, 0});
+BENCHMARK(IfElseBenchListViewString32)->Args({kNumItems, 0});
+BENCHMARK(IfElseBenchListViewUInt32Contiguous)->Args({kNumItems, 0});
+BENCHMARK(IfElseBenchListViewString32Contiguous)->Args({kNumItems, 0});
+
 // IfElse: Strings
 BENCHMARK(IfElseBenchString32)->Args({kNumItems, 0});
 BENCHMARK(IfElseBenchString64)->Args({kNumItems, 0});
@@ -506,9 +551,11 @@ BENCHMARK(CaseWhenBench64)->Args({kNumItems, 99});
 BENCHMARK(CaseWhenBench64Contiguous)->Args({kNumItems, 0});
 BENCHMARK(CaseWhenBench64Contiguous)->Args({kNumItems, 99});
 
-// CaseWhen: Lists
-BENCHMARK(CaseWhenBenchList)->Args({kFewItems, 0});
-BENCHMARK(CaseWhenBenchList)->Args({kFewItems, 99});
+// CaseWhen: List-like types
+BENCHMARK(CaseWhenBenchListInt64)->Args({kFewItems, 0});
+BENCHMARK(CaseWhenBenchListInt64)->Args({kFewItems, 99});
+BENCHMARK(CaseWhenBenchListViewInt64)->Args({kFewItems, 0});
+BENCHMARK(CaseWhenBenchListViewInt64)->Args({kFewItems, 99});
 
 // CaseWhen: Strings
 BENCHMARK(CaseWhenBenchString)->Args({kFewItems, 0});

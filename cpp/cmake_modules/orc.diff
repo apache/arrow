@@ -1,0 +1,289 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1f8931508..f8e57bf5f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -30,8 +30,8 @@ SET(CPACK_PACKAGE_VERSION_MAJOR "2")
+ SET(CPACK_PACKAGE_VERSION_MINOR "1")
+ SET(CPACK_PACKAGE_VERSION_PATCH "0")
+ SET(ORC_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
+ set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # For clang-tidy.
++list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
+ 
+ option (BUILD_JAVA
+     "Include ORC Java library in the build process"
+@@ -225,5 +225,3 @@ if (BUILD_CPP_TESTS)
+     )
+   endif ()
+ endif ()
+-
+-INCLUDE(CheckFormat)
+diff --git a/c++/src/CMakeLists.txt b/c++/src/CMakeLists.txt
+index 694667c06..af13a94aa 100644
+--- a/c++/src/CMakeLists.txt
++++ b/c++/src/CMakeLists.txt
+@@ -218,8 +218,8 @@ target_include_directories (orc
+   INTERFACE
+     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+   PUBLIC
+-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/c++/include>
+-    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/c++/include>
++    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/c++/include>
++    $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/c++/include>
+   PRIVATE
+     ${CMAKE_CURRENT_SOURCE_DIR}
+     ${CMAKE_CURRENT_BINARY_DIR}
+diff --git a/cmake_modules/ThirdpartyToolchain.cmake b/cmake_modules/ThirdpartyToolchain.cmake
+index 017e6c5b8..fe376ed16 100644
+--- a/cmake_modules/ThirdpartyToolchain.cmake
++++ b/cmake_modules/ThirdpartyToolchain.cmake
+@@ -103,13 +103,13 @@ endif ()
+ 
+ # ----------------------------------------------------------------------
+ # Macros for adding third-party libraries
+-macro (add_resolved_library target_name link_lib include_dir)
+-  add_library (${target_name} INTERFACE IMPORTED)
++macro (orc_add_resolved_library target_name link_lib include_dir)
++  add_library (${target_name} INTERFACE IMPORTED GLOBAL)
+   target_link_libraries (${target_name} INTERFACE ${link_lib})
+   target_include_directories (${target_name} SYSTEM INTERFACE ${include_dir})
+ endmacro ()
+ 
+-macro (add_built_library external_project_name target_name link_lib include_dir)
++macro (orc_add_built_library external_project_name target_name link_lib include_dir)
+   file (MAKE_DIRECTORY "${include_dir}")
+ 
+   add_library (${target_name} STATIC IMPORTED)
+@@ -122,7 +122,7 @@ macro (add_built_library external_project_name target_name link_lib include_dir)
+   endif ()
+ endmacro ()
+ 
+-function(provide_cmake_module MODULE_NAME)
++function(orc_provide_cmake_module MODULE_NAME)
+   set(module "${CMAKE_SOURCE_DIR}/cmake_modules/${MODULE_NAME}.cmake")
+   if(EXISTS "${module}")
+     message(STATUS "Providing CMake module for ${MODULE_NAME} as part of CMake package")
+@@ -130,8 +130,8 @@ function(provide_cmake_module MODULE_NAME)
+   endif()
+ endfunction()
+ 
+-function(provide_find_module PACKAGE_NAME)
+-  provide_cmake_module("Find${PACKAGE_NAME}")
++function(orc_provide_find_module PACKAGE_NAME)
++  orc_provide_cmake_module("Find${PACKAGE_NAME}")
+ endfunction()
+ 
+ # ----------------------------------------------------------------------
+@@ -156,7 +156,7 @@ ExternalProject_Add (orc-format_ep
+ # Snappy
+ if (ORC_PACKAGE_KIND STREQUAL "conan")
+   find_package (Snappy REQUIRED CONFIG)
+-  add_resolved_library (orc_snappy ${Snappy_LIBRARIES} ${Snappy_INCLUDE_DIR})
++  orc_add_resolved_library (orc_snappy ${Snappy_LIBRARIES} ${Snappy_INCLUDE_DIR})
+   list (APPEND ORC_SYSTEM_DEPENDENCIES Snappy)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:Snappy::snappy>")
+ elseif (ORC_PACKAGE_KIND STREQUAL "vcpkg")
+@@ -168,13 +168,13 @@ elseif (ORC_PACKAGE_KIND STREQUAL "vcpkg")
+ elseif (NOT "${SNAPPY_HOME}" STREQUAL "")
+   find_package (Snappy REQUIRED)
+   if (ORC_PREFER_STATIC_SNAPPY AND SNAPPY_STATIC_LIB)
+-    add_resolved_library (orc_snappy ${SNAPPY_STATIC_LIB} ${SNAPPY_INCLUDE_DIR})
++    orc_add_resolved_library (orc_snappy ${SNAPPY_STATIC_LIB} ${SNAPPY_INCLUDE_DIR})
+   else ()
+-    add_resolved_library (orc_snappy ${SNAPPY_LIBRARY} ${SNAPPY_INCLUDE_DIR})
++    orc_add_resolved_library (orc_snappy ${SNAPPY_LIBRARY} ${SNAPPY_INCLUDE_DIR})
+   endif ()
+   list (APPEND ORC_SYSTEM_DEPENDENCIES Snappy)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:Snappy::snappy>")
+-  provide_find_module (Snappy)
++  orc_provide_find_module (Snappy)
+ else ()
+   set(SNAPPY_HOME "${THIRDPARTY_DIR}/snappy_ep-install")
+   set(SNAPPY_INCLUDE_DIR "${SNAPPY_HOME}/include")
+@@ -194,7 +194,7 @@ else ()
+     ${THIRDPARTY_LOG_OPTIONS}
+     BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
+ 
+-  add_built_library (snappy_ep orc_snappy ${SNAPPY_STATIC_LIB} ${SNAPPY_INCLUDE_DIR})
++  orc_add_built_library (snappy_ep orc_snappy ${SNAPPY_STATIC_LIB} ${SNAPPY_INCLUDE_DIR})
+ 
+   list (APPEND ORC_VENDOR_DEPENDENCIES "orc::vendored_snappy|${SNAPPY_STATIC_LIB_NAME}")
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:orc::vendored_snappy>")
+@@ -207,7 +207,7 @@ add_library (orc::snappy ALIAS orc_snappy)
+ 
+ if (ORC_PACKAGE_KIND STREQUAL "conan")
+   find_package (ZLIB REQUIRED CONFIG)
+-  add_resolved_library (orc_zlib ${ZLIB_LIBRARIES} ${ZLIB_INCLUDE_DIR})
++  orc_add_resolved_library (orc_zlib ${ZLIB_LIBRARIES} ${ZLIB_INCLUDE_DIR})
+   list (APPEND ORC_SYSTEM_DEPENDENCIES ZLIB)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:ZLIB::ZLIB>")
+ elseif (ORC_PACKAGE_KIND STREQUAL "vcpkg")
+@@ -219,13 +219,13 @@ elseif (ORC_PACKAGE_KIND STREQUAL "vcpkg")
+ elseif (NOT "${ZLIB_HOME}" STREQUAL "")
+   find_package (ZLIB REQUIRED)
+   if (ORC_PREFER_STATIC_ZLIB AND ZLIB_STATIC_LIB)
+-    add_resolved_library (orc_zlib ${ZLIB_STATIC_LIB} ${ZLIB_INCLUDE_DIR})
++    orc_add_resolved_library (orc_zlib ${ZLIB_STATIC_LIB} ${ZLIB_INCLUDE_DIR})
+   else ()
+-    add_resolved_library (orc_zlib ${ZLIB_LIBRARY} ${ZLIB_INCLUDE_DIR})
++    orc_add_resolved_library (orc_zlib ${ZLIB_LIBRARY} ${ZLIB_INCLUDE_DIR})
+   endif ()
+   list (APPEND ORC_SYSTEM_DEPENDENCIES ZLIB)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:ZLIB::ZLIB>")
+-  provide_find_module (ZLIB)
++  orc_provide_find_module (ZLIB)
+ else ()
+   set(ZLIB_PREFIX "${THIRDPARTY_DIR}/zlib_ep-install")
+   set(ZLIB_INCLUDE_DIR "${ZLIB_PREFIX}/include")
+@@ -252,7 +252,7 @@ else ()
+     ${THIRDPARTY_LOG_OPTIONS}
+     BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}")
+ 
+-  add_built_library (zlib_ep orc_zlib ${ZLIB_STATIC_LIB} ${ZLIB_INCLUDE_DIR})
++  orc_add_built_library (zlib_ep orc_zlib ${ZLIB_STATIC_LIB} ${ZLIB_INCLUDE_DIR})
+ 
+   list (APPEND ORC_VENDOR_DEPENDENCIES "orc::vendored_zlib|${ZLIB_STATIC_LIB_NAME}")
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:orc::vendored_zlib>")
+@@ -265,7 +265,7 @@ add_library (orc::zlib ALIAS orc_zlib)
+ 
+ if (ORC_PACKAGE_KIND STREQUAL "conan")
+   find_package (ZSTD REQUIRED CONFIG)
+-  add_resolved_library (orc_zstd ${zstd_LIBRARIES} ${zstd_INCLUDE_DIR})
++  orc_add_resolved_library (orc_zstd ${zstd_LIBRARIES} ${zstd_INCLUDE_DIR})
+   list (APPEND ORC_SYSTEM_DEPENDENCIES ZSTD)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:$<IF:$<TARGET_EXISTS:zstd::libzstd_shared>,zstd::libzstd_shared,zstd::libzstd_static>>")
+ elseif (ORC_PACKAGE_KIND STREQUAL "vcpkg")
+@@ -277,14 +277,14 @@ elseif (ORC_PACKAGE_KIND STREQUAL "vcpkg")
+ elseif (NOT "${ZSTD_HOME}" STREQUAL "")
+   find_package (ZSTD REQUIRED)
+   if (ORC_PREFER_STATIC_ZSTD AND ZSTD_STATIC_LIB)
+-    add_resolved_library (orc_zstd ${ZSTD_STATIC_LIB} ${ZSTD_INCLUDE_DIR})
++    orc_add_resolved_library (orc_zstd ${ZSTD_STATIC_LIB} ${ZSTD_INCLUDE_DIR})
+     list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:zstd::libzstd_static>")
+   else ()
+-    add_resolved_library (orc_zstd ${ZSTD_LIBRARY} ${ZSTD_INCLUDE_DIR})
++    orc_add_resolved_library (orc_zstd ${ZSTD_LIBRARY} ${ZSTD_INCLUDE_DIR})
+     list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:$<IF:$<TARGET_EXISTS:zstd::libzstd_shared>,zstd::libzstd_shared,zstd::libzstd_static>>")
+   endif ()
+   list (APPEND ORC_SYSTEM_DEPENDENCIES ZSTD)
+-  provide_find_module (ZSTD)
++  orc_provide_find_module (ZSTD)
+ else ()
+   set(ZSTD_HOME "${THIRDPARTY_DIR}/zstd_ep-install")
+   set(ZSTD_INCLUDE_DIR "${ZSTD_HOME}/include")
+@@ -318,7 +318,7 @@ else ()
+           ${THIRDPARTY_LOG_OPTIONS}
+           BUILD_BYPRODUCTS ${ZSTD_STATIC_LIB})
+ 
+-  add_built_library (zstd_ep orc_zstd ${ZSTD_STATIC_LIB} ${ZSTD_INCLUDE_DIR})
++  orc_add_built_library (zstd_ep orc_zstd ${ZSTD_STATIC_LIB} ${ZSTD_INCLUDE_DIR})
+ 
+   list (APPEND ORC_VENDOR_DEPENDENCIES "orc::vendored_zstd|${ZSTD_STATIC_LIB_NAME}")
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:orc::vendored_zstd>")
+@@ -330,7 +330,7 @@ add_library (orc::zstd ALIAS orc_zstd)
+ # LZ4
+ if (ORC_PACKAGE_KIND STREQUAL "conan")
+   find_package (LZ4 REQUIRED CONFIG)
+-  add_resolved_library (orc_lz4 ${lz4_LIBRARIES} ${lz4_INCLUDE_DIR})
++  orc_add_resolved_library (orc_lz4 ${lz4_LIBRARIES} ${lz4_INCLUDE_DIR})
+   list (APPEND ORC_SYSTEM_DEPENDENCIES LZ4)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:LZ4::lz4>")
+ elseif (ORC_PACKAGE_KIND STREQUAL "vcpkg")
+@@ -342,13 +342,13 @@ elseif (ORC_PACKAGE_KIND STREQUAL "vcpkg")
+ elseif (NOT "${LZ4_HOME}" STREQUAL "")
+   find_package (LZ4 REQUIRED)
+   if (ORC_PREFER_STATIC_LZ4 AND LZ4_STATIC_LIB)
+-    add_resolved_library (orc_lz4 ${LZ4_STATIC_LIB} ${LZ4_INCLUDE_DIR})
++    orc_add_resolved_library (orc_lz4 ${LZ4_STATIC_LIB} ${LZ4_INCLUDE_DIR})
+   else ()
+-    add_resolved_library (orc_lz4 ${LZ4_LIBRARY} ${LZ4_INCLUDE_DIR})
++    orc_add_resolved_library (orc_lz4 ${LZ4_LIBRARY} ${LZ4_INCLUDE_DIR})
+   endif ()
+   list (APPEND ORC_SYSTEM_DEPENDENCIES LZ4)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:LZ4::lz4>")
+-  provide_find_module (LZ4)
++  orc_provide_find_module (LZ4)
+ else ()
+   set(LZ4_PREFIX "${THIRDPARTY_DIR}/lz4_ep-install")
+   set(LZ4_INCLUDE_DIR "${LZ4_PREFIX}/include")
+@@ -375,7 +375,7 @@ else ()
+     ${THIRDPARTY_LOG_OPTIONS}
+     BUILD_BYPRODUCTS ${LZ4_STATIC_LIB})
+ 
+-  add_built_library (lz4_ep orc_lz4 ${LZ4_STATIC_LIB} ${LZ4_INCLUDE_DIR})
++  orc_add_built_library (lz4_ep orc_lz4 ${LZ4_STATIC_LIB} ${LZ4_INCLUDE_DIR})
+ 
+   list (APPEND ORC_VENDOR_DEPENDENCIES "orc::vendored_lz4|${LZ4_STATIC_LIB_NAME}")
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:orc::vendored_lz4>")
+@@ -491,7 +491,7 @@ endif ()
+ 
+ if (ORC_PACKAGE_KIND STREQUAL "conan")
+   find_package (Protobuf REQUIRED CONFIG)
+-  add_resolved_library (orc_protobuf ${protobuf_LIBRARIES} ${protobuf_INCLUDE_DIR})
++  orc_add_resolved_library (orc_protobuf ${protobuf_LIBRARIES} ${protobuf_INCLUDE_DIR})
+   list (APPEND ORC_SYSTEM_DEPENDENCIES Protobuf)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:protobuf::libprotobuf>")
+ elseif (ORC_PACKAGE_KIND STREQUAL "vcpkg")
+@@ -505,20 +505,20 @@ elseif (NOT "${PROTOBUF_HOME}" STREQUAL "")
+   find_package (Protobuf REQUIRED)
+ 
+   if (ORC_PREFER_STATIC_PROTOBUF AND PROTOBUF_STATIC_LIB)
+-    add_resolved_library (orc_protobuf ${PROTOBUF_STATIC_LIB} ${PROTOBUF_INCLUDE_DIR})
++    orc_add_resolved_library (orc_protobuf ${PROTOBUF_STATIC_LIB} ${PROTOBUF_INCLUDE_DIR})
+   else ()
+-    add_resolved_library (orc_protobuf ${PROTOBUF_LIBRARY} ${PROTOBUF_INCLUDE_DIR})
++    orc_add_resolved_library (orc_protobuf ${PROTOBUF_LIBRARY} ${PROTOBUF_INCLUDE_DIR})
+   endif ()
+ 
+   if (ORC_PREFER_STATIC_PROTOBUF AND PROTOC_STATIC_LIB)
+-    add_resolved_library (orc_protoc ${PROTOC_STATIC_LIB} ${PROTOBUF_INCLUDE_DIR})
++    orc_add_resolved_library (orc_protoc ${PROTOC_STATIC_LIB} ${PROTOBUF_INCLUDE_DIR})
+   else ()
+-    add_resolved_library (orc_protoc ${PROTOC_LIBRARY} ${PROTOBUF_INCLUDE_DIR})
++    orc_add_resolved_library (orc_protoc ${PROTOC_LIBRARY} ${PROTOBUF_INCLUDE_DIR})
+   endif ()
+ 
+   list (APPEND ORC_SYSTEM_DEPENDENCIES Protobuf)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:protobuf::libprotobuf>")
+-  provide_find_module (Protobuf)
++  orc_provide_find_module (Protobuf)
+ else ()
+   set(PROTOBUF_PREFIX "${THIRDPARTY_DIR}/protobuf_ep-install")
+   set(PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
+@@ -556,8 +556,8 @@ else ()
+     ${THIRDPARTY_LOG_OPTIONS}
+     BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOC_STATIC_LIB}")
+ 
+-  add_built_library (protobuf_ep orc_protobuf ${PROTOBUF_STATIC_LIB} ${PROTOBUF_INCLUDE_DIR})
+-  add_built_library (protobuf_ep orc_protoc ${PROTOC_STATIC_LIB} ${PROTOBUF_INCLUDE_DIR})
++  orc_add_built_library (protobuf_ep orc_protobuf ${PROTOBUF_STATIC_LIB} ${PROTOBUF_INCLUDE_DIR})
++  orc_add_built_library (protobuf_ep orc_protoc ${PROTOC_STATIC_LIB} ${PROTOBUF_INCLUDE_DIR})
+ 
+   list (APPEND ORC_VENDOR_DEPENDENCIES "orc::vendored_protobuf|${PROTOBUF_STATIC_LIB_NAME}")
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:orc::vendored_protobuf>")
+@@ -610,7 +610,7 @@ if(BUILD_LIBHDFSPP)
+         BUILD_BYPRODUCTS "${LIBHDFSPP_STATIC_LIB}"
+         CMAKE_ARGS ${LIBHDFSPP_CMAKE_ARGS})
+ 
+-      add_built_library(libhdfspp_ep libhdfspp ${LIBHDFSPP_STATIC_LIB} ${LIBHDFSPP_INCLUDE_DIR})
++      orc_add_built_library(libhdfspp_ep libhdfspp ${LIBHDFSPP_STATIC_LIB} ${LIBHDFSPP_INCLUDE_DIR})
+ 
+       set (LIBHDFSPP_LIBRARIES
+            libhdfspp

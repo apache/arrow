@@ -158,6 +158,12 @@ class TestFunction < Test::Unit::TestCase
       assert_equal(Arrow::RoundToMultipleOptions.new,
                    round_to_multiple_function.default_options)
     end
+
+    def test_strftime_options
+      strftime_function = Arrow::Function.find("strftime")
+      assert_equal(Arrow::StrftimeOptions.new,
+                   strftime_function.default_options)
+    end
   end
 
   sub_test_case("#options_type") do
@@ -231,6 +237,30 @@ class TestFunction < Test::Unit::TestCase
       round_to_multiple_function = Arrow::Function.find("round_to_multiple")
       assert_equal(Arrow::RoundToMultipleOptions.gtype,
                    round_to_multiple_function.options_type)
+    end
+
+    def test_strptime_options
+      strptime_function = Arrow::Function.find("strptime")
+      assert_equal(Arrow::StrptimeOptions.gtype,
+                   strptime_function.options_type)
+    end
+
+    def test_strftime_options
+      strftime_function = Arrow::Function.find("strftime")
+      assert_equal(Arrow::StrftimeOptions.gtype,
+                   strftime_function.options_type)
+    end
+
+    def test_split_pattern_options
+      split_pattern_function = Arrow::Function.find("split_pattern")
+      assert_equal(Arrow::SplitPatternOptions.gtype,
+                   split_pattern_function.options_type)
+    end
+
+    def test_struct_field_options
+      struct_field_function = Arrow::Function.find("struct_field")
+      assert_equal(Arrow::StructFieldOptions.gtype,
+                   struct_field_function.options_type)
     end
   end
 end

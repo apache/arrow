@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/array/data.h"
+#include "arrow/device_allocation_type_set.h"
 #include "arrow/scalar.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -295,13 +296,14 @@ struct ARROW_EXPORT Datum {
   /// \return empty if not arraylike
   ArrayVector chunks() const;
 
+  DeviceAllocationTypeSet device_types() const;
+
   /// \brief True if the two data are equal
   bool Equals(const Datum& other) const;
 
   bool operator==(const Datum& other) const { return Equals(other); }
   bool operator!=(const Datum& other) const { return !Equals(other); }
 
-  /// \brief Return a string representation of the kind of datum stored.
   std::string ToString() const;
 };
 

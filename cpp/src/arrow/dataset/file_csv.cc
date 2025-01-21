@@ -106,7 +106,7 @@ class CsvFileScanner : public FragmentScanner {
     }
     convert_options.include_columns = std::move(columns);
     convert_options.column_types = std::move(column_types);
-    return std::move(convert_options);
+    return convert_options;
   }
 
   static Future<std::shared_ptr<FragmentScanner>> Make(

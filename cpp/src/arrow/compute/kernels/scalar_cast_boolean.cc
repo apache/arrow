@@ -63,6 +63,12 @@ std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
                                                  BooleanType, ParseBooleanString>(*ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
+  for (const auto& ty : BinaryViewTypes()) {
+    ArrayKernelExec exec =
+        GenerateVarBinaryViewBase<applicator::ScalarUnaryNotNull, BooleanType,
+                                  ParseBooleanString>(*ty);
+    DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
+  }
   return {func};
 }
 

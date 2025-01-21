@@ -20,6 +20,10 @@ arrow_*.tgz
 extra-tests/files
 .deps
 
+# Checksums for the precompiled binaries will be added just before CRAN submission
+# use `tools/update-checksums.R` to download them.
+/tools/checksums/
+
 # C++ sources for an offline build. They're copied from the ../cpp directory, so ignore them here.
 /tools/cpp/
 # cmake expects dotenv, NOTICE.txt, and LICENSE.txt to be available one level up

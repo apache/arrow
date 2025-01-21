@@ -12,7 +12,7 @@
 # software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 # KIND, either express or implied.  See the License for the
-# specific language governing permissions and limitationsn
+# specific language governing permissions and limitations
 # under the License.
 
 # add the client subdirectory
@@ -43,8 +43,11 @@ add_arrow_lib(arrow_skyhook
               ARROW_SKYHOOK_CLIENT_LIBRARIES
               SHARED_LINK_LIBS
               ${ARROW_SKYHOOK_LINK_SHARED}
+              SHARED_PRIVATE_LINK_LIBS
+              arrow::flatbuffers
               STATIC_LINK_LIBS
-              ${ARROW_SKYHOOK_LINK_STATIC})
+              ${ARROW_SKYHOOK_LINK_STATIC}
+              arrow::flatbuffers)
 
 #  define the cls library
 add_arrow_lib(cls_skyhook
@@ -54,6 +57,8 @@ add_arrow_lib(cls_skyhook
               ARROW_SKYHOOK_CLS_LIBRARIES
               SHARED_LINK_LIBS
               ${ARROW_SKYHOOK_LINK_SHARED}
+              SHARED_PRIVATE_LINK_LIBS
+              arrow::flatbuffers
               STATIC_LINK_LIBS
               ${ARROW_SKYHOOK_LINK_STATIC})
 

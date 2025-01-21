@@ -33,6 +33,76 @@ class Buffer;
 class MemoryPool;
 
 // ----------------------------------------------------------------------
+// Decimal32Builder
+
+Decimal32Builder::Decimal32Builder(const std::shared_ptr<DataType>& type,
+                                   MemoryPool* pool, int64_t alignment)
+    : FixedSizeBinaryBuilder(type, pool, alignment),
+      decimal_type_(internal::checked_pointer_cast<Decimal32Type>(type)) {}
+
+Status Decimal32Builder::Append(Decimal32 value) {
+  RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
+  UnsafeAppend(value);
+  return Status::OK();
+}
+
+void Decimal32Builder::UnsafeAppend(Decimal32 value) {
+  value.ToBytes(GetMutableValue(length()));
+  byte_builder_.UnsafeAdvance(4);
+  UnsafeAppendToBitmap(true);
+}
+
+void Decimal32Builder::UnsafeAppend(std::string_view value) {
+  FixedSizeBinaryBuilder::UnsafeAppend(value);
+}
+
+Status Decimal32Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  std::shared_ptr<Buffer> data;
+  RETURN_NOT_OK(byte_builder_.Finish(&data));
+  std::shared_ptr<Buffer> null_bitmap;
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+
+  *out = ArrayData::Make(type(), length_, {null_bitmap, data}, null_count_);
+  capacity_ = length_ = null_count_ = 0;
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+// Decimal64Builder
+
+Decimal64Builder::Decimal64Builder(const std::shared_ptr<DataType>& type,
+                                   MemoryPool* pool, int64_t alignment)
+    : FixedSizeBinaryBuilder(type, pool, alignment),
+      decimal_type_(internal::checked_pointer_cast<Decimal64Type>(type)) {}
+
+Status Decimal64Builder::Append(Decimal64 value) {
+  RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
+  UnsafeAppend(value);
+  return Status::OK();
+}
+
+void Decimal64Builder::UnsafeAppend(Decimal64 value) {
+  value.ToBytes(GetMutableValue(length()));
+  byte_builder_.UnsafeAdvance(8);
+  UnsafeAppendToBitmap(true);
+}
+
+void Decimal64Builder::UnsafeAppend(std::string_view value) {
+  FixedSizeBinaryBuilder::UnsafeAppend(value);
+}
+
+Status Decimal64Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  std::shared_ptr<Buffer> data;
+  RETURN_NOT_OK(byte_builder_.Finish(&data));
+  std::shared_ptr<Buffer> null_bitmap;
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+
+  *out = ArrayData::Make(type(), length_, {null_bitmap, data}, null_count_);
+  capacity_ = length_ = null_count_ = 0;
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
 // Decimal128Builder
 
 Decimal128Builder::Decimal128Builder(const std::shared_ptr<DataType>& type,

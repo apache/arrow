@@ -182,7 +182,7 @@ hash_t ComputeStringHash(const void* data, int64_t length) {
   }
 
 #if XXH3_SECRET_SIZE_MIN != 136
-#error XXH3_SECRET_SIZE_MIN changed, please fix kXxh3Secrets
+#  error XXH3_SECRET_SIZE_MIN changed, please fix kXxh3Secrets
 #endif
 
   // XXH3_64bits_withSeed generates a secret based on the seed, which is too slow.
@@ -841,6 +841,14 @@ class BinaryMemoTable : public MemoTable {
     for (int32_t i = start; i < size(); ++i) {
       visit(binary_builder_.GetView(i));
     }
+  }
+
+  // Visit the stored value at a specific index in insertion order.
+  // The visitor function should have the signature `void(std::string_view)`
+  // or `void(const std::string_view&)`.
+  template <typename VisitFunc>
+  void VisitValue(int32_t idx, VisitFunc&& visit) const {
+    visit(binary_builder_.GetView(idx));
   }
 
  protected:

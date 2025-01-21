@@ -31,6 +31,22 @@ Query Execution
 
    run_query
 
+Expression Serialization
+------------------------
+
+These functions allow for serialization and deserialization of pyarrow
+compute expressions.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   BoundExpressions
+   deserialize_expressions
+   serialize_expressions
+   serialize_schema
+   deserialize_schema
+   SubstraitSchema
+
 Utility
 -------
 

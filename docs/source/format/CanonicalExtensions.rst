@@ -25,7 +25,7 @@ Canonical Extension Types
 Introduction
 ============
 
-The Arrow Columnar Format allows defining
+The Arrow columnar format allows defining
 :ref:`extension types <format_metadata_extension_types>` so as to extend
 standard Arrow data types with custom semantics.  Often these semantics
 will be specific to a system or application.  However, it is beneficial
@@ -51,7 +51,7 @@ types:
 
   3) Its serialization *must* be described in the proposal and should
      not require unduly implementation work or unusual software dependencies
-     (for example, a trivial custom text format or JSON would be acceptable).
+     (for example, a trivial custom text format or a JSON-based format would be acceptable).
 
   4) Its expected semantics *should* be described as well and any
      potential ambiguities or pain points addressed or at least mentioned.
@@ -77,7 +77,7 @@ Official List
 Fixed shape tensor
 ==================
 
-* Extension name: `arrow.fixed_shape_tensor`.
+* Extension name: ``arrow.fixed_shape_tensor``.
 
 * The storage type of the extension: ``FixedSizeList`` where:
 
@@ -130,7 +130,7 @@ Fixed shape tensor
 
     ``{ "shape": [100, 200, 500], "permutation": [2, 0, 1]}``
 
-    This is the physical layout shape and the the shape of the logical
+    This is the physical layout shape and the shape of the logical
     layout would in this case be ``[500, 100, 200]``.
 
 .. note::
@@ -147,6 +147,275 @@ Fixed shape tensor
   This structure has no relationship with the Fixed shape tensor extension type defined
   by this specification. Instead, this extension type lets one use fixed shape tensors
   as elements in a field of a RecordBatch or a Table.
+
+.. _variable_shape_tensor_extension:
+
+Variable shape tensor
+=====================
+
+* Extension name: ``arrow.variable_shape_tensor``.
+
+* The storage type of the extension is: ``StructArray`` where struct
+  is composed of **data** and **shape** fields describing a single
+  tensor per row:
+
+  * **data** is a ``List`` holding tensor elements (each list element is
+    a single tensor). The List's value type is the value type of the tensor,
+    such as an integer or floating-point type.
+  * **shape** is a ``FixedSizeList<int32>[ndim]`` of the tensor shape where
+    the size of the list ``ndim`` is equal to the number of dimensions of the
+    tensor.
+
+* Extension type parameters:
+
+  * **value_type** = the Arrow data type of individual tensor elements.
+
+  Optional parameters describing the logical layout:
+
+  * **dim_names** = explicit names to tensor dimensions
+    as an array. The length of it should be equal to the shape
+    length and equal to the number of dimensions.
+
+    ``dim_names`` can be used if the dimensions have well-known
+    names and they map to the physical layout (row-major).
+
+  * **permutation**  = indices of the desired ordering of the
+    original dimensions, defined as an array.
+
+    The indices contain a permutation of the values [0, 1, .., N-1] where
+    N is the number of dimensions. The permutation indicates which
+    dimension of the logical layout corresponds to which dimension of the
+    physical tensor (the i-th dimension of the logical view corresponds
+    to the dimension with number ``permutations[i]`` of the physical tensor).
+
+    Permutation can be useful in case the logical order of
+    the tensor is a permutation of the physical order (row-major).
+
+    When logical and physical layout are equal, the permutation will always
+    be ([0, 1, .., N-1]) and can therefore be left out.
+
+  * **uniform_shape** = sizes of individual tensor's dimensions which are
+    guaranteed to stay constant in uniform dimensions and can vary in
+    non-uniform dimensions. This holds over all tensors in the array.
+    Sizes in uniform dimensions are represented with int32 values, while
+    sizes of the non-uniform dimensions are not known in advance and are
+    represented with null. If ``uniform_shape`` is not provided it is assumed
+    that all dimensions are non-uniform.
+    An array containing a tensor with shape (2, 3, 4) and whose first and
+    last dimensions are uniform would have ``uniform_shape`` (2, null, 4).
+    This allows for interpreting the tensor correctly without accounting for
+    uniform dimensions while still permitting optional optimizations that
+    take advantage of the uniformity.
+
+* Description of the serialization:
+
+  The metadata must be a valid JSON object that optionally includes
+  dimension names with keys **"dim_names"** and  ordering of dimensions
+  with key **"permutation"**.
+  Shapes of tensors can be defined in a subset of dimensions by providing
+  key **"uniform_shape"**.
+  Minimal metadata is an empty string.
+
+  - Example with ``dim_names`` metadata for NCHW ordered data (note that the first
+    logical dimension, ``N``, is mapped to the **data** List array: each element in the List
+    is a CHW tensor and the List of tensors implicitly constitutes a single NCHW tensor):
+
+    ``{ "dim_names": ["C", "H", "W"] }``
+
+  - Example with ``uniform_shape`` metadata for a set of color images
+    with fixed height, variable width and three color channels:
+
+    ``{ "dim_names": ["H", "W", "C"], "uniform_shape": [400, null, 3] }``
+
+  - Example of permuted 3-dimensional tensor:
+
+    ``{ "permutation": [2, 0, 1] }``
+
+    For example, if the physical **shape** of an individual tensor
+    is ``[100, 200, 500]``, this permutation would denote a logical shape
+    of ``[500, 100, 200]``.
+
+.. note::
+
+  With the exception of ``permutation``, the parameters and storage
+  of VariableShapeTensor relate to the *physical* storage of the tensor.
+
+  For example, consider a tensor with::
+    shape = [10, 20, 30]
+    dim_names = [x, y, z]
+    permutations = [2, 0, 1]
+
+  This means the logical tensor has names [z, x, y] and shape [30, 10, 20].
+
+.. note::
+   Values inside each **data** tensor element are stored in row-major/C-contiguous
+   order according to the corresponding **shape**.
+
+.. _json_extension:
+
+JSON
+====
+
+* Extension name: ``arrow.json``.
+
+* The storage type of this extension is ``String`` or
+  ``LargeString`` or ``StringView``.
+  Only UTF-8 encoded JSON as specified in `rfc8259`_ is supported.
+
+* Extension type parameters:
+
+  This type does not have any parameters.
+
+* Description of the serialization:
+
+  Metadata is either an empty string or a JSON string with an empty object.
+  In the future, additional fields may be added, but they are not required
+  to interpret the array.
+
+.. _uuid_extension:
+
+UUID
+====
+
+* Extension name: ``arrow.uuid``.
+
+* The storage type of the extension is ``FixedSizeBinary`` with a length of 16 bytes.
+
+.. note::
+   A specific UUID version is not required or guaranteed. This extension represents
+   UUIDs as FixedSizeBinary(16) with big-endian notation and does not interpret the bytes in any way.
+
+Opaque
+======
+
+Opaque represents a type that an Arrow-based system received from an external
+(often non-Arrow) system, but that it cannot interpret.  In this case, it can
+pass on Opaque to its clients to at least show that a field exists and
+preserve metadata about the type from the other system.
+
+Extension parameters:
+
+* Extension name: ``arrow.opaque``.
+
+* The storage type of this extension is any type.  If there is no underlying
+  data, the storage type should be Null.
+
+* Extension type parameters:
+
+  * **type_name** = the name of the unknown type in the external system.
+  * **vendor_name** = the name of the external system.
+
+* Description of the serialization:
+
+  A valid JSON object containing the parameters as fields.  In the future,
+  additional fields may be added, but all fields current and future are never
+  required to interpret the array.
+
+  Developers **should not** attempt to enable public semantic interoperability
+  of Opaque by canonicalizing specific values of these parameters.
+
+Rationale
+---------
+
+Interfacing with non-Arrow systems requires a way to handle data that doesn't
+have an equivalent Arrow type.  In this case, use the Opaque type, which
+explicitly represents an unsupported field.  Other solutions are inadequate:
+
+* Raising an error means even one unsupported field makes all operations
+  impossible, even if (for instance) the user is just trying to view a schema.
+* Dropping unsupported columns misleads the user as to the actual schema.
+* An extension type may not exist for the unsupported type.
+* Generating an extension type on the fly would falsely imply support.
+
+Applications **should not** make conventions around vendor_name and type_name.
+These parameters are meant for human end users to understand what type wasn't
+supported.  Applications may try to interpret these fields, but must be
+prepared for breakage (e.g., when the type becomes supported with a custom
+extension type later on).  Similarly, **Opaque is not a generic container for
+file formats**.  Considerations such as MIME types are irrelevant.  In both of
+these cases, create a custom extension type instead.
+
+Examples:
+
+* A Flight SQL service that supports connecting external databases may
+  encounter columns with unsupported types in external tables.  In this case,
+  it can use the Opaque[Null] type to at least report that a column exists
+  with a particular name and type name.  This lets clients know that a column
+  exists, but is not supported.  Null is used as the storage type here because
+  only schemas are involved.
+
+  An example of the extension metadata would be::
+
+    {"type_name": "varray", "vendor_name": "Oracle"}
+
+* The ADBC PostgreSQL driver gets results as a series of length-prefixed byte
+  fields.  But the driver will not always know how to parse the bytes, as
+  there may be extensions (e.g. PostGIS).  It can use Opaque[Binary] to still
+  return those bytes to the application, which may be able to parse the data
+  itself.  Opaque differentiates the column from an actual binary column and
+  makes it clear that the value is directly from PostgreSQL.  (A custom
+  extension type is preferred, but there will always be extensions that the
+  driver does not know about.)
+
+  An example of the extension metadata would be::
+
+    {"type_name": "geometry", "vendor_name": "PostGIS"}
+
+* The ADBC PostgreSQL driver may also know how to parse the bytes, but not
+  know the intended semantics.  For example, `composite types
+  <https://www.postgresql.org/docs/current/rowtypes.html>`_ can add new
+  semantics to existing types, somewhat like Arrow extension types.  The
+  driver would be able to parse the underlying bytes in this case, but would
+  still use the Opaque type.
+
+  Consider the example in the PostgreSQL documentation of a ``complex`` type.
+  Mapping the type to a plain Arrow ``struct`` type would lose meaning, just
+  like how an Arrow system deciding to treat all extension types by dropping
+  the extension metadata would be undesirable.  Instead, the driver can use
+  Opaque[Struct] to pass on the composite type info.  (It would be wrong to
+  try to map this to an Arrow-defined complex type: it does not know the
+  proper semantics of a user-defined type, which cannot and should not be
+  hardcoded into the driver in the first place.)
+
+  An example of the extension metadata would be::
+
+    {"type_name": "database_name.schema_name.complex", "vendor_name": "PostgreSQL"}
+
+* The JDBC adapter in the Arrow Java libraries converts JDBC result sets into
+  Arrow arrays, and can get Arrow schemas from result sets.  JDBC, however,
+  allows drivers to return `arbitrary Java objects
+  <https://docs.oracle.com/javase/8/docs/api/java/sql/Types.html#OTHER>`_.
+
+  The driver can use Opaque[Null] as a placeholder during schema conversion,
+  only erroring if the application tries to fetch the actual data.  That way,
+  clients can at least introspect result schemas to decide whether it can
+  proceed to fetch the data, or only query certain columns.
+
+  An example of the extension metadata would be::
+
+    {"type_name": "OTHER", "vendor_name": "JDBC driver name"}
+
+8-bit Boolean
+=============
+
+Bool8 represents a boolean value using 1 byte (8 bits) to store each value instead of only 1 bit as in
+the original Arrow Boolean type. Although less compact than the original representation, Bool8 may have
+better zero-copy compatibility with various systems that also store booleans using 1 byte.
+
+* Extension name: ``arrow.bool8``.
+
+* The storage type of this extension is ``Int8`` where:
+
+  * **false** is denoted by the value ``0``.
+  * **true** can be specified using any non-zero value. Preferably ``1``.
+
+* Extension type parameters:
+
+  This type does not have any parameters.
+
+* Description of the serialization:
+
+  Metadata is an empty string.
 
 =========================
 Community Extension Types
@@ -165,3 +434,5 @@ GeoArrow
 Arrow extension types for representing vector geometries. It is well known
 within the Arrow geospatial subcommunity. The GeoArrow specification is not yet
 finalized.
+
+.. _rfc8259: https://datatracker.ietf.org/doc/html/rfc8259

@@ -1,3 +1,5 @@
+% Tests for the arrow.type.TimeUnit enumeration class
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -13,29 +15,38 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 classdef tTimeUnit < matlab.unittest.TestCase
-% Test class for arrow.type.timeUnit
+
+    properties (Constant)
+        ClassName = "arrow.type.TimeUnit";
+        EnumerationValues = [ ...
+            arrow.type.TimeUnit.Second; ...
+            arrow.type.TimeUnit.Millisecond; ...
+            arrow.type.TimeUnit.Microsecond; ...
+            arrow.type.TimeUnit.Nanosecond ...
+        ];
+    end
     
     methods (Test)
-        function Values(testCase)
-        % Verify there are four TimeUnit enum values.
-            import arrow.type.TimeUnit
-            values = enumeration(TimeUnit.Second);
-            expectedValues = [TimeUnit.Second, TimeUnit.Millisecond, ...
-                              TimeUnit.Microsecond, TimeUnit.Nanosecond]';
-            testCase.verifyEqual(values, expectedValues);
+
+        function SupportedValues(testCase)
+            % Verify there are four supported TimeUnit enumeration values.
+
+            actualEnumerationValues = enumeration(testCase.ClassName);
+
+            testCase.verifyEqual(actualEnumerationValues, testCase.EnumerationValues);
         end
 
         function TicksPerSecond(testCase)
-        % Verify the TicksPerSecond property has the right value for each
-        % TimeUnit value.
-            import arrow.type.TimeUnit
-            units = [TimeUnit.Second, TimeUnit.Millisecond, ...
-                              TimeUnit.Microsecond, TimeUnit.Nanosecond]';
-            ticks = [1 1e3 1e6 1e9];
-            for ii = 1:numel(units)
-                testCase.verifyEqual(ticksPerSecond(units(ii)), ticks(ii));
+            % Verify the TicksPerSecond property has the right value for
+            % each TimeUnit enumeration value.
+
+            expectedTicksPerSecond = [1 1e3 1e6 1e9];
+            for ii = 1:numel(testCase.EnumerationValues)
+                actualTicksPerSecond = ticksPerSecond(testCase.EnumerationValues(ii));
+                testCase.verifyEqual(actualTicksPerSecond, expectedTicksPerSecond(ii));
             end
         end
-    end
-end
 
+    end
+
+end

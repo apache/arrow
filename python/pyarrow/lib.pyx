@@ -21,7 +21,10 @@
 
 import datetime
 import decimal as _pydecimal
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import os
 import sys
 
@@ -32,8 +35,11 @@ from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow_python as libarrow_python
 cimport cpython as cp
 
-# Initialize NumPy C API
-arrow_init_numpy()
+
+# Initialize NumPy C API only if numpy was able to be imported
+if np is not None:
+    arrow_init_numpy()
+
 # Initialize PyArrow C++ API
 # (used from some of our C++ code, see e.g. ARROW-5260)
 import_pyarrow()
@@ -79,6 +85,17 @@ def set_cpu_count(int count):
     check_status(SetCpuThreadPoolCapacity(count))
 
 
+def is_threading_enabled() -> bool:
+    """
+    Returns True if threading is enabled in libarrow.
+
+    If it isn't enabled, then python shouldn't create any
+    threads either, because we're probably on a system where
+    threading doesn't work (e.g. Emscripten).
+    """
+    return libarrow_python.IsThreadingEnabled()
+
+
 Type_NA = _Type_NA
 Type_BOOL = _Type_BOOL
 Type_UINT8 = _Type_UINT8
@@ -92,6 +109,8 @@ Type_INT64 = _Type_INT64
 Type_HALF_FLOAT = _Type_HALF_FLOAT
 Type_FLOAT = _Type_FLOAT
 Type_DOUBLE = _Type_DOUBLE
+Type_DECIMAL32 = _Type_DECIMAL32
+Type_DECIMAL64 = _Type_DECIMAL64
 Type_DECIMAL128 = _Type_DECIMAL128
 Type_DECIMAL256 = _Type_DECIMAL256
 Type_DATE32 = _Type_DATE32
@@ -106,8 +125,12 @@ Type_STRING = _Type_STRING
 Type_LARGE_BINARY = _Type_LARGE_BINARY
 Type_LARGE_STRING = _Type_LARGE_STRING
 Type_FIXED_SIZE_BINARY = _Type_FIXED_SIZE_BINARY
+Type_BINARY_VIEW = _Type_BINARY_VIEW
+Type_STRING_VIEW = _Type_STRING_VIEW
 Type_LIST = _Type_LIST
 Type_LARGE_LIST = _Type_LARGE_LIST
+Type_LIST_VIEW = _Type_LIST_VIEW
+Type_LARGE_LIST_VIEW = _Type_LARGE_LIST_VIEW
 Type_MAP = _Type_MAP
 Type_FIXED_SIZE_LIST = _Type_FIXED_SIZE_LIST
 Type_STRUCT = _Type_STRUCT
@@ -121,6 +144,7 @@ UnionMode_DENSE = _UnionMode_DENSE
 
 __pc = None
 __pac = None
+__cuda_loaded = None
 
 
 def _pc():
@@ -137,6 +161,24 @@ def _pac():
         import pyarrow.acero as pac
         __pac = pac
     return __pac
+
+
+def _ensure_cuda_loaded():
+    # Try importing the cuda module to ensure libarrow_cuda gets loaded
+    # to register the CUDA device for the C Data Interface import
+    global __cuda_loaded
+    if __cuda_loaded is None:
+        try:
+            import pyarrow.cuda  # no-cython-lint
+            __cuda_loaded = True
+        except ImportError as exc:
+            __cuda_loaded = str(exc)
+
+    if __cuda_loaded is not True:
+        raise ImportError(
+            "Trying to import data on a CUDA device, but PyArrow is not built with "
+            f"CUDA support.\n(importing 'pyarrow.cuda' resulted in \"{__cuda_loaded}\")."
+        )
 
 
 def _gdb_test_session():
@@ -158,6 +200,9 @@ include "pandas-shim.pxi"
 # Memory pools and allocation
 include "memory.pxi"
 
+# Device type and memory manager
+include "device.pxi"
+
 # DataType, Field, Schema
 include "types.pxi"
 
@@ -175,6 +220,9 @@ include "table.pxi"
 
 # Tensors
 include "tensor.pxi"
+
+# DLPack
+include "_dlpack.pxi"
 
 # File IO
 include "io.pxi"

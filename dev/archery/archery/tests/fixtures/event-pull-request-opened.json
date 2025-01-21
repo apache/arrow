@@ -12,7 +12,7 @@
     "number": 26,
     "state": "open",
     "locked": false,
-    "title": "Unittests for GithubHook",
+    "title": "Unittests for GitHubHook",
     "user": {
       "login": "kszucs",
       "id": 961747,

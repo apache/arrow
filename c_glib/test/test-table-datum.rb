@@ -49,7 +49,16 @@ class TestTableDatum < Test::Unit::TestCase
   end
 
   def test_to_string
-    assert_equal("Table", @datum.to_s)
+    assert_equal("Table(visible: bool\n" +
+    "----\n" +
+    "visible:\n" +
+    "  [\n" +
+    "    [\n" +
+    "      true,\n" +
+    "      false\n" +
+    "    ]\n" +
+    "  ]\n" +
+    ")", @datum.to_s)
   end
 
   def test_value

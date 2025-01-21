@@ -34,15 +34,9 @@ ordered_dict = dict
 
 
 try:
-    import pickle5 as builtin_pickle
-except ImportError:
-    import pickle as builtin_pickle
-
-
-try:
     import cloudpickle as pickle
 except ImportError:
-    pickle = builtin_pickle
+    import pickle
 
 
 def tobytes(o):

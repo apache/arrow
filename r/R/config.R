@@ -40,7 +40,7 @@ io_thread_count <- function() {
 
 #' @rdname io_thread_count
 #' @param num_threads integer: New number of threads for thread pool. At least
-#'   two threads are reccomended to support all operations in the arrow
+#'   two threads are recommended to support all operations in the arrow
 #'   package.
 #' @export
 set_io_thread_count <- function(num_threads) {

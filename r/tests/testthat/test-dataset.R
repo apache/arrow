@@ -50,7 +50,7 @@ test_that("IPC/Feather format data", {
   ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
   expect_r6_class(ds$format, "IpcFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
-  expect_identical(names(ds), c(names(df1), "part"))
+  expect_named(ds, c(names(df1), "part"))
   expect_identical(dim(ds), c(20L, 7L))
 
   expect_equal(
@@ -334,6 +334,12 @@ test_that("dim method returns the correct number of rows and columns", {
   expect_identical(dim(ds), c(20L, 7L))
 })
 
+test_that("dimnames, colnames on Dataset objects", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  col_names <- c("int", "dbl", "lgl", "chr", "fct", "ts", "part")
+  expect_identical(dimnames(ds), list(NULL, col_names))
+  expect_identical(colnames(ds), col_names)
+})
 
 test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
@@ -390,7 +396,7 @@ test_that("input validation", {
 test_that("Partitioning inference", {
   # These are the same tests as above, just using the *PartitioningFactory
   ds1 <- open_dataset(dataset_dir, partitioning = "part")
-  expect_identical(names(ds1), c(names(df1), "part"))
+  expect_named(ds1, c(names(df1), "part"))
   expect_equal(
     ds1 %>%
       select(string = chr, integer = int, part) %>%
@@ -404,7 +410,7 @@ test_that("Partitioning inference", {
   )
 
   ds2 <- open_dataset(hive_dir)
-  expect_identical(names(ds2), c(names(df1), "group", "other"))
+  expect_named(ds2, c(names(df1), "group", "other"))
   expect_equal(
     ds2 %>%
       filter(group == 2) %>%
@@ -505,7 +511,7 @@ test_that("Including partition columns in schema and partitioning, hive style CS
 
 test_that("partitioning = NULL to ignore partition information (but why?)", {
   ds <- open_dataset(hive_dir, partitioning = NULL)
-  expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
+  expect_named(ds, names(df1)) # i.e. not c(names(df1), "group", "other")
 })
 
 test_that("Dataset with multiple file formats", {
@@ -514,7 +520,7 @@ test_that("Dataset with multiple file formats", {
     open_dataset(dataset_dir, format = "parquet", partitioning = "part"),
     open_dataset(ipc_dir, format = "arrow", partitioning = "part")
   ))
-  expect_identical(names(ds), c(names(df1), "part"))
+  expect_named(ds, c(names(df1), "part"))
   expect_equal(
     ds %>%
       filter(int > 6 & part %in% c(1, 3)) %>%
@@ -904,6 +910,7 @@ test_that("Dataset and query print methods", {
     print(ds),
     paste(
       "FileSystemDataset with 2 Parquet files",
+      "8 columns",
       "int: int32",
       "dbl: double",
       "lgl: bool",
@@ -1078,14 +1085,14 @@ test_that("Assembling a Dataset manually and getting a Table", {
   expect_r6_class(schm, "Schema")
 
   phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
-  expect_equal(names(phys_schm), names(df1))
-  expect_equal(names(schm), c(names(phys_schm), "part"))
+  expect_named(phys_schm, names(df1))
+  expect_named(schm, c(names(phys_schm), "part"))
 
   child <- factory$Finish(schm)
   expect_r6_class(child, "FileSystemDataset")
   expect_r6_class(child$schema, "Schema")
   expect_r6_class(child$format, "ParquetFileFormat")
-  expect_equal(names(schm), names(child$schema))
+  expect_named(schm, names(child$schema))
   expect_equal(child$files, files)
 
   ds <- Dataset$create(list(child), schm)
@@ -1105,12 +1112,12 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   expect_r6_class(schm, "Schema")
 
   phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
-  expect_equal(names(phys_schm), names(df1))
+  expect_named(phys_schm, names(df1))
 
   ds <- factory$Finish(schm)
   expect_r6_class(ds, "UnionDataset")
   expect_r6_class(ds$schema, "Schema")
-  expect_equal(names(schm), names(ds$schema))
+  expect_named(schm, names(ds$schema))
   expect_equal(unlist(map(ds$children, ~ .$files)), files)
 
   expect_scan_result(ds, schm)
@@ -1440,8 +1447,9 @@ test_that("can add in augmented fields", {
 
   error_regex <- paste(
     "`add_filename()` or use of the `__filename` augmented field can only",
-    "be used with with Dataset objects, and can only be added before doing",
-    "an aggregation or a join."
+    "be used with Dataset objects, can only be added before doing",
+    "an aggregation or a join, and cannot be referenced in subsequent",
+    "pipeline steps until either compute() or collect() is called."
   )
 
   # errors appropriately with ArrowTabular objects
@@ -1514,5 +1522,19 @@ test_that("can add in augmented fields", {
   expect_equal(
     sort(summarise_after$file),
     list.files(hive_dir, full.names = TRUE, recursive = TRUE)
+  )
+})
+
+test_that("can set thrift size string and container limits for datasets", {
+  expect_r6_class(open_dataset(dataset_dir, thrift_string_size_limit = 1000000), "FileSystemDataset")
+  expect_error(
+    open_dataset(dataset_dir, thrift_string_size_limit = 1),
+    "TProtocolException: Exceeded size limit"
+  )
+
+  expect_r6_class(open_dataset(dataset_dir, thrift_container_size_limit = 1000000), "FileSystemDataset")
+  expect_error(
+    open_dataset(dataset_dir, thrift_container_size_limit = 1),
+    "TProtocolException: Exceeded size limit"
   )
 })

@@ -22,6 +22,7 @@
 
 #include <cmath>
 #include <limits>
+#include <mutex>
 #include <sstream>
 #include <type_traits>
 
@@ -29,6 +30,7 @@
 #include "arrow/python/decimal.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -63,6 +65,8 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
       GET_PRIMITIVE_TYPE(STRING, utf8);
       GET_PRIMITIVE_TYPE(LARGE_BINARY, large_binary);
       GET_PRIMITIVE_TYPE(LARGE_STRING, large_utf8);
+      GET_PRIMITIVE_TYPE(BINARY_VIEW, binary_view);
+      GET_PRIMITIVE_TYPE(STRING_VIEW, utf8_view);
       GET_PRIMITIVE_TYPE(INTERVAL_MONTH_DAY_NANO, month_day_nano_interval);
     default:
       return nullptr;
@@ -289,7 +293,15 @@ bool PyFloat_IsNaN(PyObject* obj) {
 
 namespace {
 
+// This needs a conditional, because using std::once_flag could introduce
+// a deadlock when the GIL is enabled. See
+// https://github.com/apache/arrow/commit/f69061935e92e36e25bb891177ca8bc4f463b272 for
+// more info.
+#ifdef Py_GIL_DISABLED
+static std::once_flag pandas_static_initialized;
+#else
 static bool pandas_static_initialized = false;
+#endif
 
 // Once initialized, these variables hold borrowed references to Pandas static data.
 // We should not use OwnedRef here because Python destructors would be
@@ -301,15 +313,7 @@ static PyObject* pandas_Timestamp = nullptr;
 static PyTypeObject* pandas_NaTType = nullptr;
 static PyObject* pandas_DateOffset = nullptr;
 
-}  // namespace
-
-void InitPandasStaticData() {
-  // NOTE: This is called with the GIL held.  We needn't (and shouldn't,
-  // to avoid deadlocks) use an additional C++ lock (ARROW-10519).
-  if (pandas_static_initialized) {
-    return;
-  }
-
+void GetPandasStaticSymbols() {
   OwnedRef pandas;
 
   // Import pandas
@@ -318,11 +322,14 @@ void InitPandasStaticData() {
     return;
   }
 
+#ifndef Py_GIL_DISABLED
   // Since ImportModule can release the GIL, another thread could have
   // already initialized the static data.
   if (pandas_static_initialized) {
     return;
   }
+#endif
+
   OwnedRef ref;
 
   // set NaT sentinel and its type
@@ -352,9 +359,25 @@ void InitPandasStaticData() {
   if (ImportFromModule(pandas.obj(), "DateOffset", &ref).ok()) {
     pandas_DateOffset = ref.obj();
   }
+}
 
+}  // namespace
+
+#ifdef Py_GIL_DISABLED
+void InitPandasStaticData() {
+  std::call_once(pandas_static_initialized, GetPandasStaticSymbols);
+}
+#else
+void InitPandasStaticData() {
+  // NOTE: This is called with the GIL held.  We needn't (and shouldn't,
+  // to avoid deadlocks) use an additional C++ lock (ARROW-10519).
+  if (pandas_static_initialized) {
+    return;
+  }
+  GetPandasStaticSymbols();
   pandas_static_initialized = true;
 }
+#endif
 
 bool PandasObjectIsNull(PyObject* obj) {
   if (!MayHaveNaN(obj)) {
@@ -463,6 +486,14 @@ Status IntegerScalarToFloat32Safe(PyObject* obj, float* out) {
 void DebugPrint(PyObject* obj) {
   std::string repr = PyObject_StdStringRepr(obj);
   PySys_WriteStderr("%s\n", repr.c_str());
+}
+
+bool IsThreadingEnabled() {
+#ifdef ARROW_ENABLE_THREADING
+  return true;
+#else
+  return false;
+#endif
 }
 
 }  // namespace internal

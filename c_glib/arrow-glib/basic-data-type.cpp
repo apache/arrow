@@ -114,6 +114,10 @@ G_BEGIN_DECLS
  *
  * #GArrowDecimalDataType is a base class for the decimal data types.
  *
+ * #GArrowDecimal32DataType is a class for the 32-bit decimal data type.
+ *
+ * #GArrowDecimal64DataType is a class for the 64-bit decimal data type.
+ *
  * #GArrowDecimal128DataType is a class for the 128-bit decimal data type.
  *
  * #GArrowDecimal256DataType is a class for the 256-bit decimal data type.
@@ -123,24 +127,26 @@ G_BEGIN_DECLS
  *
  * #GArrowExtensionDataTypeRegistry is a class to manage extension
  * data types.
+ *
+ * #GArrowStringViewDataType is a class for the string view data type.
+ *
+ * #GArrowBinaryViewDataType is a class for the binary view data type.
  */
 
-typedef struct GArrowDataTypePrivate_ {
+struct GArrowDataTypePrivate
+{
   std::shared_ptr<arrow::DataType> data_type;
-} GArrowDataTypePrivate;
+};
 
 enum {
   PROP_DATA_TYPE = 1
 };
 
-G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowDataType,
-                                    garrow_data_type,
-                                    G_TYPE_OBJECT)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowDataType, garrow_data_type, G_TYPE_OBJECT)
 
-#define GARROW_DATA_TYPE_GET_PRIVATE(obj)         \
-  static_cast<GArrowDataTypePrivate *>(           \
-    garrow_data_type_get_instance_private(        \
-      GARROW_DATA_TYPE(obj)))
+#define GARROW_DATA_TYPE_GET_PRIVATE(obj)                                                \
+  static_cast<GArrowDataTypePrivate *>(                                                  \
+    garrow_data_type_get_instance_private(GARROW_DATA_TYPE(obj)))
 
 static void
 garrow_data_type_finalize(GObject *object)
@@ -165,8 +171,7 @@ garrow_data_type_set_property(GObject *object,
     {
       auto data_type = g_value_get_pointer(value);
       if (data_type) {
-        priv->data_type =
-          *static_cast<std::shared_ptr<arrow::DataType> *>(data_type);
+        priv->data_type = *static_cast<std::shared_ptr<arrow::DataType> *>(data_type);
       }
     }
     break;
@@ -193,7 +198,7 @@ static void
 garrow_data_type_init(GArrowDataType *object)
 {
   auto priv = GARROW_DATA_TYPE_GET_PRIVATE(object);
-  new(&priv->data_type) std::shared_ptr<arrow::DataType>;
+  new (&priv->data_type) std::shared_ptr<arrow::DataType>;
 }
 
 static void
@@ -204,15 +209,15 @@ garrow_data_type_class_init(GArrowDataTypeClass *klass)
 
   gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_data_type_finalize;
+  gobject_class->finalize = garrow_data_type_finalize;
   gobject_class->set_property = garrow_data_type_set_property;
   gobject_class->get_property = garrow_data_type_get_property;
 
-  spec = g_param_spec_pointer("data-type",
-                              "Data type",
-                              "The raw std::shared<arrow::DataType> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "data-type",
+    "Data type",
+    "The raw std::shared<arrow::DataType> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DATA_TYPE, spec);
 }
 
@@ -277,8 +282,7 @@ garrow_data_type_export(GArrowDataType *data_type, GError **error)
  *   otherwise.
  */
 gboolean
-garrow_data_type_equal(GArrowDataType *data_type,
-                       GArrowDataType *other_data_type)
+garrow_data_type_equal(GArrowDataType *data_type, GArrowDataType *other_data_type)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
   const auto arrow_other_data_type = garrow_data_type_get_raw(other_data_type);
@@ -332,7 +336,6 @@ garrow_data_type_get_name(GArrowDataType *data_type)
   return g_strdup(name.c_str());
 }
 
-
 G_DEFINE_ABSTRACT_TYPE(GArrowFixedWidthDataType,
                        garrow_fixed_width_data_type,
                        GARROW_TYPE_DATA_TYPE)
@@ -356,17 +359,13 @@ garrow_fixed_width_data_type_class_init(GArrowFixedWidthDataTypeClass *klass)
 gint
 garrow_fixed_width_data_type_get_bit_width(GArrowFixedWidthDataType *data_type)
 {
-  const auto arrow_data_type =
-    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  const auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   const auto arrow_fixed_width_type =
     std::static_pointer_cast<arrow::FixedWidthType>(arrow_data_type);
   return arrow_fixed_width_type->bit_width();
 }
 
-
-G_DEFINE_TYPE(GArrowNullDataType,
-              garrow_null_data_type,
-              GARROW_TYPE_DATA_TYPE)
+G_DEFINE_TYPE(GArrowNullDataType, garrow_null_data_type, GARROW_TYPE_DATA_TYPE)
 
 static void
 garrow_null_data_type_init(GArrowNullDataType *object)
@@ -388,13 +387,10 @@ garrow_null_data_type_new(void)
 {
   auto arrow_data_type = arrow::null();
 
-  GArrowNullDataType *data_type =
-    GARROW_NULL_DATA_TYPE(g_object_new(GARROW_TYPE_NULL_DATA_TYPE,
-                                       "data-type", &arrow_data_type,
-                                       NULL));
+  GArrowNullDataType *data_type = GARROW_NULL_DATA_TYPE(
+    g_object_new(GARROW_TYPE_NULL_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
-
 
 G_DEFINE_TYPE(GArrowBooleanDataType,
               garrow_boolean_data_type,
@@ -420,13 +416,10 @@ garrow_boolean_data_type_new(void)
 {
   auto arrow_data_type = arrow::boolean();
 
-  GArrowBooleanDataType *data_type =
-    GARROW_BOOLEAN_DATA_TYPE(g_object_new(GARROW_TYPE_BOOLEAN_DATA_TYPE,
-                                          "data-type", &arrow_data_type,
-                                          NULL));
+  GArrowBooleanDataType *data_type = GARROW_BOOLEAN_DATA_TYPE(
+    g_object_new(GARROW_TYPE_BOOLEAN_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
-
 
 G_DEFINE_ABSTRACT_TYPE(GArrowNumericDataType,
                        garrow_numeric_data_type,
@@ -441,7 +434,6 @@ static void
 garrow_numeric_data_type_class_init(GArrowNumericDataTypeClass *klass)
 {
 }
-
 
 G_DEFINE_ABSTRACT_TYPE(GArrowIntegerDataType,
                        garrow_integer_data_type,
@@ -468,16 +460,13 @@ garrow_integer_data_type_class_init(GArrowIntegerDataTypeClass *klass)
 gboolean
 garrow_integer_data_type_is_signed(GArrowIntegerDataType *data_type)
 {
-  const auto arrow_data_type =
-    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  const auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   const auto arrow_integer_type =
     std::static_pointer_cast<arrow::IntegerType>(arrow_data_type);
   return arrow_integer_type->is_signed();
 }
 
-G_DEFINE_TYPE(GArrowInt8DataType,
-              garrow_int8_data_type,
-              GARROW_TYPE_INTEGER_DATA_TYPE)
+G_DEFINE_TYPE(GArrowInt8DataType, garrow_int8_data_type, GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_int8_data_type_init(GArrowInt8DataType *object)
@@ -499,17 +488,12 @@ garrow_int8_data_type_new(void)
 {
   auto arrow_data_type = arrow::int8();
 
-  GArrowInt8DataType *data_type =
-    GARROW_INT8_DATA_TYPE(g_object_new(GARROW_TYPE_INT8_DATA_TYPE,
-                                       "data-type", &arrow_data_type,
-                                       NULL));
+  GArrowInt8DataType *data_type = GARROW_INT8_DATA_TYPE(
+    g_object_new(GARROW_TYPE_INT8_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
 
-
-G_DEFINE_TYPE(GArrowUInt8DataType,
-              garrow_uint8_data_type,
-              GARROW_TYPE_INTEGER_DATA_TYPE)
+G_DEFINE_TYPE(GArrowUInt8DataType, garrow_uint8_data_type, GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_uint8_data_type_init(GArrowUInt8DataType *object)
@@ -531,17 +515,12 @@ garrow_uint8_data_type_new(void)
 {
   auto arrow_data_type = arrow::uint8();
 
-  GArrowUInt8DataType *data_type =
-    GARROW_UINT8_DATA_TYPE(g_object_new(GARROW_TYPE_UINT8_DATA_TYPE,
-                                        "data-type", &arrow_data_type,
-                                        NULL));
+  GArrowUInt8DataType *data_type = GARROW_UINT8_DATA_TYPE(
+    g_object_new(GARROW_TYPE_UINT8_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
 
-
-G_DEFINE_TYPE(GArrowInt16DataType,
-              garrow_int16_data_type,
-              GARROW_TYPE_INTEGER_DATA_TYPE)
+G_DEFINE_TYPE(GArrowInt16DataType, garrow_int16_data_type, GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_int16_data_type_init(GArrowInt16DataType *object)
@@ -563,13 +542,10 @@ garrow_int16_data_type_new(void)
 {
   auto arrow_data_type = arrow::int16();
 
-  GArrowInt16DataType *data_type =
-    GARROW_INT16_DATA_TYPE(g_object_new(GARROW_TYPE_INT16_DATA_TYPE,
-                                        "data-type", &arrow_data_type,
-                                        NULL));
+  GArrowInt16DataType *data_type = GARROW_INT16_DATA_TYPE(
+    g_object_new(GARROW_TYPE_INT16_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
-
 
 G_DEFINE_TYPE(GArrowUInt16DataType,
               garrow_uint16_data_type,
@@ -595,17 +571,12 @@ garrow_uint16_data_type_new(void)
 {
   auto arrow_data_type = arrow::uint16();
 
-  GArrowUInt16DataType *data_type =
-    GARROW_UINT16_DATA_TYPE(g_object_new(GARROW_TYPE_UINT16_DATA_TYPE,
-                                         "data-type", &arrow_data_type,
-                                         NULL));
+  GArrowUInt16DataType *data_type = GARROW_UINT16_DATA_TYPE(
+    g_object_new(GARROW_TYPE_UINT16_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
 
-
-G_DEFINE_TYPE(GArrowInt32DataType,
-              garrow_int32_data_type,
-              GARROW_TYPE_INTEGER_DATA_TYPE)
+G_DEFINE_TYPE(GArrowInt32DataType, garrow_int32_data_type, GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_int32_data_type_init(GArrowInt32DataType *object)
@@ -627,13 +598,10 @@ garrow_int32_data_type_new(void)
 {
   auto arrow_data_type = arrow::int32();
 
-  GArrowInt32DataType *data_type =
-    GARROW_INT32_DATA_TYPE(g_object_new(GARROW_TYPE_INT32_DATA_TYPE,
-                                        "data-type", &arrow_data_type,
-                                        NULL));
+  GArrowInt32DataType *data_type = GARROW_INT32_DATA_TYPE(
+    g_object_new(GARROW_TYPE_INT32_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
-
 
 G_DEFINE_TYPE(GArrowUInt32DataType,
               garrow_uint32_data_type,
@@ -659,17 +627,12 @@ garrow_uint32_data_type_new(void)
 {
   auto arrow_data_type = arrow::uint32();
 
-  GArrowUInt32DataType *data_type =
-    GARROW_UINT32_DATA_TYPE(g_object_new(GARROW_TYPE_UINT32_DATA_TYPE,
-                                         "data-type", &arrow_data_type,
-                                         NULL));
+  GArrowUInt32DataType *data_type = GARROW_UINT32_DATA_TYPE(
+    g_object_new(GARROW_TYPE_UINT32_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
 
-
-G_DEFINE_TYPE(GArrowInt64DataType,
-              garrow_int64_data_type,
-              GARROW_TYPE_INTEGER_DATA_TYPE)
+G_DEFINE_TYPE(GArrowInt64DataType, garrow_int64_data_type, GARROW_TYPE_INTEGER_DATA_TYPE)
 
 static void
 garrow_int64_data_type_init(GArrowInt64DataType *object)
@@ -691,13 +654,10 @@ garrow_int64_data_type_new(void)
 {
   auto arrow_data_type = arrow::int64();
 
-  GArrowInt64DataType *data_type =
-    GARROW_INT64_DATA_TYPE(g_object_new(GARROW_TYPE_INT64_DATA_TYPE,
-                                        "data-type", &arrow_data_type,
-                                        NULL));
+  GArrowInt64DataType *data_type = GARROW_INT64_DATA_TYPE(
+    g_object_new(GARROW_TYPE_INT64_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
-
 
 G_DEFINE_TYPE(GArrowUInt64DataType,
               garrow_uint64_data_type,
@@ -723,13 +683,10 @@ garrow_uint64_data_type_new(void)
 {
   auto arrow_data_type = arrow::uint64();
 
-  GArrowUInt64DataType *data_type =
-    GARROW_UINT64_DATA_TYPE(g_object_new(GARROW_TYPE_UINT64_DATA_TYPE,
-                                         "data-type", &arrow_data_type,
-                                         NULL));
+  GArrowUInt64DataType *data_type = GARROW_UINT64_DATA_TYPE(
+    g_object_new(GARROW_TYPE_UINT64_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
-
 
 G_DEFINE_ABSTRACT_TYPE(GArrowFloatingPointDataType,
                        garrow_floating_point_data_type,
@@ -744,7 +701,6 @@ static void
 garrow_floating_point_data_type_class_init(GArrowFloatingPointDataTypeClass *klass)
 {
 }
-
 
 G_DEFINE_TYPE(GArrowHalfFloatDataType,
               garrow_half_float_data_type,
@@ -771,13 +727,10 @@ GArrowHalfFloatDataType *
 garrow_half_float_data_type_new(void)
 {
   auto arrow_data_type = arrow::float16();
-  auto data_type =
-    GARROW_HALF_FLOAT_DATA_TYPE(g_object_new(GARROW_TYPE_HALF_FLOAT_DATA_TYPE,
-                                             "data-type", &arrow_data_type,
-                                             NULL));
+  auto data_type = GARROW_HALF_FLOAT_DATA_TYPE(
+    g_object_new(GARROW_TYPE_HALF_FLOAT_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
-
 
 G_DEFINE_TYPE(GArrowFloatDataType,
               garrow_float_data_type,
@@ -803,13 +756,10 @@ garrow_float_data_type_new(void)
 {
   auto arrow_data_type = arrow::float32();
 
-  GArrowFloatDataType *data_type =
-    GARROW_FLOAT_DATA_TYPE(g_object_new(GARROW_TYPE_FLOAT_DATA_TYPE,
-                                        "data-type", &arrow_data_type,
-                                        NULL));
+  GArrowFloatDataType *data_type = GARROW_FLOAT_DATA_TYPE(
+    g_object_new(GARROW_TYPE_FLOAT_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
-
 
 G_DEFINE_TYPE(GArrowDoubleDataType,
               garrow_double_data_type,
@@ -835,17 +785,12 @@ garrow_double_data_type_new(void)
 {
   auto arrow_data_type = arrow::float64();
 
-  GArrowDoubleDataType *data_type =
-    GARROW_DOUBLE_DATA_TYPE(g_object_new(GARROW_TYPE_DOUBLE_DATA_TYPE,
-                                         "data-type", &arrow_data_type,
-                                         NULL));
+  GArrowDoubleDataType *data_type = GARROW_DOUBLE_DATA_TYPE(
+    g_object_new(GARROW_TYPE_DOUBLE_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
 
-
-G_DEFINE_TYPE(GArrowBinaryDataType,
-              garrow_binary_data_type,
-              GARROW_TYPE_DATA_TYPE)
+G_DEFINE_TYPE(GArrowBinaryDataType, garrow_binary_data_type, GARROW_TYPE_DATA_TYPE)
 
 static void
 garrow_binary_data_type_init(GArrowBinaryDataType *object)
@@ -867,13 +812,10 @@ garrow_binary_data_type_new(void)
 {
   auto arrow_data_type = arrow::binary();
 
-  GArrowBinaryDataType *data_type =
-    GARROW_BINARY_DATA_TYPE(g_object_new(GARROW_TYPE_BINARY_DATA_TYPE,
-                                         "data-type", &arrow_data_type,
-                                         NULL));
+  GArrowBinaryDataType *data_type = GARROW_BINARY_DATA_TYPE(
+    g_object_new(GARROW_TYPE_BINARY_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
-
 
 G_DEFINE_TYPE(GArrowFixedSizeBinaryDataType,
               garrow_fixed_size_binary_data_type,
@@ -902,10 +844,11 @@ garrow_fixed_size_binary_data_type_new(gint32 byte_width)
 {
   auto arrow_fixed_size_binary_data_type = arrow::fixed_size_binary(byte_width);
 
-  auto fixed_size_binary_data_type =
-    GARROW_FIXED_SIZE_BINARY_DATA_TYPE(g_object_new(GARROW_TYPE_FIXED_SIZE_BINARY_DATA_TYPE,
-                                                    "data-type", &arrow_fixed_size_binary_data_type,
-                                                    NULL));
+  auto fixed_size_binary_data_type = GARROW_FIXED_SIZE_BINARY_DATA_TYPE(
+    g_object_new(GARROW_TYPE_FIXED_SIZE_BINARY_DATA_TYPE,
+                 "data-type",
+                 &arrow_fixed_size_binary_data_type,
+                 NULL));
   return fixed_size_binary_data_type;
 }
 
@@ -918,15 +861,14 @@ garrow_fixed_size_binary_data_type_new(gint32 byte_width)
  * Since: 0.12.0
  */
 gint32
-garrow_fixed_size_binary_data_type_get_byte_width(GArrowFixedSizeBinaryDataType *data_type)
+garrow_fixed_size_binary_data_type_get_byte_width(
+  GArrowFixedSizeBinaryDataType *data_type)
 {
-  const auto arrow_data_type =
-    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  const auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   const auto arrow_fixed_size_binary_type =
     std::static_pointer_cast<arrow::FixedSizeBinaryType>(arrow_data_type);
   return arrow_fixed_size_binary_type->byte_width();
 }
-
 
 G_DEFINE_TYPE(GArrowLargeBinaryDataType,
               garrow_large_binary_data_type,
@@ -956,15 +898,13 @@ garrow_large_binary_data_type_new(void)
 
   GArrowLargeBinaryDataType *data_type =
     GARROW_LARGE_BINARY_DATA_TYPE(g_object_new(GARROW_TYPE_LARGE_BINARY_DATA_TYPE,
-                                               "data-type", &arrow_data_type,
+                                               "data-type",
+                                               &arrow_data_type,
                                                NULL));
   return data_type;
 }
 
-
-G_DEFINE_TYPE(GArrowStringDataType,
-              garrow_string_data_type,
-              GARROW_TYPE_DATA_TYPE)
+G_DEFINE_TYPE(GArrowStringDataType, garrow_string_data_type, GARROW_TYPE_DATA_TYPE)
 
 static void
 garrow_string_data_type_init(GArrowStringDataType *object)
@@ -986,13 +926,10 @@ garrow_string_data_type_new(void)
 {
   auto arrow_data_type = arrow::utf8();
 
-  GArrowStringDataType *data_type =
-    GARROW_STRING_DATA_TYPE(g_object_new(GARROW_TYPE_STRING_DATA_TYPE,
-                                         "data-type", &arrow_data_type,
-                                         NULL));
+  GArrowStringDataType *data_type = GARROW_STRING_DATA_TYPE(
+    g_object_new(GARROW_TYPE_STRING_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
-
 
 G_DEFINE_TYPE(GArrowLargeStringDataType,
               garrow_large_string_data_type,
@@ -1022,11 +959,11 @@ garrow_large_string_data_type_new(void)
 
   GArrowLargeStringDataType *data_type =
     GARROW_LARGE_STRING_DATA_TYPE(g_object_new(GARROW_TYPE_LARGE_STRING_DATA_TYPE,
-                                               "data-type", &arrow_data_type,
+                                               "data-type",
+                                               &arrow_data_type,
                                                NULL));
   return data_type;
 }
-
 
 G_DEFINE_ABSTRACT_TYPE(GArrowTemporalDataType,
                        garrow_temporal_data_type,
@@ -1041,7 +978,6 @@ static void
 garrow_temporal_data_type_class_init(GArrowTemporalDataTypeClass *klass)
 {
 }
-
 
 G_DEFINE_TYPE(GArrowDate32DataType,
               garrow_date32_data_type,
@@ -1070,13 +1006,10 @@ garrow_date32_data_type_new(void)
 {
   auto arrow_data_type = arrow::date32();
 
-  GArrowDate32DataType *data_type =
-    GARROW_DATE32_DATA_TYPE(g_object_new(GARROW_TYPE_DATE32_DATA_TYPE,
-                                         "data-type", &arrow_data_type,
-                                         NULL));
+  GArrowDate32DataType *data_type = GARROW_DATE32_DATA_TYPE(
+    g_object_new(GARROW_TYPE_DATE32_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
-
 
 G_DEFINE_TYPE(GArrowDate64DataType,
               garrow_date64_data_type,
@@ -1105,17 +1038,76 @@ garrow_date64_data_type_new(void)
 {
   auto arrow_data_type = arrow::date64();
 
-  GArrowDate64DataType *data_type =
-    GARROW_DATE64_DATA_TYPE(g_object_new(GARROW_TYPE_DATE64_DATA_TYPE,
-                                         "data-type", &arrow_data_type,
-                                         NULL));
+  GArrowDate64DataType *data_type = GARROW_DATE64_DATA_TYPE(
+    g_object_new(GARROW_TYPE_DATE64_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
 
+struct GArrowTimestampDataTypePrivate
+{
+  GTimeZone *time_zone;
+};
 
-G_DEFINE_TYPE(GArrowTimestampDataType,
-              garrow_timestamp_data_type,
-              GARROW_TYPE_TEMPORAL_DATA_TYPE)
+enum {
+  PROP_TIME_ZONE = 1
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowTimestampDataType,
+                           garrow_timestamp_data_type,
+                           GARROW_TYPE_TEMPORAL_DATA_TYPE)
+
+#define GARROW_TIMESTAMP_DATA_TYPE_GET_PRIVATE(object)                                   \
+  static_cast<GArrowTimestampDataTypePrivate *>(                                         \
+    garrow_timestamp_data_type_get_instance_private(GARROW_TIMESTAMP_DATA_TYPE(object)))
+
+static void
+garrow_timestamp_data_type_dispose(GObject *object)
+{
+  auto priv = GARROW_TIMESTAMP_DATA_TYPE_GET_PRIVATE(object);
+
+  if (priv->time_zone) {
+    g_time_zone_unref(priv->time_zone);
+    priv->time_zone = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_timestamp_data_type_parent_class)->dispose(object);
+}
+
+static void
+garrow_timestamp_data_type_set_property(GObject *object,
+                                        guint prop_id,
+                                        const GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto priv = GARROW_TIMESTAMP_DATA_TYPE_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_TIME_ZONE:
+    priv->time_zone = static_cast<GTimeZone *>(g_value_dup_boxed(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_timestamp_data_type_get_property(GObject *object,
+                                        guint prop_id,
+                                        GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto priv = GARROW_TIMESTAMP_DATA_TYPE_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_TIME_ZONE:
+    g_value_set_boxed(value, priv->time_zone);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 garrow_timestamp_data_type_init(GArrowTimestampDataType *object)
@@ -1125,11 +1117,33 @@ garrow_timestamp_data_type_init(GArrowTimestampDataType *object)
 static void
 garrow_timestamp_data_type_class_init(GArrowTimestampDataTypeClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->dispose = garrow_timestamp_data_type_dispose;
+  gobject_class->set_property = garrow_timestamp_data_type_set_property;
+  gobject_class->get_property = garrow_timestamp_data_type_get_property;
+
+  GParamSpec *spec;
+  /**
+   * GArrowTimestampDataType:time-zone:
+   *
+   * The time zone of this data type.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_boxed(
+    "time-zone",
+    "Time zone",
+    "The time zone of this data type",
+    G_TYPE_TIME_ZONE,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_TIME_ZONE, spec);
 }
 
 /**
  * garrow_timestamp_data_type_new:
  * @unit: The unit of the timestamp data.
+ * @time_zone: (nullable): The time zone of the timestamp data. If based GLib
+ *   is less than 2.58, this is ignored.
  *
  * Returns: A newly created the number of
  *   seconds/milliseconds/microseconds/nanoseconds since UNIX epoch in
@@ -1138,35 +1152,42 @@ garrow_timestamp_data_type_class_init(GArrowTimestampDataTypeClass *klass)
  * Since: 0.7.0
  */
 GArrowTimestampDataType *
-garrow_timestamp_data_type_new(GArrowTimeUnit unit)
+garrow_timestamp_data_type_new(GArrowTimeUnit unit, GTimeZone *time_zone)
 {
   auto arrow_unit = garrow_time_unit_to_raw(unit);
-  auto arrow_data_type = arrow::timestamp(arrow_unit);
+  std::string arrow_timezone;
+#if GLIB_CHECK_VERSION(2, 58, 0)
+  if (time_zone) {
+    arrow_timezone = g_time_zone_get_identifier(time_zone);
+  }
+#endif
+  auto arrow_data_type = arrow::timestamp(arrow_unit, arrow_timezone);
   auto data_type =
     GARROW_TIMESTAMP_DATA_TYPE(g_object_new(GARROW_TYPE_TIMESTAMP_DATA_TYPE,
-                                            "data-type", &arrow_data_type,
+                                            "data-type",
+                                            &arrow_data_type,
+                                            "time-zone",
+                                            time_zone,
                                             NULL));
   return data_type;
 }
 
 /**
  * garrow_timestamp_data_type_get_unit:
- * @timestamp_data_type: The #GArrowTimestampDataType.
+ * @data_type: The #GArrowTimestampDataType.
  *
  * Returns: The unit of the timestamp data type.
  *
  * Since: 0.8.0
  */
 GArrowTimeUnit
-garrow_timestamp_data_type_get_unit(GArrowTimestampDataType *timestamp_data_type)
+garrow_timestamp_data_type_get_unit(GArrowTimestampDataType *data_type)
 {
-  const auto arrow_data_type =
-    garrow_data_type_get_raw(GARROW_DATA_TYPE(timestamp_data_type));
+  const auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   const auto arrow_timestamp_data_type =
     std::static_pointer_cast<arrow::TimestampType>(arrow_data_type);
   return garrow_time_unit_from_raw(arrow_timestamp_data_type->unit());
 }
-
 
 G_DEFINE_ABSTRACT_TYPE(GArrowTimeDataType,
                        garrow_time_data_type,
@@ -1193,17 +1214,13 @@ garrow_time_data_type_class_init(GArrowTimeDataTypeClass *klass)
 GArrowTimeUnit
 garrow_time_data_type_get_unit(GArrowTimeDataType *time_data_type)
 {
-  const auto arrow_data_type =
-    garrow_data_type_get_raw(GARROW_DATA_TYPE(time_data_type));
+  const auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(time_data_type));
   const auto arrow_time_data_type =
     std::static_pointer_cast<arrow::TimeType>(arrow_data_type);
   return garrow_time_unit_from_raw(arrow_time_data_type->unit());
 }
 
-
-G_DEFINE_TYPE(GArrowTime32DataType,
-              garrow_time32_data_type,
-              GARROW_TYPE_TIME_DATA_TYPE)
+G_DEFINE_TYPE(GArrowTime32DataType, garrow_time32_data_type, GARROW_TYPE_TIME_DATA_TYPE)
 
 static void
 garrow_time32_data_type_init(GArrowTime32DataType *object)
@@ -1261,17 +1278,12 @@ garrow_time32_data_type_new(GArrowTimeUnit unit, GError **error)
 
   auto arrow_unit = garrow_time_unit_to_raw(unit);
   auto arrow_data_type = arrow::time32(arrow_unit);
-  auto data_type =
-    GARROW_TIME32_DATA_TYPE(g_object_new(GARROW_TYPE_TIME32_DATA_TYPE,
-                                         "data-type", &arrow_data_type,
-                                         NULL));
+  auto data_type = GARROW_TIME32_DATA_TYPE(
+    g_object_new(GARROW_TYPE_TIME32_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
 
-
-G_DEFINE_TYPE(GArrowTime64DataType,
-              garrow_time64_data_type,
-              GARROW_TYPE_TIME_DATA_TYPE)
+G_DEFINE_TYPE(GArrowTime64DataType, garrow_time64_data_type, GARROW_TYPE_TIME_DATA_TYPE)
 
 static void
 garrow_time64_data_type_init(GArrowTime64DataType *object)
@@ -1329,13 +1341,10 @@ garrow_time64_data_type_new(GArrowTimeUnit unit, GError **error)
 
   auto arrow_unit = garrow_time_unit_to_raw(unit);
   auto arrow_data_type = arrow::time64(arrow_unit);
-  auto data_type =
-    GARROW_TIME64_DATA_TYPE(g_object_new(GARROW_TYPE_TIME64_DATA_TYPE,
-                                         "data-type", &arrow_data_type,
-                                         NULL));
+  auto data_type = GARROW_TIME64_DATA_TYPE(
+    g_object_new(GARROW_TYPE_TIME64_DATA_TYPE, "data-type", &arrow_data_type, NULL));
   return data_type;
 }
-
 
 G_DEFINE_ABSTRACT_TYPE(GArrowIntervalDataType,
                        garrow_interval_data_type,
@@ -1368,7 +1377,6 @@ garrow_interval_data_type_get_interval_type(GArrowIntervalDataType *type)
   return garrow_interval_type_from_raw(arrow_interval_type->interval_type());
 }
 
-
 G_DEFINE_TYPE(GArrowMonthIntervalDataType,
               garrow_month_interval_data_type,
               GARROW_TYPE_INTERVAL_DATA_TYPE)
@@ -1378,8 +1386,7 @@ garrow_month_interval_data_type_init(GArrowMonthIntervalDataType *object)
 }
 
 static void
-garrow_month_interval_data_type_class_init(
-  GArrowMonthIntervalDataTypeClass *klass)
+garrow_month_interval_data_type_class_init(GArrowMonthIntervalDataTypeClass *klass)
 {
 }
 
@@ -1396,11 +1403,11 @@ garrow_month_interval_data_type_new(void)
   auto arrow_data_type = arrow::month_interval();
 
   auto data_type = g_object_new(GARROW_TYPE_MONTH_INTERVAL_DATA_TYPE,
-                                "data-type", &arrow_data_type,
+                                "data-type",
+                                &arrow_data_type,
                                 NULL);
   return GARROW_MONTH_INTERVAL_DATA_TYPE(data_type);
 }
-
 
 G_DEFINE_TYPE(GArrowDayTimeIntervalDataType,
               garrow_day_time_interval_data_type,
@@ -1412,8 +1419,7 @@ garrow_day_time_interval_data_type_init(GArrowDayTimeIntervalDataType *object)
 }
 
 static void
-garrow_day_time_interval_data_type_class_init(
-  GArrowDayTimeIntervalDataTypeClass *klass)
+garrow_day_time_interval_data_type_class_init(GArrowDayTimeIntervalDataTypeClass *klass)
 {
 }
 
@@ -1430,19 +1436,18 @@ garrow_day_time_interval_data_type_new(void)
   auto arrow_data_type = arrow::day_time_interval();
 
   auto data_type = g_object_new(GARROW_TYPE_DAY_TIME_INTERVAL_DATA_TYPE,
-                                "data-type", &arrow_data_type,
+                                "data-type",
+                                &arrow_data_type,
                                 NULL);
   return GARROW_DAY_TIME_INTERVAL_DATA_TYPE(data_type);
 }
-
 
 G_DEFINE_TYPE(GArrowMonthDayNanoIntervalDataType,
               garrow_month_day_nano_interval_data_type,
               GARROW_TYPE_INTERVAL_DATA_TYPE)
 
 static void
-garrow_month_day_nano_interval_data_type_init(
-  GArrowMonthDayNanoIntervalDataType *object)
+garrow_month_day_nano_interval_data_type_init(GArrowMonthDayNanoIntervalDataType *object)
 {
 }
 
@@ -1465,11 +1470,11 @@ garrow_month_day_nano_interval_data_type_new(void)
   auto arrow_data_type = arrow::month_day_nano_interval();
 
   auto data_type = g_object_new(GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_DATA_TYPE,
-                                "data-type", &arrow_data_type,
+                                "data-type",
+                                &arrow_data_type,
                                 NULL);
   return GARROW_MONTH_DAY_NANO_INTERVAL_DATA_TYPE(data_type);
 }
-
 
 G_DEFINE_ABSTRACT_TYPE(GArrowDecimalDataType,
                        garrow_decimal_data_type,
@@ -1494,18 +1499,23 @@ garrow_decimal_data_type_class_init(GArrowDecimalDataTypeClass *klass)
  * Returns: (nullable):
  *   The newly created decimal data type on success, %NULL on error.
  *
- *   #GArrowDecimal256DataType is used if @precision is larger than
- *   garrow_decimal128_data_type_max_precision(),
- *   #GArrowDecimal128DataType is used otherwise.
+ *   * #GArrowDecimal32DataType is used if @precision up to 9
+ *   * #GArrowDecimal64DataType is used if @precision up to 19
+ *   * #GArrowDecimal128DataType is used if @precision up to 38
+ *   * #GArrowDecimal256DataType is used otherwise
  *
  * Since: 0.10.0
  */
 GArrowDecimalDataType *
-garrow_decimal_data_type_new(gint32 precision,
-                             gint32 scale,
-                             GError **error)
+garrow_decimal_data_type_new(gint32 precision, gint32 scale, GError **error)
 {
-  if (precision <= garrow_decimal128_data_type_max_precision()) {
+  if (precision <= garrow_decimal32_data_type_max_precision()) {
+    return GARROW_DECIMAL_DATA_TYPE(
+      garrow_decimal32_data_type_new(precision, scale, error));
+  } else if (precision <= garrow_decimal64_data_type_max_precision()) {
+    return GARROW_DECIMAL_DATA_TYPE(
+      garrow_decimal64_data_type_new(precision, scale, error));
+  } else if (precision <= garrow_decimal128_data_type_max_precision()) {
     return GARROW_DECIMAL_DATA_TYPE(
       garrow_decimal128_data_type_new(precision, scale, error));
   } else {
@@ -1550,6 +1560,107 @@ garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type)
   return arrow_decimal_type->scale();
 }
 
+G_DEFINE_TYPE(GArrowDecimal32DataType,
+              garrow_decimal32_data_type,
+              GARROW_TYPE_DECIMAL_DATA_TYPE)
+
+static void
+garrow_decimal32_data_type_init(GArrowDecimal32DataType *object)
+{
+}
+
+static void
+garrow_decimal32_data_type_class_init(GArrowDecimal32DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_decimal32_data_type_max_precision:
+ *
+ * Returns: The max precision of 32-bit decimal data type.
+ *
+ * Since: 19.0.0
+ */
+gint32
+garrow_decimal32_data_type_max_precision()
+{
+  return arrow::Decimal32Type::kMaxPrecision;
+}
+
+/**
+ * garrow_decimal32_data_type_new:
+ * @precision: The precision of decimal data.
+ * @scale: The scale of decimal data.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   The newly created 32-bit decimal data type on success, %NULL on error.
+ *
+ * Since: 19.0.0
+ */
+GArrowDecimal32DataType *
+garrow_decimal32_data_type_new(gint32 precision, gint32 scale, GError **error)
+{
+  auto arrow_data_type_result = arrow::Decimal32Type::Make(precision, scale);
+  if (garrow::check(error, arrow_data_type_result, "[decimal32-data-type][new]")) {
+    auto arrow_data_type = *arrow_data_type_result;
+    return GARROW_DECIMAL32_DATA_TYPE(
+      g_object_new(GARROW_TYPE_DECIMAL32_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  } else {
+    return NULL;
+  }
+}
+
+G_DEFINE_TYPE(GArrowDecimal64DataType,
+              garrow_decimal64_data_type,
+              GARROW_TYPE_DECIMAL_DATA_TYPE)
+
+static void
+garrow_decimal64_data_type_init(GArrowDecimal64DataType *object)
+{
+}
+
+static void
+garrow_decimal64_data_type_class_init(GArrowDecimal64DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_decimal64_data_type_max_precision:
+ *
+ * Returns: The max precision of 64-bit decimal data type.
+ *
+ * Since: 19.0.0
+ */
+gint32
+garrow_decimal64_data_type_max_precision()
+{
+  return arrow::Decimal64Type::kMaxPrecision;
+}
+
+/**
+ * garrow_decimal64_data_type_new:
+ * @precision: The precision of decimal data.
+ * @scale: The scale of decimal data.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   The newly created 64-bit decimal data type on success, %NULL on error.
+ *
+ * Since: 19.0.0
+ */
+GArrowDecimal64DataType *
+garrow_decimal64_data_type_new(gint32 precision, gint32 scale, GError **error)
+{
+  auto arrow_data_type_result = arrow::Decimal64Type::Make(precision, scale);
+  if (garrow::check(error, arrow_data_type_result, "[decimal64-data-type][new]")) {
+    auto arrow_data_type = *arrow_data_type_result;
+    return GARROW_DECIMAL64_DATA_TYPE(
+      g_object_new(GARROW_TYPE_DECIMAL64_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  } else {
+    return NULL;
+  }
+}
 
 G_DEFINE_TYPE(GArrowDecimal128DataType,
               garrow_decimal128_data_type,
@@ -1590,24 +1701,19 @@ garrow_decimal128_data_type_max_precision()
  * Since: 0.12.0
  */
 GArrowDecimal128DataType *
-garrow_decimal128_data_type_new(gint32 precision,
-                                gint32 scale,
-                                GError **error)
+garrow_decimal128_data_type_new(gint32 precision, gint32 scale, GError **error)
 {
   auto arrow_data_type_result = arrow::Decimal128Type::Make(precision, scale);
-  if (garrow::check(error,
-                    arrow_data_type_result,
-                    "[decimal128-data-type][new]")) {
+  if (garrow::check(error, arrow_data_type_result, "[decimal128-data-type][new]")) {
     auto arrow_data_type = *arrow_data_type_result;
-    return GARROW_DECIMAL128_DATA_TYPE(
-      g_object_new(GARROW_TYPE_DECIMAL128_DATA_TYPE,
-                   "data-type", &arrow_data_type,
-                   NULL));
+    return GARROW_DECIMAL128_DATA_TYPE(g_object_new(GARROW_TYPE_DECIMAL128_DATA_TYPE,
+                                                    "data-type",
+                                                    &arrow_data_type,
+                                                    NULL));
   } else {
     return NULL;
   }
 }
-
 
 G_DEFINE_TYPE(GArrowDecimal256DataType,
               garrow_decimal256_data_type,
@@ -1648,26 +1754,22 @@ garrow_decimal256_data_type_max_precision()
  * Since: 3.0.0
  */
 GArrowDecimal256DataType *
-garrow_decimal256_data_type_new(gint32 precision,
-                                gint32 scale,
-                                GError **error)
+garrow_decimal256_data_type_new(gint32 precision, gint32 scale, GError **error)
 {
   auto arrow_data_type_result = arrow::Decimal256Type::Make(precision, scale);
-  if (garrow::check(error,
-                    arrow_data_type_result,
-                    "[decimal256-data-type][new]")) {
+  if (garrow::check(error, arrow_data_type_result, "[decimal256-data-type][new]")) {
     auto arrow_data_type = *arrow_data_type_result;
-    return GARROW_DECIMAL256_DATA_TYPE(
-      g_object_new(GARROW_TYPE_DECIMAL256_DATA_TYPE,
-                   "data-type", &arrow_data_type,
-                   NULL));
+    return GARROW_DECIMAL256_DATA_TYPE(g_object_new(GARROW_TYPE_DECIMAL256_DATA_TYPE,
+                                                    "data-type",
+                                                    &arrow_data_type,
+                                                    NULL));
   } else {
     return NULL;
   }
 }
 
-
-typedef struct GArrowExtensionDataTypePrivate_ {
+typedef struct GArrowExtensionDataTypePrivate_
+{
   GArrowDataType *storage_data_type;
 } GArrowExtensionDataTypePrivate;
 
@@ -1675,14 +1777,13 @@ enum {
   PROP_STORAGE_DATA_TYPE = 1
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowExtensionDataType,
-                           garrow_extension_data_type,
-                           GARROW_TYPE_DATA_TYPE)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowExtensionDataType,
+                                    garrow_extension_data_type,
+                                    GARROW_TYPE_DATA_TYPE)
 
-#define GARROW_EXTENSION_DATA_TYPE_GET_PRIVATE(obj)         \
-  static_cast<GArrowExtensionDataTypePrivate *>(            \
-    garrow_extension_data_type_get_instance_private(        \
-      GARROW_EXTENSION_DATA_TYPE(obj)))
+#define GARROW_EXTENSION_DATA_TYPE_GET_PRIVATE(obj)                                      \
+  static_cast<GArrowExtensionDataTypePrivate *>(                                         \
+    garrow_extension_data_type_get_instance_private(GARROW_EXTENSION_DATA_TYPE(obj)))
 
 static void
 garrow_extension_data_type_dispose(GObject *object)
@@ -1742,17 +1843,17 @@ static void
 garrow_extension_data_type_class_init(GArrowExtensionDataTypeClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
-  gobject_class->dispose      = garrow_extension_data_type_dispose;
+  gobject_class->dispose = garrow_extension_data_type_dispose;
   gobject_class->set_property = garrow_extension_data_type_set_property;
   gobject_class->get_property = garrow_extension_data_type_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("storage-data-type",
-                             "Storage data type",
-                             "The underlying GArrowDataType",
-                             GARROW_TYPE_DATA_TYPE,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "storage-data-type",
+    "Storage data type",
+    "The underlying GArrowDataType",
+    GARROW_TYPE_DATA_TYPE,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_STORAGE_DATA_TYPE, spec);
 }
 
@@ -1769,9 +1870,8 @@ garrow_extension_data_type_class_init(GArrowExtensionDataTypeClass *klass)
 gchar *
 garrow_extension_data_type_get_extension_name(GArrowExtensionDataType *data_type)
 {
-  auto arrow_data_type =
-    std::static_pointer_cast<arrow::ExtensionType>(
-      garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+  auto arrow_data_type = std::static_pointer_cast<arrow::ExtensionType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
   const auto name = arrow_data_type->extension_name();
   return g_strdup(name.c_str());
 }
@@ -1791,8 +1891,8 @@ garrow_extension_data_type_wrap_array(GArrowExtensionDataType *data_type,
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   auto arrow_storage = garrow_array_get_raw(storage);
-  auto arrow_extension_array = arrow::ExtensionType::WrapArray(arrow_data_type,
-                                                               arrow_storage);
+  auto arrow_extension_array =
+    arrow::ExtensionType::WrapArray(arrow_data_type, arrow_storage);
   auto array = garrow_extension_array_new_raw(&arrow_extension_array, storage);
   return GARROW_EXTENSION_ARRAY(array);
 }
@@ -1814,39 +1914,39 @@ garrow_extension_data_type_wrap_chunked_array(GArrowExtensionDataType *data_type
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   auto arrow_storage = garrow_chunked_array_get_raw(storage);
   auto arrow_extension_chunked_array =
-    arrow::ExtensionType::WrapArray(arrow_data_type,
-                                    arrow_storage);
+    arrow::ExtensionType::WrapArray(arrow_data_type, arrow_storage);
   return garrow_chunked_array_new_raw(&arrow_extension_chunked_array);
 }
 
+G_END_DECLS
 
 static std::shared_ptr<arrow::DataType>
-garrow_extension_data_type_get_storage_data_type_raw(
-  GArrowExtensionDataType *data_type)
+garrow_extension_data_type_get_storage_data_type_raw(GArrowExtensionDataType *data_type)
 {
   auto priv = GARROW_EXTENSION_DATA_TYPE_GET_PRIVATE(data_type);
   return garrow_data_type_get_raw(priv->storage_data_type);
 }
 
-G_END_DECLS
-
 namespace garrow {
-  GExtensionType::GExtensionType(GArrowExtensionDataType *garrow_data_type) :
-    arrow::ExtensionType(
-      garrow_extension_data_type_get_storage_data_type_raw(garrow_data_type)),
-    garrow_data_type_(garrow_data_type) {
+  GExtensionType::GExtensionType(GArrowExtensionDataType *garrow_data_type)
+    : arrow::ExtensionType(
+        garrow_extension_data_type_get_storage_data_type_raw(garrow_data_type)),
+      garrow_data_type_(garrow_data_type)
+  {
     g_object_ref(garrow_data_type_);
   }
 
-  GExtensionType::~GExtensionType() {
-    g_object_unref(garrow_data_type_);
-  }
+  GExtensionType::~GExtensionType() { g_object_unref(garrow_data_type_); }
 
-  GArrowExtensionDataType *GExtensionType::garrow_data_type() const {
+  GArrowExtensionDataType *
+  GExtensionType::garrow_data_type() const
+  {
     return garrow_data_type_;
   }
 
-  std::string GExtensionType::extension_name() const {
+  std::string
+  GExtensionType::extension_name() const
+  {
     auto klass = GARROW_EXTENSION_DATA_TYPE_GET_CLASS(garrow_data_type_);
     auto c_name = klass->get_extension_name(garrow_data_type_);
     std::string name(c_name);
@@ -1854,35 +1954,37 @@ namespace garrow {
     return name;
   }
 
-  bool GExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
+  bool
+  GExtensionType::ExtensionEquals(const arrow::ExtensionType &other) const
+  {
     if (extension_name() != other.extension_name()) {
       return false;
     }
     auto klass = GARROW_EXTENSION_DATA_TYPE_GET_CLASS(garrow_data_type_);
     auto garrow_other_data_type =
-      static_cast<const GExtensionType&>(other).garrow_data_type_;
-    return klass->equal(garrow_data_type_,
-                        garrow_other_data_type);
+      static_cast<const GExtensionType &>(other).garrow_data_type_;
+    return klass->equal(garrow_data_type_, garrow_other_data_type);
   }
 
   std::shared_ptr<arrow::Array>
-  GExtensionType::MakeArray(std::shared_ptr<arrow::ArrayData> data) const {
+  GExtensionType::MakeArray(std::shared_ptr<arrow::ArrayData> data) const
+  {
     return std::make_shared<arrow::ExtensionArray>(data);
   }
 
   arrow::Result<std::shared_ptr<arrow::DataType>>
   GExtensionType::Deserialize(std::shared_ptr<arrow::DataType> storage_data_type,
-                              const std::string& serialized_data) const {
+                              const std::string &serialized_data) const
+  {
     auto klass = GARROW_EXTENSION_DATA_TYPE_GET_CLASS(garrow_data_type_);
     auto garrow_storage_data_type = garrow_data_type_new_raw(&storage_data_type);
-    GBytes *g_serialized_data = g_bytes_new_static(serialized_data.data(),
-                                                   serialized_data.size());
+    GBytes *g_serialized_data =
+      g_bytes_new_static(serialized_data.data(), serialized_data.size());
     GError *error = NULL;
-    auto garrow_deserialized_data_type =
-      klass->deserialize(garrow_data_type_,
-                         garrow_storage_data_type,
-                         g_serialized_data,
-                         &error);
+    auto garrow_deserialized_data_type = klass->deserialize(garrow_data_type_,
+                                                            garrow_storage_data_type,
+                                                            g_serialized_data,
+                                                            &error);
     g_bytes_unref(g_serialized_data);
     g_object_unref(garrow_storage_data_type);
     if (error) {
@@ -1891,34 +1993,35 @@ namespace garrow {
                                     "[extension-type][deserialize]");
     }
 
-    auto deserialized_data_type =
-      garrow_data_type_get_raw(garrow_deserialized_data_type);
+    auto deserialized_data_type = garrow_data_type_get_raw(garrow_deserialized_data_type);
     g_object_unref(garrow_deserialized_data_type);
     return deserialized_data_type;
   }
 
   std::string
-  GExtensionType::Serialize() const {
+  GExtensionType::Serialize() const
+  {
     auto klass = GARROW_EXTENSION_DATA_TYPE_GET_CLASS(garrow_data_type_);
     auto g_bytes = klass->serialize(garrow_data_type_);
     gsize raw_data_size = 0;
     auto raw_data = g_bytes_get_data(g_bytes, &raw_data_size);
-    std::string data(static_cast<const char *>(raw_data),
-                     raw_data_size);
+    std::string data(static_cast<const char *>(raw_data), raw_data_size);
     g_bytes_unref(g_bytes);
     return data;
   }
 
-  GType GExtensionType::array_gtype() const {
+  GType
+  GExtensionType::array_gtype() const
+  {
     auto klass = GARROW_EXTENSION_DATA_TYPE_GET_CLASS(garrow_data_type_);
     return klass->get_array_gtype(garrow_data_type_);
   }
-}
+} // namespace garrow
 
 G_BEGIN_DECLS
 
-
-typedef struct GArrowExtensionDataTypeRegistryPrivate_ {
+typedef struct GArrowExtensionDataTypeRegistryPrivate_
+{
   std::shared_ptr<arrow::ExtensionTypeRegistry> registry;
 } GArrowExtensionDataTypeRegistryPrivate;
 
@@ -1930,9 +2033,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowExtensionDataTypeRegistry,
                            garrow_extension_data_type_registry,
                            G_TYPE_OBJECT)
 
-#define GARROW_EXTENSION_DATA_TYPE_REGISTRY_GET_PRIVATE(obj)    \
-  static_cast<GArrowExtensionDataTypeRegistryPrivate *>(        \
-    garrow_extension_data_type_registry_get_instance_private(   \
+#define GARROW_EXTENSION_DATA_TYPE_REGISTRY_GET_PRIVATE(obj)                             \
+  static_cast<GArrowExtensionDataTypeRegistryPrivate *>(                                 \
+    garrow_extension_data_type_registry_get_instance_private(                            \
       GARROW_EXTENSION_DATA_TYPE_REGISTRY(obj)))
 
 static void
@@ -1955,8 +2058,8 @@ garrow_extension_data_type_registry_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_REGISTRY:
-    priv->registry =
-      *static_cast<std::shared_ptr<arrow::ExtensionTypeRegistry> *>(g_value_get_pointer(value));
+    priv->registry = *static_cast<std::shared_ptr<arrow::ExtensionTypeRegistry> *>(
+      g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1968,23 +2071,24 @@ static void
 garrow_extension_data_type_registry_init(GArrowExtensionDataTypeRegistry *object)
 {
   auto priv = GARROW_EXTENSION_DATA_TYPE_REGISTRY_GET_PRIVATE(object);
-  new(&priv->registry) std::shared_ptr<arrow::ExtensionTypeRegistry>;
+  new (&priv->registry) std::shared_ptr<arrow::ExtensionTypeRegistry>;
 }
 
 static void
-garrow_extension_data_type_registry_class_init(GArrowExtensionDataTypeRegistryClass *klass)
+garrow_extension_data_type_registry_class_init(
+  GArrowExtensionDataTypeRegistryClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_extension_data_type_registry_finalize;
+  gobject_class->finalize = garrow_extension_data_type_registry_finalize;
   gobject_class->set_property = garrow_extension_data_type_registry_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("registry",
-                              "Registry",
-                              "The raw std::shared<arrow::ExtensionTypeRegistry> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "registry",
+    "Registry",
+    "The raw std::shared<arrow::ExtensionTypeRegistry> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_REGISTRY, spec);
 }
 
@@ -2015,10 +2119,9 @@ garrow_extension_data_type_registry_default(void)
  * Since: 3.0.0
  */
 gboolean
-garrow_extension_data_type_registry_register(
-  GArrowExtensionDataTypeRegistry *registry,
-  GArrowExtensionDataType *data_type,
-  GError **error)
+garrow_extension_data_type_registry_register(GArrowExtensionDataTypeRegistry *registry,
+                                             GArrowExtensionDataType *data_type,
+                                             GError **error)
 {
   const gchar *context = "[extension-data-type-registry][register]";
   auto klass = GARROW_EXTENSION_DATA_TYPE_GET_CLASS(data_type);
@@ -2054,9 +2157,8 @@ garrow_extension_data_type_registry_register(
   }
 
   auto arrow_registry = garrow_extension_data_type_registry_get_raw(registry);
-  auto arrow_data_type =
-    std::static_pointer_cast<arrow::ExtensionType>(
-      garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
+  auto arrow_data_type = std::static_pointer_cast<arrow::ExtensionType>(
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
   auto status = arrow_registry->RegisterType(arrow_data_type);
   return garrow::check(error, status, context);
 }
@@ -2075,16 +2177,13 @@ garrow_extension_data_type_registry_register(
  * Since: 3.0.0
  */
 gboolean
-garrow_extension_data_type_registry_unregister(
-  GArrowExtensionDataTypeRegistry *registry,
-  const gchar *name,
-  GError **error)
+garrow_extension_data_type_registry_unregister(GArrowExtensionDataTypeRegistry *registry,
+                                               const gchar *name,
+                                               GError **error)
 {
   auto arrow_registry = garrow_extension_data_type_registry_get_raw(registry);
   auto status = arrow_registry->UnregisterType(name);
-  return garrow::check(error,
-                       status,
-                       "[extension-data-type-registry][unregister]");
+  return garrow::check(error, status, "[extension-data-type-registry][unregister]");
 }
 
 /**
@@ -2098,9 +2197,8 @@ garrow_extension_data_type_registry_unregister(
  * Since: 3.0.0
  */
 GArrowExtensionDataType *
-garrow_extension_data_type_registry_lookup(
-  GArrowExtensionDataTypeRegistry *registry,
-  const gchar *name)
+garrow_extension_data_type_registry_lookup(GArrowExtensionDataTypeRegistry *registry,
+                                           const gchar *name)
 {
   auto arrow_registry = garrow_extension_data_type_registry_get_raw(registry);
   auto arrow_extension_data_type = arrow_registry->GetType(name);
@@ -2113,6 +2211,61 @@ garrow_extension_data_type_registry_lookup(
   return GARROW_EXTENSION_DATA_TYPE(data_type);
 }
 
+G_DEFINE_TYPE(GArrowBinaryViewDataType,
+              garrow_binary_view_data_type,
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_binary_view_data_type_init(GArrowBinaryViewDataType *object)
+{
+}
+
+static void
+garrow_binary_view_data_type_class_init(GArrowBinaryViewDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_binary_view_data_type_new:
+ *
+ * Returns: The newly created binary view data type.
+ */
+GArrowBinaryViewDataType *
+garrow_binary_view_data_type_new(void)
+{
+  auto arrow_data_type = arrow::binary_view();
+  GArrowBinaryViewDataType *data_type = GARROW_BINARY_VIEW_DATA_TYPE(
+    g_object_new(GARROW_TYPE_BINARY_VIEW_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  return data_type;
+}
+
+G_DEFINE_TYPE(GArrowStringViewDataType,
+              garrow_string_view_data_type,
+              GARROW_TYPE_BINARY_VIEW_DATA_TYPE)
+
+static void
+garrow_string_view_data_type_init(GArrowStringViewDataType *object)
+{
+}
+
+static void
+garrow_string_view_data_type_class_init(GArrowStringViewDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_string_view_data_type_new:
+ *
+ * Returns: The newly created string view data type.
+ */
+GArrowStringViewDataType *
+garrow_string_view_data_type_new(void)
+{
+  auto arrow_data_type = arrow::utf8_view();
+  GArrowStringViewDataType *data_type = GARROW_STRING_VIEW_DATA_TYPE(
+    g_object_new(GARROW_TYPE_STRING_VIEW_DATA_TYPE, "data-type", &arrow_data_type, NULL));
+  return data_type;
+}
 
 G_END_DECLS
 
@@ -2213,6 +2366,12 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::MAP:
     type = GARROW_TYPE_MAP_DATA_TYPE;
     break;
+  case arrow::Type::type::DECIMAL32:
+    type = GARROW_TYPE_DECIMAL32_DATA_TYPE;
+    break;
+  case arrow::Type::type::DECIMAL64:
+    type = GARROW_TYPE_DECIMAL64_DATA_TYPE;
+    break;
   case arrow::Type::type::DECIMAL128:
     type = GARROW_TYPE_DECIMAL128_DATA_TYPE;
     break;
@@ -2247,9 +2406,7 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     type = GARROW_TYPE_DATA_TYPE;
     break;
   }
-  data_type = GARROW_DATA_TYPE(g_object_new(type,
-                                            "data-type", arrow_data_type,
-                                            NULL));
+  data_type = GARROW_DATA_TYPE(g_object_new(type, "data-type", arrow_data_type, NULL));
   return data_type;
 }
 
@@ -2259,8 +2416,8 @@ garrow_data_type_get_raw(GArrowDataType *data_type)
   auto priv = GARROW_DATA_TYPE_GET_PRIVATE(data_type);
   if (!priv->data_type &&
       g_type_is_a(G_OBJECT_TYPE(data_type), GARROW_TYPE_EXTENSION_DATA_TYPE)) {
-    priv->data_type = std::make_shared<garrow::GExtensionType>(
-      GARROW_EXTENSION_DATA_TYPE(data_type));
+    priv->data_type =
+      std::make_shared<garrow::GExtensionType>(GARROW_EXTENSION_DATA_TYPE(data_type));
   }
   return priv->data_type;
 }
@@ -2270,14 +2427,14 @@ garrow_extension_data_type_registry_new_raw(
   std::shared_ptr<arrow::ExtensionTypeRegistry> *arrow_registry)
 {
   auto registry = g_object_new(GARROW_TYPE_EXTENSION_DATA_TYPE_REGISTRY,
-                               "registry", arrow_registry,
+                               "registry",
+                               arrow_registry,
                                NULL);
   return GARROW_EXTENSION_DATA_TYPE_REGISTRY(registry);
 }
 
 std::shared_ptr<arrow::ExtensionTypeRegistry>
-garrow_extension_data_type_registry_get_raw(
-  GArrowExtensionDataTypeRegistry *registry)
+garrow_extension_data_type_registry_get_raw(GArrowExtensionDataTypeRegistry *registry)
 {
   auto priv = GARROW_EXTENSION_DATA_TYPE_REGISTRY_GET_PRIVATE(registry);
   return priv->registry;

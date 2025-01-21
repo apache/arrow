@@ -19,7 +19,7 @@
 
 # Conda Forge recipes
 
-This directory must be migrated periodically with the upstrem updates of
+This directory must be migrated periodically with the upstream updates of
 [arrow-cpp-feedstock][arrow-cpp-feedstock],
 [parquet-cpp-feedstock][parquet-cpp-feedstock].
 conda-forge repositories because of multiple vendored files.

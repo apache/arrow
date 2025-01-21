@@ -65,6 +65,7 @@ cdef extern from "Python.h":
 
 
 cdef int check_status(const CStatus& status) except -1 nogil
+cdef object convert_status(const CStatus& status)
 
 
 cdef class _Weakrefable:
@@ -117,6 +118,16 @@ cdef class ListType(DataType):
 cdef class LargeListType(DataType):
     cdef:
         const CLargeListType* list_type
+
+
+cdef class ListViewType(DataType):
+    cdef:
+        const CListViewType* list_view_type
+
+
+cdef class LargeListViewType(DataType):
+    cdef:
+        const CLargeListViewType* list_view_type
 
 
 cdef class MapType(DataType):
@@ -174,6 +185,16 @@ cdef class FixedSizeBinaryType(DataType):
         const CFixedSizeBinaryType* fixed_size_binary_type
 
 
+cdef class Decimal32Type(FixedSizeBinaryType):
+    cdef:
+        const CDecimal32Type* decimal32_type
+
+
+cdef class Decimal64Type(FixedSizeBinaryType):
+    cdef:
+        const CDecimal64Type* decimal64_type
+
+
 cdef class Decimal128Type(FixedSizeBinaryType):
     cdef:
         const CDecimal128Type* decimal128_type
@@ -202,6 +223,22 @@ cdef class ExtensionType(BaseExtensionType):
 cdef class FixedShapeTensorType(BaseExtensionType):
     cdef:
         const CFixedShapeTensorType* tensor_ext_type
+
+cdef class Bool8Type(BaseExtensionType):
+    cdef:
+        const CBool8Type* bool8_ext_type
+
+cdef class OpaqueType(BaseExtensionType):
+    cdef:
+        const COpaqueType* opaque_ext_type
+
+cdef class UuidType(BaseExtensionType):
+    cdef:
+        const CUuidType* uuid_ext_type
+
+cdef class JsonType(BaseExtensionType):
+    cdef:
+        const CJsonType* json_ext_type
 
 
 cdef class PyExtensionType(ExtensionType):
@@ -275,6 +312,7 @@ cdef class Array(_PandasConvertible):
     cdef void init(self, const shared_ptr[CArray]& sp_array) except *
     cdef getitem(self, int64_t i)
     cdef int64_t length(self)
+    cdef void _assert_cpu(self) except *
 
 
 cdef class Tensor(_Weakrefable):
@@ -284,6 +322,8 @@ cdef class Tensor(_Weakrefable):
 
     cdef readonly:
         DataType type
+        bytes _ssize_t_shape
+        bytes _ssize_t_strides
 
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor)
 
@@ -400,6 +440,14 @@ cdef class FixedSizeBinaryArray(Array):
     pass
 
 
+cdef class Decimal32Array(FixedSizeBinaryArray):
+    pass
+
+
+cdef class Decimal64Array(FixedSizeBinaryArray):
+    pass
+
+
 cdef class Decimal128Array(FixedSizeBinaryArray):
     pass
 
@@ -424,6 +472,14 @@ cdef class LargeListArray(BaseListArray):
     pass
 
 
+cdef class ListViewArray(BaseListArray):
+    pass
+
+
+cdef class LargeListViewArray(BaseListArray):
+    pass
+
+
 cdef class MapArray(ListArray):
     pass
 
@@ -441,6 +497,14 @@ cdef class StringArray(Array):
 
 
 cdef class BinaryArray(Array):
+    pass
+
+
+cdef class StringViewArray(Array):
+    pass
+
+
+cdef class BinaryViewArray(Array):
     pass
 
 
@@ -465,6 +529,8 @@ cdef class ChunkedArray(_PandasConvertible):
     cdef:
         shared_ptr[CChunkedArray] sp_chunked_array
         CChunkedArray* chunked_array
+        c_bool _is_cpu
+        c_bool _init_is_cpu
 
     cdef readonly:
         # To allow Table to propagate metadata to pandas.Series
@@ -475,13 +541,15 @@ cdef class ChunkedArray(_PandasConvertible):
 
 
 cdef class _Tabular(_PandasConvertible):
-    pass
+    cdef void _assert_cpu(self) except *
 
 
 cdef class Table(_Tabular):
     cdef:
         shared_ptr[CTable] sp_table
         CTable* table
+        c_bool _is_cpu
+        c_bool _init_is_cpu
 
     cdef void init(self, const shared_ptr[CTable]& table)
 
@@ -493,6 +561,30 @@ cdef class RecordBatch(_Tabular):
         Schema _schema
 
     cdef void init(self, const shared_ptr[CRecordBatch]& table)
+
+
+cdef class Device(_Weakrefable):
+    cdef:
+        shared_ptr[CDevice] device
+
+    cdef void init(self, const shared_ptr[CDevice]& device)
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CDevice]& device)
+
+    cdef inline shared_ptr[CDevice] unwrap(self) nogil
+
+
+cdef class MemoryManager(_Weakrefable):
+    cdef:
+        shared_ptr[CMemoryManager] memory_manager
+
+    cdef void init(self, const shared_ptr[CMemoryManager]& memory_manager)
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CMemoryManager]& mm)
+
+    cdef inline shared_ptr[CMemoryManager] unwrap(self) nogil
 
 
 cdef class Buffer(_Weakrefable):
@@ -518,6 +610,7 @@ cdef class NativeFile(_Weakrefable):
         bint is_readable
         bint is_writable
         bint is_seekable
+        bint _is_appending
         bint own_file
 
     # By implementing these "virtual" functions (all functions in Cython
@@ -551,12 +644,24 @@ cdef class CompressedOutputStream(NativeFile):
 
 cdef class _CRecordBatchWriter(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchWriter] writer
+        SharedPtrNoGIL[CRecordBatchWriter] writer
 
 
 cdef class RecordBatchReader(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchReader] reader
+        SharedPtrNoGIL[CRecordBatchReader] reader
+
+
+cdef class CacheOptions(_Weakrefable):
+    cdef:
+        CCacheOptions wrapped
+
+    cdef void init(self, CCacheOptions options)
+
+    cdef inline CCacheOptions unwrap(self)
+
+    @staticmethod
+    cdef wrap(const CCacheOptions options)
 
 
 cdef class Codec(_Weakrefable):

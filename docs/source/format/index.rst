@@ -15,20 +15,27 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _format:
+
+Specifications
+==============
+
 .. toctree::
    :maxdepth: 2
-   :caption: Specifications and Protocols
-   :hidden:
 
-   Versioning
+   Intro
    Columnar
+   Versioning
+   Changing
    CanonicalExtensions
    Other
    CDataInterface
    CStreamInterface
+   CDeviceDataInterface
+   StatisticsSchema
+   DissociatedIPC
    Flight
    FlightSql
    ADBC
-   Changing
    Integration
    Glossary

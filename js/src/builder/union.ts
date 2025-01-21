@@ -31,7 +31,7 @@ export abstract class UnionBuilder<T extends Union, TNull = any> extends Builder
 
     constructor(options: UnionBuilderOptions<T, TNull>) {
         super(options);
-        this._typeIds = new DataBufferBuilder(new Int8Array(0), 1);
+        this._typeIds = new DataBufferBuilder(Int8Array, 0, 1);
         if (typeof options['valueToChildTypeId'] === 'function') {
             this._valueToChildTypeId = options['valueToChildTypeId'];
         }
@@ -47,9 +47,7 @@ export abstract class UnionBuilder<T extends Union, TNull = any> extends Builder
         if (childTypeId === undefined) {
             childTypeId = this._valueToChildTypeId(this, value, index);
         }
-        if (this.setValid(index, this.isValid(value))) {
-            this.setValue(index, value, childTypeId);
-        }
+        this.setValue(index, value, childTypeId);
         return this;
     }
 
@@ -86,7 +84,7 @@ export class DenseUnionBuilder<T extends DenseUnion, TNull = any> extends UnionB
 
     constructor(options: UnionBuilderOptions<T, TNull>) {
         super(options);
-        this._offsets = new DataBufferBuilder(new Int32Array(0));
+        this._offsets = new DataBufferBuilder(Int32Array);
     }
 
     /** @ignore */

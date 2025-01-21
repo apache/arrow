@@ -42,8 +42,9 @@ logging.basicConfig(level=logging.INFO)
 BOOL = ArrowBool()
 
 
-@click.group()
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--debug", type=BOOL, is_flag=True, default=False,
+              envvar='ARCHERY_DEBUG',
               help="Increase logging with debugging output.")
 @click.option("--pdb", type=BOOL, is_flag=True, default=False,
               help="Invoke pdb on uncaught exception.")
@@ -63,7 +64,7 @@ def archery(ctx, debug, pdb, quiet):
     if debug:
         logger.setLevel(logging.DEBUG)
 
-    ctx.debug = debug
+    ctx.obj['debug'] = debug
 
     if pdb:
         import pdb
@@ -167,7 +168,7 @@ def _apply_options(cmd, options):
 @click.option("--with-hdfs", default=None, type=BOOL,
               help="Build the Arrow HDFS bridge.")
 @click.option("--with-hiveserver2", default=None, type=BOOL,
-              help="Build the HiveServer2 client and arrow adapater.")
+              help="Build the HiveServer2 client and arrow adapter.")
 @click.option("--with-ipc", default=None, type=BOOL,
               help="Build the Arrow IPC extensions.")
 @click.option("--with-json", default=None, type=BOOL,
@@ -177,7 +178,7 @@ def _apply_options(cmd, options):
 @click.option("--with-parquet", default=None, type=BOOL,
               help="Build with Parquet file support.")
 @click.option("--with-python", default=None, type=BOOL,
-              help="Build the Arrow CPython extesions.")
+              help="Build the Arrow CPython extensions.")
 @click.option("--with-r", default=None, type=BOOL,
               help="Build the Arrow R extensions. This is not a CMake option, "
               "it will toggle required options")
@@ -260,6 +261,7 @@ lint_checks = [
               "Check all sources files for license texts via Apache RAT."),
     LintCheck('r', "Lint R files."),
     LintCheck('docker', "Lint Dockerfiles with hadolint."),
+    LintCheck('docs', "Lint docs with sphinx-lint."),
 ]
 
 
@@ -284,9 +286,10 @@ def decorate_lint_command(cmd):
               help="Run IWYU on all C++ files if enabled")
 @click.option("-a", "--all", is_flag=True, default=False,
               help="Enable all checks.")
+@click.argument("path", required=False)
 @decorate_lint_command
 @click.pass_context
-def lint(ctx, src, fix, iwyu_all, **checks):
+def lint(ctx, src, fix, iwyu_all, path, **checks):
     if checks.pop('all'):
         # "--all" is given => enable all non-selected checks
         for k, v in checks.items():
@@ -296,7 +299,7 @@ def lint(ctx, src, fix, iwyu_all, **checks):
         raise click.UsageError(
             "Need to enable at least one lint check (try --help)")
     try:
-        linter(src, fix, iwyu_all=iwyu_all, **checks)
+        linter(src, fix, iwyu_all=iwyu_all, path=path, **checks)
     except LintValidationException:
         sys.exit(1)
 
@@ -377,7 +380,10 @@ def benchmark_common_options(cmd):
                      "Can be stacked. For language=java"),
         click.option("--cmake-extras", type=str, multiple=True,
                      help="Extra flags/options to pass to cmake invocation. "
-                     "Can be stacked. For language=cpp")
+                     "Can be stacked. For language=cpp"),
+        click.option("--cpp-benchmark-extras", type=str, multiple=True,
+                     help="Extra flags/options to pass to C++ benchmark executables. "
+                     "Can be stacked. For language=cpp"),
     ]
 
     cmd = java_toolchain_options(cmd)
@@ -404,7 +410,7 @@ def benchmark_filter_options(cmd):
 @click.pass_context
 def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                    java_home, java_options, build_extras, benchmark_extras,
-                   language, **kwargs):
+                   cpp_benchmark_extras, language, **kwargs):
     """ List benchmark suite.
     """
     with tmpdir(preserve=preserve) as root:
@@ -415,7 +421,8 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 cmake_extras=cmake_extras, **kwargs)
 
             runner_base = CppBenchmarkRunner.from_rev_or_path(
-                src, root, rev_or_path, conf)
+                src, root, rev_or_path, conf,
+                benchmark_extras=cpp_benchmark_extras)
 
         elif language == "java":
             for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
@@ -440,12 +447,16 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
 @click.option("--repetitions", type=int, default=-1,
               help=("Number of repetitions of each benchmark. Increasing "
                     "may improve result precision. "
-                    "[default: 1 for cpp, 5 for java"))
+                    "[default: 1 for cpp, 5 for java]"))
+@click.option("--repetition-min-time", type=float, default=None,
+              help=("Minimum duration of each repetition in seconds. "
+                    "Currently only supported for language=cpp. "
+                    "[default: use runner-specific defaults]"))
 @click.pass_context
 def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
                   java_home, java_options, build_extras, benchmark_extras,
                   language, suite_filter, benchmark_filter, repetitions,
-                  **kwargs):
+                  repetition_min_time, cpp_benchmark_extras, **kwargs):
     """ Run benchmark suite.
 
     This command will run the benchmark suite for a single build. This is
@@ -469,12 +480,17 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
     archery benchmark run
 
     \b
+    # Run the benchmarks on an existing build directory
+    \b
+    archery benchmark run /build/cpp
+
+    \b
     # Run the benchmarks on current previous commit
     \b
     archery benchmark run HEAD~1
 
     \b
-    # Run the benchmarks on current previous commit
+    # Run the benchmarks on current git workspace and output results as a JSON file.
     \b
     archery benchmark run --output=run.json
     """
@@ -488,8 +504,9 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
             repetitions = repetitions if repetitions != -1 else 1
             runner_base = CppBenchmarkRunner.from_rev_or_path(
                 src, root, rev_or_path, conf,
-                repetitions=repetitions,
-                suite_filter=suite_filter, benchmark_filter=benchmark_filter)
+                repetitions=repetitions, repetition_min_time=repetition_min_time,
+                suite_filter=suite_filter, benchmark_filter=benchmark_filter,
+                benchmark_extras=cpp_benchmark_extras)
 
         elif language == "java":
             for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
@@ -533,7 +550,8 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
                    suite_filter, benchmark_filter, repetitions, no_counters,
                    java_home, java_options, build_extras, benchmark_extras,
-                   threshold, contender, baseline, **kwargs):
+                   cpp_benchmark_extras, threshold, contender, baseline,
+                   **kwargs):
     """Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -620,12 +638,14 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
                 src, root, contender, conf,
                 repetitions=repetitions,
                 suite_filter=suite_filter,
-                benchmark_filter=benchmark_filter)
+                benchmark_filter=benchmark_filter,
+                benchmark_extras=cpp_benchmark_extras)
             runner_base = CppBenchmarkRunner.from_rev_or_path(
                 src, root, baseline, conf,
                 repetitions=repetitions,
                 suite_filter=suite_filter,
-                benchmark_filter=benchmark_filter)
+                benchmark_filter=benchmark_filter,
+                benchmark_extras=cpp_benchmark_extras)
 
         elif language == "java":
             for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
@@ -704,7 +724,7 @@ def _set_default(opt, default):
 
 @archery.command(short_help="Execute protocol and Flight integration tests")
 @click.option('--with-all', is_flag=True, default=False,
-              help=('Include all known languages by default '
+              help=('Include all known implementations by default '
                     'in integration tests'))
 @click.option('--random-seed', type=int, default=12345,
               help="Seed for PRNG when generating test data")
@@ -713,18 +733,30 @@ def _set_default(opt, default):
 @click.option('--with-csharp', type=bool, default=False,
               help='Include C# in integration tests')
 @click.option('--with-java', type=bool, default=False,
-              help='Include Java in integration tests')
+              help='Include Java in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_JAVA")
 @click.option('--with-js', type=bool, default=False,
               help='Include JavaScript in integration tests')
 @click.option('--with-go', type=bool, default=False,
-              help='Include Go in integration tests')
+              help='Include Go in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_GO")
+@click.option('--with-nanoarrow', type=bool, default=False,
+              help='Include nanoarrow in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_NANOARROW")
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
+@click.option('--target-implementations', default='',
+              help=('Target implementations in this integration tests'),
+              envvar="ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS")
 @click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
+@click.option('--run-ipc', is_flag=True, default=False,
+              help='Run IPC integration tests')
 @click.option('--run-flight', is_flag=True, default=False,
               help='Run Flight integration tests')
+@click.option('--run-c-data', is_flag=True, default=False,
+              help='Run C Data Interface integration tests')
 @click.option('--debug', is_flag=True, default=False,
               help='Run executables in debug mode as relevant')
 @click.option('--serial', is_flag=True, default=False,
@@ -741,6 +773,64 @@ def _set_default(opt, default):
               help=("Substring for test names to include in run, "
                     "e.g. -k primitive"))
 def integration(with_all=False, random_seed=12345, **args):
+    """If you don't specify the "--target-implementations" option nor
+    the "ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS" environment
+    variable, test patterns are product of all specified
+    implementations and all specified implementations.
+
+    If "--with-cpp", "--with-java" and "--with-rust" are specified,
+    the following patterns are tested:
+
+    \b
+    | Producer | Consumer |
+    |----------|----------|
+    | C++      | C++      |
+    | C++      | Java     |
+    | C++      | Rust     |
+    | Java     | C++      |
+    | Java     | Java     |
+    | Java     | Rust     |
+    | Rust     | C++      |
+    | Rust     | Java     |
+    | Rust     | Rust     |
+
+    If "--target-implementations=cpp,java" or
+    "ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS=cpp,java" is
+    specified, test patterns are:
+
+    \b
+    * product of {C++,Java} and {C++,Java}
+    * product of {C++,Java} and {Rust}
+    * product of {Rust} and {C++,Java}
+
+    \b
+    | Producer | Consumer |
+    |----------|----------|
+    | C++      | C++      |
+    | C++      | Java     |
+    | Java     | C++      |
+    | Java     | Java     |
+    | C++      | Rust     |
+    | Java     | Rust     |
+    | Rust     | C++      |
+    | Rust     | Java     |
+
+    In general, we can reduce test time by specifying only
+    implementations in our repository. For example, we can use
+    "ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS=rust" for
+    apache/arrow-rs. It uses only the following test patterns:
+
+    \b
+    | Producer | Consumer |
+    |----------|----------|
+    | Rust     | Rust     |
+    | Rust     | C++      |
+    | Rust     | Java     |
+    | C++      | Rust     |
+    | Java     | Rust     |
+
+    """
+
     from .integration.runner import write_js_test_json, run_all_tests
     import numpy as np
 
@@ -752,23 +842,34 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    languages = ['cpp', 'csharp', 'java', 'js', 'go', 'rust']
+    implementations = ['cpp', 'csharp', 'java', 'js', 'go', 'nanoarrow', 'rust']
+    formats = ['ipc', 'flight', 'c_data']
 
-    enabled_languages = 0
-    for lang in languages:
-        param = 'with_{}'.format(lang)
+    enabled_implementations = 0
+    for lang in implementations:
+        param = f'with_{lang}'
         if with_all:
             args[param] = with_all
+        enabled_implementations += args[param]
 
-        if args[param]:
-            enabled_languages += 1
+    enabled_formats = 0
+    for fmt in formats:
+        param = f'run_{fmt}'
+        enabled_formats += args[param]
 
     if gen_path:
+        # XXX See GH-37575: this option is only used by the JS test suite
+        # and might not be useful anymore.
         os.makedirs(gen_path, exist_ok=True)
         write_js_test_json(gen_path)
     else:
-        if enabled_languages == 0:
-            raise Exception("Must enable at least 1 language to test")
+        if enabled_formats == 0:
+            raise click.UsageError(
+                "Need to enable at least one format to test "
+                "(IPC, Flight, C Data Interface); try --help")
+        if enabled_implementations == 0:
+            raise click.UsageError(
+                "Need to enable at least one implementation to test; try --help")
         run_all_tests(**args)
 
 

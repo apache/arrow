@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// \brief Implementation of Flight RPC client. API should be
-/// considered experimental for now
+/// \brief Implementation of Flight RPC client.
 
 #pragma once
 
@@ -147,8 +146,8 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
 // Silence warning
 // "non dll-interface class RecordBatchReader used as base for dll-interface class"
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4275)
+#  pragma warning(push)
+#  pragma warning(disable : 4275)
 #endif
 
 /// \brief A RecordBatchWriter that also allows sending
@@ -164,7 +163,7 @@ class ARROW_FLIGHT_EXPORT FlightStreamWriter : public MetadataRecordBatchWriter 
 };
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 /// \brief A reader for application-specific metadata sent back to the
@@ -177,7 +176,6 @@ class ARROW_FLIGHT_EXPORT FlightMetadataReader {
 };
 
 /// \brief Client class for Arrow Flight RPC services.
-/// API experimental for now
 class ARROW_FLIGHT_EXPORT FlightClient {
  public:
   ~FlightClient();
@@ -271,6 +269,40 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return GetFlightInfo({}, descriptor);
   }
 
+  /// \brief Asynchronous GetFlightInfo.
+  /// \param[in] options Per-RPC options
+  /// \param[in] descriptor the dataset request
+  /// \param[in] listener Callbacks for response and RPC completion
+  void GetFlightInfoAsync(const FlightCallOptions& options,
+                          const FlightDescriptor& descriptor,
+                          std::shared_ptr<AsyncListener<FlightInfo>> listener);
+  void GetFlightInfoAsync(const FlightDescriptor& descriptor,
+                          std::shared_ptr<AsyncListener<FlightInfo>> listener) {
+    return GetFlightInfoAsync({}, descriptor, std::move(listener));
+  }
+
+  /// \brief Asynchronous GetFlightInfo returning a Future.
+  /// \param[in] options Per-RPC options
+  /// \param[in] descriptor the dataset request
+  arrow::Future<FlightInfo> GetFlightInfoAsync(const FlightCallOptions& options,
+                                               const FlightDescriptor& descriptor);
+  arrow::Future<FlightInfo> GetFlightInfoAsync(const FlightDescriptor& descriptor) {
+    return GetFlightInfoAsync({}, descriptor);
+  }
+
+  /// \brief Request and poll a long running query
+  /// \param[in] options Per-RPC options
+  /// \param[in] descriptor the dataset request or a descriptor returned by a
+  /// prior PollFlightInfo call
+  /// \return Arrow result with the PollInfo describing the status of
+  /// the requested query
+  arrow::Result<std::unique_ptr<PollInfo>> PollFlightInfo(
+      const FlightCallOptions& options, const FlightDescriptor& descriptor);
+  arrow::Result<std::unique_ptr<PollInfo>> PollFlightInfo(
+      const FlightDescriptor& descriptor) {
+    return PollFlightInfo({}, descriptor);
+  }
+
   /// \brief Request schema for a single flight, which may be an existing
   /// dataset or a command to be executed
   /// \param[in] options Per-RPC options
@@ -345,6 +377,27 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return DoExchange({}, descriptor);
   }
 
+  /// \brief Set server session option(s) by name/value. Sessions are generally
+  /// persisted via HTTP cookies.
+  /// \param[in] options Per-RPC options
+  /// \param[in] request The server session options to set
+  ::arrow::Result<SetSessionOptionsResult> SetSessionOptions(
+      const FlightCallOptions& options, const SetSessionOptionsRequest& request);
+
+  /// \brief Get the current server session options. The session is generally
+  /// accessed via an HTTP cookie.
+  /// \param[in] options Per-RPC options
+  /// \param[in] request The (empty) GetSessionOptions request object.
+  ::arrow::Result<GetSessionOptionsResult> GetSessionOptions(
+      const FlightCallOptions& options, const GetSessionOptionsRequest& request);
+
+  /// \brief Close/invalidate the current server session. The session is generally
+  /// accessed via an HTTP cookie.
+  /// \param[in] options Per-RPC options
+  /// \param[in] request The (empty) CloseSession request object.
+  ::arrow::Result<CloseSessionResult> CloseSession(const FlightCallOptions& options,
+                                                   const CloseSessionRequest& request);
+
   /// \brief Explicitly shut down and clean up the client.
   ///
   /// For backwards compatibility, this will be implicitly called by
@@ -354,6 +407,16 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   ///
   /// \since 8.0.0
   Status Close();
+
+  /// \brief Whether this client supports asynchronous methods.
+  bool supports_async() const;
+
+  /// \brief Check whether this client supports asynchronous methods.
+  ///
+  /// This is like supports_async(), except that a detailed error message
+  /// is returned if async support is not available.  If async support is
+  /// available, this function returns successfully.
+  Status CheckAsyncSupport() const;
 
  private:
   FlightClient();

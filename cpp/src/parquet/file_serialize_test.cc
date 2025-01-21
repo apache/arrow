@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_compat.h"
+#include "arrow/util/config.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -334,7 +335,7 @@ TYPED_TEST(TestSerialize, SmallFileBrotli) {
 }
 #endif
 
-#ifdef ARROW_WITH_GZIP
+#ifdef ARROW_WITH_ZLIB
 TYPED_TEST(TestSerialize, SmallFileGzip) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::GZIP));
 }

@@ -34,7 +34,7 @@ from pyarrow._compute import (  # noqa
     CastOptions,
     CountOptions,
     CumulativeOptions,
-    CumulativeOptions as CumulativeSumOptions,
+    CumulativeSumOptions,
     DayOfWeekOptions,
     DictionaryEncodeOptions,
     RunEndEncodeOptions,
@@ -44,6 +44,7 @@ from pyarrow._compute import (  # noqa
     IndexOptions,
     JoinOptions,
     ListSliceOptions,
+    ListFlattenOptions,
     MakeStructOptions,
     MapLookupOptions,
     MatchSubstringOptions,
@@ -87,6 +88,7 @@ from pyarrow._compute import (  # noqa
     register_scalar_function,
     register_tabular_function,
     register_aggregate_function,
+    register_vector_function,
     UdfContext,
     # Expressions
     Expression,
@@ -421,6 +423,18 @@ def index(data, value, start=None, end=None, *, memory_pool=None):
     -------
     index : int
         the index, or -1 if not found
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr = pa.array(["Lorem", "ipsum", "dolor", "sit", "Lorem", "ipsum"])
+    >>> pc.index(arr, "ipsum")
+    <pyarrow.Int64Scalar: 1>
+    >>> pc.index(arr, "ipsum", start=2)
+    <pyarrow.Int64Scalar: 5>
+    >>> pc.index(arr, "amet")
+    <pyarrow.Int64Scalar: -1>
     """
     if start is not None:
         if end is not None:

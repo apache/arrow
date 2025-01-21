@@ -36,6 +36,7 @@ import { Date as _Date } from '../../fb/date.js';
 import { Time as _Time } from '../../fb/time.js';
 import { Timestamp as _Timestamp } from '../../fb/timestamp.js';
 import { Interval as _Interval } from '../../fb/interval.js';
+import { Duration as _Duration } from '../../fb/duration.js';
 import { Union as _Union } from '../../fb/union.js';
 import { FixedSizeBinary as _FixedSizeBinary } from '../../fb/fixed-size-binary.js';
 import { FixedSizeList as _FixedSizeList } from '../../fb/fixed-size-list.js';
@@ -55,9 +56,9 @@ import ByteBuffer = flatbuffers.ByteBuffer;
 
 import {
     DataType, Dictionary, TimeBitWidth,
-    Utf8, Binary, Decimal, FixedSizeBinary,
+    Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary,
     List, FixedSizeList, Map_, Struct, Union,
-    Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys,
+    Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys, Duration,
 } from '../../type.js';
 
 /**
@@ -68,7 +69,7 @@ export class Message<T extends MessageHeader = any> {
 
     /** @nocollapse */
     public static fromJSON<T extends MessageHeader>(msg: any, headerType: T): Message<T> {
-        const message = new Message(0, MetadataVersion.V4, headerType);
+        const message = new Message(0, MetadataVersion.V5, headerType);
         message._createHeader = messageHeaderFromJSON(msg, headerType);
         return message;
     }
@@ -97,7 +98,7 @@ export class Message<T extends MessageHeader = any> {
             headerOffset = DictionaryBatch.encode(b, message.header() as DictionaryBatch);
         }
         _Message.startMessage(b);
-        _Message.addVersion(b, MetadataVersion.V4);
+        _Message.addVersion(b, MetadataVersion.V5);
         _Message.addHeader(b, headerOffset);
         _Message.addHeaderType(b, message.headerType);
         _Message.addBodyLength(b, BigInt(message.bodyLength));
@@ -108,13 +109,13 @@ export class Message<T extends MessageHeader = any> {
     /** @nocollapse */
     public static from(header: Schema | RecordBatch | DictionaryBatch, bodyLength = 0) {
         if (header instanceof Schema) {
-            return new Message(0, MetadataVersion.V4, MessageHeader.Schema, header);
+            return new Message(0, MetadataVersion.V5, MessageHeader.Schema, header);
         }
         if (header instanceof RecordBatch) {
-            return new Message(bodyLength, MetadataVersion.V4, MessageHeader.RecordBatch, header);
+            return new Message(bodyLength, MetadataVersion.V5, MessageHeader.RecordBatch, header);
         }
         if (header instanceof DictionaryBatch) {
-            return new Message(bodyLength, MetadataVersion.V4, MessageHeader.DictionaryBatch, header);
+            return new Message(bodyLength, MetadataVersion.V5, MessageHeader.DictionaryBatch, header);
         }
         throw new Error(`Unrecognized Message header: ${header}`);
     }
@@ -225,7 +226,7 @@ function messageHeaderFromJSON(message: any, type: MessageHeader) {
 function decodeMessageHeader(message: _Message, type: MessageHeader) {
     return (() => {
         switch (type) {
-            case MessageHeader.Schema: return Schema.decode(message.header(new _Schema())!);
+            case MessageHeader.Schema: return Schema.decode(message.header(new _Schema())!, new Map(), message.version());
             case MessageHeader.RecordBatch: return RecordBatch.decode(message.header(new _RecordBatch())!, message.version());
             case MessageHeader.DictionaryBatch: return DictionaryBatch.decode(message.header(new _DictionaryBatch())!, message.version());
         }
@@ -290,13 +291,13 @@ declare module './message' {
 }
 
 /** @ignore */
-function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = new Map()) {
+function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = new Map(), version = MetadataVersion.V5) {
     const fields = decodeSchemaFields(_schema, dictionaries);
-    return new Schema(fields, decodeCustomMetadata(_schema), dictionaries);
+    return new Schema(fields, decodeCustomMetadata(_schema), dictionaries, version);
 }
 
 /** @ignore */
-function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V4) {
+function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V5) {
     if (batch.compression() !== null) {
         throw new Error('Record batch compression not implemented');
     }
@@ -304,7 +305,7 @@ function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V4) {
 }
 
 /** @ignore */
-function decodeDictionaryBatch(batch: _DictionaryBatch, version = MetadataVersion.V4) {
+function decodeDictionaryBatch(batch: _DictionaryBatch, version = MetadataVersion.V5) {
     return new DictionaryBatch(RecordBatch.decode(batch.data()!, version), batch.id(), batch.isDelta());
 }
 
@@ -431,7 +432,9 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
         case Type['NONE']: return new Null();
         case Type['Null']: return new Null();
         case Type['Binary']: return new Binary();
+        case Type['LargeBinary']: return new LargeBinary();
         case Type['Utf8']: return new Utf8();
+        case Type['LargeUtf8']: return new LargeUtf8();
         case Type['Bool']: return new Bool();
         case Type['List']: return new List((children || [])[0]);
         case Type['Struct_']: return new Struct(children || []);
@@ -465,6 +468,10 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
         case Type['Interval']: {
             const t = f.type(new _Interval())!;
             return new Interval(t.unit());
+        }
+        case Type['Duration']: {
+            const t = f.type(new _Duration())!;
+            return new Duration(t.unit());
         }
         case Type['Union']: {
             const t = f.type(new _Union())!;

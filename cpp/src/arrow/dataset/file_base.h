@@ -115,6 +115,7 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
 
   /// \brief Get a RandomAccessFile which views this file source
   Result<std::shared_ptr<io::RandomAccessFile>> Open() const;
+  Future<std::shared_ptr<io::RandomAccessFile>> OpenAsync() const;
 
   /// \brief Get the size (in bytes) of the file or buffer
   /// If the file is compressed this should be the compressed (on-disk) size.

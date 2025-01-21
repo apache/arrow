@@ -17,6 +17,9 @@
 
 #include "arrow/engine/substrait/util_internal.h"
 
+#include "arrow/config.h"
+#include "arrow/engine/substrait/util.h"
+
 namespace arrow {
 
 namespace engine {
@@ -28,6 +31,15 @@ std::string EnumToString(int value, const google::protobuf::EnumDescriptor& desc
     return "unknown";
   }
   return value_desc->name();
+}
+
+std::unique_ptr<substrait::Version> CreateVersion() {
+  auto version = std::make_unique<substrait::Version>();
+  version->set_major_number(kSubstraitMajorVersion);
+  version->set_minor_number(kSubstraitMinorVersion);
+  version->set_patch_number(kSubstraitPatchVersion);
+  version->set_producer("Acero " + GetBuildInfo().version_string);
+  return version;
 }
 
 }  // namespace engine

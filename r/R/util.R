@@ -15,20 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# for compatibility with R versions earlier than 4.0.0
-if (!exists("deparse1")) {
-  deparse1 <- function(expr, collapse = " ", width.cutoff = 500L, ...) {
-    paste(deparse(expr, width.cutoff, ...), collapse = collapse)
-  }
-}
-
-# for compatibility with R versions earlier than 3.6.0
-if (!exists("str2lang")) {
-  str2lang <- function(s) {
-    parse(text = s, keep.source = FALSE)[[1]]
-  }
-}
-
 oxford_paste <- function(x,
                          conjunction = "and",
                          quote = TRUE,
@@ -223,8 +209,9 @@ handle_augmented_field_misuse <- function(msg, call) {
       msg,
       i = paste(
         "`add_filename()` or use of the `__filename` augmented field can only",
-        "be used with with Dataset objects, and can only be added before doing",
-        "an aggregation or a join."
+        "be used with Dataset objects, can only be added before doing",
+        "an aggregation or a join, and cannot be referenced in subsequent",
+        "pipeline steps until either compute() or collect() is called."
       )
     )
     abort(msg, call = call)

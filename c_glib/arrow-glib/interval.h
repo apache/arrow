@@ -19,17 +19,16 @@
 
 #pragma once
 
-#include <arrow-glib/gobject-type.h>
+#include <glib-object.h>
+
 #include <arrow-glib/version.h>
 
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_DAY_MILLISECOND (garrow_day_millisecond_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowDayMillisecond,
-                         garrow_day_millisecond,
-                         GARROW,
-                         DAY_MILLISECOND,
-                         GObject)
+GARROW_AVAILABLE_IN_8_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowDayMillisecond, garrow_day_millisecond, GARROW, DAY_MILLISECOND, GObject)
 
 struct _GArrowDayMillisecondClass
 {
@@ -48,13 +47,10 @@ gboolean
 garrow_day_millisecond_less_than(GArrowDayMillisecond *day_millisecond,
                                  GArrowDayMillisecond *other_day_millisecond);
 
-
 #define GARROW_TYPE_MONTH_DAY_NANO (garrow_month_day_nano_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowMonthDayNano,
-                         garrow_month_day_nano,
-                         GARROW,
-                         MONTH_DAY_NANO,
-                         GObject)
+GARROW_AVAILABLE_IN_8_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowMonthDayNano, garrow_month_day_nano, GARROW, MONTH_DAY_NANO, GObject)
 
 struct _GArrowMonthDayNanoClass
 {
@@ -68,6 +64,5 @@ GARROW_AVAILABLE_IN_8_0
 gboolean
 garrow_month_day_nano_equal(GArrowMonthDayNano *month_nano_day,
                             GArrowMonthDayNano *other_month_nano_day);
-
 
 G_END_DECLS

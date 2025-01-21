@@ -22,13 +22,13 @@ public class FlightActionType {
     init(_ actionType: Arrow_Flight_Protocol_ActionType) {
         self.type = actionType.type
         self.description = actionType.description_p
-        
+
     }
     public init(_ type: String, description: String) {
         self.type = type
         self.description = description
     }
-    
+
     func toProtocol() -> Arrow_Flight_Protocol_ActionType {
         var actionType = Arrow_Flight_Protocol_ActionType()
         actionType.type  = self.type

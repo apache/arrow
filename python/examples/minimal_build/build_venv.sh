@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 #----------------------------------------------------------------------
 # Change this to whatever makes sense for your system
@@ -35,6 +35,7 @@ source $WORKDIR/venv/bin/activate
 git config --global --add safe.directory $ARROW_ROOT
 
 pip install -r $ARROW_ROOT/python/requirements-build.txt
+pip install wheel
 
 #----------------------------------------------------------------------
 # Build C++ library
@@ -46,14 +47,12 @@ cmake -GNinja \
       -DCMAKE_BUILD_TYPE=DEBUG \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DCMAKE_INSTALL_LIBDIR=lib \
+      -DCMAKE_UNITY_BUILD=ON \
       -DARROW_BUILD_STATIC=OFF \
-      -DARROW_WITH_BZ2=ON \
-      -DARROW_WITH_ZLIB=ON \
-      -DARROW_WITH_ZSTD=ON \
-      -DARROW_WITH_LZ4=ON \
-      -DARROW_WITH_SNAPPY=ON \
-      -DARROW_WITH_BROTLI=ON \
-      -DARROW_PYTHON=ON \
+      -DARROW_COMPUTE=ON \
+      -DARROW_CSV=ON \
+      -DARROW_FILESYSTEM=ON \
+      -DARROW_JSON=ON \
       $ARROW_ROOT/cpp
 
 ninja install
@@ -64,17 +63,17 @@ popd
 # Build and test Python library
 pushd $ARROW_ROOT/python
 
-rm -rf build/  # remove any pesky pre-existing build directory
+rm -rf build/  # remove any pesky preexisting build directory
 
 export CMAKE_PREFIX_PATH=${ARROW_HOME}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
 export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
 
-# You can run either "develop" or "build_ext --inplace". Your pick
+# Use the same command that we use on python_build.sh
+python -m pip install --no-deps --no-build-isolation -vv .
 
-# python setup.py build_ext --inplace
-python setup.py develop
+popd
 
 pip install -r $ARROW_ROOT/python/requirements-test.txt
 
-py.test pyarrow
+pytest -vv -r s ${PYTEST_ARGS} --pyargs pyarrow

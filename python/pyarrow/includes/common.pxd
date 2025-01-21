@@ -149,6 +149,20 @@ cdef extern from "arrow/result.h" namespace "arrow" nogil:
         T operator*()
 
 
+cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
+    cdef cppclass CFuture "arrow::Future"[T]:
+        CFuture()
+
+
+cdef extern from "arrow/python/async.h" namespace "arrow::py" nogil:
+    # BindFuture's third argument is really a C++ callable with
+    # the signature `object(T*)`, but Cython does not allow declaring that.
+    # We use an ellipsis as a workaround.
+    # Another possibility is to type-erase the argument by making it
+    # `object(void*)`, but it would lose compile-time C++ type safety.
+    void BindFuture[T](CFuture[T], object cb, ...)
+
+
 cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
     T GetResultValue[T](CResult[T]) except *
     cdef function[F] BindFunction[F](void* unbound, object bound, ...)
@@ -159,3 +173,12 @@ cdef inline object PyObject_to_object(PyObject* o):
     cdef object result = <object> o
     cpython.Py_DECREF(result)
     return result
+
+
+cdef extern from "<string_view>" namespace "std" nogil:
+    cdef cppclass cpp_string_view "std::string_view":
+        string_view()
+        string_view(const char*)
+        size_t size()
+        bint empty()
+        const char* data()

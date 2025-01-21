@@ -48,7 +48,7 @@ static const RE2 iso8601_period_without_time(
 static const std::regex period_not_contains_time(R"(^((?!T).)*$)");
 
 // pre-compiled pattern for matching periods in 8601 formats that contains weeks inside
-// them. The ISO8601 specification defines that if the string contains a week, it can not
+// them. The ISO8601 specification defines that if the string contains a week, it cannot
 // have other time granularities information, like day, years and months.
 static const RE2 iso8601_period_with_weeks(
     R"(P(-?[[:digit:]]+W|-?[[:digit:]]+[,.][[:digit:]]+W){1})");
@@ -61,8 +61,8 @@ static const int64_t kMillisInAMinute = 60000;
 static const int64_t kMillisInASecond = 1000;
 
 static void return_error_with_cause(ExecutionContext* context, std::string& data,
-                                    int32_t supression_error) {
-  if (supression_error != 0) {
+                                    int32_t suppression_error) {
+  if (suppression_error != 0) {
     return;
   }
 
@@ -258,26 +258,26 @@ int64_t IntervalDaysHolder::operator()(ExecutionContext* ctx, const char* data,
   return 0;
 }
 
-Status IntervalDaysHolder::Make(const FunctionNode& node,
-                                std::shared_ptr<IntervalDaysHolder>* holder) {
+Result<std::shared_ptr<IntervalDaysHolder>> IntervalDaysHolder::Make(
+    const FunctionNode& node) {
   const std::string function_name("castINTERVALDAY");
-  return IntervalHolder<IntervalDaysHolder>::Make(node, holder, function_name);
+  return IntervalHolder<IntervalDaysHolder>::Make(node, function_name);
 }
 
-Status IntervalDaysHolder::Make(int32_t suppress_errors,
-                                std::shared_ptr<IntervalDaysHolder>* holder) {
-  return IntervalHolder<IntervalDaysHolder>::Make(suppress_errors, holder);
+Result<std::shared_ptr<IntervalDaysHolder>> IntervalDaysHolder::Make(
+    int32_t suppress_errors) {
+  return IntervalHolder<IntervalDaysHolder>::Make(suppress_errors);
 }
 
-Status IntervalYearsHolder::Make(const FunctionNode& node,
-                                 std::shared_ptr<IntervalYearsHolder>* holder) {
+Result<std::shared_ptr<IntervalYearsHolder>> IntervalYearsHolder::Make(
+    const FunctionNode& node) {
   const std::string function_name("castINTERVALYEAR");
-  return IntervalHolder<IntervalYearsHolder>::Make(node, holder, function_name);
+  return IntervalHolder<IntervalYearsHolder>::Make(node, function_name);
 }
 
-Status IntervalYearsHolder::Make(int32_t suppress_errors,
-                                 std::shared_ptr<IntervalYearsHolder>* holder) {
-  return IntervalHolder<IntervalYearsHolder>::Make(suppress_errors, holder);
+Result<std::shared_ptr<IntervalYearsHolder>> IntervalYearsHolder::Make(
+    int32_t suppress_errors) {
+  return IntervalHolder<IntervalYearsHolder>::Make(suppress_errors);
 }
 
 // The operator will cast a generic string defined by the user into an interval of months.

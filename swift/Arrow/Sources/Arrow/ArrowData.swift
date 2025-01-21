@@ -20,36 +20,48 @@ import Foundation
 public class ArrowData {
     public let type: ArrowType
     public let buffers: [ArrowBuffer]
+    public let children: [ArrowData]
     public let nullCount: UInt
     public let length: UInt
     public let stride: Int
 
-    init(_ arrowType: ArrowType, buffers: [ArrowBuffer], nullCount: UInt, stride: Int) throws {
+    convenience init(_ arrowType: ArrowType, buffers: [ArrowBuffer], nullCount: UInt) throws {
+        try self.init(arrowType, buffers: buffers,
+                      children: [ArrowData](), nullCount: nullCount,
+                      length: buffers[1].length)
+    }
+
+    init(_ arrowType: ArrowType, buffers: [ArrowBuffer], children: [ArrowData], nullCount: UInt, length: UInt) throws {
         let infoType = arrowType.info
-        switch(infoType) {
-        case let .PrimitiveInfo(typeId):
-            if typeId == ArrowTypeId.Unknown {
+        switch infoType {
+        case let .primitiveInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
                 throw ArrowError.unknownType("Unknown primitive type for data")
             }
-        case let .VariableInfo(typeId):
-            if typeId == ArrowTypeId.Unknown {
+        case let .variableInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
                 throw ArrowError.unknownType("Unknown variable type for data")
             }
-        case let .TimeInfo(typeId):
-            if typeId == ArrowTypeId.Unknown {
+        case let .timeInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
                 throw ArrowError.unknownType("Unknown time type for data")
+            }
+        case let .complexInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
+                throw ArrowError.unknownType("Unknown complex type for data")
             }
         }
 
         self.type = arrowType
         self.buffers = buffers
+        self.children = children
         self.nullCount = nullCount
-        self.length = buffers[1].length
-        self.stride = stride
+        self.length = length
+        self.stride = arrowType.getStride()
     }
 
     public func isNull(_ at: UInt) -> Bool {
-        let nullBuffer = buffers[0];
+        let nullBuffer = buffers[0]
         return nullBuffer.length > 0 && !BitUtility.isSet(at, buffer: nullBuffer)
     }
 }

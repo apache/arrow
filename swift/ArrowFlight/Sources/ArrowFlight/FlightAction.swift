@@ -24,16 +24,16 @@ public class FlightAction {
         self.type = action.type
         self.body = action.body
     }
-    
+
     public init(_ type: String, body: Data = Data()) {
-        self.type = type;
-        self.body = body;
+        self.type = type
+        self.body = body
     }
-    
+
     func toProtocol() -> Arrow_Flight_Protocol_Action {
-        var flight_action = Arrow_Flight_Protocol_Action()
-        flight_action.type = self.type
-        flight_action.body = self.body
-        return flight_action
+        var flightAction = Arrow_Flight_Protocol_Action()
+        flightAction.type = self.type
+        flightAction.body = self.body
+        return flightAction
     }
 }

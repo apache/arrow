@@ -61,6 +61,12 @@ struct DictionaryValue<T, enable_if_base_binary<T>> {
 };
 
 template <typename T>
+struct DictionaryValue<T, enable_if_binary_view_like<T>> {
+  using type = std::string_view;
+  using PhysicalType = BinaryViewType;
+};
+
+template <typename T>
 struct DictionaryValue<T, enable_if_fixed_size_binary<T>> {
   using type = std::string_view;
   using PhysicalType = BinaryType;
@@ -114,6 +120,7 @@ class ARROW_EXPORT DictionaryMemoTable {
 
   Status GetOrInsert(const BinaryType*, std::string_view value, int32_t* out);
   Status GetOrInsert(const LargeBinaryType*, std::string_view value, int32_t* out);
+  Status GetOrInsert(const BinaryViewType*, std::string_view value, int32_t* out);
 
   class DictionaryMemoTableImpl;
   std::unique_ptr<DictionaryMemoTableImpl> impl_;
@@ -291,20 +298,11 @@ class DictionaryBuilderBase : public ArrayBuilder {
     return Append(std::string_view(value, length));
   }
 
-  /// \brief Append a decimal (only for Decimal128Type)
-  template <typename T1 = T>
-  enable_if_decimal128<T1, Status> Append(const Decimal128& value) {
-    uint8_t data[16];
-    value.ToBytes(data);
-    return Append(data, 16);
-  }
-
-  /// \brief Append a decimal (only for Decimal128Type)
-  template <typename T1 = T>
-  enable_if_decimal256<T1, Status> Append(const Decimal256& value) {
-    uint8_t data[32];
-    value.ToBytes(data);
-    return Append(data, 32);
+  /// \brief Append a decimal (only for Decimal32/64/128/256 Type)
+  template <typename T1 = T, typename CType = typename TypeTraits<T1>::CType>
+  enable_if_decimal<T1, Status> Append(const CType& value) {
+    auto bytes = value.ToBytes();
+    return Append(bytes.data(), static_cast<int32_t>(bytes.size()));
   }
 
   /// \brief Append a scalar null value

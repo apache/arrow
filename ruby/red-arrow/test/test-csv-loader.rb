@@ -17,6 +17,7 @@
 
 class CSVLoaderTest < Test::Unit::TestCase
   include Helper::Fixture
+  include Helper::Omittable
 
   def load_csv(input)
     Arrow::CSVLoader.load(input, skip_lines: /^#/)
@@ -26,80 +27,88 @@ class CSVLoaderTest < Test::Unit::TestCase
     test("String: data: with header") do
       data = fixture_path("with-header-float.csv").read
       assert_equal(<<-TABLE, load_csv(data).to_s)
-	name	     score
-0	alice	 10.100000
-1	bob 	 29.200000
-2	chris	 -1.300000
+	  name	     score
+	(utf8)	  (double)
+0	alice 	 10.100000
+1	bob   	 29.200000
+2	chris 	 -1.300000
       TABLE
     end
 
     test("String: data: without header") do
       data = fixture_path("without-header-float.csv").read
       assert_equal(<<-TABLE, load_csv(data).to_s)
-	0	         1
-0	alice	 10.100000
-1	bob	 29.200000
-2	chris	 -1.300000
+	     0	         1
+	(utf8)	  (double)
+0	alice 	 10.100000
+1	bob   	 29.200000
+2	chris 	 -1.300000
       TABLE
     end
 
     test("String: path: with header") do
       path = fixture_path("with-header-float.csv").to_s
       assert_equal(<<-TABLE, load_csv(path).to_s)
-	name	     score
-0	alice	 10.100000
-1	bob 	 29.200000
-2	chris	 -1.300000
+	  name	     score
+	(utf8)	  (double)
+0	alice 	 10.100000
+1	bob   	 29.200000
+2	chris 	 -1.300000
       TABLE
     end
 
     test("String: path: without header") do
       path = fixture_path("without-header-float.csv").to_s
       assert_equal(<<-TABLE, load_csv(path).to_s)
-	0	         1
-0	alice	 10.100000
-1	bob	 29.200000
-2	chris	 -1.300000
+	     0	         1
+	(utf8)	  (double)
+0	alice 	 10.100000
+1	bob   	 29.200000
+2	chris 	 -1.300000
       TABLE
     end
 
     test("Pathname: with header") do
       path = fixture_path("with-header-float.csv")
       assert_equal(<<-TABLE, load_csv(path).to_s)
-	name	     score
-0	alice	 10.100000
-1	bob 	 29.200000
-2	chris	 -1.300000
+	  name	     score
+	(utf8)	  (double)
+0	alice 	 10.100000
+1	bob   	 29.200000
+2	chris 	 -1.300000
       TABLE
     end
 
     test("Pathname: without header") do
       path = fixture_path("without-header-float.csv")
       assert_equal(<<-TABLE, load_csv(path).to_s)
-	0	         1
-0	alice	 10.100000
-1	bob	 29.200000
-2	chris	 -1.300000
+	     0	         1
+	(utf8)	  (double)
+0	alice 	 10.100000
+1	bob   	 29.200000
+2	chris 	 -1.300000
       TABLE
     end
 
     test("null: with double quote") do
       path = fixture_path("null-with-double-quote.csv").to_s
       assert_equal(<<-TABLE, load_csv(path).to_s)
-	name	 score
-0	alice	    10
-1	bob 	(null)
-2	chris	    -1
+	  name	 score
+	(utf8)	(int8)
+0	alice 	    10
+1	bob   	(null)
+2	chris 	    -1
       TABLE
     end
 
     test("null: without double quote") do
       path = fixture_path("null-without-double-quote.csv").to_s
       assert_equal(<<-TABLE, load_csv(path).to_s)
-	name	 score
-0	alice	    10
-1	bob 	(null)
-2	chris	    -1
+	  name	 score
+	(utf8)	(int8)
+0	alice 	    10
+1	bob   	(null)
+2	chris 	    -1
       TABLE
     end
 
@@ -245,6 +254,44 @@ count
                             schema: table.schema,
                             encoding: encoding,
                             compression: :gzip))
+    end
+
+    sub_test_case(":timestamp_parsers") do
+      test(":iso8601") do
+        require_glib(2, 58, 0)
+        data_type = Arrow::TimestampDataType.new(:second,
+                                                 GLib::TimeZone.new("UTC"))
+        timestamps = [
+          Time.iso8601("2024-03-16T23:54:12Z"),
+          Time.iso8601("2024-03-16T23:54:13Z"),
+          Time.iso8601("2024-03-16T23:54:14Z"),
+        ]
+        values = Arrow::TimestampArray.new(data_type, timestamps)
+        assert_equal(Arrow::Table.new(value: values),
+                     load_csv(<<-CSV, headers: true, timestamp_parsers: [:iso8601]))
+value
+#{timestamps[0].iso8601}
+#{timestamps[1].iso8601}
+#{timestamps[2].iso8601}
+                     CSV
+      end
+
+      test("String") do
+        timestamps = [
+          Time.iso8601("2024-03-16T23:54:12Z"),
+          Time.iso8601("2024-03-16T23:54:13Z"),
+          Time.iso8601("2024-03-16T23:54:14Z"),
+        ]
+        values = Arrow::TimestampArray.new(:second, timestamps)
+        format = "%Y-%m-%dT%H:%M:%S"
+        assert_equal(Arrow::Table.new(value: values).schema,
+                     load_csv(<<-CSV, headers: true, timestamp_parsers: [format]).schema)
+value
+#{timestamps[0].iso8601.chomp("Z")}
+#{timestamps[1].iso8601.chomp("Z")}
+#{timestamps[2].iso8601.chomp("Z")}
+                     CSV
+      end
     end
   end
 end

@@ -19,25 +19,6 @@ namespace Apache.Arrow
 {
     internal static class FlatbufExtensions
     {
-        public static bool IsFixedPrimitive(this Flatbuf.Type t)
-        {
-            if (t == Flatbuf.Type.Utf8 || t == Flatbuf.Type.Binary)
-                return false;
-            return true;
-        }
-
-        public static bool IsFixedPrimitive(this Types.IArrowType t)
-        {
-            return t.TypeId.IsFixedPrimitive();
-        }
-
-        public static bool IsFixedPrimitive(this Types.ArrowTypeId t)
-        {
-            if (t == Types.ArrowTypeId.String || t == Types.ArrowTypeId.Binary)
-                return false;
-            return true;
-        }
-
         public static Types.IntervalUnit ToArrow(this Flatbuf.IntervalUnit unit)
         {
             switch (unit)
@@ -46,6 +27,8 @@ namespace Apache.Arrow
                     return Types.IntervalUnit.DayTime;
                 case Flatbuf.IntervalUnit.YEAR_MONTH:
                     return Types.IntervalUnit.YearMonth;
+                case Flatbuf.IntervalUnit.MONTH_DAY_NANO:
+                    return Types.IntervalUnit.MonthDayNanosecond;
                 default:
                     throw new ArgumentException($"Unexpected Flatbuf IntervalUnit", nameof(unit));
             }
@@ -79,6 +62,16 @@ namespace Apache.Arrow
                 default:
                     throw new ArgumentException($"Unexpected Flatbuf TimeUnit", nameof(unit));
             }
+        }
+
+        public static Types.UnionMode ToArrow(this Flatbuf.UnionMode mode)
+        {
+            return mode switch
+            {
+                Flatbuf.UnionMode.Dense => Types.UnionMode.Dense,
+                Flatbuf.UnionMode.Sparse => Types.UnionMode.Sparse,
+                _ => throw new ArgumentException($"Unsupported Flatbuf UnionMode", nameof(mode)),
+            };
         }
     }
 }

@@ -54,7 +54,7 @@ test_that("We handle non-UTF strings", {
 
   # Schema field name
   df_schema <- schema(raw_schema)
-  expect_identical(names(df_schema), names(df))
+  expect_named(df_schema, names(df))
 
   df_struct_schema <- schema(a = do.call(struct, raw_schema))
 

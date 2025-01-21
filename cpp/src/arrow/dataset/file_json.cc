@@ -324,8 +324,8 @@ Result<RecordBatchGenerator> MakeBatchGenerator(
     const std::shared_ptr<FileFragment>& file) {
   ARROW_ASSIGN_OR_RAISE(auto future, DoOpenReader(file->source(), format, scan_options));
   auto maybe_reader = future.result();
-  // Defer errors that occured during reader instantiation since they're likely related to
-  // batch-processing.
+  // Defer errors that occurred during reader instantiation since they're likely related
+  // to batch-processing.
   if (!maybe_reader.ok()) {
     return MakeFailingGenerator<std::shared_ptr<RecordBatch>>(maybe_reader.status());
   }

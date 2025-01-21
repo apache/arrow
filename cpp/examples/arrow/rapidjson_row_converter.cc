@@ -75,7 +75,7 @@ class RowBatchBuilder {
   // Default implementation
   arrow::Status Visit(const arrow::Array& array) {
     return arrow::Status::NotImplemented(
-        "Can not convert to json document for array of type ", array.type()->ToString());
+        "Cannot convert to json document for array of type ", array.type()->ToString());
   }
 
   // Handles booleans, integers, floats
@@ -346,7 +346,7 @@ class JsonValueConverter {
   // Default implementation
   arrow::Status Visit(const arrow::DataType& type) {
     return arrow::Status::NotImplemented(
-        "Can not convert json value to Arrow array of type ", type.ToString());
+        "Cannot convert json value to Arrow array of type ", type.ToString());
   }
 
   arrow::Status Visit(const arrow::Int64Type& type) {

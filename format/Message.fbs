@@ -99,6 +99,22 @@ table RecordBatch {
 
   /// Optional compression of the message body
   compression: BodyCompression;
+
+  /// Some types such as Utf8View are represented using a variable number of buffers.
+  /// For each such Field in the pre-ordered flattened logical schema, there will be
+  /// an entry in variadicBufferCounts to indicate the number of number of variadic
+  /// buffers which belong to that Field in the current RecordBatch.
+  ///
+  /// For example, the schema
+  ///     col1: Struct<alpha: Int32, beta: BinaryView, gamma: Float64>
+  ///     col2: Utf8View
+  /// contains two Fields with variadic buffers so variadicBufferCounts will have
+  /// two entries, the first counting the variadic buffers of `col1.beta` and the
+  /// second counting `col2`'s.
+  ///
+  /// This field may be omitted if and only if the schema contains no Fields with
+  /// a variable number of buffers, such as BinaryView and Utf8View.
+  variadicBufferCounts: [long];
 }
 
 /// For sending dictionary encoding information. Any Field can be

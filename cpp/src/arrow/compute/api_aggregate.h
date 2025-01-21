@@ -22,7 +22,7 @@
 
 #include <vector>
 
-#include "arrow/compute/function.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
@@ -138,7 +138,7 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "QuantileOptions";
   static QuantileOptions Defaults() { return QuantileOptions{}; }
 
-  /// quantile must be between 0 and 1 inclusive
+  /// probability level of quantile must be between 0 and 1 inclusive
   std::vector<double> q;
   enum Interpolation interpolation;
   /// If true (the default), null values are ignored. Otherwise, if any value is null,
@@ -162,7 +162,7 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "TDigestOptions";
   static TDigestOptions Defaults() { return TDigestOptions{}; }
 
-  /// quantile must be between 0 and 1 inclusive
+  /// probability level of quantile must be between 0 and 1 inclusive
   std::vector<double> q;
   /// compression parameter, default 100
   uint32_t delta;
@@ -452,7 +452,7 @@ Result<Datum> TDigest(const Datum& value,
 /// \brief Find the first index of a value in an array.
 ///
 /// \param[in] value The array to search.
-/// \param[in] options The array to search for. See IndexOoptions.
+/// \param[in] options The array to search for. See IndexOptions.
 /// \param[in] ctx the function execution context, optional
 /// \return out a Scalar containing the index (or -1 if not found).
 ///

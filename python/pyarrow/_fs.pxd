@@ -67,9 +67,6 @@ cdef class FileSystem(_Weakrefable):
 
 
 cdef class LocalFileSystem(FileSystem):
-    cdef:
-        CLocalFileSystem* localfs
-
     cdef init(self, const shared_ptr[CFileSystem]& wrapped)
 
 

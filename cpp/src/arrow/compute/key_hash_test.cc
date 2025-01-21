@@ -23,14 +23,18 @@
 #include <unordered_set>
 
 #include "arrow/array/builder_binary.h"
-#include "arrow/compute/key_hash.h"
+#include "arrow/compute/key_hash_internal.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/pcg_random.h"
 
 namespace arrow {
 
+using arrow::random::RandomArrayGenerator;
+using arrow::util::MiniBatch;
+using arrow::util::TempVectorStack;
 using internal::checked_pointer_cast;
 using internal::CpuInfo;
 
@@ -156,7 +160,7 @@ class TestVectorHash {
     std::vector<uint32_t> temp_buffer;
     temp_buffer.resize(mini_batch_size * 4);
 
-    for (int i = 0; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
+    for (size_t i = 0; i < hardware_flags_for_testing.size(); ++i) {
       const auto hardware_flags = hardware_flags_for_testing[i];
       if (use_32bit_hash) {
         if (!use_varlen_input) {
@@ -192,7 +196,7 @@ class TestVectorHash {
     // Verify that all implementations (scalar, SIMD) give the same hashes
     //
     const auto& hashes_scalar64 = hashes64[0];
-    for (int i = 0; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
+    for (size_t i = 0; i < hardware_flags_for_testing.size(); ++i) {
       for (int j = 0; j < num_rows; ++j) {
         ASSERT_EQ(hashes64[i][j], hashes_scalar64[j])
             << "scalar and simd approaches yielded different hashes";
@@ -251,6 +255,112 @@ TEST(VectorHash, BasicLargeBinary) { RunTestVectorHash<LargeBinaryType>(); }
 TEST(VectorHash, BasicString) { RunTestVectorHash<StringType>(); }
 
 TEST(VectorHash, BasicLargeString) { RunTestVectorHash<LargeStringType>(); }
+
+void HashFixedLengthFrom(int key_length, int num_rows, int start_row) {
+  int num_rows_to_hash = num_rows - start_row;
+  auto num_bytes_aligned = arrow::bit_util::RoundUpToMultipleOf64(key_length * num_rows);
+
+  const auto hardware_flags_for_testing = HardwareFlagsForTesting();
+  ASSERT_GT(hardware_flags_for_testing.size(), 0);
+
+  std::vector<std::vector<uint32_t>> hashes32(hardware_flags_for_testing.size());
+  std::vector<std::vector<uint64_t>> hashes64(hardware_flags_for_testing.size());
+  for (auto& h : hashes32) {
+    h.resize(num_rows_to_hash);
+  }
+  for (auto& h : hashes64) {
+    h.resize(num_rows_to_hash);
+  }
+
+  FixedSizeBinaryBuilder keys_builder(fixed_size_binary(key_length));
+  for (int j = 0; j < num_rows; ++j) {
+    ASSERT_OK(keys_builder.Append(std::string(key_length, 42)));
+  }
+  ASSERT_OK_AND_ASSIGN(auto keys, keys_builder.Finish());
+  // Make sure the buffer is aligned as expected.
+  ASSERT_EQ(keys->data()->buffers[1]->capacity(), num_bytes_aligned);
+
+  constexpr int mini_batch_size = 1024;
+  std::vector<uint32_t> temp_buffer;
+  temp_buffer.resize(mini_batch_size * 4);
+
+  for (size_t i = 0; i < hardware_flags_for_testing.size(); ++i) {
+    const auto hardware_flags = hardware_flags_for_testing[i];
+    Hashing32::HashFixed(hardware_flags,
+                         /*combine_hashes=*/false, num_rows_to_hash, key_length,
+                         keys->data()->GetValues<uint8_t>(1) + start_row * key_length,
+                         hashes32[i].data(), temp_buffer.data());
+    Hashing64::HashFixed(
+        /*combine_hashes=*/false, num_rows_to_hash, key_length,
+        keys->data()->GetValues<uint8_t>(1) + start_row * key_length, hashes64[i].data());
+  }
+
+  // Verify that all implementations (scalar, SIMD) give the same hashes.
+  for (size_t i = 1; i < hardware_flags_for_testing.size(); ++i) {
+    for (int j = 0; j < num_rows_to_hash; ++j) {
+      ASSERT_EQ(hashes32[i][j], hashes32[0][j])
+          << "scalar and simd approaches yielded different 32-bit hashes";
+      ASSERT_EQ(hashes64[i][j], hashes64[0][j])
+          << "scalar and simd approaches yielded different 64-bit hashes";
+    }
+  }
+}
+
+// Some carefully chosen cases that may cause troubles like GH-39778.
+TEST(VectorHash, FixedLengthTailByteSafety) {
+  // Tow cases of key_length < stripe (16-byte).
+  HashFixedLengthFrom(/*key_length=*/3, /*num_rows=*/1450, /*start_row=*/1447);
+  HashFixedLengthFrom(/*key_length=*/5, /*num_rows=*/883, /*start_row=*/858);
+  // Case of key_length > stripe (16-byte).
+  HashFixedLengthFrom(/*key_length=*/19, /*num_rows=*/64, /*start_row=*/63);
+}
+
+// Make sure that Hashing32/64::HashBatch uses no more stack space than declared in
+// Hashing32/64::kHashBatchTempStackUsage.
+TEST(VectorHash, HashBatchTempStackUsage) {
+  for (auto num_rows :
+       {0, 1, MiniBatch::kMiniBatchLength, MiniBatch::kMiniBatchLength * 64}) {
+    SCOPED_TRACE("num_rows = " + std::to_string(num_rows));
+
+    MemoryPool* pool = default_memory_pool();
+    RandomArrayGenerator gen(42);
+
+    auto column = gen.Int8(num_rows, 0, 127);
+    ExecBatch batch({column}, num_rows);
+
+    std::vector<KeyColumnArray> column_arrays;
+    ASSERT_OK(ColumnArraysFromExecBatch(batch, &column_arrays));
+
+    const auto hardware_flags_for_testing = HardwareFlagsForTesting();
+    ASSERT_GT(hardware_flags_for_testing.size(), 0);
+
+    {
+      std::vector<uint32_t> hashes(num_rows);
+      TempVectorStack stack;
+      ASSERT_OK(stack.Init(pool, Hashing32::kHashBatchTempStackUsage));
+      for (size_t i = 0; i < hardware_flags_for_testing.size(); ++i) {
+        SCOPED_TRACE("hashing32 for hardware flags = " +
+                     std::to_string(hardware_flags_for_testing[i]));
+        ASSERT_OK(Hashing32::HashBatch(batch, hashes.data(), column_arrays,
+                                       hardware_flags_for_testing[i], &stack,
+                                       /*start_rows=*/0, num_rows));
+      }
+    }
+
+    {
+      std::vector<uint64_t> hashes(num_rows);
+      TempVectorStack stack;
+      ASSERT_OK(stack.Init(pool, Hashing64::kHashBatchTempStackUsage));
+      for (size_t i = 0; i < hardware_flags_for_testing.size(); ++i) {
+        SCOPED_TRACE("hashing64 for hardware flags = " +
+                     std::to_string(hardware_flags_for_testing[i]));
+        ASSERT_OK(Hashing64::HashBatch(batch, hashes.data(), column_arrays,
+                                       hardware_flags_for_testing[i], &stack,
+                                       /*start_rows=*/0, num_rows));
+      }
+    }
+  }
+}
 
 }  // namespace compute
 }  // namespace arrow

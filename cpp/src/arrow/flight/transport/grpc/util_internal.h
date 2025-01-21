@@ -18,6 +18,7 @@
 #pragma once
 
 #include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
+#include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/util/macros.h"
 
@@ -70,6 +71,13 @@ extern const char* kGrpcStatusDetailHeader;
 
 ARROW_FLIGHT_EXPORT
 extern const char* kBinaryErrorDetailsKey;
+
+/// \brief Combine a gRPC status, possible client-side Arrow status,
+///   and a gRPC ClientContext into a transport status.
+ARROW_FLIGHT_EXPORT
+Status CombinedTransportStatus(const ::grpc::Status& grpc_status,
+                               arrow::Status arrow_status,
+                               ::grpc::ClientContext* ctx = nullptr);
 
 /// Convert a gRPC status to an Arrow status. Optionally, provide a
 /// ClientContext to recover the exact Arrow status if it was passed

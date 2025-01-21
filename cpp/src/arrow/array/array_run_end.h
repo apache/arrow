@@ -59,7 +59,7 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
   ///
   /// The length and offset parameters refer to the dimensions of the logical
   /// array which is the array we would get after expanding all the runs into
-  /// repeated values. As such, length can be much greater than the lenght of
+  /// repeated values. As such, length can be much greater than the length of
   /// the child run_ends and values arrays.
   RunEndEncodedArray(const std::shared_ptr<DataType>& type, int64_t length,
                      const std::shared_ptr<Array>& run_ends,
@@ -69,7 +69,7 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
   ///
   /// The length and offset parameters refer to the dimensions of the logical
   /// array which is the array we would get after expanding all the runs into
-  /// repeated values. As such, length can be much greater than the lenght of
+  /// repeated values. As such, length can be much greater than the length of
   /// the child run_ends and values arrays.
   static Result<std::shared_ptr<RunEndEncodedArray>> Make(
       const std::shared_ptr<DataType>& type, int64_t logical_length,
@@ -122,7 +122,7 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
   /// run-ends) necessary to represent the logical range of values from offset
   /// to length.
   ///
-  /// Avoid calling this function if the physical length can be estabilished in
+  /// Avoid calling this function if the physical length can be established in
   /// some other way (e.g. when iterating over the runs sequentially until the
   /// end). This function uses binary-search, so it has a O(log N) cost.
   int64_t FindPhysicalLength() const;

@@ -45,7 +45,7 @@ For Visual Studio 2019, the script is:
 
   "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
 
-One can configure a console emulator like `cmder <https://cmder.net/>`_ to
+One can configure a console emulator like `cmder <https://cmder.app/>`_ to
 automatically launch this when starting a new development console.
 
 Using conda-forge for build dependencies
@@ -379,9 +379,9 @@ Downloading the Timezone Database
 =================================
 
 To run some of the compute unit tests on Windows, the IANA timezone database
-and the Windows timezone mapping need to be downloaded first. See 
+and the Windows timezone mapping need to be downloaded first. See
 :ref:`download-timezone-database` for download instructions. To set a non-default
-path for the timezone database while running the unit tests, set the 
+path for the timezone database while running the unit tests, set the
 ``ARROW_TIMEZONE_DATABASE`` environment variable.
 
 Replicating Appveyor Builds

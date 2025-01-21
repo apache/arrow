@@ -6,7 +6,8 @@ namespace Apache.Arrow.Flatbuf
 {
 
 using global::System;
-using global::FlatBuffers;
+using global::System.Collections.Generic;
+using global::Google.FlatBuffers;
 
 /// ----------------------------------------------------------------------
 /// Data structures for describing a table row batch (a collection of
@@ -14,14 +15,14 @@ using global::FlatBuffers;
 /// Metadata about a field at some level of a nested type tree (but not
 /// its children).
 ///
-/// For example, a List<Int16> with values [[1, 2, 3], null, [4], [5, 6], null]
+/// For example, a List<Int16> with values `[[1, 2, 3], null, [4], [5, 6], null]`
 /// would have {length: 5, null_count: 2} for its List node, and {length: 6,
 /// null_count: 0} for its Int16 node, as separate FieldNode structs
 internal struct FieldNode : IFlatbufferObject
 {
   private Struct __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public void __init(int _i, ByteBuffer _bb) { __p.bb_pos = _i; __p.bb = _bb; }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Struct(_i, _bb); }
   public FieldNode __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   /// The number of value slots in the Arrow array at this level of a nested
@@ -38,7 +39,7 @@ internal struct FieldNode : IFlatbufferObject
     builder.PutLong(Length);
     return new Offset<FieldNode>(builder.Offset);
   }
-};
+}
 
 
 }

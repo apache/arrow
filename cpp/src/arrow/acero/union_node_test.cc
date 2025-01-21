@@ -63,8 +63,9 @@ struct TestUnionNode : public ::testing::Test {
       out_batches->batches.push_back(empty_record_batch);
     } else {
       for (size_t j = 0; j < num_batches; j++) {
-        out_batches->batches.push_back(
-            ExecBatch(*rng_.BatchOf(schema->fields(), batch_size)));
+        auto out_batch = ExecBatch(*rng_.BatchOf(schema->fields(), batch_size));
+        out_batch.index = j;
+        out_batches->batches.push_back(std::move(out_batch));
       }
     }
 
@@ -108,6 +109,13 @@ struct TestUnionNode : public ::testing::Test {
     auto expected_matcher =
         Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches)));
     ASSERT_THAT(actual, expected_matcher);
+
+    // union node with multiple inputs should produce unordered batches
+    if (batches.size() > 1) {
+      for (const auto& batch : *actual.result()) {
+        ASSERT_EQ(batch.index, compute::kUnsequencedIndex);
+      }
+    }
   }
 
   void CheckUnionExecNode(size_t num_input_nodes, size_t num_batches, bool parallel) {

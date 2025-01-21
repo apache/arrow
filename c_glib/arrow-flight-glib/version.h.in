@@ -1,0 +1,159 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+#pragma once
+
+#include <arrow-glib/version.h>
+
+/**
+ * SECTION: version
+ * @section_id: version-macros
+ * @title: Version related macros
+ * @include: arrow-flight-glib/arrow-flight-glib.h
+ *
+ * Apache Arrow Flight GLib provides macros that can be used by C pre-processor.
+ * They are useful to check version related things at compile time.
+ */
+
+/**
+ * GAFLIGHT_VERSION_MAJOR:
+ *
+ * The major version.
+ *
+ * Since: 17.0.0
+ */
+#define GAFLIGHT_VERSION_MAJOR (@VERSION_MAJOR@)
+
+/**
+ * GAFLIGHT_VERSION_MINOR:
+ *
+ * The minor version.
+ *
+ * Since: 17.0.0
+ */
+#define GAFLIGHT_VERSION_MINOR (@VERSION_MINOR@)
+
+/**
+ * GAFLIGHT_VERSION_MICRO:
+ *
+ * The micro version.
+ *
+ * Since: 17.0.0
+ */
+#define GAFLIGHT_VERSION_MICRO (@VERSION_MICRO@)
+
+/**
+ * GAFLIGHT_VERSION_TAG:
+ *
+ * The version tag. Normally, it's an empty string. It's "SNAPSHOT"
+ * for snapshot version.
+ *
+ * Since: 17.0.0
+ */
+#define GAFLIGHT_VERSION_TAG   "@VERSION_TAG@"
+
+/**
+ * GAFLIGHT_VERSION_CHECK:
+ * @major: A major version to check for.
+ * @minor: A minor version to check for.
+ * @micro: A micro version to check for.
+ *
+ * You can use this macro in C pre-processor.
+ *
+ * Returns: %TRUE if the compile time Apache Arrow GLib version is the
+ *   same as or newer than the passed version, %FALSE otherwise.
+ *
+ * Since: 17.0.0
+ */
+#define GAFLIGHT_VERSION_CHECK(major, minor, micro)       \
+  (GAFLIGHT_VERSION_MAJOR > (major) ||                    \
+   (GAFLIGHT_VERSION_MAJOR == (major) &&                  \
+    GAFLIGHT_VERSION_MINOR > (minor)) ||                  \
+   (GAFLIGHT_VERSION_MAJOR == (major) &&                  \
+    GAFLIGHT_VERSION_MINOR == (minor) &&                  \
+    GAFLIGHT_VERSION_MICRO >= (micro)))
+
+/**
+ * GAFLIGHT_DISABLE_DEPRECATION_WARNINGS:
+ *
+ * If this macro is defined, no deprecated warnings are produced.
+ *
+ * You must define this macro before including the
+ * arrow-glib/arrow-glib.h header.
+ *
+ * Since: 17.0.0
+ */
+
+#ifdef GAFLIGHT_DISABLE_DEPRECATION_WARNINGS
+#  define GAFLIGHT_DEPRECATED
+#  define GAFLIGHT_DEPRECATED_FOR(function)
+#  define GAFLIGHT_UNAVAILABLE(major, minor)
+#else
+#  define GAFLIGHT_DEPRECATED G_DEPRECATED
+#  define GAFLIGHT_DEPRECATED_FOR(function) G_DEPRECATED_FOR(function)
+#  define GAFLIGHT_UNAVAILABLE(major, minor) G_UNAVAILABLE(major, minor)
+#endif
+
+@ENCODED_VERSIONS@
+
+/**
+ * GAFLIGHT_VERSION_MIN_REQUIRED:
+ *
+ * You can use this macro for compile time API version check.
+ *
+ * This macro value must be one of the predefined version macros such
+ * as %GAFLIGHT_VERSION_0_10.
+ *
+ * If you use any functions that is defined by newer version than
+ * %GAFLIGHT_VERSION_MIN_REQUIRED, deprecated warnings are produced at
+ * compile time.
+ *
+ * You must define this macro before including the
+ * arrow-flight-glib/arrow-flight-glib.h header.
+ *
+ * Since: 17.0.0
+ */
+#ifndef GAFLIGHT_VERSION_MIN_REQUIRED
+#  define GAFLIGHT_VERSION_MIN_REQUIRED GARROW_VERSION_MIN_REQUIRED
+#endif
+
+/**
+ * GAFLIGHT_VERSION_MAX_ALLOWED:
+ *
+ * You can use this macro for compile time API version check.
+ *
+ * This macro value must be one of the predefined version macros such
+ * as %GAFLIGHT_VERSION_0_10.
+ *
+ * If you use any functions that is defined by newer version than
+ * %GAFLIGHT_VERSION_MAX_ALLOWED, deprecated warnings are produced at
+ * compile time.
+ *
+ * You must define this macro before including the
+ * arrow-flight-glib/arrow-flight-glib.h header.
+ *
+ * Since: 17.0.0
+ */
+#ifndef GAFLIGHT_VERSION_MAX_ALLOWED
+#  define GAFLIGHT_VERSION_MAX_ALLOWED GARROW_VERSION_MAX_ALLOWED
+#endif
+
+@VISIBILITY_MACROS@
+
+@AVAILABILITY_MACROS@

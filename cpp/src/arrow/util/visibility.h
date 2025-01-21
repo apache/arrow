@@ -20,64 +20,67 @@
 #if defined(_WIN32) || defined(__CYGWIN__)
 // Windows
 
-#if defined(_MSC_VER)
-#pragma warning(disable : 4251)
-#else
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
+#  if defined(_MSC_VER)
+#    pragma warning(disable : 4251)
+#  else
+#    pragma GCC diagnostic ignored "-Wattributes"
+#  endif
 
-#if defined(__cplusplus) && defined(__GNUC__) && !defined(__clang__)
+#  if defined(__cplusplus) && defined(__GNUC__) && !defined(__clang__)
 // Use C++ attribute syntax where possible to avoid GCC parser bug
 // (https://stackoverflow.com/questions/57993818/gcc-how-to-combine-attribute-dllexport-and-nodiscard-in-a-struct-de)
-#define ARROW_DLLEXPORT [[gnu::dllexport]]
-#define ARROW_DLLIMPORT [[gnu::dllimport]]
-#else
-#define ARROW_DLLEXPORT __declspec(dllexport)
-#define ARROW_DLLIMPORT __declspec(dllimport)
-#endif
+#    define ARROW_DLLEXPORT [[gnu::dllexport]]
+#    define ARROW_DLLIMPORT [[gnu::dllimport]]
+#  else
+#    define ARROW_DLLEXPORT __declspec(dllexport)
+#    define ARROW_DLLIMPORT __declspec(dllimport)
+#  endif
 
-#ifdef ARROW_STATIC
-#define ARROW_EXPORT
-#define ARROW_FRIEND_EXPORT
-#define ARROW_TEMPLATE_EXPORT
-#elif defined(ARROW_EXPORTING)
-#define ARROW_EXPORT ARROW_DLLEXPORT
+// _declspec(dllexport) even when the #included by a non-arrow source
+#  define ARROW_FORCE_EXPORT ARROW_DLLEXPORT
+
+#  ifdef ARROW_STATIC
+#    define ARROW_EXPORT
+#    define ARROW_FRIEND_EXPORT
+#    define ARROW_TEMPLATE_EXPORT
+#  elif defined(ARROW_EXPORTING)
+#    define ARROW_EXPORT ARROW_DLLEXPORT
 // For some reason [[gnu::dllexport]] doesn't work well with friend declarations
-#define ARROW_FRIEND_EXPORT __declspec(dllexport)
-#define ARROW_TEMPLATE_EXPORT ARROW_DLLEXPORT
-#else
-#define ARROW_EXPORT ARROW_DLLIMPORT
-#define ARROW_FRIEND_EXPORT __declspec(dllimport)
-#define ARROW_TEMPLATE_EXPORT ARROW_DLLIMPORT
-#endif
+#    define ARROW_FRIEND_EXPORT __declspec(dllexport)
+#    define ARROW_TEMPLATE_EXPORT ARROW_DLLEXPORT
+#  else
+#    define ARROW_EXPORT ARROW_DLLIMPORT
+#    define ARROW_FRIEND_EXPORT __declspec(dllimport)
+#    define ARROW_TEMPLATE_EXPORT ARROW_DLLIMPORT
+#  endif
 
-#define ARROW_NO_EXPORT
-#define ARROW_FORCE_INLINE __forceinline
+#  define ARROW_NO_EXPORT
 
 #else
 
 // Non-Windows
 
-#define ARROW_FORCE_INLINE
-
-#if defined(__cplusplus) && (defined(__GNUC__) || defined(__clang__))
-#ifndef ARROW_EXPORT
-#define ARROW_EXPORT [[gnu::visibility("default")]]
-#endif
-#ifndef ARROW_NO_EXPORT
-#define ARROW_NO_EXPORT [[gnu::visibility("hidden")]]
-#endif
-#else
+#  if defined(__cplusplus) && (defined(__GNUC__) || defined(__clang__))
+#    ifndef ARROW_EXPORT
+#      define ARROW_EXPORT [[gnu::visibility("default")]]
+#    endif
+#    ifndef ARROW_NO_EXPORT
+#      define ARROW_NO_EXPORT [[gnu::visibility("hidden")]]
+#    endif
+#  else
 // Not C++, or not gcc/clang
-#ifndef ARROW_EXPORT
-#define ARROW_EXPORT
-#endif
-#ifndef ARROW_NO_EXPORT
-#define ARROW_NO_EXPORT
-#endif
-#endif
+#    ifndef ARROW_EXPORT
+#      define ARROW_EXPORT
+#    endif
+#    ifndef ARROW_NO_EXPORT
+#      define ARROW_NO_EXPORT
+#    endif
+#  endif
 
-#define ARROW_FRIEND_EXPORT
-#define ARROW_TEMPLATE_EXPORT
+#  define ARROW_FRIEND_EXPORT
+#  define ARROW_TEMPLATE_EXPORT
+
+// [[gnu::visibility("default")]] even when #included by a non-arrow source
+#  define ARROW_FORCE_EXPORT [[gnu::visibility("default")]]
 
 #endif  // Non-Windows

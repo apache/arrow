@@ -18,21 +18,14 @@
 #pragma once
 
 #include "arrow/io/interfaces.h"
+#include "parquet/encryption/type_fwd.h"
+#include "parquet/type_fwd.h"
 #include "parquet/types.h"
 
 #include <optional>
 #include <vector>
 
 namespace parquet {
-
-class ColumnDescriptor;
-class EncodedStatistics;
-class FileMetaData;
-class InternalFileDecryptor;
-struct PageIndexLocation;
-class ReaderProperties;
-class RowGroupMetaData;
-class RowGroupPageIndexReader;
 
 /// \brief ColumnIndex is a proxy around format::ColumnIndex.
 class PARQUET_EXPORT ColumnIndex {
@@ -41,7 +34,8 @@ class PARQUET_EXPORT ColumnIndex {
   static std::unique_ptr<ColumnIndex> Make(const ColumnDescriptor& descr,
                                            const void* serialized_index,
                                            uint32_t index_len,
-                                           const ReaderProperties& properties);
+                                           const ReaderProperties& properties,
+                                           Decryptor* decryptor = NULLPTR);
 
   virtual ~ColumnIndex() = default;
 
@@ -80,6 +74,18 @@ class PARQUET_EXPORT ColumnIndex {
 
   /// \brief A vector of page indices for non-null pages.
   virtual const std::vector<int32_t>& non_null_page_indices() const = 0;
+
+  /// \brief Whether definition level histogram is available.
+  virtual bool has_definition_level_histograms() const = 0;
+
+  /// \brief Whether repetition level histogram is available.
+  virtual bool has_repetition_level_histograms() const = 0;
+
+  /// \brief List of definition level histograms for each page concatenated together.
+  virtual const std::vector<int64_t>& definition_level_histograms() const = 0;
+
+  /// \brief List of repetition level histograms for each page concatenated together.
+  virtual const std::vector<int64_t>& repetition_level_histograms() const = 0;
 };
 
 /// \brief Typed implementation of ColumnIndex.
@@ -126,12 +132,17 @@ class PARQUET_EXPORT OffsetIndex {
   /// \brief Create a OffsetIndex from a serialized thrift message.
   static std::unique_ptr<OffsetIndex> Make(const void* serialized_index,
                                            uint32_t index_len,
-                                           const ReaderProperties& properties);
+                                           const ReaderProperties& properties,
+                                           Decryptor* decryptor = NULLPTR);
 
   virtual ~OffsetIndex() = default;
 
   /// \brief A vector of locations for each data page in this column.
   virtual const std::vector<PageLocation>& page_locations() const = 0;
+
+  /// \brief A vector of unencoded/uncompressed size of each page for BYTE_ARRAY types,
+  /// or empty for other types.
+  virtual const std::vector<int64_t>& unencoded_byte_array_data_bytes() const = 0;
 };
 
 /// \brief Interface for reading the page index for a Parquet row group.
@@ -187,7 +198,7 @@ class PARQUET_EXPORT PageIndexReader {
   static std::shared_ptr<PageIndexReader> Make(
       ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
       const ReaderProperties& properties,
-      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+      InternalFileDecryptor* file_decryptor = NULLPTR);
 
   /// \brief Get the page index reader of a specific row group.
   /// \param[in] i row group ordinal to get page index reader.
@@ -234,13 +245,13 @@ class PARQUET_EXPORT PageIndexReader {
                         const std::vector<int32_t>& column_indices,
                         const PageIndexSelection& selection) = 0;
 
-  /// \brief Advise the reader page index of these row groups will not be read any more.
+  /// \brief Advise the reader page index of these row groups will not be read anymore.
   ///
   /// The PageIndexReader implementation has the opportunity to cancel any prefetch or
   /// release resource that are related to these row groups.
   ///
   /// \param[in] row_group_indices list of row group ordinal that whose page index will
-  /// not be accessed any more.
+  /// not be accessed anymore.
   virtual void WillNotNeed(const std::vector<int32_t>& row_group_indices) = 0;
 
   /// \brief Determine the column index and offset index ranges for the given row group.
@@ -266,10 +277,12 @@ class PARQUET_EXPORT ColumnIndexBuilder {
   /// \brief Add statistics of a data page.
   ///
   /// If the ColumnIndexBuilder has seen any corrupted statistics, it will
-  /// not update statistics any more.
+  /// not update statistics anymore.
   ///
   /// \param stats Page statistics in the encoded form.
-  virtual void AddPage(const EncodedStatistics& stats) = 0;
+  /// \param size_stats Size statistics of the page if available.
+  virtual void AddPage(const EncodedStatistics& stats,
+                       const SizeStatistics& size_stats) = 0;
 
   /// \brief Complete the column index.
   ///
@@ -283,7 +296,9 @@ class PARQUET_EXPORT ColumnIndexBuilder {
   /// not write any data to the sink.
   ///
   /// \param[out] sink output stream to write the serialized message.
-  virtual void WriteTo(::arrow::io::OutputStream* sink) const = 0;
+  /// \param[in] encryptor encryptor to encrypt the serialized column index.
+  virtual void WriteTo(::arrow::io::OutputStream* sink,
+                       Encryptor* encryptor = NULLPTR) const = 0;
 
   /// \brief Create a ColumnIndex directly.
   ///
@@ -300,15 +315,13 @@ class PARQUET_EXPORT OffsetIndexBuilder {
 
   virtual ~OffsetIndexBuilder() = default;
 
-  /// \brief Add page location of a data page.
+  /// \brief Add page location and size stats of a data page.
   virtual void AddPage(int64_t offset, int32_t compressed_page_size,
-                       int64_t first_row_index) = 0;
+                       int64_t first_row_index,
+                       std::optional<int64_t> unencoded_byte_array_length = {}) = 0;
 
-  /// \brief Add page location of a data page.
-  void AddPage(const PageLocation& page_location) {
-    AddPage(page_location.offset, page_location.compressed_page_size,
-            page_location.first_row_index);
-  }
+  /// \brief Add page location and size stats of a data page.
+  void AddPage(const PageLocation& page_location, const SizeStatistics& size_stats);
 
   /// \brief Complete the offset index.
   ///
@@ -322,7 +335,9 @@ class PARQUET_EXPORT OffsetIndexBuilder {
   /// \brief Serialize the offset index thrift message.
   ///
   /// \param[out] sink output stream to write the serialized message.
-  virtual void WriteTo(::arrow::io::OutputStream* sink) const = 0;
+  /// \param[in] encryptor encryptor to encrypt the serialized offset index.
+  virtual void WriteTo(::arrow::io::OutputStream* sink,
+                       Encryptor* encryptor = NULLPTR) const = 0;
 
   /// \brief Create an OffsetIndex directly.
   virtual std::unique_ptr<OffsetIndex> Build() const = 0;
@@ -332,7 +347,8 @@ class PARQUET_EXPORT OffsetIndexBuilder {
 class PARQUET_EXPORT PageIndexBuilder {
  public:
   /// \brief API convenience to create a PageIndexBuilder.
-  static std::unique_ptr<PageIndexBuilder> Make(const SchemaDescriptor* schema);
+  static std::unique_ptr<PageIndexBuilder> Make(
+      const SchemaDescriptor* schema, InternalFileEncryptor* file_encryptor = NULLPTR);
 
   virtual ~PageIndexBuilder() = default;
 

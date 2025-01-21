@@ -90,9 +90,10 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
     for (int i = 0; i < 8; ++i) {
       out_results[i] = g();
     }
-    *cur++ = (out_results[0] | out_results[1] << 1 | out_results[2] << 2 |
-              out_results[3] << 3 | out_results[4] << 4 | out_results[5] << 5 |
-              out_results[6] << 6 | out_results[7] << 7);
+    *cur++ = static_cast<uint8_t>(out_results[0] | out_results[1] << 1 |
+                                  out_results[2] << 2 | out_results[3] << 3 |
+                                  out_results[4] << 4 | out_results[5] << 5 |
+                                  out_results[6] << 6 | out_results[7] << 7);
   }
 
   int64_t remaining_bits = remaining % 8;

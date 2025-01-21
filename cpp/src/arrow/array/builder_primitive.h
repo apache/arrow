@@ -32,9 +32,10 @@ namespace arrow {
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {
  public:
   explicit NullBuilder(MemoryPool* pool = default_memory_pool(),
-                       int64_t alignment = kDefaultBufferAlignment)
+                       int64_t ARROW_ARG_UNUSED(alignment) = kDefaultBufferAlignment)
       : ArrayBuilder(pool) {}
-  explicit NullBuilder(const std::shared_ptr<DataType>& type,
+
+  explicit NullBuilder(const std::shared_ptr<DataType>& ARROW_ARG_UNUSED(type),
                        MemoryPool* pool = default_memory_pool(),
                        int64_t alignment = kDefaultBufferAlignment)
       : NullBuilder(pool, alignment) {}
@@ -210,6 +211,9 @@ class NumericBuilder
   /// \return Status
   Status AppendValues(const std::vector<value_type>& values,
                       const std::vector<bool>& is_valid) {
+    if (values.empty()) {
+      return Status::OK();
+    }
     return AppendValues(values.data(), static_cast<int64_t>(values.size()), is_valid);
   }
 
@@ -217,6 +221,9 @@ class NumericBuilder
   /// \param[in] values a std::vector of values
   /// \return Status
   Status AppendValues(const std::vector<value_type>& values) {
+    if (values.empty()) {
+      return Status::OK();
+    }
     return AppendValues(values.data(), static_cast<int64_t>(values.size()));
   }
 

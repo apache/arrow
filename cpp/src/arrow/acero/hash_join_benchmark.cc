@@ -20,10 +20,11 @@
 #include "arrow/acero/hash_join.h"
 #include "arrow/acero/hash_join_node.h"
 #include "arrow/acero/options.h"
+#include "arrow/acero/swiss_join_internal.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/api.h"
-#include "arrow/compute/kernels/row_encoder_internal.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/thread_pool.h"
 
@@ -51,6 +52,10 @@ struct BenchmarkSettings {
   double null_percentage = 0.0;
   double cardinality = 1.0;  // Proportion of distinct keys in build side
   double selectivity = 1.0;  // Probability of a match for a given row
+  int var_length_min = 2;    // Minimal length of any var length types
+  int var_length_max = 20;   // Maximum length of any var length types
+
+  Expression residual_filter = literal(true);
 };
 
 class JoinBenchmark {
@@ -79,8 +84,8 @@ class JoinBenchmark {
       build_metadata["null_probability"] = std::to_string(settings.null_percentage);
       build_metadata["min"] = std::to_string(min_build_value);
       build_metadata["max"] = std::to_string(max_build_value);
-      build_metadata["min_length"] = "2";
-      build_metadata["max_length"] = "20";
+      build_metadata["min_length"] = std::to_string(settings.var_length_min);
+      build_metadata["max_length"] = std::to_string(settings.var_length_max);
 
       std::unordered_map<std::string, std::string> probe_metadata;
       probe_metadata["null_probability"] = std::to_string(settings.null_percentage);
@@ -100,7 +105,7 @@ class JoinBenchmark {
       key_cmp.push_back(JoinKeyCmp::EQ);
     }
 
-    for (size_t i = 0; i < settings.build_payload_types.size(); i++) {
+    for (size_t i = 0; i < settings.probe_payload_types.size(); i++) {
       std::string name = "lp" + std::to_string(i);
       DCHECK_OK(l_schema_builder.AddField(field(name, settings.probe_payload_types[i])));
     }
@@ -126,10 +131,9 @@ class JoinBenchmark {
     stats_.num_probe_rows = settings.num_probe_batches * settings.batch_size;
 
     schema_mgr_ = std::make_unique<HashJoinSchema>();
-    Expression filter = literal(true);
     DCHECK_OK(schema_mgr_->Init(settings.join_type, *l_batches_with_schema.schema,
                                 left_keys, *r_batches_with_schema.schema, right_keys,
-                                filter, "l_", "r_"));
+                                settings.residual_filter, "l_", "r_"));
 
     if (settings.use_basic_implementation) {
       join_ = *HashJoinImpl::MakeBasic();
@@ -145,7 +149,7 @@ class JoinBenchmark {
     };
 
     scheduler_ = TaskScheduler::Make();
-    DCHECK_OK(ctx_.Init(settings.num_threads, nullptr));
+    DCHECK_OK(ctx_.Init(nullptr));
 
     auto register_task_group_callback = [&](std::function<Status(size_t, int64_t)> task,
                                             std::function<Status(size_t)> cont) {
@@ -158,7 +162,7 @@ class JoinBenchmark {
 
     DCHECK_OK(join_->Init(
         &ctx_, settings.join_type, settings.num_threads, &(schema_mgr_->proj_maps[0]),
-        &(schema_mgr_->proj_maps[1]), std::move(key_cmp), std::move(filter),
+        &(schema_mgr_->proj_maps[1]), std::move(key_cmp), settings.residual_filter,
         std::move(register_task_group_callback), std::move(start_task_group_callback),
         [](int64_t, ExecBatch) { return Status::OK(); },
         [](int64_t) { return Status::OK(); }));
@@ -276,7 +280,7 @@ static void BM_HashJoinBasic_MatchesPerRow(benchmark::State& st) {
   settings.cardinality = 1.0 / static_cast<double>(st.range(0));
 
   settings.num_build_batches = static_cast<int>(st.range(1));
-  settings.num_probe_batches = settings.num_probe_batches;
+  settings.num_probe_batches = settings.num_build_batches;
 
   HashJoinBasicBenchmarkImpl(st, settings);
 }
@@ -288,7 +292,7 @@ static void BM_HashJoinBasic_PayloadSize(benchmark::State& st) {
   settings.cardinality = 1.0 / static_cast<double>(st.range(1));
 
   settings.num_build_batches = static_cast<int>(st.range(2));
-  settings.num_probe_batches = settings.num_probe_batches;
+  settings.num_probe_batches = settings.num_build_batches;
 
   HashJoinBasicBenchmarkImpl(st, settings);
 }
@@ -305,6 +309,75 @@ static void BM_HashJoinBasic_BuildParallelism(benchmark::State& st) {
 static void BM_HashJoinBasic_NullPercentage(benchmark::State& st) {
   BenchmarkSettings settings;
   settings.null_percentage = static_cast<double>(st.range(0)) / 100.0;
+
+  HashJoinBasicBenchmarkImpl(st, settings);
+}
+
+template <typename... Args>
+static void BM_HashJoinBasic_TrivialResidualFilter(benchmark::State& st,
+                                                   JoinType join_type,
+                                                   Expression residual_filter,
+                                                   Args&&...) {
+  BenchmarkSettings settings;
+  settings.join_type = join_type;
+  settings.build_payload_types = {binary()};
+  settings.probe_payload_types = {binary()};
+
+  settings.use_basic_implementation = st.range(0);
+
+  settings.num_build_batches = 1024;
+  settings.num_probe_batches = 1024;
+
+  // Let payload column length from 1 to 100.
+  settings.var_length_min = 1;
+  settings.var_length_max = 100;
+
+  settings.residual_filter = std::move(residual_filter);
+
+  HashJoinBasicBenchmarkImpl(st, settings);
+}
+
+template <typename... Args>
+static void BM_HashJoinBasic_ComplexResidualFilter(benchmark::State& st,
+                                                   JoinType join_type, Args&&...) {
+  BenchmarkSettings settings;
+  settings.join_type = join_type;
+  settings.build_payload_types = {binary()};
+  settings.probe_payload_types = {binary()};
+
+  settings.use_basic_implementation = st.range(0);
+
+  settings.num_build_batches = 1024;
+  settings.num_probe_batches = 1024;
+
+  // Let payload column length from 1 to 100.
+  settings.var_length_min = 1;
+  settings.var_length_max = 100;
+
+  // Create filter referring payload columns from both sides.
+  // binary_length(probe_payload) + binary_length(build_payload) <= 2 * selectivity
+  settings.selectivity = static_cast<double>(st.range(1)) / 100.0;
+  using arrow::compute::call;
+  using arrow::compute::field_ref;
+  settings.residual_filter =
+      call("less_equal", {call("plus", {call("binary_length", {field_ref("lp0")}),
+                                        call("binary_length", {field_ref("rp0")})}),
+                          literal(2 * settings.selectivity)});
+
+  HashJoinBasicBenchmarkImpl(st, settings);
+}
+
+static void BM_HashJoinBasic_HeavyBuildPayload(benchmark::State& st) {
+  BenchmarkSettings settings;
+  settings.build_payload_types = {boolean(), fixed_size_binary(64), utf8(),
+                                  boolean(), fixed_size_binary(64), utf8()};
+  settings.probe_payload_types = {int32()};
+  settings.null_percentage = 0.5;
+  settings.cardinality = 1.0 / 16.0;
+  settings.num_build_batches = static_cast<int>(st.range(0));
+  settings.num_probe_batches = settings.num_build_batches;
+  settings.var_length_min = 64;
+  settings.var_length_max = 128;
 
   HashJoinBasicBenchmarkImpl(st, settings);
 }
@@ -435,6 +508,140 @@ BENCHMARK(BM_HashJoinBasic_BuildParallelism)
 BENCHMARK(BM_HashJoinBasic_NullPercentage)
     ->ArgNames({"Null Percentage"})
     ->DenseRange(0, 100, 10);
+
+const char* use_basic_argname = "Use basic";
+std::vector<int64_t> use_basic_arg = benchmark::CreateDenseRange(0, 1, 1);
+
+std::vector<std::string> trivial_residual_filter_argnames = {use_basic_argname};
+std::vector<std::vector<int64_t>> trivial_residual_filter_args = {use_basic_arg};
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Inner/Literal(true)",
+                  JoinType::INNER, literal(true))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Left Semi/Literal(true)",
+                  JoinType::LEFT_SEMI, literal(true))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Right Semi/Literal(true)",
+                  JoinType::RIGHT_SEMI, literal(true))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Left Anti/Literal(true)",
+                  JoinType::LEFT_ANTI, literal(true))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Right Anti/Literal(true)",
+                  JoinType::RIGHT_ANTI, literal(true))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Left Outer/Literal(true)",
+                  JoinType::LEFT_OUTER, literal(true))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Right Outer/Literal(true)",
+                  JoinType::RIGHT_OUTER, literal(true))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Full Outer/Literal(true)",
+                  JoinType::FULL_OUTER, literal(true))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Inner/Literal(false)",
+                  JoinType::INNER, literal(false))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Left Semi/Literal(false)",
+                  JoinType::LEFT_SEMI, literal(false))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Right Semi/Literal(false)",
+                  JoinType::RIGHT_SEMI, literal(false))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Left Anti/Literal(false)",
+                  JoinType::LEFT_ANTI, literal(false))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Right Anti/Literal(false)",
+                  JoinType::RIGHT_ANTI, literal(false))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Left Outer/Literal(false)",
+                  JoinType::LEFT_OUTER, literal(false))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Right Outer/Literal(false)",
+                  JoinType::RIGHT_OUTER, literal(false))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_TrivialResidualFilter, "Full Outer/Literal(false)",
+                  JoinType::FULL_OUTER, literal(false))
+    ->ArgNames(trivial_residual_filter_argnames)
+    ->ArgsProduct(trivial_residual_filter_args);
+
+std::vector<std::string> complex_residual_filter_argnames = {use_basic_argname,
+                                                             "Selectivity"};
+std::vector<std::vector<int64_t>> complex_residual_filter_args = {
+    use_basic_arg, benchmark::CreateDenseRange(0, 100, 20)};
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_ComplexResidualFilter, "Inner", JoinType::INNER)
+    ->ArgNames(complex_residual_filter_argnames)
+    ->ArgsProduct(complex_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_ComplexResidualFilter, "Left Semi",
+                  JoinType::LEFT_SEMI)
+    ->ArgNames(complex_residual_filter_argnames)
+    ->ArgsProduct(complex_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_ComplexResidualFilter, "Right Semi",
+                  JoinType::RIGHT_SEMI)
+    ->ArgNames(complex_residual_filter_argnames)
+    ->ArgsProduct(complex_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_ComplexResidualFilter, "Left Anti",
+                  JoinType::LEFT_ANTI)
+    ->ArgNames(complex_residual_filter_argnames)
+    ->ArgsProduct(complex_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_ComplexResidualFilter, "Right Anti",
+                  JoinType::RIGHT_ANTI)
+    ->ArgNames(complex_residual_filter_argnames)
+    ->ArgsProduct(complex_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_ComplexResidualFilter, "Left Outer",
+                  JoinType::LEFT_OUTER)
+    ->ArgNames(complex_residual_filter_argnames)
+    ->ArgsProduct(complex_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_ComplexResidualFilter, "Right Outer",
+                  JoinType::RIGHT_OUTER)
+    ->ArgNames(complex_residual_filter_argnames)
+    ->ArgsProduct(complex_residual_filter_args);
+
+BENCHMARK_CAPTURE(BM_HashJoinBasic_ComplexResidualFilter, "Full Outer",
+                  JoinType::FULL_OUTER)
+    ->ArgNames(complex_residual_filter_argnames)
+    ->ArgsProduct(complex_residual_filter_args);
+
+BENCHMARK(BM_HashJoinBasic_HeavyBuildPayload)
+    ->ArgNames({"HashTable krows"})
+    ->ArgsProduct({benchmark::CreateRange(1, 512, 8)});
 #else
 
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{int32}", {int32()})
@@ -452,6 +659,107 @@ BENCHMARK(BM_HashJoinBasic_ProbeParallelism)
     ->MeasureProcessCPUTime();
 
 #endif  // ARROW_BUILD_DETAILED_BENCHMARKS
+
+void RowArrayDecodeBenchmark(benchmark::State& st, const std::shared_ptr<Schema>& schema,
+                             int column_to_decode) {
+  auto batches = MakeRandomBatches(schema, 1, std::numeric_limits<uint16_t>::max());
+  const auto& batch = batches.batches[0];
+  RowArray rows;
+  std::vector<uint16_t> row_ids_encode(batch.length);
+  std::iota(row_ids_encode.begin(), row_ids_encode.end(), 0);
+  std::vector<KeyColumnArray> temp_column_arrays;
+  DCHECK_OK(rows.AppendBatchSelection(
+      default_memory_pool(), internal::CpuInfo::GetInstance()->hardware_flags(), batch, 0,
+      static_cast<int>(batch.length), static_cast<int>(batch.length),
+      row_ids_encode.data(), temp_column_arrays));
+  std::vector<uint32_t> row_ids_decode(batch.length);
+  // Create a random access pattern to simulate hash join.
+  std::default_random_engine gen(42);
+  std::uniform_int_distribution<uint32_t> dist(0,
+                                               static_cast<uint32_t>(batch.length - 1));
+  std::transform(row_ids_decode.begin(), row_ids_decode.end(), row_ids_decode.begin(),
+                 [&](uint32_t) { return dist(gen); });
+
+  for (auto _ : st) {
+    ResizableArrayData column;
+    // Allocate at least 8 rows for the convenience of SIMD decoding.
+    int log_num_rows_min = std::max(3, bit_util::Log2(batch.length));
+    DCHECK_OK(column.Init(batch[column_to_decode].type(), default_memory_pool(),
+                          log_num_rows_min));
+    DCHECK_OK(rows.DecodeSelected(&column, column_to_decode,
+                                  static_cast<int>(batch.length), row_ids_decode.data(),
+                                  default_memory_pool()));
+  }
+  st.SetItemsProcessed(st.iterations() * batch.length);
+}
+
+static void BM_RowArray_Decode(benchmark::State& st,
+                               const std::shared_ptr<DataType>& type) {
+  SchemaBuilder schema_builder;
+  DCHECK_OK(schema_builder.AddField(field("", type)));
+  auto schema = *schema_builder.Finish();
+  RowArrayDecodeBenchmark(st, schema, 0);
+}
+
+BENCHMARK_CAPTURE(BM_RowArray_Decode, "boolean", boolean());
+BENCHMARK_CAPTURE(BM_RowArray_Decode, "int8", int8());
+BENCHMARK_CAPTURE(BM_RowArray_Decode, "int16", int16());
+BENCHMARK_CAPTURE(BM_RowArray_Decode, "int32", int32());
+BENCHMARK_CAPTURE(BM_RowArray_Decode, "int64", int64());
+
+static void BM_RowArray_DecodeFixedSizeBinary(benchmark::State& st) {
+  int fixed_size = static_cast<int>(st.range(0));
+  SchemaBuilder schema_builder;
+  DCHECK_OK(schema_builder.AddField(field("", fixed_size_binary(fixed_size))));
+  auto schema = *schema_builder.Finish();
+  RowArrayDecodeBenchmark(st, schema, 0);
+}
+
+BENCHMARK(BM_RowArray_DecodeFixedSizeBinary)
+    ->ArgNames({"fixed_size"})
+    ->ArgsProduct({{3, 5, 6, 7, 9, 16, 42}});
+
+static void BM_RowArray_DecodeBinary(benchmark::State& st) {
+  int max_length = static_cast<int>(st.range(0));
+  std::unordered_map<std::string, std::string> metadata;
+  metadata["max_length"] = std::to_string(max_length);
+  SchemaBuilder schema_builder;
+  DCHECK_OK(schema_builder.AddField(field("", utf8(), key_value_metadata(metadata))));
+  auto schema = *schema_builder.Finish();
+  RowArrayDecodeBenchmark(st, schema, 0);
+}
+
+BENCHMARK(BM_RowArray_DecodeBinary)
+    ->ArgNames({"max_length"})
+    ->ArgsProduct({{32, 64, 128}});
+
+static void BM_RowArray_DecodeOneOfColumns(benchmark::State& st,
+                                           std::vector<std::shared_ptr<DataType>> types) {
+  SchemaBuilder schema_builder;
+  for (const auto& type : types) {
+    DCHECK_OK(schema_builder.AddField(field("", type)));
+  }
+  auto schema = *schema_builder.Finish();
+  int column_to_decode = static_cast<int>(st.range(0));
+  RowArrayDecodeBenchmark(st, schema, column_to_decode);
+}
+
+const std::vector<std::shared_ptr<DataType>> fixed_length_row_column_types{
+    boolean(), int32(), fixed_size_binary(64)};
+BENCHMARK_CAPTURE(BM_RowArray_DecodeOneOfColumns,
+                  "fixed_length_row:{boolean,int32,fixed_size_binary(64)}",
+                  fixed_length_row_column_types)
+    ->ArgNames({"column"})
+    ->ArgsProduct(
+        {benchmark::CreateDenseRange(0, fixed_length_row_column_types.size() - 1, 1)});
+
+const std::vector<std::shared_ptr<DataType>> var_length_row_column_types{
+    boolean(), int32(), utf8(), utf8()};
+BENCHMARK_CAPTURE(BM_RowArray_DecodeOneOfColumns,
+                  "var_length_row:{boolean,int32,utf8,utf8}", var_length_row_column_types)
+    ->ArgNames({"column"})
+    ->ArgsProduct({benchmark::CreateDenseRange(0, var_length_row_column_types.size() - 1,
+                                               1)});
 
 }  // namespace acero
 }  // namespace arrow

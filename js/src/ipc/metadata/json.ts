@@ -20,9 +20,9 @@
 import { Schema, Field } from '../../schema.js';
 import {
     DataType, Dictionary, TimeBitWidth,
-    Utf8, Binary, Decimal, FixedSizeBinary,
+    Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary,
     List, FixedSizeList, Map_, Struct, Union,
-    Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys,
+    Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys, Duration,
 } from '../../type.js';
 
 import { DictionaryBatch, RecordBatch, FieldNode, BufferRegion } from './message.js';
@@ -32,7 +32,7 @@ import { TimeUnit, Precision, IntervalUnit, UnionMode, DateUnit } from '../../en
 export function schemaFromJSON(_schema: any, dictionaries: Map<number, DataType> = new Map()) {
     return new Schema(
         schemaFieldsFromJSON(_schema, dictionaries),
-        customMetadataFromJSON(_schema['customMetadata']),
+        customMetadataFromJSON(_schema['metadata']),
         dictionaries
     );
 }
@@ -81,7 +81,7 @@ function buffersFromJSON(xs: any[], buffers: BufferRegion[] = []): BufferRegion[
     for (let i = -1, n = (xs || []).length; ++i < n;) {
         const column = xs[i];
         column['VALIDITY'] && buffers.push(new BufferRegion(buffers.length, column['VALIDITY'].length));
-        column['TYPE'] && buffers.push(new BufferRegion(buffers.length, column['TYPE'].length));
+        column['TYPE_ID'] && buffers.push(new BufferRegion(buffers.length, column['TYPE_ID'].length));
         column['OFFSET'] && buffers.push(new BufferRegion(buffers.length, column['OFFSET'].length));
         column['DATA'] && buffers.push(new BufferRegion(buffers.length, column['DATA'].length));
         buffers = buffersFromJSON(column['children'], buffers);
@@ -107,7 +107,7 @@ export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>)
     // If no dictionary encoding
     if (!dictionaries || !(dictMeta = _field['dictionary'])) {
         type = typeFromJSON(_field, fieldChildrenFromJSON(_field, dictionaries));
-        field = new Field(_field['name'], type, _field['nullable'], customMetadataFromJSON(_field['customMetadata']));
+        field = new Field(_field['name'], type, _field['nullable'], customMetadataFromJSON(_field['metadata']));
     }
     // If dictionary encoded and the first time we've seen this dictionary id, decode
     // the data type and child fields, then wrap in a Dictionary type and insert the
@@ -117,7 +117,7 @@ export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>)
         keys = (keys = dictMeta['indexType']) ? indexTypeFromJSON(keys) as TKeys : new Int32();
         dictionaries.set(id, type = typeFromJSON(_field, fieldChildrenFromJSON(_field, dictionaries)));
         dictType = new Dictionary(type, keys, id, dictMeta['isOrdered']);
-        field = new Field(_field['name'], dictType, _field['nullable'], customMetadataFromJSON(_field['customMetadata']));
+        field = new Field(_field['name'], dictType, _field['nullable'], customMetadataFromJSON(_field['metadata']));
     }
     // If dictionary encoded, and have already seen this dictionary Id in the schema, then reuse the
     // data type and wrap in a new Dictionary type and field.
@@ -125,14 +125,14 @@ export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>)
         // a dictionary index defaults to signed 32 bit int if unspecified
         keys = (keys = dictMeta['indexType']) ? indexTypeFromJSON(keys) as TKeys : new Int32();
         dictType = new Dictionary(dictionaries.get(id)!, keys, id, dictMeta['isOrdered']);
-        field = new Field(_field['name'], dictType, _field['nullable'], customMetadataFromJSON(_field['customMetadata']));
+        field = new Field(_field['name'], dictType, _field['nullable'], customMetadataFromJSON(_field['metadata']));
     }
     return field || null;
 }
 
 /** @ignore */
-function customMetadataFromJSON(_metadata?: Record<string, string>) {
-    return new Map<string, string>(Object.entries(_metadata || {}));
+function customMetadataFromJSON(metadata: { key: string; value: string }[] = []) {
+    return new Map<string, string>(metadata.map(({ key, value }) => [key, value]));
 }
 
 /** @ignore */
@@ -149,7 +149,9 @@ function typeFromJSON(f: any, children?: Field[]): DataType<any> {
         case 'NONE': return new Null();
         case 'null': return new Null();
         case 'binary': return new Binary();
+        case 'largebinary': return new LargeBinary();
         case 'utf8': return new Utf8();
+        case 'largeutf8': return new LargeUtf8();
         case 'bool': return new Bool();
         case 'list': return new List((children || [])[0]);
         case 'struct': return new Struct(children || []);
@@ -185,9 +187,15 @@ function typeFromJSON(f: any, children?: Field[]): DataType<any> {
             const t = f['type'];
             return new Interval(IntervalUnit[t['unit']] as any);
         }
+        case 'duration': {
+            const t = f['type'];
+            return new Duration(TimeUnit[t['unit']] as any);
+        }
         case 'union': {
             const t = f['type'];
-            return new Union(UnionMode[t['mode']] as any, (t['typeIds'] || []), children || []);
+            const [m, ...ms] = (t['mode'] + '').toLowerCase();
+            const mode = (m.toUpperCase() + ms.join('')) as keyof typeof UnionMode;
+            return new Union(UnionMode[mode] as any, (t['typeIds'] || []), children || []);
         }
         case 'fixedsizebinary': {
             const t = f['type'];

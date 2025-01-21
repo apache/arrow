@@ -26,7 +26,7 @@
 namespace gandiva {
 
 std::vector<std::string> DateUtils::GetMatches(std::string pattern, bool exactMatch) {
-  // we are case insensitive
+  // we are case-insensitive
   std::transform(pattern.begin(), pattern.end(), pattern.begin(), ::tolower);
   std::vector<std::string> matches;
 

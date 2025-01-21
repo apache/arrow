@@ -18,7 +18,7 @@
 ARG base
 FROM ${base}
 
-# Install the libaries required by the Gandiva to run
+# Install the libraries required by the Gandiva to run
 # Use enable llvm[enable-rtti] in the vcpkg.json to avoid link problems in Gandiva
 RUN vcpkg install \
         --clean-after-build \
@@ -33,11 +33,14 @@ RUN vcpkg install \
         --x-feature=s3
 
 # Install Java
-ARG java=1.8.0
+ARG java=11
 ARG maven=3.9.3
 RUN yum install -y java-$java-openjdk-devel && \
       yum clean all && \
-      curl https://dlcdn.apache.org/maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz | \
+      curl \
+        --fail \
+        --location \
+        "https://www.apache.org/dyn/closer.lua?action=download&filename=maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz" | \
         tar xfz - -C /usr/local && \
       ln -s /usr/local/apache-maven-${maven}/bin/mvn /usr/local/bin
 

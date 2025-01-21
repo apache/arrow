@@ -90,7 +90,7 @@ void KeyValueMetadata::Append(std::string key, std::string value) {
   values_.push_back(std::move(value));
 }
 
-Result<std::string> KeyValueMetadata::Get(const std::string& key) const {
+Result<std::string> KeyValueMetadata::Get(std::string_view key) const {
   auto index = FindKey(key);
   if (index < 0) {
     return Status::KeyError(key);
@@ -129,7 +129,7 @@ Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
   return Status::OK();
 }
 
-Status KeyValueMetadata::Delete(const std::string& key) {
+Status KeyValueMetadata::Delete(std::string_view key) {
   auto index = FindKey(key);
   if (index < 0) {
     return Status::KeyError(key);
@@ -138,20 +138,18 @@ Status KeyValueMetadata::Delete(const std::string& key) {
   }
 }
 
-Status KeyValueMetadata::Set(const std::string& key, const std::string& value) {
+Status KeyValueMetadata::Set(std::string key, std::string value) {
   auto index = FindKey(key);
   if (index < 0) {
-    Append(key, value);
+    Append(std::move(key), std::move(value));
   } else {
-    keys_[index] = key;
-    values_[index] = value;
+    keys_[index] = std::move(key);
+    values_[index] = std::move(value);
   }
   return Status::OK();
 }
 
-bool KeyValueMetadata::Contains(const std::string& key) const {
-  return FindKey(key) >= 0;
-}
+bool KeyValueMetadata::Contains(std::string_view key) const { return FindKey(key) >= 0; }
 
 void KeyValueMetadata::reserve(int64_t n) {
   DCHECK_GE(n, 0);
@@ -188,7 +186,7 @@ std::vector<std::pair<std::string, std::string>> KeyValueMetadata::sorted_pairs(
   return pairs;
 }
 
-int KeyValueMetadata::FindKey(const std::string& key) const {
+int KeyValueMetadata::FindKey(std::string_view key) const {
   for (size_t i = 0; i < keys_.size(); ++i) {
     if (keys_[i] == key) {
       return static_cast<int>(i);

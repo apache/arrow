@@ -16,12 +16,14 @@
 # under the License.
 
 from collections import OrderedDict
-import pickle
 import sys
 import weakref
 
 import pytest
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
@@ -84,6 +86,7 @@ def test_type_to_pandas_dtype():
 
 
 @pytest.mark.pandas
+@pytest.mark.processes
 def test_type_to_pandas_dtype_check_import():
     # ARROW-7980
     test_util.invoke_script('arrow_7980.py')
@@ -185,6 +188,7 @@ def test_time_types():
         pa.time64('s')
 
 
+@pytest.mark.numpy
 def test_from_numpy_dtype():
     cases = [
         (np.dtype('bool'), pa.bool_()),
@@ -585,7 +589,7 @@ two: int32""")
     assert repr(sch) == expected
 
 
-def test_type_schema_pickling():
+def test_type_schema_pickling(pickle_module):
     cases = [
         pa.int8(),
         pa.string(),
@@ -611,6 +615,8 @@ def test_type_schema_pickling():
         pa.date64(),
         pa.timestamp('ms'),
         pa.timestamp('ns'),
+        pa.decimal32(9, 3),
+        pa.decimal64(11, 4),
         pa.decimal128(12, 2),
         pa.decimal256(76, 38),
         pa.field('a', 'string', metadata={b'foo': b'bar'}),
@@ -621,7 +627,7 @@ def test_type_schema_pickling():
     ]
 
     for val in cases:
-        roundtripped = pickle.loads(pickle.dumps(val))
+        roundtripped = pickle_module.loads(pickle_module.dumps(val))
         assert val == roundtripped
 
     fields = []
@@ -632,7 +638,7 @@ def test_type_schema_pickling():
             fields.append(pa.field('_f{}'.format(i), f))
 
     schema = pa.schema(fields, metadata={b'foo': b'bar'})
-    roundtripped = pickle.loads(pickle.dumps(schema))
+    roundtripped = pickle_module.loads(pickle_module.dumps(schema))
     assert schema == roundtripped
 
 
@@ -682,7 +688,8 @@ def test_schema_sizeof():
         pa.field('bar', pa.string()),
     ])
 
-    assert sys.getsizeof(schema) > 30
+    # Note: pa.schema is twice as large on 64-bit systems
+    assert sys.getsizeof(schema) > (30 if sys.maxsize > 2**32 else 15)
 
     schema2 = schema.with_metadata({"key": "some metadata"})
     assert sys.getsizeof(schema2) > sys.getsizeof(schema)
@@ -718,12 +725,15 @@ def test_schema_merge():
     ])
     assert result.equals(expected)
 
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(pa.ArrowTypeError):
         pa.unify_schemas([b, d])
 
     # ARROW-14002: Try with tuple instead of list
     result = pa.unify_schemas((a, b, c))
     assert result.equals(expected)
+
+    result = pa.unify_schemas([b, d], promote_options="permissive")
+    assert result.equals(d)
 
     # raise proper error when passing a non-Schema value
     with pytest.raises(TypeError):

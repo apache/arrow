@@ -33,13 +33,13 @@
 
 #ifdef _WIN32
 
-#include <io.h>
+#  include <io.h>
 
 #else
 
-#include <fcntl.h>
-#include <poll.h>
-#include <unistd.h>
+#  include <fcntl.h>
+#  include <poll.h>
+#  include <unistd.h>
 
 #endif
 
@@ -220,7 +220,7 @@ static void BenchmarkStreamingWrites(benchmark::State& state,
 
 // Benchmark writing to /dev/null
 //
-// This situation is irrealistic as the kernel likely doesn't
+// This situation is unrealistic as the kernel likely doesn't
 // copy the data at all, so we only measure small writes.
 
 static void FileOutputStreamSmallWritesToNull(

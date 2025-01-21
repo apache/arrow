@@ -113,7 +113,9 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
                 expected = values[i];
                 expect(actual).toArrowCompare(expected);
             }
-        } catch (e: any) { throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`); }
+        } catch (e: any) {
+            throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`);
+        }
     });
     if (keys && keys.length > 0) {
         test(`dictionary indices should match`, () => {
@@ -126,7 +128,9 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
                         ? expect(indices.get(i)).toBe(keys[i])
                         : expect(indices.get(i)).toBeNull();
                 }
-            } catch (e) { throw new Error(`${indices}[${i}]: ${e}`); }
+            } catch (e) {
+                throw new Error(`${indices}[${i}]: ${e}`);
+            }
         });
     }
     test(`sets expected values`, () => {
@@ -139,7 +143,9 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
                 actual = vector.get(i);
                 expect(actual).toArrowCompare(expected);
             }
-        } catch (e: any) { throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`); }
+        } catch (e: any) {
+            throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`);
+        }
     });
     test(`iterates expected values`, () => {
         expect.hasAssertions();
@@ -149,7 +155,9 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
                 expected = values[++i];
                 expect(actual).toArrowCompare(expected);
             }
-        } catch (e: any) { throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`); }
+        } catch (e: any) {
+            throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`);
+        }
     });
     test(`indexOf returns expected values`, () => {
         expect.hasAssertions();
@@ -162,12 +170,16 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
                 actual = vector.indexOf(value);
                 expected = values.findIndex(compare(value));
                 expect(actual).toBe(expected);
+                // eslint-disable-next-line jest/prefer-to-contain
+                expect(vector.includes(value)).toBe(true);
             }
             // I would be pretty surprised if randomatic ever generates these values
             expect(vector.indexOf('purple elephants')).toBe(-1);
             expect(vector.indexOf('whistling wombats')).toBe(-1);
             expect(vector.indexOf('carnivorous novices')).toBe(-1);
-        } catch (e: any) { throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`); }
+        } catch (e: any) {
+            throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`);
+        }
     });
 }
 

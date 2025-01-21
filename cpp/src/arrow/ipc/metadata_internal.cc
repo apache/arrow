@@ -109,8 +109,9 @@ flatbuf::MetadataVersion MetadataVersionToFlatbuffer(MetadataVersion version) {
 bool HasValidityBitmap(Type::type type_id, MetadataVersion version) {
   // In V4, null types have no validity bitmap
   // In V5 and later, null and union types have no validity bitmap
-  return (version < MetadataVersion::V5) ? (type_id != Type::NA)
-                                         : ::arrow::internal::HasValidityBitmap(type_id);
+  return (version < MetadataVersion::V5)
+             ? (type_id != Type::NA)
+             : ::arrow::internal::may_have_validity_bitmap(type_id);
 }
 
 namespace {
@@ -190,11 +191,9 @@ Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
   }
 
   if (mode == UnionMode::SPARSE) {
-    ARROW_ASSIGN_OR_RAISE(
-        *out, SparseUnionType::Make(std::move(children), std::move(type_codes)));
+    ARROW_ASSIGN_OR_RAISE(*out, SparseUnionType::Make(children, std::move(type_codes)));
   } else {
-    ARROW_ASSIGN_OR_RAISE(
-        *out, DenseUnionType::Make(std::move(children), std::move(type_codes)));
+    ARROW_ASSIGN_OR_RAISE(*out, DenseUnionType::Make(children, std::move(type_codes)));
   }
   return Status::OK();
 }
@@ -258,6 +257,9 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type::LargeBinary:
       *out = large_binary();
       return Status::OK();
+    case flatbuf::Type::BinaryView:
+      *out = binary_view();
+      return Status::OK();
     case flatbuf::Type::FixedSizeBinary: {
       auto fw_binary = static_cast<const flatbuf::FixedSizeBinary*>(type_data);
       return FixedSizeBinaryType::Make(fw_binary->byteWidth()).Value(out);
@@ -268,18 +270,27 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type::LargeUtf8:
       *out = large_utf8();
       return Status::OK();
+    case flatbuf::Type::Utf8View:
+      *out = utf8_view();
+      return Status::OK();
     case flatbuf::Type::Bool:
       *out = boolean();
       return Status::OK();
     case flatbuf::Type::Decimal: {
       auto dec_type = static_cast<const flatbuf::Decimal*>(type_data);
-      if (dec_type->bitWidth() == 128) {
-        return Decimal128Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
-      } else if (dec_type->bitWidth() == 256) {
-        return Decimal256Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
-      } else {
-        return Status::Invalid("Library only supports 128-bit or 256-bit decimal values");
+      switch (dec_type->bitWidth()) {
+        case 32:
+          return Decimal32Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
+        case 64:
+          return Decimal64Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
+        case 128:
+          return Decimal128Type::Make(dec_type->precision(), dec_type->scale())
+              .Value(out);
+        case 256:
+          return Decimal256Type::Make(dec_type->precision(), dec_type->scale())
+              .Value(out);
       }
+      return Status::Invalid("Library only supports 32/64/128/256-bit decimal values");
     }
     case flatbuf::Type::Date: {
       auto date_type = static_cast<const flatbuf::Date*>(type_data);
@@ -354,6 +365,18 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
         return Status::Invalid("LargeList must have exactly 1 child field");
       }
       *out = std::make_shared<LargeListType>(children[0]);
+      return Status::OK();
+    case flatbuf::Type::ListView:
+      if (children.size() != 1) {
+        return Status::Invalid("ListView must have exactly 1 child field");
+      }
+      *out = std::make_shared<ListViewType>(children[0]);
+      return Status::OK();
+    case flatbuf::Type::LargeListView:
+      if (children.size() != 1) {
+        return Status::Invalid("LargeListView must have exactly 1 child field");
+      }
+      *out = std::make_shared<LargeListViewType>(children[0]);
       return Status::OK();
     case flatbuf::Type::Map:
       if (children.size() != 1) {
@@ -459,7 +482,9 @@ static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& fiel
 
 static KeyValueOffset AppendKeyValue(FBB& fbb, const std::string& key,
                                      const std::string& value) {
-  return flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value));
+  auto fbb_key = fbb.CreateString(key);
+  auto fbb_value = fbb.CreateString(value);
+  return flatbuf::CreateKeyValue(fbb, fbb_key, fbb_value);
 }
 
 static void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,
@@ -531,6 +556,18 @@ class FieldToFlatbufferVisitor {
   Status Visit(const BinaryType& type) {
     fb_type_ = flatbuf::Type::Binary;
     type_offset_ = flatbuf::CreateBinary(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const BinaryViewType& type) {
+    fb_type_ = flatbuf::Type::BinaryView;
+    type_offset_ = flatbuf::CreateBinaryView(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const StringViewType& type) {
+    fb_type_ = flatbuf::Type::Utf8View;
+    type_offset_ = flatbuf::CreateUtf8View(fbb_).Union();
     return Status::OK();
   }
 
@@ -619,6 +656,24 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
+  Status Visit(const Decimal32Type& type) {
+    const auto& dec_type = checked_cast<const Decimal32Type&>(type);
+    fb_type_ = flatbuf::Type::Decimal;
+    type_offset_ = flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale(),
+                                          /*bitWidth=*/32)
+                       .Union();
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal64Type& type) {
+    const auto& dec_type = checked_cast<const Decimal64Type&>(type);
+    fb_type_ = flatbuf::Type::Decimal;
+    type_offset_ = flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale(),
+                                          /*bitWidth=*/64)
+                       .Union();
+    return Status::OK();
+  }
+
   Status Visit(const Decimal128Type& type) {
     const auto& dec_type = checked_cast<const Decimal128Type&>(type);
     fb_type_ = flatbuf::Type::Decimal;
@@ -648,6 +703,20 @@ class FieldToFlatbufferVisitor {
     fb_type_ = flatbuf::Type::LargeList;
     RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateLargeList(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const ListViewType& type) {
+    fb_type_ = flatbuf::Type::ListView;
+    RETURN_NOT_OK(VisitChildFields(type));
+    type_offset_ = flatbuf::CreateListView(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListViewType& type) {
+    fb_type_ = flatbuf::Type::LargeListView;
+    RETURN_NOT_OK(VisitChildFields(type));
+    type_offset_ = flatbuf::CreateListView(fbb_).Union();
     return Status::OK();
   }
 
@@ -967,6 +1036,7 @@ static Status GetBodyCompression(FBB& fbb, const IpcWriteOptions& options,
 static Status MakeRecordBatch(FBB& fbb, int64_t length, int64_t body_length,
                               const std::vector<FieldMetadata>& nodes,
                               const std::vector<BufferMetadata>& buffers,
+                              const std::vector<int64_t>& variadic_buffer_counts,
                               const IpcWriteOptions& options, RecordBatchOffset* offset) {
   FieldNodeVector fb_nodes;
   RETURN_NOT_OK(WriteFieldNodes(fbb, nodes, &fb_nodes));
@@ -977,7 +1047,13 @@ static Status MakeRecordBatch(FBB& fbb, int64_t length, int64_t body_length,
   BodyCompressionOffset fb_compression;
   RETURN_NOT_OK(GetBodyCompression(fbb, options, &fb_compression));
 
-  *offset = flatbuf::CreateRecordBatch(fbb, length, fb_nodes, fb_buffers, fb_compression);
+  flatbuffers::Offset<flatbuffers::Vector<int64_t>> fb_variadic_buffer_counts{};
+  if (!variadic_buffer_counts.empty()) {
+    fb_variadic_buffer_counts = fbb.CreateVector(variadic_buffer_counts);
+  }
+
+  *offset = flatbuf::CreateRecordBatch(fbb, length, fb_nodes, fb_buffers, fb_compression,
+                                       fb_variadic_buffer_counts);
   return Status::OK();
 }
 
@@ -1224,11 +1300,12 @@ Status WriteRecordBatchMessage(
     int64_t length, int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out) {
+    const std::vector<int64_t>& variadic_buffer_counts, const IpcWriteOptions& options,
+    std::shared_ptr<Buffer>* out) {
   FBB fbb;
   RecordBatchOffset record_batch;
-  RETURN_NOT_OK(
-      MakeRecordBatch(fbb, length, body_length, nodes, buffers, options, &record_batch));
+  RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers,
+                                variadic_buffer_counts, options, &record_batch));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::RecordBatch, record_batch.Union(),
                         body_length, options.metadata_version, custom_metadata,
                         options.memory_pool)
@@ -1285,11 +1362,12 @@ Status WriteDictionaryMessage(
     int64_t id, bool is_delta, int64_t length, int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out) {
+    const std::vector<int64_t>& variadic_buffer_counts, const IpcWriteOptions& options,
+    std::shared_ptr<Buffer>* out) {
   FBB fbb;
   RecordBatchOffset record_batch;
-  RETURN_NOT_OK(
-      MakeRecordBatch(fbb, length, body_length, nodes, buffers, options, &record_batch));
+  RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers,
+                                variadic_buffer_counts, options, &record_batch));
   auto dictionary_batch =
       flatbuf::CreateDictionaryBatch(fbb, id, record_batch, is_delta).Union();
   return WriteFBMessage(fbb, flatbuf::MessageHeader::DictionaryBatch, dictionary_batch,
@@ -1370,7 +1448,7 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
 
   std::shared_ptr<KeyValueMetadata> metadata;
   RETURN_NOT_OK(internal::GetKeyValueMetadata(schema->custom_metadata(), &metadata));
-  // set endianess using the value in flatbuf schema
+  // set endianness using the value in flatbuf schema
   auto endianness = schema->endianness() == flatbuf::Endianness::Little
                         ? Endianness::Little
                         : Endianness::Big;

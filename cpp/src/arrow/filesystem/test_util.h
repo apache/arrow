@@ -74,6 +74,10 @@ void CreateFile(FileSystem* fs, const std::string& path, const std::string& data
 ARROW_TESTING_EXPORT
 void SortInfos(FileInfoVector* infos);
 
+// Create a copy of a FileInfo vector sorted by lexicographic path order
+ARROW_TESTING_EXPORT
+FileInfoVector SortedInfos(const FileInfoVector& infos);
+
 ARROW_TESTING_EXPORT
 void CollectFileInfoGenerator(FileInfoGenerator gen, FileInfoVector* out_infos);
 
@@ -136,6 +140,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestMoveFile();
   void TestMoveDir();
   void TestCopyFile();
+  void TestCopyFiles();
   void TestGetFileInfo();
   void TestGetFileInfoVector();
   void TestGetFileInfoSelector();
@@ -162,15 +167,20 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool have_implicit_directories() const { return false; }
   // - Whether the filesystem may allow writing a file "over" a directory
   virtual bool allow_write_file_over_dir() const { return false; }
+  // - Whether the filesystem may allow writing a directory "over" a file,
+  //   for example copying file "A" to "B/C" while "B" exists and is a file.
+  virtual bool allow_write_implicit_dir_over_file() const { return false; }
   // - Whether the filesystem allows reading a directory
   virtual bool allow_read_dir_as_file() const { return false; }
+  // - Whether the filesystem allows moving a file
+  virtual bool allow_move_file() const { return true; }
   // - Whether the filesystem allows moving a directory
   virtual bool allow_move_dir() const { return true; }
   // - Whether the filesystem allows moving a directory "over" a non-empty destination
   virtual bool allow_move_dir_over_non_empty_dir() const { return false; }
   // - Whether the filesystem allows appending to a file
   virtual bool allow_append_to_file() const { return true; }
-  // - Whether the filesystem allows appending to a new (not existent yet) file
+  // - Whether the filesystem allows appending to a nonexistent file
   virtual bool allow_append_to_new_file() const { return true; }
   // - Whether the filesystem supports directory modification times
   virtual bool have_directory_mtimes() const { return true; }
@@ -178,6 +188,10 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool have_flaky_directory_tree_deletion() const { return false; }
   // - Whether the filesystem stores some metadata alongside files
   virtual bool have_file_metadata() const { return false; }
+  // - Whether the filesystem has a false positive memory leak with generator
+  virtual bool have_false_positive_memory_leak_with_generator() const { return false; }
+  // - Whether the filesystem has a false positive memory leak in async close
+  virtual bool have_false_positive_memory_leak_with_async_close() const { return false; }
 
   void TestEmpty(FileSystem* fs);
   void TestNormalizePath(FileSystem* fs);
@@ -190,6 +204,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestMoveFile(FileSystem* fs);
   void TestMoveDir(FileSystem* fs);
   void TestCopyFile(FileSystem* fs);
+  void TestCopyFiles(FileSystem* fs);
   void TestGetFileInfo(FileSystem* fs);
   void TestGetFileInfoVector(FileSystem* fs);
   void TestGetFileInfoSelector(FileSystem* fs);
@@ -222,6 +237,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, MoveFile)                         \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, MoveDir)                          \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CopyFile)                         \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, CopyFiles)                        \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfo)                      \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoVector)                \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoSelector)              \

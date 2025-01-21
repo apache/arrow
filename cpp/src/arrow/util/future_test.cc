@@ -415,6 +415,10 @@ TEST(FutureRefTest, HeadRemoved) {
 }
 
 TEST(FutureStressTest, Callback) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
 #ifdef ARROW_VALGRIND
   const int NITERS = 2;
 #else
@@ -471,6 +475,10 @@ TEST(FutureStressTest, Callback) {
 }
 
 TEST(FutureStressTest, TryAddCallback) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   for (unsigned int n = 0; n < 1; n++) {
     auto fut = Future<>::Make();
     std::atomic<unsigned int> callbacks_added(0);
@@ -527,6 +535,10 @@ TEST(FutureStressTest, TryAddCallback) {
 }
 
 TEST(FutureStressTest, DeleteAfterWait) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   constexpr int kNumTasks = 100;
   for (int i = 0; i < kNumTasks; i++) {
     {
@@ -1073,7 +1085,7 @@ TEST_F(FutureSchedulingTest, ScheduleIfDifferentExecutor) {
   struct : internal::Executor {
     int GetCapacity() override { return pool_->GetCapacity(); }
 
-    bool OwnsThisThread() override { return pool_->OwnsThisThread(); }
+    bool IsCurrentExecutor() override { return pool_->IsCurrentExecutor(); }
 
     Status SpawnReal(internal::TaskHints hints, internal::FnOnce<void()> task,
                      StopToken stop_token, StopCallback&& stop_callback) override {
@@ -1100,8 +1112,7 @@ TEST_F(FutureSchedulingTest, ScheduleIfDifferentExecutor) {
   auto fut0_done = fut0.Then(
       [&] {
         // marked finished on main thread -> must be scheduled to executor
-        fut0_on_executor.store(executor.OwnsThisThread());
-
+        fut0_on_executor.store(executor.IsCurrentExecutor());
         fut1.MarkFinished();
       },
       pass_err, options);
@@ -1109,7 +1120,7 @@ TEST_F(FutureSchedulingTest, ScheduleIfDifferentExecutor) {
   auto fut1_done = fut1.Then(
       [&] {
         // marked finished on executor -> no need to schedule
-        fut1_on_executor.store(executor.OwnsThisThread());
+        fut1_on_executor.store(executor.IsCurrentExecutor());
       },
       pass_err, options);
 
@@ -1544,6 +1555,10 @@ TEST(FnOnceTest, MoveOnlyDataType) {
 }
 
 TEST(FutureTest, MatcherExamples) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   EXPECT_THAT(Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
               Finishes(Raises(StatusCode::Invalid)));
 

@@ -24,7 +24,7 @@
 #include <string>
 #include <utility>
 
-#include "arrow/compute/function.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -268,19 +268,49 @@ class ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
 /// Options for IsIn and IndexIn functions
 class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
  public:
-  explicit SetLookupOptions(Datum value_set, bool skip_nulls = false);
+  /// How to handle null values.
+  enum NullMatchingBehavior {
+    /// MATCH, any null in `value_set` is successfully matched in
+    /// the input.
+    MATCH,
+    /// SKIP, any null in `value_set` is ignored and nulls in the input
+    /// produce null (IndexIn) or false (IsIn) values in the output.
+    SKIP,
+    /// EMIT_NULL, any null in `value_set` is ignored and nulls in the
+    /// input produce null (IndexIn and IsIn) values in the output.
+    EMIT_NULL,
+    /// INCONCLUSIVE, null values are regarded as unknown values, which is
+    /// sql-compatible. nulls in the input produce null (IndexIn and IsIn)
+    /// values in the output. Besides, if `value_set` contains a null,
+    /// non-null unmatched values in the input also produce null values
+    /// (IndexIn and IsIn) in the output.
+    INCONCLUSIVE
+  };
+
+  explicit SetLookupOptions(Datum value_set, NullMatchingBehavior = MATCH);
   SetLookupOptions();
+
+  // DEPRECATED(will be removed after removing of skip_nulls)
+  explicit SetLookupOptions(Datum value_set, bool skip_nulls);
+
   static constexpr char const kTypeName[] = "SetLookupOptions";
 
   /// The set of values to look up input values into.
   Datum value_set;
+
+  NullMatchingBehavior null_matching_behavior;
+
+  // DEPRECATED(will be removed after removing of skip_nulls)
+  NullMatchingBehavior GetNullMatchingBehavior() const;
+
+  // DEPRECATED(use null_matching_behavior instead)
   /// Whether nulls in `value_set` count for lookup.
   ///
   /// If true, any null in `value_set` is ignored and nulls in the input
   /// produce null (IndexIn) or false (IsIn) values in the output.
   /// If false, any null in `value_set` is successfully matched in
   /// the input.
-  bool skip_nulls;
+  std::optional<bool> skip_nulls;
 };
 
 /// Options for struct_field function
@@ -328,7 +358,8 @@ class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
 
 class ARROW_EXPORT PadOptions : public FunctionOptions {
  public:
-  explicit PadOptions(int64_t width, std::string padding = " ");
+  explicit PadOptions(int64_t width, std::string padding = " ",
+                      bool lean_left_on_odd_padding = true);
   PadOptions();
   static constexpr char const kTypeName[] = "PadOptions";
 
@@ -336,6 +367,10 @@ class ARROW_EXPORT PadOptions : public FunctionOptions {
   int64_t width;
   /// What to pad the string with. Should be one codepoint (Unicode)/byte (ASCII).
   std::string padding;
+  /// What to do if there is an odd number of padding characters (in case of centered
+  /// padding). Defaults to aligning on the left (i.e. adding the extra padding character
+  /// on the right)
+  bool lean_left_on_odd_padding = true;
 };
 
 class ARROW_EXPORT TrimOptions : public FunctionOptions {
@@ -461,7 +496,7 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
 
   /// How to interpret ambiguous local times (due to DST shifts)
   Ambiguous ambiguous;
-  /// How to interpret non-existent local times (due to DST shifts)
+  /// How to interpret nonexistent local times (due to DST shifts)
   Nonexistent nonexistent;
 };
 
@@ -649,6 +684,18 @@ Result<Datum> Power(const Datum& left, const Datum& right,
 ARROW_EXPORT
 Result<Datum> Exp(const Datum& arg, ExecContext* ctx = NULLPTR);
 
+/// \brief More accurately calculate `exp(arg) - 1` for values close to zero.
+/// If the exponent value is null the result will be null.
+///
+/// This function is more accurate than calculating `exp(value) - 1` directly for values
+/// close to zero.
+///
+/// \param[in] arg the exponent
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise Euler's number raised to the power of exponent minus 1
+ARROW_EXPORT
+Result<Datum> Expm1(const Datum& arg, ExecContext* ctx = NULLPTR);
+
 /// \brief Left shift the left array by the right array. Array values must be the
 /// same length. If either operand is null, the result will be null.
 ///
@@ -736,6 +783,52 @@ Result<Datum> Atan(const Datum& arg, ExecContext* ctx = NULLPTR);
 /// \return the elementwise inverse tangent of the values
 ARROW_EXPORT
 Result<Datum> Atan2(const Datum& y, const Datum& x, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the hyperbolic sine of the array values.
+/// \param[in] arg The values to compute the hyperbolic sine for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hyperbolic sine of the values
+ARROW_EXPORT
+Result<Datum> Sinh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the hyperbolic cosine of the array values.
+/// \param[in] arg The values to compute the hyperbolic cosine for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hyperbolic cosine of the values
+ARROW_EXPORT
+Result<Datum> Cosh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the hyperbolic tangent of the array values.
+/// \param[in] arg The values to compute the hyperbolic tangent for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hyperbolic tangent of the values
+ARROW_EXPORT
+Result<Datum> Tanh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse hyperbolic sine of the array values.
+/// \param[in] arg The values to compute the inverse hyperbolic sine for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse hyperbolic sine of the values
+ARROW_EXPORT
+Result<Datum> Asinh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse hyperbolic cosine of the array values.
+/// \param[in] arg The values to compute the inverse hyperbolic cosine for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse hyperbolic cosine of the values
+ARROW_EXPORT
+Result<Datum> Acosh(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse hyperbolic tangent of the array values.
+/// \param[in] arg The values to compute the inverse hyperbolic tangent for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse hyperbolic tangent of the values
+ARROW_EXPORT
+Result<Datum> Atanh(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
 
 /// \brief Get the natural log of a value.
 ///
@@ -1559,7 +1652,7 @@ ARROW_EXPORT Result<Datum> MonthsBetween(const Datum& left, const Datum& right,
 ARROW_EXPORT Result<Datum> WeeksBetween(const Datum& left, const Datum& right,
                                         ExecContext* ctx = NULLPTR);
 
-/// \brief Month Day Nano Between finds the number of months, days, and nonaseconds
+/// \brief Month Day Nano Between finds the number of months, days, and nanoseconds
 /// between two values
 ///
 /// \param[in] left input treated as the start time

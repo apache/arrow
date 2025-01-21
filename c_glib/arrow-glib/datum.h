@@ -28,65 +28,66 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_DATUM (garrow_datum_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowDatum,
-                         garrow_datum,
-                         GARROW,
-                         DATUM,
-                         GObject)
+GARROW_AVAILABLE_IN_1_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDatum, garrow_datum, GARROW, DATUM, GObject)
 struct _GArrowDatumClass
 {
   GObjectClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_1_0
-gboolean garrow_datum_is_array(GArrowDatum *datum);
+gboolean
+garrow_datum_is_array(GArrowDatum *datum);
 GARROW_AVAILABLE_IN_1_0
-gboolean garrow_datum_is_array_like(GArrowDatum *datum);
+gboolean
+garrow_datum_is_array_like(GArrowDatum *datum);
 GARROW_AVAILABLE_IN_5_0
-gboolean garrow_datum_is_scalar(GArrowDatum *datum);
+gboolean
+garrow_datum_is_scalar(GArrowDatum *datum);
 GARROW_AVAILABLE_IN_5_0
-gboolean garrow_datum_is_value(GArrowDatum *datum);
+gboolean
+garrow_datum_is_value(GArrowDatum *datum);
 /*
 GARROW_AVAILABLE_IN_5_0
 gboolean garrow_datum_is_collection(GArrowDatum *datum);
 */
 GARROW_AVAILABLE_IN_1_0
-gboolean garrow_datum_equal(GArrowDatum *datum,
-                            GArrowDatum *other_datum);
+gboolean
+garrow_datum_equal(GArrowDatum *datum, GArrowDatum *other_datum);
 GARROW_AVAILABLE_IN_1_0
-gchar *garrow_datum_to_string(GArrowDatum *datum);
+gchar *
+garrow_datum_to_string(GArrowDatum *datum);
 
 /* GARROW_TYPE_NONE_DATUM */
 
 #define GARROW_TYPE_SCALAR_DATUM (garrow_scalar_datum_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowScalarDatum,
-                         garrow_scalar_datum,
-                         GARROW,
-                         SCALAR_DATUM,
-                         GArrowDatum)
+GARROW_AVAILABLE_IN_5_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowScalarDatum, garrow_scalar_datum, GARROW, SCALAR_DATUM, GArrowDatum)
 struct _GArrowScalarDatumClass
 {
   GArrowDatumClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_5_0
-GArrowScalarDatum *garrow_scalar_datum_new(GArrowScalar *value);
+GArrowScalarDatum *
+garrow_scalar_datum_new(GArrowScalar *value);
 
 #define GARROW_TYPE_ARRAY_DATUM (garrow_array_datum_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowArrayDatum,
-                         garrow_array_datum,
-                         GARROW,
-                         ARRAY_DATUM,
-                         GArrowDatum)
+GARROW_AVAILABLE_IN_1_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowArrayDatum, garrow_array_datum, GARROW, ARRAY_DATUM, GArrowDatum)
 struct _GArrowArrayDatumClass
 {
   GArrowDatumClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_1_0
-GArrowArrayDatum *garrow_array_datum_new(GArrowArray *value);
+GArrowArrayDatum *
+garrow_array_datum_new(GArrowArray *value);
 
 #define GARROW_TYPE_CHUNKED_ARRAY_DATUM (garrow_chunked_array_datum_get_type())
+GARROW_AVAILABLE_IN_1_0
 G_DECLARE_DERIVABLE_TYPE(GArrowChunkedArrayDatum,
                          garrow_chunked_array_datum,
                          GARROW,
@@ -102,6 +103,7 @@ GArrowChunkedArrayDatum *
 garrow_chunked_array_datum_new(GArrowChunkedArray *value);
 
 #define GARROW_TYPE_RECORD_BATCH_DATUM (garrow_record_batch_datum_get_type())
+GARROW_AVAILABLE_IN_1_0
 G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatchDatum,
                          garrow_record_batch_datum,
                          GARROW,
@@ -117,18 +119,17 @@ GArrowRecordBatchDatum *
 garrow_record_batch_datum_new(GArrowRecordBatch *value);
 
 #define GARROW_TYPE_TABLE_DATUM (garrow_table_datum_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowTableDatum,
-                         garrow_table_datum,
-                         GARROW,
-                         TABLE_DATUM,
-                         GArrowDatum)
+GARROW_AVAILABLE_IN_1_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowTableDatum, garrow_table_datum, GARROW, TABLE_DATUM, GArrowDatum)
 struct _GArrowTableDatumClass
 {
   GArrowDatumClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_1_0
-GArrowTableDatum *garrow_table_datum_new(GArrowTable *value);
+GArrowTableDatum *
+garrow_table_datum_new(GArrowTable *value);
 
 /* GARROW_TYPE_COLLECTION_DATUM */
 

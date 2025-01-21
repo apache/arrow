@@ -91,7 +91,7 @@ static void TableJoinOverhead(benchmark::State& state,
     ASSERT_OK(DeclarationToStatus(std::move(join_node), /*use_threads=*/false));
   }
 
-  state.counters["input_rows_per_second"] = benchmark::Counter(
+  state.counters["rows_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * (left_table_stats.rows + right_hand_rows)),
       benchmark::Counter::kIsRate);
 
@@ -131,9 +131,8 @@ static void AsOfJoinOverhead(benchmark::State& state) {
 // this generates the set of right hand tables to test on.
 void SetArgs(benchmark::internal::Benchmark* bench) {
   bench
-      ->ArgNames({"left_freq", "left_cols", "left_ids", "left_batch_size",
-                  "num_right_tables", "right_freq", "right_cols", "right_ids",
-                  "right_batch_size"})
+      ->ArgNames({"left_freq", "left_cols", "left_ids", "batch_size", "num_right_tables",
+                  "right_freq", "right_cols", "right_ids"})
       ->UseRealTime();
 
   int default_freq = 400;

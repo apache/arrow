@@ -35,7 +35,8 @@ G_BEGIN_DECLS
  * new #GArrowRecordBatch.
  */
 
-typedef struct GArrowRecordBatchBuilderPrivate_ {
+typedef struct GArrowRecordBatchBuilderPrivate_
+{
   arrow::RecordBatchBuilder *record_batch_builder;
   GPtrArray *column_builders;
 } GArrowRecordBatchBuilderPrivate;
@@ -49,9 +50,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchBuilder,
                            garrow_record_batch_builder,
                            G_TYPE_OBJECT)
 
-#define GARROW_RECORD_BATCH_BUILDER_GET_PRIVATE(object)            \
-  static_cast<GArrowRecordBatchBuilderPrivate *>(                  \
-    garrow_record_batch_builder_get_instance_private(              \
+#define GARROW_RECORD_BATCH_BUILDER_GET_PRIVATE(object)                                  \
+  static_cast<GArrowRecordBatchBuilderPrivate *>(                                        \
+    garrow_record_batch_builder_get_instance_private(                                    \
       GARROW_RECORD_BATCH_BUILDER(object)))
 
 static void
@@ -123,20 +124,18 @@ garrow_record_batch_builder_class_init(GArrowRecordBatchBuilderClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->constructed  = garrow_record_batch_builder_constructed;
-  gobject_class->finalize     = garrow_record_batch_builder_finalize;
+  gobject_class->constructed = garrow_record_batch_builder_constructed;
+  gobject_class->finalize = garrow_record_batch_builder_finalize;
   gobject_class->set_property = garrow_record_batch_builder_set_property;
   gobject_class->get_property = garrow_record_batch_builder_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("record-batch-builder",
-                              "RecordBatch builder",
-                              "The raw arrow::RecordBatchBuilder *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class,
-                                  PROP_RECORD_BATCH_BUILDER,
-                                  spec);
+  spec = g_param_spec_pointer(
+    "record-batch-builder",
+    "RecordBatch builder",
+    "The raw arrow::RecordBatchBuilder *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_RECORD_BATCH_BUILDER, spec);
 }
 
 /**
@@ -157,7 +156,8 @@ garrow_record_batch_builder_new(GArrowSchema *schema, GError **error)
   auto builder_result = arrow::RecordBatchBuilder::Make(arrow_schema, memory_pool);
 
   if (garrow::check(error, builder_result, "[record-batch-builder][new]")) {
-    std::unique_ptr<arrow::RecordBatchBuilder> arrow_builder = std::move(builder_result).ValueOrDie();
+    std::unique_ptr<arrow::RecordBatchBuilder> arrow_builder =
+      std::move(builder_result).ValueOrDie();
     return garrow_record_batch_builder_new_raw(arrow_builder.release());
   } else {
     return NULL;
@@ -257,8 +257,7 @@ garrow_record_batch_builder_get_n_columns(GArrowRecordBatchBuilder *builder)
  *   Use garrow_record_batch_builder_get_column_builder() instead.
  */
 GArrowArrayBuilder *
-garrow_record_batch_builder_get_field(GArrowRecordBatchBuilder *builder,
-                                      gint i)
+garrow_record_batch_builder_get_field(GArrowRecordBatchBuilder *builder, gint i)
 {
   return garrow_record_batch_builder_get_column_builder(builder, i);
 }
@@ -275,8 +274,7 @@ garrow_record_batch_builder_get_field(GArrowRecordBatchBuilder *builder,
  * Since: 0.13.0
  */
 GArrowArrayBuilder *
-garrow_record_batch_builder_get_column_builder(GArrowRecordBatchBuilder *builder,
-                                               gint i)
+garrow_record_batch_builder_get_column_builder(GArrowRecordBatchBuilder *builder, gint i)
 {
   auto priv = GARROW_RECORD_BATCH_BUILDER_GET_PRIVATE(builder);
   if (i < 0) {
@@ -303,8 +301,7 @@ garrow_record_batch_builder_get_column_builder(GArrowRecordBatchBuilder *builder
  * Since: 0.8.0
  */
 GArrowRecordBatch *
-garrow_record_batch_builder_flush(GArrowRecordBatchBuilder *builder,
-                                  GError **error)
+garrow_record_batch_builder_flush(GArrowRecordBatchBuilder *builder, GError **error)
 {
   auto arrow_builder = garrow_record_batch_builder_get_raw(builder);
   auto batch_result = arrow_builder->Flush();
@@ -323,7 +320,8 @@ GArrowRecordBatchBuilder *
 garrow_record_batch_builder_new_raw(arrow::RecordBatchBuilder *arrow_builder)
 {
   auto builder = g_object_new(GARROW_TYPE_RECORD_BATCH_BUILDER,
-                              "record-batch-builder", arrow_builder,
+                              "record-batch-builder",
+                              arrow_builder,
                               NULL);
   return GARROW_RECORD_BATCH_BUILDER(builder);
 }

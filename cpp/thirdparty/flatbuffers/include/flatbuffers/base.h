@@ -3,9 +3,7 @@
 
 // Move this vendored copy of flatbuffers to a private namespace,
 // but continue to access it through the "flatbuffers" alias.
-namespace arrow_vendored_private {
-namespace flatbuffers {
-}
+namespace arrow_vendored_private::flatbuffers {
 }
 namespace flatbuffers = arrow_vendored_private::flatbuffers;
 
@@ -40,7 +38,7 @@ namespace flatbuffers = arrow_vendored_private::flatbuffers;
 #include <cstdlib>
 #include <cstring>
 
-#if defined(ARDUINO) && !defined(ARDUINOSTL_M_H)
+#if defined(ARDUINO) && !defined(ARDUINOSTL_M_H) && defined(__AVR__)
   #include <utility.h>
 #else
   #include <utility>
@@ -51,17 +49,17 @@ namespace flatbuffers = arrow_vendored_private::flatbuffers;
 #include <vector>
 #include <set>
 #include <algorithm>
+#include <limits>
 #include <iterator>
 #include <memory>
 
-#ifdef _STLPORT_VERSION
-  #define FLATBUFFERS_CPP98_STL
-#endif
-#ifndef FLATBUFFERS_CPP98_STL
-  #include <functional>
+#if defined(__unix__) && !defined(FLATBUFFERS_LOCALE_INDEPENDENT)
+  #include <unistd.h>
 #endif
 
-#include "flatbuffers/stl_emulation.h"
+#ifdef __ANDROID__
+  #include <android/api-level.h>
+#endif
 
 #if defined(__ICCARM__)
 #include <intrinsics.h>
@@ -147,11 +145,12 @@ namespace flatbuffers = arrow_vendored_private::flatbuffers;
   #endif
 #endif // !defined(FLATBUFFERS_LITTLEENDIAN)
 
-#define FLATBUFFERS_VERSION_MAJOR 1
-#define FLATBUFFERS_VERSION_MINOR 12
-#define FLATBUFFERS_VERSION_REVISION 0
+#define FLATBUFFERS_VERSION_MAJOR 23
+#define FLATBUFFERS_VERSION_MINOR 5
+#define FLATBUFFERS_VERSION_REVISION 26
 #define FLATBUFFERS_STRING_EXPAND(X) #X
 #define FLATBUFFERS_STRING(X) FLATBUFFERS_STRING_EXPAND(X)
+
 namespace arrow_vendored_private {
 namespace flatbuffers {
   // Returns version as string  "MAJOR.MINOR.REVISION".
@@ -164,10 +163,12 @@ namespace flatbuffers {
     defined(__clang__)
   #define FLATBUFFERS_FINAL_CLASS final
   #define FLATBUFFERS_OVERRIDE override
+  #define FLATBUFFERS_EXPLICIT_CPP11 explicit
   #define FLATBUFFERS_VTABLE_UNDERLYING_TYPE : flatbuffers::voffset_t
 #else
   #define FLATBUFFERS_FINAL_CLASS
   #define FLATBUFFERS_OVERRIDE
+  #define FLATBUFFERS_EXPLICIT_CPP11
   #define FLATBUFFERS_VTABLE_UNDERLYING_TYPE
 #endif
 
@@ -175,13 +176,16 @@ namespace flatbuffers {
     (!defined(__GNUC__) || (__GNUC__ * 100 + __GNUC_MINOR__ >= 406)) || \
     (defined(__cpp_constexpr) && __cpp_constexpr >= 200704)
   #define FLATBUFFERS_CONSTEXPR constexpr
+  #define FLATBUFFERS_CONSTEXPR_CPP11 constexpr
+  #define FLATBUFFERS_CONSTEXPR_DEFINED
 #else
   #define FLATBUFFERS_CONSTEXPR const
+  #define FLATBUFFERS_CONSTEXPR_CPP11
 #endif
 
 #if (defined(__cplusplus) && __cplusplus >= 201402L) || \
     (defined(__cpp_constexpr) && __cpp_constexpr >= 201304)
-  #define FLATBUFFERS_CONSTEXPR_CPP14 FLATBUFFERS_CONSTEXPR
+  #define FLATBUFFERS_CONSTEXPR_CPP14 FLATBUFFERS_CONSTEXPR_CPP11
 #else
   #define FLATBUFFERS_CONSTEXPR_CPP14
 #endif
@@ -199,9 +203,25 @@ namespace flatbuffers {
 #if (!defined(_MSC_VER) || _MSC_FULL_VER >= 180020827) && \
     (!defined(__GNUC__) || (__GNUC__ * 100 + __GNUC_MINOR__ >= 404)) || \
     defined(__clang__)
-  #define FLATBUFFERS_DELETE_FUNC(func) func = delete;
+  #define FLATBUFFERS_DELETE_FUNC(func) func = delete
 #else
-  #define FLATBUFFERS_DELETE_FUNC(func) private: func;
+  #define FLATBUFFERS_DELETE_FUNC(func) private: func
+#endif
+
+#if (!defined(_MSC_VER) || _MSC_VER >= 1900) && \
+    (!defined(__GNUC__) || (__GNUC__ * 100 + __GNUC_MINOR__ >= 409)) || \
+    defined(__clang__)
+  #define FLATBUFFERS_DEFAULT_DECLARATION
+#endif
+
+// Check if we can use template aliases
+// Not possible if Microsoft Compiler before 2012
+// Possible is the language feature __cpp_alias_templates is defined well
+// Or possible if the C++ std is C+11 or newer
+#if (defined(_MSC_VER) && _MSC_VER > 1700 /* MSVC2012 */) \
+    || (defined(__cpp_alias_templates) && __cpp_alias_templates >= 200704) \
+    || (defined(__cplusplus) && __cplusplus >= 201103L)
+  #define FLATBUFFERS_TEMPLATES_ALIASES
 #endif
 
 #ifndef FLATBUFFERS_HAS_STRING_VIEW
@@ -211,24 +231,37 @@ namespace flatbuffers {
     // Check for std::string_view (in c++17)
     #if __has_include(<string_view>) && (__cplusplus >= 201606 || (defined(_HAS_CXX17) && _HAS_CXX17))
       #include <string_view>
-      namespace arrow_vendored_private {
-      namespace flatbuffers {
+      namespace arrow_vendored_private::flatbuffers {
         typedef std::string_view string_view;
-      }
       }
       #define FLATBUFFERS_HAS_STRING_VIEW 1
     // Check for std::experimental::string_view (in c++14, compiler-dependent)
     #elif __has_include(<experimental/string_view>) && (__cplusplus >= 201411)
       #include <experimental/string_view>
-      namespace arrow_vendored_private {
-      namespace flatbuffers {
+      namespace arrow_vendored_private::flatbuffers {
         typedef std::experimental::string_view string_view;
       }
-      }
       #define FLATBUFFERS_HAS_STRING_VIEW 1
+    // Check for absl::string_view
+    #elif __has_include("absl/strings/string_view.h") && \
+          __has_include("absl/base/config.h") && \
+          (__cplusplus >= 201411)
+      #include "absl/base/config.h"
+      #if !defined(ABSL_USES_STD_STRING_VIEW)
+        #include "absl/strings/string_view.h"
+        namespace arrow_vendored_private::flatbuffers {
+          typedef absl::string_view string_view;
+        }
+        #define FLATBUFFERS_HAS_STRING_VIEW 1
+      #endif
     #endif
   #endif // __has_include
 #endif // !FLATBUFFERS_HAS_STRING_VIEW
+
+#ifndef FLATBUFFERS_GENERAL_HEAP_ALLOC_OK
+  // Allow heap allocations to be used
+  #define FLATBUFFERS_GENERAL_HEAP_ALLOC_OK 1
+#endif // !FLATBUFFERS_GENERAL_HEAP_ALLOC_OK
 
 #ifndef FLATBUFFERS_HAS_NEW_STRTOD
   // Modern (C++11) strtod and strtof functions are available for use.
@@ -242,11 +275,12 @@ namespace flatbuffers {
 #endif // !FLATBUFFERS_HAS_NEW_STRTOD
 
 #ifndef FLATBUFFERS_LOCALE_INDEPENDENT
-  // Enable locale independent functions {strtof_l, strtod_l,strtoll_l, strtoull_l}.
-  // They are part of the POSIX-2008 but not part of the C/C++ standard.
-  // GCC/Clang have definition (_XOPEN_SOURCE>=700) if POSIX-2008.
-  #if ((defined(_MSC_VER) && _MSC_VER >= 1800)            || \
-       (defined(_XOPEN_SOURCE) && (_XOPEN_SOURCE>=700)))
+  // Enable locale independent functions {strtof_l, strtod_l,strtoll_l,
+  // strtoull_l}.
+  #if (defined(_MSC_VER) && _MSC_VER >= 1800) || \
+      (defined(__ANDROID_API__) && __ANDROID_API__>= 21) || \
+      (defined(_XOPEN_VERSION) && (_XOPEN_VERSION >= 700)) && \
+        (!defined(__Fuchsia__) && !defined(__ANDROID_API__))
     #define FLATBUFFERS_LOCALE_INDEPENDENT 1
   #else
     #define FLATBUFFERS_LOCALE_INDEPENDENT 0
@@ -254,14 +288,14 @@ namespace flatbuffers {
 #endif  // !FLATBUFFERS_LOCALE_INDEPENDENT
 
 // Suppress Undefined Behavior Sanitizer (recoverable only). Usage:
-// - __supress_ubsan__("undefined")
-// - __supress_ubsan__("signed-integer-overflow")
+// - FLATBUFFERS_SUPPRESS_UBSAN("undefined")
+// - FLATBUFFERS_SUPPRESS_UBSAN("signed-integer-overflow")
 #if defined(__clang__) && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >=7))
-  #define __supress_ubsan__(type) __attribute__((no_sanitize(type)))
+  #define FLATBUFFERS_SUPPRESS_UBSAN(type) __attribute__((no_sanitize(type)))
 #elif defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__ >= 409)
-  #define __supress_ubsan__(type) __attribute__((no_sanitize_undefined))
+  #define FLATBUFFERS_SUPPRESS_UBSAN(type) __attribute__((no_sanitize_undefined))
 #else
-  #define __supress_ubsan__(type)
+  #define FLATBUFFERS_SUPPRESS_UBSAN(type)
 #endif
 
 // This is constexpr function used for checking compile-time constants.
@@ -274,7 +308,7 @@ template<typename T> FLATBUFFERS_CONSTEXPR inline bool IsConstTrue(T t) {
 #if ((__cplusplus >= 201703L) \
     || (defined(_MSVC_LANG) &&  (_MSVC_LANG >= 201703L)))
   // All attributes unknown to an implementation are ignored without causing an error.
-  #define FLATBUFFERS_ATTRIBUTE(attr) [[attr]]
+  #define FLATBUFFERS_ATTRIBUTE(attr) attr
 
   #define FLATBUFFERS_FALLTHROUGH() [[fallthrough]]
 #else
@@ -300,9 +334,11 @@ namespace flatbuffers {
 // Also, using a consistent offset type maintains compatibility of serialized
 // offset values between 32bit and 64bit systems.
 typedef uint32_t uoffset_t;
+typedef uint64_t uoffset64_t;
 
 // Signed offsets for references that can go in both directions.
 typedef int32_t soffset_t;
+typedef int64_t soffset64_t;
 
 // Offset/index used in v-tables, can be changed to uint8_t in
 // format forks to save a bit of space if desired.
@@ -311,12 +347,31 @@ typedef uint16_t voffset_t;
 typedef uintmax_t largest_scalar_t;
 
 // In 32bits, this evaluates to 2GB - 1
-#define FLATBUFFERS_MAX_BUFFER_SIZE ((1ULL << (sizeof(::flatbuffers::soffset_t) * 8 - 1)) - 1)
+#define FLATBUFFERS_MAX_BUFFER_SIZE std::numeric_limits<::flatbuffers::soffset_t>::max()
+#define FLATBUFFERS_MAX_64_BUFFER_SIZE std::numeric_limits<::flatbuffers::soffset64_t>::max()
+
+// The minimum size buffer that can be a valid flatbuffer.
+// Includes the offset to the root table (uoffset_t), the offset to the vtable
+// of the root table (soffset_t), the size of the vtable (uint16_t), and the
+// size of the referring table (uint16_t).
+#define FLATBUFFERS_MIN_BUFFER_SIZE sizeof(uoffset_t) + sizeof(soffset_t) + \
+   sizeof(uint16_t) + sizeof(uint16_t)
 
 // We support aligning the contents of buffers up to this size.
-#define FLATBUFFERS_MAX_ALIGNMENT 16
+#ifndef FLATBUFFERS_MAX_ALIGNMENT
+  #define FLATBUFFERS_MAX_ALIGNMENT 32
+#endif
+
+/// @brief The length of a FlatBuffer file header.
+static const size_t kFileIdentifierLength = 4;
+
+inline bool VerifyAlignmentRequirements(size_t align, size_t min_align = 1) {
+  return (min_align <= align) && (align <= (FLATBUFFERS_MAX_ALIGNMENT)) &&
+         (align & (align - 1)) == 0;  // must be power of 2
+}
 
 #if defined(_MSC_VER)
+  #pragma warning(disable: 4351) // C4351: new behavior: elements of array ... will be default initialized
   #pragma warning(push)
   #pragma warning(disable: 4127) // C4127: conditional expression is constant
 #endif
@@ -377,31 +432,76 @@ template<typename T> T EndianScalar(T t) {
 
 template<typename T>
 // UBSAN: C++ aliasing type rules, see std::bit_cast<> for details.
-__supress_ubsan__("alignment")
+FLATBUFFERS_SUPPRESS_UBSAN("alignment")
 T ReadScalar(const void *p) {
   return EndianScalar(*reinterpret_cast<const T *>(p));
 }
 
+// See https://github.com/google/flatbuffers/issues/5950
+
+#if (FLATBUFFERS_GCC >= 100000) && (FLATBUFFERS_GCC < 110000)
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
+
 template<typename T>
 // UBSAN: C++ aliasing type rules, see std::bit_cast<> for details.
-__supress_ubsan__("alignment")
+FLATBUFFERS_SUPPRESS_UBSAN("alignment")
 void WriteScalar(void *p, T t) {
   *reinterpret_cast<T *>(p) = EndianScalar(t);
 }
 
 template<typename T> struct Offset;
-template<typename T> __supress_ubsan__("alignment") void WriteScalar(void *p, Offset<T> t) {
+template<typename T> FLATBUFFERS_SUPPRESS_UBSAN("alignment") void WriteScalar(void *p, Offset<T> t) {
   *reinterpret_cast<uoffset_t *>(p) = EndianScalar(t.o);
 }
+
+#if (FLATBUFFERS_GCC >= 100000) && (FLATBUFFERS_GCC < 110000)
+  #pragma GCC diagnostic pop
+#endif
 
 // Computes how many bytes you'd have to pad to be able to write an
 // "scalar_size" scalar if the buffer had grown to "buf_size" (downwards in
 // memory).
-__supress_ubsan__("unsigned-integer-overflow")
+FLATBUFFERS_SUPPRESS_UBSAN("unsigned-integer-overflow")
 inline size_t PaddingBytes(size_t buf_size, size_t scalar_size) {
   return ((~buf_size) + 1) & (scalar_size - 1);
 }
 
+// Generic 'operator==' with conditional specialisations.
+// T e - new value of a scalar field.
+// T def - default of scalar (is known at compile-time).
+template<typename T> inline bool IsTheSameAs(T e, T def) { return e == def; }
+
+#if defined(FLATBUFFERS_NAN_DEFAULTS) && \
+    defined(FLATBUFFERS_HAS_NEW_STRTOD) && (FLATBUFFERS_HAS_NEW_STRTOD > 0)
+// Like `operator==(e, def)` with weak NaN if T=(float|double).
+template<typename T> inline bool IsFloatTheSameAs(T e, T def) {
+  return (e == def) || ((def != def) && (e != e));
+}
+template<> inline bool IsTheSameAs<float>(float e, float def) {
+  return IsFloatTheSameAs(e, def);
+}
+template<> inline bool IsTheSameAs<double>(double e, double def) {
+  return IsFloatTheSameAs(e, def);
+}
+#endif
+
+// Check 'v' is out of closed range [low; high].
+// Workaround for GCC warning [-Werror=type-limits]:
+// comparison is always true due to limited range of data type.
+template<typename T>
+inline bool IsOutRange(const T &v, const T &low, const T &high) {
+  return (v < low) || (high < v);
+}
+
+// Check 'v' is in closed range [low; high].
+template<typename T>
+inline bool IsInRange(const T &v, const T &low, const T &high) {
+  return !IsOutRange(v, low, high);
+}
+
 }  // namespace flatbuffers
 }  // namespace arrow_vendored_private
+
 #endif  // FLATBUFFERS_BASE_H_

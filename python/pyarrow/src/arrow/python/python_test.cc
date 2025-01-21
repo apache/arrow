@@ -174,10 +174,14 @@ Status TestOwnedRefNoGILMoves() {
   }
 }
 
-std::string FormatPythonException(const std::string& exc_class_name) {
+std::string FormatPythonException(const std::string& exc_class_name,
+                                  const std::string& exc_value) {
   std::stringstream ss;
   ss << "Python exception: ";
   ss << exc_class_name;
+  ss << ": ";
+  ss << exc_value;
+  ss << "\n";
   return ss.str();
 }
 
@@ -205,7 +209,8 @@ Status TestCheckPyErrorStatus() {
   }
 
   PyErr_SetString(PyExc_TypeError, "some error");
-  ASSERT_OK(check_error(st, "some error", FormatPythonException("TypeError")));
+  ASSERT_OK(
+      check_error(st, "some error", FormatPythonException("TypeError", "some error")));
   ASSERT_TRUE(st.IsTypeError());
 
   PyErr_SetString(PyExc_ValueError, "some error");
@@ -223,7 +228,8 @@ Status TestCheckPyErrorStatus() {
   }
 
   PyErr_SetString(PyExc_NotImplementedError, "some error");
-  ASSERT_OK(check_error(st, "some error", FormatPythonException("NotImplementedError")));
+  ASSERT_OK(check_error(st, "some error",
+                        FormatPythonException("NotImplementedError", "some error")));
   ASSERT_TRUE(st.IsNotImplemented());
 
   // No override if a specific status code is given
@@ -246,7 +252,8 @@ Status TestCheckPyErrorStatusNoGIL() {
     lock.release();
     ASSERT_TRUE(st.IsUnknownError());
     ASSERT_EQ(st.message(), "zzzt");
-    ASSERT_EQ(st.detail()->ToString(), FormatPythonException("ZeroDivisionError"));
+    ASSERT_EQ(st.detail()->ToString(),
+              FormatPythonException("ZeroDivisionError", "zzzt"));
     return Status::OK();
   }
 }
@@ -257,7 +264,7 @@ Status TestRestorePyErrorBasics() {
   ASSERT_FALSE(PyErr_Occurred());
   ASSERT_TRUE(st.IsUnknownError());
   ASSERT_EQ(st.message(), "zzzt");
-  ASSERT_EQ(st.detail()->ToString(), FormatPythonException("ZeroDivisionError"));
+  ASSERT_EQ(st.detail()->ToString(), FormatPythonException("ZeroDivisionError", "zzzt"));
 
   RestorePyError(st);
   ASSERT_TRUE(PyErr_Occurred());
@@ -863,7 +870,7 @@ std::vector<TestCase> GetCppTestCases() {
        TestInferAllLeadingZerosExponentialNotationPositive},
       {"test_infer_all_leading_zeros_exponential_notation_negative",
        TestInferAllLeadingZerosExponentialNotationNegative},
-      {"test_object_block_write_fails", TestObjectBlockWriteFails},
+      {"test_object_block_write_fails_pandas_convert", TestObjectBlockWriteFails},
       {"test_mixed_type_fails", TestMixedTypeFails},
       {"test_from_python_decimal_rescale_not_truncateable",
        TestFromPythonDecimalRescaleNotTruncateable},

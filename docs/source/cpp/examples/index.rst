@@ -27,3 +27,4 @@ Examples
    dataset_skyhook_scan_example
    row_columnar_conversion
    std::tuple-like ranges to Arrow <tuple_range_conversion>
+   Converting RecordBatch to Tensor <converting_recordbatch_to_tensor>

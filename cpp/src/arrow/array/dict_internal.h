@@ -29,6 +29,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -63,11 +64,9 @@ struct DictionaryTraits<BooleanType> {
   using T = BooleanType;
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Status GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(
+      MemoryPool* pool, const std::shared_ptr<DataType>& type,
+      const MemoTableType& memo_table, int64_t start_offset) {
     if (start_offset < 0) {
       return Status::Invalid("invalid start_offset ", start_offset);
     }
@@ -82,7 +81,9 @@ struct DictionaryTraits<BooleanType> {
                                     : builder.Append(bool_values[i]));
     }
 
-    return builder.FinishInternal(out);
+    std::shared_ptr<ArrayData> out;
+    RETURN_NOT_OK(builder.FinishInternal(&out));
+    return out;
   }
 };  // namespace internal
 
@@ -91,11 +92,9 @@ struct DictionaryTraits<T, enable_if_has_c_type<T>> {
   using c_type = typename T::c_type;
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Status GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(
+      MemoryPool* pool, const std::shared_ptr<DataType>& type,
+      const MemoTableType& memo_table, int64_t start_offset) {
     auto dict_length = static_cast<int64_t>(memo_table.size()) - start_offset;
     // This makes a copy, but we assume a dictionary array is usually small
     // compared to the size of the dictionary-using array.
@@ -112,8 +111,7 @@ struct DictionaryTraits<T, enable_if_has_c_type<T>> {
     RETURN_NOT_OK(
         ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
 
-    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_buffer}, null_count);
-    return Status::OK();
+    return ArrayData::Make(type, dict_length, {null_bitmap, dict_buffer}, null_count);
   }
 };
 
@@ -121,11 +119,9 @@ template <typename T>
 struct DictionaryTraits<T, enable_if_base_binary<T>> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Status GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(
+      MemoryPool* pool, const std::shared_ptr<DataType>& type,
+      const MemoTableType& memo_table, int64_t start_offset) {
     using offset_type = typename T::offset_type;
 
     // Create the offsets buffer
@@ -148,11 +144,35 @@ struct DictionaryTraits<T, enable_if_base_binary<T>> {
     RETURN_NOT_OK(
         ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
 
-    *out = ArrayData::Make(type, dict_length,
+    return ArrayData::Make(type, dict_length,
                            {null_bitmap, std::move(dict_offsets), std::move(dict_data)},
                            null_count);
+  }
+};
 
-    return Status::OK();
+template <typename T>
+struct DictionaryTraits<T, enable_if_binary_view_like<T>> {
+  using MemoTableType = typename HashTraits<T>::MemoTableType;
+
+  static_assert(std::is_same_v<MemoTableType, BinaryMemoTable<BinaryBuilder>>);
+
+  // Instead of defining a custom memo table for StringView we reuse BinaryType's,
+  // then convert to views when we copy data out of the memo table.
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(
+      MemoryPool* pool, const std::shared_ptr<DataType>& type,
+      const MemoTableType& memo_table, int64_t start_offset) {
+    DCHECK(type->id() == Type::STRING_VIEW || type->id() == Type::BINARY_VIEW);
+
+    BinaryViewBuilder builder(pool);
+    RETURN_NOT_OK(builder.Resize(memo_table.size() - start_offset));
+    RETURN_NOT_OK(builder.ReserveData(memo_table.values_size()));
+    memo_table.VisitValues(static_cast<int32_t>(start_offset),
+                           [&](std::string_view s) { builder.UnsafeAppend(s); });
+
+    std::shared_ptr<ArrayData> out;
+    RETURN_NOT_OK(builder.FinishInternal(&out));
+    out->type = type;
+    return out;
   }
 };
 
@@ -160,11 +180,9 @@ template <typename T>
 struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Status GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(
+      MemoryPool* pool, const std::shared_ptr<DataType>& type,
+      const MemoTableType& memo_table, int64_t start_offset) {
     const T& concrete_type = internal::checked_cast<const T&>(*type);
 
     // Create the data buffer
@@ -182,9 +200,8 @@ struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
     RETURN_NOT_OK(
         ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
 
-    *out = ArrayData::Make(type, dict_length, {null_bitmap, std::move(dict_data)},
+    return ArrayData::Make(type, dict_length, {null_bitmap, std::move(dict_data)},
                            null_count);
-    return Status::OK();
   }
 };
 

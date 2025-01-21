@@ -28,32 +28,32 @@
 #include "arrow/ipc/api.h"      // IWYU pragma: keep
 
 #ifdef ARROW_CSV
-#include "arrow/csv/api.h"  // IWYU pragma: keep
+#  include "arrow/csv/api.h"  // IWYU pragma: keep
 #endif
 
 #ifdef ARROW_DATASET
-#include "arrow/dataset/api.h"  // IWYU pragma: keep
+#  include "arrow/dataset/api.h"  // IWYU pragma: keep
 #endif
 
 #ifdef ARROW_FILESYSTEM
-#include "arrow/filesystem/api.h"  // IWYU pragma: keep
+#  include "arrow/filesystem/api.h"  // IWYU pragma: keep
 #endif
 
 #ifdef ARROW_FLIGHT
-#include "arrow/flight/api.h"  // IWYU pragma: keep
+#  include "arrow/flight/api.h"  // IWYU pragma: keep
 #endif
 
 #ifdef ARROW_FLIGHT_SQL
-#include "arrow/flight/sql/api.h"  // IWYU pragma: keep
+#  include "arrow/flight/sql/api.h"  // IWYU pragma: keep
 #endif
 
 #ifdef ARROW_JSON
-#include "arrow/json/api.h"  // IWYU pragma: keep
+#  include "arrow/json/api.h"  // IWYU pragma: keep
 #endif
 
 #ifdef ARROW_SUBSTRAIT
-#include "arrow/engine/api.h"            // IWYU pragma: keep
-#include "arrow/engine/substrait/api.h"  // IWYU pragma: keep
+#  include "arrow/engine/api.h"            // IWYU pragma: keep
+#  include "arrow/engine/substrait/api.h"  // IWYU pragma: keep
 #endif
 
 #include <gmock/gmock-matchers.h>

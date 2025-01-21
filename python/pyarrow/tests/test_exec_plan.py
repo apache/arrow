@@ -321,3 +321,17 @@ def test_join_extension_array_column():
     result = _perform_join(
         "left outer", t1, ["colB"], t3, ["colC"])
     assert result["colB"] == pa.chunked_array(ext_array)
+
+
+def test_group_by_ordering():
+    # GH-36709 - preserve ordering in groupby by setting use_threads=False
+    table1 = pa.table({'a': [1, 2, 3, 4], 'b': ['a'] * 4})
+    table2 = pa.table({'a': [1, 2, 3, 4], 'b': ['b'] * 4})
+    table = pa.concat_tables([table1, table2])
+
+    for _ in range(50):
+        # 50 seems to consistently cause errors when order is not preserved.
+        # If the order problem is reintroduced this test will become flaky
+        # which is still a signal that the order is not preserved.
+        result = table.group_by("b", use_threads=False).aggregate([])
+        assert result["b"] == pa.chunked_array([["a"], ["b"]])

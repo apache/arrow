@@ -18,7 +18,7 @@ classdef tUInt32Array < hNumericArray
 
     properties
         ArrowArrayClassName = "arrow.array.UInt32Array"
-        ArrowArrayConstructor = @arrow.array.UInt32Array
+        ArrowArrayConstructorFcn = @arrow.array.UInt32Array.fromMATLAB
         MatlabConversionFcn = @uint32 % uint32 method on class
         MatlabArrayFcn = @uint32 % uint32 function
         MaxValue = intmax("uint32")

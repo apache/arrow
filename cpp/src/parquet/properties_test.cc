@@ -35,6 +35,7 @@ TEST(TestReaderProperties, Basics) {
   ReaderProperties props;
 
   ASSERT_EQ(props.buffer_size(), kDefaultBufferSize);
+  ASSERT_EQ(props.footer_read_size(), kDefaultFooterReadSize);
   ASSERT_FALSE(props.is_buffered_stream_enabled());
   ASSERT_FALSE(props.page_checksum_verification());
 }
@@ -47,6 +48,15 @@ TEST(TestWriterProperties, Basics) {
   ASSERT_EQ(ParquetVersion::PARQUET_2_6, props->version());
   ASSERT_EQ(ParquetDataPageVersion::V1, props->data_page_version());
   ASSERT_FALSE(props->page_checksum_enabled());
+}
+
+TEST(TestWriterProperties, DefaultCompression) {
+  std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
+
+  ASSERT_EQ(props->compression(ColumnPath::FromDotString("any")),
+            Compression::UNCOMPRESSED);
+  ASSERT_EQ(props->compression_level(ColumnPath::FromDotString("any")),
+            ::arrow::util::kUseDefaultCompressionLevel);
 }
 
 TEST(TestWriterProperties, AdvancedHandling) {

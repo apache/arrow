@@ -19,6 +19,7 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport CTimePoint
 
 
 cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
@@ -118,22 +119,24 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_bool Equals(const CLocation& other)
 
         @staticmethod
-        CResult[CLocation] Parse(c_string& uri_string)
+        CResult[CLocation] Parse(const c_string& uri_string)
 
         @staticmethod
-        CResult[CLocation] ForGrpcTcp(c_string& host, int port)
+        CResult[CLocation] ForGrpcTcp(const c_string& host, int port)
 
         @staticmethod
-        CResult[CLocation] ForGrpcTls(c_string& host, int port)
+        CResult[CLocation] ForGrpcTls(const c_string& host, int port)
 
         @staticmethod
-        CResult[CLocation] ForGrpcUnix(c_string& path)
+        CResult[CLocation] ForGrpcUnix(const c_string& path)
 
     cdef cppclass CFlightEndpoint" arrow::flight::FlightEndpoint":
         CFlightEndpoint()
 
         CTicket ticket
         vector[CLocation] locations
+        optional[CTimePoint] expiration_time
+        c_string app_metadata
 
         bint operator==(CFlightEndpoint)
         CResult[c_string] SerializeToString()
@@ -146,6 +149,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightInfo(CFlightInfo info)
         int64_t total_records()
         int64_t total_bytes()
+        c_bool ordered()
+        c_string app_metadata()
         CResult[shared_ptr[CSchema]] GetSchema(CDictionaryMemo* memo)
         CFlightDescriptor& descriptor()
         const vector[CFlightEndpoint]& endpoints()
@@ -172,7 +177,9 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CResult[unique_ptr[CFlightInfo]] Next()
 
     cdef cppclass CSimpleFlightListing" arrow::flight::SimpleFlightListing":
-        CSimpleFlightListing(vector[CFlightInfo]&& info)
+        # This doesn't work with Cython >= 3
+        # CSimpleFlightListing(vector[CFlightInfo]&& info)
+        CSimpleFlightListing(const vector[CFlightInfo]& info)
 
     cdef cppclass CFlightPayload" arrow::flight::FlightPayload":
         shared_ptr[CBuffer] descriptor
@@ -310,7 +317,10 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CCallHeaders" arrow::flight::CallHeaders":
         cppclass const_iterator:
             pair[c_string, c_string] operator*()
+            # For Cython < 3
             const_iterator operator++()
+            # For Cython >= 3
+            const_iterator operator++(int)
             bint operator==(const_iterator)
             bint operator!=(const_iterator)
         const_iterator cbegin()
@@ -382,6 +392,9 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CResult[unique_ptr[CFlightClient]] Connect(const CLocation& location,
                                                    const CFlightClientOptions& options)
 
+        c_bool supports_async()
+        CStatus CheckAsyncSupport()
+
         CStatus Authenticate(CFlightCallOptions& options,
                              unique_ptr[CClientAuthHandler] auth_handler)
 
@@ -396,6 +409,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CResult[unique_ptr[CFlightListing]] ListFlights(CFlightCallOptions& options, CCriteria criteria)
         CResult[unique_ptr[CFlightInfo]] GetFlightInfo(CFlightCallOptions& options,
                                                        CFlightDescriptor& descriptor)
+        CFuture[CFlightInfo] GetFlightInfoAsync(CFlightCallOptions& options,
+                                                CFlightDescriptor& descriptor)
         CResult[unique_ptr[CSchemaResult]] GetSchema(CFlightCallOptions& options,
                                                      CFlightDescriptor& descriptor)
         CResult[unique_ptr[CFlightStreamReader]] DoGet(CFlightCallOptions& options, CTicket& ticket)
@@ -598,6 +613,8 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         vector[CFlightEndpoint] endpoints,
         int64_t total_records,
         int64_t total_bytes,
+        c_bool ordered,
+        const c_string& app_metadata,
         unique_ptr[CFlightInfo]* out)
 
     cdef CStatus CreateSchemaResult" arrow::py::flight::CreateSchemaResult"(

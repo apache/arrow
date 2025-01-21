@@ -15,6 +15,7 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Apache.Arrow
@@ -24,10 +25,10 @@ namespace Apache.Arrow
     /// stored as the number of microseconds/nanoseconds (depending on the Time64Type) since midnight.
     /// </summary>
     public class Time64Array : PrimitiveArray<long>
+#if NET6_0_OR_GREATER
+        , IReadOnlyList<TimeOnly?>, ICollection<TimeOnly?>
+#endif
     {
-        private const long TicksPerMicrosecond = 10;
-        private const long NanosecondsPerTick = 100;
-
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Time64Array"/> objects.
         /// </summary>
@@ -49,7 +50,7 @@ namespace Apache.Arrow
                 : this(Time64Type.Default) { }
 
             public Builder(TimeUnit unit)
-                : this(new Time64Type(unit)) { }
+                : this((Time64Type)TimeType.FromTimeUnit(unit)) { }
 
             /// <summary>
             /// Construct a new instance of the <see cref="Builder"/> class.
@@ -62,13 +63,7 @@ namespace Apache.Arrow
 #if NET6_0_OR_GREATER
             protected override long Convert(TimeOnly time)
             {
-                var unit = ((TimeBuilder)InnerBuilder).DataType.Unit;
-                return unit switch
-                {
-                    TimeUnit.Microsecond => (long)(time.Ticks / TicksPerMicrosecond),
-                    TimeUnit.Nanosecond => (long)(time.Ticks * NanosecondsPerTick),
-                    _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
-                };
+                return ((TimeBuilder)InnerBuilder).DataType.Unit.ConvertFromTicks(time.Ticks);
             }
 #endif
         }
@@ -153,13 +148,44 @@ namespace Apache.Arrow
                 return null;
             }
 
-            var unit = ((Time64Type)Data.DataType).Unit;
-            return unit switch
+            return new TimeOnly(((Time64Type)Data.DataType).Unit.ConvertToTicks(value.Value));
+        }
+
+        int IReadOnlyCollection<TimeOnly?>.Count => Length;
+
+        TimeOnly? IReadOnlyList<TimeOnly?>.this[int index] => GetTime(index);
+
+        IEnumerator<TimeOnly?> IEnumerable<TimeOnly?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
             {
-                TimeUnit.Microsecond => new TimeOnly(value.Value * TicksPerMicrosecond),
-                TimeUnit.Nanosecond => new TimeOnly(value.Value / NanosecondsPerTick),
-                _ => throw new InvalidDataException($"Unsupported time unit for Time64Type: {unit}")
+                yield return GetTime(index);
             };
+        }
+
+        int ICollection<TimeOnly?>.Count => Length;
+        bool ICollection<TimeOnly?>.IsReadOnly => true;
+        void ICollection<TimeOnly?>.Add(TimeOnly? item) => throw new NotSupportedException("Collection is read-only.");
+        bool ICollection<TimeOnly?>.Remove(TimeOnly? item) => throw new NotSupportedException("Collection is read-only.");
+        void ICollection<TimeOnly?>.Clear() => throw new NotSupportedException("Collection is read-only.");
+
+        bool ICollection<TimeOnly?>.Contains(TimeOnly? item)
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                if (GetTime(index).Equals(item))
+                    return true;
+            }
+
+            return false;
+        }
+
+        void ICollection<TimeOnly?>.CopyTo(TimeOnly?[] array, int arrayIndex)
+        {
+            for (int srcIndex = 0, destIndex = arrayIndex; srcIndex < Length; srcIndex++, destIndex++)
+            {
+                array[destIndex] = GetTime(srcIndex);
+            }
         }
 #endif
     }

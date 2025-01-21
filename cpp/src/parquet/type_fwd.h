@@ -68,7 +68,13 @@ struct ParquetVersion {
   };
 };
 
+struct PageIndexLocation;
+
 class FileMetaData;
+class FileCryptoMetaData;
+class RowGroupMetaData;
+
+class ColumnDescriptor;
 class SchemaDescriptor;
 
 class ReaderProperties;
@@ -79,10 +85,22 @@ class WriterPropertiesBuilder;
 class ArrowWriterProperties;
 class ArrowWriterPropertiesBuilder;
 
+class EncodedStatistics;
+class Statistics;
+struct SizeStatistics;
+
+class ColumnIndex;
+class OffsetIndex;
+
 namespace arrow {
 
 class FileWriter;
 class FileReader;
 
 }  // namespace arrow
+
+namespace schema {
+class ColumnPath;
+}  // namespace schema
+
 }  // namespace parquet

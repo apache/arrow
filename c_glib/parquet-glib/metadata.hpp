@@ -24,21 +24,18 @@
 #include <parquet-glib/metadata.h>
 
 GParquetColumnChunkMetadata *
-gparquet_column_chunk_metadata_new_raw(
-  parquet::ColumnChunkMetaData *parquet_metadata,
-  GParquetRowGroupMetadata *owner);
+gparquet_column_chunk_metadata_new_raw(parquet::ColumnChunkMetaData *parquet_metadata,
+                                       GParquetRowGroupMetadata *owner);
 parquet::ColumnChunkMetaData *
 gparquet_column_chunk_metadata_get_raw(GParquetColumnChunkMetadata *metadata);
 
 GParquetRowGroupMetadata *
-gparquet_row_group_metadata_new_raw(
-  parquet::RowGroupMetaData *parquet_metadata,
-  GParquetFileMetadata *owner);
+gparquet_row_group_metadata_new_raw(parquet::RowGroupMetaData *parquet_metadata,
+                                    GParquetFileMetadata *owner);
 parquet::RowGroupMetaData *
 gparquet_row_group_metadata_get_raw(GParquetRowGroupMetadata *metadata);
 
 GParquetFileMetadata *
-gparquet_file_metadata_new_raw(
-  std::shared_ptr<parquet::FileMetaData> *parquet_metadata);
+gparquet_file_metadata_new_raw(std::shared_ptr<parquet::FileMetaData> *parquet_metadata);
 std::shared_ptr<parquet::FileMetaData>
 gparquet_file_metadata_get_raw(GParquetFileMetadata *metadata);

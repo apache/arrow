@@ -82,7 +82,8 @@ export const arrays = {
 export const vectors: { [k: string]: Arrow.Vector } = Object.fromEntries([
     ...Object.entries(typedArrays).map(([name, array]) => [name, Arrow.makeVector(array)]),
     ...Object.entries(arrays).map(([name, array]) => [name, Arrow.vectorFromArray(array)]),
-    ['string', Arrow.vectorFromArray(arrays.dictionary, new Arrow.Utf8)],
+    ['utf8', Arrow.vectorFromArray(arrays.dictionary, new Arrow.Utf8)],
+    ['largeUtf8', Arrow.vectorFromArray(arrays.dictionary, new Arrow.LargeUtf8)],
 ]);
 
 const tracks = new Arrow.Table(batches[0].schema, batches);

@@ -4,7 +4,7 @@ Parquet C++ 1.5.0
     * [PARQUET-979] - [C++] Limit size of min, max or disable stats for long binary types
     * [PARQUET-1071] - [C++] parquet::arrow::FileWriter::Close is not idempotent
     * [PARQUET-1349] - [C++] PARQUET_RPATH_ORIGIN is not picked by the build
-    * [PARQUET-1334] - [C++] memory_map parameter seems missleading in parquet file opener
+    * [PARQUET-1334] - [C++] memory_map parameter seems misleading in parquet file opener
     * [PARQUET-1333] - [C++] Reading of files with dictionary size 0 fails on Windows with bad_alloc
     * [PARQUET-1283] - [C++] FormatStatValue appends trailing space to string and int96
     * [PARQUET-1270] - [C++] Executable tools do not get installed
@@ -13,7 +13,7 @@ Parquet C++ 1.5.0
     * [PARQUET-1255] - [C++] Exceptions thrown in some tests
     * [PARQUET-1358] - [C++] index_page_offset should be unset as it is not supported.
     * [PARQUET-1357] - [C++] FormatStatValue truncates binary statistics on zero character
-    * [PARQUET-1319] - [C++] Pass BISON_EXECUTABLE to Thrift EP for MacOS
+    * [PARQUET-1319] - [C++] Pass BISON_EXECUTABLE to Thrift EP for macOS
     * [PARQUET-1313] - [C++] Compilation failure with VS2017
     * [PARQUET-1315] - [C++] ColumnChunkMetaData.has_dictionary_page() should return bool, not int64_t
     * [PARQUET-1307] - [C++] memory-test fails with latest Arrow
@@ -28,7 +28,7 @@ Parquet C++ 1.5.0
     * [PARQUET-1346] - [C++] Protect against null values data in empty Arrow array
     * [PARQUET-1340] - [C++] Fix Travis Ci valgrind errors related to std::random_device
     * [PARQUET-1323] - [C++] Fix compiler warnings with clang-6.0
-    * [PARQUET-1279] - Use ASSERT_NO_FATAIL_FAILURE in C++ unit tests
+    * [PARQUET-1279] - Use ASSERT_NO_FATAL_FAILURE in C++ unit tests
     * [PARQUET-1262] - [C++] Use the same BOOST_ROOT and Boost_NAMESPACE for Thrift
     * [PARQUET-1267] - replace "unsafe" std::equal by std::memcmp
     * [PARQUET-1360] - [C++] Minor API + style changes follow up to PARQUET-1348
@@ -89,7 +89,7 @@ Parquet C++ 1.4.0
 
 ## New Feature
     * [PARQUET-1095] - [C++] Read and write Arrow decimal values
-    * [PARQUET-970] - Add Add Lz4 and Zstd compression codecs
+    * [PARQUET-970] - Add Lz4 and Zstd compression codecs
 
 ## Task
     * [PARQUET-1221] - [C++] Extend release README
@@ -233,10 +233,10 @@ Parquet C++ 1.1.0
     * [PARQUET-977] - Improve MSVC build
     * [PARQUET-957] - [C++] Add optional $PARQUET_BUILD_TOOLCHAIN environment variable option for configuring build environment
     * [PARQUET-961] - [C++] Strip debug symbols from libparquet libraries in release builds by default
-    * [PARQUET-954] - C++: Use Brolti 0.6 release
+    * [PARQUET-954] - C++: Use Brotli 0.6 release
     * [PARQUET-953] - [C++] Change arrow::FileWriter API to be initialized from a Schema, and provide for writing multiple tables
     * [PARQUET-941] - [C++] Stop needless Boost static library detection for CentOS 7 support
-    * [PARQUET-942] - [C++] Fix wrong variabe use in FindSnappy
+    * [PARQUET-942] - [C++] Fix wrong variable use in FindSnappy
     * [PARQUET-939] - [C++] Support Thrift_HOME CMake variable like FindSnappy does as Snappy_HOME
     * [PARQUET-940] - [C++] Fix Arrow library path detection
     * [PARQUET-937] - [C++] Support CMake < 3.4 again for Arrow detection
@@ -278,7 +278,7 @@ Parquet C++ 1.0.0
     * [PARQUET-614] - C++: Remove unneeded LZ4-related code
     * [PARQUET-604] - Install writer.h headers
     * [PARQUET-621] - C++: Uninitialised DecimalMetadata is read
-    * [PARQUET-620] - C++: Duplicate calls to ParquetFileWriter::Close cause duplicate metdata writes
+    * [PARQUET-620] - C++: Duplicate calls to ParquetFileWriter::Close cause duplicate metadata writes
     * [PARQUET-599] - ColumnWriter::RleEncodeLevels' size estimation might be wrong
     * [PARQUET-617] - C++: Enable conda build to work on systems with non-default C++ toolchains
     * [PARQUET-627] - Ensure that thrift headers are generated before source compilation
@@ -339,7 +339,7 @@ Parquet C++ 1.0.0
     * [PARQUET-626] - Fix builds due to unavailable llvm.org apt mirror
     * [PARQUET-629] - RowGroupSerializer should only close itself once
     * [PARQUET-472] - Clean up InputStream ownership semantics in ColumnReader
-    * [PARQUET-739] - Rle-decoding uses static buffer that is shared accross threads
+    * [PARQUET-739] - Rle-decoding uses static buffer that is shared across threads
     * [PARQUET-561] - ParquetFileReader::Contents PIMPL missing a virtual destructor
     * [PARQUET-892] - [C++] Clean up link library targets in CMake files
     * [PARQUET-454] - Address inconsistencies in boolean decoding
@@ -401,12 +401,12 @@ Parquet C++ 1.0.0
     * [PARQUET-653] - [C++] Re-enable -static-libstdc++ in dev artifact builds
     * [PARQUET-763] - C++: Expose ParquetFileReader through Arrow reader
     * [PARQUET-857] - [C++] Flatten parquet/encodings directory
-    * [PARQUET-862] - Provide defaut cache size values if CPU info probing is not available
+    * [PARQUET-862] - Provide default cache size values if CPU info probing is not available
     * [PARQUET-689] - C++: Compress DataPages eagerly
     * [PARQUET-874] - [C++] Use default memory allocator from Arrow
     * [PARQUET-267] - Detach thirdparty code from build configuration.
     * [PARQUET-418] - Add a utility to print contents of a Parquet file to stdout
-    * [PARQUET-519] - Disable compiler warning supressions and fix all DEBUG build warnings
+    * [PARQUET-519] - Disable compiler warning suppressions and fix all DEBUG build warnings
     * [PARQUET-447] - Add Debug and Release build types and associated compiler flags
     * [PARQUET-868] - C++: Build snappy with optimizations
     * [PARQUET-894] - Fix compilation warning

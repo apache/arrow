@@ -52,8 +52,8 @@
 // segment-keys is used to refine the partitioning. However, segment-keys are different in
 // that they partition only consecutive rows into a single group. Such a partition of
 // consecutive rows is called a segment group. For example, consider a column X with
-// values [A, A, B, A] at row-indices [0, 1, 2]. A regular group-by aggregation with keys
-// [X] yields a row-index partitioning [[0, 1, 3], [2]] whereas a segmented-group-by
+// values [A, A, B, A] at row-indices [0, 1, 2, 3]. A regular group-by aggregation with
+// keys [X] yields a row-index partitioning [[0, 1, 3], [2]] whereas a segmented-group-by
 // aggregation with segment-keys [X] yields [[0, 1], [2], [3]].
 //
 // The implementation first segments the input using the segment-keys, then groups by the
@@ -131,17 +131,14 @@ void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
 template <typename BatchHandler>
 Status HandleSegments(RowSegmenter* segmenter, const ExecBatch& batch,
                       const std::vector<int>& ids, const BatchHandler& handle_batch) {
-  int64_t offset = 0;
   ARROW_ASSIGN_OR_RAISE(auto segment_exec_batch, batch.SelectValues(ids));
   ExecSpan segment_batch(segment_exec_batch);
 
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(compute::Segment segment,
-                          segmenter->GetNextSegment(segment_batch, offset));
-    if (segment.offset >= segment_batch.length) break;  // condition of no-next-segment
+  ARROW_ASSIGN_OR_RAISE(auto segments, segmenter->GetSegments(segment_batch));
+  for (const auto& segment : segments) {
     ARROW_RETURN_NOT_OK(handle_batch(batch, segment));
-    offset = segment.offset + segment.length;
   }
+
   return Status::OK();
 }
 
@@ -224,7 +221,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   // Field indices corresponding to the segment-keys
   const std::vector<int> segment_field_ids_;
   // Holds the value of segment keys of the most recent input batch
-  // The values are updated everytime an input batch is processed
+  // The values are updated every time an input batch is processed
   std::vector<Datum> segmenter_values_;
 
   const std::vector<std::vector<int>> target_fieldsets_;

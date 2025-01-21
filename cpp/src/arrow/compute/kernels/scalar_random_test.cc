@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/thread_pool.h"
 

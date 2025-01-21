@@ -13,10 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Flatbuf;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace Apache.Arrow
 {

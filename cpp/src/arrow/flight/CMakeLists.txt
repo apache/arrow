@@ -20,9 +20,17 @@ add_custom_target(arrow_flight)
 arrow_install_all_headers("arrow/flight")
 
 set(ARROW_FLIGHT_LINK_LIBS gRPC::grpc++ ${ARROW_PROTOBUF_LIBPROTOBUF})
-
+if(ARROW_WITH_OPENTELEMETRY)
+  list(APPEND ARROW_FLIGHT_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
+endif()
 if(WIN32)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
+endif()
+# Updating the MACOSX_DEPLOYMENT_TARGET to 12 required us to explicitly
+# link Flight with OpenSSL on macOS. Read this comment for more details:
+# https://github.com/apache/arrow/pull/43137#pullrequestreview-2267476893
+if(APPLE AND ARROW_USE_OPENSSL)
+  list(APPEND ARROW_FLIGHT_LINK_LIBS ${ARROW_OPENSSL_LIBS})
 endif()
 
 set(ARROW_FLIGHT_TEST_LINKAGE "${ARROW_TEST_LINKAGE}")
@@ -62,13 +70,6 @@ if(ARROW_BUILD_BENCHMARKS
     endif()
   endif()
 endif()
-list(APPEND
-     ARROW_FLIGHT_TEST_INTERFACE_LIBS
-     Boost::headers
-     Boost::filesystem
-     Boost::system
-     ${ARROW_GTEST_GTEST}
-     ${ARROW_GTEST_GMOCK})
 list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS gRPC::grpc++)
 
 # TODO(wesm): Protobuf shared vs static linking
@@ -83,11 +84,15 @@ set(FLIGHT_GENERATED_PROTO_FILES
 
 set(PROTO_DEPENDS ${FLIGHT_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc_cpp_plugin)
 
+set(FLIGHT_PROTOC_COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}")
+if(Protobuf_VERSION VERSION_LESS 3.15)
+  list(APPEND FLIGHT_PROTOC_COMMAND "--experimental_allow_proto3_optional")
+endif()
 add_custom_command(OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
-                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
-                           "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
                    DEPENDS ${PROTO_DEPENDS} ARGS
-                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
+                   COMMAND ${FLIGHT_PROTOC_COMMAND}
+                           "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
+                   COMMAND ${FLIGHT_PROTOC_COMMAND}
                            "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
                            "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
                            "${FLIGHT_PROTO}")
@@ -119,6 +124,11 @@ else()
   add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc_impl::experimental)
 endif()
 
+# Was in a different namespace, or simply not supported, prior to this
+if(ARROW_GRPC_VERSION VERSION_GREATER_EQUAL "1.40")
+  add_definitions(-DGRPC_ENABLE_ASYNC)
+endif()
+
 # </KLUDGE> Restore the CXXFLAGS that were modified above
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 
@@ -147,6 +157,10 @@ set(ARROW_FLIGHT_SRCS
     transport/grpc/protocol_grpc_internal.cc
     transport/grpc/util_internal.cc
     types.cc)
+
+if(ARROW_WITH_OPENTELEMETRY)
+  list(APPEND ARROW_FLIGHT_SRCS otel_logging.cc)
+endif()
 
 if(MSVC)
   # Protobuf generated files trigger spurious warnings on MSVC.
@@ -249,12 +263,12 @@ if(ARROW_TESTING)
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
+                test_auth_handlers.cc
                 test_definitions.cc
+                test_flight_server.cc
                 test_util.cc
                 DEPENDENCIES
-                ${ARROW_GTEST_GTEST}
                 flight_grpc_gen
-                arrow_dependencies
                 SHARED_LINK_LIBS
                 ${ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS}
                 SHARED_INSTALL_INTERFACE_LIBS

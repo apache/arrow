@@ -216,7 +216,7 @@ const char* gdv_fn_sha1_decimal128(int64_t context, int64_t x_high, uint64_t x_l
 
 namespace gandiva {
 
-void ExportedHashFunctions::AddMappings(Engine* engine) const {
+arrow::Status ExportedHashFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
 
@@ -1041,5 +1041,6 @@ void ExportedHashFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_md5_decimal128",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_md5_decimal128));
+  return arrow::Status::OK();
 }
 }  // namespace gandiva

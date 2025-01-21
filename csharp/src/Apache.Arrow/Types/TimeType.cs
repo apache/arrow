@@ -13,24 +13,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 namespace Apache.Arrow.Types
 {
-    public enum TimeUnit
+    public abstract class TimeType : TimeBasedType
     {
-        Second,
-        Millisecond,
-        Microsecond,
-        Nanosecond
-    }
-
-    public abstract class TimeType: FixedWidthType
-    {
-        public TimeUnit Unit { get; }
+        public static readonly Time32Type Second = new Time32Type(TimeUnit.Second);
+        public static readonly Time32Type Millisecond = new Time32Type(TimeUnit.Millisecond);
+        public static readonly Time64Type Microsecond = new Time64Type(TimeUnit.Microsecond);
+        public static readonly Time64Type Nanosecond = new Time64Type(TimeUnit.Nanosecond);
+        private static readonly TimeType[] _types = new TimeType[] { Second, Millisecond, Microsecond, Nanosecond };
 
         protected TimeType(TimeUnit unit)
+            : base(unit)
         {
-            Unit = unit;
+        }
+
+        public static TimeType FromTimeUnit(TimeUnit unit)
+        {
+            return _types[(int)unit];
         }
     }
 }

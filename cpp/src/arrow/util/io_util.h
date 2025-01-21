@@ -18,26 +18,27 @@
 #pragma once
 
 #ifndef _WIN32
-#define ARROW_HAVE_SIGACTION 1
+#  define ARROW_HAVE_SIGACTION 1
 #endif
 
 #include <atomic>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #if ARROW_HAVE_SIGACTION
-#include <signal.h>  // Needed for struct sigaction
+#  include <csignal>  // Needed for struct sigaction
 #endif
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/windows_fixup.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 // NOTE: 8-bit path strings on Windows are encoded using UTF-8.
 // Using MBCS would fail encoding some paths.
@@ -264,6 +265,8 @@ std::string WinErrorMessage(int errnum);
 
 ARROW_EXPORT
 std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum);
+ARROW_EXPORT
+std::optional<int> ErrnoFromStatusDetail(const StatusDetail& detail);
 #if _WIN32
 ARROW_EXPORT
 std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum);
@@ -335,7 +338,7 @@ class ARROW_EXPORT TemporaryDir {
 
 class ARROW_EXPORT SignalHandler {
  public:
-  typedef void (*Callback)(int);
+  using Callback = void (*)(int);
 
   SignalHandler();
   explicit SignalHandler(Callback cb);
@@ -416,5 +419,34 @@ int64_t GetCurrentRSS();
 ARROW_EXPORT
 int64_t GetTotalMemoryBytes();
 
-}  // namespace internal
-}  // namespace arrow
+/// \brief Load a dynamic library
+///
+/// This wraps dlopen() except on Windows, where LoadLibrary() is called.
+/// These two platforms handle absolute paths consistently; relative paths
+/// or the library's bare name may be handled but inconsistently.
+///
+/// \return An opaque handle for the dynamic library, which can be used for
+///         subsequent symbol lookup. Nullptr will never be returned; instead
+///         an error will be raised.
+ARROW_EXPORT Result<void*> LoadDynamicLibrary(const PlatformFilename& path);
+
+/// \brief Load a dynamic library
+///
+/// An overload taking null terminated string.
+ARROW_EXPORT Result<void*> LoadDynamicLibrary(const char* path);
+
+/// \brief Retrieve a symbol by name from a library handle.
+///
+/// This wraps dlsym() except on Windows, where GetProcAddress() is called.
+///
+/// \return The address associated with the named symbol. Nullptr will never be
+///         returned; instead an error will be raised.
+ARROW_EXPORT Result<void*> GetSymbol(void* handle, const char* name);
+
+template <typename T>
+Result<T*> GetSymbolAs(void* handle, const char* name) {
+  ARROW_ASSIGN_OR_RAISE(void* sym, GetSymbol(handle, name));
+  return reinterpret_cast<T*>(sym);
+}
+
+}  // namespace arrow::internal

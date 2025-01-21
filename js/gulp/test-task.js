@@ -16,15 +16,14 @@
 // under the License.
 
 import { deleteAsync as del } from 'del';
-import path from 'path';
+import path from 'node:path';
 import { mkdirp } from 'mkdirp';
 import { argv } from './argv.js';
-import { promisify } from 'util';
-import { globSync } from 'glob';
-const glob = promisify(globSync);
-import child_process from 'child_process';
+import { promisify } from 'node:util';
+import { glob } from 'glob';
+import child_process from 'node:child_process';
 import { memoizeTask } from './memoize-task.js';
-import fs from 'fs';
+import fs from 'node:fs';
 const readFile = promisify(fs.readFile);
 import asyncDoneSync from 'async-done';
 const asyncDone = promisify(asyncDoneSync);
@@ -32,27 +31,16 @@ const exec = promisify(child_process.exec);
 import xml2js from 'xml2js';
 const parseXML = promisify(xml2js.parseString);
 import { targetAndModuleCombinations, npmPkgName } from './util.js';
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 
-const jestArgv = [`--reporters=jest-silent-reporter`];
-const testFiles = [
-    `test/unit/`,
-    // `test/unit/bit-tests.ts`,
-    // `test/unit/int-tests.ts`,
-    // `test/unit/bn-tests.ts`,
-    // `test/unit/math-tests.ts`,
-    // `test/unit/table-tests.ts`,
-    // `test/unit/generated-data-tests.ts`,
-    // `test/unit/builders/`,
-    // `test/unit/recordbatch/`,
-    // `test/unit/table/`,
-    // `test/unit/ipc/`,
-];
+const jestArgv = [];
 
 if (argv.verbose) {
     jestArgv.push(`--verbose`);
+} else {
+    jestArgv.push(`--reporters=jest-silent-reporter`);
 }
 
 if (targetAndModuleCombinations.length > 1) {
@@ -79,8 +67,10 @@ export const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, fu
         args.push(`-c`, `jestconfigs/jest.coverage.config.js`);
     } else {
         const cfgname = [target, format].filter(Boolean).join('.');
-        args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`, ...testFiles);
+        args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`);
     }
+    args.push(...(argv._unknown || []).filter((x) => x !== 'test'));
+    args.push(...argv.tests);
     opts.env = {
         ...opts.env,
         TEST_TARGET: target,
@@ -120,9 +110,8 @@ async function createTestJSON() {
     await exec(`python3 -B -c '\
 import sys\n\
 sys.path.append("${ARROW_ARCHERY_DIR}")\n\
-sys.argv.append("--write_generated_json=${jsonFilesDir}")\n\
-from archery.cli import integration\n\
-integration()'`);
+from archery.integration.runner import write_js_test_json\n\
+write_js_test_json("${jsonFilesDir}")'`);
 }
 
 export async function createTestData() {

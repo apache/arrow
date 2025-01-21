@@ -29,12 +29,12 @@ namespace arrow {
 namespace compute {
 
 /// \brief A segment
-/// A segment group is a chunk of continous rows that have the same segment key. (For
+/// A segment group is a chunk of continuous rows that have the same segment key. (For
 /// example, in ordered time series processing, segment key can be "date", and a segment
 /// group can be all the rows that belong to the same date.) A segment group can span
-/// across multiple exec batches. A segment is a chunk of continous rows that has the same
-/// segment key within a given batch. When a segment group span cross batches, it will
-/// have multiple segments. A segment never spans cross batches. The segment data
+/// across multiple exec batches. A segment is a chunk of continuous rows that has the
+/// same segment key within a given batch. When a segment group span cross batches, it
+/// will have multiple segments. A segment never spans cross batches. The segment data
 /// structure only makes sense when used along with a exec batch.
 struct ARROW_EXPORT Segment {
   /// \brief the offset into the batch where the segment starts
@@ -57,13 +57,13 @@ inline bool operator!=(const Segment& segment1, const Segment& segment2) {
 
 /// \brief a helper class to divide a batch into segments of equal values
 ///
-/// For example, given a batch with two rows:
+/// For example, given a batch with two columns specifed as segment keys:
 ///
-/// A A
-/// A A
-/// A B
-/// A B
-/// A A
+/// A A [other columns]...
+/// A A ...
+/// A B ...
+/// A B ...
+/// A A ...
 ///
 /// Then the batch could be divided into 3 segments.  The first would be rows 0 & 1,
 /// the second would be rows 2 & 3, and the third would be row 4.
@@ -92,12 +92,17 @@ class ARROW_EXPORT RowSegmenter {
   /// \brief Reset this segmenter
   ///
   /// A segmenter normally extends (see `Segment`) a segment from one batch to the next.
-  /// If segment-extenion is undesirable, for example when each batch is processed
+  /// If segment-extension is undesirable, for example when each batch is processed
   /// independently, then `Reset` should be invoked before processing the next batch.
   virtual Status Reset() = 0;
 
   /// \brief Get the next segment for the given batch starting from the given offset
+  /// DEPRECATED: Due to its inefficiency, use GetSegments instead.
+  ARROW_DEPRECATED("Deprecated in 18.0.0. Use GetSegments instead.")
   virtual Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) = 0;
+
+  /// \brief Get all segments for the given batch
+  virtual Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) = 0;
 };
 
 /// Consumes batches of keys and yields batches of the group ids.
@@ -108,6 +113,10 @@ class ARROW_EXPORT Grouper {
   /// Construct a Grouper which receives the specified key types
   static Result<std::unique_ptr<Grouper>> Make(const std::vector<TypeHolder>& key_types,
                                                ExecContext* ctx = default_exec_context());
+
+  /// Reset all intermediate state, make the grouper logically as just `Make`ed.
+  /// The underlying buffers, if any, may or may not be released though.
+  virtual Status Reset() = 0;
 
   /// Consume a batch of keys, producing the corresponding group ids as an integer array,
   /// over a slice defined by an offset and length, which defaults to the batch length.

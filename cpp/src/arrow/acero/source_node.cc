@@ -99,14 +99,15 @@ struct SourceNode : ExecNode, public TracedNode {
       : ExecNode(plan, {}, {}, std::move(output_schema)),
         TracedNode(this),
         generator_(std::move(generator)),
-        ordering_(ordering) {}
+        ordering_(std::move(ordering)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "SourceNode"));
     const auto& source_options = checked_cast<const SourceNodeOptions&>(options);
     return plan->EmplaceNode<SourceNode>(plan, source_options.output_schema,
-                                         source_options.generator);
+                                         source_options.generator,
+                                         source_options.ordering);
   }
 
   const char* kind_name() const override { return "SourceNode"; }
@@ -177,7 +178,7 @@ struct SourceNode : ExecNode, public TracedNode {
 
     CallbackOptions options;
     // These options will transfer execution to the desired Executor if necessary.
-    // This can happen for in-memory scans where batches didn't require
+    // This can happen for in-memory scans where batches don't require
     // any CPU work to decode. Otherwise, parsing etc should have already
     // been placed us on the desired Executor and no queues will be pushed to.
     options.executor = plan()->query_context()->executor();
@@ -406,7 +407,7 @@ struct SchemaSourceNode : public SourceNode {
 struct RecordBatchReaderSourceNode : public SourceNode {
   RecordBatchReaderSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
                               arrow::AsyncGenerator<std::optional<ExecBatch>> generator)
-      : SourceNode(plan, schema, generator) {}
+      : SourceNode(plan, schema, generator, Ordering::Implicit()) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {

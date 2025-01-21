@@ -22,6 +22,7 @@ import { DataType } from '../type.js';
 import { Visitor } from '../visitor.js';
 import { BuilderCtor } from '../interfaces.js';
 import { BinaryBuilder } from '../builder/binary.js';
+import { LargeBinaryBuilder } from '../builder/largebinary.js';
 import { BoolBuilder } from '../builder/bool.js';
 import { DateBuilder, DateDayBuilder, DateMillisecondBuilder } from '../builder/date.js';
 import { DecimalBuilder } from '../builder/decimal.js';
@@ -30,6 +31,7 @@ import { FixedSizeBinaryBuilder } from '../builder/fixedsizebinary.js';
 import { FixedSizeListBuilder } from '../builder/fixedsizelist.js';
 import { FloatBuilder, Float16Builder, Float32Builder, Float64Builder } from '../builder/float.js';
 import { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder } from '../builder/interval.js';
+import { DurationBuilder, DurationSecondBuilder, DurationMillisecondBuilder, DurationMicrosecondBuilder, DurationNanosecondBuilder } from '../builder/duration.js';
 import { IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder } from '../builder/int.js';
 import { ListBuilder } from '../builder/list.js';
 import { MapBuilder } from '../builder/map.js';
@@ -39,6 +41,7 @@ import { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, 
 import { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder } from '../builder/time.js';
 import { UnionBuilder, DenseUnionBuilder, SparseUnionBuilder } from '../builder/union.js';
 import { Utf8Builder } from '../builder/utf8.js';
+import { LargeUtf8Builder } from '../builder/largeutf8.js';
 
 /** @ignore */
 export interface GetBuilderCtor extends Visitor {
@@ -66,7 +69,9 @@ export class GetBuilderCtor extends Visitor {
     public visitFloat32() { return Float32Builder; }
     public visitFloat64() { return Float64Builder; }
     public visitUtf8() { return Utf8Builder; }
+    public visitLargeUtf8() { return LargeUtf8Builder; }
     public visitBinary() { return BinaryBuilder; }
+    public visitLargeBinary() { return LargeBinaryBuilder; }
     public visitFixedSizeBinary() { return FixedSizeBinaryBuilder; }
     public visitDate() { return DateBuilder; }
     public visitDateDay() { return DateDayBuilder; }
@@ -91,6 +96,11 @@ export class GetBuilderCtor extends Visitor {
     public visitInterval() { return IntervalBuilder; }
     public visitIntervalDayTime() { return IntervalDayTimeBuilder; }
     public visitIntervalYearMonth() { return IntervalYearMonthBuilder; }
+    public visitDuration() { return DurationBuilder; }
+    public visitDurationSecond() { return DurationSecondBuilder; }
+    public visitDurationMillisecond() { return DurationMillisecondBuilder; }
+    public visitDurationMicrosecond() { return DurationMicrosecondBuilder; }
+    public visitDurationNanosecond() { return DurationNanosecondBuilder; }
     public visitFixedSizeList() { return FixedSizeListBuilder; }
     public visitMap() { return MapBuilder; }
 }

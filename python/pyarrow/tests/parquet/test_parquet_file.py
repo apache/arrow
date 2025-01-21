@@ -18,7 +18,6 @@
 import io
 import os
 import sys
-from unittest import mock
 
 import pytest
 
@@ -296,28 +295,6 @@ def test_parquet_file_explicitly_closed(tempdir):
     table = pa.table({'col1': [0, 1], 'col2': [0, 1]})
     pq.write_table(table, fn)
 
-    # read_table (legacy) with opened file (will leave open)
-    with open(fn, 'rb') as f:
-        pq.read_table(f, use_legacy_dataset=True)
-        assert not f.closed  # Didn't close it internally after read_table
-
-    # read_table (legacy) with unopened file (will close)
-    with mock.patch.object(pq.ParquetFile, "close") as mock_close:
-        pq.read_table(fn, use_legacy_dataset=True)
-        mock_close.assert_called()
-
-    # ParquetDataset test (legacy) with unopened file (will close)
-    with mock.patch.object(pq.ParquetFile, "close") as mock_close:
-        pq.ParquetDataset(fn, use_legacy_dataset=True).read()
-        mock_close.assert_called()
-
-    # ParquetDataset test (legacy) with opened file (will leave open)
-    with open(fn, 'rb') as f:
-        # ARROW-8075: support ParquetDataset from file-like, not just path-like
-        with pytest.raises(TypeError, match='not a path-like object'):
-            pq.ParquetDataset(f, use_legacy_dataset=True).read()
-            assert not f.closed
-
     # ParquetFile with opened file (will leave open)
     with open(fn, 'rb') as f:
         with pq.ParquetFile(f) as p:
@@ -338,7 +315,7 @@ def test_parquet_file_explicitly_closed(tempdir):
 
 @pytest.mark.s3
 @pytest.mark.parametrize("use_uri", (True, False))
-def test_parquet_file_with_filesystem(tempdir, s3_example_fs, use_uri):
+def test_parquet_file_with_filesystem(s3_example_fs, use_uri):
     s3_fs, s3_uri, s3_path = s3_example_fs
 
     args = (s3_uri if use_uri else s3_path,)

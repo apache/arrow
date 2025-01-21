@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Array accessor classes for Binary, LargeBinart, String, LargeString,
+// Array accessor classes for Binary, LargeBinary, String, LargeString,
 // FixedSizeBinary
 
 #pragma once
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -56,8 +57,6 @@ class BaseBinaryArray : public FlatArray {
   /// Return the pointer to the given elements bytes
   // XXX should GetValue(int64_t i) return a string_view?
   const uint8_t* GetValue(int64_t i, offset_type* out_length) const {
-    // Account for base offset
-    i += data_->offset;
     const offset_type pos = raw_value_offsets_[i];
     *out_length = raw_value_offsets_[i + 1] - pos;
     return raw_data_ + pos;
@@ -68,8 +67,6 @@ class BaseBinaryArray : public FlatArray {
   /// \param i the value index
   /// \return the view over the selected value
   std::string_view GetView(int64_t i) const {
-    // Account for base offset
-    i += data_->offset;
     const offset_type pos = raw_value_offsets_[i];
     return std::string_view(reinterpret_cast<const char*>(raw_data_ + pos),
                             raw_value_offsets_[i + 1] - pos);
@@ -98,9 +95,7 @@ class BaseBinaryArray : public FlatArray {
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_data() const { return data_->buffers[2]; }
 
-  const offset_type* raw_value_offsets() const {
-    return raw_value_offsets_ + data_->offset;
-  }
+  const offset_type* raw_value_offsets() const { return raw_value_offsets_; }
 
   const uint8_t* raw_data() const { return raw_data_; }
 
@@ -108,15 +103,12 @@ class BaseBinaryArray : public FlatArray {
   /// at the passed index.
   ///
   /// Does not perform boundschecking
-  offset_type value_offset(int64_t i) const {
-    return raw_value_offsets_[i + data_->offset];
-  }
+  offset_type value_offset(int64_t i) const { return raw_value_offsets_[i]; }
 
   /// \brief Return the length of the data for the value at the passed index.
   ///
   /// Does not perform boundschecking
   offset_type value_length(int64_t i) const {
-    i += data_->offset;
     return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
   }
 
@@ -125,8 +117,7 @@ class BaseBinaryArray : public FlatArray {
   /// less than the size of the data buffer (data_->buffers[2]).
   offset_type total_values_length() const {
     if (data_->length > 0) {
-      return raw_value_offsets_[data_->length + data_->offset] -
-             raw_value_offsets_[data_->offset];
+      return raw_value_offsets_[data_->length] - raw_value_offsets_[0];
     } else {
       return 0;
     }
@@ -143,7 +134,7 @@ class BaseBinaryArray : public FlatArray {
   // Protected method for constructors
   void SetData(const std::shared_ptr<ArrayData>& data) {
     this->Array::SetData(data);
-    raw_value_offsets_ = data->GetValuesSafe<offset_type>(1, /*offset=*/0);
+    raw_value_offsets_ = data->GetValuesSafe<offset_type>(1);
     raw_data_ = data->GetValuesSafe<uint8_t>(2, /*offset=*/0);
   }
 
@@ -218,6 +209,65 @@ class ARROW_EXPORT LargeStringArray : public LargeBinaryArray {
 };
 
 // ----------------------------------------------------------------------
+// BinaryView and StringView
+
+/// Concrete Array class for variable-size binary view data using the
+/// BinaryViewType::c_type struct to reference in-line or out-of-line string values
+class ARROW_EXPORT BinaryViewArray : public FlatArray {
+ public:
+  using TypeClass = BinaryViewType;
+  using IteratorType = stl::ArrayIterator<BinaryViewArray>;
+  using c_type = BinaryViewType::c_type;
+
+  explicit BinaryViewArray(std::shared_ptr<ArrayData> data);
+
+  BinaryViewArray(std::shared_ptr<DataType> type, int64_t length,
+                  std::shared_ptr<Buffer> views, BufferVector data_buffers,
+                  std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+                  int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  // For API compatibility with BinaryArray etc.
+  std::string_view GetView(int64_t i) const;
+  std::string GetString(int64_t i) const { return std::string{GetView(i)}; }
+
+  const auto& values() const { return data_->buffers[1]; }
+  const c_type* raw_values() const { return raw_values_; }
+
+  std::optional<std::string_view> operator[](int64_t i) const {
+    return *IteratorType(*this, i);
+  }
+
+  IteratorType begin() const { return IteratorType(*this); }
+  IteratorType end() const { return IteratorType(*this, length()); }
+
+ protected:
+  using FlatArray::FlatArray;
+
+  void SetData(std::shared_ptr<ArrayData> data) {
+    FlatArray::SetData(std::move(data));
+    raw_values_ = data_->GetValuesSafe<c_type>(1);
+  }
+
+  const c_type* raw_values_;
+};
+
+/// Concrete Array class for variable-size string view (utf-8) data using
+/// BinaryViewType::c_type to reference in-line or out-of-line string values
+class ARROW_EXPORT StringViewArray : public BinaryViewArray {
+ public:
+  using TypeClass = StringViewType;
+
+  explicit StringViewArray(std::shared_ptr<ArrayData> data);
+
+  using BinaryViewArray::BinaryViewArray;
+
+  /// \brief Validate that this array contains only valid UTF8 entries
+  ///
+  /// This check is also implied by ValidateFull()
+  Status ValidateUTF8() const;
+};
+
+// ----------------------------------------------------------------------
 // Fixed width binary
 
 /// Concrete Array class for fixed-size binary data
@@ -233,11 +283,11 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
                        const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
                        int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
-  const uint8_t* GetValue(int64_t i) const;
+  const uint8_t* GetValue(int64_t i) const { return values_ + i * byte_width_; }
   const uint8_t* Value(int64_t i) const { return GetValue(i); }
 
   std::string_view GetView(int64_t i) const {
-    return std::string_view(reinterpret_cast<const char*>(GetValue(i)), byte_width());
+    return std::string_view(reinterpret_cast<const char*>(GetValue(i)), byte_width_);
   }
 
   std::optional<std::string_view> operator[](int64_t i) const {
@@ -248,7 +298,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 
   int32_t byte_width() const { return byte_width_; }
 
-  const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width_; }
+  const uint8_t* raw_values() const { return values_; }
 
   IteratorType begin() const { return IteratorType(*this); }
 
@@ -259,8 +309,10 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
     this->PrimitiveArray::SetData(data);
     byte_width_ =
         internal::checked_cast<const FixedSizeBinaryType&>(*type()).byte_width();
+    values_ = raw_values_ + data_->offset * byte_width_;
   }
 
+  const uint8_t* values_;
   int32_t byte_width_;
 };
 
