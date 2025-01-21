@@ -36,11 +36,6 @@ if [ -z ${archs[$arch]} ]; then
 fi
 arch=${archs[$arch]}
 
-declare -A platforms
-platforms=([linux]=linux
-           [macos]=macos
-           [windows]=windows)
-
 version=$1
 prefix=$2
 
