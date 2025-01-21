@@ -60,7 +60,6 @@ groups:
     - conan-*
     - debian-*
     - matlab
-    - nuget
     - python-sdist
     - r-binary-packages
     - ubuntu-*
@@ -153,7 +152,6 @@ groups:
     - conan-*
     - conda-*
     - homebrew-cpp
-    - nuget
     - test-*
     - example-*
     - wheel-*
@@ -184,7 +182,6 @@ groups:
     - ~conda-osx-arm64-cpu-py3
     - conan-*
     - homebrew-cpp
-    - nuget
     - wheel-*
     - python-sdist
     - r-binary-packages
@@ -688,25 +685,6 @@ tasks:
     template: matlab/github.yml
     artifacts:
       - matlab-arrow-{no_rc_no_dev_version}.mltbx
-
-  ############################## NuGet packages ###############################
-
-  nuget:
-    ci: github
-    template: nuget-packages/github.linux.yml
-    params:
-      run: ubuntu-csharp
-    artifacts:
-      - Apache.Arrow.Compression.{no_rc_version}.nupkg
-      - Apache.Arrow.Compression.{no_rc_version}.snupkg
-      - Apache.Arrow.Flight.AspNetCore.{no_rc_version}.nupkg
-      - Apache.Arrow.Flight.AspNetCore.{no_rc_version}.snupkg
-      - Apache.Arrow.Flight.Sql.{no_rc_version}.nupkg
-      - Apache.Arrow.Flight.Sql.{no_rc_version}.snupkg
-      - Apache.Arrow.Flight.{no_rc_version}.nupkg
-      - Apache.Arrow.Flight.{no_rc_version}.snupkg
-      - Apache.Arrow.{no_rc_version}.nupkg
-      - Apache.Arrow.{no_rc_version}.snupkg
 
   ######################## R packages & binaries ##############################
   r-binary-packages:

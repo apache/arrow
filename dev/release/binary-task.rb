@@ -803,7 +803,6 @@ class BinaryTask
     define_apt_tasks
     define_yum_tasks
     define_docs_tasks
-    define_nuget_tasks
     define_python_tasks
     define_r_tasks
     define_summary_tasks
@@ -1899,14 +1898,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               "test-debian-12-docs/**/*")
   end
 
-  def define_nuget_tasks
-    define_generic_data_tasks("NuGet",
-                              :nuget,
-                              "#{rc_dir}/nuget/#{full_version}",
-                              "#{release_dir}/nuget/#{full_version}",
-                              "nuget/**/*")
-  end
-
   def define_python_tasks
     define_generic_data_tasks("Python",
                               :python,
@@ -1989,7 +1980,6 @@ Success! The release candidate binaries are available here:
   https://apache.jfrog.io/artifactory/arrow/centos#{suffix}-rc/
   https://apache.jfrog.io/artifactory/arrow/debian#{suffix}-rc/
   https://apache.jfrog.io/artifactory/arrow/docs#{suffix}-rc/
-  https://apache.jfrog.io/artifactory/arrow/nuget#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/python#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/r#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}-rc/
@@ -2007,7 +1997,6 @@ Success! The release binaries are available here:
   https://apache.jfrog.io/artifactory/arrow/centos#{suffix}/
   https://apache.jfrog.io/artifactory/arrow/debian#{suffix}/
   https://apache.jfrog.io/artifactory/arrow/docs#{suffix}/
-  https://apache.jfrog.io/artifactory/arrow/nuget#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/python#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/r#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}/

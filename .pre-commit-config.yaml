@@ -183,4 +183,5 @@ repos:
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
           ?^c_glib/test/run-test\.sh$|
+          ?^dev/release/utils-generate-checksum\.sh$|
           )
