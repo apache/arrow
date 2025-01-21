@@ -168,11 +168,21 @@ class SizeStatisticsRoundTripTest : public ::testing::Test {
     }
   }
 
-  void Reset() {
-    buffer_.reset();
-    row_group_stats_.clear();
-    page_stats_.clear();
+  void ReadData() {
+    auto reader =
+        ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer_));
+    auto metadata = reader->metadata();
+    for (int i = 0; i < metadata->num_row_groups(); ++i) {
+      int64_t num_rows = metadata->RowGroup(i)->num_rows();
+      auto row_group_reader = reader->RowGroup(i);
+      for (int j = 0; j < metadata->num_columns(); ++j) {
+        auto column_reader = row_group_reader->RecordReader(j);
+        ASSERT_EQ(column_reader->ReadRecords(num_rows + 1), num_rows);
+      }
+    }
   }
+
+  void Reset() { buffer_.reset(); }
 
  protected:
   std::shared_ptr<Buffer> buffer_;
@@ -256,24 +266,99 @@ TEST_F(SizeStatisticsRoundTripTest, WriteDictionaryArray) {
   ReadSizeStatistics();
   EXPECT_THAT(row_group_stats_,
               ::testing::ElementsAre(SizeStatistics{/*def_levels=*/{0, 2},
-                                                    /*rep_levels=*/{2},
+                                                    /*rep_levels=*/{},
                                                     /*byte_array_bytes=*/5},
                                      SizeStatistics{/*def_levels=*/{1, 1},
-                                                    /*rep_levels=*/{2},
+                                                    /*rep_levels=*/{},
                                                     /*byte_array_bytes=*/1},
                                      SizeStatistics{/*def_levels=*/{0, 2},
-                                                    /*rep_levels=*/{2},
+                                                    /*rep_levels=*/{},
                                                     /*byte_array_bytes=*/4}));
   EXPECT_THAT(page_stats_,
               ::testing::ElementsAre(PageSizeStatistics{/*def_levels=*/{0, 2},
-                                                        /*rep_levels=*/{2},
+                                                        /*rep_levels=*/{},
                                                         /*byte_array_bytes=*/{5}},
                                      PageSizeStatistics{/*def_levels=*/{1, 1},
-                                                        /*rep_levels=*/{2},
+                                                        /*rep_levels=*/{},
                                                         /*byte_array_bytes=*/{1}},
                                      PageSizeStatistics{/*def_levels=*/{0, 2},
-                                                        /*rep_levels=*/{2},
+                                                        /*rep_levels=*/{},
                                                         /*byte_array_bytes=*/{4}}));
+}
+
+TEST_F(SizeStatisticsRoundTripTest, WritePageInBatches) {
+  // Rep/def level histograms are updates in batches of `write_batch_size` levels
+  // inside a single page. Exercise the logic with more than one batch per page.
+  auto schema = ::arrow::schema({::arrow::field("a", ::arrow::list(::arrow::utf8()))});
+  auto table = ::arrow::TableFromJSON(schema, {R"([
+      [ [null,"a","ab"] ],
+      [ null ],
+      [ [] ],
+      [ [null,"d","de"] ],
+      [ ["g","gh",null] ],
+      [ ["j","jk",null] ]
+    ])"});
+  for (int write_batch_size : {100, 5, 4, 3, 2, 1}) {
+    ARROW_SCOPED_TRACE("write_batch_size = ", write_batch_size);
+    WriteFile(SizeStatisticsLevel::PageAndColumnChunk, table,
+              /*max_row_group_length=*/1000, /*page_size=*/1000, write_batch_size);
+    ReadSizeStatistics();
+    EXPECT_THAT(row_group_stats_,
+                ::testing::ElementsAre(SizeStatistics{/*def_levels=*/{1, 1, 4, 8},
+                                                      /*rep_levels=*/{6, 8},
+                                                      /*byte_array_bytes=*/12}));
+    EXPECT_THAT(page_stats_,
+                ::testing::ElementsAre(PageSizeStatistics{/*def_levels=*/{1, 1, 4, 8},
+                                                          /*rep_levels=*/{6, 8},
+                                                          /*byte_array_bytes=*/{12}}));
+  }
+}
+
+TEST_F(SizeStatisticsRoundTripTest, LargePage) {
+  // When max_level is 1, the levels are summed in 2**30 chunks, exercise this
+  // by testing with a 90000 rows table;
+  auto schema = ::arrow::schema({::arrow::field("a", ::arrow::utf8())});
+  auto seed_batch = ::arrow::RecordBatchFromJSON(schema, R"([
+    [ "a" ],
+    [ "bc" ],
+    [ null ]
+  ])");
+  ASSERT_OK_AND_ASSIGN(auto table, ::arrow::Table::FromRecordBatches(
+                                       ::arrow::RecordBatchVector(30000, seed_batch)));
+  ASSERT_OK_AND_ASSIGN(table, table->CombineChunks());
+  ASSERT_EQ(table->num_rows(), 90000);
+
+  WriteFile(SizeStatisticsLevel::PageAndColumnChunk, table,
+            /*max_row_group_length=*/1 << 30, /*page_size=*/1 << 30,
+            /*write_batch_size=*/50000);
+  ReadSizeStatistics();
+  EXPECT_THAT(row_group_stats_,
+              ::testing::ElementsAre(SizeStatistics{/*def_levels=*/{30000, 60000},
+                                                    /*rep_levels=*/{},
+                                                    /*byte_array_bytes=*/90000}));
+  EXPECT_THAT(page_stats_,
+              ::testing::ElementsAre(PageSizeStatistics{/*def_levels=*/{30000, 60000},
+                                                        /*rep_levels=*/{},
+                                                        /*byte_array_bytes=*/{90000}}));
+}
+
+TEST_F(SizeStatisticsRoundTripTest, MaxLevelZero) {
+  auto schema =
+      ::arrow::schema({::arrow::field("a", ::arrow::utf8(), /*nullable=*/false)});
+  WriteFile(SizeStatisticsLevel::PageAndColumnChunk,
+            ::arrow::TableFromJSON(schema, {R"([["foo"],["bar"]])"}),
+            /*max_row_group_length=*/2,
+            /*page_size=*/1024);
+  ASSERT_NO_FATAL_FAILURE(ReadSizeStatistics());
+  ASSERT_NO_FATAL_FAILURE(ReadData());
+  EXPECT_THAT(row_group_stats_,
+              ::testing::ElementsAre(SizeStatistics{/*def_levels=*/{},
+                                                    /*rep_levels=*/{},
+                                                    /*byte_array_bytes=*/6}));
+  EXPECT_THAT(page_stats_,
+              ::testing::ElementsAre(PageSizeStatistics{/*def_levels=*/{},
+                                                        /*rep_levels=*/{},
+                                                        /*byte_array_bytes=*/{6}}));
 }
 
 }  // namespace parquet

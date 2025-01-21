@@ -1606,11 +1606,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
 
     auto add_levels = [](std::vector<int64_t>& level_histogram,
-                         ::arrow::util::span<const int16_t> levels) {
-      for (int16_t level : levels) {
-        ARROW_DCHECK_LT(level, static_cast<int16_t>(level_histogram.size()));
-        ++level_histogram[level];
+                         ::arrow::util::span<const int16_t> levels, int16_t max_level) {
+      if (max_level == 0) {
+        return;
       }
+      ARROW_DCHECK_EQ(static_cast<size_t>(max_level) + 1, level_histogram.size());
+      ::parquet::UpdateLevelHistogram(levels, level_histogram);
     };
 
     if (descr_->max_definition_level() > 0) {
