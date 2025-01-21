@@ -150,7 +150,7 @@ for /f %%i in ('dir dist\pyarrow-*.whl /B') do (set WHEEL_NAME=%cd%\dist\%%i) ||
 echo "Wheel name: %WHEEL_NAME%"
 
 %PYTHON_CMD% -m delvewheel repair -vv ^
-    --ignore-existing --with-mangle=msvcp140.dll ^
+    --ignore-existing --with-mangle ^
     -w repaired_wheels %WHEEL_NAME% || exit /B 1
 
 popd
