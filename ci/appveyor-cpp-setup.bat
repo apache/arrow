@@ -85,7 +85,7 @@ set CXX=cl.exe
 @rem Download Minio somewhere on PATH, for unit tests
 @rem
 if "%ARROW_S3%" == "ON" (
-  appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z -FileName C:\Windows\Minio.exe || exit /B
+  appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2025-01-20T14-49-07Z -FileName C:\Windows\Minio.exe || exit /B
 )
 
 @rem
