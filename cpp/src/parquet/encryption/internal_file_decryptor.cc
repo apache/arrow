@@ -66,9 +66,14 @@ InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* propertie
 
 void InternalFileDecryptor::WipeOutDecryptionKeys() {
   properties_->WipeOutDecryptionKeys();
+  footer_key_.clear();
 }
 
 std::string InternalFileDecryptor::GetFooterKey() {
+  if (!footer_key_.empty()) {
+    return footer_key_;
+  }
+
   std::string footer_key = properties_->footer_key();
   // ignore footer key metadata if footer key is explicitly set via API
   if (footer_key.empty()) {
@@ -89,6 +94,9 @@ std::string InternalFileDecryptor::GetFooterKey() {
         "Footer key unavailable. Could not verify "
         "plaintext footer metadata");
   }
+
+  // cache footer key to avoid repeated retrieval of key from the key_retriever
+  footer_key_ = footer_key;
   return footer_key;
 }
 
@@ -109,50 +117,13 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptorForColumnDat
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
     const std::string& aad, bool metadata) {
-  if (metadata) {
-    if (footer_metadata_decryptor_ != nullptr) return footer_metadata_decryptor_;
-  } else {
-    if (footer_data_decryptor_ != nullptr) return footer_data_decryptor_;
-  }
+  std::string footer_key = GetFooterKey();
 
-  std::string footer_key = properties_->footer_key();
-  if (footer_key.empty()) {
-    if (footer_key_metadata_.empty())
-      throw ParquetException("No footer key or key metadata");
-    if (properties_->key_retriever() == nullptr)
-      throw ParquetException("No footer key or key retriever");
-    try {
-      footer_key = properties_->key_retriever()->GetKey(footer_key_metadata_);
-    } catch (KeyAccessDeniedException& e) {
-      std::stringstream ss;
-      ss << "Footer key: access denied " << e.what() << "\n";
-      throw ParquetException(ss.str());
-    }
-  }
-  if (footer_key.empty()) {
-    throw ParquetException(
-        "Invalid footer encryption key. "
-        "Could not parse footer metadata");
-  }
-
-  // Create both data and metadata decryptors to avoid redundant retrieval of key
-  // from the key_retriever.
   auto key_len = static_cast<int32_t>(footer_key.size());
-  std::shared_ptr<encryption::AesDecryptor> aes_metadata_decryptor;
-  std::shared_ptr<encryption::AesDecryptor> aes_data_decryptor;
-
-  aes_metadata_decryptor =
-      encryption::AesDecryptor::Make(algorithm_, key_len, /*metadata=*/true);
-  aes_data_decryptor =
-      encryption::AesDecryptor::Make(algorithm_, key_len, /*metadata=*/false);
-
-  footer_metadata_decryptor_ = std::make_shared<Decryptor>(
-      std::move(aes_metadata_decryptor), footer_key, file_aad_, aad, pool_);
-  footer_data_decryptor_ = std::make_shared<Decryptor>(std::move(aes_data_decryptor),
-                                                       footer_key, file_aad_, aad, pool_);
-
-  if (metadata) return footer_metadata_decryptor_;
-  return footer_data_decryptor_;
+  std::shared_ptr<encryption::AesDecryptor> aes_decryptor =
+      encryption::AesDecryptor::Make(algorithm_, key_len, /*metadata=*/metadata);
+  return std::make_shared<Decryptor>(std::move(aes_decryptor), footer_key, file_aad_, aad,
+                                     pool_);
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnMetaDecryptor(

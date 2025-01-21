@@ -94,10 +94,9 @@ class InternalFileDecryptor {
   // Concatenation of aad_prefix (if exists) and aad_file_unique
   std::string file_aad_;
 
-  std::shared_ptr<Decryptor> footer_metadata_decryptor_;
-  std::shared_ptr<Decryptor> footer_data_decryptor_;
   ParquetCipher::type algorithm_;
   std::string footer_key_metadata_;
+  std::string footer_key_;
   ::arrow::MemoryPool* pool_;
 
   std::shared_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);
