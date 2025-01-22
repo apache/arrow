@@ -189,7 +189,7 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
   if (is_fixed_length) {
     uint32_t fixed_length = rows.metadata().fixed_length;
     const uint8_t* rows_left = col.data(1);
-    const uint8_t* rows_right = rows.data(1);
+    const uint8_t* rows_right = rows.fixed_length_rows(/*row_id=*/0);
     constexpr uint32_t unroll = 8;
     __m256i irow_left = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
     for (uint32_t i = 0; i < num_rows_to_compare / unroll; ++i) {
@@ -234,7 +234,7 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
   } else {
     const uint8_t* rows_left = col.data(1);
     const RowTableImpl::offset_type* offsets_right = rows.offsets();
-    const uint8_t* rows_right = rows.data(2);
+    const uint8_t* rows_right = rows.var_length_rows();
     constexpr uint32_t unroll = 8;
     __m256i irow_left = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
     for (uint32_t i = 0; i < num_rows_to_compare / unroll; ++i) {
@@ -554,7 +554,7 @@ void KeyCompare::CompareVarBinaryColumnToRowImp_avx2(
   const uint32_t* offsets_left = col.offsets();
   const RowTableImpl::offset_type* offsets_right = rows.offsets();
   const uint8_t* rows_left = col.data(2);
-  const uint8_t* rows_right = rows.data(2);
+  const uint8_t* rows_right = rows.var_length_rows();
   for (uint32_t i = 0; i < num_rows_to_compare; ++i) {
     uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
     uint32_t irow_right = left_to_right_map[irow_left];

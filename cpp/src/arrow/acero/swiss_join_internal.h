@@ -72,7 +72,7 @@ class RowArrayAccessor {
 
     if (!is_fixed_length_column) {
       int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
-      const uint8_t* row_ptr_base = rows.data(2);
+      const uint8_t* row_ptr_base = rows.var_length_rows();
       const RowTableImpl::offset_type* row_offsets = rows.offsets();
       uint32_t field_offset_within_row, field_length;
 
@@ -108,23 +108,21 @@ class RowArrayAccessor {
       if (field_length == 0) {
         field_length = 1;
       }
-      int64_t row_length = rows.metadata().fixed_length;
-      // uint32_t row_length = rows.metadata().fixed_length;
 
       bool is_fixed_length_row = rows.metadata().is_fixed_length;
       if (is_fixed_length_row) {
         // Case 3: This is a fixed length column in a fixed length row
         //
-        const uint8_t* row_ptr_base = rows.data(1) + field_offset_within_row;
         for (int i = 0; i < num_rows; ++i) {
           uint32_t row_id = row_ids[i];
-          const uint8_t* row_ptr = row_ptr_base + row_length * row_id;
+          const uint8_t* row_ptr =
+              rows.fixed_length_rows(row_id) + field_offset_within_row;
           process_value_fn(i, row_ptr, field_length);
         }
       } else {
         // Case 4: This is a fixed length column in a varying length row
         //
-        const uint8_t* row_ptr_base = rows.data(2) + field_offset_within_row;
+        const uint8_t* row_ptr_base = rows.var_length_rows() + field_offset_within_row;
         const RowTableImpl::offset_type* row_offsets = rows.offsets();
         for (int i = 0; i < num_rows; ++i) {
           uint32_t row_id = row_ids[i];

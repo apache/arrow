@@ -95,7 +95,7 @@ void KeyCompare::CompareBinaryColumnToRowHelper(
   if (is_fixed_length) {
     uint32_t fixed_length = rows.metadata().fixed_length;
     const uint8_t* rows_left = col.data(1);
-    const uint8_t* rows_right = rows.data(1);
+    const uint8_t* rows_right = rows.fixed_length_rows(/*row_id=*/0);
     for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       // irow_right is used to index into row data so promote to the row offset type.
@@ -107,7 +107,7 @@ void KeyCompare::CompareBinaryColumnToRowHelper(
   } else {
     const uint8_t* rows_left = col.data(1);
     const RowTableImpl::offset_type* offsets_right = rows.offsets();
-    const uint8_t* rows_right = rows.data(2);
+    const uint8_t* rows_right = rows.var_length_rows();
     for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       uint32_t irow_right = left_to_right_map[irow_left];
@@ -240,7 +240,7 @@ void KeyCompare::CompareVarBinaryColumnToRowHelper(
   const uint32_t* offsets_left = col.offsets();
   const RowTableImpl::offset_type* offsets_right = rows.offsets();
   const uint8_t* rows_left = col.data(2);
-  const uint8_t* rows_right = rows.data(2);
+  const uint8_t* rows_right = rows.var_length_rows();
   for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
     uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
     uint32_t irow_right = left_to_right_map[irow_left];

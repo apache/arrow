@@ -46,7 +46,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
 
   if (!is_fixed_length_column) {
     int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
-    const uint8_t* row_ptr_base = rows.data(2);
+    const uint8_t* row_ptr_base = rows.var_length_rows();
     const RowTableImpl::offset_type* row_offsets = rows.offsets();
     auto row_offsets_i64 =
         reinterpret_cast<const arrow::util::int64_for_gather_t*>(row_offsets);
@@ -172,7 +172,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
     if (is_fixed_length_row) {
       // Case 3: This is a fixed length column in fixed length row
       //
-      const uint8_t* row_ptr_base = rows.data(1);
+      const uint8_t* row_ptr_base = rows.fixed_length_rows(/*row_id=*/0);
       for (int i = 0; i < num_rows / kUnroll; ++i) {
         // Load 8 32-bit row ids.
         __m256i row_id =
@@ -197,7 +197,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
     } else {
       // Case 4: This is a fixed length column in varying length row
       //
-      const uint8_t* row_ptr_base = rows.data(2);
+      const uint8_t* row_ptr_base = rows.var_length_rows();
       const RowTableImpl::offset_type* row_offsets = rows.offsets();
       auto row_offsets_i64 =
           reinterpret_cast<const arrow::util::int64_for_gather_t*>(row_offsets);
@@ -237,6 +237,7 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
   //
   constexpr int kUnroll = 8;
 
+  // TODO: Fix this.
   const uint8_t* null_masks = rows.null_masks(/*row_id=*/0, /*col_pos=*/0);
   __m256i null_bits_per_row =
       _mm256_set1_epi32(8 * rows.metadata().null_masks_bytes_per_row);
