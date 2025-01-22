@@ -83,8 +83,10 @@ build() {
   # MSYS2_ARG_CONV_EXCL is needed to prevent autoconverting CMAKE_INSTALL_PREFIX
   # to Windows paths. See https://www.msys2.org/docs/filesystem-paths/#process-arguments
 
+  # We require the full path to the CMake executable in order to build Arrow
+  # which is in the Program Files directory: "/c/Program Files/CMake/bin/cmake"
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
-    cmake \
+    "${PROGRAMFILES}\CMake\bin\cmake.exe" \
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
     -DARROW_ACERO=ON \
