@@ -291,7 +291,10 @@ jobs:
           rtools-version: 40
           Ncpus: 2
       - name: Locate CMAKE
-        run: where cmake
+        shell: bash
+        run: |
+          cmake --version
+          which cmake
       - name: Build Arrow C++
         shell: bash
         env:
