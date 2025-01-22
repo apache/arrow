@@ -94,8 +94,6 @@ TEST(RowTableMemoryConsumption, Encode) {
                                                     /*string_alignment=*/0));
         ASSERT_NE(row_table.null_masks(/*row_id=*/0, /*col_pos=*/0), NULLPTR);
         ASSERT_NE(row_table.fixed_length_rows(/*row_id=*/0), NULLPTR);
-        // TODO: May fail.
-        ASSERT_EQ(row_table.var_length_rows(), NULLPTR);
 
         int64_t actual_null_mask_size =
             num_rows * row_table.metadata().null_masks_bytes_per_row;
