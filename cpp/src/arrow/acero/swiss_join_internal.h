@@ -108,8 +108,8 @@ class RowArrayAccessor {
       if (field_length == 0) {
         field_length = 1;
       }
-      // int64_t row_length = rows.metadata().fixed_length;
-      uint32_t row_length = rows.metadata().fixed_length;
+      int64_t row_length = rows.metadata().fixed_length;
+      // uint32_t row_length = rows.metadata().fixed_length;
 
       bool is_fixed_length_row = rows.metadata().is_fixed_length;
       if (is_fixed_length_row) {
@@ -143,14 +143,10 @@ class RowArrayAccessor {
   template <class PROCESS_VALUE_FN>
   static void VisitNulls(const RowTableImpl& rows, int column_id, int num_rows,
                          const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
-    const uint8_t* null_masks = rows.null_masks();
-    // int64_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
-    uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
     uint32_t pos_after_encoding = rows.metadata().pos_after_encoding(column_id);
     for (int i = 0; i < num_rows; ++i) {
       uint32_t row_id = row_ids[i];
-      int64_t bit_id = row_id * null_mask_num_bytes * 8 + pos_after_encoding;
-      process_value_fn(i, bit_util::GetBit(null_masks, bit_id) ? 0xff : 0);
+      process_value_fn(i, rows.is_null(row_id, pos_after_encoding) ? 0xff : 0);
     }
   }
 

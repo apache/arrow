@@ -237,7 +237,7 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
   //
   constexpr int kUnroll = 8;
 
-  const uint8_t* null_masks = rows.null_masks();
+  const uint8_t* null_masks = rows.null_masks(/*row_id=*/0, /*col_pos=*/0);
   __m256i null_bits_per_row =
       _mm256_set1_epi32(8 * rows.metadata().null_masks_bytes_per_row);
   __m256i pos_after_encoding =

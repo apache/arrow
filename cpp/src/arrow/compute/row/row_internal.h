@@ -220,8 +220,20 @@ class ARROW_EXPORT RowTableImpl {
   offset_type* mutable_offsets() {
     return reinterpret_cast<offset_type*>(mutable_data(1));
   }
-  const uint8_t* null_masks() const { return null_masks_->data(); }
-  uint8_t* null_masks() { return null_masks_->mutable_data(); }
+  const uint8_t* null_masks(uint32_t row_id, uint32_t col_pos) const {
+    return null_masks_->data() +
+           static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row + col_pos;
+  }
+  uint8_t* null_masks(uint32_t row_id, uint32_t col_pos) {
+    return null_masks_->mutable_data() +
+           static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row + col_pos;
+  }
+
+  bool is_null(uint32_t row_id, uint32_t col_pos) const {
+    return bit_util::GetBit(
+        null_masks_->data(),
+        static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row * 8 + col_pos);
+  }
 
   /// \brief True if there is a null value anywhere in the table
   ///

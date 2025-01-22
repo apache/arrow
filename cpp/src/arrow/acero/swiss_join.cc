@@ -564,14 +564,18 @@ void RowArrayMerge::CopyNulls(RowTableImpl* target, const RowTableImpl& source,
                               const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
   int num_bytes_per_row = target->metadata().null_masks_bytes_per_row;
-  uint8_t* target_nulls = target->null_masks() + num_bytes_per_row * first_target_row_id;
+  DCHECK_LE(first_target_row_id, std::numeric_limits<uint32_t>::max());
+  uint8_t* target_nulls =
+      target->null_masks(static_cast<uint32_t>(first_target_row_id), /*col_pos=*/0);
   if (!source_rows_permutation) {
-    memcpy(target_nulls, source.null_masks(), num_bytes_per_row * num_source_rows);
+    memcpy(target_nulls, source.null_masks(/*row_id=*/0, /*col_pos=*/0),
+           num_bytes_per_row * num_source_rows);
   } else {
-    for (int64_t i = 0; i < num_source_rows; ++i) {
+    for (uint32_t i = 0; i < num_source_rows; ++i) {
       int64_t source_row_id = source_rows_permutation[i];
+      DCHECK_LE(source_row_id, std::numeric_limits<uint32_t>::max());
       const uint8_t* source_nulls =
-          source.null_masks() + num_bytes_per_row * source_row_id;
+          source.null_masks(static_cast<uint32_t>(source_row_id), /*col_pos=*/0);
       for (int64_t byte = 0; byte < num_bytes_per_row; ++byte) {
         *target_nulls++ = *source_nulls++;
       }

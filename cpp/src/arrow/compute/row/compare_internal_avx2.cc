@@ -49,7 +49,7 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
 
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null
-    const uint8_t* null_masks = rows.null_masks();
+    const uint8_t* null_masks = rows.null_masks(/*row_id=*/0, /*col_pos=*/0);
     uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
 
     uint32_t num_processed = 0;
@@ -117,7 +117,7 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
     }
     return num_processed;
   } else {
-    const uint8_t* null_masks = rows.null_masks();
+    const uint8_t* null_masks = rows.null_masks(/*row_id=*/0, /*col_pos=*/0);
     uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
     const uint8_t* non_nulls = col.data(0);
     ARROW_DCHECK(non_nulls);
