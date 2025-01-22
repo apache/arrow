@@ -185,4 +185,21 @@ class TestArray < Test::Unit::TestCase
       end
     end
   end
+
+  sub_test_case("#validate") do
+    def test_valid
+      array = build_int32_array([1, 2, 3, 4, 5])
+      assert do
+        array.validate
+      end
+    end
+
+    def test_invalid
+      message = "[array][validate]: Invalid: Array length is negative"
+      array = Arrow::Int8Array.new(-1, Arrow::Buffer.new(""), Arrow::Buffer.new(""), -1)
+      assert_raise(Arrow::Error::Invalid.new(message)) do
+        array.validate
+      end
+    end
+  end
 end
