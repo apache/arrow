@@ -300,6 +300,7 @@ cdef class Dataset(_Weakrefable):
                 int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                 FragmentScanOptions fragment_scan_options=None,
                 bint use_threads=True,
+                bint cache_metadata=True,
                 MemoryPool memory_pool=None):
         """
         Build a scan operation against the dataset.
@@ -417,6 +418,7 @@ cdef class Dataset(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         )
 
@@ -428,6 +430,7 @@ cdef class Dataset(_Weakrefable):
                    int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                    FragmentScanOptions fragment_scan_options=None,
                    bint use_threads=True,
+                   bint cache_metadata=True,
                    MemoryPool memory_pool=None):
         """
         Read the dataset as materialized record batches.
@@ -492,6 +495,7 @@ cdef class Dataset(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).to_batches()
 
@@ -503,6 +507,7 @@ cdef class Dataset(_Weakrefable):
                  int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                  FragmentScanOptions fragment_scan_options=None,
                  bint use_threads=True,
+                 bint cache_metadata=True,
                  MemoryPool memory_pool=None):
         """
         Read the dataset to an Arrow table.
@@ -570,6 +575,7 @@ cdef class Dataset(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).to_table()
 
@@ -582,6 +588,7 @@ cdef class Dataset(_Weakrefable):
              int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
              FragmentScanOptions fragment_scan_options=None,
              bint use_threads=True,
+             bint cache_metadata=True,
              MemoryPool memory_pool=None):
         """
         Select rows of data by index.
@@ -648,6 +655,7 @@ cdef class Dataset(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).take(indices)
 
@@ -660,6 +668,7 @@ cdef class Dataset(_Weakrefable):
              int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
              FragmentScanOptions fragment_scan_options=None,
              bint use_threads=True,
+             bint cache_metadata=True,
              MemoryPool memory_pool=None):
         """
         Load the first N rows of the dataset.
@@ -726,6 +735,7 @@ cdef class Dataset(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).head(num_rows)
 
@@ -736,6 +746,7 @@ cdef class Dataset(_Weakrefable):
                    int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                    FragmentScanOptions fragment_scan_options=None,
                    bint use_threads=True,
+                   bint cache_metadata=True,
                    MemoryPool memory_pool=None):
         """
         Count rows matching the scanner filter.
@@ -780,6 +791,7 @@ cdef class Dataset(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).count_rows()
 
@@ -1458,6 +1470,7 @@ cdef class Fragment(_Weakrefable):
                 int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                 FragmentScanOptions fragment_scan_options=None,
                 bint use_threads=True,
+                bint cache_metadata=True,
                 MemoryPool memory_pool=None):
         """
         Build a scan operation against the fragment.
@@ -1532,6 +1545,7 @@ cdef class Fragment(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         )
 
@@ -1544,6 +1558,7 @@ cdef class Fragment(_Weakrefable):
                    int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                    FragmentScanOptions fragment_scan_options=None,
                    bint use_threads=True,
+                   bint cache_metadata=True,
                    MemoryPool memory_pool=None):
         """
         Read the fragment as materialized record batches.
@@ -1612,6 +1627,7 @@ cdef class Fragment(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).to_batches()
 
@@ -1624,6 +1640,7 @@ cdef class Fragment(_Weakrefable):
                  int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                  FragmentScanOptions fragment_scan_options=None,
                  bint use_threads=True,
+                 bint cache_metadata=True,
                  MemoryPool memory_pool=None):
         """
         Convert this Fragment into a Table.
@@ -1694,6 +1711,7 @@ cdef class Fragment(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).to_table()
 
@@ -1706,6 +1724,7 @@ cdef class Fragment(_Weakrefable):
              int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
              FragmentScanOptions fragment_scan_options=None,
              bint use_threads=True,
+             bint cache_metadata=True,
              MemoryPool memory_pool=None):
         """
         Select rows of data by index.
@@ -1772,6 +1791,7 @@ cdef class Fragment(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).take(indices)
 
@@ -1784,6 +1804,7 @@ cdef class Fragment(_Weakrefable):
              int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
              FragmentScanOptions fragment_scan_options=None,
              bint use_threads=True,
+             bint cache_metadata=True,
              MemoryPool memory_pool=None):
         """
         Load the first N rows of the fragment.
@@ -1850,6 +1871,7 @@ cdef class Fragment(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).head(num_rows)
 
@@ -1860,6 +1882,7 @@ cdef class Fragment(_Weakrefable):
                    int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                    FragmentScanOptions fragment_scan_options=None,
                    bint use_threads=True,
+                   bint cache_metadata=True,
                    MemoryPool memory_pool=None):
         """
         Count rows matching the scanner filter.
@@ -1904,6 +1927,7 @@ cdef class Fragment(_Weakrefable):
             fragment_readahead=fragment_readahead,
             fragment_scan_options=fragment_scan_options,
             use_threads=use_threads,
+            cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).count_rows()
 
@@ -2519,7 +2543,7 @@ cdef class Partitioning(_Weakrefable):
 
     def format(self, expr):
         """
-        Convert a filter expression into a tuple of (directory, filename) using 
+        Convert a filter expression into a tuple of (directory, filename) using
         the current partitioning scheme
 
         Parameters
@@ -3446,7 +3470,8 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             int batch_size=_DEFAULT_BATCH_SIZE,
                             int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                             int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
-                            bint use_threads=True, MemoryPool memory_pool=None,
+                            bint use_threads=True, bint cache_metadata=True,
+                            MemoryPool memory_pool=None,
                             FragmentScanOptions fragment_scan_options=None)\
         except *:
     cdef:
@@ -3486,6 +3511,7 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
     check_status(builder.BatchReadahead(batch_readahead))
     check_status(builder.FragmentReadahead(fragment_readahead))
     check_status(builder.UseThreads(use_threads))
+    check_status(builder.CacheMetadata(cache_metadata))
     check_status(builder.Pool(maybe_unbox_memory_pool(memory_pool)))
     if fragment_scan_options:
         check_status(
@@ -3534,6 +3560,7 @@ cdef class Scanner(_Weakrefable):
             fragment_readahead=py_scanoptions.get(
                 "fragment_readahead", _DEFAULT_FRAGMENT_READAHEAD),
             use_threads=py_scanoptions.get("use_threads", True),
+            cache_metadata=py_scanoptions.get("cache_metadata", True),
             memory_pool=py_scanoptions.get("memory_pool"),
             fragment_scan_options=py_scanoptions.get("fragment_scan_options"))
 
@@ -3547,7 +3574,8 @@ cdef class Scanner(_Weakrefable):
                      int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                      int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                      FragmentScanOptions fragment_scan_options=None,
-                     bint use_threads=True, MemoryPool memory_pool=None):
+                     bint use_threads=True, bint cache_metadata=True,
+                     MemoryPool memory_pool=None):
         """
         Create Scanner from Dataset,
 
@@ -3611,7 +3639,8 @@ cdef class Scanner(_Weakrefable):
             dict(columns=columns, filter=filter, batch_size=batch_size,
                  batch_readahead=batch_readahead,
                  fragment_readahead=fragment_readahead, use_threads=use_threads,
-                 memory_pool=memory_pool, fragment_scan_options=fragment_scan_options)
+                 cache_metadata=cache_metadata, memory_pool=memory_pool,
+                 fragment_scan_options=fragment_scan_options)
         )
         builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
         scanner = GetResultValue(builder.get().Finish())
@@ -3624,7 +3653,8 @@ cdef class Scanner(_Weakrefable):
                       int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                       int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                       FragmentScanOptions fragment_scan_options=None,
-                      bint use_threads=True, MemoryPool memory_pool=None):
+                      bint use_threads=True, bint cache_metadata=True,
+                      MemoryPool memory_pool=None):
         """
         Create Scanner from Fragment,
 
@@ -3692,7 +3722,7 @@ cdef class Scanner(_Weakrefable):
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, batch_readahead=batch_readahead,
                           fragment_readahead=fragment_readahead,
-                          use_threads=use_threads,
+                          use_threads=use_threads, cache_metadata=cache_metadata,
                           memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
 
@@ -3705,7 +3735,8 @@ cdef class Scanner(_Weakrefable):
                      int batch_readahead=_DEFAULT_BATCH_READAHEAD,
                      int fragment_readahead=_DEFAULT_FRAGMENT_READAHEAD,
                      FragmentScanOptions fragment_scan_options=None,
-                     bint use_threads=True, MemoryPool memory_pool=None):
+                     bint use_threads=True, bint cache_metadata=True,
+                     MemoryPool memory_pool=None):
         """
         Create a Scanner from an iterator of batches.
 
@@ -3797,7 +3828,7 @@ cdef class Scanner(_Weakrefable):
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, batch_readahead=batch_readahead,
                           fragment_readahead=fragment_readahead, use_threads=use_threads,
-                          memory_pool=memory_pool,
+                          cache_metadata=cache_metadata, memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)
@@ -4109,7 +4140,7 @@ class ScanNodeOptions(_ScanNodeOptions):
     dataset : pyarrow.dataset.Dataset
         The table which acts as the data source.
     **kwargs : dict, optional
-        Scan options. See `Scanner.from_dataset` for possible arguments.        
+        Scan options. See `Scanner.from_dataset` for possible arguments.
     require_sequenced_output : bool, default False
         Assert implicit ordering on data.
     """

@@ -67,4 +67,11 @@ class Codec;
 class Uri;
 }  // namespace util
 
+template <typename T>
+struct Enumerated {
+  T value;
+  int index;
+  bool last;
+};
+
 }  // namespace arrow

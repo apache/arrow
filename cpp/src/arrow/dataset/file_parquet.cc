@@ -850,6 +850,13 @@ Status ParquetFileFragment::SetMetadata(
   return Status::OK();
 }
 
+Status ParquetFileFragment::ClearCachedMetadata() {
+  metadata_.reset();
+  manifest_.reset();
+  original_metadata_.reset();
+  return Status::OK();
+}
+
 Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
     compute::Expression predicate) {
   RETURN_NOT_OK(EnsureCompleteMetadata());

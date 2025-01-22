@@ -21,6 +21,7 @@
 #include "arrow/acero/map_node.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/test_nodes.h"
+#include "arrow/record_batch.h"
 
 namespace arrow {
 namespace acero {

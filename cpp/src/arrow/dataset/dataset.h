@@ -190,6 +190,9 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   virtual Future<std::optional<int64_t>> CountRows(
       compute::Expression predicate, const std::shared_ptr<ScanOptions>& options);
 
+  /// XXX
+  virtual Status ClearCachedMetadata();
+
   virtual std::string type_name() const = 0;
   virtual std::string ToString() const { return type_name(); }
 
