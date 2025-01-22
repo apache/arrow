@@ -75,7 +75,7 @@ RUN \
   yum clean ${quiet} all
 
 ARG cmake=3.25.0
-COPY ../../../../../ci/scripts/install_cmake.sh /arrow/ci/scripts/
+COPY ../../../../../../../ci/scripts/install_cmake.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
 
 ENV \
