@@ -802,12 +802,13 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
     return EnsureCompleteMetadata(reader.get());
   }
 
+  // TODO temp variable is useless
   std::shared_ptr<Schema> schema;
   RETURN_NOT_OK(reader->GetSchema(&schema));
-  if (physical_schema_ && !physical_schema_->Equals(*schema)) {
+  if (given_physical_schema_ && !given_physical_schema_->Equals(*schema)) {
     return Status::Invalid("Fragment initialized with physical schema ",
-                           *physical_schema_, " but ", source_.path(), " has schema ",
-                           *schema);
+                           *given_physical_schema_, " but ", source_.path(),
+                           " has schema ", *schema);
   }
   physical_schema_ = std::move(schema);
 
@@ -835,6 +836,10 @@ Status ParquetFileFragment::SetMetadata(
   DCHECK_EQ(manifest_->descr, original_metadata_->schema())
       << "SchemaDescriptor should be owned by the original FileMetaData";
 
+  if (!physical_schema_) {
+    physical_schema_ = given_physical_schema_;
+  }
+
   statistics_expressions_.resize(row_groups_->size(), compute::literal(true));
   statistics_expressions_complete_.resize(manifest_->descr->num_columns(), false);
 
@@ -848,6 +853,13 @@ Status ParquetFileFragment::SetMetadata(
   }
 
   return Status::OK();
+}
+
+Status ParquetFileFragment::ClearCachedMetadata() {
+  metadata_.reset();
+  manifest_.reset();
+  original_metadata_.reset();
+  return FileFragment::ClearCachedMetadata();
 }
 
 Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(

@@ -48,6 +48,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CSchema] dataset_schema
         shared_ptr[CSchema] projected_schema
         c_bool use_threads
+        c_bool cache_metadata
         CExpression filter
 
     cdef cppclass CScanNodeOptions "arrow::dataset::ScanNodeOptions"(CExecNodeOptions):
@@ -115,6 +116,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CStatus Project(vector[CExpression]& exprs, vector[c_string]& columns)
         CStatus Filter(CExpression filter)
         CStatus UseThreads(c_bool use_threads)
+        CStatus CacheMetadata(c_bool cache_metadata)
         CStatus Pool(CMemoryPool* pool)
         CStatus BatchSize(int64_t batch_size)
         CStatus BatchReadahead(int32_t batch_readahead)

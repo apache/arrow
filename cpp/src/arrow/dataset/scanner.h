@@ -29,15 +29,12 @@
 #include "arrow/compute/expression.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/dataset.h"
-#include "arrow/dataset/projector.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/async_generator.h"
+#include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/thread_pool.h"
 #include "arrow/util/type_fwd.h"
 
 namespace arrow {
@@ -116,6 +113,14 @@ struct ARROW_DS_EXPORT ScanOptions {
 
   /// If true the scanner will add augmented fields to the output schema.
   bool add_augmented_fields = true;
+
+  /// Whether to cache metadata when scanning.
+  ///
+  /// Fragments may typically cache metadata to speed up repeated accesses.
+  /// However, in use cases where a single scan is done, or if memory use
+  /// is more critical than CPU time, setting this option to false can
+  /// lessen memory use.
+  bool cache_metadata = true;
 
   /// Fragment-specific scan options.
   std::shared_ptr<FragmentScanOptions> fragment_scan_options;
@@ -309,7 +314,13 @@ ARROW_DS_EXPORT void SetProjection(ScanOptions* options, ProjectionDescr project
 struct TaggedRecordBatch {
   std::shared_ptr<RecordBatch> record_batch;
   std::shared_ptr<Fragment> fragment;
+
+  friend inline bool operator==(const TaggedRecordBatch& left,
+                                const TaggedRecordBatch& right) {
+    return left.record_batch == right.record_batch && left.fragment == right.fragment;
+  }
 };
+
 using TaggedRecordBatchGenerator = std::function<Future<TaggedRecordBatch>()>;
 using TaggedRecordBatchIterator = Iterator<TaggedRecordBatch>;
 
@@ -320,7 +331,13 @@ using TaggedRecordBatchIterator = Iterator<TaggedRecordBatch>;
 struct EnumeratedRecordBatch {
   Enumerated<std::shared_ptr<RecordBatch>> record_batch;
   Enumerated<std::shared_ptr<Fragment>> fragment;
+
+  friend inline bool operator==(const EnumeratedRecordBatch& left,
+                                const EnumeratedRecordBatch& right) {
+    return left.record_batch == right.record_batch && left.fragment == right.fragment;
+  }
 };
+
 using EnumeratedRecordBatchGenerator = std::function<Future<EnumeratedRecordBatch>()>;
 using EnumeratedRecordBatchIterator = Iterator<EnumeratedRecordBatch>;
 
@@ -504,6 +521,14 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanOptions;
   Status UseThreads(bool use_threads = true);
+
+  /// \brief Indicate if metadata should be cached when scanning
+  ///
+  /// Fragments may typically cache metadata to speed up repeated accesses.
+  /// However, in use cases where a single scan is done, or if memory use
+  /// is more critical than CPU time, setting this option to false can
+  /// lessen memory use.
+  Status CacheMetadata(bool cache_metadata = true);
 
   /// \brief Set the maximum number of rows per RecordBatch.
   ///
