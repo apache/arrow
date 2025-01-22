@@ -202,4 +202,30 @@ class TestArray < Test::Unit::TestCase
       end
     end
   end
+
+  sub_test_case("#validate_full") do
+    def test_valid
+      array = build_int32_array([1, 2, 3, 4, 5])
+      assert do
+        array.validate_full
+      end
+    end
+
+    def test_invalid
+      message = "[array][validate_full]: Invalid: Invalid UTF8 sequence at string index 0"
+
+      # UTF-8 string missing one byte.
+      data = Arrow::Buffer.new("\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa")
+      value_offsets = Arrow::Buffer.new([0, 8].pack("l*"))
+      array = Arrow::StringArray.new(1,
+                            value_offsets,
+                            data,
+                            Arrow::Buffer.new([0b01].pack("C*")),
+                            -1)
+
+      assert_raise(Arrow::Error::Invalid.new(message)) do
+        array.validate_full
+      end
+    end
+  end
 end
