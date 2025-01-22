@@ -5090,8 +5090,13 @@ function(build_awssdk)
     # AWS_C_CAL
     string(REGEX REPLACE "-" "_" BASE_VARIABLE_NAME "${BASE_VARIABLE_NAME}")
     if(AWSSDK_PRODUCT STREQUAL "s2n-tls")
-      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
-          ${CMAKE_COMMAND} -E rm tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
+      if(CMAKE_VERSION VERSION_LESS 3.17)
+        set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
+            ${CMAKE_COMMAND} -E remove tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
+      else()
+        set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
+            ${CMAKE_COMMAND} -E rm tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
+      endif()
     else()
       set(${BASE_VARIABLE_NAME}_DIFF_FILE
           "${CMAKE_CURRENT_LIST_DIR}/${AWSSDK_PRODUCT}.diff")
