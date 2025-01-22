@@ -237,22 +237,26 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
   //
   constexpr int kUnroll = 8;
 
-  // TODO: Fix this.
   const uint8_t* null_masks = rows.null_masks(/*row_id=*/0, /*col_pos=*/0);
   __m256i null_bits_per_row =
-      _mm256_set1_epi32(8 * rows.metadata().null_masks_bytes_per_row);
+      _mm256_set1_epi64x(8 * rows.metadata().null_masks_bytes_per_row);
   __m256i pos_after_encoding =
-      _mm256_set1_epi32(rows.metadata().pos_after_encoding(column_id));
+      _mm256_set1_epi64x(rows.metadata().pos_after_encoding(column_id));
+  __m256i bit_in_word =
+      _mm256_set1_epi32(1 << (rows.metadata().pos_after_encoding(column_id) & 7));
   for (int i = 0; i < num_rows / kUnroll; ++i) {
     __m256i row_id = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
-    __m256i bit_id = _mm256_mullo_epi32(row_id, null_bits_per_row);
-    bit_id = _mm256_add_epi32(bit_id, pos_after_encoding);
-    __m256i bytes = _mm256_i32gather_epi32(reinterpret_cast<const int*>(null_masks),
-                                           _mm256_srli_epi32(bit_id, 3), 1);
-    __m256i bit_in_word = _mm256_sllv_epi32(
-        _mm256_set1_epi32(1), _mm256_and_si256(bit_id, _mm256_set1_epi32(7)));
-    // `result` will contain one 32-bit word per tested null bit, either 0xffffffff if the
-    // null bit was set or 0 if it was unset.
+    __m256i row_id_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(row_id));
+    __m256i row_id_hi = _mm256_cvtepi32_epi64(_mm256_extracti128_si256(row_id, 1));
+    __m256i bit_id_lo = _mm256_mul_epi32(row_id_lo, null_bits_per_row);
+    __m256i bit_id_hi = _mm256_mul_epi32(row_id_hi, null_bits_per_row);
+    bit_id_lo = _mm256_add_epi64(bit_id_lo, pos_after_encoding);
+    bit_id_hi = _mm256_add_epi64(bit_id_hi, pos_after_encoding);
+    __m128i bytes_lo = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
+                                              _mm256_srli_epi64(bit_id_lo, 3), 1);
+    __m128i bytes_hi = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
+                                              _mm256_srli_epi64(bit_id_hi, 3), 1);
+    __m256i bytes = _mm256_set_m128i(bytes_hi, bytes_lo);
     __m256i result =
         _mm256_cmpeq_epi32(_mm256_and_si256(bytes, bit_in_word), bit_in_word);
     // NB: Be careful about sign-extension when casting the return value of
