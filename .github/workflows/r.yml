@@ -282,12 +282,6 @@ jobs:
           restore-keys: |
             r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-
-      - name: Install CMake via MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: true
-          install: mingw-w64-ucrt-x86_64-cmake
       - uses: r-lib/actions/setup-r@v2
         with:
           # Note: RTools must be 40 here because RTools40 + ucrt is how we build the Arrow C++
