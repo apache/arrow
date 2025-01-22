@@ -116,18 +116,6 @@ class TestArray < Test::Unit::TestCase
     CONTENT
   end
 
-  def test_validation_success
-    array = build_int32_array([1, 2, 3, 4, 5])
-    assert_equal(true, array.validate)
-  end
-
-  def test_validation_fail
-    array = Arrow::Int8Array.new(-1, Arrow::Buffer.new(""), Arrow::Buffer.new(""), -1)
-    assert_raise(Arrow::Error::Invalid) do
-      array.validate
-    end
-  end
-
   sub_test_case("#view") do
     def test_valid
       assert_equal(build_float_array([0.0, 1.5, -2.5, nil]),
@@ -194,6 +182,23 @@ class TestArray < Test::Unit::TestCase
         "but int32 and uint32 were encountered."
       assert_raise(Arrow::Error::Invalid.new(message)) do
         int32_array.concatenate([uint32_array])
+      end
+    end
+  end
+
+  sub_test_case("#validate") do
+    def test_valid
+      array = build_int32_array([1, 2, 3, 4, 5])
+      assert do
+        array.validate
+      end
+    end
+
+    def test_invalid
+      message = "[array][validate]: Invalid: Array length is negative"
+      array = Arrow::Int8Array.new(-1, Arrow::Buffer.new(""), Arrow::Buffer.new(""), -1)
+      assert_raise(Arrow::Error::Invalid.new(message)) do
+        array.validate
       end
     end
   end
