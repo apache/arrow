@@ -156,7 +156,7 @@ jobs:
 
   build-example:
     name: C++ Minimal Build Example
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 45
     steps:
@@ -165,11 +165,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Install CMake 3.25.0
-        shell: bash
-        run: |
-          ci/scripts/install_cmake.sh 3.25.0 /tmp/local/
-          echo "/tmp/local/bin" >> $GITHUB_PATH
       - name: Check CMake presets
         run: |
           cd cpp
@@ -329,11 +324,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Install CMake 3.25.0
-        shell: bash
-        run: |
-          ci/scripts/install_cmake.sh 3.25.0 /c/cmake
-          echo "c:\\cmake\\bin" >> $GITHUB_PATH
       - name: Download Timezone Database
         shell: bash
         run: ci/scripts/download_tz_database.sh
