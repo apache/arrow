@@ -131,7 +131,7 @@ class AssertOrderNode : public ExecNode,
     Ordering ordering = assert_options.ordering;
 
     // check output ordering
-    if (ordering.is_implicit() || ordering.is_unordered()) {
+    if (!ordering.is_explicit()) {
       return Status::Invalid("`ordering` must be explicit");
     }
 
@@ -202,17 +202,18 @@ class AssertOrderNode : public ExecNode,
   Result<std::optional<util::SequencingQueue::Task>> Process(ExecBatch batch) override {
     // check this batch is in order with previous batch, skip entirely for emtpy batches
     if (batch.length > 0) {
-      // extract sort values of current batch
       auto current_record_batch =
           batch.ToRecordBatch(output_schema_, plan_->query_context()->memory_pool())
               .ValueOrDie();
 
       // compare against previous sort values
       if (previous_sort_values_.has_value()) {
-        // check batches are in order
+        // extract sort values of current batch
         ARROW_ASSIGN_OR_RAISE(
             auto current_sort_values,
             ExtractSortKeys(*current_record_batch, 0, ordering_.sort_keys()));
+
+        // check batches are in order
         ARROW_RETURN_NOT_OK(AssertBatchOrder(previous_sort_values_.value(),
                                              current_sort_values, sort_ascs_));
       }
