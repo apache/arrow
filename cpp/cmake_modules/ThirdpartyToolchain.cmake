@@ -5058,10 +5058,10 @@ function(build_awssdk)
   message(STATUS "Building AWS SDK for C++ from source")
 
   set(AWSSDK_PRODUCTS aws-c-common aws-checksums)
-  # s2n-tls only needed on Linux.
+  # aws-lc and s2n-tls only needed on Linux.
   # We can use LINUX with CMake 3.25 or later.
   if(UNIX AND NOT APPLE)
-    list(APPEND AWSSDK_PRODUCTS s2n-tls)
+    list(APPEND AWSSDK_PRODUCTS aws-lc s2n-tls)
   endif()
   list(APPEND
        AWSSDK_PRODUCTS
@@ -5124,6 +5124,14 @@ function(build_awssdk)
       ON
       CACHE BOOL "" FORCE)
   set(USE_OPENSSL
+      ON
+      CACHE BOOL "" FORCE)
+
+  # For s2n-tls
+  set(crypto_STATIC_LIBRARY
+      "$<TARGET_FILE:crypto>"
+      CACHE STRING "" FORCE)
+  set(S2N_INTERN_LIBCRYPTO
       ON
       CACHE BOOL "" FORCE)
 
