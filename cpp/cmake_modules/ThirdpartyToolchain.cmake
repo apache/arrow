@@ -5117,6 +5117,9 @@ function(build_awssdk)
        s3
        sts
        transfer)
+  set(BUILD_TOOL
+      OFF
+      CACHE BOOL "" FORCE)
   set(IN_SOURCE_BUILD
       ON
       CACHE BOOL "" FORCE)
@@ -5124,6 +5127,14 @@ function(build_awssdk)
       ON
       CACHE BOOL "" FORCE)
   set(USE_OPENSSL
+      ON
+      CACHE BOOL "" FORCE)
+
+  # For aws-lc
+  set(DISABLE_PERL
+      ON
+      CACHE BOOL "" FORCE)
+  set(DISABLE_GO
       ON
       CACHE BOOL "" FORCE)
 
