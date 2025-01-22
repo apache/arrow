@@ -1987,7 +1987,8 @@ class ObjectOutputStream final : public io::OutputStream {
     RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key_));
 
     if (!background_writes_) {
-      // (GH-45304: avoid setting a body stream if length is 0)
+      // GH-45304: avoid setting a body stream if length is 0.
+      // This workaround can be removed once we require AWS SDK 1.11.489 or later.
       if (nbytes != 0) {
         req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
       }
@@ -1996,7 +1997,7 @@ class ObjectOutputStream final : public io::OutputStream {
 
       RETURN_NOT_OK(sync_result_callback(req, upload_state_, part_number_, outcome));
     } else {
-      // (GH-45304: avoid setting a body stream if length is 0)
+      // (GH-45304: avoid setting a body stream if length is 0, see above)
       if (nbytes != 0) {
         // If the data isn't owned, make an immutable copy for the lifetime of the closure
         if (owned_buffer == nullptr) {
