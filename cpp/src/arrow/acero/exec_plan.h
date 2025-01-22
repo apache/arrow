@@ -190,7 +190,7 @@ class ARROW_ACERO_EXPORT ExecNode {
   /// checks rows are in a given order and turns the implicit input ordering into an
   /// explicit ordering.  Any out-of-order row will fail the assertion.
   ///
-  /// Finally, as described above, such as a hash-join or aggregation may
+  /// Finally, as described above, nodes such as a hash-join or aggregation may
   /// destroy ordering (although these nodes could also choose to establish a
   /// new ordering based on the hash keys).
   ///
