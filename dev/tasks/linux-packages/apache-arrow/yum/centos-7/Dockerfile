@@ -50,7 +50,6 @@ RUN \
     brotli-devel \
     bzip2-devel \
     ccache \
-    cmake3 \
     curl-devel \
     flex \
     gflags-devel \
@@ -74,6 +73,10 @@ RUN \
     which \
     zlib-devel && \
   yum clean ${quiet} all
+
+ARG cmake=3.25.0
+COPY ../../../../../ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
 
 ENV \
   BOOST_INCLUDEDIR=/usr/include/boost169 \
