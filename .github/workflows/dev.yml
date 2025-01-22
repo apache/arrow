@@ -41,7 +41,7 @@ jobs:
 
   lint:
     name: Lint C++, Python, R, Docker, RAT
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     steps:
@@ -53,11 +53,6 @@ jobs:
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: 3.12
-      - name: Install CMake 3.25.0
-        shell: bash
-        run: |
-          ci/scripts/install_cmake.sh 3.25.0 /tmp/local/
-          echo "/tmp/local/bin" >> $GITHUB_PATH
       - name: Install pre-commit
         run: |
           python -m pip install pre-commit
