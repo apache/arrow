@@ -96,7 +96,7 @@ uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows
         src2 = reinterpret_cast<const __m128i*>(src + fixed_length * 2);
         src3 = reinterpret_cast<const __m128i*>(src + fixed_length * 3);
       } else {
-        const uint8_t* src = rows.fixed_length_rows(/*row_id=*/0) + offset_within_row;
+        const uint8_t* src = rows.var_length_rows() + offset_within_row;
         const RowTableImpl::offset_type* row_offsets = offsets + i * unroll;
         src0 = reinterpret_cast<const __m128i*>(src + row_offsets[0]);
         src1 = reinterpret_cast<const __m128i*>(src + row_offsets[1]);
@@ -138,7 +138,7 @@ uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows
           }
         }
       } else {
-        const uint8_t* src = rows.fixed_length_rows(/*row_id=*/0) + offset_within_row;
+        const uint8_t* src = rows.var_length_rows() + offset_within_row;
         const RowTableImpl::offset_type* row_offsets = offsets + i * unroll;
         for (int j = 0; j < unroll; ++j) {
           if (col_width == 1) {
