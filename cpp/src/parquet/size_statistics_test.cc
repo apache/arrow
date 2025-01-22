@@ -216,6 +216,20 @@ class SizeStatisticsRoundTripTest : public ::testing::Test {
     }
   }
 
+  void ReadData() {
+    auto reader =
+        ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer_));
+    auto metadata = reader->metadata();
+    for (int i = 0; i < metadata->num_row_groups(); ++i) {
+      int64_t num_rows = metadata->RowGroup(i)->num_rows();
+      auto row_group_reader = reader->RowGroup(i);
+      for (int j = 0; j < metadata->num_columns(); ++j) {
+        auto column_reader = row_group_reader->RecordReader(j);
+        ASSERT_EQ(column_reader->ReadRecords(num_rows + 1), num_rows);
+      }
+    }
+  }
+
   void Reset() { buffer_.reset(); }
 
  protected:
@@ -300,23 +314,23 @@ TEST_F(SizeStatisticsRoundTripTest, WriteDictionaryArray) {
   ReadSizeStatistics();
   EXPECT_THAT(row_group_stats_,
               ::testing::ElementsAre(SizeStatistics{/*def_levels=*/{0, 2},
-                                                    /*rep_levels=*/{2},
+                                                    /*rep_levels=*/{},
                                                     /*byte_array_bytes=*/5},
                                      SizeStatistics{/*def_levels=*/{1, 1},
-                                                    /*rep_levels=*/{2},
+                                                    /*rep_levels=*/{},
                                                     /*byte_array_bytes=*/1},
                                      SizeStatistics{/*def_levels=*/{0, 2},
-                                                    /*rep_levels=*/{2},
+                                                    /*rep_levels=*/{},
                                                     /*byte_array_bytes=*/4}));
   EXPECT_THAT(page_stats_,
               ::testing::ElementsAre(PageSizeStatistics{/*def_levels=*/{0, 2},
-                                                        /*rep_levels=*/{2},
+                                                        /*rep_levels=*/{},
                                                         /*byte_array_bytes=*/{5}},
                                      PageSizeStatistics{/*def_levels=*/{1, 1},
-                                                        /*rep_levels=*/{2},
+                                                        /*rep_levels=*/{},
                                                         /*byte_array_bytes=*/{1}},
                                      PageSizeStatistics{/*def_levels=*/{0, 2},
-                                                        /*rep_levels=*/{2},
+                                                        /*rep_levels=*/{},
                                                         /*byte_array_bytes=*/{4}}));
 }
 
@@ -368,12 +382,31 @@ TEST_F(SizeStatisticsRoundTripTest, LargePage) {
   ReadSizeStatistics();
   EXPECT_THAT(row_group_stats_,
               ::testing::ElementsAre(SizeStatistics{/*def_levels=*/{30000, 60000},
-                                                    /*rep_levels=*/{90000},
+                                                    /*rep_levels=*/{},
                                                     /*byte_array_bytes=*/90000}));
   EXPECT_THAT(page_stats_,
               ::testing::ElementsAre(PageSizeStatistics{/*def_levels=*/{30000, 60000},
-                                                        /*rep_levels=*/{90000},
+                                                        /*rep_levels=*/{},
                                                         /*byte_array_bytes=*/{90000}}));
+}
+
+TEST_F(SizeStatisticsRoundTripTest, MaxLevelZero) {
+  auto schema =
+      ::arrow::schema({::arrow::field("a", ::arrow::utf8(), /*nullable=*/false)});
+  WriteFile(SizeStatisticsLevel::PageAndColumnChunk,
+            ::arrow::TableFromJSON(schema, {R"([["foo"],["bar"]])"}),
+            /*max_row_group_length=*/2,
+            /*page_size=*/1024);
+  ASSERT_NO_FATAL_FAILURE(ReadSizeStatistics());
+  ASSERT_NO_FATAL_FAILURE(ReadData());
+  EXPECT_THAT(row_group_stats_,
+              ::testing::ElementsAre(SizeStatistics{/*def_levels=*/{},
+                                                    /*rep_levels=*/{},
+                                                    /*byte_array_bytes=*/6}));
+  EXPECT_THAT(page_stats_,
+              ::testing::ElementsAre(PageSizeStatistics{/*def_levels=*/{},
+                                                        /*rep_levels=*/{},
+                                                        /*byte_array_bytes=*/{6}}));
 }
 
 }  // namespace parquet

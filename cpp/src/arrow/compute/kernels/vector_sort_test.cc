@@ -29,7 +29,7 @@
 #include "arrow/array/array_decimal.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"

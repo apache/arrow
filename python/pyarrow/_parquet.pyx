@@ -1616,16 +1616,16 @@ cdef class ParquetReader(_Weakrefable):
             for index in column_indices:
                 c_column_indices.push_back(index)
             with nogil:
-                check_status(
+                recordbatchreader = GetResultValue(
                     self.reader.get().GetRecordBatchReader(
-                        c_row_groups, c_column_indices, &recordbatchreader
+                        c_row_groups, c_column_indices
                     )
                 )
         else:
             with nogil:
-                check_status(
+                recordbatchreader = GetResultValue(
                     self.reader.get().GetRecordBatchReader(
-                        c_row_groups, &recordbatchreader
+                        c_row_groups
                     )
                 )
 

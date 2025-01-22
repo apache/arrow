@@ -739,7 +739,7 @@ class ParquetIOTestBase : public ::testing::Test {
     ASSERT_OK_NO_THROW(FileWriter::Make(::arrow::default_memory_pool(),
                                         MakeWriter(schema), arrow_schema,
                                         default_arrow_writer_properties(), &writer));
-    ASSERT_OK_NO_THROW(writer->NewRowGroup(values->length()));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup());
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*values));
     ASSERT_OK_NO_THROW(writer->Close());
     // writer->Close() should be idempotent
@@ -1053,7 +1053,7 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredChunkedWrite) {
                                       this->MakeWriter(schema), arrow_schema,
                                       default_arrow_writer_properties(), &writer));
   for (int i = 0; i < 4; i++) {
-    ASSERT_OK_NO_THROW(writer->NewRowGroup(chunk_size));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup());
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*sliced_array));
   }
@@ -1126,7 +1126,7 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
                                       this->MakeWriter(schema), arrow_schema,
                                       default_arrow_writer_properties(), &writer));
   for (int i = 0; i < 4; i++) {
-    ASSERT_OK_NO_THROW(writer->NewRowGroup(chunk_size));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup());
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*sliced_array));
   }
@@ -4371,6 +4371,7 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
             ->data_page_version(this->GetParquetDataPageVersion())
             ->write_batch_size(2)
             ->data_pagesize(2)
+            ->disable_write_page_index()
             ->build();
     std::unique_ptr<FileWriter> writer;
     ASSERT_OK_AND_ASSIGN(
@@ -4476,6 +4477,7 @@ TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
             ->data_page_version(this->GetParquetDataPageVersion())
             ->write_batch_size(3)
             ->data_pagesize(3)
+            ->disable_write_page_index()
             ->build();
     std::unique_ptr<FileWriter> writer;
     ASSERT_OK_AND_ASSIGN(
@@ -5149,7 +5151,7 @@ class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
         ::arrow::default_memory_pool(),
         ParquetFileWriter::Open(this->sink_, schema_node, writer_properties),
         arrow_schema, default_arrow_writer_properties(), &writer));
-    ASSERT_OK_NO_THROW(writer->NewRowGroup(values->length()));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup());
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*values));
     ASSERT_OK_NO_THROW(writer->Close());
   }
@@ -5290,7 +5292,10 @@ TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
   auto pool = ::arrow::default_memory_pool();
   auto sink = CreateOutputStream();
   // Limit the max number of rows in a row group to 10
-  auto writer_properties = WriterProperties::Builder().max_row_group_length(10)->build();
+  auto writer_properties = WriterProperties::Builder()
+                               .max_row_group_length(10)
+                               ->disable_write_page_index()
+                               ->build();
   auto arrow_writer_properties = default_arrow_writer_properties();
 
   // Prepare schema
@@ -5346,7 +5351,7 @@ TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
   ASSERT_EQ(10, file_metadata->RowGroup(0)->num_rows());
   ASSERT_EQ(2, file_metadata->RowGroup(1)->num_rows());
 
-  // Verify that page index is not written by default.
+  // Verify that page index is not written.
   for (int i = 0; i < num_row_groups; ++i) {
     auto row_group_metadata = file_metadata->RowGroup(i);
     for (int j = 0; j < row_group_metadata->num_columns(); ++j) {
@@ -5481,7 +5486,7 @@ TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
   // Operations on closed writer are invalid
   ASSERT_OK(writer->Close());
 
-  ASSERT_RAISES(Invalid, writer->NewRowGroup(1));
+  ASSERT_RAISES(Invalid, writer->NewRowGroup());
   ASSERT_RAISES(Invalid, writer->WriteColumnChunk(table->column(0), 0, 1));
   ASSERT_RAISES(Invalid, writer->NewBufferedRowGroup());
   ASSERT_OK_AND_ASSIGN(auto record_batch, table->CombineChunksToBatch());

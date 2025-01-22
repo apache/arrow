@@ -27,6 +27,7 @@
 #include "arrow/acero/util.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/expression.h"
+#include "arrow/compute/test_util_internal.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -51,8 +52,10 @@ using testing::UnorderedElementsAreArray;
 
 namespace arrow {
 
+using compute::ArgShape;
 using compute::call;
 using compute::CountOptions;
+using compute::ExecBatchFromJSON;
 using compute::field_ref;
 using compute::ScalarAggregateOptions;
 using compute::SortKey;

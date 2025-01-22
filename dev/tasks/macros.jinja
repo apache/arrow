@@ -57,20 +57,11 @@ env:
 {% endmacro %}
 
 {%- macro github_install_archery() -%}
-  - name: Set up Python by actions/setup-python
-    if: |
-      !(runner.os == 'Linux' && runner.arch != 'X64')
+  - name: Set up Python
     uses: actions/setup-python@v4
     with:
       cache: 'pip'
       python-version: 3.12
-  - name: Set up Python by apt
-    if: runner.os == 'Linux' && runner.arch != 'X64'
-    run: |
-      sudo apt update
-      sudo apt-get install -y python3-pip
-      pip install -U pip
-      echo "$HOME/.local/bin" >>"$GITHUB_PATH"
   - name: Install Archery
     shell: bash
     run: pip install -e arrow/dev/archery[all]
@@ -85,21 +76,10 @@ env:
 {% endmacro %}
 
 {%- macro github_upload_releases(pattern) -%}
-  - name: Set up Python by actions/setup-python
-    if: |
-      !(runner.os == 'Linux' && runner.arch != 'X64')
+  - name: Set up Python
     uses: actions/setup-python@v4
     with:
       python-version: 3.12
-  - name: Set up Python by apt
-    if: runner.os == 'Linux' && runner.arch != 'X64'
-    run: |
-      sudo apt update
-      sudo apt install -y \
-        libgit2-dev \
-        libpython3-dev \
-        python3-pip
-      sudo python3 -m pip install --upgrade pip
   - name: Checkout Crossbow
     uses: actions/checkout@v4
     with:
@@ -145,23 +125,11 @@ env:
 
 {%- macro github_upload_gemfury(pattern) -%}
   {%- if arrow.is_default_branch() -%}
-  - name: Set up Ruby by apt
-    if: runner.os == 'Linux' && runner.arch != 'X64'
-    run: |
-      sudo apt update
-      sudo apt install -y ruby-full
-  - name: Set up Ruby by GitHub Actions
-    if: runner.arch == 'X64' && runner.os != 'macOS'
+  - name: Set up Ruby
     uses: ruby/setup-ruby@v1
     with:
       ruby-version: "ruby"
-  - name: Install gemfury client on ARM self-hosted
-    if: runner.arch != 'X64'
-    run: |
-      gem install --user-install gemfury
-      ruby -r rubygems -e 'puts("#{Gem.user_dir}/bin")' >> $GITHUB_PATH
   - name: Install gemfury client
-    if: runner.arch == 'X64'
     run: |
       gem install gemfury
   - name: Upload package to Gemfury

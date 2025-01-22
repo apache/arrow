@@ -35,7 +35,7 @@ project('arrow-glib', 'c', 'cpp',
         #   * 22.04: 0.61.2
         meson_version: '>=0.53.2')
 
-version = '19.0.0-SNAPSHOT'
+version = '20.0.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')
   version_numbers = version.split('-')[0].split('.')
   version_tag = version.split('-')[1]

@@ -63,7 +63,7 @@ if [ "${version}" != "latest" ]; then
 fi
 
 # Use specific versions for minio server and client to avoid CI failures on new releases.
-minio_version="minio.RELEASE.2024-09-13T20-26-02Z"
+minio_version="minio.RELEASE.2025-01-20T14-49-07Z"
 mc_version="mc.RELEASE.2024-09-16T17-43-14Z"
 
 download()

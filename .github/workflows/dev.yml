@@ -124,7 +124,7 @@ jobs:
         shell: bash
         run: |
           gem install test-unit
-          pip install "cython>=0.29.31" setuptools pytest requests setuptools-scm
+          pip install "cython>=3" setuptools pytest requests setuptools-scm
       - name: Run Release Test
         env:
           ARROW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}

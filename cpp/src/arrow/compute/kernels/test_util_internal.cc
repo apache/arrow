@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 
 #include <cstdint>
 #include <memory>
@@ -279,62 +279,6 @@ void CheckScalarBinaryCommutative(std::string func_name, Datum left_input,
                                   const FunctionOptions* options) {
   CheckScalar(func_name, {left_input, right_input}, expected, options);
   CheckScalar(func_name, {right_input, left_input}, expected, options);
-}
-
-namespace {
-
-void ValidateOutputImpl(const ArrayData& output) {
-  ASSERT_OK(::arrow::internal::ValidateArrayFull(output));
-  TestInitialized(output);
-}
-
-void ValidateOutputImpl(const ChunkedArray& output) {
-  ASSERT_OK(output.ValidateFull());
-  for (const auto& chunk : output.chunks()) {
-    TestInitialized(*chunk);
-  }
-}
-
-void ValidateOutputImpl(const RecordBatch& output) {
-  ASSERT_OK(output.ValidateFull());
-  for (const auto& column : output.column_data()) {
-    TestInitialized(*column);
-  }
-}
-
-void ValidateOutputImpl(const Table& output) {
-  ASSERT_OK(output.ValidateFull());
-  for (const auto& column : output.columns()) {
-    for (const auto& chunk : column->chunks()) {
-      TestInitialized(*chunk);
-    }
-  }
-}
-
-void ValidateOutputImpl(const Scalar& output) { ASSERT_OK(output.ValidateFull()); }
-
-}  // namespace
-
-void ValidateOutput(const Datum& output) {
-  switch (output.kind()) {
-    case Datum::ARRAY:
-      ValidateOutputImpl(*output.array());
-      break;
-    case Datum::CHUNKED_ARRAY:
-      ValidateOutputImpl(*output.chunked_array());
-      break;
-    case Datum::RECORD_BATCH:
-      ValidateOutputImpl(*output.record_batch());
-      break;
-    case Datum::TABLE:
-      ValidateOutputImpl(*output.table());
-      break;
-    case Datum::SCALAR:
-      ValidateOutputImpl(*output.scalar());
-      break;
-    default:
-      break;
-  }
 }
 
 void CheckDispatchBest(std::string func_name, std::vector<TypeHolder> original_values,

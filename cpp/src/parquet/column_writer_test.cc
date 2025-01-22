@@ -1774,5 +1774,38 @@ TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
   ASSERT_EQ("bar", value);
 }
 
+TEST_F(TestValuesWriterInt32Type, AllNullsCompressionInPageV2) {
+  // GH-31992: In DataPageV2, the levels and data will not be compressed together,
+  // so, when all values are null, the compressed values should be empty. And
+  // we should handle this case correctly.
+  std::vector<Compression::type> compressions = {Compression::SNAPPY, Compression::GZIP,
+                                                 Compression::ZSTD, Compression::BROTLI,
+                                                 Compression::LZ4};
+  for (auto compression : compressions) {
+    if (!Codec::IsAvailable(compression)) {
+      continue;
+    }
+    ARROW_SCOPED_TRACE("compression = ", Codec::GetCodecAsString(compression));
+    // Optional and non-repeated, with definition levels
+    // but no repetition levels
+    this->SetUpSchema(Repetition::OPTIONAL);
+    this->GenerateData(SMALL_SIZE);
+    std::fill(this->def_levels_.begin(), this->def_levels_.end(), 0);
+    ColumnProperties column_properties;
+    column_properties.set_compression(compression);
+
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                          ParquetDataPageVersion::V2);
+    writer->WriteBatch(this->values_.size(), this->def_levels_.data(), nullptr,
+                       this->values_ptr_);
+    writer->Close();
+
+    ASSERT_EQ(100, this->metadata_num_values());
+    this->ReadColumn(compression);
+    ASSERT_EQ(0, this->values_read_);
+  }
+}
+
 }  // namespace test
 }  // namespace parquet

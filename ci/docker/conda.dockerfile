@@ -21,9 +21,15 @@ FROM ${arch}/ubuntu:22.04
 # install build essentials
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update -y -q && \
-    apt-get install -y -q curl wget tzdata libc6-dbg gdb \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    apt-get install -y -q \
+    curl \
+    gdb \
+    libc6-dbg \
+    patch \
+    tzdata \
+    wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # install conda and mamba via miniforge
 COPY ci/scripts/install_conda.sh /arrow/ci/scripts/

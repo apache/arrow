@@ -122,36 +122,6 @@ struct DummyNode : ExecNode {
 
 }  // namespace
 
-ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types, std::string_view json) {
-  auto fields = ::arrow::internal::MapVector(
-      [](const TypeHolder& th) { return field("", th.GetSharedPtr()); }, types);
-
-  ExecBatch batch{*RecordBatchFromJSON(schema(std::move(fields)), json)};
-
-  return batch;
-}
-
-ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
-                            const std::vector<ArgShape>& shapes, std::string_view json) {
-  DCHECK_EQ(types.size(), shapes.size());
-
-  ExecBatch batch = ExecBatchFromJSON(types, json);
-
-  auto value_it = batch.values.begin();
-  for (ArgShape shape : shapes) {
-    if (shape == ArgShape::SCALAR) {
-      if (batch.length == 0) {
-        *value_it = MakeNullScalar(value_it->type());
-      } else {
-        *value_it = value_it->make_array()->GetScalar(0).ValueOrDie();
-      }
-    }
-    ++value_it;
-  }
-
-  return batch;
-}
-
 Future<> StartAndFinish(ExecPlan* plan) {
   RETURN_NOT_OK(plan->Validate());
   plan->StartProducing();

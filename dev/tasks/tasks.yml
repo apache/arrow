@@ -697,12 +697,14 @@ tasks:
     params:
       run: ubuntu-csharp
     artifacts:
-      - Apache.Arrow.Flight.AspNetCore.{no_rc_version}.nupkg
-      - Apache.Arrow.Flight.AspNetCore.{no_rc_version}.snupkg
-      - Apache.Arrow.Flight.{no_rc_version}.nupkg
-      - Apache.Arrow.Flight.{no_rc_version}.snupkg
       - Apache.Arrow.Compression.{no_rc_version}.nupkg
       - Apache.Arrow.Compression.{no_rc_version}.snupkg
+      - Apache.Arrow.Flight.AspNetCore.{no_rc_version}.nupkg
+      - Apache.Arrow.Flight.AspNetCore.{no_rc_version}.snupkg
+      - Apache.Arrow.Flight.Sql.{no_rc_version}.nupkg
+      - Apache.Arrow.Flight.Sql.{no_rc_version}.snupkg
+      - Apache.Arrow.Flight.{no_rc_version}.nupkg
+      - Apache.Arrow.Flight.{no_rc_version}.snupkg
       - Apache.Arrow.{no_rc_version}.nupkg
       - Apache.Arrow.{no_rc_version}.snupkg
 
@@ -1115,14 +1117,6 @@ tasks:
       env:
         PYTHON: "3.10"
       image: conda-python-substrait
-
-  test-conda-python-3.10-cython2:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: "3.10"
-      image: conda-python-cython2
 
   test-ubuntu-22.04-python-313-freethreading:
     ci: github
