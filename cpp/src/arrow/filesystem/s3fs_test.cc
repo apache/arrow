@@ -526,7 +526,6 @@ class TestS3FS : public S3TestMixin {
     Aws::S3::Model::PutObjectRequest req;
     req.SetBucket(ToAwsString("bucket"));
     req.SetKey(ToAwsString("emptydir/"));
-    req.SetBody(std::make_shared<std::stringstream>(""));
     RETURN_NOT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
     // NOTE: no need to create intermediate "directories" somedir/ and
     // somedir/subdir/
