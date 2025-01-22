@@ -904,9 +904,9 @@ class ScalarEqualsVisitor {
   typename std::enable_if<(is_primitive_ctype<typename T::TypeClass>::value ||
                            is_temporal_type<typename T::TypeClass>::value),
                           Status>::type
-  Visit(const T& left) {
+  Visit(const T& left_) {
     const auto& right = checked_cast<const T&>(right_);
-    result_ = left.value == right.value;
+    result_ = right.value == left_.value;
     return Status::OK();
   }
 
