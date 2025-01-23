@@ -267,7 +267,7 @@ void EncoderInteger::Decode(uint32_t start_row, uint32_t num_rows,
     switch (col_prep.metadata().fixed_length) {
       case 1:
         for (uint32_t i = 0; i < num_rows; ++i) {
-          col_base[i] = *rows.fixed_length_rows(start_row + i);
+          col_base[i] = *rows.fixed_length_rows(start_row + i) + offset_within_row;
         }
         break;
       case 2:
