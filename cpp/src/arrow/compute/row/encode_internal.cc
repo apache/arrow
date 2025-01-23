@@ -872,7 +872,7 @@ void EncoderVarBinary::EncodeSelected(uint32_t ivarbinary, RowTableImpl* rows,
 void EncoderNulls::EncodeSelected(RowTableImpl* rows,
                                   const std::vector<KeyColumnArray>& cols,
                                   uint32_t num_selected, const uint16_t* selection) {
-  uint8_t* null_masks = rows->null_masks(/*row_id=*/0);
+  uint8_t* null_masks = rows->mutable_null_masks(/*row_id=*/0);
   uint32_t null_mask_num_bytes = rows->metadata().null_masks_bytes_per_row;
   memset(null_masks, 0, null_mask_num_bytes * num_selected);
   for (size_t icol = 0; icol < cols.size(); ++icol) {

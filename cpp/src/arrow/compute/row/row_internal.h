@@ -203,7 +203,7 @@ class ARROW_EXPORT RowTableImpl {
   const uint8_t* null_masks(uint32_t row_id) const {
     return data(0) + static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row;
   }
-  uint8_t* null_masks(uint32_t row_id) {
+  uint8_t* mutable_null_masks(uint32_t row_id) {
     return mutable_data(0) +
            static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row;
   }

@@ -569,7 +569,8 @@ void RowArrayMerge::CopyNulls(RowTableImpl* target, const RowTableImpl& source,
   int64_t num_source_rows = source.length();
   int num_bytes_per_row = target->metadata().null_masks_bytes_per_row;
   DCHECK_LE(first_target_row_id, std::numeric_limits<uint32_t>::max());
-  uint8_t* target_nulls = target->null_masks(static_cast<uint32_t>(first_target_row_id));
+  uint8_t* target_nulls =
+      target->mutable_null_masks(static_cast<uint32_t>(first_target_row_id));
   if (!source_rows_permutation) {
     memcpy(target_nulls, source.null_masks(/*row_id=*/0),
            num_bytes_per_row * num_source_rows);
