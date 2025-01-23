@@ -5171,6 +5171,12 @@ function(build_awssdk)
       if("${AWSSDK_PRODUCT}" STREQUAL "aws-lc")
         list(PREPEND AWSSDK_LINK_LIBRARIES ssl)
       elseif("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
+        add_library(s2n_libcrypto_static STATIC IMPORTED)
+        set_target_properties(s2n_libcrypto_static
+                              PROPERTIES IMPORTED_LOCATION
+                                         "${s2n-tls_BINARY_DIR}/s2n_libcrypto.a")
+        add_dependencies(s2n_libcrypto_static s2n_libcrypto)
+        list(PREPEND AWSSDK_LINK_LIBRARIES s2n_libcrypto_static)
         list(PREPEND AWSSDK_LINK_LIBRARIES s2n)
         # Workaround: S2N_INTERN_LIBCRYPTO doesn't support
         # out-of-source build.
