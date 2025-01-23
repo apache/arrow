@@ -307,6 +307,9 @@ ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Constant(
 ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Step(uint32_t start = 0,
                                                           uint32_t step = 1,
                                                           bool signed_int = false);
+
+ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Step64(int64_t start, int64_t step);
+
 /// make a generator that returns a random value
 ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Random(
     std::shared_ptr<DataType> type);

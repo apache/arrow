@@ -47,7 +47,6 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
   const uint32_t null_bit_id =
       ColIdInEncodingOrder(rows, id_col, are_cols_in_encoding_order);
   __m256i pos_after_encoding = _mm256_set1_epi64x(null_bit_id);
-  __m256i bit_in_right = _mm256_set1_epi32(1 << (null_bit_id & 7));
 
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null
@@ -80,7 +79,8 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
       __m128i right_hi = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
                                                 _mm256_srli_epi64(bit_id_hi, 3), 1);
       __m256i right = _mm256_set_m128i(right_hi, right_lo);
-      right = _mm256_and_si256(right, bit_in_right);
+      right = _mm256_and_si256(_mm256_set1_epi32(1),
+                               _mm256_srli_epi32(right, null_bit_id & 7));
       __m256i cmp = _mm256_cmpeq_epi32(right, _mm256_setzero_si256());
       uint32_t result_lo =
           _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(cmp)));
@@ -170,7 +170,8 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
       __m128i right_hi = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
                                                 _mm256_srli_epi64(bit_id_hi, 3), 1);
       __m256i right = _mm256_set_m128i(right_hi, right_lo);
-      right = _mm256_and_si256(right, bit_in_right);
+      right = _mm256_and_si256(_mm256_set1_epi32(1),
+                               _mm256_srli_epi32(right, null_bit_id & 7));
       __m256i right_null = _mm256_cmpeq_epi32(right, _mm256_set1_epi32(1));
 
       uint64_t left_null_64 =
