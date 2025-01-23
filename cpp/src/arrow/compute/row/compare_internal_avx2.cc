@@ -23,6 +23,8 @@
 namespace arrow {
 namespace compute {
 
+namespace {
+
 inline __m256i set_first_n_bytes_avx2(int n) {
   constexpr uint64_t kByteSequence0To7 = 0x0706050403020100ULL;
   constexpr uint64_t kByteSequence8To15 = 0x0f0e0d0c0b0a0908ULL;
@@ -33,6 +35,43 @@ inline __m256i set_first_n_bytes_avx2(int n) {
                            _mm256_setr_epi64x(kByteSequence0To7, kByteSequence8To15,
                                               kByteSequence16To23, kByteSequence24To31));
 }
+
+// Get null bits for 8 32-bit row ids in `row_id32` at `null_bit_id` as a vector of 32-bit
+// integers.
+inline __m256i GetNullBitInt32(const RowTableImpl& rows, uint32_t null_bit_id,
+                               __m256i row_id32) {
+  const uint8_t* null_masks = rows.null_masks(/*row_id=*/0);
+  __m256i null_mask_num_bits =
+      _mm256_set1_epi64x(rows.metadata().null_masks_bytes_per_row * 8);
+  __m256i row_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(row_id32));
+  __m256i row_hi = _mm256_cvtepi32_epi64(_mm256_extracti128_si256(row_id32, 1));
+  __m256i bit_id_lo = _mm256_mul_epi32(row_lo, null_mask_num_bits);
+  __m256i bit_id_hi = _mm256_mul_epi32(row_hi, null_mask_num_bits);
+  bit_id_lo = _mm256_add_epi64(bit_id_lo, _mm256_set1_epi64x(null_bit_id));
+  bit_id_hi = _mm256_add_epi64(bit_id_hi, _mm256_set1_epi64x(null_bit_id));
+  __m128i right_lo = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
+                                            _mm256_srli_epi64(bit_id_lo, 3), 1);
+  __m128i right_hi = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
+                                            _mm256_srli_epi64(bit_id_hi, 3), 1);
+  __m256i right = _mm256_set_m128i(right_hi, right_lo);
+  return _mm256_and_si256(_mm256_set1_epi32(1),
+                          _mm256_srli_epi32(right, null_bit_id & 7));
+}
+
+// Convert 8 64-bit comparision results, each being 0 or -1, to 8 bytes.
+inline uint64_t Cmp64To8(__m256i cmp64_lo, __m256i cmp64_hi) {
+  uint32_t cmp_lo = _mm256_movemask_epi8(cmp64_lo);
+  uint32_t cmp_hi = _mm256_movemask_epi8(cmp64_hi);
+  return cmp_lo | (static_cast<uint64_t>(cmp_hi) << 32);
+}
+
+// Convert 8 32-bit comparision results, each being 0 or -1, to 8 bytes.
+inline uint64_t Cmp32To8(__m256i cmp32) {
+  return Cmp64To8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(cmp32)),
+                  _mm256_cvtepi32_epi64(_mm256_extracti128_si256(cmp32, 1)));
+}
+
+}  // namespace
 
 template <bool use_selection>
 uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
@@ -46,13 +85,9 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
 
   const uint32_t null_bit_id =
       ColIdInEncodingOrder(rows, id_col, are_cols_in_encoding_order);
-  __m256i pos_after_encoding = _mm256_set1_epi64x(null_bit_id);
 
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null
-    const uint8_t* null_masks = rows.null_masks(/*row_id=*/0);
-    uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
-
     uint32_t num_processed = 0;
     constexpr uint32_t unroll = 8;
     for (uint32_t i = 0; i < num_rows_to_compare / unroll; ++i) {
@@ -65,29 +100,9 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
         irow_right =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_to_right_map) + i);
       }
-      __m256i irow_right_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(irow_right));
-      __m256i irow_right_hi =
-          _mm256_cvtepi32_epi64(_mm256_extracti128_si256(irow_right, 1));
-      __m256i bit_id_lo =
-          _mm256_mul_epi32(irow_right_lo, _mm256_set1_epi64x(null_mask_num_bytes * 8));
-      __m256i bit_id_hi =
-          _mm256_mul_epi32(irow_right_hi, _mm256_set1_epi64x(null_mask_num_bytes * 8));
-      bit_id_lo = _mm256_add_epi64(bit_id_lo, pos_after_encoding);
-      bit_id_hi = _mm256_add_epi64(bit_id_hi, pos_after_encoding);
-      __m128i right_lo = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
-                                                _mm256_srli_epi64(bit_id_lo, 3), 1);
-      __m128i right_hi = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
-                                                _mm256_srli_epi64(bit_id_hi, 3), 1);
-      __m256i right = _mm256_set_m128i(right_hi, right_lo);
-      right = _mm256_and_si256(_mm256_set1_epi32(1),
-                               _mm256_srli_epi32(right, null_bit_id & 7));
+      __m256i right = GetNullBitInt32(rows, null_bit_id, irow_right);
       __m256i cmp = _mm256_cmpeq_epi32(right, _mm256_setzero_si256());
-      uint32_t result_lo =
-          _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(cmp)));
-      uint32_t result_hi =
-          _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_extracti128_si256(cmp, 1)));
-      reinterpret_cast<uint64_t*>(match_bytevector)[i] &=
-          result_lo | (static_cast<uint64_t>(result_hi) << 32);
+      reinterpret_cast<uint64_t*>(match_bytevector)[i] &= Cmp32To8(cmp);
     }
     num_processed = num_rows_to_compare / unroll * unroll;
     return num_processed;
@@ -116,18 +131,11 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
         __m256i bits = _mm256_setr_epi32(1, 2, 4, 8, 16, 32, 64, 128);
         cmp = _mm256_cmpeq_epi32(_mm256_and_si256(left, bits), bits);
       }
-      uint32_t result_lo =
-          _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(cmp)));
-      uint32_t result_hi =
-          _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_extracti128_si256(cmp, 1)));
-      reinterpret_cast<uint64_t*>(match_bytevector)[i] &=
-          result_lo | (static_cast<uint64_t>(result_hi) << 32);
-      num_processed = num_rows_to_compare / unroll * unroll;
+      reinterpret_cast<uint64_t*>(match_bytevector)[i] &= Cmp32To8(cmp);
     }
+    num_processed = num_rows_to_compare / unroll * unroll;
     return num_processed;
   } else {
-    const uint8_t* null_masks = rows.null_masks(/*row_id=*/0);
-    uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
     const uint8_t* non_nulls = col.data(0);
     ARROW_DCHECK(non_nulls);
 
@@ -156,37 +164,11 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
         left_null =
             _mm256_cmpeq_epi32(_mm256_and_si256(left, bits), _mm256_setzero_si256());
       }
-      __m256i irow_right_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(irow_right));
-      __m256i irow_right_hi =
-          _mm256_cvtepi32_epi64(_mm256_extracti128_si256(irow_right, 1));
-      __m256i bit_id_lo =
-          _mm256_mul_epi32(irow_right_lo, _mm256_set1_epi64x(null_mask_num_bytes * 8));
-      __m256i bit_id_hi =
-          _mm256_mul_epi32(irow_right_hi, _mm256_set1_epi64x(null_mask_num_bytes * 8));
-      bit_id_lo = _mm256_add_epi64(bit_id_lo, pos_after_encoding);
-      bit_id_hi = _mm256_add_epi64(bit_id_hi, pos_after_encoding);
-      __m128i right_lo = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
-                                                _mm256_srli_epi64(bit_id_lo, 3), 1);
-      __m128i right_hi = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
-                                                _mm256_srli_epi64(bit_id_hi, 3), 1);
-      __m256i right = _mm256_set_m128i(right_hi, right_lo);
-      right = _mm256_and_si256(_mm256_set1_epi32(1),
-                               _mm256_srli_epi32(right, null_bit_id & 7));
+      __m256i right = GetNullBitInt32(rows, null_bit_id, irow_right);
       __m256i right_null = _mm256_cmpeq_epi32(right, _mm256_set1_epi32(1));
 
-      uint64_t left_null_64 =
-          static_cast<uint32_t>(_mm256_movemask_epi8(
-              _mm256_cvtepi32_epi64(_mm256_castsi256_si128(left_null)))) |
-          (static_cast<uint64_t>(static_cast<uint32_t>(_mm256_movemask_epi8(
-               _mm256_cvtepi32_epi64(_mm256_extracti128_si256(left_null, 1)))))
-           << 32);
-
-      uint64_t right_null_64 =
-          static_cast<uint32_t>(_mm256_movemask_epi8(
-              _mm256_cvtepi32_epi64(_mm256_castsi256_si128(right_null)))) |
-          (static_cast<uint64_t>(static_cast<uint32_t>(_mm256_movemask_epi8(
-               _mm256_cvtepi32_epi64(_mm256_extracti128_si256(right_null, 1)))))
-           << 32);
+      uint64_t left_null_64 = Cmp32To8(left_null);
+      uint64_t right_null_64 = Cmp32To8(right_null);
 
       reinterpret_cast<uint64_t*>(match_bytevector)[i] |= left_null_64 & right_null_64;
       reinterpret_cast<uint64_t*>(match_bytevector)[i] &= ~(left_null_64 ^ right_null_64);
@@ -338,12 +320,7 @@ inline uint64_t CompareSelected8_avx2(const uint8_t* left_base, const uint8_t* r
 
   __m256i cmp = _mm256_cmpeq_epi32(left, right);
 
-  uint32_t result_lo =
-      _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(cmp)));
-  uint32_t result_hi =
-      _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_extracti128_si256(cmp, 1)));
-
-  return result_lo | (static_cast<uint64_t>(result_hi) << 32);
+  return Cmp32To8(cmp);
 }
 
 template <int column_width>
@@ -389,12 +366,7 @@ inline uint64_t Compare8_avx2(const uint8_t* left_base, const uint8_t* right_bas
 
   __m256i cmp = _mm256_cmpeq_epi32(left, right);
 
-  uint32_t result_lo =
-      _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(cmp)));
-  uint32_t result_hi =
-      _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_extracti128_si256(cmp, 1)));
-
-  return result_lo | (static_cast<uint64_t>(result_hi) << 32);
+  return Cmp32To8(cmp);
 }
 
 template <bool use_selection>
@@ -419,9 +391,9 @@ inline uint64_t Compare8_64bit_avx2(const uint8_t* left_base, const uint8_t* rig
       reinterpret_cast<const arrow::util::int64_for_gather_t*>(right_base);
   __m256i right_lo = _mm256_i64gather_epi64(right_base_i64, offset_right_lo, 1);
   __m256i right_hi = _mm256_i64gather_epi64(right_base_i64, offset_right_hi, 1);
-  uint32_t result_lo = _mm256_movemask_epi8(_mm256_cmpeq_epi64(left_lo, right_lo));
-  uint32_t result_hi = _mm256_movemask_epi8(_mm256_cmpeq_epi64(left_hi, right_hi));
-  return result_lo | (static_cast<uint64_t>(result_hi) << 32);
+  __m256i cmp_lo = _mm256_cmpeq_epi64(left_lo, right_lo);
+  __m256i cmp_hi = _mm256_cmpeq_epi64(left_hi, right_hi);
+  return Cmp64To8(cmp_lo, cmp_hi);
 }
 
 template <bool use_selection>
