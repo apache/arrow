@@ -634,9 +634,8 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
             kParquetTypeName, options.get(), default_fragment_scan_options));
     int batch_readahead = options->batch_readahead;
     int64_t rows_to_readahead = batch_readahead * options->batch_size;
-    // Modified this to pass the executor in scan_options instead of always using the
+    // Use the executor in scan_options instead of always using the
     // default CPU thread pool.
-    // XXX Should we get it from options->fragment_scan_options instead??
     auto cpu_executor = options->exec_context.executor()
                             ? options->exec_context.executor()
                             : ::arrow::internal::GetCpuThreadPool();
