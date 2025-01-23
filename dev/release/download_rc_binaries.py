@@ -280,7 +280,7 @@ def download_rc_binaries(version, rc_number, re_match=None, dest=None,
         if package_type == 'jars':
             downloader = Maven()
             prefix = ''
-        elif package_type == 'github':
+        elif package_type == 'github' or package_type == 'nuget':
             downloader = GitHub(repository, tag)
             prefix = ''
             filter = None

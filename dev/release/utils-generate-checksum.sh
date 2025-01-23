@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,29 +17,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-{% import 'macros.jinja' as macros with context %}
+set -e
+set -u
+set -o pipefail
 
-{{ macros.github_header() }}
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <artifact>"
+  exit 1
+fi
 
-jobs:
-  package:
-    name: Package
-    runs-on: ubuntu-latest
-    steps:
-      {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.github_install_archery()|indent }}
+artifact="$1"
 
-      - name: Prepare version
-        run: |
-          sed -i'' -E -e \
-            "s/^    <Version>.+<\/Version>/    <Version>{{ arrow.no_rc_semver_version }}<\/Version>/" \
-            arrow/csharp/Directory.Build.props
-      - name: Build package
-        run: |
-          pushd arrow
-          archery docker run {{ run }}
-          popd
+if type shasum >/dev/null 2>&1; then
+  sha256_generate="shasum -a 256"
+  sha512_generate="shasum -a 512"
+else
+  sha256_generate="sha256sum"
+  sha512_generate="sha512sum"
+fi
 
-      {% set patterns = ["arrow/csharp/artifacts/**/*.nupkg",
-                         "arrow/csharp/artifacts/**/*.snupkg"] %}
-      {{ macros.github_upload_releases(patterns)|indent }}
+${sha256_generate} "${artifact}" > "${artifact}.sha256"
+${sha512_generate} "${artifact}" > "${artifact}.sha512"
