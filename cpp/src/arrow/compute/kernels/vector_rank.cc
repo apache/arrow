@@ -166,8 +166,6 @@ class SortAndMarkDuplicate : public TypeVisitor {
 
 // A helper class that emits rankings for the "rank_quantile" function
 struct QuantileRanker {
-  explicit QuantileRanker(double factor) : factor_(factor) {}
-
   Result<Datum> CreateRankings(ExecContext* ctx, const NullPartitionResult& sorted) {
     const int64_t length = sorted.overall_end() - sorted.overall_begin();
     ARROW_ASSIGN_OR_RAISE(auto rankings,
@@ -189,7 +187,7 @@ struct QuantileRanker {
       }
       // The run length, i.e. the frequency of the current value
       int64_t freq = run_end - it;
-      double quantile = (cum_freq + 0.5 * freq) * factor_ / static_cast<double>(length);
+      double quantile = (cum_freq + 0.5 * freq) / static_cast<double>(length);
       // Output quantile rank values
       for (; it < run_end; ++it) {
         out_begin[original_index(*it)] = quantile;
@@ -199,9 +197,6 @@ struct QuantileRanker {
     DCHECK_EQ(cum_freq, length);
     return Datum(rankings);
   }
-
- private:
-  const double factor_;
 };
 
 // A helper class that emits rankings for the "rank" function
@@ -292,10 +287,11 @@ const FunctionDoc rank_quantile_doc(
      "are therefore sorted at the end of the input. For floating-point types,\n"
      "NaNs are considered greater than any other non-null value, but smaller\n"
      "than null values.\n"
-     "Results are computed as in https://en.wikipedia.org/wiki/Quantile_rank\n"
+     "The results are real values strictly between 0 and 1. They are\n"
+     "computed as in https://en.wikipedia.org/wiki/Quantile_rank\n"
+     "but without multiplying by 100.\n"
      "\n"
-     "The handling of nulls and NaNs, and the constant factor can be changed\n"
-     "in RankQuantileOptions."),
+     "The handling of nulls and NaNs can be changed in RankQuantileOptions."),
     {"input"}, "RankQuantileOptions");
 
 template <typename Derived>
@@ -375,9 +371,7 @@ class RankQuantileMetaFunction : public RankMetaFunctionBase<RankQuantileMetaFun
 
   static bool NeedsDuplicates(const RankQuantileOptions&) { return true; }
 
-  static RankerType GetRanker(const RankQuantileOptions& options) {
-    return RankerType(options.factor);
-  }
+  static RankerType GetRanker(const RankQuantileOptions& options) { return RankerType(); }
 
   RankQuantileMetaFunction()
       : RankMetaFunctionBase("rank_quantile", Arity::Unary(), rank_quantile_doc,

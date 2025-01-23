@@ -2472,10 +2472,10 @@ TEST_F(TestRank, EmptyChunks) {
 class TestRankQuantile : public BaseTestRank {
  public:
   void AssertRankQuantile(const DatumVector& datums, SortOrder order,
-                          NullPlacement null_placement, double factor,
+                          NullPlacement null_placement,
                           const std::shared_ptr<Array>& expected) {
     const std::vector<SortKey> sort_keys{SortKey("foo", order)};
-    RankQuantileOptions options(sort_keys, null_placement, factor);
+    RankQuantileOptions options(sort_keys, null_placement);
     ARROW_SCOPED_TRACE("options = ", options.ToString());
     for (const auto& datum : datums) {
       ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank_quantile", {datum}, &options));
@@ -2485,36 +2485,29 @@ class TestRankQuantile : public BaseTestRank {
   }
 
   void AssertRankQuantile(const DatumVector& datums, SortOrder order,
-                          NullPlacement null_placement, double factor,
-                          const std::string& expected) {
-    AssertRankQuantile(datums, order, null_placement, factor,
-                       ArrayFromJSON(float64(), expected));
+                          NullPlacement null_placement, const std::string& expected) {
+    AssertRankQuantile(datums, order, null_placement, ArrayFromJSON(float64(), expected));
   }
 
-  void AssertRankQuantile(SortOrder order, NullPlacement null_placement, double factor,
+  void AssertRankQuantile(SortOrder order, NullPlacement null_placement,
                           const std::shared_ptr<Array>& expected) {
-    AssertRankQuantile(datums_, order, null_placement, factor, expected);
+    AssertRankQuantile(datums_, order, null_placement, expected);
   }
 
-  void AssertRankQuantile(SortOrder order, NullPlacement null_placement, double factor,
+  void AssertRankQuantile(SortOrder order, NullPlacement null_placement,
                           const std::string& expected) {
-    AssertRankQuantile(datums_, order, null_placement, factor,
+    AssertRankQuantile(datums_, order, null_placement,
                        ArrayFromJSON(float64(), expected));
   }
 
   void AssertRankQuantileEmpty(std::shared_ptr<DataType> type) {
     for (auto null_placement : AllNullPlacements()) {
       for (auto order : AllOrders()) {
-        AssertRankQuantile({ArrayFromJSON(type, "[]")}, order, null_placement,
-                           /*factor=*/1.0, "[]");
+        AssertRankQuantile({ArrayFromJSON(type, "[]")}, order, null_placement, "[]");
         AssertRankQuantile({ArrayFromJSON(type, "[null]")}, order, null_placement,
-                           /*factor=*/1.0, "[0.5]");
-        AssertRankQuantile({ArrayFromJSON(type, "[null]")}, order, null_placement,
-                           /*factor=*/10.0, "[5]");
+                           "[0.5]");
         AssertRankQuantile({ArrayFromJSON(type, "[null, null, null]")}, order,
-                           null_placement, /*factor=*/1.0, "[0.5, 0.5, 0.5]");
-        AssertRankQuantile({ArrayFromJSON(type, "[null, null, null]")}, order,
-                           null_placement, /*factor=*/100.0, "[50, 50, 50]");
+                           null_placement, "[0.5, 0.5, 0.5]");
       }
     }
   }
@@ -2522,22 +2515,22 @@ class TestRankQuantile : public BaseTestRank {
   // Expecting an input ordered like [1, 2, 1, 2, 1]
   void AssertRankQuantile_12121() {
     for (auto null_placement : AllNullPlacements()) {
-      AssertRankQuantile(SortOrder::Ascending, null_placement, /*factor=*/100.0,
-                         "[30.0, 80.0, 30.0, 80.0, 30.0]");
-      AssertRankQuantile(SortOrder::Descending, null_placement, /*factor=*/100.0,
-                         "[70.0, 20.0, 70.0, 20.0, 70.0]");
+      AssertRankQuantile(SortOrder::Ascending, null_placement,
+                         "[0.3, 0.8, 0.3, 0.8, 0.3]");
+      AssertRankQuantile(SortOrder::Descending, null_placement,
+                         "[0.7, 0.2, 0.7, 0.2, 0.7]");
     }
   }
 
   // Expecting an input ordered like [null, 1, null, 2, null]
   void AssertRankQuantile_N1N2N() {
-    AssertRankQuantile(SortOrder::Ascending, NullPlacement::AtStart, /*factor=*/1.0,
+    AssertRankQuantile(SortOrder::Ascending, NullPlacement::AtStart,
                        "[0.3, 0.7, 0.3, 0.9, 0.3]");
-    AssertRankQuantile(SortOrder::Ascending, NullPlacement::AtEnd, /*factor=*/1.0,
+    AssertRankQuantile(SortOrder::Ascending, NullPlacement::AtEnd,
                        "[0.7, 0.1, 0.7, 0.3, 0.7]");
-    AssertRankQuantile(SortOrder::Descending, NullPlacement::AtStart, /*factor=*/1.0,
+    AssertRankQuantile(SortOrder::Descending, NullPlacement::AtStart,
                        "[0.3, 0.9, 0.3, 0.7, 0.3]");
-    AssertRankQuantile(SortOrder::Descending, NullPlacement::AtEnd, /*factor=*/1.0,
+    AssertRankQuantile(SortOrder::Descending, NullPlacement::AtEnd,
                        "[0.7, 0.3, 0.7, 0.1, 0.7]");
   }
 
@@ -2548,14 +2541,10 @@ class TestRankQuantile : public BaseTestRank {
     // Reproduce the example from https://en.wikipedia.org/wiki/Percentile_rank
     SetInput(ArrayFromJSON(type, "[7, 5, 5, 4, 4, 3, 3, 3, 2, 1]"));
     for (auto null_placement : AllNullPlacements()) {
-      AssertRankQuantile(SortOrder::Ascending, null_placement, /*factor=*/10.0,
-                         "[9.5, 8.0, 8.0, 6.0, 6.0, 3.5, 3.5, 3.5, 1.5, 0.5]");
-      AssertRankQuantile(SortOrder::Ascending, null_placement, /*factor=*/100.0,
-                         "[95, 80, 80, 60, 60, 35, 35, 35, 15, 5]");
-      AssertRankQuantile(SortOrder::Descending, null_placement, /*factor=*/10.0,
-                         "[0.5, 2.0, 2.0, 4.0, 4.0, 6.5, 6.5, 6.5, 8.5, 9.5]");
-      AssertRankQuantile(SortOrder::Descending, null_placement, /*factor=*/100.0,
-                         "[5, 20, 20, 40, 40, 65, 65, 65, 85, 95]");
+      AssertRankQuantile(SortOrder::Ascending, null_placement,
+                         "[0.95, 0.8, 0.8, 0.6, 0.6, 0.35, 0.35, 0.35, 0.15, 0.05]");
+      AssertRankQuantile(SortOrder::Descending, null_placement,
+                         "[0.05, 0.2, 0.2, 0.4, 0.4, 0.65, 0.65, 0.65, 0.85, 0.95]");
     }
 
     // With nulls

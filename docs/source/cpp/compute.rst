@@ -1827,9 +1827,7 @@ in the respective option classes.
 
 * \(4) The output is a one-based numerical array of ranks.
 
-* \(5) The output is an array of quantiles between 0 and a constant *factor*.
-  The *factor* can be configured in :class:`RankQuantileOptions`
-  (use 100.0 for a percentile rank).
+* \(5) The output is an array of quantiles strictly between 0 and 1.
 
 * \(6) The input can be an array, chunked array, record batch or
   table. If the input is a record batch or table, one or more sort
