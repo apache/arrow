@@ -40,6 +40,7 @@
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/config.h"
+#include "arrow/util/deduplicate_internal.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/task_group.h"
@@ -291,6 +292,16 @@ class AsyncScanner : public Scanner, public std::enable_shared_from_this<AsyncSc
   std::shared_ptr<Dataset> dataset_;
 };
 
+void DeduplicateSchema(std::shared_ptr<RecordBatch>* batch) {
+  const auto& schema = (*batch)->schema();
+  auto deduplicated_schema = ::arrow::util::Deduplicate(schema);
+  if (deduplicated_schema != schema) {
+    // TODO ReplaceSchema creates a new RecordBatch object,
+    // should have an in-place RecordBatch::DeduplicateSchema
+    *batch = (*batch)->ReplaceSchema(deduplicated_schema).ValueOrDie();
+  }
+}
+
 Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
     const Enumerated<std::shared_ptr<Fragment>>& fragment,
     const std::shared_ptr<ScanOptions>& options) {
@@ -318,10 +329,11 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
       RecordBatch::Make(options->dataset_schema, /*num_rows=*/0, std::move(columns)));
   auto enumerated_batch_gen = MakeEnumeratedGenerator(std::move(batch_gen));
 
-  auto combine_fn =
-      [fragment](const Enumerated<std::shared_ptr<RecordBatch>>& record_batch) {
-        return EnumeratedRecordBatch{record_batch, fragment};
-      };
+  auto combine_fn = [fragment](Enumerated<std::shared_ptr<RecordBatch>> record_batch) {
+    EnumeratedRecordBatch out{record_batch, fragment};
+    DeduplicateSchema(&out.record_batch.value);
+    return out;
+  };
 
   return MakeMappedGenerator(enumerated_batch_gen, std::move(combine_fn));
 }
@@ -423,6 +435,7 @@ Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
   out.record_batch.last = batch->values[num_fields + 2].scalar_as<BooleanScalar>().value;
   ARROW_ASSIGN_OR_RAISE(out.record_batch.value,
                         batch->ToRecordBatch(options.projected_schema, options.pool));
+  DeduplicateSchema(&out.record_batch.value);
   return out;
 }
 

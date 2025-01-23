@@ -516,6 +516,7 @@ set(ARROW_UTIL_SRCS
     util/crc32.cc
     util/debug.cc
     util/decimal.cc
+    util/deduplicate_internal.cc
     util/delimiting.cc
     util/dict_util.cc
     util/fixed_width_internal.cc
