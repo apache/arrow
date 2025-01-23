@@ -220,34 +220,6 @@ class ConstantGenerator : public ArrayGenerator {
   std::shared_ptr<Scalar> value_;
 };
 
-class StepGenerator64 : public ArrayGenerator {
- public:
-  StepGenerator64(int64_t start, int64_t step) : start_(start), step_(step) {}
-
-  template <typename BuilderType, typename CType>
-  Result<std::shared_ptr<Array>> DoGenerate(int64_t num_rows) {
-    BuilderType builder;
-    ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
-    CType val = start_;
-    for (int64_t i = 0; i < num_rows; i++) {
-      builder.UnsafeAppend(val);
-      val += step_;
-    }
-    start_ = val;
-    return builder.Finish();
-  }
-
-  Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
-    return DoGenerate<Int64Builder, int64_t>(num_rows);
-  }
-
-  std::shared_ptr<DataType> type() const override { return int64(); }
-
- private:
-  int64_t start_;
-  int64_t step_;
-};
-
 class StepGenerator : public ArrayGenerator {
  public:
   StepGenerator(uint32_t start, uint32_t step, bool signed_int)
@@ -435,10 +407,6 @@ std::shared_ptr<ArrayGenerator> Constant(std::shared_ptr<Scalar> value) {
 
 std::shared_ptr<ArrayGenerator> Step(uint32_t start, uint32_t step, bool signed_int) {
   return std::make_shared<StepGenerator>(start, step, signed_int);
-}
-
-std::shared_ptr<ArrayGenerator> Step64(int64_t start, int64_t step) {
-  return std::make_shared<StepGenerator64>(start, step);
 }
 
 std::shared_ptr<ArrayGenerator> Random(std::shared_ptr<DataType> type) {

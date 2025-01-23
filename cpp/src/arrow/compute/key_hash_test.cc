@@ -24,7 +24,6 @@
 
 #include "arrow/array/builder_binary.h"
 #include "arrow/compute/key_hash_internal.h"
-#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -361,66 +360,6 @@ TEST(VectorHash, HashBatchTempStackUsage) {
       }
     }
   }
-}
-
-TEST(VectorHash, HashMax) {
-  MemoryPool* pool = default_memory_pool();
-  const int64_t start = 0xFFFFFFF;
-  const int64_t num_rows = 0xFFFFFFF;
-
-  ASSERT_OK_AND_ASSIGN(auto arr, arrow::gen::Step64(start, 1)->Generate(num_rows));
-  ExecBatch batch({arr}, num_rows);
-  // ExecBatch batch({arr, arr, arr}, num_rows);
-
-  std::vector<KeyColumnArray> column_arrays;
-  ASSERT_OK(ColumnArraysFromExecBatch(batch, &column_arrays));
-
-  const auto hardware_flags_for_testing = HardwareFlagsForTesting();
-  ASSERT_GT(hardware_flags_for_testing.size(), 0);
-
-  std::vector<uint32_t> hashes(num_rows);
-  TempVectorStack stack;
-  ASSERT_OK(stack.Init(pool, Hashing32::kHashBatchTempStackUsage));
-  ASSERT_OK(Hashing32::HashBatch(batch, hashes.data(), column_arrays,
-                                 hardware_flags_for_testing[0], &stack,
-                                 /*start_rows=*/0, num_rows));
-
-  auto max_it = std::max_element(hashes.begin(), hashes.end());
-  auto max_i = (max_it - hashes.begin()) + start;
-  auto max_hash = *max_it;
-  std::cout << "Max integer: " << max_i << std::endl;
-  std::cout << "Max hash: " << std::uppercase << std::hex << max_hash << std::endl;
-}
-
-TEST(VectorHash, HashSmall) {
-  MemoryPool* pool = default_memory_pool();
-  const int64_t start[3] = {88506230299LL, 16556030299LL, 11240299};
-  const int64_t num_rows = 0x1;
-
-  std::vector<std::shared_ptr<Array>> arrs(3);
-  for (int i = 0; i < 3; ++i) {
-    ASSERT_OK_AND_ASSIGN(arrs[i], arrow::gen::Step64(start[i], 1)->Generate(num_rows));
-  }
-  ExecBatch batch({arrs[0], arrs[1], arrs[2]}, num_rows);
-
-  std::vector<KeyColumnArray> column_arrays;
-  ASSERT_OK(ColumnArraysFromExecBatch(batch, &column_arrays));
-
-  const auto hardware_flags_for_testing = HardwareFlagsForTesting();
-  ASSERT_GT(hardware_flags_for_testing.size(), 0);
-
-  std::vector<uint32_t> hashes(num_rows);
-  TempVectorStack stack;
-  ASSERT_OK(stack.Init(pool, Hashing32::kHashBatchTempStackUsage));
-  ASSERT_OK(Hashing32::HashBatch(batch, hashes.data(), column_arrays,
-                                 hardware_flags_for_testing[0], &stack,
-                                 /*start_rows=*/0, num_rows));
-
-  auto max_it = std::max_element(hashes.begin(), hashes.end());
-  auto max_i = (max_it - hashes.begin()) + start;
-  auto max_hash = *max_it;
-  std::cout << "Max integer: " << max_i << std::endl;
-  std::cout << "Max hash: " << std::uppercase << std::hex << max_hash << std::endl;
 }
 
 }  // namespace compute
