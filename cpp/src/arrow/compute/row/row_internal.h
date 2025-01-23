@@ -208,9 +208,7 @@ class ARROW_EXPORT RowTableImpl {
            static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row;
   }
   inline bool is_null(uint32_t row_id, uint32_t col_pos) const {
-    return bit_util::GetBit(
-        null_masks_->data(),
-        static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row * 8 + col_pos);
+    return bit_util::GetBit(null_masks(row_id), col_pos);
   }
 
   inline const uint8_t* fixed_length_rows(uint32_t row_id) const {

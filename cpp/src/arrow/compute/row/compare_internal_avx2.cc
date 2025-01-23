@@ -46,6 +46,8 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
 
   const uint32_t null_bit_id =
       ColIdInEncodingOrder(rows, id_col, are_cols_in_encoding_order);
+  __m256i pos_after_encoding = _mm256_set1_epi64x(null_bit_id);
+  __m256i bit_in_right = _mm256_set1_epi32(1 << (null_bit_id & 7));
 
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null
@@ -64,15 +66,21 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
         irow_right =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_to_right_map) + i);
       }
-      // TODO: Fix this.
-      __m256i bitid =
-          _mm256_mullo_epi32(irow_right, _mm256_set1_epi32(null_mask_num_bytes * 8));
-      bitid = _mm256_add_epi32(bitid, _mm256_set1_epi32(null_bit_id));
-      __m256i right =
-          _mm256_i32gather_epi32((const int*)null_masks, _mm256_srli_epi32(bitid, 3), 1);
-      right = _mm256_and_si256(
-          _mm256_set1_epi32(1),
-          _mm256_srlv_epi32(right, _mm256_and_si256(bitid, _mm256_set1_epi32(7))));
+      __m256i irow_right_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(irow_right));
+      __m256i irow_right_hi =
+          _mm256_cvtepi32_epi64(_mm256_extracti128_si256(irow_right, 1));
+      __m256i bit_id_lo =
+          _mm256_mul_epi32(irow_right_lo, _mm256_set1_epi64x(null_mask_num_bytes * 8));
+      __m256i bit_id_hi =
+          _mm256_mul_epi32(irow_right_hi, _mm256_set1_epi64x(null_mask_num_bytes * 8));
+      bit_id_lo = _mm256_add_epi64(bit_id_lo, pos_after_encoding);
+      bit_id_hi = _mm256_add_epi64(bit_id_hi, pos_after_encoding);
+      __m128i right_lo = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
+                                                _mm256_srli_epi64(bit_id_lo, 3), 1);
+      __m128i right_hi = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
+                                                _mm256_srli_epi64(bit_id_hi, 3), 1);
+      __m256i right = _mm256_set_m128i(right_hi, right_lo);
+      right = _mm256_and_si256(right, bit_in_right);
       __m256i cmp = _mm256_cmpeq_epi32(right, _mm256_setzero_si256());
       uint32_t result_lo =
           _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(cmp)));
@@ -148,15 +156,21 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
         left_null =
             _mm256_cmpeq_epi32(_mm256_and_si256(left, bits), _mm256_setzero_si256());
       }
-      // TODO: Fix this.
-      __m256i bitid =
-          _mm256_mullo_epi32(irow_right, _mm256_set1_epi32(null_mask_num_bytes * 8));
-      bitid = _mm256_add_epi32(bitid, _mm256_set1_epi32(null_bit_id));
-      __m256i right =
-          _mm256_i32gather_epi32((const int*)null_masks, _mm256_srli_epi32(bitid, 3), 1);
-      right = _mm256_and_si256(
-          _mm256_set1_epi32(1),
-          _mm256_srlv_epi32(right, _mm256_and_si256(bitid, _mm256_set1_epi32(7))));
+      __m256i irow_right_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(irow_right));
+      __m256i irow_right_hi =
+          _mm256_cvtepi32_epi64(_mm256_extracti128_si256(irow_right, 1));
+      __m256i bit_id_lo =
+          _mm256_mul_epi32(irow_right_lo, _mm256_set1_epi64x(null_mask_num_bytes * 8));
+      __m256i bit_id_hi =
+          _mm256_mul_epi32(irow_right_hi, _mm256_set1_epi64x(null_mask_num_bytes * 8));
+      bit_id_lo = _mm256_add_epi64(bit_id_lo, pos_after_encoding);
+      bit_id_hi = _mm256_add_epi64(bit_id_hi, pos_after_encoding);
+      __m128i right_lo = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
+                                                _mm256_srli_epi64(bit_id_lo, 3), 1);
+      __m128i right_hi = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
+                                                _mm256_srli_epi64(bit_id_hi, 3), 1);
+      __m256i right = _mm256_set_m128i(right_hi, right_lo);
+      right = _mm256_and_si256(right, bit_in_right);
       __m256i right_null = _mm256_cmpeq_epi32(right, _mm256_set1_epi32(1));
 
       uint64_t left_null_64 =
