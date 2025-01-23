@@ -195,6 +195,25 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   Tiebreaker tiebreaker;
 };
 
+/// \brief Quantile rank options
+class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
+ public:
+  explicit RankQuantileOptions(std::vector<SortKey> sort_keys = {},
+                               NullPlacement null_placement = NullPlacement::AtEnd);
+  /// Convenience constructor for array inputs
+  explicit RankQuantileOptions(SortOrder order,
+                               NullPlacement null_placement = NullPlacement::AtEnd)
+      : RankQuantileOptions({SortKey("", order)}, null_placement) {}
+
+  static constexpr char const kTypeName[] = "RankQuantileOptions";
+  static RankQuantileOptions Defaults() { return RankQuantileOptions(); }
+
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
+};
+
 /// \brief Partitioning options for NthToIndices
 class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:
