@@ -200,40 +200,40 @@ class ARROW_EXPORT RowTableImpl {
   /// \brief The number of rows stored in the table
   int64_t length() const { return num_rows_; }
 
-  inline const uint8_t* null_masks(uint32_t row_id) const {
+  const uint8_t* null_masks(uint32_t row_id) const {
     return data(0) + static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row;
   }
-  inline uint8_t* null_masks(uint32_t row_id) {
+  uint8_t* null_masks(uint32_t row_id) {
     return mutable_data(0) +
            static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row;
   }
-  inline bool is_null(uint32_t row_id, uint32_t col_pos) const {
+  bool is_null(uint32_t row_id, uint32_t col_pos) const {
     return bit_util::GetBit(null_masks(row_id), col_pos);
   }
 
-  inline const uint8_t* fixed_length_rows(uint32_t row_id) const {
+  const uint8_t* fixed_length_rows(uint32_t row_id) const {
     ARROW_DCHECK(metadata_.is_fixed_length);
     return data(1) + static_cast<int64_t>(row_id) * metadata_.fixed_length;
   }
-  inline uint8_t* mutable_fixed_length_rows(uint32_t row_id) {
+  uint8_t* mutable_fixed_length_rows(uint32_t row_id) {
     ARROW_DCHECK(metadata_.is_fixed_length);
     return mutable_data(1) + static_cast<int64_t>(row_id) * metadata_.fixed_length;
   }
 
-  inline const offset_type* offsets() const {
+  const offset_type* offsets() const {
     ARROW_DCHECK(!metadata_.is_fixed_length);
     return reinterpret_cast<const offset_type*>(data(1));
   }
-  inline offset_type* mutable_offsets() {
+  offset_type* mutable_offsets() {
     ARROW_DCHECK(!metadata_.is_fixed_length);
     return reinterpret_cast<offset_type*>(mutable_data(1));
   }
 
-  inline const uint8_t* var_length_rows() const {
+  const uint8_t* var_length_rows() const {
     ARROW_DCHECK(!metadata_.is_fixed_length);
     return data(2);
   }
-  inline uint8_t* mutable_var_length_rows() {
+  uint8_t* mutable_var_length_rows() {
     ARROW_DCHECK(!metadata_.is_fixed_length);
     return mutable_data(2);
   }
@@ -253,14 +253,14 @@ class ARROW_EXPORT RowTableImpl {
 
  private:
   // Accessors into the table's buffers
-  inline const uint8_t* data(int i) const {
+  const uint8_t* data(int i) const {
     ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
     if (ARROW_PREDICT_TRUE(buffers_[i])) {
       return buffers_[i]->data();
     }
     return NULLPTR;
   }
-  inline uint8_t* mutable_data(int i) {
+  uint8_t* mutable_data(int i) {
     ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
     if (ARROW_PREDICT_TRUE(buffers_[i])) {
       return buffers_[i]->mutable_data();
