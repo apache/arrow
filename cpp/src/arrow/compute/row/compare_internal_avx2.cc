@@ -49,7 +49,7 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
 
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null
-    const uint8_t* null_masks = rows.null_masks(/*row_id=*/0, /*col_pos=*/0);
+    const uint8_t* null_masks = rows.null_masks(/*row_id=*/0);
     uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
 
     uint32_t num_processed = 0;
@@ -64,6 +64,7 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
         irow_right =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_to_right_map) + i);
       }
+      // TODO: Fix this.
       __m256i bitid =
           _mm256_mullo_epi32(irow_right, _mm256_set1_epi32(null_mask_num_bytes * 8));
       bitid = _mm256_add_epi32(bitid, _mm256_set1_epi32(null_bit_id));
@@ -117,7 +118,7 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
     }
     return num_processed;
   } else {
-    const uint8_t* null_masks = rows.null_masks(/*row_id=*/0, /*col_pos=*/0);
+    const uint8_t* null_masks = rows.null_masks(/*row_id=*/0);
     uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
     const uint8_t* non_nulls = col.data(0);
     ARROW_DCHECK(non_nulls);
@@ -147,6 +148,7 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
         left_null =
             _mm256_cmpeq_epi32(_mm256_and_si256(left, bits), _mm256_setzero_si256());
       }
+      // TODO: Fix this.
       __m256i bitid =
           _mm256_mullo_epi32(irow_right, _mm256_set1_epi32(null_mask_num_bytes * 8));
       bitid = _mm256_add_epi32(bitid, _mm256_set1_epi32(null_bit_id));

@@ -412,7 +412,7 @@ bool RowTableImpl::has_any_nulls(const LightContext* ctx) const {
     DCHECK_LE(num_bytes, std::numeric_limits<uint32_t>::max());
     has_any_nulls_ = !util::bit_util::are_all_bytes_zero(
         ctx->hardware_flags,
-        null_masks(static_cast<uint32_t>(num_rows_for_has_any_nulls_), /*col_pos=*/0),
+        null_masks(static_cast<uint32_t>(num_rows_for_has_any_nulls_)),
         static_cast<uint32_t>(num_bytes));
     num_rows_for_has_any_nulls_ = num_rows_;
   }

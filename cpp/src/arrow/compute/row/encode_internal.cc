@@ -818,7 +818,8 @@ void EncoderNulls::Decode(uint32_t start_row, uint32_t num_rows, const RowTableI
     DCHECK(col.mutable_data(0) || col.metadata().is_null_type);
   }
 
-  const uint8_t* null_masks = rows.null_masks(/*row_id=*/0, /*col_pos=*/0);
+  // TODO: Fix this.
+  const uint8_t* null_masks = rows.null_masks(/*row_id=*/0);
   uint32_t null_masks_bytes_per_row = rows.metadata().null_masks_bytes_per_row;
   for (size_t col = 0; col < cols->size(); ++col) {
     if ((*cols)[col].metadata().is_null_type) {
@@ -876,7 +877,8 @@ void EncoderVarBinary::EncodeSelected(uint32_t ivarbinary, RowTableImpl* rows,
 void EncoderNulls::EncodeSelected(RowTableImpl* rows,
                                   const std::vector<KeyColumnArray>& cols,
                                   uint32_t num_selected, const uint16_t* selection) {
-  uint8_t* null_masks = rows->null_masks(/*row_id=*/0, /*col_pos=*/0);
+  // TODO: Fix this.
+  uint8_t* null_masks = rows->null_masks(/*row_id=*/0);
   uint32_t null_mask_num_bytes = rows->metadata().null_masks_bytes_per_row;
   memset(null_masks, 0, null_mask_num_bytes * num_selected);
   for (size_t icol = 0; icol < cols.size(); ++icol) {

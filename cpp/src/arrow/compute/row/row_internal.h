@@ -200,13 +200,12 @@ class ARROW_EXPORT RowTableImpl {
   /// \brief The number of rows stored in the table
   int64_t length() const { return num_rows_; }
 
-  inline const uint8_t* null_masks(uint32_t row_id, uint32_t col_pos) const {
-    return data(0) + static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row +
-           col_pos;
+  inline const uint8_t* null_masks(uint32_t row_id) const {
+    return data(0) + static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row;
   }
-  inline uint8_t* null_masks(uint32_t row_id, uint32_t col_pos) {
+  inline uint8_t* null_masks(uint32_t row_id) {
     return mutable_data(0) +
-           static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row + col_pos;
+           static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row;
   }
   inline bool is_null(uint32_t row_id, uint32_t col_pos) const {
     return bit_util::GetBit(
