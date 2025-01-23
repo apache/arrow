@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/acero/swiss_join_internal.h"
+#include "arrow/compute/row/row_util_avx2_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/simd.h"
 
@@ -237,36 +238,16 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
   //
   constexpr int kUnroll = 8;
 
-  const uint8_t* null_masks = rows.null_masks(/*row_id=*/0);
-  __m256i null_bits_per_row =
-      _mm256_set1_epi64x(8 * rows.metadata().null_masks_bytes_per_row);
-  __m256i pos_after_encoding =
-      _mm256_set1_epi64x(rows.metadata().pos_after_encoding(column_id));
-  __m256i bit_in_word =
-      _mm256_set1_epi32(1 << (rows.metadata().pos_after_encoding(column_id) & 7));
+  uint32_t pos_after_encoding = rows.metadata().pos_after_encoding(column_id);
   for (int i = 0; i < num_rows / kUnroll; ++i) {
     __m256i row_id = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
-    __m256i row_id_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(row_id));
-    __m256i row_id_hi = _mm256_cvtepi32_epi64(_mm256_extracti128_si256(row_id, 1));
-    __m256i bit_id_lo = _mm256_mul_epi32(row_id_lo, null_bits_per_row);
-    __m256i bit_id_hi = _mm256_mul_epi32(row_id_hi, null_bits_per_row);
-    bit_id_lo = _mm256_add_epi64(bit_id_lo, pos_after_encoding);
-    bit_id_hi = _mm256_add_epi64(bit_id_hi, pos_after_encoding);
-    __m128i bytes_lo = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
-                                              _mm256_srli_epi64(bit_id_lo, 3), 1);
-    __m128i bytes_hi = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
-                                              _mm256_srli_epi64(bit_id_hi, 3), 1);
-    __m256i bytes = _mm256_set_m128i(bytes_hi, bytes_lo);
-    __m256i result =
-        _mm256_cmpeq_epi32(_mm256_and_si256(bytes, bit_in_word), bit_in_word);
-    // NB: Be careful about sign-extension when casting the return value of
-    // _mm256_movemask_epi8 (signed 32-bit) to unsigned 64-bit, which will pollute the
-    // higher bits of the following OR.
-    uint32_t null_bytes_lo = static_cast<uint32_t>(
-        _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(result))));
-    uint64_t null_bytes_hi =
-        _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_extracti128_si256(result, 1)));
-    uint64_t null_bytes = null_bytes_lo | (null_bytes_hi << 32);
+    __m256i null32 = GetNullBitInt32(rows, pos_after_encoding, row_id);
+    null32 = _mm256_cmpeq_epi32(null32, _mm256_set1_epi32(1));
+    uint32_t null32_lo =
+        _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(null32)));
+    uint32_t null32_hi =
+        _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_extracti128_si256(null32, 1)));
+    uint64_t null_bytes = null32_lo | (static_cast<uint64_t>(null32_hi) << 32);
 
     process_8_values_fn(i * kUnroll, null_bytes);
   }

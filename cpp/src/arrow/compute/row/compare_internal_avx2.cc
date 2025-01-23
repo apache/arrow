@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/compute/row/compare_internal.h"
+#include "arrow/compute/row/row_util_avx2_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/simd.h"
@@ -34,28 +35,6 @@ inline __m256i set_first_n_bytes_avx2(int n) {
   return _mm256_cmpgt_epi8(_mm256_set1_epi8(n),
                            _mm256_setr_epi64x(kByteSequence0To7, kByteSequence8To15,
                                               kByteSequence16To23, kByteSequence24To31));
-}
-
-// Get null bits for 8 32-bit row ids in `row_id32` at `null_bit_id` as a vector of 32-bit
-// integers.
-inline __m256i GetNullBitInt32(const RowTableImpl& rows, uint32_t null_bit_id,
-                               __m256i row_id32) {
-  const uint8_t* null_masks = rows.null_masks(/*row_id=*/0);
-  __m256i null_mask_num_bits =
-      _mm256_set1_epi64x(rows.metadata().null_masks_bytes_per_row * 8);
-  __m256i row_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(row_id32));
-  __m256i row_hi = _mm256_cvtepi32_epi64(_mm256_extracti128_si256(row_id32, 1));
-  __m256i bit_id_lo = _mm256_mul_epi32(row_lo, null_mask_num_bits);
-  __m256i bit_id_hi = _mm256_mul_epi32(row_hi, null_mask_num_bits);
-  bit_id_lo = _mm256_add_epi64(bit_id_lo, _mm256_set1_epi64x(null_bit_id));
-  bit_id_hi = _mm256_add_epi64(bit_id_hi, _mm256_set1_epi64x(null_bit_id));
-  __m128i right_lo = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
-                                            _mm256_srli_epi64(bit_id_lo, 3), 1);
-  __m128i right_hi = _mm256_i64gather_epi32(reinterpret_cast<const int*>(null_masks),
-                                            _mm256_srli_epi64(bit_id_hi, 3), 1);
-  __m256i right = _mm256_set_m128i(right_hi, right_lo);
-  return _mm256_and_si256(_mm256_set1_epi32(1),
-                          _mm256_srli_epi32(right, null_bit_id & 7));
 }
 
 // Convert 8 64-bit comparision results, each being 0 or -1, to 8 bytes.
