@@ -3466,15 +3466,13 @@ TEST(HashJoin, BuildSideLargeRowIds) {
       num_unmatch_rows_large / num_rows_per_unmatch_batch_large;
 
   auto schema_small =
-      schema({field("small_key0", int64()), field("small_key1", int64()),
-              field("small_key2", int64()), field("small_payload", int64())});
+      schema({field("small_key", int64()), field("small_payload", int64())});
   auto schema_large =
-      schema({field("large_key0", int64()), field("large_key1", int64()),
-              field("large_key2", int64()), field("large_payload", int64())});
+      schema({field("large_key", int64()), field("large_payload", int64())});
 
-  // A carefully chosen key value which hashes to 0xFFFFFFFC, making the match rows to be
+  // A carefully chosen key value which hashes to 0xFFFFFFFE, making the match rows to be
   // placed at higher address of the row table.
-  const int64_t match_key = 14036976;
+  const int64_t match_key = 289339070;
   const int64_t match_payload = 42;
 
   // Match arrays of length num_rows_per_match_batch.
@@ -3489,8 +3487,7 @@ TEST(HashJoin, BuildSideLargeRowIds) {
   ASSERT_OK_AND_ASSIGN(match_key_arr, Concatenate({match_key_arr, null_arr}));
   ASSERT_OK_AND_ASSIGN(match_payload_arr, Concatenate({match_payload_arr, null_arr}));
   // Match batch.
-  ExecBatch match_batch({match_key_arr, match_key_arr, match_key_arr, match_payload_arr},
-                        num_rows_per_match_batch + 1);
+  ExecBatch match_batch({match_key_arr, match_payload_arr}, num_rows_per_match_batch + 1);
 
   // Small batch.
   ExecBatch batch_small = match_batch;
@@ -3509,8 +3506,7 @@ TEST(HashJoin, BuildSideLargeRowIds) {
         /*min=*/match_key + 1 + i * unmatch_range_per_batch,
         /*max=*/match_key + 1 + (i + 1) * unmatch_range_per_batch);
     unmatch_batches_large.push_back(
-        ExecBatch({unmatch_key_arr_large, unmatch_key_arr_large, unmatch_key_arr_large,
-                   unmatch_payload_arr_large},
+        ExecBatch({unmatch_key_arr_large, unmatch_payload_arr_large},
                   num_rows_per_unmatch_batch_large));
   }
   // Large match batch.
@@ -3531,10 +3527,8 @@ TEST(HashJoin, BuildSideLargeRowIds) {
       "exec_batch_source",
       ExecBatchSourceNodeOptions(batches_large.schema, batches_large.batches)};
 
-  HashJoinNodeOptions join_opts(
-      JoinType::INNER,
-      /*left_keys=*/{"small_key0", "small_key1", "small_key2"},
-      /*right_keys=*/{"large_key0", "large_key1", "large_key2"});
+  HashJoinNodeOptions join_opts(JoinType::INNER, /*left_keys=*/{"small_key"},
+                                /*right_keys=*/{"large_key"});
   Declaration join{
       "hashjoin", {std::move(source_small), std::move(source_large)}, join_opts};
 
@@ -3546,13 +3540,9 @@ TEST(HashJoin, BuildSideLargeRowIds) {
   AssertRowCountEq(result, num_match_rows * num_match_rows);
 
   // All rows should be match_key/payload.
-  auto predicate = and_({equal(field_ref("small_key0"), literal(match_key)),
-                         equal(field_ref("small_key1"), literal(match_key)),
-                         equal(field_ref("small_key2"), literal(match_key)),
+  auto predicate = and_({equal(field_ref("small_key"), literal(match_key)),
                          equal(field_ref("small_payload"), literal(match_payload)),
-                         equal(field_ref("large_key0"), literal(match_key)),
-                         equal(field_ref("large_key1"), literal(match_key)),
-                         equal(field_ref("large_key2"), literal(match_key)),
+                         equal(field_ref("large_key"), literal(match_key)),
                          equal(field_ref("large_payload"), literal(match_payload))});
   Declaration filter{"filter", {result}, FilterNodeOptions{std::move(predicate)}};
   AssertRowCountEq(std::move(filter), num_match_rows * num_match_rows);
