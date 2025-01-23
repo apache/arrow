@@ -3449,6 +3449,8 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBVarLength)) {
                    num_batches_left * num_rows_per_batch_left * num_batches_right);
 }
 
+// GH-45334: The right side (the build side) payload column of the matching rows' are
+// placed over 4GB, causing the index calculation overflow.
 TEST(HashJoin, LARGE_MEMORY_TEST(BuildSidePayloadOver4GB)) {
   const int64_t num_match_rows = 32;
   const int64_t num_rows_per_match_batch = 32;
@@ -3465,8 +3467,8 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSidePayloadOver4GB)) {
       schema({field("large_key0", int64()), field("large_key1", int64()),
               field("large_key2", int64()), field("large_payload", int64())});
 
-  const int64_t match_key0 = static_cast<int64_t>(88506230299);
-  const int64_t match_key1 = static_cast<int64_t>(16556030299);
+  const int64_t match_key0 = 88506230299LL;
+  const int64_t match_key1 = 16556030299LL;
   const int64_t match_key2 = 11240299;
   const int64_t match_payload = 42;
 
