@@ -1049,7 +1049,6 @@ garrow_array_validate_full(GArrowArray *array, GError **error)
   return garrow::check(error, arrow_array->ValidateFull(), "[array][validate_full]");
 }
 
-
 G_DEFINE_TYPE(GArrowNullArray, garrow_null_array, GARROW_TYPE_ARRAY)
 
 static void
