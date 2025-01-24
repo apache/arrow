@@ -75,8 +75,9 @@ RUN \
   yum clean ${quiet} all
 
 ARG cmake=3.25.0
-COPY install_cmake.sh /tmp
-RUN /tmp/install_cmake.sh ${cmake} /usr/local/
+RUN curl -L \
+    "https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-linux-$(uname -m).tar.gz" | \
+    tar -xzf - --directory /usr/local --strip-components=1
 
 ENV \
   BOOST_INCLUDEDIR=/usr/include/boost169 \
