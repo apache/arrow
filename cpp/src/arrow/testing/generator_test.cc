@@ -21,10 +21,49 @@
 
 namespace arrow::gen {
 
-TEST(StepTest, Basic) {
-  auto step = Step();
-  ASSERT_OK_AND_ASSIGN(auto arr, step->Generate(1));
-  ASSERT_EQ(arr->type_id(), Type::INT32);
+template <typename CType>
+void CheckStep(const Array& result, CType start, CType step, int64_t length) {
+  using ArrowType = typename CTypeTraits<CType>::ArrowType;
+
+  ASSERT_EQ(result.type_id(), TypeTraits<ArrowType>::type_singleton()->id());
+  ASSERT_EQ(result.length(), length);
+  ASSERT_EQ(result.null_bitmap(), nullptr);
+  auto data = result.data()->GetValues<CType>(1);
+  CType current = start;
+  for (int64_t i = 0; i < length; ++i) {
+    ASSERT_EQ(data[i], current);
+    current += step;
+  }
+}
+
+TEST(StepTest, Default) {
+  for (auto length : {0, 1, 1024}) {
+    ARROW_SCOPED_TRACE("length=" + std::to_string(length));
+    ASSERT_OK_AND_ASSIGN(auto array, Step()->Generate(length));
+    CheckStep(*array, 0, 1, length);
+  }
+}
+
+using NumericCTypes = ::testing::Types<int8_t, uint8_t, int16_t, uint16_t, int32_t,
+                                       uint32_t, int64_t, uint64_t, float, double>;
+
+template <typename CType>
+class TypedStepTest : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TypedStepTest, NumericCTypes);
+
+TYPED_TEST(TypedStepTest, Basic) {
+  for (TypeParam start : {0.0, 0.1, 1.0, 1024.0}) {
+    ARROW_SCOPED_TRACE("start=" + std::to_string(start));
+    for (TypeParam step : {0.0, 0.1, 1.0, 1024.0}) {
+      ARROW_SCOPED_TRACE("step=" + std::to_string(step));
+      for (auto length : {0, 1, 1024}) {
+        ARROW_SCOPED_TRACE("length=" + std::to_string(length));
+        ASSERT_OK_AND_ASSIGN(auto array, Step(start, step)->Generate(length));
+        CheckStep(*array, start, step, length);
+      }
+    }
+  }
 }
 
 }  // namespace arrow::gen
