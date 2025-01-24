@@ -278,8 +278,8 @@ Status TaskSchedulerImpl::ExecuteMore(size_t thread_id, int num_tasks_to_execute
       bool task_group_finished = false;
       Status status = ExecuteTask(thread_id, group_id, task_id, &task_group_finished);
       if (!status.ok()) {
-        // Mark the remaining picked tasks as finished
-        for (size_t j = i + 1; j < tasks.size(); ++j) {
+        // Mark the current and remaining picked tasks as finished
+        for (size_t j = i; j < tasks.size(); ++j) {
           if (PostExecuteTask(thread_id, tasks[j].first)) {
             bool all_task_groups_finished = false;
             RETURN_NOT_OK(
@@ -369,17 +369,25 @@ Status TaskSchedulerImpl::ScheduleMore(size_t thread_id, int num_tasks_finished)
     int group_id = tasks[i].first;
     int64_t task_id = tasks[i].second;
     RETURN_NOT_OK(schedule_impl_([this, group_id, task_id](size_t thread_id) -> Status {
-      RETURN_NOT_OK(ScheduleMore(thread_id, 1));
-
       bool task_group_finished = false;
-      RETURN_NOT_OK(ExecuteTask(thread_id, group_id, task_id, &task_group_finished));
+      // PostExecuteTask must be called later if any error ocurres during task execution
+      // (including ScheduleMore), so we preserve the status.
+      auto status = [&]() {
+        RETURN_NOT_OK(ScheduleMore(thread_id, 1));
+        return ExecuteTask(thread_id, group_id, task_id, &task_group_finished);
+      }();
+
+      if (!status.ok()) {
+        task_group_finished = PostExecuteTask(thread_id, group_id);
+      }
 
       if (task_group_finished) {
         bool all_task_groups_finished = false;
-        return OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished);
+        RETURN_NOT_OK(
+            OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished));
       }
 
-      return Status::OK();
+      return status;
     }));
   }
 
@@ -413,6 +421,8 @@ void TaskSchedulerImpl::Abort(AbortContinuationImpl impl) {
             all_finished = false;
             task_group.state_ = TaskGroupState::ALL_TASKS_STARTED;
           }
+        } else if (task_group.state_ == TaskGroupState::ALL_TASKS_STARTED) {
+          all_finished = false;
         }
       }
     }
