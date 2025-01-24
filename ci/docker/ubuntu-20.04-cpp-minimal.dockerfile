@@ -27,7 +27,6 @@ RUN apt-get update -y -q && \
     apt-get install -y -q \
         build-essential \
         ccache \
-        cmake \
         curl \
         gdb \
         git \
@@ -67,6 +66,10 @@ RUN latest_system_llvm=10 && \
         llvm-${llvm}-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
+
+ARG cmake
+COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
