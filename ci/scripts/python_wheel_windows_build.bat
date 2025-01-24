@@ -27,11 +27,6 @@ py -0p
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
 @echo on
 
-@REM Install a more recent msvcp140.dll in C:\Windows\System32
-choco install -r -y --no-progress vcredist140
-choco upgrade -r -y --no-progress vcredist140
-dir C:\Windows\System32\msvcp140.dll
-
 echo "=== (%PYTHON%) Clear output directories and leftovers ==="
 del /s /q C:\arrow-build
 del /s /q C:\arrow-dist
