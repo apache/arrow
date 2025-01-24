@@ -1033,6 +1033,22 @@ garrow_array_validate(GArrowArray *array, GError **error)
   return garrow::check(error, arrow_array->Validate(), "[array][validate]");
 }
 
+/**
+ * garrow_array_validate_full:
+ * @array: A #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 20.0.0
+ */
+gboolean
+garrow_array_validate_full(GArrowArray *array, GError **error)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  return garrow::check(error, arrow_array->ValidateFull(), "[array][validate_full]");
+}
+
 G_DEFINE_TYPE(GArrowNullArray, garrow_null_array, GARROW_TYPE_ARRAY)
 
 static void
