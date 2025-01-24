@@ -1338,6 +1338,7 @@ services:
     build:
       args:
         base: ${REPO}:python-wheel-windows-test-vs2019-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+        llvm: 18
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-windows-test-vs2019.dockerfile
     volumes: *python-wheel-windows-vs2019-volumes
