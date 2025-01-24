@@ -53,12 +53,16 @@ class TypedStepTest : public ::testing::Test {};
 TYPED_TEST_SUITE(TypedStepTest, NumericCTypes);
 
 TYPED_TEST(TypedStepTest, Basic) {
-  for (TypeParam start : {0.0, 0.5, std::is_unsigned_v<TypeParam> ? 1.0 : -1.0, 42.0}) {
-    ARROW_SCOPED_TRACE("start=" + std::to_string(start));
-    for (TypeParam step : {0.0, 0.5, std::is_unsigned_v<TypeParam> ? 1.0 : -1.0, 42.0}) {
-      ARROW_SCOPED_TRACE("step=" + std::to_string(step));
-      for (auto length : {0, 1, 1024}) {
-        ARROW_SCOPED_TRACE("length=" + std::to_string(length));
+  for (auto length : {0, 1, 1024}) {
+    ARROW_SCOPED_TRACE("length=" + std::to_string(length));
+    for (TypeParam start :
+         {std::numeric_limits<TypeParam>::min(), static_cast<TypeParam>(0)}) {
+      ARROW_SCOPED_TRACE("start=" + std::to_string(start));
+      for (TypeParam step :
+           {static_cast<TypeParam>(0), std::numeric_limits<TypeParam>::epsilon(),
+            static_cast<TypeParam>(std::numeric_limits<TypeParam>::max() /
+                                   (length + 1))}) {
+        ARROW_SCOPED_TRACE("step=" + std::to_string(step));
         ASSERT_OK_AND_ASSIGN(auto array, Step(start, step)->Generate(length));
         CheckStep(*array, start, step, length);
       }
