@@ -26,7 +26,6 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/builder.h"
 #include "arrow/compute/exec.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
@@ -220,42 +219,6 @@ class ConstantGenerator : public ArrayGenerator {
   std::shared_ptr<Scalar> value_;
 };
 
-class StepGenerator : public ArrayGenerator {
- public:
-  StepGenerator(uint32_t start, uint32_t step, bool signed_int)
-      : start_(start), step_(step), signed_int_(signed_int) {}
-
-  template <typename BuilderType, typename CType>
-  Result<std::shared_ptr<Array>> DoGenerate(int64_t num_rows) {
-    BuilderType builder;
-    ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
-    CType val = start_;
-    for (int64_t i = 0; i < num_rows; i++) {
-      builder.UnsafeAppend(val);
-      val += step_;
-    }
-    start_ = val;
-    return builder.Finish();
-  }
-
-  Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
-    if (signed_int_) {
-      return DoGenerate<Int32Builder, int32_t>(num_rows);
-    } else {
-      return DoGenerate<UInt32Builder, uint32_t>(num_rows);
-    }
-  }
-
-  std::shared_ptr<DataType> type() const override {
-    return signed_int_ ? int32() : uint32();
-  }
-
- private:
-  uint32_t start_;
-  uint32_t step_;
-  bool signed_int_;
-};
-
 static constexpr random::SeedType kTestSeed = 42;
 
 class RandomGenerator : public ArrayGenerator {
@@ -403,10 +366,6 @@ std::unique_ptr<GTestDataGenerator> DataGeneratorImpl::FailOnError() {
 
 std::shared_ptr<ArrayGenerator> Constant(std::shared_ptr<Scalar> value) {
   return std::make_shared<ConstantGenerator>(std::move(value));
-}
-
-std::shared_ptr<ArrayGenerator> Step(uint32_t start, uint32_t step, bool signed_int) {
-  return std::make_shared<StepGenerator>(start, step, signed_int);
 }
 
 std::shared_ptr<ArrayGenerator> Random(std::shared_ptr<DataType> type) {
