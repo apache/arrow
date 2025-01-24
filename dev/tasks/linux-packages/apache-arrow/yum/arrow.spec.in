@@ -52,7 +52,7 @@
 %define arrow_cmake_install %cmake_install
 %else
 %define arrow_cmake_builddir build
-%define arrow_cmake %cmake3 -S . -B %{arrow_cmake_builddir}
+%define arrow_cmake %cmake -S . -B %{arrow_cmake_builddir}
 %define arrow_cmake_build make -C %{arrow_cmake_builddir} %{?_smp_mflags}
 %define arrow_cmake_install DESTDIR="%{buildroot}" make -C %{arrow_cmake_builddir} install
 %endif
