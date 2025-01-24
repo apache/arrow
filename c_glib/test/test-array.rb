@@ -214,14 +214,14 @@ class TestArray < Test::Unit::TestCase
     def test_invalid
       message = "[array][validate_full]: Invalid: Invalid UTF8 sequence at string index 0"
 
-      # UTF-8 string missing one byte.
-      data = Arrow::Buffer.new("\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa")
-      value_offsets = Arrow::Buffer.new([0, 8].pack("l*"))
+      # U+3042 HIRAGANA LETTER A, U+3044 HIRAGANA LETTER I
+      data = "\u3042\u3044".b[0..-2]
+      value_offsets = Arrow::Buffer.new([0, data.size].pack("l*"))
       array = Arrow::StringArray.new(1,
-                            value_offsets,
-                            data,
-                            Arrow::Buffer.new([0b01].pack("C*")),
-                            -1)
+                                     value_offsets,
+                                     Arrow::Buffer.new(data),
+                                     Arrow::Buffer.new([0b01].pack("C*")),
+                                     -1)
 
       assert_raise(Arrow::Error::Invalid.new(message)) do
         array.validate_full
