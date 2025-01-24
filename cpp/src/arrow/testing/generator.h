@@ -311,11 +311,14 @@ ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Step(T start = 0, T step = 
   class StepGenerator : public ArrayGenerator {
    public:
     using ArrowType = typename CTypeTraits<T>::ArrowType;
-    using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
+    static_assert(is_number_type<ArrowType>::value,
+                  "Step generator only supports numeric types");
 
     StepGenerator(T start, T step) : start_(start), step_(step) {}
 
     Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
+      using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
+
       BuilderType builder;
       ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
       T val = start_;
