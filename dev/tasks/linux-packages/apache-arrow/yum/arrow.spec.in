@@ -163,6 +163,7 @@ Apache Arrow is a data processing library for analysis.
 
 %build
 cpp_build_type=release
+cd cpp
 %arrow_cmake \
 %if %{use_azure}
   -DARROW_AZURE=ON \
