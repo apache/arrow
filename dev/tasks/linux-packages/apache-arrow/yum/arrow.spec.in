@@ -35,10 +35,6 @@
   if [ %{_rhel} -eq 7 ]; then \
     echo 169; \
   fi)
-%define cmake_version %( \
-  if [ %{_rhel} -eq 7 ]; then \
-    echo 3; \
-  fi)
 
 %define lz4_requirement %( \
   if [ %{_amzn} -eq 0 ]; then \
@@ -104,7 +100,6 @@ BuildRequires:	bzip2-devel
 %if %{use_flight}
 BuildRequires:	c-ares-devel
 %endif
-BuildRequires:	cmake%{cmake_version}
 BuildRequires:	curl-devel
 BuildRequires:	flex
 BuildRequires:	%{gcc_package}-c++
