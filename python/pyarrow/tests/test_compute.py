@@ -27,6 +27,8 @@ import pytest
 import random
 import sys
 import textwrap
+import hypothesis as h
+import hypothesis.strategies as st
 
 try:
     import numpy as np
@@ -41,6 +43,7 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.lib import ArrowNotImplementedError
+import pyarrow.tests.strategies as past
 
 try:
     import pyarrow.substrait as pas
@@ -3729,3 +3732,34 @@ def test_pairwise_diff():
     with pytest.raises(pa.ArrowInvalid,
                        match="overflow"):
         pa.compute.pairwise_diff_checked(arr, period=-1)
+
+
+hash_types = st.deferred(
+    lambda: (
+        past.primitive_types |
+        past.list_types(include_views=False) |
+        past.struct_types() |
+        past.dictionary_types() |
+        past.map_types() |
+        past.list_types(hash_types, include_views=False) |
+        past.struct_types(hash_types)
+    )
+)
+
+
+@pytest.mark.numpy
+@h.given(past.arrays(hash_types))
+def test_hash32(arr):
+    result1 = pc.hash32(arr)
+    result2 = pc.hash32(arr)
+    assert result1.type == pa.uint32()
+    assert result1.equals(result2)
+
+
+@pytest.mark.numpy
+@h.given(past.arrays(hash_types))
+def test_hash64(arr):
+    result1 = pc.hash64(arr)
+    result2 = pc.hash64(arr)
+    assert result1.type == pa.uint64()
+    assert result1.equals(result2)
