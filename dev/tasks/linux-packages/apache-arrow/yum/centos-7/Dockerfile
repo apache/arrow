@@ -75,8 +75,8 @@ RUN \
   yum clean ${quiet} all
 
 ARG cmake=3.25.0
-COPY scripts/install_cmake.sh /ci/scripts/
-RUN /ci/scripts/install_cmake.sh ${cmake} /usr/local/
+COPY install_cmake.sh /tmp
+RUN /tmp/install_cmake.sh ${cmake} /usr/local/
 
 ENV \
   BOOST_INCLUDEDIR=/usr/include/boost169 \
