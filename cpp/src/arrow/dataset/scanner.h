@@ -29,15 +29,12 @@
 #include "arrow/compute/expression.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/dataset.h"
-#include "arrow/dataset/projector.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/async_generator.h"
+#include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/thread_pool.h"
 #include "arrow/util/type_fwd.h"
 
 namespace arrow {
@@ -116,6 +113,9 @@ struct ARROW_DS_EXPORT ScanOptions {
 
   /// If true the scanner will add augmented fields to the output schema.
   bool add_augmented_fields = true;
+
+  /// XXX
+  bool cache_metadata = true;
 
   /// Fragment-specific scan options.
   std::shared_ptr<FragmentScanOptions> fragment_scan_options;
@@ -504,6 +504,9 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanOptions;
   Status UseThreads(bool use_threads = true);
+
+  /// XXX
+  Status CacheMetadata(bool cache_metadata = true);
 
   /// \brief Set the maximum number of rows per RecordBatch.
   ///

@@ -37,6 +37,7 @@
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
+#include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/config.h"
@@ -936,6 +937,11 @@ Status ScannerBuilder::UseThreads(bool use_threads) {
   return Status::OK();
 }
 
+Status ScannerBuilder::CacheMetadata(bool cache_metadata) {
+  scan_options_->cache_metadata = cache_metadata;
+  return Status::OK();
+}
+
 Status ScannerBuilder::BatchSize(int64_t batch_size) {
   if (batch_size <= 0) {
     return Status::Invalid("BatchSize must be greater than 0, got ", batch_size);
@@ -1058,6 +1064,10 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
         batch->values.emplace_back(partial.record_batch.last);
         batch->values.emplace_back(partial.fragment.value->ToString());
         if (index != compute::kUnsequencedIndex) batch->index = index++;
+
+        if (!scan_options->cache_metadata) {
+          RETURN_NOT_OK(partial.fragment.value->ClearCachedMetadata());
+        }
         return batch;
       });
 

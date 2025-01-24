@@ -170,6 +170,8 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// \brief Ensure this fragment's FileMetaData is in memory.
   Status EnsureCompleteMetadata(parquet::arrow::FileReader* reader = NULLPTR);
 
+  Status ClearCachedMetadata() override;
+
   /// \brief Return fragment which selects a filtered subset of this fragment's RowGroups.
   Result<std::shared_ptr<Fragment>> Subset(compute::Expression predicate);
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);

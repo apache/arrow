@@ -21,6 +21,7 @@
 #include "arrow/acero/util.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/projector.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
@@ -74,6 +75,8 @@ Future<std::optional<int64_t>> Fragment::CountRows(compute::Expression,
                                                    const std::shared_ptr<ScanOptions>&) {
   return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
 }
+
+Status Fragment::ClearCachedMetadata() { return Status::OK(); }
 
 Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchemaImpl() {
   return physical_schema_;

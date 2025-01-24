@@ -29,10 +29,8 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/expression.h"
-#include "arrow/record_batch.h"
 #include "arrow/result.h"
-#include "arrow/util/async_generator.h"
-#include "arrow/util/async_util.h"
+#include "arrow/util/future.h"
 
 namespace arrow {
 
@@ -55,7 +53,7 @@ namespace acero {
 /// \brief This must not be used in release-mode
 struct DebugOptions;
 
-using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;
+using AsyncExecBatchGenerator = std::function<Future<std::optional<ExecBatch>>()>;
 
 /// \addtogroup acero-nodes
 /// @{
