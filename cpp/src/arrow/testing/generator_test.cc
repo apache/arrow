@@ -40,7 +40,7 @@ TEST(StepTest, Default) {
   for (auto length : {0, 1, 1024}) {
     ARROW_SCOPED_TRACE("length=" + std::to_string(length));
     ASSERT_OK_AND_ASSIGN(auto array, Step()->Generate(length));
-    CheckStep(*array, 0u, 1u, length);
+    CheckStep<uint32_t>(*array, 0, 1, length);
   }
 }
 
@@ -53,9 +53,9 @@ class TypedStepTest : public ::testing::Test {};
 TYPED_TEST_SUITE(TypedStepTest, NumericCTypes);
 
 TYPED_TEST(TypedStepTest, Basic) {
-  for (TypeParam start : {0.0, 0.1, 1.0, 1024.0}) {
+  for (TypeParam start : {0.0, 0.5, std::is_unsigned_v<TypeParam> ? 1.0 : -1.0, 42.0}) {
     ARROW_SCOPED_TRACE("start=" + std::to_string(start));
-    for (TypeParam step : {0.0, 0.1, 1.0, 1024.0}) {
+    for (TypeParam step : {0.0, 0.5, std::is_unsigned_v<TypeParam> ? 1.0 : -1.0, 42.0}) {
       ARROW_SCOPED_TRACE("step=" + std::to_string(step));
       for (auto length : {0, 1, 1024}) {
         ARROW_SCOPED_TRACE("length=" + std::to_string(length));
