@@ -72,7 +72,7 @@ class RowArrayAccessor {
 
     if (!is_fixed_length_column) {
       int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
-      const uint8_t* row_ptr_base = rows.data(2);
+      const uint8_t* row_ptr_base = rows.var_length_rows();
       const RowTableImpl::offset_type* row_offsets = rows.offsets();
       uint32_t field_offset_within_row, field_length;
 
@@ -108,22 +108,21 @@ class RowArrayAccessor {
       if (field_length == 0) {
         field_length = 1;
       }
-      uint32_t row_length = rows.metadata().fixed_length;
 
       bool is_fixed_length_row = rows.metadata().is_fixed_length;
       if (is_fixed_length_row) {
         // Case 3: This is a fixed length column in a fixed length row
         //
-        const uint8_t* row_ptr_base = rows.data(1) + field_offset_within_row;
         for (int i = 0; i < num_rows; ++i) {
           uint32_t row_id = row_ids[i];
-          const uint8_t* row_ptr = row_ptr_base + row_length * row_id;
+          const uint8_t* row_ptr =
+              rows.fixed_length_rows(row_id) + field_offset_within_row;
           process_value_fn(i, row_ptr, field_length);
         }
       } else {
         // Case 4: This is a fixed length column in a varying length row
         //
-        const uint8_t* row_ptr_base = rows.data(2) + field_offset_within_row;
+        const uint8_t* row_ptr_base = rows.var_length_rows() + field_offset_within_row;
         const RowTableImpl::offset_type* row_offsets = rows.offsets();
         for (int i = 0; i < num_rows; ++i) {
           uint32_t row_id = row_ids[i];
@@ -142,13 +141,10 @@ class RowArrayAccessor {
   template <class PROCESS_VALUE_FN>
   static void VisitNulls(const RowTableImpl& rows, int column_id, int num_rows,
                          const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
-    const uint8_t* null_masks = rows.null_masks();
-    uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
     uint32_t pos_after_encoding = rows.metadata().pos_after_encoding(column_id);
     for (int i = 0; i < num_rows; ++i) {
       uint32_t row_id = row_ids[i];
-      int64_t bit_id = row_id * null_mask_num_bytes * 8 + pos_after_encoding;
-      process_value_fn(i, bit_util::GetBit(null_masks, bit_id) ? 0xff : 0);
+      process_value_fn(i, rows.is_null(row_id, pos_after_encoding) ? 0xff : 0);
     }
   }
 

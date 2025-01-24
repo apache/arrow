@@ -477,14 +477,15 @@ void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& so
                                     const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
 
-  int64_t fixed_length = target->metadata().fixed_length;
+  uint32_t fixed_length = target->metadata().fixed_length;
 
   // Permutation of source rows is optional. Without permutation all that is
   // needed is memcpy.
   //
   if (!source_rows_permutation) {
-    memcpy(target->mutable_data(1) + fixed_length * first_target_row_id, source.data(1),
-           fixed_length * num_source_rows);
+    DCHECK_LE(first_target_row_id, std::numeric_limits<uint32_t>::max());
+    memcpy(target->mutable_fixed_length_rows(static_cast<uint32_t>(first_target_row_id)),
+           source.fixed_length_rows(/*row_id=*/0), fixed_length * num_source_rows);
   } else {
     // Row length must be a multiple of 64-bits due to enforced alignment.
     // Loop for each output row copying a fixed number of 64-bit words.
@@ -494,10 +495,13 @@ void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& so
     int64_t num_words_per_row = fixed_length / sizeof(uint64_t);
     for (int64_t i = 0; i < num_source_rows; ++i) {
       int64_t source_row_id = source_rows_permutation[i];
+      DCHECK_LE(source_row_id, std::numeric_limits<uint32_t>::max());
       const uint64_t* source_row_ptr = reinterpret_cast<const uint64_t*>(
-          source.data(1) + fixed_length * source_row_id);
+          source.fixed_length_rows(static_cast<uint32_t>(source_row_id)));
+      int64_t target_row_id = first_target_row_id + i;
+      DCHECK_LE(target_row_id, std::numeric_limits<uint32_t>::max());
       uint64_t* target_row_ptr = reinterpret_cast<uint64_t*>(
-          target->mutable_data(1) + fixed_length * (first_target_row_id + i));
+          target->mutable_fixed_length_rows(static_cast<uint32_t>(target_row_id)));
 
       for (int64_t word = 0; word < num_words_per_row; ++word) {
         target_row_ptr[word] = source_row_ptr[word];
@@ -529,16 +533,16 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
 
     // We can simply memcpy bytes of rows if their order has not changed.
     //
-    memcpy(target->mutable_data(2) + target_offsets[first_target_row_id], source.data(2),
-           source_offsets[num_source_rows] - source_offsets[0]);
+    memcpy(target->mutable_var_length_rows() + target_offsets[first_target_row_id],
+           source.var_length_rows(), source_offsets[num_source_rows] - source_offsets[0]);
   } else {
     int64_t target_row_offset = first_target_row_offset;
-    uint64_t* target_row_ptr =
-        reinterpret_cast<uint64_t*>(target->mutable_data(2) + target_row_offset);
+    uint64_t* target_row_ptr = reinterpret_cast<uint64_t*>(
+        target->mutable_var_length_rows() + target_row_offset);
     for (int64_t i = 0; i < num_source_rows; ++i) {
       int64_t source_row_id = source_rows_permutation[i];
       const uint64_t* source_row_ptr = reinterpret_cast<const uint64_t*>(
-          source.data(2) + source_offsets[source_row_id]);
+          source.var_length_rows() + source_offsets[source_row_id]);
       int64_t length = source_offsets[source_row_id + 1] - source_offsets[source_row_id];
       // Though the row offset is 64-bit, the length of a single row must be 32-bit as
       // required by current row table implementation.
@@ -564,14 +568,18 @@ void RowArrayMerge::CopyNulls(RowTableImpl* target, const RowTableImpl& source,
                               const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
   int num_bytes_per_row = target->metadata().null_masks_bytes_per_row;
-  uint8_t* target_nulls = target->null_masks() + num_bytes_per_row * first_target_row_id;
+  DCHECK_LE(first_target_row_id, std::numeric_limits<uint32_t>::max());
+  uint8_t* target_nulls =
+      target->mutable_null_masks(static_cast<uint32_t>(first_target_row_id));
   if (!source_rows_permutation) {
-    memcpy(target_nulls, source.null_masks(), num_bytes_per_row * num_source_rows);
+    memcpy(target_nulls, source.null_masks(/*row_id=*/0),
+           num_bytes_per_row * num_source_rows);
   } else {
-    for (int64_t i = 0; i < num_source_rows; ++i) {
+    for (uint32_t i = 0; i < num_source_rows; ++i) {
       int64_t source_row_id = source_rows_permutation[i];
+      DCHECK_LE(source_row_id, std::numeric_limits<uint32_t>::max());
       const uint8_t* source_nulls =
-          source.null_masks() + num_bytes_per_row * source_row_id;
+          source.null_masks(static_cast<uint32_t>(source_row_id));
       for (int64_t byte = 0; byte < num_bytes_per_row; ++byte) {
         *target_nulls++ = *source_nulls++;
       }

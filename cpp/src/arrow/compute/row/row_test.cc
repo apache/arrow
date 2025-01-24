@@ -92,9 +92,8 @@ TEST(RowTableMemoryConsumption, Encode) {
         ASSERT_OK_AND_ASSIGN(auto row_table,
                              MakeRowTableFromColumn(col, num_rows, dt->byte_width(),
                                                     /*string_alignment=*/0));
-        ASSERT_NE(row_table.data(0), NULLPTR);
-        ASSERT_NE(row_table.data(1), NULLPTR);
-        ASSERT_EQ(row_table.data(2), NULLPTR);
+        ASSERT_NE(row_table.null_masks(/*row_id=*/0), NULLPTR);
+        ASSERT_NE(row_table.fixed_length_rows(/*row_id=*/0), NULLPTR);
 
         int64_t actual_null_mask_size =
             num_rows * row_table.metadata().null_masks_bytes_per_row;
@@ -113,9 +112,9 @@ TEST(RowTableMemoryConsumption, Encode) {
       SCOPED_TRACE("encoding var length column of " + std::to_string(num_rows) + " rows");
       ASSERT_OK_AND_ASSIGN(auto row_table,
                            MakeRowTableFromColumn(var_length_column, num_rows, 4, 4));
-      ASSERT_NE(row_table.data(0), NULLPTR);
-      ASSERT_NE(row_table.data(1), NULLPTR);
-      ASSERT_NE(row_table.data(2), NULLPTR);
+      ASSERT_NE(row_table.null_masks(/*row_id=*/0), NULLPTR);
+      ASSERT_NE(row_table.offsets(), NULLPTR);
+      ASSERT_NE(row_table.var_length_rows(), NULLPTR);
 
       int64_t actual_null_mask_size =
           num_rows * row_table.metadata().null_masks_bytes_per_row;

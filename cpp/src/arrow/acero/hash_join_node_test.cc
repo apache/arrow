@@ -3449,5 +3449,104 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBVarLength)) {
                    num_batches_left * num_rows_per_batch_left * num_batches_right);
 }
 
+// GH-45334: The row ids of the matching rows on the right side (the build side) are very
+// big, causing the index calculation overflow.
+TEST(HashJoin, BuildSideLargeRowIds) {
+  GTEST_SKIP() << "Test disabled due to excessively time and resource consuming, "
+                  "for local debugging only.";
+
+  // A fair amount of match rows to trigger both SIMD and non-SIMD code paths.
+  const int64_t num_match_rows = 35;
+  const int64_t num_rows_per_match_batch = 35;
+  const int64_t num_match_batches = num_match_rows / num_rows_per_match_batch;
+
+  const int64_t num_unmatch_rows_large = 720898048;
+  const int64_t num_rows_per_unmatch_batch_large = 352001;
+  const int64_t num_unmatch_batches_large =
+      num_unmatch_rows_large / num_rows_per_unmatch_batch_large;
+
+  auto schema_small =
+      schema({field("small_key", int64()), field("small_payload", int64())});
+  auto schema_large =
+      schema({field("large_key", int64()), field("large_payload", int64())});
+
+  // A carefully chosen key value which hashes to 0xFFFFFFFE, making the match rows to be
+  // placed at higher address of the row table.
+  const int64_t match_key = 289339070;
+  const int64_t match_payload = 42;
+
+  // Match arrays of length num_rows_per_match_batch.
+  ASSERT_OK_AND_ASSIGN(
+      auto match_key_arr,
+      Constant(MakeScalar(match_key))->Generate(num_rows_per_match_batch));
+  ASSERT_OK_AND_ASSIGN(
+      auto match_payload_arr,
+      Constant(MakeScalar(match_payload))->Generate(num_rows_per_match_batch));
+  // Append 1 row of null to trigger null processing code paths.
+  ASSERT_OK_AND_ASSIGN(auto null_arr, MakeArrayOfNull(int64(), 1));
+  ASSERT_OK_AND_ASSIGN(match_key_arr, Concatenate({match_key_arr, null_arr}));
+  ASSERT_OK_AND_ASSIGN(match_payload_arr, Concatenate({match_payload_arr, null_arr}));
+  // Match batch.
+  ExecBatch match_batch({match_key_arr, match_payload_arr}, num_rows_per_match_batch + 1);
+
+  // Small batch.
+  ExecBatch batch_small = match_batch;
+
+  // Large unmatch batches.
+  const int64_t seed = 42;
+  std::vector<ExecBatch> unmatch_batches_large;
+  unmatch_batches_large.reserve(num_unmatch_batches_large);
+  ASSERT_OK_AND_ASSIGN(auto unmatch_payload_arr_large,
+                       MakeArrayOfNull(int64(), num_rows_per_unmatch_batch_large));
+  int64_t unmatch_range_per_batch =
+      (std::numeric_limits<int64_t>::max() - match_key) / num_unmatch_batches_large;
+  for (int i = 0; i < num_unmatch_batches_large; ++i) {
+    auto unmatch_key_arr_large = RandomArrayGenerator(seed).Int64(
+        num_rows_per_unmatch_batch_large,
+        /*min=*/match_key + 1 + i * unmatch_range_per_batch,
+        /*max=*/match_key + 1 + (i + 1) * unmatch_range_per_batch);
+    unmatch_batches_large.push_back(
+        ExecBatch({unmatch_key_arr_large, unmatch_payload_arr_large},
+                  num_rows_per_unmatch_batch_large));
+  }
+  // Large match batch.
+  ExecBatch match_batch_large = match_batch;
+
+  // Batches with schemas.
+  auto batches_small = BatchesWithSchema{
+      std::vector<ExecBatch>(num_match_batches, batch_small), schema_small};
+  auto batches_large = BatchesWithSchema{std::move(unmatch_batches_large), schema_large};
+  for (int i = 0; i < num_match_batches; i++) {
+    batches_large.batches.push_back(match_batch_large);
+  }
+
+  Declaration source_small{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(batches_small.schema, batches_small.batches)};
+  Declaration source_large{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(batches_large.schema, batches_large.batches)};
+
+  HashJoinNodeOptions join_opts(JoinType::INNER, /*left_keys=*/{"small_key"},
+                                /*right_keys=*/{"large_key"});
+  Declaration join{
+      "hashjoin", {std::move(source_small), std::move(source_large)}, join_opts};
+
+  // Join should emit num_match_rows * num_match_rows rows.
+  ASSERT_OK_AND_ASSIGN(auto batches_result, DeclarationToExecBatches(std::move(join)));
+  Declaration result{"exec_batch_source",
+                     ExecBatchSourceNodeOptions(std::move(batches_result.schema),
+                                                std::move(batches_result.batches))};
+  AssertRowCountEq(result, num_match_rows * num_match_rows);
+
+  // All rows should be match_key/payload.
+  auto predicate = and_({equal(field_ref("small_key"), literal(match_key)),
+                         equal(field_ref("small_payload"), literal(match_payload)),
+                         equal(field_ref("large_key"), literal(match_key)),
+                         equal(field_ref("large_payload"), literal(match_payload))});
+  Declaration filter{"filter", {result}, FilterNodeOptions{std::move(predicate)}};
+  AssertRowCountEq(std::move(filter), num_match_rows * num_match_rows);
+}
+
 }  // namespace acero
 }  // namespace arrow
