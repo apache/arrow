@@ -62,6 +62,11 @@ struct ARROW_DS_EXPORT ScanOptions {
   compute::Expression filter = compute::literal(true);
   /// A projection expression (which can add/remove/rename columns).
   compute::Expression projection;
+  /// An explicit ordering the scanned data provide. Scan fails on first un-ordered row.
+  /// Reading un-ordered data partially might succeed if un-ordered rows are not read.
+  /// Setting an ordering does not actually sort the data but asserts that data in the
+  /// dataset is ordered as stated during scan.
+  compute::Ordering ordering = Ordering::Unordered();
 
   /// Schema with which batches will be read from fragments. This is also known as the
   /// "reader schema" it will be used (for example) in constructing CSV file readers to
@@ -501,6 +506,14 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///         Schema.
   Status Filter(const compute::Expression& filter);
 
+  /// \brief Set the ordering of the scanned rows.
+  ///
+  /// An explicit ordering the scanned data provide. Scan fails on first un-ordered row.
+  /// Reading un-ordered data partially might succeed if un-ordered rows are not read.
+  /// Setting an ordering does not actually sort the data but asserts that data in the
+  /// dataset is ordered as stated during scan.
+  Status Ordering(const compute::Ordering& ordering);
+
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanOptions;
   Status UseThreads(bool use_threads = true);
@@ -552,6 +565,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
  private:
   std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<ScanOptions> scan_options_ = std::make_shared<ScanOptions>();
+  compute::Ordering ordering_ = Ordering::Unordered();
 };
 
 /// \brief Construct a source ExecNode which yields batches from a dataset scan.
