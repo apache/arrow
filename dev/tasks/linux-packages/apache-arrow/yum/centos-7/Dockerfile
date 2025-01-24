@@ -50,6 +50,7 @@ RUN \
     brotli-devel \
     bzip2-devel \
     ccache \
+    cmake3 \
     curl-devel \
     flex \
     gflags-devel \
@@ -77,7 +78,8 @@ RUN \
 ARG cmake=3.25.0
 RUN curl -L \
     "https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-linux-$(uname -m).tar.gz" | \
-    tar -xzf - --directory /usr/local --strip-components=1
+    tar -xzf - --directory /usr/local --strip-components=1 && \
+    ln -fs /usr/local/bin/cmake /usr/bin/cmake3
 
 ENV \
   BOOST_INCLUDEDIR=/usr/include/boost169 \
