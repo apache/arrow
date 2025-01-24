@@ -310,7 +310,9 @@ template <typename T = uint32_t>
 ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Step(T start = 0, T step = 1) {
   class StepGenerator : public ArrayGenerator {
    public:
-    using ArrowType = typename CTypeTraits<T>::ArrowType;
+    // Use [[maybe_unused]] to avoid a compiler warning in Clang versions before 15 that
+    // incorrectly reports 'unused type alias'.
+    using ArrowType [[maybe_unused]] = typename CTypeTraits<T>::ArrowType;
     static_assert(is_number_type<ArrowType>::value,
                   "Step generator only supports numeric types");
 
