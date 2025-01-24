@@ -303,41 +303,40 @@ ARROW_TESTING_EXPORT std::shared_ptr<DataGenerator> Gen(
 ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Constant(
     std::shared_ptr<Scalar> value);
 
-template <typename T>
-class StepGenerator : public ArrayGenerator {
- public:
-  using ArrowType = typename CTypeTraits<T>::ArrowType;
-  using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
-
-  StepGenerator(T start, T step) : start_(start), step_(step) {}
-
-  Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
-    BuilderType builder;
-    ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
-    T val = start_;
-    for (int64_t i = 0; i < num_rows; i++) {
-      builder.UnsafeAppend(val);
-      val += step_;
-    }
-    start_ = val;
-    return builder.Finish();
-  }
-
-  std::shared_ptr<DataType> type() const override {
-    return TypeTraits<ArrowType>::type_singleton();
-  }
-
- private:
-  T start_;
-  T step_;
-};
-
 /// make a generator that returns an incrementing value
 ///
 /// Note: overflow is not prevented standard unsigned integer overflow applies
 template <typename T = int32_t>
 ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Step(T start = 0, T step = 1) {
-  return std::make_shared<StepGenerator<T>>(start, step);
+  class StepGenerator : public ArrayGenerator {
+   public:
+    using ArrowType = typename CTypeTraits<T>::ArrowType;
+    using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
+
+    StepGenerator(T start, T step) : start_(start), step_(step) {}
+
+    Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
+      BuilderType builder;
+      ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
+      T val = start_;
+      for (int64_t i = 0; i < num_rows; i++) {
+        builder.UnsafeAppend(val);
+        val += step_;
+      }
+      start_ = val;
+      return builder.Finish();
+    }
+
+    std::shared_ptr<DataType> type() const override {
+      return TypeTraits<ArrowType>::type_singleton();
+    }
+
+   private:
+    T start_;
+    T step_;
+  };
+
+  return std::make_shared<StepGenerator>(start, step);
 }
 
 /// make a generator that returns a random value
