@@ -40,7 +40,7 @@ TEST(StepTest, Default) {
   for (auto length : {0, 1, 1024}) {
     ARROW_SCOPED_TRACE("length=" + std::to_string(length));
     ASSERT_OK_AND_ASSIGN(auto array, Step()->Generate(length));
-    CheckStep(*array, 0, 1, length);
+    CheckStep(*array, 0u, 1u, length);
   }
 }
 

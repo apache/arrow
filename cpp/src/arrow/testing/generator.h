@@ -306,7 +306,7 @@ ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Constant(
 /// make a generator that returns an incrementing value
 ///
 /// Note: overflow is not prevented standard unsigned integer overflow applies
-template <typename T = int32_t>
+template <typename T = uint32_t>
 ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Step(T start = 0, T step = 1) {
   class StepGenerator : public ArrayGenerator {
    public:
