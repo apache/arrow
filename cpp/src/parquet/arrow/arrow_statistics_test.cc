@@ -183,6 +183,39 @@ TEST(StatisticsTest, TruncateOnlyHalfMinMax) {
   ASSERT_FALSE(stats->HasMinMax());
 }
 
+TEST(StatisticsTest, RequestNoRowGroup) {
+  // Build input
+  auto schema = ::arrow::schema({::arrow::field("column", ::arrow::int32())});
+  auto built_record_batch = RecordBatchFromJSON(schema, R"([[1], [null], [-1]])");
+
+  // Write built data as Parquet
+  ASSERT_OK_AND_ASSIGN(auto sink, ::arrow::io::BufferOutputStream::Create());
+  const auto arrow_writer_properties =
+      parquet::ArrowWriterProperties::Builder().store_schema()->build();
+  ASSERT_OK_AND_ASSIGN(
+      auto writer,
+      FileWriter::Open(*schema, ::arrow::default_memory_pool(), sink,
+                       default_writer_properties(), arrow_writer_properties));
+  ASSERT_OK(writer->WriteRecordBatch(*built_record_batch));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  // Read Parquet
+  auto reader =
+      ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  // This is the important part in this test
+  std::vector<int> row_group_indices = {};
+  ASSERT_OK_AND_ASSIGN(auto record_batch_reader,
+                       file_reader->GetRecordBatchReader(row_group_indices));
+  std::shared_ptr<::arrow::RecordBatch> record_batch;
+  ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
+  // No read record batch for empty row groups request
+  ASSERT_FALSE(record_batch);
+}
+
 namespace {
 ::arrow::Result<std::shared_ptr<::arrow::Array>> StatisticsReadArray(
     std::shared_ptr<::arrow::DataType> data_type, std::shared_ptr<::arrow::Array> array) {
