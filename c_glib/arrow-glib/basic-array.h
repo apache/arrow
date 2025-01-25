@@ -126,6 +126,14 @@ GARROW_AVAILABLE_IN_4_0
 GArrowArray *
 garrow_array_concatenate(GArrowArray *array, GList *other_arrays, GError **error);
 
+GARROW_AVAILABLE_IN_20_0
+gboolean
+garrow_array_validate(GArrowArray *array, GError **error);
+
+GARROW_AVAILABLE_IN_20_0
+gboolean
+garrow_array_validate_full(GArrowArray *array, GError **error);
+
 #define GARROW_TYPE_NULL_ARRAY (garrow_null_array_get_type())
 GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(

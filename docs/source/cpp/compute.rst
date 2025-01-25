@@ -1796,19 +1796,21 @@ in the respective option classes.
    Binary- and String-like inputs are ordered lexicographically as bytestrings,
    even for String types.
 
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| Function name         | Arity      | Input types                                             | Output type       | Options class                  | Notes          |
-+=======================+============+=========================================================+===================+================================+================+
-| array_sort_indices    | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`ArraySortOptions`     | \(1) \(2)      |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| partition_nth_indices | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions`  | \(3)           |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| rank                  | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`RankOptions`          | \(4)           |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`       | \(5) \(6)      |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`          | \(1) \(5)      |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| Function name         | Arity      | Input types                                             | Output type       | Options class                 | Notes          |
++=======================+============+=========================================================+===================+===============================+================+
+| array_sort_indices    | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`ArraySortOptions`    | \(1) \(2)      |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| partition_nth_indices | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions` | \(3)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| rank                  | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`RankOptions`         | \(4)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| rank_quantile         | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | Float64           | :struct:`RankQuantileOptions` | \(5)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`      | \(6) \(7)      |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`         | \(1) \(6)      |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 
 
 * \(1) The output is an array of indices into the input, that define a
@@ -1823,13 +1825,15 @@ in the respective option classes.
   :func:`std::nth_element`).  *N* is given in
   :member:`PartitionNthOptions::pivot`.
 
-* \(4) The output is a one-based numerical array of ranks
+* \(4) The output is a one-based numerical array of ranks.
 
-* \(5) The input can be an array, chunked array, record batch or
+* \(5) The output is an array of quantiles strictly between 0 and 1.
+
+* \(6) The input can be an array, chunked array, record batch or
   table. If the input is a record batch or table, one or more sort
   keys must be specified.
 
-* \(6) The output is an array of indices into the input, that define a
+* \(7) The output is an array of indices into the input, that define a
   non-stable sort of the input.
 
 .. _cpp-compute-vector-structural-transforms:
