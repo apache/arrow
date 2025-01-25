@@ -45,7 +45,7 @@ Major components of the project include:
  - [Gandiva](https://github.com/apache/arrow/tree/main/cpp/src/gandiva):
    an [LLVM](https://llvm.org)-based Arrow expression compiler, part of the C++ codebase
  - [Go libraries](https://github.com/apache/arrow-go)
- - [Java libraries](https://github.com/apache/arrow/tree/main/java)
+ - [Java libraries](https://github.com/apache/arrow-java)
  - [JavaScript libraries](https://github.com/apache/arrow/tree/main/js)
  - [Python libraries](https://github.com/apache/arrow/tree/main/python)
  - [R libraries](https://github.com/apache/arrow/tree/main/r)
