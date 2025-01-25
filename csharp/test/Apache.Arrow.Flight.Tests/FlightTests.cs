@@ -21,6 +21,7 @@ using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
 using Apache.Arrow.Flight.TestWeb;
 using Apache.Arrow.Tests;
+using Apache.Arrow.Types;
 using Google.Protobuf;
 using Grpc.Core;
 using Grpc.Core.Utils;
@@ -54,6 +55,10 @@ namespace Apache.Arrow.Flight.Tests
                 builder.Append(startValue + i);
             }
             batchBuilder.Append("test", true, builder.Build());
+            var keys = new UInt16Array.Builder().AppendRange(Enumerable.Range(startValue, length).Select(i => (ushort)i)).Build();
+            var dictionary = new StringArray.Builder().AppendRange(Enumerable.Range(startValue, length).Select(i => i.ToString())).Build();
+            var dictArray = new DictionaryArray(new DictionaryType(UInt16Type.Default, StringType.Default, false), keys, dictionary);
+            batchBuilder.Append("dict", true, dictArray);
             return batchBuilder.Build();
         }
 
