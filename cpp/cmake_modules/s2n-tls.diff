@@ -1,0 +1,25 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 23ef74369..50c1573d9 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -352,6 +352,9 @@ FILE(GLOB FEATURE_SRCS "${CMAKE_CURRENT_LIST_DIR}/tests/features/*.c")
+ list(SORT FEATURE_SRCS)
+ foreach(file ${FEATURE_SRCS})
+     get_filename_component(feature_name ${file} NAME_WE)
++    if(feature_name STREQUAL "S2N_LIBCRYPTO_SUPPORTS_ENGINE")
++        continue()
++    endif()
+     feature_probe(${feature_name})
+ endforeach()
+ 
+@@ -445,9 +448,8 @@ if (S2N_INTERN_LIBCRYPTO)
+         # add all of the prefixed symbols to the archive
+         add_custom_command(
+             TARGET ${PROJECT_NAME} POST_BUILD
+-            DEPENDS libcrypto.symbols
+             COMMAND
+-                bash -c "${CMAKE_AR} -r lib/libs2n.a s2n_libcrypto/*.o"
++                bash -c "${CMAKE_AR} -r $<TARGET_FILE:${PROJECT_NAME}> s2n_libcrypto/*.o"
+             VERBATIM
+         )
+     endif()
