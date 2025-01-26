@@ -5089,24 +5089,14 @@ function(build_awssdk)
     # AWS-C-CAL ->
     # AWS_C_CAL
     string(REGEX REPLACE "-" "_" BASE_VARIABLE_NAME "${BASE_VARIABLE_NAME}")
-    if(AWSSDK_PRODUCT STREQUAL "s2n-tls")
-      if(CMAKE_VERSION VERSION_LESS 3.17)
-        set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
-            ${CMAKE_COMMAND} -E remove tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
-      else()
-        set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
-            ${CMAKE_COMMAND} -E rm tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
+    set(${BASE_VARIABLE_NAME}_DIFF_FILE
+        "${CMAKE_CURRENT_LIST_DIR}/${AWSSDK_PRODUCT}.diff")
+    if(EXISTS "${${BASE_VARIABLE_NAME}_DIFF_FILE}")
+      if(NOT PATCH)
+        find_program(PATCH patch REQUIRED)
       endif()
-    else()
-      set(${BASE_VARIABLE_NAME}_DIFF_FILE
-          "${CMAKE_CURRENT_LIST_DIR}/${AWSSDK_PRODUCT}.diff")
-      if(EXISTS "${${BASE_VARIABLE_NAME}_DIFF_FILE}")
-        if(NOT PATCH)
-          find_program(PATCH patch REQUIRED)
-        endif()
-        set(${BASE_VARIABLE_NAME}_PATCH_COMMAND ${PATCH} -p1 -i
-                                                "${${BASE_VARIABLE_NAME}_DIFF_FILE}")
-      endif()
+      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND ${PATCH} -p1 -i
+                                              "${${BASE_VARIABLE_NAME}_DIFF_FILE}")
     endif()
     fetchcontent_declare(${AWSSDK_PRODUCT}
                          ${FC_DECLARE_COMMON_OPTIONS}
@@ -5132,6 +5122,9 @@ function(build_awssdk)
        sts
        transfer)
   set(BUILD_TOOL
+      OFF
+      CACHE BOOL "" FORCE)
+  set(ENABLE_TESTING
       OFF
       CACHE BOOL "" FORCE)
   set(IN_SOURCE_BUILD
@@ -5171,16 +5164,7 @@ function(build_awssdk)
       if("${AWSSDK_PRODUCT}" STREQUAL "aws-lc")
         list(PREPEND AWSSDK_LINK_LIBRARIES ssl)
       elseif("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
-        add_library(s2n_libcrypto_static STATIC IMPORTED)
-        set_target_properties(s2n_libcrypto_static
-                              PROPERTIES IMPORTED_LOCATION
-                                         "${s2n-tls_BINARY_DIR}/s2n_libcrypto.a")
-        add_dependencies(s2n_libcrypto_static s2n_libcrypto)
-        list(PREPEND AWSSDK_LINK_LIBRARIES s2n_libcrypto_static)
         list(PREPEND AWSSDK_LINK_LIBRARIES s2n)
-        # Workaround: S2N_INTERN_LIBCRYPTO doesn't support
-        # out-of-source build.
-        file(MAKE_DIRECTORY ${s2n-tls_BINARY_DIR}/lib)
       else()
         list(PREPEND AWSSDK_LINK_LIBRARIES ${AWSSDK_PRODUCT})
       endif()
