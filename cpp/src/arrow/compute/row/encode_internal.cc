@@ -267,25 +267,25 @@ void EncoderInteger::Decode(uint32_t start_row, uint32_t num_rows,
     switch (col_prep.metadata().fixed_length) {
       case 1:
         for (uint32_t i = 0; i < num_rows; ++i) {
-          col_base[i] = *rows.fixed_length_rows(start_row + i) + offset_within_row;
+          col_base[i] = *(rows.fixed_length_rows(start_row + i) + offset_within_row);
         }
         break;
       case 2:
         for (uint32_t i = 0; i < num_rows; ++i) {
-          reinterpret_cast<uint16_t*>(col_base)[i] =
-              *reinterpret_cast<const uint16_t*>(rows.fixed_length_rows(start_row + i));
+          reinterpret_cast<uint16_t*>(col_base)[i] = *reinterpret_cast<const uint16_t*>(
+              rows.fixed_length_rows(start_row + i) + offset_within_row);
         }
         break;
       case 4:
         for (uint32_t i = 0; i < num_rows; ++i) {
-          reinterpret_cast<uint32_t*>(col_base)[i] =
-              *reinterpret_cast<const uint32_t*>(rows.fixed_length_rows(start_row + i));
+          reinterpret_cast<uint32_t*>(col_base)[i] = *reinterpret_cast<const uint32_t*>(
+              rows.fixed_length_rows(start_row + i + offset_within_row));
         }
         break;
       case 8:
         for (uint32_t i = 0; i < num_rows; ++i) {
-          reinterpret_cast<uint64_t*>(col_base)[i] =
-              *reinterpret_cast<const uint64_t*>(rows.fixed_length_rows(start_row + i));
+          reinterpret_cast<uint64_t*>(col_base)[i] = *reinterpret_cast<const uint64_t*>(
+              rows.fixed_length_rows(start_row + i) + offset_within_row);
         }
         break;
       default:
