@@ -24,8 +24,6 @@
 namespace arrow {
 namespace compute {
 
-namespace {
-
 inline __m256i set_first_n_bytes_avx2(int n) {
   constexpr uint64_t kByteSequence0To7 = 0x0706050403020100ULL;
   constexpr uint64_t kByteSequence8To15 = 0x0f0e0d0c0b0a0908ULL;
@@ -36,21 +34,6 @@ inline __m256i set_first_n_bytes_avx2(int n) {
                            _mm256_setr_epi64x(kByteSequence0To7, kByteSequence8To15,
                                               kByteSequence16To23, kByteSequence24To31));
 }
-
-// Convert 8 64-bit comparision results, each being 0 or -1, to 8 bytes.
-inline uint64_t Cmp64To8(__m256i cmp64_lo, __m256i cmp64_hi) {
-  uint32_t cmp_lo = _mm256_movemask_epi8(cmp64_lo);
-  uint32_t cmp_hi = _mm256_movemask_epi8(cmp64_hi);
-  return cmp_lo | (static_cast<uint64_t>(cmp_hi) << 32);
-}
-
-// Convert 8 32-bit comparision results, each being 0 or -1, to 8 bytes.
-inline uint64_t Cmp32To8(__m256i cmp32) {
-  return Cmp64To8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(cmp32)),
-                  _mm256_cvtepi32_epi64(_mm256_extracti128_si256(cmp32, 1)));
-}
-
-}  // namespace
 
 template <bool use_selection>
 uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(

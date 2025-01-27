@@ -26,6 +26,19 @@
 
 namespace arrow::compute {
 
+// Convert 8 64-bit comparision results, each being 0 or -1, to 8 bytes.
+inline uint64_t Cmp64To8(__m256i cmp64_lo, __m256i cmp64_hi) {
+  uint32_t cmp_lo = _mm256_movemask_epi8(cmp64_lo);
+  uint32_t cmp_hi = _mm256_movemask_epi8(cmp64_hi);
+  return cmp_lo | (static_cast<uint64_t>(cmp_hi) << 32);
+}
+
+// Convert 8 32-bit comparision results, each being 0 or -1, to 8 bytes.
+inline uint64_t Cmp32To8(__m256i cmp32) {
+  return Cmp64To8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(cmp32)),
+                  _mm256_cvtepi32_epi64(_mm256_extracti128_si256(cmp32, 1)));
+}
+
 // Get null bits for 8 32-bit row ids in `row_id32` at `col_pos` as a vector of 32-bit
 // integers. Note that the result integer is 0 if the corresponding column is not null, or
 // 1 otherwise.

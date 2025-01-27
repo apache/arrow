@@ -243,11 +243,7 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
     __m256i row_id = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
     __m256i null32 = GetNullBitInt32(rows, pos_after_encoding, row_id);
     null32 = _mm256_cmpeq_epi32(null32, _mm256_set1_epi32(1));
-    uint32_t null32_lo =
-        _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(null32)));
-    uint32_t null32_hi =
-        _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_extracti128_si256(null32, 1)));
-    uint64_t null_bytes = null32_lo | (static_cast<uint64_t>(null32_hi) << 32);
+    uint64_t null_bytes = arrow::compute::Cmp32To8(null32);
 
     process_8_values_fn(i * kUnroll, null_bytes);
   }
