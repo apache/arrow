@@ -192,18 +192,18 @@ valid:   [
 
     sub_test_case("#validate") do
       def setup
-        @id_field = Arrow::Field.new("id",Arrow::UInt8DataType.new)
-        @name_field = Arrow::Field.new("name",Arrow::StringDataType.new)
-        @schema = Arrow::Schema.new([@id_field,@name_field])
+        @id_field = Arrow::Field.new("id", Arrow::UInt8DataType.new)
+        @name_field = Arrow::Field.new("name", Arrow::StringDataType.new)
+        @schema = Arrow::Schema.new([@id_field, @name_field])
 
         @id_value = build_uint_array([1])
         @name_value = build_string_array(["abc"])
-        @values = [@id_value,@name_value]
+        @values = [@id_value, @name_value]
       end
 
       def test_valid
-        nrows = @id_value.length
-        record_batch = Arrow::RecordBatch.new(@schema,nrows,@values)
+        n_rows = @id_value.length
+        record_batch = Arrow::RecordBatch.new(@schema, n_rows, @values)
 
         assert do
           record_batch.validate
@@ -213,9 +213,9 @@ valid:   [
       def test_invalid
         message = "[record-batch][validate]: Invalid: " +
           "Number of rows in column 0 did not match batch: 1 vs 2"
-        nrows = @id_value.length + 1 # incorrect num
+        n_rows = @id_value.length + 1 # incorrect number of rows
 
-        record_batch = Arrow::RecordBatch.new(@schema,nrows,@values)
+        record_batch = Arrow::RecordBatch.new(@schema, n_rows, @values)
         assert_raise(Arrow::Error::Invalid.new(message)) do
           record_batch.validate
         end
