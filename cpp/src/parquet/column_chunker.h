@@ -122,12 +122,11 @@ class GearHash {
   bool Roll(const T value) {
     constexpr size_t BYTE_WIDTH = sizeof(T);
     chunk_size_ += BYTE_WIDTH;
-    // if (chunk_size_ < min_len_) {
-    //   return false;
-    // }
+    if (chunk_size_ < min_len_) {
+      return false;
+    }
     auto bytes = reinterpret_cast<const uint8_t*>(&value);
     bool match = false;
-#pragma unroll
     for (size_t i = 0; i < BYTE_WIDTH; ++i) {
       hash_ = (hash_ << 1) + GEAR_HASH_TABLE[bytes[i]];
       if ((hash_ & mask_) == 0) {
@@ -139,9 +138,9 @@ class GearHash {
 
   bool Roll(std::string_view value) {
     chunk_size_ += value.size();
-    // if (chunk_size_ < min_len_) {
-    //   return false;
-    // }
+    if (chunk_size_ < min_len_) {
+      return false;
+    }
     bool match = false;
     for (char c : value) {
       hash_ = (hash_ << 1) + GEAR_HASH_TABLE[static_cast<uint8_t>(c)];
@@ -152,45 +151,14 @@ class GearHash {
     return match;
   }
 
-  bool Check(bool match) {
-    if ((match && (chunk_size_ >= min_len_)) || (chunk_size_ >= max_len_)) {
+  inline bool Check(bool match) {
+    if (match || (chunk_size_ >= max_len_)) {
       chunk_size_ = 0;
       return true;
     } else {
       return false;
     }
   }
-
-  // bool Check(bool match) {
-  //   if ((match && (chunk_size_ >= min_len_)) || (chunk_size_ >= max_len_)) {
-  //     chunk_size_ = 0;
-  //     return true;
-  //   } else {
-  //     return false;
-  //   }
-  // }
-
-  // template <typename T>
-  // const std::vector<std::tuple<int64_t, int64_t, int64_t>> GetBoundaries(
-  //     int64_t num_levels, const T& leaf_array) {
-  //   std::vector<std::tuple<int64_t, int64_t, int64_t>> result;
-
-  //   int64_t offset = 0;
-  //   int64_t prev_offset = 0;
-
-  //   while (offset < num_levels) {
-  //     if (Check(Roll(leaf_array.GetView(offset)))) {
-  //       result.push_back(std::make_tuple(prev_offset, prev_offset, offset -
-  //       prev_offset)); prev_offset = offset;
-  //     }
-  //     ++offset;
-  //   }
-  //   if (prev_offset < num_levels) {
-  //     result.push_back(std::make_tuple(prev_offset, prev_offset, num_levels -
-  //     prev_offset));
-  //   }
-  //   return result;
-  // }
 
   template <typename T>
   const std::vector<std::tuple<int64_t, int64_t, int64_t>> GetBoundaries(
@@ -199,61 +167,91 @@ class GearHash {
     std::vector<std::tuple<int64_t, int64_t, int64_t>> result;
     bool has_def_levels = level_info_.def_level > 0;
     bool has_rep_levels = level_info_.rep_level > 0;
-    // bool no_nulls = leaf_array.null_count() == 0;
-    // if (!has_rep_levels && !maybe_parent_nulls && no_nulls) {
-    //   return GetBoundaries(num_levels, leaf_array);
-    // }
 
-    bool def_match, rep_match, val_match;
-    int64_t level_offset = 0;
-    int64_t value_offset = 0;
-    int64_t record_level_offset = 0;
-    int64_t record_value_offset = 0;
-    int64_t prev_record_level_offset = 0;
-    int64_t prev_record_value_offset = 0;
-
-    while (level_offset < num_levels) {
-      int16_t def_level = has_def_levels ? def_levels[level_offset] : 0;
-      int16_t rep_level = has_rep_levels ? rep_levels[level_offset] : 0;
-
-      if (rep_level == 0) {
-        // record boundary
-        record_level_offset = level_offset;
-        record_value_offset = value_offset;
+    if (!has_rep_levels && !has_def_levels) {
+      // fastest path for non-repeated non-null data
+      bool val_match;
+      int64_t offset = 0;
+      int64_t prev_offset = 0;
+      while (offset < num_levels) {
+        val_match = Roll(leaf_array.GetView(offset));
+        ++offset;
+        if (Check(val_match)) {
+          result.emplace_back(prev_offset, prev_offset, offset - prev_offset);
+          prev_offset = offset;
+        }
       }
+      if (prev_offset < num_levels) {
+        result.emplace_back(prev_offset, prev_offset, num_levels - prev_offset);
+      }
+    } else if (!has_rep_levels) {
+      // non-repeated data possibly with nulls
+      bool def_match, val_match;
+      int64_t offset = 0;
+      int64_t prev_offset = 0;
+      while (offset < num_levels) {
+        def_match = Roll(def_levels[offset]);
+        val_match = Roll(leaf_array.GetView(offset));
+        ++offset;
+        if (Check(def_match || val_match)) {
+          result.emplace_back(prev_offset, prev_offset, offset - prev_offset);
+          prev_offset = offset;
+        }
+      }
+      if (prev_offset < num_levels) {
+        result.emplace_back(prev_offset, prev_offset, num_levels - prev_offset);
+      }
+    } else {
+      // repeated data possibly with nulls
+      bool def_match, rep_match, val_match;
+      int16_t def_level;
+      int16_t rep_level;
+      int64_t level_offset = 0;
+      int64_t value_offset = 0;
+      int64_t record_level_offset = 0;
+      int64_t record_value_offset = 0;
+      int64_t prev_record_level_offset = 0;
+      int64_t prev_record_value_offset = 0;
 
-      def_match = Roll(def_level);
-      rep_match = Roll(rep_level);
-      ++level_offset;
+      while (level_offset < num_levels) {
+        def_level = def_levels[level_offset];
+        rep_level = rep_levels[level_offset];
+        ++level_offset;
 
-      if (has_rep_levels) {
+        if (rep_level == 0) {
+          // record boundary
+          record_level_offset = level_offset;
+          record_value_offset = value_offset;
+        }
+
+        def_match = Roll(def_level);
+        rep_match = Roll(rep_level);
         if (def_level >= level_info_.repeated_ancestor_def_level) {
           val_match = Roll(leaf_array.GetView(value_offset));
           ++value_offset;
         } else {
           val_match = false;
         }
-      } else {
-        val_match = Roll(leaf_array.GetView(value_offset));
-        ++value_offset;
-      }
 
-      if (Check(def_match || rep_match || val_match)) {
-        auto levels_to_write = record_level_offset - prev_record_level_offset;
-        if (levels_to_write > 0) {
-          result.emplace_back(prev_record_level_offset, prev_record_value_offset,
-                              levels_to_write);
-          prev_record_level_offset = record_level_offset;
-          prev_record_value_offset = record_value_offset;
+        if (Check(def_match || rep_match || val_match)) {
+          auto levels_to_write = record_level_offset - prev_record_level_offset;
+          if (levels_to_write > 0) {
+            result.emplace_back(prev_record_level_offset, prev_record_value_offset,
+                                levels_to_write);
+            prev_record_level_offset = record_level_offset;
+            prev_record_value_offset = record_value_offset;
+          }
         }
       }
+
+      auto levels_to_write = num_levels - prev_record_level_offset;
+      if (levels_to_write > 0) {
+        result.emplace_back(prev_record_level_offset, prev_record_value_offset,
+                            levels_to_write);
+      }
+      return result;
     }
 
-    auto levels_to_write = num_levels - prev_record_level_offset;
-    if (levels_to_write > 0) {
-      result.emplace_back(prev_record_level_offset, prev_record_value_offset,
-                          levels_to_write);
-    }
     return result;
   }
 
