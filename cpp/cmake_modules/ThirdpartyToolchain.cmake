@@ -1041,15 +1041,18 @@ macro(prepare_fetchcontent)
   set(BUILD_TESTING
       OFF
       CACHE BOOL "" FORCE)
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "" CACHE PATH "" FORCE)
   set(CMAKE_COMPILE_WARNING_AS_ERROR
       FALSE
       CACHE BOOL "" FORCE)
   set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY
       TRUE
       CACHE BOOL "" FORCE)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "" CACHE PATH "" FORCE)
   set(CMAKE_MACOSX_RPATH
       ${ARROW_INSTALL_NAME_RPATH}
       CACHE STRING "" FORCE)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "" CACHE PATH "" FORCE)
   if(MSVC)
     string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
     string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
@@ -5126,6 +5129,9 @@ function(build_awssdk)
   set(MINIMIZE_SIZE
       ON
       CACHE BOOL "" FORCE)
+  set(USE_OPENSSL
+      ON
+      CACHE BOOL "" FORCE)
 
   # For aws-lc
   set(DISABLE_PERL
@@ -5152,7 +5158,8 @@ function(build_awssdk)
     list(PREPEND CMAKE_MODULE_PATH "${${AWSSDK_PRODUCT}_SOURCE_DIR}/cmake")
     if(NOT "${AWSSDK_PRODUCT}" STREQUAL "aws-sdk-cpp")
       if("${AWSSDK_PRODUCT}" STREQUAL "aws-lc")
-        list(PREPEND AWSSDK_LINK_LIBRARIES ssl)
+        # We don't need to link aws-lc. It's used by s2n-tls.
+        # list(PREPEND AWSSDK_LINK_LIBRARIES ssl)
       elseif("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
         list(PREPEND AWSSDK_LINK_LIBRARIES s2n)
       else()
