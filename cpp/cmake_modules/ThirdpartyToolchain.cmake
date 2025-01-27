@@ -5159,14 +5159,19 @@ function(build_awssdk)
       ON
       CACHE BOOL "" FORCE)
 
+  # For aws-lc and s2n-tls
+  #
+  # Link time optimization is causing trouble like GH-34349
+  string(REPLACE "-flto=auto" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REPLACE "-ffat-lto-objects" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+
   set(AWSSDK_LINK_LIBRARIES)
   foreach(AWSSDK_PRODUCT ${AWSSDK_PRODUCTS})
     fetchcontent_makeavailable(${AWSSDK_PRODUCT})
     list(PREPEND CMAKE_MODULE_PATH "${${AWSSDK_PRODUCT}_SOURCE_DIR}/cmake")
     if(NOT "${AWSSDK_PRODUCT}" STREQUAL "aws-sdk-cpp")
       if("${AWSSDK_PRODUCT}" STREQUAL "aws-lc")
-        # We don't need to link aws-lc. It's used by s2n-tls.
-        # list(PREPEND AWSSDK_LINK_LIBRARIES ssl)
+        # We don't need to link aws-lc. It's used only by s2n-tls.
       elseif("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
         list(PREPEND AWSSDK_LINK_LIBRARIES s2n)
       else()
