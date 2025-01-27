@@ -191,12 +191,7 @@ garrow_record_batch_new(GArrowSchema *schema,
   }
 
   auto arrow_record_batch = arrow::RecordBatch::Make(arrow_schema, n_rows, arrow_columns);
-  auto status = arrow_record_batch->Validate();
-  if (garrow_error_check(error, status, tag)) {
-    return garrow_record_batch_new_raw(&arrow_record_batch);
-  } else {
-    return NULL;
-  }
+  return garrow_record_batch_new_raw(&arrow_record_batch);
 }
 
 /**
@@ -701,4 +696,20 @@ garrow_record_batch_iterator_get_raw(GArrowRecordBatchIterator *iterator)
 {
   auto priv = GARROW_RECORD_BATCH_ITERATOR_GET_PRIVATE(iterator);
   return &priv->iterator;
+}
+
+/**
+ * garrow_record_batch_validate
+ * @record_batch: A #GArrowRecordBatch
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 20.0.0
+ */
+gboolean
+garrow_record_batch_validate(GArrowRecordBatch *record_batch, GError **error)
+{
+  const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
+  return garrow::check(error, arrow_record_batch->Validate(), "[record-batch][validate]");
 }
