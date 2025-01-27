@@ -5129,9 +5129,6 @@ function(build_awssdk)
   set(MINIMIZE_SIZE
       ON
       CACHE BOOL "" FORCE)
-  set(USE_OPENSSL
-      ON
-      CACHE BOOL "" FORCE)
 
   # For aws-lc
   set(DISABLE_PERL
