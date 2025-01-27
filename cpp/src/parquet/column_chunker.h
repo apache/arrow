@@ -204,7 +204,7 @@ class GearHash {
     //   return GetBoundaries(num_levels, leaf_array);
     // }
 
-    bool is_match;
+    bool def_match, rep_match, val_match;
     int64_t level_offset = 0;
     int64_t value_offset = 0;
     int64_t record_level_offset = 0;
@@ -222,20 +222,23 @@ class GearHash {
         record_value_offset = value_offset;
       }
 
-      is_match = Roll(def_level) || Roll(rep_level);
+      def_match = Roll(def_level);
+      rep_match = Roll(rep_level);
       ++level_offset;
 
       if (has_rep_levels) {
         if (def_level >= level_info_.repeated_ancestor_def_level) {
-          is_match |= Roll(leaf_array.GetView(value_offset));
+          val_match = Roll(leaf_array.GetView(value_offset));
           ++value_offset;
+        } else {
+          val_match = false;
         }
       } else {
-        is_match |= Roll(leaf_array.GetView(value_offset));
+        val_match = Roll(leaf_array.GetView(value_offset));
         ++value_offset;
       }
 
-      if (Check(is_match)) {
+      if (Check(def_match || rep_match || val_match)) {
         auto levels_to_write = record_level_offset - prev_record_level_offset;
         if (levels_to_write > 0) {
           result.emplace_back(prev_record_level_offset, prev_record_value_offset,
