@@ -266,9 +266,7 @@ class DebugAllocator {
     }
   }
 
-  static void PrintStats() {
-    WrappedAllocator::PrintStats();
-  }
+  static void PrintStats() { WrappedAllocator::PrintStats(); }
 
  private:
   static Result<int64_t> RawSize(int64_t size) {
@@ -441,9 +439,7 @@ class MimallocAllocator {
     }
   }
 
-  static void PrintStats() {
-    mi_stats_print_out(nullptr, nullptr);
-  }
+  static void PrintStats() { mi_stats_print_out(nullptr, nullptr); }
 };
 
 #endif  // defined(ARROW_MIMALLOC)
@@ -740,13 +736,9 @@ void LoggingMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
   std::cout << "Free: size = " << size << ", alignment = " << alignment << std::endl;
 }
 
-void LoggingMemoryPool::ReleaseUnused() {
-  pool_->ReleaseUnused();
-}
+void LoggingMemoryPool::ReleaseUnused() { pool_->ReleaseUnused(); }
 
-void LoggingMemoryPool::PrintStats() {
-  pool_->PrintStats();
-}
+void LoggingMemoryPool::PrintStats() { pool_->PrintStats(); }
 
 int64_t LoggingMemoryPool::bytes_allocated() const {
   int64_t nb_bytes = pool_->bytes_allocated();
@@ -799,9 +791,7 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
     stats_.DidFreeBytes(size);
   }
 
-  void ReleaseUnused() {
-    pool_->ReleaseUnused();
-  }
+  void ReleaseUnused() { pool_->ReleaseUnused(); }
 
   void PrintStats() {
     // XXX these are the allocation stats for the underlying allocator, not
@@ -843,13 +833,9 @@ void ProxyMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
   return impl_->Free(buffer, size, alignment);
 }
 
-void ProxyMemoryPool::ReleaseUnused() {
-  impl_->ReleaseUnused();
-}
+void ProxyMemoryPool::ReleaseUnused() { impl_->ReleaseUnused(); }
 
-void ProxyMemoryPool::PrintStats() {
-  impl_->PrintStats();
-}
+void ProxyMemoryPool::PrintStats() { impl_->PrintStats(); }
 
 int64_t ProxyMemoryPool::bytes_allocated() const { return impl_->bytes_allocated(); }
 
