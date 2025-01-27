@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/acero/swiss_join_internal.h"
+#include "arrow/compute/row/row_util_avx2_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/simd.h"
 
@@ -46,7 +47,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
 
   if (!is_fixed_length_column) {
     int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
-    const uint8_t* row_ptr_base = rows.data(2);
+    const uint8_t* row_ptr_base = rows.var_length_rows();
     const RowTableImpl::offset_type* row_offsets = rows.offsets();
     auto row_offsets_i64 =
         reinterpret_cast<const arrow::util::int64_for_gather_t*>(row_offsets);
@@ -172,7 +173,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
     if (is_fixed_length_row) {
       // Case 3: This is a fixed length column in fixed length row
       //
-      const uint8_t* row_ptr_base = rows.data(1);
+      const uint8_t* row_ptr_base = rows.fixed_length_rows(/*row_id=*/0);
       for (int i = 0; i < num_rows / kUnroll; ++i) {
         // Load 8 32-bit row ids.
         __m256i row_id =
@@ -197,7 +198,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
     } else {
       // Case 4: This is a fixed length column in varying length row
       //
-      const uint8_t* row_ptr_base = rows.data(2);
+      const uint8_t* row_ptr_base = rows.var_length_rows();
       const RowTableImpl::offset_type* row_offsets = rows.offsets();
       auto row_offsets_i64 =
           reinterpret_cast<const arrow::util::int64_for_gather_t*>(row_offsets);
@@ -237,31 +238,12 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
   //
   constexpr int kUnroll = 8;
 
-  const uint8_t* null_masks = rows.null_masks();
-  __m256i null_bits_per_row =
-      _mm256_set1_epi32(8 * rows.metadata().null_masks_bytes_per_row);
-  __m256i pos_after_encoding =
-      _mm256_set1_epi32(rows.metadata().pos_after_encoding(column_id));
+  uint32_t pos_after_encoding = rows.metadata().pos_after_encoding(column_id);
   for (int i = 0; i < num_rows / kUnroll; ++i) {
     __m256i row_id = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
-    __m256i bit_id = _mm256_mullo_epi32(row_id, null_bits_per_row);
-    bit_id = _mm256_add_epi32(bit_id, pos_after_encoding);
-    __m256i bytes = _mm256_i32gather_epi32(reinterpret_cast<const int*>(null_masks),
-                                           _mm256_srli_epi32(bit_id, 3), 1);
-    __m256i bit_in_word = _mm256_sllv_epi32(
-        _mm256_set1_epi32(1), _mm256_and_si256(bit_id, _mm256_set1_epi32(7)));
-    // `result` will contain one 32-bit word per tested null bit, either 0xffffffff if the
-    // null bit was set or 0 if it was unset.
-    __m256i result =
-        _mm256_cmpeq_epi32(_mm256_and_si256(bytes, bit_in_word), bit_in_word);
-    // NB: Be careful about sign-extension when casting the return value of
-    // _mm256_movemask_epi8 (signed 32-bit) to unsigned 64-bit, which will pollute the
-    // higher bits of the following OR.
-    uint32_t null_bytes_lo = static_cast<uint32_t>(
-        _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(result))));
-    uint64_t null_bytes_hi =
-        _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_extracti128_si256(result, 1)));
-    uint64_t null_bytes = null_bytes_lo | (null_bytes_hi << 32);
+    __m256i null32 = GetNullBitInt32(rows, pos_after_encoding, row_id);
+    null32 = _mm256_cmpeq_epi32(null32, _mm256_set1_epi32(1));
+    uint64_t null_bytes = arrow::compute::Cmp32To8(null32);
 
     process_8_values_fn(i * kUnroll, null_bytes);
   }
