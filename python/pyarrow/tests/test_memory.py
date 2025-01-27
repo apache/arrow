@@ -67,12 +67,17 @@ def check_allocated_bytes(pool):
     """
     allocated_before = pool.bytes_allocated()
     max_mem_before = pool.max_memory()
+    num_allocations_before = pool.num_allocations()
     with allocate_bytes(pool, 512):
         assert pool.bytes_allocated() == allocated_before + 512
         new_max_memory = pool.max_memory()
         assert pool.max_memory() >= max_mem_before
+        num_allocations_after = pool.num_allocations()
+        assert num_allocations_after > num_allocations_before
+        assert num_allocations_after < num_allocations_before + 5
     assert pool.bytes_allocated() == allocated_before
     assert pool.max_memory() == new_max_memory
+    assert pool.num_allocations() == num_allocations_after
 
 
 def test_default_allocated_bytes():
@@ -271,3 +276,20 @@ def test_debug_memory_pool_unknown(pool_factory):
         "Valid values are 'abort', 'trap', 'warn', 'none'."
     )
     check_debug_memory_pool_disabled(pool_factory, env_value, msg)
+
+
+@pytest.mark.parametrize('pool_factory', supported_factories())
+def test_print_stats(pool_factory):
+    code = f"""if 1:
+        import pyarrow as pa
+
+        pool = pa.{pool_factory.__name__}()
+        buf = pa.allocate_buffer(64, memory_pool=pool)
+        pool.print_stats()
+        """
+    res = subprocess.run([sys.executable, "-c", code], check=True,
+                         universal_newlines=True, stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+    if sys.platform == "linux":
+        # On Linux at least, all memory pools should emit statistics
+        assert res.stderr.strip() != ""
