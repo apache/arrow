@@ -1033,9 +1033,13 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   // Compress the values if needed. Repetition and definition levels are uncompressed in
   // V2.
   std::shared_ptr<Buffer> compressed_values;
-  if (pager_->has_compressor()) {
+  bool page_is_compressed = false;
+  if (pager_->has_compressor() && values->size() > 0) {
     pager_->Compress(*values, compressor_temp_buffer_.get());
-    compressed_values = compressor_temp_buffer_;
+    if (compressor_temp_buffer_->size() < values->size()) {
+      compressed_values = compressor_temp_buffer_;
+      page_is_compressed = true;
+    }
   } else {
     compressed_values = values;
   }
@@ -1071,14 +1075,14 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
                             combined->CopySlice(0, combined->size(), allocator_));
     std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV2>(
         combined, num_values, null_count, num_rows, encoding_, def_levels_byte_length,
-        rep_levels_byte_length, uncompressed_size, pager_->has_compressor(),
+        rep_levels_byte_length, uncompressed_size, page_is_compressed,
         std::move(page_stats), first_row_index, std::move(page_size_stats));
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
     data_pages_.push_back(std::move(page_ptr));
   } else {
     DataPageV2 page(combined, num_values, null_count, num_rows, encoding_,
                     def_levels_byte_length, rep_levels_byte_length, uncompressed_size,
-                    pager_->has_compressor(), std::move(page_stats), first_row_index,
+                    page_is_compressed, std::move(page_stats), first_row_index,
                     std::move(page_size_stats));
     WriteDataPage(page);
   }
