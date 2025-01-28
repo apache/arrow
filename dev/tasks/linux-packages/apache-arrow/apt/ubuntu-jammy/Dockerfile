@@ -82,3 +82,9 @@ RUN \
   fi && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
+
+ARG cmake=3.25.0
+RUN curl -L \
+    "https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-linux-$(uname -m).tar.gz" | \
+    tar -xzf - --directory /usr/local --strip-components=1 && \
+    ln -fs /usr/local/bin/cmake /usr/bin/cmake
