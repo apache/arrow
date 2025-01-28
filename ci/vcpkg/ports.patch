@@ -62,7 +62,7 @@ index 000000000..e839c93a4
 +   return v & ~(mask << (8 * n));
 +-#endif
 + }
-+
++ 
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
 diff --git a/ports/thrift/portfile.cmake b/ports/thrift/portfile.cmake
 index 1501782..71d2147 100644
