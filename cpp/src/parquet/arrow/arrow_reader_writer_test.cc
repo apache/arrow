@@ -4309,23 +4309,23 @@ TEST(TestArrowFileReader, RecordBatchReaderEmptyRowGroups) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
                                              default_arrow_writer_properties(), &buffer));
 
-  // Read Parquet
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
   std::unique_ptr<FileReader> file_reader;
   ASSERT_OK(
       FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
-  // This is the important part in this test
+  // This is the important part in this test.
   std::vector<int> row_group_indices = {};
   ASSERT_OK_AND_ASSIGN(auto record_batch_reader,
                        file_reader->GetRecordBatchReader(row_group_indices));
   std::shared_ptr<::arrow::RecordBatch> record_batch;
   ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
-  // No read record batch for empty row groups request
+  // No read record batch for empty row groups request.
   ASSERT_FALSE(record_batch);
 }
 
 TEST(TestArrowFileReader, RecordBatchReaderEmptyInput) {
   const int num_columns = 1;
+  // This is the important part in this test.
   const int num_rows = 0;
   const int num_chunks = 1;
 
@@ -4337,7 +4337,6 @@ TEST(TestArrowFileReader, RecordBatchReaderEmptyInput) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
                                              default_arrow_writer_properties(), &buffer));
 
-  // Read Parquet
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
   std::unique_ptr<FileReader> file_reader;
   ASSERT_OK(
@@ -4345,7 +4344,7 @@ TEST(TestArrowFileReader, RecordBatchReaderEmptyInput) {
   ASSERT_OK_AND_ASSIGN(auto record_batch_reader, file_reader->GetRecordBatchReader());
   std::shared_ptr<::arrow::RecordBatch> record_batch;
   ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
-  // No read record batch for empty data
+  // No read record batch for empty data.
   ASSERT_FALSE(record_batch);
 }
 
@@ -4362,23 +4361,23 @@ TEST(TestArrowColumnReader, NextBatchZeroBatchSize) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
                                              default_arrow_writer_properties(), &buffer));
 
-  // Read Parquet
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
   std::unique_ptr<FileReader> file_reader;
   ASSERT_OK(
       FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
-  // This is the important part in this test
+  // This is the important part in this test.
   std::vector<int> row_group_indices = {};
   ASSERT_OK_AND_ASSIGN(auto record_batch_reader,
                        file_reader->GetRecordBatchReader(row_group_indices));
   std::shared_ptr<::arrow::RecordBatch> record_batch;
   ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
-  // No read record batch for empty row groups request
+  // No read record batch for empty row groups request.
   ASSERT_FALSE(record_batch);
 }
 
 TEST(TestArrowColumnReader, NextBatchEmptyInput) {
   const int num_columns = 1;
+  // This is the important part in this test.
   const int num_rows = 0;
   const int num_chunks = 1;
 
@@ -4390,7 +4389,6 @@ TEST(TestArrowColumnReader, NextBatchEmptyInput) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
                                              default_arrow_writer_properties(), &buffer));
 
-  // Read Parquet
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
   std::unique_ptr<FileReader> file_reader;
   ASSERT_OK(

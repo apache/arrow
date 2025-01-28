@@ -359,6 +359,7 @@ TEST(TestStatisticsRead, MultipleRowGroupsShouldLoadStatistics) {
   ASSERT_EQ(1, statistics->null_count.value());
   ASSERT_EQ(false, statistics->distinct_count.has_value());
   ASSERT_EQ(true, statistics->min.has_value());
+  // This is not -1 because this array has only the first 2 elements.
   ASSERT_EQ(1, std::get<int64_t>(*statistics->min));
   ASSERT_EQ(true, statistics->is_min_exact);
   ASSERT_EQ(true, statistics->max.has_value());
