@@ -1043,6 +1043,7 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReader(
         // don't reserve more rows than necessary
         int64_t batch_size = std::min(properties().batch_size(), num_rows);
         num_rows -= batch_size;
+
         RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
             reader_properties_.use_threads(), static_cast<int>(readers.size()),
             [&](int i) { return readers[i]->NextBatch(batch_size, &columns[i]); }));
