@@ -34,6 +34,7 @@ RUN \
     build-essential \
     clang \
     cmake \
+    curl \
     debhelper \
     devscripts \
     gi-docgen \
