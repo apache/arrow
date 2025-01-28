@@ -20,8 +20,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <thread>
+#include <utility>
 #include <vector>
 
 #include "arrow/array/array_base.h"
@@ -38,6 +43,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/key_value_metadata.h"
@@ -391,6 +397,27 @@ TEST_F(TestRecordBatch, RemoveColumnEmpty) {
 
   ASSERT_OK_AND_ASSIGN(auto added, empty->AddColumn(0, field1, array1));
   AssertBatchesEqual(*added, *batch1);
+}
+
+TEST_F(TestRecordBatch, ColumnsThreadSafety) {
+  const int length = 10;
+
+  random::RandomArrayGenerator gen(42);
+  std::shared_ptr<ArrayData> array_data = gen.ArrayOf(utf8(), length)->data();
+  auto schema = ::arrow::schema({field("f1", utf8())});
+  auto record_batch = RecordBatch::Make(schema, length, {array_data});
+  std::atomic_bool start_flag{false};
+  std::thread t([record_batch, &start_flag]() {
+    start_flag.store(true);
+    auto columns = record_batch->columns();
+    ASSERT_EQ(columns.size(), 1);
+  });
+  // Wait for thread startup
+  while (!start_flag.load()) {
+  };
+  auto columns = record_batch->columns();
+  ASSERT_EQ(columns.size(), 1);
+  t.join();
 }
 
 TEST_F(TestRecordBatch, ToFromEmptyStructArray) {
