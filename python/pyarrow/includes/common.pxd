@@ -21,6 +21,7 @@ from libc.stdint cimport *
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.functional cimport function
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
+from libcpp.optional cimport optional, nullopt
 from libcpp.string cimport string as c_string
 from libcpp.utility cimport pair
 from libcpp.vector cimport vector
@@ -34,25 +35,6 @@ cimport cpython
 
 cdef extern from * namespace "std" nogil:
     cdef shared_ptr[T] static_pointer_cast[T, U](shared_ptr[U])
-
-
-cdef extern from "<optional>" namespace "std" nogil:
-    cdef cppclass optional[T]:
-        ctypedef T value_type
-        optional()
-        optional(nullopt_t)
-        optional(optional&) except +
-        optional(T&) except +
-        c_bool has_value()
-        T& value()
-        T& value_or[U](U& default_value)
-        void swap(optional&)
-        void reset()
-        T& emplace(...)
-        T& operator*()
-        # T* operator->() # Not Supported
-        optional& operator=(optional&)
-        optional& operator=[U](U&)
 
 
 # vendored from the cymove project https://github.com/ozars/cymove
