@@ -4365,14 +4365,12 @@ TEST(TestArrowColumnReader, NextBatchZeroBatchSize) {
   std::unique_ptr<FileReader> file_reader;
   ASSERT_OK(
       FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  std::unique_ptr<arrow::ColumnReader> column_reader;
+  ASSERT_OK(file_reader->GetColumn(0, &column_reader));
+  std::shared_ptr<ChunkedArray> chunked_array;
   // This is the important part in this test.
-  std::vector<int> row_group_indices = {};
-  ASSERT_OK_AND_ASSIGN(auto record_batch_reader,
-                       file_reader->GetRecordBatchReader(row_group_indices));
-  std::shared_ptr<::arrow::RecordBatch> record_batch;
-  ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
-  // No read record batch for empty row groups request.
-  ASSERT_FALSE(record_batch);
+  ASSERT_OK(column_reader->NextBatch(0, &chunked_array));
+  ASSERT_EQ(0, chunked_array->length());
 }
 
 TEST(TestArrowColumnReader, NextBatchEmptyInput) {
