@@ -32,14 +32,13 @@ diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
 index 0312b2ae1..fdb576b5f 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
-@@ -8,6 +8,7 @@ vcpkg_from_github(
+@@ -8,5 +8,6 @@ vcpkg_from_github(
          fix_clang-cl_build.patch
          no-werror.patch
          pkgconfig.diff
 +        "snappy-disable-bmi.patch"
  )
  file(COPY "${CURRENT_PORT_DIR}/snappy.pc.in" DESTINATION "${SOURCE_PATH}")
-
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
 index 000000000..e839c93a4
