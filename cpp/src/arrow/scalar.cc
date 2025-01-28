@@ -1177,7 +1177,7 @@ enable_if_duration<To, Result<std::shared_ptr<Scalar>>> CastImpl(
 }
 
 // time to time
-template <typename To, typename From, typename T = typename To::TypeClass>
+template <typename To, typename From>
 enable_if_time<To, Result<std::shared_ptr<Scalar>>> CastImpl(
     const TimeScalar<From>& from, std::shared_ptr<DataType> to_type) {
   using ToScalar = typename TypeTraits<To>::ScalarType;

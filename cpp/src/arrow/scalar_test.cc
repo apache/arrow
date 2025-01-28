@@ -866,6 +866,9 @@ TEST(TestTimeScalars, Basics) {
     ASSERT_TRUE(first->Equals(*MakeScalar(ty, 5).ValueOrDie()));
     ASSERT_TRUE(last->Equals(*MakeScalar(ty, 42).ValueOrDie()));
     ASSERT_FALSE(last->Equals(*MakeScalar("string")));
+
+    ASSERT_OK_AND_ASSIGN(auto casted, first->CastTo(ty));
+    ASSERT_TRUE(casted->Equals(*first));
   }
 }
 
