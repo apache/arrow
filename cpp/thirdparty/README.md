@@ -30,12 +30,12 @@ There is a convenient script that update versions in `versions.txt` to
 the latest version automatically. You can use it like the following:
 
 ```console
-dev/release/update.rb PRODUCT_PATTERN1 PRODUCT_PATTERN2 ...
+cpp/thirdparty/update.rb PRODUCT_PATTERN1 PRODUCT_PATTERN2 ...
 ```
 
 For example, you can update AWS SDK for C++ related products' versions
 by the following command line:
 
 ```console
-dev/release/update.rb "AWS*" "S2N*"
+cpp/thirdparty/update.rb "AWS*" "S2N*"
 ```
