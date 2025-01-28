@@ -20,10 +20,14 @@
 require "digest/sha2"
 require "json"
 require "open-uri"
+require "optparse"
 
-if ARGV.empty?
-  puts("Usage: #{$0} PRODUCT_PATTERN1 PRODUCT_PATTERN2 ...")
-  puts(" e.g.: #{$0} 'AWS*' 'S2N*'.")
+option_parser = OptionParser.new
+option_parser.banner =
+  "Usage: #{$0} [options] PRODUCT_PATTERN1 PRODUCT_PATTERN2 ..."
+patterns = option_parser.parse!(ARGV)
+if patterns.empty?
+  puts(option_parser)
   exit(false)
 end
 
@@ -118,7 +122,7 @@ end
 versions_txt = File.join(__dir__, "versions.txt")
 versions_txt_content = File.read(versions_txt)
 products = parse_versions_txt_content(versions_txt_content)
-ARGV.each do |pattern|
+patterns.each do |pattern|
   target_products = products.filter do |product, _|
     File.fnmatch?(pattern, product)
   end
