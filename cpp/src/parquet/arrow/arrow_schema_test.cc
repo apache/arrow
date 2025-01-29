@@ -236,6 +236,7 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
        ::arrow::int64()},
       {"json", LogicalType::JSON(), ParquetType::BYTE_ARRAY, -1, ::arrow::utf8()},
       {"bson", LogicalType::BSON(), ParquetType::BYTE_ARRAY, -1, ::arrow::binary()},
+      {"variant", LogicalType::Variant(), ParquetType::BYTE_ARRAY, -1, ::arrow::binary()},
       {"interval", LogicalType::Interval(), ParquetType::FIXED_LEN_BYTE_ARRAY, 12,
        ::arrow::fixed_size_binary(12)},
       {"uuid", LogicalType::UUID(), ParquetType::FIXED_LEN_BYTE_ARRAY, 16,
