@@ -18,6 +18,11 @@
 cmake_minimum_required(VERSION 3.25)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
+# https://cmake.org/cmake/help/latest/policy/CMP0126.html
+#
+# set(CACHE) does not remove a normal variable of the same name.
+cmake_policy(SET CMP0126 OLD)
+
 # https://www.cmake.org/cmake/help/latest/policy/CMP0025.html
 #
 # Compiler id for Apple Clang is now AppleClang.

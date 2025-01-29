@@ -4679,12 +4679,7 @@ function(build_orc)
     set(STOP_BUILD_ON_WARNING
         OFF
         CACHE BOOL "" FORCE)
-    if(ZLIB_VENDORED)
-      add_dependencies(orc zlib_ep)
-    endif()
-    set(CMAKE_FIND_DEBUG_MODE TRUE)
     fetchcontent_makeavailable(orc)
-    set(CMAKE_FIND_DEBUG_MODE FALSE)
 
     add_library(orc::orc INTERFACE IMPORTED)
     target_link_libraries(orc::orc INTERFACE orc)
