@@ -1315,6 +1315,7 @@ tasks:
       env:
         R_PRUNE_DEPS: TRUE
       image: ubuntu-r-sanitizer
+      timeout: 90
 
   test-r-clang-sanitizer:
     ci: github
