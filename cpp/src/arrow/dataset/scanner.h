@@ -557,8 +557,12 @@ class ARROW_DS_EXPORT ScannerBuilder {
 /// \brief Construct a source ExecNode which yields batches from a dataset scan.
 ///
 /// Does not construct associated filter or project nodes.
-/// Yielded batches will be augmented with fragment/batch indices to enable stable
-/// ordering for simple ExecPlans.
+///
+/// Batches are yielded sequentially, like single-threaded,
+/// when require_sequenced_output=true.
+///
+/// Yielded batches will be augmented with fragment/batch indices when
+/// implicit_ordering=true to enable stable ordering for simple ExecPlans.
 class ARROW_DS_EXPORT ScanNodeOptions : public acero::ExecNodeOptions {
  public:
   explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
