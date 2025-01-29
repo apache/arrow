@@ -20,7 +20,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -406,15 +405,10 @@ TEST_F(TestRecordBatch, ColumnsThreadSafety) {
   std::shared_ptr<ArrayData> array_data = gen.ArrayOf(utf8(), length)->data();
   auto schema = ::arrow::schema({field("f1", utf8())});
   auto record_batch = RecordBatch::Make(schema, length, {array_data});
-  std::atomic_bool start_flag{false};
-  std::thread t([record_batch, &start_flag]() {
-    start_flag.store(true);
+  std::thread t([record_batch]() {
     auto columns = record_batch->columns();
     ASSERT_EQ(columns.size(), 1);
   });
-  // Wait for thread startup
-  while (!start_flag.load()) {
-  };
   auto columns = record_batch->columns();
   ASSERT_EQ(columns.size(), 1);
   t.join();
