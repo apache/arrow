@@ -1177,14 +1177,16 @@ enable_if_duration<To, Result<std::shared_ptr<Scalar>>> CastImpl(
 }
 
 // time to time
-template <typename To, typename From>
+template <typename To, typename From,
+          typename T = typename TypeTraits<To>::ScalarType::TypeClass>
 enable_if_time<To, Result<std::shared_ptr<Scalar>>> CastImpl(
     const TimeScalar<From>& from, std::shared_ptr<DataType> to_type) {
   using ToScalar = typename TypeTraits<To>::ScalarType;
   ARROW_ASSIGN_OR_RAISE(
       auto value, util::ConvertTimestampValue(AsTimestampType<From>(from.type),
                                               AsTimestampType<To>(to_type), from.value));
-  return std::make_shared<ToScalar>(value, std::move(to_type));
+  return std::make_shared<ToScalar>(static_cast<typename To::c_type>(value),
+                                    std::move(to_type));
 }
 
 constexpr int64_t kMillisecondsInDay = 86400000;
