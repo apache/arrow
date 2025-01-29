@@ -4680,7 +4680,9 @@ function(build_orc)
         OFF
         CACHE BOOL "" FORCE)
 
+    set(CMAKE_FIND_DEBUG_MODE TRUE)
     fetchcontent_makeavailable(orc)
+    set(CMAKE_FIND_DEBUG_MODE FALSE)
 
     add_library(orc::orc INTERFACE IMPORTED)
     target_link_libraries(orc::orc INTERFACE orc)
