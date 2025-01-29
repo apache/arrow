@@ -2047,6 +2047,7 @@ services:
       args:
         repo: ${REPO}
         arch: ${ARCH}
+        cmake: ${CMAKE}
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
