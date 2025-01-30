@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <string>
 #include <vector>
 #include "arrow/array.h"
@@ -108,7 +109,7 @@ class FakeNullArray {
 };
 
 static uint64_t GetMask(uint64_t avg_len, uint8_t bit_adjustment) {
-  size_t mask_bits = std::log2(avg_len);
+  size_t mask_bits = static_cast<size_t>(std::floor(std::log2(avg_len)));
   size_t effective_bits = mask_bits + bit_adjustment;
   return ((1ULL << effective_bits) - 1) << (64 - effective_bits);
 }
@@ -232,13 +233,11 @@ class FastCDC {
       while (level_offset < num_levels) {
         def_level = def_levels[level_offset];
         rep_level = rep_levels[level_offset];
-        ++level_offset;
-
         if (rep_level == 0) {
-          // record boundary
           record_level_offset = level_offset;
           record_value_offset = value_offset;
         }
+        ++level_offset;
 
         def_match = Roll(def_level);
         rep_match = Roll(rep_level);
