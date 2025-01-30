@@ -55,26 +55,6 @@ index 2b5bbc566..7cb93bdf0 100644
                      std::copy(other.m_data.get(), other.m_data.get() + other.m_size, stdext::checked_array_iterator< T * >(m_data.get(), m_size));
  #else
                      std::copy(other.m_data.get(), other.m_data.get() + other.m_size, m_data.get());
-diff --git a/aws-cpp-sdk-core/include/aws/core/utils/crypto/bcrypt/CryptoImpl.h b/aws-cpp-sdk-core/include/aws/core/utils/crypto/bcrypt/CryptoImpl.h
-index e26e36b60..3e7189b70 100644
---- a/aws-cpp-sdk-core/include/aws/core/utils/crypto/bcrypt/CryptoImpl.h
-+++ b/aws-cpp-sdk-core/include/aws/core/utils/crypto/bcrypt/CryptoImpl.h
-@@ -29,7 +29,14 @@ namespace Aws
-     {
-         namespace Crypto
-         {
--            static const char* SecureRandom_BCrypt_Tag = "SecureRandom_BCrypt";
-+#ifdef __MINGW32__
-+#pragma GCC diagnostic push
-+#pragma GCC diagnostic ignored "-Wunused-variable"
-+#endif
-+           static const char* SecureRandom_BCrypt_Tag = "SecureRandom_BCrypt";
-+#ifdef __MINGW32__
-+#pragma GCC diagnostic pop
-+#endif
-
-             class SecureRandomBytes_BCrypt : public SecureRandomBytes
-             {
 diff --git a/aws-cpp-sdk-core/source/http/windows/WinHttpSyncHttpClient.cpp b/aws-cpp-sdk-core/source/http/windows/WinHttpSyncHttpClient.cpp
 index 4dade6489..a0456cf8e 100644
 --- a/aws-cpp-sdk-core/source/http/windows/WinHttpSyncHttpClient.cpp

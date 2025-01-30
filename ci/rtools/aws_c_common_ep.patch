@@ -15,21 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-diff --git a/cmake/AwsCFlags.cmake b/cmake/AwsCFlags.cmake
-index b717bca..5aa8ac9 100644
---- a/cmake/AwsCFlags.cmake
-+++ b/cmake/AwsCFlags.cmake
-@@ -120,6 +120,10 @@ function(aws_set_common_properties target)
-             list(APPEND AWS_C_FLAGS -Wno-strict-aliasing)
-         endif()
-
-+         if (CMAKE_C_IMPLICIT_LINK_LIBRARIES MATCHES "mingw32")
-+            list(APPEND AWS_C_FLAGS -D__USE_MINGW_ANSI_STDIO=1 -Wno-unused-local-typedefs)
-+        endif()
-+
-         # -moutline-atomics generates code for both older load/store exclusive atomics and also
-         # Arm's Large System Extensions (LSE) which scale substantially better on large core count systems.
-         #
 diff --git a/include/aws/common/byte_order.inl b/include/aws/common/byte_order.inl
 index 1204be0..0abd9cb 100644
 --- a/include/aws/common/byte_order.inl

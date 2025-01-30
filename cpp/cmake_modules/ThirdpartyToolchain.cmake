@@ -5055,11 +5055,11 @@ macro(build_awssdk)
   if(WIN32 AND NOT MSVC)
     string(APPEND
            AWS_C_FLAGS
-           " -D_WIN32_WINNT=0x0601 -Wno-error -Wno-error=format= -Wno-error=format-extra-args"
+           " -D_WIN32_WINNT=0x0601 -D__USE_MINGW_ANSI_STDIO=1 -Wno-error -Wno-error=format= -Wno-error=format-extra-args -Wno-unused-local-typedefs -Wno-unused-variable"
     )
     string(APPEND
            AWS_CXX_FLAGS
-           " -D_WIN32_WINNT=0x0601 -Wno-error -Wno-error=format= -Wno-error=format-extra-args"
+           " -D_WIN32_WINNT=0x0601 -D__USE_MINGW_ANSI_STDIO=1 -Wno-error -Wno-error=format= -Wno-error=format-extra-args -Wno-unused-local-typedefs -Wno-unused-variable"
     )
   endif()
 
