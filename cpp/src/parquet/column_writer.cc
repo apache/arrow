@@ -754,8 +754,8 @@ class ColumnWriterImpl {
         fallback_(false),
         definition_levels_sink_(allocator_),
         repetition_levels_sink_(allocator_),
-        content_defined_chunker_(level_info_, properties->cdc_mask(),
-                                 properties->cdc_min_size(), properties->cdc_max_size()) {
+        content_defined_chunker_(level_info_, properties->cdc_min_size(),
+                                 properties->cdc_avg_size(), properties->cdc_max_size()) {
     definition_levels_rle_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     repetition_levels_rle_ =
@@ -895,7 +895,7 @@ class ColumnWriterImpl {
 
   std::vector<std::unique_ptr<DataPage>> data_pages_;
 
-  internal::GearHash content_defined_chunker_;
+  internal::FastCDC content_defined_chunker_;
 
  private:
   void InitSinks() {
