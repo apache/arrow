@@ -80,6 +80,11 @@ build() {
   # CMAKE_UNITY_BUILD is set to OFF as otherwise some compute functionality
   # segfaults in tests
 
+  # We use the bundled AWS SDK instead of the MINGW one because the upstream
+  # one on rtools packages is unmaintained, uses an old version (1.7.365)
+  # and does not work with newer versions of CMake. See comments:
+  # https://github.com/apache/arrow/pull/44989/files#r1901428998
+
   # MSYS2_ARG_CONV_EXCL is needed to prevent autoconverting CMAKE_INSTALL_PREFIX
   # to Windows paths. See https://www.msys2.org/docs/filesystem-paths/#process-arguments
 

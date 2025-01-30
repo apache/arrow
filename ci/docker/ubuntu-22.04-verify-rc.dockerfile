@@ -25,6 +25,6 @@ RUN /setup-ubuntu.sh && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
-ARG cmake=3.25.0
+ARG cmake
 COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
