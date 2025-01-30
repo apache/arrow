@@ -218,6 +218,7 @@ class FileReaderImpl : public FileReader {
     ctx->iterator_factory = SomeRowGroupsFactory(row_groups);
     ctx->filter_leaves = true;
     ctx->included_leaves = included_leaves;
+    ctx->reader_properties = &reader_properties_;
     return GetReader(manifest_.schema_fields[i], ctx, out);
   }
 
@@ -475,6 +476,8 @@ class LeafReader : public ColumnReaderImpl {
     record_reader_->Reset();
     // Pre-allocation gives much better performance for flat columns
     record_reader_->Reserve(records_to_read);
+    const bool should_load_statistics = ctx_->reader_properties->should_load_statistics();
+    int64_t num_target_row_groups = 0;
     while (records_to_read > 0) {
       if (!record_reader_->HasMoreData()) {
         break;
@@ -483,11 +486,21 @@ class LeafReader : public ColumnReaderImpl {
       records_to_read -= records_read;
       if (records_read == 0) {
         NextRowGroup();
+      } else {
+        num_target_row_groups++;
+        // We can't mix multiple row groups when we load statistics
+        // because statistics are associated with a row group. If we
+        // want to mix multiple row groups and keep valid statistics,
+        // we need to implement a statistics merge logic.
+        if (should_load_statistics) {
+          break;
+        }
       }
     }
-    RETURN_NOT_OK(TransferColumnData(record_reader_.get(),
-                                     input_->column_chunk_metadata(), field_, descr_,
-                                     ctx_.get(), &out_));
+    RETURN_NOT_OK(TransferColumnData(
+        record_reader_.get(),
+        num_target_row_groups == 1 ? input_->column_chunk_metadata() : nullptr, field_,
+        descr_, ctx_.get(), &out_));
     return Status::OK();
     END_PARQUET_CATCH_EXCEPTIONS
   }
@@ -1214,6 +1227,7 @@ Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_facto
   ctx->pool = pool_;
   ctx->iterator_factory = iterator_factory;
   ctx->filter_leaves = false;
+  ctx->reader_properties = &reader_properties_;
   std::unique_ptr<ColumnReaderImpl> result;
   RETURN_NOT_OK(GetReader(manifest_.schema_fields[i], ctx, &result));
   *out = std::move(result);
