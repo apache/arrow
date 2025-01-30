@@ -2006,9 +2006,9 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     elif content_defined_chunking is True:
         props.enable_cdc()
     elif isinstance(content_defined_chunking, tuple):
-        mask, min_size, max_size = content_defined_chunking
+        min_size, avg_size, max_size = content_defined_chunking
         props.enable_cdc()
-        props.cdc_mask(mask)
+        props.cdc_avg_size(avg_size)
         props.cdc_min_size(min_size)
         props.cdc_max_size(max_size)
     else:
