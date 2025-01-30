@@ -73,6 +73,7 @@ def _forbid_instantiation(klass, subclasses_instead=True):
         )
     raise TypeError(msg)
 
+
 cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):
     cdef vector[CSortKey] c_sort_keys
     if allow_str and isinstance(sort_keys, str):
