@@ -236,10 +236,10 @@ valid:   [
         data = "\u3042\u3044".b[0..-2]
         value_offsets = Arrow::Buffer.new([0,data.size].pack("l*"))
         @invalid_name_value = Arrow::StringArray.new(1,
-                                                    value_offsets,
-                                                    Arrow::Buffer.new(data),
-                                                    nil,
-                                                    -1)
+                                                     value_offsets,
+                                                     Arrow::Buffer.new(data),
+                                                     nil,
+                                                     -1)
       end
 
       def test_valid
