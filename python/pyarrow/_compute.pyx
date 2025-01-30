@@ -2370,6 +2370,47 @@ class RankOptions(_RankOptions):
         self._set_options(sort_keys, null_placement, tiebreaker)
 
 
+cdef class _RankQuantileOptions(FunctionOptions):
+
+    def _set_options(self, sort_keys, null_placement):
+        cdef vector[CSortKey] c_sort_keys
+        if isinstance(sort_keys, str):
+            c_sort_keys.push_back(
+                CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
+            )
+        else:
+            for name, order in sort_keys:
+                c_sort_keys.push_back(
+                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
+                )
+        self.wrapped.reset(
+            new CRankQuantileOptions(c_sort_keys,
+                             unwrap_null_placement(null_placement))
+        )
+
+
+class RankQuantileOptions(_RankQuantileOptions):
+    """
+    Options for the `rank_quantile` function.
+
+    Parameters
+    ----------
+    sort_keys : sequence of (name, order) tuples or str, default "ascending"
+        Names of field/column keys to sort the input on,
+        along with the order each field/column is sorted in.
+        Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
+        Alternatively, one can simply pass "ascending" or "descending" as a string
+        if the input is array-like.
+    null_placement : str, default "at_end"
+        Where nulls in input should be sorted.
+        Accepted values are "at_start", "at_end".
+    """
+
+    def __init__(self, sort_keys="ascending", *, null_placement="at_end"):
+        self._set_options(sort_keys, null_placement)
+
+
 cdef class Expression(_Weakrefable):
     """
     A logical expression to be evaluated against some input.

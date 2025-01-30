@@ -2788,6 +2788,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CNullPlacement null_placement
         CRankOptionsTiebreaker tiebreaker
 
+    cdef cppclass CRankQuantileOptions \
+            "arrow::compute::RankQuantileOptions"(CFunctionOptions):
+        CRankQuantileOptions(vector[CSortKey] sort_keys, CNullPlacement)
+        vector[CSortKey] sort_keys
+        CNullPlacement null_placement
+
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
         DatumType_SCALAR" arrow::Datum::SCALAR"
