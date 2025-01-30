@@ -395,6 +395,7 @@ add_parquet_test(reader-test
 
 add_parquet_test(writer-test
                  SOURCES
+                 column_chunker_test.cc
                  column_writer_test.cc
                  file_serialize_test.cc
                  stream_writer_test.cc)
