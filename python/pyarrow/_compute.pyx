@@ -73,6 +73,19 @@ def _forbid_instantiation(klass, subclasses_instead=True):
         )
     raise TypeError(msg)
 
+cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):
+    cdef vector[CSortKey] c_sort_keys
+    if allow_str and isinstance(sort_keys, str):
+        c_sort_keys.push_back(
+            CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
+        )
+    else:
+        for name, order in sort_keys:
+            c_sort_keys.push_back(
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
+            )
+    return c_sort_keys
+
 
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
     """
@@ -2094,10 +2107,7 @@ class ArraySortOptions(_ArraySortOptions):
 cdef class _SortOptions(FunctionOptions):
     def _set_options(self, sort_keys, null_placement):
         cdef vector[CSortKey] c_sort_keys
-        for name, order in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
-            )
+        c_sort_keys = unwrap_sort_keys(sort_keys, allow_str=False)
         self.wrapped.reset(new CSortOptions(
             c_sort_keys, unwrap_null_placement(null_placement)))
 
@@ -2126,10 +2136,7 @@ class SortOptions(_SortOptions):
 cdef class _SelectKOptions(FunctionOptions):
     def _set_options(self, k, sort_keys):
         cdef vector[CSortKey] c_sort_keys
-        for name, order in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
-            )
+        c_sort_keys = unwrap_sort_keys(sort_keys, allow_str=False)
         self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
 
 
@@ -2318,15 +2325,7 @@ cdef class _RankOptions(FunctionOptions):
 
     def _set_options(self, sort_keys, null_placement, tiebreaker):
         cdef vector[CSortKey] c_sort_keys
-        if isinstance(sort_keys, str):
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
-            )
-        else:
-            for name, order in sort_keys:
-                c_sort_keys.push_back(
-                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
-                )
+        c_sort_keys = unwrap_sort_keys(sort_keys)
         try:
             self.wrapped.reset(
                 new CRankOptions(c_sort_keys,
@@ -2374,15 +2373,7 @@ cdef class _RankQuantileOptions(FunctionOptions):
 
     def _set_options(self, sort_keys, null_placement):
         cdef vector[CSortKey] c_sort_keys
-        if isinstance(sort_keys, str):
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
-            )
-        else:
-            for name, order in sort_keys:
-                c_sort_keys.push_back(
-                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
-                )
+        c_sort_keys = unwrap_sort_keys(sort_keys)
         self.wrapped.reset(
             new CRankQuantileOptions(c_sort_keys,
                                      unwrap_null_placement(null_placement))

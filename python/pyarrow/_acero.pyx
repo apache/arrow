@@ -30,7 +30,7 @@ from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table,
 from pyarrow.lib import frombytes, tobytes
 from pyarrow._compute cimport (
     Expression, FunctionOptions, _ensure_field_ref, _true,
-    unwrap_null_placement, unwrap_sort_order
+    unwrap_null_placement, unwrap_sort_keys
 )
 
 
@@ -237,10 +237,7 @@ cdef class _OrderByNodeOptions(ExecNodeOptions):
         cdef:
             vector[CSortKey] c_sort_keys
 
-        for name, order in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
-            )
+        c_sort_keys = unwrap_sort_keys(sort_keys, allow_str=False)
 
         self.wrapped.reset(
             new COrderByNodeOptions(
