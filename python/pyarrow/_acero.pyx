@@ -234,14 +234,10 @@ class AggregateNodeOptions(_AggregateNodeOptions):
 cdef class _OrderByNodeOptions(ExecNodeOptions):
 
     def _set_options(self, sort_keys, null_placement):
-        cdef:
-            vector[CSortKey] c_sort_keys
-
-        c_sort_keys = unwrap_sort_keys(sort_keys, allow_str=False)
-
         self.wrapped.reset(
             new COrderByNodeOptions(
-                COrdering(c_sort_keys, unwrap_null_placement(null_placement))
+                COrdering(unwrap_sort_keys(sort_keys, allow_str=False),
+                          unwrap_null_placement(null_placement))
             )
         )
 

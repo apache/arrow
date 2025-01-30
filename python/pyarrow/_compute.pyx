@@ -2106,10 +2106,9 @@ class ArraySortOptions(_ArraySortOptions):
 
 cdef class _SortOptions(FunctionOptions):
     def _set_options(self, sort_keys, null_placement):
-        cdef vector[CSortKey] c_sort_keys
-        c_sort_keys = unwrap_sort_keys(sort_keys, allow_str=False)
         self.wrapped.reset(new CSortOptions(
-            c_sort_keys, unwrap_null_placement(null_placement)))
+            unwrap_sort_keys(sort_keys, allow_str=False),
+            unwrap_null_placement(null_placement)))
 
 
 class SortOptions(_SortOptions):
@@ -2135,9 +2134,7 @@ class SortOptions(_SortOptions):
 
 cdef class _SelectKOptions(FunctionOptions):
     def _set_options(self, k, sort_keys):
-        cdef vector[CSortKey] c_sort_keys
-        c_sort_keys = unwrap_sort_keys(sort_keys, allow_str=False)
-        self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
+        self.wrapped.reset(new CSelectKOptions(k, unwrap_sort_keys(sort_keys, allow_str=False)))
 
 
 class SelectKOptions(_SelectKOptions):
@@ -2324,11 +2321,9 @@ cdef class _RankOptions(FunctionOptions):
     }
 
     def _set_options(self, sort_keys, null_placement, tiebreaker):
-        cdef vector[CSortKey] c_sort_keys
-        c_sort_keys = unwrap_sort_keys(sort_keys)
         try:
             self.wrapped.reset(
-                new CRankOptions(c_sort_keys,
+                new CRankOptions(unwrap_sort_keys(sort_keys),
                                  unwrap_null_placement(null_placement),
                                  self._tiebreaker_map[tiebreaker])
             )
@@ -2372,10 +2367,8 @@ class RankOptions(_RankOptions):
 cdef class _RankQuantileOptions(FunctionOptions):
 
     def _set_options(self, sort_keys, null_placement):
-        cdef vector[CSortKey] c_sort_keys
-        c_sort_keys = unwrap_sort_keys(sort_keys)
         self.wrapped.reset(
-            new CRankQuantileOptions(c_sort_keys,
+            new CRankQuantileOptions(unwrap_sort_keys(sort_keys),
                                      unwrap_null_placement(null_placement))
         )
 
