@@ -43,14 +43,6 @@ diff --git a/source/windows/secure_channel_tls_handler.c b/source/windows/secure
 index 50caf02..29fe850 100644
 --- a/source/windows/secure_channel_tls_handler.c
 +++ b/source/windows/secure_channel_tls_handler.c
-@@ -2,6 +2,7 @@
-  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-  * SPDX-License-Identifier: Apache-2.0.
-  */
-+#define _WIN32_WINNT 0x0601
- #define SECURITY_WIN32
-
- #include <aws/io/tls_channel_handler.h>
 @@ -35,6 +36,25 @@
  #    pragma warning(disable : 4306) /* Identifier is type cast to a larger pointer. */
  #endif
