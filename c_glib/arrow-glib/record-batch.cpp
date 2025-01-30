@@ -531,7 +531,7 @@ garrow_record_batch_validate_full(GArrowRecordBatch *record_batch, GError **erro
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
   return garrow::check(error,
                        arrow_record_batch->ValidateFull(),
-                       "[record-batch][validate_full]");
+                       "[record-batch][validate-full]");
 }
 
 typedef struct GArrowRecordBatchIteratorPrivate_
