@@ -1,0 +1,62 @@
+diff --git a/cpp/cmake_modules/FindThriftAlt.cmake b/cpp/cmake_modules/FindThriftAlt.cmake
+index f3e49021d..3e63f1edf 100644
+--- a/cpp/cmake_modules/FindThriftAlt.cmake
++++ b/cpp/cmake_modules/FindThriftAlt.cmake
+@@ -45,23 +45,23 @@ endif()
+ #   * https://github.com/apache/thrift/pull/2725
+ #   * https://github.com/apache/thrift/pull/2726
+ #   * https://github.com/conda-forge/thrift-cpp-feedstock/issues/68
+-if(NOT WIN32)
+-  set(find_package_args "")
+-  if(ThriftAlt_FIND_VERSION)
+-    list(APPEND find_package_args ${ThriftAlt_FIND_VERSION})
+-  endif()
+-  if(ThriftAlt_FIND_QUIETLY)
+-    list(APPEND find_package_args QUIET)
+-  endif()
+-  find_package(Thrift ${find_package_args})
+-  if(Thrift_FOUND)
+-    set(ThriftAlt_FOUND TRUE)
+-    add_executable(thrift::compiler IMPORTED)
+-    set_target_properties(thrift::compiler PROPERTIES IMPORTED_LOCATION
+-                                                      "${THRIFT_COMPILER}")
+-    return()
+-  endif()
++
++set(find_package_args "")
++if(ThriftAlt_FIND_VERSION)
++  list(APPEND find_package_args ${ThriftAlt_FIND_VERSION})
++endif()
++if(ThriftAlt_FIND_QUIETLY)
++  list(APPEND find_package_args QUIET)
+ endif()
++find_package(Thrift ${find_package_args})
++if(Thrift_FOUND)
++  set(ThriftAlt_FOUND TRUE)
++  add_executable(thrift::compiler IMPORTED)
++  set_target_properties(thrift::compiler PROPERTIES IMPORTED_LOCATION
++                                                    "${THRIFT_COMPILER}")
++  return()
++endif()
++
+
+ function(extract_thrift_version)
+   if(ThriftAlt_INCLUDE_DIR)
+diff --git a/cpp/src/parquet/CMakeLists.txt b/cpp/src/parquet/CMakeLists.txt
+index 93f2e72d8..e00f73f7d 100644
+--- a/cpp/src/parquet/CMakeLists.txt
++++ b/cpp/src/parquet/CMakeLists.txt
+@@ -262,11 +262,11 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
+
+   # These are libraries that we will link privately with parquet_shared (as they
+   # do not need to be linked transitively by other linkers)
+-  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
++  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS Boost::headers thrift::thrift)
+
+   # Link publicly with parquet_static (because internal users need to
+   # transitively link all dependencies)
+-  list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
++  list(APPEND PARQUET_STATIC_LINK_LIBS Boost::headers thrift::thrift)
+   if(NOT THRIFT_VENDORED)
+     list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
+   endif()
