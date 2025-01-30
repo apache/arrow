@@ -251,7 +251,7 @@ valid:   [
       end
 
       def test_invalid
-        message = "[record-batch][validate_full]: Invalid: " +
+        message = "[record-batch][validate-full]: Invalid: " +
           "In column 1: Invalid: Invalid UTF8 sequence at string index 0"
         record_batch = Arrow::RecordBatch.new(@schema, @n_rows, [@uint8_value, @invalid_name_value])
 
