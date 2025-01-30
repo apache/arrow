@@ -46,8 +46,8 @@ repository:
 
 .. code-block::
 
-    $ git clone https://github.com/apache/arrow-java.git
-    $ cd arrow-java
+    $ git clone https://github.com/apache/arrow.git
+    $ cd arrow
     $ git submodule update --init --recursive
 
 These are the options available to compile Arrow Java modules with:
@@ -66,7 +66,7 @@ Maven
 
 .. code-block::
 
-    $ cd arrow-java
+    $ cd arrow/java
     $ export JAVA_HOME=<absolute path to your java home>
     $ java --version
     $ mvn clean install
@@ -76,7 +76,7 @@ Docker compose
 
 .. code-block::
 
-    $ cd arrow-java
+    $ cd arrow/java
     $ export JAVA_HOME=<absolute path to your java home>
     $ java --version
     $ docker compose run java
@@ -86,7 +86,7 @@ Archery
 
 .. code-block::
 
-    $ cd arrow-java
+    $ cd arrow/java
     $ export JAVA_HOME=<absolute path to your java home>
     $ java --version
     $ archery docker run java
@@ -111,7 +111,7 @@ Maven
 
   .. code-block:: text
 
-      $ cd arrow-java
+      $ cd arrow/java
       $ export JAVA_HOME=<absolute path to your java home>
       $ java --version
       $ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
@@ -122,7 +122,7 @@ Maven
 
   .. code-block::
 
-      $ cd arrow-java
+      $ cd arrow/java
       $ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
       $ dir "../java-dist/bin"
       |__ arrow_cdata_jni/
@@ -131,7 +131,7 @@ Maven
 
   .. code-block:: text
 
-      $ cd arrow-java
+      $ cd arrow/java
       $ export JAVA_HOME=<absolute path to your java home>
       $ java --version
       $ mvn generate-resources -Pgenerate-libs-jni-macos-linux -N
@@ -144,7 +144,7 @@ Maven
 
   .. code-block::
 
-      $ cd arrow-java
+      $ cd arrow/java
       $ mvn generate-resources -Pgenerate-libs-jni-windows -N
       $ dir "../java-dist/bin"
       |__ arrow_dataset_jni/
@@ -156,9 +156,10 @@ CMake
 
   .. code-block:: text
 
-      $ cd arrow-java
+      $ cd arrow
       $ mkdir -p java-dist java-cdata
       $ cmake \
+          -S java \
           -B java-cdata \
           -DARROW_JAVA_JNI_ENABLE_C=ON \
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
@@ -173,9 +174,10 @@ CMake
 
   .. code-block::
 
-      $ cd arrow-java
+      $ cd arrow
       $ mkdir java-dist, java-cdata
       $ cmake ^
+          -S java ^
           -B java-cdata ^
           -DARROW_JAVA_JNI_ENABLE_C=ON ^
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF ^
@@ -190,19 +192,14 @@ CMake
 
   .. code-block::
 
-      $ git clone --recurse-submodules https://github.com/apache/arrow.git
-      $ git clone --recurse-submodules https://github.com/apache/arrow-java.git
-      # Both arrow and arrow-java repos must be present
-      $ ARROW_PATH=$PWD/arrow
-      $ ARROW_JAVA_PATH=$PWD/arrow-java
-      $ mkdir -p $ARROW_JAVA_PATH/java-dist $ARROW_PATH/cpp-jni
-      $ cd $ARROW_PATH
+      $ cd arrow
       $ brew bundle --file=cpp/Brewfile
       # Homebrew Bundle complete! 25 Brewfile dependencies now installed.
       $ brew uninstall aws-sdk-cpp
       #  (We can't use aws-sdk-cpp installed by Homebrew because it has
       #  an issue: https://github.com/aws/aws-sdk-cpp/issues/1809 )
       $ export JAVA_HOME=<absolute path to your java home>
+      $ mkdir -p java-dist cpp-jni
       $ cmake \
           -S cpp \
           -B cpp-jni \
@@ -221,12 +218,11 @@ CMake
           -DARROW_SUBSTRAIT=ON \
           -DARROW_USE_CCACHE=ON \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=$ARROW_JAVA_PATH/java-dist \
+          -DCMAKE_INSTALL_PREFIX=java-dist \
           -DCMAKE_UNITY_BUILD=ON
-      # Install artifacts to java-dist/ in arrow-java
       $ cmake --build cpp-jni --target install --config Release
-      $ cd $ARROW_JAVA_PATH
       $ cmake \
+          -S java \
           -B java-jni \
           -DARROW_JAVA_JNI_ENABLE_C=OFF \
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON \
@@ -234,7 +230,7 @@ CMake
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=java-dist \
           -DCMAKE_PREFIX_PATH=$PWD/java-dist \
-          -DProtobuf_ROOT=$ARROW_PATH/cpp-jni/protobuf_ep-install \
+          -DProtobuf_ROOT=$PWD/../cpp-jni/protobuf_ep-install \
           -DProtobuf_USE_STATIC_LIBS=ON
       $ cmake --build java-jni --target install --config Release
       $ ls -latr java-dist/lib/
@@ -246,12 +242,8 @@ CMake
 
   .. code-block::
 
-      $ git clone --recurse-submodules https://github.com/apache/arrow.git
-      $ git clone --recurse-submodules https://github.com/apache/arrow-java.git
-      $ ARROW_PATH=$PWD/arrow
-      $ ARROW_JAVA_PATH=$PWD/arrow-java
-      $ mkdir $ARROW_JAVA_PATH/java-dist $ARROW_PATH/cpp-jni
-      $ cd $ARROW_PATH
+      $ cd arrow
+      $ mkdir java-dist, cpp-jni
       $ cmake ^
           -S cpp ^
           -B cpp-jni ^
@@ -273,13 +265,14 @@ CMake
           -DARROW_WITH_ZLIB=ON ^
           -DARROW_WITH_ZSTD=ON ^
           -DCMAKE_BUILD_TYPE=Release ^
-          -DCMAKE_INSTALL_PREFIX=$ARROW_JAVA_PATH/java-dist ^
+          -DCMAKE_INSTALL_PREFIX=java-dist ^
           -DCMAKE_UNITY_BUILD=ON ^
           -GNinja
       $ cd cpp-jni
       $ ninja install
-      $ cd $ARROW_JAVA_PATH
+      $ cd ../
       $ cmake ^
+          -S java ^
           -B java-jni ^
           -DARROW_JAVA_JNI_ENABLE_C=OFF ^
           -DARROW_JAVA_JNI_ENABLE_DATASET=ON ^
@@ -300,7 +293,7 @@ Archery
 
 .. code-block:: text
 
-    $ cd arrow-java
+    $ cd arrow
     $ archery docker run java-jni-manylinux-2014
     $ ls -latr java-dist
     |__ arrow_cdata_jni/
@@ -315,14 +308,14 @@ Building Java JNI Modules
 
   .. code-block::
 
-      $ cd arrow-java
+      $ cd arrow/java
       $ mvn -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib -Parrow-c-data clean install
 
 - To compile the JNI bindings for ORC / Gandiva / Dataset, use the ``arrow-jni`` Maven profile:
 
   .. code-block::
 
-      $ cd arrow-java
+      $ cd arrow/java
       $ mvn \
           -Darrow.cpp.build.dir=<absolute path to your arrow folder>/java-dist/lib/ \
           -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib/ \
@@ -373,7 +366,7 @@ For example, to run Arrow tests with JDK 17, use the following snippet:
 
   .. code-block::
 
-      $ cd arrow-java
+      $ cd arrow/java
       $ mvn -Darrow.test.jdk-version=17 clean verify
 
 IDE Configuration
@@ -383,8 +376,8 @@ IntelliJ
 --------
 
 To start working on Arrow in IntelliJ: build the project once from the command
-line using ``mvn clean install``. Then open the project root of the arrow-java repository,
-and update the following settings:
+line using ``mvn clean install``. Then open the ``java/`` subdirectory of the
+Arrow repository, and update the following settings:
 
 * In the Files tool window, find the path ``vector/target/generated-sources``,
   right click the directory, and select Mark Directory as > Generated Sources
