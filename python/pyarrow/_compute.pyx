@@ -2385,7 +2385,7 @@ cdef class _RankQuantileOptions(FunctionOptions):
                 )
         self.wrapped.reset(
             new CRankQuantileOptions(c_sort_keys,
-                             unwrap_null_placement(null_placement))
+                                     unwrap_null_placement(null_placement))
         )
 
 
