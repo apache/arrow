@@ -4646,7 +4646,7 @@ function(build_orc)
     set(ZLIB_HOME
         ${ZLIB_ROOT}
         CACHE STRING "" FORCE)
-    set(unset ZLIB_LIBRARY)
+    unset(ZLIB_LIBRARY)
     set(ZLIB_LIBRARY
         ZLIB::ZLIB
         CACHE STRING "" FORCE)
