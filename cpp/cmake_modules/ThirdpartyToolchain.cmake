@@ -5106,6 +5106,7 @@ function(build_awssdk)
     endif()
     fetchcontent_declare(${AWSSDK_PRODUCT}
                          ${FC_DECLARE_COMMON_OPTIONS}
+                         OVERRIDE_FIND_PACKAGE
                          PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
                          URL ${${BASE_VARIABLE_NAME}_SOURCE_URL}
                          URL_HASH "SHA256=${ARROW_${BASE_VARIABLE_NAME}_BUILD_SHA256_CHECKSUM}"
@@ -5179,6 +5180,8 @@ function(build_awssdk)
         list(PREPEND AWSSDK_LINK_LIBRARIES s2n)
       else()
         list(PREPEND AWSSDK_LINK_LIBRARIES ${AWSSDK_PRODUCT})
+        # This is for find_package(aws-*) in aws-crt-cpp and aws-sdk-cpp.
+        add_library(AWS::${AWSSDK_PRODUCT} ALIAS ${AWSSDK_PRODUCT})
       endif()
     endif()
   endforeach()
