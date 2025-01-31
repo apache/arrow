@@ -66,11 +66,11 @@ def create_sample_table():
     )
 
 
-def create_encryption_config():
+def create_encryption_config(footer_key, column_keys):
     return pe.EncryptionConfiguration(
-        footer_key=FOOTER_KEY_NAME,
+        footer_key=footer_key,
         plaintext_footer=False,
-        column_keys={COL_KEY_NAME: ["n_legs", "animal"]},
+        column_keys=column_keys,
         encryption_algorithm="AES_GCM_V1",
         # requires timedelta or an assertion is raised
         cache_lifetime=timedelta(minutes=5.0),
@@ -82,11 +82,11 @@ def create_decryption_config():
     return pe.DecryptionConfiguration(cache_lifetime=300)
 
 
-def create_kms_connection_config():
+def create_kms_connection_config(keys):
     return pe.KmsConnectionConfig(
         custom_kms_conf={
-            FOOTER_KEY_NAME: FOOTER_KEY.decode("UTF-8"),
-            COL_KEY_NAME: COL_KEY.decode("UTF-8"),
+            key_name: key.decode("UTF-8") if isinstance(key, bytes) else key
+            for key_name, key in keys.items()
         }
     )
 
@@ -95,15 +95,15 @@ def kms_factory(kms_connection_configuration):
     return InMemoryKmsClient(kms_connection_configuration)
 
 
-@pytest.mark.skipif(
-    encryption_unavailable, reason="Parquet Encryption is not currently enabled"
-)
-def test_dataset_encryption_decryption():
-    table = create_sample_table()
-
-    encryption_config = create_encryption_config()
+def do_test_dataset_encryption_decryption(
+    table,
+    footer_key=FOOTER_KEY_NAME,
+    column_keys={COL_KEY_NAME: ["n_legs", "animal"]},
+    keys={FOOTER_KEY_NAME: FOOTER_KEY, COL_KEY_NAME: COL_KEY}
+):
+    encryption_config = create_encryption_config(footer_key, column_keys)
     decryption_config = create_decryption_config()
-    kms_connection_config = create_kms_connection_config()
+    kms_connection_config = create_kms_connection_config(keys)
 
     crypto_factory = pe.CryptoFactory(kms_factory)
     parquet_encryption_cfg = ds.ParquetEncryptionConfig(
@@ -153,6 +153,110 @@ def test_dataset_encryption_decryption():
     dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
 
     assert table.equals(dataset.to_table())
+
+
+@pytest.mark.skipif(
+    encryption_unavailable, reason="Parquet Encryption is not currently enabled"
+)
+def test_dataset_encryption_decryption():
+    do_test_dataset_encryption_decryption(create_sample_table())
+
+
+@pytest.mark.skipif(
+    encryption_unavailable, reason="Parquet Encryption is not currently enabled"
+)
+@pytest.mark.parametrize("column_name", ["list", "list.list.element"])
+def test_list_encryption_decryption(column_name):
+    list_data = pa.array(
+        [[1, 2, 3], [4, 5, 6], [7, 8, 9], [-1], [-2], [-3]],
+        type=pa.list_(pa.int32()),
+    )
+    table = create_sample_table().append_column("list", list_data)
+
+    column_keys = {COL_KEY_NAME: ["animal", column_name]}
+    do_test_dataset_encryption_decryption(table, column_keys=column_keys)
+
+
+@pytest.mark.skipif(
+    encryption_unavailable,
+    reason="Parquet Encryption is not currently enabled"
+)
+@pytest.mark.parametrize(
+    "column_name",
+    ["map", "map.key", "map.value", "map.key_value.key", "map.key_value.value"]
+)
+def test_map_encryption_decryption(column_name):
+    map_type = pa.map_(pa.string(), pa.int32())
+    map_data = pa.array(
+        [
+            [("k1", 1), ("k2", 2)], [("k1", 3), ("k3", 4)], [("k2", 5), ("k3", 6)],
+            [("k4", 7)], [], []
+        ],
+        type=map_type
+    )
+    table = create_sample_table().append_column("map", map_data)
+
+    column_keys = {COL_KEY_NAME: ["animal", column_name]}
+    do_test_dataset_encryption_decryption(table, column_keys=column_keys)
+
+
+@pytest.mark.skipif(
+    encryption_unavailable, reason="Parquet Encryption is not currently enabled"
+)
+@pytest.mark.parametrize("column_name", ["struct", "struct.f1", "struct.f2"])
+def test_struct_encryption_decryption(column_name):
+    struct_fields = [("f1", pa.int32()), ("f2", pa.string())]
+    struct_type = pa.struct(struct_fields)
+    struct_data = pa.array(
+        [(1, "one"), (2, "two"), (3, "three"), (4, "four"), (5, "five"), (6, "six")],
+        type=struct_type
+    )
+    table = create_sample_table().append_column("struct", struct_data)
+
+    column_keys = {COL_KEY_NAME: ["animal", column_name]}
+    do_test_dataset_encryption_decryption(table, column_keys=column_keys)
+
+
+@pytest.mark.skipif(
+    encryption_unavailable,
+    reason="Parquet Encryption is not currently enabled"
+)
+@pytest.mark.parametrize(
+    "column_name",
+    [
+        "col",
+        "col.list.element",
+        "col.list.element.key_value.key",
+        "col.list.element.key_value.value",
+        "col.list.element.key_value.value.f1",
+        "col.list.element.key_value.value.f2"
+    ]
+)
+def test_deep_nested_encryption_decryption(column_name):
+    struct_fields = [("f1", pa.int32()), ("f2", pa.string())]
+    struct_type = pa.struct(struct_fields)
+    struct1 = (1, "one")
+    struct2 = (2, "two")
+    struct3 = (3, "three")
+    struct4 = (4, "four")
+    struct5 = (5, "five")
+    struct6 = (6, "six")
+
+    map_type = pa.map_(pa.int32(), struct_type)
+    map1 = {1: struct1, 2: struct2}
+    map2 = {3: struct3}
+    map3 = {4: struct4}
+    map4 = {5: struct5, 6: struct6}
+
+    list_type = pa.list_(map_type)
+    list1 = [map1, map2]
+    list2 = [map3]
+    list3 = [map4]
+    list_data = [pa.array([list1, list2, None, list3, None, None], type=list_type)]
+    table = create_sample_table().append_column("col", list_data)
+
+    column_keys = {COL_KEY_NAME: ["animal", column_name]}
+    do_test_dataset_encryption_decryption(table, column_keys=column_keys)
 
 
 @pytest.mark.skipif(
