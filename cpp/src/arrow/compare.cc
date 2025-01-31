@@ -396,15 +396,15 @@ class RangeDataEqualsImpl {
         const auto previous_child_num = child_ids[left_codes[left_start_idx_ + i - 1]];
         int64_t run_length = i - run_start;
 
-        RangeDataEqualsImpl impl(options_, floating_approximate_, *left_.child_data[previous_child_num],
-                                *right_.child_data[previous_child_num],
-                                left_start_idx_ + left_.offset + run_start,
-                                right_start_idx_ + right_.offset + run_start,
-                                run_length);
+        RangeDataEqualsImpl impl(
+            options_, floating_approximate_, *left_.child_data[previous_child_num],
+            *right_.child_data[previous_child_num],
+            left_start_idx_ + left_.offset + run_start,
+            right_start_idx_ + right_.offset + run_start, run_length);
 
         if (!impl.Compare()) {
-            result_ = false;
-            return Status::OK();
+          result_ = false;
+          return Status::OK();
         }
 
         // Start a new run
@@ -418,13 +418,11 @@ class RangeDataEqualsImpl {
 
     RangeDataEqualsImpl impl(
         options_, floating_approximate_, *left_.child_data[final_child_num],
-        *right_.child_data[final_child_num],
-        left_start_idx_ + left_.offset + run_start,
-        right_start_idx_ + right_.offset + run_start,
-        final_run_length);
+        *right_.child_data[final_child_num], left_start_idx_ + left_.offset + run_start,
+        right_start_idx_ + right_.offset + run_start, final_run_length);
 
     if (!impl.Compare()) {
-        result_ = false;
+      result_ = false;
     }
     return Status::OK();
   }
