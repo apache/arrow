@@ -21,12 +21,28 @@
 #include <string>
 #include <vector>
 #include "arrow/array.h"
+#include "arrow/util/logging.h"
 #include "parquet/level_conversion.h"
 
 using arrow::internal::checked_cast;
 
 namespace parquet {
 namespace internal {
+
+// const uint64_t MASK_TABLE[48] = {
+//   0x8000000000000000, 0x8000008000000000, 0x8000800080000000, 0x8008008008000000,
+//   0x8040100802000000, 0x8080808080800000, 0x8204081020400000, 0x8208208208200000,
+//   0x8420842084200000, 0x8842108842100000, 0x8884442221100000, 0x8888888888880000,
+//   0x9112224448880000, 0x9224489224480000, 0x9248924892480000, 0x9249249249240000,
+//   0xa492924949240000, 0xa4a4a4a4a4a40000, 0xa5294a5294a40000, 0xa94a94a94a940000,
+//   0xaa54aa54aa540000, 0xaaa554aaa5540000, 0xaaaaaa5555540000, 0xaaaaaaaaaaaa0000,
+//   0xd55555aaaaaa0000, 0xd55aaad55aaa0000, 0xd5aad5aad5aa0000, 0xd6ad6ad6ad6a0000,
+//   0xdad6b5ad6b5a0000, 0xdadadadadada0000, 0xdb6d6db6b6da0000, 0xdb6db6db6db60000,
+//   0xedb6edb6edb60000, 0xeddbb6eddbb60000, 0xeeedddbbb7760000, 0xeeeeeeeeeeee0000,
+//   0xf77bbbdddeee0000, 0xf7bdeef7bdee0000, 0xfbdefbdefbde0000, 0xfbefbefbefbe0000,
+//   0xfdfbf7efdfbe0000, 0xfefefefefefe0000, 0xffbfeff7fdfe0000, 0xffeffeffeffe0000,
+//   0xfffefffefffe0000, 0xfffffefffffe0000, 0xfffffffffffe0000, 0xffffffffffff0000
+// };
 
 const uint64_t GEAR_TABLE[256] = {
     0x3b5d3c7d207e37dc, 0x784d68ba91123086, 0xcd52880f882e7298, 0xeacf8e4e19fdcca7,
@@ -98,6 +114,10 @@ const int64_t MIN_LEN = 256 * 1024;
 const int64_t AVG_LEN = 1 * 1024 * 1024;
 const int64_t MAX_LEN = 2 * 1024 * 1024;
 
+// const int64_t MIN_LEN = 512 * 1024;
+// const int64_t AVG_LEN = 2 * MIN_LEN;
+// const int64_t MAX_LEN = 2 * AVG_LEN;
+
 // create a fake null array class with a GetView method returning 0 always
 class FakeNullArray {
  public:
@@ -108,8 +128,20 @@ class FakeNullArray {
   int64_t null_count() const { return 0; }
 };
 
+// static uint64_t GetMask(uint64_t avg_len, uint8_t bit_adjustment) {
+//   size_t mask_bits = static_cast<size_t>(std::floor(std::log2(avg_len)));
+//   size_t effective_bits = mask_bits + bit_adjustment;
+//   return MASK_TABLE[effective_bits];
+// }
+
+// static uint64_t GetMask(uint64_t avg_len, uint8_t bit_adjustment) {
+//   size_t mask_bits = static_cast<size_t>(std::floor(std::log2(avg_len)));
+//   size_t effective_bits = mask_bits + bit_adjustment;
+//   return ((1ULL << effective_bits) - 1) << (64 - effective_bits);
+// }
+
 static uint64_t GetMask(uint64_t avg_len, uint8_t bit_adjustment) {
-  size_t mask_bits = static_cast<size_t>(std::floor(std::log2(avg_len)));
+  size_t mask_bits = 16;
   size_t effective_bits = mask_bits + bit_adjustment;
   return ((1ULL << effective_bits) - 1) << (64 - effective_bits);
 }
@@ -117,7 +149,7 @@ static uint64_t GetMask(uint64_t avg_len, uint8_t bit_adjustment) {
 class FastCDC {
  public:
   FastCDC(const LevelInfo& level_info, uint64_t min_len, uint64_t avg_len,
-          uint64_t max_len, uint8_t normalization_level = 1)
+          uint64_t max_len, uint8_t normalization_level = 0)
       : level_info_(level_info),
         min_len_(min_len == 0 ? MIN_LEN : min_len),
         avg_len_(avg_len == 0 ? AVG_LEN : avg_len),
