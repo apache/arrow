@@ -263,7 +263,8 @@ module ValuesMapArrayTests
     unit = Arrow::TimeUnit::NANO
     values = [
       # 00:10:00.123456789
-      {"key1" => Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789), "key2" => nil},
+      {"key1" => Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789),
+       "key2" => nil},
       nil,
     ]
     target = build({
