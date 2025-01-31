@@ -15,6 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/array/builder_binary.h>
+#include <arrow/array/builder_nested.h>
+#include <arrow/array/builder_primitive.h>
+#include <arrow/util/logging.h>
+#include <boost/container/container_fwd.hpp>
 #include <string_view>
 
 #include "gtest/gtest.h"
@@ -46,7 +51,7 @@ constexpr std::string_view kFooterKeyMasterKeyId = "footer_key";
 constexpr std::string_view kFooterKeyName = "footer_key";
 constexpr std::string_view kColumnMasterKey = "1234567890123450";
 constexpr std::string_view kColumnMasterKeyId = "col_key";
-constexpr std::string_view kColumnKeyMapping = "col_key: a";
+constexpr std::string_view kColumnName = "a";
 constexpr std::string_view kBaseDir = "";
 
 using arrow::internal::checked_pointer_cast;
@@ -129,7 +134,9 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionTestPa
               std::string(kFooterKeyName));
       encryption_config->uniform_encryption = GetParam().uniform_encryption;
       if (!GetParam().uniform_encryption) {
-        encryption_config->column_keys = kColumnKeyMapping;
+        std::stringstream column_key;
+        column_key << kColumnMasterKeyId << ": " << ColumnKey();
+        encryption_config->column_keys = column_key.str();
       }
 
       auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
@@ -192,6 +199,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionTestPa
   }
 
   virtual void PrepareTableAndPartitioning() = 0;
+  virtual std::string_view ColumnKey() { return kColumnName; }
 
   Result<std::shared_ptr<Dataset>> OpenDataset(
       std::string_view base_dir, const std::shared_ptr<ParquetFileFormat>& file_format) {
@@ -318,8 +326,9 @@ class DatasetEncryptionTest : public DatasetEncryptionTestBase {
   // The dataset is partitioned using a Hive partitioning scheme.
   void PrepareTableAndPartitioning() override {
     // Prepare table data.
-    auto table_schema = schema({field("a", int64()), field("c", int64()),
-                                field("e", int64()), field("part", utf8())});
+    auto table_schema =
+        schema({field(std::string(kColumnName), int64()), field("c", int64()),
+                field("e", int64()), field("part", utf8())});
     table_ = TableFromJSON(table_schema, {R"([
                           [ 0, 9, 1, "a" ],
                           [ 1, 8, 2, "a" ],
@@ -392,6 +401,187 @@ TEST_P(DatasetEncryptionTest, ReadSingleFile) {
 }
 
 INSTANTIATE_TEST_SUITE_P(DatasetEncryptionTest, DatasetEncryptionTest, kAllParamValues);
+
+class NestedFieldsEncryptionTest : public DatasetEncryptionTestBase,
+                                   public ::testing::WithParamInterface<std::string> {
+ public:
+  NestedFieldsEncryptionTest() : rand_gen(0) {}
+
+  // The dataset is partitioned using a Hive partitioning scheme.
+  void PrepareTableAndPartitioning() override {
+    // Prepare table and partitioning.
+    auto table_schema = schema({field("a", std::move(column_type_))});
+    table_ = arrow::Table::Make(table_schema, {column_data_});
+    partitioning_ = std::make_shared<dataset::DirectoryPartitioning>(arrow::schema({}));
+  }
+
+  std::string_view ColumnKey() override { return GetParam(); }
+
+ protected:
+  std::shared_ptr<DataType> column_type_;
+  std::shared_ptr<Array> column_data_;
+  arrow::random::RandomArrayGenerator rand_gen;
+};
+
+class ListFieldEncryptionTest : public NestedFieldsEncryptionTest {
+ public:
+  ListFieldEncryptionTest() {
+    arrow::MemoryPool* pool = arrow::default_memory_pool();
+    auto value_builder = std::make_shared<arrow::Int32Builder>(pool);
+    arrow::ListBuilder list_builder = arrow::ListBuilder(pool, value_builder);
+    ARROW_CHECK_OK(list_builder.Append());
+    ARROW_CHECK_OK(value_builder->Append(1));
+    ARROW_CHECK_OK(value_builder->Append(2));
+    ARROW_CHECK_OK(value_builder->Append(3));
+    ARROW_CHECK_OK(list_builder.Append());
+    ARROW_CHECK_OK(value_builder->Append(4));
+    ARROW_CHECK_OK(value_builder->Append(5));
+    ARROW_CHECK_OK(list_builder.Append());
+    ARROW_CHECK_OK(value_builder->Append(6));
+
+    std::shared_ptr<arrow::Array> list_array;
+    arrow::Status status = list_builder.Finish(&list_array);
+
+    column_type_ = list(int32());
+    column_data_ = list_array;
+  }
+};
+
+class MapFieldEncryptionTest : public NestedFieldsEncryptionTest {
+ public:
+  MapFieldEncryptionTest() : NestedFieldsEncryptionTest() {
+    arrow::MemoryPool* pool = arrow::default_memory_pool();
+    auto map_type = map(utf8(), int32());
+    auto key_builder = std::make_shared<arrow::StringBuilder>(pool);
+    auto item_builder = std::make_shared<arrow::Int32Builder>(pool);
+    auto map_builder =
+        std::make_shared<arrow::MapBuilder>(pool, key_builder, item_builder, map_type);
+    ARROW_CHECK_OK(map_builder->Append());
+    ARROW_CHECK_OK(key_builder->Append("one"));
+    ARROW_CHECK_OK(item_builder->Append(1));
+    ARROW_CHECK_OK(map_builder->Append());
+    ARROW_CHECK_OK(key_builder->Append("two"));
+    ARROW_CHECK_OK(item_builder->Append(2));
+    ARROW_CHECK_OK(map_builder->Append());
+    ARROW_CHECK_OK(key_builder->Append("three"));
+    ARROW_CHECK_OK(item_builder->Append(3));
+
+    std::shared_ptr<arrow::Array> map_array;
+    ARROW_CHECK_OK(map_builder->Finish(&map_array));
+
+    column_type_ = map_type;
+    column_data_ = map_array;
+  }
+};
+
+class StructFieldEncryptionTest : public NestedFieldsEncryptionTest {
+ public:
+  StructFieldEncryptionTest() : NestedFieldsEncryptionTest() {
+    arrow::MemoryPool* pool = arrow::default_memory_pool();
+    auto struct_type = struct_({field("f1", int32()), field("f2", utf8())});
+    auto f1_builder = std::make_shared<arrow::Int32Builder>(pool);
+    auto f2_builder = std::make_shared<arrow::StringBuilder>(pool);
+    std::vector<std::shared_ptr<ArrayBuilder>> value_builders = {f1_builder, f2_builder};
+    auto struct_builder = std::make_shared<arrow::StructBuilder>(std::move(struct_type),
+                                                                 pool, value_builders);
+    ARROW_CHECK_OK(struct_builder->Append());
+    ARROW_CHECK_OK(f1_builder->Append(1));
+    ARROW_CHECK_OK(f2_builder->Append("one"));
+    ARROW_CHECK_OK(struct_builder->Append());
+    ARROW_CHECK_OK(f1_builder->Append(2));
+    ARROW_CHECK_OK(f2_builder->Append("two"));
+    ARROW_CHECK_OK(struct_builder->Append());
+    ARROW_CHECK_OK(f1_builder->Append(3));
+    ARROW_CHECK_OK(f2_builder->Append("three"));
+
+    std::shared_ptr<arrow::Array> struct_array;
+    ARROW_CHECK_OK(struct_builder->Finish(&struct_array));
+
+    column_type_ = struct_type;
+    column_data_ = struct_array;
+  }
+};
+
+class DeepNestedFieldEncryptionTest : public NestedFieldsEncryptionTest {
+ public:
+  DeepNestedFieldEncryptionTest() : NestedFieldsEncryptionTest() {
+    arrow::MemoryPool* pool = arrow::default_memory_pool();
+
+    auto struct_type = struct_({field("f1", int32()), field("f2", utf8())});
+    auto f1_builder = std::make_shared<arrow::Int32Builder>(pool);
+    auto f2_builder = std::make_shared<arrow::StringBuilder>(pool);
+    std::vector<std::shared_ptr<ArrayBuilder>> value_builders = {f1_builder, f2_builder};
+    auto struct_builder = std::make_shared<arrow::StructBuilder>(std::move(struct_type),
+                                                                 pool, value_builders);
+
+    auto map_type = map(int32(), struct_type);
+    auto key_builder = std::make_shared<arrow::Int32Builder>(pool);
+    auto item_builder = struct_builder;
+    auto map_builder =
+        std::make_shared<arrow::MapBuilder>(pool, key_builder, item_builder, map_type);
+
+    auto list_type = list(map_type);
+    auto value_builder = map_builder;
+    arrow::ListBuilder list_builder = arrow::ListBuilder(pool, value_builder);
+
+    ARROW_CHECK_OK(list_builder.Append());
+    ARROW_CHECK_OK(value_builder->Append());
+
+    ARROW_CHECK_OK(key_builder->Append(1));
+    ARROW_CHECK_OK(item_builder->Append());
+    ARROW_CHECK_OK(f1_builder->Append(1));
+    ARROW_CHECK_OK(f2_builder->Append("one"));
+
+    ARROW_CHECK_OK(key_builder->Append(1));
+    ARROW_CHECK_OK(item_builder->Append());
+    ARROW_CHECK_OK(f1_builder->Append(2));
+    ARROW_CHECK_OK(f2_builder->Append("two"));
+
+    ARROW_CHECK_OK(value_builder->Append());
+
+    ARROW_CHECK_OK(key_builder->Append(3));
+    ARROW_CHECK_OK(item_builder->Append());
+    ARROW_CHECK_OK(f1_builder->Append(3));
+    ARROW_CHECK_OK(f2_builder->Append("three"));
+
+    ARROW_CHECK_OK(list_builder.Append());
+    ARROW_CHECK_OK(value_builder->Append());
+
+    ARROW_CHECK_OK(key_builder->Append(4));
+    ARROW_CHECK_OK(item_builder->Append());
+    ARROW_CHECK_OK(f1_builder->Append(4));
+    ARROW_CHECK_OK(f2_builder->Append("four"));
+
+    std::shared_ptr<arrow::Array> list_array;
+    arrow::Status status = list_builder.Finish(&list_array);
+
+    column_type_ = list_type;
+    column_data_ = list_array;
+  }
+};
+
+// Test writing and reading encrypted nested fields
+INSTANTIATE_TEST_SUITE_P(List, ListFieldEncryptionTest,
+                         ::testing::Values("a", "a.list.element"));
+INSTANTIATE_TEST_SUITE_P(Map, MapFieldEncryptionTest,
+                         ::testing::Values("a", "a.key", "a.value", "a.key_value.key",
+                                           "a.key_value.value"));
+INSTANTIATE_TEST_SUITE_P(Struct, StructFieldEncryptionTest,
+                         ::testing::Values("a", "a.f1", "a.f2"));
+INSTANTIATE_TEST_SUITE_P(DeepNested, DeepNestedFieldEncryptionTest,
+                         ::testing::Values("a", "a.list.element",
+                                           "a.list.element.key_value.key",
+                                           "a.list.element.key_value.value",
+                                           "a.list.element.key_value.value.f1",
+                                           "a.list.element.key_value.value.f2"));
+
+TEST_P(ListFieldEncryptionTest, ColumnKeys) { TestScanDataset(); }
+
+TEST_P(MapFieldEncryptionTest, ColumnKeys) { TestScanDataset(); }
+
+TEST_P(StructFieldEncryptionTest, ColumnKeys) { TestScanDataset(); }
+
+TEST_P(DeepNestedFieldEncryptionTest, ColumnKeys) { TestScanDataset(); }
 
 // GH-39444: This test covers the case where parquet dataset scanner crashes when
 // processing encrypted datasets over 2^15 rows in multi-threaded mode.
