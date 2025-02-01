@@ -55,12 +55,7 @@ Dataframe Interchange Protocol
 
    interchange.from_dataframe
 
-.. _api.tensor:
+See Also
+--------
 
-Tensors
--------
-
-.. autosummary::
-   :toctree: ../generated/
-
-   Tensor
+For information about tensors, refer to :doc:`tensors`
