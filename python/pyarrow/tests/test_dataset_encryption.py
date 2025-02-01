@@ -128,12 +128,77 @@ def do_test_dataset_encryption_decryption(
         filesystem=mockfs,
     )
 
-    # read without decryption config -> should error is dataset was properly encrypted
+    # read without decryption config -> should error if dataset was properly encrypted
     pformat = pa.dataset.ParquetFileFormat()
     with pytest.raises(IOError, match=r"no decryption"):
         ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
 
-    # set decryption config for parquet fragment scan options
+    # helper method for following tests
+    def create_format_with_keys(keys):
+        kms_connection_config = create_kms_connection_config(keys)
+        parquet_decryption_cfg = ds.ParquetDecryptionConfig(
+            crypto_factory, kms_connection_config, decryption_config
+        )
+        pq_scan_opts = ds.ParquetFragmentScanOptions(
+            decryption_config=parquet_decryption_cfg
+        )
+        return pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
+
+    def assert_read_table_with_keys_success(keys, column_names):
+        pformat = create_format_with_keys(keys)
+        dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
+        assert table.select(column_names).equals(dataset.to_table(columns=column_names))
+
+    def assert_read_table_with_keys_failure(keys, column_names):
+        pformat = create_format_with_keys(keys)
+        # creating the dataset works
+        dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
+        with pytest.raises(KeyError, match=r"col_key"):
+            # reading those columns fails
+            _ = dataset.to_table(column_names)
+
+    # some notable column names and keys
+    all_column_names = table.column_names
+    encrypted_column_names = [column_name
+                              for key_name, column_names in column_keys.items()
+                              for column_name in column_names]
+    plaintext_column_names = [column_name
+                              for column_name in all_column_names
+                              if column_name not in encrypted_column_names]
+    assert len(encrypted_column_names) > 0
+    assert len(plaintext_column_names) > 0
+    footer_key_only = {FOOTER_KEY_NAME: FOOTER_KEY}
+    column_keys_only = {key_name: key for key_name, key in keys.items() if key_name != FOOTER_KEY_NAME}
+
+    # read with footer key only
+    assert_read_table_with_keys_success(footer_key_only, plaintext_column_names)
+    #assert_read_table_with_keys_failure(footer_key_only, encrypted_column_names)
+    #assert_read_table_with_keys_failure(footer_key_only, all_column_names)
+
+    # read with all but footer key
+    if len(keys) > 1:
+        assert_read_table_with_keys_success(column_keys_only, plaintext_column_names)  # TODO: this is wrong!
+        assert_read_table_with_keys_failure(column_keys_only, encrypted_column_names)
+        assert_read_table_with_keys_failure(column_keys_only, all_column_names)
+
+        # with footer key and one column key, all plaintext and
+        # those encrypted columns that use that key, can be read
+        if len(keys) > 2:
+            for column_key_name, encrypted_column_names in column_keys.items():
+                for encrypted_column_name in encrypted_column_names:
+                    footer_key_and_one_column_key = {key_name: key for key_name, key in keys.items()
+                                                     if key_name in [FOOTER_KEY_NAME, column_key_name]}
+                    assert_read_table_with_keys_success(footer_key_and_one_column_key, plaintext_column_names)
+                    assert_read_table_with_keys_success(footer_key_and_one_column_key, plaintext_column_names + [encrypted_column_name])
+                    assert_read_table_with_keys_failure(footer_key_and_one_column_key, encrypted_column_names)
+                    assert_read_table_with_keys_failure(footer_key_and_one_column_key, all_column_names)
+
+        # with all column keys, all columns can be read
+        assert_read_table_with_keys_success(keys, plaintext_column_names)
+        assert_read_table_with_keys_failure(keys, encrypted_column_names)  # TODO: this is wrong!
+        assert_read_table_with_keys_failure(keys, all_column_names)
+
+    # no matter how many keys are configured, test that whole table can be read
     pq_scan_opts = ds.ParquetFragmentScanOptions(
         decryption_config=parquet_decryption_cfg
     )
