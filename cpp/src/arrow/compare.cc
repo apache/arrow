@@ -385,7 +385,7 @@ class RangeDataEqualsImpl {
 
     for (int64_t i = 0; i < range_length_; ++i) {
       const auto current_type_id = left_codes[left_start_idx_ + i];
-      
+
       if (current_type_id != right_codes[right_start_idx_ + i]) {
         result_ = false;
         break;
