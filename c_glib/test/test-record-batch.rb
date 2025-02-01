@@ -243,7 +243,8 @@ valid:   [
       end
 
       def test_valid
-        record_batch = Arrow::RecordBatch.new(@schema, @n_rows, [@uint8_value, @valid_name_value])
+        record_batch = Arrow::RecordBatch.new(@schema, @n_rows,
+                                              [@uint8_value, @valid_name_value])
 
         assert do
           record_batch.validate_full
@@ -253,7 +254,10 @@ valid:   [
       def test_invalid
         message = "[record-batch][validate-full]: Invalid: " +
           "In column 1: Invalid: Invalid UTF8 sequence at string index 0"
-        record_batch = Arrow::RecordBatch.new(@schema, @n_rows, [@uint8_value, @invalid_name_value])
+        record_batch = Arrow::RecordBatch.new(@schema, @n_rows,
+                                              [@uint8_value,
+                                               @invalid_name_value]
+                                             )
 
         assert_raise(Arrow::Error::Invalid.new(message)) do
           record_batch.validate_full

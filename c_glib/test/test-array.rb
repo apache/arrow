@@ -118,9 +118,9 @@ class TestArray < Test::Unit::TestCase
 
   sub_test_case("#view") do
     def test_valid
+      int32_array = build_int32_array([0, 1069547520, -1071644672, nil])
       assert_equal(build_float_array([0.0, 1.5, -2.5, nil]),
-                   build_int32_array([0, 1069547520, -1071644672, nil])
-                     .view(Arrow::FloatDataType.new))
+                   int32_array.view(Arrow::FloatDataType.new))
     end
 
     def test_invalid
