@@ -703,7 +703,7 @@ creating file encryption properties) includes the following options:
 * ``footer_key``, the ID of the master key for footer encryption/signing.
 * ``column_keys``, which columns to encrypt with which key. Dictionary with
   master key IDs as the keys, and column name lists as the values,
-  e.g. ``{key1: [col1, col2], key2: [col3]}`` .
+  e.g. ``{key1: [col1, col2], key2: [col3]}``. See notes on nested fields below.
 * ``encryption_algorithm``, the Parquet encryption algorithm.
   Can be ``AES_GCM_V1`` (default) or ``AES_GCM_CTR_V1``.
 * ``plaintext_footer``, whether to write the file footer in plain text (otherwise it is encrypted).
@@ -736,6 +736,36 @@ An example encryption configuration:
       footer_key="footer_key_name",
       column_keys={
          "column_key_name": ["Column1", "Column2"],
+      },
+   )
+
+.. note::
+   Encrypting columns that have nested fields (for instance struct, map, or even list data types)
+   require configuring column keys for the inner fields, not the column itself.
+   Configuring a column key for the column itself causes this error (here column name is ``col``):
+
+   .. code-block::
+
+      OSError: Encrypted column col not in file schema
+
+An example encryption configuration for columns with nested fields:
+
+.. code-block:: python
+
+   schema = pa.schema([
+     ("ListColumn", pa.list_(pa.int32())),
+     ("MapColumn", pa.map_(pa.string(), pa.int32())),
+     ("StructColumn", pa.struct([("f1", pa.int32()), ("f2", pa.string())])),
+   ])
+
+   encryption_config = pq.EncryptionConfiguration(
+      footer_key="footer_key_name",
+      column_keys={
+         "column_key_name": [
+           "ListColumn.list.element",
+           "MapColumn.key_value.key", "MapColumn.key_value.value",
+           "StructColumn.f1", "StructColumn.f2"
+         ],
       },
    )
 
