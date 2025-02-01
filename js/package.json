@@ -58,7 +58,7 @@
     "@types/node": "^20.13.0",
     "command-line-args": "^6.0.1",
     "command-line-usage": "^7.0.1",
-    "flatbuffers": "^24.3.25",
+    "flatbuffers": "^25.1.24",
     "json-bignum": "^0.0.3",
     "tslib": "^2.6.2"
   },
