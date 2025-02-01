@@ -78,7 +78,7 @@
     "benny": "3.7.1",
     "cross-env": "7.0.3",
     "del": "8.0.0",
-    "del-cli": "5.1.0",
+    "del-cli": "6.0.0",
     "esbuild": "0.24.2",
     "esbuild-plugin-alias": "0.2.1",
     "eslint": "8.57.0",
