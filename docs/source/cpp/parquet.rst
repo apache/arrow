@@ -585,6 +585,82 @@ More specifically, Parquet C++ supports:
 * EncryptionWithFooterKey and EncryptionWithColumnKey modes.
 * Encrypted Footer and Plaintext Footer modes.
 
+Configuration
+~~~~~~~~~~~~~
+
+An example for writing a dataset using encrypted Parquet file format:
+
+.. code-block:: cpp
+
+   #include <arrow/util/logging.h>
+
+   #include "arrow/dataset/file_parquet.h"
+   #include "arrow/dataset/parquet_encryption_config.h"
+   #include "arrow/testing/gtest_util.h"
+   #include "parquet/encryption/crypto_factory.h"
+
+   using arrow::internal::checked_pointer_cast;
+
+   auto crypto_factory = std::make_shared<parquet::encryption::CryptoFactory>();
+   parquet::encryption::KmsClientFactory kms_client_factory = ...;
+   crypto_factory->RegisterKmsClientFactory(std::move(kms_client_factory));
+   auto kms_connection_config = std::make_shared<parquet::encryption::KmsConnectionConfig>();
+
+   // Set write options with encryption configuration.
+   auto encryption_config =
+       std::make_shared<parquet::encryption::EncryptionConfiguration>(
+           std::string("footer_key"));
+   encryption_config->column_keys = "col_key: a";
+   auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
+   // Directly assign shared_ptr objects to ParquetEncryptionConfig members
+   parquet_encryption_config->crypto_factory = crypto_factory;
+   parquet_encryption_config->kms_connection_config = kms_connection_config;
+   parquet_encryption_config->encryption_config = std::move(encryption_config);
+
+   auto file_format = std::make_shared<ParquetFileFormat>();
+   auto parquet_file_write_options =
+       checked_pointer_cast<ParquetFileWriteOptions>(file_format->DefaultWriteOptions());
+   parquet_file_write_options->parquet_encryption_config =
+       std::move(parquet_encryption_config);
+
+   // Write dataset.
+   arrow::Table table = ...;
+   auto dataset = std::make_shared<InMemoryDataset>(table);
+   EXPECT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+   EXPECT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+
+   FileSystemDatasetWriteOptions write_options;
+   write_options.file_write_options = parquet_file_write_options;
+   write_options.base_dir = "example.parquet";
+   ARROW_CHECK_OK(FileSystemDataset::Write(write_options, std::move(scanner)));
+
+Column encryption is configured by setting ``encryption_config->column_keys`` to a string
+of the format ``"masterKeyID:colName,colName;masterKeyID:colName..."``.
+
+Encrypting columns that have nested fields (for instance struct, map, or even list data types)
+require configuring column keys for the inner fields, not the column itself.
+Configuring a column key for the column itself causes this error (here column name is ``col``):
+
+.. code-block::
+
+   OSError: Encrypted column col not in file schema
+
+An example encryption configuration for columns with nested fields:
+
+.. code-block:: cpp
+
+   auto table_schema = schema({
+     field("ListColumn", list(int32())),
+     field("MapColumn", map(utf8(), int32())),
+     field("StructColumn", struct_({field("f1", int32()), field("f2", utf8())})),
+   });
+
+   encryption_config->column_keys = "column_key_name: "
+                                    "ListColumn.list.element, "
+                                    "MapColumn.key_value.key, MapColumn.key_value.value, "
+                                    "StructColumn.f1, StructColumn.f2"
+
+
 Miscellaneous
 -------------
 
