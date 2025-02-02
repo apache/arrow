@@ -741,6 +741,8 @@ garrow_table_combine_chunks(GArrowTable *table, GError **error)
  * @table: A #GArrowTable
  * @error: (nullable): Return location for a #GError or %NULL.
  *
+ * Validate the given table. This is a cheap validation.
+ *
  * Returns: %TRUE on success, %FALSE on error.
  *
  * Since: 20.0.0
