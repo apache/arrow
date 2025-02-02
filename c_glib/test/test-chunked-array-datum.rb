@@ -49,14 +49,14 @@ class TestChunkedArrayDatum < Test::Unit::TestCase
   end
 
   def test_to_string
-    assert_equal(<<-CHUNKED_ARRAY.chomp, @datum.to_s)
+    assert_equal(<<-DATUM.chomp, @datum.to_s)
 ChunkedArray([
   [
     true,
     false
   ]
 ])
-    CHUNKED_ARRAY
+    DATUM
   end
 
   def test_value

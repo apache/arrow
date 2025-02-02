@@ -49,13 +49,13 @@ class TestRecordBatchDatum < Test::Unit::TestCase
   end
 
   def test_to_string
-    assert_equal(<<-RECORD_BATCH.chomp, @datum.to_s)
+    assert_equal(<<-DATUM.chomp, @datum.to_s)
 RecordBatch(visible:   [
     true,
     false
   ]
 )
-    RECORD_BATCH
+    DATUM
   end
 
   def test_value
