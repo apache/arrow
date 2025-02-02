@@ -47,7 +47,11 @@ FOOTER_KEY = b"0123456789112345"
 FOOTER_KEY_NAME = "footer_key"
 COL_KEY = b"1234567890123450"
 COL_KEY_NAME = "col_key"
-
+KEYS = {FOOTER_KEY_NAME: FOOTER_KEY, COL_KEY_NAME: COL_KEY}
+EXTRA_COL_KEY = b"2345678901234501"
+EXTRA_COL_KEY_NAME = "col2_key"
+COLUMNS = ["year", "n_legs", "animal"]
+COLUMN_KEYS = {COL_KEY_NAME: ["n_legs", "animal"]}
 
 def create_sample_table():
     return pa.table(
@@ -95,22 +99,83 @@ def kms_factory(kms_connection_configuration):
     return InMemoryKmsClient(kms_connection_configuration)
 
 
-def do_test_dataset_encryption_decryption(
+def do_test_dataset_encryption_decryption(table, extra_column_path=None):
+    # use extra column key for column extra_column_name if given
+    if extra_column_path:
+        keys = dict(**KEYS, **{EXTRA_COL_KEY_NAME: EXTRA_COL_KEY})
+        column_keys = dict(**COLUMN_KEYS, **{EXTRA_COL_KEY_NAME: [extra_column_path]})
+        extra_column_name = extra_column_path.split(".")[0]
+    else:
+        keys = KEYS
+        column_keys = COLUMN_KEYS
+        extra_column_name = None
+
+    # some notable column names and keys
+    all_column_names = table.column_names
+    encrypted_column_names = [column_name.split(".")[0]
+                              for key_name, column_names in column_keys.items()
+                              for column_name in column_names]
+    plaintext_column_names = [column_name
+                              for column_name in all_column_names
+                              if column_name not in encrypted_column_names and
+                              (extra_column_path is None or not extra_column_path.startswith(f"{column_name}."))]
+    assert len(encrypted_column_names) > 0
+    assert len(plaintext_column_names) > 0
+    footer_key_only = {FOOTER_KEY_NAME: FOOTER_KEY}
+    column_keys_only = {key_name: key for key_name, key in keys.items() if key_name != FOOTER_KEY_NAME}
+
+    # read with footer key only
+    assert_test_dataset_encryption_decryption(table, column_keys, keys, footer_key_only, plaintext_column_names, True)
+    assert_test_dataset_encryption_decryption(table, column_keys, keys, footer_key_only, encrypted_column_names, False)
+    assert_test_dataset_encryption_decryption(table, column_keys, keys, footer_key_only, all_column_names, False)
+
+    # read with all but footer key
+    assert_test_dataset_encryption_decryption(table, column_keys, keys, column_keys_only, plaintext_column_names, False, False)
+    assert_test_dataset_encryption_decryption(table, column_keys, keys, column_keys_only, encrypted_column_names, False, False)
+    assert_test_dataset_encryption_decryption(table, column_keys, keys, column_keys_only, all_column_names, False, False)
+
+    # with footer key and one column key, all plaintext and
+    # those encrypted columns that use that key, can be read
+    if len(column_keys) > 1:
+        for column_key_name, column_key_column_names in column_keys.items():
+            for encrypted_column_name in column_key_column_names:
+                encrypted_column_name = encrypted_column_name.split(".")[0]
+                footer_key_and_one_column_key = {key_name: key for key_name, key in keys.items()
+                                                 if key_name in [FOOTER_KEY_NAME, column_key_name]}
+                assert_test_dataset_encryption_decryption(table, column_keys, keys, footer_key_and_one_column_key, plaintext_column_names,
+                                                          True)
+                assert_test_dataset_encryption_decryption(table, column_keys, keys, footer_key_and_one_column_key, plaintext_column_names + [encrypted_column_name],
+                                                          encrypted_column_name != extra_column_name)
+                assert_test_dataset_encryption_decryption(table, column_keys, keys, footer_key_and_one_column_key, encrypted_column_names,
+                                                          False)
+                assert_test_dataset_encryption_decryption(table, column_keys, keys, footer_key_and_one_column_key, all_column_names, False)
+
+    # with all column keys, all columns can be read
+    assert_test_dataset_encryption_decryption(table, column_keys, keys, keys, plaintext_column_names, True)
+    assert_test_dataset_encryption_decryption(table, column_keys, keys, keys, encrypted_column_names, True)
+    assert_test_dataset_encryption_decryption(table, column_keys, keys, keys, all_column_names, True)
+
+
+def assert_test_dataset_encryption_decryption(
     table,
-    footer_key=FOOTER_KEY_NAME,
-    column_keys={COL_KEY_NAME: ["n_legs", "animal"]},
-    keys={FOOTER_KEY_NAME: FOOTER_KEY, COL_KEY_NAME: COL_KEY}
+    column_keys,
+    write_keys,
+    read_keys,
+    read_columns,
+    to_table_success,
+    dataset_success = True,
 ):
-    encryption_config = create_encryption_config(footer_key, column_keys)
+    encryption_config = create_encryption_config(FOOTER_KEY_NAME, column_keys)
     decryption_config = create_decryption_config()
-    kms_connection_config = create_kms_connection_config(keys)
+    encrypt_kms_connection_config = create_kms_connection_config(write_keys)
+    decrypt_kms_connection_config = create_kms_connection_config(read_keys)
 
     crypto_factory = pe.CryptoFactory(kms_factory)
     parquet_encryption_cfg = ds.ParquetEncryptionConfig(
-        crypto_factory, kms_connection_config, encryption_config
+        crypto_factory, encrypt_kms_connection_config, encryption_config
     )
     parquet_decryption_cfg = ds.ParquetDecryptionConfig(
-        crypto_factory, kms_connection_config, decryption_config
+        crypto_factory, decrypt_kms_connection_config, decryption_config
     )
 
     # create write_options with dataset encryption config
@@ -133,91 +198,40 @@ def do_test_dataset_encryption_decryption(
     with pytest.raises(IOError, match=r"no decryption"):
         ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
 
-    # helper method for following tests
-    def create_format_with_keys(keys):
-        kms_connection_config = create_kms_connection_config(keys)
-        parquet_decryption_cfg = ds.ParquetDecryptionConfig(
-            crypto_factory, kms_connection_config, decryption_config
-        )
-        pq_scan_opts = ds.ParquetFragmentScanOptions(
-            decryption_config=parquet_decryption_cfg
-        )
-        return pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
-
-    def assert_read_table_with_keys_success(keys, column_names):
-        pformat = create_format_with_keys(keys)
-        dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
-        assert table.select(column_names).equals(dataset.to_table(columns=column_names))
-
-    def assert_read_table_with_keys_failure(keys, column_names):
-        pformat = create_format_with_keys(keys)
-        # creating the dataset works
-        dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
-        with pytest.raises(KeyError, match=r"col_key"):
-            # reading those columns fails
-            _ = dataset.to_table(column_names)
-
-    # some notable column names and keys
-    all_column_names = table.column_names
-    encrypted_column_names = [column_name
-                              for key_name, column_names in column_keys.items()
-                              for column_name in column_names]
-    plaintext_column_names = [column_name
-                              for column_name in all_column_names
-                              if column_name not in encrypted_column_names]
-    assert len(encrypted_column_names) > 0
-    assert len(plaintext_column_names) > 0
-    footer_key_only = {FOOTER_KEY_NAME: FOOTER_KEY}
-    column_keys_only = {key_name: key for key_name, key in keys.items() if key_name != FOOTER_KEY_NAME}
-
-    # read with footer key only
-    assert_read_table_with_keys_success(footer_key_only, plaintext_column_names)
-    #assert_read_table_with_keys_failure(footer_key_only, encrypted_column_names)
-    #assert_read_table_with_keys_failure(footer_key_only, all_column_names)
-
-    # read with all but footer key
-    if len(keys) > 1:
-        assert_read_table_with_keys_success(column_keys_only, plaintext_column_names)  # TODO: this is wrong!
-        assert_read_table_with_keys_failure(column_keys_only, encrypted_column_names)
-        assert_read_table_with_keys_failure(column_keys_only, all_column_names)
-
-        # with footer key and one column key, all plaintext and
-        # those encrypted columns that use that key, can be read
-        if len(keys) > 2:
-            for column_key_name, encrypted_column_names in column_keys.items():
-                for encrypted_column_name in encrypted_column_names:
-                    footer_key_and_one_column_key = {key_name: key for key_name, key in keys.items()
-                                                     if key_name in [FOOTER_KEY_NAME, column_key_name]}
-                    assert_read_table_with_keys_success(footer_key_and_one_column_key, plaintext_column_names)
-                    assert_read_table_with_keys_success(footer_key_and_one_column_key, plaintext_column_names + [encrypted_column_name])
-                    assert_read_table_with_keys_failure(footer_key_and_one_column_key, encrypted_column_names)
-                    assert_read_table_with_keys_failure(footer_key_and_one_column_key, all_column_names)
-
-        # with all column keys, all columns can be read
-        assert_read_table_with_keys_success(keys, plaintext_column_names)
-        assert_read_table_with_keys_failure(keys, encrypted_column_names)  # TODO: this is wrong!
-        assert_read_table_with_keys_failure(keys, all_column_names)
-
-    # no matter how many keys are configured, test that whole table can be read
+    # set decryption config for parquet fragment scan options
     pq_scan_opts = ds.ParquetFragmentScanOptions(
         decryption_config=parquet_decryption_cfg
     )
     pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
-    dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
-
-    assert table.equals(dataset.to_table())
+    if dataset_success:
+        dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
+        if to_table_success:
+            assert table.select(read_columns).equals(dataset.to_table(read_columns))
+        else:
+            with pytest.raises(ValueError, match="Unknown master key"):
+                assert table.select(read_columns).equals(dataset.to_table(read_columns))
+    else:
+        with pytest.raises(ValueError, match="Unknown master key"):
+            _ = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
 
     # set decryption properties for parquet fragment scan options
     decryption_properties = crypto_factory.file_decryption_properties(
-        kms_connection_config, decryption_config)
+        decrypt_kms_connection_config, decryption_config)
     pq_scan_opts = ds.ParquetFragmentScanOptions(
         decryption_properties=decryption_properties
     )
 
     pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
-    dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
-
-    assert table.equals(dataset.to_table())
+    if dataset_success:
+        dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
+        if to_table_success:
+            assert table.select(read_columns).equals(dataset.to_table(read_columns))
+        else:
+            with pytest.raises(ValueError, match="Unknown master key"):
+                assert table.select(read_columns).equals(dataset.to_table(read_columns))
+    else:
+        with pytest.raises(ValueError, match="Unknown master key"):
+            _ = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
 
 
 @pytest.mark.skipif(
@@ -238,8 +252,7 @@ def test_list_encryption_decryption(column_name):
     )
     table = create_sample_table().append_column("list", list_data)
 
-    column_keys = {COL_KEY_NAME: ["animal", column_name]}
-    do_test_dataset_encryption_decryption(table, column_keys=column_keys)
+    do_test_dataset_encryption_decryption(table, column_name)
 
 
 @pytest.mark.skipif(
@@ -247,8 +260,7 @@ def test_list_encryption_decryption(column_name):
     reason="Parquet Encryption is not currently enabled"
 )
 @pytest.mark.parametrize(
-    "column_name",
-    ["map", "map.key", "map.value", "map.key_value.key", "map.key_value.value"]
+    "column_name", ["map", "map.key", "map.value", "map.key_value.key", "map.key_value.value"]
 )
 def test_map_encryption_decryption(column_name):
     map_type = pa.map_(pa.string(), pa.int32())
@@ -261,14 +273,15 @@ def test_map_encryption_decryption(column_name):
     )
     table = create_sample_table().append_column("map", map_data)
 
-    column_keys = {COL_KEY_NAME: ["animal", column_name]}
-    do_test_dataset_encryption_decryption(table, column_keys=column_keys)
+    do_test_dataset_encryption_decryption(table, column_name)
 
 
 @pytest.mark.skipif(
     encryption_unavailable, reason="Parquet Encryption is not currently enabled"
 )
-@pytest.mark.parametrize("column_name", ["struct", "struct.f1", "struct.f2"])
+@pytest.mark.parametrize(
+    "column_name", [ "struct", "struct.f1", "struct.f2"]
+)
 def test_struct_encryption_decryption(column_name):
     struct_fields = [("f1", pa.int32()), ("f2", pa.string())]
     struct_type = pa.struct(struct_fields)
@@ -278,8 +291,7 @@ def test_struct_encryption_decryption(column_name):
     )
     table = create_sample_table().append_column("struct", struct_data)
 
-    column_keys = {COL_KEY_NAME: ["animal", column_name]}
-    do_test_dataset_encryption_decryption(table, column_keys=column_keys)
+    do_test_dataset_encryption_decryption(table, column_name)
 
 
 @pytest.mark.skipif(
@@ -290,6 +302,11 @@ def test_struct_encryption_decryption(column_name):
     "column_name",
     [
         "col",
+        "col.element",
+        "col.element.key",
+        "col.element.value",
+        "col.element.value.f1",
+        "col.element.value.f2",
         "col.list.element",
         "col.list.element.key_value.key",
         "col.list.element.key_value.value",
@@ -320,8 +337,7 @@ def test_deep_nested_encryption_decryption(column_name):
     list_data = [pa.array([list1, list2, None, list3, None, None], type=list_type)]
     table = create_sample_table().append_column("col", list_data)
 
-    column_keys = {COL_KEY_NAME: ["animal", column_name]}
-    do_test_dataset_encryption_decryption(table, column_keys=column_keys)
+    do_test_dataset_encryption_decryption(table, column_name)
 
 
 @pytest.mark.skipif(

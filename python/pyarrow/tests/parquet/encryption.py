@@ -41,6 +41,8 @@ class InMemoryKmsClient(pe.KmsClient):
     def unwrap_key(self, wrapped_key, master_key_identifier):
         """Not a secure cipher - just extract the key from
         the wrapped key"""
+        if master_key_identifier not in self.master_keys_map:
+            raise ValueError("Unknown master key", master_key_identifier)
         expected_master_key = self.master_keys_map[master_key_identifier]
         decoded_wrapped_key = base64.b64decode(wrapped_key)
         master_key_bytes = decoded_wrapped_key[:16]
