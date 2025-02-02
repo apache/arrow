@@ -627,6 +627,80 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
   }
 }
 
+// Util
+int64_t BinaryViewTotalSize(const ::arrow::BinaryViewArray& array) {
+  int64_t total_size = 0;
+  for (int i = 0; i < array.length(); i++) {
+    total_size += array.GetView(i).size();
+  }
+  return total_size;
+}
+
+std::shared_ptr<::arrow::Array> CastBinaryTypesHelper(
+    std::shared_ptr<::arrow::Array> result, std::shared_ptr<::arrow::DataType> type) {
+  if (::arrow::is_large_binary_like(type->id())) {
+    ::arrow::compute::CastOptions options;
+    if (::arrow::is_string(type->id())) {
+      options.to_type = ::arrow::large_utf8();
+    } else {
+      options.to_type = ::arrow::large_binary();
+    }
+    EXPECT_OK_AND_ASSIGN(
+        auto tmp, CallFunction("cast", {::arrow::Datum{result}}, &options, nullptr));
+    result = tmp.make_array();
+  } else if (::arrow::is_binary_view_like(type->id())) {
+    ::arrow::compute::CastOptions options;
+    options.to_type = type;
+    EXPECT_OK_AND_ASSIGN(
+        auto tmp, CallFunction("cast", {::arrow::Datum{result}}, &options, nullptr));
+    result = tmp.make_array();
+  }
+  return result;
+}
+
+TEST(PlainEncodingAdHoc, ArrowBinaryViewDirectPut) {
+  const int64_t size = 50;
+  const int32_t min_length = 0;
+  const int32_t max_length = 10;
+  const double null_probability = 0.25;
+
+  auto CheckSeed = [&](int seed) {
+    ::arrow::random::RandomArrayGenerator rag(seed);
+    auto values = rag.StringView(size, min_length, max_length, null_probability);
+
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
+
+    ASSERT_NO_THROW(encoder->Put(*values));
+    // For Plain encoding, the estimated size should be at least the total byte size
+    EXPECT_GE(encoder->EstimatedDataEncodedSize(),
+              BinaryViewTotalSize(dynamic_cast<const ::arrow::BinaryViewArray&>(*values)))
+        << "Estimated size should be at least the total byte size";
+
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    acc.builder = std::make_unique<::arrow::StringBuilder>();
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.builder->Finish(&result));
+    ASSERT_EQ(50, result->length());
+    ::arrow::AssertArraysEqual(*values, *CastBinaryTypesHelper(result, values->type()),
+                               true);
+  };
+
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    CheckSeed(seed);
+  }
+}
+
 // Check that one can put several Arrow arrays into a given encoder
 // and decode to the right values (see GH-36939)
 TEST(BooleanArrayEncoding, AdHocRoundTrip) {
@@ -1180,6 +1254,40 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   std::shared_ptr<::arrow::Array> result;
   ASSERT_OK(acc.builder->Finish(&result));
   ::arrow::AssertArraysEqual(*values, *result);
+}
+
+TEST(DictEncodingAdHoc, ArrowBinaryViewDirectPut) {
+  // Implemented as part of ARROW-3246
+  const int64_t size = 50;
+  const int64_t min_length = 0;
+  const int64_t max_length = 10;
+  const double null_probability = 0.1;
+  ::arrow::random::RandomArrayGenerator rag(0);
+  auto values = rag.StringView(size, min_length, max_length, null_probability);
+
+  auto owned_encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
+                                                       /*use_dictionary=*/true);
+
+  auto encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(owned_encoder.get());
+
+  ASSERT_NO_THROW(encoder->Put(*values));
+
+  std::unique_ptr<ByteArrayDecoder> decoder;
+  std::shared_ptr<Buffer> buf, dict_buf;
+  int num_values = static_cast<int>(values->length() - values->null_count());
+  GetDictDecoder(encoder, num_values, &buf, &dict_buf, nullptr, &decoder);
+
+  typename EncodingTraits<ByteArrayType>::Accumulator acc;
+  acc.builder.reset(new ::arrow::StringBuilder);
+  ASSERT_EQ(num_values,
+            decoder->DecodeArrow(static_cast<int>(values->length()),
+                                 static_cast<int>(values->null_count()),
+                                 values->null_bitmap_data(), values->offset(), &acc));
+
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(acc.builder->Finish(&result));
+  ::arrow::AssertArraysEqual(*values, *CastBinaryTypesHelper(result, values->type()),
+                             true);
 }
 
 TYPED_TEST(EncodingAdHocTyped, DictArrowDirectPut) { this->Dict(0); }
@@ -2164,22 +2272,6 @@ TEST(DeltaLengthByteArrayEncoding, RejectBadBuffer) {
   ASSERT_THROW(decoder->DecodeArrow(3, 0, nullptr, 0, &acc), ParquetException);
 }
 
-std::shared_ptr<::arrow::Array> CastBinaryTypesHelper(
-    std::shared_ptr<::arrow::Array> result, std::shared_ptr<::arrow::DataType> type) {
-  if (::arrow::is_large_binary_like(type->id())) {
-    ::arrow::compute::CastOptions options;
-    if (::arrow::is_string(type->id())) {
-      options.to_type = ::arrow::large_utf8();
-    } else {
-      options.to_type = ::arrow::large_binary();
-    }
-    EXPECT_OK_AND_ASSIGN(
-        auto tmp, CallFunction("cast", {::arrow::Datum{result}}, &options, nullptr));
-    result = tmp.make_array();
-  }
-  return result;
-}
-
 TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
   const int64_t size = 50;
   const int32_t min_length = 0;
@@ -2243,16 +2335,6 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryViewDirectPut) {
   auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
   auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 
-  auto castTo = [](std::shared_ptr<::arrow::Array> result,
-                   const std::shared_ptr<::arrow::DataType>& to_type) {
-    ::arrow::compute::CastOptions options;
-    options.to_type = to_type;
-    EXPECT_OK_AND_ASSIGN(
-        auto tmp, CallFunction("cast", {::arrow::Datum{result}}, &options, nullptr));
-    result = tmp.make_array();
-    return result;
-  };
-
   auto CheckSeed = [&](std::shared_ptr<::arrow::Array> values) {
     ASSERT_NO_THROW(encoder->Put(*values));
     const auto* binary_view_array =
@@ -2287,7 +2369,8 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryViewDirectPut) {
     ASSERT_EQ(values->length(), result->length());
     ASSERT_OK(result->ValidateFull());
 
-    ::arrow::AssertArraysEqual(*values, *castTo(result, values->type()), true);
+    ::arrow::AssertArraysEqual(*values, *CastBinaryTypesHelper(result, values->type()),
+                               true);
   };
 
   ::arrow::random::RandomArrayGenerator rag(42);
@@ -2298,7 +2381,7 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryViewDirectPut) {
     values = rag.StringView(size, min_length, max_length, null_probability);
     CheckSeed(values);
 
-    values = castTo(
+    values = CastBinaryTypesHelper(
         rag.BinaryWithRepeats(size, num_unique, min_length, max_length, null_probability),
         ::arrow::binary_view());
     CheckSeed(values);
@@ -2579,11 +2662,13 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), encoded);
     CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), encoded);
     CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), encoded);
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::binary_view(), values), encoded);
 
     CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::utf8(), values));
     CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_utf8(), values));
     CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::binary(), values));
     CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_binary(), values));
+    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::binary_view(), values));
   };
 
   {
