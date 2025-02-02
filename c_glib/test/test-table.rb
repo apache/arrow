@@ -249,8 +249,8 @@ valid:
         @name_field = Arrow::Field.new("name", Arrow::StringDataType.new)
         @schema = Arrow::Schema.new([@id_field, @name_field])
 
-        @id_value = build_uint_array([1])
-        @name_value = build_string_array(["abc"])
+        @id_array = build_uint_array([1])
+        @name_array = build_string_array(["abc"])
         @values = [@id_value, @name_value]
       end
 
