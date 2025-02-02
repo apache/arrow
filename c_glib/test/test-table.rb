@@ -272,7 +272,6 @@ valid:
           table.validate
         end
       end
-
     end
 
     sub_test_case("#write_as_feather") do
