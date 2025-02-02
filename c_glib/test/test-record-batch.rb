@@ -243,8 +243,8 @@ valid:   [
       end
 
       def test_valid
-        record_batch = Arrow::RecordBatch.new(@schema, @n_rows,
-                                              [@uint8_value, @valid_name_value])
+        columns = [@uint8_value, @valid_name_value]
+        record_batch = Arrow::RecordBatch.new(@schema, @n_rows, columns)
 
         assert do
           record_batch.validate_full
