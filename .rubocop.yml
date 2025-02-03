@@ -23,9 +23,6 @@ AllCops:
 Lint:
   Enabled: false
 
-# The recommendation width are 80 characters.
-# Due to some codes over the limitation(80 characters),
-# apply the relax value.
 Layout/LineLength:
   Max: 100
 
