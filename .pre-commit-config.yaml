@@ -147,7 +147,8 @@ repos:
       - id: rubocop
         name: Ruby Format
         alias: ruby-format
-        args: [--autocorrect]
+        args:
+          - "--autocorrect"
         exclude: >-
           (
           ?^dev/tasks/homebrew-formulae/.*\.rb$|
