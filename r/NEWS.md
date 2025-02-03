@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 19.0.0
+# arrow 19.0.1
 
 # arrow 18.1.0
 
