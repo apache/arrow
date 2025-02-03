@@ -81,7 +81,7 @@ jobs:
         shell: bash
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
-          MACOSX_DEPLOYMENT_TARGET: "10.13"
+          MACOSX_DEPLOYMENT_TARGET: "11.6"
           ARROW_S3: ON
           ARROW_GCS: ON
           ARROW_DEPENDENCY_SOURCE: BUNDLED
@@ -231,7 +231,7 @@ jobs:
         shell: sudo -E Rscript {0}
         run: |
           # get the mac-recipes version of openssl from CRAN
-          source("https://mac.R-project.org/bin/install.R") 
+          source("https://mac.R-project.org/bin/install.R")
           install.libs("openssl")
 
           # override our cmakes default setting of the brew --prefix as root dir to avoid version conflicts.

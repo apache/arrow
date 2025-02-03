@@ -131,6 +131,10 @@ void JemallocAllocator::ReleaseUnused() {
   mallctl("arena." ARROW_STRINGIFY(MALLCTL_ARENAS_ALL) ".purge", NULL, NULL, NULL, 0);
 }
 
+void JemallocAllocator::PrintStats() {
+  malloc_stats_print(nullptr, nullptr, /*opts=*/"");
+}
+
 }  // namespace internal
 
 }  // namespace memory_pool
