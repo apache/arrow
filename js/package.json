@@ -118,7 +118,7 @@
     "xml2js": "0.6.2"
   },
   "engines": {
-    "node": ">=12.0"
+    "node": ">=20.0"
   },
   "version": "20.0.0-SNAPSHOT"
 }
