@@ -264,7 +264,7 @@ module ValuesMapArrayTests
     # 00:10:00.123456789
     key1_value = Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789)
     values = [
-      {"key1" => key1_value, "key2" => nil},
+      {"key1" => value, "key2" => nil},
       nil,
     ]
     target = build({
