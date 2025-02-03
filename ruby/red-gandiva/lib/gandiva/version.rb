@@ -16,7 +16,7 @@
 # under the License.
 
 module Gandiva
-  VERSION = "19.0.0"
+  VERSION = "19.0.1"
 
   module Version
     numbers, TAG = VERSION.split("-")
