@@ -5095,18 +5095,22 @@ function(build_awssdk)
     # AWS-C-CAL ->
     # AWS_C_CAL
     string(REGEX REPLACE "-" "_" BASE_VARIABLE_NAME "${BASE_VARIABLE_NAME}")
-    set(${BASE_VARIABLE_NAME}_DIFF_FILE
-        "${CMAKE_CURRENT_LIST_DIR}/${AWSSDK_PRODUCT}.diff")
-    if(EXISTS "${${BASE_VARIABLE_NAME}_DIFF_FILE}")
-      if(NOT PATCH)
-        find_program(PATCH patch REQUIRED)
+    if(AWSSDK_PRODUCT STREQUAL "s2n-tls")
+      # S2N_LIBCRYPTO_SUPPORTS_ENGINE.c doesn't refer
+      # S2N_INTERN_LIBCRYPTO. We need to use aws-lc with
+      # S2N_INTERN_LIBCRYPTO but S2N_LIBCRYPTO_SUPPORTS_ENGINE.c may
+      # refer system OpenSSL. So s2n-tls may mix aws-lc and OpenSSL
+      # configurations.
+      if(CMAKE_VERSION VERSION_LESS 3.17)
+        set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
+            ${CMAKE_COMMAND} -E remove tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
+      else()
+        set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
+            ${CMAKE_COMMAND} -E rm tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
       endif()
-      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND ${PATCH} -p1 -i
-                                              "${${BASE_VARIABLE_NAME}_DIFF_FILE}")
     endif()
     fetchcontent_declare(${AWSSDK_PRODUCT}
-                         ${FC_DECLARE_COMMON_OPTIONS}
-                         OVERRIDE_FIND_PACKAGE
+                         ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                          PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
                          URL ${${BASE_VARIABLE_NAME}_SOURCE_URL}
                          URL_HASH "SHA256=${ARROW_${BASE_VARIABLE_NAME}_BUILD_SHA256_CHECKSUM}"
