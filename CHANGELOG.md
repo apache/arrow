@@ -1,4 +1,25 @@
 
+# Apache Arrow 19.0.1 (2025-01-30 08:00:00+00:00)
+
+## Bug Fixes
+
+* [GH-44513](https://github.com/apache/arrow/issues/44513) - [C++][Python] Pyarrow.Table.join() breaks on large tables v.18.0.0.dev486
+* [GH-45180](https://github.com/apache/arrow/issues/45180) - [C++][Fuzzing] Fix bug discovered by fuzzing
+* [GH-45230](https://github.com/apache/arrow/issues/45230) - [Docs] Add LinkedIn social link and fix top nav scaling problems
+* [GH-45283](https://github.com/apache/arrow/issues/45283) - [Python][C++][Parquet] "OSError: Repetition level histogram size mismatch" when reading parquet file in pyarrow since 19.0.0
+* [GH-45296](https://github.com/apache/arrow/issues/45296) - [Python] to\_pandas() fails when pandas option 'future.infer\_string' is True
+* [GH-45339](https://github.com/apache/arrow/issues/45339) - [Parquet][C++] Reading parquet with an empty list of row group indices fails
+* [GH-45357](https://github.com/apache/arrow/issues/45357) - [C++] Disable failing arrow-flight-test when misusing the library
+
+
+## New Features and Improvements
+
+* [GH-45201](https://github.com/apache/arrow/issues/45201) - [C++][Parquet] Improve performance of writing size statistics
+* [GH-45304](https://github.com/apache/arrow/issues/45304) - [C++] Compatibility with newer aws sdk
+* [GH-45305](https://github.com/apache/arrow/issues/45305) - [Python] Compatibility with boto 1.36
+
+
+
 # Apache Arrow 19.0.0 (2025-01-10)
 
 ## New Features and Improvements
