@@ -12,7 +12,7 @@
 * [GH-45357](https://github.com/apache/arrow/issues/45357) - [C++] Disable failing arrow-flight-test when misusing the library
 
 
-## New Features and Improvements
+## Improvements
 
 * [GH-45201](https://github.com/apache/arrow/issues/45201) - [C++][Parquet] Improve performance of writing size statistics
 * [GH-45304](https://github.com/apache/arrow/issues/45304) - [C++] Compatibility with newer aws sdk
