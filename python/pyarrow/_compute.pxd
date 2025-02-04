@@ -65,7 +65,7 @@ cdef CExpression _true
 
 cdef CFieldRef _ensure_field_ref(value) except *
 
-cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=*)
+cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=*) except *
 
 cdef CSortOrder unwrap_sort_order(order) except *
 
