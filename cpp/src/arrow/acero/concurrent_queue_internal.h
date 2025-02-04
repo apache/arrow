@@ -35,8 +35,7 @@ class ConcurrentQueue {
   //
   T Pop() {
     std::unique_lock<std::mutex> lock(mutex_);
-    cond_.wait(lock, [&] { return !queue_.empty(); });
-    return PopUnlocked();
+    return PopUnlocked(lock);
   }
 
   // Pops the last item from the queue, or returns a nullopt if empty
@@ -78,7 +77,8 @@ class ConcurrentQueue {
 
   size_t SizeUnlocked() const { return queue_.size(); }
 
-  T PopUnlocked() {
+  T PopUnlocked(std::unique_lock<std::mutex> &lock) {
+    cond_.wait(lock, [&] { return !queue_.empty(); });
     auto item = queue_.front();
     queue_.pop();
     return item;
@@ -133,7 +133,7 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
   T Pop() {
     std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
     DoHandle do_handle(*this);
-    return ConcurrentQueue<T>::PopUnlocked();
+    return ConcurrentQueue<T>::PopUnlocked(lock);
   }
 
   void Push(const T& item) {
