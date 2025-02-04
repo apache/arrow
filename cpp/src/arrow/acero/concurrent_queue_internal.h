@@ -77,7 +77,7 @@ class ConcurrentQueue {
 
   size_t SizeUnlocked() const { return queue_.size(); }
 
-  T PopUnlocked(std::unique_lock<std::mutex> &lock) {
+  T PopUnlocked(std::unique_lock<std::mutex>& lock) {
     cond_.wait(lock, [&] { return !queue_.empty(); });
     auto item = queue_.front();
     queue_.pop();
