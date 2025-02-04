@@ -255,7 +255,7 @@ valid:
       end
 
       def test_valid
-        table = Arrow::Table.new(@schema, @values)
+        table = Arrow::Table.new(@schema, @arrays)
 
         assert do
           table.validate
