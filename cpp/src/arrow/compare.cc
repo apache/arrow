@@ -404,7 +404,7 @@ class RangeDataEqualsImpl {
 
         if (!impl.Compare()) {
           result_ = false;
-          return Status::OK();
+          break;
         }
 
         // Start a new run
@@ -413,16 +413,18 @@ class RangeDataEqualsImpl {
     }
 
     // Handle the final run
-    const auto final_child_num = child_ids[left_codes[left_start_idx_ + run_start]];
-    int64_t final_run_length = range_length_ - run_start;
+    if (result_) {
+      const auto final_child_num = child_ids[left_codes[left_start_idx_ + run_start]];
+      int64_t final_run_length = range_length_ - run_start;
 
-    RangeDataEqualsImpl impl(
-        options_, floating_approximate_, *left_.child_data[final_child_num],
-        *right_.child_data[final_child_num], left_start_idx_ + left_.offset + run_start,
-        right_start_idx_ + right_.offset + run_start, final_run_length);
+      RangeDataEqualsImpl impl(
+          options_, floating_approximate_, *left_.child_data[final_child_num],
+          *right_.child_data[final_child_num], left_start_idx_ + left_.offset + run_start,
+          right_start_idx_ + right_.offset + run_start, final_run_length);
 
-    if (!impl.Compare()) {
-      result_ = false;
+      if (!impl.Compare()) {
+        result_ = false;
+      }
     }
     return Status::OK();
   }
