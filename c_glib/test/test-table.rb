@@ -266,7 +266,7 @@ valid:
         message = "[table][validate]: Invalid: " +
           "Column 1 named name expected length 1 but got length 2"
 
-        invalid_values = [@id_value, build_string_array(["abc", "def"])]
+        invalid_values = [@id_array, build_string_array(["abc", "def"])]
         table = Arrow::Table.new(@schema, invalid_values)
         assert_raise(Arrow::Error::Invalid.new(message)) do
           table.validate
