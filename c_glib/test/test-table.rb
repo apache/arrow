@@ -251,7 +251,7 @@ valid:
 
         @id_array = build_uint_array([1])
         @name_array = build_string_array(["abc"])
-        @arrays = [@id_value, @name_value]
+        @arrays = [@id_array, @name_array]
       end
 
       def test_valid
