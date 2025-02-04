@@ -68,6 +68,8 @@ const auto TIMESTAMP_US = ::arrow::timestamp(TimeUnit::MICRO);
 const auto TIMESTAMP_NS = ::arrow::timestamp(TimeUnit::NANO);
 const auto BINARY = ::arrow::binary();
 const auto DECIMAL_8_4 = std::make_shared<::arrow::Decimal128Type>(8, 4);
+const auto BINARY_VIEW = ::arrow::binary_view();
+const auto UTF8_VIEW = ::arrow::utf8_view();
 
 class TestConvertParquetSchema : public ::testing::Test {
  public:
@@ -1014,6 +1016,14 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitives) {
       "binary", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::NONE));
   arrow_fields.push_back(::arrow::field("binary", BINARY));
 
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "string_view", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::UTF8));
+  arrow_fields.push_back(::arrow::field("string_view", UTF8_VIEW));
+
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "binary_view", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::NONE));
+  arrow_fields.push_back(::arrow::field("binary_view", BINARY_VIEW));
+
   ASSERT_OK(ConvertSchema(arrow_fields));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
@@ -1031,6 +1041,8 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
   std::vector<FieldConstructionArguments> cases = {
       {"boolean", ::arrow::boolean(), LogicalType::None(), ParquetType::BOOLEAN, -1},
       {"binary", ::arrow::binary(), LogicalType::None(), ParquetType::BYTE_ARRAY, -1},
+      {"binary_view", ::arrow::binary_view(), LogicalType::None(),
+       ParquetType::BYTE_ARRAY, -1},
       {"large_binary", ::arrow::large_binary(), LogicalType::None(),
        ParquetType::BYTE_ARRAY, -1},
       {"fixed_size_binary", ::arrow::fixed_size_binary(64), LogicalType::None(),
@@ -1046,6 +1058,8 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
       {"float32", ::arrow::float32(), LogicalType::None(), ParquetType::FLOAT, -1},
       {"float64", ::arrow::float64(), LogicalType::None(), ParquetType::DOUBLE, -1},
       {"utf8", ::arrow::utf8(), LogicalType::String(), ParquetType::BYTE_ARRAY, -1},
+      {"utf8_view", ::arrow::utf8_view(), LogicalType::String(), ParquetType::BYTE_ARRAY,
+       -1},
       {"large_utf8", ::arrow::large_utf8(), LogicalType::String(),
        ParquetType::BYTE_ARRAY, -1},
       {"decimal(1, 0)", ::arrow::decimal128(1, 0), LogicalType::Decimal(1, 0),
@@ -1174,6 +1188,16 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitivesAsDictionaries) {
       "binary", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::NONE));
   arrow_fields.push_back(
       ::arrow::field("binary", ::arrow::dictionary(::arrow::int8(), ::arrow::binary())));
+
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "string_view", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::UTF8));
+  arrow_fields.push_back(::arrow::field(
+      "string_view", ::arrow::dictionary(::arrow::int8(), ::arrow::utf8_view())));
+
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "binary_view", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::NONE));
+  arrow_fields.push_back(::arrow::field(
+      "binary_view", ::arrow::dictionary(::arrow::int8(), ::arrow::binary_view())));
 
   ASSERT_OK(ConvertSchema(arrow_fields));
 
