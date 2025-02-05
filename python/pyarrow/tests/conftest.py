@@ -61,7 +61,7 @@ if sys.platform == 'win32':
             os.environ['TZDIR'] = os.path.join(resources.files('tzdata'), 'zoneinfo')
         except ModuleNotFoundError:
             print(
-                'Package "tzdata" not found. Not setting TZDATA environment variable.'
+                'Package "tzdata" not found. Not setting TZDIR environment variable.'
             )
 
 
