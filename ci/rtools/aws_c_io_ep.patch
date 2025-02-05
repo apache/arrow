@@ -15,30 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-diff --git a/source/windows/host_resolver.c b/source/windows/host_resolver.c
-index 59fbb85..ad4a99e 100644
---- a/source/windows/host_resolver.c
-+++ b/source/windows/host_resolver.c
-@@ -4,6 +4,7 @@
-  */
-
- /* don't move this below the Windows.h include!!!!*/
-+#define _WIN32_WINNT 0x0601
- #include <winsock2.h>
- #include <ws2tcpip.h>
-
-diff --git a/source/windows/iocp/iocp_event_loop.c b/source/windows/iocp/iocp_event_loop.c
-index 9ccce30..5cbbef7 100644
---- a/source/windows/iocp/iocp_event_loop.c
-+++ b/source/windows/iocp/iocp_event_loop.c
-@@ -12,6 +12,7 @@
-
- #include <aws/io/logging.h>
-
-+#define _WIN32_WINNT 0x0601
- #include <Windows.h>
-
- /* The next set of struct definitions are taken directly from the
 diff --git a/source/windows/secure_channel_tls_handler.c b/source/windows/secure_channel_tls_handler.c
 index 50caf02..29fe850 100644
 --- a/source/windows/secure_channel_tls_handler.c
