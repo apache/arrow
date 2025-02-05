@@ -60,7 +60,10 @@ if sys.platform == 'win32':
         try:
             os.environ['TZDIR'] = os.path.join(resources.files('tzdata'), 'zoneinfo')
         except ModuleNotFoundError:
-            print('Package "tzdata" not found. Not setting TZDATA environment variable.')
+            print(
+                'Package "tzdata" not found. Not setting TZDATA environment variable.'
+            )
+
 
 def pytest_addoption(parser):
     # Create options to selectively enable test groups
