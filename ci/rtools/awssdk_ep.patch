@@ -90,7 +90,7 @@ index 4dade6489..a0456cf8e 100644
  bool WinHttpSyncHttpClient::DoSendRequest(void* hHttpRequest) const
  {
 -    return (WinHttpSendRequest(hHttpRequest, NULL, NULL, 0, 0, 0, NULL) != 0);
-+    return (WinHttpSendRequest(hHttpRequest, NULL, 0, 0, 0, 0, 0) != 0);
++    return (WinHttpSendRequest(hHttpRequest, NULL, 0, NULL, 0, 0, 0) != 0);
  }
 
  bool WinHttpSyncHttpClient::DoReadData(void* hHttpRequest, char* body, uint64_t size, uint64_t& read) const
