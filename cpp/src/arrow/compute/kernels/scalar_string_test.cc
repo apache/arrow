@@ -26,7 +26,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"

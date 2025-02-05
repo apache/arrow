@@ -29,7 +29,7 @@ def validate_wheel(path):
     f = zipfile.ZipFile(wheels[0])
     outliers = [
         info.filename for info in f.filelist if not re.match(
-            r'(pyarrow/|pyarrow-[-.\w\d]+\.dist-info/)', info.filename
+            r'(pyarrow/|pyarrow-[-.\w\d]+\.dist-info/|pyarrow\.libs/)', info.filename
         )
     ]
     assert not outliers, f"Unexpected contents in wheel: {sorted(outliers)}"

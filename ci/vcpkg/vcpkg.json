@@ -5,13 +5,8 @@
   "homepage": "https://arrow.apache.org",
   "supports": "x64 | (arm64 & !windows)",
   "dependencies": [
-    "boost-filesystem",
     {
       "name": "boost-multiprecision",
-      "platform": "windows"
-    },
-    {
-      "name": "boost-system",
       "platform": "windows"
     },
     "brotli",
@@ -42,6 +37,8 @@
       "description": "Development dependencies",
       "dependencies": [
         "benchmark",
+        "boost-crc",
+        "boost-filesystem",
         "boost-process",
         "gtest"
       ]
@@ -78,6 +75,7 @@
         {
           "name": "llvm",
           "default-features": false,
+          "version>=": "18.1",
           "features": [
             "clang",
             "default-targets",

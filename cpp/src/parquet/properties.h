@@ -164,14 +164,33 @@ static constexpr int64_t DEFAULT_MAX_STATISTICS_SIZE = 4096;
 static constexpr Encoding::type DEFAULT_ENCODING = Encoding::UNKNOWN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
-static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = false;
+static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = true;
+static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
+    SizeStatisticsLevel::PageAndColumnChunk;
 static constexpr int32_t DEFAULT_BLOOM_FILTER_NDV = 1024 * 1024;
 static constexpr double DEFAULT_BLOOM_FILTER_FPP = 0.05;
 
 struct PARQUET_EXPORT BloomFilterOptions {
   /// Expected number of distinct values to be inserted into the bloom filter.
+  ///
+  /// Usage of bloom filter is most beneficial for columns with large cardinality,
+  /// so a good heuristic is to set ndv to number of rows. However, it can reduce
+  /// disk size if you know in advance a smaller number of distinct values.
+  /// For very small ndv value it is probably not worth it to use bloom filter anyway.
+  ///
+  /// Increasing this value (without increasing fpp) will result in an increase in
+  /// disk or memory size.
   int32_t ndv = DEFAULT_BLOOM_FILTER_NDV;
   /// False-positive probability of the bloom filter.
+  ///
+  /// The bloom filter data structure is a trade of between disk and memory space
+  /// versus fpp, the smaller the fpp, the more memory and disk space is required,
+  /// thus setting it to a reasonable value e.g. 0.1, 0.05, or 0.001 is recommended.
+  ///
+  /// Setting to very small number diminishes the value of the filter itself,
+  /// as the bitset size is even larger than just storing the whole value.
+  /// User is also expected to set ndv if it can be known in advance in order
+  /// to largely reduce space usage.
   double fpp = DEFAULT_BLOOM_FILTER_FPP;
 };
 
@@ -285,7 +304,7 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(DEFAULT_CREATED_BY),
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false),
-          size_statistics_level_(SizeStatisticsLevel::None) {}
+          size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL) {}
 
     explicit Builder(const WriterProperties& properties)
         : pool_(properties.memory_pool()),
@@ -992,7 +1011,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
         pre_buffer_(true),
         cache_options_(::arrow::io::CacheOptions::LazyDefaults()),
         coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO),
-        arrow_extensions_enabled_(false) {}
+        arrow_extensions_enabled_(false),
+        should_load_statistics_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -1075,6 +1095,15 @@ class PARQUET_EXPORT ArrowReaderProperties {
   }
   bool get_arrow_extensions_enabled() const { return arrow_extensions_enabled_; }
 
+  /// \brief Set whether to load statistics as much as possible.
+  ///
+  /// Default is false.
+  void set_should_load_statistics(bool should_load_statistics) {
+    should_load_statistics_ = should_load_statistics;
+  }
+  /// Return whether loading statistics as much as possible.
+  bool should_load_statistics() const { return should_load_statistics_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
@@ -1084,6 +1113,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::io::CacheOptions cache_options_;
   ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
   bool arrow_extensions_enabled_;
+  bool should_load_statistics_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

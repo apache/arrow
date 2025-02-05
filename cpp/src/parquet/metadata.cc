@@ -219,30 +219,29 @@ const std::string& ColumnCryptoMetaData::key_metadata() const {
 // ColumnChunk metadata
 class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
  public:
-  explicit ColumnChunkMetaDataImpl(const format::ColumnChunk* column,
-                                   const ColumnDescriptor* descr,
-                                   int16_t row_group_ordinal, int16_t column_ordinal,
-                                   const ReaderProperties& properties,
-                                   const ApplicationVersion* writer_version,
-                                   std::shared_ptr<InternalFileDecryptor> file_decryptor)
+  explicit ColumnChunkMetaDataImpl(
+      const format::ColumnChunk* column, const ColumnDescriptor* descr,
+      int16_t row_group_ordinal, int16_t column_ordinal,
+      const ReaderProperties& properties, const ApplicationVersion* writer_version,
+      const std::shared_ptr<InternalFileDecryptor>& file_decryptor)
       : column_(column),
         descr_(descr),
         properties_(properties),
         writer_version_(writer_version) {
     column_metadata_ = &column->meta_data;
     if (column->__isset.crypto_metadata) {  // column metadata is encrypted
-      format::ColumnCryptoMetaData ccmd = column->crypto_metadata;
+      const format::ColumnCryptoMetaData& ccmd = column->crypto_metadata;
 
       if (ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
         if (file_decryptor != nullptr && file_decryptor->properties() != nullptr) {
           // should decrypt metadata
           std::shared_ptr<schema::ColumnPath> path = std::make_shared<schema::ColumnPath>(
               ccmd.ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
-          std::string key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
+          const std::string& key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
 
           std::string aad_column_metadata = encryption::CreateModuleAad(
               file_decryptor->file_aad(), encryption::kColumnMetaData, row_group_ordinal,
-              column_ordinal, static_cast<int16_t>(-1));
+              column_ordinal, /*page_ordinal=*/static_cast<int16_t>(-1));
           auto decryptor = file_decryptor->GetColumnMetaDecryptor(
               path->ToDotString(), key_metadata, aad_column_metadata);
           auto len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
@@ -565,9 +564,11 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
 
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) {
     if (i >= 0 && i < num_columns()) {
+      int16_t row_group_ordinal =
+          row_group_->__isset.ordinal ? row_group_->ordinal : static_cast<int16_t>(-1);
       return ColumnChunkMetaData::Make(&row_group_->columns[i], schema_->Column(i),
-                                       properties_, writer_version_, row_group_->ordinal,
-                                       i, file_decryptor_);
+                                       properties_, writer_version_, row_group_ordinal, i,
+                                       file_decryptor_);
     }
     throw ParquetException("The file only has ", num_columns(),
                            " columns, requested metadata for column: ", i);
@@ -1854,7 +1855,9 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
     row_group_->__set_file_offset(file_offset);
     row_group_->__set_total_compressed_size(total_compressed_size);
     row_group_->__set_total_byte_size(total_bytes_written);
-    row_group_->__set_ordinal(row_group_ordinal);
+    if (row_group_ordinal >= 0) {
+      row_group_->__set_ordinal(row_group_ordinal);
+    }
   }
 
   void set_num_rows(int64_t num_rows) { row_group_->num_rows = num_rows; }

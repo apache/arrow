@@ -894,6 +894,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Tue Jan 07 2025 Bryce Mecum <petridish@gmail.com> - 19.0.0-1
+- New upstream release.
+
 * Wed Nov 13 2024 Bryce Mecum <petridish@gmail.com> - 18.1.0-1
 - New upstream release.
 

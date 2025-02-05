@@ -1890,10 +1890,7 @@ def get_generated_json_files(tempdir=None):
         return
 
     file_objs = [
-        generate_primitive_case([], name='primitive_no_batches')
-        # TODO(https://github.com/apache/arrow/issues/44363)
-        .skip_format(SKIP_FLIGHT, 'C#'),
-
+        generate_primitive_case([], name='primitive_no_batches'),
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 

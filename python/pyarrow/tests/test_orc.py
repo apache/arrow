@@ -334,7 +334,7 @@ def test_buffer_readwrite_with_writeoptions():
         compression='snappy',
         file_version='0.11',
         row_index_stride=5000,
-        compression_block_size=32768,
+        compression_block_size=65536,
     )
     buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
     orc_file = orc.ORCFile(buffer_reader)
@@ -344,7 +344,7 @@ def test_buffer_readwrite_with_writeoptions():
     assert orc_file.compression == 'SNAPPY'
     assert orc_file.file_version == '0.11'
     assert orc_file.row_index_stride == 5000
-    assert orc_file.compression_size == 32768
+    assert orc_file.compression_size == 65536
 
     # deprecated keyword order
     buffer_output_stream = pa.BufferOutputStream()
@@ -355,7 +355,7 @@ def test_buffer_readwrite_with_writeoptions():
             compression='uncompressed',
             file_version='0.11',
             row_index_stride=20000,
-            compression_block_size=16384,
+            compression_block_size=65536,
         )
     buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
     orc_file = orc.ORCFile(buffer_reader)
@@ -365,7 +365,7 @@ def test_buffer_readwrite_with_writeoptions():
     assert orc_file.compression == 'UNCOMPRESSED'
     assert orc_file.file_version == '0.11'
     assert orc_file.row_index_stride == 20000
-    assert orc_file.compression_size == 16384
+    assert orc_file.compression_size == 65536
 
 
 def test_buffer_readwrite_with_bad_writeoptions():

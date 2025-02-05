@@ -121,7 +121,7 @@ class ChunkedArraySorter : public TypeVisitor {
                              CompressedChunkLocation* nulls_middle,
                              CompressedChunkLocation* nulls_end,
                              CompressedChunkLocation* temp_indices, int64_t null_count) {
-        if (has_null_like_values<typename ArrayType::TypeClass>::value) {
+        if (has_null_like_values<typename ArrayType::TypeClass>()) {
           PartitionNullsOnly<StablePartitioner>(nulls_begin, nulls_end, arrays,
                                                 null_count, null_placement_);
         }
@@ -781,7 +781,7 @@ class TableSorter {
                   CompressedChunkLocation* nulls_middle,
                   CompressedChunkLocation* nulls_end,
                   CompressedChunkLocation* temp_indices, int64_t null_count) {
-    if constexpr (has_null_like_values<ArrowType>::value) {
+    if constexpr (has_null_like_values<ArrowType>()) {
       // Merge rows with a null or a null-like in the first sort key
       auto& comparator = comparator_;
       const auto& first_sort_key = sort_keys_[0];

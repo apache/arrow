@@ -28,7 +28,7 @@ project(pyarrow)
 # which in turn meant that Py_GIL_DISABLED was not set.
 set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
 
-set(PYARROW_VERSION "19.0.0-SNAPSHOT")
+set(PYARROW_VERSION "20.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Generate SO version and full SO version
@@ -199,10 +199,6 @@ if(MSVC)
   # Converting to/from C++ bool is pretty wonky in Cython. The C4800 warning
   # seem harmless, and probably not worth the effort of working around it
   string(APPEND CMAKE_CXX_FLAGS " /wd4800")
-
-  # See https://github.com/cython/cython/issues/2731. Change introduced in
-  # Cython 0.29.1 causes "unsafe use of type 'bool' in operation"
-  string(APPEND CMAKE_CXX_FLAGS " /wd4804")
 
   # See https://github.com/cython/cython/issues/4445.
   #

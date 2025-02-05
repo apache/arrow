@@ -323,8 +323,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CMemoryPool" arrow::MemoryPool":
         int64_t bytes_allocated()
         int64_t max_memory()
+        int64_t total_bytes_allocated()
+        int64_t num_allocations()
         c_string backend_name()
         void ReleaseUnused()
+        void PrintStats()
 
     cdef cppclass CLoggingMemoryPool" arrow::LoggingMemoryPool"(CMemoryPool):
         CLoggingMemoryPool(CMemoryPool*)

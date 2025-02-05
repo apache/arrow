@@ -30,6 +30,8 @@ fi
 
 version=$1
 
+: "${GITHUB_REPOSITORY:=apache/arrow}"
+
 if [ -z "${NUGET_API_KEY}" ]; then
   echo "NUGET_API_KEY is empty"
   exit 1
@@ -39,8 +41,9 @@ base_names=()
 base_names+=(Apache.Arrow.${version})
 base_names+=(Apache.Arrow.Flight.${version})
 base_names+=(Apache.Arrow.Flight.AspNetCore.${version})
+base_names+=(Apache.Arrow.Flight.Sql.${version})
 base_names+=(Apache.Arrow.Compression.${version})
-for base_name in ${base_names[@]}; do
+for base_name in "${base_names[@]}"; do
   for extension in nupkg snupkg; do
     path=${base_name}.${extension}
     rm -f ${path}
@@ -48,7 +51,7 @@ for base_name in ${base_names[@]}; do
       --fail \
       --location \
       --remote-name \
-      https://apache.jfrog.io/artifactory/arrow/nuget/${version}/${path}
+      "https://github.com/${GITHUB_REPOSITORY}/releases/download/apache-arrow-${version}/${path}"
   done
   dotnet nuget push \
     ${base_name}.nupkg \

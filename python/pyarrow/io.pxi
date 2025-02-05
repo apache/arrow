@@ -2370,7 +2370,6 @@ cdef class CacheOptions(_Weakrefable):
             ideal_bandwidth_utilization_frac, max_ideal_request_size_mib))
 
     @staticmethod
-    @binding(True)  # Required for Cython < 3
     def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.

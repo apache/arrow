@@ -38,6 +38,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function_internal.h"
+#include "arrow/compute/test_util_internal.h"
 #include "arrow/datum.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/record_batch.h"
@@ -59,66 +60,11 @@ namespace arrow {
 using arrow::internal::CpuInfo;
 using arrow::internal::Executor;
 
+using compute::ExecBatchFromJSON;
 using compute::SortKey;
 using compute::Take;
 
 namespace acero {
-
-namespace {
-
-void ValidateOutputImpl(const ArrayData& output) {
-  ASSERT_OK(::arrow::internal::ValidateArrayFull(output));
-  TestInitialized(output);
-}
-
-void ValidateOutputImpl(const ChunkedArray& output) {
-  ASSERT_OK(output.ValidateFull());
-  for (const auto& chunk : output.chunks()) {
-    TestInitialized(*chunk);
-  }
-}
-
-void ValidateOutputImpl(const RecordBatch& output) {
-  ASSERT_OK(output.ValidateFull());
-  for (const auto& column : output.column_data()) {
-    TestInitialized(*column);
-  }
-}
-
-void ValidateOutputImpl(const Table& output) {
-  ASSERT_OK(output.ValidateFull());
-  for (const auto& column : output.columns()) {
-    for (const auto& chunk : column->chunks()) {
-      TestInitialized(*chunk);
-    }
-  }
-}
-
-void ValidateOutputImpl(const Scalar& output) { ASSERT_OK(output.ValidateFull()); }
-
-}  // namespace
-
-void ValidateOutput(const Datum& output) {
-  switch (output.kind()) {
-    case Datum::ARRAY:
-      ValidateOutputImpl(*output.array());
-      break;
-    case Datum::CHUNKED_ARRAY:
-      ValidateOutputImpl(*output.chunked_array());
-      break;
-    case Datum::RECORD_BATCH:
-      ValidateOutputImpl(*output.record_batch());
-      break;
-    case Datum::TABLE:
-      ValidateOutputImpl(*output.table());
-      break;
-    case Datum::SCALAR:
-      ValidateOutputImpl(*output.scalar());
-      break;
-    default:
-      break;
-  }
-}
 
 std::vector<int64_t> HardwareFlagsForTesting() {
   // Acero currently only has AVX2 optimizations
@@ -197,36 +143,6 @@ ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*
     node->SetLabel(std::move(label));
   }
   return node;
-}
-
-ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types, std::string_view json) {
-  auto fields = ::arrow::internal::MapVector(
-      [](const TypeHolder& th) { return field("", th.GetSharedPtr()); }, types);
-
-  ExecBatch batch{*RecordBatchFromJSON(schema(std::move(fields)), json)};
-
-  return batch;
-}
-
-ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
-                            const std::vector<ArgShape>& shapes, std::string_view json) {
-  DCHECK_EQ(types.size(), shapes.size());
-
-  ExecBatch batch = ExecBatchFromJSON(types, json);
-
-  auto value_it = batch.values.begin();
-  for (ArgShape shape : shapes) {
-    if (shape == ArgShape::SCALAR) {
-      if (batch.length == 0) {
-        *value_it = MakeNullScalar(value_it->type());
-      } else {
-        *value_it = value_it->make_array()->GetScalar(0).ValueOrDie();
-      }
-    }
-    ++value_it;
-  }
-
-  return batch;
 }
 
 Future<> StartAndFinish(ExecPlan* plan) {

@@ -229,7 +229,9 @@ template <typename ArrowType>
   }
 
   ::arrow::NumericBuilder<ArrowType> builder;
-  RETURN_NOT_OK(builder.AppendValues(values.data(), values.size(), valid_bytes.data()));
+  if (values.size() > 0) {
+    RETURN_NOT_OK(builder.AppendValues(values.data(), values.size(), valid_bytes.data()));
+  }
   return builder.Finish(out);
 }
 
