@@ -120,18 +120,6 @@ index d7513cc3c..e390a8d4e 100644
      {
          response->SetClientErrorType(CoreErrors::USER_CANCELLED);
          response->SetClientErrorMessage("Request processing disabled or continuation cancelled by user's continuation handler.");
-diff --git a/aws-cpp-sdk-core/source/net/windows/SimpleUDP.cpp b/aws-cpp-sdk-core/source/net/windows/SimpleUDP.cpp
-index f6e36077e..13e349aef 100644
---- a/aws-cpp-sdk-core/source/net/windows/SimpleUDP.cpp
-+++ b/aws-cpp-sdk-core/source/net/windows/SimpleUDP.cpp
-@@ -3,6 +3,7 @@
-  * SPDX-License-Identifier: Apache-2.0.
-  */
-
-+#define _WIN32_WINNT 0x0601
- #include <WinSock2.h>
- #include <Ws2ipdef.h>
- #include <Ws2tcpip.h>
 diff --git a/aws-cpp-sdk-core/source/platform/windows/FileSystem.cpp b/aws-cpp-sdk-core/source/platform/windows/FileSystem.cpp
 index 2ea82de6f..bc423441e 100644
 --- a/aws-cpp-sdk-core/source/platform/windows/FileSystem.cpp
