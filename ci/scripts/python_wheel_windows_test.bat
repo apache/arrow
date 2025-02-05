@@ -58,11 +58,14 @@ py -0p
 @REM Validate wheel contents
 %PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_validate_contents.py --path C:\arrow\python\repaired_wheels || exit /B 1
 
-@rem Download IANA Timezone Database for ORC C++
-curl https://cygwin.osuosl.org/noarch/release/tzdata/tzdata-2024a-1.tar.xz --output tzdata.tar.xz || exit /B
-mkdir %USERPROFILE%\Downloads\test\tzdata
-arc unarchive tzdata.tar.xz %USERPROFILE%\Downloads\test\tzdata || exit /B
-set TZDIR=%USERPROFILE%\Downloads\test\tzdata\usr\share\zoneinfo
+@rem Install tzdata python package and set TZDIR to tzdata database defined inside
+%PYTHON_CMD% -m pip install tzdata || exit /B 1
+@echo off
+setlocal EnableDelayedExpansion
+set PYTHON_PROGRAM=!PYTHON_CMD! -c "import os; from importlib import resources; print(os.path.join(resources.files('tzdata'), 'zoneinfo'));"
+for /f "delims=" %%i in ('!PYTHON_PROGRAM!') do set "TZDIR=%%i"
+setlocal DisabledDelayedExpansion
+@echo on
 dir %TZDIR%
 
 @REM Execute unittest
