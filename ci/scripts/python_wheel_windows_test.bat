@@ -58,14 +58,5 @@ py -0p
 @REM Validate wheel contents
 %PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_validate_contents.py --path C:\arrow\python\repaired_wheels || exit /B 1
 
-@rem Set TZDIR to tzdata database defined inside tzdata package
-@echo off
-setlocal EnableDelayedExpansion
-set PYTHON_PROGRAM=!PYTHON_CMD! -c "import os; from importlib import resources; print(os.path.join(resources.files('tzdata'), 'zoneinfo'));"
-for /f "delims=" %%i in ('!PYTHON_PROGRAM!') do set "TZDIR=%%i"
-setlocal DisabledDelayedExpansion
-@echo on
-dir %TZDIR%
-
 @REM Execute unittest
 %PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1
