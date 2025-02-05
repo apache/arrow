@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <utility>
@@ -399,19 +400,31 @@ TEST_F(TestRecordBatch, RemoveColumnEmpty) {
 }
 
 TEST_F(TestRecordBatch, ColumnsThreadSafety) {
-  const int length = 10;
+  constexpr size_t kNumThreads = 10;
+  constexpr int length = 10;
 
   random::RandomArrayGenerator gen(42);
   std::shared_ptr<ArrayData> array_data = gen.ArrayOf(utf8(), length)->data();
   auto schema = ::arrow::schema({field("f1", utf8())});
   auto record_batch = RecordBatch::Make(schema, length, {array_data});
-  std::thread t([record_batch]() {
-    auto columns = record_batch->columns();
-    ASSERT_EQ(columns.size(), 1);
-  });
-  auto columns = record_batch->columns();
-  ASSERT_EQ(columns.size(), 1);
-  t.join();
+  std::mutex mutex;
+  std::vector<std::thread> threads;
+  std::vector<Array*> all_columns;
+  for (size_t i = 0; i < kNumThreads; i++) {
+    threads.emplace_back([&]() {
+      auto columns = record_batch->columns();
+      mutex.lock();
+      all_columns.push_back(columns[0].get());
+      mutex.unlock();
+    });
+  }
+  for (auto& thread : threads) {
+    thread.join();
+  }
+  // assert that all calls to columns() return the same arrays
+  for (const auto& col : all_columns) {
+    ASSERT_EQ(col, all_columns[0]);
+  }
 }
 
 TEST_F(TestRecordBatch, ToFromEmptyStructArray) {
