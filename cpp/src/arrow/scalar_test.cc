@@ -36,6 +36,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 
@@ -154,6 +155,45 @@ TEST(TestBooleanScalar, Cast) {
       ASSERT_EQ(casted.scalar()->ToString(), scalar.ToString());
     }
   }
+}
+
+TEST(TestScalar, IndentityCast) {
+  random::RandomArrayGenerator gen(/*seed=*/42);
+  auto test_identity_cast_for_type =
+      [&gen](const std::shared_ptr<arrow::DataType>& data_type) {
+        auto tmp_array = gen.ArrayOf(data_type, /*size=*/1, /*null_probability=*/0.0);
+        ARROW_SCOPED_TRACE("data type = ", data_type->ToString());
+        ASSERT_OK_AND_ASSIGN(auto scalar, tmp_array->GetScalar(0));
+        ASSERT_OK_AND_ASSIGN(auto casted_scalar, scalar->CastTo(data_type));
+        ASSERT_TRUE(casted_scalar->Equals(*scalar));
+        ASSERT_TRUE(scalar->Equals(*casted_scalar));
+      };
+  for (auto& type : PrimitiveTypes()) {
+    test_identity_cast_for_type(type);
+  }
+  for (auto& type : DurationTypes()) {
+    test_identity_cast_for_type(type);
+  }
+  for (auto& type : IntervalTypes()) {
+    test_identity_cast_for_type(type);
+  }
+  for (auto& type : {
+           arrow::fixed_size_list(arrow::int32(), 20), arrow::list(arrow::int32()),
+           // arrow::map(arrow::binary(), arrow::int32()),
+           // struct_({field("float", arrow::float32())}),
+       }) {
+    test_identity_cast_for_type(type);
+  }
+  /*
+  for (auto& type: {
+    arrow::decimal32(2, 2),
+    arrow::decimal64(4, 4),
+    arrow::decimal128(10, 10),
+    arrow::decimal128(20, 20),
+  }) {
+    test_identity_cast_for_type(type);
+  }
+  */
 }
 
 template <typename T>
