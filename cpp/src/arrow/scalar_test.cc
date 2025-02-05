@@ -157,7 +157,7 @@ TEST(TestBooleanScalar, Cast) {
   }
 }
 
-TEST(TestScalar, IndentityCast) {
+TEST(TestScalar, IdentityCast) {
   random::RandomArrayGenerator gen(/*seed=*/42);
   auto test_identity_cast_for_type =
       [&gen](const std::shared_ptr<arrow::DataType>& data_type) {
@@ -179,11 +179,16 @@ TEST(TestScalar, IndentityCast) {
   }
   for (auto& type : {
            arrow::fixed_size_list(arrow::int32(), 20), arrow::list(arrow::int32()),
+           arrow::large_list(arrow::int32()),
+           // TODO(GH-45430): CastTo for ListView is not implemented yet.
+           // arrow::list_view(arrow::int32()), arrow::large_list_view(arrow::int32())
+           // TODO(GH-45431): CastTo for ComplexType is not implemented yet.
            // arrow::map(arrow::binary(), arrow::int32()),
            // struct_({field("float", arrow::float32())}),
        }) {
     test_identity_cast_for_type(type);
   }
+  // TODO(GH-45429): CastTo for Decimal is not implemented yet.
   /*
   for (auto& type: {
     arrow::decimal32(2, 2),
