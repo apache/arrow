@@ -3388,6 +3388,9 @@ def test_rank_quantile_options():
     expected_descending = pa.array([0.7, 0.3, 0.7, 0.1, 0.7], type=pa.float64())
     assert result.equals(expected_descending)
 
+    with pytest.raises(ValueError, match="not a valid sort order"):
+        pc.rank_quantile(arr, sort_keys="XXX")
+
 
 def create_sample_expressions():
     # We need a schema for substrait conversion
