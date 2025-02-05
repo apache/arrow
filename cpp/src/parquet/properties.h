@@ -263,9 +263,7 @@ class PARQUET_EXPORT WriterProperties {
           page_checksum_enabled_(false),
           size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
           cdc_enabled_(false),
-          cdc_avg_size_(0),
-          cdc_min_size_(0),
-          cdc_max_size_(0) {}
+          cdc_avg_size_(0) {}
 
     explicit Builder(const WriterProperties& properties)
         : pool_(properties.memory_pool()),
@@ -282,8 +280,7 @@ class PARQUET_EXPORT WriterProperties {
           sorting_columns_(properties.sorting_columns()),
           default_column_properties_(properties.default_column_properties()),
           cdc_enabled_(properties.cdc_enabled()),
-          cdc_min_size_(properties.cdc_min_size()),
-          cdc_max_size_(properties.cdc_max_size()) {}
+          cdc_avg_size_(properties.cdc_avg_size()) {}
 
     virtual ~Builder() {}
 
@@ -299,16 +296,6 @@ class PARQUET_EXPORT WriterProperties {
 
     Builder* cdc_avg_size(uint64_t avg_size) {
       cdc_avg_size_ = avg_size;
-      return this;
-    }
-
-    Builder* cdc_min_size(uint64_t min_size) {
-      cdc_min_size_ = min_size;
-      return this;
-    }
-
-    Builder* cdc_max_size(uint64_t max_size) {
-      cdc_max_size_ = max_size;
       return this;
     }
 
@@ -735,7 +722,7 @@ class PARQUET_EXPORT WriterProperties {
           size_statistics_level_, std::move(file_encryption_properties_),
           default_column_properties_, column_properties, data_page_version_,
           store_decimal_as_integer_, std::move(sorting_columns_), cdc_enabled_,
-          cdc_avg_size_, cdc_min_size_, cdc_max_size_));
+          cdc_avg_size_));
     }
 
    private:
@@ -767,8 +754,6 @@ class PARQUET_EXPORT WriterProperties {
 
     bool cdc_enabled_;
     uint64_t cdc_avg_size_;
-    uint64_t cdc_min_size_;
-    uint64_t cdc_max_size_;
   };
 
   inline MemoryPool* memory_pool() const { return pool_; }
@@ -795,8 +780,6 @@ class PARQUET_EXPORT WriterProperties {
 
   inline bool cdc_enabled() const { return cdc_enabled_; }
   inline uint64_t cdc_avg_size() const { return cdc_avg_size_; }
-  inline uint64_t cdc_min_size() const { return cdc_min_size_; }
-  inline uint64_t cdc_max_size() const { return cdc_max_size_; }
 
   inline SizeStatisticsLevel size_statistics_level() const {
     return size_statistics_level_;
@@ -900,8 +883,7 @@ class PARQUET_EXPORT WriterProperties {
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
       ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
-      std::vector<SortingColumn> sorting_columns, bool cdc_enabled, uint64_t cdc_avg_size,
-      uint64_t cdc_min_size, uint64_t cdc_max_size)
+      std::vector<SortingColumn> sorting_columns, bool cdc_enabled, uint64_t cdc_avg_size)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -918,9 +900,9 @@ class PARQUET_EXPORT WriterProperties {
         default_column_properties_(default_column_properties),
         column_properties_(column_properties),
         cdc_enabled_(cdc_enabled),
-        cdc_avg_size_(cdc_avg_size),
-        cdc_min_size_(cdc_min_size),
-        cdc_max_size_(cdc_max_size) {}
+        cdc_avg_size_(cdc_avg_size)
+
+  {}
 
   MemoryPool* pool_;
   int64_t dictionary_pagesize_limit_;
@@ -943,8 +925,6 @@ class PARQUET_EXPORT WriterProperties {
 
   bool cdc_enabled_;
   uint64_t cdc_avg_size_;
-  uint64_t cdc_min_size_;
-  uint64_t cdc_max_size_;
 };
 
 PARQUET_EXPORT const std::shared_ptr<WriterProperties>& default_writer_properties();
