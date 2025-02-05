@@ -23,7 +23,8 @@ override_dh_auto_configure:
 	fi;							\
 	if [ "$${code_name}" = "focal" ] || [ "$${code_name}" = "jammy" ]; then	\
 	  CMAKE=/usr/local/bin/cmake				\
-	else continue;				\
+	else							\
+	  continue;					\
 	fi;							\
 	if dpkg -l nvidia-cuda-toolkit > /dev/null 2>&1; then	\
 	  ARROW_CUDA=ON;					\
