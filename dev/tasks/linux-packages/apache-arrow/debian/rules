@@ -21,9 +21,9 @@ override_dh_auto_configure:
 	else							\
 	  ARROW_AZURE=ON;					\
 	fi;							\
-    if [ "$${code_name}" = "focal" ] || [ "$${code_name}" = "jammy" ]; then \
-      ln -sf /usr/local/bin/cmake /usr/bin/cmake;	\
-    fi;							\
+	if [ "$${code_name}" = "focal" ] || [ "$${code_name}" = "jammy" ]; then \
+	  ln -sf /usr/local/bin/cmake /usr/bin/cmake;		\
+	fi;							\
 	if dpkg -l nvidia-cuda-toolkit > /dev/null 2>&1; then	\
 	  ARROW_CUDA=ON;					\
 	else							\
@@ -60,7 +60,7 @@ override_dh_auto_configure:
 	  -DARROW_WITH_SNAPPY=ON				\
 	  -DARROW_WITH_ZLIB=ON					\
 	  -DARROW_WITH_ZSTD=ON					\
-	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)				\
+	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
 	  -DCUDAToolkit_ROOT=/usr				\
 	  -DFETCHCONTENT_FULLY_DISCONNECTED=OFF			\
 	  -DPARQUET_BUILD_EXECUTABLES=ON			\
