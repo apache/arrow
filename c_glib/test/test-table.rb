@@ -243,6 +243,37 @@ valid:
                    all_values)
     end
 
+    sub_test_case("#validate") do
+      def setup
+        @id_field = Arrow::Field.new("id", Arrow::UInt8DataType.new)
+        @name_field = Arrow::Field.new("name", Arrow::StringDataType.new)
+        @schema = Arrow::Schema.new([@id_field, @name_field])
+
+        @id_array = build_uint_array([1])
+        @name_array = build_string_array(["abc"])
+        @arrays = [@id_array, @name_array]
+      end
+
+      def test_valid
+        table = Arrow::Table.new(@schema, @arrays)
+
+        assert do
+          table.validate
+        end
+      end
+
+      def test_invalid
+        message = "[table][validate]: Invalid: " +
+          "Column 1 named name expected length 1 but got length 2"
+
+        invalid_values = [@id_array, build_string_array(["abc", "def"])]
+        table = Arrow::Table.new(@schema, invalid_values)
+        assert_raise(Arrow::Error::Invalid.new(message)) do
+          table.validate
+        end
+      end
+    end
+
     sub_test_case("#write_as_feather") do
       def setup
         super
