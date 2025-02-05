@@ -754,8 +754,7 @@ class ColumnWriterImpl {
         fallback_(false),
         definition_levels_sink_(allocator_),
         repetition_levels_sink_(allocator_),
-        content_defined_chunker_(level_info_, properties->cdc_min_size(),
-                                 properties->cdc_avg_size(), properties->cdc_max_size()) {
+        content_defined_chunker_(level_info_, properties->cdc_avg_size()) {
     definition_levels_rle_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     repetition_levels_rle_ =
@@ -1355,7 +1354,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                                          rep_levels + level_offset, levels_to_write,
                                          *sliced_array, ctx, maybe_parent_nulls));
         }
-        AddDataPage();
+        if (num_buffered_values_ > 0) {
+          AddDataPage();
+        }
+        // AddDataPage();
       }
       return Status::OK();
     } else {
