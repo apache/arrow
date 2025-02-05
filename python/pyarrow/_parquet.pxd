@@ -449,8 +449,6 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* enable_cdc()
             Builder* disable_cdc()
             Builder* cdc_avg_size(uint64_t avg_size)
-            Builder* cdc_min_size(uint64_t min_size)
-            Builder* cdc_max_size(uint64_t max_size)
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:
