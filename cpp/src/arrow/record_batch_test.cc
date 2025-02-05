@@ -36,6 +36,7 @@
 #include "arrow/array/util.h"
 #include "arrow/c/abi.h"
 #include "arrow/chunked_array.h"
+#include "arrow/config.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
@@ -400,17 +401,20 @@ TEST_F(TestRecordBatch, RemoveColumnEmpty) {
 }
 
 TEST_F(TestRecordBatch, ColumnsThreadSafety) {
-  constexpr size_t kNumThreads = 10;
-  constexpr int length = 10;
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+  constexpr int kNumThreads = 10;
+  constexpr int kLength = 10;
 
   random::RandomArrayGenerator gen(42);
-  std::shared_ptr<ArrayData> array_data = gen.ArrayOf(utf8(), length)->data();
+  std::shared_ptr<ArrayData> array_data = gen.ArrayOf(utf8(), kLength)->data();
   auto schema = ::arrow::schema({field("f1", utf8())});
-  auto record_batch = RecordBatch::Make(schema, length, {array_data});
+  auto record_batch = RecordBatch::Make(schema, kLength, {array_data});
   std::mutex mutex;
   std::vector<std::thread> threads;
   std::vector<Array*> all_columns;
-  for (size_t i = 0; i < kNumThreads; i++) {
+  for (int i = 0; i < kNumThreads; i++) {
     threads.emplace_back([&]() {
       auto columns = record_batch->columns();
       mutex.lock();
