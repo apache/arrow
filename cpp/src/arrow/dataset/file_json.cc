@@ -18,6 +18,7 @@
 #include "arrow/dataset/file_json.h"
 
 #include <algorithm>
+#include <iostream>
 #include <unordered_set>
 #include <vector>
 
@@ -108,16 +109,46 @@ class JsonFragmentScanner : public FragmentScanner {
     parse_options.unexpected_field_behavior = json::UnexpectedFieldBehavior::Ignore;
 
     int64_t block_size = format_options.read_options.block_size;
+    if (block_size <= 0) {
+      return Status::Invalid("Block size must be positive");
+    }
+
     auto num_batches =
         static_cast<int>(bit_util::CeilDiv(inspected.num_bytes, block_size));
+    if (num_batches < 0) {
+      return Status::Invalid("Number of batches calculation overflowed");
+    }
 
     auto future = json::StreamingReader::MakeAsync(
-        inspected.stream, format_options.read_options, parse_options,
-        io::default_io_context(), cpu_executor);
-    return future.Then([num_batches, block_size](const ReaderPtr& reader)
-                           -> Result<std::shared_ptr<FragmentScanner>> {
-      return std::make_shared<JsonFragmentScanner>(reader, num_batches, block_size);
-    });
+    inspected.stream, format_options.read_options, parse_options,
+    io::default_io_context(), cpu_executor);
+
+// ✅ Fix: Handle Single-Line JSON Case
+return future.Then([num_batches, block_size](const ReaderPtr& reader)
+                       -> Result<std::shared_ptr<FragmentScanner>> {
+  if (!reader) {
+    return Status::Invalid("Failed to create JSON Streaming Reader.");
+  }
+
+  // Check if the input stream has only one JSON object and no newline
+  // Check if the input stream has only one JSON object and no newline
+auto stream_data = inspected.stream->Read();
+if (!stream_data.ok()) {
+  // Handle the error appropriately
+  return Status::IOError("Failed to read from the input stream");
+}
+
+std::string json_content = stream_data->ToString();
+if (!json_content.empty() && json_content.back() != '\n') {
+  json_content += '\n';  // Append a newline to fix the issue
+}
+
+// Create a new InputStream with fixed content
+inspected.stream = std::make_shared<io::BufferReader>(Buffer::FromString(json_content));
+
+return std::make_shared<JsonFragmentScanner>(reader, num_batches, block_size);
+});
+
   }
 
  private:

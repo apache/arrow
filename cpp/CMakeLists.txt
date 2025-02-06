@@ -760,3 +760,46 @@ config_summary_message()
 if(${ARROW_BUILD_CONFIG_SUMMARY_JSON})
   config_summary_json()
 endif()
+
+# Project name
+project(ArrowJson)
+
+# Add your source files and libraries
+add_subdirectory(src)
+
+# Add Google Test
+add_subdirectory(${CMAKE_SOURCE_DIR}/googletest)
+
+# Include directories
+include_directories(${CMAKE_SOURCE_DIR}/src)
+
+# Add the test directory
+add_subdirectory(tests)
+
+# Enable testing
+enable_testing()
+
+# Add custom target for tags (if needed)
+if(UNIX)
+  add_custom_target(tags
+                    etags
+                    --members
+                    --declarations
+                    `find
+                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    -name
+                    \\*.cc
+                    -or
+                    -name
+                    \\*.hh
+                    -or
+                    -name
+                    \\*.cpp
+                    -or
+                    -name
+                    \\*.h
+                    -or
+                    -name
+                    \\*.hpp`)
+endif()
+ 
