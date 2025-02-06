@@ -5067,14 +5067,20 @@ include(AWSSDKVariables)
 function(build_awssdk)
   message(STATUS "Building AWS SDK for C++ from source")
 
-  set(AWSSDK_PRODUCTS aws-c-common aws-checksums)
+  # aws-c-common must be the first product because others depend on
+  # this.
+  set(AWSSDK_PRODUCTS aws-c-common)
   # aws-lc and s2n-tls only needed on Linux.
   # We can use LINUX with CMake 3.25 or later.
   if(UNIX AND NOT APPLE)
     list(APPEND AWSSDK_PRODUCTS aws-lc s2n-tls)
   endif()
+  list(APPEND AWSSDK_PRODUCTS aws-checksums)
   list(APPEND
        AWSSDK_PRODUCTS
+       # We can't sort this in alphabetical order because some
+       # products depend on other products.
+       aws-checksums
        aws-c-cal
        aws-c-io
        aws-c-event-stream
@@ -5108,13 +5114,20 @@ function(build_awssdk)
         set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
             ${CMAKE_COMMAND} -E rm tests/features/S2N_LIBCRYPTO_SUPPORTS_ENGINE.c)
       endif()
+      # We can use released archive when v1.15.12 is released.
+      fetchcontent_declare(${AWSSDK_PRODUCT}
+                           ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                           PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
+                           URL https://github.com/aws/s2n-tls/archive/7c0291809ad58b3b818b128d97c19c71ff3e10e1.zip
+                           URL_HASH "SHA256=1ca1fb0a82642a93ab7c95c5a6c9ff80e3388e387fba03153186426b98d8b9e0"
+      )
+    else()
+      fetchcontent_declare(${AWSSDK_PRODUCT}
+                           ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                           URL ${${BASE_VARIABLE_NAME}_SOURCE_URL}
+                           URL_HASH "SHA256=${ARROW_${BASE_VARIABLE_NAME}_BUILD_SHA256_CHECKSUM}"
+      )
     endif()
-    fetchcontent_declare(${AWSSDK_PRODUCT}
-                         ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                         PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
-                         URL ${${BASE_VARIABLE_NAME}_SOURCE_URL}
-                         URL_HASH "SHA256=${ARROW_${BASE_VARIABLE_NAME}_BUILD_SHA256_CHECKSUM}"
-    )
   endforeach()
 
   prepare_fetchcontent()
