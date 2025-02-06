@@ -236,11 +236,13 @@ def download_urllib(url, out_path):
         with open(out_path, 'wb') as f:
             f.write(response.read())
 
+
 def download_requests(url, out_path):
     import requests
     with requests.get(url) as response:
         with open(out_path, 'wb') as f:
             f.write(response.content)
+
 
 def download_tzdata_on_windows():
     r"""
