@@ -759,10 +759,13 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
         assert len(placement) == 1
         name = columns[placement[0]]
         pandas_dtype = extension_columns[name]
-        if not hasattr(pandas_dtype, '__from_arrow__'):
+        if pandas_dtype == 'Int64':
+            arr = _pandas_api.pd.array(arr, dtype='Int64', copy=False)
+        elif not hasattr(pandas_dtype, '__from_arrow__'):
             raise ValueError("This column does not support to be converted "
                              "to a pandas ExtensionArray")
-        arr = pandas_dtype.__from_arrow__(arr)
+        else:
+            arr = pandas_dtype.__from_arrow__(arr)
     else:
         arr = block_arr
 
@@ -800,6 +803,14 @@ def table_to_dataframe(
         ext_columns_dtypes = _get_extension_dtypes(
             table, [], types_mapper, options, categories
         )
+
+    # If a column has None values and integers, ensure the dtype is
+    # Int64 which is a nullable-integer dtype that can represent None
+    # values
+    if not options['integer_object_nulls']:
+        for col, field in zip(table.itercolumns(), table.schema):
+            if col.type == pa.int64() and col.null_count > 0:
+                ext_columns_dtypes[field.name] = 'Int64'
 
     _check_data_column_metadata_consistency(all_columns)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
