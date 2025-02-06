@@ -49,15 +49,13 @@ struct SetLookupState : public SetLookupStateBase {
       const ArrayData& value_set = *options.value_set.array();
       memo_index_to_value_index.reserve(value_set.length);
       lookup_table =
-          MemoTable(memory_pool,
-                    ::arrow::internal::HashTable<char>::kLoadFactor * value_set.length);
+          MemoTable(memory_pool, value_set.length);
       RETURN_NOT_OK(AddArrayValueSet(options, *options.value_set.array()));
     } else if (options.value_set.kind() == Datum::CHUNKED_ARRAY) {
       const ChunkedArray& value_set = *options.value_set.chunked_array();
       memo_index_to_value_index.reserve(value_set.length());
       lookup_table =
-          MemoTable(memory_pool,
-                    ::arrow::internal::HashTable<char>::kLoadFactor * value_set.length());
+          MemoTable(memory_pool, value_set.length());
 
       int64_t offset = 0;
       for (const std::shared_ptr<Array>& chunk : value_set.chunks()) {
