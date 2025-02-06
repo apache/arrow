@@ -44,7 +44,7 @@ mv mingw* build
 cd build
 
 # This may vary by system/CI provider
-MSYS_LIB_DIR="/c/rtools40"
+MSYS_LIB_DIR="/c/rtools${RTOOLS_VERSION}"
 
 # Untar the builds we made
 ls *.xz | xargs -n 1 tar -xJf

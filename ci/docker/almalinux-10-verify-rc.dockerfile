@@ -1,4 +1,3 @@
-#!/bin/sh
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,30 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# A script to install dependencies required for release
-# verification on Red Hat Enterprise Linux 10 clones in particular
-# on AlmaLinux 10
+ARG arch=amd64
+FROM ${arch}/almalinux:10
 
-set -exu
-
-dnf -y install 'dnf-command(config-manager)'
-dnf -y update
-dnf -y groupinstall "Development Tools"
-dnf -y install \
-  cmake \
-  git \
-  gobject-introspection-devel \
-  libcurl-devel \
-  llvm-devel \
-  llvm-toolset \
-  ncurses-devel \
-  ninja-build \
-  openssl-devel \
-  python3-devel \
-  ruby-devel \
-  sqlite-devel \
-  vala-devel \
-  wget \
-  which
-
-python3 -m ensurepip --upgrade
+COPY dev/release/setup-rhel-rebuilds.sh /
+RUN /setup-rhel-rebuilds.sh && \
+    rm /setup-rhel-rebuilds.sh && \
+    dnf -y clean all

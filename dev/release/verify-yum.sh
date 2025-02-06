@@ -194,7 +194,7 @@ if [ "${cmake_version_major}" -gt "3" ] || \
   ${cmake_command} .
   make -j$(nproc)
   ./arrow-example
-  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
+  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++2a
   ./arrow-example
   popd
 fi

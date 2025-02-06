@@ -230,7 +230,7 @@ endif()
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
 
-# Add C++-only flags, like -std=c++17
+# Add C++-only flags, like -std=c++20
 set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")
 
 message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
