@@ -244,10 +244,10 @@ def download_tzdata_on_windows():
     tzdata_compressed = os.path.join(tzdata_path, "tzdata.tar.gz")
     os.makedirs(tzdata_path, exist_ok=True)
 
-    from urllib.request import urlopen
-    with urlopen('https://data.iana.org/time-zones/tzdata-latest.tar.gz') as response:
+    import requests
+    with requests.get('https://data.iana.org/time-zones/tzdata-latest.tar.gz') as response:
         with open(tzdata_compressed, 'wb') as f:
-            f.write(response.read())
+            f.write(response.content)
 
     assert os.path.exists(tzdata_compressed)
 
