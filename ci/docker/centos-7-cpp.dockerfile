@@ -25,7 +25,7 @@ RUN sed -i \
       -e 's/mirror\.centos\.org/vault.centos.org/' \
       /etc/yum.repos.d/*.repo
 
-# devtoolset is required for C++17
+# devtoolset is required for C++20
 RUN \
   yum install -y \
     centos-release-scl \
@@ -38,7 +38,8 @@ RUN \
     /etc/yum.repos.d/CentOS-SCLo-scl*.repo && \
   yum install -y \
     curl \
-    devtoolset-8 \
+    devtoolset-11-gcc-c++ \
+    devtoolset-11-make \
     diffutils \
     gcc-c++ \
     libcurl-devel \

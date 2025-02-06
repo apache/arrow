@@ -24,10 +24,10 @@ option(ARROW_LINK_SHARED "Link to the Arrow shared library" ON)
 find_package(Arrow REQUIRED)
 
 if(NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD 20)
 endif()
 
-# We require a C++17 compliant compiler
+# We require a C++20 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(NOT CMAKE_BUILD_TYPE)

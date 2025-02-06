@@ -223,12 +223,33 @@ cd c_glib
 %if %{enable_glib_doc}
   pip3 install gi-docgen
 %endif
+if [ -n "${X_SCLS:-}" ]; then
+  # gcc-toolset-X may need libstdc++_nonshared.a when we build C++
+  # programs. In general, it's automatically done by GNU ld script.
+  # For example, gcc-toolset-12 has it at
+  # /opt/rh/gcc-toolset-12/root/usr/lib/gcc/x86_64-redhat-linux/12/libstdc++.so
+  # and its content is the following:
+  #
+  #   /* GNU ld script
+  #      Use the shared library, but some functions are only in
+  #      the static library, so try that secondarily.  */
+  #   OUTPUT_FORMAT(elf64-x86-64)
+  #   INPUT ( /usr/lib64/libstdc++.so.6 -lstdc++_nonshared )
+  #
+  # If we use --as-needed linker option, it may not be used. If it's
+  # not used, "undefined reference to symbol
+  # '_ZTISt20bad_array_new_length@@CXXABI_1.3.8'" error will happen.
+  use_asneeded=false
+else
+  use_asneeded=true
+fi
 meson setup build \
   --default-library=both \
   --libdir=%{_libdir} \
   --prefix=%{_prefix} \
   -Darrow_cpp_build_dir=../cpp/%{arrow_cmake_builddir} \
   -Darrow_cpp_build_type=$cpp_build_type \
+  -Db_asneeded=${use_asneeded} \
 %if %{enable_glib_doc}
   -Ddoc=true \
 %endif

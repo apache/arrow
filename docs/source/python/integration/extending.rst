@@ -441,7 +441,7 @@ To build this module, you will need a slightly customized ``setup.py`` file
         ext.library_dirs.extend(pa.get_library_dirs())
 
         if os.name == 'posix':
-            ext.extra_compile_args.append('-std=c++17')
+            ext.extra_compile_args.append('-std=c++20')
 
     setup(ext_modules=ext_modules)
 

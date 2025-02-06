@@ -37,7 +37,6 @@ RUN \
     cmake \
     curl-devel \
     flex \
-    gcc-c++ \
     gflags-devel \
     git \
     gobject-introspection-devel \

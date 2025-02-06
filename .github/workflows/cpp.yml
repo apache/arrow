@@ -290,7 +290,7 @@ jobs:
         include:
           - os: windows-2022
             simd-level: AVX2
-            title: AMD64 Windows 2022 AVX2
+            title: AMD64 Windows 2022 C++20 AVX2
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
@@ -317,7 +317,7 @@ jobs:
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
       BOOST_SOURCE: BUNDLED
-      CMAKE_CXX_STANDARD: "17"
+      CMAKE_CXX_STANDARD: "20"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr

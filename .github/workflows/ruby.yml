@@ -349,7 +349,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      CMAKE_CXX_STANDARD: "17"
+      CMAKE_CXX_STANDARD: "20"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
       VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'

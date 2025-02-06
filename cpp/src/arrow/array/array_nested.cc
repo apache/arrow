@@ -17,10 +17,10 @@
 
 #include "arrow/array/array_nested.h"
 
-#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1004,10 +1004,18 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::Flatten(
 // ----------------------------------------------------------------------
 // Struct
 
+struct StructArray::Impl {
+  std::mutex mutex;
+  ArrayVector boxed_fields;
+};
+
+StructArray::~StructArray() = default;
+
 StructArray::StructArray(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::STRUCT);
   SetData(data);
-  boxed_fields_.resize(data->child_data.size());
+  impl_ = std::make_unique<Impl>();
+  impl_->boxed_fields.resize(data_->child_data.size());
 }
 
 StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
@@ -1016,10 +1024,12 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
                          int64_t offset) {
   ARROW_CHECK_EQ(type->id(), Type::STRUCT);
   SetData(ArrayData::Make(type, length, {std::move(null_bitmap)}, null_count, offset));
+  data_->child_data.reserve(children.size());
   for (const auto& child : children) {
     data_->child_data.push_back(child->data());
   }
-  boxed_fields_.resize(children.size());
+  impl_ = std::make_unique<Impl>();
+  impl_->boxed_fields.resize(data_->child_data.size());
 }
 
 Result<std::shared_ptr<StructArray>> StructArray::Make(
@@ -1069,27 +1079,32 @@ const StructType* StructArray::struct_type() const {
   return checked_cast<const StructType*>(data_->type.get());
 }
 
-const ArrayVector& StructArray::fields() const {
-  for (int i = 0; i < num_fields(); ++i) {
-    (void)field(i);
+std::shared_ptr<Array> StructArray::MakeBoxedField(int i) const {
+  std::shared_ptr<ArrayData> field_data;
+  if (data_->offset != 0 || data_->child_data[i]->length != data_->length) {
+    field_data = data_->child_data[i]->Slice(data_->offset, data_->length);
+  } else {
+    field_data = data_->child_data[i];
   }
-  return boxed_fields_;
+  return MakeArray(field_data);
+}
+
+const ArrayVector& StructArray::fields() const {
+  std::lock_guard lock(impl_->mutex);
+  for (int i = 0; i < num_fields(); ++i) {
+    if (impl_->boxed_fields[i] == nullptr) {
+      impl_->boxed_fields[i] = MakeBoxedField(i);
+    }
+  }
+  return impl_->boxed_fields;
 }
 
 const std::shared_ptr<Array>& StructArray::field(int i) const {
-  std::shared_ptr<Array> result = std::atomic_load(&boxed_fields_[i]);
-  if (!result) {
-    std::shared_ptr<ArrayData> field_data;
-    if (data_->offset != 0 || data_->child_data[i]->length != data_->length) {
-      field_data = data_->child_data[i]->Slice(data_->offset, data_->length);
-    } else {
-      field_data = data_->child_data[i];
-    }
-    result = MakeArray(field_data);
-    std::atomic_store(&boxed_fields_[i], std::move(result));
-    return boxed_fields_[i];
+  std::lock_guard lock(impl_->mutex);
+  if (impl_->boxed_fields[i] == nullptr) {
+    impl_->boxed_fields[i] = MakeBoxedField(i);
   }
-  return boxed_fields_[i];
+  return impl_->boxed_fields[i];
 }
 
 std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) const {
@@ -1177,6 +1192,14 @@ Result<std::shared_ptr<Array>> StructArray::GetFlattenedField(int index,
 // ----------------------------------------------------------------------
 // UnionArray
 
+struct UnionArray::Impl {
+  std::mutex mutex;
+  ArrayVector boxed_fields;
+};
+
+UnionArray::UnionArray() = default;
+UnionArray::~UnionArray() = default;
+
 void UnionArray::SetData(std::shared_ptr<ArrayData> data) {
   this->Array::SetData(std::move(data));
 
@@ -1184,7 +1207,9 @@ void UnionArray::SetData(std::shared_ptr<ArrayData> data) {
 
   ARROW_CHECK_GE(data_->buffers.size(), 2);
   raw_type_codes_ = data->GetValuesSafe<int8_t>(1);
-  boxed_fields_.resize(data_->child_data.size());
+
+  impl_ = std::make_unique<Impl>();
+  impl_->boxed_fields.resize(data_->child_data.size());
 }
 
 void SparseUnionArray::SetData(std::shared_ptr<ArrayData> data) {
@@ -1198,15 +1223,15 @@ void SparseUnionArray::SetData(std::shared_ptr<ArrayData> data) {
 
 void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->UnionArray::SetData(data);
-
   ARROW_CHECK_EQ(data_->type->id(), Type::DENSE_UNION);
   ARROW_CHECK_EQ(data_->buffers.size(), 3);
 
   // No validity bitmap
   ARROW_CHECK_EQ(data_->buffers[0], nullptr);
-
   raw_value_offsets_ = data->GetValuesSafe<int32_t>(2);
 }
+
+SparseUnionArray::~SparseUnionArray() = default;
 
 SparseUnionArray::SparseUnionArray(std::shared_ptr<ArrayData> data) {
   SetData(std::move(data));
@@ -1260,6 +1285,8 @@ Result<std::shared_ptr<Array>> SparseUnionArray::GetFlattenedField(
   child_data->null_count = kUnknownNullCount;
   return MakeArray(child_data);
 }
+
+DenseUnionArray::~DenseUnionArray() = default;
 
 DenseUnionArray::DenseUnionArray(const std::shared_ptr<ArrayData>& data) {
   SetData(data);
@@ -1352,26 +1379,29 @@ Result<std::shared_ptr<Array>> SparseUnionArray::Make(
   return std::make_shared<SparseUnionArray>(std::move(internal_data));
 }
 
+std::shared_ptr<Array> UnionArray::MakeBoxedField(int i) const {
+  std::shared_ptr<ArrayData> child_data = data_->child_data[i]->Copy();
+  if (mode() == UnionMode::SPARSE) {
+    // Sparse union: need to adjust child if union is sliced
+    // (for dense unions, the need to lookup through the offsets
+    //  makes this unnecessary)
+    if (data_->offset != 0 || child_data->length > data_->length) {
+      child_data = child_data->Slice(data_->offset, data_->length);
+    }
+  }
+  return MakeArray(child_data);
+}
+
 std::shared_ptr<Array> UnionArray::field(int i) const {
-  if (i < 0 ||
-      static_cast<decltype(boxed_fields_)::size_type>(i) >= boxed_fields_.size()) {
+  if (i < 0 || i >= num_fields()) {
     return nullptr;
   }
-  std::shared_ptr<Array> result = std::atomic_load(&boxed_fields_[i]);
-  if (!result) {
-    std::shared_ptr<ArrayData> child_data = data_->child_data[i]->Copy();
-    if (mode() == UnionMode::SPARSE) {
-      // Sparse union: need to adjust child if union is sliced
-      // (for dense unions, the need to lookup through the offsets
-      //  makes this unnecessary)
-      if (data_->offset != 0 || child_data->length > data_->length) {
-        child_data = child_data->Slice(data_->offset, data_->length);
-      }
-    }
-    result = MakeArray(child_data);
-    std::atomic_store(&boxed_fields_[i], result);
+
+  std::lock_guard lock(impl_->mutex);
+  if (impl_->boxed_fields[i] == nullptr) {
+    impl_->boxed_fields[i] = MakeBoxedField(i);
   }
-  return result;
+  return impl_->boxed_fields[i];
 }
 
 }  // namespace arrow

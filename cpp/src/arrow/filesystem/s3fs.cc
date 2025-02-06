@@ -1227,26 +1227,21 @@ class RegionResolver {
   }
 
   static Result<std::shared_ptr<RegionResolver>> DefaultInstance() {
-    auto resolver = std::atomic_load(&instance_);
-    if (resolver) {
-      return resolver;
+    std::unique_lock lock(instance_mutex_);
+    if (instance_) {
+      return instance_;
     }
     auto maybe_resolver = Make(S3Options::Anonymous());
     if (!maybe_resolver.ok()) {
       return maybe_resolver;
     }
-    // Make sure to always return the same instance even if several threads
-    // call DefaultInstance at once.
-    std::shared_ptr<RegionResolver> existing;
-    if (std::atomic_compare_exchange_strong(&instance_, &existing, *maybe_resolver)) {
-      return *maybe_resolver;
-    } else {
-      return existing;
-    }
+    instance_ = *maybe_resolver;
+    return maybe_resolver;
   }
 
   static void ResetDefaultInstance() {
-    std::atomic_store(&instance_, std::shared_ptr<RegionResolver>());
+    std::unique_lock lock(instance_mutex_);
+    instance_.reset();
   }
 
   Result<std::string> ResolveRegion(const std::string& bucket) {
@@ -1279,7 +1274,8 @@ class RegionResolver {
     return builder_.BuildClient().Value(&holder_);
   }
 
-  static std::shared_ptr<RegionResolver> instance_;
+  static inline std::mutex instance_mutex_;
+  static inline std::shared_ptr<RegionResolver> instance_;
 
   ClientBuilder builder_;
   std::shared_ptr<S3ClientHolder> holder_;
@@ -1289,8 +1285,6 @@ class RegionResolver {
   // of different buckets in a single program invocation...
   std::unordered_map<std::string, std::string> cache_;
 };
-
-std::shared_ptr<RegionResolver> RegionResolver::instance_;
 
 // -----------------------------------------------------------------------
 // S3 file stream implementations
