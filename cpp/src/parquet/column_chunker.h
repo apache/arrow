@@ -574,8 +574,8 @@ class FastCDC {
   FastCDC(const LevelInfo& level_info, uint64_t avg_len, uint8_t granurality_level = 5)
       : level_info_(level_info),
         avg_len_(avg_len == 0 ? AVG_LEN : avg_len),
-        min_len_(avg_len_ * 0.6),
-        max_len_(avg_len_ * 1.4),
+        min_len_(static_cast<uint64_t>(avg_len_ * 0.6)),
+        max_len_(static_cast<uint64_t>(avg_len_ * 1.4)),
         hash_mask_(GetMask(avg_len_, granurality_level + 3)) {}
 
   template <typename T>
