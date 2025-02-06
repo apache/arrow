@@ -34,8 +34,8 @@ RUN \
     cmake \
     curl-devel \
     flex \
-    gcc-c++ \
     gflags-devel \
+    gcc-c++ \
     git \
     gobject-introspection-devel \
     grpc-devel \
@@ -47,7 +47,6 @@ RUN \
     llvm-devel \
     llvm-static \
     lz4-devel \
-    make \
     ncurses-devel \
     ninja-build \
     openssl-devel \

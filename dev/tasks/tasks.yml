@@ -449,8 +449,6 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        CLANG_TOOLS: 15
-        LLVM: 15
         UBUNTU: 24.04
       image: ubuntu-cpp
 
@@ -459,9 +457,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        CLANG_TOOLS: 15
         GCC: 14
-        LLVM: 15
         UBUNTU: 24.04
       # rapidjson 1.1.0 has an error caught by gcc 14.
       # https://github.com/Tencent/rapidjson/issues/718
@@ -746,8 +742,7 @@ tasks:
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-release", "latest"),
                                  ("rocker", "r-ver", "latest"),
-                                 ("rstudio", "r-base", "4.2-focal"),
-                                 ("rstudio", "r-base", "4.1-focal")] %}
+                                 ("rstudio", "r-base", "4.2-jammy")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
     ci: azure
     template: r/azure.linux.yml
