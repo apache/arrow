@@ -267,6 +267,7 @@ cdef _get_parse_options(ParseOptions parse_options, CJSONParseOptions* out):
     else:
         out[0] = parse_options.options
 
+
 cdef class JSONStreamingReader(RecordBatchReader):
     """An object that reads record batches incrementally from a JSON file.
 
@@ -276,9 +277,9 @@ cdef class JSONStreamingReader(RecordBatchReader):
         Schema schema
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, "
-                        "use pyarrow.json.open_json() instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s "
+                        "constructor directly, "
+                        "use pyarrow.json.open_json() instead.")
 
     cdef _open(self, shared_ptr[CInputStream] stream,
                CJSONReadOptions c_read_options,
@@ -363,7 +364,7 @@ def open_json(input_file, read_options=None, parse_options=None,
         Options for the JSON parser
         (see pyarrow.json.ParseOptions constructor for defaults)
     memory_pool : MemoryPool, optional
-        Pool to allocate Table memory from
+        Pool to allocate RecordBatch memory from
 
     Returns
     -------

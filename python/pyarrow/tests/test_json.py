@@ -118,7 +118,7 @@ class BaseTestJSON(abc.ABC):
         """
         :param b: bytes to be parsed
         :param kwargs: arguments passed on to open the json file
-        :return: b parsed as a single RecordBatch
+        :return: b parsed as a single Table
         """
         raise NotImplementedError
 
@@ -612,13 +612,10 @@ class TestParallelJSONRead(BaseTestJSONRead, unittest.TestCase):
 
 class TestSerialStreamingJSONRead(BaseTestStreamingJSONRead, unittest.TestCase):
 
-    @property
-    def use_threads(self):
-        return False
+    use_threads = False
 
 
 @pytest.mark.threading
 class TestThreadedStreamingJSONRead(BaseTestStreamingJSONRead, unittest.TestCase):
-    @property
-    def use_threads(self):
-        return True
+
+    use_threads = True
