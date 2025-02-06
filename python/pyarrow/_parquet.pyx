@@ -2036,6 +2036,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         allow_truncated_timestamps=False,
         writer_engine_version=None,
         use_compliant_nested_type=True,
+        time_is_adjusted_to_utc=True,
         store_schema=True) except *:
     """Arrow writer properties"""
     cdef:
@@ -2086,6 +2087,13 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     elif writer_engine_version != "V2":
         raise ValueError("Unsupported Writer Engine Version: {0}"
                          .format(writer_engine_version))
+
+    # time_is_adjusted_to_utc
+
+    if time_is_adjusted_to_utc:
+        arrow_props.set_time_is_adjusted_to_utc()
+    else:
+        arrow_props.unset_time_is_adjusted_to_utc()
 
     arrow_properties = arrow_props.build()
 
@@ -2147,6 +2155,7 @@ cdef class ParquetWriter(_Weakrefable):
         int64_t dictionary_pagesize_limit
         object store_schema
         object store_decimal_as_integer
+        object time_is_adjusted_to_utc
 
     def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
@@ -2169,7 +2178,8 @@ cdef class ParquetWriter(_Weakrefable):
                   write_page_index=False,
                   write_page_checksum=False,
                   sorting_columns=None,
-                  store_decimal_as_integer=False):
+                  store_decimal_as_integer=False,
+                  time_is_adjusted_to_utc=True):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2211,7 +2221,7 @@ cdef class ParquetWriter(_Weakrefable):
             allow_truncated_timestamps=allow_truncated_timestamps,
             writer_engine_version=writer_engine_version,
             use_compliant_nested_type=use_compliant_nested_type,
-            store_schema=store_schema,
+            store_schema=store_schema, time_is_adjusted_to_utc=time_is_adjusted_to_utc
         )
 
         pool = maybe_unbox_memory_pool(memory_pool)
