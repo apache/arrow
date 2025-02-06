@@ -52,10 +52,10 @@ constexpr int32_t kBufferSizeLength = 4;
     throw ParquetException("Couldn't init ALG decryption");           \
   }
 
-class AesEncryptionContext {
+class AesCryptoContext {
  public:
-  AesEncryptionContext(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
-                       bool write_length) {
+  AesCryptoContext(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
+                   bool write_length) {
     openssl::EnsureInitialized();
 
     length_buffer_length_ = write_length ? kBufferSizeLength : 0;
@@ -76,17 +76,17 @@ class AesEncryptionContext {
     key_length_ = key_len;
   }
 
-  virtual ~AesEncryptionContext() = default;
+  virtual ~AesCryptoContext() = default;
 
  protected:
   static void DeleteCipherContext(EVP_CIPHER_CTX* ctx) {
     EVP_CIPHER_CTX_free(ctx);
   }
-  
-  using CipherContext = std::unique_ptr<EVP_CIPHER_CTX, decltype(DeleteCipherContext)>;
-  
-  static CipherContext WrapCipherContext(EVP_CIPHER_CTX* ctx) {
-    return CipherContext(ctx, DeleteCipherContext);
+
+  using CipherContext = std::unique_ptr<EVP_CIPHER_CTX, decltype(&DeleteCipherContext)>;
+
+  static CipherContext NewCipherContext() {
+    return CipherContext(EVP_CIPHER_CTX_new(), DeleteCipherContext);
   }
 
   int32_t aes_mode_;
@@ -95,7 +95,7 @@ class AesEncryptionContext {
   int32_t length_buffer_length_;
 };
 
-class AesEncryptor::AesEncryptorImpl : public AesEncryptionContext {
+class AesEncryptor::AesEncryptorImpl : public AesCryptoContext {
  public:
   explicit AesEncryptorImpl(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
                             bool write_length);
@@ -126,8 +126,7 @@ class AesEncryptor::AesEncryptorImpl : public AesEncryptionContext {
   }
 
  private:
-  [[nodiscard]] std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter_)> NewCipherContext()
-      const;
+  [[nodiscard]] CipherContext NewCipherContext() const;
 
   int32_t GcmEncrypt(span<const uint8_t> plaintext, span<const uint8_t> key,
                      span<const uint8_t> nonce, span<const uint8_t> aad,
@@ -140,12 +139,11 @@ class AesEncryptor::AesEncryptorImpl : public AesEncryptionContext {
 AesEncryptor::AesEncryptorImpl::AesEncryptorImpl(ParquetCipher::type alg_id,
                                                  int32_t key_len, bool metadata,
                                                  bool write_length)
-    : AesEncryptionContext(alg_id, key_len, metadata, write_length) {}
+    : AesCryptoContext(alg_id, key_len, metadata, write_length) {}
 
-std::unique_ptr<EVP_CIPHER_CTX, decltype(AesEncryptionContext::ctx_deleter_)>
+AesCryptoContext::CipherContext
 AesEncryptor::AesEncryptorImpl::NewCipherContext() const {
-  auto ctx = std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter_)>(EVP_CIPHER_CTX_new(),
-                                                                     ctx_deleter_);
+  auto ctx = AesCryptoContext::NewCipherContext();
   if (!ctx) throw ParquetException("Couldn't init cipher context");
   if (kGcmMode == aes_mode_) {
     // Init AES-GCM with specified key length
@@ -389,7 +387,7 @@ AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int32_t key_len, bool met
     : impl_{std::unique_ptr<AesEncryptorImpl>(
           new AesEncryptorImpl(alg_id, key_len, metadata, write_length))} {}
 
-class AesDecryptor::AesDecryptorImpl : AesEncryptionContext {
+class AesDecryptor::AesDecryptorImpl : AesCryptoContext {
  public:
   explicit AesDecryptorImpl(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
                             bool contains_length);
@@ -425,7 +423,7 @@ class AesDecryptor::AesDecryptorImpl : AesEncryptionContext {
   }
 
  private:
-  [[nodiscard]] std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter_)> NewCipherContext()
+  [[nodiscard]] CipherContext NewCipherContext()
       const;
 
   /// Get the actual ciphertext length, inclusive of the length buffer length,
@@ -449,12 +447,11 @@ AesDecryptor::~AesDecryptor() {}
 AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id,
                                                  int32_t key_len, bool metadata,
                                                  bool contains_length)
-    : AesEncryptionContext(alg_id, key_len, metadata, contains_length) {}
+    : AesCryptoContext(alg_id, key_len, metadata, contains_length) {}
 
-std::unique_ptr<EVP_CIPHER_CTX, decltype(AesEncryptionContext::ctx_deleter_)>
+AesCryptoContext::CipherContext
 AesDecryptor::AesDecryptorImpl::NewCipherContext() const {
-  auto ctx = std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter_)>(EVP_CIPHER_CTX_new(),
-                                                                     ctx_deleter_);
+  auto ctx = AesCryptoContext::NewCipherContext();
   if (!ctx) throw ParquetException("Couldn't init cipher context");
   if (kGcmMode == aes_mode_) {
     // Init AES-GCM with specified key length
