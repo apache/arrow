@@ -79,8 +79,15 @@ class AesEncryptionContext {
   virtual ~AesEncryptionContext() = default;
 
  protected:
-  static inline std::function<void(EVP_CIPHER_CTX*)> ctx_deleter_ =
-      [](EVP_CIPHER_CTX* ctx) { EVP_CIPHER_CTX_free(ctx); };
+  static void DeleteCipherContext(EVP_CIPHER_CTX* ctx) {
+    EVP_CIPHER_CTX_free(ctx);
+  }
+  
+  using CipherContext = std::unique_ptr<EVP_CIPHER_CTX, decltype(DeleteCipherContext)>;
+  
+  static CipherContext WrapCipherContext(EVP_CIPHER_CTX* ctx) {
+    return CipherContext(ctx, DeleteCipherContext);
+  }
 
   int32_t aes_mode_;
   int32_t key_length_;
