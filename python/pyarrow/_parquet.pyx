@@ -319,6 +319,93 @@ cdef _box_flba(ParquetFLBA val, uint32_t len):
     return cp.PyBytes_FromStringAndSize(<char*> val.ptr, <Py_ssize_t> len)
 
 
+cdef class GeospatialStatistics(_Weakrefable):
+    """Statistics for columns with geospatial data types"""
+
+    def __cinit__(self):
+        pass
+
+    def __repr__(self):
+        return """{}
+  geospatial_types: {}
+  xmin: {}
+  xmax: {}
+  ymin: {}
+  ymax: {}
+  zmin: {}
+  zmax: {}
+  mmin: {}
+  mmax: {}""".format(object.__repr__(self),
+                     self.geospatial_types,
+                     self.xmin, self.xmax,
+                     self.ymin, self.ymax,
+                     self.zmin, self.zmax,
+                     self.mmin, self.mmax)
+
+    def to_dict(self):
+        out = {
+            "geospatial_types": self.geospatial_types,
+            "xmin": self.xmin,
+            "xmax": self.xmax,
+            "ymin": self.ymin,
+            "ymax": self.ymax,
+            "zmin": self.zmin,
+            "zmax": self.zmax,
+            "mmin": self.mmin,
+            "mmax": self.mmax
+        }
+
+        return out
+
+    @property
+    def geospatial_types(self):
+        return list(self.statistics.geospatial_types)
+
+    @property
+    def xmin(self):
+        return self.statistics.xmin
+
+    @property
+    def xmax(self):
+        return self.statistics.xmax
+
+    @property
+    def ymin(self):
+        return self.statistics.ymin
+
+    @property
+    def ymax(self):
+        return self.statistics.ymax
+
+    @property
+    def zmin(self):
+        if self.statistics.has_z():
+            return self.statistics.xmin
+        else:
+            return None
+
+    @property
+    def zmax(self):
+        if self.statistics.has_z():
+            return self.statistics.xmax
+        else:
+            return None
+
+    @property
+    def mmin(self):
+        if self.statistics.has_m():
+            return self.statistics.mmin
+        else:
+            return None
+
+    @property
+    def mmax(self):
+        if self.statistics.has_m():
+            return self.statistics.mmax
+        else:
+            return None
+
+
 cdef class ColumnChunkMetaData(_Weakrefable):
     """Column metadata for a single row group."""
 
@@ -330,6 +417,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     def __repr__(self):
         statistics = indent(repr(self.statistics), 4 * ' ')
+        geospatial_statistics = indent(repr(self.geospatial_statistics), 4 * ' ')
         return """{0}
   file_offset: {1}
   file_path: {2}
@@ -339,13 +427,15 @@ cdef class ColumnChunkMetaData(_Weakrefable):
   is_stats_set: {6}
   statistics:
 {7}
-  compression: {8}
-  encodings: {9}
-  has_dictionary_page: {10}
-  dictionary_page_offset: {11}
-  data_page_offset: {12}
-  total_compressed_size: {13}
-  total_uncompressed_size: {14}""".format(object.__repr__(self),
+  geospatial_statistics:
+{8}
+  compression: {9}
+  encodings: {10}
+  has_dictionary_page: {11}
+  dictionary_page_offset: {12}
+  data_page_offset: {13}
+  total_compressed_size: {14}
+  total_uncompressed_size: {15}""".format(object.__repr__(self),
                                           self.file_offset,
                                           self.file_path,
                                           self.physical_type,
@@ -353,6 +443,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
                                           self.path_in_schema,
                                           self.is_stats_set,
                                           statistics,
+                                          geospatial_statistics,
                                           self.compression,
                                           self.encodings,
                                           self.has_dictionary_page,
@@ -371,6 +462,11 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             Dictionary with a key for each attribute of this class.
         """
         statistics = self.statistics.to_dict() if self.is_stats_set else None
+        if self.is_geometry_stats_set:
+            geospatial_statistics = self.geospatial_statistics.to_dict()
+        else:
+            geospatial_statistics = None
+
         d = dict(
             file_offset=self.file_offset,
             file_path=self.file_path,
@@ -379,6 +475,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             path_in_schema=self.path_in_schema,
             is_stats_set=self.is_stats_set,
             statistics=statistics,
+            geospatial_statistics=geospatial_statistics,
             compression=self.compression,
             encodings=self.encodings,
             has_dictionary_page=self.has_dictionary_page,
@@ -449,6 +546,20 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         cdef Statistics statistics = Statistics.__new__(Statistics)
         statistics.init(self.metadata.statistics(), self)
         return statistics
+
+    @property
+    def is_geometry_stats_set(self):
+        """Whether or not geometry statistics are present in metadata (bool)."""
+        return self.metadata.is_geometry_stats_set()
+
+    @property
+    def geospatial_statistics(self):
+        """Statistics for column chunk (:class:`GeospatialStatistics`)."""
+        if not self.metadata.is_geometry_stats_set():
+            return None
+        geospatial_statistics = GeospatialStatistics()
+        geospatial_statistics.init(self.metadata.geometry_statistics(), self)
+        return geospatial_statistics
 
     @property
     def compression(self):
@@ -1454,7 +1565,8 @@ cdef class ParquetReader(_Weakrefable):
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
              thrift_container_size_limit=None,
-             page_checksum_verification=False):
+             page_checksum_verification=False,
+             arrow_extensions_enabled=False):
         """
         Open a parquet file for reading.
 
@@ -1471,6 +1583,7 @@ cdef class ParquetReader(_Weakrefable):
         thrift_string_size_limit : int, optional
         thrift_container_size_limit : int, optional
         page_checksum_verification : bool, default False
+        arrow_extensions_enabled : bool, default False
         """
         cdef:
             shared_ptr[CFileMetaData] c_metadata
@@ -1519,6 +1632,8 @@ cdef class ParquetReader(_Weakrefable):
         else:
             arrow_props.set_coerce_int96_timestamp_unit(
                 string_to_timeunit(coerce_int96_timestamp_unit))
+
+        arrow_props.set_arrow_extensions_enabled(arrow_extensions_enabled)
 
         self.source = source
         get_reader(source, use_memory_map, &self.rd_handle)
@@ -2050,7 +2165,8 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         allow_truncated_timestamps=False,
         writer_engine_version=None,
         use_compliant_nested_type=True,
-        store_schema=True) except *:
+        store_schema=True,
+        write_geospatial_logical_types=False) except *:
     """Arrow writer properties"""
     cdef:
         shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2100,6 +2216,11 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     elif writer_engine_version != "V2":
         raise ValueError("Unsupported Writer Engine Version: {0}"
                          .format(writer_engine_version))
+
+    # write_geospatial_logical_types
+
+    if write_geospatial_logical_types:
+        arrow_props.write_geospatial_logical_types()
 
     arrow_properties = arrow_props.build()
 
@@ -2183,7 +2304,8 @@ cdef class ParquetWriter(_Weakrefable):
                   write_page_index=False,
                   write_page_checksum=False,
                   sorting_columns=None,
-                  store_decimal_as_integer=False):
+                  store_decimal_as_integer=False,
+                  write_geospatial_logical_types=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2226,6 +2348,7 @@ cdef class ParquetWriter(_Weakrefable):
             writer_engine_version=writer_engine_version,
             use_compliant_nested_type=use_compliant_nested_type,
             store_schema=store_schema,
+            write_geospatial_logical_types=write_geospatial_logical_types,
         )
 
         pool = maybe_unbox_memory_pool(memory_pool)

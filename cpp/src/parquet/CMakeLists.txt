@@ -260,6 +260,10 @@ endif()
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
   list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
+  # TODO(paleolimbot): Remove once sample files are generated
+  list(APPEND PARQUET_SHARED_LINK_LIBS RapidJSON)
+  list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
+
   # These are libraries that we will link privately with parquet_shared (as they
   # do not need to be linked transitively by other linkers)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)

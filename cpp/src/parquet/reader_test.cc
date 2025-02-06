@@ -1871,11 +1871,9 @@ class TestGeometryLogicalType : public ::testing::Test {
                      bool enable_write_page_index, bool write_arrow) {
     // Make schema
     schema::NodeVector fields;
-    fields.push_back(PrimitiveNode::Make(
-        "g", Repetition::REQUIRED,
-        GeometryLogicalType::Make("OGC:CRS84", LogicalType::GeometryEdges::PLANAR,
-                                  LogicalType::GeometryEncoding::WKB),
-        Type::BYTE_ARRAY));
+    fields.push_back(PrimitiveNode::Make("g", Repetition::REQUIRED,
+                                         GeometryLogicalType::Make("srid:1234"),
+                                         Type::BYTE_ARRAY));
     auto schema = std::static_pointer_cast<GroupNode>(
         GroupNode::Make("schema", Repetition::REQUIRED, fields));
 
@@ -1959,7 +1957,7 @@ class TestGeometryLogicalType : public ::testing::Test {
       auto row_group_metadata = metadata->RowGroup(i);
       auto column_chunk_metadata = row_group_metadata->ColumnChunk(0);
       auto geometry_stats = column_chunk_metadata->geometry_statistics();
-      CheckGeometryStatistics(geometry_stats);
+      CheckGeospatialStatistics(geometry_stats);
     }
 
     // Check the geometry values
@@ -1994,11 +1992,11 @@ class TestGeometryLogicalType : public ::testing::Test {
     EXPECT_EQ(kNumRows, total_values_read);
   }
 
-  void CheckGeometryStatistics(std::shared_ptr<GeometryStatistics> geom_stats) {
+  void CheckGeospatialStatistics(std::shared_ptr<GeospatialStatistics> geom_stats) {
     ASSERT_TRUE(geom_stats != nullptr);
-    std::vector<int32_t> geometry_types = geom_stats->GetGeometryTypes();
-    EXPECT_EQ(1, geometry_types.size());
-    EXPECT_EQ(1, geometry_types[0]);
+    std::vector<int32_t> geospatial_types = geom_stats->GetGeometryTypes();
+    EXPECT_EQ(1, geospatial_types.size());
+    EXPECT_EQ(1, geospatial_types[0]);
     EXPECT_GE(geom_stats->GetXMin(), 0);
     EXPECT_GT(geom_stats->GetXMax(), geom_stats->GetXMin());
     EXPECT_GT(geom_stats->GetYMin(), 0);

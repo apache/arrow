@@ -789,7 +789,7 @@ class ColumnWriterImpl {
   virtual StatisticsPair GetChunkStatistics() = 0;
 
   // Plain-encoded geometry statistics of the whole chunk
-  virtual EncodedGeometryStatistics GetChunkGeometryStatistics() = 0;
+  virtual EncodedGeospatialStatistics GetChunkGeospatialStatistics() = 0;
 
   // Merges page statistics into chunk statistics, then resets the values
   virtual void ResetPageStatistics() = 0;
@@ -1113,9 +1113,9 @@ int64_t ColumnWriterImpl::Close() {
     }
 
     if (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry()) {
-      EncodedGeometryStatistics geometry_stats = GetChunkGeometryStatistics();
+      EncodedGeospatialStatistics geometry_stats = GetChunkGeospatialStatistics();
       if (geometry_stats.is_set()) {
-        metadata_->SetGeometryStatistics(geometry_stats);
+        metadata_->SetGeospatialStatistics(geometry_stats);
       }
     }
 
@@ -1245,7 +1245,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
         chunk_statistics_ = MakeStatistics<DType>(descr_, allocator_);
       }
       if (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry()) {
-        chunk_geometry_statistics_ = std::make_shared<GeometryStatistics>();
+        chunk_geometry_statistics_ = std::make_shared<GeospatialStatistics>();
       }
     }
     if (properties->size_statistics_level() == SizeStatisticsLevel::ColumnChunk ||
@@ -1414,8 +1414,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     return result;
   }
 
-  EncodedGeometryStatistics GetChunkGeometryStatistics() override {
-    EncodedGeometryStatistics result;
+  EncodedGeospatialStatistics GetChunkGeospatialStatistics() override {
+    EncodedGeospatialStatistics result;
     if (chunk_geometry_statistics_) result = chunk_geometry_statistics_->Encode();
     return result;
   }
@@ -1484,7 +1484,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   std::shared_ptr<TypedStats> chunk_statistics_;
   std::unique_ptr<SizeStatistics> page_size_statistics_;
   std::shared_ptr<SizeStatistics> chunk_size_statistics_;
-  std::shared_ptr<GeometryStatistics> chunk_geometry_statistics_;
+  std::shared_ptr<GeospatialStatistics> chunk_geometry_statistics_;
   bool pages_change_on_record_boundaries_;
 
   // If writing a sequence of ::arrow::DictionaryArray to the writer, we keep the

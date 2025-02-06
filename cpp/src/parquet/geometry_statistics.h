@@ -29,14 +29,14 @@
 
 namespace parquet {
 
-class PARQUET_EXPORT EncodedGeometryStatistics {
+class PARQUET_EXPORT EncodedGeospatialStatistics {
  public:
   static constexpr double kInf = std::numeric_limits<double>::infinity();
 
-  EncodedGeometryStatistics() = default;
-  EncodedGeometryStatistics(const EncodedGeometryStatistics&) = default;
-  EncodedGeometryStatistics(EncodedGeometryStatistics&&) = default;
-  EncodedGeometryStatistics& operator=(const EncodedGeometryStatistics&) = default;
+  EncodedGeospatialStatistics() = default;
+  EncodedGeospatialStatistics(const EncodedGeospatialStatistics&) = default;
+  EncodedGeospatialStatistics(EncodedGeospatialStatistics&&) = default;
+  EncodedGeospatialStatistics& operator=(const EncodedGeospatialStatistics&) = default;
 
   double xmin{kInf};
   double xmax{-kInf};
@@ -46,29 +46,29 @@ class PARQUET_EXPORT EncodedGeometryStatistics {
   double zmax{-kInf};
   double mmin{kInf};
   double mmax{-kInf};
-  std::vector<int32_t> geometry_types;
+  std::vector<int32_t> geospatial_types;
 
   bool has_z() const { return (zmax - zmin) >= 0; }
 
   bool has_m() const { return (mmax - mmin) >= 0; }
 
-  bool is_set() const { return !geometry_types.empty(); }
+  bool is_set() const { return !geospatial_types.empty(); }
 };
 
-class GeometryStatisticsImpl;
+class GeospatialStatisticsImpl;
 
-class PARQUET_EXPORT GeometryStatistics {
+class PARQUET_EXPORT GeospatialStatistics {
  public:
-  GeometryStatistics();
-  explicit GeometryStatistics(std::unique_ptr<GeometryStatisticsImpl> impl);
-  explicit GeometryStatistics(const EncodedGeometryStatistics& encoded);
-  GeometryStatistics(GeometryStatistics&&);
+  GeospatialStatistics();
+  explicit GeospatialStatistics(std::unique_ptr<GeospatialStatisticsImpl> impl);
+  explicit GeospatialStatistics(const EncodedGeospatialStatistics& encoded);
+  GeospatialStatistics(GeospatialStatistics&&);
 
-  ~GeometryStatistics();
+  ~GeospatialStatistics();
 
-  bool Equals(const GeometryStatistics& other) const;
+  bool Equals(const GeospatialStatistics& other) const;
 
-  void Merge(const GeometryStatistics& other);
+  void Merge(const GeospatialStatistics& other);
 
   void Update(const ByteArray* values, int64_t num_values, int64_t null_count);
 
@@ -80,15 +80,15 @@ class PARQUET_EXPORT GeometryStatistics {
 
   void Reset();
 
-  EncodedGeometryStatistics Encode() const;
+  EncodedGeospatialStatistics Encode() const;
   std::string EncodeMin() const;
   std::string EncodeMax() const;
 
   bool is_valid() const;
 
-  std::shared_ptr<GeometryStatistics> clone() const;
+  std::shared_ptr<GeospatialStatistics> clone() const;
 
-  void Decode(const EncodedGeometryStatistics& encoded);
+  void Decode(const EncodedGeospatialStatistics& encoded);
 
   double GetXMin() const;
   double GetXMax() const;
@@ -105,7 +105,7 @@ class PARQUET_EXPORT GeometryStatistics {
   std::vector<int32_t> GetGeometryTypes() const;
 
  private:
-  std::unique_ptr<GeometryStatisticsImpl> impl_;
+  std::unique_ptr<GeospatialStatisticsImpl> impl_;
 };
 
 }  // namespace parquet

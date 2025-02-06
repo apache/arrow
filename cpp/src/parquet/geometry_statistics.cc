@@ -27,12 +27,12 @@ using arrow::util::SafeLoad;
 
 namespace parquet {
 
-class GeometryStatisticsImpl {
+class GeospatialStatisticsImpl {
  public:
-  GeometryStatisticsImpl() = default;
-  GeometryStatisticsImpl(const GeometryStatisticsImpl&) = default;
+  GeospatialStatisticsImpl() = default;
+  GeospatialStatisticsImpl(const GeospatialStatisticsImpl&) = default;
 
-  bool Equals(const GeometryStatisticsImpl& other) const {
+  bool Equals(const GeospatialStatisticsImpl& other) const {
     if (is_valid_ != other.is_valid_) {
       return false;
     }
@@ -41,14 +41,14 @@ class GeometryStatisticsImpl {
       return true;
     }
 
-    auto geometry_types = bounder_.GeometryTypes();
-    auto other_geometry_types = other.bounder_.GeometryTypes();
-    if (geometry_types.size() != other_geometry_types.size()) {
+    auto geospatial_types = bounder_.GeometryTypes();
+    auto other_geospatial_types = other.bounder_.GeometryTypes();
+    if (geospatial_types.size() != other_geospatial_types.size()) {
       return false;
     }
 
-    for (size_t i = 0; i < geometry_types.size(); i++) {
-      if (geometry_types[i] != other_geometry_types[i]) {
+    for (size_t i = 0; i < geospatial_types.size(); i++) {
+      if (geospatial_types[i] != other_geospatial_types[i]) {
         return false;
       }
     }
@@ -56,7 +56,7 @@ class GeometryStatisticsImpl {
     return bounder_.Bounds() == other.bounder_.Bounds();
   }
 
-  void Merge(const GeometryStatisticsImpl& other) {
+  void Merge(const GeospatialStatisticsImpl& other) {
     if (!is_valid_ || !other.is_valid_) {
       is_valid_ = false;
       return;
@@ -130,12 +130,12 @@ class GeometryStatisticsImpl {
     is_valid_ = true;
   }
 
-  EncodedGeometryStatistics Encode() const {
+  EncodedGeospatialStatistics Encode() const {
     const double* mins = bounder_.Bounds().min;
     const double* maxes = bounder_.Bounds().max;
 
-    EncodedGeometryStatistics out;
-    out.geometry_types = bounder_.GeometryTypes();
+    EncodedGeospatialStatistics out;
+    out.geospatial_types = bounder_.GeometryTypes();
 
     out.xmin = mins[0];
     out.xmax = maxes[0];
@@ -163,7 +163,7 @@ class GeometryStatisticsImpl {
     return geometry::MakeWKBPoint(maxes, has_z, has_m);
   }
 
-  void Update(const EncodedGeometryStatistics& encoded) {
+  void Update(const EncodedGeospatialStatistics& encoded) {
     if (!is_valid_) {
       return;
     }
@@ -185,7 +185,7 @@ class GeometryStatisticsImpl {
     }
 
     bounder_.ReadBox(box);
-    bounder_.ReadGeometryTypes(encoded.geometry_types);
+    bounder_.ReadGeometryTypes(encoded.geospatial_types);
   }
 
   bool is_valid() const { return is_valid_; }
@@ -201,109 +201,112 @@ class GeometryStatisticsImpl {
   bool is_valid_ = true;
 };
 
-GeometryStatistics::GeometryStatistics()
-    : impl_(std::make_unique<GeometryStatisticsImpl>()) {}
+GeospatialStatistics::GeospatialStatistics()
+    : impl_(std::make_unique<GeospatialStatisticsImpl>()) {}
 
-GeometryStatistics::GeometryStatistics(std::unique_ptr<GeometryStatisticsImpl> impl)
+GeospatialStatistics::GeospatialStatistics(std::unique_ptr<GeospatialStatisticsImpl> impl)
     : impl_(std::move(impl)) {}
 
-GeometryStatistics::GeometryStatistics(const EncodedGeometryStatistics& encoded)
-    : GeometryStatistics() {
+GeospatialStatistics::GeospatialStatistics(const EncodedGeospatialStatistics& encoded)
+    : GeospatialStatistics() {
   Decode(encoded);
 }
 
-GeometryStatistics::GeometryStatistics(GeometryStatistics&&) = default;
+GeospatialStatistics::GeospatialStatistics(GeospatialStatistics&&) = default;
 
-GeometryStatistics::~GeometryStatistics() = default;
+GeospatialStatistics::~GeospatialStatistics() = default;
 
-bool GeometryStatistics::Equals(const GeometryStatistics& other) const {
+bool GeospatialStatistics::Equals(const GeospatialStatistics& other) const {
   return impl_->Equals(*other.impl_);
 }
 
-void GeometryStatistics::Merge(const GeometryStatistics& other) {
+void GeospatialStatistics::Merge(const GeospatialStatistics& other) {
   impl_->Merge(*other.impl_);
 }
 
-void GeometryStatistics::Update(const ByteArray* values, int64_t num_values,
-                                int64_t null_count) {
+void GeospatialStatistics::Update(const ByteArray* values, int64_t num_values,
+                                  int64_t null_count) {
   impl_->Update(values, num_values, null_count);
 }
 
-void GeometryStatistics::UpdateSpaced(const ByteArray* values, const uint8_t* valid_bits,
-                                      int64_t valid_bits_offset,
-                                      int64_t num_spaced_values, int64_t num_values,
-                                      int64_t null_count) {
+void GeospatialStatistics::UpdateSpaced(const ByteArray* values,
+                                        const uint8_t* valid_bits,
+                                        int64_t valid_bits_offset,
+                                        int64_t num_spaced_values, int64_t num_values,
+                                        int64_t null_count) {
   impl_->UpdateSpaced(values, valid_bits, valid_bits_offset, num_spaced_values,
                       num_values, null_count);
 }
 
-void GeometryStatistics::Update(const ::arrow::Array& values) { impl_->Update(values); }
+void GeospatialStatistics::Update(const ::arrow::Array& values) { impl_->Update(values); }
 
-void GeometryStatistics::Reset() { impl_->Reset(); }
+void GeospatialStatistics::Reset() { impl_->Reset(); }
 
-bool GeometryStatistics::is_valid() const { return impl_->is_valid(); }
+bool GeospatialStatistics::is_valid() const { return impl_->is_valid(); }
 
-EncodedGeometryStatistics GeometryStatistics::Encode() const { return impl_->Encode(); }
+EncodedGeospatialStatistics GeospatialStatistics::Encode() const {
+  return impl_->Encode();
+}
 
-std::string GeometryStatistics::EncodeMin() const { return impl_->EncodeMin(); }
+std::string GeospatialStatistics::EncodeMin() const { return impl_->EncodeMin(); }
 
-std::string GeometryStatistics::EncodeMax() const { return impl_->EncodeMax(); }
+std::string GeospatialStatistics::EncodeMax() const { return impl_->EncodeMax(); }
 
-void GeometryStatistics::Decode(const EncodedGeometryStatistics& encoded) {
+void GeospatialStatistics::Decode(const EncodedGeospatialStatistics& encoded) {
   impl_->Update(encoded);
 }
 
-std::shared_ptr<GeometryStatistics> GeometryStatistics::clone() const {
-  std::unique_ptr<GeometryStatisticsImpl> impl =
-      std::make_unique<GeometryStatisticsImpl>(*impl_);
-  return std::make_shared<GeometryStatistics>(std::move(impl));
+std::shared_ptr<GeospatialStatistics> GeospatialStatistics::clone() const {
+  std::unique_ptr<GeospatialStatisticsImpl> impl =
+      std::make_unique<GeospatialStatisticsImpl>(*impl_);
+  return std::make_shared<GeospatialStatistics>(std::move(impl));
 }
 
-double GeometryStatistics::GetXMin() const {
+double GeospatialStatistics::GetXMin() const {
   const double* mins = impl_->GetMinBounds();
   return mins[0];
 }
 
-double GeometryStatistics::GetXMax() const {
+double GeospatialStatistics::GetXMax() const {
   const double* maxes = impl_->GetMaxBounds();
   return maxes[0];
 }
 
-double GeometryStatistics::GetYMin() const {
+double GeospatialStatistics::GetYMin() const {
   const double* mins = impl_->GetMinBounds();
   return mins[1];
 }
 
-double GeometryStatistics::GetYMax() const {
+double GeospatialStatistics::GetYMax() const {
   const double* maxes = impl_->GetMaxBounds();
   return maxes[1];
 }
 
-double GeometryStatistics::GetZMin() const {
+double GeospatialStatistics::GetZMin() const {
   const double* mins = impl_->GetMinBounds();
   return mins[2];
 }
 
-double GeometryStatistics::GetZMax() const {
+double GeospatialStatistics::GetZMax() const {
   const double* maxes = impl_->GetMaxBounds();
   return maxes[2];
 }
 
-double GeometryStatistics::GetMMin() const {
+double GeospatialStatistics::GetMMin() const {
   const double* mins = impl_->GetMinBounds();
   return mins[3];
 }
 
-double GeometryStatistics::GetMMax() const {
+double GeospatialStatistics::GetMMax() const {
   const double* maxes = impl_->GetMaxBounds();
   return maxes[3];
 }
 
-bool GeometryStatistics::HasZ() const { return (GetZMax() - GetZMin()) > 0; }
+bool GeospatialStatistics::HasZ() const { return (GetZMax() - GetZMin()) > 0; }
 
-bool GeometryStatistics::HasM() const { return (GetMMax() - GetMMin()) > 0; }
+bool GeospatialStatistics::HasM() const { return (GetMMax() - GetMMin()) > 0; }
 
-std::vector<int32_t> GeometryStatistics::GetGeometryTypes() const {
+std::vector<int32_t> GeospatialStatistics::GetGeometryTypes() const {
   return impl_->GetGeometryTypes();
 }
 

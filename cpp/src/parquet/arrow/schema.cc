@@ -21,6 +21,12 @@
 #include <string>
 #include <vector>
 
+// TODO(paleolimbot): Remove once example files are generated
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+
 #include "arrow/extension/json.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
@@ -243,6 +249,92 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   return Status::OK();
 }
 
+// TODO(paleolimbot): Remove once example files are written
+Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
+    const ::arrow::rapidjson::Document& document,
+    const ArrowWriterProperties& arrow_properties) {
+  namespace rj = ::arrow::rapidjson;
+
+  std::string crs_type;
+  if (document.HasMember("crs_type")) {
+    crs_type = document["crs_type"].GetString();
+  }
+
+  if (!document.HasMember("crs") || document["crs"].IsNull()) {
+    // Parquet GEOMETRY/GEOGRAPHY do not have a concept of a null/missing
+    // CRS, but an omitted one is more likely to have meant "lon/lat" than
+    // a truly unspecified one (i.e., Engineering CRS with arbitrary XY units)
+    return "";
+  }
+
+  const auto& json_crs = document["crs"];
+  if (json_crs.IsString() && crs_type == "srid") {
+    // srid is an application-specific identifier. GeoArrow lets this be propagated via
+    // "crs_type": "srid".
+    return std::string("srid:") + json_crs.GetString();
+  } else if (json_crs.IsString() &&
+             (json_crs == "EPSG:4326" || json_crs == "OGC:CRS84")) {
+    // crs can be left empty because these cases both correspond to
+    // longitude/latitude in WGS84 according to the Parquet specification
+    return "";
+  } else if (json_crs.IsObject()) {
+    if (json_crs.HasMember("id")) {
+      const auto& identifier = json_crs["id"];
+      if (identifier.HasMember("authority") && identifier.HasMember("code")) {
+        if (identifier["authority"] == "OGC" && identifier["code"] == "CRS84") {
+          // longitude/latitude
+          return "";
+        } else if (identifier["authority"] == "EPSG" && identifier["code"] == 4326) {
+          // longitude/latitude
+          return "";
+        }
+      }
+    }
+
+    // TODO(paleolimbot) this is not quite correct because we're supposed to put this
+    // in the metadata according to the spec. We need to find a way to put
+    // this in the arrow_properties/file metadata via a CrsProvider or something.
+    rj::StringBuffer buffer;
+    rj::Writer<rj::StringBuffer> writer(buffer);
+    document.Accept(writer);
+    return std::string("projjson:") + buffer.GetString();
+  } else {
+    // e.g., authority:code, WKT2, arbitrary string. A pluggable CrsProvider
+    // could handle these and return something we're allowed to write here.
+    return Status::Invalid("Unsupported GeoArrow CRS for Parquet");
+  }
+}
+
+Result<std::shared_ptr<const LogicalType>> GeospatialLogicalTypeFromArrow(
+    const std::string& serialized_data, const ArrowWriterProperties& arrow_properties) {
+  // Parquet has no way to interpret a null or missing CRS; however, it is more likely
+  // to induce confusion insert the fully specified equivalent of a null CRS (custom
+  // engineering CRS with unspecified units)
+  if (serialized_data.empty() || serialized_data == "{}") {
+    return LogicalType::Geometry();
+  }
+
+  namespace rj = ::arrow::rapidjson;
+  rj::Document document;
+  if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError()) {
+    return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(std::string crs,
+                        GeospatialGeoArrowCrsToParquetCrs(document, arrow_properties));
+
+  if (document.HasMember("edges") && document["edges"] == "planar") {
+    return LogicalType::Geometry(crs);
+  } else if (document.HasMember("edges") && document["edges"] == "spherical") {
+    return LogicalType::Geography(crs,
+                                  LogicalType::EdgeInterpolationAlgorithm::SPHERICAL);
+  } else if (document.HasMember("edges")) {
+    return Status::NotImplemented("GeoArrow edge type: ", serialized_data);
+  }
+
+  return LogicalType::Geometry(crs);
+}
+
 static constexpr char FIELD_ID_KEY[] = "PARQUET:field_id";
 
 std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
@@ -267,8 +359,8 @@ int FieldIdFromMetadata(
   if (::arrow::internal::ParseValue<::arrow::Int32Type>(
           field_id_str.c_str(), field_id_str.length(), &field_id)) {
     if (field_id < 0) {
-      // Thrift should convert any negative value to null but normalize to -1 here in case
-      // we later check this in logic.
+      // Thrift should convert any negative value to null but normalize to -1 here in
+      // case we later check this in logic.
       return -1;
     }
     return field_id;
@@ -428,13 +520,20 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
     case ArrowTypeId::EXTENSION: {
       auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(field->type());
-      // Built-in JSON extension is handled differently.
+      // Built-in JSON extension and GeoArrow are handled differently.
       if (ext_type->extension_name() == std::string("arrow.json")) {
         // Set physical and logical types and instantiate primitive node.
         type = ParquetType::BYTE_ARRAY;
         logical_type = LogicalType::JSON();
         break;
+      } else if (arrow_properties.write_geospatial_logical_types() &&
+                 ext_type->extension_name() == std::string("geoarrow.wkb")) {
+        type = ParquetType::BYTE_ARRAY;
+        ARROW_ASSIGN_OR_RAISE(logical_type, GeospatialLogicalTypeFromArrow(
+                                                ext_type->Serialize(), arrow_properties));
+        break;
       }
+
       std::shared_ptr<::arrow::Field> storage_field = ::arrow::field(
           name, ext_type->storage_type(), field->nullable(), field->metadata());
       return FieldToNode(name, storage_field, properties, arrow_properties, out);
@@ -578,8 +677,8 @@ Status MapToSchemaField(const GroupNode& group, LevelInfo current_levels,
     return Status::Invalid("Map keys must be annotated as required.");
   }
   // Arrow doesn't support 1 column maps (i.e. Sets).  The options are to either
-  // make the values column nullable, or process the map as a list.  We choose the latter
-  // as it is simpler.
+  // make the values column nullable, or process the map as a list.  We choose the
+  // latter as it is simpler.
   if (key_value.field_count() == 1) {
     return ListToSchemaField(group, current_levels, ctx, parent, out);
   }

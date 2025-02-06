@@ -175,15 +175,6 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
     return column_index_.repetition_level_histograms;
   }
 
-  const std::vector<EncodedGeometryStatistics>& encoded_geometry_statistics()
-      const override {
-    return encoded_geometry_statistics_;
-  }
-
-  const std::vector<GeometryStatistics>& geometry_statistics() const override {
-    return geometry_statistics_;
-  }
-
  private:
   /// Wrapped thrift column index.
   const format::ColumnIndex column_index_;
@@ -537,11 +528,6 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
       column_index_.repetition_level_histograms.insert(
           column_index_.repetition_level_histograms.end(), page_ref_level_hist.cbegin(),
           page_ref_level_hist.cend());
-    }
-
-    if (stats.has_geometry_statistics) {
-      column_index_.__isset.geometry_stats = true;
-      column_index_.geometry_stats.emplace_back(ToThrift(stats.geometry_statistics()));
     }
   }
 

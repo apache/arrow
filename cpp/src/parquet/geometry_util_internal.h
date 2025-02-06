@@ -599,7 +599,7 @@ class WKBGeometryBounder {
 
     // Keep track of geometry types encountered if at the top level
     if (record_wkb_type) {
-      geometry_types_.insert(static_cast<int32_t>(wkb_geometry_type));
+      geospatial_types_.insert(static_cast<int32_t>(wkb_geometry_type));
     }
 
     switch (geometry_type) {
@@ -631,14 +631,14 @@ class WKBGeometryBounder {
 
   void ReadBox(const BoundingBox& box) { box_.Merge(box); }
 
-  void ReadGeometryTypes(const std::vector<int32_t>& geometry_types) {
-    geometry_types_.insert(geometry_types.begin(), geometry_types.end());
+  void ReadGeometryTypes(const std::vector<int32_t>& geospatial_types) {
+    geospatial_types_.insert(geospatial_types.begin(), geospatial_types.end());
   }
 
   const BoundingBox& Bounds() const { return box_; }
 
   std::vector<int32_t> GeometryTypes() const {
-    std::vector<int32_t> out(geometry_types_.begin(), geometry_types_.end());
+    std::vector<int32_t> out(geospatial_types_.begin(), geospatial_types_.end());
     std::sort(out.begin(), out.end());
     return out;
   }
@@ -648,13 +648,13 @@ class WKBGeometryBounder {
   void Reset() {
     box_.Reset();
     bounder_.Reset();
-    geometry_types_.clear();
+    geospatial_types_.clear();
   }
 
  private:
   BoundingBox box_;
   WKBGenericSequenceBounder bounder_;
-  std::unordered_set<int32_t> geometry_types_;
+  std::unordered_set<int32_t> geospatial_types_;
 };
 
 #if defined(ARROW_LITTLE_ENDIAN)

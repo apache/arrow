@@ -233,11 +233,11 @@ static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
                      aesGcmCtrV1.supply_aad_prefix};
 }
 
-static inline EncodedGeometryStatistics FromThrift(
-    const format::GeometryStatistics& geometry_stats) {
-  EncodedGeometryStatistics out;
+static inline EncodedGeospatialStatistics FromThrift(
+    const format::GeospatialStatistics& geometry_stats) {
+  EncodedGeospatialStatistics out;
 
-  out.geometry_types = geometry_stats.geometry_types;
+  out.geospatial_types = geometry_stats.geospatial_types;
   out.xmin = geometry_stats.bbox.xmin;
   out.xmax = geometry_stats.bbox.xmax;
   out.ymin = geometry_stats.bbox.ymin;
@@ -356,10 +356,10 @@ static inline format::SortingColumn ToThrift(SortingColumn sorting_column) {
   return thrift_sorting_column;
 }
 
-static inline format::GeometryStatistics ToThrift(
-    const EncodedGeometryStatistics& encoded_geometry_stats) {
-  format::GeometryStatistics geometry_statistics;
-  geometry_statistics.__set_geometry_types(encoded_geometry_stats.geometry_types);
+static inline format::GeospatialStatistics ToThrift(
+    const EncodedGeospatialStatistics& encoded_geometry_stats) {
+  format::GeospatialStatistics geometry_statistics;
+  geometry_statistics.__set_geospatial_types(encoded_geometry_stats.geospatial_types);
   format::BoundingBox bbox;
   bbox.__set_xmin(encoded_geometry_stats.xmin);
   bbox.__set_xmax(encoded_geometry_stats.xmax);
