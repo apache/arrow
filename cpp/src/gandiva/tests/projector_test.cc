@@ -51,6 +51,74 @@ class TestProjector : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
+TEST_F(TestProjector, TestCastDecimalToString) {
+  auto field_decimal = field("field_decimal", arrow::decimal(38, 0));
+  auto field_int64 = field("field_int64", int64());
+  auto schema = arrow::schema({field_decimal, field_int64});
+
+  auto field_utf8 = field("result", arrow::utf8());
+  auto expr0 = TreeExprBuilder::MakeExpression("castVARCHAR",
+                                               {field_decimal, field_int64}, field_utf8);
+  std::shared_ptr<Projector> projector0;
+  ASSERT_OK(Projector::Make(schema, {expr0}, TestConfiguration(), &projector0));
+  EXPECT_FALSE(projector0->GetBuiltFromCache());
+}
+
+TEST_F(TestProjector, TestProjectStubFunctionCache) {
+  auto string_literal = TreeExprBuilder::MakeStringLiteral("abc");
+  auto int32_literal = TreeExprBuilder::MakeLiteral(3);
+  // schema for input fields
+  auto field0 = field("f0", utf8());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_res = field("result", utf8());
+
+  // Build expression
+  auto fn_node_0 = TreeExprBuilder::MakeFunction("mask_first_n",
+                                                 {string_literal, int32_literal}, utf8());
+  auto fn_node_1 = TreeExprBuilder::MakeFunction("mask_last_n",
+                                                 {string_literal, int32_literal}, utf8());
+  auto expr_0 = TreeExprBuilder::MakeExpression(fn_node_0, field_res);
+  auto expr_1 = TreeExprBuilder::MakeExpression(fn_node_1, field_res);
+
+  auto configuration = TestConfiguration();
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr_0, expr_1}, configuration, &projector);
+  ASSERT_OK(status);
+  EXPECT_FALSE(projector->GetBuiltFromCache());
+
+  // everything is same, should return the same projector.
+  auto schema_same = arrow::schema({field0});
+  std::shared_ptr<Projector> cached_projector;
+  status =
+      Projector::Make(schema_same, {expr_0, expr_1}, configuration, &cached_projector);
+  ASSERT_OK(status);
+  EXPECT_TRUE(cached_projector->GetBuiltFromCache());
+
+  //  // schema is different should return a new projector.
+  //  auto field2 = field("f2", int32());
+  //  auto different_schema = arrow::schema({field0, field1, field2});
+  //  std::shared_ptr<Projector> should_be_new_projector;
+  //  status = Projector::Make(different_schema, {sum_expr, sub_expr}, configuration,
+  //                           &should_be_new_projector);
+  //  ASSERT_OK(status);
+  //  EXPECT_FALSE(should_be_new_projector->GetBuiltFromCache());
+  //
+  //  // expression list is different should return a new projector.
+  //  std::shared_ptr<Projector> should_be_new_projector1;
+  //  status = Projector::Make(schema, {sum_expr}, configuration,
+  //  &should_be_new_projector1); ASSERT_OK(status);
+  //  EXPECT_FALSE(should_be_new_projector1->GetBuiltFromCache());
+  //
+  //  // another instance of the same configuration, should return the same projector.
+  //  status = Projector::Make(schema, {sum_expr, sub_expr}, TestConfiguration(),
+  //                           &cached_projector);
+  //  ASSERT_OK(status);
+  //  EXPECT_TRUE(cached_projector->GetBuiltFromCache());
+}
+
 TEST_F(TestProjector, TestProjectCache) {
   // schema for input fields
   auto field0 = field("f0", int32());
@@ -3677,6 +3745,57 @@ TEST_F(TestProjector, TestExtendedCFunctionThatNeedsContext) {
   auto array = MakeArrowArrayUtf8({"1", "2", "3", "10"}, {true, true, true, true});
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
   auto out = MakeArrowArrayUtf8({"1x2", "2x2", "3x2", "10x2"}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestLiteralProjection) {
+  auto in_field = field("in", arrow::int64());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::int64());
+  int64_t literal_value = 1LL;
+  auto literal = TreeExprBuilder::MakeExpression(
+      TreeExprBuilder::MakeLiteral(literal_value), out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {literal}, TestConfiguration(), &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayInt64({1, 2, 3, 4}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayInt64({1, 1, 1, 1}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestInExprProjection) {
+  auto field_in = field("in", int64());
+  auto schema = arrow::schema({field_in});
+
+  // output fields
+  auto field_result = field("res", boolean());
+
+  auto node_in = TreeExprBuilder::MakeField(field_in);
+
+  std::unordered_set<int64_t> values;
+  for (int64_t i = 1; i <= 8; i++) {
+    values.insert(i);
+  }
+  auto in_expr = TreeExprBuilder::MakeInExpressionInt64(node_in, values);
+  auto expr = TreeExprBuilder::MakeExpression(in_expr, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayInt64({0, 4, 8, 16}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayBool({false, true, true, false}, {true, true, true, true});
 
   arrow::ArrayVector outs;
   ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));

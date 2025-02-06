@@ -19,7 +19,6 @@
 
 import sys
 
-marker = b"<DATA_CHARS>"
 
 def expand(data):
     """
@@ -29,21 +28,26 @@ def expand(data):
     return expanded_data.encode('ascii')
 
 
-def apply_template(template, data):
+def apply_template(template, marker, data):
     if template.count(marker) != 1:
         raise ValueError("Invalid template")
     return template.replace(marker, expand(data))
 
+def read_file(filepath):
+    with open(filepath, "rb") as file:
+        return file.read()
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        raise ValueError("Usage: {0} <template file> <data file> "
+    if len(sys.argv) != 5:
+        raise ValueError("Usage: {0} <template file> <mandatory data file> <data file> "
                          "<output file>".format(sys.argv[0]))
-    with open(sys.argv[1], "rb") as f:
-        template = f.read()
-    with open(sys.argv[2], "rb") as f:
-        data = f.read()
 
-    expanded_data = apply_template(template, data)
-    with open(sys.argv[3], "wb") as f:
+    template = read_file(sys.argv[1])
+    mandatory_data = read_file(sys.argv[2])
+    data = read_file(sys.argv[3])
+
+    expanded_data = apply_template(template, b"<MANDATORY_DATA_CHARS>", mandatory_data)
+    expanded_data = apply_template(expanded_data, b"<DATA_CHARS>", data)
+
+    with open(sys.argv[4], "wb") as f:
         f.write(expanded_data)
