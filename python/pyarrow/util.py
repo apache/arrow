@@ -260,7 +260,7 @@ def download_tzdata_on_windows():
     os.makedirs(tzdata_path, exist_ok=True)
 
     # Try to download the files with requests and then fall back to urllib. This
-    # works around possiblssues in certain older environment (GH-45295)
+    # works around possible issues in certain older environment (GH-45295)
     try:
         download_requests(tzdata_url, tzdata_compressed_path)
         download_requests(windows_zones_url, windows_zones_path)
