@@ -21,7 +21,6 @@
 #include <string>
 #include <vector>
 #include "arrow/array.h"
-#include "arrow/util/logging.h"
 #include "parquet/level_conversion.h"
 
 using arrow::internal::checked_cast;
