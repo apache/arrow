@@ -18,7 +18,7 @@
 ARG FROM=almalinux:9
 FROM ${FROM}
 
-ENV SCL=gcc-toolset-12
+ENV SCL=gcc-toolset-12 GCC_MAJOR=12
 
 ARG DEBUG
 

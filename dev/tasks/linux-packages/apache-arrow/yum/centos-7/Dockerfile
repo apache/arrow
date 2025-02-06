@@ -19,6 +19,7 @@ ARG FROM=centos:7
 FROM ${FROM}
 
 ENV \
+  GCC_MAJOR=11 \
   SCL=devtoolset-11
 
 ARG DEBUG
