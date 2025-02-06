@@ -99,6 +99,7 @@ set(AWSSDK_UNUSED_DIRECTORIES
     aws-cpp-sdk-comprehend
     aws-cpp-sdk-comprehendmedical
     aws-cpp-sdk-compute-optimizer
+    aws-cpp-sdk-config
     aws-cpp-sdk-connect
     aws-cpp-sdk-connect-contact-lens
     aws-cpp-sdk-connectcampaigns
