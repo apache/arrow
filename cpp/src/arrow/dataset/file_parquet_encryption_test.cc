@@ -53,15 +53,13 @@ using arrow::internal::checked_pointer_cast;
 namespace arrow {
 namespace dataset {
 
-// Tests come in these variations
-enum EncryptionParam {
-  COLUMN_KEY,
-  UNIFORM,
+struct EncryptionTestParam {
+  bool uniform_encryption;   // false is using per-column keys
+  bool concurrently;
 };
 
 // Base class to test writing and reading encrypted dataset.
-class DatasetEncryptionTestBase
-    : public testing::TestWithParam<std::tuple<EncryptionParam, bool>> {
+class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionTestParam> {
  public:
   // This function creates a mock file system using the current time point, creates a
   // directory with the given base directory path, and writes a dataset to it using
@@ -99,13 +97,9 @@ class DatasetEncryptionTestBase
     auto encryption_config =
         std::make_shared<parquet::encryption::EncryptionConfiguration>(
             std::string(kFooterKeyName));
-    auto encryption = std::get<0>(GetParam());
-    if (encryption == COLUMN_KEY) {
+    encryption_config->uniform_encryption = GetParam().uniform_encryption;
+    if (!GetParam().uniform_encryption) {
       encryption_config->column_keys = kColumnKeyMapping;
-    } else if (encryption == UNIFORM) {
-      encryption_config->uniform_encryption = true;
-    } else {
-      FAIL() << "Unsupported encryption type " << encryption;
     }
 
     auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
@@ -121,7 +115,6 @@ class DatasetEncryptionTestBase
         std::move(parquet_encryption_config);
 
     // Write dataset.
-    auto concurrently = std::get<1>(GetParam());
     auto dataset = std::make_shared<InMemoryDataset>(table_);
     EXPECT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
     // ideally, we would have UseThreads(concurrently) here, but that is not working
@@ -129,7 +122,7 @@ class DatasetEncryptionTestBase
     ARROW_EXPECT_OK(scanner_builder->UseThreads(false));
     EXPECT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
 
-    if (concurrently) {
+    if (GetParam().concurrently) {
       // have a notable number of threads to exhibit multi-threading issues
       ASSERT_OK_AND_ASSIGN(auto pool, arrow::internal::ThreadPool::Make(16));
       std::vector<Future<>> threads;
@@ -202,8 +195,7 @@ class DatasetEncryptionTestBase
 
     ASSERT_OK_AND_ASSIGN(auto expected_table, table_->CombineChunks());
 
-    auto concurrently = std::get<1>(GetParam());
-    if (concurrently) {
+    if (GetParam().concurrently) {
       // Create the dataset
       ASSERT_OK_AND_ASSIGN(auto dataset, CreateDataset("thread-1", file_format));
 
@@ -247,7 +239,7 @@ class DatasetEncryptionTestBase
     // Read dataset into table
     ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
     ARROW_ASSIGN_OR_RAISE(auto scanner, scanner_builder->Finish());
-    ARROW_EXPECT_OK(scanner_builder->UseThreads(std::get<1>(GetParam())));
+    ARROW_EXPECT_OK(scanner_builder->UseThreads(GetParam().concurrently));
     ARROW_ASSIGN_OR_RAISE(auto read_table, scanner->ToTable());
 
     // Verify the data was read correctly
@@ -258,7 +250,7 @@ class DatasetEncryptionTestBase
   }
 
  protected:
-  std::string base_dir_ = std::get<1>(GetParam()) ? "thread-1" : std::string(kBaseDir);
+  std::string base_dir_ = GetParam().concurrently ? "thread-1" : std::string(kBaseDir);
   std::shared_ptr<fs::FileSystem> file_system_;
   std::shared_ptr<Table> table_;
   std::shared_ptr<Partitioning> partitioning_;
@@ -335,12 +327,13 @@ TEST_P(DatasetEncryptionTest, ReadSingleFile) {
 
 INSTANTIATE_TEST_SUITE_P(
     DatasetEncryptionTest, DatasetEncryptionTest,
-    ::testing::Values(std::tuple<EncryptionParam, bool>(COLUMN_KEY, false),
-                      std::tuple<EncryptionParam, bool>(UNIFORM, false)));
+    ::testing::Values(
+      EncryptionTestParam{false, false},
+      EncryptionTestParam{true, false}));
 INSTANTIATE_TEST_SUITE_P(
     DatasetEncryptionTestThreaded, DatasetEncryptionTest,
-    ::testing::Values(std::tuple<EncryptionParam, bool>(COLUMN_KEY, true),
-                      std::tuple<EncryptionParam, bool>(UNIFORM, true)));
+    ::testing::Values(EncryptionTestParam{false, true},
+                      EncryptionTestParam{true, true}));
 
 // GH-39444: This test covers the case where parquet dataset scanner crashes when
 // processing encrypted datasets over 2^15 rows in multi-threaded mode.
@@ -375,12 +368,12 @@ TEST_P(LargeRowCountEncryptionTest, ReadEncryptLargeRowCount) {
 
 INSTANTIATE_TEST_SUITE_P(
     LargeRowCountEncryptionTest, LargeRowCountEncryptionTest,
-    ::testing::Values(std::tuple<EncryptionParam, bool>(COLUMN_KEY, false),
-                      std::tuple<EncryptionParam, bool>(UNIFORM, false)));
+    ::testing::Values(EncryptionTestParam{false, false},
+                      EncryptionTestParam{true, false}));
 INSTANTIATE_TEST_SUITE_P(
     LargeRowCountEncryptionTestThreaded, LargeRowCountEncryptionTest,
-    ::testing::Values(std::tuple<EncryptionParam, bool>(COLUMN_KEY, true),
-                      std::tuple<EncryptionParam, bool>(UNIFORM, true)));
+    ::testing::Values(EncryptionTestParam{false, true},
+                      EncryptionTestParam{true, true}));
 
 }  // namespace dataset
 }  // namespace arrow
