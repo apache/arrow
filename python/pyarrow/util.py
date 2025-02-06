@@ -253,6 +253,6 @@ def download_tzdata_on_windows():
 
     tarfile.open(tzdata_compressed).extractall(tzdata_path)
 
-    with urlopen('https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml') as response_zones:   # noqa
+    with requests.get('https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml') as response_zones:   # noqa
         with open(os.path.join(tzdata_path, "windowsZones.xml"), 'wb') as f:
-            f.write(response_zones.read())
+            f.write(response_zones.content)
