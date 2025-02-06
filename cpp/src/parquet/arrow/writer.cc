@@ -589,6 +589,14 @@ Status WriteMetaDataFile(const FileMetaData& file_metadata,
   return Status::OK();
 }
 
+Status WriteEncryptedMetadataFile(
+    const FileMetaData& file_metadata, std::shared_ptr<::arrow::io::OutputStream> sink,
+    std::shared_ptr<FileEncryptionProperties> file_encryption_properties) {
+  PARQUET_CATCH_NOT_OK(::parquet::WriteEncryptedMetadataFile(file_metadata, sink,
+                                                             file_encryption_properties));
+  return Status::OK();
+}
+
 Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
                   std::shared_ptr<::arrow::io::OutputStream> sink, int64_t chunk_size,
                   std::shared_ptr<WriterProperties> properties,
