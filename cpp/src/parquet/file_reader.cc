@@ -259,9 +259,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     // The column is encrypted
-    std::shared_ptr<Decryptor> meta_decryptor = GetColumnMetaDecryptor(
+    std::function<std::shared_ptr<Decryptor>()> meta_decryptor = GetColumnMetaDecryptor(
         crypto_metadata.get(), file_metadata_->file_decryptor().get());
-    std::shared_ptr<Decryptor> data_decryptor = GetColumnDataDecryptor(
+    std::function<std::shared_ptr<Decryptor>()> data_decryptor = GetColumnDataDecryptor(
         crypto_metadata.get(), file_metadata_->file_decryptor().get());
     ARROW_DCHECK_NE(meta_decryptor, nullptr);
     ARROW_DCHECK_NE(data_decryptor, nullptr);
