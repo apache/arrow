@@ -163,6 +163,29 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::encrypted_
   return this;
 }
 
+void FileEncryptionProperties::encrypt_schema(const SchemaDescriptor& schema) {
+  // Check that all columns in columnEncryptionProperties exist in the schema.
+  auto encrypted_columns = encrypted_columns_;
+  // if columnEncryptionProperties is empty, every column in file schema will be
+  // encrypted with footer key.
+  if (encrypted_columns.size() != 0) {
+    std::vector<std::string> column_path_vec;
+    // First, save all column paths in schema.
+    for (int i = 0; i < schema.num_columns(); i++) {
+      column_path_vec.push_back(schema.Column(i)->path()->ToDotString());
+    }
+    // Check if column exists in schema.
+    for (const auto& elem : encrypted_columns) {
+      auto it = std::find(column_path_vec.begin(), column_path_vec.end(), elem.first);
+      if (it == column_path_vec.end()) {
+        std::stringstream ss;
+        ss << "Encrypted column " + elem.first + " not in file schema";
+        throw ParquetException(ss.str());
+      }
+    }
+  }
+}
+
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::aad_prefix(
     const std::string& aad_prefix) {
   if (aad_prefix.empty()) return this;
