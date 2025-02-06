@@ -3,8 +3,7 @@ Section: devel
 Priority: optional
 Maintainer: Apache Arrow Developers <dev@arrow.apache.org>
 Build-Depends:
-# TODO: Enable this after we drop support for Ubuntu 22.04.
-#  cmake,
+  cmake,
   debhelper (>= 12),
   gi-docgen,
   git,
