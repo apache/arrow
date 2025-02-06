@@ -245,7 +245,7 @@ def download_tzdata_on_windows():
     os.makedirs(tzdata_path, exist_ok=True)
 
     import requests
-    with requests.get('https://data.iana.org/time-zones/tzdata-latest.tar.gz') as response:
+    with requests.get('https://data.iana.org/time-zones/tzdata-latest.tar.gz') as response:  # noqa
         with open(tzdata_compressed, 'wb') as f:
             f.write(response.content)
 
