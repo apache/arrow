@@ -661,6 +661,8 @@ class ARROW_EXPORT StructArray : public Array {
  public:
   using TypeClass = StructType;
 
+  ~StructArray() override;
+
   explicit StructArray(const std::shared_ptr<ArrayData>& data);
 
   StructArray(const std::shared_ptr<DataType>& type, int64_t length,
@@ -720,8 +722,10 @@ class ARROW_EXPORT StructArray : public Array {
 
  private:
   // For caching boxed child data
-  // XXX This is not handled in a thread-safe manner.
-  mutable ArrayVector boxed_fields_;
+  struct ARROW_NO_EXPORT Impl;
+  std::unique_ptr<Impl> impl_;
+
+  std::shared_ptr<Array> MakeBoxedField(int pos) const;
 };
 
 // ----------------------------------------------------------------------
@@ -731,6 +735,8 @@ class ARROW_EXPORT StructArray : public Array {
 class ARROW_EXPORT UnionArray : public Array {
  public:
   using type_code_t = int8_t;
+
+  ~UnionArray() override;
 
   /// Note that this buffer does not account for any slice offset
   const std::shared_ptr<Buffer>& type_codes() const { return data_->buffers[1]; }
@@ -754,19 +760,27 @@ class ARROW_EXPORT UnionArray : public Array {
   std::shared_ptr<Array> field(int pos) const;
 
  protected:
+  UnionArray();
+
   void SetData(std::shared_ptr<ArrayData> data);
 
   const type_code_t* raw_type_codes_;
   const UnionType* union_type_;
 
+ private:
   // For caching boxed child data
-  mutable std::vector<std::shared_ptr<Array>> boxed_fields_;
+  struct ARROW_NO_EXPORT Impl;
+  std::unique_ptr<Impl> impl_;
+
+  std::shared_ptr<Array> MakeBoxedField(int pos) const;
 };
 
 /// Concrete Array class for sparse union data
 class ARROW_EXPORT SparseUnionArray : public UnionArray {
  public:
   using TypeClass = SparseUnionType;
+
+  ~SparseUnionArray() override;
 
   explicit SparseUnionArray(std::shared_ptr<ArrayData> data);
 
@@ -820,6 +834,8 @@ class ARROW_EXPORT SparseUnionArray : public UnionArray {
 class ARROW_EXPORT DenseUnionArray : public UnionArray {
  public:
   using TypeClass = DenseUnionType;
+
+  ~DenseUnionArray() override;
 
   explicit DenseUnionArray(const std::shared_ptr<ArrayData>& data);
 

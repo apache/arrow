@@ -18,6 +18,8 @@
 ARG FROM=quay.io/centos/centos:stream8
 FROM ${FROM}
 
+ENV SCL=gcc-toolset-12
+
 ARG DEBUG
 
 # GH-42128
@@ -30,8 +32,11 @@ RUN sed -i \
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  dnf install -y ${quiet} epel-release && \
+  dnf install -y ${quiet} \
+    epel-release && \
   dnf install --enablerepo=powertools -y ${quiet} \
+    ${SCL}-annobin-plugin-gcc \
+    ${SCL}-gcc-c++ \
     bison \
     boost-devel \
     brotli-devel \
@@ -42,7 +47,6 @@ RUN \
     cmake \
     curl-devel \
     flex \
-    gcc-c++ \
     gflags-devel \
     git \
     glog-devel \
@@ -54,7 +58,6 @@ RUN \
     llvm-devel \
     llvm-static \
     lz4-devel \
-    make \
     ncurses-devel \
     ninja-build \
     openssl-devel \
