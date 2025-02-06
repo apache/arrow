@@ -107,11 +107,11 @@ class InternalFileDecryptor {
 };
 
 /// Utility to get column meta decryptor of an encrypted column.
-std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
+std::function<std::shared_ptr<Decryptor>()> GetColumnMetaDecryptor(
     const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor);
 
 /// Utility to get column data decryptor of an encrypted column.
-std::shared_ptr<Decryptor> GetColumnDataDecryptor(
+std::function<std::shared_ptr<Decryptor>()> GetColumnDataDecryptor(
     const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor);
 
 void UpdateDecryptor(const std::shared_ptr<Decryptor>& decryptor,

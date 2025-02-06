@@ -194,18 +194,22 @@ std::shared_ptr<Decryptor> GetColumnDecryptor(
 
 }  // namespace
 
-std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
+std::function<std::shared_ptr<Decryptor>()> GetColumnMetaDecryptor(
     const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor) {
-  return GetColumnDecryptor(crypto_metadata, file_decryptor,
-                            &InternalFileDecryptor::GetColumnMetaDecryptor,
-                            /*metadata=*/true);
+  return [&]() -> std::shared_ptr<Decryptor> {
+    return GetColumnDecryptor(crypto_metadata, file_decryptor,
+               &InternalFileDecryptor::GetColumnMetaDecryptor,
+               /*metadata=*/true);
+  };
 }
 
-std::shared_ptr<Decryptor> GetColumnDataDecryptor(
+std::function<std::shared_ptr<Decryptor>()> GetColumnDataDecryptor(
     const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor) {
-  return GetColumnDecryptor(crypto_metadata, file_decryptor,
-                            &InternalFileDecryptor::GetColumnDataDecryptor,
-                            /*metadata=*/false);
+  return [&]() -> std::shared_ptr<Decryptor> {
+    return GetColumnDecryptor(crypto_metadata, file_decryptor,
+                              &InternalFileDecryptor::GetColumnDataDecryptor,
+                              /*metadata=*/false);
+  };
 }
 
 void UpdateDecryptor(const std::shared_ptr<Decryptor>& decryptor,

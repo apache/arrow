@@ -338,16 +338,16 @@ class SerializedPageReader : public PageReader {
 
 void SerializedPageReader::InitDecryption() {
   // Prepare the AAD for quick update later.
-  if (crypto_ctx_.data_decryptor != nullptr) {
-    ARROW_DCHECK(!crypto_ctx_.data_decryptor->file_aad().empty());
-    data_decryptor_ = std::make_shared<Decryptor>(*crypto_ctx_.data_decryptor);
+  if (crypto_ctx_.data_decryptor) {
+    data_decryptor_ = crypto_ctx_.data_decryptor();
+    ARROW_DCHECK(!data_decryptor_->file_aad().empty());
     data_page_aad_ = encryption::CreateModuleAad(
         data_decryptor_->file_aad(), encryption::kDataPage, crypto_ctx_.row_group_ordinal,
         crypto_ctx_.column_ordinal, kNonPageOrdinal);
   }
-  if (crypto_ctx_.meta_decryptor != nullptr) {
-    ARROW_DCHECK(!crypto_ctx_.meta_decryptor->file_aad().empty());
-    meta_decryptor_ = std::make_shared<Decryptor>(*crypto_ctx_.meta_decryptor);
+  if (crypto_ctx_.meta_decryptor) {
+    meta_decryptor_ = crypto_ctx_.meta_decryptor();
+    ARROW_DCHECK(!meta_decryptor_->file_aad().empty());
     data_page_header_aad_ = encryption::CreateModuleAad(
         meta_decryptor_->file_aad(), encryption::kDataPageHeader,
         crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
