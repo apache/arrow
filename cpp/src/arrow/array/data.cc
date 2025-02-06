@@ -68,6 +68,15 @@ static inline void AdjustNonNullable(Type::type type_id, int64_t length,
 
 namespace internal {
 
+void AdjustNonNullable(ArrayData* array_data) {
+  int64_t null_count = kUnknownNullCount;
+  AdjustNonNullable(array_data->type->id(), array_data->length, &array_data->buffers,
+                    &null_count);
+  if (null_count != kUnknownNullCount) {
+    array_data->null_count.store(null_count, std::memory_order_release);
+  }
+}
+
 bool IsNullSparseUnion(const ArrayData& data, int64_t i) {
   auto* union_type = checked_cast<const SparseUnionType*>(data.type.get());
   const auto* types = reinterpret_cast<const int8_t*>(data.buffers[1]->data());

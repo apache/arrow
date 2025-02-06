@@ -1000,7 +1000,6 @@ cdef class Array(_PandasConvertible):
         -------
         cast : Array
         """
-        self._assert_cpu()
         return _pc().cast(self, target_type, safe=safe,
                           options=options, memory_pool=memory_pool)
 
@@ -1042,7 +1041,6 @@ cdef class Array(_PandasConvertible):
         sum : Scalar
             A scalar containing the sum value.
         """
-        self._assert_cpu()
         options = _pc().ScalarAggregateOptions(**kwargs)
         return _pc().call_function('sum', [self], options)
 
@@ -1055,7 +1053,6 @@ cdef class Array(_PandasConvertible):
         unique : Array
             An array of the same data type, with deduplicated elements.
         """
-        self._assert_cpu()
         return _pc().call_function('unique', [self])
 
     def dictionary_encode(self, null_encoding='mask'):
@@ -1074,7 +1071,6 @@ cdef class Array(_PandasConvertible):
         encoded : DictionaryArray
             A dictionary-encoded version of this array.
         """
-        self._assert_cpu()
         options = _pc().DictionaryEncodeOptions(null_encoding)
         return _pc().call_function('dictionary_encode', [self], options)
 
@@ -1087,7 +1083,6 @@ cdef class Array(_PandasConvertible):
         StructArray
             An array of  <input type "Values", int64 "Counts"> structs
         """
-        self._assert_cpu()
         return _pc().call_function('value_counts', [self])
 
     @staticmethod
@@ -1367,7 +1362,6 @@ cdef class Array(_PandasConvertible):
         -------
         array : boolean Array
         """
-        self._assert_cpu()
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
 
@@ -1379,14 +1373,12 @@ cdef class Array(_PandasConvertible):
         -------
         array : boolean Array
         """
-        self._assert_cpu()
         return _pc().call_function('is_nan', [self])
 
     def is_valid(self):
         """
         Return BooleanArray indicating the non-null values.
         """
-        self._assert_cpu()
         return _pc().is_valid(self)
 
     def fill_null(self, fill_value):
@@ -1403,7 +1395,6 @@ cdef class Array(_PandasConvertible):
         result : Array
             A new array with nulls replaced by the given value.
         """
-        self._assert_cpu()
         return _pc().fill_null(self, fill_value)
 
     def __getitem__(self, key):
@@ -1478,14 +1469,12 @@ cdef class Array(_PandasConvertible):
         taken : Array
             An array with the same datatype, containing the taken values.
         """
-        self._assert_cpu()
         return _pc().take(self, indices)
 
     def drop_null(self):
         """
         Remove missing values from an array.
         """
-        self._assert_cpu()
         return _pc().drop_null(self)
 
     def filter(self, object mask, *, null_selection_behavior='drop'):
@@ -1507,7 +1496,6 @@ cdef class Array(_PandasConvertible):
             An array of the same type, with only the elements selected by
             the boolean mask.
         """
-        self._assert_cpu()
         return _pc().filter(self, mask,
                             null_selection_behavior=null_selection_behavior)
 
@@ -1533,7 +1521,6 @@ cdef class Array(_PandasConvertible):
         index : Int64Scalar
             The index of the value in the array (-1 if not found).
         """
-        self._assert_cpu()
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
     def sort(self, order="ascending", **kwargs):
@@ -1553,7 +1540,6 @@ cdef class Array(_PandasConvertible):
         -------
         result : Array
         """
-        self._assert_cpu()
         indices = _pc().sort_indices(
             self,
             options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
@@ -1565,8 +1551,6 @@ cdef class Array(_PandasConvertible):
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
     def __array__(self, dtype=None, copy=None):
-        self._assert_cpu()
-
         if copy is False:
             try:
                 values = self.to_numpy(zero_copy_only=True)
@@ -1659,7 +1643,6 @@ cdef class Array(_PandasConvertible):
         -------
         lst : list
         """
-        self._assert_cpu()
         return [x.as_py() for x in self]
 
     def tolist(self):
