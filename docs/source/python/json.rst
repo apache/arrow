@@ -115,3 +115,20 @@ and pass it to :func:`read_json`.  For example, you can pass an explicit
 
 Similarly, you can choose performance settings by passing a
 :class:`ReadOptions` instance to :func:`read_json`.
+
+
+Incremental reading
+-------------------
+
+For memory-constrained environments, it is also possible to read a JSON file
+one batch at a time, using :func:`open_json`.
+
+There are a few caveats:
+
+1. For now, the incremental reader is always single-threaded (regardless of
+   :attr:`ReadOptions.use_threads`)
+
+2. Type inference is done on the first block and types are frozen afterwards;
+   to make sure the right data types are inferred, either set
+   :attr:`ReadOptions.block_size` to a large enough value, or use
+   :attr:`ParseOptions.explicit_schema` to set the desired data types explicitly.
