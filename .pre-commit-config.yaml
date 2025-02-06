@@ -197,3 +197,8 @@ repos:
           ?^c_glib/test/run-test\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
           )
+  - repo: https://github.com/trim21/pre-commit-mirror-meson
+    rev: v1.6.1
+    hooks:
+      - id: meson-fmt
+        args: ['--inplace']
