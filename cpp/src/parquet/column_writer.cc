@@ -1040,7 +1040,8 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
       compressed_values = compressor_temp_buffer_;
       page_is_compressed = true;
     }
-  } else {
+  }
+  if (!page_is_compressed) {
     compressed_values = values;
   }
 
