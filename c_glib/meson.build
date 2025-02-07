@@ -20,7 +20,7 @@
 project('arrow-glib', 'c', 'cpp',
         default_options: [
           'c_std=c99',
-          'cpp_std=c++17',
+          'cpp_std=c++20',
         ],
         license: 'Apache-2.0',
         # Debian:
