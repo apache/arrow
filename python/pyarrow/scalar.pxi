@@ -882,10 +882,17 @@ cdef class MapScalar(ListScalar):
 
     def as_py(self):
         """
-        Return this value as a Python list.
+        Return this value as a Python dict.
         """
-        cdef CStructScalar* sp = <CStructScalar*> self.wrapped.get()
-        return list(self) if sp.is_valid else None
+        if self.is_valid:
+            try:
+                return {k: self[k].as_py() for k in self.keys()}
+            except KeyError:
+                raise ValueError(
+                    "Converting to Python dictionary is not supported when "
+                    "duplicate field names are present")
+        else:
+            return None
 
 
 cdef class DictionaryScalar(Scalar):
