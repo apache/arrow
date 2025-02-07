@@ -237,7 +237,7 @@ def _download_urllib(url, out_path):
             f.write(response.read())
 
 
-def download_requests(url, out_path):
+def _download_requests(url, out_path):
     import requests
     with requests.get(url) as response:
         with open(out_path, 'wb') as f:
@@ -264,11 +264,11 @@ def download_tzdata_on_windows():
     # Try to download the files with requests and then fall back to urllib. This
     # works around possible issues in certain older environment (GH-45295)
     try:
-        download_requests(tzdata_url, tzdata_compressed_path)
-        download_requests(windows_zones_url, windows_zones_path)
+        _download_requests(tzdata_url, tzdata_compressed_path)
+        _download_requests(windows_zones_url, windows_zones_path)
     except ImportError:
-        download_urllib(tzdata_url, tzdata_compressed_path)
-        download_urllib(windows_zones_url, windows_zones_path)
+        _download_urllib(tzdata_url, tzdata_compressed_path)
+        _download_urllib(windows_zones_url, windows_zones_path)
 
     assert os.path.exists(tzdata_compressed_path)
     assert os.path.exists(windows_zones_path)
