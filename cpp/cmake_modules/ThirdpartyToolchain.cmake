@@ -5075,7 +5075,6 @@ function(build_awssdk)
   if(UNIX AND NOT APPLE)
     list(APPEND AWSSDK_PRODUCTS aws-lc s2n-tls)
   endif()
-  list(APPEND AWSSDK_PRODUCTS aws-checksums)
   list(APPEND
        AWSSDK_PRODUCTS
        # We can't sort this in alphabetical order because some
