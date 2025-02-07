@@ -1088,14 +1088,6 @@ tasks:
         PYTEST_ARGS: "-m hypothesis -W error"
       image: conda-python-pandas
 
-  test-conda-python-3.10-substrait:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: "3.10"
-      image: conda-python-substrait
-
   test-ubuntu-22.04-python-313-freethreading:
     ci: github
     template: docker-tests/github.linux.yml
