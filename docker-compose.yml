@@ -1591,11 +1591,11 @@ services:
         - ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
       args:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
+        cmake: ${CMAKE}
         r_dev: ${ARROW_R_DEV}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
-        cmake: ${CMAKE}
     shm_size: *shm-size
     environment:
       <<: [*common, *sccache]
@@ -2045,9 +2045,9 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
       args:
-        repo: ${REPO}
         arch: ${ARCH}
         cmake: ${CMAKE}
+        repo: ${REPO}
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
