@@ -350,7 +350,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
   // Set up offset and data buffer
   OffsetBuilder offset_builder(ctx->memory_pool());
-  RETURN_NOT_OK(offset_builder.Reserve(batch.length + 1));
+  RETURN_NOT_OK(offset_builder.Reserve(input.length + 1));
   offset_builder.UnsafeAppend(0);  // offsets start at 0
   const int64_t sum_of_binary_view_sizes = util::SumOfBinaryViewSizes(
       input.GetValues<BinaryViewType::c_type>(1), input.length);
