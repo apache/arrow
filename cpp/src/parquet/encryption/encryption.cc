@@ -181,7 +181,8 @@ void FileEncryptionProperties::encrypt_schema(const SchemaDescriptor& schema) {
         column_path_vec.emplace_back(schema_path, column_path);
       }
     }
-    // Sort them alphabetically, so that we can use binary-search and look up parent columns.
+    // Sort them alphabetically, so that we can use binary-search and look up parent
+    // columns.
     std::sort(column_path_vec.begin(), column_path_vec.end());
 
     // Check if encrypted column exists in schema, or if it is a parent field of a column.
@@ -192,17 +193,19 @@ void FileEncryptionProperties::encrypt_schema(const SchemaDescriptor& schema) {
       // first we look up encrypted_columns as
       // find first column that equals encrypted_column or starts with encrypted_column
       auto it = std::lower_bound(
-        column_path_vec.begin(), column_path_vec.end(), encrypted_column,
-        [&](const std::pair<std::string, std::string>& item, const std::string& term) {
-          return item.first < term;
-        });
+          column_path_vec.begin(), column_path_vec.end(), encrypted_column,
+          [&](const std::pair<std::string, std::string>& item, const std::string& term) {
+            return item.first < term;
+          });
       bool matches = false;
 
-      // encrypted_column encrypts column 'it' when 'it' is either equal to encrypted_column,
-      // or 'it' starts with encrypted_column followed by a '.'
-      while (it != column_path_vec.end() && (it->first == encrypted_column ||
-        (it->first.size() > encrypted_column_len && it->first.substr(0, encrypted_column_len) == encrypted_column && it->first.at(encrypted_column_len) == '.')
-      )) {
+      // encrypted_column encrypts column 'it' when 'it' is either equal to
+      // encrypted_column, or 'it' starts with encrypted_column followed by a '.'
+      while (it != column_path_vec.end() &&
+             (it->first == encrypted_column ||
+              (it->first.size() > encrypted_column_len &&
+               it->first.substr(0, encrypted_column_len) == encrypted_column &&
+               it->first.at(encrypted_column_len) == '.'))) {
         // count columns encrypted by encrypted_column
         matches = true;
 
