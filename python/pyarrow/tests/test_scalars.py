@@ -69,7 +69,7 @@ import pyarrow.compute as pc
     (pa.MonthDayNano([1, -1, -10100]), None,
      pa.MonthDayNanoIntervalScalar),
     ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar),
-    ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar),
+    ({'a': 1, 'b': 2}, pa.map_(pa.string(), pa.int8()), pa.MapScalar),
 ])
 def test_basics(value, ty, klass, pickle_module):
     s = pa.scalar(value, type=ty)
@@ -757,7 +757,7 @@ def test_map(pickle_module):
     assert len(s) == 2
     assert isinstance(s, pa.MapScalar)
     assert isinstance(s.values, pa.Array)
-    assert repr(s) == "<pyarrow.MapScalar: [('a', 1), ('b', 2)]>"
+    assert repr(s) == "<pyarrow.MapScalar: {'a': 1, 'b': 2}>"
     assert s.values.to_pylist() == [
         {'key': 'a', 'value': 1},
         {'key': 'b', 'value': 2}

@@ -2055,7 +2055,7 @@ def test_map_from_dicts():
             [{'key': b'd', 'value': 4}, {'key': b'e', 'value': 5},
              {'key': b'f', 'value': None}],
             [{'key': b'g', 'value': 7}]]
-    expected = [[(d['key'], d['value']) for d in entry] for entry in data]
+    expected = [[{'key': d['key'], 'value': d['value']} for d in entry] for entry in data]
 
     arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
 
@@ -2088,7 +2088,7 @@ def test_map_from_tuples():
 
     arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
 
-    assert arr.to_pylist() == expected
+    assert arr.to_pylist() == [{b'a': 1, b'b':2}, {b'c': 3}, {b'd': 4, b'e': 5, b'f': None}, {b'g': 7}]
 
     # With omitted values
     expected[1] = None
