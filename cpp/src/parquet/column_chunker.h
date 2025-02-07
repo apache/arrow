@@ -574,8 +574,8 @@ class FastCDC {
   FastCDC(const LevelInfo& level_info, uint64_t avg_len, uint8_t granurality_level = 5)
       : level_info_(level_info),
         avg_len_(avg_len == 0 ? AVG_LEN : avg_len),
-        min_len_(static_cast<uint64_t>(avg_len_ * 0.6)),
-        max_len_(static_cast<uint64_t>(avg_len_ * 1.4)),
+        min_len_(static_cast<uint64_t>(avg_len_ * 0.5)),
+        max_len_(static_cast<uint64_t>(avg_len_ * 2.0)),
         hash_mask_(GetMask(avg_len_, granurality_level + 3)) {}
 
   template <typename T>
@@ -589,9 +589,7 @@ class FastCDC {
     bool match = false;
     for (size_t i = 0; i < BYTE_WIDTH; ++i) {
       rolling_hash_ = (rolling_hash_ << 1) + GEAR_HASH_TABLE[nth_run_][bytes[i]];
-      if ((rolling_hash_ & hash_mask_) == 0) {
-        match = true;
-      }
+      match |= (rolling_hash_ & hash_mask_) == 0;
     }
     return match;
   }
@@ -605,23 +603,17 @@ class FastCDC {
     for (char c : value) {
       rolling_hash_ =
           (rolling_hash_ << 1) + GEAR_HASH_TABLE[nth_run_][static_cast<uint8_t>(c)];
-      if ((rolling_hash_ & hash_mask_) == 0) {
-        match = true;
-      }
+      match |= (rolling_hash_ & hash_mask_) == 0;
     }
     return match;
   }
 
   inline bool Check(bool match) {
-    if (match) {
-      if (++nth_run_ >= 7) {
-        nth_run_ = 0;
-        chunk_size_ = 0;
-        return true;
-      } else {
-        return false;
-      }
-    } else if (chunk_size_ >= max_len_) {
+    if (ARROW_PREDICT_FALSE(match && (++nth_run_ >= 7))) {
+      nth_run_ = 0;
+      chunk_size_ = 0;
+      return true;
+    } else if (ARROW_PREDICT_FALSE(chunk_size_ >= max_len_)) {
       chunk_size_ = 0;
       return true;
     } else {
@@ -693,7 +685,7 @@ class FastCDC {
 
         def_match = Roll(def_level);
         rep_match = Roll(rep_level);
-        if (def_level >= level_info_.repeated_ancestor_def_level) {
+        if (ARROW_PREDICT_TRUE(def_level >= level_info_.repeated_ancestor_def_level)) {
           val_match = Roll(leaf_array.GetView(value_offset));
           ++value_offset;
         } else {
