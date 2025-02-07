@@ -27,7 +27,8 @@ body:
         passers-by who are unfamiliar with Apache Software Foundation projects
         to ask questions and interact with the project, we encourage users to
         ask such questions on the [public mailing
-        lists](https://arrow.apache.org/community/):
+        lists](https://arrow.apache.org/community/) as these provide higher
+        visibility than GitHub issues:
 
         * For usage questions, please email user@arrow.apache.org (first
         subscribe by sending an e-mail to user-subscribe@arrow.apache.org).
