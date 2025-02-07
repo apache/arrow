@@ -748,7 +748,8 @@ An example encryption configuration:
 
       OSError: Encrypted column col not in file schema
 
-An example encryption configuration for columns with nested fields:
+An example encryption configuration for columns with nested fields, where
+all of the columns will be encrypted with the key identified by `column_key_id`:
 
 .. code-block:: python
 
@@ -761,7 +762,7 @@ An example encryption configuration for columns with nested fields:
    encryption_config = pq.EncryptionConfiguration(
       footer_key="footer_key_name",
       column_keys={
-         "column_key_name": [
+         "column_key_id": [
            "ListColumn.list.element",
            "MapColumn.key_value.key", "MapColumn.key_value.value",
            "StructColumn.f1", "StructColumn.f2"

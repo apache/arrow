@@ -635,7 +635,7 @@ An example for writing a dataset using encrypted Parquet file format:
    ARROW_CHECK_OK(FileSystemDataset::Write(write_options, std::move(scanner)));
 
 Column encryption is configured by setting ``encryption_config->column_keys`` to a string
-of the format ``"masterKeyID:colName,colName;masterKeyID:colName..."``.
+of the format ``"columnKeyID:colName,colName;columnKeyID:colName..."``.
 
 Encrypting columns that have nested fields (for instance struct, map, or even list data types)
 require configuring column keys for the inner fields, not the column itself.
@@ -655,7 +655,7 @@ An example encryption configuration for columns with nested fields:
      field("StructColumn", struct_({field("f1", int32()), field("f2", utf8())})),
    });
 
-   encryption_config->column_keys = "column_key_name: "
+   encryption_config->column_keys = "column_key_id: "
                                     "ListColumn.list.element, "
                                     "MapColumn.key_value.key, MapColumn.key_value.value, "
                                     "StructColumn.f1, StructColumn.f2"
