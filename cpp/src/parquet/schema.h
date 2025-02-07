@@ -84,7 +84,8 @@ class PARQUET_EXPORT ColumnPath {
 
   static std::shared_ptr<ColumnPath> FromDotString(const std::string& dotstring);
   static std::shared_ptr<ColumnPath> FromNode(const Node& node);
-  static std::shared_ptr<ColumnPath> FromNode(const Node& node, bool filter_converted_types);
+  static std::shared_ptr<ColumnPath> FromNode(const Node& node,
+                                              bool filter_converted_types);
 
   std::shared_ptr<ColumnPath> extend(const std::string& node_name) const;
   std::string ToDotString() const;
@@ -133,7 +134,7 @@ class PARQUET_EXPORT Node {
 
   const std::shared_ptr<ColumnPath> path() const;
 
- const std::shared_ptr<ColumnPath> schema_path() const;
+  const std::shared_ptr<ColumnPath> schema_path() const;
 
   virtual void ToParquet(void* element) const = 0;
 
@@ -389,7 +390,7 @@ class PARQUET_EXPORT ColumnDescriptor {
 
   const std::shared_ptr<schema::ColumnPath> path() const;
 
- const std::shared_ptr<schema::ColumnPath> schema_path() const;
+  const std::shared_ptr<schema::ColumnPath> schema_path() const;
 
   const schema::NodePtr& schema_node() const { return node_; }
 

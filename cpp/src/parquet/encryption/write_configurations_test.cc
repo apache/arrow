@@ -229,22 +229,17 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
 
   std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
       encryption_cols;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_21(
-      "a_map");
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_22(
-    "a_list");
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_23(
-    "a_struct");
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_24(
-    "b_map.key");
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_21("a_map");
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_22("a_list");
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_23("a_struct");
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_24("b_map.key");
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_25(
-    "b_map.key_value.value");
+      "b_map.key_value.value");
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_26(
-    "b_list.list.element");
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_27(
-    "b_struct.f1");
+      "b_list.list.element");
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_27("b_struct.f1");
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_28(
-    "c_list.element");
+      "c_list.element");
 
   encryption_col_builder_21.key(kColumnEncryptionKey_)->key_id("kc1");
   encryption_col_builder_22.key(kColumnEncryptionKey_)->key_id("kc1");
@@ -264,45 +259,75 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
   encryption_cols["b_struct.f1"] = encryption_col_builder_27.build();
   encryption_cols["c_list.element"] = encryption_col_builder_28.build();
 
-  parquet::FileEncryptionProperties::Builder file_encryption_builder(kFooterEncryptionKey_);
+  parquet::FileEncryptionProperties::Builder file_encryption_builder(
+      kFooterEncryptionKey_);
   file_encryption_builder.encrypted_columns(encryption_cols);
   auto encryption_configurations = file_encryption_builder.build();
 
-  auto a_key = parquet::schema::PrimitiveNode::Make("key", Repetition::REQUIRED, Type::INT32, ConvertedType::INT_32);
-  auto a_value = parquet::schema::PrimitiveNode::Make("value", Repetition::OPTIONAL, Type::BYTE_ARRAY, ConvertedType::UTF8);
-  auto a_key_value = parquet::schema::GroupNode::Make("key_value", Repetition::REPEATED, {a_key, a_value}, ConvertedType::NONE);
-  auto a_map = parquet::schema::GroupNode::Make("a_map", Repetition::OPTIONAL, {a_key_value}, ConvertedType::MAP);
+  auto a_key = parquet::schema::PrimitiveNode::Make("key", Repetition::REQUIRED,
+                                                    Type::INT32, ConvertedType::INT_32);
+  auto a_value = parquet::schema::PrimitiveNode::Make(
+      "value", Repetition::OPTIONAL, Type::BYTE_ARRAY, ConvertedType::UTF8);
+  auto a_key_value = parquet::schema::GroupNode::Make(
+      "key_value", Repetition::REPEATED, {a_key, a_value}, ConvertedType::NONE);
+  auto a_map = parquet::schema::GroupNode::Make("a_map", Repetition::OPTIONAL,
+                                                {a_key_value}, ConvertedType::MAP);
 
-  auto a_list_elem = parquet::schema::PrimitiveNode::Make("element", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
-  auto a_list_list = parquet::schema::GroupNode::Make("list", Repetition::REPEATED, {a_list_elem}, ConvertedType::NONE);
-  auto a_list = parquet::schema::GroupNode::Make("a_list", Repetition::OPTIONAL, {a_list_list}, ConvertedType::LIST);
+  auto a_list_elem = parquet::schema::PrimitiveNode::Make(
+      "element", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
+  auto a_list_list = parquet::schema::GroupNode::Make("list", Repetition::REPEATED,
+                                                      {a_list_elem}, ConvertedType::NONE);
+  auto a_list = parquet::schema::GroupNode::Make("a_list", Repetition::OPTIONAL,
+                                                 {a_list_list}, ConvertedType::LIST);
 
-  auto a_struct_f1 = parquet::schema::PrimitiveNode::Make("f1", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
-  auto a_struct_f2 = parquet::schema::PrimitiveNode::Make("f2", Repetition::OPTIONAL, Type::INT64, ConvertedType::INT_64);
-  auto a_struct = parquet::schema::GroupNode::Make("a_struct", Repetition::OPTIONAL, {a_struct_f1, a_struct_f2}, ConvertedType::NONE);
+  auto a_struct_f1 = parquet::schema::PrimitiveNode::Make(
+      "f1", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
+  auto a_struct_f2 = parquet::schema::PrimitiveNode::Make(
+      "f2", Repetition::OPTIONAL, Type::INT64, ConvertedType::INT_64);
+  auto a_struct = parquet::schema::GroupNode::Make(
+      "a_struct", Repetition::OPTIONAL, {a_struct_f1, a_struct_f2}, ConvertedType::NONE);
 
-  auto b_key = parquet::schema::PrimitiveNode::Make("key", Repetition::REQUIRED, Type::INT32, ConvertedType::INT_32);
-  auto b_value = parquet::schema::PrimitiveNode::Make("value", Repetition::OPTIONAL, Type::BYTE_ARRAY, ConvertedType::UTF8);
-  auto b_key_value = parquet::schema::GroupNode::Make("key_value", Repetition::REPEATED, {b_key, b_value}, ConvertedType::NONE);
-  auto b_map = parquet::schema::GroupNode::Make("b_map", Repetition::OPTIONAL, {b_key_value}, ConvertedType::MAP);
+  auto b_key = parquet::schema::PrimitiveNode::Make("key", Repetition::REQUIRED,
+                                                    Type::INT32, ConvertedType::INT_32);
+  auto b_value = parquet::schema::PrimitiveNode::Make(
+      "value", Repetition::OPTIONAL, Type::BYTE_ARRAY, ConvertedType::UTF8);
+  auto b_key_value = parquet::schema::GroupNode::Make(
+      "key_value", Repetition::REPEATED, {b_key, b_value}, ConvertedType::NONE);
+  auto b_map = parquet::schema::GroupNode::Make("b_map", Repetition::OPTIONAL,
+                                                {b_key_value}, ConvertedType::MAP);
 
-  auto b_list_elem = parquet::schema::PrimitiveNode::Make("element", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
-  auto b_list_list = parquet::schema::GroupNode::Make("list", Repetition::REPEATED, {b_list_elem}, ConvertedType::NONE);
-  auto b_list = parquet::schema::GroupNode::Make("b_list", Repetition::OPTIONAL, {b_list_list}, ConvertedType::LIST);
+  auto b_list_elem = parquet::schema::PrimitiveNode::Make(
+      "element", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
+  auto b_list_list = parquet::schema::GroupNode::Make("list", Repetition::REPEATED,
+                                                      {b_list_elem}, ConvertedType::NONE);
+  auto b_list = parquet::schema::GroupNode::Make("b_list", Repetition::OPTIONAL,
+                                                 {b_list_list}, ConvertedType::LIST);
 
-  auto b_struct_f1 = parquet::schema::PrimitiveNode::Make("f1", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
-  auto b_struct_f2 = parquet::schema::PrimitiveNode::Make("f2", Repetition::OPTIONAL, Type::INT64, ConvertedType::INT_64);
-  auto b_struct = parquet::schema::GroupNode::Make("b_struct", Repetition::OPTIONAL, {b_struct_f1, b_struct_f2}, ConvertedType::NONE);
+  auto b_struct_f1 = parquet::schema::PrimitiveNode::Make(
+      "f1", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
+  auto b_struct_f2 = parquet::schema::PrimitiveNode::Make(
+      "f2", Repetition::OPTIONAL, Type::INT64, ConvertedType::INT_64);
+  auto b_struct = parquet::schema::GroupNode::Make(
+      "b_struct", Repetition::OPTIONAL, {b_struct_f1, b_struct_f2}, ConvertedType::NONE);
 
-  auto c_list_elem = parquet::schema::PrimitiveNode::Make("element", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
-  auto c_list_list = parquet::schema::GroupNode::Make("list", Repetition::REPEATED, {c_list_elem}, ConvertedType::NONE);
-  auto c_list = parquet::schema::GroupNode::Make("c_list", Repetition::OPTIONAL, {c_list_list}, ConvertedType::LIST);
+  auto c_list_elem = parquet::schema::PrimitiveNode::Make(
+      "element", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
+  auto c_list_list = parquet::schema::GroupNode::Make("list", Repetition::REPEATED,
+                                                      {c_list_elem}, ConvertedType::NONE);
+  auto c_list = parquet::schema::GroupNode::Make("c_list", Repetition::OPTIONAL,
+                                                 {c_list_list}, ConvertedType::LIST);
 
-  auto a_structs_f1 = parquet::schema::PrimitiveNode::Make("f1", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
-  auto a_structs_f2 = parquet::schema::PrimitiveNode::Make("f2", Repetition::OPTIONAL, Type::INT64, ConvertedType::INT_64);
-  auto a_structs = parquet::schema::GroupNode::Make("a_structs", Repetition::OPTIONAL, {a_structs_f1, a_structs_f2}, ConvertedType::NONE);
+  auto a_structs_f1 = parquet::schema::PrimitiveNode::Make(
+      "f1", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
+  auto a_structs_f2 = parquet::schema::PrimitiveNode::Make(
+      "f2", Repetition::OPTIONAL, Type::INT64, ConvertedType::INT_64);
+  auto a_structs =
+      parquet::schema::GroupNode::Make("a_structs", Repetition::OPTIONAL,
+                                       {a_structs_f1, a_structs_f2}, ConvertedType::NONE);
 
-  auto schema = parquet::schema::GroupNode::Make("schema", Repetition::REQUIRED, {a_map, a_list, a_struct, b_map, b_list, b_struct, c_list, a_structs});
+  auto schema = parquet::schema::GroupNode::Make(
+      "schema", Repetition::REQUIRED,
+      {a_map, a_list, a_struct, b_map, b_list, b_struct, c_list, a_structs});
 
   SchemaDescriptor descr;
   descr.Init(schema);
@@ -321,7 +346,8 @@ TEST(TestFileEncryptionProperties, EncryptSchema) {
 
   encryption_configurations->encrypt_schema(descr);
 
-  // the updated configuration where parent fields have been replaced with all their leaf fields
+  // the updated configuration where parent fields have been replaced with all their leaf
+  // fields
   cols = encryption_configurations->encrypted_columns();
   ASSERT_EQ(cols.at("a_map.key_value.key")->column_path(), "a_map");
   ASSERT_EQ(cols.at("a_map.key_value.value")->column_path(), "a_map");
