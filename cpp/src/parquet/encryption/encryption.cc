@@ -188,7 +188,8 @@ void FileEncryptionProperties::encrypt_schema(const SchemaDescriptor& schema) {
     // Check if encrypted column exists in schema, or if it is a parent field of a column.
     for (const auto& elem : encrypted_columns) {
       auto& encrypted_column = elem.first;
-      auto encrypted_column_len = encrypted_column.size();
+      auto encrypted_column_prefix = encrypted_column + ".";
+      auto encrypted_column_prefix_len = encrypted_column_prefix.size();
 
       // first we look up encrypted_columns as
       // find first column that equals encrypted_column or starts with encrypted_column
@@ -200,12 +201,13 @@ void FileEncryptionProperties::encrypt_schema(const SchemaDescriptor& schema) {
       bool matches = false;
 
       // encrypted_column encrypts column 'it' when 'it' is either equal to
-      // encrypted_column, or 'it' starts with encrypted_column followed by a '.'
+      // encrypted_column, or 'it' starts with encrypted_column_prefix,
+      // i.e. encrypted_column followed by a '.'
       while (it != column_path_vec.end() &&
              (it->first == encrypted_column ||
-              (it->first.size() > encrypted_column_len &&
-               it->first.substr(0, encrypted_column_len) == encrypted_column &&
-               it->first.at(encrypted_column_len) == '.'))) {
+               // C++20: can be replaced with it->first.starts_with(encrypted_column_prefix)
+              it->first.compare(0, encrypted_column_prefix_len,
+                                encrypted_column_prefix) == 0)) {
         // count columns encrypted by encrypted_column
         matches = true;
 
