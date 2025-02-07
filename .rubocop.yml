@@ -15,10 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG repo
-ARG arch
-ARG python=3.9
-FROM ${repo}:${arch}-conda-python-${python}
+# Ruby lint begins minimal.
+# All of checkings changed to disable by default.
+AllCops:
+  DisabledByDefault: true
 
-RUN mamba install -q -y "cython<3" && \
-    mamba clean --all
+Lint:
+  Enabled: false
+
+Layout/LineLength:
+  Max: 100
+
+Layout/ArgumentAlignment:
+  Enabled: true

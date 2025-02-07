@@ -54,11 +54,11 @@ jobs:
         dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v4.2.0
+        uses: actions/setup-dotnet@v4.3.0
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Setup Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
           python-version: 3
       - name: Checkout Arrow
@@ -86,7 +86,7 @@ jobs:
         dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v4.2.0
+        uses: actions/setup-dotnet@v4.3.0
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
@@ -113,11 +113,11 @@ jobs:
         dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v4.2.0
+        uses: actions/setup-dotnet@v4.3.0
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Setup Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
           python-version: 3.12
       - name: Checkout Arrow
@@ -133,3 +133,88 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/csharp_test.sh $(pwd)
+
+  package:
+    name: Package
+    # Branch or RC tag
+    if: github.ref_type != 'tag' || contains(github.ref_name, 'rc')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout for utilities
+        if: github.ref_type == 'tag'
+        uses: actions/checkout@v4
+        with:
+          path: arrow
+      - name: Download source archive
+        if: github.ref_type == 'tag'
+        run: |
+          arrow/dev/release/utils-watch-gh-workflow.sh \
+            ${GITHUB_REF_NAME} \
+            release_candidate.yml
+          gh release download ${GITHUB_REF_NAME} \
+            --pattern "*.tar.gz" \
+            --repo ${GITHUB_REPOSITORY}
+          tar -xf *.tar.gz --strip-components=1
+          mv csharp/dummy.git .git
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Checkout
+        if: github.ref_type != 'tag'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prepare version
+        if: github.ref_type != 'tag'
+        run: |
+          # apache-arrow-20.0.0.dev-9-g758867f907 ->
+          #              20.0.0.dev-9-g758867f907 ->
+          #              20.0.0.dev-9             ->
+          #              20.0.0-dev-9
+          semver="$(git describe --tags | \
+                     sed -E \
+                         -e 's/^apache-arrow-//' \
+                         -e 's/-[^-]*$//' \
+                         -e 's/^([0-9]*\.[0-9]*\.[0-9])\./\1-/')"
+          sed -i'' -E -e \
+            "s/^    <Version>.+<\/Version>/    <Version>${semver}<\/Version>/" \
+            csharp/Directory.Build.props
+      - name: Setup Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: |
+          python3 -m pip install -e 'dev/archery[docker]'
+      - name: Build
+        run: |
+          archery docker run ubuntu-csharp
+      - name: Prepare artifacts
+        run: |
+          shopt -s globstar
+          cp csharp/artifacts/**/*.{,s}nupkg ./
+          for artifact in *.{,s}nupkg; do
+            dev/release/utils-generate-checksum.sh "${artifact}"
+          done
+      - name: Upload
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: nuget
+          path: |
+            *.nupkg
+            *.sha256
+            *.sha512
+            *.snupkg
+      - name: Publish
+        if: github.ref_type == 'tag'
+        run: |
+          gh release upload ${GITHUB_REF_NAME} \
+            --repo ${GITHUB_REPOSITORY} \
+            *.nupkg \
+            *.sha256 \
+            *.sha512 \
+            *.snupkg
+        env:
+          GH_TOKEN: ${{ github.token }}

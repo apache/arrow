@@ -44,6 +44,7 @@ class JemallocAllocator {
                                   uint8_t** ptr);
   static void DeallocateAligned(uint8_t* ptr, int64_t size, int64_t alignment);
   static void ReleaseUnused();
+  static void PrintStats();
 };
 
 #endif  // defined(ARROW_JEMALLOC)

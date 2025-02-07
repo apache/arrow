@@ -988,9 +988,11 @@ endif()
 
 # Enable s/ccache if set by parent.
 if(CMAKE_C_COMPILER_LAUNCHER AND CMAKE_CXX_COMPILER_LAUNCHER)
+  file(TO_CMAKE_PATH "${CMAKE_C_COMPILER_LAUNCHER}" EP_CMAKE_C_COMPILER_LAUNCHER)
+  file(TO_CMAKE_PATH "${CMAKE_CXX_COMPILER_LAUNCHER}" EP_CMAKE_CXX_COMPILER_LAUNCHER)
   list(APPEND EP_COMMON_CMAKE_ARGS
-       -DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}
-       -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER})
+       -DCMAKE_C_COMPILER_LAUNCHER=${EP_CMAKE_C_COMPILER_LAUNCHER}
+       -DCMAKE_CXX_COMPILER_LAUNCHER=${EP_CMAKE_CXX_COMPILER_LAUNCHER})
 endif()
 
 if(NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
@@ -1254,13 +1256,19 @@ endif()
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
 # - Tests need Boost at runtime.
 # - S3FS and Flight benchmarks need Boost at runtime.
+# - arrow_testing uses boost::filesystem. So arrow_testing requires
+#   Boost library. (boost::filesystem isn't header-only.) But if we
+#   use arrow_testing as a static library without
+#   using arrow::util::Process, we don't need boost::filesystem.
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
    OR (ARROW_FLIGHT AND (ARROW_TESTING OR ARROW_BUILD_BENCHMARKS))
-   OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS))
+   OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
+   OR (ARROW_TESTING AND ARROW_BUILD_SHARED))
   set(ARROW_USE_BOOST TRUE)
   set(ARROW_BOOST_REQUIRE_LIBRARY TRUE)
 elseif(ARROW_GANDIVA
+       OR ARROW_TESTING
        OR ARROW_WITH_THRIFT
        OR (NOT ARROW_USE_NATIVE_INT128))
   set(ARROW_USE_BOOST TRUE)

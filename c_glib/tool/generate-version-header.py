@@ -140,6 +140,7 @@ def generate_availability_macros(library: str) -> str:
 
 
 ALL_VERSIONS = [
+        (20, 0),
         (19, 0),
         (18, 0),
         (17, 0),

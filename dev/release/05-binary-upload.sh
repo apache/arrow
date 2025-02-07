@@ -72,7 +72,6 @@ fi
 : ${UPLOAD_CENTOS:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_DEBIAN:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_DOCS:=${UPLOAD_DEFAULT}}
-: ${UPLOAD_NUGET:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_R:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_UBUNTU:=${UPLOAD_DEFAULT}}
@@ -98,9 +97,6 @@ if [ ${UPLOAD_DEBIAN} -gt 0 ]; then
 fi
 if [ ${UPLOAD_DOCS} -gt 0 ]; then
   rake_tasks+=(docs:rc)
-fi
-if [ ${UPLOAD_NUGET} -gt 0 ]; then
-  rake_tasks+=(nuget:rc)
 fi
 if [ ${UPLOAD_PYTHON} -gt 0 ]; then
   rake_tasks+=(python:rc)

@@ -26,7 +26,13 @@ project(test_package LANGUAGES CXX)
 find_package(Arrow REQUIRED CONFIG)
 
 add_executable(${PROJECT_NAME} test_package.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE arrow::arrow)
+
+if (TARGET Arrow::arrow_shared)
+    target_link_libraries(${PROJECT_NAME} PRIVATE Arrow::arrow_shared)
+else()
+    target_link_libraries(${PROJECT_NAME} PRIVATE Arrow::arrow_static)
+endif()
+
 if (${Arrow_VERSION} VERSION_LESS "10.0.0")
     target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_11)
 else()
