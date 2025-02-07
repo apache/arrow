@@ -357,7 +357,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   DataBuilder data_builder(ctx->memory_pool());
   RETURN_NOT_OK(data_builder.Reserve(sum_of_binary_view_sizes));
   RETURN_NOT_OK(VisitArraySpanInline<I>(
-      batch[0].array,
+      input,
       [&](std::string_view s) {
         // for non-null value, append string view to buffer and calculate offset
         data_builder.UnsafeAppend(reinterpret_cast<const uint8_t*>(s.data()),
