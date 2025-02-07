@@ -20,14 +20,7 @@
 #include "arrow/io/type_fwd.h"
 #include "parquet/types.h"
 
-namespace parquet {
-
-class BloomFilter;
-class SchemaDescriptor;
-struct BloomFilterOptions;
-struct BloomFilterLocation;
-
-namespace internal {
+namespace parquet::internal {
 
 /// \brief Interface for collecting bloom filter of a parquet file.
 ///
@@ -83,6 +76,4 @@ class PARQUET_EXPORT BloomFilterBuilder {
   virtual ~BloomFilterBuilder() = default;
 };
 
-}  // namespace internal
-
-}  // namespace parquet
+}  // namespace parquet::internal

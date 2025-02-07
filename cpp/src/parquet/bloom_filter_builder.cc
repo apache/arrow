@@ -99,7 +99,7 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordin
   if (bloom_filter_options_opt == std::nullopt) {
     return nullptr;
   }
-  BloomFilterOptions bloom_filter_options = *bloom_filter_options_opt;
+  const BloomFilterOptions& bloom_filter_options = *bloom_filter_options_opt;
   // CheckState() should have checked that file_bloom_filters_ is not empty.
   DCHECK(!file_bloom_filters_.empty());
   RowGroupBloomFilters& row_group_bloom_filter = *file_bloom_filters_.back();
