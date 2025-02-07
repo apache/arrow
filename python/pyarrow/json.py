@@ -16,4 +16,4 @@
 # under the License.
 
 
-from pyarrow._json import ReadOptions, ParseOptions, read_json  # noqa
+from pyarrow._json import ReadOptions, ParseOptions, read_json, open_json  # noqa

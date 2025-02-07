@@ -18,6 +18,7 @@
 #include "arrow/record_batch.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdlib>
 #include <memory>
@@ -102,8 +103,13 @@ class SimpleRecordBatch : public RecordBatch {
   std::shared_ptr<Array> column(int i) const override {
     std::shared_ptr<Array> result = std::atomic_load(&boxed_columns_[i]);
     if (!result) {
-      result = MakeArray(columns_[i]);
-      std::atomic_store(&boxed_columns_[i], result);
+      auto new_array = MakeArray(columns_[i]);
+      // Be careful not to overwrite existing entry if another thread has been calling
+      // `column(i)` at the same time, since the `boxed_columns_` contents are exposed
+      // by `columns()` (see GH-45371).
+      if (std::atomic_compare_exchange_strong(&boxed_columns_[i], &result, new_array)) {
+        return new_array;
+      }
     }
     return result;
   }
