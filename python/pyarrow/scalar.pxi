@@ -885,12 +885,15 @@ cdef class MapScalar(ListScalar):
         Return this value as a Python dict.
         """
         if self.is_valid:
-            try:
-                return {k: self[k].as_py() for k in self.keys()}
-            except KeyError:
-                raise ValueError(
-                    "Converting to Python dictionary is not supported when "
-                    "duplicate field names are present")
+            result_dict = {}
+            for item in self:
+                key, value = item
+                if key in result_dict:
+                    raise ValueError(
+                        "Converting to Python dictionary is not supported when duplicate field names are present"
+                    )
+                result_dict[key] = value
+            return result_dict
         else:
             return None
 
