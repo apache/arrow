@@ -46,6 +46,21 @@ namespace internal {
 
 namespace {
 
+Result<std::shared_ptr<Buffer>> GetNullBitmapBuffer(const ArraySpan& in_array,
+                                                    MemoryPool* pool) {
+  if (in_array.buffers[0].data == nullptr) {
+    return nullptr;
+  }
+
+  if (in_array.offset == 0) {
+    return in_array.GetBuffer(0);
+  }
+
+  // If a non-zero offset, we need to shift the bitmap
+  return arrow::internal::CopyBitmap(pool, in_array.buffers[0].data, in_array.offset,
+                                     in_array.length);
+}
+
 // ----------------------------------------------------------------------
 // Number / Boolean to String
 
@@ -334,19 +349,8 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   output->SetNullCount(input.null_count);
 
   // Set up validity bitmap
-  if (input.offset == output->offset) {
-    output->buffers[0] = input.GetBuffer(0);
-  } else {
-    // When the offsets are different (e.g., due to slice operation), we need to check if
-    // the null bitmap buffer is not null before copying it. The null bitmap buffer can be
-    // null if the input array value does not contain any null value.
-    if (input.buffers[0].data != NULLPTR) {
-      ARROW_ASSIGN_OR_RAISE(
-          output->buffers[0],
-          arrow::internal::CopyBitmap(ctx->memory_pool(), input.buffers[0].data,
-                                      input.offset, input.length));
-    }
-  }
+  ARROW_ASSIGN_OR_RAISE(output->buffers[0],
+                        GetNullBitmapBuffer(input, ctx->memory_pool()));
 
   // Set up offset and data buffer
   OffsetBuilder offset_builder(ctx->memory_pool());
