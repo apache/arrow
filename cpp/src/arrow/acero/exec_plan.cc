@@ -1102,6 +1102,24 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
   return DeclarationToReader(std::move(declaration), std::move(options));
 }
 
+namespace internal {
+
+void RegisterSourceNode(ExecFactoryRegistry*);
+void RegisterFetchNode(ExecFactoryRegistry*);
+void RegisterFilterNode(ExecFactoryRegistry*);
+void RegisterOrderByNode(ExecFactoryRegistry*);
+void RegisterPivotLongerNode(ExecFactoryRegistry*);
+void RegisterProjectNode(ExecFactoryRegistry*);
+void RegisterUnionNode(ExecFactoryRegistry*);
+void RegisterAggregateNode(ExecFactoryRegistry*);
+void RegisterSinkNode(ExecFactoryRegistry*);
+void RegisterHashJoinNode(ExecFactoryRegistry*);
+void RegisterAsofJoinNode(ExecFactoryRegistry*);
+void RegisterSortedMergeNode(ExecFactoryRegistry*);
+void RegisterPipeNodes(ExecFactoryRegistry*);
+
+}  // namespace internal
+
 ExecFactoryRegistry* default_exec_factory_registry() {
   class DefaultRegistry : public ExecFactoryRegistry {
    public:
@@ -1118,6 +1136,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
       internal::RegisterHashJoinNode(this);
       internal::RegisterAsofJoinNode(this);
       internal::RegisterSortedMergeNode(this);
+      internal::RegisterPipeNodes(this);
     }
 
     Result<Factory> GetFactory(const std::string& factory_name) override {

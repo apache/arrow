@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/acero/exec_plan.h"
 #include "arrow/acero/type_fwd.h"
 #include "arrow/acero/visibility.h"
 #include "arrow/compute/api_aggregate.h"
@@ -866,6 +867,30 @@ class ARROW_ACERO_EXPORT PivotLongerNodeOptions : public ExecNodeOptions {
   std::vector<std::string> feature_field_names;
   /// The names of the columns which represent the measurements
   std::vector<std::string> measurement_field_names;
+};
+
+/// \brief a node which implements experimental node that enables multiple sink exec nodes
+///
+/// Note, this API is experimental and will change in the future
+///
+/// This node forwards each exec batch to its output and also provides number of
+/// additional source nodes for additional acero pipelines.
+class ARROW_ACERO_EXPORT PipeSourceNodeOptions : public ExecNodeOptions {
+ public:
+  PipeSourceNodeOptions(std::string pipe_name, std::shared_ptr<Schema> output_schema)
+      : pipe_name(std::move(pipe_name)), output_schema(std::move(output_schema)) {}
+
+  /// \brief List of declarations that will receive duplicated ExecBatches
+  std::string pipe_name;
+  std::shared_ptr<Schema> output_schema;
+};
+
+class ARROW_ACERO_EXPORT PipeSinkNodeOptions : public ExecNodeOptions {
+ public:
+  PipeSinkNodeOptions(std::string pipe_name) : pipe_name(std::move(pipe_name)) {}
+
+  /// \brief List of declarations that will receive duplicated ExecBatches
+  std::string pipe_name;
 };
 
 /// @}
