@@ -20,6 +20,7 @@ class TestMemoryPool < Test::Unit::TestCase
 
   def setup
     @memory_pool = Arrow::MemoryPool.default
+    Arrow::ResizableBuffer.new(1)
   end
 
   def test_bytes_allocated
