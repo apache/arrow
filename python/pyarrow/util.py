@@ -230,7 +230,7 @@ def _break_traceback_cycle_from_frame(frame):
     refs = frame = this_frame = None
 
 
-def download_urllib(url, out_path):
+def _download_urllib(url, out_path):
     from urllib.request import urlopen
     with urlopen(url) as response:
         with open(out_path, 'wb') as f:
