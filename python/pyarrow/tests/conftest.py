@@ -54,8 +54,13 @@ if sys.platform == 'win32':
     if tzdata_set_path:
         set_timezone_db_path(tzdata_set_path)
 
-    # GH-45295: For ORC, try to populate TZDIR env var from tzdata package
-    # resource path
+
+# GH-45295: For ORC, try to populate TZDIR env var from tzdata package resource
+# path.
+#
+# Note this is a different kind of database than what we allow to be set by
+# `PYARROW_TZDATA_PATH` and passed to set_timezone_db_path.
+if sys.platform == 'win32':
     if os.environ.get('TZDIR', None) is None:
         from importlib import resources
         try:
