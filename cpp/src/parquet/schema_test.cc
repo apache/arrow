@@ -111,19 +111,28 @@ TEST(TestColumnPath, TestAttrs) {
 }
 
 TEST(TestColumnPath, FromNode) {
-  auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, Type::INT32, ConvertedType::INT_32);
-  auto key_value = GroupNode::Make("key_value", Repetition::REQUIRED, {key}, ConvertedType::NONE);
+  auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, Type::INT32,
+                                 ConvertedType::INT_32);
+  auto key_value =
+      GroupNode::Make("key_value", Repetition::REQUIRED, {key}, ConvertedType::NONE);
   auto map = GroupNode::Make("a", Repetition::REQUIRED, {key_value}, ConvertedType::MAP);
 
-  auto element = PrimitiveNode::Make("element", Repetition::REPEATED, Type::INT32, ConvertedType::INT_32);
-  auto inner_list = GroupNode::Make("list", Repetition::REQUIRED, {element}, ConvertedType::NONE);
-  auto list = GroupNode::Make("b", Repetition::REQUIRED, {inner_list}, ConvertedType::LIST);
+  auto element = PrimitiveNode::Make("element", Repetition::REPEATED, Type::INT32,
+                                     ConvertedType::INT_32);
+  auto inner_list =
+      GroupNode::Make("list", Repetition::REQUIRED, {element}, ConvertedType::NONE);
+  auto list =
+      GroupNode::Make("b", Repetition::REQUIRED, {inner_list}, ConvertedType::LIST);
 
-  auto f1 = PrimitiveNode::Make("f1", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
-  auto f2 = PrimitiveNode::Make("f2", Repetition::OPTIONAL, Type::BYTE_ARRAY, ConvertedType::UTF8);
-  auto struct_ = GroupNode::Make("c", Repetition::REQUIRED, {f1, f2}, ConvertedType::NONE);
+  auto f1 =
+      PrimitiveNode::Make("f1", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
+  auto f2 = PrimitiveNode::Make("f2", Repetition::OPTIONAL, Type::BYTE_ARRAY,
+                                ConvertedType::UTF8);
+  auto struct_ =
+      GroupNode::Make("c", Repetition::REQUIRED, {f1, f2}, ConvertedType::NONE);
 
-  auto schema = GroupNode::Make("schema", Repetition::REQUIRED, {map, list, struct_}, ConvertedType::NONE);
+  auto schema = GroupNode::Make("schema", Repetition::REQUIRED, {map, list, struct_},
+                                ConvertedType::NONE);
 
   ASSERT_EQ(ColumnPath::FromNode(*key)->ToDotString(), "a.key_value.key");
   ASSERT_EQ(ColumnPath::FromNode(*key, true)->ToDotString(), "a.key");
