@@ -294,7 +294,7 @@ valid:
       end
 
       def test_valid
-        columns = [@uint8_value, @valid_name_value]
+        columns = [@id_values, @valid_name_values]
         table = Arrow::Table.new(@schema, columns)
 
         assert do
@@ -305,7 +305,7 @@ valid:
       def test_invalid
         message = "[table][validate-full]: Invalid: " +
           "Column 1: In chunk 0: Invalid: Invalid UTF8 sequence at string index 0"
-        columns = [@uint8_value, @invalid_name_value]
+        columns = [@id_values, @invalid_name_values]
         table = Arrow::Table.new(@schema, columns)
 
         assert_raise(Arrow::Error::Invalid.new(message)) do
