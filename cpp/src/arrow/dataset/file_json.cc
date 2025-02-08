@@ -18,6 +18,7 @@
 #include "arrow/dataset/file_json.h"
 
 #include <algorithm>
+#include <iostream>
 #include <unordered_set>
 #include <vector>
 
@@ -108,8 +109,16 @@ class JsonFragmentScanner : public FragmentScanner {
     parse_options.unexpected_field_behavior = json::UnexpectedFieldBehavior::Ignore;
 
     int64_t block_size = format_options.read_options.block_size;
+    if (block_size <= 0) {
+      return Status::Invalid("Block size must be positive");
+    }
+
     auto num_batches =
         static_cast<int>(bit_util::CeilDiv(inspected.num_bytes, block_size));
+    if (num_batches < 0) {
+      return Status::Invalid("Number of batches calculation overflowed");
+    }
+
 
     auto future = json::(
     inspected.stream, format_options.read_options, parse_options,
@@ -123,6 +132,7 @@ return future.Then([num_batches, block_size](const ReaderPtr& reader)
   }
 
   // Check if the input stream has only one JSON object and no newline
+
   auto stream_data = inspected.stream->Read();
   if (stream_data.ok()) {
     std::string json_content = stream_data->ToString();
@@ -135,8 +145,7 @@ return future.Then([num_batches, block_size](const ReaderPtr& reader)
   }
 
   return std::make_shared<JsonFragmentScanner>(reader, num_batches, block_size);
-});
-
+ // Check if the input stream has only one JSON object and no newline
   }
 
  private:
