@@ -754,6 +754,24 @@ garrow_table_validate(GArrowTable *table, GError **error)
   return garrow::check(error, arrow_table->Validate(), "[table][validate]");
 }
 
+/**
+ * garrow_table_validate_full
+ * @table: A #GArrowTable
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Validate the given table. This is a extensive validation.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 20.0.0
+ */
+gboolean
+garrow_table_validate_full(GArrowTable *table, GError **error)
+{
+  const auto arrow_table = garrow_table_get_raw(table);
+  return garrow::check(error, arrow_table->ValidateFull(), "[table][validate-full]");
+}
+
 typedef struct GArrowFeatherWritePropertiesPrivate_
 {
   arrow::ipc::feather::WriteProperties properties;
