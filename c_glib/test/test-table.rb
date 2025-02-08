@@ -313,8 +313,8 @@ valid:
         @name_field = Arrow::Field.new("string", Arrow::StringDataType.new)
         @schema = Arrow::Schema.new([@id_field, @name_field])
 
-        @uint8_value = build_uint_array([1])
-        @valid_name_value = build_string_array(["abc"])
+        @id_values = build_uint_array([1])
+        @valid_name_values = build_string_array(["abc"])
 
         # U+3042 HIRAGANA LETTER A, U+3044 HIRAGANA LETTER I
         data = "\u3042\u3044".b[0..-2]
