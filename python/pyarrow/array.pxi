@@ -1651,16 +1651,21 @@ cdef class Array(_PandasConvertible):
             array = array.copy()
         return array
 
-    def to_pylist(self):
+    def to_pylist(self, maps_as_pydicts=False):
         """
         Convert to a list of native Python objects.
+
+        Parameters
+        ----------
+        maps_as_pydicts : bool, default False
+            Whether to treat elements of type Map as python dictionaries or as a list of (key, value) tuples
 
         Returns
         -------
         lst : list
         """
         self._assert_cpu()
-        return [x.as_py() for x in self]
+        return [x.as_py(maps_as_pydicts=maps_as_pydicts) for x in self]
 
     def tolist(self):
         """
@@ -2286,11 +2291,16 @@ cdef class MonthDayNanoIntervalArray(Array):
     Concrete class for Arrow arrays of interval[MonthDayNano] type.
     """
 
-    def to_pylist(self):
+    def to_pylist(self, maps_as_pydicts=False):
         """
         Convert to a list of native Python objects.
 
         pyarrow.MonthDayNano is used as the native representation.
+
+        Parameters
+        ----------
+        maps_as_pydicts : bool, default False
+            Whether to treat elements of type Map as python dictionaries or as a list of (key, value) tuples
 
         Returns
         -------

@@ -1349,9 +1349,14 @@ cdef class ChunkedArray(_PandasConvertible):
         for i in range(self.num_chunks):
             yield self.chunk(i)
 
-    def to_pylist(self):
+    def to_pylist(self, maps_as_pydicts=False):
         """
         Convert to a list of native Python objects.
+
+        Parameters
+        ----------
+        maps_as_pydicts : bool, default False
+            Whether to treat elements of type Map as python dictionaries or as a list of (key, value) tuples
 
         Examples
         --------
@@ -1363,7 +1368,7 @@ cdef class ChunkedArray(_PandasConvertible):
         self._assert_cpu()
         result = []
         for i in range(self.num_chunks):
-            result += self.chunk(i).to_pylist()
+            result += self.chunk(i).to_pylist(maps_as_pydicts=maps_as_pydicts)
         return result
 
     def __arrow_c_stream__(self, requested_schema=None):
@@ -2255,9 +2260,14 @@ cdef class _Tabular(_PandasConvertible):
         else:
             return _pc().filter(self, mask, null_selection_behavior)
 
-    def to_pydict(self):
+    def to_pydict(self, maps_as_pydicts=False):
         """
         Convert the Table or RecordBatch to a dict or OrderedDict.
+
+        Parameters
+        ----------
+        maps_as_pydicts : bool, default False
+            Whether to treat elements of type Map as python dictionaries or as a list of (key, value) tuples
 
         Returns
         -------
@@ -2277,13 +2287,18 @@ cdef class _Tabular(_PandasConvertible):
         entries = []
         for i in range(self.num_columns):
             name = self.field(i).name
-            column = self[i].to_pylist()
+            column = self[i].to_pylist(maps_as_pydicts=maps_as_pydicts)
             entries.append((name, column))
         return ordered_dict(entries)
 
-    def to_pylist(self):
+    def to_pylist(self, maps_as_pydicts=False):
         """
         Convert the Table or RecordBatch to a list of rows / dictionaries.
+
+        Parameters
+        ----------
+        maps_as_pydicts : bool, default False
+            Whether to treat elements of type Map as python dictionaries or as a list of (key, value) tuples
 
         Returns
         -------
@@ -2300,7 +2315,7 @@ cdef class _Tabular(_PandasConvertible):
         >>> table.to_pylist()
         [{'n_legs': 2, 'animals': 'Flamingo'}, {'n_legs': 4, 'animals': 'Horse'}, ...
         """
-        pydict = self.to_pydict()
+        pydict = self.to_pydict(maps_as_pydicts=maps_as_pydicts)
         names = self.schema.names
         pylist = [{column: pydict[column][row] for column in names}
                   for row in range(self.num_rows)]
