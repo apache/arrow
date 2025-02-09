@@ -29,17 +29,16 @@ index a79c72a59..6b7fa6a66 100644
  
  vcpkg_cmake_install(ADD_BIN_TO_PATH)
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 0c7098082..c603c3653 100644
+index 0312b2ae1..fdb576b5f 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
-@@ -10,6 +10,7 @@ vcpkg_from_github(
-     PATCHES
+@@ -8,5 +8,6 @@ vcpkg_from_github(
          fix_clang-cl_build.patch
          no-werror.patch
+         pkgconfig.diff
 +        "snappy-disable-bmi.patch"
  )
- 
- vcpkg_cmake_configure(
+ file(COPY "${CURRENT_PORT_DIR}/snappy.pc.in" DESTINATION "${SOURCE_PATH}")
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
 index 000000000..e839c93a4

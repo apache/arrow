@@ -166,6 +166,36 @@ TEST(TestSparseUnionArray, Validate) {
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 }
 
+TEST(TestSparseUnionArray, Comparison) {
+  auto ints1 = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6]");
+  auto ints2 = ArrayFromJSON(int32(), "[1, 2, -3, 4, -5, 6]");
+  auto strs1 = ArrayFromJSON(utf8(), R"(["a", "b", "c", "d", "e", "f"])");
+  auto strs2 = ArrayFromJSON(utf8(), R"(["a", "*", "c", "d", "e", "*"])");
+  std::vector<int8_t> type_codes{8, 42};
+
+  auto check_equality = [&](const std::string& type_ids_json1,
+                            const std::string& type_ids_json2, bool expected_equals) {
+    auto type_ids1 = ArrayFromJSON(int8(), type_ids_json1);
+    auto type_ids2 = ArrayFromJSON(int8(), type_ids_json2);
+    ASSERT_OK_AND_ASSIGN(auto arr1,
+                         SparseUnionArray::Make(*type_ids1, {ints1, strs1}, type_codes));
+    ASSERT_OK_AND_ASSIGN(auto arr2,
+                         SparseUnionArray::Make(*type_ids2, {ints2, strs2}, type_codes));
+    ASSERT_EQ(arr1->Equals(arr2), expected_equals);
+    ASSERT_EQ(arr2->Equals(arr1), expected_equals);
+  };
+
+  // Same type ids
+  check_equality("[8, 8, 42, 42, 42, 8]", "[8, 8, 42, 42, 42, 8]", true);
+  check_equality("[8, 8, 42, 42, 42, 42]", "[8, 8, 42, 42, 42, 42]", false);
+  check_equality("[8, 8, 8, 42, 42, 8]", "[8, 8, 8, 42, 42, 8]", false);
+  check_equality("[8, 42, 42, 42, 42, 8]", "[8, 42, 42, 42, 42, 8]", false);
+
+  // Different type ids
+  check_equality("[42, 8, 42, 42, 42, 8]", "[8, 8, 42, 42, 42, 8]", false);
+  check_equality("[8, 8, 42, 42, 42, 8]", "[8, 8, 42, 42, 42, 42]", false);
+}
+
 // -------------------------------------------------------------------------
 // Tests for MakeDense and MakeSparse
 

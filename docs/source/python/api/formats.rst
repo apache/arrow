@@ -66,6 +66,7 @@ JSON Files
 
    ReadOptions
    ParseOptions
+   open_json
    read_json
 
 .. _api.parquet:

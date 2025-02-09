@@ -23,23 +23,26 @@ body:
   - type: markdown
     attributes:
       value: >
-        While we enable issues as a mechanism for new contributors and passers-by who 
-        are unfamiliar with Apache Software Foundation projects to ask questions and 
-        interact with the project, we encourage users to ask such questions on public 
-        mailing lists:
-        
-        * Development discussions: dev@arrow.apache.org (first subscribe by sending an 
-        e-mail to dev-subscribe@arrow.apache.org).
-        
-        * User discussions: user@arrow.apache.org (first subscribe by sending an e-mail 
-        to user-subscribe@arrow.apache.org).
-        
-        * Mailing list archives: https://arrow.apache.org/community/
-        
-        
-        Do not be surprised by responses to issues raised here directing you to those 
-        mailing lists, or to report a bug or feature request here.
+        While we enable issues as a mechanism for new contributors and
+        passers-by who are unfamiliar with Apache Software Foundation projects
+        to ask questions and interact with the project, we encourage users to
+        ask such questions on the [public mailing
+        lists](https://arrow.apache.org/community/) as these provide higher
+        visibility than GitHub issues:
 
+        * For usage questions, please email user@arrow.apache.org (first
+        subscribe by sending an e-mail to user-subscribe@arrow.apache.org).
+
+        * For discussions about contributing or development, please email
+        dev@arrow.apache.org (first subscribe by sending an e-mail to
+        dev-subscribe@arrow.apache.org).
+
+        Please see the [Apache Arrow Community
+        page](https://arrow.apache.org/community/) for more information on the
+        mailing lists as well as for a link to the searchable archives.
+
+        Do not be surprised by responses to issues raised here directing you to those
+        mailing lists, or to report a bug or feature request here.
 
         Thank you!
   - type: textarea

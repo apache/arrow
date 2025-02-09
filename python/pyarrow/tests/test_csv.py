@@ -387,7 +387,7 @@ class BaseTestCSV(abc.ABC):
         """
         :param b: bytes to be parsed
         :param kwargs: arguments passed on to open the csv file
-        :return: b parsed as a single RecordBatch
+        :return: b parsed as a single Table
         """
         raise NotImplementedError
 

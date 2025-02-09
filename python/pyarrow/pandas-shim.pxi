@@ -79,7 +79,7 @@ cdef class _PandasAPIShim(object):
 
         self._is_v1 = self._loose_version < Version('2.0.0')
         self._is_ge_v21 = self._loose_version >= Version('2.1.0')
-        self._is_ge_v23 = self._loose_version >= Version('2.3.0')
+        self._is_ge_v23 = self._loose_version >= Version('2.3.0.dev0')
         self._is_ge_v3 = self._loose_version >= Version('3.0.0.dev0')
         self._is_ge_v3_strict = self._loose_version >= Version('3.0.0')
 

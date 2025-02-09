@@ -1295,7 +1295,7 @@ def open_csv(input_file, read_options=None, parse_options=None,
         Options for converting CSV data
         (see pyarrow.csv.ConvertOptions constructor for defaults)
     memory_pool : MemoryPool, optional
-        Pool to allocate Table memory from
+        Pool to allocate RecordBatch memory from
 
     Returns
     -------

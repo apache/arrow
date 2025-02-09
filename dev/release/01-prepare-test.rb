@@ -264,7 +264,8 @@ class PrepareTest < Test::Unit::TestCase
               "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
               "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
               "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
-              "+<p><a href=\"../#{@previous_compatible_version}/r/\">#{@previous_r_version}</a></p>",
+              "+<p><a href=\"../#{@previous_compatible_version}/r/\">" +
+              "#{@previous_r_version}</a></p>",
             ]
           ],
         },

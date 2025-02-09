@@ -17,12 +17,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-install_data('README.md',
-             'read-file.lua',
-             'read-stream.lua',
-             'write-file.lua',
-             'write-stream.lua',
-             install_dir: join_paths(data_dir,
-                                     meson.project_name(),
-                                     'example',
-                                     'lua'))
+install_data(
+    'README.md',
+    'read-file.lua',
+    'read-stream.lua',
+    'write-file.lua',
+    'write-stream.lua',
+    install_dir: join_paths(data_dir, meson.project_name(), 'example', 'lua'),
+)

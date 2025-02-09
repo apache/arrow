@@ -1177,14 +1177,16 @@ enable_if_duration<To, Result<std::shared_ptr<Scalar>>> CastImpl(
 }
 
 // time to time
-template <typename To, typename From, typename T = typename To::TypeClass>
+template <typename To, typename From,
+          typename T = typename TypeTraits<To>::ScalarType::TypeClass>
 enable_if_time<To, Result<std::shared_ptr<Scalar>>> CastImpl(
     const TimeScalar<From>& from, std::shared_ptr<DataType> to_type) {
   using ToScalar = typename TypeTraits<To>::ScalarType;
   ARROW_ASSIGN_OR_RAISE(
       auto value, util::ConvertTimestampValue(AsTimestampType<From>(from.type),
                                               AsTimestampType<To>(to_type), from.value));
-  return std::make_shared<ToScalar>(value, std::move(to_type));
+  return std::make_shared<ToScalar>(static_cast<typename To::c_type>(value),
+                                    std::move(to_type));
 }
 
 constexpr int64_t kMillisecondsInDay = 86400000;
@@ -1288,10 +1290,11 @@ CastImpl(const StructScalar& from, std::shared_ptr<DataType> to_type) {
 }
 
 // casts between variable-length and fixed-length list types
-template <typename To, typename From>
+template <typename To, typename FromScalar,
+          typename From = typename FromScalar::TypeClass>
 std::enable_if_t<is_list_type<To>::value && is_list_type<From>::value,
                  Result<std::shared_ptr<Scalar>>>
-CastImpl(const From& from, std::shared_ptr<DataType> to_type) {
+CastImpl(const FromScalar& from, std::shared_ptr<DataType> to_type) {
   if constexpr (sizeof(typename To::offset_type) < sizeof(int64_t)) {
     if (from.value->length() > std::numeric_limits<typename To::offset_type>::max()) {
       return Status::Invalid(from.type->ToString(), " too large to cast to ",

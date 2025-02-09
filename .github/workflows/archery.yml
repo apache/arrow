@@ -65,7 +65,7 @@ jobs:
         shell: bash
         run: git branch $ARCHERY_DEFAULT_BRANCH origin/$ARCHERY_DEFAULT_BRANCH || true
       - name: Setup Python
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v5.4.0
         with:
           python-version: '3.9'
       - name: Install pygit2 binary wheel

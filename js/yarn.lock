@@ -3495,10 +3495,10 @@ flat-cache@^3.0.4:
     keyv "^4.5.3"
     rimraf "^3.0.2"
 
-flatbuffers@^24.3.25:
-  version "24.3.25"
-  resolved "https://registry.yarnpkg.com/flatbuffers/-/flatbuffers-24.3.25.tgz#e2f92259ba8aa53acd0af7844afb7c7eb95e7089"
-  integrity sha512-3HDgPbgiwWMI9zVB7VYBHaMrbOO7Gm0v+yD2FV/sCKj+9NDeVL7BOBYUuhWAQGKWOzBo8S9WdMvV0eixO233XQ==
+flatbuffers@^25.1.24:
+  version "25.1.24"
+  resolved "https://registry.yarnpkg.com/flatbuffers/-/flatbuffers-25.1.24.tgz#e182b2733c724157db59267e4a8c971021741f32"
+  integrity sha512-Ni+KCqYquU30UEgGkrrwpbYtUcUmNuLFcQ5Xdy9DK7WUaji+AAov+Bf12FEYmu0eI15y31oD38utnBexe0cAYA==
 
 flatted@^3.2.9:
   version "3.3.1"

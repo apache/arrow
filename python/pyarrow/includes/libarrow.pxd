@@ -1078,7 +1078,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CRecordBatch] batch
         # The struct in C++ does not actually have these two `const` qualifiers, but
         # adding `const` gets Cython to not complain
-        const shared_ptr[const CKeyValueMetadata] custom_metadata
+        shared_ptr[const CKeyValueMetadata] custom_metadata
 
     cdef cppclass CTable" arrow::Table":
         CTable(const shared_ptr[CSchema]& schema,
@@ -2176,6 +2176,13 @@ cdef extern from "arrow/json/reader.h" namespace "arrow::json" nogil:
 
         CResult[shared_ptr[CTable]] Read()
 
+    cdef cppclass CJSONStreamingReader" arrow::json::StreamingReader"(
+            CRecordBatchReader):
+        @staticmethod
+        CResult[shared_ptr[CJSONStreamingReader]] Make(
+            shared_ptr[CInputStream],
+            CJSONReadOptions, CJSONParseOptions, CIOContext)
+
 
 cdef extern from "arrow/util/thread_pool.h" namespace "arrow::internal" nogil:
 
@@ -2787,6 +2794,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         vector[CSortKey] sort_keys
         CNullPlacement null_placement
         CRankOptionsTiebreaker tiebreaker
+
+    cdef cppclass CRankQuantileOptions \
+            "arrow::compute::RankQuantileOptions"(CFunctionOptions):
+        CRankQuantileOptions(vector[CSortKey] sort_keys, CNullPlacement)
+        vector[CSortKey] sort_keys
+        CNullPlacement null_placement
 
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"

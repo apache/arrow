@@ -33,6 +33,11 @@ namespace Apache.Arrow.Flight.Client
             _client = new FlightService.FlightServiceClient(grpcChannel);
         }
 
+        public FlightClient(CallInvoker callInvoker)
+        {
+            _client = new FlightService.FlightServiceClient(callInvoker);
+        }
+
         public AsyncServerStreamingCall<FlightInfo> ListFlights(FlightCriteria criteria = null, Metadata headers = null)
         {
             return ListFlights(criteria, headers, null, CancellationToken.None);

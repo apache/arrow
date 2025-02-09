@@ -339,20 +339,10 @@ garrow_table_new_values(GArrowSchema *schema, GList *values, GError **error)
 
   if (!arrow_chunked_arrays.empty()) {
     auto arrow_table = arrow::Table::Make(arrow_schema, std::move(arrow_chunked_arrays));
-    auto status = arrow_table->Validate();
-    if (garrow_error_check(error, status, context)) {
-      return garrow_table_new_raw(&arrow_table);
-    } else {
-      return NULL;
-    }
+    return garrow_table_new_raw(&arrow_table);
   } else if (!arrow_arrays.empty()) {
     auto arrow_table = arrow::Table::Make(arrow_schema, std::move(arrow_arrays));
-    auto status = arrow_table->Validate();
-    if (garrow_error_check(error, status, context)) {
-      return garrow_table_new_raw(&arrow_table);
-    } else {
-      return NULL;
-    }
+    return garrow_table_new_raw(&arrow_table);
   } else {
     auto maybe_table =
       arrow::Table::FromRecordBatches(arrow_schema, std::move(arrow_record_batches));
@@ -390,12 +380,7 @@ garrow_table_new_chunked_arrays(GArrowSchema *schema,
   }
 
   auto arrow_table = arrow::Table::Make(arrow_schema, arrow_chunked_arrays);
-  auto status = arrow_table->Validate();
-  if (garrow_error_check(error, status, "[table][new][chunked-arrays]")) {
-    return garrow_table_new_raw(&arrow_table);
-  } else {
-    return NULL;
-  }
+  return garrow_table_new_raw(&arrow_table);
 }
 
 /**
@@ -422,12 +407,7 @@ garrow_table_new_arrays(GArrowSchema *schema,
   }
 
   auto arrow_table = arrow::Table::Make(arrow_schema, arrow_arrays);
-  auto status = arrow_table->Validate();
-  if (garrow_error_check(error, status, "[table][new][arrays]")) {
-    return garrow_table_new_raw(&arrow_table);
-  } else {
-    return NULL;
-  }
+  return garrow_table_new_raw(&arrow_table);
 }
 
 /**
@@ -754,6 +734,42 @@ garrow_table_combine_chunks(GArrowTable *table, GError **error)
   } else {
     return NULL;
   }
+}
+
+/**
+ * garrow_table_validate
+ * @table: A #GArrowTable
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Validate the given table. This is a cheap validation.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 20.0.0
+ */
+gboolean
+garrow_table_validate(GArrowTable *table, GError **error)
+{
+  const auto arrow_table = garrow_table_get_raw(table);
+  return garrow::check(error, arrow_table->Validate(), "[table][validate]");
+}
+
+/**
+ * garrow_table_validate_full
+ * @table: A #GArrowTable
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Validate the given table. This is an extensive validation.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 20.0.0
+ */
+gboolean
+garrow_table_validate_full(GArrowTable *table, GError **error)
+{
+  const auto arrow_table = garrow_table_get_raw(table);
+  return garrow::check(error, arrow_table->ValidateFull(), "[table][validate-full]");
 }
 
 typedef struct GArrowFeatherWritePropertiesPrivate_
