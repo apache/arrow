@@ -101,6 +101,7 @@ export enum Type {
     DurationMillisecond = -28,
     DurationMicrosecond = -29,
     DurationNanosecond = -30,
+    IntervalMonthDayNano = -31,
 }
 
 export enum BufferType {
