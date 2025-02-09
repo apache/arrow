@@ -759,7 +759,7 @@ garrow_table_validate(GArrowTable *table, GError **error)
  * @table: A #GArrowTable
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Validate the given table. This is a extensive validation.
+ * Validate the given table. This is an extensive validation.
  *
  * Returns: %TRUE on success, %FALSE on error.
  *
