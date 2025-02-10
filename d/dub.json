@@ -20,31 +20,36 @@
 			]
 		}
 	},
-	"preBuildCommands": [
-		"\"$DUB\" run girtod -- -i source -o source --use-runtime-linker"
-	],
 	"dependencies": {
-		"girtod": {
-			"repository": "git+https://github.com/gtkd-developers/gir-to-d.git",
-			"version": "098475152340cbac072824af5136b9151a983ca4"
+		"gidgen": {
+			"repository": "git+https://github.com/Kymorphia/gidgen.git",
+			"version": "0a3ee4177a2f4973f39ffac3fe2e4542f45f9708"
 		},
-		"glibd": {
-			"repository": "git+https://github.com/gtkd-developers/GlibD.git",
-			"version": "1546823185334c4727d378baf890fa13d9fa4cbd"
-		}
+		"gid:glib-2-0": "~>0.9.1"
 	},
+	"preBuildCommands": [
+		"\"$DUB\" run gidgen -- --log-level off --report --report-file report.txt -d $PACKAGE_DIR/defs -s $PACKAGE_DIR/source -g $PACKAGE_DIR/c_glib.build/arrow-glib -p $PACKAGE_DIR/source -d ${GID:GLIB_2_0_PACKAGE_DIR}/../../defs -g ${GID:GLIB_2_0_PACKAGE_DIR}/../../gir"
+	],
+	"lflags-posix": [
+		"-L$PACKAGE_DIR/c_glib.build/arrow-glib"
+	],
+	"libs": [
+		"arrow-glib"
+	],
 	"configurations": [
 		{
 			"name": "unittest",
+			"targetPath": "unittest",
 			"sourceFiles": [
 				"source/package.d"
 			],
-			"libs": [
-				"arrow-glib"
+			"dflags-dmd": [
+				"-verrors=context"
 			],
-			"dflags-dmd": ["-verrors=context"],
-			"dflags-ldc": ["--verrors-context"]
+			"dflags-ldc": [
+				"--verrors-context",
+				"-link-defaultlib-shared"
+			]
 		}
 	]
-	
 }

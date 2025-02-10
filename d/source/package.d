@@ -17,17 +17,17 @@
 * under the License.
 */
 
-module arrow;
+module Arrow;
 
 version (unittest)
 {
-    import arrow.Array;
-    import arrow.DataType;
-    import arrow.BooleanArray;
-    import arrow.CastOptions;
-    import arrow.FilterOptions;
-    import arrow.TakeOptions;
-    import arrow.c.types;
+    import Arrow.Array;
+    import Arrow.DataType;
+    import Arrow.BooleanArray;
+    import Arrow.CastOptions;
+    import Arrow.FilterOptions;
+    import Arrow.TakeOptions;
+    import Arrow.c.types;
 
     @("Arrow Array")
     unittest
@@ -40,23 +40,23 @@ version (unittest)
 
         // Test null checks
         auto nullBitmap = array.getNullBitmap();
-        assert(nullBitmap is null);
+        assert(nullBitmap is null, "Null bitmap should be null");
 
         // Test value type
         auto valueType = array.getValueType();
-        assert(valueType >= GArrowType.NA);
+        assert(valueType >= GArrowType.Na, "Value type should be non-null");
 
         // Test equality
         auto otherArray = new Array(null);
-        assert(array.equal(otherArray));
-        assert(array.equalApprox(otherArray));
+        assert(array.equal(otherArray), "Arrays should be equal");
+        assert(array.equalApprox(otherArray), "Arrays should be equalApprox");
 
         // Test slicing
         auto slice = array.slice(0, 0);
-        assert(slice !is null);
+        assert(slice !is null, "Slice should not be null");
 
         // Test data type
         auto dataType = array.getValueDataType();
-        assert(dataType is null || dataType !is null);
+        assert(dataType is null || dataType !is null, "Data type should be non-null");
     }
 }

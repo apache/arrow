@@ -16,6 +16,8 @@
 # under the License.
 
 # unittest executable
-arrow-d-test-unittest*
+unittest/
 # generated files
-source/arrow*/
+source/*-*/
+report.txt
+dub.selections.json
