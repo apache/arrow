@@ -21,7 +21,7 @@
 
 jobs:
   r-versions:
-    name: "rstudio/r-base:{{ MATRIX }}-focal"
+    name: "rstudio/r-base:{{ MATRIX }}-jammy"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
