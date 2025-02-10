@@ -340,6 +340,8 @@ Status Pipe::Init(const std::shared_ptr<Schema> schema) {
   return Status::OK();
 }
 
+bool Pipe::HasSources() const { return !!last_source_node_; }
+
 namespace internal {
 void RegisterPipeNodes(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("pipe_source", PipeSourceNode::Make));

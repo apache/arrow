@@ -71,6 +71,8 @@ class ARROW_ACERO_EXPORT Pipe {
   // Called from pipe_sink Init
   Status Init(const std::shared_ptr<Schema> schema);
 
+  bool HasSources() const;
+
  private:
   // pipe
   ExecPlan* plan_;
