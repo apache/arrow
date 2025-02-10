@@ -27,7 +27,7 @@ on:
     paths:
       - '.dockerignore'
       - '.github/workflows/d.yml'
-      - 'ci/docker/*d*'
+      - 'ci/docker/*-d.dockerfile'
       - 'ci/scripts/c_glib_*'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/d_*'
