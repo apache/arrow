@@ -25,6 +25,7 @@ template <typename CType>
 void CheckStep(const Array& result, CType start, CType step, int64_t length) {
   using ArrowType = typename CTypeTraits<CType>::ArrowType;
 
+  ASSERT_OK(result.ValidateFull());
   ASSERT_EQ(result.type_id(), TypeTraits<ArrowType>::type_singleton()->id());
   ASSERT_EQ(result.length(), length);
   ASSERT_EQ(result.null_bitmap(), nullptr);
