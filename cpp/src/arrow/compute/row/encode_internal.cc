@@ -279,7 +279,7 @@ void EncoderInteger::Decode(uint32_t start_row, uint32_t num_rows,
       case 4:
         for (uint32_t i = 0; i < num_rows; ++i) {
           reinterpret_cast<uint32_t*>(col_base)[i] = *reinterpret_cast<const uint32_t*>(
-              rows.fixed_length_rows(start_row + i + offset_within_row));
+              rows.fixed_length_rows(start_row + i) + offset_within_row);
         }
         break;
       case 8:

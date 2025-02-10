@@ -825,6 +825,28 @@ TEST(Grouper, DictKey) {
                                   g.grouper_->Consume(dict_span));
 }
 
+// GH-45393: Test combinations of numeric type keys of different lengths.
+TEST(Grouper, MultipleIntKeys) {
+  auto types = NumericTypes();
+  for (auto& t0 : types) {
+    ARROW_SCOPED_TRACE("t0=", t0->ToString());
+    for (auto& t1 : types) {
+      ARROW_SCOPED_TRACE("t1=", t1->ToString());
+      for (auto& t2 : types) {
+        ARROW_SCOPED_TRACE("t2=", t2->ToString());
+        TestGrouper g({t0, t1, t2});
+
+        g.ExpectConsume(R"([[0, 1, 2], [0, 1, 2]])", "[0, 0]");
+        g.ExpectConsume(R"([[0, 1, 2], [null, 1, 2]])", "[0, 1]");
+        g.ExpectConsume(R"([[0, 1, 2], [0, null, 2]])", "[0, 2]");
+        g.ExpectConsume(R"([[0, 1, 2], [0, 1, null]])", "[0, 3]");
+
+        g.ExpectUniques("[[0, 1, 2], [null, 1, 2], [0, null, 2], [0, 1, null]]");
+      }
+    }
+  }
+}
+
 TEST(Grouper, StringInt64Key) {
   TestGrouper g({utf8(), int64()});
 
