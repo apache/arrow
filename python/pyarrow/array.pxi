@@ -1651,7 +1651,7 @@ cdef class Array(_PandasConvertible):
             array = array.copy()
         return array
 
-    def to_pylist(self, maps_as_pydicts=None):
+    def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert to a list of native Python objects.
 
@@ -2302,7 +2302,7 @@ cdef class MonthDayNanoIntervalArray(Array):
     Concrete class for Arrow arrays of interval[MonthDayNano] type.
     """
 
-    def to_pylist(self, maps_as_pydicts=None):
+    def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert to a list of native Python objects.
 

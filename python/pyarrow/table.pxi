@@ -1349,7 +1349,7 @@ cdef class ChunkedArray(_PandasConvertible):
         for i in range(self.num_chunks):
             yield self.chunk(i)
 
-    def to_pylist(self, maps_as_pydicts=None):
+    def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert to a list of native Python objects.
 
@@ -2271,7 +2271,7 @@ cdef class _Tabular(_PandasConvertible):
         else:
             return _pc().filter(self, mask, null_selection_behavior)
 
-    def to_pydict(self, maps_as_pydicts=None):
+    def to_pydict(self, *, maps_as_pydicts=None):
         """
         Convert the Table or RecordBatch to a dict or OrderedDict.
 
@@ -2313,7 +2313,7 @@ cdef class _Tabular(_PandasConvertible):
             entries.append((name, column))
         return ordered_dict(entries)
 
-    def to_pylist(self, maps_as_pydicts=None):
+    def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert the Table or RecordBatch to a list of rows / dictionaries.
 

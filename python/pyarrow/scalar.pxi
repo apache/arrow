@@ -149,7 +149,7 @@ cdef class Scalar(_Weakrefable):
     def __reduce__(self):
         return scalar, (self.as_py(), self.type)
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python representation.
 
@@ -189,7 +189,7 @@ cdef class NullScalar(Scalar):
     def __init__(self):
         pass
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python None.
 
@@ -220,7 +220,7 @@ cdef class BooleanScalar(Scalar):
     Concrete class for boolean scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python bool.
 
@@ -249,7 +249,7 @@ cdef class UInt8Scalar(Scalar):
     Concrete class for uint8 scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
 
@@ -278,7 +278,7 @@ cdef class Int8Scalar(Scalar):
     Concrete class for int8 scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
 
@@ -307,7 +307,7 @@ cdef class UInt16Scalar(Scalar):
     Concrete class for uint16 scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
 
@@ -336,7 +336,7 @@ cdef class Int16Scalar(Scalar):
     Concrete class for int16 scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
 
@@ -365,7 +365,7 @@ cdef class UInt32Scalar(Scalar):
     Concrete class for uint32 scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
 
@@ -394,7 +394,7 @@ cdef class Int32Scalar(Scalar):
     Concrete class for int32 scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
 
@@ -423,7 +423,7 @@ cdef class UInt64Scalar(Scalar):
     Concrete class for uint64 scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
 
@@ -452,7 +452,7 @@ cdef class Int64Scalar(Scalar):
     Concrete class for int64 scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
 
@@ -481,7 +481,7 @@ cdef class HalfFloatScalar(Scalar):
     Concrete class for float scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python float.
 
@@ -510,7 +510,7 @@ cdef class FloatScalar(Scalar):
     Concrete class for float scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python float.
 
@@ -539,7 +539,7 @@ cdef class DoubleScalar(Scalar):
     Concrete class for double scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python float.
 
@@ -568,7 +568,7 @@ cdef class Decimal32Scalar(Scalar):
     Concrete class for decimal32 scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python Decimal.
 
@@ -604,7 +604,7 @@ cdef class Decimal64Scalar(Scalar):
     Concrete class for decimal64 scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python Decimal.
 
@@ -640,7 +640,7 @@ cdef class Decimal128Scalar(Scalar):
     Concrete class for decimal128 scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python Decimal.
 
@@ -676,7 +676,7 @@ cdef class Decimal256Scalar(Scalar):
     Concrete class for decimal256 scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python Decimal.
 
@@ -717,7 +717,7 @@ cdef class Date32Scalar(Scalar):
         cdef CDate32Scalar* sp = <CDate32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python datetime.datetime instance.
 
@@ -758,7 +758,7 @@ cdef class Date64Scalar(Scalar):
         cdef CDate64Scalar* sp = <CDate64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python datetime.datetime instance.
 
@@ -828,7 +828,7 @@ cdef class Time32Scalar(Scalar):
         cdef CTime32Scalar* sp = <CTime32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python datetime.timedelta instance.
 
@@ -868,7 +868,7 @@ cdef class Time64Scalar(Scalar):
         cdef CTime64Scalar* sp = <CTime64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python datetime.timedelta instance.
 
@@ -908,7 +908,7 @@ cdef class TimestampScalar(Scalar):
         cdef CTimestampScalar* sp = <CTimestampScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Pandas Timestamp instance (if units are
         nanoseconds and pandas is available), otherwise as a Python
@@ -972,7 +972,7 @@ cdef class DurationScalar(Scalar):
         cdef CDurationScalar* sp = <CDurationScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Pandas Timedelta instance (if units are
         nanoseconds and pandas is available), otherwise as a Python
@@ -1035,7 +1035,7 @@ cdef class MonthDayNanoIntervalScalar(Scalar):
         """
         return self.as_py()
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a pyarrow.MonthDayNano.
 
@@ -1076,7 +1076,7 @@ cdef class BinaryScalar(Scalar):
         cdef CBaseBinaryScalar* sp = <CBaseBinaryScalar*> self.wrapped.get()
         return pyarrow_wrap_buffer(sp.value) if sp.is_valid else None
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python bytes.
 
@@ -1113,7 +1113,7 @@ cdef class StringScalar(BinaryScalar):
     Concrete class for string-like (utf8) scalars.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python string.
 
@@ -1180,7 +1180,7 @@ cdef class ListScalar(Scalar):
         """
         return iter(self.values)
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python list.
 
@@ -1276,7 +1276,7 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
             else:
                 raise KeyError(key) from exc
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python dict.
 
@@ -1348,7 +1348,7 @@ cdef class MapScalar(ListScalar):
         for k, v in zip(arr.field(self.type.key_field.name), arr.field(self.type.item_field.name)):
             yield (k.as_py(), v.as_py())
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python list or dict, depending on 'maps_as_pydicts'.
 
@@ -1462,7 +1462,7 @@ cdef class DictionaryScalar(Scalar):
         cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
         return pyarrow_wrap_array(sp.value.dictionary)
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this encoded value as a Python object.
 
@@ -1497,7 +1497,7 @@ cdef class RunEndEncodedScalar(Scalar):
         cdef CRunEndEncodedScalar* sp = <CRunEndEncodedScalar*> self.wrapped.get()
         return Scalar.wrap(sp.value)
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return underlying value as a Python object.
 
@@ -1539,7 +1539,7 @@ cdef class UnionScalar(Scalar):
             dp = <CDenseUnionScalar*> self.wrapped.get()
             return Scalar.wrap(dp.value) if dp.is_valid else None
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return underlying value as a Python object.
 
@@ -1584,7 +1584,7 @@ cdef class ExtensionScalar(Scalar):
         cdef CExtensionScalar* sp = <CExtensionScalar*> self.wrapped.get()
         return Scalar.wrap(sp.value) if sp.is_valid else None
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this scalar as a Python object.
 
@@ -1661,7 +1661,7 @@ class UuidScalar(ExtensionScalar):
     Concrete class for Uuid extension scalar.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this scalar as a Python UUID.
 
@@ -1737,7 +1737,7 @@ cdef class Bool8Scalar(ExtensionScalar):
     Concrete class for bool8 extension scalar.
     """
 
-    def as_py(self, maps_as_pydicts=None):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this scalar as a Python object.
 
