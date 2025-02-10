@@ -207,7 +207,7 @@ Depends:
   libarrow-dev (= ${binary:Version}),
   libarrow-flight2000 (= ${binary:Version}),
   libc-ares-dev,
-@USE_SYSTEM_GRPC@  libgrpc++-dev
+  libgrpc++-dev
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for Flight RPC system.
