@@ -45,7 +45,7 @@ class PipeSource {
   virtual Status HandleInputReceived(ExecBatch batch) = 0;
   virtual Status HandleInputFinished(int total_batches) = 0;
 
-  Pipe* pipe_;
+  Pipe* pipe_{nullptr};
 };
 
 class ARROW_ACERO_EXPORT Pipe {
