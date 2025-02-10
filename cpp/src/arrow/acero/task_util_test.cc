@@ -255,15 +255,12 @@ TEST(TaskScheduler, AbortContOnTaskErrorSerial) {
       Invalid, "Invalid: Task failed",
       scheduler->StartTaskGroup(/*thread_id=*/0, task_group, kNumTasks));
 
-  bool abort_cont_called = false;
-  auto abort_cont = [&]() {
-    ASSERT_FALSE(abort_cont_called);
-    abort_cont_called = true;
-  };
+  int num_abort_cont_calls = 0;
+  auto abort_cont = [&]() { ++num_abort_cont_calls; };
 
   scheduler->Abort(abort_cont);
 
-  ASSERT_TRUE(abort_cont_called);
+  ASSERT_EQ(num_abort_cont_calls, 1);
 }
 
 TEST(TaskScheduler, AbortContOnTaskErrorParallel) {
@@ -295,11 +292,8 @@ TEST(TaskScheduler, AbortContOnTaskErrorParallel) {
         ARROW_SCOPED_TRACE("aborting_task_id = ", aborting_task_id);
         auto scheduler = TaskScheduler::Make();
 
-        bool abort_cont_called = false;
-        auto abort_cont = [&]() {
-          ASSERT_FALSE(abort_cont_called);
-          abort_cont_called = true;
-        };
+        int num_abort_cont_calls = 0;
+        auto abort_cont = [&]() { ++num_abort_cont_calls; };
 
         auto task = [&](std::size_t, int64_t task_id) {
           if (task_id == aborting_task_id) {
@@ -322,7 +316,7 @@ TEST(TaskScheduler, AbortContOnTaskErrorParallel) {
 
         thread_pool->WaitForIdle();
 
-        ASSERT_TRUE(abort_cont_called);
+        ASSERT_EQ(num_abort_cont_calls, 1);
       }
     }
   }
