@@ -117,7 +117,7 @@ if(ARROW_TESTING)
   if(ARROW_WITH_OPENTELEMETRY)
     target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
   endif()
-  list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing)
+  list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing arrow_compute_testing)
 endif()
 # Only for hash_aggregate_test.cc.
 if(ARROW_USE_BOOST)

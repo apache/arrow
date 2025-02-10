@@ -49,7 +49,13 @@ class TestRecordBatchDatum < Test::Unit::TestCase
   end
 
   def test_to_string
-    assert_equal("RecordBatch(visible:   [\n" + "    true,\n" + "    false\n" + "  ]\n" + ")", @datum.to_s)
+    assert_equal(<<-DATUM.chomp, @datum.to_s)
+RecordBatch(visible:   [
+    true,
+    false
+  ]
+)
+    DATUM
   end
 
   def test_value

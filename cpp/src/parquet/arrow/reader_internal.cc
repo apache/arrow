@@ -322,6 +322,10 @@ template <typename ArrowType, typename ParquetType>
 void AttachStatistics(::arrow::ArrayData* data,
                       std::unique_ptr<::parquet::ColumnChunkMetaData> metadata,
                       const ReaderContext* ctx) {
+  if (!metadata) {
+    return;
+  }
+
   using ArrowCType = typename ArrowType::c_type;
 
   auto statistics = metadata->statistics().get();

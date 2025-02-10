@@ -1037,8 +1037,9 @@ ArrayKernelExec GenerateFloatingPoint(detail::GetTypeId get_id) {
 // Generate a kernel given a templated functor for integer types
 //
 // See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateInteger(detail::GetTypeId get_id) {
+template <template <typename...> class Generator, typename Type0,
+          typename KernelType = ArrayKernelExec, typename... Args>
+KernelType GenerateInteger(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;

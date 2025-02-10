@@ -46,7 +46,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 
 namespace arrow {
 

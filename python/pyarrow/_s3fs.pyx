@@ -17,8 +17,6 @@
 
 # cython: language_level = 3
 
-from cython cimport binding
-
 from pyarrow.lib cimport (check_status, pyarrow_wrap_metadata,
                           pyarrow_unwrap_metadata)
 from pyarrow.lib import frombytes, tobytes, KeyValueMetadata
@@ -419,7 +417,6 @@ cdef class S3FileSystem(FileSystem):
         self.s3fs = <CS3FileSystem*> wrapped.get()
 
     @staticmethod
-    @binding(True)  # Required for cython < 3
     def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.

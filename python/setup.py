@@ -48,9 +48,9 @@ is_emscripten = (
 )
 
 
-if Cython.__version__ < '0.29.31':
+if Cython.__version__ < '3':
     raise Exception(
-        'Please update your Cython version. Supported Cython >= 0.29.31')
+        'Please update your Cython version. Supported Cython >= 3')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 

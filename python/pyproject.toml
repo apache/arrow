@@ -17,7 +17,7 @@
 
 [build-system]
 requires = [
-    "cython >= 0.29.31",
+    "cython >= 3",
     # Starting with NumPy 1.25, NumPy is (by default) as far back compatible
     # as oldest-support-numpy was (customizable with a NPY_TARGET_VERSION
     # define).  For older Python versions (where NumPy 1.25 is not yet available)
@@ -81,4 +81,4 @@ root = '..'
 version_file = 'pyarrow/_generated_version.py'
 version_scheme = 'guess-next-dev'
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
-fallback_version = '19.0.0a0'
+fallback_version = '20.0.0a0'

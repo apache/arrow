@@ -29,6 +29,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/test_util_internal.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
@@ -130,8 +131,6 @@ void CheckScalarBinaryCommutative(std::string func_name, Datum left_input,
 
 void CheckVectorUnary(std::string func_name, Datum input, Datum expected,
                       const FunctionOptions* options = nullptr);
-
-void ValidateOutput(const Datum& output);
 
 static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
