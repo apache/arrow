@@ -799,7 +799,7 @@ def test_map_duplicate_fields():
     with pytest.raises(ValueError):
         assert s.as_py(maps_as_pydicts="strict")
 
-    assert s.as_py(maps_as_pydicts="lossy") == [{'a': 2}]
+    assert s.as_py(maps_as_pydicts="lossy") == {'a': 2}
 
 
 def test_dictionary(pickle_module):
