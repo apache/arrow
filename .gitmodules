@@ -4,3 +4,6 @@
 [submodule "testing"]
 	path = testing
 	url = https://github.com/apache/arrow-testing
+[submodule "java"]
+	path = java
+	url = https://github.com/apache/arrow-java.git
