@@ -21,3 +21,4 @@ unittest/
 source/*-*/
 report.txt
 dub.selections.json
+source/dub.json
