@@ -103,21 +103,6 @@ jobs:
             -e TEST_WHEELS=1 \
             almalinux-verify-rc
 
-      - name: Test wheel on Ubuntu 20.04
-        shell: bash
-        if: |
-          '{{ python_version }}' == '3.9'
-        env:
-          UBUNTU: "20.04"
-        run: |
-          archery docker run \
-            -e TEST_DEFAULT=0 \
-            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
-            -e TEST_PYTHON_VERSIONS={{ python_version }} \
-            -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
-            -e TEST_WHEELS=1 \
-            ubuntu-verify-rc
-
       - name: Test wheel on Ubuntu 22.04
         shell: bash
         if: |
