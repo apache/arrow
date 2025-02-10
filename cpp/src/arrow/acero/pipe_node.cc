@@ -141,7 +141,10 @@ class PipeSinkNode : public ExecNode {
     return pipe_->InputFinished(total_batches);
   }
 
-  Status Init() override { return pipe_->Init(inputs_[0]->output_schema()); }
+  Status Init() override {
+    ARROW_RETURN_NOT_OK(pipe_->Init(inputs_[0]->output_schema()));
+    return ExecNode::Init();
+  }
 
   Status StartProducing() override { return Status::OK(); }
 
@@ -318,24 +321,14 @@ void Pipe::addSource(PipeSource* source) {
 Status Pipe::Init(const std::shared_ptr<Schema> schema) {
   for (auto node : plan_->nodes()) {
     if (node->kind_name() == PipeSourceNode::kKindName) {
-      if (!schema->Equals(node->output_schema())) {
-        return Status::Invalid("Pipe sechma does not match for " + pipe_name_);
-      }
       PipeSourceNode* pipe_source = checked_cast<PipeSourceNode*>(node);
       if (pipe_source->pipe_name_ == pipe_name_) {
+        if (!schema->Equals(node->output_schema())) {
+          return Status::Invalid("Pipe schema does not match for " + pipe_name_);
+        }
         addSource(pipe_source);
-        // std::cout << std::string(node->kind_name()) + ":! " + node->label()
-        //           << std::endl;
       }
-      // else {
-      //   std::cout << std::string(node->kind_name()) + ":+ " + node->label()
-      //             << std::endl;
-      // }
     }
-    // else {
-    //   std::cout << std::string(node->kind_name()) + ":- " + node->label() <<
-    //   std::endl;
-    // }
   }
   return Status::OK();
 }

@@ -123,7 +123,7 @@ TEST(ExecPlanExecution, PipeErrorSink) {
   plan->StartProducing();
   ASSERT_THAT(plan->finished().result().status(),
               Raises(StatusCode::Invalid,
-                     HasSubstr("Pipe sechma does not match for named_pipe_1")));
+                     HasSubstr("Pipe schema does not match for named_pipe_1")));
 
   Declaration dup3 = Declaration::Sequence(
       {{"pipe_source",
