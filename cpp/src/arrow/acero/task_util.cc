@@ -403,26 +403,35 @@ void TaskSchedulerImpl::Abort(AbortContinuationImpl impl) {
     if (register_finished_) {
       for (size_t i = 0; i < task_groups_.size(); ++i) {
         TaskGroup& task_group = task_groups_[i];
-        if (task_group.state_ == TaskGroupState::NOT_READY) {
-          task_group.state_ = TaskGroupState::ALL_TASKS_FINISHED;
-        } else if (task_group.state_ == TaskGroupState::READY) {
-          int64_t expected = task_group.num_tasks_started_.value.load();
-          for (;;) {
-            if (task_group.num_tasks_started_.value.compare_exchange_strong(
-                    expected, task_group.num_tasks_present_)) {
-              break;
-            }
-          }
-          int64_t before_add = task_group.num_tasks_finished_.value.fetch_add(
-              task_group.num_tasks_present_ - expected);
-          if (before_add >= expected) {
+        switch (task_group.state_) {
+          case TaskGroupState::NOT_READY: {
             task_group.state_ = TaskGroupState::ALL_TASKS_FINISHED;
-          } else {
-            all_finished = false;
-            task_group.state_ = TaskGroupState::ALL_TASKS_STARTED;
+            break;
           }
-        } else if (task_group.state_ == TaskGroupState::ALL_TASKS_STARTED) {
-          all_finished = false;
+          case TaskGroupState::READY: {
+            int64_t expected = task_group.num_tasks_started_.value.load();
+            for (;;) {
+              if (task_group.num_tasks_started_.value.compare_exchange_strong(
+                      expected, task_group.num_tasks_present_)) {
+                break;
+              }
+            }
+            int64_t before_add = task_group.num_tasks_finished_.value.fetch_add(
+                task_group.num_tasks_present_ - expected);
+            if (before_add >= expected) {
+              task_group.state_ = TaskGroupState::ALL_TASKS_FINISHED;
+            } else {
+              all_finished = false;
+              task_group.state_ = TaskGroupState::ALL_TASKS_STARTED;
+            }
+            break;
+          }
+          case TaskGroupState::ALL_TASKS_STARTED: {
+            all_finished = false;
+            break;
+          }
+          default:
+            break;
         }
       }
     }
