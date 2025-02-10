@@ -4119,7 +4119,7 @@ TEST(Cast, StructToDifferentNullabilityStruct) {
     CheckCast(src_non_nullable, dest3_nullable);
   }
   {
-    // But NOT OK to go from nullable to non-nullable...
+    // But when going from nullable to non-nullable, all data must be non-null...
     std::vector<std::shared_ptr<Field>> fields_src_nullable = {
         std::make_shared<Field>("a", int8(), true),
         std::make_shared<Field>("b", int8(), true),
@@ -4140,8 +4140,10 @@ TEST(Cast, StructToDifferentNullabilityStruct) {
     const auto dest1_non_nullable = arrow::struct_(fields_dest1_non_nullable);
     const auto options1_non_nullable = CastOptions::Safe(dest1_non_nullable);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        TypeError,
-        ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
+        Invalid,
+        ::testing::HasSubstr(
+            "field 'a' of type int8 has nulls. Can't cast to non-nullable field 'a' "
+            "of type int64"),
         Cast(src_nullable, options1_non_nullable));
 
     std::vector<std::shared_ptr<Field>> fields_dest2_non_nullable = {
@@ -4150,18 +4152,21 @@ TEST(Cast, StructToDifferentNullabilityStruct) {
     const auto dest2_non_nullable = arrow::struct_(fields_dest2_non_nullable);
     const auto options2_non_nullable = CastOptions::Safe(dest2_non_nullable);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        TypeError,
-        ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
+        Invalid,
+        ::testing::HasSubstr(
+            "field 'a' of type int8 has nulls. Can't cast to non-nullable field 'a' "
+            "of type int64"),
         Cast(src_nullable, options2_non_nullable));
 
-    std::vector<std::shared_ptr<Field>> fields_dest3_non_nullable = {
+    std::shared_ptr<Array> c_dest_no_nulls;
+    c_dest_no_nulls = ArrayFromJSON(int64(), "[9, 11, 44]");
+    std::vector<std::shared_ptr<Field>> fields_dest_no_nulls = {
         std::make_shared<Field>("c", int64(), false)};
-    const auto dest3_non_nullable = arrow::struct_(fields_dest3_non_nullable);
-    const auto options3_non_nullable = CastOptions::Safe(dest3_non_nullable);
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        TypeError,
-        ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
-        Cast(src_nullable, options3_non_nullable));
+    ASSERT_OK_AND_ASSIGN(auto dest_no_nulls,
+                         StructArray::Make({c_dest_no_nulls}, fields_dest_no_nulls));
+    const auto options3_non_nullable =
+        CastOptions::Safe(arrow::struct_(fields_dest_no_nulls));
+    CheckCast(src_nullable, dest_no_nulls, options3_non_nullable);
   }
 }
 
