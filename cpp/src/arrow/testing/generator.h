@@ -23,7 +23,8 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
-#include "arrow/builder.h"
+#include "arrow/array/util.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/visibility.h"
@@ -319,9 +320,7 @@ std::shared_ptr<ArrayGenerator> Step(T start = 0, T step = 1) {
     StepGenerator(T start, T step) : start_(start), step_(step) {}
 
     Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
-      using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
-
-      BuilderType builder;
+      TypedBufferBuilder<T> builder;
       ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
       T val = start_;
       for (int64_t i = 0; i < num_rows; i++) {
@@ -329,7 +328,9 @@ std::shared_ptr<ArrayGenerator> Step(T start = 0, T step = 1) {
         val += step_;
       }
       start_ = val;
-      return builder.Finish();
+      ARROW_ASSIGN_OR_RAISE(auto buf, builder.Finish());
+      return MakeArray(ArrayData::Make(TypeTraits<ArrowType>::type_singleton(), num_rows,
+                                       {NULLPTR, std::move(buf)}, /*null_count=*/0));
     }
 
     std::shared_ptr<DataType> type() const override {
