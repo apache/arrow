@@ -1387,7 +1387,8 @@ cdef class MapScalar(ListScalar):
                         "duplicate keys are present."
                     )
                 else:
-                    warnings.warn(f"Encountered key '{key}' which was already encountered.")
+                    warnings.warn(
+                        f"Encountered key '{key}' which was already encountered.")
             result_dict[key] = value
         return result_dict
 
