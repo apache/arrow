@@ -261,6 +261,14 @@ cdef class Scalar(_Weakrefable):
     cdef inline shared_ptr[CScalar] unwrap(self) nogil
 
 
+cdef class ArrayStatistics(_Weakrefable):
+    cdef:
+        shared_ptr[CArrayStatistics] sp_statistics
+
+    cdef void init(self, const shared_ptr[CArrayStatistics]& sp_statistics) except *
+    cdef _get_value(self, const optional[CArrayStatisticsValueType]& optional_value)
+
+
 cdef class _PandasConvertible(_Weakrefable):
     pass
 
