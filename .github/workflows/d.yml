@@ -61,7 +61,7 @@ env:
 
 jobs:
   docker:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} Glib & D
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} GLib & D
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
