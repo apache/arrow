@@ -877,12 +877,16 @@ class ARROW_ACERO_EXPORT PivotLongerNodeOptions : public ExecNodeOptions {
 /// additional source nodes for additional acero pipelines.
 class ARROW_ACERO_EXPORT PipeSourceNodeOptions : public ExecNodeOptions {
  public:
-  PipeSourceNodeOptions(std::string pipe_name, std::shared_ptr<Schema> output_schema)
-      : pipe_name(std::move(pipe_name)), output_schema(std::move(output_schema)) {}
+  PipeSourceNodeOptions(std::string pipe_name, std::shared_ptr<Schema> output_schema,
+                        Ordering ordering = Ordering::Unordered())
+      : pipe_name(std::move(pipe_name)),
+        output_schema(std::move(output_schema)),
+        ordering(std::move(ordering)) {}
 
   /// \brief List of declarations that will receive duplicated ExecBatches
   std::string pipe_name;
   std::shared_ptr<Schema> output_schema;
+  Ordering ordering;
 };
 
 class ARROW_ACERO_EXPORT PipeSinkNodeOptions : public ExecNodeOptions {
