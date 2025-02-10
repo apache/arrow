@@ -141,7 +141,7 @@ class PipeSinkNode : public ExecNode {
     return pipe_->InputFinished(total_batches);
   }
 
-  Status Init() { return pipe_->Init(inputs_[0]->output_schema()); }
+  Status Init() override { return pipe_->Init(inputs_[0]->output_schema()); }
 
   Status StartProducing() override { return Status::OK(); }
 
