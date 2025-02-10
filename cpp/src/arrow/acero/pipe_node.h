@@ -30,7 +30,7 @@ using compute::FilterOptions;
 
 namespace acero {
 class Pipe;
-class ARROW_ACERO_EXPORT PipeSource {
+class PipeSource {
  public:
   PipeSource();
   virtual ~PipeSource() {}
