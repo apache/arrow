@@ -169,6 +169,18 @@ variants which detect domain errors where appropriate.
    sin_checked
    tan
    tan_checked
+   sinh
+   sinh_checked
+   cosh
+   cosh_checked
+   tanh
+   tanh_checked
+   asinh
+   asinh_checked
+   acosh
+   acosh_checked
+   atanh
+   atanh_checked
 
 Comparisons
 -----------
