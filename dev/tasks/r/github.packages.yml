@@ -250,6 +250,8 @@ jobs:
           LIBARROW_BUILD: "false"
           ARROW_R_ENFORCE_CHECKSUM: "true"
           ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow/bin"
+          # Explicitly turn off pkg-config in one build to test non pc code paths.
+          ARROW_USE_PKG_CONFIG: "{{ "${{ contains(matrix.platform.name, 'arm64') && 'false' || '' }}" }}"
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 
