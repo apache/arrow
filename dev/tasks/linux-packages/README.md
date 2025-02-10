@@ -33,15 +33,16 @@ rake version:update
 rake apt:build
 ```
 
-## How to build .deb packages only for specified supported platforms
+## How to build only specific .deb packages for supported platforms
 
-The following command line shows all supported platforms:
+The following command line shows all supported platforms, bear in mind to
+execute this command from your root `arrow` clone folder:
 
 ```bash
 for x in dev/tasks/linux-packages/apache-arrow/apt/{debian,ubuntu}*; do basename $x; done
 ```
 
-You can specify target platforms by `APT_TARGETS`:
+You can specify target platforms by setting `APT_TARGETS`:
 
 ```bash
 cd dev/tasks/linux-packages/apache-arrow
@@ -76,7 +77,7 @@ cd dev/tasks/linux-packages/apache-arrow
 rake yum:build
 ```
 
-## How to build .rpm packages only for specified supported platforms
+## How to build only specific .rpm packages for supported platforms
 
 The following command line shows all supported platforms:
 
@@ -84,7 +85,7 @@ The following command line shows all supported platforms:
 for x in dev/tasks/linux-packages/apache-arrow/yum/{alma,amazon,centos}*; do basename $x; done
 ```
 
-You can specify target platforms by `YUM_TARGETS`:
+You can specify target platforms by setting `YUM_TARGETS`:
 
 ```bash
 cd dev/tasks/linux-packages/apache-arrow
