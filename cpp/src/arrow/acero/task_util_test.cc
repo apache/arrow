@@ -278,7 +278,8 @@ TEST(TaskScheduler, AbortContOnTaskErrorParallel) {
         return thread_pool->Spawn([&, task] {
           std::size_t thread_id = thread_indexer();
           auto status = task(thread_id);
-          ASSERT_TRUE(status.ok() || status.IsInvalid() || status.IsCancelled());
+          ASSERT_TRUE(status.ok() || status.IsInvalid() || status.IsCancelled())
+              << status;
         });
       };
 
