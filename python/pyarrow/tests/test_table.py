@@ -1897,13 +1897,13 @@ def test_table_maps_as_pydicts():
     ]
     table = pa.Table.from_arrays(arrays, names=['a'])
 
-    table_dict = table.to_pydict(maps_as_pydicts=True)
+    table_dict = table.to_pydict(maps_as_pydicts="strict")
     assert 'a' in table_dict
     column_list = table_dict['a']
     assert len(column_list) == 2
     assert column_list == [{'x': 1, 'y': 2}, {'z': 3}]
 
-    table_list = table.to_pylist(maps_as_pydicts=True)
+    table_list = table.to_pylist(maps_as_pydicts="strict")
     assert len(table_list) == 2
     assert table_list == [{'a': {'x': 1, 'y': 2}}, {'a': {'z': 3}}]
 

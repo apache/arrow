@@ -786,7 +786,7 @@ def test_map(pickle_module):
     restored = pickle_module.loads(pickle_module.dumps(s))
     assert restored.equals(s)
 
-    assert s.as_py(maps_as_pydicts=True) == {'a': 1, 'b': 2}
+    assert s.as_py(maps_as_pydicts="strict") == {'a': 1, 'b': 2}
 
 
 def test_map_duplicate_fields():
@@ -794,10 +794,12 @@ def test_map_duplicate_fields():
     v = [('a', 1), ('a', 2)]
     s = pa.scalar(v, type=ty)
 
-    assert s.as_py() == v
+    assert s.as_py(maps_as_pydicts=None) == v
 
     with pytest.raises(ValueError):
-        assert s.as_py(maps_as_pydicts=True)
+        assert s.as_py(maps_as_pydicts="strict")
+
+    assert s.as_py(maps_as_pydicts="lossy") == [{'a': 2}]
 
 
 def test_dictionary(pickle_module):
@@ -922,4 +924,4 @@ def test_nested_map_types_with_maps_as_pydicts():
     v = {'x': {'a': 1}, 'y': [{'b': 2}, {'c': 3}]}
     s = pa.scalar(v, type=ty)
 
-    assert s.as_py(maps_as_pydicts=True) == v
+    assert s.as_py(maps_as_pydicts="strict") == v

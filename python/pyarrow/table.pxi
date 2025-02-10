@@ -1349,14 +1349,25 @@ cdef class ChunkedArray(_PandasConvertible):
         for i in range(self.num_chunks):
             yield self.chunk(i)
 
-    def to_pylist(self, maps_as_pydicts=False):
+    def to_pylist(self, maps_as_pydicts=None):
         """
         Convert to a list of native Python objects.
 
         Parameters
         ----------
-        maps_as_pydicts : bool, default False
-            Whether to treat elements of type Map as python dictionaries or as a list of (key, value) tuples
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+            This can change the ordering of (key, value) pairs, and will
+            deduplicate multiple keys, resulting in a possible loss of data.
+
+            If 'lossy', this key deduplication results in a warning printed
+            when detected. If 'strict', this instead results in an exception
+            being raised when detected.
 
         Examples
         --------
@@ -2260,14 +2271,25 @@ cdef class _Tabular(_PandasConvertible):
         else:
             return _pc().filter(self, mask, null_selection_behavior)
 
-    def to_pydict(self, maps_as_pydicts=False):
+    def to_pydict(self, maps_as_pydicts=None):
         """
         Convert the Table or RecordBatch to a dict or OrderedDict.
 
         Parameters
         ----------
-        maps_as_pydicts : bool, default False
-            Whether to treat elements of type Map as python dictionaries or as a list of (key, value) tuples
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+            This can change the ordering of (key, value) pairs, and will
+            deduplicate multiple keys, resulting in a possible loss of data.
+
+            If 'lossy', this key deduplication results in a warning printed
+            when detected. If 'strict', this instead results in an exception
+            being raised when detected.
 
         Returns
         -------
@@ -2291,14 +2313,25 @@ cdef class _Tabular(_PandasConvertible):
             entries.append((name, column))
         return ordered_dict(entries)
 
-    def to_pylist(self, maps_as_pydicts=False):
+    def to_pylist(self, maps_as_pydicts=None):
         """
         Convert the Table or RecordBatch to a list of rows / dictionaries.
 
         Parameters
         ----------
-        maps_as_pydicts : bool, default False
-            Whether to treat elements of type Map as python dictionaries or as a list of (key, value) tuples
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+            This can change the ordering of (key, value) pairs, and will
+            deduplicate multiple keys, resulting in a possible loss of data.
+
+            If 'lossy', this key deduplication results in a warning printed
+            when detected. If 'strict', this instead results in an exception
+            being raised when detected.
 
         Returns
         -------
