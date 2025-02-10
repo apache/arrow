@@ -247,9 +247,13 @@ TEST(TaskScheduler, AbortContOnTaskErrorSerial) {
   scheduler->RegisterEnd();
 
   ASSERT_OK(scheduler->StartScheduling(
-      0, [](TaskScheduler::TaskGroupContinuationImpl) { return Status::OK(); }, 1, true));
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Task failed",
-                             scheduler->StartTaskGroup(0, task_group, kNumTasks));
+      /*thread_id=*/0,
+      /*schedule_impl=*/
+      [](TaskScheduler::TaskGroupContinuationImpl) { return Status::OK(); },
+      /*num_concurrent_tasks=*/1, /*use_sync_execution=*/true));
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: Task failed",
+      scheduler->StartTaskGroup(/*thread_id=*/0, task_group, kNumTasks));
 
   bool abort_cont_called = false;
   auto abort_cont = [&]() {
@@ -311,8 +315,10 @@ TEST(TaskScheduler, AbortContOnTaskErrorParallel) {
             scheduler->RegisterTaskGroup(task, [](std::size_t) { return Status::OK(); });
         scheduler->RegisterEnd();
 
-        ASSERT_OK(scheduler->StartScheduling(0, schedule, num_concurrent_tasks, false));
-        ASSERT_OK(scheduler->StartTaskGroup(0, task_group, num_tasks));
+        ASSERT_OK(scheduler->StartScheduling(/*thread_id=*/0, schedule,
+                                             num_concurrent_tasks,
+                                             /*use_sync_execution=*/false));
+        ASSERT_OK(scheduler->StartTaskGroup(/*thread_id=*/0, task_group, num_tasks));
 
         thread_pool->WaitForIdle();
 
