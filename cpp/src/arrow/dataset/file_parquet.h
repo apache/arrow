@@ -165,10 +165,15 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   }
 
   /// \brief Return the FileMetaData associated with this fragment.
+  ///
+  /// This may return nullptr if the fragment wasn't scanned yet, or if
+  /// `ScanOptions::cache_metadata` was disabled.
   std::shared_ptr<parquet::FileMetaData> metadata();
 
   /// \brief Ensure this fragment's FileMetaData is in memory.
   Status EnsureCompleteMetadata(parquet::arrow::FileReader* reader = NULLPTR);
+
+  Status ClearCachedMetadata() override;
 
   /// \brief Return fragment which selects a filtered subset of this fragment's RowGroups.
   Result<std::shared_ptr<Fragment>> Subset(compute::Expression predicate);

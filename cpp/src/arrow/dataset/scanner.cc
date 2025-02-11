@@ -37,6 +37,7 @@
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
+#include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/config.h"
@@ -318,10 +319,14 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
       RecordBatch::Make(options->dataset_schema, /*num_rows=*/0, std::move(columns)));
   auto enumerated_batch_gen = MakeEnumeratedGenerator(std::move(batch_gen));
 
-  auto combine_fn =
-      [fragment](const Enumerated<std::shared_ptr<RecordBatch>>& record_batch) {
-        return EnumeratedRecordBatch{record_batch, fragment};
-      };
+  auto combine_fn = [fragment, cache_metadata = options->cache_metadata](
+                        const Enumerated<std::shared_ptr<RecordBatch>>& record_batch) {
+    if (!cache_metadata && record_batch.last) {
+      ARROW_WARN_NOT_OK(fragment.value->ClearCachedMetadata(),
+                        "Could not clear cached metadata on fragment");
+    }
+    return EnumeratedRecordBatch{record_batch, fragment};
+  };
 
   return MakeMappedGenerator(enumerated_batch_gen, std::move(combine_fn));
 }
@@ -343,7 +348,7 @@ class OneShotFragment : public Fragment {
   OneShotFragment(std::shared_ptr<Schema> schema, RecordBatchIterator batch_it)
       : Fragment(compute::literal(true), std::move(schema)),
         batch_it_(std::move(batch_it)) {
-    DCHECK_NE(physical_schema_, nullptr);
+    DCHECK_NE(given_physical_schema_, nullptr);
   }
   Status CheckConsumed() {
     if (!batch_it_) return Status::Invalid("OneShotFragment was already scanned");
@@ -362,7 +367,7 @@ class OneShotFragment : public Fragment {
 
  protected:
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
-    return physical_schema_;
+    return given_physical_schema_;
   }
 
   RecordBatchIterator batch_it_;
@@ -933,6 +938,11 @@ Status ScannerBuilder::Filter(const compute::Expression& filter) {
 
 Status ScannerBuilder::UseThreads(bool use_threads) {
   scan_options_->use_threads = use_threads;
+  return Status::OK();
+}
+
+Status ScannerBuilder::CacheMetadata(bool cache_metadata) {
+  scan_options_->cache_metadata = cache_metadata;
   return Status::OK();
 }
 
