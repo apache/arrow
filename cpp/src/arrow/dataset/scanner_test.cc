@@ -3143,7 +3143,7 @@ TEST(ScanNode, AssertOrder) {
   // test existing orderings pass
   for (const Ordering& ordering : {asc, desc, asc_desc, asc_desc_rand, desc_asc, desc_asc_rand}) {
     declarations = acero::Declaration::Sequence(
-        {acero::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options, ordering}})});
+        {acero::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options, false, ordering}})});
     ASSERT_OK_AND_ASSIGN(auto actual, acero::DeclarationToTable(declarations));
     // Scan node always emits augmented fields so we drop those
     ASSERT_OK_AND_ASSIGN(auto actualMinusAugmented, actual->SelectColumns({0, 1, 2}));
