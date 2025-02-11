@@ -943,9 +943,11 @@ class ClearCachedMetadataFragment : public InMemoryFragment {
 
 class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
  protected:
-  std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<Dataset> dataset) {
+  std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<Dataset> dataset,
+                                       const Ordering& ordering = Ordering::Unordered()) {
     ScannerBuilder builder(std::move(dataset), options_);
     ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
+    ARROW_EXPECT_OK(builder.Ordering(ordering));
     EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
     return scanner;
   }
@@ -1030,6 +1032,65 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
       check_metadata_clear_counts({1, 1});
     }
   }
+
+  std::vector<std::shared_ptr<RecordBatch>> CreateOrderedBatches(int items_per_batch,
+                                                                 int batches,
+                                                                 bool ordered) {
+    /// produces batches where
+    /// - first column is asc ordered (unless ordered == false)
+    /// - second column is desc ordered
+    /// - third column is constant
+    /// when ordered == false, the last value in the first column breaks the order (it is
+    /// 0)
+    auto step =
+        ordered ? 1
+                : std::numeric_limits<unsigned int>::max() / items_per_batch / batches;
+    auto start = ordered ? 1 : step + items_per_batch * batches;
+    return gen::Gen({gen::Step(start, step), gen::Step(-1, -1),
+                     gen::Constant(std::make_shared<Int32Scalar>(42))})
+        ->FailOnError()
+        ->RecordBatches(items_per_batch, batches);
+  }
+
+  void AssertScannerOrdering(bool ordered) {
+    auto items_per_batch = GetParam().items_per_batch;
+    auto num_batches = GetParam().num_child_datasets * GetParam().num_batches;
+
+    SetSchema({field("f0", uint32()), field("f1", int32()), field("f2", int32())});
+    auto batches = CreateOrderedBatches(items_per_batch, num_batches, ordered);
+    auto dataset = std::make_shared<InMemoryDataset>(schema_, batches);
+
+    // scanning the dataset always works when not asserting the order
+    auto scanner = MakeScanner(std::move(dataset));
+    auto expected = CreateOrderedBatches(items_per_batch, num_batches, ordered);
+    std::shared_ptr<RecordBatchReader> reader =
+        std::make_shared<BatchIterator>(schema_, expected);
+    AssertScanBatchesEquals(reader.get(), scanner.get());
+
+    auto ordering = Ordering({compute::SortKey("f0", compute::SortOrder::Ascending)},
+                             compute::NullPlacement::AtStart);
+
+    if (ordered) {
+      // when dataset is ordered, scanning it while asserting the order works fine
+      dataset = std::make_shared<InMemoryDataset>(schema_, batches);
+      scanner = MakeScanner(std::move(dataset), ordering);
+      expected = CreateOrderedBatches(items_per_batch, num_batches, ordered);
+      reader = std::make_shared<BatchIterator>(schema_, expected);
+      AssertScanBatchesEquals(reader.get(), scanner.get());
+    } else {
+      // when dataset is not ordered, scanning it fails on the conflicting row
+      dataset = std::make_shared<InMemoryDataset>(schema_, batches);
+      scanner = MakeScanner(std::move(dataset), ordering);
+      ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatches());
+      auto next = it.Next();
+      while (next.ok() && !IsIterationEnd<TaggedRecordBatch>(*next)) {
+        next = it.Next();
+      }
+      // expect iteration to stop on failure status
+      ASSERT_NOT_OK(next);
+      ASSERT_EQ(next.status().message(), "Data is not ordered");
+    }
+  }
 };
 
 TEST_P(TestScanner, Scan) {
@@ -1037,6 +1098,10 @@ TEST_P(TestScanner, Scan) {
   auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch), batch);
 }
+
+TEST_P(TestScanner, ScanOrdering) { AssertScannerOrdering(true); }
+
+TEST_P(TestScanner, ScanOrderingFail) { AssertScannerOrdering(false); }
 
 TEST_P(TestScanner, ScanBatches) {
   SetSchema({field("i32", int32()), field("f64", float64())});
