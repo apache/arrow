@@ -48,12 +48,12 @@ add_project_arguments(cpp_args, language: 'cpp')
 
 git_id = get_option('git_id')
 if git_id == ''
-    git_id = run_command('git', 'log', '-n1', '--format=%H').stdout().strip()
+    git_id = run_command('git', 'log', '-n1', '--format=%H', check: true).stdout().strip()
 endif
 
 git_description = get_option('git_description')
 if git_description == ''
-    git_description = run_command('git', 'describe', '--tags').stdout().strip()
+    git_description = run_command('git', 'describe', '--tags', check: true).stdout().strip()
 endif
 
 subdir('src/arrow')
