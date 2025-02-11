@@ -522,7 +522,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// An explicit ordering the scanned data provide. Scan fails on first un-ordered row.
   /// Reading un-ordered data partially might succeed if un-ordered rows are not read.
-  /// Setting an ordering does not actually order the data but asserts that data in the
+  /// Setting an ordering does not actually sort the data but asserts that data in the
   /// dataset is ordered as stated during scan.
   Status Ordering(const compute::Ordering& ordering);
 
@@ -595,8 +595,14 @@ class ARROW_DS_EXPORT ScannerBuilder {
 /// Batches are yielded sequentially, like single-threaded,
 /// when require_sequenced_output=true.
 ///
+/// The scanned data are expected to support the given ordering if it is explicit.
+/// Scan fails on first un-ordered row. Reading un-ordered data partially might
+/// succeed if un-ordered rows are not read. Setting an ordering does not actually
+/// sort the data but asserts that data in the dataset is ordered as stated during
+/// scan.
+///
 /// Yielded batches will be augmented with fragment/batch indices when
-/// implicit_ordering=true to enable stable ordering for simple ExecPlans.
+/// given ordering is implicit to enable stable ordering for simple ExecPlans.
 class ARROW_DS_EXPORT ScanNodeOptions : public acero::ExecNodeOptions {
  public:
   explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
