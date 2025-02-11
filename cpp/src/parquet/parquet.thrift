@@ -375,6 +375,14 @@ struct BsonType {
 }
 
 /**
+ * Embedded Variant logical type annotation
+ *
+ * Allowed for physical types: BINARY
+ */
+struct VariantType {
+}
+
+/**
  * LogicalType annotations to replace ConvertedType.
  *
  * To maintain compatibility, implementations using LogicalType for a
@@ -404,6 +412,7 @@ union LogicalType {
   13: BsonType BSON           // use ConvertedType BSON
   14: UUIDType UUID           // no compatible ConvertedType
   15: Float16Type FLOAT16     // no compatible ConvertedType
+  16: VariantType VARIANT     // no compatible ConvertedType
 }
 
 /**
@@ -952,6 +961,7 @@ union ColumnOrder {
    *   ENUM - unsigned byte-wise comparison
    *   LIST - undefined
    *   MAP - undefined
+   *   VARIANT - undefined
    *
    * In the absence of logical types, the sort order is determined by the physical type:
    *   BOOLEAN - false, true
