@@ -79,9 +79,7 @@ class AesCryptoContext {
   virtual ~AesCryptoContext() = default;
 
  protected:
-  static void DeleteCipherContext(EVP_CIPHER_CTX* ctx) {
-    EVP_CIPHER_CTX_free(ctx);
-  }
+  static void DeleteCipherContext(EVP_CIPHER_CTX* ctx) { EVP_CIPHER_CTX_free(ctx); }
 
   using CipherContext = std::unique_ptr<EVP_CIPHER_CTX, decltype(&DeleteCipherContext)>;
 
@@ -141,8 +139,7 @@ AesEncryptor::AesEncryptorImpl::AesEncryptorImpl(ParquetCipher::type alg_id,
                                                  bool write_length)
     : AesCryptoContext(alg_id, key_len, metadata, write_length) {}
 
-AesCryptoContext::CipherContext
-AesEncryptor::AesEncryptorImpl::NewCipherContext() const {
+AesCryptoContext::CipherContext AesEncryptor::AesEncryptorImpl::NewCipherContext() const {
   auto ctx = AesCryptoContext::NewCipherContext();
   if (!ctx) throw ParquetException("Couldn't init cipher context");
   if (kGcmMode == aes_mode_) {
@@ -423,8 +420,7 @@ class AesDecryptor::AesDecryptorImpl : AesCryptoContext {
   }
 
  private:
-  [[nodiscard]] CipherContext NewCipherContext()
-      const;
+  [[nodiscard]] CipherContext NewCipherContext() const;
 
   /// Get the actual ciphertext length, inclusive of the length buffer length,
   /// and validate that the provided buffer size is large enough.
@@ -449,8 +445,7 @@ AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id,
                                                  bool contains_length)
     : AesCryptoContext(alg_id, key_len, metadata, contains_length) {}
 
-AesCryptoContext::CipherContext
-AesDecryptor::AesDecryptorImpl::NewCipherContext() const {
+AesCryptoContext::CipherContext AesDecryptor::AesDecryptorImpl::NewCipherContext() const {
   auto ctx = AesCryptoContext::NewCipherContext();
   if (!ctx) throw ParquetException("Couldn't init cipher context");
   if (kGcmMode == aes_mode_) {

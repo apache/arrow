@@ -259,12 +259,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     // The column is encrypted
-    std::function<std::shared_ptr<Decryptor>()> meta_decryptor = GetColumnMetaDecryptor(
-        crypto_metadata.get(), file_metadata_->file_decryptor().get());
-    std::function<std::shared_ptr<Decryptor>()> data_decryptor = GetColumnDataDecryptor(
-        crypto_metadata.get(), file_metadata_->file_decryptor().get());
-    ARROW_DCHECK_NE(meta_decryptor, nullptr);
-    ARROW_DCHECK_NE(data_decryptor, nullptr);
+    auto* file_decryptor = file_metadata_->file_decryptor().get();
+    auto meta_decryptor_factory = InternalFileDecryptor::GetColumnMetaDecryptorFactory(
+        file_decryptor, crypto_metadata.get());
+    auto data_decryptor_factory = InternalFileDecryptor::GetColumnDataDecryptorFactory(
+        file_decryptor, crypto_metadata.get());
 
     constexpr auto kEncryptedOrdinalLimit = 32767;
     if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedOrdinalLimit)) {
@@ -276,7 +275,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     CryptoContext ctx(col->has_dictionary_page(),
                       static_cast<int16_t>(row_group_ordinal_), static_cast<int16_t>(i),
-                      meta_decryptor, data_decryptor);
+                      std::move(meta_decryptor_factory),
+                      std::move(data_decryptor_factory));
     return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
                             always_compressed, &ctx);
   }

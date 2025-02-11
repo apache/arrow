@@ -80,13 +80,25 @@ class InternalFileDecryptor {
   ::arrow::MemoryPool* pool() { return pool_; }
 
   std::shared_ptr<Decryptor> GetFooterDecryptor();
-  std::shared_ptr<Decryptor> GetFooterDecryptorForColumnMeta(const std::string& aad = "");
-  std::shared_ptr<Decryptor> GetFooterDecryptorForColumnData(const std::string& aad = "");
+
   std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
       const std::string& column_path, const std::string& column_key_metadata,
-      const std::string& aad = "");
+      const std::string& aad = "") {
+    return GetColumnDecryptor(column_path, column_key_metadata, aad, /*metadata=*/true);
+  }
+
   std::shared_ptr<Decryptor> GetColumnDataDecryptor(
       const std::string& column_path, const std::string& column_key_metadata,
+      const std::string& aad = "") {
+    return GetColumnDecryptor(column_path, column_key_metadata, aad, /*metadata=*/false);
+  }
+
+  // These functions are static as they may be called with a null InternalFileDecryptor*.
+  static std::function<std::shared_ptr<Decryptor>()> GetColumnMetaDecryptorFactory(
+      InternalFileDecryptor*, const ColumnCryptoMetaData* crypto_metadata,
+      const std::string& aad = "");
+  static std::function<std::shared_ptr<Decryptor>()> GetColumnDataDecryptorFactory(
+      InternalFileDecryptor*, const ColumnCryptoMetaData* crypto_metadata,
       const std::string& aad = "");
 
  private:
@@ -99,20 +111,18 @@ class InternalFileDecryptor {
   std::string footer_key_;
   ::arrow::MemoryPool* pool_;
 
+  std::string GetColumnKey(const std::string& column_path,
+                           const std::string& column_key_metadata);
+
   std::shared_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);
+
   std::shared_ptr<Decryptor> GetColumnDecryptor(const std::string& column_path,
                                                 const std::string& column_key_metadata,
-                                                const std::string& aad,
-                                                bool metadata = false);
+                                                const std::string& aad, bool metadata);
+
+  std::function<std::shared_ptr<Decryptor>()> GetColumnDecryptorFactory(
+      const ColumnCryptoMetaData* crypto_metadata, const std::string& aad, bool metadata);
 };
-
-/// Utility to get column meta decryptor of an encrypted column.
-std::function<std::shared_ptr<Decryptor>()> GetColumnMetaDecryptor(
-    const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor);
-
-/// Utility to get column data decryptor of an encrypted column.
-std::function<std::shared_ptr<Decryptor>()> GetColumnDataDecryptor(
-    const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor);
 
 void UpdateDecryptor(const std::shared_ptr<Decryptor>& decryptor,
                      int16_t row_group_ordinal, int16_t column_ordinal,
