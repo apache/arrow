@@ -162,18 +162,7 @@ class PipeSinkNode : public ExecNode {
  protected:
   Status StopProducingImpl() override { return Status::OK(); }
 
-  std::string ToStringExtra(int indent = 0) const override {
-    // std::string ret="pipe_tee(";
-    // bool first=true;
-    // for(auto &stream:streams_){
-    //   if(!first)
-    //     ret+=",";
-    //   ret+=stream->declaration_.label;
-    //   first=false;
-    // }
-    // ret+=")";
-    return "pipe_tee";
-  }
+  std::string ToStringExtra(int indent = 0) const override { return "pipe_sink"; }
 
  protected:
   std::shared_ptr<Pipe> pipe_;
@@ -186,9 +175,9 @@ class PipeTeeNode : public PipeSource, public PipeSinkNode {
   PipeTeeNode(ExecPlan* plan, std::vector<ExecNode*> inputs, std::string pipe_name)
       : PipeSinkNode(plan, inputs, pipe_name) {
     output_schema_ = inputs[0]->output_schema();
-    auto st = PipeSinkNode::pipe_->addSource(this);
+    auto st = PipeSinkNode::pipe_->addSyncSource(this);
     if (ARROW_PREDICT_FALSE(!st.ok())) {  // this should never happen
-      internal::DieWithMessage(std::string("PipeTee unexpected error: ") + st.ToString());
+      Unreachable(std::string("PipeTee unexpected error: ") + st.ToString());
     }
   }
 
@@ -201,6 +190,15 @@ class PipeTeeNode : public PipeSource, public PipeSinkNode {
   }
   static const char kKindName[];
   const char* kind_name() const override { return kKindName; }
+
+  Status StartProducing() override {
+    auto st = PipeSource::Validate(ordering());
+    if (!st.ok()) {
+      return st.WithMessage("Pipe '", PipeSinkNode::pipe_->PipeName(),
+                            "' error: ", st.message());
+    }
+    return PipeSinkNode::StartProducing();
+  }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
     PipeSource::Pause(counter);
@@ -220,18 +218,7 @@ class PipeTeeNode : public PipeSource, public PipeSinkNode {
  protected:
   Status StopProducingImpl() override { return Status::OK(); }
 
-  std::string ToStringExtra(int indent = 0) const override {
-    // std::string ret="pipe_tee(";
-    // bool first=true;
-    // for(auto &stream:streams_){
-    //   if(!first)
-    //     ret+=",";
-    //   ret+=stream->declaration_.label;
-    //   first=false;
-    // }
-    // ret+=")";
-    return "pipe_tee";
-  }
+  std::string ToStringExtra(int indent = 0) const override { return "pipe_tee"; }
 };
 
 const char PipeTeeNode::kKindName[] = "PipeTeeNode";
@@ -265,7 +252,6 @@ Pipe::Pipe(ExecPlan* plan, std::string pipe_name,
 
 const Ordering& Pipe::ordering() const { return ordering_; }
 
-// Called from pipe_source nodes
 void Pipe::Pause(PipeSource* output, int counter) {
   std::lock_guard<std::mutex> lg(mutex_);
   if (!paused_[output]) {
@@ -276,7 +262,6 @@ void Pipe::Pause(PipeSource* output, int counter) {
   }
 }
 
-// Called from pipe_source nodes
 void Pipe::Resume(PipeSource* output, int counter) {
   std::lock_guard<std::mutex> lg(mutex_);
   if (paused_[output]) {
@@ -287,46 +272,47 @@ void Pipe::Resume(PipeSource* output, int counter) {
   }
 }
 
-// Called from pipe_sink
 Status Pipe::InputReceived(ExecBatch batch) {
-  for (auto& source_node : source_nodes_) {
+  for (auto& source_node : async_nodes_) {
     plan_->query_context()->ScheduleTask(
         [source_node, batch]() mutable {
           return source_node->HandleInputReceived(batch);
         },
         "Pipe::InputReceived");
   }
-  if (last_source_node_) return last_source_node_->HandleInputReceived(batch);
-  // No consumers registered;
+  if (sync_node_) return sync_node_->HandleInputReceived(batch);
+
   return Status::OK();
 }
-// Called from pipe_sink
+
 Status Pipe::InputFinished(int total_batches) {
-  for (auto& source_node : source_nodes_) {
+  for (auto& source_node : async_nodes_) {
     plan_->query_context()->ScheduleTask(
         [source_node, total_batches]() {
           return source_node->HandleInputFinished(total_batches);
         },
         "Pipe::HandleInputFinished");
   }
-  if (last_source_node_) return last_source_node_->HandleInputFinished(total_batches);
-  // No consumers registered;
+  if (sync_node_) return sync_node_->HandleInputFinished(total_batches);
   return Status::OK();
 }
 
-Status Pipe::addSource(PipeSource* source) {
+Status Pipe::addAsyncSource(PipeSource* source, bool may_be_sync) {
   ARROW_RETURN_NOT_OK(source->Initialize(this));
-  // First added source is handled in receiving task. All additional sources are delivered
-  // in their own sutmit tasks
-  if (!last_source_node_)
-    last_source_node_ = source;
-  else {
-    source_nodes_.push_back(source);
-  }
+  if (may_be_sync && !sync_node_)
+    sync_node_ = source;
+  else
+    async_nodes_.push_back(source);
+  return Status::OK();
+}
+Status Pipe::addSyncSource(PipeSource* source) {
+  ARROW_RETURN_NOT_OK(source->Initialize(this));
+  if (sync_node_) return Status::Invalid("Pipe last source overwrite for " + pipe_name_);
+  sync_node_ = source;
   return Status::OK();
 }
 
-Status Pipe::Init(const std::shared_ptr<Schema> schema) {
+Status Pipe::Init(const std::shared_ptr<Schema> schema, bool may_be_sync) {
   for (auto node : plan_->nodes()) {
     if (node->kind_name() == PipeSourceNode::kKindName) {
       PipeSourceNode* pipe_source = checked_cast<PipeSourceNode*>(node);
@@ -334,14 +320,14 @@ Status Pipe::Init(const std::shared_ptr<Schema> schema) {
         if (!schema->Equals(node->output_schema())) {
           return Status::Invalid("Pipe schema does not match for " + pipe_name_);
         }
-        ARROW_RETURN_NOT_OK(addSource(pipe_source));
+        ARROW_RETURN_NOT_OK(addAsyncSource(pipe_source, may_be_sync));
       }
     }
   }
   return Status::OK();
 }
 
-bool Pipe::HasSources() const { return !!last_source_node_; }
+bool Pipe::HasSources() const { return sync_node_ || !async_nodes_.empty(); }
 
 namespace internal {
 void RegisterPipeNodes(ExecFactoryRegistry* registry) {

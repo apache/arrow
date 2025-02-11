@@ -48,6 +48,9 @@ class PipeSource {
   Pipe* pipe_{nullptr};
 };
 
+/// @brief Provides pipe like infastructure for Acero. It isa center element for
+/// pipe_sink/pipe_tee and pipe_source infrastructure. Can also be used to create
+/// auxiliarty outputs(pipes) for ExecNodes.
 class ARROW_ACERO_EXPORT Pipe {
  public:
   Pipe(ExecPlan* plan, std::string pipe_name, std::unique_ptr<BackpressureControl> ctrl,
@@ -55,33 +58,48 @@ class ARROW_ACERO_EXPORT Pipe {
 
   const Ordering& ordering() const;
 
-  // Called from pipe_source nodes
-  void Pause(PipeSource* output, int counter);
+  // Scan current exec plan to find all pipe_source nodes matching pipe name.
+  // All matching pipe_sources will be added to async sources list.
+  // If may_be_sync is true first added source will be added to as sync source.
+  // This mthod sould be called from ExecNode::Init() containing this pipe
+  Status Init(const std::shared_ptr<Schema> schema, bool may_be_sync = false);
 
-  // Called from pipe_source nodes
-  void Resume(PipeSource* output, int counter);
+  /// @brief Adds asynchronous PipeSource
+  /// @param source - pipe source to be added
+  /// Batches will be delivered in separate tasks for each
+  Status addAsyncSource(PipeSource* source, bool may_be_sync = false);
 
-  // Called from pipe_sink
+  /// @brief Adds synchronous PipeSource
+  /// @param source - pipe source to be added
+  /// Batches will be delivered synchronousely in InputReceived. Only one synchronous
+  /// source is supported - this should be last operation within task.
+  Status addSyncSource(PipeSource* source);
+
+  /// @brief Transfer batch to pipe
   Status InputReceived(ExecBatch batch);
-  // Called from pipe_sink
+  /// @brief Mark the inputs finished after the given number of batches.
   Status InputFinished(int total_batches);
 
-  Status addSource(PipeSource* source);
-
-  // Called from pipe_sink Init
-  Status Init(const std::shared_ptr<Schema> schema);
-
+  /// @brief Check for pipe_sources connected
+  /// Can be used to skip production of exec batches when there are no consumers.
   bool HasSources() const;
 
+  /// @brief Get pipe_name
   std::string PipeName() const { return pipe_name_; }
 
  private:
-  // pipe
+  friend class PipeSource;
+  // Backpresurre interface for PipeSource
+  void Pause(PipeSource* output, int counter);
+  // Backpresurre interface for PipeSource
+  void Resume(PipeSource* output, int counter);
+
+ private:
   ExecPlan* plan_;
   Ordering ordering_;
   std::string pipe_name_;
-  std::vector<PipeSource*> source_nodes_;
-  PipeSource* last_source_node_{nullptr};
+  std::vector<PipeSource*> async_nodes_;
+  PipeSource* sync_node_{nullptr};
   // backpressure
   std::unordered_map<PipeSource*, bool> paused_;
   std::mutex mutex_;
