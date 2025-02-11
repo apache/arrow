@@ -142,7 +142,7 @@ class PipeSinkNode : public ExecNode {
   }
 
   Status Init() override {
-    ARROW_RETURN_NOT_OK(pipe_->Init(inputs_[0]->output_schema()));
+    ARROW_RETURN_NOT_OK(pipe_->Init(inputs_[0]->output_schema(), true));
     return ExecNode::Init();
   }
 
