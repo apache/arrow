@@ -396,10 +396,10 @@ class ARROW_EXPORT Buffer {
 /// \brief Construct a view on a buffer at the given offset and length.
 ///
 /// This function cannot fail and does not check for errors (except in debug builds)
-static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>& buffer,
+static inline std::shared_ptr<Buffer> SliceBuffer(std::shared_ptr<Buffer> buffer,
                                                   const int64_t offset,
                                                   const int64_t length) {
-  return std::make_shared<Buffer>(buffer, offset, length);
+  return std::make_shared<Buffer>(std::move(buffer), offset, length);
 }
 
 /// \brief Construct a view on a buffer at the given offset, up to the buffer's end.
