@@ -50,6 +50,40 @@ objlib_sources = {
         'include_dirs': [include_dir],
         'dependencies': [],
     },
+    'arrow_compute': {
+        'sources': [
+            'compute/api_aggregate.cc',
+            'compute/api_scalar.cc',
+            'compute/api_vector.cc',
+            'compute/cast.cc',
+            'compute/exec.cc',
+            'compute/expression.cc',
+            'compute/function.cc',
+            'compute/function_internal.cc',
+            'compute/kernel.cc',
+            'compute/ordering.cc',
+            'compute/registry.cc',
+            'compute/kernels/chunked_internal.cc',
+            'compute/kernels/codegen_internal.cc',
+            'compute/kernels/ree_util_internal.cc',
+            'compute/kernels/scalar_cast_boolean.cc',
+            'compute/kernels/scalar_cast_dictionary.cc',
+            'compute/kernels/scalar_cast_extension.cc',
+            'compute/kernels/scalar_cast_internal.cc',
+            'compute/kernels/scalar_cast_nested.cc',
+            'compute/kernels/scalar_cast_numeric.cc',
+            'compute/kernels/scalar_cast_string.cc',
+            'compute/kernels/scalar_cast_temporal.cc',
+            'compute/kernels/util_internal.cc',
+            'compute/kernels/vector_hash.cc',
+            'compute/kernels/vector_selection.cc',
+            'compute/kernels/vector_selection_filter_internal.cc',
+            'compute/kernels/vector_selection_internal.cc',
+            'compute/kernels/vector_selection_take_internal.cc',
+        ],
+        'include_dirs': [include_dir],
+        'dependencies': [],
+    },
     'arrow_io': {
         'sources': [
             'io/buffered.cc',
@@ -163,142 +197,6 @@ objlib_sources = {
     },
 }
 
-if needs_ipc
-    flatbuffers_dep = dependency('flatbuffers', include_type: 'system')
-    ipc_deps = [flatbuffers_dep]
-
-    ipc_sources = [
-        'ipc/dictionary.cc',
-        'ipc/feather.cc',
-        'ipc/message.cc',
-        'ipc/metadata_internal.cc',
-        'ipc/options.cc',
-        'ipc/reader.cc',
-        'ipc/writer.cc',
-    ]
-
-    if needs_json
-        ipc_sources += ['ipc/json_simple.cc']
-        rapidjson_dep = dependency('rapidjson', include_type: 'system')
-        ipc_deps += [rapidjson_dep]
-    endif
-
-    objlib_sources += {
-        'arrow_ipc': {
-            'sources': ipc_sources,
-            'include_dirs': [
-                include_dir,
-                include_directories('../../thirdparty/flatbuffers/include'),
-            ],
-            'dependencies': ipc_deps,
-        },
-    }
-endif
-
-if needs_json
-    objlib_sources += {
-        'arrow_json': {
-            'sources': [
-                'extension/fixed_shape_tensor.cc',
-                'extension/opaque.cc',
-                'json/options.cc',
-                'json/chunked_builder.cc',
-                'json/chunker.cc',
-                'json/converter.cc',
-                'json/object_parser.cc',
-                'json/object_writer.cc',
-                'json/parser.cc',
-                'json/reader.cc',
-            ],
-            'include_dirs': [include_dir],
-            'dependencies': [],
-        },
-    }
-endif
-
-compute_srcs = [
-    'compute/api_aggregate.cc',
-    'compute/api_scalar.cc',
-    'compute/api_vector.cc',
-    'compute/cast.cc',
-    'compute/exec.cc',
-    'compute/expression.cc',
-    'compute/function.cc',
-    'compute/function_internal.cc',
-    'compute/kernel.cc',
-    'compute/ordering.cc',
-    'compute/registry.cc',
-    'compute/kernels/chunked_internal.cc',
-    'compute/kernels/codegen_internal.cc',
-    'compute/kernels/ree_util_internal.cc',
-    'compute/kernels/scalar_cast_boolean.cc',
-    'compute/kernels/scalar_cast_dictionary.cc',
-    'compute/kernels/scalar_cast_extension.cc',
-    'compute/kernels/scalar_cast_internal.cc',
-    'compute/kernels/scalar_cast_nested.cc',
-    'compute/kernels/scalar_cast_numeric.cc',
-    'compute/kernels/scalar_cast_string.cc',
-    'compute/kernels/scalar_cast_temporal.cc',
-    'compute/kernels/util_internal.cc',
-    'compute/kernels/vector_hash.cc',
-    'compute/kernels/vector_selection.cc',
-    'compute/kernels/vector_selection_filter_internal.cc',
-    'compute/kernels/vector_selection_internal.cc',
-    'compute/kernels/vector_selection_take_internal.cc',
-]
-
-if needs_compute
-    compute_srcs += [
-        'compute/kernels/aggregate_basic.cc',
-        'compute/kernels/aggregate_mode.cc',
-        'compute/kernels/aggregate_quantile.cc',
-        'compute/kernels/aggregate_tdigest.cc',
-        'compute/kernels/aggregate_var_std.cc',
-        'compute/kernels/hash_aggregate.cc',
-        'compute/kernels/scalar_arithmetic.cc',
-        'compute/kernels/scalar_boolean.cc',
-        'compute/kernels/scalar_compare.cc',
-        'compute/kernels/scalar_if_else.cc',
-        'compute/kernels/scalar_nested.cc',
-        'compute/kernels/scalar_random.cc',
-        'compute/kernels/scalar_round.cc',
-        'compute/kernels/scalar_set_lookup.cc',
-        'compute/kernels/scalar_string_ascii.cc',
-        'compute/kernels/scalar_string_utf8.cc',
-        'compute/kernels/scalar_temporal_binary.cc',
-        'compute/kernels/scalar_temporal_unary.cc',
-        'compute/kernels/scalar_validity.cc',
-        'compute/kernels/vector_array_sort.cc',
-        'compute/kernels/vector_cumulative_ops.cc',
-        'compute/kernels/vector_nested.cc',
-        'compute/kernels/vector_pairwise.cc',
-        'compute/kernels/vector_rank.cc',
-        'compute/kernels/vector_replace.cc',
-        'compute/kernels/vector_run_end_encode.cc',
-        'compute/kernels/vector_select_k.cc',
-        'compute/kernels/vector_sort.cc',
-        'compute/kernels/vector_swizzle.cc',
-        'compute/key_hash_internal.cc',
-        'compute/key_map_internal.cc',
-        'compute/light_array_internal.cc',
-        'compute/row/encode_internal.cc',
-        'compute/row/compare_internal.cc',
-        'compute/row/grouper.cc',
-        'compute/row/row_encoder_internal.cc',
-        'compute/row/row_internal.cc',
-        'compute/util.cc',
-        'compute/util_internal.cc',
-    ]
-endif
-
-objlib_sources += {
-    'arrow_compute': {
-        'sources': compute_srcs,
-        'include_dirs': [include_dir],
-        'dependencies': [],
-    },
-}
-
 objlibs = []
 foreach key, val : objlib_sources
     slib = static_library(
@@ -349,108 +247,8 @@ arrow_lib = library(
     sources: [arrow_srcs],
     objects: objlibs,
     include_directories: [include_dir],
+    # compute/expression.cc may have undefined IPC symbols in non-IPC builds
+    override_options: {'b_lundef': 'false'},
 )
 
-if needs_tests
-    gtest_dep = dependency('gtest_main')
-    gmock_dep = dependency('gmock')
-    boost_dep = dependency('boost', modules: ['filesystem'])
-
-    arrow_test_dep = declare_dependency(
-        sources: [
-            'io/test_common.cc',
-            'ipc/test_common.cc',
-            'testing/fixed_width_test_util.cc',
-            'testing/generator.cc',
-            'testing/gtest_util.cc',
-            'testing/math.cc',
-            'testing/process.cc',
-            'testing/random.cc',
-            'testing/util.cc',
-        ],
-        include_directories: [include_dir],
-        dependencies: [gtest_dep, gmock_dep, boost_dep],
-        link_with: [arrow_lib],
-    )
-
-    tests = {
-        'arrow-array-test': {
-            'sources': [
-                'array/array_test.cc',
-                'array/array_binary_test.cc',
-                'array/array_dict_test.cc',
-                'array/array_list_test.cc',
-                'array/array_list_view_test.cc',
-                'array/array_run_end_test.cc',
-                'array/array_struct_test.cc',
-                'array/array_union_test.cc',
-                'array/array_view_test.cc',
-                'array/statistics_test.cc',
-            ],
-        },
-        'arrow-buffer-test': {'sources': ['buffer_test.cc']},
-        'arrow-misc-test': {
-            'sources': [
-                'datum_test.cc',
-                'memory_pool_test.cc',
-                'result_test.cc',
-                'pretty_print_test.cc',
-                'status_test.cc',
-            ],
-        },
-        'arrow-public-api-test': {'sources': ['public_api_test.cc']},
-        'arrow-scalar-test': {'sources': ['scalar_test.cc']},
-        'arrow-type-test': {'sources': ['field_ref_test.cc', 'type_test.cc']},
-        'arrow-table-test': {
-            'sources': [
-                'chunked_array_test.cc',
-                'record_batch_test.cc',
-                'table_test.cc',
-                'table_builder_test.cc',
-            ],
-        },
-        'arrow-tensor-test': {'sources': ['tensor_test.cc']},
-        'arrow-sparse-tensor-test': {'sources': ['sparse_tensor_test.cc']},
-        'arrow-stl-test': {'sources': ['stl_iterator_test.cc', 'stl_test.cc']},
-    }
-
-    if needs_ipc
-        tests += {
-            'arrow-extension-type-test': {'sources': ['extension_type_test.cc']},
-        }
-    endif
-
-    foreach key, val : tests
-        exc = executable(
-            key,
-            sources: val['sources'],
-            dependencies: [arrow_test_dep],
-        )
-        test(key, exc)
-    endforeach
-endif
-
-# TODO: in CMake configuration we add benchmarks here
-
-
-subdir('testing')
-subdir('array')
-subdir('c')
-subdir('compute')
-subdir('extension')
-subdir('io')
-subdir('tensor')
 subdir('util')
-
-if needs_tests  # or build_integration, when added
-    subdir('integration')
-endif
-
-if needs_ipc
-    subdir('ipc')
-endif
-
-if needs_json
-    subdir('json')
-endif
-
