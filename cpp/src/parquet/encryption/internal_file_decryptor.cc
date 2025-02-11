@@ -105,16 +105,6 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor() {
   return GetFooterDecryptor(aad, true);
 }
 
-std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptorForColumnMeta(
-    const std::string& aad) {
-  return GetFooterDecryptor(aad, true);
-}
-
-std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptorForColumnData(
-    const std::string& aad) {
-  return GetFooterDecryptor(aad, false);
-}
-
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
     const std::string& aad, bool metadata) {
   std::string footer_key = GetFooterKey();
@@ -126,24 +116,10 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
                                      pool_);
 }
 
-std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnMetaDecryptor(
-    const std::string& column_path, const std::string& column_key_metadata,
-    const std::string& aad) {
-  return GetColumnDecryptor(column_path, column_key_metadata, aad, true);
-}
-
-std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDataDecryptor(
-    const std::string& column_path, const std::string& column_key_metadata,
-    const std::string& aad) {
-  return GetColumnDecryptor(column_path, column_key_metadata, aad, false);
-}
-
-std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
-    const std::string& column_path, const std::string& column_key_metadata,
-    const std::string& aad, bool metadata) {
+std::string InternalFileDecryptor::GetColumnKey(const std::string& column_path,
+                                                const std::string& column_key_metadata) {
   std::string column_key = properties_->column_key(column_path);
 
-  column_key = properties_->column_key(column_path);
   // No explicit column key given via API. Retrieve via key metadata.
   if (column_key.empty() && !column_key_metadata.empty() &&
       properties_->key_retriever() != nullptr) {
@@ -158,58 +134,67 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
   if (column_key.empty()) {
     throw HiddenColumnException("HiddenColumnException, path=" + column_path);
   }
+  return column_key;
+}
 
+std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
+    const std::string& column_path, const std::string& column_key_metadata,
+    const std::string& aad, bool metadata) {
+  std::string column_key = GetColumnKey(column_path, column_key_metadata);
   auto key_len = static_cast<int32_t>(column_key.size());
   auto aes_decryptor = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
   return std::make_shared<Decryptor>(std::move(aes_decryptor), column_key, file_aad_, aad,
                                      pool_);
 }
 
-namespace {
-
-std::shared_ptr<Decryptor> GetColumnDecryptor(
-    const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor,
-    const std::function<std::shared_ptr<Decryptor>(
-        InternalFileDecryptor* file_decryptor, const std::string& column_path,
-        const std::string& column_key_metadata, const std::string& aad)>& func,
-    bool metadata) {
-  if (crypto_metadata == nullptr) {
-    return nullptr;
-  }
-
-  if (file_decryptor == nullptr) {
-    throw ParquetException("RowGroup is noted as encrypted but no file decryptor");
-  }
-
+std::function<std::shared_ptr<Decryptor>()>
+InternalFileDecryptor::GetColumnDecryptorFactory(
+    const ColumnCryptoMetaData* crypto_metadata, const std::string& aad, bool metadata) {
   if (crypto_metadata->encrypted_with_footer_key()) {
-    return metadata ? file_decryptor->GetFooterDecryptorForColumnMeta()
-                    : file_decryptor->GetFooterDecryptorForColumnData();
+    return [this, aad, metadata]() { return GetFooterDecryptor(aad, metadata); };
   }
 
   // The column is encrypted with its own key
   const std::string& column_key_metadata = crypto_metadata->key_metadata();
   const std::string column_path = crypto_metadata->path_in_schema()->ToDotString();
-  return func(file_decryptor, column_path, column_key_metadata, /*aad=*/"");
-}
+  std::string column_key = GetColumnKey(column_path, column_key_metadata);
 
-}  // namespace
-
-std::function<std::shared_ptr<Decryptor>()> GetColumnMetaDecryptor(
-    const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor) {
-  return [&]() -> std::shared_ptr<Decryptor> {
-    return GetColumnDecryptor(crypto_metadata, file_decryptor,
-               &InternalFileDecryptor::GetColumnMetaDecryptor,
-               /*metadata=*/true);
+  return [this, aad, metadata, column_key = std::move(column_key)]() {
+    auto key_len = static_cast<int32_t>(column_key.size());
+    auto aes_decryptor = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
+    return std::make_shared<Decryptor>(std::move(aes_decryptor), column_key, file_aad_,
+                                       aad, pool_);
   };
 }
 
-std::function<std::shared_ptr<Decryptor>()> GetColumnDataDecryptor(
-    const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor) {
-  return [&]() -> std::shared_ptr<Decryptor> {
-    return GetColumnDecryptor(crypto_metadata, file_decryptor,
-                              &InternalFileDecryptor::GetColumnDataDecryptor,
-                              /*metadata=*/false);
-  };
+std::function<std::shared_ptr<Decryptor>()>
+InternalFileDecryptor::GetColumnMetaDecryptorFactory(
+    InternalFileDecryptor* file_descryptor, const ColumnCryptoMetaData* crypto_metadata,
+    const std::string& aad) {
+  if (crypto_metadata == nullptr) {
+    // Column is not encrypted
+    return [] { return nullptr; };
+  }
+  if (file_descryptor == nullptr) {
+    throw ParquetException("Column is noted as encrypted but no file decryptor");
+  }
+  return file_descryptor->GetColumnDecryptorFactory(crypto_metadata, aad,
+                                                    /*metadata=*/true);
+}
+
+std::function<std::shared_ptr<Decryptor>()>
+InternalFileDecryptor::GetColumnDataDecryptorFactory(
+    InternalFileDecryptor* file_descryptor, const ColumnCryptoMetaData* crypto_metadata,
+    const std::string& aad) {
+  if (crypto_metadata == nullptr) {
+    // Column is not encrypted
+    return [] { return nullptr; };
+  }
+  if (file_descryptor == nullptr) {
+    throw ParquetException("Column is noted as encrypted but no file decryptor");
+  }
+  return file_descryptor->GetColumnDecryptorFactory(crypto_metadata, aad,
+                                                    /*metadata=*/false);
 }
 
 void UpdateDecryptor(const std::shared_ptr<Decryptor>& decryptor,

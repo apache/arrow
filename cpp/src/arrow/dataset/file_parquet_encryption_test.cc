@@ -54,7 +54,7 @@ namespace arrow {
 namespace dataset {
 
 struct EncryptionTestParam {
-  bool uniform_encryption;   // false is using per-column keys
+  bool uniform_encryption;  // false is using per-column keys
   bool concurrently;
 };
 
@@ -325,15 +325,12 @@ TEST_P(DatasetEncryptionTest, ReadSingleFile) {
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(2)->chunk(0))->GetView(0), 1);
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    DatasetEncryptionTest, DatasetEncryptionTest,
-    ::testing::Values(
-      EncryptionTestParam{false, false},
-      EncryptionTestParam{true, false}));
-INSTANTIATE_TEST_SUITE_P(
-    DatasetEncryptionTestThreaded, DatasetEncryptionTest,
-    ::testing::Values(EncryptionTestParam{false, true},
-                      EncryptionTestParam{true, true}));
+INSTANTIATE_TEST_SUITE_P(DatasetEncryptionTest, DatasetEncryptionTest,
+                         ::testing::Values(EncryptionTestParam{false, false},
+                                           EncryptionTestParam{true, false}));
+INSTANTIATE_TEST_SUITE_P(DatasetEncryptionTestThreaded, DatasetEncryptionTest,
+                         ::testing::Values(EncryptionTestParam{false, true},
+                                           EncryptionTestParam{true, true}));
 
 // GH-39444: This test covers the case where parquet dataset scanner crashes when
 // processing encrypted datasets over 2^15 rows in multi-threaded mode.
@@ -366,14 +363,12 @@ TEST_P(LargeRowCountEncryptionTest, ReadEncryptLargeRowCount) {
   ASSERT_NO_FATAL_FAILURE(TestScanDataset());
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    LargeRowCountEncryptionTest, LargeRowCountEncryptionTest,
-    ::testing::Values(EncryptionTestParam{false, false},
-                      EncryptionTestParam{true, false}));
-INSTANTIATE_TEST_SUITE_P(
-    LargeRowCountEncryptionTestThreaded, LargeRowCountEncryptionTest,
-    ::testing::Values(EncryptionTestParam{false, true},
-                      EncryptionTestParam{true, true}));
+INSTANTIATE_TEST_SUITE_P(LargeRowCountEncryptionTest, LargeRowCountEncryptionTest,
+                         ::testing::Values(EncryptionTestParam{false, false},
+                                           EncryptionTestParam{true, false}));
+INSTANTIATE_TEST_SUITE_P(LargeRowCountEncryptionTestThreaded, LargeRowCountEncryptionTest,
+                         ::testing::Values(EncryptionTestParam{false, true},
+                                           EncryptionTestParam{true, true}));
 
 }  // namespace dataset
 }  // namespace arrow

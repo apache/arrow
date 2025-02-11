@@ -256,9 +256,9 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     auto descr = row_group_metadata_->schema()->Column(i);
 
     // Get decryptor of column index if encrypted.
-    auto decryptor_func = parquet::GetColumnMetaDecryptor(
-        col_chunk->crypto_metadata().get(), file_decryptor_);
-    auto decryptor = decryptor_func();
+    std::shared_ptr<Decryptor> decryptor =
+        InternalFileDecryptor::GetColumnMetaDecryptorFactory(
+            file_decryptor_, col_chunk->crypto_metadata().get())();
     if (decryptor != nullptr) {
       UpdateDecryptor(decryptor, row_group_ordinal_, /*column_ordinal=*/i,
                       encryption::kColumnIndex);
@@ -296,9 +296,9 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     uint32_t length = static_cast<uint32_t>(offset_index_location->length);
 
     // Get decryptor of offset index if encrypted.
-    auto decryptor_func =
-        GetColumnMetaDecryptor(col_chunk->crypto_metadata().get(), file_decryptor_);
-    auto decryptor = decryptor_func();
+    std::shared_ptr<Decryptor> decryptor =
+        InternalFileDecryptor::GetColumnMetaDecryptorFactory(
+            file_decryptor_, col_chunk->crypto_metadata().get())();
     if (decryptor != nullptr) {
       UpdateDecryptor(decryptor, row_group_ordinal_, /*column_ordinal=*/i,
                       encryption::kOffsetIndex);
