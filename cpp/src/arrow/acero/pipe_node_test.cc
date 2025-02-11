@@ -131,6 +131,32 @@ TEST(ExecPlanExecution, PipeErrorSink) {
              HasSubstr("Pipe 'named_pipe_missing_sink' error: Pipe does not have sink")));
 }
 
+TEST(ExecPlanExecution, PipeErrorDuplicateSink) {
+  auto basic_data = MakeBasicBatches();
+
+  AsyncGenerator<std::optional<ExecBatch>> main_sink_gen;
+  AsyncGenerator<std::optional<ExecBatch>> dup_sink_gen;
+  Declaration decl = Declaration::Sequence(
+      {{"source", SourceNodeOptions{basic_data.schema, basic_data.gen(/*parallel=*/false,
+                                                                      /*slow=*/false)}},
+       {"pipe_tee", PipeSinkNodeOptions{"named_pipe_1"}},
+       {"pipe_tee", PipeSinkNodeOptions{"named_pipe_1"}},
+       {"sink", SinkNodeOptions{&main_sink_gen}}});
+
+  Declaration dup = Declaration::Sequence(
+      {{"pipe_source", PipeSourceNodeOptions{"named_pipe_1", basic_data.schema}},
+       {"sink", SinkNodeOptions{&dup_sink_gen}}});
+
+  // fail on planning
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  ASSERT_OK(decl.AddToPlan(plan.get()));
+  ASSERT_OK(dup.AddToPlan(plan.get()));
+  plan->StartProducing();
+  ASSERT_THAT(
+      plan->finished().result().status(),
+      Raises(StatusCode::Invalid, HasSubstr("Pipe:named_pipe_1 has multiple sinks")));
+}
+
 TEST(ExecPlanExecution, PipeFilterSink) {
   auto basic_data = MakeBasicBatches();
   AsyncGenerator<std::optional<ExecBatch>> main_sink_gen;

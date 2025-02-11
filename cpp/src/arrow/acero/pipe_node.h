@@ -40,7 +40,7 @@ class PipeSource {
 
  private:
   friend class Pipe;
-  void Initialize(Pipe* pipe);
+  Status Initialize(Pipe* pipe);
 
   virtual Status HandleInputReceived(ExecBatch batch) = 0;
   virtual Status HandleInputFinished(int total_batches) = 0;
@@ -66,12 +66,14 @@ class ARROW_ACERO_EXPORT Pipe {
   // Called from pipe_sink
   Status InputFinished(int total_batches);
 
-  void addSource(PipeSource* source);
+  Status addSource(PipeSource* source);
 
   // Called from pipe_sink Init
   Status Init(const std::shared_ptr<Schema> schema);
 
   bool HasSources() const;
+
+  std::string PipeName() const { return pipe_name_; }
 
  private:
   // pipe

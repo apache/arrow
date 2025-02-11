@@ -186,7 +186,10 @@ class PipeTeeNode : public PipeSource, public PipeSinkNode {
   PipeTeeNode(ExecPlan* plan, std::vector<ExecNode*> inputs, std::string pipe_name)
       : PipeSinkNode(plan, inputs, pipe_name) {
     output_schema_ = inputs[0]->output_schema();
-    PipeSinkNode::pipe_->addSource(this);
+    auto st = PipeSinkNode::pipe_->addSource(this);
+    if (ARROW_PREDICT_FALSE(!st.ok())) {  // this should never happen
+      internal::DieWithMessage(std::string("PipeTee unexpected error: ") + st.ToString());
+    }
   }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -236,7 +239,11 @@ const char PipeTeeNode::kKindName[] = "PipeTeeNode";
 }  // namespace
 
 PipeSource::PipeSource() {}
-void PipeSource::Initialize(Pipe* pipe) { pipe_ = pipe; }
+Status PipeSource::Initialize(Pipe* pipe) {
+  if (pipe_) return Status::Invalid("Pipe:" + pipe->PipeName() + " has multiple sinks");
+  pipe_ = pipe;
+  return Status::OK();
+}
 
 void PipeSource::Pause(int32_t counter) { pipe_->Pause(this, counter); }
 void PipeSource::Resume(int32_t counter) { pipe_->Resume(this, counter); }
@@ -307,8 +314,8 @@ Status Pipe::InputFinished(int total_batches) {
   return Status::OK();
 }
 
-void Pipe::addSource(PipeSource* source) {
-  source->Initialize(this);
+Status Pipe::addSource(PipeSource* source) {
+  ARROW_RETURN_NOT_OK(source->Initialize(this));
   // First added source is handled in receiving task. All additional sources are delivered
   // in their own sutmit tasks
   if (!last_source_node_)
@@ -316,6 +323,7 @@ void Pipe::addSource(PipeSource* source) {
   else {
     source_nodes_.push_back(source);
   }
+  return Status::OK();
 }
 
 Status Pipe::Init(const std::shared_ptr<Schema> schema) {
@@ -326,7 +334,7 @@ Status Pipe::Init(const std::shared_ptr<Schema> schema) {
         if (!schema->Equals(node->output_schema())) {
           return Status::Invalid("Pipe schema does not match for " + pipe_name_);
         }
-        addSource(pipe_source);
+        ARROW_RETURN_NOT_OK(addSource(pipe_source));
       }
     }
   }
