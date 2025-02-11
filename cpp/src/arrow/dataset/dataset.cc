@@ -77,6 +77,7 @@ Future<std::optional<int64_t>> Fragment::CountRows(compute::Expression,
 }
 
 Status Fragment::ClearCachedMetadata() {
+  auto lock = physical_schema_mutex_.Lock();
   physical_schema_.reset();
   return Status::OK();
 }
