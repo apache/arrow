@@ -102,6 +102,9 @@ else
 fi
 
 %changelog
+* Tue Feb 11 2025 Bryce Mecum <petridish@gmail.com> - 19.0.1-1
+- New upstream release.
+
 * Mon Feb 03 2025 Bryce Mecum <petridish@gmail.com> - 19.0.1-1
 - New upstream release.
 
