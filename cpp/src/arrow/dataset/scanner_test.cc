@@ -877,10 +877,10 @@ TEST(TestNewScanner, MissingColumn) {
   AssertArraysEqual(*expected_nulls, *batches[0]->column(1));
 }
 
-void WriteIpcData(const std::string& path,
-                  const std::shared_ptr<fs::FileSystem> file_system,
-                  const std::shared_ptr<Table> input,
-                  const ipc::IpcWriteOptions& options = ipc::IpcWriteOptions::Defaults()) {
+void WriteIpcData(
+    const std::string& path, const std::shared_ptr<fs::FileSystem> file_system,
+    const std::shared_ptr<Table> input,
+    const ipc::IpcWriteOptions& options = ipc::IpcWriteOptions::Defaults()) {
   EXPECT_OK_AND_ASSIGN(auto out_stream, file_system->OpenOutputStream(path));
   ASSERT_OK_AND_ASSIGN(
       auto file_writer,
@@ -3048,7 +3048,8 @@ Ordering CreateOrdering(const std::pair<std::string, compute::SortOrder>& sort_k
   return {keys};
 }
 
-Ordering CreateOrdering(const std::vector<std::pair<std::string, compute::SortOrder>>& sort_keys) {
+Ordering CreateOrdering(
+    const std::vector<std::pair<std::string, compute::SortOrder>>& sort_keys) {
   auto keys = std::vector<compute::SortKey>();
   for (const auto& sort_key : sort_keys) {
     keys.emplace_back(FieldRef(sort_key.first), sort_key.second);
@@ -3056,9 +3057,10 @@ Ordering CreateOrdering(const std::vector<std::pair<std::string, compute::SortOr
   return {keys};
 }
 
-void AssertPlanHasAssertOrderNode(acero::Declaration declarations, bool expect_assert_node) {
+void AssertPlanHasAssertOrderNode(acero::Declaration declarations,
+                                  bool expect_assert_node) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> exec_plan,
-                        ExecPlan::Make(acero::QueryOptions(), ExecContext()));
+                       ExecPlan::Make(acero::QueryOptions(), ExecContext()));
   ASSERT_OK(declarations.AddToPlan(exec_plan.get()));
   if (expect_assert_node) {
     // we expect the scan node expanded into two nodes
@@ -3077,19 +3079,20 @@ TEST(ScanNode, AssertOrder) {
   arrow::dataset::internal::Initialize();
   ASSERT_OK_AND_ASSIGN(auto plan, acero::ExecPlan::Make());
 
-  auto dummy_schema = schema(
-      {field("id", int32()), field("rev", int32()), field("value", int32())});
+  auto dummy_schema =
+      schema({field("id", int32()), field("rev", int32()), field("value", int32())});
 
   // creating a synthetic dataset using generators
   static constexpr int kRowsPerBatch = 4;
   static constexpr int kNumBatches = 32;
 
-  std::shared_ptr<Table> table = gen::Gen({
-    {"id", gen::Step(/*start=*/-kRowsPerBatch*kNumBatches/2, /*step=*/1)},
-    {"rev", gen::Step(/*start=*/kRowsPerBatch*kNumBatches/2, /*step=*/-1)},
-    {"value", gen::Random(int32())}
-  })->FailOnError()
-    ->Table(kRowsPerBatch, kNumBatches);
+  std::shared_ptr<Table> table =
+      gen::Gen(
+          {{"id", gen::Step(/*start=*/-kRowsPerBatch * kNumBatches / 2, /*step=*/1)},
+           {"rev", gen::Step(/*start=*/kRowsPerBatch * kNumBatches / 2, /*step=*/-1)},
+           {"value", gen::Random(int32())}})
+          ->FailOnError()
+          ->Table(kRowsPerBatch, kNumBatches);
 
   auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
   auto filesystem = std::make_shared<fs::LocalFileSystem>();
@@ -3141,9 +3144,10 @@ TEST(ScanNode, AssertOrder) {
   compute::Ordering unordered = CreateOrdering(unordered_key);
 
   // test existing orderings pass
-  for (const Ordering& ordering : {asc, desc, asc_desc, asc_desc_rand, desc_asc, desc_asc_rand}) {
-    declarations = acero::Declaration::Sequence(
-        {acero::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options, false, ordering}})});
+  for (const Ordering& ordering :
+       {asc, desc, asc_desc, asc_desc_rand, desc_asc, desc_asc_rand}) {
+    declarations = acero::Declaration::Sequence({acero::Declaration(
+        {"scan", dataset::ScanNodeOptions{dataset, scan_options, false, ordering}})});
     ASSERT_OK_AND_ASSIGN(auto actual, acero::DeclarationToTable(declarations));
     // Scan node always emits augmented fields so we drop those
     ASSERT_OK_AND_ASSIGN(auto actualMinusAugmented, actual->SelectColumns({0, 1, 2}));
@@ -3153,8 +3157,8 @@ TEST(ScanNode, AssertOrder) {
 
   // test non-existing orderings fail
   for (const Ordering& non_ordering : {not_asc, not_asc, unordered}) {
-    declarations = acero::Declaration::Sequence(
-        {acero::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options, false, non_ordering}})});
+    declarations = acero::Declaration::Sequence({acero::Declaration(
+        {"scan", dataset::ScanNodeOptions{dataset, scan_options, false, non_ordering}})});
     ASSERT_NOT_OK(acero::DeclarationToTable(declarations));
     AssertPlanHasAssertOrderNode(declarations, true);
   }

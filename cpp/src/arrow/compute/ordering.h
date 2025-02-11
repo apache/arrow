@@ -62,7 +62,9 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
  public:
   Ordering(std::vector<SortKey> sort_keys,
            NullPlacement null_placement = NullPlacement::AtStart)
-      : sort_keys_(std::move(sort_keys)), null_placement_(null_placement), is_implicit_(false) {}
+      : sort_keys_(std::move(sort_keys)),
+        null_placement_(null_placement),
+        is_implicit_(false) {}
   /// true if data ordered by other is also ordered by this
   ///
   /// For example, if data is ordered by [a, b, c] then it is also ordered
