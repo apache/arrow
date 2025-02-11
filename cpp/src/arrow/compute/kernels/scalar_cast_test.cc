@@ -4076,92 +4076,95 @@ TEST(Cast, StructToBiggerNullableStruct) {
 TEST(Cast, StructToDifferentNullabilityStruct) {
   {
     // OK to go from non-nullable to nullable...
-    std::vector<std::shared_ptr<Field>> fields_src_non_nullable = {
+    std::vector<std::shared_ptr<Field>> fields_src = {
         std::make_shared<Field>("a", int8(), false),
         std::make_shared<Field>("b", int8(), false),
         std::make_shared<Field>("c", int8(), false)};
-    std::shared_ptr<Array> a_src_non_nullable, b_src_non_nullable, c_src_non_nullable;
-    a_src_non_nullable = ArrayFromJSON(int8(), "[11, 23, 56]");
-    b_src_non_nullable = ArrayFromJSON(int8(), "[32, 46, 37]");
-    c_src_non_nullable = ArrayFromJSON(int8(), "[95, 11, 44]");
-    ASSERT_OK_AND_ASSIGN(
-        auto src_non_nullable,
-        StructArray::Make({a_src_non_nullable, b_src_non_nullable, c_src_non_nullable},
-                          fields_src_non_nullable));
+    std::vector<std::shared_ptr<Array>> arrays_src = {
+        ArrayFromJSON(int8(), "[11, 23, 56]"),
+        ArrayFromJSON(int8(), "[32, 46, 37]"),
+        ArrayFromJSON(int8(), "[95, 11, 44]"),
+    };
+    ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make(arrays_src, fields_src));
 
-    std::shared_ptr<Array> a_dest_nullable, b_dest_nullable, c_dest_nullable;
-    a_dest_nullable = ArrayFromJSON(int64(), "[11, 23, 56]");
-    b_dest_nullable = ArrayFromJSON(int64(), "[32, 46, 37]");
-    c_dest_nullable = ArrayFromJSON(int64(), "[95, 11, 44]");
-
-    std::vector<std::shared_ptr<Field>> fields_dest1_nullable = {
+    std::vector<std::shared_ptr<Field>> fields_dest = {
         std::make_shared<Field>("a", int64(), true),
         std::make_shared<Field>("b", int64(), true),
-        std::make_shared<Field>("c", int64(), true)};
-    ASSERT_OK_AND_ASSIGN(
-        auto dest1_nullable,
-        StructArray::Make({a_dest_nullable, b_dest_nullable, c_dest_nullable},
-                          fields_dest1_nullable));
-    CheckCast(src_non_nullable, dest1_nullable);
+        std::make_shared<Field>("c", int64(), true),
+    };
+    std::vector<std::shared_ptr<Array>> arrays_dest = {
+        ArrayFromJSON(int64(), "[11, 23, 56]"),
+        ArrayFromJSON(int64(), "[32, 46, 37]"),
+        ArrayFromJSON(int64(), "[95, 11, 44]"),
+    };
+    ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make(arrays_dest, fields_dest));
+    CheckCast(src, dest);
 
-    std::vector<std::shared_ptr<Field>> fields_dest2_nullable = {
-        std::make_shared<Field>("a", int64(), true),
-        std::make_shared<Field>("c", int64(), true)};
-    ASSERT_OK_AND_ASSIGN(
-        auto dest2_nullable,
-        StructArray::Make({a_dest_nullable, c_dest_nullable}, fields_dest2_nullable));
-    CheckCast(src_non_nullable, dest2_nullable);
+    std::vector<std::shared_ptr<Field>> fields_dest_ac = {fields_dest[0], fields_dest[2]};
+    std::vector<std::shared_ptr<Array>> arrays_dest_ac = {arrays_dest[0], arrays_dest[2]};
+    ASSERT_OK_AND_ASSIGN(auto dest_ac, StructArray::Make(arrays_dest_ac, fields_dest_ac));
+    CheckCast(src, dest_ac);
 
-    std::vector<std::shared_ptr<Field>> fields_dest3_nullable = {
-        std::make_shared<Field>("b", int64(), true)};
-    ASSERT_OK_AND_ASSIGN(auto dest3_nullable,
-                         StructArray::Make({b_dest_nullable}, fields_dest3_nullable));
-    CheckCast(src_non_nullable, dest3_nullable);
+    std::vector<std::shared_ptr<Field>> fields_dest_b = {fields_dest[1]};
+    std::vector<std::shared_ptr<Array>> arrays_dest_b = {arrays_dest[1]};
+    ASSERT_OK_AND_ASSIGN(auto dest_b, StructArray::Make(arrays_dest_b, fields_dest_b));
+    CheckCast(src, dest_b);
   }
   {
-    // But NOT OK to go from nullable to non-nullable...
-    std::vector<std::shared_ptr<Field>> fields_src_nullable = {
+    // But when going from nullable to non-nullable, all data must be non-null...
+    std::vector<std::shared_ptr<Field>> fields_src = {
         std::make_shared<Field>("a", int8(), true),
         std::make_shared<Field>("b", int8(), true),
         std::make_shared<Field>("c", int8(), true)};
-    std::shared_ptr<Array> a_src_nullable, b_src_nullable, c_src_nullable;
-    a_src_nullable = ArrayFromJSON(int8(), "[1, null, 5]");
-    b_src_nullable = ArrayFromJSON(int8(), "[3, 4, null]");
-    c_src_nullable = ArrayFromJSON(int8(), "[9, 11, 44]");
-    ASSERT_OK_AND_ASSIGN(
-        auto src_nullable,
-        StructArray::Make({a_src_nullable, b_src_nullable, c_src_nullable},
-                          fields_src_nullable));
+    std::vector<std::shared_ptr<Array>> arrays_src = {
+        ArrayFromJSON(int8(), "[1, null, 5]"),
+        ArrayFromJSON(int8(), "[3, 4, null]"),
+        ArrayFromJSON(int8(), "[9, 11, 44]"),
+    };
+    ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make(arrays_src, fields_src));
 
-    std::vector<std::shared_ptr<Field>> fields_dest1_non_nullable = {
+    std::vector<std::shared_ptr<Field>> fields_dest = {
         std::make_shared<Field>("a", int64(), false),
         std::make_shared<Field>("b", int64(), false),
         std::make_shared<Field>("c", int64(), false)};
-    const auto dest1_non_nullable = arrow::struct_(fields_dest1_non_nullable);
-    const auto options1_non_nullable = CastOptions::Safe(dest1_non_nullable);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        TypeError,
-        ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
-        Cast(src_nullable, options1_non_nullable));
+        Invalid,
+        ::testing::HasSubstr(
+            "field 'a' of type int8 has nulls. Can't cast to non-nullable field 'a' "
+            "of type int64"),
+        Cast(src, CastOptions::Safe(arrow::struct_(fields_dest))));
 
-    std::vector<std::shared_ptr<Field>> fields_dest2_non_nullable = {
-        std::make_shared<Field>("a", int64(), false),
-        std::make_shared<Field>("c", int64(), false)};
-    const auto dest2_non_nullable = arrow::struct_(fields_dest2_non_nullable);
-    const auto options2_non_nullable = CastOptions::Safe(dest2_non_nullable);
+    std::vector<std::shared_ptr<Field>> fields_dest_ac = {fields_dest[0], fields_dest[2]};
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        TypeError,
-        ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
-        Cast(src_nullable, options2_non_nullable));
+        Invalid,
+        ::testing::HasSubstr(
+            "field 'a' of type int8 has nulls. Can't cast to non-nullable field 'a' "
+            "of type int64"),
+        Cast(src, CastOptions::Safe(arrow::struct_(fields_dest_ac))));
 
-    std::vector<std::shared_ptr<Field>> fields_dest3_non_nullable = {
-        std::make_shared<Field>("c", int64(), false)};
-    const auto dest3_non_nullable = arrow::struct_(fields_dest3_non_nullable);
-    const auto options3_non_nullable = CastOptions::Safe(dest3_non_nullable);
+    // if we only select a field with no nulls, it should be fine:
+    std::vector<std::shared_ptr<Field>> fields_dest_c = {fields_dest[2]};
+    std::vector<std::shared_ptr<Array>> arrays_dest_c = {
+        ArrayFromJSON(int64(), "[9, 11, 44]")};
+    ASSERT_OK_AND_ASSIGN(auto dest_c, StructArray::Make(arrays_dest_c, fields_dest_c));
+    CheckCast(src, dest_c);
+
+    // A slice that doesn't contain nulls is castable...
+    std::vector<std::shared_ptr<Array>> arrays_dest_0 = {
+        ArrayFromJSON(int64(), "[1]"),
+        ArrayFromJSON(int64(), "[3]"),
+        ArrayFromJSON(int64(), "[9]"),
+    };
+    ASSERT_OK_AND_ASSIGN(auto dest_0, StructArray::Make(arrays_dest_0, fields_dest));
+    CheckCast(src->Slice(0, 1), dest_0);
+
+    // ...but a slice that contains nulls will error.
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        TypeError,
-        ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
-        Cast(src_nullable, options3_non_nullable));
+        Invalid,
+        ::testing::HasSubstr(
+            "field 'a' of type int8 has nulls. Can't cast to non-nullable field 'a' "
+            "of type int64"),
+        Cast(src->Slice(1, 3), CastOptions::Safe(arrow::struct_(fields_dest))));
   }
 }
 
