@@ -802,15 +802,12 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
     return EnsureCompleteMetadata(reader.get());
   }
 
-  // TODO temp variable is useless
-  std::shared_ptr<Schema> schema;
-  RETURN_NOT_OK(reader->GetSchema(&schema));
-  if (given_physical_schema_ && !given_physical_schema_->Equals(*schema)) {
+  RETURN_NOT_OK(reader->GetSchema(&physical_schema_));
+  if (given_physical_schema_ && !given_physical_schema_->Equals(*physical_schema_)) {
     return Status::Invalid("Fragment initialized with physical schema ",
                            *given_physical_schema_, " but ", source_.path(),
-                           " has schema ", *schema);
+                           " has schema ", *physical_schema_);
   }
-  physical_schema_ = std::move(schema);
 
   if (!row_groups_) {
     row_groups_ = Iota(reader->num_row_groups());

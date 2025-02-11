@@ -929,6 +929,7 @@ class ClearCachedMetadataFragment : public InMemoryFragment {
   using InMemoryFragment::InMemoryFragment;
 
   Status ClearCachedMetadata() override {
+    RETURN_NOT_OK(InMemoryFragment::ClearCachedMetadata());
     metadata_clear_count_.fetch_add(1);
     return Status::OK();
   }
