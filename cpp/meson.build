@@ -46,10 +46,4 @@ cpp_compiler = meson.get_compiler('cpp')
 cpp_args = cpp_compiler.get_supported_arguments(project_args)
 add_project_arguments(cpp_args, language: 'cpp')
 
-needs_tests = get_option('tests')
-needs_ipc = needs_tests or get_option('ipc')
-needs_testing = needs_tests or get_option('testing')
-needs_json = needs_testing or get_option('json')
-needs_compute = get_option('compute')
-
 subdir('src/arrow')
