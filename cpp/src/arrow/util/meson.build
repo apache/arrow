@@ -15,37 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# arrow_install_all_headers
-
 conf_data = configuration_data()
 
-version = meson.project_version()
-# Remove any pre-release / build identifiers
-version_no_pre_release = version.split('-')[0]
-version_no_build = version_no_pre_release.split('+')[0]
-components = version_no_build.split('.')
-assert(
-    components.length() >= 3,
-    'The version does not contain major, minor and patch',
-)
-ver_major = components[0]
-ver_minor = components[1]
-ver_patch = components[2]
 conf_data.set('ARROW_VERSION_MAJOR', ver_major)
 conf_data.set('ARROW_VERSION_MINOR', ver_minor)
 conf_data.set('ARROW_VERSION_PATCH', ver_patch)
 
-# TODO: While the CMake configuration substitutes the @ARROW_VERSION@
-# macro directly in the configuration file, the Meson wrapper to the
-# CMake configuration file seems to still want to include that
-# variable as part of the configuration data
-arrow_version = ver_major.to_int() * 1000 + ver_minor.to_int() * 1000 + ver_patch.to_int()
 conf_data.set('ARROW_VERSION', arrow_version)
 conf_data.set('ARROW_VERSION_STRING', arrow_version)
 
-arrow_so_version = ver_major.to_int() * 100 + ver_minor.to_int()
 conf_data.set('ARROW_SO_VERSION', arrow_so_version)
-arrow_full_so_version = '@0@.@1@.@2@'.format(arrow_so_version, ver_patch, 0)
 conf_data.set('ARROW_FULL_SO_VERSION', arrow_full_so_version)
 
 # TODO: we may want to give Meson its own configuration file rather
@@ -106,7 +85,7 @@ configure_file(
     configuration: conf_data,
     format: 'cmake@',
     install: true,
-    install_dir: '.',
+    install_dir: 'arrow',
 )
 
 internal_conf_data = configuration_data()
@@ -120,5 +99,5 @@ configure_file(
     configuration: internal_conf_data,
     format: 'cmake@',
     install: true,
-    install_dir: '.',
+    install_dir: 'arrow',
 )

@@ -247,8 +247,87 @@ arrow_lib = library(
     sources: [arrow_srcs],
     objects: objlibs,
     include_directories: [include_dir],
+    install: true,
     # compute/expression.cc may have undefined IPC symbols in non-IPC builds
     override_options: {'b_lundef': 'false'},
+)
+
+# Meson does not allow you to glob for headers to install. See also
+# https://mesonbuild.com/FAQ.html#why-cant-i-specify-target-files-with-a-wildcard
+# install_subdir would be usable if the directory only contained headers
+install_headers(
+    [
+        'api.h',
+        'array.h',
+        'buffer_builder.h',
+        'buffer.h',
+        'builder.h',
+        'chunked_array.h',
+        'chunk_resolver.h',
+        'compare.h',
+        'config.h',
+        'datum.h',
+        'device_allocation_type_set.h',
+        'device.h',
+        'extension_type.h',
+        'memory_pool.h',
+        'memory_pool_test.h',
+        'pch.h',
+        'pretty_print.h',
+        'record_batch.h',
+        'result.h',
+        'scalar.h',
+        'sparse_tensor.h',
+        'status.h',
+        'stl_allocator.h',
+        'stl.h',
+        'stl_iterator.h',
+        'table_builder.h',
+        'table.h',
+        'tensor.h',
+        'type_fwd.h',
+        'type.h',
+        'type_traits.h',
+        'visit_array_inline.h',
+        'visit_data_inline.h',
+        'visitor_generate.h',
+        'visitor.h',
+        'visit_scalar_inline.h',
+        'visit_type_inline.h',
+    ],
+    install_dir: 'arrow',
+)
+
+version = meson.project_version()
+# Remove any pre-release / build identifiers
+version_no_pre_release = version.split('-')[0]
+version_no_build = version_no_pre_release.split('+')[0]
+components = version_no_build.split('.')
+assert(
+    components.length() >= 3,
+    'The version does not contain major, minor and patch',
+)
+ver_major = components[0]
+ver_minor = components[1]
+ver_patch = components[2]
+
+arrow_version = ver_major.to_int() * 1000 + ver_minor.to_int() * 1000 + ver_patch.to_int()
+arrow_so_version = (ver_major.to_int() * 100 + ver_minor.to_int()).to_string()
+arrow_full_so_version = '@0@.@1@.@2@'.format(arrow_so_version, ver_patch, 0)
+
+# TODO: The Meson generated .pc file does not include the Apache license
+# header that the CMake arrow.pc includes
+pkg = import('pkgconfig')
+pkg.generate(
+    arrow_lib,
+    filebase: 'arrow',
+    name: 'Apache Arrow',
+    description: 'Arrow is a set of technologies that enable big-data systems to process and move data fast.',
+    variables: {
+        'so_version': arrow_so_version,
+        'abi_version': arrow_so_version,
+        'full_so_version': arrow_full_so_version,
+    },
 )
 
 subdir('util')
