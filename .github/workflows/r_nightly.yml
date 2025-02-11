@@ -86,7 +86,7 @@ jobs:
             exit 1
           fi
       - name: Cache Repo
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
+        uses: actions/cache@v4
         with:
           path: repo
           key: r-nightly-${{ github.run_id }}
