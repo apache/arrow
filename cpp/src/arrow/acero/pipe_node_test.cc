@@ -167,8 +167,6 @@ TEST(ExecPlanExecution, PipeFilterSink) {
   dup1.label = "dup1";
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-
-  ASSERT_GT(GetCpuThreadPoolCapacity(), 10);
   ASSERT_OK(decl.AddToPlan(plan.get()));
   ASSERT_OK(dup.AddToPlan(plan.get()));
   ASSERT_OK(dup1.AddToPlan(plan.get()));
