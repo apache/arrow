@@ -46,4 +46,14 @@ cpp_compiler = meson.get_compiler('cpp')
 cpp_args = cpp_compiler.get_supported_arguments(project_args)
 add_project_arguments(cpp_args, language: 'cpp')
 
+git_id = get_option('git_id')
+if git_id == ''
+    git_id = run_command('git', 'log', '-n1', '--format=%H').stdout().strip()
+endif
+
+git_description = get_option('git_description')
+if git_description == ''
+    git_description = run_command('git', 'describe', '--tags').stdout().strip()
+endif
+
 subdir('src/arrow')
