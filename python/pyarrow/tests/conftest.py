@@ -55,6 +55,22 @@ if sys.platform == 'win32':
         set_timezone_db_path(tzdata_set_path)
 
 
+# GH-45295: For ORC, try to populate TZDIR env var from tzdata package resource
+# path.
+#
+# Note this is a different kind of database than what we allow to be set by
+# `PYARROW_TZDATA_PATH` and passed to set_timezone_db_path.
+if sys.platform == 'win32':
+    if os.environ.get('TZDIR', None) is None:
+        from importlib import resources
+        try:
+            os.environ['TZDIR'] = os.path.join(resources.files('tzdata'), 'zoneinfo')
+        except ModuleNotFoundError:
+            print(
+                'Package "tzdata" not found. Not setting TZDIR environment variable.'
+            )
+
+
 def pytest_addoption(parser):
     # Create options to selectively enable test groups
     def bool_env(name, default=None):
