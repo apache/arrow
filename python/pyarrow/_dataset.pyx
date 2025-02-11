@@ -4077,13 +4077,15 @@ cdef class _ScanNodeOptions(ExecNodeOptions):
         cdef:
             shared_ptr[CScanOptions] c_scan_options
             bint require_sequenced_output=False
+            bint implicit_ordering=False
 
         c_scan_options = Scanner._make_scan_options(dataset, scan_options)
 
         require_sequenced_output=scan_options.get("require_sequenced_output", False)
+        implicit_ordering=scan_options.get("implicit_ordering", False)
 
         self.wrapped.reset(
-            new CScanNodeOptions(dataset.unwrap(), c_scan_options, require_sequenced_output)
+            new CScanNodeOptions(dataset.unwrap(), c_scan_options, require_sequenced_output, implicit_ordering)
         )
 
 
@@ -4101,8 +4103,8 @@ class ScanNodeOptions(_ScanNodeOptions):
     expression or projection to the scan node that you also supply
     to the filter or project node.
 
-    Yielded batches will be augmented with fragment/batch indices to
-    enable stable ordering for simple ExecPlans.
+    Yielded batches will be augmented with fragment/batch indices when
+    implicit_ordering=True to enable stable ordering for simple ExecPlans.
 
     Parameters
     ----------
@@ -4111,7 +4113,9 @@ class ScanNodeOptions(_ScanNodeOptions):
     **kwargs : dict, optional
         Scan options. See `Scanner.from_dataset` for possible arguments.        
     require_sequenced_output : bool, default False
-        Assert implicit ordering on data.
+        Batches are yielded sequentially, like single-threaded
+    implicit_ordering : bool, default False
+        Preserve implicit ordering of data.
     """
 
     def __init__(self, Dataset dataset, **kwargs):
