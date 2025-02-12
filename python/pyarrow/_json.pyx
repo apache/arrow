@@ -21,7 +21,9 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (_Weakrefable, MemoryPool,
+
+from pyarrow.lib cimport (_Weakrefable, Schema,
+                          RecordBatchReader, MemoryPool,
                           maybe_unbox_memory_pool,
                           get_input_stream, pyarrow_wrap_table,
                           pyarrow_wrap_schema, pyarrow_unwrap_schema)
@@ -266,6 +268,38 @@ cdef _get_parse_options(ParseOptions parse_options, CJSONParseOptions* out):
         out[0] = parse_options.options
 
 
+cdef class JSONStreamingReader(RecordBatchReader):
+    """An object that reads record batches incrementally from a JSON file.
+
+    Should not be instantiated directly by user code.
+    """
+    cdef readonly:
+        Schema schema
+
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s "
+                        "constructor directly, "
+                        "use pyarrow.json.open_json() instead.")
+
+    cdef _open(self, shared_ptr[CInputStream] stream,
+               CJSONReadOptions c_read_options,
+               CJSONParseOptions c_parse_options,
+               MemoryPool memory_pool):
+        cdef:
+            shared_ptr[CSchema] c_schema
+            CIOContext io_context
+
+        io_context = CIOContext(maybe_unbox_memory_pool(memory_pool))
+
+        with nogil:
+            self.reader = <shared_ptr[CRecordBatchReader]> GetResultValue(
+                CJSONStreamingReader.Make(stream, move(c_read_options),
+                                          move(c_parse_options), io_context))
+            c_schema = self.reader.get().schema()
+
+        self.schema = pyarrow_wrap_schema(c_schema)
+
+
 def read_json(input_file, read_options=None, parse_options=None,
               MemoryPool memory_pool=None):
     """
@@ -308,3 +342,45 @@ def read_json(input_file, read_options=None, parse_options=None,
         table = GetResultValue(reader.get().Read())
 
     return pyarrow_wrap_table(table)
+
+
+def open_json(input_file, read_options=None, parse_options=None,
+              MemoryPool memory_pool=None):
+    """
+    Open a streaming reader of JSON data.
+
+    Reading using this function is always single-threaded.
+
+    Parameters
+    ----------
+    input_file : string, path or file-like object
+        The location of JSON data.  If a string or path, and if it ends
+        with a recognized compressed file extension (e.g. ".gz" or ".bz2"),
+        the data is automatically decompressed when reading.
+    read_options : pyarrow.json.ReadOptions, optional
+        Options for the JSON reader (see pyarrow.json.ReadOptions constructor
+        for defaults)
+    parse_options : pyarrow.json.ParseOptions, optional
+        Options for the JSON parser
+        (see pyarrow.json.ParseOptions constructor for defaults)
+    memory_pool : MemoryPool, optional
+        Pool to allocate RecordBatch memory from
+
+    Returns
+    -------
+    :class:`pyarrow.json.JSONStreamingReader`
+    """
+    cdef:
+        shared_ptr[CInputStream] stream
+        CJSONReadOptions c_read_options
+        CJSONParseOptions c_parse_options
+        JSONStreamingReader reader
+
+    _get_reader(input_file, &stream)
+    _get_read_options(read_options, &c_read_options)
+    _get_parse_options(parse_options, &c_parse_options)
+
+    reader = JSONStreamingReader.__new__(JSONStreamingReader)
+    reader._open(stream, move(c_read_options), move(c_parse_options),
+                 memory_pool)
+    return reader

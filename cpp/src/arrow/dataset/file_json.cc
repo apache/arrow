@@ -119,7 +119,8 @@ class JsonFragmentScanner : public FragmentScanner {
       return Status::Invalid("Number of batches calculation overflowed");
     }
 
-    auto future = json::StreamingReader::MakeAsync(
+
+    auto future = json::(
     inspected.stream, format_options.read_options, parse_options,
     io::default_io_context(), cpu_executor);
 
@@ -131,24 +132,20 @@ return future.Then([num_batches, block_size](const ReaderPtr& reader)
   }
 
   // Check if the input stream has only one JSON object and no newline
-  // Check if the input stream has only one JSON object and no newline
-auto stream_data = inspected.stream->Read();
-if (!stream_data.ok()) {
-  // Handle the error appropriately
-  return Status::IOError("Failed to read from the input stream");
-}
 
-std::string json_content = stream_data->ToString();
-if (!json_content.empty() && json_content.back() != '\n') {
-  json_content += '\n';  // Append a newline to fix the issue
-}
+  auto stream_data = inspected.stream->Read();
+  if (stream_data.ok()) {
+    std::string json_content = stream_data->ToString();
+    if (!json_content.empty() && json_content.back() != '\n') {
+      json_content += '\n';  // Append a newline to fix the issue
+    }
+    
+    // Create a new InputStream with fixed content
+    inspected.stream = std::make_shared<io::BufferReader>(Buffer::FromString(json_content));
+  }
 
-// Create a new InputStream with fixed content
-inspected.stream = std::make_shared<io::BufferReader>(Buffer::FromString(json_content));
-
-return std::make_shared<JsonFragmentScanner>(reader, num_batches, block_size);
-});
-
+  return std::make_shared<JsonFragmentScanner>(reader, num_batches, block_size);
+ // Check if the input stream has only one JSON object and no newline
   }
 
  private:
@@ -329,8 +326,25 @@ Result<Future<ReaderPtr>> DoOpenReader(
               json::UnexpectedFieldBehavior::Ignore;
         }
         return json::StreamingReader::MakeAsync(
-            std::move(state->stream), state->read_options, state->parse_options);
-      });
+    std::move(state->stream), state->read_options, state->parse_options)
+    .Then([](const ReaderPtr& reader) -> Result<ReaderPtr> {
+        auto stream_data = reader->stream->Read();
+        if (!stream_data.ok()) {
+            return Status::IOError("Failed to read from input stream");
+        }
+
+        std::string json_content = stream_data->ToString();
+        if (!json_content.empty() && json_content.back() != '\n') {
+            json_content += '\n';  // Append a newline to fix the issue
+        }
+
+        // Create a new InputStream with fixed content
+        reader->stream = std::make_shared<io::BufferReader>(Buffer::FromString(json_content));
+
+        return reader;
+    }, [path = source.path()](const Status& error) -> Result<ReaderPtr> {
+        return error.WithMessage("Could not open JSON input source '", path, "': ", error);
+    });
   ARROW_ASSIGN_OR_RAISE(auto future, maybe_future);
   return future.Then([](const ReaderPtr& reader) -> Result<ReaderPtr> { return reader; },
                      [path = source.path()](const Status& error) -> Result<ReaderPtr> {
