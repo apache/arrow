@@ -30,7 +30,7 @@ from pyarrow.lib cimport *
 from pyarrow.lib import ArrowTypeError, frombytes, tobytes, _pac
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._acero cimport ExecNodeOptions
-from pyarrow._compute cimport Expression, _bind
+from pyarrow._compute cimport Expression, Ordering, _bind
 from pyarrow._compute import _forbid_instantiation
 from pyarrow._fs cimport FileSystem, FileSelector, FileInfo
 from pyarrow._csv cimport (
@@ -4153,15 +4153,15 @@ cdef class _ScanNodeOptions(ExecNodeOptions):
         cdef:
             shared_ptr[CScanOptions] c_scan_options
             bint require_sequenced_output=False
-            bint implicit_ordering=False
+            Ordering ordering
 
         c_scan_options = Scanner._make_scan_options(dataset, scan_options)
 
         require_sequenced_output=scan_options.get("require_sequenced_output", False)
-        implicit_ordering=scan_options.get("implicit_ordering", False)
+        ordering=scan_options.get("ordering", Ordering.unordered())
 
         self.wrapped.reset(
-            new CScanNodeOptions(dataset.unwrap(), c_scan_options, require_sequenced_output, implicit_ordering)
+            new CScanNodeOptions(dataset.unwrap(), c_scan_options, require_sequenced_output, ordering.unwrap())
         )
 
 
@@ -4179,9 +4179,6 @@ class ScanNodeOptions(_ScanNodeOptions):
     expression or projection to the scan node that you also supply
     to the filter or project node.
 
-    Yielded batches will be augmented with fragment/batch indices when
-    implicit_ordering=True to enable stable ordering for simple ExecPlans.
-
     Parameters
     ----------
     dataset : pyarrow.dataset.Dataset
@@ -4190,8 +4187,14 @@ class ScanNodeOptions(_ScanNodeOptions):
         Scan options. See `Scanner.from_dataset` for possible arguments.
     require_sequenced_output : bool, default False
         Batches are yielded sequentially, like single-threaded
-    implicit_ordering : bool, default False
-        Preserve implicit ordering of data.
+    ordering : Ordering, default Ordering.unordered()
+        With an implicit ordering given, yielded batches will be augmented
+        with fragment/batch indices when to enable stable ordering.
+        With an explicit ordering given, scanned data are expected exhibit
+        this order. Scan fails on first un-ordered row. Reading un-ordered
+        data partially might succeed if un-ordered rows are not read.
+        Setting an ordering does not actually sort the data but asserts
+        that data in the dataset is ordered as stated during scan.
     """
 
     def __init__(self, Dataset dataset, **kwargs):
