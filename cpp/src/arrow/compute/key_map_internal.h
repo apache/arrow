@@ -85,8 +85,6 @@ class ARROW_EXPORT SwissTable {
     return reinterpret_cast<uint32_t*>(hashes_->mutable_data());
   }
 
-  inline void insert_into_empty_slot(uint32_t slot_id, uint32_t hash, uint32_t group_id);
-
   /// \brief Extract group id for a given slot in a given block.
   ///
   static uint32_t extract_group_id(const uint8_t* block_ptr, int local_slot,
@@ -96,6 +94,8 @@ class ARROW_EXPORT SwissTable {
         block_ptr + bytes_status_in_block_ + local_slot * num_group_id_bits / 8);
     return group_id & group_id_mask;
   }
+
+  inline void insert_into_empty_slot(uint32_t slot_id, uint32_t hash, uint32_t group_id);
 
   static uint32_t block_id_from_hash(uint32_t hash, int log_blocks) {
     return hash >> (bits_hash_ - log_blocks);
