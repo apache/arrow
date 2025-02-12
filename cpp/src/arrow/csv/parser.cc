@@ -180,6 +180,10 @@ class ResizableValueDescWriter : public ValueDescWriter<ResizableValueDescWriter
       }
       status_ &= std::move(resize_status);
     }
+    // The `values_` pointer may have become invalid if the `Resize` call above failed.
+    // Note that ResizableValueDescWriter is less performance-critical than
+    // PresizedValueDescWriter, as it should only be called on the first line(s)
+    // of CSV data.
     if (ARROW_PREDICT_TRUE(status_.ok())) {
       values_[values_size_++] = v;
     }
