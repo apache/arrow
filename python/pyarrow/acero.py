@@ -400,6 +400,20 @@ def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):
         raise TypeError("Unsupported output type")
 
 
+def _assert_sorted(dataset, sort_keys, *, null_placement="at_end", output_type=Table):
+
+    ordering = Ordering(sort_keys, null_placement=null_placement)
+    decl = _dataset_to_decl(dataset, use_threads=True, ordering=ordering)
+    result_table = decl.to_table(use_threads=True)
+
+    if output_type == Table:
+        return result_table
+    elif output_type == ds.InMemoryDataset:
+        return ds.InMemoryDataset(result_table)
+    else:
+        raise TypeError("Unsupported output type")
+
+
 def _group_by(table, aggregates, keys, use_threads=True):
 
     decl = Declaration.from_sequence([

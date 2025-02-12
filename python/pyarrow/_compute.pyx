@@ -2000,8 +2000,11 @@ class PartitionNthOptions(_PartitionNthOptions):
 
 
 cdef class Ordering(_Weakrefable):
-    def __init__(self):
-        _forbid_instantiation(self.__class__)
+    def __init__(self, sort_keys, *, null_placement="at_end"):
+        c_sort_keys = unwrap_sort_keys(sort_keys, allow_str=False)
+        c_null_placement = unwrap_null_placement(null_placement)
+        ordering = COrdering(c_sort_keys, c_null_placement)
+        self.init(ordering)
 
     cdef void init(self, const COrdering& sp):
         self.wrapped = sp

@@ -872,6 +872,35 @@ cdef class Dataset(_Weakrefable):
         )
         return res
 
+    def assert_sort(self, sorting, *, null_placement="at_end"):
+        """
+        Assert the Dataset is sorted by one or multiple columns.
+
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+        null_placement : str, default "at_end"
+            Where nulls in input should be sorted, only applying to
+            columns/fields mentioned in `sort_keys`.
+            Accepted values are "at_start", "at_end".
+
+        Returns
+        -------
+        InMemoryDataset
+            A new dataset where sorted order is guaranteed or an exception is raised.
+        """
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        res = _pac()._assert_sorted(
+            self, output_type=InMemoryDataset, sort_keys=sorting, null_placement=null_placement
+        )
+        return res
+
     def join(self, right_dataset, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
              use_threads=True):
