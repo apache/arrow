@@ -2743,10 +2743,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         COrdering()
 
         @staticmethod
-        COrdering Implicit();
+        COrdering Implicit()
 
         @staticmethod
-        COrdering Unordered();
+        COrdering Unordered()
 
     cdef cppclass CSortOptions \
             "arrow::compute::SortOptions"(CFunctionOptions):
