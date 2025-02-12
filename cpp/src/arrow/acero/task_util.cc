@@ -91,11 +91,11 @@ class TaskSchedulerImpl : public TaskScheduler {
   AbortContinuationImpl abort_cont_impl_;
 
   std::vector<TaskGroup> task_groups_;
-  bool aborted_;
   bool register_finished_;
   std::mutex mutex_;  // Mutex protecting task_groups_ (state_ and num_tasks_present_
-                      // fields), aborted_ flag and register_finished_ flag
+                      // fields) and register_finished_ flag
 
+  AtomicWithPadding<bool> aborted_;
   AtomicWithPadding<int> num_tasks_to_schedule_;
   // If a task group adds tasks it's possible for a thread inside
   // ScheduleMore to miss this fact.  This serves as a flag to
@@ -105,10 +105,8 @@ class TaskSchedulerImpl : public TaskScheduler {
 };
 
 TaskSchedulerImpl::TaskSchedulerImpl()
-    : use_sync_execution_(false),
-      num_concurrent_tasks_(0),
-      aborted_(false),
-      register_finished_(false) {
+    : use_sync_execution_(false), num_concurrent_tasks_(0), register_finished_(false) {
+  aborted_.value.store(false);
   num_tasks_to_schedule_.value.store(0);
   tasks_added_recently_.value.store(false);
 }
@@ -131,12 +129,10 @@ Status TaskSchedulerImpl::StartTaskGroup(size_t thread_id, int group_id,
   ARROW_DCHECK(group_id >= 0 && group_id < static_cast<int>(task_groups_.size()));
   TaskGroup& task_group = task_groups_[group_id];
 
-  bool aborted = false;
+  bool aborted = aborted_.value.load();
   bool all_tasks_finished = false;
   {
     std::lock_guard<std::mutex> lock(mutex_);
-
-    aborted = aborted_;
 
     if (task_group.state_ == TaskGroupState::NOT_READY) {
       task_group.num_tasks_present_ = total_num_tasks;
@@ -212,7 +208,7 @@ std::vector<std::pair<int, int64_t>> TaskSchedulerImpl::PickTasks(int num_tasks,
 
 Status TaskSchedulerImpl::ExecuteTask(size_t thread_id, int group_id, int64_t task_id,
                                       bool* task_group_finished) {
-  if (!aborted_) {
+  if (!aborted_.value.load()) {
     RETURN_NOT_OK(task_groups_[group_id].task_impl_(thread_id, task_id));
   }
   *task_group_finished = PostExecuteTask(thread_id, group_id);
@@ -228,11 +224,10 @@ bool TaskSchedulerImpl::PostExecuteTask(size_t thread_id, int group_id) {
 
 Status TaskSchedulerImpl::OnTaskGroupFinished(size_t thread_id, int group_id,
                                               bool* all_task_groups_finished) {
-  bool aborted = false;
+  bool aborted = aborted_.value.load();
   {
     std::lock_guard<std::mutex> lock(mutex_);
 
-    aborted = aborted_;
     TaskGroup& task_group = task_groups_[group_id];
     task_group.state_ = TaskGroupState::ALL_TASKS_FINISHED;
     *all_task_groups_finished = true;
@@ -260,7 +255,7 @@ Status TaskSchedulerImpl::ExecuteMore(size_t thread_id, int num_tasks_to_execute
 
   int last_id = 0;
   for (;;) {
-    if (aborted_) {
+    if (aborted_.value.load()) {
       return Status::Cancelled("Scheduler cancelled");
     }
 
@@ -278,8 +273,8 @@ Status TaskSchedulerImpl::ExecuteMore(size_t thread_id, int num_tasks_to_execute
       bool task_group_finished = false;
       Status status = ExecuteTask(thread_id, group_id, task_id, &task_group_finished);
       if (!status.ok()) {
-        // Mark the remaining picked tasks as finished
-        for (size_t j = i + 1; j < tasks.size(); ++j) {
+        // Mark the current and remaining picked tasks as finished
+        for (size_t j = i; j < tasks.size(); ++j) {
           if (PostExecuteTask(thread_id, tasks[j].first)) {
             bool all_task_groups_finished = false;
             RETURN_NOT_OK(
@@ -328,7 +323,7 @@ Status TaskSchedulerImpl::StartScheduling(size_t thread_id, ScheduleImpl schedul
 }
 
 Status TaskSchedulerImpl::ScheduleMore(size_t thread_id, int num_tasks_finished) {
-  if (aborted_) {
+  if (aborted_.value.load()) {
     return Status::Cancelled("Scheduler cancelled");
   }
 
@@ -369,17 +364,25 @@ Status TaskSchedulerImpl::ScheduleMore(size_t thread_id, int num_tasks_finished)
     int group_id = tasks[i].first;
     int64_t task_id = tasks[i].second;
     RETURN_NOT_OK(schedule_impl_([this, group_id, task_id](size_t thread_id) -> Status {
-      RETURN_NOT_OK(ScheduleMore(thread_id, 1));
-
       bool task_group_finished = false;
-      RETURN_NOT_OK(ExecuteTask(thread_id, group_id, task_id, &task_group_finished));
+      // PostExecuteTask must be called later if any error ocurres during task execution
+      // (including ScheduleMore), so we preserve the status.
+      auto status = [&]() {
+        RETURN_NOT_OK(ScheduleMore(thread_id, 1));
+        return ExecuteTask(thread_id, group_id, task_id, &task_group_finished);
+      }();
+
+      if (!status.ok()) {
+        task_group_finished = PostExecuteTask(thread_id, group_id);
+      }
 
       if (task_group_finished) {
         bool all_task_groups_finished = false;
-        return OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished);
+        RETURN_NOT_OK(
+            OnTaskGroupFinished(thread_id, group_id, &all_task_groups_finished));
       }
 
-      return Status::OK();
+      return status;
     }));
   }
 
@@ -388,31 +391,43 @@ Status TaskSchedulerImpl::ScheduleMore(size_t thread_id, int num_tasks_finished)
 
 void TaskSchedulerImpl::Abort(AbortContinuationImpl impl) {
   bool all_finished = true;
+  DCHECK_EQ(aborted_.value.load(), false);
+  aborted_.value.store(true);
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    aborted_ = true;
     abort_cont_impl_ = std::move(impl);
     if (register_finished_) {
       for (size_t i = 0; i < task_groups_.size(); ++i) {
         TaskGroup& task_group = task_groups_[i];
-        if (task_group.state_ == TaskGroupState::NOT_READY) {
-          task_group.state_ = TaskGroupState::ALL_TASKS_FINISHED;
-        } else if (task_group.state_ == TaskGroupState::READY) {
-          int64_t expected = task_group.num_tasks_started_.value.load();
-          for (;;) {
-            if (task_group.num_tasks_started_.value.compare_exchange_strong(
-                    expected, task_group.num_tasks_present_)) {
-              break;
-            }
-          }
-          int64_t before_add = task_group.num_tasks_finished_.value.fetch_add(
-              task_group.num_tasks_present_ - expected);
-          if (before_add >= expected) {
+        switch (task_group.state_) {
+          case TaskGroupState::NOT_READY: {
             task_group.state_ = TaskGroupState::ALL_TASKS_FINISHED;
-          } else {
-            all_finished = false;
-            task_group.state_ = TaskGroupState::ALL_TASKS_STARTED;
+            break;
           }
+          case TaskGroupState::READY: {
+            int64_t expected = task_group.num_tasks_started_.value.load();
+            for (;;) {
+              if (task_group.num_tasks_started_.value.compare_exchange_strong(
+                      expected, task_group.num_tasks_present_)) {
+                break;
+              }
+            }
+            int64_t before_add = task_group.num_tasks_finished_.value.fetch_add(
+                task_group.num_tasks_present_ - expected);
+            if (before_add >= expected) {
+              task_group.state_ = TaskGroupState::ALL_TASKS_FINISHED;
+            } else {
+              all_finished = false;
+              task_group.state_ = TaskGroupState::ALL_TASKS_STARTED;
+            }
+            break;
+          }
+          case TaskGroupState::ALL_TASKS_STARTED: {
+            all_finished = false;
+            break;
+          }
+          default:
+            break;
         }
       }
     }
