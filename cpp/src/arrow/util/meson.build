@@ -17,9 +17,9 @@
 
 conf_data = configuration_data()
 
-conf_data.set('ARROW_VERSION_MAJOR', ver_major)
-conf_data.set('ARROW_VERSION_MINOR', ver_minor)
-conf_data.set('ARROW_VERSION_PATCH', ver_patch)
+conf_data.set('ARROW_VERSION_MAJOR', version_major)
+conf_data.set('ARROW_VERSION_MINOR', version_minor)
+conf_data.set('ARROW_VERSION_PATCH', version_patch)
 
 conf_data.set('ARROW_VERSION', arrow_version)
 conf_data.set('ARROW_VERSION_STRING', arrow_version)
@@ -27,8 +27,6 @@ conf_data.set('ARROW_VERSION_STRING', arrow_version)
 conf_data.set('ARROW_SO_VERSION', arrow_so_version)
 conf_data.set('ARROW_FULL_SO_VERSION', arrow_full_so_version)
 
-# TODO: we may want to give Meson its own configuration file rather
-# than backfitting onto CMake's
 conf_data.set('CMAKE_CXX_COMPILER_ID', cpp_compiler.get_id())
 conf_data.set('CMAKE_CXX_COMPILER_VERSION', cpp_compiler.version())
 conf_data.set(
@@ -40,44 +38,40 @@ conf_data.set('UPPERCASE_BUILD_TYPE', get_option('buildtype').to_upper())
 
 conf_data.set('ARROW_PACKAGE_KIND', get_option('package_kind'))
 
-foreach cmakedefine : [
-    'ARROW_COMPUTE',
-    'ARROW_CSV',
-    'ARROW_CUDA',
-    'ARROW_DATASET',
-    'ARROW_FILESYSTEM',
-    'ARROW_FLIGHT',
-    'ARROW_FLIGHT_SQL',
-    'ARROW_IPC',
-    'ARROW_JEMALLOC',
-    'ARROW_JEMALLOC_VENDORED',
-    'ARROW_JSON',
-    'ARROW_MIMALLOC',
-    'ARROW_ORC',
-    'ARROW_PARQUET',
-    'ARROW_SUBSTRAIT',
-    'ARROW_AZURE',
-    'ARROW_ENABLE_THREADING',
-    'ARROW_GCS',
-    'ARROW_HDFS',
-    'ARROW_S3',
-    'ARROW_USE_GLOG',
-    'ARROW_USE_NATIVE_INT128',
-    'ARROW_WITH_BROTLI',
-    'ARROW_WITH_BZ2',
-    'ARROW_WITH_LZ4',
-    'ARROW_WITH_MUSL',
-    'ARROW_WITH_OPENTELEMETRY',
-    'ARROW_WITH_RE2',
-    'ARROW_WITH_SNAPPY',
-    'ARROW_WITH_UCX',
-    'ARROW_WITH_UTF8PROC',
-    'ARROW_WITH_ZLIB',
-    'ARROW_WITH_ZSTD',
-    'PARQUET_REQUIRE_ENCRYPTION',
-]
-    conf_data.set(cmakedefine, false)
-endforeach
+conf_data.set('ARROW_COMPUTE', false)
+conf_data.set('ARROW_CSV', false)
+conf_data.set('ARROW_CUDA', false)
+conf_data.set('ARROW_DATASET', false)
+conf_data.set('ARROW_FILESYSTEM', false)
+conf_data.set('ARROW_FLIGHT', false)
+conf_data.set('ARROW_FLIGHT_SQL', false)
+conf_data.set('ARROW_IPC', false)
+conf_data.set('ARROW_JEMALLOC', false)
+conf_data.set('ARROW_JEMALLOC_VENDORED', false)
+conf_data.set('ARROW_JSON', false)
+conf_data.set('ARROW_MIMALLOC', false)
+conf_data.set('ARROW_ORC', false)
+conf_data.set('ARROW_PARQUET', false)
+conf_data.set('ARROW_SUBSTRAIT', false)
+conf_data.set('ARROW_AZURE', false)
+conf_data.set('ARROW_ENABLE_THREADING', false)
+conf_data.set('ARROW_GCS', false)
+conf_data.set('ARROW_HDFS', false)
+conf_data.set('ARROW_S3', false)
+conf_data.set('ARROW_USE_GLOG', false)
+conf_data.set('ARROW_USE_NATIVE_INT128', false)
+conf_data.set('ARROW_WITH_BROTLI', false)
+conf_data.set('ARROW_WITH_BZ2', false)
+conf_data.set('ARROW_WITH_LZ4', false)
+conf_data.set('ARROW_WITH_MUSL', false)
+conf_data.set('ARROW_WITH_OPENTELEMETRY', false)
+conf_data.set('ARROW_WITH_RE2', false)
+conf_data.set('ARROW_WITH_SNAPPY', false)
+conf_data.set('ARROW_WITH_UCX', false)
+conf_data.set('ARROW_WITH_UTF8PROC', false)
+conf_data.set('ARROW_WITH_ZLIB', false)
+conf_data.set('ARROW_WITH_ZSTD', false)
+conf_data.set('PARQUET_REQUIRE_ENCRYPTION', false)
 
 configure_file(
     input: 'config.h.cmake',
@@ -85,7 +79,7 @@ configure_file(
     configuration: conf_data,
     format: 'cmake@',
     install: true,
-    install_dir: 'arrow',
+    install_dir: 'arrow/util',
 )
 
 internal_conf_data = configuration_data()
@@ -98,6 +92,4 @@ configure_file(
     output: 'config_internal.h',
     configuration: internal_conf_data,
     format: 'cmake@',
-    install: true,
-    install_dir: 'arrow',
 )
