@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -64,20 +64,21 @@ class InternalFileDecryptor {
                                  ParquetCipher::type algorithm,
                                  const std::string& footer_key_metadata,
                                  ::arrow::MemoryPool* pool);
+  ~InternalFileDecryptor();
 
-  std::string& file_aad() { return file_aad_; }
+  const std::string& file_aad() const { return file_aad_; }
 
   std::string GetFooterKey();
 
-  ParquetCipher::type algorithm() { return algorithm_; }
+  ParquetCipher::type algorithm() const { return algorithm_; }
 
-  std::string& footer_key_metadata() { return footer_key_metadata_; }
+  const std::string& footer_key_metadata() const { return footer_key_metadata_; }
 
-  FileDecryptionProperties* properties() { return properties_; }
+  const FileDecryptionProperties* properties() const { return properties_; }
 
   void WipeOutDecryptionKeys();
 
-  ::arrow::MemoryPool* pool() { return pool_; }
+  ::arrow::MemoryPool* pool() const { return pool_; }
 
   std::shared_ptr<Decryptor> GetFooterDecryptor();
 
@@ -105,11 +106,13 @@ class InternalFileDecryptor {
   FileDecryptionProperties* properties_;
   // Concatenation of aad_prefix (if exists) and aad_file_unique
   std::string file_aad_;
-
   ParquetCipher::type algorithm_;
   std::string footer_key_metadata_;
-  std::string footer_key_;
   ::arrow::MemoryPool* pool_;
+
+  // Protects footer_key_ updates
+  std::mutex mutex_;
+  std::string footer_key_;
 
   std::string GetColumnKey(const std::string& column_path,
                            const std::string& column_key_metadata);
