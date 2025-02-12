@@ -240,8 +240,8 @@ Status ScalarAggregateNode::InputReceived(ExecNode* input, ExecBatch batch) {
     // We add segment to the current segment group aggregation
     auto exec_batch = full_batch.Slice(segment.offset, segment.length);
     RETURN_NOT_OK(DoConsume(ExecSpan(exec_batch), thread_index));
-    RETURN_NOT_OK(
-        ExtractSegmenterValues(&segmenter_values_, exec_batch, segment_field_ids_));
+    RETURN_NOT_OK(ExtractSegmenterValues(&GetLocalState()->segmenter_values, exec_batch,
+                                         segment_field_ids_));
 
     // If the segment closes the current segment group, we can output segment group
     // aggregation.
@@ -292,7 +292,7 @@ Status ScalarAggregateNode::OutputResult(bool is_last) {
   batch.values.resize(kernels_.size() + segment_field_ids_.size());
 
   // First, insert segment keys
-  PlaceFields(batch, /*base=*/0, segmenter_values_);
+  PlaceFields(batch, /*base=*/0, GetLocalState()->segmenter_values);
 
   // Followed by aggregate values
   std::size_t base = segment_field_ids_.size();
