@@ -1,0 +1,55 @@
+{
+	"name": "arrow-d",
+	"description": "Apache Arrow - D bindings",
+	"license": "Apache-2.0",
+	"toolchainRequirements": {
+		"frontend": ">=2.105.3"
+	},
+	"buildTypes": {
+		"debug": {
+			"buildOptions": [
+				"debugMode",
+				"debugInfo"
+			]
+		},
+		"release": {
+			"buildOptions": [
+				"releaseMode",
+				"inline",
+				"optimize"
+			]
+		}
+	},
+	"dependencies": {
+		"gidgen": {
+			"repository": "git+https://github.com/Kymorphia/gidgen.git",
+			"version": "0a3ee4177a2f4973f39ffac3fe2e4542f45f9708"
+		},
+		"gid:glib-2-0": "~>0.9.1"
+	},
+	"preBuildCommands": [
+		"\"$DUB\" run gidgen -- --log-level off --report --report-file report.txt -d $PACKAGE_DIR/defs -s $PACKAGE_DIR/source -g $PACKAGE_DIR/c_glib.build/arrow-glib -p $PACKAGE_DIR/source -d ${GID:GLIB_2_0_PACKAGE_DIR}/../../defs -g ${GID:GLIB_2_0_PACKAGE_DIR}/../../gir"
+	],
+	"lflags-posix": [
+		"-L$PACKAGE_DIR/c_glib.build/arrow-glib"
+	],
+	"libs": [
+		"arrow-glib"
+	],
+	"configurations": [
+		{
+			"name": "unittest",
+			"targetPath": "unittest",
+			"sourceFiles": [
+				"source/package.d"
+			],
+			"dflags-dmd": [
+				"-verrors=context"
+			],
+			"dflags-ldc": [
+				"--verrors-context",
+				"-link-defaultlib-shared"
+			]
+		}
+	]
+}
