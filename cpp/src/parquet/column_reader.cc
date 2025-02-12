@@ -308,9 +308,7 @@ class SerializedPageReader : public PageReader {
 
   // The CryptoContext used by this PageReader.
   CryptoContext crypto_ctx_;
-  // This PageReader has its own copy of crypto_ctx_->meta_decryptor and
-  // crypto_ctx_->data_decryptor in order to be thread-safe. Do not mutate (update) the
-  // instances of crypto_ctx_.
+  // This PageReader has its own Decryptor instances in order to be thread-safe.
   std::shared_ptr<Decryptor> meta_decryptor_;
   std::shared_ptr<Decryptor> data_decryptor_;
 
