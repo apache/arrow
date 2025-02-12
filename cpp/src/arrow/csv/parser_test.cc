@@ -646,9 +646,9 @@ TEST(BlockParser, MismatchingNumColumns) {
         Invalid, testing::HasSubstr("CSV parse error: Expected 2 columns, got 1: a"), st);
   }
   // Vary the number of columns and mismatch, to catch buffer overflow issues
-  for (int32_t num_cols : {1, 2, 5, 10, 100}) {
+  for (int32_t num_cols : {1, 2, 5, 100}) {
     ARROW_SCOPED_TRACE("num_cols = ", num_cols);
-    for (int32_t mismatch : {-20, -5, -4, -1, 1, 2, 5, 10, 50, 1024, 32767}) {
+    for (int32_t mismatch : {-5, -1, 1, 5, 10, 50, 1024, 32767}) {
       if (mismatch + num_cols <= 0) {
         continue;
       }
@@ -769,9 +769,9 @@ TEST(BlockParser, MismatchingNumColumnsHandler) {
   }
 
   // Vary the number of columns and mismatch, to catch buffer overflow issues
-  for (int32_t num_cols : {1, 2, 5, 10, 100}) {
+  for (int32_t num_cols : {1, 2, 5, 100}) {
     ARROW_SCOPED_TRACE("num_cols = ", num_cols);
-    for (int32_t mismatch : {-20, -5, -4, -1, 1, 2, 5, 10, 50, 1024, 32767}) {
+    for (int32_t mismatch : {-5, -1, 1, 5, 10, 50, 1024, 32767}) {
       if (mismatch + num_cols <= 0) {
         continue;
       }

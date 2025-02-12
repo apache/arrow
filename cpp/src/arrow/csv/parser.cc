@@ -172,11 +172,17 @@ class ResizableValueDescWriter : public ValueDescWriter<ResizableValueDescWriter
 
   void PushValue(ParsedValueDesc v) {
     if (ARROW_PREDICT_FALSE(values_size_ == values_capacity_)) {
-      values_capacity_ = values_capacity_ * 2;
-      status_ &= values_buffer_->Resize(values_capacity_ * sizeof(*values_));
-      values_ = reinterpret_cast<ParsedValueDesc*>(values_buffer_->mutable_data());
+      int64_t new_capacity = values_capacity_ * 2;
+      auto resize_status = values_buffer_->Resize(new_capacity * sizeof(*values_));
+      if (resize_status.ok()) {
+        values_ = reinterpret_cast<ParsedValueDesc*>(values_buffer_->mutable_data());
+        values_capacity_ = new_capacity;
+      }
+      status_ &= std::move(resize_status);
     }
-    values_[values_size_++] = v;
+    if (ARROW_PREDICT_TRUE(status_.ok())) {
+      values_[values_size_++] = v;
+    }
   }
 };
 
