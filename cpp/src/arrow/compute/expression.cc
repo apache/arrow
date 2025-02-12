@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/config.h"
+
 #include "arrow/compute/expression.h"
 
 #include <algorithm>
@@ -30,8 +32,10 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/reader.h"
-#include "arrow/ipc/writer.h"
+#ifdef ARROW_IPC
+#  include "arrow/ipc/reader.h"
+#  include "arrow/ipc/writer.h"
+#endif
 #include "arrow/util/hash_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
@@ -1492,6 +1496,7 @@ Result<Expression> RemoveNamedRefs(Expression src) {
 // this in the schema of a RecordBatch. Embedded arrays and scalars are stored in its
 // columns. Finally, the RecordBatch is written to an IPC file.
 Result<std::shared_ptr<Buffer>> Serialize(const Expression& expr) {
+#ifdef ARROW_IPC
   struct {
     std::shared_ptr<KeyValueMetadata> metadata_ = std::make_shared<KeyValueMetadata>();
     ArrayVector columns_;
@@ -1567,9 +1572,13 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression& expr) {
   RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   RETURN_NOT_OK(writer->Close());
   return stream->Finish();
+#else
+  return Status::NotImplemented("IPC feature isn't enabled");
+#endif
 }
 
 Result<Expression> Deserialize(std::shared_ptr<Buffer> buffer) {
+#ifdef ARROW_IPC
   io::BufferReader stream(std::move(buffer));
   ARROW_ASSIGN_OR_RAISE(auto reader, ipc::RecordBatchFileReader::Open(&stream));
   ARROW_ASSIGN_OR_RAISE(auto batch, reader->ReadRecordBatch(0));
@@ -1670,6 +1679,9 @@ Result<Expression> Deserialize(std::shared_ptr<Buffer> buffer) {
   };
 
   return FromRecordBatch{*batch, 0}.GetOne();
+#else
+  return Status::NotImplemented("IPC feature isn't enabled");
+#endif
 }
 
 Expression project(std::vector<Expression> values, std::vector<std::string> names) {
