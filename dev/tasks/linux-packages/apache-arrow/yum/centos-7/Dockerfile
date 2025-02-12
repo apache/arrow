@@ -75,6 +75,12 @@ RUN \
     zlib-devel && \
   yum clean ${quiet} all
 
+ARG cmake=3.25.0
+RUN curl -L \
+    "https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-linux-$(uname -m).tar.gz" | \
+    tar -xzf - --directory /usr/local --strip-components=1 && \
+    ln -fs /usr/local/bin/cmake /usr/bin/cmake3
+
 ENV \
   BOOST_INCLUDEDIR=/usr/include/boost169 \
   BOOST_LIBRARYDIR=/usr/lib64/boost169

@@ -34,6 +34,7 @@ RUN \
     build-essential \
     clang \
     cmake \
+    curl \
     debhelper \
     devscripts \
     gi-docgen \
@@ -82,3 +83,12 @@ RUN \
   fi && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
+
+# We install CMake via apt and create a symbolic link to avoid having to:
+# Temporarily remove the build-depends check on control.in
+# Create the link on debian rules as --buildsystem=cmake expects cmake on /usr/bin
+ARG cmake=3.25.0
+RUN curl -L \
+    "https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-linux-$(uname -m).tar.gz" | \
+    tar -xzf - --directory /usr/local --strip-components=1 && \
+    ln -fs /usr/local/bin/cmake /usr/bin/cmake
