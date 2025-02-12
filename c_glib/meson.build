@@ -31,12 +31,13 @@ project(
     # Ubuntu:
     #   https://packages.ubuntu.com/search?keywords=meson
     #
-    #   * 20.04: 0.53.2
     #   * 22.04: 0.61.2
-    meson_version: '>=0.53.2',
+    #   * 24.04: 1.3.2
+    meson_version: '>=0.61.2',
+    version: '20.0.0-SNAPSHOT',
 )
 
-version = '20.0.0-SNAPSHOT'
+version = meson.project_version()
 if version.endswith('-SNAPSHOT')
     version_numbers = version.split('-')[0].split('.')
     version_tag = version.split('-')[1]
@@ -53,13 +54,8 @@ so_version = version_major * 100 + version_minor
 so_version_patch = version_micro
 library_version = '@0@.@1@.@2@'.format(so_version, so_version_patch, 0)
 
-if meson.version().version_compare('>=0.56.0')
-    project_build_root = meson.project_build_root()
-    project_source_root = meson.project_source_root()
-else
-    project_build_root = meson.build_root()
-    project_source_root = meson.source_root()
-endif
+project_build_root = meson.project_build_root()
+project_source_root = meson.project_source_root()
 
 prefix = get_option('prefix')
 include_dir = join_paths(prefix, get_option('includedir'))
@@ -75,7 +71,7 @@ pkgconfig_variables = []
 base_include_directories = [include_directories('.')]
 
 generate_gi_common_args = {'install': true, 'nsversion': api_version}
-if get_option('werror') and meson.version().version_compare('>=0.55.0')
+if get_option('werror')
     generate_gi_common_args += {'fatal_warnings': true}
 endif
 have_gi = dependency('gobject-introspection-1.0', required: false).found()
