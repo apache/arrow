@@ -42,6 +42,22 @@ GARROW_AVAILABLE_IN_5_0
 gboolean
 garrow_equal_options_is_approx(GArrowEqualOptions *options);
 
+#define GARROW_TYPE_ARRAY_STATISTICS (garrow_array_statistics_get_type())
+GARROW_AVAILABLE_IN_20_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowArrayStatistics, garrow_array_statistics, GARROW, ARRAY_STATISTICS, GObject)
+struct _GArrowArrayStatisticsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_20_0
+gboolean
+garrow_array_statistics_has_null_count(GArrowArrayStatistics *statistics);
+GARROW_AVAILABLE_IN_20_0
+gint64
+garrow_array_statistics_get_null_count(GArrowArrayStatistics *statistics);
+
 GARROW_AVAILABLE_IN_6_0
 GArrowArray *
 garrow_array_import(gpointer c_abi_array, GArrowDataType *data_type, GError **error);
@@ -133,6 +149,10 @@ garrow_array_validate(GArrowArray *array, GError **error);
 GARROW_AVAILABLE_IN_20_0
 gboolean
 garrow_array_validate_full(GArrowArray *array, GError **error);
+
+GARROW_AVAILABLE_IN_20_0
+GArrowArrayStatistics *
+garrow_array_get_statistics(GArrowArray *array);
 
 #define GARROW_TYPE_NULL_ARRAY (garrow_null_array_get_type())
 GARROW_AVAILABLE_IN_ALL
