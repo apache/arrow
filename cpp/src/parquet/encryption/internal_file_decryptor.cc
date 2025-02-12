@@ -64,12 +64,16 @@ InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* propertie
   properties_->set_utilized();
 }
 
+InternalFileDecryptor::~InternalFileDecryptor() { WipeOutDecryptionKeys(); }
+
 void InternalFileDecryptor::WipeOutDecryptionKeys() {
+  std::unique_lock lock(mutex_);
   properties_->WipeOutDecryptionKeys();
   footer_key_.clear();
 }
 
 std::string InternalFileDecryptor::GetFooterKey() {
+  std::unique_lock lock(mutex_);
   if (!footer_key_.empty()) {
     return footer_key_;
   }
