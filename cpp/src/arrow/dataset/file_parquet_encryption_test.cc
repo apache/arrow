@@ -138,8 +138,6 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<EncryptionTestPa
     // Write dataset.
     auto dataset = std::make_shared<InMemoryDataset>(table_);
     EXPECT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
-    // ideally, we would have UseThreads(concurrently) here, but that is not working
-    // unless GH-26818 (https://github.com/apache/arrow/issues/26818) is fixed
     ARROW_EXPECT_OK(scanner_builder->UseThreads(GetParam().concurrently));
     EXPECT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
 
