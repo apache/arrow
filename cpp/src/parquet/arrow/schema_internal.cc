@@ -34,7 +34,11 @@ using ::arrow::internal::checked_cast;
 
 Result<std::shared_ptr<ArrowType>> MakeArrowDecimal(const LogicalType& logical_type) {
   const auto& decimal = checked_cast<const DecimalLogicalType&>(logical_type);
-  if (decimal.precision() <= ::arrow::Decimal128Type::kMaxPrecision) {
+  if (decimal.precision() <= ::arrow::Decimal32Type::kMaxPrecision) {
+    return ::arrow::Decimal32Type::Make(decimal.precision(), decimal.scale());
+  } else if (decimal.precision() <= ::arrow::Decimal64Type::kMaxPrecision) {
+    return ::arrow::Decimal64Type::Make(decimal.precision(), decimal.scale());
+  } else if (decimal.precision() <= ::arrow::Decimal128Type::kMaxPrecision) {
     return ::arrow::Decimal128Type::Make(decimal.precision(), decimal.scale());
   }
   return ::arrow::Decimal256Type::Make(decimal.precision(), decimal.scale());

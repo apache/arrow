@@ -364,9 +364,9 @@ def test_byte_stream_split():
 
 def test_store_decimal_as_integer(tempdir):
     arr_decimal_1_9 = pa.array(list(map(Decimal, range(100))),
-                               type=pa.decimal128(5, 2))
+                               type=pa.decimal32(5, 2))
     arr_decimal_10_18 = pa.array(list(map(Decimal, range(100))),
-                                 type=pa.decimal128(16, 9))
+                                 type=pa.decimal64(16, 9))
     arr_decimal_gt18 = pa.array(list(map(Decimal, range(100))),
                                 type=pa.decimal128(22, 2))
     arr_bool = pa.array([True, False] * 50)
