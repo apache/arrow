@@ -102,7 +102,7 @@ class ARROW_EXPORT SwissTable {
   }
 
   static uint32_t global_slot_id(uint32_t block_id, uint32_t local_slot_id) {
-    return block_id * static_cast<uint32_t>(kSlotsPerBlock) + local_slot_id;
+    return block_id * kSlotsPerBlock + local_slot_id;
   }
 
   static int num_groupid_bits_from_log_blocks(int log_blocks) {
