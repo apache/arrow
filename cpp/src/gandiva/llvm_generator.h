@@ -127,6 +127,8 @@ class GANDIVA_EXPORT LLVMGenerator {
     void Visit(const InExprDexBase<std::string>& dex) override;
     template <typename Type>
     void VisitInExpression(const InExprDexBase<Type>& dex);
+    void Visit(const PreEvalInExprDex& dex) override;
+    void Visit(const ReadProxyDex& dex) override;
 
     LValuePtr result() { return result_; }
 
@@ -173,6 +175,7 @@ class GANDIVA_EXPORT LLVMGenerator {
 
     LLVMGenerator* generator_;
     LValuePtr result_;
+    LValuePtr read_proxy_result_;
     llvm::Function* function_;
     llvm::BasicBlock* entry_block_;
     llvm::Value* arg_addrs_;
