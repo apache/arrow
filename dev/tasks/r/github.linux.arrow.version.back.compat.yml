@@ -22,12 +22,12 @@
 jobs:
   write-files:
     name: "Write files"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
     env:
       ARROW_R_DEV: "TRUE"
-      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
+      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/jammy/latest"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
@@ -66,7 +66,7 @@ jobs:
   read-files:
     name: "Read files with Arrow {{ '${{ matrix.config.old_arrow_version }}' }}"
     needs: [write-files]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -89,7 +89,7 @@ jobs:
         - { old_arrow_version: '1.0.1', r: '4.0' }
     env:
       ARROW_R_DEV: "TRUE"
-      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
+      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/jammy/latest"
       OLD_ARROW_VERSION: {{ '${{ matrix.config.old_arrow_version }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
