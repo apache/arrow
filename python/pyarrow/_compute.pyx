@@ -1999,6 +1999,31 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
+cdef class Ordering(_Weakrefable):
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
+    cdef void init(self, const COrdering& sp):
+        self.wrapped = sp
+
+    @staticmethod
+    cdef wrap(const COrdering& sp):
+        cdef Ordering self = Ordering.__new__(Ordering)
+        self.init(sp)
+        return self
+
+    cdef inline COrdering unwrap(self):
+        return self.wrapped
+
+    @staticmethod
+    def implicit():
+        return Ordering.wrap(COrdering.Implicit())
+
+    @staticmethod
+    def unordered():
+        return Ordering.wrap(COrdering.Unordered())
+
+
 cdef class _CumulativeOptions(FunctionOptions):
     def _set_options(self, start, skip_nulls):
         if start is None:

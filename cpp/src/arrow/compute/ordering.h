@@ -60,6 +60,7 @@ class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
 
 class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
  public:
+  Ordering() : null_placement_(NullPlacement::AtStart), is_implicit_(false) {}
   Ordering(std::vector<SortKey> sort_keys,
            NullPlacement null_placement = NullPlacement::AtStart)
       : sort_keys_(std::move(sort_keys)),

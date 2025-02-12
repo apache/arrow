@@ -2739,6 +2739,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass COrdering" arrow::compute::Ordering":
         COrdering(vector[CSortKey] sort_keys, CNullPlacement null_placement)
+        COrdering(c_bool is_implicit)
+        COrdering()
+
+        @staticmethod
+        COrdering Implicit();
+
+        @staticmethod
+        COrdering Unordered();
 
     cdef cppclass CSortOptions \
             "arrow::compute::SortOptions"(CFunctionOptions):
