@@ -248,7 +248,7 @@ arrow_lib = library(
     objects: objlibs,
     include_directories: [include_dir],
     install: true,
-    # compute/expression.cc may have undefined IPC symbols in non-IPC builds
+    # GH-45512: compute/expression.cc generates undefined symbols without IPC sources
     override_options: {'b_lundef': 'false'},
 )
 
@@ -299,24 +299,21 @@ install_headers(
 )
 
 version = meson.project_version()
-# Remove any pre-release / build identifiers
-version_no_pre_release = version.split('-')[0]
-version_no_build = version_no_pre_release.split('+')[0]
-components = version_no_build.split('.')
+
+version_no_snapshot = version.split('-SNAPSHOT')[0]
+components = version_no_snapshot.split('.')
 assert(
     components.length() >= 3,
     'The version does not contain major, minor and patch',
 )
-ver_major = components[0]
-ver_minor = components[1]
-ver_patch = components[2]
+version_major = components[0]
+version_minor = components[1]
+version_patch = components[2]
 
-arrow_version = ver_major.to_int() * 1000 + ver_minor.to_int() * 1000 + ver_patch.to_int()
-arrow_so_version = (ver_major.to_int() * 100 + ver_minor.to_int()).to_string()
-arrow_full_so_version = '@0@.@1@.@2@'.format(arrow_so_version, ver_patch, 0)
+arrow_version = (version_major.to_int() * 1000 + version_minor.to_int()) * 1000 + version_patch.to_int()
+arrow_so_version = (version_major.to_int() * 100 + version_minor.to_int()).to_string()
+arrow_full_so_version = '@0@.@1@.@2@'.format(arrow_so_version, version_patch, 0)
 
-# TODO: The Meson generated .pc file does not include the Apache license
-# header that the CMake arrow.pc includes
 pkg = import('pkgconfig')
 pkg.generate(
     arrow_lib,
