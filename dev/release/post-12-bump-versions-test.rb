@@ -166,8 +166,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         {
           path: "c_glib/meson.build",
           hunks: [
-            ["-version = '#{@snapshot_version}'",
-             "+version = '#{@next_snapshot_version}'"],
+            ["     version: '#{@snapshot_version}'",
+             "+    version: '#{@next_snapshot_version}'"],
           ],
         },
         {
