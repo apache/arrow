@@ -244,8 +244,6 @@ arrow_lib = library(
     include_directories: arrow_includes,
     dependencies: arrow_deps,
     install: true,
-    # GH-45512: compute/expression.cc generates undefined symbols without IPC sources
-    override_options: {'b_lundef': 'false'},
 )
 
 # Meson does not allow you to glob for headers to install. See also
