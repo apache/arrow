@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <type_traits>
 #include <unordered_set>
@@ -592,6 +593,38 @@ typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
 }
 
 /// \brief Potentially iterate an async generator serially (if use_threads is false)
+///   using a potentially custom Executor
+/// \see IterateGenerator
+///
+/// If `use_threads` is true, the global CPU executor will be used.  Each call to
+///   the iterator will simply wait until the next item is available.  Tasks may run in
+///   the background between calls.
+///
+/// If `use_threads` is false, the calling thread only will be used.  Each call to
+///   the iterator will use the calling thread to do enough work to generate one item.
+///   Tasks will be left in a queue until the next call and no work will be done between
+///   calls.
+///
+/// If `executor` is null, then the default CPU thread pool will be used.
+/// If `executor` is not null, then it will be used.
+template <typename T>
+Iterator<T> IterateSynchronously(
+    FnOnce<Result<std::function<Future<T>()>>(Executor*)> get_gen, bool use_threads,
+    Executor* executor) {
+  if (use_threads) {
+    auto used_executor = executor != NULLPTR ? executor : GetCpuThreadPool();
+    auto maybe_gen = std::move(get_gen)(used_executor);
+    if (!maybe_gen.ok()) {
+      return MakeErrorIterator<T>(maybe_gen.status());
+    }
+    return MakeGeneratorIterator(*maybe_gen);
+  } else {
+    return SerialExecutor::IterateGenerator(std::move(get_gen));
+  }
+}
+
+/// \brief Potentially iterate an async generator serially (if use_threads is false)
+///   using the default CPU thread pool
 /// \see IterateGenerator
 ///
 /// If `use_threads` is true, the global CPU executor will be used.  Each call to
@@ -605,15 +638,7 @@ typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
 template <typename T>
 Iterator<T> IterateSynchronously(
     FnOnce<Result<std::function<Future<T>()>>(Executor*)> get_gen, bool use_threads) {
-  if (use_threads) {
-    auto maybe_gen = std::move(get_gen)(GetCpuThreadPool());
-    if (!maybe_gen.ok()) {
-      return MakeErrorIterator<T>(maybe_gen.status());
-    }
-    return MakeGeneratorIterator(*maybe_gen);
-  } else {
-    return SerialExecutor::IterateGenerator(std::move(get_gen));
-  }
+  return IterateSynchronously(std::move(get_gen), use_threads, NULLPTR);
 }
 
 }  // namespace internal
