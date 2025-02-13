@@ -273,8 +273,7 @@ class SerializedPageReader : public PageReader {
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
 
  private:
-  void UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor, int8_t module_type,
-                        std::string* page_aad);
+  void UpdateDecryption(Decryptor* decryptor, int8_t module_type, std::string* page_aad);
 
   void InitDecryption();
 
@@ -309,8 +308,8 @@ class SerializedPageReader : public PageReader {
   // The CryptoContext used by this PageReader.
   CryptoContext crypto_ctx_;
   // This PageReader has its own Decryptor instances in order to be thread-safe.
-  std::shared_ptr<Decryptor> meta_decryptor_;
-  std::shared_ptr<Decryptor> data_decryptor_;
+  std::unique_ptr<Decryptor> meta_decryptor_;
+  std::unique_ptr<Decryptor> data_decryptor_;
 
   // The ordinal fields in the context below are used for AAD suffix calculation.
   int32_t page_ordinal_;  // page ordinal does not count the dictionary page
@@ -336,24 +335,28 @@ class SerializedPageReader : public PageReader {
 
 void SerializedPageReader::InitDecryption() {
   // Prepare the AAD for quick update later.
-  if (crypto_ctx_.data_decryptor) {
-    data_decryptor_ = crypto_ctx_.data_decryptor();
-    ARROW_DCHECK(!data_decryptor_->file_aad().empty());
-    data_page_aad_ = encryption::CreateModuleAad(
-        data_decryptor_->file_aad(), encryption::kDataPage, crypto_ctx_.row_group_ordinal,
-        crypto_ctx_.column_ordinal, kNonPageOrdinal);
+  if (crypto_ctx_.data_decryptor_factory) {
+    data_decryptor_ = crypto_ctx_.data_decryptor_factory();
+    if (data_decryptor_) {
+      ARROW_DCHECK(!data_decryptor_->file_aad().empty());
+      data_page_aad_ = encryption::CreateModuleAad(
+          data_decryptor_->file_aad(), encryption::kDataPage,
+          crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
+    }
   }
-  if (crypto_ctx_.meta_decryptor) {
-    meta_decryptor_ = crypto_ctx_.meta_decryptor();
-    ARROW_DCHECK(!meta_decryptor_->file_aad().empty());
-    data_page_header_aad_ = encryption::CreateModuleAad(
-        meta_decryptor_->file_aad(), encryption::kDataPageHeader,
-        crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
+  if (crypto_ctx_.meta_decryptor_factory) {
+    meta_decryptor_ = crypto_ctx_.meta_decryptor_factory();
+    if (meta_decryptor_) {
+      ARROW_DCHECK(!meta_decryptor_->file_aad().empty());
+      data_page_header_aad_ = encryption::CreateModuleAad(
+          meta_decryptor_->file_aad(), encryption::kDataPageHeader,
+          crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
+    }
   }
 }
 
-void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor,
-                                            int8_t module_type, std::string* page_aad) {
+void SerializedPageReader::UpdateDecryption(Decryptor* decryptor, int8_t module_type,
+                                            std::string* page_aad) {
   ARROW_DCHECK(decryptor != nullptr);
   if (crypto_ctx_.start_decrypt_with_dictionary_page) {
     UpdateDecryptor(decryptor, crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal,
@@ -433,7 +436,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       header_size = static_cast<uint32_t>(view.size());
       try {
         if (meta_decryptor_ != nullptr) {
-          UpdateDecryption(meta_decryptor_, encryption::kDictionaryPageHeader,
+          UpdateDecryption(meta_decryptor_.get(), encryption::kDictionaryPageHeader,
                            &data_page_header_aad_);
         }
         // Reset current page header to avoid unclearing the __isset flag.
@@ -469,7 +472,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     }
 
     if (data_decryptor_ != nullptr) {
-      UpdateDecryption(data_decryptor_, encryption::kDictionaryPage, &data_page_aad_);
+      UpdateDecryption(data_decryptor_.get(), encryption::kDictionaryPage,
+                       &data_page_aad_);
     }
 
     // Read the compressed data page.
