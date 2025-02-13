@@ -29,6 +29,8 @@ import time
 from shutil import copytree
 from urllib.parse import quote
 
+from pyarrow import ArrowException
+
 try:
     import numpy as np
 except ImportError:
@@ -5652,6 +5654,49 @@ def test_dataset_sort_by(tempdir, dstype):
     sorted_tab_dict = sorted_tab.to_table().to_pydict()
     assert sorted_tab_dict["a"] == [5, 7, 7, 35]
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
+
+
+def do_test_dataset_assert_sorted(tempdir, dstype, table, expect_sorted, **kwargs):
+    if dstype == "fs":
+        filename = "-".join([f"{k}={v}" for k, v in kwargs.items()])
+        ds.write_dataset(table, tempdir / filename, format="ipc")
+        dt = ds.dataset(tempdir / filename, format="ipc")
+    elif dstype == "mem":
+        dt = ds.dataset(table)
+    else:
+        raise NotImplementedError
+
+    if expect_sorted:
+        dt.assert_sort(**kwargs).to_table()
+    else:
+        with pytest.raises(ArrowException, match="Data is not ordered"):
+            dt.assert_sort(**kwargs).to_table()
+
+
+@pytest.mark.parametrize('dstype', [
+    "fs", "mem"
+])
+def test_dataset_assert_sorted(tempdir, dstype):
+    table = pa.table([
+        pa.array([1, 2, 3, 4, None]),
+        pa.array(["b", "a", "b", "a", "c"]),
+    ], names=["values", "keys"])
+
+    def assert_sorted(**kwargs):
+        do_test_dataset_assert_sorted(tempdir, dstype, table, True, **kwargs)
+
+    assert_sorted(sorting="values")
+    assert_sorted(sorting="values", null_placement="at_end")
+    assert_sorted(sorting=[("values", "ascending")])
+    assert_sorted(sorting=[("values", "ascending")], null_placement="at_end")
+
+    def assert_not_sorted(**kwargs):
+        do_test_dataset_assert_sorted(tempdir, dstype, table, False, **kwargs)
+
+    assert_not_sorted(sorting="keys")
+    assert_not_sorted(sorting="values", null_placement="at_start")
+    assert_not_sorted(sorting=[("values", "descending")])
+    assert_not_sorted(sorting=[("values", "ascending")], null_placement="at_start")
 
 
 def test_checksum_write_dataset_read_dataset_to_table(tempdir):
