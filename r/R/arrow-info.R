@@ -84,7 +84,7 @@ arrow_available <- function() {
 #' @export
 arrow_with_acero <- function() {
   tryCatch(.Call(`_acero_available`), error = function(e) {
-    FALSE
+    return(FALSE)
   })
 }
 
@@ -92,7 +92,7 @@ arrow_with_acero <- function() {
 #' @export
 arrow_with_dataset <- function() {
   tryCatch(.Call(`_dataset_available`), error = function(e) {
-    FALSE
+    return(FALSE)
   })
 }
 
@@ -100,7 +100,7 @@ arrow_with_dataset <- function() {
 #' @export
 arrow_with_substrait <- function() {
   tryCatch(.Call(`_substrait_available`), error = function(e) {
-    FALSE
+    return(FALSE)
   })
 }
 
@@ -108,7 +108,7 @@ arrow_with_substrait <- function() {
 #' @export
 arrow_with_parquet <- function() {
   tryCatch(.Call(`_parquet_available`), error = function(e) {
-    FALSE
+    return(FALSE)
   })
 }
 
@@ -116,7 +116,7 @@ arrow_with_parquet <- function() {
 #' @export
 arrow_with_s3 <- function() {
   tryCatch(.Call(`_s3_available`), error = function(e) {
-    FALSE
+    return(FALSE)
   })
 }
 
@@ -124,7 +124,7 @@ arrow_with_s3 <- function() {
 #' @export
 arrow_with_gcs <- function() {
   tryCatch(.Call(`_gcs_available`), error = function(e) {
-    FALSE
+    return(FALSE)
   })
 }
 
@@ -132,7 +132,7 @@ arrow_with_gcs <- function() {
 #' @export
 arrow_with_json <- function() {
   tryCatch(.Call(`_json_available`), error = function(e) {
-    FALSE
+    return(FALSE)
   })
 }
 
