@@ -21,6 +21,8 @@
 #include "arrow/array.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_run_reader.h"
+#include "arrow/util/logging.h"
+#include "parquet/exception.h"
 #include "parquet/geometry_util_internal.h"
 
 using arrow::util::SafeLoad;
@@ -57,11 +59,7 @@ class GeospatialStatisticsImpl {
   }
 
   void Merge(const GeospatialStatisticsImpl& other) {
-    if (!is_valid_ || !other.is_valid_) {
-      is_valid_ = false;
-      return;
-    }
-
+    is_valid_ = is_valid_ && other.is_valid_;
     bounder_.ReadBox(other.bounder_.Bounds());
     bounder_.ReadGeometryTypes(other.bounder_.GeometryTypes());
   }
@@ -71,17 +69,13 @@ class GeospatialStatisticsImpl {
       return;
     }
 
-    geometry::WKBBuffer buf;
-    try {
-      for (int64_t i = 0; i < num_values; i++) {
-        const ByteArray& item = values[i];
-        buf.Init(item.ptr, item.len);
-        bounder_.ReadGeometry(&buf);
+    for (int64_t i = 0; i < num_values; i++) {
+      const ByteArray& item = values[i];
+      ::arrow::Status status = bounder_.ReadGeometry(item.ptr, item.len);
+      if (!status.ok()) {
+        is_valid_ = false;
+        return;
       }
-
-      bounder_.Flush();
-    } catch (ParquetException&) {
-      is_valid_ = false;
     }
   }
 
@@ -90,38 +84,44 @@ class GeospatialStatisticsImpl {
                     int64_t num_values, int64_t null_count) {
     DCHECK_GT(num_spaced_values, 0);
 
-    geometry::WKBBuffer buf;
-    try {
-      ::arrow::internal::VisitSetBitRunsVoid(
-          valid_bits, valid_bits_offset, num_spaced_values,
-          [&](int64_t position, int64_t length) {
-            for (int64_t i = 0; i < length; i++) {
-              ByteArray item = SafeLoad(values + i + position);
-              buf.Init(item.ptr, item.len);
-              bounder_.ReadGeometry(&buf);
-            }
-          });
-      bounder_.Flush();
-    } catch (ParquetException&) {
+    if (!is_valid_) {
+      return;
+    }
+
+    ::arrow::Status status = ::arrow::internal::VisitSetBitRuns(
+        valid_bits, valid_bits_offset, num_spaced_values,
+        [&](int64_t position, int64_t length) {
+          for (int64_t i = 0; i < length; i++) {
+            ByteArray item = SafeLoad(values + i + position);
+            ARROW_RETURN_NOT_OK(bounder_.ReadGeometry(item.ptr, item.len));
+          }
+
+          return ::arrow::Status::OK();
+        });
+
+    if (!status.ok()) {
       is_valid_ = false;
     }
   }
 
   void Update(const ::arrow::Array& values) {
-    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(values);
-    geometry::WKBBuffer buf;
-    try {
-      for (int64_t i = 0; i < binary_array.length(); ++i) {
-        if (!binary_array.IsNull(i)) {
-          std::string_view byte_array = binary_array.GetView(i);
-          buf.Init(reinterpret_cast<const uint8_t*>(byte_array.data()),
-                   byte_array.length());
-          bounder_.ReadGeometry(&buf);
-          bounder_.Flush();
-        }
-      }
-    } catch (ParquetException&) {
-      is_valid_ = false;
+    if (!is_valid_) {
+      return;
+    }
+
+    // Note that ::arrow::Type::EXTENSION seems to be handled before this is called
+    switch (values.type_id()) {
+      case ::arrow::Type::BINARY:
+        UpdateArrayImpl<::arrow::BinaryArray>(values);
+        break;
+      case ::arrow::Type::LARGE_BINARY:
+        UpdateArrayImpl<::arrow::LargeBinaryArray>(values);
+        break;
+      // This does not currently handle run-end encoded, dictionary encodings, or views
+      default:
+        throw ParquetException(
+            "Unsupported Array type in GeospatialStatistics::Update(Array): ",
+            values.type()->ToString());
     }
   }
 
@@ -131,8 +131,12 @@ class GeospatialStatisticsImpl {
   }
 
   EncodedGeospatialStatistics Encode() const {
-    const double* mins = bounder_.Bounds().min;
-    const double* maxes = bounder_.Bounds().max;
+    if (!is_valid_) {
+      return {};
+    }
+
+    const geometry::BoundingBox::XYZM& mins = bounder_.Bounds().min;
+    const geometry::BoundingBox::XYZM& maxes = bounder_.Bounds().max;
 
     EncodedGeospatialStatistics out;
     out.geospatial_types = bounder_.GeometryTypes();
@@ -147,20 +151,6 @@ class GeospatialStatisticsImpl {
     out.mmax = maxes[3];
 
     return out;
-  }
-
-  std::string EncodeMin() const {
-    const double* mins = bounder_.Bounds().min;
-    bool has_z = !std::isinf(mins[2]);
-    bool has_m = !std::isinf(mins[3]);
-    return geometry::MakeWKBPoint(mins, has_z, has_m);
-  }
-
-  std::string EncodeMax() const {
-    const double* maxes = bounder_.Bounds().max;
-    bool has_z = !std::isinf(maxes[2]);
-    bool has_m = !std::isinf(maxes[3]);
-    return geometry::MakeWKBPoint(maxes, has_z, has_m);
   }
 
   void Update(const EncodedGeospatialStatistics& encoded) {
@@ -190,15 +180,31 @@ class GeospatialStatisticsImpl {
 
   bool is_valid() const { return is_valid_; }
 
-  const double* GetMinBounds() { return bounder_.Bounds().min; }
+  const std::array<double, 4>& GetMinBounds() const { return bounder_.Bounds().min; }
 
-  const double* GetMaxBounds() { return bounder_.Bounds().max; }
+  const std::array<double, 4>& GetMaxBounds() { return bounder_.Bounds().max; }
 
   std::vector<int32_t> GetGeometryTypes() const { return bounder_.GeometryTypes(); }
 
  private:
   geometry::WKBGeometryBounder bounder_;
   bool is_valid_ = true;
+
+  template <typename ArrayType>
+  void UpdateArrayImpl(const ::arrow::Array& values) {
+    const auto& binary_array = static_cast<const ArrayType&>(values);
+    for (int64_t i = 0; i < binary_array.length(); ++i) {
+      if (!binary_array.IsNull(i)) {
+        std::string_view byte_array = binary_array.GetView(i);
+        ::arrow::Status status = bounder_.ReadGeometry(
+            reinterpret_cast<const uint8_t*>(byte_array.data()), byte_array.length());
+        if (!status.ok()) {
+          is_valid_ = false;
+          return;
+        }
+      }
+    }
+  }
 };
 
 GeospatialStatistics::GeospatialStatistics()
@@ -248,10 +254,6 @@ EncodedGeospatialStatistics GeospatialStatistics::Encode() const {
   return impl_->Encode();
 }
 
-std::string GeospatialStatistics::EncodeMin() const { return impl_->EncodeMin(); }
-
-std::string GeospatialStatistics::EncodeMax() const { return impl_->EncodeMax(); }
-
 void GeospatialStatistics::Decode(const EncodedGeospatialStatistics& encoded) {
   impl_->Update(encoded);
 }
@@ -262,45 +264,21 @@ std::shared_ptr<GeospatialStatistics> GeospatialStatistics::clone() const {
   return std::make_shared<GeospatialStatistics>(std::move(impl));
 }
 
-double GeospatialStatistics::GetXMin() const {
-  const double* mins = impl_->GetMinBounds();
-  return mins[0];
-}
+double GeospatialStatistics::GetXMin() const { return impl_->GetMinBounds()[0]; }
 
-double GeospatialStatistics::GetXMax() const {
-  const double* maxes = impl_->GetMaxBounds();
-  return maxes[0];
-}
+double GeospatialStatistics::GetXMax() const { return impl_->GetMaxBounds()[0]; }
 
-double GeospatialStatistics::GetYMin() const {
-  const double* mins = impl_->GetMinBounds();
-  return mins[1];
-}
+double GeospatialStatistics::GetYMin() const { return impl_->GetMinBounds()[1]; }
 
-double GeospatialStatistics::GetYMax() const {
-  const double* maxes = impl_->GetMaxBounds();
-  return maxes[1];
-}
+double GeospatialStatistics::GetYMax() const { return impl_->GetMaxBounds()[1]; }
 
-double GeospatialStatistics::GetZMin() const {
-  const double* mins = impl_->GetMinBounds();
-  return mins[2];
-}
+double GeospatialStatistics::GetZMin() const { return impl_->GetMinBounds()[2]; }
 
-double GeospatialStatistics::GetZMax() const {
-  const double* maxes = impl_->GetMaxBounds();
-  return maxes[2];
-}
+double GeospatialStatistics::GetZMax() const { return impl_->GetMaxBounds()[2]; }
 
-double GeospatialStatistics::GetMMin() const {
-  const double* mins = impl_->GetMinBounds();
-  return mins[3];
-}
+double GeospatialStatistics::GetMMin() const { return impl_->GetMinBounds()[3]; }
 
-double GeospatialStatistics::GetMMax() const {
-  const double* maxes = impl_->GetMaxBounds();
-  return maxes[3];
-}
+double GeospatialStatistics::GetMMax() const { return impl_->GetMaxBounds()[3]; }
 
 bool GeospatialStatistics::HasZ() const { return (GetZMax() - GetZMin()) > 0; }
 

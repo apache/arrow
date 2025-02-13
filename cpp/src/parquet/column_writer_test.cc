@@ -35,7 +35,6 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
-#include "parquet/geometry_util_internal.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"

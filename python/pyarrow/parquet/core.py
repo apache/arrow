@@ -255,6 +255,9 @@ class ParquetFile:
         it will be parsed as an URI to determine the filesystem.
     page_checksum_verification : bool, default False
         If True, verify the checksum for each page read from the file.
+    arrow_extensions_enabled : bool, default False
+        If True, read Parquet logical types as Arrow Extension Types where possible,
+        (e.g., JSON arrow.json).
 
     Examples
     --------
@@ -303,7 +306,7 @@ class ParquetFile:
                  pre_buffer=False, coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None,
-                 page_checksum_verification=False):
+                 page_checksum_verification=False, arrow_extensions_enabled=False):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -323,6 +326,7 @@ class ParquetFile:
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
+            arrow_extensions_enabled=arrow_extensions_enabled,
         )
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
