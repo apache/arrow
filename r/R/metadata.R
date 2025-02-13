@@ -228,6 +228,10 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
           attr(x, ".group_vars") <- NULL
           attr(x, ".group_by_drop") <- NULL
         }
+        # GH-45300: Prevent warning about "Invalid .internal.selfref..."
+        if (inherits(x, "data.table") && requireNamespace("data.table", quietly = TRUE)) {
+          data.table::setDT(x)
+        }
       }
     },
     error = function(e) {

@@ -486,3 +486,22 @@ test_that("data.frame class attribute is not saved", {
   df_arrow <- arrow_table(df)
   expect_identical(df_arrow$r_metadata, list(attributes = list(foo = "bar"), columns = list(x = NULL)))
 })
+
+test_that("data.tables don't warn when read back in from parquet", {
+  # See GH-45300
+  skip_if_not_installed("data.table")
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  dt_in <- data.table::data.table(x = 1:3)
+  arrow::write_parquet(dt_in, tf)
+  dt_out <- read_parquet(tf)
+
+  expect_no_warning({
+    dt_out <- dt_out[, z := 4:6]
+  })
+  # testthat will skip this entire test if we don't have another assertion
+  # so we need this here
+  expect_equal(ncol(dt_out), 2)
+})
