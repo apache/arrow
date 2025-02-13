@@ -67,7 +67,6 @@ RUN apt-get update -y -q && \
         autoconf \
         ca-certificates \
         ccache \
-        cmake \
         curl \
         g++ \
         gcc \
@@ -120,6 +119,10 @@ RUN apt-get update -y -q && \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
+
+ARG cmake
+COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local

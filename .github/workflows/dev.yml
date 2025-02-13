@@ -41,7 +41,7 @@ jobs:
 
   lint:
     name: Lint C++, Python, R, Docker, RAT
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     steps:

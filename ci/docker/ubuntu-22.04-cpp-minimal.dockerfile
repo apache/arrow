@@ -68,6 +68,10 @@ RUN latest_system_llvm=14 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
+ARG cmake
+COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
+
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 

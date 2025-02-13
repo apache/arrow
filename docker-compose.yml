@@ -390,6 +390,7 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         gcc: ${GCC}
         llvm: ${LLVM}
     shm_size: *shm-size
@@ -426,6 +427,7 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         gcc: ${GCC}
         llvm: ${LLVM}
     shm_size: *shm-size
@@ -455,6 +457,8 @@ services:
       dockerfile: ci/docker/centos-7-cpp.dockerfile
       cache_from:
         - ${REPO}:centos-7-cpp-static
+      args:
+        cmake: ${CMAKE}
     shm_size: *shm-size
     volumes:
       - .:/arrow:delegated
@@ -477,6 +481,7 @@ services:
       args:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
@@ -571,6 +576,7 @@ services:
         arch: ${ARCH}
         base: nvidia/cuda:${CUDA}-devel-ubuntu${UBUNTU}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
@@ -621,6 +627,7 @@ services:
       args:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
@@ -700,6 +707,7 @@ services:
       args:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
@@ -1583,6 +1591,7 @@ services:
         - ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
       args:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
+        cmake: ${CMAKE}
         r_dev: ${ARROW_R_DEV}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
@@ -1616,6 +1625,7 @@ services:
         - ${REPO}:amd64-ubuntu-20.04-r-sanitizer
       args:
         base: wch1/r-debug:latest
+        cmake: ${CMAKE}
         r_bin: RDsan
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
@@ -1636,6 +1646,7 @@ services:
         - ${REPO}:r-rhub-clang-devel-latest
       args:
         base: rhub/clang-asan
+        cmake: ${CMAKE}
         r_dev: ${ARROW_R_DEV}
         r_bin: R
         tz: ${TZ}
@@ -1667,6 +1678,7 @@ services:
         - ${REPO}:amd64-ubuntu-20.04-r-valgrind
       args:
         base: wch1/r-debug:latest
+        cmake: ${CMAKE}
         r_bin: RDvalgrind
         tz: ${TZ}
     environment:
@@ -2033,8 +2045,9 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
       args:
-        repo: ${REPO}
         arch: ${ARCH}
+        cmake: ${CMAKE}
+        repo: ${REPO}
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated

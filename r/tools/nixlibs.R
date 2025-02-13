@@ -635,12 +635,12 @@ build_libarrow <- function(src_dir, dst_dir) {
   invisible(status)
 }
 
-ensure_cmake <- function(cmake_minimum_required = "3.16") {
+ensure_cmake <- function(cmake_minimum_required = "3.25") {
   cmake <- find_cmake(version_required = cmake_minimum_required)
 
   if (is.null(cmake)) {
     # If not found, download it
-    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.26.4")
+    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.31.2")
     if (on_macos) {
       postfix <- "-macos-universal.tar.gz"
     } else if (tolower(Sys.info()[["machine"]]) %in% c("arm64", "aarch64")) {
@@ -698,7 +698,7 @@ find_cmake <- function(paths = c(
                          if (on_macos) "/Applications/CMake.app/Contents/bin/cmake",
                          Sys.which("cmake3")
                        ),
-                       version_required = "3.16") {
+                       version_required) {
   # Given a list of possible cmake paths, return the first one that exists and is new enough
   # version_required should be a string or packageVersion; numeric version
   # can be misleading (e.g. 3.10 is actually 3.1)
@@ -715,7 +715,7 @@ find_cmake <- function(paths = c(
       } else {
         # Keep trying
         lg("Not using cmake found at %s", path, .indent = "****")
-        if (found_version > 0) {
+        if (found_version > "0") {
           lg("Version >= %s required; found %s", version_required, found_version, .indent = "*****")
         } else {
           # If cmake_version() couldn't determine version, it returns 0
@@ -737,7 +737,7 @@ cmake_version <- function(cmd = "cmake") {
       package_version(sub(pat, "\\1", raw_version[which_line]))
     },
     error = function(e) {
-      return(0)
+      return("0")
     }
   )
 }

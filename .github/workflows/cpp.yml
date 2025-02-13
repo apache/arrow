@@ -156,7 +156,7 @@ jobs:
 
   build-example:
     name: C++ Minimal Build Example
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 45
     steps:
