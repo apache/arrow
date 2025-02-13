@@ -15,13 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-include_dir = include_directories('..')
-
 dl_dep = dependency('dl')
 
 # Meson does not natively support object libraries
 # https://github.com/mesonbuild/meson/issues/13843
-objlib_sources = {
+arrow_components = {
     'arrow_array': {
         'sources': [
             'array/array_base.cc',
@@ -47,7 +45,7 @@ objlib_sources = {
             'array/util.cc',
             'array/validate.cc',
         ],
-        'include_dirs': [include_dir],
+        'include_dirs': [],
         'dependencies': [],
     },
     'arrow_compute': {
@@ -81,7 +79,7 @@ objlib_sources = {
             'compute/kernels/vector_selection_internal.cc',
             'compute/kernels/vector_selection_take_internal.cc',
         ],
-        'include_dirs': [include_dir],
+        'include_dirs': [],
         'dependencies': [],
     },
     'arrow_io': {
@@ -98,10 +96,7 @@ objlib_sources = {
             'io/stdio.cc',
             'io/transform.cc',
         ],
-        'include_dirs': [
-            include_dir,
-            include_directories('../../thirdparty/hadoop/include'),
-        ],
+        'include_dirs': [include_directories('../../thirdparty/hadoop/include')],
         'dependencies': [dl_dep],
     },
     'arrow_util': {
@@ -155,12 +150,12 @@ objlib_sources = {
             'util/utf8.cc',
             'util/value_parsing.cc',
         ],
-        'include_dirs': [include_dir],
+        'include_dirs': [],
         'dependencies': [],
     },
     'memory_pool': {
         'sources': ['memory_pool.cc'],
-        'include_dirs': [include_dir],
+        'include_dirs': [],
         'dependencies': [],
     },
     'vendored': {
@@ -192,61 +187,62 @@ objlib_sources = {
             'vendored/uriparser/UriResolve.c',
             'vendored/uriparser/UriShorten.c',
         ],
-        'include_dirs': [include_dir],
+        'include_dirs': [],
+        'dependencies': [],
+    },
+    'arrow_base': {
+        'sources': [
+            'builder.cc',
+            'buffer.cc',
+            'chunked_array.cc',
+            'chunk_resolver.cc',
+            'compare.cc',
+            'config.cc',
+            'datum.cc',
+            'device.cc',
+            'device_allocation_type_set.cc',
+            'extension_type.cc',
+            'extension/bool8.cc',
+            'extension/json.cc',
+            'extension/uuid.cc',
+            'pretty_print.cc',
+            'record_batch.cc',
+            'result.cc',
+            'scalar.cc',
+            'sparse_tensor.cc',
+            'status.cc',
+            'table.cc',
+            'table_builder.cc',
+            'tensor.cc',
+            'tensor/coo_converter.cc',
+            'tensor/csf_converter.cc',
+            'tensor/csx_converter.cc',
+            'type.cc',
+            'type_traits.cc',
+            'visitor.cc',
+            'c/bridge.cc',
+            'c/dlpack.cc',
+        ],
+        'include_dirs': [],
         'dependencies': [],
     },
 }
 
-objlibs = []
-foreach key, val : objlib_sources
-    slib = static_library(
-        key,
-        sources: val['sources'],
-        include_directories: val['include_dirs'],
-        dependencies: val['dependencies'],
-        build_by_default: false,
-    )
-    objlibs += slib.extract_all_objects(recursive: true)
+arrow_srcs = []
+include_dir = include_directories('..')
+arrow_includes = [include_dir]
+arrow_deps = []
+foreach key, val : arrow_components
+    arrow_srcs += val['sources']
+    arrow_includes += val['include_dirs']
+    arrow_deps += val['dependencies']
 endforeach
-
-arrow_srcs = [
-    'builder.cc',
-    'buffer.cc',
-    'chunked_array.cc',
-    'chunk_resolver.cc',
-    'compare.cc',
-    'config.cc',
-    'datum.cc',
-    'device.cc',
-    'device_allocation_type_set.cc',
-    'extension_type.cc',
-    'extension/bool8.cc',
-    'extension/json.cc',
-    'extension/uuid.cc',
-    'pretty_print.cc',
-    'record_batch.cc',
-    'result.cc',
-    'scalar.cc',
-    'sparse_tensor.cc',
-    'status.cc',
-    'table.cc',
-    'table_builder.cc',
-    'tensor.cc',
-    'tensor/coo_converter.cc',
-    'tensor/csf_converter.cc',
-    'tensor/csx_converter.cc',
-    'type.cc',
-    'type_traits.cc',
-    'visitor.cc',
-    'c/bridge.cc',
-    'c/dlpack.cc',
-]
 
 arrow_lib = library(
     'arrow',
-    sources: [arrow_srcs],
-    objects: objlibs,
-    include_directories: [include_dir],
+    sources: arrow_srcs,
+    include_directories: arrow_includes,
+    dependencies: arrow_deps,
     install: true,
     # GH-45512: compute/expression.cc generates undefined symbols without IPC sources
     override_options: {'b_lundef': 'false'},
