@@ -875,7 +875,7 @@ tasks:
     params:
       image: conda-cpp-valgrind
 
-{% for ubuntu_version in ["20.04", "22.04"] %}
+{% for ubuntu_version in ["22.04", "24.04"] %}
   test-ubuntu-{{ ubuntu_version }}-cpp:
     ci: github
     template: docker-tests/github.linux.yml
@@ -885,12 +885,12 @@ tasks:
       image: ubuntu-cpp
 {% endfor %}
 
-  test-ubuntu-20.04-cpp-bundled:
+  test-ubuntu-22.04-cpp-bundled:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 20.04
+        UBUNTU: 22.04
       image: ubuntu-cpp-bundled
 
   test-ubuntu-24.04-cpp-bundled-offline:
@@ -1330,14 +1330,6 @@ tasks:
       - docs.tar.gz
 
   ############################## CUDA tests #################################
-
-  test-cuda-cpp-ubuntu-20.04-cuda-11.2.2:
-    ci: github
-    template: docker-tests/github.cuda.yml
-    params:
-      env:
-        UBUNTU: 20.04
-      image: ubuntu-cuda-cpp
 
   test-cuda-cpp-ubuntu-22.04-cuda-11.7.1:
     ci: github

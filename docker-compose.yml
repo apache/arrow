@@ -379,7 +379,7 @@ services:
     #   docker compose run --rm ubuntu-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 20.04, 22.04, 24.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -416,7 +416,7 @@ services:
     #   docker compose run --rm ubuntu-cpp-static
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-static
     build:
       context: .
@@ -663,7 +663,7 @@ services:
     #   docker compose run --rm ubuntu-cpp-thread-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -805,7 +805,7 @@ services:
     #   docker compose run --rm ubuntu-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     build:
       context: .
@@ -865,7 +865,7 @@ services:
     #   docker compose run --rm ubuntu-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
     build:
       context: .
@@ -1132,7 +1132,7 @@ services:
     #   docker compose run --rm ubuntu-python-313-freethreading
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04, 24.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-313-freethreading
     build:
       context: .
