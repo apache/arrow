@@ -55,22 +55,28 @@ constexpr int32_t kBufferSizeLength = 4;
 class AesCryptoContext {
  public:
   AesCryptoContext(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
-                   bool write_length) {
+                   bool include_length) {
     openssl::EnsureInitialized();
 
-    length_buffer_length_ = write_length ? kBufferSizeLength : 0;
+    length_buffer_length_ = include_length ? kBufferSizeLength : 0;
     ciphertext_size_delta_ = length_buffer_length_ + kNonceLength;
+
+    if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
+      std::stringstream ss;
+      ss << "Crypto algorithm " << alg_id << " is not supported";
+      throw ParquetException(ss.str());
+    }
+    if (16 != key_len && 24 != key_len && 32 != key_len) {
+      std::stringstream ss;
+      ss << "Wrong key length: " << key_len;
+      throw ParquetException(ss.str());
+    }
+
     if (metadata || (ParquetCipher::AES_GCM_V1 == alg_id)) {
       aes_mode_ = kGcmMode;
       ciphertext_size_delta_ += kGcmTagLength;
     } else {
       aes_mode_ = kCtrMode;
-    }
-
-    if (16 != key_len && 24 != key_len && 32 != key_len) {
-      std::stringstream ss;
-      ss << "Wrong key length: " << key_len;
-      throw ParquetException(ss.str());
     }
 
     key_length_ = key_len;
@@ -101,8 +107,6 @@ class AesEncryptor::AesEncryptorImpl : public AesCryptoContext {
  public:
   explicit AesEncryptorImpl(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
                             bool write_length);
-
-  ~AesEncryptorImpl() override = default;
 
   int32_t Encrypt(span<const uint8_t> plaintext, span<const uint8_t> key,
                   span<const uint8_t> aad, span<uint8_t> ciphertext);
@@ -393,8 +397,6 @@ class AesDecryptor::AesDecryptorImpl : AesCryptoContext {
   explicit AesDecryptorImpl(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
                             bool contains_length);
 
-  ~AesDecryptorImpl() override = default;
-
   int32_t Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
                   span<const uint8_t> aad, span<uint8_t> plaintext);
 
@@ -475,36 +477,19 @@ AesCryptoContext::CipherContext AesDecryptor::AesDecryptorImpl::MakeCipherContex
 }
 
 std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id,
-                                                 int32_t key_len, bool metadata) {
-  return Make(alg_id, key_len, metadata, true /*write_length*/);
-}
-
-std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id,
                                                  int32_t key_len, bool metadata,
                                                  bool write_length) {
-  if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
-    std::stringstream ss;
-    ss << "Crypto algorithm " << alg_id << " is not supported";
-    throw ParquetException(ss.str());
-  }
-
   return std::make_unique<AesEncryptor>(alg_id, key_len, metadata, write_length);
 }
 
 AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
                            bool contains_length)
-    : impl_{std::unique_ptr<AesDecryptorImpl>(
-          new AesDecryptorImpl(alg_id, key_len, metadata, contains_length))} {}
+    : impl_{std::make_unique<AesDecryptorImpl>(alg_id, key_len, metadata,
+                                               contains_length)} {}
 
-std::shared_ptr<AesDecryptor> AesDecryptor::Make(ParquetCipher::type alg_id,
+std::unique_ptr<AesDecryptor> AesDecryptor::Make(ParquetCipher::type alg_id,
                                                  int32_t key_len, bool metadata) {
-  if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
-    std::stringstream ss;
-    ss << "Crypto algorithm " << alg_id << " is not supported";
-    throw ParquetException(ss.str());
-  }
-
-  return std::make_shared<AesDecryptor>(alg_id, key_len, metadata);
+  return std::make_unique<AesDecryptor>(alg_id, key_len, metadata);
 }
 
 int32_t AesDecryptor::PlaintextLength(int32_t ciphertext_len) const {

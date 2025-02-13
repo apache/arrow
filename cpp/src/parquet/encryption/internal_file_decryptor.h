@@ -34,11 +34,15 @@ class AesEncryptor;
 class ColumnCryptoMetaData;
 class FileDecryptionProperties;
 
+// An object handling decryption using well-known encryption parameters
+//
+// CAUTION: Decryptor objects are not thread-safe.
 class PARQUET_EXPORT Decryptor {
  public:
-  Decryptor(std::shared_ptr<encryption::AesDecryptor> decryptor, const std::string& key,
+  Decryptor(std::unique_ptr<encryption::AesDecryptor> decryptor, const std::string& key,
             const std::string& file_aad, const std::string& aad,
             ::arrow::MemoryPool* pool);
+  ~Decryptor();
 
   const std::string& file_aad() const { return file_aad_; }
   void UpdateAad(const std::string& aad) { aad_ = aad; }
@@ -50,7 +54,7 @@ class PARQUET_EXPORT Decryptor {
                   ::arrow::util::span<uint8_t> plaintext);
 
  private:
-  std::shared_ptr<encryption::AesDecryptor> aes_decryptor_;
+  std::unique_ptr<encryption::AesDecryptor> aes_decryptor_;
   std::string key_;
   std::string file_aad_;
   std::string aad_;
@@ -80,25 +84,37 @@ class InternalFileDecryptor {
 
   ::arrow::MemoryPool* pool() const { return pool_; }
 
-  std::shared_ptr<Decryptor> GetFooterDecryptor();
+  // Get a Decryptor instance for the Parquet footer
+  std::unique_ptr<Decryptor> GetFooterDecryptor();
 
-  std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
+  // Get a Decryptor instance for column chunk metadata.
+  std::unique_ptr<Decryptor> GetColumnMetaDecryptor(
       const std::string& column_path, const std::string& column_key_metadata,
       const std::string& aad = "") {
     return GetColumnDecryptor(column_path, column_key_metadata, aad, /*metadata=*/true);
   }
 
-  std::shared_ptr<Decryptor> GetColumnDataDecryptor(
+  // Get a Decryptor instance for column chunk data.
+  std::unique_ptr<Decryptor> GetColumnDataDecryptor(
       const std::string& column_path, const std::string& column_key_metadata,
       const std::string& aad = "") {
     return GetColumnDecryptor(column_path, column_key_metadata, aad, /*metadata=*/false);
   }
 
-  // These functions are static as they may be called with a null InternalFileDecryptor*.
-  static std::function<std::shared_ptr<Decryptor>()> GetColumnMetaDecryptorFactory(
+  // Get a Decryptor factory for column chunk metadata.
+  //
+  // This is typically useful if multi-threaded decryption is expected.
+  // This is a static function as it accepts a null `InternalFileDecryptor*`
+  // argument if the column is not encrypted.
+  static std::function<std::unique_ptr<Decryptor>()> GetColumnMetaDecryptorFactory(
       InternalFileDecryptor*, const ColumnCryptoMetaData* crypto_metadata,
       const std::string& aad = "");
-  static std::function<std::shared_ptr<Decryptor>()> GetColumnDataDecryptorFactory(
+  // Get a Decryptor factory for column chunk data.
+  //
+  // This is typically useful if multi-threaded decryption is expected.
+  // This is a static function as it accepts a null `InternalFileDecryptor*`
+  // argument if the column is not encrypted.
+  static std::function<std::unique_ptr<Decryptor>()> GetColumnDataDecryptorFactory(
       InternalFileDecryptor*, const ColumnCryptoMetaData* crypto_metadata,
       const std::string& aad = "");
 
@@ -117,18 +133,17 @@ class InternalFileDecryptor {
   std::string GetColumnKey(const std::string& column_path,
                            const std::string& column_key_metadata);
 
-  std::shared_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);
+  std::unique_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);
 
-  std::shared_ptr<Decryptor> GetColumnDecryptor(const std::string& column_path,
+  std::unique_ptr<Decryptor> GetColumnDecryptor(const std::string& column_path,
                                                 const std::string& column_key_metadata,
                                                 const std::string& aad, bool metadata);
 
-  std::function<std::shared_ptr<Decryptor>()> GetColumnDecryptorFactory(
+  std::function<std::unique_ptr<Decryptor>()> GetColumnDecryptorFactory(
       const ColumnCryptoMetaData* crypto_metadata, const std::string& aad, bool metadata);
 };
 
-void UpdateDecryptor(const std::shared_ptr<Decryptor>& decryptor,
-                     int16_t row_group_ordinal, int16_t column_ordinal,
-                     int8_t module_type);
+void UpdateDecryptor(Decryptor* decryptor, int16_t row_group_ordinal,
+                     int16_t column_ordinal, int8_t module_type);
 
 }  // namespace parquet

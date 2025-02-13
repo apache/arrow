@@ -53,10 +53,7 @@ class PARQUET_EXPORT AesEncryptor {
                         bool write_length = true);
 
   static std::unique_ptr<AesEncryptor> Make(ParquetCipher::type alg_id, int32_t key_len,
-                                            bool metadata);
-
-  static std::unique_ptr<AesEncryptor> Make(ParquetCipher::type alg_id, int32_t key_len,
-                                            bool metadata, bool write_length);
+                                            bool metadata, bool write_length = true);
 
   ~AesEncryptor();
 
@@ -86,19 +83,16 @@ class PARQUET_EXPORT AesEncryptor {
 /// Performs AES decryption operations with GCM or CTR ciphers.
 class PARQUET_EXPORT AesDecryptor {
  public:
-  /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
-  /// If contains_length is true, expect ciphertext length prepended to the ciphertext
-  explicit AesDecryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
-                        bool contains_length = true);
-
-  /// \brief Factory function to create an AesDecryptor
+  /// \brief Construct an AesDecryptor
   ///
   /// \param alg_id the encryption algorithm to use
   /// \param key_len key length. Possible values: 16, 24, 32 bytes.
   /// \param metadata if true then this is a metadata decryptor
-  /// out when decryption is finished
-  /// \return shared pointer to a new AesDecryptor
-  static std::shared_ptr<AesDecryptor> Make(ParquetCipher::type alg_id, int32_t key_len,
+  /// \param contains_length if true, expect ciphertext length prepended to the ciphertext
+  explicit AesDecryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
+                        bool contains_length = true);
+
+  static std::unique_ptr<AesDecryptor> Make(ParquetCipher::type alg_id, int32_t key_len,
                                             bool metadata);
 
   ~AesDecryptor();

@@ -69,12 +69,6 @@ int32_t AesDecryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
 AesDecryptor::~AesDecryptor() {}
 
 std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id,
-                                                 int32_t key_len, bool metadata) {
-  ThrowOpenSSLRequiredException();
-  return NULLPTR;
-}
-
-std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id,
                                                  int32_t key_len, bool metadata,
                                                  bool write_length) {
   ThrowOpenSSLRequiredException();
@@ -86,7 +80,7 @@ AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int32_t key_len, bool met
   ThrowOpenSSLRequiredException();
 }
 
-std::shared_ptr<AesDecryptor> AesDecryptor::Make(ParquetCipher::type alg_id,
+std::unique_ptr<AesDecryptor> AesDecryptor::Make(ParquetCipher::type alg_id,
                                                  int32_t key_len, bool metadata) {
   ThrowOpenSSLRequiredException();
   return NULLPTR;

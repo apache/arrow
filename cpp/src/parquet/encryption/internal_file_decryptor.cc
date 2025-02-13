@@ -24,7 +24,7 @@
 namespace parquet {
 
 // Decryptor
-Decryptor::Decryptor(std::shared_ptr<encryption::AesDecryptor> aes_decryptor,
+Decryptor::Decryptor(std::unique_ptr<encryption::AesDecryptor> aes_decryptor,
                      const std::string& key, const std::string& file_aad,
                      const std::string& aad, ::arrow::MemoryPool* pool)
     : aes_decryptor_(std::move(aes_decryptor)),
@@ -32,6 +32,8 @@ Decryptor::Decryptor(std::shared_ptr<encryption::AesDecryptor> aes_decryptor,
       file_aad_(file_aad),
       aad_(aad),
       pool_(pool) {}
+
+Decryptor::~Decryptor() = default;
 
 int32_t Decryptor::PlaintextLength(int32_t ciphertext_len) const {
   return aes_decryptor_->PlaintextLength(ciphertext_len);
@@ -104,19 +106,18 @@ std::string InternalFileDecryptor::GetFooterKey() {
   return footer_key;
 }
 
-std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor() {
+std::unique_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor() {
   std::string aad = encryption::CreateFooterAad(file_aad_);
   return GetFooterDecryptor(aad, true);
 }
 
-std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
+std::unique_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
     const std::string& aad, bool metadata) {
   std::string footer_key = GetFooterKey();
 
   auto key_len = static_cast<int32_t>(footer_key.size());
-  std::shared_ptr<encryption::AesDecryptor> aes_decryptor =
-      encryption::AesDecryptor::Make(algorithm_, key_len, /*metadata=*/metadata);
-  return std::make_shared<Decryptor>(std::move(aes_decryptor), footer_key, file_aad_, aad,
+  auto aes_decryptor = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
+  return std::make_unique<Decryptor>(std::move(aes_decryptor), footer_key, file_aad_, aad,
                                      pool_);
 }
 
@@ -141,17 +142,17 @@ std::string InternalFileDecryptor::GetColumnKey(const std::string& column_path,
   return column_key;
 }
 
-std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
+std::unique_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
     const std::string& column_path, const std::string& column_key_metadata,
     const std::string& aad, bool metadata) {
   std::string column_key = GetColumnKey(column_path, column_key_metadata);
   auto key_len = static_cast<int32_t>(column_key.size());
   auto aes_decryptor = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
-  return std::make_shared<Decryptor>(std::move(aes_decryptor), column_key, file_aad_, aad,
+  return std::make_unique<Decryptor>(std::move(aes_decryptor), column_key, file_aad_, aad,
                                      pool_);
 }
 
-std::function<std::shared_ptr<Decryptor>()>
+std::function<std::unique_ptr<Decryptor>()>
 InternalFileDecryptor::GetColumnDecryptorFactory(
     const ColumnCryptoMetaData* crypto_metadata, const std::string& aad, bool metadata) {
   if (crypto_metadata->encrypted_with_footer_key()) {
@@ -166,12 +167,12 @@ InternalFileDecryptor::GetColumnDecryptorFactory(
   return [this, aad, metadata, column_key = std::move(column_key)]() {
     auto key_len = static_cast<int32_t>(column_key.size());
     auto aes_decryptor = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
-    return std::make_shared<Decryptor>(std::move(aes_decryptor), column_key, file_aad_,
+    return std::make_unique<Decryptor>(std::move(aes_decryptor), column_key, file_aad_,
                                        aad, pool_);
   };
 }
 
-std::function<std::shared_ptr<Decryptor>()>
+std::function<std::unique_ptr<Decryptor>()>
 InternalFileDecryptor::GetColumnMetaDecryptorFactory(
     InternalFileDecryptor* file_descryptor, const ColumnCryptoMetaData* crypto_metadata,
     const std::string& aad) {
@@ -186,7 +187,7 @@ InternalFileDecryptor::GetColumnMetaDecryptorFactory(
                                                     /*metadata=*/true);
 }
 
-std::function<std::shared_ptr<Decryptor>()>
+std::function<std::unique_ptr<Decryptor>()>
 InternalFileDecryptor::GetColumnDataDecryptorFactory(
     InternalFileDecryptor* file_descryptor, const ColumnCryptoMetaData* crypto_metadata,
     const std::string& aad) {
@@ -201,9 +202,8 @@ InternalFileDecryptor::GetColumnDataDecryptorFactory(
                                                     /*metadata=*/false);
 }
 
-void UpdateDecryptor(const std::shared_ptr<Decryptor>& decryptor,
-                     int16_t row_group_ordinal, int16_t column_ordinal,
-                     int8_t module_type) {
+void UpdateDecryptor(Decryptor* decryptor, int16_t row_group_ordinal,
+                     int16_t column_ordinal, int8_t module_type) {
   ARROW_DCHECK(!decryptor->file_aad().empty());
   const std::string aad =
       encryption::CreateModuleAad(decryptor->file_aad(), module_type, row_group_ordinal,
