@@ -142,6 +142,9 @@ cdef class ParquetFileFormat(FileFormat):
         if read_options.dictionary_columns is not None:
             for column in read_options.dictionary_columns:
                 options.dict_columns.insert(tobytes(column))
+        if read_options.ree_columns is not None:
+            for column in read_options.ree_columns:
+                options.ree_columns.insert(tobytes(column))
         options.coerce_int96_timestamp_unit = \
             read_options._coerce_int96_timestamp_unit
         options.binary_type = read_options._binary_type
@@ -181,6 +184,7 @@ cdef class ParquetFileFormat(FileFormat):
         parquet_read_options = ParquetReadOptions(
             dictionary_columns={frombytes(col)
                                 for col in options.dict_columns},
+            ree_columns={frombytes(col) for col in options.ree_columns},
         )
         # Read options getter/setter works with strings so setting
         # the private property which uses the C Type
@@ -527,15 +531,18 @@ cdef class ParquetReadOptions(_Weakrefable):
 
     cdef public:
         set dictionary_columns
+        set ree_columns
         TimeUnit _coerce_int96_timestamp_unit
         Type _binary_type
         Type _list_type
 
     # Also see _PARQUET_READ_OPTIONS
     def __init__(self, dictionary_columns=None,
+                 ree_columns=None,
                  coerce_int96_timestamp_unit=None,
                  binary_type=None, list_type=None):
         self.dictionary_columns = set(dictionary_columns or set())
+        self.ree_columns = set(ree_columns or set())
         self.coerce_int96_timestamp_unit = coerce_int96_timestamp_unit
         self.binary_type = binary_type
         self.list_type = list_type
@@ -585,6 +592,7 @@ cdef class ParquetReadOptions(_Weakrefable):
         bool
         """
         return (self.dictionary_columns == other.dictionary_columns and
+                self.ree_columns == other.ree_columns and
                 self._coerce_int96_timestamp_unit ==
                 other._coerce_int96_timestamp_unit and
                 self._binary_type == other._binary_type and
@@ -600,6 +608,7 @@ cdef class ParquetReadOptions(_Weakrefable):
         return (
             f"<ParquetReadOptions"
             f" dictionary_columns={self.dictionary_columns}"
+            f" ree_columns={self.ree_columns}"
             f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}"
             f" binary_type={self.binary_type}"
             f" list_type={self.list_type}"
@@ -721,7 +730,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
 
 
 cdef set _PARQUET_READ_OPTIONS = {
-    'dictionary_columns', 'coerce_int96_timestamp_unit', 'binary_type', 'list_type',
+    'dictionary_columns', 'ree_columns', 'coerce_int96_timestamp_unit', 'binary_type', 'list_type',
 }
 
 

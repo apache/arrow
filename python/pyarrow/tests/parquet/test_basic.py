@@ -774,8 +774,9 @@ def test_fastparquet_cross_compatibility(tempdir):
     lambda: pa.array(["", None] * 10).dictionary_encode(),
 ])
 @pytest.mark.parametrize('read_dictionary', [False, True])
+@pytest.mark.parametrize('read_ree', [False, True])
 def test_buffer_contents(
-        array_factory, read_dictionary
+        array_factory, read_dictionary, read_ree
 ):
     # Test that null values are deterministically initialized to zero
     # after a roundtrip through Parquet.
@@ -785,12 +786,18 @@ def test_buffer_contents(
     pq.write_table(orig_table, bio, use_dictionary=True)
     bio.seek(0)
     read_dictionary = ['col'] if read_dictionary else None
+    # TODO: Handle the case where `read_ree` and `read_dictionary` are
+    # both set at the C++ level.
+    read_ree = ['col'] if read_ree and not read_dictionary else None
     table = pq.read_table(bio, use_threads=False,
-                          read_dictionary=read_dictionary)
+                          read_dictionary=read_dictionary,
+                          read_ree=read_ree)
 
     for col in table.columns:
         [chunk] = col.chunks
-        buf = chunk.buffers()[1]
+        # The first two chunks of an REE array aren't related to the nested data,
+        # so use the last chunk.
+        buf = chunk.buffers()[-1]
         assert buf.to_pybytes() == buf.size * b"\0"
 
 

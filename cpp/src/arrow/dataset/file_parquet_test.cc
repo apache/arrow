@@ -271,6 +271,17 @@ TEST_F(TestParquetFileFormat, InspectDictEncoded) {
   AssertSchemaEqual(*actual, expected_schema, /* check_metadata = */ false);
 }
 
+TEST_F(TestParquetFileFormat, InspectReeEncoded) {
+  auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));
+  auto source = GetFileSource(reader.get());
+
+  format_->reader_options.ree_columns = {"utf8"};
+  ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
+
+  Schema expected_schema({field("utf8", run_end_encoded(int32(), utf8()))});
+  AssertSchemaEqual(*actual, expected_schema, /* check_metadata = */ false);
+}
+
 TEST_F(TestParquetFileFormat, IsSupported) { TestIsSupported(); }
 
 TEST_F(TestParquetFileFormat, WriteRecordBatchReader) { TestWrite(); }
@@ -609,6 +620,25 @@ TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderDictEncoded) {
 
   int64_t row_count = 0;
   Schema expected_schema({field("utf8", dictionary(int32(), utf8()))});
+
+  for (auto maybe_batch : PhysicalBatches(fragment)) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    row_count += batch->num_rows();
+    AssertSchemaEqual(*batch->schema(), expected_schema, /* check_metadata = */ false);
+  }
+  ASSERT_EQ(row_count, expected_rows());
+}
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderReeEncoded) {
+  auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));
+  auto source = GetFileSource(reader.get());
+
+  SetSchema(reader->schema()->fields());
+  SetFilter(literal(true));
+  format_->reader_options.ree_columns = {"utf8"};
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  int64_t row_count = 0;
+  Schema expected_schema({field("utf8", run_end_encoded(int32(), utf8()))});
 
   for (auto maybe_batch : PhysicalBatches(fragment)) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);

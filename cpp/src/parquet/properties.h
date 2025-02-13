@@ -1038,6 +1038,25 @@ class PARQUET_EXPORT ArrowReaderProperties {
     }
   }
 
+  /// \brief Set whether to read a particular column as run-end-encoded.
+  ///
+  /// This is only supported for columns with a Parquet physical type of
+  /// BYTE_ARRAY, such as string or binary types.
+  void set_read_ree(int column_index, bool read_ree) {
+    if (read_ree) {
+      read_ree_indices_.insert(column_index);
+    } else {
+      read_ree_indices_.erase(column_index);
+    }
+  }
+  bool read_ree(int column_index) const {
+    if (read_ree_indices_.find(column_index) != read_ree_indices_.end()) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
   /// \brief Set the Arrow binary type to read BYTE_ARRAY columns as.
   ///
   /// Allowed values are Type::BINARY, Type::LARGE_BINARY and Type::BINARY_VIEW.
@@ -1148,6 +1167,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
+  std::unordered_set<int> read_ree_indices_;
   int64_t batch_size_;
   bool pre_buffer_;
   ::arrow::io::IOContext io_context_;

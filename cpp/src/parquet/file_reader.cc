@@ -111,7 +111,7 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
 }
 
 std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(
-    int i, bool read_dictionary) {
+    int i, bool read_dictionary, bool read_ree) {
   if (i >= metadata()->num_columns()) {
     std::stringstream ss;
     ss << "Trying to read column index " << i << " but row group metadata has only "
@@ -126,7 +126,7 @@ std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(
 
   auto reader = internal::RecordReader::Make(
       descr, level_info, contents_->properties()->memory_pool(), read_dictionary,
-      contents_->properties()->read_dense_for_nullable());
+      contents_->properties()->read_dense_for_nullable(), read_ree);
   reader->SetPageReader(std::move(page_reader));
   return reader;
 }
@@ -149,7 +149,8 @@ std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReaderWithExposeEn
   return RecordReader(
       i,
       /*read_dictionary=*/encoding_to_expose == ExposedEncoding::DICTIONARY &&
-          IsColumnChunkFullyDictionaryEncoded(*metadata()->ColumnChunk(i)));
+          IsColumnChunkFullyDictionaryEncoded(*metadata()->ColumnChunk(i)),
+      /*read_ree=*/encoding_to_expose == ExposedEncoding::REE);
 }
 
 std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {

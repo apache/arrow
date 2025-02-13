@@ -446,6 +446,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         Type list_type()
         void set_read_dictionary(int column_index, c_bool read_dict)
         c_bool read_dictionary(int column_index)
+        void set_read_ree(int column_index, c_bool read_ree)
+        c_bool read_ree(int column_index)
         void set_batch_size(int64_t batch_size)
         int64_t batch_size()
         void set_pre_buffer(c_bool pre_buffer)

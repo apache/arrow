@@ -426,6 +426,14 @@ class RleBitPackedDecoder {
   /// values.
   [[nodiscard]] bool Get(value_type* val);
 
+  // Get the next logical value and num_repeats within the specified batch_size.
+  [[nodiscard]] bool GetNextValueAndNumRepeats(value_type* val, int* num_repeats, int batch_size);
+
+  /// Like GetNextValueAndNumRepeats but add spacing for null entries.
+  [[nodiscard]] bool GetNextValueAndNumRepeatsSpaced(value_type* val, bool* is_null,
+                                             int* num_repeats, int batch_size,
+                                             const uint8_t* valid_bits, int64_t valid_bits_offset);
+
   /// Get a batch of values return the number of decoded elements.
   /// May write fewer elements to the output than requested if there are not enough values
   /// left or if an error occurred.
@@ -722,13 +730,75 @@ void RleBitPackedDecoder<T>::ParseWithCallable(Callable&& func) {
     auto OnBitPackedRun(BitPackedRun run) { return func(std::move(run)); }
     auto OnRleRun(RleRun run) { return func(std::move(run)); }
   } handler{std::move(func)};
-
   parser_.Parse(std::move(handler));
 }
 
 template <typename T>
 bool RleBitPackedDecoder<T>::Get(value_type* val) {
   return GetBatch(val, 1) == 1;
+}
+
+template <typename T>
+bool RleBitPackedDecoder<T>::GetNextValueAndNumRepeats(value_type* val, int* num_repeats, int batch_size) {
+  using ControlFlow = RleBitPackedParser::ControlFlow;
+
+  if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
+    if (std::holds_alternative<BitPackedRunDecoder<value_type>>(decoder_)) {
+      auto& decoder = std::get<BitPackedRunDecoder<value_type>>(decoder_);
+      *num_repeats = 1;
+      return decoder.Get(val, value_bit_width_);
+    } else {
+      auto& decoder = std::get<RleRunDecoder<value_type>>(decoder_);
+      *num_repeats = std::min(decoder.remaining(), batch_size);
+      ARROW_DCHECK_EQ(decoder.Advance(*num_repeats, value_bit_width_), *num_repeats);
+      return decoder.Get(val, value_bit_width_);
+    }
+  }
+
+  bool read_new_value = false;
+
+  ParseWithCallable([&](auto run) {
+    if constexpr(std::is_same_v<decltype(run), BitPackedRun>) {
+      BitPackedRunDecoder<T> decoder(run, value_bit_width_);
+      read_new_value = decoder.Get(val, value_bit_width_);
+      *num_repeats = 1;
+      decoder_ = std::move(decoder);
+      return ControlFlow::Break;
+    }
+    else {
+      RleRunDecoder<T> decoder(run, value_bit_width_);
+      *num_repeats = std::min(decoder.remaining(), batch_size);
+      read_new_value = decoder.Get(val, value_bit_width_);
+      ARROW_DCHECK_EQ(decoder.Advance(*num_repeats, value_bit_width_), *num_repeats);
+      decoder_ = std::move(decoder);
+      return ControlFlow::Break;
+    }
+  });
+
+  return read_new_value;
+}
+
+template <typename T>
+bool RleBitPackedDecoder<T>::GetNextValueAndNumRepeatsSpaced(value_type* val, bool* is_null,
+                                                     int* num_repeats, int batch_size,
+                                                     const uint8_t* valid_bits, int64_t valid_bits_offset) {
+  arrow::internal::BitRunReader bit_reader(valid_bits, valid_bits_offset,
+                                           /*length=*/batch_size);
+  arrow::internal::BitRun valid_run = bit_reader.NextRun();
+  while (ARROW_PREDICT_FALSE(valid_run.length == 0)) {
+    valid_run = bit_reader.NextRun();
+  }
+  ARROW_DCHECK_GT(batch_size, 0);
+  ARROW_DCHECK_GT(valid_run.length, 0);
+  if (valid_run.set) {
+    return GetNextValueAndNumRepeats(
+        val, num_repeats,
+        static_cast<int>(std::min(valid_run.length, static_cast<int64_t>(batch_size))));
+  } else {
+    *is_null = true;
+    *num_repeats = static_cast<int>(valid_run.length);
+  }
+  return true;
 }
 
 template <typename T>

@@ -95,6 +95,7 @@ using ::arrow::util::SafeLoadAs;
 using parquet::internal::BinaryRecordReader;
 using parquet::internal::DictionaryRecordReader;
 using parquet::internal::RecordReader;
+using parquet::internal::ReeRecordReader;
 using parquet::schema::GroupNode;
 using parquet::schema::Node;
 using parquet::schema::PrimitiveNode;
@@ -566,6 +567,24 @@ Status TransferDictionary(RecordReader* reader, MemoryPool* pool,
   return Status::OK();
 }
 
+Status TransferRunEndEncoded(RecordReader* reader, MemoryPool* pool,
+                             const std::shared_ptr<DataType>& logical_value_type,
+                             bool nullable, std::shared_ptr<ChunkedArray>* out) {
+  auto ree_reader = dynamic_cast<ReeRecordReader*>(reader);
+  DCHECK(ree_reader);
+  std::shared_ptr<::arrow::Array> result = ree_reader->GetResult();
+  *out = std::make_shared<ChunkedArray>(result);
+  if (!logical_value_type->Equals(*(*out)->type())) {
+    ARROW_ASSIGN_OR_RAISE(*out, ViewOrCastChunkedArray(*out, pool, logical_value_type));
+  }
+  if (!nullable) {
+    ::arrow::ArrayVector chunks = (*out)->chunks();
+    ReconstructChunksWithoutNulls(&chunks);
+    *out = std::make_shared<ChunkedArray>(std::move(chunks), logical_value_type);
+  }
+  return Status::OK();
+}
+
 Status TransferBinary(RecordReader* reader, MemoryPool* pool,
                       const std::shared_ptr<Field>& logical_type_field,
                       std::shared_ptr<ChunkedArray>* out) {
@@ -574,6 +593,12 @@ Status TransferBinary(RecordReader* reader, MemoryPool* pool,
         reader, pool, ::arrow::dictionary(::arrow::int32(), logical_type_field->type()),
         logical_type_field->nullable(), out);
   }
+  if (reader->read_ree()) {
+    return TransferRunEndEncoded(
+        reader, pool, ::arrow::run_end_encoded(::arrow::int32(), logical_type_field->type()),
+        logical_type_field->nullable(), out);
+  }
+
   ::arrow::compute::ExecContext ctx(pool);
   ::arrow::compute::CastOptions cast_options;
   cast_options.allow_invalid_utf8 = true;  // avoid spending time validating UTF8 data
@@ -862,6 +887,11 @@ Status TransferColumnData(RecordReader* reader,
     case ::arrow::Type::DICTIONARY: {
       RETURN_NOT_OK(TransferDictionary(reader, pool, value_field->type(),
                                        value_field->nullable(), &chunked_result));
+      result = chunked_result;
+    } break;
+    case ::arrow::Type::RUN_END_ENCODED: {
+      RETURN_NOT_OK(TransferRunEndEncoded(reader, pool, value_field->type(),
+                                          value_field->nullable(), &chunked_result));
       result = chunked_result;
     } break;
     case ::arrow::Type::NA: {
