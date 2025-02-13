@@ -404,7 +404,8 @@ struct CastStruct {
       const auto& out_field_type = out_field->type();
       if (in_field_index == kFillNullSentinel) {
         ARROW_ASSIGN_OR_RAISE(
-            auto nulls, MakeArrayOfNull(out_field_type->GetSharedPtr(), batch.length));
+            auto nulls, MakeArrayOfNull(out_field_type->GetSharedPtr(), batch.length,
+                                        ctx->memory_pool()));
         out_array->child_data.push_back(nulls->data());
       } else {
         const auto& in_field = in_type.field(in_field_index);
