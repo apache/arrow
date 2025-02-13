@@ -1582,11 +1582,11 @@ services:
       /bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
-    # Only 20.04 and amd64 supported
+    # Only 22.04 and amd64 supported
     # Usage:
     #   docker compose build ubuntu-r-sanitizer
     #   docker compose run ubuntu-r-sanitizer
-    image: ${REPO}:amd64-ubuntu-20.04-r-sanitizer
+    image: ${REPO}:amd64-ubuntu-22.04-r-sanitizer
     cap_add:
       # LeakSanitizer and gdb requires ptrace(2)
       - SYS_PTRACE
@@ -1594,7 +1594,7 @@ services:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-20.04-r-sanitizer
+        - ${REPO}:amd64-ubuntu-22.04-r-sanitizer
       args:
         base: wch1/r-debug:latest
         cmake: ${CMAKE}
@@ -1638,16 +1638,16 @@ services:
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
   ubuntu-r-valgrind:
-    # Only 20.04 and amd64 supported
+    # Only 22.04 and amd64 supported
     # Usage:
     #   docker compose build ubuntu-r-valgrind
     #   docker compose run ubuntu-r-valgrind
-    image: ${REPO}:amd64-ubuntu-20.04-r-valgrind
+    image: ${REPO}:amd64-ubuntu-22.04-r-valgrind
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-20.04-r-valgrind
+        - ${REPO}:amd64-ubuntu-22.04-r-valgrind
       args:
         base: wch1/r-debug:latest
         cmake: ${CMAKE}
