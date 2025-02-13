@@ -94,11 +94,12 @@ inline void SwissTable::search_block(uint64_t block, int stamp, int start_slot,
   *out_slot = static_cast<int>(CountLeadingZeros(matches | block_high_bits) >> 3);
 }
 
-template <bool use_selection>
+template <typename T, bool use_selection>
 void SwissTable::extract_group_ids_imp(const int num_keys, const uint16_t* selection,
                                        const uint32_t* hashes, const uint8_t* local_slots,
                                        uint32_t* out_group_ids) const {
   if (log_blocks_ == 0) {
+    DCHECK_EQ(sizeof(T), sizeof(uint8_t));
     for (int i = 0; i < num_keys; ++i) {
       uint32_t id = use_selection ? selection[i] : i;
       uint32_t group_id =
@@ -108,18 +109,16 @@ void SwissTable::extract_group_ids_imp(const int num_keys, const uint16_t* selec
     }
   } else {
     int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
-    int num_groupid_bytes = num_groupid_bits / 8;
-    uint32_t group_id_mask = group_id_mask_from_num_groupid_bits(num_groupid_bits);
+    DCHECK_EQ(sizeof(T) * 8, num_groupid_bits);
     int num_block_bytes = num_block_bytes_from_num_groupid_bits(num_groupid_bits);
 
     for (int i = 0; i < num_keys; ++i) {
       uint32_t id = use_selection ? selection[i] : i;
       uint32_t hash = hashes[id];
       uint32_t block_id = block_id_from_hash(hash, log_blocks_);
-      uint32_t group_id = *reinterpret_cast<const uint32_t*>(
-          block_data(block_id, num_block_bytes) + local_slots[id] * num_groupid_bytes +
-          bytes_status_in_block_);
-      group_id &= group_id_mask;
+      const T* slots_base = reinterpret_cast<const T*>(
+          block_data(block_id, num_block_bytes) + bytes_status_in_block_);
+      uint32_t group_id = static_cast<uint32_t>(slots_base[local_slots[id]]);
       out_group_ids[id] = group_id;
     }
   }
@@ -137,13 +136,40 @@ void SwissTable::extract_group_ids(const int num_keys, const uint16_t* optional_
     num_processed = extract_group_ids_avx2(num_keys, hashes, local_slots, out_group_ids);
   }
 #endif
-  if (optional_selection) {
-    extract_group_ids_imp<true>(num_keys, optional_selection, hashes, local_slots,
-                                out_group_ids);
-  } else {
-    extract_group_ids_imp<false>(num_keys - num_processed, nullptr,
-                                 hashes + num_processed, local_slots + num_processed,
-                                 out_group_ids + num_processed);
+  int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
+  switch (num_groupid_bits) {
+    case 8:
+      if (optional_selection) {
+        extract_group_ids_imp<uint8_t, true>(num_keys, optional_selection, hashes,
+                                             local_slots, out_group_ids);
+      } else {
+        extract_group_ids_imp<uint8_t, false>(
+            num_keys - num_processed, nullptr, hashes + num_processed,
+            local_slots + num_processed, out_group_ids + num_processed);
+      }
+      break;
+    case 16:
+      if (optional_selection) {
+        extract_group_ids_imp<uint16_t, true>(num_keys, optional_selection, hashes,
+                                              local_slots, out_group_ids);
+      } else {
+        extract_group_ids_imp<uint16_t, false>(
+            num_keys - num_processed, nullptr, hashes + num_processed,
+            local_slots + num_processed, out_group_ids + num_processed);
+      }
+      break;
+    case 32:
+      if (optional_selection) {
+        extract_group_ids_imp<uint32_t, true>(num_keys, optional_selection, hashes,
+                                              local_slots, out_group_ids);
+      } else {
+        extract_group_ids_imp<uint32_t, false>(
+            num_keys - num_processed, nullptr, hashes + num_processed,
+            local_slots + num_processed, out_group_ids + num_processed);
+      }
+      break;
+    default:
+      DCHECK(false);
   }
 }
 

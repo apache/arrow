@@ -88,11 +88,15 @@ class ARROW_EXPORT SwissTable {
   /// \brief Extract group id for a given slot in a given block.
   ///
   static uint32_t extract_group_id(const uint8_t* block_ptr, int local_slot,
-                                   int64_t num_group_id_bits) {
-    uint32_t group_id_mask = group_id_mask_from_num_groupid_bits(num_group_id_bits);
-    uint32_t group_id = *reinterpret_cast<const uint32_t*>(
-        block_ptr + bytes_status_in_block_ + local_slot * num_group_id_bits / 8);
-    return group_id & group_id_mask;
+                                   int num_group_id_bits) {
+    // Extract group id using aligned 32-bit read.
+    uint32_t group_id_mask = static_cast<uint32_t>((1ULL << num_group_id_bits) - 1);
+    int slot_bit_offset = local_slot * num_group_id_bits;
+    const uint32_t* group_id_ptr32 =
+        reinterpret_cast<const uint32_t*>(block_ptr + bytes_status_in_block_) +
+        (slot_bit_offset >> 5);
+    uint32_t group_id = (*group_id_ptr32 >> (slot_bit_offset & 31)) & group_id_mask;
+    return group_id;
   }
 
   inline void insert_into_empty_slot(uint32_t slot_id, uint32_t hash, uint32_t group_id);
@@ -106,6 +110,7 @@ class ARROW_EXPORT SwissTable {
   }
 
   static int num_groupid_bits_from_log_blocks(int log_blocks) {
+    assert(log_blocks >= 0 && log_blocks <= 32 - 3);
     int required_bits = log_blocks + 3;
     return required_bits <= 8    ? 8
            : required_bits <= 16 ? 16
@@ -178,7 +183,7 @@ class ARROW_EXPORT SwissTable {
                          const uint32_t* hashes, const uint8_t* local_slots,
                          uint32_t* out_group_ids) const;
 
-  template <bool use_selection>
+  template <typename T, bool use_selection>
   void extract_group_ids_imp(const int num_keys, const uint16_t* selection,
                              const uint32_t* hashes, const uint8_t* local_slots,
                              uint32_t* out_group_ids) const;
@@ -255,10 +260,6 @@ class ARROW_EXPORT SwissTable {
       return bits_hash_ - log_blocks;
     }
     return bits_stamp_;
-  }
-
-  static uint32_t group_id_mask_from_num_groupid_bits(int64_t num_groupid_bits) {
-    return static_cast<uint32_t>((1ULL << num_groupid_bits) - 1);
   }
 
   static constexpr int bytes_status_in_block_ = 8;
