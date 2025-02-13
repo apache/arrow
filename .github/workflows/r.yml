@@ -406,7 +406,6 @@ jobs:
           # we use pak for package installation since it is faster, safer and more convenient
           pak::local_install()
           pak::pak("lintr@3.1.2")
-          pak::pak("cyclocomp")
           lintr::expect_lint_free()
       - name: Dump install logs
         shell: cmd
