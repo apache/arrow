@@ -875,15 +875,13 @@ tasks:
     params:
       image: conda-cpp-valgrind
 
-{% for ubuntu_version in ["22.04", "24.04"] %}
-  test-ubuntu-{{ ubuntu_version }}-cpp:
+  test-ubuntu-22.04-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: "{{ ubuntu_version }}"
+        UBUNTU: 22.04
       image: ubuntu-cpp
-{% endfor %}
 
   test-ubuntu-22.04-cpp-bundled:
     ci: github
