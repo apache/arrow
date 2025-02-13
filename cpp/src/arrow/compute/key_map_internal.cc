@@ -391,6 +391,7 @@ bool SwissTable::find_next_stamp_match(const uint32_t hash, const uint32_t in_sl
                                        uint32_t* out_group_id) const {
   const int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
   const int num_block_bytes = num_block_bytes_from_num_groupid_bits(num_groupid_bits);
+  const int group_id_mask = group_id_mask_from_num_groupid_bits(num_groupid_bits);
   constexpr uint64_t stamp_mask = 0x7f;
   const int stamp =
       static_cast<int>((hash >> bits_shift_for_block_and_stamp_) & stamp_mask);
@@ -417,7 +418,8 @@ bool SwissTable::find_next_stamp_match(const uint32_t hash, const uint32_t in_sl
     }
   }
 
-  *out_group_id = extract_group_id(blockbase, local_slot, num_groupid_bits);
+  *out_group_id =
+      extract_group_id(blockbase, local_slot, num_groupid_bits, group_id_mask);
   *out_slot_id = start_slot_id;
 
   return match_found;
@@ -699,13 +701,8 @@ Status SwissTable::grow_double() {
 
       uint32_t ihalf = block_id_new & 1;
       uint8_t stamp_new = (hash >> bits_shift_for_block_and_stamp_after) & stamp_mask;
-      int group_id_bit_offs = j * num_group_id_bits_before;
       uint32_t group_id =
-          (util::SafeLoadAs<uint32_t>(block_base + bytes_status_in_block_ +
-                                      (group_id_bit_offs >> 3)) >>
-           (group_id_bit_offs & 7)) &
-          group_id_mask_before;
-
+          extract_group_id(block_base, j, num_group_id_bits_before, group_id_mask_before);
       uint32_t slot_id_new = global_slot_id(i * 2 + ihalf, full_slots_new[ihalf]);
       hashes_new[slot_id_new] = hash;
       uint8_t* block_base_new = double_block_base_new + ihalf * block_size_after;
@@ -736,12 +733,8 @@ Status SwissTable::grow_double() {
         continue;
       }
 
-      int group_id_bit_offs = j * num_group_id_bits_before;
       uint32_t group_id =
-          (util::SafeLoadAs<uint32_t>(block_base + bytes_status_in_block_ +
-                                      (group_id_bit_offs >> 3)) >>
-           (group_id_bit_offs & 7)) &
-          group_id_mask_before;
+          extract_group_id(block_base, j, num_group_id_bits_before, group_id_mask_before);
       uint8_t stamp_new = (hash >> bits_shift_for_block_and_stamp_after) & stamp_mask;
 
       uint8_t* block_base_new =

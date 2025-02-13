@@ -645,6 +645,8 @@ void SwissTableMerge::MergePartition(SwissTable* target, const SwissTable* sourc
       SwissTable::num_groupid_bits_from_log_blocks(source->log_blocks());
   int source_block_bytes =
       SwissTable::num_block_bytes_from_num_groupid_bits(source_group_id_bits);
+  uint32_t source_group_id_mask =
+      SwissTable::group_id_mask_from_num_groupid_bits(source_group_id_bits);
   ARROW_DCHECK(source_block_bytes % sizeof(uint64_t) == 0);
 
   // Compute index of the last block in target that corresponds to the given
@@ -670,8 +672,8 @@ void SwissTableMerge::MergePartition(SwissTable* target, const SwissTable* sourc
     for (int local_slot_id = 0; local_slot_id < num_full_slots; ++local_slot_id) {
       // Read group id and hash for this slot.
       //
-      uint32_t group_id =
-          source->extract_group_id(block_bytes, local_slot_id, source_group_id_bits);
+      uint32_t group_id = SwissTable::extract_group_id(
+          block_bytes, local_slot_id, source_group_id_bits, source_group_id_mask);
       uint32_t global_slot_id = SwissTable::global_slot_id(block_id, local_slot_id);
       uint32_t hash = source->hashes()[global_slot_id];
       // Insert partition id into the highest bits of hash, shifting the

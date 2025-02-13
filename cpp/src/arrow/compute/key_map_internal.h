@@ -85,12 +85,14 @@ class ARROW_EXPORT SwissTable {
     return reinterpret_cast<uint32_t*>(hashes_->mutable_data());
   }
 
-  /// \brief Extract group id for a given slot in a given block.
+  /// \brief Extract group id for a given slot in a given block using aligned 32-bit read
+  /// regardless of the number of group id bits.
+  /// Note that group_id_mask should be derived from num_group_id_bits. This function
+  /// accepts both and does debug checking for performance sake.
   ///
   static uint32_t extract_group_id(const uint8_t* block_ptr, int local_slot,
-                                   int num_group_id_bits) {
-    // Extract group id using aligned 32-bit read.
-    uint32_t group_id_mask = group_id_mask_from_num_groupid_bits(num_group_id_bits);
+                                   int num_group_id_bits, uint32_t group_id_mask) {
+    assert(group_id_mask_from_num_groupid_bits(num_group_id_bits) == group_id_mask);
     int slot_bit_offset = local_slot * num_group_id_bits;
     const uint32_t* group_id_ptr32 =
         reinterpret_cast<const uint32_t*>(block_ptr + bytes_status_in_block_) +
@@ -119,6 +121,11 @@ class ARROW_EXPORT SwissTable {
 
   static int num_block_bytes_from_num_groupid_bits(int num_groupid_bits) {
     return num_groupid_bits + bytes_status_in_block_;
+  }
+
+  static uint32_t group_id_mask_from_num_groupid_bits(int num_groupid_bits) {
+    // num_groupid_bits could be 32, so using 64-bit shifting.
+    return static_cast<uint32_t>((1ULL << num_groupid_bits) - 1ULL);
   }
 
   const uint8_t* block_data(uint32_t block_id, int num_block_bytes) const {
@@ -196,11 +203,6 @@ class ARROW_EXPORT SwissTable {
   }
 
   inline int64_t num_groups_for_resize() const;
-
-  static uint32_t group_id_mask_from_num_groupid_bits(int num_groupid_bits) {
-    // num_groupid_bits could be 32, so using 64-bit shifting.
-    return static_cast<uint32_t>((1ULL << num_groupid_bits) - 1ULL);
-  }
 
   inline uint32_t wrap_global_slot_id(uint32_t global_slot_id) const;
 
