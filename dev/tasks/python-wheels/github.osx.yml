@@ -63,7 +63,7 @@ jobs:
       - name: Install CMake 3.29.0
         shell: bash
         run: |
-          arrow/ci/scripts/install_cmake.sh $(arch) macos 3.29.0 ${PWD}/local
+          arrow/ci/scripts/install_cmake.sh 3.29.0 ${PWD}/local
           echo "${PWD}/local/bin" >> $GITHUB_PATH
 
       - name: Retrieve VCPKG version from arrow/.env

@@ -37,6 +37,8 @@ G_BEGIN_DECLS
  * @title: Basic array classes
  * @include: arrow-glib/arrow-glib.h
  *
+ * #GArrowArrayStatistics is a class for statistics of an array.
+ *
  * #GArrowArray is a base class for all array classes such as
  * #GArrowBooleanArray.
  *
@@ -362,6 +364,106 @@ garrow_equal_options_is_approx(GArrowEqualOptions *options)
 {
   auto priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(options);
   return priv->approx;
+}
+
+struct GArrowArrayStatisticsPrivate
+{
+  arrow::ArrayStatistics statistics;
+};
+
+enum {
+  PROP_STATISTICS = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowArrayStatistics, garrow_array_statistics, G_TYPE_OBJECT)
+
+#define GARROW_ARRAY_STATISTICS_GET_PRIVATE(object)                                      \
+  static_cast<GArrowArrayStatisticsPrivate *>(                                           \
+    garrow_array_statistics_get_instance_private(GARROW_ARRAY_STATISTICS(object)))
+
+static void
+garrow_array_statistics_finalize(GObject *object)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(object);
+  priv->statistics.~ArrayStatistics();
+  G_OBJECT_CLASS(garrow_array_statistics_parent_class)->finalize(object);
+}
+
+static void
+garrow_array_statistics_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_STATISTICS:
+    priv->statistics = *static_cast<arrow::ArrayStatistics *>(g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_array_statistics_init(GArrowArrayStatistics *object)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(object);
+  new (&priv->statistics) arrow::ArrayStatistics;
+}
+
+static void
+garrow_array_statistics_class_init(GArrowArrayStatisticsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->finalize = garrow_array_statistics_finalize;
+  gobject_class->set_property = garrow_array_statistics_set_property;
+
+  auto spec = g_param_spec_pointer(
+    "statistics",
+    "Statistics",
+    "The raw arrow::ArrayStatistics *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_STATISTICS, spec);
+}
+
+/**
+ * garrow_array_statistics_has_null_count:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: %TRUE if @statistics has a valid null count value,
+ *   %FALSE otherwise.
+ *
+ * Since: 20.0.0
+ */
+gboolean
+garrow_array_statistics_has_null_count(GArrowArrayStatistics *statistics)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
+  return priv->statistics.null_count.has_value();
+}
+
+/**
+ * garrow_array_statistics_get_null_count:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: 0 or larger value if @statistics has a valid null count value,
+ *   -1 otherwise.
+ *
+ * Since: 20.0.0
+ */
+gint64
+garrow_array_statistics_get_null_count(GArrowArrayStatistics *statistics)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
+  const auto &null_count = priv->statistics.null_count;
+  if (null_count) {
+    return null_count.value();
+  } else {
+    return -1;
+  }
 }
 
 typedef struct GArrowArrayPrivate_
@@ -1047,6 +1149,27 @@ garrow_array_validate_full(GArrowArray *array, GError **error)
 {
   const auto arrow_array = garrow_array_get_raw(array);
   return garrow::check(error, arrow_array->ValidateFull(), "[array][validate-full]");
+}
+
+/**
+ * garrow_array_get_statistics:
+ * @array: A #GArrowArray.
+ *
+ * Returns: (transfer full): The associated #GArrowArrayStatistics of @array,
+ *   %NULL if @array doesn't have any associated statistics.
+ *
+ * Since: 20.0.0
+ */
+GArrowArrayStatistics *
+garrow_array_get_statistics(GArrowArray *array)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  const auto &statistics = arrow_array->statistics();
+  if (statistics) {
+    return garrow_array_statistics_new_raw(statistics.get());
+  } else {
+    return nullptr;
+  }
 }
 
 G_DEFINE_TYPE(GArrowNullArray, garrow_null_array, GARROW_TYPE_ARRAY)
@@ -3466,6 +3589,13 @@ garrow_equal_options_get_raw(GArrowEqualOptions *equal_options)
 {
   auto priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(equal_options);
   return &(priv->options);
+}
+
+GArrowArrayStatistics *
+garrow_array_statistics_new_raw(arrow::ArrayStatistics *arrow_statistics)
+{
+  return GARROW_ARRAY_STATISTICS(
+    g_object_new(GARROW_TYPE_ARRAY_STATISTICS, "statistics", arrow_statistics, nullptr));
 }
 
 GArrowArray *
