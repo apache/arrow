@@ -585,6 +585,48 @@ More specifically, Parquet C++ supports:
 * EncryptionWithFooterKey and EncryptionWithColumnKey modes.
 * Encrypted Footer and Plaintext Footer modes.
 
+Configuration
+~~~~~~~~~~~~~
+
+An example for writing a dataset using encrypted Parquet file format:
+
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
+   :language: cpp
+   :start-after: arrow::Status WriteEncryptedFile(
+   :end-before: return arrow::Status::OK();
+   :emphasize-lines: 8-14
+   :dedent: 2
+
+Column encryption is configured by setting ``encryption_config->column_keys`` to a string
+of the format ``"columnKeyID:colName,colName;columnKeyID:colName..."``.
+
+.. note::
+
+   Encrypting columns that have nested fields (for instance struct, map, or even list data types)
+   require configuring column keys for the inner fields, not the column itself.
+   Configuring a column key for the column itself causes this error (here column name is ``col``):
+
+   .. code-block::
+
+      OSError: Encrypted column col not in file schema
+
+An example encryption configuration for columns with nested fields:
+
+.. code-block:: cpp
+
+   auto table_schema = schema({
+     field("i", int32()),
+     field("s", struct_({field("f1", int32()), field("f2", utf8())})),
+     field("m", map(utf8(), int32())),
+     field("l", list(int32())),
+   });
+
+   encryption_config->column_keys = "column_key_id: "
+                                    "s.f1, s.f2, "
+                                    "m.key_value.key, m.key_value.value, "
+                                    "l.list.element"
+
+
 Miscellaneous
 -------------
 
