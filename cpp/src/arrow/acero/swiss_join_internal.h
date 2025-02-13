@@ -380,8 +380,8 @@ class SwissTableMerge {
   // Max block id value greater or equal to the number of blocks guarantees that
   // the search will not be stopped.
   //
-  static inline bool InsertNewGroup(SwissTable* target, uint64_t group_id, uint32_t hash,
-                                    int64_t max_block_id);
+  static inline bool InsertNewGroup(SwissTable* target, uint32_t group_id, uint32_t hash,
+                                    uint32_t max_block_id);
 };
 
 struct SwissTableWithKeys {
