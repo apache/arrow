@@ -22,10 +22,11 @@ ARG arch
 ARG arch_short
 ARG musllinux
 
-ENV MUSLLINUX_VERSION=${musllinux}
+ENV LINUX_WHEEL_NAME='musl'
+ENV LINUX_WHEEL_VERSION=${musllinux}
 
 RUN apk update
-RUN apk add --no-cache cmake flex wget zip
+RUN apk add --no-cache build-base cmake flex wget zip ninja ccache
 
 # A system Python is required for ninja and vcpkg in this Dockerfile.
 # On manylinux2014 base images, system Python is 2.7.5, while
@@ -34,16 +35,6 @@ RUN apk add --no-cache cmake flex wget zip
 # so that we have a consistent Python version across base images.
 ENV CPYTHON_VERSION=cp39
 ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
-
-# Install Ninja
-ARG ninja=1.10.2
-COPY ci/scripts/install_ninja.sh arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_ninja.sh ${ninja} /usr/local
-
-# Install ccache
-ARG ccache=4.1
-COPY ci/scripts/install_ccache.sh arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 
 # Install vcpkg
 ARG vcpkg

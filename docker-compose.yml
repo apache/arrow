@@ -113,7 +113,6 @@ x-hierarchy:
   # descendant images if any. Archery checks that all node has a corresponding
   # service entry, so any new image/service must be listed here.
   - almalinux-verify-rc
-  - alpine-linux-verify-rc
   - alpine-linux-cpp
     - alpine-linux-python
   - centos-cpp-static
@@ -1202,7 +1201,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
-    command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
+    command: /arrow/ci/scripts/python_wheel_xlinux_build.sh
 
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux_2_28_x86_64?tab=tags
@@ -1227,7 +1226,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux-2-28-ccache:/ccache:delegated
-    command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
+    command: /arrow/ci/scripts/python_wheel_xlinux_build.sh
 
   # See available versions at:
   #    https://quay.io/repository/pypa/musllinux_1_2_x86_64?tab=tags
@@ -1253,7 +1252,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-musllinux-1-2-ccache:/ccache:delegated
-    command: /arrow/ci/scripts/python_wheel_musllinux_build.sh
+    command: /arrow/ci/scripts/python_wheel_xlinux_build.sh
 
   python-wheel-musllinux-test-imports:
     image: python:${PYTHON_IMAGE_TAG}-alpine${ALPINE_LINUX}
@@ -2063,34 +2062,6 @@ services:
       /bin/bash -c "
         apt update -y && apt install -y curl git gnupg tzdata wget &&
         git config --global --add safe.directory /arrow &&
-        /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
-
-  alpine-linux-verify-rc:
-    # Usage:
-    #   docker compose build alpine-linux-verify-rc
-    #   docker compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 alpine-linux-verify-rc
-    # Parameters:
-    #   ALPINE_LINUX: 3.18
-    image: ${REPO}:${ARCH}-alpine-linux-${ALPINE_LINUX}-verify-rc
-    build:
-      context: .
-      dockerfile: ci/docker/alpine-linux-${ALPINE_LINUX}-verify-rc.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-alpine-linux-${ALPINE_LINUX}-verify-rc
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}alpine-linux-ccache:/ccache:delegated
-    shm_size: '1gb'
-    environment:
-      <<: [ *common, *ccache ]
-      CMAKE_GENERATOR: Ninja
-      TEST_APT: 0  # would require docker-in-docker
-      TEST_YUM: 0
-    command: >
-      /bin/bash -c "
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
 
   almalinux-verify-rc:
