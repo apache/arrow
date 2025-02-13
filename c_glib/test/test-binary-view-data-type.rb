@@ -30,4 +30,11 @@ class TestBinaryViewDataType < Test::Unit::TestCase
     data_type = Arrow::BinaryViewDataType.new
     assert_equal("binary_view", data_type.to_s)
   end
+
+  def test_export
+    data_type = Arrow::BinaryViewDataType.new
+    c_abi_schema = data_type.export
+    assert_equal(data_type,
+                 Arrow::DataType.import(c_abi_schema))
+  end
 end
