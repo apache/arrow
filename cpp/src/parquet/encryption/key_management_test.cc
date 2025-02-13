@@ -57,12 +57,17 @@ class TestEncryptionKeyManagement : public ::testing::Test {
 #ifndef ARROW_WITH_SNAPPY
     GTEST_SKIP() << "Test requires Snappy compression";
 #endif
+    ARROW_LOG(INFO) << "SetUp 1";
     key_list_ = BuildKeyMap(kColumnMasterKeyIds, kColumnMasterKeys, kFooterMasterKeyId,
                             kFooterMasterKey);
+    ARROW_LOG(INFO) << "SetUp 2";
     new_key_list_ = BuildKeyMap(kColumnMasterKeyIds, kNewColumnMasterKeys,
                                 kFooterMasterKeyId, kNewFooterMasterKey);
+    ARROW_LOG(INFO) << "SetUp 3";
     column_key_mapping_ = BuildColumnKeyMapping();
+    ARROW_LOG(INFO) << "SetUp 4";
     temp_dir_ = temp_data_dir().ValueOrDie();
+    ARROW_LOG(INFO) << "SetUp 5";
   }
 
   void SetupCryptoFactory(bool wrap_locally) {
@@ -255,15 +260,19 @@ class TestEncryptionKeyManagementMultiThread : public TestEncryptionKeyManagemen
 };
 
 TEST_F(TestEncryptionKeyManagement, WrapLocally) {
+  ARROW_LOG(INFO) << "WrapLocally 1";
   this->SetupCryptoFactory(true);
 
   for (const bool internal_key_material : {false, true}) {
     for (const bool double_wrapping : {false, true}) {
       for (int encryption_no = 0; encryption_no < 4; encryption_no++) {
+        ARROW_LOG(INFO) << "WrapLocally 2";
         this->WriteEncryptedParquetFile(double_wrapping, internal_key_material,
                                         encryption_no);
+        ARROW_LOG(INFO) << "WrapLocally 3";
         this->ReadEncryptedParquetFile(double_wrapping, internal_key_material,
                                        encryption_no);
+        ARROW_LOG(INFO) << "WrapLocally 4";
       }
     }
   }
