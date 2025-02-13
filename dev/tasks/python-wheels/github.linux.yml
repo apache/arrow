@@ -24,11 +24,11 @@ permissions:
 
 jobs:
   build:
-    name: "Build wheel for musllinux {{ musllinux_version }}"
+    name: "Build wheel for {{ linux_wheel_name }}linux {{ linux_wheel_version }}"
     {% if arch == "amd64" %}
-    runs-on: alpine-latest
+    runs-on: ubuntu-latest
     {% else %}
-    runs-on: alpine-3.18-arm
+    runs-on: ubuntu-24.04-arm
     {% endif %}
     env:
       # archery uses these environment variables
@@ -64,9 +64,15 @@ jobs:
         env:
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
+          if [ "{{ linux_wheel_version }}" = "2014" ] && [ "{{ arch }}" = "arm64" ]; then
+            # We can't use NuGet on manylinux2014_aarch64 because Mono is old.
+            :
+          elif [ "{{ linux_wheel_name }}" = "many" ]; then
+            export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
+          fi
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} \
-            python-wheel-musllinux-{{ musllinux_version }}
+            python-wheel-{{ linux_wheel_name }}linux-{{ linux_wheel_version }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -78,15 +84,15 @@ jobs:
         shell: bash
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run ${TEST_IMAGE_PREFIX}-wheel-musllinux-test-imports
-          archery docker run ${TEST_IMAGE_PREFIX}-wheel-musllinux-test-unittests
+          archery docker run ${TEST_IMAGE_PREFIX}-wheel-{{ linux_wheel_name }}linux-test-imports
+          archery docker run ${TEST_IMAGE_PREFIX}-wheel-{{ linux_wheel_name }}linux-test-unittests
 
-      - name: Test wheel on Alpine 3.18
+      - name: Test wheel on AlmaLinux 8
         shell: bash
         if: |
-          '{{ python_version }}' == '3.9'
+          '{{ python_version }}' == '3.9' && '{{ linux_wheel_name }}' == 'many'
         env:
-          ALPINE_LINUX: "3.18"
+          ALMALINUX: "8"
         run: |
           archery docker run \
             -e ARROW_GANDIVA=OFF \
@@ -95,7 +101,37 @@ jobs:
             -e TEST_PYTHON_VERSIONS={{ python_version }} \
             -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
             -e TEST_WHEELS=1 \
-            alpine-linux-verify-rc
+            almalinux-verify-rc
+
+      - name: Test wheel on Ubuntu 22.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.10' && '{{ linux_wheel_name }}' == 'many'
+        env:
+          UBUNTU: "22.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
+
+      - name: Test wheel on Ubuntu 24.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.12' && '{{ linux_wheel_name }}' == 'many'
+        env:
+          UBUNTU: "24.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
@@ -105,6 +141,6 @@ jobs:
       - name: Push Docker images
         shell: bash
         run: |
-          archery docker push python-wheel-musllinux-{{ musllinux_version }}
-          archery docker push ${TEST_IMAGE_PREFIX}-wheel-musllinux-test-unittests
+          archery docker push python-wheel-{{ linux_wheel_name }}linux-{{ linux_wheel_version }}
+          archery docker push ${TEST_IMAGE_PREFIX}-wheel-{{ linux_wheel_name }}linux-test-unittests
       {% endif %}
