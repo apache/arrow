@@ -18,6 +18,94 @@
 Compute Functions
 =================
 
+The Arrow C++ library provides many compute functions that can operate on arrays or scalars.
+They are organized into several categories such as arithmetic, logical, comparison, conditional,
+and string operations. Below is a representative overview of common function categories.
+
+Arithmetic Functions
+--------------------
+
+.. doxygengroup:: compute-arithmetic
+   :content-only:
+   :members:
+
+Boolean and Logical Functions
+-----------------------------
+
+.. doxygengroup:: compute-boolean
+   :content-only:
+   :members:
+
+Comparison (Relational) Functions
+---------------------------------
+
+.. doxygengroup:: compute-comparison
+   :content-only:
+   :members:
+
+Conditional Functions
+---------------------
+
+.. doxygengroup:: compute-conditional
+   :content-only:
+   :members:
+
+Null and Mask-Related Functions
+-------------------------------
+
+.. doxygengroup:: compute-null-mask
+   :content-only:
+   :members:
+
+Temporal Functions
+------------------
+
+.. doxygengroup:: compute-temporal
+   :content-only:
+   :members:
+
+String and Binary Functions
+---------------------------
+
+.. doxygengroup:: compute-string-binary
+   :content-only:
+   :members:
+
+Casting Functions
+-----------------
+
+.. doxygengroup:: compute-casting
+   :content-only:
+   :members:
+
+Reshaping, Filtering, and Indexing
+----------------------------------
+
+.. doxygengroup:: compute-reshaping
+   :content-only:
+   :members:
+
+Aggregation Functions
+---------------------
+
+.. doxygengroup:: compute-aggregation
+   :content-only:
+   :members:
+
+Rounding and Mathematical Functions
+-----------------------------------
+
+.. doxygengroup:: compute-rounding
+   :content-only:
+   :members:
+
+Random / Utility Functions
+--------------------------
+
+.. doxygengroup:: compute-random
+   :content-only:
+   :members:
+
 Datum class
 -----------
 
