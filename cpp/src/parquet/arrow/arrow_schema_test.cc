@@ -34,6 +34,7 @@
 #include "arrow/array.h"
 #include "arrow/extension/json.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/base64.h"
@@ -68,6 +69,42 @@ const auto TIMESTAMP_US = ::arrow::timestamp(TimeUnit::MICRO);
 const auto TIMESTAMP_NS = ::arrow::timestamp(TimeUnit::NANO);
 const auto BINARY = ::arrow::binary();
 const auto DECIMAL_8_4 = std::make_shared<::arrow::Decimal128Type>(8, 4);
+
+// A minimal version of a geoarrow.wkb extension type to test interoperability
+class GeoArrowWkbExtensionType : public ::arrow::ExtensionType {
+ public:
+  explicit GeoArrowWkbExtensionType(std::shared_ptr<::arrow::DataType> storage_type,
+                                    std::string metadata)
+      : ::arrow::ExtensionType(std::move(storage_type)), metadata_(std::move(metadata)) {}
+
+  std::string extension_name() const override { return "geoarrow.wkb"; }
+
+  std::string Serialize() const override { return metadata_; }
+
+  ::arrow::Result<std::shared_ptr<::arrow::DataType>> Deserialize(
+      std::shared_ptr<::arrow::DataType> storage_type,
+      const std::string& serialized_data) const override {
+    return std::make_shared<GeoArrowWkbExtensionType>(std::move(storage_type),
+                                                      serialized_data);
+  }
+
+  std::shared_ptr<::arrow::Array> MakeArray(
+      std::shared_ptr<::arrow::ArrayData> data) const override {
+    return std::make_shared<::arrow::ExtensionArray>(data);
+  }
+
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    return other.extension_name() == extension_name() && other.Serialize() == Serialize();
+  }
+
+ private:
+  std::string metadata_;
+};
+
+std::shared_ptr<::arrow::DataType> geoarrow_wkb(std::string metadata = "{}") {
+  return std::make_shared<GeoArrowWkbExtensionType>(::arrow::binary(),
+                                                    std::move(metadata));
+}
 
 class TestConvertParquetSchema : public ::testing::Test {
  public:
@@ -236,6 +273,10 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
        ::arrow::int64()},
       {"json", LogicalType::JSON(), ParquetType::BYTE_ARRAY, -1, ::arrow::utf8()},
       {"bson", LogicalType::BSON(), ParquetType::BYTE_ARRAY, -1, ::arrow::binary()},
+      {"geometry", LogicalType::Geometry(), ParquetType::BYTE_ARRAY, -1,
+       ::arrow::binary()},
+      {"geography", LogicalType::Geography(), ParquetType::BYTE_ARRAY, -1,
+       ::arrow::binary()},
       {"interval", LogicalType::Interval(), ParquetType::FIXED_LEN_BYTE_ARRAY, 12,
        ::arrow::fixed_size_binary(12)},
       {"uuid", LogicalType::UUID(), ParquetType::FIXED_LEN_BYTE_ARRAY, 16,
@@ -948,6 +989,48 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
   }
 }
 
+TEST_F(TestConvertParquetSchema, ParquetSchemaGeoArrowExtensions) {
+  std::vector<NodePtr> parquet_fields;
+  parquet_fields.push_back(PrimitiveNode::Make("geometry", Repetition::OPTIONAL,
+                                               LogicalType::Geometry(),
+                                               ParquetType::BYTE_ARRAY));
+  parquet_fields.push_back(PrimitiveNode::Make("geography", Repetition::OPTIONAL,
+                                               LogicalType::Geography(),
+                                               ParquetType::BYTE_ARRAY));
+
+  {
+    // Parquet file does not contain Arrow schema.
+    // By default, both fields should be treated as binary() fields in Arrow.
+    auto arrow_schema = ::arrow::schema({::arrow::field("geometry", BINARY, true),
+                                         ::arrow::field("geography", BINARY, true)});
+    std::shared_ptr<KeyValueMetadata> metadata{};
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata));
+    CheckFlatSchema(arrow_schema);
+  }
+
+  {
+    // Parquet file does not contain Arrow schema.
+    // If Arrow extensions are enabled and extensions are registered,
+    // fields will be interpreted as geoarrow_wkb(binary()) extension fields.
+    ::arrow::ExtensionTypeGuard guard(geoarrow_wkb());
+
+    ArrowReaderProperties props;
+    props.set_arrow_extensions_enabled(true);
+    auto arrow_schema = ::arrow::schema(
+        {::arrow::field(
+             "geometry",
+             geoarrow_wkb(R"({"crs": "OGC:CRS84", "crs_type": "authority_code"})"), true),
+         ::arrow::field(
+             "geography",
+             geoarrow_wkb(
+                 R"({"crs": "OGC:CRS84", "crs_type": "authority_code", "edges": "spherical"})"),
+             true)});
+    std::shared_ptr<KeyValueMetadata> metadata{};
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    CheckFlatSchema(arrow_schema);
+  }
+}
+
 class TestConvertArrowSchema : public ::testing::Test {
  public:
   virtual void SetUp() {}
@@ -963,7 +1046,8 @@ class TestConvertArrowSchema : public ::testing::Test {
     for (int i = 0; i < expected_schema_node->field_count(); i++) {
       auto lhs = result_schema_node->field(i);
       auto rhs = expected_schema_node->field(i);
-      EXPECT_TRUE(lhs->Equals(rhs.get()));
+      EXPECT_TRUE(lhs->Equals(rhs.get()))
+          << lhs->logical_type()->ToString() << " != " << rhs->logical_type()->ToString();
     }
   }
 
@@ -1198,6 +1282,112 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitivesAsDictionaries) {
 
   ASSERT_OK(ConvertSchema(arrow_fields));
 
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
+}
+
+TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsLonLat) {
+  // All the Arrow Schemas below should convert to the type defaults for GEOMETRY
+  // and GEOGRAPHY when GeoArrow extension types are registered and the appropriate
+  // writer option is set.
+  ::arrow::ExtensionTypeGuard guard(geoarrow_wkb());
+
+  ArrowWriterProperties::Builder builder;
+  builder.write_geospatial_logical_types();
+  auto arrow_properties = builder.build();
+
+  std::vector<NodePtr> parquet_fields;
+  parquet_fields.push_back(PrimitiveNode::Make("geometry", Repetition::OPTIONAL,
+                                               LogicalType::Geometry(),
+                                               ParquetType::BYTE_ARRAY));
+  parquet_fields.push_back(PrimitiveNode::Make("geography", Repetition::OPTIONAL,
+                                               LogicalType::Geography(),
+                                               ParquetType::BYTE_ARRAY));
+
+  // There are several ways that longitude/latitude could be specified when coming from
+  // GeoArrow, which allows null, missing, arbitrary strings (e.g., Authority:Code), and
+  // PROJJSON.
+  std::vector<std::string> geoarrow_lonlat = {
+      "null", R"("OGC:CRS84")", R"("EPSG:4326")",
+      // Purely the parts of the PROJJSON that we inspect to check the lon/lat case
+      R"({"id": {"authority": "OGC", "code": "CRS84"}})",
+      R"({"id": {"authority": "EPSG", "code": 4326}})"};
+
+  std::string geoarrow_lonlatish_crs = geoarrow_lonlat[0];
+  for (const auto& geoarrow_lonlatish_crs : geoarrow_lonlat) {
+    SCOPED_TRACE(geoarrow_lonlatish_crs);
+    std::vector<std::shared_ptr<Field>> arrow_fields = {
+        ::arrow::field("geometry",
+                       geoarrow_wkb(R"({"crs": )" + geoarrow_lonlatish_crs + "}"), true),
+        ::arrow::field("geography",
+                       geoarrow_wkb(R"({"crs": )" + geoarrow_lonlatish_crs +
+                                    R"(, "edges": "spherical"})"),
+                       true)};
+
+    ASSERT_OK(ConvertSchema(arrow_fields, arrow_properties));
+    ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
+  }
+}
+
+TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsSrid) {
+  // Checks the conversion between GeoArrow's crs_type: srid and Parquet's srid:XXX.
+  // SRID (spatial reference identifier) is an opaque application specific identifier
+  // that GeoArrow will transport but refuse to resolve if required for a spatial
+  // operation.
+  ::arrow::ExtensionTypeGuard guard(geoarrow_wkb());
+
+  ArrowWriterProperties::Builder builder;
+  builder.write_geospatial_logical_types();
+  auto arrow_properties = builder.build();
+
+  std::vector<NodePtr> parquet_fields;
+  parquet_fields.push_back(PrimitiveNode::Make("geometry", Repetition::OPTIONAL,
+                                               LogicalType::Geometry("srid:1234"),
+                                               ParquetType::BYTE_ARRAY));
+  parquet_fields.push_back(PrimitiveNode::Make("geography", Repetition::OPTIONAL,
+                                               LogicalType::Geography("srid:5678"),
+                                               ParquetType::BYTE_ARRAY));
+
+  std::vector<std::shared_ptr<Field>> arrow_fields = {
+      ::arrow::field("geometry", geoarrow_wkb(R"({"crs": "1234", "crs_type": "srid"})"),
+                     true),
+      ::arrow::field(
+          "geography",
+          geoarrow_wkb(R"({"crs": "5678", "crs_type": "srid", "edges": "spherical"})"),
+          true)};
+
+  ASSERT_OK(ConvertSchema(arrow_fields, arrow_properties));
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
+}
+
+TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsProjjson) {
+  GTEST_SKIP() << "GeoArrow/PROJJSON support not yet implemented";
+
+  // Checks the conversion between GeoArrow that contains non-lon/lat PROJJSON
+  // to Parquet. Almost all GeoArrow types that arrive at the Parquet reader
+  // will have their CRS expressed in this way.
+  ::arrow::ExtensionTypeGuard guard(geoarrow_wkb());
+
+  ArrowWriterProperties::Builder builder;
+  builder.write_geospatial_logical_types();
+  auto arrow_properties = builder.build();
+
+  std::vector<NodePtr> parquet_fields;
+  parquet_fields.push_back(PrimitiveNode::Make("geometry", Repetition::OPTIONAL,
+                                               LogicalType::Geometry("projjson:1234"),
+                                               ParquetType::BYTE_ARRAY));
+  parquet_fields.push_back(PrimitiveNode::Make("geography", Repetition::OPTIONAL,
+                                               LogicalType::Geography("projjson:5678"),
+                                               ParquetType::BYTE_ARRAY));
+
+  std::vector<std::shared_ptr<Field>> arrow_fields = {
+      ::arrow::field("geometry", geoarrow_wkb(R"({"crs": "1234", "crs_type": "srid"})"),
+                     true),
+      ::arrow::field(
+          "geography",
+          geoarrow_wkb(R"({"crs": "5678", "crs_type": "srid", "edges": "spherical"})"),
+          true)};
+
+  ASSERT_OK(ConvertSchema(arrow_fields, arrow_properties));
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }
 
