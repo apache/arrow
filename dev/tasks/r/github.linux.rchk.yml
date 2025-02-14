@@ -22,12 +22,12 @@
 jobs:
   as-cran:
     name: "rchk"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
     env:
       ARROW_R_DEV: "FALSE"
-      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
+      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/jammy/latest"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
