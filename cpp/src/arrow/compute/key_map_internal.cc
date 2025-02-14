@@ -97,24 +97,28 @@ inline void SwissTable::search_block(uint64_t block, int stamp, int start_slot,
 template <typename T, bool use_selection>
 void SwissTable::extract_group_ids_imp(const int num_keys, const uint16_t* selection,
                                        const uint32_t* hashes, const uint8_t* local_slots,
-                                       uint32_t* out_group_ids, int element_offset,
-                                       int element_multiplier) const {
-  const T* elements = reinterpret_cast<const T*>(blocks_->data()) + element_offset;
+                                       uint32_t* out_group_ids) const {
   if (log_blocks_ == 0) {
-    ARROW_DCHECK(sizeof(T) == sizeof(uint8_t));
+    DCHECK_EQ(sizeof(T), sizeof(uint8_t));
     for (int i = 0; i < num_keys; ++i) {
       uint32_t id = use_selection ? selection[i] : i;
-      uint32_t group_id = blocks()[8 + local_slots[id]];
+      uint32_t group_id =
+          block_data(/*block_id=*/0,
+                     /*num_block_bytes=*/0)[bytes_status_in_block_ + local_slots[id]];
       out_group_ids[id] = group_id;
     }
   } else {
+    int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
+    DCHECK_EQ(sizeof(T) * 8, num_groupid_bits);
+    int num_block_bytes = num_block_bytes_from_num_groupid_bits(num_groupid_bits);
+
     for (int i = 0; i < num_keys; ++i) {
       uint32_t id = use_selection ? selection[i] : i;
       uint32_t hash = hashes[id];
-      int64_t pos =
-          (hash >> (bits_hash_ - log_blocks_)) * element_multiplier + local_slots[id];
-      uint32_t group_id = static_cast<uint32_t>(elements[pos]);
-      ARROW_DCHECK(group_id < num_inserted_ || num_inserted_ == 0);
+      uint32_t block_id = block_id_from_hash(hash, log_blocks_);
+      const T* slots_base = reinterpret_cast<const T*>(
+          block_data(block_id, num_block_bytes) + bytes_status_in_block_);
+      uint32_t group_id = static_cast<uint32_t>(slots_base[local_slots[id]]);
       out_group_ids[id] = group_id;
     }
   }
@@ -123,59 +127,49 @@ void SwissTable::extract_group_ids_imp(const int num_keys, const uint16_t* selec
 void SwissTable::extract_group_ids(const int num_keys, const uint16_t* optional_selection,
                                    const uint32_t* hashes, const uint8_t* local_slots,
                                    uint32_t* out_group_ids) const {
-  // Group id values for all 8 slots in the block are bit-packed and follow the status
-  // bytes. We assume here that the number of bits is rounded up to 8, 16, 32 or 64. In
-  // that case we can extract group id using aligned 64-bit word access.
-  int num_group_id_bits = num_groupid_bits_from_log_blocks(log_blocks_);
-  ARROW_DCHECK(num_group_id_bits == 8 || num_group_id_bits == 16 ||
-               num_group_id_bits == 32);
-
   int num_processed = 0;
-
   // Optimistically use simplified lookup involving only a start block to find
   // a single group id candidate for every input.
 #if defined(ARROW_HAVE_RUNTIME_AVX2) && defined(ARROW_HAVE_RUNTIME_BMI2)
-  int num_group_id_bytes = num_group_id_bits / 8;
   if ((hardware_flags_ & CpuInfo::AVX2) && CpuInfo::GetInstance()->HasEfficientBmi2() &&
       !optional_selection) {
-    num_processed = extract_group_ids_avx2(num_keys, hashes, local_slots, out_group_ids,
-                                           sizeof(uint64_t), 8 + 8 * num_group_id_bytes,
-                                           num_group_id_bytes);
+    num_processed = extract_group_ids_avx2(num_keys, hashes, local_slots, out_group_ids);
   }
 #endif
-  switch (num_group_id_bits) {
+  int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
+  switch (num_groupid_bits) {
     case 8:
       if (optional_selection) {
         extract_group_ids_imp<uint8_t, true>(num_keys, optional_selection, hashes,
-                                             local_slots, out_group_ids, 8, 16);
+                                             local_slots, out_group_ids);
       } else {
         extract_group_ids_imp<uint8_t, false>(
             num_keys - num_processed, nullptr, hashes + num_processed,
-            local_slots + num_processed, out_group_ids + num_processed, 8, 16);
+            local_slots + num_processed, out_group_ids + num_processed);
       }
       break;
     case 16:
       if (optional_selection) {
         extract_group_ids_imp<uint16_t, true>(num_keys, optional_selection, hashes,
-                                              local_slots, out_group_ids, 4, 12);
+                                              local_slots, out_group_ids);
       } else {
         extract_group_ids_imp<uint16_t, false>(
             num_keys - num_processed, nullptr, hashes + num_processed,
-            local_slots + num_processed, out_group_ids + num_processed, 4, 12);
+            local_slots + num_processed, out_group_ids + num_processed);
       }
       break;
     case 32:
       if (optional_selection) {
         extract_group_ids_imp<uint32_t, true>(num_keys, optional_selection, hashes,
-                                              local_slots, out_group_ids, 2, 10);
+                                              local_slots, out_group_ids);
       } else {
         extract_group_ids_imp<uint32_t, false>(
             num_keys - num_processed, nullptr, hashes + num_processed,
-            local_slots + num_processed, out_group_ids + num_processed, 2, 10);
+            local_slots + num_processed, out_group_ids + num_processed);
       }
       break;
     default:
-      ARROW_DCHECK(false);
+      DCHECK(false);
   }
 }
 
@@ -195,9 +189,9 @@ void SwissTable::init_slot_ids(const int num_keys, const uint16_t* selection,
     for (int i = 0; i < num_keys; ++i) {
       uint16_t id = selection[i];
       uint32_t hash = hashes[id];
-      uint32_t iblock = (hash >> (bits_hash_ - log_blocks_));
+      uint32_t iblock = block_id_from_hash(hash, log_blocks_);
       uint32_t match = ::arrow::bit_util::GetBit(match_bitvector, id) ? 1 : 0;
-      uint32_t slot_id = iblock * 8 + local_slots[id] + match;
+      uint32_t slot_id = global_slot_id(iblock, local_slots[id] + match);
       out_slot_ids[id] = slot_id;
     }
   }
@@ -207,11 +201,11 @@ void SwissTable::init_slot_ids_for_new_keys(uint32_t num_ids, const uint16_t* id
                                             const uint32_t* hashes,
                                             uint32_t* slot_ids) const {
   int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
-  uint32_t num_block_bytes = num_groupid_bits + 8;
+  int num_block_bytes = num_block_bytes_from_num_groupid_bits(num_groupid_bits);
   if (log_blocks_ == 0) {
     uint64_t block = *reinterpret_cast<const uint64_t*>(blocks_->mutable_data());
-    uint32_t empty_slot =
-        static_cast<uint32_t>(8 - ARROW_POPCOUNT64(block & kHighBitOfEachByte));
+    uint32_t empty_slot = static_cast<uint32_t>(
+        kSlotsPerBlock - ARROW_POPCOUNT64(block & kHighBitOfEachByte));
     for (uint32_t i = 0; i < num_ids; ++i) {
       int id = ids[i];
       slot_ids[id] = empty_slot;
@@ -220,19 +214,18 @@ void SwissTable::init_slot_ids_for_new_keys(uint32_t num_ids, const uint16_t* id
     for (uint32_t i = 0; i < num_ids; ++i) {
       int id = ids[i];
       uint32_t hash = hashes[id];
-      uint32_t iblock = hash >> (bits_hash_ - log_blocks_);
+      uint32_t iblock = block_id_from_hash(hash, log_blocks_);
       uint64_t block;
       for (;;) {
-        block = *reinterpret_cast<const uint64_t*>(blocks_->mutable_data() +
-                                                   num_block_bytes * iblock);
+        block = *reinterpret_cast<const uint64_t*>(block_data(iblock, num_block_bytes));
         block &= kHighBitOfEachByte;
         if (block) {
           break;
         }
         iblock = (iblock + 1) & ((1 << log_blocks_) - 1);
       }
-      uint32_t empty_slot = static_cast<int>(8 - ARROW_POPCOUNT64(block));
-      slot_ids[id] = iblock * 8 + empty_slot;
+      uint32_t empty_slot = static_cast<int>(kSlotsPerBlock - ARROW_POPCOUNT64(block));
+      slot_ids[id] = global_slot_id(iblock, empty_slot);
     }
   }
 }
@@ -249,6 +242,7 @@ void SwissTable::early_filter_imp(const int num_keys, const uint32_t* hashes,
   // Based on the size of the table, prepare bit number constants.
   uint32_t stamp_mask = (1 << bits_stamp_) - 1;
   int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
+  int num_block_bytes = num_block_bytes_from_num_groupid_bits(num_groupid_bits);
 
   for (int i = 0; i < num_keys; ++i) {
     // Extract from hash: block index and stamp
@@ -258,9 +252,7 @@ void SwissTable::early_filter_imp(const int num_keys, const uint32_t* hashes,
     uint32_t stamp = iblock & stamp_mask;
     iblock >>= bits_shift_for_block_;
 
-    uint32_t num_block_bytes = num_groupid_bits + 8;
-    const uint8_t* blockbase =
-        blocks_->data() + static_cast<uint64_t>(iblock) * num_block_bytes;
+    const uint8_t* blockbase = block_data(iblock, num_block_bytes);
     ARROW_DCHECK(num_block_bytes % sizeof(uint64_t) == 0);
     uint64_t block = *reinterpret_cast<const uint64_t*>(blockbase);
 
@@ -280,14 +272,14 @@ void SwissTable::early_filter_imp(const int num_keys, const uint32_t* hashes,
 // How many groups we can keep in the hash table without the need for resizing.
 // When we reach this limit, we need to break processing of any further rows and resize.
 //
-uint64_t SwissTable::num_groups_for_resize() const {
+int64_t SwissTable::num_groups_for_resize() const {
   // Consider N = 9 (aka 2 ^ 9 = 512 blocks) as small.
   // When N = 9, a slot id takes N + 3 = 12 bits, rounded up to 16 bits. This is also the
   // number of bits needed for a key id. Since each slot stores a status byte and a key
   // id, then a slot takes 1 byte + 16 bits = 3 bytes. Therefore a block of 8 slots takes
   // 24 bytes. The threshold of a small hash table ends up being 24 bytes * 512 = 12 KB.
   constexpr int log_blocks_small_ = 9;
-  uint64_t num_slots = 1ULL << (log_blocks_ + 3);
+  int64_t num_slots = num_slots_from_log_blocks(log_blocks_);
   if (log_blocks_ <= log_blocks_small_) {
     // Resize small hash tables when 50% full.
     return num_slots / 2;
@@ -297,8 +289,9 @@ uint64_t SwissTable::num_groups_for_resize() const {
   }
 }
 
-uint64_t SwissTable::wrap_global_slot_id(uint64_t global_slot_id) const {
-  uint64_t global_slot_id_mask = (1 << (log_blocks_ + 3)) - 1;
+uint32_t SwissTable::wrap_global_slot_id(uint32_t global_slot_id) const {
+  uint32_t global_slot_id_mask =
+      static_cast<uint32_t>((1ULL << (log_blocks_ + kLogSlotsPerBlock)) - 1ULL);
   return global_slot_id & global_slot_id_mask;
 }
 
@@ -396,37 +389,38 @@ void SwissTable::run_comparisons(const int num_keys,
 bool SwissTable::find_next_stamp_match(const uint32_t hash, const uint32_t in_slot_id,
                                        uint32_t* out_slot_id,
                                        uint32_t* out_group_id) const {
-  const uint64_t num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
+  const int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
+  const int num_block_bytes = num_block_bytes_from_num_groupid_bits(num_groupid_bits);
+  const int group_id_mask = group_id_mask_from_num_groupid_bits(num_groupid_bits);
   constexpr uint64_t stamp_mask = 0x7f;
   const int stamp =
       static_cast<int>((hash >> bits_shift_for_block_and_stamp_) & stamp_mask);
-  uint64_t start_slot_id = wrap_global_slot_id(in_slot_id);
+  uint32_t start_slot_id = wrap_global_slot_id(in_slot_id);
   int match_found;
   int local_slot;
-  uint8_t* blockbase;
+  const uint8_t* blockbase;
   for (;;) {
-    const uint64_t num_block_bytes = (8 + num_groupid_bits);
-    blockbase = blocks_->mutable_data() + num_block_bytes * (start_slot_id >> 3);
-    uint64_t block = *reinterpret_cast<uint64_t*>(blockbase);
+    blockbase = block_data(start_slot_id >> kLogSlotsPerBlock, num_block_bytes);
+    uint64_t block = *reinterpret_cast<const uint64_t*>(blockbase);
 
-    search_block<true>(block, stamp, (start_slot_id & 7), &local_slot, &match_found);
+    search_block<true>(block, stamp, start_slot_id & kLocalSlotMask, &local_slot,
+                       &match_found);
 
     start_slot_id =
-        wrap_global_slot_id((start_slot_id & ~7ULL) + local_slot + match_found);
+        wrap_global_slot_id((start_slot_id & ~kLocalSlotMask) + local_slot + match_found);
 
     // Match found can be 1 in two cases:
     // - match was found
     // - match was not found in a full block
     // In the second case search needs to continue in the next block.
-    if (match_found == 0 || blockbase[7 - local_slot] == stamp) {
+    if (match_found == 0 || blockbase[kMaxLocalSlot - local_slot] == stamp) {
       break;
     }
   }
 
-  const uint64_t groupid_mask = (1ULL << num_groupid_bits) - 1;
   *out_group_id =
-      static_cast<uint32_t>(extract_group_id(blockbase, local_slot, groupid_mask));
-  *out_slot_id = static_cast<uint32_t>(start_slot_id);
+      extract_group_id(blockbase, local_slot, num_groupid_bits, group_id_mask);
+  *out_slot_id = start_slot_id;
 
   return match_found;
 }
@@ -531,7 +525,7 @@ Status SwissTable::map_new_keys_helper(
   //
   ARROW_DCHECK(*inout_num_selected <= static_cast<uint32_t>(1 << log_minibatch_));
 
-  size_t num_bytes_for_bits = (*inout_num_selected + 7) / 8 + sizeof(uint64_t);
+  size_t num_bytes_for_bits = (*inout_num_selected + 7) / 8 + bytes_status_in_block_;
   auto match_bitvector_buf = util::TempVectorHolder<uint8_t>(
       temp_stack, static_cast<uint32_t>(num_bytes_for_bits));
   uint8_t* match_bitvector = match_bitvector_buf.mutable_data();
@@ -645,7 +639,8 @@ Status SwissTable::map_new_keys(uint32_t num_ids, uint16_t* ids, const uint32_t*
       for (uint32_t i = 0; i < num_ids; ++i) {
         // First slot in the new starting block
         const int16_t id = ids[i];
-        slot_ids[id] = (hashes[id] >> (bits_hash_ - log_blocks_)) * 8;
+        uint32_t block_id = block_id_from_hash(hashes[id], log_blocks_);
+        slot_ids[id] = global_slot_id(block_id, /*local_slot_id=*/0);
       }
     }
   } while (num_ids > 0);
@@ -657,16 +652,18 @@ Status SwissTable::grow_double() {
   // Before and after metadata
   int num_group_id_bits_before = num_groupid_bits_from_log_blocks(log_blocks_);
   int num_group_id_bits_after = num_groupid_bits_from_log_blocks(log_blocks_ + 1);
-  uint64_t group_id_mask_before = ~0ULL >> (64 - num_group_id_bits_before);
+  uint32_t group_id_mask_before =
+      group_id_mask_from_num_groupid_bits(num_group_id_bits_before);
   int log_blocks_after = log_blocks_ + 1;
   int bits_shift_for_block_and_stamp_after =
       ComputeBitsShiftForBlockAndStamp(log_blocks_after);
   int bits_shift_for_block_after = ComputeBitsShiftForBlock(log_blocks_after);
-  uint64_t block_size_before = (8 + num_group_id_bits_before);
-  uint64_t block_size_after = (8 + num_group_id_bits_after);
-  uint64_t block_size_total_after = (block_size_after << log_blocks_after) + padding_;
-  uint64_t hashes_size_total_after =
-      (bits_hash_ / 8 * (1 << (log_blocks_after + 3))) + padding_;
+  int block_size_before = num_block_bytes_from_num_groupid_bits(num_group_id_bits_before);
+  int block_size_after = num_block_bytes_from_num_groupid_bits(num_group_id_bits_after);
+  int64_t block_size_total_after =
+      num_bytes_total_blocks(block_size_after, log_blocks_after);
+  int64_t hashes_size_total_after =
+      (bits_hash_ / 8 * num_slots_from_log_blocks(log_blocks_after)) + padding_;
   constexpr uint32_t stamp_mask = (1 << bits_stamp_) - 1;
 
   // Allocate new buffers
@@ -682,44 +679,39 @@ Status SwissTable::grow_double() {
   // (block other than selected by hash bits corresponding to the entry).
   for (int i = 0; i < (1 << log_blocks_); ++i) {
     // How many full slots in this block
-    uint8_t* block_base = blocks_->mutable_data() + i * block_size_before;
+    const uint8_t* block_base = block_data(i, block_size_before);
     uint8_t* double_block_base_new =
-        blocks_new->mutable_data() + 2 * i * block_size_after;
+        mutable_block_data(blocks_new->mutable_data(), 2 * i, block_size_after);
     uint64_t block = *reinterpret_cast<const uint64_t*>(block_base);
 
-    auto full_slots =
-        static_cast<int>(CountLeadingZeros(block & kHighBitOfEachByte) >> 3);
-    int full_slots_new[2];
+    uint32_t full_slots = CountLeadingZeros(block & kHighBitOfEachByte) >> 3;
+    uint32_t full_slots_new[2];
     full_slots_new[0] = full_slots_new[1] = 0;
     util::SafeStore(double_block_base_new, kHighBitOfEachByte);
     util::SafeStore(double_block_base_new + block_size_after, kHighBitOfEachByte);
 
-    for (int j = 0; j < full_slots; ++j) {
-      uint64_t slot_id = i * 8 + j;
+    for (uint32_t j = 0; j < full_slots; ++j) {
+      uint32_t slot_id = global_slot_id(i, j);
       uint32_t hash = hashes()[slot_id];
-      uint64_t block_id_new = hash >> (bits_hash_ - log_blocks_after);
+      uint32_t block_id_new = block_id_from_hash(hash, log_blocks_after);
       bool is_overflow_entry = ((block_id_new >> 1) != static_cast<uint64_t>(i));
       if (is_overflow_entry) {
         continue;
       }
 
-      int ihalf = block_id_new & 1;
+      uint32_t ihalf = block_id_new & 1;
       uint8_t stamp_new = (hash >> bits_shift_for_block_and_stamp_after) & stamp_mask;
-      uint64_t group_id_bit_offs = j * num_group_id_bits_before;
-      uint64_t group_id =
-          (util::SafeLoadAs<uint64_t>(block_base + 8 + (group_id_bit_offs >> 3)) >>
-           (group_id_bit_offs & 7)) &
-          group_id_mask_before;
-
-      uint64_t slot_id_new = i * 16 + ihalf * 8 + full_slots_new[ihalf];
+      uint32_t group_id =
+          extract_group_id(block_base, j, num_group_id_bits_before, group_id_mask_before);
+      uint32_t slot_id_new = global_slot_id(i * 2 + ihalf, full_slots_new[ihalf]);
       hashes_new[slot_id_new] = hash;
       uint8_t* block_base_new = double_block_base_new + ihalf * block_size_after;
-      block_base_new[7 - full_slots_new[ihalf]] = stamp_new;
+      block_base_new[kMaxLocalSlot - full_slots_new[ihalf]] = stamp_new;
       int group_id_bit_offs_new = full_slots_new[ihalf] * num_group_id_bits_after;
-      uint64_t* ptr =
-          reinterpret_cast<uint64_t*>(block_base_new + 8 + (group_id_bit_offs_new >> 3));
-      util::SafeStore(ptr,
-                      util::SafeLoad(ptr) | (group_id << (group_id_bit_offs_new & 7)));
+      uint64_t* ptr = reinterpret_cast<uint64_t*>(
+          block_base_new + bytes_status_in_block_ + (group_id_bit_offs_new >> 3));
+      util::SafeStore(ptr, util::SafeLoad(ptr) | (static_cast<uint64_t>(group_id)
+                                                  << (group_id_bit_offs_new & 7)));
       full_slots_new[ihalf]++;
     }
   }
@@ -728,32 +720,29 @@ Status SwissTable::grow_double() {
   // Reinsert entries that were in an overflow block.
   for (int i = 0; i < (1 << log_blocks_); ++i) {
     // How many full slots in this block
-    uint8_t* block_base = blocks_->mutable_data() + i * block_size_before;
+    const uint8_t* block_base = block_data(i, block_size_before);
     uint64_t block = util::SafeLoadAs<uint64_t>(block_base);
-    int full_slots = static_cast<int>(CountLeadingZeros(block & kHighBitOfEachByte) >> 3);
+    uint32_t full_slots = CountLeadingZeros(block & kHighBitOfEachByte) >> 3;
 
-    for (int j = 0; j < full_slots; ++j) {
-      uint64_t slot_id = i * 8 + j;
+    for (uint32_t j = 0; j < full_slots; ++j) {
+      uint32_t slot_id = global_slot_id(i, j);
       uint32_t hash = hashes()[slot_id];
-      uint64_t block_id_new = hash >> (bits_hash_ - log_blocks_after);
+      uint32_t block_id_new = block_id_from_hash(hash, log_blocks_after);
       bool is_overflow_entry = ((block_id_new >> 1) != static_cast<uint64_t>(i));
       if (!is_overflow_entry) {
         continue;
       }
 
-      uint64_t group_id_bit_offs = j * num_group_id_bits_before;
-      uint64_t group_id =
-          (util::SafeLoadAs<uint64_t>(block_base + 8 + (group_id_bit_offs >> 3)) >>
-           (group_id_bit_offs & 7)) &
-          group_id_mask_before;
+      uint32_t group_id =
+          extract_group_id(block_base, j, num_group_id_bits_before, group_id_mask_before);
       uint8_t stamp_new = (hash >> bits_shift_for_block_and_stamp_after) & stamp_mask;
 
       uint8_t* block_base_new =
-          blocks_new->mutable_data() + block_id_new * block_size_after;
+          mutable_block_data(blocks_new->mutable_data(), block_id_new, block_size_after);
       uint64_t block_new = util::SafeLoadAs<uint64_t>(block_base_new);
       int full_slots_new =
           static_cast<int>(CountLeadingZeros(block_new & kHighBitOfEachByte) >> 3);
-      while (full_slots_new == 8) {
+      while (full_slots_new == kSlotsPerBlock) {
         block_id_new = (block_id_new + 1) & ((1 << log_blocks_after) - 1);
         block_base_new = blocks_new->mutable_data() + block_id_new * block_size_after;
         block_new = util::SafeLoadAs<uint64_t>(block_base_new);
@@ -761,13 +750,13 @@ Status SwissTable::grow_double() {
             static_cast<int>(CountLeadingZeros(block_new & kHighBitOfEachByte) >> 3);
       }
 
-      hashes_new[block_id_new * 8 + full_slots_new] = hash;
-      block_base_new[7 - full_slots_new] = stamp_new;
+      hashes_new[block_id_new * kSlotsPerBlock + full_slots_new] = hash;
+      block_base_new[kMaxLocalSlot - full_slots_new] = stamp_new;
       int group_id_bit_offs_new = full_slots_new * num_group_id_bits_after;
-      uint64_t* ptr =
-          reinterpret_cast<uint64_t*>(block_base_new + 8 + (group_id_bit_offs_new >> 3));
-      util::SafeStore(ptr,
-                      util::SafeLoad(ptr) | (group_id << (group_id_bit_offs_new & 7)));
+      uint64_t* ptr = reinterpret_cast<uint64_t*>(
+          block_base_new + bytes_status_in_block_ + (group_id_bit_offs_new >> 3));
+      util::SafeStore(ptr, util::SafeLoad(ptr) | (static_cast<uint64_t>(group_id)
+                                                  << (group_id_bit_offs_new & 7)));
     }
   }
 
@@ -792,25 +781,25 @@ Status SwissTable::init(int64_t hardware_flags, MemoryPool* pool, int log_blocks
   int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
   num_inserted_ = 0;
 
-  const uint64_t block_bytes = 8 + num_groupid_bits;
-  const uint64_t slot_bytes = (block_bytes << log_blocks_) + padding_;
+  const int block_bytes = num_block_bytes_from_num_groupid_bits(num_groupid_bits);
+  const int64_t slot_bytes = num_bytes_total_blocks(block_bytes, log_blocks_);
   ARROW_ASSIGN_OR_RAISE(blocks_, AllocateBuffer(slot_bytes, pool_));
 
   // Make sure group ids are initially set to zero for all slots.
   memset(blocks_->mutable_data(), 0, slot_bytes);
 
   // Initialize all status bytes to represent an empty slot.
-  uint8_t* blocks_ptr = blocks_->mutable_data();
-  for (uint64_t i = 0; i < (static_cast<uint64_t>(1) << log_blocks_); ++i) {
-    util::SafeStore(blocks_ptr + i * block_bytes, kHighBitOfEachByte);
+  for (int i = 0; i < 1 << log_blocks_; ++i) {
+    auto block = mutable_block_data(i, block_bytes);
+    util::SafeStore(block, kHighBitOfEachByte);
   }
 
   if (no_hash_array) {
     hashes_ = nullptr;
   } else {
-    uint64_t num_slots = 1ULL << (log_blocks_ + 3);
-    const uint64_t hash_size = sizeof(uint32_t);
-    const uint64_t hash_bytes = hash_size * num_slots + padding_;
+    int64_t num_slots = num_slots_from_log_blocks(log_blocks);
+    const int hash_size = bits_hash_ >> 3;
+    const int64_t hash_bytes = hash_size * num_slots + padding_;
     ARROW_ASSIGN_OR_RAISE(hashes_, AllocateBuffer(hash_bytes, pool_));
   }
 

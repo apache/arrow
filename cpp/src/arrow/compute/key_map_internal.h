@@ -81,31 +81,77 @@ class ARROW_EXPORT SwissTable {
 
   void num_inserted(uint32_t i) { num_inserted_ = i; }
 
-  uint8_t* blocks() const { return blocks_->mutable_data(); }
-
   uint32_t* hashes() const {
     return reinterpret_cast<uint32_t*>(hashes_->mutable_data());
   }
 
-  /// \brief Extract group id for a given slot in a given block.
+  /// \brief Extract group id for a given slot in a given block using aligned 32-bit read
+  /// regardless of the number of group id bits.
+  /// Note that group_id_mask should be derived from num_group_id_bits. This function
+  /// accepts both and does debug checking for performance sake.
   ///
-  inline uint64_t extract_group_id(const uint8_t* block_ptr, int slot,
-                                   uint64_t group_id_mask) const;
+  static uint32_t extract_group_id(const uint8_t* block_ptr, int local_slot,
+                                   int num_group_id_bits, uint32_t group_id_mask) {
+    assert(group_id_mask_from_num_groupid_bits(num_group_id_bits) == group_id_mask);
+    int slot_bit_offset = local_slot * num_group_id_bits;
+    const uint32_t* group_id_ptr32 =
+        reinterpret_cast<const uint32_t*>(block_ptr + bytes_status_in_block_) +
+        (slot_bit_offset >> 5);
+    uint32_t group_id = (*group_id_ptr32 >> (slot_bit_offset & 31)) & group_id_mask;
+    return group_id;
+  }
 
-  inline void insert_into_empty_slot(uint32_t slot_id, uint32_t hash, uint32_t group_id);
+  inline void insert_into_empty_slot(uint32_t global_slot_id, uint32_t hash,
+                                     uint32_t group_id);
+
+  static uint32_t block_id_from_hash(uint32_t hash, int log_blocks) {
+    return hash >> (bits_hash_ - log_blocks);
+  }
+
+  static uint32_t global_slot_id(uint32_t block_id, uint32_t local_slot_id) {
+    return block_id * kSlotsPerBlock + local_slot_id;
+  }
 
   static int num_groupid_bits_from_log_blocks(int log_blocks) {
-    int required_bits = log_blocks + 3;
-    return required_bits <= 8    ? 8
-           : required_bits <= 16 ? 16
-           : required_bits <= 32 ? 32
-                                 : 64;
+    assert(log_blocks >= 0);
+    int required_bits = log_blocks + kLogSlotsPerBlock;
+    assert(required_bits <= 32);
+    return required_bits <= 8 ? 8 : required_bits <= 16 ? 16 : 32;
   }
+
+  static int num_block_bytes_from_num_groupid_bits(int num_groupid_bits) {
+    return num_groupid_bits + bytes_status_in_block_;
+  }
+
+  static uint32_t group_id_mask_from_num_groupid_bits(int num_groupid_bits) {
+    // num_groupid_bits could be 32, so using 64-bit shifting.
+    return static_cast<uint32_t>((1ULL << num_groupid_bits) - 1ULL);
+  }
+
+  const uint8_t* block_data(uint32_t block_id, int num_block_bytes) const {
+    return block_data(blocks_->data(), block_id, num_block_bytes);
+  }
+
+  uint8_t* mutable_block_data(uint32_t block_id, int num_block_bytes) {
+    return mutable_block_data(blocks_->mutable_data(), block_id, num_block_bytes);
+  }
+
+  static constexpr int kSlotsPerBlock = 8;
 
   // Use 32-bit hash for now
   static constexpr int bits_hash_ = 32;
 
  private:
+  static const uint8_t* block_data(const uint8_t* blocks, uint32_t block_id,
+                                   int num_block_bytes) {
+    return blocks + static_cast<int64_t>(block_id) * num_block_bytes;
+  }
+
+  static uint8_t* mutable_block_data(uint8_t* blocks, uint32_t block_id,
+                                     int num_block_bytes) {
+    return blocks + static_cast<int64_t>(block_id) * num_block_bytes;
+  }
+
   // Lookup helpers
 
   /// \brief Scan bytes in block in reverse and stop as soon
@@ -142,15 +188,23 @@ class ARROW_EXPORT SwissTable {
   template <typename T, bool use_selection>
   void extract_group_ids_imp(const int num_keys, const uint16_t* selection,
                              const uint32_t* hashes, const uint8_t* local_slots,
-                             uint32_t* out_group_ids, int elements_offset,
-                             int element_multiplier) const;
+                             uint32_t* out_group_ids) const;
 
-  inline uint64_t next_slot_to_visit(uint64_t block_index, int slot,
-                                     int match_found) const;
+  static constexpr int kLogSlotsPerBlock = 3;
+  static constexpr int kMaxLocalSlot = kSlotsPerBlock - 1;
+  static constexpr uint32_t kLocalSlotMask = (1U << kLogSlotsPerBlock) - 1U;
 
-  inline uint64_t num_groups_for_resize() const;
+  static int64_t num_slots_from_log_blocks(int log_blocks) {
+    return 1LL << (log_blocks + kLogSlotsPerBlock);
+  }
 
-  inline uint64_t wrap_global_slot_id(uint64_t global_slot_id) const;
+  static int64_t num_bytes_total_blocks(int num_block_bytes, int log_blocks) {
+    return (static_cast<int64_t>(num_block_bytes) << log_blocks) + padding_;
+  }
+
+  inline int64_t num_groups_for_resize() const;
+
+  inline uint32_t wrap_global_slot_id(uint32_t global_slot_id) const;
 
   void init_slot_ids(const int num_keys, const uint16_t* selection,
                      const uint32_t* hashes, const uint8_t* local_slots,
@@ -173,8 +227,7 @@ class ARROW_EXPORT SwissTable {
                                 uint8_t* out_match_bitvector,
                                 uint8_t* out_local_slots) const;
   int extract_group_ids_avx2(const int num_keys, const uint32_t* hashes,
-                             const uint8_t* local_slots, uint32_t* out_group_ids,
-                             int byte_offset, int byte_multiplier, int byte_size) const;
+                             const uint8_t* local_slots, uint32_t* out_group_ids) const;
 #endif
 
   void run_comparisons(const int num_keys, const uint16_t* optional_selection_ids,
@@ -220,6 +273,8 @@ class ARROW_EXPORT SwissTable {
     return bits_stamp_;
   }
 
+  static constexpr int bytes_status_in_block_ = 8;
+
   // Number of hash bits stored in slots in a block.
   // The highest bits of hash determine block id.
   // The next set of highest bits is a "stamp" stored in a slot in a block.
@@ -263,46 +318,30 @@ class ARROW_EXPORT SwissTable {
   MemoryPool* pool_;
 };
 
-uint64_t SwissTable::extract_group_id(const uint8_t* block_ptr, int slot,
-                                      uint64_t group_id_mask) const {
-  // Group id values for all 8 slots in the block are bit-packed and follow the status
-  // bytes. We assume here that the number of bits is rounded up to 8, 16, 32 or 64. In
-  // that case we can extract group id using aligned 64-bit word access.
-  int num_group_id_bits = static_cast<int>(ARROW_POPCOUNT64(group_id_mask));
-  assert(num_group_id_bits == 8 || num_group_id_bits == 16 || num_group_id_bits == 32 ||
-         num_group_id_bits == 64);
-
-  int bit_offset = slot * num_group_id_bits;
-  const uint64_t* group_id_bytes =
-      reinterpret_cast<const uint64_t*>(block_ptr) + 1 + (bit_offset >> 6);
-  uint64_t group_id = (*group_id_bytes >> (bit_offset & 63)) & group_id_mask;
-
-  return group_id;
-}
-
-void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
+void SwissTable::insert_into_empty_slot(uint32_t global_slot_id, uint32_t hash,
                                         uint32_t group_id) {
-  const uint64_t num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
+  const int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
 
   // We assume here that the number of bits is rounded up to 8, 16, 32 or 64.
   // In that case we can insert group id value using aligned 64-bit word access.
   assert(num_groupid_bits == 8 || num_groupid_bits == 16 || num_groupid_bits == 32 ||
          num_groupid_bits == 64);
 
-  const uint64_t num_block_bytes = (8 + num_groupid_bits);
-  constexpr uint64_t stamp_mask = 0x7f;
+  const int num_block_bytes = num_block_bytes_from_num_groupid_bits(num_groupid_bits);
+  constexpr uint32_t stamp_mask = 0x7f;
 
-  int start_slot = (slot_id & 7);
-  int stamp = static_cast<int>((hash >> bits_shift_for_block_and_stamp_) & stamp_mask);
-  uint64_t block_id = slot_id >> 3;
-  uint8_t* blockbase = blocks_->mutable_data() + num_block_bytes * block_id;
+  int start_slot = (global_slot_id & kLocalSlotMask);
+  int stamp = (hash >> bits_shift_for_block_and_stamp_) & stamp_mask;
+  uint32_t block_id = global_slot_id >> kLogSlotsPerBlock;
+  uint8_t* blockbase = mutable_block_data(block_id, num_block_bytes);
 
-  blockbase[7 - start_slot] = static_cast<uint8_t>(stamp);
-  int groupid_bit_offset = static_cast<int>(start_slot * num_groupid_bits);
+  blockbase[kMaxLocalSlot - start_slot] = static_cast<uint8_t>(stamp);
+  int groupid_bit_offset = start_slot * num_groupid_bits;
 
   // Block status bytes should start at an address aligned to 8 bytes
   assert((reinterpret_cast<uint64_t>(blockbase) & 7) == 0);
-  uint64_t* ptr = reinterpret_cast<uint64_t*>(blockbase) + 1 + (groupid_bit_offset >> 6);
+  uint64_t* ptr = reinterpret_cast<uint64_t*>(blockbase + bytes_status_in_block_) +
+                  (groupid_bit_offset >> 6);
   *ptr |= (static_cast<uint64_t>(group_id) << (groupid_bit_offset & 63));
 }
 
