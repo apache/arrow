@@ -588,44 +588,59 @@ More specifically, Parquet C++ supports:
 Configuration
 ~~~~~~~~~~~~~
 
-An example for writing a dataset using encrypted Parquet file format:
+Parquet encryption uses a ``parquet::encryption::CryptoFactory`` that has access to a
+Key Management System (KMS), which stores actual encryption keys, referenced by key ids.
+The Parquet encryption configuration only uses key ids, no actual keys.
+
+Parquet metadata encryption is configured via ``parquet::encryption::EncryptionConfiguration``:
 
 .. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
    :language: cpp
-   :start-after: arrow::Status WriteEncryptedFile(
-   :end-before: return arrow::Status::OK();
-   :emphasize-lines: 8-14
+   :start-at: // Set write options with encryption configuration
+   :end-before: encryption_config->column_keys
    :dedent: 2
 
-Column encryption is configured by setting ``encryption_config->column_keys`` to a string
-of the format ``"columnKeyID:colName,colName;columnKeyID:colName..."``.
+All columns are encrypted with the same key as the Parquet metadata when above
+``encryption_config->uniform_encryption`` is set ``true``.
+
+Individual columns are encrypted with individual keys as configured via ``encryption_config->column_keys``.
+This field expects a string of the format ``"columnKeyID:colName,colName;columnKeyID:colName..."``.
+
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
+   :language: cpp
+   :start-at: // Set write options with encryption configuration
+   :end-before: auto parquet_encryption_config
+   :emphasize-lines: 4-9
+   :dedent: 2
+
+See the full example below: :ref:`cpp-parquet-encryption-full-example`.
 
 .. note::
 
-   Encrypting columns that have nested fields (for instance struct, map, or even list data types)
-   require configuring column keys for the inner fields, not the column itself.
+   Encrypting columns that have nested fields (struct, map, or even list data types)
+   requires column keys for the inner fields, not the column itself.
    Configuring a column key for the column itself causes this error (here column name is ``col``):
 
    .. code-block::
 
       OSError: Encrypted column col not in file schema
 
-An example encryption configuration for columns with nested fields:
+The key and value fields of a map column ``m`` has the names ``m.key_value.key``
+and  ``m.key_value.value``, respectively. The inner field of a list column ``l``
+has the name ``l.list.element``. An inner field ``f`` of a struct column ``s`` has
+the name ``s.f``.
 
-.. code-block:: cpp
+.. _cpp-parquet-encryption-full-example:
 
-   auto table_schema = schema({
-     field("i", int32()),
-     field("s", struct_({field("f1", int32()), field("f2", utf8())})),
-     field("m", map(utf8(), int32())),
-     field("l", list(int32())),
-   });
+Full Example
+~~~~~~~~~~~~
 
-   encryption_config->column_keys = "column_key_id: "
-                                    "s.f1, s.f2, "
-                                    "m.key_value.key, m.key_value.value, "
-                                    "l.list.element"
+This examplifies writing a dataset in encrypted Parquet file format,
+where columns are encrypted with a differnt key than metadata:
 
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
+   :language: cpp
+   :linenos:
 
 Miscellaneous
 -------------

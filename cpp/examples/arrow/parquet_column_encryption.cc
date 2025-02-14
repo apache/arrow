@@ -129,7 +129,7 @@ std::shared_ptr<parquet::encryption::CryptoFactory> GetCryptoFactory() {
 arrow::Status WriteEncryptedFile(const std::string& path_to_file) {
   using arrow::internal::checked_pointer_cast;
 
-  // Get a configured crypto factory and kms connection conf
+  // Get a configured crypto factory and kms connection conf.
   auto crypto_factory = GetCryptoFactory();
   auto kms_connection_config =
       std::make_shared<parquet::encryption::KmsConnectionConfig>();
@@ -143,8 +143,9 @@ arrow::Status WriteEncryptedFile(const std::string& path_to_file) {
       "s.a, s.b, "
       "m.key_value.key, m.key_value.value, "
       "l.list.element";
+
   auto parquet_encryption_config = std::make_shared<ds::ParquetEncryptionConfig>();
-  // Directly assign shared_ptr objects to ParquetEncryptionConfig members
+  // Directly assign shared_ptr objects to ParquetEncryptionConfig members.
   parquet_encryption_config->crypto_factory = crypto_factory;
   parquet_encryption_config->kms_connection_config = kms_connection_config;
   parquet_encryption_config->encryption_config = std::move(encryption_config);
