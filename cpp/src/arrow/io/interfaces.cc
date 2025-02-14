@@ -256,6 +256,13 @@ class FileSegmentReader
     return buffer;
   }
 
+  Status DoAdvance(int64_t nbytes) override {
+    RETURN_NOT_OK(CheckOpen());
+    int64_t bytes_to_skip = std::min(nbytes, nbytes_ - position_);
+    position_ += bytes_to_skip;
+    return Status::OK();
+  }
+
  private:
   std::shared_ptr<RandomAccessFile> file_;
   bool closed_;
