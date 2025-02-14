@@ -1586,7 +1586,7 @@ services:
     # Usage:
     #   docker compose build ubuntu-r-sanitizer
     #   docker compose run ubuntu-r-sanitizer
-    image: ${REPO}:amd64-ubuntu-22.04-r-sanitizer
+    image: ${REPO}:amd64-ubuntu-r-sanitizer
     cap_add:
       # LeakSanitizer and gdb requires ptrace(2)
       - SYS_PTRACE
