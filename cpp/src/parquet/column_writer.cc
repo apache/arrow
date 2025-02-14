@@ -1340,24 +1340,20 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       ARROW_ASSIGN_OR_RAISE(auto boundaries,
                             content_defined_chunker_.GetBoundaries(
                                 def_levels, rep_levels, num_levels, leaf_array));
-      for (auto boundary : boundaries) {
-        auto level_offset = std::get<0>(boundary);
-        auto array_offset = std::get<1>(boundary);
-        auto levels_to_write = std::get<2>(boundary);
-        auto sliced_array = leaf_array.Slice(array_offset);
+      for (auto chunk : boundaries) {
+        auto sliced_array = leaf_array.Slice(chunk.value_offset);
         if (leaf_array.type()->id() == ::arrow::Type::DICTIONARY) {
-          ARROW_CHECK_OK(WriteArrowDictionary(def_levels + level_offset,
-                                              rep_levels + level_offset, levels_to_write,
-                                              *sliced_array, ctx, maybe_parent_nulls));
+          ARROW_CHECK_OK(WriteArrowDictionary(
+              def_levels + chunk.level_offset, rep_levels + chunk.level_offset,
+              chunk.levels_to_write, *sliced_array, ctx, maybe_parent_nulls));
         } else {
-          ARROW_CHECK_OK(WriteArrowDense(def_levels + level_offset,
-                                         rep_levels + level_offset, levels_to_write,
-                                         *sliced_array, ctx, maybe_parent_nulls));
+          ARROW_CHECK_OK(WriteArrowDense(
+              def_levels + chunk.level_offset, rep_levels + chunk.level_offset,
+              chunk.levels_to_write, *sliced_array, ctx, maybe_parent_nulls));
         }
         if (num_buffered_values_ > 0) {
           AddDataPage();
         }
-        // AddDataPage();
       }
       return Status::OK();
     } else {
