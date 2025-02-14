@@ -551,7 +551,7 @@ constexpr uint64_t GEAR_HASH_TABLE[8][256] = {
      0xbf037e245369a618, 0x8038164365f6e2b5, 0xe2e1f6163b4e8d08, 0x8df9314914f0857e},
 };
 
-const int64_t AVG_LEN = 1024 * 1024;
+const uint64_t AVG_LEN = 1024 * 1024;
 
 // create a fake null array class with a GetView method returning 0 always
 class FakeNullArray {
@@ -563,9 +563,22 @@ class FakeNullArray {
   int64_t null_count() const { return 0; }
 };
 
-static uint64_t GetMask(uint64_t avg_len, size_t adjustement_level) {
-  size_t mask_bits = static_cast<size_t>(std::ceil(std::log2(avg_len)));
-  return (1ULL << (mask_bits - adjustement_level)) - 1;
+struct Chunk {
+  int64_t level_offset;
+  int64_t value_offset;
+  int64_t levels_to_write;
+
+  Chunk(int64_t level_offset, int64_t value_offset, int64_t levels_to_write)
+      : level_offset(level_offset),
+        value_offset(value_offset),
+        levels_to_write(levels_to_write) {}
+};
+
+static uint64_t GetMask(uint64_t min_size, uint64_t max_size) {
+  uint64_t avg_size = (min_size + max_size) / 2;
+  size_t mask_bits = static_cast<size_t>(std::ceil(std::log2(avg_size)));
+  size_t effective_bits = mask_bits - 3 - 5;
+  return (1ULL << effective_bits) - 1;
 }
 
 // rename it since it is not FastCDC anymore
@@ -622,10 +635,10 @@ class FastCDC {
   }
 
   template <typename T>
-  const std::vector<std::tuple<int64_t, int64_t, int64_t>> GetBoundaries(
-      const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
-      const T& leaf_array) {
-    std::vector<std::tuple<int64_t, int64_t, int64_t>> result;
+  const std::vector<Chunk> GetBoundaries(const int16_t* def_levels,
+                                         const int16_t* rep_levels, int64_t num_levels,
+                                         const T& leaf_array) {
+    std::vector<Chunk> result;
     bool has_def_levels = level_info_.def_level > 0;
     bool has_rep_levels = level_info_.rep_level > 0;
 
@@ -719,9 +732,10 @@ class FastCDC {
     return GetBoundaries(def_levels, rep_levels, num_levels, \
                          checked_cast<const ::arrow::ArrowType##Array&>(values));
 
-  const ::arrow::Result<std::vector<std::tuple<int64_t, int64_t, int64_t>>> GetBoundaries(
-      const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
-      const ::arrow::Array& values) {
+  const ::arrow::Result<std::vector<Chunk>> GetBoundaries(const int16_t* def_levels,
+                                                          const int16_t* rep_levels,
+                                                          int64_t num_levels,
+                                                          const ::arrow::Array& values) {
     auto type_id = values.type()->id();
     switch (type_id) {
       PRIMITIVE_CASE(BOOL, Boolean)
