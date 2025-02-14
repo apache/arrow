@@ -90,7 +90,7 @@ groups:
     - example-*python*
 
   r:
-    - test*-r-*
+    - test-r-*
     - r-binary-packages
     - r-recheck-most
 
@@ -1289,7 +1289,7 @@ tasks:
       r_tag: latest
       flags: "-e LIBARROW_MINIMAL=TRUE"
 
-  test-ubuntu-r-sanitizer:
+  test-r-linux-sanitizer:
     ci: github
     template: docker-tests/github.linux.yml
     params:
