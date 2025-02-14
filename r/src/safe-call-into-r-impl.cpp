@@ -46,11 +46,7 @@ bool SetEnableSignalStopSource(bool enabled) {
 
 // [[arrow::export]]
 bool CanRunWithCapturedR() {
-#if defined(HAS_UNWIND_PROTECT)
   return MainRThread::GetInstance().Executor() == nullptr;
-#else
-  return false;
-#endif
 }
 
 // [[arrow::export]]
