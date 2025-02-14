@@ -23,6 +23,8 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"
+#include "arrow/record_batch.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 
