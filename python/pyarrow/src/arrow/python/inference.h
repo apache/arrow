@@ -24,6 +24,7 @@
 
 #include <memory>
 
+#include "arrow/extension/uuid.h"
 #include "arrow/python/visibility.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
