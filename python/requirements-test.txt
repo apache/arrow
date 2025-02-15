@@ -1,5 +1,6 @@
 cffi
 hypothesis
+packaging
 pandas
 pytest
 pytz
