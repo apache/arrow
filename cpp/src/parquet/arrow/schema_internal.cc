@@ -32,16 +32,17 @@ using ::arrow::Result;
 using ::arrow::Status;
 using ::arrow::internal::checked_cast;
 
-Result<std::shared_ptr<ArrowType>> MakeArrowDecimal(const LogicalType& logical_type) {
+Result<std::shared_ptr<ArrowType>> MakeArrowDecimal(const LogicalType& logical_type,
+                                                    bool smallest_decimal_enabled) {
   const auto& decimal = checked_cast<const DecimalLogicalType&>(logical_type);
-  if (decimal.precision() <= ::arrow::Decimal32Type::kMaxPrecision) {
-    return ::arrow::Decimal32Type::Make(decimal.precision(), decimal.scale());
-  } else if (decimal.precision() <= ::arrow::Decimal64Type::kMaxPrecision) {
-    return ::arrow::Decimal64Type::Make(decimal.precision(), decimal.scale());
+
+  if (smallest_decimal_enabled) {
+    return ::arrow::smallest_decimal(decimal.precision(), decimal.scale());
   } else if (decimal.precision() <= ::arrow::Decimal128Type::kMaxPrecision) {
     return ::arrow::Decimal128Type::Make(decimal.precision(), decimal.scale());
+  } else {
+    return ::arrow::Decimal256Type::Make(decimal.precision(), decimal.scale());
   }
-  return ::arrow::Decimal256Type::Make(decimal.precision(), decimal.scale());
 }
 
 Result<std::shared_ptr<ArrowType>> MakeArrowInt(const LogicalType& logical_type) {
@@ -114,19 +115,20 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical
   }
 }
 
-Result<std::shared_ptr<ArrowType>> FromByteArray(
-    const LogicalType& logical_type, const ArrowReaderProperties& reader_properties) {
+Result<std::shared_ptr<ArrowType>> FromByteArray(const LogicalType& logical_type,
+                                                 bool arrow_extensions_enabled,
+                                                 bool smallest_decimal_enabled) {
   switch (logical_type.type()) {
     case LogicalType::Type::STRING:
       return ::arrow::utf8();
     case LogicalType::Type::DECIMAL:
-      return MakeArrowDecimal(logical_type);
+      return MakeArrowDecimal(logical_type, smallest_decimal_enabled);
     case LogicalType::Type::NONE:
     case LogicalType::Type::ENUM:
     case LogicalType::Type::BSON:
       return ::arrow::binary();
     case LogicalType::Type::JSON:
-      if (reader_properties.get_arrow_extensions_enabled()) {
+      if (arrow_extensions_enabled) {
         return ::arrow::extension::json(::arrow::utf8());
       }
       // When the original Arrow schema isn't stored and Arrow extensions are disabled,
@@ -139,10 +141,11 @@ Result<std::shared_ptr<ArrowType>> FromByteArray(
 }
 
 Result<std::shared_ptr<ArrowType>> FromFLBA(const LogicalType& logical_type,
-                                            int32_t physical_length) {
+                                            int32_t physical_length,
+                                            bool smallest_decimal_enabled) {
   switch (logical_type.type()) {
     case LogicalType::Type::DECIMAL:
-      return MakeArrowDecimal(logical_type);
+      return MakeArrowDecimal(logical_type, smallest_decimal_enabled);
     case LogicalType::Type::FLOAT16:
       return ::arrow::float16();
     case LogicalType::Type::NONE:
@@ -156,7 +159,8 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(const LogicalType& logical_type,
   }
 }
 
-::arrow::Result<std::shared_ptr<ArrowType>> FromInt32(const LogicalType& logical_type) {
+::arrow::Result<std::shared_ptr<ArrowType>> FromInt32(const LogicalType& logical_type,
+                                                      bool smallest_decimal_enabled) {
   switch (logical_type.type()) {
     case LogicalType::Type::INT:
       return MakeArrowInt(logical_type);
@@ -165,7 +169,7 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(const LogicalType& logical_type,
     case LogicalType::Type::TIME:
       return MakeArrowTime32(logical_type);
     case LogicalType::Type::DECIMAL:
-      return MakeArrowDecimal(logical_type);
+      return MakeArrowDecimal(logical_type, smallest_decimal_enabled);
     case LogicalType::Type::NONE:
       return ::arrow::int32();
     default:
@@ -174,12 +178,13 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(const LogicalType& logical_type,
   }
 }
 
-Result<std::shared_ptr<ArrowType>> FromInt64(const LogicalType& logical_type) {
+Result<std::shared_ptr<ArrowType>> FromInt64(const LogicalType& logical_type,
+                                             bool smallest_decimal_enabled) {
   switch (logical_type.type()) {
     case LogicalType::Type::INT:
       return MakeArrowInt64(logical_type);
     case LogicalType::Type::DECIMAL:
-      return MakeArrowDecimal(logical_type);
+      return MakeArrowDecimal(logical_type, smallest_decimal_enabled);
     case LogicalType::Type::TIMESTAMP:
       return MakeArrowTimestamp(logical_type);
     case LogicalType::Type::TIME:
@@ -199,13 +204,14 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     return ::arrow::null();
   }
 
+  bool smallest_decimal_enabled = reader_properties.smallest_decimal_enabled();
   switch (physical_type) {
     case ParquetType::BOOLEAN:
       return ::arrow::boolean();
     case ParquetType::INT32:
-      return FromInt32(logical_type);
+      return FromInt32(logical_type, smallest_decimal_enabled);
     case ParquetType::INT64:
-      return FromInt64(logical_type);
+      return FromInt64(logical_type, smallest_decimal_enabled);
     case ParquetType::INT96:
       return ::arrow::timestamp(reader_properties.coerce_int96_timestamp_unit());
     case ParquetType::FLOAT:
@@ -213,9 +219,10 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     case ParquetType::DOUBLE:
       return ::arrow::float64();
     case ParquetType::BYTE_ARRAY:
-      return FromByteArray(logical_type, reader_properties);
+      return FromByteArray(logical_type, reader_properties.get_arrow_extensions_enabled(),
+                           smallest_decimal_enabled);
     case ParquetType::FIXED_LEN_BYTE_ARRAY:
-      return FromFLBA(logical_type, type_length);
+      return FromFLBA(logical_type, type_length, smallest_decimal_enabled);
     default: {
       // PARQUET-1565: This can occur if the file is corrupt
       return Status::IOError("Invalid physical column type: ",

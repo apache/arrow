@@ -914,7 +914,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
         cache_options_(::arrow::io::CacheOptions::LazyDefaults()),
         coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO),
         arrow_extensions_enabled_(false),
-        should_load_statistics_(false) {}
+        should_load_statistics_(false),
+        smallest_decimal_enabled_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -1006,6 +1007,11 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// Return whether loading statistics as much as possible.
   bool should_load_statistics() const { return should_load_statistics_; }
 
+  void set_smallest_decimal_enabled(bool smallest_decimal_enabled) {
+    smallest_decimal_enabled_ = smallest_decimal_enabled;
+  }
+  bool smallest_decimal_enabled() const { return smallest_decimal_enabled_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
@@ -1016,6 +1022,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
   bool arrow_extensions_enabled_;
   bool should_load_statistics_;
+  bool smallest_decimal_enabled_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties
