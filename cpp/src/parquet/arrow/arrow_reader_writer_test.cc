@@ -181,6 +181,14 @@ std::shared_ptr<const LogicalType> get_logical_type(const DataType& type) {
           static_cast<const ::arrow::DictionaryType&>(type);
       return get_logical_type(*dict_type.value_type());
     }
+    case ArrowId::DECIMAL32: {
+      const auto& dec_type = static_cast<const ::arrow::Decimal32Type&>(type);
+      return LogicalType::Decimal(dec_type.precision(), dec_type.scale());
+    }
+    case ArrowId::DECIMAL64: {
+      const auto& dec_type = static_cast<const ::arrow::Decimal64Type&>(type);
+      return LogicalType::Decimal(dec_type.precision(), dec_type.scale());
+    }
     case ArrowId::DECIMAL128: {
       const auto& dec_type = static_cast<const ::arrow::Decimal128Type&>(type);
       return LogicalType::Decimal(dec_type.precision(), dec_type.scale());
@@ -206,9 +214,11 @@ ParquetType::type get_physical_type(const DataType& type) {
     case ArrowId::INT16:
     case ArrowId::UINT32:
     case ArrowId::INT32:
+    case ArrowId::DECIMAL32:
       return ParquetType::INT32;
     case ArrowId::UINT64:
     case ArrowId::INT64:
+    case ArrowId::DECIMAL64:
       return ParquetType::INT64;
     case ArrowId::FLOAT:
       return ParquetType::FLOAT;
@@ -533,6 +543,8 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
         case ::arrow::Type::HALF_FLOAT:
           byte_width = sizeof(::arrow::HalfFloatType::c_type);
           break;
+        case ::arrow::Type::DECIMAL32:
+        case ::arrow::Type::DECIMAL64:
         case ::arrow::Type::DECIMAL128:
         case ::arrow::Type::DECIMAL256: {
           const auto& decimal_type = static_cast<const DecimalType&>(values_type);
@@ -548,6 +560,8 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
     case ::arrow::Type::HALF_FLOAT:
       byte_width = sizeof(::arrow::HalfFloatType::c_type);
       break;
+    case ::arrow::Type::DECIMAL32:
+    case ::arrow::Type::DECIMAL64:
     case ::arrow::Type::DECIMAL128:
     case ::arrow::Type::DECIMAL256: {
       const auto& decimal_type = static_cast<const DecimalType&>(type);
@@ -646,11 +660,13 @@ class ParquetIOTestBase : public ::testing::Test {
     ASSERT_OK((*out)->ValidateFull());
   }
 
-  void ReadAndCheckSingleColumnFile(const Array& values) {
+  void ReadAndCheckSingleColumnFile(
+      const Array& values,
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
     std::shared_ptr<Array> out;
 
     std::unique_ptr<FileReader> reader;
-    ReaderFromSink(&reader);
+    ReaderFromSink(&reader, properties);
     ReadSingleColumnFile(std::move(reader), &out);
 
     AssertArraysEqual(values, *out);
@@ -753,9 +769,10 @@ class ParquetIOTestBase : public ::testing::Test {
 
 class TestReadDecimals : public ParquetIOTestBase {
  public:
-  void CheckReadFromByteArrays(const std::shared_ptr<const LogicalType>& logical_type,
-                               const std::vector<std::vector<uint8_t>>& values,
-                               const Array& expected) {
+  void CheckReadFromByteArrays(
+      const std::shared_ptr<const LogicalType>& logical_type,
+      const std::vector<std::vector<uint8_t>>& values, const Array& expected,
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
     std::vector<ByteArray> byte_arrays(values.size());
     std::transform(values.begin(), values.end(), byte_arrays.begin(),
                    [](const std::vector<uint8_t>& bytes) {
@@ -776,13 +793,12 @@ class TestReadDecimals : public ParquetIOTestBase {
     column_writer->Close();
     file_writer->Close();
 
-    ReadAndCheckSingleColumnFile(expected);
+    ReadAndCheckSingleColumnFile(expected, properties);
   }
 };
 
 // The Decimal roundtrip tests always go through the FixedLenByteArray path,
 // check the ByteArray case manually.
-
 TEST_F(TestReadDecimals, Decimal128ByteArray) {
   const std::vector<std::vector<uint8_t>> big_endian_decimals = {
       // 123456
@@ -812,6 +828,73 @@ TEST_F(TestReadDecimals, Decimal256ByteArray) {
   auto expected =
       ArrayFromJSON(::arrow::decimal256(40, 3), R"(["123.456", "987.654", "-123.456"])");
   CheckReadFromByteArrays(LogicalType::Decimal(40, 3), big_endian_decimals, *expected);
+}
+
+TEST_F(TestReadDecimals, DecimalByteArraySmallestDecimal) {
+  const std::vector<std::vector<std::vector<uint8_t>>> big_endian_decimals_vector = {
+      {
+          // 123456
+          {1, 226, 64},
+          // 987654
+          {15, 18, 6},
+          // -123456
+          {255, 254, 29, 192},
+      },
+      {
+          // 123456
+          {1, 226, 64},
+          // 987654
+          {15, 18, 6},
+          // -123456
+          {255, 254, 29, 192},
+          // -123456
+          {255, 255, 255, 255, 255, 254, 29, 192},
+      },
+      {
+          // 123456
+          {1, 226, 64},
+          // 987654
+          {15, 18, 6},
+          // -123456
+          {255, 254, 29, 192},
+          // -123456
+          {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 29, 192},
+      },
+      {
+          // 123456
+          {1, 226, 64},
+          // 987654
+          {15, 18, 6},
+          // -123456
+          {255, 254, 29, 192},
+          // -123456
+          {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+           255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+           255, 255, 255, 255, 255, 255, 255, 254, 29,  192},
+      }};
+
+  const std::vector<std::pair<std::shared_ptr<Array>, std::shared_ptr<const LogicalType>>>
+      expected_vector = {
+          {ArrayFromJSON(::arrow::decimal32(6, 3),
+                         R"(["123.456", "987.654", "-123.456"])"),
+           LogicalType::Decimal(6, 3)},
+          {ArrayFromJSON(::arrow::decimal64(16, 3),
+                         R"(["123.456", "987.654", "-123.456", "-123.456"])"),
+           LogicalType::Decimal(16, 3)},
+          {ArrayFromJSON(::arrow::decimal128(20, 3),
+                         R"(["123.456", "987.654", "-123.456", "-123.456"])"),
+           LogicalType::Decimal(20, 3)},
+          {ArrayFromJSON(::arrow::decimal256(40, 3),
+                         R"(["123.456", "987.654", "-123.456", "-123.456"])"),
+           LogicalType::Decimal(40, 3)}};
+
+  ArrowReaderProperties reader_props = default_arrow_reader_properties();
+  reader_props.set_smallest_decimal_enabled(true);
+  for (size_t i = 0; i < expected_vector.size(); ++i) {
+    CheckReadFromByteArrays(expected_vector.at(i).second,
+                            big_endian_decimals_vector.at(i),
+                            *expected_vector.at(i).first, reader_props);
+  }
 }
 
 template <typename TestType>
