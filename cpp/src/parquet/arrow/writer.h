@@ -53,10 +53,13 @@ namespace arrow {
 /// file.
 class PARQUET_EXPORT FileWriter {
  public:
-  static ::arrow::Status Make(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
-                              std::shared_ptr<::arrow::Schema> schema,
-                              std::shared_ptr<ArrowWriterProperties> arrow_properties,
-                              std::unique_ptr<FileWriter>* out);
+  static ::arrow::Status Make(
+      MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+      std::shared_ptr<::arrow::Schema> schema,
+      std::shared_ptr<ArrowWriterProperties> arrow_properties,
+      std::unique_ptr<FileWriter>* out,
+      const ArrowReaderProperties& schema_arrow_reader_properities =
+          default_arrow_reader_properties());
 
   /// \brief Try to create an Arrow to Parquet file writer.
   ///
@@ -72,7 +75,9 @@ class PARQUET_EXPORT FileWriter {
       std::shared_ptr<::arrow::io::OutputStream> sink,
       std::shared_ptr<WriterProperties> properties = default_writer_properties(),
       std::shared_ptr<ArrowWriterProperties> arrow_properties =
-          default_arrow_writer_properties());
+          default_arrow_writer_properties(),
+      const ArrowReaderProperties& schema_arrow_reader_properities =
+          default_arrow_reader_properties());
 
   /// Return the Arrow schema to be written to.
   virtual std::shared_ptr<::arrow::Schema> schema() const = 0;
@@ -177,7 +182,9 @@ WriteTable(const ::arrow::Table& table, MemoryPool* pool,
            int64_t chunk_size = DEFAULT_MAX_ROW_GROUP_LENGTH,
            std::shared_ptr<WriterProperties> properties = default_writer_properties(),
            std::shared_ptr<ArrowWriterProperties> arrow_properties =
-               default_arrow_writer_properties());
+               default_arrow_writer_properties(),
+           const ArrowReaderProperties& schema_arrow_reader_properities =
+               default_arrow_reader_properties());
 
 }  // namespace arrow
 }  // namespace parquet

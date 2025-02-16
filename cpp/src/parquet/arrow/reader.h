@@ -303,6 +303,9 @@ class PARQUET_EXPORT FileReader {
   /// Set number of records to read per batch for the RecordBatchReader.
   virtual void set_batch_size(int64_t batch_size) = 0;
 
+  /// Set whether to enable smallest decimal arrow type
+  virtual void set_smallest_decimal_enabled(bool smallest_decimal_enabled) = 0;
+
   virtual const ArrowReaderProperties& properties() const = 0;
 
   virtual const SchemaManifest& manifest() const = 0;
@@ -403,7 +406,8 @@ PARQUET_EXPORT
 /// Advanced settings are supported through the FileReaderBuilder class.
 PARQUET_EXPORT
 ::arrow::Result<std::unique_ptr<FileReader>> OpenFile(
-    std::shared_ptr<::arrow::io::RandomAccessFile>, ::arrow::MemoryPool* allocator);
+    std::shared_ptr<::arrow::io::RandomAccessFile>, ::arrow::MemoryPool* pool,
+    const ArrowReaderProperties& reader_properties = default_arrow_reader_properties());
 
 /// @}
 
