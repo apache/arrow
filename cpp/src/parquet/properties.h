@@ -1007,6 +1007,10 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// Return whether loading statistics as much as possible.
   bool should_load_statistics() const { return should_load_statistics_; }
 
+  /// \brief When enabled, Parquet decimal logical types will always be
+  /// mapped to the smallest arrow decimal types based on the precision
+  ///
+  /// Default is false
   void set_smallest_decimal_enabled(bool smallest_decimal_enabled) {
     smallest_decimal_enabled_ = smallest_decimal_enabled;
   }
