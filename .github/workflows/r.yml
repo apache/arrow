@@ -405,7 +405,9 @@ jobs:
           )
           # we use pak for package installation since it is faster, safer and more convenient
           pak::local_install()
-          pak::pak("lintr")
+          # Pin the lintr version to avoid breaking changes with newer 3.2.0 version
+          # See: https://github.com/apache/arrow/pull/45524
+          pak::pak("lintr@3.1.2")
           lintr::expect_lint_free()
       - name: Dump install logs
         shell: cmd
