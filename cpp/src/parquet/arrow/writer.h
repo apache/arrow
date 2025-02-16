@@ -58,7 +58,7 @@ class PARQUET_EXPORT FileWriter {
       std::shared_ptr<::arrow::Schema> schema,
       std::shared_ptr<ArrowWriterProperties> arrow_properties,
       std::unique_ptr<FileWriter>* out,
-      const ArrowReaderProperties& schema_arrow_reader_properities =
+      const ArrowReaderProperties& schema_arrow_reader_properties =
           default_arrow_reader_properties());
 
   /// \brief Try to create an Arrow to Parquet file writer.
@@ -76,7 +76,7 @@ class PARQUET_EXPORT FileWriter {
       std::shared_ptr<WriterProperties> properties = default_writer_properties(),
       std::shared_ptr<ArrowWriterProperties> arrow_properties =
           default_arrow_writer_properties(),
-      const ArrowReaderProperties& schema_arrow_reader_properities =
+      const ArrowReaderProperties& schema_arrow_reader_properties =
           default_arrow_reader_properties());
 
   /// Return the Arrow schema to be written to.
@@ -183,7 +183,7 @@ WriteTable(const ::arrow::Table& table, MemoryPool* pool,
            std::shared_ptr<WriterProperties> properties = default_writer_properties(),
            std::shared_ptr<ArrowWriterProperties> arrow_properties =
                default_arrow_writer_properties(),
-           const ArrowReaderProperties& schema_arrow_reader_properities =
+           const ArrowReaderProperties& schema_arrow_reader_properties =
                default_arrow_reader_properties());
 
 }  // namespace arrow

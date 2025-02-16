@@ -703,7 +703,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     cache_options : pyarrow.CacheOptions, default None
         Cache options used when pre_buffer is enabled. The default values should
         be good for most use cases. You may want to adjust these for example if
-        you have exceptionally high latency to the file system. 
+        you have exceptionally high latency to the file system.
     thrift_string_size_limit : int, default None
         If not None, override the maximum total string size allocated
         when decoding Thrift structures. The default limit should be
@@ -720,6 +720,11 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         Parquet file.
     page_checksum_verification : bool, default False
         If True, verify the page checksum for each page read from the file.
+    page_checksum_verification : bool, default False
+        If True, verify the page checksum for each page read from the file.
+    smallest_decimal_enabled : bool, default False
+        If True, always convert to the smallest arrow decimal type based
+        on precision.
     """
 
     # Avoid mistakingly creating attributes
@@ -733,7 +738,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
                  thrift_container_size_limit=None,
                  decryption_config=None,
                  decryption_properties=None,
-                 bint page_checksum_verification=False):
+                 bint page_checksum_verification=False,
+                 bint smallest_decimal_enabled=False):
         self.init(shared_ptr[CFragmentScanOptions](
             new CParquetFragmentScanOptions()))
         self.use_buffered_stream = use_buffered_stream
@@ -752,6 +758,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         if decryption_properties is not None:
             self.decryption_properties = decryption_properties
         self.page_checksum_verification = page_checksum_verification
+        self.smallest_decimal_enabled = smallest_decimal_enabled
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -867,6 +874,14 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     @page_checksum_verification.setter
     def page_checksum_verification(self, bint page_checksum_verification):
         self.reader_properties().set_page_checksum_verification(page_checksum_verification)
+
+    @property
+    def smallest_decimal_enabled(self):
+        return self.arrow_reader_properties().smallest_decimal_enabled()
+
+    @smallest_decimal_enabled.setter
+    def smallest_decimal_enabled(self, bint smallest_decimal_enabled):
+        self.arrow_reader_properties().set_smallest_decimal_enabled(smallest_decimal_enabled)
 
     def equals(self, ParquetFragmentScanOptions other):
         """

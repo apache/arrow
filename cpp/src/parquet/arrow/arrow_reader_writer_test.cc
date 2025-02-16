@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/properties.h"
 #ifdef _MSC_VER
 #  pragma warning(push)
 // Disable forcing value to bool warnings

@@ -132,6 +132,8 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
       parquet_scan_options.arrow_reader_properties->cache_options());
   arrow_properties.set_io_context(
       parquet_scan_options.arrow_reader_properties->io_context());
+  arrow_properties.set_smallest_decimal_enabled(
+      parquet_scan_options.arrow_reader_properties->smallest_decimal_enabled());
   arrow_properties.set_use_threads(options.use_threads);
   return arrow_properties;
 }
@@ -532,7 +534,7 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
                                                      metadata)
             .Then(
                 [=](const std::unique_ptr<parquet::ParquetFileReader>& reader) mutable
-                -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
+                    -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
                   auto arrow_properties = MakeArrowReaderProperties(
                       *self, *reader->metadata(), *options, *parquet_scan_options);
 
