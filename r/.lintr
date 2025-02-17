@@ -18,6 +18,7 @@ linters: linters_with_defaults(
   indentation_linter = NULL,
   line_length_linter = line_length_linter(120),
   object_name_linter = NULL,
+  return_linter = NULL,
   # Even with a liberal definition of name styles, some of our names cause issues due to `.`s for s3 classes or NA in the name
   # TODO: figure out if we con contribute to lintr to make these work
   # object_name_linter = object_name_linter(styles = c("snake_case", "camelCase", "CamelCase", "symbols", "dotted.case", "UPPERCASE", "SNAKE_CASE")),
