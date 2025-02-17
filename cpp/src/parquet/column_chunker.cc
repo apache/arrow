@@ -22,8 +22,6 @@
 #include "arrow/array.h"
 #include "parquet/level_conversion.h"
 
-using arrow::internal::checked_cast;
-
 namespace parquet {
 namespace internal {
 
@@ -550,8 +548,6 @@ constexpr uint64_t GEAR_HASH_TABLE[8][256] = {
      0xbf037e245369a618, 0x8038164365f6e2b5, 0xe2e1f6163b4e8d08, 0x8df9314914f0857e},
 };
 
-const uint64_t AVG_LEN = 1024 * 1024;
-
 // create a fake null array class with a GetView method returning 0 always
 class FakeNullArray {
  public:
@@ -564,25 +560,27 @@ class FakeNullArray {
 
 static uint64_t GetMask(uint64_t min_size, uint64_t max_size) {
   uint64_t avg_size = (min_size + max_size) / 2;
-  size_t mask_bits = static_cast<size_t>(std::ceil(std::log2(avg_size)));
-  size_t effective_bits = mask_bits - 3 - 5;
-  return (1ULL << effective_bits) - 1;
+  uint64_t target_size = avg_size - min_size;
+  size_t mask_bits = static_cast<size_t>(std::floor(std::log2(target_size)));
+  // -3 because we are using 8 hash tables to have more gaussian-like distribution
+  // -1 narrows the chunk size distribution in order to avoid having too many hard
+  // cuts at the minimum and maximum chunk sizes
+  size_t effective_bits = mask_bits - 3 - 1;
+  return std::numeric_limits<uint64_t>::max() << (64 - effective_bits);
 }
 
-// rename it since it is not FastCDC anymore
-
-FastCDC::FastCDC(const LevelInfo& level_info, uint64_t avg_len, uint8_t granurality_level)
+ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
+                                             uint64_t min_size, uint64_t max_size)
     : level_info_(level_info),
-      avg_len_(avg_len == 0 ? AVG_LEN : avg_len),
-      min_len_(static_cast<uint64_t>(avg_len_ * 0.5)),
-      max_len_(static_cast<uint64_t>(avg_len_ * 2.0)),
-      hash_mask_(GetMask(avg_len_, granurality_level + 3)) {}
+      min_size_(min_size),
+      max_size_(max_size),
+      hash_mask_(GetMask(min_size, max_size)) {}
 
 template <typename T>
-bool FastCDC::Roll(const T value) {
+bool ContentDefinedChunker::Roll(const T value) {
   constexpr size_t BYTE_WIDTH = sizeof(T);
   chunk_size_ += BYTE_WIDTH;
-  if (chunk_size_ < min_len_) {
+  if (chunk_size_ < min_size_) {
     return false;
   }
   auto bytes = reinterpret_cast<const uint8_t*>(&value);
@@ -594,9 +592,9 @@ bool FastCDC::Roll(const T value) {
   return match;
 }
 
-bool FastCDC::Roll(std::string_view value) {
+bool ContentDefinedChunker::Roll(std::string_view value) {
   chunk_size_ += value.size();
-  if (chunk_size_ < min_len_) {
+  if (chunk_size_ < min_size_) {
     return false;
   }
   bool match = false;
@@ -608,12 +606,12 @@ bool FastCDC::Roll(std::string_view value) {
   return match;
 }
 
-bool FastCDC::Check(bool match) {
-  if (ARROW_PREDICT_FALSE(match && (++nth_run_ >= 7))) {
+bool ContentDefinedChunker::Check(bool match) {
+  if (ARROW_PREDICT_FALSE(match && ++nth_run_ >= 7)) {
     nth_run_ = 0;
     chunk_size_ = 0;
     return true;
-  } else if (ARROW_PREDICT_FALSE(chunk_size_ >= max_len_)) {
+  } else if (ARROW_PREDICT_FALSE(chunk_size_ >= max_size_)) {
     chunk_size_ = 0;
     return true;
   } else {
@@ -622,9 +620,10 @@ bool FastCDC::Check(bool match) {
 }
 
 template <typename T>
-const std::vector<Chunk> FastCDC::Calculate(const int16_t* def_levels,
-                                            const int16_t* rep_levels, int64_t num_levels,
-                                            const T& leaf_array) {
+const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_levels,
+                                                          const int16_t* rep_levels,
+                                                          int64_t num_levels,
+                                                          const T& leaf_array) {
   std::vector<Chunk> result;
   bool has_def_levels = level_info_.def_level > 0;
   bool has_rep_levels = level_info_.rep_level > 0;
@@ -717,9 +716,9 @@ const std::vector<Chunk> FastCDC::Calculate(const int16_t* def_levels,
 #define PRIMITIVE_CASE(TYPE_ID, ArrowType)               \
   case ::arrow::Type::TYPE_ID:                           \
     return Calculate(def_levels, rep_levels, num_levels, \
-                     checked_cast<const ::arrow::ArrowType##Array&>(values));
+                     static_cast<const ::arrow::ArrowType##Array&>(values));
 
-const ::arrow::Result<std::vector<Chunk>> FastCDC::GetBoundaries(
+const ::arrow::Result<std::vector<Chunk>> ContentDefinedChunker::GetBoundaries(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
     const ::arrow::Array& values) {
   auto type_id = values.type()->id();
@@ -750,7 +749,7 @@ const ::arrow::Result<std::vector<Chunk>> FastCDC::GetBoundaries(
     case ::arrow::Type::DICTIONARY:
       return GetBoundaries(
           def_levels, rep_levels, num_levels,
-          *checked_cast<const ::arrow::DictionaryArray&>(values).indices());
+          *static_cast<const ::arrow::DictionaryArray&>(values).indices());
     case ::arrow::Type::NA:
       FakeNullArray fake_null_array;
       return Calculate(def_levels, rep_levels, num_levels, fake_null_array);

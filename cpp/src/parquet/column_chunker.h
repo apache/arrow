@@ -39,12 +39,10 @@ struct Chunk {
         levels_to_write(levels_to_write) {}
 };
 
-// have a chunker here
-
-// rename it since it is not FastCDC anymore
-class FastCDC {
+class ContentDefinedChunker {
  public:
-  FastCDC(const LevelInfo& level_info, uint64_t avg_len, uint8_t granurality_level = 5);
+  ContentDefinedChunker(const LevelInfo& level_info, uint64_t min_size,
+                        uint64_t max_size);
 
   const ::arrow::Result<std::vector<Chunk>> GetBoundaries(const int16_t* def_levels,
                                                           const int16_t* rep_levels,
@@ -62,12 +60,11 @@ class FastCDC {
                                      int64_t num_levels, const T& leaf_array);
 
   const internal::LevelInfo& level_info_;
-  const uint64_t avg_len_;
-  const uint64_t min_len_;
-  const uint64_t max_len_;
+  const uint64_t min_size_;
+  const uint64_t max_size_;
   const uint64_t hash_mask_;
 
-  uint8_t nth_run_ = 0;
+  uint64_t nth_run_ = 0;
   uint64_t chunk_size_ = 0;
   uint64_t rolling_hash_ = 0;
 };
