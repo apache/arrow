@@ -883,18 +883,36 @@ class ARROW_ACERO_EXPORT PipeSourceNodeOptions : public ExecNodeOptions {
         output_schema(std::move(output_schema)),
         ordering(std::move(ordering)) {}
 
-  /// \brief List of declarations that will receive duplicated ExecBatches
+  /// \brief Pipe name used to match with pipe sink
   std::string pipe_name;
+
+  /// \brief Expected schema of data. Validated during initialization.
   std::shared_ptr<Schema> output_schema;
+
+  /// \brief Expected ordering of data. Validated during initialization.
   Ordering ordering;
 };
 
 class ARROW_ACERO_EXPORT PipeSinkNodeOptions : public ExecNodeOptions {
  public:
-  PipeSinkNodeOptions(std::string pipe_name) : pipe_name(std::move(pipe_name)) {}
+  PipeSinkNodeOptions(std::string pipe_name, bool pause_on_any = true,
+                      bool stop_on_any = false)
+      : pipe_name(std::move(pipe_name)),
+        pause_on_any(pause_on_any),
+        stop_on_any(stop_on_any) {}
 
-  /// \brief List of declarations that will receive duplicated ExecBatches
+  /// \brief Pipe name used to match with pipe sources
   std::string pipe_name;
+
+  /// \brief pause_on_any controls pausing strategy. If true sink input will be paused
+  /// when any source is paused. If false sink input will be paused hen all sources are
+  /// paused
+  bool pause_on_any;
+
+  /// \brief stop_on_any controls stopping strategy. If true sink input will be stopped
+  /// when any source is stopped. If false sink input will be stopped hen all sources are
+  /// stopped
+  bool stop_on_any;
 };
 
 /// @}

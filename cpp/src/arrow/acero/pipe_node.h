@@ -56,7 +56,7 @@ class ARROW_ACERO_EXPORT Pipe {
  public:
   Pipe(ExecPlan* plan, std::string pipe_name, std::unique_ptr<BackpressureControl> ctrl,
        std::function<Status()> stopProducing, Ordering ordering = Ordering::Unordered(),
-       bool stop_on_any = false);
+       bool pause_on_any = true, bool stop_on_any = false);
 
   const Ordering& ordering() const;
 
@@ -110,11 +110,13 @@ class ARROW_ACERO_EXPORT Pipe {
   // backpressure
   std::unordered_map<PipeSource*, bool> paused_;
   std::mutex mutex_;
-  std::atomic<int32_t> paused_count_;
+  std::atomic_size_t paused_count_;
   std::unique_ptr<BackpressureControl> ctrl_;
   // stopProducing
   std::atomic_size_t stopped_count_;
   std::function<Status()> stopProducing_;
+
+  const bool pause_on_any_;
   const bool stop_on_any_;
 };
 

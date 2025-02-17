@@ -113,20 +113,23 @@ class PipeSinkBackpressureControl : public BackpressureControl {
 
 class PipeSinkNode : public ExecNode {
  public:
-  PipeSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs, std::string pipe_name)
+  PipeSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs, std::string pipe_name,
+               bool pause_on_any, bool stop_on_any)
       : ExecNode(plan, inputs, /*input_labels=*/{pipe_name}, {}) {
     pipe_ = std::make_shared<Pipe>(
         plan, std::move(pipe_name),
         std::make_unique<PipeSinkBackpressureControl>(inputs[0], this),
-        [this]() { return StopProducing(); }, inputs[0]->ordering());
+        [this]() { return StopProducing(); }, inputs[0]->ordering(), pause_on_any,
+        stop_on_any);
   }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "PipeSinkNode"));
     const auto& pipe_tee_options = checked_cast<const PipeSinkNodeOptions&>(options);
-    return plan->EmplaceNode<PipeSinkNode>(plan, std::move(inputs),
-                                           pipe_tee_options.pipe_name);
+    return plan->EmplaceNode<PipeSinkNode>(
+        plan, std::move(inputs), pipe_tee_options.pipe_name,
+        pipe_tee_options.pause_on_any, pipe_tee_options.stop_on_any);
   }
   static const char kKindName[];
   const char* kind_name() const override { return kKindName; }
@@ -172,8 +175,9 @@ const char PipeSinkNode::kKindName[] = "PipeSinkNode";
 
 class PipeTeeNode : public PipeSource, public PipeSinkNode {
  public:
-  PipeTeeNode(ExecPlan* plan, std::vector<ExecNode*> inputs, std::string pipe_name)
-      : PipeSinkNode(plan, inputs, pipe_name) {
+  PipeTeeNode(ExecPlan* plan, std::vector<ExecNode*> inputs, std::string pipe_name,
+              bool pause_on_any, bool stop_on_any)
+      : PipeSinkNode(plan, inputs, pipe_name, pause_on_any, stop_on_any) {
     output_schema_ = inputs[0]->output_schema();
     auto st = PipeSinkNode::pipe_->addSyncSource(this);
     if (ARROW_PREDICT_FALSE(!st.ok())) {  // this should never happen
@@ -185,8 +189,9 @@ class PipeTeeNode : public PipeSource, public PipeSinkNode {
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "PipeTeeNode"));
     const auto& pipe_tee_options = checked_cast<const PipeSinkNodeOptions&>(options);
-    return plan->EmplaceNode<PipeTeeNode>(plan, std::move(inputs),
-                                          pipe_tee_options.pipe_name);
+    return plan->EmplaceNode<PipeTeeNode>(
+        plan, std::move(inputs), pipe_tee_options.pipe_name,
+        pipe_tee_options.pause_on_any, pipe_tee_options.stop_on_any);
   }
   static const char kKindName[];
   const char* kind_name() const override { return kKindName; }
@@ -255,12 +260,14 @@ Status PipeSource::Validate(const Ordering& ordering) {
 
 Pipe::Pipe(ExecPlan* plan, std::string pipe_name,
            std::unique_ptr<BackpressureControl> ctrl,
-           std::function<Status()> stopProducing, Ordering ordering, bool stop_on_any)
+           std::function<Status()> stopProducing, Ordering ordering, bool pause_on_any,
+           bool stop_on_any)
     : plan_(plan),
       ordering_(ordering),
       pipe_name_(pipe_name),
       ctrl_(std::move(ctrl)),
       stopProducing_(stopProducing),
+      pause_on_any_(pause_on_any),
       stop_on_any_(stop_on_any) {}
 
 const Ordering& Pipe::ordering() const { return ordering_; }
@@ -269,8 +276,15 @@ void Pipe::Pause(PipeSource* output, int counter) {
   std::lock_guard<std::mutex> lg(mutex_);
   if (!paused_[output]) {
     paused_[output] = true;
-    if (0 == paused_count_++) {
-      ctrl_->Pause();
+    size_t paused_count = ++paused_count_;
+    if (pause_on_any_) {
+      if (paused_count == 1) {
+        ctrl_->Pause();
+      }
+    } else {
+      if (paused_count == CountSources()) {
+        ctrl_->Pause();
+      }
     }
   }
 }
@@ -279,8 +293,16 @@ void Pipe::Resume(PipeSource* output, int counter) {
   std::lock_guard<std::mutex> lg(mutex_);
   if (paused_[output]) {
     paused_[output] = false;
-    if (0 == --paused_count_) {
-      ctrl_->Resume();
+
+    size_t paused_count = --paused_count_;
+    if (pause_on_any_) {
+      if (paused_count == 0) {
+        ctrl_->Resume();
+      }
+    } else {
+      if (paused_count == CountSources() - 1) {
+        ctrl_->Resume();
+      }
     }
   }
 }
