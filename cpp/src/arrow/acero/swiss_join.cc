@@ -2590,7 +2590,8 @@ class SwissJoin : public HashJoinImpl {
           ColumnMetadataFromDataType(schema->data_type(HashJoinProjection::PAYLOAD, i)));
       payload_types.push_back(metadata);
     }
-    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.Init(
+    hash_table_build_ = std::make_unique<SwissTableForJoinBuild>();
+    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_->Init(
         &hash_table_, num_threads_, build_side_batches_.row_count(),
         reject_duplicate_keys, no_payload, key_types, payload_types, pool_,
         hardware_flags_)));
@@ -2609,7 +2610,8 @@ class SwissJoin : public HashJoinImpl {
     DCHECK_GT(build_side_batches_[batch_id].length, 0);
 
     const HashJoinProjectionMaps* schema = schema_[1];
-    bool no_payload = hash_table_build_.no_payload();
+    DCHECK_NE(hash_table_build_, nullptr);
+    bool no_payload = hash_table_build_->no_payload();
 
     ExecBatch input_batch;
     ARROW_ASSIGN_OR_RAISE(
@@ -2639,7 +2641,8 @@ class SwissJoin : public HashJoinImpl {
       }
     }
     arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
-    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PushNextBatch(
+    DCHECK_NE(hash_table_build_, nullptr);
+    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_->PushNextBatch(
         static_cast<int64_t>(thread_id), key_batch, no_payload ? nullptr : &payload_batch,
         temp_stack)));
 
@@ -2654,23 +2657,26 @@ class SwissJoin : public HashJoinImpl {
     // On a single thread prepare for merging partitions of the resulting hash
     // table.
     //
-    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PreparePrtnMerge()));
+    DCHECK_NE(hash_table_build_, nullptr);
+    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_->PreparePrtnMerge()));
     return CancelIfNotOK(
-        start_task_group_callback_(task_group_merge_, hash_table_build_.num_prtns()));
+        start_task_group_callback_(task_group_merge_, hash_table_build_->num_prtns()));
   }
 
   Status MergeTask(size_t /*thread_id*/, int64_t prtn_id) {
     if (IsCancelled()) {
       return Status::OK();
     }
-    hash_table_build_.PrtnMerge(static_cast<int>(prtn_id));
+    DCHECK_NE(hash_table_build_, nullptr);
+    hash_table_build_->PrtnMerge(static_cast<int>(prtn_id));
     return Status::OK();
   }
 
   Status MergeFinished(size_t thread_id) {
     RETURN_NOT_OK(status());
     arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
-    hash_table_build_.FinishPrtnMerge(temp_stack);
+    DCHECK_NE(hash_table_build_, nullptr);
+    hash_table_build_->FinishPrtnMerge(temp_stack);
     return CancelIfNotOK(OnBuildHashTableFinished(static_cast<int64_t>(thread_id)));
   }
 
@@ -2678,6 +2684,9 @@ class SwissJoin : public HashJoinImpl {
     if (IsCancelled()) {
       return status();
     }
+
+    DCHECK_NE(hash_table_build_, nullptr);
+    hash_table_build_.reset();
 
     for (int i = 0; i < num_threads_; ++i) {
       local_states_[i].materialize.SetBuildSide(hash_table_.keys()->keys(),
@@ -2910,7 +2919,8 @@ class SwissJoin : public HashJoinImpl {
   SwissTableForJoin hash_table_;
   JoinProbeProcessor probe_processor_;
   JoinResidualFilter residual_filter_;
-  SwissTableForJoinBuild hash_table_build_;
+  // Temporarily used during build phase, and released afterward.
+  std::unique_ptr<SwissTableForJoinBuild> hash_table_build_;
   AccumulationQueue build_side_batches_;
 
   // Atomic state flags.
