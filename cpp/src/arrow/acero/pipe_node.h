@@ -36,6 +36,7 @@ class PipeSource {
   virtual ~PipeSource() {}
   void Pause(int32_t counter);
   void Resume(int32_t counter);
+  Status StopProducing();
   Status Validate(const Ordering& ordering);
 
  private:
@@ -54,7 +55,8 @@ class PipeSource {
 class ARROW_ACERO_EXPORT Pipe {
  public:
   Pipe(ExecPlan* plan, std::string pipe_name, std::unique_ptr<BackpressureControl> ctrl,
-       Ordering ordering = Ordering::Unordered());
+       std::function<Status()> stopProducing, Ordering ordering = Ordering::Unordered(),
+       bool stop_on_any = false);
 
   const Ordering& ordering() const;
 
@@ -84,6 +86,9 @@ class ARROW_ACERO_EXPORT Pipe {
   /// Can be used to skip production of exec batches when there are no consumers.
   bool HasSources() const;
 
+  /// @brief Check for number of pipe_sources connected
+  size_t CountSources() const;
+
   /// @brief Get pipe_name
   std::string PipeName() const { return pipe_name_; }
 
@@ -93,6 +98,8 @@ class ARROW_ACERO_EXPORT Pipe {
   void Pause(PipeSource* output, int counter);
   // Backpresurre interface for PipeSource
   void Resume(PipeSource* output, int counter);
+  //
+  Status StopProducing(PipeSource* output);
 
  private:
   ExecPlan* plan_;
@@ -105,6 +112,10 @@ class ARROW_ACERO_EXPORT Pipe {
   std::mutex mutex_;
   std::atomic<int32_t> paused_count_;
   std::unique_ptr<BackpressureControl> ctrl_;
+  // stopProducing
+  std::atomic_size_t stopped_count_;
+  std::function<Status()> stopProducing_;
+  const bool stop_on_any_;
 };
 
 }  // namespace acero

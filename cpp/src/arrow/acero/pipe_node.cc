@@ -86,7 +86,7 @@ struct PipeSourceNode : public PipeSource, public ExecNode {
     PipeSource::Resume(counter);
   }
 
-  Status StopProducingImpl() override { return Status::OK(); }
+  Status StopProducingImpl() override { return PipeSource::StopProducing(); }
 
   static const char kKindName[];
   const char* kind_name() const override { return kKindName; }
@@ -118,7 +118,7 @@ class PipeSinkNode : public ExecNode {
     pipe_ = std::make_shared<Pipe>(
         plan, std::move(pipe_name),
         std::make_unique<PipeSinkBackpressureControl>(inputs[0], this),
-        inputs[0]->ordering());
+        [this]() { return StopProducing(); }, inputs[0]->ordering());
   }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -234,6 +234,11 @@ Status PipeSource::Initialize(Pipe* pipe) {
 
 void PipeSource::Pause(int32_t counter) { pipe_->Pause(this, counter); }
 void PipeSource::Resume(int32_t counter) { pipe_->Resume(this, counter); }
+Status PipeSource::StopProducing() {
+  if (pipe_) return pipe_->StopProducing(this);
+  // stopped before initialization
+  return Status::OK();
+}
 
 Status PipeSource::Validate(const Ordering& ordering) {
   if (!pipe_) {
@@ -249,8 +254,14 @@ Status PipeSource::Validate(const Ordering& ordering) {
 }
 
 Pipe::Pipe(ExecPlan* plan, std::string pipe_name,
-           std::unique_ptr<BackpressureControl> ctrl, Ordering ordering)
-    : plan_(plan), ordering_(ordering), pipe_name_(pipe_name), ctrl_(std::move(ctrl)) {}
+           std::unique_ptr<BackpressureControl> ctrl,
+           std::function<Status()> stopProducing, Ordering ordering, bool stop_on_any)
+    : plan_(plan),
+      ordering_(ordering),
+      pipe_name_(pipe_name),
+      ctrl_(std::move(ctrl)),
+      stopProducing_(stopProducing),
+      stop_on_any_(stop_on_any) {}
 
 const Ordering& Pipe::ordering() const { return ordering_; }
 
@@ -272,6 +283,21 @@ void Pipe::Resume(PipeSource* output, int counter) {
       ctrl_->Resume();
     }
   }
+}
+
+Status Pipe::StopProducing(PipeSource* output) {
+  std::lock_guard<std::mutex> lg(mutex_);
+  size_t stopped_count = ++stopped_count_;
+  if (stop_on_any_) {
+    if (stopped_count == 1) {
+      return stopProducing_();
+    }
+  } else {
+    if (stopped_count == CountSources()) {
+      return stopProducing_();
+    }
+  }
+  return Status::OK();
 }
 
 Status Pipe::InputReceived(ExecBatch batch) {
@@ -330,6 +356,14 @@ Status Pipe::Init(const std::shared_ptr<Schema> schema, bool may_be_sync) {
 }
 
 bool Pipe::HasSources() const { return sync_node_ || !async_nodes_.empty(); }
+
+size_t Pipe::CountSources() const {
+  auto count = async_nodes_.size();
+  if (sync_node_) {
+    count++;
+  }
+  return count;
+}
 
 namespace internal {
 void RegisterPipeNodes(ExecFactoryRegistry* registry) {
