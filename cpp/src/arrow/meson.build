@@ -16,6 +16,7 @@
 # under the License.
 
 dl_dep = dependency('dl')
+threads_dep = dependency('threads')
 
 # Meson does not natively support object libraries
 # https://github.com/mesonbuild/meson/issues/13843
@@ -151,7 +152,7 @@ arrow_components = {
             'util/value_parsing.cc',
         ],
         'include_dirs': [],
-        'dependencies': [],
+        'dependencies': [threads_dep],
     },
     'memory_pool': {
         'sources': ['memory_pool.cc'],
