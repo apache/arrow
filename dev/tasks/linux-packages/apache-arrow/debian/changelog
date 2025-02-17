@@ -1,3 +1,9 @@
+apache-arrow (19.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Bryce Mecum <petridish@gmail.com>  Tue, 11 Feb 2025 22:16:06 -0000
+
 apache-arrow (19.0.0-1) unstable; urgency=low
 
   * New upstream release.
