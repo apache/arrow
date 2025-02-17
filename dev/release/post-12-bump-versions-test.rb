@@ -192,6 +192,13 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ],
         },
         {
+          path: "cpp/meson.build",
+          hunks: [
+            ["-    version: '#{@snapshot_version}',",
+             "+    version: '#{@next_snapshot_version}',"],
+          ],
+        },
+        {
           path: "cpp/vcpkg.json",
           hunks: [
             ["-  \"version-string\": \"#{@snapshot_version}\",",
