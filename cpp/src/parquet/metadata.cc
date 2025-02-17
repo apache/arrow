@@ -112,12 +112,11 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
 }
 
-static std::shared_ptr<GeospatialStatistics> MakeColumnGeometryStats(
+static std::shared_ptr<GeoStatistics> MakeColumnGeometryStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
   if (metadata.__isset.geospatial_statistics) {
-    EncodedGeospatialStatistics encoded_geometry_stats =
-        FromThrift(metadata.geospatial_statistics);
-    return std::make_shared<GeospatialStatistics>(encoded_geometry_stats);
+    EncodedGeoStatistics encoded_geo_stats = FromThrift(metadata.geospatial_statistics);
+    return std::make_shared<GeoStatistics>(encoded_geo_stats);
   } else {
     return nullptr;
   }
@@ -283,7 +282,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       size_statistics_->Validate(descr_);
     }
     possible_stats_ = nullptr;
-    possible_geometry_stats_ = nullptr;
+    possible_geo_stats_ = nullptr;
     InitKeyValueMetadata();
   }
 
@@ -322,13 +321,12 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
                                                  descr_->sort_order());
   }
 
-  inline bool is_geometry_stats_set() const {
-    DCHECK(writer_version_ != nullptr);
-    if (possible_geometry_stats_ == nullptr &&
+  inline bool is_geo_stats_set() const {
+    if (possible_geo_stats_ == nullptr &&
         column_metadata_->__isset.geospatial_statistics) {
-      possible_geometry_stats_ = MakeColumnGeometryStats(*column_metadata_, descr_);
+      possible_geo_stats_ = MakeColumnGeometryStats(*column_metadata_, descr_);
     }
-    return possible_geometry_stats_ != nullptr && possible_geometry_stats_->is_valid();
+    return possible_geo_stats_ != nullptr && possible_geo_stats_->is_valid();
   }
 
   inline std::shared_ptr<Statistics> statistics() const {
@@ -339,8 +337,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return size_statistics_;
   }
 
-  inline std::shared_ptr<GeospatialStatistics> geometry_statistics() const {
-    return is_geometry_stats_set() ? possible_geometry_stats_ : nullptr;
+  inline std::shared_ptr<GeoStatistics> geospatial_statistics() const {
+    return is_geo_stats_set() ? possible_geo_stats_ : nullptr;
   }
 
   inline Compression::type compression() const {
@@ -422,7 +420,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   mutable std::shared_ptr<Statistics> possible_stats_;
-  mutable std::shared_ptr<GeospatialStatistics> possible_geometry_stats_;
+  mutable std::shared_ptr<GeoStatistics> possible_geo_stats_;
   std::vector<Encoding::type> encodings_;
   std::vector<PageEncodingStats> encoding_stats_;
   const format::ColumnChunk* column_;
@@ -474,8 +472,8 @@ std::shared_ptr<Statistics> ColumnChunkMetaData::statistics() const {
   return impl_->statistics();
 }
 
-std::shared_ptr<GeospatialStatistics> ColumnChunkMetaData::geometry_statistics() const {
-  return impl_->geometry_statistics();
+std::shared_ptr<GeoStatistics> ColumnChunkMetaData::geo_statistics() const {
+  return impl_->geospatial_statistics();
 }
 
 bool ColumnChunkMetaData::is_stats_set() const { return impl_->is_stats_set(); }
@@ -484,9 +482,7 @@ std::shared_ptr<SizeStatistics> ColumnChunkMetaData::size_statistics() const {
   return impl_->size_statistics();
 }
 
-bool ColumnChunkMetaData::is_geometry_stats_set() const {
-  return impl_->is_geometry_stats_set();
-}
+bool ColumnChunkMetaData::is_geo_stats_set() const { return impl_->is_geo_stats_set(); }
 
 std::optional<int64_t> ColumnChunkMetaData::bloom_filter_offset() const {
   return impl_->bloom_filter_offset();
@@ -1598,7 +1594,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_size_statistics(ToThrift(size_stats));
   }
 
-  void SetGeospatialStatistics(const EncodedGeospatialStatistics& val) {
+  void SetGeoStatistics(const EncodedGeoStatistics& val) {
     column_chunk_->meta_data.__set_geospatial_statistics(ToThrift(val));
   }
 
@@ -1815,9 +1811,8 @@ void ColumnChunkMetaDataBuilder::SetSizeStatistics(const SizeStatistics& size_st
   impl_->SetSizeStatistics(size_stats);
 }
 
-void ColumnChunkMetaDataBuilder::SetGeospatialStatistics(
-    const EncodedGeospatialStatistics& result) {
-  impl_->SetGeospatialStatistics(result);
+void ColumnChunkMetaDataBuilder::SetGeoStatistics(const EncodedGeoStatistics& result) {
+  impl_->SetGeoStatistics(result);
 }
 
 void ColumnChunkMetaDataBuilder::SetKeyValueMetadata(

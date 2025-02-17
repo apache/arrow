@@ -23,6 +23,7 @@
 #include <string>
 #include <unordered_set>
 
+#include "arrow/util/logging.h"
 #include "parquet/platform.h"
 
 namespace parquet::geometry {
@@ -31,23 +32,40 @@ namespace parquet::geometry {
 constexpr double kInf = std::numeric_limits<double>::infinity();
 
 /// \brief Valid combinations of dimensions allowed by ISO well-known binary
-enum class Dimensions { XY = 0, XYZ = 1, XYM = 2, XYZM = 3, MIN = 0, MAX = 3 };
+///
+/// These values correspond to the 0, 1000, 2000, 3000 component of the WKB integer
+/// geometry type (i.e., the value of geometry_type // 1000).
+enum class Dimensions {
+  kXY = 0,
+  kXYZ = 1,
+  kXYM = 2,
+  kXYZM = 3,
+  kWKBValueMin = 0,
+  kWKBValueMax = 3
+};
 
 /// \brief The supported set of geometry types allowed by ISO well-known binary
+///
+/// These values correspond to the 1, 2, ..., 7 component of the WKB integer
+/// geometry type (i.e., the value of geometry_type % 1000).
 enum class GeometryType {
-  POINT = 1,
-  LINESTRING = 2,
-  POLYGON = 3,
-  MULTIPOINT = 4,
-  MULTILINESTRING = 5,
-  MULTIPOLYGON = 6,
-  GEOMETRYCOLLECTION = 7,
-  MIN = 1,
-  MAX = 7
+  kPoint = 1,
+  kLinestring = 2,
+  kPolygon = 3,
+  kMultiPoint = 4,
+  kMultiLinestring = 5,
+  kMultiPolygon = 6,
+  kGeometryCollection = 7,
+  kWKBValueMin = 1,
+  kWKBValueMax = 7
 };
 
 /// \brief A collection of intervals representing the encountered ranges of values
 /// in each dimension.
+///
+/// The Parquet specification also supports wraparound bounding boxes in the X and Y
+/// dimensions; however, this structure assumes min < max always as it is used for
+/// the purposes of accumulating this type of bounds.
 struct BoundingBox {
   using XY = std::array<double, 2>;
   using XYZ = std::array<double, 3>;
@@ -61,13 +79,20 @@ struct BoundingBox {
   BoundingBox& operator=(const BoundingBox&) = default;
 
   /// \brief Update the X and Y bounds to ensure these bounds contain coord
-  void UpdateXY(const XY& coord) { UpdateInternal(coord); }
+  void UpdateXY(::arrow::util::span<const double> coord) {
+    DCHECK_EQ(coord.size(), 2);
+    UpdateInternal(coord);
+  }
 
   /// \brief Update the X, Y, and Z bounds to ensure these bounds contain coord
-  void UpdateXYZ(const XYZ& coord) { UpdateInternal(coord); }
+  void UpdateXYZ(::arrow::util::span<const double> coord) {
+    DCHECK_EQ(coord.size(), 3);
+    UpdateInternal(coord);
+  }
 
   /// \brief Update the X, Y, and M bounds to ensure these bounds contain coord
-  void UpdateXYM(const XYM& coord) {
+  void UpdateXYM(::arrow::util::span<const double> coord) {
+    DCHECK_EQ(coord.size(), 3);
     min[0] = std::min(min[0], coord[0]);
     min[1] = std::min(min[1], coord[1]);
     min[3] = std::min(min[3], coord[2]);
@@ -77,7 +102,10 @@ struct BoundingBox {
   }
 
   /// \brief Update the X, Y, Z, and M bounds to ensure these bounds contain coord
-  void UpdateXYZM(const XYZM& coord) { UpdateInternal(coord); }
+  void UpdateXYZM(::arrow::util::span<const double> coord) {
+    DCHECK_EQ(coord.size(), 4);
+    UpdateInternal(coord);
+  }
 
   /// \brief Reset these bounds to an empty state such that they contain no coordinates
   void Reset() {
@@ -97,12 +125,11 @@ struct BoundingBox {
 
   std::string ToString() const {
     std::stringstream ss;
-    ss << "BoundingBox [" << min[0] << " => " << max[0];
-    for (int i = 1; i < 4; i++) {
-      ss << ", " << min[i] << " => " << max[i];
-    }
-
-    ss << "]";
+    ss << "BoundingBox" << std::endl;
+    ss << "  x: [" << min[0] << ", " << max[0] << "]" << std::endl;
+    ss << "  y: [" << min[1] << ", " << max[1] << "]" << std::endl;
+    ss << "  z: [" << min[2] << ", " << max[2] << "]" << std::endl;
+    ss << "  m: [" << min[3] << ", " << max[3] << "]" << std::endl;
 
     return ss.str();
   }
@@ -114,8 +141,6 @@ struct BoundingBox {
   // This works for XY, XYZ, and XYZM
   template <typename Coord>
   void UpdateInternal(Coord coord) {
-    static_assert(coord.size() <= 4);
-
     for (size_t i = 0; i < coord.size(); i++) {
       min[i] = std::min(min[i], coord[i]);
       max[i] = std::max(max[i], coord[i]);
@@ -127,31 +152,32 @@ inline bool operator==(const BoundingBox& lhs, const BoundingBox& rhs) {
   return lhs.min == rhs.min && lhs.max == rhs.max;
 }
 
+inline bool operator!=(const BoundingBox& lhs, const BoundingBox& rhs) {
+  return !(lhs == rhs);
+}
+
 class WKBBuffer;
 
 /// \brief Accumulate a BoundingBox and geometry types based on zero or more well-known
 /// binary blobs
+///
+/// Note that this class is NOT appropriate for bounding a GEOGRAPHY,
+/// whose bounds are not a function purely of the vertices. Geography bounding
+/// is not yet implemented.
 class PARQUET_EXPORT WKBGeometryBounder {
  public:
-  WKBGeometryBounder() = default;
-  WKBGeometryBounder(const WKBGeometryBounder&) = default;
-
   /// \brief Accumulate the bounds of a serialized well-known binary geometry
   ///
   /// Returns SerializationError for any parse errors encountered. Bounds for
   /// any encountered coordinates are accumulated and the geometry type of
   /// the geometry is added to the internal geometry type list.
-  ///
-  /// Note that this method is NOT appropriate for bounding a GEOGRAPHY,
-  /// whose bounds are not a function purely of the vertices. Geography bounding
-  /// is not yet implemented.
-  ::arrow::Status ReadGeometry(const uint8_t* data, int64_t size);
+  ::arrow::Status ReadGeometry(std::string_view bytes_wkb);
 
   /// \brief Accumulate the bounds of a previously-calculated BoundingBox
   void ReadBox(const BoundingBox& box) { box_.Merge(box); }
 
   /// \brief Accumulate a previously-calculated list of geometry types
-  void ReadGeometryTypes(const std::vector<int32_t>& geospatial_types) {
+  void ReadGeometryTypes(::arrow::util::span<const int32_t> geospatial_types) {
     geospatial_types_.insert(geospatial_types.begin(), geospatial_types.end());
   }
 
@@ -159,11 +185,7 @@ class PARQUET_EXPORT WKBGeometryBounder {
   const BoundingBox& Bounds() const { return box_; }
 
   /// \brief Retrieve the accumulated geometry types
-  std::vector<int32_t> GeometryTypes() const {
-    std::vector<int32_t> out(geospatial_types_.begin(), geospatial_types_.end());
-    std::sort(out.begin(), out.end());
-    return out;
-  }
+  std::vector<int32_t> GeometryTypes() const;
 
   /// \brief Reset the internal bounds and geometry types list to an empty state
   void Reset() {

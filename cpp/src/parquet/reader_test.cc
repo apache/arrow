@@ -50,7 +50,7 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
-#include "parquet/geometry_statistics.h"
+#include "parquet/geospatial_statistics.h"
 #include "parquet/metadata.h"
 #include "parquet/page_index.h"
 #include "parquet/platform.h"
@@ -1867,8 +1867,7 @@ class TestGeometryLogicalType : public ::testing::Test {
  public:
   const int kNumRows = 1000;
 
-  void WriteTestData(ParquetDataPageVersion data_page_version,
-                     bool enable_write_page_index, bool write_arrow) {
+  void WriteTestData(bool write_arrow) {
     // Make schema
     schema::NodeVector fields;
     fields.push_back(PrimitiveNode::Make("g", Repetition::REQUIRED,
@@ -1879,11 +1878,7 @@ class TestGeometryLogicalType : public ::testing::Test {
 
     // Write small batches and small data pages
     auto writer_props_builder = WriterProperties::Builder();
-    writer_props_builder.write_batch_size(64)->data_pagesize(128)->data_page_version(
-        data_page_version);
-    if (enable_write_page_index) {
-      writer_props_builder.enable_write_page_index();
-    }
+    writer_props_builder.write_batch_size(64);
 
     std::shared_ptr<WriterProperties> writer_props = writer_props_builder.build();
 
@@ -1893,7 +1888,8 @@ class TestGeometryLogicalType : public ::testing::Test {
     RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
 
     // write WKB points to columns
-    auto* writer = static_cast<ByteArrayWriter*>(rg_writer->NextColumn());
+    auto* writer =
+        ::arrow::internal::checked_cast<ByteArrayWriter*>(rg_writer->NextColumn());
     if (!write_arrow) {
       WriteTestDataUsingWriteBatch(writer);
     } else {
@@ -1907,26 +1903,27 @@ class TestGeometryLogicalType : public ::testing::Test {
   }
 
   void WriteTestDataUsingWriteBatch(ByteArrayWriter* writer) {
-    std::vector<uint8_t> buffer(test::kWkbPointSize * kNumRows);
+    std::vector<uint8_t> buffer(test::kWkbPointXYSize * kNumRows);
     uint8_t* ptr = buffer.data();
     std::vector<ByteArray> values(kNumRows);
     for (int k = 0; k < kNumRows; k++) {
-      test::GenerateWKBPoint(ptr, k, k + 1);
-      values[k].len = test::kWkbPointSize;
+      std::string item = test::MakeWKBPoint(
+          {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+      std::memcpy(ptr, item.data(), item.size());
+      values[k].len = test::kWkbPointXYSize;
       values[k].ptr = ptr;
-      ptr += test::kWkbPointSize;
+      ptr += test::kWkbPointXYSize;
     }
     writer->WriteBatch(kNumRows, nullptr, nullptr, values.data());
   }
 
   void WriteTestDataUsingWriteArrow(ByteArrayWriter* writer) {
     ::arrow::BinaryBuilder builder;
-    std::vector<uint8_t> buffer(test::kWkbPointSize * kNumRows);
-    uint8_t* ptr = buffer.data();
     for (int k = 0; k < kNumRows; k++) {
-      test::GenerateWKBPoint(ptr, k, k + 1);
-      ASSERT_OK(builder.Append(ptr, test::kWkbPointSize));
-      ptr += test::kWkbPointSize;
+      std::string item = test::MakeWKBPoint(
+          {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+
+      ASSERT_OK(builder.Append(item));
     }
     std::shared_ptr<::arrow::BinaryArray> array;
     ASSERT_OK(builder.Finish(&array));
@@ -1935,12 +1932,12 @@ class TestGeometryLogicalType : public ::testing::Test {
         ArrowWriterProperties::Builder().build();
     MemoryPool* pool = ::arrow::default_memory_pool();
     auto ctx = std::make_unique<ArrowWriteContext>(pool, properties.get());
-    ASSERT_OK(writer->WriteArrow(nullptr, nullptr, kNumRows, *array, ctx.get(), true));
+    ASSERT_OK(writer->WriteArrow(nullptr, nullptr, kNumRows, *array, ctx.get(),
+                                 /*leaf_field_nullable=*/true));
   }
 
-  void TestWriteAndRead(ParquetDataPageVersion data_page_version,
-                        bool enable_write_page_index, bool write_arrow) {
-    WriteTestData(data_page_version, enable_write_page_index, write_arrow);
+  void TestWriteAndRead(bool write_arrow) {
+    WriteTestData(write_arrow);
 
     auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
 
@@ -1953,11 +1950,13 @@ class TestGeometryLogicalType : public ::testing::Test {
     auto metadata = file_reader->metadata();
     auto page_index_reader = file_reader->GetPageIndexReader();
     int num_row_groups = metadata->num_row_groups();
+    int64_t start_index = 0;
     for (int i = 0; i < num_row_groups; i++) {
       auto row_group_metadata = metadata->RowGroup(i);
       auto column_chunk_metadata = row_group_metadata->ColumnChunk(0);
-      auto geometry_stats = column_chunk_metadata->geometry_statistics();
-      CheckGeospatialStatistics(geometry_stats);
+      auto geo_stats = column_chunk_metadata->geo_statistics();
+      CheckGeoStatistics(geo_stats, start_index, row_group_metadata->num_rows());
+      start_index += row_group_metadata->num_rows();
     }
 
     // Check the geometry values
@@ -1977,13 +1976,11 @@ class TestGeometryLogicalType : public ::testing::Test {
         // Check the batch
         for (int64_t i = 0; i < values_read; i++) {
           const ByteArray& value = out[i];
-          double x = 0;
-          double y = 0;
-          EXPECT_TRUE(test::GetWKBPointCoordinate(value, &x, &y));
+          auto xy = test::GetWKBPointCoordinateXY(value);
+          EXPECT_TRUE(xy.has_value());
           auto expected_x = static_cast<double>(i + total_values_read);
           auto expected_y = static_cast<double>(i + 1 + total_values_read);
-          EXPECT_DOUBLE_EQ(expected_x, x);
-          EXPECT_DOUBLE_EQ(expected_y, y);
+          EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
         }
 
         total_values_read += values_read;
@@ -1992,43 +1989,34 @@ class TestGeometryLogicalType : public ::testing::Test {
     EXPECT_EQ(kNumRows, total_values_read);
   }
 
-  void CheckGeospatialStatistics(std::shared_ptr<GeospatialStatistics> geom_stats) {
+  void CheckGeoStatistics(std::shared_ptr<GeoStatistics> geom_stats, int64_t start_index,
+                          int64_t num_rows) {
     ASSERT_TRUE(geom_stats != nullptr);
-    std::vector<int32_t> geospatial_types = geom_stats->GetGeometryTypes();
-    EXPECT_EQ(1, geospatial_types.size());
-    EXPECT_EQ(1, geospatial_types[0]);
-    EXPECT_GE(geom_stats->GetXMin(), 0);
-    EXPECT_GT(geom_stats->GetXMax(), geom_stats->GetXMin());
-    EXPECT_GT(geom_stats->GetYMin(), 0);
-    EXPECT_GT(geom_stats->GetYMax(), geom_stats->GetYMin());
-    EXPECT_FALSE(geom_stats->HasZ());
-    EXPECT_FALSE(geom_stats->HasM());
+    // We wrote exactly one geometry type (POINT, which has code 1)
+    std::vector<int32_t> geospatial_types = geom_stats->get_geometry_types();
+    EXPECT_THAT(geospatial_types, ::testing::ElementsAre(1));
+
+    double expected_xmin = static_cast<double>(start_index);
+    double expected_xmax = expected_xmin + num_rows - 1;
+    double expected_ymin = expected_xmin + 1;
+    double expected_ymax = expected_xmax + 1;
+
+    EXPECT_EQ(geom_stats->get_xmin(), expected_xmin);
+    EXPECT_EQ(geom_stats->get_xmax(), expected_xmax);
+    EXPECT_EQ(geom_stats->get_ymin(), expected_ymin);
+    EXPECT_EQ(geom_stats->get_ymax(), expected_ymax);
+    EXPECT_FALSE(geom_stats->has_z());
+    EXPECT_FALSE(geom_stats->has_m());
   }
 
  protected:
   std::shared_ptr<Buffer> file_buf;
 };
 
-TEST_F(TestGeometryLogicalType, TestWriteAndReadWithPageStatistics) {
-  for (auto data_page_version :
-       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndRead(data_page_version, false, false);
-  }
-}
-
-TEST_F(TestGeometryLogicalType, TestWriteAndReadWithColumnIndex) {
-  for (auto data_page_version :
-       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndRead(data_page_version, true, false);
-  }
-}
+TEST_F(TestGeometryLogicalType, TestWrite) { TestWriteAndRead(/*write_arrow=*/false); }
 
 TEST_F(TestGeometryLogicalType, TestWriteArrowAndRead) {
-  for (auto data_page_version :
-       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndRead(data_page_version, false, true);
-    TestWriteAndRead(data_page_version, true, true);
-  }
+  TestWriteAndRead(/*write_arrow=*/true);
 }
 
 }  // namespace parquet

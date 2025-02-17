@@ -21,12 +21,7 @@
 #include <string>
 #include <vector>
 
-// TODO(paleolimbot): Remove once example files are generated
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
-
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-
+#include "arrow/config.h"
 #include "arrow/extension/json.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
@@ -42,6 +37,7 @@
 
 #include "parquet/arrow/schema_internal.h"
 #include "parquet/exception.h"
+#include "parquet/geospatial_util_internal_json.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
@@ -249,90 +245,21 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   return Status::OK();
 }
 
-// TODO(paleolimbot): Remove once example files are written
-Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
-    const ::arrow::rapidjson::Document& document,
-    const ArrowWriterProperties& arrow_properties) {
-  namespace rj = ::arrow::rapidjson;
-
-  std::string crs_type;
-  if (document.HasMember("crs_type")) {
-    crs_type = document["crs_type"].GetString();
-  }
-
-  if (!document.HasMember("crs") || document["crs"].IsNull()) {
-    // Parquet GEOMETRY/GEOGRAPHY do not have a concept of a null/missing
-    // CRS, but an omitted one is more likely to have meant "lon/lat" than
-    // a truly unspecified one (i.e., Engineering CRS with arbitrary XY units)
-    return "";
-  }
-
-  const auto& json_crs = document["crs"];
-  if (json_crs.IsString() && crs_type == "srid") {
-    // srid is an application-specific identifier. GeoArrow lets this be propagated via
-    // "crs_type": "srid".
-    return std::string("srid:") + json_crs.GetString();
-  } else if (json_crs.IsString() &&
-             (json_crs == "EPSG:4326" || json_crs == "OGC:CRS84")) {
-    // crs can be left empty because these cases both correspond to
-    // longitude/latitude in WGS84 according to the Parquet specification
-    return "";
-  } else if (json_crs.IsObject()) {
-    if (json_crs.HasMember("id")) {
-      const auto& identifier = json_crs["id"];
-      if (identifier.HasMember("authority") && identifier.HasMember("code")) {
-        if (identifier["authority"] == "OGC" && identifier["code"] == "CRS84") {
-          // longitude/latitude
-          return "";
-        } else if (identifier["authority"] == "EPSG" && identifier["code"] == 4326) {
-          // longitude/latitude
-          return "";
-        }
-      }
-    }
-
-    // TODO(paleolimbot) this is not quite correct because we're supposed to put this
-    // in the metadata according to the spec. We need to find a way to put
-    // this in the arrow_properties/file metadata via a CrsProvider or something.
-    rj::StringBuffer buffer;
-    rj::Writer<rj::StringBuffer> writer(buffer);
-    document.Accept(writer);
-    return std::string("projjson:") + buffer.GetString();
-  } else {
-    // e.g., authority:code, WKT2, arbitrary string. A pluggable CrsProvider
-    // could handle these and return something we're allowed to write here.
-    return Status::Invalid("Unsupported GeoArrow CRS for Parquet");
-  }
-}
-
 Result<std::shared_ptr<const LogicalType>> GeospatialLogicalTypeFromArrow(
     const std::string& serialized_data, const ArrowWriterProperties& arrow_properties) {
-  // Parquet has no way to interpret a null or missing CRS; however, it is more likely
-  // to induce confusion insert the fully specified equivalent of a null CRS (custom
-  // engineering CRS with unspecified units)
+  // Without a JSON parser, we can still handle a few trivial cases
   if (serialized_data.empty() || serialized_data == "{}") {
     return LogicalType::Geometry();
+  } else if (
+      serialized_data ==
+      R"({"edges": "spherical", "crs": "OGC:CRS84", "crs_type": "authority_code"})") {
+    return LogicalType::Geography();
+  } else if (serialized_data == R"({"crs": "OGC:CRS84", "crs_type": "authority_code"})") {
+    return LogicalType::Geometry();
+  } else {
+    // Will return an error status if Parquet was not built with ARROW_JSON
+    return GeospatialLogicalTypeFromGeoArrowJSON(serialized_data, arrow_properties);
   }
-
-  namespace rj = ::arrow::rapidjson;
-  rj::Document document;
-  if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError()) {
-    return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-  }
-
-  ARROW_ASSIGN_OR_RAISE(std::string crs,
-                        GeospatialGeoArrowCrsToParquetCrs(document, arrow_properties));
-
-  if (document.HasMember("edges") && document["edges"] == "planar") {
-    return LogicalType::Geometry(crs);
-  } else if (document.HasMember("edges") && document["edges"] == "spherical") {
-    return LogicalType::Geography(crs,
-                                  LogicalType::EdgeInterpolationAlgorithm::SPHERICAL);
-  } else if (document.HasMember("edges")) {
-    return Status::NotImplemented("GeoArrow edge type: ", serialized_data);
-  }
-
-  return LogicalType::Geometry(crs);
 }
 
 static constexpr char FIELD_ID_KEY[] = "PARQUET:field_id";
@@ -526,8 +453,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
         type = ParquetType::BYTE_ARRAY;
         logical_type = LogicalType::JSON();
         break;
-      } else if (arrow_properties.write_geospatial_logical_types() &&
-                 ext_type->extension_name() == std::string("geoarrow.wkb")) {
+      } else if (ext_type->extension_name() == std::string("geoarrow.wkb")) {
         type = ParquetType::BYTE_ARRAY;
         ARROW_ASSIGN_OR_RAISE(logical_type, GeospatialLogicalTypeFromArrow(
                                                 ext_type->Serialize(), arrow_properties));
@@ -562,6 +488,7 @@ struct SchemaTreeContext {
   SchemaManifest* manifest;
   ArrowReaderProperties properties;
   const SchemaDescriptor* schema;
+  std::shared_ptr<const KeyValueMetadata> metadata;
 
   void LinkParent(const SchemaField* child, const SchemaField* parent) {
     manifest->child_to_parent[child] = parent;
@@ -584,7 +511,7 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
     int column_index, const schema::PrimitiveNode& primitive_node,
     SchemaTreeContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> storage_type,
-                        GetArrowType(primitive_node, ctx->properties));
+                        GetArrowType(primitive_node, ctx->properties, ctx->metadata));
   if (ctx->properties.read_dictionary(column_index) &&
       IsDictionaryReadSupported(*storage_type)) {
     return ::arrow::dictionary(::arrow::int32(), storage_type);
@@ -1187,6 +1114,10 @@ Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
                        const WriterProperties& properties,
                        const ArrowWriterProperties& arrow_properties,
                        std::shared_ptr<SchemaDescriptor>* out) {
+  // TODO(paleolimbot): I'm wondering if this geo_crs_context is reused when testing
+  // on MINGW, where we get some failures indicating non-empty metadata where it was
+  // expected
+  arrow_properties.geo_crs_context()->Clear();
   std::vector<NodePtr> nodes(arrow_schema->num_fields());
   for (int i = 0; i < arrow_schema->num_fields(); i++) {
     RETURN_NOT_OK(
@@ -1249,6 +1180,7 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
   ctx.manifest = manifest;
   ctx.properties = properties;
   ctx.schema = schema;
+  ctx.metadata = metadata;
   const GroupNode& schema_node = *schema->group_node();
   manifest->descr = schema;
   manifest->schema_fields.resize(schema_node.field_count());

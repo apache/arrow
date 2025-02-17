@@ -319,28 +319,19 @@ cdef _box_flba(ParquetFLBA val, uint32_t len):
     return cp.PyBytes_FromStringAndSize(<char*> val.ptr, <Py_ssize_t> len)
 
 
-cdef class GeospatialStatistics(_Weakrefable):
+cdef class GeoStatistics(_Weakrefable):
     """Statistics for columns with geospatial data types"""
 
     def __cinit__(self):
         pass
 
     def __repr__(self):
-        return """{}
-  geospatial_types: {}
-  xmin: {}
-  xmax: {}
-  ymin: {}
-  ymax: {}
-  zmin: {}
-  zmax: {}
-  mmin: {}
-  mmax: {}""".format(object.__repr__(self),
-                     self.geospatial_types,
-                     self.xmin, self.xmax,
-                     self.ymin, self.ymax,
-                     self.zmin, self.zmax,
-                     self.mmin, self.mmax)
+        return f"""{object.__repr__(self)}
+  geospatial_types: {self.geospatial_types}
+  xmin: {self.xmin}, xmax: {self.xmax}
+  ymin: {self.ymin}, ymax: {self.ymax}
+  zmin: {self.zmin}, zmax: {self.zmax}
+  mmin: {self.mmin}, mmax: {self.mmax}"""
 
     def to_dict(self):
         out = {
@@ -417,7 +408,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     def __repr__(self):
         statistics = indent(repr(self.statistics), 4 * ' ')
-        geospatial_statistics = indent(repr(self.geospatial_statistics), 4 * ' ')
+        geo_statistics = indent(repr(self.geo_statistics), 4 * ' ')
         return """{0}
   file_offset: {1}
   file_path: {2}
@@ -427,7 +418,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
   is_stats_set: {6}
   statistics:
 {7}
-  geospatial_statistics:
+  geo_statistics:
 {8}
   compression: {9}
   encodings: {10}
@@ -443,7 +434,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
                                           self.path_in_schema,
                                           self.is_stats_set,
                                           statistics,
-                                          geospatial_statistics,
+                                          geo_statistics,
                                           self.compression,
                                           self.encodings,
                                           self.has_dictionary_page,
@@ -462,10 +453,10 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             Dictionary with a key for each attribute of this class.
         """
         statistics = self.statistics.to_dict() if self.is_stats_set else None
-        if self.is_geometry_stats_set:
-            geospatial_statistics = self.geospatial_statistics.to_dict()
+        if self.is_geo_stats_set:
+            geo_statistics = self.geo_statistics.to_dict()
         else:
-            geospatial_statistics = None
+            geo_statistics = None
 
         d = dict(
             file_offset=self.file_offset,
@@ -475,7 +466,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             path_in_schema=self.path_in_schema,
             is_stats_set=self.is_stats_set,
             statistics=statistics,
-            geospatial_statistics=geospatial_statistics,
+            geo_statistics=geo_statistics,
             compression=self.compression,
             encodings=self.encodings,
             has_dictionary_page=self.has_dictionary_page,
@@ -548,18 +539,18 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         return statistics
 
     @property
-    def is_geometry_stats_set(self):
+    def is_geo_stats_set(self):
         """Whether or not geometry statistics are present in metadata (bool)."""
-        return self.metadata.is_geometry_stats_set()
+        return self.metadata.is_geo_stats_set()
 
     @property
-    def geospatial_statistics(self):
-        """Statistics for column chunk (:class:`GeospatialStatistics`)."""
-        if not self.metadata.is_geometry_stats_set():
+    def geo_statistics(self):
+        """Statistics for column chunk (:class:`GeoStatistics`)."""
+        if not self.metadata.is_geo_stats_set():
             return None
-        geospatial_statistics = GeospatialStatistics()
-        geospatial_statistics.init(self.metadata.geometry_statistics(), self)
-        return geospatial_statistics
+        geo_statistics = GeoStatistics()
+        geo_statistics.init(self.metadata.geo_statistics(), self)
+        return geo_statistics
 
     @property
     def compression(self):
@@ -2165,8 +2156,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         allow_truncated_timestamps=False,
         writer_engine_version=None,
         use_compliant_nested_type=True,
-        store_schema=True,
-        write_geospatial_logical_types=False) except *:
+        store_schema=True) except *:
     """Arrow writer properties"""
     cdef:
         shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2216,11 +2206,6 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     elif writer_engine_version != "V2":
         raise ValueError("Unsupported Writer Engine Version: {0}"
                          .format(writer_engine_version))
-
-    # write_geospatial_logical_types
-
-    if write_geospatial_logical_types:
-        arrow_props.write_geospatial_logical_types()
 
     arrow_properties = arrow_props.build()
 
@@ -2304,8 +2289,7 @@ cdef class ParquetWriter(_Weakrefable):
                   write_page_index=False,
                   write_page_checksum=False,
                   sorting_columns=None,
-                  store_decimal_as_integer=False,
-                  write_geospatial_logical_types=False):
+                  store_decimal_as_integer=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2348,7 +2332,6 @@ cdef class ParquetWriter(_Weakrefable):
             writer_engine_version=writer_engine_version,
             use_compliant_nested_type=use_compliant_nested_type,
             store_schema=store_schema,
-            write_geospatial_logical_types=write_geospatial_logical_types,
         )
 
         pool = maybe_unbox_memory_pool(memory_pool)

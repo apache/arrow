@@ -756,6 +756,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         if decryption_properties is not None:
             self.decryption_properties = decryption_properties
         self.page_checksum_verification = page_checksum_verification
+        self.arrow_extensions_enabled = arrow_extensions_enabled
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)

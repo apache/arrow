@@ -1489,15 +1489,17 @@ TEST_F(TestGeoArrowParquetIO, GeoArrowExtension) {
 
   // Build a binary WKB array with at least one null value
   ::arrow::BinaryBuilder builder;
-  std::array<char, test::kWkbPointSize> item;
+
   for (int k = 0; k < 10; k++) {
-    test::GenerateWKBPoint(reinterpret_cast<uint8_t*>(item.data()), k, k + 1);
-    ASSERT_OK(builder.AppendValues({std::string(item.data(), item.size())}));
+    std::string item = test::MakeWKBPoint(
+        {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+    ASSERT_OK(builder.Append(item));
   }
   ASSERT_OK(builder.AppendNull());
   for (int k = 0; k < 5; k++) {
-    test::GenerateWKBPoint(reinterpret_cast<uint8_t*>(item.data()), k, k + 1);
-    ASSERT_OK(builder.AppendValues({std::string(item.data(), item.size())}));
+    std::string item = test::MakeWKBPoint(
+        {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+    ASSERT_OK(builder.Append(item));
   }
 
   ASSERT_OK_AND_ASSIGN(const auto binary_array, builder.Finish());
@@ -1512,9 +1514,7 @@ TEST_F(TestGeoArrowParquetIO, GeoArrowExtension) {
 
   // When the original Arrow schema isn't stored and Arrow extensions are disabled,
   // LogicalType::GEOMETRY is read as utf8.
-  auto writer_properties = ::parquet::ArrowWriterProperties::Builder()
-                               .write_geospatial_logical_types()
-                               ->build();
+  auto writer_properties = default_arrow_writer_properties();
   this->RoundTripSingleColumn(wkb_array, binary_array, writer_properties);
   this->RoundTripSingleColumn(large_wkb_array, binary_array, writer_properties);
 

@@ -78,7 +78,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetTimeUnit_MICROS" parquet::LogicalType::TimeUnit::MICROS"
         ParquetTimeUnit_NANOS" parquet::LogicalType::TimeUnit::NANOS"
 
-    enum ParquetEdgeInterpolationAlgorithm" parquet::LogicalType::EdgeInterpolationAlgorithm::algorithm":
+    enum ParquetEdgeInterpolationAlgorithm" parquet::LogicalType::EdgeInterpolationAlgorithm":
         ParquetEdgeInterpolationAlgorithm_UNKNOWN" parquet::LogicalType::EdgeInterpolationAlgorithm::UNKNOWN"
         ParquetEdgeInterpolationAlgorithm_SPHERICAL" parquet::LogicalType::EdgeInterpolationAlgorithm::SPHERICAL"
         ParquetEdgeInterpolationAlgorithm_VINCENTY" parquet::LogicalType::EdgeInterpolationAlgorithm::VINCENTY"
@@ -324,7 +324,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t offset
         int32_t length
 
-    cdef cppclass CParquetEncodedGeospatialStatistics" parquet::EncodedGeospatialStatistics":
+    cdef cppclass CParquetEncodedGeoStatistics" parquet::EncodedGeoStatistics":
         double xmin
         double xmax
         double ymin
@@ -338,8 +338,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         c_bool has_z() const
         c_bool has_m() const
 
-    cdef cppclass CParquetGeospatialStatistics" parquet::GeospatialStatistics":
-        CParquetEncodedGeospatialStatistics Encode() const
+    cdef cppclass CParquetGeoStatistics" parquet::GeoStatistics":
+        CParquetEncodedGeoStatistics Encode() const
 
     cdef cppclass CColumnChunkMetaData" parquet::ColumnChunkMetaData":
         int64_t file_offset() const
@@ -351,8 +351,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         shared_ptr[ColumnPath] path_in_schema() const
         bint is_stats_set() const
         shared_ptr[CStatistics] statistics() const
-        c_bool is_geometry_stats_set() const
-        shared_ptr[CParquetGeospatialStatistics] geometry_statistics() const
+        c_bool is_geo_stats_set() const
+        shared_ptr[CParquetGeoStatistics] geo_statistics() const
         ParquetCompression compression() const
         const vector[ParquetEncoding]& encodings() const
         c_bool Equals(const CColumnChunkMetaData&) const
@@ -500,7 +500,6 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* enable_compliant_nested_types()
             Builder* disable_compliant_nested_types()
             Builder* set_engine_version(ArrowWriterEngineVersion version)
-            Builder* write_geospatial_logical_types()
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
 
@@ -648,7 +647,6 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     writer_engine_version=*,
     use_compliant_nested_type=*,
     store_schema=*,
-    write_geospatial_logical_types=*,
 ) except *
 
 cdef class ParquetSchema(_Weakrefable):
@@ -703,12 +701,12 @@ cdef class Statistics(_Weakrefable):
         self.statistics = statistics
         self.parent = parent
 
-cdef class GeospatialStatistics(_Weakrefable):
+cdef class GeoStatistics(_Weakrefable):
     cdef:
-        CParquetEncodedGeospatialStatistics statistics
+        CParquetEncodedGeoStatistics statistics
         ColumnChunkMetaData parent
 
-    cdef inline init(self, const shared_ptr[CParquetGeospatialStatistics]& statistics,
+    cdef inline init(self, const shared_ptr[CParquetGeoStatistics]& statistics,
                      ColumnChunkMetaData parent):
         self.statistics = statistics.get().Encode()
         self.parent = parent

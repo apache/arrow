@@ -171,8 +171,9 @@ set(PARQUET_SRCS
     exception.cc
     file_reader.cc
     file_writer.cc
-    geometry_statistics.cc
-    geometry_util_internal.cc
+    geospatial_statistics.cc
+    geospatial_util_internal.cc
+    geospatial_util_internal_json.cc
     level_comparison.cc
     level_conversion.cc
     metadata.cc
@@ -261,9 +262,11 @@ endif()
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
   list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
-  # TODO(paleolimbot): Remove once sample files are generated
-  list(APPEND PARQUET_SHARED_LINK_LIBS RapidJSON)
-  list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
+  # TODO(paleolimbot): Make sure this is OK or remove if not!
+  if(ARROW_JSON)
+    list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
+    list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
+  endif()
 
   # These are libraries that we will link privately with parquet_shared (as they
   # do not need to be linked transitively by other linkers)
@@ -378,8 +381,8 @@ add_parquet_test(internals-test
                  statistics_test.cc
                  encoding_test.cc
                  metadata_test.cc
-                 geometry_statistics_test.cc
-                 geometry_util_internal_test.cc
+                 geospatial_statistics_test.cc
+                 geospatial_util_internal_test.cc
                  page_index_test.cc
                  public_api_test.cc
                  size_statistics_test.cc

@@ -69,6 +69,45 @@ constexpr int32_t kDefaultThriftContainerSizeLimit = 1000 * 1000;
 // PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
 constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
 
+/// \brief Convert Coordinate Reference System values for GEOMETRY and GEOGRAPHY logical
+/// types
+///
+/// EXPERIMENTAL
+class PARQUET_EXPORT GeoCrsContext {
+ public:
+  virtual ~GeoCrsContext() = default;
+
+  /// \brief Remove any previously saved PROJJSON CRS fields
+  virtual void Clear() = 0;
+
+  /// \brief Given a coordinate reference system value and encoding from GeoArrow
+  /// extension metadata, return the value that should be placed in the
+  /// LogicalType::Geography|Geometry(crs=) field
+  ///
+  /// For PROJJSON Crses (the most common way coordinate reference systems arrive
+  /// in Arrow), the Parquet specification forces us to write them to the file
+  /// metadata. The default GeoCrsContext will record such values and return the required
+  /// string that can be placed into the 'crs' of the Geometry or Geography logical
+  /// type.
+  virtual std::string GetParquetCrs(std::string crs_value,
+                                    const std::string& crs_encoding) = 0;
+
+  /// \brief Returns true if any converted CRS values were PROJJSON whose values are
+  /// stored in this object and should be written to the file metadata
+  virtual bool HasProjjsonCrsFields() = 0;
+
+  /// \brief Add any stored PROJJSON values to the supplied file KeyValueMetadata
+  ///
+  /// The default implementation will add any PROJJSON values it encountered to the file
+  /// KeyValueMetadata; however, a custom implementation may choose to store these values
+  /// somewhere else and implement this method as a no-op.
+  virtual void AddProjjsonCrsFieldsToFileMetadata(
+      ::arrow::KeyValueMetadata* metadata) = 0;
+
+  /// \brief Return an implementation that
+  static std::shared_ptr<GeoCrsContext> DefaultCrsContext();
+};
+
 class PARQUET_EXPORT ReaderProperties {
  public:
   explicit ReaderProperties(MemoryPool* pool = ::arrow::default_memory_pool())
@@ -1038,7 +1077,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
           store_schema_(false),
           compliant_nested_types_(true),
           engine_version_(V2),
-          write_geospatial_logical_types_(false),
+          geo_crs_context_(GeoCrsContext::DefaultCrsContext()),
           use_threads_(kArrowDefaultUseThreads),
           executor_(NULLPTR) {}
     virtual ~Builder() = default;
@@ -1113,9 +1152,10 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
-    /// Write GEOMETRY and GEOGRAPHY logical types where possible.
-    Builder* write_geospatial_logical_types() {
-      write_geospatial_logical_types_ = true;
+    /// \brief Set the GeoCrsContext with which coordinate reference systems should be
+    /// interpreted for GEOMETRY and GEOGRAPHY types
+    Builder* set_geospatial_crs_context(std::shared_ptr<GeoCrsContext> geo_crs_context) {
+      geo_crs_context_ = geo_crs_context;
       return this;
     }
 
@@ -1146,7 +1186,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
           truncated_timestamps_allowed_, store_schema_, compliant_nested_types_,
-          engine_version_, write_geospatial_logical_types_, use_threads_, executor_));
+          engine_version_, geo_crs_context_, use_threads_, executor_));
     }
 
    private:
@@ -1159,7 +1199,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
     bool store_schema_;
     bool compliant_nested_types_;
     EngineVersion engine_version_;
-    bool write_geospatial_logical_types_;
+    std::shared_ptr<GeoCrsContext> geo_crs_context_;
 
     bool use_threads_;
     ::arrow::internal::Executor* executor_;
@@ -1183,14 +1223,19 @@ class PARQUET_EXPORT ArrowWriterProperties {
   /// "element".
   bool compliant_nested_types() const { return compliant_nested_types_; }
 
+  /// \brief Get the context with which coordinate reference system values should be
+  /// interpreted
+  ///
+  /// Applies to GEOMETRY and GEOGRAPHY types.
+  const std::shared_ptr<GeoCrsContext>& geo_crs_context() const {
+    return geo_crs_context_;
+  }
+
   /// \brief The underlying engine version to use when writing Arrow data.
   ///
   /// V2 is currently the latest V1 is considered deprecated but left in
   /// place in case there are bugs detected in V2.
   EngineVersion engine_version() const { return engine_version_; }
-
-  /// \brief Write GEOMETRY and/or GEOGRAPHY logical types when converting GeoArrow types
-  bool write_geospatial_logical_types() const { return write_geospatial_logical_types_; }
 
   /// \brief Returns whether the writer will use multiple threads
   /// to write columns in parallel in the buffered row group mode.
@@ -1206,8 +1251,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
                                  bool truncated_timestamps_allowed, bool store_schema,
                                  bool compliant_nested_types,
                                  EngineVersion engine_version,
-                                 bool write_geospataial_logical_types, bool use_threads,
-                                 ::arrow::internal::Executor* executor)
+                                 std::shared_ptr<GeoCrsContext> geo_crs_context,
+                                 bool use_threads, ::arrow::internal::Executor* executor)
       : write_timestamps_as_int96_(write_nanos_as_int96),
         coerce_timestamps_enabled_(coerce_timestamps_enabled),
         coerce_timestamps_unit_(coerce_timestamps_unit),
@@ -1215,7 +1260,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
         store_schema_(store_schema),
         compliant_nested_types_(compliant_nested_types),
         engine_version_(engine_version),
-        write_geospatial_logical_types_(write_geospataial_logical_types),
+        geo_crs_context_(geo_crs_context),
         use_threads_(use_threads),
         executor_(executor) {}
 
@@ -1226,7 +1271,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
   const bool store_schema_;
   const bool compliant_nested_types_;
   const EngineVersion engine_version_;
-  const bool write_geospatial_logical_types_;
+  std::shared_ptr<GeoCrsContext> geo_crs_context_;
   const bool use_threads_;
   ::arrow::internal::Executor* executor_;
 };

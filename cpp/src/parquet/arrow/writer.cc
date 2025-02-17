@@ -526,8 +526,16 @@ Status FileWriter::Make(::arrow::MemoryPool* pool,
 Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                          const ArrowWriterProperties& properties,
                          std::shared_ptr<const KeyValueMetadata>* out) {
-  if (!properties.store_schema()) {
+  if (!properties.store_schema() &&
+      !properties.geo_crs_context()->HasProjjsonCrsFields()) {
     *out = nullptr;
+    return Status::OK();
+  } else if (!properties.store_schema()) {
+    std::shared_ptr<KeyValueMetadata> projjson_crs_fields =
+        ::arrow::key_value_metadata({}, {});
+    properties.geo_crs_context()->AddProjjsonCrsFieldsToFileMetadata(
+        projjson_crs_fields.get());
+    *out = std::move(projjson_crs_fields);
     return Status::OK();
   }
 
@@ -546,6 +554,10 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
   std::string schema_as_string = serialized->ToString();
   std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
   result->Append(kArrowSchemaKey, std::move(schema_base64));
+
+  // Add any required fields collected by the GeoCrsContext
+  properties.geo_crs_context()->AddProjjsonCrsFieldsToFileMetadata(result.get());
+
   *out = std::move(result);
   return Status::OK();
 }

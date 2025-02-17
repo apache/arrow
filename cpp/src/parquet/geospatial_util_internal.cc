@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/geometry_util_internal.h"
+#include "parquet/geospatial_util_internal.h"
 
 #include "arrow/result.h"
 #include "arrow/util/endian.h"
@@ -122,10 +122,10 @@ namespace {
   uint32_t geometry_type_component = wkb_geometry_type % 1000;
   uint32_t dimensions_component = wkb_geometry_type / 1000;
 
-  auto min_geometry_type_value = static_cast<uint32_t>(GeometryType::MIN);
-  auto max_geometry_type_value = static_cast<uint32_t>(GeometryType::MAX);
-  auto min_dimension_value = static_cast<uint32_t>(Dimensions::MIN);
-  auto max_dimension_value = static_cast<uint32_t>(Dimensions::MAX);
+  auto min_geometry_type_value = static_cast<uint32_t>(GeometryType::kWKBValueMin);
+  auto max_geometry_type_value = static_cast<uint32_t>(GeometryType::kWKBValueMax);
+  auto min_dimension_value = static_cast<uint32_t>(Dimensions::kWKBValueMin);
+  auto max_dimension_value = static_cast<uint32_t>(Dimensions::kWKBValueMax);
 
   if (geometry_type_component < min_geometry_type_value ||
       geometry_type_component > max_geometry_type_value ||
@@ -142,8 +142,15 @@ namespace {
 
 }  // namespace
 
-::arrow::Status WKBGeometryBounder::ReadGeometry(const uint8_t* data, int64_t size) {
-  WKBBuffer src{data, size};
+std::vector<int32_t> WKBGeometryBounder::GeometryTypes() const {
+  std::vector<int32_t> out(geospatial_types_.begin(), geospatial_types_.end());
+  std::sort(out.begin(), out.end());
+  return out;
+}
+
+::arrow::Status WKBGeometryBounder::ReadGeometry(std::string_view bytes_wkb) {
+  WKBBuffer src{reinterpret_cast<const uint8_t*>(bytes_wkb.data()),
+                static_cast<int64_t>(bytes_wkb.size())};
   ARROW_RETURN_NOT_OK(ReadGeometryInternal(&src, /*record_wkb_type=*/true));
   if (src.size() != 0) {
     return ::arrow::Status::SerializationError(
@@ -172,18 +179,18 @@ namespace {
   }
 
   switch (geometry_type_and_dimensions.first) {
-    case GeometryType::POINT:
+    case GeometryType::kPoint:
       ARROW_RETURN_NOT_OK(
           ReadSequence(src, geometry_type_and_dimensions.second, 1, swap));
       break;
 
-    case GeometryType::LINESTRING: {
+    case GeometryType::kLinestring: {
       ARROW_ASSIGN_OR_RAISE(uint32_t n_coords, src->ReadUInt32(swap));
       ARROW_RETURN_NOT_OK(
           ReadSequence(src, geometry_type_and_dimensions.second, n_coords, swap));
       break;
     }
-    case GeometryType::POLYGON: {
+    case GeometryType::kPolygon: {
       ARROW_ASSIGN_OR_RAISE(uint32_t n_parts, src->ReadUInt32(swap));
       for (uint32_t i = 0; i < n_parts; i++) {
         ARROW_ASSIGN_OR_RAISE(uint32_t n_coords, src->ReadUInt32(swap));
@@ -196,10 +203,10 @@ namespace {
     // These are all encoded the same in WKB, even though this encoding would
     // allow for parts to be of a different geometry type or different dimensions.
     // For the purposes of bounding, this does not cause us problems.
-    case GeometryType::MULTIPOINT:
-    case GeometryType::MULTILINESTRING:
-    case GeometryType::MULTIPOLYGON:
-    case GeometryType::GEOMETRYCOLLECTION: {
+    case GeometryType::kMultiPoint:
+    case GeometryType::kMultiLinestring:
+    case GeometryType::kMultiPolygon:
+    case GeometryType::kGeometryCollection: {
       ARROW_ASSIGN_OR_RAISE(uint32_t n_parts, src->ReadUInt32(swap));
       for (uint32_t i = 0; i < n_parts; i++) {
         ARROW_RETURN_NOT_OK(ReadGeometryInternal(src, /*record_wkb_type*/ false));
@@ -214,16 +221,16 @@ namespace {
 ::arrow::Status WKBGeometryBounder::ReadSequence(WKBBuffer* src, Dimensions dimensions,
                                                  uint32_t n_coords, bool swap) {
   switch (dimensions) {
-    case Dimensions::XY:
+    case Dimensions::kXY:
       return src->ReadDoubles<BoundingBox::XY>(
           n_coords, swap, [&](BoundingBox::XY coord) { box_.UpdateXY(coord); });
-    case Dimensions::XYZ:
+    case Dimensions::kXYZ:
       return src->ReadDoubles<BoundingBox::XYZ>(
           n_coords, swap, [&](BoundingBox::XYZ coord) { box_.UpdateXYZ(coord); });
-    case Dimensions::XYM:
+    case Dimensions::kXYM:
       return src->ReadDoubles<BoundingBox::XYM>(
           n_coords, swap, [&](BoundingBox::XYM coord) { box_.UpdateXYM(coord); });
-    case Dimensions::XYZM:
+    case Dimensions::kXYZM:
       return src->ReadDoubles<BoundingBox::XYZM>(
           n_coords, swap, [&](BoundingBox::XYZM coord) { box_.UpdateXYZM(coord); });
     default:

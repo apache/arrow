@@ -194,5 +194,84 @@ void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLB
   }
 }
 
+namespace {
+
+uint32_t GeometryTypeToWKB(geometry::GeometryType geometry_type, bool has_z, bool has_m) {
+  auto wkb_geom_type = static_cast<uint32_t>(geometry_type);
+
+  if (has_z) {
+    wkb_geom_type += 1000;
+  }
+
+  if (has_m) {
+    wkb_geom_type += 2000;
+  }
+
+  return wkb_geom_type;
+}
+
+}  // namespace
+
+std::string MakeWKBPoint(const std::vector<double>& xyzm, bool has_z, bool has_m) {
+  // 1:endianness + 4:type + 8:x + 8:y
+  int num_bytes =
+      kWkbPointXYSize + (has_z ? sizeof(double) : 0) + (has_m ? sizeof(double) : 0);
+  std::string wkb(num_bytes, 0);
+  char* ptr = wkb.data();
+
+  ptr[0] = kWkbNativeEndianness;
+  uint32_t geom_type = GeometryTypeToWKB(geometry::GeometryType::kPoint, has_z, has_m);
+  std::memcpy(&ptr[1], &geom_type, 4);
+  std::memcpy(&ptr[5], &xyzm[0], 8);
+  std::memcpy(&ptr[13], &xyzm[1], 8);
+  ptr += 21;
+
+  if (has_z) {
+    std::memcpy(ptr, &xyzm[2], 8);
+    ptr += 8;
+  }
+
+  if (has_m) {
+    std::memcpy(ptr, &xyzm[3], 8);
+  }
+
+  return wkb;
+}
+
+std::optional<std::pair<double, double>> GetWKBPointCoordinateXY(const ByteArray& value) {
+  if (value.len != kWkbPointXYSize) {
+    return std::nullopt;
+  }
+
+  if (value.ptr[0] != kWkbNativeEndianness) {
+    return std::nullopt;
+  }
+
+  uint32_t expected_geom_type =
+      GeometryTypeToWKB(geometry::GeometryType::kPoint, false, false);
+  uint32_t geom_type = 0;
+  std::memcpy(&geom_type, &value.ptr[1], 4);
+  if (geom_type != expected_geom_type) {
+    return std::nullopt;
+  }
+  double out_x, out_y;
+  std::memcpy(&out_x, &value.ptr[5], 8);
+  std::memcpy(&out_y, &value.ptr[13], 8);
+
+  return std::pair<double, double>{out_x, out_y};
+}
+
+std::shared_ptr<::arrow::DataType> geoarrow_wkb(
+    std::string metadata, const std::shared_ptr<::arrow::DataType> storage) {
+  return std::make_shared<GeoArrowWkbExtensionType>(storage, std::move(metadata));
+}
+
+std::shared_ptr<::arrow::DataType> geoarrow_wkb_lonlat(
+    const std::shared_ptr<::arrow::DataType> storage) {
+  // There are other ways to express lon/lat output, but this is the one that will
+  // roundtrip into Parquet and back
+  return geoarrow_wkb(R"({"crs": "OGC:CRS84", "crs_type": "authority_code"})", storage);
+}
+
 }  // namespace test
 }  // namespace parquet
