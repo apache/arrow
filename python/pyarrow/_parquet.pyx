@@ -2000,15 +2000,14 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         props.dictionary_pagesize_limit(dictionary_pagesize_limit)
 
     # content defined chunking
-
     if content_defined_chunking is False:
         props.disable_cdc()
     elif content_defined_chunking is True:
         props.enable_cdc()
     elif isinstance(content_defined_chunking, tuple):
-        avg_size, = content_defined_chunking
+        min_size, max_size = content_defined_chunking
         props.enable_cdc()
-        props.cdc_avg_size(avg_size)
+        props.cdc_size_range(min_size, max_size)
     else:
         raise ValueError(
             "Unsupported value for content_defined_chunking: {0}"
