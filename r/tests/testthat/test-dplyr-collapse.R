@@ -142,6 +142,12 @@ test_that("Properties of collapsed query", {
     summarize(total = sum(int, na.rm = TRUE)) %>%
     mutate(extra = total * 5)
 
+  #  # A tibble: 2 × 3
+  #   lgl   total extra
+  #   <lgl> <int> <dbl>
+  # 1 TRUE      5    25
+  # 2 NA       36   180
+
   # Avoid evaluating just for nrow
   expect_identical(dim(q), c(NA_integer_, 3L))
 
