@@ -794,3 +794,28 @@ def test_column_chunk_key_value_metadata(parquet_test_datadir):
     assert key_value_metadata1 == {b'foo': b'bar', b'thisiskeywithoutvalue': b''}
     key_value_metadata2 = metadata.row_group(0).column(1).metadata
     assert key_value_metadata2 is None
+
+
+def test_internal_class_instantiation():
+    def msg(c):
+        return f"Can't instantiate internal class {c}"
+
+    with pytest.raises(TypeError) as excinfo:
+        pq.Statistics()
+        assert excinfo.value == msg("Statistics")
+
+    with pytest.raises(TypeError) as excinfo:
+        pq.ParquetLogicalType()
+        assert excinfo.value == msg("ParquetLogicalType")
+
+    with pytest.raises(TypeError) as excinfo:
+        pq.ColumnChunkMetaData()
+        assert excinfo.value == msg("ColumnChunkMetaData")
+
+    with pytest.raises(TypeError) as excinfo:
+        pq.RowGroupMetaData()
+        assert excinfo.value == msg("RowGroupMetaData")
+
+    with pytest.raises(TypeError) as excinfo:
+        pq.FileMetaData()
+        assert excinfo.value == msg("FileMetaData")
