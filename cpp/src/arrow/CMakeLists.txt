@@ -529,6 +529,7 @@ set(ARROW_UTIL_SRCS
     util/logger.cc
     util/logging.cc
     util/key_value_metadata.cc
+    util/math_internal.cc
     util/memory.cc
     util/mutex.cc
     util/ree_util.cc
