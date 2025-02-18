@@ -18,8 +18,6 @@
 dl_dep = dependency('dl')
 threads_dep = dependency('threads')
 
-# Meson does not natively support object libraries
-# https://github.com/mesonbuild/meson/issues/13843
 arrow_components = {
     'arrow_array': {
         'sources': [
@@ -266,16 +264,14 @@ install_headers(
         'device.h',
         'extension_type.h',
         'memory_pool.h',
-        'memory_pool_test.h',
-        'pch.h',
         'pretty_print.h',
         'record_batch.h',
         'result.h',
         'scalar.h',
         'sparse_tensor.h',
         'status.h',
-        'stl_allocator.h',
         'stl.h',
+        'stl_allocator.h',
         'stl_iterator.h',
         'table_builder.h',
         'table.h',
