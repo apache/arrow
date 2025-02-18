@@ -54,9 +54,9 @@ dummy_git=${root_folder}/csharp/dummy.git
 mkdir ${dummy_git}
 pushd ${dummy_git}
 echo ${release_hash} > HEAD
-echo '[remote "origin"] url = https://github.com/apache/arrow.git' >> config
+echo "[remote \"origin\"] url = https://github.com/${GITHUB_REPOSITORY:-apache/arrow}.git" >> config
 mkdir objects refs
-popd 
+popd
 
 # Create new tarball from modified source directory
 tar czf ${tarball} ${root_folder}

@@ -174,7 +174,11 @@ def get_column_metadata(column, name, arrow_type, field_name):
         }
         string_dtype = 'object'
 
-    if name is not None and not isinstance(name, str):
+    if (
+        name is not None
+        and not (isinstance(name, float) and np.isnan(name))
+        and not isinstance(name, str)
+    ):
         raise TypeError(
             'Column name must be a string. Got column {} of type {}'.format(
                 name, type(name).__name__
@@ -340,8 +344,8 @@ def _column_name_to_strings(name):
         return str(tuple(map(_column_name_to_strings, name)))
     elif isinstance(name, Sequence):
         raise TypeError("Unsupported type for MultiIndex level")
-    elif name is None:
-        return None
+    elif name is None or (isinstance(name, float) and np.isnan(name)):
+        return name
     return str(name)
 
 
@@ -790,10 +794,12 @@ def table_to_dataframe(
         table, index = _reconstruct_index(table, index_descriptors,
                                           all_columns, types_mapper)
         ext_columns_dtypes = _get_extension_dtypes(
-            table, all_columns, types_mapper)
+            table, all_columns, types_mapper, options, categories)
     else:
         index = _pandas_api.pd.RangeIndex(table.num_rows)
-        ext_columns_dtypes = _get_extension_dtypes(table, [], types_mapper)
+        ext_columns_dtypes = _get_extension_dtypes(
+            table, [], types_mapper, options, categories
+        )
 
     _check_data_column_metadata_consistency(all_columns)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
@@ -838,7 +844,7 @@ _pandas_supported_numpy_types = {
 }
 
 
-def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
+def _get_extension_dtypes(table, columns_metadata, types_mapper, options, categories):
     """
     Based on the stored column pandas metadata and the extension types
     in the arrow schema, infer which columns should be converted to a
@@ -851,6 +857,9 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
     and then we can check if this dtype supports conversion from arrow.
 
     """
+    strings_to_categorical = options["strings_to_categorical"]
+    categories = categories or []
+
     ext_columns = {}
 
     # older pandas version that does not yet support extension dtypes
@@ -889,8 +898,31 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
             # that are certainly numpy dtypes
             pandas_dtype = _pandas_api.pandas_dtype(dtype)
             if isinstance(pandas_dtype, _pandas_api.extension_dtype):
+                if isinstance(pandas_dtype, _pandas_api.pd.StringDtype):
+                    # when the metadata indicate to use the string dtype,
+                    # ignore this in case:
+                    # - it is specified to convert strings / this column to categorical
+                    # - the column itself is dictionary encoded and would otherwise be
+                    #   converted to categorical
+                    if strings_to_categorical or name in categories:
+                        continue
+                    try:
+                        if pa.types.is_dictionary(table.schema.field(name).type):
+                            continue
+                    except KeyError:
+                        pass
                 if hasattr(pandas_dtype, "__from_arrow__"):
                     ext_columns[name] = pandas_dtype
+
+    # for pandas 3.0+, use pandas' new default string dtype
+    if _pandas_api.uses_string_dtype() and not strings_to_categorical:
+        for field in table.schema:
+            if field.name not in ext_columns and (
+                pa.types.is_string(field.type)
+                or pa.types.is_large_string(field.type)
+                or pa.types.is_string_view(field.type)
+            ) and field.name not in categories:
+                ext_columns[field.name] = _pandas_api.pd.StringDtype(na_value=np.nan)
 
     return ext_columns
 
@@ -1049,9 +1081,9 @@ def get_pandas_logical_type_map():
             'date': 'datetime64[D]',
             'datetime': 'datetime64[ns]',
             'datetimetz': 'datetime64[ns]',
-            'unicode': np.str_,
+            'unicode': 'str',
             'bytes': np.bytes_,
-            'string': np.str_,
+            'string': 'str',
             'integer': np.int64,
             'floating': np.float64,
             'decimal': np.object_,
@@ -1142,6 +1174,20 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         # GH-41503: if the column index was decimal, restore to decimal
         elif pandas_dtype == "decimal":
             level = _pandas_api.pd.Index([decimal.Decimal(i) for i in level])
+        elif (
+            level.dtype == "str" and numpy_dtype == "object"
+            and ("mixed" in pandas_dtype or pandas_dtype in ["unicode", "string"])
+        ):
+            # the metadata indicate that the original dataframe used object dtype,
+            # but ignore this and keep string dtype if:
+            # - the original columns used mixed types -> we don't attempt to faithfully
+            #   roundtrip in this case, but keep the column names as strings
+            # - the original columns were inferred to be strings but stored in object
+            #   dtype -> we don't restore the object dtype because all metadata
+            #   generated using pandas < 3 will have this case by default, and
+            #   for pandas >= 3 we want to use the default string dtype for .columns
+            new_levels.append(level)
+            continue
         elif level.dtype != dtype:
             level = level.astype(dtype)
         # ARROW-9096: if original DataFrame was upcast we keep that

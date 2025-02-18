@@ -266,6 +266,8 @@ class DebugAllocator {
     }
   }
 
+  static void PrintStats() { WrappedAllocator::PrintStats(); }
+
  private:
   static Result<int64_t> RawSize(int64_t size) {
     if (ARROW_PREDICT_FALSE(internal::AddWithOverflow(size, kOverhead, &size))) {
@@ -380,6 +382,12 @@ class SystemAllocator {
     ARROW_UNUSED(malloc_trim(0));
 #endif
   }
+
+  static void PrintStats() {
+#ifdef __GLIBC__
+    malloc_stats();
+#endif
+  }
 };
 
 #ifdef ARROW_MIMALLOC
@@ -430,6 +438,8 @@ class MimallocAllocator {
       mi_free(ptr);
     }
   }
+
+  static void PrintStats() { mi_stats_print_out(nullptr, nullptr); }
 };
 
 #endif  // defined(ARROW_MIMALLOC)
@@ -511,6 +521,8 @@ class BaseMemoryPoolImpl : public MemoryPool {
   }
 
   void ReleaseUnused() override { Allocator::ReleaseUnused(); }
+
+  void PrintStats() override { Allocator::PrintStats(); }
 
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
 
@@ -724,6 +736,10 @@ void LoggingMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
   std::cout << "Free: size = " << size << ", alignment = " << alignment << std::endl;
 }
 
+void LoggingMemoryPool::ReleaseUnused() { pool_->ReleaseUnused(); }
+
+void LoggingMemoryPool::PrintStats() { pool_->PrintStats(); }
+
 int64_t LoggingMemoryPool::bytes_allocated() const {
   int64_t nb_bytes = pool_->bytes_allocated();
   std::cout << "bytes_allocated: " << nb_bytes << std::endl;
@@ -775,6 +791,14 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
     stats_.DidFreeBytes(size);
   }
 
+  void ReleaseUnused() { pool_->ReleaseUnused(); }
+
+  void PrintStats() {
+    // XXX these are the allocation stats for the underlying allocator, not
+    // the subset allocated through the ProxyMemoryPool
+    pool_->PrintStats();
+  }
+
   int64_t bytes_allocated() const { return stats_.bytes_allocated(); }
 
   int64_t max_memory() const { return stats_.max_memory(); }
@@ -808,6 +832,10 @@ Status ProxyMemoryPool::Reallocate(int64_t old_size, int64_t new_size, int64_t a
 void ProxyMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
   return impl_->Free(buffer, size, alignment);
 }
+
+void ProxyMemoryPool::ReleaseUnused() { impl_->ReleaseUnused(); }
+
+void ProxyMemoryPool::PrintStats() { impl_->PrintStats(); }
 
 int64_t ProxyMemoryPool::bytes_allocated() const { return impl_->bytes_allocated(); }
 

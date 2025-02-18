@@ -663,7 +663,7 @@ Status TestDecimal128OverflowFails() {
   ASSERT_EQ(38, metadata.precision());
   ASSERT_EQ(1, metadata.scale());
 
-  auto type = ::arrow::decimal(38, 38);
+  auto type = ::arrow::smallest_decimal(38, 38);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_RAISES(Invalid,
                 internal::DecimalFromPythonDecimal(python_decimal, decimal_type, &value));
@@ -689,7 +689,7 @@ Status TestDecimal256OverflowFails() {
   ASSERT_EQ(76, metadata.precision());
   ASSERT_EQ(1, metadata.scale());
 
-  auto type = ::arrow::decimal(76, 76);
+  auto type = ::arrow::smallest_decimal(76, 76);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_RAISES(Invalid,
                 internal::DecimalFromPythonDecimal(python_decimal, decimal_type, &value));

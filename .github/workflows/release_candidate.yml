@@ -32,10 +32,10 @@ env:
 
 jobs:
   publish:
-    name: Publish 
+    name: Publish
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    steps: 
+    steps:
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
@@ -58,8 +58,9 @@ jobs:
           echo "RELEASE_CANDIDATE_NOTES=${release_notes}" >> ${GITHUB_ENV}
       - name: Create Release tarball
         run: |
-          cd dev/release/ && ./utils-create-release-tarball.sh ${VERSION} ${RC_NUM}
+          dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUM}
           echo "RELEASE_TARBALL=apache-arrow-${VERSION}.tar.gz" >> ${GITHUB_ENV}
+          dev/release/utils-generate-checksum.sh "apache-arrow-${VERSION}.tar.gz"
       - name: Create GitHub Release
         run: |
           gh release create ${GITHUB_REF_NAME} \
@@ -67,4 +68,4 @@ jobs:
             --prerelease \
             --title "${RELEASE_CANDIDATE_TITLE}" \
             --notes "Release Notes: ${RELEASE_CANDIDATE_NOTES}" \
-            dev/release/${RELEASE_TARBALL}
+            ${RELEASE_TARBALL}*

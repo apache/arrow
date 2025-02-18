@@ -27,6 +27,7 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/compute/test_util_internal.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/plan.h"
@@ -42,6 +43,7 @@ namespace cp = arrow::compute;
 
 namespace arrow {
 
+using compute::ExecBatchFromJSON;
 using internal::TemporaryDir;
 
 namespace dataset {
@@ -377,9 +379,8 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
 
     acero::BatchesWithSchema source_data;
     source_data.batches = {
-        acero::ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
-        acero::ExecBatchFromJSON({int32(), boolean()},
-                                 "[[5, null], [6, false], [7, false]]")};
+        ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
+        ExecBatchFromJSON({int32(), boolean()}, "[[5, null], [6, false], [7, false]]")};
     source_data.schema = schema({field("i32", int32()), field("bool", boolean())});
 
     AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;

@@ -439,11 +439,11 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     num_rows = 0;
     num_bytes = 0;
     for (size_t i = 0; i < sources.size(); ++i) {
-      target->rows_.mutable_offsets()[num_rows] = static_cast<uint32_t>(num_bytes);
+      target->rows_.mutable_offsets()[num_rows] = num_bytes;
       num_rows += sources[i]->rows_.length();
       num_bytes += sources[i]->rows_.offsets()[sources[i]->rows_.length()];
     }
-    target->rows_.mutable_offsets()[num_rows] = static_cast<uint32_t>(num_bytes);
+    target->rows_.mutable_offsets()[num_rows] = num_bytes;
   }
 
   return Status::OK();
@@ -477,14 +477,15 @@ void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& so
                                     const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
 
-  int64_t fixed_length = target->metadata().fixed_length;
+  uint32_t fixed_length = target->metadata().fixed_length;
 
   // Permutation of source rows is optional. Without permutation all that is
   // needed is memcpy.
   //
   if (!source_rows_permutation) {
-    memcpy(target->mutable_data(1) + fixed_length * first_target_row_id, source.data(1),
-           fixed_length * num_source_rows);
+    DCHECK_LE(first_target_row_id, std::numeric_limits<uint32_t>::max());
+    memcpy(target->mutable_fixed_length_rows(static_cast<uint32_t>(first_target_row_id)),
+           source.fixed_length_rows(/*row_id=*/0), fixed_length * num_source_rows);
   } else {
     // Row length must be a multiple of 64-bits due to enforced alignment.
     // Loop for each output row copying a fixed number of 64-bit words.
@@ -494,10 +495,13 @@ void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& so
     int64_t num_words_per_row = fixed_length / sizeof(uint64_t);
     for (int64_t i = 0; i < num_source_rows; ++i) {
       int64_t source_row_id = source_rows_permutation[i];
+      DCHECK_LE(source_row_id, std::numeric_limits<uint32_t>::max());
       const uint64_t* source_row_ptr = reinterpret_cast<const uint64_t*>(
-          source.data(1) + fixed_length * source_row_id);
+          source.fixed_length_rows(static_cast<uint32_t>(source_row_id)));
+      int64_t target_row_id = first_target_row_id + i;
+      DCHECK_LE(target_row_id, std::numeric_limits<uint32_t>::max());
       uint64_t* target_row_ptr = reinterpret_cast<uint64_t*>(
-          target->mutable_data(1) + fixed_length * (first_target_row_id + i));
+          target->mutable_fixed_length_rows(static_cast<uint32_t>(target_row_id)));
 
       for (int64_t word = 0; word < num_words_per_row; ++word) {
         target_row_ptr[word] = source_row_ptr[word];
@@ -529,16 +533,16 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
 
     // We can simply memcpy bytes of rows if their order has not changed.
     //
-    memcpy(target->mutable_data(2) + target_offsets[first_target_row_id], source.data(2),
-           source_offsets[num_source_rows] - source_offsets[0]);
+    memcpy(target->mutable_var_length_rows() + target_offsets[first_target_row_id],
+           source.var_length_rows(), source_offsets[num_source_rows] - source_offsets[0]);
   } else {
     int64_t target_row_offset = first_target_row_offset;
-    uint64_t* target_row_ptr =
-        reinterpret_cast<uint64_t*>(target->mutable_data(2) + target_row_offset);
+    uint64_t* target_row_ptr = reinterpret_cast<uint64_t*>(
+        target->mutable_var_length_rows() + target_row_offset);
     for (int64_t i = 0; i < num_source_rows; ++i) {
       int64_t source_row_id = source_rows_permutation[i];
       const uint64_t* source_row_ptr = reinterpret_cast<const uint64_t*>(
-          source.data(2) + source_offsets[source_row_id]);
+          source.var_length_rows() + source_offsets[source_row_id]);
       int64_t length = source_offsets[source_row_id + 1] - source_offsets[source_row_id];
       // Though the row offset is 64-bit, the length of a single row must be 32-bit as
       // required by current row table implementation.
@@ -564,14 +568,18 @@ void RowArrayMerge::CopyNulls(RowTableImpl* target, const RowTableImpl& source,
                               const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
   int num_bytes_per_row = target->metadata().null_masks_bytes_per_row;
-  uint8_t* target_nulls = target->null_masks() + num_bytes_per_row * first_target_row_id;
+  DCHECK_LE(first_target_row_id, std::numeric_limits<uint32_t>::max());
+  uint8_t* target_nulls =
+      target->mutable_null_masks(static_cast<uint32_t>(first_target_row_id));
   if (!source_rows_permutation) {
-    memcpy(target_nulls, source.null_masks(), num_bytes_per_row * num_source_rows);
+    memcpy(target_nulls, source.null_masks(/*row_id=*/0),
+           num_bytes_per_row * num_source_rows);
   } else {
-    for (int64_t i = 0; i < num_source_rows; ++i) {
+    for (uint32_t i = 0; i < num_source_rows; ++i) {
       int64_t source_row_id = source_rows_permutation[i];
+      DCHECK_LE(source_row_id, std::numeric_limits<uint32_t>::max());
       const uint8_t* source_nulls =
-          source.null_masks() + num_bytes_per_row * source_row_id;
+          source.null_masks(static_cast<uint32_t>(source_row_id));
       for (int64_t byte = 0; byte < num_bytes_per_row; ++byte) {
         *target_nulls++ = *source_nulls++;
       }
@@ -635,37 +643,38 @@ void SwissTableMerge::MergePartition(SwissTable* target, const SwissTable* sourc
   //
   int source_group_id_bits =
       SwissTable::num_groupid_bits_from_log_blocks(source->log_blocks());
-  uint64_t source_group_id_mask = ~0ULL >> (64 - source_group_id_bits);
-  int64_t source_block_bytes = source_group_id_bits + 8;
+  int source_block_bytes =
+      SwissTable::num_block_bytes_from_num_groupid_bits(source_group_id_bits);
+  uint32_t source_group_id_mask =
+      SwissTable::group_id_mask_from_num_groupid_bits(source_group_id_bits);
   ARROW_DCHECK(source_block_bytes % sizeof(uint64_t) == 0);
 
   // Compute index of the last block in target that corresponds to the given
   // partition.
   //
   ARROW_DCHECK(num_partition_bits <= target->log_blocks());
-  int64_t target_max_block_id =
+  uint32_t target_max_block_id =
       ((partition_id + 1) << (target->log_blocks() - num_partition_bits)) - 1;
 
   overflow_group_ids->clear();
   overflow_hashes->clear();
 
   // For each source block...
-  int64_t source_blocks = 1LL << source->log_blocks();
-  for (int64_t block_id = 0; block_id < source_blocks; ++block_id) {
-    uint8_t* block_bytes = source->blocks() + block_id * source_block_bytes;
+  uint32_t source_blocks = 1 << source->log_blocks();
+  for (uint32_t block_id = 0; block_id < source_blocks; ++block_id) {
+    const uint8_t* block_bytes = source->block_data(block_id, source_block_bytes);
     uint64_t block = *reinterpret_cast<const uint64_t*>(block_bytes);
 
     // For each non-empty source slot...
     constexpr uint64_t kHighBitOfEachByte = 0x8080808080808080ULL;
-    constexpr int kSlotsPerBlock = 8;
-    int num_full_slots =
-        kSlotsPerBlock - static_cast<int>(ARROW_POPCOUNT64(block & kHighBitOfEachByte));
+    int num_full_slots = SwissTable::kSlotsPerBlock -
+                         static_cast<int>(ARROW_POPCOUNT64(block & kHighBitOfEachByte));
     for (int local_slot_id = 0; local_slot_id < num_full_slots; ++local_slot_id) {
       // Read group id and hash for this slot.
       //
-      uint64_t group_id =
-          source->extract_group_id(block_bytes, local_slot_id, source_group_id_mask);
-      int64_t global_slot_id = block_id * kSlotsPerBlock + local_slot_id;
+      uint32_t group_id = SwissTable::extract_group_id(
+          block_bytes, local_slot_id, source_group_id_bits, source_group_id_mask);
+      uint32_t global_slot_id = SwissTable::global_slot_id(block_id, local_slot_id);
       uint32_t hash = source->hashes()[global_slot_id];
       // Insert partition id into the highest bits of hash, shifting the
       // remaining hash bits right.
@@ -688,17 +697,18 @@ void SwissTableMerge::MergePartition(SwissTable* target, const SwissTable* sourc
   }
 }
 
-inline bool SwissTableMerge::InsertNewGroup(SwissTable* target, uint64_t group_id,
-                                            uint32_t hash, int64_t max_block_id) {
+inline bool SwissTableMerge::InsertNewGroup(SwissTable* target, uint32_t group_id,
+                                            uint32_t hash, uint32_t max_block_id) {
   // Load the first block to visit for this hash
   //
-  int64_t block_id = hash >> (SwissTable::bits_hash_ - target->log_blocks());
-  int64_t block_id_mask = ((1LL << target->log_blocks()) - 1);
+  uint32_t block_id = SwissTable::block_id_from_hash(hash, target->log_blocks());
+  uint32_t block_id_mask = (1 << target->log_blocks()) - 1;
   int num_group_id_bits =
       SwissTable::num_groupid_bits_from_log_blocks(target->log_blocks());
-  int64_t num_block_bytes = num_group_id_bits + sizeof(uint64_t);
+  int num_block_bytes =
+      SwissTable::num_block_bytes_from_num_groupid_bits(num_group_id_bits);
   ARROW_DCHECK(num_block_bytes % sizeof(uint64_t) == 0);
-  uint8_t* block_bytes = target->blocks() + block_id * num_block_bytes;
+  const uint8_t* block_bytes = target->block_data(block_id, num_block_bytes);
   uint64_t block = *reinterpret_cast<const uint64_t*>(block_bytes);
 
   // Search for the first block with empty slots.
@@ -707,25 +717,23 @@ inline bool SwissTableMerge::InsertNewGroup(SwissTable* target, uint64_t group_i
   constexpr uint64_t kHighBitOfEachByte = 0x8080808080808080ULL;
   while ((block & kHighBitOfEachByte) == 0 && block_id < max_block_id) {
     block_id = (block_id + 1) & block_id_mask;
-    block_bytes = target->blocks() + block_id * num_block_bytes;
+    block_bytes = target->block_data(block_id, num_block_bytes);
     block = *reinterpret_cast<const uint64_t*>(block_bytes);
   }
   if ((block & kHighBitOfEachByte) == 0) {
     return false;
   }
-  constexpr int kSlotsPerBlock = 8;
-  int local_slot_id =
-      kSlotsPerBlock - static_cast<int>(ARROW_POPCOUNT64(block & kHighBitOfEachByte));
-  int64_t global_slot_id = block_id * kSlotsPerBlock + local_slot_id;
-  target->insert_into_empty_slot(static_cast<uint32_t>(global_slot_id), hash,
-                                 static_cast<uint32_t>(group_id));
+  int local_slot_id = SwissTable::kSlotsPerBlock -
+                      static_cast<int>(ARROW_POPCOUNT64(block & kHighBitOfEachByte));
+  uint32_t global_slot_id = SwissTable::global_slot_id(block_id, local_slot_id);
+  target->insert_into_empty_slot(global_slot_id, hash, group_id);
   return true;
 }
 
 void SwissTableMerge::InsertNewGroups(SwissTable* target,
                                       const std::vector<uint32_t>& group_ids,
                                       const std::vector<uint32_t>& hashes) {
-  int64_t num_blocks = 1LL << target->log_blocks();
+  uint32_t num_blocks = 1 << target->log_blocks();
   for (size_t i = 0; i < group_ids.size(); ++i) {
     std::ignore = InsertNewGroup(target, group_ids[i], hashes[i], num_blocks);
   }
@@ -1183,7 +1191,7 @@ Status SwissTableForJoinBuild::PushNextBatch(int64_t thread_id,
           // We want each partition to correspond to a range of block indices,
           // so we also partition on the highest bits of the hash.
           //
-          return locals.batch_hashes[i] >> (31 - log_num_prtns_) >> 1;
+          return locals.batch_hashes[i] >> (SwissTable::bits_hash_ - log_num_prtns_);
         },
         [&locals](int64_t i, int pos) {
           locals.batch_prtn_row_ids[pos] = static_cast<uint16_t>(i);
@@ -2462,7 +2470,6 @@ class SwissJoin : public HashJoinImpl {
     output_batch_callback_ = std::move(output_batch_callback);
     finished_callback_ = std::move(finished_callback);
 
-    hash_table_ready_.store(false);
     cancelled_.store(false);
     {
       std::lock_guard<std::mutex> lock(state_mutex_);
@@ -2474,7 +2481,6 @@ class SwissJoin : public HashJoinImpl {
     local_states_.resize(num_threads_);
     for (int i = 0; i < num_threads_; ++i) {
       RETURN_NOT_OK(local_states_[i].stack.Init(pool_, kTempStackUsage));
-      local_states_[i].hash_table_ready = false;
       local_states_[i].num_output_batches = 0;
       local_states_[i].materialize.Init(pool_, proj_map_left, proj_map_right);
     }
@@ -2519,11 +2525,6 @@ class SwissJoin : public HashJoinImpl {
     if (IsCancelled()) {
       return status();
     }
-
-    if (!local_states_[thread_index].hash_table_ready) {
-      local_states_[thread_index].hash_table_ready = hash_table_ready_.load();
-    }
-    ARROW_DCHECK(local_states_[thread_index].hash_table_ready);
 
     ExecBatch keypayload_batch;
     ARROW_ASSIGN_OR_RAISE(keypayload_batch, KeyPayloadFromInput(/*side=*/0, &batch));
@@ -2589,7 +2590,8 @@ class SwissJoin : public HashJoinImpl {
           ColumnMetadataFromDataType(schema->data_type(HashJoinProjection::PAYLOAD, i)));
       payload_types.push_back(metadata);
     }
-    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.Init(
+    hash_table_build_ = std::make_unique<SwissTableForJoinBuild>();
+    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_->Init(
         &hash_table_, num_threads_, build_side_batches_.row_count(),
         reject_duplicate_keys, no_payload, key_types, payload_types, pool_,
         hardware_flags_)));
@@ -2605,16 +2607,15 @@ class SwissJoin : public HashJoinImpl {
       return Status::OK();
     }
 
+    DCHECK_GT(build_side_batches_[batch_id].length, 0);
+
     const HashJoinProjectionMaps* schema = schema_[1];
-    bool no_payload = hash_table_build_.no_payload();
+    DCHECK_NE(hash_table_build_, nullptr);
+    bool no_payload = hash_table_build_->no_payload();
 
     ExecBatch input_batch;
     ARROW_ASSIGN_OR_RAISE(
         input_batch, KeyPayloadFromInput(/*side=*/1, &build_side_batches_[batch_id]));
-
-    if (input_batch.length == 0) {
-      return Status::OK();
-    }
 
     // Split batch into key batch and optional payload batch
     //
@@ -2640,13 +2641,10 @@ class SwissJoin : public HashJoinImpl {
       }
     }
     arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
-    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PushNextBatch(
+    DCHECK_NE(hash_table_build_, nullptr);
+    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_->PushNextBatch(
         static_cast<int64_t>(thread_id), key_batch, no_payload ? nullptr : &payload_batch,
         temp_stack)));
-
-    // Release input batch
-    //
-    input_batch.values.clear();
 
     return Status::OK();
   }
@@ -2659,23 +2657,26 @@ class SwissJoin : public HashJoinImpl {
     // On a single thread prepare for merging partitions of the resulting hash
     // table.
     //
-    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PreparePrtnMerge()));
+    DCHECK_NE(hash_table_build_, nullptr);
+    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_->PreparePrtnMerge()));
     return CancelIfNotOK(
-        start_task_group_callback_(task_group_merge_, hash_table_build_.num_prtns()));
+        start_task_group_callback_(task_group_merge_, hash_table_build_->num_prtns()));
   }
 
   Status MergeTask(size_t /*thread_id*/, int64_t prtn_id) {
     if (IsCancelled()) {
       return Status::OK();
     }
-    hash_table_build_.PrtnMerge(static_cast<int>(prtn_id));
+    DCHECK_NE(hash_table_build_, nullptr);
+    hash_table_build_->PrtnMerge(static_cast<int>(prtn_id));
     return Status::OK();
   }
 
   Status MergeFinished(size_t thread_id) {
     RETURN_NOT_OK(status());
     arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
-    hash_table_build_.FinishPrtnMerge(temp_stack);
+    DCHECK_NE(hash_table_build_, nullptr);
+    hash_table_build_->FinishPrtnMerge(temp_stack);
     return CancelIfNotOK(OnBuildHashTableFinished(static_cast<int64_t>(thread_id)));
   }
 
@@ -2684,12 +2685,14 @@ class SwissJoin : public HashJoinImpl {
       return status();
     }
 
+    DCHECK_NE(hash_table_build_, nullptr);
+    hash_table_build_.reset();
+
     for (int i = 0; i < num_threads_; ++i) {
       local_states_[i].materialize.SetBuildSide(hash_table_.keys()->keys(),
                                                 hash_table_.payloads(),
                                                 hash_table_.key_to_payload() == nullptr);
     }
-    hash_table_ready_.store(true);
 
     residual_filter_.OnBuildFinished();
 
@@ -2910,14 +2913,14 @@ class SwissJoin : public HashJoinImpl {
     JoinResultMaterialize materialize;
     std::vector<KeyColumnArray> temp_column_arrays;
     int64_t num_output_batches;
-    bool hash_table_ready;
   };
   std::vector<ThreadLocalState> local_states_;
 
   SwissTableForJoin hash_table_;
   JoinProbeProcessor probe_processor_;
   JoinResidualFilter residual_filter_;
-  SwissTableForJoinBuild hash_table_build_;
+  // Temporarily used during build phase, and released afterward.
+  std::unique_ptr<SwissTableForJoinBuild> hash_table_build_;
   AccumulationQueue build_side_batches_;
 
   // Atomic state flags.
@@ -2927,7 +2930,6 @@ class SwissJoin : public HashJoinImpl {
   // The other flags that follow them, protected by mutex, will be queried or
   // updated only a fixed number of times during entire join processing.
   //
-  std::atomic<bool> hash_table_ready_;
   std::atomic<bool> cancelled_;
 
   // Mutex protecting state flags.

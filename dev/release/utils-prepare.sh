@@ -38,7 +38,7 @@ update_versions() {
 
   pushd "${ARROW_DIR}/c_glib"
   sed -i.bak -E -e \
-    "s/^version = '.+'/version = '${version}'/" \
+    "s/^    version: '.+'/    version: '${version}'/" \
     meson.build
   rm -f meson.build.bak
   git add meson.build

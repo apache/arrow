@@ -832,6 +832,27 @@ TEST_F(TestConvertParquetSchema, IllegalParquetNestedSchema) {
         Invalid, testing::HasSubstr("LIST-annotated groups must not be repeated."),
         ConvertSchema(parquet_fields));
   }
+  // List<List<>>: outer list is two-level encoding, inner list is empty.
+  //
+  // optional group my_list (LIST) {
+  //   repeated group array (LIST) {
+  //     repeated group list {
+  //     }
+  //   }
+  // }
+  {
+    auto list = GroupNode::Make("list", Repetition::REPEATED, {});
+    auto array =
+        GroupNode::Make("array", Repetition::REPEATED, {list}, ConvertedType::LIST);
+    std::vector<NodePtr> parquet_fields;
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {array}, ConvertedType::LIST));
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        testing::HasSubstr("LIST-annotated groups must have at least one child."),
+        ConvertSchema(parquet_fields));
+  }
 }
 
 Status ArrowSchemaToParquetMetadata(std::shared_ptr<::arrow::Schema>& arrow_schema,

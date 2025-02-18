@@ -189,5 +189,78 @@ valid:   [
       assert_equal(@record_batch,
                    input_stream.read_record_batch(@record_batch.schema))
     end
+
+    sub_test_case("#validate") do
+      def setup
+        @id_field = Arrow::Field.new("id", Arrow::UInt8DataType.new)
+        @name_field = Arrow::Field.new("name", Arrow::StringDataType.new)
+        @schema = Arrow::Schema.new([@id_field, @name_field])
+
+        @id_value = build_uint_array([1])
+        @name_value = build_string_array(["abc"])
+        @values = [@id_value, @name_value]
+      end
+
+      def test_valid
+        n_rows = @id_value.length
+        record_batch = Arrow::RecordBatch.new(@schema, n_rows, @values)
+
+        assert do
+          record_batch.validate
+        end
+      end
+
+      def test_invalid
+        message = "[record-batch][validate]: Invalid: " +
+          "Number of rows in column 0 did not match batch: 1 vs 2"
+        n_rows = @id_value.length + 1 # incorrect number of rows
+
+        record_batch = Arrow::RecordBatch.new(@schema, n_rows, @values)
+        assert_raise(Arrow::Error::Invalid.new(message)) do
+          record_batch.validate
+        end
+      end
+    end
+
+    sub_test_case("#validate_full") do
+      def setup
+        @id_field = Arrow::Field.new("uint8", Arrow::UInt8DataType.new)
+        @name_field = Arrow::Field.new("string", Arrow::StringDataType.new)
+        @schema = Arrow::Schema.new([@id_field, @name_field])
+
+        @uint8_value = build_uint_array([1])
+        @valid_name_value = build_string_array(["abc"])
+        @n_rows = @uint8_value.length
+
+        # U+3042 HIRAGANA LETTER A, U+3044 HIRAGANA LETTER I
+        data = "\u3042\u3044".b[0..-2]
+        value_offsets = Arrow::Buffer.new([0,data.size].pack("l*"))
+        @invalid_name_value = Arrow::StringArray.new(1,
+                                                     value_offsets,
+                                                     Arrow::Buffer.new(data),
+                                                     nil,
+                                                     -1)
+      end
+
+      def test_valid
+        columns = [@uint8_value, @valid_name_value]
+        record_batch = Arrow::RecordBatch.new(@schema, @n_rows, columns)
+
+        assert do
+          record_batch.validate_full
+        end
+      end
+
+      def test_invalid
+        message = "[record-batch][validate-full]: Invalid: " +
+          "In column 1: Invalid: Invalid UTF8 sequence at string index 0"
+        columns = [@uint8_value, @invalid_name_value]
+        record_batch = Arrow::RecordBatch.new(@schema, @n_rows, columns)
+
+        assert_raise(Arrow::Error::Invalid.new(message)) do
+          record_batch.validate_full
+        end
+      end
+    end
   end
 end

@@ -2460,8 +2460,8 @@ cdef dict convert_headers(const CCallHeaders& c_headers):
         CCallHeaders.const_iterator header_iter = c_headers.cbegin()
     headers = {}
     while header_iter != c_headers.cend():
-        header = c_string(deref(header_iter).first).decode("ascii")
-        value = c_string(deref(header_iter).second)
+        header = to_string(deref(header_iter).first).decode("ascii")
+        value = to_string(deref(header_iter).second)
         if not header.endswith("-bin"):
             # Text header values in gRPC (and HTTP/1, HTTP/2) are
             # required to be valid ASCII. Binary header values are

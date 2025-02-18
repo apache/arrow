@@ -693,7 +693,7 @@ having logical values::
 
 It may have the following representation: ::
 
-    * Length: 4, Null count: 1
+    * Length: 5, Null count: 1
     * Validity bitmap buffer:
 
       | Byte 0 (validity bitmap) | Bytes 1-63            |
@@ -1619,6 +1619,7 @@ example as above, an alternate encoding could be: ::
     0
     EOS
 
+.. _format_metadata:
 
 Custom Application Metadata
 ---------------------------

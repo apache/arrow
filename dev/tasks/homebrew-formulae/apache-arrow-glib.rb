@@ -29,7 +29,7 @@
 class ApacheArrowGlib < Formula
   desc "GLib bindings for Apache Arrow"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-19.0.0-SNAPSHOT/apache-arrow-19.0.0-SNAPSHOT.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-20.0.0-SNAPSHOT/apache-arrow-20.0.0-SNAPSHOT.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   license "Apache-2.0"
   head "https://github.com/apache/arrow.git", branch: "main"
@@ -41,45 +41,27 @@ class ApacheArrowGlib < Formula
   depends_on "gobject-introspection" => :build
   depends_on "meson" => :build
   depends_on "ninja" => :build
-  depends_on "pkg-config" => :build
-  depends_on "vala" => :build
+  depends_on "pkgconf" => [:build, :test]
   depends_on "apache-arrow"
   depends_on "glib"
 
-  fails_with gcc: "5"
-
   def install
-    system "meson", "setup", "build", "c_glib", *std_meson_args, "-Dvapi=true"
+    system "meson", "setup", "build", "c_glib", *std_meson_args
     system "meson", "compile", "-C", "build", "--verbose"
     system "meson", "install", "-C", "build"
   end
 
   test do
-    (testpath/"test.c").write <<~SOURCE
+    (testpath/"test.c").write <<~C
       #include <arrow-glib/arrow-glib.h>
       int main(void) {
         GArrowNullArray *array = garrow_null_array_new(10);
         g_object_unref(array);
         return 0;
       }
-    SOURCE
-    apache_arrow = Formula["apache-arrow"]
-    glib = Formula["glib"]
-    flags = %W[
-      -I#{include}
-      -I#{apache_arrow.opt_include}
-      -I#{glib.opt_include}/glib-2.0
-      -I#{glib.opt_lib}/glib-2.0/include
-      -L#{lib}
-      -L#{apache_arrow.opt_lib}
-      -L#{glib.opt_lib}
-      -DNDEBUG
-      -larrow-glib
-      -larrow
-      -lgio-2.0
-      -lgobject-2.0
-      -lglib-2.0
-    ]
+    C
+
+    flags = shell_output("pkgconf --cflags --libs arrow-glib gobject-2.0").chomp.split
     system ENV.cc, "test.c", "-o", "test", *flags
     system "./test"
   end

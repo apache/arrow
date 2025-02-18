@@ -5,8 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grpc.Tools" Version="2.68.1" PrivateAssets="All" />
-    <PackageReference Include="System.Threading.Channels" Version="8.0.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.69.0" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>

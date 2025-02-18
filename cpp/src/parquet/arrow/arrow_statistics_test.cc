@@ -185,16 +185,17 @@ TEST(StatisticsTest, TruncateOnlyHalfMinMax) {
 
 namespace {
 ::arrow::Result<std::shared_ptr<::arrow::Array>> StatisticsReadArray(
-    std::shared_ptr<::arrow::DataType> data_type, std::shared_ptr<::arrow::Array> array) {
+    std::shared_ptr<::arrow::DataType> data_type, std::shared_ptr<::arrow::Array> array,
+    std::shared_ptr<WriterProperties> writer_properties = default_writer_properties(),
+    const ArrowReaderProperties& reader_properties = default_arrow_reader_properties()) {
   auto schema = ::arrow::schema({::arrow::field("column", data_type)});
   auto record_batch = ::arrow::RecordBatch::Make(schema, array->length(), {array});
   ARROW_ASSIGN_OR_RAISE(auto sink, ::arrow::io::BufferOutputStream::Create());
   const auto arrow_writer_properties =
       parquet::ArrowWriterProperties::Builder().store_schema()->build();
-  ARROW_ASSIGN_OR_RAISE(
-      auto writer,
-      FileWriter::Open(*schema, ::arrow::default_memory_pool(), sink,
-                       default_writer_properties(), arrow_writer_properties));
+  ARROW_ASSIGN_OR_RAISE(auto writer,
+                        FileWriter::Open(*schema, ::arrow::default_memory_pool(), sink,
+                                         writer_properties, arrow_writer_properties));
   ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*record_batch));
   ARROW_RETURN_NOT_OK(writer->Close());
   ARROW_ASSIGN_OR_RAISE(auto buffer, sink->Finish());
@@ -202,8 +203,8 @@ namespace {
   auto reader =
       ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
   std::unique_ptr<FileReader> file_reader;
-  ARROW_RETURN_NOT_OK(
-      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  ARROW_RETURN_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
+                                       reader_properties, &file_reader));
   std::shared_ptr<::arrow::ChunkedArray> chunked_array;
   ARROW_RETURN_NOT_OK(file_reader->ReadColumn(0, &chunked_array));
   return chunked_array->chunk(0);
@@ -324,6 +325,46 @@ TEST(TestStatisticsRead, TimestampNano) {
 TEST(TestStatisticsRead, Duration) {
   TestStatisticsReadArray<::arrow::DurationType, int64_t>(
       ::arrow::duration(::arrow::TimeUnit::NANO));
+}
+
+TEST(TestStatisticsRead, MultipleRowGroupsDefault) {
+  auto arrow_type = ::arrow::int32();
+  auto built_array = ArrayFromJSON(arrow_type, R"([1, null, -1])");
+  auto writer_properties = WriterProperties::Builder().max_row_group_length(2)->build();
+  ASSERT_OK_AND_ASSIGN(
+      auto read_array,
+      StatisticsReadArray(arrow_type, std::move(built_array), writer_properties));
+  auto typed_read_array = std::static_pointer_cast<::arrow::Int32Array>(read_array);
+  auto statistics = typed_read_array->statistics();
+  ASSERT_EQ(nullptr, statistics);
+}
+
+TEST(TestStatisticsRead, MultipleRowGroupsShouldLoadStatistics) {
+  auto arrow_type = ::arrow::int32();
+  auto built_array = ArrayFromJSON(arrow_type, R"([1, null, -1])");
+  auto writer_properties = WriterProperties::Builder().max_row_group_length(2)->build();
+  ArrowReaderProperties reader_properties;
+  reader_properties.set_should_load_statistics(true);
+  ASSERT_OK_AND_ASSIGN(auto read_array,
+                       StatisticsReadArray(arrow_type, std::move(built_array),
+                                           writer_properties, reader_properties));
+  // If we use should_load_statistics, reader doesn't load multiple
+  // row groups at once. So the first array in the read chunked array
+  // has only 2 elements.
+  ASSERT_EQ(2, read_array->length());
+  auto typed_read_array = std::static_pointer_cast<::arrow::Int32Array>(read_array);
+  auto statistics = typed_read_array->statistics();
+  ASSERT_NE(nullptr, statistics);
+  ASSERT_EQ(true, statistics->null_count.has_value());
+  ASSERT_EQ(1, statistics->null_count.value());
+  ASSERT_EQ(false, statistics->distinct_count.has_value());
+  ASSERT_EQ(true, statistics->min.has_value());
+  // This is not -1 because this array has only the first 2 elements.
+  ASSERT_EQ(1, std::get<int64_t>(*statistics->min));
+  ASSERT_EQ(true, statistics->is_min_exact);
+  ASSERT_EQ(true, statistics->max.has_value());
+  ASSERT_EQ(1, std::get<int64_t>(*statistics->max));
+  ASSERT_EQ(true, statistics->is_max_exact);
 }
 
 }  // namespace parquet::arrow

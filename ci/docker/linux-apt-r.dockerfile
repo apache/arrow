@@ -65,10 +65,10 @@ RUN apt-get update -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-ARG gcc_version=""
-RUN if [ "${gcc_version}" != "" ]; then \
-      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
-      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+ARG gcc=""
+RUN if [ "${gcc}" != "" ]; then \
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc} 100 && \
+      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc} 100 && \
       update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30 && \
       update-alternatives --set cc /usr/bin/gcc && \
       update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 30 && \

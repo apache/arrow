@@ -21,7 +21,7 @@
 
 jobs:
   r-versions:
-    name: "rstudio/r-base:{{ MATRIX }}-focal"
+    name: "rstudio/r-base:{{ MATRIX }}-jammy"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -36,7 +36,7 @@ jobs:
     env:
       R_ORG: "rstudio"
       R_IMAGE: "r-base"
-      R_TAG: "{{ MATRIX }}-focal"
+      R_TAG: "{{ MATRIX }}-jammy"
       ARROW_R_DEV: "TRUE"
     steps:
       {{ macros.github_checkout_arrow()|indent }}

@@ -724,26 +724,18 @@ Installing Nightly Packages
 .. warning::
     These packages are not official releases. Use them at your own risk.
 
-PyArrow has nightly wheels and Conda packages for testing purposes.
+PyArrow has nightly wheels for testing purposes hosted at
+`scientific-python-nightly-wheels
+<https://anaconda.org/scientific-python-nightly-wheels/pyarrow>`_.
 
 These may be suitable for downstream libraries in their continuous integration
 setup to maintain compatibility with the upcoming PyArrow features,
-deprecations and/or feature removals.
+deprecations, and/or feature removals.
 
-Install the development version of PyArrow from `arrow-nightlies
-<https://anaconda.org/arrow-nightlies/pyarrow>`_ conda channel:
-
-.. code-block:: bash
-
-    conda install -c arrow-nightlies pyarrow
-
-Note that this requires to use the ``conda-forge`` channel for all other
-packages (``conda config --add channels conda-forge``).
-
-Install the development version from an `alternative PyPI
-<https://gemfury.com/arrow-nightlies>`_ index:
+To install the most recent nightly version of PyArrow, run:
 
 .. code-block:: bash
 
-    pip install --extra-index-url https://pypi.fury.io/arrow-nightlies/ \
-        --prefer-binary --pre pyarrow
+    pip install \
+      -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
+      pyarrow

@@ -60,7 +60,6 @@ groups:
     - conan-*
     - debian-*
     - matlab
-    - nuget
     - python-sdist
     - r-binary-packages
     - ubuntu-*
@@ -74,9 +73,13 @@ groups:
 
   test:
     - test-*
+    # Can be removed after we improved C++20 support
+    - ~test-debian-experimental-cpp-gcc-15
 
   cpp:
     - test-*cpp*
+    # Can be removed after we improved C++20 support
+    - ~test-debian-experimental-cpp-gcc-15
     - example-*cpp*
 
   c-glib:
@@ -87,7 +90,7 @@ groups:
     - example-*python*
 
   r:
-    - test*-r-*
+    - test-r-*
     - r-binary-packages
     - r-recheck-most
 
@@ -149,7 +152,6 @@ groups:
     - conan-*
     - conda-*
     - homebrew-cpp
-    - nuget
     - test-*
     - example-*
     - wheel-*
@@ -157,6 +159,8 @@ groups:
 
   nightly-tests:
     - test-*
+    # Can be removed after we improved C++20 support
+    - ~test-debian-experimental-cpp-gcc-15
     - example-*
 
   nightly-packaging:
@@ -178,7 +182,6 @@ groups:
     - ~conda-osx-arm64-cpu-py3
     - conan-*
     - homebrew-cpp
-    - nuget
     - wheel-*
     - python-sdist
     - r-binary-packages
@@ -439,19 +442,15 @@ tasks:
 
 {############################## Wheel Windows ################################}
 
-# TODO: Remove this when there's NumPy wheels for Windows.
-# See https://github.com/numpy/numpy/issues/26157 for more info.
-{% if abi_tag != "cp313t" %}
-
-  wheel-windows-{{ python_tag }}-amd64:
+  wheel-windows-{{ python_tag }}-{{ abi_tag }}-amd64:
     ci: github
     template: python-wheels/github.windows.yml
     params:
       python_version: "{{ python_version }}"
+      python_abi_tag: "{{ abi_tag }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-win_amd64.whl
 
-{% endif %}
 {% endfor %}
 
 {############################ Python sdist ####################################}
@@ -466,7 +465,6 @@ tasks:
 
 {% for target in ["debian-bookworm",
                   "debian-trixie",
-                  "ubuntu-focal",
                   "ubuntu-jammy",
                   "ubuntu-noble"] %}
   {% for architecture in ["amd64", "arm64"] %}
@@ -687,23 +685,6 @@ tasks:
     artifacts:
       - matlab-arrow-{no_rc_no_dev_version}.mltbx
 
-  ############################## NuGet packages ###############################
-
-  nuget:
-    ci: github
-    template: nuget-packages/github.linux.yml
-    params:
-      run: ubuntu-csharp
-    artifacts:
-      - Apache.Arrow.Flight.AspNetCore.{no_rc_version}.nupkg
-      - Apache.Arrow.Flight.AspNetCore.{no_rc_version}.snupkg
-      - Apache.Arrow.Flight.{no_rc_version}.nupkg
-      - Apache.Arrow.Flight.{no_rc_version}.snupkg
-      - Apache.Arrow.Compression.{no_rc_version}.nupkg
-      - Apache.Arrow.Compression.{no_rc_version}.snupkg
-      - Apache.Arrow.{no_rc_version}.nupkg
-      - Apache.Arrow.{no_rc_version}.snupkg
-
   ######################## R packages & binaries ##############################
   r-binary-packages:
     ci: github
@@ -748,17 +729,14 @@ tasks:
 
 {% for distribution, version in [("conda", "latest"),
                                  ("almalinux", "8"),
-                                 ("ubuntu", "20.04"),
-                                 ("ubuntu", "22.04")] %}
+                                 ("ubuntu", "22.04"),
+                                 ("ubuntu", "24.04")] %}
   {% for target in ["cpp",
                     "csharp",
                     "integration",
                     "js",
                     "python",
                     "ruby"] %}
-    # Skip verification for python and integration on Ubuntu 20.04
-    # GH-44253. Remove once we drop support for 20.04
-    {% if not (target in ["python", "integration"] and version == "20.04") %}
   verify-rc-source-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
     ci: github
     template: verify-rc/github.linux.amd64.docker.yml
@@ -767,20 +745,15 @@ tasks:
         {{ distribution.upper() }}: "{{ version }}"
       target: {{ target }}
       distro: {{ distribution }}
-    {% endif %}
   {% endfor %}
 
   {% for target in ["jars", "wheels"] %}
-    # Skip verification for wheels on Ubuntu 20.04
-    # GH-44253. Remove once we drop support for 20.04
-    {% if not (target == "wheels" and version == "20.04") %}
   verify-rc-binaries-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
     ci: github
     template: verify-rc/github.linux.amd64.docker.yml
     params:
       target: {{ target }}
       distro: {{ distribution }}
-    {% endif %}
   {% endfor %}
 
 {% endfor %}
@@ -902,22 +875,20 @@ tasks:
     params:
       image: conda-cpp-valgrind
 
-{% for ubuntu_version in ["20.04", "22.04"] %}
-  test-ubuntu-{{ ubuntu_version }}-cpp:
+  test-ubuntu-22.04-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: "{{ ubuntu_version }}"
+        UBUNTU: 22.04
       image: ubuntu-cpp
-{% endfor %}
 
-  test-ubuntu-20.04-cpp-bundled:
+  test-ubuntu-22.04-cpp-bundled:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 20.04
+        UBUNTU: 22.04
       image: ubuntu-cpp-bundled
 
   test-ubuntu-24.04-cpp-bundled-offline:
@@ -935,7 +906,7 @@ tasks:
     params:
       env:
         UBUNTU: 24.04
-        GCC_VERSION: 13
+        GCC: 13
       image: ubuntu-cpp-bundled
 
   test-ubuntu-24.04-cpp:
@@ -954,7 +925,7 @@ tasks:
     params:
       env:
         CLANG_TOOLS: 15
-        GCC_VERSION: 14
+        GCC: 14
         LLVM: 15
         UBUNTU: 24.04
       # rapidjson 1.1.0 has an error caught by gcc 14.
@@ -996,6 +967,17 @@ tasks:
       flags: "-e ARROW_AZURE=OFF -e ARROW_S3=OFF -e ARROW_GANDIVA=OFF"
       image: debian-cpp
 {% endfor %}
+
+  test-debian-experimental-cpp-gcc-15:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        ARCH: "amd64"
+        DEBIAN: "experimental"
+        GCC: "15"
+      flags: "-e CMAKE_CXX_STANDARD=20"
+      image: debian-cpp
 
   test-fedora-39-cpp:
     ci: github
@@ -1094,22 +1076,6 @@ tasks:
         # limit to execute hypothesis tests only
         PYTEST_ARGS: "-m hypothesis -W error"
       image: conda-python-pandas
-
-  test-conda-python-3.10-substrait:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: "3.10"
-      image: conda-python-substrait
-
-  test-conda-python-3.10-cython2:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: "3.10"
-      image: conda-python-cython2
 
   test-ubuntu-22.04-python-313-freethreading:
     ci: github
@@ -1301,7 +1267,7 @@ tasks:
     params:
       env:
         UBUNTU: 22.04
-        GCC_VERSION: 11
+        GCC: 11
       image: ubuntu-r-only-r
 
   # This also has -flto=auto
@@ -1311,7 +1277,7 @@ tasks:
     params:
       env:
         UBUNTU: 22.04
-        GCC_VERSION: 12
+        GCC: 12
       image: ubuntu-r-only-r
 
   test-r-minimal-build:
@@ -1323,13 +1289,14 @@ tasks:
       r_tag: latest
       flags: "-e LIBARROW_MINIMAL=TRUE"
 
-  test-ubuntu-r-sanitizer:
+  test-r-linux-sanitizer:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         R_PRUNE_DEPS: TRUE
       image: ubuntu-r-sanitizer
+      timeout: 120
 
   test-r-clang-sanitizer:
     ci: github
@@ -1354,21 +1321,13 @@ tasks:
 
   ############################## CUDA tests #################################
 
-  test-cuda-cpp-ubuntu-20.04-cuda-11.2.2:
-    ci: github
-    template: docker-tests/github.cuda.yml
-    params:
-      env:
-        UBUNTU: 20.04
-      image: ubuntu-cuda-cpp
-
   test-cuda-cpp-ubuntu-22.04-cuda-11.7.1:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
       env:
-        UBUNTU: 22.04
         CUDA: 11.7.1
+        UBUNTU: 22.04
       image: ubuntu-cuda-cpp
 
   test-cuda-python-ubuntu-22.04-cuda-11.7.1:
@@ -1376,8 +1335,8 @@ tasks:
     template: docker-tests/github.cuda.yml
     params:
       env:
-        UBUNTU: 22.04
         CUDA: 11.7.1
+        UBUNTU: 22.04
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
@@ -1412,6 +1371,12 @@ tasks:
       {% if pandas_version == "latest" %}
         # ensure we have at least one build with parquet encryption disabled
         PARQUET_REQUIRE_ENCRYPTION: "OFF"
+      {% endif %}
+      {% if pandas_version == "nightly" %}
+        # TODO can be removed once this is enabled by default in pandas >= 3
+        # This is to enable the Pandas feature.
+        # See: https://github.com/pandas-dev/pandas/pull/58459
+        PANDAS_FUTURE_INFER_STRING: "1"
       {% endif %}
     {% if not cache_leaf %}
       # use the latest pandas release, so prevent reusing any cached layers
