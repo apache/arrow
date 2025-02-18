@@ -1263,6 +1263,23 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
   }
 }
 
+TEST(ExecPlanExecution, TestNamesSizeMismatch) {
+
+    auto input = MakeGroupableBatches();
+
+    Declaration plan = Declaration::Sequence(
+        {{"source", SourceNodeOptions{input.schema, input.gen(true, /*slow=*/false)}},
+         {"project",
+          ProjectNodeOptions{
+              {field_ref("str"), call("multiply", {field_ref("i32"), literal(2)})},
+              {"a"}}}}); // expected 2 names but only 1 provided
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Check failed: (names.size()) == (exprs.size())"),
+        DeclarationToTable(std::move(plan)));
+  
+}
+
 TEST(ExecPlanExecution, SourceFilterProjectGroupedSumOrderBy) {
   for (bool parallel : {false, true}) {
     SCOPED_TRACE(parallel ? "parallel/merged" : "serial");

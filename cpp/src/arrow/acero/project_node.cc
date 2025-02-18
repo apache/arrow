@@ -59,8 +59,10 @@ class ProjectNode : public MapNode {
       for (size_t i = 0; i < exprs.size(); ++i) {
         names[i] = exprs[i].ToString();
       }
+    } else {
+      ARROW_RETURN_IF(names.size() != exprs.size(),
+                      Status::Invalid("Check failed: (names.size()) == (exprs.size())"));
     }
-
     FieldVector fields(exprs.size());
     int i = 0;
     for (auto& expr : exprs) {
