@@ -74,10 +74,11 @@ jobs:
     # earlier can't be built on Ubuntu 22.04. We will drop 3.0.0 or
     # earlier when Ubuntu 20.04 is unavailable on GitHub Actions.
     runs-on: >-
-      ${{ (startsWith(matrix.config.old_arrow_version, '3.') ||
-           startsWith(matrix.config.old_arrow_version, '2.') ||
-           startsWith(matrix.config.old_arrow_version, '1.')) && 'ubuntu-20.04' ||
-                                                                 'ubuntu-22.04' }}
+      {{ '${{ (startsWith(matrix.config.old_arrow_version, '3.') ||
+               startsWith(matrix.config.old_arrow_version, '2.') ||
+               startsWith(matrix.config.old_arrow_version, '1.')) &&
+                 'ubuntu-20.04' ||
+                 'ubuntu-22.04' }}' }}
     strategy:
       fail-fast: false
       matrix:
