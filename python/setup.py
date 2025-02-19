@@ -155,6 +155,8 @@ class build_ext(_build_ext):
                      ('bundle-cython-cpp', None,
                       'bundle generated Cython C++ code '
                       '(used for code coverage)'),
+                     ('build-arrow-cpp', None,
+                      'build the Arrow C++ libraries'),
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries'),
                      ('bundle-arrow-cpp-headers', None,
@@ -194,6 +196,8 @@ class build_ext(_build_ext):
 
         self.generate_coverage = strtobool(
             os.environ.get('PYARROW_GENERATE_COVERAGE', '0'))
+        self.build_arrow_cpp = strtobool(
+            os.environ.get('PYARROW_BUILD_ARROW_CPP', '0'))
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
         self.bundle_cython_cpp = strtobool(
@@ -264,12 +268,7 @@ class build_ext(_build_ext):
                           f"{build_base}.")
                     return
 
-            cmake_options = [
-                f'-DCMAKE_INSTALL_PREFIX={install_prefix}',
-                f'-DPYTHON_EXECUTABLE={sys.executable}',
-                f'-DPython3_EXECUTABLE={sys.executable}',
-                f'-DPYARROW_CXXFLAGS={self.cmake_cxxflags}',
-            ]
+            cmake_options = []
 
             def append_cmake_bool(value, varname):
                 cmake_options.append('-D{0}={1}'.format(
@@ -291,28 +290,6 @@ class build_ext(_build_ext):
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
 
-            append_cmake_component(self.with_cuda, 'PYARROW_CUDA')
-            append_cmake_component(self.with_substrait, 'PYARROW_SUBSTRAIT')
-            append_cmake_component(self.with_flight, 'PYARROW_FLIGHT')
-            append_cmake_component(self.with_gandiva, 'PYARROW_GANDIVA')
-            append_cmake_component(self.with_acero, 'PYARROW_ACERO')
-            append_cmake_component(self.with_dataset, 'PYARROW_DATASET')
-            append_cmake_component(self.with_orc, 'PYARROW_ORC')
-            append_cmake_component(self.with_parquet, 'PYARROW_PARQUET')
-            append_cmake_component(self.with_parquet_encryption,
-                                   'PYARROW_PARQUET_ENCRYPTION')
-            append_cmake_component(self.with_azure, 'PYARROW_AZURE')
-            append_cmake_component(self.with_gcs, 'PYARROW_GCS')
-            append_cmake_component(self.with_s3, 'PYARROW_S3')
-            append_cmake_component(self.with_hdfs, 'PYARROW_HDFS')
-
-            append_cmake_bool(self.bundle_arrow_cpp,
-                              'PYARROW_BUNDLE_ARROW_CPP')
-            append_cmake_bool(self.bundle_cython_cpp,
-                              'PYARROW_BUNDLE_CYTHON_CPP')
-            append_cmake_bool(self.generate_coverage,
-                              'PYARROW_GENERATE_COVERAGE')
-
             cmake_options.append(
                 f'-DCMAKE_BUILD_TYPE={self.build_type.lower()}')
 
@@ -329,6 +306,94 @@ class build_ext(_build_ext):
                 parallel = os.environ.get('PYARROW_PARALLEL')
                 if parallel:
                     build_tool_args.append(f'-j{parallel}')
+
+            if self.build_arrow_cpp:
+                cpp_source = pjoin(source, '..', 'cpp')
+                cpp_temp = pjoin(build_temp, 'cpp')
+                cpp_install = pjoin(build_temp, 'cpp-install')
+
+                if not os.path.isdir(cpp_temp):
+                    self.mkpath(cpp_temp)
+
+                orig_options = list(cmake_options)
+
+                cmake_options += [
+                    '--preset=ninja-release-python',
+                    f'-DCMAKE_INSTALL_PREFIX={cpp_install}',
+                ]
+
+                append_cmake_component(self.with_cuda, 'ARROW_CUDA')
+                append_cmake_component(self.with_substrait, 'ARROW_SUBSTRAIT')
+                append_cmake_component(self.with_flight, 'ARROW_FLIGHT')
+                append_cmake_component(self.with_gandiva, 'ARROW_GANDIVA')
+                append_cmake_component(self.with_acero, 'ARROW_ACERO')
+                append_cmake_component(self.with_dataset, 'ARROW_DATASET')
+                append_cmake_component(self.with_orc, 'ARROW_ORC')
+                append_cmake_component(self.with_parquet, 'ARROW_PARQUET')
+                append_cmake_component(self.with_parquet_encryption,
+                                       'PARQUET_REQUIRE_ENCRYPTION')
+                append_cmake_component(self.with_azure, 'ARROW_AZURE')
+                append_cmake_component(self.with_gcs, 'ARROW_GCS')
+                append_cmake_component(self.with_s3, 'ARROW_S3')
+                append_cmake_component(self.with_hdfs, 'ARROW_HDFS')
+
+                with changed_dir(cpp_temp):
+                    # Generate the build files
+                    if is_emscripten:
+                        print("-- Running emcmake cmake for Arrow on Emscripten")
+                        self.spawn(['emcmake', 'cmake'] + extra_cmake_args +
+                                   cmake_options + [cpp_source])
+                    else:
+                        print("-- Running cmake for Arrow")
+                        self.spawn(['cmake'] + extra_cmake_args + cmake_options + [cpp_source])
+
+                    print("-- Finished cmake for Arrow")
+
+                    print("-- Running cmake --build for Arrow")
+                    self.spawn(['cmake', '--build', '.', '--config', self.build_type] +
+                               build_tool_args)
+                    print("-- Finished cmake --build for Arrow")
+
+                    print("-- Running cmake --build --target install for Arrow")
+                    self.spawn(['cmake', '--build', '.', '--config', self.build_type] +
+                               ['--target', 'install'] + build_tool_args)
+                    print("-- Finished cmake --build --target install for Arrow")
+
+                    cmake_options[:] = orig_options
+                    cmake_options += [
+                        f'-DCMAKE_PREFIX_PATH={cpp_install}',
+                    ]
+
+            cmake_options += [
+                f'-DCMAKE_INSTALL_PREFIX={install_prefix}',
+                f'-DPYTHON_EXECUTABLE={sys.executable}',
+                f'-DPython3_EXECUTABLE={sys.executable}',
+                f'-DPYARROW_CXXFLAGS={self.cmake_cxxflags}',
+            ]
+
+            append_cmake_component(self.with_cuda, 'PYARROW_CUDA')
+            append_cmake_component(self.with_substrait, 'PYARROW_SUBSTRAIT')
+            append_cmake_component(self.with_flight, 'PYARROW_FLIGHT')
+            append_cmake_component(self.with_gandiva, 'PYARROW_GANDIVA')
+            append_cmake_component(self.with_acero, 'PYARROW_ACERO')
+            append_cmake_component(self.with_dataset, 'PYARROW_DATASET')
+            append_cmake_component(self.with_orc, 'PYARROW_ORC')
+            append_cmake_component(self.with_parquet, 'PYARROW_PARQUET')
+            append_cmake_component(self.with_parquet_encryption,
+                                   'PYARROW_PARQUET_ENCRYPTION')
+            append_cmake_component(self.with_azure, 'PYARROW_AZURE')
+            append_cmake_component(self.with_gcs, 'PYARROW_GCS')
+            append_cmake_component(self.with_s3, 'PYARROW_S3')
+            append_cmake_component(self.with_hdfs, 'PYARROW_HDFS')
+
+            append_cmake_bool(self.build_arrow_cpp,
+                              'PYARROW_BUILD_ARROW_CPP')
+            append_cmake_bool(self.bundle_arrow_cpp or self.build_arrow_cpp,
+                              'PYARROW_BUNDLE_ARROW_CPP')
+            append_cmake_bool(self.bundle_cython_cpp,
+                              'PYARROW_BUNDLE_CYTHON_CPP')
+            append_cmake_bool(self.generate_coverage,
+                              'PYARROW_GENERATE_COVERAGE')
 
             # Generate the build files
             if is_emscripten:
