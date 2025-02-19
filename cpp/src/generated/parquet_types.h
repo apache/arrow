@@ -1311,15 +1311,21 @@ std::ostream& operator<<(std::ostream& out, const BsonType& obj);
 class VariantType {
  public:
 
-  VariantType(const VariantType&) noexcept;
+  VariantType(const VariantType&);
   VariantType(VariantType&&) noexcept;
-  VariantType& operator=(const VariantType&) noexcept;
+  VariantType& operator=(const VariantType&);
   VariantType& operator=(VariantType&&) noexcept;
   VariantType() noexcept;
 
   virtual ~VariantType() noexcept;
+  std::string metadata;
+  std::string value;
 
-  bool operator == (const VariantType & /* rhs */) const;
+  void __set_metadata(const std::string& val);
+
+  void __set_value(const std::string& val);
+
+  bool operator == (const VariantType & rhs) const;
   bool operator != (const VariantType &rhs) const {
     return !(*this == rhs);
   }
@@ -1367,9 +1373,9 @@ typedef struct _LogicalType__isset {
 class LogicalType {
  public:
 
-  LogicalType(const LogicalType&) noexcept;
+  LogicalType(const LogicalType&);
   LogicalType(LogicalType&&) noexcept;
-  LogicalType& operator=(const LogicalType&) noexcept;
+  LogicalType& operator=(const LogicalType&);
   LogicalType& operator=(LogicalType&&) noexcept;
   LogicalType() noexcept;
 

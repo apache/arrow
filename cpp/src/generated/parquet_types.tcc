@@ -1201,6 +1201,8 @@ uint32_t VariantType::read(Protocol_* iprot) {
 
   using ::apache::thrift::protocol::TProtocolException;
 
+  bool isset_metadata = false;
+  bool isset_value = false;
 
   while (true)
   {
@@ -1208,12 +1210,37 @@ uint32_t VariantType::read(Protocol_* iprot) {
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    xfer += iprot->skip(ftype);
+    switch (fid)
+    {
+      case 1:
+        if (ftype == ::apache::thrift::protocol::T_STRING) {
+          xfer += iprot->readBinary(this->metadata);
+          isset_metadata = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
+      case 2:
+        if (ftype == ::apache::thrift::protocol::T_STRING) {
+          xfer += iprot->readBinary(this->value);
+          isset_value = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
+      default:
+        xfer += iprot->skip(ftype);
+        break;
+    }
     xfer += iprot->readFieldEnd();
   }
 
   xfer += iprot->readStructEnd();
 
+  if (!isset_metadata)
+    throw TProtocolException(TProtocolException::INVALID_DATA);
+  if (!isset_value)
+    throw TProtocolException(TProtocolException::INVALID_DATA);
   return xfer;
 }
 
@@ -1222,6 +1249,14 @@ uint32_t VariantType::write(Protocol_* oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("VariantType");
+
+  xfer += oprot->writeFieldBegin("metadata", ::apache::thrift::protocol::T_STRING, 1);
+  xfer += oprot->writeBinary(this->metadata);
+  xfer += oprot->writeFieldEnd();
+
+  xfer += oprot->writeFieldBegin("value", ::apache::thrift::protocol::T_STRING, 2);
+  xfer += oprot->writeBinary(this->value);
+  xfer += oprot->writeFieldEnd();
 
   xfer += oprot->writeFieldStop();
   xfer += oprot->writeStructEnd();
