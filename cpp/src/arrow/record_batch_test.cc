@@ -1398,7 +1398,7 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMaxApproximate) {
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
   auto float64_array_data = ArrayFromJSON(float64(), "[1.0, null, -1.0]")->data()->Copy();
   float64_array_data->statistics = std::make_shared<ArrayStatistics>();
-  float64_array_data->statistics->min = -1.0;
+  float64_array_data->statistics->max = 1.0;
   auto float64_array = MakeArray(std::move(float64_array_data));
   auto batch = RecordBatch::Make(schema, float64_array->length(),
                                  {no_statistics_array, float64_array});
@@ -1412,13 +1412,13 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayMaxApproximate) {
                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
                            },
                            {
-                               ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE,
+                               ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
                            }},
                           {{
                                ArrayStatistics::ValueType{int64_t{3}},
                            },
                            {
-                               ArrayStatistics::ValueType{-1.0},
+                               ArrayStatistics::ValueType{1.0},
                            }}));
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
