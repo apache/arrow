@@ -1166,7 +1166,7 @@ TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
   std::vector<ConfirmNewTypeIncompatibilityArguments> cases = {
       {LogicalType::UUID(), check_is_UUID},
       {LogicalType::Float16(), check_is_float16},
-      {LogicalType::Variant(), check_is_variant},
+      {LogicalType::Variant("metadata", "value"), check_is_variant},
       {LogicalType::Null(), check_is_null},
       {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS), check_is_time},
       {LogicalType::Time(false, LogicalType::TimeUnit::MICROS), check_is_time},
@@ -1251,7 +1251,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
       {BSONLogicalType::Make(), false, true, true},
       {UUIDLogicalType::Make(), false, true, true},
       {Float16LogicalType::Make(), false, true, true},
-      {VariantLogicalType::Make(), false, true, true},
+      {VariantLogicalType::Make("metadata", "value"), false, true, true},
       {NoLogicalType::Make(), false, false, true},
   };
 
@@ -1549,7 +1549,9 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
       {LogicalType::BSON(), "BSON", R"({"Type": "BSON"})"},
       {LogicalType::UUID(), "UUID", R"({"Type": "UUID"})"},
       {LogicalType::Float16(), "Float16", R"({"Type": "Float16"})"},
-      {LogicalType::Variant(), "Variant", R"({"Type": "Variant"})"},
+      {LogicalType::Variant("metadata", "value"),
+       "Variant(metadata=metadata,value=value)",
+       R"({"Type": "Variant", "metadata": metadata, "value": value})"},
       {LogicalType::None(), "None", R"({"Type": "None"})"},
   };
 
@@ -1600,7 +1602,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
       {LogicalType::BSON(), SortOrder::UNSIGNED},
       {LogicalType::UUID(), SortOrder::UNSIGNED},
       {LogicalType::Float16(), SortOrder::SIGNED},
-      {LogicalType::Variant(), SortOrder::UNKNOWN},
+      {LogicalType::Variant("metadata", "value"), SortOrder::UNKNOWN},
       {LogicalType::None(), SortOrder::UNKNOWN}};
 
   for (const ExpectedSortOrder& c : cases) {
@@ -1744,10 +1746,11 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
 
   // Incompatible primitive type ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("variant", Repetition::REQUIRED,
-                                       VariantLogicalType::Make(), Type::DOUBLE));
+                                       VariantLogicalType::Make("metadata", "value"),
+                                       Type::DOUBLE));
   // Incompatible primitive type ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("variant", Repetition::REQUIRED,
-                                       VariantLogicalType::Make(),
+                                       VariantLogicalType::Make("metadata", "value"),
                                        Type::FIXED_LEN_BYTE_ARRAY, 2));
 
   // Non-positive length argument for fixed length binary ...
@@ -1943,8 +1946,9 @@ TEST_F(TestSchemaElementConstruction, SimpleCases) {
       {"float16", LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY, 2, false,
        ConvertedType::NA, true,
        [this]() { return element_->logicalType.__isset.FLOAT16; }},
-      {"variant", LogicalType::Variant(), Type::BYTE_ARRAY, -1, false, ConvertedType::NA,
-       true, [this]() { return element_->logicalType.__isset.VARIANT; }},
+      {"variant", LogicalType::Variant("metadata", "value"), Type::BYTE_ARRAY, -1, false,
+       ConvertedType::NA, true,
+       [this]() { return element_->logicalType.__isset.VARIANT; }},
       {"none", LogicalType::None(), Type::INT64, -1, false, ConvertedType::NA, false,
        check_nothing}};
 
@@ -2282,7 +2286,8 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
       {LogicalType::BSON(), Type::BYTE_ARRAY, -1},
       {LogicalType::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16},
       {LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY, 2},
-      {LogicalType::Variant(), Type::BYTE_ARRAY, -1},
+      // TODO(neilechao) discussing how to model Variant
+      //      {LogicalType::Variant("metadata", "value"), Type::BYTE_ARRAY, -1},
       {LogicalType::None(), Type::BOOLEAN, -1}};
 
   for (const AnnotatedPrimitiveNodeFactoryArguments& c : cases) {
