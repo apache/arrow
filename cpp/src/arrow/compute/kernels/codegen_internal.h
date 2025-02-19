@@ -364,15 +364,22 @@ struct ArrayIterator<Type, enable_if_list_type<Type>> {
   using offset_type = typename Type::offset_type;
 
   const ArraySpan& arr;
+  const offset_type* offsets;
+  offset_type cur_offset;
   int64_t position;
 
-  explicit ArrayIterator(const ArraySpan& arr) : arr(arr), position(0) {}
+  explicit ArrayIterator(const ArraySpan& arr)
+      : arr(arr),
+        offsets(reinterpret_cast<const offset_type*>(arr.buffers[1].data) + arr.offset),
+        cur_offset(offsets[0]),
+        position(0) {}
 
   T operator()() {
-    const auto array_ptr = arr.ToArray();
-    const auto array = checked_cast<const ArrayT*>(array_ptr.get());
-
-    T result{array->value_slice(position++)};
+    offset_type next_offset = offsets[++position];
+    const offset_type length = next_offset - cur_offset;
+    const auto child = arr.child_data[0].ToArray()->Slice(cur_offset, length);
+    const T result{child};
+    cur_offset = next_offset;
     return result;
   }
 };
