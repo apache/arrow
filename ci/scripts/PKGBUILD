@@ -92,7 +92,7 @@ build() {
   #
   # The original MSYS2 package has another fix:
   #
-  #  https://github.com/msys2/MINGW-packages/blob/master/mingw-w64-thrift/002-fix-pkgconfig-paths.patch
+  #   https://github.com/msys2/MINGW-packages/blob/master/mingw-w64-thrift/002-fix-pkgconfig-paths.patch
   #
   # But one on rtools packages doesn't have the fix. So we can't use
   # the MINGW one.
