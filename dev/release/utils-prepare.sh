@@ -78,6 +78,12 @@ update_versions() {
   git add CMakeLists.txt
 
   sed -i.bak -E -e \
+    "s/^    version: '.+'/    version: '${version}'/" \
+    meson.build
+  rm -f meson.build.bak
+  git add meson.build
+
+  sed -i.bak -E -e \
     "s/\"version-string\": \".+\"/\"version-string\": \"${version}\"/" \
     vcpkg.json
   rm -f vcpkg.json.bak
