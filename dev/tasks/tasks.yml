@@ -90,7 +90,7 @@ groups:
     - example-*python*
 
   r:
-    - test*-r-*
+    - test-r-*
     - r-binary-packages
     - r-recheck-most
 
@@ -869,28 +869,33 @@ tasks:
       image: {{ image }}
 {% endfor %}
 
+  test-conda-cpp-meson:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      flags: -e ARROW_USE_MESON=ON
+      image: conda-cpp
+
   test-conda-cpp-valgrind:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       image: conda-cpp-valgrind
 
-{% for ubuntu_version in ["20.04", "22.04"] %}
-  test-ubuntu-{{ ubuntu_version }}-cpp:
+  test-ubuntu-22.04-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: "{{ ubuntu_version }}"
+        UBUNTU: 22.04
       image: ubuntu-cpp
-{% endfor %}
 
-  test-ubuntu-20.04-cpp-bundled:
+  test-ubuntu-22.04-cpp-bundled:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 20.04
+        UBUNTU: 22.04
       image: ubuntu-cpp-bundled
 
   test-ubuntu-24.04-cpp-bundled-offline:
@@ -1291,7 +1296,7 @@ tasks:
       r_tag: latest
       flags: "-e LIBARROW_MINIMAL=TRUE"
 
-  test-ubuntu-r-sanitizer:
+  test-r-linux-sanitizer:
     ci: github
     template: docker-tests/github.linux.yml
     params:
@@ -1322,14 +1327,6 @@ tasks:
       - docs.tar.gz
 
   ############################## CUDA tests #################################
-
-  test-cuda-cpp-ubuntu-20.04-cuda-11.2.2:
-    ci: github
-    template: docker-tests/github.cuda.yml
-    params:
-      env:
-        UBUNTU: 20.04
-      image: ubuntu-cuda-cpp
 
   test-cuda-cpp-ubuntu-22.04-cuda-11.7.1:
     ci: github

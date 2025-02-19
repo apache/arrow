@@ -378,7 +378,7 @@ services:
     #   docker compose run --rm ubuntu-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 20.04, 22.04, 24.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -415,7 +415,7 @@ services:
     #   docker compose run --rm ubuntu-cpp-static
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-static
     build:
       context: .
@@ -662,7 +662,7 @@ services:
     #   docker compose run --rm ubuntu-cpp-thread-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -804,7 +804,7 @@ services:
     #   docker compose run --rm ubuntu-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     build:
       context: .
@@ -864,7 +864,7 @@ services:
     #   docker compose run --rm ubuntu-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
     build:
       context: .
@@ -1131,7 +1131,7 @@ services:
     #   docker compose run --rm ubuntu-python-313-freethreading
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04, 24.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-313-freethreading
     build:
       context: .
@@ -1582,11 +1582,11 @@ services:
       /bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
-    # Only 20.04 and amd64 supported
+    # Only amd64 supported
     # Usage:
     #   docker compose build ubuntu-r-sanitizer
     #   docker compose run ubuntu-r-sanitizer
-    image: ${REPO}:amd64-ubuntu-20.04-r-sanitizer
+    image: ${REPO}:amd64-ubuntu-r-sanitizer
     cap_add:
       # LeakSanitizer and gdb requires ptrace(2)
       - SYS_PTRACE
@@ -1594,7 +1594,7 @@ services:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-20.04-r-sanitizer
+        - ${REPO}:amd64-ubuntu-r-sanitizer
       args:
         base: wch1/r-debug:latest
         cmake: ${CMAKE}
@@ -1638,16 +1638,16 @@ services:
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
   ubuntu-r-valgrind:
-    # Only 20.04 and amd64 supported
+    # Only amd64 supported
     # Usage:
     #   docker compose build ubuntu-r-valgrind
     #   docker compose run ubuntu-r-valgrind
-    image: ${REPO}:amd64-ubuntu-20.04-r-valgrind
+    image: ${REPO}:amd64-ubuntu-r-valgrind
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-20.04-r-valgrind
+        - ${REPO}:amd64-ubuntu-r-valgrind
       args:
         base: wch1/r-debug:latest
         cmake: ${CMAKE}

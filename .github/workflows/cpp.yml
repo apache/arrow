@@ -94,12 +94,12 @@ jobs:
             title: AMD64 Ubuntu 22.04 C++ ASAN UBSAN
             ubuntu: 22.04
           - arch: arm64v8
-            clang-tools: 10
+            clang-tools: 14
             image: ubuntu-cpp
-            llvm: 10
+            llvm: 14
             runs-on: ubuntu-24.04-arm
-            title: ARM64 Ubuntu 20.04 C++
-            ubuntu: 20.04
+            title: ARM64 Ubuntu 22.04 C++
+            ubuntu: 22.04
     env:
       ARCH: ${{ matrix.arch }}
       ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}

@@ -363,10 +363,6 @@ struct CastStruct {
         const auto& in_field = in_type.field(in_field_index);
         // If there are more in_fields check if they match the out_field.
         if (in_field->name() == out_field->name()) {
-          if (in_field->nullable() && !out_field->nullable()) {
-            return Status::TypeError("cannot cast nullable field to non-nullable field: ",
-                                     in_type.ToString(), " ", out_type.ToString());
-          }
           // Found matching in_field and out_field.
           fields_to_select[out_field_index++] = in_field_index;
           // Using the same in_field for multiple out_fields is not allowed.
@@ -403,17 +399,27 @@ struct CastStruct {
     }
 
     int out_field_index = 0;
-    for (int field_index : fields_to_select) {
-      const auto& target_type = out->type()->field(out_field_index++)->type();
-      if (field_index == kFillNullSentinel) {
-        ARROW_ASSIGN_OR_RAISE(auto nulls,
-                              MakeArrayOfNull(target_type->GetSharedPtr(), batch.length));
+    for (int in_field_index : fields_to_select) {
+      const auto& out_field = out_type.field(out_field_index++);
+      const auto& out_field_type = out_field->type();
+      if (in_field_index == kFillNullSentinel) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto nulls, MakeArrayOfNull(out_field_type->GetSharedPtr(), batch.length,
+                                        ctx->memory_pool()));
         out_array->child_data.push_back(nulls->data());
       } else {
-        const auto& values = (in_array.child_data[field_index].ToArrayData()->Slice(
+        const auto& in_field = in_type.field(in_field_index);
+        const auto& in_values = (in_array.child_data[in_field_index].ToArrayData()->Slice(
             in_array.offset, in_array.length));
-        ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-                              Cast(values, target_type, options, ctx->exec_context()));
+        if (in_field->nullable() && !out_field->nullable() &&
+            in_values->GetNullCount() > 0) {
+          return Status::Invalid(
+              "field '", in_field->name(), "' of type ", in_field->type()->ToString(),
+              " has nulls. Can't cast to non-nullable field '", out_field->name(),
+              "' of type ", out_field_type->ToString());
+        }
+        ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(in_values, out_field_type, options,
+                                                      ctx->exec_context()));
         DCHECK(cast_values.is_array());
         out_array->child_data.push_back(cast_values.array());
       }

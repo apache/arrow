@@ -41,7 +41,7 @@ RUN latest_system_llvm=14 && \
           wget && \
       wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
       code_name=$(lsb_release --codename --short) && \
-      if [ ${llvm} -gt 10 ]; then \
+      if [ ${llvm} -gt ${latest_system_llvm} ]; then \
         echo "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm} main" > \
            /etc/apt/sources.list.d/llvm.list; \
       fi && \
@@ -68,9 +68,6 @@ RUN apt-get update -y -q && \
         bzip2 \
         ca-certificates \
         ccache \
-        ceph \
-        ceph-fuse \
-        ceph-mds \
         curl \
         gdb \
         git \
@@ -179,6 +176,9 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_azurite.sh
+
+COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_ceph.sh
 
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
