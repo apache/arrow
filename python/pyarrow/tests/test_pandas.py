@@ -2045,6 +2045,7 @@ class TestConvertDecimalTypes:
         pa.decimal32,
         pa.decimal64,
         pa.decimal128,
+        pa.decimal256,
     ])
     def test_decimal_array_to_pandas(self, typ):
         data = [decimal.Decimal('3.14'), None]
