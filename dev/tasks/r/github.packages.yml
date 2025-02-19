@@ -313,8 +313,8 @@ jobs:
           # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
           # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
           - {image: "rhub/ubuntu-release"} # currently ubuntu-22.04
-          - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
-          - {image: "rstudio/r-base:4.1-focal"}
+          - {image: "rstudio/r-base:4.0-jammy"}
+          - {image: "rstudio/r-base:4.1-jammy"}
           - {image: "rstudio/r-base:4.2-jammy"}
           - {image: "rstudio/r-base:4.3-noble"}
     steps:
