@@ -361,6 +361,7 @@ jobs:
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
+            any::cyclocomp
       # TODO(ARROW-17149): figure out why the GCS tests are hanging on Windows
       # - name: Install Google Cloud Storage Testbench
       #   shell: bash
