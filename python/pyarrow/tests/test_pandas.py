@@ -2040,6 +2040,7 @@ class TestConvertDecimalTypes:
         # This yields strided objects
         df = pd.DataFrame.from_dict(data)
         _check_pandas_roundtrip(df)
+
     @pytest.mark.parametrize("typ", [
         pa.decimal32,
         pa.decimal64,
