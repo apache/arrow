@@ -796,10 +796,11 @@ def test_map_duplicate_fields():
 
     assert s.as_py(maps_as_pydicts=None) == v
 
-    with pytest.raises(ValueError):
+    with pytest.raises(KeyError):
         assert s.as_py(maps_as_pydicts="strict")
 
-    assert s.as_py(maps_as_pydicts="lossy") == {'a': 2}
+    with pytest.warns(match="Encountered key 'a' which was already encountered"):
+        assert s.as_py(maps_as_pydicts="lossy") == {'a': 2}
 
 
 def test_dictionary(pickle_module):

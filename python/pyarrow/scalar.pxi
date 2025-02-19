@@ -162,12 +162,10 @@ cdef class Scalar(_Weakrefable):
             Arrow Map, as in [(key1, value1), (key2, value2), ...].
 
             If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
 
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
         raise NotImplementedError()
 
@@ -197,17 +195,7 @@ cdef class NullScalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         return None
 
@@ -228,17 +216,7 @@ cdef class BooleanScalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CBooleanScalar* sp = <CBooleanScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -257,17 +235,7 @@ cdef class UInt8Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CUInt8Scalar* sp = <CUInt8Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -286,17 +254,7 @@ cdef class Int8Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CInt8Scalar* sp = <CInt8Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -315,17 +273,7 @@ cdef class UInt16Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CUInt16Scalar* sp = <CUInt16Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -344,17 +292,7 @@ cdef class Int16Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CInt16Scalar* sp = <CInt16Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -373,17 +311,7 @@ cdef class UInt32Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CUInt32Scalar* sp = <CUInt32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -402,17 +330,7 @@ cdef class Int32Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CInt32Scalar* sp = <CInt32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -431,17 +349,7 @@ cdef class UInt64Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CUInt64Scalar* sp = <CUInt64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -460,17 +368,7 @@ cdef class Int64Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CInt64Scalar* sp = <CInt64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -489,17 +387,7 @@ cdef class HalfFloatScalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CHalfFloatScalar* sp = <CHalfFloatScalar*> self.wrapped.get()
         return PyHalf_FromHalf(sp.value) if sp.is_valid else None
@@ -518,17 +406,7 @@ cdef class FloatScalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CFloatScalar* sp = <CFloatScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -547,17 +425,7 @@ cdef class DoubleScalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CDoubleScalar* sp = <CDoubleScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -576,17 +444,7 @@ cdef class Decimal32Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CDecimal32Scalar* sp = <CDecimal32Scalar*> self.wrapped.get()
@@ -612,17 +470,7 @@ cdef class Decimal64Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CDecimal64Scalar* sp = <CDecimal64Scalar*> self.wrapped.get()
@@ -648,17 +496,7 @@ cdef class Decimal128Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CDecimal128Scalar* sp = <CDecimal128Scalar*> self.wrapped.get()
@@ -684,17 +522,7 @@ cdef class Decimal256Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CDecimal256Scalar* sp = <CDecimal256Scalar*> self.wrapped.get()
@@ -725,17 +553,7 @@ cdef class Date32Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CDate32Scalar* sp = <CDate32Scalar*> self.wrapped.get()
 
@@ -766,17 +584,7 @@ cdef class Date64Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CDate64Scalar* sp = <CDate64Scalar*> self.wrapped.get()
 
@@ -836,17 +644,7 @@ cdef class Time32Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CTime32Scalar* sp = <CTime32Scalar*> self.wrapped.get()
@@ -876,17 +674,7 @@ cdef class Time64Scalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CTime64Scalar* sp = <CTime64Scalar*> self.wrapped.get()
@@ -918,17 +706,7 @@ cdef class TimestampScalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CTimestampScalar* sp = <CTimestampScalar*> self.wrapped.get()
@@ -982,17 +760,7 @@ cdef class DurationScalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CDurationScalar* sp = <CDurationScalar*> self.wrapped.get()
@@ -1043,17 +811,7 @@ cdef class MonthDayNanoIntervalScalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             PyObject* val
@@ -1084,17 +842,7 @@ cdef class BinaryScalar(Scalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         buffer = self.as_buffer()
         return None if buffer is None else buffer.to_pybytes()
@@ -1121,17 +869,7 @@ cdef class StringScalar(BinaryScalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
         buffer = self.as_buffer()
         return None if buffer is None else str(buffer, 'utf8')
@@ -1193,12 +931,10 @@ cdef class ListScalar(Scalar):
             Arrow Map, as in [(key1, value1), (key2, value2), ...].
 
             If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
 
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
         arr = self.values
         return None if arr is None else arr.to_pylist(maps_as_pydicts=maps_as_pydicts)
@@ -1289,12 +1025,10 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
             Arrow Map, as in [(key1, value1), (key2, value2), ...].
 
             If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
 
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
         if self.is_valid:
             try:
@@ -1361,18 +1095,16 @@ cdef class MapScalar(ListScalar):
             Arrow Map, as in [(key1, value1), (key2, value2), ...].
 
             If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
 
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
         if maps_as_pydicts not in (None, "lossy", "strict"):
             raise ValueError(
                 "Invalid value for 'maps_as_pydicts': "
                 + "valid values are 'lossy', 'strict' or `None` (default). "
-                + f"Received '{maps_as_pydicts}'."
+                + f"Received {maps_as_pydict!r}."
             )
         if not self.is_valid:
             return None
@@ -1382,9 +1114,9 @@ cdef class MapScalar(ListScalar):
         for key, value in self:
             if key in result_dict:
                 if maps_as_pydicts == "strict":
-                    raise ValueError(
-                        "Converting to Python dictionary is not supported when "
-                        "duplicate keys are present."
+                    raise KeyError(
+                        "Converting to Python dictionary is not supported in strict mode "
+                        f"when duplicate keys are present (duplicate key was '{key}')."
                     )
                 else:
                     warnings.warn(
@@ -1476,12 +1208,10 @@ cdef class DictionaryScalar(Scalar):
             Arrow Map, as in [(key1, value1), (key2, value2), ...].
 
             If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
 
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
         return self.value.as_py(maps_as_pydicts=maps_as_pydicts) if self.is_valid else None
 
@@ -1511,12 +1241,10 @@ cdef class RunEndEncodedScalar(Scalar):
             Arrow Map, as in [(key1, value1), (key2, value2), ...].
 
             If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
 
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
         return self.value.as_py(maps_as_pydicts=maps_as_pydicts)
 
@@ -1553,12 +1281,10 @@ cdef class UnionScalar(Scalar):
             Arrow Map, as in [(key1, value1), (key2, value2), ...].
 
             If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
 
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
         value = self.value
         return None if value is None else value.as_py(maps_as_pydicts=maps_as_pydicts)
@@ -1598,12 +1324,10 @@ cdef class ExtensionScalar(Scalar):
             Arrow Map, as in [(key1, value1), (key2, value2), ...].
 
             If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
 
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
         return None if self.value is None else self.value.as_py(maps_as_pydicts=maps_as_pydicts)
 
@@ -1670,19 +1394,9 @@ class UuidScalar(ExtensionScalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
-        return None if self.value is None else UUID(bytes=self.value.as_py(maps_as_pydicts=maps_as_pydicts))
+        return None if self.value is None else UUID(bytes=self.value.as_py())
 
 
 cdef class FixedShapeTensorScalar(ExtensionScalar):
@@ -1746,19 +1460,9 @@ cdef class Bool8Scalar(ExtensionScalar):
         ----------
         maps_as_pydicts : str, optional, default `None`
             Valid values are `None`, 'lossy', or 'strict'.
-            The default behavior (`None`), is to convert Arrow Map arrays to
-            Python association lists (list-of-tuples) in the same order as the
-            Arrow Map, as in [(key1, value1), (key2, value2), ...].
-
-            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
-
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            This parameter is ignored for non-nested Scalars.
         """
-        py_val = super().as_py(maps_as_pydicts=maps_as_pydicts)
+        py_val = super().as_py()
         return None if py_val is None else py_val != 0
 
 cdef dict _scalar_classes = {

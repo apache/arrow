@@ -1362,12 +1362,10 @@ cdef class ChunkedArray(_PandasConvertible):
             Arrow Map, as in [(key1, value1), (key2, value2), ...].
 
             If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
 
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
 
         Examples
         --------
@@ -2284,12 +2282,10 @@ cdef class _Tabular(_PandasConvertible):
             Arrow Map, as in [(key1, value1), (key2, value2), ...].
 
             If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
 
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
 
         Returns
         -------
@@ -2326,12 +2322,10 @@ cdef class _Tabular(_PandasConvertible):
             Arrow Map, as in [(key1, value1), (key2, value2), ...].
 
             If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
-            This can change the ordering of (key, value) pairs, and will
-            deduplicate multiple keys, resulting in a possible loss of data.
 
-            If 'lossy', this key deduplication results in a warning printed
-            when detected. If 'strict', this instead results in an exception
-            being raised when detected.
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
 
         Returns
         -------
