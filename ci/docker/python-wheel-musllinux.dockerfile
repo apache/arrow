@@ -26,13 +26,18 @@ ENV LINUX_WHEEL_NAME='musl'
 ENV LINUX_WHEEL_VERSION=${musllinux}
 
 RUN apk update
-RUN apk add --no-cache build-base cmake flex wget zip ninja ccache
+RUN apk add --no-cache build-base ccache cmake flex ninja wget zip
+
+# Add testing repo to install mono
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories && \
+    apk add mono
+
 
 # A system Python is required for ninja and vcpkg in this Dockerfile.
-# On manylinux2014 base images, system Python is 2.7.5, while
-# on manylinux_2_28, no system python is installed.
-# We therefore override the PATH with Python 3.8 in /opt/python
-# so that we have a consistent Python version across base images.
+# On musllinux_1_2 a system python is installed (3.12) but pip is not
+# We therefore override the PATH with Python 3.9 in /opt/python
+# so that we have a consistent Python version across base images
+# as well as pip.
 ENV CPYTHON_VERSION=cp39
 ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
 

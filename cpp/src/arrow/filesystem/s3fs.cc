@@ -3463,11 +3463,9 @@ struct AwsInstance {
                "This could lead to a segmentation fault at exit";
         // Leak the S3ClientFinalizer to avoid crashes when destroying remaining
         // S3Client instances (GH-44071).
-#ifdef __GLIBC__
         auto* leaked_shared_ptr =
             new std::shared_ptr<S3ClientFinalizer>(GetClientFinalizer());
         ARROW_UNUSED(leaked_shared_ptr);
-#endif
         return;
       }
       GetClientFinalizer()->Finalize();
