@@ -479,6 +479,38 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     return UUIDLogicalType::Make();
   } else if (type.__isset.FLOAT16) {
     return Float16LogicalType::Make();
+  } else if (type.__isset.GEOMETRY) {
+    std::string crs;
+    if (type.GEOMETRY.__isset.crs) {
+      crs = type.GEOMETRY.crs;
+    }
+
+    return GeometryLogicalType::Make(crs);
+  } else if (type.__isset.GEOGRAPHY) {
+    std::string crs;
+    if (type.GEOGRAPHY.__isset.crs) {
+      crs = type.GEOGRAPHY.crs;
+    }
+
+    LogicalType::EdgeInterpolationAlgorithm::algorithm algorithm =
+        LogicalType::EdgeInterpolationAlgorithm::UNKNOWN;
+    if (!type.GEOGRAPHY.__isset.algorithm ||
+        type.GEOGRAPHY.algorithm == format::EdgeInterpolationAlgorithm::SPHERICAL) {
+      algorithm = LogicalType::EdgeInterpolationAlgorithm::SPHERICAL;
+    } else if (type.GEOGRAPHY.algorithm == format::EdgeInterpolationAlgorithm::VINCENTY) {
+      algorithm = LogicalType::EdgeInterpolationAlgorithm::VINCENTY;
+    } else if (type.GEOGRAPHY.algorithm == format::EdgeInterpolationAlgorithm::THOMAS) {
+      algorithm = LogicalType::EdgeInterpolationAlgorithm::THOMAS;
+    } else if (type.GEOGRAPHY.algorithm == format::EdgeInterpolationAlgorithm::ANDOYER) {
+      algorithm = LogicalType::EdgeInterpolationAlgorithm::ANDOYER;
+    } else if (type.GEOGRAPHY.algorithm == format::EdgeInterpolationAlgorithm::KARNEY) {
+      algorithm = LogicalType::EdgeInterpolationAlgorithm::KARNEY;
+    } else {
+      throw ParquetException("Unknown value for geometry algorithm: ",
+                             type.GEOGRAPHY.algorithm);
+    }
+
+    return GeographyLogicalType::Make(crs, algorithm);
   } else {
     throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
   }
@@ -534,6 +566,15 @@ std::shared_ptr<const LogicalType> LogicalType::UUID() { return UUIDLogicalType:
 
 std::shared_ptr<const LogicalType> LogicalType::Float16() {
   return Float16LogicalType::Make();
+}
+
+std::shared_ptr<const LogicalType> LogicalType::Geometry(std::string crs) {
+  return GeometryLogicalType::Make(std::move(crs));
+}
+
+std::shared_ptr<const LogicalType> LogicalType::Geography(
+    std::string crs, LogicalType::EdgeInterpolationAlgorithm::algorithm algorithm) {
+  return GeographyLogicalType::Make(std::move(crs), algorithm);
 }
 
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
@@ -618,6 +659,8 @@ class LogicalType::Impl {
   class BSON;
   class UUID;
   class Float16;
+  class Geometry;
+  class Geography;
   class No;
   class Undefined;
 
@@ -689,6 +732,12 @@ bool LogicalType::is_BSON() const { return impl_->type() == LogicalType::Type::B
 bool LogicalType::is_UUID() const { return impl_->type() == LogicalType::Type::UUID; }
 bool LogicalType::is_float16() const {
   return impl_->type() == LogicalType::Type::FLOAT16;
+}
+bool LogicalType::is_geometry() const {
+  return impl_->type() == LogicalType::Type::GEOMETRY;
+}
+bool LogicalType::is_geography() const {
+  return impl_->type() == LogicalType::Type::GEOGRAPHY;
 }
 bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
 bool LogicalType::is_valid() const {
@@ -1618,6 +1667,204 @@ class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
 };
 
 GENERATE_MAKE(Float16)
+
+class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible,
+                                          public LogicalType::Impl::SimpleApplicable {
+ public:
+  friend class GeometryLogicalType;
+
+  std::string ToString() const override;
+  std::string ToJSON() const override;
+  format::LogicalType ToThrift() const override;
+  bool Equals(const LogicalType& other) const override;
+
+  const std::string& crs() const { return crs_; }
+
+ private:
+  explicit Geometry(std::string crs)
+      : LogicalType::Impl(LogicalType::Type::GEOMETRY, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY),
+        crs_(std::move(crs)) {}
+
+  std::string crs_;
+};
+
+std::string LogicalType::Impl::Geometry::ToString() const {
+  std::stringstream type;
+  type << "Geometry(crs=" << crs_ << ")";
+  return type.str();
+}
+
+std::string LogicalType::Impl::Geometry::ToJSON() const {
+  std::stringstream json;
+  json << R"({"Type": "Geometry")";
+
+  if (!crs_.empty()) {
+    // TODO(paleolimbot): For documented cases the CRS shouldn't contain quotes,
+    // but we should probably escape the value of crs_ for backslash and quotes
+    // to be safe.
+    json << R"(, "crs": ")" << crs_ << R"(")";
+  }
+
+  json << "}";
+  return json.str();
+}
+
+format::LogicalType LogicalType::Impl::Geometry::ToThrift() const {
+  format::LogicalType type;
+  format::GeometryType geometry_type;
+
+  // Canonially export crs of "" as an unset CRS
+  if (!crs_.empty()) {
+    geometry_type.__set_crs(crs_);
+  }
+
+  type.__set_GEOMETRY(geometry_type);
+  return type;
+}
+
+bool LogicalType::Impl::Geometry::Equals(const LogicalType& other) const {
+  if (other.is_geometry()) {
+    const auto& other_geometry = checked_cast<const GeometryLogicalType&>(other);
+    return crs() == other_geometry.crs();
+  } else {
+    return false;
+  }
+}
+
+const std::string& GeometryLogicalType::crs() const {
+  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).crs();
+}
+
+std::shared_ptr<const LogicalType> GeometryLogicalType::Make(std::string crs) {
+  auto* logical_type = new GeometryLogicalType();
+  logical_type->impl_.reset(new LogicalType::Impl::Geometry(std::move(crs)));
+  return std::shared_ptr<const LogicalType>(logical_type);
+}
+
+class LogicalType::Impl::Geography final : public LogicalType::Impl::Incompatible,
+                                           public LogicalType::Impl::SimpleApplicable {
+ public:
+  friend class GeographyLogicalType;
+
+  std::string ToString() const override;
+  std::string ToJSON() const override;
+  format::LogicalType ToThrift() const override;
+  bool Equals(const LogicalType& other) const override;
+
+  const std::string& crs() const { return crs_; }
+  LogicalType::EdgeInterpolationAlgorithm::algorithm algorithm() const {
+    return algorithm_;
+  }
+
+  const char* algorithm_name() const {
+    switch (algorithm_) {
+      case LogicalType::EdgeInterpolationAlgorithm::SPHERICAL:
+        return "spherical";
+      case LogicalType::EdgeInterpolationAlgorithm::VINCENTY:
+        return "vincenty";
+      case LogicalType::EdgeInterpolationAlgorithm::THOMAS:
+        return "thomas";
+      case LogicalType::EdgeInterpolationAlgorithm::ANDOYER:
+        return "andoyer";
+      case LogicalType::EdgeInterpolationAlgorithm::KARNEY:
+        return "karney";
+      default:
+        return "unknown";
+    }
+  }
+
+ private:
+  Geography(std::string crs, LogicalType::EdgeInterpolationAlgorithm::algorithm algorithm)
+      : LogicalType::Impl(LogicalType::Type::GEOGRAPHY, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY),
+        crs_(std::move(crs)),
+        algorithm_(algorithm) {}
+
+  std::string crs_;
+  LogicalType::EdgeInterpolationAlgorithm::algorithm algorithm_;
+};
+
+std::string LogicalType::Impl::Geography::ToString() const {
+  std::stringstream type;
+  type << "Geography(crs=" << crs_ << ", algorithm=" << algorithm_name() << ")";
+  return type.str();
+}
+
+std::string LogicalType::Impl::Geography::ToJSON() const {
+  std::stringstream json;
+  json << R"({"Type": "Geography")";
+
+  if (!crs_.empty()) {
+    // TODO(paleolimbot): For documented cases the CRS shouldn't contain quotes,
+    // but we should probably escape the value of crs_ for backslash and quotes
+    // to be safe.
+    json << R"(, "crs": ")" << crs_ << R"(")";
+  }
+
+  if (algorithm_ != LogicalType::EdgeInterpolationAlgorithm::SPHERICAL) {
+    json << R"(, "algorithm": ")" << algorithm_name() << R"(")";
+  }
+
+  json << "}";
+  return json.str();
+}
+
+format::LogicalType LogicalType::Impl::Geography::ToThrift() const {
+  format::LogicalType type;
+  format::GeographyType geography_type;
+
+  // Canonially export crs of "" as an unset CRS
+  if (!crs_.empty()) {
+    geography_type.__set_crs(crs_);
+  }
+
+  if (algorithm_ == LogicalType::EdgeInterpolationAlgorithm::SPHERICAL) {
+    // Canonically export spherical algorithm as unset
+  } else if (algorithm_ == LogicalType::EdgeInterpolationAlgorithm::VINCENTY) {
+    geography_type.__set_algorithm(format::EdgeInterpolationAlgorithm::VINCENTY);
+  } else if (algorithm_ == LogicalType::EdgeInterpolationAlgorithm::THOMAS) {
+    geography_type.__set_algorithm(format::EdgeInterpolationAlgorithm::THOMAS);
+  } else if (algorithm_ == LogicalType::EdgeInterpolationAlgorithm::ANDOYER) {
+    geography_type.__set_algorithm(format::EdgeInterpolationAlgorithm::ANDOYER);
+  } else if (algorithm_ == LogicalType::EdgeInterpolationAlgorithm::KARNEY) {
+    geography_type.__set_algorithm(format::EdgeInterpolationAlgorithm::KARNEY);
+  } else {
+    throw ParquetException("Unknown value for geometry algorithm: ", algorithm_);
+  }
+
+  type.__set_GEOGRAPHY(geography_type);
+  return type;
+}
+
+bool LogicalType::Impl::Geography::Equals(const LogicalType& other) const {
+  if (other.is_geography()) {
+    const auto& other_geography = checked_cast<const GeographyLogicalType&>(other);
+    return crs() == other_geography.crs() && algorithm() == other_geography.algorithm();
+  } else {
+    return false;
+  }
+}
+
+const std::string& GeographyLogicalType::crs() const {
+  return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).crs();
+}
+
+LogicalType::EdgeInterpolationAlgorithm::algorithm GeographyLogicalType::algorithm()
+    const {
+  return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).algorithm();
+}
+
+const char* GeographyLogicalType::algorithm_name() const {
+  return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).algorithm_name();
+}
+
+std::shared_ptr<const LogicalType> GeographyLogicalType::Make(
+    std::string crs, LogicalType::EdgeInterpolationAlgorithm::algorithm algorithm) {
+  auto* logical_type = new GeographyLogicalType();
+  logical_type->impl_.reset(new LogicalType::Impl::Geography(std::move(crs), algorithm));
+  return std::shared_ptr<const LogicalType>(logical_type);
+}
 
 class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
                                     public LogicalType::Impl::UniversalApplicable {

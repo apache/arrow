@@ -1038,6 +1038,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
           store_schema_(false),
           compliant_nested_types_(true),
           engine_version_(V2),
+          write_geospatial_logical_types_(false),
           use_threads_(kArrowDefaultUseThreads),
           executor_(NULLPTR) {}
     virtual ~Builder() = default;
@@ -1112,6 +1113,12 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
+    /// Write GEOMETRY and GEOGRAPHY logical types where possible.
+    Builder* write_geospatial_logical_types() {
+      write_geospatial_logical_types_ = true;
+      return this;
+    }
+
     /// \brief Set whether to use multiple threads to write columns
     /// in parallel in the buffered row group mode.
     ///
@@ -1139,7 +1146,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
           truncated_timestamps_allowed_, store_schema_, compliant_nested_types_,
-          engine_version_, use_threads_, executor_));
+          engine_version_, write_geospatial_logical_types_, use_threads_, executor_));
     }
 
    private:
@@ -1152,6 +1159,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
     bool store_schema_;
     bool compliant_nested_types_;
     EngineVersion engine_version_;
+    bool write_geospatial_logical_types_;
 
     bool use_threads_;
     ::arrow::internal::Executor* executor_;
@@ -1181,6 +1189,9 @@ class PARQUET_EXPORT ArrowWriterProperties {
   /// place in case there are bugs detected in V2.
   EngineVersion engine_version() const { return engine_version_; }
 
+  /// \brief Write GEOMETRY and/or GEOGRAPHY logical types when converting GeoArrow types
+  bool write_geospatial_logical_types() const { return write_geospatial_logical_types_; }
+
   /// \brief Returns whether the writer will use multiple threads
   /// to write columns in parallel in the buffered row group mode.
   bool use_threads() const { return use_threads_; }
@@ -1194,7 +1205,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
                                  ::arrow::TimeUnit::type coerce_timestamps_unit,
                                  bool truncated_timestamps_allowed, bool store_schema,
                                  bool compliant_nested_types,
-                                 EngineVersion engine_version, bool use_threads,
+                                 EngineVersion engine_version,
+                                 bool write_geospataial_logical_types, bool use_threads,
                                  ::arrow::internal::Executor* executor)
       : write_timestamps_as_int96_(write_nanos_as_int96),
         coerce_timestamps_enabled_(coerce_timestamps_enabled),
@@ -1203,6 +1215,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
         store_schema_(store_schema),
         compliant_nested_types_(compliant_nested_types),
         engine_version_(engine_version),
+        write_geospatial_logical_types_(write_geospataial_logical_types),
         use_threads_(use_threads),
         executor_(executor) {}
 
@@ -1213,6 +1226,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
   const bool store_schema_;
   const bool compliant_nested_types_;
   const EngineVersion engine_version_;
+  const bool write_geospatial_logical_types_;
   const bool use_threads_;
   ::arrow::internal::Executor* executor_;
 };
