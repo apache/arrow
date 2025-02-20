@@ -1651,16 +1651,30 @@ cdef class Array(_PandasConvertible):
             array = array.copy()
         return array
 
-    def to_pylist(self):
+    def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert to a list of native Python objects.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
 
         Returns
         -------
         lst : list
         """
         self._assert_cpu()
-        return [x.as_py() for x in self]
+        return [x.as_py(maps_as_pydicts=maps_as_pydicts) for x in self]
 
     def tolist(self):
         """
@@ -2286,11 +2300,17 @@ cdef class MonthDayNanoIntervalArray(Array):
     Concrete class for Arrow arrays of interval[MonthDayNano] type.
     """
 
-    def to_pylist(self):
+    def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert to a list of native Python objects.
 
         pyarrow.MonthDayNano is used as the native representation.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
 
         Returns
         -------

@@ -99,7 +99,7 @@ class IntegerEmbeddedType(pa.ExtensionType):
 
 
 class ExampleUuidScalarType(pa.ExtensionScalar):
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         return None if self.value is None else UUID(bytes=self.value.as_py())
 
 

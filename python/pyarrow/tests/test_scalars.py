@@ -786,6 +786,22 @@ def test_map(pickle_module):
     restored = pickle_module.loads(pickle_module.dumps(s))
     assert restored.equals(s)
 
+    assert s.as_py(maps_as_pydicts="strict") == {'a': 1, 'b': 2}
+
+
+def test_map_duplicate_fields():
+    ty = pa.map_(pa.string(), pa.int8())
+    v = [('a', 1), ('a', 2)]
+    s = pa.scalar(v, type=ty)
+
+    assert s.as_py(maps_as_pydicts=None) == v
+
+    with pytest.raises(KeyError):
+        assert s.as_py(maps_as_pydicts="strict")
+
+    with pytest.warns(match="Encountered key 'a' which was already encountered"):
+        assert s.as_py(maps_as_pydicts="lossy") == {'a': 2}
+
 
 def test_dictionary(pickle_module):
     indices = pa.array([2, None, 1, 2, 0, None])
@@ -898,3 +914,15 @@ def test_map_scalar_as_py_with_custom_field_name():
             pa.field("custom_value", pa.string()),
         ),
     ).as_py() == [("foo", "bar")]
+
+
+def test_nested_map_types_with_maps_as_pydicts():
+    ty = pa.struct([
+        pa.field('x', pa.map_(pa.string(), pa.int8())),
+        pa.field('y', pa.list_(pa.map_(pa.string(), pa.int8()))),
+    ])
+
+    v = {'x': {'a': 1}, 'y': [{'b': 2}, {'c': 3}]}
+    s = pa.scalar(v, type=ty)
+
+    assert s.as_py(maps_as_pydicts="strict") == v
