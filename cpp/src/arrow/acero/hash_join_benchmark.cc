@@ -56,6 +56,8 @@ struct BenchmarkSettings {
   int var_length_max = 20;   // Maximum length of any var length types
 
   Expression residual_filter = literal(true);
+
+  bool stats_probe_rows = true;
 };
 
 class JoinBenchmark {
@@ -128,6 +130,7 @@ class JoinBenchmark {
     for (ExecBatch& batch : r_batches_with_schema.batches)
       r_batches_.InsertBatch(std::move(batch));
 
+    stats_.num_build_rows = settings.num_build_batches * settings.batch_size;
     stats_.num_probe_rows = settings.num_probe_batches * settings.batch_size;
 
     schema_mgr_ = std::make_unique<HashJoinSchema>();
@@ -209,6 +212,7 @@ class JoinBenchmark {
   int task_group_probe_;
 
   struct {
+    uint64_t num_build_rows;
     uint64_t num_probe_rows;
   } stats_;
 };
@@ -223,7 +227,8 @@ static void HashJoinBasicBenchmarkImpl(benchmark::State& st,
       st.ResumeTiming();
       bm.RunJoin();
       st.PauseTiming();
-      total_rows += bm.stats_.num_probe_rows;
+      total_rows += (settings.stats_probe_rows ? bm.stats_.num_probe_rows
+                                               : bm.stats_.num_build_rows);
     }
     st.ResumeTiming();
   }
@@ -307,6 +312,7 @@ static void BM_HashJoinBasic_BuildParallelism(benchmark::State& st) {
   settings.num_threads = static_cast<int>(st.range(0));
   settings.num_build_batches = static_cast<int>(st.range(1));
   settings.num_probe_batches = settings.num_threads;
+  settings.stats_probe_rows = false;
 
   HashJoinBasicBenchmarkImpl(st, settings);
 }
