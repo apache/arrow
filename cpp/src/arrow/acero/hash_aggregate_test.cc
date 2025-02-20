@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <limits>
 #include <memory>
+#include <random>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -30,16 +31,14 @@
 #include "arrow/acero/options.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_aggregate.h"
-#include "arrow/compute/api_scalar.h"
-#include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
-#include "arrow/compute/kernels/aggregate_internal.h"
-#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/table.h"
@@ -50,9 +49,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
@@ -64,7 +61,6 @@ using testing::HasSubstr;
 
 namespace arrow {
 
-using internal::BitmapReader;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::ToChars;
@@ -77,6 +73,7 @@ using compute::ExecBatchFromJSON;
 using compute::ExecSpan;
 using compute::FunctionOptions;
 using compute::Grouper;
+using compute::PivotWiderOptions;
 using compute::RowSegmenter;
 using compute::ScalarAggregateOptions;
 using compute::Segment;
@@ -565,6 +562,7 @@ class GroupBy : public ::testing::TestWithParam<GroupByFunction> {
     return acero::GroupByTest(GetParam(), arguments, keys, aggregates, use_threads);
   }
 
+  // This is not named GroupByTest to avoid ambiguities between overloads
   Result<Datum> AltGroupBy(const std::vector<Datum>& arguments,
                            const std::vector<Datum>& keys,
                            const std::vector<Datum>& segment_keys,
@@ -572,6 +570,70 @@ class GroupBy : public ::testing::TestWithParam<GroupByFunction> {
                            bool use_threads = false) {
     return GetParam()(arguments, keys, segment_keys, aggregates, use_threads,
                       /*naive=*/false);
+  }
+
+  Result<Datum> RunPivot(const std::shared_ptr<DataType>& key_type,
+                         const std::shared_ptr<DataType>& value_type,
+                         const PivotWiderOptions& options,
+                         const std::shared_ptr<Table>& table, bool use_threads = false) {
+    Aggregate agg{"hash_pivot_wider", std::make_shared<PivotWiderOptions>(options),
+                  /*target=*/std::vector<FieldRef>{"agg_0", "agg_1"}, /*name=*/"out"};
+    ARROW_ASSIGN_OR_RAISE(
+        Datum aggregated_and_grouped,
+        AltGroupBy({table->GetColumnByName("key"), table->GetColumnByName("value")},
+                   {table->GetColumnByName("group_key")},
+                   /*segment_keys=*/{}, {agg}, use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    return aggregated_and_grouped;
+  }
+
+  Result<Datum> RunPivot(const std::shared_ptr<DataType>& key_type,
+                         const std::shared_ptr<DataType>& value_type,
+                         const PivotWiderOptions& options,
+                         const std::vector<std::string>& table_json,
+                         bool use_threads = false) {
+    auto table =
+        TableFromJSON(schema({field("group_key", int64()), field("key", key_type),
+                              field("value", value_type)}),
+                      table_json);
+    return RunPivot(key_type, value_type, options, table, use_threads);
+  }
+
+  void CheckPivoted(const std::shared_ptr<DataType>& key_type,
+                    const std::shared_ptr<DataType>& value_type,
+                    const PivotWiderOptions& options, const Datum& pivoted,
+                    const std::string& expected_json) {
+    FieldVector pivoted_fields;
+    for (const auto& key_name : options.key_names) {
+      pivoted_fields.push_back(field(key_name, value_type));
+    }
+    auto expected_type = struct_({
+        field("key_0", int64()),
+        field("out", struct_(std::move(pivoted_fields))),
+    });
+    auto expected = ArrayFromJSON(expected_type, expected_json);
+    AssertDatumsEqual(expected, pivoted, /*verbose=*/true);
+  }
+
+  void TestPivot(const std::shared_ptr<DataType>& key_type,
+                 const std::shared_ptr<DataType>& value_type,
+                 const PivotWiderOptions& options,
+                 const std::vector<std::string>& table_json,
+                 const std::string& expected_json, bool use_threads) {
+    ASSERT_OK_AND_ASSIGN(
+        auto pivoted, RunPivot(key_type, value_type, options, table_json, use_threads));
+    CheckPivoted(key_type, value_type, options, pivoted, expected_json);
+  }
+
+  void TestPivot(const std::shared_ptr<DataType>& key_type,
+                 const std::shared_ptr<DataType>& value_type,
+                 const PivotWiderOptions& options,
+                 const std::vector<std::string>& table_json,
+                 const std::string& expected_json) {
+    for (bool use_threads : {false, true}) {
+      ARROW_SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      TestPivot(key_type, value_type, options, table_json, expected_json, use_threads);
+    }
   }
 
   void TestSegmentKey(const std::shared_ptr<Table>& table, Datum output,
@@ -4345,6 +4407,566 @@ TEST_P(GroupBy, OnlyKeys) {
   }
 }
 
+TEST_P(GroupBy, PivotBasics) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, "width",  10.5],
+      [2, "width",  11.5]
+      ])",
+                                         R"([
+      [2, "height", 12.5]
+      ])",
+                                         R"([
+      [3, "width",  13.5],
+      [1, "height", 14.5]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": 14.5, "width": 10.5} ],
+      [2, {"height": 12.5, "width": 11.5} ],
+      [3, {"height": null, "width": 13.5} ]
+      ])";
+  for (auto unexpected_key_behavior :
+       {PivotWiderOptions::kIgnore, PivotWiderOptions::kRaise}) {
+    PivotWiderOptions options(/*key_names=*/{"height", "width"}, unexpected_key_behavior);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+}
+
+TEST_P(GroupBy, PivotAllKeyTypes) {
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, "width", 10.5],
+      [2, "width", 11.5]
+      ])",
+                                         R"([
+      [2, "height", 12.5],
+      [3, "width",  13.5],
+      [1, "height", 14.5]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": 14.5, "width": 10.5} ],
+      [2, {"height": 12.5, "width": 11.5} ],
+      [3, {"height": null, "width": 13.5} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+
+  for (const auto& key_type : BaseBinaryTypes()) {
+    ARROW_SCOPED_TRACE("key_type = ", *key_type);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+}
+
+TEST_P(GroupBy, PivotNumericValues) {
+  auto key_type = utf8();
+  std::vector<std::string> table_json = {R"([
+      [1, "width", 10],
+      [2, "width", 11]
+      ])",
+                                         R"([
+      [2, "height", 12],
+      [3, "width",  13],
+      [1, "height", 14]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": 14,   "width": 10} ],
+      [2, {"height": 12,   "width": 11} ],
+      [3, {"height": null, "width": 13} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+
+  for (const auto& value_type : NumericTypes()) {
+    ARROW_SCOPED_TRACE("value_type = ", *value_type);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+}
+
+TEST_P(GroupBy, PivotBinaryLikeValues) {
+  auto key_type = utf8();
+  std::vector<std::string> table_json = {R"([
+      [1, "name",      "Bob"],
+      [2, "eye_color", "brown"]
+      ])",
+                                         R"([
+      [2, "name",      "Alice"],
+      [1, "eye_color", "gray"],
+      [3, "name",      "Mallaury"]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"name": "Bob",      "eye_color": "gray"} ],
+      [2, {"name": "Alice",    "eye_color": "brown"} ],
+      [3, {"name": "Mallaury", "eye_color": null} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"name", "eye_color"});
+
+  for (const auto& value_type : BaseBinaryTypes()) {
+    ARROW_SCOPED_TRACE("value_type = ", *value_type);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+}
+
+TEST_P(GroupBy, PivotDecimalValues) {
+  auto key_type = utf8();
+  auto value_type = decimal128(9, 1);
+  std::vector<std::string> table_json = {R"([
+      [1, "width", "10.1"],
+      [2, "width", "11.1"]
+      ])",
+                                         R"([
+      [2, "height", "12.1"],
+      [3, "width",  "13.1"],
+      [1, "height", "14.1"]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": "14.1", "width": "10.1"} ],
+      [2, {"height": "12.1", "width": "11.1"} ],
+      [3, {"height": null,   "width": "13.1"} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotStructValues) {
+  auto key_type = utf8();
+  auto value_type = struct_({{"value", float32()}});
+  std::vector<std::string> table_json = {R"([
+      [1, "width", [10.1]],
+      [2, "width", [11.1]]
+      ])",
+                                         R"([
+      [2, "height", [12.1]],
+      [3, "width",  [13.1]],
+      [1, "height", [14.1]]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": [14.1], "width": [10.1]} ],
+      [2, {"height": [12.1], "width": [11.1]} ],
+      [3, {"height": null,   "width": [13.1]} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotListValues) {
+  auto key_type = utf8();
+  auto value_type = list(float32());
+  std::vector<std::string> table_json = {R"([
+      [1, "foo", [10.5, 11.5]],
+      [2, "bar", [12.5]]
+      ])",
+                                         R"([
+      [2, "foo", []],
+      [3, "bar", [13.5]],
+      [1, "foo", null]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"foo": [10.5, 11.5], "bar": null}   ],
+      [2, {"foo": [],           "bar": [12.5]} ],
+      [3, {"foo": null,         "bar": [13.5]} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"foo", "bar"});
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotNullValueType) {
+  auto key_type = utf8();
+  auto value_type = null();
+  std::vector<std::string> table_json = {R"([
+      [1, "foo", null],
+      [2, "bar", null]
+      ])",
+                                         R"([
+      [2, "foo", null],
+      [3, "bar", null],
+      [1, "foo", null]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"foo": null, "bar": null} ],
+      [2, {"foo": null, "bar": null} ],
+      [3, {"foo": null, "bar": null} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"foo", "bar"});
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotNullValues) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, "width", 10.5],
+      [2, "width", null]
+      ])",
+                                         R"([
+      [2, "height", 12.5],
+      [2, "width",  13.5],
+      [1, "width",  null],
+      [2, "height", null]
+      ])",
+                                         R"([
+      [1, "width",  null],
+      [2, "height", null]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": null, "width": 10.5} ],
+      [2, {"height": 12.5, "width": 13.5} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"height", "width"}, PivotWiderOptions::kRaise);
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotScalarKey) {
+  BatchesWithSchema input;
+  std::vector<TypeHolder> types = {int32(), utf8(), float32()};
+  std::vector<ArgShape> shapes = {ArgShape::ARRAY, ArgShape::SCALAR, ArgShape::ARRAY};
+  input.batches = {
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [1, "width",  10.5],
+        [2, "width",  11.5]
+        ])"),
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [2, "width",  null]
+        ])"),
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [3, "height", null],
+        [3, "height", null]
+        ])"),
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [3, "height", 12.5],
+        [1, "height", 13.5]
+        ])"),
+  };
+  input.schema = schema({field("group_key", int32()), field("pivot_key", utf8()),
+                         field("pivot_value", float32())});
+  Datum expected = ArrayFromJSON(
+      struct_({field("group_key", int32()),
+               field("pivoted",
+                     struct_({field("height", float32()), field("width", float32())}))}),
+      R"([
+      [1, {"height": 13.5, "width": 10.5} ],
+      [2, {"height": null, "width": 11.5} ],
+      [3, {"height": 12.5, "width": null} ]
+      ])");
+  auto options = std::make_shared<PivotWiderOptions>(
+      PivotWiderOptions(/*key_names=*/{"height", "width"}));
+  Aggregate aggregate{"hash_pivot_wider", options,
+                      std::vector<FieldRef>{"pivot_key", "pivot_value"}, "pivoted"};
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    ASSERT_OK_AND_ASSIGN(Datum actual,
+                         RunGroupBy(input, {"group_key"}, {aggregate}, use_threads));
+    ValidateOutput(actual);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+  }
+}
+
+TEST_P(GroupBy, PivotUnusedKeyName) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, "width", 10.5],
+      [2, "width", 11.5]
+      ])",
+                                         R"([
+      [2, "height", 12.5],
+      [3, "width",  13.5],
+      [1, "height", 14.5]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": 14.5, "depth": null, "width": 10.5} ],
+      [2, {"height": 12.5, "depth": null, "width": 11.5} ],
+      [3, {"height": null, "depth": null, "width": 13.5} ]
+      ])";
+  for (auto unexpected_key_behavior :
+       {PivotWiderOptions::kIgnore, PivotWiderOptions::kRaise}) {
+    PivotWiderOptions options(/*key_names=*/{"height", "depth", "width"},
+                              unexpected_key_behavior);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+}
+
+TEST_P(GroupBy, PivotUnexpectedKeyName) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, "width", 10.5],
+      [2, "width", 11.5]
+      ])",
+                                         R"([
+      [2, "height", 12.5],
+      [3, "width",  13.5],
+      [1, "depth",  15.5],
+      [1, "height", 14.5]
+      ])"};
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+  std::string expected_json = R"([
+      [1, {"height": 14.5, "width": 10.5} ],
+      [2, {"height": 12.5, "width": 11.5} ],
+      [3, {"height": null, "width": 13.5} ]
+      ])";
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+  options.unexpected_key_behavior = PivotWiderOptions::kRaise;
+  for (bool use_threads : {false, true}) {
+    ARROW_SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        KeyError, HasSubstr("Unexpected pivot key: depth"),
+        RunPivot(key_type, value_type, options, table_json, use_threads));
+  }
+}
+TEST_P(GroupBy, PivotNullKeys) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, "width", 10.5],
+      [2, null,    11.5]
+      ])"};
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+  for (bool use_threads : {false, true}) {
+    ARROW_SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        KeyError, HasSubstr("pivot key name cannot be null"),
+        RunPivot(key_type, value_type, options, table_json, use_threads));
+  }
+}
+
+TEST_P(GroupBy, PivotDuplicateKeys) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([])"};
+  PivotWiderOptions options(/*key_names=*/{"height", "width", "height"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      KeyError, HasSubstr("Duplicate key name 'height' in PivotWiderOptions"),
+      RunPivot(key_type, value_type, options, table_json));
+}
+
+TEST_P(GroupBy, PivotDuplicateValues) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+
+  for (bool use_threads : {false, true}) {
+    ARROW_SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    // Duplicate values in same chunk
+    std::vector<std::string> table_json = {R"([
+        [1, "width", 10.5],
+        [2, "width", 11.5],
+        [1, "width", 11.5]
+        ])"};
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    HasSubstr("Encountered more than one non-null value"),
+                                    RunPivot(key_type, value_type, options, table_json));
+
+    // Duplicate values in different chunks
+    table_json = {R"([
+        [1, "width", 10.5],
+        [2, "width", 11.5]
+        ])",
+                  R"([
+        [1, "width", 11.5]
+        ])"};
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    HasSubstr("Encountered more than one non-null value"),
+                                    RunPivot(key_type, value_type, options, table_json));
+  }
+}
+
+TEST_P(GroupBy, PivotScalarKeyWithDuplicateValues) {
+  BatchesWithSchema input;
+  std::vector<TypeHolder> types = {int32(), utf8(), float32()};
+  std::vector<ArgShape> shapes = {ArgShape::ARRAY, ArgShape::SCALAR, ArgShape::ARRAY};
+  input.schema = schema({field("group_key", int32()), field("pivot_key", utf8()),
+                         field("pivot_value", float32())});
+  auto options = std::make_shared<PivotWiderOptions>(
+      PivotWiderOptions(/*key_names=*/{"height", "width"}));
+  Aggregate aggregate{"hash_pivot_wider", options,
+                      std::vector<FieldRef>{"pivot_key", "pivot_value"}, "pivoted"};
+
+  // Duplicate values in same chunk
+  input.batches = {
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [1, "width",  10.5],
+        [1, "width",  11.5]
+        ])"),
+  };
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, HasSubstr("Encountered more than one non-null value"),
+        RunGroupBy(input, {"group_key"}, {aggregate}, use_threads));
+  }
+
+  // Duplicate values in different chunks
+  input.batches = {
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [1, "width",  10.5],
+        [2, "width",  11.5]
+        ])"),
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [2, "width",  12.5]
+        ])"),
+  };
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, HasSubstr("Encountered more than one non-null value"),
+        RunGroupBy(input, {"group_key"}, {aggregate}, use_threads));
+  }
+}
+
+struct RandomPivotTestCase {
+  PivotWiderOptions options;
+  std::shared_ptr<RecordBatch> input;
+  std::shared_ptr<Array> expected_output;
+};
+
+Result<RandomPivotTestCase> MakeRandomPivot(int64_t length) {
+  constexpr double kKeyPresenceProbability = 0.8;
+  constexpr double kValueValidityProbability = 0.7;
+
+  const std::vector<std::string> key_names = {"height", "width", "depth"};
+  std::default_random_engine gen(42);
+  std::uniform_real_distribution<float> value_dist(0.0f, 1.0f);
+  std::bernoulli_distribution key_presence_dist(kKeyPresenceProbability);
+  std::bernoulli_distribution value_validity_dist(kValueValidityProbability);
+
+  Int64Builder group_key_builder;
+  StringBuilder key_builder;
+  FloatBuilder value_builder;
+  RETURN_NOT_OK(group_key_builder.Reserve(length));
+  RETURN_NOT_OK(key_builder.Reserve(length));
+  RETURN_NOT_OK(value_builder.Reserve(length));
+
+  // The last input key name will not be part of the result
+  PivotWiderOptions options(
+      std::vector<std::string>(key_names.begin(), key_names.end() - 1));
+  Int64Builder pivoted_group_builder;
+  std::vector<FloatBuilder> pivoted_value_builders(options.key_names.size());
+
+  auto finish_group = [&](int64_t group_key) -> Status {
+    // First check if *any* pivoted column was populated (otherwise there was
+    // no valid value at all in this group, and no output row should be generated).
+    RETURN_NOT_OK(pivoted_group_builder.Append(group_key));
+    // Make sure all pivoted columns are populated and in sync with the group key column
+    for (auto& pivoted_value_builder : pivoted_value_builders) {
+      if (pivoted_value_builder.length() < pivoted_group_builder.length()) {
+        RETURN_NOT_OK(pivoted_value_builder.AppendNull());
+      }
+      EXPECT_EQ(pivoted_value_builder.length(), pivoted_group_builder.length());
+    }
+    return Status::OK();
+  };
+
+  int64_t group_key = 1000;
+  bool group_started = false;
+  int key_id = 0;
+  while (group_key_builder.length() < length) {
+    // For the current group_key and key_id we can either:
+    // 1. not add a row
+    // 2. add a row with a null value
+    // 3. add a row with a non-null value
+    //    3a. the row will end up in the pivoted data iff the key is part of
+    //        the PivotWiderOptions.key_names
+    if (key_presence_dist(gen)) {
+      group_key_builder.UnsafeAppend(group_key);
+      group_started = true;
+      RETURN_NOT_OK(key_builder.Append(key_names[key_id]));
+      if (value_validity_dist(gen)) {
+        const auto value = value_dist(gen);
+        value_builder.UnsafeAppend(value);
+        if (key_id < static_cast<int>(pivoted_value_builders.size())) {
+          RETURN_NOT_OK(pivoted_value_builders[key_id].Append(value));
+        }
+      } else {
+        value_builder.UnsafeAppendNull();
+      }
+    }
+    if (++key_id >= static_cast<int>(key_names.size())) {
+      // We've considered all keys for this group.
+      // Emit a pivoted row only if any key was emitted in the input.
+      if (group_started) {
+        RETURN_NOT_OK(finish_group(group_key));
+      }
+      // Initiate new group
+      ++group_key;
+      group_started = false;
+      key_id = 0;
+    }
+  }
+  if (group_started) {
+    // We've started this group, finish it
+    RETURN_NOT_OK(finish_group(group_key));
+  }
+  ARROW_ASSIGN_OR_RAISE(auto group_keys, group_key_builder.Finish());
+  ARROW_ASSIGN_OR_RAISE(auto keys, key_builder.Finish());
+  ARROW_ASSIGN_OR_RAISE(auto values, value_builder.Finish());
+  auto input_schema =
+      schema({{"group_key", int64()}, {"key", utf8()}, {"value", float32()}});
+  auto input = RecordBatch::Make(input_schema, length, {group_keys, keys, values});
+  RETURN_NOT_OK(input->Validate());
+
+  ARROW_ASSIGN_OR_RAISE(auto pivoted_groups, pivoted_group_builder.Finish());
+  ArrayVector pivoted_value_columns;
+  for (auto& pivoted_value_builder : pivoted_value_builders) {
+    ARROW_ASSIGN_OR_RAISE(pivoted_value_columns.emplace_back(),
+                          pivoted_value_builder.Finish());
+  }
+  ARROW_ASSIGN_OR_RAISE(
+      auto pivoted_values,
+      StructArray::Make(std::move(pivoted_value_columns), options.key_names));
+  ARROW_ASSIGN_OR_RAISE(auto output,
+                        StructArray::Make({pivoted_groups, pivoted_values},
+                                          std::vector<std::string>{"key_0", "out"}));
+  RETURN_NOT_OK(output->Validate());
+
+  return RandomPivotTestCase{std::move(options), std::move(input), std::move(output)};
+}
+
+TEST_P(GroupBy, PivotRandom) {
+  constexpr int64_t kLength = 900;
+  // Larger than 256 to exercise take-index dispatch in pivot implementation
+  constexpr int64_t kChunkLength = 300;
+  ASSERT_OK_AND_ASSIGN(auto pivot_case, MakeRandomPivot(kLength));
+
+  for (bool shuffle : {false, true}) {
+    ARROW_SCOPED_TRACE("shuffle = ", shuffle);
+    auto input = Datum(pivot_case.input);
+    if (shuffle) {
+      // Since the "value" column is random-generated, sorting on it produces
+      // a random shuffle.
+      ASSERT_OK_AND_ASSIGN(
+          auto shuffle_indices,
+          SortIndices(pivot_case.input, SortOptions({SortKey("value")})));
+      ASSERT_OK_AND_ASSIGN(input, Take(input, shuffle_indices));
+    }
+    ASSERT_EQ(input.kind(), Datum::RECORD_BATCH);
+    RecordBatchVector chunks;
+    for (int64_t start = 0; start < kLength; start += kChunkLength) {
+      const auto chunk_length = std::min(kLength - start, kChunkLength);
+      chunks.push_back(input.record_batch()->Slice(start, chunk_length));
+    }
+    ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(chunks));
+
+    for (bool use_threads : {false, true}) {
+      ARROW_SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(auto pivoted, RunPivot(utf8(), float32(), pivot_case.options,
+                                                  table, use_threads));
+      // XXX For some reason this works even in the shuffled case
+      // (I would expect the test to require sorting of the output).
+      // This might depend on implementation details of group id generation
+      // by the hash-aggregate logic (the pivot implementation implicitly
+      // orders the output by ascending group id).
+      AssertDatumsEqual(pivot_case.expected_output, pivoted, /*verbose=*/true);
+    }
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(GroupBy, GroupBy, ::testing::Values(RunGroupByImpl));
 
 class SegmentedScalarGroupBy : public GroupBy {};
@@ -4618,6 +5240,101 @@ TEST_P(SegmentedKeyGroupBy, MultiSegmentKeyChunked) {
 
 TEST_P(SegmentedKeyGroupBy, MultiSegmentKeyCombined) {
   TestMultiSegmentKey(GetParam(), GetMultiSegmentInputAsCombined);
+}
+
+TEST_P(SegmentedKeyGroupBy, PivotSegmentKey) {
+  auto group_by = GetParam();
+  auto key_type = utf8();
+  auto value_type = float32();
+
+  std::vector<std::string> table_json = {R"([
+      [1, "width",  10.5],
+      [1, "height", 11.5]
+      ])",
+                                         R"([
+      [2, "height", 12.5],
+      [2, "width",  13.5],
+      [3, "width",  14.5]
+      ])",
+                                         R"([
+      [3, "width",  null],
+      [4, "height", 15.5]
+      ])"};
+  std::vector<std::string> expected_json = {
+      R"([[1, {"height": 11.5, "width": 10.5}]])",
+      R"([[2, {"height": 12.5, "width": 13.5}]])",
+      R"([[3, {"height": null, "width": 14.5}]])",
+      R"([[4, {"height": 15.5, "width": null}]])",
+  };
+
+  auto table =
+      TableFromJSON(schema({field("segment_key", int64()), field("pivot_key", key_type),
+                            field("pivot_value", value_type)}),
+                    table_json);
+
+  auto options = std::make_shared<PivotWiderOptions>(
+      PivotWiderOptions(/*key_names=*/{"height", "width"}));
+  Aggregate aggregate{"pivot_wider", options, std::vector<FieldRef>{"agg_0", "agg_1"},
+                      "pivoted"};
+  ASSERT_OK_AND_ASSIGN(Datum actual,
+                       group_by(
+                           {
+                               table->GetColumnByName("pivot_key"),
+                               table->GetColumnByName("pivot_value"),
+                           },
+                           {}, {table->GetColumnByName("segment_key")}, {aggregate},
+                           /*use_threads=*/false, /*naive=*/false));
+  ValidateOutput(actual);
+  auto expected = ChunkedArrayFromJSON(
+      struct_({field("key_0", int64()),
+               field("pivoted", struct_({field("height", value_type),
+                                         field("width", value_type)}))}),
+      expected_json);
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
+TEST_P(SegmentedKeyGroupBy, PivotSegmentKeyDuplicateValues) {
+  // NOTE: besides testing "pivot_wider" behavior, this test also checks that errors
+  // produced when consuming or merging an aggregate don't corrupt
+  // execution engine internals.
+  auto group_by = GetParam();
+  auto key_type = utf8();
+  auto value_type = float32();
+  auto options = std::make_shared<PivotWiderOptions>(
+      PivotWiderOptions(/*key_names=*/{"height", "width"}));
+  auto table_schema = schema({field("segment_key", int64()), field("pivot_key", key_type),
+                              field("pivot_value", value_type)});
+
+  auto test_duplicate_values = [&](const std::vector<std::string>& table_json) {
+    auto table = TableFromJSON(table_schema, table_json);
+    Aggregate aggregate{"pivot_wider", options, std::vector<FieldRef>{"agg_0", "agg_1"},
+                        "pivoted"};
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        HasSubstr("Encountered more than one non-null value for the same pivot key"),
+        group_by(
+            {
+                table->GetColumnByName("pivot_key"),
+                table->GetColumnByName("pivot_value"),
+            },
+            {}, {table->GetColumnByName("segment_key")}, {aggregate},
+            /*use_threads=*/false, /*naive=*/false));
+  };
+
+  // Duplicate values in the same chunk
+  test_duplicate_values({R"([
+      [1, "width",  10.5],
+      [2, "width",  11.5],
+      [2, "width",  12.5]
+      ])"});
+  // Duplicate values in two different chunks
+  test_duplicate_values({R"([
+      [1, "width",  10.5],
+      [2, "width",  11.5]
+      ])",
+                         R"([
+      [2, "width",  12.5]
+      ])"});
 }
 
 INSTANTIATE_TEST_SUITE_P(SegmentedScalarGroupBy, SegmentedScalarGroupBy,
