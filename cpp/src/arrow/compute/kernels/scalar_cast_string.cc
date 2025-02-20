@@ -46,14 +46,18 @@ namespace internal {
 
 namespace {
 
-Result<std::shared_ptr<Buffer>> GetNullBitmapBuffer(const ArraySpan& in_array,
-                                                    MemoryPool* pool) {
+Result<std::shared_ptr<Buffer>> GetOrCopyNullBitmapBuffer(const ArraySpan& in_array,
+                                                          MemoryPool* pool) {
   if (in_array.buffers[0].data == nullptr) {
     return nullptr;
   }
 
   if (in_array.offset == 0) {
     return in_array.GetBuffer(0);
+  }
+
+  if (in_array.offset % 8 == 0) {
+    return SliceBuffer(in_array.GetBuffer(0), /*offset=*/in_array.offset / 8);
   }
 
   // If a non-zero offset, we need to shift the bitmap
@@ -350,7 +354,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
   // Set up validity bitmap
   ARROW_ASSIGN_OR_RAISE(output->buffers[0],
-                        GetNullBitmapBuffer(input, ctx->memory_pool()));
+                        GetOrCopyNullBitmapBuffer(input, ctx->memory_pool()));
 
   // Set up offset and data buffer
   OffsetBuilder offset_builder(ctx->memory_pool());
