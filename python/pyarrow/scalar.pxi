@@ -1104,7 +1104,7 @@ cdef class MapScalar(ListScalar):
             raise ValueError(
                 "Invalid value for 'maps_as_pydicts': "
                 + "valid values are 'lossy', 'strict' or `None` (default). "
-                + f"Received {maps_as_pydict!r}."
+                + f"Received {maps_as_pydicts!r}."
             )
         if not self.is_valid:
             return None
