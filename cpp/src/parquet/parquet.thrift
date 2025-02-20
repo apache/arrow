@@ -380,8 +380,6 @@ struct BsonType {
  * Allowed for physical types: BINARY
  */
 struct VariantType {
-  1: required binary metadata
-  2: required binary value
 }
 
 /**

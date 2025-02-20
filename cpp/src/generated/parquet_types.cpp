@@ -1792,17 +1792,7 @@ void BsonType::printTo(std::ostream& out) const {
 VariantType::~VariantType() noexcept {
 }
 
-VariantType::VariantType() noexcept
-   : metadata(),
-     value() {
-}
-
-void VariantType::__set_metadata(const std::string& val) {
-  this->metadata = val;
-}
-
-void VariantType::__set_value(const std::string& val) {
-  this->value = val;
+VariantType::VariantType() noexcept {
 }
 std::ostream& operator<<(std::ostream& out, const VariantType& obj)
 {
@@ -1813,42 +1803,32 @@ std::ostream& operator<<(std::ostream& out, const VariantType& obj)
 
 void swap(VariantType &a, VariantType &b) {
   using ::std::swap;
-  swap(a.metadata, b.metadata);
-  swap(a.value, b.value);
+  (void) a;
+  (void) b;
 }
 
-bool VariantType::operator==(const VariantType & rhs) const
+bool VariantType::operator==(const VariantType & /* rhs */) const
 {
-  if (!(metadata == rhs.metadata))
-    return false;
-  if (!(value == rhs.value))
-    return false;
   return true;
 }
 
-VariantType::VariantType(const VariantType& other92) {
-  metadata = other92.metadata;
-  value = other92.value;
+VariantType::VariantType(const VariantType& other92) noexcept {
+  (void) other92;
 }
 VariantType::VariantType(VariantType&& other93) noexcept {
-  metadata = std::move(other93.metadata);
-  value = std::move(other93.value);
+  (void) other93;
 }
-VariantType& VariantType::operator=(const VariantType& other94) {
-  metadata = other94.metadata;
-  value = other94.value;
+VariantType& VariantType::operator=(const VariantType& other94) noexcept {
+  (void) other94;
   return *this;
 }
 VariantType& VariantType::operator=(VariantType&& other95) noexcept {
-  metadata = std::move(other95.metadata);
-  value = std::move(other95.value);
+  (void) other95;
   return *this;
 }
 void VariantType::printTo(std::ostream& out) const {
   using ::apache::thrift::to_string;
   out << "VariantType(";
-  out << "metadata=" << to_string(metadata);
-  out << ", " << "value=" << to_string(value);
   out << ")";
 }
 
@@ -2025,7 +2005,7 @@ bool LogicalType::operator==(const LogicalType & rhs) const
   return true;
 }
 
-LogicalType::LogicalType(const LogicalType& other96) {
+LogicalType::LogicalType(const LogicalType& other96) noexcept {
   STRING = other96.STRING;
   MAP = other96.MAP;
   LIST = other96.LIST;
@@ -2061,7 +2041,7 @@ LogicalType::LogicalType(LogicalType&& other97) noexcept {
   VARIANT = std::move(other97.VARIANT);
   __isset = other97.__isset;
 }
-LogicalType& LogicalType::operator=(const LogicalType& other98) {
+LogicalType& LogicalType::operator=(const LogicalType& other98) noexcept {
   STRING = other98.STRING;
   MAP = other98.MAP;
   LIST = other98.LIST;
