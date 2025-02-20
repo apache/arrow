@@ -127,6 +127,8 @@ class build_ext(_build_ext):
     description = "Build the C-extensions for arrow"
     user_options = ([('cmake-generator=', None, 'CMake generator'),
                      ('extra-cmake-args=', None, 'extra arguments for CMake'),
+                     ('extra-cpp-cmake-args=', None,
+                      'extra arguments for arrow-cpp CMake'),
                      ('build-type=', None,
                       'build type (debug or release), default release'),
                      ('boost-namespace=', None,
@@ -169,6 +171,7 @@ class build_ext(_build_ext):
         if not self.cmake_generator and sys.platform == 'win32':
             self.cmake_generator = 'Visual Studio 15 2017 Win64'
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
+        self.extra_cpp_cmake_args = os.environ.get('ARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE',
                                          'release').lower()
 
@@ -322,6 +325,8 @@ class build_ext(_build_ext):
                     f'-DCMAKE_INSTALL_PREFIX={cpp_install}',
                 ]
 
+                extra_cpp_cmake_args = shlex.split(self.extra_cpp_cmake_args)
+
                 append_cmake_component(self.with_cuda, 'ARROW_CUDA')
                 append_cmake_component(self.with_substrait, 'ARROW_SUBSTRAIT')
                 append_cmake_component(self.with_flight, 'ARROW_FLIGHT')
@@ -341,11 +346,11 @@ class build_ext(_build_ext):
                     # Generate the build files
                     if is_emscripten:
                         print("-- Running emcmake cmake for Arrow on Emscripten")
-                        self.spawn(['emcmake', 'cmake'] + extra_cmake_args +
+                        self.spawn(['emcmake', 'cmake'] + extra_cpp_cmake_args +
                                    cmake_options + [cpp_source])
                     else:
                         print("-- Running cmake for Arrow")
-                        self.spawn(['cmake'] + extra_cmake_args + cmake_options + [cpp_source])
+                        self.spawn(['cmake'] + extra_cpp_cmake_args + cmake_options + [cpp_source])
 
                     print("-- Finished cmake for Arrow")
 
