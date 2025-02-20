@@ -479,6 +479,10 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     return UUIDLogicalType::Make();
   } else if (type.__isset.FLOAT16) {
     return Float16LogicalType::Make();
+  } else if (type.__isset.VARIANT) {
+    std::string metadata = type.VARIANT.metadata;
+    std::string value = type.VARIANT.value;
+    return VariantLogicalType::Make(metadata, value);
   } else {
     throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
   }
@@ -534,6 +538,11 @@ std::shared_ptr<const LogicalType> LogicalType::UUID() { return UUIDLogicalType:
 
 std::shared_ptr<const LogicalType> LogicalType::Float16() {
   return Float16LogicalType::Make();
+}
+
+std::shared_ptr<const LogicalType> LogicalType::Variant(std::string metadata,
+                                                        std::string value) {
+  return VariantLogicalType::Make(std::move(metadata), std::move(value));
 }
 
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
@@ -618,6 +627,7 @@ class LogicalType::Impl {
   class BSON;
   class UUID;
   class Float16;
+  class Variant;
   class No;
   class Undefined;
 
@@ -689,6 +699,9 @@ bool LogicalType::is_BSON() const { return impl_->type() == LogicalType::Type::B
 bool LogicalType::is_UUID() const { return impl_->type() == LogicalType::Type::UUID; }
 bool LogicalType::is_float16() const {
   return impl_->type() == LogicalType::Type::FLOAT16;
+}
+bool LogicalType::is_variant() const {
+  return impl_->type() == LogicalType::Type::VARIANT;
 }
 bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
 bool LogicalType::is_valid() const {
@@ -1618,6 +1631,79 @@ class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
 };
 
 GENERATE_MAKE(Float16)
+
+class LogicalType::Impl::Variant final : public LogicalType::Impl::Incompatible,
+                                         public LogicalType::Impl::SimpleApplicable {
+ public:
+  friend class VariantLogicalType;
+
+  std::string ToString() const override;
+  std::string ToJSON() const override;
+  format::LogicalType ToThrift() const override;
+  bool Equals(const LogicalType& other) const override;
+
+  const std::string& metadata() const { return metadata_; }
+  const std::string& value() const { return value_; }
+
+ private:
+  Variant(std::string metadata, std::string value)
+      : LogicalType::Impl(LogicalType::Type::VARIANT, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY),
+        metadata_(std::move(metadata)),
+        value_(std::move(value)) {}
+
+  std::string metadata_;
+  std::string value_;
+};
+
+std::string LogicalType::Impl::Variant::ToString() const {
+  std::stringstream type;
+  type << "Variant(metadata=" << metadata() << ",value=" << value() << ")";
+  return type.str();
+}
+
+std::string LogicalType::Impl::Variant::ToJSON() const {
+  std::stringstream json;
+  // TODO(neilechao) escape special characters in metadata and value
+  json << R"({"Type": "Variant", "metadata": )" << metadata_ << R"(, "value": )" << value_
+       << "}";
+  return json.str();
+}
+
+format::LogicalType LogicalType::Impl::Variant::ToThrift() const {
+  format::LogicalType type;
+  format::VariantType variant_type;
+
+  variant_type.__set_metadata(metadata_);
+  variant_type.__set_value(value_);
+
+  type.__set_VARIANT(variant_type);
+  return type;
+}
+
+bool LogicalType::Impl::Variant::Equals(const LogicalType& other) const {
+  if (other.is_variant()) {
+    const auto& other_variant = checked_cast<const VariantLogicalType&>(other);
+    return metadata_ == other_variant.metadata() && value_ == other_variant.value();
+  } else {
+    return false;
+  }
+}
+
+std::shared_ptr<const LogicalType> VariantLogicalType::Make(std::string metadata,
+                                                            std::string value) {
+  auto* logical_type = new VariantLogicalType();
+  logical_type->impl_.reset(new LogicalType::Impl::Variant(metadata, value));
+  return std::shared_ptr<const LogicalType>(logical_type);
+}
+
+const std::string& VariantLogicalType::metadata() const {
+  return (dynamic_cast<const LogicalType::Impl::Variant&>(*impl_)).metadata();
+}
+
+const std::string& VariantLogicalType::value() const {
+  return (dynamic_cast<const LogicalType::Impl::Variant&>(*impl_)).value();
+}
 
 class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
                                     public LogicalType::Impl::UniversalApplicable {
