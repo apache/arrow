@@ -598,6 +598,20 @@ class TestConvertMetadata:
         assert data_column['numpy_type'] == 'object'
         assert data_column['metadata'] == {'precision': 26, 'scale': 11}
 
+    @pytest.mark.parametrize('typ', [
+        pa.decimal32,
+        pa.decimal64,
+        pa.decimal128,
+        pa.decimal256,
+    ])
+    def test_decimal_other_bitwidts(self, typ):
+        df = pd.DataFrame({'a': [decimal.Decimal('3.14')]})
+        schema = pa.schema([pa.field('a', type=typ(4, 2))])
+        table = pa.Table.from_pandas(df, schema=schema)
+        col_meta = table.schema.pandas_metadata['columns'][0]
+        assert col_meta['pandas_type'] == 'decimal'
+        assert col_meta['metadata'] == {'precision': 4, 'scale': 2}
+
     def test_table_column_subset_metadata(self):
         # ARROW-1883
         # non-default index
