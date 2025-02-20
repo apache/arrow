@@ -227,6 +227,90 @@ arrow_components = {
     },
 }
 
+arrow_testing_srcs = [
+    'io/test_common.cc',
+    'ipc/test_common.cc',
+    'testing/fixed_width_test_util.cc',
+    'testing/generator.cc',
+    'testing/gtest_util.cc',
+    'testing/math.cc',
+    'testing/process.cc',
+    'testing/random.cc',
+    'testing/util.cc',
+]
+
+if needs_integration or needs_tests
+    arrow_components += {
+        'arrow_integration': {
+            'sources': [
+                'integration/c_data_integration_internal.cc',
+                'integration/json_integration.cc',
+                'integration/json_internal.cc',
+            ],
+            'include_dirs': [],
+            'dependencies': [],
+        },
+    }
+endif
+
+if needs_json
+    rapidjson_dep = dependency('rapidjson', include_type: 'system')
+else
+    rapidjson_dep = disabler()
+endif
+
+if needs_ipc
+    arrow_ipc_srcs = [
+        'ipc/dictionary.cc',
+        'ipc/feather.cc',
+        'ipc/message.cc',
+        'ipc/metadata_internal.cc',
+        'ipc/options.cc',
+        'ipc/reader.cc',
+        'ipc/writer.cc',
+    ]
+
+    # ideally we could use the meson wrapdb for flatbuffers
+    # but Arrow statically asserts that version 23.5 is required
+    # while the wrapdb does not have that minor version
+    arrow_ipc_deps = []
+    arrow_ipc_includes = ['../../../thirdparty/flatbuffers/include']
+
+    if needs_json
+        arrow_ipc_srcs += 'ipc/json_simple.cc'
+        arrow_ipc_deps += rapidjson_dep
+    endif
+
+    arrow_components += {
+        'arrow_ipc': {
+            'sources': arrow_ipc_srcs,
+            'include_dirs': arrow_ipc_includes,
+            'dependencies': arrow_ipc_deps,
+        },
+    }
+endif
+
+if needs_json
+    arrow_components += {
+        'arrow_json': {
+            'sources': [
+                'extension/fixed_shape_tensor.cc',
+                'extension/opaque.cc',
+                'json/options.cc',
+                'json/chunked_builder.cc',
+                'json/chunker.cc',
+                'json/converter.cc',
+                'json/object_parser.cc',
+                'json/object_writer.cc',
+                'json/parser.cc',
+                'json/reader.cc',
+            ],
+            'include_dirs': [],
+            'dependencies': [rapidjson_dep],
+        },
+    }
+endif
+
 arrow_srcs = []
 include_dir = include_directories('..')
 arrow_includes = [include_dir]
@@ -288,6 +372,49 @@ install_headers(
     ],
     install_dir: 'arrow',
 )
+
+if needs_tests
+    filesystem_dep = dependency('boost', modules: ['filesystem'])
+    gtest_main_dep = dependency('gtest_main')
+    gmock_dep = dependency('gmock')
+else
+    filesystem_dep = disabler()
+    gtest_main_dep = disabler()
+    gmock_dep = disabler()
+endif
+
+arrow_test_lib = static_library(
+    'arrow_testing',
+    sources: arrow_testing_srcs,
+    include_directories: [include_dir],
+    link_with: [arrow_lib],
+    dependencies: [filesystem_dep, gtest_main_dep],
+)
+
+arrow_test_dep = declare_dependency(
+    link_with: [arrow_lib, arrow_test_lib],
+    include_directories: [include_dir],
+    dependencies: [filesystem_dep, gmock_dep, gtest_main_dep],
+)
+
+array_array_test = executable(
+    'arrow_array_test',
+    sources: [
+        'array/array_test.cc',
+        'array/array_binary_test.cc',
+        'array/array_dict_test.cc',
+        'array/array_list_test.cc',
+        'array/array_list_view_test.cc',
+        'array/array_run_end_test.cc',
+        'array/array_struct_test.cc',
+        'array/array_union_test.cc',
+        'array/array_view_test.cc',
+        'array/statistics_test.cc',
+    ],
+    dependencies: [arrow_test_dep],
+)
+
+test('arrow_array_test', array_array_test)
 
 version = meson.project_version()
 

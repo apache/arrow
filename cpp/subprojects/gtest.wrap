@@ -15,37 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-thirdparty/*.tar*
-CMakeFiles/
-CMakeCache.txt
-CMakeUserPresets.json
-CTestTestfile.cmake
-Makefile
-cmake_install.cmake
-build/
-*-build/
-Testing/
-build-support/boost_*
-vcpkg_installed/
+[wrap-file]
+directory = googletest-1.15.2
+source_url = https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz
+source_filename = gtest-1.15.2.tar.gz
+source_hash = 7b42b4d6ed48810c5362c265a17faebe90dc2373c885e5216439d37927f02926
+patch_filename = gtest_1.15.2-1_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/gtest_1.15.2-1/get_patch
+patch_hash = b41cba05fc61d47b2ba5bf95732eb86ce2b67303f291b68a9587b7563c318141
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/gtest_1.15.2-1/gtest-1.15.2.tar.gz
+wrapdb_version = 1.15.2-1
 
-# Build directories created by Clion
-cmake-build-*/
-
-#########################################
-# Editor temporary/working/backup files #
-.#*
-*\#*\#
-[#]*#
-*~
-*$
-*.bak
-*flymake*
-*.kdev4
-*.log
-*.swp
-
-# meson subprojects - wrap files need to be kept to let meson download
-# dependencies as needed, but dependencies themselves should not be versioned
-subprojects/*
-!subprojects/packagefiles
-!subprojects/*.wrap
+[provide]
+gtest = gtest_dep
+gtest_main = gtest_main_dep
+gmock = gmock_dep
+gmock_main = gmock_main_dep
