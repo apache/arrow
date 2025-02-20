@@ -245,7 +245,7 @@ remove_attributes <- function(x) {
     removed_attributes <- c("row.names", "names")
   } else if (inherits(x, "factor")) {
     removed_attributes <- c("class", "levels")
-  } else if (inherits(x, c("integer64", "Date", "arrow_binary", "arrow_large_binary"))) {
+  } else if (inherits(x, c("integer64", "Date", "blob", "arrow_binary", "arrow_large_binary"))) {
     removed_attributes <- c("class")
   } else if (inherits(x, "arrow_fixed_size_binary")) {
     removed_attributes <- c("class", "byte_width")
