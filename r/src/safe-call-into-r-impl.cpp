@@ -45,9 +45,7 @@ bool SetEnableSignalStopSource(bool enabled) {
 }
 
 // [[arrow::export]]
-bool CanRunWithCapturedR() {
-  return MainRThread::GetInstance().Executor() == nullptr;
-}
+bool CanRunWithCapturedR() { return MainRThread::GetInstance().Executor() == nullptr; }
 
 // [[arrow::export]]
 std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
