@@ -2123,6 +2123,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::STRUCT:                   // fall through
     case Type::TIME32:                   // fall through
     case Type::TIME64:                   // fall through
+    case Type::DECIMAL32:                // fall through
+    case Type::DECIMAL64:                // fall through
     case Type::DECIMAL128:               // fall through
     case Type::DECIMAL256:               // fall through
     case Type::INTERVAL_MONTH_DAY_NANO:  // fall through

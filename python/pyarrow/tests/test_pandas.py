@@ -2041,6 +2041,19 @@ class TestConvertDecimalTypes:
         df = pd.DataFrame.from_dict(data)
         _check_pandas_roundtrip(df)
 
+    @pytest.mark.parametrize("typ", [
+        pa.decimal32,
+        pa.decimal64,
+        pa.decimal128,
+        pa.decimal256,
+    ])
+    def test_decimal_array_to_pandas(self, typ):
+        data = [decimal.Decimal('3.14'), None]
+        arr = pa.array(data, type=typ(3, 2))
+        result = arr.to_pandas()
+        expected = pd.Series(data)
+        tm.assert_series_equal(result, expected)
+
 
 class TestConvertListTypes:
     """
