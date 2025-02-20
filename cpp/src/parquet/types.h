@@ -213,8 +213,7 @@ class PARQUET_EXPORT LogicalType {
   static std::shared_ptr<const LogicalType> BSON();
   static std::shared_ptr<const LogicalType> UUID();
   static std::shared_ptr<const LogicalType> Float16();
-  static std::shared_ptr<const LogicalType> Variant(std::string metadata,
-                                                    std::string value);
+  static std::shared_ptr<const LogicalType> Variant();
 
   /// \brief Create a placeholder for when no logical type is specified
   static std::shared_ptr<const LogicalType> None();
@@ -453,9 +452,7 @@ class PARQUET_EXPORT Float16LogicalType : public LogicalType {
 /// \brief Allowed for physical type BYTE_ARRAY.
 class PARQUET_EXPORT VariantLogicalType : public LogicalType {
  public:
-  static std::shared_ptr<const LogicalType> Make(std::string metadata, std::string data);
-  const std::string& metadata() const;
-  const std::string& value() const;
+  static std::shared_ptr<const LogicalType> Make();
 
  private:
   VariantLogicalType() = default;
