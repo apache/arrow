@@ -286,7 +286,7 @@ class ARROW_EXPORT RecordBatch {
   ///
   /// The created array follows the C data interface statistics
   /// specification. See
-  /// https://arrow.apache.org/docs/format/CDataInterfaceStatistics.html
+  /// https://arrow.apache.org/docs/format/StatisticsSchema.html
   /// for details.
   ///
   /// \param[in] pool the memory pool to allocate memory from
