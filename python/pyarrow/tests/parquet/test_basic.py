@@ -362,6 +362,20 @@ def test_byte_stream_split():
                          use_dictionary=False)
 
 
+def test_smallest_decimal_enabled(tempdir):
+    arr1 = pa.array(list(map(Decimal, range(100))), type=pa.decimal32(5, 2))
+    arr2 = pa.array(list(map(Decimal, range(100))), type=pa.decimal64(16, 9))
+    arr3 = pa.array(list(map(Decimal, range(100))), type=pa.decimal128(22, 2))
+    arr4 = pa.array(list(map(Decimal, range(100))), type=pa.decimal256(48, 2))
+    data_decimal = [arr1, arr2, arr3, arr4]
+    table = pa.Table.from_arrays(data_decimal, names=['a', 'b', 'c', 'd'])
+
+    # Check with smallest_decimal_enabled
+    _check_roundtrip(table,
+                     expected=table,
+                     read_table_kwargs={"smallest_decimal_enabled": True})
+
+
 def test_store_decimal_as_integer(tempdir):
     arr_decimal_1_9 = pa.array(list(map(Decimal, range(100))),
                                type=pa.decimal128(5, 2))
