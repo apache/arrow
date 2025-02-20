@@ -43,3 +43,4 @@ cmake-build-*/
 *.kdev4
 *.log
 *.swp
+src/_deps
