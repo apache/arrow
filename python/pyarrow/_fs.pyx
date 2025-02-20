@@ -18,7 +18,6 @@
 # cython: language_level = 3
 
 from cpython.datetime cimport datetime, PyDateTime_DateTime
-from cython cimport binding
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow_python cimport PyDateTime_to_TimePoint
@@ -422,7 +421,6 @@ cdef class FileSystem(_Weakrefable):
                         "SubTreeFileSystem")
 
     @staticmethod
-    @binding(True)  # Required for cython < 3
     def _from_uri(uri):
         fs, _path = FileSystem.from_uri(uri)
         return fs

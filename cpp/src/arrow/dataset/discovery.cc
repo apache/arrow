@@ -29,6 +29,7 @@
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/record_batch.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 

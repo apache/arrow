@@ -28,7 +28,7 @@ jobs:
     {% if arch == "amd64" %}
     runs-on: ubuntu-latest
     {% else %}
-    runs-on: ["self-hosted", "Linux", "arm64"]
+    runs-on: ubuntu-24.04-arm
     {% endif %}
     env:
       # archery uses these environment variables
@@ -39,16 +39,21 @@ jobs:
       {% endif %}
       PYTHON: "{{ python_version }}"
       PYTHON_ABI_TAG: "{{ python_abi_tag }}"
-      {% if python_version == "3.13" %}
-      PYTHON_IMAGE_TAG: "3.13-rc"
-      {% else %}
       PYTHON_IMAGE_TAG: "{{ python_version }}"
-      {% endif %}
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
+
+      - name: Prepare
+        run: |
+          if [ "${PYTHON_ABI_TAG}" = "cp313t" ]; then
+            test_image_prefix=python-free-threaded
+          else
+            test_image_prefix=python
+          fi
+          echo "TEST_IMAGE_PREFIX=${test_image_prefix}" >> ${GITHUB_ENV}
 
       - name: Build wheel
         shell: bash
@@ -72,23 +77,11 @@ jobs:
 
       # TODO(kszucs): auditwheel show
       - name: Test wheel
-        if: |
-          '{{ python_abi_tag }}' != 'cp313t'
         shell: bash
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run python-wheel-manylinux-test-imports
-          archery docker run python-wheel-manylinux-test-unittests
-
-      # Free-threaded wheels need to be tested using a different Docker Compose service
-      - name: Test free-threaded wheel
-        if: |
-          '{{ python_abi_tag }}' == 'cp313t'
-        shell: bash
-        run: |
-          source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run python-free-threaded-wheel-manylinux-test-imports
-          archery docker run python-free-threaded-wheel-manylinux-test-unittests
+          archery docker run ${TEST_IMAGE_PREFIX}-wheel-manylinux-test-imports
+          archery docker run ${TEST_IMAGE_PREFIX}-wheel-manylinux-test-unittests
 
       - name: Test wheel on AlmaLinux 8
         shell: bash
@@ -106,21 +99,6 @@ jobs:
             -e TEST_WHEELS=1 \
             almalinux-verify-rc
 
-      - name: Test wheel on Ubuntu 20.04
-        shell: bash
-        if: |
-          '{{ python_version }}' == '3.9'
-        env:
-          UBUNTU: "20.04"
-        run: |
-          archery docker run \
-            -e TEST_DEFAULT=0 \
-            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
-            -e TEST_PYTHON_VERSIONS={{ python_version }} \
-            -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
-            -e TEST_WHEELS=1 \
-            ubuntu-verify-rc
-
       - name: Test wheel on Ubuntu 22.04
         shell: bash
         if: |
@@ -136,14 +114,29 @@ jobs:
             -e TEST_WHEELS=1 \
             ubuntu-verify-rc
 
+      - name: Test wheel on Ubuntu 24.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.12'
+        env:
+          UBUNTU: "24.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
+
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_wheel_scientific_python("arrow/python/repaired_wheels/*.whl")|indent }}
 
       {% if arrow.is_default_branch() %}
-      - name: Push Docker Image
+      - name: Push Docker images
         shell: bash
         run: |
           archery docker push python-wheel-manylinux-{{ manylinux_version }}
-          archery docker push python-wheel-manylinux-test-unittests
+          archery docker push ${TEST_IMAGE_PREFIX}-wheel-manylinux-test-unittests
       {% endif %}

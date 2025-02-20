@@ -23,6 +23,7 @@
 
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -36,7 +37,7 @@ Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length
 
 /// \brief Convert vector of bytes to bitmap buffer
 ARROW_EXPORT
-Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>&,
+Result<std::shared_ptr<Buffer>> BytesToBits(util::span<const uint8_t> bytes,
                                             MemoryPool* pool = default_memory_pool());
 
 }  // namespace internal

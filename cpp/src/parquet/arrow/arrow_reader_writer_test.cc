@@ -479,14 +479,16 @@ void DoRoundTripWithBatches(
                          ->Build(&reader));
   std::unique_ptr<::arrow::RecordBatchReader> batch_reader;
   if (column_subset.size() > 0) {
-    ASSERT_OK_NO_THROW(reader->GetRecordBatchReader(
-        Iota(reader->parquet_reader()->metadata()->num_row_groups()), column_subset,
-        &batch_reader));
+    ASSERT_OK_AND_ASSIGN(
+        batch_reader,
+        reader->GetRecordBatchReader(
+            Iota(reader->parquet_reader()->metadata()->num_row_groups()), column_subset));
   } else {
     // Read everything
 
-    ASSERT_OK_NO_THROW(reader->GetRecordBatchReader(
-        Iota(reader->parquet_reader()->metadata()->num_row_groups()), &batch_reader));
+    ASSERT_OK_AND_ASSIGN(
+        batch_reader, reader->GetRecordBatchReader(
+                          Iota(reader->parquet_reader()->metadata()->num_row_groups())));
   }
   ASSERT_OK_AND_ASSIGN(*out, Table::FromRecordBatchReader(batch_reader.get()));
 }
@@ -737,7 +739,7 @@ class ParquetIOTestBase : public ::testing::Test {
     ASSERT_OK_NO_THROW(FileWriter::Make(::arrow::default_memory_pool(),
                                         MakeWriter(schema), arrow_schema,
                                         default_arrow_writer_properties(), &writer));
-    ASSERT_OK_NO_THROW(writer->NewRowGroup(values->length()));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup());
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*values));
     ASSERT_OK_NO_THROW(writer->Close());
     // writer->Close() should be idempotent
@@ -1051,7 +1053,7 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredChunkedWrite) {
                                       this->MakeWriter(schema), arrow_schema,
                                       default_arrow_writer_properties(), &writer));
   for (int i = 0; i < 4; i++) {
-    ASSERT_OK_NO_THROW(writer->NewRowGroup(chunk_size));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup());
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*sliced_array));
   }
@@ -1124,7 +1126,7 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
                                       this->MakeWriter(schema), arrow_schema,
                                       default_arrow_writer_properties(), &writer));
   for (int i = 0; i < 4; i++) {
-    ASSERT_OK_NO_THROW(writer->NewRowGroup(chunk_size));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup());
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*sliced_array));
   }
@@ -2385,8 +2387,7 @@ void TestGetRecordBatchReader(
   ASSERT_OK(builder.properties(properties)->Build(&reader));
 
   // Read the whole file, one batch at a time.
-  std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
-  ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({0, 1}, &rb_reader));
+  ASSERT_OK_AND_ASSIGN(auto rb_reader, reader->GetRecordBatchReader({0, 1}));
   std::shared_ptr<::arrow::RecordBatch> actual_batch, expected_batch;
   ::arrow::TableBatchReader table_reader(*table);
   table_reader.set_chunksize(batch_size);
@@ -2401,7 +2402,7 @@ void TestGetRecordBatchReader(
   ASSERT_EQ(nullptr, actual_batch);
 
   // ARROW-6005: Read just the second row group
-  ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({1}, &rb_reader));
+  ASSERT_OK_AND_ASSIGN(rb_reader, reader->GetRecordBatchReader({1}));
   std::shared_ptr<Table> second_rowgroup = table->Slice(num_rows / 2);
   ::arrow::TableBatchReader second_table_reader(*second_rowgroup);
   second_table_reader.set_chunksize(batch_size);
@@ -2448,8 +2449,8 @@ TEST(TestArrowReadWrite, WaitCoalescedReads) {
                                       ::arrow::io::CacheOptions::Defaults());
   ASSERT_OK(reader->parquet_reader()->WhenBuffered({0}, {0, 1, 2, 3, 4}).status());
 
-  std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
-  ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({0}, {0, 1, 2, 3, 4}, &rb_reader));
+  ASSERT_OK_AND_ASSIGN(auto rb_reader,
+                       reader->GetRecordBatchReader({0}, {0, 1, 2, 3, 4}));
 
   std::shared_ptr<::arrow::RecordBatch> actual_batch;
   ASSERT_OK(rb_reader->ReadNext(&actual_batch));
@@ -2507,8 +2508,8 @@ TEST(TestArrowReadWrite, GetRecordBatchReaderNoColumns) {
   ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
   ASSERT_OK(builder.properties(properties)->Build(&reader));
 
-  std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
-  ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({0}, {}, &rb_reader));
+  ASSERT_OK_AND_ASSIGN(auto rb_reader, reader->GetRecordBatchReader(std::vector<int>{0},
+                                                                    std::vector<int>{}));
 
   std::shared_ptr<::arrow::RecordBatch> actual_batch;
   ASSERT_OK(rb_reader->ReadNext(&actual_batch));
@@ -3348,6 +3349,27 @@ TEST(TestArrowWrite, CheckChunkSize) {
                 WriteTable(*table, ::arrow::default_memory_pool(), sink, chunk_size));
 }
 
+void CheckWritingNonNullableColumnWithNulls(std::shared_ptr<::arrow::Field> field,
+                                            std::string json_batch) {
+  ARROW_SCOPED_TRACE("field = ", field, ", json_batch = ", json_batch);
+  auto schema = ::arrow::schema({field});
+  auto table = ::arrow::TableFromJSON(schema, {json_batch});
+  auto sink = CreateOutputStream();
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("is declared non-nullable but contains nulls"),
+      WriteTable(*table, ::arrow::default_memory_pool(), sink));
+}
+
+TEST(TestArrowWrite, InvalidSchema) {
+  // GH-41667: nulls in non-nullable column
+  CheckWritingNonNullableColumnWithNulls(
+      ::arrow::field("a", ::arrow::int32(), /*nullable=*/false),
+      R"([{"a": 456}, {"a": null}])");
+  CheckWritingNonNullableColumnWithNulls(
+      ::arrow::field("a", ::arrow::utf8(), /*nullable=*/false),
+      R"([{"a": "foo"}, {"a": null}])");
+}
+
 void DoNestedValidate(const std::shared_ptr<::arrow::DataType>& inner_type,
                       const std::shared_ptr<::arrow::Field>& outer_field,
                       const std::shared_ptr<Buffer>& buffer,
@@ -4016,8 +4038,7 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   // ARROW-9297: ensure RecordBatchReader also works
   reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
   ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
-  std::shared_ptr<::arrow::RecordBatchReader> batch_reader;
-  ASSERT_OK_NO_THROW(arrow_reader->GetRecordBatchReader(&batch_reader));
+  ASSERT_OK_AND_ASSIGN(auto batch_reader, arrow_reader->GetRecordBatchReader());
   ASSERT_OK_AND_ASSIGN(auto batched_table,
                        ::arrow::Table::FromRecordBatchReader(batch_reader.get()));
 
@@ -4083,6 +4104,82 @@ TEST(TestArrowReaderAdHoc, OldDataPageV2) {
      << "parquet/ARROW-17100.parquet";
   std::string path = ss.str();
   TryReadDataFile(path);
+}
+
+TEST(TestArrowReaderAdHoc, LegacyTwoLevelList) {
+  auto VerifyData = [](std::unique_ptr<ParquetFileReader> file_reader) {
+    // Expected Parquet schema of legacy two-level encoding
+    constexpr std::string_view kExpectedLegacyList =
+        "required group field_id=-1 a (List) {\n"
+        "  repeated group field_id=-1 array (List) {\n"
+        "    repeated int32 field_id=-1 array;\n"
+        "  }\n"
+        "}\n";
+
+    // Expected Arrow schema and data
+    auto arrow_inner_list =
+        field("array", list(field("array", ::arrow::int32(), /*nullable=*/false)),
+              /*nullable=*/false);
+    auto arrow_outer_list = list(arrow_inner_list);
+    auto arrow_schema =
+        ::arrow::schema({field("a", arrow_outer_list, /*nullable=*/false)});
+    auto expected_table = TableFromJSON(arrow_schema, {R"([[[[1,2],[3,4]]]])"});
+
+    // Verify Parquet schema
+    auto root_group = file_reader->metadata()->schema()->group_node();
+    ASSERT_EQ(1, root_group->field_count());
+    std::stringstream nodeStr;
+    PrintSchema(root_group->field(0).get(), nodeStr);
+    ASSERT_EQ(kExpectedLegacyList, nodeStr.str());
+
+    // Verify Arrow schema and data
+    std::unique_ptr<FileReader> reader;
+    ASSERT_OK_NO_THROW(
+        FileReader::Make(default_memory_pool(), std::move(file_reader), &reader));
+    std::shared_ptr<Table> table;
+    ASSERT_OK(reader->ReadTable(&table));
+    ASSERT_OK(table->ValidateFull());
+    AssertTablesEqual(*expected_table, *table);
+  };
+
+  // Round-trip test for Parquet C++ reader and writer
+  {
+    // Create Parquet schema of legacy two-level encoding
+    auto inner_list = GroupNode::Make("array", Repetition::REPEATED,
+                                      {schema::Int32("array", Repetition::REPEATED)},
+                                      LogicalType::List());
+    auto outer_list =
+        GroupNode::Make("a", Repetition::REQUIRED, {inner_list}, LogicalType::List());
+    auto schema_node = GroupNode::Make("schema", Repetition::REQUIRED, {outer_list});
+
+    // Create a Parquet writer to write values of nested list
+    auto sink = CreateOutputStream();
+    auto file_writer =
+        ParquetFileWriter::Open(sink, std::dynamic_pointer_cast<GroupNode>(schema_node));
+    auto row_group_writer = file_writer->AppendRowGroup();
+    auto int_writer = dynamic_cast<Int32Writer*>(row_group_writer->NextColumn());
+    ASSERT_TRUE(int_writer != nullptr);
+
+    // Directly write a single row of nested list: [[1, 2],[3, 4]]
+    constexpr int64_t kNumValues = 4;
+    constexpr std::array<int16_t, kNumValues> kRepLevels = {0, 2, 1, 2};
+    constexpr std::array<int16_t, kNumValues> kDefLevels = {2, 2, 2, 2};
+    constexpr std::array<int32_t, kNumValues> kValues = {1, 2, 3, 4};
+    int_writer->WriteBatch(kNumValues, kDefLevels.data(), kRepLevels.data(),
+                           kValues.data());
+    file_writer->Close();
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+    // Read schema and verify it applies two-level encoding of list type
+    ASSERT_NO_FATAL_FAILURE(
+        VerifyData(ParquetFileReader::Open(std::make_shared<BufferReader>(buffer))));
+  }
+
+  // Interoperability test for Parquet file generated by parquet-java
+  {
+    auto path = std::string(test::get_data_dir()) + "/old_list_structure.parquet";
+    ASSERT_NO_FATAL_FAILURE(VerifyData(ParquetFileReader::OpenFile(path)));
+  }
 }
 
 class TestArrowReaderAdHocSparkAndHvr
@@ -4199,6 +4296,108 @@ TEST(TestArrowReaderAdHoc, ReadFloat16Files) {
   }
 }
 
+TEST(TestArrowFileReader, RecordBatchReaderEmptyRowGroups) {
+  const int num_columns = 1;
+  const int num_rows = 3;
+  const int num_chunks = 1;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, num_chunks, &table));
+
+  const int64_t row_group_size = num_rows;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  // This is the important part in this test.
+  std::vector<int> row_group_indices = {};
+  ASSERT_OK_AND_ASSIGN(auto record_batch_reader,
+                       file_reader->GetRecordBatchReader(row_group_indices));
+  std::shared_ptr<::arrow::RecordBatch> record_batch;
+  ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
+  // No read record batch for empty row groups request.
+  ASSERT_FALSE(record_batch);
+}
+
+TEST(TestArrowFileReader, RecordBatchReaderEmptyInput) {
+  const int num_columns = 1;
+  // This is the important part in this test.
+  const int num_rows = 0;
+  const int num_chunks = 1;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, num_chunks, &table));
+
+  const int64_t row_group_size = num_rows;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  ASSERT_OK_AND_ASSIGN(auto record_batch_reader, file_reader->GetRecordBatchReader());
+  std::shared_ptr<::arrow::RecordBatch> record_batch;
+  ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
+  // No read record batch for empty data.
+  ASSERT_FALSE(record_batch);
+}
+
+TEST(TestArrowColumnReader, NextBatchZeroBatchSize) {
+  const int num_columns = 1;
+  const int num_rows = 3;
+  const int num_chunks = 1;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, num_chunks, &table));
+
+  const int64_t row_group_size = num_rows;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  std::unique_ptr<arrow::ColumnReader> column_reader;
+  ASSERT_OK(file_reader->GetColumn(0, &column_reader));
+  std::shared_ptr<ChunkedArray> chunked_array;
+  // This is the important part in this test.
+  ASSERT_OK(column_reader->NextBatch(0, &chunked_array));
+  ASSERT_EQ(0, chunked_array->length());
+}
+
+TEST(TestArrowColumnReader, NextBatchEmptyInput) {
+  const int num_columns = 1;
+  // This is the important part in this test.
+  const int num_rows = 0;
+  const int num_chunks = 1;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, num_chunks, &table));
+
+  const int64_t row_group_size = num_rows;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  std::unique_ptr<arrow::ColumnReader> column_reader;
+  ASSERT_OK(file_reader->GetColumn(0, &column_reader));
+  std::shared_ptr<ChunkedArray> chunked_array;
+  ASSERT_OK(column_reader->NextBatch(10, &chunked_array));
+  ASSERT_EQ(0, chunked_array->length());
+}
+
 // direct-as-possible translation of
 // pyarrow/tests/test_parquet.py::test_validate_schema_write_table
 TEST(TestArrowWriterAdHoc, SchemaMismatch) {
@@ -4274,6 +4473,7 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
             ->data_page_version(this->GetParquetDataPageVersion())
             ->write_batch_size(2)
             ->data_pagesize(2)
+            ->disable_write_page_index()
             ->build();
     std::unique_ptr<FileWriter> writer;
     ASSERT_OK_AND_ASSIGN(
@@ -4379,6 +4579,7 @@ TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
             ->data_page_version(this->GetParquetDataPageVersion())
             ->write_batch_size(3)
             ->data_pagesize(3)
+            ->disable_write_page_index()
             ->build();
     std::unique_ptr<FileWriter> writer;
     ASSERT_OK_AND_ASSIGN(
@@ -4491,9 +4692,8 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
   void CheckStreamReadWholeFile(const Table& expected) {
     ASSERT_OK_AND_ASSIGN(auto reader, GetReader());
 
-    std::unique_ptr<::arrow::RecordBatchReader> rb;
-    ASSERT_OK(reader->GetRecordBatchReader(
-        ::arrow::internal::Iota(options.num_row_groups), &rb));
+    ASSERT_OK_AND_ASSIGN(auto rb, reader->GetRecordBatchReader(
+                                      ::arrow::internal::Iota(options.num_row_groups)));
 
     ASSERT_OK_AND_ASSIGN(auto actual, rb->ToTable());
     ::arrow::AssertTablesEqual(expected, *actual, /*same_chunk_layout=*/false);
@@ -4773,10 +4973,9 @@ TEST_F(TestArrowReadDeltaEncoding, IncrementalDecodeDeltaByteArray) {
   ArrowReaderProperties properties = default_arrow_reader_properties();
   properties.set_batch_size(batch_size);
   std::unique_ptr<FileReader> parquet_reader;
-  std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
   ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), properties,
                              &parquet_reader));
-  ASSERT_OK(parquet_reader->GetRecordBatchReader(&rb_reader));
+  ASSERT_OK_AND_ASSIGN(auto rb_reader, parquet_reader->GetRecordBatchReader());
 
   auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
   std::vector<std::string> column_names = {
@@ -5054,7 +5253,7 @@ class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
         ::arrow::default_memory_pool(),
         ParquetFileWriter::Open(this->sink_, schema_node, writer_properties),
         arrow_schema, default_arrow_writer_properties(), &writer));
-    ASSERT_OK_NO_THROW(writer->NewRowGroup(values->length()));
+    ASSERT_OK_NO_THROW(writer->NewRowGroup());
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*values));
     ASSERT_OK_NO_THROW(writer->Close());
   }
@@ -5195,7 +5394,10 @@ TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
   auto pool = ::arrow::default_memory_pool();
   auto sink = CreateOutputStream();
   // Limit the max number of rows in a row group to 10
-  auto writer_properties = WriterProperties::Builder().max_row_group_length(10)->build();
+  auto writer_properties = WriterProperties::Builder()
+                               .max_row_group_length(10)
+                               ->disable_write_page_index()
+                               ->build();
   auto arrow_writer_properties = default_arrow_writer_properties();
 
   // Prepare schema
@@ -5251,7 +5453,7 @@ TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
   ASSERT_EQ(10, file_metadata->RowGroup(0)->num_rows());
   ASSERT_EQ(2, file_metadata->RowGroup(1)->num_rows());
 
-  // Verify that page index is not written by default.
+  // Verify that page index is not written.
   for (int i = 0; i < num_row_groups; ++i) {
     auto row_group_metadata = file_metadata->RowGroup(i);
     for (int j = 0; j < row_group_metadata->num_columns(); ++j) {
@@ -5262,9 +5464,8 @@ TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
   }
 
   // Verify batch data read via RecordBatch
-  std::unique_ptr<::arrow::RecordBatchReader> batch_reader;
-  ASSERT_OK_NO_THROW(
-      arrow_reader->GetRecordBatchReader(Iota(num_row_groups), &batch_reader));
+  ASSERT_OK_AND_ASSIGN(auto batch_reader,
+                       arrow_reader->GetRecordBatchReader(Iota(num_row_groups)));
   std::shared_ptr<::arrow::RecordBatch> read_record_batch;
   ASSERT_OK(batch_reader->ReadNext(&read_record_batch));
   EXPECT_TRUE(record_batch->Equals(*read_record_batch));
@@ -5387,7 +5588,7 @@ TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
   // Operations on closed writer are invalid
   ASSERT_OK(writer->Close());
 
-  ASSERT_RAISES(Invalid, writer->NewRowGroup(1));
+  ASSERT_RAISES(Invalid, writer->NewRowGroup());
   ASSERT_RAISES(Invalid, writer->WriteColumnChunk(table->column(0), 0, 1));
   ASSERT_RAISES(Invalid, writer->NewBufferedRowGroup());
   ASSERT_OK_AND_ASSIGN(auto record_batch, table->CombineChunksToBatch());

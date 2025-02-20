@@ -18,7 +18,7 @@
 # Includes code assembled from BSD/MIT/Apache-licensed code from some 3rd-party
 # projects, including Kudu, Impala, and libdynd. See python/LICENSE.txt
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 project(pyarrow)
 
 # This is needed for 3.13 free-threading. CMake used to add Python
@@ -28,7 +28,7 @@ project(pyarrow)
 # which in turn meant that Py_GIL_DISABLED was not set.
 set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
 
-set(PYARROW_VERSION "19.0.0-SNAPSHOT")
+set(PYARROW_VERSION "20.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Generate SO version and full SO version
@@ -166,8 +166,17 @@ if($ENV{PYODIDE})
   # modules (at least under Pyodide it does).
   set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
   set(Python3_LIBRARY $ENV{CPYTHONLIB})
-  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
   set(Python3_EXECUTABLE)
+  execute_process(COMMAND ${Python3_EXECUTABLE} -c
+                          "import numpy; print(numpy.__version__)"
+                  OUTPUT_VARIABLE PYODIDE_NUMPY_VERSION
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  string(REGEX MATCH "^([0-9]+)" PYODIDE_NUMPY_MAJOR_VERSION ${PYODIDE_NUMPY_VERSION})
+  if(PYODIDE_NUMPY_MAJOR_VERSION GREATER_EQUAL 2)
+    set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/_core/include)
+  else()
+    set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
+  endif()
   set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
   # we set the c and cxx compiler manually to bypass pywasmcross
   # which is pyodide's way of messing with C++ build parameters.
@@ -190,10 +199,6 @@ if(MSVC)
   # Converting to/from C++ bool is pretty wonky in Cython. The C4800 warning
   # seem harmless, and probably not worth the effort of working around it
   string(APPEND CMAKE_CXX_FLAGS " /wd4800")
-
-  # See https://github.com/cython/cython/issues/2731. Change introduced in
-  # Cython 0.29.1 causes "unsafe use of type 'bool' in operation"
-  string(APPEND CMAKE_CXX_FLAGS " /wd4804")
 
   # See https://github.com/cython/cython/issues/4445.
   #

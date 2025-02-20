@@ -567,7 +567,7 @@ class InputState : public util::SerialSequencingQueue::Processor {
 
   // Gets latest batch (precondition: must not be empty)
   const std::shared_ptr<arrow::RecordBatch>& GetLatestBatch() const {
-    return queue_.UnsyncFront();
+    return queue_.Front();
   }
 
 #define LATEST_VAL_CASE(id, val)                     \
@@ -634,15 +634,14 @@ class InputState : public util::SerialSequencingQueue::Processor {
       }
       latest_time_ = next_time;
       // If we have an active batch
-      if (++latest_ref_row_ >= (row_index_t)queue_.UnsyncFront()->num_rows()) {
+      if (++latest_ref_row_ >= (row_index_t)queue_.Front()->num_rows()) {
         // hit the end of the batch, need to get the next batch if possible.
         ++batches_processed_;
         latest_ref_row_ = 0;
         have_active_batch &= !queue_.TryPop();
         if (have_active_batch) {
-          DCHECK_GT(queue_.UnsyncFront()->num_rows(), 0);  // empty batches disallowed
-          memo_.UpdateTime(GetTime(queue_.UnsyncFront().get(), time_type_id_,
-                                   time_col_index_,
+          DCHECK_GT(queue_.Front()->num_rows(), 0);  // empty batches disallowed
+          memo_.UpdateTime(GetTime(queue_.Front().get(), time_type_id_, time_col_index_,
                                    0));  // time changed
         }
       }

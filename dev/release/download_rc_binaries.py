@@ -121,17 +121,29 @@ class Downloader:
             dest_path,
             url,
         ]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-        stdout, stderr = proc.communicate()
-        if proc.returncode != 0:
-            try:
-                # Don't leave possibly partial file around
-                os.remove(dest_path)
-            except IOError:
-                pass
-            raise Exception(f"Downloading {url} failed\n"
-                            f"stdout: {stdout}\nstderr: {stderr}")
+        # Retry subprocess in case it fails with OpenSSL Connection errors
+        # https://issues.apache.org/jira/browse/INFRA-25274
+        for attempt in range(5):
+            if attempt > 0:
+                delay = attempt * 3
+                print(f"Waiting {delay} seconds before retrying {url}")
+                time.sleep(delay)
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+            stdout, stderr = proc.communicate()
+            if proc.returncode != 0:
+                try:
+                    # Don't leave possibly partial file around
+                    os.remove(dest_path)
+                except IOError:
+                    pass
+                if "OpenSSL" not in stderr:
+                    # We assume curl has already retried on other errors.
+                    break
+            else:
+                return
+        raise Exception(f"Downloading {url} failed\n"
+                        f"stdout: {stdout}\nstderr: {stderr}")
 
     def _curl_version(self):
         cmd = ["curl", "--version"]
@@ -268,7 +280,7 @@ def download_rc_binaries(version, rc_number, re_match=None, dest=None,
         if package_type == 'jars':
             downloader = Maven()
             prefix = ''
-        elif package_type == 'github':
+        elif package_type == 'github' or package_type == 'nuget':
             downloader = GitHub(repository, tag)
             prefix = ''
             filter = None

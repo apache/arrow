@@ -800,12 +800,15 @@ class ARROW_EXPORT BinaryViewType : public DataType {
   /// This union supports two states:
   ///
   /// - Entirely inlined string data
+  /// \code{.unparsed}
   ///                |----|--------------|
   ///                 ^    ^
   ///                 |    |
   ///              size    in-line string data, zero padded
+  /// \endcode
   ///
   /// - Reference into a buffer
+  /// \code{.unparsed}
   ///                |----|----|----|----|
   ///                 ^    ^    ^    ^
   ///                 |    |    |    |
@@ -813,6 +816,7 @@ class ARROW_EXPORT BinaryViewType : public DataType {
   ///                  prefix   |           |
   ///                        buffer index   |
   ///                                  offset in buffer
+  /// \endcode
   ///
   /// Adapted from TU Munich's UmbraDB [1], Velox, DuckDB.
   ///

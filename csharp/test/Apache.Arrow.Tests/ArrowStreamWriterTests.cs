@@ -57,14 +57,15 @@ namespace Apache.Arrow.Tests
         }
 
         [Theory]
-        [InlineData(true, 32153)]
-        [InlineData(false, 32154)]
-        public void CanWriteToNetworkStream(bool createDictionaryArray, int port)
+        [InlineData(true)]
+        [InlineData(false)]
+        public void CanWriteToNetworkStream(bool createDictionaryArray)
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
 
-            TcpListener listener = new TcpListener(IPAddress.Loopback, port);
+            TcpListener listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
+            int port = ((IPEndPoint)listener.LocalEndpoint).Port;
 
             using (TcpClient sender = new TcpClient())
             {
@@ -92,14 +93,15 @@ namespace Apache.Arrow.Tests
         }
 
         [Theory]
-        [InlineData(true, 32155)]
-        [InlineData(false, 32156)]
-        public async Task CanWriteToNetworkStreamAsync(bool createDictionaryArray, int port)
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task CanWriteToNetworkStreamAsync(bool createDictionaryArray)
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
 
-            TcpListener listener = new TcpListener(IPAddress.Loopback, port);
+            TcpListener listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
+            int port = ((IPEndPoint)listener.LocalEndpoint).Port;
 
             using (TcpClient sender = new TcpClient())
             {

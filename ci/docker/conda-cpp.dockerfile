@@ -48,7 +48,7 @@ ENV PIPX_BASE_PYTHON=/opt/conda/bin/python3
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
-# Ensure npm, node and azurite are on path. npm and node are required to install azurite, which will then need to 
+# Ensure npm, node and azurite are on path. npm and node are required to install azurite, which will then need to
 # be on the path for the tests to run.
 ENV PATH=/opt/conda/envs/arrow/bin:$PATH
 
@@ -68,6 +68,7 @@ ENV ARROW_ACERO=ON \
     ARROW_GANDIVA=ON \
     ARROW_GCS=ON \
     ARROW_HOME=$CONDA_PREFIX \
+    ARROW_JEMALLOC=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \

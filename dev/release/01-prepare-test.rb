@@ -136,8 +136,8 @@ class PrepareTest < Test::Unit::TestCase
       {
         path: "c_glib/meson.build",
         hunks: [
-          ["-version = '#{@snapshot_version}'",
-           "+version = '#{@release_version}'"],
+          ["-    version: '#{@snapshot_version}',",
+           "+    version: '#{@release_version}',"],
         ],
       },
       {
@@ -159,6 +159,13 @@ class PrepareTest < Test::Unit::TestCase
         hunks: [
           ["-set(ARROW_VERSION \"#{@snapshot_version}\")",
            "+set(ARROW_VERSION \"#{@release_version}\")"],
+        ],
+      },
+      {
+        path: "cpp/meson.build",
+        hunks: [
+          ["-    version: '#{@snapshot_version}',",
+           "+    version: '#{@release_version}',"],
         ],
       },
       {
@@ -264,7 +271,8 @@ class PrepareTest < Test::Unit::TestCase
               "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
               "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
               "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
-              "+<p><a href=\"../#{@previous_compatible_version}/r/\">#{@previous_r_version}</a></p>",
+              "+<p><a href=\"../#{@previous_compatible_version}/r/\">" +
+              "#{@previous_r_version}</a></p>",
             ]
           ],
         },
@@ -309,34 +317,6 @@ class PrepareTest < Test::Unit::TestCase
           ],
         },
       ]
-    end
-
-    Dir.glob("java/**/pom.xml") do |path|
-      version = "<version>#{@snapshot_version}</version>"
-      lines = File.readlines(path, chomp: true)
-      target_lines = lines.grep(/#{Regexp.escape(version)}/)
-      hunks = []
-      target_lines.each do |line|
-        new_line = line.gsub(@snapshot_version) do
-          @release_version
-        end
-        hunks << [
-          "-#{line}",
-          "+#{new_line}",
-        ]
-      end
-      tag = "<tag>main</tag>"
-      target_lines = lines.grep(/#{Regexp.escape(tag)}/)
-      target_lines.each do |line|
-        new_line = line.gsub("main") do
-          "apache-arrow-#{@release_version}"
-        end
-        hunks << [
-          "-#{line}",
-          "+#{new_line}",
-        ]
-      end
-      expected_changes << {hunks: hunks, path: path}
     end
 
     Dir.glob("ruby/**/version.rb") do |path|

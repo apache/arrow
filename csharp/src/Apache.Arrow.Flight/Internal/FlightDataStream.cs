@@ -44,7 +44,7 @@ namespace Apache.Arrow.Flight.Internal
             _flightDescriptor = flightDescriptor;
         }
 
-        private async Task SendSchema()
+        public async Task SendSchema()
         {
             _currentFlightData = new Protocol.FlightData();
 

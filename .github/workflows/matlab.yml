@@ -46,24 +46,8 @@ permissions:
 jobs:
 
   ubuntu:
-    name: AMD64 Ubuntu 20.04 MATLAB
-    # Explicitly pin the Ubuntu version to 20.04 for the time being because:
-    #
-    #     1. The version of GLIBCXX shipped with Ubuntu 22.04 is not binary compatible
-    #        with the GLIBCXX bundled with MATLAB R2023a. This is a relatively common
-    #        issue.
-    #
-    #        For example, see:
-    #
-    #        https://www.mathworks.com/matlabcentral/answers/1907290-how-to-manually-select-the-libstdc-library-to-use-to-resolve-a-version-glibcxx_-not-found
-    #
-    #     2. The version of GLIBCXX shipped with Ubuntu 22.04 is not binary compatible with
-    #        the version of GLIBCXX shipped with Debian 11. Several of the Arrow community
-    #        members who work on the MATLAB bindings use Debian 11 locally for qualification.
-    #        Using Ubuntu 20.04 eases development workflows for these community members.
-    #
-    # In the future, we can investigate adding support for building against more Linux (e.g. `ubuntu-22.04`) and MATLAB versions (e.g. R2023b).
-    runs-on: ubuntu-20.04
+    name: AMD64 Ubuntu 22.04 MATLAB
+    runs-on: ubuntu-22.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
@@ -155,7 +139,7 @@ jobs:
     runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
-      - name: Check out repository        
+      - name: Check out repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0

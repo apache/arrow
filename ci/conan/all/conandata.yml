@@ -21,64 +21,47 @@
 # SOFTWARE.
 
 sources:
+  "18.1.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-18.1.0/apache-arrow-18.1.0.tar.gz?action=download"
+    sha256: "2dc8da5f8796afe213ecc5e5aba85bb82d91520eff3cf315784a52d0fa61d7fc"
+  "18.0.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-18.0.0/apache-arrow-18.0.0.tar.gz?action=download"
+    sha256: "abcf1934cd0cdddd33664e9f2d9a251d6c55239d1122ad0ed223b13a583c82a9"
+  "17.0.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-17.0.0/apache-arrow-17.0.0.tar.gz?action=download"
+    sha256: "9d280d8042e7cf526f8c28d170d93bfab65e50f94569f6a790982a878d8d898d"
+  "16.1.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-16.1.0/apache-arrow-16.1.0.tar.gz?action=download"
+    sha256: "c9e60c7e87e59383d21b20dc874b17153729ee153264af6d21654b7dff2c60d7"
   "15.0.0":
     url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-15.0.0/apache-arrow-15.0.0.tar.gz?action=download"
     sha256: "01dd3f70e85d9b5b933ec92c0db8a4ef504a5105f78d2d8622e84279fb45c25d"
   "14.0.2":
     url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-14.0.2/apache-arrow-14.0.2.tar.gz?action=download"
     sha256: "1304dedb41896008b89fe0738c71a95d9b81752efc77fa70f264cb1da15d9bc2"
-  "14.0.1":
-    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-14.0.1/apache-arrow-14.0.1.tar.gz?action=download"
-    sha256: "5c70eafb1011f9d124bafb328afe54f62cc5b9280b7080e1e3d668f78c0e407e"
-  "14.0.0":
-    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-14.0.0/apache-arrow-14.0.0.tar.gz?action=download"
-    sha256: "4eb0da50ec071baf15fc163cb48058931e006f1c862c8def0e180fd07d531021"
-  "13.0.0":
-    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-13.0.0/apache-arrow-13.0.0.tar.gz?action=download"
-    sha256: "35dfda191262a756be934eef8afee8d09762cad25021daa626eb249e251ac9e6"
-  "12.0.1":
-    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-12.0.1/apache-arrow-12.0.1.tar.gz?action=download"
-    sha256: "3481c411393aa15c75e88d93cf8315faf7f43e180fe0790128d3840d417de858"
-  "12.0.0":
-    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-12.0.0/apache-arrow-12.0.0.tar.gz?action=download"
-    sha256: "ddd8347882775e53af7d0965a1902b7d8fcd0a030fd14f783d4f85e821352d52"
-  "11.0.0":
-    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-11.0.0/apache-arrow-11.0.0.tar.gz?action=download"
-    sha256: "2dd8f0ea0848a58785628ee3a57675548d509e17213a2f5d72b0d900b43f5430"
-  "10.0.1":
-    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-10.0.1/apache-arrow-10.0.1.tar.gz?action=download"
-    sha256: "c814e0670112a22c1a6ec03ab420a52ae236a9a42e9e438c3cbd37f37e658fb3"
-  "10.0.0":
-    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-10.0.0/apache-arrow-10.0.0.tar.gz?action=download"
-    sha256: "5b46fa4c54f53e5df0019fe0f9d421e93fc906b625ebe8e89eed010d561f1f12"
-  "8.0.1":
-    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-8.0.1/apache-arrow-8.0.1.tar.gz?action=download"
-    sha256: "82d46929f7574715551da21700f100b39f99c3c4d6790f26cac86d869d64e94e"
-  "8.0.0":
-    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-8.0.0/apache-arrow-8.0.0.tar.gz?action=download"
-    sha256: "ad9a05705117c989c116bae9ac70492fe015050e1b80fb0e38fde4b5d863aaa3"
-  "7.0.0":
-    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-7.0.0/apache-arrow-7.0.0.tar.gz?action=download"
-    sha256: "e8f49b149a15ecef4e40fcfab1b87c113c6b1ee186005c169e5cdf95d31a99de"
 patches:
-  "8.0.1":
-    - patch_file: "patches/8.0.0-0005-install-utils.patch"
-      patch_description: "enable utils installation"
-      patch_type: "conan"
-    - patch_file: "patches/8.0.0-0006-fix-cmake.patch"
+  "18.1.0":
+    - patch_file: "patches/18.0.0-0001-fix-cmake.patch"
       patch_description: "use cci package"
       patch_type: "conan"
-  "8.0.0":
-    - patch_file: "patches/8.0.0-0005-install-utils.patch"
-      patch_description: "enable utils installation"
-      patch_type: "conan"
-    - patch_file: "patches/8.0.0-0006-fix-cmake.patch"
+  "18.0.0":
+    - patch_file: "patches/18.0.0-0001-fix-cmake.patch"
       patch_description: "use cci package"
       patch_type: "conan"
-  "7.0.0":
-    - patch_file: "patches/7.0.0-0006-install-utils.patch"
-      patch_description: "enable utils installation"
-      patch_type: "conan"
-    - patch_file: "patches/7.0.0-0007-fix-cmake.patch"
+  "17.0.0":
+    - patch_file: "patches/16.0.0-0001-fix-cmake.patch"
       patch_description: "use cci package"
       patch_type: "conan"
+  "16.1.0":
+    - patch_file: "patches/16.0.0-0001-fix-cmake.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
+  "15.0.0":
+    - patch_file: "patches/11.0.0-0001-fix-cmake.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
+  "14.0.2":
+    - patch_file: "patches/11.0.0-0001-fix-cmake.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
+  

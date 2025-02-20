@@ -47,6 +47,7 @@
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace dataset {
@@ -85,7 +86,6 @@ class ParquetFormatHelper {
   static Status WriteRecordBatch(const RecordBatch& batch,
                                  parquet::arrow::FileWriter* writer) {
     auto schema = batch.schema();
-    auto size = batch.num_rows();
 
     if (!schema->Equals(*writer->schema(), false)) {
       return Status::Invalid("RecordBatch schema does not match this writer's. batch:'",
@@ -93,7 +93,7 @@ class ParquetFormatHelper {
                              "'");
     }
 
-    RETURN_NOT_OK(writer->NewRowGroup(size));
+    RETURN_NOT_OK(writer->NewRowGroup());
     for (int i = 0; i < batch.num_columns(); i++) {
       RETURN_NOT_OK(writer->WriteColumnChunk(*batch.column(i)));
     }
@@ -326,6 +326,7 @@ TEST_F(TestParquetFileFormat, CachedMetadata) {
   FileSource source(tracked_input);
   ASSERT_OK_AND_ASSIGN(auto fragment,
                        format_->MakeFragment(std::move(source), literal(true)));
+  auto pq_fragment = checked_cast<ParquetFileFragment*>(fragment.get());
 
   // Read the file the first time, will read metadata
   auto options = std::make_shared<ScanOptions>();
@@ -337,17 +338,28 @@ TEST_F(TestParquetFileFormat, CachedMetadata) {
   options->projection = projection_descr.expression;
   ASSERT_OK_AND_ASSIGN(auto generator, fragment->ScanBatchesAsync(options));
   ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
+  ASSERT_NE(nullptr, pq_fragment->metadata());
 
   ASSERT_GT(tracked_input->bytes_read(), 0);
   int64_t bytes_read_first_time = tracked_input->bytes_read();
-
   ASSERT_OK(tracked_input->Seek(0));
 
   // Read the file the second time, should not read metadata
+  tracked_input->ResetStats();
   ASSERT_OK_AND_ASSIGN(generator, fragment->ScanBatchesAsync(options));
   ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
-  int64_t bytes_read_second_time = tracked_input->bytes_read() - bytes_read_first_time;
-  ASSERT_LT(bytes_read_second_time, bytes_read_first_time);
+  ASSERT_LT(tracked_input->bytes_read(), bytes_read_first_time);
+
+  // Clear cached metadata
+  ASSERT_OK(fragment->ClearCachedMetadata());
+  ASSERT_EQ(nullptr, pq_fragment->metadata());
+
+  // Read the file a third time, should read metadata
+  tracked_input->ResetStats();
+  ASSERT_OK_AND_ASSIGN(generator, fragment->ScanBatchesAsync(options));
+  ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
+  ASSERT_EQ(tracked_input->bytes_read(), bytes_read_first_time);
+  ASSERT_NE(nullptr, pq_fragment->metadata());
 }
 
 TEST_F(TestParquetFileFormat, MultithreadedScan) {

@@ -118,8 +118,9 @@ class TestArray < Test::Unit::TestCase
 
   sub_test_case("#view") do
     def test_valid
+      int32_array = build_int32_array([0, 1069547520, -1071644672, nil])
       assert_equal(build_float_array([0.0, 1.5, -2.5, nil]),
-                   build_int32_array([0, 1069547520, -1071644672, nil]).view(Arrow::FloatDataType.new))
+                   int32_array.view(Arrow::FloatDataType.new))
     end
 
     def test_invalid
@@ -182,6 +183,49 @@ class TestArray < Test::Unit::TestCase
         "but int32 and uint32 were encountered."
       assert_raise(Arrow::Error::Invalid.new(message)) do
         int32_array.concatenate([uint32_array])
+      end
+    end
+  end
+
+  sub_test_case("#validate") do
+    def test_valid
+      array = build_int32_array([1, 2, 3, 4, 5])
+      assert do
+        array.validate
+      end
+    end
+
+    def test_invalid
+      message = "[array][validate]: Invalid: Array length is negative"
+      array = Arrow::Int8Array.new(-1, Arrow::Buffer.new(""), Arrow::Buffer.new(""), -1)
+      assert_raise(Arrow::Error::Invalid.new(message)) do
+        array.validate
+      end
+    end
+  end
+
+  sub_test_case("#validate_full") do
+    def test_valid
+      array = build_int32_array([1, 2, 3, 4, 5])
+      assert do
+        array.validate_full
+      end
+    end
+
+    def test_invalid
+      message = "[array][validate-full]: Invalid: Invalid UTF8 sequence at string index 0"
+
+      # U+3042 HIRAGANA LETTER A, U+3044 HIRAGANA LETTER I
+      data = "\u3042\u3044".b[0..-2]
+      value_offsets = Arrow::Buffer.new([0, data.size].pack("l*"))
+      array = Arrow::StringArray.new(1,
+                                     value_offsets,
+                                     Arrow::Buffer.new(data),
+                                     Arrow::Buffer.new([0b01].pack("C*")),
+                                     -1)
+
+      assert_raise(Arrow::Error::Invalid.new(message)) do
+        array.validate_full
       end
     end
   end

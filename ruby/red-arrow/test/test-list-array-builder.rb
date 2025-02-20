@@ -40,7 +40,7 @@ class ListArrayBuilderTest < Test::Unit::TestCase
       builder = Arrow::ListArrayBuilder.new(data_type)
       builder.append_value([])
       array = builder.finish
-      assert_equal([], array[0].to_a)
+      assert_equal([[]], array.to_a)
     end
   end
 

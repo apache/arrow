@@ -24,6 +24,7 @@ from dotenv import dotenv_values
 from ruamel.yaml import YAML
 
 from ..utils.command import Command, default_bin
+from ..utils.logger import running_in_ci
 from ..utils.source import arrow_path
 from ..compat import _ensure_path
 
@@ -168,6 +169,9 @@ class ComposeConfig:
     def __getitem__(self, service_name):
         return self.get(service_name)
 
+    def verbosity_args(self):
+        return ['--quiet'] if running_in_ci() else []
+
 
 class Docker(Command):
 
@@ -233,7 +237,7 @@ class DockerCompose(Command):
 
     def pull(self, service_name, pull_leaf=True, ignore_pull_failures=True):
         def _pull(service):
-            args = ['pull', '--quiet']
+            args = ['pull'] + self.config.verbosity_args()
             if service['image'] in self.pull_memory:
                 return
 
@@ -427,10 +431,11 @@ class DockerCompose(Command):
 
     def push(self, service_name, user=None, password=None):
         def _push(service):
+            args = ['push'] + self.config.verbosity_args()
             if self.config.using_docker:
-                return self._execute_docker('push', '--quiet', service['image'])
+                return self._execute_docker(*args, service['image'])
             else:
-                return self._execute_compose('push', '--quiet', service['name'])
+                return self._execute_compose(*args, service['name'])
 
         if user is not None:
             try:

@@ -18,9 +18,12 @@
 
 // This addresses platform-specific defines, e.g. on Windows
 #include "arrow/flight/platform.h"  // IWYU pragma: keep
+#include "arrow/util/macros.h"
 
 // This header holds the Flight SQL definitions.
 
 #include "arrow/flight/sql/visibility.h"
 
+ARROW_SUPPRESS_DEPRECATION_WARNING
 #include "arrow/flight/sql/FlightSql.pb.h"  // IWYU pragma: export
+ARROW_UNSUPPRESS_DEPRECATION_WARNING

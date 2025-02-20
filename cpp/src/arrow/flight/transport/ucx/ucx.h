@@ -26,6 +26,8 @@ namespace flight {
 namespace transport {
 namespace ucx {
 
+/// \deprecated Deprecated in 19.0.0. Flight UCX is deprecated.
+ARROW_DEPRECATED(" Deprecated in 19.0.0. Flight UCX is deprecated.")
 ARROW_FLIGHT_EXPORT
 void InitializeFlightUcx();
 

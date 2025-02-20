@@ -476,6 +476,8 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+-------------------------+---------------------------+-------+
 | exp              | Unary  | Numeric                 | Float32/Float64           |       |
 +------------------+--------+-------------------------+---------------------------+-------+
+| expm1            | Unary  | Numeric                 | Float32/Float64           |       |
++------------------+--------+-------------------------+---------------------------+-------+
 | multiply         | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
 +------------------+--------+-------------------------+---------------------------+-------+
 | multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
@@ -718,6 +720,35 @@ Decimal values are accepted, but are cast to Float64 first.
 +--------------------------+------------+-------------------------+---------------------+
 | tan_checked              | Unary      | Float32/Float64/Decimal | Float32/Float64     |
 +--------------------------+------------+-------------------------+---------------------+
+
+Hyperbolic trigonometric functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Hyperbolic trigonometric functions are also supported, and, where applicable, also offer
+``_checked`` variants that check for domain errors if needed.
+
+Decimal values are accepted, but are cast to Float64 first.
+
++--------------------------+------------+-------------------------+---------------------+
+| Function name            | Arity      | Input types             | Output type         |
++==========================+============+=========================+=====================+
+| acosh                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| acosh_checked            | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| asinh                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| atanh                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| atanh_checked            | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| cosh                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| sinh                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| tanh                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+
 
 Comparisons
 ~~~~~~~~~~~
@@ -1285,7 +1316,7 @@ depending on a condition.
   input. If the nulls present on the first input, they will be promoted to the
   output, otherwise nulls will be chosen based on the first input values.
 
-  Also see: :ref:`replace_with_mask <cpp-compute-vector-structural-transforms>`.
+  Also see: :ref:`replace_with_mask <cpp-compute-vector-replace-functions>`.
 
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
@@ -1700,19 +1731,23 @@ Selections
 
 These functions select and return a subset of their input.
 
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| Function name | Arity  | Input type 1 | Input type 2 | Output type  | Options class           | Notes     |
-+===============+========+==============+==============+==============+=========================+===========+
-| array_filter  | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| drop_null     | Unary  | Any          |              | Input type 1 |                         | \(1)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| Function name       | Arity  | Input type 1   | Input type 2 | Output type         | Options class                       | Notes |
++=====================+========+================+==============+=====================+=====================================+=======+
+| array_filter        | Binary | Any            | Boolean      | Input type 1        | :struct:`FilterOptions`             | \(2)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| array_take          | Binary | Any            | Integer      | Input type 1        | :struct:`TakeOptions`               | \(3)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| drop_null           | Unary  | Any            |              | Input type 1        |                                     | \(1)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| filter              | Binary | Any            | Boolean      | Input type 1        | :struct:`FilterOptions`             | \(2)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| inverse_permutation | Unary  | Signed Integer |              | Signed Integer \(4) | :struct:`InversePermutationOptions` | \(5)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| scatter             | Binary | Any            | Integer      | Input type 1        | :struct:`ScatterOptions`            | \(6)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| take                | Binary | Any            | Integer      | Input type 1        | :struct:`TakeOptions`               | \(3)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
 
 * \(1) Each element in the input is appended to the output iff it is non-null.
   If the input is a record batch or table, any null value in a column drops
@@ -1724,6 +1759,18 @@ These functions select and return a subset of their input.
 
 * \(3) For each element *i* in input 2 (the indices), the *i*'th element
   in input 1 (the values) is appended to the output.
+
+* \(4) The output type is specified in :struct:`InversePermutationOptions`.
+
+* \(5) For *indices[i] = x*, *inverse_permutation[x] = i*. And *inverse_permutation[x]
+  = null* if *x* does not appear in the input indices. Indices must be in the range
+  of *[0, max_index]*, or null, which will be ignored. If multiple indices point to the
+  same value, the last one is used.
+
+* \(6) For *indices[i] = x*, *output[x] = values[i]*. And *output[x] = null*
+  if *x* does not appear in the input indices. Indices must be in the range
+  of *[0, max_index]*, or null, in which case the corresponding value will be
+  ignored. If multiple indices point to the same value, the last one is used.
 
 Containment tests
 ~~~~~~~~~~~~~~~~~
@@ -1749,19 +1796,23 @@ in the respective option classes.
    Binary- and String-like inputs are ordered lexicographically as bytestrings,
    even for String types.
 
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| Function name         | Arity      | Input types                                             | Output type       | Options class                  | Notes          |
-+=======================+============+=========================================================+===================+================================+================+
-| array_sort_indices    | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`ArraySortOptions`     | \(1) \(2)      |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| partition_nth_indices | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions`  | \(3)           |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| rank                  | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`RankOptions`          | \(4)           |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`       | \(5) \(6)      |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`          | \(1) \(5)      |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| Function name         | Arity      | Input types                                             | Output type       | Options class                 | Notes          |
++=======================+============+=========================================================+===================+===============================+================+
+| array_sort_indices    | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`ArraySortOptions`    | \(1) \(2)      |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| partition_nth_indices | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions` | \(3)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| rank                  | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`RankOptions`         | \(4)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| rank_normal           | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | Float64           | :struct:`RankQuantileOptions` | \(5)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| rank_quantile         | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | Float64           | :struct:`RankQuantileOptions` | \(5)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`      | \(6) \(7)      |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`         | \(1) \(6)      |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 
 
 * \(1) The output is an array of indices into the input, that define a
@@ -1776,13 +1827,18 @@ in the respective option classes.
   :func:`std::nth_element`).  *N* is given in
   :member:`PartitionNthOptions::pivot`.
 
-* \(4) The output is a one-based numerical array of ranks
+* \(4) The output is a one-based numerical array of ranks.
 
-* \(5) The input can be an array, chunked array, record batch or
+* \(5) The output of ``rank_quantile`` is an array of quantiles strictly between
+  0 and 1. The ouput of ``rank_normal`` is an array of finite real values
+  corresponding to points in the normal distribution that reflect the input's
+  quantile ranks.
+
+* \(6) The input can be an array, chunked array, record batch or
   table. If the input is a record batch or table, one or more sort
   keys must be specified.
 
-* \(6) The output is an array of indices into the input, that define a
+* \(7) The output is an array of indices into the input, that define a
   non-stable sort of the input.
 
 .. _cpp-compute-vector-structural-transforms:
@@ -1850,6 +1906,8 @@ Structural transforms
     at an index *n* if and only if the child array ``a`` is valid at
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
+
+.. _cpp-compute-vector-replace-functions:
 
 Replace functions
 ~~~~~~~~~~~~~~~~~

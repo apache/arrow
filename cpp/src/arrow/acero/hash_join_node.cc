@@ -772,6 +772,9 @@ class HashJoinNode : public ExecNode, public TracedNode {
   const char* kind_name() const override { return "HashJoinNode"; }
 
   Status OnBuildSideBatch(size_t thread_index, ExecBatch batch) {
+    if (batch.length == 0) {
+      return Status::OK();
+    }
     std::lock_guard<std::mutex> guard(build_side_mutex_);
     build_accumulator_.InsertBatch(std::move(batch));
     return Status::OK();

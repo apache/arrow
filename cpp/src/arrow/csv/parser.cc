@@ -126,16 +126,30 @@ class ValueDescWriter {
         {static_cast<uint32_t>(parsed_writer->size()) & 0x7fffffffU, quoted_});
   }
 
-  void Finish(std::shared_ptr<Buffer>* out_values) {
-    ARROW_CHECK_OK(values_buffer_->Resize(values_size_ * sizeof(*values_)));
-    *out_values = values_buffer_;
+  Result<std::shared_ptr<Buffer>> Finish() {
+    RETURN_NOT_OK(values_buffer_->Resize(values_size_ * sizeof(*values_)));
+    return std::move(values_buffer_);
+  }
+
+  const Status& status() const { return status_; }
+
+  // Convenience error-checking factory. The arguments are forwarded to the
+  // Derived class constructor.
+  template <typename... Args>
+  static Result<Derived> Make(Args&&... args) {
+    auto self = Derived(std::forward<Args>(args)...);
+    RETURN_NOT_OK(self.status());
+    return self;
   }
 
  protected:
   ValueDescWriter(MemoryPool* pool, int64_t values_capacity)
-      : values_size_(0), values_capacity_(values_capacity) {
-    values_buffer_ = *AllocateResizableBuffer(values_capacity_ * sizeof(*values_), pool);
-    values_ = reinterpret_cast<ParsedValueDesc*>(values_buffer_->mutable_data());
+      : values_size_(0), values_capacity_(values_capacity), status_(Status::OK()) {
+    status_ &= AllocateResizableBuffer(values_capacity_ * sizeof(*values_), pool)
+                   .Value(&values_buffer_);
+    if (status_.ok()) {
+      values_ = reinterpret_cast<ParsedValueDesc*>(values_buffer_->mutable_data());
+    }
   }
 
   std::shared_ptr<ResizableBuffer> values_buffer_;
@@ -145,6 +159,7 @@ class ValueDescWriter {
   bool quoted_;
   // Checkpointing, for when an incomplete line is encountered at end of block
   int64_t saved_values_size_;
+  Status status_;
 };
 
 // A helper class handling a growable buffer for values offsets.  This class is
@@ -157,11 +172,21 @@ class ResizableValueDescWriter : public ValueDescWriter<ResizableValueDescWriter
 
   void PushValue(ParsedValueDesc v) {
     if (ARROW_PREDICT_FALSE(values_size_ == values_capacity_)) {
-      values_capacity_ = values_capacity_ * 2;
-      ARROW_CHECK_OK(values_buffer_->Resize(values_capacity_ * sizeof(*values_)));
-      values_ = reinterpret_cast<ParsedValueDesc*>(values_buffer_->mutable_data());
+      int64_t new_capacity = values_capacity_ * 2;
+      auto resize_status = values_buffer_->Resize(new_capacity * sizeof(*values_));
+      if (resize_status.ok()) {
+        values_ = reinterpret_cast<ParsedValueDesc*>(values_buffer_->mutable_data());
+        values_capacity_ = new_capacity;
+      }
+      status_ &= std::move(resize_status);
     }
-    values_[values_size_++] = v;
+    // The `values_` pointer may have become invalid if the `Resize` call above failed.
+    // Note that ResizableValueDescWriter is less performance-critical than
+    // PresizedValueDescWriter, as it should only be called on the first line(s)
+    // of CSV data.
+    if (ARROW_PREDICT_TRUE(status_.ok())) {
+      values_[values_size_++] = v;
+    }
   }
 };
 
@@ -171,12 +196,26 @@ class ResizableValueDescWriter : public ValueDescWriter<ResizableValueDescWriter
 // faster CSV parsing code.
 class PresizedValueDescWriter : public ValueDescWriter<PresizedValueDescWriter> {
  public:
+  // The number of offsets being written will be `1 + num_rows * num_cols`,
+  // however we allow for one extraneous write in case of excessive columns,
+  // hence `2 + num_rows * num_cols` (see explanation in PushValue below).
   PresizedValueDescWriter(MemoryPool* pool, int32_t num_rows, int32_t num_cols)
-      : ValueDescWriter(pool, /*values_capacity=*/1 + num_rows * num_cols) {}
+      : ValueDescWriter(pool, /*values_capacity=*/2 + num_rows * num_cols) {}
 
   void PushValue(ParsedValueDesc v) {
     DCHECK_LT(values_size_, values_capacity_);
-    values_[values_size_++] = v;
+    values_[values_size_] = v;
+    // We must take care not to write past the buffer's end if the line being
+    // parsed has more than `num_cols` columns. The obvious solution of setting
+    // an error status hurts too much on benchmarks, which is why we instead
+    // cap `values_size_` to stay inside the buffer.
+    //
+    // Not setting an error immediately is not a problem since the `num_cols`
+    // mismatch is detected later in ParseLine.
+    //
+    // Note that we want `values_size_` to reflect the number of written values
+    // in the nominal case, which is why we choose a slightly larger `values_capacity_`.
+    values_size_ += (values_size_ != values_capacity_ - 1);
   }
 };
 
@@ -464,6 +503,7 @@ class BlockParserImpl {
         RETURN_NOT_OK((ParseLine<SpecializedOptions, true>(values_writer, parsed_writer,
                                                            data, data_end, is_final,
                                                            &line_end, bulk_filter)));
+        RETURN_NOT_OK(values_writer->status());
         if (line_end == data) {
           // Cannot parse any further
           *finished_parsing = true;
@@ -477,6 +517,7 @@ class BlockParserImpl {
         RETURN_NOT_OK((ParseLine<SpecializedOptions, false>(values_writer, parsed_writer,
                                                             data, data_end, is_final,
                                                             &line_end, bulk_filter)));
+        RETURN_NOT_OK(values_writer->status());
         if (line_end == data) {
           // Cannot parse any further
           *finished_parsing = true;
@@ -496,8 +537,7 @@ class BlockParserImpl {
     }
 
     // Append new buffers and update size
-    std::shared_ptr<Buffer> values_buffer;
-    values_writer->Finish(&values_buffer);
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer, values_writer->Finish());
     if (values_buffer->size() > 0) {
       values_size_ +=
           static_cast<int32_t>(values_buffer->size() / sizeof(ParsedValueDesc) - 1);
@@ -535,7 +575,7 @@ class BlockParserImpl {
         // Can't presize values when the number of columns is not known, first parse
         // a single line
         const int32_t rows_in_chunk = 1;
-        ResizableValueDescWriter values_writer(pool_);
+        ARROW_ASSIGN_OR_RAISE(auto values_writer, ResizableValueDescWriter::Make(pool_));
         values_writer.Start(parsed_writer);
 
         RETURN_NOT_OK(ParseChunk<SpecializedOptions>(
@@ -560,7 +600,9 @@ class BlockParserImpl {
           rows_in_chunk = std::min(kTargetChunkSize, max_num_rows_ - batch_.num_rows_);
         }
 
-        PresizedValueDescWriter values_writer(pool_, rows_in_chunk, batch_.num_cols_);
+        ARROW_ASSIGN_OR_RAISE(
+            auto values_writer,
+            PresizedValueDescWriter::Make(pool_, rows_in_chunk, batch_.num_cols_));
         values_writer.Start(parsed_writer);
 
         RETURN_NOT_OK(ParseChunk<SpecializedOptions>(

@@ -61,8 +61,8 @@ enum MetadataVersion:short {
 ///      forward compatibility guarantees).
 ///  2.  A means of negotiating between a client and server
 ///      what features a stream is allowed to use. The enums
-///      values here are intented to represent higher level
-///      features, additional details maybe negotiated
+///      values here are intended to represent higher level
+///      features, additional details may be negotiated
 ///      with key-value pairs specific to the protocol.
 ///
 /// Enums added to this list should be assigned power-of-two values
@@ -421,7 +421,7 @@ table Interval {
 // An absolute length of time unrelated to any calendar artifacts.
 //
 // For the purposes of Arrow Implementations, adding this value to a Timestamp
-// ("t1") naively (i.e. simply summing the two number) is acceptable even
+// ("t1") naively (i.e. simply summing the two numbers) is acceptable even
 // though in some cases the resulting Timestamp (t2) would not account for
 // leap-seconds during the elapsed time between "t1" and "t2".  Similarly,
 // representing the difference between two Unix timestamp is acceptable, but
@@ -510,7 +510,7 @@ table DictionaryEncoding {
 /// nested type.
 
 table Field {
-  /// Name is not required, in i.e. a List
+  /// Name is not required (e.g., in a List)
   name: string;
 
   /// Whether or not this field can contain nulls. Should be true in general.

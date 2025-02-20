@@ -37,7 +37,7 @@ class PartitionSort {
   /// This corresponds to ranges in the sorted array containing all row ids for
   /// each of the partitions.
   ///
-  /// prtn_ranges must be initialized and have at least prtn_ranges + 1 elements
+  /// prtn_ranges must be initialized and have at least num_prtns + 1 elements
   /// when this method returns prtn_ranges[i] will contains the total number of
   /// elements in partitions 0 through i.  prtn_ranges[0] will be 0.
   ///

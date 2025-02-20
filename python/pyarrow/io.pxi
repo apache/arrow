@@ -20,6 +20,8 @@
 
 from libc.stdlib cimport malloc, free
 
+from cpython.bytearray cimport PyByteArray_FromStringAndSize
+
 import codecs
 import pickle
 import re
@@ -42,9 +44,6 @@ cdef extern from "Python.h":
     # To let us get a PyObject* and avoid Cython auto-ref-counting
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
-
-    # Workaround https://github.com/cython/cython/issues/4707
-    bytearray PyByteArray_FromStringAndSize(char *string, Py_ssize_t len)
 
 
 def have_libhdfs():
@@ -2370,7 +2369,6 @@ cdef class CacheOptions(_Weakrefable):
             ideal_bandwidth_utilization_frac, max_ideal_request_size_mib))
 
     @staticmethod
-    @binding(True)  # Required for Cython < 3
     def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.

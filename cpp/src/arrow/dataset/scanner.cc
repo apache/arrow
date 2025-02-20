@@ -37,6 +37,7 @@
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
+#include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/config.h"
@@ -318,10 +319,14 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
       RecordBatch::Make(options->dataset_schema, /*num_rows=*/0, std::move(columns)));
   auto enumerated_batch_gen = MakeEnumeratedGenerator(std::move(batch_gen));
 
-  auto combine_fn =
-      [fragment](const Enumerated<std::shared_ptr<RecordBatch>>& record_batch) {
-        return EnumeratedRecordBatch{record_batch, fragment};
-      };
+  auto combine_fn = [fragment, cache_metadata = options->cache_metadata](
+                        const Enumerated<std::shared_ptr<RecordBatch>>& record_batch) {
+    if (!cache_metadata && record_batch.last) {
+      ARROW_WARN_NOT_OK(fragment.value->ClearCachedMetadata(),
+                        "Could not clear cached metadata on fragment");
+    }
+    return EnumeratedRecordBatch{record_batch, fragment};
+  };
 
   return MakeMappedGenerator(enumerated_batch_gen, std::move(combine_fn));
 }
@@ -343,7 +348,7 @@ class OneShotFragment : public Fragment {
   OneShotFragment(std::shared_ptr<Schema> schema, RecordBatchIterator batch_it)
       : Fragment(compute::literal(true), std::move(schema)),
         batch_it_(std::move(batch_it)) {
-    DCHECK_NE(physical_schema_, nullptr);
+    DCHECK_NE(given_physical_schema_, nullptr);
   }
   Status CheckConsumed() {
     if (!batch_it_) return Status::Invalid("OneShotFragment was already scanned");
@@ -362,7 +367,7 @@ class OneShotFragment : public Fragment {
 
  protected:
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
-    return physical_schema_;
+    return given_physical_schema_;
   }
 
   RecordBatchIterator batch_it_;
@@ -936,6 +941,11 @@ Status ScannerBuilder::UseThreads(bool use_threads) {
   return Status::OK();
 }
 
+Status ScannerBuilder::CacheMetadata(bool cache_metadata) {
+  scan_options_->cache_metadata = cache_metadata;
+  return Status::OK();
+}
+
 Status ScannerBuilder::BatchSize(int64_t batch_size) {
   if (batch_size <= 0) {
     return Status::Invalid("BatchSize must be greater than 0, got ", batch_size);
@@ -1000,6 +1010,7 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   auto scan_options = scan_node_options.scan_options;
   auto dataset = scan_node_options.dataset;
   bool require_sequenced_output = scan_node_options.require_sequenced_output;
+  bool implicit_ordering = scan_node_options.implicit_ordering;
 
   RETURN_NOT_OK(NormalizeScanOptions(scan_options, dataset->schema()));
 
@@ -1032,11 +1043,11 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   } else {
     batch_gen = std::move(merged_batch_gen);
   }
-  int64_t index = require_sequenced_output ? 0 : compute::kUnsequencedIndex;
+
   auto gen = MakeMappedGenerator(
       std::move(batch_gen),
-      [scan_options, index](const EnumeratedRecordBatch& partial) mutable
-      -> Result<std::optional<compute::ExecBatch>> {
+      [scan_options](const EnumeratedRecordBatch& partial)
+          -> Result<std::optional<compute::ExecBatch>> {
         // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
         // than this, for example parquet's row group stats. Failing to do this leaves
         // perf on the table because row group stats could be used to skip kernel execs in
@@ -1057,11 +1068,10 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
         batch->values.emplace_back(partial.record_batch.index);
         batch->values.emplace_back(partial.record_batch.last);
         batch->values.emplace_back(partial.fragment.value->ToString());
-        if (index != compute::kUnsequencedIndex) batch->index = index++;
         return batch;
       });
 
-  auto ordering = require_sequenced_output ? Ordering::Implicit() : Ordering::Unordered();
+  auto ordering = implicit_ordering ? Ordering::Implicit() : Ordering::Unordered();
 
   auto fields = scan_options->dataset_schema->fields();
   if (scan_options->add_augmented_fields) {

@@ -55,13 +55,10 @@ void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_com
 
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null
-    const uint8_t* null_masks = rows.null_masks();
-    uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
     for (uint32_t i = num_processed; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       uint32_t irow_right = left_to_right_map[irow_left];
-      int64_t bitid = irow_right * null_mask_num_bytes * 8 + null_bit_id;
-      match_bytevector[i] &= (bit_util::GetBit(null_masks, bitid) ? 0 : 0xff);
+      match_bytevector[i] &= (rows.is_null(irow_right, null_bit_id) ? 0 : 0xff);
     }
   } else if (!rows.has_any_nulls(ctx)) {
     // Remove rows from the result for which the column value on left side is
@@ -74,15 +71,12 @@ void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_com
           bit_util::GetBit(non_nulls, irow_left + col.bit_offset(0)) ? 0xff : 0;
     }
   } else {
-    const uint8_t* null_masks = rows.null_masks();
-    uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
     const uint8_t* non_nulls = col.data(0);
     ARROW_DCHECK(non_nulls);
     for (uint32_t i = num_processed; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       uint32_t irow_right = left_to_right_map[irow_left];
-      int64_t bitid_right = irow_right * null_mask_num_bytes * 8 + null_bit_id;
-      int right_null = bit_util::GetBit(null_masks, bitid_right) ? 0xff : 0;
+      int right_null = rows.is_null(irow_right, null_bit_id) ? 0xff : 0;
       int left_null =
           bit_util::GetBit(non_nulls, irow_left + col.bit_offset(0)) ? 0 : 0xff;
       match_bytevector[i] |= left_null & right_null;
@@ -101,7 +95,7 @@ void KeyCompare::CompareBinaryColumnToRowHelper(
   if (is_fixed_length) {
     uint32_t fixed_length = rows.metadata().fixed_length;
     const uint8_t* rows_left = col.data(1);
-    const uint8_t* rows_right = rows.data(1);
+    const uint8_t* rows_right = rows.fixed_length_rows(/*row_id=*/0);
     for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       // irow_right is used to index into row data so promote to the row offset type.
@@ -113,7 +107,7 @@ void KeyCompare::CompareBinaryColumnToRowHelper(
   } else {
     const uint8_t* rows_left = col.data(1);
     const RowTableImpl::offset_type* offsets_right = rows.offsets();
-    const uint8_t* rows_right = rows.data(2);
+    const uint8_t* rows_right = rows.var_length_rows();
     for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       uint32_t irow_right = left_to_right_map[irow_left];
@@ -246,7 +240,7 @@ void KeyCompare::CompareVarBinaryColumnToRowHelper(
   const uint32_t* offsets_left = col.offsets();
   const RowTableImpl::offset_type* offsets_right = rows.offsets();
   const uint8_t* rows_left = col.data(2);
-  const uint8_t* rows_right = rows.data(2);
+  const uint8_t* rows_right = rows.var_length_rows();
   for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
     uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
     uint32_t irow_right = left_to_right_map[irow_left];

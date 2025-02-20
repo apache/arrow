@@ -2402,6 +2402,12 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::RUN_END_ENCODED:
     type = GARROW_TYPE_RUN_END_ENCODED_DATA_TYPE;
     break;
+  case arrow::Type::type::STRING_VIEW:
+    type = GARROW_TYPE_STRING_VIEW_DATA_TYPE;
+    break;
+  case arrow::Type::type::BINARY_VIEW:
+    type = GARROW_TYPE_BINARY_VIEW_DATA_TYPE;
+    break;
   default:
     type = GARROW_TYPE_DATA_TYPE;
     break;

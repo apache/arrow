@@ -33,7 +33,9 @@ activate it using the commands below (see https://emscripten.org/docs/getting_st
    git clone https://github.com/emscripten-core/emsdk.git
    cd emsdk
    # replace <version> with the desired EMSDK version.
-   # e.g. for Pyodide 0.24, you need EMSDK version 3.1.45
+   # e.g. for Pyodide 0.26, you need EMSDK version 3.1.58
+   # the versions can be found in the Makefile.envs file in the Pyodide repo:
+   # https://github.com/pyodide/pyodide/blob/10b484cfe427e076c929a55dc35cfff01ea8d3bc/Makefile.envs
    ./emsdk install <version>
    ./emsdk activate <version>
    source ./emsdk_env.sh
@@ -46,8 +48,8 @@ versions of emsdk tools.
 .. code:: shell
 
    # install Pyodide build tools.
-   # e.g. for version 0.24 of Pyodide:
-   pip install pyodide-build==0.24
+   # e.g., for version 0.26 of Pyodide, pyodide-build 0.26 and later work
+   pip install "pyodide-build>=0.26"
 
 Then build with the ``ninja-release-emscripten`` CMake preset,
 like below:
@@ -69,8 +71,7 @@ go to ``arrow/python`` and run
    pyodide build
 
 It should make a wheel targeting the currently enabled version of
-Pyodide (i.e. the version corresponding to the currently installed
-``pyodide-build``) in the ``dist`` subdirectory.
+Pyodide in the ``dist`` subdirectory.
 
 
 Manual Build
@@ -85,9 +86,8 @@ you will need to override. In particular you will need:
 
 #. ``CMAKE_TOOLCHAIN_FILE`` set by using ``emcmake cmake`` instead of just ``cmake``.
 
-#. You will quite likely need to set ``ARROW_ENABLE_THREADING`` to ``OFF``
-   for builds targeting single threaded Emscripten environments such as
-   Pyodide.
+#. You will need to set ``ARROW_ENABLE_THREADING`` to ``OFF`` for builds
+   targeting single-threaded Emscripten environments such as Pyodide.
 
 #. ``ARROW_FLIGHT`` and anything else that uses network probably won't
    work.

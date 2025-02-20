@@ -32,8 +32,10 @@ set(ARROW_DATASET_SRCS
     scan_node.cc)
 
 set(ARROW_DATASET_PKG_CONFIG_REQUIRES "arrow-acero")
+set(ARROW_DATASET_REQUIRED_DEPENDENCIES Arrow ArrowAcero)
 if(ARROW_PARQUET)
   string(APPEND ARROW_DATASET_PKG_CONFIG_REQUIRES " parquet")
+  list(APPEND ARROW_DATASET_REQUIRED_DEPENDENCIES Parquet)
 endif()
 
 set(ARROW_DATASET_STATIC_LINK_LIBS)
@@ -104,10 +106,10 @@ endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static arrow_acero_testing
-                                   ${ARROW_TEST_STATIC_LINK_LIBS})
+                                   arrow_compute_testing ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
   set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared arrow_acero_testing
-                                   ${ARROW_TEST_SHARED_LINK_LIBS})
+                                   arrow_compute_testing ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
 foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})

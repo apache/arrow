@@ -109,7 +109,13 @@ if [ "${ARROW_OFFLINE}" = "ON" ]; then
   echo > /etc/resolv.conf
 fi
 
-if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
+if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
+  meson setup \
+    --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
+    --buildtype=${ARROW_BUILD_TYPE:-debug} \
+    . \
+    ${source_dir}
+elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   if [ "${UBUNTU}" = "20.04" ]; then
     echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
     exit -1
@@ -171,10 +177,10 @@ else
     -DARROW_GCS=${ARROW_GCS:-OFF} \
     -DARROW_HDFS=${ARROW_HDFS:-ON} \
     -DARROW_INSTALL_NAME_RPATH=${ARROW_INSTALL_NAME_RPATH:-ON} \
-    -DARROW_JEMALLOC=${ARROW_JEMALLOC:-ON} \
+    -DARROW_JEMALLOC=${ARROW_JEMALLOC:-OFF} \
     -DARROW_JSON=${ARROW_JSON:-ON} \
     -DARROW_LARGE_MEMORY_TESTS=${ARROW_LARGE_MEMORY_TESTS:-OFF} \
-    -DARROW_MIMALLOC=${ARROW_MIMALLOC:-OFF} \
+    -DARROW_MIMALLOC=${ARROW_MIMALLOC:-ON} \
     -DARROW_ORC=${ARROW_ORC:-OFF} \
     -DARROW_PARQUET=${ARROW_PARQUET:-OFF} \
     -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
@@ -220,11 +226,13 @@ else
     -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR:-lib} \
     -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}} \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+    -DCUDAToolkit_ROOT=${CUDAToolkit_ROOT:-} \
     -Dgflags_SOURCE=${gflags_SOURCE:-} \
     -Dgoogle_cloud_cpp_storage_SOURCE=${google_cloud_cpp_storage_SOURCE:-} \
     -DgRPC_SOURCE=${gRPC_SOURCE:-} \
     -DGTest_SOURCE=${GTest_SOURCE:-} \
     -Dlz4_SOURCE=${lz4_SOURCE:-} \
+    -Dopentelemetry-cpp_SOURCE=${opentelemetry_cpp_SOURCE:-} \
     -DORC_SOURCE=${ORC_SOURCE:-} \
     -DPARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-OFF} \
     -DPARQUET_BUILD_EXECUTABLES=${PARQUET_BUILD_EXECUTABLES:-OFF} \
@@ -242,8 +250,12 @@ else
     ${source_dir}
 fi
 
-export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
-time cmake --build . --target install
+if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
+  time meson install
+else
+  export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
+  time cmake --build . --target install
+fi
 
 # Save disk space by removing large temporary build products
 find . -name "*.o" -delete

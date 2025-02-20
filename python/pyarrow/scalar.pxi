@@ -16,7 +16,6 @@
 # under the License.
 
 import collections
-from cython cimport binding
 from uuid import UUID
 
 
@@ -334,6 +333,46 @@ cdef class DoubleScalar(Scalar):
         """
         cdef CDoubleScalar* sp = <CDoubleScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
+
+
+cdef class Decimal32Scalar(Scalar):
+    """
+    Concrete class for decimal32 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python Decimal.
+        """
+        cdef:
+            CDecimal32Scalar* sp = <CDecimal32Scalar*> self.wrapped.get()
+            CDecimal32Type* dtype = <CDecimal32Type*> sp.type.get()
+        if sp.is_valid:
+            return _pydecimal.Decimal(
+                frombytes(sp.value.ToString(dtype.scale()))
+            )
+        else:
+            return None
+
+
+cdef class Decimal64Scalar(Scalar):
+    """
+    Concrete class for decimal64 scalars.
+    """
+
+    def as_py(self):
+        """
+        Return this value as a Python Decimal.
+        """
+        cdef:
+            CDecimal64Scalar* sp = <CDecimal64Scalar*> self.wrapped.get()
+            CDecimal64Type* dtype = <CDecimal64Type*> sp.type.get()
+        if sp.is_valid:
+            return _pydecimal.Decimal(
+                frombytes(sp.value.ToString(dtype.scale()))
+            )
+        else:
+            return None
 
 
 cdef class Decimal128Scalar(Scalar):
@@ -855,7 +894,6 @@ cdef class DictionaryScalar(Scalar):
     """
 
     @staticmethod
-    @binding(True)  # Required for cython < 3
     def _reconstruct(type, is_valid, index, dictionary):
         cdef:
             CDictionaryScalarIndexAndDictionary value
@@ -1132,6 +1170,8 @@ cdef dict _scalar_classes = {
     _Type_HALF_FLOAT: HalfFloatScalar,
     _Type_FLOAT: FloatScalar,
     _Type_DOUBLE: DoubleScalar,
+    _Type_DECIMAL32: Decimal32Scalar,
+    _Type_DECIMAL64: Decimal64Scalar,
     _Type_DECIMAL128: Decimal128Scalar,
     _Type_DECIMAL256: Decimal256Scalar,
     _Type_DATE32: Date32Scalar,

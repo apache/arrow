@@ -58,14 +58,7 @@ except ImportError:
     except ImportError:
         __version__ = None
 
-# ARROW-8684: Disable GC while initializing Cython extension module,
-# to workaround Cython bug in https://github.com/cython/cython/issues/3603
-_gc_enabled = _gc.isenabled()
-_gc.disable()
 import pyarrow.lib as _lib
-if _gc_enabled:
-    _gc.enable()
-
 from pyarrow.lib import (BuildInfo, RuntimeInfo, set_timezone_db_path,
                          MonthDayNano, VersionInfo, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,
@@ -166,7 +159,7 @@ from pyarrow.lib import (null, bool_,
                          float16, float32, float64,
                          binary, string, utf8, binary_view, string_view,
                          large_binary, large_string, large_utf8,
-                         decimal128, decimal256,
+                         decimal32, decimal64, decimal128, decimal256,
                          list_, large_list, list_view, large_list_view,
                          map_, struct,
                          union, sparse_union, dense_union,
@@ -180,7 +173,8 @@ from pyarrow.lib import (null, bool_,
                          ListViewType, LargeListViewType,
                          MapType, UnionType, SparseUnionType, DenseUnionType,
                          TimestampType, Time32Type, Time64Type, DurationType,
-                         FixedSizeBinaryType, Decimal128Type, Decimal256Type,
+                         FixedSizeBinaryType,
+                         Decimal32Type, Decimal64Type, Decimal128Type, Decimal256Type,
                          BaseExtensionType, ExtensionType,
                          RunEndEncodedType, Bool8Type, FixedShapeTensorType,
                          JsonType, OpaqueType, UuidType,
@@ -216,7 +210,8 @@ from pyarrow.lib import (null, bool_,
                          Date32Array, Date64Array, TimestampArray,
                          Time32Array, Time64Array, DurationArray,
                          MonthDayNanoIntervalArray,
-                         Decimal128Array, Decimal256Array, StructArray, ExtensionArray,
+                         Decimal32Array, Decimal64Array, Decimal128Array, Decimal256Array,
+                         StructArray, ExtensionArray,
                          RunEndEncodedArray, Bool8Array, FixedShapeTensorArray,
                          JsonArray, OpaqueArray, UuidArray,
                          scalar, NA, _NULL as NULL, Scalar,
@@ -224,7 +219,7 @@ from pyarrow.lib import (null, bool_,
                          Int8Scalar, Int16Scalar, Int32Scalar, Int64Scalar,
                          UInt8Scalar, UInt16Scalar, UInt32Scalar, UInt64Scalar,
                          HalfFloatScalar, FloatScalar, DoubleScalar,
-                         Decimal128Scalar, Decimal256Scalar,
+                         Decimal32Scalar, Decimal64Scalar, Decimal128Scalar, Decimal256Scalar,
                          ListScalar, LargeListScalar, FixedSizeListScalar,
                          ListViewScalar, LargeListViewScalar,
                          Date32Scalar, Date64Scalar,

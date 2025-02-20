@@ -31,6 +31,7 @@
 #include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/type_fwd.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"

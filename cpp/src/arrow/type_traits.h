@@ -540,6 +540,16 @@ struct CTypeTraits<std::vector<CType>> : public TypeTraits<ListType> {
   }
 };
 
+/// \addtogroup c-type-traits
+template <typename CType, std::size_t N>
+struct CTypeTraits<std::array<CType, N>> : public TypeTraits<FixedSizeListType> {
+  using ArrowType = FixedSizeListType;
+
+  static auto type_singleton() {
+    return fixed_size_list(CTypeTraits<CType>::type_singleton(), N);
+  }
+};
+
 /// \addtogroup type-traits
 /// @{
 template <>
@@ -1057,6 +1067,13 @@ constexpr bool is_floating(Type::type type_id) {
       break;
   }
   return false;
+}
+
+/// \brief Check for a physical floating point type
+///
+/// This predicate matches floating-point types, except half-float.
+constexpr bool is_physical_floating(Type::type type_id) {
+  return is_floating(type_id) && type_id != Type::HALF_FLOAT;
 }
 
 /// \brief Check for a numeric type

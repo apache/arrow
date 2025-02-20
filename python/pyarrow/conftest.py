@@ -217,10 +217,10 @@ except ImportError:
 
 
 # Doctest should ignore files for the modules that are not built
-def pytest_ignore_collect(path, config):
+def pytest_ignore_collect(collection_path, config):
     if config.option.doctestmodules:
         # don't try to run doctests on the /tests directory
-        if "/pyarrow/tests/" in str(path):
+        if "/pyarrow/tests/" in str(collection_path):
             return True
 
         doctest_groups = [
@@ -233,22 +233,22 @@ def pytest_ignore_collect(path, config):
 
         # handle cuda, flight, etc
         for group in doctest_groups:
-            if 'pyarrow/{}'.format(group) in str(path):
+            if 'pyarrow/{}'.format(group) in str(collection_path):
                 if not defaults[group]:
                     return True
 
-        if 'pyarrow/parquet/encryption' in str(path):
+        if 'pyarrow/parquet/encryption' in str(collection_path):
             if not defaults['parquet_encryption']:
                 return True
 
-        if 'pyarrow/cuda' in str(path):
+        if 'pyarrow/cuda' in str(collection_path):
             try:
                 import pyarrow.cuda  # noqa
                 return False
             except ImportError:
                 return True
 
-        if 'pyarrow/fs' in str(path):
+        if 'pyarrow/fs' in str(collection_path):
             try:
                 from pyarrow.fs import S3FileSystem  # noqa
                 return False
@@ -256,9 +256,9 @@ def pytest_ignore_collect(path, config):
                 return True
 
     if getattr(config.option, "doctest_cython", False):
-        if "/pyarrow/tests/" in str(path):
+        if "/pyarrow/tests/" in str(collection_path):
             return True
-        if "/pyarrow/_parquet_encryption" in str(path):
+        if "/pyarrow/_parquet_encryption" in str(collection_path):
             return True
 
     return False

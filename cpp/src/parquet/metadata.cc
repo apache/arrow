@@ -37,6 +37,7 @@
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
+#include "parquet/size_statistics.h"
 #include "parquet/thrift_internal.h"
 
 namespace parquet {
@@ -218,30 +219,29 @@ const std::string& ColumnCryptoMetaData::key_metadata() const {
 // ColumnChunk metadata
 class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
  public:
-  explicit ColumnChunkMetaDataImpl(const format::ColumnChunk* column,
-                                   const ColumnDescriptor* descr,
-                                   int16_t row_group_ordinal, int16_t column_ordinal,
-                                   const ReaderProperties& properties,
-                                   const ApplicationVersion* writer_version,
-                                   std::shared_ptr<InternalFileDecryptor> file_decryptor)
+  explicit ColumnChunkMetaDataImpl(
+      const format::ColumnChunk* column, const ColumnDescriptor* descr,
+      int16_t row_group_ordinal, int16_t column_ordinal,
+      const ReaderProperties& properties, const ApplicationVersion* writer_version,
+      const std::shared_ptr<InternalFileDecryptor>& file_decryptor)
       : column_(column),
         descr_(descr),
         properties_(properties),
         writer_version_(writer_version) {
     column_metadata_ = &column->meta_data;
     if (column->__isset.crypto_metadata) {  // column metadata is encrypted
-      format::ColumnCryptoMetaData ccmd = column->crypto_metadata;
+      const format::ColumnCryptoMetaData& ccmd = column->crypto_metadata;
 
       if (ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
         if (file_decryptor != nullptr && file_decryptor->properties() != nullptr) {
           // should decrypt metadata
           std::shared_ptr<schema::ColumnPath> path = std::make_shared<schema::ColumnPath>(
               ccmd.ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
-          std::string key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
+          const std::string& key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
 
           std::string aad_column_metadata = encryption::CreateModuleAad(
               file_decryptor->file_aad(), encryption::kColumnMetaData, row_group_ordinal,
-              column_ordinal, static_cast<int16_t>(-1));
+              column_ordinal, /*page_ordinal=*/static_cast<int16_t>(-1));
           auto decryptor = file_decryptor->GetColumnMetaDecryptor(
               path->ToDotString(), key_metadata, aad_column_metadata);
           auto len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
@@ -264,6 +264,11 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       encoding_stats_.push_back({LoadEnumSafe(&encoding_stats.page_type),
                                  LoadEnumSafe(&encoding_stats.encoding),
                                  encoding_stats.count});
+    }
+    if (column_metadata_->__isset.size_statistics) {
+      size_statistics_ =
+          std::make_shared<SizeStatistics>(FromThrift(column_metadata_->size_statistics));
+      size_statistics_->Validate(descr_);
     }
     possible_stats_ = nullptr;
     InitKeyValueMetadata();
@@ -306,6 +311,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   inline std::shared_ptr<Statistics> statistics() const {
     return is_stats_set() ? possible_stats_ : nullptr;
+  }
+
+  inline std::shared_ptr<SizeStatistics> size_statistics() const {
+    return size_statistics_;
   }
 
   inline Compression::type compression() const {
@@ -396,6 +405,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   const ReaderProperties properties_;
   const ApplicationVersion* writer_version_;
   std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
+  std::shared_ptr<SizeStatistics> size_statistics_;
 };
 
 std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
@@ -438,6 +448,10 @@ std::shared_ptr<Statistics> ColumnChunkMetaData::statistics() const {
 }
 
 bool ColumnChunkMetaData::is_stats_set() const { return impl_->is_stats_set(); }
+
+std::shared_ptr<SizeStatistics> ColumnChunkMetaData::size_statistics() const {
+  return impl_->size_statistics();
+}
 
 std::optional<int64_t> ColumnChunkMetaData::bloom_filter_offset() const {
   return impl_->bloom_filter_offset();
@@ -550,9 +564,11 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
 
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) {
     if (i >= 0 && i < num_columns()) {
+      int16_t row_group_ordinal =
+          row_group_->__isset.ordinal ? row_group_->ordinal : static_cast<int16_t>(-1);
       return ColumnChunkMetaData::Make(&row_group_->columns[i], schema_->Column(i),
-                                       properties_, writer_version_, row_group_->ordinal,
-                                       i, file_decryptor_);
+                                       properties_, writer_version_, row_group_ordinal, i,
+                                       file_decryptor_);
     }
     throw ParquetException("The file only has ", num_columns(),
                            " columns, requested metadata for column: ", i);
@@ -1543,6 +1559,10 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_statistics(ToThrift(val));
   }
 
+  void SetSizeStatistics(const SizeStatistics& size_stats) {
+    column_chunk_->meta_data.__set_size_statistics(ToThrift(size_stats));
+  }
+
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
               int64_t index_page_offset, int64_t data_page_offset,
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
@@ -1752,6 +1772,10 @@ void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) 
   impl_->SetStatistics(result);
 }
 
+void ColumnChunkMetaDataBuilder::SetSizeStatistics(const SizeStatistics& size_stats) {
+  impl_->SetSizeStatistics(size_stats);
+}
+
 void ColumnChunkMetaDataBuilder::SetKeyValueMetadata(
     std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
   impl_->SetKeyValueMetadata(std::move(key_value_metadata));
@@ -1831,7 +1855,9 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
     row_group_->__set_file_offset(file_offset);
     row_group_->__set_total_compressed_size(total_compressed_size);
     row_group_->__set_total_byte_size(total_bytes_written);
-    row_group_->__set_ordinal(row_group_ordinal);
+    if (row_group_ordinal >= 0) {
+      row_group_->__set_ordinal(row_group_ordinal);
+    }
   }
 
   void set_num_rows(int64_t num_rows) { row_group_->num_rows = num_rows; }
