@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/compute/function.h>
+#include <arrow/compute/registry.h>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -350,6 +353,89 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
       ASSERT_TRUE(val.has_value());
       ASSERT_EQ(1, *val);
     }
+  }
+}
+
+// this kernel delays execution for some specific scalar values
+Status delay(compute::KernelContext* ctx, const compute::ExecSpan& batch,
+             compute::ExecResult* out) {
+  const ArraySpan& input = batch[0].array;
+  const uint32_t* input_values = input.GetValues<uint32_t>(1);
+  uint8_t* output_values = out->array_span()->buffers[1].data;
+
+  // Boolean data is stored in 1 bit per value
+  for (int64_t i = 0; i < input.length; ++i) {
+    if (input_values[i] % 16 == 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    bit_util::SetBitTo(output_values, i, true);
+  }
+
+  return Status::OK();
+}
+
+TEST_F(TestFileSystemDataset, WritePersistOrder) {
+  // Test for ARROW-26818
+  auto format = std::make_shared<IpcFileFormat>();
+  FileSystemDatasetWriteOptions write_options;
+  write_options.file_write_options = format->DefaultWriteOptions();
+  write_options.base_dir = "root";
+  write_options.partitioning = std::make_shared<HivePartitioning>(schema({}));
+  write_options.basename_template = "{i}.feather";
+
+  auto table = gen::Gen({gen::Step()})->FailOnError()->Table(2, 1024);
+  auto dataset = std::make_shared<InMemoryDataset>(table);
+
+  // register the scalar function that delays execution for some rows
+  // this guarantees the writing phase sees out-of-order exec batches
+  auto delay_func = std::make_shared<compute::ScalarFunction>("delay", compute::Arity(1),
+                                                              compute::FunctionDoc());
+  compute::ScalarKernel delay_kernel;
+  delay_kernel.exec = delay;
+  delay_kernel.signature = compute::KernelSignature::Make({uint32()}, boolean());
+  ARROW_CHECK_OK(delay_func->AddKernel(delay_kernel));
+  ARROW_CHECK_OK(compute::GetFunctionRegistry()->AddFunction(delay_func));
+
+  for (bool preserve_order : {true, false}) {
+    ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+    ARROW_CHECK_OK(scanner_builder->UseThreads(true));
+    ARROW_CHECK_OK(
+        scanner_builder->Filter(compute::call("delay", {compute::field_ref("f0")})));
+    ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+
+    auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+    write_options.filesystem = fs;
+    write_options.preserve_order = preserve_order;
+
+    ASSERT_OK(FileSystemDataset::Write(write_options, scanner));
+
+    // Read the file back out and verify the order
+    ASSERT_OK_AND_ASSIGN(auto dataset_factory, FileSystemDatasetFactory::Make(
+                                                   fs, {"root/0.feather"}, format, {}));
+    ASSERT_OK_AND_ASSIGN(auto written_dataset, dataset_factory->Finish(FinishOptions{}));
+    ASSERT_OK_AND_ASSIGN(scanner_builder, written_dataset->NewScan());
+    ASSERT_OK(scanner_builder->UseThreads(false));
+    ASSERT_OK_AND_ASSIGN(scanner, scanner_builder->Finish());
+    ASSERT_OK_AND_ASSIGN(auto actual, scanner->ToTable());
+    TableBatchReader reader(*actual);
+    std::shared_ptr<RecordBatch> batch;
+    ABORT_NOT_OK(reader.ReadNext(&batch));
+    int32_t prev = -1;
+    int out_of_order = 0;
+    while (batch != nullptr) {
+      for (int row = 0; row < batch->num_rows(); ++row) {
+        auto scalar = batch->column(0)->GetScalar(row).ValueOrDie();
+        auto numeric_scalar =
+            std::static_pointer_cast<arrow::NumericScalar<arrow::Int32Type>>(scalar);
+        int32_t value = numeric_scalar->value;
+        if (value <= prev) {
+          out_of_order++;
+        }
+        prev = value;
+      }
+      ABORT_NOT_OK(reader.ReadNext(&batch));
+    }
+    ASSERT_EQ(out_of_order > 0, !preserve_order);
   }
 }
 
