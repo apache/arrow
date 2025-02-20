@@ -84,7 +84,7 @@ def get_logical_type(arrow_type):
             return 'list[{}]'.format(get_logical_type(arrow_type.value_type))
         elif isinstance(arrow_type, pa.lib.TimestampType):
             return 'datetimetz' if arrow_type.tz is not None else 'datetime'
-        elif isinstance(arrow_type, pa.lib.Decimal128Type):
+        elif pa.types.is_decimal(arrow_type):
             return 'decimal'
         return 'object'
 
