@@ -1874,13 +1874,11 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     this->ReadColumn();
     for (size_t i = 0; i < num_values; i++) {
       const ByteArray& value = this->values_out_[i];
-      double x = 0;
-      double y = 0;
-      EXPECT_TRUE(GetWKBPointCoordinate(value, &x, &y));
+      auto xy = GetWKBPointCoordinateXY(value);
+      EXPECT_TRUE(xy.has_value());
       auto expected_x = static_cast<double>(i);
       auto expected_y = static_cast<double>(i + 1);
-      EXPECT_DOUBLE_EQ(expected_x, x);
-      EXPECT_DOUBLE_EQ(expected_y, y);
+      EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
     }
 
     std::shared_ptr<GeospatialStatistics> geospatial_statistics =
@@ -1937,13 +1935,11 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     EXPECT_EQ(expected_values_read, values_read_);
     for (int64_t i = 0; i < values_read_; i++) {
       const ByteArray& value = this->values_out_[i];
-      double x = 0;
-      double y = 0;
-      EXPECT_TRUE(GetWKBPointCoordinate(value, &x, &y));
-      auto expected_x = static_cast<double>(non_null_indices[i]);
-      auto expected_y = static_cast<double>(non_null_indices[i] + 1);
-      EXPECT_DOUBLE_EQ(expected_x, x);
-      EXPECT_DOUBLE_EQ(expected_y, y);
+      auto xy = GetWKBPointCoordinateXY(value);
+      EXPECT_TRUE(xy.has_value());
+      auto expected_x = static_cast<double>(i);
+      auto expected_y = static_cast<double>(i + 1);
+      EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
     }
 
     std::shared_ptr<GeospatialStatistics> geospatial_statistics =

@@ -842,70 +842,13 @@ static constexpr uint8_t kWkbNativeEndianness = 0x01;
 static constexpr uint8_t kWkbNativeEndianness = 0x00;
 #endif
 
-static uint32_t GeometryTypeToWKB(geometry::GeometryType geometry_type, bool has_z,
-                                  bool has_m) {
-  auto wkb_geom_type = static_cast<uint32_t>(geometry_type);
-
-  if (has_z) {
-    wkb_geom_type += 1000;
-  }
-
-  if (has_m) {
-    wkb_geom_type += 2000;
-  }
-
-  return wkb_geom_type;
-}
-
 /// \brief Number of bytes in a WKB Point with X and Y dimensions (uint8_t endian,
 /// uint32_t geometry type, 2 * double ordinates)
 static constexpr int kWkbPointXYSize = 21;
 
-static inline std::string MakeWKBPoint(const std::vector<double>& xyzm, bool has_z,
-                                       bool has_m) {
-  // 1:endianness + 4:type + 8:x + 8:y
-  int num_bytes =
-      kWkbPointXYSize + (has_z ? sizeof(double) : 0) + (has_m ? sizeof(double) : 0);
-  std::string wkb(num_bytes, 0);
-  char* ptr = wkb.data();
+std::string MakeWKBPoint(const std::vector<double>& xyzm, bool has_z, bool has_m);
 
-  ptr[0] = kWkbNativeEndianness;
-  uint32_t geom_type = GeometryTypeToWKB(geometry::GeometryType::POINT, has_z, has_m);
-  std::memcpy(&ptr[1], &geom_type, 4);
-  std::memcpy(&ptr[5], &xyzm[0], 8);
-  std::memcpy(&ptr[13], &xyzm[1], 8);
-  ptr += 21;
-
-  if (has_z) {
-    std::memcpy(ptr, &xyzm[2], 8);
-    ptr += 8;
-  }
-
-  if (has_m) {
-    std::memcpy(ptr, &xyzm[3], 8);
-  }
-
-  return wkb;
-}
-
-inline bool GetWKBPointCoordinate(const ByteArray& value, double* out_x, double* out_y) {
-  if (value.len != kWkbPointXYSize) {
-    return false;
-  }
-  if (value.ptr[0] != kWkbNativeEndianness) {
-    return false;
-  }
-  uint32_t expected_geom_type =
-      GeometryTypeToWKB(geometry::GeometryType::POINT, false, false);
-  uint32_t geom_type = 0;
-  memcpy(&geom_type, &value.ptr[1], 4);
-  if (geom_type != expected_geom_type) {
-    return false;
-  }
-  memcpy(out_x, &value.ptr[5], 8);
-  memcpy(out_y, &value.ptr[13], 8);
-  return true;
-}
+std::optional<std::pair<double, double>> GetWKBPointCoordinateXY(const ByteArray& value);
 
 // A minimal version of a geoarrow.wkb extension type to test interoperability
 class GeoArrowWkbExtensionType : public ::arrow::ExtensionType {
