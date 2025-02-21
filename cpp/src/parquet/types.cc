@@ -1855,7 +1855,7 @@ LogicalType::EdgeInterpolationAlgorithm::algorithm GeographyLogicalType::algorit
   return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).algorithm();
 }
 
-const char* GeographyLogicalType::algorithm_name() const {
+std::string_view GeographyLogicalType::algorithm_name() const {
   return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).algorithm_name();
 }
 

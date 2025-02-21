@@ -35,12 +35,12 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
+#include "parquet/geospatial_statistics.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/test_util.h"
-#include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
 namespace bit_util = arrow::bit_util;
@@ -403,7 +403,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     // Metadata accessor must be created lazily.
     // This is because the ColumnChunkMetaData semantics dictate the metadata object is
     // complete (no changes to the metadata buffer can be made after instantiation)
-    return ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
+    ApplicationVersion app_version(this->writer_properties_->created_by());
+    return ColumnChunkMetaData::Make(metadata_->contents(), this->descr_,
+                                     default_reader_properties(), &app_version);
   }
 
   EncodedStatistics metadata_encoded_stats() { return metadata_stats()->Encode(); }
