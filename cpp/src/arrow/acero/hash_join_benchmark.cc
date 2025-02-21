@@ -28,11 +28,9 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/thread_pool.h"
 
-#include <condition_variable>
 #include <cstdint>
 #include <cstdio>
 #include <memory>
-#include <mutex>
 
 namespace arrow {
 namespace acero {
