@@ -1904,26 +1904,26 @@ class TestGeometryLogicalType : public ::testing::Test {
   }
 
   void WriteTestDataUsingWriteBatch(ByteArrayWriter* writer) {
-    std::vector<uint8_t> buffer(test::kWkbPointSize * kNumRows);
+    std::vector<uint8_t> buffer(test::kWkbPointXYSize * kNumRows);
     uint8_t* ptr = buffer.data();
     std::vector<ByteArray> values(kNumRows);
     for (int k = 0; k < kNumRows; k++) {
       test::GenerateWKBPoint(ptr, k, k + 1);
-      values[k].len = test::kWkbPointSize;
+      values[k].len = test::kWkbPointXYSize;
       values[k].ptr = ptr;
-      ptr += test::kWkbPointSize;
+      ptr += test::kWkbPointXYSize;
     }
     writer->WriteBatch(kNumRows, nullptr, nullptr, values.data());
   }
 
   void WriteTestDataUsingWriteArrow(ByteArrayWriter* writer) {
     ::arrow::BinaryBuilder builder;
-    std::vector<uint8_t> buffer(test::kWkbPointSize * kNumRows);
+    std::vector<uint8_t> buffer(test::kWkbPointXYSize * kNumRows);
     uint8_t* ptr = buffer.data();
     for (int k = 0; k < kNumRows; k++) {
       test::GenerateWKBPoint(ptr, k, k + 1);
-      ASSERT_OK(builder.Append(ptr, test::kWkbPointSize));
-      ptr += test::kWkbPointSize;
+      ASSERT_OK(builder.Append(ptr, test::kWkbPointXYSize));
+      ptr += test::kWkbPointXYSize;
     }
     std::shared_ptr<::arrow::BinaryArray> array;
     ASSERT_OK(builder.Finish(&array));

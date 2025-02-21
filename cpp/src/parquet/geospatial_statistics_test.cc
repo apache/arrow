@@ -146,7 +146,7 @@ TEST(TestGeospatialStatistics, TestUpdateByteArray) {
 TEST(TestGeospatialStatistics, TestUpdateArray) {
   // Build WKB array with a null from POINT (0 1)...POINT (14, 15)
   ::arrow::BinaryBuilder builder;
-  std::array<char, test::kWkbPointSize> item;
+  std::array<char, test::kWkbPointXYSize> item;
   for (int k = 0; k < 10; k++) {
     test::GenerateWKBPoint(reinterpret_cast<uint8_t*>(item.data()), k, k + 1);
     ASSERT_OK(builder.AppendValues({std::string(item.data(), item.size())}));

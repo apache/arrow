@@ -1489,7 +1489,7 @@ TEST_F(TestGeoArrowParquetIO, GeoArrowExtension) {
 
   // Build a binary WKB array with at least one null value
   ::arrow::BinaryBuilder builder;
-  std::array<char, test::kWkbPointSize> item;
+  std::array<char, test::kWkbPointXYSize> item;
   for (int k = 0; k < 10; k++) {
     test::GenerateWKBPoint(reinterpret_cast<uint8_t*>(item.data()), k, k + 1);
     ASSERT_OK(builder.AppendValues({std::string(item.data(), item.size())}));

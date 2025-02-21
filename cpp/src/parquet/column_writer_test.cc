@@ -1846,13 +1846,13 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
   void GenerateData(int64_t num_values, uint32_t seed = 0) {
     values_.resize(num_values);
 
-    buffer_.resize(num_values * kWkbPointSize);
+    buffer_.resize(num_values * kWkbPointXYSize);
     uint8_t* ptr = buffer_.data();
     for (int k = 0; k < num_values; k++) {
       GenerateWKBPoint(ptr, k, k + 1);
-      values_[k].len = kWkbPointSize;
+      values_[k].len = kWkbPointXYSize;
       values_[k].ptr = ptr;
-      ptr += kWkbPointSize;
+      ptr += kWkbPointXYSize;
     }
 
     values_ptr_ = values_.data();

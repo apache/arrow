@@ -881,16 +881,16 @@ static inline std::string MakeWKBPoint(const double* xyzm, bool has_z, bool has_
   return wkb;
 }
 
-static constexpr int kWkbPointSize = 21;  // 1:endianness + 4:type + 8:x + 8:y
+static constexpr int kWkbPointXYSize = 21;  // 1:endianness + 4:type + 8:x + 8:y
 
 inline void GenerateWKBPoint(uint8_t* ptr, double x, double y) {
   double xyzm[] = {x, y, geometry::kInf, geometry::kInf};
   std::string wkb = MakeWKBPoint(xyzm, false, false);
-  std::memcpy(ptr, wkb.data(), kWkbPointSize);
+  std::memcpy(ptr, wkb.data(), kWkbPointXYSize);
 }
 
 inline bool GetWKBPointCoordinate(const ByteArray& value, double* out_x, double* out_y) {
-  if (value.len != kWkbPointSize) {
+  if (value.len != kWkbPointXYSize) {
     return false;
   }
   if (value.ptr[0] != kWkbNativeEndianness) {
