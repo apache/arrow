@@ -1867,8 +1867,7 @@ class TestGeometryLogicalType : public ::testing::Test {
  public:
   const int kNumRows = 1000;
 
-  void WriteTestData(ParquetDataPageVersion data_page_version,
-                     bool enable_write_page_index, bool write_arrow) {
+  void WriteTestData(ParquetDataPageVersion data_page_version, bool write_arrow) {
     // Make schema
     schema::NodeVector fields;
     fields.push_back(PrimitiveNode::Make("g", Repetition::REQUIRED,
@@ -1881,9 +1880,6 @@ class TestGeometryLogicalType : public ::testing::Test {
     auto writer_props_builder = WriterProperties::Builder();
     writer_props_builder.write_batch_size(64)->data_pagesize(128)->data_page_version(
         data_page_version);
-    if (enable_write_page_index) {
-      writer_props_builder.enable_write_page_index();
-    }
 
     std::shared_ptr<WriterProperties> writer_props = writer_props_builder.build();
 
@@ -1893,7 +1889,8 @@ class TestGeometryLogicalType : public ::testing::Test {
     RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
 
     // write WKB points to columns
-    auto* writer = static_cast<ByteArrayWriter*>(rg_writer->NextColumn());
+    auto* writer =
+        ::arrow::internal::checked_cast<ByteArrayWriter*>(rg_writer->NextColumn());
     if (!write_arrow) {
       WriteTestDataUsingWriteBatch(writer);
     } else {
@@ -1935,12 +1932,12 @@ class TestGeometryLogicalType : public ::testing::Test {
         ArrowWriterProperties::Builder().build();
     MemoryPool* pool = ::arrow::default_memory_pool();
     auto ctx = std::make_unique<ArrowWriteContext>(pool, properties.get());
-    ASSERT_OK(writer->WriteArrow(nullptr, nullptr, kNumRows, *array, ctx.get(), true));
+    ASSERT_OK(writer->WriteArrow(nullptr, nullptr, kNumRows, *array, ctx.get(),
+                                 /*leaf_field_nullable=*/true));
   }
 
-  void TestWriteAndRead(ParquetDataPageVersion data_page_version,
-                        bool enable_write_page_index, bool write_arrow) {
-    WriteTestData(data_page_version, enable_write_page_index, write_arrow);
+  void TestWriteAndRead(ParquetDataPageVersion data_page_version, bool write_arrow) {
+    WriteTestData(data_page_version, write_arrow);
 
     auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
 
@@ -1953,11 +1950,14 @@ class TestGeometryLogicalType : public ::testing::Test {
     auto metadata = file_reader->metadata();
     auto page_index_reader = file_reader->GetPageIndexReader();
     int num_row_groups = metadata->num_row_groups();
+    int64_t start_index = 0;
     for (int i = 0; i < num_row_groups; i++) {
       auto row_group_metadata = metadata->RowGroup(i);
       auto column_chunk_metadata = row_group_metadata->ColumnChunk(0);
       auto geospatial_stats = column_chunk_metadata->geospatial_statistics();
-      CheckGeospatialStatistics(geospatial_stats);
+      CheckGeospatialStatistics(geospatial_stats, start_index,
+                                row_group_metadata->num_rows());
+      start_index += row_group_metadata->num_rows();
     }
 
     // Check the geometry values
@@ -1992,15 +1992,22 @@ class TestGeometryLogicalType : public ::testing::Test {
     EXPECT_EQ(kNumRows, total_values_read);
   }
 
-  void CheckGeospatialStatistics(std::shared_ptr<GeospatialStatistics> geom_stats) {
+  void CheckGeospatialStatistics(std::shared_ptr<GeospatialStatistics> geom_stats,
+                                 int64_t start_index, int64_t num_rows) {
     ASSERT_TRUE(geom_stats != nullptr);
+    // We wrote exactly one geometry type (POINT, which has code 1)
     std::vector<int32_t> geospatial_types = geom_stats->GetGeometryTypes();
-    EXPECT_EQ(1, geospatial_types.size());
-    EXPECT_EQ(1, geospatial_types[0]);
-    EXPECT_GE(geom_stats->GetXMin(), 0);
-    EXPECT_GT(geom_stats->GetXMax(), geom_stats->GetXMin());
-    EXPECT_GT(geom_stats->GetYMin(), 0);
-    EXPECT_GT(geom_stats->GetYMax(), geom_stats->GetYMin());
+    EXPECT_THAT(geospatial_types, ::testing::ElementsAre(1));
+
+    double expected_xmin = static_cast<double>(start_index);
+    double expected_xmax = expected_xmin + num_rows - 1;
+    double expected_ymin = expected_xmin + 1;
+    double expected_ymax = expected_xmax + 1;
+
+    EXPECT_EQ(geom_stats->GetXMin(), expected_xmin);
+    EXPECT_EQ(geom_stats->GetXMax(), expected_xmax);
+    EXPECT_EQ(geom_stats->GetYMin(), expected_ymin);
+    EXPECT_EQ(geom_stats->GetYMax(), expected_ymax);
     EXPECT_FALSE(geom_stats->HasZ());
     EXPECT_FALSE(geom_stats->HasM());
   }
@@ -2009,25 +2016,17 @@ class TestGeometryLogicalType : public ::testing::Test {
   std::shared_ptr<Buffer> file_buf;
 };
 
-TEST_F(TestGeometryLogicalType, TestWriteAndReadWithPageStatistics) {
+TEST_F(TestGeometryLogicalType, TestWrite) {
   for (auto data_page_version :
        {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndRead(data_page_version, false, false);
-  }
-}
-
-TEST_F(TestGeometryLogicalType, TestWriteAndReadWithColumnIndex) {
-  for (auto data_page_version :
-       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndRead(data_page_version, true, false);
+    TestWriteAndRead(data_page_version, /*write_arrow=*/false);
   }
 }
 
 TEST_F(TestGeometryLogicalType, TestWriteArrowAndRead) {
   for (auto data_page_version :
        {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndRead(data_page_version, false, true);
-    TestWriteAndRead(data_page_version, true, true);
+    TestWriteAndRead(data_page_version, /*write_arrow=*/true);
   }
 }
 
