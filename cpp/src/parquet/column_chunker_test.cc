@@ -92,7 +92,8 @@ Result<std::shared_ptr<Buffer>> WriteTableToBuffer(const std::shared_ptr<Table>&
     builder.disable_dictionary();
   }
   auto write_props = builder.build();
-  auto arrow_props = default_arrow_writer_properties();
+
+  auto arrow_props = ArrowWriterProperties::Builder().store_schema()->build();
   RETURN_NOT_OK(WriteTable(*table, default_memory_pool(), sink, row_group_size,
                            write_props, arrow_props));
   return sink->Finish();
@@ -110,8 +111,9 @@ Result<std::shared_ptr<Table>> ReadTableFromBuffer(const std::shared_ptr<Buffer>
   return result;
 }
 
-std::vector<uint64_t> GetColumnPageLengths(const std::shared_ptr<Buffer>& data,
-                                           int column_index = 0) {
+std::pair<std::vector<uint64_t>, std::vector<uint64_t>> GetColumnPageSizes(
+    const std::shared_ptr<Buffer>& data, int column_index = 0) {
+  std::vector<uint64_t> page_sizes;
   std::vector<uint64_t> page_lengths;
 
   auto buffer_reader = std::make_shared<BufferReader>(data);
@@ -123,20 +125,18 @@ std::vector<uint64_t> GetColumnPageLengths(const std::shared_ptr<Buffer>& data,
     while (auto page = page_reader->NextPage()) {
       if (page->type() == PageType::DATA_PAGE || page->type() == PageType::DATA_PAGE_V2) {
         auto data_page = static_cast<DataPage*>(page.get());
+        page_sizes.push_back(data_page->size());
         page_lengths.push_back(data_page->num_values());
       }
     }
   }
 
-  return page_lengths;
+  return {page_lengths, page_sizes};
 }
 
-Result<std::vector<uint64_t>> WriteAndGetPageLengths(const std::shared_ptr<Table>& table,
-                                                     uint64_t min_chunk_size,
-                                                     uint64_t max_chunk_size,
-
-                                                     bool enable_dictionary = false,
-                                                     int column_index = 0) {
+Result<std::pair<std::vector<uint64_t>, std::vector<uint64_t>>> WriteAndGetPageSizes(
+    const std::shared_ptr<Table>& table, uint64_t min_chunk_size, uint64_t max_chunk_size,
+    bool enable_dictionary = false, int column_index = 0) {
   ARROW_ASSIGN_OR_RAISE(
       auto buffer,
       WriteTableToBuffer(table, min_chunk_size, max_chunk_size, enable_dictionary));
@@ -145,7 +145,7 @@ Result<std::vector<uint64_t>> WriteAndGetPageLengths(const std::shared_ptr<Table
   RETURN_NOT_OK(readback->ValidateFull());
   ARROW_RETURN_IF(!readback->Equals(*table),
                   Status::Invalid("Readback table not equal to original"));
-  return GetColumnPageLengths(buffer, column_index);
+  return GetColumnPageSizes(buffer, column_index);
 }
 
 void AssertAllBetween(const std::vector<uint64_t>& values, uint64_t min, uint64_t max,
@@ -385,11 +385,11 @@ constexpr uint64_t kEditLength = 32;
 // - test nested types
 // - test multiple row groups
 
-class TestContentDefinedChunker
+class TestFixedSizedTypeCDC
     : public ::testing::TestWithParam<
           std::tuple<std::shared_ptr<::arrow::DataType>, bool, bool>> {};
 
-TEST_P(TestContentDefinedChunker, DeleteOnce) {
+TEST_P(TestFixedSizedTypeCDC, DeleteOnce) {
   auto dtype = std::get<0>(GetParam());
   auto nullable = std::get<1>(GetParam());
   auto enable_dictionary = std::get<2>(GetParam());
@@ -406,23 +406,22 @@ TEST_P(TestContentDefinedChunker, DeleteOnce) {
 
   auto min_length = ElementCount(kMinChunkSize, dtype->byte_width(), nullable);
   auto max_length = ElementCount(kMaxChunkSize, dtype->byte_width(), nullable);
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
 
-  ASSERT_OK_AND_ASSIGN(auto base_lengths,
-                       WriteAndGetPageLengths(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
-  ASSERT_OK_AND_ASSIGN(auto modified_lengths,
-                       WriteAndGetPageLengths(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
-
-  AssertAllBetween(base_lengths, min_length, max_length,
+  AssertAllBetween(base_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertAllBetween(modified_lengths, min_length, max_length,
+  AssertAllBetween(modified_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
 
-  AssertDeleteCase(base_lengths, modified_lengths, 1, kEditLength);
+  AssertDeleteCase(base_result.first, modified_result.first, 1, kEditLength);
 }
 
-TEST_P(TestContentDefinedChunker, DeleteTwice) {
+TEST_P(TestFixedSizedTypeCDC, DeleteTwice) {
   auto dtype = std::get<0>(GetParam());
   auto nullable = std::get<1>(GetParam());
   auto enable_dictionary = std::get<2>(GetParam());
@@ -442,21 +441,21 @@ TEST_P(TestContentDefinedChunker, DeleteTwice) {
   auto min_length = ElementCount(kMinChunkSize, dtype->byte_width(), nullable);
   auto max_length = ElementCount(kMaxChunkSize, dtype->byte_width(), nullable);
 
-  ASSERT_OK_AND_ASSIGN(auto base_lengths,
-                       WriteAndGetPageLengths(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
-  ASSERT_OK_AND_ASSIGN(auto modified_lengths,
-                       WriteAndGetPageLengths(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
 
-  AssertAllBetween(base_lengths, min_length, max_length,
+  AssertAllBetween(base_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertAllBetween(modified_lengths, min_length, max_length,
+  AssertAllBetween(modified_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertDeleteCase(base_lengths, modified_lengths, 2, kEditLength);
+  AssertDeleteCase(base_result.first, modified_result.first, 2, kEditLength);
 }
 
-TEST_P(TestContentDefinedChunker, UpdateOnce) {
+TEST_P(TestFixedSizedTypeCDC, UpdateOnce) {
   auto dtype = std::get<0>(GetParam());
   auto nullable = std::get<1>(GetParam());
   auto enable_dictionary = std::get<2>(GetParam());
@@ -475,21 +474,21 @@ TEST_P(TestContentDefinedChunker, UpdateOnce) {
   auto min_length = ElementCount(kMinChunkSize, dtype->byte_width(), nullable);
   auto max_length = ElementCount(kMaxChunkSize, dtype->byte_width(), nullable);
 
-  ASSERT_OK_AND_ASSIGN(auto base_lengths,
-                       WriteAndGetPageLengths(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
-  ASSERT_OK_AND_ASSIGN(auto modified_lengths,
-                       WriteAndGetPageLengths(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
 
-  AssertAllBetween(base_lengths, min_length, max_length,
+  AssertAllBetween(base_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertAllBetween(modified_lengths, min_length, max_length,
+  AssertAllBetween(modified_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertUpdateCase(base_lengths, modified_lengths, 1);
+  AssertUpdateCase(base_result.first, modified_result.first, 1);
 }
 
-TEST_P(TestContentDefinedChunker, UpdateTwice) {
+TEST_P(TestFixedSizedTypeCDC, UpdateTwice) {
   auto dtype = std::get<0>(GetParam());
   auto nullable = std::get<1>(GetParam());
   auto enable_dictionary = std::get<2>(GetParam());
@@ -511,21 +510,21 @@ TEST_P(TestContentDefinedChunker, UpdateTwice) {
   auto min_length = ElementCount(kMinChunkSize, dtype->byte_width(), nullable);
   auto max_length = ElementCount(kMaxChunkSize, dtype->byte_width(), nullable);
 
-  ASSERT_OK_AND_ASSIGN(auto base_lengths,
-                       WriteAndGetPageLengths(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
-  ASSERT_OK_AND_ASSIGN(auto modified_lengths,
-                       WriteAndGetPageLengths(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
 
-  AssertAllBetween(base_lengths, min_length, max_length,
+  AssertAllBetween(base_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertAllBetween(modified_lengths, min_length, max_length,
+  AssertAllBetween(modified_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertUpdateCase(base_lengths, modified_lengths, 2);
+  AssertUpdateCase(base_result.first, modified_result.first, 2);
 }
 
-TEST_P(TestContentDefinedChunker, InsertOnce) {
+TEST_P(TestFixedSizedTypeCDC, InsertOnce) {
   auto dtype = std::get<0>(GetParam());
   auto nullable = std::get<1>(GetParam());
   auto enable_dictionary = std::get<2>(GetParam());
@@ -543,25 +542,24 @@ TEST_P(TestContentDefinedChunker, InsertOnce) {
   auto min_length = ElementCount(kMinChunkSize, dtype->byte_width(), nullable);
   auto max_length = ElementCount(kMaxChunkSize, dtype->byte_width(), nullable);
 
-  ASSERT_OK_AND_ASSIGN(auto base_lengths,
-                       WriteAndGetPageLengths(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
-  ASSERT_OK_AND_ASSIGN(auto modified_lengths,
-                       WriteAndGetPageLengths(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
 
-  AssertAllBetween(base_lengths, min_length, max_length,
+  AssertAllBetween(base_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertAllBetween(modified_lengths, min_length, max_length,
+  AssertAllBetween(modified_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertInsertCase(base_lengths, modified_lengths, 1, kEditLength);
+  AssertInsertCase(base_result.first, modified_result.first, 1, kEditLength);
 }
 
-TEST_P(TestContentDefinedChunker, InsertTwice) {
+TEST_P(TestFixedSizedTypeCDC, InsertTwice) {
   auto dtype = std::get<0>(GetParam());
   auto nullable = std::get<1>(GetParam());
   auto enable_dictionary = std::get<2>(GetParam());
-  enable_dictionary = false;
 
   auto field = ::arrow::field("f0", dtype, nullable);
 
@@ -578,21 +576,21 @@ TEST_P(TestContentDefinedChunker, InsertTwice) {
   auto min_length = ElementCount(kMinChunkSize, dtype->byte_width(), nullable);
   auto max_length = ElementCount(kMaxChunkSize, dtype->byte_width(), nullable);
 
-  ASSERT_OK_AND_ASSIGN(auto base_lengths,
-                       WriteAndGetPageLengths(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
-  ASSERT_OK_AND_ASSIGN(auto modified_lengths,
-                       WriteAndGetPageLengths(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
 
-  AssertAllBetween(base_lengths, min_length, max_length,
+  AssertAllBetween(base_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertAllBetween(modified_lengths, min_length, max_length,
+  AssertAllBetween(modified_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertInsertCase(base_lengths, modified_lengths, 2, kEditLength);
+  AssertInsertCase(base_result.first, modified_result.first, 2, kEditLength);
 }
 
-TEST_P(TestContentDefinedChunker, Append) {
+TEST_P(TestFixedSizedTypeCDC, Append) {
   auto dtype = std::get<0>(GetParam());
   auto nullable = std::get<1>(GetParam());
   auto enable_dictionary = std::get<2>(GetParam());
@@ -611,26 +609,222 @@ TEST_P(TestContentDefinedChunker, Append) {
   auto min_length = ElementCount(kMinChunkSize, dtype->byte_width(), nullable);
   auto max_length = ElementCount(kMaxChunkSize, dtype->byte_width(), nullable);
 
-  ASSERT_OK_AND_ASSIGN(auto base_lengths,
-                       WriteAndGetPageLengths(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
-  ASSERT_OK_AND_ASSIGN(auto modified_lengths,
-                       WriteAndGetPageLengths(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
+                                            /*enable_dictionary=*/enable_dictionary));
 
-  AssertAllBetween(base_lengths, min_length, max_length,
+  AssertAllBetween(base_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertAllBetween(modified_lengths, min_length, max_length,
+  AssertAllBetween(modified_result.first, min_length, max_length,
                    /*expect_dictionary_fallback=*/enable_dictionary);
-  AssertAppendCase(base_lengths, modified_lengths);
+  AssertAppendCase(base_result.first, modified_result.first);
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    FixedSizedTypes, TestContentDefinedChunker,
+    FixedSizedTypes, TestFixedSizedTypeCDC,
     Combine(Values(::arrow::uint8(), ::arrow::uint16(), ::arrow::uint32(),
                    ::arrow::uint64(), ::arrow::int8(), ::arrow::int16(), ::arrow::int32(),
                    ::arrow::int64(), ::arrow::float16(), ::arrow::float32(),
                    ::arrow::float64()),
             Bool(), Bool()));
+
+class TestVariableLengthTypeCDC
+    : public ::testing::TestWithParam<
+          std::tuple<std::shared_ptr<::arrow::DataType>, bool>> {};
+
+TEST_P(TestVariableLengthTypeCDC, Append) {
+  auto dtype = std::get<0>(GetParam());
+  auto nullable = std::get<1>(GetParam());
+
+  auto field = ::arrow::field("f0", dtype, nullable);
+
+  auto part1 = GenerateTable({field}, kPartLength, /*seed=*/1);
+  auto part2 = GenerateTable({field}, kEditLength, /*seed=*/2);
+  auto part3 = GenerateTable({field}, kPartLength, /*seed=*/3);
+  auto part4 = GenerateTable({field}, kEditLength, /*seed=*/4);
+
+  auto base = ConcatAndCombine({part1, part2, part3});
+  auto modified = ConcatAndCombine({part1, part2, part3, part4});
+  ASSERT_FALSE(base->Equals(*modified));
+
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize));
+
+  if (!nullable) {
+    AssertAllBetween(base_result.second, kMinChunkSize, kMaxChunkSize);
+    AssertAllBetween(modified_result.second, kMinChunkSize, kMaxChunkSize);
+  }
+  AssertAppendCase(base_result.first, modified_result.first);
+}
+
+TEST_P(TestVariableLengthTypeCDC, UpdateOnce) {
+  auto dtype = std::get<0>(GetParam());
+  auto nullable = std::get<1>(GetParam());
+
+  auto field = ::arrow::field("f0", dtype, nullable);
+
+  auto part1 = GenerateTable({field}, kPartLength, /*seed=*/1);
+  auto part2 = GenerateTable({field}, kEditLength, /*seed=*/2);
+  auto part3 = GenerateTable({field}, kPartLength, /*seed=*/3);
+  auto part4 = GenerateTable({field}, kEditLength, /*seed=*/4);
+
+  auto base = ConcatAndCombine({part1, part2, part3});
+  auto modified = ConcatAndCombine({part1, part4, part3});
+  ASSERT_FALSE(base->Equals(*modified));
+
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize));
+  if (!nullable) {
+    AssertAllBetween(base_result.second, kMinChunkSize, kMaxChunkSize);
+    AssertAllBetween(modified_result.second, kMinChunkSize, kMaxChunkSize);
+  }
+  AssertUpdateCase(base_result.first, modified_result.first, 1);
+}
+
+TEST_P(TestVariableLengthTypeCDC, UpdateTwice) {
+  auto dtype = std::get<0>(GetParam());
+  auto nullable = std::get<1>(GetParam());
+
+  auto field = ::arrow::field("f0", dtype, nullable);
+
+  auto part1 = GenerateTable({field}, kPartLength, /*seed=*/1);
+  auto part2 = GenerateTable({field}, kEditLength, /*seed=*/2);
+  auto part3 = GenerateTable({field}, kPartLength, /*seed=*/3);
+  auto part4 = GenerateTable({field}, kEditLength, /*seed=*/4);
+  auto part5 = GenerateTable({field}, kPartLength, /*seed=*/5);
+  auto part6 = GenerateTable({field}, kEditLength, /*seed=*/6);
+  auto part7 = GenerateTable({field}, kEditLength, /*seed=*/7);
+
+  auto base = ConcatAndCombine({part1, part2, part3, part4, part5});
+  auto modified = ConcatAndCombine({part1, part6, part3, part7, part5});
+  ASSERT_FALSE(base->Equals(*modified));
+
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize));
+  if (!nullable) {
+    AssertAllBetween(base_result.second, kMinChunkSize, kMaxChunkSize);
+    AssertAllBetween(modified_result.second, kMinChunkSize, kMaxChunkSize);
+  }
+  AssertUpdateCase(base_result.first, modified_result.first, 2);
+}
+
+TEST_P(TestVariableLengthTypeCDC, InsertOnce) {
+  auto dtype = std::get<0>(GetParam());
+  auto nullable = std::get<1>(GetParam());
+
+  auto field = ::arrow::field("f0", dtype, nullable);
+
+  auto part1 = GenerateTable({field}, kPartLength, /*seed=*/1);
+  auto part2 = GenerateTable({field}, kEditLength, /*seed=*/2);
+  auto part3 = GenerateTable({field}, kPartLength, /*seed=*/3);
+
+  auto base = ConcatAndCombine({part1, part3});
+  auto modified = ConcatAndCombine({part1, part2, part3});
+  ASSERT_FALSE(base->Equals(*modified));
+
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize));
+  if (!nullable) {
+    AssertAllBetween(base_result.second, kMinChunkSize, kMaxChunkSize);
+    AssertAllBetween(modified_result.second, kMinChunkSize, kMaxChunkSize);
+  }
+  AssertInsertCase(base_result.first, modified_result.first, 1, kEditLength);
+}
+
+TEST_P(TestVariableLengthTypeCDC, InsertTwice) {
+  auto dtype = std::get<0>(GetParam());
+  auto nullable = std::get<1>(GetParam());
+
+  auto field = ::arrow::field("f0", dtype, nullable);
+
+  auto part1 = GenerateTable({field}, kPartLength, /*seed=*/1);
+  auto part2 = GenerateTable({field}, kEditLength, /*seed=*/2);
+  auto part3 = GenerateTable({field}, kPartLength, /*seed=*/3);
+  auto part4 = GenerateTable({field}, kEditLength, /*seed=*/4);
+  auto part5 = GenerateTable({field}, kPartLength, /*seed=*/5);
+
+  auto base = ConcatAndCombine({part1, part3, part5});
+  auto modified = ConcatAndCombine({part1, part2, part3, part4, part5});
+  ASSERT_FALSE(base->Equals(*modified));
+
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize));
+  if (!nullable) {
+    AssertAllBetween(base_result.second, kMinChunkSize, kMaxChunkSize);
+    AssertAllBetween(modified_result.second, kMinChunkSize, kMaxChunkSize);
+  }
+  AssertInsertCase(base_result.first, modified_result.first, 2, kEditLength);
+}
+
+TEST_P(TestVariableLengthTypeCDC, DeleteOnce) {
+  auto dtype = std::get<0>(GetParam());
+  auto nullable = std::get<1>(GetParam());
+
+  auto field = ::arrow::field("f0", dtype, nullable);
+
+  auto part1 = GenerateTable({field}, kPartLength, /*seed=*/1);
+  auto part2 = GenerateTable({field}, kEditLength, /*seed=*/2);
+  auto part3 = GenerateTable({field}, kPartLength, /*seed=*/3);
+
+  auto base = ConcatAndCombine({part1, part2, part3});
+  auto modified = ConcatAndCombine({part1, part3});
+  ASSERT_FALSE(base->Equals(*modified));
+
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize));
+  if (!nullable) {
+    AssertAllBetween(base_result.second, kMinChunkSize, kMaxChunkSize);
+    AssertAllBetween(modified_result.second, kMinChunkSize, kMaxChunkSize);
+  }
+  AssertDeleteCase(base_result.first, modified_result.first, 1, kEditLength);
+}
+
+TEST_P(TestVariableLengthTypeCDC, DeleteTwice) {
+  auto dtype = std::get<0>(GetParam());
+  auto nullable = std::get<1>(GetParam());
+
+  auto field = ::arrow::field("f0", dtype, nullable);
+
+  auto part1 = GenerateTable({field}, kPartLength, /*seed=*/1);
+  auto part2 = GenerateTable({field}, kEditLength, /*seed=*/2);
+  auto part3 = GenerateTable({field}, kPartLength, /*seed=*/3);
+  auto part4 = GenerateTable({field}, kEditLength, /*seed=*/4);
+  auto part5 = GenerateTable({field}, kPartLength, /*seed=*/5);
+
+  auto base = ConcatAndCombine({part1, part2, part3, part4, part5});
+  auto modified = ConcatAndCombine({part1, part3, part5});
+  ASSERT_FALSE(base->Equals(*modified));
+
+  ASSERT_OK_AND_ASSIGN(auto base_result,
+                       WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize));
+  ASSERT_OK_AND_ASSIGN(auto modified_result,
+                       WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize));
+  if (!nullable) {
+    AssertAllBetween(base_result.second, kMinChunkSize, kMaxChunkSize);
+    AssertAllBetween(modified_result.second, kMinChunkSize, kMaxChunkSize);
+  }
+  AssertDeleteCase(base_result.first, modified_result.first, 2, kEditLength);
+}
+
+INSTANTIATE_TEST_SUITE_P(VarLenTypes, TestVariableLengthTypeCDC,
+                         Combine(Values(::arrow::utf8(), ::arrow::large_utf8(),
+                                        ::arrow::binary(), ::arrow::large_binary(),
+                                        ::arrow::fixed_size_binary(16)),
+                                 Bool()));
 
 }  // namespace parquet
