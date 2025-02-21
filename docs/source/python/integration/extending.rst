@@ -146,6 +146,41 @@ C++ objects.
    Return whether *obj* wraps an Arrow C++ :type:`SparseCSRMatrix` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.SparseCSRMatrix` instance.
 
+.. function:: bool arrow::py::is_expression(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :type:`compute::Expression` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.compute.Expression` instance.
+
+.. function:: bool arrow::py::is_filesystem(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :type:`filesystem::FileSystem` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.fs.FileSystem` instance.
+
+.. function:: bool arrow::py::is_dataset(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :type:`dataset::Dataset` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.dataset.Dataset` instance.
+
+.. function:: bool arrow::py::is_fragment(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :type:`dataset::Fragment` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.dataset.Fragment` instance.
+
+.. function:: bool arrow::py::is_partitioning(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :type:`dataset::Partitioning` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.dataset.Partitioning` instance.
+
+.. function:: bool arrow::py::is_scanner(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :type:`dataset::Scanner` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.dataset.Scanner` instance.
+
+.. function:: bool arrow::py::is_record_batch_reader(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :type:`RecordBatchReader` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.RecordBatchReader` instance.
+
 
 The following functions expect a pyarrow object, unwrap the underlying
 Arrow C++ API pointer, and return it as a :class:`Result` object.  An error
@@ -203,6 +238,34 @@ may be returned if the input object doesn't have the expected type.
 
    Unwrap and return the Arrow C++ :type:`SparseCSRMatrix` pointer from *obj*.
 
+.. function:: Result<std::shared_ptr<compute::Expression>> arrow::py::unwrap_expression(PyObject* obj)
+
+   Unwrap and return the Arrow C++ :type:`compute::Expression` pointer from *obj*.
+
+.. function:: Result<std::shared_ptr<filesystem::FileSystem>> arrow::py::unwrap_filesystem(PyObject* obj)
+
+   Unwrap and return the Arrow C++ :type:`filesystem::FileSystem` pointer from *obj*.
+
+.. function:: Result<std::shared_ptr<dataset::Dataset>> arrow::py::unwrap_dataset(PyObject* obj)
+
+   Unwrap and return the Arrow C++ :type:`dataset::Dataset` pointer from *obj*.
+
+.. function:: Result<std::shared_ptr<dataset::Fragment>> arrow::py::unwrap_fragment(PyObject* obj)
+
+   Unwrap and return the Arrow C++ :type:`dataset::Fragment` pointer from *obj*.
+
+.. function:: Result<std::shared_ptr<dataset::Partitioning>> arrow::py::unwrap_partitioning(PyObject* obj)
+
+   Unwrap and return the Arrow C++ :type:`dataset::Partitioning` pointer from *obj*.
+
+.. function:: Result<std::shared_ptr<dataset::Scanner>> arrow::py::unwrap_scanner(PyObject* obj)
+
+   Unwrap and return the Arrow C++ :type:`dataset::Scanner` pointer from *obj*.
+
+.. function:: Result<std::shared_ptr<RecordBatchReader>> arrow::py::unwrap_record_batch_reader(PyObject* obj)
+
+   Unwrap and return the Arrow C++ :type:`RecordBatchReader` pointer from *obj*.
+
 
 The following functions take an Arrow C++ API pointer and wrap it in a
 pyarray object of the corresponding type.  A new reference is returned.
@@ -259,6 +322,34 @@ On error, NULL is returned and a Python exception is set.
 .. function:: PyObject* arrow::py::wrap_sparse_csr_matrix(const std::shared_ptr<SparseCSRMatrix>& sparse_tensor)
 
    Wrap the Arrow C++ *sparse_tensor* in a :py:class:`pyarrow.SparseCSRMatrix` instance.
+
+.. function:: PyObject* arrow::py::wrap_expression(const std::shared_ptr<compute::Expression>& expr)
+
+   Wrap the Arrow C++ *compute expression* in a :py:class:`pyarrow.compute.Expression` instance.
+
+.. function:: PyObject* arrow::py::wrap_filesystem(const std::shared_ptr<filesystem::FileSystem>& fs)
+
+   Wrap the Arrow C++ *filesystem* in a :py:class:`pyarrow.fs.Filesystem` instance.
+
+.. function:: PyObject* arrow::py::wrap_dataset(const std::shared_ptr<dataset::Dataset>& dataset)
+
+   Wrap the Arrow C++ *dataset* in a :py:class:`pyarrow.dataset.Dataset` instance.
+
+.. function:: PyObject* arrow::py::wrap_fragment(const std::shared_ptr<dataset::Fragment>& frag)
+
+   Wrap the Arrow C++ *dataset fragment* in a :py:class:`pyarrow.dataset.Fragment` instance.
+
+.. function:: PyObject* arrow::py::wrap_partitioning(const std::shared_ptr<dataset::Partitioning>& part)
+
+   Wrap the Arrow C++ *dataset partitioning* in a :py:class:`pyarrow.dataset.Partitioning` instance.
+
+.. function:: PyObject* arrow::py::wrap_scanner(const std::shared_ptr<dataset::Scanner>& scanner)
+
+   Wrap the Arrow C++ *dataset scanner* in a :py:class:`pyarrow.dataset.Scanner` instance.
+
+.. function:: PyObject* arrow::py::wrap_record_batch_reader(const std::shared_ptr<RecordBatchReader>& rdr)
+
+   Wrap the Arrow C++ *RecordBatch reader* in a :py:class:`pyarrow.RecordBatchReader` instance.
 
 
 Cython API
@@ -336,6 +427,33 @@ an exception) if the input is not of the right type.
 
    Unwrap the Arrow C++ :cpp:type:`SparseCSRMatrix` pointer from *obj*.
 
+.. function:: pyarrow_unwrap_expression(obj) -> shared_ptr[compute.Expression]
+
+   Unwrap the Arrow C++ :cpp:class:`compute::Expression` pointer from *obj*.
+
+.. function:: pyarrow_unwrap_filesystem(obj) -> shared_ptr[filesystem.FileSystem]
+
+   Unwrap the Arrow C++ :cpp:class:`filesystem::FileSystem` pointer from *obj*.
+
+.. function:: pyarrow_unwrap_dataset(obj) -> shared_ptr[dataset.Dataset]
+
+   Unwrap the Arrow C++ :cpp:class:`dataset::Dataset` pointer from *obj*.
+
+.. function:: pyarrow_unwrap_fragment(obj) -> shared_ptr[dataset.Fragment]
+
+   Unwrap the Arrow C++ :cpp:class:`dataset::Fragment` pointer from *obj*.
+
+.. function:: pyarrow_unwrap_partitioning(obj) -> shared_ptr[dataset.Partitioning]
+
+   Unwrap the Arrow C++ :cpp:class:`dataset::Partitioning` pointer from *obj*.
+
+.. function:: pyarrow_unwrap_scanner(obj) -> shared_ptr[dataset.Scanner]
+
+   Unwrap the Arrow C++ :cpp:class:`dataset::Scanner` pointer from *obj*.
+
+.. function:: pyarrow_unwrap_record_batch_reader(obj) -> shared_ptr[RecordBatchReader]
+
+   Unwrap the Arrow C++ :cpp:class:`RecordBatchReader` pointer from *obj*.
 
 The following functions take a Arrow C++ API pointer and wrap it in a
 pyarray object of the corresponding type.  An exception is raised on error.
@@ -395,6 +513,35 @@ pyarray object of the corresponding type.  An exception is raised on error.
 .. function:: pyarrow_wrap_sparse_csr_matrix(const shared_ptr[CSparseCSRMatrix]& sparse_tensor) -> object
 
    Wrap the Arrow C++ *CSR sparse tensor* in a Python :class:`pyarrow.SparseCSRMatrix` instance.
+
+.. function:: pyarrow_wrap_expression(const shared_ptr[compute.Expression]& expr) -> object
+
+   Wrap the Arrow C++ *compute expression* in a :py:class:`pyarrow.compute.Expression` instance.
+
+.. function:: pyarrow_wrap_filesystem(const shared_ptr[filesystem.FileSystem]& fs) -> object
+
+   Wrap the Arrow C++ *filesystem* in a :py:class:`pyarrow.fs.Filesystem` instance.
+
+.. function:: pyarrow_wrap_dataset(const shared_ptr[dataset.Dataset]& dataset) -> object
+
+   Wrap the Arrow C++ *dataset* in a :py:class:`pyarrow.dataset.Dataset` instance.
+
+.. function:: pyarrow_wrap_fragment(const shared_ptr[dataset.Fragment]& frag) -> object
+
+   Wrap the Arrow C++ *dataset fragment* in a :py:class:`pyarrow.dataset.Fragment` instance.
+
+.. function:: pyarrow_wrap_partitioning(const shared_ptr[dataset.Partitioning]& part) -> object
+
+   Wrap the Arrow C++ *dataset partitioning* in a :py:class:`pyarrow.dataset.Partitioning` instance.
+
+.. function:: pyarrow_wrap_scanner(const shared_ptr[dataset.Scanner]& scanner) -> object
+
+   Wrap the Arrow C++ *dataset scanner* in a :py:class:`pyarrow.dataset.Scanner` instance.
+
+.. function:: pyarrow_wrap_record_batch_reader(const shared_ptr[RecordBatchReader]& rdr) -> object
+
+   Wrap the Arrow C++ *RecordBatch reader* in a :py:class:`pyarrow.RecordBatchReader` instance.
+
 
 
 Example
