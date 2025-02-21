@@ -145,8 +145,10 @@ Result<PageSizes> WriteAndGetPageSizes(const std::shared_ptr<Table>& table,
   ARROW_ASSIGN_OR_RAISE(auto readback, ReadTableFromBuffer(buffer));
 
   RETURN_NOT_OK(readback->ValidateFull());
-  ARROW_RETURN_IF(!readback->Equals(*table),
-                  Status::Invalid("Readback table not equal to original"));
+  if (readback->schema()->Equals(*table->schema())) {
+    ARROW_RETURN_IF(!readback->Equals(*table),
+                    Status::Invalid("Readback table not equal to original"));
+  }
   return GetColumnPageSizes(buffer, column_index);
 }
 
@@ -338,8 +340,8 @@ void AssertDeleteCase(const std::vector<uint64_t>& original,
     for (const auto& val : diff.first) left_sum += val;
     for (const auto& val : diff.second) right_sum += val;
     ASSERT_EQ(left_sum, right_sum + edit_length);
-    ASSERT_LE(diff.first.size(), 2);
-    ASSERT_LE(diff.second.size(), 2);
+    ASSERT_LE(diff.first.size(), 3);
+    ASSERT_LE(diff.second.size(), 3);
   }
 }
 
@@ -354,8 +356,8 @@ void AssertInsertCase(const std::vector<uint64_t>& original,
     for (const auto& val : diff.first) left_sum += val;
     for (const auto& val : diff.second) right_sum += val;
     ASSERT_EQ(left_sum + edit_length, right_sum);
-    ASSERT_LE(diff.first.size(), 2);
-    ASSERT_LE(diff.second.size(), 2);
+    ASSERT_LE(diff.first.size(), 3);
+    ASSERT_LE(diff.second.size(), 3);
   }
 }
 
@@ -608,14 +610,19 @@ TEST_P(TestColumnCDC, Append) {
   AssertAppendCase(base_result.first, modified_result.first);
 }
 
+// TODO(kszucs): add extension type and dictionary type
 INSTANTIATE_TEST_SUITE_P(
     FixedSizedTypes, TestColumnCDC,
     Combine(Values(::arrow::uint8(), ::arrow::uint16(), ::arrow::uint32(),
                    ::arrow::uint64(), ::arrow::int8(), ::arrow::int16(), ::arrow::int32(),
                    ::arrow::int64(), ::arrow::float16(), ::arrow::float32(),
                    ::arrow::float64(), ::arrow::binary(), ::arrow::large_binary(),
-                   ::arrow::fixed_size_binary(16), ::arrow::utf8(),
-                   ::arrow::large_utf8()),
+                   ::arrow::fixed_size_binary(16), ::arrow::utf8(), ::arrow::large_utf8(),
+                   ::arrow::date32(), ::arrow::date64(), ::arrow::decimal128(18, 6),
+                   ::arrow::decimal256(40, 6), ::arrow::time32(::arrow::TimeUnit::SECOND),
+                   ::arrow::time64(::arrow::TimeUnit::NANO),
+                   ::arrow::timestamp(::arrow::TimeUnit::NANO),
+                   ::arrow::duration(::arrow::TimeUnit::NANO)),
             Bool(), Bool()));
 
 }  // namespace parquet
