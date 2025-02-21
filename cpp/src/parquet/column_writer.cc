@@ -1111,9 +1111,9 @@ int64_t ColumnWriterImpl::Close() {
     }
 
     if (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry()) {
-      EncodedGeospatialStatistics geometry_stats = GetChunkGeospatialStatistics();
-      if (geometry_stats.is_set()) {
-        metadata_->SetGeospatialStatistics(std::move(geometry_stats));
+      EncodedGeospatialStatistics geospatial_stats = GetChunkGeospatialStatistics();
+      if (geospatial_stats.is_set()) {
+        metadata_->SetGeospatialStatistics(std::move(geospatial_stats));
       }
     }
 

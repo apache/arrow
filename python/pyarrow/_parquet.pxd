@@ -351,7 +351,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         shared_ptr[ColumnPath] path_in_schema() const
         bint is_stats_set() const
         shared_ptr[CStatistics] statistics() const
-        c_bool is_geometry_stats_set() const
+        c_bool is_geospatial_stats_set() const
         shared_ptr[CParquetGeospatialStatistics] geospatial_statistics() const
         ParquetCompression compression() const
         const vector[ParquetEncoding]& encodings() const

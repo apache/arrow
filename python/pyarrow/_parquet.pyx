@@ -443,7 +443,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             Dictionary with a key for each attribute of this class.
         """
         statistics = self.statistics.to_dict() if self.is_stats_set else None
-        if self.is_geometry_stats_set:
+        if self.is_geospatial_stats_set:
             geospatial_statistics = self.geospatial_statistics.to_dict()
         else:
             geospatial_statistics = None
@@ -529,14 +529,14 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         return statistics
 
     @property
-    def is_geometry_stats_set(self):
+    def is_geospatial_stats_set(self):
         """Whether or not geometry statistics are present in metadata (bool)."""
-        return self.metadata.is_geometry_stats_set()
+        return self.metadata.is_geospatial_stats_set()
 
     @property
     def geospatial_statistics(self):
         """Statistics for column chunk (:class:`GeospatialStatistics`)."""
-        if not self.metadata.is_geometry_stats_set():
+        if not self.metadata.is_geospatial_stats_set():
             return None
         geospatial_statistics = GeospatialStatistics()
         geospatial_statistics.init(self.metadata.geospatial_statistics(), self)

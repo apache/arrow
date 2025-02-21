@@ -412,7 +412,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     return metadata_accessor()->statistics();
   }
 
-  std::shared_ptr<GeospatialStatistics> metadata_geometry_stats() {
+  std::shared_ptr<GeospatialStatistics> metadata_geospatial_stats() {
     return metadata_accessor()->geospatial_statistics();
   }
 
@@ -1880,7 +1880,7 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     }
 
     std::shared_ptr<GeospatialStatistics> geospatial_statistics =
-        metadata_geometry_stats();
+        metadata_geospatial_stats();
     ASSERT_TRUE(geospatial_statistics != nullptr);
     std::vector<int32_t> geospatial_types = geospatial_statistics->GetGeometryTypes();
     EXPECT_EQ(1, geospatial_types.size());
@@ -1943,7 +1943,7 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     }
 
     std::shared_ptr<GeospatialStatistics> geospatial_statistics =
-        metadata_geometry_stats();
+        metadata_geospatial_stats();
     ASSERT_TRUE(geospatial_statistics != nullptr);
     std::vector<int32_t> geospatial_types = geospatial_statistics->GetGeometryTypes();
     EXPECT_EQ(1, geospatial_types.size());

@@ -32,9 +32,6 @@
 
 namespace parquet {
 
-
-
-
 namespace schema {
 
 class ColumnPath;
@@ -151,7 +148,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t num_values() const;
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool is_stats_set() const;
-  bool is_geometry_stats_set() const;
+  bool is_geospatial_stats_set() const;
   std::shared_ptr<Statistics> statistics() const;
   std::shared_ptr<SizeStatistics> size_statistics() const;
   std::shared_ptr<GeospatialStatistics> geospatial_statistics() const;
@@ -453,7 +450,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   void SetSizeStatistics(const SizeStatistics& size_stats);
 
   // column geometry statistics
-  void SetGeospatialStatistics(const EncodedGeospatialStatistics& geometry_stats);
+  void SetGeospatialStatistics(const EncodedGeospatialStatistics& geospatial_stats);
 
   void SetKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata);
 
