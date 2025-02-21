@@ -282,6 +282,11 @@ Status GroupByNode::Merge() {
       DCHECK(state0->agg_states[span_i]);
       batch_ctx.SetState(state0->agg_states[span_i].get());
 
+      // XXX this resizes each KernelState (state0->agg_states[span_i]) multiple times.
+      // An alternative would be a two-pass algorithm:
+      // 1. Compute all transpositions (one per local state) and the final number of
+      // groups.
+      // 2. Process all agg kernels, resizing each KernelState only once.
       RETURN_NOT_OK(
           agg_kernels_[span_i]->resize(&batch_ctx, state0->grouper->num_groups()));
       RETURN_NOT_OK(agg_kernels_[span_i]->merge(
