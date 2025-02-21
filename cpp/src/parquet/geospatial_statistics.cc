@@ -23,7 +23,7 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/logging.h"
 #include "parquet/exception.h"
-#include "parquet/geometry_util_internal.h"
+#include "parquet/geospatial_util_internal.h"
 
 using arrow::util::SafeLoad;
 

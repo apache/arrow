@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/geometry_util_internal.h"
+#include "parquet/geospatial_util_internal.h"
 
 #include "arrow/result.h"
 #include "arrow/util/endian.h"
