@@ -60,11 +60,11 @@ SEXP data::classes_tbl_df =
     precious(cpp11::writable::strings({"tbl_df", "tbl", "data.frame"}));
 
 SEXP data::classes_arrow_binary =
-    precious(cpp11::writable::strings({"arrow_binary", "vctrs_vctr", "list"}));
-SEXP data::classes_arrow_large_binary =
-    precious(cpp11::writable::strings({"arrow_large_binary", "vctrs_vctr", "list"}));
-SEXP data::classes_arrow_fixed_size_binary =
-    precious(cpp11::writable::strings({"arrow_fixed_size_binary", "vctrs_vctr", "list"}));
+    precious(cpp11::writable::strings({"arrow_binary", "blob", "vctrs_vctr", "list"}));
+SEXP data::classes_arrow_large_binary = precious(
+    cpp11::writable::strings({"arrow_large_binary", "blob", "vctrs_vctr", "list"}));
+SEXP data::classes_arrow_fixed_size_binary = precious(
+    cpp11::writable::strings({"arrow_fixed_size_binary", "blob", "vctrs_vctr", "list"}));
 SEXP data::classes_factor = precious(cpp11::writable::strings({"factor"}));
 SEXP data::classes_ordered = precious(cpp11::writable::strings({"ordered", "factor"}));
 
