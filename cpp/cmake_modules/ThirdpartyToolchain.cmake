@@ -4582,16 +4582,11 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 function(build_orc)
   message(STATUS "Building Apache ORC from source")
 
-  # Remove this and "patch" in "ci/docker/{debian,ubuntu}-*.dockerfile" once we have a patch for ORC 2.1.1
-  find_program(PATCH patch REQUIRED)
-  set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/orc.diff)
-
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
-                         URL ${ORC_SOURCE_URL}
-                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
-                         PATCH_COMMAND ${ORC_PATCH_COMMAND})
+                         GIT_REPOSITORY https://github.com/apache/orc.git
+                         GIT_TAG 805d8b996d0819966d291d3d219dc8f55ce4b01e)
     prepare_fetchcontent()
 
     set(CMAKE_UNITY_BUILD FALSE)
@@ -4749,8 +4744,8 @@ function(build_orc)
 
     externalproject_add(orc_ep
                         ${EP_COMMON_OPTIONS}
-                        URL ${ORC_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
+                        GIT_REPOSITORY https://github.com/apache/orc.git
+                        GIT_TAG 805d8b996d0819966d291d3d219dc8f55ce4b01e
                         BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
                         CMAKE_ARGS ${ORC_CMAKE_ARGS}
                         DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
@@ -4758,8 +4753,7 @@ function(build_orc)
                                 ${ARROW_ZSTD_LIBZSTD}
                                 ${Snappy_TARGET}
                                 LZ4::lz4
-                                ZLIB::ZLIB
-                        PATCH_COMMAND ${ORC_PATCH_COMMAND})
+                                ZLIB::ZLIB)
     add_library(orc::orc STATIC IMPORTED)
     set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
     target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
