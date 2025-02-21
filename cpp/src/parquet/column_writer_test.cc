@@ -413,10 +413,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   }
 
   std::shared_ptr<GeospatialStatistics> metadata_geometry_stats() {
-    ApplicationVersion app_version(this->writer_properties_->created_by());
-    auto metadata_accessor = ColumnChunkMetaData::Make(
-        metadata_->contents(), this->descr_, default_reader_properties(), &app_version);
-    return metadata_accessor->geospatial_statistics();
+    return metadata_accessor()->geospatial_statistics();
   }
 
  protected:

@@ -1113,7 +1113,7 @@ int64_t ColumnWriterImpl::Close() {
     if (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry()) {
       EncodedGeospatialStatistics geometry_stats = GetChunkGeospatialStatistics();
       if (geometry_stats.is_set()) {
-        metadata_->SetGeospatialStatistics(geometry_stats);
+        metadata_->SetGeospatialStatistics(std::move(geometry_stats));
       }
     }
 
@@ -1413,9 +1413,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   }
 
   EncodedGeospatialStatistics GetChunkGeospatialStatistics() override {
-    EncodedGeospatialStatistics result;
-    if (chunk_geospatial_statistics_) result = chunk_geospatial_statistics_->Encode();
-    return result;
+    return chunk_geospatial_statistics_ ? chunk_geospatial_statistics_->Encode()
+                                        : EncodedGeospatialStatistics{};
   }
 
   void ResetPageStatistics() override {

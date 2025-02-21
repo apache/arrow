@@ -28,16 +28,12 @@
 #include "parquet/encryption/type_fwd.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
+#include "parquet/type_fwd.h"
 
 namespace parquet {
 
-class ColumnDescriptor;
-class EncodedStatistics;
-class EncodedGeospatialStatistics;
-class FileCryptoMetaData;
-class Statistics;
-class GeospatialStatistics;
-class SchemaDescriptor;
+
+
 
 namespace schema {
 
