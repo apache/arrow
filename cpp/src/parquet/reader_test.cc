@@ -1908,7 +1908,9 @@ class TestGeometryLogicalType : public ::testing::Test {
     uint8_t* ptr = buffer.data();
     std::vector<ByteArray> values(kNumRows);
     for (int k = 0; k < kNumRows; k++) {
-      test::GenerateWKBPoint(ptr, k, k + 1);
+      std::string item = test::MakeWKBPoint(
+          {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+      std::memcpy(ptr, item.data(), item.size());
       values[k].len = test::kWkbPointXYSize;
       values[k].ptr = ptr;
       ptr += test::kWkbPointXYSize;
@@ -1918,12 +1920,11 @@ class TestGeometryLogicalType : public ::testing::Test {
 
   void WriteTestDataUsingWriteArrow(ByteArrayWriter* writer) {
     ::arrow::BinaryBuilder builder;
-    std::vector<uint8_t> buffer(test::kWkbPointXYSize * kNumRows);
-    uint8_t* ptr = buffer.data();
     for (int k = 0; k < kNumRows; k++) {
-      test::GenerateWKBPoint(ptr, k, k + 1);
-      ASSERT_OK(builder.Append(ptr, test::kWkbPointXYSize));
-      ptr += test::kWkbPointXYSize;
+      std::string item = test::MakeWKBPoint(
+          {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+
+      ASSERT_OK(builder.Append(item));
     }
     std::shared_ptr<::arrow::BinaryArray> array;
     ASSERT_OK(builder.Finish(&array));

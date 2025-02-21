@@ -857,9 +857,15 @@ static uint32_t GeometryTypeToWKB(geometry::GeometryType geometry_type, bool has
   return wkb_geom_type;
 }
 
-static inline std::string MakeWKBPoint(const double* xyzm, bool has_z, bool has_m) {
+/// \brief Number of bytes in a WKB Point with X and Y dimensions (uint8_t endian,
+/// uint32_t geometry type, 2 * double ordinates)
+static constexpr int kWkbPointXYSize = 21;
+
+static inline std::string MakeWKBPoint(const std::vector<double>& xyzm, bool has_z,
+                                       bool has_m) {
   // 1:endianness + 4:type + 8:x + 8:y
-  int num_bytes = 21 + (has_z ? 8 : 0) + (has_m ? 8 : 0);
+  int num_bytes =
+      kWkbPointXYSize + (has_z ? sizeof(double) : 0) + (has_m ? sizeof(double) : 0);
   std::string wkb(num_bytes, 0);
   char* ptr = wkb.data();
 
@@ -874,19 +880,12 @@ static inline std::string MakeWKBPoint(const double* xyzm, bool has_z, bool has_
     std::memcpy(ptr, &xyzm[2], 8);
     ptr += 8;
   }
+
   if (has_m) {
     std::memcpy(ptr, &xyzm[3], 8);
   }
 
   return wkb;
-}
-
-static constexpr int kWkbPointXYSize = 21;  // 1:endianness + 4:type + 8:x + 8:y
-
-inline void GenerateWKBPoint(uint8_t* ptr, double x, double y) {
-  double xyzm[] = {x, y, geometry::kInf, geometry::kInf};
-  std::string wkb = MakeWKBPoint(xyzm, false, false);
-  std::memcpy(ptr, wkb.data(), kWkbPointXYSize);
 }
 
 inline bool GetWKBPointCoordinate(const ByteArray& value, double* out_x, double* out_y) {
@@ -939,18 +938,12 @@ class GeoArrowWkbExtensionType : public ::arrow::ExtensionType {
   std::string metadata_;
 };
 
-inline std::shared_ptr<::arrow::DataType> geoarrow_wkb(
+std::shared_ptr<::arrow::DataType> geoarrow_wkb(
     std::string metadata = "{}",
-    const std::shared_ptr<::arrow::DataType> storage = ::arrow::binary()) {
-  return std::make_shared<GeoArrowWkbExtensionType>(storage, std::move(metadata));
-}
+    const std::shared_ptr<::arrow::DataType> storage = ::arrow::binary());
 
-inline std::shared_ptr<::arrow::DataType> geoarrow_wkb_lonlat(
-    const std::shared_ptr<::arrow::DataType> storage = ::arrow::binary()) {
-  // There are other ways to express lon/lat output, but this is the one that will
-  // roundtrip into Parquet and back
-  return geoarrow_wkb(R"({"crs": "OGC:CRS84", "crs_type": "authority_code"})", storage);
-}
+std::shared_ptr<::arrow::DataType> geoarrow_wkb_lonlat(
+    const std::shared_ptr<::arrow::DataType> storage = ::arrow::binary());
 
 }  // namespace test
 }  // namespace parquet

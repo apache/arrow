@@ -52,8 +52,7 @@ TEST(TestGeospatialStatistics, TestDefaults) {
 TEST(TestGeospatialStatistics, TestUpdateByteArray) {
   GeospatialStatistics stats;
 
-  double xyzm0[] = {10, 11, 12, 13};
-  std::string xyzm_wkb0 = test::MakeWKBPoint(xyzm0, true, true);
+  std::string xyzm_wkb0 = test::MakeWKBPoint({10, 11, 12, 13}, true, true);
   ByteArray item0{static_cast<uint32_t>(xyzm_wkb0.size()),
                   reinterpret_cast<const uint8_t*>(xyzm_wkb0.data())};
 
@@ -68,8 +67,7 @@ TEST(TestGeospatialStatistics, TestUpdateByteArray) {
   EXPECT_EQ(stats.GetMMax(), 13);
   EXPECT_THAT(stats.GetGeometryTypes(), ::testing::ElementsAre(3001));
 
-  double xyzm1[] = {20, 21, 22, 23};
-  std::string xyzm_wkb1 = test::MakeWKBPoint(xyzm1, true, true);
+  std::string xyzm_wkb1 = test::MakeWKBPoint({20, 21, 22, 23}, true, true);
   ByteArray item1{static_cast<uint32_t>(xyzm_wkb1.size()),
                   reinterpret_cast<const uint8_t*>(xyzm_wkb1.data())};
 
@@ -95,14 +93,12 @@ TEST(TestGeospatialStatistics, TestUpdateByteArray) {
   // Check UpdateSpaced()
 
   // A null value that should be skipped
-  double xyzm2[] = {-30, -31, -32, -33};
-  std::string xyzm_wkb2 = test::MakeWKBPoint(xyzm2, true, true);
+  std::string xyzm_wkb2 = test::MakeWKBPoint({-30, -31, -32, -33}, true, true);
   ByteArray item2{static_cast<uint32_t>(xyzm_wkb2.size()),
                   reinterpret_cast<const uint8_t*>(xyzm_wkb2.data())};
 
   // A non-null value that shouldn't be skipped
-  double xyzm3[] = {30, 31, 32, 33};
-  std::string xyzm_wkb3 = test::MakeWKBPoint(xyzm3, true, true);
+  std::string xyzm_wkb3 = test::MakeWKBPoint({30, 31, 32, 33}, true, true);
   ByteArray item3{static_cast<uint32_t>(xyzm_wkb3.size()),
                   reinterpret_cast<const uint8_t*>(xyzm_wkb3.data())};
 
@@ -146,17 +142,18 @@ TEST(TestGeospatialStatistics, TestUpdateByteArray) {
 TEST(TestGeospatialStatistics, TestUpdateArray) {
   // Build WKB array with a null from POINT (0 1)...POINT (14, 15)
   ::arrow::BinaryBuilder builder;
-  std::array<char, test::kWkbPointXYSize> item;
   for (int k = 0; k < 10; k++) {
-    test::GenerateWKBPoint(reinterpret_cast<uint8_t*>(item.data()), k, k + 1);
-    ASSERT_OK(builder.AppendValues({std::string(item.data(), item.size())}));
+    std::string item = test::MakeWKBPoint(
+        {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+    ASSERT_OK(builder.AppendValues({item}));
   }
 
   ASSERT_OK(builder.AppendNull());
 
   for (int k = 10; k < 15; k++) {
-    test::GenerateWKBPoint(reinterpret_cast<uint8_t*>(item.data()), k, k + 1);
-    ASSERT_OK(builder.AppendValues({std::string(item.data(), item.size())}));
+    std::string item = test::MakeWKBPoint(
+        {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+    ASSERT_OK(builder.AppendValues({item}));
   }
 
   // Ensure we have both a binary array and a large binary array to work with

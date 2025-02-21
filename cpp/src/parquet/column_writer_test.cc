@@ -1849,7 +1849,9 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     buffer_.resize(num_values * kWkbPointXYSize);
     uint8_t* ptr = buffer_.data();
     for (int k = 0; k < num_values; k++) {
-      GenerateWKBPoint(ptr, k, k + 1);
+      std::string item = test::MakeWKBPoint(
+          {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+      std::memcpy(ptr, item.data(), item.size());
       values_[k].len = kWkbPointXYSize;
       values_[k].ptr = ptr;
       ptr += kWkbPointXYSize;

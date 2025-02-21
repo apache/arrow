@@ -413,12 +413,10 @@ INSTANTIATE_TEST_SUITE_P(
 
 struct MakeWKBPointTestCase {
   MakeWKBPointTestCase() = default;
-  MakeWKBPointTestCase(const std::vector<double> xyzm, bool has_z, bool has_m)
-      : has_z(has_z), has_m(has_m) {
-    memcpy(this->xyzm, xyzm.data(), sizeof(this->xyzm));
-  }
+  MakeWKBPointTestCase(std::vector<double> xyzm, bool has_z, bool has_m)
+      : xyzm(std::move(xyzm)), has_z(has_z), has_m(has_m) {}
 
-  double xyzm[4];
+  std::vector<double> xyzm;
   bool has_z;
   bool has_m;
 };
