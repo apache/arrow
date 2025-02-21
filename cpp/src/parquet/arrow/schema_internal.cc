@@ -19,8 +19,9 @@
 
 #include "arrow/extension/json.h"
 #include "arrow/type.h"
-
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/string.h"
+
 #include "parquet/properties.h"
 
 using ArrowType = ::arrow::DataType;
@@ -114,14 +115,14 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical
 Result<std::string> MakeGeoArrowCrsMetadata(
     const std::string& crs,
     const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
-  std::string srid_prefix{"srid:"};
-  std::string projjson_prefix{"projjson:"};
+  const std::string srid_prefix{"srid:"};
+  const std::string projjson_prefix{"projjson:"};
 
   if (crs.empty()) {
     return R"("crs": "OGC:CRS84", "crs_type": "authority_code")";
-  } else if (crs.rfind(srid_prefix, 0) == 0) {
+  } else if (::arrow::internal::StartsWith(crs, srid_prefix)) {
     return R"("crs": ")" + crs.substr(srid_prefix.size()) + R"(", "crs_type": "srid")";
-  } else if (crs.rfind(projjson_prefix, 0) == 0) {
+  } else if (::arrow::internal::StartsWith(crs, projjson_prefix)) {
     std::string metadata_field = crs.substr(projjson_prefix.size());
     if (metadata && metadata->Contains(metadata_field)) {
       ARROW_ASSIGN_OR_RAISE(std::string projjson_value, metadata->Get(metadata_field));
@@ -152,7 +153,7 @@ Result<std::shared_ptr<ArrowType>> MakeGeoArrowGeometryType(
 
     std::string serialized_data = std::string("{") + crs_metadata + "}";
     return maybe_geoarrow_wkb->Deserialize(::arrow::binary(), serialized_data);
-  } else {
+  } else if (logical_type.is_geography()) {
     const auto& geospatial_type = checked_cast<const GeographyLogicalType&>(logical_type);
     ARROW_ASSIGN_OR_RAISE(std::string crs_metadata,
                           MakeGeoArrowCrsMetadata(geospatial_type.crs(), metadata));
@@ -161,6 +162,9 @@ Result<std::shared_ptr<ArrowType>> MakeGeoArrowGeometryType(
     std::string serialized_data =
         std::string("{") + crs_metadata + ", " + edges_metadata + "}";
     return maybe_geoarrow_wkb->Deserialize(::arrow::binary(), serialized_data);
+  } else {
+    throw ParquetException("Can't export logical type ", logical_type.ToString(),
+                           " as GeoArrow");
   }
 }
 
