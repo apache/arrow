@@ -27,11 +27,8 @@ ENV LINUX_WHEEL_VERSION=${musllinux}
 
 RUN apk update
 RUN apk add --no-cache build-base ccache cmake flex ninja wget zip
-
-# Add testing repo to install mono
-RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories && \
-    apk add mono
-
+# Add mono from testing repo because it's not in the main repo
+RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing mono
 
 # A system Python is required for ninja and vcpkg in this Dockerfile.
 # On musllinux_1_2 a system python is installed (3.12) but pip is not
