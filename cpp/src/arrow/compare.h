@@ -142,4 +142,19 @@ ARROW_EXPORT bool ScalarApproxEquals(
     const Scalar& left, const Scalar& right,
     const EqualOptions& options = EqualOptions::Defaults());
 
+/// Returns true if left scalar is less than right scalar
+/// \param[in] left a Scalar
+/// \param[in] right a Scalar
+/// \param[in] options comparison options
+ARROW_EXPORT bool ScalarLess(const Scalar& left, const Scalar& right,
+                             const EqualOptions& options = EqualOptions::Defaults());
+
+/// Returns true if left scalar is less approximately than right scalar
+/// \param[in] left a Scalar
+/// \param[in] right a Scalar
+/// \param[in] options comparison options
+ARROW_EXPORT bool ScalarApproxLess(
+    const Scalar& left, const Scalar& right,
+    const EqualOptions& options = EqualOptions::Defaults());
+
 }  // namespace arrow

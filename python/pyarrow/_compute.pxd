@@ -70,3 +70,14 @@ cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=*) except *
 cdef CSortOrder unwrap_sort_order(order) except *
 
 cdef CNullPlacement unwrap_null_placement(null_placement) except *
+
+cdef class Ordering(_Weakrefable):
+    cdef:
+        COrdering wrapped
+
+    cdef void init(self, const COrdering& sp)
+
+    @staticmethod
+    cdef wrap(const COrdering& sp)
+
+    cdef inline COrdering unwrap(self)
