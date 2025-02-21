@@ -1937,8 +1937,8 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
       const ByteArray& value = this->values_out_[i];
       auto xy = GetWKBPointCoordinateXY(value);
       EXPECT_TRUE(xy.has_value());
-      auto expected_x = static_cast<double>(i);
-      auto expected_y = static_cast<double>(i + 1);
+      auto expected_x = static_cast<double>(non_null_indices[i]);
+      auto expected_y = static_cast<double>(non_null_indices[i] + 1);
       EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
     }
 

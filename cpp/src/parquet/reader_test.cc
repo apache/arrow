@@ -1980,8 +1980,8 @@ class TestGeometryLogicalType : public ::testing::Test {
           const ByteArray& value = out[i];
           auto xy = test::GetWKBPointCoordinateXY(value);
           EXPECT_TRUE(xy.has_value());
-          auto expected_x = static_cast<double>(i);
-          auto expected_y = static_cast<double>(i + 1);
+          auto expected_x = static_cast<double>(i + total_values_read);
+          auto expected_y = static_cast<double>(i + 1 + total_values_read);
           EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
         }
 
