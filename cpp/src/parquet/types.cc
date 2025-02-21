@@ -1757,7 +1757,7 @@ class LogicalType::Impl::Geography final : public LogicalType::Impl::Incompatibl
     return algorithm_;
   }
 
-  const char* algorithm_name() const {
+  std::string_view algorithm_name() const {
     switch (algorithm_) {
       case LogicalType::EdgeInterpolationAlgorithm::SPHERICAL:
         return "spherical";

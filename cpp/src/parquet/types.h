@@ -485,7 +485,7 @@ class PARQUET_EXPORT GeographyLogicalType : public LogicalType {
 
   const std::string& crs() const;
   LogicalType::EdgeInterpolationAlgorithm::algorithm algorithm() const;
-  const char* algorithm_name() const;
+  std::string_view algorithm_name() const;
 
  private:
   GeographyLogicalType() = default;
