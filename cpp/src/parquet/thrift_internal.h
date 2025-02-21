@@ -41,7 +41,7 @@
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
-#include "parquet/geometry_statistics.h"
+#include "parquet/geospatial_statistics.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/size_statistics.h"
@@ -358,8 +358,8 @@ static inline format::SortingColumn ToThrift(SortingColumn sorting_column) {
 
 static inline format::GeospatialStatistics ToThrift(
     const EncodedGeospatialStatistics& encoded_geometry_stats) {
-  format::GeospatialStatistics geometry_statistics;
-  geometry_statistics.__set_geospatial_types(encoded_geometry_stats.geospatial_types);
+  format::GeospatialStatistics geospatial_statistics;
+  geospatial_statistics.__set_geospatial_types(encoded_geometry_stats.geospatial_types);
   format::BoundingBox bbox;
   bbox.__set_xmin(encoded_geometry_stats.xmin);
   bbox.__set_xmax(encoded_geometry_stats.xmax);
@@ -373,8 +373,8 @@ static inline format::GeospatialStatistics ToThrift(
     bbox.__set_mmin(encoded_geometry_stats.mmin);
     bbox.__set_mmax(encoded_geometry_stats.mmax);
   }
-  geometry_statistics.__set_bbox(bbox);
-  return geometry_statistics;
+  geospatial_statistics.__set_bbox(bbox);
+  return geospatial_statistics;
 }
 
 static inline format::Statistics ToThrift(const EncodedStatistics& stats) {

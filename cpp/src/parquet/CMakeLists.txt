@@ -171,8 +171,8 @@ set(PARQUET_SRCS
     exception.cc
     file_reader.cc
     file_writer.cc
-    geometry_statistics.cc
-    geometry_util_internal.cc
+    geospatial_statistics.cc
+    geospatial_util_internal.cc
     level_comparison.cc
     level_conversion.cc
     metadata.cc
@@ -378,8 +378,8 @@ add_parquet_test(internals-test
                  statistics_test.cc
                  encoding_test.cc
                  metadata_test.cc
-                 geometry_statistics_test.cc
-                 geometry_util_internal_test.cc
+                 geospatial_statistics_test.cc
+                 geospatial_util_internal_test.cc
                  page_index_test.cc
                  public_api_test.cc
                  size_statistics_test.cc

@@ -50,7 +50,7 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
-#include "parquet/geometry_statistics.h"
+#include "parquet/geospatial_statistics.h"
 #include "parquet/metadata.h"
 #include "parquet/page_index.h"
 #include "parquet/platform.h"
@@ -1956,7 +1956,7 @@ class TestGeometryLogicalType : public ::testing::Test {
     for (int i = 0; i < num_row_groups; i++) {
       auto row_group_metadata = metadata->RowGroup(i);
       auto column_chunk_metadata = row_group_metadata->ColumnChunk(0);
-      auto geometry_stats = column_chunk_metadata->geometry_statistics();
+      auto geometry_stats = column_chunk_metadata->geospatial_statistics();
       CheckGeospatialStatistics(geometry_stats);
     }
 

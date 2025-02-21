@@ -339,7 +339,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return size_statistics_;
   }
 
-  inline std::shared_ptr<GeospatialStatistics> geometry_statistics() const {
+  inline std::shared_ptr<GeospatialStatistics> geospatial_statistics() const {
     return is_geometry_stats_set() ? possible_geometry_stats_ : nullptr;
   }
 
@@ -474,8 +474,8 @@ std::shared_ptr<Statistics> ColumnChunkMetaData::statistics() const {
   return impl_->statistics();
 }
 
-std::shared_ptr<GeospatialStatistics> ColumnChunkMetaData::geometry_statistics() const {
-  return impl_->geometry_statistics();
+std::shared_ptr<GeospatialStatistics> ColumnChunkMetaData::geospatial_statistics() const {
+  return impl_->geospatial_statistics();
 }
 
 bool ColumnChunkMetaData::is_stats_set() const { return impl_->is_stats_set(); }

@@ -416,7 +416,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ApplicationVersion app_version(this->writer_properties_->created_by());
     auto metadata_accessor = ColumnChunkMetaData::Make(
         metadata_->contents(), this->descr_, default_reader_properties(), &app_version);
-    return metadata_accessor->geometry_statistics();
+    return metadata_accessor->geospatial_statistics();
   }
 
  protected:
@@ -1882,17 +1882,18 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
       EXPECT_DOUBLE_EQ(expected_y, y);
     }
 
-    std::shared_ptr<GeospatialStatistics> geometry_statistics = metadata_geometry_stats();
-    ASSERT_TRUE(geometry_statistics != nullptr);
-    std::vector<int32_t> geospatial_types = geometry_statistics->GetGeometryTypes();
+    std::shared_ptr<GeospatialStatistics> geospatial_statistics =
+        metadata_geometry_stats();
+    ASSERT_TRUE(geospatial_statistics != nullptr);
+    std::vector<int32_t> geospatial_types = geospatial_statistics->GetGeometryTypes();
     EXPECT_EQ(1, geospatial_types.size());
     EXPECT_EQ(1, geospatial_types[0]);
-    EXPECT_DOUBLE_EQ(0, geometry_statistics->GetXMin());
-    EXPECT_DOUBLE_EQ(1, geometry_statistics->GetYMin());
-    EXPECT_DOUBLE_EQ(99, geometry_statistics->GetXMax());
-    EXPECT_DOUBLE_EQ(100, geometry_statistics->GetYMax());
-    EXPECT_FALSE(geometry_statistics->HasZ());
-    EXPECT_FALSE(geometry_statistics->HasM());
+    EXPECT_DOUBLE_EQ(0, geospatial_statistics->GetXMin());
+    EXPECT_DOUBLE_EQ(1, geospatial_statistics->GetYMin());
+    EXPECT_DOUBLE_EQ(99, geospatial_statistics->GetXMax());
+    EXPECT_DOUBLE_EQ(100, geospatial_statistics->GetYMax());
+    EXPECT_FALSE(geospatial_statistics->HasZ());
+    EXPECT_FALSE(geospatial_statistics->HasM());
   }
 
   void TestWriteAndReadSpaced(ParquetVersion::type version,
@@ -1944,17 +1945,18 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
       EXPECT_DOUBLE_EQ(expected_y, y);
     }
 
-    std::shared_ptr<GeospatialStatistics> geometry_statistics = metadata_geometry_stats();
-    ASSERT_TRUE(geometry_statistics != nullptr);
-    std::vector<int32_t> geospatial_types = geometry_statistics->GetGeometryTypes();
+    std::shared_ptr<GeospatialStatistics> geospatial_statistics =
+        metadata_geometry_stats();
+    ASSERT_TRUE(geospatial_statistics != nullptr);
+    std::vector<int32_t> geospatial_types = geospatial_statistics->GetGeometryTypes();
     EXPECT_EQ(1, geospatial_types.size());
     EXPECT_EQ(1, geospatial_types[0]);
-    EXPECT_DOUBLE_EQ(1, geometry_statistics->GetXMin());
-    EXPECT_DOUBLE_EQ(2, geometry_statistics->GetYMin());
-    EXPECT_DOUBLE_EQ(98, geometry_statistics->GetXMax());
-    EXPECT_DOUBLE_EQ(99, geometry_statistics->GetYMax());
-    EXPECT_FALSE(geometry_statistics->HasZ());
-    EXPECT_FALSE(geometry_statistics->HasM());
+    EXPECT_DOUBLE_EQ(1, geospatial_statistics->GetXMin());
+    EXPECT_DOUBLE_EQ(2, geospatial_statistics->GetYMin());
+    EXPECT_DOUBLE_EQ(98, geospatial_statistics->GetXMax());
+    EXPECT_DOUBLE_EQ(99, geospatial_statistics->GetYMax());
+    EXPECT_FALSE(geospatial_statistics->HasZ());
+    EXPECT_FALSE(geospatial_statistics->HasM());
   }
 };
 

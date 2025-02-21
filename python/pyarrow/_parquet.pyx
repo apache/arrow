@@ -548,7 +548,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         if not self.metadata.is_geometry_stats_set():
             return None
         geospatial_statistics = GeospatialStatistics()
-        geospatial_statistics.init(self.metadata.geometry_statistics(), self)
+        geospatial_statistics.init(self.metadata.geospatial_statistics(), self)
         return geospatial_statistics
 
     @property
