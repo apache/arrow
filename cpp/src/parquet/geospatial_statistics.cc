@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/geometry_statistics.h"
+#include "parquet/geospatial_statistics.h"
 #include <memory>
 
 #include "arrow/array.h"

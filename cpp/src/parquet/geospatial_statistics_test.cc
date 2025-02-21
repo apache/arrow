@@ -22,7 +22,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/testing/gtest_util.h"
 
-#include "geometry_statistics.h"
+#include "geospatial_statistics.h"
 #include "parquet/test_util.h"
 
 namespace parquet::geometry {
