@@ -20,6 +20,7 @@
 #include "arrow/extension/json.h"
 #include "arrow/type.h"
 
+#include "arrow/util/key_value_metadata.h"
 #include "parquet/properties.h"
 
 using ArrowType = ::arrow::DataType;
@@ -110,8 +111,62 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical
   }
 }
 
+Result<std::string> MakeGeoArrowCrsMetadata(
+    const std::string& crs,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
+  std::string srid_prefix{"srid:"};
+  std::string projjson_prefix{"projjson:"};
+
+  if (crs.empty()) {
+    return R"("crs": "OGC:CRS84", "crs_type": "authority_code")";
+  } else if (crs.rfind(srid_prefix, 0) == 0) {
+    return R"("crs": ")" + crs.substr(srid_prefix.size()) + R"(", "crs_type": "srid")";
+  } else if (crs.rfind(projjson_prefix, 0) == 0) {
+    std::string metadata_field = crs.substr(projjson_prefix.size());
+    if (metadata && metadata->Contains(metadata_field)) {
+      ARROW_ASSIGN_OR_RAISE(std::string projjson_value, metadata->Get(metadata_field));
+      return R"("crs": )" + projjson_value + R"(, "crs_type": "projjson")";
+    } else {
+      // Pass on the value of the field so the user can sort this out if needed
+      return R"("crs": )" + metadata_field + R"(, "crs_type": "projjson")";
+    }
+  } else {
+    return Status::Invalid("Can't convert invalid Parquet CRS string to GeoArrow: ", crs);
+  }
+}
+
+Result<std::shared_ptr<ArrowType>> MakeGeoArrowGeometryType(
+    const LogicalType& logical_type,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
+  // Check if we have a registered GeoArrow type to read into
+  std::shared_ptr<::arrow::ExtensionType> maybe_geoarrow_wkb =
+      ::arrow::GetExtensionType("geoarrow.wkb");
+  if (!maybe_geoarrow_wkb) {
+    return ::arrow::binary();
+  }
+
+  if (logical_type.is_geometry()) {
+    const auto& geospatial_type = checked_cast<const GeometryLogicalType&>(logical_type);
+    ARROW_ASSIGN_OR_RAISE(std::string crs_metadata,
+                          MakeGeoArrowCrsMetadata(geospatial_type.crs(), metadata));
+
+    std::string serialized_data = std::string("{") + crs_metadata + "}";
+    return maybe_geoarrow_wkb->Deserialize(::arrow::binary(), serialized_data);
+  } else {
+    const auto& geospatial_type = checked_cast<const GeographyLogicalType&>(logical_type);
+    ARROW_ASSIGN_OR_RAISE(std::string crs_metadata,
+                          MakeGeoArrowCrsMetadata(geospatial_type.crs(), metadata));
+    std::string edges_metadata =
+        R"("edges": ")" + std::string(geospatial_type.algorithm_name()) + R"(")";
+    std::string serialized_data =
+        std::string("{") + crs_metadata + ", " + edges_metadata + "}";
+    return maybe_geoarrow_wkb->Deserialize(::arrow::binary(), serialized_data);
+  }
+}
+
 Result<std::shared_ptr<ArrowType>> FromByteArray(
-    const LogicalType& logical_type, const ArrowReaderProperties& reader_properties) {
+    const LogicalType& logical_type, const ArrowReaderProperties& reader_properties,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
   switch (logical_type.type()) {
     case LogicalType::Type::STRING:
       return ::arrow::utf8();
@@ -128,6 +183,18 @@ Result<std::shared_ptr<ArrowType>> FromByteArray(
       // When the original Arrow schema isn't stored and Arrow extensions are disabled,
       // LogicalType::JSON is read as utf8().
       return ::arrow::utf8();
+    case LogicalType::Type::GEOMETRY:
+    case LogicalType::Type::GEOGRAPHY:
+      if (reader_properties.get_arrow_extensions_enabled()) {
+        // Attempt creating a GeoArrow extension type (or return binary() if types are not
+        // registered)
+        return MakeGeoArrowGeometryType(logical_type, metadata);
+      }
+
+      // When the original Arrow schema isn't stored, Arrow extensions are disabled, or
+      // the geoarrow.wkb extension type isn't registered, LogicalType::GEOMETRY and
+      // LogicalType::GEOGRAPHY are as binary().
+      return ::arrow::binary();
     default:
       return Status::NotImplemented("Unhandled logical logical_type ",
                                     logical_type.ToString(), " for binary array");
@@ -190,7 +257,8 @@ Result<std::shared_ptr<ArrowType>> FromInt64(const LogicalType& logical_type) {
 
 Result<std::shared_ptr<ArrowType>> GetArrowType(
     Type::type physical_type, const LogicalType& logical_type, int type_length,
-    const ArrowReaderProperties& reader_properties) {
+    const ArrowReaderProperties& reader_properties,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
   if (logical_type.is_invalid() || logical_type.is_null()) {
     return ::arrow::null();
   }
@@ -209,7 +277,7 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     case ParquetType::DOUBLE:
       return ::arrow::float64();
     case ParquetType::BYTE_ARRAY:
-      return FromByteArray(logical_type, reader_properties);
+      return FromByteArray(logical_type, reader_properties, metadata);
     case ParquetType::FIXED_LEN_BYTE_ARRAY:
       return FromFLBA(logical_type, type_length);
     default: {
@@ -222,9 +290,10 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
 
 Result<std::shared_ptr<ArrowType>> GetArrowType(
     const schema::PrimitiveNode& primitive,
-    const ArrowReaderProperties& reader_properties) {
+    const ArrowReaderProperties& reader_properties,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
   return GetArrowType(primitive.physical_type(), *primitive.logical_type(),
-                      primitive.type_length(), reader_properties);
+                      primitive.type_length(), reader_properties, metadata);
 }
 
 }  // namespace parquet::arrow
