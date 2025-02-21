@@ -204,6 +204,7 @@ find_arrow_mask <- function() {
 #'   group_by(cyl) |>
 #'   summarize(x = one(disp))
 #' }
+#' @keywords internal
 one <- function(...) {
   set_agg(
     fun = "one",
