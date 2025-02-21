@@ -319,21 +319,12 @@ cdef class GeospatialStatistics(_Weakrefable):
         pass
 
     def __repr__(self):
-        return """{}
-  geospatial_types: {}
-  xmin: {}
-  xmax: {}
-  ymin: {}
-  ymax: {}
-  zmin: {}
-  zmax: {}
-  mmin: {}
-  mmax: {}""".format(object.__repr__(self),
-                     self.geospatial_types,
-                     self.xmin, self.xmax,
-                     self.ymin, self.ymax,
-                     self.zmin, self.zmax,
-                     self.mmin, self.mmax)
+        return f"""{object.__repr__(self)}
+  geospatial_types: {self.geospatial_types}
+  xmin: {self.xmin}, xmax: {self.xmax}
+  ymin: {self.ymin}, ymax: {self.ymax}
+  zmin: {self.zmin}, zmax: {self.zmax}
+  mmin: {self.mmin}, mmax: {self.mmax}"""
 
     def to_dict(self):
         out = {
