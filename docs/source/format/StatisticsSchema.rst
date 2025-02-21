@@ -314,12 +314,6 @@ Statistics array::
     column: [
       null, # record batch
       0,    # vendor_id
-      0,    # vendor_id
-      0,    # vendor_id
-      0,    # vendor_id
-      1,    # passenger_count
-      1,    # passenger_count
-      1,    # passenger_count
       1,    # passenger_count
     ]
     statistics:
@@ -491,16 +485,9 @@ Statistics array::
       null, # record batch
       0,    # col1
       1,    # col1.a
-      1,    # col1.a
-      1,    # col1.a
-      1,    # col1.a
       2,    # col1.b
       3,    # col1.b.item
-      3,    # col1.b.item
       4,    # col1.c
-      4,    # col1.c
-      4,    # col1.c
-      5,    # col2
       5,    # col2
     ]
     statistics:
@@ -641,10 +628,6 @@ Statistics schema::
 Statistics array::
 
     column: [
-      0, # array
-      0, # array
-      0, # array
-      0, # array
       0, # array
     ]
     statistics:
@@ -788,16 +771,9 @@ Statistics array::
 
     column: [
       0, # array
-      0, # array
-      1, # a
-      1, # a
-      1, # a
       1, # a
       2, # b
       3, # b.item
-      3, # b.item
-      4, # c
-      4, # c
       4, # c
     ]
     statistics:
