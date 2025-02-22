@@ -77,6 +77,9 @@ ARG cmake=3.31.2
 RUN choco install --no-progress -r -y cmake --version=%cmake% --installargs 'ADD_CMAKE_TO_PATH=System'
 RUN choco install --no-progress -r -y git gzip ninja wget
 
+# Add unix tools to path
+RUN setx path "%path%;C:\Program Files\Git\usr\bin"
+
 # Install vcpkg
 #
 # Compiling vcpkg itself from a git tag doesn't work anymore since vcpkg has
@@ -85,10 +88,10 @@ ARG vcpkg
 COPY ci/vcpkg/*.patch `
   ci/vcpkg/*windows*.cmake `
   arrow/ci/vcpkg/
-COPY ci/scripts/install_vcpkg.bat arrow/ci/scripts/
+COPY ci/scripts/install_vcpkg.sh arrow/ci/scripts/
 ENV VCPKG_ROOT=C:\\vcpkg
-RUN cmd /c arrow\ci\scripts\install_vcpkg.bat C:\\vcpkg %vcpkg%
-RUN setx PATH "%PATH%;%VCPKG_ROOT%"
+RUN bash arrow/ci/scripts/install_vcpkg.sh /c/vcpkg %vcpkg% && `
+  setx PATH "%PATH%;%VCPKG_ROOT%"
 
 # Configure vcpkg and install dependencies
 # NOTE: use windows batch environment notation for build arguments in RUN
