@@ -96,8 +96,8 @@ ENV PYTHON_ABI_TAG=${python_abi_tag}
 RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-${PYTHON_ABI_TAG}) && \
     echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
 
-SHELL ["/bin/bash", "-i", "-c"]
-ENTRYPOINT ["/bin/bash", "-i", "-c"]
+SHELL ["/bin/bash", "-i", "-c", "-l"]
+ENTRYPOINT ["/bin/bash", "-i", "-c", "-l"]
 
 # Remove once there are released Cython wheels for 3.13 free-threaded available
 RUN if [ "${python_abi_tag}" = "cp313t" ]; then \
