@@ -32,6 +32,7 @@ jobs:
           - ubuntu-clang    # ~ r-devel-linux-x86_64-debian-clang
           - ubuntu-next     # ~ r-patched-linux-x86_64
           - ubuntu-release  # ~ r-release-linux-x86_64
+          - clang20         # ~ r-devel-linux-x86_64-fedora-clang
     env:
       R_ORG: "rhub"
       R_IMAGE: {{ MATRIX }}
