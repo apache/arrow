@@ -21,7 +21,7 @@
 
 jobs:
   as-cran:
-    name: "rhub/{{ MATRIX }}"
+    name: "rhub/{{ matrix.config.r_image }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
