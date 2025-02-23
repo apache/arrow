@@ -34,6 +34,8 @@ class LiteralNode;
 class BooleanNode;
 template <typename Type>
 class InExpressionNode;
+class PreEvalInExpressionNode;
+class ReadProxyNode;
 
 /// \brief Visitor for nodes in the expression tree.
 class GANDIVA_EXPORT NodeVisitor {
@@ -51,6 +53,8 @@ class GANDIVA_EXPORT NodeVisitor {
   virtual Status Visit(const InExpressionNode<double>& node) = 0;
   virtual Status Visit(const InExpressionNode<gandiva::DecimalScalar128>& node) = 0;
   virtual Status Visit(const InExpressionNode<std::string>& node) = 0;
+  virtual Status Visit(const PreEvalInExpressionNode& node) = 0;
+  virtual Status Visit(const ReadProxyNode& node) = 0;
 };
 
 }  // namespace gandiva
