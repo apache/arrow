@@ -18,27 +18,36 @@
 # under the License.
 
 
-# WIP: GH-45156: [Python][Packaging] Revisit Windows wheel Docker setup
+# NOTE: To build this Dockerfile, you probably need to do the following two
+# things:
 #
-# Reconfigure for building
+# 1. Increase your container image size to a higher value.
 #
-#   docker run --storage-opt "size=50GB" mcr.microsoft.com/windows/servercore:ltsc2022 cmd
+#  e.g.,
 #
-#   See https://learn.microsoft.com/en-us/visualstudio/install/build-tools-container?view=vs-2022#troubleshoot-build-tools-containers
+#    Set a custom 'storage-opts' value in your Windows Docker config and restart
+#    Docker:
 #
-# Build (using -m is important)
+#        "storage-opts": [
+#             "size=50GB"
+#        ]
 #
-#   docker build -t buildtools -m 4GB --file .\ci\docker\python-wheel-windows-vs2022-base.dockerfile .
+#    See
 #
-# RESOURCES
+#       https://learn.microsoft.com/en-us/virtualization/windowscontainers/manage-containers/container-storage#example
 #
-# - https://learn.microsoft.com/en-us/visualstudio/install/build-tools-container?view=vs-2022
-# - https://learn.microsoft.com/en-us/visualstudio/install/workload-component-id-vs-build-tools?view=vs-2022
+#    for details on this step and
 #
-# TODOS
+#       https://learn.microsoft.com/en-us/visualstudio/install/build-tools-container?view=vs-2022#troubleshoot-build-tools-containers
 #
-# - I don't think we need to disable BUILDKIT anymore in other places so look
-#   at whether that's true and remove any references
+#    for more information.
+#
+# 2. Increase the memory limit for the build container to at least 4GB.
+#
+#  e.g.,
+#
+#     docker build -t sometag -m 4GB --file `
+#       .\ci\docker\python-wheel-windows-vs2022-base.dockerfile .
 
 # NOTE: You must update PYTHON_WHEEL_WINDOWS_IMAGE_REVISION in .env
 # when you update this file.
@@ -65,7 +74,9 @@ RUN `
 
 # Install choco CLI
 #
-# We switch into Powershell just for this command and switch back to cmd
+# Switch into Powershell just for this command because choco only provides a
+# Powershell installation script. After, we switch back to cmd.
+#
 # See https://chocolatey.org/install#completely-offline-install
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 RUN `
@@ -77,7 +88,7 @@ ARG cmake=3.31.2
 RUN choco install --no-progress -r -y cmake --version=%cmake% --installargs 'ADD_CMAKE_TO_PATH=System'
 RUN choco install --no-progress -r -y git gzip ninja wget
 
-# Add unix tools to path
+# Add UNIX tools to PATH
 RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 
 # Install vcpkg
