@@ -1445,6 +1445,41 @@ cdef class Buffer(_Weakrefable):
         """
         return _wrap_device_allocation_type(self.buffer.get().device_type())
 
+    def copy(self, destination):
+        """
+        Copy the buffer to the destination device.
+
+        The buffer contents will be copied into a new buffer allocated onto
+        the destination MemoryManager or Device. It will return the new Buffer.
+        This function supports cross-device copies.
+
+        Parameters
+        ----------
+        destination : pyarrow.MemoryManager or pyarrow.Device
+            Used to allocate the new buffer.
+
+        Returns
+        -------
+        Buffer
+        """
+        cdef:
+            shared_ptr[CBuffer] c_buffer
+            shared_ptr[CMemoryManager] c_memory_manager
+
+        if isinstance(destination, Device):
+            c_memory_manager = (<Device>destination).unwrap().get().default_memory_manager()
+        elif isinstance(destination, MemoryManager):
+            c_memory_manager = (<MemoryManager>destination).unwrap()
+        else:
+            raise TypeError(
+                "Argument 'destination' is incorrect type (expected pyarrow.Device or "
+                f"pyarrow.MemoryManager, got {type(destination)})"
+            )
+
+        with nogil:
+            c_buffer = GetResultValue(CBuffer.Copy(self.buffer, c_memory_manager))
+        return pyarrow_wrap_buffer(c_buffer)
+
     @property
     def parent(self):
         cdef shared_ptr[CBuffer] parent_buf = self.buffer.get().parent()
