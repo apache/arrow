@@ -856,8 +856,8 @@ class TestConvertPrimitiveTypes:
             arr = pa.array(values, mask=null_mask)
             arrays.append(arr)
 
-            expected = values.astype('f8')
-            expected[null_mask] = np.nan
+            expected = pd.Series(values, dtype='Int64')
+            expected[null_mask] = pd.NA
 
             expected_cols.append(expected)
 
@@ -965,7 +965,7 @@ class TestConvertPrimitiveTypes:
     def test_int_object_nulls(self):
         arr = np.array([None, 1, np.int64(3)] * 5, dtype=object)
         df = pd.DataFrame({'ints': arr})
-        expected = pd.DataFrame({'ints': pd.to_numeric(arr)})
+        expected = pd.DataFrame({'ints': pd.to_numeric(arr)}, dtype='Int64')
         field = pa.field('ints', pa.int64())
         schema = pa.schema([field])
         _check_pandas_roundtrip(df, expected=expected,
@@ -3757,6 +3757,38 @@ def test_recordbatch_table_pass_name_to_pandas():
     assert t[0].to_pandas().name == 'a0'
 
 
+@pytest.mark.pandas
+def test_pandas_dtype_conversions():
+    # Integer array with None value should have Int64 dtype, which is a
+    # nullable-integer array dtype that can represent None values
+    df = pa.Table.from_pydict({"col": [0, None]}).to_pandas()
+    assert df.dtypes["col"] == pd.Int64Dtype()
+
+    df = pa.Table.from_pydict({"col": [2, None, 1]}).to_pandas()
+    assert df.dtypes["col"] == pd.Int64Dtype()
+
+    df = pa.Table.from_pydict({"col": [None, None, -3]}).to_pandas()
+    assert df.dtypes["col"] == pd.Int64Dtype()
+
+    df = pa.Table.from_pydict({"col": [None, None]}).to_pandas()
+    assert df.dtypes["col"] == object
+
+    df = pa.Table.from_pydict({"col": [None, 1.2]}).to_pandas()
+    assert df.dtypes["col"] == float
+
+    df = pa.Table.from_pydict({"col": [1.2, 1]}).to_pandas()
+    assert df.dtypes["col"] == float
+
+    df = pa.Table.from_pydict({"col": [1.2, 2.4]}).to_pandas()
+    assert df.dtypes["col"] == float
+
+    df = pa.Table.from_pydict({"col": [0, 1]}).to_pandas()
+    assert df.dtypes["col"] == int
+
+    df = pa.Table.from_pydict({"col": [1, 3.14, None]}).to_pandas()
+    assert df.dtypes["col"] == float
+
+
 # ----------------------------------------------------------------------
 # Metadata serialization
 
@@ -4463,9 +4495,6 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
     expected = pd.Series([1, 2, 3, 4])
     tm.assert_series_equal(result, expected)
-
-    with pytest.raises(ValueError):
-        table.to_pandas()
 
 
 def test_to_pandas_extension_dtypes_mapping():
