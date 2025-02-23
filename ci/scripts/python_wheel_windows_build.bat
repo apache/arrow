@@ -24,7 +24,7 @@ py -0p
 
 %PYTHON_CMD% -m sysconfig || exit /B 1
 
-call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 @echo on
 
 echo "=== (%PYTHON%) Clear output directories and leftovers ==="
