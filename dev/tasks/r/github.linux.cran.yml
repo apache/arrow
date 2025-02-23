@@ -21,7 +21,7 @@
 
 jobs:
   as-cran:
-    name: "rhub/{{ matrix.config.r_image }}"
+    name: "rhub/{{ '${{ matrix.config.r_image }}' }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -35,7 +35,7 @@ jobs:
           - { r_image: "clang20", skip_vignettes: true }  # ~ r-devel-linux-x86_64-fedora-clang
     env:
       R_ORG: "rhub"
-      R_IMAGE: {{ matrix.config.r_image }}
+      R_IMAGE: {{ '${{ matrix.config.r_image }}' }}
       R_TAG: "latest"
       ARROW_R_DEV: "FALSE"
     steps:
@@ -47,7 +47,7 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         # setting ARROW_SOURCE_HOME='' here ensures that we use the cpp source copied into tools/
-        run: archery docker run -e ARROW_SOURCE_HOME='' -e SKIP_VIGNETTES={{ matrix.config.skip_vignettes }} r
+        run: archery docker run -e ARROW_SOURCE_HOME='' -e SKIP_VIGNETTES={{ '${{ matrix.config.skip_vignettes }}' }} r
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         if: always()
