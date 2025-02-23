@@ -110,6 +110,33 @@ TEST(TestColumnPath, TestAttrs) {
   ASSERT_EQ(extended->ToDotString(), "toplevel.leaf.anotherlevel");
 }
 
+TEST(TestColumnPath, FromNode) {
+  auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, Type::INT32, ConvertedType::INT_32);
+  auto key_value = GroupNode::Make("key_value", Repetition::REQUIRED, {key}, ConvertedType::NONE);
+  auto map = GroupNode::Make("a", Repetition::REQUIRED, {key_value}, ConvertedType::MAP);
+
+  auto element = PrimitiveNode::Make("element", Repetition::REPEATED, Type::INT32, ConvertedType::INT_32);
+  auto inner_list = GroupNode::Make("list", Repetition::REQUIRED, {element}, ConvertedType::NONE);
+  auto list = GroupNode::Make("b", Repetition::REQUIRED, {inner_list}, ConvertedType::LIST);
+
+  auto f1 = PrimitiveNode::Make("f1", Repetition::OPTIONAL, Type::INT32, ConvertedType::INT_32);
+  auto f2 = PrimitiveNode::Make("f2", Repetition::OPTIONAL, Type::BYTE_ARRAY, ConvertedType::UTF8);
+  auto struct_ = GroupNode::Make("c", Repetition::REQUIRED, {f1, f2}, ConvertedType::NONE);
+
+  auto schema = GroupNode::Make("schema", Repetition::REQUIRED, {map, list, struct_}, ConvertedType::NONE);
+
+  ASSERT_EQ(ColumnPath::FromNode(*key)->ToDotString(), "a.key_value.key");
+  ASSERT_EQ(ColumnPath::FromNode(*key, true)->ToDotString(), "a.key");
+
+  ASSERT_EQ(ColumnPath::FromNode(*element)->ToDotString(), "b.list.element");
+  ASSERT_EQ(ColumnPath::FromNode(*element, true)->ToDotString(), "b.element");
+
+  ASSERT_EQ(ColumnPath::FromNode(*f1)->ToDotString(), "c.f1");
+  ASSERT_EQ(ColumnPath::FromNode(*f1, true)->ToDotString(), "c.f1");
+  ASSERT_EQ(ColumnPath::FromNode(*f2)->ToDotString(), "c.f2");
+  ASSERT_EQ(ColumnPath::FromNode(*f2, true)->ToDotString(), "c.f2");
+}
+
 // ----------------------------------------------------------------------
 // Primitive node
 
