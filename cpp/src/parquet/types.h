@@ -449,7 +449,7 @@ class PARQUET_EXPORT Float16LogicalType : public LogicalType {
   Float16LogicalType() = default;
 };
 
-/// \brief Allowed for physical type BYTE_ARRAY.
+/// \brief Allowed for group nodes only.
 class PARQUET_EXPORT VariantLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
