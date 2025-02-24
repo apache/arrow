@@ -22,12 +22,12 @@
 jobs:
   write-files:
     name: "Write files"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
     env:
       ARROW_R_DEV: "TRUE"
-      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
+      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/jammy/latest"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
@@ -66,7 +66,19 @@ jobs:
   read-files:
     name: "Read files with Arrow {{ '${{ matrix.config.old_arrow_version }}' }}"
     needs: [write-files]
-    runs-on: ubuntu-20.04
+    # condition && true-case || false-case
+    # ==
+    # condition ? true-case : false-case
+    #
+    # We use Ubuntu 20.04 for 3.0.0 or earlier because 3.0.0 or
+    # earlier can't be built on Ubuntu 22.04. We will drop 3.0.0 or
+    # earlier when Ubuntu 20.04 is unavailable on GitHub Actions.
+    runs-on: >-
+      {{ "${{ (startsWith(matrix.config.old_arrow_version, '3.') ||
+               startsWith(matrix.config.old_arrow_version, '2.') ||
+               startsWith(matrix.config.old_arrow_version, '1.')) &&
+                 'ubuntu-20.04' ||
+                 'ubuntu-22.04' }}" }}
     strategy:
       fail-fast: false
       matrix:
@@ -89,11 +101,24 @@ jobs:
         - { old_arrow_version: '1.0.1', r: '4.0' }
     env:
       ARROW_R_DEV: "TRUE"
-      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
       OLD_ARROW_VERSION: {{ '${{ matrix.config.old_arrow_version }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
+      - name: Prepare RSPM
+        run: |
+          old_arrow_version_major=$(echo ${OLD_ARROW_VERSION} | cut -d. -f1)
+          if [ ${old_arrow_version_major} -ge 6 ]; then
+            # Binary arrow packages for Ubuntu 22.04 are available only
+            # for 6.0.0 or later.
+            rspm="https://packagemanager.rstudio.com/cran/__linux__/jammy/latest"
+            echo "RSPM=${rspm}" >> $GITHUB_ENV
+          elif [ ${old_arrow_version_major} -le 3 ]; then
+            # We use Ubuntu 20.04 for 3.0.0 or earlier because 3.0.0 or earlier
+            # can't be built on Ubuntu 22.04.
+            rspm="https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
+            echo "RSPM=${rspm}" >> $GITHUB_ENV
+          fi
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: {{ '${{ matrix.config.r }}' }}

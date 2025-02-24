@@ -3392,6 +3392,30 @@ def test_rank_quantile_options():
         pc.rank_quantile(arr, sort_keys="XXX")
 
 
+def test_rank_normal_options():
+    arr = pa.array([None, 1, None, 2, None])
+
+    expected = pytest.approx(
+        [0.5244005127080407, -1.2815515655446004, 0.5244005127080407,
+         -0.5244005127080409, 0.5244005127080407])
+    result = pc.rank_normal(arr)
+    assert result.to_pylist() == expected
+    result = pc.rank_normal(arr, null_placement="at_end", sort_keys="ascending")
+    assert result.to_pylist() == expected
+    result = pc.rank_normal(arr, options=pc.RankQuantileOptions())
+    assert result.to_pylist() == expected
+
+    expected = pytest.approx(
+        [-0.5244005127080409, 1.2815515655446004, -0.5244005127080409,
+         0.5244005127080407, -0.5244005127080409])
+    result = pc.rank_normal(arr, null_placement="at_start", sort_keys="descending")
+    assert result.to_pylist() == expected
+    result = pc.rank_normal(arr,
+                            options=pc.RankQuantileOptions(null_placement="at_start",
+                                                           sort_keys="descending"))
+    assert result.to_pylist() == expected
+
+
 def create_sample_expressions():
     # We need a schema for substrait conversion
     schema = pa.schema([pa.field("i64", pa.int64()), pa.field(

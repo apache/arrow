@@ -1805,6 +1805,8 @@ in the respective option classes.
 +-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 | rank                  | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`RankOptions`         | \(4)           |
 +-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| rank_normal           | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | Float64           | :struct:`RankQuantileOptions` | \(5)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 | rank_quantile         | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | Float64           | :struct:`RankQuantileOptions` | \(5)           |
 +-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 | select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`      | \(6) \(7)      |
@@ -1827,7 +1829,10 @@ in the respective option classes.
 
 * \(4) The output is a one-based numerical array of ranks.
 
-* \(5) The output is an array of quantiles strictly between 0 and 1.
+* \(5) The output of ``rank_quantile`` is an array of quantiles strictly between
+  0 and 1. The ouput of ``rank_normal`` is an array of finite real values
+  corresponding to points in the normal distribution that reflect the input's
+  quantile ranks.
 
 * \(6) The input can be an array, chunked array, record batch or
   table. If the input is a record batch or table, one or more sort

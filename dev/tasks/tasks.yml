@@ -869,6 +869,13 @@ tasks:
       image: {{ image }}
 {% endfor %}
 
+  test-conda-cpp-meson:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      flags: -e ARROW_USE_MESON=ON
+      image: conda-cpp
+
   test-conda-cpp-valgrind:
     ci: github
     template: docker-tests/github.linux.yml
