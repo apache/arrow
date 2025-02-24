@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/codegen_internal.h"
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common_internal.h"

@@ -46,6 +46,10 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
+// Register the compute kernels
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
+
 #ifdef ARROW_VALGRIND
 using RealArrowTypes = ::testing::Types<FloatType>;
 
