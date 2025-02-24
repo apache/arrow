@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+arrow_install_all_headers("arrow/compute/kernels")
+
 # ----------------------------------------------------------------------
 # Tests that don't require the full kernel library
 

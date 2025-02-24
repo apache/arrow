@@ -23,6 +23,7 @@
 #include <arrow/csv/api.h>
 #include "arrow/acero/exec_plan.h"
 #include "arrow/compute/expression.h"
+#include "arrow/compute/kernels/registry.h"
 
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/plan.h>
@@ -82,6 +83,7 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData
 }
 
 arrow::Status DoHashJoin() {
+  ARROW_RETURN_NOT_OK(arrow::compute::RegisterComputeKernels());
   arrow::dataset::internal::Initialize();
 
   ARROW_ASSIGN_OR_RAISE(auto l_dataset, CreateDataSetFromCSVData(true));

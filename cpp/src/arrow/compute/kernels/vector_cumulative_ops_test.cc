@@ -37,6 +37,10 @@
 namespace arrow {
 namespace compute {
 
+// Register the compute kernels
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
+
 static const std::vector<std::string> kCumulativeFunctionNames{
     "cumulative_sum",          "cumulative_sum_checked", "cumulative_prod",
     "cumulative_prod_checked", "cumulative_min",         "cumulative_max",

@@ -32,6 +32,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
+#include "arrow/compute/kernels/registry.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/type.h"
@@ -55,6 +56,10 @@ using internal::checked_pointer_cast;
 namespace compute {
 
 using internal::FindAccumulatorType;
+
+// Register the compute kernels
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 //
 // Sum

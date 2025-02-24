@@ -34,6 +34,10 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
+// Register the compute kernels
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
+
 // Helper that combines a dictionary and the value type so it can
 // later be used with DictArrayFromJSON
 struct JsonDict {

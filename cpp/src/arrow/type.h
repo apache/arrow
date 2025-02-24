@@ -292,6 +292,7 @@ std::ostream& operator<<(std::ostream& os, const TypeHolder& type);
 /// - if a `PhysicalType` alias exists in the concrete type class, return
 ///   an instance of `PhysicalType`.
 /// - otherwise, return the input type itself.
+ARROW_EXPORT
 std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& type);
 
 /// \brief Base class for all fixed-width data types

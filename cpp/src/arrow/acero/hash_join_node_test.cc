@@ -26,6 +26,7 @@
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/api.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/light_array_internal.h"
 #include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/compute/test_util_internal.h"
@@ -47,6 +48,7 @@ using arrow::random::kSeedMax;
 using arrow::random::RandomArrayGenerator;
 using compute::and_;
 using compute::call;
+using compute::ComputeKernelEnvironment;
 using compute::default_exec_context;
 using compute::ExecBatchBuilder;
 using compute::ExecBatchFromJSON;
@@ -56,6 +58,10 @@ using compute::SortIndices;
 using compute::SortKey;
 using compute::Take;
 using compute::internal::RowEncoder;
+
+// Register the compute kernels
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace acero {
 

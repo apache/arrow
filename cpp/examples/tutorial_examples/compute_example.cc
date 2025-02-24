@@ -20,6 +20,7 @@
 // (Doc section: Includes)
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
+#include <arrow/compute/kernels/api.h>
 
 #include <iostream>
 // (Doc section: Includes)
@@ -48,6 +49,9 @@ arrow::Status RunMain() {
   field_b = arrow::field("B", arrow::int32());
 
   schema = arrow::schema({field_a, field_b});
+
+  // Register required compute kernels.
+  ARROW_RETURN_NOT_OK(arrow::compute::RegisterComputeKernels());
 
   std::shared_ptr<arrow::Table> table;
   table = arrow::Table::Make(schema, {some_nums, more_nums}, 5);

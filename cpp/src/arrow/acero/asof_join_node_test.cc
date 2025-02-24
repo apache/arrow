@@ -42,6 +42,7 @@
 #include "arrow/api.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
@@ -68,10 +69,15 @@ using testing::UnorderedElementsAreArray;
 namespace arrow {
 
 using compute::Cast;
+using compute::ComputeKernelEnvironment;
 using compute::Divide;
 using compute::ExecBatchFromJSON;
 using compute::Multiply;
 using compute::Subtract;
+
+// Register the compute kernels
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace acero {
 

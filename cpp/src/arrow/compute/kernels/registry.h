@@ -14,14 +14,13 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#include "arrow/compute/registry.h"
 
-#pragma once
+#include "arrow/compute/visibility.h"
+#include "arrow/status.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
-ARROW_COMPUTE_EXPORT Result<std::unique_ptr<RowSegmenter>> MakeAnyKeysSegmenter(
-    const std::vector<TypeHolder>& key_types, ExecContext* ctx);
+ARROW_COMPUTE_EXPORT Status RegisterComputeKernels();
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute
