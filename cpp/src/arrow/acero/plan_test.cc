@@ -27,6 +27,7 @@
 #include "arrow/acero/util.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/expression.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
@@ -54,6 +55,7 @@ namespace arrow {
 
 using compute::ArgShape;
 using compute::call;
+using compute::ComputeKernelEnvironment;
 using compute::CountOptions;
 using compute::ExecBatchFromJSON;
 using compute::field_ref;
@@ -62,6 +64,10 @@ using compute::SortKey;
 using compute::SortOrder;
 using compute::Take;
 using compute::TDigestOptions;
+
+// Register the compute kernels
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace acero {
 
