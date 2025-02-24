@@ -63,28 +63,28 @@ Status CheckBufferSlice(const Buffer& buffer, int64_t offset) {
 
 }  // namespace
 
-Result<std::shared_ptr<Buffer>> SliceBufferSafe(const std::shared_ptr<Buffer>& buffer,
+Result<std::shared_ptr<Buffer>> SliceBufferSafe(std::shared_ptr<Buffer> buffer,
                                                 int64_t offset) {
   RETURN_NOT_OK(CheckBufferSlice(*buffer, offset));
-  return SliceBuffer(buffer, offset);
+  return SliceBuffer(std::move(buffer), offset);
 }
 
-Result<std::shared_ptr<Buffer>> SliceBufferSafe(const std::shared_ptr<Buffer>& buffer,
+Result<std::shared_ptr<Buffer>> SliceBufferSafe(std::shared_ptr<Buffer> buffer,
                                                 int64_t offset, int64_t length) {
   RETURN_NOT_OK(CheckBufferSlice(*buffer, offset, length));
-  return SliceBuffer(buffer, offset, length);
+  return SliceBuffer(std::move(buffer), offset, length);
 }
 
-Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(
-    const std::shared_ptr<Buffer>& buffer, int64_t offset) {
+Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(std::shared_ptr<Buffer> buffer,
+                                                       int64_t offset) {
   RETURN_NOT_OK(CheckBufferSlice(*buffer, offset));
-  return SliceMutableBuffer(buffer, offset);
+  return SliceMutableBuffer(std::move(buffer), offset);
 }
 
-Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(
-    const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length) {
+Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(std::shared_ptr<Buffer> buffer,
+                                                       int64_t offset, int64_t length) {
   RETURN_NOT_OK(CheckBufferSlice(*buffer, offset, length));
-  return SliceMutableBuffer(buffer, offset, length);
+  return SliceMutableBuffer(std::move(buffer), offset, length);
 }
 
 std::string Buffer::ToHexString() {
@@ -167,9 +167,9 @@ std::shared_ptr<Buffer> Buffer::FromString(std::string data) {
   return std::make_shared<StlStringBuffer>(std::move(data));
 }
 
-std::shared_ptr<Buffer> SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer,
+std::shared_ptr<Buffer> SliceMutableBuffer(std::shared_ptr<Buffer> buffer,
                                            const int64_t offset, const int64_t length) {
-  return std::make_shared<MutableBuffer>(buffer, offset, length);
+  return std::make_shared<MutableBuffer>(std::move(buffer), offset, length);
 }
 
 MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_t offset,
