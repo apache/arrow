@@ -1198,8 +1198,6 @@ tasks:
   test-r-linux-as-cran:
     ci: github
     template: r/github.linux.cran.yml
-    params:
-      MATRIX: {{ "${{ matrix.r_image }}" }}
 
   test-r-macos-as-cran:
     ci: github
