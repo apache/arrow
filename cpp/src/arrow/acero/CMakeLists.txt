@@ -66,8 +66,8 @@ endif()
 
 list(APPEND ARROW_ACERO_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 list(APPEND ARROW_ACERO_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
-list(APPEND ARROW_ACERO_STATIC_LINK_LIBS arrow_static)
-list(APPEND ARROW_ACERO_SHARED_LINK_LIBS arrow_shared)
+list(APPEND ARROW_ACERO_STATIC_LINK_LIBS arrow_static arrow_compute_static)
+list(APPEND ARROW_ACERO_SHARED_LINK_LIBS arrow_shared arrow_compute_shared)
 
 add_arrow_lib(arrow_acero
               CMAKE_PACKAGE_NAME

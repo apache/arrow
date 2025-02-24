@@ -742,6 +742,7 @@ set(ARROW_COMPUTE_SRCS
     compute/kernels/scalar_cast_temporal.cc
     compute/kernels/util_internal.cc
     compute/kernels/vector_hash.cc
+    compute/kernels/vector_run_end_encode.cc
     compute/kernels/vector_selection.cc
     compute/kernels/vector_selection_filter_internal.cc
     compute/kernels/vector_selection_internal.cc
@@ -750,13 +751,14 @@ set(ARROW_COMPUTE_SRCS
 if(ARROW_COMPUTE)
   # Include the remaining kernels
   list(APPEND
-       ARROW_COMPUTE_SRCS
+       ARROW_COMPUTE_LIB_SRCS
        compute/kernels/aggregate_basic.cc
        compute/kernels/aggregate_mode.cc
        compute/kernels/aggregate_quantile.cc
        compute/kernels/aggregate_tdigest.cc
        compute/kernels/aggregate_var_std.cc
        compute/kernels/hash_aggregate.cc
+       compute/kernels/registry.cc
        compute/kernels/scalar_arithmetic.cc
        compute/kernels/scalar_boolean.cc
        compute/kernels/scalar_compare.cc
@@ -776,7 +778,6 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_pairwise.cc
        compute/kernels/vector_rank.cc
        compute/kernels/vector_replace.cc
-       compute/kernels/vector_run_end_encode.cc
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_sort.cc
        compute/kernels/vector_swizzle.cc
@@ -791,40 +792,53 @@ if(ARROW_COMPUTE)
        compute/util.cc
        compute/util_internal.cc)
 
-  append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/kernels/aggregate_basic_avx2.cc)
-  append_runtime_avx512_src(ARROW_COMPUTE_SRCS compute/kernels/aggregate_basic_avx512.cc)
-  append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_internal_avx2.cc)
-  append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_internal_avx2.cc)
-  append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/compare_internal_avx2.cc)
-  append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/encode_internal_avx2.cc)
-  append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/util_avx2.cc)
+  append_runtime_avx2_src(ARROW_COMPUTE_LIB_SRCS compute/kernels/aggregate_basic_avx2.cc)
+  append_runtime_avx512_src(ARROW_COMPUTE_LIB_SRCS
+                            compute/kernels/aggregate_basic_avx512.cc)
+  append_runtime_avx2_src(ARROW_COMPUTE_LIB_SRCS compute/key_hash_internal_avx2.cc)
+  append_runtime_avx2_bmi2_src(ARROW_COMPUTE_LIB_SRCS compute/key_map_internal_avx2.cc)
+  append_runtime_avx2_src(ARROW_COMPUTE_LIB_SRCS compute/row/compare_internal_avx2.cc)
+  append_runtime_avx2_src(ARROW_COMPUTE_LIB_SRCS compute/row/encode_internal_avx2.cc)
+  append_runtime_avx2_bmi2_src(ARROW_COMPUTE_LIB_SRCS compute/util_avx2.cc)
+  set(ARROW_COMPUTE_LINK_LIBS Boost::headers ${ARROW_XSIMD} ${ARROW_OPENTELEMETRY_LIBS})
+  if(ARROW_WITH_RE2)
+    list(APPEND ARROW_COMPUTE_LINK_LIBS re2::re2)
+  endif()
+  if(ARROW_WITH_UTF8PROC)
+    list(APPEND ARROW_COMPUTE_LINK_LIBS utf8proc::utf8proc)
+  endif()
+  add_arrow_lib(arrow_compute
+                CMAKE_PACKAGE_NAME
+                ArrowCompute
+                PKG_CONFIG_NAME
+                arrow-compute
+                SHARED_PRIVATE_LINK_LIBS
+                ${ARROW_COMPUTE_LINK_LIBS} # TODO: This has to be added conditionally if ARROW_USE_XSIMD
+                ${ARROW_OPENTELEMETRY_LIBS}
+                OUTPUTS
+                ARROW_COMPUTE_LIBRARIES
+                SOURCES
+                ${ARROW_COMPUTE_LIB_SRCS}
+                SHARED_LINK_FLAGS
+                ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+  )
 endif()
 
 arrow_add_object_library(ARROW_COMPUTE ${ARROW_COMPUTE_SRCS})
 if(ARROW_USE_BOOST)
-  foreach(ARROW_COMPUTE_TARGET ${ARROW_COMPUTE_TARGETS})
-    target_link_libraries(${ARROW_COMPUTE_TARGET} PRIVATE Boost::headers)
-  endforeach()
+  target_link_libraries(arrow_compute PRIVATE Boost::headers)
 endif()
 if(ARROW_USE_XSIMD)
-  foreach(ARROW_COMPUTE_TARGET ${ARROW_COMPUTE_TARGETS})
-    target_link_libraries(${ARROW_COMPUTE_TARGET} PRIVATE ${ARROW_XSIMD})
-  endforeach()
+  target_link_libraries(arrow_compute PRIVATE ${ARROW_XSIMD})
 endif()
 if(ARROW_WITH_OPENTELEMETRY)
-  foreach(ARROW_COMPUTE_TARGET ${ARROW_COMPUTE_TARGETS})
-    target_link_libraries(${ARROW_COMPUTE_TARGET} PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
-  endforeach()
+  target_link_libraries(arrow_compute PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
 endif()
 if(ARROW_WITH_RE2)
-  foreach(ARROW_COMPUTE_TARGET ${ARROW_COMPUTE_TARGETS})
-    target_link_libraries(${ARROW_COMPUTE_TARGET} PRIVATE re2::re2)
-  endforeach()
+  target_link_libraries(arrow_compute PRIVATE re2::re2)
 endif()
 if(ARROW_WITH_UTF8PROC)
-  foreach(ARROW_COMPUTE_TARGET ${ARROW_COMPUTE_TARGETS})
-    target_link_libraries(${ARROW_COMPUTE_TARGET} PRIVATE utf8proc::utf8proc)
-  endforeach()
+  target_link_libraries(arrow_compute PRIVATE utf8proc::utf8proc)
 endif()
 
 if(ARROW_FILESYSTEM)
