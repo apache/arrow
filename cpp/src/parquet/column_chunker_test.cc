@@ -17,43 +17,33 @@
 
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <iostream>
+#include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
-#include "arrow/array/builder_binary.h"
-#include "arrow/array/builder_decimal.h"
-#include "arrow/array/builder_primitive.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/testing/random.h"
 #include "arrow/type_fwd.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
-#include "arrow/util/logging.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
-#include "parquet/arrow/schema.h"
 #include "parquet/arrow/test_util.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
-#include "parquet/page_index.h"
-#include "parquet/test_util.h"
 
 namespace parquet {
 
 using ::arrow::Array;
 using ::arrow::ChunkedArray;
 using ::arrow::ConcatenateTables;
+using ::arrow::DataType;
 using ::arrow::default_memory_pool;
 using ::arrow::Field;
 using ::arrow::Result;
 using ::arrow::Table;
 using ::arrow::io::BufferReader;
-using ::arrow::random::GenerateArray;
-using ::arrow::random::GenerateBatch;
 using ::parquet::arrow::FileReader;
 using ::parquet::arrow::FileReaderBuilder;
 using ::parquet::arrow::MakeSimpleTable;
@@ -64,18 +54,191 @@ using ::testing::Bool;
 using ::testing::Combine;
 using ::testing::Values;
 
-std::shared_ptr<Table> GenerateTable(const std::vector<std::shared_ptr<Field>>& fields,
-                                     int64_t size, int32_t seed = 42) {
-  auto batch = GenerateBatch(fields, size, seed);
-  return Table::FromRecordBatches({batch}).ValueOrDie();
+// generate determinisic and platform-independent data
+inline uint64_t hash(uint64_t seed, uint64_t index) {
+  uint64_t h = (index + seed) * 0xc4ceb9fe1a85ec53ull;
+  h ^= h >> 33;
+  h *= 0xff51afd7ed558ccdull;
+  h ^= h >> 33;
+  h *= 0xc4ceb9fe1a85ec53ull;
+  h ^= h >> 33;
+  return h;
 }
 
-std::shared_ptr<Table> ConcatAndCombine(
+#define GENERATE_CASE_BODY(BUILDER_TYPE, VALUE_EXPR)   \
+  {                                                    \
+    BUILDER_TYPE builder(type, default_memory_pool()); \
+    if (nullable) {                                    \
+      for (int64_t i = 0; i < length; ++i) {           \
+        uint64_t val = hash(seed, i);                  \
+        if (val % 10 == 0) {                           \
+          RETURN_NOT_OK(builder.AppendNull());         \
+        } else {                                       \
+          RETURN_NOT_OK(builder.Append(VALUE_EXPR));   \
+        }                                              \
+      }                                                \
+    } else {                                           \
+      for (int64_t i = 0; i < length; ++i) {           \
+        uint64_t val = hash(seed, i);                  \
+        RETURN_NOT_OK(builder.Append(VALUE_EXPR));     \
+      }                                                \
+    }                                                  \
+    std::shared_ptr<Array> array;                      \
+    RETURN_NOT_OK(builder.Finish(&array));             \
+    RETURN_NOT_OK(array->ValidateFull());              \
+    return array;                                      \
+  }
+
+// Macro to generate a case for a given scalar type.
+#define GENERATE_CASE(TYPE_ID, BUILDER_TYPE, VALUE_EXPR) \
+  case ::arrow::Type::TYPE_ID: {                         \
+    GENERATE_CASE_BODY(BUILDER_TYPE, VALUE_EXPR)         \
+  }
+
+Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field,
+                                             int64_t length, uint64_t seed) {
+  const std::shared_ptr<DataType>& type = field->type();
+  bool nullable = field->nullable();
+
+  switch (type->id()) {
+    GENERATE_CASE(BOOL, ::arrow::BooleanBuilder, (val % 2 == 0))
+
+    // Numeric types.
+    GENERATE_CASE(INT8, ::arrow::Int8Builder, static_cast<int8_t>(val))
+    GENERATE_CASE(INT16, ::arrow::Int16Builder, static_cast<int16_t>(val))
+    GENERATE_CASE(INT32, ::arrow::Int32Builder, static_cast<int32_t>(val))
+    GENERATE_CASE(INT64, ::arrow::Int64Builder, static_cast<int64_t>(val))
+    GENERATE_CASE(UINT8, ::arrow::UInt8Builder, static_cast<uint8_t>(val))
+    GENERATE_CASE(UINT16, ::arrow::UInt16Builder, static_cast<uint16_t>(val))
+    GENERATE_CASE(UINT32, ::arrow::UInt32Builder, static_cast<uint32_t>(val))
+    GENERATE_CASE(UINT64, ::arrow::UInt64Builder, static_cast<uint64_t>(val))
+    GENERATE_CASE(HALF_FLOAT, ::arrow::HalfFloatBuilder,
+                  static_cast<uint16_t>(val % 1000))
+    GENERATE_CASE(FLOAT, ::arrow::FloatBuilder, static_cast<float>(val % 1000) / 1000.0f)
+    GENERATE_CASE(DOUBLE, ::arrow::DoubleBuilder,
+                  static_cast<double>(val % 100000) / 1000.0)
+    case ::arrow::Type::DECIMAL128: {
+      const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*type);
+      // Limit the value to fit within the specified precision
+      int32_t max_exponent = decimal_type.precision() - decimal_type.scale();
+      int64_t max_value = static_cast<int64_t>(std::pow(10, max_exponent) - 1);
+      GENERATE_CASE_BODY(::arrow::Decimal128Builder, ::arrow::Decimal128(val % max_value))
+    }
+    case ::arrow::Type::DECIMAL256: {
+      const auto& decimal_type = static_cast<const ::arrow::Decimal256Type&>(*type);
+      // Limit the value to fit within the specified precision, capped at 9 to avoid
+      // int64_t overflow
+      int32_t max_exponent = std::min(9, decimal_type.precision() - decimal_type.scale());
+      int64_t max_value = static_cast<int64_t>(std::pow(10, max_exponent) - 1);
+      GENERATE_CASE_BODY(::arrow::Decimal256Builder, ::arrow::Decimal256(val % max_value))
+    }
+
+      // Temporal types
+      GENERATE_CASE(DATE32, ::arrow::Date32Builder, static_cast<int32_t>(val))
+      GENERATE_CASE(TIME32, ::arrow::Time32Builder,
+                    std::abs(static_cast<int32_t>(val) % 86400000))
+      GENERATE_CASE(TIME64, ::arrow::Time64Builder,
+                    std::abs(static_cast<int64_t>(val) % 86400000000))
+      GENERATE_CASE(TIMESTAMP, ::arrow::TimestampBuilder, static_cast<int64_t>(val))
+      GENERATE_CASE(DURATION, ::arrow::DurationBuilder, static_cast<int64_t>(val))
+
+      // Binary and string types.
+      GENERATE_CASE(STRING, ::arrow::StringBuilder,
+                    std::string("str_") + std::to_string(val))
+      GENERATE_CASE(LARGE_STRING, ::arrow::LargeStringBuilder,
+                    std::string("str_") + std::to_string(val))
+      GENERATE_CASE(BINARY, ::arrow::BinaryBuilder,
+                    std::string("bin_") + std::to_string(val))
+    case ::arrow::Type::FIXED_SIZE_BINARY: {
+      auto size = static_cast<::arrow::FixedSizeBinaryType*>(type.get())->byte_width();
+      GENERATE_CASE_BODY(::arrow::FixedSizeBinaryBuilder,
+                         std::string("bin_") + std::to_string(val).substr(0, size - 4))
+    }
+
+    case ::arrow::Type::STRUCT: {
+      auto struct_type = static_cast<::arrow::StructType*>(type.get());
+      std::vector<std::shared_ptr<Array>> child_arrays;
+      for (auto i = 0; i < struct_type->num_fields(); i++) {
+        ARROW_ASSIGN_OR_RAISE(auto child_array,
+                              GenerateArray(struct_type->field(i), length,
+                                            seed + static_cast<uint64_t>(i + 300)));
+        child_arrays.push_back(child_array);
+      }
+      auto struct_array =
+          std::make_shared<::arrow::StructArray>(type, length, child_arrays);
+      return struct_array;
+    }
+
+    case ::arrow::Type::LIST: {
+      auto list_type = static_cast<::arrow::ListType*>(type.get());
+      auto value_field = ::arrow::field("item", list_type->value_type());
+      ARROW_ASSIGN_OR_RAISE(auto values_array, GenerateArray(value_field, length, seed));
+      auto offset_builder = ::arrow::Int32Builder();
+      auto bitmap_builder = ::arrow::TypedBufferBuilder<bool>();
+
+      int32_t num_nulls = 0;
+      int32_t num_elements = 0;
+      uint8_t element_size = 0;
+      int32_t current_offset = 0;
+      RETURN_NOT_OK(offset_builder.Append(current_offset));
+      while (current_offset < length) {
+        num_elements++;
+        auto is_valid = !(nullable && (num_elements % 10 == 0));
+        if (is_valid) {
+          RETURN_NOT_OK(bitmap_builder.Append(true));
+          current_offset += element_size;
+          if (current_offset > length) {
+            RETURN_NOT_OK(offset_builder.Append(static_cast<int32_t>(length)));
+            break;
+          } else {
+            RETURN_NOT_OK(offset_builder.Append(current_offset));
+          }
+        } else {
+          RETURN_NOT_OK(offset_builder.Append(static_cast<int32_t>(current_offset)));
+          RETURN_NOT_OK(bitmap_builder.Append(false));
+          num_nulls++;
+        }
+
+        if (element_size > 4) {
+          element_size = 0;
+        } else {
+          element_size++;
+        }
+      }
+
+      std::shared_ptr<Array> offsets_array;
+      RETURN_NOT_OK(offset_builder.Finish(&offsets_array));
+      std::shared_ptr<Buffer> bitmap_buffer;
+      RETURN_NOT_OK(bitmap_builder.Finish(&bitmap_buffer));
+      ARROW_ASSIGN_OR_RAISE(
+          auto list_array, ::arrow::ListArray::FromArrays(
+                               type, *offsets_array, *values_array, default_memory_pool(),
+                               bitmap_buffer, num_nulls));
+      RETURN_NOT_OK(list_array->ValidateFull());
+      return list_array;
+    }
+
+    default:
+      return ::arrow::Status::NotImplemented("Unsupported data type " + type->ToString());
+  }
+}
+
+Result<std::shared_ptr<Table>> GenerateTable(
+    const std::shared_ptr<::arrow::Schema>& schema, int64_t size, uint64_t seed = 0) {
+  std::vector<std::shared_ptr<Array>> arrays;
+  for (const auto& field : schema->fields()) {
+    ARROW_ASSIGN_OR_RAISE(auto array, GenerateArray(field, size, seed));
+    arrays.push_back(array);
+  }
+  return Table::Make(schema, arrays, size);
+}
+
+Result<std::shared_ptr<Table>> ConcatAndCombine(
     const std::vector<std::shared_ptr<Table>>& parts) {
   // Concatenate and combine chunks so the table doesn't carry information about
   // the modification points
-  auto table = ConcatenateTables(parts).ValueOrDie();
-  return table->CombineChunks().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto table, ConcatenateTables(parts));
+  return table->CombineChunks();
 }
 
 Result<std::shared_ptr<Buffer>> WriteTableToBuffer(const std::shared_ptr<Table>& table,
@@ -483,7 +646,7 @@ void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
                       PageSizes base_result, PageSizes modified_result, bool nullable,
                       bool enable_dictionary, uint64_t min_chunk_size,
                       uint64_t max_chunk_size) {
-  max_chunk_size *= 1.2;
+  max_chunk_size = static_cast<uint64_t>(max_chunk_size * 1.2);
   if (::arrow::is_fixed_width(dtype->id())) {
     auto min_length = ElementCount(min_chunk_size, dtype->byte_width(), nullable);
     auto max_length = ElementCount(max_chunk_size, dtype->byte_width(), nullable);
@@ -498,9 +661,9 @@ void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
   }
 }
 
-constexpr uint64_t kMinChunkSize = 64 * 1024;
-constexpr uint64_t kMaxChunkSize = 128 * 1024;
-constexpr uint64_t kPartSize = 256 * 1024;
+constexpr uint64_t kMinChunkSize = 8 * 1024;
+constexpr uint64_t kMaxChunkSize = 32 * 1024;
+constexpr uint64_t kPartSize = 128 * 1024;
 constexpr uint64_t kEditSize = 128;
 
 class TestColumnCDC : public ::testing::TestWithParam<
@@ -513,26 +676,25 @@ class TestColumnCDC : public ::testing::TestWithParam<
   void SetUp() override {
     auto [dtype, nullable, byte_per_record] = GetParam();
     auto field_ = ::arrow::field("f0", dtype, nullable);
+    auto schema = ::arrow::schema({field_});
 
     auto part_length = kPartSize / byte_per_record;
     auto edit_length = kEditSize / byte_per_record;
-    // Generate random table parts, these are later concatenated to simulate
-    // different scenarios like insert, update, delete, and append.
-    part1_ = GenerateTable({field_}, part_length, /*seed=*/1);
-    part2_ = GenerateTable({field_}, edit_length, /*seed=*/2);
-    part3_ = GenerateTable({field_}, part_length, /*seed=*/3);
-    part4_ = GenerateTable({field_}, edit_length, /*seed=*/4);
-    part5_ = GenerateTable({field_}, part_length, /*seed=*/5);
-    part6_ = GenerateTable({field_}, edit_length, /*seed=*/6);
-    part7_ = GenerateTable({field_}, edit_length, /*seed=*/7);
+    ASSERT_OK_AND_ASSIGN(part1_, GenerateTable(schema, part_length, 0));
+    ASSERT_OK_AND_ASSIGN(part2_, GenerateTable(schema, edit_length, 1));
+    ASSERT_OK_AND_ASSIGN(part3_, GenerateTable(schema, part_length, part_length));
+    ASSERT_OK_AND_ASSIGN(part4_, GenerateTable(schema, edit_length, 2));
+    ASSERT_OK_AND_ASSIGN(part5_, GenerateTable(schema, part_length, 2 * part_length));
+    ASSERT_OK_AND_ASSIGN(part6_, GenerateTable(schema, edit_length, 3));
+    ASSERT_OK_AND_ASSIGN(part7_, GenerateTable(schema, edit_length, 4));
   }
 };
 
 TEST_P(TestColumnCDC, DeleteOnce) {
   auto [dtype, nullable, _] = GetParam();
 
-  auto base = ConcatAndCombine({part1_, part2_, part3_});
-  auto modified = ConcatAndCombine({part1_, part3_});
+  ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part2_, part3_}));
+  ASSERT_OK_AND_ASSIGN(auto modified, ConcatAndCombine({part1_, part3_}));
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
@@ -554,8 +716,9 @@ TEST_P(TestColumnCDC, DeleteOnce) {
 TEST_P(TestColumnCDC, DeleteTwice) {
   auto [dtype, nullable, _] = GetParam();
 
-  auto base = ConcatAndCombine({part1_, part2_, part3_, part4_, part5_});
-  auto modified = ConcatAndCombine({part1_, part3_, part5_});
+  ASSERT_OK_AND_ASSIGN(auto base,
+                       ConcatAndCombine({part1_, part2_, part3_, part4_, part5_}));
+  ASSERT_OK_AND_ASSIGN(auto modified, ConcatAndCombine({part1_, part3_, part5_}));
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
@@ -576,8 +739,8 @@ TEST_P(TestColumnCDC, DeleteTwice) {
 TEST_P(TestColumnCDC, UpdateOnce) {
   auto [dtype, nullable, _] = GetParam();
 
-  auto base = ConcatAndCombine({part1_, part2_, part3_});
-  auto modified = ConcatAndCombine({part1_, part4_, part3_});
+  ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part2_, part3_}));
+  ASSERT_OK_AND_ASSIGN(auto modified, ConcatAndCombine({part1_, part4_, part3_}));
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
@@ -597,8 +760,10 @@ TEST_P(TestColumnCDC, UpdateOnce) {
 TEST_P(TestColumnCDC, UpdateTwice) {
   auto [dtype, nullable, _] = GetParam();
 
-  auto base = ConcatAndCombine({part1_, part2_, part3_, part4_, part5_});
-  auto modified = ConcatAndCombine({part1_, part6_, part3_, part7_, part5_});
+  ASSERT_OK_AND_ASSIGN(auto base,
+                       ConcatAndCombine({part1_, part2_, part3_, part4_, part5_}));
+  ASSERT_OK_AND_ASSIGN(auto modified,
+                       ConcatAndCombine({part1_, part6_, part3_, part7_, part5_}));
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
@@ -618,8 +783,8 @@ TEST_P(TestColumnCDC, UpdateTwice) {
 TEST_P(TestColumnCDC, InsertOnce) {
   auto [dtype, nullable, _] = GetParam();
 
-  auto base = ConcatAndCombine({part1_, part3_});
-  auto modified = ConcatAndCombine({part1_, part2_, part3_});
+  ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part3_}));
+  ASSERT_OK_AND_ASSIGN(auto modified, ConcatAndCombine({part1_, part2_, part3_}));
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
@@ -640,8 +805,9 @@ TEST_P(TestColumnCDC, InsertOnce) {
 TEST_P(TestColumnCDC, InsertTwice) {
   auto [dtype, nullable, _] = GetParam();
 
-  auto base = ConcatAndCombine({part1_, part3_, part5_});
-  auto modified = ConcatAndCombine({part1_, part2_, part3_, part4_, part5_});
+  ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part3_, part5_}));
+  ASSERT_OK_AND_ASSIGN(auto modified,
+                       ConcatAndCombine({part1_, part2_, part3_, part4_, part5_}));
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
@@ -662,8 +828,8 @@ TEST_P(TestColumnCDC, InsertTwice) {
 TEST_P(TestColumnCDC, Append) {
   auto [dtype, nullable, _] = GetParam();
 
-  auto base = ConcatAndCombine({part1_, part2_, part3_});
-  auto modified = ConcatAndCombine({part1_, part2_, part3_, part4_});
+  ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part2_, part3_}));
+  ASSERT_OK_AND_ASSIGN(auto modified, ConcatAndCombine({part1_, part2_, part3_, part4_}));
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
@@ -686,7 +852,7 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Values(
         // Numeric
         std::make_tuple(::arrow::uint8(), false, 1),
-        std::make_tuple(::arrow::uint16(), true, 2),
+        std::make_tuple(::arrow::uint16(), false, 2),
         std::make_tuple(::arrow::uint32(), false, 4),
         std::make_tuple(::arrow::uint64(), true, 8),
         std::make_tuple(::arrow::int8(), false, 1),
@@ -699,25 +865,20 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple(::arrow::decimal128(18, 6), false, 16),
         std::make_tuple(::arrow::decimal256(40, 6), false, 32),
         // Binary-like
-        std::make_tuple(::arrow::binary(), true, 16),
-
-        std::make_tuple(::arrow::large_binary(), false, 16),
-        std::make_tuple(::arrow::fixed_size_binary(16), true, 16),
         std::make_tuple(::arrow::utf8(), false, 16),
-        std::make_tuple(::arrow::utf8(), true, 16),
-        std::make_tuple(::arrow::large_utf8(), false, 16),
+        std::make_tuple(::arrow::binary(), true, 16),
+        std::make_tuple(::arrow::fixed_size_binary(16), true, 16),
+
         // Temporal
         std::make_tuple(::arrow::date32(), false, 4),
-        std::make_tuple(::arrow::date64(), false, 8),
-        std::make_tuple(::arrow::time32(::arrow::TimeUnit::SECOND), true, 4),
+        std::make_tuple(::arrow::time32(::arrow::TimeUnit::MILLI), true, 4),
         std::make_tuple(::arrow::time64(::arrow::TimeUnit::NANO), false, 8),
         std::make_tuple(::arrow::timestamp(::arrow::TimeUnit::NANO), true, 8),
         std::make_tuple(::arrow::duration(::arrow::TimeUnit::NANO), false, 8),
         // Nested types
-        std::make_tuple(::arrow::list(::arrow::int32()), false, 64),
-        std::make_tuple(::arrow::list(::arrow::int32()), true, 64),
-        std::make_tuple(::arrow::list(::arrow::utf8()), true, 64),
-        std::make_tuple(::arrow::large_list(::arrow::int32()), true, 64),
+        std::make_tuple(::arrow::list(::arrow::int32()), false, 16),
+        std::make_tuple(::arrow::list(::arrow::int32()), true, 18),
+        std::make_tuple(::arrow::list(::arrow::utf8()), true, 18),
         std::make_tuple(::arrow::struct_({::arrow::field("f0", ::arrow::int32())}), false,
                         8),
         std::make_tuple(::arrow::struct_({::arrow::field("f0", ::arrow::float64())}),
