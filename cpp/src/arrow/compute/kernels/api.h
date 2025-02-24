@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// NOTE: API is EXPERIMENTAL and will change without going through a
+// deprecation cycle
+
 #pragma once
 
-namespace arrow {
-namespace compute {
+/// \defgroup compute-kernels Extra compute kernels
+/// @{
+/// @}
 
-ARROW_COMPUTE_EXPORT Result<std::unique_ptr<RowSegmenter>> MakeAnyKeysSegmenter(
-    const std::vector<TypeHolder>& key_types, ExecContext* ctx);
-
-}  // namespace compute
-}  // namespace arrow
+#include "arrow/compute/kernels/registry.h"  // IWYU pragma: export
