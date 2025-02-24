@@ -87,7 +87,9 @@ Result<std::shared_ptr<Buffer>> WriteTableToBuffer(const std::shared_ptr<Table>&
   auto sink = CreateOutputStream();
 
   auto builder = WriterProperties::Builder();
-  builder.enable_cdc()->cdc_size_range(min_chunk_size, max_chunk_size);
+  builder.enable_cdc()
+      ->cdc_size_range(min_chunk_size, max_chunk_size)
+      ->cdc_norm_factor(0);
   if (enable_dictionary) {
     builder.enable_dictionary();
   } else {
@@ -257,6 +259,36 @@ std::vector<std::pair<std::vector<uint64_t>, std::vector<uint64_t>>> FindDiffere
   return merged;
 }
 
+void PrintDifferences(
+    const std::vector<uint64_t>& original, const std::vector<uint64_t>& modified,
+    std::vector<std::pair<std::vector<uint64_t>, std::vector<uint64_t>>>& diffs) {
+  std::cout << "Original: ";
+  for (const auto& val : original) {
+    std::cout << val << " ";
+  }
+  std::cout << std::endl;
+
+  std::cout << "Modified: ";
+  for (const auto& val : modified) {
+    std::cout << val << " ";
+  }
+  std::cout << std::endl;
+
+  for (const auto& diff : diffs) {
+    std::cout << "First: ";
+    for (const auto& val : diff.first) {
+      std::cout << val << " ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "Second: ";
+    for (const auto& val : diff.second) {
+      std::cout << val << " ";
+    }
+    std::cout << std::endl;
+  }
+}
+
 TEST(TestFindDifferences, Basic) {
   std::vector<uint64_t> first = {1, 2, 3, 4, 5};
   std::vector<uint64_t> second = {1, 7, 8, 4, 5};
@@ -362,8 +394,6 @@ void AssertUpdateCase(const std::shared_ptr<::arrow::DataType>& dtype,
                       const std::vector<uint64_t>& original,
                       const std::vector<uint64_t>& modified, uint8_t n_modifications) {
   auto diffs = FindDifferences(original, modified);
-  // Print diffs, original, and modified sequences for debugging purposes
-
   ASSERT_LE(diffs.size(), n_modifications);
 
   for (const auto& diff : diffs) {
@@ -458,9 +488,9 @@ void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
   }
 }
 
-constexpr uint64_t kMinChunkSize = 16 * 1024;
+constexpr uint64_t kMinChunkSize = 8 * 1024;
 constexpr uint64_t kMaxChunkSize = 64 * 1024;
-constexpr uint64_t kPartSize = 256 * 1024;
+constexpr uint64_t kPartSize = 64 * 1024;
 constexpr uint64_t kEditSize = 256;
 
 class TestColumnCDC : public ::testing::TestWithParam<
