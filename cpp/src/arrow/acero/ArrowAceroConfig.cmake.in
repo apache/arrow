@@ -28,6 +28,7 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow CONFIG)
+find_dependency(ArrowCompute CONFIG)
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowAceroTargets.cmake")
 

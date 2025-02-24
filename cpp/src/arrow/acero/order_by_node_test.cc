@@ -22,6 +22,7 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/test_nodes.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
@@ -32,8 +33,13 @@ namespace arrow {
 
 using internal::checked_pointer_cast;
 
+using compute::ComputeKernelEnvironment;
 using compute::SortKey;
 using compute::SortOrder;
+
+// Register the compute kernels
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace acero {
 

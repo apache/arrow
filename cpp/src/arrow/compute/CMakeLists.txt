@@ -27,6 +27,11 @@ endif()
 #
 # Unit tests
 #
+if(ARROW_TEST_LINKAGE STREQUAL "static")
+  set(ARROW_COMPUTE_TEST_LINK_LIBS arrow_compute_static ${ARROW_TEST_STATIC_LINK_LIBS})
+else()
+  set(ARROW_COMPUTE_TEST_LINK_LIBS arrow_compute_shared ${ARROW_TEST_SHARED_LINK_LIBS})
+endif()
 
 # Define arrow_compute_testing object library for common test files
 if(ARROW_TESTING)
@@ -86,6 +91,8 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
                  ${PREFIX}
                  LABELS
                  ${LABELS}
+                 STATIC_LINK_LIBS
+                 ${ARROW_COMPUTE_TEST_LINK_LIBS}
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 

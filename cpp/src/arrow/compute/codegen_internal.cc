@@ -15,13 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include "arrow/compute/codegen_internal.h"
+
+#include "arrow/compute/api_vector.h"
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace compute {
+namespace internal {
 
-ARROW_COMPUTE_EXPORT Result<std::unique_ptr<RowSegmenter>> MakeAnyKeysSegmenter(
-    const std::vector<TypeHolder>& key_types, ExecContext* ctx);
+Result<TypeHolder> FirstType(KernelContext*, const std::vector<TypeHolder>& types) {
+  return types.front();
+}
 
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

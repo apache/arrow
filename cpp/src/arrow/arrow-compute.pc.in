@@ -15,16 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Contains utilities for working with Arrow data been stored
-# in a row-major order.
+prefix=@CMAKE_INSTALL_PREFIX@
+includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
+libdir=@ARROW_PKG_CONFIG_LIBDIR@
 
-arrow_install_all_headers("arrow/compute/row")
-
-if(ARROW_BUILD_BENCHMARKS AND ARROW_COMPUTE)
-  add_arrow_benchmark(grouper_benchmark PREFIX "arrow-compute")
-  if(ARROW_BUILD_STATIC)
-    target_link_libraries(arrow-compute-grouper-benchmark PUBLIC arrow_compute_static)
-  else()
-    target_link_libraries(arrow-compute-grouper-benchmark PUBLIC arrow_compute_shared)
-  endif()
-endif()
+Name: Apache Arrow Compute Kernels
+Description: Apache Arrow's Compute Kernels.
+Version: @ARROW_VERSION@
+Requires: arrow
+Libs: -L${libdir} -larrow_compute
+Cflags.private: -DARROW_COMPUTE_STATIC

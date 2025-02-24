@@ -29,6 +29,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/registry.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
@@ -49,6 +50,15 @@ using internal::checked_cast;
 namespace compute {
 
 using DatumVector = std::vector<Datum>;
+
+class ComputeKernelEnvironment : public ::testing::Environment {
+ public:
+  // This must be done before using the compute kernels in order to
+  // register them to the FunctionRegistry.
+  ComputeKernelEnvironment() : ::testing::Environment() {}
+
+  void SetUp() override { ASSERT_OK(arrow::compute::RegisterComputeKernels()); }
+};
 
 template <typename Type, typename T>
 std::shared_ptr<Array> _MakeArray(const std::shared_ptr<DataType>& type,

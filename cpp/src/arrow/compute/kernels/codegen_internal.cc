@@ -50,10 +50,6 @@ const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes() {
   return example_parametric_types;
 }
 
-Result<TypeHolder> FirstType(KernelContext*, const std::vector<TypeHolder>& types) {
-  return types.front();
-}
-
 Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types) {
   return types.back();
 }
