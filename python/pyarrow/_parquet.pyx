@@ -1852,7 +1852,9 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         write_page_checksum=False,
         sorting_columns=None,
         store_decimal_as_integer=False,
-        content_defined_chunking=False) except *:
+        cdc=False,
+        cdc_size_range=None,
+        cdc_norm_factor=None) except *:
 
     """General writer properties"""
     cdef:
@@ -2000,18 +2002,16 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         props.dictionary_pagesize_limit(dictionary_pagesize_limit)
 
     # content defined chunking
-    if content_defined_chunking is False:
+    if cdc is False:
         props.disable_cdc()
-    elif content_defined_chunking is True:
+    elif cdc is True:
         props.enable_cdc()
-    elif isinstance(content_defined_chunking, tuple):
-        min_size, max_size = content_defined_chunking
-        props.enable_cdc()
+
+    if cdc_size_range is not None:
+        min_size, max_size = cdc_size_range
         props.cdc_size_range(min_size, max_size)
-    else:
-        raise ValueError(
-            "Unsupported value for content_defined_chunking: {0}"
-            .format(content_defined_chunking))
+    if cdc_norm_factor is not None:
+        props.cdc_norm_factor(cdc_norm_factor)
 
     # encryption
 
@@ -2187,7 +2187,9 @@ cdef class ParquetWriter(_Weakrefable):
                   write_page_checksum=False,
                   sorting_columns=None,
                   store_decimal_as_integer=False,
-                  content_defined_chunking=False):
+                  cdc=False,
+                  cdc_size_range=None,
+                  cdc_norm_factor=None):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2222,7 +2224,7 @@ cdef class ParquetWriter(_Weakrefable):
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
-            content_defined_chunking=content_defined_chunking
+            cdc=cdc, cdc_size_range=cdc_size_range, cdc_norm_factor=cdc_norm_factor
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
