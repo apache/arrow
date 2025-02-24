@@ -91,7 +91,9 @@ export TEXMFVAR=/tmp/texmf-var
 BEFORE=$(ls -alh ~/)
 
 SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
-  if (as_cran) {
+  # generally will be false, but we can override it by setting SKIP_VIGNETTES=true
+  skip_vignettes <- identical(tolower(Sys.getenv('SKIP_VIGNETTES')), 'true')
+  if (as_cran && !skip_vignettes) {
     args <- '--as-cran'
     build_args <- character()
   } else {

@@ -258,7 +258,7 @@ std::string fs___SubTreeFileSystem__base_path(
 
 // [[arrow::export]]
 cpp11::writable::list fs___FileSystemFromUri(const std::string& path) {
-  using cpp11::literals::operator"" _nm;
+  using cpp11::literals::operator""_nm;
 
   std::string out_path;
   auto io_context = MainRThread::GetInstance().CancellableIOContext();
