@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/compute/kernels/util_internal.h"

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "arrow/compute/visibility.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"
@@ -34,7 +35,7 @@ void CheckAlignment(const void* ptr) {
 /// Temporary vectors should resemble allocating temporary variables on the stack
 /// but in the context of vectorized processing where we need to store a vector of
 /// temporaries instead of a single value.
-class ARROW_EXPORT TempVectorStack {
+class ARROW_COMPUTE_EXPORT TempVectorStack {
   template <typename>
   friend class TempVectorHolder;
 
