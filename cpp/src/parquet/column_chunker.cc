@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include "arrow/array.h"
+#include "arrow/util/logging.h"
 #include "parquet/level_conversion.h"
 
 namespace parquet {
@@ -558,65 +559,83 @@ class FakeNullArray {
   int64_t null_count() const { return 0; }
 };
 
-static uint64_t GetMask(uint64_t min_size, uint64_t max_size) {
+static uint64_t GetMask(uint64_t min_size, uint64_t max_size, uint8_t norm_factor) {
+  // we aim for gaussian-like distribution of chunk sizes between min_size and max_size
   uint64_t avg_size = (min_size + max_size) / 2;
+  // we skip calculating gearhash for the first `min_size` bytes, so we are looking for
+  // a smaller chunk as the average size
   uint64_t target_size = avg_size - min_size;
   size_t mask_bits = static_cast<size_t>(std::floor(std::log2(target_size)));
   // -3 because we are using 8 hash tables to have more gaussian-like distribution
-  // -1 narrows the chunk size distribution in order to avoid having too many hard
-  // cuts at the minimum and maximum chunk sizes
-  size_t effective_bits = mask_bits - 3 - 1;
+  // `norm_factor` narrows the chunk size distribution aroun avg_size
+  size_t effective_bits = mask_bits - 3 - norm_factor;
   return std::numeric_limits<uint64_t>::max() << (64 - effective_bits);
 }
 
 ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
-                                             uint64_t min_size, uint64_t max_size)
+                                             std::pair<uint64_t, uint64_t> size_range,
+                                             uint8_t norm_factor)
     : level_info_(level_info),
-      min_size_(min_size),
-      max_size_(max_size),
-      hash_mask_(GetMask(min_size, max_size)) {}
+      min_size_(size_range.first),
+      max_size_(size_range.second),
+      hash_mask_(GetMask(size_range.first, size_range.second, norm_factor)) {}
 
 template <typename T>
-bool ContentDefinedChunker::Roll(const T value) {
+void ContentDefinedChunker::Roll(const T value) {
   constexpr size_t BYTE_WIDTH = sizeof(T);
   chunk_size_ += BYTE_WIDTH;
   if (chunk_size_ < min_size_) {
-    return false;
+    // short-circuit if we haven't reached the minimum chunk size, this speeds up the
+    // chunking process since the gearhash doesn't need to be updated
+    return;
   }
   auto bytes = reinterpret_cast<const uint8_t*>(&value);
-  bool match = false;
   for (size_t i = 0; i < BYTE_WIDTH; ++i) {
     rolling_hash_ = (rolling_hash_ << 1) + GEAR_HASH_TABLE[nth_run_][bytes[i]];
-    match |= (rolling_hash_ & hash_mask_) == 0;
+    if ((rolling_hash_ & hash_mask_) == 0) {
+      has_matched_ = true;
+    }
   }
-  return match;
 }
 
-bool ContentDefinedChunker::Roll(std::string_view value) {
+void ContentDefinedChunker::Roll(std::string_view value) {
   chunk_size_ += value.size();
   if (chunk_size_ < min_size_) {
-    return false;
+    // short-circuit if we haven't reached the minimum chunk size, this speeds up the
+    // chunking process since the gearhash doesn't need to be updated
+    return;
   }
-  bool match = false;
   for (char c : value) {
     rolling_hash_ =
         (rolling_hash_ << 1) + GEAR_HASH_TABLE[nth_run_][static_cast<uint8_t>(c)];
-    match |= (rolling_hash_ & hash_mask_) == 0;
+    if ((rolling_hash_ & hash_mask_) == 0) {
+      has_matched_ = true;
+    }
   }
-  return match;
 }
 
-bool ContentDefinedChunker::Check(bool match) {
-  if (ARROW_PREDICT_FALSE(match && ++nth_run_ >= 7)) {
-    nth_run_ = 0;
-    chunk_size_ = 0;
-    return true;
-  } else if (ARROW_PREDICT_FALSE(chunk_size_ >= max_size_)) {
-    chunk_size_ = 0;
-    return true;
-  } else {
-    return false;
+bool ContentDefinedChunker::Check() {
+  // decide whether to create a new chunk based on the rolling hash; has_matched_ is
+  // set to true if we encountered a match since the last Check() call
+  if (ARROW_PREDICT_FALSE(has_matched_)) {
+    has_matched_ = false;
+    // in order to have a normal distribution of chunk sizes, we only create a new chunk
+    // if the adjused mask matches the rolling hash 8 times in a row, each run uses a
+    // different gearhash table (gearhash's chunk size has exponential distribution, and
+    // we use central limit theorem to approximate normal distribution)
+    if (ARROW_PREDICT_FALSE(++nth_run_ >= 7)) {
+      nth_run_ = 0;
+      chunk_size_ = 0;
+      return true;
+    }
   }
+  if (ARROW_PREDICT_FALSE(chunk_size_ >= max_size_)) {
+    // we have a hard limit on the maximum chunk size, not that we don't reset the rolling
+    // hash state here, so the next Check() call will continue from the current state
+    chunk_size_ = 0;
+    return true;
+  }
+  return false;
 }
 
 template <typename T>
@@ -629,14 +648,13 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
   bool has_rep_levels = level_info_.rep_level > 0;
 
   if (!has_rep_levels && !has_def_levels) {
-    // fastest path for non-repeated non-null data
-    bool val_match;
+    // fastest path for non-nested non-null data
     int64_t offset = 0;
     int64_t prev_offset = 0;
     while (offset < num_levels) {
-      val_match = Roll(leaf_array.GetView(offset));
+      Roll(leaf_array.GetView(offset));
       ++offset;
-      if (Check(val_match)) {
+      if (Check()) {
         result.emplace_back(prev_offset, prev_offset, offset - prev_offset);
         prev_offset = offset;
       }
@@ -645,15 +663,14 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
       result.emplace_back(prev_offset, prev_offset, num_levels - prev_offset);
     }
   } else if (!has_rep_levels) {
-    // non-repeated data possibly with nulls
-    bool def_match, val_match;
+    // non-nested data with nulls
     int64_t offset = 0;
     int64_t prev_offset = 0;
     while (offset < num_levels) {
-      def_match = Roll(def_levels[offset]);
-      val_match = Roll(leaf_array.GetView(offset));
+      Roll(def_levels[offset]);
+      Roll(leaf_array.GetView(offset));
       ++offset;
-      if (Check(def_match || val_match)) {
+      if (Check()) {
         result.emplace_back(prev_offset, prev_offset, offset - prev_offset);
         prev_offset = offset;
       }
@@ -662,52 +679,48 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
       result.emplace_back(prev_offset, prev_offset, num_levels - prev_offset);
     }
   } else {
-    // repeated data possibly with nulls
-    bool def_match, rep_match, val_match;
+    // nested data with nulls
+    bool has_leaf_value;
+    bool is_record_boundary;
     int16_t def_level;
     int16_t rep_level;
     int64_t level_offset = 0;
     int64_t value_offset = 0;
     int64_t record_level_offset = 0;
     int64_t record_value_offset = 0;
-    int64_t prev_record_level_offset = 0;
-    int64_t prev_record_value_offset = 0;
 
     while (level_offset < num_levels) {
       def_level = def_levels[level_offset];
       rep_level = rep_levels[level_offset];
-      if (rep_level == 0) {
-        record_level_offset = level_offset;
-        record_value_offset = value_offset;
-      }
-      ++level_offset;
 
-      def_match = Roll(def_level);
-      rep_match = Roll(rep_level);
-      if (ARROW_PREDICT_TRUE(def_level >= level_info_.repeated_ancestor_def_level)) {
-        val_match = Roll(leaf_array.GetView(value_offset));
-        ++value_offset;
-      } else {
-        val_match = false;
+      has_leaf_value = def_level >= level_info_.repeated_ancestor_def_level;
+      is_record_boundary = rep_level == 0;
+
+      Roll(def_level);
+      Roll(rep_level);
+      if (has_leaf_value) {
+        Roll(leaf_array.GetView(value_offset));
       }
 
-      if (Check(def_match || rep_match || val_match)) {
-        auto levels_to_write = record_level_offset - prev_record_level_offset;
+      if (is_record_boundary && Check()) {
+        auto levels_to_write = level_offset - record_level_offset;
         if (levels_to_write > 0) {
-          result.emplace_back(prev_record_level_offset, prev_record_value_offset,
-                              levels_to_write);
-          prev_record_level_offset = record_level_offset;
-          prev_record_value_offset = record_value_offset;
+          result.emplace_back(record_level_offset, record_value_offset, levels_to_write);
+          record_level_offset = level_offset;
+          record_value_offset = value_offset;
         }
       }
+
+      ++level_offset;
+      if (has_leaf_value) {
+        ++value_offset;
+      }
     }
 
-    auto levels_to_write = num_levels - prev_record_level_offset;
+    auto levels_to_write = num_levels - record_level_offset;
     if (levels_to_write > 0) {
-      result.emplace_back(prev_record_level_offset, prev_record_value_offset,
-                          levels_to_write);
+      result.emplace_back(record_level_offset, record_value_offset, levels_to_write);
     }
-    return result;
   }
 
   return result;

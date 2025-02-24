@@ -41,8 +41,9 @@ struct Chunk {
 
 class ContentDefinedChunker {
  public:
-  ContentDefinedChunker(const LevelInfo& level_info, uint64_t min_size,
-                        uint64_t max_size);
+  ContentDefinedChunker(const LevelInfo& level_info,
+                        std::pair<uint64_t, uint64_t> size_range,
+                        uint8_t norm_factor = 1);
 
   const ::arrow::Result<std::vector<Chunk>> GetBoundaries(const int16_t* def_levels,
                                                           const int16_t* rep_levels,
@@ -51,9 +52,9 @@ class ContentDefinedChunker {
 
  private:
   template <typename T>
-  bool Roll(const T value);
-  bool Roll(std::string_view value);
-  inline bool Check(bool match);
+  void Roll(const T value);
+  void Roll(std::string_view value);
+  inline bool Check();
 
   template <typename T>
   const std::vector<Chunk> Calculate(const int16_t* def_levels, const int16_t* rep_levels,
@@ -64,6 +65,7 @@ class ContentDefinedChunker {
   const uint64_t max_size_;
   const uint64_t hash_mask_;
 
+  bool has_matched_ = false;
   uint64_t nth_run_ = 0;
   uint64_t chunk_size_ = 0;
   uint64_t rolling_hash_ = 0;
