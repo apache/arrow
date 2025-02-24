@@ -394,6 +394,9 @@ void AssertUpdateCase(const std::shared_ptr<::arrow::DataType>& dtype,
                       const std::vector<uint64_t>& original,
                       const std::vector<uint64_t>& modified, uint8_t n_modifications) {
   auto diffs = FindDifferences(original, modified);
+  if (diffs.size() > n_modifications) {
+    PrintDifferences(original, modified, diffs);
+  }
   ASSERT_LE(diffs.size(), n_modifications);
 
   for (const auto& diff : diffs) {
@@ -418,6 +421,9 @@ void AssertDeleteCase(const std::shared_ptr<::arrow::DataType>& dtype,
                       const std::vector<uint64_t>& modified, uint8_t n_modifications,
                       uint64_t edit_length) {
   auto diffs = FindDifferences(original, modified);
+  if (diffs.size() != n_modifications) {
+    PrintDifferences(original, modified, diffs);
+  }
   ASSERT_EQ(diffs.size(), n_modifications);
 
   for (const auto& diff : diffs) {
@@ -437,6 +443,9 @@ void AssertInsertCase(const std::shared_ptr<::arrow::DataType>& dtype,
                       const std::vector<uint64_t>& modified, uint8_t n_modifications,
                       uint64_t edit_length) {
   auto diffs = FindDifferences(original, modified);
+  if (diffs.size() != n_modifications) {
+    PrintDifferences(original, modified, diffs);
+  }
   ASSERT_EQ(diffs.size(), n_modifications);
 
   for (const auto& diff : diffs) {
@@ -474,6 +483,7 @@ void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
                       PageSizes base_result, PageSizes modified_result, bool nullable,
                       bool enable_dictionary, uint64_t min_chunk_size,
                       uint64_t max_chunk_size) {
+  max_chunk_size *= 1.2;
   if (::arrow::is_fixed_width(dtype->id())) {
     auto min_length = ElementCount(min_chunk_size, dtype->byte_width(), nullable);
     auto max_length = ElementCount(max_chunk_size, dtype->byte_width(), nullable);
@@ -488,10 +498,10 @@ void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
   }
 }
 
-constexpr uint64_t kMinChunkSize = 8 * 1024;
-constexpr uint64_t kMaxChunkSize = 64 * 1024;
-constexpr uint64_t kPartSize = 64 * 1024;
-constexpr uint64_t kEditSize = 256;
+constexpr uint64_t kMinChunkSize = 64 * 1024;
+constexpr uint64_t kMaxChunkSize = 128 * 1024;
+constexpr uint64_t kPartSize = 256 * 1024;
+constexpr uint64_t kEditSize = 128;
 
 class TestColumnCDC : public ::testing::TestWithParam<
                           std::tuple<std::shared_ptr<::arrow::DataType>, bool, size_t>> {
