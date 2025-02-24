@@ -75,14 +75,14 @@ Result<std::shared_ptr<Buffer>> SliceBufferSafe(std::shared_ptr<Buffer> buffer,
   return SliceBuffer(std::move(buffer), offset, length);
 }
 
-Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(
-    std::shared_ptr<Buffer> buffer, int64_t offset) {
+Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(std::shared_ptr<Buffer> buffer,
+                                                       int64_t offset) {
   RETURN_NOT_OK(CheckBufferSlice(*buffer, offset));
   return SliceMutableBuffer(std::move(buffer), offset);
 }
 
-Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(
-    std::shared_ptr<Buffer> buffer, int64_t offset, int64_t length) {
+Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(std::shared_ptr<Buffer> buffer,
+                                                       int64_t offset, int64_t length) {
   RETURN_NOT_OK(CheckBufferSlice(*buffer, offset, length));
   return SliceMutableBuffer(std::move(buffer), offset, length);
 }

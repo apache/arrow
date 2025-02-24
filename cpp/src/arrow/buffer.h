@@ -437,8 +437,8 @@ std::shared_ptr<Buffer> SliceMutableBuffer(std::shared_ptr<Buffer> buffer,
 ///
 /// If the parent buffer is not mutable, behavior is undefined (it may abort
 /// in debug builds).
-static inline std::shared_ptr<Buffer> SliceMutableBuffer(
-    std::shared_ptr<Buffer> buffer, const int64_t offset) {
+static inline std::shared_ptr<Buffer> SliceMutableBuffer(std::shared_ptr<Buffer> buffer,
+                                                         const int64_t offset) {
   int64_t length = buffer->size() - offset;
   return SliceMutableBuffer(std::move(buffer), offset, length);
 }
@@ -447,15 +447,15 @@ static inline std::shared_ptr<Buffer> SliceMutableBuffer(
 ///
 /// An Invalid Status is returned if the requested slice falls out of bounds.
 ARROW_EXPORT
-Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(
-    std::shared_ptr<Buffer> buffer, int64_t offset);
+Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(std::shared_ptr<Buffer> buffer,
+                                                       int64_t offset);
 /// \brief Input-checking version of SliceMutableBuffer
 ///
 /// An Invalid Status is returned if the requested slice falls out of bounds.
 /// Note that unlike SliceBuffer, `length` isn't clamped to the available buffer size.
 ARROW_EXPORT
-Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(
-    std::shared_ptr<Buffer> buffer, int64_t offset, int64_t length);
+Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(std::shared_ptr<Buffer> buffer,
+                                                       int64_t offset, int64_t length);
 
 /// @}
 
