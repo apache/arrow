@@ -44,6 +44,8 @@ git checkout "${vcpkg_version}"
 
 if [[ "${OSTYPE:-}" == "msys" ]]; then
   ./bootstrap-vcpkg.bat -disableMetrics
+elif [[ "${VCPKG_MUSL:-}" == 1 ]]; then
+  ./bootstrap-vcpkg.sh -disableMetrics -musl
 else
   ./bootstrap-vcpkg.sh -disableMetrics
 fi
@@ -59,6 +61,8 @@ if [ -n "${GITHUB_TOKEN:-}" ] && \
   if type dnf 2>/dev/null; then
     dnf install -y epel-release
     dnf install -y mono-complete
+  fi
+  if type mono 2>/dev/null; then
     curl \
       --location \
       --output "${vcpkg_destination}/nuget" \

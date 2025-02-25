@@ -26,7 +26,7 @@ ENV LINUX_WHEEL_NAME='musl'
 ENV LINUX_WHEEL_VERSION=${musllinux}
 
 RUN apk update
-RUN apk add --no-cache build-base ccache cmake flex ninja wget zip
+RUN apk add --no-cache build-base ccache cmake curl flex git ninja unzip wget zip
 # Add mono from testing repo because it's not in the main repo
 RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing mono
 
@@ -71,6 +71,7 @@ RUN --mount=type=secret,id=github_repository_owner \
       export GITHUB_REPOSITORY_OWNER=$(cat /run/secrets/github_repository_owner); \
       export GITHUB_TOKEN=$(cat /run/secrets/github_token); \
       export VCPKG_BINARY_SOURCES=$(cat /run/secrets/vcpkg_binary_sources); \
+      export VCPKG_MUSL=1; \
       arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg} && \
       vcpkg install \
         --clean-after-build \

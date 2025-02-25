@@ -63,6 +63,9 @@ jobs:
           if [ "{{ linux_wheel_version }}" = "2014" ] && [ "{{ arch }}" = "arm64" ]; then
             # We can't use NuGet on manylinux2014_aarch64 because Mono is old.
             :
+          elif [ "{{ linux_wheel_name }}" = "musl" ] && [ "{{ arch }}" = "arm64" ]; then
+            # We can't use NuGet on musl arm systems because it fails to build abseil:x64-linux
+            :
           else
             export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
           fi
