@@ -729,7 +729,6 @@ set(ARROW_COMPUTE_SRCS
     compute/kernel.cc
     compute/ordering.cc
     compute/registry.cc
-    compute/kernels/chunked_internal.cc
     compute/kernels/codegen_internal.cc
     compute/kernels/ree_util_internal.cc
     compute/kernels/scalar_cast_boolean.cc
@@ -740,7 +739,6 @@ set(ARROW_COMPUTE_SRCS
     compute/kernels/scalar_cast_numeric.cc
     compute/kernels/scalar_cast_string.cc
     compute/kernels/scalar_cast_temporal.cc
-    compute/kernels/util_internal.cc
     compute/kernels/vector_hash.cc
     compute/kernels/vector_run_end_encode.cc
     compute/kernels/vector_selection.cc
@@ -757,6 +755,7 @@ if(ARROW_COMPUTE)
        compute/kernels/aggregate_quantile.cc
        compute/kernels/aggregate_tdigest.cc
        compute/kernels/aggregate_var_std.cc
+       compute/kernels/chunked_internal.cc
        compute/kernels/hash_aggregate.cc
        compute/kernels/registry.cc
        compute/kernels/scalar_arithmetic.cc
@@ -772,6 +771,7 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_temporal_binary.cc
        compute/kernels/scalar_temporal_unary.cc
        compute/kernels/scalar_validity.cc
+       compute/kernels/util_internal.cc
        compute/kernels/vector_array_sort.cc
        compute/kernels/vector_cumulative_ops.cc
        compute/kernels/vector_nested.cc
