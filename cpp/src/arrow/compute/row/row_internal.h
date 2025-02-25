@@ -29,7 +29,7 @@ namespace arrow {
 namespace compute {
 
 /// Description of the data stored in a RowTable
-struct ARROW_EXPORT RowTableMetadata {
+struct RowTableMetadata {
   using offset_type = int64_t;
 
   /// \brief True if there are no variable length columns in the table
@@ -170,7 +170,7 @@ struct ARROW_EXPORT RowTableMetadata {
 /// Can store both fixed-size data types and variable-length data types
 ///
 /// The row table is not safe
-class ARROW_EXPORT RowTableImpl {
+class RowTableImpl {
  public:
   using offset_type = RowTableMetadata::offset_type;
 

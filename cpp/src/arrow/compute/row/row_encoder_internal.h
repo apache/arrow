@@ -29,7 +29,7 @@ using internal::checked_cast;
 namespace compute {
 namespace internal {
 
-struct ARROW_EXPORT KeyEncoder {
+struct KeyEncoder {
   // the first byte of an encoded key is used to indicate nullity
   static constexpr bool kExtraByteForNull = true;
 
@@ -85,7 +85,7 @@ struct ARROW_EXPORT KeyEncoder {
   }
 };
 
-struct ARROW_EXPORT BooleanKeyEncoder : KeyEncoder {
+struct BooleanKeyEncoder : KeyEncoder {
   static constexpr int kByteWidth = 1;
 
   void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override;
@@ -101,7 +101,7 @@ struct ARROW_EXPORT BooleanKeyEncoder : KeyEncoder {
                                             MemoryPool* pool) override;
 };
 
-struct ARROW_EXPORT FixedWidthKeyEncoder : KeyEncoder {
+struct FixedWidthKeyEncoder : KeyEncoder {
   explicit FixedWidthKeyEncoder(std::shared_ptr<DataType> type)
       : type_(std::move(type)),
         byte_width_(checked_cast<const FixedWidthType&>(*type_).bit_width() / 8) {}
@@ -122,7 +122,7 @@ struct ARROW_EXPORT FixedWidthKeyEncoder : KeyEncoder {
   const int byte_width_;
 };
 
-struct ARROW_EXPORT DictionaryKeyEncoder : FixedWidthKeyEncoder {
+struct DictionaryKeyEncoder : FixedWidthKeyEncoder {
   DictionaryKeyEncoder(std::shared_ptr<DataType> type, MemoryPool* pool)
       : FixedWidthKeyEncoder(std::move(type)), pool_(pool) {}
 
@@ -251,7 +251,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
   std::shared_ptr<DataType> type_;
 };
 
-struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
+struct NullKeyEncoder : KeyEncoder {
   void AddLength(const ExecValue&, int64_t batch_length, int32_t* lengths) override {}
 
   void AddLengthNull(int32_t* length) override {}
@@ -331,7 +331,7 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 /// # Row Encoding
 ///
 /// The row format is the concatenation of the encodings of each column.
-class ARROW_EXPORT RowEncoder {
+class RowEncoder {
  public:
   static constexpr int kRowIdForNulls() { return -1; }
 
