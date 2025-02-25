@@ -794,6 +794,8 @@ cdef class ArrayStatistics(_Weakrefable):
             return get[c_bool](value)
         elif holds_alternative[int64_t](value):
             return get[int64_t](value)
+        elif holds_alternative[uint64_t](value):
+            return get[uint64_t](value)
         elif holds_alternative[double](value):
             return get[double](value)
         else:
