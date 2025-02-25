@@ -14,14 +14,28 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#include "arrow/compute/registry.h"
 
-#pragma once
+#include <algorithm>
+#include <memory>
+#include <mutex>
+#include <unordered_map>
+#include <utility>
+
+#include "arrow/compute/function.h"
+#include "arrow/compute/function_internal.h"
+#include "arrow/compute/registry_internal.h"
+#include "arrow/status.h"
+#include "arrow/util/config.h"  // For ARROW_COMPUTE
+#include "arrow/util/logging.h"
+// TODO: Review includes
 
 namespace arrow {
 namespace compute {
+namespace internal {
+// This must be public, not internal
+Status RegisterComputeKernels();
 
-Result<std::unique_ptr<RowSegmenter>> MakeAnyKeysSegmenter(
-    const std::vector<TypeHolder>& key_types, ExecContext* ctx);
-
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow
