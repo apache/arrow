@@ -264,9 +264,6 @@ class GeospatialStatisticsImpl {
 GeospatialStatistics::GeospatialStatistics()
     : impl_(std::make_unique<GeospatialStatisticsImpl>()) {}
 
-GeospatialStatistics::GeospatialStatistics(std::unique_ptr<GeospatialStatisticsImpl> impl)
-    : impl_(std::move(impl)) {}
-
 GeospatialStatistics::GeospatialStatistics(const EncodedGeospatialStatistics& encoded)
     : GeospatialStatistics() {
   Decode(encoded);
@@ -310,12 +307,6 @@ EncodedGeospatialStatistics GeospatialStatistics::Encode() const {
 
 void GeospatialStatistics::Decode(const EncodedGeospatialStatistics& encoded) {
   impl_->Update(encoded);
-}
-
-std::shared_ptr<GeospatialStatistics> GeospatialStatistics::clone() const {
-  std::unique_ptr<GeospatialStatisticsImpl> impl =
-      std::make_unique<GeospatialStatisticsImpl>(*impl_);
-  return std::make_shared<GeospatialStatistics>(std::move(impl));
 }
 
 double GeospatialStatistics::GetXMin() const { return impl_->GetMinBounds()[0]; }

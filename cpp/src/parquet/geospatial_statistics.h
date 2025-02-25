@@ -35,11 +35,6 @@ class PARQUET_EXPORT EncodedGeospatialStatistics {
  public:
   static constexpr double kInf = std::numeric_limits<double>::infinity();
 
-  EncodedGeospatialStatistics() = default;
-  EncodedGeospatialStatistics(const EncodedGeospatialStatistics&) = default;
-  EncodedGeospatialStatistics(EncodedGeospatialStatistics&&) = default;
-  EncodedGeospatialStatistics& operator=(const EncodedGeospatialStatistics&) = default;
-
   double xmin{kInf};
   double xmax{-kInf};
   double ymin{kInf};
@@ -66,7 +61,6 @@ class GeospatialStatisticsImpl;
 class PARQUET_EXPORT GeospatialStatistics {
  public:
   GeospatialStatistics();
-  explicit GeospatialStatistics(std::unique_ptr<GeospatialStatisticsImpl> impl);
   explicit GeospatialStatistics(const EncodedGeospatialStatistics& encoded);
   GeospatialStatistics(GeospatialStatistics&&);
 
