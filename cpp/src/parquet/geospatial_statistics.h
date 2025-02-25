@@ -58,6 +58,8 @@ class PARQUET_EXPORT EncodedGeospatialStatistics {
 class GeospatialStatisticsImpl;
 
 /// \brief Base type for computing geospatial column statistics while writing a file
+///
+/// EXPERIMENTAL
 class PARQUET_EXPORT GeospatialStatistics {
  public:
   GeospatialStatistics();
