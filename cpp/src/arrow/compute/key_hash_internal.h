@@ -34,7 +34,7 @@ enum class BloomFilterBuildStrategy;
 // Implementations are based on xxh3 32-bit algorithm description from:
 // https://github.com/Cyan4973/xxHash/blob/dev/doc/xxhash_spec.md
 //
-class ARROW_EXPORT Hashing32 {
+class Hashing32 {
   friend class TestVectorHash;
   template <typename T>
   friend void TestBloomLargeHashHelper(int64_t, int64_t, const std::vector<uint64_t>&,
@@ -157,7 +157,7 @@ class ARROW_EXPORT Hashing32 {
 #endif
 };
 
-class ARROW_EXPORT Hashing64 {
+class Hashing64 {
   friend class TestVectorHash;
   template <typename T>
   friend void TestBloomLargeHashHelper(int64_t, int64_t, const std::vector<uint64_t>&,
