@@ -43,12 +43,12 @@ endif()
 
 if(ARROW_COMPUTE AND ARROW_CSV)
   if(ARROW_BUILD_SHARED)
-    set(COMPUTE_KERNELES_LINK_LIBS arrow_compute_shared)
+    set(COMPUTE_KERNELS_LINK_LIBS arrow_compute_shared)
   else()
-    set(COMPUTE_KERNELES_LINK_LIBS arrow_compute_static)
+    set(COMPUTE_KERNELS_LINK_LIBS arrow_compute_static)
   endif()
   add_arrow_example(compute_and_write_csv_example EXTRA_LINK_LIBS
-                    ${COMPUTE_KERNELES_LINK_LIBS})
+                    ${COMPUTE_KERNELS_LINK_LIBS})
 endif()
 
 if(ARROW_FLIGHT)
