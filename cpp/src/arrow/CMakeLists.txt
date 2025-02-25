@@ -755,6 +755,7 @@ if(ARROW_COMPUTE)
        compute/kernels/aggregate_quantile.cc
        compute/kernels/aggregate_tdigest.cc
        compute/kernels/aggregate_var_std.cc
+       compute/kernels/codegen_internal.cc # This is wrong but I am testing something
        compute/kernels/chunked_internal.cc
        compute/kernels/hash_aggregate.cc
        compute/kernels/registry.cc
