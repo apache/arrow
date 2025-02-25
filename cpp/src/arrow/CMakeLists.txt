@@ -803,21 +803,44 @@ if(ARROW_COMPUTE)
   append_runtime_avx2_src(ARROW_COMPUTE_LIB_SRCS compute/row/encode_internal_avx2.cc)
   append_runtime_avx2_bmi2_src(ARROW_COMPUTE_LIB_SRCS compute/util_avx2.cc)
   # TODO: Some of those should be added conditionally
-  set(ARROW_COMPUTE_LINK_LIBS Boost::headers ${ARROW_XSIMD} ${ARROW_OPENTELEMETRY_LIBS})
+  set(ARROW_COMPUTED_SHARED_PRIVATE_LINK_LIBS Boost::headers ${ARROW_XSIMD}
+                                              ${ARROW_OPENTELEMETRY_LIBS})
+  set(ARROW_COMPUTE_STATIC_LINK_LIBS Boost::headers ${ARROW_XSIMD}
+                                     ${ARROW_OPENTELEMETRY_LIBS})
   if(ARROW_WITH_RE2)
-    list(APPEND ARROW_COMPUTE_LINK_LIBS re2::re2)
+    list(APPEND ARROW_COMPUTED_SHARED_PRIVATE_LINK_LIBS re2::re2)
+    list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS re2::re2)
   endif()
   if(ARROW_WITH_UTF8PROC)
-    list(APPEND ARROW_COMPUTE_LINK_LIBS utf8proc::utf8proc)
+    list(APPEND ARROW_COMPUTED_SHARED_PRIVATE_LINK_LIBS utf8proc::utf8proc)
+    list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS re2::re2)
   endif()
+
+  set(ARROW_COMPUTE_SHARED_LINK_LIBS)
+  set(ARROW_COMPUTE_STATIC_LINK_LIBS)
+  set(ARROW_COMPUTE_STATIC_INSTALL_INTERFACE_LIBS)
+  set(ARROW_COMPUTE_SHARED_INSTALL_INTERFACE_LIBS)
+
+  list(APPEND ARROW_COMPUTE_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+  list(APPEND ARROW_COMPUTE_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
+  list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS arrow_static)
+  list(APPEND ARROW_COMPUTE_SHARED_LINK_LIBS arrow_shared)
+
   add_arrow_lib(arrow_compute
                 CMAKE_PACKAGE_NAME
                 ArrowCompute
                 PKG_CONFIG_NAME
                 arrow-compute
+                SHARED_LINK_LIBS
+                ${ARROW_COMPUTE_SHARED_LINK_LIBS}
                 SHARED_PRIVATE_LINK_LIBS
-                ${ARROW_COMPUTE_LINK_LIBS}
-                ${ARROW_OPENTELEMETRY_LIBS}
+                ${ARROW_COMPUTED_SHARED_PRIVATE_LINK_LIBS}
+                SHARED_INSTALL_INTERFACE_LIBS
+                ${ARROW_COMPUTE_SHARED_INSTALL_INTERFACE_LIBS}
+                STATIC_LINK_LIBS
+                ${ARROW_COMPUTE_STATIC_LINK_LIBS}
+                STATIC_INSTALL_INTERFACE_LIBS
+                ${ARROW_COMPUTE_STATIC_INSTALL_INTERFACE_LIBS}
                 OUTPUTS
                 ARROW_COMPUTE_LIBRARIES
                 SOURCES
