@@ -713,8 +713,7 @@ cdef class ArrayStatistics(_Weakrefable):
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     cdef void init(self, const shared_ptr[CArrayStatistics]& sp_statistics) except *:
         self.sp_statistics = sp_statistics
