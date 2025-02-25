@@ -802,6 +802,7 @@ if(ARROW_COMPUTE)
   append_runtime_avx2_src(ARROW_COMPUTE_LIB_SRCS compute/row/compare_internal_avx2.cc)
   append_runtime_avx2_src(ARROW_COMPUTE_LIB_SRCS compute/row/encode_internal_avx2.cc)
   append_runtime_avx2_bmi2_src(ARROW_COMPUTE_LIB_SRCS compute/util_avx2.cc)
+  # TODO: Some of those should be added conditionally
   set(ARROW_COMPUTE_LINK_LIBS Boost::headers ${ARROW_XSIMD} ${ARROW_OPENTELEMETRY_LIBS})
   if(ARROW_WITH_RE2)
     list(APPEND ARROW_COMPUTE_LINK_LIBS re2::re2)
@@ -815,7 +816,7 @@ if(ARROW_COMPUTE)
                 PKG_CONFIG_NAME
                 arrow-compute
                 SHARED_PRIVATE_LINK_LIBS
-                ${ARROW_COMPUTE_LINK_LIBS} # TODO: This has to be added conditionally if ARROW_USE_XSIMD
+                ${ARROW_COMPUTE_LINK_LIBS}
                 ${ARROW_OPENTELEMETRY_LIBS}
                 OUTPUTS
                 ARROW_COMPUTE_LIBRARIES
@@ -827,20 +828,33 @@ if(ARROW_COMPUTE)
 endif()
 
 arrow_add_object_library(ARROW_COMPUTE_CORE ${ARROW_COMPUTE_SRCS})
+# TODO: Review whether the following (Boost, xsimd, opentelemetry, re2 and utf8proc) are required
+#       for the core compute library.
 if(ARROW_USE_BOOST)
-  target_link_libraries(arrow_compute_core PRIVATE Boost::headers)
+  foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
+    target_link_libraries(${ARROW_COMPUTE_CORE_TARGET} PRIVATE Boost::headers)
+  endforeach()
 endif()
 if(ARROW_USE_XSIMD)
-  target_link_libraries(arrow_compute_core PRIVATE ${ARROW_XSIMD})
+  foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
+    target_link_libraries(${ARROW_COMPUTE_CORE_TARGET} PRIVATE ${ARROW_XSIMD})
+  endforeach()
 endif()
 if(ARROW_WITH_OPENTELEMETRY)
-  target_link_libraries(arrow_compute_core PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
+  foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
+    target_link_libraries(${ARROW_COMPUTE_CORE_TARGET}
+                          PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
+  endforeach()
 endif()
 if(ARROW_WITH_RE2)
-  target_link_libraries(arrow_compute_core PRIVATE re2::re2)
+  foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
+    target_link_libraries(${ARROW_COMPUTE_CORE_TARGET} PRIVATE re2::re2)
+  endforeach()
 endif()
 if(ARROW_WITH_UTF8PROC)
-  target_link_libraries(arrow_compute_core PRIVATE utf8proc::utf8proc)
+  foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
+    target_link_libraries(${ARROW_COMPUTE_CORE_TARGET} PRIVATE utf8proc::utf8proc)
+  endforeach()
 endif()
 
 if(ARROW_FILESYSTEM)
