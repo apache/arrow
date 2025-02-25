@@ -253,7 +253,7 @@ Data::
 
 Statistics:
 
-.. list-table::
+.. flat-table::
    :header-rows: 1
 
    * - Target
@@ -262,29 +262,23 @@ Statistics:
    * - Record batch
      - The number of rows
      - ``5``
-   * - ``vendor_id``
+   * - :rspan:`3` ``vendor_id``
      - The number of nulls
      - ``0``
-   * - ``vendor_id``
-     - The number of distinct values
+   * - The number of distinct values
      - ``2``
-   * - ``vendor_id``
-     - The max value
+   * - The max value
      - ``5``
-   * - ``vendor_id``
-     - The min value
+   * - The min value
      - ``1``
-   * - ``passenger_count``
+   * - :rspan:`4` ``passenger_count``
      - The number of nulls
      - ``1``
-   * - ``passenger_count``
-     - The number of distinct values
+   * - The number of distinct values
      - ``3``
-   * - ``passenger_count``
-     - The max value
+   * - The max value
      - ``2``
-   * - ``passenger_count``
-     - The min value
+   * - The min value
      - ``0``
 
 Column indexes:
@@ -314,15 +308,15 @@ Statistics array::
     column: [
       null, # record batch
       0,    # vendor_id
-      0,    # vendor_id
-      0,    # vendor_id
-      0,    # vendor_id
-      1,    # passenger_count
-      1,    # passenger_count
-      1,    # passenger_count
       1,    # passenger_count
     ]
     statistics:
+      offsets: [
+        0,
+        1, # record batch: 1 value: [0]
+        5, # vendor_id: 4 values: [1, 2, 3, 4]
+        9, # passenger_count: 4 values: [5, 6, 7, 8]
+      ]
       key:
         values: [
           "ARROW:row_count:exact",
@@ -330,7 +324,7 @@ Statistics array::
           "ARROW:distinct_count:exact",
           "ARROW:max_value:exact",
           "ARROW:min_value:exact",
-        ],
+        ]
         indices: [
           0, # "ARROW:row_count:exact"
           1, # "ARROW:null_count:exact"
@@ -399,7 +393,7 @@ Data::
 
 Statistics:
 
-.. list-table::
+.. flat-table::
    :header-rows: 1
 
    * - Target
@@ -411,41 +405,34 @@ Statistics:
    * - ``col1``
      - The number of nulls
      - ``0``
-   * - ``col1.a``
+   * - :rspan:`3` ``col1.a``
      - The number of nulls
      - ``0``
-   * - ``col1.a``
-     - The number of distinct values
+   * - The number of distinct values
      - ``3``
-   * - ``col1.a``
-     - The approximate max value
+   * - The approximate max value
      - ``5``
-   * - ``col1.a``
-     - The approximate min value
+   * - The approximate min value
      - ``0``
    * - ``col1.b``
      - The number of nulls
      - ``1``
-   * - ``col1.b.item``
+   * - :rspan:`1` ``col1.b.item``
      - The max value
      - ``99``
-   * - ``col1.b.item``
-     - The min value
+   * - The min value
      - ``20``
-   * - ``col1.c``
+   * - :rspan:`2` ``col1.c``
      - The number of nulls
      - ``1``
-   * - ``col1.c``
-     - The approximate max value
+   * - The approximate max value
      - ``3.0``
-   * - ``col1.c``
-     - The approximate min value
+   * - The approximate min value
      - ``-3.0``
-   * - ``col2``
+   * - :rspan:`1` ``col2``
      - The number of nulls
      - ``1``
-   * - ``col2``
-     - The number of distinct values
+   * - The number of distinct values
      - ``2``
 
 Column indexes:
@@ -491,19 +478,22 @@ Statistics array::
       null, # record batch
       0,    # col1
       1,    # col1.a
-      1,    # col1.a
-      1,    # col1.a
-      1,    # col1.a
       2,    # col1.b
       3,    # col1.b.item
-      3,    # col1.b.item
       4,    # col1.c
-      4,    # col1.c
-      4,    # col1.c
-      5,    # col2
       5,    # col2
     ]
     statistics:
+      offsets: [
+        0,
+        1,  # record batch: 1 value: [0]
+        2,  # col1: 1 value: [1]
+        6,  # col1.a: 4 values: [2, 3, 4, 5]
+        7,  # col1.b: 1 value: [6]
+        9,  # col1.b.item: 2 values: [7, 8]
+        12, # col1.c: 3 values: [9, 10, 11]
+        14, # col2: 2 values: [12, 13]
+      ]
       key:
         values: [
           "ARROW:row_count:exact",
@@ -596,26 +586,22 @@ Data::
 
 Statistics:
 
-.. list-table::
+.. flat-table::
    :header-rows: 1
 
    * - Target
      - Name
      - Value
-   * - Array
+   * - :rspan:`4` Array
      - The number of rows
      - ``5``
-   * - Array
-     - The number of nulls
+   * - The number of nulls
      - ``1``
-   * - Array
-     - The number of distinct values
+   * - The number of distinct values
      - ``3``
-   * - Array
-     - The max value
+   * - The max value
      - ``2``
-   * - Array
-     - The min value
+   * - The min value
      - ``0``
 
 Column indexes:
@@ -642,12 +628,12 @@ Statistics array::
 
     column: [
       0, # array
-      0, # array
-      0, # array
-      0, # array
-      0, # array
     ]
     statistics:
+      offsets: [
+        0,
+        5, # array: 5 values: [0, 1, 2, 3, 4]
+      ]
       key:
         values: [
           "ARROW:row_count:exact",
@@ -706,47 +692,40 @@ Data::
 
 Statistics:
 
-.. list-table::
+.. flat-table::
    :header-rows: 1
 
    * - Target
      - Name
      - Value
-   * - Array
+   * - :rspan:`1` Array
      - The number of rows
      - ``3``
-   * - Array
+   * - The number of nulls
+     - ``0``
+   * - :rspan:`3` ``a``
      - The number of nulls
      - ``0``
-   * - ``a``
-     - The number of nulls
-     - ``0``
-   * - ``a``
-     - The number of distinct values
+   * - The number of distinct values
      - ``3``
-   * - ``a``
-     - The approximate max value
+   * - The approximate max value
      - ``5``
-   * - ``a``
-     - The approximate min value
+   * - The approximate min value
      - ``0``
    * - ``b``
      - The number of nulls
      - ``1``
-   * - ``b.item``
+   * - :rspan:`1` ``b.item``
      - The max value
      - ``99``
-   * - ``b.item``
-     - The min value
+   * - The min value
      - ``20``
-   * - ``c``
+   * - :rspan:`2` ``c``
      - The number of nulls
      - ``1``
-   * - ``c``
-     - The approximate max value
+   * - The approximate max value
      - ``3.0``
-   * - ``c``
-     - The approximate min value
+   * - The approximate min value
      - ``-3.0``
 
 Column indexes:
@@ -788,19 +767,20 @@ Statistics array::
 
     column: [
       0, # array
-      0, # array
-      1, # a
-      1, # a
-      1, # a
       1, # a
       2, # b
       3, # b.item
-      3, # b.item
-      4, # c
-      4, # c
       4, # c
     ]
     statistics:
+      offsets: [
+        0,
+        2,  # array: 2 values: [0, 1]
+        6,  # a: 4 values: [2, 3, 4, 5]
+        7,  # b: 1 value: [6]
+        9,  # b.item: 2 values: [7, 8]
+        12, # c: 3 values: [9, 10, 11]
+      ]
       key:
         values: [
           "ARROW:row_count:exact",
