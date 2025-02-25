@@ -719,10 +719,8 @@ cdef class ArrayStatistics(_Weakrefable):
         self.sp_statistics = sp_statistics
 
     def __repr__(self):
-        return ("arrow.ArrayStatistics<null_count={}, distinct_count={}, "
-                "min={}, is_min_exact={}, max={}, is_max_exact={}>"
-                .format(self.null_count, self.distinct_count, self.min,
-                        self.is_min_exact, self.max, self.is_max_exact))
+        return (f"arrow.ArrayStatistics<null_count={self.null_count}, distinct_count={self.distinct_count}, "
+                f"min={self.min}, is_min_exact={self.is_min_exact}, max={self.max}, is_max_exact={self.is_max_exact}>")
 
     @property
     def null_count(self):
