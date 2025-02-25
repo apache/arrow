@@ -22,6 +22,7 @@
 #include <arrow/io/api.h>
 #include <arrow/result.h>
 #include <arrow/status.h>
+#include "arrow/compute/kernels/registry.h"
 
 #include <iostream>
 #include <vector>
@@ -41,6 +42,7 @@
 // in the current directory
 
 arrow::Status RunMain(int argc, char** argv) {
+  ARROW_RETURN_NOT_OK(arrow::compute::internal::RegisterComputeKernels());
   // Make Arrays
   arrow::NumericBuilder<arrow::Int64Type> int64_builder;
   arrow::BooleanBuilder boolean_builder;
