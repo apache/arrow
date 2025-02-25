@@ -2003,12 +2003,12 @@ class TestGeometryLogicalType : public ::testing::Test {
     double expected_ymin = expected_xmin + 1;
     double expected_ymax = expected_xmax + 1;
 
-    EXPECT_EQ(geom_stats->GetXMin(), expected_xmin);
-    EXPECT_EQ(geom_stats->GetXMax(), expected_xmax);
-    EXPECT_EQ(geom_stats->GetYMin(), expected_ymin);
-    EXPECT_EQ(geom_stats->GetYMax(), expected_ymax);
-    EXPECT_FALSE(geom_stats->HasZ());
-    EXPECT_FALSE(geom_stats->HasM());
+    EXPECT_EQ(geom_stats->get_xmin(), expected_xmin);
+    EXPECT_EQ(geom_stats->get_xmax(), expected_xmax);
+    EXPECT_EQ(geom_stats->get_ymin(), expected_ymin);
+    EXPECT_EQ(geom_stats->get_ymax(), expected_ymax);
+    EXPECT_FALSE(geom_stats->has_z());
+    EXPECT_FALSE(geom_stats->has_m());
   }
 
  protected:

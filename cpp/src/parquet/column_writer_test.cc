@@ -1887,12 +1887,12 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     std::vector<int32_t> geospatial_types = geospatial_statistics->GetGeometryTypes();
     EXPECT_EQ(1, geospatial_types.size());
     EXPECT_EQ(1, geospatial_types[0]);
-    EXPECT_DOUBLE_EQ(0, geospatial_statistics->GetXMin());
-    EXPECT_DOUBLE_EQ(1, geospatial_statistics->GetYMin());
-    EXPECT_DOUBLE_EQ(99, geospatial_statistics->GetXMax());
-    EXPECT_DOUBLE_EQ(100, geospatial_statistics->GetYMax());
-    EXPECT_FALSE(geospatial_statistics->HasZ());
-    EXPECT_FALSE(geospatial_statistics->HasM());
+    EXPECT_DOUBLE_EQ(0, geospatial_statistics->get_xmin());
+    EXPECT_DOUBLE_EQ(1, geospatial_statistics->get_ymin());
+    EXPECT_DOUBLE_EQ(99, geospatial_statistics->get_xmax());
+    EXPECT_DOUBLE_EQ(100, geospatial_statistics->get_ymax());
+    EXPECT_FALSE(geospatial_statistics->has_z());
+    EXPECT_FALSE(geospatial_statistics->has_m());
   }
 
   void TestWriteAndReadSpaced(ParquetVersion::type version,
@@ -1948,12 +1948,12 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     std::vector<int32_t> geospatial_types = geospatial_statistics->GetGeometryTypes();
     EXPECT_EQ(1, geospatial_types.size());
     EXPECT_EQ(1, geospatial_types[0]);
-    EXPECT_DOUBLE_EQ(1, geospatial_statistics->GetXMin());
-    EXPECT_DOUBLE_EQ(2, geospatial_statistics->GetYMin());
-    EXPECT_DOUBLE_EQ(98, geospatial_statistics->GetXMax());
-    EXPECT_DOUBLE_EQ(99, geospatial_statistics->GetYMax());
-    EXPECT_FALSE(geospatial_statistics->HasZ());
-    EXPECT_FALSE(geospatial_statistics->HasM());
+    EXPECT_DOUBLE_EQ(1, geospatial_statistics->get_xmin());
+    EXPECT_DOUBLE_EQ(2, geospatial_statistics->get_ymin());
+    EXPECT_DOUBLE_EQ(98, geospatial_statistics->get_xmax());
+    EXPECT_DOUBLE_EQ(99, geospatial_statistics->get_ymax());
+    EXPECT_FALSE(geospatial_statistics->has_z());
+    EXPECT_FALSE(geospatial_statistics->has_m());
   }
 };
 

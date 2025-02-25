@@ -145,9 +145,6 @@ class WKBBuffer;
 /// is not yet implemented.
 class PARQUET_EXPORT WKBGeometryBounder {
  public:
-  WKBGeometryBounder() = default;
-  WKBGeometryBounder(const WKBGeometryBounder&) = default;
-
   /// \brief Accumulate the bounds of a serialized well-known binary geometry
   ///
   /// Returns SerializationError for any parse errors encountered. Bounds for

@@ -109,11 +109,11 @@ class PARQUET_EXPORT GeospatialStatistics {
   /// case, these bounds represent the union of the intervals [xmax, Inf] and [-Inf,
   /// xmin]. This implementation does not yet generate these types of bounds but they may
   /// be encountered in files written by other readers.
-  double GetXMin() const;
+  double get_xmin() const;
 
   /// \brief The maximum encountered value in the X dimension, or -Inf if no X values were
   /// encountered, subject to "wrap around" bounds (see GetXMin()).
-  double GetXMax() const;
+  double get_xmax() const;
 
   /// \brief The minimum encountered value in the Y dimension, or Inf if no Y values were
   /// encountered.
@@ -122,51 +122,33 @@ class PARQUET_EXPORT GeospatialStatistics {
   /// case, these bounds represent the union of the intervals [ymax, Inf] and [-Inf,
   /// ymin]. This implementation does not yet generate these types of bounds but they may
   /// be encountered in files written by other readers.
-  double GetYMin() const;
+  double get_ymin() const;
 
   /// \brief The maximum encountered value in the Y dimension, or -Inf if no Y values were
   /// encountered, subject to "wrap around" bounds (see GetXMin()).
-  double GetYMax() const;
+  double get_ymax() const;
 
   /// \brief The minimum encountered value in the Z dimension, or Inf if no Z values were
   /// encountered. Wrap around bounds are not permitted in the Z dimension.
-  double GetZMin() const;
+  double get_zmin() const;
 
   /// \brief The maximum encountered value in the Z dimension, or -Inf if no Z values were
   /// encountered. Wrap around bounds are not permitted in the Z dimension.
-  double GetZMax() const;
+  double get_zmax() const;
 
   /// \brief The minimum encountered value in the M dimension, or Inf if no M values were
   /// encountered.  Wrap around bounds are not permitted in the M dimension.
-  double GetMMin() const;
+  double get_mmin() const;
 
   /// \brief The maximum encountered value in the M dimension, or -Inf if no M values were
   /// encountered.  Wrap around bounds are not permitted in the M dimension.
-  double GetMMax() const;
+  double get_mmax() const;
 
   /// \brief Returns true if any Z values were encountered or false otherwise
-  bool HasZ() const;
+  bool has_z() const;
 
   /// \brief Returns true if any M values were encountered or false otherwise
-  bool HasM() const;
-
-  /// \brief Returns true if these bounds wrap around the x axis
-  ///
-  /// In the Parquet specification, if xmin > xmax, the x interval is the union of
-  /// [xmin, Inf] and [-Inf, xmax].
-  bool IsWraparoundX() const {
-    return (GetXMin() - GetXMax()) == EncodedGeospatialStatistics::kInf &&
-           GetXMin() > GetXMax();
-  }
-
-  /// \brief Returns true if these bounds wrap around the y axis
-  ///
-  /// In the Parquet specification, if ymin > ymax, the y interval is the union of
-  /// [ymin, Inf] and [-Inf, ymax].
-  bool IsWraparoundY() const {
-    return (GetYMin() - GetYMax()) == EncodedGeospatialStatistics::kInf &&
-           GetYMin() > GetYMax();
-  }
+  bool has_m() const;
 
   /// \brief Return the geometry type codes from the well-known binary encountered
   ///
