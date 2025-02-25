@@ -752,7 +752,10 @@ cdef class RowGroupMetaData(_Weakrefable):
     def __init__(self):
         raise TypeError(f"Can't instantiate internal class {self.__class__.__name__}")
 
-    def __cinit__(self, FileMetaData parent, int index):
+    def __cinit__(self):
+        pass
+
+    def init(self, FileMetaData parent, int index):
         if index < 0 or index >= parent.num_row_groups:
             raise IndexError('{0} out of bounds'.format(index))
         self.up_metadata = parent._metadata.RowGroup(index)
@@ -1043,7 +1046,9 @@ cdef class FileMetaData(_Weakrefable):
         -------
         row_group_metadata : RowGroupMetaData
         """
-        return RowGroupMetaData.__new__(RowGroupMetaData, self, i)
+        cdef RowGroupMetaData row_group = RowGroupMetaData.__new__(RowGroupMetaData)
+        row_group.init(self, i)
+        return row_group
 
     def set_file_path(self, path):
         """
