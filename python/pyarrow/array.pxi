@@ -731,7 +731,7 @@ cdef class ArrayStatistics(_Weakrefable):
         The number of nulls.
         """
         null_count = self.sp_statistics.get().null_count
-        # We'll be able simplify this after
+        # We'll be able to simplify this after
         # https://github.com/cython/cython/issues/6692 is solved.
         if null_count.has_value():
             return null_count.value()
@@ -744,7 +744,7 @@ cdef class ArrayStatistics(_Weakrefable):
         The number of distinct values.
         """
         distinct_count = self.sp_statistics.get().distinct_count
-        # We'll be able simplify this after
+        # We'll be able to simplify this after
         # https://github.com/cython/cython/issues/6692 is solved.
         if distinct_count.has_value():
             return distinct_count.value()
