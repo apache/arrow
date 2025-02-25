@@ -24,8 +24,8 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-
 namespace internal {
+
 template <>
 struct EnumTraits<compute::CountOptions::CountMode>
     : BasicEnumTraits<compute::CountOptions::CountMode, compute::CountOptions::ONLY_VALID,
@@ -67,6 +67,24 @@ struct EnumTraits<compute::QuantileOptions::Interpolation>
     return "<INVALID>";
   }
 };
+
+template <>
+struct EnumTraits<compute::PivotWiderOptions::UnexpectedKeyBehavior>
+    : BasicEnumTraits<compute::PivotWiderOptions::UnexpectedKeyBehavior,
+                      compute::PivotWiderOptions::kIgnore,
+                      compute::PivotWiderOptions::kRaise> {
+  static std::string name() { return "PivotWiderOptions::UnexpectedKeyBehavior"; }
+  static std::string value_name(compute::PivotWiderOptions::UnexpectedKeyBehavior value) {
+    switch (value) {
+      case compute::PivotWiderOptions::kIgnore:
+        return "kIgnore";
+      case compute::PivotWiderOptions::kRaise:
+        return "kRaise";
+    }
+    return "<INVALID>";
+  }
+};
+
 }  // namespace internal
 
 namespace compute {
@@ -101,6 +119,9 @@ static auto kTDigestOptionsType = GetFunctionOptionsType<TDigestOptions>(
     DataMember("buffer_size", &TDigestOptions::buffer_size),
     DataMember("skip_nulls", &TDigestOptions::skip_nulls),
     DataMember("min_count", &TDigestOptions::min_count));
+static auto kPivotOptionsType = GetFunctionOptionsType<PivotWiderOptions>(
+    DataMember("key_names", &PivotWiderOptions::key_names),
+    DataMember("unexpected_key_behavior", &PivotWiderOptions::unexpected_key_behavior));
 static auto kIndexOptionsType =
     GetFunctionOptionsType<IndexOptions>(DataMember("value", &IndexOptions::value));
 }  // namespace
@@ -164,6 +185,13 @@ TDigestOptions::TDigestOptions(std::vector<double> q, uint32_t delta,
       min_count{min_count} {}
 constexpr char TDigestOptions::kTypeName[];
 
+PivotWiderOptions::PivotWiderOptions(std::vector<std::string> key_names,
+                                     UnexpectedKeyBehavior unexpected_key_behavior)
+    : FunctionOptions(internal::kPivotOptionsType),
+      key_names(std::move(key_names)),
+      unexpected_key_behavior(unexpected_key_behavior) {}
+PivotWiderOptions::PivotWiderOptions() : FunctionOptions(internal::kPivotOptionsType) {}
+
 IndexOptions::IndexOptions(std::shared_ptr<Scalar> value)
     : FunctionOptions(internal::kIndexOptionsType), value{std::move(value)} {}
 IndexOptions::IndexOptions() : IndexOptions(std::make_shared<NullScalar>()) {}
@@ -177,6 +205,7 @@ void RegisterAggregateOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kVarianceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kQuantileOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTDigestOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kPivotOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kIndexOptionsType));
 }
 }  // namespace internal
