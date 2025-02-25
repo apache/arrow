@@ -32,9 +32,6 @@ namespace parquet {
 
 class GeospatialStatisticsImpl {
  public:
-  GeospatialStatisticsImpl() = default;
-  GeospatialStatisticsImpl(const GeospatialStatisticsImpl&) = default;
-
   bool Equals(const GeospatialStatisticsImpl& other) const {
     if (is_valid_ != other.is_valid_) {
       return false;
