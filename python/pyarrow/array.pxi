@@ -716,7 +716,7 @@ cdef class ArrayStatistics(_Weakrefable):
         raise TypeError(f"Do not call {self.__class__.__name__}'s constructor "
                         "directly")
 
-    cdef void init(self, const shared_ptr[CArrayStatistics]& sp_statistics) except *:
+    cdef void init(self, const shared_ptr[CArrayStatistics]& sp_statistics):
         self.sp_statistics = sp_statistics
 
     def __repr__(self):
@@ -1031,7 +1031,7 @@ cdef class Array(_PandasConvertible):
                         "the `pyarrow.Array.from_*` functions instead."
                         .format(self.__class__.__name__))
 
-    cdef void init(self, const shared_ptr[CArray]& sp_array):
+    cdef void init(self, const shared_ptr[CArray]& sp_array) except *:
         self.sp_array = sp_array
         self.ap = sp_array.get()
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
