@@ -25,14 +25,20 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow::extension {
+namespace parquet::arrow {
+
+using ::arrow::Array;
+using ::arrow::ArrayData;
+using ::arrow::DataType;
+using ::arrow::ExtensionType;
+using ::arrow::Result;
 
 class ARROW_EXPORT VariantExtensionType : public ExtensionType {
  public:
   explicit VariantExtensionType(const std::shared_ptr<DataType>& storage_type)
       : ExtensionType(storage_type), storage_type_(storage_type) {}
 
-  std::string extension_name() const override { return "variant.json"; }
+  std::string extension_name() const override { return "parquet.variant"; }
 
   bool ExtensionEquals(const ExtensionType& other) const override;
 
@@ -55,4 +61,4 @@ class ARROW_EXPORT VariantExtensionType : public ExtensionType {
 /// \brief Return a VariantExtensionType instance.
 ARROW_EXPORT std::shared_ptr<DataType> variant(std::shared_ptr<DataType> storage_type);
 
-}  // namespace arrow::extension
+}  // namespace parquet::arrow
