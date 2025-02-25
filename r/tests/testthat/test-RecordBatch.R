@@ -606,15 +606,13 @@ test_that("RecordBatch supports cbind", {
 })
 
 test_that("Handling string data with embedded nuls", {
-  raws <- Array$create(structure(list(
+  raws <- Array$create(blob::as_blob(list(
     as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
     as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
     as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
     as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
     as.raw(c(0x74, 0x76))
-  ),
-  class = c("arrow_binary", "vctrs_vctr", "list")
-  ))
+  )))
   batch_with_nul <- record_batch(a = 1:5, b = raws)
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
 
