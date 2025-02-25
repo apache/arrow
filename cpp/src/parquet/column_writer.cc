@@ -1831,10 +1831,10 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     page_statistics_->IncrementNumValues(non_null_count);
     page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
 
-    if constexpr (std::is_same<T, ByteArray>::value) {
-      if (chunk_geospatial_statistics_ != nullptr) {
-        chunk_geospatial_statistics_->Update(*referenced_dictionary);
-      }
+    if (chunk_geospatial_statistics_ != nullptr) {
+      throw ParquetException(
+          "Writing dictionary-encoded GEOMETRY or GEOGRAPHY with statistics is not "
+          "supported");
     }
   };
 
