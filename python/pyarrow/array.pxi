@@ -713,14 +713,17 @@ cdef class ArrayStatistics(_Weakrefable):
     """
 
     def __init__(self):
-        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor "
+                        "directly")
 
     cdef void init(self, const shared_ptr[CArrayStatistics]& sp_statistics) except *:
         self.sp_statistics = sp_statistics
 
     def __repr__(self):
-        return (f"arrow.ArrayStatistics<null_count={self.null_count}, distinct_count={self.distinct_count}, "
-                f"min={self.min}, is_min_exact={self.is_min_exact}, max={self.max}, is_max_exact={self.is_max_exact}>")
+        return (f"arrow.ArrayStatistics<null_count={self.null_count}, "
+                f"distinct_count={self.distinct_count}, min={self.min}, "
+                f"is_min_exact={self.is_min_exact}, max={self.max}, "
+                f"is_max_exact={self.is_max_exact}>")
 
     @property
     def null_count(self):
