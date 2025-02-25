@@ -1031,7 +1031,7 @@ cdef class Array(_PandasConvertible):
                         "the `pyarrow.Array.from_*` functions instead."
                         .format(self.__class__.__name__))
 
-    cdef void init(self, const shared_ptr[CArray]& sp_array) except *:
+    cdef void init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = sp_array.get()
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
