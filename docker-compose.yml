@@ -1790,8 +1790,6 @@ services:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-docs
       args:
         r: ${R}
-        jdk: ${JDK}
-        maven: ${MAVEN}
         node: ${NODE}
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
     # This is for Chromium used by Mermaid. Chromium uses namespace
