@@ -164,7 +164,7 @@ cdef class ParquetFileFormat(FileFormat):
             metadata = deref(
                 deref(parquet_file_writer).parquet_writer()).metadata()
         if metadata:
-            parquet_metadata = FileMetaData()
+            parquet_metadata = FileMetaData.__new__(FileMetaData)
             parquet_metadata.init(metadata)
             parquet_metadata.set_file_path(os.path.relpath(path, base_dir))
 
@@ -390,7 +390,7 @@ cdef class ParquetFileFragment(FileFragment):
     @property
     def metadata(self):
         self.ensure_complete_metadata()
-        cdef FileMetaData metadata = FileMetaData()
+        cdef FileMetaData metadata = FileMetaData.__new__(FileMetaData)
         metadata.init(self.parquet_file_fragment.metadata())
         return metadata
 
@@ -703,7 +703,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     cache_options : pyarrow.CacheOptions, default None
         Cache options used when pre_buffer is enabled. The default values should
         be good for most use cases. You may want to adjust these for example if
-        you have exceptionally high latency to the file system. 
+        you have exceptionally high latency to the file system.
     thrift_string_size_limit : int, default None
         If not None, override the maximum total string size allocated
         when decoding Thrift structures. The default limit should be
