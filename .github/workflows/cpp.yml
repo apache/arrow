@@ -278,7 +278,7 @@ jobs:
         include:
           - os: windows-2022
             simd-level: AVX2
-            title: AMD64 Windows 2022 C++17 AVX2
+            title: AMD64 Windows 2022 AVX2
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
