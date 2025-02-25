@@ -41,19 +41,15 @@ class GeospatialStatisticsImpl {
       return true;
     }
 
-    auto geospatial_types = bounder_.GeometryTypes();
-    auto other_geospatial_types = other.bounder_.GeometryTypes();
-    if (geospatial_types.size() != other_geospatial_types.size()) {
+    if (bounder_.GeometryTypes() != other.bounder_.GeometryTypes()) {
       return false;
     }
 
-    for (size_t i = 0; i < geospatial_types.size(); i++) {
-      if (geospatial_types[i] != other_geospatial_types[i]) {
-        return false;
-      }
+    if (bounder_.Bounds() != other.bounder_.Bounds()) {
+      return false;
     }
 
-    return bounder_.Bounds() == other.bounder_.Bounds();
+    return true;
   }
 
   void Merge(const GeospatialStatisticsImpl& other) {
@@ -306,6 +302,7 @@ EncodedGeospatialStatistics GeospatialStatistics::Encode() const {
 }
 
 void GeospatialStatistics::Decode(const EncodedGeospatialStatistics& encoded) {
+  impl_->Reset();
   impl_->Update(encoded);
 }
 

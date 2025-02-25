@@ -131,10 +131,18 @@ inline bool operator==(const BoundingBox& lhs, const BoundingBox& rhs) {
   return lhs.min == rhs.min && lhs.max == rhs.max;
 }
 
+inline bool operator!=(const BoundingBox& lhs, const BoundingBox& rhs) {
+  return !(lhs == rhs);
+}
+
 class WKBBuffer;
 
 /// \brief Accumulate a BoundingBox and geometry types based on zero or more well-known
 /// binary blobs
+///
+/// Note that this class is NOT appropriate for bounding a GEOGRAPHY,
+/// whose bounds are not a function purely of the vertices. Geography bounding
+/// is not yet implemented.
 class PARQUET_EXPORT WKBGeometryBounder {
  public:
   WKBGeometryBounder() = default;
@@ -145,10 +153,6 @@ class PARQUET_EXPORT WKBGeometryBounder {
   /// Returns SerializationError for any parse errors encountered. Bounds for
   /// any encountered coordinates are accumulated and the geometry type of
   /// the geometry is added to the internal geometry type list.
-  ///
-  /// Note that this method is NOT appropriate for bounding a GEOGRAPHY,
-  /// whose bounds are not a function purely of the vertices. Geography bounding
-  /// is not yet implemented.
   ::arrow::Status ReadGeometry(const uint8_t* data, int64_t size);
 
   /// \brief Accumulate the bounds of a previously-calculated BoundingBox
