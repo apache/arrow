@@ -349,3 +349,7 @@ def test_read_statistics():
     assert statistics.is_min_exact
     assert statistics.max == 3
     assert statistics.is_max_exact
+    assert repr(statistics) == ("arrow.ArrayStatistics<"
+                                "null_count=1, distinct_count=None, "
+                                "min=-1, is_min_exact=True, "
+                                "max=3, is_max_exact=True>")
