@@ -60,6 +60,16 @@ class GeospatialStatisticsImpl {
 
   void Merge(const GeospatialStatisticsImpl& other) {
     is_valid_ = is_valid_ && other.is_valid_;
+    if (!is_valid_) {
+      return;
+    }
+
+    if (IsWraparoundX() || IsWraparoundY() || other.IsWraparoundX() ||
+        other.IsWraparoundY()) {
+      throw ParquetException(
+          "Wraparound X or Y is not suppored by GeospatialStatistics::Merge()");
+    }
+
     bounder_.ReadBox(other.bounder_.Bounds());
     bounder_.ReadGeometryTypes(other.bounder_.GeometryTypes());
   }
@@ -67,6 +77,11 @@ class GeospatialStatisticsImpl {
   void Update(const ByteArray* values, int64_t num_values, int64_t null_count) {
     if (!is_valid_) {
       return;
+    }
+
+    if (IsWraparoundX() || IsWraparoundY()) {
+      throw ParquetException(
+          "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
     }
 
     for (int64_t i = 0; i < num_values; i++) {
@@ -88,6 +103,11 @@ class GeospatialStatisticsImpl {
       return;
     }
 
+    if (IsWraparoundX() || IsWraparoundY()) {
+      throw ParquetException(
+          "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
+    }
+
     ::arrow::Status status = ::arrow::internal::VisitSetBitRuns(
         valid_bits, valid_bits_offset, num_spaced_values,
         [&](int64_t position, int64_t length) {
@@ -107,6 +127,11 @@ class GeospatialStatisticsImpl {
   void Update(const ::arrow::Array& values) {
     if (!is_valid_) {
       return;
+    }
+
+    if (IsWraparoundX() || IsWraparoundY()) {
+      throw ParquetException(
+          "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
     }
 
     // Note that ::arrow::Type::EXTENSION seems to be handled before this is called
@@ -158,6 +183,15 @@ class GeospatialStatisticsImpl {
       return;
     }
 
+    // We can create GeospatialStatistics from a wraparound bounding box, but we can't
+    // update an existing one because the merge logic is not yet implemented.
+    if (!BoundsEmpty() &&
+        (IsWraparoundX() || IsWraparoundY() || IsWraparound(encoded.xmin, encoded.xmax) ||
+         IsWraparound(encoded.ymin, encoded.ymax))) {
+      throw ParquetException(
+          "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
+    }
+
     geometry::BoundingBox box;
     box.min[0] = encoded.xmin;
     box.max[0] = encoded.xmax;
@@ -178,11 +212,19 @@ class GeospatialStatisticsImpl {
     bounder_.ReadGeometryTypes(encoded.geospatial_types);
   }
 
+  bool IsWraparoundX() const {
+    return IsWraparound(GetMinBounds()[0], GetMaxBounds()[0]);
+  }
+
+  bool IsWraparoundY() const {
+    return IsWraparound(GetMinBounds()[1], GetMaxBounds()[1]);
+  }
+
   bool is_valid() const { return is_valid_; }
 
   const std::array<double, 4>& GetMinBounds() const { return bounder_.Bounds().min; }
 
-  const std::array<double, 4>& GetMaxBounds() { return bounder_.Bounds().max; }
+  const std::array<double, 4>& GetMaxBounds() const { return bounder_.Bounds().max; }
 
   std::vector<int32_t> GetGeometryTypes() const { return bounder_.GeometryTypes(); }
 
@@ -204,6 +246,20 @@ class GeospatialStatisticsImpl {
         }
       }
     }
+  }
+
+  static bool IsWraparound(double dmin, double dmax) {
+    return !std::isinf(dmin - dmax) && dmin > dmax;
+  }
+
+  bool BoundsEmpty() {
+    for (int i = 0; i < 4; i++) {
+      if (!std::isinf(bounder_.Bounds().min[i] - bounder_.Bounds().max[i])) {
+        return false;
+      }
+    }
+
+    return true;
   }
 };
 

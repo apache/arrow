@@ -49,11 +49,14 @@ class PARQUET_EXPORT EncodedGeospatialStatistics {
   double mmax{-kInf};
   std::vector<int32_t> geospatial_types;
 
-  bool has_z() const { return (zmax - zmin) != -kInf; }
+  bool has_x() const { return !std::isinf(xmin - xmax); }
+  bool has_y() const { return !std::isinf(ymin - ymax); }
+  bool has_z() const { return !std::isinf(zmin - zmax); }
+  bool has_m() const { return !std::isinf(mmin - mmax); }
 
-  bool has_m() const { return (mmax - mmin) != -kInf; }
-
-  bool is_set() const { return !geospatial_types.empty(); }
+  bool is_set() const {
+    return !geospatial_types.empty() || has_x() || has_y() || has_z() || has_m();
+  }
 };
 
 class GeospatialStatisticsImpl;
@@ -151,6 +154,24 @@ class PARQUET_EXPORT GeospatialStatistics {
 
   /// \brief Returns true if any M values were encountered or false otherwise
   bool HasM() const;
+
+  /// \brief Returns true if these bounds wrap around the x axis
+  ///
+  /// In the Parquet specification, if xmin > xmax, the x interval is the union of
+  /// [xmin, Inf] and [-Inf, xmax].
+  bool IsWraparoundX() const {
+    return (GetXMin() - GetXMax()) == EncodedGeospatialStatistics::kInf &&
+           GetXMin() > GetXMax();
+  }
+
+  /// \brief Returns true if these bounds wrap around the y axis
+  ///
+  /// In the Parquet specification, if ymin > ymax, the y interval is the union of
+  /// [ymin, Inf] and [-Inf, ymax].
+  bool IsWraparoundY() const {
+    return (GetYMin() - GetYMax()) == EncodedGeospatialStatistics::kInf &&
+           GetYMin() > GetYMax();
+  }
 
   /// \brief Return the geometry type codes from the well-known binary encountered
   ///

@@ -180,10 +180,30 @@ TEST(TestGeospatialStatistics, TestUpdateArrayInvalid) {
   ASSERT_OK(builder.AppendValues({std::string()}));
   ASSERT_OK_AND_ASSIGN(const auto invalid_wkb, builder.Finish());
 
-  GeospatialStatistics stats;
-  stats.Update(*invalid_wkb);
-  EXPECT_FALSE(stats.is_valid());
-  EXPECT_FALSE(stats.Encode().is_set());
+  // This should result in statistics that are "unset"
+  GeospatialStatistics invalid;
+  invalid.Update(*invalid_wkb);
+  EXPECT_FALSE(invalid.is_valid());
+  EXPECT_FALSE(invalid.Encode().is_set());
+
+  // Make some valid statistics
+  EncodedGeospatialStatistics encoded_valid;
+  encoded_valid.xmin = 0;
+  encoded_valid.xmax = 10;
+  encoded_valid.ymin = 20;
+  encoded_valid.ymax = 30;
+  GeospatialStatistics valid(encoded_valid);
+
+  // Make some statistics with unsupported wraparound
+  EncodedGeospatialStatistics encoded_unsupported;
+  encoded_unsupported.xmin = 10;
+  encoded_unsupported.xmax = 0;
+  encoded_unsupported.ymin = 20;
+  encoded_unsupported.ymax = 30;
+  GeospatialStatistics unsupported(encoded_unsupported);
+
+  EXPECT_THROW(valid.Merge(unsupported), ParquetException);
+  EXPECT_THROW(unsupported.Merge(valid), ParquetException);
 }
 
 }  // namespace parquet::geometry
