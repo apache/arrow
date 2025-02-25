@@ -108,8 +108,7 @@ using parquet::schema::GroupNode;
 using parquet::schema::NodePtr;
 using parquet::schema::PrimitiveNode;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 
 static constexpr int SMALL_SIZE = 100;
 #ifdef PARQUET_VALGRIND
