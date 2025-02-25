@@ -48,6 +48,10 @@ enum class GeometryType {
 
 /// \brief A collection of intervals representing the encountered ranges of values
 /// in each dimension.
+///
+/// The Parquet specification also supports wraparound bounding boxes in the X and Y
+/// dimensions; however, this structure assumes min < max always as it is used for
+/// the purposes of accumulating this type of bounds.
 struct BoundingBox {
   using XY = std::array<double, 2>;
   using XYZ = std::array<double, 3>;
