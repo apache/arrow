@@ -53,7 +53,7 @@ struct LightContext {
 /// and no children.
 ///
 /// This metadata object is a zero-allocation analogue of arrow::DataType
-struct ARROW_EXPORT KeyColumnMetadata {
+struct KeyColumnMetadata {
   KeyColumnMetadata() = default;
   KeyColumnMetadata(bool is_fixed_length_in, uint32_t fixed_length_in,
                     bool is_null_type_in = false)
@@ -81,7 +81,7 @@ struct ARROW_EXPORT KeyColumnMetadata {
 /// A "key" column is a non-nested, non-union column \see KeyColumnMetadata
 ///
 /// This metadata object is a zero-allocation analogue of arrow::ArrayData
-class ARROW_EXPORT KeyColumnArray {
+class KeyColumnArray {
  public:
   /// \brief Create an uninitialized KeyColumnArray
   KeyColumnArray() = default;
@@ -218,7 +218,7 @@ class ARROW_EXPORT KeyColumnArray {
 ///
 /// This should only be called on "key" columns.  Calling this with
 /// a non-key column will return Status::TypeError.
-ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
+Result<KeyColumnMetadata> ColumnMetadataFromDataType(
     const std::shared_ptr<DataType>& type);
 
 /// \brief Create KeyColumnArray from ArrayData
@@ -228,7 +228,7 @@ ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
 ///
 /// The caller should ensure this is only called on "key" columns.
 /// \see ColumnMetadataFromDataType for details
-ARROW_EXPORT Result<KeyColumnArray> ColumnArrayFromArrayData(
+Result<KeyColumnArray> ColumnArrayFromArrayData(
     const std::shared_ptr<ArrayData>& array_data, int64_t start_row, int64_t num_rows);
 
 /// \brief Create KeyColumnArray from ArrayData and KeyColumnMetadata
@@ -238,7 +238,7 @@ ARROW_EXPORT Result<KeyColumnArray> ColumnArrayFromArrayData(
 ///
 /// The caller should ensure this is only called on "key" columns.
 /// \see ColumnMetadataFromDataType for details
-ARROW_EXPORT KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
+KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
     const std::shared_ptr<ArrayData>& array_data, const KeyColumnMetadata& metadata,
     int64_t start_row, int64_t num_rows);
 
@@ -248,8 +248,8 @@ ARROW_EXPORT KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
 ///
 /// All columns in `batch` must be eligible "key" columns and have an array shape
 /// \see ColumnMetadataFromDataType for more details
-ARROW_EXPORT Status ColumnMetadatasFromExecBatch(
-    const ExecBatch& batch, std::vector<KeyColumnMetadata>* column_metadatas);
+Status ColumnMetadatasFromExecBatch(const ExecBatch& batch,
+                                    std::vector<KeyColumnMetadata>* column_metadatas);
 
 /// \brief Create KeyColumnArray instances from a slice of an ExecBatch
 ///
@@ -257,9 +257,9 @@ ARROW_EXPORT Status ColumnMetadatasFromExecBatch(
 ///
 /// All columns in `batch` must be eligible "key" columns and have an array shape
 /// \see ColumnArrayFromArrayData for more details
-ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
-                                              int64_t num_rows,
-                                              std::vector<KeyColumnArray>* column_arrays);
+Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
+                                 int64_t num_rows,
+                                 std::vector<KeyColumnArray>* column_arrays);
 
 /// \brief Create KeyColumnArray instances from an ExecBatch
 ///
@@ -267,8 +267,8 @@ ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t st
 ///
 /// All columns in `batch` must be eligible "key" columns and have an array shape
 /// \see ColumnArrayFromArrayData for more details
-ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch,
-                                              std::vector<KeyColumnArray>* column_arrays);
+Status ColumnArraysFromExecBatch(const ExecBatch& batch,
+                                 std::vector<KeyColumnArray>* column_arrays);
 
 /// A lightweight resizable array for "key" columns
 ///
@@ -276,7 +276,7 @@ ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch,
 ///
 /// Resizing is handled by arrow::ResizableBuffer and a doubling approach is
 /// used so that resizes will always grow up to the next power of 2
-class ARROW_EXPORT ResizableArrayData {
+class ResizableArrayData {
  public:
   /// \brief Create an uninitialized instance
   ///
@@ -372,7 +372,7 @@ class ARROW_EXPORT ResizableArrayData {
 /// \brief A builder to concatenate batches of data into a larger batch
 ///
 /// Will only store num_rows_max() rows
-class ARROW_EXPORT ExecBatchBuilder {
+class ExecBatchBuilder {
  public:
   /// \brief Add rows from `source` into `target` column
   ///
