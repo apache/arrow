@@ -307,14 +307,18 @@ class BaseBinaryBuilder
   Status AppendBinaryWithLengths(std::string_view binary, const int32_t* value_lengths,
                                  int64_t length) {
     ARROW_RETURN_NOT_OK(Reserve(length));
-    UnsafeAppendToBitmap(/*valid_bytes=*/nullptr, length);
+    UnsafeAppendToBitmap(/*valid_bytes=*/NULLPTR, length);
     // All values is valid
     int64_t accum_length = 0;
     for (int64_t i = 0; i < length; ++i) {
       accum_length += value_lengths[i];
     }
-    if (ARROW_PREDICT_FALSE(binary.size() < accum_length)) {
+    if (ARROW_PREDICT_FALSE(binary.size() < static_cast<size_t>(accum_length))) {
       return Status::Invalid("Binary data is too short");
+    }
+    if (ARROW_PREDICT_FALSE(binary.size() + value_data_builder_.length() >
+                            std::numeric_limits<int32_t>::max())) {
+      return Status::Invalid("Append binary data too long");
     }
     std::string_view sub_data = binary.substr(0, accum_length);
     ARROW_RETURN_NOT_OK(value_data_builder_.Append(
@@ -322,7 +326,8 @@ class BaseBinaryBuilder
     accum_length = 0;
     const int64_t initialize_offset = value_data_builder_.length();
     for (int64_t i = 0; i < length; ++i) {
-      offsets_builder_.UnsafeAppend(initialize_offset + accum_length);
+      offsets_builder_.UnsafeAppend(
+          static_cast<int32_t>(initialize_offset + accum_length));
       accum_length += value_lengths[i];
     }
     return Status::OK();
@@ -331,7 +336,7 @@ class BaseBinaryBuilder
   Status AppendBinaryWithLengths(std::string_view binary, const int32_t* value_lengths,
                                  int64_t length, int64_t null_count,
                                  const uint8_t* valid_bits, int64_t valid_bits_offset) {
-    if (valid_bits == nullptr || null_count == 0) {
+    if (valid_bits == NULLPTR || null_count == 0) {
       return AppendBinaryWithLengths(binary, value_lengths, length);
     }
     ARROW_RETURN_NOT_OK(Reserve(length));
@@ -339,10 +344,15 @@ class BaseBinaryBuilder
     for (int64_t i = 0; i < length; ++i) {
       accum_length += value_lengths[i];
     }
-    if (ARROW_PREDICT_FALSE(binary.size() < accum_length)) {
+    if (ARROW_PREDICT_FALSE(binary.size() < static_cast<size_t>(accum_length))) {
       return Status::Invalid("Binary data is too short");
     }
     const int64_t original_offset = value_data_builder_.length();
+    if (ARROW_PREDICT_FALSE(original_offset + accum_length) >
+        std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid("Append binary data too long");
+    }
+
     std::string_view sub_data = binary.substr(0, accum_length);
     ARROW_RETURN_NOT_OK(value_data_builder_.Append(
         reinterpret_cast<const uint8_t*>(sub_data.data()), sub_data.size()));
@@ -351,13 +361,15 @@ class BaseBinaryBuilder
     RETURN_NOT_OK(VisitNullBitmapInline(
         valid_bits, valid_bits_offset, length, null_count,
         [&]() {
-          offsets_builder_.UnsafeAppend(original_offset + accum_length);
+          offsets_builder_.UnsafeAppend(
+              static_cast<int32_t>(original_offset + accum_length));
           accum_length += value_lengths[length_idx];
           ++length_idx;
           return Status::OK();
         },
         [&]() {
-          offsets_builder_.UnsafeAppend(original_offset + accum_length);
+          offsets_builder_.UnsafeAppend(
+              static_cast<int32_t>(original_offset + accum_length));
           return Status::OK();
         }));
     return Status::OK();
