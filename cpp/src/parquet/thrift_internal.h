@@ -41,6 +41,7 @@
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
+#include "parquet/geospatial_statistics.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/size_statistics.h"
@@ -232,6 +233,29 @@ static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
                      aesGcmCtrV1.supply_aad_prefix};
 }
 
+static inline EncodedGeospatialStatistics FromThrift(
+    const format::GeospatialStatistics& geospatial_stats) {
+  EncodedGeospatialStatistics out;
+
+  out.geospatial_types = geospatial_stats.geospatial_types;
+  out.xmin = geospatial_stats.bbox.xmin;
+  out.xmax = geospatial_stats.bbox.xmax;
+  out.ymin = geospatial_stats.bbox.ymin;
+  out.ymax = geospatial_stats.bbox.ymax;
+
+  if (geospatial_stats.bbox.__isset.zmin && geospatial_stats.bbox.__isset.zmax) {
+    out.zmin = geospatial_stats.bbox.zmin;
+    out.zmax = geospatial_stats.bbox.zmax;
+  }
+
+  if (geospatial_stats.bbox.__isset.mmin && geospatial_stats.bbox.__isset.mmax) {
+    out.mmin = geospatial_stats.bbox.mmin;
+    out.mmax = geospatial_stats.bbox.mmax;
+  }
+
+  return out;
+}
+
 static inline EncryptionAlgorithm FromThrift(format::EncryptionAlgorithm encryption) {
   EncryptionAlgorithm encryption_algorithm;
 
@@ -330,6 +354,27 @@ static inline format::SortingColumn ToThrift(SortingColumn sorting_column) {
   thrift_sorting_column.descending = sorting_column.descending;
   thrift_sorting_column.nulls_first = sorting_column.nulls_first;
   return thrift_sorting_column;
+}
+
+static inline format::GeospatialStatistics ToThrift(
+    const EncodedGeospatialStatistics& encoded_geospatial_stats) {
+  format::GeospatialStatistics geospatial_statistics;
+  geospatial_statistics.__set_geospatial_types(encoded_geospatial_stats.geospatial_types);
+  format::BoundingBox bbox;
+  bbox.__set_xmin(encoded_geospatial_stats.xmin);
+  bbox.__set_xmax(encoded_geospatial_stats.xmax);
+  bbox.__set_ymin(encoded_geospatial_stats.ymin);
+  bbox.__set_ymax(encoded_geospatial_stats.ymax);
+  if (encoded_geospatial_stats.has_z()) {
+    bbox.__set_zmin(encoded_geospatial_stats.zmin);
+    bbox.__set_zmax(encoded_geospatial_stats.zmax);
+  }
+  if (encoded_geospatial_stats.has_m()) {
+    bbox.__set_mmin(encoded_geospatial_stats.mmin);
+    bbox.__set_mmax(encoded_geospatial_stats.mmax);
+  }
+  geospatial_statistics.__set_bbox(bbox);
+  return geospatial_statistics;
 }
 
 static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
