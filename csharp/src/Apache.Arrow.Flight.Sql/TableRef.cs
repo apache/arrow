@@ -13,11 +13,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+
 namespace Apache.Arrow.Flight.Sql;
 
 public class TableRef
 {
-    public string? Catalog { get; set; }
-    public string DbSchema { get; set; } = null!;
-    public string Table { get; set; } = null!;
+    public string? Catalog { get; }
+    public string DbSchema { get; }
+    public string Table { get; }
+
+    public TableRef(string dbSchema, string table)
+    {
+        DbSchema = dbSchema ?? throw new ArgumentNullException(nameof(dbSchema));
+        Table = table ?? throw new ArgumentNullException(nameof(table));
+    }
+
+    public TableRef(string? catalog, string dbSchema, string table)
+    {
+        Catalog = catalog;
+        DbSchema = dbSchema ?? throw new ArgumentNullException(nameof(dbSchema));
+        Table = table ?? throw new ArgumentNullException(nameof(table));
+    }
 }

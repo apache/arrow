@@ -13,26 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Google.Protobuf;
-
 namespace Apache.Arrow.Flight.Sql;
 
-public class Transaction
+using Google.Protobuf; // Ensure you have the Protobuf dependency
+
+public readonly struct Transaction
 {
     private static readonly ByteString TransactionIdDefaultValue = ByteString.Empty;
-    private ByteString? _transactionId;
 
-    public ByteString TransactionId
-    {
-        get => _transactionId ?? TransactionIdDefaultValue;
-        set => _transactionId = ProtoPreconditions.CheckNotNull(value, nameof(value));
-    }
+    private readonly ByteString _transactionId;
+
+    public ByteString TransactionId => _transactionId ?? TransactionIdDefaultValue;
 
     public static readonly Transaction NoTransaction = new(TransactionIdDefaultValue);
 
     public Transaction(ByteString transactionId)
     {
-        TransactionId = transactionId;
+        _transactionId = ProtoPreconditions.CheckNotNull(transactionId, nameof(transactionId));
     }
 
     public Transaction(string transactionId)
@@ -40,9 +37,12 @@ public class Transaction
         _transactionId = ByteString.CopyFromUtf8(transactionId);
     }
 
-    public bool IsValid() => TransactionId.Length > 0;
-    public void ResetTransaction()
-    {
-        _transactionId = TransactionIdDefaultValue;
-    }
+    public bool IsValid() => _transactionId.Length > 0;
+
+    public override bool Equals(object? obj) => obj is Transaction other && _transactionId.Equals(other._transactionId);
+
+    public override int GetHashCode() => _transactionId.GetHashCode();
+
+    public static bool operator ==(Transaction left, Transaction right) => left.Equals(right);
+    public static bool operator !=(Transaction left, Transaction right) => !left.Equals(right);
 }

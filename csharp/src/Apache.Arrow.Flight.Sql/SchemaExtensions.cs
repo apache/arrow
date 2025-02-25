@@ -26,15 +26,13 @@ public static class SchemaExtensions
     /// </summary>
     /// <param name="serializedSchema">The byte array representing the serialized schema.</param>
     /// <returns>The deserialized Schema object.</returns>
-    public static Schema DeserializeSchema(byte[] serializedSchema)
+    public static Schema DeserializeSchema(ReadOnlyMemory<byte> serializedSchema)
     {
-        if (serializedSchema == null || serializedSchema.Length == 0)
+        if (serializedSchema.IsEmpty)
         {
-            throw new ArgumentException("Invalid serialized schema");
+            throw new ArgumentException("Invalid serialized schema", nameof(serializedSchema));
         }
-
-        using var stream = new MemoryStream(serializedSchema);
-        var reader = new ArrowStreamReader(stream);
+        using var reader = new ArrowStreamReader(serializedSchema);
         return reader.Schema;
     }
     

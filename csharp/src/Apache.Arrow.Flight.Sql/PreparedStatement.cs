@@ -84,7 +84,6 @@ public class PreparedStatement : IDisposable
         }
     }
 
-
     /// <summary>
     /// Closes the prepared statement asynchronously.
     /// </summary>

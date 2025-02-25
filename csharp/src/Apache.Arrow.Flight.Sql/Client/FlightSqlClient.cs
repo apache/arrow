@@ -39,10 +39,13 @@ public class FlightSqlClient
     /// <param name="transaction">A transaction to associate this query with.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> ExecuteAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
+    public async Task<FlightInfo> ExecuteAsync(string query, Transaction transaction = default, FlightCallOptions? options = null)
     {
-        transaction ??= Transaction.NoTransaction;
-
+        if (transaction == default)
+        {
+            transaction = Transaction.NoTransaction;
+        }
+        
         if (string.IsNullOrEmpty(query))
         {
             throw new ArgumentException($"Query cannot be null or empty: {nameof(query)}");
@@ -66,15 +69,18 @@ public class FlightSqlClient
     }
 
     /// <summary>
-    /// Executes an update query on the server.
+    /// Executes an update SQL command and returns the number of affected rows.
     /// </summary>
     /// <param name="query">The UTF8-encoded SQL query to be executed.</param>
     /// <param name="transaction">A transaction to associate this query with. Defaults to no transaction if not provided.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The number of rows affected by the operation.</returns>
-    public async Task<long> ExecuteUpdateAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
+    public async Task<long> ExecuteUpdateAsync(string query, Transaction transaction = default, FlightCallOptions? options = null)
     {
-        transaction ??= Transaction.NoTransaction;
+        if (transaction == default)
+        {
+            transaction = Transaction.NoTransaction;
+        }
 
         if (string.IsNullOrEmpty(query))
         {
@@ -104,10 +110,7 @@ public class FlightSqlClient
                 
                 await foreach (var recordBatch in doGetResult.ConfigureAwait(false))
                 {
-                    foreach (var rowCount in recordBatch.ExtractRowCount())
-                    {
-                        affectedRows += rowCount;
-                    }
+                    affectedRows += recordBatch.ExtractRowCount();
                 }
             }
 
@@ -170,9 +173,12 @@ public class FlightSqlClient
     /// <param name="transaction">A transaction to associate this query with</param>
     /// <param name="options">Per-RPC options</param>
     /// <returns>The SchemaResult describing the schema of the result set</returns>
-    public async Task<Schema> GetExecuteSchemaAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
+    public async Task<Schema> GetExecuteSchemaAsync(string query, Transaction transaction = default, FlightCallOptions? options = null)
     {
-        transaction ??= Transaction.NoTransaction;
+        if (transaction == default) 
+        {
+            transaction = Transaction.NoTransaction;
+        }
 
         if (string.IsNullOrEmpty(query))
             throw new ArgumentException($"Query cannot be null or empty: {nameof(query)}");
@@ -897,12 +903,15 @@ public class FlightSqlClient
     /// <param name="transaction">A transaction to associate this query with.</param>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The created prepared statement.</returns>
-    public async Task<PreparedStatement> PrepareAsync(string query, Transaction? transaction = null, FlightCallOptions? options = default)
+    public async Task<PreparedStatement> PrepareAsync(string query, Transaction transaction = default, FlightCallOptions? options = null)
     {
         if (string.IsNullOrEmpty(query))
             throw new ArgumentException("Query cannot be null or empty", nameof(query));
 
-        transaction ??= Transaction.NoTransaction;
+        if (transaction == default)
+        {
+            transaction = Transaction.NoTransaction;
+        }
 
         try
         {

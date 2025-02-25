@@ -43,7 +43,6 @@ public class FlightSqlTestUtils
         return batchBuilder.Build();
     }
 
-
     public FlightInfo GivenStoreBatches(FlightDescriptor flightDescriptor,
         params RecordBatchWithMetadata[] batches)
     {

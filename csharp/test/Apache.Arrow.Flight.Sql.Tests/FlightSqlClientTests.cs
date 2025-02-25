@@ -73,7 +73,7 @@ public class FlightSqlClientTests : IDisposable
         var transaction = await _flightSqlClient.BeginTransactionAsync();
 
         // Assert
-        Assert.NotNull(transaction);
+        Assert.NotEqual(Transaction.NoTransaction, transaction);
         Assert.Equal(ByteString.CopyFromUtf8(expectedTransactionId), transaction.TransactionId);
     }
 
@@ -89,7 +89,6 @@ public class FlightSqlClientTests : IDisposable
         var result = await streamCall.ResponseStream.ToListAsync();
 
         // Assert
-        Assert.NotNull(transaction);
         Assert.Equal(result.FirstOrDefault()?.Body, transaction.TransactionId);
     }
 
@@ -116,25 +115,27 @@ public class FlightSqlClientTests : IDisposable
             new Int32Array.Builder().Append(1).Build(),
             new StringArray.Builder().Append("John Doe").Build()
         }, 1);
-        
+
         var flightHolder = new FlightHolder(flightDescriptor, schema, _testWebFactory.GetAddress());
         flightHolder.AddBatch(new RecordBatchWithMetadata(recordBatch));
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
-        
+
         var datasetSchemaBytes = SchemaExtensions.SerializeSchema(schema);
         var parameterSchemaBytes = SchemaExtensions.SerializeSchema(schema);
-        
+
         var preparedStatementResponse = new ActionCreatePreparedStatementResult
         {
             PreparedStatementHandle = ByteString.CopyFromUtf8("prepared-handle"),
             DatasetSchema = ByteString.CopyFrom(datasetSchemaBytes),
             ParameterSchema = ByteString.CopyFrom(parameterSchemaBytes)
         };
-        
+
         // Act
         var preparedStatement = await _flightSqlClient.PrepareAsync(query, transaction);
-        var deserializedDatasetSchema = SchemaExtensions.DeserializeSchema(preparedStatementResponse.DatasetSchema.ToByteArray());
-        var deserializedParameterSchema = SchemaExtensions.DeserializeSchema(preparedStatementResponse.ParameterSchema.ToByteArray());
+        var deserializedDatasetSchema =
+            SchemaExtensions.DeserializeSchema(preparedStatementResponse.DatasetSchema.ToByteArray());
+        var deserializedParameterSchema =
+            SchemaExtensions.DeserializeSchema(preparedStatementResponse.ParameterSchema.ToByteArray());
 
         // Assert
         Assert.NotNull(preparedStatement);
@@ -150,21 +151,20 @@ public class FlightSqlClientTests : IDisposable
     public async Task ExecuteUpdateAsync()
     {
         // Arrange
-        string query = "UPDATE test_table SET column1 = 'value' WHERE column2 = 'condition'";
+        string query = "UPDATE test_table SET column1 = 'value'";
         var transaction = new Transaction("sample-transaction-id");
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
-        
+
         var schema = new Schema.Builder()
             .Field(f => f.Name("id").DataType(Int32Type.Default))
             .Field(f => f.Name("name").DataType(StringType.Default))
             .Build();
 
-        var recordBatch = new RecordBatch(schema, new Array[]
+        var recordBatch = new RecordBatch(schema, new IArrowArray[]
         {
-            new Int32Array.Builder().Append(1).Build(),
-            new StringArray.Builder().Append("John Doe").Build()
-        }, 1);
-        
+            new Int32Array.Builder().AppendRange([1, 2, 3, 4, 5]).Build(),
+            new StringArray.Builder().AppendRange(["John Doe", "Jane Doe", "Alice", "Bob", "Charlie"]).Build()
+        }, 5);
 
         var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
         flightHolder.AddBatch(new RecordBatchWithMetadata(recordBatch));
@@ -174,7 +174,7 @@ public class FlightSqlClientTests : IDisposable
         long affectedRows = await _flightSqlClient.ExecuteUpdateAsync(query, transaction);
 
         // Assert
-        Assert.Equal(1, affectedRows);
+        Assert.Equal(5, affectedRows);
     }
 
     [Fact]
@@ -210,7 +210,7 @@ public class FlightSqlClientTests : IDisposable
         var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
-        
+
         // Act
         var flightInfo = await _flightSqlClient.ExecuteAsync(query, transaction);
 
@@ -218,7 +218,7 @@ public class FlightSqlClientTests : IDisposable
         Assert.NotNull(flightInfo);
         Assert.IsType<FlightInfo>(flightInfo);
     }
-    
+
     [Fact]
     public async Task ExecuteAsync_ShouldThrowArgumentException_WhenQueryIsEmpty()
     {
@@ -230,7 +230,7 @@ public class FlightSqlClientTests : IDisposable
         await Assert.ThrowsAsync<ArgumentException>(async () =>
             await _flightSqlClient.ExecuteAsync(emptyQuery, transaction));
     }
-    
+
     [Fact]
     public async Task ExecuteAsync_ShouldReturnFlightInfo_WhenTransactionIsNoTransaction()
     {
@@ -242,7 +242,7 @@ public class FlightSqlClientTests : IDisposable
         var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
-        
+
         // Act
         var flightInfo = await _flightSqlClient.ExecuteAsync(query, transaction);
 
@@ -251,7 +251,6 @@ public class FlightSqlClientTests : IDisposable
         Assert.IsType<FlightInfo>(flightInfo);
     }
 
-    
     [Fact]
     public async Task GetFlightInfoAsync()
     {
@@ -379,7 +378,7 @@ public class FlightSqlClientTests : IDisposable
         // Arrange
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var tableRef = new TableRef { Catalog = "test-catalog", Table = "test-table", DbSchema = "test-schema" };
+        var tableRef = new TableRef("test-catalog", "test-schema", "test-table");
         var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
@@ -456,7 +455,6 @@ public class FlightSqlClientTests : IDisposable
 
         Assert.Equal(expectedFlightInfo.Endpoints.Count, flightInfo.Endpoints.Count);
     }
-
 
     [Fact]
     public async Task GetCatalogsSchemaAsync()
@@ -558,7 +556,7 @@ public class FlightSqlClientTests : IDisposable
         // Arrange
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var tableRef = new TableRef { Catalog = "test-catalog", Table = "test-table", DbSchema = "test-schema" };
+        var tableRef = new TableRef("test-catalog", "test-schema", "test-table");
         var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
@@ -583,7 +581,7 @@ public class FlightSqlClientTests : IDisposable
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
         // Act
-        var tableRef = new TableRef { Catalog = "test-catalog", Table = "test-table", DbSchema = "test-schema" };
+        var tableRef = new TableRef("test-catalog", "test-schema", "test-table");
         var schema = await _flightSqlClient.GetExportedKeysSchemaAsync(tableRef);
 
         // Assert
@@ -603,7 +601,8 @@ public class FlightSqlClientTests : IDisposable
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
 
         // Act
-        var flightInfo = await _flightSqlClient.GetImportedKeysAsync(new TableRef { Catalog = "test-catalog", Table = "test-table", DbSchema = "test-schema" });
+        var flightInfo =
+            await _flightSqlClient.GetImportedKeysAsync(new TableRef("test-catalog", "test-schema", "test-table"));
 
         // Assert
         Assert.NotNull(flightInfo);
@@ -646,8 +645,8 @@ public class FlightSqlClientTests : IDisposable
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
         var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
         _flightStore.Flights.Add(flightDescriptor, flightHolder);
-        var pkTableRef = new TableRef { Catalog = "PKCatalog", DbSchema = "PKSchema", Table = "PKTable" };
-        var fkTableRef = new TableRef { Catalog = "FKCatalog", DbSchema = "FKSchema", Table = "FKTable" };
+        var pkTableRef = new TableRef("PKCatalog", "PKSchema", "PKTable");
+        var fkTableRef = new TableRef("FKCatalog", "FKSchema", "FKTable");
 
         // Act
         var flightInfo = await _flightSqlClient.GetCrossReferenceAsync(pkTableRef, fkTableRef);
@@ -826,7 +825,8 @@ public class FlightSqlClientTests : IDisposable
         var flightInfo = new FlightInfo(schema, flightDescriptor, new List<FlightEndpoint>(), 0, 0);
 
         // Adding the flight info to the flight store for testing
-        _flightStore.Flights.Add(flightDescriptor, new FlightHolder(flightDescriptor, schema, _testWebFactory.GetAddress()));
+        _flightStore.Flights.Add(flightDescriptor,
+            new FlightHolder(flightDescriptor, schema, _testWebFactory.GetAddress()));
 
         // Act
         var cancelStatus = await _flightSqlClient.CancelQueryAsync(flightInfo);

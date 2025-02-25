@@ -69,7 +69,6 @@ namespace Apache.Arrow.Flight.Sql.Tests
                 }, 3);
         }
         
-        
         [Fact]
         public async Task ExecuteAsync_ShouldReturnFlightInfo_WhenValidInputsAreProvided()
         {
