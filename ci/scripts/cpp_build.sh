@@ -110,10 +110,18 @@ if [ "${ARROW_OFFLINE}" = "ON" ]; then
 fi
 
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
+  function meson_boolean() {
+    if [ "${1}" = "ON" ]; then
+      echo "true"
+    else
+      echo "false"
+    fi
+  }
+
   meson setup \
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
-    -Dtests=true \
+    -Dtests=$(meson_boolean ${ARROW_BUILD_TESTS:-OFF}) \
     . \
     ${source_dir}
 elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
