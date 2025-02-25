@@ -496,6 +496,8 @@ struct ArrowBinaryHelper<ByteArrayType> {
     return acc_->builder->AppendNull();
   }
 
+  bool CanFit(int64_t length) const { return length <= chunk_space_remaining_; }
+
  private:
   Status PushChunk() {
     ARROW_ASSIGN_OR_RAISE(auto chunk, acc_->builder->Finish());
@@ -503,8 +505,6 @@ struct ArrowBinaryHelper<ByteArrayType> {
     chunk_space_remaining_ = ::arrow::kBinaryMemoryLimit;
     return Status::OK();
   }
-
-  bool CanFit(int64_t length) const { return length <= chunk_space_remaining_; }
 
   Accumulator* acc_;
   int64_t entries_remaining_;
@@ -1675,12 +1675,46 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     num_valid_values_ = num_length;
   }
 
+  Status DecodeArrowDenseFastPath(
+      int num_values, int null_count, const uint8_t* valid_bits,
+      int64_t valid_bits_offset, typename EncodingTraits<ByteArrayType>::Accumulator* out,
+      int* out_num_values) {
+    int max_values = num_values - null_count;
+    if (num_values - null_count > num_valid_values_) {
+      throw ParquetException("Expected to decode ", num_values - null_count,
+                             " values, but can decode decoded ", num_valid_values_,
+                             " values.");
+    }
+    const int32_t* length_ptr = buffered_length_->data_as<int32_t>() + length_idx_;
+    int bytes_offset = len_ - decoder_->bytes_left();
+    const uint8_t* data_ptr = data_ + bytes_offset;
+    const int64_t origin_data_size = out->builder->value_data_length();
+    RETURN_NOT_OK(out->builder->AppendBinaryWithLengths(
+        reinterpret_cast<const char*>(data_ptr), length_ptr, null_count, null_count,
+        valid_bits, valid_bits_offset));
+    if (ARROW_PREDICT_FALSE(!decoder_->Advance(
+            8 * static_cast<int64_t>(out->builder->value_data_length() -
+                                     origin_data_size)))) {
+      ParquetException::EofException();
+    }
+    length_idx_ += max_values;
+    this->num_values_ -= max_values;
+    num_valid_values_ -= max_values;
+    *out_num_values = num_values - null_count;
+    return Status::OK();
+  }
+
   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_num_values) {
     ArrowBinaryHelper<ByteArrayType> helper(out, num_values);
     RETURN_NOT_OK(helper.Prepare());
+
+    if (helper.CanFit(decoder_->bytes_left())) {
+      return DecodeArrowDenseFastPath(num_values, null_count, valid_bits,
+                                      valid_bits_offset, out, out_num_values);
+    }
 
     std::vector<ByteArray> values(num_values - null_count);
     const int num_valid_values = Decode(values.data(), num_values - null_count);
