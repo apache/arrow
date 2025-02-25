@@ -175,7 +175,7 @@ class RowArrayAccessor {
 // Read operations (row comparison, column decoding)
 // can be called by multiple threads concurrently.
 //
-struct RowArray {
+struct ARROW_ACERO_EXPORT RowArray {
   RowArray() : is_initialized_(false), hardware_flags_(0) {}
 
   Status InitIfNeeded(MemoryPool* pool, int64_t hardware_flags, const ExecBatch& batch);

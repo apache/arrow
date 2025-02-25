@@ -28,7 +28,6 @@ depends=("${MINGW_PACKAGE_PREFIX}-bzip2"
          "${MINGW_PACKAGE_PREFIX}-curl" # for google-cloud-cpp bundled build
          "${MINGW_PACKAGE_PREFIX}-libutf8proc"
          "${MINGW_PACKAGE_PREFIX}-re2"
-         "${MINGW_PACKAGE_PREFIX}-thrift"
          "${MINGW_PACKAGE_PREFIX}-snappy"
          "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-lz4"
@@ -85,6 +84,19 @@ build() {
   # and does not work with newer versions of CMake. See comments:
   # https://github.com/apache/arrow/pull/44989/files#r1901428998
 
+  # We use the bundled Apache Thrift instead of the MINGW one because
+  # the upstream one on rtools packages is unmaintained. Apache Thrift
+  # still have the following problem:
+  #
+  #   https://github.com/apache/thrift/pull/2725
+  #
+  # The original MSYS2 package has another fix:
+  #
+  #   https://github.com/msys2/MINGW-packages/blob/master/mingw-w64-thrift/002-fix-pkgconfig-paths.patch
+  #
+  # But one on rtools packages doesn't have the fix. So we can't use
+  # the MINGW one.
+
   # MSYS2_ARG_CONV_EXCL is needed to prevent autoconverting CMAKE_INSTALL_PREFIX
   # to Windows paths. See https://www.msys2.org/docs/filesystem-paths/#process-arguments
 
@@ -128,7 +140,8 @@ build() {
     -DCMAKE_BUILD_TYPE="release" \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
     -DCMAKE_UNITY_BUILD=OFF \
-    -DCMAKE_VERBOSE_MAKEFILE=ON
+    -DCMAKE_VERBOSE_MAKEFILE=ON \
+    -DThrift_SOURCE=BUNDLED
 
   make -j3
   popd
