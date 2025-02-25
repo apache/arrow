@@ -824,21 +824,21 @@ if(ARROW_COMPUTE)
   )
 endif()
 
-arrow_add_object_library(ARROW_COMPUTE ${ARROW_COMPUTE_SRCS})
+arrow_add_object_library(ARROW_COMPUTE_CORE ${ARROW_COMPUTE_SRCS})
 if(ARROW_USE_BOOST)
-  target_link_libraries(arrow_compute PRIVATE Boost::headers)
+  target_link_libraries(arrow_compute_core PRIVATE Boost::headers)
 endif()
 if(ARROW_USE_XSIMD)
-  target_link_libraries(arrow_compute PRIVATE ${ARROW_XSIMD})
+  target_link_libraries(arrow_compute_core PRIVATE ${ARROW_XSIMD})
 endif()
 if(ARROW_WITH_OPENTELEMETRY)
-  target_link_libraries(arrow_compute PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
+  target_link_libraries(arrow_compute_core PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
 endif()
 if(ARROW_WITH_RE2)
-  target_link_libraries(arrow_compute PRIVATE re2::re2)
+  target_link_libraries(arrow_compute_core PRIVATE re2::re2)
 endif()
 if(ARROW_WITH_UTF8PROC)
-  target_link_libraries(arrow_compute PRIVATE utf8proc::utf8proc)
+  target_link_libraries(arrow_compute_core PRIVATE utf8proc::utf8proc)
 endif()
 
 if(ARROW_FILESYSTEM)
@@ -1046,7 +1046,7 @@ add_arrow_lib(arrow
               ${ARROW_SHARED_LINK_FLAGS}
               SHARED_PRIVATE_LINK_LIBS
               ${ARROW_ARRAY_TARGET_SHARED}
-              ${ARROW_COMPUTE_TARGET_SHARED}
+              ${ARROW_COMPUTE_CORE_TARGET_SHARED}
               ${ARROW_CSV_TARGET_SHARED}
               ${ARROW_FILESYSTEM_TARGET_SHARED}
               ${ARROW_INTEGRATION_TARGET_SHARED}
@@ -1062,7 +1062,7 @@ add_arrow_lib(arrow
               ${ARROW_SYSTEM_LINK_LIBS}
               STATIC_LINK_LIBS
               ${ARROW_ARRAY_TARGET_STATIC}
-              ${ARROW_COMPUTE_TARGET_STATIC}
+              ${ARROW_COMPUTE_CORE_TARGET_STATIC}
               ${ARROW_CSV_TARGET_STATIC}
               ${ARROW_FILESYSTEM_TARGET_STATIC}
               ${ARROW_INTEGRATION_TARGET_STATIC}
