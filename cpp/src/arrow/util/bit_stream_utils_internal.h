@@ -331,9 +331,23 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 
   int i = 0;
   if (ARROW_PREDICT_FALSE(bit_offset != 0)) {
-    for (; i < batch_size && bit_offset != 0; ++i) {
-      detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
-                        &buffered_values);
+    if (num_bits == 1) {
+      for (; i < batch_size && bit_offset % 64 != 0; ++i) {
+        v[i] = static_cast<T>(
+            bit_util::TrailingBits(buffered_values, bit_offset + num_bits) >> bit_offset);
+        ++bit_offset;
+      }
+      if (bit_offset == 64) {
+        bit_offset = 0;
+        byte_offset += 8;
+        buffered_values =
+            detail::ReadLittleEndianWord(buffer + byte_offset, max_bytes - byte_offset);
+      }
+    } else {
+      for (; i < batch_size && bit_offset != 0; ++i) {
+        detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
+                          &buffered_values);
+      }
     }
   }
 
@@ -383,9 +397,23 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   buffered_values =
       detail::ReadLittleEndianWord(buffer + byte_offset, max_bytes - byte_offset);
 
-  for (; i < batch_size; ++i) {
-    detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
-                      &buffered_values);
+  if (num_bits == 1) {
+    for (; i < batch_size; ++i) {
+      v[i] = static_cast<T>(
+          bit_util::TrailingBits(buffered_values, bit_offset + num_bits) >> bit_offset);
+      ++bit_offset;
+      if (ARROW_PREDICT_FALSE(bit_offset == 64)) {
+        bit_offset = 0;
+        byte_offset += 8;
+        buffered_values =
+            detail::ReadLittleEndianWord(buffer + byte_offset, max_bytes - byte_offset);
+      }
+    }
+  } else {
+    for (; i < batch_size; ++i) {
+      detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
+                        &buffered_values);
+    }
   }
 
   bit_offset_ = bit_offset;
