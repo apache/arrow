@@ -182,6 +182,8 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::HALF_FLOAT:
     case Type::FLOAT:
     case Type::DOUBLE:
+    case Type::DECIMAL32:
+    case Type::DECIMAL64:
     case Type::DECIMAL128:
     case Type::DECIMAL256:
     case Type::BINARY:
