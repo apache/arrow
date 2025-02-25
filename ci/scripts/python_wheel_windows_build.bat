@@ -24,7 +24,7 @@ py -0p
 
 %PYTHON_CMD% -m sysconfig || exit /B 1
 
-call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 @echo on
 
 echo "=== (%PYTHON%) Clear output directories and leftovers ==="
@@ -56,7 +56,7 @@ set ARROW_WITH_SNAPPY=ON
 set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
 set CMAKE_UNITY_BUILD=ON
-set CMAKE_GENERATOR=Visual Studio 16 2019
+set CMAKE_GENERATOR=Visual Studio 17 2022
 set CMAKE_PLATFORM=x64
 set VCPKG_ROOT=C:\vcpkg
 set VCPKG_FEATURE_FLAGS=-manifests
