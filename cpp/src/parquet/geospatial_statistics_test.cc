@@ -57,14 +57,8 @@ TEST(TestGeospatialStatistics, TestUpdateByteArray) {
                   reinterpret_cast<const uint8_t*>(xyzm_wkb0.data())};
 
   stats.Update(&item0, 1, 0);
-  EXPECT_EQ(stats.get_xmin(), 10);
-  EXPECT_EQ(stats.get_xmax(), 10);
-  EXPECT_EQ(stats.get_ymin(), 11);
-  EXPECT_EQ(stats.get_ymax(), 11);
-  EXPECT_EQ(stats.get_zmin(), 12);
-  EXPECT_EQ(stats.get_zmax(), 12);
-  EXPECT_EQ(stats.get_mmin(), 13);
-  EXPECT_EQ(stats.get_mmax(), 13);
+  EXPECT_THAT(stats.get_lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
+  EXPECT_THAT(stats.get_upper_bound(), ::testing::ElementsAre(10, 11, 12, 13));
   EXPECT_THAT(stats.GetGeometryTypes(), ::testing::ElementsAre(3001));
 
   std::string xyzm_wkb1 = test::MakeWKBPoint({20, 21, 22, 23}, true, true);
@@ -72,14 +66,8 @@ TEST(TestGeospatialStatistics, TestUpdateByteArray) {
                   reinterpret_cast<const uint8_t*>(xyzm_wkb1.data())};
 
   stats.Update(&item1, 1, 0);
-  EXPECT_EQ(stats.get_xmin(), 10);
-  EXPECT_EQ(stats.get_xmax(), 20);
-  EXPECT_EQ(stats.get_ymin(), 11);
-  EXPECT_EQ(stats.get_ymax(), 21);
-  EXPECT_EQ(stats.get_zmin(), 12);
-  EXPECT_EQ(stats.get_zmax(), 22);
-  EXPECT_EQ(stats.get_mmin(), 13);
-  EXPECT_EQ(stats.get_mmax(), 23);
+  EXPECT_THAT(stats.get_lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
+  EXPECT_THAT(stats.get_upper_bound(), ::testing::ElementsAre(20, 21, 22, 23));
   EXPECT_THAT(stats.GetGeometryTypes(), ::testing::ElementsAre(3001));
 
   // Check recreating the statistics with actual values
@@ -108,14 +96,8 @@ TEST(TestGeospatialStatistics, TestUpdateByteArray) {
   GeospatialStatistics stats_spaced;
   stats_spaced.UpdateSpaced(items, &validity, 1, 4, 4, 1);
 
-  EXPECT_EQ(stats_spaced.get_xmin(), 10);
-  EXPECT_EQ(stats_spaced.get_xmax(), 30);
-  EXPECT_EQ(stats_spaced.get_ymin(), 11);
-  EXPECT_EQ(stats_spaced.get_ymax(), 31);
-  EXPECT_EQ(stats_spaced.get_zmin(), 12);
-  EXPECT_EQ(stats_spaced.get_zmax(), 32);
-  EXPECT_EQ(stats_spaced.get_mmin(), 13);
-  EXPECT_EQ(stats_spaced.get_mmax(), 33);
+  EXPECT_THAT(stats_spaced.get_lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
+  EXPECT_THAT(stats_spaced.get_upper_bound(), ::testing::ElementsAre(30, 31, 32, 33));
   EXPECT_THAT(stats_spaced.GetGeometryTypes(), ::testing::ElementsAre(3001));
 
   // Check merge

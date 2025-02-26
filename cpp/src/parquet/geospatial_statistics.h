@@ -147,6 +147,12 @@ class PARQUET_EXPORT GeospatialStatistics {
   /// encountered.  Wrap around bounds are not permitted in the M dimension.
   double get_mmax() const;
 
+  /// \brief All minimum values in XYZM order
+  std::array<double, 4> get_lower_bound() const;
+
+  /// \brief All maximum values in XYZM order
+  std::array<double, 4> get_upper_bound() const;
+
   /// \brief Returns true if any Z values were encountered or false otherwise
   bool has_z() const;
 

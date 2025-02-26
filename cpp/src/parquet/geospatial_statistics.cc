@@ -58,8 +58,8 @@ class GeospatialStatisticsImpl {
       return;
     }
 
-    if (IsWraparoundX() || IsWraparoundY() || other.IsWraparoundX() ||
-        other.IsWraparoundY()) {
+    if (is_wraparound_x() || is_wraparound_y() || other.is_wraparound_x() ||
+        other.is_wraparound_y()) {
       throw ParquetException(
           "Wraparound X or Y is not suppored by GeospatialStatistics::Merge()");
     }
@@ -73,7 +73,7 @@ class GeospatialStatisticsImpl {
       return;
     }
 
-    if (IsWraparoundX() || IsWraparoundY()) {
+    if (is_wraparound_x() || is_wraparound_y()) {
       throw ParquetException(
           "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
     }
@@ -98,7 +98,7 @@ class GeospatialStatisticsImpl {
       return;
     }
 
-    if (IsWraparoundX() || IsWraparoundY()) {
+    if (is_wraparound_x() || is_wraparound_y()) {
       throw ParquetException(
           "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
     }
@@ -125,7 +125,7 @@ class GeospatialStatisticsImpl {
       return;
     }
 
-    if (IsWraparoundX() || IsWraparoundY()) {
+    if (is_wraparound_x() || is_wraparound_y()) {
       throw ParquetException(
           "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
     }
@@ -181,9 +181,9 @@ class GeospatialStatisticsImpl {
 
     // We can create GeospatialStatistics from a wraparound bounding box, but we can't
     // update an existing one because the merge logic is not yet implemented.
-    if (!BoundsEmpty() &&
-        (IsWraparoundX() || IsWraparoundY() || IsWraparound(encoded.xmin, encoded.xmax) ||
-         IsWraparound(encoded.ymin, encoded.ymax))) {
+    if (!BoundsEmpty() && (is_wraparound_x() || is_wraparound_y() ||
+                           IsWraparound(encoded.xmin, encoded.xmax) ||
+                           IsWraparound(encoded.ymin, encoded.ymax))) {
       throw ParquetException(
           "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
     }
@@ -208,21 +208,21 @@ class GeospatialStatisticsImpl {
     bounder_.ReadGeometryTypes(encoded.geospatial_types);
   }
 
-  bool IsWraparoundX() const {
-    return IsWraparound(GetMinBounds()[0], GetMaxBounds()[0]);
+  bool is_wraparound_x() const {
+    return IsWraparound(get_lower_bound()[0], get_upper_bound()[0]);
   }
 
-  bool IsWraparoundY() const {
-    return IsWraparound(GetMinBounds()[1], GetMaxBounds()[1]);
+  bool is_wraparound_y() const {
+    return IsWraparound(get_lower_bound()[1], get_upper_bound()[1]);
   }
 
   bool is_valid() const { return is_valid_; }
 
-  const std::array<double, 4>& GetMinBounds() const { return bounder_.Bounds().min; }
+  const std::array<double, 4>& get_lower_bound() const { return bounder_.Bounds().min; }
 
-  const std::array<double, 4>& GetMaxBounds() const { return bounder_.Bounds().max; }
+  const std::array<double, 4>& get_upper_bound() const { return bounder_.Bounds().max; }
 
-  std::vector<int32_t> GetGeometryTypes() const { return bounder_.GeometryTypes(); }
+  std::vector<int32_t> get_geometry_types() const { return bounder_.GeometryTypes(); }
 
  private:
   geometry::WKBGeometryBounder bounder_;
@@ -307,28 +307,36 @@ void GeospatialStatistics::Decode(const EncodedGeospatialStatistics& encoded) {
   impl_->Update(encoded);
 }
 
-double GeospatialStatistics::get_xmin() const { return impl_->GetMinBounds()[0]; }
+double GeospatialStatistics::get_xmin() const { return impl_->get_lower_bound()[0]; }
 
-double GeospatialStatistics::get_xmax() const { return impl_->GetMaxBounds()[0]; }
+double GeospatialStatistics::get_xmax() const { return impl_->get_upper_bound()[0]; }
 
-double GeospatialStatistics::get_ymin() const { return impl_->GetMinBounds()[1]; }
+double GeospatialStatistics::get_ymin() const { return impl_->get_lower_bound()[1]; }
 
-double GeospatialStatistics::get_ymax() const { return impl_->GetMaxBounds()[1]; }
+double GeospatialStatistics::get_ymax() const { return impl_->get_upper_bound()[1]; }
 
-double GeospatialStatistics::get_zmin() const { return impl_->GetMinBounds()[2]; }
+double GeospatialStatistics::get_zmin() const { return impl_->get_lower_bound()[2]; }
 
-double GeospatialStatistics::get_zmax() const { return impl_->GetMaxBounds()[2]; }
+double GeospatialStatistics::get_zmax() const { return impl_->get_upper_bound()[2]; }
 
-double GeospatialStatistics::get_mmin() const { return impl_->GetMinBounds()[3]; }
+double GeospatialStatistics::get_mmin() const { return impl_->get_lower_bound()[3]; }
 
-double GeospatialStatistics::get_mmax() const { return impl_->GetMaxBounds()[3]; }
+double GeospatialStatistics::get_mmax() const { return impl_->get_upper_bound()[3]; }
+
+std::array<double, 4> GeospatialStatistics::get_lower_bound() const {
+  return impl_->get_lower_bound();
+}
+
+std::array<double, 4> GeospatialStatistics::get_upper_bound() const {
+  return impl_->get_upper_bound();
+}
 
 bool GeospatialStatistics::has_z() const { return (get_zmax() - get_zmin()) > 0; }
 
 bool GeospatialStatistics::has_m() const { return (get_mmax() - get_mmin()) > 0; }
 
 std::vector<int32_t> GeospatialStatistics::GetGeometryTypes() const {
-  return impl_->GetGeometryTypes();
+  return impl_->get_geometry_types();
 }
 
 }  // namespace parquet
