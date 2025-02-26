@@ -354,7 +354,6 @@ jobs:
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
       CMAKE_UNITY_BUILD: ON
       VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
-      VCPKG_ROOT: "${{ github.workspace }}/vcpkg"
       VCPKG_TRIPLET: x64-windows
     permissions:
       packages: write
