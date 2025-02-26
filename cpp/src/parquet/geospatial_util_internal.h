@@ -32,7 +32,7 @@ constexpr double kInf = std::numeric_limits<double>::infinity();
 
 /// \brief Valid combinations of dimensions allowed by ISO well-known binary
 ///
-/// These values correspond to the 0, 1000, 2000, 3000 component of the WKB int32
+/// These values correspond to the 0, 1000, 2000, 3000 component of the WKB integer
 /// geometry type (i.e., the value of geometry_type // 1000).
 enum class Dimensions {
   kXY = 0,
@@ -44,6 +44,9 @@ enum class Dimensions {
 };
 
 /// \brief The supported set of geometry types allowed by ISO well-known binary
+///
+/// These values correspond to the 1, 2, ..., 7 component of the WKB integer
+/// geometry type (i.e., the value of geometry_type % 1000).
 enum class GeometryType {
   kPoint = 1,
   kLinestring = 2,
