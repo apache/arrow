@@ -57,9 +57,9 @@ TEST(TestGeometryUtil, TestBoundingBox) {
 
 struct WKBTestCase {
   WKBTestCase() = default;
-  WKBTestCase(GeometryType x, Dimensions y, const std::vector<uint8_t>& z,
-              const std::vector<double>& box_values = {})
-      : geometry_type(x), dimensions(y), wkb(z) {
+  WKBTestCase(GeometryType geometry_type, Dimensions dimensions,
+              const std::vector<uint8_t>& wkb, const std::vector<double>& box_values = {})
+      : geometry_type(geometry_type), dimensions(dimensions), wkb(wkb) {
     std::array<double, 4> mins = {kInf, kInf, kInf, kInf};
     std::array<double, 4> maxes{-kInf, -kInf, -kInf, -kInf};
 

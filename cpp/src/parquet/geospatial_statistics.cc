@@ -65,7 +65,8 @@ class GeospatialStatisticsImpl {
     }
 
     bounder_.ReadBox(other.bounder_.Bounds());
-    bounder_.ReadGeometryTypes(other.bounder_.GeometryTypes());
+    std::vector<int32_t> other_geometry_types = other.bounder_.GeometryTypes();
+    bounder_.ReadGeometryTypes(other_geometry_types);
   }
 
   void Update(const ByteArray* values, int64_t num_values, int64_t null_count) {

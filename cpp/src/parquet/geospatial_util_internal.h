@@ -23,6 +23,7 @@
 #include <string>
 #include <unordered_set>
 
+#include "arrow/util/logging.h"
 #include "parquet/platform.h"
 
 namespace parquet::geometry {
@@ -78,13 +79,21 @@ struct BoundingBox {
   BoundingBox& operator=(const BoundingBox&) = default;
 
   /// \brief Update the X and Y bounds to ensure these bounds contain coord
-  void UpdateXY(const XY& coord) { UpdateInternal(coord); }
+  void UpdateXY(::arrow::util::span<const double> coord) {
+    DCHECK_EQ(coord.size(), 2);
+    UpdateInternal(coord);
+  }
 
   /// \brief Update the X, Y, and Z bounds to ensure these bounds contain coord
-  void UpdateXYZ(const XYZ& coord) { UpdateInternal(coord); }
+  void UpdateXYZ(::arrow::util::span<const double> coord) {
+    DCHECK_EQ(coord.size(), 3);
+    UpdateInternal(coord);
+  }
 
   /// \brief Update the X, Y, and M bounds to ensure these bounds contain coord
-  void UpdateXYM(const XYM& coord) {
+  void UpdateXYM(::arrow::util::span<const double> coord) {
+    DCHECK_EQ(coord.size(), 3);
+
     min[0] = std::min(min[0], coord[0]);
     min[1] = std::min(min[1], coord[1]);
     min[3] = std::min(min[3], coord[2]);
@@ -94,7 +103,10 @@ struct BoundingBox {
   }
 
   /// \brief Update the X, Y, Z, and M bounds to ensure these bounds contain coord
-  void UpdateXYZM(const XYZM& coord) { UpdateInternal(coord); }
+  void UpdateXYZM(::arrow::util::span<const double> coord) {
+    DCHECK_EQ(coord.size(), 4);
+    UpdateInternal(coord);
+  }
 
   /// \brief Reset these bounds to an empty state such that they contain no coordinates
   void Reset() {
@@ -130,8 +142,6 @@ struct BoundingBox {
   // This works for XY, XYZ, and XYZM
   template <typename Coord>
   void UpdateInternal(Coord coord) {
-    static_assert(coord.size() <= 4);
-
     for (size_t i = 0; i < coord.size(); i++) {
       min[i] = std::min(min[i], coord[i]);
       max[i] = std::max(max[i], coord[i]);
@@ -168,7 +178,7 @@ class PARQUET_EXPORT WKBGeometryBounder {
   void ReadBox(const BoundingBox& box) { box_.Merge(box); }
 
   /// \brief Accumulate a previously-calculated list of geometry types
-  void ReadGeometryTypes(const std::vector<int32_t>& geospatial_types) {
+  void ReadGeometryTypes(::arrow::util::span<const int32_t> geospatial_types) {
     geospatial_types_.insert(geospatial_types.begin(), geospatial_types.end());
   }
 
