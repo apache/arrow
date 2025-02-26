@@ -1881,6 +1881,7 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
       EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
     }
 
+    ASSERT_TRUE(metadata_accessor()->is_geospatial_stats_set());
     std::shared_ptr<GeospatialStatistics> geospatial_statistics =
         metadata_geospatial_stats();
     ASSERT_TRUE(geospatial_statistics != nullptr);

@@ -323,7 +323,6 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   inline bool is_geospatial_stats_set() const {
-    DCHECK(writer_version_ != nullptr);
     if (possible_geospatial_stats_ == nullptr &&
         column_metadata_->__isset.geospatial_statistics) {
       possible_geospatial_stats_ = MakeColumnGeometryStats(*column_metadata_, descr_);
