@@ -4410,6 +4410,57 @@ TEST_F(TestPivotKernel, ChunkedInput) {
               PivotWiderOptions(/*key_names=*/{"height", "width"}));
 }
 
+TEST_F(TestPivotKernel, AllInputKinds) {
+  auto key_type = utf8();
+  auto value_type = float32();
+
+  DatumVector key_args = {
+      ScalarFromJSON(key_type, R"("width")"),
+      ArrayFromJSON(key_type, R"(["width"])"),
+      ChunkedArrayFromJSON(key_type, {R"(["width"])"}),
+  };
+  DatumVector value_args = {
+      ScalarFromJSON(value_type, "11.5"),
+      ArrayFromJSON(value_type, "[11.5]"),
+      ChunkedArrayFromJSON(value_type, {"[11.5]"}),
+  };
+  auto expected = ScalarFromJSON(
+      struct_({field("height", value_type), field("width", value_type)}), "[null, 11.5]");
+
+  for (const Datum& keys : key_args) {
+    ARROW_SCOPED_TRACE("keys = ", keys.ToString());
+    for (const Datum& values : value_args) {
+      ARROW_SCOPED_TRACE("values = ", keys.ToString());
+      AssertPivot(keys, values, *expected,
+                  PivotWiderOptions(/*key_names=*/{"height", "width"}));
+    }
+  }
+}
+
+TEST_F(TestPivotKernel, ScalarKey) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  auto expected_type = struct_({field("height", value_type), field("width", value_type)});
+
+  auto keys = ScalarFromJSON(key_type, R"("width")");
+  auto values = ArrayFromJSON(value_type, "[null, 11.5, null]");
+  auto expected = ScalarFromJSON(expected_type, "[null, 11.5]");
+  AssertPivot(keys, values, *expected,
+              PivotWiderOptions(/*key_names=*/{"height", "width"}));
+}
+
+TEST_F(TestPivotKernel, ScalarValue) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  auto expected_type = struct_({field("height", value_type), field("width", value_type)});
+
+  auto keys = ArrayFromJSON(key_type, R"(["width", "height"])");
+  auto values = ScalarFromJSON(value_type, "11.5");
+  auto expected = ScalarFromJSON(expected_type, "[11.5, 11.5]");
+  AssertPivot(keys, values, *expected,
+              PivotWiderOptions(/*key_names=*/{"height", "width"}));
+}
+
 TEST_F(TestPivotKernel, EmptyInput) {
   auto key_type = utf8();
   auto value_type = float32();
@@ -4440,18 +4491,45 @@ TEST_F(TestPivotKernel, MissingKey) {
 TEST_F(TestPivotKernel, UnexpectedKey) {
   auto key_type = utf8();
   auto value_type = float32();
+  auto expected_type = struct_({field("height", value_type), field("width", value_type)});
 
-  auto keys = ArrayFromJSON(key_type, R"(["width", "height", "depth"])");
-  auto values = ArrayFromJSON(value_type, "[10.5, 11.5, 12.5]");
   auto options = PivotWiderOptions(/*key_names=*/{"height", "width"});
-  auto expected = ScalarFromJSON(
-      struct_({field("height", value_type), field("width", value_type)}), "[11.5, 10.5]");
-  AssertPivot(keys, values, *expected, options);
+  auto options_raise =
+      PivotWiderOptions(/*key_names=*/{"height", "width"}, PivotWiderOptions::kRaise);
 
-  options.unexpected_key_behavior = PivotWiderOptions::kRaise;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(KeyError,
-                                  ::testing::HasSubstr("Unexpected pivot key: depth"),
-                                  CallFunction("pivot_wider", {keys, values}, &options));
+  {
+    auto keys = ArrayFromJSON(key_type, R"(["width", "height", "depth"])");
+    auto values = ArrayFromJSON(value_type, "[10.5, 11.5, 12.5]");
+    auto expected = ScalarFromJSON(expected_type, "[11.5, 10.5]");
+    AssertPivot(keys, values, *expected, options);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        KeyError, ::testing::HasSubstr("Unexpected pivot key: depth"),
+        CallFunction("pivot_wider", {keys, values}, &options_raise));
+  }
+  {
+    // Scalar key
+    auto keys = ScalarFromJSON(key_type, R"("depth")");
+    auto expected = ScalarFromJSON(expected_type, "[null, null]");
+    for (const Datum& values : DatumVector{ArrayFromJSON(value_type, "[10.5]"),
+                                           ScalarFromJSON(value_type, "10.5")}) {
+      AssertPivot(keys, values, *expected, options);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          KeyError, ::testing::HasSubstr("Unexpected pivot key: depth"),
+          CallFunction("pivot_wider", {keys, values}, &options_raise));
+    }
+  }
+  {
+    // Scalar value
+    auto values = ScalarFromJSON(value_type, "10.5");
+    auto expected = ScalarFromJSON(expected_type, "[null, null]");
+    for (const Datum& keys : DatumVector{ArrayFromJSON(key_type, R"(["depth"])"),
+                                         ScalarFromJSON(key_type, R"("depth")")}) {
+      AssertPivot(keys, values, *expected, options);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          KeyError, ::testing::HasSubstr("Unexpected pivot key: depth"),
+          CallFunction("pivot_wider", {keys, values}, &options_raise));
+    }
+  }
 }
 
 TEST_F(TestPivotKernel, NullKey) {
@@ -4496,6 +4574,22 @@ TEST_F(TestPivotKernel, DuplicateValues) {
     auto keys =
         ChunkedArrayFromJSON(key_type, {R"(["width", "height"])", R"(["height"])"});
     auto values = ChunkedArrayFromJSON(value_type, {"[10.5, 11.5]", "[12.5]"});
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Encountered more than one non-null value"),
+        CallFunction("pivot_wider", {keys, values}, &options));
+  }
+  {
+    // Duplicate values with scalar key
+    auto keys = ScalarFromJSON(key_type, R"("width")");
+    auto values = ArrayFromJSON(value_type, "[10.5, 11.5]");
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Encountered more than one non-null value"),
+        CallFunction("pivot_wider", {keys, values}, &options));
+  }
+  {
+    // Duplicate values with scalar value
+    auto keys = ArrayFromJSON(key_type, R"(["width", "height", "height"])");
+    auto values = ScalarFromJSON(value_type, "10.5");
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Encountered more than one non-null value"),
         CallFunction("pivot_wider", {keys, values}, &options));
