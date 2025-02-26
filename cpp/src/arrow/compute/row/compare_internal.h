@@ -31,7 +31,7 @@
 namespace arrow {
 namespace compute {
 
-class ARROW_EXPORT KeyCompare {
+class ARROW_COMPUTE_EXPORT KeyCompare {
  public:
   // Clarify the max temp stack usage for CompareColumnsToRows, which might be necessary
   // for the caller to be aware of (possibly at compile time) to reserve enough stack size
