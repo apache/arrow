@@ -1284,6 +1284,7 @@ if(ARROW_USE_BOOST)
     set(ARROW_BOOST_COMPONENTS)
     set(ARROW_BOOST_OPTIONAL_COMPONENTS)
   endif()
+  set(CMAKE_FIND_DEBUG_MODE ON)
   resolve_dependency(Boost
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
@@ -1294,6 +1295,7 @@ if(ARROW_USE_BOOST)
                      IS_RUNTIME_DEPENDENCY
                      # libarrow.so doesn't depend on libboost*.
                      FALSE)
+  set(CMAKE_FIND_DEBUG_MODE OFF)
   if(ARROW_BOOST_USE_SHARED)
     set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
     unset(BUILD_SHARED_LIBS_KEEP)
