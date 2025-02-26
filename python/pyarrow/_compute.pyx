@@ -2396,6 +2396,50 @@ class RankQuantileOptions(_RankQuantileOptions):
         self._set_options(sort_keys, null_placement)
 
 
+cdef class _PivotWiderOptions(FunctionOptions):
+
+    def _set_options(self, key_names, unexpected_key_behavior):
+        cdef:
+            vector[c_string] c_key_names
+            PivotWiderUnexpectedKeyBehavior c_unexpected_key_behavior
+        if unexpected_key_behavior == "ignore":
+            c_unexpected_key_behavior = PivotWiderUnexpectedKeyBehavior_Ignore
+        elif unexpected_key_behavior == "raise":
+            c_unexpected_key_behavior = PivotWiderUnexpectedKeyBehavior_Raise
+        else:
+            raise ValueError(
+                f"Unsupported value for unexpected_key_behavior: "
+                f"expected 'ignore' or 'raise', got {unexpected_key_behavior!r}")
+
+        for k in key_names:
+            c_key_names.push_back(tobytes(k))
+
+        self.wrapped.reset(
+            new CPivotWiderOptions(move(c_key_names), c_unexpected_key_behavior)
+        )
+
+
+class PivotWiderOptions(_PivotWiderOptions):
+    """
+    Options for the `pivot_wider` function.
+
+    Parameters
+    ----------
+    key_names : sequence of str
+        The pivot key names expected in the pivot key column.
+        For each entry in `key_names`, a column with the same name is emitted
+        in the struct output.
+    unexpected_key_behavior : str, default "ignore"
+        The behavior when pivot keys not in `key_names` are encountered.
+        Accepted values are "ignore", "raise".
+        If "ignore", unexpected keys are silently ignored.
+        If "raise", unexpected keys raise a KeyError.
+    """
+
+    def __init__(self, key_names, *, unexpected_key_behavior="ignore"):
+        self._set_options(key_names, unexpected_key_behavior)
+
+
 cdef class Expression(_Weakrefable):
     """
     A logical expression to be evaluated against some input.
