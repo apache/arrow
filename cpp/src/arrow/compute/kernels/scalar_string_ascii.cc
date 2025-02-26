@@ -43,7 +43,6 @@ namespace compute {
 namespace internal {
 
 namespace {
-
 // ----------------------------------------------------------------------
 // re2 utilities
 
@@ -2185,42 +2184,7 @@ void AddAsciiStringReplaceSubstring(FunctionRegistry* registry) {
 
 using ExtractRegexState = OptionsWrapper<ExtractRegexOptions>;
 
-// TODO cache this once per ExtractRegexOptions
-class ExtractRegexData {
- public:
-  static Result<ExtractRegexData> Make(const ExtractRegexOptions& options,
-                                       bool is_utf8 = true) {
-    ExtractRegexData data(options.pattern, is_utf8);
-    ARROW_RETURN_NOT_OK(data.Init());
-    return data;
-  }
-
-  Result<TypeHolder> ResolveOutputType(const std::vector<TypeHolder>& types) const {
-    const DataType* input_type = types[0].type;
-    // as mentioned here
-    // https://arrow.apache.org/docs/developers/cpp/development.html#code-style-linting-and-ci
-    // nullptr should not be used
-    if (input_type == NULLPTR) {
-      // No input type specified
-      return NULLPTR;
-    }
-    // Input type is either [Large]Binary or [Large]String and is also the type
-    // of each field in the output struct type.
-    DCHECK(is_base_binary_like(input_type->id()));
-    FieldVector fields;
-    fields.reserve(group_names_.size());
-    std::shared_ptr<DataType> owned_type = input_type->GetSharedPtr();
-    std::transform(group_names_.begin(), group_names_.end(), std::back_inserter(fields),
-                   [&](const std::string& name) { return field(name, owned_type); });
-    return struct_(fields);
-  }
-  int64_t num_group() const { return group_names_.size(); }
-  std::shared_ptr<RE2> regex() const { return regex_; }
-
- protected:
-  explicit ExtractRegexData(const std::string& pattern, bool is_utf8 = true)
-      : regex_(new RE2(pattern, MakeRE2Options(is_utf8))) {}
-
+struct BaseExtractRegexData {
   Status Init() {
     RETURN_NOT_OK(RegexStatus(*regex_));
 
@@ -2238,9 +2202,44 @@ class ExtractRegexData {
     }
     return Status::OK();
   }
-
-  std::shared_ptr<RE2> regex_;
+  int64_t num_group() const { return group_names_.size(); }
+  std::unique_ptr<RE2> regex_;
   std::vector<std::string> group_names_;
+
+ protected:
+  explicit BaseExtractRegexData(const std::string& pattern, bool is_utf8 = true)
+      : regex_(new RE2(pattern, MakeRE2Options(is_utf8))) {}
+};
+
+// TODO cache this once per ExtractRegexOptions
+struct ExtractRegexData : public BaseExtractRegexData {
+  static Result<ExtractRegexData> Make(const ExtractRegexOptions& options,
+                                       bool is_utf8 = true) {
+    ExtractRegexData data(options.pattern, is_utf8);
+    ARROW_RETURN_NOT_OK(data.Init());
+    return data;
+  }
+
+  Result<TypeHolder> ResolveOutputType(const std::vector<TypeHolder>& types) const {
+    const DataType* input_type = types[0].type;
+    if (input_type == nullptr) {
+      // No input type specified
+      return nullptr;
+    }
+    // Input type is either [Large]Binary or [Large]String and is also the type
+    // of each field in the output struct type.
+    DCHECK(is_base_binary_like(input_type->id()));
+    FieldVector fields;
+    fields.reserve(group_names_.size());
+    std::shared_ptr<DataType> owned_type = input_type->GetSharedPtr();
+    std::transform(group_names_.begin(), group_names_.end(), std::back_inserter(fields),
+                   [&](const std::string& name) { return field(name, owned_type); });
+    return struct_(std::move(fields));
+  }
+
+ private:
+  explicit ExtractRegexData(const std::string& pattern, bool is_utf8 = true)
+      : BaseExtractRegexData(pattern, is_utf8) {}
 };
 
 Result<TypeHolder> ResolveExtractRegexOutput(KernelContext* ctx,
@@ -2251,7 +2250,7 @@ Result<TypeHolder> ResolveExtractRegexOutput(KernelContext* ctx,
 }
 
 struct ExtractRegexBase {
-  const ExtractRegexData& data;
+  const BaseExtractRegexData& data;
   const int group_count;
   std::vector<re2::StringPiece> found_values;
   std::vector<RE2::Arg> args;
@@ -2259,7 +2258,7 @@ struct ExtractRegexBase {
   const RE2::Arg** args_pointers_start;
   const RE2::Arg* null_arg = nullptr;
 
-  explicit ExtractRegexBase(const ExtractRegexData& data)
+  explicit ExtractRegexBase(const BaseExtractRegexData& data)
       : data(data),
         group_count(static_cast<int>(data.num_group())),
         found_values(group_count) {
@@ -2276,7 +2275,7 @@ struct ExtractRegexBase {
   }
 
   bool Match(std::string_view s) {
-    return RE2::PartialMatchN(ToStringPiece(s), *data.regex(), args_pointers_start,
+    return RE2::PartialMatchN(ToStringPiece(s), *data.regex_, args_pointers_start,
                               group_count);
   }
 };
@@ -2291,7 +2290,7 @@ struct ExtractRegex : public ExtractRegexBase {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     ExtractRegexOptions options = ExtractRegexState::Get(ctx);
     ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexData::Make(options, Type::is_utf8));
-    return ExtractRegex{data}.Extract(ctx, batch, out);
+    return ExtractRegex(data).Extract(ctx, batch, out);
   }
 
   Status Extract(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -2357,8 +2356,7 @@ void AddAsciiStringExtractRegex(FunctionRegistry* registry) {
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
-class ExtractRegexSpanData : public ExtractRegexData {
- public:
+struct ExtractRegexSpanData : public BaseExtractRegexData {
   static Result<ExtractRegexSpanData> Make(const std::string& pattern) {
     auto data = ExtractRegexSpanData(pattern, true);
     ARROW_RETURN_NOT_OK(data.Init());
@@ -2378,20 +2376,26 @@ class ExtractRegexSpanData : public ExtractRegexData {
     for (const auto& group_name : group_names_) {
       auto type = is_binary_like(owned_type->id()) ? int32() : int64();
       // size list is 2 as every span contains position and length
-      fields.push_back(field(group_name + "_span", fixed_size_list(type, 2)));
+      fields.push_back(field(group_name, fixed_size_list(type, 2)));
     }
     return struct_(fields);
   }
 
  private:
   ExtractRegexSpanData(const std::string& pattern, const bool is_utf8)
-      : ExtractRegexData(pattern, is_utf8) {}
+      : BaseExtractRegexData(pattern, is_utf8) {}
 };
 
 template <typename Type>
 struct ExtractRegexSpan : ExtractRegexBase {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
+  using offset_type = typename Type::offset_type;
+  using OffsetBuilderType =
+      typename TypeTraits<typename CTypeTraits<offset_type>::ArrowType>::BuilderType;
+  using OffsetCType =
+      typename TypeTraits<typename CTypeTraits<offset_type>::ArrowType>::CType;
+
   using ExtractRegexBase::ExtractRegexBase;
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -2407,15 +2411,20 @@ struct ExtractRegexSpan : ExtractRegexBase {
     ARROW_RETURN_NOT_OK(
         MakeBuilder(ctx->memory_pool(), out->type()->GetSharedPtr(), &out_builder));
     auto struct_builder = checked_pointer_cast<StructBuilder>(std::move(out_builder));
+    ARROW_RETURN_NOT_OK(struct_builder->Reserve(batch[0].array.length));
     std::vector<FixedSizeListBuilder*> span_builders;
-    std::vector<ArrayBuilder*> array_builders;
+    std::vector<OffsetBuilderType*> array_builders;
     span_builders.reserve(group_count);
     array_builders.reserve(group_count);
     for (int i = 0; i < group_count; i++) {
       span_builders.push_back(
           checked_cast<FixedSizeListBuilder*>(struct_builder->field_builder(i)));
-      array_builders.push_back(span_builders[i]->value_builder());
+      array_builders.push_back(
+          checked_cast<OffsetBuilderType*>(span_builders[i]->value_builder()));
+      RETURN_NOT_OK(span_builders.back()->Reserve(batch[0].array.length));
+      RETURN_NOT_OK(array_builders.back()->Reserve(2 * batch[0].array.length));
     }
+
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
     auto visit_value = [&](std::string_view element) -> Status {
       if (Match(element)) {
@@ -2424,15 +2433,8 @@ struct ExtractRegexSpan : ExtractRegexBase {
           if (found_values[i].data() != NULLPTR) {
             int64_t begin = found_values[i].data() - element.data();
             int64_t size = found_values[i].size();
-            if (is_binary_like(batch.GetTypes()[0].id())) {
-              ARROW_RETURN_NOT_OK(checked_cast<Int32Builder*>(array_builders[i])
-                                      ->AppendValues({static_cast<int32_t>(begin),
-                                                      static_cast<int32_t>(size)}));
-            } else {
-              ARROW_RETURN_NOT_OK(checked_cast<Int64Builder*>(array_builders[i])
-                                      ->AppendValues({begin, size}));
-            }
-
+            array_builders[i]->UnsafeAppend(static_cast<OffsetCType>(begin));
+            array_builders[i]->UnsafeAppend(static_cast<OffsetCType>(size));
             ARROW_RETURN_NOT_OK(span_builders[i]->Append());
           } else {
             ARROW_RETURN_NOT_OK(span_builders[i]->AppendNull());
@@ -2453,11 +2455,19 @@ struct ExtractRegexSpan : ExtractRegexBase {
   }
 };
 
-const FunctionDoc extract_regex_doc_span(
-    "likes extract_regex; however, it contains the position and length of results", "",
+const FunctionDoc extract_regex_span_doc(
+    "Extract substrings captured by a regex pattern and Save the result in the form of "
+    "(offset,length)",
+    "For each string in strings, match the regular expression and, if\n"
+    "successful, emit a struct with field names and values coming from the\n"
+    "regular expression's named capture groups, which are stored in a form of a\n "
+    "fixed_size_list(offset, length). If the input is null or the regular \n"
+    "expression Fails matching, a null output value is emitted.\n"
+    "Regular expression matching is done using the Google RE2 library.",
     {"strings"}, "ExtractRegexSpanOptions", true);
 
-Result<TypeHolder> resolver(KernelContext* ctx, const std::vector<TypeHolder>& types) {
+Result<TypeHolder> ResolveExtractRegexSpanOutputType(
+    KernelContext* ctx, const std::vector<TypeHolder>& types) {
   auto options = OptionsWrapper<ExtractRegexSpanOptions>::Get(*ctx->state());
   ARROW_ASSIGN_OR_RAISE(auto span, ExtractRegexSpanData::Make(options.pattern));
   return span.ResolveOutputType(types);
@@ -2465,8 +2475,8 @@ Result<TypeHolder> resolver(KernelContext* ctx, const std::vector<TypeHolder>& t
 
 void AddAsciiStringExtractRegexSpan(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("extract_regex_span", Arity::Unary(),
-                                               extract_regex_doc_span);
-  OutputType output_type(resolver);
+                                               extract_regex_span_doc);
+  OutputType output_type(ResolveExtractRegexSpanOutputType);
   for (const auto& type : BaseBinaryTypes()) {
     ScalarKernel kernel({type}, output_type,
                         GenerateVarBinaryToVarBinary<ExtractRegexSpan>(type),

@@ -1960,28 +1960,46 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegex) {
                    R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "3"}])",
                    &options);
 }
-TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSapn) {
+TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpan) {
   ExtractRegexSpanOptions options{"(?P<letter>[ab])(?P<digit>\\d)"};
   auto type_fixe_size_list = is_binary_like(this->type()->id()) ? int32() : int64();
-  auto out_type = struct_({field("letter_span", fixed_size_list(type_fixe_size_list, 2)),
-                           field("digit_span", fixed_size_list(type_fixe_size_list, 2))});
+  auto out_type = struct_({field("letter", fixed_size_list(type_fixe_size_list, 2)),
+                           field("digit", fixed_size_list(type_fixe_size_list, 2))});
   this->CheckUnary("extract_regex_span", R"([])", out_type, R"([])", &options);
   this->CheckUnary(
       "extract_regex_span", R"(["a1", "b2", "c3", null])", out_type,
-      R"([{"letter_span":[0,1], "digit_span":[1,1]}, {"letter_span":[0,1], "digit_span":[1,1]}, null, null])",
+      R"([{"letter":[0,1], "digit":[1,1]}, {"letter":[0,1], "digit":[1,1]}, null, null])",
       &options);
   this->CheckUnary(
       "extract_regex_span", R"(["a1", "c3", null, "b2"])", out_type,
-      R"([{"letter_span":[0,1], "digit_span": [1,1]}, null, null, {"letter_span":[0,1], "digit_span":[1,1]}])",
+      R"([{"letter":[0,1], "digit": [1,1]}, null, null, {"letter":[0,1], "digit":[1,1]}])",
       &options);
   this->CheckUnary(
       "extract_regex_span", R"(["a1", "b2"])", out_type,
-      R"([{"letter_span": [0,1], "digit_span": [1,1]}, {"letter_span": [0,1], "digit_span": [1,1]}])",
+      R"([{"letter": [0,1], "digit": [1,1]}, {"letter": [0,1], "digit": [1,1]}])",
       &options);
   this->CheckUnary(
       "extract_regex_span", R"(["a1", "zb3z"])", out_type,
-      R"([{"letter_span": [0,1], "digit_span": [1,1]}, {"letter_span": [1,1], "digit_span": [2,1]}])",
+      R"([{"letter": [0,1], "digit": [1,1]}, {"letter": [1,1], "digit": [2,1]}])",
       &options);
+}
+TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanCaptureOption) {
+  ExtractRegexSpanOptions options{"(?P<foo>foo)?(?P<digit>\\d+)?"};
+  auto type_fixe_size_list = is_binary_like(this->type()->id()) ? int32() : int64();
+  auto out_type = struct_({field("foo", fixed_size_list(type_fixe_size_list, 2)),
+                           field("digit", fixed_size_list(type_fixe_size_list, 2))});
+  this->CheckUnary("extract_regex_span", R"([])", out_type, R"([])", &options);
+  this->CheckUnary("extract_regex_span", R"(["abcfoo"])", out_type,
+                   R"([{"foo":null,"digit":null}])", &options);
+  options = ExtractRegexSpanOptions{"(?P<foo>foo)(?P<digit>\\d+)?"};
+  this->CheckUnary("extract_regex_span", R"(["foo123","foo","123","abc","abcfoo"])",
+                   out_type,
+                   R"([{"foo":[0,3],"digit":[3,3]},
+                                  {"foo":[0,3],"digit":null},
+                                  null,
+                                  null,
+                                  {"foo":[3,3],"digit":null}])",
+                   &options);
 }
 
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexNoCapture) {
