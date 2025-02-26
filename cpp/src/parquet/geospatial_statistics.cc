@@ -335,8 +335,40 @@ bool GeospatialStatistics::has_z() const { return (get_zmax() - get_zmin()) > 0;
 
 bool GeospatialStatistics::has_m() const { return (get_mmax() - get_mmin()) > 0; }
 
-std::vector<int32_t> GeospatialStatistics::GetGeometryTypes() const {
+std::vector<int32_t> GeospatialStatistics::get_geometry_types() const {
   return impl_->get_geometry_types();
+}
+
+std::string GeospatialStatistics::ToString() const {
+  if (!is_valid()) {
+    return "GeospatialStatistics <invalid>\n";
+  }
+
+  std::stringstream ss;
+  ss << "GeospatialStatistics " << std::endl;
+  ss << "  x: "
+     << "[" << get_xmin() << ", " << get_xmax() << "]" << std::endl;
+  ss << "  y: "
+     << "[" << get_ymin() << ", " << get_ymax() << "]" << std::endl;
+
+  if (has_z()) {
+    ss << "  z: "
+       << "[" << get_zmin() << ", " << get_zmax() << "]" << std::endl;
+  }
+
+  if (has_m()) {
+    ss << "  m: "
+       << "[" << get_mmin() << ", " << get_mmax() << "]" << std::endl;
+  }
+
+  ss << "  geometry_types:";
+  for (int32_t geometry_type : get_geometry_types()) {
+    ss << " " << geometry_type;
+  }
+
+  ss << std::endl;
+
+  return ss.str();
 }
 
 }  // namespace parquet

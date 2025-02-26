@@ -162,7 +162,10 @@ class PARQUET_EXPORT GeospatialStatistics {
   /// \brief Return the geometry type codes from the well-known binary encountered
   ///
   /// This implementation always returns sorted output with no duplicates.
-  std::vector<int32_t> GetGeometryTypes() const;
+  std::vector<int32_t> get_geometry_types() const;
+
+  /// \brief Return a string representation of these statistics
+  std::string ToString() const;
 
  private:
   std::unique_ptr<GeospatialStatisticsImpl> impl_;

@@ -1884,7 +1884,7 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     std::shared_ptr<GeospatialStatistics> geospatial_statistics =
         metadata_geospatial_stats();
     ASSERT_TRUE(geospatial_statistics != nullptr);
-    std::vector<int32_t> geospatial_types = geospatial_statistics->GetGeometryTypes();
+    std::vector<int32_t> geospatial_types = geospatial_statistics->get_geometry_types();
     EXPECT_EQ(1, geospatial_types.size());
     EXPECT_EQ(1, geospatial_types[0]);
     EXPECT_DOUBLE_EQ(0, geospatial_statistics->get_xmin());
@@ -1945,7 +1945,7 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     std::shared_ptr<GeospatialStatistics> geospatial_statistics =
         metadata_geospatial_stats();
     ASSERT_TRUE(geospatial_statistics != nullptr);
-    std::vector<int32_t> geospatial_types = geospatial_statistics->GetGeometryTypes();
+    std::vector<int32_t> geospatial_types = geospatial_statistics->get_geometry_types();
     EXPECT_EQ(1, geospatial_types.size());
     EXPECT_EQ(1, geospatial_types[0]);
     EXPECT_DOUBLE_EQ(1, geospatial_statistics->get_xmin());

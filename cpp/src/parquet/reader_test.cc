@@ -1995,7 +1995,7 @@ class TestGeometryLogicalType : public ::testing::Test {
                                  int64_t start_index, int64_t num_rows) {
     ASSERT_TRUE(geom_stats != nullptr);
     // We wrote exactly one geometry type (POINT, which has code 1)
-    std::vector<int32_t> geospatial_types = geom_stats->GetGeometryTypes();
+    std::vector<int32_t> geospatial_types = geom_stats->get_geometry_types();
     EXPECT_THAT(geospatial_types, ::testing::ElementsAre(1));
 
     double expected_xmin = static_cast<double>(start_index);
