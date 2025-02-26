@@ -142,8 +142,15 @@ namespace {
 
 }  // namespace
 
-::arrow::Status WKBGeometryBounder::ReadGeometry(const uint8_t* data, int64_t size) {
-  WKBBuffer src{data, size};
+std::vector<int32_t> WKBGeometryBounder::GeometryTypes() const {
+  std::vector<int32_t> out(geospatial_types_.begin(), geospatial_types_.end());
+  std::sort(out.begin(), out.end());
+  return out;
+}
+
+::arrow::Status WKBGeometryBounder::ReadGeometry(std::string_view bytes_wkb) {
+  WKBBuffer src{reinterpret_cast<const uint8_t*>(bytes_wkb.data()),
+                static_cast<int64_t>(bytes_wkb.size())};
   ARROW_RETURN_NOT_OK(ReadGeometryInternal(&src, /*record_wkb_type=*/true));
   if (src.size() != 0) {
     return ::arrow::Status::SerializationError(

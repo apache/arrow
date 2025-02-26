@@ -150,7 +150,7 @@ class PARQUET_EXPORT WKBGeometryBounder {
   /// Returns SerializationError for any parse errors encountered. Bounds for
   /// any encountered coordinates are accumulated and the geometry type of
   /// the geometry is added to the internal geometry type list.
-  ::arrow::Status ReadGeometry(const uint8_t* data, int64_t size);
+  ::arrow::Status ReadGeometry(std::string_view bytes_wkb);
 
   /// \brief Accumulate the bounds of a previously-calculated BoundingBox
   void ReadBox(const BoundingBox& box) { box_.Merge(box); }
@@ -164,11 +164,7 @@ class PARQUET_EXPORT WKBGeometryBounder {
   const BoundingBox& Bounds() const { return box_; }
 
   /// \brief Retrieve the accumulated geometry types
-  std::vector<int32_t> GeometryTypes() const {
-    std::vector<int32_t> out(geospatial_types_.begin(), geospatial_types_.end());
-    std::sort(out.begin(), out.end());
-    return out;
-  }
+  std::vector<int32_t> GeometryTypes() const;
 
   /// \brief Reset the internal bounds and geometry types list to an empty state
   void Reset() {
