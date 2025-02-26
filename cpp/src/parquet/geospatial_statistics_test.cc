@@ -136,7 +136,7 @@ TEST(TestGeospatialStatistics, TestUpdateArray) {
   for (int k = 0; k < 10; k++) {
     std::string item = test::MakeWKBPoint(
         {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
-    ASSERT_OK(builder.AppendValues({item}));
+    ASSERT_OK(builder.Append(item));
   }
 
   ASSERT_OK(builder.AppendNull());
@@ -144,7 +144,7 @@ TEST(TestGeospatialStatistics, TestUpdateArray) {
   for (int k = 10; k < 15; k++) {
     std::string item = test::MakeWKBPoint(
         {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
-    ASSERT_OK(builder.AppendValues({item}));
+    ASSERT_OK(builder.Append(item));
   }
 
   // Ensure we have both a binary array and a large binary array to work with
@@ -168,7 +168,7 @@ TEST(TestGeospatialStatistics, TestUpdateArray) {
 TEST(TestGeospatialStatistics, TestUpdateArrayInvalid) {
   // Build WKB array with invalid WKB (here, an empty string)
   ::arrow::BinaryBuilder builder;
-  ASSERT_OK(builder.AppendValues({std::string()}));
+  ASSERT_OK(builder.Append(std::string()));
   ASSERT_OK_AND_ASSIGN(const auto invalid_wkb, builder.Finish());
 
   // This should result in statistics that are "unset"

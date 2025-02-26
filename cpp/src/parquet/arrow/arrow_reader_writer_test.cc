@@ -1493,13 +1493,13 @@ TEST_F(TestGeoArrowParquetIO, GeoArrowExtension) {
   for (int k = 0; k < 10; k++) {
     std::string item = test::MakeWKBPoint(
         {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
-    ASSERT_OK(builder.AppendValues({item}));
+    ASSERT_OK(builder.Append(item));
   }
   ASSERT_OK(builder.AppendNull());
   for (int k = 0; k < 5; k++) {
     std::string item = test::MakeWKBPoint(
         {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
-    ASSERT_OK(builder.AppendValues({item}));
+    ASSERT_OK(builder.Append(item));
   }
 
   ASSERT_OK_AND_ASSIGN(const auto binary_array, builder.Finish());
