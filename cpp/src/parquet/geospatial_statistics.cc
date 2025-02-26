@@ -167,10 +167,16 @@ class GeospatialStatisticsImpl {
     out.xmax = maxes[0];
     out.ymin = mins[1];
     out.ymax = maxes[1];
-    out.zmin = mins[2];
-    out.zmax = maxes[2];
-    out.mmin = mins[3];
-    out.mmax = maxes[3];
+
+    if (!bound_empty(2)) {
+      out.zmin = mins[2];
+      out.zmax = maxes[2];
+    }
+
+    if (!bound_empty(3)) {
+      out.mmin = mins[3];
+      out.mmax = maxes[3];
+    }
 
     return out;
   }
@@ -182,9 +188,9 @@ class GeospatialStatisticsImpl {
 
     // We can create GeospatialStatistics from a wraparound bounding box, but we can't
     // update an existing one because the merge logic is not yet implemented.
-    if (!BoundsEmpty() && (is_wraparound_x() || is_wraparound_y() ||
-                           IsWraparound(encoded.xmin, encoded.xmax) ||
-                           IsWraparound(encoded.ymin, encoded.ymax))) {
+    if (!bounds_empty() && (is_wraparound_x() || is_wraparound_y() ||
+                            is_wraparound(encoded.xmin, encoded.xmax) ||
+                            is_wraparound(encoded.ymin, encoded.ymax))) {
       throw ParquetException(
           "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
     }
@@ -210,11 +216,11 @@ class GeospatialStatisticsImpl {
   }
 
   bool is_wraparound_x() const {
-    return IsWraparound(get_lower_bound()[0], get_upper_bound()[0]);
+    return is_wraparound(get_lower_bound()[0], get_upper_bound()[0]);
   }
 
   bool is_wraparound_y() const {
-    return IsWraparound(get_lower_bound()[1], get_upper_bound()[1]);
+    return is_wraparound(get_lower_bound()[1], get_upper_bound()[1]);
   }
 
   bool is_valid() const { return is_valid_; }
@@ -244,18 +250,22 @@ class GeospatialStatisticsImpl {
     }
   }
 
-  static bool IsWraparound(double dmin, double dmax) {
+  static bool is_wraparound(double dmin, double dmax) {
     return !std::isinf(dmin - dmax) && dmin > dmax;
   }
 
-  bool BoundsEmpty() {
+  bool bounds_empty() const {
     for (int i = 0; i < 4; i++) {
-      if (!std::isinf(bounder_.Bounds().min[i] - bounder_.Bounds().max[i])) {
+      if (!bound_empty(i)) {
         return false;
       }
     }
 
     return true;
+  }
+
+  bool bound_empty(int i) const {
+    return std::isinf(bounder_.Bounds().min[i] - bounder_.Bounds().max[i]);
   }
 };
 
