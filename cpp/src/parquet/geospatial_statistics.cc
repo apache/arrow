@@ -240,7 +240,6 @@ class GeospatialStatisticsImpl {
     const auto& binary_array = static_cast<const ArrayType&>(values);
     for (int64_t i = 0; i < binary_array.length(); ++i) {
       if (!binary_array.IsNull(i)) {
-        std::string_view byte_array = binary_array.GetView(i);
         ::arrow::Status status = bounder_.ReadGeometry(binary_array.GetView(i));
         if (!status.ok()) {
           is_valid_ = false;
