@@ -220,7 +220,7 @@ std::string MakeWKBPoint(const std::vector<double>& xyzm, bool has_z, bool has_m
   char* ptr = wkb.data();
 
   ptr[0] = kWkbNativeEndianness;
-  uint32_t geom_type = GeometryTypeToWKB(geometry::GeometryType::POINT, has_z, has_m);
+  uint32_t geom_type = GeometryTypeToWKB(geometry::GeometryType::kPoint, has_z, has_m);
   std::memcpy(&ptr[1], &geom_type, 4);
   std::memcpy(&ptr[5], &xyzm[0], 8);
   std::memcpy(&ptr[13], &xyzm[1], 8);
@@ -248,7 +248,7 @@ std::optional<std::pair<double, double>> GetWKBPointCoordinateXY(const ByteArray
   }
 
   uint32_t expected_geom_type =
-      GeometryTypeToWKB(geometry::GeometryType::POINT, false, false);
+      GeometryTypeToWKB(geometry::GeometryType::kPoint, false, false);
   uint32_t geom_type = 0;
   std::memcpy(&geom_type, &value.ptr[1], 4);
   if (geom_type != expected_geom_type) {

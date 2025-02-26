@@ -31,19 +31,29 @@ namespace parquet::geometry {
 constexpr double kInf = std::numeric_limits<double>::infinity();
 
 /// \brief Valid combinations of dimensions allowed by ISO well-known binary
-enum class Dimensions { XY = 0, XYZ = 1, XYM = 2, XYZM = 3, MIN = 0, MAX = 3 };
+///
+/// These values correspond to the 0, 1000, 2000, 3000 component of the WKB int32
+/// geometry type (i.e., the value of geometry_type // 1000).
+enum class Dimensions {
+  kXY = 0,
+  kXYZ = 1,
+  kXYM = 2,
+  kXYZM = 3,
+  kWKBValueMin = 0,
+  kWKBValueMax = 3
+};
 
 /// \brief The supported set of geometry types allowed by ISO well-known binary
 enum class GeometryType {
-  POINT = 1,
-  LINESTRING = 2,
-  POLYGON = 3,
-  MULTIPOINT = 4,
-  MULTILINESTRING = 5,
-  MULTIPOLYGON = 6,
-  GEOMETRYCOLLECTION = 7,
-  MIN = 1,
-  MAX = 7
+  kPoint = 1,
+  kLinestring = 2,
+  kPolygon = 3,
+  kMultiPoint = 4,
+  kMultiLinestring = 5,
+  kMultiPolygon = 6,
+  kGeometryCollection = 7,
+  kWKBValueMin = 1,
+  kWKBValueMax = 7
 };
 
 /// \brief A collection of intervals representing the encountered ranges of values
