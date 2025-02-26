@@ -29,9 +29,9 @@ namespace parquet {
 /// \brief Structure represented encoded statistics to be written to and read from Parquet
 /// serialized metadata.
 ///
-/// See the Parquet Thrift definition and GeospatialStatistics for the specific definition
+/// See the Parquet Thrift definition and GeoStatistics for the specific definition
 /// of field values.
-class PARQUET_EXPORT EncodedGeospatialStatistics {
+class PARQUET_EXPORT EncodedGeoStatistics {
  public:
   static constexpr double kInf = std::numeric_limits<double>::infinity();
 
@@ -55,24 +55,24 @@ class PARQUET_EXPORT EncodedGeospatialStatistics {
   }
 };
 
-class GeospatialStatisticsImpl;
+class GeoStatisticsImpl;
 
 /// \brief Base type for computing geospatial column statistics while writing a file
 /// or representing them when reading a file
 ///
 /// EXPERIMENTAL
-class PARQUET_EXPORT GeospatialStatistics {
+class PARQUET_EXPORT GeoStatistics {
  public:
-  GeospatialStatistics();
-  explicit GeospatialStatistics(const EncodedGeospatialStatistics& encoded);
+  GeoStatistics();
+  explicit GeoStatistics(const EncodedGeoStatistics& encoded);
 
-  ~GeospatialStatistics();
+  ~GeoStatistics();
 
   /// \brief Return true if bounds, geometry types, and validity are identical
-  bool Equals(const GeospatialStatistics& other) const;
+  bool Equals(const GeoStatistics& other) const;
 
   /// \brief Update these statistics based on previously calculated or decoded statistics
-  void Merge(const GeospatialStatistics& other);
+  void Merge(const GeoStatistics& other);
 
   /// \brief Update these statistics based on values
   void Update(const ByteArray* values, int64_t num_values, int64_t null_count);
@@ -94,13 +94,13 @@ class PARQUET_EXPORT GeospatialStatistics {
   ///
   /// If invalid WKB was encountered, empty encoded statistics are returned
   /// (such that is_set() returns false and they should not be written).
-  EncodedGeospatialStatistics Encode() const;
+  EncodedGeoStatistics Encode() const;
 
   /// \brief Returns true if all WKB encountered was valid or false otherwise
   bool is_valid() const;
 
   /// \brief Reset existing statistics and populate them from previously-encoded ones
-  void Decode(const EncodedGeospatialStatistics& encoded);
+  void Decode(const EncodedGeoStatistics& encoded);
 
   /// \brief The minimum encountered value in the X dimension, or Inf if no X values were
   /// encountered.
@@ -165,7 +165,7 @@ class PARQUET_EXPORT GeospatialStatistics {
   std::string ToString() const;
 
  private:
-  std::unique_ptr<GeospatialStatisticsImpl> impl_;
+  std::unique_ptr<GeoStatisticsImpl> impl_;
 };
 
 }  // namespace parquet

@@ -30,9 +30,9 @@ using arrow::util::SafeLoad;
 
 namespace parquet {
 
-class GeospatialStatisticsImpl {
+class GeoStatisticsImpl {
  public:
-  bool Equals(const GeospatialStatisticsImpl& other) const {
+  bool Equals(const GeoStatisticsImpl& other) const {
     if (is_valid_ != other.is_valid_) {
       return false;
     }
@@ -52,7 +52,7 @@ class GeospatialStatisticsImpl {
     return true;
   }
 
-  void Merge(const GeospatialStatisticsImpl& other) {
+  void Merge(const GeoStatisticsImpl& other) {
     is_valid_ = is_valid_ && other.is_valid_;
     if (!is_valid_) {
       return;
@@ -61,7 +61,7 @@ class GeospatialStatisticsImpl {
     if (is_wraparound_x() || is_wraparound_y() || other.is_wraparound_x() ||
         other.is_wraparound_y()) {
       throw ParquetException(
-          "Wraparound X or Y is not suppored by GeospatialStatistics::Merge()");
+          "Wraparound X or Y is not suppored by GeoStatistics::Merge()");
     }
 
     bounder_.ReadBox(other.bounder_.Bounds());
@@ -76,7 +76,7 @@ class GeospatialStatisticsImpl {
 
     if (is_wraparound_x() || is_wraparound_y()) {
       throw ParquetException(
-          "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
+          "Wraparound X or Y is not suppored by GeoStatistics::Update()");
     }
 
     for (int64_t i = 0; i < num_values; i++) {
@@ -101,7 +101,7 @@ class GeospatialStatisticsImpl {
 
     if (is_wraparound_x() || is_wraparound_y()) {
       throw ParquetException(
-          "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
+          "Wraparound X or Y is not suppored by GeoStatistics::Update()");
     }
 
     ::arrow::Status status = ::arrow::internal::VisitSetBitRuns(
@@ -128,7 +128,7 @@ class GeospatialStatisticsImpl {
 
     if (is_wraparound_x() || is_wraparound_y()) {
       throw ParquetException(
-          "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
+          "Wraparound X or Y is not suppored by GeoStatistics::Update()");
     }
 
     // Note that ::arrow::Type::EXTENSION seems to be handled before this is called
@@ -141,9 +141,8 @@ class GeospatialStatisticsImpl {
         break;
       // This does not currently handle run-end encoded, dictionary encodings, or views
       default:
-        throw ParquetException(
-            "Unsupported Array type in GeospatialStatistics::Update(Array): ",
-            values.type()->ToString());
+        throw ParquetException("Unsupported Array type in GeoStatistics::Update(Array): ",
+                               values.type()->ToString());
     }
   }
 
@@ -152,7 +151,7 @@ class GeospatialStatisticsImpl {
     is_valid_ = true;
   }
 
-  EncodedGeospatialStatistics Encode() const {
+  EncodedGeoStatistics Encode() const {
     if (!is_valid_) {
       return {};
     }
@@ -160,7 +159,7 @@ class GeospatialStatisticsImpl {
     const geometry::BoundingBox::XYZM& mins = bounder_.Bounds().min;
     const geometry::BoundingBox::XYZM& maxes = bounder_.Bounds().max;
 
-    EncodedGeospatialStatistics out;
+    EncodedGeoStatistics out;
     out.geospatial_types = bounder_.GeometryTypes();
 
     out.xmin = mins[0];
@@ -181,18 +180,18 @@ class GeospatialStatisticsImpl {
     return out;
   }
 
-  void Update(const EncodedGeospatialStatistics& encoded) {
+  void Update(const EncodedGeoStatistics& encoded) {
     if (!is_valid_) {
       return;
     }
 
-    // We can create GeospatialStatistics from a wraparound bounding box, but we can't
+    // We can create GeoStatistics from a wraparound bounding box, but we can't
     // update an existing one because the merge logic is not yet implemented.
     if (!bounds_empty() && (is_wraparound_x() || is_wraparound_y() ||
                             is_wraparound(encoded.xmin, encoded.xmax) ||
                             is_wraparound(encoded.ymin, encoded.ymax))) {
       throw ParquetException(
-          "Wraparound X or Y is not suppored by GeospatialStatistics::Update()");
+          "Wraparound X or Y is not suppored by GeoStatistics::Update()");
     }
 
     geometry::BoundingBox box;
@@ -268,92 +267,84 @@ class GeospatialStatisticsImpl {
   }
 };
 
-GeospatialStatistics::GeospatialStatistics()
-    : impl_(std::make_unique<GeospatialStatisticsImpl>()) {}
+GeoStatistics::GeoStatistics() : impl_(std::make_unique<GeoStatisticsImpl>()) {}
 
-GeospatialStatistics::GeospatialStatistics(const EncodedGeospatialStatistics& encoded)
-    : GeospatialStatistics() {
+GeoStatistics::GeoStatistics(const EncodedGeoStatistics& encoded) : GeoStatistics() {
   Decode(encoded);
 }
 
-GeospatialStatistics::~GeospatialStatistics() = default;
+GeoStatistics::~GeoStatistics() = default;
 
-bool GeospatialStatistics::Equals(const GeospatialStatistics& other) const {
+bool GeoStatistics::Equals(const GeoStatistics& other) const {
   return impl_->Equals(*other.impl_);
 }
 
-void GeospatialStatistics::Merge(const GeospatialStatistics& other) {
-  impl_->Merge(*other.impl_);
-}
+void GeoStatistics::Merge(const GeoStatistics& other) { impl_->Merge(*other.impl_); }
 
-void GeospatialStatistics::Update(const ByteArray* values, int64_t num_values,
-                                  int64_t null_count) {
+void GeoStatistics::Update(const ByteArray* values, int64_t num_values,
+                           int64_t null_count) {
   impl_->Update(values, num_values, null_count);
 }
 
-void GeospatialStatistics::UpdateSpaced(const ByteArray* values,
-                                        const uint8_t* valid_bits,
-                                        int64_t valid_bits_offset,
-                                        int64_t num_spaced_values, int64_t num_values,
-                                        int64_t null_count) {
+void GeoStatistics::UpdateSpaced(const ByteArray* values, const uint8_t* valid_bits,
+                                 int64_t valid_bits_offset, int64_t num_spaced_values,
+                                 int64_t num_values, int64_t null_count) {
   impl_->UpdateSpaced(values, valid_bits, valid_bits_offset, num_spaced_values,
                       num_values, null_count);
 }
 
-void GeospatialStatistics::Update(const ::arrow::Array& values) { impl_->Update(values); }
+void GeoStatistics::Update(const ::arrow::Array& values) { impl_->Update(values); }
 
-void GeospatialStatistics::Reset() { impl_->Reset(); }
+void GeoStatistics::Reset() { impl_->Reset(); }
 
-bool GeospatialStatistics::is_valid() const { return impl_->is_valid(); }
+bool GeoStatistics::is_valid() const { return impl_->is_valid(); }
 
-EncodedGeospatialStatistics GeospatialStatistics::Encode() const {
-  return impl_->Encode();
-}
+EncodedGeoStatistics GeoStatistics::Encode() const { return impl_->Encode(); }
 
-void GeospatialStatistics::Decode(const EncodedGeospatialStatistics& encoded) {
+void GeoStatistics::Decode(const EncodedGeoStatistics& encoded) {
   impl_->Reset();
   impl_->Update(encoded);
 }
 
-double GeospatialStatistics::get_xmin() const { return impl_->get_lower_bound()[0]; }
+double GeoStatistics::get_xmin() const { return impl_->get_lower_bound()[0]; }
 
-double GeospatialStatistics::get_xmax() const { return impl_->get_upper_bound()[0]; }
+double GeoStatistics::get_xmax() const { return impl_->get_upper_bound()[0]; }
 
-double GeospatialStatistics::get_ymin() const { return impl_->get_lower_bound()[1]; }
+double GeoStatistics::get_ymin() const { return impl_->get_lower_bound()[1]; }
 
-double GeospatialStatistics::get_ymax() const { return impl_->get_upper_bound()[1]; }
+double GeoStatistics::get_ymax() const { return impl_->get_upper_bound()[1]; }
 
-double GeospatialStatistics::get_zmin() const { return impl_->get_lower_bound()[2]; }
+double GeoStatistics::get_zmin() const { return impl_->get_lower_bound()[2]; }
 
-double GeospatialStatistics::get_zmax() const { return impl_->get_upper_bound()[2]; }
+double GeoStatistics::get_zmax() const { return impl_->get_upper_bound()[2]; }
 
-double GeospatialStatistics::get_mmin() const { return impl_->get_lower_bound()[3]; }
+double GeoStatistics::get_mmin() const { return impl_->get_lower_bound()[3]; }
 
-double GeospatialStatistics::get_mmax() const { return impl_->get_upper_bound()[3]; }
+double GeoStatistics::get_mmax() const { return impl_->get_upper_bound()[3]; }
 
-std::array<double, 4> GeospatialStatistics::get_lower_bound() const {
+std::array<double, 4> GeoStatistics::get_lower_bound() const {
   return impl_->get_lower_bound();
 }
 
-std::array<double, 4> GeospatialStatistics::get_upper_bound() const {
+std::array<double, 4> GeoStatistics::get_upper_bound() const {
   return impl_->get_upper_bound();
 }
 
-bool GeospatialStatistics::has_z() const { return (get_zmax() - get_zmin()) > 0; }
+bool GeoStatistics::has_z() const { return (get_zmax() - get_zmin()) > 0; }
 
-bool GeospatialStatistics::has_m() const { return (get_mmax() - get_mmin()) > 0; }
+bool GeoStatistics::has_m() const { return (get_mmax() - get_mmin()) > 0; }
 
-std::vector<int32_t> GeospatialStatistics::get_geometry_types() const {
+std::vector<int32_t> GeoStatistics::get_geometry_types() const {
   return impl_->get_geometry_types();
 }
 
-std::string GeospatialStatistics::ToString() const {
+std::string GeoStatistics::ToString() const {
   if (!is_valid()) {
-    return "GeospatialStatistics <invalid>\n";
+    return "GeoStatistics <invalid>\n";
   }
 
   std::stringstream ss;
-  ss << "GeospatialStatistics " << std::endl;
+  ss << "GeoStatistics " << std::endl;
   ss << "  x: "
      << "[" << get_xmin() << ", " << get_xmax() << "]" << std::endl;
   ss << "  y: "

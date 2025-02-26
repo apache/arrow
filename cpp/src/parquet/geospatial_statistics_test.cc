@@ -27,8 +27,8 @@
 
 namespace parquet::geometry {
 
-TEST(TestGeospatialStatistics, TestDefaults) {
-  GeospatialStatistics stats;
+TEST(TestGeoStatistics, TestDefaults) {
+  GeoStatistics stats;
   EXPECT_EQ(stats.get_geometry_types().size(), 0);
   EXPECT_TRUE(stats.is_valid());
   EXPECT_FALSE(stats.has_z());
@@ -37,24 +37,23 @@ TEST(TestGeospatialStatistics, TestDefaults) {
   EXPECT_EQ(stats.get_ymax() - stats.get_ymin(), -kInf);
   EXPECT_EQ(stats.get_zmax() - stats.get_zmin(), -kInf);
   EXPECT_EQ(stats.get_mmax() - stats.get_mmin(), -kInf);
-  EXPECT_TRUE(stats.Equals(GeospatialStatistics()));
+  EXPECT_TRUE(stats.Equals(GeoStatistics()));
 
-  EXPECT_EQ(
-      stats.ToString(),
-      "GeospatialStatistics \n  x: [inf, -inf]\n  y: [inf, -inf]\n  geometry_types:\n");
+  EXPECT_EQ(stats.ToString(),
+            "GeoStatistics \n  x: [inf, -inf]\n  y: [inf, -inf]\n  geometry_types:\n");
 
   auto encoded = stats.Encode();
   EXPECT_FALSE(encoded.is_set());
   EXPECT_FALSE(encoded.has_z());
   EXPECT_FALSE(encoded.has_m());
-  EXPECT_TRUE(GeospatialStatistics(encoded).Equals(stats));
+  EXPECT_TRUE(GeoStatistics(encoded).Equals(stats));
 
-  stats.Merge(GeospatialStatistics());
-  EXPECT_TRUE(GeospatialStatistics(encoded).Equals(stats));
+  stats.Merge(GeoStatistics());
+  EXPECT_TRUE(GeoStatistics(encoded).Equals(stats));
 }
 
-TEST(TestGeospatialStatistics, TestUpdateByteArray) {
-  GeospatialStatistics stats;
+TEST(TestGeoStatistics, TestUpdateByteArray) {
+  GeoStatistics stats;
 
   // Make items with all dimensions to ensure all dimensions are updated
   // and returned properly (POINT XYZM has an integer code of 3001)
@@ -78,14 +77,14 @@ TEST(TestGeospatialStatistics, TestUpdateByteArray) {
 
   // Check recreating the statistics with actual values
   auto encoded = stats.Encode();
-  EXPECT_TRUE(GeospatialStatistics(encoded).Equals(stats));
+  EXPECT_TRUE(GeoStatistics(encoded).Equals(stats));
   EXPECT_EQ(stats.ToString(),
-            "GeospatialStatistics \n  x: [10, 20]\n  y: [11, 21]\n  z: [12, 22]\n  m: "
+            "GeoStatistics \n  x: [10, 20]\n  y: [11, 21]\n  z: [12, 22]\n  m: "
             "[13, 23]\n  geometry_types: 3001\n");
 
   // Check resetting to the original state
   stats.Reset();
-  EXPECT_TRUE(stats.Equals(GeospatialStatistics()));
+  EXPECT_TRUE(stats.Equals(GeoStatistics()));
 
   // Check UpdateSpaced()
 
@@ -100,7 +99,7 @@ TEST(TestGeospatialStatistics, TestUpdateByteArray) {
   ByteArray items[] = {item0, item1, item2, item3};
   // Validity bitmap with an extra bit on the front to check non-zero bits offset
   uint8_t validity = 0b00010111;
-  GeospatialStatistics stats_spaced;
+  GeoStatistics stats_spaced;
   stats_spaced.UpdateSpaced(items, &validity, 1, 4, 4, 1);
 
   EXPECT_TRUE(stats.is_valid());
@@ -122,7 +121,7 @@ TEST(TestGeospatialStatistics, TestUpdateByteArray) {
   stats.Update(&item0, /*num_values=*/1, /*null_count=*/0);
   EXPECT_FALSE(stats.is_valid());
   EXPECT_FALSE(stats.Encode().is_set());
-  EXPECT_EQ(stats.ToString(), "GeospatialStatistics <invalid>\n");
+  EXPECT_EQ(stats.ToString(), "GeoStatistics <invalid>\n");
 
   // And should cause other statistics to become invalid when merged with them
   stats_spaced.Merge(stats);
@@ -130,7 +129,7 @@ TEST(TestGeospatialStatistics, TestUpdateByteArray) {
   EXPECT_FALSE(stats_spaced.Encode().is_set());
 }
 
-TEST(TestGeospatialStatistics, TestUpdateArray) {
+TEST(TestGeoStatistics, TestUpdateArray) {
   // Build WKB array with a null from POINT (0 1)...POINT (14, 15)
   ::arrow::BinaryBuilder builder;
   for (int k = 0; k < 10; k++) {
@@ -152,46 +151,46 @@ TEST(TestGeospatialStatistics, TestUpdateArray) {
   ASSERT_OK_AND_ASSIGN(const auto large_binary_array,
                        ::arrow::compute::Cast(binary_array, ::arrow::large_binary()));
 
-  GeospatialStatistics stats;
+  GeoStatistics stats;
   stats.Update(*binary_array);
   EXPECT_EQ(stats.get_xmin(), 0);
   EXPECT_EQ(stats.get_ymin(), 1);
   EXPECT_EQ(stats.get_xmax(), 14);
   EXPECT_EQ(stats.get_ymax(), 15);
 
-  GeospatialStatistics stats_large;
+  GeoStatistics stats_large;
   stats_large.Update(*large_binary_array.make_array());
 
   EXPECT_TRUE(stats_large.Equals(stats));
 }
 
-TEST(TestGeospatialStatistics, TestUpdateArrayInvalid) {
+TEST(TestGeoStatistics, TestUpdateArrayInvalid) {
   // Build WKB array with invalid WKB (here, an empty string)
   ::arrow::BinaryBuilder builder;
   ASSERT_OK(builder.Append(std::string()));
   ASSERT_OK_AND_ASSIGN(const auto invalid_wkb, builder.Finish());
 
   // This should result in statistics that are "unset"
-  GeospatialStatistics invalid;
+  GeoStatistics invalid;
   invalid.Update(*invalid_wkb);
   EXPECT_FALSE(invalid.is_valid());
   EXPECT_FALSE(invalid.Encode().is_set());
 
   // Make some valid statistics
-  EncodedGeospatialStatistics encoded_valid;
+  EncodedGeoStatistics encoded_valid;
   encoded_valid.xmin = 0;
   encoded_valid.xmax = 10;
   encoded_valid.ymin = 20;
   encoded_valid.ymax = 30;
-  GeospatialStatistics valid(encoded_valid);
+  GeoStatistics valid(encoded_valid);
 
   // Make some statistics with unsupported wraparound
-  EncodedGeospatialStatistics encoded_unsupported;
+  EncodedGeoStatistics encoded_unsupported;
   encoded_unsupported.xmin = 10;
   encoded_unsupported.xmax = 0;
   encoded_unsupported.ymin = 20;
   encoded_unsupported.ymax = 30;
-  GeospatialStatistics unsupported(encoded_unsupported);
+  GeoStatistics unsupported(encoded_unsupported);
 
   EXPECT_THROW(valid.Merge(unsupported), ParquetException);
   EXPECT_THROW(unsupported.Merge(valid), ParquetException);

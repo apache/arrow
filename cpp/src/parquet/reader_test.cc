@@ -1956,7 +1956,7 @@ class TestGeometryLogicalType : public ::testing::Test {
       auto row_group_metadata = metadata->RowGroup(i);
       auto column_chunk_metadata = row_group_metadata->ColumnChunk(0);
       auto geo_stats = column_chunk_metadata->geo_statistics();
-      CheckGeospatialStatistics(geo_stats, start_index, row_group_metadata->num_rows());
+      CheckGeoStatistics(geo_stats, start_index, row_group_metadata->num_rows());
       start_index += row_group_metadata->num_rows();
     }
 
@@ -1990,8 +1990,8 @@ class TestGeometryLogicalType : public ::testing::Test {
     EXPECT_EQ(kNumRows, total_values_read);
   }
 
-  void CheckGeospatialStatistics(std::shared_ptr<GeospatialStatistics> geom_stats,
-                                 int64_t start_index, int64_t num_rows) {
+  void CheckGeoStatistics(std::shared_ptr<GeoStatistics> geom_stats, int64_t start_index,
+                          int64_t num_rows) {
     ASSERT_TRUE(geom_stats != nullptr);
     // We wrote exactly one geometry type (POINT, which has code 1)
     std::vector<int32_t> geospatial_types = geom_stats->get_geometry_types();
