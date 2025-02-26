@@ -355,13 +355,15 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
           static_cast<const ::arrow::FixedSizeBinaryType&>(*field->type());
       length = fixed_size_binary_type.byte_width();
     } break;
+    case ArrowTypeId::DECIMAL32:
+    case ArrowTypeId::DECIMAL64:
     case ArrowTypeId::DECIMAL128:
     case ArrowTypeId::DECIMAL256: {
       const auto& decimal_type = static_cast<const ::arrow::DecimalType&>(*field->type());
       precision = decimal_type.precision();
       scale = decimal_type.scale();
       if (properties.store_decimal_as_integer() && 1 <= precision && precision <= 18) {
-        type = precision <= 9 ? ParquetType ::INT32 : ParquetType ::INT64;
+        type = precision <= 9 ? ParquetType::INT32 : ParquetType::INT64;
       } else {
         type = ParquetType::FIXED_LEN_BYTE_ARRAY;
         length = DecimalType::DecimalSize(precision);
