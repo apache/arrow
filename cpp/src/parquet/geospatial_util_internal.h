@@ -93,7 +93,6 @@ struct BoundingBox {
   /// \brief Update the X, Y, and M bounds to ensure these bounds contain coord
   void UpdateXYM(::arrow::util::span<const double> coord) {
     DCHECK_EQ(coord.size(), 3);
-
     min[0] = std::min(min[0], coord[0]);
     min[1] = std::min(min[1], coord[1]);
     min[3] = std::min(min[3], coord[2]);
