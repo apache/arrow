@@ -372,10 +372,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Install vcpkg
-        shell: bash
-        run: |
-          ci/scripts/install_vcpkg.sh "${VCPKG_ROOT}"
       - name: Install meson
         run: |
           python -m pip install meson
