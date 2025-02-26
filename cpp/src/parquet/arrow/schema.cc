@@ -526,8 +526,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
         type = ParquetType::BYTE_ARRAY;
         logical_type = LogicalType::JSON();
         break;
-      } else if (arrow_properties.write_geospatial_logical_types() &&
-                 ext_type->extension_name() == std::string("geoarrow.wkb")) {
+      } else if (ext_type->extension_name() == std::string("geoarrow.wkb")) {
         type = ParquetType::BYTE_ARRAY;
         ARROW_ASSIGN_OR_RAISE(logical_type, GeospatialLogicalTypeFromArrow(
                                                 ext_type->Serialize(), arrow_properties));

@@ -1514,9 +1514,7 @@ TEST_F(TestGeoArrowParquetIO, GeoArrowExtension) {
 
   // When the original Arrow schema isn't stored and Arrow extensions are disabled,
   // LogicalType::GEOMETRY is read as utf8.
-  auto writer_properties = ::parquet::ArrowWriterProperties::Builder()
-                               .write_geospatial_logical_types()
-                               ->build();
+  auto writer_properties = default_arrow_writer_properties();
   this->RoundTripSingleColumn(wkb_array, binary_array, writer_properties);
   this->RoundTripSingleColumn(large_wkb_array, binary_array, writer_properties);
 

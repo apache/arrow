@@ -1256,10 +1256,6 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsLonLat) {
   // writer option is set.
   ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
 
-  ArrowWriterProperties::Builder builder;
-  builder.write_geospatial_logical_types();
-  auto arrow_properties = builder.build();
-
   std::vector<NodePtr> parquet_fields;
   parquet_fields.push_back(PrimitiveNode::Make("geometry", Repetition::OPTIONAL,
                                                LogicalType::Geometry(),
@@ -1289,7 +1285,7 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsLonLat) {
                                           R"(, "edges": "spherical"})"),
                        true)};
 
-    ASSERT_OK(ConvertSchema(arrow_fields, arrow_properties));
+    ASSERT_OK(ConvertSchema(arrow_fields));
     ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
   }
 }
@@ -1300,10 +1296,6 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsSrid) {
   // that GeoArrow will transport but refuse to resolve if required for a spatial
   // operation.
   ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
-
-  ArrowWriterProperties::Builder builder;
-  builder.write_geospatial_logical_types();
-  auto arrow_properties = builder.build();
 
   std::vector<NodePtr> parquet_fields;
   parquet_fields.push_back(PrimitiveNode::Make("geometry", Repetition::OPTIONAL,
@@ -1321,7 +1313,7 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsSrid) {
                          R"({"crs": "5678", "crs_type": "srid", "edges": "spherical"})"),
                      true)};
 
-  ASSERT_OK(ConvertSchema(arrow_fields, arrow_properties));
+  ASSERT_OK(ConvertSchema(arrow_fields));
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }
 
@@ -1330,10 +1322,6 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsProjjson) {
   // to Parquet. Almost all GeoArrow types that arrive at the Parquet reader
   // will have their CRS expressed in this way.
   ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
-
-  ArrowWriterProperties::Builder builder;
-  builder.write_geospatial_logical_types();
-  auto arrow_properties = builder.build();
 
   std::vector<NodePtr> parquet_fields;
   parquet_fields.push_back(PrimitiveNode::Make("geometry", Repetition::OPTIONAL,
@@ -1351,7 +1339,7 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsProjjson) {
                          R"({"crs": {}, "crs_type": "projjson", "edges": "spherical"})"),
                      true)};
 
-  ASSERT_OK(ConvertSchema(arrow_fields, arrow_properties));
+  ASSERT_OK(ConvertSchema(arrow_fields));
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }
 
