@@ -31,7 +31,8 @@ TEST(TestGeometryUtil, TestBoundingBox) {
   BoundingBox box;
   EXPECT_EQ(box, BoundingBox({kInf, kInf, kInf, kInf}, {-kInf, -kInf, -kInf, -kInf}));
   EXPECT_EQ(box.ToString(),
-            "BoundingBox [inf => -inf, inf => -inf, inf => -inf, inf => -inf]");
+            "BoundingBox\n  x: [inf, -inf]\n  y: [inf, -inf]\n  z: [inf, -inf]\n  m: "
+            "[inf, -inf]\n");
 
   BoundingBox box_xyzm({-1, -2, -3, -4}, {1, 2, 3, 4});
   BoundingBox box_xy({-10, -20, kInf, kInf}, {10, 20, -kInf, -kInf});
@@ -40,6 +41,9 @@ TEST(TestGeometryUtil, TestBoundingBox) {
 
   box_xyzm.Merge(box_xy);
   EXPECT_EQ(box_xyzm, BoundingBox({-10, -20, -3, -4}, {10, 20, 3, 4}));
+  EXPECT_EQ(box_xyzm.ToString(),
+            "BoundingBox\n  x: [-10, 10]\n  y: [-20, 20]\n  z: [-3, 3]\n  m: "
+            "[-4, 4]\n");
 
   box_xyzm.Merge(box_xyz);
   EXPECT_EQ(box_xyzm, BoundingBox({-10, -20, -30, -4}, {10, 20, 30, 4}));

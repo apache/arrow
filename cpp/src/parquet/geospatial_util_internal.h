@@ -114,12 +114,11 @@ struct BoundingBox {
 
   std::string ToString() const {
     std::stringstream ss;
-    ss << "BoundingBox [" << min[0] << " => " << max[0];
-    for (int i = 1; i < 4; i++) {
-      ss << ", " << min[i] << " => " << max[i];
-    }
-
-    ss << "]";
+    ss << "BoundingBox" << std::endl;
+    ss << "  x: [" << min[0] << ", " << max[0] << "]" << std::endl;
+    ss << "  y: [" << min[1] << ", " << max[1] << "]" << std::endl;
+    ss << "  z: [" << min[2] << ", " << max[2] << "]" << std::endl;
+    ss << "  m: [" << min[3] << ", " << max[3] << "]" << std::endl;
 
     return ss.str();
   }
