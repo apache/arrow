@@ -234,23 +234,23 @@ static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
 }
 
 static inline EncodedGeospatialStatistics FromThrift(
-    const format::GeospatialStatistics& geospatial_stats) {
+    const format::GeospatialStatistics& geo_stats) {
   EncodedGeospatialStatistics out;
 
-  out.geospatial_types = geospatial_stats.geospatial_types;
-  out.xmin = geospatial_stats.bbox.xmin;
-  out.xmax = geospatial_stats.bbox.xmax;
-  out.ymin = geospatial_stats.bbox.ymin;
-  out.ymax = geospatial_stats.bbox.ymax;
+  out.geospatial_types = geo_stats.geospatial_types;
+  out.xmin = geo_stats.bbox.xmin;
+  out.xmax = geo_stats.bbox.xmax;
+  out.ymin = geo_stats.bbox.ymin;
+  out.ymax = geo_stats.bbox.ymax;
 
-  if (geospatial_stats.bbox.__isset.zmin && geospatial_stats.bbox.__isset.zmax) {
-    out.zmin = geospatial_stats.bbox.zmin;
-    out.zmax = geospatial_stats.bbox.zmax;
+  if (geo_stats.bbox.__isset.zmin && geo_stats.bbox.__isset.zmax) {
+    out.zmin = geo_stats.bbox.zmin;
+    out.zmax = geo_stats.bbox.zmax;
   }
 
-  if (geospatial_stats.bbox.__isset.mmin && geospatial_stats.bbox.__isset.mmax) {
-    out.mmin = geospatial_stats.bbox.mmin;
-    out.mmax = geospatial_stats.bbox.mmax;
+  if (geo_stats.bbox.__isset.mmin && geo_stats.bbox.__isset.mmax) {
+    out.mmin = geo_stats.bbox.mmin;
+    out.mmax = geo_stats.bbox.mmax;
   }
 
   return out;
@@ -393,21 +393,21 @@ static inline format::SortingColumn ToThrift(SortingColumn sorting_column) {
 }
 
 static inline format::GeospatialStatistics ToThrift(
-    const EncodedGeospatialStatistics& encoded_geospatial_stats) {
+    const EncodedGeospatialStatistics& encoded_geo_stats) {
   format::GeospatialStatistics geospatial_statistics;
-  geospatial_statistics.__set_geospatial_types(encoded_geospatial_stats.geospatial_types);
+  geospatial_statistics.__set_geospatial_types(encoded_geo_stats.geospatial_types);
   format::BoundingBox bbox;
-  bbox.__set_xmin(encoded_geospatial_stats.xmin);
-  bbox.__set_xmax(encoded_geospatial_stats.xmax);
-  bbox.__set_ymin(encoded_geospatial_stats.ymin);
-  bbox.__set_ymax(encoded_geospatial_stats.ymax);
-  if (encoded_geospatial_stats.has_z()) {
-    bbox.__set_zmin(encoded_geospatial_stats.zmin);
-    bbox.__set_zmax(encoded_geospatial_stats.zmax);
+  bbox.__set_xmin(encoded_geo_stats.xmin);
+  bbox.__set_xmax(encoded_geo_stats.xmax);
+  bbox.__set_ymin(encoded_geo_stats.ymin);
+  bbox.__set_ymax(encoded_geo_stats.ymax);
+  if (encoded_geo_stats.has_z()) {
+    bbox.__set_zmin(encoded_geo_stats.zmin);
+    bbox.__set_zmax(encoded_geo_stats.zmax);
   }
-  if (encoded_geospatial_stats.has_m()) {
-    bbox.__set_mmin(encoded_geospatial_stats.mmin);
-    bbox.__set_mmax(encoded_geospatial_stats.mmax);
+  if (encoded_geo_stats.has_m()) {
+    bbox.__set_mmin(encoded_geo_stats.mmin);
+    bbox.__set_mmax(encoded_geo_stats.mmax);
   }
   geospatial_statistics.__set_bbox(bbox);
   return geospatial_statistics;

@@ -1955,9 +1955,8 @@ class TestGeometryLogicalType : public ::testing::Test {
     for (int i = 0; i < num_row_groups; i++) {
       auto row_group_metadata = metadata->RowGroup(i);
       auto column_chunk_metadata = row_group_metadata->ColumnChunk(0);
-      auto geospatial_stats = column_chunk_metadata->geospatial_statistics();
-      CheckGeospatialStatistics(geospatial_stats, start_index,
-                                row_group_metadata->num_rows());
+      auto geo_stats = column_chunk_metadata->geo_statistics();
+      CheckGeospatialStatistics(geo_stats, start_index, row_group_metadata->num_rows());
       start_index += row_group_metadata->num_rows();
     }
 
