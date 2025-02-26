@@ -312,7 +312,7 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
 
 template <typename T>
 inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
-  DCHECK(buffer_ != NULL);
+  DCHECK(buffer_ != NULLPTR);
   DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8)) << "num_bits: " << num_bits;
 
   int bit_offset = bit_offset_;
@@ -331,11 +331,14 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 
   int i = 0;
   if (ARROW_PREDICT_FALSE(bit_offset != 0)) {
-    if (num_bits == 1) {
-      for (; i < batch_size && bit_offset % 64 != 0; ++i) {
+    if ((64 - bit_offset) % num_bits == 0) {
+      // Fast path: we can avoid reset the buffered_values_ in the loop, just
+      // read the remaining bits in buffered_values_ and reset the bit_offset
+      // once bit_offset is 64.
+      for (; i < batch_size && bit_offset != 64; ++i) {
         v[i] = static_cast<T>(
             bit_util::TrailingBits(buffered_values, bit_offset + num_bits) >> bit_offset);
-        ++bit_offset;
+        bit_offset += num_bits;
       }
       if (bit_offset == 64) {
         bit_offset = 0;
@@ -397,11 +400,13 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   buffered_values =
       detail::ReadLittleEndianWord(buffer + byte_offset, max_bytes - byte_offset);
 
-  if (num_bits == 1) {
+  if (64 % num_bits == 0 && bit_offset % num_bits == 0) {
+    // Fast path: we can avoid reset the buffered_values_ in the loop if the num_bits
+    // is a divisor of 64 and bit_offset.
     for (; i < batch_size; ++i) {
       v[i] = static_cast<T>(
           bit_util::TrailingBits(buffered_values, bit_offset + num_bits) >> bit_offset);
-      ++bit_offset;
+      bit_offset += num_bits;
       if (ARROW_PREDICT_FALSE(bit_offset == 64)) {
         bit_offset = 0;
         byte_offset += 8;
