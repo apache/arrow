@@ -145,6 +145,7 @@ def test_option_class_equality(request):
         pc.ArraySortOptions(),
         pc.AssumeTimezoneOptions("UTC"),
         pc.CastOptions.safe(pa.int8()),
+        pc.CumulativeOptions(start=None, skip_nulls=False),
         pc.CountOptions(),
         pc.DayOfWeekOptions(count_from_zero=False, week_start=0),
         pc.DictionaryEncodeOptions(),
@@ -167,7 +168,7 @@ def test_option_class_equality(request):
         pc.PadOptions(5),
         pc.PairwiseOptions(period=1),
         pc.PartitionNthOptions(1, null_placement="at_start"),
-        pc.CumulativeOptions(start=None, skip_nulls=False),
+        pc.PivotWiderOptions(["height"], unexpected_key_behavior="raise"),
         pc.QuantileOptions(),
         pc.RandomOptions(),
         pc.RankOptions(sort_keys="ascending",
@@ -3785,3 +3786,29 @@ def test_pairwise_diff():
     with pytest.raises(pa.ArrowInvalid,
                        match="overflow"):
         pa.compute.pairwise_diff_checked(arr, period=-1)
+
+
+def test_pivot_wider():
+    key_names = ["width", "height"]
+
+    result = pc.pivot_wider(["height", "width", "depth"], [10, None, 11])
+    assert result.as_py() == {}
+
+    result = pc.pivot_wider(["height", "width", "depth"], [10, None, 11],
+                            key_names)
+    assert result.as_py() == {"width": None, "height": 10}
+    # check key order
+    assert list(result.as_py()) == ["width", "height"]
+
+    result = pc.pivot_wider(["height", "width", "depth"], [10, None, 11],
+                            key_names=key_names)
+    assert result.as_py() == {"width": None, "height": 10}
+
+    with pytest.raises(KeyError, match="Unexpected pivot key: depth"):
+        result = pc.pivot_wider(["height", "width", "depth"], [10, None, 11],
+                                key_names=key_names,
+                                unexpected_key_behavior="raise")
+
+    with pytest.raises(ValueError, match="Encountered more than one non-null value"):
+        result = pc.pivot_wider(["height", "width", "height"], [10, None, 11],
+                                key_names=key_names)
