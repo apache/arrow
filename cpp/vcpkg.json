@@ -15,6 +15,7 @@
       ]
     },
     "benchmark",
+    "boost-cmake",
     "boost-crc",
     "boost-filesystem",
     "boost-multiprecision",
@@ -54,5 +55,5 @@
   "overrides": [
     { "name": "gtest", "version": "1.10.0", "port-version": 4 }
   ],
-  "builtin-baseline": "3d8f78171a2a37d461077bf8d063256b63e25a4f"
+  "builtin-baseline": "f7423ee180c4b7f40d43402c2feb3859161ef625"
 }
