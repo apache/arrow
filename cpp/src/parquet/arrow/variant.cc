@@ -27,16 +27,11 @@
 
 namespace parquet::arrow {
 
-using ::arrow::Status;
 using ::arrow::Type;
 
-bool isBinary(Type::type type) {
-  return type == Type::BINARY || type == Type::LARGE_BINARY;
-}
-
 bool VariantExtensionType::ExtensionEquals(const ExtensionType& other) const {
-  // TODO(neilechao)
-  return false;
+  return other.extension_name() == this->extension_name() &&
+         other.storage_type()->Equals(this->storage_type_);
 }
 
 Result<std::shared_ptr<DataType>> VariantExtensionType::Deserialize(
@@ -57,10 +52,17 @@ std::shared_ptr<Array> VariantExtensionType::MakeArray(
 
 bool VariantExtensionType::IsSupportedStorageType(
     std::shared_ptr<DataType> storage_type) {
+  // For now, we only supported unshredded variants. Unshredded variant storage
+  // type should be a struct with a binary metadata and binary value.
+  //
+  // TODO(neilechao) In shredded variants, the binary value field can be replaced
+  // with one or more of the following: object, array, typed_value, and
+  // variant_value.
   if (storage_type->id() == Type::STRUCT) {
-    // TODO(neilechao) assertions for binary types, and non-nullable first field for
-    // metadata
-    return storage_type->num_fields() >= 2;
+    if (storage_type->num_fields() == 2) {
+      return storage_type->field(0)->type()->storage_id() == Type::BINARY &&
+             storage_type->field(1)->type()->storage_id() == Type::BINARY;
+    }
   }
 
   return false;
@@ -69,10 +71,8 @@ bool VariantExtensionType::IsSupportedStorageType(
 Result<std::shared_ptr<DataType>> VariantExtensionType::Make(
     std::shared_ptr<DataType> storage_type) {
   if (!IsSupportedStorageType(storage_type)) {
-    return Status::Invalid(
-        "Invalid storage type for VariantExtensionType, must be struct with binary "
-        "metadata, value, and typed_value fields: ",
-        storage_type->ToString());
+    return ::arrow::Status::Invalid("Invalid storage type for VariantExtensionType: ",
+                                    storage_type->ToString());
   }
   return std::make_shared<VariantExtensionType>(std::move(storage_type));
 }

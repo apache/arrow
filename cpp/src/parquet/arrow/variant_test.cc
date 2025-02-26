@@ -23,12 +23,36 @@
 #include "arrow/testing/gtest_util.h"
 #include "parquet/exception.h"
 
-namespace arrow {
+namespace parquet::arrow {
 
-using arrow::ipc::test::RoundtripBatch;
+using ::arrow::binary;
+using ::arrow::struct_;
 
 class TestVariantExtensionType : public ::testing::Test {};
 
-TEST_F(TestVariantExtensionType, VariantRoundtrip) { ASSERT_TRUE(false); }
+TEST_F(TestVariantExtensionType, StorageTypeValidation) {
+  auto variant1 =
+      variant(struct_({field("metadata", binary()), field("value", binary())}));
+  auto variant2 =
+      variant(struct_({field("metadata", binary()), field("value", binary())}));
 
-}  // namespace arrow
+  ASSERT_TRUE(variant1->Equals(variant2));
+
+  auto missingValue = struct_({field("metadata", binary())});
+  auto missingMetadata = struct_({field("value", binary())});
+  auto badValueType =
+      struct_({field("metadata", binary()), field("value", ::arrow::int32())});
+  auto extraField = struct_(
+      {field("metadata", binary()), field("value", binary()), field("extra", binary())});
+
+  for (const auto& storage_type :
+       {missingValue, missingMetadata, badValueType, extraField}) {
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid,
+        "Invalid: Invalid storage type for VariantExtensionType: " +
+            storage_type->ToString(),
+        VariantExtensionType::Make(storage_type));
+  }
+}
+
+}  // namespace parquet::arrow
