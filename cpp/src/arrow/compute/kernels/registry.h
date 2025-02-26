@@ -16,26 +16,14 @@
 // under the License.
 #include "arrow/compute/registry.h"
 
-#include <algorithm>
-#include <memory>
-#include <mutex>
-#include <unordered_map>
-#include <utility>
-
-#include "arrow/compute/function.h"
-#include "arrow/compute/function_internal.h"
-#include "arrow/compute/registry_internal.h"
+#include "arrow/compute/visibility.h"
 #include "arrow/status.h"
-#include "arrow/util/config.h"  // For ARROW_COMPUTE
-#include "arrow/util/logging.h"
 // TODO: Review includes
 
 namespace arrow {
 namespace compute {
-namespace internal {
-// This must be public, not internal
-Status RegisterComputeKernels();
 
-}  // namespace internal
+ARROW_COMPUTE_EXPORT Status RegisterComputeKernels();
+
 }  // namespace compute
 }  // namespace arrow

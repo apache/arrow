@@ -32,48 +32,46 @@
 
 namespace arrow {
 namespace compute {
-namespace internal {
 
 Status RegisterComputeKernels() {
   auto registry = GetFunctionRegistry();
 
   // Register additional kernels on libarrow_compute
   // Scalar functions
-  RegisterScalarArithmetic(registry);
-  RegisterScalarBoolean(registry);
-  RegisterScalarComparison(registry);
-  RegisterScalarIfElse(registry);
-  RegisterScalarNested(registry);
-  RegisterScalarRandom(registry);  // Nullary
-  RegisterScalarRoundArithmetic(registry);
-  RegisterScalarSetLookup(registry);
-  RegisterScalarStringAscii(registry);
-  RegisterScalarStringUtf8(registry);
-  RegisterScalarTemporalBinary(registry);
-  RegisterScalarTemporalUnary(registry);
-  RegisterScalarValidity(registry);
+  internal::RegisterScalarArithmetic(registry);
+  internal::RegisterScalarBoolean(registry);
+  internal::RegisterScalarComparison(registry);
+  internal::RegisterScalarIfElse(registry);
+  internal::RegisterScalarNested(registry);
+  internal::RegisterScalarRandom(registry);  // Nullary
+  internal::RegisterScalarRoundArithmetic(registry);
+  internal::RegisterScalarSetLookup(registry);
+  internal::RegisterScalarStringAscii(registry);
+  internal::RegisterScalarStringUtf8(registry);
+  internal::RegisterScalarTemporalBinary(registry);
+  internal::RegisterScalarTemporalUnary(registry);
+  internal::RegisterScalarValidity(registry);
 
   // Vector functions
-  RegisterVectorArraySort(registry);
-  RegisterVectorCumulativeSum(registry);
-  RegisterVectorNested(registry);
-  RegisterVectorRank(registry);
-  RegisterVectorReplace(registry);
-  RegisterVectorSelectK(registry);
-  RegisterVectorSort(registry);
-  RegisterVectorPairwise(registry);
-  RegisterVectorSwizzle(registry);
+  internal::RegisterVectorArraySort(registry);
+  internal::RegisterVectorCumulativeSum(registry);
+  internal::RegisterVectorNested(registry);
+  internal::RegisterVectorRank(registry);
+  internal::RegisterVectorReplace(registry);
+  internal::RegisterVectorSelectK(registry);
+  internal::RegisterVectorSort(registry);
+  internal::RegisterVectorPairwise(registry);
+  internal::RegisterVectorSwizzle(registry);
 
   // Aggregate functions
-  RegisterHashAggregateBasic(registry);
-  RegisterScalarAggregateBasic(registry);
-  RegisterScalarAggregateMode(registry);
-  RegisterScalarAggregateQuantile(registry);
-  RegisterScalarAggregateTDigest(registry);
-  RegisterScalarAggregateVariance(registry);
+  internal::RegisterHashAggregateBasic(registry);
+  internal::RegisterScalarAggregateBasic(registry);
+  internal::RegisterScalarAggregateMode(registry);
+  internal::RegisterScalarAggregateQuantile(registry);
+  internal::RegisterScalarAggregateTDigest(registry);
+  internal::RegisterScalarAggregateVariance(registry);
 
   return Status::OK();
 }
-}  // namespace internal
 }  // namespace compute
 }  // namespace arrow
