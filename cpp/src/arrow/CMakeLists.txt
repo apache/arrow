@@ -802,16 +802,16 @@ if(ARROW_COMPUTE)
   append_runtime_avx2_src(ARROW_COMPUTE_LIB_SRCS compute/row/encode_internal_avx2.cc)
   append_runtime_avx2_bmi2_src(ARROW_COMPUTE_LIB_SRCS compute/util_avx2.cc)
   # TODO: Some of those should be added conditionally
-  set(ARROW_COMPUTED_SHARED_PRIVATE_LINK_LIBS Boost::headers ${ARROW_XSIMD}
-                                              ${ARROW_OPENTELEMETRY_LIBS})
+  set(ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS Boost::headers ${ARROW_XSIMD}
+                                             ${ARROW_OPENTELEMETRY_LIBS})
   set(ARROW_COMPUTE_STATIC_LINK_LIBS Boost::headers ${ARROW_XSIMD}
                                      ${ARROW_OPENTELEMETRY_LIBS})
   if(ARROW_WITH_RE2)
-    list(APPEND ARROW_COMPUTED_SHARED_PRIVATE_LINK_LIBS re2::re2)
+    list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS re2::re2)
     list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS re2::re2)
   endif()
   if(ARROW_WITH_UTF8PROC)
-    list(APPEND ARROW_COMPUTED_SHARED_PRIVATE_LINK_LIBS utf8proc::utf8proc)
+    list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS utf8proc::utf8proc)
     list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS re2::re2)
   endif()
 
@@ -833,7 +833,7 @@ if(ARROW_COMPUTE)
                 SHARED_LINK_LIBS
                 ${ARROW_COMPUTE_SHARED_LINK_LIBS}
                 SHARED_PRIVATE_LINK_LIBS
-                ${ARROW_COMPUTED_SHARED_PRIVATE_LINK_LIBS}
+                ${ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS}
                 SHARED_INSTALL_INTERFACE_LIBS
                 ${ARROW_COMPUTE_SHARED_INSTALL_INTERFACE_LIBS}
                 STATIC_LINK_LIBS
@@ -847,6 +847,9 @@ if(ARROW_COMPUTE)
                 SHARED_LINK_FLAGS
                 ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
   )
+  foreach(LIB_TARGET ${ARROW_COMPUTE_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_COMPUTE_EXPORTING)
+  endforeach()
 endif()
 
 arrow_add_object_library(ARROW_COMPUTE_CORE ${ARROW_COMPUTE_SRCS})
