@@ -57,7 +57,7 @@ class ComputeKernelEnvironment : public ::testing::Environment {
   // register them to the FunctionRegistry.
   ComputeKernelEnvironment() : ::testing::Environment() {}
 
-  void SetUp() override { ASSERT_OK(arrow::compute::internal::RegisterComputeKernels()); }
+  void SetUp() override { ASSERT_OK(arrow::compute::RegisterComputeKernels()); }
 };
 
 template <typename Type, typename T>
