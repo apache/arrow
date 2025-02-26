@@ -48,34 +48,61 @@ struct PivotImpl : public ScalarAggregator {
 
   Status Consume(KernelContext*, const ExecSpan& batch) override {
     DCHECK_EQ(batch.num_values(), 2);
-    if (!batch[1].is_array()) {
-      return Status::NotImplemented("Consuming scalar pivot value");
-    }
-    auto values = batch[1].array.ToArray();
     if (batch[0].is_array()) {
       ARROW_ASSIGN_OR_RAISE(span<const PivotWiderKeyIndex> keys,
                             key_mapper_->MapKeys(batch[0].array));
-      for (int64_t i = 0; i < batch.length; ++i) {
-        PivotWiderKeyIndex key = keys[i];
-        if (key != kNullPivotKey && !values->IsNull(i)) {
-          if (ARROW_PREDICT_FALSE(values_[key]->is_valid)) {
-            return DuplicateValue();
+      if (batch[1].is_array()) {
+        // Array keys, array values
+        auto values = batch[1].array.ToArray();
+        for (int64_t i = 0; i < batch.length; ++i) {
+          PivotWiderKeyIndex key = keys[i];
+          if (key != kNullPivotKey && !values->IsNull(i)) {
+            if (ARROW_PREDICT_FALSE(values_[key]->is_valid)) {
+              return DuplicateValue();
+            }
+            ARROW_ASSIGN_OR_RAISE(values_[key], values->GetScalar(i));
+            DCHECK(values_[key]->is_valid);
           }
-          ARROW_ASSIGN_OR_RAISE(values_[key], values->GetScalar(i));
-          DCHECK(values_[key]->is_valid);
+        }
+      } else {
+        // Array keys, scalar value
+        const Scalar* value = batch[1].scalar;
+        if (value->is_valid) {
+          for (int64_t i = 0; i < batch.length; ++i) {
+            PivotWiderKeyIndex key = keys[i];
+            if (key != kNullPivotKey) {
+              if (ARROW_PREDICT_FALSE(values_[key]->is_valid)) {
+                return DuplicateValue();
+              }
+              values_[key] = value->GetSharedPtr();
+            }
+          }
         }
       }
     } else {
       ARROW_ASSIGN_OR_RAISE(PivotWiderKeyIndex key,
                             key_mapper_->MapKey(*batch[0].scalar));
       if (key != kNullPivotKey) {
-        for (int64_t i = 0; i < batch.length; ++i) {
-          if (!values->IsNull(i)) {
-            if (ARROW_PREDICT_FALSE(values_[key]->is_valid)) {
+        if (batch[1].is_array()) {
+          // Scalar key, array values
+          auto values = batch[1].array.ToArray();
+          for (int64_t i = 0; i < batch.length; ++i) {
+            if (!values->IsNull(i)) {
+              if (ARROW_PREDICT_FALSE(values_[key]->is_valid)) {
+                return DuplicateValue();
+              }
+              ARROW_ASSIGN_OR_RAISE(values_[key], values->GetScalar(i));
+              DCHECK(values_[key]->is_valid);
+            }
+          }
+        } else {
+          // Scalar key, scalar value
+          const Scalar* value = batch[1].scalar;
+          if (value->is_valid) {
+            if (batch.length > 1 || values_[key]->is_valid) {
               return DuplicateValue();
             }
-            ARROW_ASSIGN_OR_RAISE(values_[key], values->GetScalar(i));
-            DCHECK(values_[key]->is_valid);
+            values_[key] = value->GetSharedPtr();
           }
         }
       }

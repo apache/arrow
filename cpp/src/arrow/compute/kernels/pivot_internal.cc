@@ -70,7 +70,6 @@ struct BasePivotKeyMapper : public PivotWiderKeyMapper {
 
   Status NullKeyName() { return Status::KeyError("pivot key name cannot be null"); }
 
-  static constexpr int kBatchLength = 512;
   // The strings backing the string_views should be kept alive by PivotWiderOptions.
   std::unordered_map<std::string_view, PivotWiderKeyIndex> key_name_map_;
   PivotWiderOptions::UnexpectedKeyBehavior unexpected_key_behavior_;
