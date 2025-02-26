@@ -266,8 +266,6 @@ GeospatialStatistics::GeospatialStatistics(const EncodedGeospatialStatistics& en
   Decode(encoded);
 }
 
-GeospatialStatistics::GeospatialStatistics(GeospatialStatistics&&) = default;
-
 GeospatialStatistics::~GeospatialStatistics() = default;
 
 bool GeospatialStatistics::Equals(const GeospatialStatistics& other) const {

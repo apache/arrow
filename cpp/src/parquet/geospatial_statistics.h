@@ -65,7 +65,6 @@ class PARQUET_EXPORT GeospatialStatistics {
  public:
   GeospatialStatistics();
   explicit GeospatialStatistics(const EncodedGeospatialStatistics& encoded);
-  GeospatialStatistics(GeospatialStatistics&&);
 
   ~GeospatialStatistics();
 
@@ -100,9 +99,7 @@ class PARQUET_EXPORT GeospatialStatistics {
   /// \brief Returns true if all WKB encountered was valid or false otherwise
   bool is_valid() const;
 
-  std::shared_ptr<GeospatialStatistics> clone() const;
-
-  /// \brief Update these statistics with previously generated statistics
+  /// \brief Reset existing statistics and populate them from previously-encoded ones
   void Decode(const EncodedGeospatialStatistics& encoded);
 
   /// \brief The minimum encountered value in the X dimension, or Inf if no X values were
