@@ -1859,129 +1859,94 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
 
     values_ptr_ = values_.data();
   }
-
-  void TestWriteAndRead(ParquetVersion::type version,
-                        ParquetDataPageVersion data_page_version) {
-    this->SetUpSchema(Repetition::REQUIRED, 1);
-    this->GenerateData(SMALL_SIZE);
-    size_t num_values = this->values_.size();
-    auto writer =
-        this->BuildWriter(num_values, ColumnProperties(), version, data_page_version,
-                          /*enable_checksum*/ false);
-    writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_.data());
-
-    writer->Close();
-    this->ReadColumn();
-    for (size_t i = 0; i < num_values; i++) {
-      const ByteArray& value = this->values_out_[i];
-      auto xy = GetWKBPointCoordinateXY(value);
-      EXPECT_TRUE(xy.has_value());
-      auto expected_x = static_cast<double>(i);
-      auto expected_y = static_cast<double>(i + 1);
-      EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
-    }
-
-    ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
-    std::shared_ptr<GeoStatistics> geospatial_statistics = metadata_geo_stats();
-    ASSERT_TRUE(geospatial_statistics != nullptr);
-    std::vector<int32_t> geospatial_types = geospatial_statistics->get_geometry_types();
-    EXPECT_EQ(1, geospatial_types.size());
-    EXPECT_EQ(1, geospatial_types[0]);
-    EXPECT_DOUBLE_EQ(0, geospatial_statistics->get_xmin());
-    EXPECT_DOUBLE_EQ(1, geospatial_statistics->get_ymin());
-    EXPECT_DOUBLE_EQ(99, geospatial_statistics->get_xmax());
-    EXPECT_DOUBLE_EQ(100, geospatial_statistics->get_ymax());
-    EXPECT_FALSE(geospatial_statistics->has_z());
-    EXPECT_FALSE(geospatial_statistics->has_m());
-  }
-
-  void TestWriteAndReadSpaced(ParquetVersion::type version,
-                              ParquetDataPageVersion data_page_version) {
-    this->SetUpSchema(Repetition::OPTIONAL, 1);
-    this->GenerateData(SMALL_SIZE);
-    size_t num_values = this->values_.size();
-
-    std::vector<int16_t> definition_levels(num_values, 1);
-    std::vector<int16_t> repetition_levels(num_values, 0);
-    std::vector<size_t> non_null_indices;
-
-    // Replace some of the generated data with NULL
-    for (size_t i = 0; i < num_values; i++) {
-      if (i % 3 == 0) {
-        definition_levels[i] = 0;
-      } else {
-        non_null_indices.push_back(i);
-      }
-    }
-
-    // Construct valid bits using definition levels
-    std::vector<uint8_t> valid_bytes(num_values);
-    std::transform(definition_levels.begin(), definition_levels.end(),
-                   valid_bytes.begin(),
-                   [&](int64_t level) { return static_cast<uint8_t>(level); });
-    std::shared_ptr<Buffer> valid_bits;
-    ASSERT_OK_AND_ASSIGN(valid_bits, ::arrow::internal::BytesToBits(valid_bytes));
-
-    auto writer =
-        this->BuildWriter(num_values, ColumnProperties(), version, data_page_version,
-                          /*enable_checksum*/ false);
-    writer->WriteBatchSpaced(this->values_.size(), definition_levels.data(),
-                             repetition_levels.data(), valid_bits->data(), 0,
-                             this->values_.data());
-
-    writer->Close();
-    this->ReadColumn();
-    size_t expected_values_read = non_null_indices.size();
-    EXPECT_EQ(expected_values_read, values_read_);
-    for (int64_t i = 0; i < values_read_; i++) {
-      const ByteArray& value = this->values_out_[i];
-      auto xy = GetWKBPointCoordinateXY(value);
-      EXPECT_TRUE(xy.has_value());
-      auto expected_x = static_cast<double>(non_null_indices[i]);
-      auto expected_y = static_cast<double>(non_null_indices[i] + 1);
-      EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
-    }
-
-    std::shared_ptr<GeoStatistics> geospatial_statistics = metadata_geo_stats();
-    ASSERT_TRUE(geospatial_statistics != nullptr);
-    std::vector<int32_t> geospatial_types = geospatial_statistics->get_geometry_types();
-    EXPECT_EQ(1, geospatial_types.size());
-    EXPECT_EQ(1, geospatial_types[0]);
-    EXPECT_DOUBLE_EQ(1, geospatial_statistics->get_xmin());
-    EXPECT_DOUBLE_EQ(2, geospatial_statistics->get_ymin());
-    EXPECT_DOUBLE_EQ(98, geospatial_statistics->get_xmax());
-    EXPECT_DOUBLE_EQ(99, geospatial_statistics->get_ymax());
-    EXPECT_FALSE(geospatial_statistics->has_z());
-    EXPECT_FALSE(geospatial_statistics->has_m());
-  }
 };
 
-TEST_F(TestGeometryValuesWriter, TestWriteAndReadV1) {
-  for (auto data_page_version :
-       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndRead(ParquetVersion::PARQUET_1_0, data_page_version);
+TEST_F(TestGeometryValuesWriter, TestWriteAndRead) {
+  this->SetUpSchema(Repetition::REQUIRED, 1);
+  this->GenerateData(SMALL_SIZE);
+  size_t num_values = this->values_.size();
+  auto writer = this->BuildWriter(num_values, ColumnProperties());
+  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_.data());
+
+  writer->Close();
+  this->ReadColumn();
+  for (size_t i = 0; i < num_values; i++) {
+    const ByteArray& value = this->values_out_[i];
+    auto xy = GetWKBPointCoordinateXY(value);
+    EXPECT_TRUE(xy.has_value());
+    auto expected_x = static_cast<double>(i);
+    auto expected_y = static_cast<double>(i + 1);
+    EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
   }
+
+  ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
+  std::shared_ptr<GeoStatistics> geospatial_statistics = metadata_geo_stats();
+  ASSERT_TRUE(geospatial_statistics != nullptr);
+  std::vector<int32_t> geospatial_types = geospatial_statistics->get_geometry_types();
+  EXPECT_EQ(1, geospatial_types.size());
+  EXPECT_EQ(1, geospatial_types[0]);
+  EXPECT_DOUBLE_EQ(0, geospatial_statistics->get_xmin());
+  EXPECT_DOUBLE_EQ(1, geospatial_statistics->get_ymin());
+  EXPECT_DOUBLE_EQ(99, geospatial_statistics->get_xmax());
+  EXPECT_DOUBLE_EQ(100, geospatial_statistics->get_ymax());
+  EXPECT_FALSE(geospatial_statistics->has_z());
+  EXPECT_FALSE(geospatial_statistics->has_m());
 }
 
-TEST_F(TestGeometryValuesWriter, TestWriteAndReadV2) {
-  for (auto data_page_version :
-       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndRead(ParquetVersion::PARQUET_2_4, data_page_version);
-  }
-}
+TEST_F(TestGeometryValuesWriter, TestWriteAndReadSpaced) {
+  this->SetUpSchema(Repetition::OPTIONAL, 1);
+  this->GenerateData(SMALL_SIZE);
+  size_t num_values = this->values_.size();
 
-TEST_F(TestGeometryValuesWriter, TestWriteAndReadV1Spaced) {
-  for (auto data_page_version :
-       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndReadSpaced(ParquetVersion::PARQUET_1_0, data_page_version);
-  }
-}
+  std::vector<int16_t> definition_levels(num_values, 1);
+  std::vector<int16_t> repetition_levels(num_values, 0);
+  std::vector<size_t> non_null_indices;
 
-TEST_F(TestGeometryValuesWriter, TestWriteAndReadV2Spaced) {
-  for (auto data_page_version :
-       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndReadSpaced(ParquetVersion::PARQUET_2_4, data_page_version);
+  // Replace some of the generated data with NULL
+  for (size_t i = 0; i < num_values; i++) {
+    if (i % 3 == 0) {
+      definition_levels[i] = 0;
+    } else {
+      non_null_indices.push_back(i);
+    }
   }
+
+  // Construct valid bits using definition levels
+  std::vector<uint8_t> valid_bytes(num_values);
+  std::transform(definition_levels.begin(), definition_levels.end(), valid_bytes.begin(),
+                 [&](int64_t level) { return static_cast<uint8_t>(level); });
+  std::shared_ptr<Buffer> valid_bits;
+  ASSERT_OK_AND_ASSIGN(valid_bits, ::arrow::internal::BytesToBits(valid_bytes));
+
+  auto writer = this->BuildWriter(num_values, ColumnProperties());
+  writer->WriteBatchSpaced(this->values_.size(), definition_levels.data(),
+                           repetition_levels.data(), valid_bits->data(), 0,
+                           this->values_.data());
+
+  writer->Close();
+  this->ReadColumn();
+  size_t expected_values_read = non_null_indices.size();
+  EXPECT_EQ(expected_values_read, values_read_);
+  for (int64_t i = 0; i < values_read_; i++) {
+    const ByteArray& value = this->values_out_[i];
+    auto xy = GetWKBPointCoordinateXY(value);
+    EXPECT_TRUE(xy.has_value());
+    auto expected_x = static_cast<double>(non_null_indices[i]);
+    auto expected_y = static_cast<double>(non_null_indices[i] + 1);
+    EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
+  }
+
+  std::shared_ptr<GeoStatistics> geospatial_statistics = metadata_geo_stats();
+  ASSERT_TRUE(geospatial_statistics != nullptr);
+  std::vector<int32_t> geospatial_types = geospatial_statistics->get_geometry_types();
+  EXPECT_EQ(1, geospatial_types.size());
+  EXPECT_EQ(1, geospatial_types[0]);
+  EXPECT_DOUBLE_EQ(1, geospatial_statistics->get_xmin());
+  EXPECT_DOUBLE_EQ(2, geospatial_statistics->get_ymin());
+  EXPECT_DOUBLE_EQ(98, geospatial_statistics->get_xmax());
+  EXPECT_DOUBLE_EQ(99, geospatial_statistics->get_ymax());
+  EXPECT_FALSE(geospatial_statistics->has_z());
+  EXPECT_FALSE(geospatial_statistics->has_m());
 }
 
 }  // namespace test
