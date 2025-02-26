@@ -71,17 +71,6 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
-# https://cmake.org/cmake/help/latest/policy/CMP0144.html
-#
-# find_package() uses upper-case <PACKAGENAME>_ROOT variables.
-# For example BOOST_ROOT is used for Boost.
-#
-# vcpkg sets BOOST_ROOT not Boost_ROOT. So we need to enable this
-# to use Boost installed by vcpkg.
-if(POLICY CMP0144)
-  cmake_policy(SET CMP0144 NEW)
-endif()
-
 # https://cmake.org/cmake/help/latest/policy/CMP0167.html
 #
 # Use Boost's CMake packages instead of FindBoost.cmake in CMake.
