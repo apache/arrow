@@ -256,6 +256,42 @@ static inline EncodedGeospatialStatistics FromThrift(
   return out;
 }
 
+static inline format::EdgeInterpolationAlgorithm::type ToThrift(
+    LogicalType::EdgeInterpolationAlgorithm::algorithm algorithm) {
+  switch (algorithm) {
+    case LogicalType::EdgeInterpolationAlgorithm::SPHERICAL:
+      return format::EdgeInterpolationAlgorithm::SPHERICAL;
+    case LogicalType::EdgeInterpolationAlgorithm::VINCENTY:
+      return format::EdgeInterpolationAlgorithm::VINCENTY;
+    case LogicalType::EdgeInterpolationAlgorithm::THOMAS:
+      return format::EdgeInterpolationAlgorithm::THOMAS;
+    case LogicalType::EdgeInterpolationAlgorithm::ANDOYER:
+      return format::EdgeInterpolationAlgorithm::ANDOYER;
+    case LogicalType::EdgeInterpolationAlgorithm::KARNEY:
+      return format::EdgeInterpolationAlgorithm::KARNEY;
+    default:
+      throw ParquetException("Unknown value for geometry algorithm: ", algorithm);
+  }
+}
+
+static inline LogicalType::EdgeInterpolationAlgorithm::algorithm FromThrift(
+    const format::EdgeInterpolationAlgorithm::type algorithm) {
+  switch (algorithm) {
+    case format::EdgeInterpolationAlgorithm::SPHERICAL:
+      return LogicalType::EdgeInterpolationAlgorithm::SPHERICAL;
+    case format::EdgeInterpolationAlgorithm::VINCENTY:
+      return LogicalType::EdgeInterpolationAlgorithm::VINCENTY;
+    case format::EdgeInterpolationAlgorithm::THOMAS:
+      return LogicalType::EdgeInterpolationAlgorithm::THOMAS;
+    case format::EdgeInterpolationAlgorithm::ANDOYER:
+      return LogicalType::EdgeInterpolationAlgorithm::ANDOYER;
+    case format::EdgeInterpolationAlgorithm::KARNEY:
+      return LogicalType::EdgeInterpolationAlgorithm::KARNEY;
+    default:
+      throw ParquetException("Unknown value for geometry algorithm: ", algorithm);
+  }
+}
+
 static inline EncryptionAlgorithm FromThrift(format::EncryptionAlgorithm encryption) {
   EncryptionAlgorithm encryption_algorithm;
 

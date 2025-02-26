@@ -27,6 +27,7 @@
 #include "arrow/util/logging.h"
 
 #include "parquet/exception.h"
+#include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
 #include "generated/parquet_types.h"
@@ -492,22 +493,11 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
       crs = type.GEOGRAPHY.crs;
     }
 
-    LogicalType::EdgeInterpolationAlgorithm::algorithm algorithm =
-        LogicalType::EdgeInterpolationAlgorithm::UNKNOWN;
-    if (!type.GEOGRAPHY.__isset.algorithm ||
-        type.GEOGRAPHY.algorithm == format::EdgeInterpolationAlgorithm::SPHERICAL) {
+    LogicalType::EdgeInterpolationAlgorithm::algorithm algorithm;
+    if (!type.GEOGRAPHY.__isset.algorithm) {
       algorithm = LogicalType::EdgeInterpolationAlgorithm::SPHERICAL;
-    } else if (type.GEOGRAPHY.algorithm == format::EdgeInterpolationAlgorithm::VINCENTY) {
-      algorithm = LogicalType::EdgeInterpolationAlgorithm::VINCENTY;
-    } else if (type.GEOGRAPHY.algorithm == format::EdgeInterpolationAlgorithm::THOMAS) {
-      algorithm = LogicalType::EdgeInterpolationAlgorithm::THOMAS;
-    } else if (type.GEOGRAPHY.algorithm == format::EdgeInterpolationAlgorithm::ANDOYER) {
-      algorithm = LogicalType::EdgeInterpolationAlgorithm::ANDOYER;
-    } else if (type.GEOGRAPHY.algorithm == format::EdgeInterpolationAlgorithm::KARNEY) {
-      algorithm = LogicalType::EdgeInterpolationAlgorithm::KARNEY;
     } else {
-      throw ParquetException("Unknown value for geometry algorithm: ",
-                             type.GEOGRAPHY.algorithm);
+      algorithm = ::parquet::FromThrift(type.GEOGRAPHY.algorithm);
     }
 
     return GeographyLogicalType::Make(crs, algorithm);
@@ -1821,16 +1811,8 @@ format::LogicalType LogicalType::Impl::Geography::ToThrift() const {
 
   if (algorithm_ == LogicalType::EdgeInterpolationAlgorithm::SPHERICAL) {
     // Canonically export spherical algorithm as unset
-  } else if (algorithm_ == LogicalType::EdgeInterpolationAlgorithm::VINCENTY) {
-    geography_type.__set_algorithm(format::EdgeInterpolationAlgorithm::VINCENTY);
-  } else if (algorithm_ == LogicalType::EdgeInterpolationAlgorithm::THOMAS) {
-    geography_type.__set_algorithm(format::EdgeInterpolationAlgorithm::THOMAS);
-  } else if (algorithm_ == LogicalType::EdgeInterpolationAlgorithm::ANDOYER) {
-    geography_type.__set_algorithm(format::EdgeInterpolationAlgorithm::ANDOYER);
-  } else if (algorithm_ == LogicalType::EdgeInterpolationAlgorithm::KARNEY) {
-    geography_type.__set_algorithm(format::EdgeInterpolationAlgorithm::KARNEY);
   } else {
-    throw ParquetException("Unknown value for geometry algorithm: ", algorithm_);
+    geography_type.__set_algorithm(::parquet::ToThrift(algorithm_));
   }
 
   type.__set_GEOGRAPHY(geography_type);
