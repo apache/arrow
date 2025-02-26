@@ -331,7 +331,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 
   int i = 0;
   if (ARROW_PREDICT_FALSE(bit_offset != 0)) {
-    if ((64 - bit_offset) % num_bits == 0) {
+    if (num_bits != 0 && (64 - bit_offset) % num_bits == 0) {
       // Fast path: we can avoid reset the buffered_values_ in the loop, just
       // read the remaining bits in buffered_values_ and reset the bit_offset
       // once bit_offset is 64.
@@ -400,7 +400,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   buffered_values =
       detail::ReadLittleEndianWord(buffer + byte_offset, max_bytes - byte_offset);
 
-  if (64 % num_bits == 0 && bit_offset % num_bits == 0) {
+  if (num_bits != 0 && 64 % num_bits == 0 && bit_offset % num_bits == 0) {
     // Fast path: we can avoid reset the buffered_values_ in the loop if the num_bits
     // is a divisor of 64 and bit_offset.
     for (; i < batch_size; ++i) {
