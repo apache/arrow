@@ -33,6 +33,7 @@ import {
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
     Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     Union, DenseUnion, SparseUnion,
+    IntervalMonthDayNano,
 } from '../type.js';
 
 /** @ignore */
@@ -84,6 +85,7 @@ export interface IndexOfVisitor extends Visitor {
     visitInterval<T extends Interval>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitIntervalDayTime<T extends IntervalDayTime>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitIntervalYearMonth<T extends IntervalYearMonth>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
+    visitIntervalMonthDayNano<T extends IntervalMonthDayNano>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitDuration<T extends Duration>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitDurationSecond<T extends DurationSecond>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitDurationMillisecond<T extends DurationMillisecond>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
@@ -201,6 +203,7 @@ IndexOfVisitor.prototype.visitDictionary = indexOfValue;
 IndexOfVisitor.prototype.visitInterval = indexOfValue;
 IndexOfVisitor.prototype.visitIntervalDayTime = indexOfValue;
 IndexOfVisitor.prototype.visitIntervalYearMonth = indexOfValue;
+IndexOfVisitor.prototype.visitIntervalMonthDayNano = indexOfValue;
 IndexOfVisitor.prototype.visitDuration = indexOfValue;
 IndexOfVisitor.prototype.visitDurationSecond = indexOfValue;
 IndexOfVisitor.prototype.visitDurationMillisecond = indexOfValue;
