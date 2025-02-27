@@ -1332,14 +1332,6 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsProjjson) {
   // will have their CRS expressed in this way.
   ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
 
-  std::vector<NodePtr> parquet_fields;
-  parquet_fields.push_back(PrimitiveNode::Make(
-      "geometry", Repetition::OPTIONAL,
-      LogicalType::Geometry("projjson:projjson_crs_value_0"), ParquetType::BYTE_ARRAY));
-  parquet_fields.push_back(PrimitiveNode::Make(
-      "geography", Repetition::OPTIONAL,
-      LogicalType::Geography("projjson:projjson_crs_value_1"), ParquetType::BYTE_ARRAY));
-
   std::vector<std::shared_ptr<Field>> arrow_fields = {
       ::arrow::field(
           "geometry",
@@ -1360,10 +1352,18 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsProjjson) {
       crs_metadata.get());
 
   ASSERT_EQ(crs_metadata->size(), 2);
-  ASSERT_TRUE(crs_metadata->Contains("projjson_crs_value_0"));
-  ASSERT_TRUE(crs_metadata->Contains("projjson_crs_value_1"));
-  ASSERT_EQ(*crs_metadata->Get("projjson_crs_value_0"), R"({"key0":"value0"})");
-  ASSERT_EQ(*crs_metadata->Get("projjson_crs_value_1"), R"({"key1":"value1"})");
+  ASSERT_EQ(crs_metadata->value(0), R"({"key0":"value0"})");
+  ASSERT_EQ(crs_metadata->value(1), R"({"key1":"value1"})");
+
+  std::vector<NodePtr> parquet_fields;
+  parquet_fields.push_back(
+      PrimitiveNode::Make("geometry", Repetition::OPTIONAL,
+                          LogicalType::Geometry("projjson:" + crs_metadata->key(0)),
+                          ParquetType::BYTE_ARRAY));
+  parquet_fields.push_back(
+      PrimitiveNode::Make("geography", Repetition::OPTIONAL,
+                          LogicalType::Geography("projjson:" + crs_metadata->key(1)),
+                          ParquetType::BYTE_ARRAY));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 #else
