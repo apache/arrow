@@ -1183,7 +1183,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
           truncated_timestamps_allowed_, store_schema_, compliant_nested_types_,
-          engine_version_, std::move(geo_crs_context_), use_threads_, executor_));
+          engine_version_, geo_crs_context_, use_threads_, executor_));
     }
 
    private:
@@ -1257,7 +1257,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
         store_schema_(store_schema),
         compliant_nested_types_(compliant_nested_types),
         engine_version_(engine_version),
-        geo_crs_context_(std::move(geo_crs_context)),
+        geo_crs_context_(geo_crs_context),
         use_threads_(use_threads),
         executor_(executor) {}
 
