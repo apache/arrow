@@ -33,12 +33,10 @@ class Table;
 
 }  // namespace arrow
 
-namespace parquet {
+namespace parquet::arrow {
 
 class FileMetaData;
 class ParquetFileWriter;
-
-namespace arrow {
 
 /// \brief Iterative FileWriter class
 ///
