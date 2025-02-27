@@ -99,15 +99,15 @@ namespace {
 ::arrow::Result<std::string> MakeGeoArrowCrsMetadata(
     const std::string& crs,
     const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
-  const std::string srid_prefix{"srid:"};
-  const std::string projjson_prefix{"projjson:"};
+  const std::string kSridPrefix{"srid:"};
+  const std::string kProjjsonPrefix{"projjson:"};
 
   if (crs.empty()) {
     return R"("crs": "OGC:CRS84", "crs_type": "authority_code")";
-  } else if (::arrow::internal::StartsWith(crs, srid_prefix)) {
-    return R"("crs": ")" + crs.substr(srid_prefix.size()) + R"(", "crs_type": "srid")";
-  } else if (::arrow::internal::StartsWith(crs, projjson_prefix)) {
-    std::string metadata_field = crs.substr(projjson_prefix.size());
+  } else if (::arrow::internal::StartsWith(crs, kSridPrefix)) {
+    return R"("crs": ")" + crs.substr(kSridPrefix.size()) + R"(", "crs_type": "srid")";
+  } else if (::arrow::internal::StartsWith(crs, kProjjsonPrefix)) {
+    std::string metadata_field = crs.substr(kProjjsonPrefix.size());
     if (metadata && metadata->Contains(metadata_field)) {
       ARROW_ASSIGN_OR_RAISE(std::string projjson_value, metadata->Get(metadata_field));
       return R"("crs": )" + projjson_value + R"(, "crs_type": "projjson")";
