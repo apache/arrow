@@ -173,6 +173,7 @@ add_arrow_dataset_test(partition_test)
 add_arrow_dataset_test(scanner_test)
 add_arrow_dataset_test(subtree_test)
 add_arrow_dataset_test(write_node_test)
+add_arrow_dataset_test(tee_node_test)
 
 if(ARROW_CSV)
   add_arrow_dataset_test(file_csv_test)
