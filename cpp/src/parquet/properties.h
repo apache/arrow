@@ -27,6 +27,7 @@
 #include "arrow/type.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/type_fwd.h"
+#include "parquet/column_chunker.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
@@ -167,6 +168,9 @@ static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOM
 static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = true;
 static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
     SizeStatisticsLevel::PageAndColumnChunk;
+static constexpr std::pair<uint64_t, uint64_t> DEFAULT_CDC_SIZE_RANGE =
+    std::make_pair(256 * 1024, 1024 * 1024);
+static constexpr uint8_t DEFAULT_CDC_NORM_FACTOR = 0;
 
 class PARQUET_EXPORT ColumnProperties {
  public:
@@ -260,7 +264,10 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(DEFAULT_CREATED_BY),
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false),
-          size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL) {}
+          size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
+          cdc_enabled_(false),
+          cdc_size_range_(DEFAULT_CDC_SIZE_RANGE),
+          cdc_norm_factor_(DEFAULT_CDC_NORM_FACTOR) {}
 
     explicit Builder(const WriterProperties& properties)
         : pool_(properties.memory_pool()),
@@ -275,9 +282,32 @@ class PARQUET_EXPORT WriterProperties {
           page_checksum_enabled_(properties.page_checksum_enabled()),
           size_statistics_level_(properties.size_statistics_level()),
           sorting_columns_(properties.sorting_columns()),
-          default_column_properties_(properties.default_column_properties()) {}
+          default_column_properties_(properties.default_column_properties()),
+          cdc_enabled_(properties.cdc_enabled()),
+          cdc_size_range_(properties.cdc_size_range()),
+          cdc_norm_factor_(properties.cdc_norm_factor()) {}
 
     virtual ~Builder() {}
+
+    Builder* enable_cdc() {
+      cdc_enabled_ = true;
+      return this;
+    }
+
+    Builder* disable_cdc() {
+      cdc_enabled_ = false;
+      return this;
+    }
+
+    Builder* cdc_size_range(uint64_t min_size, uint64_t max_size) {
+      cdc_size_range_ = std::make_pair(min_size, max_size);
+      return this;
+    }
+
+    Builder* cdc_norm_factor(uint8_t norm_factor) {
+      cdc_norm_factor_ = norm_factor;
+      return this;
+    }
 
     /// Specify the memory pool for the writer. Default default_memory_pool.
     Builder* memory_pool(MemoryPool* pool) {
@@ -701,7 +731,8 @@ class PARQUET_EXPORT WriterProperties {
           pagesize_, version_, created_by_, page_checksum_enabled_,
           size_statistics_level_, std::move(file_encryption_properties_),
           default_column_properties_, column_properties, data_page_version_,
-          store_decimal_as_integer_, std::move(sorting_columns_)));
+          store_decimal_as_integer_, std::move(sorting_columns_), cdc_enabled_,
+          cdc_size_range_, cdc_norm_factor_));
     }
 
    private:
@@ -730,6 +761,10 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
     std::unordered_map<std::string, bool> page_index_enabled_;
+
+    bool cdc_enabled_;
+    std::pair<uint64_t, uint64_t> cdc_size_range_;
+    uint8_t cdc_norm_factor_;
   };
 
   inline MemoryPool* memory_pool() const { return pool_; }
@@ -753,6 +788,10 @@ class PARQUET_EXPORT WriterProperties {
   inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
 
   inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
+
+  inline bool cdc_enabled() const { return cdc_enabled_; }
+  inline std::pair<uint64_t, uint64_t> cdc_size_range() const { return cdc_size_range_; }
+  inline uint8_t cdc_norm_factor() const { return cdc_norm_factor_; }
 
   inline SizeStatisticsLevel size_statistics_level() const {
     return size_statistics_level_;
@@ -856,7 +895,8 @@ class PARQUET_EXPORT WriterProperties {
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
       ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
-      std::vector<SortingColumn> sorting_columns)
+      std::vector<SortingColumn> sorting_columns, bool cdc_enabled,
+      std::pair<uint64_t, uint64_t> cdc_size_range, uint8_t cdc_norm_factor)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -871,7 +911,10 @@ class PARQUET_EXPORT WriterProperties {
         file_encryption_properties_(file_encryption_properties),
         sorting_columns_(std::move(sorting_columns)),
         default_column_properties_(default_column_properties),
-        column_properties_(column_properties) {}
+        column_properties_(column_properties),
+        cdc_enabled_(cdc_enabled),
+        cdc_size_range_(cdc_size_range),
+        cdc_norm_factor_(cdc_norm_factor) {}
 
   MemoryPool* pool_;
   int64_t dictionary_pagesize_limit_;
@@ -891,6 +934,10 @@ class PARQUET_EXPORT WriterProperties {
 
   ColumnProperties default_column_properties_;
   std::unordered_map<std::string, ColumnProperties> column_properties_;
+
+  bool cdc_enabled_;
+  std::pair<uint64_t, uint64_t> cdc_size_range_;
+  uint8_t cdc_norm_factor_;
 };
 
 PARQUET_EXPORT const std::shared_ptr<WriterProperties>& default_writer_properties();
