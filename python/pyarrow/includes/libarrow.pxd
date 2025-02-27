@@ -2823,6 +2823,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         vector[CSortKey] sort_keys
         CNullPlacement null_placement
 
+    cdef enum PivotWiderUnexpectedKeyBehavior \
+            "arrow::compute::PivotWiderOptions::UnexpectedKeyBehavior":
+        PivotWiderUnexpectedKeyBehavior_Ignore "arrow::compute::PivotWiderOptions::kIgnore"
+        PivotWiderUnexpectedKeyBehavior_Raise "arrow::compute::PivotWiderOptions::kRaise"
+
+    cdef cppclass CPivotWiderOptions \
+            "arrow::compute::PivotWiderOptions"(CFunctionOptions):
+        CPivotWiderOptions(vector[c_string] key_names,
+                           PivotWiderUnexpectedKeyBehavior)
+
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
         DatumType_SCALAR" arrow::Datum::SCALAR"
