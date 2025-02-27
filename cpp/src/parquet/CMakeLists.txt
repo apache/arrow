@@ -262,7 +262,7 @@ endif()
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
   list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
-  # TODO(paleolimbot): Remove once sample files are generated
+  # TODO(paleolimbot): Make sure this is OK or remove if not!
   if(ARROW_JSON)
     list(APPEND PARQUET_SHARED_LINK_LIBS RapidJSON)
     list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
