@@ -1294,6 +1294,7 @@ if(ARROW_USE_BOOST)
     set(ARROW_BOOST_COMPONENTS)
     set(ARROW_BOOST_OPTIONAL_COMPONENTS)
   endif()
+  set(CMAKE_FIND_DEBUG_MODE ON)
   resolve_dependency(Boost
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
@@ -1304,6 +1305,7 @@ if(ARROW_USE_BOOST)
                      IS_RUNTIME_DEPENDENCY
                      # libarrow.so doesn't depend on libboost*.
                      FALSE)
+  set(CMAKE_FIND_DEBUG_MODE OFF)
   if(ARROW_BOOST_USE_SHARED)
     set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
     unset(BUILD_SHARED_LIBS_KEEP)
@@ -2751,6 +2753,10 @@ if(ARROW_WITH_ZSTD)
       set(ARROW_ZSTD_LIBZSTD zstd::libzstd_shared)
     else()
       set(ARROW_ZSTD_LIBZSTD zstd::libzstd_static)
+    endif()
+    # vcpkg uses zstd::libzstd
+    if(NOT TARGET ${ARROW_ZSTD_LIBZSTD} AND TARGET zstd::libzstd)
+      set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
     endif()
     if(NOT TARGET ${ARROW_ZSTD_LIBZSTD})
       message(FATAL_ERROR "Zstandard target doesn't exist: ${ARROW_ZSTD_LIBZSTD}")
