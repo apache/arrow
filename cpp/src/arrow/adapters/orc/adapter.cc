@@ -25,7 +25,7 @@
 #include <vector>
 
 #ifdef ARROW_ORC_NEED_TIME_ZONE_DATABASE_CHECK
-#include <filesystem>
+#  include <filesystem>
 #endif
 
 #include "arrow/adapters/orc/util.h"
@@ -145,7 +145,10 @@ class OrcStripeReader : public RecordBatchReader {
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
     std::unique_ptr<liborc::ColumnVectorBatch> batch;
-    ORC_CATCH_NOT_OK(batch = row_reader_->createRowBatch(batch_size_));
+    std::unique_ptr<RecordBatchBuilder> builder;
+
+    ORC_BEGIN_CATCH_NOT_OK
+    batch = row_reader_->createRowBatch(batch_size_);
 
     const liborc::Type& type = row_reader_->getSelectedType();
     if (!row_reader_->next(*batch)) {
@@ -153,10 +156,8 @@ class OrcStripeReader : public RecordBatchReader {
       return Status::OK();
     }
 
-    std::unique_ptr<RecordBatchBuilder> builder;
     ARROW_ASSIGN_OR_RAISE(builder,
                           RecordBatchBuilder::Make(schema_, pool_, batch->numElements));
-
     // The top-level type must be a struct to read into an arrow table
     const auto& struct_batch = checked_cast<liborc::StructVectorBatch&>(*batch);
 
@@ -164,9 +165,9 @@ class OrcStripeReader : public RecordBatchReader {
       RETURN_NOT_OK(AppendBatch(type.getSubtype(i), struct_batch.fields[i], 0,
                                 batch->numElements, builder->GetField(i)));
     }
+    ORC_END_CATCH_NOT_OK
 
-    ARROW_ASSIGN_OR_RAISE(*out, builder->Flush());
-    return Status::OK();
+    return builder->Flush().Value(out);
   }
 
  private:
@@ -470,15 +471,13 @@ class ORCFileReader::Impl {
                                                  int64_t nrows) {
     std::unique_ptr<liborc::RowReader> row_reader;
     std::unique_ptr<liborc::ColumnVectorBatch> batch;
+    std::unique_ptr<RecordBatchBuilder> builder;
 
     ORC_BEGIN_CATCH_NOT_OK
     row_reader = reader_->createRowReader(opts);
     batch = row_reader->createRowBatch(std::min(nrows, kReadRowsBatch));
-    ORC_END_CATCH_NOT_OK
 
-    std::unique_ptr<RecordBatchBuilder> builder;
     ARROW_ASSIGN_OR_RAISE(builder, RecordBatchBuilder::Make(schema, pool_, nrows));
-
     // The top-level type must be a struct to read into an arrow table
     const auto& struct_batch = checked_cast<liborc::StructVectorBatch&>(*batch);
 
@@ -489,6 +488,7 @@ class ORCFileReader::Impl {
                                   batch->numElements, builder->GetField(i)));
       }
     }
+    ORC_END_CATCH_NOT_OK
 
     return builder->Flush();
   }
@@ -566,7 +566,7 @@ Result<std::unique_ptr<ORCFileReader>> ORCFileReader::Open(
 #endif
   auto result = std::unique_ptr<ORCFileReader>(new ORCFileReader());
   RETURN_NOT_OK(result->impl_->Open(file, pool));
-  return std::move(result);
+  return result;
 }
 
 Result<std::shared_ptr<const KeyValueMetadata>> ORCFileReader::ReadMetadata() {
@@ -837,7 +837,7 @@ Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
   Status status = result->impl_->Open(output_stream, writer_options);
   RETURN_NOT_OK(status);
-  return std::move(result);
+  return result;
 }
 
 Status ORCFileWriter::Write(const Table& table) { return impl_->Write(table); }

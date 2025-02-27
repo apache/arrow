@@ -22,7 +22,7 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from pyarrow.lib import Table
+from pyarrow.lib import Table, RecordBatch
 from pyarrow.compute import Expression, field
 
 try:
@@ -56,8 +56,10 @@ except ImportError:
     ds = DatasetModuleStub
 
 
-def _dataset_to_decl(dataset, use_threads=True):
-    decl = Declaration("scan", ScanNodeOptions(dataset, use_threads=use_threads))
+def _dataset_to_decl(dataset, use_threads=True, implicit_ordering=False):
+    decl = Declaration("scan", ScanNodeOptions(
+        dataset, use_threads=use_threads,
+        implicit_ordering=implicit_ordering))
 
     # Get rid of special dataset columns
     # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
@@ -311,13 +313,18 @@ def _perform_join_asof(left_operand, left_on, left_by,
 
     # Add the join node to the execplan
     if isinstance(left_operand, ds.Dataset):
-        left_source = _dataset_to_decl(left_operand, use_threads=use_threads)
+        left_source = _dataset_to_decl(
+            left_operand,
+            use_threads=use_threads,
+            implicit_ordering=True)
     else:
         left_source = Declaration(
             "table_source", TableSourceNodeOptions(left_operand),
         )
     if isinstance(right_operand, ds.Dataset):
-        right_source = _dataset_to_decl(right_operand, use_threads=use_threads)
+        right_source = _dataset_to_decl(
+            right_operand, use_threads=use_threads,
+            implicit_ordering=True)
     else:
         right_source = Declaration(
             "table_source", TableSourceNodeOptions(right_operand)
@@ -348,8 +355,8 @@ def _filter_table(table, expression):
 
     Parameters
     ----------
-    table : Table or Dataset
-        Table or Dataset that should be filtered.
+    table : Table or RecordBatch
+        Table that should be filtered.
     expression : Expression
         The expression on which rows should be filtered.
 
@@ -357,11 +364,19 @@ def _filter_table(table, expression):
     -------
     Table
     """
+    is_batch = False
+    if isinstance(table, RecordBatch):
+        table = Table.from_batches([table])
+        is_batch = True
+
     decl = Declaration.from_sequence([
         Declaration("table_source", options=TableSourceNodeOptions(table)),
         Declaration("filter", options=FilterNodeOptions(expression))
     ])
-    return decl.to_table(use_threads=True)
+    result = decl.to_table(use_threads=True)
+    if is_batch:
+        result = result.combine_chunks().to_batches()[0]
+    return result
 
 
 def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):

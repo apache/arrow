@@ -80,8 +80,10 @@ namespace Apache.Arrow.Tests
                     Date32Type.Default,
                     Date64Type.Default,
                     TimestampType.Default,
+                    new Decimal32Type(7, 3),
+                    new Decimal64Type(14, 4),
                     new Decimal128Type(14, 10),
-                    new Decimal256Type(14,10),
+                    new Decimal256Type(14, 10),
                     new ListType(Int64Type.Default),
                     new ListViewType(Int64Type.Default),
                     new StructType(new List<Field>{
@@ -138,6 +140,8 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<BinaryViewType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<StringViewType>,
+            IArrowTypeVisitor<Decimal32Type>,
+            IArrowTypeVisitor<Decimal64Type>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<Date32Type>,
@@ -207,8 +211,9 @@ namespace Apache.Arrow.Tests
             public void Visit(Date32Type type) => GenerateTestData<DateTime, Date32Array, Date32Array.Builder>(type, x => DateTime.MinValue.AddDays(x));
             public void Visit(Date64Type type) => GenerateTestData<DateTime, Date64Array, Date64Array.Builder>(type, x => DateTime.MinValue.AddDays(x));
 
+            public void Visit(Decimal32Type type) => GenerateTestData<Decimal32Array, Decimal32Array.Builder>(type, (builder, x) => builder.Append(x));
+            public void Visit(Decimal64Type type) => GenerateTestData<Decimal64Array, Decimal64Array.Builder>(type, (builder, x) => builder.Append(x));
             public void Visit(Decimal128Type type) => GenerateTestData<Decimal128Array, Decimal128Array.Builder>(type, (builder, x) => builder.Append(x));
-
             public void Visit(Decimal256Type type) => GenerateTestData<Decimal256Array, Decimal256Array.Builder>(type, (builder, x) => builder.Append(x));
 
             public void Visit(TimestampType type)

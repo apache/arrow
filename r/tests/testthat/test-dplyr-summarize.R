@@ -832,28 +832,18 @@ test_that("Expressions on aggregations", {
   )
 
   # Aggregates on aggregates are not supported
-  expect_warning(
-    record_batch(tbl) %>% summarise(any(any(lgl))),
-    paste(
-      "In any\\(any\\(lgl\\)\\), aggregate within aggregate expression",
-      "not supported in Arrow"
-    )
+  expect_snapshot(
+    record_batch(tbl) %>% summarise(any(any(lgl)))
   )
 
   # Check aggregates on aggregates with more complex calls
   expect_warning(
     record_batch(tbl) %>% summarise(any(any(!lgl))),
-    paste(
-      "In any\\(any\\(!lgl\\)\\), aggregate within aggregate expression",
-      "not supported in Arrow"
-    )
+    "aggregate within aggregate expression not supported in Arrow"
   )
   expect_warning(
     record_batch(tbl) %>% summarise(!any(any(lgl))),
-    paste(
-      "In \\!any\\(any\\(lgl\\)\\), aggregate within aggregate expression",
-      "not supported in Arrow"
-    )
+    "aggregate within aggregate expression not supported in Arrow"
   )
 })
 
@@ -965,7 +955,45 @@ test_that("Summarize with 0 arguments", {
   )
 })
 
-test_that("Not (yet) supported: window functions", {
+test_that("Printing aggregation expressions", {
+  q <- tbl %>%
+    arrow_table() %>%
+    summarize(
+      total = sum(int, na.rm = TRUE),
+      prod = prod(int, na.rm = TRUE),
+      any = any(lgl, na.rm = TRUE),
+      all = all(lgl, na.rm = TRUE),
+      mean = mean(int, na.rm = TRUE),
+      sd = sd(int, na.rm = TRUE),
+      var = var(int, na.rm = TRUE),
+      n_distinct = n_distinct(chr),
+      min = min(int, na.rm = TRUE),
+      max = max(int, na.rm = TRUE)
+    )
+  expect_output(
+    print(q$.data),
+    "Table (query)
+int: int32
+lgl: bool
+chr: string
+
+* Aggregations:
+total: sum(int, {skip_nulls=true, min_count=0})
+prod: product(int, {skip_nulls=true, min_count=0})
+any: any(lgl, {skip_nulls=true, min_count=0})
+all: all(lgl, {skip_nulls=true, min_count=0})
+mean: mean(int, {skip_nulls=true, min_count=0})
+sd: stddev(int, {ddof=1, skip_nulls=true, min_count=0})
+var: variance(int, {ddof=1, skip_nulls=true, min_count=0})
+n_distinct: count_distinct(chr, {mode=ALL})
+min: min(int, {skip_nulls=true, min_count=0})
+max: max(int, {skip_nulls=true, min_count=0})
+See $.data for the source Arrow object",
+    fixed = TRUE
+  )
+})
+
+test_that("Not supported: window functions", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
@@ -974,10 +1002,7 @@ test_that("Not (yet) supported: window functions", {
       ) %>%
       collect(),
     tbl,
-    warning = paste(
-      "In sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\), aggregate within",
-      "aggregate expression not supported in Arrow; pulling data into R"
-    )
+    warning = "aggregate within aggregate expression not supported in Arrow"
   )
   compare_dplyr_binding(
     .input %>%
@@ -987,10 +1012,7 @@ test_that("Not (yet) supported: window functions", {
       ) %>%
       collect(),
     tbl,
-    warning = paste(
-      "In sum\\(dbl - mean\\(dbl\\)\\), aggregate within aggregate expression",
-      "not supported in Arrow; pulling data into R"
-    )
+    warning = "aggregate within aggregate expression not supported in Arrow"
   )
   compare_dplyr_binding(
     .input %>%
@@ -1000,10 +1022,7 @@ test_that("Not (yet) supported: window functions", {
       ) %>%
       collect(),
     tbl,
-    warning = paste(
-      "In sqrt\\(sum\\(\\(dbl - mean\\(dbl\\)\\)\\^2\\)/\\(n\\(\\) - 1L\\)\\), aggregate within",
-      "aggregate expression not supported in Arrow; pulling data into R"
-    )
+    warning = "aggregate within aggregate expression not supported in Arrow"
   )
 
   compare_dplyr_binding(
@@ -1012,10 +1031,7 @@ test_that("Not (yet) supported: window functions", {
       summarize(y - mean(y)) %>%
       collect(),
     data.frame(x = 1, y = 2),
-    warning = paste(
-      "Expression y - mean\\(y\\) is not a valid aggregation expression",
-      "or is not supported in Arrow; pulling data into R"
-    )
+    warning = "Expression is not a valid aggregation expression or is not supported in Arrow"
   )
 
   compare_dplyr_binding(
@@ -1024,10 +1040,7 @@ test_that("Not (yet) supported: window functions", {
       summarize(y) %>%
       collect(),
     data.frame(x = 1, y = 2),
-    warning = paste(
-      "Expression y is not a valid aggregation expression",
-      "or is not supported in Arrow; pulling data into R"
-    )
+    warning = "Expression is not a valid aggregation expression or is not supported in Arrow"
   )
 
   # This one could possibly be supported--in mutate()
@@ -1037,10 +1050,7 @@ test_that("Not (yet) supported: window functions", {
       summarize(x - y) %>%
       collect(),
     data.frame(x = 1, y = 2, z = 3),
-    warning = paste(
-      "Expression x - y is not a valid aggregation expression",
-      "or is not supported in Arrow; pulling data into R"
-    )
+    warning = "Expression is not a valid aggregation expression or is not supported in Arrow"
   )
 })
 
@@ -1274,13 +1284,12 @@ test_that("Can use across() within summarise()", {
   )
 
   # across() doesn't work in summarise when input expressions evaluate to bare field references
-  expect_warning(
+  expect_snapshot(
     data.frame(x = 1, y = 2) %>%
       arrow_table() %>%
       group_by(x) %>%
       summarise(across(everything())) %>%
-      collect(),
-    regexp = "Expression y is not a valid aggregation expression or is not supported in Arrow; pulling data into R"
+      collect()
   )
 })
 

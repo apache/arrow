@@ -22,6 +22,7 @@
 #include "arrow/array/array_primitive.h"
 
 #include "arrow/python/common.h"
+#include "arrow/python/numpy_init.h"
 #include "arrow/python/numpy_internal.h"
 
 namespace arrow {
@@ -44,7 +45,7 @@ inline Status VisitSequenceGeneric(PyObject* obj, int64_t offset, VisitorFunc&& 
   // VisitorFunc may set to false to terminate iteration
   bool keep_going = true;
 
-  if (PyArray_Check(obj)) {
+  if (has_numpy() && PyArray_Check(obj)) {
     PyArrayObject* arr_obj = reinterpret_cast<PyArrayObject*>(obj);
     if (PyArray_NDIM(arr_obj) != 1) {
       return Status::Invalid("Only 1D arrays accepted");
@@ -64,8 +65,13 @@ inline Status VisitSequenceGeneric(PyObject* obj, int64_t offset, VisitorFunc&& 
     // This code path is inefficient: callers should implement dedicated
     // logic for non-object arrays.
   }
+
   if (PySequence_Check(obj)) {
+#ifdef Py_GIL_DISABLED
+    if (PyTuple_Check(obj)) {
+#else
     if (PyList_Check(obj) || PyTuple_Check(obj)) {
+#endif
       // Use fast item access
       const Py_ssize_t size = PySequence_Fast_GET_SIZE(obj);
       for (Py_ssize_t i = offset; keep_going && i < size; ++i) {
@@ -101,7 +107,7 @@ inline Status VisitSequence(PyObject* obj, int64_t offset, VisitorFunc&& func) {
 template <class VisitorFunc>
 inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
                                   VisitorFunc&& func) {
-  if (PyArray_Check(mo)) {
+  if (has_numpy() && PyArray_Check(mo)) {
     PyArrayObject* mask = reinterpret_cast<PyArrayObject*>(mo);
     if (PyArray_NDIM(mask) != 1) {
       return Status::Invalid("Mask must be 1D array");

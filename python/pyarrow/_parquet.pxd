@@ -64,6 +64,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetLogicalType_TIME" parquet::LogicalType::Type::TIME"
         ParquetLogicalType_TIMESTAMP" parquet::LogicalType::Type::TIMESTAMP"
         ParquetLogicalType_INT" parquet::LogicalType::Type::INT"
+        ParquetLogicalType_FLOAT16" parquet::LogicalType::Type::FLOAT16"
         ParquetLogicalType_JSON" parquet::LogicalType::Type::JSON"
         ParquetLogicalType_BSON" parquet::LogicalType::Type::BSON"
         ParquetLogicalType_UUID" parquet::LogicalType::Type::UUID"
@@ -327,6 +328,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         unique_ptr[CColumnCryptoMetaData] crypto_metadata() const
         optional[ParquetIndexLocation] GetColumnIndexLocation() const
         optional[ParquetIndexLocation] GetOffsetIndexLocation() const
+        shared_ptr[const CKeyValueMetadata] key_value_metadata() const
 
     struct CSortingColumn" parquet::SortingColumn":
         int column_idx
@@ -431,6 +433,8 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_statistics()
             Builder* enable_statistics()
             Builder* enable_statistics(const c_string& path)
+            Builder* enable_store_decimal_as_integer()
+            Builder* disable_store_decimal_as_integer()
             Builder* data_pagesize(int64_t size)
             Builder* encoding(ParquetEncoding encoding)
             Builder* encoding(const c_string& path,
@@ -480,11 +484,9 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
                               const vector[int]& column_indices,
                               shared_ptr[CTable]* out)
 
-        CStatus GetRecordBatchReader(const vector[int]& row_group_indices,
-                                     const vector[int]& column_indices,
-                                     unique_ptr[CRecordBatchReader]* out)
-        CStatus GetRecordBatchReader(const vector[int]& row_group_indices,
-                                     unique_ptr[CRecordBatchReader]* out)
+        CResult[unique_ptr[CRecordBatchReader]] GetRecordBatchReader(const vector[int]& row_group_indices,
+                                                                     const vector[int]& column_indices)
+        CResult[unique_ptr[CRecordBatchReader]] GetRecordBatchReader(const vector[int]& row_group_indices)
 
         CStatus ReadTable(shared_ptr[CTable]* out)
         CStatus ReadTable(const vector[int]& column_indices,
@@ -552,8 +554,9 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
                                              const shared_ptr[ArrowWriterProperties]& arrow_properties)
 
         CStatus WriteTable(const CTable& table, int64_t chunk_size)
-        CStatus NewRowGroup(int64_t chunk_size)
+        CStatus NewRowGroup()
         CStatus Close()
+        CStatus AddKeyValueMetadata(const shared_ptr[const CKeyValueMetadata]& key_value_metadata)
 
         const shared_ptr[CFileMetaData] metadata() const
 
@@ -593,6 +596,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     write_page_index=*,
     write_page_checksum=*,
     sorting_columns=*,
+    store_decimal_as_integer=*,
 ) except *
 
 

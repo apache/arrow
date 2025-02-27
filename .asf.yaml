@@ -16,16 +16,14 @@
 # under the License.
 
 github:
-  description: "Apache Arrow is a multi-language toolbox for accelerated data interchange and in-memory processing"
+  description: "Apache Arrow is the universal columnar format and multi-language toolbox for fast data interchange and in-memory analytics"
   homepage: https://arrow.apache.org/
   collaborators:
     - anjakefala
-    - benibus
-    - davisusanibar
+    - hiroyuki-sato
     - jbonofre
     - js8544
     - vibhatha
-    - zanmato1984
     - ZhangHuiGui
 
 notifications:

@@ -34,13 +34,20 @@ repos:
     hooks:
       - id: hadolint-docker
         name: Docker Format
-        exclude: ^dev/.*$
+        # We can enable this after we fix all existing lint failures.
+        # files: (/Dockerfile|\.dockerfile)$
+        files: >-
+          (
+          ?^ci/docker/conda-python-emscripten\.dockerfile$|
+          ?^ci/docker/python-.*-wheel-windows-test-vs2022.*\.dockerfile$|
+          )
+        types: []
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
     hooks:
       - id: flake8
         name: Python Format
-        files: ^(python|dev|integration)/
+        files: ^(python|dev|c_glib|integration)/
         types:
           - file
           - python
@@ -56,10 +63,31 @@ repos:
     hooks:
       - id: clang-format
         name: C++ Format
+        alias: cpp-format
         types_or:
           - c++
           # - json
           # - proto
+        files: >-
+          ^cpp/
+        exclude: >-
+          (
+          ?\.grpc\.fb\.(cc|h)$|
+          ?\.pb\.(cc|h)$|
+          ?_generated.*\.(cc|h)$|
+          ?^cpp/src/arrow/vendored/|
+          ?^cpp/src/generated/|
+          ?^cpp/thirdparty/|
+          )
+  - repo: https://github.com/cpplint/cpplint
+    rev: 1.6.1
+    hooks:
+      - id: cpplint
+        name: C++ Lint
+        args:
+          - "--verbose=2"
+        types_or:
+          - c++
         files: >-
           ^cpp/
         exclude: >-
@@ -76,6 +104,7 @@ repos:
     hooks:
       - id: clang-format
         name: C/GLib Format
+        alias: c-glib-cpp-format
         files: >-
           ^c_glib/
   - repo: https://github.com/pre-commit/mirrors-clang-format
@@ -83,6 +112,7 @@ repos:
     hooks:
       - id: clang-format
         name: MATLAB (C++) Format
+        alias: matlab-cpp-format
         files: >-
           ^matlab/src/cpp/
   - repo: https://github.com/pre-commit/mirrors-clang-format
@@ -90,6 +120,7 @@ repos:
     hooks:
       - id: clang-format
         name: Python (C++) Format
+        alias: python-cpp-format
         files: >-
           ^python/pyarrow/src/
         exclude: >-
@@ -103,11 +134,24 @@ repos:
     hooks:
       - id: clang-format
         name: R (C++) Format
+        alias: r-cpp-format
         files: >-
           ^r/src/
         exclude: >-
           (
           ?^r/src/arrowExports\.cpp$|
+          )
+  - repo: https://github.com/rubocop/rubocop
+    rev: "v1.71.0"
+    hooks:
+      - id: rubocop
+        name: Ruby Format
+        alias: ruby-format
+        args:
+          - "--autocorrect"
+        exclude: >-
+          (
+          ?^dev/tasks/homebrew-formulae/.*\.rb$|
           )
   - repo: https://github.com/cheshirekow/cmake-format-precommit
     rev: v0.6.13
@@ -127,7 +171,7 @@ repos:
           ?^cpp/cmake_modules/FindNumPy\.cmake$|
           ?^cpp/cmake_modules/FindPythonLibsNew\.cmake$|
           ?^cpp/cmake_modules/UseCython\.cmake$|
-          ?^cpp/src/arrow/util/config\.h\.cmake$|
+          ?^cpp/src/arrow/util/.*\.h\.cmake$|
           )
   - repo: https://github.com/sphinx-contrib/sphinx-lint
     rev: v0.9.1
@@ -141,3 +185,20 @@ repos:
           '--disable',
           'dangling-hyphen,line-too-long',
         ]
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.10.0
+    hooks:
+      - id: shellcheck
+        # TODO: Remove this when we fix all lint failures
+        files: >-
+          (
+          ?^ci/scripts/c_glib_build\.sh$|
+          ?^ci/scripts/c_glib_test\.sh$|
+          ?^c_glib/test/run-test\.sh$|
+          ?^dev/release/utils-generate-checksum\.sh$|
+          )
+  - repo: https://github.com/trim21/pre-commit-mirror-meson
+    rev: v1.6.1
+    hooks:
+      - id: meson-fmt
+        args: ['--inplace']

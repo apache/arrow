@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include "arrow/extension_type.h"
 
 namespace arrow {
@@ -67,10 +69,10 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   size_t ndim() const { return shape_.size(); }
 
   /// Shape of tensor elements
-  const std::vector<int64_t> shape() const { return shape_; }
+  const std::vector<int64_t>& shape() const { return shape_; }
 
   /// Value type of tensor elements
-  const std::shared_ptr<DataType> value_type() const { return value_type_; }
+  const std::shared_ptr<DataType>& value_type() const { return value_type_; }
 
   /// Strides of tensor elements. Strides state offset in bytes between adjacent
   /// elements along each dimension. In case permutation is non-empty strides are

@@ -18,8 +18,13 @@
 name: Dev
 
 on:
-  # always trigger
+  # always trigger except Dependabot "push"
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
   pull_request:
 
 concurrency:
@@ -31,13 +36,12 @@ permissions:
 
 env:
   ARCHERY_DEBUG: 1
-  ARCHERY_USE_DOCKER_CLI: 1
 
 jobs:
 
   lint:
     name: Lint C++, Python, R, Docker, RAT
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     steps:
@@ -46,7 +50,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
           python-version: 3.12
       - name: Install pre-commit
@@ -67,9 +71,9 @@ jobs:
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          UBUNTU: 22.04
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run -e GITHUB_ACTIONS=true ubuntu-lint
       - name: Docker Push
         if: >-
@@ -105,7 +109,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install Python
-        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
           python-version: '3.12'
       - name: Install Ruby
@@ -113,14 +117,14 @@ jobs:
         with:
           ruby-version: ruby
       - name: Install .NET
-        uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4.0.0
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4.3.0
         with:
           dotnet-version: '8.0.x'
       - name: Install Dependencies
         shell: bash
         run: |
           gem install test-unit
-          pip install "cython>=0.29.31" setuptools six pytest jira
+          pip install "cython>=3" setuptools pytest requests setuptools-scm
       - name: Run Release Test
         env:
           ARROW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}

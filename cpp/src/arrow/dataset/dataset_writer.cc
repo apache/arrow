@@ -408,8 +408,7 @@ class DatasetWriterDirectoryQueue {
         write_options, writer_state);
     dir_queue->PrepareDirectory();
     ARROW_ASSIGN_OR_RAISE(dir_queue->current_filename_, dir_queue->GetNextFilename());
-    // std::move required to make RTools 3.5 mingw compiler happy
-    return std::move(dir_queue);
+    return dir_queue;
   }
 
   Status Finish() {

@@ -25,6 +25,7 @@ import urllib.request
 
 import pytest
 import hypothesis as h
+
 from ..conftest import groups, defaults
 
 from pyarrow import set_timezone_db_path
@@ -52,6 +53,22 @@ if sys.platform == 'win32':
     tzdata_set_path = os.environ.get('PYARROW_TZDATA_PATH', None)
     if tzdata_set_path:
         set_timezone_db_path(tzdata_set_path)
+
+
+# GH-45295: For ORC, try to populate TZDIR env var from tzdata package resource
+# path.
+#
+# Note this is a different kind of database than what we allow to be set by
+# `PYARROW_TZDATA_PATH` and passed to set_timezone_db_path.
+if sys.platform == 'win32':
+    if os.environ.get('TZDIR', None) is None:
+        from importlib import resources
+        try:
+            os.environ['TZDIR'] = os.path.join(resources.files('tzdata'), 'zoneinfo')
+        except ModuleNotFoundError:
+            print(
+                'Package "tzdata" not found. Not setting TZDIR environment variable.'
+            )
 
 
 def pytest_addoption(parser):
@@ -150,7 +167,7 @@ def hdfs_connection():
 
 @pytest.fixture(scope='session')
 def s3_connection():
-    host, port = 'localhost', find_free_port()
+    host, port = '127.0.0.1', find_free_port()
     access_key, secret_key = 'arrow', 'apachearrow'
     return host, port, access_key, secret_key
 
@@ -192,9 +209,9 @@ def retry(attempts=3, delay=1.0, max_delay=None, backoff=1):
 
 @pytest.fixture(scope='session')
 def s3_server(s3_connection, tmpdir_factory):
-    @retry(attempts=5, delay=0.1, backoff=2)
+    @retry(attempts=5, delay=1, backoff=2)
     def minio_server_health_check(address):
-        resp = urllib.request.urlopen(f"http://{address}/minio/health/cluster")
+        resp = urllib.request.urlopen(f"http://{address}/minio/health/live")
         assert resp.getcode() == 200
 
     tmpdir = tmpdir_factory.getbasetemp()
@@ -233,17 +250,16 @@ def s3_server(s3_connection, tmpdir_factory):
 def gcs_server():
     port = find_free_port()
     env = os.environ.copy()
-    args = [sys.executable, '-m', 'testbench', '--port', str(port)]
+    exe = 'storage-testbench'
+    args = [exe, '--port', str(port)]
     proc = None
     try:
-        # check first if testbench module is available
-        import testbench  # noqa:F401
         # start server
         proc = subprocess.Popen(args, env=env)
         # Make sure the server is alive.
         if proc.poll() is not None:
             pytest.skip(f"Command {args} did not start server successfully!")
-    except (ModuleNotFoundError, OSError) as e:
+    except OSError as e:
         pytest.skip(f"Command {args} failed to execute: {e}")
     else:
         yield {
@@ -263,6 +279,9 @@ def azure_server(tmpdir_factory):
     tmpdir = tmpdir_factory.getbasetemp()
     # We only need blob service emulator, not queue or table.
     args = ['azurite-blob', "--location", tmpdir, "--blobPort", str(port)]
+    # For old Azurite. We can't install the latest Azurite with old
+    # Node.js on old Ubuntu.
+    args += ["--skipApiVersionCheck"]
     proc = None
     try:
         proc = subprocess.Popen(args, env=env)

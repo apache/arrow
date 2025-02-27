@@ -336,7 +336,7 @@ Result<Datum> TpchPseudotext::GenerateComments(size_t num_comments, size_t min_l
   }
   ArrayData ad(utf8(), num_comments,
                {nullptr, std::move(offset_buffer), std::move(comment_buffer)});
-  return std::move(ad);
+  return ad;
 }
 
 bool TpchPseudotext::GenerateWord(int64_t& offset, random::pcg32_fast& rng, char* arr,
@@ -611,7 +611,7 @@ Result<Datum> RandomVString(random::pcg32_fast& rng, int64_t num_rows, int32_t m
   for (int32_t i = 0; i < offsets[num_rows]; i++) str[i] = alpha_numerics[char_dist(rng)];
 
   ArrayData ad(utf8(), num_rows, {nullptr, std::move(offset_buff), std::move(str_buff)});
-  return std::move(ad);
+  return ad;
 }
 
 void GeneratePhoneNumber(char* out, random::pcg32_fast& rng, int32_t country) {
@@ -677,7 +677,7 @@ class PartAndPartSupplierGenerator {
       if (!part_output_queue_.empty()) {
         ExecBatch batch = std::move(part_output_queue_.front());
         part_output_queue_.pop();
-        return std::move(batch);
+        return batch;
       } else if (part_rows_generated_ == part_rows_to_generate_) {
         return std::nullopt;
       } else {
@@ -732,7 +732,7 @@ class PartAndPartSupplierGenerator {
       if (!partsupp_output_queue_.empty()) {
         ExecBatch result = std::move(partsupp_output_queue_.front());
         partsupp_output_queue_.pop();
-        return std::move(result);
+        return result;
       }
     }
     {
@@ -838,12 +838,12 @@ class PartAndPartSupplierGenerator {
 
   const std::vector<std::shared_ptr<DataType>> kPartTypes = {
       int32(), utf8(),  fixed_size_binary(25), fixed_size_binary(10),
-      utf8(),  int32(), fixed_size_binary(10), decimal(12, 2),
+      utf8(),  int32(), fixed_size_binary(10), decimal128(12, 2),
       utf8(),
   };
 
   const std::vector<std::shared_ptr<DataType>> kPartsuppTypes = {
-      int32(), int32(), int32(), decimal(12, 2), utf8(),
+      int32(), int32(), int32(), decimal128(12, 2), utf8(),
   };
 
   Status AllocatePartBatch(size_t thread_index, int column) {
@@ -1337,7 +1337,7 @@ class OrdersAndLineItemGenerator {
       if (!orders_output_queue_.empty()) {
         ExecBatch batch = std::move(orders_output_queue_.front());
         orders_output_queue_.pop();
-        return std::move(batch);
+        return batch;
       } else if (orders_rows_generated_ == orders_rows_to_generate_) {
         return std::nullopt;
       } else {
@@ -1401,12 +1401,12 @@ class OrdersAndLineItemGenerator {
     if (from_queue) {
       ARROW_DCHECK(queued.length <= batch_size_);
       tld.first_batch_offset = queued.length;
-      if (queued.length == batch_size_) return std::move(queued);
+      if (queued.length == batch_size_) return queued;
     }
     {
       std::lock_guard<std::mutex> lock(orders_output_queue_mutex_);
       if (orders_rows_generated_ == orders_rows_to_generate_) {
-        if (from_queue) return std::move(queued);
+        if (from_queue) return queued;
         return std::nullopt;
       }
 
@@ -1527,7 +1527,7 @@ class OrdersAndLineItemGenerator {
   const std::vector<std::shared_ptr<DataType>> kOrdersTypes = {int32(),
                                                                int32(),
                                                                fixed_size_binary(1),
-                                                               decimal(12, 2),
+                                                               decimal128(12, 2),
                                                                date32(),
                                                                fixed_size_binary(15),
                                                                fixed_size_binary(15),
@@ -1539,10 +1539,10 @@ class OrdersAndLineItemGenerator {
       int32(),
       int32(),
       int32(),
-      decimal(12, 2),
-      decimal(12, 2),
-      decimal(12, 2),
-      decimal(12, 2),
+      decimal128(12, 2),
+      decimal128(12, 2),
+      decimal128(12, 2),
+      decimal128(12, 2),
       fixed_size_binary(1),
       fixed_size_binary(1),
       date32(),
@@ -2489,7 +2489,7 @@ class SupplierGenerator : public TpchTableGenerator {
 
   std::vector<std::shared_ptr<DataType>> kTypes = {
       int32(), fixed_size_binary(25), utf8(),
-      int32(), fixed_size_binary(15), decimal(12, 2),
+      int32(), fixed_size_binary(15), decimal128(12, 2),
       utf8(),
   };
 
@@ -2872,7 +2872,7 @@ class CustomerGenerator : public TpchTableGenerator {
       utf8(),
       int32(),
       fixed_size_binary(15),
-      decimal(12, 2),
+      decimal128(12, 2),
       fixed_size_binary(10),
       utf8(),
   };

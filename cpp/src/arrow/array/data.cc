@@ -165,6 +165,8 @@ Result<std::shared_ptr<ArrayData>> CopyToImpl(const ArrayData& data,
     ARROW_ASSIGN_OR_RAISE(output->dictionary, CopyToImpl(*data.dictionary, to, copy_fn));
   }
 
+  output->statistics = data.statistics;
+
   return output;
 }
 }  // namespace
@@ -195,6 +197,7 @@ std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
   } else {
     copy->null_count = null_count != 0 ? kUnknownNullCount : 0;
   }
+  copy->statistics = nullptr;
   return copy;
 }
 
@@ -222,6 +225,54 @@ int64_t ArrayData::ComputeLogicalNullCount() const {
     return GetNullCount();
   }
   return ArraySpan(*this).ComputeLogicalNullCount();
+}
+
+DeviceAllocationType ArrayData::device_type() const {
+  // we're using 0 as a sentinel value for NOT YET ASSIGNED
+  // there is explicitly no constant DeviceAllocationType to represent
+  // the "UNASSIGNED" case as it is invalid for data to not have an
+  // assigned device type. If it's still 0 at the end, then we return
+  // CPU as the allocation device type
+  int type = 0;
+  for (const auto& buf : buffers) {
+    if (!buf) continue;
+#ifdef NDEBUG
+    return buf->device_type();
+#else
+    if (type == 0) {
+      type = static_cast<int>(buf->device_type());
+    } else {
+      DCHECK_EQ(type, static_cast<int>(buf->device_type()));
+    }
+#endif
+  }
+
+  for (const auto& child : child_data) {
+    if (!child) continue;
+#ifdef NDEBUG
+    return child->device_type();
+#else
+    if (type == 0) {
+      type = static_cast<int>(child->device_type());
+    } else {
+      DCHECK_EQ(type, static_cast<int>(child->device_type()));
+    }
+#endif
+  }
+
+  if (dictionary) {
+#ifdef NDEBUG
+    return dictionary->device_type();
+#else
+    if (type == 0) {
+      type = static_cast<int>(dictionary->device_type());
+    } else {
+      DCHECK_EQ(type, static_cast<int>(dictionary->device_type()));
+    }
+#endif
+  }
+
+  return type == 0 ? DeviceAllocationType::kCPU : static_cast<DeviceAllocationType>(type);
 }
 
 // ----------------------------------------------------------------------

@@ -20,7 +20,7 @@ ARG arch
 FROM ${repo}:${arch}-conda-cpp
 
 # install python specific packages
-ARG python=3.8
+ARG python=3.9
 COPY ci/conda_env_python.txt \
      /arrow/ci/
 # If the Python version being tested is the same as the Python used by the system gdb,
@@ -28,14 +28,9 @@ COPY ci/conda_env_python.txt \
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
         $([ "$python" == $(gdb --batch --eval-command 'python import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') ] && echo "gdb") \
-        "python=${python}.*=*_cpython" \
+        "python=${python}.*=*_cp*" \
         nomkl && \
     mamba clean --all
-
-# XXX The GCS testbench was already installed in conda-cpp.dockerfile,
-# but we changed the installed Python version above, so we need to reinstall it.
-COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
-RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 ENV ARROW_ACERO=ON \
     ARROW_BUILD_STATIC=OFF \

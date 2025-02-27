@@ -51,6 +51,7 @@ class BufferedBase {
     return !is_open_;
   }
 
+  // Allocate buffer_ if needed, and resize it to buffer_size_ if required.
   Status ResetBuffer() {
     if (!buffer_) {
       // On first invocation, or if the buffer has been released, we allocate a
@@ -282,12 +283,33 @@ class BufferedInputStream::Impl : public BufferedBase {
     return raw_pos_ - bytes_buffered_;
   }
 
+  // Resize internal read buffer. Note that the internal buffer-size
+  // should not be larger than the raw_read_bound_.
+  // It might change the buffer_size_, but will not change buffer states
+  // buffer_pos_ and bytes_buffered_.
   Status SetBufferSize(int64_t new_buffer_size) {
     if (new_buffer_size <= 0) {
       return Status::Invalid("Buffer size should be positive");
     }
     if ((buffer_pos_ + bytes_buffered_) >= new_buffer_size) {
-      return Status::Invalid("Cannot shrink read buffer if buffered data remains");
+      return Status::Invalid(
+          "Cannot shrink read buffer if buffered data remains, new_buffer_size: ",
+          new_buffer_size, ", buffer_pos: ", buffer_pos_,
+          ", bytes_buffered: ", bytes_buffered_, ", buffer_size: ", buffer_size_);
+    }
+    if (raw_read_bound_ >= 0) {
+      // No need to reserve space for more than the total remaining number of bytes.
+      if (bytes_buffered_ == 0) {
+        // Special case: we can not keep the current buffer because it does not
+        // contain any required data.
+        new_buffer_size = std::min(new_buffer_size, raw_read_bound_ - raw_read_total_);
+      } else {
+        // We should keep the current buffer because it contains data that
+        // can be read.
+        new_buffer_size =
+            std::min(new_buffer_size,
+                     buffer_pos_ + bytes_buffered_ + (raw_read_bound_ - raw_read_total_));
+      }
     }
     return ResizeBuffer(new_buffer_size);
   }
@@ -343,7 +365,7 @@ class BufferedInputStream::Impl : public BufferedBase {
   }
 
   Status DoBuffer() {
-    // Fill buffer
+    // Fill the buffer from the raw stream with at most `buffer_size_` bytes.
     if (!buffer_) {
       RETURN_NOT_OK(ResetBuffer());
     }
@@ -423,7 +445,8 @@ class BufferedInputStream::Impl : public BufferedBase {
       RETURN_NOT_OK(buffer->Resize(bytes_read, false /* shrink_to_fit */));
       buffer->ZeroPadding();
     }
-    return std::move(buffer);
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(buffer));
   }
 
   // For providing access to the raw file handles
@@ -432,10 +455,12 @@ class BufferedInputStream::Impl : public BufferedBase {
  private:
   std::shared_ptr<InputStream> raw_;
   int64_t raw_read_total_;
+  // a bound on the maximum number of bytes to read from the raw input stream.
+  // The default -1 indicates that it is unbounded
   int64_t raw_read_bound_;
 
-  // Number of remaining bytes in the buffer, to be reduced on each read from
-  // the buffer
+  // Number of remaining valid bytes in the buffer, to be reduced on each read
+  // from the buffer.
   int64_t bytes_buffered_;
 };
 

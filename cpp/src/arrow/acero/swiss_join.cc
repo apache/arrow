@@ -24,10 +24,10 @@
 #include "arrow/acero/swiss_join_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/array/util.h"  // MakeArrayFromScalar
-#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/key_hash_internal.h"
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/compute/row/encode_internal.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/tracing_internal.h"
@@ -57,150 +57,12 @@ int RowArrayAccessor::VarbinaryColumnId(const RowTableMetadata& row_metadata,
   return varbinary_column_id;
 }
 
-int RowArrayAccessor::NumRowsToSkip(const RowTableImpl& rows, int column_id, int num_rows,
-                                    const uint32_t* row_ids, int num_tail_bytes_to_skip) {
-  uint32_t num_bytes_skipped = 0;
-  int num_rows_left = num_rows;
-
-  bool is_fixed_length_column =
-      rows.metadata().column_metadatas[column_id].is_fixed_length;
-
-  if (!is_fixed_length_column) {
-    // Varying length column
-    //
-    int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
-
-    while (num_rows_left > 0 &&
-           num_bytes_skipped < static_cast<uint32_t>(num_tail_bytes_to_skip)) {
-      // Find the pointer to the last requested row
-      //
-      uint32_t last_row_id = row_ids[num_rows_left - 1];
-      const uint8_t* row_ptr = rows.data(2) + rows.offsets()[last_row_id];
-
-      // Find the length of the requested varying length field in that row
-      //
-      uint32_t field_offset_within_row, field_length;
-      if (varbinary_column_id == 0) {
-        rows.metadata().first_varbinary_offset_and_length(
-            row_ptr, &field_offset_within_row, &field_length);
-      } else {
-        rows.metadata().nth_varbinary_offset_and_length(
-            row_ptr, varbinary_column_id, &field_offset_within_row, &field_length);
-      }
-
-      num_bytes_skipped += field_length;
-      --num_rows_left;
-    }
-  } else {
-    // Fixed length column
-    //
-    uint32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
-    uint32_t num_bytes_skipped = 0;
-    while (num_rows_left > 0 &&
-           num_bytes_skipped < static_cast<uint32_t>(num_tail_bytes_to_skip)) {
-      num_bytes_skipped += field_length;
-      --num_rows_left;
-    }
-  }
-
-  return num_rows - num_rows_left;
-}
-
-template <class PROCESS_VALUE_FN>
-void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_rows,
-                             const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
-  bool is_fixed_length_column =
-      rows.metadata().column_metadatas[column_id].is_fixed_length;
-
-  // There are 4 cases, each requiring different steps:
-  // 1. Varying length column that is the first varying length column in a row
-  // 2. Varying length column that is not the first varying length column in a
-  // row
-  // 3. Fixed length column in a fixed length row
-  // 4. Fixed length column in a varying length row
-
-  if (!is_fixed_length_column) {
-    int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
-    const uint8_t* row_ptr_base = rows.data(2);
-    const uint32_t* row_offsets = rows.offsets();
-    uint32_t field_offset_within_row, field_length;
-
-    if (varbinary_column_id == 0) {
-      // Case 1: This is the first varbinary column
-      //
-      for (int i = 0; i < num_rows; ++i) {
-        uint32_t row_id = row_ids[i];
-        const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
-        rows.metadata().first_varbinary_offset_and_length(
-            row_ptr, &field_offset_within_row, &field_length);
-        process_value_fn(i, row_ptr + field_offset_within_row, field_length);
-      }
-    } else {
-      // Case 2: This is second or later varbinary column
-      //
-      for (int i = 0; i < num_rows; ++i) {
-        uint32_t row_id = row_ids[i];
-        const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
-        rows.metadata().nth_varbinary_offset_and_length(
-            row_ptr, varbinary_column_id, &field_offset_within_row, &field_length);
-        process_value_fn(i, row_ptr + field_offset_within_row, field_length);
-      }
-    }
-  }
-
-  if (is_fixed_length_column) {
-    uint32_t field_offset_within_row = rows.metadata().encoded_field_offset(
-        rows.metadata().pos_after_encoding(column_id));
-    uint32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
-    // Bit column is encoded as a single byte
-    //
-    if (field_length == 0) {
-      field_length = 1;
-    }
-    uint32_t row_length = rows.metadata().fixed_length;
-
-    bool is_fixed_length_row = rows.metadata().is_fixed_length;
-    if (is_fixed_length_row) {
-      // Case 3: This is a fixed length column in a fixed length row
-      //
-      const uint8_t* row_ptr_base = rows.data(1) + field_offset_within_row;
-      for (int i = 0; i < num_rows; ++i) {
-        uint32_t row_id = row_ids[i];
-        const uint8_t* row_ptr = row_ptr_base + row_length * row_id;
-        process_value_fn(i, row_ptr, field_length);
-      }
-    } else {
-      // Case 4: This is a fixed length column in a varying length row
-      //
-      const uint8_t* row_ptr_base = rows.data(2) + field_offset_within_row;
-      const uint32_t* row_offsets = rows.offsets();
-      for (int i = 0; i < num_rows; ++i) {
-        uint32_t row_id = row_ids[i];
-        const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
-        process_value_fn(i, row_ptr, field_length);
-      }
-    }
-  }
-}
-
-template <class PROCESS_VALUE_FN>
-void RowArrayAccessor::VisitNulls(const RowTableImpl& rows, int column_id, int num_rows,
-                                  const uint32_t* row_ids,
-                                  PROCESS_VALUE_FN process_value_fn) {
-  const uint8_t* null_masks = rows.null_masks();
-  uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
-  uint32_t pos_after_encoding = rows.metadata().pos_after_encoding(column_id);
-  for (int i = 0; i < num_rows; ++i) {
-    uint32_t row_id = row_ids[i];
-    int64_t bit_id = row_id * null_mask_num_bytes * 8 + pos_after_encoding;
-    process_value_fn(i, bit_util::GetBit(null_masks, bit_id) ? 0xff : 0);
-  }
-}
-
-Status RowArray::InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_metadata) {
+Status RowArray::InitIfNeeded(MemoryPool* pool, int64_t hardware_flags,
+                              const RowTableMetadata& row_metadata) {
   if (is_initialized_) {
     return Status::OK();
   }
+  hardware_flags_ = hardware_flags;
   encoder_.Init(row_metadata.column_metadatas, sizeof(uint64_t), sizeof(uint64_t));
   RETURN_NOT_OK(rows_temp_.Init(pool, row_metadata));
   RETURN_NOT_OK(rows_.Init(pool, row_metadata));
@@ -208,7 +70,8 @@ Status RowArray::InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_meta
   return Status::OK();
 }
 
-Status RowArray::InitIfNeeded(MemoryPool* pool, const ExecBatch& batch) {
+Status RowArray::InitIfNeeded(MemoryPool* pool, int64_t hardware_flags,
+                              const ExecBatch& batch) {
   if (is_initialized_) {
     return Status::OK();
   }
@@ -218,14 +81,15 @@ Status RowArray::InitIfNeeded(MemoryPool* pool, const ExecBatch& batch) {
   row_metadata.FromColumnMetadataVector(column_metadatas, sizeof(uint64_t),
                                         sizeof(uint64_t));
 
-  return InitIfNeeded(pool, row_metadata);
+  return InitIfNeeded(pool, hardware_flags, row_metadata);
 }
 
-Status RowArray::AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch,
-                                      int begin_row_id, int end_row_id, int num_row_ids,
+Status RowArray::AppendBatchSelection(MemoryPool* pool, int64_t hardware_flags,
+                                      const ExecBatch& batch, int begin_row_id,
+                                      int end_row_id, int num_row_ids,
                                       const uint16_t* row_ids,
                                       std::vector<KeyColumnArray>& temp_column_arrays) {
-  RETURN_NOT_OK(InitIfNeeded(pool, batch));
+  RETURN_NOT_OK(InitIfNeeded(pool, hardware_flags, batch));
   RETURN_NOT_OK(ColumnArraysFromExecBatch(batch, begin_row_id, end_row_id - begin_row_id,
                                           &temp_column_arrays));
   encoder_.PrepareEncodeSelected(
@@ -238,7 +102,7 @@ Status RowArray::AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch,
 void RowArray::Compare(const ExecBatch& batch, int begin_row_id, int end_row_id,
                        int num_selected, const uint16_t* batch_selection_maybe_null,
                        const uint32_t* array_row_ids, uint32_t* out_num_not_equal,
-                       uint16_t* out_not_equal_selection, int64_t hardware_flags,
+                       uint16_t* out_not_equal_selection,
                        arrow::util::TempVectorStack* temp_stack,
                        std::vector<KeyColumnArray>& temp_column_arrays,
                        uint8_t* out_match_bitvector_maybe_null) {
@@ -247,7 +111,7 @@ void RowArray::Compare(const ExecBatch& batch, int begin_row_id, int end_row_id,
   ARROW_DCHECK(status.ok());
 
   LightContext ctx;
-  ctx.hardware_flags = hardware_flags;
+  ctx.hardware_flags = hardware_flags_;
   ctx.stack = temp_stack;
   KeyCompare::CompareColumnsToRows(
       num_selected, batch_selection_maybe_null, array_row_ids, &ctx, out_num_not_equal,
@@ -259,6 +123,25 @@ Status RowArray::DecodeSelected(ResizableArrayData* output, int column_id,
                                 int num_rows_to_append, const uint32_t* row_ids,
                                 MemoryPool* pool) const {
   int num_rows_before = output->num_rows();
+#ifdef ARROW_HAVE_RUNTIME_AVX2
+  // Preprocess some rows if necessary to assure that AVX2 version sees 8-row aligned
+  // output address.
+  if ((hardware_flags_ & arrow::internal::CpuInfo::AVX2) && (num_rows_before % 8 != 0) &&
+      (num_rows_to_append >= 8)) {
+    int num_rows_to_preprocess = 8 - num_rows_before % 8;
+    // The output must have allocated enough rows to store this few number of preprocessed
+    // rows without costly resizing the internal buffers.
+    DCHECK_GE(output->num_rows_allocated(), num_rows_before + num_rows_to_preprocess);
+    RETURN_NOT_OK(
+        DecodeSelected(output, column_id, num_rows_to_preprocess, row_ids, pool));
+    return DecodeSelected(output, column_id, num_rows_to_append - num_rows_to_preprocess,
+                          row_ids + num_rows_to_preprocess, pool);
+  }
+
+  bool use_avx2 =
+      (hardware_flags_ & arrow::internal::CpuInfo::AVX2) && (num_rows_before % 8 == 0);
+#endif
+
   RETURN_NOT_OK(output->ResizeFixedLengthBuffers(num_rows_before + num_rows_to_append));
 
   // Both input (KeyRowArray) and output (ResizableArrayData) have buffers with
@@ -267,98 +150,59 @@ Status RowArray::DecodeSelected(ResizableArrayData* output, int column_id,
   //
 
   ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata column_metadata, output->column_metadata());
+  int num_rows_processed = 0;
 
   if (column_metadata.is_fixed_length) {
     uint32_t fixed_length = column_metadata.fixed_length;
-    switch (fixed_length) {
-      case 0:
-        RowArrayAccessor::Visit(rows_, column_id, num_rows_to_append, row_ids,
-                                [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-                                  bit_util::SetBitTo(output->mutable_data(1),
-                                                     num_rows_before + i, *ptr != 0);
-                                });
-        break;
-      case 1:
-        RowArrayAccessor::Visit(rows_, column_id, num_rows_to_append, row_ids,
-                                [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-                                  output->mutable_data(1)[num_rows_before + i] = *ptr;
-                                });
-        break;
-      case 2:
-        RowArrayAccessor::Visit(
-            rows_, column_id, num_rows_to_append, row_ids,
-            [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-              reinterpret_cast<uint16_t*>(output->mutable_data(1))[num_rows_before + i] =
-                  *reinterpret_cast<const uint16_t*>(ptr);
-            });
-        break;
-      case 4:
-        RowArrayAccessor::Visit(
-            rows_, column_id, num_rows_to_append, row_ids,
-            [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-              reinterpret_cast<uint32_t*>(output->mutable_data(1))[num_rows_before + i] =
-                  *reinterpret_cast<const uint32_t*>(ptr);
-            });
-        break;
-      case 8:
-        RowArrayAccessor::Visit(
-            rows_, column_id, num_rows_to_append, row_ids,
-            [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-              reinterpret_cast<uint64_t*>(output->mutable_data(1))[num_rows_before + i] =
-                  *reinterpret_cast<const uint64_t*>(ptr);
-            });
-        break;
-      default:
-        RowArrayAccessor::Visit(
-            rows_, column_id, num_rows_to_append, row_ids,
-            [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-              uint64_t* dst = reinterpret_cast<uint64_t*>(
-                  output->mutable_data(1) + num_bytes * (num_rows_before + i));
-              const uint64_t* src = reinterpret_cast<const uint64_t*>(ptr);
-              for (uint32_t word_id = 0;
-                   word_id < bit_util::CeilDiv(num_bytes, sizeof(uint64_t)); ++word_id) {
-                arrow::util::SafeStore<uint64_t>(dst + word_id,
-                                                 arrow::util::SafeLoad(src + word_id));
-              }
-            });
-        break;
+
+    // Process fixed length columns
+    //
+#ifdef ARROW_HAVE_RUNTIME_AVX2
+    if (use_avx2) {
+      num_rows_processed = DecodeFixedLength_avx2(
+          output, num_rows_before, column_id, fixed_length, num_rows_to_append, row_ids);
     }
+#endif
+    DecodeFixedLength(output, num_rows_before + num_rows_processed, column_id,
+                      fixed_length, num_rows_to_append - num_rows_processed,
+                      row_ids + num_rows_processed);
   } else {
-    uint32_t* offsets =
-        reinterpret_cast<uint32_t*>(output->mutable_data(1)) + num_rows_before;
-    uint32_t sum = num_rows_before == 0 ? 0 : offsets[0];
-    RowArrayAccessor::Visit(
-        rows_, column_id, num_rows_to_append, row_ids,
-        [&](int i, const uint8_t* ptr, uint32_t num_bytes) { offsets[i] = num_bytes; });
-    for (int i = 0; i < num_rows_to_append; ++i) {
-      uint32_t length = offsets[i];
-      offsets[i] = sum;
-      sum += length;
+    // Process offsets for varying length columns
+    //
+#ifdef ARROW_HAVE_RUNTIME_AVX2
+    if (use_avx2) {
+      num_rows_processed = DecodeOffsets_avx2(output, num_rows_before, column_id,
+                                              num_rows_to_append, row_ids);
     }
-    offsets[num_rows_to_append] = sum;
+#endif
+    DecodeOffsets(output, num_rows_before + num_rows_processed, column_id,
+                  num_rows_to_append - num_rows_processed, row_ids + num_rows_processed);
+
     RETURN_NOT_OK(output->ResizeVaryingLengthBuffer());
-    RowArrayAccessor::Visit(
-        rows_, column_id, num_rows_to_append, row_ids,
-        [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-          uint64_t* dst = reinterpret_cast<uint64_t*>(
-              output->mutable_data(2) +
-              reinterpret_cast<const uint32_t*>(
-                  output->mutable_data(1))[num_rows_before + i]);
-          const uint64_t* src = reinterpret_cast<const uint64_t*>(ptr);
-          for (uint32_t word_id = 0;
-               word_id < bit_util::CeilDiv(num_bytes, sizeof(uint64_t)); ++word_id) {
-            arrow::util::SafeStore<uint64_t>(dst + word_id,
-                                             arrow::util::SafeLoad(src + word_id));
-          }
-        });
+
+    // Process data for varying length columns
+    //
+#ifdef ARROW_HAVE_RUNTIME_AVX2
+    if (use_avx2) {
+      num_rows_processed = DecodeVarLength_avx2(output, num_rows_before, column_id,
+                                                num_rows_to_append, row_ids);
+    }
+#endif
+    DecodeVarLength(output, num_rows_before + num_rows_processed, column_id,
+                    num_rows_to_append - num_rows_processed,
+                    row_ids + num_rows_processed);
   }
 
   // Process nulls
   //
-  RowArrayAccessor::VisitNulls(
-      rows_, column_id, num_rows_to_append, row_ids, [&](int i, uint8_t value) {
-        bit_util::SetBitTo(output->mutable_data(0), num_rows_before + i, value == 0);
-      });
+#ifdef ARROW_HAVE_RUNTIME_AVX2
+  if (use_avx2) {
+    num_rows_processed =
+        DecodeNulls_avx2(output, num_rows_before, column_id, num_rows_to_append, row_ids);
+  }
+#endif
+  DecodeNulls(output, num_rows_before + num_rows_processed, column_id,
+              num_rows_to_append - num_rows_processed, row_ids + num_rows_processed);
 
   return Status::OK();
 }
@@ -437,16 +281,125 @@ void RowArray::DebugPrintToFile(const char* filename, bool print_sorted) const {
   }
 }
 
+void RowArray::DecodeFixedLength(ResizableArrayData* output, int output_start_row,
+                                 int column_id, uint32_t fixed_length,
+                                 int num_rows_to_append, const uint32_t* row_ids) const {
+  switch (fixed_length) {
+    case 0:
+      RowArrayAccessor::Visit(rows_, column_id, num_rows_to_append, row_ids,
+                              [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+                                bit_util::SetBitTo(output->mutable_data(1),
+                                                   output_start_row + i, *ptr != 0);
+                              });
+      break;
+    case 1:
+      RowArrayAccessor::Visit(rows_, column_id, num_rows_to_append, row_ids,
+                              [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+                                output->mutable_data(1)[output_start_row + i] = *ptr;
+                              });
+      break;
+    case 2:
+      RowArrayAccessor::Visit(
+          rows_, column_id, num_rows_to_append, row_ids,
+          [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+            output->mutable_data_as<uint16_t>(1)[output_start_row + i] =
+                *reinterpret_cast<const uint16_t*>(ptr);
+          });
+      break;
+    case 4:
+      RowArrayAccessor::Visit(
+          rows_, column_id, num_rows_to_append, row_ids,
+          [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+            output->mutable_data_as<uint32_t>(1)[output_start_row + i] =
+                *reinterpret_cast<const uint32_t*>(ptr);
+          });
+      break;
+    case 8:
+      RowArrayAccessor::Visit(
+          rows_, column_id, num_rows_to_append, row_ids,
+          [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+            output->mutable_data_as<uint64_t>(1)[output_start_row + i] =
+                *reinterpret_cast<const uint64_t*>(ptr);
+          });
+      break;
+    default:
+      RowArrayAccessor::Visit(
+          rows_, column_id, num_rows_to_append, row_ids,
+          [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+            uint64_t* dst = reinterpret_cast<uint64_t*>(
+                output->mutable_data(1) + num_bytes * (output_start_row + i));
+            const uint64_t* src = reinterpret_cast<const uint64_t*>(ptr);
+            // Note that both `output` and `ptr` have been allocated with enough padding
+            // to accommodate the memory overshoot. See the allocations for
+            // `ResizableArrayData` in `JoinResultMaterialize` and `JoinResidualFilter`
+            // for `output`, and `RowTableImpl::kPaddingForVectors` for `ptr`.
+            for (uint32_t word_id = 0;
+                 word_id < bit_util::CeilDiv(num_bytes, sizeof(uint64_t)); ++word_id) {
+              arrow::util::SafeStore<uint64_t>(dst + word_id,
+                                               arrow::util::SafeLoad(src + word_id));
+            }
+          });
+      break;
+  }
+}
+
+void RowArray::DecodeOffsets(ResizableArrayData* output, int output_start_row,
+                             int column_id, int num_rows_to_append,
+                             const uint32_t* row_ids) const {
+  uint32_t* offsets = output->mutable_data_as<uint32_t>(1) + output_start_row;
+  uint32_t sum = (output_start_row == 0) ? 0 : offsets[0];
+  RowArrayAccessor::Visit(
+      rows_, column_id, num_rows_to_append, row_ids,
+      [&](int i, const uint8_t* ptr, uint32_t num_bytes) { offsets[i] = num_bytes; });
+  for (int i = 0; i < num_rows_to_append; ++i) {
+    uint32_t length = offsets[i];
+    offsets[i] = sum;
+    sum += length;
+  }
+  offsets[num_rows_to_append] = sum;
+}
+
+void RowArray::DecodeVarLength(ResizableArrayData* output, int output_start_row,
+                               int column_id, int num_rows_to_append,
+                               const uint32_t* row_ids) const {
+  RowArrayAccessor::Visit(
+      rows_, column_id, num_rows_to_append, row_ids,
+      [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+        uint64_t* dst = reinterpret_cast<uint64_t*>(
+            output->mutable_data(2) +
+            output->mutable_data_as<uint32_t>(1)[output_start_row + i]);
+        const uint64_t* src = reinterpret_cast<const uint64_t*>(ptr);
+        // Note that both `output` and `ptr` have been allocated with enough padding to
+        // accommodate the memory overshoot. See the allocations for `ResizableArrayData`
+        // in `JoinResultMaterialize` and `JoinResidualFilter` for `output`, and
+        // `RowTableImpl::kPaddingForVectors` for `ptr`.
+        for (uint32_t word_id = 0;
+             word_id < bit_util::CeilDiv(num_bytes, sizeof(uint64_t)); ++word_id) {
+          arrow::util::SafeStore<uint64_t>(dst + word_id,
+                                           arrow::util::SafeLoad(src + word_id));
+        }
+      });
+}
+
+void RowArray::DecodeNulls(ResizableArrayData* output, int output_start_row,
+                           int column_id, int num_rows_to_append,
+                           const uint32_t* row_ids) const {
+  RowArrayAccessor::VisitNulls(
+      rows_, column_id, num_rows_to_append, row_ids, [&](int i, uint8_t value) {
+        bit_util::SetBitTo(output->mutable_data(0), output_start_row + i, value == 0);
+      });
+}
+
 Status RowArrayMerge::PrepareForMerge(RowArray* target,
                                       const std::vector<RowArray*>& sources,
                                       std::vector<int64_t>* first_target_row_id,
-                                      MemoryPool* pool) {
+                                      MemoryPool* pool, int64_t hardware_flags) {
   ARROW_DCHECK(!sources.empty());
 
   ARROW_DCHECK(sources[0]->is_initialized_);
   const RowTableMetadata& metadata = sources[0]->rows_.metadata();
   ARROW_DCHECK(!target->is_initialized_);
-  RETURN_NOT_OK(target->InitIfNeeded(pool, metadata));
+  RETURN_NOT_OK(target->InitIfNeeded(pool, hardware_flags, metadata));
 
   // Sum the number of rows from all input sources and calculate their total
   // size.
@@ -473,17 +426,10 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     (*first_target_row_id)[sources.size()] = num_rows;
   }
 
-  if (num_bytes > std::numeric_limits<uint32_t>::max()) {
-    return Status::Invalid(
-        "There are more than 2^32 bytes of key data.  Acero cannot "
-        "process a join of this magnitude");
-  }
-
   // Allocate target memory
   //
   target->rows_.Clean();
-  RETURN_NOT_OK(target->rows_.AppendEmpty(static_cast<uint32_t>(num_rows),
-                                          static_cast<uint32_t>(num_bytes)));
+  RETURN_NOT_OK(target->rows_.AppendEmpty(static_cast<uint32_t>(num_rows), num_bytes));
 
   // In case of varying length rows,
   // initialize the first row offset for each range of rows corresponding to a
@@ -493,11 +439,11 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     num_rows = 0;
     num_bytes = 0;
     for (size_t i = 0; i < sources.size(); ++i) {
-      target->rows_.mutable_offsets()[num_rows] = static_cast<uint32_t>(num_bytes);
+      target->rows_.mutable_offsets()[num_rows] = num_bytes;
       num_rows += sources[i]->rows_.length();
       num_bytes += sources[i]->rows_.offsets()[sources[i]->rows_.length()];
     }
-    target->rows_.mutable_offsets()[num_rows] = static_cast<uint32_t>(num_bytes);
+    target->rows_.mutable_offsets()[num_rows] = num_bytes;
   }
 
   return Status::OK();
@@ -531,14 +477,15 @@ void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& so
                                     const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
 
-  int64_t fixed_length = target->metadata().fixed_length;
+  uint32_t fixed_length = target->metadata().fixed_length;
 
   // Permutation of source rows is optional. Without permutation all that is
   // needed is memcpy.
   //
   if (!source_rows_permutation) {
-    memcpy(target->mutable_data(1) + fixed_length * first_target_row_id, source.data(1),
-           fixed_length * num_source_rows);
+    DCHECK_LE(first_target_row_id, std::numeric_limits<uint32_t>::max());
+    memcpy(target->mutable_fixed_length_rows(static_cast<uint32_t>(first_target_row_id)),
+           source.fixed_length_rows(/*row_id=*/0), fixed_length * num_source_rows);
   } else {
     // Row length must be a multiple of 64-bits due to enforced alignment.
     // Loop for each output row copying a fixed number of 64-bit words.
@@ -548,10 +495,13 @@ void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& so
     int64_t num_words_per_row = fixed_length / sizeof(uint64_t);
     for (int64_t i = 0; i < num_source_rows; ++i) {
       int64_t source_row_id = source_rows_permutation[i];
+      DCHECK_LE(source_row_id, std::numeric_limits<uint32_t>::max());
       const uint64_t* source_row_ptr = reinterpret_cast<const uint64_t*>(
-          source.data(1) + fixed_length * source_row_id);
+          source.fixed_length_rows(static_cast<uint32_t>(source_row_id)));
+      int64_t target_row_id = first_target_row_id + i;
+      DCHECK_LE(target_row_id, std::numeric_limits<uint32_t>::max());
       uint64_t* target_row_ptr = reinterpret_cast<uint64_t*>(
-          target->mutable_data(1) + fixed_length * (first_target_row_id + i));
+          target->mutable_fixed_length_rows(static_cast<uint32_t>(target_row_id)));
 
       for (int64_t word = 0; word < num_words_per_row; ++word) {
         target_row_ptr[word] = source_row_ptr[word];
@@ -565,15 +515,15 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
                                       int64_t first_target_row_offset,
                                       const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
-  uint32_t* target_offsets = target->mutable_offsets();
-  const uint32_t* source_offsets = source.offsets();
+  RowTableImpl::offset_type* target_offsets = target->mutable_offsets();
+  const RowTableImpl::offset_type* source_offsets = source.offsets();
 
   // Permutation of source rows is optional.
   //
   if (!source_rows_permutation) {
     int64_t target_row_offset = first_target_row_offset;
     for (int64_t i = 0; i < num_source_rows; ++i) {
-      target_offsets[first_target_row_id + i] = static_cast<uint32_t>(target_row_offset);
+      target_offsets[first_target_row_id + i] = target_row_offset;
       target_row_offset += source_offsets[i + 1] - source_offsets[i];
     }
     // We purposefully skip outputting of N+1 offset, to allow concurrent
@@ -583,17 +533,20 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
 
     // We can simply memcpy bytes of rows if their order has not changed.
     //
-    memcpy(target->mutable_data(2) + target_offsets[first_target_row_id], source.data(2),
-           source_offsets[num_source_rows] - source_offsets[0]);
+    memcpy(target->mutable_var_length_rows() + target_offsets[first_target_row_id],
+           source.var_length_rows(), source_offsets[num_source_rows] - source_offsets[0]);
   } else {
     int64_t target_row_offset = first_target_row_offset;
-    uint64_t* target_row_ptr =
-        reinterpret_cast<uint64_t*>(target->mutable_data(2) + target_row_offset);
+    uint64_t* target_row_ptr = reinterpret_cast<uint64_t*>(
+        target->mutable_var_length_rows() + target_row_offset);
     for (int64_t i = 0; i < num_source_rows; ++i) {
       int64_t source_row_id = source_rows_permutation[i];
       const uint64_t* source_row_ptr = reinterpret_cast<const uint64_t*>(
-          source.data(2) + source_offsets[source_row_id]);
-      uint32_t length = source_offsets[source_row_id + 1] - source_offsets[source_row_id];
+          source.var_length_rows() + source_offsets[source_row_id]);
+      int64_t length = source_offsets[source_row_id + 1] - source_offsets[source_row_id];
+      // Though the row offset is 64-bit, the length of a single row must be 32-bit as
+      // required by current row table implementation.
+      DCHECK_LE(length, std::numeric_limits<uint32_t>::max());
 
       // Rows should be 64-bit aligned.
       // In that case we can copy them using a sequence of 64-bit read/writes.
@@ -604,7 +557,7 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
         *target_row_ptr++ = *source_row_ptr++;
       }
 
-      target_offsets[first_target_row_id + i] = static_cast<uint32_t>(target_row_offset);
+      target_offsets[first_target_row_id + i] = target_row_offset;
       target_row_offset += length;
     }
   }
@@ -615,14 +568,18 @@ void RowArrayMerge::CopyNulls(RowTableImpl* target, const RowTableImpl& source,
                               const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
   int num_bytes_per_row = target->metadata().null_masks_bytes_per_row;
-  uint8_t* target_nulls = target->null_masks() + num_bytes_per_row * first_target_row_id;
+  DCHECK_LE(first_target_row_id, std::numeric_limits<uint32_t>::max());
+  uint8_t* target_nulls =
+      target->mutable_null_masks(static_cast<uint32_t>(first_target_row_id));
   if (!source_rows_permutation) {
-    memcpy(target_nulls, source.null_masks(), num_bytes_per_row * num_source_rows);
+    memcpy(target_nulls, source.null_masks(/*row_id=*/0),
+           num_bytes_per_row * num_source_rows);
   } else {
-    for (int64_t i = 0; i < num_source_rows; ++i) {
+    for (uint32_t i = 0; i < num_source_rows; ++i) {
       int64_t source_row_id = source_rows_permutation[i];
+      DCHECK_LE(source_row_id, std::numeric_limits<uint32_t>::max());
       const uint8_t* source_nulls =
-          source.null_masks() + num_bytes_per_row * source_row_id;
+          source.null_masks(static_cast<uint32_t>(source_row_id));
       for (int64_t byte = 0; byte < num_bytes_per_row; ++byte) {
         *target_nulls++ = *source_nulls++;
       }
@@ -686,37 +643,38 @@ void SwissTableMerge::MergePartition(SwissTable* target, const SwissTable* sourc
   //
   int source_group_id_bits =
       SwissTable::num_groupid_bits_from_log_blocks(source->log_blocks());
-  uint64_t source_group_id_mask = ~0ULL >> (64 - source_group_id_bits);
-  int64_t source_block_bytes = source_group_id_bits + 8;
+  int source_block_bytes =
+      SwissTable::num_block_bytes_from_num_groupid_bits(source_group_id_bits);
+  uint32_t source_group_id_mask =
+      SwissTable::group_id_mask_from_num_groupid_bits(source_group_id_bits);
   ARROW_DCHECK(source_block_bytes % sizeof(uint64_t) == 0);
 
   // Compute index of the last block in target that corresponds to the given
   // partition.
   //
   ARROW_DCHECK(num_partition_bits <= target->log_blocks());
-  int64_t target_max_block_id =
+  uint32_t target_max_block_id =
       ((partition_id + 1) << (target->log_blocks() - num_partition_bits)) - 1;
 
   overflow_group_ids->clear();
   overflow_hashes->clear();
 
   // For each source block...
-  int64_t source_blocks = 1LL << source->log_blocks();
-  for (int64_t block_id = 0; block_id < source_blocks; ++block_id) {
-    uint8_t* block_bytes = source->blocks() + block_id * source_block_bytes;
+  uint32_t source_blocks = 1 << source->log_blocks();
+  for (uint32_t block_id = 0; block_id < source_blocks; ++block_id) {
+    const uint8_t* block_bytes = source->block_data(block_id, source_block_bytes);
     uint64_t block = *reinterpret_cast<const uint64_t*>(block_bytes);
 
     // For each non-empty source slot...
     constexpr uint64_t kHighBitOfEachByte = 0x8080808080808080ULL;
-    constexpr int kSlotsPerBlock = 8;
-    int num_full_slots =
-        kSlotsPerBlock - static_cast<int>(ARROW_POPCOUNT64(block & kHighBitOfEachByte));
+    int num_full_slots = SwissTable::kSlotsPerBlock -
+                         static_cast<int>(ARROW_POPCOUNT64(block & kHighBitOfEachByte));
     for (int local_slot_id = 0; local_slot_id < num_full_slots; ++local_slot_id) {
       // Read group id and hash for this slot.
       //
-      uint64_t group_id =
-          source->extract_group_id(block_bytes, local_slot_id, source_group_id_mask);
-      int64_t global_slot_id = block_id * kSlotsPerBlock + local_slot_id;
+      uint32_t group_id = SwissTable::extract_group_id(
+          block_bytes, local_slot_id, source_group_id_bits, source_group_id_mask);
+      uint32_t global_slot_id = SwissTable::global_slot_id(block_id, local_slot_id);
       uint32_t hash = source->hashes()[global_slot_id];
       // Insert partition id into the highest bits of hash, shifting the
       // remaining hash bits right.
@@ -739,17 +697,18 @@ void SwissTableMerge::MergePartition(SwissTable* target, const SwissTable* sourc
   }
 }
 
-inline bool SwissTableMerge::InsertNewGroup(SwissTable* target, uint64_t group_id,
-                                            uint32_t hash, int64_t max_block_id) {
+inline bool SwissTableMerge::InsertNewGroup(SwissTable* target, uint32_t group_id,
+                                            uint32_t hash, uint32_t max_block_id) {
   // Load the first block to visit for this hash
   //
-  int64_t block_id = hash >> (SwissTable::bits_hash_ - target->log_blocks());
-  int64_t block_id_mask = ((1LL << target->log_blocks()) - 1);
+  uint32_t block_id = SwissTable::block_id_from_hash(hash, target->log_blocks());
+  uint32_t block_id_mask = (1 << target->log_blocks()) - 1;
   int num_group_id_bits =
       SwissTable::num_groupid_bits_from_log_blocks(target->log_blocks());
-  int64_t num_block_bytes = num_group_id_bits + sizeof(uint64_t);
+  int num_block_bytes =
+      SwissTable::num_block_bytes_from_num_groupid_bits(num_group_id_bits);
   ARROW_DCHECK(num_block_bytes % sizeof(uint64_t) == 0);
-  uint8_t* block_bytes = target->blocks() + block_id * num_block_bytes;
+  const uint8_t* block_bytes = target->block_data(block_id, num_block_bytes);
   uint64_t block = *reinterpret_cast<const uint64_t*>(block_bytes);
 
   // Search for the first block with empty slots.
@@ -758,25 +717,23 @@ inline bool SwissTableMerge::InsertNewGroup(SwissTable* target, uint64_t group_i
   constexpr uint64_t kHighBitOfEachByte = 0x8080808080808080ULL;
   while ((block & kHighBitOfEachByte) == 0 && block_id < max_block_id) {
     block_id = (block_id + 1) & block_id_mask;
-    block_bytes = target->blocks() + block_id * num_block_bytes;
+    block_bytes = target->block_data(block_id, num_block_bytes);
     block = *reinterpret_cast<const uint64_t*>(block_bytes);
   }
   if ((block & kHighBitOfEachByte) == 0) {
     return false;
   }
-  constexpr int kSlotsPerBlock = 8;
-  int local_slot_id =
-      kSlotsPerBlock - static_cast<int>(ARROW_POPCOUNT64(block & kHighBitOfEachByte));
-  int64_t global_slot_id = block_id * kSlotsPerBlock + local_slot_id;
-  target->insert_into_empty_slot(static_cast<uint32_t>(global_slot_id), hash,
-                                 static_cast<uint32_t>(group_id));
+  int local_slot_id = SwissTable::kSlotsPerBlock -
+                      static_cast<int>(ARROW_POPCOUNT64(block & kHighBitOfEachByte));
+  uint32_t global_slot_id = SwissTable::global_slot_id(block_id, local_slot_id);
+  target->insert_into_empty_slot(global_slot_id, hash, group_id);
   return true;
 }
 
 void SwissTableMerge::InsertNewGroups(SwissTable* target,
                                       const std::vector<uint32_t>& group_ids,
                                       const std::vector<uint32_t>& hashes) {
-  int64_t num_blocks = 1LL << target->log_blocks();
+  uint32_t num_blocks = 1 << target->log_blocks();
   for (size_t i = 0; i < group_ids.size(); ++i) {
     std::ignore = InsertNewGroup(target, group_ids[i], hashes[i], num_blocks);
   }
@@ -899,8 +856,8 @@ void SwissTableWithKeys::EqualCallback(int num_keys, const uint16_t* selection_m
     uint8_t* match_bitvector = match_bitvector_buf.mutable_data();
 
     keys_.Compare(*in->batch, batch_start_to_use, batch_end_to_use, num_keys,
-                  selection_to_use, group_ids_to_use, nullptr, nullptr, hardware_flags,
-                  in->temp_stack, *in->temp_column_arrays, match_bitvector);
+                  selection_to_use, group_ids_to_use, nullptr, nullptr, in->temp_stack,
+                  *in->temp_column_arrays, match_bitvector);
 
     if (selection_maybe_null) {
       int num_keys_mismatch = 0;
@@ -922,8 +879,7 @@ void SwissTableWithKeys::EqualCallback(int num_keys, const uint16_t* selection_m
     group_ids_to_use = group_ids;
     keys_.Compare(*in->batch, batch_start_to_use, batch_end_to_use, num_keys,
                   selection_to_use, group_ids_to_use, out_num_keys_mismatch,
-                  out_selection_mismatch, hardware_flags, in->temp_stack,
-                  *in->temp_column_arrays);
+                  out_selection_mismatch, in->temp_stack, *in->temp_column_arrays);
   }
 }
 
@@ -948,16 +904,18 @@ Status SwissTableWithKeys::AppendCallback(int num_keys, const uint16_t* selectio
     batch_end_to_use = static_cast<int>(in->batch->length);
     selection_to_use = selection_to_use_buf.mutable_data();
 
-    return keys_.AppendBatchSelection(swiss_table_.pool(), *in->batch, batch_start_to_use,
-                                      batch_end_to_use, num_keys, selection_to_use,
+    return keys_.AppendBatchSelection(swiss_table_.pool(), swiss_table_.hardware_flags(),
+                                      *in->batch, batch_start_to_use, batch_end_to_use,
+                                      num_keys, selection_to_use,
                                       *in->temp_column_arrays);
   } else {
     batch_start_to_use = in->batch_start_row;
     batch_end_to_use = in->batch_end_row;
     selection_to_use = selection;
 
-    return keys_.AppendBatchSelection(swiss_table_.pool(), *in->batch, batch_start_to_use,
-                                      batch_end_to_use, num_keys, selection_to_use,
+    return keys_.AppendBatchSelection(swiss_table_.pool(), swiss_table_.hardware_flags(),
+                                      *in->batch, batch_start_to_use, batch_end_to_use,
+                                      num_keys, selection_to_use,
                                       *in->temp_column_arrays);
   }
 }
@@ -1181,8 +1139,10 @@ Status SwissTableForJoinBuild::Init(SwissTableForJoin* target, int dop, int64_t 
   for (int i = 0; i < num_prtns_; ++i) {
     PartitionState& prtn_state = prtn_states_[i];
     RETURN_NOT_OK(prtn_state.keys.Init(hardware_flags_, pool_));
-    RETURN_NOT_OK(prtn_state.keys.keys()->InitIfNeeded(pool, key_row_metadata));
-    RETURN_NOT_OK(prtn_state.payloads.InitIfNeeded(pool, payload_row_metadata));
+    RETURN_NOT_OK(
+        prtn_state.keys.keys()->InitIfNeeded(pool, hardware_flags, key_row_metadata));
+    RETURN_NOT_OK(
+        prtn_state.payloads.InitIfNeeded(pool, hardware_flags, payload_row_metadata));
   }
 
   target_->dop_ = dop_;
@@ -1231,7 +1191,7 @@ Status SwissTableForJoinBuild::PushNextBatch(int64_t thread_id,
           // We want each partition to correspond to a range of block indices,
           // so we also partition on the highest bits of the hash.
           //
-          return locals.batch_hashes[i] >> (31 - log_num_prtns_) >> 1;
+          return locals.batch_hashes[i] >> (SwissTable::bits_hash_ - log_num_prtns_);
         },
         [&locals](int64_t i, int pos) {
           locals.batch_prtn_row_ids[pos] = static_cast<uint16_t>(i);
@@ -1298,7 +1258,7 @@ Status SwissTableForJoinBuild::ProcessPartition(int64_t thread_id,
   if (!no_payload_) {
     ARROW_DCHECK(payload_batch_maybe_null);
     RETURN_NOT_OK(prtn_state.payloads.AppendBatchSelection(
-        pool_, *payload_batch_maybe_null, 0,
+        pool_, hardware_flags_, *payload_batch_maybe_null, 0,
         static_cast<int>(payload_batch_maybe_null->length), num_rows_new, row_ids,
         locals.temp_column_arrays));
   }
@@ -1328,7 +1288,8 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
     partition_keys[i] = prtn_states_[i].keys.keys();
   }
   RETURN_NOT_OK(RowArrayMerge::PrepareForMerge(target_->map_.keys(), partition_keys,
-                                               &partition_keys_first_row_id_, pool_));
+                                               &partition_keys_first_row_id_, pool_,
+                                               hardware_flags_));
 
   // 2. SwissTable:
   //
@@ -1350,8 +1311,8 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
       partition_payloads[i] = &prtn_states_[i].payloads;
     }
     RETURN_NOT_OK(RowArrayMerge::PrepareForMerge(&target_->payloads_, partition_payloads,
-                                                 &partition_payloads_first_row_id_,
-                                                 pool_));
+                                                 &partition_payloads_first_row_id_, pool_,
+                                                 hardware_flags_));
   }
 
   // Check if we have duplicate keys
@@ -1503,7 +1464,7 @@ void SwissTableForJoinBuild::FinishPrtnMerge(arrow::util::TempVectorStack* temp_
   LightContext ctx;
   ctx.hardware_flags = hardware_flags_;
   ctx.stack = temp_stack;
-  std::ignore = target_->map_.keys()->rows_.has_any_nulls(&ctx);
+  target_->map_.keys()->EnsureHasAnyNullsComputed(ctx);
 }
 
 void JoinResultMaterialize::Init(MemoryPool* pool,
@@ -1671,7 +1632,9 @@ Result<std::shared_ptr<ArrayData>> JoinResultMaterialize::FlushBuildColumn(
     const std::shared_ptr<DataType>& data_type, const RowArray* row_array, int column_id,
     uint32_t* row_ids) {
   ResizableArrayData output;
-  output.Init(data_type, pool_, bit_util::Log2(num_rows_));
+  // Allocate at least 8 rows for the convenience of SIMD decoding.
+  int log_num_rows_min = std::max(3, bit_util::Log2(num_rows_));
+  RETURN_NOT_OK(output.Init(data_type, pool_, log_num_rows_min));
 
   for (size_t i = 0; i <= null_ranges_.size(); ++i) {
     int row_id_begin =
@@ -2251,8 +2214,11 @@ Result<ExecBatch> JoinResidualFilter::MaterializeFilterInput(
         build_schemas_->map(HashJoinProjection::FILTER, HashJoinProjection::PAYLOAD);
     for (int i = 0; i < num_build_cols; ++i) {
       ResizableArrayData column_data;
-      column_data.Init(build_schemas_->data_type(HashJoinProjection::FILTER, i), pool_,
-                       bit_util::Log2(num_batch_rows));
+      // Allocate at least 8 rows for the convenience of SIMD decoding.
+      int log_num_rows_min = std::max(3, bit_util::Log2(num_batch_rows));
+      RETURN_NOT_OK(
+          column_data.Init(build_schemas_->data_type(HashJoinProjection::FILTER, i),
+                           pool_, log_num_rows_min));
       if (auto idx = to_key.get(i); idx != SchemaProjectionMap::kMissingField) {
         RETURN_NOT_OK(build_keys_->DecodeSelected(&column_data, idx, num_batch_rows,
                                                   key_ids_maybe_null, pool_));
@@ -2504,7 +2470,6 @@ class SwissJoin : public HashJoinImpl {
     output_batch_callback_ = std::move(output_batch_callback);
     finished_callback_ = std::move(finished_callback);
 
-    hash_table_ready_.store(false);
     cancelled_.store(false);
     {
       std::lock_guard<std::mutex> lock(state_mutex_);
@@ -2516,7 +2481,6 @@ class SwissJoin : public HashJoinImpl {
     local_states_.resize(num_threads_);
     for (int i = 0; i < num_threads_; ++i) {
       RETURN_NOT_OK(local_states_[i].stack.Init(pool_, kTempStackUsage));
-      local_states_[i].hash_table_ready = false;
       local_states_[i].num_output_batches = 0;
       local_states_[i].materialize.Init(pool_, proj_map_left, proj_map_right);
     }
@@ -2561,11 +2525,6 @@ class SwissJoin : public HashJoinImpl {
     if (IsCancelled()) {
       return status();
     }
-
-    if (!local_states_[thread_index].hash_table_ready) {
-      local_states_[thread_index].hash_table_ready = hash_table_ready_.load();
-    }
-    ARROW_DCHECK(local_states_[thread_index].hash_table_ready);
 
     ExecBatch keypayload_batch;
     ARROW_ASSIGN_OR_RAISE(keypayload_batch, KeyPayloadFromInput(/*side=*/0, &batch));
@@ -2631,7 +2590,8 @@ class SwissJoin : public HashJoinImpl {
           ColumnMetadataFromDataType(schema->data_type(HashJoinProjection::PAYLOAD, i)));
       payload_types.push_back(metadata);
     }
-    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.Init(
+    hash_table_build_ = std::make_unique<SwissTableForJoinBuild>();
+    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_->Init(
         &hash_table_, num_threads_, build_side_batches_.row_count(),
         reject_duplicate_keys, no_payload, key_types, payload_types, pool_,
         hardware_flags_)));
@@ -2647,16 +2607,15 @@ class SwissJoin : public HashJoinImpl {
       return Status::OK();
     }
 
+    DCHECK_GT(build_side_batches_[batch_id].length, 0);
+
     const HashJoinProjectionMaps* schema = schema_[1];
-    bool no_payload = hash_table_build_.no_payload();
+    DCHECK_NE(hash_table_build_, nullptr);
+    bool no_payload = hash_table_build_->no_payload();
 
     ExecBatch input_batch;
     ARROW_ASSIGN_OR_RAISE(
         input_batch, KeyPayloadFromInput(/*side=*/1, &build_side_batches_[batch_id]));
-
-    if (input_batch.length == 0) {
-      return Status::OK();
-    }
 
     // Split batch into key batch and optional payload batch
     //
@@ -2682,13 +2641,10 @@ class SwissJoin : public HashJoinImpl {
       }
     }
     arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
-    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PushNextBatch(
+    DCHECK_NE(hash_table_build_, nullptr);
+    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_->PushNextBatch(
         static_cast<int64_t>(thread_id), key_batch, no_payload ? nullptr : &payload_batch,
         temp_stack)));
-
-    // Release input batch
-    //
-    input_batch.values.clear();
 
     return Status::OK();
   }
@@ -2701,23 +2657,26 @@ class SwissJoin : public HashJoinImpl {
     // On a single thread prepare for merging partitions of the resulting hash
     // table.
     //
-    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PreparePrtnMerge()));
+    DCHECK_NE(hash_table_build_, nullptr);
+    RETURN_NOT_OK(CancelIfNotOK(hash_table_build_->PreparePrtnMerge()));
     return CancelIfNotOK(
-        start_task_group_callback_(task_group_merge_, hash_table_build_.num_prtns()));
+        start_task_group_callback_(task_group_merge_, hash_table_build_->num_prtns()));
   }
 
   Status MergeTask(size_t /*thread_id*/, int64_t prtn_id) {
     if (IsCancelled()) {
       return Status::OK();
     }
-    hash_table_build_.PrtnMerge(static_cast<int>(prtn_id));
+    DCHECK_NE(hash_table_build_, nullptr);
+    hash_table_build_->PrtnMerge(static_cast<int>(prtn_id));
     return Status::OK();
   }
 
   Status MergeFinished(size_t thread_id) {
     RETURN_NOT_OK(status());
     arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
-    hash_table_build_.FinishPrtnMerge(temp_stack);
+    DCHECK_NE(hash_table_build_, nullptr);
+    hash_table_build_->FinishPrtnMerge(temp_stack);
     return CancelIfNotOK(OnBuildHashTableFinished(static_cast<int64_t>(thread_id)));
   }
 
@@ -2726,12 +2685,14 @@ class SwissJoin : public HashJoinImpl {
       return status();
     }
 
+    DCHECK_NE(hash_table_build_, nullptr);
+    hash_table_build_.reset();
+
     for (int i = 0; i < num_threads_; ++i) {
       local_states_[i].materialize.SetBuildSide(hash_table_.keys()->keys(),
                                                 hash_table_.payloads(),
                                                 hash_table_.key_to_payload() == nullptr);
     }
-    hash_table_ready_.store(true);
 
     residual_filter_.OnBuildFinished();
 
@@ -2952,14 +2913,14 @@ class SwissJoin : public HashJoinImpl {
     JoinResultMaterialize materialize;
     std::vector<KeyColumnArray> temp_column_arrays;
     int64_t num_output_batches;
-    bool hash_table_ready;
   };
   std::vector<ThreadLocalState> local_states_;
 
   SwissTableForJoin hash_table_;
   JoinProbeProcessor probe_processor_;
   JoinResidualFilter residual_filter_;
-  SwissTableForJoinBuild hash_table_build_;
+  // Temporarily used during build phase, and released afterward.
+  std::unique_ptr<SwissTableForJoinBuild> hash_table_build_;
   AccumulationQueue build_side_batches_;
 
   // Atomic state flags.
@@ -2969,7 +2930,6 @@ class SwissJoin : public HashJoinImpl {
   // The other flags that follow them, protected by mutex, will be queried or
   // updated only a fixed number of times during entire join processing.
   //
-  std::atomic<bool> hash_table_ready_;
   std::atomic<bool> cancelled_;
 
   // Mutex protecting state flags.
@@ -2985,7 +2945,7 @@ class SwissJoin : public HashJoinImpl {
 
 Result<std::unique_ptr<HashJoinImpl>> HashJoinImpl::MakeSwiss() {
   std::unique_ptr<HashJoinImpl> impl{new SwissJoin()};
-  return std::move(impl);
+  return impl;
 }
 
 }  // namespace acero

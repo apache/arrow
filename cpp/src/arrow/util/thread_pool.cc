@@ -52,10 +52,28 @@ struct Task {
   Executor::StopCallback stop_callback;
 };
 
+struct QueuedTask {
+  Task task;
+  int32_t priority;
+  uint64_t spawn_index;
+
+  // Implement comparison so that std::priority_queue will pop the low priorities more
+  // urgently.
+  bool operator<(const QueuedTask& other) const {
+    if (priority == other.priority) {
+      // Maintain execution order for tasks with the same priority. Its preferable to keep
+      // the execution order of tasks deterministic.
+      return spawn_index > other.spawn_index;
+    }
+    return priority > other.priority;
+  }
+};
+
 }  // namespace
 
 struct SerialExecutor::State {
-  std::deque<Task> task_queue;
+  std::priority_queue<QueuedTask> task_queue;
+  uint64_t spawned_tasks_count_ = 0;
   std::mutex mutex;
   std::condition_variable wait_for_tasks;
   std::thread::id current_thread;
@@ -128,7 +146,7 @@ int SerialExecutor::GetNumTasks() {
 #ifdef ARROW_ENABLE_THREADING
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
-#ifdef ARROW_WITH_OPENTELEMETRY
+#  ifdef ARROW_WITH_OPENTELEMETRY
   // Wrap the task to propagate a parent tracing span to it
   // XXX should there be a generic utility in tracing_internal.h for this?
   task = [func = std::move(task),
@@ -137,7 +155,7 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
     auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
     std::move(func)();
   };
-#endif
+#  endif
   // While the SerialExecutor runs tasks synchronously on its main thread,
   // SpawnReal may be called from external threads (e.g. when transferring back
   // from blocking I/O threads), so we need to keep the state alive *and* to
@@ -153,8 +171,9 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
           "Attempt to schedule a task on a serial executor that has already finished or "
           "been abandoned");
     }
-    state->task_queue.push_back(
-        Task{std::move(task), std::move(stop_token), std::move(stop_callback)});
+    state->task_queue.push(QueuedTask{std::move(task), std::move(stop_token),
+                                      std::move(stop_callback), hints.priority,
+                                      state_->spawned_tasks_count_++});
   }
   state->wait_for_tasks.notify_one();
   return Status::OK();
@@ -172,7 +191,7 @@ void SerialExecutor::Finish() {
 #else  // ARROW_ENABLE_THREADING
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
-#ifdef ARROW_WITH_OPENTELEMETRY
+#  ifdef ARROW_WITH_OPENTELEMETRY
   // Wrap the task to propagate a parent tracing span to it
   // XXX should there be a generic utility in tracing_internal.h for this?
   task = [func = std::move(task),
@@ -181,7 +200,7 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
     auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
     std::move(func)();
   };
-#endif  // ARROW_WITH_OPENTELEMETRY
+#  endif  // ARROW_WITH_OPENTELEMETRY
 
   if (state_->finished) {
     return Status::Invalid(
@@ -189,8 +208,9 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
         "been abandoned");
   }
 
-  state_->task_queue.push_back(
-      Task{std::move(task), std::move(stop_token), std::move(stop_callback)});
+  state_->task_queue.push(QueuedTask{std::move(task), std::move(stop_token),
+                                     std::move(stop_callback), hints.priority,
+                                     state_->spawned_tasks_count_++});
 
   return Status::OK();
 }
@@ -245,8 +265,8 @@ void SerialExecutor::RunLoop() {
     // because sometimes we will pause even with work leftover when processing
     // an async generator
     while (!state_->paused && !state_->task_queue.empty()) {
-      Task task = std::move(state_->task_queue.front());
-      state_->task_queue.pop_front();
+      Task task = std::move(const_cast<Task&>(state_->task_queue.top().task));
+      state_->task_queue.pop();
       lk.unlock();
       if (!task.stop_token.IsStopRequested()) {
         std::move(task.callable)();
@@ -309,8 +329,8 @@ bool SerialExecutor::RunTasksOnAllExecutors() {
       if (exe->state_->paused == false && exe->state_->task_queue.empty() == false) {
         SerialExecutor* old_exe = globalState->current_executor;
         globalState->current_executor = exe;
-        Task task = std::move(exe->state_->task_queue.front());
-        exe->state_->task_queue.pop_front();
+        Task task = std::move(const_cast<Task&>(exe->state_->task_queue.top().task));
+        exe->state_->task_queue.pop();
         run_task = true;
         exe->state_->tasks_running += 1;
         if (!task.stop_token.IsStopRequested()) {
@@ -344,8 +364,8 @@ void SerialExecutor::RunLoop() {
     // we can't run any more until something else drops off the queue
     if (state_->tasks_running <= state_->max_tasks_running) {
       while (!state_->paused && !state_->task_queue.empty()) {
-        Task task = std::move(state_->task_queue.front());
-        state_->task_queue.pop_front();
+        Task task = std::move(const_cast<Task&>(state_->task_queue.top().task));
+        state_->task_queue.pop();
         auto last_executor = globalState->current_executor;
         globalState->current_executor = this;
         state_->tasks_running += 1;
@@ -386,7 +406,8 @@ struct ThreadPool::State {
   std::list<std::thread> workers_;
   // Trashcan for finished threads
   std::vector<std::thread> finished_workers_;
-  std::deque<Task> pending_tasks_;
+  std::priority_queue<QueuedTask> pending_tasks_;
+  uint64_t spawned_tasks_count_ = 0;
 
   // Desired number of threads
   int desired_capacity_ = 0;
@@ -449,8 +470,8 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
 
       DCHECK_GE(state->tasks_queued_or_running_, 0);
       {
-        Task task = std::move(state->pending_tasks_.front());
-        state->pending_tasks_.pop_front();
+        Task task = std::move(const_cast<Task&>(state->pending_tasks_.top().task));
+        state->pending_tasks_.pop();
         StopToken* stop_token = &task.stop_token;
         lock.unlock();
         if (!stop_token->IsStopRequested()) {
@@ -460,7 +481,10 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
             std::move(task.stop_callback)(stop_token->Poll());
           }
         }
-        ARROW_UNUSED(std::move(task));  // release resources before waiting for lock
+        {
+          auto tmp_task = std::move(task);  // release resources before waiting for lock
+          ARROW_UNUSED(tmp_task);
+        }
         lock.lock();
       }
       if (ARROW_PREDICT_FALSE(--state->tasks_queued_or_running_ == 0)) {
@@ -503,7 +527,7 @@ ThreadPool::ThreadPool()
       shutdown_on_destroy_(true) {
   // Eternal thread pools would produce false leak reports in the vector of
   // atfork handlers.
-#if !(defined(_WIN32) || defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND))
+#  if !(defined(_WIN32) || defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND))
   state_->atfork_handler_ = std::make_shared<AtForkHandler>(
       /*before=*/
       [weak_state = std::weak_ptr<ThreadPool::State>(sp_state_)]() {
@@ -528,7 +552,7 @@ ThreadPool::ThreadPool()
         }
       });
   RegisterAtFork(state_->atfork_handler_);
-#endif
+#  endif
 }
 
 ThreadPool::~ThreadPool() {
@@ -589,7 +613,8 @@ Status ThreadPool::Shutdown(bool wait) {
   if (!state_->quick_shutdown_) {
     DCHECK_EQ(state_->pending_tasks_.size(), 0);
   } else {
-    state_->pending_tasks_.clear();
+    std::priority_queue<QueuedTask> empty;
+    std::swap(state_->pending_tasks_, empty);
   }
   CollectFinishedWorkersUnlocked();
   return Status::OK();
@@ -623,7 +648,7 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
 Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken stop_token,
                              StopCallback&& stop_callback) {
   {
-#ifdef ARROW_WITH_OPENTELEMETRY
+#  ifdef ARROW_WITH_OPENTELEMETRY
     // Wrap the task to propagate a parent tracing span to it
     // This task-wrapping needs to be done before we grab the mutex because the
     // first call to OT (whatever that happens to be) will attempt to grab this mutex
@@ -638,7 +663,7 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
     } wrapper{std::forward<FnOnce<void()>>(task),
               ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
     task = std::move(wrapper);
-#endif
+#  endif
     std::lock_guard<std::mutex> lock(state_->mutex_);
     if (state_->please_shutdown_) {
       return Status::Invalid("operation forbidden during or after shutdown");
@@ -650,8 +675,10 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
       // We can still spin up more workers so spin up a new worker
       LaunchWorkersUnlocked(/*threads=*/1);
     }
-    state_->pending_tasks_.push_back(
-        {std::move(task), std::move(stop_token), std::move(stop_callback)});
+    state_->pending_tasks_.push(
+        QueuedTask{{std::move(task), std::move(stop_token), std::move(stop_callback)},
+                   hints.priority,
+                   state_->spawned_tasks_count_++});
   }
   state_->cv_.notify_one();
   return Status::OK();
@@ -674,9 +701,9 @@ Result<std::shared_ptr<ThreadPool>> ThreadPool::MakeEternal(int threads) {
   // On Windows, the ThreadPool destructor may be called after non-main threads
   // have been killed by the OS, and hang in a condition variable.
   // On Unix, we want to avoid leak reports by Valgrind.
-#ifdef _WIN32
+#  ifdef _WIN32
   pool->shutdown_on_destroy_ = false;
-#endif
+#  endif
   return pool;
 }
 
@@ -734,7 +761,8 @@ Status ThreadPool::Shutdown(bool wait) {
   } else {
     // clear any pending tasks so that we behave
     // the same as threadpool on fast shutdown
-    state_->task_queue.clear();
+    std::priority_queue<QueuedTask> empty;
+    std::swap(state_->task_queue, empty);
   }
   return Status::OK();
 }
@@ -774,7 +802,8 @@ Result<std::shared_ptr<ThreadPool>> ThreadPool::MakeEternal(int threads) {
 ThreadPool::~ThreadPool() {
   // clear threadpool, otherwise ~SerialExecutor will
   // run any tasks left (which isn't threadpool behaviour)
-  state_->task_queue.clear();
+  std::priority_queue<QueuedTask> empty;
+  std::swap(state_->task_queue, empty);
 }
 
 #endif  // ARROW_ENABLE_THREADING

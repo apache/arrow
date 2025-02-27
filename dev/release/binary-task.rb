@@ -16,6 +16,7 @@
 # under the License.
 
 require "cgi/util"
+require "digest/sha1"
 require "digest/sha2"
 require "io/console"
 require "json"
@@ -531,7 +532,8 @@ class BinaryTask
              OpenSSL::OpenSSLError,
              SocketError,
              SystemCallError,
-             Timeout::Error => error
+             Timeout::Error,
+             Error => error
         n_retries += 1
         if n_retries <= max_n_retries
           $stderr.puts
@@ -801,7 +803,6 @@ class BinaryTask
     define_apt_tasks
     define_yum_tasks
     define_docs_tasks
-    define_nuget_tasks
     define_python_tasks
     define_r_tasks
     define_summary_tasks
@@ -1085,7 +1086,6 @@ class BinaryTask
     [
       ["debian", "bookworm", "main"],
       ["debian", "trixie", "main"],
-      ["ubuntu", "focal", "main"],
       ["ubuntu", "jammy", "main"],
       ["ubuntu", "noble", "main"],
     ]
@@ -1894,15 +1894,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               :docs,
                               "#{rc_dir}/docs/#{full_version}",
                               "#{release_dir}/docs/#{full_version}",
-                              "test-ubuntu-22.04-docs/**/*")
-  end
-
-  def define_nuget_tasks
-    define_generic_data_tasks("NuGet",
-                              :nuget,
-                              "#{rc_dir}/nuget/#{full_version}",
-                              "#{release_dir}/nuget/#{full_version}",
-                              "nuget/**/*")
+                              "test-debian-12-docs/**/*")
   end
 
   def define_python_tasks
@@ -1987,7 +1979,6 @@ Success! The release candidate binaries are available here:
   https://apache.jfrog.io/artifactory/arrow/centos#{suffix}-rc/
   https://apache.jfrog.io/artifactory/arrow/debian#{suffix}-rc/
   https://apache.jfrog.io/artifactory/arrow/docs#{suffix}-rc/
-  https://apache.jfrog.io/artifactory/arrow/nuget#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/python#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/r#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}-rc/
@@ -2005,7 +1996,6 @@ Success! The release binaries are available here:
   https://apache.jfrog.io/artifactory/arrow/centos#{suffix}/
   https://apache.jfrog.io/artifactory/arrow/debian#{suffix}/
   https://apache.jfrog.io/artifactory/arrow/docs#{suffix}/
-  https://apache.jfrog.io/artifactory/arrow/nuget#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/python#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/r#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}/
@@ -2114,8 +2104,6 @@ class LocalBinaryTask < BinaryTask
       # "debian-bookworm-arm64",
       "debian-trixie",
       # "debian-trixie-arm64",
-      "ubuntu-focal",
-      # "ubuntu-focal-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
       "ubuntu-noble",

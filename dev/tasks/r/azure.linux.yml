@@ -33,14 +33,14 @@ jobs:
   - script: |
       set -ex
       docker -v
-      docker-compose -v
+      docker compose version
       cd arrow
       export R_ORG={{ r_org }}
       export R_IMAGE={{ r_image }}
       export R_TAG={{ r_tag }}
       export R_CUSTOM_CCACHE={{ r_custom_ccache|default("false") }}
-      docker-compose pull --ignore-pull-failures r
-      docker-compose build r
+      docker compose pull --ignore-pull-failures r
+      docker compose build r
     displayName: Docker build
     env:
     {{ macros.azure_set_sccache_envvars()|indent(4) }}
@@ -54,7 +54,7 @@ jobs:
       export ARROW_R_DEV={{ not_cran|default("TRUE") }}
       # Note that by default, ci/scripts/r_test.sh sets NOT_CRAN=true
       # if ARROW_R_DEV=TRUE. Pass `-e NOT_CRAN=false` to turn that off.
-      docker-compose run {{ flags|default("") }} r
+      docker compose run {{ flags|default("") }} r
     displayName: Docker run
     env:
     {{ macros.azure_set_sccache_envvars()|indent(4) }}

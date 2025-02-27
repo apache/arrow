@@ -56,6 +56,8 @@ G_BEGIN_DECLS
  * #GArrowS3FileSystem is a class for S3-backed file system.
  *
  * #GArrowGCSFileSystem is a class for GCS-backed file system.
+ *
+ * #GArrowAzureFileSystem is a class for Azure-backed file system.
  */
 
 /* arrow::fs::FileInfo */
@@ -1561,6 +1563,18 @@ garrow_gcs_file_system_class_init(GArrowGCSFileSystemClass *klass)
 {
 }
 
+G_DEFINE_TYPE(GArrowAzureFileSystem, garrow_azure_file_system, GARROW_TYPE_FILE_SYSTEM)
+
+static void
+garrow_azure_file_system_init(GArrowAzureFileSystem *file_system)
+{
+}
+
+static void
+garrow_azure_file_system_class_init(GArrowAzureFileSystemClass *klass)
+{
+}
+
 G_END_DECLS
 
 GArrowFileInfo *
@@ -1592,6 +1606,8 @@ garrow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_sy
     file_system_type = GARROW_TYPE_S3_FILE_SYSTEM;
   } else if (type_name == "gcs") {
     file_system_type = GARROW_TYPE_GCS_FILE_SYSTEM;
+  } else if (type_name == "abfs") {
+    file_system_type = GARROW_TYPE_AZURE_FILE_SYSTEM;
   } else if (type_name == "mock") {
     file_system_type = GARROW_TYPE_MOCK_FILE_SYSTEM;
   }

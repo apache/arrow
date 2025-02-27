@@ -53,6 +53,16 @@ struct FindAccumulatorType<I, enable_if_floating_point<I>> {
 };
 
 template <typename I>
+struct FindAccumulatorType<I, enable_if_decimal32<I>> {
+  using Type = Decimal32Type;
+};
+
+template <typename I>
+struct FindAccumulatorType<I, enable_if_decimal64<I>> {
+  using Type = Decimal64Type;
+};
+
+template <typename I>
 struct FindAccumulatorType<I, enable_if_decimal128<I>> {
   using Type = Decimal128Type;
 };

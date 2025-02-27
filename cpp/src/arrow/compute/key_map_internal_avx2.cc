@@ -15,10 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <immintrin.h>
-
 #include "arrow/compute/key_map_internal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/simd.h"
 
 namespace arrow {
 namespace compute {
@@ -36,6 +35,7 @@ int SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* h
   constexpr int unroll = 8;
 
   const int num_group_id_bits = num_groupid_bits_from_log_blocks(log_blocks_);
+  const int num_block_bytes = num_block_bytes_from_num_groupid_bits(num_group_id_bits);
   const __m256i* vhash_ptr = reinterpret_cast<const __m256i*>(hashes);
   const __m256i vstamp_mask = _mm256_set1_epi32((1 << bits_stamp_) - 1);
 
@@ -46,16 +46,15 @@ int SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* h
     // Calculate block index and hash stamp for a byte in a block
     //
     __m256i vhash = _mm256_loadu_si256(vhash_ptr + i);
-    __m256i vblock_id = _mm256_srlv_epi32(
-        vhash, _mm256_set1_epi32(bits_hash_ - bits_stamp_ - log_blocks_));
+    __m256i vblock_id = _mm256_srli_epi32(vhash, bits_shift_for_block_and_stamp_);
     __m256i vstamp = _mm256_and_si256(vblock_id, vstamp_mask);
-    vblock_id = _mm256_srli_epi32(vblock_id, bits_stamp_);
+    vblock_id = _mm256_srli_epi32(vblock_id, bits_shift_for_block_);
 
     // We now split inputs and process 4 at a time,
     // in order to process 64-bit blocks
     //
     __m256i vblock_offset =
-        _mm256_mullo_epi32(vblock_id, _mm256_set1_epi32(num_group_id_bits + 8));
+        _mm256_mullo_epi32(vblock_id, _mm256_set1_epi32(num_block_bytes));
     __m256i voffset_A = _mm256_and_si256(vblock_offset, _mm256_set1_epi64x(0xffffffff));
     __m256i vstamp_A = _mm256_and_si256(vstamp, _mm256_set1_epi64x(0xffffffff));
     __m256i voffset_B = _mm256_srli_epi64(vblock_offset, 32);
@@ -232,9 +231,10 @@ int SwissTable::early_filter_imp_avx2_x32(const int num_hashes, const uint32_t* 
   // Assemble the sequence of block bytes.
   uint64_t block_bytes[16];
   const int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
+  const int num_block_bytes = num_block_bytes_from_num_groupid_bits(num_groupid_bits);
   for (int i = 0; i < (1 << log_blocks_); ++i) {
     uint64_t in_blockbytes =
-        *reinterpret_cast<const uint64_t*>(blocks_->data() + (8 + num_groupid_bits) * i);
+        *reinterpret_cast<const uint64_t*>(block_data(i, num_block_bytes));
     block_bytes[i] = in_blockbytes;
   }
 
@@ -302,19 +302,15 @@ int SwissTable::early_filter_imp_avx2_x32(const int num_hashes, const uint32_t* 
                              _mm256_and_si256(vhash2, _mm256_set1_epi32(0xffff0000)));
     vhash1 = _mm256_or_si256(_mm256_srli_epi32(vhash1, 16),
                              _mm256_and_si256(vhash3, _mm256_set1_epi32(0xffff0000)));
-    __m256i vstamp_A = _mm256_and_si256(
-        _mm256_srlv_epi32(vhash0, _mm256_set1_epi32(16 - log_blocks_ - 7)),
-        _mm256_set1_epi16(0x7f));
-    __m256i vstamp_B = _mm256_and_si256(
-        _mm256_srlv_epi32(vhash1, _mm256_set1_epi32(16 - log_blocks_ - 7)),
-        _mm256_set1_epi16(0x7f));
+    __m256i vstamp_A = _mm256_and_si256(_mm256_srli_epi32(vhash0, 16 - log_blocks_ - 7),
+                                        _mm256_set1_epi16(0x7f));
+    __m256i vstamp_B = _mm256_and_si256(_mm256_srli_epi32(vhash1, 16 - log_blocks_ - 7),
+                                        _mm256_set1_epi16(0x7f));
     __m256i vstamp = _mm256_or_si256(vstamp_A, _mm256_slli_epi16(vstamp_B, 8));
-    __m256i vblock_id_A =
-        _mm256_and_si256(_mm256_srlv_epi32(vhash0, _mm256_set1_epi32(16 - log_blocks_)),
-                         _mm256_set1_epi16(block_id_mask));
-    __m256i vblock_id_B =
-        _mm256_and_si256(_mm256_srlv_epi32(vhash1, _mm256_set1_epi32(16 - log_blocks_)),
-                         _mm256_set1_epi16(block_id_mask));
+    __m256i vblock_id_A = _mm256_and_si256(_mm256_srli_epi32(vhash0, 16 - log_blocks_),
+                                           _mm256_set1_epi16(block_id_mask));
+    __m256i vblock_id_B = _mm256_and_si256(_mm256_srli_epi32(vhash1, 16 - log_blocks_),
+                                           _mm256_set1_epi16(block_id_mask));
     __m256i vblock_id = _mm256_or_si256(vblock_id_A, _mm256_slli_epi16(vblock_id_B, 8));
 
     // Visit all block bytes in reverse order (overwriting data on multiple matches)
@@ -371,14 +367,9 @@ int SwissTable::early_filter_imp_avx2_x32(const int num_hashes, const uint32_t* 
 
 int SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashes,
                                        const uint8_t* local_slots,
-                                       uint32_t* out_group_ids, int byte_offset,
-                                       int byte_multiplier, int byte_size) const {
-  ARROW_DCHECK(byte_size == 1 || byte_size == 2 || byte_size == 4);
-  uint32_t mask = byte_size == 1 ? 0xFF : byte_size == 2 ? 0xFFFF : 0xFFFFFFFF;
-  auto elements = reinterpret_cast<const int*>(blocks_->data() + byte_offset);
+                                       uint32_t* out_group_ids) const {
   constexpr int unroll = 8;
   if (log_blocks_ == 0) {
-    ARROW_DCHECK(byte_size == 1 && byte_offset == 8 && byte_multiplier == 16);
     __m256i block_group_ids =
         _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(blocks_->data())[1]);
     for (int i = 0; i < num_keys / unroll; ++i) {
@@ -391,19 +382,52 @@ int SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashe
       _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_group_ids) + i, group_id);
     }
   } else {
+    int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
+    int num_groupid_bytes = num_groupid_bits / 8;
+    uint32_t mask = num_groupid_bytes == 1   ? 0xFF
+                    : num_groupid_bytes == 2 ? 0xFFFF
+                                             : 0xFFFFFFFF;
+    int num_block_bytes = num_block_bytes_from_num_groupid_bits(num_groupid_bits);
+    const int* slots_base =
+        reinterpret_cast<const int*>(blocks_->data() + bytes_status_in_block_);
+
     for (int i = 0; i < num_keys / unroll; ++i) {
       __m256i hash = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(hashes) + i);
+      __m256i block_id =
+          _mm256_srlv_epi32(hash, _mm256_set1_epi32(bits_hash_ - log_blocks_));
+
       __m256i local_slot =
           _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(local_slots)[i]);
-      local_slot = _mm256_shuffle_epi8(
-          local_slot, _mm256_setr_epi32(0x80808000, 0x80808001, 0x80808002, 0x80808003,
-                                        0x80808004, 0x80808005, 0x80808006, 0x80808007));
-      local_slot = _mm256_mullo_epi32(local_slot, _mm256_set1_epi32(byte_size));
-      __m256i pos = _mm256_srlv_epi32(hash, _mm256_set1_epi32(bits_hash_ - log_blocks_));
-      pos = _mm256_mullo_epi32(pos, _mm256_set1_epi32(byte_multiplier));
-      pos = _mm256_add_epi32(pos, local_slot);
-      __m256i group_id = _mm256_i32gather_epi32(elements, pos, 1);
+
+      // Extend block_id and local_slot to 64-bit to compute 64-bit group id offsets to
+      // gather from. This is to prevent index overflow issues in GH-44513.
+      __m256i local_slot_lo = _mm256_shuffle_epi8(
+          local_slot, _mm256_setr_epi32(0x80808000, 0x80808080, 0x80808001, 0x80808080,
+                                        0x80808002, 0x80808080, 0x80808003, 0x80808080));
+      __m256i local_slot_hi = _mm256_shuffle_epi8(
+          local_slot, _mm256_setr_epi32(0x80808004, 0x80808080, 0x80808005, 0x80808080,
+                                        0x80808006, 0x80808080, 0x80808007, 0x80808080));
+      local_slot_lo =
+          _mm256_mul_epu32(local_slot_lo, _mm256_set1_epi32(num_groupid_bytes));
+      local_slot_hi =
+          _mm256_mul_epu32(local_slot_hi, _mm256_set1_epi32(num_groupid_bytes));
+
+      // NB: Use zero-extend conversion for unsigned block_id.
+      __m256i slot_offset_lo = _mm256_cvtepu32_epi64(_mm256_castsi256_si128(block_id));
+      __m256i slot_offset_hi =
+          _mm256_cvtepu32_epi64(_mm256_extracti128_si256(block_id, 1));
+      slot_offset_lo =
+          _mm256_mul_epi32(slot_offset_lo, _mm256_set1_epi64x(num_block_bytes));
+      slot_offset_hi =
+          _mm256_mul_epi32(slot_offset_hi, _mm256_set1_epi64x(num_block_bytes));
+      slot_offset_lo = _mm256_add_epi64(slot_offset_lo, local_slot_lo);
+      slot_offset_hi = _mm256_add_epi64(slot_offset_hi, local_slot_hi);
+
+      __m128i group_id_lo = _mm256_i64gather_epi32(slots_base, slot_offset_lo, 1);
+      __m128i group_id_hi = _mm256_i64gather_epi32(slots_base, slot_offset_hi, 1);
+      __m256i group_id = _mm256_set_m128i(group_id_hi, group_id_lo);
       group_id = _mm256_and_si256(group_id, _mm256_set1_epi32(mask));
+
       _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_group_ids) + i, group_id);
     }
   }

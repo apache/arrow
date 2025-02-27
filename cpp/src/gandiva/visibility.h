@@ -18,31 +18,31 @@
 #pragma once
 
 #if defined(_WIN32) || defined(__CYGWIN__)
-#if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4251)
-#else
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
+#  if defined(_MSC_VER)
+#    pragma warning(push)
+#    pragma warning(disable : 4251)
+#  else
+#    pragma GCC diagnostic ignored "-Wattributes"
+#  endif
 
-#ifdef GANDIVA_STATIC
-#define GANDIVA_EXPORT
-#elif defined(GANDIVA_EXPORTING)
-#define GANDIVA_EXPORT __declspec(dllexport)
-#else
-#define GANDIVA_EXPORT __declspec(dllimport)
-#endif
+#  ifdef GANDIVA_STATIC
+#    define GANDIVA_EXPORT
+#  elif defined(GANDIVA_EXPORTING)
+#    define GANDIVA_EXPORT __declspec(dllexport)
+#  else
+#    define GANDIVA_EXPORT __declspec(dllimport)
+#  endif
 
-#define GANDIVA_NO_EXPORT
+#  define GANDIVA_NO_EXPORT
 #else  // Not Windows
-#ifndef GANDIVA_EXPORT
-#define GANDIVA_EXPORT __attribute__((visibility("default")))
-#endif
-#ifndef GANDIVA_NO_EXPORT
-#define GANDIVA_NO_EXPORT __attribute__((visibility("hidden")))
-#endif
+#  ifndef GANDIVA_EXPORT
+#    define GANDIVA_EXPORT __attribute__((visibility("default")))
+#  endif
+#  ifndef GANDIVA_NO_EXPORT
+#    define GANDIVA_NO_EXPORT __attribute__((visibility("hidden")))
+#  endif
 #endif  // Non-Windows
 
 #if defined(_MSC_VER)
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif

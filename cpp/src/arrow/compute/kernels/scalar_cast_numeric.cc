@@ -313,7 +313,9 @@ struct ParseString {
 
 template <typename O, typename I>
 struct CastFunctor<
-    O, I, enable_if_t<(is_number_type<O>::value && is_base_binary_type<I>::value)>> {
+    O, I,
+    enable_if_t<(is_number_type<O>::value && (is_base_binary_type<I>::value ||
+                                              is_binary_view_like_type<I>::value))>> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return applicator::ScalarUnaryNotNull<O, I, ParseString<O>>::Exec(ctx, batch, out);
   }
@@ -477,6 +479,43 @@ struct DecimalConversions<Decimal256, InDecimal> {
   static Decimal256 ConvertOutput(Decimal256&& val) { return val; }
 };
 
+template <typename InDecimal>
+struct DecimalConversions<Decimal32, InDecimal> {
+  static Decimal32 ConvertInput(InDecimal&& val) { return Decimal32(val.low_bits()); }
+  static Decimal32 ConvertOutput(Decimal32&& val) { return val; }
+};
+
+template <>
+struct DecimalConversions<Decimal64, Decimal32> {
+  // Convert then scale
+  static Decimal64 ConvertInput(Decimal32&& val) { return Decimal64(val); }
+  static Decimal64 ConvertOutput(Decimal64&& val) { return val; }
+};
+
+template <>
+struct DecimalConversions<Decimal64, Decimal64> {
+  static Decimal64 ConvertInput(Decimal64&& val) { return val; }
+  static Decimal64 ConvertOutput(Decimal64&& val) { return val; }
+};
+
+template <>
+struct DecimalConversions<Decimal64, Decimal128> {
+  // Scale then truncate
+  static Decimal128 ConvertInput(Decimal128&& val) { return val; }
+  static Decimal64 ConvertOutput(Decimal128&& val) {
+    return Decimal64(static_cast<int64_t>(val.low_bits()));
+  }
+};
+
+template <>
+struct DecimalConversions<Decimal64, Decimal256> {
+  // Scale then truncate
+  static Decimal256 ConvertInput(Decimal256&& val) { return val; }
+  static Decimal64 ConvertOutput(Decimal256&& val) {
+    return Decimal64(static_cast<int64_t>(val.low_bits()));
+  }
+};
+
 template <>
 struct DecimalConversions<Decimal128, Decimal256> {
   // Scale then truncate
@@ -490,6 +529,20 @@ struct DecimalConversions<Decimal128, Decimal256> {
 template <>
 struct DecimalConversions<Decimal128, Decimal128> {
   static Decimal128 ConvertInput(Decimal128&& val) { return val; }
+  static Decimal128 ConvertOutput(Decimal128&& val) { return val; }
+};
+
+template <>
+struct DecimalConversions<Decimal128, Decimal64> {
+  // convert then scale
+  static Decimal128 ConvertInput(Decimal64&& val) { return Decimal128(val.value()); }
+  static Decimal128 ConvertOutput(Decimal128&& val) { return val; }
+};
+
+template <>
+struct DecimalConversions<Decimal128, Decimal32> {
+  // convert then scale
+  static Decimal128 ConvertInput(Decimal32&& val) { return Decimal128(val.value()); }
   static Decimal128 ConvertOutput(Decimal128&& val) { return val; }
 };
 
@@ -658,11 +711,27 @@ struct DecimalCastFunctor {
 };
 
 template <typename I>
-struct CastFunctor<Decimal128Type, I, enable_if_t<is_base_binary_type<I>::value>>
+struct CastFunctor<
+    Decimal32Type, I,
+    enable_if_t<is_base_binary_type<I>::value || is_binary_view_like_type<I>::value>>
+    : public DecimalCastFunctor<Decimal32Type, I> {};
+
+template <typename I>
+struct CastFunctor<
+    Decimal64Type, I,
+    enable_if_t<is_base_binary_type<I>::value || is_binary_view_like_type<I>::value>>
+    : public DecimalCastFunctor<Decimal64Type, I> {};
+
+template <typename I>
+struct CastFunctor<
+    Decimal128Type, I,
+    enable_if_t<is_base_binary_type<I>::value || is_binary_view_like_type<I>::value>>
     : public DecimalCastFunctor<Decimal128Type, I> {};
 
 template <typename I>
-struct CastFunctor<Decimal256Type, I, enable_if_t<is_base_binary_type<I>::value>>
+struct CastFunctor<
+    Decimal256Type, I,
+    enable_if_t<is_base_binary_type<I>::value || is_binary_view_like_type<I>::value>>
     : public DecimalCastFunctor<Decimal256Type, I> {};
 
 // ----------------------------------------------------------------------
@@ -708,6 +777,10 @@ void AddCommonNumberCasts(const std::shared_ptr<DataType>& out_ty, CastFunction*
     auto exec = GenerateVarBinaryBase<CastFunctor, OutType>(*in_ty);
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec));
   }
+  for (const std::shared_ptr<DataType>& in_ty : BinaryViewTypes()) {
+    auto exec = GenerateVarBinaryViewBase<CastFunctor, OutType>(*in_ty);
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec));
+  }
 }
 
 template <typename OutType>
@@ -734,6 +807,10 @@ std::shared_ptr<CastFunction> GetCastToInteger(std::string name) {
   // From decimal to integer
   DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType(Type::DECIMAL)}, out_ty,
                             CastFunctor<OutType, Decimal128Type>::Exec));
+  DCHECK_OK(func->AddKernel(Type::DECIMAL32, {InputType(Type::DECIMAL32)}, out_ty,
+                            CastFunctor<OutType, Decimal32Type>::Exec));
+  DCHECK_OK(func->AddKernel(Type::DECIMAL64, {InputType(Type::DECIMAL64)}, out_ty,
+                            CastFunctor<OutType, Decimal64Type>::Exec));
   DCHECK_OK(func->AddKernel(Type::DECIMAL256, {InputType(Type::DECIMAL256)}, out_ty,
                             CastFunctor<OutType, Decimal256Type>::Exec));
   return func;
@@ -762,11 +839,103 @@ std::shared_ptr<CastFunction> GetCastToFloating(std::string name) {
   AddCommonNumberCasts<OutType>(out_ty, func.get());
 
   // From decimal to floating point
+  DCHECK_OK(func->AddKernel(Type::DECIMAL32, {InputType(Type::DECIMAL32)}, out_ty,
+                            CastFunctor<OutType, Decimal32Type>::Exec));
+  DCHECK_OK(func->AddKernel(Type::DECIMAL64, {InputType(Type::DECIMAL64)}, out_ty,
+                            CastFunctor<OutType, Decimal64Type>::Exec));
   DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType(Type::DECIMAL)}, out_ty,
                             CastFunctor<OutType, Decimal128Type>::Exec));
   DCHECK_OK(func->AddKernel(Type::DECIMAL256, {InputType(Type::DECIMAL256)}, out_ty,
                             CastFunctor<OutType, Decimal256Type>::Exec));
 
+  return func;
+}
+
+std::shared_ptr<CastFunction> GetCastToDecimal32() {
+  OutputType sig_out_ty(ResolveOutputFromOptions);
+
+  auto func = std::make_shared<CastFunction>("cast_decimal32", Type::DECIMAL32);
+  AddCommonCasts(Type::DECIMAL32, sig_out_ty, func.get());
+
+  // Cast from floating point
+  DCHECK_OK(func->AddKernel(Type::FLOAT, {float32()}, sig_out_ty,
+                            CastFunctor<Decimal32Type, FloatType>::Exec));
+  DCHECK_OK(func->AddKernel(Type::DOUBLE, {float64()}, sig_out_ty,
+                            CastFunctor<Decimal32Type, DoubleType>::Exec));
+
+  // Cast from integer
+  for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
+    auto exec = GenerateInteger<CastFunctor, Decimal32Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
+
+  // Cast from other strings
+  for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
+    auto exec = GenerateVarBinaryBase<CastFunctor, Decimal32Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
+  for (const std::shared_ptr<DataType>& in_ty : BinaryViewTypes()) {
+    auto exec = GenerateVarBinaryViewBase<CastFunctor, Decimal32Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
+
+  // Cast from other decimal
+  auto exec = CastFunctor<Decimal32Type, Decimal32Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL32, {InputType(Type::DECIMAL32)}, sig_out_ty, exec));
+  exec = CastFunctor<Decimal32Type, Decimal64Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL64, {InputType(Type::DECIMAL64)}, sig_out_ty, exec));
+  exec = CastFunctor<Decimal32Type, Decimal128Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL128, {InputType(Type::DECIMAL128)}, sig_out_ty, exec));
+  exec = CastFunctor<Decimal32Type, Decimal256Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL256, {InputType(Type::DECIMAL256)}, sig_out_ty, exec));
+  return func;
+}
+
+std::shared_ptr<CastFunction> GetCastToDecimal64() {
+  OutputType sig_out_ty(ResolveOutputFromOptions);
+
+  auto func = std::make_shared<CastFunction>("cast_decimal64", Type::DECIMAL64);
+  AddCommonCasts(Type::DECIMAL64, sig_out_ty, func.get());
+
+  // Cast from floating point
+  DCHECK_OK(func->AddKernel(Type::FLOAT, {float32()}, sig_out_ty,
+                            CastFunctor<Decimal64Type, FloatType>::Exec));
+  DCHECK_OK(func->AddKernel(Type::DOUBLE, {float64()}, sig_out_ty,
+                            CastFunctor<Decimal64Type, DoubleType>::Exec));
+
+  // Cast from integer
+  for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
+    auto exec = GenerateInteger<CastFunctor, Decimal64Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
+
+  // Cast from other strings
+  for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
+    auto exec = GenerateVarBinaryBase<CastFunctor, Decimal64Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
+  for (const std::shared_ptr<DataType>& in_ty : BinaryViewTypes()) {
+    auto exec = GenerateVarBinaryViewBase<CastFunctor, Decimal64Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
+
+  // Cast from other decimal
+  auto exec = CastFunctor<Decimal64Type, Decimal32Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL32, {InputType(Type::DECIMAL32)}, sig_out_ty, exec));
+  exec = CastFunctor<Decimal64Type, Decimal64Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL64, {InputType(Type::DECIMAL64)}, sig_out_ty, exec));
+  exec = CastFunctor<Decimal64Type, Decimal128Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL128, {InputType(Type::DECIMAL128)}, sig_out_ty, exec));
+  exec = CastFunctor<Decimal64Type, Decimal256Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL256, {InputType(Type::DECIMAL256)}, sig_out_ty, exec));
   return func;
 }
 
@@ -793,10 +962,20 @@ std::shared_ptr<CastFunction> GetCastToDecimal128() {
     auto exec = GenerateVarBinaryBase<CastFunctor, Decimal128Type>(in_ty->id());
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
   }
+  for (const std::shared_ptr<DataType>& in_ty : BinaryViewTypes()) {
+    auto exec = GenerateVarBinaryViewBase<CastFunctor, Decimal128Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
 
   // Cast from other decimal
-  auto exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
+  auto exec = CastFunctor<Decimal128Type, Decimal32Type>::Exec;
   // We resolve the output type of this kernel from the CastOptions
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL32, {InputType(Type::DECIMAL32)}, sig_out_ty, exec));
+  exec = CastFunctor<Decimal128Type, Decimal64Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL64, {InputType(Type::DECIMAL64)}, sig_out_ty, exec));
+  exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
   DCHECK_OK(
       func->AddKernel(Type::DECIMAL128, {InputType(Type::DECIMAL128)}, sig_out_ty, exec));
   exec = CastFunctor<Decimal128Type, Decimal256Type>::Exec;
@@ -828,9 +1007,19 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
     auto exec = GenerateVarBinaryBase<CastFunctor, Decimal256Type>(in_ty->id());
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
   }
+  for (const std::shared_ptr<DataType>& in_ty : BinaryViewTypes()) {
+    auto exec = GenerateVarBinaryViewBase<CastFunctor, Decimal256Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
 
   // Cast from other decimal
-  auto exec = CastFunctor<Decimal256Type, Decimal128Type>::Exec;
+  auto exec = CastFunctor<Decimal256Type, Decimal32Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL32, {InputType(Type::DECIMAL32)}, sig_out_ty, exec));
+  exec = CastFunctor<Decimal256Type, Decimal64Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL64, {InputType(Type::DECIMAL64)}, sig_out_ty, exec));
+  exec = CastFunctor<Decimal256Type, Decimal128Type>::Exec;
   DCHECK_OK(
       func->AddKernel(Type::DECIMAL128, {InputType(Type::DECIMAL128)}, sig_out_ty, exec));
   exec = CastFunctor<Decimal256Type, Decimal256Type>::Exec;
@@ -865,6 +1054,25 @@ std::shared_ptr<CastFunction> GetCastToHalfFloat() {
   return func;
 }
 
+struct NullExtensionTypeMatcher : public TypeMatcher {
+  ~NullExtensionTypeMatcher() override = default;
+
+  bool Matches(const DataType& type) const override {
+    return type.id() == Type::EXTENSION &&
+           checked_cast<const ExtensionType&>(type).storage_id() == Type::NA;
+  }
+
+  std::string ToString() const override { return "extension<storage_type: null>"; }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const NullExtensionTypeMatcher*>(&other);
+    return casted != nullptr;
+  }
+};
+
 }  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
@@ -875,6 +1083,10 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   auto cast_null = std::make_shared<CastFunction>("cast_null", Type::NA);
   DCHECK_OK(cast_null->AddKernel(Type::DICTIONARY, {InputType(Type::DICTIONARY)}, null(),
                                  OutputAllNull));
+  // Explicitly allow casting extension type with null backing array to null
+  DCHECK_OK(cast_null->AddKernel(
+      Type::EXTENSION, {InputType(std::make_shared<NullExtensionTypeMatcher>())}, null(),
+      OutputAllNull));
   functions.push_back(cast_null);
 
   functions.push_back(GetCastToInteger<Int8Type>("cast_int8"));
@@ -909,6 +1121,8 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   auto cast_double = GetCastToFloating<DoubleType>("cast_double");
   functions.push_back(cast_double);
 
+  functions.push_back(GetCastToDecimal32());
+  functions.push_back(GetCastToDecimal64());
   functions.push_back(GetCastToDecimal128());
   functions.push_back(GetCastToDecimal256());
 

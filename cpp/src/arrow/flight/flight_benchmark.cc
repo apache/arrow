@@ -40,11 +40,11 @@
 #include "arrow/flight/test_util.h"
 
 #ifdef ARROW_CUDA
-#include <cuda.h>
-#include "arrow/gpu/cuda_api.h"
+#  include <cuda.h>
+#  include "arrow/gpu/cuda_api.h"
 #endif
 #ifdef ARROW_WITH_UCX
-#include "arrow/flight/transport/ucx/ucx.h"
+#  include "arrow/flight/transport/ucx/ucx.h"
 #endif
 
 DEFINE_bool(cuda, false, "Allocate results in CUDA memory");
@@ -131,7 +131,8 @@ struct PerformanceStats {
 Status WaitForReady(FlightClient* client, const FlightCallOptions& call_options) {
   Action action{"ping", nullptr};
   for (int attempt = 0; attempt < 10; attempt++) {
-    if (client->DoAction(call_options, action).ok()) {
+    auto result_stream_result = client->DoAction(call_options, action);
+    if (result_stream_result.ok() && (*result_stream_result)->Drain().ok()) {
       return Status::OK();
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -490,7 +491,7 @@ int main(int argc, char** argv) {
         if (FLAGS_cuda && FLAGS_test_put) {
           server_args.push_back("-cuda");
         }
-        server->Start(server_args);
+        ABORT_NOT_OK(server->Start(server_args));
       }
       std::cout << "Server host: " << FLAGS_server_host << std::endl
                 << "Server port: " << FLAGS_server_port << std::endl;

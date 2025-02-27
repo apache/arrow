@@ -48,13 +48,13 @@ ArrowTabular <- R6Class("ArrowTabular",
     SortIndices = function(names, descending = FALSE) {
       assert_that(is.character(names))
       assert_that(length(names) > 0)
-      assert_that(!any(is.na(names)))
+      assert_that(!anyNA(names))
       if (length(descending) == 1L) {
         descending <- rep_len(descending, length(names))
       }
       assert_that(is.logical(descending))
       assert_that(identical(length(names), length(descending)))
-      assert_that(!any(is.na(descending)))
+      assert_that(!anyNA(descending))
       call_function(
         "sort_indices",
         self,
@@ -113,13 +113,13 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
     # That way, if we're filtering too, we have fewer arrays to filter/slice/take
     if (is.character(j)) {
       j_new <- match(j, names(x))
-      if (any(is.na(j_new))) {
+      if (anyNA(j_new)) {
         stop("Column not found: ", oxford_paste(j[is.na(j_new)]), call. = FALSE)
       }
       j <- j_new
     }
     if (is_integerish(j)) {
-      if (any(is.na(j))) {
+      if (anyNA(j)) {
         stop("Column indices cannot be NA", call. = FALSE)
       }
       if (length(j) && all(j < 0)) {

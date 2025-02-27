@@ -133,7 +133,7 @@ Result<SubstraitCall> DecodeScalarFunction(
   for (const auto& opt : scalar_fn.options()) {
     ARROW_RETURN_NOT_OK(DecodeOption(opt, &call));
   }
-  return std::move(call);
+  return call;
 }
 
 std::string EnumToString(int value, const google::protobuf::EnumDescriptor* descriptor) {
@@ -279,7 +279,7 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
   for (int i = 0; i < func.options_size(); i++) {
     ARROW_RETURN_NOT_OK(DecodeOption(func.options(i), &call));
   }
-  return std::move(call);
+  return call;
 }
 
 Result<compute::Expression> FromProto(const substrait::Expression& expr,
@@ -434,45 +434,40 @@ struct UserDefinedLiteralToArrow {
   }
   Status Visit(const IntegerType& type) {
     google::protobuf::UInt64Value value;
-    if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined integer literal to UInt64Value");
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("integer", "UInt64Value");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
     return Status::OK();
   }
   Status Visit(const Time32Type& type) {
     google::protobuf::Int32Value value;
-    if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined time32 literal to Int32Value");
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("time32", "Int32Value");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
     return Status::OK();
   }
   Status Visit(const Time64Type& type) {
     google::protobuf::Int64Value value;
-    if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined time64 literal to Int64Value");
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("time64", "Int64Value");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
     return Status::OK();
   }
   Status Visit(const Date64Type& type) {
     google::protobuf::Int64Value value;
-    if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined date64 literal to Int64Value");
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("date64", "Int64Value");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
     return Status::OK();
   }
   Status Visit(const HalfFloatType& type) {
     google::protobuf::UInt32Value value;
-    if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined half_float literal to UInt32Value");
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("half_float", "UInt32Value");
     }
     uint16_t half_float_value = value.value();
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), half_float_value));
@@ -480,9 +475,8 @@ struct UserDefinedLiteralToArrow {
   }
   Status Visit(const LargeStringType& type) {
     google::protobuf::StringValue value;
-    if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined large_string literal to StringValue");
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("large_string", "StringValue");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_,
                           MakeScalar(type.GetSharedPtr(), std::string(value.value())));
@@ -490,15 +484,17 @@ struct UserDefinedLiteralToArrow {
   }
   Status Visit(const LargeBinaryType& type) {
     google::protobuf::BytesValue value;
-    if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid(
-          "Failed to unpack user defined large_binary literal to BytesValue");
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("large_binary", "BytesValue");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_,
                           MakeScalar(type.GetSharedPtr(), std::string(value.value())));
     return Status::OK();
   }
   Status operator()(const DataType& type) { return VisitTypeInline(type, this); }
+  Status FailedToUnpack(const char* from, const char* to) {
+    return Status::Invalid("Failed to unpack user defined ", from, " literal to ", to);
+  }
 
   std::shared_ptr<Scalar> scalar_;
   const substrait::Expression::Literal::UserDefined* user_defined_;
@@ -951,24 +947,24 @@ struct ScalarToProtoImpl {
   Status Visit(const MonthIntervalScalar& s) { return NotImplemented(s); }
   Status Visit(const DayTimeIntervalScalar& s) { return NotImplemented(s); }
 
-  Status Visit(const Decimal128Scalar& s) {
+  template <typename T, typename TypeClass = typename T::TypeClass>
+  enable_if_decimal<TypeClass, Status> Visit(const T& s) {
+    using ValueType = typename T::ValueType;
+
     auto decimal = std::make_unique<Lit::Decimal>();
 
-    auto decimal_type = checked_cast<const Decimal128Type*>(s.type.get());
+    auto decimal_type = checked_cast<const TypeClass*>(s.type.get());
     decimal->set_precision(decimal_type->precision());
     decimal->set_scale(decimal_type->scale());
 
     decimal->set_value(reinterpret_cast<const char*>(s.value.native_endian_bytes()),
-                       sizeof(Decimal128));
+                       sizeof(ValueType));
 #if !ARROW_LITTLE_ENDIAN
     std::reverse(decimal->mutable_value()->begin(), decimal->mutable_value()->end());
 #endif
     lit_->set_allocated_decimal(decimal.release());
     return Status::OK();
   }
-
-  // Need support for parameterized UDTs
-  Status Visit(const Decimal256Scalar& s) { return NotImplemented(s); }
 
   Status Visit(const BaseListScalar& s) {
     if (s.value->length() == 0) {
@@ -1153,7 +1149,7 @@ Result<std::unique_ptr<substrait::Expression::Literal>> ToProto(
     out->set_allocated_null(type.release());
   }
 
-  return std::move(out);
+  return out;
 }
 
 static Status AddChildToReferenceSegment(
@@ -1226,7 +1222,7 @@ static Result<std::unique_ptr<substrait::Expression>> MakeDirectReference(
 
   auto out = std::make_unique<substrait::Expression>();
   out->set_allocated_selection(selection.release());
-  return std::move(out);
+  return out;
 }
 
 // Indexes the given Substrait struct-typed expression or root (if expr is empty) using
@@ -1292,7 +1288,7 @@ Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCa
     }
   }
 
-  return std::move(scalar_fn);
+  return scalar_fn;
 }
 
 Result<std::vector<std::unique_ptr<substrait::Expression>>> DatumToLiterals(
@@ -1356,7 +1352,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
   if (auto datum = expr.literal()) {
     ARROW_ASSIGN_OR_RAISE(auto literal, ToProto(*datum, ext_set, conversion_options));
     out->set_allocated_literal(literal.release());
-    return std::move(out);
+    return out;
   }
 
   if (auto param = expr.parameter()) {
@@ -1367,7 +1363,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
       ARROW_ASSIGN_OR_RAISE(out, MakeStructFieldReference(std::move(out), index));
     }
 
-    return std::move(out);
+    return out;
   }
 
   auto call = CallNotNull(expr);
@@ -1399,7 +1395,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
       if_then_->set_allocated_else_(arguments.back().release());
 
       out->set_allocated_if_then(if_then_.release());
-      return std::move(out);
+      return out;
     }
   }
 
@@ -1423,7 +1419,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
     for (int index : field_path.indices()) {
       ARROW_ASSIGN_OR_RAISE(out, MakeStructFieldReference(std::move(out), index));
     }
-    return std::move(out);
+    return out;
   }
 
   if (call->function_name == "list_element") {
@@ -1449,7 +1445,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
     if_then->set_allocated_else_(arguments[2].release());
 
     out->set_allocated_if_then(if_then.release());
-    return std::move(out);
+    return out;
   } else if (call->function_name == "cast") {
     auto cast = std::make_unique<substrait::Expression::Cast>();
 
@@ -1478,7 +1474,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
     cast->set_allocated_type(to_type.release());
 
     out->set_allocated_cast(cast.release());
-    return std::move(out);
+    return out;
   } else if (call->function_name == "is_in") {
     auto or_list = std::make_unique<substrait::Expression::SingularOrList>();
 
@@ -1499,7 +1495,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
       or_list->mutable_options()->AddAllocated(option.release());
     }
     out->set_allocated_singular_or_list(or_list.release());
-    return std::move(out);
+    return out;
   }
 
   // other expression types dive into extensions immediately
@@ -1534,7 +1530,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
     return maybe_converter.status();
   }
   out->set_allocated_scalar_function(scalar_fn.release());
-  return std::move(out);
+  return out;
 }
 
 }  // namespace engine

@@ -106,7 +106,8 @@ struct SourceNode : ExecNode, public TracedNode {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "SourceNode"));
     const auto& source_options = checked_cast<const SourceNodeOptions&>(options);
     return plan->EmplaceNode<SourceNode>(plan, source_options.output_schema,
-                                         source_options.generator);
+                                         source_options.generator,
+                                         source_options.ordering);
   }
 
   const char* kind_name() const override { return "SourceNode"; }

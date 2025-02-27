@@ -129,7 +129,8 @@ for currently available features.
 - Types
     - Tensor
 - Arrays
-    - Large Arrays
+    - Large Arrays. There are large array types provided to help with interoperability with other libraries,
+      but these do not support buffers larger than 2 GiB and an exception will be raised if trying to import an array that is too large.
         - Large Binary
         - Large List
         - Large String

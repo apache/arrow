@@ -39,7 +39,7 @@ std::shared_ptr<Schema> ExampleSchema() {
   auto f5 = field("f5", float32());
   auto f6 = field("f6", float32());
   auto f7 = field("f7", float32());
-  auto f8 = field("f8", decimal(19, 10));
+  auto f8 = field("f8", decimal128(19, 10));
   return schema({f0, f1, f2, f3, f4, f5, f6, f7, f8});
 }
 

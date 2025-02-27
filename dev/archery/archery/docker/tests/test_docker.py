@@ -217,6 +217,14 @@ def arrow_compose_path(tmpdir):
     return create_config(tmpdir, arrow_compose_yml, arrow_compose_env)
 
 
+@pytest.fixture(autouse=True)
+def no_ci_env_variables(monkeypatch):
+    """Make sure that the tests behave the same on CI as when run locally"""
+    monkeypatch.delenv("APPVEYOR", raising=False)
+    monkeypatch.delenv("BUILD_BUILDURI", raising=False)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+
+
 def test_config_validation(tmpdir):
     config_path = create_config(tmpdir, missing_service_compose_yml)
     msg = "`sub-foo` is defined in `x-hierarchy` bot not in `services`"
@@ -243,7 +251,7 @@ def assert_docker_calls(compose, expected_args):
 
 
 def assert_compose_calls(compose, expected_args, env=mock.ANY):
-    base_command = ['docker-compose', '--file', str(compose.config.path)]
+    base_command = ['docker', 'compose', f'--file={compose.config.path}']
     expected_commands = []
     for args in expected_args:
         if isinstance(args, str):
@@ -286,7 +294,7 @@ def test_forwarding_env_variables(arrow_compose_path):
             compose.build('conda-cpp')
 
 
-def test_compose_pull(arrow_compose_path):
+def test_compose_pull(arrow_compose_path, monkeypatch):
     compose = DockerCompose(arrow_compose_path)
 
     expected_calls = [
@@ -312,6 +320,16 @@ def test_compose_pull(arrow_compose_path):
     with assert_compose_calls(compose, expected_calls):
         compose.clear_pull_memory()
         compose.pull('conda-python-pandas', pull_leaf=False)
+
+    with monkeypatch.context() as m:
+        # `--quiet` is passed to `docker` on CI
+        m.setenv("GITHUB_ACTIONS", "true")
+        expected_calls = [
+            "pull --quiet --ignore-pull-failures conda-cpp",
+        ]
+        with assert_compose_calls(compose, expected_calls):
+            compose.clear_pull_memory()
+            compose.pull('conda-cpp')
 
 
 def test_compose_pull_params(arrow_compose_path):
@@ -482,7 +500,7 @@ def test_compose_push(arrow_compose_path):
     ]
     for image in ["conda-cpp", "conda-python", "conda-python-pandas"]:
         expected_calls.append(
-            mock.call(["docker-compose", "--file", str(compose.config.path),
+            mock.call(["docker", "compose", f"--file={compose.config.path}",
                        "push", image], check=True, env=expected_env)
         )
     with assert_subprocess_calls(expected_calls):
@@ -514,7 +532,7 @@ def test_image_with_gpu(arrow_compose_path):
             "run", "--rm", "--gpus", "all",
             "-e", "CUDA_ENV=1",
             "-e", "OTHER_ENV=2",
-            "-v", "/host:/container:rw",
+            "-v", "/host:/container",
             "org/ubuntu-cuda",
             "/bin/bash", "-c", "echo 1 > /tmp/dummy && cat /tmp/dummy",
         ]

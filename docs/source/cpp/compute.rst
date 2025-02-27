@@ -181,7 +181,8 @@ of general type categories:
 
 * "String-like": String, LargeString.
 
-* "List-like": List, LargeList, sometimes also FixedSizeList.
+* "List-like": List, LargeList, ListView, LargeListView, and sometimes also
+  FixedSizeList.
 
 * "Nested": List-likes (including FixedSizeList), Struct, Union, and
   related types like Map.
@@ -475,6 +476,8 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+-------------------------+---------------------------+-------+
 | exp              | Unary  | Numeric                 | Float32/Float64           |       |
 +------------------+--------+-------------------------+---------------------------+-------+
+| expm1            | Unary  | Numeric                 | Float32/Float64           |       |
++------------------+--------+-------------------------+---------------------------+-------+
 | multiply         | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
 +------------------+--------+-------------------------+---------------------------+-------+
 | multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
@@ -717,6 +720,35 @@ Decimal values are accepted, but are cast to Float64 first.
 +--------------------------+------------+-------------------------+---------------------+
 | tan_checked              | Unary      | Float32/Float64/Decimal | Float32/Float64     |
 +--------------------------+------------+-------------------------+---------------------+
+
+Hyperbolic trigonometric functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Hyperbolic trigonometric functions are also supported, and, where applicable, also offer
+``_checked`` variants that check for domain errors if needed.
+
+Decimal values are accepted, but are cast to Float64 first.
+
++--------------------------+------------+-------------------------+---------------------+
+| Function name            | Arity      | Input types             | Output type         |
++==========================+============+=========================+=====================+
+| acosh                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| acosh_checked            | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| asinh                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| atanh                    | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| atanh_checked            | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| cosh                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| sinh                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+| tanh                     | Unary      | Float32/Float64/Decimal | Float32/Float64     |
++--------------------------+------------+-------------------------+---------------------+
+
 
 Comparisons
 ~~~~~~~~~~~
@@ -1284,7 +1316,7 @@ depending on a condition.
   input. If the nulls present on the first input, they will be promoted to the
   output, otherwise nulls will be chosen based on the first input values.
 
-  Also see: :ref:`replace_with_mask <cpp-compute-vector-structural-transforms>`.
+  Also see: :ref:`replace_with_mask <cpp-compute-vector-replace-functions>`.
 
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
@@ -1298,8 +1330,8 @@ Structural transforms
 +---------------------+------------+-------------+------------------+------------------------------+--------+
 
 * \(1) Each output element is the length of the corresponding input element
-  (null if input is null).  Output type is Int32 for List and FixedSizeList,
-  Int64 for LargeList.
+  (null if input is null).  Output type is Int32 for List, ListView, and
+  FixedSizeList, Int64 for LargeList and LargeListView.
 
 * \(2) The output struct's field types are the types of its arguments. The
   field names are specified using an instance of :struct:`MakeStructOptions`.
@@ -1413,13 +1445,15 @@ null input value is converted into a null output value.
 +-----------------------------+------------------------------------+---------+
 | Struct                      | Struct                             | \(2)    |
 +-----------------------------+------------------------------------+---------+
-| List-like                   | List-like                          | \(3)    |
+| List-like                   | List-like or (Large)ListView       | \(3)    |
 +-----------------------------+------------------------------------+---------+
-| Map                         | Map or List of two-field struct    | \(4)    |
+| (Large)ListView             | List-like or (Large)ListView       | \(4)    |
++-----------------------------+------------------------------------+---------+
+| Map                         | Map or List of two-field struct    | \(5)    |
 +-----------------------------+------------------------------------+---------+
 | Null                        | Any                                |         |
 +-----------------------------+------------------------------------+---------+
-| Any                         | Extension                          | \(5)    |
+| Any                         | Extension                          | \(6)    |
 +-----------------------------+------------------------------------+---------+
 
 * \(1) The dictionary indices are unchanged, the dictionary values are
@@ -1433,14 +1467,21 @@ null input value is converted into a null output value.
 
 * \(3) The list offsets are unchanged, the list values are cast from the
   input value type to the output value type (if a conversion is
-  available).
+  available). If the output type is (Large)ListView, then sizes are
+  derived from the offsets.
 
-* \(4) Offsets are unchanged, the keys and values are cast from respective input
+* \(4) If output type is list-like, offsets (consequently, the values array)
+  might have to be rebuilt to be sorted and spaced adequately. If output type is
+  a list-view type, the offsets and sizes are unchanged. In any case, the list
+  values are cast from the input value type to the output value type (if a
+  conversion is available).
+
+* \(5) Offsets are unchanged, the keys and values are cast from respective input
   to output types (if a conversion is available). If output type is a list of
   struct, the key field is output as the first field and the value field the
   second field, regardless of field names chosen.
 
-* \(5) Any input type that can be cast to the resulting extension's storage type.
+* \(6) Any input type that can be cast to the resulting extension's storage type.
   This excludes extension types, unless being cast to the same extension type.
 
 Temporal component extraction
@@ -1690,19 +1731,23 @@ Selections
 
 These functions select and return a subset of their input.
 
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| Function name | Arity  | Input type 1 | Input type 2 | Output type  | Options class           | Notes     |
-+===============+========+==============+==============+==============+=========================+===========+
-| array_filter  | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
-+---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| Function name       | Arity  | Input type 1   | Input type 2 | Output type         | Options class                       | Notes |
++=====================+========+================+==============+=====================+=====================================+=======+
+| array_filter        | Binary | Any            | Boolean      | Input type 1        | :struct:`FilterOptions`             | \(2)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| array_take          | Binary | Any            | Integer      | Input type 1        | :struct:`TakeOptions`               | \(3)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| drop_null           | Unary  | Any            |              | Input type 1        |                                     | \(1)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| filter              | Binary | Any            | Boolean      | Input type 1        | :struct:`FilterOptions`             | \(2)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| inverse_permutation | Unary  | Signed Integer |              | Signed Integer \(4) | :struct:`InversePermutationOptions` | \(5)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| scatter             | Binary | Any            | Integer      | Input type 1        | :struct:`ScatterOptions`            | \(6)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
+| take                | Binary | Any            | Integer      | Input type 1        | :struct:`TakeOptions`               | \(3)  |
++---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
 
 * \(1) Each element in the input is appended to the output iff it is non-null.
   If the input is a record batch or table, any null value in a column drops
@@ -1714,6 +1759,18 @@ These functions select and return a subset of their input.
 
 * \(3) For each element *i* in input 2 (the indices), the *i*'th element
   in input 1 (the values) is appended to the output.
+
+* \(4) The output type is specified in :struct:`InversePermutationOptions`.
+
+* \(5) For *indices[i] = x*, *inverse_permutation[x] = i*. And *inverse_permutation[x]
+  = null* if *x* does not appear in the input indices. Indices must be in the range
+  of *[0, max_index]*, or null, which will be ignored. If multiple indices point to the
+  same value, the last one is used.
+
+* \(6) For *indices[i] = x*, *output[x] = values[i]*. And *output[x] = null*
+  if *x* does not appear in the input indices. Indices must be in the range
+  of *[0, max_index]*, or null, in which case the corresponding value will be
+  ignored. If multiple indices point to the same value, the last one is used.
 
 Containment tests
 ~~~~~~~~~~~~~~~~~
@@ -1739,19 +1796,23 @@ in the respective option classes.
    Binary- and String-like inputs are ordered lexicographically as bytestrings,
    even for String types.
 
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| Function name         | Arity      | Input types                                             | Output type       | Options class                  | Notes          |
-+=======================+============+=========================================================+===================+================================+================+
-| array_sort_indices    | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`ArraySortOptions`     | \(1) \(2)      |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| partition_nth_indices | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions`  | \(3)           |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| rank                  | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`RankOptions`          | \(4)           |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`       | \(5) \(6)      |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
-| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`          | \(1) \(5)      |
-+-----------------------+------------+---------------------------------------------------------+-------------------+--------------------------------+----------------+
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| Function name         | Arity      | Input types                                             | Output type       | Options class                 | Notes          |
++=======================+============+=========================================================+===================+===============================+================+
+| array_sort_indices    | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`ArraySortOptions`    | \(1) \(2)      |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| partition_nth_indices | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`PartitionNthOptions` | \(3)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| rank                  | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`RankOptions`         | \(4)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| rank_normal           | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | Float64           | :struct:`RankQuantileOptions` | \(5)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| rank_quantile         | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | Float64           | :struct:`RankQuantileOptions` | \(5)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`      | \(6) \(7)      |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`         | \(1) \(6)      |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 
 
 * \(1) The output is an array of indices into the input, that define a
@@ -1766,13 +1827,18 @@ in the respective option classes.
   :func:`std::nth_element`).  *N* is given in
   :member:`PartitionNthOptions::pivot`.
 
-* \(4) The output is a one-based numerical array of ranks
+* \(4) The output is a one-based numerical array of ranks.
 
-* \(5) The input can be an array, chunked array, record batch or
+* \(5) The output of ``rank_quantile`` is an array of quantiles strictly between
+  0 and 1. The ouput of ``rank_normal`` is an array of finite real values
+  corresponding to points in the normal distribution that reflect the input's
+  quantile ranks.
+
+* \(6) The input can be an array, chunked array, record batch or
   table. If the input is a record batch or table, one or more sort
   keys must be specified.
 
-* \(6) The output is an array of indices into the input, that define a
+* \(7) The output is an array of indices into the input, that define a
   non-stable sort of the input.
 
 .. _cpp-compute-vector-structural-transforms:
@@ -1804,8 +1870,10 @@ Structural transforms
   list array are discarded.
 
 * \(3) For each value in the list child array, the index at which it is found
-  in the list array is appended to the output.  Nulls in the parent list array
-  are discarded.
+  in the list-like array is appended to the output. Indices of null lists in the
+  parent array might still be present in the output if they are non-empty null
+  lists. If the parent is a list-view, child array values that are not used by
+  any non-null list-view are null in the output.
 
 * \(4) For each list element, compute the slice of that list element, then
   return another list-like array of those slices. Can return either a
@@ -1839,15 +1907,20 @@ Structural transforms
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
 
+.. _cpp-compute-vector-replace-functions:
+
+Replace functions
+~~~~~~~~~~~~~~~~~
+
 These functions create a copy of the first input with some elements
 replaced, based on the remaining inputs.
 
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
 | Function name            | Arity      | Input type 1          | Input type 2 | Input type 3 | Output type  | Notes |
 +==========================+============+=======================+==============+==============+==============+=======+
-| fill_null_backward       | Unary      | Fixed-width or binary | N/A          | N/A          | N/A          | \(1)  |
+| fill_null_backward       | Unary      | Fixed-width or binary |              |              | Input type 1 | \(1)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
-| fill_null_forward        | Unary      | Fixed-width or binary | N/A          | N/A          | N/A          | \(1)  |
+| fill_null_forward        | Unary      | Fixed-width or binary |              |              | Input type 1 | \(1)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
 | replace_with_mask        | Ternary    | Fixed-width or binary | Boolean      | Input type 1 | Input type 1 | \(2)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
@@ -1860,7 +1933,7 @@ replaced, based on the remaining inputs.
   Also see: :ref:`if_else <cpp-compute-scalar-selections>`.
 
 Pairwise functions
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 Pairwise functions are unary vector functions that perform a binary operation on
 a pair of elements in the input array, typically on adjacent elements. The n-th
 output is computed by applying the binary operation to the n-th and (n-p)-th inputs,

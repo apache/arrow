@@ -20,7 +20,10 @@ import sys
 import weakref
 
 import pytest
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
@@ -85,6 +88,7 @@ def test_type_to_pandas_dtype():
 
 
 @pytest.mark.pandas
+@pytest.mark.processes
 def test_type_to_pandas_dtype_check_import():
     # ARROW-7980
     test_util.invoke_script('arrow_7980.py')
@@ -186,6 +190,7 @@ def test_time_types():
         pa.time64('s')
 
 
+@pytest.mark.numpy
 def test_from_numpy_dtype():
     cases = [
         (np.dtype('bool'), pa.bool_()),
@@ -612,6 +617,8 @@ def test_type_schema_pickling(pickle_module):
         pa.date64(),
         pa.timestamp('ms'),
         pa.timestamp('ns'),
+        pa.decimal32(9, 3),
+        pa.decimal64(11, 4),
         pa.decimal128(12, 2),
         pa.decimal256(76, 38),
         pa.field('a', 'string', metadata={b'foo': b'bar'}),

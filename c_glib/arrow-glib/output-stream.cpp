@@ -33,6 +33,22 @@
 #include <iostream>
 #include <sstream>
 
+static std::shared_ptr<arrow::io::FileInterface>
+garrow_output_stream_get_raw_file_interface(GArrowFile *file)
+{
+  auto output_stream = GARROW_OUTPUT_STREAM(file);
+  auto arrow_output_stream = garrow_output_stream_get_raw(output_stream);
+  return arrow_output_stream;
+}
+
+static std::shared_ptr<arrow::io::Writable>
+garrow_output_stream_get_raw_writable_interface(GArrowWritable *writable)
+{
+  auto output_stream = GARROW_OUTPUT_STREAM(writable);
+  auto arrow_output_stream = garrow_output_stream_get_raw(output_stream);
+  return arrow_output_stream;
+}
+
 G_BEGIN_DECLS
 
 /**
@@ -65,26 +81,10 @@ enum {
   PROP_OUTPUT_STREAM
 };
 
-static std::shared_ptr<arrow::io::FileInterface>
-garrow_output_stream_get_raw_file_interface(GArrowFile *file)
-{
-  auto output_stream = GARROW_OUTPUT_STREAM(file);
-  auto arrow_output_stream = garrow_output_stream_get_raw(output_stream);
-  return arrow_output_stream;
-}
-
 static void
 garrow_output_stream_file_interface_init(GArrowFileInterface *iface)
 {
   iface->get_raw = garrow_output_stream_get_raw_file_interface;
-}
-
-static std::shared_ptr<arrow::io::Writable>
-garrow_output_stream_get_raw_writable_interface(GArrowWritable *writable)
-{
-  auto output_stream = GARROW_OUTPUT_STREAM(writable);
-  auto arrow_output_stream = garrow_output_stream_get_raw(output_stream);
-  return arrow_output_stream;
 }
 
 static void

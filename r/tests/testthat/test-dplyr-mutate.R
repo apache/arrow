@@ -152,16 +152,14 @@ test_that("transmute() with unsupported arguments", {
 })
 
 test_that("transmute() defuses dots arguments (ARROW-13262)", {
-  expect_warning(
+  expect_snapshot(
     tbl %>%
       Table$create() %>%
       transmute(
         a = stringr::str_c(padded_strings, padded_strings),
         b = stringr::str_squish(a)
       ) %>%
-      collect(),
-    "Expression stringr::str_squish(a) not supported in Arrow; pulling data into R",
-    fixed = TRUE
+      collect()
   )
 })
 
@@ -202,10 +200,7 @@ test_that("nchar() arguments", {
       filter(line_lengths > 15) %>%
       collect(),
     tbl,
-    warning = paste0(
-      "In nchar\\(verses, type = \"bytes\", allowNA = TRUE\\), ",
-      "allowNA = TRUE not supported in Arrow; pulling data into R"
-    )
+    warning = "allowNA = TRUE not supported in Arrow"
   )
 })
 
@@ -538,7 +533,7 @@ test_that("Can't just add a vector column with mutate()", {
         mutate(again = 1:10),
       tibble::tibble(int = tbl$int, again = 1:10)
     ),
-    "In again = 1:10, only values of size one are recycled; pulling data into R"
+    "Recycling values of length != 1 not supported in Arrow"
   )
 })
 

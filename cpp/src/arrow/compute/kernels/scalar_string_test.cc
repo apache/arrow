@@ -26,7 +26,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -34,7 +34,7 @@
 #include "arrow/util/value_parsing.h"
 
 #ifdef ARROW_WITH_UTF8PROC
-#include <utf8proc.h>
+#  include <utf8proc.h>
 #endif
 
 namespace arrow::compute {
@@ -1415,7 +1415,7 @@ TYPED_TEST(TestStringKernels, IsTitleUnicode) {
 }
 
 // Older versions of utf8proc fail
-#if !(UTF8PROC_VERSION_MAJOR <= 2 && UTF8PROC_VERSION_MINOR < 5)
+#  if !(UTF8PROC_VERSION_MAJOR <= 2 && UTF8PROC_VERSION_MINOR < 5)
 
 TYPED_TEST(TestStringKernels, IsUpperUnicode) {
   // ٣ is arabic 3 (decimal), Φ capital
@@ -1437,7 +1437,7 @@ TYPED_TEST(TestStringKernels, IsUpperUnicode) {
                    boolean(), "[true, true, true, false, true, false]");
 }
 
-#endif  // UTF8PROC_VERSION_MINOR >= 5
+#  endif  // UTF8PROC_VERSION_MINOR >= 5
 
 #endif  // ARROW_WITH_UTF8PROC
 
@@ -2117,6 +2117,12 @@ TYPED_TEST(TestStringKernels, PadUTF8) {
       R"([null, "a\u2008\u2008\u2008\u2008", "bb\u2008\u2008\u2008", "b\u00E1r\u2008\u2008", "foobar"])",
       &options);
 
+  PadOptions options2{/*width=*/5, "\xe2\x80\x88", /*lean_left_on_odd_padding=*/false};
+  this->CheckUnary(
+      "utf8_center", R"([null, "a", "bb", "b\u00E1r", "foobar"])", this->type(),
+      R"([null, "\u2008\u2008a\u2008\u2008", "\u2008\u2008bb\u2008", "\u2008b\u00E1r\u2008", "foobar"])",
+      &options2);
+
   PadOptions options_bad{/*width=*/3, /*padding=*/"spam"};
   auto input = ArrayFromJSON(this->type(), R"(["foo"])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
@@ -2458,6 +2464,10 @@ TYPED_TEST(TestStringKernels, PadAscii) {
                    R"([null, "    a", "   bb", "  bar", "foobar"])", &options);
   this->CheckUnary("ascii_rpad", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
                    R"([null, "a    ", "bb   ", "bar  ", "foobar"])", &options);
+
+  PadOptions options2{/*width=*/5, " ", /*lean_left_on_odd_padding=*/false};
+  this->CheckUnary("ascii_center", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
+                   R"([null, "  a  ", "  bb ", " bar ", "foobar"])", &options2);
 
   PadOptions options_bad{/*width=*/3, /*padding=*/"spam"};
   auto input = ArrayFromJSON(this->type(), R"(["foo"])");

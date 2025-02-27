@@ -27,9 +27,18 @@ from datetime import date, datetime, time, timedelta, timezone
 
 import hypothesis as h
 import hypothesis.strategies as st
-import numpy as np
-import numpy.testing as npt
 import pytest
+try:
+    import numpy as np
+    import numpy.testing as npt
+    try:
+        _np_VisibleDeprecationWarning = np.VisibleDeprecationWarning
+    except AttributeError:
+        from numpy.exceptions import (
+            VisibleDeprecationWarning as _np_VisibleDeprecationWarning
+        )
+except ImportError:
+    np = None
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import invoke_script, random_ascii, rands
@@ -49,14 +58,6 @@ try:
     from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 except ImportError:
     pass
-
-
-try:
-    _np_VisibleDeprecationWarning = np.VisibleDeprecationWarning
-except AttributeError:
-    from numpy.exceptions import (
-        VisibleDeprecationWarning as _np_VisibleDeprecationWarning
-    )
 
 
 # Marks all of the tests in this module
@@ -221,6 +222,17 @@ class TestConvertMetadata:
         )
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_column_index_names_with_decimal(self):
+        # GH-41503: Test valid roundtrip with decimal value in column index
+        df = pd.DataFrame(
+            [[decimal.Decimal(5), decimal.Decimal(6)]],
+            columns=pd.MultiIndex.from_product(
+                [[decimal.Decimal(1)], [decimal.Decimal(2), decimal.Decimal(3)]]
+            ),
+            index=[decimal.Decimal(4)],
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
     def test_range_index_shortcut(self):
         # ARROW-1639
         index_name = 'foo'
@@ -337,6 +349,17 @@ class TestConvertMetadata:
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_float_column_index_with_missing(self):
+        df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=[1.5, np.nan])
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+    @pytest.mark.filterwarnings(
+        "ignore:The DataFrame has column names of mixed type:UserWarning"
+    )
+    def test_string_column_index_with_missing(self):
+        df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=["A", None])
+        _check_pandas_roundtrip(df, preserve_index=True)
+
     def test_index_metadata_field_name(self):
         # test None case, and strangely named non-index columns
         df = pd.DataFrame(
@@ -347,8 +370,11 @@ class TestConvertMetadata:
             ),
             columns=['a', None, '__index_level_0__'],
         )
-        with pytest.warns(UserWarning):
+        if _pandas_api.uses_string_dtype():
             t = pa.Table.from_pandas(df, preserve_index=True)
+        else:
+            with pytest.warns(UserWarning):
+                t = pa.Table.from_pandas(df, preserve_index=True)
         js = t.schema.pandas_metadata
 
         col1, col2, col3, idx0, foo = js['columns']
@@ -356,8 +382,12 @@ class TestConvertMetadata:
         assert col1['name'] == 'a'
         assert col1['name'] == col1['field_name']
 
-        assert col2['name'] is None
-        assert col2['field_name'] == 'None'
+        if _pandas_api.uses_string_dtype():
+            assert np.isnan(col2['name'])
+            assert col2['field_name'] == 'nan'
+        else:
+            assert col2['name'] is None
+            assert col2['field_name'] == 'None'
 
         assert col3['name'] == '__index_level_0__'
         assert col3['name'] == col3['field_name']
@@ -399,7 +429,9 @@ class TestConvertMetadata:
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] == 'stringz'
         assert column_indexes['name'] == column_indexes['field_name']
-        assert column_indexes['numpy_type'] == 'object'
+        assert column_indexes['numpy_type'] == (
+            'str' if _pandas_api.uses_string_dtype() else 'object'
+        )
         assert column_indexes['pandas_type'] == 'unicode'
 
         md = column_indexes['metadata']
@@ -565,6 +597,20 @@ class TestConvertMetadata:
         assert data_column['pandas_type'] == 'decimal'
         assert data_column['numpy_type'] == 'object'
         assert data_column['metadata'] == {'precision': 26, 'scale': 11}
+
+    @pytest.mark.parametrize('typ', [
+        pa.decimal32,
+        pa.decimal64,
+        pa.decimal128,
+        pa.decimal256,
+    ])
+    def test_decimal_other_bitwidts(self, typ):
+        df = pd.DataFrame({'a': [decimal.Decimal('3.14')]})
+        schema = pa.schema([pa.field('a', type=typ(4, 2))])
+        table = pa.Table.from_pandas(df, schema=schema)
+        col_meta = table.schema.pandas_metadata['columns'][0]
+        assert col_meta['pandas_type'] == 'decimal'
+        assert col_meta['metadata'] == {'precision': 4, 'scale': 2}
 
     def test_table_column_subset_metadata(self):
         # ARROW-1883
@@ -769,7 +815,7 @@ class TestConvertPrimitiveTypes:
             info = np.iinfo(dtype)
             values = np.random.randint(max(info.min, np.iinfo(np.int_).min),
                                        min(info.max, np.iinfo(np.int_).max),
-                                       size=num_values)
+                                       size=num_values, dtype=dtype)
             data[dtype] = values.astype(dtype)
             fields.append(pa.field(dtype, arrow_dtype))
 
@@ -1191,9 +1237,11 @@ class TestConvertDateTimeLikeTypes:
 
     @pytest.mark.parametrize('mask', [
         None,
-        np.array([True, False, False, True, False, False]),
+        [True, False, False, True, False, False],
     ])
     def test_pandas_datetime_to_date64(self, mask):
+        if mask:
+            mask = np.array(mask)
         s = pd.to_datetime([
             '2018-05-10T00:00:00',
             '2018-05-11T00:00:00',
@@ -1597,7 +1645,8 @@ class TestConvertDateTimeLikeTypes:
         assert pa.Array.from_pandas(expected).equals(result)
 
     @pytest.mark.skipif(
-        Version('1.16.0') <= Version(np.__version__) < Version('1.16.1'),
+        np is not None and Version('1.16.0') <= Version(
+            np.__version__) < Version('1.16.1'),
         reason='Until numpy/numpy#12745 is resolved')
     def test_fixed_offset_timezone(self):
         df = pd.DataFrame({
@@ -1665,7 +1714,10 @@ class TestConvertStringLikeTypes:
         repeats = 1000
         values = ['foo', None, 'bar', 'mañana', np.nan]
         df = pd.DataFrame({'strings': values * repeats})
-        field = pa.field('strings', pa.string())
+        field = pa.field(
+            'strings',
+            pa.large_string() if _pandas_api.uses_string_dtype() else pa.string()
+        )
         schema = pa.schema([field])
         ex_values = ['foo', None, 'bar', 'mañana', None]
         expected = pd.DataFrame({'strings': ex_values * repeats})
@@ -1821,10 +1873,13 @@ class TestConvertStringLikeTypes:
         result = table.to_pandas(categories=['col'])
         assert table.to_pandas().equals(result)
 
-    def test_table_str_to_categorical_without_na(self):
+    @pytest.mark.parametrize(
+        "string_type", [pa.string(), pa.large_string(), pa.string_view()]
+    )
+    def test_table_str_to_categorical_without_na(self, string_type):
         values = ['a', 'a', 'b', 'b', 'c']
         df = pd.DataFrame({'strings': values})
-        field = pa.field('strings', pa.string())
+        field = pa.field('strings', string_type)
         schema = pa.schema([field])
         table = pa.Table.from_pandas(df, schema=schema)
 
@@ -1836,10 +1891,22 @@ class TestConvertStringLikeTypes:
             table.to_pandas(strings_to_categorical=True,
                             zero_copy_only=True)
 
-    def test_table_str_to_categorical_with_na(self):
+        # chunked array
+        result = table["strings"].to_pandas(strings_to_categorical=True)
+        expected = pd.Series(pd.Categorical(values), name="strings")
+        tm.assert_series_equal(result, expected)
+
+        with pytest.raises(pa.ArrowInvalid):
+            table["strings"].to_pandas(strings_to_categorical=True,
+                                       zero_copy_only=True)
+
+    @pytest.mark.parametrize(
+        "string_type", [pa.string(), pa.large_string(), pa.string_view()]
+    )
+    def test_table_str_to_categorical_with_na(self, string_type):
         values = [None, 'a', 'b', np.nan]
         df = pd.DataFrame({'strings': values})
-        field = pa.field('strings', pa.string())
+        field = pa.field('strings', string_type)
         schema = pa.schema([field])
         table = pa.Table.from_pandas(df, schema=schema)
 
@@ -1850,6 +1917,15 @@ class TestConvertStringLikeTypes:
         with pytest.raises(pa.ArrowInvalid):
             table.to_pandas(strings_to_categorical=True,
                             zero_copy_only=True)
+
+        # chunked array
+        result = table["strings"].to_pandas(strings_to_categorical=True)
+        expected = pd.Series(pd.Categorical(values), name="strings")
+        tm.assert_series_equal(result, expected)
+
+        with pytest.raises(pa.ArrowInvalid):
+            table["strings"].to_pandas(strings_to_categorical=True,
+                                       zero_copy_only=True)
 
     # Regression test for ARROW-2101
     def test_array_of_bytes_to_strings(self):
@@ -1978,6 +2054,19 @@ class TestConvertDecimalTypes:
         # This yields strided objects
         df = pd.DataFrame.from_dict(data)
         _check_pandas_roundtrip(df)
+
+    @pytest.mark.parametrize("typ", [
+        pa.decimal32,
+        pa.decimal64,
+        pa.decimal128,
+        pa.decimal256,
+    ])
+    def test_decimal_array_to_pandas(self, typ):
+        data = [decimal.Decimal('3.14'), None]
+        arr = pa.array(data, type=typ(3, 2))
+        result = arr.to_pandas()
+        expected = pd.Series(data)
+        tm.assert_series_equal(result, expected)
 
 
 class TestConvertListTypes:
@@ -2910,23 +2999,23 @@ class TestConvertMisc:
     """
 
     type_pairs = [
-        (np.int8, pa.int8()),
-        (np.int16, pa.int16()),
-        (np.int32, pa.int32()),
-        (np.int64, pa.int64()),
-        (np.uint8, pa.uint8()),
-        (np.uint16, pa.uint16()),
-        (np.uint32, pa.uint32()),
-        (np.uint64, pa.uint64()),
-        (np.float16, pa.float16()),
-        (np.float32, pa.float32()),
-        (np.float64, pa.float64()),
+        ("int8", pa.int8()),
+        ("int16", pa.int16()),
+        ("int32", pa.int32()),
+        ("int64", pa.int64()),
+        ("uint8", pa.uint8()),
+        ("uint16", pa.uint16()),
+        ("uint32", pa.uint32()),
+        ("uint64", pa.uint64()),
+        ("float16", pa.float16()),
+        ("float32", pa.float32()),
+        ("float64", pa.float64()),
         # XXX unsupported
         # (np.dtype([('a', 'i2')]), pa.struct([pa.field('a', pa.int16())])),
-        (np.object_, pa.string()),
-        (np.object_, pa.binary()),
-        (np.object_, pa.binary(10)),
-        (np.object_, pa.list_(pa.int64())),
+        ("object", pa.string()),
+        ("object", pa.binary()),
+        ("object", pa.binary(10)),
+        ("object", pa.list_(pa.int64())),
     ]
 
     def test_all_none_objects(self):
@@ -2939,13 +3028,15 @@ class TestConvertMisc:
         _check_pandas_roundtrip(df)
 
     def test_empty_arrays(self):
-        for dtype, pa_type in self.type_pairs:
-            arr = np.array([], dtype=dtype)
+        for dtype_str, pa_type in self.type_pairs:
+            arr = np.array([], dtype=np.dtype(dtype_str))
             _check_array_roundtrip(arr, type=pa_type)
 
     def test_non_threaded_conversion(self):
         _non_threaded_conversion()
 
+    @pytest.mark.processes
+    @pytest.mark.threading
     def test_threaded_conversion_multiprocess(self):
         # Parallel conversion should work from child processes too (ARROW-2963)
         pool = mp.Pool(2)
@@ -3282,6 +3373,10 @@ def _assert_nunique(obj, expected):
 
 
 def test_to_pandas_deduplicate_strings_array_types():
+    if _pandas_api.uses_string_dtype():
+        pytest.skip(
+            "pandas uses string dtype and not object dtype, keyword has no effect"
+        )
     nunique = 100
     repeats = 10
     values = _generate_dedup_example(nunique, repeats)
@@ -3294,6 +3389,10 @@ def test_to_pandas_deduplicate_strings_array_types():
 
 
 def test_to_pandas_deduplicate_strings_table_types():
+    if _pandas_api.uses_string_dtype():
+        pytest.skip(
+            "pandas uses string dtype and not object dtype, keyword has no effect"
+        )
     nunique = 100
     repeats = 10
     values = _generate_dedup_example(nunique, repeats)
@@ -3757,20 +3856,26 @@ def _check_to_pandas_memory_unchanged(obj, **kwargs):
     x = obj.to_pandas(**kwargs)  # noqa
 
     # Memory allocation unchanged -- either zero copy or self-destructing
-    assert pa.total_allocated_bytes() == prior_allocation
+    if _pandas_api.uses_string_dtype():
+        # for the string array of the columns Index
+        # -> increase the size to account for overallocation for small arrays
+        max_index_allocation = max(192, x.columns.nbytes * 2)
+        assert pa.total_allocated_bytes() <= (prior_allocation + max_index_allocation)
+    else:
+        assert pa.total_allocated_bytes() == prior_allocation
 
 
 def test_to_pandas_split_blocks():
     # ARROW-3789
     t = pa.table([
-        pa.array([1, 2, 3, 4, 5], type='i1'),
-        pa.array([1, 2, 3, 4, 5], type='i4'),
-        pa.array([1, 2, 3, 4, 5], type='i8'),
-        pa.array([1, 2, 3, 4, 5], type='f4'),
-        pa.array([1, 2, 3, 4, 5], type='f8'),
-        pa.array([1, 2, 3, 4, 5], type='f8'),
-        pa.array([1, 2, 3, 4, 5], type='f8'),
-        pa.array([1, 2, 3, 4, 5], type='f8'),
+        pa.array([1, 2, 3, 4, 5]*100, type='i1'),
+        pa.array([1, 2, 3, 4, 5]*100, type='i4'),
+        pa.array([1, 2, 3, 4, 5]*100, type='i8'),
+        pa.array([1, 2, 3, 4, 5]*100, type='f4'),
+        pa.array([1, 2, 3, 4, 5]*100, type='f8'),
+        pa.array([1, 2, 3, 4, 5]*100, type='f8'),
+        pa.array([1, 2, 3, 4, 5]*100, type='f8'),
+        pa.array([1, 2, 3, 4, 5]*100, type='f8'),
     ], ['f{}'.format(i) for i in range(8)])
 
     _check_blocks_created(t, 8)
@@ -3815,7 +3920,12 @@ def test_table_uses_memory_pool():
     prior_allocation = pa.total_allocated_bytes()
     x = t.to_pandas()
 
-    assert pa.total_allocated_bytes() == (prior_allocation + 3 * N * 8)
+    new_allocation = 3 * N * 8
+    if _pandas_api.uses_string_dtype():
+        # for the small columns Index
+        new_allocation += 128
+
+    assert pa.total_allocated_bytes() == (prior_allocation + new_allocation)
 
     # Check successful garbage collection
     x = None  # noqa
@@ -4093,7 +4203,10 @@ def test_dictionary_encoded_nested_to_pandas():
 
 def test_dictionary_from_pandas():
     cat = pd.Categorical(['a', 'b', 'a'])
-    expected_type = pa.dictionary(pa.int8(), pa.string())
+    expected_type = pa.dictionary(
+        pa.int8(),
+        pa.large_string() if _pandas_api.uses_string_dtype() else pa.string()
+    )
 
     result = pa.array(cat)
     assert result.to_pylist() == ['a', 'b', 'a']
@@ -4392,6 +4505,31 @@ def test_to_pandas_extension_dtypes_mapping():
     result = table.to_pandas(
         types_mapper={pa.int64(): pd.PeriodDtype('D')}.get)
     assert isinstance(result['a'].dtype, pd.PeriodDtype)
+
+
+def test_to_pandas_extension_dtypes_mapping_complex_type():
+    # https://github.com/apache/arrow/pull/44720
+    if Version(pd.__version__) < Version("1.5.2"):
+        pytest.skip("Test relies on pd.ArrowDtype")
+    pa_type = pa.struct(
+        [
+            pa.field("bar", pa.bool_(), nullable=False),
+            pa.field("baz", pa.float32(), nullable=True),
+        ],
+    )
+    pd_type = pd.ArrowDtype(pa_type)
+    schema = pa.schema([pa.field("foo", pa_type)])
+    df0 = pd.DataFrame(
+        [
+            {"foo": {"bar": True, "baz": np.float32(1)}},
+            {"foo": {"bar": True, "baz": None}},
+        ],
+    ).astype({"foo": pd_type})
+
+    # Round trip df0 into df1
+    table = pa.Table.from_pandas(df0, schema=schema)
+    df1 = table.to_pandas(types_mapper=pd.ArrowDtype)
+    pd.testing.assert_frame_equal(df0, df1)
 
 
 def test_array_to_pandas():
@@ -4743,6 +4881,7 @@ def make_df_with_timestamps():
             np.datetime64('2050-05-03 15:42', 'ns'),
         ],
     })
+    df['dateTimeMs'] = df['dateTimeMs'].astype('object')
     # Not part of what we're testing, just ensuring that the inputs are what we
     # expect.
     assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (
@@ -4812,6 +4951,7 @@ def test_timestamp_as_object_fixed_offset():
     assert pa.table(result) == table
 
 
+@pytest.mark.processes
 def test_threaded_pandas_import():
     invoke_script("pandas_threaded_import.py")
 
@@ -5115,6 +5255,14 @@ def test_nested_chunking_valid():
               schema=schema)
 
 
+def test_bytes_column_name_to_pandas():
+    df = pd.DataFrame([[0.1, 0.2], [0.3, 0.4]], columns=[b'col1', b'col2'])
+    table = pa.Table.from_pandas(df)
+    assert table.column_names == ['col1', 'col2']
+    assert table.to_pandas().equals(df)
+
+
+@pytest.mark.processes
 def test_is_data_frame_race_condition():
     # See https://github.com/apache/arrow/issues/39313
     test_util.invoke_script('arrow_39313.py')

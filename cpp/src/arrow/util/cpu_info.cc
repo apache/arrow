@@ -20,17 +20,17 @@
 #include "arrow/util/cpu_info.h"
 
 #ifdef __APPLE__
-#include <sys/sysctl.h>
+#  include <sys/sysctl.h>
 #endif
 
 #ifndef _MSC_VER
-#include <unistd.h>
+#  include <unistd.h>
 #endif
 
 #ifdef _WIN32
-#include <intrin.h>
+#  include <intrin.h>
 
-#include "arrow/util/windows_compatibility.h"
+#  include "arrow/util/windows_compatibility.h"
 #endif
 
 #include <algorithm>
@@ -55,12 +55,12 @@
 #undef CPUINFO_ARCH_PPC
 
 #if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
-#define CPUINFO_ARCH_X86
+#  define CPUINFO_ARCH_X86
 #elif defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__)
-#define CPUINFO_ARCH_ARM
+#  define CPUINFO_ARCH_ARM
 #elif defined(__PPC64__) || defined(__PPC64LE__) || defined(__ppc64__) || \
     defined(__powerpc64__)
-#define CPUINFO_ARCH_PPC
+#  define CPUINFO_ARCH_PPC
 #endif
 
 namespace arrow {
@@ -122,10 +122,10 @@ void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
   free(buffer);
 }
 
-#if defined(CPUINFO_ARCH_X86)
+#  if defined(CPUINFO_ARCH_X86)
 // On x86, get CPU features by cpuid, https://en.wikipedia.org/wiki/CPUID
 
-#if defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR < 5
+#    if defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR < 5
 void __cpuidex(int CPUInfo[4], int function_id, int subfunction_id) {
   __asm__ __volatile__("cpuid"
                        : "=a"(CPUInfo[0]), "=b"(CPUInfo[1]), "=c"(CPUInfo[2]),
@@ -138,7 +138,7 @@ int64_t _xgetbv(int xcr) {
   __asm__ __volatile__("xgetbv" : "=a"(out) : "c"(xcr) : "%edx");
   return out;
 }
-#endif  // MINGW
+#    endif  // MINGW
 
 void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
                        std::string* model_name) {
@@ -215,14 +215,14 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
     }
   }
 }
-#elif defined(CPUINFO_ARCH_ARM)
+#  elif defined(CPUINFO_ARCH_ARM)
 // Windows on Arm
 void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
                        std::string* model_name) {
   *hardware_flags |= CpuInfo::ASIMD;
   // TODO: vendor, model_name
 }
-#endif
+#  endif
 
 #elif defined(__APPLE__)
 //------------------------------ MACOS ------------------------------//
@@ -265,7 +265,7 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
     int64_t flag;
   };
   std::vector<SysCtlCpuFeature> features = {
-#if defined(CPUINFO_ARCH_X86)
+#  if defined(CPUINFO_ARCH_X86)
     {"hw.optional.sse4_2",
      CpuInfo::SSSE3 | CpuInfo::SSE4_1 | CpuInfo::SSE4_2 | CpuInfo::POPCNT},
     {"hw.optional.avx1_0", CpuInfo::AVX},
@@ -277,10 +277,10 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
     {"hw.optional.avx512dq", CpuInfo::AVX512DQ},
     {"hw.optional.avx512bw", CpuInfo::AVX512BW},
     {"hw.optional.avx512vl", CpuInfo::AVX512VL},
-#elif defined(CPUINFO_ARCH_ARM)
+#  elif defined(CPUINFO_ARCH_ARM)
     // ARM64 (note that this is exposed under Rosetta as well)
     {"hw.optional.neon", CpuInfo::ASIMD},
-#endif
+#  endif
   };
   for (const auto& feature : features) {
     auto v = IntegerSysCtlByName(feature.name);
@@ -297,7 +297,7 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
 // Get cache size, return 0 on error
 int64_t LinuxGetCacheSize(int level) {
   // get cache size by sysconf()
-#ifdef _SC_LEVEL1_DCACHE_SIZE
+#  ifdef _SC_LEVEL1_DCACHE_SIZE
   const int kCacheSizeConf[] = {
       _SC_LEVEL1_DCACHE_SIZE,
       _SC_LEVEL2_CACHE_SIZE,
@@ -310,7 +310,7 @@ int64_t LinuxGetCacheSize(int level) {
   if (errno == 0 && cache_size > 0) {
     return cache_size;
   }
-#endif
+#  endif
 
   // get cache size from sysfs if sysconf() fails or not supported
   const char* kCacheSizeSysfs[] = {
@@ -345,12 +345,12 @@ int64_t LinuxGetCacheSize(int level) {
 // care about are present.
 // Returns a bitmap of flags.
 int64_t LinuxParseCpuFlags(const std::string& values) {
-#if defined(CPUINFO_ARCH_X86) || defined(CPUINFO_ARCH_ARM)
+#  if defined(CPUINFO_ARCH_X86) || defined(CPUINFO_ARCH_ARM)
   const struct {
     std::string name;
     int64_t flag;
   } flag_mappings[] = {
-#if defined(CPUINFO_ARCH_X86)
+#    if defined(CPUINFO_ARCH_X86)
     {"ssse3", CpuInfo::SSSE3},
     {"sse4_1", CpuInfo::SSE4_1},
     {"sse4_2", CpuInfo::SSE4_2},
@@ -364,9 +364,9 @@ int64_t LinuxParseCpuFlags(const std::string& values) {
     {"avx512bw", CpuInfo::AVX512BW},
     {"bmi1", CpuInfo::BMI1},
     {"bmi2", CpuInfo::BMI2},
-#elif defined(CPUINFO_ARCH_ARM)
+#    elif defined(CPUINFO_ARCH_ARM)
     {"asimd", CpuInfo::ASIMD},
-#endif
+#    endif
   };
   const int64_t num_flags = sizeof(flag_mappings) / sizeof(flag_mappings[0]);
 
@@ -377,9 +377,9 @@ int64_t LinuxParseCpuFlags(const std::string& values) {
     }
   }
   return flags;
-#else
+#  else
   return 0;
-#endif
+#  endif
 }
 
 void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
@@ -466,11 +466,11 @@ bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_fla
 }
 
 void ArchVerifyCpuRequirements(const CpuInfo* ci) {
-#if defined(ARROW_HAVE_SSE4_2)
+#  if defined(ARROW_HAVE_SSE4_2)
   if (!ci->IsDetected(CpuInfo::SSE4_2)) {
     DCHECK(false) << "CPU does not support the Supplemental SSE4_2 instruction set";
   }
-#endif
+#  endif
 }
 
 #elif defined(CPUINFO_ARCH_ARM)

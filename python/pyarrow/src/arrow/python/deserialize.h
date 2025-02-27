@@ -24,6 +24,7 @@
 #include "arrow/python/serialize.h"
 #include "arrow/python/visibility.h"
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
@@ -55,6 +56,7 @@ struct ARROW_PYTHON_EXPORT SparseTensorCounts {
 /// \param[in] src a RandomAccessFile
 /// \param[out] out the reconstructed data
 /// \return Status
+ARROW_DEPRECATED("Deprecated in 18.0.0. Will be removed in 20.0.0")
 ARROW_PYTHON_EXPORT
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 
@@ -70,6 +72,7 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 /// num_csf_tensors * (2 * ndim_csf + 3) + num_buffers in length
 /// \param[out] out the reconstructed object
 /// \return Status
+ARROW_DEPRECATED("Deprecated in 18.0.0. Will be removed in 20.0.0")
 ARROW_PYTHON_EXPORT
 Status GetSerializedFromComponents(int num_tensors,
                                    const SparseTensorCounts& num_sparse_tensors,
@@ -88,6 +91,7 @@ Status GetSerializedFromComponents(int num_tensors,
 /// \param[out] out The returned object
 /// \return Status
 /// This acquires the GIL
+ARROW_DEPRECATED("Deprecated in 18.0.0. Will be removed in 20.0.0")
 ARROW_PYTHON_EXPORT
 Status DeserializeObject(PyObject* context, const SerializedPyObject& object,
                          PyObject* base, PyObject** out);
@@ -96,9 +100,11 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& object,
 /// \param[in] object Object to deserialize
 /// \param[out] out The deserialized tensor
 /// \return Status
+ARROW_DEPRECATED("Deprecated in 18.0.0. Will be removed in 20.0.0")
 ARROW_PYTHON_EXPORT
 Status DeserializeNdarray(const SerializedPyObject& object, std::shared_ptr<Tensor>* out);
 
+ARROW_DEPRECATED("Deprecated in 18.0.0. Will be removed in 20.0.0")
 ARROW_PYTHON_EXPORT
 Status NdarrayFromBuffer(std::shared_ptr<Buffer> src, std::shared_ptr<Tensor>* out);
 

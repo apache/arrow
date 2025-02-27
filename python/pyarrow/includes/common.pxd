@@ -18,11 +18,14 @@
 # distutils: language = c++
 
 from libc.stdint cimport *
+
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.functional cimport function
-from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
+from libcpp.memory cimport (shared_ptr, unique_ptr, make_shared,
+                            static_pointer_cast, dynamic_pointer_cast)
+from libcpp.optional cimport nullopt, optional
 from libcpp.string cimport string as c_string
-from libcpp.utility cimport pair
+from libcpp.utility cimport move, pair
 from libcpp.vector cimport vector
 from libcpp.unordered_map cimport unordered_map
 from libcpp.unordered_set cimport unordered_set
@@ -32,54 +35,27 @@ from cpython.datetime cimport PyDateTime_DateTime
 cimport cpython
 
 
-cdef extern from * namespace "std" nogil:
-    cdef shared_ptr[T] static_pointer_cast[T, U](shared_ptr[U])
+cdef extern from "<string_view>" namespace "std" nogil:
+    # Needed until https://github.com/cython/cython/issues/6651 is fixed
+    cdef cppclass cpp_string_view "std::string_view":
+        string_view()
+        string_view(const char*)
+        string_view(c_string&)
+        size_t size()
+        bint empty()
+        const char* data()
 
-
-cdef extern from "<optional>" namespace "std" nogil:
-    cdef cppclass optional[T]:
-        ctypedef T value_type
-        optional()
-        optional(nullopt_t)
-        optional(optional&) except +
-        optional(T&) except +
-        c_bool has_value()
-        T& value()
-        T& value_or[U](U& default_value)
-        void swap(optional&)
-        void reset()
-        T& emplace(...)
-        T& operator*()
-        # T* operator->() # Not Supported
-        optional& operator=(optional&)
-        optional& operator=[U](U&)
-
-
-# vendored from the cymove project https://github.com/ozars/cymove
-cdef extern from * namespace "cymove" nogil:
-    """
-    #include <type_traits>
-    #include <utility>
-    namespace cymove {
-    template <typename T>
-    inline typename std::remove_reference<T>::type&& cymove(T& t) {
-        return std::move(t);
-    }
-    template <typename T>
-    inline typename std::remove_reference<T>::type&& cymove(T&& t) {
-        return std::move(t);
-    }
-    }  // namespace cymove
-    """
-    cdef T move" cymove::cymove"[T](T)
 
 cdef extern from * namespace "arrow::py" nogil:
     """
     #include <memory>
+    #include <string>
+    #include <string_view>
     #include <utility>
 
     namespace arrow {
     namespace py {
+
     template <typename T>
     std::shared_ptr<T> to_shared(std::unique_ptr<T>& t) {
         return std::move(t);
@@ -88,10 +64,17 @@ cdef extern from * namespace "arrow::py" nogil:
     std::shared_ptr<T> to_shared(std::unique_ptr<T>&& t) {
         return std::move(t);
     }
+
+    // Needed until https://github.com/cython/cython/issues/6651 is fixed
+    inline std::string to_string(std::string_view s) {
+        return std::string(s);
+    }
+
     }  // namespace py
     }  // namespace arrow
     """
     cdef shared_ptr[T] to_shared" arrow::py::to_shared"[T](unique_ptr[T])
+    cdef c_string to_string(cpp_string_view s)
 
 cdef extern from "arrow/python/platform.h":
     pass

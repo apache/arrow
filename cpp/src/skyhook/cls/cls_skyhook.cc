@@ -95,7 +95,7 @@ class RandomAccessObject : public arrow::io::RandomAccessFile {
   arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t nbytes) override {
     ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(pos_, nbytes));
     pos_ += buffer->size();
-    return std::move(buffer);
+    return buffer;
   }
 
   /// Read a specified number of bytes from the current position into an output stream.

@@ -65,12 +65,12 @@ struct ARROW_EXPORT KeyColumnMetadata {
   /// If this is true the column will have a validity buffer and
   /// a data buffer and the third buffer will be unused.
   bool is_fixed_length;
-  /// \brief True if this column is the null type
+  /// \brief True if this column is the null type(NA).
   bool is_null_type;
   /// \brief The number of bytes for each item
   ///
   /// Zero has a special meaning, indicating a bit vector with one bit per value if it
-  /// isn't a null type column.
+  /// isn't a null type column. Generally, this means that the column is a boolean type.
   ///
   /// For a varying-length binary column this represents the number of bytes per offset.
   uint32_t fixed_length;
@@ -295,8 +295,8 @@ class ARROW_EXPORT ResizableArrayData {
   /// \param pool The pool to make allocations on
   /// \param log_num_rows_min All resize operations will allocate at least enough
   ///                         space for (1 << log_num_rows_min) rows
-  void Init(const std::shared_ptr<DataType>& data_type, MemoryPool* pool,
-            int log_num_rows_min);
+  Status Init(const std::shared_ptr<DataType>& data_type, MemoryPool* pool,
+              int log_num_rows_min);
 
   /// \brief Resets the array back to an empty state
   /// \param release_buffers If true then allocated memory is released and the
@@ -318,6 +318,9 @@ class ARROW_EXPORT ResizableArrayData {
 
   /// \brief The current length (in rows) of the array
   int num_rows() const { return num_rows_; }
+
+  /// \brief The current allocated length (in rows) of the array
+  int num_rows_allocated() const { return num_rows_allocated_; }
 
   /// \brief A non-owning view into this array
   KeyColumnArray column_array() const;
@@ -347,10 +350,17 @@ class ARROW_EXPORT ResizableArrayData {
   /// length binary data
   uint8_t* mutable_data(int i) { return buffers_[i]->mutable_data(); }
 
+  template <typename T>
+  T* mutable_data_as(int i) {
+    return reinterpret_cast<T*>(mutable_data(i));
+  }
+
  private:
   static constexpr int64_t kNumPaddingBytes = 64;
   int log_num_rows_min_;
   std::shared_ptr<DataType> data_type_;
+  // Would be valid if data_type_ != NULLPTR.
+  KeyColumnMetadata column_metadata_{};
   MemoryPool* pool_;
   int num_rows_;
   int num_rows_allocated_;
@@ -403,7 +413,7 @@ class ARROW_EXPORT ExecBatchBuilder {
 
   int num_rows() const { return values_.empty() ? 0 : values_[0].num_rows(); }
 
-  static int num_rows_max() { return 1 << kLogNumRows; }
+  static constexpr int num_rows_max() { return 1 << kLogNumRows; }
 
  private:
   static constexpr int kLogNumRows = 15;

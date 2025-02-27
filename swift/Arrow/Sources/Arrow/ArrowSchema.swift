@@ -17,9 +17,9 @@
 
 import Foundation
 public class ArrowField {
-    let type: ArrowType
-    let name: String
-    let isNullable: Bool
+    public let type: ArrowType
+    public let name: String
+    public let isNullable: Bool
 
     init(_ name: String, type: ArrowType, isNullable: Bool) {
         self.name = name

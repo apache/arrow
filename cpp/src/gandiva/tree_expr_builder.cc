@@ -53,8 +53,8 @@ NodePtr TreeExprBuilder::MakeBinaryLiteral(const std::string& value) {
 }
 
 NodePtr TreeExprBuilder::MakeDecimalLiteral(const DecimalScalar128& value) {
-  return std::make_shared<LiteralNode>(arrow::decimal(value.precision(), value.scale()),
-                                       LiteralHolder(value), false);
+  return std::make_shared<LiteralNode>(
+      arrow::decimal128(value.precision(), value.scale()), LiteralHolder(value), false);
 }
 
 NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {

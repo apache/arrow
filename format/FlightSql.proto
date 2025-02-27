@@ -20,7 +20,7 @@ syntax = "proto3";
 import "google/protobuf/descriptor.proto";
 
 option java_package = "org.apache.arrow.flight.sql.impl";
-option go_package = "github.com/apache/arrow/go/arrow/flight/gen/flight";
+option go_package = "github.com/apache/arrow-go/arrow/flight/gen/flight";
 package arrow.flight.protocol.sql;
 
 /*

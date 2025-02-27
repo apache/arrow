@@ -288,7 +288,7 @@ Result<ExtensionSet> ExtensionSet::Make(
     }
   }
 
-  return std::move(set);
+  return set;
 }
 
 Result<ExtensionSet::TypeRecord> ExtensionSet::DecodeType(uint32_t anchor) const {
@@ -799,7 +799,7 @@ Result<std::vector<compute::Expression>> GetValueArgs(const SubstraitCall& call,
     ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(index));
     expressions.push_back(arg);
   }
-  return std::move(expressions);
+  return expressions;
 }
 
 ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessOverflowableArithmetic(
@@ -874,7 +874,7 @@ ExtensionIdRegistry::ArrowToSubstraitCall EncodeOptionlessOverflowableArithmetic
         for (std::size_t i = 0; i < call.arguments.size(); i++) {
           substrait_call.SetValueArg(static_cast<int>(i), call.arguments[i]);
         }
-        return std::move(substrait_call);
+        return substrait_call;
       };
 }
 
@@ -887,7 +887,7 @@ ExtensionIdRegistry::ArrowToSubstraitCall EncodeBasic(Id substrait_fn_id) {
         for (std::size_t i = 0; i < call.arguments.size(); i++) {
           substrait_call.SetValueArg(static_cast<int>(i), call.arguments[i]);
         }
-        return std::move(substrait_call);
+        return substrait_call;
       };
 }
 
@@ -907,7 +907,7 @@ ExtensionIdRegistry::ArrowToSubstraitCall EncodeIsNull(Id substrait_fn_id) {
         for (std::size_t i = 0; i < call.arguments.size(); i++) {
           substrait_call.SetValueArg(static_cast<int>(i), call.arguments[i]);
         }
-        return std::move(substrait_call);
+        return substrait_call;
       };
 }
 
@@ -1071,7 +1071,8 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
 
     // Mappings either without a _checked variant or substrait has no overflow option
     for (const auto& function_name :
-         {"exp", "sign", "cos", "sin", "tan", "acos", "asin", "atan", "atan2"}) {
+         {"exp", "sign", "cos", "cosh", "sin", "sinh", "tan", "tanh", "acos", "acosh",
+          "asin", "asinh", "atan", "atanh", "atan2"}) {
       DCHECK_OK(
           AddSubstraitCallToArrow({kSubstraitArithmeticFunctionsUri, function_name},
                                   DecodeOptionlessUncheckedArithmetic(function_name)));
@@ -1207,7 +1208,13 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
              {kSubstraitArithmeticFunctionsUri, "acos"},
              {kSubstraitArithmeticFunctionsUri, "asin"},
              {kSubstraitArithmeticFunctionsUri, "atan"},
-             {kSubstraitArithmeticFunctionsUri, "atan2"}}) {
+             {kSubstraitArithmeticFunctionsUri, "atan2"},
+             {kSubstraitArithmeticFunctionsUri, "cosh"},
+             {kSubstraitArithmeticFunctionsUri, "sinh"},
+             {kSubstraitArithmeticFunctionsUri, "tanh"},
+             {kSubstraitArithmeticFunctionsUri, "acosh"},
+             {kSubstraitArithmeticFunctionsUri, "asinh"},
+             {kSubstraitArithmeticFunctionsUri, "atanh"}}) {
       Id fn_id{fn_pair.first, fn_pair.second};
       DCHECK_OK(AddArrowToSubstraitCall(std::string(fn_pair.second), EncodeBasic(fn_id)));
     }

@@ -17,12 +17,21 @@
 
 import ctypes
 from functools import wraps
+import gc
 import pytest
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow as pa
 from pyarrow.vendored.version import Version
+
+
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not numpy'
+pytestmark = pytest.mark.numpy
 
 
 def PyCapsule_IsValid(capsule, name):
@@ -42,6 +51,7 @@ def check_dlpack_export(arr, expected_arr):
 def check_bytes_allocated(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
+        gc.collect()
         allocated_bytes = pa.total_allocated_bytes()
         try:
             return f(*args, **kwargs)
@@ -52,45 +62,45 @@ def check_bytes_allocated(f):
 
 @check_bytes_allocated
 @pytest.mark.parametrize(
-    ('value_type', 'np_type'),
+    ('value_type', 'np_type_str'),
     [
-        (pa.uint8(), np.uint8),
-        (pa.uint16(), np.uint16),
-        (pa.uint32(), np.uint32),
-        (pa.uint64(), np.uint64),
-        (pa.int8(), np.int8),
-        (pa.int16(), np.int16),
-        (pa.int32(), np.int32),
-        (pa.int64(), np.int64),
-        (pa.float16(), np.float16),
-        (pa.float32(), np.float32),
-        (pa.float64(), np.float64),
+        (pa.uint8(), "uint8"),
+        (pa.uint16(), "uint16"),
+        (pa.uint32(), "uint32"),
+        (pa.uint64(), "uint64"),
+        (pa.int8(), "int8"),
+        (pa.int16(), "int16"),
+        (pa.int32(), "int32"),
+        (pa.int64(), "int64"),
+        (pa.float16(), "float16"),
+        (pa.float32(), "float32"),
+        (pa.float64(), "float64"),
     ]
 )
-def test_dlpack(value_type, np_type):
+def test_dlpack(value_type, np_type_str):
     if Version(np.__version__) < Version("1.24.0"):
         pytest.skip("No dlpack support in numpy versions older than 1.22.0, "
                     "strict keyword in assert_array_equal added in numpy version "
                     "1.24.0")
 
-    expected = np.array([1, 2, 3], dtype=np_type)
+    expected = np.array([1, 2, 3], dtype=np.dtype(np_type_str))
     arr = pa.array(expected, type=value_type)
     check_dlpack_export(arr, expected)
 
     arr_sliced = arr.slice(1, 1)
-    expected = np.array([2], dtype=np_type)
+    expected = np.array([2], dtype=np.dtype(np_type_str))
     check_dlpack_export(arr_sliced, expected)
 
     arr_sliced = arr.slice(0, 1)
-    expected = np.array([1], dtype=np_type)
+    expected = np.array([1], dtype=np.dtype(np_type_str))
     check_dlpack_export(arr_sliced, expected)
 
     arr_sliced = arr.slice(1)
-    expected = np.array([2, 3], dtype=np_type)
+    expected = np.array([2, 3], dtype=np.dtype(np_type_str))
     check_dlpack_export(arr_sliced, expected)
 
     arr_zero = pa.array([], type=value_type)
-    expected = np.array([], dtype=np_type)
+    expected = np.array([], dtype=np.dtype(np_type_str))
     check_dlpack_export(arr_zero, expected)
 
 

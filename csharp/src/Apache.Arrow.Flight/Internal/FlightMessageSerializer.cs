@@ -27,6 +27,7 @@ namespace Apache.Arrow.Flight
     {
         public static Schema DecodeSchema(ReadOnlyMemory<byte> buffer)
         {
+            if (buffer.IsEmpty) return null;
             int bufferPosition = 0;
             int schemaMessageLength = BinaryPrimitives.ReadInt32LittleEndian(buffer.Span.Slice(bufferPosition));
             bufferPosition += sizeof(int);

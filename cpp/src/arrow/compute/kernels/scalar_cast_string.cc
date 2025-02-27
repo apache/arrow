@@ -30,12 +30,14 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/visit_data_inline.h"
 
 namespace arrow {
 
 using internal::StringFormatter;
+using internal::VisitSetBitRunsVoid;
 using util::InitializeUTF8;
 using util::ValidateUTF8Inline;
 
@@ -217,8 +219,8 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
 
 #if defined(_MSC_VER)
 // Silence warning: """'visitor': unreferenced local variable"""
-#pragma warning(push)
-#pragma warning(disable : 4101)
+#  pragma warning(push)
+#  pragma warning(disable : 4101)
 #endif
 
 struct Utf8Validator {
@@ -286,17 +288,20 @@ Status CastBinaryToBinaryOffsets<int64_t, int32_t>(KernelContext* ctx,
   }
 }
 
+// Offset String -> Offset String
 template <typename O, typename I>
-enable_if_t<is_base_binary_type<I>::value && !is_fixed_size_binary_type<O>::value, Status>
+enable_if_t<is_base_binary_type<I>::value && is_base_binary_type<O>::value, Status>
 BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const ArraySpan& input = batch[0].array;
 
-  if (!I::is_utf8 && O::is_utf8 && !options.allow_invalid_utf8) {
-    InitializeUTF8();
-    ArraySpanVisitor<I> visitor;
-    Utf8Validator validator;
-    RETURN_NOT_OK(visitor.Visit(input, &validator));
+  if constexpr (!I::is_utf8 && O::is_utf8) {
+    if (!options.allow_invalid_utf8) {
+      InitializeUTF8();
+      ArraySpanVisitor<I> visitor;
+      Utf8Validator validator;
+      RETURN_NOT_OK(visitor.Visit(input, &validator));
+    }
   }
 
   // Start with a zero-copy cast, but change indices to expected size
@@ -305,19 +310,243 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
       ctx, input, out->array_data().get());
 }
 
+// String View -> Offset String
 template <typename O, typename I>
-enable_if_t<std::is_same<I, FixedSizeBinaryType>::value &&
-                !std::is_same<O, FixedSizeBinaryType>::value,
+enable_if_t<is_binary_view_like_type<I>::value && is_base_binary_type<O>::value, Status>
+BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  using OutputBuilderType = typename TypeTraits<O>::BuilderType;
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+  const ArraySpan& input = batch[0].array;
+
+  if constexpr (!I::is_utf8 && O::is_utf8) {
+    if (!options.allow_invalid_utf8) {
+      InitializeUTF8();
+      ArraySpanVisitor<I> visitor;
+      Utf8Validator validator;
+      RETURN_NOT_OK(visitor.Visit(input, &validator));
+    }
+  }
+
+  const int64_t sum_of_binary_view_sizes = util::SumOfBinaryViewSizes(
+      input.GetValues<BinaryViewType::c_type>(1), input.length);
+
+  // TODO(GH-43573): A more efficient implementation that copies the validity
+  // bitmap all at once is possible, but would mean we don't delegate all the
+  // building logic to the ArrayBuilder implementation for the output type.
+  OutputBuilderType builder(options.to_type.GetSharedPtr(), ctx->memory_pool());
+  RETURN_NOT_OK(builder.Resize(input.length));
+  RETURN_NOT_OK(builder.ReserveData(sum_of_binary_view_sizes));
+  arrow::internal::ArraySpanInlineVisitor<I> visitor;
+  RETURN_NOT_OK(visitor.VisitStatus(
+      input,
+      [&](std::string_view v) {
+        // Append valid string view
+        return builder.Append(v);
+      },
+      [&]() {
+        // Append null
+        builder.UnsafeAppendNull();
+        return Status::OK();
+      }));
+
+  std::shared_ptr<ArrayData> output_array;
+  RETURN_NOT_OK(builder.FinishInternal(&output_array));
+  out->value = std::move(output_array);
+  return Status::OK();
+}
+
+// Offset String -> String View
+template <typename O, typename I>
+enable_if_t<is_base_binary_type<I>::value && is_binary_view_like_type<O>::value, Status>
+BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  using offset_type = typename I::offset_type;
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+  const ArraySpan& input = batch[0].array;
+
+  if constexpr (!I::is_utf8 && O::is_utf8) {
+    if (!options.allow_invalid_utf8) {
+      InitializeUTF8();
+      ArraySpanVisitor<I> visitor;
+      Utf8Validator validator;
+      RETURN_NOT_OK(visitor.Visit(input, &validator));
+    }
+  }
+
+  // Start with a zero-copy cast, then reconfigure the view and data buffers
+  RETURN_NOT_OK(ZeroCopyCastExec(ctx, batch, out));
+  ArrayData* output = out->array_data().get();
+
+  const int64_t total_length = input.offset + input.length;
+  const auto* validity = input.GetValues<uint8_t>(0, 0);
+  const auto* input_offsets = input.GetValues<offset_type>(1);
+  const auto* input_data = input.GetValues<uint8_t>(2, 0);
+
+  // Turn buffers[1] into a buffer of empty BinaryViewType::c_type entries.
+  ARROW_ASSIGN_OR_RAISE(output->buffers[1],
+                        ctx->Allocate(total_length * BinaryViewType::kSize));
+  memset(output->buffers[1]->mutable_data(), 0, total_length * BinaryViewType::kSize);
+
+  // Check against offset overflow
+  if constexpr (sizeof(offset_type) > 4) {
+    if (total_length > 0) {
+      // Offsets are monotonically increasing, that is, offsets[j] <= offsets[j+1] for
+      // 0 <= j < length, even for null slots. So we only need to check the last offset.
+      const int64_t max_data_offset = input_offsets[input.length];
+      if (ARROW_PREDICT_FALSE(max_data_offset > std::numeric_limits<int32_t>::max())) {
+        // A more complicated loop could work by slicing the data buffer into
+        // more than one variadic buffer, but this is probably overkill for now
+        // before someone hits this problem in practice.
+        return Status::CapacityError("Failed casting from ", input.type->ToString(),
+                                     " to ", output->type->ToString(),
+                                     ": input array too large for efficient conversion.");
+      }
+    }
+  }
+
+  auto* out_views = output->GetMutableValues<BinaryViewType::c_type>(1);
+
+  // If all entries are inline, we can drop the extra data buffer for
+  // large strings in output->buffers[2].
+  bool all_entries_are_inline = true;
+  VisitSetBitRunsVoid(
+      validity, output->offset, output->length,
+      [&](int64_t start_offset, int64_t run_length) {
+        for (int64_t i = start_offset; i < start_offset + run_length; i++) {
+          const offset_type data_offset = input_offsets[i];
+          const offset_type data_length = input_offsets[i + 1] - data_offset;
+          auto& out_view = out_views[i];
+          if (data_length <= BinaryViewType::kInlineSize) {
+            out_view.inlined.size = static_cast<int32_t>(data_length);
+            memcpy(out_view.inlined.data.data(), input_data + data_offset, data_length);
+          } else {
+            out_view.ref.size = static_cast<int32_t>(data_length);
+            memcpy(out_view.ref.prefix.data(), input_data + data_offset,
+                   BinaryViewType::kPrefixSize);
+            // (buffer_index is 0'd by the memset of the buffer 1 above)
+            // out_view.ref.buffer_index = 0;
+            out_view.ref.offset = static_cast<int32_t>(data_offset);
+            all_entries_are_inline = false;
+          }
+        }
+      });
+  if (all_entries_are_inline) {
+    output->buffers[2] = nullptr;
+  }
+  return Status::OK();
+}
+
+// String View -> String View
+template <typename O, typename I>
+enable_if_t<is_binary_view_like_type<I>::value && is_binary_view_like_type<O>::value,
             Status>
 BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const ArraySpan& input = batch[0].array;
 
-  if (O::is_utf8 && !options.allow_invalid_utf8) {
-    InitializeUTF8();
-    ArraySpanVisitor<I> visitor;
-    Utf8Validator validator;
-    RETURN_NOT_OK(visitor.Visit(input, &validator));
+  if constexpr (!I::is_utf8 && O::is_utf8) {
+    if (!options.allow_invalid_utf8) {
+      InitializeUTF8();
+      ArraySpanVisitor<I> visitor;
+      Utf8Validator validator;
+      RETURN_NOT_OK(visitor.Visit(input, &validator));
+    }
+  }
+
+  return ZeroCopyCastExec(ctx, batch, out);
+}
+
+// Fixed -> String View
+template <typename O, typename I>
+enable_if_t<std::is_same<I, FixedSizeBinaryType>::value &&
+                is_binary_view_like_type<O>::value,
+            Status>
+BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+  const ArraySpan& input = batch[0].array;
+
+  if constexpr (!I::is_utf8 && O::is_utf8) {
+    if (!options.allow_invalid_utf8) {
+      InitializeUTF8();
+      ArraySpanVisitor<I> visitor;
+      Utf8Validator validator;
+      RETURN_NOT_OK(visitor.Visit(input, &validator));
+    }
+  }
+
+  const int32_t fixed_size_width = input.type->byte_width();
+  const int64_t total_length = input.offset + input.length;
+
+  ArrayData* output = out->array_data().get();
+  DCHECK_EQ(output->length, input.length);
+  output->offset = input.offset;
+  output->buffers.resize(3);
+  output->SetNullCount(input.null_count);
+  // Share the validity bitmap buffer
+  output->buffers[0] = input.GetBuffer(0);
+  // Init buffers[1] with input.length empty BinaryViewType::c_type entries.
+  ARROW_ASSIGN_OR_RAISE(output->buffers[1],
+                        ctx->Allocate(total_length * BinaryViewType::kSize));
+  memset(output->buffers[1]->mutable_data(), 0, total_length * BinaryViewType::kSize);
+  auto* out_views = output->GetMutableValues<BinaryViewType::c_type>(1);
+
+  auto data_buffer = input.GetBuffer(1);
+  const auto* data = data_buffer->data();
+
+  // Check against offset overflow
+  if (total_length > 0) {
+    const int64_t max_data_offset = (total_length - 1) * fixed_size_width;
+    if (ARROW_PREDICT_FALSE(max_data_offset > std::numeric_limits<int32_t>::max())) {
+      // A more complicated loop could work by slicing the data buffer into
+      // more than one variadic buffer, but this is probably overkill for now
+      // before someone hits this problem in practice.
+      return Status::CapacityError("Failed casting from ", input.type->ToString(), " to ",
+                                   output->type->ToString(),
+                                   ": input array too large for efficient conversion.");
+    }
+  }
+
+  // Inline string and non-inline string loops
+  if (fixed_size_width <= BinaryViewType::kInlineSize) {
+    int32_t data_offset = static_cast<int32_t>(input.offset) * fixed_size_width;
+    for (int64_t i = 0; i < input.length; i++) {
+      auto& out_view = out_views[i];
+      out_view.inlined.size = fixed_size_width;
+      memcpy(out_view.inlined.data.data(), data + data_offset, fixed_size_width);
+      data_offset += fixed_size_width;
+    }
+  } else {
+    // We share the fixed-size string array data buffer as variadic data
+    // buffer 0 (index=2+0) and set every buffer_index to 0.
+    output->buffers[2] = std::move(data_buffer);
+    int32_t data_offset = static_cast<int32_t>(input.offset) * fixed_size_width;
+    for (int64_t i = 0; i < input.length; i++) {
+      auto& out_view = out_views[i];
+      out_view.ref.size = fixed_size_width;
+      memcpy(out_view.ref.prefix.data(), data + data_offset, BinaryViewType::kPrefixSize);
+      // (buffer_index is 0'd by the memset of the buffer 1 above)
+      // out_view.ref.buffer_index = 0;
+      out_view.ref.offset = static_cast<int32_t>(data_offset);
+      data_offset += fixed_size_width;
+    }
+  }
+  return Status::OK();
+}
+
+// Fixed -> Offset String
+template <typename O, typename I>
+enable_if_t<std::is_same<I, FixedSizeBinaryType>::value && is_base_binary_type<O>::value,
+            Status>
+BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+  const ArraySpan& input = batch[0].array;
+
+  if constexpr (O::is_utf8) {
+    if (!options.allow_invalid_utf8) {
+      InitializeUTF8();
+      ArraySpanVisitor<I> visitor;
+      Utf8Validator validator;
+      RETURN_NOT_OK(visitor.Visit(input, &validator));
+    }
   }
 
   // Check for overflow
@@ -352,7 +581,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   }
 
   // This buffer is preallocated
-  output_offset_type* offsets = output->GetMutableValues<output_offset_type>(1);
+  auto* offsets = output->GetMutableValues<output_offset_type>(1);
   offsets[0] = static_cast<output_offset_type>(input.offset * width);
   for (int64_t i = 0; i < input.length; i++) {
     offsets[i + 1] = offsets[i] + width;
@@ -378,6 +607,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return Status::OK();
 }
 
+// Fixed -> Fixed
 template <typename O, typename I>
 enable_if_t<std::is_same<I, FixedSizeBinaryType>::value &&
                 std::is_same<O, FixedSizeBinaryType>::value,
@@ -394,8 +624,10 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return ZeroCopyCastExec(ctx, batch, out);
 }
 
+// Offset String | String View -> Fixed
 template <typename O, typename I>
-enable_if_t<is_base_binary_type<I>::value && std::is_same<O, FixedSizeBinaryType>::value,
+enable_if_t<(is_base_binary_type<I>::value || is_binary_view_like_type<I>::value) &&
+                std::is_same<O, FixedSizeBinaryType>::value,
             Status>
 BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
@@ -422,7 +654,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 }
 
 #if defined(_MSC_VER)
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 // ----------------------------------------------------------------------
@@ -451,7 +683,8 @@ void AddNumberToStringCasts(CastFunction* func) {
 template <typename OutType>
 void AddDecimalToStringCasts(CastFunction* func) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
-  for (const auto& in_tid : std::vector<Type::type>{Type::DECIMAL128, Type::DECIMAL256}) {
+  for (const auto& in_tid : std::vector<Type::type>{Type::DECIMAL32, Type::DECIMAL64,
+                                                    Type::DECIMAL128, Type::DECIMAL256}) {
     DCHECK_OK(
         func->AddKernel(in_tid, {in_tid}, out_ty,
                         GenerateDecimal<DecimalToStringCastFunctor, OutType>(in_tid),
@@ -484,7 +717,9 @@ void AddBinaryToBinaryCast(CastFunction* func) {
 template <typename OutType>
 void AddBinaryToBinaryCast(CastFunction* func) {
   AddBinaryToBinaryCast<OutType, StringType>(func);
+  AddBinaryToBinaryCast<OutType, StringViewType>(func);
   AddBinaryToBinaryCast<OutType, BinaryType>(func);
+  AddBinaryToBinaryCast<OutType, BinaryViewType>(func);
   AddBinaryToBinaryCast<OutType, LargeStringType>(func);
   AddBinaryToBinaryCast<OutType, LargeBinaryType>(func);
   AddBinaryToBinaryCast<OutType, FixedSizeBinaryType>(func);
@@ -504,7 +739,9 @@ void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
 
 void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
   AddBinaryToFixedSizeBinaryCast<StringType>(func);
+  AddBinaryToFixedSizeBinaryCast<StringViewType>(func);
   AddBinaryToFixedSizeBinaryCast<BinaryType>(func);
+  AddBinaryToFixedSizeBinaryCast<BinaryViewType>(func);
   AddBinaryToFixedSizeBinaryCast<LargeStringType>(func);
   AddBinaryToFixedSizeBinaryCast<LargeBinaryType>(func);
   AddBinaryToFixedSizeBinaryCast<FixedSizeBinaryType>(func);
@@ -513,14 +750,23 @@ void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
 }  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
+  // cast_binary / cast_binary_view / cast_large_binary
+
   auto cast_binary = std::make_shared<CastFunction>("cast_binary", Type::BINARY);
   AddCommonCasts(Type::BINARY, binary(), cast_binary.get());
   AddBinaryToBinaryCast<BinaryType>(cast_binary.get());
+
+  auto cast_binary_view =
+      std::make_shared<CastFunction>("cast_binary_view", Type::BINARY_VIEW);
+  AddCommonCasts(Type::BINARY_VIEW, binary_view(), cast_binary_view.get());
+  AddBinaryToBinaryCast<BinaryViewType>(cast_binary_view.get());
 
   auto cast_large_binary =
       std::make_shared<CastFunction>("cast_large_binary", Type::LARGE_BINARY);
   AddCommonCasts(Type::LARGE_BINARY, large_binary(), cast_large_binary.get());
   AddBinaryToBinaryCast<LargeBinaryType>(cast_large_binary.get());
+
+  // cast_string / cast_string_view / cast_large_string
 
   auto cast_string = std::make_shared<CastFunction>("cast_string", Type::STRING);
   AddCommonCasts(Type::STRING, utf8(), cast_string.get());
@@ -528,6 +774,14 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   AddDecimalToStringCasts<StringType>(cast_string.get());
   AddTemporalToStringCasts<StringType>(cast_string.get());
   AddBinaryToBinaryCast<StringType>(cast_string.get());
+
+  auto cast_string_view =
+      std::make_shared<CastFunction>("cast_string_view", Type::STRING_VIEW);
+  AddCommonCasts(Type::STRING_VIEW, utf8_view(), cast_string_view.get());
+  AddNumberToStringCasts<StringViewType>(cast_string_view.get());
+  AddDecimalToStringCasts<StringViewType>(cast_string_view.get());
+  AddTemporalToStringCasts<StringViewType>(cast_string_view.get());
+  AddBinaryToBinaryCast<StringViewType>(cast_string_view.get());
 
   auto cast_large_string =
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
@@ -537,13 +791,19 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   AddTemporalToStringCasts<LargeStringType>(cast_large_string.get());
   AddBinaryToBinaryCast<LargeStringType>(cast_large_string.get());
 
+  // cast_fixed_size_binary
+
   auto cast_fsb =
       std::make_shared<CastFunction>("cast_fixed_size_binary", Type::FIXED_SIZE_BINARY);
   AddCommonCasts(Type::FIXED_SIZE_BINARY, OutputType(ResolveOutputFromOptions),
                  cast_fsb.get());
   AddBinaryToFixedSizeBinaryCast(cast_fsb.get());
 
-  return {cast_binary, cast_large_binary, cast_string, cast_large_string, cast_fsb};
+  return {
+      std::move(cast_binary), std::move(cast_binary_view), std::move(cast_large_binary),
+      std::move(cast_string), std::move(cast_string_view), std::move(cast_large_string),
+      std::move(cast_fsb),
+  };
 }
 
 }  // namespace internal

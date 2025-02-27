@@ -107,7 +107,7 @@ Child allocators can also be named, which makes it easier to tell where an Arrow
 Reference counting
 ------------------
 
-Because direct memory is expensive to allocate and deallocate, allocators may share direct buffers. To managed shared buffers
+Because direct memory is expensive to allocate and deallocate, allocators may share direct buffers. To manage shared buffers
 deterministically, we use manual reference counting instead of the garbage collector.
 This simply means that each buffer has a counter keeping track of the number of references to
 the buffer, and the user is responsible for properly incrementing/decrementing the counter as the buffer is used.

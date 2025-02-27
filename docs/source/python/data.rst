@@ -26,8 +26,8 @@ with memory buffers, like the ones explained in the documentation on
 :ref:`Memory and IO <io>`. These data structures are exposed in Python through
 a series of interrelated classes:
 
-* **Type Metadata**: Instances of ``pyarrow.DataType``, which describe a logical
-  array type
+* **Type Metadata**: Instances of ``pyarrow.DataType``, which describe the
+  type of an array and govern how its values are interpreted
 * **Schemas**: Instances of ``pyarrow.Schema``, which describe a named
   collection of types. These can be thought of as the column types in a
   table-like object.
@@ -55,8 +55,8 @@ array data. These include:
 * **Nested types**: list, map, struct, and union
 * **Dictionary type**: An encoded categorical type (more on this later)
 
-Each logical data type in Arrow has a corresponding factory function for
-creating an instance of that type object in Python:
+Each data type in Arrow has a corresponding factory function for creating
+an instance of that type object in Python:
 
 .. ipython:: python
 
@@ -72,9 +72,9 @@ creating an instance of that type object in Python:
    print(t4)
    print(t5)
 
-We use the name **logical type** because the **physical** storage may be the
-same for one or more types. For example, ``int64``, ``float64``, and
-``timestamp[ms]`` all occupy 64 bits per value.
+.. note::
+   Different data types might use a given physical storage. For example,
+   ``int64``, ``float64``, and ``timestamp[ms]`` all occupy 64 bits per value.
 
 These objects are ``metadata``; they are used for describing the data in arrays,
 schemas, and record batches. In Python, they can be used in functions where the

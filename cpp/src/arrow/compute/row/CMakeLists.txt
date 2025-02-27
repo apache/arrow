@@ -19,3 +19,5 @@
 # in a row-major order.
 
 arrow_install_all_headers("arrow/compute/row")
+
+add_arrow_benchmark(grouper_benchmark PREFIX "arrow-compute")

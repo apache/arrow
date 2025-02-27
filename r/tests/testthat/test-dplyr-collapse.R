@@ -142,20 +142,11 @@ test_that("Properties of collapsed query", {
     summarize(total = sum(int, na.rm = TRUE)) %>%
     mutate(extra = total * 5)
 
-  # print(tbl %>%
-  #   filter(dbl > 2) %>%
-  #   select(chr, int, lgl) %>%
-  #   mutate(twice = int * 2L) %>%
-  #   group_by(lgl) %>%
-  #   summarize(total = sum(int, na.rm = TRUE)) %>%
-  #   mutate(extra = total * 5))
-
-  #   # A tibble: 3 × 3
+  #  # A tibble: 2 × 3
   #   lgl   total extra
   #   <lgl> <int> <dbl>
-  # 1 FALSE     8    40
-  # 2 TRUE      8    40
-  # 3 NA       25   125
+  # 1 TRUE      5    25
+  # 2 NA       36   180
 
   # Avoid evaluating just for nrow
   expect_identical(dim(q), c(NA_integer_, 3L))
@@ -168,19 +159,6 @@ total: int64
 extra: int64 (multiply_checked(total, 5))
 
 * Sorted by lgl [asc]
-See $.data for the source Arrow object",
-    fixed = TRUE
-  )
-  expect_output(
-    print(q$.data),
-    "Table (query)
-int: int32
-lgl: bool
-
-* Aggregations:
-total: sum(int)
-* Filter: (dbl > 2)
-* Grouped by lgl
 See $.data for the source Arrow object",
     fixed = TRUE
   )

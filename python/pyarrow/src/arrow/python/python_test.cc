@@ -663,7 +663,7 @@ Status TestDecimal128OverflowFails() {
   ASSERT_EQ(38, metadata.precision());
   ASSERT_EQ(1, metadata.scale());
 
-  auto type = ::arrow::decimal(38, 38);
+  auto type = ::arrow::smallest_decimal(38, 38);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_RAISES(Invalid,
                 internal::DecimalFromPythonDecimal(python_decimal, decimal_type, &value));
@@ -689,7 +689,7 @@ Status TestDecimal256OverflowFails() {
   ASSERT_EQ(76, metadata.precision());
   ASSERT_EQ(1, metadata.scale());
 
-  auto type = ::arrow::decimal(76, 76);
+  auto type = ::arrow::smallest_decimal(76, 76);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_RAISES(Invalid,
                 internal::DecimalFromPythonDecimal(python_decimal, decimal_type, &value));
@@ -870,7 +870,7 @@ std::vector<TestCase> GetCppTestCases() {
        TestInferAllLeadingZerosExponentialNotationPositive},
       {"test_infer_all_leading_zeros_exponential_notation_negative",
        TestInferAllLeadingZerosExponentialNotationNegative},
-      {"test_object_block_write_fails", TestObjectBlockWriteFails},
+      {"test_object_block_write_fails_pandas_convert", TestObjectBlockWriteFails},
       {"test_mixed_type_fails", TestMixedTypeFails},
       {"test_from_python_decimal_rescale_not_truncateable",
        TestFromPythonDecimalRescaleNotTruncateable},

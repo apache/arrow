@@ -27,6 +27,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+
+#include <rapidjson/document.h>
+#include <rapidjson/error/en.h>
+#include <rapidjson/stringbuffer.h>
+
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
@@ -46,6 +52,8 @@
 #include "parquet/platform.h"
 #include "parquet/printer.h"
 #include "parquet/test_util.h"
+
+namespace rj = arrow::rapidjson;
 
 using arrow::internal::checked_pointer_cast;
 using arrow::internal::Zip;
@@ -1077,7 +1085,24 @@ Column 1
   ASSERT_EQ(header_output + dump_output, ss_dump.str());
 }
 
-TEST(TestJSONWithLocalFile, JSONOutput) {
+class TestJSONWithLocalFile : public ::testing::Test {
+ public:
+  static std::string ReadFromLocalFile(std::string_view local_file_name) {
+    std::stringstream ss;
+    // empty list means print all
+    std::list<int> columns;
+
+    auto reader =
+        ParquetFileReader::OpenFile(data_file(local_file_name.data()),
+                                    /*memory_map=*/false, default_reader_properties());
+    ParquetFilePrinter printer(reader.get());
+    printer.JSONPrint(ss, columns, local_file_name.data());
+
+    return ss.str();
+  }
+};
+
+TEST_F(TestJSONWithLocalFile, JSONOutput) {
   std::string json_output = R"###({
   "FileName": "alltypes_plain.parquet",
   "Version": "1.0",
@@ -1131,16 +1156,65 @@ TEST(TestJSONWithLocalFile, JSONOutput) {
 }
 )###";
 
-  std::stringstream ss;
-  // empty list means print all
-  std::list<int> columns;
+  std::string json_content = ReadFromLocalFile("alltypes_plain.parquet");
+  ASSERT_EQ(json_output, json_content);
+}
 
-  auto reader =
-      ParquetFileReader::OpenFile(alltypes_plain(), false, default_reader_properties());
-  ParquetFilePrinter printer(reader.get());
-  printer.JSONPrint(ss, columns, "alltypes_plain.parquet");
+TEST_F(TestJSONWithLocalFile, JSONOutputFLBA) {
+  // min-max stats for FLBA contains non-utf8 output, so we don't check
+  // the whole json output.
+  std::string json_content = ReadFromLocalFile("fixed_length_byte_array.parquet");
 
-  ASSERT_EQ(json_output, ss.str());
+  std::string json_contains = R"###({
+  "FileName": "fixed_length_byte_array.parquet",
+  "Version": "1.0",
+  "CreatedBy": "parquet-mr version 1.13.0-SNAPSHOT (build d057b39d93014fe40f5067ee4a33621e65c91552)",
+  "TotalRows": "1000",
+  "NumberOfRowGroups": "1",
+  "NumberOfRealColumns": "1",
+  "NumberOfColumns": "1",
+  "Columns": [
+     { "Id": "0", "Name": "flba_field", "PhysicalType": "FIXED_LEN_BYTE_ARRAY(4)", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} }
+  ])###";
+
+  EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
+}
+
+TEST_F(TestJSONWithLocalFile, JSONOutputSortColumns) {
+  std::string json_content = ReadFromLocalFile("sort_columns.parquet");
+
+  std::string json_contains = R"###("SortColumns": [
+         {"column_idx": 0, "descending": 1, "nulls_first": 1},
+         {"column_idx": 1, "descending": 0, "nulls_first": 0}
+       ])###";
+  EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
+}
+
+// GH-44101: Test that JSON output is valid JSON
+TEST_F(TestJSONWithLocalFile, ValidJsonOutput) {
+  auto check_json_valid = [](std::string_view json_string) -> ::arrow::Status {
+    rj::Document json_doc;
+    constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
+    json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
+    if (json_doc.HasParseError()) {
+      return ::arrow::Status::Invalid("JSON parse error at offset ",
+                                      json_doc.GetErrorOffset(), ": ",
+                                      rj::GetParseError_En(json_doc.GetParseError()));
+    }
+    return ::arrow::Status::OK();
+  };
+  std::vector<std::string_view> check_file_lists = {
+      "data_index_bloom_encoding_with_length.parquet",
+      "data_index_bloom_encoding_stats.parquet",
+      "alltypes_tiny_pages_plain.parquet",
+      "concatenated_gzip_members.parquet",
+      "nulls.snappy.parquet",
+      "sort_columns.parquet"};
+  for (const auto& file : check_file_lists) {
+    std::string json_content = ReadFromLocalFile(file);
+    ASSERT_OK(check_json_valid(json_content))
+        << "Invalid JSON output for file: " << file << ", content:" << json_content;
+  }
 }
 
 TEST(TestFileReader, BufferedReadsWithDictionary) {

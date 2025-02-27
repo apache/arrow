@@ -18,7 +18,7 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/exec.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/benchmark_util.h"
 

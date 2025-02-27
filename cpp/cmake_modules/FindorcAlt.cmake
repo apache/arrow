@@ -71,4 +71,5 @@ if(orcAlt_FOUND)
                           PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
                                      INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
   endif()
+  set(orcAlt_VERSION ${ORC_VERSION})
 endif()

@@ -248,7 +248,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     CResult[PyObject*] StringToTzinfo(c_string)
 
 
-cdef extern from "arrow/python/init.h":
+cdef extern from "arrow/python/numpy_init.h" namespace "arrow::py":
     int arrow_init_numpy() except -1
 
 
@@ -317,3 +317,6 @@ cdef extern from "arrow/python/benchmark.h" namespace "arrow::py::benchmark":
 
 cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
     void GdbTestSession "arrow::gdb::TestSession"()
+
+cdef extern from "arrow/python/helpers.h" namespace "arrow::py::internal":
+    c_bool IsThreadingEnabled()

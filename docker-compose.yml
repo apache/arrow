@@ -22,8 +22,8 @@
 # defaults are set in .env file.
 #
 # Example:
-# $ ARCH=arm64v8 docker-compose build ubuntu-cpp
-# $ ARCH=arm64v8 docker-compose run ubuntu-cpp
+# $ ARCH=arm64v8 docker compose build ubuntu-cpp
+# $ ARCH=arm64v8 docker compose run ubuntu-cpp
 #
 #
 # Coredumps
@@ -38,25 +38,20 @@
 # WARNING: setting this will affect the host machine.
 #
 # Linux host:
-#   $ sudo sysctl -w kernel.core_pattern=core.%e.%p
+#   $ sudo sysctl -w kernel.core_pattern=/tmp/core.%e.%p
 #
 # macOS host running Docker for Mac (won't persist between restarts):
 #   $ screen ~/Library/Containers/com.docker.docker/Data/vms/0/tty
-#   # echo "core.%e.%p" > /proc/sys/kernel/core_pattern
+#   # echo "/tmp/core.%e.%p" > /proc/sys/kernel/core_pattern
 #
 # The setup attempts to generate coredumps by default, but the correct paths
 # above must be set. In order to disable the coredump generation set
-# ULIMIT_CORE environment variable to 0 before running docker-compose
+# ULIMIT_CORE environment variable to 0 before running docker compose
 # (or by setting it in .env file):
 #
-# ULIMIT_CORE=0 docker-compose run --rm conda-cpp
+# ULIMIT_CORE=0 docker compose run --rm conda-cpp
 #
 # See more in cpp/build-support/run-test.sh::print_coredumps
-
-version: '3.5'
-
-x-common: &common
-  GITHUB_ACTIONS:
 
 x-ccache: &ccache
   CCACHE_COMPILERCHECK: content
@@ -65,6 +60,13 @@ x-ccache: &ccache
   CCACHE_MAXSIZE: 1G
   CCACHE_DIR: /ccache
 
+x-common: &common
+  GITHUB_ACTIONS:
+
+x-cpp: &cpp
+  ARROW_RUNTIME_SIMD_LEVEL:
+  ARROW_SIMD_LEVEL:
+
 x-sccache: &sccache
   AWS_ACCESS_KEY_ID:
   AWS_SECRET_ACCESS_KEY:
@@ -72,9 +74,10 @@ x-sccache: &sccache
   SCCACHE_REGION:
   SCCACHE_S3_KEY_PREFIX: ${SCCACHE_S3_KEY_PREFIX:-sccache}
 
-x-cpp: &cpp
-  ARROW_RUNTIME_SIMD_LEVEL:
-  ARROW_SIMD_LEVEL:
+x-vcpkg-build-secrets: &vcpkg-build-secrets
+  - github_repository_owner
+  - github_token
+  - vcpkg_binary_sources
 
 # CPU/memory limit presets to pass to Docker.
 #
@@ -99,12 +102,12 @@ x-with-gpus:
 x-hierarchy:
   # This section is used by the archery tool to enable building nested images,
   # so it is enough to call:
-  #   archery run debian-ruby
-  # instead of a sequence of docker-compose commands:
-  #   docker-compose build debian-cpp
-  #   docker-compose build debian-c-glib
-  #   docker-compose build debian-ruby
-  #   docker-compose run --rm debian-ruby
+  #   archery docker run debian-ruby
+  # instead of a sequence of docker compose commands:
+  #   docker compose build debian-cpp
+  #   docker compose build debian-c-glib
+  #   docker compose build debian-ruby
+  #   docker compose run --rm debian-ruby
   #
   # Each node must be either a string scalar of a list containing the
   # descendant images if any. Archery checks that all node has a corresponding
@@ -119,13 +122,12 @@ x-hierarchy:
       - conda-python:
         - conda-python-pandas:
           - conda-python-docs
-        - conda-python-cython2
+        - conda-python-cpython-debug
         - conda-python-dask
+        - conda-python-emscripten
         - conda-python-hdfs
-        - conda-python-java-integration
-        - conda-python-jpype
+        - conda-python-no-numpy
         - conda-python-spark
-        - conda-python-substrait
   - conda-verify-rc
   - conan
   - debian-cpp:
@@ -133,13 +135,9 @@ x-hierarchy:
       - debian-ruby
     - debian-python:
       - debian-docs
-  - debian-go:
-    - debian-go-cgo
-    - debian-go-cgo-python
   - debian-js
   - fedora-cpp:
     - fedora-python
-  - java
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
@@ -148,9 +146,11 @@ x-hierarchy:
     - ubuntu-lint
     - ubuntu-python
     - ubuntu-python-sdist-test
+    - ubuntu-python-313-freethreading
     - ubuntu-r
     - ubuntu-r-only-r
   - ubuntu-cpp-bundled
+  - ubuntu-cpp-bundled-offline
   - ubuntu-cpp-minimal
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
@@ -168,13 +168,18 @@ x-hierarchy:
   # helper services
   - impala
   - postgres
-  - python-wheel-manylinux-2014:
-    - java-jni-manylinux-2014
+  - python-wheel-manylinux-2014
   - python-wheel-manylinux-2-28
   - python-wheel-manylinux-test-imports
+  - python-free-threaded-wheel-manylinux-test-imports
   - python-wheel-manylinux-test-unittests
-  - python-wheel-windows-vs2019
-  - python-wheel-windows-test
+  - python-free-threaded-wheel-manylinux-test-unittests
+  - python-wheel-windows-vs2022-base:
+    - python-wheel-windows-vs2022
+    - python-free-threaded-wheel-windows-vs2022
+  - python-wheel-windows-test-base:
+    - python-wheel-windows-test
+    - python-free-threaded-wheel-windows-test
 
 volumes:
   almalinux-ccache:
@@ -185,8 +190,6 @@ volumes:
     name: ${ARCH}-conda-ccache
   debian-ccache:
     name: ${ARCH}-debian-${DEBIAN}-ccache
-  debian-rust:
-    name: ${ARCH}-debian-${DEBIAN}-rust
   fedora-ccache:
     name: ${ARCH}-fedora-${FEDORA}-ccache
   maven-cache:
@@ -195,8 +198,6 @@ volumes:
     name: python-wheel-manylinux2014-ccache
   python-wheel-manylinux-2-28-ccache:
     name: python-wheel-manylinux-2-28-ccache
-  python-wheel-windows-clcache:
-    name: python-wheel-windows-clcache
   ubuntu-ccache:
     name: ${ARCH}-ubuntu-${UBUNTU}-ccache
 
@@ -204,21 +205,21 @@ services:
 
   ################################# C++ #######################################
   # Release build:
-  #   docker-compose run -e ARROW_BUILD_TYPE=release conda-cpp|debian-cpp|...
+  #   docker compose run -e ARROW_BUILD_TYPE=release conda-cpp|debian-cpp|...
   # Shared only:
-  #   docker-compose run -e ARROW_BUILD_STATIC=OFF conda-cpp|debian-cpp|...
+  #   docker compose run -e ARROW_BUILD_STATIC=OFF conda-cpp|debian-cpp|...
   # Static only:
-  #   docker-compose run \
+  #   docker compose run \
   #     -e ARROW_BUILD_SHARED=OFF \
   #     -e ARROW_TEST_LINKAGE=static \
   #     conda-cpp|debian-cpp|...
 
   alpine-linux-cpp:
     # Usage:
-    #   docker-compose build alpine-linux-cpp
-    #   docker-compose run --rm alpine-linux-cpp
+    #   docker compose build alpine-linux-cpp
+    #   docker compose run --rm alpine-linux-cpp
     # Parameters:
-    #   ALPINE_LINUX: 3.16
+    #   ALPINE_LINUX: 3.18
     #   ARCH: amd64, arm64v8, ...
     image: ${REPO}:${ARCH}-alpine-linux-${ALPINE_LINUX}-cpp
     build:
@@ -247,8 +248,8 @@ services:
     # Base image for conda builds.
     #
     # Usage:
-    #   docker-compose build conda
-    #   docker-compose run --rm conda
+    #   docker compose build conda
+    #   docker compose run --rm conda
     # Parameters:
     #   ARCH: amd64, arm32v7
     image: ${REPO}:${ARCH}-conda
@@ -266,9 +267,9 @@ services:
     # C++ build in conda environment, including the doxygen docs.
     #
     # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose run --rm conda-cpp
+    #   docker compose build conda
+    #   docker compose build conda-cpp
+    #   docker compose run --rm conda-cpp
     # Parameters:
     #   ARCH: amd64, arm32v7
     image: ${REPO}:${ARCH}-conda-cpp
@@ -286,6 +287,7 @@ services:
       <<: [*common, *ccache, *sccache, *cpp]
       ARROW_BUILD_BENCHMARKS: "ON"
       ARROW_BUILD_EXAMPLES: "ON"
+      ARROW_BUILD_OPENMP_BENCHMARKS: "ON"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_EXTRA_ERROR_CONTEXT: "ON"
       ARROW_MIMALLOC: "ON"
@@ -301,9 +303,9 @@ services:
 
   conda-cpp-valgrind:
     # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose run --rm conda-cpp-valgrind
+    #   docker compose build conda
+    #   docker compose build conda-cpp
+    #   docker compose run --rm conda-cpp-valgrind
     # Parameters:
     #   ARCH: amd64, arm32v7
     image: ${REPO}:${ARCH}-conda-cpp
@@ -328,6 +330,7 @@ services:
       ARROW_FLIGHT_SQL: "OFF"
       ARROW_GANDIVA: "OFF"
       ARROW_JEMALLOC: "OFF"
+      ARROW_MIMALLOC: "OFF"
       ARROW_RUNTIME_SIMD_LEVEL: "AVX2"  # AVX512 not supported by Valgrind (ARROW-9851)
       ARROW_TEST_MEMCHECK: "ON"
       ARROW_USE_LD_GOLD: "ON"
@@ -338,11 +341,11 @@ services:
 
   debian-cpp:
     # Usage:
-    #   docker-compose build debian-cpp
-    #   docker-compose run --rm debian-cpp
+    #   docker compose build debian-cpp
+    #   docker compose run --rm debian-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 12
+    #   DEBIAN: 12, experimental
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
     build:
       context: .
@@ -351,6 +354,7 @@ services:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
       args:
         arch: ${ARCH}
+        gcc: ${GCC}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
@@ -370,11 +374,11 @@ services:
 
   ubuntu-cpp:
     # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose run --rm ubuntu-cpp
+    #   docker compose build ubuntu-cpp
+    #   docker compose run --rm ubuntu-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 20.04, 22.04, 24.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -385,8 +389,9 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
+        gcc: ${GCC}
         llvm: ${LLVM}
-        gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
     cap_add:
       - SYS_ADMIN
@@ -406,11 +411,11 @@ services:
 
   ubuntu-cpp-static:
     # Usage:
-    #   docker-compose build ubuntu-cpp-static
-    #   docker-compose run --rm ubuntu-cpp-static
+    #   docker compose build ubuntu-cpp-static
+    #   docker compose run --rm ubuntu-cpp-static
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-static
     build:
       context: .
@@ -421,8 +426,9 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
+        gcc: ${GCC}
         llvm: ${LLVM}
-        gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
     cap_add:
       - SYS_ADMIN
@@ -450,6 +456,8 @@ services:
       dockerfile: ci/docker/centos-7-cpp.dockerfile
       cache_from:
         - ${REPO}:centos-7-cpp-static
+      args:
+        cmake: ${CMAKE}
     shm_size: *shm-size
     volumes:
       - .:/arrow:delegated
@@ -472,12 +480,37 @@ services:
       args:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
       ARROW_DEPENDENCY_SOURCE: BUNDLED
+      CMAKE_GENERATOR: "Unix Makefiles"
+    volumes: *ubuntu-volumes
+    command: *cpp-command
+
+  ubuntu-cpp-bundled-offline:
+    # Arrow build with BUNDLED dependencies with downloaded dependencies.
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp-minimal.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
+      args:
+        arch: ${ARCH}
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+        llvm: ${LLVM}
+    shm_size: *shm-size
+    ulimits: *ulimits
+    environment:
+      <<: [*common, *ccache, *cpp]
+      ARROW_DEPENDENCY_SOURCE: BUNDLED
+      ARROW_OFFLINE: ON
+      # Apache ORC always uses external orc-format.
+      ARROW_ORC: OFF
       CMAKE_GENERATOR: "Unix Makefiles"
     volumes: *ubuntu-volumes
     command: *cpp-command
@@ -527,8 +560,8 @@ services:
 
   ubuntu-cuda-cpp:
     # Usage:
-    #   docker-compose build cuda-cpp
-    #   docker-compose run --rm cuda-cpp
+    #   docker compose build cuda-cpp
+    #   docker compose run --rm cuda-cpp
     # Parameters:
     #   ARCH: amd64
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
@@ -542,6 +575,7 @@ services:
         arch: ${ARCH}
         base: nvidia/cuda:${CUDA}-devel-ubuntu${UBUNTU}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
@@ -575,8 +609,8 @@ services:
 
   ubuntu-cpp-sanitizer:
     # Usage:
-    #   docker-compose build ubuntu-cpp-sanitizer
-    #   docker-compose run --rm ubuntu-cpp-sanitizer
+    #   docker compose build ubuntu-cpp-sanitizer
+    #   docker compose run --rm ubuntu-cpp-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   UBUNTU: 22.04, ...
@@ -592,6 +626,7 @@ services:
       args:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
@@ -611,6 +646,7 @@ services:
       ARROW_FLIGHT_SQL: "OFF"
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
+      ARROW_MIMALLOC: "OFF"
       ARROW_ORC: "OFF"
       ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
@@ -622,11 +658,11 @@ services:
 
   ubuntu-cpp-thread-sanitizer:
     # Usage:
-    #   docker-compose build ubuntu-cpp-thread-sanitizer
-    #   docker-compose run --rm ubuntu-cpp-thread-sanitizer
+    #   docker compose build ubuntu-cpp-thread-sanitizer
+    #   docker compose run --rm ubuntu-cpp-thread-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -646,17 +682,18 @@ services:
       ARROW_BUILD_STATIC: "OFF"
       ARROW_CTEST_TIMEOUT: 500
       ARROW_ENABLE_TIMING_TESTS:  # inherit
-      ARROW_DATASET: "ON"
+      ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_JEMALLOC: "OFF"
+      ARROW_MIMALLOC: "OFF"
       ARROW_ORC: "OFF"
-      ARROW_S3: "OFF"
       ARROW_USE_TSAN: "ON"
     command: *cpp-command
 
   ubuntu-cpp-emscripten:
     # Usage:
-    #   docker-compose build ubuntu-cpp-emscripten
-    #   docker-compose run --rm ubuntu-cpp-emscripten
+    #   docker compose build ubuntu-cpp-emscripten
+    #   docker compose run --rm ubuntu-cpp-emscripten
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   UBUNTU: 22.04
@@ -669,6 +706,7 @@ services:
       args:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
@@ -680,8 +718,8 @@ services:
 
   fedora-cpp:
     # Usage:
-    #   docker-compose build fedora-cpp
-    #   docker-compose run --rm fedora-cpp
+    #   docker compose build fedora-cpp
+    #   docker compose run --rm fedora-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   FEDORA: 39
@@ -709,10 +747,10 @@ services:
     # Base service for Conan.
     #
     # Usage:
-    #   docker-compose run --rm conan
+    #   docker compose run --rm conan
     # Parameters:
-    #   CONAN_BASE: gcc11, gcc11-armv7, ...
-    #   CONAN_VERSION: 1.62.0
+    #   CONAN_BASE: gcc11-ubuntu16.04, ...
+    #   CONAN_VERSION: 2.12.1, ...
     #   See https://github.com/conan-io/conan-docker-tools#readme for
     #   available images.
     image: conanio/${CONAN_BASE}:${CONAN_VERSION}
@@ -733,9 +771,9 @@ services:
 
   debian-c-glib:
     # Usage:
-    #   docker-compose build debian-cpp
-    #   docker-compose build debian-c-glib
-    #   docker-compose run --rm debian-c-glib
+    #   docker compose build debian-cpp
+    #   docker compose build debian-c-glib
+    #   docker compose run --rm debian-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   DEBIAN: 12
@@ -761,12 +799,12 @@ services:
 
   ubuntu-c-glib:
     # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose build ubuntu-c-glib
-    #   docker-compose run --rm ubuntu-c-glib
+    #   docker compose build ubuntu-cpp
+    #   docker compose build ubuntu-c-glib
+    #   docker compose run --rm ubuntu-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     build:
       context: .
@@ -790,10 +828,10 @@ services:
 
   debian-ruby:
     # Usage:
-    #   docker-compose build debian-cpp
-    #   docker-compose build debian-c-glib
-    #   docker-compose build debian-ruby
-    #   docker-compose run --rm debian-ruby
+    #   docker compose build debian-cpp
+    #   docker compose build debian-c-glib
+    #   docker compose build debian-ruby
+    #   docker compose run --rm debian-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   DEBIAN: 12
@@ -820,13 +858,13 @@ services:
 
   ubuntu-ruby:
     # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose build ubuntu-c-glib
-    #   docker-compose build ubuntu-ruby
-    #   docker-compose run --rm ubuntu-ruby
+    #   docker compose build ubuntu-cpp
+    #   docker compose build ubuntu-c-glib
+    #   docker compose build ubuntu-ruby
+    #   docker compose run --rm ubuntu-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
     build:
       context: .
@@ -846,13 +884,13 @@ services:
 
   conda-python:
     # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose run --rm conda-python
+    #   docker compose build conda
+    #   docker compose build conda-cpp
+    #   docker compose build conda-python
+    #   docker compose run --rm conda-python
     # Parameters:
     #   ARCH: amd64, arm32v7
-    #   PYTHON: 3.8, 3.9, 3.10, 3.11
+    #   PYTHON: 3.9, 3.10, 3.11, 3.12
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}
     build:
       context: .
@@ -874,14 +912,47 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
+  conda-python-emscripten:
+    # Usage:
+    #   docker compose build conda-python-emscripten
+    #   docker compose run --rm conda-python-emscripten
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 22.04
+    image: ${REPO}:${ARCH}-conda-python-emscripten
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-emscripten.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
+        pyodide_version: "0.26.0"
+        chrome_version: "122"
+        selenium_version: "4.15.2"
+        required_python_min: "(3,12)"
+        python: ${PYTHON}
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    environment:
+      <<: [*common, *ccache, *sccache, *cpp]
+    command: ["
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build_emscripten.sh /arrow /build &&
+        /arrow/ci/scripts/python_test_emscripten.sh /build /pyodide"]
+
   ubuntu-cuda-python:
     # Usage:
-    #   docker-compose build cuda-cpp
-    #   docker-compose build cuda-python
-    #   docker-compose run --rm cuda-python
+    #   docker compose build cuda-cpp
+    #   docker compose build cuda-python
+    #   docker compose run --rm cuda-python
     # Parameters:
     #   ARCH: amd64
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     build:
       context: .
@@ -922,9 +993,9 @@ services:
 
   debian-python:
     # Usage:
-    #   docker-compose build debian-cpp
-    #   docker-compose build debian-python
-    #   docker-compose run --rm debian-python
+    #   docker compose build debian-cpp
+    #   docker compose build debian-python
+    #   docker compose run --rm debian-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   DEBIAN: 12
@@ -944,12 +1015,12 @@ services:
 
   ubuntu-python:
     # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose build ubuntu-python
-    #   docker-compose run --rm ubuntu-python
+    #   docker compose build ubuntu-cpp
+    #   docker compose build ubuntu-python
+    #   docker compose run --rm ubuntu-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -966,8 +1037,8 @@ services:
 
   ubuntu-swift:
     # Usage:
-    #   docker-compose build ubuntu-swift
-    #   docker-compose run --rm ubuntu-swift
+    #   docker compose build ubuntu-swift
+    #   docker compose run --rm ubuntu-swift
     # Parameters:
     image: ubuntu-swift
     build:
@@ -981,9 +1052,9 @@ services:
 
   fedora-python:
     # Usage:
-    #   docker-compose build fedora-cpp
-    #   docker-compose build fedora-python
-    #   docker-compose run --rm fedora-python
+    #   docker compose build fedora-cpp
+    #   docker compose build fedora-python
+    #   docker compose run --rm fedora-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   FEDORA: 39
@@ -1005,8 +1076,8 @@ services:
 
   python-sdist:
     # Usage:
-    #   docker-compose build python-sdist
-    #   docker-compose run --rm python-sdist
+    #   docker compose build python-sdist
+    #   docker compose run --rm python-sdist
     # Parameters:
     #   PYARROW_VERSION: The pyarrow version for sdist such as "3.0.0"
     image: ${REPO}:python-sdist
@@ -1023,13 +1094,13 @@ services:
 
   ubuntu-python-sdist-test:
     # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose build ubuntu-python-sdist-test
-    #   docker-compose run --rm ubuntu-python-sdist-test
+    #   docker compose build ubuntu-cpp
+    #   docker compose build ubuntu-python-sdist-test
+    #   docker compose run --rm ubuntu-python-sdist-test
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -1051,6 +1122,32 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_sdist_test.sh /arrow"
 
+  ############################ Python free-threading ##########################
+
+  ubuntu-python-313-freethreading:
+    # Usage:
+    #   docker compose build ubuntu-cpp
+    #   docker compose build ubuntu-python-313-freethreading
+    #   docker compose run --rm ubuntu-python-313-freethreading
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 22.04, 24.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-313-freethreading
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-python-313-freethreading.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-313-freethreading
+      args:
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    shm_size: *shm-size
+    environment:
+      <<: [*common, *ccache]
+      # Bundled build of OpenTelemetry needs a git client
+      ARROW_WITH_OPENTELEMETRY: "OFF"
+    volumes: *ubuntu-volumes
+    command: *python-command
+
   ############################ Python wheels ##################################
 
   # See available versions at:
@@ -1061,14 +1158,16 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-02-04-ea37246
-        vcpkg: ${VCPKG}
-        python: ${PYTHON}
+        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-08-03-32dfa47
         manylinux: 2014
+        python: ${PYTHON}
+        python_abi_tag: ${PYTHON_ABI_TAG}
+        vcpkg: ${VCPKG}
       context: .
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
+      secrets: *vcpkg-build-secrets
     environment:
       <<: [*common, *ccache]
     volumes:
@@ -1084,14 +1183,16 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-02-04-ea37246
-        vcpkg: ${VCPKG}
-        python: ${PYTHON}
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-08-03-32dfa47
         manylinux: 2_28
+        python: ${PYTHON}
+        python_abi_tag: ${PYTHON_ABI_TAG}
+        vcpkg: ${VCPKG}
       context: .
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-28-vcpkg-${VCPKG}
+      secrets: *vcpkg-build-secrets
     environment:
       <<: [*common, *ccache]
     volumes:
@@ -1100,7 +1201,28 @@ services:
     command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
 
   python-wheel-manylinux-test-imports:
-    image: ${ARCH}/python:${PYTHON}
+    image: ${ARCH}/python:${PYTHON_IMAGE_TAG}
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    environment:
+      <<: *common
+      CHECK_IMPORTS: "ON"
+      CHECK_UNITTESTS: "OFF"
+      CHECK_WHEEL_CONTENT: "ON"
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
+
+  # TODO: Remove this when the official Docker Python image supports the free-threaded build.
+  # See https://github.com/docker-library/python/issues/947 for more info.
+  python-free-threaded-wheel-manylinux-test-imports:
+    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-imports
+    build:
+      args:
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+      context: .
+      dockerfile: ci/docker/python-free-threaded-wheel-manylinux-test-imports.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-imports
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
@@ -1116,6 +1238,7 @@ services:
       args:
         arch: ${ARCH}
         python: ${PYTHON}
+        python_image_tag: ${PYTHON_IMAGE_TAG}
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-test.dockerfile
       cache_from:
@@ -1127,77 +1250,119 @@ services:
       <<: *common
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
+      CHECK_WHEEL_CONTENT: "OFF"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
-  python-wheel-windows-vs2019:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+  # TODO: Remove this when the official Docker Python image supports the free-threaded build.
+  # See https://github.com/docker-library/python/issues/947 for more info.
+  python-free-threaded-wheel-manylinux-test-unittests:
+    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-unittests
+    build:
+      args:
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+      context: .
+      dockerfile: ci/docker/python-free-threaded-wheel-manylinux-test-unittests.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-unittests
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    environment:
+      <<: *common
+      CHECK_IMPORTS: "OFF"
+      CHECK_UNITTESTS: "ON"
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
+
+  python-wheel-windows-vs2022-base:
+    image: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
         vcpkg: ${VCPKG}
-        python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/python-wheel-windows-vs2019.dockerfile
+      dockerfile: ci/docker/python-wheel-windows-vs2022-base.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
       # Uncomment if no local cache is available.
       # cache_from:
-      #   - abrarov/msvc-2019:2.11.0
-      #   - ${REPO}:python-${PYTHON}-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
-    volumes:
-      - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
+      #   - mcr.microsoft.com/windows/servercore:ltsc2022
+      #   - ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    volumes: &python-wheel-windows-vs2022-volumes
       - type: bind
         source: .
         target: "C:/arrow"
-    command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
-  python-wheel-windows-test:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2019-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+  python-wheel-windows-vs2022:
+    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
+        base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/python-wheel-windows-test-vs2019.dockerfile
-    volumes:
-      - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
-      - type: bind
-        source: .
-        target: "C:/arrow"
-    command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
+      dockerfile: ci/docker/python-wheel-windows-vs2022.dockerfile
+      # This should make the pushed images reusable, but the image gets rebuilt.
+      # Uncomment if no local cache is available.
+      # cache_from:
+      #   - mcr.microsoft.com/windows/servercore:ltsc2022
+      #   - ${REPO}:python-${PYTHON}-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    volumes: *python-wheel-windows-vs2022-volumes
+    command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
-  java-jni-manylinux-2014:
-    image: ${REPO}:${ARCH}-java-jni-manylinux-2014-vcpkg-${VCPKG}
+  python-free-threaded-wheel-windows-vs2022:
+    image: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
-        base: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
-        java: 1.8.0
+        base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+        python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/java-jni-manylinux-201x.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-java-jni-manylinux-2014-vcpkg-${VCPKG}
-    environment:
-      <<: [*common, *ccache]
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
-      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
-    command:
-      ["pip install -e /arrow/dev/archery && \
-        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist && \
-        /arrow/ci/scripts/java_build.sh /arrow /build /arrow/java-dist && \
-        /arrow/ci/scripts/java_test.sh /arrow /build /arrow/java-dist"]
+      dockerfile: ci/docker/python-free-threaded-wheel-windows-vs2022.dockerfile
+      # This should make the pushed images reusable, but the image gets rebuilt.
+      # Uncomment if no local cache is available.
+      # cache_from:
+      #   - mcr.microsoft.com/windows/servercore:ltsc2022
+      #   - ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    volumes: *python-wheel-windows-vs2022-volumes
+    command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
+
+  python-wheel-windows-test-base:
+    image: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+    build:
+      context: .
+      dockerfile: ci/docker/python-wheel-windows-test-vs2022-base.dockerfile
+    volumes: *python-wheel-windows-vs2022-volumes
+
+  python-wheel-windows-test:
+    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2022-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+    build:
+      args:
+        base: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/python-wheel-windows-test-vs2022.dockerfile
+    volumes: *python-wheel-windows-vs2022-volumes
+    command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
+
+  python-free-threaded-wheel-windows-test:
+    image: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-test-vs2022-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+    build:
+      args:
+        base: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+      context: .
+      dockerfile: ci/docker/python-free-threaded-wheel-windows-test-vs2022.dockerfile
+    volumes: *python-wheel-windows-vs2022-volumes
+    command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
 
   ##############################  Integration #################################
 
   conda-python-pandas:
     # Possible $PANDAS parameters:
     #  - `latest`: latest release
-    #  - `master`: git master branch, use `docker-compose run --no-cache`
+    #  - `master`: git master branch, use `docker compose run --no-cache`
     #  - `<version>`: specific version available on conda-forge
     # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-pandas
-    #   docker-compose run --rm conda-python-pandas
+    #   docker compose build conda
+    #   docker compose build conda-cpp
+    #   docker compose build conda-python
+    #   docker compose build conda-python-pandas
+    #   docker compose run --rm conda-python-pandas
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}
     build:
       context: .
@@ -1217,8 +1382,40 @@ services:
       PYTEST_ARGS:  # inherit
       HYPOTHESIS_PROFILE:  # inherit
       PYARROW_TEST_HYPOTHESIS:  # inherit
+      PANDAS_FUTURE_INFER_STRING:  # inherit
     volumes: *conda-volumes
     command: *python-conda-command
+
+  conda-python-no-numpy:
+    # Usage:
+    #   docker compose build conda
+    #   docker compose build conda-cpp
+    #   docker compose build conda-python
+    #   docker compose build conda-python-no-numpy
+    #   docker compose run --rm conda-python-no-numpy
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-no-numpy
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+    shm_size: *shm-size
+    environment:
+      <<: [*common, *ccache, *sccache]
+      PARQUET_REQUIRE_ENCRYPTION:  # inherit
+      HYPOTHESIS_PROFILE:  # inherit
+      PYARROW_TEST_HYPOTHESIS:  # inherit
+    volumes: *conda-volumes
+    command:
+      ["
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        mamba uninstall -y numpy &&
+        /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-docs:
     # Usage:
@@ -1239,29 +1436,24 @@ services:
       BUILD_DOCS_PYTHON: "ON"
       PYTEST_ARGS: "--doctest-modules --doctest-cython"
     volumes: *conda-volumes
-    # pytest is installed with an upper pin of 8.0.0 because
-    # newer version breaks cython doctesting, see:
-    # https://github.com/lgpage/pytest-cython/issues/58
-    # Remove pip install pytest~=7 when upstream issue is resolved
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery[numpydoc] &&
-        pip install pytest~=7.4 &&
         archery numpydoc --allow-rule GL10,PR01,PR03,PR04,PR05,PR10,RT03,YD01 &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-dask:
     # Possible $DASK parameters:
     #  - `latest`: latest release
-    #  - `master`: git master branch, use `docker-compose run --no-cache`
+    #  - `master`: git master branch, use `docker compose run --no-cache`
     #  - `<version>`: specific version available on conda-forge
     # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-dask
-    #   docker-compose run --rm conda-python-dask
+    #   docker compose build conda
+    #   docker compose build conda-cpp
+    #   docker compose build conda-python
+    #   docker compose build conda-python-dask
+    #   docker compose run --rm conda-python-dask
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}-dask-${DASK}
     build:
       context: .
@@ -1282,119 +1474,19 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_dask.sh"]
 
-  conda-python-substrait:
+  conda-python-cpython-debug:
     # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-substrait
-    #   docker-compose run --rm conda-python-substrait
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}
+    #   docker compose build conda
+    #   docker compose build conda-cpp
+    #   docker compose build conda-python
+    #   docker compose build conda-python-cpython-debug
+    #   docker compose run --rm conda-python-cpython-debug
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-cpython-debug
     build:
       context: .
-      dockerfile: ci/docker/conda-python-substrait.dockerfile
+      dockerfile: ci/docker/conda-python-cpython-debug.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        python: ${PYTHON}
-    shm_size: *shm-size
-    environment:
-      <<: [*common, *ccache]
-      ARROW_SUBSTRAIT: "ON"
-    volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_substrait.sh"]
-
-  conda-python-jpype:
-    # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-jpype
-    #   docker-compose run --rm conda-python-jpype
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-jpype
-    build:
-      context: .
-      dockerfile: ci/docker/conda-python-jpype.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}-jpype
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        python: ${PYTHON}
-    shm_size: *shm-size
-    environment:
-      <<: [*common, *ccache]
-      ARROW_FLIGHT: "OFF"
-      ARROW_FLIGHT_SQL: "OFF"
-      ARROW_GANDIVA: "OFF"
-    volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_test.sh /arrow"]
-
-  conda-python-java-integration:
-    # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-java-integration
-    #   docker-compose run --rm conda-python-java-integration
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-java-integration
-    build:
-      context: .
-      dockerfile: ci/docker/conda-python-jpype.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}-java-integration
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        python: ${PYTHON}
-        llvm: ${LLVM}
-    shm_size: *shm-size
-    environment:
-      <<: [*common, *ccache]
-      ARROW_ACERO: "OFF"
-      ARROW_DATASET: "OFF"
-      ARROW_FLIGHT: "OFF"
-      ARROW_FLIGHT_SQL: "OFF"
-      ARROW_GANDIVA: "OFF"
-      ARROW_JAVA_CDATA: "ON"
-      ARROW_ORC: "OFF"
-      ARROW_PARQUET: "OFF"
-      JAVA_JNI_CMAKE_ARGS: >-
-        -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
-        -DARROW_JAVA_JNI_ENABLE_C=ON
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
-      - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
-    command:
-      [ "/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-          /arrow/ci/scripts/python_build.sh /arrow /build &&
-          /arrow/ci/scripts/java_jni_build.sh /arrow $${ARROW_HOME} /build /tmp/dist/java/ &&
-          /arrow/ci/scripts/java_build.sh /arrow /build /tmp/dist/java &&
-          /arrow/ci/scripts/java_cdata_integration.sh /arrow /build" ]
-
-  conda-python-cython2:
-    # Usage:
-    #   docker-compose build conda
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-cython2
-    #   docker-compose run --rm conda-python-cython2
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-cython2
-    build:
-      context: .
-      dockerfile: ci/docker/conda-python-cython2.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}-cython2
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-cpython-debug
       args:
         repo: ${REPO}
         arch: ${ARCH}
@@ -1410,9 +1502,9 @@ services:
 
   ubuntu-r:
     # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose build ubuntu-r
-    #   docker-compose run ubuntu-r
+    #   docker compose build ubuntu-cpp
+    #   docker compose build ubuntu-r
+    #   docker compose run ubuntu-r
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-r-${R}
     build:
       context: .
@@ -1421,12 +1513,12 @@ services:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-r-${R}
       args:
         arch: ${ARCH}
-        r: ${R}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        gcc_version: ${GCC_VERSION}
-        tz: ${TZ}
-        r_prune_deps: ${R_PRUNE_DEPS}
+        gcc: ${GCC}
+        r: ${R}
         r_duckdb_dev: ${R_DUCKDB_DEV:-}
+        r_prune_deps: ${R_PRUNE_DEPS}
+        tz: ${TZ}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
@@ -1461,8 +1553,8 @@ services:
     # (including building the C++ library) on any Docker image that contains R
     #
     # Usage:
-    #   R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker-compose build r
-    #   R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker-compose run r
+    #   R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker compose build r
+    #   R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker compose run r
     image: ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
     build:
       context: .
@@ -1471,6 +1563,7 @@ services:
         - ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
       args:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
+        cmake: ${CMAKE}
         r_dev: ${ARROW_R_DEV}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
@@ -1489,11 +1582,11 @@ services:
       /bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
-    # Only 20.04 and amd64 supported
+    # Only amd64 supported
     # Usage:
-    #   docker-compose build ubuntu-r-sanitizer
-    #   docker-compose run ubuntu-r-sanitizer
-    image: ${REPO}:amd64-ubuntu-20.04-r-sanitizer
+    #   docker compose build ubuntu-r-sanitizer
+    #   docker compose run ubuntu-r-sanitizer
+    image: ${REPO}:amd64-ubuntu-r-sanitizer
     cap_add:
       # LeakSanitizer and gdb requires ptrace(2)
       - SYS_PTRACE
@@ -1501,9 +1594,10 @@ services:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-20.04-r-sanitizer
+        - ${REPO}:amd64-ubuntu-r-sanitizer
       args:
         base: wch1/r-debug:latest
+        cmake: ${CMAKE}
         r_bin: RDsan
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
@@ -1524,6 +1618,7 @@ services:
         - ${REPO}:r-rhub-clang-devel-latest
       args:
         base: rhub/clang-asan
+        cmake: ${CMAKE}
         r_dev: ${ARROW_R_DEV}
         r_bin: R
         tz: ${TZ}
@@ -1543,18 +1638,19 @@ services:
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
   ubuntu-r-valgrind:
-    # Only 20.04 and amd64 supported
+    # Only amd64 supported
     # Usage:
-    #   docker-compose build ubuntu-r-valgrind
-    #   docker-compose run ubuntu-r-valgrind
-    image: ${REPO}:amd64-ubuntu-20.04-r-valgrind
+    #   docker compose build ubuntu-r-valgrind
+    #   docker compose run ubuntu-r-valgrind
+    image: ${REPO}:amd64-ubuntu-r-valgrind
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-20.04-r-valgrind
+        - ${REPO}:amd64-ubuntu-r-valgrind
       args:
         base: wch1/r-debug:latest
+        cmake: ${CMAKE}
         r_bin: RDvalgrind
         tz: ${TZ}
     environment:
@@ -1564,6 +1660,7 @@ services:
       # so some build might pass without this setting, but we want to ensure that we stay to AVX2 regardless of runner.
       EXTRA_CMAKE_FLAGS: "-DARROW_RUNTIME_SIMD_LEVEL=AVX2"
       ARROW_SOURCE_HOME: "/arrow"
+      LIBARROW_DOWNLOAD: "false"
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
@@ -1571,8 +1668,8 @@ services:
 
   r-revdepcheck:
     # Usage:
-    #   docker-compose build r-revdepcheck
-    #   docker-compose run r-revdepcheck
+    #   docker compose build r-revdepcheck
+    #   docker compose run r-revdepcheck
     image: ${REPO}:r-rstudio-r-base-4.2-focal-revdepcheck
     build:
       context: .
@@ -1593,74 +1690,12 @@ services:
     command: >
       /bin/bash -c "/arrow/ci/scripts/r_revdepcheck.sh /arrow"
 
-  ################################# Go ########################################
-
-  debian-go:
-    # Usage:
-    #   docker-compose build debian-go
-    #   docker-compose run debian-go
-    image: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
-    build:
-      context: .
-      dockerfile: ci/docker/debian-${DEBIAN}-go.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
-      args:
-        arch: ${ARCH}
-        go: ${GO}
-        staticcheck: ${STATICCHECK}
-    shm_size: *shm-size
-    volumes: *debian-volumes
-    command: &go-command >
-      /bin/bash -c "
-        git config --global --add safe.directory /arrow &&
-        /arrow/ci/scripts/go_build.sh /arrow &&
-        /arrow/ci/scripts/go_test.sh /arrow"
-
-  debian-go-cgo:
-    # Usage:
-    #   docker-compose build debian-go-cgo
-    #   docker-compose run debian-go-cgo
-    image: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo
-    build:
-      context: .
-      dockerfile: ci/docker/debian-go-cgo.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo
-      args:
-        base: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
-    shm_size: *shm-size
-    volumes: *debian-volumes
-    environment:
-      <<: *common
-      ARROW_GO_TESTCGO: "1"
-    command: *go-command
-
-  debian-go-cgo-python:
-    # Usage:
-    #   docker-compose build debian-go-cgo-python
-    #   docker-compose run debian-go-cgo-python
-    image: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo-python
-    build:
-      context: .
-      dockerfile: ci/docker/debian-${DEBIAN}-go-cgo-python.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo-python
-      args:
-        base: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
-    shm_size: *shm-size
-    volumes: *debian-volumes
-    command: &go-cgo-python-command >
-      /bin/bash -c "
-        git config --global --add safe.directory /arrow &&
-        /arrow/ci/scripts/go_cgo_python_test.sh /arrow"
-
   ############################# JavaScript ####################################
 
   debian-js:
     # Usage:
-    #   docker-compose build debian-js
-    #   docker-compose run debian-js
+    #   docker compose build debian-js
+    #   docker compose run debian-js
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-js-${NODE}
     build:
       context: .
@@ -1684,8 +1719,8 @@ services:
 
   ubuntu-csharp:
     # Usage:
-    #   docker-compose build ubuntu-csharp
-    #   docker-compose run ubuntu-csharp
+    #   docker compose build ubuntu-csharp
+    #   docker compose run ubuntu-csharp
     image: ${REPO}:${ARCH}-ubuntu-22.04-csharp-${DOTNET}
     build:
       context: .
@@ -1704,32 +1739,13 @@ services:
         /arrow/ci/scripts/csharp_test.sh /arrow &&
         /arrow/ci/scripts/csharp_pack.sh /arrow"
 
-  ################################ Java #######################################
-
-  java:
-    # Usage:
-    #   docker-compose build java
-    #   docker-compose run java
-    # Parameters:
-    #   MAVEN: 3.9.5
-    #   JDK: 8, 11, 17, 21
-    image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
-    shm_size: *shm-size
-    volumes: &java-volumes
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
-    command: &java-command >
-      /bin/bash -c "
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_test.sh /arrow /build"
-
   ############################## Integration ##################################
 
   conda-integration:
     # Usage:
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-integration
-    #   docker-compose run conda-integration
+    #   docker compose build conda-cpp
+    #   docker compose build conda-integration
+    #   docker compose run conda-integration
     image: ${REPO}:${ARCH}-conda-integration
     build:
       context: .
@@ -1743,10 +1759,10 @@ services:
         jdk: 17
         maven: ${MAVEN}
         node: ${NODE}
-        go: ${GO}
     volumes: *conda-volumes
     environment:
       <<: [*common, *ccache]
+      ARCHERY_INTEGRATION_WITH_GO: 0
       ARCHERY_INTEGRATION_WITH_NANOARROW: 0
       ARCHERY_INTEGRATION_WITH_RUST: 0
       # Tell Archery where Arrow binaries are located
@@ -1754,17 +1770,18 @@ services:
       ARROW_NANOARROW_PATH: /build/nanoarrow
       ARROW_RUST_EXE_PATH: /build/rust/debug
     command:
-      ["/arrow/ci/scripts/integration_arrow_build.sh /arrow /build &&
+      ["git config --global --add safe.directory /arrow/go &&
+        /arrow/ci/scripts/integration_arrow_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_arrow.sh /arrow /build"]
 
   ################################ Docs #######################################
 
   debian-docs:
     # Usage:
-    #   docker-compose build debian-cpp
-    #   docker-compose build debian-python
-    #   docker-compose build debian-docs
-    #   docker-compose run --rm debian-docs
+    #   docker compose build debian-cpp
+    #   docker compose build debian-python
+    #   docker compose build debian-docs
+    #   docker compose run --rm debian-docs
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-docs
     build:
       context: .
@@ -1773,8 +1790,6 @@ services:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-docs
       args:
         r: ${R}
-        jdk: ${JDK}
-        maven: ${MAVEN}
         node: ${NODE}
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
     # This is for Chromium used by Mermaid. Chromium uses namespace
@@ -1791,7 +1806,6 @@ services:
       ARROW_SUBSTRAIT: "ON"
       BUILD_DOCS_C_GLIB: "ON"
       BUILD_DOCS_CPP: "ON"
-      BUILD_DOCS_JAVA: "ON"
       BUILD_DOCS_JS: "ON"
       BUILD_DOCS_PYTHON: "ON"
       BUILD_DOCS_R: "ON"
@@ -1804,16 +1818,15 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
         /arrow/ci/scripts/r_build.sh /arrow /build &&
-        /arrow/ci/scripts/js_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_build.sh /arrow /build"
+        /arrow/ci/scripts/js_build.sh /arrow /build"
 
   ################################# Tools #####################################
 
   ubuntu-lint:
     # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose build ubuntu-lint
-    #   docker-compose run ubuntu-lint
+    #   docker compose build ubuntu-cpp
+    #   docker compose build ubuntu-lint
+    #   docker compose run ubuntu-lint
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
     build:
       context: .
@@ -1829,6 +1842,9 @@ services:
     command: >
       /bin/bash -c "
         git config --global --add safe.directory /arrow &&
+        python3 -m venv /build/pyvenv &&
+        source /build/pyvenv/bin/activate &&
+        pip install -U pip setuptools &&
         pip install arrow/dev/archery[lint] &&
         archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc --src /arrow"
 
@@ -1868,10 +1884,10 @@ services:
 
   conda-python-hdfs:
     # Usage:
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-hdfs
-    #   docker-compose run conda-python-hdfs
+    #   docker compose build conda-cpp
+    #   docker compose build conda-python
+    #   docker compose build conda-python-hdfs
+    #   docker compose run conda-python-hdfs
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}-hdfs-${HDFS}
     build:
       context: .
@@ -1909,10 +1925,10 @@ services:
 
   conda-python-spark:
     # Usage:
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-python
-    #   docker-compose build conda-python-spark
-    #   docker-compose run conda-python-spark
+    #   docker compose build conda-cpp
+    #   docker compose build conda-python
+    #   docker compose build conda-python-spark
+    #   docker compose run conda-python-spark
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}-spark-${SPARK}
     build:
       context: .
@@ -1934,8 +1950,7 @@ services:
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_spark.sh /arrow /spark ${TEST_PYARROW_ONLY:-false}"]
+        /arrow/ci/scripts/integration_spark.sh /arrow /spark"]
 
   ################################# Source Verification #####################################
 
@@ -1961,8 +1976,8 @@ services:
 
   almalinux-verify-rc:
     # Usage:
-    #   docker-compose build almalinux-verify-rc
-    #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 almalinux-verify-rc
+    #   docker compose build almalinux-verify-rc
+    #   docker compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 almalinux-verify-rc
     # Parameters:
     #   ALMALINUX: 8
     image: ${REPO}:${ARCH}-almalinux-${ALMALINUX}-verify-rc
@@ -1989,10 +2004,10 @@ services:
 
   ubuntu-verify-rc:
     # Usage:
-    #   docker-compose build ubuntu-verify-rc
-    #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc
+    #   docker compose build ubuntu-verify-rc
+    #   docker compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc
     # Parameters:
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
     build:
       context: .
@@ -2000,8 +2015,9 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
       args:
-        repo: ${REPO}
         arch: ${ARCH}
+        cmake: ${CMAKE}
+        repo: ${REPO}
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
@@ -2015,3 +2031,11 @@ services:
       /bin/bash -c "
         git config --global --add safe.directory /arrow &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
+
+secrets:
+  github_repository_owner:
+    environment: GITHUB_REPOSITORY_OWNER
+  github_token:
+    environment: GITHUB_TOKEN
+  vcpkg_binary_sources:
+    environment: VCPKG_BINARY_SOURCES

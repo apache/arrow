@@ -32,7 +32,7 @@ For a high-level overview of the release process see the
 - [ ] Ensure the contents of the README are accurate and up to date.
 - [ ] Run `urlchecker::url_check()` on the R directory at the release candidate.
   commit. Ignore any errors with badges as they will be removed in the CRAN release branch.
-- [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later). You can find commits by, for example, `git log --oneline aa057d0..HEAD | grep "\[R\]"`
+- [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later). You can find commits by, for example, `git log --oneline <sha of last release>..HEAD | grep "\[R\]"`
 - [ ] Run preliminary reverse dependency checks using `archery docker run r-revdepcheck`.
 - [ ] For major releases, prepare tweet thread highlighting new features.
 
@@ -72,15 +72,10 @@ Wait for the release candidate to be cut:
 - [ ] Run `Rscript tools/update-checksums.R <libarrow version>` to download the checksums for the pre-compiled binaries from the ASF artifactory into the tools directory.
 - [ ] Regenerate arrow_X.X.X.tar.gz (i.e., `make build`)
 
-Ensure linux binary packages are available:
-- [ ] Ensure linux binaries are available in the artifactory:
-  https://apache.jfrog.io/ui/repos/tree/General/arrow/r
-
 ## Check binary Arrow C++ distributions specific to the R package
 
 - [ ] Upload the .tar.gz to [win-builder](https://win-builder.r-project.org/upload.aspx) (r-devel only)
-  and confirm (with Nic, who will automatically receive an email about the results) that the check is clean.
-  This step cannot be completed before Jeroen has put the binaries in the MinGW repository, i.e. [here](https://ftp.opencpu.org/rtools/ucrt64/), [here](https://ftp.opencpu.org/rtools/mingw64/), and [here](https://ftp.opencpu.org/rtools/mingw32/).
+  and confirm (with Jon, who will automatically receive an email about the results) that the check is clean.
 - [ ] Upload the .tar.gz to [MacBuilder](https://mac.r-project.org/macbuilder/submit.html)
   and confirm that the check is clean
 - [ ] Check `install.packages("arrow_X.X.X.tar.gz")` on Ubuntu and ensure that the
@@ -105,3 +100,4 @@ Wait for CRAN...
   [CRAN package page](https://cran.r-project.org/package=arrow) to reflect the
   new version
 - [ ] Tweet!
+  - Use Bryce's [script](https://gist.githubusercontent.com/amoeba/4e26c064d1a0d0227cd8c2260cf0072a/raw/bc0d983152bdde4820de9074d4caee9986624bc5/new_contributors.R) for contributor calculation.

@@ -51,7 +51,7 @@ data.
 An increase in the **minor** version of the format version, such as
 1.0.0 to 1.1.0, indicates that 1.1.0 contains new features not
 available in 1.0.0. So long as these features are not used (such as a
-new logical data type), forward compatibility is preserved.
+new data type), forward compatibility is preserved.
 
 Long-Term Stability
 ===================
@@ -76,7 +76,7 @@ that new clients can read serialized data produced by library version
 Post-1.0.0 Format Versions
 ==========================
 
-Since version 1.0.0, there have been four new minor versions and zero new
+Since version 1.0.0, there have been five new minor versions and zero new
 major versions of the Arrow format. Each new minor version added new features.
 When these new features are not used, the new minor format versions are
 compatible with format version 1.0.0. The new features added in each minor
@@ -105,3 +105,8 @@ Version 1.4
 * Added :ref:`listview-layout` and the associated ListView and LargeListView
   types.
 * Added :ref:`variadic-buffers`.
+
+Version 1.5
+-----------
+
+* Expanded Decimal type bit widths to allow 32-bit and 64-bit types.

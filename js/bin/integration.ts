@@ -20,7 +20,7 @@
 import * as fs from 'node:fs';
 import * as Path from 'node:path';
 import { glob } from 'glob';
-import { zip } from 'ix/iterable/zip.js';
+import { zip } from 'ix/iterable/zip';
 import commandLineArgs from 'command-line-args';
 // @ts-ignore
 import { parse as bignumJSONParse } from 'json-bignum';

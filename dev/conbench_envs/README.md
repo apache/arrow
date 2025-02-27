@@ -99,16 +99,16 @@ Here are steps how `@ursabot` benchmark builds use `benchmarks.env` and `hooks.s
 
 ### 2. Install Arrow dependencies for Java
     sudo su
-    apt-get install openjdk-8-jdk
+    apt-get install openjdk-11-jdk
     apt-get install maven
     
 Verify that you have at least these versions of `java`, `javac` and `maven`:
     
     # java -version
-    openjdk version "1.8.0_292"
+    openjdk version "11.0.22" 2024-01-16
     ..
     # javac -version
-    javac 1.8.0_292
+    javac 11.0.22
     ...
     # mvn -version
     Apache Maven 3.6.3

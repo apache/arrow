@@ -381,21 +381,49 @@ class RangeDataEqualsImpl {
     const int8_t* right_codes = right_.GetValues<int8_t>(1);
 
     // Unions don't have a null bitmap
+    int64_t run_start = 0;  // Start index of the current run
+
     for (int64_t i = 0; i < range_length_; ++i) {
-      const auto type_id = left_codes[left_start_idx_ + i];
-      if (type_id != right_codes[right_start_idx_ + i]) {
+      const auto current_type_id = left_codes[left_start_idx_ + i];
+
+      if (current_type_id != right_codes[right_start_idx_ + i]) {
         result_ = false;
         break;
       }
-      const auto child_num = child_ids[type_id];
-      // XXX can we instead detect runs of same-child union values?
+      // Check if the current element breaks the run
+      if (i > 0 && current_type_id != left_codes[left_start_idx_ + i - 1]) {
+        // Compare the previous run
+        const auto previous_child_num = child_ids[left_codes[left_start_idx_ + i - 1]];
+        int64_t run_length = i - run_start;
+
+        RangeDataEqualsImpl impl(
+            options_, floating_approximate_, *left_.child_data[previous_child_num],
+            *right_.child_data[previous_child_num],
+            left_start_idx_ + left_.offset + run_start,
+            right_start_idx_ + right_.offset + run_start, run_length);
+
+        if (!impl.Compare()) {
+          result_ = false;
+          break;
+        }
+
+        // Start a new run
+        run_start = i;
+      }
+    }
+
+    // Handle the final run
+    if (result_) {
+      const auto final_child_num = child_ids[left_codes[left_start_idx_ + run_start]];
+      int64_t final_run_length = range_length_ - run_start;
+
       RangeDataEqualsImpl impl(
-          options_, floating_approximate_, *left_.child_data[child_num],
-          *right_.child_data[child_num], left_start_idx_ + left_.offset + i,
-          right_start_idx_ + right_.offset + i, 1);
+          options_, floating_approximate_, *left_.child_data[final_child_num],
+          *right_.child_data[final_child_num], left_start_idx_ + left_.offset + run_start,
+          right_start_idx_ + right_.offset + run_start, final_run_length);
+
       if (!impl.Compare()) {
         result_ = false;
-        break;
       }
     }
     return Status::OK();
@@ -750,15 +778,10 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const Decimal128Type& left) {
-    const auto& right = checked_cast<const Decimal128Type&>(right_);
-    result_ = left.precision() == right.precision() && left.scale() == right.scale();
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal256Type& left) {
-    const auto& right = checked_cast<const Decimal256Type&>(right_);
-    result_ = left.precision() == right.precision() && left.scale() == right.scale();
+  Status Visit(const DecimalType& left) {
+    const auto& right = checked_cast<const DecimalType&>(right_);
+    result_ = left.byte_width() == right.byte_width() &&
+              left.precision() == right.precision() && left.scale() == right.scale();
     return Status::OK();
   }
 
@@ -897,6 +920,18 @@ class ScalarEqualsVisitor {
   enable_if_t<std::is_base_of<BaseBinaryScalar, T>::value, Status> Visit(const T& left) {
     const auto& right = checked_cast<const BaseBinaryScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal32Scalar& left) {
+    const auto& right = checked_cast<const Decimal32Scalar&>(right_);
+    result_ = left.value == right.value;
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal64Scalar& left) {
+    const auto& right = checked_cast<const Decimal64Scalar&>(right_);
+    result_ = left.value == right.value;
     return Status::OK();
   }
 

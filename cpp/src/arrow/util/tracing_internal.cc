@@ -26,8 +26,8 @@
 #include <thread>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4522)
+#  pragma warning(push)
+#  pragma warning(disable : 4522)
 #endif
 #include <google/protobuf/util/json_util.h>
 
@@ -35,6 +35,7 @@
 #include <opentelemetry/exporters/otlp/otlp_http_exporter.h>
 #include <opentelemetry/exporters/otlp/otlp_recordable_utils.h>
 #include <opentelemetry/sdk/trace/batch_span_processor.h>
+#include <opentelemetry/sdk/trace/batch_span_processor_options.h>
 #include <opentelemetry/sdk/trace/recordable.h>
 #include <opentelemetry/sdk/trace/span_data.h>
 #include <opentelemetry/sdk/trace/tracer_provider.h>
@@ -44,7 +45,7 @@
 #include <opentelemetry/exporters/otlp/protobuf_include_suffix.h>
 #include <opentelemetry/proto/collector/trace/v1/trace_service.pb.h>
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 #include "arrow/util/io_util.h"

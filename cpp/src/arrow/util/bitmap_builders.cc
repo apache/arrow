@@ -33,7 +33,7 @@ namespace internal {
 
 namespace {
 
-void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
+void FillBitsFromBytes(util::span<const uint8_t> bytes, uint8_t* bits) {
   for (size_t i = 0; i < bytes.size(); ++i) {
     if (bytes[i] > 0) {
       bit_util::SetBit(bits, i);
@@ -43,7 +43,7 @@ void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
 
 }  // namespace
 
-Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
+Result<std::shared_ptr<Buffer>> BytesToBits(util::span<const uint8_t> bytes,
                                             MemoryPool* pool) {
   int64_t bit_length = bit_util::BytesForBits(bytes.size());
 
@@ -51,7 +51,8 @@ Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
   uint8_t* out_buf = buffer->mutable_data();
   memset(out_buf, 0, static_cast<size_t>(buffer->capacity()));
   FillBitsFromBytes(bytes, out_buf);
-  return std::move(buffer);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(buffer));
 }
 
 Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length,
@@ -66,7 +67,8 @@ Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length
   auto bitmap_data = buffer->mutable_data();
   bit_util::SetBitsTo(bitmap_data, 0, length, value);
   bit_util::SetBitTo(bitmap_data, straggler_pos, !value);
-  return std::move(buffer);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(buffer));
 }
 
 }  // namespace internal

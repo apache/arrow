@@ -54,6 +54,7 @@
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
+#include "arrow/python/vendored/pythoncapi_compat.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -201,7 +202,7 @@ class PyValue {
       return true;
     } else if (obj == Py_False) {
       return false;
-    } else if (PyArray_IsScalar(obj, Bool)) {
+    } else if (has_numpy() && PyArray_IsScalar(obj, Bool)) {
       return reinterpret_cast<PyBoolScalarObject*>(obj)->obval == NPY_TRUE;
     } else {
       return internal::InvalidValue(obj, "tried to convert to boolean");
@@ -256,6 +257,18 @@ class PyValue {
     } else {
       return internal::InvalidValue(obj, "tried to convert to double");
     }
+    return value;
+  }
+
+  static Result<Decimal32> Convert(const Decimal32Type* type, const O&, I obj) {
+    Decimal32 value;
+    RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *type, &value));
+    return value;
+  }
+
+  static Result<Decimal64> Convert(const Decimal64Type* type, const O&, I obj) {
+    Decimal64 value;
+    RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *type, &value));
     return value;
   }
 
@@ -384,7 +397,7 @@ class PyValue {
         default:
           return Status::UnknownError("Invalid time unit");
       }
-    } else if (PyArray_CheckAnyScalarExact(obj)) {
+    } else if (has_numpy() && PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
       ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
@@ -463,7 +476,7 @@ class PyValue {
         default:
           return Status::UnknownError("Invalid time unit");
       }
-    } else if (PyArray_CheckAnyScalarExact(obj)) {
+    } else if (has_numpy() && PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
       ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
@@ -663,7 +676,7 @@ class PyPrimitiveConverter<
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
       // Numpy NaT sentinels can be checked after the conversion
-      if (PyArray_CheckAnyScalarExact(value) &&
+      if (has_numpy() && PyArray_CheckAnyScalarExact(value) &&
           PyValue::IsNaT(this->primitive_type_, converted)) {
         this->primitive_builder_->UnsafeAppendNull();
       } else {
@@ -803,8 +816,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     if (PyValue::IsNull(this->options_, value)) {
       return this->list_builder_->AppendNull();
     }
-
-    if (PyArray_Check(value)) {
+    if (has_numpy() && PyArray_Check(value)) {
       RETURN_NOT_OK(AppendNdarray(value));
     } else if (PySequence_Check(value)) {
       RETURN_NOT_OK(AppendSequence(value));
@@ -1107,11 +1119,13 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
   Status AppendDict(PyObject* dict, PyObject* field_names) {
     // NOTE we're ignoring any extraneous dict items
     for (int i = 0; i < num_fields_; i++) {
-      PyObject* name = PyList_GET_ITEM(field_names, i);  // borrowed
-      PyObject* value = PyDict_GetItem(dict, name);      // borrowed
-      if (value == NULL) {
-        RETURN_IF_PYERROR();
-      }
+      PyObject* name = PyList_GetItemRef(field_names, i);
+      RETURN_IF_PYERROR();
+      OwnedRef nameref(name);
+      PyObject* value;
+      PyDict_GetItemRef(dict, name, &value);
+      RETURN_IF_PYERROR();
+      OwnedRef valueref(value);
       RETURN_NOT_OK(this->children_[i]->Append(value ? value : Py_None));
     }
     return Status::OK();
@@ -1141,7 +1155,9 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       ARROW_ASSIGN_OR_RAISE(auto pair, GetKeyValuePair(items, i));
 
       // validate that the key and the field name are equal
-      PyObject* name = PyList_GET_ITEM(field_names, i);
+      PyObject* name = PyList_GetItemRef(field_names, i);
+      RETURN_IF_PYERROR();
+      OwnedRef nameref(name);
       bool are_equal = PyObject_RichCompareBool(pair.first, name, Py_EQ);
       RETURN_IF_PYERROR();
 

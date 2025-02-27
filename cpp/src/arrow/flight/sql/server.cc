@@ -31,6 +31,7 @@
 #include "arrow/flight/sql/sql_info_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/macros.h"
 
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? std::make_optional(COMMAND.PROPERTY()) : std::nullopt
@@ -318,11 +319,9 @@ arrow::Result<StatementIngest> ParseCommandStatementIngest(
 }
 
 arrow::Result<ActionBeginSavepointRequest> ParseActionBeginSavepointRequest(
-    const google::protobuf::Any& any) {
+    const Action& action) {
   pb::sql::ActionBeginSavepointRequest command;
-  if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack ActionBeginSavepointRequest");
-  }
+  RETURN_NOT_OK(flight::internal::UnpackProtoAction(action, &command));
 
   ActionBeginSavepointRequest result;
   result.transaction_id = command.transaction_id();
@@ -331,34 +330,31 @@ arrow::Result<ActionBeginSavepointRequest> ParseActionBeginSavepointRequest(
 }
 
 arrow::Result<ActionBeginTransactionRequest> ParseActionBeginTransactionRequest(
-    const google::protobuf::Any& any) {
+    const Action& action) {
   pb::sql::ActionBeginTransactionRequest command;
-  if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack ActionBeginTransactionRequest");
-  }
+  RETURN_NOT_OK(flight::internal::UnpackProtoAction(action, &command));
 
   ActionBeginTransactionRequest result;
   return result;
 }
 
+// ActionCancelQueryRequest is deprecated
+ARROW_SUPPRESS_DEPRECATION_WARNING
 arrow::Result<ActionCancelQueryRequest> ParseActionCancelQueryRequest(
-    const google::protobuf::Any& any) {
+    const Action& action) {
   pb::sql::ActionCancelQueryRequest command;
-  if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack ActionCancelQueryRequest");
-  }
+  RETURN_NOT_OK(flight::internal::UnpackProtoAction(action, &command));
 
   ActionCancelQueryRequest result;
   ARROW_ASSIGN_OR_RAISE(result.info, FlightInfo::Deserialize(command.info()));
   return result;
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 arrow::Result<ActionCreatePreparedStatementRequest>
-ParseActionCreatePreparedStatementRequest(const google::protobuf::Any& any) {
+ParseActionCreatePreparedStatementRequest(const Action& action) {
   pb::sql::ActionCreatePreparedStatementRequest command;
-  if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack ActionCreatePreparedStatementRequest");
-  }
+  RETURN_NOT_OK(flight::internal::UnpackProtoAction(action, &command));
 
   ActionCreatePreparedStatementRequest result;
   result.query = command.query();
@@ -367,11 +363,9 @@ ParseActionCreatePreparedStatementRequest(const google::protobuf::Any& any) {
 }
 
 arrow::Result<ActionCreatePreparedSubstraitPlanRequest>
-ParseActionCreatePreparedSubstraitPlanRequest(const google::protobuf::Any& any) {
+ParseActionCreatePreparedSubstraitPlanRequest(const Action& action) {
   pb::sql::ActionCreatePreparedSubstraitPlanRequest command;
-  if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack ActionCreatePreparedSubstraitPlanRequest");
-  }
+  RETURN_NOT_OK(flight::internal::UnpackProtoAction(action, &command));
 
   ActionCreatePreparedSubstraitPlanRequest result;
   result.plan = ParseStatementSubstraitPlan(command.plan());
@@ -380,11 +374,9 @@ ParseActionCreatePreparedSubstraitPlanRequest(const google::protobuf::Any& any) 
 }
 
 arrow::Result<ActionClosePreparedStatementRequest>
-ParseActionClosePreparedStatementRequest(const google::protobuf::Any& any) {
+ParseActionClosePreparedStatementRequest(const Action& action) {
   pb::sql::ActionClosePreparedStatementRequest command;
-  if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack ActionClosePreparedStatementRequest");
-  }
+  RETURN_NOT_OK(flight::internal::UnpackProtoAction(action, &command));
 
   ActionClosePreparedStatementRequest result;
   result.prepared_statement_handle = command.prepared_statement_handle();
@@ -392,11 +384,9 @@ ParseActionClosePreparedStatementRequest(const google::protobuf::Any& any) {
 }
 
 arrow::Result<ActionEndSavepointRequest> ParseActionEndSavepointRequest(
-    const google::protobuf::Any& any) {
+    const Action& action) {
   pb::sql::ActionEndSavepointRequest command;
-  if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack ActionEndSavepointRequest");
-  }
+  RETURN_NOT_OK(flight::internal::UnpackProtoAction(action, &command));
 
   ActionEndSavepointRequest result;
   result.savepoint_id = command.savepoint_id();
@@ -418,11 +408,9 @@ arrow::Result<ActionEndSavepointRequest> ParseActionEndSavepointRequest(
 }
 
 arrow::Result<ActionEndTransactionRequest> ParseActionEndTransactionRequest(
-    const google::protobuf::Any& any) {
+    const Action& action) {
   pb::sql::ActionEndTransactionRequest command;
-  if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack ActionEndTransactionRequest");
-  }
+  RETURN_NOT_OK(flight::internal::UnpackProtoAction(action, &command));
 
   ActionEndTransactionRequest result;
   result.transaction_id = command.transaction_id();
@@ -477,15 +465,15 @@ arrow::Result<Result> PackActionResult(ActionBeginTransactionResult result) {
 }
 
 arrow::Result<Result> PackActionResult(CancelFlightInfoResult result) {
-  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
-  return Result{Buffer::FromString(std::move(serialized))};
+  return result.SerializeToBuffer();
 }
 
 arrow::Result<Result> PackActionResult(const FlightEndpoint& endpoint) {
-  ARROW_ASSIGN_OR_RAISE(auto serialized, endpoint.SerializeToString());
-  return Result{Buffer::FromString(std::move(serialized))};
+  return endpoint.SerializeToBuffer();
 }
 
+// ActionCancelQueryResult is deprecated
+ARROW_SUPPRESS_DEPRECATION_WARNING
 arrow::Result<Result> PackActionResult(CancelResult result) {
   pb::sql::ActionCancelQueryResult pb_result;
   switch (result) {
@@ -505,6 +493,7 @@ arrow::Result<Result> PackActionResult(CancelResult result) {
   }
   return PackActionResult(pb_result);
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult result) {
   pb::sql::ActionCreatePreparedStatementResult pb_result;
@@ -523,21 +512,6 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
   }
 
   return PackActionResult(pb_result);
-}
-
-arrow::Result<Result> PackActionResult(SetSessionOptionsResult result) {
-  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
-  return Result{Buffer::FromString(std::move(serialized))};
-}
-
-arrow::Result<Result> PackActionResult(GetSessionOptionsResult result) {
-  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
-  return Result{Buffer::FromString(std::move(serialized))};
-}
-
-arrow::Result<Result> PackActionResult(CloseSessionResult result) {
-  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
-  return Result{Buffer::FromString(std::move(serialized))};
 }
 
 }  // namespace
@@ -908,32 +882,27 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     std::string_view body(*action.body);
     ARROW_ASSIGN_OR_RAISE(auto request, SetSessionOptionsRequest::Deserialize(body));
     ARROW_ASSIGN_OR_RAISE(auto result, SetSessionOptions(context, request));
-    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, result.SerializeToBuffer());
 
-    results.push_back(std::move(packed_result));
+    results.emplace_back(std::move(packed_result));
   } else if (action.type == ActionType::kGetSessionOptions.type) {
     std::string_view body(*action.body);
     ARROW_ASSIGN_OR_RAISE(auto request, GetSessionOptionsRequest::Deserialize(body));
     ARROW_ASSIGN_OR_RAISE(auto result, GetSessionOptions(context, request));
-    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, result.SerializeToBuffer());
 
-    results.push_back(std::move(packed_result));
+    results.emplace_back(std::move(packed_result));
   } else if (action.type == ActionType::kCloseSession.type) {
     std::string_view body(*action.body);
     ARROW_ASSIGN_OR_RAISE(auto request, CloseSessionRequest::Deserialize(body));
     ARROW_ASSIGN_OR_RAISE(auto result, CloseSession(context, request));
-    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, result.SerializeToBuffer());
 
-    results.push_back(std::move(packed_result));
+    results.emplace_back(std::move(packed_result));
   } else {
-    google::protobuf::Any any;
-    if (!any.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()))) {
-      return Status::Invalid("Unable to parse action");
-    }
-
     if (action.type == FlightSqlServerBase::kBeginSavepointActionType.type) {
       ARROW_ASSIGN_OR_RAISE(ActionBeginSavepointRequest internal_command,
-                            ParseActionBeginSavepointRequest(any));
+                            ParseActionBeginSavepointRequest(action));
       ARROW_ASSIGN_OR_RAISE(ActionBeginSavepointResult result,
                             BeginSavepoint(context, internal_command));
       ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
@@ -941,7 +910,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
       results.push_back(std::move(packed_result));
     } else if (action.type == FlightSqlServerBase::kBeginTransactionActionType.type) {
       ARROW_ASSIGN_OR_RAISE(ActionBeginTransactionRequest internal_command,
-                            ParseActionBeginTransactionRequest(any));
+                            ParseActionBeginTransactionRequest(action));
       ARROW_ASSIGN_OR_RAISE(ActionBeginTransactionResult result,
                             BeginTransaction(context, internal_command));
       ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
@@ -949,7 +918,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
       results.push_back(std::move(packed_result));
     } else if (action.type == FlightSqlServerBase::kCancelQueryActionType.type) {
       ARROW_ASSIGN_OR_RAISE(ActionCancelQueryRequest internal_command,
-                            ParseActionCancelQueryRequest(any));
+                            ParseActionCancelQueryRequest(action));
       ARROW_SUPPRESS_DEPRECATION_WARNING
       ARROW_ASSIGN_OR_RAISE(CancelResult result, CancelQuery(context, internal_command));
       ARROW_UNSUPPRESS_DEPRECATION_WARNING
@@ -959,7 +928,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     } else if (action.type ==
                FlightSqlServerBase::kCreatePreparedStatementActionType.type) {
       ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementRequest internal_command,
-                            ParseActionCreatePreparedStatementRequest(any));
+                            ParseActionCreatePreparedStatementRequest(action));
       ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementResult result,
                             CreatePreparedStatement(context, internal_command));
       ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
@@ -968,7 +937,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     } else if (action.type ==
                FlightSqlServerBase::kCreatePreparedSubstraitPlanActionType.type) {
       ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedSubstraitPlanRequest internal_command,
-                            ParseActionCreatePreparedSubstraitPlanRequest(any));
+                            ParseActionCreatePreparedSubstraitPlanRequest(action));
       ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementResult result,
                             CreatePreparedSubstraitPlan(context, internal_command));
       ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
@@ -977,15 +946,15 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     } else if (action.type ==
                FlightSqlServerBase::kClosePreparedStatementActionType.type) {
       ARROW_ASSIGN_OR_RAISE(ActionClosePreparedStatementRequest internal_command,
-                            ParseActionClosePreparedStatementRequest(any));
+                            ParseActionClosePreparedStatementRequest(action));
       ARROW_RETURN_NOT_OK(ClosePreparedStatement(context, internal_command));
     } else if (action.type == FlightSqlServerBase::kEndSavepointActionType.type) {
       ARROW_ASSIGN_OR_RAISE(ActionEndSavepointRequest internal_command,
-                            ParseActionEndSavepointRequest(any));
+                            ParseActionEndSavepointRequest(action));
       ARROW_RETURN_NOT_OK(EndSavepoint(context, internal_command));
     } else if (action.type == FlightSqlServerBase::kEndTransactionActionType.type) {
       ARROW_ASSIGN_OR_RAISE(ActionEndTransactionRequest internal_command,
-                            ParseActionEndTransactionRequest(any));
+                            ParseActionEndTransactionRequest(action));
       ARROW_RETURN_NOT_OK(EndTransaction(context, internal_command));
     } else {
       return Status::NotImplemented("Action not implemented: ", action.type);
@@ -1063,7 +1032,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoSql
   }
 
   std::vector<FlightEndpoint> endpoints{
-      FlightEndpoint{{descriptor.cmd}, {}, std::nullopt, {}}};
+      FlightEndpoint{Ticket{descriptor.cmd}, {}, std::nullopt, {}}};
   ARROW_ASSIGN_OR_RAISE(
       auto result, FlightInfo::Make(*SqlSchema::GetSqlInfoSchema(), descriptor, endpoints,
                                     -1, -1, false))

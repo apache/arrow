@@ -24,6 +24,7 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_FIELD (garrow_field_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowField, garrow_field, GARROW, FIELD, GObject)
 struct _GArrowFieldClass
 {
@@ -34,8 +35,10 @@ GARROW_AVAILABLE_IN_6_0
 GArrowField *
 garrow_field_import(gpointer c_abi_schema, GError **error);
 
+GARROW_AVAILABLE_IN_ALL
 GArrowField *
 garrow_field_new(const gchar *name, GArrowDataType *data_type);
+GARROW_AVAILABLE_IN_ALL
 GArrowField *
 garrow_field_new_full(const gchar *name, GArrowDataType *data_type, gboolean nullable);
 
@@ -43,18 +46,26 @@ GARROW_AVAILABLE_IN_6_0
 gpointer
 garrow_field_export(GArrowField *field, GError **error);
 
+GARROW_AVAILABLE_IN_ALL
 const gchar *
 garrow_field_get_name(GArrowField *field);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowDataType *
 garrow_field_get_data_type(GArrowField *field);
+
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_field_is_nullable(GArrowField *field);
 
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_field_equal(GArrowField *field, GArrowField *other_field);
 
+GARROW_AVAILABLE_IN_ALL
 gchar *
 garrow_field_to_string(GArrowField *field);
+
 GARROW_AVAILABLE_IN_3_0
 gchar *
 garrow_field_to_string_metadata(GArrowField *field, gboolean show_metadata);

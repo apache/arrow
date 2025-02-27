@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -36,6 +37,7 @@
 #include "arrow/flight/sql/server.h"
 #include "arrow/flight/sql/server_session_middleware.h"
 #include "arrow/flight/sql/types.h"
+#include "arrow/flight/test_auth_handlers.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
 #include "arrow/ipc/dictionary.h"
@@ -1021,6 +1023,131 @@ class AppMetadataFlightInfoEndpointScenario : public Scenario {
       return Status::Invalid("FlightEndpoint app_metadata should be 'foobar', got: ",
                              info->endpoints()[0].app_metadata);
     }
+    return Status::OK();
+  }
+};
+
+/// \brief The server used for testing do_exchange
+class DoExchangeServer : public FlightServerBase {
+ public:
+  DoExchangeServer() : FlightServerBase() {}
+
+  Status DoExchange(const ServerCallContext& context,
+                    std::unique_ptr<FlightMessageReader> reader,
+                    std::unique_ptr<FlightMessageWriter> writer) override {
+    if (reader->descriptor().type != FlightDescriptor::DescriptorType::CMD) {
+      return Status::Invalid("Must provide a command descriptor");
+    }
+
+    const std::string& cmd = reader->descriptor().cmd;
+    if (cmd == "echo") {
+      return RunEchoExchange(reader, writer);
+    } else {
+      return Status::NotImplemented("Command not implemented: ", cmd);
+    }
+  }
+
+ private:
+  static Status RunEchoExchange(std::unique_ptr<FlightMessageReader>& reader,
+                                std::unique_ptr<FlightMessageWriter>& writer) {
+    FlightStreamChunk chunk;
+    bool begun = false;
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
+      if (!chunk.data && !chunk.app_metadata) {
+        break;
+      }
+      if (!begun && chunk.data) {
+        begun = true;
+        RETURN_NOT_OK(writer->Begin(chunk.data->schema()));
+      }
+      if (chunk.data && chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteWithMetadata(*chunk.data, chunk.app_metadata));
+      } else if (chunk.data) {
+        RETURN_NOT_OK(writer->WriteRecordBatch(*chunk.data));
+      } else if (chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteMetadata(chunk.app_metadata));
+      }
+    }
+    return Status::OK();
+  }
+};
+
+/// \brief The DoExchangeEcho scenario.
+///
+/// This tests that the client and server can perform a two-way data exchange.
+///
+/// The server should echo back any data sent by the client.
+class DoExchangeEchoScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<DoExchangeServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    auto descriptor = FlightDescriptor::Command("echo");
+    FlightCallOptions call_options;
+
+    ARROW_ASSIGN_OR_RAISE(auto do_exchange_result,
+                          client->DoExchange(call_options, descriptor));
+    std::unique_ptr<FlightStreamWriter> writer = std::move(do_exchange_result.writer);
+    std::unique_ptr<FlightStreamReader> reader = std::move(do_exchange_result.reader);
+
+    auto schema = arrow::schema({field("x", int32(), false)});
+    ARROW_RETURN_NOT_OK(writer->Begin(schema));
+
+    ARROW_ASSIGN_OR_RAISE(auto builder,
+                          RecordBatchBuilder::Make(schema, arrow::default_memory_pool()));
+
+    for (int batch_idx = 0; batch_idx < 4; ++batch_idx) {
+      auto int_builder = builder->GetFieldAs<Int32Builder>(0);
+      std::vector<int32_t> batch_data(10);
+      std::iota(batch_data.begin(), batch_data.end(), batch_idx);
+      ARROW_RETURN_NOT_OK(int_builder->AppendValues(batch_data));
+      ARROW_ASSIGN_OR_RAISE(auto record_batch, builder->Flush());
+
+      std::string app_metadata = std::to_string(batch_idx);
+      bool write_metadata = batch_idx % 2 == 0;
+
+      if (write_metadata) {
+        ARROW_RETURN_NOT_OK(
+            writer->WriteWithMetadata(*record_batch, Buffer::FromString(app_metadata)));
+      } else {
+        ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*record_batch));
+      }
+
+      ARROW_ASSIGN_OR_RAISE(auto read_result, reader->Next());
+      if (read_result.data == nullptr) {
+        return Status::Invalid("Received null data");
+      }
+      if (!read_result.data->Equals(*record_batch)) {
+        return Status::Invalid("Read data doesn't match expected data for batch ",
+                               std::to_string(batch_idx), ".\n", "Expected:\n",
+                               record_batch->ToString(), "Actual:\n",
+                               read_result.data->ToString());
+      }
+
+      if (write_metadata) {
+        if (read_result.app_metadata == nullptr) {
+          return Status::Invalid("Received null app metadata");
+        }
+        if (read_result.app_metadata->ToString() != app_metadata) {
+          return Status::Invalid("Read metadata doesn't match expected for batch ",
+                                 std::to_string(batch_idx), ".\n", "Expected:\n",
+                                 app_metadata, "\nActual:\n",
+                                 read_result.app_metadata->ToString());
+        }
+      } else if (read_result.app_metadata != nullptr) {
+        return Status::Invalid("Expected no app metadata but received non-null metadata");
+      }
+    }
+
+    ARROW_RETURN_NOT_OK(writer->DoneWriting());
+    ARROW_RETURN_NOT_OK(writer->Close());
+
     return Status::OK();
   }
 };
@@ -2281,6 +2408,9 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
     return Status::OK();
   } else if (scenario_name == "app_metadata_flight_info_endpoint") {
     *out = std::make_shared<AppMetadataFlightInfoEndpointScenario>();
+    return Status::OK();
+  } else if (scenario_name == "do_exchange:echo") {
+    *out = std::make_shared<DoExchangeEchoScenario>();
     return Status::OK();
   } else if (scenario_name == "flight_sql") {
     *out = std::make_shared<FlightSqlScenario>();

@@ -291,6 +291,8 @@ namespace Apache.Arrow.Ipc
                     break;
                 case ArrowTypeId.String:
                 case ArrowTypeId.Binary:
+                case ArrowTypeId.LargeString:
+                case ArrowTypeId.LargeBinary:
                 case ArrowTypeId.ListView:
                     buffers = 3;
                     break;

@@ -27,11 +27,6 @@ Tabular Datasets
 .. seealso::
    :doc:`Dataset API reference <api/dataset>`
 
-.. warning::
-
-    The ``arrow::dataset`` namespace is experimental, and a stable API
-    is not yet guaranteed.
-
 The Arrow Datasets library provides functionality to efficiently work with
 tabular, potentially larger than memory, and multi-file datasets. This includes:
 

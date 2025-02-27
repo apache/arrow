@@ -21,7 +21,7 @@
 from datetime import timedelta
 
 from cython.operator cimport dereference as deref
-from libcpp.memory cimport shared_ptr
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport _Weakrefable

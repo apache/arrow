@@ -17,7 +17,11 @@
 
 toolboxFolder = string(getenv("ARROW_MATLAB_TOOLBOX_FOLDER"));
 outputFolder = string(getenv("ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER"));
-toolboxVersionRaw = string(getenv("ARROW_MATLAB_TOOLBOX_VERSION"));
+toolboxVersion = string(getenv("ARROW_MATLAB_TOOLBOX_VERSION"));
+if isempty(toolboxVersion)
+    error("ARROW_MATLAB_TOOLBOX_VERSION environment variable value is empty." + ...
+        "ARROW_MATLAB_TOOLBOX_VERSION should follow the general form: ${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}.");
+end
 
 appendLicenseText(fullfile(toolboxFolder, "LICENSE.txt"));
 appendNoticeText(fullfile(toolboxFolder, "NOTICE.txt"));
@@ -27,20 +31,7 @@ mkdir(outputFolder);
 
 disp("Toolbox Folder: " + toolboxFolder);
 disp("Output Folder: " + outputFolder);
-disp("Toolbox Version Raw: " + toolboxVersionRaw);
-
-
-% Note: This string processing heuristic may not be robust to future
-% changes in the Arrow versioning scheme.
-dotIdx = strfind(toolboxVersionRaw, ".");
-numDots = numel(dotIdx);
-if numDots >= 3
-    toolboxVersion = extractBefore(toolboxVersionRaw, dotIdx(3));
-else
-    toolboxVersion = toolboxVersionRaw;
-end
-
-disp("Toolbox Version:" + toolboxVersion);
+disp("Toolbox Version: " + toolboxVersion);
 
 identifier = "ad1d0fe6-22d1-4969-9e6f-0ab5d0f12ce3";
 opts = matlab.addons.toolbox.ToolboxOptions(toolboxFolder, identifier);
@@ -68,7 +59,7 @@ currentRelease = matlabRelease.Release;
 opts.MinimumMatlabRelease = currentRelease;
 opts.MaximumMatlabRelease = currentRelease;
 
-opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", toolboxVersionRaw));
+opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", toolboxVersion));
 disp("Output File: " + opts.OutputFile);
 matlab.addons.toolbox.packageToolbox(opts);
 

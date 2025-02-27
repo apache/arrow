@@ -18,38 +18,38 @@
 #pragma once
 
 #ifdef _WIN32
-#define ARROW_LITTLE_ENDIAN 1
+#  define ARROW_LITTLE_ENDIAN 1
 #else
-#if defined(__APPLE__) || defined(__FreeBSD__)
-#include <machine/endian.h>  // IWYU pragma: keep
-#elif defined(sun) || defined(__sun)
-#include <sys/byteorder.h>  // IWYU pragma: keep
-#else
-#include <endian.h>  // IWYU pragma: keep
-#endif
+#  if defined(__APPLE__) || defined(__FreeBSD__)
+#    include <machine/endian.h>  // IWYU pragma: keep
+#  elif defined(sun) || defined(__sun)
+#    include <sys/byteorder.h>  // IWYU pragma: keep
+#  else
+#    include <endian.h>  // IWYU pragma: keep
+#  endif
 #
-#ifndef __BYTE_ORDER__
-#error "__BYTE_ORDER__ not defined"
-#endif
+#  ifndef __BYTE_ORDER__
+#    error "__BYTE_ORDER__ not defined"
+#  endif
 #
-#ifndef __ORDER_LITTLE_ENDIAN__
-#error "__ORDER_LITTLE_ENDIAN__ not defined"
-#endif
+#  ifndef __ORDER_LITTLE_ENDIAN__
+#    error "__ORDER_LITTLE_ENDIAN__ not defined"
+#  endif
 #
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#define ARROW_LITTLE_ENDIAN 1
-#else
-#define ARROW_LITTLE_ENDIAN 0
-#endif
+#  if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#    define ARROW_LITTLE_ENDIAN 1
+#  else
+#    define ARROW_LITTLE_ENDIAN 0
+#  endif
 #endif
 
 #if defined(_MSC_VER)
-#include <intrin.h>  // IWYU pragma: keep
-#define ARROW_BYTE_SWAP64 _byteswap_uint64
-#define ARROW_BYTE_SWAP32 _byteswap_ulong
+#  include <intrin.h>  // IWYU pragma: keep
+#  define ARROW_BYTE_SWAP64 _byteswap_uint64
+#  define ARROW_BYTE_SWAP32 _byteswap_ulong
 #else
-#define ARROW_BYTE_SWAP64 __builtin_bswap64
-#define ARROW_BYTE_SWAP32 __builtin_bswap32
+#  define ARROW_BYTE_SWAP64 __builtin_bswap64
+#  define ARROW_BYTE_SWAP32 __builtin_bswap32
 #endif
 
 #include <algorithm>

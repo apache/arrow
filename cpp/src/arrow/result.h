@@ -39,6 +39,8 @@ ARROW_EXPORT void DieWithMessage(const std::string& msg);
 
 ARROW_EXPORT void InvalidValueOrDie(const Status& st);
 
+ARROW_EXPORT Status UninitializedResult();
+
 }  // namespace internal
 
 /// A class for representing either a usable value, or an error.
@@ -112,7 +114,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   /// an empty vector, it will actually invoke the default constructor of
   /// Result.
   explicit Result() noexcept  // NOLINT(runtime/explicit)
-      : status_(Status::UnknownError("Uninitialized Result<T>")) {}
+      : status_(internal::UninitializedResult()) {}
 
   ~Result() noexcept { Destroy(); }
 
@@ -294,7 +296,18 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   ///
   /// \return The stored non-OK status object, or an OK status if this object
   ///         has a value.
-  constexpr const Status& status() const { return status_; }
+  constexpr const Status& status() const& { return status_; }
+
+  /// Gets the stored status object, or an OK status if a `T` value is stored.
+  ///
+  /// \return The stored non-OK status object, or an OK status if this object
+  ///         has a value.
+  Status status() && {
+    if (ARROW_PREDICT_TRUE(ok())) return Status::OK();
+    auto tmp = internal::UninitializedResult();
+    std::swap(status_, tmp);
+    return tmp;
+  }
 
   /// Gets the stored `T` value.
   ///
@@ -350,7 +363,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
                             std::is_constructible<U, T>::value>::type>
   Status Value(U* out) && {
     if (!ok()) {
-      return status();
+      return std::move(*this).status();
     }
     *out = U(MoveValueUnsafe());
     return Status::OK();
@@ -380,7 +393,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   typename EnsureResult<decltype(std::declval<M&&>()(std::declval<T&&>()))>::type Map(
       M&& m) && {
     if (!ok()) {
-      return status();
+      return std::move(*this).status();
     }
     return std::forward<M>(m)(MoveValueUnsafe());
   }
@@ -402,7 +415,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
                             std::is_constructible<U, T>::value>::type>
   Result<U> As() && {
     if (!ok()) {
-      return status();
+      return std::move(*this).status();
     }
     return U(MoveValueUnsafe());
   }

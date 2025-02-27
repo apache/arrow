@@ -30,6 +30,7 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_INPUT_STREAM (garrow_input_stream_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(
   GArrowInputStream, garrow_input_stream, GARROW, INPUT_STREAM, GInputStream)
 struct _GArrowInputStreamClass
@@ -37,16 +38,22 @@ struct _GArrowInputStreamClass
   GInputStreamClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_input_stream_advance(GArrowInputStream *input_stream,
                             gint64 n_bytes,
                             GError **error);
+
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_input_stream_align(GArrowInputStream *input_stream,
                           gint32 alignment,
                           GError **error);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowTensor *
 garrow_input_stream_read_tensor(GArrowInputStream *input_stream, GError **error);
+
 GARROW_AVAILABLE_IN_1_0
 GArrowRecordBatch *
 garrow_input_stream_read_record_batch(GArrowInputStream *input_stream,
@@ -55,6 +62,7 @@ garrow_input_stream_read_record_batch(GArrowInputStream *input_stream,
                                       GError **error);
 
 #define GARROW_TYPE_SEEKABLE_INPUT_STREAM (garrow_seekable_input_stream_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowSeekableInputStream,
                          garrow_seekable_input_stream,
                          GARROW,
@@ -65,12 +73,17 @@ struct _GArrowSeekableInputStreamClass
   GArrowInputStreamClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 guint64
 garrow_seekable_input_stream_get_size(GArrowSeekableInputStream *input_stream,
                                       GError **error);
+
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_seekable_input_stream_get_support_zero_copy(
   GArrowSeekableInputStream *input_stream);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowBuffer *
 garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
                                      gint64 position,
@@ -89,6 +102,7 @@ garrow_seekable_input_stream_peek(GArrowSeekableInputStream *input_stream,
                                   GError **error);
 
 #define GARROW_TYPE_BUFFER_INPUT_STREAM (garrow_buffer_input_stream_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowBufferInputStream,
                          garrow_buffer_input_stream,
                          GARROW,
@@ -99,13 +113,16 @@ struct _GArrowBufferInputStreamClass
   GArrowSeekableInputStreamClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowBufferInputStream *
 garrow_buffer_input_stream_new(GArrowBuffer *buffer);
 
+GARROW_AVAILABLE_IN_ALL
 GArrowBuffer *
 garrow_buffer_input_stream_get_buffer(GArrowBufferInputStream *input_stream);
 
 #define GARROW_TYPE_FILE_INPUT_STREAM (garrow_file_input_stream_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowFileInputStream,
                          garrow_file_input_stream,
                          GARROW,
@@ -116,15 +133,21 @@ struct _GArrowFileInputStreamClass
   GArrowSeekableInputStreamClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowFileInputStream *
 garrow_file_input_stream_new(const gchar *path, GError **error);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowFileInputStream *
 garrow_file_input_stream_new_file_descriptor(gint file_descriptor, GError **error);
+
+GARROW_AVAILABLE_IN_ALL
 gint
 garrow_file_input_stream_get_file_descriptor(GArrowFileInputStream *stream);
 
 #define GARROW_TYPE_MEMORY_MAPPED_INPUT_STREAM                                           \
   (garrow_memory_mapped_input_stream_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowMemoryMappedInputStream,
                          garrow_memory_mapped_input_stream,
                          GARROW,
@@ -135,10 +158,12 @@ struct _GArrowMemoryMappedInputStreamClass
   GArrowSeekableInputStreamClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowMemoryMappedInputStream *
 garrow_memory_mapped_input_stream_new(const gchar *path, GError **error);
 
 #define GARROW_TYPE_GIO_INPUT_STREAM (garrow_gio_input_stream_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowGIOInputStream,
                          garrow_gio_input_stream,
                          GARROW,
@@ -149,15 +174,19 @@ struct _GArrowGIOInputStreamClass
   GArrowSeekableInputStreamClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowGIOInputStream *
 garrow_gio_input_stream_new(GInputStream *gio_input_stream);
+
 #ifndef GARROW_DISABLE_DEPRECATED
+GARROW_AVAILABLE_IN_ALL
 G_GNUC_DEPRECATED
 GInputStream *
 garrow_gio_input_stream_get_raw(GArrowGIOInputStream *input_stream);
 #endif
 
 #define GARROW_TYPE_COMPRESSED_INPUT_STREAM (garrow_compressed_input_stream_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowCompressedInputStream,
                          garrow_compressed_input_stream,
                          GARROW,
@@ -168,6 +197,7 @@ struct _GArrowCompressedInputStreamClass
   GArrowInputStreamClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowCompressedInputStream *
 garrow_compressed_input_stream_new(GArrowCodec *codec,
                                    GArrowInputStream *raw,

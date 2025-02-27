@@ -31,6 +31,7 @@ gboolean
 garrow_expression_equal(GArrowExpression *expression, GArrowExpression *other_expression);
 
 #define GARROW_TYPE_LITERAL_EXPRESSION (garrow_literal_expression_get_type())
+GARROW_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(GArrowLiteralExpression,
                          garrow_literal_expression,
                          GARROW,
@@ -46,6 +47,7 @@ GArrowLiteralExpression *
 garrow_literal_expression_new(GArrowDatum *datum);
 
 #define GARROW_TYPE_FIELD_EXPRESSION (garrow_field_expression_get_type())
+GARROW_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(GArrowFieldExpression,
                          garrow_field_expression,
                          GARROW,
@@ -61,6 +63,7 @@ GArrowFieldExpression *
 garrow_field_expression_new(const gchar *reference, GError **error);
 
 #define GARROW_TYPE_CALL_EXPRESSION (garrow_call_expression_get_type())
+GARROW_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(
   GArrowCallExpression, garrow_call_expression, GARROW, CALL_EXPRESSION, GArrowExpression)
 struct _GArrowCallExpressionClass

@@ -22,31 +22,16 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/util/spaced.h"
+#include "arrow/type_fwd.h"
 
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
 namespace arrow {
-
-class Array;
-class ArrayBuilder;
-class BinaryArray;
-class BinaryBuilder;
-class BooleanBuilder;
-class Int32Type;
-class Int64Type;
-class FloatType;
-class DoubleType;
-class FixedSizeBinaryType;
-template <typename T>
-class NumericBuilder;
-class FixedSizeBinaryBuilder;
 template <typename T>
 class Dictionary32Builder;
-
-}  // namespace arrow
+}
 
 namespace parquet {
 
@@ -174,6 +159,11 @@ class Encoder {
 
   virtual void Put(const ::arrow::Array& values) = 0;
 
+  // Report the number of bytes written to the encoder since the last report.
+  // It only works for BYTE_ARRAY type and throw for other types.
+  // This call is not idempotent since it resets the internal counter.
+  virtual int64_t ReportUnencodedDataBytes() = 0;
+
   virtual MemoryPool* memory_pool() const = 0;
 };
 
@@ -184,7 +174,7 @@ class Encoder {
 template <typename DType>
 class TypedEncoder : virtual public Encoder {
  public:
-  typedef typename DType::c_type T;
+  using T = typename DType::c_type;
 
   using Encoder::Put;
 
@@ -293,20 +283,7 @@ class TypedDecoder : virtual public Decoder {
   /// \param[in] valid_bits_offset offset into valid_bits
   /// \return The number of values decoded, including nulls.
   virtual int DecodeSpaced(T* buffer, int num_values, int null_count,
-                           const uint8_t* valid_bits, int64_t valid_bits_offset) {
-    if (null_count > 0) {
-      int values_to_read = num_values - null_count;
-      int values_read = Decode(buffer, values_to_read);
-      if (values_read != values_to_read) {
-        throw ParquetException("Number of values / definition_levels read did not match");
-      }
-
-      return ::arrow::util::internal::SpacedExpand<T>(buffer, num_values, null_count,
-                                                      valid_bits, valid_bits_offset);
-    } else {
-      return Decode(buffer, num_values);
-    }
-  }
+                           const uint8_t* valid_bits, int64_t valid_bits_offset) = 0;
 
   /// \brief Decode into an ArrayBuilder or other accumulator
   ///

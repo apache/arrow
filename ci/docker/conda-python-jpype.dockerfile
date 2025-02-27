@@ -17,7 +17,7 @@
 
 ARG repo
 ARG arch=amd64
-ARG python=3.8
+ARG python=3.9
 FROM ${repo}:${arch}-conda-python-${python}
 
 ARG jdk=11

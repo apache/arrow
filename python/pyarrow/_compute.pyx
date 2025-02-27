@@ -33,7 +33,10 @@ from pyarrow.util import _DEPR_MSG
 from libcpp cimport bool as c_bool
 
 import inspect
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import warnings
 
 
@@ -41,6 +44,11 @@ __pas = None
 _substrait_msg = (
     "The pyarrow installation is not built with support for Substrait."
 )
+
+
+SUPPORTED_INPUT_ARR_TYPES = (list, tuple)
+if np is not None:
+    SUPPORTED_INPUT_ARR_TYPES += (np.ndarray, )
 
 
 def _pas():
@@ -64,6 +72,20 @@ def _forbid_instantiation(klass, subclasses_instead=True):
             ', '.join(subclasses)
         )
     raise TypeError(msg)
+
+
+cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):
+    cdef vector[CSortKey] c_sort_keys
+    if allow_str and isinstance(sort_keys, str):
+        c_sort_keys.push_back(
+            CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
+        )
+    else:
+        for name, order in sort_keys:
+            c_sort_keys.push_back(
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
+            )
+    return c_sort_keys
 
 
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
@@ -473,7 +495,7 @@ cdef class MetaFunction(Function):
 
 cdef _pack_compute_args(object values, vector[CDatum]* out):
     for val in values:
-        if isinstance(val, (list, np.ndarray)):
+        if isinstance(val, SUPPORTED_INPUT_ARR_TYPES):
             val = lib.asarray(val)
 
         if isinstance(val, Array):
@@ -1108,8 +1130,8 @@ class MatchSubstringOptions(_MatchSubstringOptions):
 
 
 cdef class _PadOptions(FunctionOptions):
-    def _set_options(self, width, padding):
-        self.wrapped.reset(new CPadOptions(width, tobytes(padding)))
+    def _set_options(self, width, padding, lean_left_on_odd_padding):
+        self.wrapped.reset(new CPadOptions(width, tobytes(padding), lean_left_on_odd_padding))
 
 
 class PadOptions(_PadOptions):
@@ -1122,10 +1144,14 @@ class PadOptions(_PadOptions):
         Desired string length.
     padding : str, default " "
         What to pad the string with. Should be one byte or codepoint.
+    lean_left_on_odd_padding : bool, default True
+        What to do if there is an odd number of padding characters (in case
+        of centered padding). Defaults to aligning on the left (i.e. adding
+        the extra padding character on the right).
     """
 
-    def __init__(self, width, padding=' '):
-        self._set_options(width, padding)
+    def __init__(self, width, padding=' ', lean_left_on_odd_padding=True):
+        self._set_options(width, padding, lean_left_on_odd_padding)
 
 
 cdef class _TrimOptions(FunctionOptions):
@@ -2081,13 +2107,9 @@ class ArraySortOptions(_ArraySortOptions):
 
 cdef class _SortOptions(FunctionOptions):
     def _set_options(self, sort_keys, null_placement):
-        cdef vector[CSortKey] c_sort_keys
-        for name, order in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
-            )
         self.wrapped.reset(new CSortOptions(
-            c_sort_keys, unwrap_null_placement(null_placement)))
+            unwrap_sort_keys(sort_keys, allow_str=False),
+            unwrap_null_placement(null_placement)))
 
 
 class SortOptions(_SortOptions):
@@ -2113,12 +2135,7 @@ class SortOptions(_SortOptions):
 
 cdef class _SelectKOptions(FunctionOptions):
     def _set_options(self, k, sort_keys):
-        cdef vector[CSortKey] c_sort_keys
-        for name, order in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
-            )
-        self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
+        self.wrapped.reset(new CSelectKOptions(k, unwrap_sort_keys(sort_keys, allow_str=False)))
 
 
 class SelectKOptions(_SelectKOptions):
@@ -2185,7 +2202,7 @@ class QuantileOptions(_QuantileOptions):
 
     def __init__(self, q=0.5, *, interpolation="linear", skip_nulls=True,
                  min_count=0):
-        if not isinstance(q, (list, tuple, np.ndarray)):
+        if not isinstance(q, SUPPORTED_INPUT_ARR_TYPES):
             q = [q]
         self._set_options(q, interpolation, skip_nulls, min_count)
 
@@ -2218,7 +2235,7 @@ class TDigestOptions(_TDigestOptions):
 
     def __init__(self, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
                  min_count=0):
-        if not isinstance(q, (list, tuple, np.ndarray)):
+        if not isinstance(q, SUPPORTED_INPUT_ARR_TYPES):
             q = [q]
         self._set_options(q, delta, buffer_size, skip_nulls, min_count)
 
@@ -2305,19 +2322,9 @@ cdef class _RankOptions(FunctionOptions):
     }
 
     def _set_options(self, sort_keys, null_placement, tiebreaker):
-        cdef vector[CSortKey] c_sort_keys
-        if isinstance(sort_keys, str):
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
-            )
-        else:
-            for name, order in sort_keys:
-                c_sort_keys.push_back(
-                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
-                )
         try:
             self.wrapped.reset(
-                new CRankOptions(c_sort_keys,
+                new CRankOptions(unwrap_sort_keys(sort_keys),
                                  unwrap_null_placement(null_placement),
                                  self._tiebreaker_map[tiebreaker])
             )
@@ -2356,6 +2363,37 @@ class RankOptions(_RankOptions):
 
     def __init__(self, sort_keys="ascending", *, null_placement="at_end", tiebreaker="first"):
         self._set_options(sort_keys, null_placement, tiebreaker)
+
+
+cdef class _RankQuantileOptions(FunctionOptions):
+
+    def _set_options(self, sort_keys, null_placement):
+        self.wrapped.reset(
+            new CRankQuantileOptions(unwrap_sort_keys(sort_keys),
+                                     unwrap_null_placement(null_placement))
+        )
+
+
+class RankQuantileOptions(_RankQuantileOptions):
+    """
+    Options for the `rank_quantile` function.
+
+    Parameters
+    ----------
+    sort_keys : sequence of (name, order) tuples or str, default "ascending"
+        Names of field/column keys to sort the input on,
+        along with the order each field/column is sorted in.
+        Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
+        Alternatively, one can simply pass "ascending" or "descending" as a string
+        if the input is array-like.
+    null_placement : str, default "at_end"
+        Where nulls in input should be sorted.
+        Accepted values are "at_start", "at_end".
+    """
+
+    def __init__(self, sort_keys="ascending", *, null_placement="at_end"):
+        self._set_options(sort_keys, null_placement)
 
 
 cdef class Expression(_Weakrefable):
@@ -2429,7 +2467,7 @@ cdef class Expression(_Weakrefable):
         )
 
     @staticmethod
-    def from_substrait(object buffer not None):
+    def from_substrait(object message not None):
         """
         Deserialize an expression from Substrait
 
@@ -2441,7 +2479,7 @@ cdef class Expression(_Weakrefable):
 
         Parameters
         ----------
-        buffer : bytes or Buffer
+        message : bytes or Buffer or a protobuf Message
             The Substrait message to deserialize
 
         Returns
@@ -2449,7 +2487,7 @@ cdef class Expression(_Weakrefable):
         Expression
             The deserialized expression
         """
-        expressions = _pas().deserialize_expressions(buffer).expressions
+        expressions = _pas().BoundExpressions.from_substrait(message).expressions
         if len(expressions) == 0:
             raise ValueError("Substrait message did not contain any expressions")
         if len(expressions) > 1:

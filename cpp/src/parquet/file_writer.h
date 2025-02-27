@@ -202,7 +202,7 @@ class PARQUET_EXPORT ParquetFileWriter {
 
   /// \brief Add key-value metadata to the file.
   /// \param[in] key_value_metadata the metadata to add.
-  /// \note This will overwrite any existing metadata with the same key.
+  /// \note This will overwrite any existing metadata with the same key(s).
   /// \throw ParquetException if Close() has been called.
   void AddKeyValueMetadata(
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata);

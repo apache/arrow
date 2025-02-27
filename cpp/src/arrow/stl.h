@@ -187,6 +187,35 @@ struct ConversionTraits<std::vector<ValueCType>>
   }
 };
 
+template <class ValueCType, std::size_t N>
+struct ConversionTraits<std::array<ValueCType, N>>
+    : public CTypeTraits<std::array<ValueCType, N>> {
+  static arrow::Status AppendRow(FixedSizeListBuilder& builder,
+                                 const std::array<ValueCType, N>& values) {
+    auto vb =
+        ::arrow::internal::checked_cast<typename CTypeTraits<ValueCType>::BuilderType*>(
+            builder.value_builder());
+    ARROW_RETURN_NOT_OK(builder.Append());
+    return vb->AppendValues(values.data(), N);
+  }
+
+  static std::array<ValueCType, N> GetEntry(const ::arrow::FixedSizeListArray& array,
+                                            size_t j) {
+    using ElementArrayType = typename TypeTraits<
+        typename stl::ConversionTraits<ValueCType>::ArrowType>::ArrayType;
+
+    const ElementArrayType& value_array =
+        ::arrow::internal::checked_cast<const ElementArrayType&>(*array.values());
+
+    std::array<ValueCType, N> arr;
+    for (size_t i = 0; i < N; i++) {
+      arr[i] = stl::ConversionTraits<ValueCType>::GetEntry(value_array,
+                                                           array.value_offset(j) + i);
+    }
+    return arr;
+  }
+};
+
 template <typename Optional>
 struct ConversionTraits<Optional, enable_if_optional_like<Optional>>
     : public CTypeTraits<typename std::decay<decltype(*std::declval<Optional>())>::type> {

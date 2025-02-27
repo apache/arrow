@@ -23,7 +23,9 @@
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/hashing.h"
 
-#include <memory>
+// Include templated definitions for aggregate kernels that must compiled here
+// with the SIMD level configured for this compilation unit in the build.
+#include "arrow/compute/kernels/aggregate_basic.inc.cc"  // NOLINT(build/include)
 
 namespace arrow {
 namespace compute {
@@ -276,11 +278,6 @@ struct SumImplDefault : public SumImpl<ArrowType, SimdLevel::NONE> {
   using SumImpl<ArrowType, SimdLevel::NONE>::SumImpl;
 };
 
-template <typename ArrowType>
-struct MeanImplDefault : public MeanImpl<ArrowType, SimdLevel::NONE> {
-  using MeanImpl<ArrowType, SimdLevel::NONE>::MeanImpl;
-};
-
 Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
                                              const KernelInitArgs& args) {
   SumLikeInit<SumImplDefault> visitor(
@@ -288,6 +285,14 @@ Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
+
+// ----------------------------------------------------------------------
+// Mean implementation
+
+template <typename ArrowType>
+struct MeanImplDefault : public MeanImpl<ArrowType, SimdLevel::NONE> {
+  using MeanImpl<ArrowType, SimdLevel::NONE>::MeanImpl;
+};
 
 Result<std::unique_ptr<KernelState>> MeanInit(KernelContext* ctx,
                                               const KernelInitArgs& args) {
@@ -331,8 +336,8 @@ struct ProductImpl : public ScalarAggregator {
       internal::VisitArrayValuesInline<ArrowType>(
           data,
           [&](typename TypeTraits<ArrowType>::CType value) {
-            this->product =
-                MultiplyTraits<AccType>::Multiply(*out_type, this->product, value);
+            this->product = MultiplyTraits<AccType>::Multiply(
+                *out_type, this->product, static_cast<ProductType>(value));
           },
           [] {});
     } else {
@@ -342,8 +347,8 @@ struct ProductImpl : public ScalarAggregator {
       if (data.is_valid) {
         for (int64_t i = 0; i < batch.length; i++) {
           auto value = internal::UnboxScalar<ArrowType>::Unbox(data);
-          this->product =
-              MultiplyTraits<AccType>::Multiply(*out_type, this->product, value);
+          this->product = MultiplyTraits<AccType>::Multiply(
+              *out_type, this->product, static_cast<ProductType>(value));
         }
       }
     }
@@ -482,8 +487,8 @@ void AddFirstOrLastAggKernel(ScalarAggregateFunction* func,
 // ----------------------------------------------------------------------
 // MinMax implementation
 
-Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
-                                                const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> MinMaxInitDefault(KernelContext* ctx,
+                                                       const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(TypeHolder out_type,
                         args.kernel->signature->out_type().Resolve(ctx, args.inputs));
   MinMaxInitState<SimdLevel::NONE> visitor(
@@ -532,13 +537,13 @@ struct BooleanAnyImpl : public ScalarAggregator {
     }
     if (batch[0].is_scalar()) {
       const Scalar& scalar = *batch[0].scalar;
-      this->has_nulls = !scalar.is_valid;
-      this->any = scalar.is_valid && checked_cast<const BooleanScalar&>(scalar).value;
-      this->count += scalar.is_valid;
+      this->has_nulls |= !scalar.is_valid;
+      this->any |= scalar.is_valid && checked_cast<const BooleanScalar&>(scalar).value;
+      this->count += scalar.is_valid * batch.length;
       return Status::OK();
     }
     const ArraySpan& data = batch[0].array;
-    this->has_nulls = data.GetNullCount() > 0;
+    this->has_nulls |= data.GetNullCount() > 0;
     this->count += data.length - data.GetNullCount();
     arrow::internal::OptionalBinaryBitBlockCounter counter(
         data.buffers[0].data, data.offset, data.buffers[1].data, data.offset,
@@ -603,13 +608,13 @@ struct BooleanAllImpl : public ScalarAggregator {
     }
     if (batch[0].is_scalar()) {
       const Scalar& scalar = *batch[0].scalar;
-      this->has_nulls = !scalar.is_valid;
-      this->count += scalar.is_valid;
-      this->all = !scalar.is_valid || checked_cast<const BooleanScalar&>(scalar).value;
+      this->has_nulls |= !scalar.is_valid;
+      this->count += scalar.is_valid * batch.length;
+      this->all &= !scalar.is_valid || checked_cast<const BooleanScalar&>(scalar).value;
       return Status::OK();
     }
     const ArraySpan& data = batch[0].array;
-    this->has_nulls = data.GetNullCount() > 0;
+    this->has_nulls |= data.GetNullCount() > 0;
     this->count += data.length - data.GetNullCount();
     arrow::internal::OptionalBinaryBitBlockCounter counter(
         data.buffers[1].data, data.offset, data.buffers[0].data, data.offset,
@@ -1114,14 +1119,14 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   // Add min max function
   func = std::make_shared<ScalarAggregateFunction>("min_max", Arity::Unary(), min_max_doc,
                                                    &default_scalar_aggregate_options);
-  AddMinMaxKernels(MinMaxInit, {null(), boolean()}, func.get());
-  AddMinMaxKernels(MinMaxInit, NumericTypes(), func.get());
-  AddMinMaxKernels(MinMaxInit, TemporalTypes(), func.get());
-  AddMinMaxKernels(MinMaxInit, BaseBinaryTypes(), func.get());
-  AddMinMaxKernel(MinMaxInit, Type::FIXED_SIZE_BINARY, func.get());
-  AddMinMaxKernel(MinMaxInit, Type::INTERVAL_MONTHS, func.get());
-  AddMinMaxKernel(MinMaxInit, Type::DECIMAL128, func.get());
-  AddMinMaxKernel(MinMaxInit, Type::DECIMAL256, func.get());
+  AddMinMaxKernels(MinMaxInitDefault, {null(), boolean()}, func.get());
+  AddMinMaxKernels(MinMaxInitDefault, NumericTypes(), func.get());
+  AddMinMaxKernels(MinMaxInitDefault, TemporalTypes(), func.get());
+  AddMinMaxKernels(MinMaxInitDefault, BaseBinaryTypes(), func.get());
+  AddMinMaxKernel(MinMaxInitDefault, Type::FIXED_SIZE_BINARY, func.get());
+  AddMinMaxKernel(MinMaxInitDefault, Type::INTERVAL_MONTHS, func.get());
+  AddMinMaxKernel(MinMaxInitDefault, Type::DECIMAL128, func.get());
+  AddMinMaxKernel(MinMaxInitDefault, Type::DECIMAL256, func.get());
   // Add the SIMD variants for min max
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {

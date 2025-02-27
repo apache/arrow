@@ -43,7 +43,7 @@ namespace arrow {
 // VarLengthListLikeBuilder
 
 template <typename TYPE>
-class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
+class VarLengthListLikeBuilder : public ArrayBuilder {
  public:
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;
@@ -261,7 +261,7 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
 // ListBuilder / LargeListBuilder
 
 template <typename TYPE>
-class ARROW_EXPORT BaseListBuilder : public VarLengthListLikeBuilder<TYPE> {
+class BaseListBuilder : public VarLengthListLikeBuilder<TYPE> {
  private:
   using BASE = VarLengthListLikeBuilder<TYPE>;
 
@@ -401,7 +401,7 @@ class ARROW_EXPORT LargeListBuilder : public BaseListBuilder<LargeListType> {
 // ListViewBuilder / LargeListViewBuilder
 
 template <typename TYPE>
-class ARROW_EXPORT BaseListViewBuilder : public VarLengthListLikeBuilder<TYPE> {
+class BaseListViewBuilder : public VarLengthListLikeBuilder<TYPE> {
  private:
   using BASE = VarLengthListLikeBuilder<TYPE>;
 
@@ -642,6 +642,8 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 /// \brief Builder class for fixed-length list array value types
 class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
  public:
+  using TypeClass = FixedSizeListType;
+
   /// Use this constructor to define the built array's type explicitly. If value_builder
   /// has indeterminate type, this builder will also.
   FixedSizeListBuilder(MemoryPool* pool,

@@ -751,7 +751,7 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
       auto int128_value =
           llvm::ConstantInt::get(llvm::Type::getInt128Ty(*generator_->context()),
                                  Decimal128(scalar.value()).ToIntegerString(), 10);
-      auto type = arrow::decimal(scalar.precision(), scalar.scale());
+      auto type = arrow::decimal128(scalar.precision(), scalar.scale());
       auto lvalue = generator_->BuildDecimalLValue(int128_value, type);
       // set it as the l-value and return.
       result_ = lvalue;
@@ -1251,7 +1251,7 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
     // Make the function call
     auto out = decimalIR.CallDecimalFunction(func->pc_name(), llvm_return_type, *params);
     ret_lvalue->set_data(out);
-    return std::move(ret_lvalue);
+    return ret_lvalue;
   } else {
     bool isDecimalFunction = false;
     for (auto& arg : *params) {

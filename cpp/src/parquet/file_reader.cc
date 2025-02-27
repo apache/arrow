@@ -29,6 +29,7 @@
 #include "arrow/io/caching.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
@@ -71,8 +72,7 @@ bool IsColumnChunkFullyDictionaryEncoded(const ColumnChunkMetaData& col) {
   }
   // The following pages should be dictionary encoded data pages.
   for (size_t idx = 1; idx < encoding_stats.size(); ++idx) {
-    if ((encoding_stats[idx].encoding != Encoding::RLE_DICTIONARY &&
-         encoding_stats[idx].encoding != Encoding::PLAIN_DICTIONARY) ||
+    if (!IsDictionaryIndexEncoding(encoding_stats[idx].encoding) ||
         (encoding_stats[idx].page_type != PageType::DATA_PAGE &&
          encoding_stats[idx].page_type != PageType::DATA_PAGE_V2)) {
       // Return false if any following page is not a dictionary encoded data
@@ -84,8 +84,6 @@ bool IsColumnChunkFullyDictionaryEncoded(const ColumnChunkMetaData& col) {
 }
 }  // namespace
 
-// PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
-static constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
 static constexpr uint32_t kFooterSize = 8;
 
 // For PARQUET-816
@@ -268,13 +266,17 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     ARROW_DCHECK_NE(meta_decryptor, nullptr);
     ARROW_DCHECK_NE(data_decryptor, nullptr);
 
-    constexpr auto kEncryptedRowGroupsLimit = 32767;
-    if (i > kEncryptedRowGroupsLimit) {
+    constexpr auto kEncryptedOrdinalLimit = 32767;
+    if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedOrdinalLimit)) {
       throw ParquetException("Encrypted files cannot contain more than 32767 row groups");
     }
+    if (ARROW_PREDICT_FALSE(i > kEncryptedOrdinalLimit)) {
+      throw ParquetException("Encrypted files cannot contain more than 32767 columns");
+    }
 
-    CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
-                      static_cast<int16_t>(i), meta_decryptor, data_decryptor);
+    CryptoContext ctx(col->has_dictionary_page(),
+                      static_cast<int16_t>(row_group_ordinal_), static_cast<int16_t>(i),
+                      meta_decryptor, data_decryptor);
     return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
                             always_compressed, &ctx);
   }
@@ -403,6 +405,21 @@ class SerializedFile : public ParquetFileReader::Contents {
     PARQUET_THROW_NOT_OK(cached_source_->Cache(ranges));
   }
 
+  ::arrow::Result<std::vector<::arrow::io::ReadRange>> GetReadRanges(
+      const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+      int64_t hole_size_limit, int64_t range_size_limit) {
+    std::vector<::arrow::io::ReadRange> ranges;
+    for (int row_group : row_groups) {
+      for (int col : column_indices) {
+        ranges.push_back(
+            ComputeColumnChunkRange(file_metadata_.get(), source_size_, row_group, col));
+      }
+    }
+
+    return ::arrow::io::internal::CoalesceReadRanges(std::move(ranges), hole_size_limit,
+                                                     range_size_limit);
+  }
+
   ::arrow::Future<> WhenBuffered(const std::vector<int>& row_groups,
                                  const std::vector<int>& column_indices) const {
     if (!cached_source_) {
@@ -483,7 +500,8 @@ class SerializedFile : public ParquetFileReader::Contents {
           "Parquet file size is ", source_size_,
           " bytes, smaller than the minimum file footer (", kFooterSize, " bytes)");
     }
-    return std::min(source_size_, kDefaultFooterReadSize);
+
+    return std::min(static_cast<size_t>(source_size_), properties_.footer_read_size());
   }
 
   // Validate the magic bytes and get the length of the full footer.
@@ -498,9 +516,10 @@ class SerializedFile : public ParquetFileReader::Contents {
           "is not a parquet file.");
     }
     // Both encrypted/unencrypted footers have the same footer length check.
-    uint32_t metadata_len = ::arrow::util::SafeLoadAs<uint32_t>(
-        reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
-        kFooterSize);
+    uint32_t metadata_len =
+        ::arrow::bit_util::FromLittleEndian(::arrow::util::SafeLoadAs<uint32_t>(
+            reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
+            kFooterSize));
     if (metadata_len > source_size_ - kFooterSize) {
       throw ParquetInvalidOrCorruptedFileException(
           "Parquet file size is ", source_size_,

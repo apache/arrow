@@ -22,6 +22,7 @@ set -ex
 source_dir=${1}/cpp
 build_dir=${2}/cpp
 
+: ${ARROW_OFFLINE:=OFF}
 : ${ARROW_USE_CCACHE:=OFF}
 : ${BUILD_DOCS_CPP:=OFF}
 
@@ -30,11 +31,17 @@ if [ -x "$(command -v git)" ]; then
 fi
 
 # TODO(kszucs): consider to move these to CMake
-if [ ! -z "${CONDA_PREFIX}" ]; then
+if [ ! -z "${CONDA_PREFIX}" ] && [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ]; then
   echo -e "===\n=== Conda environment for build\n==="
   conda list
 
-  export ARROW_CMAKE_ARGS="${ARROW_CMAKE_ARGS} -DCMAKE_AR=${AR} -DCMAKE_RANLIB=${RANLIB}"
+  if [ -n "${AR}" ]; then
+    ARROW_CMAKE_ARGS+=" -DCMAKE_AR=${AR}"
+  fi
+  if [ -n "${RANLIB}" ]; then
+    ARROW_CMAKE_ARGS+=" -DCMAKE_RANLIB=${RANLIB}"
+  fi
+  export ARROW_CMAKE_ARGS
   export ARROW_GANDIVA_PC_CXX_FLAGS=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
 elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
@@ -92,13 +99,33 @@ esac
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
-if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
+if [ "${ARROW_OFFLINE}" = "ON" ]; then
+  ${source_dir}/thirdparty/download_dependencies.sh ${PWD}/thirdparty > \
+    enable_offline_build.sh
+  . enable_offline_build.sh
+  # We can't use mv because we can't remove /etc/resolv.conf in Docker
+  # container.
+  cp /etc/resolv.conf{,.bak}
+  echo > /etc/resolv.conf
+fi
+
+if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
+  meson setup \
+    --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
+    --buildtype=${ARROW_BUILD_TYPE:-debug} \
+    . \
+    ${source_dir}
+elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   if [ "${UBUNTU}" = "20.04" ]; then
     echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
     exit -1
   fi
   n_jobs=2 # Emscripten build fails on docker unless this is set really low
   source ~/emsdk/emsdk_env.sh
+  export CMAKE_INSTALL_PREFIX=$(em-config CACHE)/sysroot
+  # conda sets LDFLAGS / CFLAGS etc. which break
+  # emcmake so we unset them
+  unset LDFLAGS CFLAGS CXXFLAGS CPPFLAGS
   emcmake cmake \
     --preset=ninja-${ARROW_BUILD_TYPE:-debug}-emscripten \
     -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE:-OFF} \
@@ -136,6 +163,7 @@ else
     -DARROW_C_FLAGS_RELWITHDEBINFO="${ARROW_C_FLAGS_RELWITHDEBINFO:-}" \
     -DARROW_DATASET=${ARROW_DATASET:-OFF} \
     -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
+    -DARROW_DEPENDENCY_USE_SHARED=${ARROW_DEPENDENCY_USE_SHARED:-ON} \
     -DARROW_ENABLE_THREADING=${ARROW_ENABLE_THREADING:-ON} \
     -DARROW_ENABLE_TIMING_TESTS=${ARROW_ENABLE_TIMING_TESTS:-ON} \
     -DARROW_EXTRA_ERROR_CONTEXT=${ARROW_EXTRA_ERROR_CONTEXT:-OFF} \
@@ -148,10 +176,10 @@ else
     -DARROW_GCS=${ARROW_GCS:-OFF} \
     -DARROW_HDFS=${ARROW_HDFS:-ON} \
     -DARROW_INSTALL_NAME_RPATH=${ARROW_INSTALL_NAME_RPATH:-ON} \
-    -DARROW_JEMALLOC=${ARROW_JEMALLOC:-ON} \
+    -DARROW_JEMALLOC=${ARROW_JEMALLOC:-OFF} \
     -DARROW_JSON=${ARROW_JSON:-ON} \
     -DARROW_LARGE_MEMORY_TESTS=${ARROW_LARGE_MEMORY_TESTS:-OFF} \
-    -DARROW_MIMALLOC=${ARROW_MIMALLOC:-OFF} \
+    -DARROW_MIMALLOC=${ARROW_MIMALLOC:-ON} \
     -DARROW_ORC=${ARROW_ORC:-OFF} \
     -DARROW_PARQUET=${ARROW_PARQUET:-OFF} \
     -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
@@ -197,11 +225,13 @@ else
     -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR:-lib} \
     -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}} \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+    -DCUDAToolkit_ROOT=${CUDAToolkit_ROOT:-} \
     -Dgflags_SOURCE=${gflags_SOURCE:-} \
     -Dgoogle_cloud_cpp_storage_SOURCE=${google_cloud_cpp_storage_SOURCE:-} \
     -DgRPC_SOURCE=${gRPC_SOURCE:-} \
     -DGTest_SOURCE=${GTest_SOURCE:-} \
     -Dlz4_SOURCE=${lz4_SOURCE:-} \
+    -Dopentelemetry-cpp_SOURCE=${opentelemetry_cpp_SOURCE:-} \
     -DORC_SOURCE=${ORC_SOURCE:-} \
     -DPARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-OFF} \
     -DPARQUET_BUILD_EXECUTABLES=${PARQUET_BUILD_EXECUTABLES:-OFF} \
@@ -219,11 +249,19 @@ else
     ${source_dir}
 fi
 
-export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
-time cmake --build . --target install
+if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
+  time meson install
+else
+  export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
+  time cmake --build . --target install
+fi
 
 # Save disk space by removing large temporary build products
 find . -name "*.o" -delete
+
+if [ "${ARROW_OFFLINE}" = "ON" ]; then
+  cp /etc/resolv.conf{.bak,}
+fi
 
 popd
 

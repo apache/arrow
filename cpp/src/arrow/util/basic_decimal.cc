@@ -50,6 +50,347 @@ static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
 static constexpr uint64_t kInt32Mask = 0xFFFFFFFF;
 #endif
 
+BasicDecimal32& BasicDecimal32::Negate() {
+  value_ = arrow::internal::SafeSignedNegate(value_);
+  return *this;
+}
+
+DecimalStatus BasicDecimal32::Divide(const BasicDecimal32& divisor,
+                                     BasicDecimal32* result,
+                                     BasicDecimal32* remainder) const {
+  if (divisor.value_ == 0) {
+    return DecimalStatus::kDivideByZero;
+  }
+
+  *result = value_ / divisor.value_;
+  if (remainder) {
+    *remainder = value_ % divisor.value_;
+  }
+  return DecimalStatus::kSuccess;
+}
+
+BasicDecimal32& BasicDecimal32::operator<<=(uint32_t bits) {
+  if (bits != 0) {
+    if (bits < 32) {
+      value_ = SafeLeftShift(value_, bits);
+    } else {
+      value_ = 0;
+    }
+  }
+  return *this;
+}
+
+BasicDecimal32& BasicDecimal32::operator>>=(uint32_t bits) {
+  if (bits != 0) {
+    if (bits < 32) {
+      value_ >>= bits;
+    } else {
+      value_ = 0;
+    }
+  }
+  return *this;
+}
+
+void BasicDecimal32::GetWholeAndFraction(int scale, BasicDecimal32* whole,
+                                         BasicDecimal32* fraction) const {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, kMaxScale);
+
+  BasicDecimal32 multiplier(DecimalTraits<BasicDecimal32>::powers_of_ten()[scale]);
+  auto s = Divide(multiplier, whole, fraction);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+}
+
+const BasicDecimal32& BasicDecimal32::GetMaxValue() {
+  return DecimalTraits<BasicDecimal32>::kMaxValue;
+}
+
+BasicDecimal32 BasicDecimal32::GetMaxValue(int32_t precision) {
+  DCHECK_GE(precision, 0);
+  DCHECK_LE(precision, kMaxPrecision);
+  return DecimalTraits<BasicDecimal32>::powers_of_ten()[precision];
+}
+
+BasicDecimal32 BasicDecimal32::IncreaseScaleBy(int32_t increase_by) const {
+  DCHECK_GE(increase_by, 0);
+  DCHECK_LE(increase_by, kMaxScale);
+  return (*this) * DecimalTraits<BasicDecimal32>::powers_of_ten()[increase_by];
+}
+
+BasicDecimal32 BasicDecimal32::ReduceScaleBy(int32_t reduce_by, bool round) const {
+  DCHECK_GE(reduce_by, 0);
+  DCHECK_LE(reduce_by, kMaxScale);
+
+  if (reduce_by == 0) {
+    return *this;
+  }
+
+  BasicDecimal32 divisor(DecimalTraits<BasicDecimal32>::powers_of_ten()[reduce_by]);
+  BasicDecimal32 result;
+  BasicDecimal32 remainder;
+  auto s = Divide(divisor, &result, &remainder);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+  if (round) {
+    auto divisor_half = DecimalTraits<BasicDecimal32>::half_powers_of_ten()[reduce_by];
+    if (remainder.Abs() >= divisor_half) {
+      result += Sign();
+    }
+  }
+  return result;
+}
+
+const BasicDecimal32& BasicDecimal32::GetScaleMultiplier(int32_t scale) {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, kMaxScale);
+
+  return DecimalTraits<BasicDecimal32>::powers_of_ten()[scale];
+}
+
+const BasicDecimal32& BasicDecimal32::GetHalfScaleMultiplier(int32_t scale) {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, kMaxScale);
+
+  return DecimalTraits<BasicDecimal32>::half_powers_of_ten()[scale];
+}
+
+BasicDecimal32::operator BasicDecimal64() const {
+  return BasicDecimal64(static_cast<int64_t>(value()));
+}
+
+BasicDecimal64& BasicDecimal64::Negate() {
+  value_ = arrow::internal::SafeSignedNegate(value_);
+  return *this;
+}
+
+DecimalStatus BasicDecimal64::Divide(const BasicDecimal64& divisor,
+                                     BasicDecimal64* result,
+                                     BasicDecimal64* remainder) const {
+  if (divisor.value_ == 0) {
+    return DecimalStatus::kDivideByZero;
+  }
+
+  *result = value_ / divisor.value_;
+  if (remainder) {
+    *remainder = value_ % divisor.value_;
+  }
+  return DecimalStatus::kSuccess;
+}
+
+BasicDecimal64& BasicDecimal64::operator<<=(uint32_t bits) {
+  if (bits != 0) {
+    if (bits < 64) {
+      value_ = SafeLeftShift(value_, bits);
+    } else {
+      value_ = 0;
+    }
+  }
+  return *this;
+}
+
+BasicDecimal64& BasicDecimal64::operator>>=(uint32_t bits) {
+  if (bits != 0) {
+    if (bits < 64) {
+      value_ >>= bits;
+    } else {
+      value_ = 0;
+    }
+  }
+  return *this;
+}
+
+void BasicDecimal64::GetWholeAndFraction(int scale, BasicDecimal64* whole,
+                                         BasicDecimal64* fraction) const {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, kMaxScale);
+
+  BasicDecimal64 multiplier(DecimalTraits<BasicDecimal64>::powers_of_ten()[scale]);
+  auto s = Divide(multiplier, whole, fraction);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+}
+
+const BasicDecimal64& BasicDecimal64::GetMaxValue() {
+  return DecimalTraits<BasicDecimal64>::kMaxValue;
+}
+
+BasicDecimal64 BasicDecimal64::GetMaxValue(int32_t precision) {
+  DCHECK_GE(precision, 0);
+  DCHECK_LE(precision, kMaxPrecision);
+  return DecimalTraits<BasicDecimal64>::powers_of_ten()[precision];
+}
+
+BasicDecimal64 BasicDecimal64::IncreaseScaleBy(int32_t increase_by) const {
+  DCHECK_GE(increase_by, 0);
+  DCHECK_LE(increase_by, kMaxScale);
+  return (*this) * DecimalTraits<BasicDecimal64>::powers_of_ten()[increase_by];
+}
+
+BasicDecimal64 BasicDecimal64::ReduceScaleBy(int32_t reduce_by, bool round) const {
+  DCHECK_GE(reduce_by, 0);
+  DCHECK_LE(reduce_by, kMaxScale);
+
+  if (reduce_by == 0) {
+    return *this;
+  }
+
+  BasicDecimal64 divisor(DecimalTraits<BasicDecimal64>::powers_of_ten()[reduce_by]);
+  BasicDecimal64 result;
+  BasicDecimal64 remainder;
+  auto s = Divide(divisor, &result, &remainder);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+  if (round) {
+    auto divisor_half = DecimalTraits<BasicDecimal64>::half_powers_of_ten()[reduce_by];
+    if (remainder.Abs() >= divisor_half) {
+      result += Sign();
+    }
+  }
+  return result;
+}
+
+const BasicDecimal64& BasicDecimal64::GetScaleMultiplier(int32_t scale) {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, kMaxScale);
+
+  return DecimalTraits<BasicDecimal64>::powers_of_ten()[scale];
+}
+
+const BasicDecimal64& BasicDecimal64::GetHalfScaleMultiplier(int32_t scale) {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, kMaxScale);
+
+  return DecimalTraits<BasicDecimal64>::half_powers_of_ten()[scale];
+}
+
+bool BasicDecimal32::FitsInPrecision(int32_t precision) const {
+  DCHECK_GE(precision, 0);
+  DCHECK_LE(precision, kMaxPrecision);
+  if (value_ == INT32_MIN) {
+    return false;
+  }
+  return Abs(*this) < DecimalTraits<BasicDecimal32>::powers_of_ten()[precision];
+}
+
+bool BasicDecimal64::FitsInPrecision(int32_t precision) const {
+  DCHECK_GE(precision, 0);
+  DCHECK_LE(precision, kMaxPrecision);
+  if (value_ == INT64_MIN) {
+    return false;
+  }
+  return Abs(*this) < DecimalTraits<BasicDecimal64>::powers_of_ten()[precision];
+}
+
+bool operator<(const BasicDecimal32& left, const BasicDecimal32& right) {
+  return left.value() < right.value();
+}
+
+bool operator<=(const BasicDecimal32& left, const BasicDecimal32& right) {
+  return left.value() <= right.value();
+}
+
+bool operator>(const BasicDecimal32& left, const BasicDecimal32& right) {
+  return left.value() > right.value();
+}
+
+bool operator>=(const BasicDecimal32& left, const BasicDecimal32& right) {
+  return left.value() >= right.value();
+}
+
+BasicDecimal32 operator-(const BasicDecimal32& self) {
+  auto result = self;
+  return result.Negate();
+}
+
+BasicDecimal32 operator~(const BasicDecimal32& self) {
+  BasicDecimal32 result(~self.value());
+  return result;
+}
+
+BasicDecimal32 operator+(const BasicDecimal32& left, const BasicDecimal32& right) {
+  auto result = left;
+  return result += right;
+}
+
+BasicDecimal32 operator-(const BasicDecimal32& left, const BasicDecimal32& right) {
+  auto result = left;
+  return result -= right;
+}
+
+BasicDecimal32 operator*(const BasicDecimal32& left, const BasicDecimal32& right) {
+  auto result = left;
+  return result *= right;
+}
+
+BasicDecimal32 operator/(const BasicDecimal32& left, const BasicDecimal32& right) {
+  auto result = left;
+  return result /= right;
+}
+
+BasicDecimal32 operator%(const BasicDecimal32& left, const BasicDecimal32& right) {
+  BasicDecimal32 remainder;
+  BasicDecimal32 result;
+  auto s = left.Divide(right, &result, &remainder);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+  return remainder;
+}
+
+bool operator<(const BasicDecimal64& left, const BasicDecimal64& right) {
+  return left.value() < right.value();
+}
+
+bool operator<=(const BasicDecimal64& left, const BasicDecimal64& right) {
+  return left.value() <= right.value();
+}
+
+bool operator>(const BasicDecimal64& left, const BasicDecimal64& right) {
+  return left.value() > right.value();
+}
+
+bool operator>=(const BasicDecimal64& left, const BasicDecimal64& right) {
+  return left.value() >= right.value();
+}
+
+BasicDecimal64 operator-(const BasicDecimal64& self) {
+  auto result = self;
+  return result.Negate();
+}
+
+BasicDecimal64 operator~(const BasicDecimal64& self) {
+  BasicDecimal64 result(~self.value());
+  return result;
+}
+
+BasicDecimal64 operator+(const BasicDecimal64& left, const BasicDecimal64& right) {
+  auto result = left;
+  return result += right;
+}
+
+BasicDecimal64 operator-(const BasicDecimal64& left, const BasicDecimal64& right) {
+  auto result = left;
+  return result -= right;
+}
+
+BasicDecimal64 operator*(const BasicDecimal64& left, const BasicDecimal64& right) {
+  auto result = left;
+  return result *= right;
+}
+
+BasicDecimal64 operator/(const BasicDecimal64& left, const BasicDecimal64& right) {
+  auto result = left;
+  return result /= right;
+}
+
+BasicDecimal64 operator%(const BasicDecimal64& left, const BasicDecimal64& right) {
+  BasicDecimal64 remainder;
+  BasicDecimal64 result;
+  auto s = left.Divide(right, &result, &remainder);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+  return remainder;
+}
+
+template <typename BaseType>
+int32_t SmallBasicDecimal<BaseType>::CountLeadingBinaryZeros() const {
+  return bit_util::CountLeadingZeros(static_cast<std::make_unsigned_t<BaseType>>(value_));
+}
+
 // same as kDecimal128PowersOfTen[38] - 1
 static constexpr BasicDecimal128 kMaxDecimal128Value{5421010862427522170LL,
                                                      687399551400673280ULL - 1};
@@ -734,6 +1075,16 @@ DecimalStatus DecimalRescale(const DecimalClass& value, int32_t original_scale,
   return DecimalStatus::kSuccess;
 }
 
+DecimalStatus BasicDecimal32::Rescale(int32_t original_scale, int32_t new_scale,
+                                      BasicDecimal32* out) const {
+  return DecimalRescale(*this, original_scale, new_scale, out);
+}
+
+DecimalStatus BasicDecimal64::Rescale(int32_t original_scale, int32_t new_scale,
+                                      BasicDecimal64* out) const {
+  return DecimalRescale(*this, original_scale, new_scale, out);
+}
+
 DecimalStatus BasicDecimal128::Rescale(int32_t original_scale, int32_t new_scale,
                                        BasicDecimal128* out) const {
   return DecimalRescale(*this, original_scale, new_scale, out);
@@ -1050,5 +1401,7 @@ BasicDecimal256 operator/(const BasicDecimal256& left, const BasicDecimal256& ri
 // Explicitly instantiate template base class, for DLL linking on Windows
 template class GenericBasicDecimal<BasicDecimal128, 128>;
 template class GenericBasicDecimal<BasicDecimal256, 256>;
+template class SmallBasicDecimal<int32_t>;
+template class SmallBasicDecimal<int64_t>;
 
 }  // namespace arrow

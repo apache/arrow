@@ -37,6 +37,8 @@ G_BEGIN_DECLS
  * @title: Basic array classes
  * @include: arrow-glib/arrow-glib.h
  *
+ * #GArrowArrayStatistics is a class for statistics of an array.
+ *
  * #GArrowArray is a base class for all array classes such as
  * #GArrowBooleanArray.
  *
@@ -170,6 +172,16 @@ G_BEGIN_DECLS
  * intarval array. It can store zero or more date data. If you don't
  * have Arrow format data, you need to use #GArrowMonthDayNanoIntervalArray
  * to create a new array.
+ *
+ * #GArrowDecimal32Array is a class for 32-bit decimal array. It can
+ * store zero or more 32-bit decimal data. If you don't have Arrow
+ * format data, you need to use #GArrowDecimal32ArrayBuilder to
+ * create a new array.
+ *
+ * #GArrowDecimal64Array is a class for 64-bit decimal array. It can
+ * store zero or more 64-bit decimal data. If you don't have Arrow
+ * format data, you need to use #GArrowDecimal64ArrayBuilder to
+ * create a new array.
  *
  * #GArrowDecimal128Array is a class for 128-bit decimal array. It can
  * store zero or more 128-bit decimal data. If you don't have Arrow
@@ -352,6 +364,106 @@ garrow_equal_options_is_approx(GArrowEqualOptions *options)
 {
   auto priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(options);
   return priv->approx;
+}
+
+struct GArrowArrayStatisticsPrivate
+{
+  arrow::ArrayStatistics statistics;
+};
+
+enum {
+  PROP_STATISTICS = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowArrayStatistics, garrow_array_statistics, G_TYPE_OBJECT)
+
+#define GARROW_ARRAY_STATISTICS_GET_PRIVATE(object)                                      \
+  static_cast<GArrowArrayStatisticsPrivate *>(                                           \
+    garrow_array_statistics_get_instance_private(GARROW_ARRAY_STATISTICS(object)))
+
+static void
+garrow_array_statistics_finalize(GObject *object)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(object);
+  priv->statistics.~ArrayStatistics();
+  G_OBJECT_CLASS(garrow_array_statistics_parent_class)->finalize(object);
+}
+
+static void
+garrow_array_statistics_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_STATISTICS:
+    priv->statistics = *static_cast<arrow::ArrayStatistics *>(g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_array_statistics_init(GArrowArrayStatistics *object)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(object);
+  new (&priv->statistics) arrow::ArrayStatistics;
+}
+
+static void
+garrow_array_statistics_class_init(GArrowArrayStatisticsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->finalize = garrow_array_statistics_finalize;
+  gobject_class->set_property = garrow_array_statistics_set_property;
+
+  auto spec = g_param_spec_pointer(
+    "statistics",
+    "Statistics",
+    "The raw arrow::ArrayStatistics *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_STATISTICS, spec);
+}
+
+/**
+ * garrow_array_statistics_has_null_count:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: %TRUE if @statistics has a valid null count value,
+ *   %FALSE otherwise.
+ *
+ * Since: 20.0.0
+ */
+gboolean
+garrow_array_statistics_has_null_count(GArrowArrayStatistics *statistics)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
+  return priv->statistics.null_count.has_value();
+}
+
+/**
+ * garrow_array_statistics_get_null_count:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: 0 or larger value if @statistics has a valid null count value,
+ *   -1 otherwise.
+ *
+ * Since: 20.0.0
+ */
+gint64
+garrow_array_statistics_get_null_count(GArrowArrayStatistics *statistics)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
+  const auto &null_count = priv->statistics.null_count;
+  if (null_count) {
+    return null_count.value();
+  } else {
+    return -1;
+  }
 }
 
 typedef struct GArrowArrayPrivate_
@@ -1004,6 +1116,59 @@ garrow_array_concatenate(GArrowArray *array, GList *other_arrays, GError **error
     return garrow_array_new_raw(&(*arrow_concatenated_array));
   } else {
     return NULL;
+  }
+}
+
+/**
+ * garrow_array_validate:
+ * @array: A #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 20.0.0
+ */
+gboolean
+garrow_array_validate(GArrowArray *array, GError **error)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  return garrow::check(error, arrow_array->Validate(), "[array][validate]");
+}
+
+/**
+ * garrow_array_validate_full:
+ * @array: A #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 20.0.0
+ */
+gboolean
+garrow_array_validate_full(GArrowArray *array, GError **error)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  return garrow::check(error, arrow_array->ValidateFull(), "[array][validate-full]");
+}
+
+/**
+ * garrow_array_get_statistics:
+ * @array: A #GArrowArray.
+ *
+ * Returns: (transfer full): The associated #GArrowArrayStatistics of @array,
+ *   %NULL if @array doesn't have any associated statistics.
+ *
+ * Since: 20.0.0
+ */
+GArrowArrayStatistics *
+garrow_array_get_statistics(GArrowArray *array)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  const auto &statistics = arrow_array->statistics();
+  if (statistics) {
+    return garrow_array_statistics_new_raw(statistics.get());
+  } else {
+    return nullptr;
   }
 }
 
@@ -3090,6 +3255,114 @@ garrow_fixed_size_binary_array_get_values_bytes(GArrowFixedSizeBinaryArray *arra
                             arrow_binary_array->byte_width() * arrow_array->length());
 }
 
+G_DEFINE_TYPE(GArrowDecimal32Array,
+              garrow_decimal32_array,
+              GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY)
+static void
+garrow_decimal32_array_init(GArrowDecimal32Array *object)
+{
+}
+
+static void
+garrow_decimal32_array_class_init(GArrowDecimal32ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_decimal32_array_format_value:
+ * @array: A #GArrowDecimal32Array.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The formatted @i-th value.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 19.0.0
+ */
+gchar *
+garrow_decimal32_array_format_value(GArrowDecimal32Array *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_decimal32_array =
+    std::static_pointer_cast<arrow::Decimal32Array>(arrow_array);
+  auto value = arrow_decimal32_array->FormatValue(i);
+  return g_strndup(value.data(), value.size());
+}
+
+/**
+ * garrow_decimal32_array_get_value:
+ * @array: A #GArrowDecimal32Array.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The @i-th value.
+ *
+ * Since: 19.0.0
+ */
+GArrowDecimal32 *
+garrow_decimal32_array_get_value(GArrowDecimal32Array *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_decimal32_array =
+    std::static_pointer_cast<arrow::Decimal32Array>(arrow_array);
+  auto arrow_decimal32 =
+    std::make_shared<arrow::Decimal32>(arrow_decimal32_array->GetValue(i));
+  return garrow_decimal32_new_raw(&arrow_decimal32);
+}
+
+G_DEFINE_TYPE(GArrowDecimal64Array,
+              garrow_decimal64_array,
+              GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY)
+static void
+garrow_decimal64_array_init(GArrowDecimal64Array *object)
+{
+}
+
+static void
+garrow_decimal64_array_class_init(GArrowDecimal64ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_decimal64_array_format_value:
+ * @array: A #GArrowDecimal64Array.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The formatted @i-th value.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 19.0.0
+ */
+gchar *
+garrow_decimal64_array_format_value(GArrowDecimal64Array *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_decimal64_array =
+    std::static_pointer_cast<arrow::Decimal64Array>(arrow_array);
+  auto value = arrow_decimal64_array->FormatValue(i);
+  return g_strndup(value.data(), value.size());
+}
+
+/**
+ * garrow_decimal64_array_get_value:
+ * @array: A #GArrowDecimal64Array.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The @i-th value.
+ *
+ * Since: 19.0.0
+ */
+GArrowDecimal64 *
+garrow_decimal64_array_get_value(GArrowDecimal64Array *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_decimal64_array =
+    std::static_pointer_cast<arrow::Decimal64Array>(arrow_array);
+  auto arrow_decimal64 =
+    std::make_shared<arrow::Decimal64>(arrow_decimal64_array->GetValue(i));
+  return garrow_decimal64_new_raw(&arrow_decimal64);
+}
+
 G_DEFINE_TYPE(GArrowDecimal128Array,
               garrow_decimal128_array,
               GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY)
@@ -3318,6 +3591,13 @@ garrow_equal_options_get_raw(GArrowEqualOptions *equal_options)
   return &(priv->options);
 }
 
+GArrowArrayStatistics *
+garrow_array_statistics_new_raw(arrow::ArrayStatistics *arrow_statistics)
+{
+  return GARROW_ARRAY_STATISTICS(
+    g_object_new(GARROW_TYPE_ARRAY_STATISTICS, "statistics", arrow_statistics, nullptr));
+}
+
 GArrowArray *
 garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array)
 {
@@ -3442,6 +3722,12 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
     break;
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_ARRAY;
+    break;
+  case arrow::Type::type::DECIMAL32:
+    type = GARROW_TYPE_DECIMAL32_ARRAY;
+    break;
+  case arrow::Type::type::DECIMAL64:
+    type = GARROW_TYPE_DECIMAL64_ARRAY;
     break;
   case arrow::Type::type::DECIMAL128:
     type = GARROW_TYPE_DECIMAL128_ARRAY;

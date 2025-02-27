@@ -23,10 +23,12 @@
 #include <gtest/gtest.h>
 
 #include "arrow/io/buffered.h"
+#include "arrow/io/file.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/config.h"
+#include "arrow/util/key_value_metadata.h"
 
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
@@ -50,6 +52,9 @@ using schema::NodePtr;
 using schema::PrimitiveNode;
 
 namespace test {
+
+using ::testing::IsNull;
+using ::testing::NotNull;
 
 // The default size used in most tests.
 const int SMALL_SIZE = 100;
@@ -383,6 +388,15 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     auto metadata_accessor =
         ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
     return metadata_accessor->encoding_stats();
+  }
+
+  std::shared_ptr<const KeyValueMetadata> metadata_key_value_metadata() {
+    // Metadata accessor must be created lazily.
+    // This is because the ColumnChunkMetaData semantics dictate the metadata object is
+    // complete (no changes to the metadata buffer can be made after instantiation)
+    auto metadata_accessor =
+        ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
+    return metadata_accessor->key_value_metadata();
   }
 
  protected:
@@ -987,8 +1001,8 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   auto values_data = reinterpret_cast<const int32_t*>(values_buffer->data());
 
   std::shared_ptr<Buffer> valid_bits;
-  ASSERT_OK_AND_ASSIGN(valid_bits, ::arrow::internal::BytesToBits(
-                                       {1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1}));
+  std::vector<uint8_t> bitmap_bytes = {1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1};
+  ASSERT_OK_AND_ASSIGN(valid_bits, ::arrow::internal::BytesToBits(bitmap_bytes));
 
   // valgrind will warn about out of bounds access into def_levels_data
   typed_writer->WriteBatchSpaced(14, def_levels.data(), rep_levels.data(),
@@ -1702,6 +1716,94 @@ TEST(TestColumnWriter, WriteDataPageV2HeaderNullCount) {
     EXPECT_EQ(expect_null_count_by_col[i], num_nulls_read);
     EXPECT_EQ(num_rows, num_rows_read);
     EXPECT_EQ(num_rows, num_values_read);
+  }
+}
+
+using TestInt32Writer = TestPrimitiveWriter<Int32Type>;
+
+TEST_F(TestInt32Writer, NoWriteKeyValueMetadata) {
+  auto writer = this->BuildWriter();
+  writer->Close();
+  auto key_value_metadata = metadata_key_value_metadata();
+  ASSERT_THAT(key_value_metadata, IsNull());
+}
+
+TEST_F(TestInt32Writer, WriteKeyValueMetadata) {
+  auto writer = this->BuildWriter();
+  writer->AddKeyValueMetadata(
+      KeyValueMetadata::Make({"hello", "bye"}, {"world", "earth"}));
+  // overwrite the previous value
+  writer->AddKeyValueMetadata(KeyValueMetadata::Make({"bye"}, {"moon"}));
+  writer->Close();
+  auto key_value_metadata = metadata_key_value_metadata();
+  ASSERT_THAT(key_value_metadata, NotNull());
+  ASSERT_EQ(2, key_value_metadata->size());
+  ASSERT_OK_AND_ASSIGN(auto value, key_value_metadata->Get("hello"));
+  ASSERT_EQ("world", value);
+  ASSERT_OK_AND_ASSIGN(value, key_value_metadata->Get("bye"));
+  ASSERT_EQ("moon", value);
+}
+
+TEST_F(TestInt32Writer, ResetKeyValueMetadata) {
+  auto writer = this->BuildWriter();
+  writer->AddKeyValueMetadata(KeyValueMetadata::Make({"hello"}, {"world"}));
+  writer->ResetKeyValueMetadata();
+  writer->Close();
+  auto key_value_metadata = metadata_key_value_metadata();
+  ASSERT_THAT(key_value_metadata, IsNull());
+}
+
+TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
+  auto sink = CreateOutputStream();
+  {
+    auto file_writer = ParquetFileWriter::Open(
+        sink, std::dynamic_pointer_cast<schema::GroupNode>(schema_.schema_root()));
+    auto rg_writer = file_writer->AppendRowGroup();
+    auto col_writer = rg_writer->NextColumn();
+    col_writer->AddKeyValueMetadata(KeyValueMetadata::Make({"foo"}, {"bar"}));
+    file_writer->Close();
+  }
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  auto file_reader =
+      ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+  auto key_value_metadata =
+      file_reader->metadata()->RowGroup(0)->ColumnChunk(0)->key_value_metadata();
+  ASSERT_THAT(key_value_metadata, NotNull());
+  ASSERT_EQ(1U, key_value_metadata->size());
+  ASSERT_OK_AND_ASSIGN(auto value, key_value_metadata->Get("foo"));
+  ASSERT_EQ("bar", value);
+}
+
+TEST_F(TestValuesWriterInt32Type, AllNullsCompressionInPageV2) {
+  // GH-31992: In DataPageV2, the levels and data will not be compressed together,
+  // so, when all values are null, the compressed values should be empty. And
+  // we should handle this case correctly.
+  std::vector<Compression::type> compressions = {Compression::SNAPPY, Compression::GZIP,
+                                                 Compression::ZSTD, Compression::BROTLI,
+                                                 Compression::LZ4};
+  for (auto compression : compressions) {
+    if (!Codec::IsAvailable(compression)) {
+      continue;
+    }
+    ARROW_SCOPED_TRACE("compression = ", Codec::GetCodecAsString(compression));
+    // Optional and non-repeated, with definition levels
+    // but no repetition levels
+    this->SetUpSchema(Repetition::OPTIONAL);
+    this->GenerateData(SMALL_SIZE);
+    std::fill(this->def_levels_.begin(), this->def_levels_.end(), 0);
+    ColumnProperties column_properties;
+    column_properties.set_compression(compression);
+
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                          ParquetDataPageVersion::V2);
+    writer->WriteBatch(this->values_.size(), this->def_levels_.data(), nullptr,
+                       this->values_ptr_);
+    writer->Close();
+
+    ASSERT_EQ(100, this->metadata_num_values());
+    this->ReadColumn(compression);
+    ASSERT_EQ(0, this->values_read_);
   }
 }
 

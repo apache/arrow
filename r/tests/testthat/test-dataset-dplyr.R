@@ -323,10 +323,9 @@ test_that("head/tail on query on dataset", {
 test_that("dplyr method not implemented messages", {
   ds <- open_dataset(dataset_dir)
   # This one is more nuanced
-  expect_error(
+  expect_snapshot(
     ds %>% filter(int > 6, dbl > max(dbl)),
-    "Expression dbl > max(dbl) not supported in filter() in Arrow\nCall collect() first to pull data into R.",
-    fixed = TRUE
+    error = TRUE
   )
 })
 

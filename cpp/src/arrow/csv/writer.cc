@@ -22,7 +22,6 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
-#include "arrow/result_internal.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -32,7 +31,7 @@
 #include <memory>
 
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-#include <xsimd/xsimd.hpp>
+#  include <xsimd/xsimd.hpp>
 #endif
 
 namespace arrow {
@@ -129,15 +128,15 @@ class ColumnPopulator {
     // threading overhead would not be justified.
     ctx.set_use_threads(false);
     if (data.type() && is_large_binary_like(data.type()->id())) {
-      ASSIGN_OR_RAISE(array_, compute::Cast(data, /*to_type=*/large_utf8(),
-                                            compute::CastOptions(), &ctx));
+      ARROW_ASSIGN_OR_RAISE(array_, compute::Cast(data, /*to_type=*/large_utf8(),
+                                                  compute::CastOptions(), &ctx));
     } else {
       auto casted = compute::Cast(data, /*to_type=*/utf8(), compute::CastOptions(), &ctx);
       if (casted.ok()) {
         array_ = std::move(casted).ValueOrDie();
       } else if (casted.status().IsCapacityError()) {
-        ASSIGN_OR_RAISE(array_, compute::Cast(data, /*to_type=*/large_utf8(),
-                                              compute::CastOptions(), &ctx));
+        ARROW_ASSIGN_OR_RAISE(array_, compute::Cast(data, /*to_type=*/large_utf8(),
+                                                    compute::CastOptions(), &ctx));
       } else {
         return casted.status();
       }
@@ -501,8 +500,8 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       return Status::Invalid("Null string cannot contain quotes.");
     }
 
-    ASSIGN_OR_RAISE(std::shared_ptr<Buffer> null_string,
-                    arrow::AllocateBuffer(options.null_string.length()));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> null_string,
+                          arrow::AllocateBuffer(options.null_string.length()));
     memcpy(null_string->mutable_data(), options.null_string.data(),
            options.null_string.length());
 
@@ -511,7 +510,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     for (int col = 0; col < schema->num_fields(); col++) {
       const std::string& end_chars =
           col < schema->num_fields() - 1 ? delimiter : options.eol;
-      ASSIGN_OR_RAISE(
+      ARROW_ASSIGN_OR_RAISE(
           populators[col],
           MakePopulator(*schema->field(col), end_chars, options.delimiter, null_string,
                         options.quoting_style, options.io_context.pool()));
@@ -528,7 +527,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
   Status WriteRecordBatch(const RecordBatch& batch) override {
     RecordBatchIterator iterator = RecordBatchSliceIterator(batch, options_.batch_size);
     for (auto maybe_slice : iterator) {
-      ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> slice, maybe_slice);
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> slice, maybe_slice);
       RETURN_NOT_OK(TranslateMinimalBatch(*slice));
       RETURN_NOT_OK(sink_->Write(data_buffer_));
       stats_.num_record_batches++;
@@ -570,10 +569,11 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
   Status PrepareForContentsWrite() {
     // Only called once, as part of initialization
     if (data_buffer_ == nullptr) {
-      ASSIGN_OR_RAISE(data_buffer_,
-                      AllocateResizableBuffer(
-                          options_.batch_size * schema_->num_fields() * kColumnSizeGuess,
-                          options_.io_context.pool()));
+      ARROW_ASSIGN_OR_RAISE(
+          data_buffer_,
+          AllocateResizableBuffer(
+              options_.batch_size * schema_->num_fields() * kColumnSizeGuess,
+              options_.io_context.pool()));
     }
     return Status::OK();
   }
@@ -665,24 +665,24 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
 
 Status WriteCSV(const Table& table, const WriteOptions& options,
                 arrow::io::OutputStream* output) {
-  ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, table.schema(), options));
+  ARROW_ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, table.schema(), options));
   RETURN_NOT_OK(writer->WriteTable(table));
   return writer->Close();
 }
 
 Status WriteCSV(const RecordBatch& batch, const WriteOptions& options,
                 arrow::io::OutputStream* output) {
-  ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, batch.schema(), options));
+  ARROW_ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, batch.schema(), options));
   RETURN_NOT_OK(writer->WriteRecordBatch(batch));
   return writer->Close();
 }
 
 Status WriteCSV(const std::shared_ptr<RecordBatchReader>& reader,
                 const WriteOptions& options, arrow::io::OutputStream* output) {
-  ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, reader->schema(), options));
+  ARROW_ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, reader->schema(), options));
   std::shared_ptr<RecordBatch> batch;
   while (true) {
-    ASSIGN_OR_RAISE(batch, reader->Next());
+    ARROW_ASSIGN_OR_RAISE(batch, reader->Next());
     if (batch == nullptr) break;
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }
