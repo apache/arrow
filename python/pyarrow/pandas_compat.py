@@ -372,8 +372,9 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     columns = _resolve_columns_of_interest(df, schema, columns)
 
     if not df.columns.is_unique:
+        duplicated_columns_list = df.columns[df.columns.duplicated()].tolist()
         raise ValueError(
-            'Duplicate column names found: {}'.format(list(df.columns))
+            f'Duplicate column names found: {duplicated_columns_list}'
         )
 
     if schema is not None:
