@@ -81,9 +81,8 @@ namespace {
       }
     }
 
-    // TODO(paleolimbot) this is not quite correct because we're supposed to put this
-    // in the metadata according to the spec. I can't find a good way to get a mutable
-    // reference to the global metadata here yet.
+    // Use the GeoCrsContext in the ArrowWriterProperties to accumulate the PROJJSON
+    // values and write them to the file metadata if needed
     rj::StringBuffer buffer;
     rj::Writer<rj::StringBuffer> writer(buffer);
     json_crs.Accept(writer);
