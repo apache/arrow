@@ -54,7 +54,7 @@ class ContentDefinedChunker {
   template <typename T>
   void Roll(const T value);
   void Roll(std::string_view value);
-  inline bool Check();
+  inline bool NeedNewChunk();
 
   template <typename T>
   const std::vector<Chunk> Calculate(const int16_t* def_levels, const int16_t* rep_levels,
