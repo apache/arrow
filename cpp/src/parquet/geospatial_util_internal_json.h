@@ -15,22 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include <string>
 
-// Column reader API
-#include "parquet/column_reader.h"
-#include "parquet/column_scanner.h"
-#include "parquet/exception.h"
-#include "parquet/file_reader.h"
-#include "parquet/geospatial_statistics.h"
-#include "parquet/metadata.h"
-#include "parquet/platform.h"
-#include "parquet/printer.h"
 #include "parquet/properties.h"
-#include "parquet/statistics.h"
+#include "parquet/types.h"
 
-// Schemas
-#include "parquet/api/schema.h"
+namespace parquet {
 
-// IO
-#include "parquet/api/io.h"
+/// \brief Compute a Parquet Logical type (Geometry(...) or Geography(...)) from
+/// serialized GeoArrow metadata
+///
+/// Returns the appropriate LogicalType, SerializationError if the metadata was invalid,
+/// or NotImplemented if Parquet was not built with ARROW_JSON.
+::arrow::Result<std::shared_ptr<const LogicalType>> GeospatialLogicalTypeFromGeoArrowJSON(
+    const std::string& serialized_data, const ArrowWriterProperties& arrow_properties);
+
+}  // namespace parquet
