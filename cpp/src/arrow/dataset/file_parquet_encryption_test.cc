@@ -20,6 +20,7 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_parquet.h"
@@ -49,6 +50,13 @@ constexpr std::string_view kBaseDir = "";
 using arrow::internal::checked_pointer_cast;
 
 namespace arrow {
+
+using compute::ComputeKernelEnvironment;
+
+// Register the compute kernels
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
+
 namespace dataset {
 
 // Base class to test writing and reading encrypted dataset.

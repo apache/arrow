@@ -40,6 +40,7 @@
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/table.h"
@@ -71,6 +72,7 @@ using internal::ToChars;
 
 using compute::ArgShape;
 using compute::CallFunction;
+using compute::ComputeKernelEnvironment;
 using compute::CountOptions;
 using compute::default_exec_context;
 using compute::ExecBatchFromJSON;
@@ -87,6 +89,10 @@ using compute::Take;
 using compute::TDigestOptions;
 using compute::ValidateOutput;
 using compute::VarianceOptions;
+
+// Register the compute kernels
+::testing::Environment* compute_kernels_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 namespace acero {
 
