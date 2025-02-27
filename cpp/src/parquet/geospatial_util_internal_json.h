@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include <string>
 
 #include "arrow/util/key_value_metadata.h"
