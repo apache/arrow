@@ -264,7 +264,7 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
 
   # TODO(paleolimbot): Make sure this is OK or remove if not!
   if(ARROW_JSON)
-    list(APPEND PARQUET_SHARED_LINK_LIBS RapidJSON)
+    list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
     list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
   endif()
 
