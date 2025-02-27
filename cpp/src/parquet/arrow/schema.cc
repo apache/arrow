@@ -21,12 +21,7 @@
 #include <string>
 #include <vector>
 
-// TODO(paleolimbot): Remove once example files are generated
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
-
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-
+#include "arrow/config.h"
 #include "arrow/extension/json.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
@@ -45,6 +40,13 @@
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
+
+#ifdef ARROW_JSON
+#  include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+
+#  include <rapidjson/document.h>
+#  include <rapidjson/writer.h>
+#endif
 
 using arrow::DecimalType;
 using arrow::Field;
@@ -249,7 +251,7 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   return Status::OK();
 }
 
-// TODO(paleolimbot): Remove once example files are written
+#ifdef ARROW_JSON
 Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
     const ::arrow::rapidjson::Document& document,
     const ArrowWriterProperties& arrow_properties) {
@@ -304,6 +306,7 @@ Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
     return Status::Invalid("Unsupported GeoArrow CRS for Parquet");
   }
 }
+#endif
 
 Result<std::shared_ptr<const LogicalType>> GeospatialLogicalTypeFromArrow(
     const std::string& serialized_data, const ArrowWriterProperties& arrow_properties) {
@@ -314,6 +317,7 @@ Result<std::shared_ptr<const LogicalType>> GeospatialLogicalTypeFromArrow(
     return LogicalType::Geometry();
   }
 
+#ifdef ARROW_JSON
   namespace rj = ::arrow::rapidjson;
   rj::Document document;
   if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError()) {
@@ -333,6 +337,19 @@ Result<std::shared_ptr<const LogicalType>> GeospatialLogicalTypeFromArrow(
   }
 
   return LogicalType::Geometry(crs);
+#else
+  // Without a JSON parser, we can still handle enough to test the implementation
+  if (serialized_data ==
+      R"({"edges": "spherical", "crs": "OGC:CRS84", "crs_type": "authority_code"})") {
+    return LogicalType::Geography();
+  } else if (serialized_data == R"({"crs": "OGC:CRS84", "crs_type": "authority_code"})") {
+    return LogicalType::Geometry();
+  } else {
+    throw ParquetException(
+        "Can't deserialize GeoArrow extension metadata without ARROW_JSON: '",
+        serialized_data, "'");
+  }
+#endif
 }
 
 static constexpr char FIELD_ID_KEY[] = "PARQUET:field_id";
