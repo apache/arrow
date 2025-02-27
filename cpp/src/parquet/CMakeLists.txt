@@ -173,6 +173,7 @@ set(PARQUET_SRCS
     file_writer.cc
     geospatial_statistics.cc
     geospatial_util_internal.cc
+    geospatial_util_internal_json.cc
     level_comparison.cc
     level_conversion.cc
     metadata.cc
