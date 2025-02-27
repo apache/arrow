@@ -20,6 +20,12 @@
 #include <string>
 
 #include "arrow/config.h"
+#include "arrow/extension_type.h"
+#include "arrow/result.h"
+#include "arrow/util/string.h"
+
+#include "parquet/properties.h"
+#include "parquet/types.h"
 
 #ifdef ARROW_JSON
 #  include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
@@ -27,10 +33,6 @@
 #  include <rapidjson/document.h>
 #  include <rapidjson/writer.h>
 #endif
-
-#include "arrow/result.h"
-#include "parquet/properties.h"
-#include "parquet/types.h"
 
 namespace parquet {
 
@@ -57,7 +59,8 @@ namespace {
   if (json_crs.IsString() && crs_type == "srid") {
     // srid is an application-specific identifier. GeoArrow lets this be propagated via
     // "crs_type": "srid".
-    return std::string("srid:") + json_crs.GetString();
+    return arrow_properties.geo_crs_context()->GetParquetCrs(json_crs.GetString(),
+                                                             "srid");
   } else if (json_crs.IsString() &&
              (json_crs == "EPSG:4326" || json_crs == "OGC:CRS84")) {
     // crs can be left empty because these cases both correspond to
@@ -83,11 +86,37 @@ namespace {
     rj::StringBuffer buffer;
     rj::Writer<rj::StringBuffer> writer(buffer);
     json_crs.Accept(writer);
-    return std::string("projjson:") + buffer.GetString();
+    return arrow_properties.geo_crs_context()->GetParquetCrs(buffer.GetString(),
+                                                             "projjson");
   } else {
-    // e.g., authority:code, WKT2, arbitrary string. A pluggable CrsProvider
-    // could handle these and return something we're allowed to write here.
-    return ::arrow::Status::SerializationError("Unsupported GeoArrow CRS for Parquet");
+    // e.g., authority:code, WKT2, arbitrary string that a suitably instrumented
+    // GeoCrsContext may be able to handle.
+    return arrow_properties.geo_crs_context()->GetParquetCrs(json_crs.GetString(),
+                                                             "unknown");
+  }
+}
+
+::arrow::Result<std::string> MakeGeoArrowCrsMetadata(
+    const std::string& crs,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
+  const std::string srid_prefix{"srid:"};
+  const std::string projjson_prefix{"projjson:"};
+
+  if (crs.empty()) {
+    return R"("crs": "OGC:CRS84", "crs_type": "authority_code")";
+  } else if (::arrow::internal::StartsWith(crs, srid_prefix)) {
+    return R"("crs": ")" + crs.substr(srid_prefix.size()) + R"(", "crs_type": "srid")";
+  } else if (::arrow::internal::StartsWith(crs, projjson_prefix)) {
+    std::string metadata_field = crs.substr(projjson_prefix.size());
+    if (metadata && metadata->Contains(metadata_field)) {
+      ARROW_ASSIGN_OR_RAISE(std::string projjson_value, metadata->Get(metadata_field));
+      return R"("crs": )" + projjson_value + R"(, "crs_type": "projjson")";
+    } else {
+      throw ParquetException("crs field '", metadata_field, "' not found in metadata");
+    }
+  } else {
+    return ::arrow::Status::Invalid(
+        "Can't convert invalid Parquet CRS string to GeoArrow: ", crs);
   }
 }
 
@@ -130,5 +159,63 @@ namespace {
       "GeospatialLogicalTypeFromGeoArrowJSON requires ARROW_JSON");
 }
 #endif
+
+::arrow::Result<std::shared_ptr<::arrow::DataType>> MakeGeoArrowGeometryType(
+    const LogicalType& logical_type,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
+  // Check if we have a registered GeoArrow type to read into
+  std::shared_ptr<::arrow::ExtensionType> maybe_geoarrow_wkb =
+      ::arrow::GetExtensionType("geoarrow.wkb");
+  if (!maybe_geoarrow_wkb) {
+    return ::arrow::binary();
+  }
+
+  if (logical_type.is_geometry()) {
+    const auto& geospatial_type =
+        ::arrow::internal::checked_cast<const GeometryLogicalType&>(logical_type);
+    ARROW_ASSIGN_OR_RAISE(std::string crs_metadata,
+                          MakeGeoArrowCrsMetadata(geospatial_type.crs(), metadata));
+
+    std::string serialized_data = std::string("{") + crs_metadata + "}";
+    return maybe_geoarrow_wkb->Deserialize(::arrow::binary(), serialized_data);
+  } else if (logical_type.is_geography()) {
+    const auto& geospatial_type =
+        ::arrow::internal::checked_cast<const GeographyLogicalType&>(logical_type);
+    ARROW_ASSIGN_OR_RAISE(std::string crs_metadata,
+                          MakeGeoArrowCrsMetadata(geospatial_type.crs(), metadata));
+    std::string edges_metadata =
+        R"("edges": ")" + std::string(geospatial_type.algorithm_name()) + R"(")";
+    std::string serialized_data =
+        std::string("{") + crs_metadata + ", " + edges_metadata + "}";
+    return maybe_geoarrow_wkb->Deserialize(::arrow::binary(), serialized_data);
+  } else {
+    throw ParquetException("Can't export logical type ", logical_type.ToString(),
+                           " as GeoArrow");
+  }
+}
+
+std::string FileGeoCrsContext::GetParquetCrs(std::string crs_value,
+                                             const std::string& crs_encoding) {
+  if (crs_encoding == "srid") {
+    return crs_encoding + ":" + crs_value;
+  } else if (crs_encoding == "projjson") {
+    std::string key =
+        "projjson_crs_value_" + std::to_string(projjson_crs_fields_->size());
+    projjson_crs_fields_->Append(key, std::move(crs_value));
+    return "projjson:" + key;
+  } else {
+    throw ParquetException("Crs encoding '", crs_encoding,
+                           "' is not suppored by GeoCrsContext");
+  }
+}
+
+void FileGeoCrsContext::AddProjjsonCrsFieldsToFileMetadata(
+    ::arrow::KeyValueMetadata* metadata) {
+  if (HasProjjsonCrsFields()) {
+    for (int64_t i = 0; i < projjson_crs_fields_->size(); i++) {
+      metadata->Append(projjson_crs_fields_->key(i), projjson_crs_fields_->value(i));
+    }
+  }
+}
 
 }  // namespace parquet

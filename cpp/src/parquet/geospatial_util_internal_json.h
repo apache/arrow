@@ -32,34 +32,28 @@ namespace parquet {
 ::arrow::Result<std::shared_ptr<const LogicalType>> GeospatialLogicalTypeFromGeoArrowJSON(
     const std::string& serialized_data, const ArrowWriterProperties& arrow_properties);
 
+/// \brief Compute a suitable DataType into which a GEOMETRY or GEOGRAPHY type should be
+/// read
+///
+/// The result of this function depends on whether or not "geoarrow.wkb" has been
+/// registered: if it has, the result will be the registered ExtensionType; if it has not,
+/// the result will be binary().
+::arrow::Result<std::shared_ptr<::arrow::DataType>> MakeGeoArrowGeometryType(
+    const LogicalType& logical_type,
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata);
+
+/// \brief The DefaultCrsContext, which writes any PROJJSON coordinate reference system
+/// values it encounters to the file metadata
 class FileGeoCrsContext : public GeoCrsContext {
  public:
   FileGeoCrsContext() : projjson_crs_fields_(::arrow::KeyValueMetadata::Make({}, {})) {}
 
   std::string GetParquetCrs(std::string crs_value,
-                            const std::string& crs_encoding) override {
-    if (crs_encoding == "srid") {
-      return crs_encoding + ":" + crs_value;
-    } else if (crs_encoding == "projjson") {
-      std::string key =
-          "projjson_crs_value_" + std::to_string(projjson_crs_fields_->size());
-      projjson_crs_fields_->Append(key, std::move(crs_value));
-      return "projjson:" + key;
-    } else {
-      throw ParquetException("Crs encoding '", crs_encoding,
-                             "' is not suppored by GeoCrsContext");
-    }
-  }
+                            const std::string& crs_encoding) override;
 
   bool HasProjjsonCrsFields() override { return projjson_crs_fields_->size() > 0; }
 
-  void AddProjjsonCrsFieldsToFileMetadata(::arrow::KeyValueMetadata* metadata) override {
-    if (HasProjjsonCrsFields()) {
-      for (int64_t i = 0; i < projjson_crs_fields_->size(); i++) {
-        metadata->Append(projjson_crs_fields_->key(i), projjson_crs_fields_->value(i));
-      }
-    }
-  }
+  void AddProjjsonCrsFieldsToFileMetadata(::arrow::KeyValueMetadata* metadata) override;
 
  private:
   std::shared_ptr<::arrow::KeyValueMetadata> projjson_crs_fields_;

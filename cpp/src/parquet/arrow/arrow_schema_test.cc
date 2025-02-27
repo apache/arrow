@@ -19,7 +19,6 @@
 #include <vector>
 
 #include "gmock/gmock-matchers.h"
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 #include "parquet/arrow/reader.h"
@@ -1334,22 +1333,38 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsProjjson) {
   ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
 
   std::vector<NodePtr> parquet_fields;
-  parquet_fields.push_back(PrimitiveNode::Make("geometry", Repetition::OPTIONAL,
-                                               LogicalType::Geometry("projjson:{}"),
-                                               ParquetType::BYTE_ARRAY));
-  parquet_fields.push_back(PrimitiveNode::Make("geography", Repetition::OPTIONAL,
-                                               LogicalType::Geography("projjson:{}"),
-                                               ParquetType::BYTE_ARRAY));
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "geometry", Repetition::OPTIONAL,
+      LogicalType::Geometry("projjson:projjson_crs_value_0"), ParquetType::BYTE_ARRAY));
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "geography", Repetition::OPTIONAL,
+      LogicalType::Geography("projjson:projjson_crs_value_1"), ParquetType::BYTE_ARRAY));
 
   std::vector<std::shared_ptr<Field>> arrow_fields = {
-      ::arrow::field("geometry",
-                     test::geoarrow_wkb(R"({"crs": {}, "crs_type": "projjson"})"), true),
-      ::arrow::field("geography",
-                     test::geoarrow_wkb(
-                         R"({"crs": {}, "crs_type": "projjson", "edges": "spherical"})"),
-                     true)};
+      ::arrow::field(
+          "geometry",
+          test::geoarrow_wkb(R"({"crs": {"key0": "value0"}, "crs_type": "projjson"})"),
+          true),
+      ::arrow::field(
+          "geography",
+          test::geoarrow_wkb(
+              R"({"crs": {"key1": "value1"}, "crs_type": "projjson", "edges": "spherical"})"),
+          true)};
 
-  ASSERT_OK(ConvertSchema(arrow_fields));
+  auto arrow_properties = default_arrow_writer_properties();
+  ASSERT_OK(ConvertSchema(arrow_fields, arrow_properties));
+
+  std::shared_ptr<::arrow::KeyValueMetadata> crs_metadata =
+      ::arrow::key_value_metadata({}, {});
+  arrow_properties->geo_crs_context()->AddProjjsonCrsFieldsToFileMetadata(
+      crs_metadata.get());
+
+  ASSERT_EQ(crs_metadata->size(), 2);
+  ASSERT_TRUE(crs_metadata->Contains("projjson_crs_value_0"));
+  ASSERT_TRUE(crs_metadata->Contains("projjson_crs_value_1"));
+  ASSERT_EQ(*crs_metadata->Get("projjson_crs_value_0"), R"({"key0":"value0"})");
+  ASSERT_EQ(*crs_metadata->Get("projjson_crs_value_1"), R"({"key1":"value1"})");
+
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 #else
   GTEST_SKIP() << "non-default CRS testing requires ARROW_JSON";

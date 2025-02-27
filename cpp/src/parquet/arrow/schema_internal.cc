@@ -22,6 +22,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/string.h"
 
+#include "parquet/geospatial_util_internal_json.h"
 #include "parquet/properties.h"
 
 using ArrowType = ::arrow::DataType;
@@ -109,62 +110,6 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical
     default:
       return Status::TypeError("Unrecognized time unit in timestamp logical_type: ",
                                logical_type.ToString());
-  }
-}
-
-Result<std::string> MakeGeoArrowCrsMetadata(
-    const std::string& crs,
-    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
-  const std::string srid_prefix{"srid:"};
-  const std::string projjson_prefix{"projjson:"};
-
-  if (crs.empty()) {
-    return R"("crs": "OGC:CRS84", "crs_type": "authority_code")";
-  } else if (::arrow::internal::StartsWith(crs, srid_prefix)) {
-    return R"("crs": ")" + crs.substr(srid_prefix.size()) + R"(", "crs_type": "srid")";
-  } else if (::arrow::internal::StartsWith(crs, projjson_prefix)) {
-    std::string metadata_field = crs.substr(projjson_prefix.size());
-    if (metadata && metadata->Contains(metadata_field)) {
-      ARROW_ASSIGN_OR_RAISE(std::string projjson_value, metadata->Get(metadata_field));
-      return R"("crs": )" + projjson_value + R"(, "crs_type": "projjson")";
-    } else {
-      // Pass on the value of the field so the user can sort this out if needed
-      return R"("crs": )" + metadata_field + R"(, "crs_type": "projjson")";
-    }
-  } else {
-    return Status::Invalid("Can't convert invalid Parquet CRS string to GeoArrow: ", crs);
-  }
-}
-
-Result<std::shared_ptr<ArrowType>> MakeGeoArrowGeometryType(
-    const LogicalType& logical_type,
-    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
-  // Check if we have a registered GeoArrow type to read into
-  std::shared_ptr<::arrow::ExtensionType> maybe_geoarrow_wkb =
-      ::arrow::GetExtensionType("geoarrow.wkb");
-  if (!maybe_geoarrow_wkb) {
-    return ::arrow::binary();
-  }
-
-  if (logical_type.is_geometry()) {
-    const auto& geospatial_type = checked_cast<const GeometryLogicalType&>(logical_type);
-    ARROW_ASSIGN_OR_RAISE(std::string crs_metadata,
-                          MakeGeoArrowCrsMetadata(geospatial_type.crs(), metadata));
-
-    std::string serialized_data = std::string("{") + crs_metadata + "}";
-    return maybe_geoarrow_wkb->Deserialize(::arrow::binary(), serialized_data);
-  } else if (logical_type.is_geography()) {
-    const auto& geospatial_type = checked_cast<const GeographyLogicalType&>(logical_type);
-    ARROW_ASSIGN_OR_RAISE(std::string crs_metadata,
-                          MakeGeoArrowCrsMetadata(geospatial_type.crs(), metadata));
-    std::string edges_metadata =
-        R"("edges": ")" + std::string(geospatial_type.algorithm_name()) + R"(")";
-    std::string serialized_data =
-        std::string("{") + crs_metadata + ", " + edges_metadata + "}";
-    return maybe_geoarrow_wkb->Deserialize(::arrow::binary(), serialized_data);
-  } else {
-    throw ParquetException("Can't export logical type ", logical_type.ToString(),
-                           " as GeoArrow");
   }
 }
 
