@@ -31,6 +31,7 @@
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/visibility.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
