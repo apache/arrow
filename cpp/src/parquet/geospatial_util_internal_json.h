@@ -32,25 +32,12 @@ namespace parquet {
 ::arrow::Result<std::shared_ptr<const LogicalType>> GeospatialLogicalTypeFromGeoArrowJSON(
     const std::string& serialized_data, const ArrowWriterProperties& arrow_properties);
 
-// TODO(paleolimbot): This is required to write example files that correctly set
-// an input type with a PROJJSON CRS as crs=projjson:some_field_name and add
-// the actual definition to the global metadata. I am not sure if this is the
-// best final way to do this but there is some precedent for a pointer to mutable
-// state in the WriterProperties with the MemoryPool and Executor.
-class GeoCrsContext {
+class FileGeoCrsContext : public GeoCrsContext {
  public:
-  GeoCrsContext() : projjson_crs_fields_(::arrow::KeyValueMetadata::Make({}, {})) {}
+  FileGeoCrsContext() : projjson_crs_fields_(::arrow::KeyValueMetadata::Make({}, {})) {}
 
-  /// \brief Given a coordinate reference system value and encoding from GeoArrow
-  /// extension metadata, return the value that should be placed in the
-  /// LogicalType::Geography|Geometry(crs=) field
-  ///
-  /// For PROJJSON Crses (the most common way coordinate reference systems arrive
-  /// in GeoArrow), the Parquet specification forces us to write them to the file
-  /// metadata. This GeoCrsContext will record such values and return the required
-  /// string that can be placed into the 'crs' of the Geometry or Geography logical
-  /// type.
-  std::string GetParquetCrs(std::string crs_value, std::string crs_encoding) {
+  std::string GetParquetCrs(std::string crs_value,
+                            const std::string& crs_encoding) override {
     if (crs_encoding == "srid") {
       return crs_encoding + ":" + crs_value;
     } else if (crs_encoding == "projjson") {
@@ -64,12 +51,9 @@ class GeoCrsContext {
     }
   }
 
-  /// \brief Returns true if any converted CRS values were PROJJSON whose values are
-  /// stored in this object
-  bool HasProjjsonCrsFields() { return projjson_crs_fields_->size() > 0; }
+  bool HasProjjsonCrsFields() override { return projjson_crs_fields_->size() > 0; }
 
-  /// \brief Add any stored PROJJSON values to the supplied KeyValueMetadata
-  void AddProjjsonCrsFieldsToMetadata(::arrow::KeyValueMetadata* metadata) {
+  void AddProjjsonCrsFieldsToFileMetadata(::arrow::KeyValueMetadata* metadata) override {
     if (HasProjjsonCrsFields()) {
       for (int64_t i = 0; i < projjson_crs_fields_->size(); i++) {
         metadata->Append(projjson_crs_fields_->key(i), projjson_crs_fields_->value(i));
