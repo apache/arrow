@@ -25,6 +25,7 @@
 #include "arrow/compare.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/codegen_internal.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"

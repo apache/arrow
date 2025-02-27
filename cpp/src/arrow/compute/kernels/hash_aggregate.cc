@@ -30,6 +30,7 @@
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/codegen_internal.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/aggregate_var_std_internal.h"
