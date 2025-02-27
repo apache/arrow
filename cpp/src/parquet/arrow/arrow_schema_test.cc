@@ -32,6 +32,7 @@
 #include "parquet/thrift_internal.h"
 
 #include "arrow/array.h"
+#include "arrow/config.h"
 #include "arrow/extension/json.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/testing/extension_type.h"
