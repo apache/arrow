@@ -2116,10 +2116,10 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         props.dictionary_pagesize_limit(dictionary_pagesize_limit)
 
     # content defined chunking
-    if cdc is False:
-        props.disable_cdc()
-    elif cdc is True:
+    if cdc:
         props.enable_cdc()
+    else:
+        props.disable_cdc()
 
     if cdc_size_range is not None:
         min_size, max_size = cdc_size_range

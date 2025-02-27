@@ -592,9 +592,7 @@ void ContentDefinedChunker::Roll(const T value) {
   auto bytes = reinterpret_cast<const uint8_t*>(&value);
   for (size_t i = 0; i < BYTE_WIDTH; ++i) {
     rolling_hash_ = (rolling_hash_ << 1) + GEAR_HASH_TABLE[nth_run_][bytes[i]];
-    if ((rolling_hash_ & hash_mask_) == 0) {
-      has_matched_ = true;
-    }
+    has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
   }
 }
 
@@ -608,15 +606,13 @@ void ContentDefinedChunker::Roll(std::string_view value) {
   for (char c : value) {
     rolling_hash_ =
         (rolling_hash_ << 1) + GEAR_HASH_TABLE[nth_run_][static_cast<uint8_t>(c)];
-    if ((rolling_hash_ & hash_mask_) == 0) {
-      has_matched_ = true;
-    }
+    has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
   }
 }
 
-bool ContentDefinedChunker::Check() {
+bool ContentDefinedChunker::NeedNewChunk() {
   // decide whether to create a new chunk based on the rolling hash; has_matched_ is
-  // set to true if we encountered a match since the last Check() call
+  // set to true if we encountered a match since the last NeedNewChunk() call
   if (ARROW_PREDICT_FALSE(has_matched_)) {
     has_matched_ = false;
     // in order to have a normal distribution of chunk sizes, we only create a new chunk
@@ -631,7 +627,8 @@ bool ContentDefinedChunker::Check() {
   }
   if (ARROW_PREDICT_FALSE(chunk_size_ >= max_size_)) {
     // we have a hard limit on the maximum chunk size, not that we don't reset the rolling
-    // hash state here, so the next Check() call will continue from the current state
+    // hash state here, so the next NeedNewChunk() call will continue from the current
+    // state
     chunk_size_ = 0;
     return true;
   }
@@ -643,7 +640,7 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
                                                           const int16_t* rep_levels,
                                                           int64_t num_levels,
                                                           const T& leaf_array) {
-  std::vector<Chunk> result;
+  std::vector<Chunk> chunks;
   bool has_def_levels = level_info_.def_level > 0;
   bool has_rep_levels = level_info_.rep_level > 0;
 
@@ -654,13 +651,13 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
     while (offset < num_levels) {
       Roll(leaf_array.GetView(offset));
       ++offset;
-      if (Check()) {
-        result.emplace_back(prev_offset, prev_offset, offset - prev_offset);
+      if (NeedNewChunk()) {
+        chunks.emplace_back(prev_offset, prev_offset, offset - prev_offset);
         prev_offset = offset;
       }
     }
     if (prev_offset < num_levels) {
-      result.emplace_back(prev_offset, prev_offset, num_levels - prev_offset);
+      chunks.emplace_back(prev_offset, prev_offset, num_levels - prev_offset);
     }
   } else if (!has_rep_levels) {
     // non-nested data with nulls
@@ -670,13 +667,13 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
       Roll(def_levels[offset]);
       Roll(leaf_array.GetView(offset));
       ++offset;
-      if (Check()) {
-        result.emplace_back(prev_offset, prev_offset, offset - prev_offset);
+      if (NeedNewChunk()) {
+        chunks.emplace_back(prev_offset, prev_offset, offset - prev_offset);
         prev_offset = offset;
       }
     }
     if (prev_offset < num_levels) {
-      result.emplace_back(prev_offset, prev_offset, num_levels - prev_offset);
+      chunks.emplace_back(prev_offset, prev_offset, num_levels - prev_offset);
     }
   } else {
     // nested data with nulls
@@ -684,12 +681,11 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
     bool is_record_boundary;
     int16_t def_level;
     int16_t rep_level;
-    int64_t level_offset = 0;
     int64_t value_offset = 0;
     int64_t record_level_offset = 0;
     int64_t record_value_offset = 0;
 
-    while (level_offset < num_levels) {
+    for (int64_t level_offset = 0; level_offset < num_levels; ++level_offset) {
       def_level = def_levels[level_offset];
       rep_level = rep_levels[level_offset];
 
@@ -702,16 +698,15 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
         Roll(leaf_array.GetView(value_offset));
       }
 
-      if (is_record_boundary && Check()) {
+      if (is_record_boundary && NeedNewChunk()) {
         auto levels_to_write = level_offset - record_level_offset;
         if (levels_to_write > 0) {
-          result.emplace_back(record_level_offset, record_value_offset, levels_to_write);
+          chunks.emplace_back(record_level_offset, record_value_offset, levels_to_write);
           record_level_offset = level_offset;
           record_value_offset = value_offset;
         }
       }
 
-      ++level_offset;
       if (has_leaf_value) {
         ++value_offset;
       }
@@ -719,11 +714,11 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
 
     auto levels_to_write = num_levels - record_level_offset;
     if (levels_to_write > 0) {
-      result.emplace_back(record_level_offset, record_value_offset, levels_to_write);
+      chunks.emplace_back(record_level_offset, record_value_offset, levels_to_write);
     }
   }
 
-  return result;
+  return chunks;
 }
 
 #define PRIMITIVE_CASE(TYPE_ID, ArrowType)               \

@@ -1362,7 +1362,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       bits_buffer_->ZeroPadding();
     }
 
-    if (this->properties_->cdc_enabled()) {
+    if (properties_->cdc_enabled()) {
       ARROW_ASSIGN_OR_RAISE(auto boundaries,
                             content_defined_chunker_.GetBoundaries(
                                 def_levels, rep_levels, num_levels, leaf_array));
