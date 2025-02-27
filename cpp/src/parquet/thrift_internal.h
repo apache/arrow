@@ -257,7 +257,7 @@ static inline EncodedGeoStatistics FromThrift(
 }
 
 static inline format::EdgeInterpolationAlgorithm::type ToThrift(
-    LogicalType::EdgeInterpolationAlgorithm::algorithm algorithm) {
+    LogicalType::EdgeInterpolationAlgorithm algorithm) {
   switch (algorithm) {
     case LogicalType::EdgeInterpolationAlgorithm::SPHERICAL:
       return format::EdgeInterpolationAlgorithm::SPHERICAL;
@@ -270,11 +270,12 @@ static inline format::EdgeInterpolationAlgorithm::type ToThrift(
     case LogicalType::EdgeInterpolationAlgorithm::KARNEY:
       return format::EdgeInterpolationAlgorithm::KARNEY;
     default:
-      throw ParquetException("Unknown value for geometry algorithm: ", algorithm);
+      throw ParquetException("Unknown value for geometry algorithm: ",
+                             static_cast<int>(algorithm));
   }
 }
 
-static inline LogicalType::EdgeInterpolationAlgorithm::algorithm FromThrift(
+static inline LogicalType::EdgeInterpolationAlgorithm FromThrift(
     const format::EdgeInterpolationAlgorithm::type algorithm) {
   switch (algorithm) {
     case format::EdgeInterpolationAlgorithm::SPHERICAL:
@@ -288,7 +289,8 @@ static inline LogicalType::EdgeInterpolationAlgorithm::algorithm FromThrift(
     case format::EdgeInterpolationAlgorithm::KARNEY:
       return LogicalType::EdgeInterpolationAlgorithm::KARNEY;
     default:
-      throw ParquetException("Unknown value for geometry algorithm: ", algorithm);
+      throw ParquetException("Unknown value for geometry algorithm: ",
+                             static_cast<int>(algorithm));
   }
 }
 

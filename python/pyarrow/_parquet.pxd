@@ -78,7 +78,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetTimeUnit_MICROS" parquet::LogicalType::TimeUnit::MICROS"
         ParquetTimeUnit_NANOS" parquet::LogicalType::TimeUnit::NANOS"
 
-    enum ParquetEdgeInterpolationAlgorithm" parquet::LogicalType::EdgeInterpolationAlgorithm::algorithm":
+    enum ParquetEdgeInterpolationAlgorithm" parquet::LogicalType::EdgeInterpolationAlgorithm":
         ParquetEdgeInterpolationAlgorithm_UNKNOWN" parquet::LogicalType::EdgeInterpolationAlgorithm::UNKNOWN"
         ParquetEdgeInterpolationAlgorithm_SPHERICAL" parquet::LogicalType::EdgeInterpolationAlgorithm::SPHERICAL"
         ParquetEdgeInterpolationAlgorithm_VINCENTY" parquet::LogicalType::EdgeInterpolationAlgorithm::VINCENTY"
