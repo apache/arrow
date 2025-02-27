@@ -25,7 +25,8 @@ namespace internal {
 // ----------------------------------------------------------------------
 // Reusable type resolvers
 
-Result<TypeHolder> FirstType(KernelContext*, const std::vector<TypeHolder>& types);
+ARROW_EXPORT Result<TypeHolder> FirstType(KernelContext*,
+                                          const std::vector<TypeHolder>& types);
 
 }  // namespace internal
 }  // namespace compute
