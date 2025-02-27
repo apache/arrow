@@ -99,7 +99,7 @@ outputs:
         - llvmdev {{ llvm_version }}
         - aws-crt-cpp
         - aws-sdk-cpp
-        - boost-cpp >=1.70
+        - libboost-devel >=1.70
         - brotli
         - bzip2
         # not yet: https://github.com/conda-forge/cpp-opentelemetry-sdk-feedstock/issues/38
