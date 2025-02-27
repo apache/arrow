@@ -88,6 +88,9 @@ Future<> StartAndFinish(ExecPlan* plan);
 Future<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<std::optional<ExecBatch>> gen);
 
+Future<std::vector<std::vector<ExecBatch>>> StartAndCollect(
+    ExecPlan* plan, std::vector<AsyncGenerator<std::optional<ExecBatch>>> gens);
+
 AsyncGenerator<std::optional<ExecBatch>> MakeIntegerBatchGen(
     const std::vector<std::function<int64_t(int)>>& gens,
     const std::shared_ptr<Schema>& schema, int num_batches, int batch_size);

@@ -48,6 +48,7 @@ set(ARROW_ACERO_SRCS
     time_series_util.cc
     tpch_node.cc
     union_node.cc
+    pipe_node.cc
     util.cc)
 
 append_runtime_avx2_src(ARROW_ACERO_SRCS bloom_filter_avx2.cc)
@@ -167,6 +168,7 @@ add_arrow_acero_test(pivot_longer_node_test SOURCES pivot_longer_node_test.cc)
 
 add_arrow_acero_test(asof_join_node_test SOURCES asof_join_node_test.cc)
 add_arrow_acero_test(sorted_merge_node_test SOURCES sorted_merge_node_test.cc)
+add_arrow_acero_test(pipe_node_test SOURCES pipe_node_test.cc)
 
 add_arrow_acero_test(tpch_node_test SOURCES tpch_node_test.cc)
 add_arrow_acero_test(union_node_test SOURCES union_node_test.cc)
