@@ -42,8 +42,8 @@ namespace parquet {
     const LogicalType& logical_type,
     const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata);
 
-/// \brief The default GeoCrsContext, which writes any PROJJSON coordinate reference system
-/// values it encounters to the file metadata
+/// \brief The default GeoCrsContext, which writes any PROJJSON coordinate reference
+/// system values it encounters to the file metadata
 class FileGeoCrsContext : public GeoCrsContext {
  public:
   FileGeoCrsContext() : projjson_crs_fields_(::arrow::KeyValueMetadata::Make({}, {})) {}
