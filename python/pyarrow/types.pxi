@@ -33,6 +33,9 @@ from cython import sizeof
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
+cdef dict _pandas_type_map = {}
+
+
 def _get_pandas_type_map():
     global _pandas_type_map
     if not _pandas_type_map:
