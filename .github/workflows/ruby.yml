@@ -316,7 +316,7 @@ jobs:
     name: AMD64 Windows MSVC GLib
     runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 90
+    timeout-minutes: 180
     strategy:
       fail-fast: false
     env:
