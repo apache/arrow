@@ -150,6 +150,9 @@ class PARQUET_EXPORT GeoStatistics {
   /// \brief All maximum values in XYZM order
   std::array<double, 4> get_upper_bound() const;
 
+  /// \brief Returns true if zero finite coordinates or geometry types were encountered
+  bool is_empty() const;
+
   /// \brief Returns true if any Z values were encountered or false otherwise
   bool has_z() const;
 

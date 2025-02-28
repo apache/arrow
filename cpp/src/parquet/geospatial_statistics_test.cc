@@ -31,6 +31,7 @@ TEST(TestGeoStatistics, TestDefaults) {
   GeoStatistics stats;
   EXPECT_EQ(stats.get_geometry_types().size(), 0);
   EXPECT_TRUE(stats.is_valid());
+  EXPECT_TRUE(stats.is_empty());
   EXPECT_FALSE(stats.has_z());
   EXPECT_FALSE(stats.has_m());
   EXPECT_EQ(stats.get_xmax() - stats.get_xmin(), -kInf);

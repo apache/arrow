@@ -224,6 +224,16 @@ class GeoStatisticsImpl {
 
   bool is_valid() const { return is_valid_; }
 
+  bool bounds_empty() const {
+    for (int i = 0; i < 4; i++) {
+      if (!bound_empty(i)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   const std::array<double, 4>& get_lower_bound() const { return bounder_.Bounds().min; }
 
   const std::array<double, 4>& get_upper_bound() const { return bounder_.Bounds().max; }
@@ -250,16 +260,6 @@ class GeoStatisticsImpl {
 
   static bool is_wraparound(double dmin, double dmax) {
     return !std::isinf(dmin - dmax) && dmin > dmax;
-  }
-
-  bool bounds_empty() const {
-    for (int i = 0; i < 4; i++) {
-      if (!bound_empty(i)) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
   bool bound_empty(int i) const {
@@ -328,6 +328,10 @@ std::array<double, 4> GeoStatistics::get_lower_bound() const {
 
 std::array<double, 4> GeoStatistics::get_upper_bound() const {
   return impl_->get_upper_bound();
+}
+
+bool GeoStatistics::is_empty() const {
+  return impl_->get_geometry_types().empty() && impl_->bounds_empty();
 }
 
 bool GeoStatistics::has_z() const { return (get_zmax() - get_zmin()) > 0; }
