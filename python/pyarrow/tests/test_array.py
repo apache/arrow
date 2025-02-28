@@ -2498,7 +2498,11 @@ def test_array_from_numpy_timedelta_incorrect_unit():
 
 
 @pytest.mark.numpy
-@pytest.mark.parametrize('binary_type', [None, pa.binary(), pa.large_binary(), pa.binary_view()])
+@pytest.mark.parametrize('binary_type', [
+    None,
+    pa.binary(),
+    pa.large_binary(),
+    pa.binary_view()])
 def test_array_from_numpy_ascii(binary_type):
     # Default when no type is specified should be binary
     expected_type = binary_type or pa.binary()
@@ -2647,7 +2651,11 @@ def test_interval_array_from_dateoffset():
 
 
 @pytest.mark.numpy
-@pytest.mark.parametrize('string_type', [None, pa.utf8(), pa.large_utf8(), pa.string_view()])
+@pytest.mark.parametrize('string_type', [
+    None,
+    pa.utf8(),
+    pa.large_utf8(),
+    pa.string_view()])
 def test_array_from_numpy_unicode(string_type):
     # Default when no type is specified should be utf8
     expected_type = string_type or pa.utf8()
