@@ -41,9 +41,9 @@ meson_pkg_config_path="${ARROW_HOME}/lib/pkgconfig"
 
 mkdir -p "${build_dir}"
 
-if [ -n "${VCPKG_ROOT:-}" ] && [ -n "${VCPKG_TRIPLET:-}" ]; then
+if [ -n "${VCPKG_TRIPLET:-}" ]; then
   vcpkg_install_root="${build_root}/vcpkg_installed"
-  "${VCPKG_ROOT}/vcpkg" install \
+  vcpkg install \
     --x-manifest-root="${source_dir}" \
     --x-install-root="${vcpkg_install_root}"
   PKG_CONFIG="${vcpkg_install_root}/${VCPKG_TRIPLET}/tools/pkgconf/pkgconf.exe"
