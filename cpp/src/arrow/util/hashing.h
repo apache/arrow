@@ -225,10 +225,10 @@ class HashTable {
     operator bool() const { return h != kSentinel; }
   };
 
-  HashTable(MemoryPool* pool, uint64_t capacity) : entries_builder_(pool) {
+  HashTable(MemoryPool* pool, uint64_t expect_entries_count) : entries_builder_(pool) {
     DCHECK_NE(pool, nullptr);
     // Minimum of 32 elements
-    capacity = std::max<uint64_t>(capacity, 32UL);
+    auto capacity = std::max<uint64_t>(expect_entries_count << 1, 32UL);
     capacity_ = bit_util::NextPower2(capacity);
     capacity_mask_ = capacity_ - 1;
     size_ = 0;
@@ -349,7 +349,7 @@ class HashTable {
     ARROW_ASSIGN_OR_RAISE(auto previous, entries_builder_.FinishWithLength(capacity_));
     // Allocate new buffer
     RETURN_NOT_OK(UpsizeBuffer(new_capacity));
-
+    uint64_t reinsert_entries = 0;
     for (uint64_t i = 0; i < capacity_; i++) {
       const auto& entry = old_entries[i];
       if (entry) {
@@ -359,9 +359,11 @@ class HashTable {
         // Lookup<NoCompare> (and CompareEntry<NoCompare>) ensure that an
         // empty slots is always returned
         assert(!p.second);
+        reinsert_entries++;
         entries_[p.first] = entry;
       }
     }
+    DCHECK(reinsert_entries == size_);
     capacity_ = new_capacity;
     capacity_mask_ = new_mask;
 
@@ -378,6 +380,331 @@ class HashTable {
 
   Entry* entries_;
   TypedBufferBuilder<Entry> entries_builder_;
+};
+
+// SwissHashTable is a hash table adapated from the "SwissTable" family of hash tables
+// from Abseil (https://abseil.io/blog/20180927-swisstables) (no deletes)
+template <typename Payload>
+class SwissHashTable {
+ public:
+  static constexpr hash_t kSentinel = 0ULL;
+  static constexpr uint8_t kGroupSizeShiftWidth = 3;
+  static constexpr uint64_t kGroupSize = 1 << kGroupSizeShiftWidth;
+  static_assert((kGroupSize & (kGroupSize - 1)) == 0);
+  static constexpr uint64_t kMaxAvgGroupLoad = 7;
+  static_assert(kMaxAvgGroupLoad < kGroupSize);
+
+  static constexpr uint64_t kH1Mask = 0xffffffffffffff80ULL;
+  static constexpr uint64_t kH2Mask = 0x000000000000007fULL;
+  static constexpr uint8_t kEmptyControlByte = 0b10000000;
+
+  static constexpr uint64_t kLoBits = 0x0101010101010101;
+  static constexpr uint64_t kHiBits = 0x8080808080808080;
+
+  using H1 = uint64_t;
+  using H2 = uint8_t;
+
+  struct Entry {
+    hash_t h;
+    Payload payload;
+    // An entry is valid if the hash is different from the sentinel value
+    explicit operator bool() const { return h != kSentinel; }
+  };
+
+  hash_t FixHash(hash_t h) const { return (h == kSentinel) ? 42U : h; }
+
+  // TODO(SGZW): support kGroupSize = 16 by simd
+  struct Group {
+    Entry entries[kGroupSize];
+  };
+  static_assert(sizeof(Group) == kGroupSize * sizeof(Entry));
+
+  // metadata is the h2 metadata array for a group.
+  // find operations first probe the controls bytes
+  // to filter candidates before matching keys
+  struct GroupMeta {
+    uint64_t control_bytes;
+
+    uint64_t MatchH2(H2 h2) const {
+      return GetZeroByteMask(control_bytes ^ (kLoBits * h2));
+    }
+
+    uint64_t MatchEmpty() const {
+      return GetZeroByteMask(control_bytes ^ kHiBits);
+    }
+
+  };
+  static_assert(sizeof(GroupMeta) == kGroupSize * sizeof(uint8_t));
+
+  SwissHashTable(MemoryPool* pool, uint64_t expect_entries_count)
+      : group_builder_(pool), group_meta_builder_(pool) {
+    DCHECK_NE(pool, nullptr);
+    groups_count_ = NumGroups(expect_entries_count);
+    groups_count_mask_ = groups_count_ - 1;
+    DCHECK(((groups_count_ - 1) & groups_count_) == 0);
+    DCHECK(groups_count_ * kGroupSize > expect_entries_count);
+    limit_ = groups_count_ * kMaxAvgGroupLoad;
+    size_ = 0;
+    DCHECK_OK(UpsizeBuffer(groups_count_));
+  }
+
+  // Lookup with non-linear probing
+  // cmp_func should have signature bool(const Payload*).
+  // Return a (Entry*, found) pair.
+  template <typename CmpFunc>
+  std::pair<Entry*, bool> Lookup(hash_t h, CmpFunc&& cmp_func) {
+    return DoLookup<DoCompare, CmpFunc>(h, std::forward<CmpFunc>(cmp_func));
+  }
+
+  template <typename CmpFunc>
+  std::pair<const Entry*, bool> Lookup(hash_t h, CmpFunc&& cmp_func) const {
+    return DoLookup<DoCompare, CmpFunc>(h, std::forward<CmpFunc>(cmp_func));
+  }
+
+  Status Insert(Entry* entry, hash_t h, const Payload& payload) {
+    return DoInsert(entry, h, payload);
+  }
+
+  uint64_t size() const { return size_; }
+
+  // Visit all non-empty entries in the table
+  // The visit_func should have signature void(const Entry*)
+  template <typename VisitFunc>
+  void VisitEntries(VisitFunc&& visit_func) const {
+    for (uint64_t i = 0; i < groups_count_; i++) {
+      const auto& group = groups_[i];
+      for (uint16_t j = 0; j < kGroupSize; j++) {
+        const auto& entry = group.entries[j];
+        if (entry) {
+          visit_func(&entry);
+        }
+      }
+    }
+  }
+
+ protected:
+  // NoCompare is for when the value is known not to exist in the table
+  enum CompareKind { DoCompare, NoCompare };
+
+  // GroupProbeSeq maintains the state for a probe sequence that iterates through the
+  // groups in a bucket. The sequence is a triangular progression of the form
+  //
+  //	p(i) := (i^2 + i)/2 + hash (mod mask+1)
+  //
+  // The sequence effectively outputs the indexes of *groups*. The group
+  // machinery allows us to check an entire group with minimal branching.
+  //
+  // It turns out that this probe sequence visits every group exactly once if
+  // the number of groups is a power of two, since (i^2+i)/2 is a bijection in
+  // Z/(2^m). See https://en.wikipedia.org/wiki/Quadratic_probing
+  class GroupProbeSeq {
+  public:
+    // Creates a new probe sequence using `hash` as the initial value of the
+    // sequence and `mask` (usually the capacity of the table) as the mask to
+    // apply to each value in the progression.
+    GroupProbeSeq(uint64_t hash, uint64_t group_mask) {
+      DCHECK(((group_mask + 1) & group_mask) == 0);
+      group_mask_ = group_mask;
+      offset_ = hash & group_mask;
+    }
+
+    // The offset within the table, i.e., the value `p(i)` above.
+    uint64_t Offset() const { return offset_; }
+
+    void Next() {
+      ++index_;
+      offset_ += index_;
+      offset_ &= group_mask_;
+    }
+
+  private:
+    uint64_t group_mask_;
+    uint64_t offset_;
+    uint64_t index_ = 0;
+  };
+
+  Status DoInsert(Entry* entry, hash_t h, Payload payload) {
+    // Ensure entry is empty before inserting
+    DCHECK(!*entry);
+    entry->h = FixHash(h);
+    entry->payload = std::move(payload);
+    ++size_;
+
+    // update meta
+    auto p = GetGroupIndexAndGroupInternalIndex(entry);
+    auto group_index = p.first;
+    DCHECK(group_index < groups_count_);
+    auto group_internal_index = p.second;
+    DCHECK(group_internal_index < kGroupSize);
+    auto hash_pair = SplitHash(h);
+    group_metas_[group_index].control_bytes |= hash_pair.second << ((7 - group_internal_index) << 3);
+
+    if (ARROW_PREDICT_FALSE(NeedUpsizing())) {
+      // Resize less frequently since it is expensive
+      return Upsize();
+    }
+    return Status::OK();
+  }
+
+  // The workhorse lookup function
+  template <CompareKind CKind, typename CmpFunc>
+  std::pair<Entry*, bool> DoLookup(hash_t h, CmpFunc&& cmp_func) const {
+    h = FixHash(h);
+    auto hash_pair = SplitHash(h);
+    auto h1 = hash_pair.first;
+    auto h2 = hash_pair.second;
+
+    GroupProbeSeq seq(h1, groups_count_mask_);
+    while (true) {
+      const auto& group_meta = group_metas_[seq.Offset()];
+      // probe
+      auto match_value = group_meta.MatchH2(h2);
+      while (ARROW_PREDICT_FALSE(match_value != 0)) {
+        auto group_internal_index = NextMatchGroupInternalIndex(&match_value);
+        DCHECK(group_internal_index < kGroupSize);
+        auto& group = groups_[seq.Offset()];
+        auto* entry = &group.entries[group_internal_index];
+        if (CompareEntry<CKind, CmpFunc>(h, entry, std::forward<CmpFunc>(cmp_func))) {
+          // Found
+          return {entry, true};
+        }
+      }
+
+      // stop probing if we see an empty slot
+      auto match_empty_value = group_meta.MatchEmpty();
+      if (ARROW_PREDICT_FALSE(match_empty_value != 0)) {
+        auto group_internal_index = NextMatchGroupInternalIndex(&match_empty_value);
+        DCHECK(group_internal_index < kGroupSize);
+        auto& group = groups_[seq.Offset()];
+        auto* entry = &group.entries[group_internal_index];
+        // Not Found
+        return {entry, false};
+      }
+      seq.Next();
+    }
+  }
+
+  template <CompareKind CKind, typename CmpFunc>
+  bool CompareEntry(hash_t h, const Entry* entry, CmpFunc&& cmp_func) const {
+    if (CKind == NoCompare) {
+      return false;
+    } else {
+      return entry->h == h && cmp_func(&entry->payload);
+    }
+  }
+
+  bool NeedUpsizing() const {
+    // Keep the load factor(size_ / (groups_count_ * kGroupSize)) <= kMaxAvgGroupLoad /
+    // kGroupSize
+    return size_ >= limit_;
+  }
+
+  Status UpsizeBuffer(uint64_t groups_count) {
+    RETURN_NOT_OK(group_builder_.Resize(groups_count));
+    RETURN_NOT_OK(group_meta_builder_.Resize(groups_count));
+    groups_ = group_builder_.mutable_data();
+    group_metas_ = group_meta_builder_.mutable_data();
+    memset(static_cast<void*>(groups_), 0, groups_count * sizeof(Group));
+    memset(static_cast<void*>(group_metas_), kEmptyControlByte,
+           groups_count * sizeof(GroupMeta));
+    return Status::OK();
+  }
+
+  Status Upsize() {
+    auto old_groups_count = groups_count_;
+    auto old_size = size_;
+
+    // Stash old entries and seal builder, effectively resetting the Buffer
+    const Group* old_groups = groups_;
+    ARROW_ASSIGN_OR_RAISE(auto previous_groups,
+                          group_builder_.FinishWithLength(old_groups_count));
+    ARROW_ASSIGN_OR_RAISE(auto previous_metas,
+                          group_meta_builder_.FinishWithLength(old_groups_count));
+
+    groups_count_ = old_groups_count << 1;
+    groups_count_mask_ = groups_count_ - 1;
+    DCHECK(((groups_count_ - 1) & groups_count_) == 0);
+    limit_ = groups_count_ * kMaxAvgGroupLoad;
+    size_ = 0;
+    RETURN_NOT_OK(UpsizeBuffer(groups_count_));
+
+    uint64_t reinsert_count = 0;
+    for (uint64_t i = 0; i < old_groups_count; i++) {
+      auto& old_group = old_groups[i];
+      for (uint64_t j = 0; j < kGroupSize; j++) {
+        auto& old_entry = old_group.entries[j];
+        if (old_entry) {
+          ++reinsert_count;
+          auto p = DoLookup<CompareKind::NoCompare>(old_entry.h,
+                                                    [](const Payload*) { return false; });
+          DCHECK(!p.second);
+          RETURN_NOT_OK(DoInsert(p.first, old_entry.h, std::move(old_entry.payload)));
+        }
+      }
+    }
+    DCHECK(reinsert_count == old_size);
+    return Status::OK();
+  }
+
+  // Converts `entries count` into the next entries count
+  uint64_t NormalizeSlotsCount(uint64_t n) const {
+    return n ? ~uint64_t{} >> arrow::bit_util::CountLeadingZeros(n) : 1;
+  }
+
+  // numGroups returns the minimum number of groups needed to store |expect_entries_count| elems.
+  uint64_t NumGroups(uint64_t expect_entries_count) const {
+    auto slots_count = (expect_entries_count + kMaxAvgGroupLoad - 1) / kMaxAvgGroupLoad * kGroupSize;
+    auto normalized_slot_count = NormalizeSlotsCount(slots_count);
+    DCHECK(((normalized_slot_count + 1) & normalized_slot_count) == 0);
+
+    auto groups_count = (normalized_slot_count >> kGroupSizeShiftWidth) + 1;
+    return groups_count;
+  }
+
+  std::pair<H1, H2> SplitHash(uint64_t hash_value) const {
+    return {(hash_value & kH1Mask) >> 7, hash_value & kH2Mask};
+  }
+
+  uint64_t NextMatchGroupInternalIndex(uint64_t* match_value) const {
+    uint64_t s = arrow::bit_util::CountTrailingZeros(*match_value);
+    *match_value &= ~(1ULL << s);  // clear bit |s|
+    return s >> 3;                 // div by 8
+  }
+
+  /// Determine if a word has a zero byte
+  /// The subexpression (v - 0x01010101UL), evaluates to a high bit set in any byte
+  /// whenever the corresponding byte in v is zero or greater than 0x80. The
+  /// sub-expression ~v & 0x80808080UL evaluates to high bits set in bytes where the byte
+  /// of v doesn't have its high bit set (so the byte was less than 0x80). Finally, by
+  /// ANDing these two sub-expressions the result is the high bits set where the bytes in
+  /// v were zero, since the high bits set due to a value greater than 0x80 in the first
+  /// sub-expression are masked off by the second.
+  static uint64_t GetZeroByteMask(uint64_t value) {
+    // https://graphics.stanford.edu/~seander/bithacks.html##ValueInWord
+    return (value - 0x0101010101010101) & ~value & 0x8080808080808080;
+  }
+
+  std::pair<uint64_t, uint64_t> GetGroupIndexAndGroupInternalIndex(
+      const Entry* entry) const {
+    auto offset = static_cast<uint64_t>(entry - reinterpret_cast<const Entry*>(groups_));
+    uint64_t group_index = offset >> kGroupSizeShiftWidth;
+    uint64_t group_internal_index = offset & (kGroupSize - 1);
+    return {group_index, group_internal_index};
+  }
+
+  // The number of groups available in the hash table array.
+  uint64_t groups_count_;
+  uint64_t groups_count_mask_;
+  // The number of used slots in the hash table array.
+  uint64_t size_;
+  // The number of max used slots in the hash table array.
+  uint64_t limit_;
+
+  Group* groups_;
+  TypedBufferBuilder<Group> group_builder_;
+
+  GroupMeta* group_metas_;
+  TypedBufferBuilder<GroupMeta> group_meta_builder_;
 };
 
 // XXX typedef memo_index_t int32_t ?
@@ -400,7 +727,7 @@ class MemoTable {
 // The memoization table remembers and allows to look up the insertion
 // index for each key.
 
-template <typename Scalar, template <class> class HashTableTemplateType = HashTable>
+template <typename Scalar, template <class> class HashTableTemplateType = SwissHashTable>
 class ScalarMemoTable : public MemoTable {
  public:
   explicit ScalarMemoTable(MemoryPool* pool, int64_t entries = 0)
@@ -540,7 +867,7 @@ struct SmallScalarTraits<Scalar, enable_if_t<std::is_integral<Scalar>::value>> {
   static uint32_t AsIndex(Scalar value) { return static_cast<Unsigned>(value); }
 };
 
-template <typename Scalar, template <class> class HashTableTemplateType = HashTable>
+template <typename Scalar>
 class SmallScalarMemoTable : public MemoTable {
  public:
   explicit SmallScalarMemoTable(MemoryPool* pool, int64_t entries = 0) {
@@ -636,7 +963,8 @@ class SmallScalarMemoTable : public MemoTable {
 // ----------------------------------------------------------------------
 // A memoization table for variable-sized binary data.
 
-template <typename BinaryBuilderT>
+template <typename BinaryBuilderT,
+          template <class> class HashTableTemplateType = SwissHashTable>
 class BinaryMemoTable : public MemoTable {
  public:
   using builder_offset_type = typename BinaryBuilderT::offset_type;
@@ -856,8 +1184,8 @@ class BinaryMemoTable : public MemoTable {
     int32_t memo_index;
   };
 
-  using HashTableType = HashTable<Payload>;
-  using HashTableEntry = typename HashTable<Payload>::Entry;
+  using HashTableType = HashTableTemplateType<Payload>;
+  using HashTableEntry = typename HashTableType::Entry;
   HashTableType hash_table_;
   BinaryBuilderT binary_builder_;
 
@@ -900,7 +1228,7 @@ struct HashTraits<T, enable_if_8bit_int<T>> {
 template <typename T>
 struct HashTraits<T, enable_if_t<has_c_type<T>::value && !is_8bit_int<T>::value>> {
   using c_type = typename T::c_type;
-  using MemoTableType = ScalarMemoTable<c_type, HashTable>;
+  using MemoTableType = ScalarMemoTable<c_type, SwissHashTable>;
 };
 
 template <typename T>
