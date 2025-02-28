@@ -73,7 +73,7 @@ constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
 /// types
 ///
 /// EXPERIMENTAL
-class GeoCrsContext {
+class PARQUET_EXPORT GeoCrsContext {
  public:
   virtual ~GeoCrsContext() = default;
 

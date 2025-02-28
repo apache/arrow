@@ -46,7 +46,7 @@ namespace parquet {
 
 /// \brief The default GeoCrsContext, which writes any PROJJSON coordinate reference
 /// system values it encounters to the file metadata
-class FileGeoCrsContext : public GeoCrsContext {
+class PARQUET_EXPORT FileGeoCrsContext : public GeoCrsContext {
  public:
   FileGeoCrsContext() : projjson_crs_fields_(::arrow::KeyValueMetadata::Make({}, {})) {}
 
