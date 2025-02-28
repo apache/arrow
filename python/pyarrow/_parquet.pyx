@@ -227,7 +227,7 @@ cdef class ParquetLogicalType(_Weakrefable):
         self.type = type
 
     def __repr__(self):
-        return "{}\n  {}".format(object.__repr__(self), str(self))
+        return f"{object.__repr__(self)}\n  {str(self)}"
 
     def __str__(self):
         return frombytes(self.type.get().ToString(), safe=True)
@@ -632,16 +632,15 @@ cdef class SortingColumn:
                 elif descending == "ascending":
                     descending = False
                 else:
-                    raise ValueError("Invalid sort key direction: {0}"
-                                     .format(descending))
+                    raise ValueError(f"Invalid sort key direction: {descending}")
             else:
-                raise ValueError("Invalid sort key: {0}".format(sort_key))
+                raise ValueError(f"Invalid sort key: {sort_key}")
 
             try:
                 column_index = col_map[name]
             except KeyError:
-                raise ValueError("Sort key name '{0}' not found in schema:\n{1}"
-                                 .format(name, schema))
+                raise ValueError(
+                    f"Sort key name '{name}' not found in schema:\n{schema}")
 
             sorting_columns.append(
                 cls(column_index, descending=descending, nulls_first=nulls_first)
@@ -741,7 +740,7 @@ cdef class RowGroupMetaData(_Weakrefable):
 
     def __cinit__(self, FileMetaData parent, int index):
         if index < 0 or index >= parent.num_row_groups:
-            raise IndexError('{0} out of bounds'.format(index))
+            raise IndexError(f'{index} out of bounds')
         self.up_metadata = parent._metadata.RowGroup(index)
         self.metadata = self.up_metadata.get()
         self.parent = parent
@@ -786,7 +785,7 @@ cdef class RowGroupMetaData(_Weakrefable):
             Metadata for column within this chunk.
         """
         if i < 0 or i >= self.num_columns:
-            raise IndexError('{0} out of bounds'.format(i))
+            raise IndexError(f'{i} out of bounds')
         chunk = ColumnChunkMetaData()
         chunk.init(self, i)
         return chunk
@@ -987,8 +986,7 @@ cdef class FileMetaData(_Weakrefable):
         elif version == ParquetVersion_V2_6:
             return '2.6'
         else:
-            warnings.warn('Unrecognized file version, assuming 2.6: {}'
-                          .format(version))
+            warnings.warn(f'Unrecognized file version, assuming 2.6: {version}')
             return '2.6'
 
     @property
@@ -1095,9 +1093,7 @@ cdef class ParquetSchema(_Weakrefable):
         self.schema = container._metadata.schema()
 
     def __repr__(self):
-        return "{0}\n{1}".format(
-            object.__repr__(self),
-            frombytes(self.schema.ToString(), safe=True))
+        return f"{object.__repr__(self)}\n{frombytes(self.schema.ToString(), safe=True)}"
 
     def __reduce__(self):
         return ParquetSchema, (self.parent,)
@@ -1169,7 +1165,7 @@ cdef class ParquetSchema(_Weakrefable):
         column_schema : ColumnSchema
         """
         if i < 0 or i >= len(self):
-            raise IndexError('{0} out of bounds'.format(i))
+            raise IndexError(f'{i} out of bounds')
 
         return ColumnSchema(self, i)
 
@@ -1214,11 +1210,9 @@ cdef class ColumnSchema(_Weakrefable):
         physical_type = self.physical_type
         converted_type = self.converted_type
         if converted_type == 'DECIMAL':
-            converted_type = 'DECIMAL({0}, {1})'.format(self.precision,
-                                                        self.scale)
+            converted_type = f'DECIMAL({self.precision}, {self.scale})'
         elif physical_type == 'FIXED_LEN_BYTE_ARRAY':
-            converted_type = ('FIXED_LEN_BYTE_ARRAY(length={0})'
-                              .format(self.length))
+            converted_type = f'FIXED_LEN_BYTE_ARRAY(length={self.length})'
 
         return """<ParquetColumnSchema>
   name: {0}
@@ -1866,8 +1860,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         elif data_page_version == "2.0":
             props.data_page_version(ParquetDataPageVersion_V2)
         else:
-            raise ValueError("Unsupported Parquet data page version: {0}"
-                             .format(data_page_version))
+            raise ValueError(
+                f"Unsupported Parquet data page version: {data_page_version}")
 
     # version
 
@@ -1885,8 +1879,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         elif version == "2.6":
             props.version(ParquetVersion_V2_6)
         else:
-            raise ValueError("Unsupported Parquet format version: {0}"
-                             .format(version))
+            raise ValueError(f"Unsupported Parquet format version: {version}")
 
     # compression
 
@@ -2061,8 +2054,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     elif coerce_timestamps == 'us':
         arrow_props.coerce_timestamps(TimeUnit_MICRO)
     elif coerce_timestamps is not None:
-        raise ValueError('Invalid value for coerce_timestamps: {0}'
-                         .format(coerce_timestamps))
+        raise ValueError(f'Invalid value for coerce_timestamps: {coerce_timestamps}')
 
     # allow_truncated_timestamps
 
@@ -2084,8 +2076,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         warnings.warn("V1 parquet writer engine is a no-op.  Use V2.")
         arrow_props.set_engine_version(ArrowWriterEngineVersion.V1)
     elif writer_engine_version != "V2":
-        raise ValueError("Unsupported Writer Engine Version: {0}"
-                         .format(writer_engine_version))
+        raise ValueError(f"Unsupported Writer Engine Version: {writer_engine_version}")
 
     arrow_properties = arrow_props.build()
 

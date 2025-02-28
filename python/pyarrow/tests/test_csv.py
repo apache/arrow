@@ -1423,7 +1423,7 @@ class BaseCSVTableRead(BaseTestCSV):
         except AttributeError:
             clock = time.time
         num_columns = 10000
-        col_names = ["K{}".format(i) for i in range(num_columns)]
+        col_names = [f"K{i}" for i in range(num_columns)]
         csv = make_empty_csv(col_names)
         t1 = clock()
         convert_options = ConvertOptions(

@@ -83,9 +83,9 @@ def read_flight_resource(path):
             return f.read()
     except FileNotFoundError:
         raise RuntimeError(
-            "Test resource {} not found; did you initialize the "
-            "test resource submodule?\n{}".format(root / path,
-                                                  traceback.format_exc()))
+            f"Test resource {root / path} not found; did you initialize the "
+            f"test resource submodule?\n{traceback.format_exc()}"
+        )
 
 
 def example_tls_certs():
@@ -431,7 +431,7 @@ class ExchangeFlightServer(FlightServerBase):
             return self.exchange_transform(context, reader, writer)
         else:
             raise pa.ArrowInvalid(
-                "Unknown command: {}".format(descriptor.command))
+                f"Unknown command: {descriptor.command}")
 
     def exchange_do_get(self, context, reader, writer):
         """Emulate DoGet with DoExchange."""

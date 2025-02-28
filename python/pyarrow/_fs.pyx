@@ -180,8 +180,7 @@ cdef class FileInfo(_Weakrefable):
     @staticmethod
     cdef CFileInfo unwrap_safe(obj):
         if not isinstance(obj, FileInfo):
-            raise TypeError("Expected FileInfo instance, got {0}"
-                            .format(type(obj)))
+            raise TypeError(f"Expected FileInfo instance, got {type(obj)}")
         return (<FileInfo> obj).unwrap()
 
     def __repr__(self):
@@ -406,8 +405,7 @@ cdef class FileSelector(_Weakrefable):
         self.selector.recursive = recursive
 
     def __repr__(self):
-        return ("<FileSelector base_dir={0.base_dir!r} "
-                "recursive={0.recursive}>".format(self))
+        return f"<FileSelector base_dir={self.base_dir!r} recursive={self.recursive}>"
 
 
 cdef class FileSystem(_Weakrefable):
@@ -449,7 +447,7 @@ cdef class FileSystem(_Weakrefable):
         --------
         Create a new FileSystem subclass from a URI:
 
-        >>> uri = 'file:///{}/pyarrow-fs-example.dat'.format(local_path)
+        >>> uri = f'file:///{local_path}/pyarrow-fs-example.dat'
         >>> local_new, path_new = fs.FileSystem.from_uri(uri)
         >>> local_new
         <pyarrow._fs.LocalFileSystem object at ...
@@ -564,7 +562,7 @@ cdef class FileSystem(_Weakrefable):
         --------
         >>> local
         <pyarrow._fs.LocalFileSystem object at ...>
-        >>> local.get_file_info("/{}/pyarrow-fs-example.dat".format(local_path))
+        >>> local.get_file_info(f"/{local_path}/pyarrow-fs-example.dat")
         <FileInfo for '/.../pyarrow-fs-example.dat': type=FileType.File, size=4>
         """
         cdef:
@@ -1192,8 +1190,7 @@ cdef class SubTreeFileSystem(FileSystem):
         self.subtreefs = <CSubTreeFileSystem*> wrapped.get()
 
     def __repr__(self):
-        return ("SubTreeFileSystem(base_path={}, base_fs={}"
-                .format(self.base_path, self.base_fs))
+        return f"SubTreeFileSystem(base_path={self.base_path}, base_fs={self.base_fs})"
 
     def __reduce__(self):
         return SubTreeFileSystem, (
@@ -1260,8 +1257,8 @@ cdef class PyFileSystem(FileSystem):
             shared_ptr[CPyFileSystem] wrapped
 
         if not isinstance(handler, FileSystemHandler):
-            raise TypeError("Expected a FileSystemHandler instance, got {0}"
-                            .format(type(handler)))
+            raise TypeError(
+                f"Expected a FileSystemHandler instance, got {type(handler)}")
 
         vtable.get_type_name = _cb_get_type_name
         vtable.equals = _cb_equals

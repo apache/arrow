@@ -123,7 +123,7 @@ def test_cython_api(tmpdir):
 
         # Check the extension module is loadable from a subprocess without
         # pyarrow imported first.
-        code = """if 1:
+        code = f"""if 1:
             import sys
             import os
 
@@ -131,17 +131,16 @@ def test_cython_api(tmpdir):
                 # Add dll directory was added on python 3.8
                 # and is required in order to find extra DLLs
                 # only for win32
-                for dir in {library_dirs}:
+                for dir in {pa.get_library_dirs()}:
                     os.add_dll_directory(dir)
             except AttributeError:
                 pass
 
-            mod = __import__({mod_name!r})
+            mod = __import__('pyarrow_cython_example')
             arr = mod.make_null_array(5)
             assert mod.get_array_length(arr) == 5
             assert arr.null_count == 5
-        """.format(mod_name='pyarrow_cython_example',
-                   library_dirs=pa.get_library_dirs())
+        """
 
         path_var = None
         if sys.platform == 'win32':

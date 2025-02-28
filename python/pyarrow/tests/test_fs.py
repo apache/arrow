@@ -127,13 +127,13 @@ class DummyHandler(FileSystemHandler):
     def open_input_stream(self, path):
         if "notfound" in path:
             raise FileNotFoundError(path)
-        data = "{0}:input_stream".format(path).encode('utf8')
+        data = f"{path}:input_stream".encode('utf8')
         return pa.BufferReader(data)
 
     def open_input_file(self, path):
         if "notfound" in path:
             raise FileNotFoundError(path)
-        data = "{0}:input_file".format(path).encode('utf8')
+        data = f"{path}:input_file".encode('utf8')
         return pa.BufferReader(data)
 
     def open_output_stream(self, path, metadata):
@@ -248,7 +248,7 @@ def s3fs(request, s3_server):
     fs = S3FileSystem(
         access_key=access_key,
         secret_key=secret_key,
-        endpoint_override='{}:{}'.format(host, port),
+        endpoint_override=f'{host}:{port}',
         scheme='http',
         allow_bucket_creation=True,
         allow_bucket_deletion=True
@@ -381,7 +381,7 @@ def py_fsspec_s3fs(request, s3_server):
     fs = s3fs.S3FileSystem(
         key=access_key,
         secret=secret_key,
-        client_kwargs=dict(endpoint_url='http://{}:{}'.format(host, port))
+        client_kwargs=dict(endpoint_url=f'http://{host}:{port}')
     )
     fs = PyFileSystem(FSSpecHandler(fs))
     fs.create_dir(bucket)
@@ -522,7 +522,7 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
     fs = S3FileSystem(
         access_key='test_fs_limited_user',
         secret_key='limited123',
-        endpoint_override='{}:{}'.format(host, port),
+        endpoint_override=f'{host}:{port}',
         scheme='http'
     )
     fs.create_dir('existing-bucket/test')
@@ -765,7 +765,7 @@ def test_get_file_info_with_selector(fs, pathfn):
                   info.path.rstrip("/").endswith(dir_b)):
                 assert info.type == FileType.Directory
             else:
-                raise ValueError('unexpected path {}'.format(info.path))
+                raise ValueError(f'unexpected path {info.path}')
             check_mtime_or_absent(info)
 
         # non-recursive selector -> not selecting the nested file_c
@@ -1494,7 +1494,7 @@ def test_hdfs_options(hdfs_connection, pickle_module):
         host, port, 'me', replication + 1, buffer_size, default_block_size
     ))
     hdfs5 = HadoopFileSystem(host, port)
-    hdfs6 = HadoopFileSystem.from_uri('hdfs://{}:{}'.format(host, port))
+    hdfs6 = HadoopFileSystem.from_uri(f'hdfs://{host}:{port}')
     hdfs7 = HadoopFileSystem(host, port, user='localuser')
     hdfs8 = HadoopFileSystem(host, port, user='localuser',
                              kerb_ticket="cache_path")
