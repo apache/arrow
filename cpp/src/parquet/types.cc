@@ -1723,7 +1723,7 @@ bool LogicalType::Impl::Geometry::Equals(const LogicalType& other) const {
 }
 
 const std::string& GeometryLogicalType::crs() const {
-  return checked_cast<const LogicalType::Impl::Geometry&>(*impl_).crs();
+  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).crs();
 }
 
 std::shared_ptr<const LogicalType> GeometryLogicalType::Make(std::string crs) {
