@@ -417,10 +417,6 @@ INSTANTIATE_TEST_SUITE_P(
                     {30, 10, 40, 300, 30, 10, 40, 300})));
 
 struct MakeWKBPointTestCase {
-  MakeWKBPointTestCase() = default;
-  MakeWKBPointTestCase(std::vector<double> xyzm, bool has_z, bool has_m)
-      : xyzm(std::move(xyzm)), has_z(has_z), has_m(has_m) {}
-
   std::vector<double> xyzm;
   bool has_z;
   bool has_m;
@@ -450,9 +446,9 @@ TEST_P(MakeWKBPointTestFixture, MakeWKBPoint) {
 
 INSTANTIATE_TEST_SUITE_P(
     TestGeometryUtil, MakeWKBPointTestFixture,
-    ::testing::Values(MakeWKBPointTestCase({30, 10, 40, 300}, false, false),
-                      MakeWKBPointTestCase({30, 10, 40, 300}, true, false),
-                      MakeWKBPointTestCase({30, 10, 40, 300}, false, true),
-                      MakeWKBPointTestCase({30, 10, 40, 300}, true, true)));
+    ::testing::Values(MakeWKBPointTestCase{{30, 10, 40, 300}, false, false},
+                      MakeWKBPointTestCase{{30, 10, 40, 300}, true, false},
+                      MakeWKBPointTestCase{{30, 10, 40, 300}, false, true},
+                      MakeWKBPointTestCase{{30, 10, 40, 300}, true, true}));
 
 }  // namespace parquet::geometry
