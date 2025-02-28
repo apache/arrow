@@ -1867,7 +1867,7 @@ class TestGeometryLogicalType : public ::testing::Test {
  public:
   const int kNumRows = 1000;
 
-  void WriteTestData(ParquetDataPageVersion data_page_version, bool write_arrow) {
+  void WriteTestData(bool write_arrow) {
     // Make schema
     schema::NodeVector fields;
     fields.push_back(PrimitiveNode::Make("g", Repetition::REQUIRED,
@@ -1878,8 +1878,7 @@ class TestGeometryLogicalType : public ::testing::Test {
 
     // Write small batches and small data pages
     auto writer_props_builder = WriterProperties::Builder();
-    writer_props_builder.write_batch_size(64)->data_pagesize(128)->data_page_version(
-        data_page_version);
+    writer_props_builder.write_batch_size(64);
 
     std::shared_ptr<WriterProperties> writer_props = writer_props_builder.build();
 
@@ -1937,8 +1936,8 @@ class TestGeometryLogicalType : public ::testing::Test {
                                  /*leaf_field_nullable=*/true));
   }
 
-  void TestWriteAndRead(ParquetDataPageVersion data_page_version, bool write_arrow) {
-    WriteTestData(data_page_version, write_arrow);
+  void TestWriteAndRead(bool write_arrow) {
+    WriteTestData(write_arrow);
 
     auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
 
@@ -2014,18 +2013,10 @@ class TestGeometryLogicalType : public ::testing::Test {
   std::shared_ptr<Buffer> file_buf;
 };
 
-TEST_F(TestGeometryLogicalType, TestWrite) {
-  for (auto data_page_version :
-       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndRead(data_page_version, /*write_arrow=*/false);
-  }
-}
+TEST_F(TestGeometryLogicalType, TestWrite) { TestWriteAndRead(/*write_arrow=*/false); }
 
 TEST_F(TestGeometryLogicalType, TestWriteArrowAndRead) {
-  for (auto data_page_version :
-       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndRead(data_page_version, /*write_arrow=*/true);
-  }
+  TestWriteAndRead(/*write_arrow=*/true);
 }
 
 }  // namespace parquet
