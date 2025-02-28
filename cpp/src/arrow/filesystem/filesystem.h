@@ -198,7 +198,7 @@ class ARROW_EXPORT FileSystem
   virtual Result<std::string> PathFromUri(const std::string& uri_string) const;
 
   /// \brief Make a URI from which FileSystemFromUri produces an equivalent filesystem
-  /// \param path The path component to use in the resulting URI
+  /// \param path The path component to use in the resulting URI. Must be absolute.
   /// \return A URI string, or an error if an equivalent URI cannot be produced
   virtual Result<std::string> MakeUri(std::string path) const;
 
