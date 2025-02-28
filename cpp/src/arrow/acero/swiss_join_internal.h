@@ -611,11 +611,17 @@ class SwissTableForJoinBuild {
 
   // One per batch.
   //
-  // Informations like hashes and partitions of each batch.
+  // Informations like hashes and partitions of each batch gathered in the partition phase
+  // and used in the build phase.
   //
   struct BatchState {
+    // Hashes for the batch, preserved in the partition phase to avoid recomputation in
+    // the build phase. One element per row in the batch.
     std::vector<uint32_t> hashes;
+    // Accumulative number of rows in each partition for the batch. `num_prtns_` + 1
+    // elements.
     std::vector<uint16_t> prtn_ranges;
+    // Row ids after partition sorting the batch. One element per row in the batch.
     std::vector<uint16_t> prtn_row_ids;
   };
 
