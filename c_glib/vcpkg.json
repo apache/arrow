@@ -2,7 +2,10 @@
   "name": "arrow-glib",
   "version-string": "20.0.0-SNAPSHOT",
   "dependencies": [
-    "glib",
+    {
+      "name":"glib",
+      "version<": "1.80.0"
+    },
     "gobject-introspection",
     "pkgconf"
   ]
