@@ -1114,6 +1114,10 @@ Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
                        const WriterProperties& properties,
                        const ArrowWriterProperties& arrow_properties,
                        std::shared_ptr<SchemaDescriptor>* out) {
+  // TODO(paleolimbot): I'm wondering if this geo_crs_context is reused when testing
+  // on MINGW, where we get some failures indicating non-empty metadata where it was
+  // expected
+  arrow_properties.geo_crs_context()->Clear();
   std::vector<NodePtr> nodes(arrow_schema->num_fields());
   for (int i = 0; i < arrow_schema->num_fields(); i++) {
     RETURN_NOT_OK(

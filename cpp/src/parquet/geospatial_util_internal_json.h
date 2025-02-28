@@ -48,7 +48,11 @@ namespace parquet {
 /// system values it encounters to the file metadata
 class PARQUET_EXPORT FileGeoCrsContext : public GeoCrsContext {
  public:
-  FileGeoCrsContext() : projjson_crs_fields_(::arrow::KeyValueMetadata::Make({}, {})) {}
+  FileGeoCrsContext() { Clear(); }
+
+  void Clear() override {
+    projjson_crs_fields_ = ::arrow::KeyValueMetadata::Make({}, {});
+  }
 
   std::string GetParquetCrs(std::string crs_value,
                             const std::string& crs_encoding) override;

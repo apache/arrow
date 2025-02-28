@@ -77,6 +77,9 @@ class PARQUET_EXPORT GeoCrsContext {
  public:
   virtual ~GeoCrsContext() = default;
 
+  /// \brief Remove any previously saved PROJJSON CRS fields
+  virtual void Clear() = 0;
+
   /// \brief Given a coordinate reference system value and encoding from GeoArrow
   /// extension metadata, return the value that should be placed in the
   /// LogicalType::Geography|Geometry(crs=) field
