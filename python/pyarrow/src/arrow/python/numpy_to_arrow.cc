@@ -226,10 +226,12 @@ class NumPyConverter {
   // NumPy ascii string arrays
   Status Visit(const BinaryType& type);
   Status Visit(const LargeBinaryType& type);
+  Status Visit(const BinaryViewType& type);
 
   // NumPy unicode arrays
   Status Visit(const StringType& type);
   Status Visit(const LargeStringType& type);
+  Status Visit(const StringViewType& type);
 
   Status Visit(const StructType& type);
 
@@ -617,6 +619,16 @@ Status NumPyConverter::Visit(const LargeBinaryType& type) {
   return PushArray(result->data());
 }
 
+Status NumPyConverter::Visit(const BinaryViewType& type) {
+  ::arrow::BinaryViewBuilder builder(pool_);
+
+  RETURN_NOT_OK(VisitBinary(&builder));
+
+  std::shared_ptr<Array> result;
+  RETURN_NOT_OK(builder.Finish(&result));
+  return PushArray(result->data());
+}
+
 Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {
   auto byte_width = type.byte_width();
 
@@ -781,6 +793,19 @@ Status NumPyConverter::Visit(const LargeStringType& type) {
   util::InitializeUTF8();
 
   ::arrow::LargeStringBuilder builder(pool_);
+
+  RETURN_NOT_OK(VisitString(&builder));
+
+  std::shared_ptr<Array> result;
+  RETURN_NOT_OK(builder.Finish(&result));
+  RETURN_NOT_OK(PushArray(result->data()));
+  return Status::OK();
+}
+
+Status NumPyConverter::Visit(const StringViewType& type) {
+  util::InitializeUTF8();
+
+  ::arrow::StringViewBuilder builder(pool_);
 
   RETURN_NOT_OK(VisitString(&builder));
 
