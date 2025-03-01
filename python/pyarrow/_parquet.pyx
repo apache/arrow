@@ -56,25 +56,16 @@ cdef class Statistics(_Weakrefable):
         pass
 
     def __repr__(self):
-        return """{}
-  has_min_max: {}
-  min: {}
-  max: {}
-  null_count: {}
-  distinct_count: {}
-  num_values: {}
-  physical_type: {}
-  logical_type: {}
-  converted_type (legacy): {}""".format(object.__repr__(self),
-                                        self.has_min_max,
-                                        self.min,
-                                        self.max,
-                                        self.null_count,
-                                        self.distinct_count,
-                                        self.num_values,
-                                        self.physical_type,
-                                        str(self.logical_type),
-                                        self.converted_type)
+        return f"""{object.__repr__(self)}
+  has_min_max: {self.has_min_max}
+  min: {self.min}
+  max: {self.max}
+  null_count: {self.null_count}
+  distinct_count: {self.distinct_count}
+  num_values: {self.num_values}
+  physical_type: {self.physical_type}
+  logical_type: {str(self.logical_type)}
+  converted_type (legacy): {self.converted_type}"""
 
     def to_dict(self):
         """
@@ -320,36 +311,22 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     def __repr__(self):
         statistics = indent(repr(self.statistics), 4 * ' ')
-        return """{0}
-  file_offset: {1}
-  file_path: {2}
-  physical_type: {3}
-  num_values: {4}
-  path_in_schema: {5}
-  is_stats_set: {6}
+        return f"""{object.__repr__(self)}
+  file_offset: {self.file_offset}
+  file_path: {self.file_path}
+  physical_type: {self.physical_type}
+  num_values: {self.num_values}
+  path_in_schema: {self.path_in_schema}
+  is_stats_set: {self.is_stats_set}
   statistics:
-{7}
-  compression: {8}
-  encodings: {9}
-  has_dictionary_page: {10}
-  dictionary_page_offset: {11}
-  data_page_offset: {12}
-  total_compressed_size: {13}
-  total_uncompressed_size: {14}""".format(object.__repr__(self),
-                                          self.file_offset,
-                                          self.file_path,
-                                          self.physical_type,
-                                          self.num_values,
-                                          self.path_in_schema,
-                                          self.is_stats_set,
-                                          statistics,
-                                          self.compression,
-                                          self.encodings,
-                                          self.has_dictionary_page,
-                                          self.dictionary_page_offset,
-                                          self.data_page_offset,
-                                          self.total_compressed_size,
-                                          self.total_uncompressed_size)
+{statistics}
+  compression: {self.compression}
+  encodings: {self.encodings}
+  has_dictionary_page: {self.has_dictionary_page}
+  dictionary_page_offset: {self.dictionary_page_offset}
+  data_page_offset: {self.data_page_offset}
+  total_compressed_size: {self.total_compressed_size}
+  total_uncompressed_size: {self.total_uncompressed_size}"""
 
     def to_dict(self):
         """
@@ -790,15 +767,11 @@ cdef class RowGroupMetaData(_Weakrefable):
         return chunk
 
     def __repr__(self):
-        return """{0}
-  num_columns: {1}
-  num_rows: {2}
-  total_byte_size: {3}
-  sorting_columns: {4}""".format(object.__repr__(self),
-                                 self.num_columns,
-                                 self.num_rows,
-                                 self.total_byte_size,
-                                 self.sorting_columns)
+        return f"""{object.__repr__(self)}
+  num_columns: {self.num_columns}
+  num_rows: {self.num_rows}
+  total_byte_size: {self.total_byte_size}
+  sorting_columns: {self.sorting_columns}"""
 
     def to_dict(self):
         """
@@ -885,17 +858,13 @@ cdef class FileMetaData(_Weakrefable):
                      self.serialized_size))
 
     def __repr__(self):
-        return """{0}
-  created_by: {1}
-  num_columns: {2}
-  num_rows: {3}
-  num_row_groups: {4}
-  format_version: {5}
-  serialized_size: {6}""".format(object.__repr__(self),
-                                 self.created_by, self.num_columns,
-                                 self.num_rows, self.num_row_groups,
-                                 self.format_version,
-                                 self.serialized_size)
+        return f"""{object.__repr__(self)}
+  created_by: {self.created_by}
+  num_columns: {self.num_columns}
+  num_rows: {self.num_rows}
+  num_row_groups: {self.num_row_groups}
+  format_version: {self.format_version}
+  serialized_size: {self.serialized_size}"""
 
     def to_dict(self):
         """
@@ -1213,19 +1182,14 @@ cdef class ColumnSchema(_Weakrefable):
         elif physical_type == 'FIXED_LEN_BYTE_ARRAY':
             converted_type = f'FIXED_LEN_BYTE_ARRAY(length={self.length})'
 
-        return """<ParquetColumnSchema>
-  name: {0}
-  path: {1}
-  max_definition_level: {2}
-  max_repetition_level: {3}
-  physical_type: {4}
-  logical_type: {5}
-  converted_type (legacy): {6}""".format(self.name, self.path,
-                                         self.max_definition_level,
-                                         self.max_repetition_level,
-                                         physical_type,
-                                         str(self.logical_type),
-                                         converted_type)
+        return f"""<ParquetColumnSchema>
+  name: {self.name}
+  path: {self.path}
+  max_definition_level: {self.max_definition_level}
+  max_repetition_level: {self.max_repetition_level}
+  physical_type: {physical_type}
+  logical_type: {str(self.logical_type)}
+  converted_type (legacy): {converted_type}"""
 
     @property
     def name(self):

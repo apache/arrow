@@ -559,7 +559,7 @@ class BaseTestCSV(abc.ABC):
             if self.use_threads:
                 row_info = ""
             else:
-                row_info = "Row #{}: ".format(row)
+                row_info = f"Row #{row}: "
             return msg_format.format(row_info, *args)
 
         csv, _ = make_random_csv(4, 100, write_names=True)

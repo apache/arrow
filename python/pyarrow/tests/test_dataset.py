@@ -3360,7 +3360,7 @@ def test_csv_format(tempdir, dataset_reader):
 ])
 def test_csv_format_compressed(tempdir, compression, dataset_reader):
     if not pyarrow.Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
     table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
                       'b': pa.array([.1, .2, .3], type="float64")})
     filesystem = fs.LocalFileSystem()
@@ -5048,7 +5048,7 @@ def test_write_dataset_s3_put_only(s3_server):
     fs = S3FileSystem(
         access_key='limited',
         secret_key='limited123',
-        endpoint_override='{}:{}'.format(host, port),
+        endpoint_override=f'{host}:{port}',
         scheme='http',
         allow_bucket_creation=True,
     )
