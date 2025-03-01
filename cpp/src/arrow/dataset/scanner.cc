@@ -936,6 +936,11 @@ Status ScannerBuilder::Filter(const compute::Expression& filter) {
   return Status::OK();
 }
 
+Status ScannerBuilder::Ordering(const compute::Ordering& ordering) {
+  ordering_ = ordering;
+  return Status::OK();
+}
+
 Status ScannerBuilder::UseThreads(bool use_threads) {
   scan_options_->use_threads = use_threads;
   return Status::OK();
@@ -1010,7 +1015,7 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   auto scan_options = scan_node_options.scan_options;
   auto dataset = scan_node_options.dataset;
   bool require_sequenced_output = scan_node_options.require_sequenced_output;
-  bool implicit_ordering = scan_node_options.implicit_ordering;
+  Ordering ordering = scan_node_options.ordering;
 
   RETURN_NOT_OK(NormalizeScanOptions(scan_options, dataset->schema()));
 
@@ -1071,7 +1076,10 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
         return batch;
       });
 
-  auto ordering = implicit_ordering ? Ordering::Implicit() : Ordering::Unordered();
+  // the source can at most establish implicit ordering,
+  // the assert_order node will establish explicit ordering
+  auto source_ordering =
+      ordering.is_ordered() ? Ordering::Implicit() : Ordering::Unordered();
 
   auto fields = scan_options->dataset_schema->fields();
   if (scan_options->add_augmented_fields) {
@@ -1080,9 +1088,19 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
     }
   }
 
-  return acero::MakeExecNode(
-      "source", plan, {},
-      acero::SourceNodeOptions{schema(std::move(fields)), std::move(gen), ordering});
+  auto out =
+      acero::MakeExecNode("source", plan, {},
+                          acero::SourceNodeOptions{schema(std::move(fields)),
+                                                   std::move(gen), source_ordering});
+
+  // assert and establish explicit ordering
+  if (ordering.is_explicit()) {
+    ARROW_ASSIGN_OR_RAISE(auto source, out);
+    out = acero::MakeExecNode("assert_order", plan, {source},
+                              acero::AssertOrderNodeOptions{ordering});
+  }
+
+  return out;
 }
 
 Result<acero::ExecNode*> MakeAugmentedProjectNode(acero::ExecPlan* plan,
