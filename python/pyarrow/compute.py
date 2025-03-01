@@ -195,7 +195,8 @@ def _decorate_compute_function(wrapper, exposed_name, func, options_class):
 
     # 4. Custom addition (e.g. examples)
     if doc_addition is not None:
-        doc_pieces.append("\n{}\n".format(dedent(doc_addition).strip("\n")))
+        stripped = dedent(doc_addition).strip('\n')
+        doc_pieces.append(f"\n{stripped}\n")
 
     wrapper.__doc__ = "".join(doc_pieces)
     return wrapper

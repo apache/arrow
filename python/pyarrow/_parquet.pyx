@@ -691,9 +691,8 @@ cdef class SortingColumn:
         return tuple(sort_keys), null_placement
 
     def __repr__(self):
-        return """{}(column_index={}, descending={}, nulls_first={})""".format(
-            self.__class__.__name__,
-            self.column_index, self.descending, self.nulls_first)
+        return f"{self.__class__.__name__}(column_index={self.column_index}, " \
+               f"descending={self.descending}, nulls_first={self.nulls_first})"
 
     def __eq__(self, SortingColumn other):
         return (self.column_index == other.column_index and
