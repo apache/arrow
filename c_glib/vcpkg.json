@@ -3,8 +3,9 @@
   "version-string": "20.0.0-SNAPSHOT",
   "dependencies": [
     {
-      "name":"glib",
-      "version<": "1.80.0"
+      "$comment": "We need gobject-introspection 1.80.0 or later for GLib 2.80.0 but vcpkg doesn't provide it yet.",
+      "name": "glib",
+      "version": "2.78.4"
     },
     "gobject-introspection",
     "pkgconf"
