@@ -26,7 +26,7 @@
 namespace parquet {
 namespace internal {
 
-constexpr uint64_t GEAR_HASH_TABLE[8][256] = {
+constexpr uint64_t GEARHASH_TABLE[8][256] = {
     {// seed = 0
      0xf09f35a563783945, 0x0dcc5b3bc5ae410a, 0x63f1ea8d22554270, 0xfbe5ee7bd05a7b61,
      0x3f692ed5e9934aba, 0xaab3755952250eb8, 0xdefb168dc2888fa5, 0x501b36f7c77a7d47,
@@ -591,7 +591,7 @@ void ContentDefinedChunker::Roll(const T value) {
   }
   auto bytes = reinterpret_cast<const uint8_t*>(&value);
   for (size_t i = 0; i < BYTE_WIDTH; ++i) {
-    rolling_hash_ = (rolling_hash_ << 1) + GEAR_HASH_TABLE[nth_run_][bytes[i]];
+    rolling_hash_ = (rolling_hash_ << 1) + GEARHASH_TABLE[nth_run_][bytes[i]];
     has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
   }
 }
@@ -605,7 +605,7 @@ void ContentDefinedChunker::Roll(std::string_view value) {
   }
   for (char c : value) {
     rolling_hash_ =
-        (rolling_hash_ << 1) + GEAR_HASH_TABLE[nth_run_][static_cast<uint8_t>(c)];
+        (rolling_hash_ << 1) + GEARHASH_TABLE[nth_run_][static_cast<uint8_t>(c)];
     has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
   }
 }
