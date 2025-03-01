@@ -31,6 +31,9 @@ jobs:
     runs-on: ubuntu-24.04-arm
     {% endif %}
     env:
+      {% if linux_wheel_name == "musl" and linux_wheel_version == "1_2" %}
+      ALPINE_LINUX: "3.21"
+      {% endif %}
       # archery uses these environment variables
       {% if arch == "amd64" %}
       ARCH: amd64
