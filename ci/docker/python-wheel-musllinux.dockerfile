@@ -71,7 +71,6 @@ RUN --mount=type=secret,id=github_repository_owner \
       export GITHUB_REPOSITORY_OWNER=$(cat /run/secrets/github_repository_owner); \
       export GITHUB_TOKEN=$(cat /run/secrets/github_token); \
       export VCPKG_BINARY_SOURCES=$(cat /run/secrets/vcpkg_binary_sources); \
-      export VCPKG_MUSL=1; \
       arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg} && \
       vcpkg install \
         --clean-after-build \

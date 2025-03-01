@@ -44,8 +44,6 @@ git checkout "${vcpkg_version}"
 
 if [[ "${OSTYPE:-}" == "msys" ]]; then
   ./bootstrap-vcpkg.bat -disableMetrics
-elif [[ "${VCPKG_MUSL:-}" == 1 ]]; then
-  ./bootstrap-vcpkg.sh -disableMetrics -musl
 else
   ./bootstrap-vcpkg.sh -disableMetrics
 fi

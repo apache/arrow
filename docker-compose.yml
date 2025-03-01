@@ -174,9 +174,11 @@ x-hierarchy:
   - python-wheel-manylinux-test-imports
   - python-free-threaded-wheel-manylinux-test-imports
   - python-wheel-musllinux-test-imports
+  - python-free-threaded-wheel-musllinux-test-imports
   - python-wheel-manylinux-test-unittests
   - python-free-threaded-wheel-manylinux-test-unittests
   - python-wheel-musllinux-test-unittests
+  - python-free-threaded-wheel-musllinux-test-unittests
   - python-wheel-windows-vs2022-base:
     - python-wheel-windows-vs2022
     - python-free-threaded-wheel-windows-vs2022
@@ -1246,6 +1248,26 @@ services:
         apk add --no-cache bash &&
         /arrow/ci/scripts/python_wheel_unix_test.sh /arrow"
 
+  # TODO: Remove this when the official Docker Python image supports the free-threaded build.
+  # See https://github.com/docker-library/python/issues/947 for more info.
+  python-free-threaded-wheel-musllinux-test-imports:
+    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-imports
+    build:
+      args:
+        base: "${ARCH}/alpine:${ALPINE_LINUX}"
+      context: .
+      dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-imports.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-imports
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    environment:
+      <<: *common
+      CHECK_IMPORTS: "ON"
+      CHECK_UNITTESTS: "OFF"
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
+
   python-wheel-musllinux-test-unittests:
     image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-musllinux-test
     build:
@@ -1264,6 +1286,26 @@ services:
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
       CHECK_WHEEL_CONTENT: "OFF"
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
+
+  # TODO: Remove this when the official Docker Python image supports the free-threaded build.
+  # See https://github.com/docker-library/python/issues/947 for more info.
+  python-free-threaded-wheel-musllinux-test-unittests:
+    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-unittests
+    build:
+      args:
+        base: "${ARCH}/alpine:${ALPINE_LINUX}"
+      context: .
+      dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-unittests.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-unittests
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    environment:
+      <<: *common
+      CHECK_IMPORTS: "OFF"
+      CHECK_UNITTESTS: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-manylinux-test-imports:
