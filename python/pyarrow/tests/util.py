@@ -230,9 +230,9 @@ def disabled_gc():
 def _filesystem_uri(path):
     # URIs on Windows must follow 'file:///C:...' or 'file:/C:...' patterns.
     if os.name == 'nt':
-        uri = f'file:///C:{path}'
+        uri = 'file:///{}'.format(path)
     else:
-        uri = f'file://{path}'
+        uri = 'file://{}'.format(path)
     return uri
 
 
