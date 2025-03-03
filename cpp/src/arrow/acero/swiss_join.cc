@@ -1197,13 +1197,13 @@ Status SwissTableForJoinBuild::PartitionBatch(size_t thread_id, int64_t batch_id
         [&batch_state](int64_t i, int pos) {
           batch_state.prtn_row_ids[pos] = static_cast<uint16_t>(i);
         });
-  }
 
-  // Update hashes, shifting left to get rid of the bits that were already used
-  // for partitioning.
-  //
-  for (size_t i = 0; i < batch_state.hashes.size(); ++i) {
-    batch_state.hashes[i] <<= log_num_prtns_;
+    // Update hashes, shifting left to get rid of the bits that were already used
+    // for partitioning.
+    //
+    for (size_t i = 0; i < batch_state.hashes.size(); ++i) {
+      batch_state.hashes[i] <<= log_num_prtns_;
+    }
   }
 
   return Status::OK();
