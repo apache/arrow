@@ -121,11 +121,20 @@ class ContentDefinedChunker {
                                                           const ::arrow::Array& values);
 
  private:
+  // Update the rolling hash with a compile-time known sized value, set has_matched_ to
+  // true if the hash matches the mask.
   template <typename T>
   void Roll(const T value);
+
+  // Update the rolling hash with a binary-like value, set has_matched_ to true if the
+  // hash matches the mask.
   void Roll(std::string_view value);
+
+  // Evaluate whether a new chunk should be created based on the has_matched_, nth_run_
+  // and chunk_size_ state.
   inline bool NeedNewChunk();
 
+  // Calculate the chunk boundaries for typed Arrow arrays.
   template <typename T>
   const std::vector<Chunk> Calculate(const int16_t* def_levels, const int16_t* rep_levels,
                                      int64_t num_levels, const T& leaf_array);
@@ -142,9 +151,16 @@ class ContentDefinedChunker {
   // factor.
   const uint64_t hash_mask_;
 
+  // Whether the rolling hash has matched the mask since the last chunk creation. This
+  // flag is set true by the Roll() function when the mask is matched and reset to false
+  // by NeedNewChunk() method.
   bool has_matched_ = false;
+  // The current run of the rolling hash, used to normalize the chunk size distribution
+  // by requiring multiple consecutive matches to create a new chunk.
   uint64_t nth_run_ = 0;
+  // Current chunk size in bytes, reset to 0 when a new chunk is created.
   uint64_t chunk_size_ = 0;
+  // Rolling hash state, never reset only initialized once for the entire column.
   uint64_t rolling_hash_ = 0;
 };
 
