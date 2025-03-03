@@ -21,6 +21,7 @@
 #include <mutex>
 #include <queue>
 #include "arrow/acero/backpressure_handler.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow::acero {
 
@@ -33,9 +34,16 @@ class ConcurrentQueue {
  public:
   // Pops the last item from the queue. Must be called on a non-empty queue
   //
+
   T Pop() {
     std::unique_lock<std::mutex> lock(mutex_);
-    return PopUnlocked(lock);
+    return PopUnlocked();
+  }
+
+  T WaitAndPop() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    WaitUntilNonEmpty(lock);
+    return PopUnlocked();
   }
 
   // Pops the last item from the queue, or returns a nullopt if empty
@@ -77,8 +85,11 @@ class ConcurrentQueue {
 
   size_t SizeUnlocked() const { return queue_.size(); }
 
-  T PopUnlocked(std::unique_lock<std::mutex>& lock) {
+  void WaitUntilNonEmpty(std::unique_lock<std::mutex>& lock) {
     cond_.wait(lock, [&] { return !queue_.empty(); });
+  }
+
+  T PopUnlocked() {
     auto item = queue_.front();
     queue_.pop();
     return item;
@@ -132,6 +143,13 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
 
   T Pop() {
     std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
+    DoHandle do_handle(*this);
+    return ConcurrentQueue<T>::PopUnlocked(lock);
+  }
+
+  T WaitAndPop() {
+    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
+    ConcurrentQueue<T>::WaitUntilNonEmpty(lock);
     DoHandle do_handle(*this);
     return ConcurrentQueue<T>::PopUnlocked(lock);
   }
