@@ -2633,9 +2633,11 @@ class SwissJoin : public HashJoinImpl {
     DCHECK_NE(hash_table_build_, nullptr);
     bool no_payload = hash_table_build_->no_payload();
     ExecBatch key_batch, payload_batch;
-    key_batch.values.resize(schema->num_cols(HashJoinProjection::KEY));
+    auto num_keys = schema->num_cols(HashJoinProjection::KEY);
+    auto num_payloads = schema->num_cols(HashJoinProjection::PAYLOAD);
+    key_batch.values.resize(num_keys);
     if (!no_payload) {
-      payload_batch.values.resize(schema->num_cols(HashJoinProjection::PAYLOAD));
+      payload_batch.values.resize(num_payloads);
     }
     arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
 
@@ -2662,8 +2664,7 @@ class SwissJoin : public HashJoinImpl {
       if (!no_payload) {
         payload_batch.length = input_batch.length;
         for (size_t icol = 0; icol < payload_batch.values.size(); ++icol) {
-          payload_batch.values[icol] =
-              input_batch.values[schema->num_cols(HashJoinProjection::KEY) + icol];
+          payload_batch.values[icol] = input_batch.values[num_keys + icol];
         }
       }
 
