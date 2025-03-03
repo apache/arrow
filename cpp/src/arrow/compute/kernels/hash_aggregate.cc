@@ -3358,7 +3358,7 @@ struct GroupedPivotAccumulator {
     //
     // We are going to compute:
     // - take_indices[key = 0] = [null, 0, null, null]
-    // - take_indices[key = 1] = [3, 2, null, 2]
+    // - take_indices[key = 1] = [3, 2, null, 1]
     //
     // Then each output column is computed by taking the values with the
     // respective take_indices for the column's keys.
@@ -3406,9 +3406,9 @@ struct GroupedPivotAccumulator {
       // Populate the take_indices for each output column
       for (int64_t i = 0; i < values.length; ++i) {
         const PivotWiderKeyIndex key = keys[i];
-        const uint32_t group = groups[i];
         if (key != kNullPivotKey && !values.IsNull(i)) {
           DCHECK_LT(static_cast<int>(key), num_keys_);
+          const uint32_t group = groups[i];
           if (bit_util::GetBit(take_bitmap_data[key], group)) {
             return DuplicateValue();
           }

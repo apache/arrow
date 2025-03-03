@@ -56,6 +56,7 @@ struct BasePivotKeyMapper : public PivotWiderKeyMapper {
     if (unexpected_key_behavior_ == PivotWiderOptions::kIgnore) {
       return kNullPivotKey;
     }
+    DCHECK_EQ(unexpected_key_behavior_, PivotWiderOptions::kRaise);
     return Status::KeyError("Unexpected pivot key: ", key_name);
   }
 
