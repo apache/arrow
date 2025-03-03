@@ -127,7 +127,7 @@ G_BEGIN_DECLS
  * string data. If you don't have Arrow format data, you need to
  * use #GArrowLargeStringArrayBuilder to create a new array.
  *
- * #GArrayBinaryViewArray is a class for variable-size binary view array
+ * #GArrayBinaryViewArray is a class for variable-size binary view array.
  * It can store zero or more binary view data. If you don't have Arrow
  * format data, you need to use #GArrowBinaryViewArrayBuilder to create
  * a new array.

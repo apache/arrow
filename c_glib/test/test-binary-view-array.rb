@@ -19,15 +19,14 @@ class TestBinaryViewArray < Test::Unit::TestCase
   def test_new
     view_bytes = 16
     buffer_string = "test"
-    view_data = [ buffer_string.size ].pack("l")
-    view_data += buffer_string
-    view_data += "\x00" * (view_bytes - buffer_string.size)
+    view_data = [buffer_string.size].pack("l")
+    view_data += buffer_string.ljust(12, "\x00")
 
     view = Arrow::Buffer.new(view_data)
     data_buffer = Arrow::Buffer.new(buffer_string)
     bitmap = Arrow::Buffer.new([0b1].pack("C*"))
 
-    str_view = Arrow::BinaryViewArray.new(1,view,[data_buffer],bitmap,0, 0)
+    binary_view = Arrow::BinaryViewArray.new(1, view, [data_buffer], bitmap, 0, 0)
     assert do
       str_view.validate_full
     end
