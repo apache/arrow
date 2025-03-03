@@ -31,5 +31,6 @@ class TestBinaryViewArray < Test::Unit::TestCase
     assert do
       str_view.validate_full
     end
+    assert_equal(buffer_string, str_view.get_value(0).to_s)
   end
 end

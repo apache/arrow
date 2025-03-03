@@ -620,6 +620,10 @@ garrow_binary_view_array_new(gint64 length,
                              gint64 n_nulls,
                              gint64 offset);
 
+GARROW_AVAILABLE_IN_20_0
+GBytes *
+garrow_binary_view_array_get_value(GArrowBinaryViewArray *array, gint64 i);
+
 #define GARROW_TYPE_DATE32_ARRAY (garrow_date32_array_get_type())
 GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(

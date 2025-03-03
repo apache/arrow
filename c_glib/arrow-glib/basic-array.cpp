@@ -2587,6 +2587,21 @@ garrow_binary_view_array_new(gint64 length,
     g_object_new(GARROW_TYPE_BINARY_VIEW_ARRAY, "array", &binary_view_array, nullptr));
 }
 
+/**
+ * garrow_binary_view_array_get_value:
+ * @array: A #GArrowBinaryViewArray.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The @i-th value.
+ */
+GBytes *
+garrow_binary_view_array_get_value(GArrowBinaryViewArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto view = static_cast<arrow::BinaryViewArray *>(arrow_array.get())->GetView(i);
+  return g_bytes_new_static(view.data(), view.length());
+}
+
 G_DEFINE_TYPE(GArrowDate32Array, garrow_date32_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
