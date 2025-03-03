@@ -54,8 +54,8 @@ cdef class Tensor(_Weakrefable):
 
     def __repr__(self):
         return """<pyarrow.Tensor>
-type: {0.type}
-shape: {0.shape}
+type: {self.type}
+shape: {self.shape}
 strides: {self.strides}"""
 
     @staticmethod
