@@ -1158,7 +1158,7 @@ Status SwissTableForJoinBuild::Init(SwissTableForJoin* target, int dop, int64_t 
 Status SwissTableForJoinBuild::PartitionBatch(size_t thread_id, int64_t batch_id,
                                               const ExecBatch& key_batch,
                                               arrow::util::TempVectorStack* temp_stack) {
-  DCHECK_LT(static_cast<int64_t>(thread_id), dop_);
+  DCHECK_LT(thread_id, thread_states_.size());
   DCHECK_LT(batch_id, static_cast<int64_t>(batch_states_.size()));
   ThreadState& locals = thread_states_[thread_id];
   BatchState& batch_state = batch_states_[batch_id];
@@ -1212,8 +1212,9 @@ Status SwissTableForJoinBuild::PartitionBatch(size_t thread_id, int64_t batch_id
 Status SwissTableForJoinBuild::ProcessPartition(
     size_t thread_id, int64_t batch_id, int prtn_id, const ExecBatch& key_batch,
     const ExecBatch* payload_batch_maybe_null, arrow::util::TempVectorStack* temp_stack) {
-  DCHECK_LE(static_cast<int64_t>(thread_id), dop_);
-  DCHECK_LE(batch_id, static_cast<int64_t>(batch_states_.size()));
+  DCHECK_LT(thread_id, thread_states_.size());
+  DCHECK_LT(batch_id, static_cast<int64_t>(batch_states_.size()));
+  DCHECK_LT(prtn_id, prtn_states_.size());
   ThreadState& locals = thread_states_[thread_id];
   BatchState& batch_state = batch_states_[batch_id];
   PartitionState& prtn_state = prtn_states_[prtn_id];
