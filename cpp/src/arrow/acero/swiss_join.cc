@@ -1214,7 +1214,7 @@ Status SwissTableForJoinBuild::ProcessPartition(
     const ExecBatch* payload_batch_maybe_null, arrow::util::TempVectorStack* temp_stack) {
   DCHECK_LT(thread_id, thread_states_.size());
   DCHECK_LT(batch_id, static_cast<int64_t>(batch_states_.size()));
-  DCHECK_LT(prtn_id, prtn_states_.size());
+  DCHECK_LT(static_cast<size_t>(prtn_id), prtn_states_.size());
   ThreadState& locals = thread_states_[thread_id];
   BatchState& batch_state = batch_states_[batch_id];
   PartitionState& prtn_state = prtn_states_[prtn_id];
