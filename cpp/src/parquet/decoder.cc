@@ -1765,9 +1765,15 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     // Phase1: get total length of binary data and append to value_data_builder
     int64_t accum_length = 0;
     for (int i = 0; i < max_values; ++i) {
+      if (ARROW_PREDICT_FALSE(length_ptr[i] < 0)) {
+        return Status::Invalid("negative string delta length");
+      }
       accum_length += length_ptr[i];
     }
-    if (ARROW_PREDICT_FALSE(decoder_->bytes_left() < static_cast<size_t>(accum_length))) {
+    if (ARROW_PREDICT_FALSE(accum_length > std::numeric_limits<int32_t>::max())) {
+      return Status::Invalid("excess expansion in DELTA_BYTE_ARRAY");
+    }
+    if (ARROW_PREDICT_FALSE(decoder_->bytes_left() < accum_length)) {
       return Status::Invalid("Binary data is too short");
     }
     RETURN_NOT_OK(out->builder->ValidateOverflow(accum_length));
@@ -1802,9 +1808,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     // Phase3: Append nulls
     out->builder->UnsafeAppendToBitmap(valid_bits, valid_bits_offset, num_values);
     // Phase4: update the encoder internal status.
-    if (ARROW_PREDICT_FALSE(!decoder_->Advance(
-            8 *
-            static_cast<int64_t>(out->builder->value_data_length() - initial_offset)))) {
+    if (ARROW_PREDICT_FALSE(!decoder_->Advance(8 * accum_length))) {
       ParquetException::EofException();
     }
     length_idx_ += max_values;
