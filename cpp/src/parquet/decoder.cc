@@ -1585,6 +1585,77 @@ class DeltaBitPackDecoder : public DecoderImpl, public TypedDecoderImpl<DType> {
 // ----------------------------------------------------------------------
 // DELTA_LENGTH_BYTE_ARRAY decoder
 
+// Status AppendBinaryWithLengths(std::string_view binary, const int32_t* value_lengths,
+//                                int64_t length) {
+//   ARROW_RETURN_NOT_OK(Reserve(length));
+//   UnsafeAppendToBitmap(/*valid_bytes=*/NULLPTR, length);
+//   // All values is valid
+//   int64_t accum_length = 0;
+//   for (int64_t i = 0; i < length; ++i) {
+//     accum_length += value_lengths[i];
+//   }
+//   if (ARROW_PREDICT_FALSE(binary.size() < static_cast<size_t>(accum_length))) {
+//     return Status::Invalid("Binary data is too short");
+//   }
+//   if (ARROW_PREDICT_FALSE(binary.size() + value_data_builder_.length() >
+//                           std::numeric_limits<int32_t>::max())) {
+//     return Status::Invalid("Append binary data too long");
+//   }
+//   std::string_view sub_data = binary.substr(0, accum_length);
+//   ARROW_RETURN_NOT_OK(value_data_builder_.Append(
+//       reinterpret_cast<const uint8_t*>(sub_data.data()), sub_data.size()));
+//   accum_length = 0;
+//   const int64_t initialize_offset = value_data_builder_.length();
+//   for (int64_t i = 0; i < length; ++i) {
+//     offsets_builder_.UnsafeAppend(
+//         static_cast<int32_t>(initialize_offset + accum_length));
+//     accum_length += value_lengths[i];
+//   }
+//   return Status::OK();
+// }
+//
+// Status AppendBinaryWithLengths(std::string_view binary, const int32_t* value_lengths,
+//                                int64_t length, int64_t null_count,
+//                                const uint8_t* valid_bits, int64_t valid_bits_offset) {
+//   if (valid_bits == NULLPTR || null_count == 0) {
+//     return AppendBinaryWithLengths(binary, value_lengths, length);
+//   }
+//   ARROW_RETURN_NOT_OK(Reserve(length));
+//   int64_t accum_length = 0;
+//   for (int64_t i = 0; i < length; ++i) {
+//     accum_length += value_lengths[i];
+//   }
+//   if (ARROW_PREDICT_FALSE(binary.size() < static_cast<size_t>(accum_length))) {
+//     return Status::Invalid("Binary data is too short");
+//   }
+//   const int64_t original_offset = value_data_builder_.length();
+//   if (ARROW_PREDICT_FALSE(original_offset + accum_length) >
+//       std::numeric_limits<int32_t>::max()) {
+//     return Status::Invalid("Append binary data too long");
+//   }
+//
+//   std::string_view sub_data = binary.substr(0, accum_length);
+//   ARROW_RETURN_NOT_OK(value_data_builder_.Append(
+//       reinterpret_cast<const uint8_t*>(sub_data.data()), sub_data.size()));
+//   int64_t length_idx = 0;
+//   accum_length = 0;
+//   RETURN_NOT_OK(VisitNullBitmapInline(
+//       valid_bits, valid_bits_offset, length, null_count,
+//       [&]() {
+//         offsets_builder_.UnsafeAppend(
+//             static_cast<int32_t>(original_offset + accum_length));
+//         accum_length += value_lengths[length_idx];
+//         ++length_idx;
+//         return Status::OK();
+//       },
+//       [&]() {
+//         offsets_builder_.UnsafeAppend(
+//             static_cast<int32_t>(original_offset + accum_length));
+//         return Status::OK();
+//       }));
+//   return Status::OK();
+// }
+
 class DeltaLengthByteArrayDecoder : public DecoderImpl,
                                     public TypedDecoderImpl<ByteArrayType> {
  public:
@@ -1688,13 +1759,52 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     const int32_t* length_ptr = buffered_length_->data_as<int32_t>() + length_idx_;
     int bytes_offset = len_ - decoder_->bytes_left();
     const uint8_t* data_ptr = data_ + bytes_offset;
-    const int64_t origin_data_size = out->builder->value_data_length();
-    RETURN_NOT_OK(out->builder->AppendBinaryWithLengths(
-        reinterpret_cast<const char*>(data_ptr), length_ptr, null_count, null_count,
-        valid_bits, valid_bits_offset));
+    const int64_t initial_offset = out->builder->value_data_length();
+    auto* offsets_builder = out->builder->offsets_builder();
+    auto* value_data_builder = out->builder->value_data_builder();
+    // Phase1: get total length of binary data and append to value_data_builder
+    int64_t accum_length = 0;
+    for (int i = 0; i < max_values; ++i) {
+      accum_length += length_ptr[i];
+    }
+    if (ARROW_PREDICT_FALSE(decoder_->bytes_left() < static_cast<size_t>(accum_length))) {
+      return Status::Invalid("Binary data is too short");
+    }
+    RETURN_NOT_OK(out->builder->ValidateOverflow(accum_length));
+    // Append the binary data
+    ARROW_RETURN_NOT_OK(value_data_builder->Append(data_ptr, accum_length));
+    // Phase2: append offsets
+    RETURN_NOT_OK(offsets_builder->Reserve(num_values));
+    accum_length = 0;
+    if (valid_bits == nullptr) {
+      for (int i = 0; i < max_values; ++i) {
+        RETURN_NOT_OK(
+            offsets_builder->Append(static_cast<int32_t>(initial_offset + accum_length)));
+        accum_length += length_ptr[i];
+      }
+    } else {
+      int length_idx = 0;
+      RETURN_NOT_OK(VisitNullBitmapInline(
+          valid_bits, valid_bits_offset, num_values, null_count,
+          [&]() {
+            offsets_builder->UnsafeAppend(
+                static_cast<int32_t>(initial_offset + accum_length));
+            accum_length += length_ptr[length_idx];
+            ++length_idx;
+            return Status::OK();
+          },
+          [&]() {
+            offsets_builder->UnsafeAppend(
+                static_cast<int32_t>(initial_offset + accum_length));
+            return Status::OK();
+          }));
+    }
+    // Phase3: Append nulls
+    out->builder->UnsafeAppendToBitmap(valid_bits, valid_bits_offset, num_values);
+    // Phase4: update the encoder internal status.
     if (ARROW_PREDICT_FALSE(!decoder_->Advance(
-            8 * static_cast<int64_t>(out->builder->value_data_length() -
-                                     origin_data_size)))) {
+            8 *
+            static_cast<int64_t>(out->builder->value_data_length() - initial_offset)))) {
       ParquetException::EofException();
     }
     length_idx_ += max_values;
