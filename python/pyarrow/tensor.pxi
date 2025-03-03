@@ -53,7 +53,7 @@ cdef class Tensor(_Weakrefable):
         return _struct.pack(f"{len(values)}n", *values)
 
     def __repr__(self):
-        return """<pyarrow.Tensor>
+        return f"""<pyarrow.Tensor>
 type: {self.type}
 shape: {self.shape}
 strides: {self.strides}"""
