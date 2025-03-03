@@ -4586,7 +4586,7 @@ function(build_orc)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
                          GIT_REPOSITORY https://github.com/apache/orc.git
-                         GIT_TAG 805d8b996d0819966d291d3d219dc8f55ce4b01e)
+                         GIT_TAG 5225b51824c529cec0aab525765dfa8367da394a)
     prepare_fetchcontent()
 
     set(CMAKE_UNITY_BUILD FALSE)
@@ -4745,7 +4745,7 @@ function(build_orc)
     externalproject_add(orc_ep
                         ${EP_COMMON_OPTIONS}
                         GIT_REPOSITORY https://github.com/apache/orc.git
-                        GIT_TAG 805d8b996d0819966d291d3d219dc8f55ce4b01e
+                        GIT_TAG 5225b51824c529cec0aab525765dfa8367da394a
                         BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
                         CMAKE_ARGS ${ORC_CMAKE_ARGS}
                         DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
