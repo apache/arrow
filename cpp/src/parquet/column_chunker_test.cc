@@ -846,6 +846,24 @@ TEST_P(TestColumnCDC, Append) {
   }
 }
 
+TEST_P(TestColumnCDC, EmptyTable) {
+  auto [dtype, nullable, _] = GetParam();
+
+  auto schema = ::arrow::schema({::arrow::field("f0", dtype, nullable)});
+  ASSERT_OK_AND_ASSIGN(auto empty_table, GenerateTable(schema, 0, 0));
+  ASSERT_EQ(empty_table->num_rows(), 0);
+
+  for (bool enable_dictionary : {false, true}) {
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         WriteAndGetPageSizes(empty_table, kMinChunkSize, kMaxChunkSize,
+                                              /*enable_dictionary=*/enable_dictionary));
+
+    // An empty table should result in no data pages
+    ASSERT_TRUE(result.lengths.empty());
+    ASSERT_TRUE(result.sizes.empty());
+  }
+}
+
 // TODO(kszucs): add extension type and dictionary type
 INSTANTIATE_TEST_SUITE_P(
     FixedSizedTypes, TestColumnCDC,
@@ -888,4 +906,3 @@ INSTANTIATE_TEST_SUITE_P(
 
 // TODO:
 // - test multiple row groups
-// - test empty
