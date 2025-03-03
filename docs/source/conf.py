@@ -114,6 +114,7 @@ extensions = [
     'breathe',
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive',
+    'linuxdoc.rstFlatTable',
     'myst_parser',
     'numpydoc',
     'sphinx_design',

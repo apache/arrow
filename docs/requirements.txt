@@ -4,6 +4,7 @@
 
 breathe
 ipython
+linuxdoc
 myst-parser[linkify]
 numpydoc
 pydata-sphinx-theme~=0.14
