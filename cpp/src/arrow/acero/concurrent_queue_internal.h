@@ -34,7 +34,6 @@ class ConcurrentQueue {
  public:
   // Pops the last item from the queue. Must be called on a non-empty queue
   //
-
   T Pop() {
     std::unique_lock<std::mutex> lock(mutex_);
     return PopUnlocked();
