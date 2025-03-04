@@ -37,6 +37,7 @@
 #include "arrow/c/abi.h"
 #include "arrow/chunked_array.h"
 #include "arrow/config.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
@@ -1082,6 +1083,13 @@ Result<std::shared_ptr<Array>> BuildArray(const std::vector<ValueType>& values) 
       auto values = StatisticsValuesToRawValues<std::string>(values_);
       return BuildArray<StringType>(values);
     }
+    Result<std::shared_ptr<Array>> operator()(const std::shared_ptr<Scalar>& scalar) {
+      auto values = StatisticsValuesToRawValues<std::shared_ptr<Scalar>>(values_);
+      ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(scalar->type));
+      ARROW_RETURN_NOT_OK(builder->Reserve(values.size()));
+      ARROW_RETURN_NOT_OK(builder->AppendScalars(values));
+      return builder->Finish();
+    }
   } builder(values);
   return std::visit(builder, values[0]);
 }
@@ -1452,6 +1460,93 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayString) {
                                                 ArrayStatistics::ValueType{"c"},
                                             }}));
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayNestedType) {
+  auto struct_type = struct_({field("a", int64()), field("b", int64())});
+  auto struct_array = ArrayFromJSON(
+      struct_type,
+      R"([{"a":1,"b":6},{"a":2,"b":7},{"a":3,"b":8},{"a":4,"b":9},{"a":5,"b":10}])");
+  ASSERT_OK_AND_ASSIGN(auto struct_nested_stat,
+                       struct_array->CopyTo(default_cpu_memory_manager()));
+  auto statistics_struct = std::make_shared<ArrayStatistics>();
+  ASSERT_OK_AND_ASSIGN(statistics_struct->max, struct_array->GetScalar(4));
+  statistics_struct->null_count = 0;
+  auto struct_array_data = struct_array->data();
+  auto statistics_struct_child_a = std::make_shared<ArrayStatistics>();
+  statistics_struct_child_a->min = 1;
+  struct_array_data->statistics = statistics_struct;
+  struct_array_data->child_data[0]->statistics = statistics_struct_child_a;
+  auto array_c = ArrayFromJSON(int64(), R"([11,12,13,14,15])");
+  array_c->data()->statistics = std::make_shared<ArrayStatistics>();
+  array_c->data()->statistics->max = 15;
+  auto array_d = ArrayFromJSON(int64(), R"([16,17,18,19,20])");
+  auto nested_child = struct_nested_stat->data()->child_data[0];
+  nested_child->statistics = std::make_shared<ArrayStatistics>();
+  nested_child->statistics->max = 5;
+  nested_child->statistics->is_max_exact = true;
+
+  auto rb_schema =
+      schema({field("struct_a_b", struct_type), field("c", int64()), field("d", int64()),
+              field("struct_copy", struct_nested_stat->type())});
+  auto rb = RecordBatch::Make(rb_schema, 5,
+                              {struct_array, array_c, array_d, struct_nested_stat});
+
+  auto expected_scalar = std::static_pointer_cast<Scalar>(std::shared_ptr<StructScalar>(
+      new StructScalar({MakeScalar(int64_t{5}), MakeScalar(int64_t{10})}, struct_type)));
+  auto a = ArrayStatistics::ValueType{std::static_pointer_cast<Scalar>(expected_scalar)};
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_array,
+      MakeStatisticsArray("[null,0,1,3,6]",
+                          {{ARROW_STATISTICS_KEY_ROW_COUNT_EXACT},
+                           {ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                            ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE},
+                           {ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE},
+                           {ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE},
+                           {ARROW_STATISTICS_KEY_MAX_VALUE_EXACT}},
+                          {{ArrayStatistics::ValueType{int64_t{5}}},
+                           {ArrayStatistics::ValueType{int64_t{0}},
+                            ArrayStatistics::ValueType{
+                                std::static_pointer_cast<Scalar>(expected_scalar)}},
+                           {ArrayStatistics::ValueType{int64_t{1}}},
+                           {ArrayStatistics::ValueType{int64_t{15}}},
+                           {ArrayStatistics::ValueType{int64_t{5}}}}));
+  ASSERT_OK_AND_ASSIGN(auto rb_stat, rb->MakeStatisticsArray());
+  AssertArraysEqual(*expected_array, *rb_stat, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayNestedNestedType) {
+  // TODO add statisics
+  // TODO TRY with Type 32
+  auto struct_type = struct_({field("a", int32()), field("b", int32())});
+  auto struct_nested_0 = ArrayFromJSON(
+      struct_type,
+      R"([{"a":1,"b":6},{"a":2,"b":7},{"a":3,"b":8},{"a":4,"b":9},{"a":5,"b":10}])");
+
+  ASSERT_OK_AND_ASSIGN(auto struct_nested_1,
+                       struct_nested_0->CopyTo(default_cpu_memory_manager()))
+  struct_nested_1->data()->statistics = std::make_shared<ArrayStatistics>();
+  struct_nested_1->data()->statistics->is_max_exact = true;
+  ASSERT_OK_AND_ASSIGN(struct_nested_1->data()->statistics->max,
+                       struct_nested_1->GetScalar(4));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto struct_parent,
+      StructArray::Make({struct_nested_0, struct_nested_1},
+                        {field("struct_nested_0", struct_nested_0->type()),
+                         field("struct_nested_1", struct_nested_1->type())}));
+  auto expected_scalar = std::static_pointer_cast<Scalar>(std::shared_ptr<StructScalar>(
+      new StructScalar({MakeScalar(int32_t{5}), MakeScalar(int32_t{10})}, struct_type)));
+  auto rb_schema = schema({field("struct", struct_parent->type())});
+  auto rb = RecordBatch::Make(rb_schema, 5, {struct_parent});
+
+  ASSERT_OK_AND_ASSIGN(auto expected_array,
+                       MakeStatisticsArray(R"([null,4])",
+                                           {{ARROW_STATISTICS_KEY_ROW_COUNT_EXACT},
+                                            {ARROW_STATISTICS_KEY_MAX_VALUE_EXACT}},
+                                           {{5}, {expected_scalar}}));
+  AssertArraysEqual(*expected_array, *rb->MakeStatisticsArray().ValueOrDie(), true);
 }
 
 template <typename DataType>

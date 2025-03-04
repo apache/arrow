@@ -487,6 +487,27 @@ struct EnumeratedStatistics {
 };
 using OnStatistics =
     std::function<Status(const EnumeratedStatistics& enumerated_statistics)>;
+using ArrayStatisticsAndTypeVector =
+    std::vector<std::pair<std::shared_ptr<ArrayStatistics>, std::shared_ptr<DataType>>>;
+ArrayStatisticsAndTypeVector ExtractArrayDataAndType(const RecordBatch& record_batch) {
+  ArrayDataVector traverse;
+  ArrayStatisticsAndTypeVector result;
+  for (int i = 0; i < record_batch.num_columns(); ++i) {
+    auto column_array_data = record_batch.column(i)->data();
+    result.emplace_back(column_array_data->statistics, column_array_data->type);
+    traverse.insert(traverse.end(), column_array_data->child_data.crbegin(),
+                    column_array_data->child_data.crend());
+    while (!traverse.empty()) {
+      auto child_data = traverse.back();
+      traverse.pop_back();
+      result.emplace_back(child_data->statistics, child_data->type);
+      traverse.insert(traverse.end(), child_data->child_data.crbegin(),
+                      child_data->child_data.crend());
+    }
+  }
+  return result;
+}
+
 Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_statistics) {
   EnumeratedStatistics statistics;
   statistics.nth_statistics = 0;
@@ -499,11 +520,11 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
   RETURN_NOT_OK(on_statistics(statistics));
   statistics.start_new_column = false;
 
-  const auto& schema = record_batch.schema();
-  const auto num_fields = schema->num_fields();
-  for (int nth_column = 0; nth_column < num_fields; ++nth_column) {
-    const auto& field = schema->field(nth_column);
-    auto column_statistics = record_batch.column(nth_column)->statistics();
+  const auto& schema = ExtractArrayDataAndType(record_batch);
+  auto num_fields = static_cast<int64_t>(schema.size());
+  for (int64_t nth_column = 0; nth_column < num_fields; ++nth_column) {
+    const auto& type = schema[nth_column].second;
+    auto column_statistics = schema[nth_column].first;
     if (!column_statistics) {
       continue;
     }
@@ -535,7 +556,7 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
       } else {
         statistics.key = ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE;
       }
-      statistics.type = column_statistics->MinArrowType(field->type());
+      statistics.type = column_statistics->MinArrowType(type);
       statistics.value = column_statistics->min.value();
       RETURN_NOT_OK(on_statistics(statistics));
       statistics.start_new_column = false;
@@ -548,7 +569,7 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
       } else {
         statistics.key = ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE;
       }
-      statistics.type = column_statistics->MaxArrowType(field->type());
+      statistics.type = column_statistics->MaxArrowType(type);
       statistics.value = column_statistics->max.value();
       RETURN_NOT_OK(on_statistics(statistics));
       statistics.start_new_column = false;
@@ -580,7 +601,7 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
   RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
     int8_t i = 0;
     for (const auto& field : values_types) {
-      if (field->type()->id() == statistics.type->id()) {
+      if (field->type()->Equals(statistics.type)) {
         break;
       }
       i++;
@@ -682,6 +703,9 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
       Status operator()(const std::string& value) {
         return static_cast<StringBuilder*>(builder)->Append(
             value.data(), static_cast<int32_t>(value.size()));
+      }
+      Status operator()(const std::shared_ptr<Scalar>& value) {
+        return builder->AppendScalar(*value);
       }
     } visitor;
     visitor.builder = values_builders[values_type_index].get();
