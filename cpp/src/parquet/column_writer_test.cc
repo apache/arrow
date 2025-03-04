@@ -410,7 +410,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   const ColumnDescriptor* descr_;
 
- private:
+ protected:
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
   std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;
@@ -1805,6 +1805,31 @@ TEST_F(TestValuesWriterInt32Type, AllNullsCompressionInPageV2) {
     this->ReadColumn(compression);
     ASSERT_EQ(0, this->values_read_);
   }
+}
+
+TEST_F(TestValuesWriterInt32Type, ZeroSizedBufferInDataPageV2) {
+  Compression::type compression = Compression::ZSTD;
+  this->SetUpSchema(Repetition::OPTIONAL);
+  this->GenerateData(SMALL_SIZE);
+  std::fill(this->def_levels_.begin(), this->def_levels_.end(), 0);
+  ColumnProperties column_properties;
+  column_properties.set_compression(compression);
+
+  auto writer =
+      this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                        ParquetDataPageVersion::V2);
+  writer->WriteBatch(static_cast<int64_t>(values_.size()), this->def_levels_.data(),
+                     nullptr, this->values_ptr_);
+  writer->Close();
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, this->sink_->Finish());
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  ReaderProperties readerProperties;
+  std::unique_ptr<PageReader> page_reader =
+      PageReader::Open(std::move(source), SMALL_SIZE, compression, readerProperties);
+  auto data_page = std::static_pointer_cast<DataPageV2>(page_reader->NextPage());
+  ASSERT_TRUE(data_page != nullptr);
+  ASSERT_FALSE(data_page->is_compressed());
 }
 
 }  // namespace test
