@@ -19,7 +19,6 @@
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 #  if defined(_MSC_VER)
-#    pragma warning(pop)
 #    pragma warning(push)
 #    pragma warning(disable : 4251)
 #  else
@@ -35,6 +34,11 @@
 #  endif
 
 #  define ARROW_COMPUTE_NO_EXPORT
+
+#  if defined(_MSC_VER)
+#    pragma warning(pop)
+#  endif
+
 #else  // Not Windows
 #  ifndef ARROW_COMPUTE_EXPORT
 #    define ARROW_COMPUTE_EXPORT __attribute__((visibility("default")))
@@ -42,4 +46,4 @@
 #  ifndef ARROW_COMPUTE_NO_EXPORT
 #    define ARROW_COMPUTE_NO_EXPORT __attribute__((visibility("hidden")))
 #  endif
-#endif  // Not-Windows
+#endif

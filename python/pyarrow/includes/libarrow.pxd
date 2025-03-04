@@ -2220,8 +2220,6 @@ cdef extern from "arrow/util/thread_pool.h" namespace "arrow::internal" nogil:
 
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
-    CStatus RegisterComputeKernels()
-
     cdef cppclass CExecBatch "arrow::compute::ExecBatch":
         vector[CDatum] values
         int64_t length
@@ -2862,6 +2860,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         const shared_ptr[CScalar]& scalar() const
 
     cdef c_string ToString(DatumType kind)
+
+cdef extern from "arrow/compute/kernels/api.h" namespace "arrow::compute" nogil:
+
+    CStatus RegisterComputeKernels()
 
 
 cdef extern from * namespace "arrow::compute":
