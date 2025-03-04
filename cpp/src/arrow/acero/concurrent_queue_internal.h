@@ -33,13 +33,13 @@ template <class T>
 class ConcurrentQueue {
  public:
   // Pops the last item from the queue. Must be called on a non-empty queue
-  //
-
   T Pop() {
     std::unique_lock<std::mutex> lock(mutex_);
     return PopUnlocked();
   }
 
+  // Pops the last item from the queue but waits if the queue is empty until new items are
+  // pushed.
   T WaitAndPop() {
     std::unique_lock<std::mutex> lock(mutex_);
     WaitUntilNonEmpty(lock);
@@ -47,31 +47,31 @@ class ConcurrentQueue {
   }
 
   // Pops the last item from the queue, or returns a nullopt if empty
-  //
   std::optional<T> TryPop() {
     std::unique_lock<std::mutex> lock(mutex_);
     return TryPopUnlocked();
   }
 
   // Pushes an item to the queue
-  //
   void Push(const T& item) {
     std::unique_lock<std::mutex> lock(mutex_);
     return PushUnlocked(item);
   }
 
   // Clears the queue
-  //
   void Clear() {
     std::unique_lock<std::mutex> lock(mutex_);
     ClearUnlocked();
   }
 
+  // Checks if the queue is empty
   bool Empty() const {
     std::unique_lock<std::mutex> lock(mutex_);
     return queue_.empty();
   }
 
+  // Returns a reference to the next element in the queue. Must be called on a non-empty
+  // queue
   const T& Front() const {
     // Need to lock the queue because `front()` may be implemented in terms
     // of `begin()`, which isn't safe with concurrent calls to e.g. `push()`.
@@ -141,12 +141,15 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
   explicit BackpressureConcurrentQueue(BackpressureHandler handler)
       : handler_(std::move(handler)) {}
 
+  // Pops the last item from the queue. Must be called on a non-empty queue
   T Pop() {
     std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
     DoHandle do_handle(*this);
     return ConcurrentQueue<T>::PopUnlocked();
   }
 
+  // Pops the last item from the queue but waits if the queue is empty until new items are
+  // pushed.
   T WaitAndPop() {
     std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
     ConcurrentQueue<T>::WaitUntilNonEmpty(lock);
@@ -154,22 +157,25 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
     return ConcurrentQueue<T>::PopUnlocked();
   }
 
+  // Pops the last item from the queue, or returns a nullopt if empty
+  std::optional<T> TryPop() {
+    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
+    DoHandle do_handle(*this);
+    return ConcurrentQueue<T>::TryPopUnlocked();
+  }
+
+  // Pushes an item to the queue
   void Push(const T& item) {
     std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
     DoHandle do_handle(*this);
     ConcurrentQueue<T>::PushUnlocked(item);
   }
 
+  // Clears the queue
   void Clear() {
     std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
     DoHandle do_handle(*this);
     ConcurrentQueue<T>::ClearUnlocked();
-  }
-
-  std::optional<T> TryPop() {
-    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
-    DoHandle do_handle(*this);
-    return ConcurrentQueue<T>::TryPopUnlocked();
   }
 
   Status ForceShutdown() { return handler_.ForceShutdown(); }

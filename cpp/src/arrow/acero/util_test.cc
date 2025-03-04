@@ -246,55 +246,55 @@ class BackpressureTestExecNode : public ExecNode {
 
 class TestBackpressureControl : public BackpressureControl {
  public:
-  explicit TestBackpressureControl(BackpressureTestExecNode* testNode)
-      : testNode(testNode) {}
-  virtual void Pause() { testNode->PauseProducing(nullptr, 0); }
-  virtual void Resume() { testNode->ResumeProducing(nullptr, 0); }
-  BackpressureTestExecNode* testNode;
+  explicit TestBackpressureControl(BackpressureTestExecNode* test_node)
+      : test_node(test_node) {}
+  virtual void Pause() { test_node->PauseProducing(nullptr, 0); }
+  virtual void Resume() { test_node->ResumeProducing(nullptr, 0); }
+  BackpressureTestExecNode* test_node;
 };
 
 TEST(BackpressureConcurrentQueue, BasicTest) {
-  BackpressureTestExecNode dummyNode;
-  auto ctrl = std::make_unique<TestBackpressureControl>(&dummyNode);
+  BackpressureTestExecNode dummy_node;
+  auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
   ASSERT_OK_AND_ASSIGN(auto handler,
-                       BackpressureHandler::Make(&dummyNode, 2, 4, std::move(ctrl)));
+                       BackpressureHandler::Make(&dummy_node, 2, 4, std::move(ctrl)));
   BackpressureConcurrentQueue<int> queue(std::move(handler));
 
   ConcurrentQueueBasicTest(queue);
-  ASSERT_FALSE(dummyNode.paused);
-  ASSERT_FALSE(dummyNode.stopped);
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
 }
 
 TEST(BackpressureConcurrentQueue, BackpressureTest) {
-  BackpressureTestExecNode dummyNode;
-  auto ctrl = std::make_unique<TestBackpressureControl>(&dummyNode);
+  BackpressureTestExecNode dummy_node;
+  auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
   ASSERT_OK_AND_ASSIGN(auto handler,
-                       BackpressureHandler::Make(&dummyNode, 2, 4, std::move(ctrl)));
+                       BackpressureHandler::Make(&dummy_node, 2, 4, std::move(ctrl)));
   BackpressureConcurrentQueue<int> queue(std::move(handler));
 
   queue.Push(6);
   queue.Push(7);
   queue.Push(8);
-  ASSERT_FALSE(dummyNode.paused);
-  ASSERT_FALSE(dummyNode.stopped);
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
   queue.Push(9);
-  ASSERT_TRUE(dummyNode.paused);
-  ASSERT_FALSE(dummyNode.stopped);
+  ASSERT_TRUE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
   ASSERT_EQ(queue.Pop(), 6);
-  ASSERT_TRUE(dummyNode.paused);
-  ASSERT_FALSE(dummyNode.stopped);
+  ASSERT_TRUE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
   ASSERT_EQ(queue.Pop(), 7);
-  ASSERT_FALSE(dummyNode.paused);
-  ASSERT_FALSE(dummyNode.stopped);
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
   queue.Push(10);
-  ASSERT_FALSE(dummyNode.paused);
-  ASSERT_FALSE(dummyNode.stopped);
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
   queue.Push(11);
-  ASSERT_TRUE(dummyNode.paused);
-  ASSERT_FALSE(dummyNode.stopped);
+  ASSERT_TRUE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
   ASSERT_OK(queue.ForceShutdown());
-  ASSERT_FALSE(dummyNode.paused);
-  ASSERT_TRUE(dummyNode.stopped);
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_TRUE(dummy_node.stopped);
 }
 
 }  // namespace acero
