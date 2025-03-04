@@ -3436,14 +3436,15 @@ struct GroupedPivotAccumulator {
     // Use take_indices to compute the output columns for this batch
     auto values_data = values.ToArrayData();
     ArrayVector new_columns(num_keys_);
+    TakeOptions take_options(/*boundscheck=*/false);
     for (int i = 0; i < num_keys_; ++i) {
       auto indices_data =
           ArrayData::Make(take_index_type, num_groups_,
                           {std::move(take_bitmaps[i]), std::move(take_indices[i])});
       // If indices_data is all nulls, we can just ignore this column.
       if (indices_data->GetNullCount() != indices_data->length) {
-        ARROW_ASSIGN_OR_RAISE(Datum grouped_column, Take(values_data, indices_data,
-                                                         TakeOptions::Defaults(), ctx_));
+        ARROW_ASSIGN_OR_RAISE(Datum grouped_column,
+                              Take(values_data, indices_data, take_options, ctx_));
         new_columns[i] = grouped_column.make_array();
       }
     }
@@ -3517,8 +3518,9 @@ struct GroupedPivotAccumulator {
     auto values_data = values.ToArrayData();
     auto indices_data = ArrayData::Make(
         take_index_type, num_groups_, {std::move(take_bitmap), std::move(take_indices)});
+    TakeOptions take_options(/*boundscheck=*/false);
     ARROW_ASSIGN_OR_RAISE(Datum grouped_column,
-                          Take(values_data, indices_data, TakeOptions::Defaults(), ctx_));
+                          Take(values_data, indices_data, take_options, ctx_));
     return MergeColumn(&columns_[key], grouped_column.make_array());
   }
 
@@ -3556,8 +3558,9 @@ struct GroupedPivotAccumulator {
                           InversePermutation(scatter_indices, options, ctx_));
     auto scatter_column =
         [&](const std::shared_ptr<Array>& column) -> Result<std::shared_ptr<Array>> {
+      TakeOptions take_options(/*boundscheck=*/false);
       ARROW_ASSIGN_OR_RAISE(auto scattered,
-                            CallFunction("take", {column, take_indices}, &options, ctx_));
+                            Take(column, take_indices, take_options, ctx_));
       return scattered.make_array();
     };
     return MergeColumns(std::move(other.columns_), std::move(scatter_column));
