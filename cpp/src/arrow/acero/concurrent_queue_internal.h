@@ -21,7 +21,6 @@
 #include <mutex>
 #include <queue>
 #include "arrow/acero/backpressure_handler.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow::acero {
 
