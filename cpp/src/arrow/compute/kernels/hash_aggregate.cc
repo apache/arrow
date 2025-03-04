@@ -3860,8 +3860,10 @@ const FunctionDoc hash_pivot_doc{
      "All output struct fields have the same type as `pivot_values`.\n"
      "Each pivot key decides in which output field the corresponding pivot value\n"
      "is emitted. If a pivot key doesn't appear in a given group, null is emitted.\n"
-     "If a pivot key appears twice in a given group, KeyError is raised.\n"
-     "Behavior of unexpected pivot keys is controlled by PivotWiderOptions."),
+     "If more than one non-null value is encountered in the same group for a\n"
+     "given pivot key, Invalid is raised.\n"
+     "Behavior of unexpected pivot keys is controlled by `unexpected_key_behavior`\n"
+     "in PivotWiderOptions."),
     {"pivot_keys", "pivot_values", "group_id_array"},
     "PivotWiderOptions"};
 

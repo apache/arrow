@@ -236,11 +236,11 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
 /// ```
 class ARROW_EXPORT PivotWiderOptions : public FunctionOptions {
  public:
-  // Configure the behavior of pivot keys not in `key_names`
+  /// Configure the behavior of pivot keys not in `key_names`
   enum UnexpectedKeyBehavior {
-    // Unexpected pivot keys are ignored silently
+    /// Unexpected pivot keys are ignored silently
     kIgnore,
-    // Unexpected pivot keys return a KeyError
+    /// Unexpected pivot keys return a KeyError
     kRaise
   };
 
@@ -251,9 +251,9 @@ class ARROW_EXPORT PivotWiderOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "PivotWiderOptions";
   static PivotWiderOptions Defaults() { return PivotWiderOptions{}; }
 
-  // The values expected in the pivot key column
+  /// The values expected in the pivot key column
   std::vector<std::string> key_names;
-  // The behavior when pivot keys not in `key_names` are encountered
+  /// The behavior when pivot keys not in `key_names` are encountered
   UnexpectedKeyBehavior unexpected_key_behavior = kIgnore;
 };
 
