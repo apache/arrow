@@ -344,7 +344,7 @@ html_theme_options = {
     "header_links_before_dropdown": 2,
     "header_dropdown_text": "Implementations",
     "navbar_align": "left",
-    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+    "navbar_end": ["kapa-ai-bot.html", "version-switcher", "theme-switcher", "navbar-icon-links"],
     "icon_links": [
         {
             "name": "GitHub",
