@@ -73,6 +73,7 @@ def _forbid_instantiation(klass, subclasses_instead=True):
         )
     raise TypeError(msg)
 
+
 # Call to Register the compute Kernels on import
 RegisterComputeKernels()
 
