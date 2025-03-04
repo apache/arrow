@@ -60,7 +60,6 @@ groups:
     - conan-*
     - debian-*
     - matlab
-    - nuget
     - python-sdist
     - r-binary-packages
     - ubuntu-*
@@ -91,7 +90,7 @@ groups:
     - example-*python*
 
   r:
-    - test*-r-*
+    - test-r-*
     - r-binary-packages
     - r-recheck-most
 
@@ -153,7 +152,6 @@ groups:
     - conan-*
     - conda-*
     - homebrew-cpp
-    - nuget
     - test-*
     - example-*
     - wheel-*
@@ -184,7 +182,6 @@ groups:
     - ~conda-osx-arm64-cpu-py3
     - conan-*
     - homebrew-cpp
-    - nuget
     - wheel-*
     - python-sdist
     - r-binary-packages
@@ -468,7 +465,6 @@ tasks:
 
 {% for target in ["debian-bookworm",
                   "debian-trixie",
-                  "ubuntu-focal",
                   "ubuntu-jammy",
                   "ubuntu-noble"] %}
   {% for architecture in ["amd64", "arm64"] %}
@@ -689,23 +685,6 @@ tasks:
     artifacts:
       - matlab-arrow-{no_rc_no_dev_version}.mltbx
 
-  ############################## NuGet packages ###############################
-
-  nuget:
-    ci: github
-    template: nuget-packages/github.linux.yml
-    params:
-      run: ubuntu-csharp
-    artifacts:
-      - Apache.Arrow.Flight.AspNetCore.{no_rc_version}.nupkg
-      - Apache.Arrow.Flight.AspNetCore.{no_rc_version}.snupkg
-      - Apache.Arrow.Flight.{no_rc_version}.nupkg
-      - Apache.Arrow.Flight.{no_rc_version}.snupkg
-      - Apache.Arrow.Compression.{no_rc_version}.nupkg
-      - Apache.Arrow.Compression.{no_rc_version}.snupkg
-      - Apache.Arrow.{no_rc_version}.nupkg
-      - Apache.Arrow.{no_rc_version}.snupkg
-
   ######################## R packages & binaries ##############################
   r-binary-packages:
     ci: github
@@ -750,17 +729,14 @@ tasks:
 
 {% for distribution, version in [("conda", "latest"),
                                  ("almalinux", "8"),
-                                 ("ubuntu", "20.04"),
-                                 ("ubuntu", "22.04")] %}
+                                 ("ubuntu", "22.04"),
+                                 ("ubuntu", "24.04")] %}
   {% for target in ["cpp",
                     "csharp",
                     "integration",
                     "js",
                     "python",
                     "ruby"] %}
-    # Skip verification for python and integration on Ubuntu 20.04
-    # GH-44253. Remove once we drop support for 20.04
-    {% if not (target in ["python", "integration"] and version == "20.04") %}
   verify-rc-source-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
     ci: github
     template: verify-rc/github.linux.amd64.docker.yml
@@ -769,20 +745,15 @@ tasks:
         {{ distribution.upper() }}: "{{ version }}"
       target: {{ target }}
       distro: {{ distribution }}
-    {% endif %}
   {% endfor %}
 
   {% for target in ["jars", "wheels"] %}
-    # Skip verification for wheels on Ubuntu 20.04
-    # GH-44253. Remove once we drop support for 20.04
-    {% if not (target == "wheels" and version == "20.04") %}
   verify-rc-binaries-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
     ci: github
     template: verify-rc/github.linux.amd64.docker.yml
     params:
       target: {{ target }}
       distro: {{ distribution }}
-    {% endif %}
   {% endfor %}
 
 {% endfor %}
@@ -898,28 +869,33 @@ tasks:
       image: {{ image }}
 {% endfor %}
 
+  test-conda-cpp-meson:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      flags: -e ARROW_USE_MESON=ON
+      image: conda-cpp
+
   test-conda-cpp-valgrind:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       image: conda-cpp-valgrind
 
-{% for ubuntu_version in ["20.04", "22.04"] %}
-  test-ubuntu-{{ ubuntu_version }}-cpp:
+  test-ubuntu-22.04-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: "{{ ubuntu_version }}"
+        UBUNTU: 22.04
       image: ubuntu-cpp
-{% endfor %}
 
-  test-ubuntu-20.04-cpp-bundled:
+  test-ubuntu-22.04-cpp-bundled:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 20.04
+        UBUNTU: 22.04
       image: ubuntu-cpp-bundled
 
   test-ubuntu-24.04-cpp-bundled-offline:
@@ -1108,22 +1084,6 @@ tasks:
         PYTEST_ARGS: "-m hypothesis -W error"
       image: conda-python-pandas
 
-  test-conda-python-3.10-substrait:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: "3.10"
-      image: conda-python-substrait
-
-  test-conda-python-3.10-cython2:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: "3.10"
-      image: conda-python-cython2
-
   test-ubuntu-22.04-python-313-freethreading:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1194,8 +1154,6 @@ tasks:
   test-r-linux-as-cran:
     ci: github
     template: r/github.linux.cran.yml
-    params:
-      MATRIX: {{ "${{ matrix.r_image }}" }}
 
   test-r-macos-as-cran:
     ci: github
@@ -1336,13 +1294,14 @@ tasks:
       r_tag: latest
       flags: "-e LIBARROW_MINIMAL=TRUE"
 
-  test-ubuntu-r-sanitizer:
+  test-r-linux-sanitizer:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         R_PRUNE_DEPS: TRUE
       image: ubuntu-r-sanitizer
+      timeout: 120
 
   test-r-clang-sanitizer:
     ci: github
@@ -1367,21 +1326,13 @@ tasks:
 
   ############################## CUDA tests #################################
 
-  test-cuda-cpp-ubuntu-20.04-cuda-11.2.2:
-    ci: github
-    template: docker-tests/github.cuda.yml
-    params:
-      env:
-        UBUNTU: 20.04
-      image: ubuntu-cuda-cpp
-
   test-cuda-cpp-ubuntu-22.04-cuda-11.7.1:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
       env:
-        UBUNTU: 22.04
         CUDA: 11.7.1
+        UBUNTU: 22.04
       image: ubuntu-cuda-cpp
 
   test-cuda-python-ubuntu-22.04-cuda-11.7.1:
@@ -1389,8 +1340,8 @@ tasks:
     template: docker-tests/github.cuda.yml
     params:
       env:
-        UBUNTU: 22.04
         CUDA: 11.7.1
+        UBUNTU: 22.04
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################

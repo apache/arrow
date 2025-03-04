@@ -33,6 +33,7 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/dataset_writer.h"
 #include "arrow/dataset/forest_internal.h"
+#include "arrow/dataset/projector.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/subtree_internal.h"
 #include "arrow/filesystem/filesystem.h"

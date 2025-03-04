@@ -15,10 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG repo
-ARG arch
-ARG python=3.9
-FROM ${repo}:${arch}-conda-python-${python}
+diff --git a/include/aws/common/byte_order.inl b/include/aws/common/byte_order.inl
+index 1204be0..0abd9cb 100644
+--- a/include/aws/common/byte_order.inl
++++ b/include/aws/common/byte_order.inl
+@@ -13,7 +13,7 @@
+ #    include <stdlib.h>
+ #else
+ #    include <netinet/in.h>
+-#endif /* _MSC_VER */
++#endif /* _WIN32 */
 
-RUN mamba install -q -y "cython<3" && \
-    mamba clean --all
+ AWS_EXTERN_C_BEGIN
+
+@@ -39,7 +39,7 @@ AWS_STATIC_IMPL uint64_t aws_hton64(uint64_t x) {
+     uint64_t v;
+     __asm__("bswap %q0" : "=r"(v) : "0"(x));
+     return v;
+-#elif defined(_MSC_VER)
++#elif defined(_WIN32)
+     return _byteswap_uint64(x);
+ #else
+     uint32_t low = x & UINT32_MAX;

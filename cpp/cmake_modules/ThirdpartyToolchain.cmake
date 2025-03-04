@@ -386,12 +386,12 @@ if(ARROW_WITH_OPENTELEMETRY)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
-if(ARROW_THRIFT)
-  set(ARROW_WITH_ZLIB ON)
-endif()
-
 if(ARROW_PARQUET)
   set(ARROW_WITH_THRIFT ON)
+endif()
+
+if(ARROW_WITH_THRIFT)
+  set(ARROW_WITH_ZLIB ON)
 endif()
 
 if(ARROW_FLIGHT)
@@ -988,9 +988,11 @@ endif()
 
 # Enable s/ccache if set by parent.
 if(CMAKE_C_COMPILER_LAUNCHER AND CMAKE_CXX_COMPILER_LAUNCHER)
+  file(TO_CMAKE_PATH "${CMAKE_C_COMPILER_LAUNCHER}" EP_CMAKE_C_COMPILER_LAUNCHER)
+  file(TO_CMAKE_PATH "${CMAKE_CXX_COMPILER_LAUNCHER}" EP_CMAKE_CXX_COMPILER_LAUNCHER)
   list(APPEND EP_COMMON_CMAKE_ARGS
-       -DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}
-       -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER})
+       -DCMAKE_C_COMPILER_LAUNCHER=${EP_CMAKE_C_COMPILER_LAUNCHER}
+       -DCMAKE_CXX_COMPILER_LAUNCHER=${EP_CMAKE_CXX_COMPILER_LAUNCHER})
 endif()
 
 if(NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
@@ -1254,13 +1256,19 @@ endif()
 # - Gandiva has a compile-time (header-only) dependency on Boost, not runtime.
 # - Tests need Boost at runtime.
 # - S3FS and Flight benchmarks need Boost at runtime.
+# - arrow_testing uses boost::filesystem. So arrow_testing requires
+#   Boost library. (boost::filesystem isn't header-only.) But if we
+#   use arrow_testing as a static library without
+#   using arrow::util::Process, we don't need boost::filesystem.
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
    OR (ARROW_FLIGHT AND (ARROW_TESTING OR ARROW_BUILD_BENCHMARKS))
-   OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS))
+   OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS)
+   OR (ARROW_TESTING AND ARROW_BUILD_SHARED))
   set(ARROW_USE_BOOST TRUE)
   set(ARROW_BOOST_REQUIRE_LIBRARY TRUE)
 elseif(ARROW_GANDIVA
+       OR ARROW_TESTING
        OR ARROW_WITH_THRIFT
        OR (NOT ARROW_USE_NATIVE_INT128))
   set(ARROW_USE_BOOST TRUE)
@@ -1765,9 +1773,10 @@ macro(build_thrift)
   if(DEFINED BOOST_ROOT)
     list(APPEND THRIFT_CMAKE_ARGS "-DBOOST_ROOT=${BOOST_ROOT}")
   endif()
-  if(DEFINED Boost_INCLUDE_DIR)
-    list(APPEND THRIFT_CMAKE_ARGS "-DBoost_INCLUDE_DIR=${Boost_INCLUDE_DIR}")
-  endif()
+  list(APPEND
+       THRIFT_CMAKE_ARGS
+       "-DBoost_INCLUDE_DIR=$<TARGET_PROPERTY:Boost::headers,INTERFACE_INCLUDE_DIRECTORIES>"
+  )
   if(DEFINED Boost_NAMESPACE)
     list(APPEND THRIFT_CMAKE_ARGS "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
   endif()
@@ -4638,6 +4647,10 @@ function(build_orc)
     set(ZLIB_HOME
         ${ZLIB_ROOT}
         CACHE STRING "" FORCE)
+    # From CMake 3.21 onwards the set(CACHE) command does not remove any normal
+    # variable of the same name from the current scope. We have to manually remove
+    # the variable via unset to avoid ORC not finding the ZLIB_LIBRARY.
+    unset(ZLIB_LIBRARY)
     set(ZLIB_LIBRARY
         ZLIB::ZLIB
         CACHE STRING "" FORCE)
@@ -5042,6 +5055,18 @@ macro(build_awssdk)
     string(APPEND AWS_C_FLAGS " -Wno-deprecated")
     string(APPEND AWS_CXX_FLAGS " -Wno-deprecated")
   endif()
+  # GH-44950: This is required to build under Rtools40 and we may be able to
+  # remove it if/when we no longer need to build under Rtools40
+  if(WIN32 AND NOT MSVC)
+    string(APPEND
+           AWS_C_FLAGS
+           " -D_WIN32_WINNT=0x0601 -D__USE_MINGW_ANSI_STDIO=1 -Wno-error -Wno-error=format= -Wno-error=format-extra-args -Wno-unused-local-typedefs -Wno-unused-variable"
+    )
+    string(APPEND
+           AWS_CXX_FLAGS
+           " -D_WIN32_WINNT=0x0601 -D__USE_MINGW_ANSI_STDIO=1 -Wno-error -Wno-error=format= -Wno-error=format-extra-args -Wno-unused-local-typedefs -Wno-unused-variable"
+    )
+  endif()
 
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
@@ -5078,6 +5103,28 @@ macro(build_awssdk)
     list(APPEND AWSSDK_PATCH_COMMAND rm -rf)
   endif()
   list(APPEND AWSSDK_PATCH_COMMAND ${AWSSDK_UNUSED_DIRECTORIES})
+
+  # Patch parts of the AWSSDK EP so it builds cleanly under Rtools40
+  if(WIN32 AND NOT MSVC)
+    find_program(PATCH patch REQUIRED)
+    # Patch aws_c_common to build under Rtools40
+    set(AWS_C_COMMON_PATCH_COMMAND ${PATCH} -p1 -i
+                                   ${CMAKE_SOURCE_DIR}/../ci/rtools/aws_c_common_ep.patch)
+    message(STATUS "Hello ${AWS_C_COMMON_PATCH_COMMAND}")
+    # aws_c_io_ep to build under Rtools40
+    set(AWS_C_IO_PATCH_COMMAND ${PATCH} -p1 -i
+                               ${CMAKE_SOURCE_DIR}/../ci/rtools/aws_c_io_ep.patch)
+    message(STATUS "Hello ${AWS_C_IO_PATCH_COMMAND}")
+    # awssdk_ep to build under Rtools40
+    list(APPEND
+         AWSSDK_PATCH_COMMAND
+         &&
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_SOURCE_DIR}/../ci/rtools/awssdk_ep.patch)
+    message(STATUS "Hello ${AWSSDK_PATCH_COMMAND}")
+  endif()
 
   if(UNIX)
     # on Linux and macOS curl seems to be required
@@ -5173,6 +5220,7 @@ macro(build_awssdk)
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_C_COMMON_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWS_C_COMMON_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${AWS_C_COMMON_PATCH_COMMAND}
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_COMMON_STATIC_LIBRARY})
   add_dependencies(AWS::aws-c-common aws_c_common_ep)
@@ -5268,6 +5316,7 @@ macro(build_awssdk)
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_C_IO_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWS_C_IO_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${AWS_C_IO_PATCH_COMMAND}
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_IO_STATIC_LIBRARY}
                       DEPENDS ${AWS_C_IO_DEPENDS})

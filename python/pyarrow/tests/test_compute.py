@@ -172,6 +172,8 @@ def test_option_class_equality(request):
         pc.RandomOptions(),
         pc.RankOptions(sort_keys="ascending",
                        null_placement="at_start", tiebreaker="max"),
+        pc.RankQuantileOptions(sort_keys="ascending",
+                               null_placement="at_start"),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
@@ -3358,6 +3360,60 @@ def test_rank_options():
         pc.RankOptions(sort_keys="descending",
                        null_placement="at_end",
                        tiebreaker="NonExisting")
+
+
+def test_rank_quantile_options():
+    arr = pa.array([None, 1, None, 2, None])
+    expected = pa.array([0.7, 0.1, 0.7, 0.3, 0.7], type=pa.float64())
+
+    # Ensure rank_quantile can be called without specifying options
+    result = pc.rank_quantile(arr)
+    assert result.equals(expected)
+
+    # Ensure default RankOptions
+    result = pc.rank_quantile(arr, options=pc.RankQuantileOptions())
+    assert result.equals(expected)
+
+    # Ensure sort_keys tuple usage
+    result = pc.rank_quantile(arr, options=pc.RankQuantileOptions(
+        sort_keys=[("b", "ascending")])
+    )
+    assert result.equals(expected)
+
+    result = pc.rank_quantile(arr, null_placement="at_start")
+    expected_at_start = pa.array([0.3, 0.7, 0.3, 0.9, 0.3], type=pa.float64())
+    assert result.equals(expected_at_start)
+
+    result = pc.rank_quantile(arr, sort_keys="descending")
+    expected_descending = pa.array([0.7, 0.3, 0.7, 0.1, 0.7], type=pa.float64())
+    assert result.equals(expected_descending)
+
+    with pytest.raises(ValueError, match="not a valid sort order"):
+        pc.rank_quantile(arr, sort_keys="XXX")
+
+
+def test_rank_normal_options():
+    arr = pa.array([None, 1, None, 2, None])
+
+    expected = pytest.approx(
+        [0.5244005127080407, -1.2815515655446004, 0.5244005127080407,
+         -0.5244005127080409, 0.5244005127080407])
+    result = pc.rank_normal(arr)
+    assert result.to_pylist() == expected
+    result = pc.rank_normal(arr, null_placement="at_end", sort_keys="ascending")
+    assert result.to_pylist() == expected
+    result = pc.rank_normal(arr, options=pc.RankQuantileOptions())
+    assert result.to_pylist() == expected
+
+    expected = pytest.approx(
+        [-0.5244005127080409, 1.2815515655446004, -0.5244005127080409,
+         0.5244005127080407, -0.5244005127080409])
+    result = pc.rank_normal(arr, null_placement="at_start", sort_keys="descending")
+    assert result.to_pylist() == expected
+    result = pc.rank_normal(arr,
+                            options=pc.RankQuantileOptions(null_placement="at_start",
+                                                           sort_keys="descending"))
+    assert result.to_pylist() == expected
 
 
 def create_sample_expressions():

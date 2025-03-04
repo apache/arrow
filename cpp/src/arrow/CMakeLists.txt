@@ -529,6 +529,7 @@ set(ARROW_UTIL_SRCS
     util/logger.cc
     util/logging.cc
     util/key_value_metadata.cc
+    util/math_internal.cc
     util/memory.cc
     util/mutex.cc
     util/ree_util.cc
@@ -771,13 +772,14 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_validity.cc
        compute/kernels/vector_array_sort.cc
        compute/kernels/vector_cumulative_ops.cc
-       compute/kernels/vector_pairwise.cc
        compute/kernels/vector_nested.cc
+       compute/kernels/vector_pairwise.cc
        compute/kernels/vector_rank.cc
        compute/kernels/vector_replace.cc
        compute/kernels/vector_run_end_encode.cc
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_sort.cc
+       compute/kernels/vector_swizzle.cc
        compute/key_hash_internal.cc
        compute/key_map_internal.cc
        compute/light_array_internal.cc

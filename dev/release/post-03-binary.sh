@@ -50,7 +50,6 @@ fi
 : ${DEPLOY_CENTOS:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_DEBIAN:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_DOCS:=${DEPLOY_DEFAULT}}
-: ${DEPLOY_NUGET:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_PYTHON:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_R:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_UBUNTU:=${DEPLOY_DEFAULT}}
@@ -76,9 +75,6 @@ if [ ${DEPLOY_DEBIAN} -gt 0 ]; then
 fi
 if [ ${DEPLOY_DOCS} -gt 0 ]; then
   rake_tasks+=(docs:release)
-fi
-if [ ${DEPLOY_NUGET} -gt 0 ]; then
-  rake_tasks+=(nuget:release)
 fi
 if [ ${DEPLOY_PYTHON} -gt 0 ]; then
   rake_tasks+=(python:release)

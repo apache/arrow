@@ -166,8 +166,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         {
           path: "c_glib/meson.build",
           hunks: [
-            ["-version = '#{@snapshot_version}'",
-             "+version = '#{@next_snapshot_version}'"],
+            ["-    version: '#{@snapshot_version}',",
+             "+    version: '#{@next_snapshot_version}',"],
           ],
         },
         {
@@ -189,6 +189,13 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           hunks: [
             ["-set(ARROW_VERSION \"#{@snapshot_version}\")",
              "+set(ARROW_VERSION \"#{@next_snapshot_version}\")"],
+          ],
+        },
+        {
+          path: "cpp/meson.build",
+          hunks: [
+            ["-    version: '#{@snapshot_version}',",
+             "+    version: '#{@next_snapshot_version}',"],
           ],
         },
         {
@@ -302,7 +309,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
                 "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
                 "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
                 "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
-                "+<p><a href=\"../#{@previous_compatible_version}/r/\">#{@previous_r_version}</a></p>",
+                "+<p><a href=\"../#{@previous_compatible_version}/r/\">" +
+                "#{@previous_r_version}</a></p>",
               ],
             ],
           },

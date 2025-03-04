@@ -30,13 +30,14 @@ RUN apt-get update -y -q && \
         lsb-release \
         wget && \
     if [ ${llvm} -ge 17 ]; then \
-      wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | \
-          gpg \
-              --import - \
-              --keyring /usr/share/keyrings/llvm-snapshot.gpg \
-              --no-default-keyring && \
-      echo "deb[keyring=/usr/share/keyrings/llvm-snapshot.gpg] https://apt.llvm.org/$(lsb_release --codename --short)/ llvm-toolchain-$(lsb_release --codename --short)-${available_llvm} main" > \
-          /etc/apt/sources.list.d/llvm.list; \
+      wget -O /usr/share/keyrings/llvm-snapshot.asc \
+        https://apt.llvm.org/llvm-snapshot.gpg.key && \
+      (echo "Types: deb"; \
+       echo "URIs: https://apt.llvm.org/$(lsb_release --codename --short)/"; \
+       echo "Suites: llvm-toolchain-$(lsb_release --codename --short)-${llvm}"; \
+       echo "Components: main"; \
+       echo "Signed-By: /usr/share/keyrings/llvm-snapshot.asc") | \
+        tee /etc/apt/sources.list.d/llvm.sources; \
     fi && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \

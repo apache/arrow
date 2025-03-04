@@ -16,7 +16,7 @@
 # under the License.
 
 import collections
-from cython cimport binding
+import warnings
 from uuid import UUID
 
 
@@ -149,7 +149,24 @@ cdef class Scalar(_Weakrefable):
     def __reduce__(self):
         return scalar, (self.as_py(), self.type)
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
+        """
+        Return this value as a Python representation.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
+        """
         raise NotImplementedError()
 
 
@@ -170,9 +187,15 @@ cdef class NullScalar(Scalar):
     def __init__(self):
         pass
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python None.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         return None
 
@@ -185,9 +208,15 @@ cdef class BooleanScalar(Scalar):
     Concrete class for boolean scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python bool.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CBooleanScalar* sp = <CBooleanScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -198,9 +227,15 @@ cdef class UInt8Scalar(Scalar):
     Concrete class for uint8 scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CUInt8Scalar* sp = <CUInt8Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -211,9 +246,15 @@ cdef class Int8Scalar(Scalar):
     Concrete class for int8 scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CInt8Scalar* sp = <CInt8Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -224,9 +265,15 @@ cdef class UInt16Scalar(Scalar):
     Concrete class for uint16 scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CUInt16Scalar* sp = <CUInt16Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -237,9 +284,15 @@ cdef class Int16Scalar(Scalar):
     Concrete class for int16 scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CInt16Scalar* sp = <CInt16Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -250,9 +303,15 @@ cdef class UInt32Scalar(Scalar):
     Concrete class for uint32 scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CUInt32Scalar* sp = <CUInt32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -263,9 +322,15 @@ cdef class Int32Scalar(Scalar):
     Concrete class for int32 scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CInt32Scalar* sp = <CInt32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -276,9 +341,15 @@ cdef class UInt64Scalar(Scalar):
     Concrete class for uint64 scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CUInt64Scalar* sp = <CUInt64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -289,9 +360,15 @@ cdef class Int64Scalar(Scalar):
     Concrete class for int64 scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python int.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CInt64Scalar* sp = <CInt64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -302,9 +379,15 @@ cdef class HalfFloatScalar(Scalar):
     Concrete class for float scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python float.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CHalfFloatScalar* sp = <CHalfFloatScalar*> self.wrapped.get()
         return PyHalf_FromHalf(sp.value) if sp.is_valid else None
@@ -315,9 +398,15 @@ cdef class FloatScalar(Scalar):
     Concrete class for float scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python float.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CFloatScalar* sp = <CFloatScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -328,9 +417,15 @@ cdef class DoubleScalar(Scalar):
     Concrete class for double scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python float.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CDoubleScalar* sp = <CDoubleScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
@@ -341,9 +436,15 @@ cdef class Decimal32Scalar(Scalar):
     Concrete class for decimal32 scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python Decimal.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CDecimal32Scalar* sp = <CDecimal32Scalar*> self.wrapped.get()
@@ -361,9 +462,15 @@ cdef class Decimal64Scalar(Scalar):
     Concrete class for decimal64 scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python Decimal.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CDecimal64Scalar* sp = <CDecimal64Scalar*> self.wrapped.get()
@@ -381,9 +488,15 @@ cdef class Decimal128Scalar(Scalar):
     Concrete class for decimal128 scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python Decimal.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CDecimal128Scalar* sp = <CDecimal128Scalar*> self.wrapped.get()
@@ -401,9 +514,15 @@ cdef class Decimal256Scalar(Scalar):
     Concrete class for decimal256 scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python Decimal.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CDecimal256Scalar* sp = <CDecimal256Scalar*> self.wrapped.get()
@@ -426,9 +545,15 @@ cdef class Date32Scalar(Scalar):
         cdef CDate32Scalar* sp = <CDate32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python datetime.datetime instance.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CDate32Scalar* sp = <CDate32Scalar*> self.wrapped.get()
 
@@ -451,9 +576,15 @@ cdef class Date64Scalar(Scalar):
         cdef CDate64Scalar* sp = <CDate64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python datetime.datetime instance.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef CDate64Scalar* sp = <CDate64Scalar*> self.wrapped.get()
 
@@ -505,9 +636,15 @@ cdef class Time32Scalar(Scalar):
         cdef CTime32Scalar* sp = <CTime32Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python datetime.timedelta instance.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CTime32Scalar* sp = <CTime32Scalar*> self.wrapped.get()
@@ -529,9 +666,15 @@ cdef class Time64Scalar(Scalar):
         cdef CTime64Scalar* sp = <CTime64Scalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python datetime.timedelta instance.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CTime64Scalar* sp = <CTime64Scalar*> self.wrapped.get()
@@ -553,11 +696,17 @@ cdef class TimestampScalar(Scalar):
         cdef CTimestampScalar* sp = <CTimestampScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Pandas Timestamp instance (if units are
         nanoseconds and pandas is available), otherwise as a Python
         datetime.datetime instance.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CTimestampScalar* sp = <CTimestampScalar*> self.wrapped.get()
@@ -601,11 +750,17 @@ cdef class DurationScalar(Scalar):
         cdef CDurationScalar* sp = <CDurationScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Pandas Timedelta instance (if units are
         nanoseconds and pandas is available), otherwise as a Python
         datetime.timedelta instance.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             CDurationScalar* sp = <CDurationScalar*> self.wrapped.get()
@@ -648,9 +803,15 @@ cdef class MonthDayNanoIntervalScalar(Scalar):
         """
         return self.as_py()
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a pyarrow.MonthDayNano.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         cdef:
             PyObject* val
@@ -673,9 +834,15 @@ cdef class BinaryScalar(Scalar):
         cdef CBaseBinaryScalar* sp = <CBaseBinaryScalar*> self.wrapped.get()
         return pyarrow_wrap_buffer(sp.value) if sp.is_valid else None
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python bytes.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         buffer = self.as_buffer()
         return None if buffer is None else buffer.to_pybytes()
@@ -694,9 +861,15 @@ cdef class StringScalar(BinaryScalar):
     Concrete class for string-like (utf8) scalars.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python string.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         buffer = self.as_buffer()
         return None if buffer is None else str(buffer, 'utf8')
@@ -745,12 +918,26 @@ cdef class ListScalar(Scalar):
         """
         return iter(self.values)
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python list.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
         arr = self.values
-        return None if arr is None else arr.to_pylist()
+        return None if arr is None else arr.to_pylist(maps_as_pydicts=maps_as_pydicts)
 
 
 cdef class FixedSizeListScalar(ListScalar):
@@ -825,13 +1012,27 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
             else:
                 raise KeyError(key) from exc
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this value as a Python dict.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
         if self.is_valid:
             try:
-                return {k: self[k].as_py() for k in self.keys()}
+                return {k: self[k].as_py(maps_as_pydicts=maps_as_pydicts) for k in self.keys()}
             except KeyError:
                 raise ValueError(
                     "Converting to Python dictionary is not supported when "
@@ -881,12 +1082,47 @@ cdef class MapScalar(ListScalar):
         for k, v in zip(arr.field(self.type.key_field.name), arr.field(self.type.item_field.name)):
             yield (k.as_py(), v.as_py())
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
-        Return this value as a Python list.
+        Return this value as a Python list or dict, depending on 'maps_as_pydicts'.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
-        cdef CStructScalar* sp = <CStructScalar*> self.wrapped.get()
-        return list(self) if sp.is_valid else None
+        if maps_as_pydicts not in (None, "lossy", "strict"):
+            raise ValueError(
+                "Invalid value for 'maps_as_pydicts': "
+                + "valid values are 'lossy', 'strict' or `None` (default). "
+                + f"Received {maps_as_pydicts!r}."
+            )
+        if not self.is_valid:
+            return None
+        if not maps_as_pydicts:
+            return list(self)
+        result_dict = {}
+        for key, value in self:
+            if key in result_dict:
+                if maps_as_pydicts == "strict":
+                    raise KeyError(
+                        "Converting to Python dictionary is not supported in strict mode "
+                        f"when duplicate keys are present (duplicate key was '{key}')."
+                    )
+                else:
+                    warnings.warn(
+                        f"Encountered key '{key}' which was already encountered.")
+            result_dict[key] = value
+        return result_dict
 
 
 cdef class DictionaryScalar(Scalar):
@@ -895,7 +1131,6 @@ cdef class DictionaryScalar(Scalar):
     """
 
     @staticmethod
-    @binding(True)  # Required for cython < 3
     def _reconstruct(type, is_valid, index, dictionary):
         cdef:
             CDictionaryScalarIndexAndDictionary value
@@ -960,11 +1195,25 @@ cdef class DictionaryScalar(Scalar):
         cdef CDictionaryScalar* sp = <CDictionaryScalar*> self.wrapped.get()
         return pyarrow_wrap_array(sp.value.dictionary)
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this encoded value as a Python object.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
-        return self.value.as_py() if self.is_valid else None
+        return self.value.as_py(maps_as_pydicts=maps_as_pydicts) if self.is_valid else None
 
 
 cdef class RunEndEncodedScalar(Scalar):
@@ -979,11 +1228,25 @@ cdef class RunEndEncodedScalar(Scalar):
         cdef CRunEndEncodedScalar* sp = <CRunEndEncodedScalar*> self.wrapped.get()
         return Scalar.wrap(sp.value)
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return underlying value as a Python object.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
-        return self.value.as_py()
+        return self.value.as_py(maps_as_pydicts=maps_as_pydicts)
 
 
 cdef class UnionScalar(Scalar):
@@ -1005,12 +1268,26 @@ cdef class UnionScalar(Scalar):
             dp = <CDenseUnionScalar*> self.wrapped.get()
             return Scalar.wrap(dp.value) if dp.is_valid else None
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return underlying value as a Python object.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
         value = self.value
-        return None if value is None else value.as_py()
+        return None if value is None else value.as_py(maps_as_pydicts=maps_as_pydicts)
 
     @property
     def type_code(self):
@@ -1034,11 +1311,25 @@ cdef class ExtensionScalar(Scalar):
         cdef CExtensionScalar* sp = <CExtensionScalar*> self.wrapped.get()
         return Scalar.wrap(sp.value) if sp.is_valid else None
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this scalar as a Python object.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
         """
-        return None if self.value is None else self.value.as_py()
+        return None if self.value is None else self.value.as_py(maps_as_pydicts=maps_as_pydicts)
 
     @staticmethod
     def from_storage(BaseExtensionType typ, value):
@@ -1095,7 +1386,16 @@ class UuidScalar(ExtensionScalar):
     Concrete class for Uuid extension scalar.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
+        """
+        Return this scalar as a Python UUID.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
+        """
         return None if self.value is None else UUID(bytes=self.value.as_py())
 
 
@@ -1152,9 +1452,15 @@ cdef class Bool8Scalar(ExtensionScalar):
     Concrete class for bool8 extension scalar.
     """
 
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         """
         Return this scalar as a Python object.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
         """
         py_val = super().as_py()
         return None if py_val is None else py_val != 0

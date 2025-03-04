@@ -18,19 +18,23 @@
 # under the License.
 
 set -e
+set -u
+set -o pipefail
 
-echo "Install Substrait Consumer Test Suite";
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <artifact>"
+  exit 1
+fi
 
-git clone https://github.com/substrait-io/consumer-testing.git
-cd consumer-testing
-# avoid installing pyarrow
-grep -v 'pyarrow\|arrow-nightlies' requirements.txt > requirements-no-arrow.txt
-pip install -r requirements-no-arrow.txt
+artifact="$1"
 
-pip install -r requirements-build.txt
-# setup substrait-java
-git submodule init
-git submodule update --init
-./build-and-copy-isthmus-shadow-jar.sh
-# install substrait_consumer library
-python setup.py install
+if type shasum >/dev/null 2>&1; then
+  sha256_generate="shasum -a 256"
+  sha512_generate="shasum -a 512"
+else
+  sha256_generate="sha256sum"
+  sha512_generate="sha512sum"
+fi
+
+${sha256_generate} "${artifact}" > "${artifact}.sha256"
+${sha512_generate} "${artifact}" > "${artifact}.sha512"

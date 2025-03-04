@@ -72,7 +72,7 @@ class RowArrayAccessor {
 
     if (!is_fixed_length_column) {
       int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
-      const uint8_t* row_ptr_base = rows.data(2);
+      const uint8_t* row_ptr_base = rows.var_length_rows();
       const RowTableImpl::offset_type* row_offsets = rows.offsets();
       uint32_t field_offset_within_row, field_length;
 
@@ -108,22 +108,21 @@ class RowArrayAccessor {
       if (field_length == 0) {
         field_length = 1;
       }
-      uint32_t row_length = rows.metadata().fixed_length;
 
       bool is_fixed_length_row = rows.metadata().is_fixed_length;
       if (is_fixed_length_row) {
         // Case 3: This is a fixed length column in a fixed length row
         //
-        const uint8_t* row_ptr_base = rows.data(1) + field_offset_within_row;
         for (int i = 0; i < num_rows; ++i) {
           uint32_t row_id = row_ids[i];
-          const uint8_t* row_ptr = row_ptr_base + row_length * row_id;
+          const uint8_t* row_ptr =
+              rows.fixed_length_rows(row_id) + field_offset_within_row;
           process_value_fn(i, row_ptr, field_length);
         }
       } else {
         // Case 4: This is a fixed length column in a varying length row
         //
-        const uint8_t* row_ptr_base = rows.data(2) + field_offset_within_row;
+        const uint8_t* row_ptr_base = rows.var_length_rows() + field_offset_within_row;
         const RowTableImpl::offset_type* row_offsets = rows.offsets();
         for (int i = 0; i < num_rows; ++i) {
           uint32_t row_id = row_ids[i];
@@ -142,13 +141,10 @@ class RowArrayAccessor {
   template <class PROCESS_VALUE_FN>
   static void VisitNulls(const RowTableImpl& rows, int column_id, int num_rows,
                          const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
-    const uint8_t* null_masks = rows.null_masks();
-    uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
     uint32_t pos_after_encoding = rows.metadata().pos_after_encoding(column_id);
     for (int i = 0; i < num_rows; ++i) {
       uint32_t row_id = row_ids[i];
-      int64_t bit_id = row_id * null_mask_num_bytes * 8 + pos_after_encoding;
-      process_value_fn(i, bit_util::GetBit(null_masks, bit_id) ? 0xff : 0);
+      process_value_fn(i, rows.is_null(row_id, pos_after_encoding) ? 0xff : 0);
     }
   }
 
@@ -179,7 +175,7 @@ class RowArrayAccessor {
 // Read operations (row comparison, column decoding)
 // can be called by multiple threads concurrently.
 //
-struct RowArray {
+struct ARROW_ACERO_EXPORT RowArray {
   RowArray() : is_initialized_(false), hardware_flags_(0) {}
 
   Status InitIfNeeded(MemoryPool* pool, int64_t hardware_flags, const ExecBatch& batch);
@@ -384,8 +380,8 @@ class SwissTableMerge {
   // Max block id value greater or equal to the number of blocks guarantees that
   // the search will not be stopped.
   //
-  static inline bool InsertNewGroup(SwissTable* target, uint64_t group_id, uint32_t hash,
-                                    int64_t max_block_id);
+  static inline bool InsertNewGroup(SwissTable* target, uint32_t group_id, uint32_t hash,
+                                    uint32_t max_block_id);
 };
 
 struct SwissTableWithKeys {
@@ -527,19 +523,27 @@ class SwissTableForJoin {
 //
 class SwissTableForJoinBuild {
  public:
-  Status Init(SwissTableForJoin* target, int dop, int64_t num_rows,
+  Status Init(SwissTableForJoin* target, int dop, int64_t num_rows, int64_t num_batches,
               bool reject_duplicate_keys, bool no_payload,
               const std::vector<KeyColumnMetadata>& key_types,
               const std::vector<KeyColumnMetadata>& payload_types, MemoryPool* pool,
               int64_t hardware_flags);
 
-  // In the first phase of parallel hash table build, threads pick unprocessed
-  // exec batches, partition the rows based on hash, and update all of the
-  // partitions with information related to that batch of rows.
+  // In the first phase of parallel hash table build, each thread picks unprocessed exec
+  // batches, hashes the batches and preserve the hashes, then partition the rows based on
+  // hashes.
   //
-  Status PushNextBatch(int64_t thread_id, const ExecBatch& key_batch,
-                       const ExecBatch* payload_batch_maybe_null,
-                       arrow::util::TempVectorStack* temp_stack);
+  Status PartitionBatch(size_t thread_id, int64_t batch_id, const ExecBatch& key_batch,
+                        arrow::util::TempVectorStack* temp_stack);
+
+  // In the second phase of parallel hash table build, each thread picks the given
+  // partition of all batches, and updates that particular partition with information
+  // related to that batch of rows.
+  //
+  Status ProcessPartition(size_t thread_id, int64_t batch_id, int prtn_id,
+                          const ExecBatch& key_batch,
+                          const ExecBatch* payload_batch_maybe_null,
+                          arrow::util::TempVectorStack* temp_stack);
 
   // Allocate memory and initialize counters required for parallel merging of
   // hash table partitions.
@@ -547,7 +551,7 @@ class SwissTableForJoinBuild {
   //
   Status PreparePrtnMerge();
 
-  // Second phase of parallel hash table build.
+  // Third phase of parallel hash table build.
   // Each partition can be processed by a different thread.
   // Parallel step.
   //
@@ -568,9 +572,6 @@ class SwissTableForJoinBuild {
 
  private:
   void InitRowArray();
-  Status ProcessPartition(int64_t thread_id, const ExecBatch& key_batch,
-                          const ExecBatch* payload_batch_maybe_null,
-                          arrow::util::TempVectorStack* temp_stack, int prtn_id);
 
   SwissTableForJoin* target_;
   // DOP stands for Degree Of Parallelism - the maximum number of participating
@@ -608,6 +609,22 @@ class SwissTableForJoinBuild {
   MemoryPool* pool_;
   int64_t hardware_flags_;
 
+  // One per batch.
+  //
+  // Informations like hashes and partitions of each batch gathered in the partition phase
+  // and used in the build phase.
+  //
+  struct BatchState {
+    // Hashes for the batch, preserved in the partition phase to avoid recomputation in
+    // the build phase. One element per row in the batch.
+    std::vector<uint32_t> hashes;
+    // Accumulative number of rows in each partition for the batch. `num_prtns_` + 1
+    // elements.
+    std::vector<uint16_t> prtn_ranges;
+    // Row ids after partition sorting the batch. One element per row in the batch.
+    std::vector<uint16_t> prtn_row_ids;
+  };
+
   // One per partition.
   //
   struct PartitionState {
@@ -624,17 +641,13 @@ class SwissTableForJoinBuild {
   // batches.
   //
   struct ThreadState {
-    std::vector<uint32_t> batch_hashes;
-    std::vector<uint16_t> batch_prtn_ranges;
-    std::vector<uint16_t> batch_prtn_row_ids;
-    std::vector<int> temp_prtn_ids;
     std::vector<uint32_t> temp_group_ids;
     std::vector<KeyColumnArray> temp_column_arrays;
   };
 
+  std::vector<BatchState> batch_states_;
   std::vector<PartitionState> prtn_states_;
   std::vector<ThreadState> thread_states_;
-  PartitionLocks prtn_locks_;
 
   std::vector<int64_t> partition_keys_first_row_id_;
   std::vector<int64_t> partition_payloads_first_row_id_;

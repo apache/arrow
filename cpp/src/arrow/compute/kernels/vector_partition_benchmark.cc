@@ -17,8 +17,9 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/array/array_base.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"

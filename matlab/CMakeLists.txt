@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.25)
 
 # Build the Arrow C++ libraries using ExternalProject_Add.
 function(build_arrow)
@@ -100,7 +100,7 @@ endfunction()
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(MLARROW_VERSION "19.0.0-SNAPSHOT")
+set(MLARROW_VERSION "20.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" MLARROW_BASE_VERSION "${MLARROW_VERSION}")
 
 project(mlarrow VERSION "${MLARROW_BASE_VERSION}")

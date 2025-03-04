@@ -158,6 +158,8 @@ class TrackedRandomAccessFileImpl : public TrackedRandomAccessFile {
     return read_ranges_;
   }
 
+  void ResetStats() override { read_ranges_.clear(); }
+
  private:
   io::RandomAccessFile* delegate_;
   std::vector<io::ReadRange> read_ranges_;

@@ -15,4 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arm64v8/ubuntu:focal
+# Ruby lint begins minimal.
+# All of checkings changed to disable by default.
+AllCops:
+  DisabledByDefault: true
+
+Lint:
+  Enabled: false
+
+Layout/LineLength:
+  Max: 100
+
+Layout/ArgumentAlignment:
+  Enabled: true
+
+Layout/SpaceAfterComma:
+  Enabled: true

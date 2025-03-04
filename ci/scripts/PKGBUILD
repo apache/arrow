@@ -18,25 +18,22 @@
 _realname=arrow
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=18.1.0.9000
+pkgver=19.0.1.9000
 pkgrel=8000
 pkgdesc="Apache Arrow is a cross-language development platform for in-memory data (mingw-w64)"
 arch=("any")
 url="https://arrow.apache.org/"
 license=("Apache-2.0")
-depends=("${MINGW_PACKAGE_PREFIX}-aws-sdk-cpp"
-         "${MINGW_PACKAGE_PREFIX}-bzip2"
+depends=("${MINGW_PACKAGE_PREFIX}-bzip2"
          "${MINGW_PACKAGE_PREFIX}-curl" # for google-cloud-cpp bundled build
          "${MINGW_PACKAGE_PREFIX}-libutf8proc"
          "${MINGW_PACKAGE_PREFIX}-re2"
-         "${MINGW_PACKAGE_PREFIX}-thrift"
          "${MINGW_PACKAGE_PREFIX}-snappy"
          "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-lz4"
          "${MINGW_PACKAGE_PREFIX}-zstd"
          "${MINGW_PACKAGE_PREFIX}-brotli")
 makedepends=("${MINGW_PACKAGE_PREFIX}-ccache"
-             "${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-gcc")
 options=("staticlibs" "strip" "!buildflags")
 
@@ -82,8 +79,31 @@ build() {
   # CMAKE_UNITY_BUILD is set to OFF as otherwise some compute functionality
   # segfaults in tests
 
+  # We use the bundled AWS SDK instead of the MINGW one because the upstream
+  # one on rtools packages is unmaintained, uses an old version (1.7.365)
+  # and does not work with newer versions of CMake. See comments:
+  # https://github.com/apache/arrow/pull/44989/files#r1901428998
+
+  # We use the bundled Apache Thrift instead of the MINGW one because
+  # the upstream one on rtools packages is unmaintained. Apache Thrift
+  # still have the following problem:
+  #
+  #   https://github.com/apache/thrift/pull/2725
+  #
+  # The original MSYS2 package has another fix:
+  #
+  #   https://github.com/msys2/MINGW-packages/blob/master/mingw-w64-thrift/002-fix-pkgconfig-paths.patch
+  #
+  # But one on rtools packages doesn't have the fix. So we can't use
+  # the MINGW one.
+
+  # MSYS2_ARG_CONV_EXCL is needed to prevent autoconverting CMAKE_INSTALL_PREFIX
+  # to Windows paths. See https://www.msys2.org/docs/filesystem-paths/#process-arguments
+
+  # We require the full path to the CMake executable in order to build Arrow
+  # which is in the Program Files directory: "/c/Program Files/CMake/bin/cmake"
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
-    ${MINGW_PREFIX}/bin/cmake.exe \
+    "${PROGRAMFILES}\CMake\bin\cmake.exe" \
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
     -DARROW_ACERO=ON \
@@ -116,10 +136,12 @@ build() {
     -DARROW_WITH_BZ2=ON \
     -DARROW_ZSTD_USE_SHARED=OFF \
     -DARROW_CXXFLAGS="${CPPFLAGS}" \
+    -DAWSSDK_SOURCE=BUNDLED \
     -DCMAKE_BUILD_TYPE="release" \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
     -DCMAKE_UNITY_BUILD=OFF \
-    -DCMAKE_VERBOSE_MAKEFILE=ON
+    -DCMAKE_VERBOSE_MAKEFILE=ON \
+    -DThrift_SOURCE=BUNDLED
 
   make -j3
   popd

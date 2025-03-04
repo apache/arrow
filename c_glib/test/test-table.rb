@@ -243,6 +243,77 @@ valid:
                    all_values)
     end
 
+    sub_test_case("#validate") do
+      def setup
+        @id_field = Arrow::Field.new("id", Arrow::UInt8DataType.new)
+        @name_field = Arrow::Field.new("name", Arrow::StringDataType.new)
+        @schema = Arrow::Schema.new([@id_field, @name_field])
+
+        @id_array = build_uint_array([1])
+        @name_array = build_string_array(["abc"])
+        @arrays = [@id_array, @name_array]
+      end
+
+      def test_valid
+        table = Arrow::Table.new(@schema, @arrays)
+
+        assert do
+          table.validate
+        end
+      end
+
+      def test_invalid
+        message = "[table][validate]: Invalid: " +
+          "Column 1 named name expected length 1 but got length 2"
+
+        invalid_values = [@id_array, build_string_array(["abc", "def"])]
+        table = Arrow::Table.new(@schema, invalid_values)
+        assert_raise(Arrow::Error::Invalid.new(message)) do
+          table.validate
+        end
+      end
+    end
+
+    sub_test_case("#validate_full") do
+      def setup
+        @id_field = Arrow::Field.new("uint8", Arrow::UInt8DataType.new)
+        @name_field = Arrow::Field.new("string", Arrow::StringDataType.new)
+        @schema = Arrow::Schema.new([@id_field, @name_field])
+
+        @id_values = build_uint_array([1])
+        @valid_name_values = build_string_array(["abc"])
+
+        # U+3042 HIRAGANA LETTER A, U+3044 HIRAGANA LETTER I
+        data = "\u3042\u3044".b[0..-2]
+        value_offsets = Arrow::Buffer.new([0, data.size].pack("l*"))
+        @invalid_name_values = Arrow::StringArray.new(1,
+                                                      value_offsets,
+                                                      Arrow::Buffer.new(data),
+                                                      nil,
+                                                      -1)
+      end
+
+      def test_valid
+        columns = [@id_values, @valid_name_values]
+        table = Arrow::Table.new(@schema, columns)
+
+        assert do
+          table.validate_full
+        end
+      end
+
+      def test_invalid
+        message = "[table][validate-full]: Invalid: " +
+          "Column 1: In chunk 0: Invalid: Invalid UTF8 sequence at string index 0"
+        columns = [@id_values, @invalid_name_values]
+        table = Arrow::Table.new(@schema, columns)
+
+        assert_raise(Arrow::Error::Invalid.new(message)) do
+          table.validate_full
+        end
+      end
+    end
+
     sub_test_case("#write_as_feather") do
       def setup
         super

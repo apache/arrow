@@ -19,7 +19,7 @@
 #include <memory>
 #include <string>
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/testing/gtest_util.h"

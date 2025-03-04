@@ -25,7 +25,6 @@ build_dir=${1}
 shift
 
 export ARROW_HOME=${source_dir}
-export CONAN_HOOK_ERROR_LEVEL=40
 
 conan_args=()
 conan_args+=(--build=missing)
@@ -67,6 +66,7 @@ fi
 
 version=$(grep '^set(ARROW_VERSION ' ${ARROW_HOME}/cpp/CMakeLists.txt | \
             grep -E -o '([0-9.]*)')
+conan_args+=(--version ${version})
 
 rm -rf ~/.conan/data/arrow/
 rm -rf ${build_dir}/conan || sudo rm -rf ${build_dir}/conan
@@ -78,4 +78,4 @@ else
   sudo chown -R $(id -u):$(id -g) ${build_dir}/conan/
 fi
 cd ${build_dir}/conan/all
-conan create . arrow/${version}@ "${conan_args[@]}" "$@"
+conan create . "${conan_args[@]}" "$@"

@@ -123,13 +123,11 @@ x-hierarchy:
         - conda-python-pandas:
           - conda-python-docs
         - conda-python-cpython-debug
-        - conda-python-cython2
         - conda-python-dask
         - conda-python-emscripten
         - conda-python-hdfs
         - conda-python-no-numpy
         - conda-python-spark
-        - conda-python-substrait
   - conda-verify-rc
   - conan
   - debian-cpp:
@@ -176,9 +174,9 @@ x-hierarchy:
   - python-free-threaded-wheel-manylinux-test-imports
   - python-wheel-manylinux-test-unittests
   - python-free-threaded-wheel-manylinux-test-unittests
-  - python-wheel-windows-vs2019-base:
-    - python-wheel-windows-vs2019
-    - python-free-threaded-wheel-windows-vs2019
+  - python-wheel-windows-vs2022-base:
+    - python-wheel-windows-vs2022
+    - python-free-threaded-wheel-windows-vs2022
   - python-wheel-windows-test-base:
     - python-wheel-windows-test
     - python-free-threaded-wheel-windows-test
@@ -332,6 +330,7 @@ services:
       ARROW_FLIGHT_SQL: "OFF"
       ARROW_GANDIVA: "OFF"
       ARROW_JEMALLOC: "OFF"
+      ARROW_MIMALLOC: "OFF"
       ARROW_RUNTIME_SIMD_LEVEL: "AVX2"  # AVX512 not supported by Valgrind (ARROW-9851)
       ARROW_TEST_MEMCHECK: "ON"
       ARROW_USE_LD_GOLD: "ON"
@@ -379,7 +378,7 @@ services:
     #   docker compose run --rm ubuntu-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 20.04, 22.04, 24.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -390,6 +389,7 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         gcc: ${GCC}
         llvm: ${LLVM}
     shm_size: *shm-size
@@ -415,7 +415,7 @@ services:
     #   docker compose run --rm ubuntu-cpp-static
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-static
     build:
       context: .
@@ -426,6 +426,7 @@ services:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         gcc: ${GCC}
         llvm: ${LLVM}
     shm_size: *shm-size
@@ -455,6 +456,8 @@ services:
       dockerfile: ci/docker/centos-7-cpp.dockerfile
       cache_from:
         - ${REPO}:centos-7-cpp-static
+      args:
+        cmake: ${CMAKE}
     shm_size: *shm-size
     volumes:
       - .:/arrow:delegated
@@ -477,6 +480,7 @@ services:
       args:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
@@ -571,6 +575,7 @@ services:
         arch: ${ARCH}
         base: nvidia/cuda:${CUDA}-devel-ubuntu${UBUNTU}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
@@ -621,6 +626,7 @@ services:
       args:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
@@ -656,7 +662,7 @@ services:
     #   docker compose run --rm ubuntu-cpp-thread-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -700,6 +706,7 @@ services:
       args:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
+        cmake: ${CMAKE}
         llvm: ${LLVM}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
@@ -742,8 +749,8 @@ services:
     # Usage:
     #   docker compose run --rm conan
     # Parameters:
-    #   CONAN_BASE: gcc11, gcc11-armv7, ...
-    #   CONAN_VERSION: 1.62.0
+    #   CONAN_BASE: gcc11-ubuntu16.04, ...
+    #   CONAN_VERSION: 2.12.1, ...
     #   See https://github.com/conan-io/conan-docker-tools#readme for
     #   available images.
     image: conanio/${CONAN_BASE}:${CONAN_VERSION}
@@ -797,7 +804,7 @@ services:
     #   docker compose run --rm ubuntu-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     build:
       context: .
@@ -857,7 +864,7 @@ services:
     #   docker compose run --rm ubuntu-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
     build:
       context: .
@@ -1124,7 +1131,7 @@ services:
     #   docker compose run --rm ubuntu-python-313-freethreading
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04, 24.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-313-freethreading
     build:
       context: .
@@ -1266,81 +1273,81 @@ services:
       CHECK_UNITTESTS: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
-  python-wheel-windows-vs2019-base:
-    image: ${REPO}:python-wheel-windows-vs2019-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+  python-wheel-windows-vs2022-base:
+    image: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
         vcpkg: ${VCPKG}
       context: .
-      dockerfile: ci/docker/python-wheel-windows-vs2019-base.dockerfile
+      dockerfile: ci/docker/python-wheel-windows-vs2022-base.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
       # Uncomment if no local cache is available.
       # cache_from:
-      #   - abrarov/msvc-2019:2.11.0
-      #   - ${REPO}:python-wheel-windows-vs2019-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
-    volumes: &python-wheel-windows-vs2019-volumes
+      #   - mcr.microsoft.com/windows/servercore:ltsc2022
+      #   - ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    volumes: &python-wheel-windows-vs2022-volumes
       - type: bind
         source: .
         target: "C:/arrow"
 
-  python-wheel-windows-vs2019:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+  python-wheel-windows-vs2022:
+    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
-        base: ${REPO}:python-wheel-windows-vs2019-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+        base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/python-wheel-windows-vs2019.dockerfile
+      dockerfile: ci/docker/python-wheel-windows-vs2022.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
       # Uncomment if no local cache is available.
       # cache_from:
-      #   - abrarov/msvc-2019:2.11.0
-      #   - ${REPO}:python-${PYTHON}-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
-    volumes: *python-wheel-windows-vs2019-volumes
+      #   - mcr.microsoft.com/windows/servercore:ltsc2022
+      #   - ${REPO}:python-${PYTHON}-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    volumes: *python-wheel-windows-vs2022-volumes
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
-  python-free-threaded-wheel-windows-vs2019:
-    image: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+  python-free-threaded-wheel-windows-vs2022:
+    image: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
-        base: ${REPO}:python-wheel-windows-vs2019-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+        base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/python-free-threaded-wheel-windows-vs2019.dockerfile
+      dockerfile: ci/docker/python-free-threaded-wheel-windows-vs2022.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
       # Uncomment if no local cache is available.
       # cache_from:
-      #   - abrarov/msvc-2019:2.11.0
-      #   - ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
-    volumes: *python-wheel-windows-vs2019-volumes
+      #   - mcr.microsoft.com/windows/servercore:ltsc2022
+      #   - ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    volumes: *python-wheel-windows-vs2022-volumes
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
   python-wheel-windows-test-base:
-    image: ${REPO}:python-wheel-windows-test-vs2019-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+    image: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
     build:
       context: .
-      dockerfile: ci/docker/python-wheel-windows-test-vs2019-base.dockerfile
-    volumes: *python-wheel-windows-vs2019-volumes
+      dockerfile: ci/docker/python-wheel-windows-test-vs2022-base.dockerfile
+    volumes: *python-wheel-windows-vs2022-volumes
 
   python-wheel-windows-test:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2019-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2022-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
     build:
       args:
-        base: ${REPO}:python-wheel-windows-test-vs2019-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+        base: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
         python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/python-wheel-windows-test-vs2019.dockerfile
-    volumes: *python-wheel-windows-vs2019-volumes
+      dockerfile: ci/docker/python-wheel-windows-test-vs2022.dockerfile
+    volumes: *python-wheel-windows-vs2022-volumes
     command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
 
   python-free-threaded-wheel-windows-test:
-    image: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-test-vs2019-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+    image: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-test-vs2022-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
     build:
       args:
-        base: ${REPO}:python-wheel-windows-test-vs2019-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+        base: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
       context: .
-      dockerfile: ci/docker/python-free-threaded-wheel-windows-test-vs2019.dockerfile
-    volumes: *python-wheel-windows-vs2019-volumes
+      dockerfile: ci/docker/python-free-threaded-wheel-windows-test-vs2022.dockerfile
+    volumes: *python-wheel-windows-vs2022-volumes
     command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
 
   ##############################  Integration #################################
@@ -1467,57 +1474,6 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_dask.sh"]
 
-  conda-python-substrait:
-    # Usage:
-    #   docker compose build conda
-    #   docker compose build conda-cpp
-    #   docker compose build conda-python
-    #   docker compose build conda-python-substrait
-    #   docker compose run --rm conda-python-substrait
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}
-    build:
-      context: .
-      dockerfile: ci/docker/conda-python-substrait.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        python: ${PYTHON}
-    shm_size: *shm-size
-    environment:
-      <<: [*common, *ccache]
-      ARROW_SUBSTRAIT: "ON"
-    volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_substrait.sh"]
-
-  conda-python-cython2:
-    # Usage:
-    #   docker compose build conda
-    #   docker compose build conda-cpp
-    #   docker compose build conda-python
-    #   docker compose build conda-python-cython2
-    #   docker compose run --rm conda-python-cython2
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-cython2
-    build:
-      context: .
-      dockerfile: ci/docker/conda-python-cython2.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}-cython2
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        python: ${PYTHON}
-    shm_size: *shm-size
-    environment:
-      <<: [*common, *ccache]
-      PYTEST_ARGS:  # inherit
-    volumes: *conda-volumes
-    command: *python-conda-command
-
   conda-python-cpython-debug:
     # Usage:
     #   docker compose build conda
@@ -1607,6 +1563,7 @@ services:
         - ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
       args:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
+        cmake: ${CMAKE}
         r_dev: ${ARROW_R_DEV}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
@@ -1625,11 +1582,11 @@ services:
       /bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
-    # Only 20.04 and amd64 supported
+    # Only amd64 supported
     # Usage:
     #   docker compose build ubuntu-r-sanitizer
     #   docker compose run ubuntu-r-sanitizer
-    image: ${REPO}:amd64-ubuntu-20.04-r-sanitizer
+    image: ${REPO}:amd64-ubuntu-r-sanitizer
     cap_add:
       # LeakSanitizer and gdb requires ptrace(2)
       - SYS_PTRACE
@@ -1637,9 +1594,10 @@ services:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-20.04-r-sanitizer
+        - ${REPO}:amd64-ubuntu-r-sanitizer
       args:
         base: wch1/r-debug:latest
+        cmake: ${CMAKE}
         r_bin: RDsan
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
@@ -1660,6 +1618,7 @@ services:
         - ${REPO}:r-rhub-clang-devel-latest
       args:
         base: rhub/clang-asan
+        cmake: ${CMAKE}
         r_dev: ${ARROW_R_DEV}
         r_bin: R
         tz: ${TZ}
@@ -1679,18 +1638,19 @@ services:
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
   ubuntu-r-valgrind:
-    # Only 20.04 and amd64 supported
+    # Only amd64 supported
     # Usage:
     #   docker compose build ubuntu-r-valgrind
     #   docker compose run ubuntu-r-valgrind
-    image: ${REPO}:amd64-ubuntu-20.04-r-valgrind
+    image: ${REPO}:amd64-ubuntu-r-valgrind
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-20.04-r-valgrind
+        - ${REPO}:amd64-ubuntu-r-valgrind
       args:
         base: wch1/r-debug:latest
+        cmake: ${CMAKE}
         r_bin: RDvalgrind
         tz: ${TZ}
     environment:
@@ -1830,8 +1790,6 @@ services:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-docs
       args:
         r: ${R}
-        jdk: ${JDK}
-        maven: ${MAVEN}
         node: ${NODE}
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
     # This is for Chromium used by Mermaid. Chromium uses namespace
@@ -2049,7 +2007,7 @@ services:
     #   docker compose build ubuntu-verify-rc
     #   docker compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc
     # Parameters:
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
     build:
       context: .
@@ -2057,8 +2015,9 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
       args:
-        repo: ${REPO}
         arch: ${ARCH}
+        cmake: ${CMAKE}
+        repo: ${REPO}
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
