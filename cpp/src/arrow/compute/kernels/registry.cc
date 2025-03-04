@@ -67,7 +67,7 @@ Status RegisterComputeKernels() {
   internal::RegisterHashAggregateBasic(registry);
   internal::RegisterScalarAggregateBasic(registry);
   internal::RegisterScalarAggregateMode(registry);
-  internal::RegisterScalarAggregatePivot(registry.get());
+  internal::RegisterScalarAggregatePivot(registry);
   internal::RegisterScalarAggregateQuantile(registry);
   internal::RegisterScalarAggregateTDigest(registry);
   internal::RegisterScalarAggregateVariance(registry);
