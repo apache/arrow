@@ -246,7 +246,8 @@ class BackpressureTestExecNode : public ExecNode {
 
 class TestBackpressureControl : public BackpressureControl {
  public:
-  TestBackpressureControl(BackpressureTestExecNode* testNode) : testNode(testNode) {}
+  explicit TestBackpressureControl(BackpressureTestExecNode* testNode)
+      : testNode(testNode) {}
   virtual void Pause() { testNode->PauseProducing(nullptr, 0); }
   virtual void Resume() { testNode->ResumeProducing(nullptr, 0); }
   BackpressureTestExecNode* testNode;
