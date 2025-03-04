@@ -22,7 +22,7 @@ namespace Apache.Arrow
 {
     public static class BitUtility
     {
-        private static ReadOnlySpan<byte> PopcountTable => new byte[] {
+        private static readonly byte[] s_popcountTable = [
             0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
             1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
             1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
@@ -31,35 +31,31 @@ namespace Apache.Arrow
             2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
             2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
             3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
-        };
+        ];
 
-        private static ReadOnlySpan<byte> BitMask => new byte[] {
+        private static readonly byte[] s_bitMask = [
             1, 2, 4, 8, 16, 32, 64, 128
-        };
+        ];
 
         public static bool GetBit(byte data, int index) =>
             ((data >> index) & 1) != 0;
 
         public static bool GetBit(ReadOnlySpan<byte> data, int index) =>
-            (data[index / 8] & BitMask[index % 8]) != 0;
+            (data[index / 8] & s_bitMask[index % 8]) != 0;
 
-        public static void ClearBit(Span<byte> data, int index)
-        {
-            data[index / 8] &= (byte) ~BitMask[index % 8];
-        }
+        public static void ClearBit(Span<byte> data, int index) => 
+            data[index / 8] &= (byte)~s_bitMask[index % 8];
 
-        public static void SetBit(Span<byte> data, int index)
-        {
-            data[index / 8] |= BitMask[index % 8];
-        }
+        public static void SetBit(Span<byte> data, int index) => 
+            data[index / 8] |= s_bitMask[index % 8];
 
         public static void SetBit(Span<byte> data, int index, bool value)
         {
             int idx = index / 8;
             int mod = index % 8;
             data[idx] = value
-                ? (byte)(data[idx] | BitMask[mod])
-                : (byte)(data[idx] & ~BitMask[mod]);
+                ? (byte)(data[idx] | s_bitMask[mod])
+                : (byte)(data[idx] & ~s_bitMask[mod]);
         }
 
         /// <summary>
@@ -125,7 +121,7 @@ namespace Apache.Arrow
 
         public static void ToggleBit(Span<byte> data, int index)
         {
-            data[index / 8] ^= BitMask[index % 8];
+            data[index / 8] ^= s_bitMask[index % 8];
         }
 
         /// <summary>
@@ -210,7 +206,7 @@ namespace Apache.Arrow
         {
             int count = 0;
             foreach (byte t in data)
-                count += PopcountTable[t];
+                count += s_popcountTable[t];
             return count;
         }
 
