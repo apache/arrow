@@ -1851,7 +1851,10 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         write_page_index=False,
         write_page_checksum=False,
         sorting_columns=None,
-        store_decimal_as_integer=False) except *:
+        store_decimal_as_integer=False,
+        cdc=False,
+        cdc_size_range=None,
+        cdc_norm_factor=None) except *:
 
     """General writer properties"""
     cdef:
@@ -1987,6 +1990,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
             raise TypeError(
                 "'column_encoding' should be a dictionary or a string")
 
+    # size limits
+
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
 
@@ -1995,6 +2000,18 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
 
     if dictionary_pagesize_limit is not None:
         props.dictionary_pagesize_limit(dictionary_pagesize_limit)
+
+    # content defined chunking
+    if cdc:
+        props.enable_cdc()
+    else:
+        props.disable_cdc()
+
+    if cdc_size_range is not None:
+        min_size, max_size = cdc_size_range
+        props.cdc_size_range(min_size, max_size)
+    if cdc_norm_factor is not None:
+        props.cdc_norm_factor(cdc_norm_factor)
 
     # encryption
 
@@ -2169,7 +2186,10 @@ cdef class ParquetWriter(_Weakrefable):
                   write_page_index=False,
                   write_page_checksum=False,
                   sorting_columns=None,
-                  store_decimal_as_integer=False):
+                  store_decimal_as_integer=False,
+                  cdc=False,
+                  cdc_size_range=None,
+                  cdc_norm_factor=None):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2204,6 +2224,7 @@ cdef class ParquetWriter(_Weakrefable):
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
+            cdc=cdc, cdc_size_range=cdc_size_range, cdc_norm_factor=cdc_norm_factor
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
