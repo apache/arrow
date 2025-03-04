@@ -193,7 +193,7 @@ void ConcurrentQueueBasicTest(Queue& queue) {
   ASSERT_TRUE(queue.Empty());
   queue.Push(1);
   ASSERT_FALSE(queue.Empty());
-  ASSERT_EQ(queue.Pop(), 1);
+  ASSERT_EQ(queue.TryPop(), std::make_optional(1));
   ASSERT_TRUE(queue.Empty());
 
   auto fut_pop = std::async(std::launch::async, [&]() { return queue.WaitAndPop(); });
@@ -225,7 +225,7 @@ TEST(ConcurrentQueue, BasicTest) {
 class BackpressureTestExecNode : public ExecNode {
  public:
   BackpressureTestExecNode() : ExecNode(nullptr, {}, {}, nullptr) {}
-  const char* kind_name() const { return "BackpressureTestNode"; }
+  const char* kind_name() const override { return "BackpressureTestNode"; }
   Status InputReceived(ExecNode* input, ExecBatch batch) override {
     return Status::NotImplemented("Test only node");
   }
@@ -283,10 +283,10 @@ TEST(BackpressureConcurrentQueue, BackpressureTest) {
   queue.Push(9);
   ASSERT_TRUE(dummy_node.paused);
   ASSERT_FALSE(dummy_node.stopped);
-  ASSERT_EQ(queue.Pop(), 6);
+  ASSERT_EQ(queue.TryPop(), std::make_optional(6));
   ASSERT_TRUE(dummy_node.paused);
   ASSERT_FALSE(dummy_node.stopped);
-  ASSERT_EQ(queue.Pop(), 7);
+  ASSERT_EQ(queue.TryPop(), std::make_optional(7));
   ASSERT_FALSE(dummy_node.paused);
   ASSERT_FALSE(dummy_node.stopped);
   queue.Push(10);

@@ -31,12 +31,6 @@ namespace arrow::acero {
 template <class T>
 class ConcurrentQueue {
  public:
-  // Pops the last item from the queue. Must be called on a non-empty queue
-  T Pop() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    return PopUnlocked();
-  }
-
   // Pops the last item from the queue but waits if the queue is empty until new items are
   // pushed.
   T WaitAndPop() {
@@ -139,13 +133,6 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
  public:
   explicit BackpressureConcurrentQueue(BackpressureHandler handler)
       : handler_(std::move(handler)) {}
-
-  // Pops the last item from the queue. Must be called on a non-empty queue
-  T Pop() {
-    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
-    DoHandle do_handle(*this);
-    return ConcurrentQueue<T>::PopUnlocked();
-  }
 
   // Pops the last item from the queue but waits if the queue is empty until new items are
   // pushed.
