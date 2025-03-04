@@ -73,6 +73,9 @@ def _forbid_instantiation(klass, subclasses_instead=True):
         )
     raise TypeError(msg)
 
+# Call to Register the compute Kernels on import
+RegisterComputeKernels()
+
 
 cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):
     cdef vector[CSortKey] c_sort_keys
