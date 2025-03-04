@@ -187,6 +187,9 @@ TEST(FieldMap, ExtensionTypeHashJoin) {
 
 template <typename Queue>
 void ConcurrentQueueBasicTest(Queue& queue) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading enabled";
+#endif
   ASSERT_TRUE(queue.Empty());
   queue.Push(1);
   ASSERT_FALSE(queue.Empty());
