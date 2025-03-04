@@ -20,8 +20,7 @@
 // (Doc section: Includes)
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
-// TODO: Below has to be exposed to public API
-#include <arrow/compute/kernels/registry.h>
+#include <arrow/compute/kernels/api.h>
 
 #include <iostream>
 // (Doc section: Includes)
@@ -51,10 +50,12 @@ arrow::Status RunMain() {
 
   schema = arrow::schema({field_a, field_b});
 
+  // Register required compute kernels.
+  ARROW_RETURN_NOT_OK(arrow::compute::RegisterComputeKernels());
+
   std::shared_ptr<arrow::Table> table;
   table = arrow::Table::Make(schema, {some_nums, more_nums}, 5);
   // (Doc section: Create Tables)
-  arrow::compute::RegisterComputeKernels();
 
   // (Doc section: Sum Datum Declaration)
   // The Datum class is what all compute functions output to, and they can take Datums

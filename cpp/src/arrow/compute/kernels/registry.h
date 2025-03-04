@@ -18,12 +18,9 @@
 
 #include "arrow/compute/visibility.h"
 #include "arrow/status.h"
-// TODO: Review includes
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 ARROW_COMPUTE_EXPORT Status RegisterComputeKernels();
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

@@ -18,7 +18,6 @@
 add_custom_target(arrow-compute-tests)
 
 arrow_install_all_headers("arrow/compute")
-arrow_install_all_headers("arrow/compute/kernels")
 
 if(ARROW_COMPUTE)
   # pkg-config support

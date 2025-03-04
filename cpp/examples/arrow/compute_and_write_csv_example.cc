@@ -17,12 +17,12 @@
 
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
+#include <arrow/compute/kernels/api.h>
 #include <arrow/csv/api.h>
 #include <arrow/csv/writer.h>
 #include <arrow/io/api.h>
 #include <arrow/result.h>
 #include <arrow/status.h>
-#include "arrow/compute/kernels/registry.h"
 
 #include <iostream>
 #include <vector>

@@ -15,31 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// NOTE: API is EXPERIMENTAL and will change without going through a
+// deprecation cycle
+
 #pragma once
 
-#if defined(_WIN32) || defined(__CYGWIN__)
-#  if defined(_MSC_VER)
-#    pragma warning(pop)
-#    pragma warning(push)
-#    pragma warning(disable : 4251)
-#  else
-#    pragma GCC diagnostic ignored "-Wattributes"
-#  endif
+/// \defgroup compute-kernels Extra compute kernels
+/// @{
+/// @}
 
-#  ifdef ARROW_COMPUTE_STATIC
-#    define ARROW_COMPUTE_EXPORT
-#  elif defined(ARROW_COMPUTE_EXPORTING)
-#    define ARROW_COMPUTE_EXPORT __declspec(dllexport)
-#  else
-#    define ARROW_COMPUTE_EXPORT __declspec(dllimport)
-#  endif
-
-#  define ARROW_COMPUTE_NO_EXPORT
-#else  // Not Windows
-#  ifndef ARROW_COMPUTE_EXPORT
-#    define ARROW_COMPUTE_EXPORT __attribute__((visibility("default")))
-#  endif
-#  ifndef ARROW_COMPUTE_NO_EXPORT
-#    define ARROW_COMPUTE_NO_EXPORT __attribute__((visibility("hidden")))
-#  endif
-#endif  // Not-Windows
+#include "arrow/compute/kernels/registry.h"  // IWYU pragma: export
