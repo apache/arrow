@@ -1032,17 +1032,15 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
                                        const std::shared_ptr<Buffer>& values) {
   // Compress the values if needed. Repetition and definition levels are uncompressed in
   // V2.
-  std::shared_ptr<Buffer> compressed_values;
   bool page_is_compressed = false;
   if (pager_->has_compressor() && values->size() > 0) {
     pager_->Compress(*values, compressor_temp_buffer_.get());
     if (compressor_temp_buffer_->size() < values->size()) {
-      compressed_values = compressor_temp_buffer_;
       page_is_compressed = true;
     }
-  } else {
-    compressed_values = values;
   }
+  std::shared_ptr<Buffer> compressed_values =
+      (page_is_compressed ? compressor_temp_buffer_ : values);
 
   // Concatenate uncompressed levels and the possibly compressed values
   int64_t combined_size =
