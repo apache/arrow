@@ -144,14 +144,14 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
   T Pop() {
     std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
     DoHandle do_handle(*this);
-    return ConcurrentQueue<T>::PopUnlocked(lock);
+    return ConcurrentQueue<T>::PopUnlocked();
   }
 
   T WaitAndPop() {
     std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
     ConcurrentQueue<T>::WaitUntilNonEmpty(lock);
     DoHandle do_handle(*this);
-    return ConcurrentQueue<T>::PopUnlocked(lock);
+    return ConcurrentQueue<T>::PopUnlocked();
   }
 
   void Push(const T& item) {
