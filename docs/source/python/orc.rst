@@ -159,14 +159,14 @@ Compression
 
 The data pages within a column in a row group can be compressed after the
 encoding passes (dictionary, RLE encoding). In PyArrow we don't use compression
-by default, but Snappy, ZSTD, Gzip/Zlib, and LZ4 are also supported::
+by default, but Snappy, ZSTD, Zlib, and LZ4 are also supported::
 
    >>> orc.write_table(table, where, compression='uncompressed')
-   >>> orc.write_table(table, where, compression='gzip')
+   >>> orc.write_table(table, where, compression='zlib')
    >>> orc.write_table(table, where, compression='zstd')
    >>> orc.write_table(table, where, compression='snappy')
 
-Snappy generally results in better performance, while Gzip may yield smaller
+Snappy generally results in better performance, while Zlib may yield smaller
 files.
 
 Reading from cloud storage
