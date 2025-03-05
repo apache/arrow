@@ -23,6 +23,7 @@
 #include "arrow/array.h"
 #include "arrow/util/logging.h"
 #include "parquet/chunker_internal_hashtable.h"
+#include "parquet/exception.h"
 #include "parquet/level_conversion.h"
 
 namespace parquet::internal {
@@ -204,7 +205,7 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
     return Calculate(def_levels, rep_levels, num_levels, \
                      static_cast<const ::arrow::ArrowType##Array&>(values));
 
-const ::arrow::Result<std::vector<Chunk>> ContentDefinedChunker::GetBoundaries(
+const std::vector<Chunk> ContentDefinedChunker::GetBoundaries(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
     const ::arrow::Array& values) {
   auto type_id = values.type()->id();
@@ -242,8 +243,9 @@ const ::arrow::Result<std::vector<Chunk>> ContentDefinedChunker::GetBoundaries(
       FakeNullArray fake_null_array;
       return Calculate(def_levels, rep_levels, num_levels, fake_null_array);
     default:
-      return ::arrow::Status::NotImplemented("Unsupported type " +
-                                             values.type()->ToString());
+      throw ParquetException("Unsupported Arrow array type " + values.type()->ToString());
+      // return ::arrow::Status::NotImplemented("Unsupported type " +
+      //                                        values.type()->ToString());
   }
 }
 
