@@ -41,6 +41,7 @@
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
+#include "parquet/geospatial_statistics.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/size_statistics.h"
@@ -232,6 +233,67 @@ static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
                      aesGcmCtrV1.supply_aad_prefix};
 }
 
+static inline EncodedGeoStatistics FromThrift(
+    const format::GeospatialStatistics& geo_stats) {
+  EncodedGeoStatistics out;
+
+  out.geospatial_types = geo_stats.geospatial_types;
+  out.xmin = geo_stats.bbox.xmin;
+  out.xmax = geo_stats.bbox.xmax;
+  out.ymin = geo_stats.bbox.ymin;
+  out.ymax = geo_stats.bbox.ymax;
+
+  if (geo_stats.bbox.__isset.zmin && geo_stats.bbox.__isset.zmax) {
+    out.zmin = geo_stats.bbox.zmin;
+    out.zmax = geo_stats.bbox.zmax;
+  }
+
+  if (geo_stats.bbox.__isset.mmin && geo_stats.bbox.__isset.mmax) {
+    out.mmin = geo_stats.bbox.mmin;
+    out.mmax = geo_stats.bbox.mmax;
+  }
+
+  return out;
+}
+
+static inline format::EdgeInterpolationAlgorithm::type ToThrift(
+    LogicalType::EdgeInterpolationAlgorithm algorithm) {
+  switch (algorithm) {
+    case LogicalType::EdgeInterpolationAlgorithm::SPHERICAL:
+      return format::EdgeInterpolationAlgorithm::SPHERICAL;
+    case LogicalType::EdgeInterpolationAlgorithm::VINCENTY:
+      return format::EdgeInterpolationAlgorithm::VINCENTY;
+    case LogicalType::EdgeInterpolationAlgorithm::THOMAS:
+      return format::EdgeInterpolationAlgorithm::THOMAS;
+    case LogicalType::EdgeInterpolationAlgorithm::ANDOYER:
+      return format::EdgeInterpolationAlgorithm::ANDOYER;
+    case LogicalType::EdgeInterpolationAlgorithm::KARNEY:
+      return format::EdgeInterpolationAlgorithm::KARNEY;
+    default:
+      throw ParquetException("Unknown value for geometry algorithm: ",
+                             static_cast<int>(algorithm));
+  }
+}
+
+static inline LogicalType::EdgeInterpolationAlgorithm FromThrift(
+    const format::EdgeInterpolationAlgorithm::type algorithm) {
+  switch (algorithm) {
+    case format::EdgeInterpolationAlgorithm::SPHERICAL:
+      return LogicalType::EdgeInterpolationAlgorithm::SPHERICAL;
+    case format::EdgeInterpolationAlgorithm::VINCENTY:
+      return LogicalType::EdgeInterpolationAlgorithm::VINCENTY;
+    case format::EdgeInterpolationAlgorithm::THOMAS:
+      return LogicalType::EdgeInterpolationAlgorithm::THOMAS;
+    case format::EdgeInterpolationAlgorithm::ANDOYER:
+      return LogicalType::EdgeInterpolationAlgorithm::ANDOYER;
+    case format::EdgeInterpolationAlgorithm::KARNEY:
+      return LogicalType::EdgeInterpolationAlgorithm::KARNEY;
+    default:
+      throw ParquetException("Unknown value for geometry algorithm: ",
+                             static_cast<int>(algorithm));
+  }
+}
+
 static inline EncryptionAlgorithm FromThrift(format::EncryptionAlgorithm encryption) {
   EncryptionAlgorithm encryption_algorithm;
 
@@ -330,6 +392,27 @@ static inline format::SortingColumn ToThrift(SortingColumn sorting_column) {
   thrift_sorting_column.descending = sorting_column.descending;
   thrift_sorting_column.nulls_first = sorting_column.nulls_first;
   return thrift_sorting_column;
+}
+
+static inline format::GeospatialStatistics ToThrift(
+    const EncodedGeoStatistics& encoded_geo_stats) {
+  format::GeospatialStatistics geospatial_statistics;
+  geospatial_statistics.__set_geospatial_types(encoded_geo_stats.geospatial_types);
+  format::BoundingBox bbox;
+  bbox.__set_xmin(encoded_geo_stats.xmin);
+  bbox.__set_xmax(encoded_geo_stats.xmax);
+  bbox.__set_ymin(encoded_geo_stats.ymin);
+  bbox.__set_ymax(encoded_geo_stats.ymax);
+  if (encoded_geo_stats.has_z()) {
+    bbox.__set_zmin(encoded_geo_stats.zmin);
+    bbox.__set_zmax(encoded_geo_stats.zmax);
+  }
+  if (encoded_geo_stats.has_m()) {
+    bbox.__set_mmin(encoded_geo_stats.mmin);
+    bbox.__set_mmax(encoded_geo_stats.mmax);
+  }
+  geospatial_statistics.__set_bbox(bbox);
+  return geospatial_statistics;
 }
 
 static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
