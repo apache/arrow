@@ -23,9 +23,7 @@
 #include "arrow/array.h"
 #include "parquet/level_conversion.h"
 
-namespace parquet {
-
-namespace internal {
+namespace parquet::internal {
 
 // Represents a chunk of data with level offsets and value offsets due to the
 // record shredding for nested data.
@@ -85,7 +83,7 @@ struct Chunk {
 /// and goes over the (def_level, rep_level, value) triplets one by one while adjusting
 /// the column-global rolling hash based on the triplet. Whenever the rolling hash matches
 /// a predefined mask, the chunker creates a new chunk. The chunker returns a vector of
-/// Chunk objects that represent the boundaries of the chunks///
+/// Chunk objects that represent the boundaries of the chunks.
 /// Note that the boundaries are deterministically calculated exclusively based on the
 /// data itself, so the same data will always produce the same chunks - given the same
 /// chunker configuration.
@@ -164,5 +162,4 @@ class ContentDefinedChunker {
   uint64_t rolling_hash_ = 0;
 };
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal

@@ -24,8 +24,7 @@
 #include "parquet/column_chunker_hashtable.h"
 #include "parquet/level_conversion.h"
 
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 
 // create a fake null array class with a GetView method returning 0 always
 class FakeNullArray {
@@ -247,5 +246,4 @@ const ::arrow::Result<std::vector<Chunk>> ContentDefinedChunker::GetBoundaries(
   }
 }
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal
