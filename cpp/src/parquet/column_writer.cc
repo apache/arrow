@@ -1379,6 +1379,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                                          maybe_parent_nulls));
         }
         if (num_buffered_values_ > 0) {
+          // Explicitly add a new data page according to the content-defined chunk
+          // boundaries. This way the same chunks will have the same byte-sequence
+          // in the resulting file, which can be identified by content addressible
+          // storage.
           AddDataPage();
         }
       }
