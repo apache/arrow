@@ -33,7 +33,7 @@
 namespace arrow {
 namespace io {
 
-struct ReadRange {
+struct ARROW_EXPORT ReadRange {
   int64_t offset;
   int64_t length;
 
