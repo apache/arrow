@@ -244,8 +244,6 @@ const std::vector<Chunk> ContentDefinedChunker::GetBoundaries(
       return Calculate(def_levels, rep_levels, num_levels, fake_null_array);
     default:
       throw ParquetException("Unsupported Arrow array type " + values.type()->ToString());
-      // return ::arrow::Status::NotImplemented("Unsupported type " +
-      //                                        values.type()->ToString());
   }
 }
 
