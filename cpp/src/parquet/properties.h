@@ -27,7 +27,6 @@
 #include "arrow/type.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/type_fwd.h"
-#include "parquet/column_chunker.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
