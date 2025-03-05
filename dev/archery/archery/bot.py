@@ -376,8 +376,10 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url, pr_number):
               help='Set target version explicitly.')
 @click.option('--wait', default=60,
               help='Wait the specified seconds before generating a report.')
+@click.option('--prefix', default='actions',
+              help='Prefix for job IDs.')
 @click.pass_obj
-def submit(obj, tasks, groups, params, arrow_version, wait):
+def submit(obj, tasks, groups, params, arrow_version, wait, prefix):
     """
     Submit crossbow testing tasks.
 
@@ -411,7 +413,7 @@ def submit(obj, tasks, groups, params, arrow_version, wait):
                               groups=groups, params=params)
 
         # add the job to the crossbow queue and push to the remote repository
-        queue.put(job, prefix="actions", increment_job_id=False)
+        queue.put(job, prefix=prefix, increment_job_id=False)
         queue.push()
 
         # render the response comment's content
