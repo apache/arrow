@@ -89,9 +89,11 @@ struct Chunk {
 /// chunker configuration.
 ///
 /// References:
-/// - FastCDC paper: "FastCDC: a Fast and Efficient Content-Defined Chunking Approach for
-/// Data Deduplication"
+/// - FastCDC: a Fast and Efficient Content-Defined Chunking Approach for Data
+///   Deduplication
 ///   https://www.usenix.org/system/files/conference/atc16/atc16-paper-xia.pdf
+/// - Git is for Data (chunk size normalization used here is described in section 6.2.1):
+///   https://www.cidrdb.org/cidr2023/papers/p43-low.pdf
 class ContentDefinedChunker {
  public:
   /// Create a new ContentDefinedChunker instance
