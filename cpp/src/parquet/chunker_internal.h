@@ -60,11 +60,11 @@ struct Chunk {
 /// File1:     [Page1][Page2][Page3]...
 /// File2:     [Page4][Page2][Page3]...
 ///
-/// Then the parquet file is being uploaded to a content addressable storage systems (CAS)
-/// which split the bytes stream into content defined blobs. The CAS system will calculate
-/// a unique identifier for each blob, then store the blob in a key-value store. If the
-/// same blob is encountered again, the system can refer to the hash instead of physically
-/// storing the blob again. In the example above, the CAS system would phiysically store
+/// Then the parquet file is being uploaded to a content addressable storage system (CAS)
+/// which splits the bytes stream into content defined blobs. The CAS system will
+/// calculate a unique identifier for each blob, then store the blob in a key-value store.
+/// If the same blob is encountered again, the system can refer to the hash instead of
+/// physically storing the blob again. In the example above, the CAS system would store
 /// Page1, Page2, Page3, and Page4 only once and the required metadata to reassemble the
 /// files.
 /// While the deduplication is performed by the CAS system, the parquet chunker makes it
@@ -113,10 +113,9 @@ class ContentDefinedChunker {
   /// @param num_levels Number of levels
   /// @param values Column values as an Arrow array
   /// @return Vector of Chunk objects representing the chunk boundaries
-  const ::arrow::Result<std::vector<Chunk>> GetBoundaries(const int16_t* def_levels,
-                                                          const int16_t* rep_levels,
-                                                          int64_t num_levels,
-                                                          const ::arrow::Array& values);
+  const std::vector<Chunk> GetBoundaries(const int16_t* def_levels,
+                                         const int16_t* rep_levels, int64_t num_levels,
+                                         const ::arrow::Array& values);
 
  private:
   // Update the rolling hash with a compile-time known sized value, set has_matched_ to
