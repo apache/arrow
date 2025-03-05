@@ -16,7 +16,7 @@
 // under the License.
 
 #include <future>
-#include "arrow/acero/concurrent_queue_internal.h"
+#include "arrow/acero/concurrent_queue.h"
 #include "arrow/acero/hash_join_node.h"
 #include "arrow/acero/schema_util.h"
 #include "arrow/testing/extension_type.h"
