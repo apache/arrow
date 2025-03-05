@@ -1811,7 +1811,16 @@ TEST_F(TestValuesWriterInt32Type, AllNullsCompressionInPageV2) {
 
 TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
   Compression::type compression = Compression::ZSTD;
-  auto verify_only_one_uncompress_page = [&](int total_num_values) {
+  auto verify_only_one_uncompressed_page = [&](int total_num_values) {
+    ColumnProperties column_properties;
+    column_properties.set_compression(compression);
+
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                          ParquetDataPageVersion::V2);
+    writer->WriteBatch(static_cast<int64_t>(values_.size()), this->def_levels_.data(),
+                       nullptr, this->values_ptr_);
+    writer->Close();
     ASSERT_OK_AND_ASSIGN(auto buffer, this->sink_->Finish());
     auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
     ReaderProperties readerProperties;
@@ -1827,16 +1836,7 @@ TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
     this->SetUpSchema(Repetition::OPTIONAL);
     this->GenerateData(SMALL_SIZE);
     std::fill(this->def_levels_.begin(), this->def_levels_.end(), 0);
-    ColumnProperties column_properties;
-    column_properties.set_compression(compression);
-
-    auto writer =
-        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
-                          ParquetDataPageVersion::V2);
-    writer->WriteBatch(static_cast<int64_t>(values_.size()), this->def_levels_.data(),
-                       nullptr, this->values_ptr_);
-    writer->Close();
-    verify_only_one_uncompress_page(SMALL_SIZE);
+    verify_only_one_uncompressed_page(SMALL_SIZE);
   }
   {
     // When only compress little data, the compressed size would even be
@@ -1846,17 +1846,7 @@ TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
     this->GenerateData(1);
     std::fill(this->def_levels_.begin(), this->def_levels_.end(), 1);
     values_[0] = 142857;
-    ColumnProperties column_properties;
-    column_properties.set_compression(compression);
-
-    auto writer =
-        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
-                          ParquetDataPageVersion::V2);
-    writer->WriteBatch(static_cast<int64_t>(values_.size()), this->def_levels_.data(),
-                       nullptr, this->values_ptr_);
-    writer->Close();
-
-    verify_only_one_uncompress_page(/*total_num_values=*/1);
+    verify_only_one_uncompressed_page(/*total_num_values=*/1);
   }
 }
 
