@@ -1103,7 +1103,7 @@ class AsofJoinNode : public ExecNode {
 
   void ProcessThread() {
     for (;;) {
-      if (!process_.Pop()) {
+      if (!process_.WaitAndPop()) {
         EndFromProcessThread();
         return;
       }

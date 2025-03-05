@@ -38,6 +38,7 @@ Aggregations
    min
    min_max
    mode
+   pivot_wider
    product
    quantile
    stddev
@@ -557,6 +558,7 @@ Compute Options
    PadOptions
    PairwiseOptions
    PartitionNthOptions
+   PivotWiderOptions
    QuantileOptions
    ReplaceSliceOptions
    ReplaceSubstringOptions

@@ -53,6 +53,7 @@ from pyarrow._compute import (  # noqa
     PadOptions,
     PairwiseOptions,
     PartitionNthOptions,
+    PivotWiderOptions,
     QuantileOptions,
     RandomOptions,
     RankOptions,
