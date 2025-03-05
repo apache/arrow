@@ -18,8 +18,7 @@
 #pragma once
 #include <cstdint>
 
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 
 constexpr uint64_t GEARHASH_TABLE[8][256] = {
     {// seed = 0
@@ -543,5 +542,4 @@ constexpr uint64_t GEARHASH_TABLE[8][256] = {
      0x50a2a95d0412e289, 0x9def8df564e68581, 0xf49010a9b2e2ea5c, 0x8602ae175d9ff3f0,
      0xbf037e245369a618, 0x8038164365f6e2b5, 0xe2e1f6163b4e8d08, 0x8df9314914f0857e}};
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal

@@ -23,7 +23,6 @@
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
-#include "parquet/column_chunker.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
