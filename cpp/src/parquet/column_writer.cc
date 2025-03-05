@@ -1340,9 +1340,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
 
     if (properties_->cdc_enabled()) {
-      ARROW_ASSIGN_OR_RAISE(auto boundaries,
-                            content_defined_chunker_.GetBoundaries(
-                                def_levels, rep_levels, num_levels, leaf_array));
+      auto boundaries = content_defined_chunker_.GetBoundaries(def_levels, rep_levels,
+                                                               num_levels, leaf_array);
       for (auto chunk : boundaries) {
         auto chunk_array = leaf_array.Slice(chunk.value_offset);
         auto chunk_def_levels = AddIfNotNull(def_levels, chunk.level_offset);
