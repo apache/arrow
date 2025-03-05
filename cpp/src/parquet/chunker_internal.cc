@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/column_chunker.h"
+#include "parquet/chunker_internal.h"
+
 #include <cmath>
 #include <string>
 #include <vector>
 #include "arrow/array.h"
 #include "arrow/util/logging.h"
-#include "parquet/column_chunker_hashtable.h"
+#include "parquet/chunker_internal_hashtable.h"
 #include "parquet/level_conversion.h"
 
 namespace parquet::internal {
