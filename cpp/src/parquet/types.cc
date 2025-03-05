@@ -1630,7 +1630,7 @@ class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
 GENERATE_MAKE(Float16)
 
 class LogicalType::Impl::Variant final : public LogicalType::Impl::Incompatible,
-                                         public LogicalType::Impl::SimpleApplicable {
+                                         public LogicalType::Impl::Inapplicable {
  public:
   friend class VariantLogicalType;
 
@@ -1640,7 +1640,7 @@ class LogicalType::Impl::Variant final : public LogicalType::Impl::Incompatible,
  private:
   Variant()
       : LogicalType::Impl(LogicalType::Type::VARIANT, SortOrder::UNKNOWN),
-        LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY) {}
+        LogicalType::Impl::Inapplicable() {}
 };
 
 GENERATE_MAKE(Variant)
