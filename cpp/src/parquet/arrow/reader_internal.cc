@@ -263,13 +263,9 @@ Result<std::shared_ptr<ChunkedArray>> ViewOrCastChunkedArray(
   if (view_result.ok()) {
     return view_result.ValueOrDie();
   } else {
-    ::arrow::ArrayVector casted_chunks;
-    for (const auto& chunk : array->chunks()) {
-      ARROW_ASSIGN_OR_RAISE(auto cast_chunk,
-                            ::arrow::compute::Cast(chunk, logical_value_type));
-      casted_chunks.push_back(cast_chunk.make_array());
-    }
-    return std::make_shared<ChunkedArray>(std::move(casted_chunks), logical_value_type);
+    ARROW_ASSIGN_OR_RAISE(auto casted_datum,
+        ::arrow::compute::Cast(Datum(array), logical_value_type));
+    return casted_datum.chunked_array();
   }
 }
 
