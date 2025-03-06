@@ -104,8 +104,7 @@ class ContentDefinedChunker {
   /// @param norm_factor Normalization factor to center the chunk size around the average
   ///                    size more aggressively. By increasing the normalization factor,
   ///                    probability of finding a chunk boundary increases.
-  ContentDefinedChunker(const LevelInfo& level_info,
-                        std::pair<uint64_t, uint64_t> size_range,
+  ContentDefinedChunker(const LevelInfo& level_info, uint64_t min_size, uint64_t max_size,
                         uint8_t norm_factor = 0);
 
   /// Get the chunk boundaries for the given column data

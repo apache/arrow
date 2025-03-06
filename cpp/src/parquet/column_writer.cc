@@ -754,7 +754,8 @@ class ColumnWriterImpl {
         fallback_(false),
         definition_levels_sink_(allocator_),
         repetition_levels_sink_(allocator_),
-        content_defined_chunker_(level_info_, properties->cdc_size_range(),
+        content_defined_chunker_(level_info_, properties->cdc_size_range().first,
+                                 properties->cdc_size_range().second,
                                  properties->cdc_norm_factor()) {
     definition_levels_rle_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
