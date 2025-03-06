@@ -22,7 +22,7 @@
 #include <vector>
 #include "arrow/array.h"
 #include "arrow/util/logging.h"
-#include "parquet/chunker_internal_hashtable.h"
+#include "parquet/chunker_internal_generated.h"
 #include "parquet/exception.h"
 #include "parquet/level_conversion.h"
 
@@ -52,12 +52,12 @@ static uint64_t GetMask(uint64_t min_size, uint64_t max_size, uint8_t norm_facto
 }
 
 ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
-                                             std::pair<uint64_t, uint64_t> size_range,
+                                             uint64_t min_size, uint64_t max_size,
                                              uint8_t norm_factor)
     : level_info_(level_info),
-      min_size_(size_range.first),
-      max_size_(size_range.second),
-      hash_mask_(GetMask(size_range.first, size_range.second, norm_factor)) {}
+      min_size_(min_size),
+      max_size_(max_size),
+      hash_mask_(GetMask(min_size, max_size, norm_factor)) {}
 
 template <typename T>
 void ContentDefinedChunker::Roll(const T value) {
@@ -70,7 +70,7 @@ void ContentDefinedChunker::Roll(const T value) {
   }
   auto bytes = reinterpret_cast<const uint8_t*>(&value);
   for (size_t i = 0; i < BYTE_WIDTH; ++i) {
-    rolling_hash_ = (rolling_hash_ << 1) + GEARHASH_TABLE[nth_run_][bytes[i]];
+    rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][bytes[i]];
     has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
   }
 }
@@ -84,7 +84,7 @@ void ContentDefinedChunker::Roll(std::string_view value) {
   }
   for (char c : value) {
     rolling_hash_ =
-        (rolling_hash_ << 1) + GEARHASH_TABLE[nth_run_][static_cast<uint8_t>(c)];
+        (rolling_hash_ << 1) + kGearhashTable[nth_run_][static_cast<uint8_t>(c)];
     has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
   }
 }
@@ -105,9 +105,9 @@ bool ContentDefinedChunker::NeedNewChunk() {
     }
   }
   if (ARROW_PREDICT_FALSE(chunk_size_ >= max_size_)) {
-    // we have a hard limit on the maximum chunk size, not that we don't reset the rolling
-    // hash state here, so the next NeedNewChunk() call will continue from the current
-    // state
+    // we have a hard limit on the maximum chunk size, note that we don't reset the
+    // rolling hash state here, so the next NeedNewChunk() call will continue from the
+    // current state
     chunk_size_ = 0;
     return true;
   }
