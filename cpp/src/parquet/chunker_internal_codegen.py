@@ -75,7 +75,7 @@ def generate_hashtable(seed: int, length=256):
     return out.getvalue()
 
 
-def generate_header(ntables=8, relative_path="column_chunker_generated.h"):
+def generate_header(ntables=8, relative_path="chunker_internal_generated.h"):
     path = pathlib.Path(__file__).parent / relative_path
 
     tables = [generate_hashtable(seed) for seed in range(ntables)]
