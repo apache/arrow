@@ -44,14 +44,12 @@ template = """\
 #pragma once
 #include <cstdint>
 
-namespace parquet {{
-namespace internal {{
+namespace parquet::internal {{
 
-constexpr uint64_t GEARHASH_TABLE[8][256] = {{
+constexpr uint64_t kGearhashTable[8][256] = {{
 {content}}};
 
-}}  // namespace internal
-}}  // namespace parquet
+}}  // namespace parquet::internal
 """
 
 
@@ -61,7 +59,7 @@ def generate_hash(n: int, seed: int):
     return hasher.hexdigest()[:16]
 
 
-def generate_hashtable(seed: int, length=256, comma=True):
+def generate_hashtable(seed: int, length=256):
     table = [generate_hash(n, seed=seed) for n in range(length)]
 
     out = StringIO()
@@ -77,7 +75,7 @@ def generate_hashtable(seed: int, length=256, comma=True):
     return out.getvalue()
 
 
-def generate_header(ntables=8, relative_path="column_chunker_hashtable.h"):
+def generate_header(ntables=8, relative_path="column_chunker_generated.h"):
     path = pathlib.Path(__file__).parent / relative_path
 
     tables = [generate_hashtable(seed) for seed in range(ntables)]
