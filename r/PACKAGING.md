@@ -20,7 +20,7 @@
 
 # Packaging Checklist for CRAN Release
 
-For a high-level overview of the release process see the [Apache Arrow Release Management Guide](https://arrow.apache.org/docs/developers/release.html#post-release-tasks).
+For a high-level overview of the Arrow release process see the [Apache Arrow Release Management Guide](https://arrow.apache.org/docs/developers/release.html#post-release-tasks).
 
 ## Before the Arrow Release Candidate Is Created
 
