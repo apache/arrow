@@ -33,7 +33,7 @@ For a high-level overview of the Arrow release process see the [Apache Arrow Rel
   commit. Ignore any errors with badges as they will be removed in the CRAN release branch.
 - [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later). You can find commits by, for example, `git log --oneline <sha of last release>..HEAD | grep "\[R\]"`
 - [ ] Run preliminary reverse dependency checks using `archery docker run r-revdepcheck`.
-- [ ] For major releases, prepare tweet thread highlighting new features.
+- [ ] For major releases, prepare content for social media highlighting new features.
 
 Wait for the release candidate to be cut:
 
@@ -84,5 +84,5 @@ Wait for CRAN...
 - [ ] (CRAN-only releases) Bump the version number in `r/pkgdown/assets/versions.json`, and update this on the [the `asf-site` branch of the docs site](https://github.com/apache/arrow-site) too.
 - [ ] Update the packaging checklist template to reflect any new realities of the packaging process.
 - [ ] Wait for CRAN-hosted binaries on the [CRAN package page](https://cran.r-project.org/package=arrow) to reflect the new version
-- [ ] Tweet!
+- [ ] Post already-prepared content to social media
   - Use Bryce's [script](https://gist.githubusercontent.com/amoeba/4e26c064d1a0d0227cd8c2260cf0072a/raw/bc0d983152bdde4820de9074d4caee9986624bc5/new_contributors.R) for contributor calculation.
