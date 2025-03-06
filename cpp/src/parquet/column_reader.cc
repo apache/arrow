@@ -2193,6 +2193,7 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
                                                         bool read_dictionary,
                                                         bool read_dense_for_nullable) {
   if (read_dictionary) {
+    printf("MakeByteArrayRecordReader, read_dictionary\n");
     return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
   } else {
@@ -2207,6 +2208,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
                                                  LevelInfo leaf_info, MemoryPool* pool,
                                                  bool read_dictionary,
                                                  bool read_dense_for_nullable) {
+  printf("RecordReader::Make, descr->physical_type(): %u\n", descr->physical_type());
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool,

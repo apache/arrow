@@ -3336,6 +3336,42 @@ TEST(TestArrowReadWrite, NonUniqueDictionaryValues) {
   }
 }
 
+TEST(TestArrowReadWrite, DictionaryIndexBidWidthsArePreservedOnRoundTrip) {
+  using ::arrow::ArrayFromVector;
+
+  std::vector<std::string> values = {"first", "second", "third"};
+  std::shared_ptr<Array> dict_values;
+  ArrayFromVector<::arrow::StringType, std::string>(values, &dict_values);
+
+  auto value_type = ::arrow::utf8();
+  auto dict_type = ::arrow::dictionary(::arrow::int8(), value_type);
+
+  auto f0 = field("dictionary", dict_type);
+  std::vector<std::shared_ptr<::arrow::Field>> fields;
+  fields.emplace_back(f0);
+  auto schema = ::arrow::schema(fields);
+
+  std::shared_ptr<Array> f0_values, f1_values;
+  ArrayFromVector<::arrow::Int8Type, int8_t>({0, 1, 0, 2, 1}, &f0_values);
+  ArrayFromVector<::arrow::Int8Type, int8_t>({2, 0, 1, 0, 2}, &f1_values);
+  ::arrow::ArrayVector dict_arrays = {
+      std::make_shared<::arrow::DictionaryArray>(dict_type, f0_values, dict_values),
+      std::make_shared<::arrow::DictionaryArray>(dict_type, f1_values, dict_values)};
+
+  std::vector<std::shared_ptr<ChunkedArray>> columns;
+  columns.emplace_back(std::make_shared<ChunkedArray>(dict_arrays));
+
+  auto table = Table::Make(schema, columns);
+
+  // NOTE: This is important; if store_schema not set, the writer won't add the
+  // "ARROW:schema": <base 64 encoded schema> metadata to the parquet file,
+  // and the reader will read the column as a string rather than as a dictionary.
+  auto arrow_writer_props =
+          parquet::ArrowWriterProperties::Builder().store_schema()->build();
+
+  CheckSimpleRoundtrip(table, table->num_rows(), arrow_writer_props);
+}
+
 TEST(TestArrowWrite, CheckChunkSize) {
   const int num_columns = 2;
   const int num_rows = 128;
