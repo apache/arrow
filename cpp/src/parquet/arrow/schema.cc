@@ -35,6 +35,7 @@
 #include "arrow/util/value_parsing.h"
 
 #include "parquet/arrow/schema_internal.h"
+#include "parquet/arrow/variant.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
@@ -111,6 +112,24 @@ Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::strin
       GroupNode::Make("key_value", Repetition::REPEATED, {key_node, value_node});
   *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {key_value},
                          LogicalType::Map(), field_id);
+  return Status::OK();
+}
+
+Status VariantToNode(const std::shared_ptr<VariantExtensionType>& type,
+                     const std::string& name, bool nullable, int field_id,
+                     const WriterProperties& properties,
+                     const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+  NodePtr metadata_node;
+  RETURN_NOT_OK(FieldToNode("metadata", type->metadata_field(), properties,
+                            arrow_properties, &metadata_node));
+
+  NodePtr value_node;
+  RETURN_NOT_OK(FieldToNode("value", type->value_field(), properties, arrow_properties,
+                            &value_node));
+
+  NodePtr variant_node = *out =
+      GroupNode::Make("variant", Repetition::OPTIONAL, {metadata_node, value_node});
+
   return Status::OK();
 }
 
@@ -435,9 +454,10 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
         logical_type = LogicalType::JSON();
         break;
       } else if (ext_type->extension_name() == std::string("parquet.variant")) {
-        type = ParquetType::BYTE_ARRAY;
-        logical_type = LogicalType::Variant();
-        break;
+        auto variant_type = std::static_pointer_cast<VariantExtensionType>(field->type());
+
+        return VariantToNode(variant_type, name, field->nullable(), field_id, properties,
+                             arrow_properties, out);
       }
       std::shared_ptr<::arrow::Field> storage_field = ::arrow::field(
           name, ext_type->storage_type(), field->nullable(), field->metadata());
