@@ -32,7 +32,6 @@ For a high-level overview of the Arrow release process see the [Apache Arrow Rel
 - [ ] Run `urlchecker::url_check()` on the R directory at the release candidate.
   commit. Ignore any errors with badges as they will be removed in the CRAN release branch.
 - [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later). You can find commits by, for example, `git log --oneline <sha of last release>..HEAD | grep "\[R\]"`
-- [ ] Run preliminary reverse dependency checks using `archery docker run r-revdepcheck`.
 - [ ] For major releases, prepare content for social media highlighting new features.
 
 Wait for the release candidate to be cut:
@@ -46,7 +45,6 @@ Wait for the release candidate to be cut:
 - [ ] `git fetch upstream && git checkout release-X.X.X-rcXX && git clean -f -d`
 - [ ] Run `make build`. This copies Arrow C++ into tools/cpp, prunes some unnecessary components, and runs `R CMD build` to generate the source tarball. Because this will install the package, you will need to ensure that the version of Arrow C++ available to the configure script is the same as the version that is vendored into the R package (e.g., you may need to unset `ARROW_HOME`).
 - [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally
-- [ ] Run reverse dependency checks using `archery docker run r-revdepcheck`.
 
 ## Release Vote
 
