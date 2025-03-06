@@ -4585,8 +4585,8 @@ function(build_orc)
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
-                         GIT_REPOSITORY https://github.com/apache/orc.git
-                         GIT_TAG 5225b51824c529cec0aab525765dfa8367da394a)
+                         URL ${ORC_SOURCE_URL}
+                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     prepare_fetchcontent()
 
     set(CMAKE_UNITY_BUILD FALSE)
@@ -4744,8 +4744,8 @@ function(build_orc)
 
     externalproject_add(orc_ep
                         ${EP_COMMON_OPTIONS}
-                        GIT_REPOSITORY https://github.com/apache/orc.git
-                        GIT_TAG 5225b51824c529cec0aab525765dfa8367da394a
+                        URL ${ORC_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
                         BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
                         CMAKE_ARGS ${ORC_CMAKE_ARGS}
                         DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
