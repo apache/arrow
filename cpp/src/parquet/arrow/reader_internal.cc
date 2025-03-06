@@ -545,7 +545,6 @@ Status TransferDate64(RecordReader* reader, MemoryPool* pool,
 Status TransferDictionary(RecordReader* reader,
                           const std::shared_ptr<DataType>& logical_value_type,
                           bool nullable, std::shared_ptr<ChunkedArray>* out) {
-  printf("TransferDictionary\n");
   auto dict_reader = dynamic_cast<DictionaryRecordReader*>(reader);
   DCHECK(dict_reader);
   *out = dict_reader->GetResult();
@@ -564,7 +563,6 @@ Status TransferBinary(RecordReader* reader, MemoryPool* pool,
                       const std::shared_ptr<Field>& logical_type_field,
                       std::shared_ptr<ChunkedArray>* out) {
   if (reader->read_dictionary()) {
-    printf("Calling TransferDictionary from TransferBinary\n");
     return TransferDictionary(
         reader, ::arrow::dictionary(::arrow::int32(), logical_type_field->type()),
         logical_type_field->nullable(), out);
@@ -842,10 +840,6 @@ Status TransferColumnData(RecordReader* reader,
   std::shared_ptr<ChunkedArray> chunked_result;
   switch (value_field->type()->id()) {
     case ::arrow::Type::DICTIONARY: {
-      printf(
-          "Calling TransferDictionary directly from TransferColumnData, "
-          "value_field->type()->id(): %s, reader: %p\n",
-          value_field->type()->ToString().c_str(), reader);
       RETURN_NOT_OK(TransferDictionary(reader, value_field->type(),
                                        value_field->nullable(), &chunked_result));
       result = chunked_result;

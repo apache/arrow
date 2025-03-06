@@ -3362,12 +3362,8 @@ TEST(TestArrowReadWrite, DictionaryIndexBidWidthsArePreservedOnRoundTrip) {
   columns.emplace_back(std::make_shared<ChunkedArray>(dict_arrays));
 
   auto table = Table::Make(schema, columns);
-
-  // NOTE: This is important; if store_schema not set, the writer won't add the
-  // "ARROW:schema": <base 64 encoded schema> metadata to the parquet file,
-  // and the reader will read the column as a string rather than as a dictionary.
   auto arrow_writer_props =
-          parquet::ArrowWriterProperties::Builder().store_schema()->build();
+      parquet::ArrowWriterProperties::Builder().store_schema()->build();
 
   CheckSimpleRoundtrip(table, table->num_rows(), arrow_writer_props);
 }

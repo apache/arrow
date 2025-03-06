@@ -46,7 +46,6 @@
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
-#include "arrow/util/key_value_metadata.h"
 
 using arrow::Array;
 using arrow::ArrayData;
@@ -241,8 +240,6 @@ class FileReaderImpl : public FileReader {
       RETURN_NOT_OK(
           GetFieldReader(field_indices[i], included_leaves, row_groups, &reader));
 
-      printf("manifest_: %s\n", manifest_.schema_fields[field_indices[i]].field->ToString().c_str());
-      printf("reader->field()->ToString(): %s.\n", reader->field()->ToString().c_str());
       out_fields[i] = reader->field();
       out->at(i) = std::move(reader);
     }
@@ -454,7 +451,6 @@ class LeafReader : public ColumnReaderImpl {
         field_(std::move(field)),
         input_(std::move(input)),
         descr_(input_->descr()) {
-    printf("LeafReader::LeafReader, field_->type()->id(): %s\n", field_->type()->ToString().c_str());
     record_reader_ = RecordReader::Make(
         descr_, leaf_info, ctx_->pool, field_->type()->id() == ::arrow::Type::DICTIONARY);
     NextRowGroup();
@@ -1266,7 +1262,6 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
   std::shared_ptr<::arrow::Schema> result_schema;
   RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &result_schema));
-  printf("result_schema: %s\n", result_schema->ToString().c_str());
   // OptionalParallelForAsync requires an executor
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 

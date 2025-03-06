@@ -861,7 +861,6 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
   ::arrow::io::BufferReader input(schema_buf);
 
   ARROW_ASSIGN_OR_RAISE(*out, ::arrow::ipc::ReadSchema(&input, &dict_memo));
-  printf("decoded 'ARROW:schema' = %s\n", (*out)->ToString().c_str());
 
   if (metadata->size() > 1) {
     // Copy the metadata without the schema key
@@ -990,12 +989,8 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     // so no need to recurse on value types.
     const auto& dict_origin_type =
         checked_cast<const ::arrow::DictionaryType&>(*origin_type);
-    printf("ApplyOriginalStorageMetadata, origin_field: %s, dict_origin_type: %s\n",
-           dict_origin_type.ToString().c_str(), origin_field.ToString().c_str());
-    inferred->field = inferred->field->WithType(
-        // NOCOMMIT: First change
-        ::arrow::dictionary(dict_origin_type.index_type(), inferred_type,
-                            dict_origin_type.ordered()));
+    inferred->field = inferred->field->WithType(::arrow::dictionary(
+        dict_origin_type.index_type(), inferred_type, dict_origin_type.ordered()));
     modified = true;
   }
 
@@ -1075,7 +1070,6 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
     }
     modified = true;
   } else {
-    printf("calling ApplyOriginalStorageMetadata\n");
     ARROW_ASSIGN_OR_RAISE(modified, ApplyOriginalStorageMetadata(origin_field, inferred));
   }
 
@@ -1173,7 +1167,6 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
     SchemaField* out_field = &manifest->schema_fields[i];
     RETURN_NOT_OK(NodeToSchemaField(*schema_node.field(i), LevelInfo(), &ctx,
                                     /*parent=*/nullptr, out_field));
-    printf("out_field: %s\n", out_field->field->ToString().c_str());
 
     // TODO(wesm): as follow up to ARROW-3246, we should really pass the origin
     // schema (if any) through all functions in the schema reconstruction, but
@@ -1184,11 +1177,7 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
     }
 
     auto& origin_field = manifest->origin_schema->field(i);
-    printf("before applying original metadata, origin_field: %s, out_field: %s\n",
-           origin_field->ToString().c_str(), out_field->field->ToString().c_str());
     RETURN_NOT_OK(ApplyOriginalMetadata(*origin_field, out_field));
-    printf("after applying original metadata, origin_field: %s, out_field: %s\n",
-           origin_field->ToString().c_str(), out_field->field->ToString().c_str());
   }
   return Status::OK();
 }
