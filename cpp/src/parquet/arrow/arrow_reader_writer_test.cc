@@ -3339,7 +3339,7 @@ TEST(TestArrowReadWrite, NonUniqueDictionaryValues) {
 TEST(TestArrowReadWrite, DictionaryIndexBitwidthRoundtrip) {
   for (const auto& index_type :
        {::arrow::int8(), ::arrow::int16(), ::arrow::int32(), ::arrow::int64()}) {
-    ARROW_SCOPED_TRACE("index_type = " , *index_type);
+    ARROW_SCOPED_TRACE("index_type = ", *index_type);
     auto dict_type = ::arrow::dictionary(index_type, ::arrow::utf8());
     auto schema = ::arrow::schema({field("dictionary", dict_type)});
 
