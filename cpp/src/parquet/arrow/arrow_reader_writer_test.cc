@@ -3342,8 +3342,10 @@ TEST(TestArrowReadWrite, DictionaryIndexBitwidthRoundtrip) {
   auto schema = ::arrow::schema({field("dictionary", dict_type)});
 
   ::arrow::ArrayVector dict_arrays = {
-    DictArrayFromJSON(dict_type, R"([0, 1, 0, 2, 1])", R"(["first", "second", "third"])"),
-    DictArrayFromJSON(dict_type, R"([2, 0, 1, 0, 2])", R"(["first", "second", "third"])"),
+      DictArrayFromJSON(dict_type, R"([0, 1, 0, 2, 1])",
+                        R"(["first", "second", "third"])"),
+      DictArrayFromJSON(dict_type, R"([2, 0, 1, 0, 2])",
+                        R"(["first", "second", "third"])"),
   };
   std::vector<std::shared_ptr<ChunkedArray>> columns = {};
   columns.emplace_back(std::make_shared<ChunkedArray>(dict_arrays));
