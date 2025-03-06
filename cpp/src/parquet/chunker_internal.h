@@ -99,11 +99,24 @@ class ContentDefinedChunker {
   /// Create a new ContentDefinedChunker instance
   ///
   /// @param level_info Information about definition and repetition levels
-  /// @param size_range Min/max chunk size as pair<min_size, max_size>, the chunker will
-  ///                   attempt to uniformly distribute the chunks between these extremes.
+  /// @param min_size Minimum chunk size in bytes, the rolling hash will not be updated
+  ///                 until this size is reached for each chunk. Note that all data sent
+  ///                 through the hash function is counted towards the chunk size,
+  ///                 including definition and repetition levels if present.
+  /// @param max_size Maximum chunk size in bytes, the chunker will create a new chunk
+  ///                 whenever the chunk size exceeds this value. The chunker will
+  ///                 attempt to uniformly distribute the chunks between min_size and
+  ///                 max_size.
   /// @param norm_factor Normalization factor to center the chunk size around the average
   ///                    size more aggressively. By increasing the normalization factor,
-  ///                    probability of finding a chunk boundary increases.
+  ///                    probability of finding a chunk boundary increases improving the
+  ///                    deduplication ratio, but also increases the number of small
+  ///                    chunks resulting in small parquet data pages. The default value
+  ///                    provides a good balance between deduplication ratio and
+  ///                    fragmentation. Use norm_factor=1 or norm_factor=2 if a higher
+  ///                    deduplication ratio is required at the expense of fragmentation,
+  ///                    norm_factor>2 is typically not increasing the deduplication
+  ///                    ratio.
   ContentDefinedChunker(const LevelInfo& level_info, uint64_t min_size, uint64_t max_size,
                         uint8_t norm_factor = 0);
 
