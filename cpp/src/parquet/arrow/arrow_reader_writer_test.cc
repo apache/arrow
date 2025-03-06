@@ -3337,8 +3337,7 @@ TEST(TestArrowReadWrite, NonUniqueDictionaryValues) {
 }
 
 TEST(TestArrowReadWrite, DictionaryIndexBitwidthRoundtrip) {
-  auto value_type = ::arrow::utf8();
-  auto dict_type = ::arrow::dictionary(::arrow::int8(), value_type);
+  auto dict_type = ::arrow::dictionary(::arrow::int8(), ::arrow::utf8());
   auto schema = ::arrow::schema({field("dictionary", dict_type)});
 
   ::arrow::ArrayVector dict_arrays = {
