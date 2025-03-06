@@ -3336,29 +3336,16 @@ TEST(TestArrowReadWrite, NonUniqueDictionaryValues) {
   }
 }
 
-TEST(TestArrowReadWrite, DictionaryIndexBidWidthsArePreservedOnRoundTrip) {
-  using ::arrow::ArrayFromVector;
-
-  std::vector<std::string> values = {"first", "second", "third"};
-  std::shared_ptr<Array> dict_values;
-  ArrayFromVector<::arrow::StringType, std::string>(values, &dict_values);
-
+TEST(TestArrowReadWrite, DictionaryIndexBitwidthRoundtrip) {
   auto value_type = ::arrow::utf8();
   auto dict_type = ::arrow::dictionary(::arrow::int8(), value_type);
+  auto schema = ::arrow::schema({field("dictionary", dict_type)});
 
-  auto f0 = field("dictionary", dict_type);
-  std::vector<std::shared_ptr<::arrow::Field>> fields;
-  fields.emplace_back(f0);
-  auto schema = ::arrow::schema(fields);
-
-  std::shared_ptr<Array> f0_values, f1_values;
-  ArrayFromVector<::arrow::Int8Type, int8_t>({0, 1, 0, 2, 1}, &f0_values);
-  ArrayFromVector<::arrow::Int8Type, int8_t>({2, 0, 1, 0, 2}, &f1_values);
   ::arrow::ArrayVector dict_arrays = {
-      std::make_shared<::arrow::DictionaryArray>(dict_type, f0_values, dict_values),
-      std::make_shared<::arrow::DictionaryArray>(dict_type, f1_values, dict_values)};
-
-  std::vector<std::shared_ptr<ChunkedArray>> columns;
+    DictArrayFromJSON(dict_type, R"([0, 1, 0, 2, 1])", R"(["first", "second", "third"])"),
+    DictArrayFromJSON(dict_type, R"([2, 0, 1, 0, 2])", R"(["first", "second", "third"])"),
+  };
+  std::vector<std::shared_ptr<ChunkedArray>> columns = {};
   columns.emplace_back(std::make_shared<ChunkedArray>(dict_arrays));
 
   auto table = Table::Make(schema, columns);
