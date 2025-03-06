@@ -293,11 +293,11 @@ const setDictionary = <T extends Dictionary>(data: Data<T>, index: number, value
 /* istanbul ignore next */
 /** @ignore */
 export const setIntervalValue = <T extends Interval>(data: Data<T>, index: number, value: T['TValue']): void => {
-    (data.type.unit === IntervalUnit.MONTH_DAY_NANO)
-        ? setIntervalMonthDaynano(data as Data<IntervalMonthDayNano>, index, value)
-        : (data.type.unit === IntervalUnit.DAY_TIME)
-            ? setIntervalDayTime(data as Data<IntervalDayTime>, index, value)
-            : setIntervalYearMonth(data as Data<IntervalYearMonth>, index, value);
+    switch (data.type.unit) {
+        case IntervalUnit.YEAR_MONTH: return setIntervalYearMonth(data as Data<IntervalYearMonth>, index, value as IntervalYearMonth['TValue']);
+        case IntervalUnit.DAY_TIME: return setIntervalDayTime(data as Data<IntervalDayTime>, index, value as IntervalDayTime['TValue']);
+        case IntervalUnit.MONTH_DAY_NANO: return setIntervalMonthDayNano(data as Data<IntervalMonthDayNano>, index, value as IntervalMonthDayNano['TValue']);
+    }
 };
 
 /** @ignore */
@@ -305,7 +305,7 @@ export const setIntervalDayTime = <T extends IntervalDayTime>({ values }: Data<T
 /** @ignore */
 export const setIntervalYearMonth = <T extends IntervalYearMonth>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = (value[0] * 12) + (value[1] % 12); };
 /** @ignore */
-export const setIntervalMonthDaynano = <T extends IntervalMonthDayNano>({ values, stride }: Data<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, stride), stride * index); };
+export const setIntervalMonthDayNano = <T extends IntervalMonthDayNano>({ values, stride }: Data<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, stride), stride * index); };
 
 /** @ignore */
 export const setDurationSecond = <T extends DurationSecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = value; };
@@ -385,7 +385,7 @@ SetVisitor.prototype.visitDictionary = wrapSet(setDictionary);
 SetVisitor.prototype.visitInterval = wrapSet(setIntervalValue);
 SetVisitor.prototype.visitIntervalDayTime = wrapSet(setIntervalDayTime);
 SetVisitor.prototype.visitIntervalYearMonth = wrapSet(setIntervalYearMonth);
-SetVisitor.prototype.visitIntervalMonthDayNano = wrapSet(setIntervalMonthDaynano);
+SetVisitor.prototype.visitIntervalMonthDayNano = wrapSet(setIntervalMonthDayNano);
 SetVisitor.prototype.visitDuration = wrapSet(setDuration);
 SetVisitor.prototype.visitDurationSecond = wrapSet(setDurationSecond);
 SetVisitor.prototype.visitDurationMillisecond = wrapSet(setDurationMillisecond);

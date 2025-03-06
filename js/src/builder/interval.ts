@@ -17,7 +17,7 @@
 
 import { FixedWidthBuilder } from '../builder.js';
 import { Interval, IntervalDayTime, IntervalYearMonth, IntervalMonthDayNano } from '../type.js';
-import { setIntervalValue, setIntervalDayTime, setIntervalYearMonth, setIntervalMonthDaynano } from '../visitor/set.js';
+import { setIntervalValue, setIntervalDayTime, setIntervalYearMonth, setIntervalMonthDayNano } from '../visitor/set.js';
 
 /** @ignore */
 export class IntervalBuilder<T extends Interval = Interval, TNull = any> extends FixedWidthBuilder<T, TNull> { }
@@ -37,4 +37,4 @@ export class IntervalYearMonthBuilder<TNull = any> extends IntervalBuilder<Inter
 /** @ignore */
 export class IntervalMonthDayNanoBuilder<TNull = any> extends IntervalBuilder<IntervalMonthDayNano, TNull> { }
 
-(IntervalMonthDayNanoBuilder.prototype as any)._setValue = setIntervalMonthDaynano;
+(IntervalMonthDayNanoBuilder.prototype as any)._setValue = setIntervalMonthDayNano;

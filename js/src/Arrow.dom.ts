@@ -37,6 +37,7 @@ export type {
     TypeMap, StructRowProxy,
     ReadableSource, WritableSink,
     ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions,
+    IntervalDayTimeObject, IntervalMonthDayNanoObject,
 } from './Arrow.js';
 
 export {

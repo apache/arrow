@@ -15,44 +15,71 @@
 // specific language governing permissions and limitations
 // under the License.
 
-type EncodedIntervalMonthDayNano = {
+export interface IntervalMonthDayNanoObject<StringifyNano extends boolean = false> {
     months: number;
     days: number;
-    nanoseconds: bigint | number;
-};
+    nanoseconds: StringifyNano extends true ? string : bigint | number;
+}
 
-type EncodedIntervalDayTime = {
+export interface IntervalDayTimeObject {
     days: number;
     milliseconds: number;
-};
+}
 
-export function encodeIntervalDayTime(intervalArray: EncodedIntervalDayTime[]) {
-    const length = intervalArray.length;
-    const data = new Int32Array(length * 2);
-    const intervalLength = intervalArray.length;
-    for (let i = 0, ptr = 0; i < intervalLength; i++) {
-        const interval = intervalArray[i];
-        data[ptr++] = interval.days ?? 0;
-        data[ptr++] = interval.milliseconds ?? 0;
+export function toIntervalDayTimeInt32Array(objects: IntervalDayTimeObject[]) {
+    const length = objects.length;
+    const array = new Int32Array(length * 2);
+    for (let oi = 0, ai = 0; oi < length; oi++) {
+        const interval = objects[oi];
+        array[ai++] = interval['days'] ?? 0;
+        array[ai++] = interval['milliseconds'] ?? 0;
+    }
+    return array;
+}
+
+export function toIntervalMonthDayNanoInt32Array(objects: Partial<IntervalMonthDayNanoObject>[]) {
+    const length = objects.length;
+    const data = new Int32Array(length * 4);
+    for (let oi = 0, ai = 0; oi < length; oi++) {
+        const interval = objects[oi];
+        data[ai++] = interval['months'] ?? 0;
+        data[ai++] = interval['days'] ?? 0;
+        const nanoseconds = interval['nanoseconds'];
+        if (nanoseconds) {
+            data[ai++] = Number(BigInt(nanoseconds) >> BigInt(32));
+            data[ai++] = Number(BigInt(nanoseconds) & BigInt(0xFFFFFFFF));
+        } else {
+            ai += 2;
+        }
     }
     return data;
 }
 
-export function encodeIntervalMonthDayNano(
-    intervalArray: EncodedIntervalMonthDayNano[]
-) {
-    const length = intervalArray.length;
-    const data = new Int32Array(length * 4);
-    const intervalLength = intervalArray.length;
-    for (let i = 0, ptr = 0; i < intervalLength; i++) {
-        const interval = intervalArray[i];
-        const nanoseconds = new Int32Array(
-            new BigInt64Array([BigInt(interval.nanoseconds ?? 0)]).buffer
-        );
-        data[ptr++] = interval.months ?? 0;
-        data[ptr++] = interval.days ?? 0;
-        data[ptr++] = nanoseconds[0];
-        data[ptr++] = nanoseconds[1];
+export function toIntervalDayTimeObjects(array: Int32Array): IntervalDayTimeObject[] {
+    const length = array.length;
+    const objects = new Array<IntervalDayTimeObject>(length / 2);
+    for (let ai = 0, oi = 0; ai < length; ai += 2) {
+        objects[oi++] = {
+            'days': array[ai],
+            'milliseconds': array[ai + 1]
+        };
     }
-    return data;
+    return objects;
+}
+
+/** @ignore */
+export function toIntervalMonthDayNanoObjects<StringifyNano extends boolean>(
+    array: Int32Array, stringifyNano: StringifyNano
+): IntervalMonthDayNanoObject<StringifyNano>[] {
+    const length = array.length;
+    const objects = new Array<IntervalMonthDayNanoObject<StringifyNano>>(length / 4);
+    for (let ai = 0, oi = 0; ai < length; ai += 4) {
+        const nanoseconds = (BigInt(array[ai + 2]) << BigInt(32)) | BigInt(array[ai + 3] >>> 0);
+        objects[oi++] = {
+            'months': array[ai],
+            'days': array[ai + 1],
+            'nanoseconds': (stringifyNano ? `${nanoseconds}` : nanoseconds) as IntervalMonthDayNanoObject<StringifyNano>['nanoseconds'],
+        };
+    }
+    return objects;
 }
