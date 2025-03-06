@@ -67,19 +67,19 @@ using FBString = flatbuffers::Offset<flatbuffers::String>;
 
 MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
   switch (version) {
-    case flatbuf::MetadataVersion::V1:
+    case flatbuf::MetadataVersion::MetadataVersion_V1:
       // Arrow 0.1
       return MetadataVersion::V1;
-    case flatbuf::MetadataVersion::V2:
+    case flatbuf::MetadataVersion::MetadataVersion_V2:
       // Arrow 0.2
       return MetadataVersion::V2;
-    case flatbuf::MetadataVersion::V3:
+    case flatbuf::MetadataVersion::MetadataVersion_V3:
       // Arrow 0.3 to 0.7.1
       return MetadataVersion::V3;
-    case flatbuf::MetadataVersion::V4:
+    case flatbuf::MetadataVersion::MetadataVersion_V4:
       // Arrow 0.8 to 0.17
       return MetadataVersion::V4;
-    case flatbuf::MetadataVersion::V5:
+    case flatbuf::MetadataVersion::MetadataVersion_V5:
       // Arrow >= 1.0
       return MetadataVersion::V5;
     // Add cases as other versions become available
@@ -91,18 +91,18 @@ MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
 flatbuf::MetadataVersion MetadataVersionToFlatbuffer(MetadataVersion version) {
   switch (version) {
     case MetadataVersion::V1:
-      return flatbuf::MetadataVersion::V1;
+      return flatbuf::MetadataVersion::MetadataVersion_V1;
     case MetadataVersion::V2:
-      return flatbuf::MetadataVersion::V2;
+      return flatbuf::MetadataVersion::MetadataVersion_V2;
     case MetadataVersion::V3:
-      return flatbuf::MetadataVersion::V3;
+      return flatbuf::MetadataVersion::MetadataVersion_V3;
     case MetadataVersion::V4:
-      return flatbuf::MetadataVersion::V4;
+      return flatbuf::MetadataVersion::MetadataVersion_V4;
     case MetadataVersion::V5:
-      return flatbuf::MetadataVersion::V5;
+      return flatbuf::MetadataVersion::MetadataVersion_V5;
     // Add cases as other versions become available
     default:
-      return flatbuf::MetadataVersion::V5;
+      return flatbuf::MetadataVersion::MetadataVersion_V5;
   }
 }
 
@@ -145,9 +145,9 @@ Status IntFromFlatbuffer(const flatbuf::Int* int_data, std::shared_ptr<DataType>
 
 Status FloatFromFlatbuffer(const flatbuf::FloatingPoint* float_data,
                            std::shared_ptr<DataType>* out) {
-  if (float_data->precision() == flatbuf::Precision::HALF) {
+  if (float_data->precision() == flatbuf::Precision::Precision_HALF) {
     *out = float16();
-  } else if (float_data->precision() == flatbuf::Precision::SINGLE) {
+  } else if (float_data->precision() == flatbuf::Precision::Precision_SINGLE) {
     *out = float32();
   } else {
     *out = float64();
@@ -170,8 +170,8 @@ Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
                            const std::vector<std::shared_ptr<Field>>& children,
                            std::shared_ptr<DataType>* out) {
   UnionMode::type mode =
-      (union_data->mode() == flatbuf::UnionMode::Sparse ? UnionMode::SPARSE
-                                                        : UnionMode::DENSE);
+      (union_data->mode() == flatbuf::UnionMode::UnionMode_Sparse ? UnionMode::SPARSE
+                                                                  : UnionMode::DENSE);
 
   std::vector<int8_t> type_codes;
 
@@ -199,7 +199,7 @@ Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
 }
 
 #define INT_TO_FB_CASE(BIT_WIDTH, IS_SIGNED)            \
-  *out_type = flatbuf::Type::Int;                       \
+  *out_type = flatbuf::Type::Type_Int;                  \
   *offset = IntToFlatbuffer(fbb, BIT_WIDTH, IS_SIGNED); \
   break;
 
@@ -208,28 +208,28 @@ Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
 flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit::type unit) {
   switch (unit) {
     case TimeUnit::SECOND:
-      return flatbuf::TimeUnit::SECOND;
+      return flatbuf::TimeUnit::TimeUnit_SECOND;
     case TimeUnit::MILLI:
-      return flatbuf::TimeUnit::MILLISECOND;
+      return flatbuf::TimeUnit::TimeUnit_MILLISECOND;
     case TimeUnit::MICRO:
-      return flatbuf::TimeUnit::MICROSECOND;
+      return flatbuf::TimeUnit::TimeUnit_MICROSECOND;
     case TimeUnit::NANO:
-      return flatbuf::TimeUnit::NANOSECOND;
+      return flatbuf::TimeUnit::TimeUnit_NANOSECOND;
     default:
       break;
   }
-  return flatbuf::TimeUnit::MIN;
+  return flatbuf::TimeUnit::TimeUnit_MIN;
 }
 
 TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
   switch (unit) {
-    case flatbuf::TimeUnit::SECOND:
+    case flatbuf::TimeUnit::TimeUnit_SECOND:
       return TimeUnit::SECOND;
-    case flatbuf::TimeUnit::MILLISECOND:
+    case flatbuf::TimeUnit::TimeUnit_MILLISECOND:
       return TimeUnit::MILLI;
-    case flatbuf::TimeUnit::MICROSECOND:
+    case flatbuf::TimeUnit::TimeUnit_MICROSECOND:
       return TimeUnit::MICRO;
-    case flatbuf::TimeUnit::NANOSECOND:
+    case flatbuf::TimeUnit::TimeUnit_NANOSECOND:
       return TimeUnit::NANO;
     default:
       break;
@@ -241,42 +241,42 @@ TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
 Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
                                   FieldVector children, std::shared_ptr<DataType>* out) {
   switch (type) {
-    case flatbuf::Type::NONE:
+    case flatbuf::Type::Type_NONE:
       return Status::Invalid("Type metadata cannot be none");
-    case flatbuf::Type::Null:
+    case flatbuf::Type::Type_Null:
       *out = null();
       return Status::OK();
-    case flatbuf::Type::Int:
+    case flatbuf::Type::Type_Int:
       return IntFromFlatbuffer(static_cast<const flatbuf::Int*>(type_data), out);
-    case flatbuf::Type::FloatingPoint:
+    case flatbuf::Type::Type_FloatingPoint:
       return FloatFromFlatbuffer(static_cast<const flatbuf::FloatingPoint*>(type_data),
                                  out);
-    case flatbuf::Type::Binary:
+    case flatbuf::Type::Type_Binary:
       *out = binary();
       return Status::OK();
-    case flatbuf::Type::LargeBinary:
+    case flatbuf::Type::Type_LargeBinary:
       *out = large_binary();
       return Status::OK();
-    case flatbuf::Type::BinaryView:
+    case flatbuf::Type::Type_BinaryView:
       *out = binary_view();
       return Status::OK();
-    case flatbuf::Type::FixedSizeBinary: {
+    case flatbuf::Type::Type_FixedSizeBinary: {
       auto fw_binary = static_cast<const flatbuf::FixedSizeBinary*>(type_data);
       return FixedSizeBinaryType::Make(fw_binary->byteWidth()).Value(out);
     }
-    case flatbuf::Type::Utf8:
+    case flatbuf::Type::Type_Utf8:
       *out = utf8();
       return Status::OK();
-    case flatbuf::Type::LargeUtf8:
+    case flatbuf::Type::Type_LargeUtf8:
       *out = large_utf8();
       return Status::OK();
-    case flatbuf::Type::Utf8View:
+    case flatbuf::Type::Type_Utf8View:
       *out = utf8_view();
       return Status::OK();
-    case flatbuf::Type::Bool:
+    case flatbuf::Type::Type_Bool:
       *out = boolean();
       return Status::OK();
-    case flatbuf::Type::Decimal: {
+    case flatbuf::Type::Type_Decimal: {
       auto dec_type = static_cast<const flatbuf::Decimal*>(type_data);
       switch (dec_type->bitWidth()) {
         case 32:
@@ -292,16 +292,16 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       }
       return Status::Invalid("Library only supports 32/64/128/256-bit decimal values");
     }
-    case flatbuf::Type::Date: {
+    case flatbuf::Type::Type_Date: {
       auto date_type = static_cast<const flatbuf::Date*>(type_data);
-      if (date_type->unit() == flatbuf::DateUnit::DAY) {
+      if (date_type->unit() == flatbuf::DateUnit::DateUnit_DAY) {
         *out = date32();
       } else {
         *out = date64();
       }
       return Status::OK();
     }
-    case flatbuf::Type::Time: {
+    case flatbuf::Type::Type_Time: {
       auto time_type = static_cast<const flatbuf::Time*>(type_data);
       TimeUnit::type unit = FromFlatbufferUnit(time_type->unit());
       int32_t bit_width = time_type->bitWidth();
@@ -322,31 +322,31 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       }
       return Status::OK();
     }
-    case flatbuf::Type::Timestamp: {
+    case flatbuf::Type::Type_Timestamp: {
       auto ts_type = static_cast<const flatbuf::Timestamp*>(type_data);
       TimeUnit::type unit = FromFlatbufferUnit(ts_type->unit());
       *out = timestamp(unit, StringFromFlatbuffers(ts_type->timezone()));
       return Status::OK();
     }
-    case flatbuf::Type::Duration: {
+    case flatbuf::Type::Type_Duration: {
       auto duration = static_cast<const flatbuf::Duration*>(type_data);
       TimeUnit::type unit = FromFlatbufferUnit(duration->unit());
       *out = arrow::duration(unit);
       return Status::OK();
     }
 
-    case flatbuf::Type::Interval: {
+    case flatbuf::Type::Type_Interval: {
       auto i_type = static_cast<const flatbuf::Interval*>(type_data);
       switch (i_type->unit()) {
-        case flatbuf::IntervalUnit::YEAR_MONTH: {
+        case flatbuf::IntervalUnit::IntervalUnit_YEAR_MONTH: {
           *out = month_interval();
           return Status::OK();
         }
-        case flatbuf::IntervalUnit::DAY_TIME: {
+        case flatbuf::IntervalUnit::IntervalUnit_DAY_TIME: {
           *out = day_time_interval();
           return Status::OK();
         }
-        case flatbuf::IntervalUnit::MONTH_DAY_NANO: {
+        case flatbuf::IntervalUnit::IntervalUnit_MONTH_DAY_NANO: {
           *out = month_day_nano_interval();
           return Status::OK();
         }
@@ -354,31 +354,31 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return Status::NotImplemented("Unrecognized interval type.");
     }
 
-    case flatbuf::Type::List:
+    case flatbuf::Type::Type_List:
       if (children.size() != 1) {
         return Status::Invalid("List must have exactly 1 child field");
       }
       *out = std::make_shared<ListType>(children[0]);
       return Status::OK();
-    case flatbuf::Type::LargeList:
+    case flatbuf::Type::Type_LargeList:
       if (children.size() != 1) {
         return Status::Invalid("LargeList must have exactly 1 child field");
       }
       *out = std::make_shared<LargeListType>(children[0]);
       return Status::OK();
-    case flatbuf::Type::ListView:
+    case flatbuf::Type::Type_ListView:
       if (children.size() != 1) {
         return Status::Invalid("ListView must have exactly 1 child field");
       }
       *out = std::make_shared<ListViewType>(children[0]);
       return Status::OK();
-    case flatbuf::Type::LargeListView:
+    case flatbuf::Type::Type_LargeListView:
       if (children.size() != 1) {
         return Status::Invalid("LargeListView must have exactly 1 child field");
       }
       *out = std::make_shared<LargeListViewType>(children[0]);
       return Status::OK();
-    case flatbuf::Type::Map:
+    case flatbuf::Type::Type_Map:
       if (children.size() != 1) {
         return Status::Invalid("Map must have exactly 1 child field");
       }
@@ -395,7 +395,7 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
                                          map->keysSorted());
       }
       return Status::OK();
-    case flatbuf::Type::FixedSizeList:
+    case flatbuf::Type::Type_FixedSizeList:
       if (children.size() != 1) {
         return Status::Invalid("FixedSizeList must have exactly 1 child field");
       } else {
@@ -403,13 +403,13 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
         *out = std::make_shared<FixedSizeListType>(children[0], fs_list->listSize());
       }
       return Status::OK();
-    case flatbuf::Type::Struct_:
+    case flatbuf::Type::Type_Struct_:
       *out = std::make_shared<StructType>(children);
       return Status::OK();
-    case flatbuf::Type::Union:
+    case flatbuf::Type::Type_Union:
       return UnionFromFlatbuffer(static_cast<const flatbuf::Union*>(type_data), children,
                                  out);
-    case flatbuf::Type::RunEndEncoded:
+    case flatbuf::Type::Type_RunEndEncoded:
       if (children.size() != 2) {
         return Status::Invalid("RunEndEncoded must have exactly 2 child fields");
       }
@@ -447,19 +447,19 @@ Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type, flatbuf::Type* out
     case Type::INT64:
       INT_TO_FB_CASE(64, true);
     case Type::HALF_FLOAT:
-      *out_type = flatbuf::Type::FloatingPoint;
-      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision::HALF);
+      *out_type = flatbuf::Type::Type_FloatingPoint;
+      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision::Precision_HALF);
       break;
     case Type::FLOAT:
-      *out_type = flatbuf::Type::FloatingPoint;
-      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision::SINGLE);
+      *out_type = flatbuf::Type::Type_FloatingPoint;
+      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision::Precision_SINGLE);
       break;
     case Type::DOUBLE:
-      *out_type = flatbuf::Type::FloatingPoint;
-      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision::DOUBLE);
+      *out_type = flatbuf::Type::Type_FloatingPoint;
+      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision::Precision_DOUBLE);
       break;
     default:
-      *out_type = flatbuf::Type::NONE;  // Make clang-tidy happy
+      *out_type = flatbuf::Type::Type_NONE;  // Make clang-tidy happy
       return Status::NotImplemented("Unable to convert type: ", type.ToString());
   }
   return Status::OK();
@@ -504,20 +504,20 @@ class FieldToFlatbufferVisitor {
   Status VisitType(const DataType& type) { return VisitTypeInline(type, this); }
 
   Status Visit(const NullType& type) {
-    fb_type_ = flatbuf::Type::Null;
+    fb_type_ = flatbuf::Type::Type_Null;
     type_offset_ = flatbuf::CreateNull(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const BooleanType& type) {
-    fb_type_ = flatbuf::Type::Bool;
+    fb_type_ = flatbuf::Type::Type_Bool;
     type_offset_ = flatbuf::CreateBool(fbb_).Union();
     return Status::OK();
   }
 
   template <int BitWidth, bool IsSigned, typename T>
   Status Visit(const T& type) {
-    fb_type_ = flatbuf::Type::Int;
+    fb_type_ = flatbuf::Type::Type_Int;
     type_offset_ = IntToFlatbuffer(fbb_, BitWidth, IsSigned);
     return Status::OK();
   }
@@ -529,81 +529,82 @@ class FieldToFlatbufferVisitor {
   }
 
   Status Visit(const HalfFloatType& type) {
-    fb_type_ = flatbuf::Type::FloatingPoint;
-    type_offset_ = FloatToFlatbuffer(fbb_, flatbuf::Precision::HALF);
+    fb_type_ = flatbuf::Type::Type_FloatingPoint;
+    type_offset_ = FloatToFlatbuffer(fbb_, flatbuf::Precision::Precision_HALF);
     return Status::OK();
   }
 
   Status Visit(const FloatType& type) {
-    fb_type_ = flatbuf::Type::FloatingPoint;
-    type_offset_ = FloatToFlatbuffer(fbb_, flatbuf::Precision::SINGLE);
+    fb_type_ = flatbuf::Type::Type_FloatingPoint;
+    type_offset_ = FloatToFlatbuffer(fbb_, flatbuf::Precision::Precision_SINGLE);
     return Status::OK();
   }
 
   Status Visit(const DoubleType& type) {
-    fb_type_ = flatbuf::Type::FloatingPoint;
-    type_offset_ = FloatToFlatbuffer(fbb_, flatbuf::Precision::DOUBLE);
+    fb_type_ = flatbuf::Type::Type_FloatingPoint;
+    type_offset_ = FloatToFlatbuffer(fbb_, flatbuf::Precision::Precision_DOUBLE);
     return Status::OK();
   }
 
   Status Visit(const FixedSizeBinaryType& type) {
     const auto& fw_type = checked_cast<const FixedSizeBinaryType&>(type);
-    fb_type_ = flatbuf::Type::FixedSizeBinary;
+    fb_type_ = flatbuf::Type::Type_FixedSizeBinary;
     type_offset_ = flatbuf::CreateFixedSizeBinary(fbb_, fw_type.byte_width()).Union();
     return Status::OK();
   }
 
   Status Visit(const BinaryType& type) {
-    fb_type_ = flatbuf::Type::Binary;
+    fb_type_ = flatbuf::Type::Type_Binary;
     type_offset_ = flatbuf::CreateBinary(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const BinaryViewType& type) {
-    fb_type_ = flatbuf::Type::BinaryView;
+    fb_type_ = flatbuf::Type::Type_BinaryView;
     type_offset_ = flatbuf::CreateBinaryView(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const StringViewType& type) {
-    fb_type_ = flatbuf::Type::Utf8View;
+    fb_type_ = flatbuf::Type::Type_Utf8View;
     type_offset_ = flatbuf::CreateUtf8View(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const LargeBinaryType& type) {
-    fb_type_ = flatbuf::Type::LargeBinary;
+    fb_type_ = flatbuf::Type::Type_LargeBinary;
     type_offset_ = flatbuf::CreateLargeBinary(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const StringType& type) {
-    fb_type_ = flatbuf::Type::Utf8;
+    fb_type_ = flatbuf::Type::Type_Utf8;
     type_offset_ = flatbuf::CreateUtf8(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const LargeStringType& type) {
-    fb_type_ = flatbuf::Type::LargeUtf8;
+    fb_type_ = flatbuf::Type::Type_LargeUtf8;
     type_offset_ = flatbuf::CreateLargeUtf8(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const Date32Type& type) {
-    fb_type_ = flatbuf::Type::Date;
-    type_offset_ = flatbuf::CreateDate(fbb_, flatbuf::DateUnit::DAY).Union();
+    fb_type_ = flatbuf::Type::Type_Date;
+    type_offset_ = flatbuf::CreateDate(fbb_, flatbuf::DateUnit::DateUnit_DAY).Union();
     return Status::OK();
   }
 
   Status Visit(const Date64Type& type) {
-    fb_type_ = flatbuf::Type::Date;
-    type_offset_ = flatbuf::CreateDate(fbb_, flatbuf::DateUnit::MILLISECOND).Union();
+    fb_type_ = flatbuf::Type::Type_Date;
+    type_offset_ =
+        flatbuf::CreateDate(fbb_, flatbuf::DateUnit::DateUnit_MILLISECOND).Union();
     return Status::OK();
   }
 
   Status Visit(const Time32Type& type) {
     const auto& time_type = checked_cast<const Time32Type&>(type);
-    fb_type_ = flatbuf::Type::Time;
+    fb_type_ = flatbuf::Type::Type_Time;
     type_offset_ =
         flatbuf::CreateTime(fbb_, ToFlatbufferUnit(time_type.unit()), 32).Union();
     return Status::OK();
@@ -611,7 +612,7 @@ class FieldToFlatbufferVisitor {
 
   Status Visit(const Time64Type& type) {
     const auto& time_type = checked_cast<const Time64Type&>(type);
-    fb_type_ = flatbuf::Type::Time;
+    fb_type_ = flatbuf::Type::Type_Time;
     type_offset_ =
         flatbuf::CreateTime(fbb_, ToFlatbufferUnit(time_type.unit()), 64).Union();
     return Status::OK();
@@ -619,7 +620,7 @@ class FieldToFlatbufferVisitor {
 
   Status Visit(const TimestampType& type) {
     const auto& ts_type = checked_cast<const TimestampType&>(type);
-    fb_type_ = flatbuf::Type::Timestamp;
+    fb_type_ = flatbuf::Type::Type_Timestamp;
     flatbuf::TimeUnit fb_unit = ToFlatbufferUnit(ts_type.unit());
     FBString fb_timezone = 0;
     if (ts_type.timezone().size() > 0) {
@@ -630,35 +631,39 @@ class FieldToFlatbufferVisitor {
   }
 
   Status Visit(const DurationType& type) {
-    fb_type_ = flatbuf::Type::Duration;
+    fb_type_ = flatbuf::Type::Type_Duration;
     flatbuf::TimeUnit fb_unit = ToFlatbufferUnit(type.unit());
     type_offset_ = flatbuf::CreateDuration(fbb_, fb_unit).Union();
     return Status::OK();
   }
 
   Status Visit(const DayTimeIntervalType& type) {
-    fb_type_ = flatbuf::Type::Interval;
-    type_offset_ = flatbuf::CreateInterval(fbb_, flatbuf::IntervalUnit::DAY_TIME).Union();
+    fb_type_ = flatbuf::Type::Type_Interval;
+    type_offset_ =
+        flatbuf::CreateInterval(fbb_, flatbuf::IntervalUnit::IntervalUnit_DAY_TIME)
+            .Union();
     return Status::OK();
   }
 
   Status Visit(const MonthDayNanoIntervalType& type) {
-    fb_type_ = flatbuf::Type::Interval;
+    fb_type_ = flatbuf::Type::Type_Interval;
     type_offset_ =
-        flatbuf::CreateInterval(fbb_, flatbuf::IntervalUnit::MONTH_DAY_NANO).Union();
+        flatbuf::CreateInterval(fbb_, flatbuf::IntervalUnit::IntervalUnit_MONTH_DAY_NANO)
+            .Union();
     return Status::OK();
   }
 
   Status Visit(const MonthIntervalType& type) {
-    fb_type_ = flatbuf::Type::Interval;
+    fb_type_ = flatbuf::Type::Type_Interval;
     type_offset_ =
-        flatbuf::CreateInterval(fbb_, flatbuf::IntervalUnit::YEAR_MONTH).Union();
+        flatbuf::CreateInterval(fbb_, flatbuf::IntervalUnit::IntervalUnit_YEAR_MONTH)
+            .Union();
     return Status::OK();
   }
 
   Status Visit(const Decimal32Type& type) {
     const auto& dec_type = checked_cast<const Decimal32Type&>(type);
-    fb_type_ = flatbuf::Type::Decimal;
+    fb_type_ = flatbuf::Type::Type_Decimal;
     type_offset_ = flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale(),
                                           /*bitWidth=*/32)
                        .Union();
@@ -667,7 +672,7 @@ class FieldToFlatbufferVisitor {
 
   Status Visit(const Decimal64Type& type) {
     const auto& dec_type = checked_cast<const Decimal64Type&>(type);
-    fb_type_ = flatbuf::Type::Decimal;
+    fb_type_ = flatbuf::Type::Type_Decimal;
     type_offset_ = flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale(),
                                           /*bitWidth=*/64)
                        .Union();
@@ -676,7 +681,7 @@ class FieldToFlatbufferVisitor {
 
   Status Visit(const Decimal128Type& type) {
     const auto& dec_type = checked_cast<const Decimal128Type&>(type);
-    fb_type_ = flatbuf::Type::Decimal;
+    fb_type_ = flatbuf::Type::Type_Decimal;
     type_offset_ = flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale(),
                                           /*bitWidth=*/128)
                        .Union();
@@ -685,7 +690,7 @@ class FieldToFlatbufferVisitor {
 
   Status Visit(const Decimal256Type& type) {
     const auto& dec_type = checked_cast<const Decimal256Type&>(type);
-    fb_type_ = flatbuf::Type::Decimal;
+    fb_type_ = flatbuf::Type::Type_Decimal;
     type_offset_ = flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale(),
                                           /*bitWith=*/256)
                        .Union();
@@ -693,63 +698,63 @@ class FieldToFlatbufferVisitor {
   }
 
   Status Visit(const ListType& type) {
-    fb_type_ = flatbuf::Type::List;
+    fb_type_ = flatbuf::Type::Type_List;
     RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateList(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const LargeListType& type) {
-    fb_type_ = flatbuf::Type::LargeList;
+    fb_type_ = flatbuf::Type::Type_LargeList;
     RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateLargeList(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const ListViewType& type) {
-    fb_type_ = flatbuf::Type::ListView;
+    fb_type_ = flatbuf::Type::Type_ListView;
     RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateListView(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const LargeListViewType& type) {
-    fb_type_ = flatbuf::Type::LargeListView;
+    fb_type_ = flatbuf::Type::Type_LargeListView;
     RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateListView(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const MapType& type) {
-    fb_type_ = flatbuf::Type::Map;
+    fb_type_ = flatbuf::Type::Type_Map;
     RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateMap(fbb_, type.keys_sorted()).Union();
     return Status::OK();
   }
 
   Status Visit(const FixedSizeListType& type) {
-    fb_type_ = flatbuf::Type::FixedSizeList;
+    fb_type_ = flatbuf::Type::Type_FixedSizeList;
     RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateFixedSizeList(fbb_, type.list_size()).Union();
     return Status::OK();
   }
 
   Status Visit(const StructType& type) {
-    fb_type_ = flatbuf::Type::Struct_;
+    fb_type_ = flatbuf::Type::Type_Struct_;
     RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateStruct_(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const UnionType& type) {
-    fb_type_ = flatbuf::Type::Union;
+    fb_type_ = flatbuf::Type::Type_Union;
     RETURN_NOT_OK(VisitChildFields(type));
 
     const auto& union_type = checked_cast<const UnionType&>(type);
 
     flatbuf::UnionMode mode = union_type.mode() == UnionMode::SPARSE
-                                  ? flatbuf::UnionMode::Sparse
-                                  : flatbuf::UnionMode::Dense;
+                                  ? flatbuf::UnionMode::UnionMode_Sparse
+                                  : flatbuf::UnionMode::UnionMode_Dense;
 
     std::vector<int32_t> type_ids;
     type_ids.reserve(union_type.type_codes().size());
@@ -771,7 +776,7 @@ class FieldToFlatbufferVisitor {
   }
 
   Status Visit(const RunEndEncodedType& type) {
-    fb_type_ = flatbuf::Type::RunEndEncoded;
+    fb_type_ = flatbuf::Type::Type_RunEndEncoded;
     RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateRunEndEncoded(fbb_).Union();
     return Status::OK();
@@ -936,7 +941,8 @@ flatbuf::Endianness endianness() {
     char c[4];
   } bint = {0x01020304};
 
-  return bint.c[0] == 1 ? flatbuf::Endianness::Big : flatbuf::Endianness::Little;
+  return bint.c[0] == 1 ? flatbuf::Endianness::Endianness_Big
+                        : flatbuf::Endianness::Endianness_Little;
 }
 
 flatbuffers::Offset<KVVector> SerializeCustomMetadata(
@@ -1020,15 +1026,15 @@ static Status GetBodyCompression(FBB& fbb, const IpcWriteOptions& options,
   if (options.codec != nullptr) {
     flatbuf::CompressionType codec;
     if (options.codec->compression_type() == Compression::LZ4_FRAME) {
-      codec = flatbuf::CompressionType::LZ4_FRAME;
+      codec = flatbuf::CompressionType::CompressionType_LZ4_FRAME;
     } else if (options.codec->compression_type() == Compression::ZSTD) {
-      codec = flatbuf::CompressionType::ZSTD;
+      codec = flatbuf::CompressionType::CompressionType_ZSTD;
     } else {
       return Status::Invalid("Unsupported IPC compression codec: ",
                              options.codec->name());
     }
-    *out = flatbuf::CreateBodyCompression(fbb, codec,
-                                          flatbuf::BodyCompressionMethod::BUFFER);
+    *out = flatbuf::CreateBodyCompression(
+        fbb, codec, flatbuf::BodyCompressionMethod::BodyCompressionMethod_BUFFER);
   }
   return Status::OK();
 }
@@ -1061,7 +1067,8 @@ Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
                                 const std::vector<BufferMetadata>& buffers,
                                 flatbuf::SparseTensorIndex* fb_sparse_index_type,
                                 Offset* fb_sparse_index, size_t* num_buffers) {
-  *fb_sparse_index_type = flatbuf::SparseTensorIndex::SparseTensorIndexCOO;
+  *fb_sparse_index_type =
+      flatbuf::SparseTensorIndex::SparseTensorIndex_SparseTensorIndexCOO;
 
   // We assume that the value type of indices tensor is an integer.
   const auto& index_value_type =
@@ -1088,12 +1095,14 @@ struct SparseMatrixCompressedAxis {};
 
 template <>
 struct SparseMatrixCompressedAxis<SparseCSRIndex> {
-  constexpr static const auto value = flatbuf::SparseMatrixCompressedAxis::Row;
+  constexpr static const auto value =
+      flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Row;
 };
 
 template <>
 struct SparseMatrixCompressedAxis<SparseCSCIndex> {
-  constexpr static const auto value = flatbuf::SparseMatrixCompressedAxis::Column;
+  constexpr static const auto value =
+      flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Column;
 };
 
 template <typename SparseIndexType>
@@ -1101,7 +1110,8 @@ Status MakeSparseMatrixIndexCSX(FBB& fbb, const SparseIndexType& sparse_index,
                                 const std::vector<BufferMetadata>& buffers,
                                 flatbuf::SparseTensorIndex* fb_sparse_index_type,
                                 Offset* fb_sparse_index, size_t* num_buffers) {
-  *fb_sparse_index_type = flatbuf::SparseTensorIndex::SparseMatrixIndexCSX;
+  *fb_sparse_index_type =
+      flatbuf::SparseTensorIndex::SparseTensorIndex_SparseMatrixIndexCSX;
 
   // We assume that the value type of indptr tensor is an integer.
   const auto& indptr_value_type =
@@ -1134,7 +1144,8 @@ Status MakeSparseTensorIndexCSF(FBB& fbb, const SparseCSFIndex& sparse_index,
                                 const std::vector<BufferMetadata>& buffers,
                                 flatbuf::SparseTensorIndex* fb_sparse_index_type,
                                 Offset* fb_sparse_index, size_t* num_buffers) {
-  *fb_sparse_index_type = flatbuf::SparseTensorIndex::SparseTensorIndexCSF;
+  *fb_sparse_index_type =
+      flatbuf::SparseTensorIndex::SparseTensorIndex_SparseTensorIndexCSF;
   const int ndim = static_cast<int>(sparse_index.axis_order().size());
 
   // We assume that the value type of indptr tensor is an integer.
@@ -1218,7 +1229,8 @@ Status MakeSparseTensorIndex(FBB& fbb, const SparseIndex& sparse_index,
       break;
 
     default:
-      *fb_sparse_index_type = flatbuf::SparseTensorIndex::NONE;  // Silence warnings
+      *fb_sparse_index_type =
+          flatbuf::SparseTensorIndex::SparseTensorIndex_NONE;  // Silence warnings
       std::stringstream ss;
       ss << "Unsupported sparse tensor format:: " << sparse_index.ToString() << std::endl;
       return Status::NotImplemented(ss.str());
@@ -1290,7 +1302,8 @@ Status WriteSchemaMessage(const Schema& schema, const DictionaryFieldMapper& map
   FBB fbb;
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
   RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, mapper, &fb_schema));
-  return WriteFBMessage(fbb, flatbuf::MessageHeader::Schema, fb_schema.Union(),
+  return WriteFBMessage(fbb, flatbuf::MessageHeader::MessageHeader_Schema,
+                        fb_schema.Union(),
                         /*body_length=*/0, options.metadata_version,
                         /*custom_metadata=*/nullptr, options.memory_pool)
       .Value(out);
@@ -1306,9 +1319,9 @@ Status WriteRecordBatchMessage(
   RecordBatchOffset record_batch;
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers,
                                 variadic_buffer_counts, options, &record_batch));
-  return WriteFBMessage(fbb, flatbuf::MessageHeader::RecordBatch, record_batch.Union(),
-                        body_length, options.metadata_version, custom_metadata,
-                        options.memory_pool)
+  return WriteFBMessage(fbb, flatbuf::MessageHeader::MessageHeader_RecordBatch,
+                        record_batch.Union(), body_length, options.metadata_version,
+                        custom_metadata, options.memory_pool)
       .Value(out);
 }
 
@@ -1341,8 +1354,8 @@ Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
   TensorOffset fb_tensor =
       flatbuf::CreateTensor(fbb, fb_type_type, fb_type, fb_shape, fb_strides, &buffer);
 
-  return WriteFBMessage(fbb, flatbuf::MessageHeader::Tensor, fb_tensor.Union(),
-                        body_length, options.metadata_version,
+  return WriteFBMessage(fbb, flatbuf::MessageHeader::MessageHeader_Tensor,
+                        fb_tensor.Union(), body_length, options.metadata_version,
                         /*custom_metadata=*/nullptr, options.memory_pool);
 }
 
@@ -1353,7 +1366,7 @@ Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
   SparseTensorOffset fb_sparse_tensor;
   RETURN_NOT_OK(
       MakeSparseTensor(fbb, sparse_tensor, body_length, buffers, &fb_sparse_tensor));
-  return WriteFBMessage(fbb, flatbuf::MessageHeader::SparseTensor,
+  return WriteFBMessage(fbb, flatbuf::MessageHeader::MessageHeader_SparseTensor,
                         fb_sparse_tensor.Union(), body_length, options.metadata_version,
                         /*custom_metadata=*/nullptr, options.memory_pool);
 }
@@ -1370,9 +1383,9 @@ Status WriteDictionaryMessage(
                                 variadic_buffer_counts, options, &record_batch));
   auto dictionary_batch =
       flatbuf::CreateDictionaryBatch(fbb, id, record_batch, is_delta).Union();
-  return WriteFBMessage(fbb, flatbuf::MessageHeader::DictionaryBatch, dictionary_batch,
-                        body_length, options.metadata_version, custom_metadata,
-                        options.memory_pool)
+  return WriteFBMessage(fbb, flatbuf::MessageHeader::MessageHeader_DictionaryBatch,
+                        dictionary_batch, body_length, options.metadata_version,
+                        custom_metadata, options.memory_pool)
       .Value(out);
 }
 
@@ -1449,7 +1462,7 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
   std::shared_ptr<KeyValueMetadata> metadata;
   RETURN_NOT_OK(internal::GetKeyValueMetadata(schema->custom_metadata(), &metadata));
   // set endianness using the value in flatbuf schema
-  auto endianness = schema->endianness() == flatbuf::Endianness::Little
+  auto endianness = schema->endianness() == flatbuf::Endianness::Endianness_Little
                         ? Endianness::Little
                         : Endianness::Big;
   *out = ::arrow::schema(std::move(fields), endianness, metadata);
@@ -1554,18 +1567,18 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
 
   if (sparse_tensor_format_id) {
     switch (sparse_tensor->sparseIndex_type()) {
-      case flatbuf::SparseTensorIndex::SparseTensorIndexCOO:
+      case flatbuf::SparseTensorIndex::SparseTensorIndex_SparseTensorIndexCOO:
         *sparse_tensor_format_id = SparseTensorFormat::COO;
         break;
 
-      case flatbuf::SparseTensorIndex::SparseMatrixIndexCSX: {
+      case flatbuf::SparseTensorIndex::SparseTensorIndex_SparseMatrixIndexCSX: {
         auto cs = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX();
         switch (cs->compressedAxis()) {
-          case flatbuf::SparseMatrixCompressedAxis::Row:
+          case flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Row:
             *sparse_tensor_format_id = SparseTensorFormat::CSR;
             break;
 
-          case flatbuf::SparseMatrixCompressedAxis::Column:
+          case flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Column:
             *sparse_tensor_format_id = SparseTensorFormat::CSC;
             break;
 
@@ -1574,7 +1587,7 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
         }
       } break;
 
-      case flatbuf::SparseTensorIndex::SparseTensorIndexCSF:
+      case flatbuf::SparseTensorIndex::SparseTensorIndex_SparseTensorIndexCSF:
         *sparse_tensor_format_id = SparseTensorFormat::CSF;
         break;
 

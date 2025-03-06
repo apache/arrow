@@ -659,14 +659,15 @@ Status GetCompression(const flatbuf::RecordBatch* batch, Compression::type* out)
   *out = Compression::UNCOMPRESSED;
   const flatbuf::BodyCompression* compression = batch->compression();
   if (compression != nullptr) {
-    if (compression->method() != flatbuf::BodyCompressionMethod::BUFFER) {
+    if (compression->method() !=
+        flatbuf::BodyCompressionMethod::BodyCompressionMethod_BUFFER) {
       // Forward compatibility
       return Status::Invalid("This library only supports BUFFER compression method");
     }
 
-    if (compression->codec() == flatbuf::CompressionType::LZ4_FRAME) {
+    if (compression->codec() == flatbuf::CompressionType::CompressionType_LZ4_FRAME) {
       *out = Compression::LZ4_FRAME;
-    } else if (compression->codec() == flatbuf::CompressionType::ZSTD) {
+    } else if (compression->codec() == flatbuf::CompressionType::CompressionType_ZSTD) {
       *out = Compression::ZSTD;
     } else {
       return Status::Invalid("Unsupported codec in RecordBatch::compression metadata");
@@ -717,7 +718,7 @@ Result<RecordBatchWithMetadata> ReadRecordBatchInternal(
   Compression::type compression;
   RETURN_NOT_OK(GetCompression(batch, &compression));
   if (context.compression == Compression::UNCOMPRESSED &&
-      message->version() == flatbuf::MetadataVersion::V4) {
+      message->version() == flatbuf::MetadataVersion::MetadataVersion_V4) {
     // Possibly obtain codec information from experimental serialization format
     // in 0.17.x
     RETURN_NOT_OK(GetCompressionExperimental(message, &compression));
@@ -820,7 +821,7 @@ Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
   Compression::type compression;
   RETURN_NOT_OK(GetCompression(batch_meta, &compression));
   if (compression == Compression::UNCOMPRESSED &&
-      message->version() == flatbuf::MetadataVersion::V4) {
+      message->version() == flatbuf::MetadataVersion::MetadataVersion_V4) {
     // Possibly obtain codec information from experimental serialization format
     // in 0.17.x
     RETURN_NOT_OK(GetCompressionExperimental(message, &compression));
@@ -1626,7 +1627,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     Compression::type compression;
     RETURN_NOT_OK(GetCompression(batch, &compression));
     if (context.compression == Compression::UNCOMPRESSED &&
-        message->version() == flatbuf::MetadataVersion::V4) {
+        message->version() == flatbuf::MetadataVersion::MetadataVersion_V4) {
       // Possibly obtain codec information from experimental serialization format
       // in 0.17.x
       RETURN_NOT_OK(GetCompressionExperimental(message, &compression));
@@ -2258,7 +2259,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
   }
 
   switch (sparse_index->compressedAxis()) {
-    case flatbuf::SparseMatrixCompressedAxis::Row: {
+    case flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Row: {
       std::vector<int64_t> indptr_shape({shape[0] + 1});
       const int64_t indptr_minimum_bytes = indptr_shape[0] * indptr_byte_width;
       if (indptr_minimum_bytes > indptr_buffer->length()) {
@@ -2268,7 +2269,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
           std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
           std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
     }
-    case flatbuf::SparseMatrixCompressedAxis::Column: {
+    case flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Column: {
       std::vector<int64_t> indptr_shape({shape[1] + 1});
       const int64_t indptr_minimum_bytes = indptr_shape[0] * indptr_byte_width;
       if (indptr_minimum_bytes > indptr_buffer->length()) {
