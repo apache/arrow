@@ -18,12 +18,12 @@
   under the License.
 -->
 
-# Packaging checklist for CRAN release
+# Packaging Checklist for CRAN Release
 
 For a high-level overview of the release process see the
 [Apache Arrow Release Management Guide](https://arrow.apache.org/docs/developers/release.html#post-release-tasks).
 
-## Before the release candidate is cut
+## Before the Arrow Release Candidate Is Created
 
 - [ ] [Create a GitHub issue](https://github.com/apache/arrow/issues/new/) entitled `[R] CRAN packaging checklist for version X.X.X` and copy this checklist to the issue.
 - [ ] Review deprecated functions to advance their deprecation status, including removing preprocessor directives that no longer apply (search for `ARROW_VERSION_MAJOR` in r/src).
@@ -38,11 +38,11 @@ For a high-level overview of the release process see the
 
 Wait for the release candidate to be cut:
 
-## After release candidate has been cut
+## After the Arrow Release Candidate Has Been Created
 
 - [ ] Create a CRAN-release branch from the release candidate commit, name the new branch e.g. `maint-X.X.X-r` and push to upstream
 
-## Prepare and check the .tar.gz that will be released to CRAN.
+## Prepare and Check the .tar.gz That Will Be Released to CRAN
 
 - [ ] `git fetch upstream && git checkout release-X.X.X-rcXX && git clean -f -d`
 - [ ] Run `make build`. This copies Arrow C++ into tools/cpp, prunes some
@@ -53,11 +53,11 @@ Wait for the release candidate to be cut:
 - [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally
 - [ ] Run reverse dependency checks using `archery docker run r-revdepcheck`.
 
-## Release vote
+## Release Vote
 
 - [ ] Release vote passed!
 
-## Generate R package to submit to CRAN
+## Generate R Package to Submit to CRAN
 
 - [ ] If the release candidate commit updated, rebase the CRAN release branch
   on that commit.
@@ -72,7 +72,7 @@ Wait for the release candidate to be cut:
 - [ ] Run `Rscript tools/update-checksums.R <libarrow version>` to download the checksums for the pre-compiled binaries from the ASF artifactory into the tools directory.
 - [ ] Regenerate arrow_X.X.X.tar.gz (i.e., `make build`)
 
-## Check binary Arrow C++ distributions specific to the R package
+## Check Binary Arrow C++ Distributions Specific to the R Package
 
 - [ ] Upload the .tar.gz to [win-builder](https://win-builder.r-project.org/upload.aspx) (r-devel only)
   and confirm (with Jon, who will automatically receive an email about the results) that the check is clean.
@@ -82,7 +82,7 @@ Wait for the release candidate to be cut:
   hosted binaries are used
 - [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally one more time (for luck)
 
-## CRAN submission
+## CRAN Submission
 - [ ] Upload arrow_X.X.X.tar.gz to the
   [CRAN submit page](https://xmpalantir.wu.ac.at/cransubmit/)
 - [ ] Confirm the submission email
