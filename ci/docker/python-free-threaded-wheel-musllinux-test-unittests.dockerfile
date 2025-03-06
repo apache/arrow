@@ -21,6 +21,7 @@ FROM ${base}
 RUN apk add --no-cache bash build-base bzip2-dev dpkg dpkg-dev g++ git libffi-dev libnsl-dev libtirpc-dev \
     linux-headers ncurses-dev openssl-dev pkgconf tzdata zlib-dev
 
+# Install Python3.13.2 without GIL
 RUN wget https://github.com/python/cpython/archive/refs/tags/v3.13.2.tar.gz && \
     tar -xzf v3.13.2.tar.gz && \
     rm v3.13.2.tar.gz && \
@@ -32,6 +33,7 @@ RUN wget https://github.com/python/cpython/archive/refs/tags/v3.13.2.tar.gz && \
     cd ../ && \
     rm -rf cpython-3.13.2/
 
+# Add symlinks for idle, pip, pydoc, python and python-config
 RUN for src in idle3 pip3 pydoc3 python3 python3-config; do \
         dst="$(echo "$src" | tr -d 3)"; \
         [ -s "/usr/local/bin/$src" ]; \

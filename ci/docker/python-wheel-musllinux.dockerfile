@@ -22,7 +22,7 @@ ARG arch
 ARG arch_short
 ARG musllinux
 
-ENV LINUX_WHEEL_NAME='musl'
+ENV LINUX_WHEEL_KIND='musllinux'
 ENV LINUX_WHEEL_VERSION=${musllinux}
 
 RUN apk update

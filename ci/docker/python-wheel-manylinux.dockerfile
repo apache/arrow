@@ -22,7 +22,7 @@ ARG arch
 ARG arch_short
 ARG manylinux
 
-ENV LINUX_WHEEL_NAME='many'
+ENV LINUX_WHEEL_KIND='manylinux'
 ENV LINUX_WHEEL_VERSION=${manylinux}
 
 # Ensure dnf is installed, especially for the manylinux2014 base
