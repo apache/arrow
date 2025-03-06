@@ -20,8 +20,7 @@
 
 # Packaging Checklist for CRAN Release
 
-For a high-level overview of the release process see the
-[Apache Arrow Release Management Guide](https://arrow.apache.org/docs/developers/release.html#post-release-tasks).
+For a high-level overview of the release process see the [Apache Arrow Release Management Guide](https://arrow.apache.org/docs/developers/release.html#post-release-tasks).
 
 ## Before the Arrow Release Candidate Is Created
 
@@ -45,11 +44,7 @@ Wait for the release candidate to be cut:
 ## Prepare and Check the .tar.gz That Will Be Released to CRAN
 
 - [ ] `git fetch upstream && git checkout release-X.X.X-rcXX && git clean -f -d`
-- [ ] Run `make build`. This copies Arrow C++ into tools/cpp, prunes some
-  unnecessary components, and runs `R CMD build` to generate the source tarball.
-  Because this will install the package, you will need to ensure that the version
-  of Arrow C++ available to the configure script is the same as the version
-  that is vendored into the R package (e.g., you may need to unset `ARROW_HOME`).
+- [ ] Run `make build`. This copies Arrow C++ into tools/cpp, prunes some unnecessary components, and runs `R CMD build` to generate the source tarball. Because this will install the package, you will need to ensure that the version of Arrow C++ available to the configure script is the same as the version that is vendored into the R package (e.g., you may need to unset `ARROW_HOME`).
 - [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally
 - [ ] Run reverse dependency checks using `archery docker run r-revdepcheck`.
 
@@ -59,45 +54,35 @@ Wait for the release candidate to be cut:
 
 ## Generate R Package to Submit to CRAN
 
-- [ ] If the release candidate commit updated, rebase the CRAN release branch
-  on that commit.
-- [ ] Pick any commits that were made to main since the release commit that
-  were needed to fix CRAN-related submission issues identified in the above
-  steps.
+- [ ] If the release candidate commit updated, rebase the CRAN release branch on that commit.
+- [ ] Pick any commits that were made to main since the release commit that were needed to fix CRAN-related submission issues identified in the above steps.
 - [ ] Remove badges from README.md
 - [ ] Run `urlchecker::url_check()` on the R directory
-- [ ] Create a PR entitled `WIP: [R] Verify CRAN release-10.0.1-rc0`. Add
-  a comment `@github-actions crossbow submit --group r` to run all R crossbow
-  jobs against the CRAN-specific release branch.
+- [ ] Create a PR entitled `WIP: [R] Verify CRAN release-10.0.1-rc0`. Add a comment `@github-actions crossbow submit --group r` to run all R crossbow jobs against the CRAN-specific release branch.
 - [ ] Run `Rscript tools/update-checksums.R <libarrow version>` to download the checksums for the pre-compiled binaries from the ASF artifactory into the tools directory.
 - [ ] Regenerate arrow_X.X.X.tar.gz (i.e., `make build`)
 
 ## Check Binary Arrow C++ Distributions Specific to the R Package
 
-- [ ] Upload the .tar.gz to [win-builder](https://win-builder.r-project.org/upload.aspx) (r-devel only)
-  and confirm (with Jon, who will automatically receive an email about the results) that the check is clean.
-- [ ] Upload the .tar.gz to [MacBuilder](https://mac.r-project.org/macbuilder/submit.html)
-  and confirm that the check is clean
-- [ ] Check `install.packages("arrow_X.X.X.tar.gz")` on Ubuntu and ensure that the
-  hosted binaries are used
+- [ ] Upload the .tar.gz to [win-builder](https://win-builder.r-project.org/upload.aspx) (r-devel only) and confirm (with Jon, who will automatically receive an email about the results) that the check is clean.
+- [ ] Upload the .tar.gz to [MacBuilder](https://mac.r-project.org/macbuilder/submit.html) and confirm that the check is clean
+- [ ] Check `install.packages("arrow_X.X.X.tar.gz")` on Ubuntu and ensure that the hosted binaries are used
 - [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally one more time (for luck)
 
 ## CRAN Submission
-- [ ] Upload arrow_X.X.X.tar.gz to the
-  [CRAN submit page](https://xmpalantir.wu.ac.at/cransubmit/)
+
+- [ ] Upload arrow_X.X.X.tar.gz to the [CRAN submit page](https://xmpalantir.wu.ac.at/cransubmit/)
 - [ ] Confirm the submission email
 
 Wait for CRAN...
+
 - [ ] Accepted!
 - [ ] Tag the tip of the CRAN-specific release branch with `r-universe-release`
 - [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/main/dev/tasks/r/github.linux.arrow.version.back.compat.yml)
 - [ ] (patch releases only) Update the package version in `ci/scripts/PKGBUILD`, `dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb`, `r/DESCRIPTION`, and `r/NEWS.md`
 - [ ] (CRAN-only releases) Rebuild news page with `pkgdown::build_news()` and submit a PR to the asf-site branch of the docs site with the contents of `arrow/r/docs/news/index.html` replacing the current contents of `arrow-site/docs/r/news/index.html`
 - [ ] (CRAN-only releases) Bump the version number in `r/pkgdown/assets/versions.json`, and update this on the [the `asf-site` branch of the docs site](https://github.com/apache/arrow-site) too.
-- [ ] Update the packaging checklist template to reflect any new realities of the
-  packaging process.
-- [ ] Wait for CRAN-hosted binaries on the
-  [CRAN package page](https://cran.r-project.org/package=arrow) to reflect the
-  new version
+- [ ] Update the packaging checklist template to reflect any new realities of the packaging process.
+- [ ] Wait for CRAN-hosted binaries on the [CRAN package page](https://cran.r-project.org/package=arrow) to reflect the new version
 - [ ] Tweet!
   - Use Bryce's [script](https://gist.githubusercontent.com/amoeba/4e26c064d1a0d0227cd8c2260cf0072a/raw/bc0d983152bdde4820de9074d4caee9986624bc5/new_contributors.R) for contributor calculation.
