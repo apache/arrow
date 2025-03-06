@@ -65,34 +65,38 @@ inline uint64_t hash(uint64_t seed, uint64_t index) {
   return h;
 }
 
-#define GENERATE_CASE_BODY(BUILDER_TYPE, VALUE_EXPR)   \
-  {                                                    \
-    BUILDER_TYPE builder(type, default_memory_pool()); \
-    if (nullable) {                                    \
-      for (int64_t i = 0; i < length; ++i) {           \
-        uint64_t val = hash(seed, i);                  \
-        if (val % 10 == 0) {                           \
-          RETURN_NOT_OK(builder.AppendNull());         \
-        } else {                                       \
-          RETURN_NOT_OK(builder.Append(VALUE_EXPR));   \
-        }                                              \
-      }                                                \
-    } else {                                           \
-      for (int64_t i = 0; i < length; ++i) {           \
-        uint64_t val = hash(seed, i);                  \
-        RETURN_NOT_OK(builder.Append(VALUE_EXPR));     \
-      }                                                \
-    }                                                  \
-    std::shared_ptr<Array> array;                      \
-    RETURN_NOT_OK(builder.Finish(&array));             \
-    RETURN_NOT_OK(array->ValidateFull());              \
-    return array;                                      \
+template <typename BuilderType, typename ValueFunc>
+Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<DataType>& type,
+                                             bool nullable, int64_t length, uint64_t seed,
+                                             ValueFunc value_func) {
+  BuilderType builder(type, default_memory_pool());
+
+  if (nullable) {
+    for (int64_t i = 0; i < length; ++i) {
+      uint64_t val = hash(seed, i);
+      if (val % 10 == 0) {
+        RETURN_NOT_OK(builder.AppendNull());
+      } else {
+        RETURN_NOT_OK(builder.Append(value_func(val)));
+      }
+    }
+  } else {
+    for (int64_t i = 0; i < length; ++i) {
+      uint64_t val = hash(seed, i);
+      RETURN_NOT_OK(builder.Append(value_func(val)));
+    }
   }
 
-// Macro to generate a case for a given scalar type.
-#define GENERATE_CASE(TYPE_ID, BUILDER_TYPE, VALUE_EXPR) \
-  case ::arrow::Type::TYPE_ID: {                         \
-    GENERATE_CASE_BODY(BUILDER_TYPE, VALUE_EXPR)         \
+  std::shared_ptr<Array> array;
+  RETURN_NOT_OK(builder.Finish(&array));
+  RETURN_NOT_OK(array->ValidateFull());
+  return array;
+}
+
+#define GENERATE_CASE(TYPE_ID, BUILDER_TYPE, VALUE_EXPR)                          \
+  case ::arrow::Type::TYPE_ID: {                                                  \
+    auto value_func = [](uint64_t val) { return VALUE_EXPR; };                    \
+    return GenerateArray<BUILDER_TYPE>(type, nullable, length, seed, value_func); \
   }
 
 Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field,
@@ -122,7 +126,11 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       // Limit the value to fit within the specified precision
       int32_t max_exponent = decimal_type.precision() - decimal_type.scale();
       int64_t max_value = static_cast<int64_t>(std::pow(10, max_exponent) - 1);
-      GENERATE_CASE_BODY(::arrow::Decimal128Builder, ::arrow::Decimal128(val % max_value))
+      auto value_func = [&](uint64_t val) {
+        return ::arrow::Decimal128(val % max_value);
+      };
+      return GenerateArray<::arrow::Decimal128Builder>(type, nullable, length, seed,
+                                                       value_func);
     }
     case ::arrow::Type::DECIMAL256: {
       const auto& decimal_type = static_cast<const ::arrow::Decimal256Type&>(*type);
@@ -130,7 +138,11 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       // int64_t overflow
       int32_t max_exponent = std::min(9, decimal_type.precision() - decimal_type.scale());
       int64_t max_value = static_cast<int64_t>(std::pow(10, max_exponent) - 1);
-      GENERATE_CASE_BODY(::arrow::Decimal256Builder, ::arrow::Decimal256(val % max_value))
+      auto value_func = [&](uint64_t val) {
+        return ::arrow::Decimal256(val % max_value);
+      };
+      return GenerateArray<::arrow::Decimal256Builder>(type, nullable, length, seed,
+                                                       value_func);
     }
 
       // Temporal types
@@ -151,8 +163,11 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
                     std::string("bin_") + std::to_string(val))
     case ::arrow::Type::FIXED_SIZE_BINARY: {
       auto size = static_cast<::arrow::FixedSizeBinaryType*>(type.get())->byte_width();
-      GENERATE_CASE_BODY(::arrow::FixedSizeBinaryBuilder,
-                         std::string("bin_") + std::to_string(val).substr(0, size - 4))
+      auto value_func = [size](uint64_t val) {
+        return std::string("bin_") + std::to_string(val).substr(0, size - 4);
+      };
+      return GenerateArray<::arrow::FixedSizeBinaryBuilder>(type, nullable, length, seed,
+                                                            value_func);
     }
 
     case ::arrow::Type::STRUCT: {
