@@ -101,6 +101,16 @@ cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
         CStatus status()
 
 
+cdef extern from "<variant>" namespace "std" nogil:
+    cdef cppclass CArrayStatisticsValueType" std::variant<bool, int64_t, uint64_t, double, std::string>":
+        CArrayStatisticsValueType()
+        CArrayStatisticsValueType(c_bool)
+        CArrayStatisticsValueType(int64_t)
+        CArrayStatisticsValueType(uint64_t)
+        CArrayStatisticsValueType(double)
+        CArrayStatisticsValueType(c_string)
+
+
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef enum Type" arrow::Type::type":
         _Type_NA" arrow::Type::NA"
@@ -188,6 +198,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     c_bool is_primitive(Type type)
     c_bool is_numeric(Type type)
 
+    cdef cppclass CArrayStatistics" arrow::ArrayStatistics":
+        optional[int64_t] null_count
+        optional[int64_t] distinct_count
+        optional[CArrayStatisticsValueType] min
+        c_bool is_min_exact
+        optional[CArrayStatisticsValueType] max
+        c_bool is_max_exact
+
+        c_bool Equals(const CArrayStatistics& statistics) const
+
     cdef cppclass CArrayData" arrow::ArrayData":
         shared_ptr[CDataType] type
         int64_t length
@@ -250,6 +270,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         CDeviceAllocationType device_type()
         CResult[shared_ptr[CArray]] CopyTo(const shared_ptr[CMemoryManager]& to) const
+
+        const shared_ptr[CArrayStatistics]& statistics() const
 
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(
@@ -2800,6 +2822,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CRankQuantileOptions(vector[CSortKey] sort_keys, CNullPlacement)
         vector[CSortKey] sort_keys
         CNullPlacement null_placement
+
+    cdef enum PivotWiderUnexpectedKeyBehavior \
+            "arrow::compute::PivotWiderOptions::UnexpectedKeyBehavior":
+        PivotWiderUnexpectedKeyBehavior_Ignore "arrow::compute::PivotWiderOptions::kIgnore"
+        PivotWiderUnexpectedKeyBehavior_Raise "arrow::compute::PivotWiderOptions::kRaise"
+
+    cdef cppclass CPivotWiderOptions \
+            "arrow::compute::PivotWiderOptions"(CFunctionOptions):
+        CPivotWiderOptions(vector[c_string] key_names,
+                           PivotWiderUnexpectedKeyBehavior)
 
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"

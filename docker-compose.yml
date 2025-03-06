@@ -174,9 +174,9 @@ x-hierarchy:
   - python-free-threaded-wheel-manylinux-test-imports
   - python-wheel-manylinux-test-unittests
   - python-free-threaded-wheel-manylinux-test-unittests
-  - python-wheel-windows-vs2019-base:
-    - python-wheel-windows-vs2019
-    - python-free-threaded-wheel-windows-vs2019
+  - python-wheel-windows-vs2022-base:
+    - python-wheel-windows-vs2022
+    - python-free-threaded-wheel-windows-vs2022
   - python-wheel-windows-test-base:
     - python-wheel-windows-test
     - python-free-threaded-wheel-windows-test
@@ -1273,81 +1273,81 @@ services:
       CHECK_UNITTESTS: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
-  python-wheel-windows-vs2019-base:
-    image: ${REPO}:python-wheel-windows-vs2019-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+  python-wheel-windows-vs2022-base:
+    image: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
         vcpkg: ${VCPKG}
       context: .
-      dockerfile: ci/docker/python-wheel-windows-vs2019-base.dockerfile
+      dockerfile: ci/docker/python-wheel-windows-vs2022-base.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
       # Uncomment if no local cache is available.
       # cache_from:
-      #   - abrarov/msvc-2019:2.11.0
-      #   - ${REPO}:python-wheel-windows-vs2019-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
-    volumes: &python-wheel-windows-vs2019-volumes
+      #   - mcr.microsoft.com/windows/servercore:ltsc2022
+      #   - ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    volumes: &python-wheel-windows-vs2022-volumes
       - type: bind
         source: .
         target: "C:/arrow"
 
-  python-wheel-windows-vs2019:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+  python-wheel-windows-vs2022:
+    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
-        base: ${REPO}:python-wheel-windows-vs2019-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+        base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/python-wheel-windows-vs2019.dockerfile
+      dockerfile: ci/docker/python-wheel-windows-vs2022.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
       # Uncomment if no local cache is available.
       # cache_from:
-      #   - abrarov/msvc-2019:2.11.0
-      #   - ${REPO}:python-${PYTHON}-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
-    volumes: *python-wheel-windows-vs2019-volumes
+      #   - mcr.microsoft.com/windows/servercore:ltsc2022
+      #   - ${REPO}:python-${PYTHON}-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    volumes: *python-wheel-windows-vs2022-volumes
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
-  python-free-threaded-wheel-windows-vs2019:
-    image: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+  python-free-threaded-wheel-windows-vs2022:
+    image: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
-        base: ${REPO}:python-wheel-windows-vs2019-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+        base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/python-free-threaded-wheel-windows-vs2019.dockerfile
+      dockerfile: ci/docker/python-free-threaded-wheel-windows-vs2022.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
       # Uncomment if no local cache is available.
       # cache_from:
-      #   - abrarov/msvc-2019:2.11.0
-      #   - ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
-    volumes: *python-wheel-windows-vs2019-volumes
+      #   - mcr.microsoft.com/windows/servercore:ltsc2022
+      #   - ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    volumes: *python-wheel-windows-vs2022-volumes
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
   python-wheel-windows-test-base:
-    image: ${REPO}:python-wheel-windows-test-vs2019-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+    image: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
     build:
       context: .
-      dockerfile: ci/docker/python-wheel-windows-test-vs2019-base.dockerfile
-    volumes: *python-wheel-windows-vs2019-volumes
+      dockerfile: ci/docker/python-wheel-windows-test-vs2022-base.dockerfile
+    volumes: *python-wheel-windows-vs2022-volumes
 
   python-wheel-windows-test:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2019-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2022-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
     build:
       args:
-        base: ${REPO}:python-wheel-windows-test-vs2019-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+        base: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
         python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/python-wheel-windows-test-vs2019.dockerfile
-    volumes: *python-wheel-windows-vs2019-volumes
+      dockerfile: ci/docker/python-wheel-windows-test-vs2022.dockerfile
+    volumes: *python-wheel-windows-vs2022-volumes
     command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
 
   python-free-threaded-wheel-windows-test:
-    image: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-test-vs2019-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+    image: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-test-vs2022-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
     build:
       args:
-        base: ${REPO}:python-wheel-windows-test-vs2019-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+        base: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
       context: .
-      dockerfile: ci/docker/python-free-threaded-wheel-windows-test-vs2019.dockerfile
-    volumes: *python-wheel-windows-vs2019-volumes
+      dockerfile: ci/docker/python-free-threaded-wheel-windows-test-vs2022.dockerfile
+    volumes: *python-wheel-windows-vs2022-volumes
     command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
 
   ##############################  Integration #################################
@@ -1790,8 +1790,6 @@ services:
         - ${REPO}:${ARCH}-debian-${DEBIAN}-docs
       args:
         r: ${R}
-        jdk: ${JDK}
-        maven: ${MAVEN}
         node: ${NODE}
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
     # This is for Chromium used by Mermaid. Chromium uses namespace
