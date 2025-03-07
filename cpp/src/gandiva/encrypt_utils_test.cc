@@ -29,7 +29,8 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
   unsigned char cipher_1[64];
 
-  int32_t cipher_1_len = gandiva::aes_encrypt(to_encrypt, to_encrypt_len, key, key_len, cipher_1);
+  int32_t cipher_1_len =
+      gandiva::aes_encrypt(to_encrypt, to_encrypt_len, key, key_len, cipher_1);
 
   unsigned char decrypted_1[64];
   int32_t decrypted_1_len = gandiva::aes_decrypt(reinterpret_cast<const char*>(cipher_1),
@@ -47,7 +48,8 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
   unsigned char cipher_2[64];
 
-  int32_t cipher_2_len = gandiva::aes_encrypt(to_encrypt, to_encrypt_len, key, key_len, cipher_2);
+  int32_t cipher_2_len =
+      gandiva::aes_encrypt(to_encrypt, to_encrypt_len, key, key_len, cipher_2);
 
   unsigned char decrypted_2[64];
   int32_t decrypted_2_len = gandiva::aes_decrypt(reinterpret_cast<const char*>(cipher_2),
@@ -65,7 +67,8 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
   unsigned char cipher_3[64];
 
-  int32_t cipher_3_len = gandiva::aes_encrypt(to_encrypt, to_encrypt_len, key, key_len, cipher_3);
+  int32_t cipher_3_len =
+      gandiva::aes_encrypt(to_encrypt, to_encrypt_len, key, key_len, cipher_3);
 
   unsigned char decrypted_3[64];
   int32_t decrypted_3_len = gandiva::aes_decrypt(reinterpret_cast<const char*>(cipher_3),
@@ -76,7 +79,8 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
 
   // check exception
   char cipher[64] = "JBB7oJAQuqhDCx01fvBRi8PcljW1+nbnOSMk+R0Sz7E==";
-  int32_t cipher_len = static_cast<int32_t>(strlen(reinterpret_cast<const char*>(cipher)));
+  int32_t cipher_len =
+      static_cast<int32_t>(strlen(reinterpret_cast<const char*>(cipher)));
   unsigned char plain_text[64];
 
   key = "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
@@ -86,13 +90,12 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
   to_encrypt_len =
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
   unsigned char cipher_4[64];
-  ASSERT_THROW({
-        gandiva::aes_encrypt(to_encrypt, to_encrypt_len, key, key_len, cipher_4);
-    }, std::runtime_error);
+  ASSERT_THROW(
+      { gandiva::aes_encrypt(to_encrypt, to_encrypt_len, key, key_len, cipher_4); },
+      std::runtime_error);
 
-  ASSERT_THROW({
-        gandiva::aes_decrypt(cipher, cipher_len, key, key_len, plain_text);
-    }, std::runtime_error);
+  ASSERT_THROW({ gandiva::aes_decrypt(cipher, cipher_len, key, key_len, plain_text); },
+               std::runtime_error);
 
   key = "12345678";
   to_encrypt = "New\ntest\nstring";
@@ -101,10 +104,9 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
   to_encrypt_len =
       static_cast<int32_t>(strlen(reinterpret_cast<const char*>(to_encrypt)));
   unsigned char cipher_5[64];
-  ASSERT_THROW({
-        gandiva::aes_encrypt(to_encrypt, to_encrypt_len, key, key_len, cipher_5);
-    }, std::runtime_error);
-  ASSERT_THROW({
-        gandiva::aes_decrypt(cipher, cipher_len, key, key_len, plain_text);
-    }, std::runtime_error);  
+  ASSERT_THROW(
+      { gandiva::aes_encrypt(to_encrypt, to_encrypt_len, key, key_len, cipher_5); },
+      std::runtime_error);
+  ASSERT_THROW({ gandiva::aes_decrypt(cipher, cipher_len, key, key_len, plain_text); },
+               std::runtime_error);
 }

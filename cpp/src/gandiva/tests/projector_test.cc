@@ -2823,11 +2823,10 @@ TEST_F(TestProjector, TestAesEncryptDecrypt) {
   const char* key_24_bytes = "12345678abcdefgh12345678";
   const char* key_32_bytes = "12345678abcdefgh12345678abcdefgh";
 
-  auto array_data = MakeArrowArrayUtf8({"abc", "some words", "to be encrypted"},
-                                       {true, true, true});
+  auto array_data =
+      MakeArrowArrayUtf8({"abc", "some words", "to be encrypted"}, {true, true, true});
   auto array_key =
-      MakeArrowArrayUtf8({key_16_bytes, key_24_bytes, key_32_bytes},
-                         {true, true, true});
+      MakeArrowArrayUtf8({key_16_bytes, key_24_bytes, key_32_bytes}, {true, true, true});
 
   auto array_holder_en = MakeArrowArrayUtf8({"", "", ""}, {true, true, true});
 

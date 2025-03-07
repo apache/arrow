@@ -22,7 +22,7 @@
 
 namespace gandiva {
 GANDIVA_EXPORT
-int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* key, 
+int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* key,
                     int32_t key_len, unsigned char* cipher) {
   int32_t cipher_len = 0;
   int32_t len = 0;
@@ -57,7 +57,7 @@ int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* ke
 }
 
 GANDIVA_EXPORT
-int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key, 
+int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key,
                     int32_t key_len, unsigned char* plaintext) {
   int32_t plaintext_len = 0;
   int32_t len = 0;
@@ -91,7 +91,7 @@ int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* 
   return plaintext_len;
 }
 
-const EVP_CIPHER* get_cipher_algo(int32_t key_length){
+const EVP_CIPHER* get_cipher_algo(int32_t key_length) {
   switch (key_length) {
     case 16:
       return EVP_aes_128_ecb();
