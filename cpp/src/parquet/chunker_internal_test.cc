@@ -342,32 +342,6 @@ Result<PageInfo> WriteAndGetPageInfo(const std::shared_ptr<Table>& table,
   return GetColumnPageInfo(buffer, column_index);
 }
 
-void AssertAllBetween(const ChunkList& chunks, int64_t min, int64_t max,
-                      bool expect_dictionary_fallback = false) {
-  // expect the last chunk since it is not guaranteed to be within the range
-  if (expect_dictionary_fallback) {
-    // if dictionary encoding is enabled, the writer can fallback to plain
-    // encoding splitting within a content defined chunk, so we can't
-    // guarantee that all chunks are within the range in this case, but we
-    // know that there can be at most 2 pages smaller than the min_chunk_size
-    size_t smaller_count = 0;
-    for (size_t i = 0; i < chunks.size() - 1; i++) {
-      if (chunks[i] < min) {
-        smaller_count++;
-      } else {
-        ASSERT_LE(chunks[i], max);
-      }
-    }
-    ASSERT_LE(smaller_count, 2);
-  } else {
-    for (size_t i = 0; i < chunks.size() - 1; i++) {
-      ASSERT_GE(chunks[i], min);
-      ASSERT_LE(chunks[i], max);
-    }
-  }
-  ASSERT_LE(chunks.back(), max);
-}
-
 // A git-hunk like side-by-side data structure to represent the differences between two
 // vectors of uint64_t values.
 using ChunkDiff = std::pair<ChunkList, ChunkList>;
@@ -659,14 +633,42 @@ uint64_t ElementCount(int64_t size, int32_t byte_width, bool nullable) {
   return size / byte_width;
 }
 
+void AssertAllBetween(const ChunkList& chunks, int64_t min, int64_t max,
+                      bool expect_dictionary_fallback = false) {
+  // expect the last chunk since it is not guaranteed to be within the range
+  if (expect_dictionary_fallback) {
+    // if dictionary encoding is enabled, the writer can fallback to plain
+    // encoding splitting within a content defined chunk, so we can't
+    // guarantee that all chunks are within the range in this case, but we
+    // know that there can be at most 2 pages smaller than the min_chunk_size
+    size_t smaller_count = 0;
+    for (size_t i = 0; i < chunks.size() - 1; i++) {
+      if (chunks[i] < min) {
+        smaller_count++;
+      } else {
+        ASSERT_LE(chunks[i], max);
+      }
+    }
+    ASSERT_LE(smaller_count, 2);
+  } else {
+    for (size_t i = 0; i < chunks.size() - 1; i++) {
+      ASSERT_GE(chunks[i], min);
+      ASSERT_LE(chunks[i], max);
+    }
+  }
+  ASSERT_LE(chunks.back(), max);
+}
+
 void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
                       PageInfo base_result, PageInfo modified_result, bool nullable,
-                      bool enable_dictionary, uint64_t min_chunk_size,
-                      uint64_t max_chunk_size) {
-  max_chunk_size = static_cast<uint64_t>(max_chunk_size * 1.2);
-  if (::arrow::is_fixed_width(dtype->id())) {
-    auto min_length = ElementCount(min_chunk_size, dtype->byte_width(), nullable);
-    auto max_length = ElementCount(max_chunk_size, dtype->byte_width(), nullable);
+                      bool enable_dictionary, int64_t min_chunk_size,
+                      int64_t max_chunk_size) {
+  if (::arrow::is_fixed_width(dtype->id()) && !nullable) {
+    // for nullable types we cannot calculate the exact number of elements because
+    // not all elements are fed through the chunker (null elements are skipped)
+    auto byte_width = (dtype->id() == ::arrow::Type::BOOL) ? 1 : dtype->byte_width();
+    auto min_length = ElementCount(min_chunk_size, byte_width, nullable);
+    auto max_length = ElementCount(max_chunk_size, byte_width, nullable);
     AssertAllBetween(base_result.lengths, min_length, max_length,
                      /*expect_dictionary_fallback=*/enable_dictionary);
     AssertAllBetween(modified_result.lengths, min_length, max_length,
@@ -692,6 +694,15 @@ struct CaseConfig {
   // generate
   size_t bytes_per_record;
 };
+
+// Define PrintTo for MyStruct
+void PrintTo(const CaseConfig& param, std::ostream* os) {
+  *os << "{ " << param.dtype->ToString();
+  if (param.is_nullable) {
+    *os << " nullable";
+  }
+  *os << " }";
+}
 
 class TestColumnCDC : public ::testing::TestWithParam<CaseConfig> {
  protected:
@@ -893,6 +904,9 @@ TEST_P(TestColumnCDC, EmptyTable) {
 INSTANTIATE_TEST_SUITE_P(
     FixedSizedTypes, TestColumnCDC,
     testing::Values(
+        // Boolean
+        CaseConfig{::arrow::boolean(), false, 1},
+        // Numeric
         CaseConfig{::arrow::uint8(), false, 1}, CaseConfig{::arrow::uint16(), false, 2},
         CaseConfig{::arrow::uint32(), false, 4}, CaseConfig{::arrow::uint64(), true, 8},
         CaseConfig{::arrow::int8(), false, 1}, CaseConfig{::arrow::int16(), false, 2},
@@ -901,13 +915,16 @@ INSTANTIATE_TEST_SUITE_P(
         CaseConfig{::arrow::float32(), false, 4}, CaseConfig{::arrow::float64(), true, 8},
         CaseConfig{::arrow::decimal128(18, 6), false, 16},
         CaseConfig{::arrow::decimal256(40, 6), false, 32},
+        // Binary-like
         CaseConfig{::arrow::utf8(), false, 16}, CaseConfig{::arrow::binary(), true, 16},
         CaseConfig{::arrow::fixed_size_binary(16), true, 16},
+        // Temporal
         CaseConfig{::arrow::date32(), false, 4},
         CaseConfig{::arrow::time32(::arrow::TimeUnit::MILLI), true, 4},
         CaseConfig{::arrow::time64(::arrow::TimeUnit::NANO), false, 8},
         CaseConfig{::arrow::timestamp(::arrow::TimeUnit::NANO), true, 8},
         CaseConfig{::arrow::duration(::arrow::TimeUnit::NANO), false, 8},
+        // Nested types
         CaseConfig{::arrow::list(::arrow::int32()), false, 16},
         CaseConfig{::arrow::list(::arrow::int32()), true, 18},
         CaseConfig{::arrow::list(::arrow::utf8()), true, 18},
