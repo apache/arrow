@@ -117,8 +117,8 @@ class ContentDefinedChunker {
   ///                    deduplication ratio is required at the expense of fragmentation,
   ///                    norm_factor>2 is typically not increasing the deduplication
   ///                    ratio.
-  ContentDefinedChunker(const LevelInfo& level_info, uint64_t min_size, uint64_t max_size,
-                        uint8_t norm_factor = 0);
+  ContentDefinedChunker(const LevelInfo& level_info, int64_t min_size, int64_t max_size,
+                        int8_t norm_factor = 0);
 
   /// Get the chunk boundaries for the given column data
   ///
@@ -157,8 +157,8 @@ class ContentDefinedChunker {
   // Minimum chunk size in bytes, the rolling hash will not be updated until this size is
   // reached for each chunk. Note that all data sent through the hash function is counted
   // towards the chunk size, including definition and repetition levels.
-  const uint64_t min_size_;
-  const uint64_t max_size_;
+  const int64_t min_size_;
+  const int64_t max_size_;
   // The mask to match the rolling hash against to determine if a new chunk should be
   // created. The mask is calculated based on min/max chunk size and the normalization
   // factor.
@@ -170,9 +170,9 @@ class ContentDefinedChunker {
   bool has_matched_ = false;
   // The current run of the rolling hash, used to normalize the chunk size distribution
   // by requiring multiple consecutive matches to create a new chunk.
-  uint64_t nth_run_ = 0;
+  int8_t nth_run_ = 0;
   // Current chunk size in bytes, reset to 0 when a new chunk is created.
-  uint64_t chunk_size_ = 0;
+  int64_t chunk_size_ = 0;
   // Rolling hash state, never reset only initialized once for the entire column.
   uint64_t rolling_hash_ = 0;
 };
