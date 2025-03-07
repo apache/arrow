@@ -28,12 +28,12 @@
 
 namespace parquet::internal {
 
-static uint64_t GetMask(uint64_t min_size, uint64_t max_size, uint8_t norm_factor) {
+static uint64_t GetMask(int64_t min_size, int64_t max_size, uint8_t norm_factor) {
   // we aim for gaussian-like distribution of chunk sizes between min_size and max_size
-  uint64_t avg_size = (min_size + max_size) / 2;
+  int64_t avg_size = (min_size + max_size) / 2;
   // we skip calculating gearhash for the first `min_size` bytes, so we are looking for
   // a smaller chunk as the average size
-  uint64_t target_size = avg_size - min_size;
+  int64_t target_size = avg_size - min_size;
   size_t mask_bits = static_cast<size_t>(std::floor(std::log2(target_size)));
   // -3 because we are using 8 hash tables to have more gaussian-like distribution
   // `norm_factor` narrows the chunk size distribution aroun avg_size
@@ -42,12 +42,22 @@ static uint64_t GetMask(uint64_t min_size, uint64_t max_size, uint8_t norm_facto
 }
 
 ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
-                                             uint64_t min_size, uint64_t max_size,
-                                             uint8_t norm_factor)
+                                             int64_t min_size, int64_t max_size,
+                                             int8_t norm_factor)
     : level_info_(level_info),
       min_size_(min_size),
       max_size_(max_size),
-      hash_mask_(GetMask(min_size, max_size, norm_factor)) {}
+      hash_mask_(GetMask(min_size, max_size, norm_factor)) {
+  if (min_size_ < 0) {
+    throw ParquetException("min_size must be non-negative");
+  }
+  if (max_size_ < 0) {
+    throw ParquetException("max_size must be non-negative");
+  }
+  if (min_size_ > max_size_) {
+    throw ParquetException("min_size must be less than or equal to max_size");
+  }
+}
 
 void ContentDefinedChunker::Roll(const bool value) {
   if (chunk_size_++ < min_size_) {
