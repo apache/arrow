@@ -17,6 +17,10 @@
 
 #pragma once
 
+#include <cassert>
+#include <cmath>
+#include <initializer_list>
+
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -32,5 +36,27 @@ namespace arrow::internal {
 /// This function is sometimes also called the probit function.
 ARROW_EXPORT
 double NormalPPF(double p);
+
+/// "Improved Kahan–Babuška algorithm" by Neumaier
+///
+/// https://en.wikipedia.org/wiki/Kahan_summation_algorithm#Further_enhancements
+template <typename Range = std::initializer_list<double>>
+double NeumaierSum(Range&& inputs) {
+  double sum = 0, c = 0;
+  for (const double v : inputs) {
+    double t = sum + v;
+    if (std::isfinite(t)) {
+      if (std::abs(sum) >= std::abs(v)) {
+        // If sum is bigger, low-order digits of v are lost...
+        c += (sum - t) + v;
+      } else {
+        // ... else low-order digits of sum are lost.
+        c += (v - t) + sum;
+      }
+    }
+    sum = t;
+  }
+  return sum + c;
+}
 
 }  // namespace arrow::internal

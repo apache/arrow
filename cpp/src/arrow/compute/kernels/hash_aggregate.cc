@@ -134,10 +134,12 @@ HashAggregateKernel MakeUnaryKernel(KernelInit init) {
                     std::move(init));
 }
 
-Status AddHashAggKernels(
-    const std::vector<std::shared_ptr<DataType>>& types,
-    Result<HashAggregateKernel> make_kernel(const std::shared_ptr<DataType>&),
-    HashAggregateFunction* function) {
+using HashAggregateKernelFactory =
+    std::function<Result<HashAggregateKernel>(const std::shared_ptr<DataType>&)>;
+
+Status AddHashAggKernels(const std::vector<std::shared_ptr<DataType>>& types,
+                         HashAggregateKernelFactory make_kernel,
+                         HashAggregateFunction* function) {
   for (const auto& ty : types) {
     ARROW_ASSIGN_OR_RAISE(auto kernel, make_kernel(ty));
     RETURN_NOT_OK(function->AddKernel(std::move(kernel)));
@@ -845,28 +847,58 @@ using GroupedMeanFactory =
 using arrow::internal::int128_t;
 
 template <typename Type>
-struct GroupedVarStdImpl : public GroupedAggregator {
+struct GroupedStatisticImpl : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
+  using SumType = typename internal::GetSumType<Type>::SumType;
 
+  // This method is defined solely to make GroupedStatisticImpl instantiable
+  // in ConsumeImpl below. It will be redefined in subclasses.
   Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
-    options_ = *checked_cast<const VarianceOptions*>(args.options);
-    if (is_decimal_type<Type>::value) {
-      const int32_t scale =
-          checked_cast<const DecimalType&>(*args.inputs[0].type).scale();
-      return InitInternal(ctx, scale, args.options);
-    }
-    return InitInternal(ctx, 0, args.options);
+    return Status::NotImplemented("");
   }
 
-  Status InitInternal(ExecContext* ctx, int32_t decimal_scale,
-                      const FunctionOptions* options) {
-    options_ = *checked_cast<const VarianceOptions*>(options);
+  // Init helper for hash_variance and hash_stddev
+  Status InitInternal(ExecContext* ctx, const KernelInitArgs& args,
+                      StatisticType stat_type, const VarianceOptions& options) {
+    return InitInternal(ctx, args, stat_type, options.ddof, options.skip_nulls,
+                        options.min_count);
+  }
+
+  // Init helper for hash_skew and hash_kurtosis
+  Status InitInternal(ExecContext* ctx, const KernelInitArgs& args,
+                      StatisticType stat_type, const SkewOptions& options) {
+    return InitInternal(ctx, args, stat_type, /*ddof=*/0, options.skip_nulls,
+                        options.min_count);
+  }
+
+  Status InitInternal(ExecContext* ctx, const KernelInitArgs& args,
+                      StatisticType stat_type, int ddof, bool skip_nulls,
+                      uint32_t min_count) {
+    if constexpr (is_decimal_type<Type>::value) {
+      int32_t decimal_scale =
+          checked_cast<const DecimalType&>(*args.inputs[0].type).scale();
+      return InitInternal(ctx, stat_type, decimal_scale, ddof, skip_nulls, min_count);
+    } else {
+      return InitInternal(ctx, stat_type, /*decimal_scale=*/0, ddof, skip_nulls,
+                          min_count);
+    }
+  }
+
+  Status InitInternal(ExecContext* ctx, StatisticType stat_type, int32_t decimal_scale,
+                      int ddof, bool skip_nulls, uint32_t min_count) {
+    stat_type_ = stat_type;
+    moments_level_ = moments_level_for_statistic(stat_type_);
     decimal_scale_ = decimal_scale;
+    skip_nulls_ = skip_nulls;
+    min_count_ = min_count;
+    ddof_ = ddof;
     ctx_ = ctx;
     pool_ = ctx->memory_pool();
     counts_ = TypedBufferBuilder<int64_t>(pool_);
     means_ = TypedBufferBuilder<double>(pool_);
     m2s_ = TypedBufferBuilder<double>(pool_);
+    m3s_ = TypedBufferBuilder<double>(pool_);
+    m4s_ = TypedBufferBuilder<double>(pool_);
     no_nulls_ = TypedBufferBuilder<bool>(pool_);
     return Status::OK();
   }
@@ -877,6 +909,12 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     RETURN_NOT_OK(counts_.Append(added_groups, 0));
     RETURN_NOT_OK(means_.Append(added_groups, 0));
     RETURN_NOT_OK(m2s_.Append(added_groups, 0));
+    if (moments_level_ >= 3) {
+      RETURN_NOT_OK(m3s_.Append(added_groups, 0));
+      if (moments_level_ >= 4) {
+        RETURN_NOT_OK(m4s_.Append(added_groups, 0));
+      }
+    }
     RETURN_NOT_OK(no_nulls_.Append(added_groups, true));
     return Status::OK();
   }
@@ -894,27 +932,30 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     return value.ToDouble(decimal_scale_);
   }
 
-  Status Consume(const ExecSpan& batch) override { return ConsumeImpl(batch); }
+  Status Consume(const ExecSpan& batch) override {
+    constexpr bool kCanUseIntArithmetic = std::is_integral_v<CType> && sizeof(CType) <= 4;
+
+    if constexpr (kCanUseIntArithmetic) {
+      if (moments_level_ == 2) {
+        return ConsumeIntegral(batch);
+      }
+    }
+    return ConsumeGeneric(batch);
+  }
 
   // float/double/int64/decimal: calculate `m2` (sum((X-mean)^2)) with
-  // `two pass algorithm` (see aggregate_var_std.cc)
-  template <typename T = Type>
-  enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4) ||
-                  std::is_same_v<CType, Decimal32>,
-              Status>
-  ConsumeImpl(const ExecSpan& batch) {
-    using SumType = typename internal::GetSumType<T>::SumType;
-
-    GroupedVarStdImpl<Type> state;
-    RETURN_NOT_OK(state.InitInternal(ctx_, decimal_scale_, &options_));
+  // two pass algorithm (see aggregate_var_std.cc)
+  Status ConsumeGeneric(const ExecSpan& batch) {
+    GroupedStatisticImpl<Type> state;
+    RETURN_NOT_OK(state.InitInternal(ctx_, stat_type_, decimal_scale_, ddof_, skip_nulls_,
+                                     min_count_));
     RETURN_NOT_OK(state.Resize(num_groups_));
     int64_t* counts = state.counts_.mutable_data();
     double* means = state.means_.mutable_data();
-    double* m2s = state.m2s_.mutable_data();
     uint8_t* no_nulls = state.no_nulls_.mutable_data();
 
-    // XXX this uses naive summation; we should switch to pairwise summation as was
-    // done for the scalar aggregate kernel in ARROW-11567
+    // XXX this uses naive summation; we should switch to pairwise summation
+    // (as the scalar aggregate kernel does) or Kahan summation.
     std::vector<SumType> sums(num_groups_);
     VisitGroupedValues<Type>(
         batch,
@@ -928,27 +969,34 @@ struct GroupedVarStdImpl : public GroupedAggregator {
       means[i] = ToDouble(sums[i]) / counts[i];
     }
 
+    double* m2s = state.m2s_mutable_data();
+    double* m3s = state.m3s_mutable_data();
+    double* m4s = state.m4s_mutable_data();
+    // Having distinct VisitGroupedValuesNonNull calls based on moments_level_
+    // would increase code generation for relatively little benefit.
     VisitGroupedValuesNonNull<Type>(
         batch, [&](uint32_t g, typename TypeTraits<Type>::CType value) {
-          const double v = ToDouble(value);
-          m2s[g] += (v - means[g]) * (v - means[g]);
+          const double d = ToDouble(value) - means[g];
+          const double d2 = d * d;
+          switch (moments_level_) {
+            case 4:
+              m4s[g] += d2 * d2;
+              [[fallthrough]];
+            case 3:
+              m3s[g] += d2 * d;
+              [[fallthrough]];
+            default:
+              m2s[g] += d2;
+              break;
+          }
         });
 
-    ARROW_ASSIGN_OR_RAISE(auto mapping,
-                          AllocateBuffer(num_groups_ * sizeof(uint32_t), pool_));
-    for (uint32_t i = 0; static_cast<int64_t>(i) < num_groups_; i++) {
-      mapping->template mutable_data_as<uint32_t>()[i] = i;
-    }
-    ArrayData group_id_mapping(uint32(), num_groups_, {nullptr, std::move(mapping)},
-                               /*null_count=*/0);
-    return this->Merge(std::move(state), group_id_mapping);
+    return MergeSameGroups(std::move(state));
   }
 
-  // int32/16/8: textbook one pass algorithm with integer arithmetic (see
-  // aggregate_var_std.cc)
-  template <typename T = Type>
-  enable_if_t<is_integer_type<T>::value && (sizeof(CType) <= 4), Status> ConsumeImpl(
-      const ExecSpan& batch) {
+  // int32/16/8: textbook one pass algorithm to compute `m2` with integer arithmetic
+  // (see aggregate_var_std.cc)
+  Status ConsumeIntegral(const ExecSpan& batch) {
     // max number of elements that sum will not overflow int64 (2Gi int32 elements)
     // for uint32:    0 <= sum < 2^63 (int64 >= 0)
     // for int32: -2^62 <= sum < 2^62
@@ -963,15 +1011,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
       return Status::OK();
     }
 
-    std::vector<IntegerVarStd<Type>> var_std(num_groups_);
-
-    ARROW_ASSIGN_OR_RAISE(auto mapping,
-                          AllocateBuffer(num_groups_ * sizeof(uint32_t), pool_));
-    for (uint32_t i = 0; static_cast<int64_t>(i) < num_groups_; i++) {
-      mapping->template mutable_data_as<uint32_t>()[i] = i;
-    }
-    ArrayData group_id_mapping(uint32(), num_groups_, {nullptr, std::move(mapping)},
-                               /*null_count=*/0);
+    std::vector<IntegerVarStd> var_std(num_groups_);
 
     for (int64_t start_index = 0; start_index < batch.length; start_index += max_length) {
       // process in chunks that overflow will never happen
@@ -979,12 +1019,13 @@ struct GroupedVarStdImpl : public GroupedAggregator {
       // reset state
       var_std.clear();
       var_std.resize(num_groups_);
-      GroupedVarStdImpl<Type> state;
-      RETURN_NOT_OK(state.InitInternal(ctx_, decimal_scale_, &options_));
+      GroupedStatisticImpl<Type> state;
+      RETURN_NOT_OK(state.InitInternal(ctx_, stat_type_, decimal_scale_, ddof_,
+                                       skip_nulls_, min_count_));
       RETURN_NOT_OK(state.Resize(num_groups_));
       int64_t* other_counts = state.counts_.mutable_data();
       double* other_means = state.means_.mutable_data();
-      double* other_m2s = state.m2s_.mutable_data();
+      double* other_m2s = state.m2s_mutable_data();
       uint8_t* other_no_nulls = state.no_nulls_.mutable_data();
 
       if (batch[0].is_array()) {
@@ -1033,34 +1074,63 @@ struct GroupedVarStdImpl : public GroupedAggregator {
         other_means[i] = var_std[i].mean();
         other_m2s[i] = var_std[i].m2();
       }
-      RETURN_NOT_OK(this->Merge(std::move(state), group_id_mapping));
+      RETURN_NOT_OK(MergeSameGroups(std::move(state)));
     }
     return Status::OK();
   }
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
-    // Combine m2 from two chunks (see aggregate_var_std.cc)
-    auto other = checked_cast<GroupedVarStdImpl*>(&raw_other);
+    DCHECK_EQ(group_id_mapping.length,
+              checked_cast<GroupedStatisticImpl*>(&raw_other)->num_groups_);
+    const uint32_t* g = group_id_mapping.GetValues<uint32_t>(1);
+    return MergeInternal(std::move(raw_other),
+                         [g](int64_t other_g) { return g[other_g]; });
+  }
+
+  Status MergeSameGroups(GroupedAggregator&& raw_other) {
+    return MergeInternal(std::move(raw_other), [](int64_t other_g) { return other_g; });
+  }
+
+  template <typename GroupIdMapper>
+  Status MergeInternal(GroupedAggregator&& raw_other, GroupIdMapper&& group_id_mapper) {
+    // Combine moments from two chunks
+    auto other = checked_cast<GroupedStatisticImpl*>(&raw_other);
+    DCHECK_EQ(moments_level_, other->moments_level_);
 
     int64_t* counts = counts_.mutable_data();
     double* means = means_.mutable_data();
-    double* m2s = m2s_.mutable_data();
+    double* m2s = m2s_mutable_data();
+    // Moments above the current level will just be ignored.
+    double* m3s = m3s_mutable_data();
+    double* m4s = m4s_mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
 
     const int64_t* other_counts = other->counts_.data();
     const double* other_means = other->means_.data();
-    const double* other_m2s = other->m2s_.data();
+    const double* other_m2s = other->m2s_data();
+    const double* other_m3s = other->m3s_data();
+    const double* other_m4s = other->m4s_data();
     const uint8_t* other_no_nulls = other->no_nulls_.data();
 
-    auto g = group_id_mapping.GetValues<uint32_t>(1);
-    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+    const int64_t num_other_groups = other->num_groups_;
+
+    for (int64_t other_g = 0; other_g < num_other_groups; ++other_g) {
+      const auto g = group_id_mapper(other_g);
       if (!bit_util::GetBit(other_no_nulls, other_g)) {
-        bit_util::ClearBit(no_nulls, *g);
+        bit_util::ClearBit(no_nulls, g);
       }
       if (other_counts[other_g] == 0) continue;
-      MergeVarStd(counts[*g], means[*g], other_counts[other_g], other_means[other_g],
-                  other_m2s[other_g], &counts[*g], &means[*g], &m2s[*g]);
+      auto moments = Moments::Merge(
+          moments_level_, Moments(counts[g], means[g], m2s[g], m3s[g], m4s[g]),
+          Moments(other_counts[other_g], other_means[other_g], other_m2s[other_g],
+                  other_m3s[other_g], other_m4s[other_g]));
+      counts[g] = moments.count;
+      means[g] = moments.mean;
+      // Fill moments in reverse order, in case m3s or m4s is the same as m2s.
+      m4s[g] = moments.m4;
+      m3s[g] = moments.m3;
+      m2s[g] = moments.m2;
     }
     return Status::OK();
   }
@@ -1073,11 +1143,30 @@ struct GroupedVarStdImpl : public GroupedAggregator {
 
     auto* results = values->mutable_data_as<double>();
     const int64_t* counts = counts_.data();
-    const double* m2s = m2s_.data();
+    const double* means = means_.data();
+    const double* m2s = m2s_data();
+    const double* m3s = m3s_data();
+    const double* m4s = m4s_data();
     for (int64_t i = 0; i < num_groups_; ++i) {
-      if (counts[i] > options_.ddof && counts[i] >= options_.min_count) {
-        const double variance = m2s[i] / (counts[i] - options_.ddof);
-        results[i] = result_type_ == VarOrStd::Var ? variance : std::sqrt(variance);
+      if (counts[i] > ddof_ && counts[i] >= min_count_) {
+        const auto moments = Moments(counts[i], means[i], m2s[i], m3s[i], m4s[i]);
+        switch (stat_type_) {
+          case StatisticType::Var:
+            results[i] = moments.Variance(ddof_);
+            break;
+          case StatisticType::Std:
+            results[i] = moments.Stddev(ddof_);
+            break;
+          case StatisticType::Skew:
+            results[i] = moments.Skew();
+            break;
+          case StatisticType::Kurtosis:
+            results[i] = moments.Kurtosis();
+            break;
+          default:
+            return Status::NotImplemented("Statistic type ",
+                                          static_cast<int>(stat_type_));
+        }
         continue;
       }
 
@@ -1090,7 +1179,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
       null_count += 1;
       bit_util::SetBitTo(null_bitmap->mutable_data(), i, false);
     }
-    if (!options_.skip_nulls) {
+    if (!skip_nulls_) {
       if (null_bitmap) {
         arrow::internal::BitmapAnd(null_bitmap->data(), 0, no_nulls_.data(), 0,
                                    num_groups_, 0, null_bitmap->mutable_data());
@@ -1106,56 +1195,91 @@ struct GroupedVarStdImpl : public GroupedAggregator {
 
   std::shared_ptr<DataType> out_type() const override { return float64(); }
 
-  VarOrStd result_type_;
+  const double* m2s_data() const { return m2s_.data(); }
+  // If moments_level_ < 3, the values read from m3s_data() will be ignored,
+  // but we still need to point to a valid buffer of the appropriate size.
+  // The trick is to reuse m2s_, which simplifies the code.
+  const double* m3s_data() const {
+    return (moments_level_ >= 3) ? m3s_.data() : m2s_.data();
+  }
+  const double* m4s_data() const {
+    return (moments_level_ >= 4) ? m4s_.data() : m2s_.data();
+  }
+
+  double* m2s_mutable_data() { return m2s_.mutable_data(); }
+  double* m3s_mutable_data() {
+    return (moments_level_ >= 3) ? m3s_.mutable_data() : m2s_.mutable_data();
+  }
+  double* m4s_mutable_data() {
+    return (moments_level_ >= 4) ? m4s_.mutable_data() : m2s_.mutable_data();
+  }
+
+  StatisticType stat_type_;
+  int moments_level_;
   int32_t decimal_scale_;
-  VarianceOptions options_;
+  bool skip_nulls_;
+  uint32_t min_count_;
+  int ddof_;
   int64_t num_groups_ = 0;
   // m2 = count * s2 = sum((X-mean)^2)
   TypedBufferBuilder<int64_t> counts_;
-  TypedBufferBuilder<double> means_, m2s_;
+  TypedBufferBuilder<double> means_, m2s_, m3s_, m4s_;
   TypedBufferBuilder<bool> no_nulls_;
   ExecContext* ctx_;
   MemoryPool* pool_;
 };
 
-template <typename T, VarOrStd result_type>
-Result<std::unique_ptr<KernelState>> VarStdInit(KernelContext* ctx,
-                                                const KernelInitArgs& args) {
-  auto impl = std::make_unique<GroupedVarStdImpl<T>>();
-  impl->result_type_ = result_type;
-  RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
-  // R build with openSUSE155 requires an explicit unique_ptr construction
-  return std::unique_ptr<KernelState>(std::move(impl));
+template <typename Type, typename OptionsType, StatisticType kStatType>
+struct ConcreteGroupedStatisticImpl : public GroupedStatisticImpl<Type> {
+  using GroupedStatisticImpl<Type>::InitInternal;
+
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    const auto& options = checked_cast<const OptionsType&>(*args.options);
+    return InitInternal(ctx, args, kStatType, options);
+  }
+};
+
+template <typename Type>
+using GroupedVarianceImpl =
+    ConcreteGroupedStatisticImpl<Type, VarianceOptions, StatisticType::Var>;
+template <typename Type>
+using GroupedStddevImpl =
+    ConcreteGroupedStatisticImpl<Type, VarianceOptions, StatisticType::Std>;
+template <typename Type>
+using GroupedSkewImpl =
+    ConcreteGroupedStatisticImpl<Type, SkewOptions, StatisticType::Skew>;
+template <typename Type>
+using GroupedKurtosisImpl =
+    ConcreteGroupedStatisticImpl<Type, SkewOptions, StatisticType::Kurtosis>;
+
+template <template <typename Type> typename GroupedImpl>
+Result<HashAggregateKernel> MakeGroupedStatisticKernel(
+    const std::shared_ptr<DataType>& type) {
+  auto make_kernel = [&](auto&& type) -> Result<HashAggregateKernel> {
+    using T = std::decay_t<decltype(type)>;
+    // Supporting all number types except float16
+    if constexpr (is_integer_type<T>::value ||
+                  (is_floating_type<T>::value && !is_half_float_type<T>::value) ||
+                  is_decimal_type<T>::value) {
+      return MakeKernel(InputType(T::type_id), HashAggregateInit<GroupedImpl<T>>);
+    }
+    return Status::NotImplemented("Computing higher-order statistic of data of type ",
+                                  type);
+  };
+
+  return VisitType(*type, make_kernel);
 }
 
-template <VarOrStd result_type>
-struct GroupedVarStdFactory {
-  template <typename T, typename Enable = enable_if_t<is_integer_type<T>::value ||
-                                                      is_floating_type<T>::value ||
-                                                      is_decimal_type<T>::value>>
-  Status Visit(const T&) {
-    kernel = MakeKernel(std::move(argument_type), VarStdInit<T, result_type>);
-    return Status::OK();
-  }
-
-  Status Visit(const HalfFloatType& type) {
-    return Status::NotImplemented("Computing variance/stddev of data of type ", type);
-  }
-
-  Status Visit(const DataType& type) {
-    return Status::NotImplemented("Computing variance/stddev of data of type ", type);
-  }
-
-  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
-    GroupedVarStdFactory factory;
-    factory.argument_type = type->id();
-    RETURN_NOT_OK(VisitTypeInline(*type, &factory));
-    return std::move(factory.kernel);
-  }
-
-  HashAggregateKernel kernel;
-  InputType argument_type;
-};
+Status AddHashAggregateStatisticKernels(HashAggregateFunction* func,
+                                        HashAggregateKernelFactory make_kernel) {
+  RETURN_NOT_OK(AddHashAggKernels(SignedIntTypes(), make_kernel, func));
+  RETURN_NOT_OK(AddHashAggKernels(UnsignedIntTypes(), make_kernel, func));
+  RETURN_NOT_OK(AddHashAggKernels(FloatingPointTypes(), make_kernel, func));
+  RETURN_NOT_OK(AddHashAggKernels(
+      {decimal32(1, 1), decimal64(1, 1), decimal128(1, 1), decimal256(1, 1)}, make_kernel,
+      func));
+  return Status::OK();
+}
 
 // ----------------------------------------------------------------------
 // TDigest implementation
@@ -3749,8 +3873,8 @@ const FunctionDoc hash_product_doc{
 const FunctionDoc hash_mean_doc{
     "Compute the mean of values in each group",
     ("Null values are ignored.\n"
-     "For integers and floats, NaN is returned if min_count = 0 and\n"
-     "there are no values. For decimals, null is returned instead."),
+     "For integers and floats, NaN is emitted if min_count = 0 and\n"
+     "there are no values in a group. For decimals, null is emitted instead."),
     {"array", "group_id_array"},
     "ScalarAggregateOptions"};
 
@@ -3758,22 +3882,38 @@ const FunctionDoc hash_stddev_doc{
     "Compute the standard deviation of values in each group",
     ("The number of degrees of freedom can be controlled using VarianceOptions.\n"
      "By default (`ddof` = 0), the population standard deviation is calculated.\n"
-     "Nulls are ignored.  If there are not enough non-null values in the array\n"
-     "to satisfy `ddof`, null is returned."),
+     "Nulls are ignored.  If there are not enough non-null values in a group\n"
+     "to satisfy `ddof`, null is emitted."),
     {"array", "group_id_array"}};
 
 const FunctionDoc hash_variance_doc{
     "Compute the variance of values in each group",
     ("The number of degrees of freedom can be controlled using VarianceOptions.\n"
      "By default (`ddof` = 0), the population variance is calculated.\n"
-     "Nulls are ignored.  If there are not enough non-null values in the array\n"
-     "to satisfy `ddof`, null is returned."),
+     "Nulls are ignored.  If there are not enough non-null values in a group\n"
+     "to satisfy `ddof`, null is emitted."),
+    {"array", "group_id_array"}};
+
+const FunctionDoc hash_skew_doc{
+    "Compute the skewness of values in each group",
+    ("Nulls are ignored by default.  If there are not enough non-null values\n"
+     "in a group to satisfy `min_count`, null is emitted.\n"
+     "The behavior of nulls and the `min_count` parameter can be changed\n"
+     "in SkewOptions."),
+    {"array", "group_id_array"}};
+
+const FunctionDoc hash_kurtosis_doc{
+    "Compute the kurtosis of values in each group",
+    ("Nulls are ignored by default.  If there are not enough non-null values\n"
+     "in a group to satisfy `min_count`, null is emitted.\n"
+     "The behavior of nulls and the `min_count` parameter can be changed\n"
+     "in SkewOptions."),
     {"array", "group_id_array"}};
 
 const FunctionDoc hash_tdigest_doc{
     "Compute approximate quantiles of values in each group",
     ("The T-Digest algorithm is used for a fast approximation.\n"
-     "By default, the 0.5 quantile (i.e. median) is returned.\n"
+     "By default, the 0.5 quantile (i.e. median) is emitted.\n"
      "Nulls and NaNs are ignored.\n"
      "Nulls are returned if there are no valid data points."),
     {"array", "group_id_array"},
@@ -3873,10 +4013,11 @@ const FunctionDoc hash_pivot_doc{
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
-  static auto default_count_options = CountOptions::Defaults();
-  static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
-  static auto default_tdigest_options = TDigestOptions::Defaults();
-  static auto default_variance_options = VarianceOptions::Defaults();
+  static const auto default_count_options = CountOptions::Defaults();
+  static const auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
+  static const auto default_tdigest_options = TDigestOptions::Defaults();
+  static const auto default_variance_options = VarianceOptions::Defaults();
+  static const auto default_skew_options = SkewOptions::Defaults();
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
@@ -3948,28 +4089,32 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_stddev", Arity::Binary(), hash_stddev_doc, &default_variance_options);
-    DCHECK_OK(AddHashAggKernels(SignedIntTypes(),
-                                GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(),
-                                GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(FloatingPointTypes(),
-                                GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
-                                GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
+    DCHECK_OK(AddHashAggregateStatisticKernels(
+        func.get(), MakeGroupedStatisticKernel<GroupedStddevImpl>));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_variance", Arity::Binary(), hash_variance_doc, &default_variance_options);
-    DCHECK_OK(AddHashAggKernels(SignedIntTypes(),
-                                GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(),
-                                GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(FloatingPointTypes(),
-                                GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
-                                GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
+    DCHECK_OK(AddHashAggregateStatisticKernels(
+        func.get(), MakeGroupedStatisticKernel<GroupedVarianceImpl>));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_skew", Arity::Binary(), hash_skew_doc, &default_skew_options);
+    DCHECK_OK(AddHashAggregateStatisticKernels(
+        func.get(), MakeGroupedStatisticKernel<GroupedSkewImpl>));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_kurtosis", Arity::Binary(), hash_kurtosis_doc, &default_skew_options);
+    DCHECK_OK(AddHashAggregateStatisticKernels(
+        func.get(), MakeGroupedStatisticKernel<GroupedKurtosisImpl>));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 

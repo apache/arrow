@@ -2621,6 +2621,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool skip_nulls
         uint32_t min_count
 
+    cdef cppclass CSkewOptions \
+            "arrow::compute::SkewOptions"(CFunctionOptions):
+        CSkewOptions(c_bool skip_nulls, uint32_t min_count)
+        c_bool skip_nulls
+        uint32_t min_count
+
     cdef cppclass CScalarAggregateOptions \
             "arrow::compute::ScalarAggregateOptions"(CFunctionOptions):
         CScalarAggregateOptions(c_bool skip_nulls, uint32_t min_count)

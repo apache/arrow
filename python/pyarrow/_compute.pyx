@@ -1889,6 +1889,25 @@ class VarianceOptions(_VarianceOptions):
         self._set_options(ddof, skip_nulls, min_count)
 
 
+cdef class _SkewOptions(FunctionOptions):
+    def _set_options(self, skip_nulls, min_count):
+        self.wrapped.reset(new CSkewOptions(skip_nulls, min_count))
+
+
+class SkewOptions(_SkewOptions):
+    __doc__ = f"""
+    Options for the `skew` and `kurtosis` functions.
+
+    Parameters
+    ----------
+    {_skip_nulls_doc()}
+    {_min_count_doc(default=0)}
+    """
+
+    def __init__(self, *, skip_nulls=True, min_count=0):
+        self._set_options(skip_nulls, min_count)
+
+
 cdef class _SplitOptions(FunctionOptions):
     def _set_options(self, max_splits, reverse):
         self.wrapped.reset(new CSplitOptions(max_splits, reverse))
