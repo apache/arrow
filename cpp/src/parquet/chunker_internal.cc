@@ -119,26 +119,26 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
                                                           int64_t num_levels,
                                                           const RollFunc& RollValue) {
   std::vector<Chunk> chunks;
+  int64_t offset;
+  int64_t prev_offset = 0;
+  int64_t prev_value_offset = 0;
   bool has_def_levels = level_info_.def_level > 0;
   bool has_rep_levels = level_info_.rep_level > 0;
 
   if (!has_rep_levels && !has_def_levels) {
     // fastest path for non-nested non-null data
-    int64_t prev_offset = 0;
-    for (int64_t offset = 0; offset < num_levels; ++offset) {
+    for (offset = 0; offset < num_levels; ++offset) {
       RollValue(offset);
       if (NeedNewChunk()) {
         chunks.emplace_back(prev_offset, prev_offset, offset - prev_offset);
         prev_offset = offset;
       }
     }
-    if (prev_offset < num_levels) {
-      chunks.emplace_back(prev_offset, prev_offset, num_levels - prev_offset);
-    }
+    // set the previous value offset to add the last chunk
+    prev_value_offset = prev_offset;
   } else if (!has_rep_levels) {
     // non-nested data with nulls
     int16_t def_level;
-    int64_t prev_offset = 0;
     for (int64_t offset = 0; offset < num_levels; ++offset) {
       def_level = def_levels[offset];
 
@@ -151,52 +151,44 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
         prev_offset = offset;
       }
     }
-    if (prev_offset < num_levels) {
-      chunks.emplace_back(prev_offset, prev_offset, num_levels - prev_offset);
-    }
+    // set the previous value offset to add the last chunk
+    prev_value_offset = prev_offset;
   } else {
     // nested data with nulls
-    bool has_leaf_value;
-    bool is_record_boundary;
     int16_t def_level;
     int16_t rep_level;
     int64_t value_offset = 0;
-    int64_t prev_level_offset = 0;
-    int64_t prev_value_offset = 0;
 
-    for (int64_t level_offset = 0; level_offset < num_levels; ++level_offset) {
-      def_level = def_levels[level_offset];
-      rep_level = rep_levels[level_offset];
-
-      has_leaf_value = def_level >= level_info_.repeated_ancestor_def_level;
-      is_record_boundary = rep_level == 0;
+    for (offset = 0; offset < num_levels; ++offset) {
+      def_level = def_levels[offset];
+      rep_level = rep_levels[offset];
 
       Roll(&def_level);
       Roll(&rep_level);
-      if (has_leaf_value) {
+      if (def_level == level_info_.def_level) {
         RollValue(value_offset);
       }
 
-      if (is_record_boundary && NeedNewChunk()) {
-        auto levels_to_write = level_offset - prev_level_offset;
+      if ((rep_level == 0) && NeedNewChunk()) {
+        // if we are at a record boundary and need a new chunk, we create a new chunk
+        auto levels_to_write = offset - prev_offset;
         if (levels_to_write > 0) {
-          chunks.emplace_back(prev_level_offset, prev_value_offset, levels_to_write);
-          prev_level_offset = level_offset;
+          chunks.emplace_back(prev_offset, prev_value_offset, levels_to_write);
+          prev_offset = offset;
           prev_value_offset = value_offset;
         }
       }
-
-      if (has_leaf_value) {
+      if (def_level >= level_info_.repeated_ancestor_def_level) {
+        // we only increment the value offset if we have a leaf value
         ++value_offset;
       }
     }
-
-    auto levels_to_write = num_levels - prev_level_offset;
-    if (levels_to_write > 0) {
-      chunks.emplace_back(prev_level_offset, prev_value_offset, levels_to_write);
-    }
   }
 
+  // add the last chunk if we have any levels left
+  if (prev_offset < num_levels) {
+    chunks.emplace_back(prev_offset, prev_value_offset, num_levels - prev_offset);
+  }
   return chunks;
 }
 
