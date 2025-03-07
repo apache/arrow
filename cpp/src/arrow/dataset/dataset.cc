@@ -21,6 +21,7 @@
 #include "arrow/acero/util.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/projector.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
@@ -41,7 +42,7 @@ const compute::Expression Fragment::kNoPartitionInformation = compute::literal(t
 Fragment::Fragment(compute::Expression partition_expression,
                    std::shared_ptr<Schema> physical_schema)
     : partition_expression_(std::move(partition_expression)),
-      physical_schema_(std::move(physical_schema)) {}
+      given_physical_schema_(std::move(physical_schema)) {}
 
 Future<std::shared_ptr<InspectedFragment>> Fragment::InspectFragment(
     const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
@@ -75,8 +76,14 @@ Future<std::optional<int64_t>> Fragment::CountRows(compute::Expression,
   return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
 }
 
+Status Fragment::ClearCachedMetadata() {
+  auto lock = physical_schema_mutex_.Lock();
+  physical_schema_.reset();
+  return Status::OK();
+}
+
 Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchemaImpl() {
-  return physical_schema_;
+  return given_physical_schema_;
 }
 
 InMemoryFragment::InMemoryFragment(std::shared_ptr<Schema> schema,
@@ -84,7 +91,8 @@ InMemoryFragment::InMemoryFragment(std::shared_ptr<Schema> schema,
                                    compute::Expression partition_expression)
     : Fragment(std::move(partition_expression), std::move(schema)),
       record_batches_(std::move(record_batches)) {
-  DCHECK_NE(physical_schema_, nullptr);
+  DCHECK_NE(given_physical_schema_, nullptr);
+  physical_schema_ = given_physical_schema_;
 }
 
 InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,

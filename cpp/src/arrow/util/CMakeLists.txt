@@ -66,6 +66,7 @@ add_arrow_test(utility-test
                list_util_test.cc
                logger_test.cc
                logging_test.cc
+               math_test.cc
                queue_test.cc
                range_test.cc
                ree_util_test.cc

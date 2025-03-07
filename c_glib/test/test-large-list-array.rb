@@ -88,10 +88,10 @@ class TestLargeListArray < Test::Unit::TestCase
 
   def test_value_offsets
     array = build_large_list_array(Arrow::Int8DataType.new,
-                             [
-                               [-29, 29],
-                               [-1, 0, 1],
-                             ])
+                                   [
+                                     [-29, 29],
+                                     [-1, 0, 1],
+                                   ])
     assert_equal([0, 2, 5],
                  array.value_offsets)
   end

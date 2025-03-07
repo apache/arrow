@@ -18,9 +18,11 @@
 #include "parquet/size_statistics.h"
 
 #include <algorithm>
+#include <array>
 #include <numeric>
 #include <ostream>
 #include <string_view>
+#include <vector>
 
 #include "arrow/util/logging.h"
 #include "parquet/exception.h"

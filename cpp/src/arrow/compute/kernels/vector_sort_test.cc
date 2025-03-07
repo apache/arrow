@@ -2205,7 +2205,7 @@ TEST_F(TestNestedSortIndices, SortRecordBatch) { TestSort(GetRecordBatch()); }
 TEST_F(TestNestedSortIndices, SortTable) { TestSort(GetTable()); }
 
 // ----------------------------------------------------------------------
-// Tests for Rank and Quantile Rank
+// Tests for Rank, Quantile Rank and Normal Rank
 
 class BaseTestRank : public ::testing::Test {
  protected:
@@ -2471,43 +2471,84 @@ TEST_F(TestRank, EmptyChunks) {
 
 class TestRankQuantile : public BaseTestRank {
  public:
-  void AssertRankQuantile(const DatumVector& datums, SortOrder order,
-                          NullPlacement null_placement,
-                          const std::shared_ptr<Array>& expected) {
+  void AssertRankQuantileGeneric(const std::string& function_name,
+                                 const DatumVector& datums, SortOrder order,
+                                 NullPlacement null_placement,
+                                 const std::shared_ptr<Array>& expected) {
+    ARROW_SCOPED_TRACE("function = ", function_name);
     const std::vector<SortKey> sort_keys{SortKey("foo", order)};
     RankQuantileOptions options(sort_keys, null_placement);
     ARROW_SCOPED_TRACE("options = ", options.ToString());
     for (const auto& datum : datums) {
-      ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank_quantile", {datum}, &options));
+      ASSERT_OK_AND_ASSIGN(auto actual, CallFunction(function_name, {datum}, &options));
       ValidateOutput(actual);
-      AssertDatumsEqual(expected, actual, /*verbose=*/true);
+      if (function_name == "rank_normal") {
+        // Normal PPF results can only be approximate
+        auto equal_options = EqualOptions().atol(1e-8);
+        AssertDatumsApproxEqual(expected, actual, /*verbose=*/true, equal_options);
+      } else {
+        AssertDatumsEqual(expected, actual, /*verbose=*/true);
+      }
     }
   }
 
-  void AssertRankQuantile(const DatumVector& datums, SortOrder order,
-                          NullPlacement null_placement, const std::string& expected) {
-    AssertRankQuantile(datums, order, null_placement, ArrayFromJSON(float64(), expected));
+  void AssertRankQuantileGeneric(const std::string& function_name, const Datum& datum,
+                                 SortOrder order, NullPlacement null_placement,
+                                 const std::shared_ptr<Array>& expected) {
+    AssertRankQuantileGeneric(function_name, DatumVector{datum}, order, null_placement,
+                              expected);
   }
 
-  void AssertRankQuantile(SortOrder order, NullPlacement null_placement,
-                          const std::shared_ptr<Array>& expected) {
-    AssertRankQuantile(datums_, order, null_placement, expected);
+  void AssertRankQuantileGeneric(const std::string& function_name,
+                                 const DatumVector& datums, SortOrder order,
+                                 NullPlacement null_placement,
+                                 const std::string& expected) {
+    AssertRankQuantileGeneric(function_name, datums, order, null_placement,
+                              ArrayFromJSON(float64(), expected));
   }
 
-  void AssertRankQuantile(SortOrder order, NullPlacement null_placement,
-                          const std::string& expected) {
-    AssertRankQuantile(datums_, order, null_placement,
-                       ArrayFromJSON(float64(), expected));
+  void AssertRankQuantileGeneric(const std::string& function_name, const Datum& datum,
+                                 SortOrder order, NullPlacement null_placement,
+                                 const std::string& expected) {
+    AssertRankQuantileGeneric(function_name, DatumVector{datum}, order, null_placement,
+                              ArrayFromJSON(float64(), expected));
+  }
+
+  void AssertRankQuantileGeneric(const std::string& function_name, SortOrder order,
+                                 NullPlacement null_placement,
+                                 const std::shared_ptr<Array>& expected) {
+    AssertRankQuantileGeneric(function_name, datums_, order, null_placement, expected);
+  }
+
+  void AssertRankQuantileGeneric(const std::string& function_name, SortOrder order,
+                                 NullPlacement null_placement,
+                                 const std::string& expected) {
+    AssertRankQuantileGeneric(function_name, datums_, order, null_placement,
+                              ArrayFromJSON(float64(), expected));
+  }
+
+  template <typename... Args>
+  void AssertRankQuantile(Args&&... args) {
+    AssertRankQuantileGeneric("rank_quantile", std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  void AssertRankNormal(Args&&... args) {
+    AssertRankQuantileGeneric("rank_normal", std::forward<Args>(args)...);
   }
 
   void AssertRankQuantileEmpty(std::shared_ptr<DataType> type) {
     for (auto null_placement : AllNullPlacements()) {
       for (auto order : AllOrders()) {
-        AssertRankQuantile({ArrayFromJSON(type, "[]")}, order, null_placement, "[]");
-        AssertRankQuantile({ArrayFromJSON(type, "[null]")}, order, null_placement,
-                           "[0.5]");
-        AssertRankQuantile({ArrayFromJSON(type, "[null, null, null]")}, order,
+        AssertRankQuantile(ArrayFromJSON(type, "[]"), order, null_placement, "[]");
+        AssertRankQuantile(ArrayFromJSON(type, "[null]"), order, null_placement, "[0.5]");
+        AssertRankQuantile(ArrayFromJSON(type, "[null, null, null]"), order,
                            null_placement, "[0.5, 0.5, 0.5]");
+
+        AssertRankNormal(ArrayFromJSON(type, "[]"), order, null_placement, "[]");
+        AssertRankNormal(ArrayFromJSON(type, "[null]"), order, null_placement, "[0.0]");
+        AssertRankNormal(ArrayFromJSON(type, "[null, null, null]"), order, null_placement,
+                         "[0.0, 0.0, 0.0]");
       }
     }
   }
@@ -2519,6 +2560,12 @@ class TestRankQuantile : public BaseTestRank {
                          "[0.3, 0.8, 0.3, 0.8, 0.3]");
       AssertRankQuantile(SortOrder::Descending, null_placement,
                          "[0.7, 0.2, 0.7, 0.2, 0.7]");
+      AssertRankNormal(SortOrder::Ascending, null_placement,
+                       "[-0.5244005127080409, 0.8416212335729143, -0.5244005127080409, "
+                       "0.8416212335729143, -0.5244005127080409]");
+      AssertRankNormal(SortOrder::Descending, null_placement,
+                       "[0.5244005127080407, -0.8416212335729142, 0.5244005127080407, "
+                       "-0.8416212335729142, 0.5244005127080407]");
     }
   }
 
@@ -2532,6 +2579,19 @@ class TestRankQuantile : public BaseTestRank {
                        "[0.3, 0.9, 0.3, 0.7, 0.3]");
     AssertRankQuantile(SortOrder::Descending, NullPlacement::AtEnd,
                        "[0.7, 0.3, 0.7, 0.1, 0.7]");
+
+    AssertRankNormal(SortOrder::Ascending, NullPlacement::AtStart,
+                     "[-0.5244005127080409, 0.5244005127080407, -0.5244005127080409, "
+                     "1.2815515655446004, -0.5244005127080409]");
+    AssertRankNormal(SortOrder::Ascending, NullPlacement::AtEnd,
+                     "[0.5244005127080407, -1.2815515655446004, 0.5244005127080407, "
+                     "-0.5244005127080409, 0.5244005127080407]");
+    AssertRankNormal(SortOrder::Descending, NullPlacement::AtStart,
+                     "[-0.5244005127080409, 1.2815515655446004, -0.5244005127080409, "
+                     "0.5244005127080407, -0.5244005127080409]");
+    AssertRankNormal(SortOrder::Descending, NullPlacement::AtEnd,
+                     "[0.5244005127080407, -0.5244005127080409, 0.5244005127080407, "
+                     "-1.2815515655446004, 0.5244005127080407]");
   }
 
   void AssertRankQuantileNumeric(std::shared_ptr<DataType> type) {
@@ -2545,6 +2605,17 @@ class TestRankQuantile : public BaseTestRank {
                          "[0.95, 0.8, 0.8, 0.6, 0.6, 0.35, 0.35, 0.35, 0.15, 0.05]");
       AssertRankQuantile(SortOrder::Descending, null_placement,
                          "[0.05, 0.2, 0.2, 0.4, 0.4, 0.65, 0.65, 0.65, 0.85, 0.95]");
+
+      AssertRankNormal(SortOrder::Ascending, null_placement,
+                       "[1.6448536269514722, 0.8416212335729143, 0.8416212335729143, "
+                       "0.2533471031357997, 0.2533471031357997, -0.38532046640756773, "
+                       "-0.38532046640756773, -0.38532046640756773, -1.0364333894937898, "
+                       "-1.6448536269514729]");
+      AssertRankNormal(SortOrder::Descending, null_placement,
+                       "[-1.6448536269514729, -0.8416212335729142, -0.8416212335729142, "
+                       "-0.2533471031357997, -0.2533471031357997, 0.38532046640756773, "
+                       "0.38532046640756773, 0.38532046640756773, 1.0364333894937898, "
+                       "1.6448536269514722]");
     }
 
     // With nulls

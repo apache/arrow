@@ -1086,7 +1086,6 @@ class BinaryTask
     [
       ["debian", "bookworm", "main"],
       ["debian", "trixie", "main"],
-      ["ubuntu", "focal", "main"],
       ["ubuntu", "jammy", "main"],
       ["ubuntu", "noble", "main"],
     ]
@@ -2105,8 +2104,6 @@ class LocalBinaryTask < BinaryTask
       # "debian-bookworm-arm64",
       "debian-trixie",
       # "debian-trixie-arm64",
-      "ubuntu-focal",
-      # "ubuntu-focal-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
       "ubuntu-noble",

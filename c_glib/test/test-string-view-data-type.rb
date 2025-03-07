@@ -30,4 +30,11 @@ class TestStringViewDataType < Test::Unit::TestCase
     data_type = Arrow::StringViewDataType.new
     assert_equal("string_view", data_type.to_s)
   end
+
+  def test_export
+    data_type = Arrow::StringViewDataType.new
+    c_abi_schema = data_type.export
+    assert_equal(data_type,
+                 Arrow::DataType.import(c_abi_schema))
+  end
 end
