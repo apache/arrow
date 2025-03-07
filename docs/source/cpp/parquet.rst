@@ -610,7 +610,7 @@ This field expects a string of the format ``"columnKeyID:colName,colName;columnK
    :language: cpp
    :start-at: // Set write options with encryption configuration
    :end-before: auto parquet_encryption_config
-   :emphasize-lines: 4-9
+   :emphasize-lines: 4-5
    :dedent: 2
 
 See the full example below: :ref:`cpp-parquet-encryption-full-example`.
@@ -625,10 +625,10 @@ See the full example below: :ref:`cpp-parquet-encryption-full-example`.
 
       OSError: Encrypted column col not in file schema
 
-The key and value fields of a map column ``m`` has the names ``m.key_value.key``
-and  ``m.key_value.value``, respectively. The inner field of a list column ``l``
-has the name ``l.list.element``. An inner field ``f`` of a struct column ``s`` has
-the name ``s.f``.
+   The key and value fields of a map column ``m`` has the names ``m.key_value.key``
+   and  ``m.key_value.value``, respectively. The inner field of a list column ``l``
+   has the name ``l.list.element``. An inner field ``f`` of a struct column ``s`` has
+   the name ``s.f``.
 
 .. _cpp-parquet-encryption-full-example:
 
