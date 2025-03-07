@@ -67,13 +67,13 @@ inline uint64_t hash(uint64_t seed, uint64_t index) {
 
 template <typename BuilderType, typename ValueFunc>
 Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<DataType>& type,
-                                             bool nullable, int64_t length, int64_t seed,
+                                             bool nullable, int64_t length, uint64_t seed,
                                              ValueFunc value_func) {
   BuilderType builder(type, default_memory_pool());
 
   if (nullable) {
     for (int64_t i = 0; i < length; ++i) {
-      int64_t val = hash(seed, i);
+      uint64_t val = hash(seed, i);
       if (val % 10 == 0) {
         RETURN_NOT_OK(builder.AppendNull());
       } else {
@@ -82,7 +82,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<DataType>& ty
     }
   } else {
     for (int64_t i = 0; i < length; ++i) {
-      int64_t val = hash(seed, i);
+      uint64_t val = hash(seed, i);
       RETURN_NOT_OK(builder.Append(value_func(val)));
     }
   }
@@ -95,7 +95,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<DataType>& ty
 
 #define GENERATE_CASE(TYPE_ID, BUILDER_TYPE, VALUE_EXPR)                          \
   case ::arrow::Type::TYPE_ID: {                                                  \
-    auto value_func = [](int64_t val) { return VALUE_EXPR; };                     \
+    auto value_func = [](uint64_t val) { return VALUE_EXPR; };                    \
     return GenerateArray<BUILDER_TYPE>(type, nullable, length, seed, value_func); \
   }
 
@@ -126,7 +126,9 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       // Limit the value to fit within the specified precision
       int32_t max_exponent = decimal_type.precision() - decimal_type.scale();
       int64_t max_value = static_cast<int64_t>(std::pow(10, max_exponent) - 1);
-      auto value_func = [&](int64_t val) { return ::arrow::Decimal128(val % max_value); };
+      auto value_func = [&](uint64_t val) {
+        return ::arrow::Decimal128(val % max_value);
+      };
       return GenerateArray<::arrow::Decimal128Builder>(type, nullable, length, seed,
                                                        value_func);
     }
@@ -136,7 +138,9 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       // int64_t overflow
       int32_t max_exponent = std::min(9, decimal_type.precision() - decimal_type.scale());
       int64_t max_value = static_cast<int64_t>(std::pow(10, max_exponent) - 1);
-      auto value_func = [&](int64_t val) { return ::arrow::Decimal256(val % max_value); };
+      auto value_func = [&](uint64_t val) {
+        return ::arrow::Decimal256(val % max_value);
+      };
       return GenerateArray<::arrow::Decimal256Builder>(type, nullable, length, seed,
                                                        value_func);
     }
@@ -159,7 +163,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
                     std::string("bin_") + std::to_string(val))
     case ::arrow::Type::FIXED_SIZE_BINARY: {
       auto size = static_cast<::arrow::FixedSizeBinaryType*>(type.get())->byte_width();
-      auto value_func = [size](int64_t val) {
+      auto value_func = [size](uint64_t val) {
         return std::string("bin_") + std::to_string(val).substr(0, size - 4);
       };
       return GenerateArray<::arrow::FixedSizeBinaryBuilder>(type, nullable, length, seed,
@@ -172,7 +176,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       for (auto i = 0; i < struct_type->num_fields(); i++) {
         ARROW_ASSIGN_OR_RAISE(auto child_array,
                               GenerateArray(struct_type->field(i), length,
-                                            seed + static_cast<int64_t>(i + 300)));
+                                            seed + static_cast<uint64_t>(i + 300)));
         child_arrays.push_back(child_array);
       }
       auto struct_array =
@@ -256,7 +260,6 @@ Result<std::shared_ptr<Buffer>> WriteTableToBuffer(const std::shared_ptr<Table>&
                                                    int64_t min_chunk_size,
                                                    int64_t max_chunk_size,
                                                    bool enable_dictionary = false,
-
                                                    int64_t row_group_size = 1024 * 1024) {
   auto sink = CreateOutputStream();
 
@@ -288,16 +291,20 @@ Result<std::shared_ptr<Table>> ReadTableFromBuffer(const std::shared_ptr<Buffer>
   return result;
 }
 
-struct PageSizes {
-  std::vector<int64_t> lengths;
-  std::vector<int64_t> sizes;
+// Type to represent a list of chunks where each element is the size of the chunk.
+using ChunkList = std::vector<int64_t>;
+
+// Type to represent the sizes and lengths of the data pages in a column.
+struct PageInfo {
+  ChunkList lengths;
+  ChunkList sizes;
 };
 
-PageSizes GetColumnPageSizes(const std::shared_ptr<Buffer>& data, int column_index = 0) {
+PageInfo GetColumnPageInfo(const std::shared_ptr<Buffer>& data, int column_index = 0) {
   // Read the parquet data out of the buffer and get the sizes and lengths of the
   // data pages in given column. We assert on the sizes and lengths of the pages
   // to ensure that the chunking is done correctly.
-  PageSizes result;
+  PageInfo result;
 
   auto buffer_reader = std::make_shared<BufferReader>(data);
   auto parquet_reader = ParquetFileReader::Open(std::move(buffer_reader));
@@ -317,10 +324,10 @@ PageSizes GetColumnPageSizes(const std::shared_ptr<Buffer>& data, int column_ind
   return result;
 }
 
-Result<PageSizes> WriteAndGetPageSizes(const std::shared_ptr<Table>& table,
-                                       int64_t min_chunk_size, int64_t max_chunk_size,
-                                       bool enable_dictionary = false,
-                                       int column_index = 0) {
+Result<PageInfo> WriteAndGetPageInfo(const std::shared_ptr<Table>& table,
+                                     uint64_t min_chunk_size, uint64_t max_chunk_size,
+                                     bool enable_dictionary = false,
+                                     int column_index = 0) {
   // Write the table to a buffer and read it back to get the page sizes
   ARROW_ASSIGN_OR_RAISE(
       auto buffer,
@@ -332,10 +339,10 @@ Result<PageSizes> WriteAndGetPageSizes(const std::shared_ptr<Table>& table,
     ARROW_RETURN_IF(!readback->Equals(*table),
                     Status::Invalid("Readback table not equal to original"));
   }
-  return GetColumnPageSizes(buffer, column_index);
+  return GetColumnPageInfo(buffer, column_index);
 }
 
-void AssertAllBetween(const std::vector<int64_t>& values, int64_t min, int64_t max,
+void AssertAllBetween(const ChunkList& chunks, int64_t min, int64_t max,
                       bool expect_dictionary_fallback = false) {
   // expect the last chunk since it is not guaranteed to be within the range
   if (expect_dictionary_fallback) {
@@ -344,26 +351,29 @@ void AssertAllBetween(const std::vector<int64_t>& values, int64_t min, int64_t m
     // guarantee that all chunks are within the range in this case, but we
     // know that there can be at most 2 pages smaller than the min_chunk_size
     size_t smaller_count = 0;
-    for (size_t i = 0; i < values.size() - 1; i++) {
-      if (values[i] < min) {
+    for (size_t i = 0; i < chunks.size() - 1; i++) {
+      if (chunks[i] < min) {
         smaller_count++;
       } else {
-        ASSERT_LE(values[i], max);
+        ASSERT_LE(chunks[i], max);
       }
     }
     ASSERT_LE(smaller_count, 2);
   } else {
-    for (size_t i = 0; i < values.size() - 1; i++) {
-      ASSERT_GE(values[i], min);
-      ASSERT_LE(values[i], max);
+    for (size_t i = 0; i < chunks.size() - 1; i++) {
+      ASSERT_GE(chunks[i], min);
+      ASSERT_LE(chunks[i], max);
     }
   }
-  ASSERT_LE(values.back(), max);
+  ASSERT_LE(chunks.back(), max);
 }
 
-std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> FindDifferences(
-    const std::vector<int64_t>& first, const std::vector<int64_t>& second) {
-  // Compute LCS table.
+// A git-hunk like side-by-side data structure to represent the differences between two
+// vectors of uint64_t values.
+using ChunkDiff = std::pair<ChunkList, ChunkList>;
+
+std::vector<ChunkDiff> FindDifferences(const ChunkList& first, const ChunkList& second) {
+  // Compute longest-common-subsequence between the two vectors.
   size_t n = first.size(), m = second.size();
   std::vector<std::vector<size_t>> dp(n + 1, std::vector<size_t>(m + 1, 0));
   for (size_t i = 0; i < n; i++) {
@@ -391,7 +401,7 @@ std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> FindDifferenc
   std::reverse(common.begin(), common.end());
 
   // Build raw differences.
-  std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> result;
+  std::vector<ChunkDiff> result;
   size_t last_i = 0, last_j = 0;
   for (auto& c : common) {
     auto ci = c.first;
@@ -410,7 +420,7 @@ std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> FindDifferenc
 
   // Merge adjacent diffs if one side is empty in the first diff and the other side
   // is empty in the next diff, to avoid splitting single changes into two parts.
-  std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> merged;
+  std::vector<ChunkDiff> merged;
   for (auto& diff : result) {
     if (!merged.empty()) {
       auto& prev = merged.back();
@@ -433,9 +443,8 @@ std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> FindDifferenc
   return merged;
 }
 
-void PrintDifferences(
-    const std::vector<int64_t>& original, const std::vector<int64_t>& modified,
-    std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>>& diffs) {
+void PrintDifferences(const ChunkList& original, const ChunkList& modified,
+                      std::vector<ChunkDiff>& diffs) {
   std::cout << "Original: ";
   for (const auto& val : original) {
     std::cout << val << " ";
@@ -464,60 +473,60 @@ void PrintDifferences(
 }
 
 TEST(TestFindDifferences, Basic) {
-  std::vector<int64_t> first = {1, 2, 3, 4, 5};
-  std::vector<int64_t> second = {1, 7, 8, 4, 5};
+  ChunkList first = {1, 2, 3, 4, 5};
+  ChunkList second = {1, 7, 8, 4, 5};
 
   auto diffs = FindDifferences(first, second);
 
   ASSERT_EQ(diffs.size(), 1);
-  ASSERT_EQ(diffs[0].first, std::vector<int64_t>({2, 3}));
-  ASSERT_EQ(diffs[0].second, std::vector<int64_t>({7, 8}));
+  ASSERT_EQ(diffs[0].first, ChunkList({2, 3}));
+  ASSERT_EQ(diffs[0].second, ChunkList({7, 8}));
 }
 
 TEST(TestFindDifferences, MultipleDifferences) {
-  std::vector<int64_t> first = {1, 2, 3, 4, 5, 6, 7};
-  std::vector<int64_t> second = {1, 8, 9, 4, 10, 6, 11};
+  ChunkList first = {1, 2, 3, 4, 5, 6, 7};
+  ChunkList second = {1, 8, 9, 4, 10, 6, 11};
   auto diffs = FindDifferences(first, second);
 
   ASSERT_EQ(diffs.size(), 3);
 
-  ASSERT_EQ(diffs[0].first, std::vector<int64_t>({2, 3}));
-  ASSERT_EQ(diffs[0].second, std::vector<int64_t>({8, 9}));
+  ASSERT_EQ(diffs[0].first, ChunkList({2, 3}));
+  ASSERT_EQ(diffs[0].second, ChunkList({8, 9}));
 
-  ASSERT_EQ(diffs[1].first, std::vector<int64_t>({5}));
-  ASSERT_EQ(diffs[1].second, std::vector<int64_t>({10}));
+  ASSERT_EQ(diffs[1].first, ChunkList({5}));
+  ASSERT_EQ(diffs[1].second, ChunkList({10}));
 
-  ASSERT_EQ(diffs[2].first, std::vector<int64_t>({7}));
-  ASSERT_EQ(diffs[2].second, std::vector<int64_t>({11}));
+  ASSERT_EQ(diffs[2].first, ChunkList({7}));
+  ASSERT_EQ(diffs[2].second, ChunkList({11}));
 }
 
 TEST(TestFindDifferences, DifferentLengths) {
-  std::vector<int64_t> first = {1, 2, 3};
-  std::vector<int64_t> second = {1, 2, 3, 4, 5};
+  ChunkList first = {1, 2, 3};
+  ChunkList second = {1, 2, 3, 4, 5};
   auto diffs = FindDifferences(first, second);
 
   ASSERT_EQ(diffs.size(), 1);
   ASSERT_TRUE(diffs[0].first.empty());
-  ASSERT_EQ(diffs[0].second, std::vector<int64_t>({4, 5}));
+  ASSERT_EQ(diffs[0].second, ChunkList({4, 5}));
 }
 
 TEST(TestFindDifferences, EmptyArrays) {
-  std::vector<int64_t> first = {};
-  std::vector<int64_t> second = {};
+  ChunkList first = {};
+  ChunkList second = {};
   auto diffs = FindDifferences(first, second);
   ASSERT_TRUE(diffs.empty());
 }
 
 TEST(TestFindDifferences, LongSequenceWithSingleDifference) {
-  std::vector<int64_t> first = {
+  ChunkList first = {
       1994, 2193, 2700, 1913, 2052,
   };
-  std::vector<int64_t> second = {2048, 43, 2080, 2700, 1913, 2052};
+  ChunkList second = {2048, 43, 2080, 2700, 1913, 2052};
   auto diffs = FindDifferences(first, second);
 
   ASSERT_EQ(diffs.size(), 1);
-  ASSERT_EQ(diffs[0].first, std::vector<int64_t>({1994, 2193}));
-  ASSERT_EQ(diffs[0].second, std::vector<int64_t>({2048, 43, 2080}));
+  ASSERT_EQ(diffs[0].first, ChunkList({1994, 2193}));
+  ASSERT_EQ(diffs[0].second, ChunkList({2048, 43, 2080}));
 
   // Verify that elements after the difference are identical
   for (size_t i = 3; i < second.size(); i++) {
@@ -526,15 +535,15 @@ TEST(TestFindDifferences, LongSequenceWithSingleDifference) {
 }
 
 TEST(TestFindDifferences, LongSequenceWithMiddleChanges) {
-  std::vector<int64_t> first = {2169, 1976, 2180, 2147, 1934, 1772,
-                                1914, 2075, 2154, 1940, 1934, 1970};
-  std::vector<int64_t> second = {2169, 1976, 2180, 2147, 2265, 1804,
-                                 1717, 1925, 2122, 1940, 1934, 1970};
+  ChunkList first = {2169, 1976, 2180, 2147, 1934, 1772,
+                     1914, 2075, 2154, 1940, 1934, 1970};
+  ChunkList second = {2169, 1976, 2180, 2147, 2265, 1804,
+                      1717, 1925, 2122, 1940, 1934, 1970};
   auto diffs = FindDifferences(first, second);
 
   ASSERT_EQ(diffs.size(), 1);
-  ASSERT_EQ(diffs[0].first, std::vector<int64_t>({1934, 1772, 1914, 2075, 2154}));
-  ASSERT_EQ(diffs[0].second, std::vector<int64_t>({2265, 1804, 1717, 1925, 2122}));
+  ASSERT_EQ(diffs[0].first, ChunkList({1934, 1772, 1914, 2075, 2154}));
+  ASSERT_EQ(diffs[0].second, ChunkList({2265, 1804, 1717, 1925, 2122}));
 
   // Verify elements before and after the difference are identical
   for (size_t i = 0; i < 4; i++) {
@@ -546,14 +555,14 @@ TEST(TestFindDifferences, LongSequenceWithMiddleChanges) {
 }
 
 TEST(TestFindDifferences, AdditionalCase) {
-  std::vector<int64_t> original = {445, 312, 393, 401, 410, 138, 558, 457};
-  std::vector<int64_t> modified = {445, 312, 393, 393, 410, 138, 558, 457};
+  ChunkList original = {445, 312, 393, 401, 410, 138, 558, 457};
+  ChunkList modified = {445, 312, 393, 393, 410, 138, 558, 457};
 
   auto diffs = FindDifferences(original, modified);
   ASSERT_EQ(diffs.size(), 1);
 
-  ASSERT_EQ(diffs[0].first, std::vector<int64_t>({401}));
-  ASSERT_EQ(diffs[0].second, std::vector<int64_t>({393}));
+  ASSERT_EQ(diffs[0].first, ChunkList({401}));
+  ASSERT_EQ(diffs[0].second, ChunkList({393}));
 
   // Verify elements before and after the difference are identical
   for (size_t i = 0; i < 3; i++) {
@@ -565,8 +574,8 @@ TEST(TestFindDifferences, AdditionalCase) {
 }
 
 void AssertUpdateCase(const std::shared_ptr<::arrow::DataType>& dtype,
-                      const std::vector<int64_t>& original,
-                      const std::vector<int64_t>& modified, uint8_t n_modifications) {
+                      const ChunkList& original, const ChunkList& modified,
+                      uint8_t n_modifications) {
   auto diffs = FindDifferences(original, modified);
   if (diffs.size() > n_modifications) {
     PrintDifferences(original, modified, diffs);
@@ -591,9 +600,8 @@ void AssertUpdateCase(const std::shared_ptr<::arrow::DataType>& dtype,
 }
 
 void AssertDeleteCase(const std::shared_ptr<::arrow::DataType>& dtype,
-                      const std::vector<int64_t>& original,
-                      const std::vector<int64_t>& modified, uint8_t n_modifications,
-                      int64_t edit_length) {
+                      const ChunkList& original, const ChunkList& modified,
+                      uint8_t n_modifications, uint64_t edit_length) {
   auto diffs = FindDifferences(original, modified);
   if (diffs.size() != n_modifications) {
     PrintDifferences(original, modified, diffs);
@@ -602,7 +610,7 @@ void AssertDeleteCase(const std::shared_ptr<::arrow::DataType>& dtype,
 
   for (const auto& diff : diffs) {
     if (!::arrow::is_list_like(dtype->id())) {
-      int64_t left_sum = 0, right_sum = 0;
+      uint64_t left_sum = 0, right_sum = 0;
       for (const auto& val : diff.first) left_sum += val;
       for (const auto& val : diff.second) right_sum += val;
       ASSERT_EQ(left_sum, right_sum + edit_length);
@@ -613,9 +621,8 @@ void AssertDeleteCase(const std::shared_ptr<::arrow::DataType>& dtype,
 }
 
 void AssertInsertCase(const std::shared_ptr<::arrow::DataType>& dtype,
-                      const std::vector<int64_t>& original,
-                      const std::vector<int64_t>& modified, uint8_t n_modifications,
-                      int64_t edit_length) {
+                      const ChunkList& original, const ChunkList& modified,
+                      uint8_t n_modifications, uint64_t edit_length) {
   auto diffs = FindDifferences(original, modified);
   if (diffs.size() != n_modifications) {
     PrintDifferences(original, modified, diffs);
@@ -634,8 +641,7 @@ void AssertInsertCase(const std::shared_ptr<::arrow::DataType>& dtype,
   }
 }
 
-void AssertAppendCase(const std::vector<int64_t>& original,
-                      const std::vector<int64_t>& modified) {
+void AssertAppendCase(const ChunkList& original, const ChunkList& modified) {
   ASSERT_GE(modified.size(), original.size());
   for (size_t i = 0; i < original.size() - 1; i++) {
     ASSERT_EQ(original[i], modified[i]);
@@ -643,7 +649,7 @@ void AssertAppendCase(const std::vector<int64_t>& original,
   ASSERT_GT(modified[original.size() - 1], original.back());
 }
 
-uint64_t ElementCount(int64_t size, int32_t byte_width, bool nullable) {
+uint64_t ElementCount(uint64_t size, int32_t byte_width, bool nullable) {
   if (nullable) {
     // in case of nullable types the def_levels are also fed through the chunker
     // to identify changes in the null bitmap, this will increase the byte width
@@ -654,10 +660,10 @@ uint64_t ElementCount(int64_t size, int32_t byte_width, bool nullable) {
 }
 
 void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
-                      PageSizes base_result, PageSizes modified_result, bool nullable,
-                      bool enable_dictionary, int64_t min_chunk_size,
-                      int64_t max_chunk_size) {
-  max_chunk_size = static_cast<int64_t>(max_chunk_size * 1.2);
+                      PageInfo base_result, PageInfo modified_result, bool nullable,
+                      bool enable_dictionary, uint64_t min_chunk_size,
+                      uint64_t max_chunk_size) {
+  max_chunk_size = static_cast<uint64_t>(max_chunk_size * 1.2);
   if (::arrow::is_fixed_width(dtype->id())) {
     auto min_length = ElementCount(min_chunk_size, dtype->byte_width(), nullable);
     auto max_length = ElementCount(max_chunk_size, dtype->byte_width(), nullable);
@@ -710,11 +716,11 @@ TEST_P(TestColumnCDC, DeleteOnce) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
     ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
 
     AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
                      kMinChunkSize, kMaxChunkSize);
@@ -734,11 +740,11 @@ TEST_P(TestColumnCDC, DeleteTwice) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
     ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
 
     AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
                      kMinChunkSize, kMaxChunkSize);
@@ -756,11 +762,11 @@ TEST_P(TestColumnCDC, UpdateOnce) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
     ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
 
     AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
                      kMinChunkSize, kMaxChunkSize);
@@ -779,11 +785,11 @@ TEST_P(TestColumnCDC, UpdateTwice) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
     ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
 
     AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
                      kMinChunkSize, kMaxChunkSize);
@@ -800,11 +806,11 @@ TEST_P(TestColumnCDC, InsertOnce) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
     ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
 
     AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
                      kMinChunkSize, kMaxChunkSize);
@@ -823,11 +829,11 @@ TEST_P(TestColumnCDC, InsertTwice) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
     ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
 
     AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
                      kMinChunkSize, kMaxChunkSize);
@@ -845,11 +851,11 @@ TEST_P(TestColumnCDC, Append) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageSizes(base, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
     ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageSizes(modified, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
 
     AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
                      kMinChunkSize, kMaxChunkSize);
@@ -866,8 +872,8 @@ TEST_P(TestColumnCDC, EmptyTable) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(auto result,
-                         WriteAndGetPageSizes(empty_table, kMinChunkSize, kMaxChunkSize,
-                                              /*enable_dictionary=*/enable_dictionary));
+                         WriteAndGetPageInfo(empty_table, kMinChunkSize, kMaxChunkSize,
+                                             /*enable_dictionary=*/enable_dictionary));
 
     // An empty table should result in no data pages
     ASSERT_TRUE(result.lengths.empty());
