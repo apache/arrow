@@ -206,13 +206,13 @@ Supported features in the gRPC transport:
 +============================================+=======+=======+=======+====+=======+=======+=======+=======+
 | All RPC methods                            | ✓     | ✓     | ✓     |    | ✓     | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| Authentication handlers                    | ✓     | ✓     | ✓     |    | ✓ (2) | ✓     |       |       |
+| Authentication handlers                    | ✓     | ✓     | ✓     |    | ✓ (1) | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 | Call timeouts                              | ✓     | ✓     | ✓     |    |       | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 | Call cancellation                          | ✓     | ✓     | ✓     |    |       | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| Concurrent client calls (3)                | ✓     | ✓     | ✓     |    | ✓     | ✓     |       |       |
+| Concurrent client calls (2)                | ✓     | ✓     | ✓     |    | ✓     | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 | Custom middleware                          | ✓     | ✓     | ✓     |    |       | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
@@ -221,9 +221,8 @@ Supported features in the gRPC transport:
 
 Notes:
 
-* \(1) Flight UCX transport has been deprecated on the 19.0.0 release.
-* \(2) Support using AspNetCore authentication handlers.
-* \(3) Whether a single client can support multiple concurrent calls.
+* \(1) Support using AspNetCore authentication handlers.
+* \(2) Whether a single client can support multiple concurrent calls.
 
 .. seealso::
    The :ref:`flight-rpc` specification.
