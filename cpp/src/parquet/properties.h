@@ -167,9 +167,9 @@ static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOM
 static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = true;
 static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
     SizeStatisticsLevel::PageAndColumnChunk;
-static constexpr std::pair<uint64_t, uint64_t> DEFAULT_CDC_SIZE_RANGE =
+static constexpr std::pair<int64_t, int64_t> DEFAULT_CDC_SIZE_RANGE =
     std::make_pair(256 * 1024, 1024 * 1024);
-static constexpr uint8_t DEFAULT_CDC_NORM_FACTOR = 0;
+static constexpr int8_t DEFAULT_CDC_NORM_FACTOR = 0;
 
 class PARQUET_EXPORT ColumnProperties {
  public:
@@ -298,12 +298,12 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    Builder* cdc_size_range(uint64_t min_size, uint64_t max_size) {
+    Builder* cdc_size_range(int64_t min_size, int64_t max_size) {
       cdc_size_range_ = std::make_pair(min_size, max_size);
       return this;
     }
 
-    Builder* cdc_norm_factor(uint8_t norm_factor) {
+    Builder* cdc_norm_factor(int8_t norm_factor) {
       cdc_norm_factor_ = norm_factor;
       return this;
     }
@@ -762,8 +762,8 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> page_index_enabled_;
 
     bool cdc_enabled_;
-    std::pair<uint64_t, uint64_t> cdc_size_range_;
-    uint8_t cdc_norm_factor_;
+    std::pair<int64_t, int64_t> cdc_size_range_;
+    int8_t cdc_norm_factor_;
   };
 
   inline MemoryPool* memory_pool() const { return pool_; }
@@ -789,8 +789,8 @@ class PARQUET_EXPORT WriterProperties {
   inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
 
   inline bool cdc_enabled() const { return cdc_enabled_; }
-  inline std::pair<uint64_t, uint64_t> cdc_size_range() const { return cdc_size_range_; }
-  inline uint8_t cdc_norm_factor() const { return cdc_norm_factor_; }
+  inline std::pair<int64_t, int64_t> cdc_size_range() const { return cdc_size_range_; }
+  inline int8_t cdc_norm_factor() const { return cdc_norm_factor_; }
 
   inline SizeStatisticsLevel size_statistics_level() const {
     return size_statistics_level_;
@@ -895,7 +895,7 @@ class PARQUET_EXPORT WriterProperties {
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
       ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
       std::vector<SortingColumn> sorting_columns, bool cdc_enabled,
-      std::pair<uint64_t, uint64_t> cdc_size_range, uint8_t cdc_norm_factor)
+      std::pair<int64_t, int64_t> cdc_size_range, int8_t cdc_norm_factor)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -936,7 +936,7 @@ class PARQUET_EXPORT WriterProperties {
 
   bool cdc_enabled_;
   std::pair<uint64_t, uint64_t> cdc_size_range_;
-  uint8_t cdc_norm_factor_;
+  int8_t cdc_norm_factor_;
 };
 
 PARQUET_EXPORT const std::shared_ptr<WriterProperties>& default_writer_properties();
