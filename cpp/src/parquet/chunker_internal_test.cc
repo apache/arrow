@@ -649,7 +649,7 @@ void AssertAppendCase(const ChunkList& original, const ChunkList& modified) {
   ASSERT_GT(modified[original.size() - 1], original.back());
 }
 
-uint64_t ElementCount(uint64_t size, int32_t byte_width, bool nullable) {
+uint64_t ElementCount(int64_t size, int32_t byte_width, bool nullable) {
   if (nullable) {
     // in case of nullable types the def_levels are also fed through the chunker
     // to identify changes in the null bitmap, this will increase the byte width
@@ -683,20 +683,29 @@ constexpr int64_t kMaxChunkSize = 32 * 1024;
 constexpr int64_t kPartSize = 128 * 1024;
 constexpr int64_t kEditSize = 128;
 
-class TestColumnCDC : public ::testing::TestWithParam<
-                          std::tuple<std::shared_ptr<::arrow::DataType>, bool, size_t>> {
+struct CaseConfig {
+  // Arrow data type to generate the testing data for
+  std::shared_ptr<::arrow::DataType> dtype;
+  // Whether the data type is nullable
+  bool is_nullable;
+  // Approximate number of bytes per record to calculate the number of elements to
+  // generate
+  size_t bytes_per_record;
+};
+
+class TestColumnCDC : public ::testing::TestWithParam<CaseConfig> {
  protected:
   // Column random table parts for testing
   std::shared_ptr<Field> field_;
   std::shared_ptr<Table> part1_, part2_, part3_, part4_, part5_, part6_, part7_;
 
   void SetUp() override {
-    auto [dtype, nullable, byte_per_record] = GetParam();
-    auto field_ = ::arrow::field("f0", dtype, nullable);
+    const auto& param = GetParam();
+    auto field_ = ::arrow::field("f0", param.dtype, param.is_nullable);
     auto schema = ::arrow::schema({field_});
 
-    auto part_length = kPartSize / byte_per_record;
-    auto edit_length = kEditSize / byte_per_record;
+    auto part_length = kPartSize / param.bytes_per_record;
+    auto edit_length = kEditSize / param.bytes_per_record;
     ASSERT_OK_AND_ASSIGN(part1_, GenerateTable(schema, part_length, 0));
     ASSERT_OK_AND_ASSIGN(part2_, GenerateTable(schema, edit_length, 1));
     ASSERT_OK_AND_ASSIGN(part3_, GenerateTable(schema, part_length, part_length));
@@ -708,30 +717,30 @@ class TestColumnCDC : public ::testing::TestWithParam<
 };
 
 TEST_P(TestColumnCDC, DeleteOnce) {
-  auto [dtype, nullable, _] = GetParam();
+  const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part2_, part3_}));
   ASSERT_OK_AND_ASSIGN(auto modified, ConcatAndCombine({part1_, part3_}));
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
-    ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto base_result,
+        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto modified_result,
+        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
 
-    AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
-                     kMinChunkSize, kMaxChunkSize);
+    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
+                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
 
-    AssertDeleteCase(dtype, base_result.lengths, modified_result.lengths, 1,
+    AssertDeleteCase(param.dtype, base_result.lengths, modified_result.lengths, 1,
                      part2_->num_rows());
   }
 }
 
 TEST_P(TestColumnCDC, DeleteTwice) {
-  auto [dtype, nullable, _] = GetParam();
+  const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base,
                        ConcatAndCombine({part1_, part2_, part3_, part4_, part5_}));
@@ -739,43 +748,43 @@ TEST_P(TestColumnCDC, DeleteTwice) {
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
-    ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto base_result,
+        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto modified_result,
+        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
 
-    AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
-                     kMinChunkSize, kMaxChunkSize);
-    AssertDeleteCase(dtype, base_result.lengths, modified_result.lengths, 2,
+    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
+                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
+    AssertDeleteCase(param.dtype, base_result.lengths, modified_result.lengths, 2,
                      part2_->num_rows());
   }
 }
 
 TEST_P(TestColumnCDC, UpdateOnce) {
-  auto [dtype, nullable, _] = GetParam();
+  const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part2_, part3_}));
   ASSERT_OK_AND_ASSIGN(auto modified, ConcatAndCombine({part1_, part4_, part3_}));
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
-    ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto base_result,
+        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto modified_result,
+        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
 
-    AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
-                     kMinChunkSize, kMaxChunkSize);
-    AssertUpdateCase(dtype, base_result.lengths, modified_result.lengths, 1);
+    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
+                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
+    AssertUpdateCase(param.dtype, base_result.lengths, modified_result.lengths, 1);
   }
 }
 
 TEST_P(TestColumnCDC, UpdateTwice) {
-  auto [dtype, nullable, _] = GetParam();
+  const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base,
                        ConcatAndCombine({part1_, part2_, part3_, part4_, part5_}));
@@ -784,43 +793,43 @@ TEST_P(TestColumnCDC, UpdateTwice) {
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
-    ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto base_result,
+        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto modified_result,
+        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
 
-    AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
-                     kMinChunkSize, kMaxChunkSize);
-    AssertUpdateCase(dtype, base_result.lengths, modified_result.lengths, 2);
+    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
+                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
+    AssertUpdateCase(param.dtype, base_result.lengths, modified_result.lengths, 2);
   }
 }
 
 TEST_P(TestColumnCDC, InsertOnce) {
-  auto [dtype, nullable, _] = GetParam();
+  const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part3_}));
   ASSERT_OK_AND_ASSIGN(auto modified, ConcatAndCombine({part1_, part2_, part3_}));
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
-    ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto base_result,
+        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto modified_result,
+        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
 
-    AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
-                     kMinChunkSize, kMaxChunkSize);
-    AssertInsertCase(dtype, base_result.lengths, modified_result.lengths, 1,
+    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
+                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
+    AssertInsertCase(param.dtype, base_result.lengths, modified_result.lengths, 1,
                      part2_->num_rows());
   }
 }
 
 TEST_P(TestColumnCDC, InsertTwice) {
-  auto [dtype, nullable, _] = GetParam();
+  const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part3_, part5_}));
   ASSERT_OK_AND_ASSIGN(auto modified,
@@ -828,52 +837,52 @@ TEST_P(TestColumnCDC, InsertTwice) {
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
-    ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto base_result,
+        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto modified_result,
+        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
 
-    AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
-                     kMinChunkSize, kMaxChunkSize);
-    AssertInsertCase(dtype, base_result.lengths, modified_result.lengths, 2,
+    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
+                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
+    AssertInsertCase(param.dtype, base_result.lengths, modified_result.lengths, 2,
                      part2_->num_rows());
   }
 }
 
 TEST_P(TestColumnCDC, Append) {
-  auto [dtype, nullable, _] = GetParam();
+  const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part2_, part3_}));
   ASSERT_OK_AND_ASSIGN(auto modified, ConcatAndCombine({part1_, part2_, part3_, part4_}));
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
-    ASSERT_OK_AND_ASSIGN(auto base_result,
-                         WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(auto modified_result,
-                         WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto base_result,
+        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(
+        auto modified_result,
+        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
 
-    AssertChunkSizes(dtype, base_result, modified_result, nullable, enable_dictionary,
-                     kMinChunkSize, kMaxChunkSize);
+    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
+                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
     AssertAppendCase(base_result.lengths, modified_result.lengths);
   }
 }
 
 TEST_P(TestColumnCDC, EmptyTable) {
-  auto [dtype, nullable, _] = GetParam();
+  const auto& param = GetParam();
 
-  auto schema = ::arrow::schema({::arrow::field("f0", dtype, nullable)});
+  auto schema = ::arrow::schema({::arrow::field("f0", param.dtype, param.is_nullable)});
   ASSERT_OK_AND_ASSIGN(auto empty_table, GenerateTable(schema, 0, 0));
   ASSERT_EQ(empty_table->num_rows(), 0);
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(auto result,
                          WriteAndGetPageInfo(empty_table, kMinChunkSize, kMaxChunkSize,
-                                             /*enable_dictionary=*/enable_dictionary));
+                                             enable_dictionary));
 
     // An empty table should result in no data pages
     ASSERT_TRUE(result.lengths.empty());
@@ -881,43 +890,30 @@ TEST_P(TestColumnCDC, EmptyTable) {
   }
 }
 
-// TODO(kszucs): add extension type and dictionary type
 INSTANTIATE_TEST_SUITE_P(
     FixedSizedTypes, TestColumnCDC,
     testing::Values(
-        // Numeric
-        std::make_tuple(::arrow::uint8(), false, 1),
-        std::make_tuple(::arrow::uint16(), false, 2),
-        std::make_tuple(::arrow::uint32(), false, 4),
-        std::make_tuple(::arrow::uint64(), true, 8),
-        std::make_tuple(::arrow::int8(), false, 1),
-        std::make_tuple(::arrow::int16(), false, 2),
-        std::make_tuple(::arrow::int32(), false, 4),
-        std::make_tuple(::arrow::int64(), true, 8),
-        std::make_tuple(::arrow::float16(), false, 2),
-        std::make_tuple(::arrow::float32(), false, 4),
-        std::make_tuple(::arrow::float64(), true, 8),
-        std::make_tuple(::arrow::decimal128(18, 6), false, 16),
-        std::make_tuple(::arrow::decimal256(40, 6), false, 32),
-        // Binary-like
-        std::make_tuple(::arrow::utf8(), false, 16),
-        std::make_tuple(::arrow::binary(), true, 16),
-        std::make_tuple(::arrow::fixed_size_binary(16), true, 16),
-
-        // Temporal
-        std::make_tuple(::arrow::date32(), false, 4),
-        std::make_tuple(::arrow::time32(::arrow::TimeUnit::MILLI), true, 4),
-        std::make_tuple(::arrow::time64(::arrow::TimeUnit::NANO), false, 8),
-        std::make_tuple(::arrow::timestamp(::arrow::TimeUnit::NANO), true, 8),
-        std::make_tuple(::arrow::duration(::arrow::TimeUnit::NANO), false, 8),
-        // Nested types
-        std::make_tuple(::arrow::list(::arrow::int32()), false, 16),
-        std::make_tuple(::arrow::list(::arrow::int32()), true, 18),
-        std::make_tuple(::arrow::list(::arrow::utf8()), true, 18),
-        std::make_tuple(::arrow::struct_({::arrow::field("f0", ::arrow::int32())}), false,
-                        8),
-        std::make_tuple(::arrow::struct_({::arrow::field("f0", ::arrow::float64())}),
-                        true, 10)));
+        CaseConfig{::arrow::uint8(), false, 1}, CaseConfig{::arrow::uint16(), false, 2},
+        CaseConfig{::arrow::uint32(), false, 4}, CaseConfig{::arrow::uint64(), true, 8},
+        CaseConfig{::arrow::int8(), false, 1}, CaseConfig{::arrow::int16(), false, 2},
+        CaseConfig{::arrow::int32(), false, 4}, CaseConfig{::arrow::int64(), true, 8},
+        CaseConfig{::arrow::float16(), false, 2},
+        CaseConfig{::arrow::float32(), false, 4}, CaseConfig{::arrow::float64(), true, 8},
+        CaseConfig{::arrow::decimal128(18, 6), false, 16},
+        CaseConfig{::arrow::decimal256(40, 6), false, 32},
+        CaseConfig{::arrow::utf8(), false, 16}, CaseConfig{::arrow::binary(), true, 16},
+        CaseConfig{::arrow::fixed_size_binary(16), true, 16},
+        CaseConfig{::arrow::date32(), false, 4},
+        CaseConfig{::arrow::time32(::arrow::TimeUnit::MILLI), true, 4},
+        CaseConfig{::arrow::time64(::arrow::TimeUnit::NANO), false, 8},
+        CaseConfig{::arrow::timestamp(::arrow::TimeUnit::NANO), true, 8},
+        CaseConfig{::arrow::duration(::arrow::TimeUnit::NANO), false, 8},
+        CaseConfig{::arrow::list(::arrow::int32()), false, 16},
+        CaseConfig{::arrow::list(::arrow::int32()), true, 18},
+        CaseConfig{::arrow::list(::arrow::utf8()), true, 18},
+        CaseConfig{::arrow::struct_({::arrow::field("f0", ::arrow::int32())}), false, 8},
+        CaseConfig{::arrow::struct_({::arrow::field("f0", ::arrow::float64())}), true,
+                   10}));
 
 }  // namespace parquet
 
