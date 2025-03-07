@@ -67,13 +67,13 @@ inline uint64_t hash(uint64_t seed, uint64_t index) {
 
 template <typename BuilderType, typename ValueFunc>
 Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<DataType>& type,
-                                             bool nullable, int64_t length, uint64_t seed,
+                                             bool nullable, int64_t length, int64_t seed,
                                              ValueFunc value_func) {
   BuilderType builder(type, default_memory_pool());
 
   if (nullable) {
     for (int64_t i = 0; i < length; ++i) {
-      uint64_t val = hash(seed, i);
+      int64_t val = hash(seed, i);
       if (val % 10 == 0) {
         RETURN_NOT_OK(builder.AppendNull());
       } else {
@@ -82,7 +82,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<DataType>& ty
     }
   } else {
     for (int64_t i = 0; i < length; ++i) {
-      uint64_t val = hash(seed, i);
+      int64_t val = hash(seed, i);
       RETURN_NOT_OK(builder.Append(value_func(val)));
     }
   }
@@ -95,12 +95,12 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<DataType>& ty
 
 #define GENERATE_CASE(TYPE_ID, BUILDER_TYPE, VALUE_EXPR)                          \
   case ::arrow::Type::TYPE_ID: {                                                  \
-    auto value_func = [](uint64_t val) { return VALUE_EXPR; };                    \
+    auto value_func = [](int64_t val) { return VALUE_EXPR; };                     \
     return GenerateArray<BUILDER_TYPE>(type, nullable, length, seed, value_func); \
   }
 
 Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field,
-                                             int64_t length, uint64_t seed) {
+                                             int64_t length, int64_t seed) {
   const std::shared_ptr<DataType>& type = field->type();
   bool nullable = field->nullable();
 
@@ -126,9 +126,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       // Limit the value to fit within the specified precision
       int32_t max_exponent = decimal_type.precision() - decimal_type.scale();
       int64_t max_value = static_cast<int64_t>(std::pow(10, max_exponent) - 1);
-      auto value_func = [&](uint64_t val) {
-        return ::arrow::Decimal128(val % max_value);
-      };
+      auto value_func = [&](int64_t val) { return ::arrow::Decimal128(val % max_value); };
       return GenerateArray<::arrow::Decimal128Builder>(type, nullable, length, seed,
                                                        value_func);
     }
@@ -138,9 +136,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       // int64_t overflow
       int32_t max_exponent = std::min(9, decimal_type.precision() - decimal_type.scale());
       int64_t max_value = static_cast<int64_t>(std::pow(10, max_exponent) - 1);
-      auto value_func = [&](uint64_t val) {
-        return ::arrow::Decimal256(val % max_value);
-      };
+      auto value_func = [&](int64_t val) { return ::arrow::Decimal256(val % max_value); };
       return GenerateArray<::arrow::Decimal256Builder>(type, nullable, length, seed,
                                                        value_func);
     }
@@ -163,7 +159,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
                     std::string("bin_") + std::to_string(val))
     case ::arrow::Type::FIXED_SIZE_BINARY: {
       auto size = static_cast<::arrow::FixedSizeBinaryType*>(type.get())->byte_width();
-      auto value_func = [size](uint64_t val) {
+      auto value_func = [size](int64_t val) {
         return std::string("bin_") + std::to_string(val).substr(0, size - 4);
       };
       return GenerateArray<::arrow::FixedSizeBinaryBuilder>(type, nullable, length, seed,
@@ -176,7 +172,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       for (auto i = 0; i < struct_type->num_fields(); i++) {
         ARROW_ASSIGN_OR_RAISE(auto child_array,
                               GenerateArray(struct_type->field(i), length,
-                                            seed + static_cast<uint64_t>(i + 300)));
+                                            seed + static_cast<int64_t>(i + 300)));
         child_arrays.push_back(child_array);
       }
       auto struct_array =
@@ -239,7 +235,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
 }
 
 Result<std::shared_ptr<Table>> GenerateTable(
-    const std::shared_ptr<::arrow::Schema>& schema, int64_t size, uint64_t seed = 0) {
+    const std::shared_ptr<::arrow::Schema>& schema, int64_t size, int64_t seed = 0) {
   std::vector<std::shared_ptr<Array>> arrays;
   for (const auto& field : schema->fields()) {
     ARROW_ASSIGN_OR_RAISE(auto array, GenerateArray(field, size, seed));
@@ -257,8 +253,8 @@ Result<std::shared_ptr<Table>> ConcatAndCombine(
 }
 
 Result<std::shared_ptr<Buffer>> WriteTableToBuffer(const std::shared_ptr<Table>& table,
-                                                   uint64_t min_chunk_size,
-                                                   uint64_t max_chunk_size,
+                                                   int64_t min_chunk_size,
+                                                   int64_t max_chunk_size,
                                                    bool enable_dictionary = false,
 
                                                    int64_t row_group_size = 1024 * 1024) {
@@ -293,8 +289,8 @@ Result<std::shared_ptr<Table>> ReadTableFromBuffer(const std::shared_ptr<Buffer>
 }
 
 struct PageSizes {
-  std::vector<uint64_t> lengths;
-  std::vector<uint64_t> sizes;
+  std::vector<int64_t> lengths;
+  std::vector<int64_t> sizes;
 };
 
 PageSizes GetColumnPageSizes(const std::shared_ptr<Buffer>& data, int column_index = 0) {
@@ -322,7 +318,7 @@ PageSizes GetColumnPageSizes(const std::shared_ptr<Buffer>& data, int column_ind
 }
 
 Result<PageSizes> WriteAndGetPageSizes(const std::shared_ptr<Table>& table,
-                                       uint64_t min_chunk_size, uint64_t max_chunk_size,
+                                       int64_t min_chunk_size, int64_t max_chunk_size,
                                        bool enable_dictionary = false,
                                        int column_index = 0) {
   // Write the table to a buffer and read it back to get the page sizes
@@ -339,7 +335,7 @@ Result<PageSizes> WriteAndGetPageSizes(const std::shared_ptr<Table>& table,
   return GetColumnPageSizes(buffer, column_index);
 }
 
-void AssertAllBetween(const std::vector<uint64_t>& values, uint64_t min, uint64_t max,
+void AssertAllBetween(const std::vector<int64_t>& values, int64_t min, int64_t max,
                       bool expect_dictionary_fallback = false) {
   // expect the last chunk since it is not guaranteed to be within the range
   if (expect_dictionary_fallback) {
@@ -365,8 +361,8 @@ void AssertAllBetween(const std::vector<uint64_t>& values, uint64_t min, uint64_
   ASSERT_LE(values.back(), max);
 }
 
-std::vector<std::pair<std::vector<uint64_t>, std::vector<uint64_t>>> FindDifferences(
-    const std::vector<uint64_t>& first, const std::vector<uint64_t>& second) {
+std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> FindDifferences(
+    const std::vector<int64_t>& first, const std::vector<int64_t>& second) {
   // Compute LCS table.
   size_t n = first.size(), m = second.size();
   std::vector<std::vector<size_t>> dp(n + 1, std::vector<size_t>(m + 1, 0));
@@ -395,7 +391,7 @@ std::vector<std::pair<std::vector<uint64_t>, std::vector<uint64_t>>> FindDiffere
   std::reverse(common.begin(), common.end());
 
   // Build raw differences.
-  std::vector<std::pair<std::vector<uint64_t>, std::vector<uint64_t>>> result;
+  std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> result;
   size_t last_i = 0, last_j = 0;
   for (auto& c : common) {
     auto ci = c.first;
@@ -414,7 +410,7 @@ std::vector<std::pair<std::vector<uint64_t>, std::vector<uint64_t>>> FindDiffere
 
   // Merge adjacent diffs if one side is empty in the first diff and the other side
   // is empty in the next diff, to avoid splitting single changes into two parts.
-  std::vector<std::pair<std::vector<uint64_t>, std::vector<uint64_t>>> merged;
+  std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>> merged;
   for (auto& diff : result) {
     if (!merged.empty()) {
       auto& prev = merged.back();
@@ -438,8 +434,8 @@ std::vector<std::pair<std::vector<uint64_t>, std::vector<uint64_t>>> FindDiffere
 }
 
 void PrintDifferences(
-    const std::vector<uint64_t>& original, const std::vector<uint64_t>& modified,
-    std::vector<std::pair<std::vector<uint64_t>, std::vector<uint64_t>>>& diffs) {
+    const std::vector<int64_t>& original, const std::vector<int64_t>& modified,
+    std::vector<std::pair<std::vector<int64_t>, std::vector<int64_t>>>& diffs) {
   std::cout << "Original: ";
   for (const auto& val : original) {
     std::cout << val << " ";
@@ -468,60 +464,60 @@ void PrintDifferences(
 }
 
 TEST(TestFindDifferences, Basic) {
-  std::vector<uint64_t> first = {1, 2, 3, 4, 5};
-  std::vector<uint64_t> second = {1, 7, 8, 4, 5};
+  std::vector<int64_t> first = {1, 2, 3, 4, 5};
+  std::vector<int64_t> second = {1, 7, 8, 4, 5};
 
   auto diffs = FindDifferences(first, second);
 
   ASSERT_EQ(diffs.size(), 1);
-  ASSERT_EQ(diffs[0].first, std::vector<uint64_t>({2, 3}));
-  ASSERT_EQ(diffs[0].second, std::vector<uint64_t>({7, 8}));
+  ASSERT_EQ(diffs[0].first, std::vector<int64_t>({2, 3}));
+  ASSERT_EQ(diffs[0].second, std::vector<int64_t>({7, 8}));
 }
 
 TEST(TestFindDifferences, MultipleDifferences) {
-  std::vector<uint64_t> first = {1, 2, 3, 4, 5, 6, 7};
-  std::vector<uint64_t> second = {1, 8, 9, 4, 10, 6, 11};
+  std::vector<int64_t> first = {1, 2, 3, 4, 5, 6, 7};
+  std::vector<int64_t> second = {1, 8, 9, 4, 10, 6, 11};
   auto diffs = FindDifferences(first, second);
 
   ASSERT_EQ(diffs.size(), 3);
 
-  ASSERT_EQ(diffs[0].first, std::vector<uint64_t>({2, 3}));
-  ASSERT_EQ(diffs[0].second, std::vector<uint64_t>({8, 9}));
+  ASSERT_EQ(diffs[0].first, std::vector<int64_t>({2, 3}));
+  ASSERT_EQ(diffs[0].second, std::vector<int64_t>({8, 9}));
 
-  ASSERT_EQ(diffs[1].first, std::vector<uint64_t>({5}));
-  ASSERT_EQ(diffs[1].second, std::vector<uint64_t>({10}));
+  ASSERT_EQ(diffs[1].first, std::vector<int64_t>({5}));
+  ASSERT_EQ(diffs[1].second, std::vector<int64_t>({10}));
 
-  ASSERT_EQ(diffs[2].first, std::vector<uint64_t>({7}));
-  ASSERT_EQ(diffs[2].second, std::vector<uint64_t>({11}));
+  ASSERT_EQ(diffs[2].first, std::vector<int64_t>({7}));
+  ASSERT_EQ(diffs[2].second, std::vector<int64_t>({11}));
 }
 
 TEST(TestFindDifferences, DifferentLengths) {
-  std::vector<uint64_t> first = {1, 2, 3};
-  std::vector<uint64_t> second = {1, 2, 3, 4, 5};
+  std::vector<int64_t> first = {1, 2, 3};
+  std::vector<int64_t> second = {1, 2, 3, 4, 5};
   auto diffs = FindDifferences(first, second);
 
   ASSERT_EQ(diffs.size(), 1);
   ASSERT_TRUE(diffs[0].first.empty());
-  ASSERT_EQ(diffs[0].second, std::vector<uint64_t>({4, 5}));
+  ASSERT_EQ(diffs[0].second, std::vector<int64_t>({4, 5}));
 }
 
 TEST(TestFindDifferences, EmptyArrays) {
-  std::vector<uint64_t> first = {};
-  std::vector<uint64_t> second = {};
+  std::vector<int64_t> first = {};
+  std::vector<int64_t> second = {};
   auto diffs = FindDifferences(first, second);
   ASSERT_TRUE(diffs.empty());
 }
 
 TEST(TestFindDifferences, LongSequenceWithSingleDifference) {
-  std::vector<uint64_t> first = {
+  std::vector<int64_t> first = {
       1994, 2193, 2700, 1913, 2052,
   };
-  std::vector<uint64_t> second = {2048, 43, 2080, 2700, 1913, 2052};
+  std::vector<int64_t> second = {2048, 43, 2080, 2700, 1913, 2052};
   auto diffs = FindDifferences(first, second);
 
   ASSERT_EQ(diffs.size(), 1);
-  ASSERT_EQ(diffs[0].first, std::vector<uint64_t>({1994, 2193}));
-  ASSERT_EQ(diffs[0].second, std::vector<uint64_t>({2048, 43, 2080}));
+  ASSERT_EQ(diffs[0].first, std::vector<int64_t>({1994, 2193}));
+  ASSERT_EQ(diffs[0].second, std::vector<int64_t>({2048, 43, 2080}));
 
   // Verify that elements after the difference are identical
   for (size_t i = 3; i < second.size(); i++) {
@@ -530,15 +526,15 @@ TEST(TestFindDifferences, LongSequenceWithSingleDifference) {
 }
 
 TEST(TestFindDifferences, LongSequenceWithMiddleChanges) {
-  std::vector<uint64_t> first = {2169, 1976, 2180, 2147, 1934, 1772,
-                                 1914, 2075, 2154, 1940, 1934, 1970};
-  std::vector<uint64_t> second = {2169, 1976, 2180, 2147, 2265, 1804,
-                                  1717, 1925, 2122, 1940, 1934, 1970};
+  std::vector<int64_t> first = {2169, 1976, 2180, 2147, 1934, 1772,
+                                1914, 2075, 2154, 1940, 1934, 1970};
+  std::vector<int64_t> second = {2169, 1976, 2180, 2147, 2265, 1804,
+                                 1717, 1925, 2122, 1940, 1934, 1970};
   auto diffs = FindDifferences(first, second);
 
   ASSERT_EQ(diffs.size(), 1);
-  ASSERT_EQ(diffs[0].first, std::vector<uint64_t>({1934, 1772, 1914, 2075, 2154}));
-  ASSERT_EQ(diffs[0].second, std::vector<uint64_t>({2265, 1804, 1717, 1925, 2122}));
+  ASSERT_EQ(diffs[0].first, std::vector<int64_t>({1934, 1772, 1914, 2075, 2154}));
+  ASSERT_EQ(diffs[0].second, std::vector<int64_t>({2265, 1804, 1717, 1925, 2122}));
 
   // Verify elements before and after the difference are identical
   for (size_t i = 0; i < 4; i++) {
@@ -550,14 +546,14 @@ TEST(TestFindDifferences, LongSequenceWithMiddleChanges) {
 }
 
 TEST(TestFindDifferences, AdditionalCase) {
-  std::vector<uint64_t> original = {445, 312, 393, 401, 410, 138, 558, 457};
-  std::vector<uint64_t> modified = {445, 312, 393, 393, 410, 138, 558, 457};
+  std::vector<int64_t> original = {445, 312, 393, 401, 410, 138, 558, 457};
+  std::vector<int64_t> modified = {445, 312, 393, 393, 410, 138, 558, 457};
 
   auto diffs = FindDifferences(original, modified);
   ASSERT_EQ(diffs.size(), 1);
 
-  ASSERT_EQ(diffs[0].first, std::vector<uint64_t>({401}));
-  ASSERT_EQ(diffs[0].second, std::vector<uint64_t>({393}));
+  ASSERT_EQ(diffs[0].first, std::vector<int64_t>({401}));
+  ASSERT_EQ(diffs[0].second, std::vector<int64_t>({393}));
 
   // Verify elements before and after the difference are identical
   for (size_t i = 0; i < 3; i++) {
@@ -569,8 +565,8 @@ TEST(TestFindDifferences, AdditionalCase) {
 }
 
 void AssertUpdateCase(const std::shared_ptr<::arrow::DataType>& dtype,
-                      const std::vector<uint64_t>& original,
-                      const std::vector<uint64_t>& modified, uint8_t n_modifications) {
+                      const std::vector<int64_t>& original,
+                      const std::vector<int64_t>& modified, uint8_t n_modifications) {
   auto diffs = FindDifferences(original, modified);
   if (diffs.size() > n_modifications) {
     PrintDifferences(original, modified, diffs);
@@ -595,9 +591,9 @@ void AssertUpdateCase(const std::shared_ptr<::arrow::DataType>& dtype,
 }
 
 void AssertDeleteCase(const std::shared_ptr<::arrow::DataType>& dtype,
-                      const std::vector<uint64_t>& original,
-                      const std::vector<uint64_t>& modified, uint8_t n_modifications,
-                      uint64_t edit_length) {
+                      const std::vector<int64_t>& original,
+                      const std::vector<int64_t>& modified, uint8_t n_modifications,
+                      int64_t edit_length) {
   auto diffs = FindDifferences(original, modified);
   if (diffs.size() != n_modifications) {
     PrintDifferences(original, modified, diffs);
@@ -606,7 +602,7 @@ void AssertDeleteCase(const std::shared_ptr<::arrow::DataType>& dtype,
 
   for (const auto& diff : diffs) {
     if (!::arrow::is_list_like(dtype->id())) {
-      uint64_t left_sum = 0, right_sum = 0;
+      int64_t left_sum = 0, right_sum = 0;
       for (const auto& val : diff.first) left_sum += val;
       for (const auto& val : diff.second) right_sum += val;
       ASSERT_EQ(left_sum, right_sum + edit_length);
@@ -617,9 +613,9 @@ void AssertDeleteCase(const std::shared_ptr<::arrow::DataType>& dtype,
 }
 
 void AssertInsertCase(const std::shared_ptr<::arrow::DataType>& dtype,
-                      const std::vector<uint64_t>& original,
-                      const std::vector<uint64_t>& modified, uint8_t n_modifications,
-                      uint64_t edit_length) {
+                      const std::vector<int64_t>& original,
+                      const std::vector<int64_t>& modified, uint8_t n_modifications,
+                      int64_t edit_length) {
   auto diffs = FindDifferences(original, modified);
   if (diffs.size() != n_modifications) {
     PrintDifferences(original, modified, diffs);
@@ -638,8 +634,8 @@ void AssertInsertCase(const std::shared_ptr<::arrow::DataType>& dtype,
   }
 }
 
-void AssertAppendCase(const std::vector<uint64_t>& original,
-                      const std::vector<uint64_t>& modified) {
+void AssertAppendCase(const std::vector<int64_t>& original,
+                      const std::vector<int64_t>& modified) {
   ASSERT_GE(modified.size(), original.size());
   for (size_t i = 0; i < original.size() - 1; i++) {
     ASSERT_EQ(original[i], modified[i]);
@@ -647,7 +643,7 @@ void AssertAppendCase(const std::vector<uint64_t>& original,
   ASSERT_GT(modified[original.size() - 1], original.back());
 }
 
-uint64_t ElementCount(uint64_t size, int32_t byte_width, bool nullable) {
+uint64_t ElementCount(int64_t size, int32_t byte_width, bool nullable) {
   if (nullable) {
     // in case of nullable types the def_levels are also fed through the chunker
     // to identify changes in the null bitmap, this will increase the byte width
@@ -659,9 +655,9 @@ uint64_t ElementCount(uint64_t size, int32_t byte_width, bool nullable) {
 
 void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
                       PageSizes base_result, PageSizes modified_result, bool nullable,
-                      bool enable_dictionary, uint64_t min_chunk_size,
-                      uint64_t max_chunk_size) {
-  max_chunk_size = static_cast<uint64_t>(max_chunk_size * 1.2);
+                      bool enable_dictionary, int64_t min_chunk_size,
+                      int64_t max_chunk_size) {
+  max_chunk_size = static_cast<int64_t>(max_chunk_size * 1.2);
   if (::arrow::is_fixed_width(dtype->id())) {
     auto min_length = ElementCount(min_chunk_size, dtype->byte_width(), nullable);
     auto max_length = ElementCount(max_chunk_size, dtype->byte_width(), nullable);
@@ -676,10 +672,10 @@ void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
   }
 }
 
-constexpr uint64_t kMinChunkSize = 8 * 1024;
-constexpr uint64_t kMaxChunkSize = 32 * 1024;
-constexpr uint64_t kPartSize = 128 * 1024;
-constexpr uint64_t kEditSize = 128;
+constexpr int64_t kMinChunkSize = 8 * 1024;
+constexpr int64_t kMaxChunkSize = 32 * 1024;
+constexpr int64_t kPartSize = 128 * 1024;
+constexpr int64_t kEditSize = 128;
 
 class TestColumnCDC : public ::testing::TestWithParam<
                           std::tuple<std::shared_ptr<::arrow::DataType>, bool, size_t>> {
