@@ -1399,7 +1399,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   Status WriteArrowTimestamps(const int16_t* def_levels, const int16_t* rep_levels,
                               int64_t num_levels, const ::arrow::Array& values,
                               ArrowWriteContext* ctx, bool maybe_parent_nulls) {
-    return Status::NotImplemented("Timestamps writing not implemented");
+    return Status::NotImplemented("Timestamps writing is only implemented for Int64Type");
   }
 
   void WriteDictionaryPage() override {
