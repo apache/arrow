@@ -346,79 +346,107 @@ Result<PageInfo> WriteAndGetPageInfo(const std::shared_ptr<Table>& table,
 // vectors of uint64_t values.
 using ChunkDiff = std::pair<ChunkList, ChunkList>;
 
+/**
+ * Finds the differences between two sequences of chunk lengths or sizes.
+ * Uses a longest common subsequence algorithm to identify matching elements
+ * and extract the differences between the sequences.
+ *
+ * @param first The first sequence of chunk values
+ * @param second The second sequence of chunk values
+ * @return A vector of differences, where each difference is a pair of
+ *         subsequences (one from each input) that differ
+ */
 std::vector<ChunkDiff> FindDifferences(const ChunkList& first, const ChunkList& second) {
-  // Compute longest-common-subsequence between the two vectors.
+  // Compute the longest common subsequence using dynamic programming
   size_t n = first.size(), m = second.size();
   std::vector<std::vector<size_t>> dp(n + 1, std::vector<size_t>(m + 1, 0));
+
+  // Fill the dynamic programming table
   for (size_t i = 0; i < n; i++) {
     for (size_t j = 0; j < m; j++) {
       if (first[i] == second[j]) {
+        // If current elements match, extend the LCS
         dp[i + 1][j + 1] = dp[i][j] + 1;
       } else {
+        // If current elements don't match, take the best option
         dp[i + 1][j + 1] = std::max(dp[i + 1][j], dp[i][j + 1]);
       }
     }
   }
 
-  // Backtrack to get common indices.
+  // Backtrack through the dynamic programming table to reconstruct the common
+  // parts and their positions in the original sequences
   std::vector<std::pair<size_t, size_t>> common;
   for (size_t i = n, j = m; i > 0 && j > 0;) {
     if (first[i - 1] == second[j - 1]) {
+      // Found a common element, add to common list
       common.emplace_back(i - 1, j - 1);
       i--, j--;
     } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+      // Move in the direction of the larger LCS value
       i--;
     } else {
       j--;
     }
   }
+  // Reverse to get indices in ascending order
   std::reverse(common.begin(), common.end());
 
-  // Build raw differences.
+  // Build the differences by finding sequences between common elements
   std::vector<ChunkDiff> result;
   size_t last_i = 0, last_j = 0;
   for (auto& c : common) {
     auto ci = c.first;
     auto cj = c.second;
+    // If there's a gap between the last common element and this one,
+    // record the difference
     if (ci > last_i || cj > last_j) {
       result.push_back({{first.begin() + last_i, first.begin() + ci},
                         {second.begin() + last_j, second.begin() + cj}});
     }
+    // Move past this common element
     last_i = ci + 1;
     last_j = cj + 1;
   }
+
+  // Handle any remaining elements after the last common element
   if (last_i < n || last_j < m) {
     result.push_back(
         {{first.begin() + last_i, first.end()}, {second.begin() + last_j, second.end()}});
   }
 
-  // Merge adjacent diffs if one side is empty in the first diff and the other side
-  // is empty in the next diff, to avoid splitting single changes into two parts.
+  // Post-process: merge adjacent diffs to avoid splitting single changes into multiple
+  // parts
   std::vector<ChunkDiff> merged;
   for (auto& diff : result) {
     if (!merged.empty()) {
       auto& prev = merged.back();
+      // Check if we can merge with the previous diff
       bool can_merge_a = prev.first.empty() && !prev.second.empty() &&
                          !diff.first.empty() && diff.second.empty();
       bool can_merge_b = prev.second.empty() && !prev.first.empty() &&
                          !diff.second.empty() && diff.first.empty();
+
       if (can_merge_a) {
-        // Combine into one change
+        // Combine into one diff: keep prev's second, use diff's first
         prev.first = std::move(diff.first);
         continue;
       } else if (can_merge_b) {
+        // Combine into one diff: keep prev's first, use diff's second
         prev.second = std::move(diff.second);
         continue;
       }
     }
+    // If we can't merge, add this diff to the result
     merged.push_back(std::move(diff));
   }
-
   return merged;
 }
 
 void PrintDifferences(const ChunkList& original, const ChunkList& modified,
                       std::vector<ChunkDiff>& diffs) {
+  // Utility function to print the original and modified sequences, and the diffs
+  // between them. Used in case of failing assertions to display the differences.
   std::cout << "Original: ";
   for (const auto& val : original) {
     std::cout << val << " ";
