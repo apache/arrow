@@ -375,7 +375,7 @@ Status delay(compute::KernelContext* ctx, const compute::ExecSpan& batch,
 }
 
 TEST_F(TestFileSystemDataset, WritePersistOrder) {
-  // Test for ARROW-26818
+  // Test for GH-26818
   auto format = std::make_shared<IpcFileFormat>();
   FileSystemDatasetWriteOptions write_options;
   write_options.file_write_options = format->DefaultWriteOptions();
@@ -393,13 +393,13 @@ TEST_F(TestFileSystemDataset, WritePersistOrder) {
   compute::ScalarKernel delay_kernel;
   delay_kernel.exec = delay;
   delay_kernel.signature = compute::KernelSignature::Make({uint32()}, boolean());
-  ARROW_CHECK_OK(delay_func->AddKernel(delay_kernel));
-  ARROW_CHECK_OK(compute::GetFunctionRegistry()->AddFunction(delay_func));
+  ASSERT_OK(delay_func->AddKernel(delay_kernel));
+  ASSERT_OK(compute::GetFunctionRegistry()->AddFunction(delay_func));
 
   for (bool preserve_order : {true, false}) {
     ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
-    ARROW_CHECK_OK(scanner_builder->UseThreads(true));
-    ARROW_CHECK_OK(
+    ASSERT_OK(scanner_builder->UseThreads(true));
+    ASSERT_OK(
         scanner_builder->Filter(compute::call("delay", {compute::field_ref("f0")})));
     ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
 
@@ -419,23 +419,21 @@ TEST_F(TestFileSystemDataset, WritePersistOrder) {
     ASSERT_OK_AND_ASSIGN(auto actual, scanner->ToTable());
     TableBatchReader reader(*actual);
     std::shared_ptr<RecordBatch> batch;
-    ABORT_NOT_OK(reader.ReadNext(&batch));
+    ASSERT_OK(reader.ReadNext(&batch));
     int32_t prev = -1;
-    int out_of_order = 0;
+    auto out_of_order = false;
     while (batch != nullptr) {
+      const auto* values = batch->column(0)->data()->GetValues<int32_t>(1);
       for (int row = 0; row < batch->num_rows(); ++row) {
-        auto scalar = batch->column(0)->GetScalar(row).ValueOrDie();
-        auto numeric_scalar =
-            std::static_pointer_cast<arrow::NumericScalar<arrow::Int32Type>>(scalar);
-        int32_t value = numeric_scalar->value;
+        int32_t value = values[row];
         if (value <= prev) {
-          out_of_order++;
+          out_of_order = true;
         }
         prev = value;
       }
-      ABORT_NOT_OK(reader.ReadNext(&batch));
+      ASSERT_OK(reader.ReadNext(&batch));
     }
-    ASSERT_EQ(out_of_order > 0, !preserve_order);
+    ASSERT_EQ(out_of_order, !preserve_order);
   }
 }
 

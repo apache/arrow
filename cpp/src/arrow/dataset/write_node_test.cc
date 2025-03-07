@@ -177,7 +177,7 @@ TEST_F(SimpleWriteNodeTest, CustomMetadata) {
 }
 
 TEST_F(SimpleWriteNodeTest, SequenceOutput) {
-  // Test for ARROW-26818
+  // Test for GH-26818
   auto format = std::make_shared<IpcFileFormat>();
   constexpr int kRowsPerBatch = 16;
   constexpr int kNumBatches = 32;
@@ -234,15 +234,13 @@ TEST_F(SimpleWriteNodeTest, SequenceOutput) {
     ASSERT_OK_AND_ASSIGN(auto actual, scanner->ToTable());
     TableBatchReader reader(*actual);
     std::shared_ptr<RecordBatch> batch;
-    ABORT_NOT_OK(reader.ReadNext(&batch));
+    ASSERT_OK(reader.ReadNext(&batch));
     int32_t prev = -1;
     auto out_of_order = false;
     while (batch != nullptr) {
+      const auto* values = batch->column(0)->data()->GetValues<int32_t>(1);
       for (int row = 0; row < batch->num_rows(); ++row) {
-        auto scalar = batch->column(0)->GetScalar(row).ValueOrDie();
-        auto numeric_scalar =
-            std::static_pointer_cast<arrow::NumericScalar<arrow::Int32Type>>(scalar);
-        int32_t value = numeric_scalar->value;
+        int32_t value = values[row];
         if (value <= prev) {
           out_of_order = true;
         }
