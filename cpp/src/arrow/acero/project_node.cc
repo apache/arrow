@@ -60,8 +60,11 @@ class ProjectNode : public MapNode {
         names[i] = exprs[i].ToString();
       }
     } else {
-      ARROW_RETURN_IF(names.size() != exprs.size(),
-                      Status::Invalid("Check failed: (names.size()) == (exprs.size())"));
+      ARROW_RETURN_IF(
+          names.size() != exprs.size(),
+          Status::Invalid("Project node's size of names " + std::to_string(names.size()) +
+                          " doesn't match size of expressions " +
+                          std::to_string(exprs.size())));
     }
     FieldVector fields(exprs.size());
     int i = 0;
