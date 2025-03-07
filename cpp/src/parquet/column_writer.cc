@@ -1933,12 +1933,14 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowSerialize(
   return Status::OK();
 }
 
-#define WRITE_SERIALIZE_CASE(ArrowEnum, ArrowType)                                     \
-  case ::arrow::Type::ArrowEnum:                                                       \
-    return WriteArrowSerialize<::arrow::ArrowType>(def_levels, rep_levels, num_levels, \
-                                                   array, ctx, maybe_parent_nulls);
+#define WRITE_SERIALIZE_CASE(ArrowEnum)                                               \
+  case ::arrow::Type::ArrowEnum: {                                                    \
+    using ArrowType = typename ::arrow::TypeIdTraits<::arrow::Type::ArrowEnum>::Type; \
+    return WriteArrowSerialize<ArrowType>(def_levels, rep_levels, num_levels, array,  \
+                                          ctx, maybe_parent_nulls);                   \
+  }
 
-#define WRITE_ZERO_COPY_CASE(ArrowEnum, ArrowType)                            \
+#define WRITE_ZERO_COPY_CASE(ArrowEnum)                                       \
   case ::arrow::Type::ArrowEnum:                                              \
     return WriteArrowZeroCopy(def_levels, rep_levels, num_levels, array, ctx, \
                               maybe_parent_nulls);
@@ -2052,17 +2054,17 @@ Status TypedColumnWriterImpl<Int32Type>::WriteArrowDense(
     case ::arrow::Type::NA: {
       PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, nullptr));
     } break;
-      WRITE_SERIALIZE_CASE(INT8, Int8Type)
-      WRITE_SERIALIZE_CASE(UINT8, UInt8Type)
-      WRITE_SERIALIZE_CASE(INT16, Int16Type)
-      WRITE_SERIALIZE_CASE(UINT16, UInt16Type)
-      WRITE_SERIALIZE_CASE(UINT32, UInt32Type)
-      WRITE_ZERO_COPY_CASE(INT32, Int32Type)
-      WRITE_ZERO_COPY_CASE(DATE32, Date32Type)
-      WRITE_SERIALIZE_CASE(DATE64, Date64Type)
-      WRITE_SERIALIZE_CASE(TIME32, Time32Type)
-      WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type)
-      WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type)
+      WRITE_SERIALIZE_CASE(INT8)
+      WRITE_SERIALIZE_CASE(UINT8)
+      WRITE_SERIALIZE_CASE(INT16)
+      WRITE_SERIALIZE_CASE(UINT16)
+      WRITE_SERIALIZE_CASE(UINT32)
+      WRITE_ZERO_COPY_CASE(INT32)
+      WRITE_ZERO_COPY_CASE(DATE32)
+      WRITE_SERIALIZE_CASE(DATE64)
+      WRITE_SERIALIZE_CASE(TIME32)
+      WRITE_SERIALIZE_CASE(DECIMAL128)
+      WRITE_SERIALIZE_CASE(DECIMAL256)
     default:
       ARROW_UNSUPPORTED()
   }
@@ -2227,13 +2229,13 @@ Status TypedColumnWriterImpl<Int64Type>::WriteArrowDense(
     case ::arrow::Type::TIMESTAMP:
       return WriteArrowTimestamps(def_levels, rep_levels, num_levels, array, ctx,
                                   maybe_parent_nulls);
-      WRITE_ZERO_COPY_CASE(INT64, Int64Type)
-      WRITE_SERIALIZE_CASE(UINT32, UInt32Type)
-      WRITE_SERIALIZE_CASE(UINT64, UInt64Type)
-      WRITE_ZERO_COPY_CASE(TIME64, Time64Type)
-      WRITE_ZERO_COPY_CASE(DURATION, DurationType)
-      WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type)
-      WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type)
+      WRITE_ZERO_COPY_CASE(INT64)
+      WRITE_SERIALIZE_CASE(UINT32)
+      WRITE_SERIALIZE_CASE(UINT64)
+      WRITE_ZERO_COPY_CASE(TIME64)
+      WRITE_ZERO_COPY_CASE(DURATION)
+      WRITE_SERIALIZE_CASE(DECIMAL128)
+      WRITE_SERIALIZE_CASE(DECIMAL256)
     default:
       ARROW_UNSUPPORTED();
   }
@@ -2452,10 +2454,10 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
-    WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType)
-    WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type)
-    WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type)
-    WRITE_SERIALIZE_CASE(HALF_FLOAT, HalfFloatType)
+    WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY)
+    WRITE_SERIALIZE_CASE(DECIMAL128)
+    WRITE_SERIALIZE_CASE(DECIMAL256)
+    WRITE_SERIALIZE_CASE(HALF_FLOAT)
     default:
       break;
   }
