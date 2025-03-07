@@ -163,8 +163,9 @@ struct ARROW_EXPORT IpcReadOptions {
 
   /// \brief Whether to align incoming data if mis-aligned
   ///
-  /// Received mis-aligned data is copied to aligned memory locations.
-  bool ensure_memory_alignment = true;
+  /// Received mis-aligned data is copied to aligned memory locations allocated via the
+  /// MemoryPool configured as \ref arrow::ipc::IpcReadOptions::memory_pool.
+  bool ensure_memory_alignment = false;
 
   /// \brief Options to control caching behavior when pre-buffering is requested
   ///
