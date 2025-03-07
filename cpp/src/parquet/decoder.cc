@@ -1679,9 +1679,9 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
       int num_values, int null_count, const uint8_t* valid_bits,
       int64_t valid_bits_offset, typename EncodingTraits<ByteArrayType>::Accumulator* out,
       int* out_num_values) {
-    int max_values = num_values - null_count;
-    if (num_values - null_count > num_valid_values_) {
-      throw ParquetException("Expected to decode ", num_values - null_count,
+    int num_non_null_values = num_values - null_count;
+    if (num_non_null_values > num_valid_values_) {
+      throw ParquetException("Expected to decode ", num_non_null_values,
                              " values, but can decode decoded ", num_valid_values_,
                              " values.");
     }
@@ -1693,7 +1693,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     auto* value_data_builder = out->builder->value_data_builder();
     // Phase1: get total length of binary data and append to value_data_builder
     int64_t accum_length = 0;
-    for (int i = 0; i < max_values; ++i) {
+    for (int i = 0; i < num_non_null_values; ++i) {
       if (ARROW_PREDICT_FALSE(length_ptr[i] < 0)) {
         return Status::Invalid("negative string delta length");
       }
@@ -1710,14 +1710,8 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     ARROW_RETURN_NOT_OK(value_data_builder->Append(data_ptr, accum_length));
     // Phase2: append offsets
     RETURN_NOT_OK(offsets_builder->Reserve(num_values));
-    accum_length = 0;
-    if (valid_bits == nullptr) {
-      for (int i = 0; i < max_values; ++i) {
-        RETURN_NOT_OK(
-            offsets_builder->Append(static_cast<int32_t>(initial_offset + accum_length)));
-        accum_length += length_ptr[i];
-      }
-    } else {
+    {
+      accum_length = 0;
       int length_idx = 0;
       RETURN_NOT_OK(VisitNullBitmapInline(
           valid_bits, valid_bits_offset, num_values, null_count,
@@ -1740,9 +1734,9 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     if (ARROW_PREDICT_FALSE(!decoder_->Advance(8 * accum_length))) {
       ParquetException::EofException();
     }
-    length_idx_ += max_values;
-    this->num_values_ -= max_values;
-    num_valid_values_ -= max_values;
+    length_idx_ += num_non_null_values;
+    this->num_values_ -= num_non_null_values;
+    num_valid_values_ -= num_non_null_values;
     *out_num_values = num_values - null_count;
     return Status::OK();
   }

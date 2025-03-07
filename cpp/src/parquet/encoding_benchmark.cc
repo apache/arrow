@@ -1305,9 +1305,14 @@ BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, DecodeArrowNonNull_Dense)
 BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, DecodeArrowNonNull_Dense)
     ->Range(MIN_RANGE, MAX_RANGE);
 
-BENCHMARK_DEFINE_F(BM_ArrowBinaryDeltaLength, DL_DecodeArrow_Dense)
+BENCHMARK_DEFINE_F(BM_ArrowBinaryDeltaLength, DecodeArrow_Dense)
 (benchmark::State& state) { DecodeArrowDenseBenchmark(state); }
-BENCHMARK_REGISTER_F(BM_ArrowBinaryDeltaLength, DL_DecodeArrow_Dense)
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDeltaLength, DecodeArrow_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryDeltaLength, DecodeArrowNotNull_Dense)
+(benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDeltaLength, DecodeArrowNotNull_Dense)
     ->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryPlain, DecodeArrow_Dict)
