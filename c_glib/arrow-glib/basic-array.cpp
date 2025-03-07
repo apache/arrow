@@ -127,6 +127,11 @@ G_BEGIN_DECLS
  * string data. If you don't have Arrow format data, you need to
  * use #GArrowLargeStringArrayBuilder to create a new array.
  *
+ * #GArrayBinaryViewArray is a class for variable-size binary view array.
+ * It can store zero or more binary view data. If you don't have Arrow
+ * format data, you need to use #GArrowBinaryViewArrayBuilder to create
+ * a new array.
+ *
  * #GArrowFixedSizeBinaryArray is a class for fixed size binary array.
  * It can store zero or more fixed size binary data. If you don't have
  * Arrow format data, you need to use
@@ -2530,6 +2535,73 @@ garrow_large_string_array_get_string(GArrowLargeStringArray *array, gint64 i)
                                                                      i);
 }
 
+G_DEFINE_TYPE(GArrowBinaryViewArray, garrow_binary_view_array, GARROW_TYPE_ARRAY)
+static void
+garrow_binary_view_array_init(GArrowBinaryViewArray *object)
+{
+}
+
+static void
+garrow_binary_view_array_class_init(GArrowBinaryViewArrayClass *klass)
+{
+}
+
+/**
+ * garrow_binary_view_array_new:
+ * @length: The number of elements.
+ * @views: The view buffer.
+ * @data_buffers: (element-type GArrowBuffer): The data buffers.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ * @offset: The position of the first element.
+ *
+ * Returns: A newly created #GArrowBinaryViewArray.
+ *
+ * Since: 20.0.0
+ */
+GArrowBinaryViewArray *
+garrow_binary_view_array_new(gint64 length,
+                             GArrowBuffer *views,
+                             GList *data_buffers,
+                             GArrowBuffer *null_bitmap,
+                             gint64 n_nulls,
+                             gint64 offset)
+{
+  std::vector<std::shared_ptr<arrow::Buffer>> arrow_data_buffers;
+  for (GList *node = data_buffers; node; node = g_list_next(node)) {
+    arrow_data_buffers.push_back(garrow_buffer_get_raw(GARROW_BUFFER(node->data)));
+  }
+  auto binary_view_array =
+    std::make_shared<arrow::BinaryViewArray>(arrow::binary_view(),
+                                             length,
+                                             garrow_buffer_get_raw(views),
+                                             std::move(arrow_data_buffers),
+                                             garrow_buffer_get_raw(null_bitmap),
+                                             n_nulls,
+                                             offset);
+  return GARROW_BINARY_VIEW_ARRAY(
+    g_object_new(GARROW_TYPE_BINARY_VIEW_ARRAY, "array", &binary_view_array, nullptr));
+}
+
+/**
+ * garrow_binary_view_array_get_value:
+ * @array: A #GArrowBinaryViewArray.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The @i-th value.
+ */
+GBytes *
+garrow_binary_view_array_get_value(GArrowBinaryViewArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto view = static_cast<arrow::BinaryViewArray *>(arrow_array.get())->GetView(i);
+  return g_bytes_new_static(view.data(), view.length());
+}
+
 G_DEFINE_TYPE(GArrowDate32Array, garrow_date32_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
@@ -3749,6 +3821,9 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
     break;
   case arrow::Type::type::RUN_END_ENCODED:
     type = GARROW_TYPE_RUN_END_ENCODED_ARRAY;
+    break;
+  case arrow::Type::type::BINARY_VIEW:
+    type = GARROW_TYPE_BINARY_VIEW_ARRAY;
     break;
   default:
     type = GARROW_TYPE_ARRAY;

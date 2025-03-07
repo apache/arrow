@@ -28,3 +28,6 @@ Layout/LineLength:
 
 Layout/ArgumentAlignment:
   Enabled: true
+
+Layout/SpaceAfterComma:
+  Enabled: true

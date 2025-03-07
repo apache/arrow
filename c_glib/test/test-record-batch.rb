@@ -234,7 +234,7 @@ valid:   [
 
         # U+3042 HIRAGANA LETTER A, U+3044 HIRAGANA LETTER I
         data = "\u3042\u3044".b[0..-2]
-        value_offsets = Arrow::Buffer.new([0,data.size].pack("l*"))
+        value_offsets = Arrow::Buffer.new([0, data.size].pack("l*"))
         @invalid_name_value = Arrow::StringArray.new(1,
                                                      value_offsets,
                                                      Arrow::Buffer.new(data),
