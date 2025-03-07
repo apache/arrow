@@ -28,16 +28,6 @@
 
 namespace parquet::internal {
 
-// create a fake null array class with a GetView method returning 0 always
-class FakeNullArray {
- public:
-  uint8_t GetView(int64_t i) const { return 0; }
-
-  std::shared_ptr<::arrow::DataType> type() const { return ::arrow::null(); }
-
-  int64_t null_count() const { return 0; }
-};
-
 static uint64_t GetMask(uint64_t min_size, uint64_t max_size, uint8_t norm_factor) {
   // we aim for gaussian-like distribution of chunk sizes between min_size and max_size
   uint64_t avg_size = (min_size + max_size) / 2;
@@ -59,8 +49,18 @@ ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
       max_size_(max_size),
       hash_mask_(GetMask(min_size, max_size, norm_factor)) {}
 
+void ContentDefinedChunker::Roll(const bool value) {
+  if (chunk_size_++ < min_size_) {
+    // short-circuit if we haven't reached the minimum chunk size, this speeds up the
+    // chunking process since the gearhash doesn't need to be updated
+    return;
+  }
+  rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][value];
+  has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
+}
+
 template <typename T>
-void ContentDefinedChunker::Roll(const T value) {
+void ContentDefinedChunker::Roll(const T* value) {
   constexpr size_t BYTE_WIDTH = sizeof(T);
   chunk_size_ += BYTE_WIDTH;
   if (chunk_size_ < min_size_) {
@@ -68,23 +68,22 @@ void ContentDefinedChunker::Roll(const T value) {
     // chunking process since the gearhash doesn't need to be updated
     return;
   }
-  auto bytes = reinterpret_cast<const uint8_t*>(&value);
+  auto bytes = reinterpret_cast<const uint8_t*>(value);
   for (size_t i = 0; i < BYTE_WIDTH; ++i) {
     rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][bytes[i]];
     has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
   }
 }
 
-void ContentDefinedChunker::Roll(std::string_view value) {
-  chunk_size_ += value.size();
+void ContentDefinedChunker::Roll(const uint8_t* value, int64_t num_bytes) {
+  chunk_size_ += num_bytes;
   if (chunk_size_ < min_size_) {
     // short-circuit if we haven't reached the minimum chunk size, this speeds up the
     // chunking process since the gearhash doesn't need to be updated
     return;
   }
-  for (char c : value) {
-    rolling_hash_ =
-        (rolling_hash_ << 1) + kGearhashTable[nth_run_][static_cast<uint8_t>(c)];
+  for (int64_t i = 0; i < num_bytes; ++i) {
+    rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][value[i]];
     has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
   }
 }
@@ -114,22 +113,20 @@ bool ContentDefinedChunker::NeedNewChunk() {
   return false;
 }
 
-template <typename T>
+template <typename RollFunc>
 const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_levels,
                                                           const int16_t* rep_levels,
                                                           int64_t num_levels,
-                                                          const T& leaf_array) {
+                                                          const RollFunc& RollValue) {
   std::vector<Chunk> chunks;
   bool has_def_levels = level_info_.def_level > 0;
   bool has_rep_levels = level_info_.rep_level > 0;
 
   if (!has_rep_levels && !has_def_levels) {
     // fastest path for non-nested non-null data
-    int64_t offset = 0;
     int64_t prev_offset = 0;
-    while (offset < num_levels) {
-      Roll(leaf_array.GetView(offset));
-      ++offset;
+    for (int64_t offset = 0; offset < num_levels; ++offset) {
+      RollValue(offset);
       if (NeedNewChunk()) {
         chunks.emplace_back(prev_offset, prev_offset, offset - prev_offset);
         prev_offset = offset;
@@ -140,12 +137,15 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
     }
   } else if (!has_rep_levels) {
     // non-nested data with nulls
-    int64_t offset = 0;
+    int16_t def_level;
     int64_t prev_offset = 0;
-    while (offset < num_levels) {
-      Roll(def_levels[offset]);
-      Roll(leaf_array.GetView(offset));
-      ++offset;
+    for (int64_t offset = 0; offset < num_levels; ++offset) {
+      def_level = def_levels[offset];
+
+      Roll(&def_level);
+      if (def_level == level_info_.def_level) {
+        RollValue(offset);
+      }
       if (NeedNewChunk()) {
         chunks.emplace_back(prev_offset, prev_offset, offset - prev_offset);
         prev_offset = offset;
@@ -161,8 +161,8 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
     int16_t def_level;
     int16_t rep_level;
     int64_t value_offset = 0;
-    int64_t record_level_offset = 0;
-    int64_t record_value_offset = 0;
+    int64_t prev_level_offset = 0;
+    int64_t prev_value_offset = 0;
 
     for (int64_t level_offset = 0; level_offset < num_levels; ++level_offset) {
       def_level = def_levels[level_offset];
@@ -171,18 +171,18 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
       has_leaf_value = def_level >= level_info_.repeated_ancestor_def_level;
       is_record_boundary = rep_level == 0;
 
-      Roll(def_level);
-      Roll(rep_level);
+      Roll(&def_level);
+      Roll(&rep_level);
       if (has_leaf_value) {
-        Roll(leaf_array.GetView(value_offset));
+        RollValue(value_offset);
       }
 
       if (is_record_boundary && NeedNewChunk()) {
-        auto levels_to_write = level_offset - record_level_offset;
+        auto levels_to_write = level_offset - prev_level_offset;
         if (levels_to_write > 0) {
-          chunks.emplace_back(record_level_offset, record_value_offset, levels_to_write);
-          record_level_offset = level_offset;
-          record_value_offset = value_offset;
+          chunks.emplace_back(prev_level_offset, prev_value_offset, levels_to_write);
+          prev_level_offset = level_offset;
+          prev_value_offset = value_offset;
         }
       }
 
@@ -191,57 +191,87 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
       }
     }
 
-    auto levels_to_write = num_levels - record_level_offset;
+    auto levels_to_write = num_levels - prev_level_offset;
     if (levels_to_write > 0) {
-      chunks.emplace_back(record_level_offset, record_value_offset, levels_to_write);
+      chunks.emplace_back(prev_level_offset, prev_value_offset, levels_to_write);
     }
   }
 
   return chunks;
 }
 
-#define PRIMITIVE_CASE(TYPE_ID, ArrowType)               \
-  case ::arrow::Type::TYPE_ID:                           \
-    return Calculate(def_levels, rep_levels, num_levels, \
-                     static_cast<const ::arrow::ArrowType##Array&>(values));
+#define FIXED_WIDTH_CASE(CType)                                        \
+  {                                                                    \
+    const auto raw_values = values.data()->GetValues<CType>(1);        \
+    return Calculate(def_levels, rep_levels, num_levels,               \
+                     [&](int64_t i) { return Roll(raw_values + i); }); \
+  }
+
+#define BINARY_LIKE_CASE(OffsetCType)                                     \
+  {                                                                       \
+    const auto raw_offsets = values.data()->GetValues<OffsetCType>(1);    \
+    const auto raw_values = values.data()->GetValues<uint8_t>(2);         \
+    return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) { \
+      const OffsetCType pos = raw_offsets[i];                             \
+      const OffsetCType length = raw_offsets[i + 1] - pos;                \
+      Roll(raw_values + pos, length);                                     \
+    });                                                                   \
+  }
 
 const std::vector<Chunk> ContentDefinedChunker::GetBoundaries(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
     const ::arrow::Array& values) {
   auto type_id = values.type()->id();
   switch (type_id) {
-    PRIMITIVE_CASE(BOOL, Boolean)
-    PRIMITIVE_CASE(INT8, Int8)
-    PRIMITIVE_CASE(INT16, Int16)
-    PRIMITIVE_CASE(INT32, Int32)
-    PRIMITIVE_CASE(INT64, Int64)
-    PRIMITIVE_CASE(UINT8, UInt8)
-    PRIMITIVE_CASE(UINT16, UInt16)
-    PRIMITIVE_CASE(UINT32, UInt32)
-    PRIMITIVE_CASE(UINT64, UInt64)
-    PRIMITIVE_CASE(HALF_FLOAT, HalfFloat)
-    PRIMITIVE_CASE(FLOAT, Float)
-    PRIMITIVE_CASE(DOUBLE, Double)
-    PRIMITIVE_CASE(STRING, String)
-    PRIMITIVE_CASE(LARGE_STRING, LargeString)
-    PRIMITIVE_CASE(BINARY, Binary)
-    PRIMITIVE_CASE(LARGE_BINARY, LargeBinary)
-    PRIMITIVE_CASE(FIXED_SIZE_BINARY, FixedSizeBinary)
-    PRIMITIVE_CASE(DATE32, Date32)
-    PRIMITIVE_CASE(DATE64, Date64)
-    PRIMITIVE_CASE(TIME32, Time32)
-    PRIMITIVE_CASE(TIME64, Time64)
-    PRIMITIVE_CASE(TIMESTAMP, Timestamp)
-    PRIMITIVE_CASE(DURATION, Duration)
-    PRIMITIVE_CASE(DECIMAL128, Decimal128)
-    PRIMITIVE_CASE(DECIMAL256, Decimal256)
+    case ::arrow::Type::NA: {
+      return Calculate(def_levels, rep_levels, num_levels, [](int64_t) {});
+    }
+    case ::arrow::Type::BOOL: {
+      const auto& bool_array = static_cast<const ::arrow::BooleanArray&>(values);
+      return Calculate(def_levels, rep_levels, num_levels,
+                       [&](int64_t i) { return Roll(bool_array.Value(i)); });
+    }
+    case ::arrow::Type::INT8:
+    case ::arrow::Type::UINT8:
+      FIXED_WIDTH_CASE(uint8_t)
+    case ::arrow::Type::INT16:
+    case ::arrow::Type::UINT16:
+    case ::arrow::Type::HALF_FLOAT:
+      FIXED_WIDTH_CASE(uint16_t)
+    case ::arrow::Type::INT32:
+    case ::arrow::Type::UINT32:
+    case ::arrow::Type::FLOAT:
+    case ::arrow::Type::DATE32:
+    case ::arrow::Type::TIME32:
+      FIXED_WIDTH_CASE(uint32_t)
+    case ::arrow::Type::INT64:
+    case ::arrow::Type::UINT64:
+    case ::arrow::Type::DOUBLE:
+    case ::arrow::Type::DATE64:
+    case ::arrow::Type::TIME64:
+    case ::arrow::Type::TIMESTAMP:
+    case ::arrow::Type::DURATION:
+      FIXED_WIDTH_CASE(uint64_t)
+    case ::arrow::Type::BINARY:
+    case ::arrow::Type::STRING:
+      BINARY_LIKE_CASE(int32_t)
+    case ::arrow::Type::LARGE_BINARY:
+    case ::arrow::Type::LARGE_STRING:
+      BINARY_LIKE_CASE(int64_t)
+    case ::arrow::Type::DECIMAL128:
+    case ::arrow::Type::DECIMAL256:
+    case ::arrow::Type::FIXED_SIZE_BINARY: {
+      const auto raw_values = values.data()->GetValues<uint8_t>(1);
+      const auto byte_width =
+          static_cast<const ::arrow::FixedSizeBinaryArray&>(values).byte_width();
+      return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) {
+        return Roll(raw_values + i * byte_width, byte_width);
+      });
+    }
     case ::arrow::Type::DICTIONARY:
       return GetBoundaries(
           def_levels, rep_levels, num_levels,
           *static_cast<const ::arrow::DictionaryArray&>(values).indices());
-    case ::arrow::Type::NA:
-      FakeNullArray fake_null_array;
-      return Calculate(def_levels, rep_levels, num_levels, fake_null_array);
     default:
       throw ParquetException("Unsupported Arrow array type " + values.type()->ToString());
   }
