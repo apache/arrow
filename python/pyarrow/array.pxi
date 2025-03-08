@@ -4234,13 +4234,22 @@ cdef class StructArray(Array):
                 py_fields.append(py_field)
                 c_fields.push_back(py_field.sp_field)
 
-            # This needs to be enumerate, not zip, in order to make
-            # sure that there is a field provided for every array.
-            try:
-                arrays = [asarray(ary, py_fields[i].type)
-                          for i, ary in enumerate(arrays)]
-            except IndexError:
+            if len(py_fields) != len(arrays):
                 raise ValueError("Must pass same number of arrays as fields")
+            type_enforced_arrays = []
+            for ary, field in zip(arrays, fields):
+                # Verify the data type of arrays which are already
+                # Arrow Arrays. Coerce the data type of anything else,
+                # since that other stuff doesn't have a certain type
+                # we can verify.
+                print(ary, field)
+                if isinstance(ary, (Array, ChunkedArray)):
+                    if ary.type != field.type:
+                        raise ValueError(f"Field {field.name} is expected to have type {field.type}, but provided data is {ary.type}")
+                    type_enforced_arrays.append(ary)
+                else:
+                    type_enforced_arrays.append(asarray(ary, field.type))
+            arrays = type_enforced_arrays
 
         for arr in arrays:
             c_array = pyarrow_unwrap_array(arr)

@@ -768,16 +768,16 @@ def test_struct_from_arrays():
     assert arr.to_pylist() == []
 
     # Inconsistent fields
-    fb2 = pa.field("b", pa.int32())
-    with pytest.raises(ValueError, match="Failed to parse string"):
-        pa.StructArray.from_arrays([a, b, c], fields=[fa, fb2, fc])
+    fa2 = pa.field("a", pa.int32())
+    with pytest.raises(ValueError, match="expected to have type int32, but provided data is int64"):
+        pa.StructArray.from_arrays([a, b, c], fields=[fa2, fb, fc])
 
     # Too few fields
     with pytest.raises(ValueError, match="Must pass same number of arrays as fields"):
         pa.StructArray.from_arrays([a, b, c], names=None, fields=[fa, fb])
 
     # Too many fields
-    with pytest.raises(ValueError, match="Mismatching number of fields and child arrays"):
+    with pytest.raises(ValueError, match="Must pass same number of arrays as fields"):
         pa.StructArray.from_arrays([a, b], names=None, fields=[fa, fb, fc])
 
     arrays = [a, b, c]
