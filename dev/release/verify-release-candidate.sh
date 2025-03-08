@@ -175,7 +175,8 @@ test_binary() {
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
-         --dest=${download_dir}
+         --dest=${download_dir} \
+         --repository=${GITHUB_REPOSITORY:-apache/arrow}
 
   verify_dir_artifact_signatures ${download_dir}
 }

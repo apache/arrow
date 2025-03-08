@@ -1,0 +1,182 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Verify RC
+
+on:
+  push:
+    tags:
+      - "*-rc*"
+
+permissions:
+  contents: read
+
+env:
+  TEST_DEFAULT: "0"
+  VERBOSE: "1"
+
+jobs:
+  apt:
+    name: APT
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+    env:
+      TEST_APT: "1"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run
+        run: |
+          package_id=${GITHUB_REF_NAME%-rc*}
+          version=${package_id#apache-arrow-}
+          rc=${GITHUB_REF_NAME#*-rc}
+          dev/release/verify-release-candidate.sh ${version} ${rc}
+
+  binary:
+    name: Binary
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TEST_BINARY: "1"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run
+        run: |
+          package_id=${GITHUB_REF_NAME%-rc*}
+          version=${package_id#apache-arrow-}
+          rc=${GITHUB_REF_NAME#*-rc}
+          dev/release/verify-release-candidate.sh ${version} ${rc}
+
+  wheels-linux:
+    name: Wheels Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - almalinux-8
+          - conda
+          - ubuntu-22.04
+          - ubuntu-24.04
+    env:
+      TEST_WHEELS: "1"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python -m pip install -e dev/archery[docker]
+      - name: Prepare
+        run: |
+          package_id=${GITHUB_REF_NAME%-rc*}
+          echo "VERSION=${package_id#apache-arrow-}" >> ${GITHUB_ENV}
+          echo "RC=${GITHUB_REF_NAME#*-rc}" >> ${GITHUB_ENV}
+          distro=${{ matrix.distro }}
+          if [ "${distro}" = "conda" ]; then
+            echo "SERVICE=${distro}-verify-rc" >> ${GITHUB_ENV}
+          else
+            os=${distro%-*}
+            version=${distro#*-}
+            echo "SERVICE=${os}-verify-rc" >> ${GITHUB_ENV}
+            echo "$(echo ${os} | tr a-z A-Z)=${version}" >> ${GITHUB_ENV}
+          fi
+      - name: Run
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT="${TEST_DEFAULT}" \
+            -e TEST_WHEELS="${TEST_WHEELS}" \
+            -e VERBOSE="${VERBOSE}" \
+            -e VERIFY_RC="${RC}" \
+            -e VERIFY_VERSION="${VERSION}" \
+            ${SERVICE}
+
+  wheels-macos:
+    name: Wheels macOS
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on:
+          - macos-13
+          - macos-14
+    env:
+      TEST_WHEELS: "1"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run
+        run: |
+          package_id=${GITHUB_REF_NAME%-rc*}
+          version=${package_id#apache-arrow-}
+          rc=${GITHUB_REF_NAME#*-rc}
+          dev/release/verify-release-candidate.sh ${version} ${rc}
+
+  wheels-windows:
+    name: Wheels Windows
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      PYARROW_TEST_GDB: "OFF"
+      TEST_WHEELS: "1"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Prepare
+        shell: bash
+        run: |
+          package_id=${GITHUB_REF_NAME%-rc*}
+          echo "VERSION=${package_id#apache-arrow-}" >> ${GITHUB_ENV}
+          echo "RC=${GITHUB_REF_NAME#*-rc}" >> ${GITHUB_ENV}
+      - uses: conda-incubator/setup-miniconda@505e6394dae86d6a5c7fbb6e3fb8938e3e863830 # v3.1.1
+      - name: Install System Dependencies
+        run: |
+          choco install --no-progress --yes boost-msvc-14.1
+          choco install --no-progress --yes wget
+      - name: Download Timezone Database
+        shell: bash
+        run: ci/scripts/download_tz_database.sh
+      - name: Run verification
+        shell: cmd
+        run: |
+          dev/release/verify-release-candidate-wheels.bat %VERSION% %RC%
+
+  yum:
+    name: Yum
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+    env:
+      TEST_YUM: "1"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run
+        run: |
+          package_id=${GITHUB_REF_NAME%-rc*}
+          version=${package_id#apache-arrow-}
+          rc=${GITHUB_REF_NAME#*-rc}
+          dev/release/verify-release-candidate.sh ${version} ${rc}
