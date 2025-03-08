@@ -108,7 +108,7 @@ cmake \
     -DARROW_JSON=ON \
     -DARROW_MIMALLOC=${ARROW_MIMALLOC} \
     -DARROW_ORC=${ARROW_ORC} \
-    -DARROW_PACKAGE_KIND="python-wheel-manylinux${MANYLINUX_VERSION}" \
+    -DARROW_PACKAGE_KIND="python-wheel-${LINUX_WHEEL_KIND}${LINUX_WHEEL_VERSION}" \
     -DARROW_PARQUET=${ARROW_PARQUET} \
     -DARROW_RPATH_ORIGIN=ON \
     -DARROW_S3=${ARROW_S3} \
@@ -180,6 +180,6 @@ popd
 
 rm -rf dist/temp-fix-wheel
 
-echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux${MANYLINUX_VERSION} ==="
+echo "=== (${PYTHON_VERSION}) Tag the wheel with ${LINUX_WHEEL_KIND}${LINUX_WHEEL_VERSION} ==="
 auditwheel repair dist/pyarrow-*.whl -w repaired_wheels
 popd
