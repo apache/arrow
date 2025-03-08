@@ -23,6 +23,7 @@
 #include "arrow/io/file.h"
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/util/config.h"
+#include "arrow/util/logging.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -172,11 +173,8 @@ class TestDecryptionConfiguration
       std::function<void(const std::string& file,
                          const std::shared_ptr<FileDecryptionProperties>&)>
           decrypt_func) {
-    std::string exception_msg;
     std::shared_ptr<FileDecryptionProperties> file_decryption_properties;
-    // if we get decryption_config_num = x then it means the actual number is x+1
-    // and since we want decryption_config_num=4 we set the condition to 3
-    if (decryption_config_num != 3) {
+    if (vector_of_decryption_configurations_[decryption_config_num]) {
       file_decryption_properties =
           vector_of_decryption_configurations_[decryption_config_num]->DeepClone();
     }
@@ -184,22 +182,18 @@ class TestDecryptionConfiguration
     decrypt_func(std::move(file), std::move(file_decryption_properties));
   }
 
+  std::shared_ptr<FileDecryptionProperties> GetDecryptionProperties(
+      int decryption_config_num) {
+    const auto props = vector_of_decryption_configurations_[decryption_config_num];
+    return props ? props->DeepClone() : nullptr;
+  }
+
   void DecryptFile(const std::string& file, int decryption_config_num) {
-    DecryptFileInternal(
-        file, decryption_config_num,
-        [&](const std::string& file,
-            const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
-          decryptor_.DecryptFile(file, file_decryption_properties);
-        });
+    decryptor_.DecryptFile(file, GetDecryptionProperties(decryption_config_num));
   }
 
   void DecryptPageIndex(const std::string& file, int decryption_config_num) {
-    DecryptFileInternal(
-        file, decryption_config_num,
-        [&](const std::string& file,
-            const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
-          decryptor_.DecryptPageIndex(file, file_decryption_properties);
-        });
+    decryptor_.DecryptPageIndex(file, GetDecryptionProperties(decryption_config_num));
   }
 
   // Check that the decryption result is as expected.
@@ -249,11 +243,14 @@ class TestDecryptionConfiguration
 // once the file is read and the second exists in parquet-testing/data folder.
 // The name of the files are passed as parameters to the unit-test.
 TEST_P(TestDecryptionConfiguration, TestDecryption) {
+  ARROW_LOG(INFO) << "TestDecryption 1";
   int encryption_config_num = std::get<0>(GetParam());
   const char* param_file_name = std::get<1>(GetParam());
   // Decrypt parquet file that was generated in write_configurations_test.cc test.
+  ARROW_LOG(INFO) << "TestDecryption 2";
   std::string tmp_file_name = "tmp_" + std::string(param_file_name);
   std::string file_name = temp_dir->path().ToString() + tmp_file_name;
+  ARROW_LOG(INFO) << "TestDecryption 3";
   if (!fexists(file_name)) {
     std::stringstream ss;
     ss << "File " << file_name << " is missing from temporary dir.";
@@ -263,8 +260,10 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   // Iterate over the decryption configurations and use each one to read the encrypted
   // parquet file.
   for (unsigned index = 0; index < vector_of_decryption_configurations_.size(); ++index) {
+    ARROW_LOG(INFO) << "TestDecryption 4";
     unsigned decryption_config_num = index + 1;
     CheckResults(file_name, decryption_config_num, encryption_config_num);
+    ARROW_LOG(INFO) << "TestDecryption 5";
   }
   // Delete temporary test file.
   ASSERT_EQ(std::remove(file_name.c_str()), 0);
@@ -281,8 +280,10 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   // Iterate over the decryption configurations and use each one to read the encrypted
   // parquet file.
   for (unsigned index = 0; index < vector_of_decryption_configurations_.size(); ++index) {
+    ARROW_LOG(INFO) << "TestDecryption 6";
     unsigned decryption_config_num = index + 1;
     CheckResults(file_name, decryption_config_num, encryption_config_num);
+    ARROW_LOG(INFO) << "TestDecryption 7";
   }
 }
 
