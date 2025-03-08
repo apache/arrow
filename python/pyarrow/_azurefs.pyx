@@ -60,6 +60,8 @@ cdef class AzureFileSystem(FileSystem):
     dfs_storage_scheme : str, default None
         Either `http` or `https`. Defaults to `https`. Useful for connecting to a local 
         emulator, like Azurite.
+    sas_token : str, default None
+        Sas token for the storage account, used as an alternative to account_key.
 
     Examples
     --------
@@ -79,10 +81,11 @@ cdef class AzureFileSystem(FileSystem):
     cdef:
         CAzureFileSystem* azurefs
         c_string account_key
+        c_string sas_token
 
     def __init__(self, account_name, *, account_key=None, blob_storage_authority=None,
                  dfs_storage_authority=None, blob_storage_scheme=None,
-                 dfs_storage_scheme=None):
+                 dfs_storage_scheme=None, sas_token=None):
         cdef:
             CAzureOptions options
             shared_ptr[CAzureFileSystem] wrapped
@@ -100,6 +103,9 @@ cdef class AzureFileSystem(FileSystem):
         if account_key:
             options.ConfigureAccountKeyCredential(tobytes(account_key))
             self.account_key = tobytes(account_key)
+        elif sas_token:
+            options.ConfigureSASCredential(tobytes(sas_token))
+            self.sas_token = tobytes(sas_token)
         else:
             options.ConfigureDefaultCredential()
 
