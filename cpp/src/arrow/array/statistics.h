@@ -37,37 +37,11 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief The type for maximum and minimum values. If the target
   /// value exists, one of them is used. `std::nullopt` is used
   /// otherwise.
-  using ValueType = std::variant<bool, int64_t, uint64_t, double, std::string>;
+  using ValueType =
+      std::variant<bool, int64_t, uint64_t, double, std::string, std::shared_ptr<Scalar>>;
 
   static const std::shared_ptr<DataType>& ValueToArrowType(
-      const std::optional<ValueType>& value,
-      const std::shared_ptr<DataType>& array_type) {
-    if (!value.has_value()) {
-      return null();
-    }
-
-    struct Visitor {
-      const std::shared_ptr<DataType>& array_type;
-
-      const std::shared_ptr<DataType>& operator()(const bool&) { return boolean(); }
-      const std::shared_ptr<DataType>& operator()(const int64_t&) { return int64(); }
-      const std::shared_ptr<DataType>& operator()(const uint64_t&) { return uint64(); }
-      const std::shared_ptr<DataType>& operator()(const double&) { return float64(); }
-      const std::shared_ptr<DataType>& operator()(const std::string&) {
-        switch (array_type->id()) {
-          case Type::STRING:
-          case Type::BINARY:
-          case Type::FIXED_SIZE_BINARY:
-          case Type::LARGE_STRING:
-          case Type::LARGE_BINARY:
-            return array_type;
-          default:
-            return utf8();
-        }
-      }
-    } visitor{array_type};
-    return std::visit(visitor, value.value());
-  }
+      const std::optional<ValueType>& value, const std::shared_ptr<DataType>& array_type);
 
   /// \brief The number of null values, may not be set
   std::optional<int64_t> null_count = std::nullopt;
