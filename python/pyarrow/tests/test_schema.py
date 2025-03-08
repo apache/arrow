@@ -75,8 +75,12 @@ def test_type_to_pandas_dtype():
         (pa.date64(), M8),
         (pa.timestamp('ms'), M8),
         (pa.binary(), np.object_),
+        (pa.large_binary(), np.object_),
+        (pa.binary_view(), np.object_),
         (pa.binary(12), np.object_),
         (pa.string(), np.object_),
+        (pa.large_string(), np.object_),
+        (pa.string_view(), np.object_),
         (pa.list_(pa.int8()), np.object_),
         # (pa.list_(pa.int8(), 2), np.object_),  # TODO needs pandas conversion
         (pa.map_(pa.int64(), pa.float64()), np.object_),

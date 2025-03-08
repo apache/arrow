@@ -586,7 +586,7 @@ class SortedMergeNode : public ExecNode {
   void EmitBatches() {
     while (true) {
       // Implementation note: If the queue is empty, we will block here
-      if (process_queue.Pop() == kPoisonPill) {
+      if (process_queue.WaitAndPop() == kPoisonPill) {
         EndFromProcessThread();
       }
       // Either we're out of data or something went wrong
