@@ -1880,6 +1880,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         vector[int] included_fields
         c_bool use_threads
         c_bool ensure_native_endian
+        c_bool ensure_memory_alignment
 
         @staticmethod
         CIpcReadOptions Defaults()
