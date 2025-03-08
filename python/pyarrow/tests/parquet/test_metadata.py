@@ -67,8 +67,8 @@ def test_parquet_metadata_api():
     assert meta.num_rows == len(df)
     assert meta.num_columns == ncols + 1  # +1 for index
     assert meta.num_row_groups == 1
-    assert meta.format_version == "2.6"
-    assert "parquet-cpp" in meta.created_by
+    assert meta.format_version == '2.6'
+    assert 'parquet-cpp' in meta.created_by
     assert isinstance(meta.serialized_size, int)
     assert isinstance(meta.metadata, dict)
 
@@ -84,11 +84,11 @@ def test_parquet_metadata_api():
     assert col.max_definition_level == 1
     assert col.max_repetition_level == 0
     assert col.max_repetition_level == 0
-    assert col.physical_type == "BOOLEAN"
-    assert col.converted_type == "NONE"
+    assert col.physical_type == 'BOOLEAN'
+    assert col.converted_type == 'NONE'
 
     col_float16 = schema[5]
-    assert col_float16.logical_type.type == "FLOAT16"
+    assert col_float16.logical_type.type == 'FLOAT16'
 
     with pytest.raises(IndexError):
         schema[ncols + 1]  # +1 for index
@@ -126,14 +126,14 @@ def test_parquet_metadata_api():
 
     col_meta = rg_meta.column(0)
     assert col_meta.file_offset == 0
-    assert col_meta.file_path == ""  # created from BytesIO
-    assert col_meta.physical_type == "BOOLEAN"
+    assert col_meta.file_path == ''  # created from BytesIO
+    assert col_meta.physical_type == 'BOOLEAN'
     assert col_meta.num_values == 10000
-    assert col_meta.path_in_schema == "bool"
+    assert col_meta.path_in_schema == 'bool'
     assert col_meta.is_stats_set is True
     assert isinstance(col_meta.statistics, pq.Statistics)
-    assert col_meta.compression == "SNAPPY"
-    assert set(col_meta.encodings) == {"PLAIN", "RLE"}
+    assert col_meta.compression == 'SNAPPY'
+    assert set(col_meta.encodings) == {'PLAIN', 'RLE'}
     assert col_meta.has_dictionary_page is False
     assert col_meta.dictionary_page_offset is None
     assert col_meta.data_page_offset > 0
@@ -147,79 +147,60 @@ def test_parquet_metadata_api():
 
 def test_parquet_metadata_lifetime(tempdir):
     # ARROW-6642 - ensure that chained access keeps parent objects alive
-    table = pa.table({"a": [1, 2, 3]})
-    pq.write_table(table, tempdir / "test_metadata_segfault.parquet")
-    parquet_file = pq.ParquetFile(tempdir / "test_metadata_segfault.parquet")
+    table = pa.table({'a': [1, 2, 3]})
+    pq.write_table(table, tempdir / 'test_metadata_segfault.parquet')
+    parquet_file = pq.ParquetFile(tempdir / 'test_metadata_segfault.parquet')
     parquet_file.metadata.row_group(0).column(0).statistics
 
 
 @pytest.mark.pandas
 @pytest.mark.parametrize(
     (
-        "data",
-        "type",
-        "physical_type",
-        "min_value",
-        "max_value",
-        "null_count",
-        "num_values",
-        "distinct_count",
+        'data',
+        'type',
+        'physical_type',
+        'min_value',
+        'max_value',
+        'null_count',
+        'num_values',
+        'distinct_count'
     ),
     [
-        ([1, 2, 2, None, 4], pa.uint8(), "INT32", 1, 4, 1, 4, None),
-        ([1, 2, 2, None, 4], pa.uint16(), "INT32", 1, 4, 1, 4, None),
-        ([1, 2, 2, None, 4], pa.uint32(), "INT32", 1, 4, 1, 4, None),
-        ([1, 2, 2, None, 4], pa.uint64(), "INT64", 1, 4, 1, 4, None),
-        ([-1, 2, 2, None, 4], pa.int8(), "INT32", -1, 4, 1, 4, None),
-        ([-1, 2, 2, None, 4], pa.int16(), "INT32", -1, 4, 1, 4, None),
-        ([-1, 2, 2, None, 4], pa.int32(), "INT32", -1, 4, 1, 4, None),
-        ([-1, 2, 2, None, 4], pa.int64(), "INT64", -1, 4, 1, 4, None),
-        ([-1.1, 2.2, 2.3, None, 4.4], pa.float32(), "FLOAT", -1.1, 4.4, 1, 4, None),
-        ([-1.1, 2.2, 2.3, None, 4.4], pa.float64(), "DOUBLE", -1.1, 4.4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, None),
         (
-            ["", "b", chr(1000), None, "aaa"],
-            pa.binary(),
-            "BYTE_ARRAY",
-            b"",
-            chr(1000).encode("utf-8"),
-            1,
-            4,
-            None,
+            [-1.1, 2.2, 2.3, None, 4.4], pa.float32(),
+            'FLOAT', -1.1, 4.4, 1, 4, None
         ),
         (
-            [True, False, False, True, True],
-            pa.bool_(),
-            "BOOLEAN",
-            False,
-            True,
-            0,
-            5,
-            None,
+            [-1.1, 2.2, 2.3, None, 4.4], pa.float64(),
+            'DOUBLE', -1.1, 4.4, 1, 4, None
         ),
         (
-            [b"\x00", b"b", b"12", None, b"aaa"],
-            pa.binary(),
-            "BYTE_ARRAY",
-            b"\x00",
-            b"b",
-            1,
-            4,
-            None,
+            ['', 'b', chr(1000), None, 'aaa'], pa.binary(),
+            'BYTE_ARRAY', b'', chr(1000).encode('utf-8'), 1, 4, None
         ),
-    ],
+        (
+            [True, False, False, True, True], pa.bool_(),
+            'BOOLEAN', False, True, 0, 5, None
+        ),
+        (
+            [b'\x00', b'b', b'12', None, b'aaa'], pa.binary(),
+            'BYTE_ARRAY', b'\x00', b'b', 1, 4, None
+        ),
+    ]
 )
-def test_parquet_column_statistics_api(
-    data,
-    type,
-    physical_type,
-    min_value,
-    max_value,
-    null_count,
-    num_values,
-    distinct_count,
-):
-    df = pd.DataFrame({"data": data})
-    schema = pa.schema([pa.field("data", type)])
+def test_parquet_column_statistics_api(data, type, physical_type, min_value,
+                                       max_value, null_count, num_values,
+                                       distinct_count):
+    df = pd.DataFrame({'data': data})
+    schema = pa.schema([pa.field('data', type)])
     table = pa.Table.from_pandas(df, schema=schema, safe=False)
     fileh = make_sample_file(table)
 
@@ -242,9 +223,9 @@ def test_parquet_column_statistics_api(
 
 def _close(type, left, right):
     if type == pa.float32():
-        return abs(left - right) < 1e-7
+        return abs(left - right) < 1E-7
     elif type == pa.float64():
-        return abs(left - right) < 1e-13
+        return abs(left - right) < 1E-13
     else:
         return left == right
 
@@ -263,38 +244,31 @@ def test_statistics_convert_logical_types(tempdir):
     # ARROW-5166, ARROW-4139
 
     # (min, max, type)
-    cases = [
-        (10, 11164359321221007157, pa.uint64()),
-        (10, 4294967295, pa.uint32()),
-        ("ähnlich", "öffentlich", pa.utf8()),
-        (
-            datetime.time(10, 30, 0, 1000),
-            datetime.time(15, 30, 0, 1000),
-            pa.time32("ms"),
-        ),
-        (
-            datetime.time(10, 30, 0, 1000),
-            datetime.time(15, 30, 0, 1000),
-            pa.time64("us"),
-        ),
-        (
-            datetime.datetime(2019, 6, 24, 0, 0, 0, 1000),
-            datetime.datetime(2019, 6, 25, 0, 0, 0, 1000),
-            pa.timestamp("ms"),
-        ),
-        (
-            datetime.datetime(2019, 6, 24, 0, 0, 0, 1000),
-            datetime.datetime(2019, 6, 25, 0, 0, 0, 1000),
-            pa.timestamp("us"),
-        ),
-        (datetime.date(2019, 6, 24), datetime.date(2019, 6, 25), pa.date32()),
-        (decimal.Decimal("20.123"), decimal.Decimal("20.124"), pa.decimal128(12, 5)),
-    ]
+    cases = [(10, 11164359321221007157, pa.uint64()),
+             (10, 4294967295, pa.uint32()),
+             ("ähnlich", "öffentlich", pa.utf8()),
+             (datetime.time(10, 30, 0, 1000), datetime.time(15, 30, 0, 1000),
+              pa.time32('ms')),
+             (datetime.time(10, 30, 0, 1000), datetime.time(15, 30, 0, 1000),
+              pa.time64('us')),
+             (datetime.datetime(2019, 6, 24, 0, 0, 0, 1000),
+              datetime.datetime(2019, 6, 25, 0, 0, 0, 1000),
+              pa.timestamp('ms')),
+             (datetime.datetime(2019, 6, 24, 0, 0, 0, 1000),
+              datetime.datetime(2019, 6, 25, 0, 0, 0, 1000),
+              pa.timestamp('us')),
+             (datetime.date(2019, 6, 24),
+              datetime.date(2019, 6, 25),
+              pa.date32()),
+             (decimal.Decimal("20.123"),
+              decimal.Decimal("20.124"),
+              pa.decimal128(12, 5))]
 
     for i, (min_val, max_val, typ) in enumerate(cases):
-        t = pa.Table.from_arrays([pa.array([min_val, max_val], type=typ)], ["col"])
-        path = str(tempdir / ("example{}.parquet".format(i)))
-        pq.write_table(t, path, version="2.6")
+        t = pa.Table.from_arrays([pa.array([min_val, max_val], type=typ)],
+                                 ['col'])
+        path = str(tempdir / ('example{}.parquet'.format(i)))
+        pq.write_table(t, path, version='2.6')
         pf = pq.ParquetFile(path)
         stats = pf.metadata.row_group(0).column(0).statistics
         assert stats.min == min_val
@@ -303,24 +277,27 @@ def test_statistics_convert_logical_types(tempdir):
 
 def test_parquet_write_disable_statistics(tempdir):
     table = pa.Table.from_pydict(
-        OrderedDict([("a", pa.array([1, 2, 3])), ("b", pa.array(["a", "b", "c"]))])
+        OrderedDict([
+            ('a', pa.array([1, 2, 3])),
+            ('b', pa.array(['a', 'b', 'c']))
+        ])
     )
-    _write_table(table, tempdir / "data.parquet")
-    meta = pq.read_metadata(tempdir / "data.parquet")
+    _write_table(table, tempdir / 'data.parquet')
+    meta = pq.read_metadata(tempdir / 'data.parquet')
     for col in [0, 1]:
         cc = meta.row_group(0).column(col)
         assert cc.is_stats_set is True
         assert cc.statistics is not None
 
-    _write_table(table, tempdir / "data2.parquet", write_statistics=False)
-    meta = pq.read_metadata(tempdir / "data2.parquet")
+    _write_table(table, tempdir / 'data2.parquet', write_statistics=False)
+    meta = pq.read_metadata(tempdir / 'data2.parquet')
     for col in [0, 1]:
         cc = meta.row_group(0).column(col)
         assert cc.is_stats_set is False
         assert cc.statistics is None
 
-    _write_table(table, tempdir / "data3.parquet", write_statistics=["a"])
-    meta = pq.read_metadata(tempdir / "data3.parquet")
+    _write_table(table, tempdir / 'data3.parquet', write_statistics=['a'])
+    meta = pq.read_metadata(tempdir / 'data3.parquet')
     cc_a = meta.row_group(0).column(0)
     cc_b = meta.row_group(0).column(1)
     assert cc_a.is_stats_set is True
@@ -332,35 +309,33 @@ def test_parquet_write_disable_statistics(tempdir):
 def test_parquet_sorting_column():
     sorting_col = pq.SortingColumn(10)
     assert sorting_col.to_dict() == {
-        "column_index": 10,
-        "descending": False,
-        "nulls_first": False,
+        'column_index': 10,
+        'descending': False,
+        'nulls_first': False
     }
 
     sorting_col = pq.SortingColumn(0, descending=True, nulls_first=True)
     assert sorting_col.to_dict() == {
-        "column_index": 0,
-        "descending": True,
-        "nulls_first": True,
+        'column_index': 0,
+        'descending': True,
+        'nulls_first': True
     }
 
-    schema = pa.schema([("a", pa.int64()), ("b", pa.int64())])
+    schema = pa.schema([('a', pa.int64()), ('b', pa.int64())])
     sorting_cols = (
         pq.SortingColumn(1, descending=True),
         pq.SortingColumn(0, descending=False),
     )
     sort_order, null_placement = pq.SortingColumn.to_ordering(schema, sorting_cols)
-    assert sort_order == (("b", "descending"), ("a", "ascending"))
+    assert sort_order == (('b', "descending"), ('a', "ascending"))
     assert null_placement == "at_end"
 
     sorting_cols_roundtripped = pq.SortingColumn.from_ordering(
-        schema, sort_order, null_placement
-    )
+        schema, sort_order, null_placement)
     assert sorting_cols_roundtripped == sorting_cols
 
     sorting_cols = pq.SortingColumn.from_ordering(
-        schema, ("a", ("b", "descending")), null_placement="at_start"
-    )
+        schema, ('a', ('b', "descending")), null_placement="at_start")
     expected = (
         pq.SortingColumn(0, descending=False, nulls_first=True),
         pq.SortingColumn(1, descending=True, nulls_first=True),
@@ -385,13 +360,14 @@ def test_parquet_sorting_column():
 
 
 def test_parquet_sorting_column_nested():
-    schema = pa.schema(
-        {"a": pa.struct([("x", pa.int64()), ("y", pa.int64())]), "b": pa.int64()}
-    )
+    schema = pa.schema({
+        'a': pa.struct([('x', pa.int64()), ('y', pa.int64())]),
+        'b': pa.int64()
+    })
 
     sorting_columns = [
         pq.SortingColumn(0, descending=True),  # a.x
-        pq.SortingColumn(2, descending=False),  # b
+        pq.SortingColumn(2, descending=False)  # b
     ]
 
     sort_order, null_placement = pq.SortingColumn.to_ordering(schema, sorting_columns)
@@ -402,7 +378,7 @@ def test_parquet_sorting_column_nested():
 
 
 def test_parquet_file_sorting_columns():
-    table = pa.table({"a": [1, 2, 3], "b": ["a", "b", "c"]})
+    table = pa.table({'a': [1, 2, 3], 'b': ['a', 'b', 'c']})
 
     sorting_columns = (
         pq.SortingColumn(column_index=0, descending=True, nulls_first=True),
@@ -417,27 +393,31 @@ def test_parquet_file_sorting_columns():
     assert sorting_columns == metadata.row_group(0).sorting_columns
 
     metadata_dict = metadata.to_dict()
-    assert metadata_dict.get("num_columns") == 2
-    assert metadata_dict.get("num_rows") == 3
-    assert metadata_dict.get("num_row_groups") == 1
+    assert metadata_dict.get('num_columns') == 2
+    assert metadata_dict.get('num_rows') == 3
+    assert metadata_dict.get('num_row_groups') == 1
 
 
 def test_field_id_metadata():
     # ARROW-7080
-    field_id = b"PARQUET:field_id"
-    inner = pa.field("inner", pa.int32(), metadata={field_id: b"100"})
-    middle = pa.field("middle", pa.struct([inner]), metadata={field_id: b"101"})
+    field_id = b'PARQUET:field_id'
+    inner = pa.field('inner', pa.int32(), metadata={field_id: b'100'})
+    middle = pa.field('middle', pa.struct(
+        [inner]), metadata={field_id: b'101'})
     fields = [
-        pa.field("basic", pa.int32(), metadata={b"other": b"abc", field_id: b"1"}),
+        pa.field('basic', pa.int32(), metadata={
+                 b'other': b'abc', field_id: b'1'}),
         pa.field(
-            "list",
-            pa.list_(pa.field("list-inner", pa.int32(), metadata={field_id: b"10"})),
-            metadata={field_id: b"11"},
-        ),
-        pa.field("struct", pa.struct([middle]), metadata={field_id: b"102"}),
-        pa.field("no-metadata", pa.int32()),
-        pa.field("non-integral-field-id", pa.int32(), metadata={field_id: b"xyz"}),
-        pa.field("negative-field-id", pa.int32(), metadata={field_id: b"-1000"}),
+            'list',
+            pa.list_(pa.field('list-inner', pa.int32(),
+                              metadata={field_id: b'10'})),
+            metadata={field_id: b'11'}),
+        pa.field('struct', pa.struct([middle]), metadata={field_id: b'102'}),
+        pa.field('no-metadata', pa.int32()),
+        pa.field('non-integral-field-id', pa.int32(),
+                 metadata={field_id: b'xyz'}),
+        pa.field('negative-field-id', pa.int32(),
+                 metadata={field_id: b'-1000'})
     ]
     arrs = [[] for _ in fields]
     table = pa.table(arrs, schema=pa.schema(fields))
@@ -449,34 +429,34 @@ def test_field_id_metadata():
     pf = pq.ParquetFile(pa.BufferReader(contents))
     schema = pf.schema_arrow
 
-    assert schema[0].metadata[field_id] == b"1"
-    assert schema[0].metadata[b"other"] == b"abc"
+    assert schema[0].metadata[field_id] == b'1'
+    assert schema[0].metadata[b'other'] == b'abc'
 
     list_field = schema[1]
-    assert list_field.metadata[field_id] == b"11"
+    assert list_field.metadata[field_id] == b'11'
 
     list_item_field = list_field.type.value_field
-    assert list_item_field.metadata[field_id] == b"10"
+    assert list_item_field.metadata[field_id] == b'10'
 
     struct_field = schema[2]
-    assert struct_field.metadata[field_id] == b"102"
+    assert struct_field.metadata[field_id] == b'102'
 
     struct_middle_field = struct_field.type[0]
-    assert struct_middle_field.metadata[field_id] == b"101"
+    assert struct_middle_field.metadata[field_id] == b'101'
 
     struct_inner_field = struct_middle_field.type[0]
-    assert struct_inner_field.metadata[field_id] == b"100"
+    assert struct_inner_field.metadata[field_id] == b'100'
 
     assert schema[3].metadata is None
     # Invalid input is passed through (ok) but does not
     # have field_id in parquet (not tested)
-    assert schema[4].metadata[field_id] == b"xyz"
-    assert schema[5].metadata[field_id] == b"-1000"
+    assert schema[4].metadata[field_id] == b'xyz'
+    assert schema[5].metadata[field_id] == b'-1000'
 
 
 def test_parquet_file_page_index():
     for write_page_index in (False, True):
-        table = pa.table({"a": [1, 2, 3]})
+        table = pa.table({'a': [1, 2, 3]})
 
         writer = pa.BufferOutputStream()
         _write_table(table, writer, write_page_index=write_page_index)
@@ -495,20 +475,19 @@ def test_multi_dataset_metadata(tempdir):
     metapath = str(tempdir / "_metadata")
 
     # create a test dataset
-    df = pd.DataFrame(
-        {
-            "one": [1, 2, 3],
-            "two": [-1, -2, -3],
-            "three": [[1, 2], [2, 3], [3, 4]],
-        }
-    )
+    df = pd.DataFrame({
+        'one': [1, 2, 3],
+        'two': [-1, -2, -3],
+        'three': [[1, 2], [2, 3], [3, 4]],
+    })
     table = pa.Table.from_pandas(df)
 
     # write dataset twice and collect/merge metadata
     _meta = None
     for filename in filenames:
         meta = []
-        pq.write_table(table, str(tempdir / filename), metadata_collector=meta)
+        pq.write_table(table, str(tempdir / filename),
+                       metadata_collector=meta)
         meta[0].set_file_path(filename)
         if _meta is None:
             _meta = meta[0]
@@ -524,13 +503,13 @@ def test_multi_dataset_metadata(tempdir):
     md = meta.to_dict()
     _md = _meta.to_dict()
     for key in _md:
-        if key != "serialized_size":
+        if key != 'serialized_size':
             assert _md[key] == md[key]
-    assert _md["num_columns"] == 3
-    assert _md["num_rows"] == 6
-    assert _md["num_row_groups"] == 2
-    assert _md["serialized_size"] == 0
-    assert md["serialized_size"] > 0
+    assert _md['num_columns'] == 3
+    assert _md['num_rows'] == 6
+    assert _md['num_row_groups'] == 2
+    assert _md['serialized_size'] == 0
+    assert md['serialized_size'] > 0
 
 
 def test_metadata_hashing(tempdir):
@@ -572,7 +551,7 @@ def test_write_metadata(tempdir):
 
     # ARROW-8980: Check that the ARROW:schema metadata key was removed
     if schema_as_arrow.metadata:
-        assert b"ARROW:schema" not in schema_as_arrow.metadata
+        assert b'ARROW:schema' not in schema_as_arrow.metadata
 
     # pass through writer keyword arguments
     for version in ["1.0", "2.0", "2.4", "2.6"]:
@@ -584,30 +563,29 @@ def test_write_metadata(tempdir):
         assert parquet_meta.format_version == expected_version
 
     # metadata_collector: list of FileMetaData objects
-    table = pa.table({"a": [1, 2], "b": [0.1, 0.2]}, schema=schema)
+    table = pa.table({'a': [1, 2], 'b': [.1, .2]}, schema=schema)
     pq.write_table(table, tempdir / "data.parquet")
     parquet_meta = pq.read_metadata(str(tempdir / "data.parquet"))
-    pq.write_metadata(schema, path, metadata_collector=[parquet_meta, parquet_meta])
+    pq.write_metadata(
+        schema, path, metadata_collector=[parquet_meta, parquet_meta]
+    )
     parquet_meta_mult = pq.read_metadata(path)
     assert parquet_meta_mult.num_row_groups == 2
 
     # append metadata with different schema raises an error
-    msg = (
-        "AppendRowGroups requires equal schemas.\nThe two columns with index 0 differ."
-    )
+    msg = ("AppendRowGroups requires equal schemas.\n"
+           "The two columns with index 0 differ.")
     with pytest.raises(RuntimeError, match=msg):
         pq.write_metadata(
             pa.schema([("a", "int32"), ("b", "null")]),
-            path,
-            metadata_collector=[parquet_meta, parquet_meta],
+            path, metadata_collector=[parquet_meta, parquet_meta]
         )
 
 
 def test_table_large_metadata():
     # ARROW-8694
-    my_schema = pa.schema(
-        [pa.field("f0", "double")], metadata={"large": "x" * 10000000}
-    )
+    my_schema = pa.schema([pa.field('f0', 'double')],
+                          metadata={'large': 'x' * 10000000})
 
     table = pa.table([range(10)], schema=my_schema)
     _check_roundtrip(table)
@@ -627,7 +605,7 @@ def test_compare_schemas():
     assert fileh.schema == fileh.schema
     assert fileh.schema.equals(fileh2.schema)
     assert fileh.schema == fileh2.schema
-    assert fileh.schema != "arbitrary object"
+    assert fileh.schema != 'arbitrary object'
     assert not fileh.schema.equals(fileh3.schema)
     assert fileh.schema != fileh3.schema
 
@@ -637,18 +615,18 @@ def test_compare_schemas():
     assert fileh.schema[0] == fileh.schema[0]
     assert not fileh.schema[0].equals(fileh.schema[1])
     assert fileh.schema[0] != fileh.schema[1]
-    assert fileh.schema[0] != "arbitrary object"
+    assert fileh.schema[0] != 'arbitrary object'
 
 
 @pytest.mark.pandas
 def test_read_schema(tempdir):
     N = 100
-    df = pd.DataFrame(
-        {"index": np.arange(N), "values": np.random.randn(N)},
-        columns=["index", "values"],
-    )
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'values': np.random.randn(N)
+    }, columns=['index', 'values'])
 
-    data_path = tempdir / "test.parquet"
+    data_path = tempdir / 'test.parquet'
 
     table = pa.Table.from_pandas(df)
     _write_table(table, data_path)
@@ -658,7 +636,7 @@ def test_read_schema(tempdir):
     assert table.schema.equals(read1)
     assert table.schema.equals(read2)
 
-    assert table.schema.metadata[b"pandas"] == read1.metadata[b"pandas"]
+    assert table.schema.metadata[b'pandas'] == read1.metadata[b'pandas']
 
 
 def test_parquet_metadata_empty_to_dict(tempdir):
@@ -705,7 +683,7 @@ def test_metadata_schema_filesystem(tempdir):
     # URI writing to local file.
     fname = "data.parquet"
     file_path = str(tempdir / fname)
-    file_uri = "file:///" + file_path
+    file_uri = 'file:///' + file_path
 
     pq.write_table(table, file_path)
 
@@ -714,18 +692,24 @@ def test_metadata_schema_filesystem(tempdir):
     schema = table.schema
 
     assert pq.read_metadata(file_uri).equals(metadata)
-    assert pq.read_metadata(file_path, filesystem=LocalFileSystem()).equals(metadata)
-    assert pq.read_metadata(fname, filesystem=f"file:///{tempdir}").equals(metadata)
+    assert pq.read_metadata(
+        file_path, filesystem=LocalFileSystem()).equals(metadata)
+    assert pq.read_metadata(
+        fname, filesystem=f'file:///{tempdir}').equals(metadata)
 
     assert pq.read_schema(file_uri).equals(schema)
-    assert pq.read_schema(file_path, filesystem=LocalFileSystem()).equals(schema)
-    assert pq.read_schema(fname, filesystem=f"file:///{tempdir}").equals(schema)
+    assert pq.read_schema(
+        file_path, filesystem=LocalFileSystem()).equals(schema)
+    assert pq.read_schema(
+        fname, filesystem=f'file:///{tempdir}').equals(schema)
 
     with util.change_cwd(tempdir):
         # Pass `filesystem` arg
-        assert pq.read_metadata(fname, filesystem=LocalFileSystem()).equals(metadata)
+        assert pq.read_metadata(
+            fname, filesystem=LocalFileSystem()).equals(metadata)
 
-        assert pq.read_schema(fname, filesystem=LocalFileSystem()).equals(schema)
+        assert pq.read_schema(
+            fname, filesystem=LocalFileSystem()).equals(schema)
 
 
 def test_metadata_equals():
@@ -740,22 +724,13 @@ def test_metadata_equals():
         original_metadata.equals(None)
 
 
-@pytest.mark.parametrize(
-    "t1,t2,expected_error",
-    (
-        ({"col1": range(10)}, {"col1": range(10)}, None),
-        (
-            {"col1": range(10)},
-            {"col2": range(10)},
-            "The two columns with index 0 differ.",
-        ),
-        (
-            {"col1": range(10), "col2": range(10)},
-            {"col3": range(10)},
-            "This schema has 2 columns, other has 1",
-        ),
-    ),
-)
+@pytest.mark.parametrize("t1,t2,expected_error", (
+    ({'col1': range(10)}, {'col1': range(10)}, None),
+    ({'col1': range(10)}, {'col2': range(10)},
+     "The two columns with index 0 differ."),
+    ({'col1': range(10), 'col2': range(10)}, {'col3': range(10)},
+     "This schema has 2 columns, other has 1")
+))
 def test_metadata_append_row_groups_diff(t1, t2, expected_error):
     table1 = pa.table(t1)
     table2 = pa.table(t2)
@@ -801,27 +776,22 @@ def test_write_metadata_fs_file_combinations(tempdir, s3_example_s3fs):
     pq.write_metadata(table.schema, meta3.as_uri(), [])
 
     # Take a file-like obj all the way thru?
-    with meta4.open("wb+") as meta4_stream:
+    with meta4.open('wb+') as meta4_stream:
         pq.write_metadata(table.schema, meta4_stream, [])
 
     # S3FileSystem
     pq.write_metadata(table.schema, meta5, [], filesystem=s3_fs)
 
-    assert (
-        meta1.read_bytes()
-        == meta2.read_bytes()
-        == meta3.read_bytes()
-        == meta4.read_bytes()
+    assert meta1.read_bytes() == meta2.read_bytes() \
+        == meta3.read_bytes() == meta4.read_bytes() \
         == s3_fs.open(meta5).read()
-    )
 
 
 def test_column_chunk_key_value_metadata(parquet_test_datadir):
-    metadata = pq.read_metadata(
-        parquet_test_datadir / "column_chunk_key_value_metadata.parquet"
-    )
+    metadata = pq.read_metadata(parquet_test_datadir /
+                                'column_chunk_key_value_metadata.parquet')
     key_value_metadata1 = metadata.row_group(0).column(0).metadata
-    assert key_value_metadata1 == {b"foo": b"bar", b"thisiskeywithoutvalue": b""}
+    assert key_value_metadata1 == {b'foo': b'bar', b'thisiskeywithoutvalue': b''}
     key_value_metadata2 = metadata.row_group(0).column(1).metadata
     assert key_value_metadata2 is None
 
