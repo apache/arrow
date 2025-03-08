@@ -25,7 +25,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     curl \
     gdb \
     libc6-dbg \
-    patch \
     tzdata \
     wget && \
     apt-get clean && \
