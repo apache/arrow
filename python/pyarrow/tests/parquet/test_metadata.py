@@ -794,3 +794,23 @@ def test_column_chunk_key_value_metadata(parquet_test_datadir):
     assert key_value_metadata1 == {b'foo': b'bar', b'thisiskeywithoutvalue': b''}
     key_value_metadata2 = metadata.row_group(0).column(1).metadata
     assert key_value_metadata2 is None
+
+
+def test_internal_class_instantiation():
+    def msg(c):
+        return f"Do not call {c}'s constructor directly"
+
+    with pytest.raises(TypeError, match=msg("Statistics")):
+        pq.Statistics()
+
+    with pytest.raises(TypeError, match=msg("ParquetLogicalType")):
+        pq.ParquetLogicalType()
+
+    with pytest.raises(TypeError, match=msg("ColumnChunkMetaData")):
+        pq.ColumnChunkMetaData()
+
+    with pytest.raises(TypeError, match=msg("RowGroupMetaData")):
+        pq.RowGroupMetaData()
+
+    with pytest.raises(TypeError, match=msg("FileMetaData")):
+        pq.FileMetaData()
