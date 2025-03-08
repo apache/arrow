@@ -53,7 +53,7 @@ cdef class Statistics(_Weakrefable):
     """Statistics for a single column in a single row group."""
 
     def __init__(self):
-        raise TypeError(f"Can't instantiate internal class {self.__class__.__name__}")
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     def __cinit__(self):
         pass
@@ -222,7 +222,7 @@ cdef class ParquetLogicalType(_Weakrefable):
     """Logical type of parquet type."""
 
     def __init__(self):
-        raise TypeError(f"Can't instantiate internal class {self.__class__.__name__}")
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     cdef:
         shared_ptr[const CParquetLogicalType] type
@@ -323,7 +323,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
     """Column metadata for a single row group."""
 
     def __init__(self):
-        raise TypeError(f"Can't instantiate internal class {self.__class__.__name__}")
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     def __cinit__(self):
         pass
@@ -750,7 +750,7 @@ cdef class RowGroupMetaData(_Weakrefable):
     """Metadata for a single row group."""
 
     def __init__(self):
-        raise TypeError(f"Can't instantiate internal class {self.__class__.__name__}")
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     def __cinit__(self):
         pass
@@ -883,7 +883,7 @@ cdef class FileMetaData(_Weakrefable):
     """Parquet metadata for a single file."""
 
     def __init__(self):
-        raise TypeError(f"Can't instantiate internal class {self.__class__.__name__}")
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     def __cinit__(self):
         pass

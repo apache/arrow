@@ -798,7 +798,7 @@ def test_column_chunk_key_value_metadata(parquet_test_datadir):
 
 def test_internal_class_instantiation():
     def msg(c):
-        return f"Can't instantiate internal class {c}"
+        return f"Do not call {c}'s constructor directly"
 
     with pytest.raises(TypeError, match=msg("Statistics")):
         pq.Statistics()
