@@ -1092,6 +1092,22 @@ TEST_F(TestFlightClient, GenericOptions) {
   ASSERT_THAT(status.message(), ::testing::HasSubstr("resource exhausted"));
 }
 
+TEST_F(TestFlightClient, GenericOptionsPointer) {
+  // WIP(bdm): I want to force GRPC to call my callback here so we can verify
+  // passing down the void* works. This isn't working yet.
+  bool callback_called = false;
+  auto callback = [&callback_called]() { callback_called = true; };
+
+  auto options = FlightClientOptions::Defaults();
+  // TODO(bdm): "some arbitrary function" probably needs to be changed to something
+  // GRPC will call
+  options.generic_options.emplace_back("some arbitrary function", reinterpret_cast<void*>(&callback));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", server_->port()));
+  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location, options));
+
+  ASSERT_TRUE(callback_called);
+}
+
 TEST_F(TestFlightClient, TimeoutFires) {
   // Server does not exist on this port, so call should fail
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 30001));
