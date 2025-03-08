@@ -2425,10 +2425,10 @@ struct ExtractRegexSpan : ExtractRegexBase {
         for (int i = 0; i < group_count; i++) {
           // https://github.com/google/re2/issues/24#issuecomment-97653183
           if (found_values[i].data() != nullptr) {
-            OffsetCType begin = found_values[i].data() - element.data();
-            OffsetCType size = found_values[i].size();
-            array_builders[i]->UnsafeAppend(begin);
-            array_builders[i]->UnsafeAppend(size);
+            int64_t begin = found_values[i].data() - element.data();
+            int64_t size = found_values[i].size();
+            array_builders[i]->UnsafeAppend(static_cast<OffsetCType>(begin));
+            array_builders[i]->UnsafeAppend(static_cast<OffsetCType>(size));
             ARROW_RETURN_NOT_OK(span_builders[i]->Append());
           } else {
             ARROW_RETURN_NOT_OK(span_builders[i]->AppendNull());
