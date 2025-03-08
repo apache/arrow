@@ -8,9 +8,9 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 23 &&
-              FLATBUFFERS_VERSION_MINOR == 5 &&
-              FLATBUFFERS_VERSION_REVISION == 26,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 24 &&
+              FLATBUFFERS_VERSION_MINOR == 3 &&
+              FLATBUFFERS_VERSION_REVISION == 6,
              "Non-compatible flatbuffers version included");
 
 #include "Schema_generated.h"
@@ -139,7 +139,7 @@ struct FooterBuilder {
 
 inline ::flatbuffers::Offset<Footer> CreateFooter(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion::V1,
+    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion_V1,
     ::flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<const org::apache::arrow::flatbuf::Block *>> dictionaries = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<const org::apache::arrow::flatbuf::Block *>> recordBatches = 0,
@@ -155,7 +155,7 @@ inline ::flatbuffers::Offset<Footer> CreateFooter(
 
 inline ::flatbuffers::Offset<Footer> CreateFooterDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion::V1,
+    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion_V1,
     ::flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0,
     const std::vector<org::apache::arrow::flatbuf::Block> *dictionaries = nullptr,
     const std::vector<org::apache::arrow::flatbuf::Block> *recordBatches = nullptr,

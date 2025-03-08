@@ -190,17 +190,18 @@ class ReaderV1 : public Reader {
     break;
 
     switch (metadata_type) {
-      case fbs::TypeMetadata::CategoryMetadata: {
+      case fbs::TypeMetadata::TypeMetadata_CategoryMetadata: {
         auto meta = static_cast<const fbs::CategoryMetadata*>(metadata);
 
         std::shared_ptr<DataType> index_type, dict_type;
-        RETURN_NOT_OK(GetDataType(values, fbs::TypeMetadata::NONE, nullptr, &index_type));
-        RETURN_NOT_OK(
-            GetDataType(meta->levels(), fbs::TypeMetadata::NONE, nullptr, &dict_type));
+        RETURN_NOT_OK(GetDataType(values, fbs::TypeMetadata::TypeMetadata_NONE, nullptr,
+                                  &index_type));
+        RETURN_NOT_OK(GetDataType(meta->levels(), fbs::TypeMetadata::TypeMetadata_NONE,
+                                  nullptr, &dict_type));
         *out = dictionary(index_type, dict_type, meta->ordered());
         break;
       }
-      case fbs::TypeMetadata::TimestampMetadata: {
+      case fbs::TypeMetadata::TypeMetadata_TimestampMetadata: {
         auto meta = static_cast<const fbs::TimestampMetadata*>(metadata);
         TimeUnit::type unit = FromFlatbufferEnum(meta->unit());
         std::string tz;
@@ -212,30 +213,30 @@ class ReaderV1 : public Reader {
         }
         *out = timestamp(unit, tz);
       } break;
-      case fbs::TypeMetadata::DateMetadata:
+      case fbs::TypeMetadata::TypeMetadata_DateMetadata:
         *out = date32();
         break;
-      case fbs::TypeMetadata::TimeMetadata: {
+      case fbs::TypeMetadata::TypeMetadata_TimeMetadata: {
         auto meta = static_cast<const fbs::TimeMetadata*>(metadata);
         *out = time32(FromFlatbufferEnum(meta->unit()));
       } break;
       default:
         switch (values->type()) {
-          PRIMITIVE_CASE(BOOL, boolean);
-          PRIMITIVE_CASE(INT8, int8);
-          PRIMITIVE_CASE(INT16, int16);
-          PRIMITIVE_CASE(INT32, int32);
-          PRIMITIVE_CASE(INT64, int64);
-          PRIMITIVE_CASE(UINT8, uint8);
-          PRIMITIVE_CASE(UINT16, uint16);
-          PRIMITIVE_CASE(UINT32, uint32);
-          PRIMITIVE_CASE(UINT64, uint64);
-          PRIMITIVE_CASE(FLOAT, float32);
-          PRIMITIVE_CASE(DOUBLE, float64);
-          PRIMITIVE_CASE(UTF8, utf8);
-          PRIMITIVE_CASE(BINARY, binary);
-          PRIMITIVE_CASE(LARGE_UTF8, large_utf8);
-          PRIMITIVE_CASE(LARGE_BINARY, large_binary);
+          PRIMITIVE_CASE(Type_BOOL, boolean);
+          PRIMITIVE_CASE(Type_INT8, int8);
+          PRIMITIVE_CASE(Type_INT16, int16);
+          PRIMITIVE_CASE(Type_INT32, int32);
+          PRIMITIVE_CASE(Type_INT64, int64);
+          PRIMITIVE_CASE(Type_UINT8, uint8);
+          PRIMITIVE_CASE(Type_UINT16, uint16);
+          PRIMITIVE_CASE(Type_UINT32, uint32);
+          PRIMITIVE_CASE(Type_UINT64, uint64);
+          PRIMITIVE_CASE(Type_FLOAT, float32);
+          PRIMITIVE_CASE(Type_DOUBLE, float64);
+          PRIMITIVE_CASE(Type_UTF8, utf8);
+          PRIMITIVE_CASE(Type_BINARY, binary);
+          PRIMITIVE_CASE(Type_LARGE_UTF8, large_utf8);
+          PRIMITIVE_CASE(Type_LARGE_BINARY, large_binary);
           default:
             return Status::Invalid("Unrecognized type");
         }
@@ -316,7 +317,7 @@ class ReaderV1 : public Reader {
         checked_cast<const DictionaryType&>(*schema_->field(field_index)->type());
 
     return LoadValues(dict_type.value_type(), dict_meta->levels(),
-                      fbs::TypeMetadata::NONE, nullptr, out);
+                      fbs::TypeMetadata::TypeMetadata_NONE, nullptr, out);
   }
 
   Status GetColumn(int field_index, std::shared_ptr<ChunkedArray>* out) {
@@ -403,7 +404,7 @@ struct ArrayMetadata {
 
 #define TO_FLATBUFFER_CASE(TYPE) \
   case Type::TYPE:               \
-    return fbs::Type::TYPE;
+    return fbs::Type::Type_##TYPE;
 
 Result<fbs::Type> ToFlatbufferType(const DataType& type) {
   switch (type.id()) {
@@ -421,17 +422,17 @@ Result<fbs::Type> ToFlatbufferType(const DataType& type) {
     TO_FLATBUFFER_CASE(LARGE_BINARY);
     TO_FLATBUFFER_CASE(BINARY);
     case Type::STRING:
-      return fbs::Type::UTF8;
+      return fbs::Type::Type_UTF8;
     case Type::LARGE_STRING:
-      return fbs::Type::LARGE_UTF8;
+      return fbs::Type::Type_LARGE_UTF8;
     case Type::DATE32:
-      return fbs::Type::INT32;
+      return fbs::Type::Type_INT32;
     case Type::TIMESTAMP:
-      return fbs::Type::INT64;
+      return fbs::Type::Type_INT64;
     case Type::TIME32:
-      return fbs::Type::INT32;
+      return fbs::Type::Type_INT32;
     case Type::TIME64:
-      return fbs::Type::INT64;
+      return fbs::Type::Type_INT64;
     default:
       return Status::TypeError("Unsupported Feather V1 type: ", type.ToString(),
                                ". Use V2 format to serialize all Arrow types.");
@@ -440,8 +441,9 @@ Result<fbs::Type> ToFlatbufferType(const DataType& type) {
 
 inline flatbuffers::Offset<fbs::PrimitiveArray> GetPrimitiveArray(
     FBB& fbb, const ArrayMetadata& array) {
-  return fbs::CreatePrimitiveArray(fbb, array.type, fbs::Encoding::PLAIN, array.offset,
-                                   array.length, array.null_count, array.total_bytes);
+  return fbs::CreatePrimitiveArray(fbb, array.type, fbs::Encoding::Encoding_PLAIN,
+                                   array.offset, array.length, array.null_count,
+                                   array.total_bytes);
 }
 
 // Convert Feather enums to Flatbuffer enums
@@ -450,11 +452,11 @@ inline fbs::TimeUnit ToFlatbufferEnum(TimeUnit::type unit) {
 }
 
 const fbs::TypeMetadata COLUMN_TYPE_ENUM_MAPPING[] = {
-    fbs::TypeMetadata::NONE,               // PRIMITIVE
-    fbs::TypeMetadata::CategoryMetadata,   // CATEGORY
-    fbs::TypeMetadata::TimestampMetadata,  // TIMESTAMP
-    fbs::TypeMetadata::DateMetadata,       // DATE
-    fbs::TypeMetadata::TimeMetadata        // TIME
+    fbs::TypeMetadata::TypeMetadata_NONE,               // PRIMITIVE
+    fbs::TypeMetadata::TypeMetadata_CategoryMetadata,   // CATEGORY
+    fbs::TypeMetadata::TypeMetadata_TimestampMetadata,  // TIMESTAMP
+    fbs::TypeMetadata::TypeMetadata_DateMetadata,       // DATE
+    fbs::TypeMetadata::TypeMetadata_TimeMetadata        // TIME
 };
 
 inline fbs::TypeMetadata ToFlatbufferEnum(ColumnType::type column_type) {
