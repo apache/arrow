@@ -154,7 +154,7 @@ struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
 
 template <typename Type>
 struct GetViewType<Type, enable_if_list_type<Type>> {
-  using T = typename TypeTraits<Type>::ScalarType;
+  using T = std::shared_ptr<Array>;
 
   static T LogicalValue(T value) { return value; }
 };
@@ -359,8 +359,6 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
 
 template <typename Type>
 struct ArrayIterator<Type, enable_if_list_type<Type>> {
-  using T = typename TypeTraits<Type>::ScalarType;
-  using ArrayT = typename TypeTraits<Type>::ArrayType;
   using offset_type = typename Type::offset_type;
 
   const ArraySpan& arr;
@@ -374,11 +372,10 @@ struct ArrayIterator<Type, enable_if_list_type<Type>> {
         cur_offset(offsets[0]),
         position(0) {}
 
-  T operator()() {
+  std::shared_ptr<Array> operator()() {
     offset_type next_offset = offsets[++position];
     const offset_type length = next_offset - cur_offset;
-    const auto child = arr.child_data[0].ToArray()->Slice(cur_offset, length);
-    const T result{child};
+    const auto result = arr.child_data[0].ToArray()->Slice(cur_offset, length);
     cur_offset = next_offset;
     return result;
   }
@@ -462,8 +459,12 @@ struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
 
 template <typename Type>
 struct UnboxScalar<Type, enable_if_list_type<Type>> {
-  using T = typename TypeTraits<Type>::ScalarType;
-  static const T& Unbox(const Scalar& val) { return checked_cast<const T&>(val); }
+  using T = std::shared_ptr<Array>;
+  using ScalarT = typename TypeTraits<Type>::ScalarType;
+
+  static const T& Unbox(const Scalar& val) {
+    return checked_cast<const ScalarT&>(val).value;
+  }
 };
 
 template <>
