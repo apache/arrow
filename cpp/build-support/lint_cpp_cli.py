@@ -121,7 +121,7 @@ def lint_files():
 if __name__ == '__main__':
     failures = list(lint_files())
     for path, why, i, line in failures:
-        print('File {0} failed C++/CLI lint check: {1}\n'
-              'Line {2}: {3}'.format(path, why, i + 1, line))
+        print(f'File {path} failed C++/CLI lint check: {why}\n'
+              f'Line {i + 1}: {line}')
     if failures:
         exit(1)

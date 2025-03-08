@@ -249,7 +249,7 @@ class NumpyDoc:
                 try:
                     obj = Docstring._load_obj(symbol)
                 except (ImportError, AttributeError):
-                    print('{} is not available for import'.format(symbol))
+                    print(f'{symbol} is not available for import')
                 else:
                     self.traverse(callback, obj, from_package=from_package)
 

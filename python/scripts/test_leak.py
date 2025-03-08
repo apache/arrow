@@ -37,15 +37,14 @@ def assert_does_not_leak(f, iterations=10, check_interval=1, tolerance=5):
             gc.collect()
             usage = memory_profiler.memory_usage()[0]
             diff = usage - baseline
-            print("{0}: {1}\r".format(i, diff), end="")
+            print(f"{i}: {diff}\r", end="")
             if diff > tolerance:
-                raise Exception("Memory increased by {0} megabytes after {1} "
-                                "iterations".format(diff, i + 1))
+                raise Exception(f"Memory increased by {diff} megabytes after {i + 1} "
+                                "iterations")
     gc.collect()
     usage = memory_profiler.memory_usage()[0]
     diff = usage - baseline
-    print("\nMemory increased by {0} megabytes after {1} "
-          "iterations".format(diff, iterations))
+    print(f"\nMemory increased by {diff} megabytes after {iterations} iterations")
 
 
 def test_leak1():
@@ -81,8 +80,7 @@ def test_leak2():
 def test_leak3():
     import pyarrow.parquet as pq
 
-    df = pd.DataFrame({'a{0}'.format(i): [1, 2, 3, 4]
-                       for i in range(50)})
+    df = pd.DataFrame({f'a{i}': [1, 2, 3, 4] for i in range(50)})
     table = pa.Table.from_pandas(df, preserve_index=False)
 
     writer = pq.ParquetWriter('leak_test_' + rands(5) + '.parquet',

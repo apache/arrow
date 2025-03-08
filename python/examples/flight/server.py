@@ -99,8 +99,7 @@ class FlightServer(pyarrow.flight.FlightServerBase):
 
     def do_action(self, context, action):
         if action.type == "clear":
-            raise NotImplementedError(
-                "{} is not implemented.".format(action.type))
+            raise NotImplementedError(f"{action.type} is not implemented.")
         elif action.type == "healthcheck":
             pass
         elif action.type == "shutdown":
@@ -109,7 +108,7 @@ class FlightServer(pyarrow.flight.FlightServerBase):
             # request
             threading.Thread(target=self._shutdown).start()
         else:
-            raise KeyError("Unknown action {!r}".format(action.type))
+            raise KeyError(f"Unknown action {action.type!r}")
 
     def _shutdown(self):
         """Shut down after a delay."""
@@ -141,7 +140,7 @@ def main():
             tls_private_key = key_file.read()
         tls_certificates.append((tls_cert_chain, tls_private_key))
 
-    location = "{}://{}:{}".format(scheme, args.host, args.port)
+    location = f"{scheme}://{args.host}:{args.port}"
 
     server = FlightServer(args.host, location,
                           tls_certificates=tls_certificates,
