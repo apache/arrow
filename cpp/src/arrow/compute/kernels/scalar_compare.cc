@@ -44,9 +44,8 @@ struct Equal {
   static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
     static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
 
-    if constexpr (std::is_same<Arg0, std::shared_ptr<Array>>::value) {
-      // Ultimately should use RangeDataEqualsImpl
-      return ArrayEquals(*left, *right);
+    if constexpr (std::is_same<Arg0, std::shared_ptr<ArrayData>>::value) {
+      return ArrayDataEquals(*left, *right);
     }
     return left == right;
   }
@@ -57,9 +56,8 @@ struct NotEqual {
   static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
     static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
 
-    if constexpr (std::is_same<Arg0, std::shared_ptr<Array>>::value) {
-      // Ultimately should use RangeDataEqualsImpl
-      return !ArrayEquals(*left, *right);
+    if constexpr (std::is_same<Arg0, std::shared_ptr<ArrayData>>::value) {
+      return !ArrayDataEquals(*left, *right);
     }
 
     return left != right;
