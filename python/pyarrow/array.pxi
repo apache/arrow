@@ -4242,7 +4242,6 @@ cdef class StructArray(Array):
                 # Arrow Arrays. Coerce the data type of anything else,
                 # since that other stuff doesn't have a certain type
                 # we can verify.
-                print(ary, field)
                 if isinstance(ary, (Array, ChunkedArray)):
                     if ary.type != field.type:
                         raise ValueError(f"Field {field.name} is expected to have type {field.type}, but provided data is {ary.type}")
