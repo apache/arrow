@@ -145,6 +145,7 @@ def test_option_class_equality(request):
         pc.ArraySortOptions(),
         pc.AssumeTimezoneOptions("UTC"),
         pc.CastOptions.safe(pa.int8()),
+        pc.CumulativeOptions(start=None, skip_nulls=False),
         pc.CountOptions(),
         pc.DayOfWeekOptions(count_from_zero=False, week_start=0),
         pc.DictionaryEncodeOptions(),
@@ -167,7 +168,7 @@ def test_option_class_equality(request):
         pc.PadOptions(5),
         pc.PairwiseOptions(period=1),
         pc.PartitionNthOptions(1, null_placement="at_start"),
-        pc.CumulativeOptions(start=None, skip_nulls=False),
+        pc.PivotWiderOptions(["height"], unexpected_key_behavior="raise"),
         pc.QuantileOptions(),
         pc.RandomOptions(),
         pc.RankOptions(sort_keys="ascending",
@@ -183,6 +184,7 @@ def test_option_class_equality(request):
         pc.ScalarAggregateOptions(),
         pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
         pc.SetLookupOptions(pa.array([1])),
+        pc.SkewOptions(min_count=2),
         pc.SliceOptions(0, 1, 1),
         pc.SortOptions([("dummy", "descending")], null_placement="at_start"),
         pc.SplitOptions(),
@@ -438,6 +440,20 @@ def test_variance():
     assert pc.variance(data).as_py() == 5.25
     assert pc.variance(data, ddof=0).as_py() == 5.25
     assert pc.variance(data, ddof=1).as_py() == 6.0
+
+
+def test_skew():
+    data = [1, 1, None, 2]
+    assert pc.skew(data).as_py() == pytest.approx(0.707106781186548, rel=1e-10)
+    assert pc.skew(data, skip_nulls=False).as_py() is None
+    assert pc.skew(data, min_count=4).as_py() is None
+
+
+def test_kurtosis():
+    data = [1, 1, None, 2]
+    assert pc.kurtosis(data).as_py() == pytest.approx(-1.5, rel=1e-10)
+    assert pc.kurtosis(data, skip_nulls=False).as_py() is None
+    assert pc.kurtosis(data, min_count=4).as_py() is None
 
 
 def test_count_substring():
@@ -3785,3 +3801,29 @@ def test_pairwise_diff():
     with pytest.raises(pa.ArrowInvalid,
                        match="overflow"):
         pa.compute.pairwise_diff_checked(arr, period=-1)
+
+
+def test_pivot_wider():
+    key_names = ["width", "height"]
+
+    result = pc.pivot_wider(["height", "width", "depth"], [10, None, 11])
+    assert result.as_py() == {}
+
+    result = pc.pivot_wider(["height", "width", "depth"], [10, None, 11],
+                            key_names)
+    assert result.as_py() == {"width": None, "height": 10}
+    # check key order
+    assert list(result.as_py()) == ["width", "height"]
+
+    result = pc.pivot_wider(["height", "width", "depth"], [10, None, 11],
+                            key_names=key_names)
+    assert result.as_py() == {"width": None, "height": 10}
+
+    with pytest.raises(KeyError, match="Unexpected pivot key: depth"):
+        result = pc.pivot_wider(["height", "width", "depth"], [10, None, 11],
+                                key_names=key_names,
+                                unexpected_key_behavior="raise")
+
+    with pytest.raises(ValueError, match="Encountered more than one non-null value"):
+        result = pc.pivot_wider(["height", "width", "height"], [10, None, 11],
+                                key_names=key_names)

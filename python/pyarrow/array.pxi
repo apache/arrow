@@ -21,6 +21,9 @@ import os
 import warnings
 from cython import sizeof
 
+cdef extern from "<variant>" namespace "std":
+    c_bool holds_alternative[T](...)
+    T get[T](...)
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
@@ -702,6 +705,101 @@ def _restore_array(data):
     """
     cdef shared_ptr[CArrayData] ad = _reconstruct_array_data(data)
     return pyarrow_wrap_array(MakeArray(ad))
+
+
+cdef class ArrayStatistics(_Weakrefable):
+    """
+    The class for statistics of an array.
+    """
+
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor "
+                        "directly")
+
+    cdef void init(self, const shared_ptr[CArrayStatistics]& sp_statistics):
+        self.sp_statistics = sp_statistics
+
+    def __repr__(self):
+        return (f"arrow.ArrayStatistics<null_count={self.null_count}, "
+                f"distinct_count={self.distinct_count}, min={self.min}, "
+                f"is_min_exact={self.is_min_exact}, max={self.max}, "
+                f"is_max_exact={self.is_max_exact}>")
+
+    @property
+    def null_count(self):
+        """
+        The number of nulls.
+        """
+        null_count = self.sp_statistics.get().null_count
+        # We'll be able to simplify this after
+        # https://github.com/cython/cython/issues/6692 is solved.
+        if null_count.has_value():
+            return null_count.value()
+        else:
+            return None
+
+    @property
+    def distinct_count(self):
+        """
+        The number of distinct values.
+        """
+        distinct_count = self.sp_statistics.get().distinct_count
+        # We'll be able to simplify this after
+        # https://github.com/cython/cython/issues/6692 is solved.
+        if distinct_count.has_value():
+            return distinct_count.value()
+        else:
+            return None
+
+    @property
+    def min(self):
+        """
+        The minimum value.
+        """
+        return self._get_value(self.sp_statistics.get().min)
+
+    @property
+    def is_min_exact(self):
+        """
+        Whether the minimum value is an exact value or not.
+        """
+        return self.sp_statistics.get().is_min_exact
+
+    @property
+    def max(self):
+        """
+        The maximum value.
+        """
+        return self._get_value(self.sp_statistics.get().max)
+
+    @property
+    def is_max_exact(self):
+        """
+        Whether the maximum value is an exact value or not.
+        """
+        return self.sp_statistics.get().is_max_exact
+
+    cdef _get_value(self, const optional[CArrayStatisticsValueType]& optional_value):
+        """
+        Get a raw value from
+        std::optional<arrow::ArrayStatistics::ValueType>> data.
+
+        arrow::ArrayStatistics::ValueType is
+        std::variant<bool, int64_t, uint64_t, double, std::string>.
+        """
+        if not optional_value.has_value():
+            return None
+        value = optional_value.value()
+        if holds_alternative[c_bool](value):
+            return get[c_bool](value)
+        elif holds_alternative[int64_t](value):
+            return get[int64_t](value)
+        elif holds_alternative[uint64_t](value):
+            return get[uint64_t](value)
+        elif holds_alternative[double](value):
+            return get[double](value)
+        else:
+            return get[c_string](value)
 
 
 cdef class _PandasConvertible(_Weakrefable):
@@ -2098,6 +2196,20 @@ cdef class Array(_PandasConvertible):
     cdef void _assert_cpu(self) except *:
         if self.sp_array.get().device_type() != CDeviceAllocationType_kCPU:
             raise NotImplementedError("Implemented only for data on CPU device")
+
+    @property
+    def statistics(self):
+        """
+        Statistics of the array.
+        """
+        cdef ArrayStatistics stat
+        sp_stat = self.sp_array.get().statistics()
+        if sp_stat.get() == nullptr:
+            return None
+        else:
+            stat = ArrayStatistics.__new__(ArrayStatistics)
+            stat.init(sp_stat)
+            return stat
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):

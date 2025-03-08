@@ -19,7 +19,6 @@ ARG base
 FROM ${base}
 
 ARG r=4.4
-ARG jdk=11
 
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
@@ -67,7 +66,6 @@ RUN apt-get update -y && \
         nodejs \
         npm \
         nvidia-cuda-toolkit \
-        openjdk-${jdk}-jdk-headless \
         pandoc \
         r-recommended=${r}* \
         r-base=${r}* \
@@ -79,15 +77,6 @@ RUN apt-get update -y && \
     rm -rf /var/lib/apt/lists/* && \
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
        npm install -g yarn @mermaid-js/mermaid-cli
-
-ENV JAVA_HOME=/usr/lib/jvm/java-${jdk}-openjdk-amd64
-
-ARG maven=3.8.7
-COPY ci/scripts/util_download_apache.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/util_download_apache.sh \
-    "maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz" /opt
-ENV PATH=/opt/apache-maven-${maven}/bin:$PATH
-RUN mvn -version
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \
