@@ -1916,6 +1916,12 @@ TEST(Expression, SerializationRoundTrips) {
                          equal(field_ref("beta"), literal(3.25f))}));
 }
 
+TEST(Expression, ExpressionEquals) {
+  Expression expr1;
+  Expression expr2(literal(1));
+
+  EXPECT_FALSE(expr1.Equals(expr2));
+}
 TEST(Projection, AugmentWithNull) {
   // NB: input contains *no columns* except i32
   auto input = ArrayFromJSON(struct_({kBoringSchema->GetFieldByName("i32")}),
