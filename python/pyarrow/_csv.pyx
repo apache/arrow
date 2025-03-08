@@ -1150,9 +1150,8 @@ cdef class CSVStreamingReader(RecordBatchReader):
         Schema schema
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, "
-                        "use pyarrow.csv.open_csv() instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, "
+                        "use pyarrow.csv.open_csv() instead.")
 
     # Note about cancellation: we cannot create a SignalStopHandler
     # by default here, as several CSVStreamingReader instances may be

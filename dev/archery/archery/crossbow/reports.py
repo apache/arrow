@@ -62,10 +62,10 @@ class Report:
         return url[:-4] if url.endswith('.git') else url
 
     def url(self, query):
-        return '{}/branches/all?query={}'.format(self.repo_url, query)
+        return f'{self.repo_url}/branches/all?query={query}'
 
     def branch_url(self, branch):
-        return '{}/tree/{}'.format(self.repo_url, branch)
+        return f'{self.repo_url}/tree/{branch}'
 
     def task_url(self, task):
         build_links = task.status().build_links
@@ -342,8 +342,8 @@ class CommentReport(Report):
                     url=self.task_url(task)
                 )
             except KeyError:
-                badge = 'unsupported CI service `{}`'.format(task.ci)
+                badge = f'unsupported CI service `{task.ci}`'
 
-            msg += '\n|{}|{}|'.format(key, badge)
+            msg += f'\n|{key}|{badge}|'
 
         return msg.format(repo=self.crossbow_repo, branch=self.job.branch)
