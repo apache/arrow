@@ -22,8 +22,6 @@ RUN apk add --no-cache \
     bash \
     build-base \
     bzip2-dev \
-    dpkg \
-    dpkg-dev \
     g++ \
     git \
     libffi-dev \
@@ -41,8 +39,7 @@ RUN wget https://github.com/python/cpython/archive/refs/tags/v3.13.2.tar.gz && \
     tar -xzf v3.13.2.tar.gz && \
     rm v3.13.2.tar.gz && \
     cd cpython-3.13.2/ && \
-    gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" && \
-    ./configure --build="$gnuArch" --disable-gil --with-ensurepip && \
+    ./configure --disable-gil --with-ensurepip && \
     make -j && \
     make install && \
     cd ../ && \
