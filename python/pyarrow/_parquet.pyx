@@ -755,14 +755,6 @@ cdef class RowGroupMetaData(_Weakrefable):
     def __cinit__(self):
         pass
 
-    def init(self, FileMetaData parent, int index):
-        if index < 0 or index >= parent.num_row_groups:
-            raise IndexError('{0} out of bounds'.format(index))
-        self.up_metadata = parent._metadata.RowGroup(index)
-        self.metadata = self.up_metadata.get()
-        self.parent = parent
-        self.index = index
-
     def __reduce__(self):
         return RowGroupMetaData, (self.parent, self.index)
 
