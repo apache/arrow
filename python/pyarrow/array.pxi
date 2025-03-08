@@ -4244,6 +4244,9 @@ cdef class StructArray(Array):
 
         for arr in arrays:
             c_array = pyarrow_unwrap_array(arr)
+            # The following is asserting an invariant, but shouldn't
+            # occur. Use of asarray above when constructing arrays
+            # should guarantee that we always get a non-null result.
             if c_array == nullptr:
                 raise TypeError(f"Expected Array, got {arr.__class__}")
             c_arrays.push_back(c_array)

@@ -772,6 +772,14 @@ def test_struct_from_arrays():
     with pytest.raises(ValueError, match="Failed to parse string"):
         pa.StructArray.from_arrays([a, b, c], fields=[fa, fb2, fc])
 
+    # Too few fields
+    with pytest.raises(ValueError, match="Must pass same number of arrays as fields"):
+        pa.StructArray.from_arrays([a, b, c], names=None, fields=[fa, fb])
+
+    # Too many fields
+    with pytest.raises(ValueError, match="Mismatching number of fields and child arrays"):
+        pa.StructArray.from_arrays([a, b], names=None, fields=[fa, fb, fc])
+
     arrays = [a, b, c]
     fields = [fa, fb, fc]
     # With mask
