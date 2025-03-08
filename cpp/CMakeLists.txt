@@ -160,6 +160,7 @@ set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "20.1"
     "19.1"
     "18.1"
     "17.0"

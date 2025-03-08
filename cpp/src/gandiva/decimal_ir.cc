@@ -79,13 +79,22 @@ void DecimalIR::AddGlobals(Engine* engine) {
   globalScaleMultipliers->setAlignment(LLVM_ALIGN(16));
 }
 
+#if LLVM_VERSION_MAJOR < 20
+namespace {
+inline llvm::Function* getOrInsertDeclaration(llvm::Module* M, llvm::Intrinsic::ID id,
+                                              llvm::ArrayRef<llvm::Type*> Tys) {
+  return llvm::Intrinsic::getDeclaration(M, id, Tys);
+}
+}  // namespace
+#endif
+
 // Lookup intrinsic functions
 void DecimalIR::InitializeIntrinsics() {
-  sadd_with_overflow_fn_ = llvm::Intrinsic::getDeclaration(
+  sadd_with_overflow_fn_ = getOrInsertDeclaration(
       module(), llvm::Intrinsic::sadd_with_overflow, types()->i128_type());
   DCHECK_NE(sadd_with_overflow_fn_, nullptr);
 
-  smul_with_overflow_fn_ = llvm::Intrinsic::getDeclaration(
+  smul_with_overflow_fn_ = getOrInsertDeclaration(
       module(), llvm::Intrinsic::smul_with_overflow, types()->i128_type());
   DCHECK_NE(smul_with_overflow_fn_, nullptr);
 
@@ -541,7 +550,7 @@ llvm::Value* DecimalIR::ValueWithOverflow::AsStruct(DecimalIR* decimal_ir) const
 void DecimalIR::AddTrace(const std::string& fmt, std::vector<llvm::Value*> args) {
   DCHECK(enable_ir_traces_);
 
-  auto ir_str = ir_builder()->CreateGlobalStringPtr(fmt);
+  auto ir_str = CreateGlobalStringPtr(fmt);
   args.insert(args.begin(), ir_str);
   ir_builder()->CreateCall(module()->getFunction("printf"), args, "trace");
 }
