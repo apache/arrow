@@ -47,7 +47,8 @@ cdef class AzureFileSystem(FileSystem):
         Azure Blob Storage account name. This is the globally unique identifier for the 
         storage account.
     account_key : str, default None
-        Account key of the storage account. Pass None to use default credential. 
+        Account key of the storage account. If sas_token and account_key are None the 
+        default credential will be used. 
     blob_storage_authority : str, default None
         hostname[:port] of the Blob Service. Defaults to `.blob.core.windows.net`. Useful
         for connecting to a local emulator, like Azurite.
@@ -61,7 +62,8 @@ cdef class AzureFileSystem(FileSystem):
         Either `http` or `https`. Defaults to `https`. Useful for connecting to a local 
         emulator, like Azurite.
     sas_token : str, default None
-        Sas token for the storage account, used as an alternative to account_key.
+        Sas token for the storage account, used as an alternative to account_key. If sas_token
+        and account_key are None the default credential will be used. 
 
     Examples
     --------
@@ -133,5 +135,6 @@ cdef class AzureFileSystem(FileSystem):
                 blob_storage_authority=frombytes(opts.blob_storage_authority),
                 dfs_storage_authority=frombytes(opts.dfs_storage_authority),
                 blob_storage_scheme=frombytes(opts.blob_storage_scheme),
-                dfs_storage_scheme=frombytes(opts.dfs_storage_scheme)
+                dfs_storage_scheme=frombytes(opts.dfs_storage_scheme),
+                sas_token=frombytes(self.sas_token)
             ),))
