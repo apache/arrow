@@ -2186,11 +2186,10 @@ using ExtractRegexState = OptionsWrapper<ExtractRegexOptions>;
 
 struct BaseExtractRegexData {
   Status Init() {
-    RETURN_NOT_OK(RegexStatus(*regex_));
-
-    const int group_count = regex_->NumberOfCapturingGroups();
-    const auto& name_map = regex_->CapturingGroupNames();
-    group_names_.reserve(group_count);
+    RETURN_NOT_OK(RegexStatus(*regex));
+    const int group_count = regex->NumberOfCapturingGroups();
+    const auto& name_map = regex->CapturingGroupNames();
+    group_names.reserve(group_count);
 
     for (int i = 0; i < group_count; i++) {
       auto item = name_map.find(i + 1);  // re2 starts counting from 1
@@ -2198,17 +2197,17 @@ struct BaseExtractRegexData {
         // XXX should we instead just create fields with an empty name?
         return Status::Invalid("Regular expression contains unnamed groups");
       }
-      group_names_.emplace_back(item->second);
+      group_names.emplace_back(item->second);
     }
     return Status::OK();
   }
-  int64_t num_group() const { return group_names_.size(); }
-  std::unique_ptr<RE2> regex_;
-  std::vector<std::string> group_names_;
+  int64_t num_groups() const { return static_cast<int64_t>(group_names.size()); }
+  std::unique_ptr<RE2> regex;
+  std::vector<std::string> group_names;
 
  protected:
   explicit BaseExtractRegexData(const std::string& pattern, bool is_utf8 = true)
-      : regex_(new RE2(pattern, MakeRE2Options(is_utf8))) {}
+      : regex(new RE2(pattern, MakeRE2Options(is_utf8))) {}
 };
 
 // TODO cache this once per ExtractRegexOptions
@@ -2230,9 +2229,9 @@ struct ExtractRegexData : public BaseExtractRegexData {
     // of each field in the output struct type.
     DCHECK(is_base_binary_like(input_type->id()));
     FieldVector fields;
-    fields.reserve(group_names_.size());
+    fields.reserve(num_groups());
     std::shared_ptr<DataType> owned_type = input_type->GetSharedPtr();
-    std::transform(group_names_.begin(), group_names_.end(), std::back_inserter(fields),
+    std::transform(group_names.begin(), group_names.end(), std::back_inserter(fields),
                    [&](const std::string& name) { return field(name, owned_type); });
     return struct_(std::move(fields));
   }
@@ -2260,7 +2259,7 @@ struct ExtractRegexBase {
 
   explicit ExtractRegexBase(const BaseExtractRegexData& data)
       : data(data),
-        group_count(static_cast<int>(data.num_group())),
+        group_count(static_cast<int>(data.num_groups())),
         found_values(group_count) {
     args.reserve(group_count);
     args_pointers.reserve(group_count);
@@ -2275,7 +2274,7 @@ struct ExtractRegexBase {
   }
 
   bool Match(std::string_view s) {
-    return RE2::PartialMatchN(ToStringPiece(s), *data.regex_, args_pointers_start,
+    return RE2::PartialMatchN(ToStringPiece(s), *data.regex, args_pointers_start,
                               group_count);
   }
 };
@@ -2294,14 +2293,11 @@ struct ExtractRegex : public ExtractRegexBase {
   }
 
   Status Extract(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    ExtractRegexOptions options = ExtractRegexState::Get(ctx);
-    DCHECK_NE(out->array_data(), NULLPTR);
+    DCHECK_NE(out->array_data(), nullptr);
     std::shared_ptr<DataType> type = out->array_data()->type;
-    DCHECK_NE(type, NULLPTR);
-
-    std::unique_ptr<ArrayBuilder> array_builder;
-    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), type, &array_builder));
-    StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<ArrayBuilder> array_builder,
+                          MakeBuilder(type, ctx->memory_pool()));
+    auto struct_builder = checked_pointer_cast<StructBuilder>(std::move(array_builder));
 
     std::vector<BuilderType*> field_builders;
     field_builders.reserve(group_count);
@@ -2317,9 +2313,8 @@ struct ExtractRegex : public ExtractRegexBase {
           RETURN_NOT_OK(field_builders[i]->Append(ToStringView(found_values[i])));
         }
         return struct_builder->Append();
-      } else {
-        return struct_builder->AppendNull();
       }
+      return struct_builder->AppendNull();
     };
     RETURN_NOT_OK(VisitArraySpanInline<Type>(batch[0].array, visit_value, visit_null));
 
@@ -2357,24 +2352,25 @@ void AddAsciiStringExtractRegex(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 struct ExtractRegexSpanData : public BaseExtractRegexData {
-  static Result<ExtractRegexSpanData> Make(const std::string& pattern) {
-    auto data = ExtractRegexSpanData(pattern, true);
+  static Result<ExtractRegexSpanData> Make(const std::string& pattern,
+                                           bool is_utf8 = true) {
+    auto data = ExtractRegexSpanData(pattern, is_utf8);
     ARROW_RETURN_NOT_OK(data.Init());
     return data;
   }
 
   Result<TypeHolder> ResolveOutputType(const std::vector<TypeHolder>& types) const {
     const DataType* input_type = types[0].type;
-    if (input_type == NULLPTR) {
-      return NULLPTR;
+    if (input_type == nullptr) {
+      return nullptr;
     }
     DCHECK(is_base_binary_like(input_type->id()));
-    const size_t field_count = group_names_.size();
+    const size_t field_count = num_groups();
     FieldVector fields;
     fields.reserve(field_count);
     const auto owned_type = input_type->GetSharedPtr();
-    for (const auto& group_name : group_names_) {
-      auto type = is_binary_like(owned_type->id()) ? int32() : int64();
+    auto type = is_binary_like(owned_type->id()) ? int32() : int64();
+    for (const auto& group_name : group_names) {
       // size list is 2 as every span contains position and length
       fields.push_back(field(group_name, fixed_size_list(type, 2)));
     }
@@ -2400,16 +2396,14 @@ struct ExtractRegexSpan : ExtractRegexBase {
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     auto options = OptionsWrapper<ExtractRegexSpanOptions>::Get(ctx);
-    ARROW_ASSIGN_OR_RAISE(auto data, ExtractRegexSpanData::Make(options.pattern));
+    ARROW_ASSIGN_OR_RAISE(auto data,
+                          ExtractRegexSpanData::Make(options.pattern, Type::is_utf8));
     return ExtractRegexSpan{data}.Extract(ctx, batch, out);
   }
   Status Extract(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    DCHECK_NE(out->array_data(), NULLPTR);
+    DCHECK_NE(out->array_data(), nullptr);
     std::shared_ptr<DataType> out_type = out->array_data()->type;
-    DCHECK_NE(out_type, NULLPTR);
-    std::unique_ptr<ArrayBuilder> out_builder;
-    ARROW_RETURN_NOT_OK(
-        MakeBuilder(ctx->memory_pool(), out->type()->GetSharedPtr(), &out_builder));
+    ARROW_ASSIGN_OR_RAISE(auto out_builder, MakeBuilder(out_type, ctx->memory_pool()));
     auto struct_builder = checked_pointer_cast<StructBuilder>(std::move(out_builder));
     ARROW_RETURN_NOT_OK(struct_builder->Reserve(batch[0].array.length));
     std::vector<FixedSizeListBuilder*> span_builders;
@@ -2420,7 +2414,7 @@ struct ExtractRegexSpan : ExtractRegexBase {
       span_builders.push_back(
           checked_cast<FixedSizeListBuilder*>(struct_builder->field_builder(i)));
       array_builders.push_back(
-          checked_cast<OffsetBuilderType*>(span_builders[i]->value_builder()));
+          checked_cast<OffsetBuilderType*>(span_builders.back()->value_builder()));
       RETURN_NOT_OK(span_builders.back()->Reserve(batch[0].array.length));
       RETURN_NOT_OK(array_builders.back()->Reserve(2 * batch[0].array.length));
     }
@@ -2430,11 +2424,11 @@ struct ExtractRegexSpan : ExtractRegexBase {
       if (Match(element)) {
         for (int i = 0; i < group_count; i++) {
           // https://github.com/google/re2/issues/24#issuecomment-97653183
-          if (found_values[i].data() != NULLPTR) {
-            int64_t begin = found_values[i].data() - element.data();
-            int64_t size = found_values[i].size();
-            array_builders[i]->UnsafeAppend(static_cast<OffsetCType>(begin));
-            array_builders[i]->UnsafeAppend(static_cast<OffsetCType>(size));
+          if (found_values[i].data() != nullptr) {
+            OffsetCType begin = found_values[i].data() - element.data();
+            OffsetCType size = found_values[i].size();
+            array_builders[i]->UnsafeAppend(begin);
+            array_builders[i]->UnsafeAppend(size);
             ARROW_RETURN_NOT_OK(span_builders[i]->Append());
           } else {
             ARROW_RETURN_NOT_OK(span_builders[i]->AppendNull());

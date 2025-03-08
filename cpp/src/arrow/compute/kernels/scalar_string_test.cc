@@ -1961,27 +1961,26 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegex) {
                    &options);
 }
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpan) {
-  ExtractRegexSpanOptions options{"(?P<letter>[ab])(?P<digit>\\d)"};
+  ExtractRegexSpanOptions options{"(?P<letter>[ab]+)(?P<digit>\\d+)"};
   auto type_fixe_size_list = is_binary_like(this->type()->id()) ? int32() : int64();
   auto out_type = struct_({field("letter", fixed_size_list(type_fixe_size_list, 2)),
                            field("digit", fixed_size_list(type_fixe_size_list, 2))});
   this->CheckUnary("extract_regex_span", R"([])", out_type, R"([])", &options);
+  this->CheckUnary("extract_regex_span", R"([ null,"123ab","cd123ab","cd123abef"])",
+                   out_type, R"([null,null,null,null])", &options);
   this->CheckUnary(
-      "extract_regex_span", R"(["a1", "b2", "c3", null])", out_type,
-      R"([{"letter":[0,1], "digit":[1,1]}, {"letter":[0,1], "digit":[1,1]}, null, null])",
+      "extract_regex_span",
+      R"(["a1", "b2", "c3", null,"123ab","abb12","abc13","cedbb15","cedaabb125efg"])",
+      out_type,
+      R"([{"letter":[0,1], "digit":[1,1]}, {"letter":[0,1], "digit":[1,1]},
+                    null, null,null,{"letter":[0,3], "digit":[3,2]},null,
+                    {"letter":[3,2], "digit":[5,2]},{"letter":[3,4], "digit":[7,3]}])",
       &options);
-  this->CheckUnary(
-      "extract_regex_span", R"(["a1", "c3", null, "b2"])", out_type,
-      R"([{"letter":[0,1], "digit": [1,1]}, null, null, {"letter":[0,1], "digit":[1,1]}])",
-      &options);
-  this->CheckUnary(
-      "extract_regex_span", R"(["a1", "b2"])", out_type,
-      R"([{"letter": [0,1], "digit": [1,1]}, {"letter": [0,1], "digit": [1,1]}])",
-      &options);
-  this->CheckUnary(
-      "extract_regex_span", R"(["a1", "zb3z"])", out_type,
-      R"([{"letter": [0,1], "digit": [1,1]}, {"letter": [1,1], "digit": [2,1]}])",
-      &options);
+  this->CheckUnary("extract_regex_span", R"([ "a3","b2","cdaa123","cdab123ef"])",
+                   out_type,
+                   R"([{"letter":[0,1], "digit":[1,1]},{"letter":[0,1], "digit":[1,1]}
+                                  ,{"letter":[2,2], "digit":[4,3]},{"letter":[2,2], "digit":[4,3]}])",
+                   &options);
 }
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanCaptureOption) {
   ExtractRegexSpanOptions options{"(?P<foo>foo)?(?P<digit>\\d+)?"};
