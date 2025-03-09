@@ -170,11 +170,19 @@ void AssertGetOrInsertNull(MemoTable& table, int32_t expected) {
   ASSERT_EQ(table.GetOrInsertNull(), expected);
 }
 
-TEST(ScalarMemoTable, Int64) {
+template <typename T>
+class ScalarMemoTableInt64Test : public ::testing::Test {};
+
+using ScalarMemoTableInt64TestElements =
+    ::testing::Types<ScalarMemoTable<int64_t, HashTable>,
+                     ScalarMemoTable<int64_t, SwissHashTable>>;
+
+TYPED_TEST_SUITE(ScalarMemoTableInt64Test, ScalarMemoTableInt64TestElements);
+
+TYPED_TEST(ScalarMemoTableInt64Test, Int64) {
   const int64_t A = 1234, B = 0, C = -98765321, D = 12345678901234LL, E = -1, F = 1,
                 G = 9223372036854775807LL, H = -9223372036854775807LL - 1;
-
-  ScalarMemoTable<int64_t> table(default_memory_pool(), 0);
+  TypeParam table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
   AssertGet(table, A, kKeyNotFound);
   AssertGetNull(table, kKeyNotFound);
@@ -219,10 +227,19 @@ TEST(ScalarMemoTable, Int64) {
   }
 }
 
-TEST(ScalarMemoTable, UInt16) {
+template <typename T>
+class ScalarMemoTableUint16Test : public ::testing::Test {};
+
+using ScalarMemoTableUint16TestElements =
+    ::testing::Types<ScalarMemoTable<uint16_t, HashTable>,
+                     ScalarMemoTable<uint16_t, SwissHashTable>>;
+
+TYPED_TEST_SUITE(ScalarMemoTableUint16Test, ScalarMemoTableUint16TestElements);
+
+TYPED_TEST(ScalarMemoTableUint16Test, UInt16) {
   const uint16_t A = 1236, B = 0, C = 65535, D = 32767, E = 1;
 
-  ScalarMemoTable<uint16_t> table(default_memory_pool(), 0);
+  TypeParam table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
   AssertGet(table, A, kKeyNotFound);
   AssertGetNull(table, kKeyNotFound);
@@ -307,11 +324,20 @@ TEST(SmallScalarMemoTable, Bool) {
   // NOTE std::vector<bool> doesn't have a data() method
 }
 
-TEST(ScalarMemoTable, Float64) {
+template <typename T>
+class ScalarMemoTableDoubleTest : public ::testing::Test {};
+
+using ScalarMemoTableDoubleTestElements =
+    ::testing::Types<ScalarMemoTable<double, HashTable>,
+                     ScalarMemoTable<double, SwissHashTable>>;
+
+TYPED_TEST_SUITE(ScalarMemoTableDoubleTest, ScalarMemoTableDoubleTestElements);
+
+TYPED_TEST(ScalarMemoTableDoubleTest, Float64) {
   const double A = 0.0, B = 1.5, C = -0.0, D = std::numeric_limits<double>::infinity(),
                E = -D, F = std::nan("");
 
-  ScalarMemoTable<double> table(default_memory_pool(), 0);
+  TypeParam table(default_memory_pool(), 0);
   ASSERT_EQ(table.size(), 0);
   AssertGet(table, A, kKeyNotFound);
   AssertGetNull(table, kKeyNotFound);
@@ -348,7 +374,7 @@ TEST(ScalarMemoTable, Float64) {
   }
 }
 
-TEST(ScalarMemoTable, StressInt64) {
+TYPED_TEST(ScalarMemoTableInt64Test, StressInt64) {
   std::default_random_engine gen(42);
   std::uniform_int_distribution<int64_t> value_dist(-50, 50);
 #ifdef ARROW_VALGRIND
@@ -357,7 +383,7 @@ TEST(ScalarMemoTable, StressInt64) {
   const int32_t n_repeats = 10000;
 #endif
 
-  ScalarMemoTable<int64_t> table(default_memory_pool(), 0);
+  TypeParam table(default_memory_pool(), 0);
   std::unordered_map<int64_t, int32_t> map;
 
   for (int32_t i = 0; i < n_repeats; ++i) {
@@ -449,7 +475,16 @@ TEST(BinaryMemoTable, Basics) {
   }
 }
 
-TEST(BinaryMemoTable, Stress) {
+template <typename T>
+class BinaryMemoTableTest : public ::testing::Test {};
+
+using BinaryMemoTableTestElements =
+    ::testing::Types<BinaryMemoTable<BinaryBuilder, HashTable>,
+                     BinaryMemoTable<BinaryBuilder, SwissHashTable>>;
+
+TYPED_TEST_SUITE(BinaryMemoTableTest, BinaryMemoTableTestElements);
+
+TYPED_TEST(BinaryMemoTableTest, Stress) {
 #ifdef ARROW_VALGRIND
   const int32_t n_values = 20;
   const int32_t n_repeats = 20;
@@ -460,7 +495,7 @@ TEST(BinaryMemoTable, Stress) {
 
   const auto values = MakeDistinctStrings(n_values);
 
-  BinaryMemoTable<BinaryBuilder> table(default_memory_pool(), 0);
+  TypeParam table(default_memory_pool(), 0);
   std::unordered_map<std::string, int32_t> map;
 
   for (int32_t i = 0; i < n_repeats; ++i) {
@@ -480,10 +515,10 @@ TEST(BinaryMemoTable, Stress) {
   ASSERT_EQ(table.size(), map.size());
 }
 
-TEST(BinaryMemoTable, Empty) {
-  BinaryMemoTable<BinaryBuilder> table(default_memory_pool());
+TYPED_TEST(BinaryMemoTableTest, Empty) {
+  TypeParam table(default_memory_pool());
   ASSERT_EQ(table.size(), 0);
-  BinaryMemoTable<BinaryBuilder>::builder_offset_type offsets[1];
+  typename TypeParam::builder_offset_type offsets[1];
   table.CopyOffsets(0, offsets);
   EXPECT_EQ(offsets[0], 0);
 }
