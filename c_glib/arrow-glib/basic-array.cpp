@@ -2657,8 +2657,10 @@ garrow_string_view_array_new(gint64 length,
                                              garrow_buffer_get_raw(null_bitmap),
                                              n_nulls,
                                              offset);
-  return GARROW_STRING_VIEW_ARRAY(
-    g_object_new(GARROW_TYPE_STRING_VIEW_ARRAY, "array", &string_view_array, nullptr));
+  return GARROW_STRING_VIEW_ARRAY(g_object_new(GARROW_TYPE_STRING_VIEW_ARRAY,
+                                               "array",
+                                               &arrow_string_view_array,
+                                               nullptr));
 }
 
 /**
