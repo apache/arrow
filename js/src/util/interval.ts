@@ -46,8 +46,8 @@ export function toIntervalMonthDayNanoInt32Array(objects: Partial<IntervalMonthD
         data[ai++] = interval['days'] ?? 0;
         const nanoseconds = interval['nanoseconds'];
         if (nanoseconds) {
-            data[ai++] = Number(BigInt(nanoseconds) >> BigInt(32));
             data[ai++] = Number(BigInt(nanoseconds) & BigInt(0xFFFFFFFF));
+            data[ai++] = Number(BigInt(nanoseconds) >> BigInt(32));
         } else {
             ai += 2;
         }
@@ -74,7 +74,7 @@ export function toIntervalMonthDayNanoObjects<StringifyNano extends boolean>(
     const length = array.length;
     const objects = new Array<IntervalMonthDayNanoObject<StringifyNano>>(length / 4);
     for (let ai = 0, oi = 0; ai < length; ai += 4) {
-        const nanoseconds = (BigInt(array[ai + 2]) << BigInt(32)) | BigInt(array[ai + 3] >>> 0);
+        const nanoseconds = (BigInt(array[ai + 3]) << BigInt(32)) | BigInt(array[ai + 2] >>> 0);
         objects[oi++] = {
             'months': array[ai],
             'days': array[ai + 1],
