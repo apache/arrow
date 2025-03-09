@@ -94,7 +94,7 @@ cdef class Node(_Weakrefable):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return f"{type_format}\n{str(self)}"
+        return f"{type_format}\n{self}"
 
     def return_type(self):
         return pyarrow_wrap_data_type(self.node.get().return_type())
@@ -112,7 +112,7 @@ cdef class Expression(_Weakrefable):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return f"{type_format}\n{str(self)}"
+        return f"{type_format}\n{self}"
 
     def root(self):
         return Node.create(self.expression.get().root())
@@ -140,7 +140,7 @@ cdef class Condition(_Weakrefable):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return f"{type_format}\n{str(self)}"
+        return f"{type_format}\n{self}"
 
     def root(self):
         return Node.create(self.condition.get().root())

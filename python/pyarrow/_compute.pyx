@@ -2513,7 +2513,7 @@ cdef class Expression(_Weakrefable):
         return frombytes(self.expr.ToString())
 
     def __repr__(self):
-        return f"<pyarrow.compute.{self.__class__.__name__} {str(self)}>"
+        return f"<pyarrow.compute.{self.__class__.__name__} {self}>"
 
     @staticmethod
     def from_substrait(object message not None):

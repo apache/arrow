@@ -64,7 +64,7 @@ cdef class Statistics(_Weakrefable):
   distinct_count: {self.distinct_count}
   num_values: {self.num_values}
   physical_type: {self.physical_type}
-  logical_type: {str(self.logical_type)}
+  logical_type: {self.logical_type}
   converted_type (legacy): {self.converted_type}"""
 
     def to_dict(self):
@@ -218,7 +218,7 @@ cdef class ParquetLogicalType(_Weakrefable):
         self.type = type
 
     def __repr__(self):
-        return f"{object.__repr__(self)}\n  {str(self)}"
+        return f"{object.__repr__(self)}\n  {self}"
 
     def __str__(self):
         return frombytes(self.type.get().ToString(), safe=True)
@@ -1188,7 +1188,7 @@ cdef class ColumnSchema(_Weakrefable):
   max_definition_level: {self.max_definition_level}
   max_repetition_level: {self.max_repetition_level}
   physical_type: {physical_type}
-  logical_type: {str(self.logical_type)}
+  logical_type: {self.logical_type}
   converted_type (legacy): {converted_type}"""
 
     @property

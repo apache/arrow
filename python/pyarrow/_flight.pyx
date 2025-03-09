@@ -180,7 +180,7 @@ cdef class FlightError(Exception):
         self.extra_info = tobytes(extra_info)
 
     cdef CStatus to_status(self):
-        message = tobytes(f"Flight error: {str(self)}")
+        message = tobytes(f"Flight error: {self}")
         return CStatus_UnknownError(message)
 
 

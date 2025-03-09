@@ -113,7 +113,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return f"{type_format}\n{str(self)}"
+        return f"{type_format}\n{self}"
 
     def to_string(self, *, int indent=0, int window=5, int container_window=2,
                   c_bool skip_new_lines=False):

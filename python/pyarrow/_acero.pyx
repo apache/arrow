@@ -553,7 +553,7 @@ cdef class Declaration(_Weakrefable):
         return frombytes(GetResultValue(DeclarationToString(self.decl)))
 
     def __repr__(self):
-        return f"<pyarrow.acero.Declaration>\n{str(self)}"
+        return f"<pyarrow.acero.Declaration>\n{self}"
 
     def to_table(self, bint use_threads=True):
         """
