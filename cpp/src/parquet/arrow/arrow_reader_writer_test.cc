@@ -395,16 +395,13 @@ using ParquetWriter = TypedColumnWriter<ParquetDataType<T>>;
 
 void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_size,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
-                        std::shared_ptr<Buffer>* out,
-                        const ArrowReaderProperties& schema_arrow_reader_properities =
-                            default_arrow_reader_properties()) {
+                        std::shared_ptr<Buffer>* out) {
   auto sink = CreateOutputStream();
 
   auto write_props = WriterProperties::Builder().write_batch_size(100)->build();
 
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
-                                row_group_size, write_props, arrow_properties,
-                                schema_arrow_reader_properities));
+                                row_group_size, write_props, arrow_properties));
   ASSERT_OK_AND_ASSIGN(*out, sink->Finish());
 }
 
@@ -459,8 +456,8 @@ void DoSimpleRoundtrip(
         default_arrow_writer_properties(),
     const ArrowReaderProperties& reader_properties = default_arrow_reader_properties()) {
   std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size, arrow_properties,
-                                             &buffer, reader_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      WriteTableToBuffer(table, row_group_size, arrow_properties, &buffer));
 
   ASSERT_OK_AND_ASSIGN(auto reader,
                        OpenFile(std::make_shared<BufferReader>(buffer),
@@ -483,8 +480,8 @@ void DoRoundTripWithBatches(
     ArrowReaderProperties reader_properties = default_arrow_reader_properties()) {
   std::shared_ptr<Buffer> buffer;
   reader_properties.set_batch_size(row_group_size - 1);
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(
-      table, row_group_size, arrow_writer_properties, &buffer, reader_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      WriteTableToBuffer(table, row_group_size, arrow_writer_properties, &buffer));
 
   std::unique_ptr<FileReader> reader;
   FileReaderBuilder builder;
@@ -1227,7 +1224,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
     auto arrow_sink_ = std::make_shared<::arrow::io::BufferOutputStream>(buffer);
     ASSERT_OK_NO_THROW(WriteTable(*table, default_memory_pool(), arrow_sink_, 512,
                                   default_writer_properties(),
-                                  default_arrow_writer_properties(), reader_properties));
+                                  default_arrow_writer_properties()));
 
     // XXX: Remove this after ARROW-455 completed
     ASSERT_OK(arrow_sink_->Close());
@@ -5394,11 +5391,10 @@ class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
     auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
 
     std::unique_ptr<FileWriter> writer;
-    auto reader_properties = this->template ReaderPropertiesFromArrowType<TestType>();
     ASSERT_OK_NO_THROW(FileWriter::Make(
         ::arrow::default_memory_pool(),
         ParquetFileWriter::Open(this->sink_, schema_node, writer_properties),
-        arrow_schema, default_arrow_writer_properties(), &writer, reader_properties));
+        arrow_schema, default_arrow_writer_properties(), &writer));
     ASSERT_OK_NO_THROW(writer->NewRowGroup());
     ASSERT_OK_NO_THROW(writer->WriteColumnChunk(*values));
     ASSERT_OK_NO_THROW(writer->Close());
