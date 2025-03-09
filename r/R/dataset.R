@@ -235,6 +235,8 @@ open_dataset <- function(sources,
 #' [read_delim_arrow()], and [read_tsv_arrow()] to allow for easy switching between functions
 #' for opening single files and functions for opening datasets.
 #'
+#' @param col_types an Arrow [Schema], or `NULL` (the default) to infer types from the data.
+#' 
 #' @inheritParams open_dataset
 #' @inheritParams read_delim_arrow
 #'
@@ -255,6 +257,7 @@ open_dataset <- function(sources,
 #'
 #' read_csv_arrow(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
 #' open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
+#' open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_types = schema(list(x = int32())))
 #'
 #' unlink(tf)
 #' @seealso [open_dataset()]
