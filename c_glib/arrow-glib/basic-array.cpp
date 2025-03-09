@@ -2649,7 +2649,7 @@ garrow_string_view_array_new(gint64 length,
   for (GList *node = data_buffers; node; node = g_list_next(node)) {
     arrow_data_buffers.push_back(garrow_buffer_get_raw(GARROW_BUFFER(node->data)));
   }
-  auto string_view_array =
+  auto arrow_string_view_array =
     std::make_shared<arrow::StringViewArray>(arrow::utf8_view(),
                                              length,
                                              garrow_buffer_get_raw(views),
