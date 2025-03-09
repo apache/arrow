@@ -19,7 +19,12 @@ ARG alpine_linux
 ARG python_image_tag
 FROM python:${python_image_tag}-alpine${alpine_linux}
 
-RUN apk add --no-cache bash g++ linux-headers python3-dev tzdata
+RUN apk add --no-cache \
+    bash \
+    g++ \
+    linux-headers \
+    python3-dev \
+    tzdata
 
 ENV TZDIR=/usr/share/zoneinfo
 RUN cp /usr/share/zoneinfo/Etc/UTC /etc/localtime

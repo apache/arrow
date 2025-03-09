@@ -26,7 +26,17 @@ ENV LINUX_WHEEL_KIND='musllinux'
 ENV LINUX_WHEEL_VERSION=${musllinux}
 
 RUN apk update
-RUN apk add --no-cache build-base ccache cmake curl flex git ninja unzip wget zip
+RUN apk add --no-cache \
+    build-base \
+    ccache \
+    cmake \
+    curl \
+    flex \
+    git \
+    ninja \
+    unzip \
+    wget \
+    zip
 # Add mono from testing repo because it's not in the main repo
 RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing mono
 
