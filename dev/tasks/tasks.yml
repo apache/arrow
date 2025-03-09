@@ -1251,7 +1251,7 @@ tasks:
     template: r/azure.linux.yml
     params:
       r_org: rhub
-      r_image: gcc13
+      r_image: gcc14
       r_tag: latest
       flags: '-e INSTALL_ARGS=--use-LTO'
 
