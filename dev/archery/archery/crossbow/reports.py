@@ -155,7 +155,7 @@ class ConsoleReport(Report):
         line = self.HEADER.format(
             state=state.upper(),
             branch=branch,
-            content='uploaded {} / {}'.format(n_uploaded, n_expected)
+            content=f'uploaded {n_uploaded} / {n_expected}'
         )
         return click.style(line, fg=self.COLORS[state.lower()])
 
@@ -166,7 +166,7 @@ class ConsoleReport(Report):
             content='Artifacts'
         )
         delimiter = '-' * len(header)
-        return '{}\n{}'.format(header, delimiter)
+        return f"{header}\n{delimiter}"
 
     def artifact(self, state, pattern, asset):
         if asset is None:
@@ -324,9 +324,9 @@ class CommentReport(Report):
         url = 'https://github.com/{repo}/branches/all?query={branch}'
         sha = self.job.target.head
 
-        msg = 'Revision: {}\n\n'.format(sha)
+        msg = f'Revision: {sha}\n\n'
         msg += 'Submitted crossbow builds: [{repo} @ {branch}]'
-        msg += '({})\n'.format(url)
+        msg += f'({url})\n'
         msg += '\n|Task|Status|\n|----|------|'
 
         tasks = sorted(self.job.tasks.items(), key=operator.itemgetter(0))

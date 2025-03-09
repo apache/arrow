@@ -671,7 +671,7 @@ class Queue(Repo):
     def date_of(self, job):
         # it'd be better to bound to the queue repository on deserialization
         # and reorganize these methods to Job
-        branch_name = 'origin/{}'.format(job.branch)
+        branch_name = f'origin/{job.branch}'
         branch = self.repo.branches[branch_name]
         commit = self.repo[branch.target]
         return date.fromtimestamp(commit.commit_time)
