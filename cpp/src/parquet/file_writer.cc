@@ -393,9 +393,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
       bloom_filter_builder_->AppendRowGroup();
     }
     std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
-        sink_, rg_metadata, row_group_ordinal, properties_.get(),
-        buffered_row_group, file_encryptor_.get(), page_index_builder_.get(),
-        bloom_filter_builder_.get()));
+        sink_, rg_metadata, row_group_ordinal, properties_.get(), buffered_row_group,
+        file_encryptor_.get(), page_index_builder_.get(), bloom_filter_builder_.get()));
     row_group_writer_ = std::make_unique<RowGroupWriter>(std::move(contents));
     return row_group_writer_.get();
   }

@@ -2543,7 +2543,7 @@ void TypedColumnWriterImpl<BooleanType>::UpdateBloomFilterSpaced(const bool*, in
                                                                  int64_t) {
   // BooleanType does not have a bloom filter currently,
   // so bloom_filter_ should always be nullptr.
-  if (UNLIKELY(bloom_filter_ == nullptr)) {
+  if (ARROW_PREDICT_FALSE(bloom_filter_ != nullptr)) {
     throw ParquetException("BooleanType does not support bloom filters");
   }
 }
