@@ -2621,6 +2621,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool skip_nulls
         uint32_t min_count
 
+    cdef cppclass CSkewOptions \
+            "arrow::compute::SkewOptions"(CFunctionOptions):
+        CSkewOptions(c_bool skip_nulls, uint32_t min_count)
+        c_bool skip_nulls
+        uint32_t min_count
+
     cdef cppclass CScalarAggregateOptions \
             "arrow::compute::ScalarAggregateOptions"(CFunctionOptions):
         CScalarAggregateOptions(c_bool skip_nulls, uint32_t min_count)
@@ -2822,6 +2828,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CRankQuantileOptions(vector[CSortKey] sort_keys, CNullPlacement)
         vector[CSortKey] sort_keys
         CNullPlacement null_placement
+
+    cdef enum PivotWiderUnexpectedKeyBehavior \
+            "arrow::compute::PivotWiderOptions::UnexpectedKeyBehavior":
+        PivotWiderUnexpectedKeyBehavior_Ignore "arrow::compute::PivotWiderOptions::kIgnore"
+        PivotWiderUnexpectedKeyBehavior_Raise "arrow::compute::PivotWiderOptions::kRaise"
+
+    cdef cppclass CPivotWiderOptions \
+            "arrow::compute::PivotWiderOptions"(CFunctionOptions):
+        CPivotWiderOptions(vector[c_string] key_names,
+                           PivotWiderUnexpectedKeyBehavior)
 
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
