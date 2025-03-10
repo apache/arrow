@@ -69,30 +69,33 @@ void ContentDefinedChunker::Roll(const bool value) {
   has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
 }
 
-template <typename T>
-void ContentDefinedChunker::Roll(const T* value) {
-  constexpr size_t BYTE_WIDTH = sizeof(T);
-  chunk_size_ += BYTE_WIDTH;
+template <int ByteWidth>
+void ContentDefinedChunker::Roll(const uint8_t* value) {
+  chunk_size_ += ByteWidth;
   if (chunk_size_ < min_size_) {
     // short-circuit if we haven't reached the minimum chunk size, this speeds up the
     // chunking process since the gearhash doesn't need to be updated
     return;
   }
-  auto bytes = reinterpret_cast<const uint8_t*>(value);
-  for (size_t i = 0; i < BYTE_WIDTH; ++i) {
-    rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][bytes[i]];
+  for (size_t i = 0; i < ByteWidth; ++i) {
+    rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][value[i]];
     has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
   }
 }
 
-void ContentDefinedChunker::Roll(const uint8_t* value, int64_t num_bytes) {
-  chunk_size_ += num_bytes;
+template <typename T>
+void ContentDefinedChunker::Roll(const T* value) {
+  return Roll<sizeof(T)>(reinterpret_cast<const uint8_t*>(value));
+}
+
+void ContentDefinedChunker::Roll(const uint8_t* value, int64_t length) {
+  chunk_size_ += length;
   if (chunk_size_ < min_size_) {
     // short-circuit if we haven't reached the minimum chunk size, this speeds up the
     // chunking process since the gearhash doesn't need to be updated
     return;
   }
-  for (int64_t i = 0; i < num_bytes; ++i) {
+  for (auto i = 0; i < length; ++i) {
     rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][value[i]];
     has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
   }
@@ -202,21 +205,22 @@ const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_lev
   return chunks;
 }
 
-#define FIXED_WIDTH_CASE(CType)                                        \
-  {                                                                    \
-    const auto raw_values = values.data()->GetValues<CType>(1);        \
-    return Calculate(def_levels, rep_levels, num_levels,               \
-                     [&](int64_t i) { return Roll(raw_values + i); }); \
+#define FIXED_WIDTH_CASE(ByteWidth)                                       \
+  {                                                                       \
+    const auto raw_values = values.data()->GetValues<uint8_t>(1);         \
+    return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) { \
+      return Roll<ByteWidth>(raw_values + i * ByteWidth);                 \
+    });                                                                   \
   }
 
-#define BINARY_LIKE_CASE(OffsetCType)                                     \
+#define BINARY_LIKE_CASE(ArrayType)                                       \
   {                                                                       \
-    const auto raw_offsets = values.data()->GetValues<OffsetCType>(1);    \
-    const auto raw_values = values.data()->GetValues<uint8_t>(2);         \
+    const auto& array = static_cast<const ArrayType&>(values);            \
+    const uint8_t* value;                                                 \
+    ArrayType::offset_type length;                                        \
     return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) { \
-      const OffsetCType pos = raw_offsets[i];                             \
-      const OffsetCType length = raw_offsets[i + 1] - pos;                \
-      Roll(raw_values + pos, length);                                     \
+      value = array.GetValue(i, &length);                                 \
+      Roll(value, length);                                                \
     });                                                                   \
   }
 
@@ -235,17 +239,17 @@ const std::vector<Chunk> ContentDefinedChunker::GetBoundaries(
     }
     case ::arrow::Type::INT8:
     case ::arrow::Type::UINT8:
-      FIXED_WIDTH_CASE(uint8_t)
+      FIXED_WIDTH_CASE(1)
     case ::arrow::Type::INT16:
     case ::arrow::Type::UINT16:
     case ::arrow::Type::HALF_FLOAT:
-      FIXED_WIDTH_CASE(uint16_t)
+      FIXED_WIDTH_CASE(2)
     case ::arrow::Type::INT32:
     case ::arrow::Type::UINT32:
     case ::arrow::Type::FLOAT:
     case ::arrow::Type::DATE32:
     case ::arrow::Type::TIME32:
-      FIXED_WIDTH_CASE(uint32_t)
+      FIXED_WIDTH_CASE(4)
     case ::arrow::Type::INT64:
     case ::arrow::Type::UINT64:
     case ::arrow::Type::DOUBLE:
@@ -253,22 +257,24 @@ const std::vector<Chunk> ContentDefinedChunker::GetBoundaries(
     case ::arrow::Type::TIME64:
     case ::arrow::Type::TIMESTAMP:
     case ::arrow::Type::DURATION:
-      FIXED_WIDTH_CASE(uint64_t)
-    case ::arrow::Type::BINARY:
-    case ::arrow::Type::STRING:
-      BINARY_LIKE_CASE(int32_t)
-    case ::arrow::Type::LARGE_BINARY:
-    case ::arrow::Type::LARGE_STRING:
-      BINARY_LIKE_CASE(int64_t)
+      FIXED_WIDTH_CASE(8)
     case ::arrow::Type::DECIMAL128:
+      FIXED_WIDTH_CASE(16)
     case ::arrow::Type::DECIMAL256:
+      FIXED_WIDTH_CASE(32)
+    case ::arrow::Type::BINARY:
+      BINARY_LIKE_CASE(::arrow::BinaryArray)
+    case ::arrow::Type::STRING:
+      BINARY_LIKE_CASE(::arrow::StringArray)
+    case ::arrow::Type::LARGE_BINARY:
+      BINARY_LIKE_CASE(::arrow::LargeBinaryArray)
+    case ::arrow::Type::LARGE_STRING:
+      BINARY_LIKE_CASE(::arrow::LargeStringArray)
     case ::arrow::Type::FIXED_SIZE_BINARY: {
-      const auto raw_values = values.data()->GetValues<uint8_t>(1);
-      const auto byte_width =
-          static_cast<const ::arrow::FixedSizeBinaryArray&>(values).byte_width();
-      return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) {
-        return Roll(raw_values + i * byte_width, byte_width);
-      });
+      const auto& array = static_cast<const ::arrow::FixedSizeBinaryArray&>(values);
+      const auto byte_width = array.byte_width();
+      return Calculate(def_levels, rep_levels, num_levels,
+                       [&](int64_t i) { Roll(array.GetValue(i), byte_width); });
     }
     case ::arrow::Type::DICTIONARY:
       return GetBoundaries(
