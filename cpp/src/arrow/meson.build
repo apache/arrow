@@ -270,11 +270,8 @@ if needs_ipc
         'ipc/writer.cc',
     ]
 
-    # ideally we could use the meson wrapdb for flatbuffers
-    # but Arrow statically asserts that version 23.5 is required
-    # while the wrapdb does not have that minor version
-    arrow_ipc_deps = []
-    arrow_ipc_includes = ['../../../thirdparty/flatbuffers/include']
+    flatbuffers_dep = dependency('flatbuffers')
+    arrow_ipc_deps = [flatbuffers_dep]
 
     if needs_json
         arrow_ipc_srcs += 'ipc/json_simple.cc'
@@ -284,7 +281,7 @@ if needs_ipc
     arrow_components += {
         'arrow_ipc': {
             'sources': arrow_ipc_srcs,
-            'include_dirs': arrow_ipc_includes,
+            'include_dirs': [],
             'dependencies': arrow_ipc_deps,
         },
     }
