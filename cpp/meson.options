@@ -26,7 +26,7 @@ option(
     'json',
     type: 'boolean',
     description: 'Build Arrow with JSON support',
-    value: false,    
+    value: false,
 )
 
 option(
@@ -49,12 +49,12 @@ option(
     'testing',
     type: 'boolean',
     description: 'Build the Arrow testing libraries',
-    value: false,    
+    value: false,
 )
 
 option(
     'tests',
     type: 'boolean',
     description: 'Build the Arrow googletest unit tests',
-    value: false,    
+    value: false,
 )
