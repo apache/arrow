@@ -61,6 +61,8 @@ void RegisterVectorOptions(FunctionRegistry* registry);
 
 // Aggregate functions
 void RegisterHashAggregateBasic(FunctionRegistry* registry);
+void RegisterHashAggregateNumeric(FunctionRegistry* registry);
+void RegisterHashAggregatePivot(FunctionRegistry* registry);
 void RegisterScalarAggregateBasic(FunctionRegistry* registry);
 void RegisterScalarAggregateMode(FunctionRegistry* registry);
 void RegisterScalarAggregatePivot(FunctionRegistry* registry);
