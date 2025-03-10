@@ -96,31 +96,9 @@ class ApacheArrowPackageTask < PackageTask
     control.gsub(/@CUDA_ARCHITECTURE@/, cuda_architecture)
   end
 
-  def apt_prepare_debian_control_grpc(control, target)
-    case target
-    when /\Aubuntu-focal/
-      use_system_grpc = "#"
-    else
-      use_system_grpc = ""
-    end
-    control.gsub(/@USE_SYSTEM_GRPC@/, use_system_grpc)
-  end
-
-  def apt_prepare_debian_control_protobuf(control, target)
-    case target
-    when /\Aubuntu-focal/
-      use_system_protobuf = "#"
-    else
-      use_system_protobuf = ""
-    end
-    control.gsub(/@USE_SYSTEM_PROTOBUF@/, use_system_protobuf)
-  end
-
   def apt_prepare_debian_control(control_in, target)
     control = control_in.dup
     control = apt_prepare_debian_control_cuda_architecture(control, target)
-    control = apt_prepare_debian_control_grpc(control, target)
-    control = apt_prepare_debian_control_protobuf(control, target)
     control
   end
 end

@@ -89,7 +89,13 @@ pushd ${build_dir}
 if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then
   export PYTHON="${PYTHON:-python3}"
 fi
-ctest \
+if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
+  ARROW_BUILD_EXAMPLES=OFF # TODO: Remove this
+  meson test \
+    --print-errorlogs \
+    "$@"
+else
+  ctest \
     --label-regex unittest \
     --output-on-failure \
     --parallel ${n_jobs} \
@@ -97,6 +103,7 @@ ctest \
     --timeout ${ARROW_CTEST_TIMEOUT:-300} \
     "${ctest_options[@]}" \
     "$@"
+fi
 
 if [ "${ARROW_BUILD_EXAMPLES}" == "ON" ]; then
     examples=$(find ${binary_output_dir} -executable -name "*example")

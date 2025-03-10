@@ -5,8 +5,7 @@ Maintainer: Apache Arrow Developers <dev@arrow.apache.org>
 Build-Depends:
   cmake,
   debhelper (>= 12),
-# TODO: Enable this after we drop support for Ubuntu 20.04.
-#  gi-docgen,
+  gi-docgen,
   git,
   gobject-introspection,
   libboost-filesystem-dev,
@@ -17,11 +16,11 @@ Build-Depends:
   libcurl4-openssl-dev,
   libgirepository1.0-dev,
   libgoogle-glog-dev,
-@USE_SYSTEM_GRPC@  libgrpc++-dev,
+  libgrpc++-dev,
   libgtest-dev,
   liblz4-dev,
-@USE_SYSTEM_PROTOBUF@  libprotobuf-dev,
-@USE_SYSTEM_PROTOBUF@  libprotoc-dev,
+  libprotobuf-dev,
+  libprotoc-dev,
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
@@ -34,10 +33,10 @@ Build-Depends:
   nlohmann-json-dev | nlohmann-json3-dev,
   nvidia-cuda-toolkit [!arm64],
   pkg-config,
-@USE_SYSTEM_PROTOBUF@  protobuf-compiler,
-@USE_SYSTEM_GRPC@  protobuf-compiler-grpc,
-  valac,
+  protobuf-compiler,
+  protobuf-compiler-grpc,
   tzdata,
+  valac,
   zlib1g-dev
 Build-Depends-Indep: libglib2.0-doc
 Standards-Version: 3.9.8
@@ -140,15 +139,15 @@ Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
+  libabsl-dev,
   libarrow2000 (= ${binary:Version}),
-@USE_SYSTEM_GRPC@  libabsl-dev,
   libbrotli-dev,
   libbz2-dev,
+  libc-ares-dev,
   libcurl4-openssl-dev,
   liblz4-dev,
-  libc-ares-dev,
-@USE_SYSTEM_PROTOBUF@  libprotobuf-dev,
-@USE_SYSTEM_PROTOBUF@  libprotoc-dev,
+  libprotobuf-dev,
+  libprotoc-dev,
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
@@ -156,7 +155,7 @@ Depends:
   libxxhash-dev,
   libzstd-dev,
   nlohmann-json-dev | nlohmann-json3-dev,
-@USE_SYSTEM_GRPC@  protobuf-compiler-grpc,
+  protobuf-compiler-grpc,
   zlib1g-dev
 Description: Apache Arrow is a data processing library for analysis
  .
@@ -208,7 +207,7 @@ Depends:
   libarrow-dev (= ${binary:Version}),
   libarrow-flight2000 (= ${binary:Version}),
   libc-ares-dev,
-@USE_SYSTEM_GRPC@  libgrpc++-dev
+  libgrpc++-dev
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for Flight RPC system.

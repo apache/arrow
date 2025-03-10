@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,20 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+diff --git a/include/aws/common/byte_order.inl b/include/aws/common/byte_order.inl
+index 1204be0..0abd9cb 100644
+--- a/include/aws/common/byte_order.inl
++++ b/include/aws/common/byte_order.inl
+@@ -13,7 +13,7 @@
+ #    include <stdlib.h>
+ #else
+ #    include <netinet/in.h>
+-#endif /* _MSC_VER */
++#endif /* _WIN32 */
 
-echo "Install Substrait Consumer Test Suite";
+ AWS_EXTERN_C_BEGIN
 
-git clone https://github.com/substrait-io/consumer-testing.git
-cd consumer-testing
-# avoid installing pyarrow
-grep -v 'pyarrow\|arrow-nightlies' requirements.txt > requirements-no-arrow.txt
-pip install -r requirements-no-arrow.txt
-
-pip install -r requirements-build.txt
-# setup substrait-java
-git submodule init
-git submodule update --init
-./build-and-copy-isthmus-shadow-jar.sh
-# install substrait_consumer library
-python setup.py install
+@@ -39,7 +39,7 @@ AWS_STATIC_IMPL uint64_t aws_hton64(uint64_t x) {
+     uint64_t v;
+     __asm__("bswap %q0" : "=r"(v) : "0"(x));
+     return v;
+-#elif defined(_MSC_VER)
++#elif defined(_WIN32)
+     return _byteswap_uint64(x);
+ #else
+     uint32_t low = x & UINT32_MAX;

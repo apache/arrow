@@ -94,12 +94,12 @@ jobs:
             title: AMD64 Ubuntu 22.04 C++ ASAN UBSAN
             ubuntu: 22.04
           - arch: arm64v8
-            clang-tools: 10
+            clang-tools: 14
             image: ubuntu-cpp
-            llvm: 10
+            llvm: 14
             runs-on: ubuntu-24.04-arm
-            title: ARM64 Ubuntu 20.04 C++
-            ubuntu: 20.04
+            title: ARM64 Ubuntu 22.04 C++
+            ubuntu: 22.04
     env:
       ARCH: ${{ matrix.arch }}
       ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
@@ -113,7 +113,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
+        uses: actions/cache@v4
         with:
           path: .docker
           key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
@@ -156,7 +156,7 @@ jobs:
 
   build-example:
     name: C++ Minimal Build Example
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 45
     steps:
@@ -274,11 +274,11 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - windows-2019
+          - windows-2022
         include:
-          - os: windows-2019
+          - os: windows-2022
             simd-level: AVX2
-            title: AMD64 Windows 2019 C++17 AVX2
+            title: AMD64 Windows 2022 AVX2
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
@@ -352,7 +352,7 @@ jobs:
       - name: Build
         shell: cmd
         run: |
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Test
         shell: bash

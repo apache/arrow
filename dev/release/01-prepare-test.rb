@@ -136,8 +136,8 @@ class PrepareTest < Test::Unit::TestCase
       {
         path: "c_glib/meson.build",
         hunks: [
-          ["-version = '#{@snapshot_version}'",
-           "+version = '#{@release_version}'"],
+          ["-    version: '#{@snapshot_version}',",
+           "+    version: '#{@release_version}',"],
         ],
       },
       {
@@ -159,6 +159,13 @@ class PrepareTest < Test::Unit::TestCase
         hunks: [
           ["-set(ARROW_VERSION \"#{@snapshot_version}\")",
            "+set(ARROW_VERSION \"#{@release_version}\")"],
+        ],
+      },
+      {
+        path: "cpp/meson.build",
+        hunks: [
+          ["-    version: '#{@snapshot_version}',",
+           "+    version: '#{@release_version}',"],
         ],
       },
       {

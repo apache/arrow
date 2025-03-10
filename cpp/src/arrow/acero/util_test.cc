@@ -15,12 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <future>
+#include "arrow/acero/concurrent_queue_internal.h"
 #include "arrow/acero/hash_join_node.h"
 #include "arrow/acero/schema_util.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
-
 using testing::Eq;
 
 namespace arrow {
@@ -182,6 +183,121 @@ TEST(FieldMap, ExtensionTypeHashJoin) {
   auto i =
       schema_mgr.proj_maps[0].map(HashJoinProjection::INPUT, HashJoinProjection::OUTPUT);
   EXPECT_EQ(i.get(0), 0);
+}
+
+template <typename Queue>
+void ConcurrentQueueBasicTest(Queue& queue) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading enabled";
+#endif
+  ASSERT_TRUE(queue.Empty());
+  queue.Push(1);
+  ASSERT_FALSE(queue.Empty());
+  ASSERT_EQ(queue.TryPop(), std::make_optional(1));
+  ASSERT_TRUE(queue.Empty());
+
+  auto fut_pop = std::async(std::launch::async, [&]() { return queue.WaitAndPop(); });
+  ASSERT_EQ(fut_pop.wait_for(std::chrono::milliseconds(10)), std::future_status::timeout);
+  queue.Push(2);
+  queue.Push(3);
+  queue.Push(4);
+  ASSERT_EQ(fut_pop.wait_for(std::chrono::milliseconds(10)), std::future_status::ready);
+  ASSERT_EQ(fut_pop.get(), 2);
+  fut_pop = std::async(std::launch::async, [&]() { return queue.WaitAndPop(); });
+  ASSERT_EQ(fut_pop.wait_for(std::chrono::milliseconds(10)), std::future_status::ready);
+  ASSERT_EQ(fut_pop.get(), 3);
+  ASSERT_FALSE(queue.Empty());
+  ASSERT_EQ(queue.TryPop(), std::make_optional(4));
+  ASSERT_EQ(queue.TryPop(), std::nullopt);
+  queue.Push(5);
+  ASSERT_FALSE(queue.Empty());
+  ASSERT_EQ(queue.Front(), 5);
+  ASSERT_FALSE(queue.Empty());
+  queue.Clear();
+  ASSERT_TRUE(queue.Empty());
+}
+
+TEST(ConcurrentQueue, BasicTest) {
+  ConcurrentQueue<int> queue;
+  ConcurrentQueueBasicTest(queue);
+}
+
+class BackpressureTestExecNode : public ExecNode {
+ public:
+  BackpressureTestExecNode() : ExecNode(nullptr, {}, {}, nullptr) {}
+  const char* kind_name() const override { return "BackpressureTestNode"; }
+  Status InputReceived(ExecNode* input, ExecBatch batch) override {
+    return Status::NotImplemented("Test only node");
+  }
+  Status InputFinished(ExecNode* input, int total_batches) override {
+    return Status::NotImplemented("Test only node");
+  }
+  Status StartProducing() override { return Status::NotImplemented("Test only node"); }
+
+ protected:
+  Status StopProducingImpl() override {
+    stopped = true;
+    return Status::OK();
+  }
+
+ public:
+  void PauseProducing(ExecNode* output, int32_t counter) override { paused = true; }
+  void ResumeProducing(ExecNode* output, int32_t counter) override { paused = false; }
+  bool paused{false};
+  bool stopped{false};
+};
+
+class TestBackpressureControl : public BackpressureControl {
+ public:
+  explicit TestBackpressureControl(BackpressureTestExecNode* test_node)
+      : test_node(test_node) {}
+  virtual void Pause() { test_node->PauseProducing(nullptr, 0); }
+  virtual void Resume() { test_node->ResumeProducing(nullptr, 0); }
+  BackpressureTestExecNode* test_node;
+};
+
+TEST(BackpressureConcurrentQueue, BasicTest) {
+  BackpressureTestExecNode dummy_node;
+  auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
+  ASSERT_OK_AND_ASSIGN(auto handler,
+                       BackpressureHandler::Make(&dummy_node, 2, 4, std::move(ctrl)));
+  BackpressureConcurrentQueue<int> queue(std::move(handler));
+
+  ConcurrentQueueBasicTest(queue);
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
+}
+
+TEST(BackpressureConcurrentQueue, BackpressureTest) {
+  BackpressureTestExecNode dummy_node;
+  auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
+  ASSERT_OK_AND_ASSIGN(auto handler,
+                       BackpressureHandler::Make(&dummy_node, 2, 4, std::move(ctrl)));
+  BackpressureConcurrentQueue<int> queue(std::move(handler));
+
+  queue.Push(6);
+  queue.Push(7);
+  queue.Push(8);
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
+  queue.Push(9);
+  ASSERT_TRUE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
+  ASSERT_EQ(queue.TryPop(), std::make_optional(6));
+  ASSERT_TRUE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
+  ASSERT_EQ(queue.TryPop(), std::make_optional(7));
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
+  queue.Push(10);
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
+  queue.Push(11);
+  ASSERT_TRUE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
+  ASSERT_OK(queue.ForceShutdown());
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_TRUE(dummy_node.stopped);
 }
 
 }  // namespace acero

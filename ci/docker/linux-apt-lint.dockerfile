@@ -58,6 +58,7 @@ RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
 RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Renviron.site
 # We don't need arrow's dependencies, only lintr (and its dependencies)
 RUN R -e "install.packages('lintr')"
+RUN R -e "install.packages('cyclocomp')"
 
 # Docker linter
 COPY --from=hadolint /bin/hadolint /usr/bin/hadolint

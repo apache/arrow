@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:jammy
+FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -33,7 +33,6 @@ RUN apt-get update -y -q && \
       python3-pip \
       python3-venv \
       tzdata \
+      tzdata-legacy \
       && \
       apt-get clean && rm -rf /var/lib/apt/lists*
-
-RUN pip3 install --no-cache-dir -U pip setuptools

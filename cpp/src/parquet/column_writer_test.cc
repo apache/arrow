@@ -412,6 +412,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   const ColumnDescriptor* descr_;
 
+ protected:
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
   std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;
@@ -1895,6 +1896,51 @@ TEST_F(TestValuesWriterInt32Type, AllNullsCompressionInPageV2) {
     ASSERT_EQ(0, this->values_read_);
   }
 }
+
+#ifdef ARROW_WITH_ZSTD
+
+TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
+  Compression::type compression = Compression::ZSTD;
+  auto verify_only_one_uncompressed_page = [&](int total_num_values) {
+    ColumnProperties column_properties;
+    column_properties.set_compression(compression);
+
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                          ParquetDataPageVersion::V2);
+    writer->WriteBatch(static_cast<int64_t>(values_.size()), this->def_levels_.data(),
+                       nullptr, this->values_ptr_);
+    writer->Close();
+    ASSERT_OK_AND_ASSIGN(auto buffer, this->sink_->Finish());
+    auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+    ReaderProperties readerProperties;
+    std::unique_ptr<PageReader> page_reader = PageReader::Open(
+        std::move(source), total_num_values, compression, readerProperties);
+    auto data_page = std::static_pointer_cast<DataPageV2>(page_reader->NextPage());
+    ASSERT_TRUE(data_page != nullptr);
+    ASSERT_FALSE(data_page->is_compressed());
+    ASSERT_TRUE(page_reader->NextPage() == nullptr);
+  };
+  {
+    // zero-sized data buffer should be handled correctly.
+    this->SetUpSchema(Repetition::OPTIONAL);
+    this->GenerateData(SMALL_SIZE);
+    std::fill(this->def_levels_.begin(), this->def_levels_.end(), 0);
+    verify_only_one_uncompressed_page(SMALL_SIZE);
+  }
+  {
+    // When only compress little data, the compressed size would even be
+    // larger than the original size. In this case, the `is_compressed` flag
+    // should be set to false.
+    this->SetUpSchema(Repetition::OPTIONAL);
+    this->GenerateData(1);
+    std::fill(this->def_levels_.begin(), this->def_levels_.end(), 1);
+    values_[0] = 142857;
+    verify_only_one_uncompressed_page(/*total_num_values=*/1);
+  }
+}
+
+#endif
 
 }  // namespace test
 }  // namespace parquet

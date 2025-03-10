@@ -186,7 +186,6 @@ test_apt() {
   if [ "$(arch)" = "x86_64" ]; then
     for target in "debian:bookworm" \
                   "debian:trixie" \
-                  "ubuntu:focal" \
                   "ubuntu:jammy" \
                   "ubuntu:noble"; do \
       if ! docker run \
@@ -207,7 +206,6 @@ test_apt() {
   if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
     for target in "arm64v8/debian:bookworm" \
                   "arm64v8/debian:trixie" \
-                  "arm64v8/ubuntu:focal" \
                   "arm64v8/ubuntu:jammy" \
                   "arm64v8/ubuntu:noble"; do \
       if ! docker run \
