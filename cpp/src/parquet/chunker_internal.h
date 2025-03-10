@@ -132,16 +132,19 @@ class ContentDefinedChunker {
                                          const ::arrow::Array& values);
 
  private:
-  void Roll(const bool value);
+  inline void Roll(const bool value);
 
   // Update the rolling hash with a compile-time known sized value, set has_matched_ to
   // true if the hash matches the mask.
+  template <int ByteWidth>
+  void inline Roll(const uint8_t* value);
+
   template <typename T>
-  void Roll(const T* value);
+  inline void Roll(const T* value);
 
   // Update the rolling hash with a binary-like value, set has_matched_ to true if the
   // hash matches the mask.
-  void Roll(const uint8_t* value, int64_t num_bytes);
+  inline void Roll(const uint8_t* value, int64_t length);
 
   // Evaluate whether a new chunk should be created based on the has_matched_, nth_run_
   // and chunk_size_ state.
