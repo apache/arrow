@@ -3707,6 +3707,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   }
 }
 
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
