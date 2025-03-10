@@ -13,15 +13,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+using System.Buffers;
+using System.Threading;
+using Grpc.Core;
+
 namespace Apache.Arrow.Flight.Sql;
 
-public static class SqlAction
+public class FlightCallOptions
 {
-    public const string CreateRequest = "CreatePreparedStatement";
-    public const string CloseRequest = "ClosePreparedStatement";
-    public const string CancelFlightInfoRequest = "CancelFlightInfo";
-    public const string BeginTransactionRequest = "BeginTransaction";
-    public const string CommitRequest = "Commit";
-    public const string RollbackRequest = "Rollback";
-    public const string GetPrimaryKeysRequest = "GetPrimaryKeys";
+    public FlightCallOptions()
+    {
+        Timeout = TimeSpan.FromSeconds(-1);
+    }
+    
+    // Implement any necessary options for RPC calls
+    public Metadata Headers { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the optional timeout for this call.
+    /// Negative durations mean an implementation-defined default behavior will be used instead.
+    /// </summary>
+    public TimeSpan Timeout { get; set; }
 }
