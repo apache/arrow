@@ -28,15 +28,46 @@
 
 namespace parquet::internal {
 
+/// Calculate the mask to use for the rolling hash, the mask is used to determine if a
+/// new chunk should be created based on the rolling hash value. The mask is calculated
+/// based on the min_size, max_size and norm_factor parameters.
+///
+/// Assuming that the gear hash hash random values with a uniform distribution, then each
+/// bit in the actual value of rolling_hash_ has even probability of being set so a mask
+/// with the top N bits set has a probability of 1/2^N of matching the rolling hash. This
+/// is the judgment criteria for the original gear hash based content-defined chunking.
+/// The main drawback of this approach is the non-uniform distribution of the chunk sizes.
+///
+/// Later on the FastCDC has improved the process by introducing:
+/// - sub-minimum chunk cut-point skipping (not hashing the first `min_size` bytes)
+/// - chunk size normalization (using two masks)
+///
+/// This implementation uses cut-point skipping because it improves the overall
+/// performance and a more accurate alternative to have less skewed chunk size
+/// distribution. Instead of using two different masks (one with a lower and one with a
+/// probability of matching and switching them based on the actual chunk size), we rather
+/// use 8 different gear hash tables and require having 8 consecutive matches while
+/// switching between the used hashtables. This approach is based on central limit theorem
+/// and approximates normal distribution of the chunk sizes.
+//
+// @param min_size The minimum chunk size (default 256KiB)
+// @param max_size The maximum chunk size (default 1MiB)
+// @param norm_factor Normalization factor (default 0)
+// @return The mask used to compare against the rolling hash
 static uint64_t GetMask(int64_t min_size, int64_t max_size, uint8_t norm_factor) {
-  // we aim for gaussian-like distribution of chunk sizes between min_size and max_size
+  // calculate the average size of the chunks
   int64_t avg_size = (min_size + max_size) / 2;
-  // we skip calculating gearhash for the first `min_size` bytes, so we are looking for
-  // a smaller chunk as the average size
+  // since we are skipping the first `min_size` bytes for each chunk, we need to
+  // target a smaller chunk size to reach the average size after skipping the first
+  // `min_size` bytes
   int64_t target_size = avg_size - min_size;
+  // assuming that the gear hash has a uniform distribution, we can calculate the mask
+  // by taking the log2 of the target size
   size_t mask_bits = static_cast<size_t>(std::floor(std::log2(target_size)));
-  // -3 because we are using 8 hash tables to have more gaussian-like distribution
-  // `norm_factor` narrows the chunk size distribution aroun avg_size
+  // -3 because we are using 8 hash tables to have more gaussian-like distribution,
+  // a user defined `norm_factor` can be used to adjust the mask size, hence the matching
+  // probability, by increasing the norm_factor we increase the probability of matching
+  // the mask, forcing the distribution closer to the average size
   size_t effective_bits = mask_bits - 3 - norm_factor;
   return std::numeric_limits<uint64_t>::max() << (64 - effective_bits);
 }
