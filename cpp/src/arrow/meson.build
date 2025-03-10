@@ -371,7 +371,21 @@ install_headers(
 )
 
 if needs_tests
-    filesystem_dep = dependency('boost', modules: ['filesystem'])
+    filesystem_dep = dependency(
+        'boost',
+        modules: ['filesystem'],
+        required: false,
+    )
+    if not filesystem_dep.found()
+        cmake = import('cmake')
+        boost_opt = cmake.subproject_options()
+        boost_opt.add_cmake_defines(
+            {'BOOST_INCLUDE_LIBRARIES': 'filesystem;system'},
+        )
+        boost_proj = cmake.subproject('boost', options: boost_opt)
+        filesystem_dep = boost_proj.dependency('boost_filesystem')
+    endif
+
     gtest_main_dep = dependency('gtest_main')
     gmock_dep = dependency('gmock')
 else
