@@ -62,7 +62,7 @@ cdef class AzureFileSystem(FileSystem):
         Either `http` or `https`. Defaults to `https`. Useful for connecting to a local 
         emulator, like Azurite.
     sas_token : str, default None
-        Sas token for the storage account, used as an alternative to account_key. If sas_token
+        SAS token for the storage account, used as an alternative to account_key. If sas_token
         and account_key are None the default credential will be used. 
 
     Examples
