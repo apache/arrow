@@ -452,9 +452,11 @@ const FunctionDoc hash_pivot_doc{
 }  // namespace
 
 void RegisterHashAggregatePivot(FunctionRegistry* registry) {
+  static const auto default_pivot_options = PivotWiderOptions::Defaults();
+
   {
-    auto func = std::make_shared<HashAggregateFunction>("hash_pivot_wider",
-                                                        Arity::Ternary(), hash_pivot_doc);
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_pivot_wider", Arity::Ternary(), hash_pivot_doc, &default_pivot_options);
     for (auto key_type : BaseBinaryTypes()) {
       // Anything that scatter() (i.e. take()) accepts can be passed as values
       auto sig = KernelSignature::Make(
