@@ -585,19 +585,6 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
   return RecordBatch::Make(schema, data->length(), {data});
 }
 
-Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out) {
-  PyAcquireGIL lock;
-  SequenceBuilder builder;
-  RETURN_NOT_OK(internal::VisitIterable(
-      sequence, [&](PyObject* obj, bool* keep_going /* unused */) {
-        return Append(context, obj, &builder, 0, out);
-      }));
-  std::shared_ptr<Array> array;
-  RETURN_NOT_OK(builder.Finish(&array));
-  out->batch = MakeBatch(array);
-  return Status::OK();
-}
-
 Status SerializeNdarray(std::shared_ptr<Tensor> tensor, SerializedPyObject* out) {
   std::shared_ptr<Array> array;
   SequenceBuilder builder;
@@ -606,16 +593,6 @@ Status SerializeNdarray(std::shared_ptr<Tensor> tensor, SerializedPyObject* out)
   RETURN_NOT_OK(builder.Finish(&array));
   out->batch = MakeBatch(array);
   return Status::OK();
-}
-
-Status WriteNdarrayHeader(std::shared_ptr<DataType> dtype,
-                          const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
-                          io::OutputStream* dst) {
-  auto empty_tensor = std::make_shared<Tensor>(
-      dtype, std::make_shared<Buffer>(nullptr, tensor_num_bytes), shape);
-  SerializedPyObject serialized_tensor;
-  RETURN_NOT_OK(SerializeNdarray(empty_tensor, &serialized_tensor));
-  return serialized_tensor.WriteTo(dst);
 }
 
 SerializedPyObject::SerializedPyObject()
