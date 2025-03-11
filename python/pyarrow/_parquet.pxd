@@ -631,6 +631,15 @@ cdef class RowGroupMetaData(_Weakrefable):
         CRowGroupMetaData* metadata
         FileMetaData parent
 
+    cdef inline init(self, FileMetaData parent, int index):
+        if index < 0 or index >= parent.num_row_groups:
+            raise IndexError('{0} out of bounds'.format(index))
+        self.up_metadata = parent._metadata.RowGroup(index)
+        self.metadata = self.up_metadata.get()
+        self.parent = parent
+        self.index = index
+
+
 cdef class ColumnChunkMetaData(_Weakrefable):
     cdef:
         unique_ptr[CColumnChunkMetaData] up_metadata
