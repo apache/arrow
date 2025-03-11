@@ -48,7 +48,8 @@ cdef class AzureFileSystem(FileSystem):
         storage account.
     account_key : str, default None
         Account key of the storage account. If sas_token and account_key are None the 
-        default credential will be used. 
+        default credential will be used. The parameters account_key and sas_token are
+        mutually exclusive.
     blob_storage_authority : str, default None
         hostname[:port] of the Blob Service. Defaults to `.blob.core.windows.net`. Useful
         for connecting to a local emulator, like Azurite.
@@ -63,7 +64,8 @@ cdef class AzureFileSystem(FileSystem):
         emulator, like Azurite.
     sas_token : str, default None
         SAS token for the storage account, used as an alternative to account_key. If sas_token
-        and account_key are None the default credential will be used. 
+        and account_key are None the default credential will be used. The parameters 
+        account_key and sas_token are mutually exclusive.
 
     Examples
     --------
