@@ -88,7 +88,6 @@ Segment MakeSegment(int64_t batch_length, int64_t offset, int64_t length, bool e
 
 using ExtendFunc = std::function<bool(const void*)>;
 constexpr bool kDefaultExtends = true;  // by default, the first segment extends
-constexpr bool kEmptyExtends = true;    // an empty segment extends too
 
 struct NoKeysSegmenter : public BaseRowSegmenter {
   static std::unique_ptr<RowSegmenter> Make() {
