@@ -325,6 +325,8 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
 
   // Aggregate functions
   RegisterHashAggregateBasic(registry.get());
+  RegisterHashAggregateNumeric(registry.get());
+  RegisterHashAggregatePivot(registry.get());
   RegisterScalarAggregateBasic(registry.get());
   RegisterScalarAggregateMode(registry.get());
   RegisterScalarAggregatePivot(registry.get());
