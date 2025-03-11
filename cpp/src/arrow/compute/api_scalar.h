@@ -272,8 +272,6 @@ class ARROW_EXPORT ExtractRegexSpanOptions : public FunctionOptions {
 
   /// Regular expression with named capture fields
   std::string pattern;
-
-  /// Shows the matched string
 };
 /// Options for IsIn and IndexIn functions
 class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
