@@ -788,6 +788,9 @@ class ColumnWriterImpl {
   // Plain-encoded statistics of the whole chunk
   virtual StatisticsPair GetChunkStatistics() = 0;
 
+  // Plain-encoded geometry statistics of the whole chunk
+  virtual EncodedGeoStatistics GetChunkGeoStatistics() = 0;
+
   // Merges page statistics into chunk statistics, then resets the values
   virtual void ResetPageStatistics() = 0;
 
@@ -1104,9 +1107,18 @@ int64_t ColumnWriterImpl::Close() {
     if (rows_written_ > 0 && chunk_statistics.is_set()) {
       metadata_->SetStatistics(chunk_statistics);
     }
+
     if (rows_written_ > 0 && chunk_size_statistics.is_set()) {
       metadata_->SetSizeStatistics(chunk_size_statistics);
     }
+
+    if (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry()) {
+      EncodedGeoStatistics geo_stats = GetChunkGeoStatistics();
+      if (geo_stats.is_set()) {
+        metadata_->SetGeoStatistics(std::move(geo_stats));
+      }
+    }
+
     metadata_->SetKeyValueMetadata(key_value_metadata_);
     pager_->Close(has_dictionary_, fallback_);
   }
@@ -1227,10 +1239,14 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     // Will be null if not using dictionary, but that's ok
     current_dict_encoder_ = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
 
-    if (properties->statistics_enabled(descr_->path()) &&
-        (SortOrder::UNKNOWN != descr_->sort_order())) {
-      page_statistics_ = MakeStatistics<DType>(descr_, allocator_);
-      chunk_statistics_ = MakeStatistics<DType>(descr_, allocator_);
+    if (properties->statistics_enabled(descr_->path())) {
+      if (SortOrder::UNKNOWN != descr_->sort_order()) {
+        page_statistics_ = MakeStatistics<DType>(descr_, allocator_);
+        chunk_statistics_ = MakeStatistics<DType>(descr_, allocator_);
+      }
+      if (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry()) {
+        chunk_geospatial_statistics_ = std::make_shared<GeoStatistics>();
+      }
     }
     if (properties->size_statistics_level() == SizeStatisticsLevel::ColumnChunk ||
         properties->size_statistics_level() == SizeStatisticsLevel::PageAndColumnChunk) {
@@ -1398,6 +1414,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     return result;
   }
 
+  EncodedGeoStatistics GetChunkGeoStatistics() override {
+    return chunk_geospatial_statistics_ ? chunk_geospatial_statistics_->Encode()
+                                        : EncodedGeoStatistics{};
+  }
+
   void ResetPageStatistics() override {
     if (chunk_statistics_ != nullptr) {
       chunk_statistics_->Merge(*page_statistics_);
@@ -1462,6 +1483,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   std::shared_ptr<TypedStats> chunk_statistics_;
   std::unique_ptr<SizeStatistics> page_size_statistics_;
   std::shared_ptr<SizeStatistics> chunk_size_statistics_;
+  std::shared_ptr<GeoStatistics> chunk_geospatial_statistics_;
   bool pages_change_on_record_boundaries_;
 
   // If writing a sequence of ::arrow::DictionaryArray to the writer, we keep the
@@ -1687,7 +1709,14 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     if (page_statistics_ != nullptr) {
       page_statistics_->Update(values, num_values, num_nulls);
     }
+
     UpdateUnencodedDataBytes();
+
+    if constexpr (std::is_same<T, ByteArray>::value) {
+      if (chunk_geospatial_statistics_ != nullptr) {
+        chunk_geospatial_statistics_->Update(values, num_values, num_nulls);
+      }
+    }
   }
 
   /// \brief Write values with spaces and update page statistics accordingly.
@@ -1716,7 +1745,16 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
                                      num_spaced_values, num_values, num_nulls);
     }
+
     UpdateUnencodedDataBytes();
+
+    if constexpr (std::is_same<T, ByteArray>::value) {
+      if (chunk_geospatial_statistics_ != nullptr) {
+        chunk_geospatial_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
+                                                   num_spaced_values, num_values,
+                                                   num_nulls);
+      }
+    }
   }
 };
 
@@ -1794,6 +1832,12 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     page_statistics_->IncrementNullCount(num_chunk_levels - non_null_count);
     page_statistics_->IncrementNumValues(non_null_count);
     page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
+
+    if (chunk_geospatial_statistics_ != nullptr) {
+      throw ParquetException(
+          "Writing dictionary-encoded GEOMETRY or GEOGRAPHY with statistics is not "
+          "supported");
+    }
   };
 
   int64_t value_offset = 0;
@@ -2299,7 +2343,12 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
       page_statistics_->IncrementNullCount(batch_size - non_null);
       page_statistics_->IncrementNumValues(non_null);
     }
+
     UpdateUnencodedDataBytes();
+
+    if (chunk_geospatial_statistics_ != nullptr) {
+      chunk_geospatial_statistics_->Update(*data_slice);
+    }
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values, batch_size - non_null,
                                  check_page);
     CheckDictionarySizeLimit();
