@@ -1263,17 +1263,20 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
   }
 }
 
-TEST(ExecPlanExecution, TestNamesSizeMismatch) {
+TEST(ExecPlanExecution, ProjectNamesSizeMismatch) {
   auto input = MakeGroupableBatches();
 
   Declaration plan = Declaration::Sequence(
       {{"source", SourceNodeOptions{input.schema, input.gen(true, /*slow=*/false)}},
-       {"project", ProjectNodeOptions{{field_ref("str"),
-                                       call("multiply", {field_ref("i32"), literal(2)})},
-                                      {"a"}}}});  // expected 2 names but only 1 provided
+       {"project", ProjectNodeOptions{
+                       /*expressions=*/{field_ref("str"),
+                                        call("multiply", {field_ref("i32"), literal(2)})},
+                       /*names=*/{"a"}}}});  // expected 2 names but only 1 provided
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("Check failed: (names.size()) == (exprs.size())"),
+      Invalid,
+      ::testing::HasSubstr(
+          "Project node's size of names 1 doesn't match size of expressions 2"),
       DeclarationToTable(std::move(plan)));
 }
 
