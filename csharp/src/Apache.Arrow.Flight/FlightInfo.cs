@@ -1,4 +1,4 @@
-﻿// Licensed to the Apache Software Foundation (ASF) under one or more
+// Licensed to the Apache Software Foundation (ASF) under one or more
 // contributor license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright ownership.
 // The ASF licenses this file to You under the Apache License, Version 2.0
@@ -38,15 +38,19 @@ namespace Apache.Arrow.Flight
 
             TotalBytes = flightInfo.TotalBytes;
             TotalRecords = flightInfo.TotalRecords;
+            Ordered = flightInfo.Ordered;
+            AppMetadata = flightInfo.AppMetadata;
         }
 
-        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords = -1, long totalBytes = -1)
+        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords = -1, long totalBytes = -1, bool ordered = false, ByteString appMetadata = null)
         {
             Schema = schema;
             Descriptor = descriptor;
             Endpoints = endpoints;
             TotalBytes = totalBytes;
             TotalRecords = totalRecords;
+            Ordered = ordered;
+            AppMetadata = appMetadata;
         }
 
         public FlightDescriptor Descriptor { get; }
@@ -56,6 +60,10 @@ namespace Apache.Arrow.Flight
         public long TotalBytes { get; }
 
         public long TotalRecords { get; }
+
+        public bool Ordered { get; }
+
+        public ByteString AppMetadata { get; }
 
         public IReadOnlyList<FlightEndpoint> Endpoints { get; }
 
@@ -67,7 +75,9 @@ namespace Apache.Arrow.Flight
                 Schema = serializedSchema,
                 FlightDescriptor = Descriptor.ToProtocol(),
                 TotalBytes = TotalBytes,
-                TotalRecords = TotalRecords
+                TotalRecords = TotalRecords,
+                Ordered = Ordered,
+                AppMetadata = AppMetadata
             };
 
             foreach(var endpoint in Endpoints)
