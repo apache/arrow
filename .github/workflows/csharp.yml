@@ -65,9 +65,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Source Link
-        shell: bash
-        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
@@ -93,8 +90,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Source Link
-        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
@@ -124,9 +119,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install Source Link
-        shell: bash
-        run: dotnet tool install --global sourcelink
       - name: Build
         shell: bash
         run: ci/scripts/csharp_build.sh $(pwd)
