@@ -1468,6 +1468,10 @@ def test_azurefs_options(pickle_module):
     assert isinstance(fs4, AzureFileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs4)) == fs4
     assert fs4 != fs3
+    
+    with pytest.raises(ValueError):
+        AzureFileSystem(account_name='fake-account-name', account_key='fakeaccount',
+                        sas_token = 'fakesastoken')
 
     with pytest.raises(TypeError):
         AzureFileSystem()

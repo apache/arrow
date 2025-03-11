@@ -102,6 +102,9 @@ cdef class AzureFileSystem(FileSystem):
         if dfs_storage_scheme:
             options.dfs_storage_scheme = tobytes(dfs_storage_scheme)
 
+        if account_key and sas_token:
+            raise ValueError("Cannot specify both account_key and sas_token.")
+
         if account_key:
             options.ConfigureAccountKeyCredential(tobytes(account_key))
             self.account_key = tobytes(account_key)
