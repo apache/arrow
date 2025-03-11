@@ -25,7 +25,6 @@ import json
 import os
 import re
 import operator
-import warnings
 
 import pyarrow as pa
 
