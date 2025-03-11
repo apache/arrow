@@ -1222,6 +1222,25 @@ class ExtractRegexOptions(_ExtractRegexOptions):
         self._set_options(pattern)
 
 
+cdef class _ExtractRegexSpanOptions(FunctionOptions):
+    def _set_options(self, pattern):
+        self.wrapped.reset(new CExtractRegexSpanOptions(tobytes(pattern)))
+
+
+class ExtractRegexSpanOptions(_ExtractRegexSpanOptions):
+    """
+    Options for the `extract_regex_span` function.
+
+    Parameters
+    ----------
+    pattern : str
+        Regular expression with named capture fields.
+    """
+
+    def __init__(self, pattern):
+        self._set_options(pattern)
+
+
 cdef class _SliceOptions(FunctionOptions):
     def _set_options(self, start, stop, step):
         self.wrapped.reset(new CSliceOptions(start, stop, step))

@@ -43,6 +43,7 @@ namespace compute {
 namespace internal {
 
 namespace {
+
 // ----------------------------------------------------------------------
 // re2 utilities
 
@@ -2201,7 +2202,9 @@ struct BaseExtractRegexData {
     }
     return Status::OK();
   }
+
   int64_t num_groups() const { return static_cast<int64_t>(group_names.size()); }
+
   std::unique_ptr<RE2> regex;
   std::vector<std::string> group_names;
 
@@ -2297,14 +2300,15 @@ struct ExtractRegex : public ExtractRegexBase {
     std::shared_ptr<DataType> type = out->array_data()->type;
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<ArrayBuilder> array_builder,
                           MakeBuilder(type, ctx->memory_pool()));
-    auto struct_builder = checked_pointer_cast<StructBuilder>(std::move(array_builder));
-    ARROW_RETURN_NOT_OK(struct_builder->Reserve(batch[0].array.length));
+    StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
+    ARROW_RETURN_NOT_OK(struct_builder->Reserve(batch[0].length()));
 
     std::vector<BuilderType*> field_builders;
     field_builders.reserve(group_count);
     for (int i = 0; i < group_count; i++) {
       field_builders.push_back(
           checked_cast<BuilderType*>(struct_builder->field_builder(i)));
+      RETURN_NOT_OK(field_builders.back()->Reserve(batch[0].length()));
     }
 
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
@@ -2353,6 +2357,7 @@ void AddAsciiStringExtractRegex(FunctionRegistry* registry) {
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
+
 struct ExtractRegexSpanData : public BaseExtractRegexData {
   static Result<ExtractRegexSpanData> Make(const std::string& pattern,
                                            bool is_utf8 = true) {
@@ -2367,12 +2372,11 @@ struct ExtractRegexSpanData : public BaseExtractRegexData {
       return nullptr;
     }
     DCHECK(is_base_binary_like(input_type->id()));
-    const size_t field_count = num_groups();
     FieldVector fields;
-    fields.reserve(field_count);
+    fields.reserve(num_groups());
     auto index_type = is_binary_like(input_type->id()) ? int32() : int64();
     for (const auto& group_name : group_names) {
-      // size list is 2 as every span contains position and length
+      // list size is 2 as every span contains position and length
       fields.push_back(field(group_name, fixed_size_list(index_type, 2)));
     }
     return struct_(std::move(fields));
@@ -2401,12 +2405,14 @@ struct ExtractRegexSpan : ExtractRegexBase {
                           ExtractRegexSpanData::Make(options.pattern, Type::is_utf8));
     return ExtractRegexSpan{data}.Extract(ctx, batch, out);
   }
+
   Status Extract(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     DCHECK_NE(out->array_data(), nullptr);
     std::shared_ptr<DataType> out_type = out->array_data()->type;
     ARROW_ASSIGN_OR_RAISE(auto out_builder, MakeBuilder(out_type, ctx->memory_pool()));
-    auto struct_builder = checked_pointer_cast<StructBuilder>(std::move(out_builder));
+    StructBuilder* struct_builder = checked_cast<StructBuilder*>(out_builder.get());
     ARROW_RETURN_NOT_OK(struct_builder->Reserve(batch[0].array.length));
+
     std::vector<FixedSizeListBuilder*> span_builders;
     std::vector<OffsetBuilderType*> array_builders;
     span_builders.reserve(group_count);
@@ -2416,8 +2422,8 @@ struct ExtractRegexSpan : ExtractRegexBase {
           checked_cast<FixedSizeListBuilder*>(struct_builder->field_builder(i)));
       array_builders.push_back(
           checked_cast<OffsetBuilderType*>(span_builders.back()->value_builder()));
-      RETURN_NOT_OK(span_builders.back()->Reserve(batch[0].array.length));
-      RETURN_NOT_OK(array_builders.back()->Reserve(2 * batch[0].array.length));
+      RETURN_NOT_OK(span_builders.back()->Reserve(batch[0].length()));
+      RETURN_NOT_OK(array_builders.back()->Reserve(2 * batch[0].length()));
     }
 
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
@@ -2451,15 +2457,20 @@ struct ExtractRegexSpan : ExtractRegexBase {
 };
 
 const FunctionDoc extract_regex_span_doc(
-    "Extract substrings captured by a regex pattern and Save the result in the form of "
-    "(offset,length)",
-    "For each string in strings, match the regular expression and, if\n"
-    "successful, emit a struct with field names and values coming from the\n"
-    "regular expression's named capture groups, which are stored in a form of a\n "
-    "fixed_size_list(offset, length). If the input is null or the regular \n"
-    "expression Fails matching, a null output value is emitted.\n"
-    "Regular expression matching is done using the Google RE2 library.",
-    {"strings"}, "ExtractRegexSpanOptions", true);
+    "Extract string spans captured by a regex pattern",
+    ("For each string in strings, match the regular expression and, if\n"
+     "successful, emit a struct with field names and values coming from the\n"
+     "regular expression's named capture groups. Each struct field value\n"
+     "will be a fixed_size_list(offset_type, 2) where offset_type is int32\n"
+     "or int64, depending on the input string type. The two elements in\n"
+     "each fixed-size list are the index and the length of the substring\n"
+     "matched by the corresponding named capture group.\n"
+     "\n"
+     "If the input is null or the regular expression fails matching,\n"
+     "a null output value is emitted.\n"
+     "\n"
+     "Regular expression matching is done using the Google RE2 library."),
+    {"strings"}, "ExtractRegexSpanOptions", /*options_required=*/true);
 
 Result<TypeHolder> ResolveExtractRegexSpanOutputType(
     KernelContext* ctx, const std::vector<TypeHolder>& types) {

@@ -30,6 +30,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+
 namespace arrow {
 
 namespace internal {

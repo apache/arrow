@@ -1140,7 +1140,8 @@ String component extraction
   library.  The output struct field names refer to the named capture groups,
   e.g. 'letter' and 'digit' for the regular expression
   ``(?P<letter>[ab])(?P<digit>\\d)``.
-* \(2) Extract  the offset and length of substrings defined by a regular expression
+
+* \(2) Extract the offset and length of substrings defined by a regular expression
   using the Google RE2 library.  The output struct field names refer to the named
   capture groups, e.g. 'letter' and 'digit' for the regular expression
   ``(?P<letter>[ab])(?P<digit>\\d)``. Each output struct field is a fixed size list

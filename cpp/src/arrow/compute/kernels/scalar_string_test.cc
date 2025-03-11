@@ -314,7 +314,7 @@ TYPED_TEST(TestBinaryKernels, NonUtf8Regex) {
                      this->MakeArray({"\xfc\x40", "this \xfc\x40 that \xfc\x40"}),
                      this->MakeArray({"bazz", "this bazz that \xfc\x40"}), &options);
   }
-  // TODO the following test is broken
+  // TODO the following test is broken (GH-45735)
   {
     ExtractRegexOptions options("(?P<letter>[\\xfc])(?P<digit>\\d)");
     auto null_bitmap = std::make_shared<Buffer>("0");
@@ -371,7 +371,7 @@ TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
                      this->template MakeArray<std::string>({{"\x00\x40", 2}}),
                      this->type(), R"(["bazz"])", &options);
   }
-  // TODO the following test is broken
+  // TODO the following test is broken (GH-45735)
   {
     ExtractRegexOptions options("(?P<null>[\\x00])(?P<digit>\\d)");
     auto null_bitmap = std::make_shared<Buffer>("0");
@@ -1960,6 +1960,7 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegex) {
                    R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "3"}])",
                    &options);
 }
+
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpan) {
   ExtractRegexSpanOptions options{"(?P<letter>[ab]+)(?P<digit>\\d+)"};
   auto type_fixe_size_list = is_binary_like(this->type()->id()) ? int32() : int64();
@@ -1990,6 +1991,7 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpan) {
                                   {"letter":[2,2], "digit":[4,3]}])",
                    &options);
 }
+
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanCaptureOption) {
   ExtractRegexSpanOptions options{"(?P<foo>foo)?(?P<digit>\\d+)?"};
   auto type_fixe_size_list = is_binary_like(this->type()->id()) ? int32() : int64();
@@ -2022,6 +2024,7 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexNoCapture) {
   this->CheckUnary("extract_regex", R"(["oofoo", "bar", null])", type,
                    R"([{}, null, null])", &options);
 }
+
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanNoCapture) {
   // XXX Should we accept this or is it a user error?
   ExtractRegexSpanOptions options{"foo"};
@@ -2029,6 +2032,7 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanNoCapture) {
   this->CheckUnary("extract_regex_span", R"(["oofoo", "bar", null])", type,
                    R"([{}, null, null])", &options);
 }
+
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexNoOptions) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("extract_regex", {input}));
@@ -2051,6 +2055,7 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
       Invalid, ::testing::HasSubstr("Regular expression contains unnamed groups"),
       CallFunction("extract_regex", {input}, &options));
 }
+
 TYPED_TEST(TestBaseBinaryKernels, ExtractRegexSpanInvalid) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ExtractRegexSpanOptions options{"invalid["};
