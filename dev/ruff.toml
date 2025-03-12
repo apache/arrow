@@ -1,4 +1,3 @@
-# Same as Black.
 line-length = 88
 indent-width = 4
 
@@ -15,8 +14,8 @@ select = [
   "EXE", # flake8-executable
   "F",   # pyflakes
   "FA",  # flake8-future-annotations
-  "G",   # flake8-logging-format
   "FLY", # flynt (format string conversion)
+  "G",   # flake8-logging-format
   "I",   # isort
   "ICN", # flake8-import-conventions
   "INP", # flake8-no-pep420 (implicit namespace packages)
@@ -26,6 +25,7 @@ select = [
   "PL",  # pylint
   "RET", # flake8-return
   "RUF", # ruff-specific rules
+  "S",   # flake8-bandit
   "SIM", # flake8-simplify
   "T10", # flake8-debugger
   "T20", # flake8-print
@@ -34,19 +34,15 @@ select = [
   "UP",  # pyupgrade
   "W",   # pycodestyle
   "YTT", # flake8-2020
-  "S",   # flake8-bandit
 ]
 ignore = [
-#   "B028",    # required stacklevel argument to warn
   "B003",    # Assigning to `os.environ` doesn't clear the environment
   "B017",    # `pytest.raises(Exception)` should be considered evil
   "B019",    # Use of `functools.lru_cache` or `functools.cache` on methods can lead to memory leaks
   "B027",    # `CDataExporter.run_gc` is an empty method in an abstract base class, but has no abstract decorator
   "B904",    # raise from e or raise from None in exception handlers
   "BLE001",  # Do not catch blind exception: `Exception`
-#   "B905",    # zip-without-explicit-strict
-  "C408",   # Unnecessary `dict()` call (rewrite as a literal)
-#   "C408",    # dict(...) as literal
+  "C408",    # Unnecessary `dict()` call (rewrite as a literal)
   "D100",    # public module
   "D101",    # public class
   "D102",    # public method
@@ -56,7 +52,6 @@ ignore = [
   "D106",    # nested class
   "D107",    # init
   "D200",    # One-line docstring should fit on one line
-#   "D202",    # blank lines after function docstring
   "D203",    # blank line before class docstring
   "D205",    # 1 blank line required between summary line and description
   "D210",    # No whitespaces allowed surrounding docstring text
@@ -69,22 +64,18 @@ ignore = [
   "D415",    # First line should end with a period, question mark, or exclamation point
   "D417",    # Missing argument descriptions in the docstring
   "FLY002",  # Consider `f"{}.{}"` instead of string join"
-#   "E501",    # line-too-long, this is automatically enforced by ruff format
-#   "E731",    # lambda-assignment
+  "G004",    # Logging statement uses f-string
   "ICN001",  # `xml.etree.ElementTree` should be imported as `ET`
   "INP001",  # implicit-namespace-package
   "ISC001",  # single line implicit string concat, handled by ruff format
-  "G004",    # Logging statement uses f-string
-#   "PGH003",  # blanket-type-ignore
-#   "PLC0105", # covariant type parameters should have a _co suffix
-#   "PLR0124", # name compared with self, e.g., a == a
   "PLR0911", # too many return statements
   "PLR0912", # too many branches
   "PLR0913", # too many arguments
   "PLR0915", # too many statements
   "PLR2004", # forces everything to be a constant
-  "PLW2901", # overwriting loop variable
   "PLW0603", # Using the global statement to update `variable` is discouraged
+  "PLW1510", # `subprocess.run` without explicit `check` argument
+  "PLW2901", # overwriting loop variable
   "RET503",  # Missing explicit `return` at the end of function able to return non-`None` value
   "RET504",  # unnecessary-assign, these are useful for debugging
   "RET505",  # superfluous-else-return, stylistic choice
@@ -93,30 +84,23 @@ ignore = [
   "RET508",  # superfluous-else-break, stylistic choice
   "RUF005",  # splat instead of concat
   "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
-#   "SIM102",  # nested ifs
-  "SIM108",  # convert everything to ternary operator
-#   "SIM114",  # combine `if` branches using logical `or` operator
-#   "SIM116",  # dictionary instead of `if` statements
-  "SIM117",  # Use a single `with` statement with multiple contexts instead of nested `with` statements
-#   "SIM118",  # remove .keys() calls from dictionaries
-#   "SIM300",  # yoda conditions
-  "UP006",   # Use `list` instead of `List` for type annotation
-  "UP007",   # Optional[str] -> str | None
-  "UP035",   # `typing.List` is deprecated, use `list` instead
-#   "UP038",   # non-pep604-isinstance, results in slower code
-  "PLW1510", # `subprocess.run` without explicit `check` argument
   "S101",    # ignore "Use of `assert` detected"
+  "S113",    # Probable use of `requests` call without timeout
   "S310",    # Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+  "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
   "S314",    # Using `xml` to parse untrusted data is known to be vulnerable to XML attacks; use `defusedxml` equivalents
   "S603",    # `subprocess` call: check for execution of untrusted input
   "S607",    # Starting a process with a partial executable path
   "S701",    # By default, jinja2 sets `autoescape` to `False`. Consider using `autoescape=True` or the `select_autoescape` function to mitigate XSS vulnerabilities.
-  "S113",    # Probable use of `requests` call without timeout
-  "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
+  "SIM108",  # convert everything to ternary operator
   "SIM112",  # Use capitalized environment variable `DOTNET_GCHEAPHARDLIMIT` instead of `DOTNET_GCHeapHardLimit`
+  "SIM117",  # Use a single `with` statement with multiple contexts instead of nested `with` statements
   "T201",    # `print` found
   "T203",    # `pprint` found
-  "TID252"   # Prefer absolute imports over relative imports from parent modules
+  "TID252",  # Prefer absolute imports over relative imports from parent modules
+  "UP006",   # Use `list` instead of `List` for type annotation
+  "UP007",   # Optional[str] -> str | None
+  "UP035",   # `typing.List` is deprecated, use `list` instead
 ]
 # none of these codes will be automatically fixed by ruff
 unfixable = [
