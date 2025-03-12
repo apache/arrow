@@ -916,14 +916,7 @@ class Task(Serializable):
     """
 
     def __init__(self, name, ci, template, artifacts=None, params=None):
-        assert ci in {
-            "circle",
-            "travis",
-            "appveyor",
-            "azure",
-            "github",
-            "drone",
-        }
+        assert ci in {"circle", "travis", "appveyor", "azure", "github", "drone"}
         self.name = name
         self.ci = ci
         self.template = template

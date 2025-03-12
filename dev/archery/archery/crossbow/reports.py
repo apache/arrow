@@ -208,14 +208,8 @@ class ConsoleReport(Report):
 
 
 class ChatReport(JinjaReport):
-    templates = {
-        "text": "chat_nightly_report.txt.j2",
-    }
-    fields = [
-        "report",
-        "extra_message_success",
-        "extra_message_failure",
-    ]
+    templates = {"text": "chat_nightly_report.txt.j2"}
+    fields = ["report", "extra_message_success", "extra_message_failure"]
 
 
 class ReportUtils:
@@ -257,12 +251,7 @@ class EmailReport(JinjaReport):
         "nightly_report": "email_nightly_report.txt.j2",
         "token_expiration": "email_token_expiration.txt.j2",
     }
-    fields = [
-        "report",
-        "sender_name",
-        "sender_email",
-        "recipient_email",
-    ]
+    fields = ["report", "sender_name", "sender_email", "recipient_email"]
 
 
 class CommentReport(Report):

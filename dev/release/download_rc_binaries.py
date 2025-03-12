@@ -172,16 +172,10 @@ class GitHub(Downloader):
             f"https://api.github.com/repos/{self._repository}/releases/tags/{self._tag}"
         )
         print("Fetching release from", url)
-        headers = {
-            "Accept": "application/vnd.github+json",
-        }
+        headers = {"Accept": "application/vnd.github+json"}
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"
-        request = urllib.request.Request(
-            url,
-            method="GET",
-            headers=headers,
-        )
+        request = urllib.request.Request(url, method="GET", headers=headers)
         raw_response = urllib.request.urlopen(request).read().decode()
         response = json.loads(raw_response)
 
@@ -214,10 +208,7 @@ class GitHub(Downloader):
         print(f"Waiting {delay} seconds to avoid rate limit")
         time.sleep(delay)
 
-        extra_args = [
-            "--header",
-            "Accept: application/octet-stream",
-        ]
+        extra_args = ["--header", "Accept: application/octet-stream"]
         if self._curl_version() >= (7, 71, 0):
             # Also retry 403s
             extra_args.append("--retry-all-errors")

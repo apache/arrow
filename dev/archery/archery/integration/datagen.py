@@ -369,10 +369,7 @@ class TimestampField(IntegerField):
 
 class DurationIntervalField(IntegerField):
     def __init__(self, name, unit="s", *, nullable=True, metadata=None):
-        min_val, max_val = (
-            np.iinfo("int64").min,
-            np.iinfo("int64").max,
-        )
+        min_val, max_val = (np.iinfo("int64").min, np.iinfo("int64").max)
         super().__init__(
             name,
             True,
@@ -404,10 +401,7 @@ class YearMonthIntervalField(IntegerField):
         )
 
     def _get_type(self):
-        fields = [
-            ("name", "interval"),
-            ("unit", "YEAR_MONTH"),
-        ]
+        fields = [("name", "interval"), ("unit", "YEAR_MONTH")]
 
         return OrderedDict(fields)
 
@@ -421,12 +415,7 @@ class DayTimeIntervalField(PrimitiveField):
         return object
 
     def _get_type(self):
-        return OrderedDict(
-            [
-                ("name", "interval"),
-                ("unit", "DAY_TIME"),
-            ]
-        )
+        return OrderedDict([("name", "interval"), ("unit", "DAY_TIME")])
 
     def generate_column(self, size, name=None):
         min_day_value, max_day_value = -10000 * 366, 10000 * 366
@@ -453,21 +442,13 @@ class MonthDayNanoIntervalField(PrimitiveField):
         return object
 
     def _get_type(self):
-        return OrderedDict(
-            [
-                ("name", "interval"),
-                ("unit", "MONTH_DAY_NANO"),
-            ]
-        )
+        return OrderedDict([("name", "interval"), ("unit", "MONTH_DAY_NANO")])
 
     def generate_column(self, size, name=None):
         I32 = "int32"
         min_int_value, max_int_value = np.iinfo(I32).min, np.iinfo(I32).max
         I64 = "int64"
-        min_nano_val, max_nano_val = (
-            np.iinfo(I64).min,
-            np.iinfo(I64).max,
-        )
+        min_nano_val, max_nano_val = (np.iinfo(I64).min, np.iinfo(I64).max)
         values = [
             {
                 "months": random.randint(min_int_value, max_int_value),
@@ -787,12 +768,7 @@ class BinaryViewColumn(PrimitiveColumn):
             if len(v) <= INLINE_SIZE:
                 # Append an inline view, skip data buffer management.
                 views.append(
-                    OrderedDict(
-                        [
-                            ("SIZE", len(v)),
-                            ("INLINED", self._encode_value(v)),
-                        ]
-                    )
+                    OrderedDict([("SIZE", len(v)), ("INLINED", self._encode_value(v))])
                 )
                 continue
 
@@ -1146,11 +1122,7 @@ class _BaseUnionField(Field):
 
     def _get_type(self):
         return OrderedDict(
-            [
-                ("name", "union"),
-                ("mode", self.mode),
-                ("typeIds", self.type_ids),
-            ]
+            [("name", "union"), ("mode", self.mode), ("typeIds", self.type_ids)]
         )
 
     def _get_children(self):
@@ -1561,9 +1533,7 @@ def generate_null_case(batch_sizes):
 
 def generate_null_trivial_case(batch_sizes):
     # Generate a case with no buffers
-    fields = [
-        NullField(name="f0"),
-    ]
+    fields = [NullField(name="f0")]
     return _generate_file("null_trivial", fields, batch_sizes)
 
 
@@ -1646,19 +1616,14 @@ def generate_duration_case():
 
 
 def generate_interval_case():
-    fields = [
-        YearMonthIntervalField("f5"),
-        DayTimeIntervalField("f6"),
-    ]
+    fields = [YearMonthIntervalField("f5"), DayTimeIntervalField("f6")]
 
     batch_sizes = [7, 10]
     return _generate_file("interval", fields, batch_sizes)
 
 
 def generate_month_day_nano_interval_case():
-    fields = [
-        MonthDayNanoIntervalField("f1"),
-    ]
+    fields = [MonthDayNanoIntervalField("f1")]
 
     batch_sizes = [7, 10]
     return _generate_file("interval_mdn", fields, batch_sizes)
@@ -1670,7 +1635,7 @@ def generate_map_case():
             "map_nullable",
             get_field("key", "utf8", nullable=False),
             get_field("value", "int32"),
-        ),
+        )
     ]
 
     batch_sizes = [7, 10]
@@ -1684,7 +1649,7 @@ def generate_non_canonical_map_case():
             get_field("some_key", "utf8", nullable=False),
             get_field("some_value", "int32"),
             entries_name="some_entries",
-        ),
+        )
     ]
 
     batch_sizes = [7]
@@ -1733,10 +1698,7 @@ def generate_run_end_encoded_case():
 
 
 def generate_binary_view_case():
-    fields = [
-        BinaryViewField("bv"),
-        StringViewField("sv"),
-    ]
+    fields = [BinaryViewField("bv"), StringViewField("sv")]
     batch_sizes = [0, 7, 256]
     return _generate_file("binary_view", fields, batch_sizes)
 

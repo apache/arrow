@@ -45,13 +45,8 @@ def flatten(node, parents=None):
         raise TypeError(node)
 
 
-_arch_short_mapping = {
-    "arm64v8": "arm64",
-}
-_arch_alias_mapping = {
-    "amd64": "x86_64",
-    "arm64v8": "aarch64",
-}
+_arch_short_mapping = {"arm64v8": "arm64"}
+_arch_alias_mapping = {"amd64": "x86_64", "arm64v8": "aarch64"}
 
 
 class UndefinedImage(Exception):
@@ -314,14 +309,7 @@ class DockerCompose(Command):
                     cache_ref = "{}-cache".format(service["image"])
                     cache_from = f"type=registry,ref={cache_ref}"
                     cache_to = f"type=registry,ref={cache_ref},mode=max"
-                    args.extend(
-                        [
-                            "--cache-from",
-                            cache_from,
-                            "--cache-to",
-                            cache_to,
-                        ]
-                    )
+                    args.extend(["--cache-from", cache_from, "--cache-to", cache_to])
 
                 args.extend(
                     [

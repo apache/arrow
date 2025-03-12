@@ -120,7 +120,7 @@ class JavaMicrobenchmarkHarnessObservation:
         self.reciprocal_value = bool(self.score_unit.endswith("/op"))
         if self.score_unit.startswith("ops/"):
             idx = self.score_unit.find("/")
-            self.normalizePerSec(self.score_unit[idx + 1 :])
+            self.normalizePerSec(self.score_unit[(idx + 1) :])
         elif self.score_unit.endswith("/op"):
             idx = self.score_unit.find("/")
             self.normalizePerSec(self.score_unit[:idx])

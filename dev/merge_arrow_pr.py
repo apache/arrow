@@ -398,7 +398,10 @@ class PullRequest:
     def show(self):
         print(f"\n=== Pull Request #{self.number} ===")
         print(
-            f"title\t{self.title}\nsource\t{self.description}\ntarget\t{self.target_ref}\nurl\t{self.url}"
+            f"title\t{self.title}\n"
+            f"source\t{self.description}\n"
+            f"target\t{self.target_ref}\n"
+            f"url\t{self.url}"
         )
         if self.issue is not None:
             self.issue.show()
@@ -624,8 +627,7 @@ def cli():
 
     cmd.continue_maybe("Would you like to update the associated issue?")
     issue_comment = "Issue resolved by pull request {}\n{}".format(
-        pr_num,
-        f"https://github.com/{ORG_NAME}/{PROJECT_NAME}/pull/{pr_num}",
+        pr_num, f"https://github.com/{ORG_NAME}/{PROJECT_NAME}/pull/{pr_num}"
     )
     fix_version = prompt_for_fix_version(cmd, pr.issue, pr.maintenance_branches)
     pr.issue.resolve(fix_version, issue_comment, pr.body)

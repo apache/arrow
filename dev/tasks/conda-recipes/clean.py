@@ -62,7 +62,7 @@ def builds_to_delete(platform: str, to_delete: Set[str]) -> int:
                 "--override-channels",
                 "--subdir",
                 platform,
-            ],
+            ]
         )
     except CommandFailedException as ex:
         # If the command failed due to no packages found, return

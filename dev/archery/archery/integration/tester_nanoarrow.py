@@ -25,8 +25,7 @@ from .tester import CDataExporter, CDataImporter, Tester
 from .util import log, run_cmd
 
 _NANOARROW_PATH = os.environ.get(
-    "ARROW_NANOARROW_PATH",
-    os.path.join(ARROW_ROOT_DEFAULT, "nanoarrow/cdata"),
+    "ARROW_NANOARROW_PATH", os.path.join(ARROW_ROOT_DEFAULT, "nanoarrow/cdata")
 )
 
 _INTEGRATION_DLL = os.path.join(
@@ -70,19 +69,13 @@ class NanoarrowTester(Tester):
     def stream_to_file(self, stream_path, file_path):
         self.run_shell_command(
             [_INTEGRATION_EXE, "<", stream_path],
-            env={
-                "COMMAND": "STREAM_TO_FILE",
-                "ARROW_PATH": file_path,
-            },
+            env={"COMMAND": "STREAM_TO_FILE", "ARROW_PATH": file_path},
         )
 
     def file_to_stream(self, file_path, stream_path):
         self.run_shell_command(
             [_INTEGRATION_EXE, ">", stream_path],
-            env={
-                "COMMAND": "FILE_TO_STREAM",
-                "ARROW_PATH": file_path,
-            },
+            env={"COMMAND": "FILE_TO_STREAM", "ARROW_PATH": file_path},
         )
 
     def make_c_data_exporter(self):

@@ -244,10 +244,7 @@ def test_respond_with_usage(load_fixture, responses):
 
 @pytest.mark.parametrize(
     ("command", "reaction"),
-    [
-        ("@ursabot build", "+1"),
-        ("@ursabot build\nwith a comment", "+1"),
-    ],
+    [("@ursabot build", "+1"), ("@ursabot build\nwith a comment", "+1")],
 )
 def test_issue_comment_with_commands(load_fixture, responses, command, reaction):
     responses.add(
@@ -289,12 +286,7 @@ def test_issue_comment_with_commands(load_fixture, responses, command, reaction)
     assert json.loads(post.request.body) == {"content": reaction}
 
 
-@pytest.mark.parametrize(
-    ("command", "reaction"),
-    [
-        ("@ursabot listen", "-1"),
-    ],
-)
+@pytest.mark.parametrize(("command", "reaction"), [("@ursabot listen", "-1")])
 def test_issue_comment_invalid_commands(load_fixture, responses, command, reaction):
     responses.add(
         responses.GET,
@@ -401,7 +393,7 @@ def test_open_pull_request(load_fixture, responses, fixture_name, expected_label
         (
             "event-pull-request-target-opened-non-committer.json",
             PullRequestState.committer_review.value,
-        ),
+        )
     ],
 )
 def test_open_pull_request_with_committer_list(
@@ -441,7 +433,7 @@ def test_open_pull_request_with_committer_list(
         (
             "event-pull-request-target-opened-committer.json",
             PullRequestState.committer_review.value,
-        ),
+        )
     ],
 )
 def test_open_pull_request_with_existing_label(

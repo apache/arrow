@@ -101,11 +101,7 @@ class CppTester(Tester):
             cmd = cmd + ["-scenario", scenario_name]
         if self.debug:
             log(" ".join(cmd))
-        server = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        server = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
             output = server.stdout.readline().decode()
             if not output.startswith("Server listening on localhost:"):

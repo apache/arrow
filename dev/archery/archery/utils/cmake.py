@@ -82,13 +82,7 @@ class CMakeDefinition:
     @property
     def arguments(self):
         """ " Return the arguments to cmake invocation."""
-        arguments = (
-            [
-                f"-G{self.generator}",
-            ]
-            + self.definitions
-            + [self.source]
-        )
+        arguments = [f"-G{self.generator}"] + self.definitions + [self.source]
         return arguments
 
     def build(self, build_dir, force=False, cmd_kwargs=None, **kwargs):

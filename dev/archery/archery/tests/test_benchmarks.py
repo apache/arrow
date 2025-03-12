@@ -62,7 +62,7 @@ def test_static_runner_from_json_not_a_regression():
                         "values": [109941112.87296811],
                         "time_unit": "ns",
                         "times": [9095.800104330105],
-                    },
+                    }
                 ],
             }
         ]
@@ -134,7 +134,7 @@ def test_static_runner_from_json_regression():
                         "values": [109941112.87296811],
                         "time_unit": "ns",
                         "times": [9095.800104330105],
-                    },
+                    }
                 ],
             }
         ]

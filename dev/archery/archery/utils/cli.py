@@ -59,10 +59,7 @@ def add_optional_command(name, module, function, parent):
 
         @parent.command(
             name,
-            context_settings={
-                "allow_extra_args": True,
-                "ignore_unknown_options": True,
-            },
+            context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
         )
         def command():
             raise click.ClickException(

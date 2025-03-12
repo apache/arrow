@@ -4,6 +4,33 @@ indent-width = 4
 # Assume Python 3.9
 target-version = "py39"
 
+[format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+# Enable auto-formatting of code examples in docstrings. Markdown,
+# reStructuredText code/literal blocks and doctests are all supported.
+#
+# This is currently disabled by default, but it is planned for this
+# to be opt-out in the future.
+docstring-code-format = true
+
+# Set the line length limit used when formatting code snippets in
+# docstrings.
+#
+# This only has an effect when the `docstring-code-format` setting is
+# enabled.
+docstring-code-line-length = 88
+
 [lint]
 select = [
   "B",   # flake8-bugbear
@@ -112,7 +139,3 @@ unfixable = [
 
 [lint.isort]
 required-imports = ["from __future__ import annotations"]
-
-[format]
-docstring-code-format = true
-docstring-code-line-length = 88

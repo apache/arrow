@@ -113,9 +113,7 @@ class GoTester(Tester):
             server.wait(5)
 
     def flight_request(self, port, json_path=None, scenario_name=None):
-        cmd = _FLIGHT_CLIENT_CMD + [
-            "-port=" + str(port),
-        ]
+        cmd = _FLIGHT_CLIENT_CMD + ["-port=" + str(port)]
         if json_path:
             cmd.extend(("-path", json_path))
         elif scenario_name:
