@@ -915,7 +915,7 @@ test_that("Dataset and query print methods", {
       "dbl: double",
       "lgl: bool",
       "chr: string",
-      "fct: dictionary<values=string, indices=int32>",
+      "fct: dictionary<values=string, indices=int8>",
       "ts: timestamp[us, tz=UTC]",
       "group: int32",
       "other: string",

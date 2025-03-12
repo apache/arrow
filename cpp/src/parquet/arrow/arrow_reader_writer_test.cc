@@ -3337,6 +3337,7 @@ TEST(TestArrowReadWrite, NonUniqueDictionaryValues) {
 }
 
 TEST(TestArrowReadWrite, DictionaryIndexBitwidthRoundtrip) {
+  // GH-30302: the bitwidth of Arrow dictionary indices should be preserved
   for (const auto& index_type :
        {::arrow::int8(), ::arrow::int16(), ::arrow::int32(), ::arrow::int64()}) {
     ARROW_SCOPED_TRACE("index_type = ", *index_type);
@@ -3349,10 +3350,7 @@ TEST(TestArrowReadWrite, DictionaryIndexBitwidthRoundtrip) {
         DictArrayFromJSON(dict_type, R"([2, 0, 1, 0, 2])",
                           R"(["first", "second", "third"])"),
     };
-    std::vector<std::shared_ptr<ChunkedArray>> columns = {};
-    columns.emplace_back(std::make_shared<ChunkedArray>(dict_arrays));
-
-    auto table = Table::Make(schema, columns);
+    auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(dict_arrays)});
     auto arrow_writer_props =
         parquet::ArrowWriterProperties::Builder().store_schema()->build();
 
