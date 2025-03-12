@@ -57,7 +57,6 @@ auto g_group_id_type = std::make_shared<GroupIdType>();
 
 Status CheckForGetSegments(const ExecSpan& batch,
                            const std::vector<TypeHolder>& key_types) {
-  DCHECK_LE(0, batch.length);
   if (batch.values.size() != key_types.size()) {
     return Status::Invalid("expected batch size ", key_types.size(), " but got ",
                            batch.values.size());
