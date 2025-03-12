@@ -86,7 +86,7 @@ def archery(ctx, debug, pdb, quiet):
     ctx.obj["debug"] = debug
 
     if pdb:
-        import pdb
+        import pdb  # noqa: T100
 
         sys.excepthook = lambda t, v, e: pdb.pm()
 

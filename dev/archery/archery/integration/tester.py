@@ -18,12 +18,14 @@
 # Base class for language-specific integration test harnesses
 from __future__ import annotations
 
-import os
 import subprocess
 import typing
 from abc import ABC, abstractmethod
 
 from .util import log
+
+if typing.TYPE_CHECKING:
+    import os
 
 _Predicate = typing.Callable[[], bool]
 
@@ -216,7 +218,7 @@ class Tester:
         cmd = " ".join(cmd)
         if self.debug:
             log(cmd)
-        kwargs.update(shell=True)
+        kwargs.update(shell=True)  # noqa: S604
         subprocess.check_call(cmd, **kwargs)
 
     def json_to_file(self, json_path, arrow_path):

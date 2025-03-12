@@ -493,7 +493,7 @@ def test_compose_push(arrow_compose_path):
             )
         )
     with assert_subprocess_calls(expected_calls):
-        compose.push("conda-python-pandas", user="user", password="pass")
+        compose.push("conda-python-pandas", user="user", password="pass")  # noqa: S106
 
 
 def test_compose_error(arrow_compose_path):

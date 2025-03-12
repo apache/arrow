@@ -84,6 +84,7 @@ ignore = [
   "PLR0915", # too many statements
   "PLR2004", # forces everything to be a constant
   "PLW2901", # overwriting loop variable
+  "PLW0603", # Using the global statement to update `variable` is discouraged
   "RET503",  # Missing explicit `return` at the end of function able to return non-`None` value
   "RET504",  # unnecessary-assign, these are useful for debugging
   "RET505",  # superfluous-else-return, stylistic choice
@@ -112,6 +113,7 @@ ignore = [
   "S701",    # By default, jinja2 sets `autoescape` to `False`. Consider using `autoescape=True` or the `select_autoescape` function to mitigate XSS vulnerabilities.
   "S113",    # Probable use of `requests` call without timeout
   "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
+  "SIM112",  # Use capitalized environment variable `DOTNET_GCHEAPHARDLIMIT` instead of `DOTNET_GCHeapHardLimit`
   "T201",    # `print` found
   "T203",    # `pprint` found
   "TID252"   # Prefer absolute imports over relative imports from parent modules
