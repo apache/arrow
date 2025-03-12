@@ -520,17 +520,17 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
   RETURN_NOT_OK(on_statistics(statistics));
   statistics.start_new_column = false;
 
-  const auto& schema = ExtractArrayDataAndType(record_batch);
-  auto num_fields = static_cast<int64_t>(schema.size());
+  const auto& array_statistics_and_type_vector = ExtractArrayDataAndType(record_batch);
+  auto num_fields = static_cast<int64_t>(array_statistics_and_type_vector.size());
   for (int64_t nth_column = 0; nth_column < num_fields; ++nth_column) {
-    const auto& type = schema[nth_column].second;
-    auto column_statistics = schema[nth_column].first;
+    const auto& type = array_statistics_and_type_vector[nth_column].second;
+    auto column_statistics = array_statistics_and_type_vector[nth_column].first;
     if (!column_statistics) {
       continue;
     }
 
     statistics.start_new_column = true;
-    statistics.nth_column = nth_column;
+    statistics.nth_column = static_cast<int32_t>(nth_column);
     if (column_statistics->null_count.has_value()) {
       statistics.nth_statistics++;
       statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_EXACT;

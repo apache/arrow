@@ -1474,16 +1474,16 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNestedType) {
   statistics_struct->null_count = 0;
   auto struct_array_data = struct_array->data();
   auto statistics_struct_child_a = std::make_shared<ArrayStatistics>();
-  statistics_struct_child_a->min = 1;
+  statistics_struct_child_a->min = int64_t{1};
   struct_array_data->statistics = statistics_struct;
   struct_array_data->child_data[0]->statistics = statistics_struct_child_a;
   auto array_c = ArrayFromJSON(int64(), R"([11,12,13,14,15])");
   array_c->data()->statistics = std::make_shared<ArrayStatistics>();
-  array_c->data()->statistics->max = 15;
+  array_c->data()->statistics->max = int64_t{15};
   auto array_d = ArrayFromJSON(int64(), R"([16,17,18,19,20])");
   auto nested_child = struct_nested_stat->data()->child_data[0];
   nested_child->statistics = std::make_shared<ArrayStatistics>();
-  nested_child->statistics->max = 5;
+  nested_child->statistics->max = int64_t{5};
   nested_child->statistics->is_max_exact = true;
 
   auto rb_schema =
@@ -1492,8 +1492,8 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNestedType) {
   auto rb = RecordBatch::Make(rb_schema, 5,
                               {struct_array, array_c, array_d, struct_nested_stat});
 
-  auto expected_scalar = std::static_pointer_cast<Scalar>(std::shared_ptr<StructScalar>(
-      new StructScalar({MakeScalar(int64_t{5}), MakeScalar(int64_t{10})}, struct_type)));
+  auto expected_scalar = internal::checked_pointer_cast<StructScalar>(
+      ScalarFromJSON(struct_type, R"([5,10])"));
   auto a = ArrayStatistics::ValueType{std::static_pointer_cast<Scalar>(expected_scalar)};
 
   ASSERT_OK_AND_ASSIGN(
@@ -1536,8 +1536,8 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNestedNestedType) {
       StructArray::Make({struct_nested_0, struct_nested_1},
                         {field("struct_nested_0", struct_nested_0->type()),
                          field("struct_nested_1", struct_nested_1->type())}));
-  auto expected_scalar = std::static_pointer_cast<Scalar>(std::shared_ptr<StructScalar>(
-      new StructScalar({MakeScalar(int32_t{5}), MakeScalar(int32_t{10})}, struct_type)));
+  auto expected_scalar = internal::checked_pointer_cast<StructScalar>(
+      ScalarFromJSON(struct_type, R"([5,10])"));
   auto rb_schema = schema({field("struct", struct_parent->type())});
   auto rb = RecordBatch::Make(rb_schema, 5, {struct_parent});
 
@@ -1545,8 +1545,9 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNestedNestedType) {
                        MakeStatisticsArray(R"([null,4])",
                                            {{ARROW_STATISTICS_KEY_ROW_COUNT_EXACT},
                                             {ARROW_STATISTICS_KEY_MAX_VALUE_EXACT}},
-                                           {{5}, {expected_scalar}}));
-  AssertArraysEqual(*expected_array, *rb->MakeStatisticsArray().ValueOrDie(), true);
+                                           {{int64_t{5}}, {expected_scalar}}));
+  ASSERT_OK_AND_ASSIGN(auto rb_stat, rb->MakeStatisticsArray());
+  AssertArraysEqual(*expected_array, *rb_stat, true);
 }
 
 template <typename DataType>
