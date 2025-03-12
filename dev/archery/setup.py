@@ -23,7 +23,7 @@ import sys
 
 from setuptools import find_packages, setup
 
-if sys.version_info < (3, 9):
+if sys.version_info < (3, 9):  # noqa: UP036
     sys.exit("Python < 3.9 is not supported")
 
 # For pathlib.Path compatibility
