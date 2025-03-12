@@ -255,6 +255,9 @@ class ParquetFile:
         it will be parsed as an URI to determine the filesystem.
     page_checksum_verification : bool, default False
         If True, verify the checksum for each page read from the file.
+    smallest_decimal_enabled : bool, default False
+        If True, always convert to the smallest arrow decimal type based
+        on precision.
 
     Examples
     --------
@@ -303,7 +306,7 @@ class ParquetFile:
                  pre_buffer=False, coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None,
-                 page_checksum_verification=False):
+                 page_checksum_verification=False, smallest_decimal_enabled=False):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -323,6 +326,7 @@ class ParquetFile:
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
+            smallest_decimal_enabled=smallest_decimal_enabled,
         )
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -1267,6 +1271,9 @@ page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
 use_legacy_dataset : bool, optional
     Deprecated and has no effect from PyArrow version 15.0.0.
+smallest_decimal_enabled : bool, default False
+    If True, always convert to the smallest arrow decimal type based
+    on precision.
 
 Examples
 --------
@@ -1280,7 +1287,8 @@ Examples
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  page_checksum_verification=False,
-                 use_legacy_dataset=None):
+                 use_legacy_dataset=None,
+                 smallest_decimal_enabled=False):
 
         if use_legacy_dataset is not None:
             warnings.warn(
@@ -1297,6 +1305,7 @@ Examples
             "thrift_string_size_limit": thrift_string_size_limit,
             "thrift_container_size_limit": thrift_container_size_limit,
             "page_checksum_verification": page_checksum_verification,
+            "smallest_decimal_enabled": smallest_decimal_enabled,
         }
         if buffer_size:
             read_options.update(use_buffered_stream=True,
@@ -1686,6 +1695,9 @@ thrift_container_size_limit : int, default None
     sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the checksum for each page read from the file.
+smallest_decimal_enabled : bool, default False
+    If True, always convert to the smallest arrow decimal type based
+    on precision.
 
 Returns
 -------
@@ -1781,7 +1793,8 @@ def read_table(source, *, columns=None, use_threads=True,
                coerce_int96_timestamp_unit=None,
                decryption_properties=None, thrift_string_size_limit=None,
                thrift_container_size_limit=None,
-               page_checksum_verification=False):
+               page_checksum_verification=False,
+               smallest_decimal_enabled=False):
 
     if use_legacy_dataset is not None:
         warnings.warn(
@@ -1806,6 +1819,7 @@ def read_table(source, *, columns=None, use_threads=True,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
+            smallest_decimal_enabled=smallest_decimal_enabled,
         )
     except ImportError:
         # fall back on ParquetFile for simple cases when pyarrow.dataset
@@ -1838,6 +1852,7 @@ def read_table(source, *, columns=None, use_threads=True,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
+            smallest_decimal_enabled=smallest_decimal_enabled,
         )
 
     return dataset.read(columns=columns, use_threads=use_threads,
