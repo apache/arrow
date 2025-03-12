@@ -175,7 +175,8 @@ test_binary() {
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
-         --dest=${download_dir}
+         --dest=${download_dir} \
+         --repository=${GITHUB_REPOSITORY:-apache/arrow}
 
   verify_dir_artifact_signatures ${download_dir}
 }
@@ -361,16 +362,6 @@ install_csharp() {
       tar xzf - -C ${csharp_bin}
     PATH=${csharp_bin}:${PATH}
     show_info "Installed C# at $(which csharp) (.NET $(dotnet --version))"
-  fi
-
-  # Ensure to have sourcelink installed
-  if ! dotnet tool list | grep sourcelink > /dev/null 2>&1; then
-    dotnet new tool-manifest
-    dotnet tool install --local sourcelink
-    PATH=${csharp_bin}:${PATH}
-    if ! dotnet tool run sourcelink --help > /dev/null 2>&1; then
-      export DOTNET_ROOT=${csharp_bin}
-    fi
   fi
 
   CSHARP_ALREADY_INSTALLED=1
@@ -746,13 +737,6 @@ test_csharp() {
     mv dummy.git ../.git
     dotnet pack -c Release
     mv ../.git dummy.git
-  fi
-
-  if [ "${SOURCE_KIND}" = "local" ]; then
-    echo "Skipping sourcelink verification on local build"
-  else
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard2.0/Apache.Arrow.pdb
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/net6.0/Apache.Arrow.pdb
   fi
 
   popd

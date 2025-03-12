@@ -195,6 +195,7 @@ repos:
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
           ?^c_glib/test/run-test\.sh$|
+          ?^dev/release/07-binary-verify\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
           )
   - repo: https://github.com/trim21/pre-commit-mirror-meson

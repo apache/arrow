@@ -321,6 +321,14 @@ Status Engine::LoadFunctionIRs() {
   return Status::OK();
 }
 
+llvm::Constant* Engine::CreateGlobalStringPtr(const std::string& string) {
+  auto gloval_variable = ir_builder()->CreateGlobalString(string);
+  auto zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context()), 0);
+  llvm::Constant* indices[] = {zero, zero};
+  return llvm::ConstantExpr::getInBoundsGetElementPtr(gloval_variable->getValueType(),
+                                                      gloval_variable, indices);
+}
+
 /// factory method to construct the engine.
 Result<std::unique_ptr<Engine>> Engine::Make(
     const std::shared_ptr<Configuration>& conf, bool cached,
