@@ -187,7 +187,7 @@ class CommitTitle:
     def parse(cls, headline):
         matches = _TITLE_REGEX.match(headline)
         if matches is None:
-            warnings.warn(f"Unable to parse commit message `{headline}`")
+            warnings.warn(f"Unable to parse commit message `{headline}`", stacklevel=2)
             return CommitTitle(headline)
 
         values = matches.groupdict()
@@ -351,13 +351,15 @@ class Release:
             try:
                 upper = self.repo.tags[self.tag]
             except IndexError:
-                warnings.warn(f"Release tag `{self.tag}` doesn't exist.")
+                warnings.warn(f"Release tag `{self.tag}` doesn't exist.", stacklevel=2)
                 return []
         else:
             try:
                 upper = self.repo.branches[self.branch]
             except IndexError:
-                warnings.warn(f"Release branch `{self.branch}` doesn't exist.")
+                warnings.warn(
+                    f"Release branch `{self.branch}` doesn't exist.", stacklevel=2
+                )
                 return []
 
         commit_range = f"{lower}..{upper}"
@@ -399,6 +401,7 @@ class Release:
                     "'refs/remotes/origin/HEAD'reference. Setting "
                     "the default branch name to " + default_branch_name,
                     RuntimeWarning,
+                    stacklevel=2,
                 )
 
         return default_branch_name
@@ -419,7 +422,7 @@ class Release:
                 else:
                     outside.append((self.issue_tracker.issue(int(c.issue_id)), c))
             else:
-                warnings.warn(f"Issue {c.issue} does not pertain to GH")
+                warnings.warn(f"Issue {c.issue} does not pertain to GH", stacklevel=2)
                 outside.append((c.issue, c))
 
         # remaining tickets

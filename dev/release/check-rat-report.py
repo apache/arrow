@@ -25,13 +25,13 @@ import sys
 import xml.etree.ElementTree as ET
 
 if len(sys.argv) != 3:
-    sys.stderr.write("Usage: %s exclude_globs.lst rat_report.xml\n" % sys.argv[0])
+    sys.stderr.write(f"Usage: {sys.argv[0]} exclude_globs.lst rat_report.xml\n")
     sys.exit(1)
 
 exclude_globs_filename = sys.argv[1]
 xml_filename = sys.argv[2]
 
-globs = [line.strip() for line in open(exclude_globs_filename, "r")]
+globs = [line.strip() for line in open(exclude_globs_filename)]
 
 tree = ET.parse(xml_filename)
 root = tree.getroot()
@@ -50,8 +50,9 @@ for r in resources:
             break
     if not excluded:
         sys.stdout.write(
-            "NOT APPROVED: %s (%s): %s\n"
-            % (clean_name, r.attrib["name"], approvals[0].attrib["name"])
+            "NOT APPROVED: {} ({}): {}\n".format(
+                clean_name, r.attrib["name"], approvals[0].attrib["name"]
+            )
         )
         all_ok = False
 

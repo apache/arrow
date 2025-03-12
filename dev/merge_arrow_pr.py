@@ -92,7 +92,7 @@ def run_cmd(cmd):
         output = subprocess.check_output(cmd)
     except subprocess.CalledProcessError as e:
         # this avoids hiding the stdout / stderr of failed processes
-        print("Command failed: %s" % cmd)
+        print(f"Command failed: {cmd}")
         print("With output:")
         print("--------------")
         print(e.output)
@@ -133,7 +133,7 @@ class GitHubIssue:
         try:
             self.issue = self.github_api.get_issue_data(github_id)
         except Exception as e:
-            self.cmd.fail("GitHub could not find %s\n%s" % (github_id, e))
+            self.cmd.fail(f"GitHub could not find {github_id}\n{e}")
 
     def get_label(self, prefix):
         prefix = f"{prefix}:"
@@ -172,16 +172,16 @@ class GitHubIssue:
 
         if cur_status == "closed":
             self.cmd.fail(
-                "GitHub issue %s already has status '%s'" % (self.github_id, cur_status)
+                f"GitHub issue {self.github_id} already has status '{cur_status}'"
             )
 
         if DEBUG:
-            print("GitHub issue %s untouched -> %s" % (self.github_id, fix_version))
+            print(f"GitHub issue {self.github_id} untouched -> {fix_version}")
         else:
             self.github_api.assign_milestone(self.github_id, fix_version)
             if f"Closes: #{self.github_id}" not in pr_body:
                 self.github_api.close_issue(self.github_id, comment)
-            print("Successfully resolved %s!" % (self.github_id))
+            print(f"Successfully resolved {self.github_id}!")
 
         self.issue = self.github_api.get_issue_data(self.github_id)
         self.show()
@@ -235,7 +235,7 @@ def format_issue_output(issue_type, issue_id, status, summary, assignee, compone
     if len(components) == 0:
         components = "NO COMPONENTS!!!"
     else:
-        components = ", ".join((getattr(x, "name", x) for x in components))
+        components = ", ".join(getattr(x, "name", x) for x in components)
 
     url_id = issue_id
     if "GH" in issue_id:
@@ -274,7 +274,7 @@ class GitHubAPI:
         self.headers = headers
 
     def get_milestones(self):
-        return get_json("%s/milestones" % (self.github_api,), headers=self.headers)
+        return get_json(f"{self.github_api}/milestones", headers=self.headers)
 
     def get_milestone_number(self, version):
         return next(
@@ -282,20 +282,18 @@ class GitHubAPI:
         )
 
     def get_issue_data(self, number):
-        return get_json(
-            "%s/issues/%s" % (self.github_api, number), headers=self.headers
-        )
+        return get_json(f"{self.github_api}/issues/{number}", headers=self.headers)
 
     def get_pr_data(self, number):
-        return get_json("%s/pulls/%s" % (self.github_api, number), headers=self.headers)
+        return get_json(f"{self.github_api}/pulls/{number}", headers=self.headers)
 
     def get_pr_commits(self, number):
         return get_json(
-            "%s/pulls/%s/commits" % (self.github_api, number), headers=self.headers
+            f"{self.github_api}/pulls/{number}/commits", headers=self.headers
         )
 
     def get_branches(self):
-        return get_json("%s/branches" % (self.github_api), headers=self.headers)
+        return get_json(f"{self.github_api}/branches", headers=self.headers)
 
     def close_issue(self, number, comment):
         issue_url = f"{self.github_api}/issues/{number}"
@@ -365,7 +363,7 @@ class CommandInput:
 
     def continue_maybe(self, prompt):
         while True:
-            result = input("\n%s (y/n): " % prompt)
+            result = input(f"\n{prompt} (y/n): ")
             if result.lower() == "y":
                 return
             elif result.lower() == "n":
@@ -393,15 +391,14 @@ class PullRequest:
         except KeyError:
             pprint.pprint(self._pr_data)
             raise
-        self.description = "%s/%s" % (self.user_login, self.base_ref)
+        self.description = f"{self.user_login}/{self.base_ref}"
 
         self.issue = self._get_issue()
 
     def show(self):
-        print("\n=== Pull Request #%s ===" % self.number)
+        print(f"\n=== Pull Request #{self.number} ===")
         print(
-            "title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
-            % (self.title, self.description, self.target_ref, self.url)
+            f"title\t{self.title}\nsource\t{self.description}\ntarget\t{self.target_ref}\nurl\t{self.url}"
         )
         if self.issue is not None:
             self.issue.show()
@@ -439,7 +436,7 @@ class PullRequest:
         )
 
     def merge(self):
-        """merge the requested PR and return the merge hash"""
+        """Merge the requested PR and return the merge hash"""
         commits = self._github_api.get_pr_commits(self.number)
 
         def format_commit_author(commit):
@@ -491,12 +488,12 @@ class PullRequest:
         authors = (
             "Authored-by:" if len(distinct_other_authors) == 0 else "Lead-authored-by:"
         )
-        authors += " %s" % primary_author
+        authors += f" {primary_author}"
         if len(distinct_authors) > 0:
             authors += "\n" + "\n".join(
-                ["Co-authored-by: %s" % a for a in distinct_other_authors]
+                [f"Co-authored-by: {a}" for a in distinct_other_authors]
             )
-        authors += "\n" + "Signed-off-by: %s <%s>" % (committer_name, committer_email)
+        authors += "\n" + f"Signed-off-by: {committer_name} <{committer_email}>"
         commit_message_chunks.append(authors)
 
         commit_message = "\n\n".join(commit_message_chunks)
@@ -524,8 +521,8 @@ class PullRequest:
                 self.cmd.fail(f"Failed to merge pull request: {message}")
             merge_hash = result["sha"]
 
-        print("Pull request #%s merged!" % self.number)
-        print("Merge hash: %s" % merge_hash)
+        print(f"Pull request #{self.number} merged!")
+        print(f"Merge hash: {merge_hash}")
 
 
 def get_primary_author(cmd, distinct_authors):
@@ -534,7 +531,7 @@ def get_primary_author(cmd, distinct_authors):
     while True:
         primary_author = cmd.prompt(
             "Enter primary author in the format of "
-            '"name <email>" [%s]: ' % distinct_authors[0]
+            f'"name <email>" [{distinct_authors[0]}]: '
         )
 
         if primary_author == "":
@@ -568,7 +565,7 @@ def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
         # Default to existing assigned milestone
         default_fix_version = current_fix_versions
 
-    issue_fix_version = cmd.prompt("Enter fix version [%s]: " % default_fix_version)
+    issue_fix_version = cmd.prompt(f"Enter fix version [{default_fix_version}]: ")
     if issue_fix_version == "":
         issue_fix_version = default_fix_version
     issue_fix_version = issue_fix_version.strip()
@@ -608,16 +605,16 @@ def cli():
     pr = PullRequest(cmd, github_api, ORG_NAME, pr_num)
 
     if pr.is_merged:
-        print("Pull request %s has already been merged" % pr_num)
+        print(f"Pull request {pr_num} has already been merged")
         sys.exit(0)
 
     if not pr.is_mergeable:
-        print("Pull request %s is not mergeable in its current form" % pr_num)
+        print(f"Pull request {pr_num} is not mergeable in its current form")
         sys.exit(1)
 
     pr.show()
 
-    cmd.continue_maybe("Proceed with merging pull request #%s?" % pr_num)
+    cmd.continue_maybe(f"Proceed with merging pull request #{pr_num}?")
 
     pr.merge()
 
@@ -626,7 +623,7 @@ def cli():
         return
 
     cmd.continue_maybe("Would you like to update the associated issue?")
-    issue_comment = "Issue resolved by pull request %s\n%s" % (
+    issue_comment = "Issue resolved by pull request {}\n{}".format(
         pr_num,
         f"https://github.com/{ORG_NAME}/{PROJECT_NAME}/pull/{pr_num}",
     )

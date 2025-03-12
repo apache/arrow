@@ -62,7 +62,7 @@ def load_fixture(request):
             elif path.suffix == ".yaml":
                 import yaml
 
-                return yaml.load(fp)
+                return yaml.safe_load(fp)
             else:
                 return fp.read()
 

@@ -331,8 +331,8 @@ class Repo:
         except (AttributeError, KeyError):
             raise CrossbowError(
                 "Cannot determine git remote for the Arrow repository to "
-                f"clone or push to, try to push the `{self.branch.name}` branch first to have "
-                "a remote tracking counterpart."
+                f"clone or push to, try to push the `{self.branch.name}` "
+                "branch first to have a remote tracking counterpart."
             )
 
     @property
@@ -381,6 +381,7 @@ class Repo:
                     "'refs/remotes/origin/HEAD'reference. Setting "
                     "the default branch name to " + default_branch_name,
                     RuntimeWarning,
+                    stacklevel=2,
                 )
 
         return default_branch_name
@@ -940,7 +941,8 @@ class Task(Serializable):
             rendered = _render_jinja_template(searchpath, self.template, params=params)
         except jinja2.TemplateError as e:
             raise RuntimeError(
-                f"Failed to render template `{self.template}` with {e.__class__.__name__}: {e!s}"
+                f"Failed to render template `{self.template}` with "
+                f"{e.__class__.__name__}: {e!s}"
             )
 
         tree = {**_default_tree, self.filename: rendered}
@@ -1060,33 +1062,33 @@ class TaskAssets(dict):
         # HACK(kszucs): don't expect uploaded assets of no artifacts were
         # defined for the tasks in order to spare a bit of github rate limit
         if not artifact_patterns:
-            return None
+            return
 
         if github_release is None:
             github_assets = {}  # no assets have been uploaded for the task
         else:
             github_assets = {a.name: a for a in github_release.assets()}
 
-        if not validate_patterns:
+        if validate_patterns:
+            for pattern in artifact_patterns:
+                # artifact can be a regex pattern
+                compiled = re.compile(f"^{pattern}$")
+                matches = list(filter(None, map(compiled.match, github_assets.keys())))
+                num_matches = len(matches)
+
+                # validate artifact pattern matches single asset
+                if num_matches == 0:
+                    self[pattern] = None
+                elif num_matches == 1:
+                    self[pattern] = github_assets[matches[0].group(0)]
+                else:
+                    raise CrossbowError(
+                        "Only a single asset should match pattern `{}`, there are "
+                        "multiple ones: {}".format(pattern, ", ".join(matches))
+                    )
+        else:
             # shortcut to avoid pattern validation and just set all artifacts
-            return self.update(github_assets)
-
-        for pattern in artifact_patterns:
-            # artifact can be a regex pattern
-            compiled = re.compile(f"^{pattern}$")
-            matches = list(filter(None, map(compiled.match, github_assets.keys())))
-            num_matches = len(matches)
-
-            # validate artifact pattern matches single asset
-            if num_matches == 0:
-                self[pattern] = None
-            elif num_matches == 1:
-                self[pattern] = github_assets[matches[0].group(0)]
-            else:
-                raise CrossbowError(
-                    "Only a single asset should match pattern `{}`, there are "
-                    "multiple ones: {}".format(pattern, ", ".join(matches))
-                )
+            self.update(github_assets)
 
     def missing_patterns(self):
         return [pattern for pattern, asset in self.items() if asset is None]
@@ -1327,9 +1329,9 @@ class Config(dict):
                 tasks = self.select(tasks=[pattern])
                 if not tasks:
                     raise CrossbowError(
-                        f"The pattern `{pattern}` defined for task group `{group_name}` is not "
-                        "matching any of the tasks defined in the "
-                        "configuration file."
+                        f"The pattern `{pattern}` defined for task group "
+                        f"`{group_name}` is not matching any of the tasks "
+                        "defined in the configuration file."
                     )
 
         # validate that the tasks are constructible

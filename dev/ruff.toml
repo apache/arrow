@@ -61,12 +61,13 @@ ignore = [
   "D400",    # First line should end with a period
   "D401",    # Imperative mood
 #   "D402",    # First line should not be the function's signature
-#   "D413",    # Blank line required after last section
-
+  "D413",    # Blank line required after last section
   "D415",    # First line should end with a period, question mark, or exclamation point
   "D417",    # Missing argument descriptions in the docstring
+  "FLY002",  # Consider `f"{}.{}"` instead of string join"
 #   "E501",    # line-too-long, this is automatically enforced by ruff format
 #   "E731",    # lambda-assignment
+  "ICN001",  # `xml.etree.ElementTree` should be imported as `ET`
   "INP001",  # implicit-namespace-package
   "ISC001",  # single line implicit string concat, handled by ruff format
   "G004",    # Logging statement uses f-string
@@ -79,6 +80,7 @@ ignore = [
   "PLR0915", # too many statements
   "PLR2004", # forces everything to be a constant
   "PLW2901", # overwriting loop variable
+  "RET503",  # Missing explicit `return` at the end of function able to return non-`None` value
   "RET504",  # unnecessary-assign, these are useful for debugging
   "RET505",  # superfluous-else-return, stylistic choice
   "RET506",  # superfluous-else-raise, stylistic choice
@@ -97,8 +99,14 @@ ignore = [
   "UP007",   # Optional[str] -> str | None
   "UP035",   # `typing.List` is deprecated, use `list` instead
 #   "UP038",   # non-pep604-isinstance, results in slower code
+  "PLW1510", # `subprocess.run` without explicit `check` argument
   "S101",    # ignore "Use of `assert` detected"
+  "S310",    # Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
   "S603",    # `subprocess` call: check for execution of untrusted input
+  "S607",    # Starting a process with a partial executable path
+  "S701",    # By default, jinja2 sets `autoescape` to `False`. Consider using `autoescape=True` or the `select_autoescape` function to mitigate XSS vulnerabilities.
+  "S113",    # Probable use of `requests` call without timeout
+  "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
   "T201",    # `print` found
   "TID252"   # Prefer absolute imports over relative imports from parent modules
 ]

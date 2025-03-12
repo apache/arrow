@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures as cf
+import contextlib
 import functools
 import json
 import os
@@ -127,11 +128,9 @@ class Downloader:
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = proc.communicate()
             if proc.returncode != 0:
-                try:
+                with contextlib.suppress(OSError):
                     # Don't leave possibly partial file around
                     os.remove(dest_path)
-                except IOError:
-                    pass
                 if "OpenSSL" not in stderr:
                     # We assume curl has already retried on other errors.
                     break
