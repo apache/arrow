@@ -50,7 +50,7 @@ namespace Apache.Arrow.Flight
             TotalBytes = totalBytes;
             TotalRecords = totalRecords;
             Ordered = ordered;
-            AppMetadata = appMetadata;
+            AppMetadata = appMetadata ?? ByteString.Empty;
         }
 
         public FlightDescriptor Descriptor { get; }
@@ -76,13 +76,9 @@ namespace Apache.Arrow.Flight
                 FlightDescriptor = Descriptor.ToProtocol(),
                 TotalBytes = TotalBytes,
                 TotalRecords = TotalRecords,
-                Ordered = Ordered
+                Ordered = Ordered,
+                AppMetadata = AppMetadata
             };
-
-            if (AppMetadata != null)
-            {
-                response.AppMetadata = AppMetadata;
-            }
 
             foreach(var endpoint in Endpoints)
             {
