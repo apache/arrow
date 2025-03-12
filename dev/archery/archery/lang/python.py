@@ -216,8 +216,8 @@ class NumpyDoc:
             inspect.signature = orig_signature
 
     def _should_ignore_error(self, obj, errcode):
-        for typ, codes in NumpyDoc.IGNORE_VALIDATION_ERRORS_FOR_TYPE.items():
-            if isinstance(obj, typ) and errcode in codes:
+        for obj_type, errcode_list in self.IGNORE_VALIDATION_ERRORS_FOR_TYPE.items():
+            if isinstance(obj, obj_type) and errcode in errcode_list:
                 return True
         return False
 
@@ -238,7 +238,7 @@ class NumpyDoc:
                     continue
                 if disallow_rules and errcode in disallow_rules:
                     continue
-                if self._should_ignore_error(type(obj), errcode):
+                if self._should_ignore_error(obj, errcode):
                     continue
                 errors.append((errcode, errmsg))
 
