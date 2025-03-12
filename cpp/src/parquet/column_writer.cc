@@ -1375,14 +1375,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   Status WriteArrowZeroCopy(const int16_t* def_levels, const int16_t* rep_levels,
                             int64_t num_levels, const ::arrow::Array& array,
                             ArrowWriteContext* ctx, bool maybe_parent_nulls) {
-    const auto& data = static_cast<const ::arrow::PrimitiveArray&>(array);
-    const T* values = nullptr;
-    // The values buffer may be null if the array is empty (ARROW-2744)
-    if (data.values() != nullptr) {
-      values = reinterpret_cast<const T*>(data.values()->data()) + data.offset();
-    } else {
-      DCHECK_EQ(data.length(), 0);
-    }
+    const auto& data = checked_cast<const ::arrow::PrimitiveArray&>(array);
+    const T* values = data.data()->GetValues<T>(1);
     bool no_nulls =
         this->descr()->schema_node()->is_required() || (array.null_count() == 0);
 
