@@ -191,7 +191,7 @@ check_verification_result_on_github() {
   conclusion="$(jq -r '.conclusion' latest_verify_rc.json)"
   if [ "${conclusion}" != "success" ]; then
     html_url="$(jq -r '.html_url' latest_verify_rc.json)"
-    echo "Verification on GitHub wasn't succeeded: ${conclusion}: ${html_url}"
+    echo "Verification on GitHub wasn't successful: ${conclusion}: ${html_url}"
     exit 1
   fi
   popd
