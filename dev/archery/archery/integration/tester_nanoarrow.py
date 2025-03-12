@@ -25,8 +25,7 @@ from ..utils.source import ARROW_ROOT_DEFAULT
 
 
 _NANOARROW_PATH = os.environ.get(
-    "ARROW_NANOARROW_PATH",
-    os.path.join(ARROW_ROOT_DEFAULT, "nanoarrow/cdata"),
+    "ARROW_NANOARROW_PATH", os.path.join(ARROW_ROOT_DEFAULT, "nanoarrow/cdata")
 )
 
 _INTEGRATION_DLL = os.path.join(

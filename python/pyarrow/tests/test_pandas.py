@@ -4054,9 +4054,11 @@ def test_nested_with_timestamp_tz():
         if unit in ['s', 'ms']:
             # This is used for verifying timezone conversion to micros are not
             # important
-            def truncate(x): return x.replace(microsecond=0)
+            def truncate(x):
+                return x.replace(microsecond=0)
         else:
-            def truncate(x): return x
+            def truncate(x):
+                return x
         arr = pa.array([ts], type=pa.timestamp(unit))
         arr2 = pa.array([ts], type=pa.timestamp(unit, tz='America/New_York'))
 

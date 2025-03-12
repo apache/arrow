@@ -122,8 +122,7 @@ MIGRATION_COMMENT_REGEX = re.compile(
 )
 
 
-class GitHubIssue(object):
-
+class GitHubIssue:
     def __init__(self, github_api, github_id, cmd):
         self.github_api = github_api
         self.github_id = github_id
@@ -132,7 +131,7 @@ class GitHubIssue(object):
         try:
             self.issue = self.github_api.get_issue_data(github_id)
         except Exception as e:
-            self.cmd.fail("GitHub could not find %s\n%s" % (github_id, e))
+            self.cmd.fail(f"GitHub could not find {github_id}\n{e}")
 
     def get_label(self, prefix):
         prefix = f"{prefix}:"
@@ -169,8 +168,9 @@ class GitHubIssue(object):
         cur_status = self.issue["state"]
 
         if cur_status == "closed":
-            self.cmd.fail("GitHub issue %s already has status '%s'"
-                          % (self.github_id, cur_status))
+            self.cmd.fail(
+                f"GitHub issue {self.github_id} already has status '{cur_status}'"
+            )
 
         if DEBUG:
             print("GitHub issue %s untouched -> %s" %
@@ -179,7 +179,7 @@ class GitHubIssue(object):
             self.github_api.assign_milestone(self.github_id, fix_version)
             if f"Closes: #{self.github_id}" not in pr_body:
                 self.github_api.close_issue(self.github_id, comment)
-            print("Successfully resolved %s!" % (self.github_id))
+            print(f"Successfully resolved {self.github_id}!")
 
         self.issue = self.github_api.get_issue_data(self.github_id)
         self.show()
@@ -227,7 +227,7 @@ def format_issue_output(issue_type, issue_id, status,
     if len(components) == 0:
         components = 'NO COMPONENTS!!!'
     else:
-        components = ', '.join((getattr(x, "name", x) for x in components))
+        components = ", ".join(getattr(x, "name", x) for x in components)
 
     url_id = issue_id
     if "GH" in issue_id:
@@ -244,8 +244,7 @@ URL\t\t{}""".format(issue_type.upper(), issue_id, summary, assignee,
                     components, status, url)
 
 
-class GitHubAPI(object):
-
+class GitHubAPI:
     def __init__(self, project_name, cmd):
         self.github_api = (
             f"https://api.github.com/repos/{ORG_NAME}/{project_name}"
@@ -349,10 +348,8 @@ class GitHubAPI(object):
                 requests.delete(label_url, headers=self.headers)
 
 
-class CommandInput(object):
-    """
-    Interface to input(...) to enable unit test mocks to be created
-    """
+class CommandInput:
+    """Interface to input(...) to enable unit test mocks to be created"""
 
     def fail(self, msg):
         raise Exception(msg)
@@ -365,7 +362,7 @@ class CommandInput(object):
 
     def continue_maybe(self, prompt):
         while True:
-            result = input("\n%s (y/n): " % prompt)
+            result = input(f"\n{prompt} (y/n): ")
             if result.lower() == "y":
                 return
             elif result.lower() == "n":
@@ -374,8 +371,8 @@ class CommandInput(object):
                 prompt = "Please input 'y' or 'n'"
 
 
-class PullRequest(object):
-    GITHUB_PR_TITLE_PATTERN = re.compile(r'^GH-([0-9]+)\b.*$')
+class PullRequest:
+    GITHUB_PR_TITLE_PATTERN = re.compile(r"^GH-([0-9]+)\b.*$")
 
     def __init__(self, cmd, github_api, git_remote, number):
         self.cmd = cmd
@@ -393,14 +390,18 @@ class PullRequest(object):
         except KeyError:
             pprint.pprint(self._pr_data)
             raise
-        self.description = "%s/%s" % (self.user_login, self.base_ref)
+        self.description = f"{self.user_login}/{self.base_ref}"
 
         self.issue = self._get_issue()
 
     def show(self):
-        print("\n=== Pull Request #%s ===" % self.number)
-        print("title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
-              % (self.title, self.description, self.target_ref, self.url))
+        print(f"\n=== Pull Request #{self.number} ===")
+        print(
+            f"title\t{self.title}\n"
+            f"source\t{self.description}\n"
+            f"target\t{self.target_ref}\n"
+            f"url\t{self.url}"
+        )
         if self.issue is not None:
             self.issue.show()
         else:
@@ -432,9 +433,7 @@ class PullRequest(object):
                       "GH-XXX, but found {0}".format(self.title))
 
     def merge(self):
-        """
-        merge the requested PR and return the merge hash
-        """
+        """Merge the requested PR and return the merge hash"""
         commits = self._github_api.get_pr_commits(self.number)
 
         def format_commit_author(commit):
@@ -516,8 +515,8 @@ class PullRequest(object):
                 self.cmd.fail(f'Failed to merge pull request: {message}')
             merge_hash = result['sha']
 
-        print("Pull request #%s merged!" % self.number)
-        print("Merge hash: %s" % merge_hash)
+        print(f"Pull request #{self.number} merged!")
+        print(f"Merge hash: {merge_hash}")
 
 
 def get_primary_author(cmd, distinct_authors):
@@ -602,16 +601,16 @@ def cli():
     pr = PullRequest(cmd, github_api, ORG_NAME, pr_num)
 
     if pr.is_merged:
-        print("Pull request %s has already been merged" % pr_num)
+        print(f"Pull request {pr_num} has already been merged")
         sys.exit(0)
 
     if not pr.is_mergeable:
-        print("Pull request %s is not mergeable in its current form" % pr_num)
+        print(f"Pull request {pr_num} is not mergeable in its current form")
         sys.exit(1)
 
     pr.show()
 
-    cmd.continue_maybe("Proceed with merging pull request #%s?" % pr_num)
+    cmd.continue_maybe(f"Proceed with merging pull request #{pr_num}?")
 
     pr.merge()
 

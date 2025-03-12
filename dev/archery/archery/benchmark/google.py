@@ -173,6 +173,6 @@ class GoogleBenchmark(Benchmark):
         def group_key(x):
             return x.name
 
-        benchmarks = map(lambda x: GoogleBenchmarkObservation(**x), payload)
+        benchmarks = (GoogleBenchmarkObservation(**x) for x in payload)
         groups = groupby(sorted(benchmarks, key=group_key), group_key)
         return [cls(k, list(bs)) for k, bs in groups]

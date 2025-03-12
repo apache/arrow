@@ -41,12 +41,7 @@ def test_docker_run_with_custom_command(run, build, pull):
         use_leaf_cache=True,
     )
     run.assert_called_once_with(
-        "ubuntu-cpp",
-        command="bash",
-        env={},
-        resource_limit=None,
-        user=None,
-        volumes=(),
+        "ubuntu-cpp", command="bash", env={}, resource_limit=None, user=None, volumes=()
     )
 
 
@@ -85,10 +80,7 @@ def test_docker_run_options(run, build, pull):
         env={"ARROW_GANDIVA": "OFF", "ARROW_FLIGHT": "ON"},
         resource_limit=None,
         user="root",
-        volumes=(
-            "./build:/build",
-            "./ccache:/ccache:delegated",
-        ),
+        volumes=("./build:/build", "./ccache:/ccache:delegated"),
     )
 
 
@@ -120,10 +112,7 @@ def test_docker_limit_options(run):
         env={"ARROW_GANDIVA": "OFF", "ARROW_FLIGHT": "ON"},
         resource_limit="github",
         user="root",
-        volumes=(
-            "./build:/build",
-            "./ccache:/ccache:delegated",
-        ),
+        volumes=("./build:/build", "./ccache:/ccache:delegated"),
     )
 
 
@@ -133,12 +122,7 @@ def test_docker_run_without_pulling_or_building(run):
     result = CliRunner().invoke(docker, args)
     assert result.exit_code == 0
     run.assert_called_once_with(
-        "ubuntu-cpp",
-        command=None,
-        env={},
-        resource_limit=None,
-        user=None,
-        volumes=(),
+        "ubuntu-cpp", command=None, env={}, resource_limit=None, user=None, volumes=()
     )
 
 
@@ -173,16 +157,7 @@ def test_docker_run_without_build_cache(run, build):
     ]
     result = CliRunner().invoke(docker, args)
     assert result.exit_code == 0
-    build.assert_called_once_with(
-        "ubuntu-cpp",
-        use_cache=False,
-        use_leaf_cache=False,
-    )
+    build.assert_called_once_with("ubuntu-cpp", use_cache=False, use_leaf_cache=False)
     run.assert_called_once_with(
-        "ubuntu-cpp",
-        command=None,
-        env={},
-        resource_limit=None,
-        user="me",
-        volumes=(),
+        "ubuntu-cpp", command=None, env={}, resource_limit=None, user="me", volumes=()
     )

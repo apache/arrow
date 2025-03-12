@@ -108,11 +108,7 @@ class CppTester(Tester):
             cmd = cmd + ["-scenario", scenario_name]
         if self.debug:
             log(" ".join(cmd))
-        server = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        server = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
             output = server.stdout.readline().decode()
             if not output.startswith("Server listening on localhost:"):
@@ -170,7 +166,7 @@ def _load_ffi(ffi, lib_path=_ARROW_DLL):
     os.environ['ARROW_DEBUG_MEMORY_POOL'] = 'trap'
     ffi.cdef(_cpp_c_data_entrypoints)
     dll = ffi.dlopen(lib_path)
-    dll.ArrowCpp_CDataIntegration_ExportSchemaFromJson
+    dll.ArrowCpp_CDataIntegration_ExportSchemaFromJson  # noqa: B018
     return dll
 
 

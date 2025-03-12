@@ -52,6 +52,7 @@ class CMakeDefinition:
 
     build1.all()
     build2.all()
+    ```
     """
 
     def __init__(self, source, build_type="release", generator=None,
@@ -77,12 +78,8 @@ class CMakeDefinition:
 
     @property
     def arguments(self):
-        """" Return the arguments to cmake invocation. """
-        arguments = [
-            "-G{}".format(self.generator),
-        ] + self.definitions + [
-            self.source
-        ]
+        """Return the arguments to cmake invocation."""
+        arguments = [f"-G{self.generator}"] + self.definitions + [self.source]
         return arguments
 
     def build(self, build_dir, force=False, cmd_kwargs=None, **kwargs):

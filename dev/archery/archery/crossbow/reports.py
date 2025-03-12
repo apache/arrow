@@ -120,7 +120,7 @@ class Report:
                 task.ci,
                 # We want this to be serialized as a dict instead
                 # of an orderedict.
-                {k: v for k, v in task.params.items()},
+                dict(task.params.items()),
                 task.template,
                 # Arrow repository commit
                 self.job.target.head

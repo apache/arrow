@@ -26,7 +26,10 @@ import os
 import sys
 import tempfile
 import traceback
-from typing import Callable, List, Optional
+from collections import namedtuple
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+from typing import TYPE_CHECKING, Callable, List, Optional
 
 from . import cdata
 from .scenario import Scenario
@@ -35,11 +38,14 @@ from .util import guid, printer
 from .util import SKIP_C_ARRAY, SKIP_C_SCHEMA, SKIP_FLIGHT, SKIP_IPC
 from ..utils.logger import group as group_raw
 from ..utils.source import ARROW_ROOT_DEFAULT
-from . import datagen
+from . import cdata, datagen
+from .scenario import Scenario
+from .util import SKIP_C_ARRAY, SKIP_C_SCHEMA, SKIP_FLIGHT, SKIP_IPC, guid, printer
 
+if TYPE_CHECKING:
+    from .tester import CDataExporter, CDataImporter, Tester
 
-Failure = namedtuple('Failure',
-                     ('test_case', 'producer', 'consumer', 'exc_info'))
+Failure = namedtuple("Failure", ("test_case", "producer", "consumer", "exc_info"))
 
 log = printer.print
 
@@ -118,7 +124,9 @@ class IntegrationRunner(object):
                     log('Tests against golden files in {}'.format(gold_dir))
                     log('******************************************************')
 
-                    def run_gold(_, consumer, test_case: datagen.File):
+                    def run_gold(
+                        _, consumer, test_case: datagen.File, gold_dir=gold_dir
+                    ):
                         return self._run_gold(gold_dir, consumer, test_case)
                     self._compare_ipc_implementations(
                         consumer, consumer, run_gold,
@@ -193,7 +201,7 @@ class IntegrationRunner(object):
             if name == 'union' and prefix == '0.17.1':
                 skip_testers.add("Java")
                 skip_testers.add("JS")
-            if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
+            if prefix in ("1.0.0-bigendian", "1.0.0-littleendian"):
                 skip_testers.add("C#")
                 skip_testers.add("Java")
                 skip_testers.add("JS")

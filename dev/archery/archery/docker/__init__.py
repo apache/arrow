@@ -15,4 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from .core import DockerCompose, UndefinedImage  # noqa
+from .core import DockerCompose, UndefinedImage
+
+__all__ = ["DockerCompose", "UndefinedImage"]

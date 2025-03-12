@@ -35,7 +35,7 @@ class Jar(CommandStackMixin, Java):
 
 class JavaConfiguration:
     REQUIRED_JAVA_OPTIONS = [
-        "--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED",
+        "--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED"
     ]
 
     def __init__(self,

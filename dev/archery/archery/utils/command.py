@@ -92,7 +92,7 @@ class Command:
 class CommandStackMixin:
     def run(self, *argv, **kwargs):
         stacked_args = self.argv + argv
-        return super(CommandStackMixin, self).run(*stacked_args, **kwargs)
+        return super().run(*stacked_args, **kwargs)
 
 
 class Bash(Command):

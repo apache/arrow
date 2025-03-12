@@ -210,8 +210,7 @@ def verify_release_candidate(obj, base_branch, create_pr,
             if flag:
                 job_groups += f" --group {group}"
         response.create_comment(
-            f"{command} {job_groups} --param " +
-            f"release={version} --param rc={rc}")
+            f"{command} {job_groups} --param release={version} --param rc={rc}")
 
 
 @crossbow.command()
@@ -511,9 +510,7 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
                     return False
                 if not path.exists():
                     return True
-                if path.stat().st_size != asset.size:
-                    return True
-                return False
+                return path.stat().st_size != asset.size
 
             if need_download():
                 import github3
@@ -637,8 +634,9 @@ def notify_token_expiration(obj, days, sender_name, sender_email,
     if token_expiration_date:
         days_left = (token_expiration_date - date.today()).days
         if days_left > days:
-            output.write("Notification not sent. " +
-                         f"Token will expire in {days_left} days.")
+            output.write(
+                f"Notification not sent. Token will expire in {days_left} days."
+            )
             return
 
     class TokenExpirationReport:

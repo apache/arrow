@@ -35,9 +35,10 @@ ARROW_BUILD_ROOT = os.environ.get(
 
 def load_version_from_pom():
     import xml.etree.ElementTree as ET
-    tree = ET.parse(os.path.join(ARROW_ROOT_DEFAULT, 'java', 'pom.xml'))
-    tag_pattern = '{http://maven.apache.org/POM/4.0.0}version'
-    version_tag = list(tree.getroot().findall(tag_pattern))[0]
+
+    tree = ET.parse(os.path.join(ARROW_ROOT_DEFAULT, "java", "pom.xml"))
+    tag_pattern = "{http://maven.apache.org/POM/4.0.0}version"
+    version_tag = next(iter(tree.getroot().findall(tag_pattern)))
     return version_tag.text
 
 
@@ -211,8 +212,7 @@ class JavaCDataImporter(CDataImporter, _CDataBase):
                     # We need to pass a dict provider primed with dictionary ids
                     # matching those in the schema, hence an empty
                     # CDataDictionaryProvider would not work here.
-                    dict_provider = (self.java_arrow.vector.dictionary
-                                     .DictionaryProvider.MapDictionaryProvider())
+                    dict_provider = self.java_arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider()  # noqa: E501
                     dict_provider.copyStructureFrom(json_reader, self.java_allocator)
                     with dict_provider:
                         self.java_arrow.c.Data.importIntoVectorSchemaRoot(

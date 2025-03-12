@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import contextlib
 import glob
 import json
 import os
@@ -83,10 +84,8 @@ class StaticBenchmarkRunner(BenchmarkRunner):
     @classmethod
     def is_json_result(cls, path_or_str):
         builder = None
-        try:
+        with contextlib.suppress(BaseException):
             builder = cls.from_json(path_or_str)
-        except BaseException:
-            pass
 
         return builder is not None
 

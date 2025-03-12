@@ -297,9 +297,7 @@ def test_forwarding_env_variables(arrow_compose_path):
 def test_compose_pull(arrow_compose_path, monkeypatch):
     compose = DockerCompose(arrow_compose_path)
 
-    expected_calls = [
-        "pull --ignore-pull-failures conda-cpp",
-    ]
+    expected_calls = ["pull --ignore-pull-failures conda-cpp"]
     with assert_compose_calls(compose, expected_calls):
         compose.clear_pull_memory()
         compose.pull('conda-cpp')
@@ -324,9 +322,7 @@ def test_compose_pull(arrow_compose_path, monkeypatch):
     with monkeypatch.context() as m:
         # `--quiet` is passed to `docker` on CI
         m.setenv("GITHUB_ACTIONS", "true")
-        expected_calls = [
-            "pull --quiet --ignore-pull-failures conda-cpp",
-        ]
+        expected_calls = ["pull --quiet --ignore-pull-failures conda-cpp"]
         with assert_compose_calls(compose, expected_calls):
             compose.clear_pull_memory()
             compose.pull('conda-cpp')
@@ -347,9 +343,7 @@ def test_compose_pull_params(arrow_compose_path):
 def test_compose_build(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path)
 
-    expected_calls = [
-        "build conda-cpp",
-    ]
+    expected_calls = ["build conda-cpp"]
     with assert_compose_calls(compose, expected_calls):
         compose.build('conda-cpp')
 
@@ -389,17 +383,13 @@ def test_compose_build(arrow_compose_path):
 def test_compose_buildkit_inline_cache(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path)
 
-    expected_calls = [
-        "build --build-arg BUILDKIT_INLINE_CACHE=1 conda-cpp",
-    ]
+    expected_calls = ["build --build-arg BUILDKIT_INLINE_CACHE=1 conda-cpp"]
     with assert_compose_calls(compose, expected_calls):
         compose.build('conda-cpp')
 
 
 def test_compose_build_params(arrow_compose_path):
-    expected_calls = [
-        "build ubuntu-cpp",
-    ]
+    expected_calls = ["build ubuntu-cpp"]
 
     compose = DockerCompose(arrow_compose_path, params=dict(UBUNTU='18.04'))
     expected_env = PartialEnv(UBUNTU="18.04")
@@ -423,9 +413,7 @@ def test_compose_build_params(arrow_compose_path):
 
 
 def test_compose_run(arrow_compose_path):
-    expected_calls = [
-        format_run("conda-cpp"),
-    ]
+    expected_calls = [format_run("conda-cpp")]
     compose = DockerCompose(arrow_compose_path)
     with assert_compose_calls(compose, expected_calls):
         compose.run('conda-cpp')
@@ -496,7 +484,7 @@ def test_compose_push(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.9'))
     expected_env = PartialEnv(PYTHON="3.9")
     expected_calls = [
-        mock.call(["docker", "login", "-u", "user", "-p", "pass"], check=True),
+        mock.call(["docker", "login", "-u", "user", "-p", "pass"], check=True)
     ]
     for image in ["conda-cpp", "conda-python", "conda-python-pandas"]:
         expected_calls.append(
@@ -504,7 +492,7 @@ def test_compose_push(arrow_compose_path):
                        "push", image], check=True, env=expected_env)
         )
     with assert_subprocess_calls(expected_calls):
-        compose.push('conda-python-pandas', user='user', password='pass')
+        compose.push("conda-python-pandas", user="user", password="pass")  # noqa: S106
 
 
 def test_compose_error(arrow_compose_path):

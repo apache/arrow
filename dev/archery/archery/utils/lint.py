@@ -413,8 +413,7 @@ def is_docker_image(path):
     dirname = os.path.dirname(path)
     filename = os.path.basename(path)
 
-    excluded = dirname.startswith(
-        "dev") or dirname.startswith("python/manylinux")
+    excluded = dirname.startswith(("dev", "python/manylinux"))
 
     return filename.startswith("Dockerfile") and not excluded
 

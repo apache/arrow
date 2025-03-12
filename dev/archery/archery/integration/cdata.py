@@ -20,8 +20,10 @@ from contextlib import contextmanager
 import functools
 import os
 import sys
+from typing import TYPE_CHECKING
 
-from .tester import CDataExporter, CDataImporter
+if TYPE_CHECKING:
+    from .tester import CDataExporter, CDataImporter
 
 
 if sys.platform == "darwin":

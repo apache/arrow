@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-##############################################################################
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,7 +16,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-##############################################################################
+
 import fnmatch
 import re
 import sys
@@ -30,7 +30,8 @@ if len(sys.argv) != 3:
 exclude_globs_filename = sys.argv[1]
 xml_filename = sys.argv[2]
 
-globs = [line.strip() for line in open(exclude_globs_filename, "r")]
+with open(exclude_globs_filename) as f:
+    globs = [line.strip() for line in f]
 
 tree = ET.parse(xml_filename)
 root = tree.getroot()

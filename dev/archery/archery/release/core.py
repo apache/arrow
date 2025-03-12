@@ -182,9 +182,7 @@ class CommitTitle:
     def parse(cls, headline):
         matches = _TITLE_REGEX.match(headline)
         if matches is None:
-            warnings.warn(
-                "Unable to parse commit message `{}`".format(headline)
-            )
+            warnings.warn(f"Unable to parse commit message `{headline}`", stacklevel=2)
             return CommitTitle(headline)
 
         values = matches.groupdict()
@@ -363,13 +361,15 @@ class Release:
             try:
                 upper = self.repo.tags[self.tag]
             except IndexError:
-                warnings.warn(f"Release tag `{self.tag}` doesn't exist.")
+                warnings.warn(f"Release tag `{self.tag}` doesn't exist.", stacklevel=2)
                 return []
         else:
             try:
                 upper = self.repo.branches[self.branch]
             except IndexError:
-                warnings.warn(f"Release branch `{self.branch}` doesn't exist.")
+                warnings.warn(
+                    f"Release branch `{self.branch}` doesn't exist.", stacklevel=2
+                )
                 return []
 
         commit_range = f"{lower}..{upper}"
@@ -404,12 +404,15 @@ class Release:
             except (KeyError, IndexError):
                 # Use a hard-coded default value to set default_branch_name
                 default_branch_name = "main"
-                warnings.warn('Unable to determine default branch name: '
-                              'ARCHERY_DEFAULT_BRANCH environment variable is '
-                              'not set. Git repository does not contain a '
-                              '\'refs/remotes/origin/HEAD\'reference. Setting '
-                              'the default branch name to ' +
-                              default_branch_name, RuntimeWarning)
+                warnings.warn(
+                    "Unable to determine default branch name: "
+                    "ARCHERY_DEFAULT_BRANCH environment variable is "
+                    "not set. Git repository does not contain a "
+                    "'refs/remotes/origin/HEAD'reference. Setting "
+                    "the default branch name to " + default_branch_name,
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
 
         return default_branch_name
 
@@ -430,8 +433,7 @@ class Release:
                     outside.append(
                         (self.issue_tracker.issue(int(c.issue_id)), c))
             else:
-                warnings.warn(
-                    f'Issue {c.issue} does not pertain to GH')
+                warnings.warn(f"Issue {c.issue} does not pertain to GH", stacklevel=2)
                 outside.append((c.issue, c))
 
         # remaining tickets

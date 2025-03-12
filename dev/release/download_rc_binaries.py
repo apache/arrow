@@ -19,6 +19,7 @@
 
 import argparse
 import concurrent.futures as cf
+import contextlib
 import functools
 import json
 import os
@@ -132,11 +133,9 @@ class Downloader:
                                     stderr=subprocess.PIPE)
             stdout, stderr = proc.communicate()
             if proc.returncode != 0:
-                try:
+                with contextlib.suppress(OSError):
                     # Don't leave possibly partial file around
                     os.remove(dest_path)
-                except IOError:
-                    pass
                 if "OpenSSL" not in stderr:
                     # We assume curl has already retried on other errors.
                     break
@@ -157,8 +156,9 @@ class Artifactory(Downloader):
 
 
 class Maven(Downloader):
-    URL_ROOT = "https://repository.apache.org" + \
-        "/content/repositories/staging/org/apache/arrow"
+    URL_ROOT = (
+        "https://repository.apache.org/content/repositories/staging/org/apache/arrow"
+    )
 
 
 class GitHub(Downloader):
@@ -177,16 +177,10 @@ class GitHub(Downloader):
         url = (f"https://api.github.com/repos/{self._repository}/"
                f"releases/tags/{self._tag}")
         print("Fetching release from", url)
-        headers = {
-            "Accept": "application/vnd.github+json",
-        }
+        headers = {"Accept": "application/vnd.github+json"}
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"
-        request = urllib.request.Request(
-            url,
-            method="GET",
-            headers=headers,
-        )
+        request = urllib.request.Request(url, method="GET", headers=headers)
         raw_response = urllib.request.urlopen(request).read().decode()
         response = json.loads(raw_response)
 
@@ -219,10 +213,7 @@ class GitHub(Downloader):
         print(f"Waiting {delay} seconds to avoid rate limit")
         time.sleep(delay)
 
-        extra_args = [
-            "--header",
-            "Accept: application/octet-stream",
-        ]
+        extra_args = ["--header", "Accept: application/octet-stream"]
         if self._curl_version() >= (7, 71, 0):
             # Also retry 403s
             extra_args.append("--retry-all-errors")
@@ -279,8 +270,8 @@ def download_rc_binaries(version, rc_number, re_match=None, dest=None,
 
         if package_type == 'jars':
             downloader = Maven()
-            prefix = ''
-        elif package_type == 'github' or package_type == 'nuget':
+            prefix = ""
+        elif package_type in ("github", "nuget"):
             downloader = GitHub(repository, tag)
             prefix = ''
             filter = None

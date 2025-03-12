@@ -15,4 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from .core import Release, MajorRelease, MinorRelease, PatchRelease  # noqa
+from .core import MajorRelease, MinorRelease, PatchRelease, Release
+
+__all__ = ["MajorRelease", "MinorRelease", "PatchRelease", "Release"]

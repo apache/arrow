@@ -111,11 +111,10 @@ class JavaMicrobenchmarkHarnessObservation:
             "measurementTime": counters["measurementTime"],
             "jvmArgs": counters["jvmArgs"]
         }
-        self.reciprocal_value = True if self.score_unit.endswith(
-            "/op") else False
+        self.reciprocal_value = bool(self.score_unit.endswith("/op"))
         if self.score_unit.startswith("ops/"):
             idx = self.score_unit.find("/")
-            self.normalizePerSec(self.score_unit[idx+1:])
+            self.normalizePerSec(self.score_unit[(idx + 1) :])
         elif self.score_unit.endswith("/op"):
             idx = self.score_unit.find("/")
             self.normalizePerSec(self.score_unit[:idx])
@@ -195,7 +194,6 @@ class JavaMicrobenchmarkHarness(Benchmark):
         def group_key(x):
             return x.name
 
-        benchmarks = map(
-            lambda x: JavaMicrobenchmarkHarnessObservation(**x), payload)
+        benchmarks = (JavaMicrobenchmarkHarnessObservation(**x) for x in payload)
         groups = groupby(sorted(benchmarks, key=group_key), group_key)
         return [cls(k, list(bs)) for k, bs in groups]

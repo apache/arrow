@@ -15,5 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from .core import Config, Repo, Queue, Target, Job  # noqa
-from .reports import CommentReport, ConsoleReport, EmailReport  # noqa
+from .core import Config, Job, Queue, Repo, Target
+from .reports import CommentReport, ConsoleReport, EmailReport
+
+__all__ = [
+    "CommentReport",
+    "Config",
+    "ConsoleReport",
+    "EmailReport",
+    "Job",
+    "Queue",
+    "Repo",
+    "Target",
+]

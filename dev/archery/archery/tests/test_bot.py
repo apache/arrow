@@ -530,8 +530,9 @@ def test_pull_request_committer_review_awaiting_change_review(
     )
     responses.add(
         responses.DELETE,
-        github_url('/repos/ursa-labs/ursabot/issues/26/' +
-                   'labels/awaiting%20change%20review'),
+        github_url(
+            '/repos/ursa-labs/ursabot/issues/26/labels/awaiting%20change%20review'
+        ),
         status=200
     )
     responses.add(
@@ -597,8 +598,9 @@ def test_pull_request_synchronize_event_on_awaiting_changes(
     )
     responses.add(
         responses.DELETE,
-        github_url('/repos/ursa-labs/ursabot/issues/26/' +
-                   'labels/awaiting%20changes'),
+        github_url(
+            '/repos/ursa-labs/ursabot/issues/26/labels/awaiting%20changes'
+        ),
         status=200
     )
     responses.add(

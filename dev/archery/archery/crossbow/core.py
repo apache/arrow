@@ -299,9 +299,10 @@ class Repo:
         try:
             self.origin.push(refs + self._updated_refs, callbacks=callbacks)
         except pygit2.GitError:
-            raise RuntimeError('Failed to push updated references, '
-                               'potentially because of credential issues: {}'
-                               .format(self._updated_refs))
+            raise RuntimeError(
+                'Failed to push updated references, potentially because of credential '
+                f'issues: {self._updated_refs}'
+            )
         else:
             self.updated_refs = []
 
@@ -329,9 +330,9 @@ class Repo:
             return self.repo.remotes[self.branch.upstream.remote_name]
         except (AttributeError, KeyError):
             raise CrossbowError(
-                'Cannot determine git remote for the Arrow repository to '
-                'clone or push to, try to push the `{}` branch first to have '
-                'a remote tracking counterpart.'.format(self.branch.name)
+                "Cannot determine git remote for the Arrow repository to "
+                f"clone or push to, try to push the `{self.branch.name}` "
+                "branch first to have a remote tracking counterpart."
             )
 
     @property
@@ -374,12 +375,15 @@ class Repo:
                 default_branch_name = target_name_tokenized[-1]
             except KeyError:
                 default_branch_name = "main"
-                warnings.warn('Unable to determine default branch name: '
-                              'ARCHERY_DEFAULT_BRANCH environment variable is '
-                              'not set. Git repository does not contain a '
-                              '\'refs/remotes/origin/HEAD\'reference. Setting '
-                              'the default branch name to ' +
-                              default_branch_name, RuntimeWarning)
+                warnings.warn(
+                    "Unable to determine default branch name: "
+                    "ARCHERY_DEFAULT_BRANCH environment variable is "
+                    "not set. Git repository does not contain a "
+                    "'refs/remotes/origin/HEAD'reference. Setting "
+                    "the default branch name to " + default_branch_name,
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
 
         return default_branch_name
 
@@ -943,9 +947,8 @@ class Task(Serializable):
                                               params=params)
         except jinja2.TemplateError as e:
             raise RuntimeError(
-                'Failed to render template `{}` with {}: {}'.format(
-                    self.template, e.__class__.__name__, str(e)
-                )
+                f"Failed to render template `{self.template}` with "
+                f"{e.__class__.__name__}: {e!s}"
             )
 
         tree = {**_default_tree, self.filename: rendered}
@@ -1073,28 +1076,26 @@ class TaskAssets(dict):
         else:
             github_assets = {a.name: a for a in github_release.assets()}
 
-        if not validate_patterns:
+        if validate_patterns:
+            for pattern in artifact_patterns:
+                # artifact can be a regex pattern
+                compiled = re.compile(f"^{pattern}$")
+                matches = list(filter(None, map(compiled.match, github_assets.keys())))
+                num_matches = len(matches)
+
+                # validate artifact pattern matches single asset
+                if num_matches == 0:
+                    self[pattern] = None
+                elif num_matches == 1:
+                    self[pattern] = github_assets[matches[0].group(0)]
+                else:
+                    raise CrossbowError(
+                        "Only a single asset should match pattern `{}`, there are "
+                        "multiple ones: {}".format(pattern, ", ".join(matches))
+                    )
+        else:
             # shortcut to avoid pattern validation and just set all artifacts
-            return self.update(github_assets)
-
-        for pattern in artifact_patterns:
-            # artifact can be a regex pattern
-            compiled = re.compile(f"^{pattern}$")
-            matches = list(
-                filter(None, map(compiled.match, github_assets.keys()))
-            )
-            num_matches = len(matches)
-
-            # validate artifact pattern matches single asset
-            if num_matches == 0:
-                self[pattern] = None
-            elif num_matches == 1:
-                self[pattern] = github_assets[matches[0].group(0)]
-            else:
-                raise CrossbowError(
-                    'Only a single asset should match pattern `{}`, there are '
-                    'multiple ones: {}'.format(pattern, ', '.join(matches))
-                )
+            self.update(github_assets)
 
     def missing_patterns(self):
         return [pattern for pattern, asset in self.items() if asset is None]
@@ -1239,12 +1240,14 @@ class Job(Serializable):
 
             waited_for_minutes = (time.time() - started_at) / 60
             if waited_for_minutes > poll_max_minutes:
-                msg = ('Exceeded the maximum amount of time waiting for job '
-                       'to finish, waited for {} minutes.')
-                raise RuntimeError(msg.format(waited_for_minutes))
+                raise RuntimeError(
+                    'Exceeded the maximum amount of time waiting for job '
+                    f'to finish, waited for {waited_for_minutes} minutes.'
+                )
 
-            logger.info('Waiting {} minutes and then checking again'
-                        .format(poll_interval_minutes))
+            logger.info(
+                f'Waiting {poll_interval_minutes} minutes and then checking again'
+            )
             time.sleep(poll_interval_minutes * 60)
 
 
@@ -1278,10 +1281,9 @@ class Config(dict):
         requested_groups = set(group_allowlist)
         invalid_groups = requested_groups - valid_groups
         if invalid_groups:
-            msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
-                invalid_groups, valid_groups
+            raise CrossbowError(
+                f'Invalid group(s) {invalid_groups!r}. Must be one of {valid_groups!r}'
             )
-            raise CrossbowError(msg)
 
         # treat the task names as glob patterns to select tasks more easily
         requested_tasks = set()
@@ -1346,9 +1348,9 @@ class Config(dict):
                 tasks = self.select(tasks=[pattern])
                 if not tasks:
                     raise CrossbowError(
-                        "The pattern `{}` defined for task group `{}` is not "
-                        "matching any of the tasks defined in the "
-                        "configuration file.".format(pattern, group_name)
+                        f"The pattern `{pattern}` defined for task group "
+                        f"`{group_name}` is not matching any of the tasks "
+                        "defined in the configuration file."
                     )
 
         # validate that the tasks are constructible
@@ -1393,8 +1395,9 @@ class Config(dict):
                 )
             )
             if not files:
-                raise CrossbowError('No files have been rendered for task `{}`'
-                                    .format(task_name))
+                raise CrossbowError(
+                    'No files have been rendered for task `{task_name}`'
+                )
 
 
 # configure yaml serializer

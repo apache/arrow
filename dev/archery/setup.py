@@ -21,8 +21,8 @@ import operator
 import sys
 from setuptools import setup, find_packages
 
-if sys.version_info < (3, 9):
-    sys.exit('Python < 3.9 is not supported')
+if sys.version_info < (3, 9):  # noqa: UP036
+    sys.exit("Python < 3.9 is not supported")
 
 # For pathlib.Path compatibility
 jinja_req = 'jinja2>=2.11'

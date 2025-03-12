@@ -45,7 +45,7 @@ class Rat(Jar):
 def exclusion_from_globs(exclusions_path):
     with open(exclusions_path, 'r') as exclusions_fd:
         exclusions = [e.strip() for e in exclusions_fd]
-        return lambda path: any([fnmatch.fnmatch(path, e) for e in exclusions])
+        return lambda path: any(fnmatch.fnmatch(path, e) for e in exclusions)
 
 
 class RatReport:

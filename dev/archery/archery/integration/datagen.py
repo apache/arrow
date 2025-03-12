@@ -116,8 +116,8 @@ class PrimitiveColumn(Column):
 
     def _get_buffers(self):
         return [
-            ('VALIDITY', [int(v) for v in self.is_valid]),
-            ('DATA', list([self._encode_value(x) for x in self.values]))
+            ("VALIDITY", [int(v) for v in self.is_valid]),
+            ("DATA", [self._encode_value(x) for x in self.values]),
         ]
 
 
@@ -404,7 +404,6 @@ class DayTimeIntervalField(PrimitiveField):
         return object
 
     def _get_type(self):
-
         return OrderedDict([
             ('name', 'interval'),
             ('unit', 'DAY_TIME'),
@@ -433,7 +432,6 @@ class MonthDayNanoIntervalField(PrimitiveField):
         return object
 
     def _get_type(self):
-
         return OrderedDict([
             ('name', 'interval'),
             ('unit', 'MONTH_DAY_NANO'),

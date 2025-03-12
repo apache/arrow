@@ -40,6 +40,7 @@ class MavenDefinition:
 
     build1.install()
     build2.install()
+    ```
     """
 
     def __init__(self, source, build_definitions=None,
@@ -81,12 +82,9 @@ class MavenDefinition:
         force : bool
                 not used now
         """
-        if os.path.exists(build_dir):
+        if os.path.exists(build_dir) and not MavenBuild.is_build_dir(build_dir):
             # Extra safety to ensure we're deleting a build folder.
-            if not MavenBuild.is_build_dir(build_dir):
-                raise FileExistsError(
-                    "{} is not a maven build".format(build_dir)
-                )
+            raise FileExistsError(f"{build_dir} is not a maven build")
 
         cmd_kwargs = cmd_kwargs if cmd_kwargs else {}
         assert MavenBuild.is_build_dir(build_dir)

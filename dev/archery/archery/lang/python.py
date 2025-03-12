@@ -216,8 +216,13 @@ class NumpyDoc:
             Docstring._load_obj = orig_load_obj
             inspect.signature = orig_signature
 
-    def validate(self, from_package='', allow_rules=None,
-                 disallow_rules=None):
+    def _should_ignore_error(self, obj, errcode):
+        for obj_type, errcode_list in self.IGNORE_VALIDATION_ERRORS_FOR_TYPE.items():
+            if isinstance(obj, obj_type) and errcode in errcode_list:
+                return True
+        return False
+
+    def validate(self, from_package="", allow_rules=None, disallow_rules=None):
         results = []
 
         def callback(obj):
@@ -234,9 +239,7 @@ class NumpyDoc:
                     continue
                 if disallow_rules and errcode in disallow_rules:
                     continue
-                if any(isinstance(obj, obj_type) and errcode in errcode_list
-                       for obj_type, errcode_list
-                       in NumpyDoc.IGNORE_VALIDATION_ERRORS_FOR_TYPE.items()):
+                if self._should_ignore_error(obj, errcode):
                     continue
                 errors.append((errcode, errmsg))
 
