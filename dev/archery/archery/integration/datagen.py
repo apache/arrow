@@ -117,7 +117,7 @@ class PrimitiveColumn(Column):
     def _get_buffers(self):
         return [
             ("VALIDITY", [int(v) for v in self.is_valid]),
-            ("DATA", list([self._encode_value(x) for x in self.values])),
+            ("DATA", [self._encode_value(x) for x in self.values]),
         ]
 
 

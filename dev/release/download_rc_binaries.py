@@ -151,8 +151,7 @@ class Artifactory(Downloader):
 
 class Maven(Downloader):
     URL_ROOT = (
-        "https://repository.apache.org"
-        + "/content/repositories/staging/org/apache/arrow"
+        "https://repository.apache.org/content/repositories/staging/org/apache/arrow"
     )
 
 

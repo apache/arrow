@@ -38,7 +38,9 @@ select = [
 ]
 ignore = [
 #   "B028",    # required stacklevel argument to warn
+  "B003",    # Assigning to `os.environ` doesn't clear the environment
   "B017",    # `pytest.raises(Exception)` should be considered evil
+  "B019",    # Use of `functools.lru_cache` or `functools.cache` on methods can lead to memory leaks
   "B027",    # `CDataExporter.run_gc` is an empty method in an abstract base class, but has no abstract decorator
   "B904",    # raise from e or raise from None in exception handlers
   "BLE001",  # Do not catch blind exception: `Exception`
@@ -62,7 +64,7 @@ ignore = [
   "D301",    # Use `r"""` if any backslashes in a docstring
   "D400",    # First line should end with a period
   "D401",    # Imperative mood
-#   "D402",    # First line should not be the function's signature
+  "D402",    # First line should not be the function's signature
   "D413",    # Blank line required after last section
   "D415",    # First line should end with a period, question mark, or exclamation point
   "D417",    # Missing argument descriptions in the docstring
@@ -76,7 +78,7 @@ ignore = [
 #   "PGH003",  # blanket-type-ignore
 #   "PLC0105", # covariant type parameters should have a _co suffix
 #   "PLR0124", # name compared with self, e.g., a == a
-#   "PLR0911", # too many return statements
+  "PLR0911", # too many return statements
   "PLR0912", # too many branches
   "PLR0913", # too many arguments
   "PLR0915", # too many statements
@@ -104,12 +106,14 @@ ignore = [
   "PLW1510", # `subprocess.run` without explicit `check` argument
   "S101",    # ignore "Use of `assert` detected"
   "S310",    # Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+  "S314",    # Using `xml` to parse untrusted data is known to be vulnerable to XML attacks; use `defusedxml` equivalents
   "S603",    # `subprocess` call: check for execution of untrusted input
   "S607",    # Starting a process with a partial executable path
   "S701",    # By default, jinja2 sets `autoescape` to `False`. Consider using `autoescape=True` or the `select_autoescape` function to mitigate XSS vulnerabilities.
   "S113",    # Probable use of `requests` call without timeout
   "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
   "T201",    # `print` found
+  "T203",    # `pprint` found
   "TID252"   # Prefer absolute imports over relative imports from parent modules
 ]
 # none of these codes will be automatically fixed by ruff

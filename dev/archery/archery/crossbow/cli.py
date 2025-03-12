@@ -729,9 +729,7 @@ def download_artifacts(
                     return False
                 if not path.exists():
                     return True
-                if path.stat().st_size != asset.size:
-                    return True
-                return False
+                return path.stat().st_size != asset.size
 
             if need_download():
                 import github3

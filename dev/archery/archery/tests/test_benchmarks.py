@@ -210,7 +210,7 @@ def test_benchmark_median():
     assert median([1, 1, 1, 1]) == 1
     try:
         median([])
-        assert False
+        raise AssertionError()
     except ValueError:
         pass
 
