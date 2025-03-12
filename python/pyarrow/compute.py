@@ -40,6 +40,7 @@ from pyarrow._compute import (  # noqa
     RunEndEncodeOptions,
     ElementWiseAggregateOptions,
     ExtractRegexOptions,
+    ExtractRegexSpanOptions,
     FilterOptions,
     IndexOptions,
     JoinOptions,

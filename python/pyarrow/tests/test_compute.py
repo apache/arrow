@@ -152,6 +152,7 @@ def test_option_class_equality(request):
         pc.RunEndEncodeOptions(),
         pc.ElementWiseAggregateOptions(skip_nulls=True),
         pc.ExtractRegexOptions("pattern"),
+        pc.ExtractRegexSpanOptions("pattern"),
         pc.FilterOptions(),
         pc.IndexOptions(pa.scalar(1)),
         pc.JoinOptions(),
@@ -1089,6 +1090,16 @@ def test_extract_regex():
     struct = pc.extract_regex(ar, pattern=r'(?P<letter>[ab])(?P<digit>\d)')
     assert struct.tolist() == expected
     struct = pc.extract_regex(ar, r'(?P<letter>[ab])(?P<digit>\d)')
+    assert struct.tolist() == expected
+
+
+def test_extract_regex_span():
+    ar = pa.array(['a1', 'zb234z'])
+    expected = [{'letter': [0, 1], 'digit': [1, 1]},
+                {'letter': [1, 1], 'digit': [2, 3]}]
+    struct = pc.extract_regex_span(ar, pattern=r'(?P<letter>[ab])(?P<digit>\d+)')
+    assert struct.tolist() == expected
+    struct = pc.extract_regex_span(ar, r'(?P<letter>[ab])(?P<digit>\d+)')
     assert struct.tolist() == expected
 
 
