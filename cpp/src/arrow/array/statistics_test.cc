@@ -18,6 +18,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array/statistics.h"
+#include "arrow/scalar.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 
@@ -90,6 +92,28 @@ TEST(ArrayStatisticsTest, TestEquality) {
   statistics1.max = static_cast<int64_t>(-29);
   ASSERT_NE(statistics1, statistics2);
   statistics2.max = static_cast<int64_t>(-29);
+  ASSERT_EQ(statistics1, statistics2);
+  statistics2.max = static_cast<int64_t>(2);
+  ASSERT_NE(statistics1, statistics2);
+
+  statistics1.max = std::nullopt;
+  statistics2.max = std::nullopt;
+  // check the state of both of them are std::nullopt
+  ASSERT_EQ(statistics1.max, statistics2.max);
+  //  the state of one of them is std::nullopt
+  statistics1.max = std::shared_ptr<Scalar>();
+  ASSERT_NE(statistics1, statistics2);
+  // the state of both of them are nullptr
+  statistics2.max = std::shared_ptr<Scalar>();
+  ASSERT_EQ(statistics1, statistics2);
+  ASSERT_OK_AND_ASSIGN(statistics1.max, MakeScalar(int64(), 5));
+  // the state of one of them is nullptr
+  ASSERT_NE(statistics1, statistics2);
+  // the state of one of them has different type
+  statistics2.max = static_cast<int64_t>(10);
+  ASSERT_NE(statistics1.max, statistics2.max);
+  ASSERT_OK_AND_ASSIGN(statistics2.max, MakeScalar(int64(), 5));
+  // the state of both of them are equal
   ASSERT_EQ(statistics1, statistics2);
 
   statistics1.is_max_exact = true;
