@@ -495,10 +495,9 @@ void RegisterScalarAggregateMode(FunctionRegistry* registry) {
                     ModeExecutorChunked<StructType, BooleanType>::Exec)));
   for (const auto& type : NumericTypes()) {
     // TODO(wesm):
-    DCHECK_OK(func->AddKernel(NewModeKernel(
-        type, GenerateNumeric<ModeExecutor, StructType>(*type),
-        GenerateNumeric<ModeExecutorChunked, StructType, VectorKernel::ChunkedExec>(
-            *type))));
+    DCHECK_OK(func->AddKernel(
+        NewModeKernel(type, GenerateNumeric<ModeExecutor, StructType>(*type),
+                      GenerateNumeric<ModeExecutorChunked, StructType>(*type))));
   }
   // Type parameters are ignored
   DCHECK_OK(func->AddKernel(
