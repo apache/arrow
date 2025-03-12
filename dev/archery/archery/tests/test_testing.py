@@ -34,17 +34,17 @@ def test_partial_env():
 def test_assert_subprocess_calls():
     expected_calls = ["echo Hello", ["echo", "World"]]
     with assert_subprocess_calls(expected_calls):
-        subprocess.run(["echo", "Hello"], check=False)
-        subprocess.run(["echo", "World"], check=False)
+        subprocess.run(["echo", "Hello"])
+        subprocess.run(["echo", "World"])
 
     expected_env = PartialEnv(CUSTOM_ENV_A="a", CUSTOM_ENV_C="c")
     with assert_subprocess_calls(expected_calls, env=expected_env):
         env = {"CUSTOM_ENV_A": "a", "CUSTOM_ENV_B": "b", "CUSTOM_ENV_C": "c"}
-        subprocess.run(["echo", "Hello"], env=env, check=False)
-        subprocess.run(["echo", "World"], env=env, check=False)
+        subprocess.run(["echo", "Hello"], env=env)
+        subprocess.run(["echo", "World"], env=env)
 
     with pytest.raises(AssertionError):
         with assert_subprocess_calls(expected_calls, env=expected_env):
             env = {"CUSTOM_ENV_B": "b", "CUSTOM_ENV_C": "c"}
-            subprocess.run(["echo", "Hello"], env=env, check=False)
-            subprocess.run(["echo", "World"], env=env, check=False)
+            subprocess.run(["echo", "Hello"], env=env)
+            subprocess.run(["echo", "World"], env=env)

@@ -47,7 +47,7 @@ repos:
     hooks:
       # Run the linter.
       - id: ruff
-        args: [ --fix ]
+        args: [--fix]
         files: >-
           ^dev/archery/
       # Run the formatter.
