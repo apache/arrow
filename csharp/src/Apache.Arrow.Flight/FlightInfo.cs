@@ -76,9 +76,13 @@ namespace Apache.Arrow.Flight
                 FlightDescriptor = Descriptor.ToProtocol(),
                 TotalBytes = TotalBytes,
                 TotalRecords = TotalRecords,
-                Ordered = Ordered,
-                AppMetadata = AppMetadata
+                Ordered = Ordered
             };
+
+            if (AppMetadata != null)
+            {
+                response.AppMetadata = AppMetadata;
+            }
 
             foreach(var endpoint in Endpoints)
             {
