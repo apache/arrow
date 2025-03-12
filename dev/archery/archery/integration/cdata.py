@@ -20,10 +20,12 @@ import functools
 import os
 import sys
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 import cffi
 
-from .tester import CDataExporter, CDataImporter
+if TYPE_CHECKING:
+    from .tester import CDataExporter, CDataImporter
 
 if sys.platform == "darwin":
     dll_suffix = ".dylib"

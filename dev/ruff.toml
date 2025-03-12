@@ -38,8 +38,11 @@ select = [
 ]
 ignore = [
 #   "B028",    # required stacklevel argument to warn
-#   "B904",    # raise from e or raise from None in exception handlers
+  "B017",    # `pytest.raises(Exception)` should be considered evil
+  "B904",    # raise from e or raise from None in exception handlers
+  "BLE001",  # Do not catch blind exception: `Exception`
 #   "B905",    # zip-without-explicit-strict
+  "C408",   # Unnecessary `dict()` call (rewrite as a literal)
 #   "C408",    # dict(...) as literal
   "D100",    # public module
   "D101",    # public class
@@ -49,43 +52,55 @@ ignore = [
   "D105",    # magic methods
   "D106",    # nested class
   "D107",    # init
+  "D200",    # One-line docstring should fit on one line
 #   "D202",    # blank lines after function docstring
   "D203",    # blank line before class docstring
+  "D205",    # 1 blank line required between summary line and description
+  "D210",    # No whitespaces allowed surrounding docstring text
   "D213",    # Multi-line docstring summary should start at the second line
+  "D400",    # First line should end with a period
   "D401",    # Imperative mood
 #   "D402",    # First line should not be the function's signature
 #   "D413",    # Blank line required after last section
+
+  "D415",    # First line should end with a period, question mark, or exclamation point
+  "D417",    # Missing argument descriptions in the docstring
 #   "E501",    # line-too-long, this is automatically enforced by ruff format
 #   "E731",    # lambda-assignment
+  "INP001",  # implicit-namespace-package
   "ISC001",  # single line implicit string concat, handled by ruff format
+  "G004",    # Logging statement uses f-string
 #   "PGH003",  # blanket-type-ignore
 #   "PLC0105", # covariant type parameters should have a _co suffix
 #   "PLR0124", # name compared with self, e.g., a == a
 #   "PLR0911", # too many return statements
-#   "PLR0912", # too many branches
+  "PLR0912", # too many branches
   "PLR0913", # too many arguments
-#   "PLR0915", # too many statements
+  "PLR0915", # too many statements
   "PLR2004", # forces everything to be a constant
   "PLW2901", # overwriting loop variable
-#   "RET504",  # unnecessary-assign, these are useful for debugging
+  "RET504",  # unnecessary-assign, these are useful for debugging
   "RET505",  # superfluous-else-return, stylistic choice
   "RET506",  # superfluous-else-raise, stylistic choice
   "RET507",  # superfluous-else-continue, stylistic choice
   "RET508",  # superfluous-else-break, stylistic choice
   "RUF005",  # splat instead of concat
-#   "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
+  "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
 #   "SIM102",  # nested ifs
-#   "SIM108",  # convert everything to ternary operator
+  "SIM108",  # convert everything to ternary operator
 #   "SIM114",  # combine `if` branches using logical `or` operator
 #   "SIM116",  # dictionary instead of `if` statements
-#   "SIM117",  # nested with statements
+  "SIM117",  # Use a single `with` statement with multiple contexts instead of nested `with` statements
 #   "SIM118",  # remove .keys() calls from dictionaries
 #   "SIM300",  # yoda conditions
   "UP006",   # Use `list` instead of `List` for type annotation
-#   "UP007",   # Optional[str] -> str | None
+  "UP007",   # Optional[str] -> str | None
+  "UP035",   # `typing.List` is deprecated, use `list` instead
 #   "UP038",   # non-pep604-isinstance, results in slower code
   "S101",    # ignore "Use of `assert` detected"
+  "S603",    # `subprocess` call: check for execution of untrusted input
   "T201",    # `print` found
+  "TID252"   # Prefer absolute imports over relative imports from parent modules
 ]
 # none of these codes will be automatically fixed by ruff
 unfixable = [

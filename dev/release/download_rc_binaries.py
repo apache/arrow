@@ -61,8 +61,7 @@ class Downloader:
         return files
 
     def download_files(self, files, dest=None, num_parallel=None, re_match=None):
-        """
-        Download files from Bintray in parallel. If file already exists, will
+        """Download files from Bintray in parallel. If file already exists, will
         overwrite if the checksum does not match what Bintray says it should be
 
         Parameters
@@ -281,7 +280,7 @@ def download_rc_binaries(
         if package_type == "jars":
             downloader = Maven()
             prefix = ""
-        elif package_type == "github" or package_type == "nuget":
+        elif package_type in ("github", "nuget"):
             downloader = GitHub(repository, tag)
             prefix = ""
             filter = None

@@ -124,7 +124,7 @@ MIGRATION_COMMENT_REGEX = re.compile(
 )
 
 
-class GitHubIssue(object):
+class GitHubIssue:
     def __init__(self, github_api, github_id, cmd):
         self.github_api = github_api
         self.github_id = github_id
@@ -251,7 +251,7 @@ Status\t\t{status}
 URL\t\t{url}"""
 
 
-class GitHubAPI(object):
+class GitHubAPI:
     def __init__(self, project_name, cmd):
         self.github_api = f"https://api.github.com/repos/{ORG_NAME}/{project_name}"
 
@@ -351,10 +351,8 @@ class GitHubAPI(object):
                 requests.delete(label_url, headers=self.headers)
 
 
-class CommandInput(object):
-    """
-    Interface to input(...) to enable unit test mocks to be created
-    """
+class CommandInput:
+    """Interface to input(...) to enable unit test mocks to be created"""
 
     def fail(self, msg):
         raise Exception(msg)
@@ -376,7 +374,7 @@ class CommandInput(object):
                 prompt = "Please input 'y' or 'n'"
 
 
-class PullRequest(object):
+class PullRequest:
     GITHUB_PR_TITLE_PATTERN = re.compile(r"^GH-([0-9]+)\b.*$")
 
     def __init__(self, cmd, github_api, git_remote, number):
@@ -441,9 +439,7 @@ class PullRequest(object):
         )
 
     def merge(self):
-        """
-        merge the requested PR and return the merge hash
-        """
+        """merge the requested PR and return the merge hash"""
         commits = self._github_api.get_pr_commits(self.number)
 
         def format_commit_author(commit):
