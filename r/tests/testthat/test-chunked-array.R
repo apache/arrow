@@ -463,16 +463,14 @@ test_that("Converting a chunked array unifies factors (ARROW-8374)", {
 })
 
 test_that("Handling string data with embedded nuls", {
-  raws <- structure(list(
+  raws <- blob::as_blob(list(
     as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
     as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
     as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
     as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
     as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
     as.raw(c(0x74, 0x76))
-  ),
-  class = c("arrow_binary", "vctrs_vctr", "list")
-  )
+  ))
   chunked_array_with_nul <- ChunkedArray$create(raws)$cast(utf8())
 
   v <- expect_error(as.vector(chunked_array_with_nul), NA)
