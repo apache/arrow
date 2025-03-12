@@ -198,6 +198,7 @@ def test_option_class_equality(request):
         pc.TrimOptions(" "),
         pc.Utf8NormalizeOptions("NFKC"),
         pc.VarianceOptions(),
+        pc.WinsorizeOptions(0.05, 0.9),
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
     ]
@@ -3853,3 +3854,14 @@ def test_pivot_wider():
     with pytest.raises(ValueError, match="Encountered more than one non-null value"):
         result = pc.pivot_wider(["height", "width", "height"], [10, None, 11],
                                 key_names=key_names)
+
+
+def test_winsorize():
+    arr = pa.array([10, 4, 9, 8, 5, 3, 7, 2, 1, 6])
+
+    result = pc.winsorize(arr, 0.1, 0.8)
+    assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]
+
+    result = pc.winsorize(
+        arr, options=pc.WinsorizeOptions(lower_limit=0.1, upper_limit=0.8))
+    assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]

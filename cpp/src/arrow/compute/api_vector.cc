@@ -142,6 +142,9 @@ static auto kSortOptionsType = GetFunctionOptionsType<SortOptions>(
 static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOptions>(
     DataMember("pivot", &PartitionNthOptions::pivot),
     DataMember("null_placement", &PartitionNthOptions::null_placement));
+static auto kWinsorizeOptionsType = GetFunctionOptionsType<WinsorizeOptions>(
+    DataMember("lower_limit", &WinsorizeOptions::lower_limit),
+    DataMember("upper_limit", &WinsorizeOptions::upper_limit));
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys));
@@ -207,6 +210,11 @@ PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_place
       pivot(pivot),
       null_placement(null_placement) {}
 constexpr char PartitionNthOptions::kTypeName[];
+
+WinsorizeOptions::WinsorizeOptions(double lower_limit, double upper_limit)
+    : FunctionOptions(internal::kWinsorizeOptionsType),
+      lower_limit(lower_limit),
+      upper_limit(upper_limit) {}
 
 SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
     : FunctionOptions(internal::kSelectKOptionsType),
@@ -275,6 +283,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kListFlattenOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kInversePermutationOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kScatterOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kWinsorizeOptionsType));
 }
 }  // namespace internal
 

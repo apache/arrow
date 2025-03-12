@@ -4263,7 +4263,8 @@ TEST(TestQuantileKernel, Decimal) {
     ValidateOutput(*out_array);
     AssertArraysEqual(*expected, *out_array, /*verbose=*/true);
   };
-  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+  for (const auto& ty :
+       {decimal32(3, 2), decimal64(3, 2), decimal128(3, 2), decimal256(3, 2)}) {
     check(ArrayFromJSON(ty, R"(["1.00", "5.00", null])"),
           QuantileOptions(0.5, QuantileOptions::LINEAR),
           ArrayFromJSON(float64(), R"([3.00])"));
