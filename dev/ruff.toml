@@ -1,0 +1,103 @@
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+# Assume Python 3.9
+target-version = "py39"
+
+[lint]
+select = [
+  "B",   # flake8-bugbear
+  "BLE", # flake8-blind-except
+  "C4",  # comprehensions
+  "D",   # pydocstyle
+  "E",   # pycodestyle
+  "EXE", # flake8-executable
+  "F",   # pyflakes
+  "FA",  # flake8-future-annotations
+  "G",   # flake8-logging-format
+  "FLY", # flynt (format string conversion)
+  "I",   # isort
+  "ICN", # flake8-import-conventions
+  "INP", # flake8-no-pep420 (implicit namespace packages)
+  "ISC", # flake8-implicit-str-concat
+  "PGH", # pygrep-hooks
+  "PIE", # flake8-pie
+  "PL",  # pylint
+  "RET", # flake8-return
+  "RUF", # ruff-specific rules
+  "SIM", # flake8-simplify
+  "T10", # flake8-debugger
+  "T20", # flake8-print
+  "TCH", # flake8-type-checking
+  "TID", # flake8-tidy-imports
+  "UP",  # pyupgrade
+  "W",   # pycodestyle
+  "YTT", # flake8-2020
+  "S",   # flake8-bandit
+]
+ignore = [
+#   "B028",    # required stacklevel argument to warn
+#   "B904",    # raise from e or raise from None in exception handlers
+#   "B905",    # zip-without-explicit-strict
+#   "C408",    # dict(...) as literal
+  "D100",    # public module
+  "D101",    # public class
+  "D102",    # public method
+  "D103",    # public function
+  "D104",    # public package
+  "D105",    # magic methods
+  "D106",    # nested class
+  "D107",    # init
+#   "D202",    # blank lines after function docstring
+  "D203",    # blank line before class docstring
+  "D213",    # Multi-line docstring summary should start at the second line
+  "D401",    # Imperative mood
+#   "D402",    # First line should not be the function's signature
+#   "D413",    # Blank line required after last section
+#   "E501",    # line-too-long, this is automatically enforced by ruff format
+#   "E731",    # lambda-assignment
+  "ISC001",  # single line implicit string concat, handled by ruff format
+#   "PGH003",  # blanket-type-ignore
+#   "PLC0105", # covariant type parameters should have a _co suffix
+#   "PLR0124", # name compared with self, e.g., a == a
+#   "PLR0911", # too many return statements
+#   "PLR0912", # too many branches
+  "PLR0913", # too many arguments
+#   "PLR0915", # too many statements
+  "PLR2004", # forces everything to be a constant
+  "PLW2901", # overwriting loop variable
+#   "RET504",  # unnecessary-assign, these are useful for debugging
+  "RET505",  # superfluous-else-return, stylistic choice
+  "RET506",  # superfluous-else-raise, stylistic choice
+  "RET507",  # superfluous-else-continue, stylistic choice
+  "RET508",  # superfluous-else-break, stylistic choice
+  "RUF005",  # splat instead of concat
+#   "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
+#   "SIM102",  # nested ifs
+#   "SIM108",  # convert everything to ternary operator
+#   "SIM114",  # combine `if` branches using logical `or` operator
+#   "SIM116",  # dictionary instead of `if` statements
+#   "SIM117",  # nested with statements
+#   "SIM118",  # remove .keys() calls from dictionaries
+#   "SIM300",  # yoda conditions
+  "UP006",   # Use `list` instead of `List` for type annotation
+#   "UP007",   # Optional[str] -> str | None
+#   "UP038",   # non-pep604-isinstance, results in slower code
+  "S101",    # ignore "Use of `assert` detected"
+  "T201",    # `print` found
+]
+# none of these codes will be automatically fixed by ruff
+unfixable = [
+  "T201",   # print statements
+  "F401",   # unused imports
+  "RUF100", # unused noqa comments
+  "F841",   # unused variables
+]
+
+[lint.isort]
+required-imports = ["from __future__ import annotations"]
+
+[format]
+docstring-code-format = true
+docstring-code-line-length = 88

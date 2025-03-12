@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 from unittest.mock import patch
 
@@ -33,7 +34,8 @@ def test_docker_run_with_custom_command(run, build, pull):
 
     assert result.exit_code == 0
     pull.assert_called_once_with(
-        "ubuntu-cpp", pull_leaf=True,
+        "ubuntu-cpp",
+        pull_leaf=True,
     )
     build.assert_called_once_with(
         "ubuntu-cpp",
@@ -72,7 +74,8 @@ def test_docker_run_options(run, build, pull):
     result = CliRunner().invoke(docker, args)
     assert result.exit_code == 0
     pull.assert_called_once_with(
-        "ubuntu-cpp", pull_leaf=True,
+        "ubuntu-cpp",
+        pull_leaf=True,
     )
     build.assert_called_once_with(
         "ubuntu-cpp",
@@ -149,7 +152,8 @@ def test_docker_run_only_pulling_and_building(build, pull):
     result = CliRunner().invoke(docker, args)
     assert result.exit_code == 0
     pull.assert_called_once_with(
-        "ubuntu-cpp", pull_leaf=True,
+        "ubuntu-cpp",
+        pull_leaf=True,
     )
     build.assert_called_once_with(
         "ubuntu-cpp",

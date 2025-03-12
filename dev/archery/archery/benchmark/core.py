@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 
 def median(values):
@@ -27,8 +28,9 @@ def median(values):
 
 
 class Benchmark:
-    def __init__(self, name, unit, less_is_better, values, time_unit,
-                 times, counters=None):
+    def __init__(
+        self, name, unit, less_is_better, values, time_unit, times, counters=None
+    ):
         self.name = name
         self.unit = unit
         self.less_is_better = less_is_better
@@ -43,7 +45,7 @@ class Benchmark:
         return self.median
 
     def __repr__(self):
-        return "Benchmark[name={},value={}]".format(self.name, self.value)
+        return f"Benchmark[name={self.name},value={self.value}]"
 
 
 class BenchmarkSuite:
@@ -52,6 +54,4 @@ class BenchmarkSuite:
         self.benchmarks = benchmarks
 
     def __repr__(self):
-        return "BenchmarkSuite[name={}, benchmarks={}]".format(
-            self.name, self.benchmarks
-        )
+        return f"BenchmarkSuite[name={self.name}, benchmarks={self.benchmarks}]"

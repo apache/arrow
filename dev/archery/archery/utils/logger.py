@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import contextlib
 import logging
@@ -51,14 +52,15 @@ def running_in_ci():
 
 @contextlib.contextmanager
 def group(name, output=None):
-    """
-    Group outputs in the given with block.
+    """Group outputs in the given with block.
 
     This does nothing in non GitHub Actions environment for now.
     """
     if output is None:
+
         def output(message):
             print(message, flush=True)
+
     if in_github_actions():
         output(f"::group::{name}")
     try:
