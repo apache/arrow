@@ -20,6 +20,21 @@
 
 #include <stdexcept>
 
+namespace {
+const EVP_CIPHER* get_cipher_algo(int32_t key_length) {
+  switch (key_length) {
+    case 16:
+      return EVP_aes_128_ecb();
+    case 24:
+      return EVP_aes_192_ecb();
+    case 32:
+      return EVP_aes_256_ecb();
+    default:
+      throw std::runtime_error("unsupported key length: " + std::to_string(key_length));
+  }
+}
+}   // namespace
+
 namespace gandiva {
 GANDIVA_EXPORT
 int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* key,

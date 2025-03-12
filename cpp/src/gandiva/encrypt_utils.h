@@ -37,6 +37,4 @@ GANDIVA_EXPORT
 int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key,
                     int32_t key_len, unsigned char* plaintext);
 
-const EVP_CIPHER* get_cipher_algo(int32_t key_length);
-
 }  // namespace gandiva
