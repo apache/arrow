@@ -320,7 +320,9 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
   if (key_data_len == 16 || key_data_len == 24 || key_data_len == 32) {
     kAesBlockSize = static_cast<int64_t>(key_data_len);
   } else {
-    gdv_fn_context_set_error_msg(context, (std::string("invalid key length: ") + std::to_string(key_data_len)).c_str());
+    gdv_fn_context_set_error_msg(
+        context,
+        (std::string("invalid key length: ") + std::to_string(key_data_len)).c_str());
     *out_len = 0;
     return nullptr;
   }
@@ -362,7 +364,9 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
   if (key_data_len == 16 || key_data_len == 24 || key_data_len == 32) {
     kAesBlockSize = static_cast<int64_t>(key_data_len);
   } else {
-    gdv_fn_context_set_error_msg(context, (std::string("invalid key length: ") + std::to_string(key_data_len)).c_str());
+    gdv_fn_context_set_error_msg(
+        context,
+        (std::string("invalid key length: ") + std::to_string(key_data_len)).c_str());
     *out_len = 0;
     return nullptr;
   }

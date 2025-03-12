@@ -33,7 +33,7 @@ const EVP_CIPHER* get_cipher_algo(int32_t key_length) {
       throw std::runtime_error("unsupported key length: " + std::to_string(key_length));
   }
 }
-}   // namespace
+}  // namespace
 
 namespace gandiva {
 GANDIVA_EXPORT
