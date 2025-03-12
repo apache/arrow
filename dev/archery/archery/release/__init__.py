@@ -16,4 +16,6 @@
 # under the License.
 from __future__ import annotations
 
-from .core import MajorRelease, MinorRelease, PatchRelease, Release  # noqa
+from .core import MajorRelease, MinorRelease, PatchRelease, Release
+
+__all__ = ["MajorRelease", "MinorRelease", "PatchRelease", "Release"]

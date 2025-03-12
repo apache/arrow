@@ -16,4 +16,6 @@
 # under the License.
 from __future__ import annotations
 
-from .core import DockerCompose, UndefinedImage  # noqa
+from .core import DockerCompose, UndefinedImage
+
+__all__ = ["DockerCompose", "UndefinedImage"]

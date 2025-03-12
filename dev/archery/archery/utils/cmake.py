@@ -52,7 +52,9 @@ class CMakeDefinition:
     ...
 
     build1.all()
-    build2.all()"""
+    build2.all()
+    ```
+    """
 
     def __init__(
         self, source, build_type="release", generator=None, definitions=None, env=None

@@ -39,6 +39,7 @@ select = [
 ignore = [
 #   "B028",    # required stacklevel argument to warn
   "B017",    # `pytest.raises(Exception)` should be considered evil
+  "B027",    # `CDataExporter.run_gc` is an empty method in an abstract base class, but has no abstract decorator
   "B904",    # raise from e or raise from None in exception handlers
   "BLE001",  # Do not catch blind exception: `Exception`
 #   "B905",    # zip-without-explicit-strict
@@ -58,6 +59,7 @@ ignore = [
   "D205",    # 1 blank line required between summary line and description
   "D210",    # No whitespaces allowed surrounding docstring text
   "D213",    # Multi-line docstring summary should start at the second line
+  "D301",    # Use `r"""` if any backslashes in a docstring
   "D400",    # First line should end with a period
   "D401",    # Imperative mood
 #   "D402",    # First line should not be the function's signature
