@@ -18,15 +18,16 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <variant>
 
-#include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
+class DataType;
+struct Scalar;
 /// \class ArrayStatistics
 /// \brief Statistics for an Array
 ///
@@ -100,11 +101,7 @@ struct ARROW_EXPORT ArrayStatistics {
   bool is_max_exact = false;
 
   /// \brief Check two statistics for equality
-  bool Equals(const ArrayStatistics& other) const {
-    return null_count == other.null_count && distinct_count == other.distinct_count &&
-           min == other.min && is_min_exact == other.is_min_exact && max == other.max &&
-           is_max_exact == other.is_max_exact;
-  }
+  bool Equals(const ArrayStatistics& other) const;
 
   /// \brief Check two statistics for equality
   bool operator==(const ArrayStatistics& other) const { return Equals(other); }
