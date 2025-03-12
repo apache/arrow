@@ -1175,6 +1175,12 @@ bool ArrayApproxEquals(const Array& left, const Array& right, const EqualOptions
   return ArrayEquals(left, right, opts, floating_approximate);
 }
 
+bool ArrayDataEquals(const ArrayData& left, const ArrayData& right,
+                     const EqualOptions& opts) {
+  const bool floating_approximate = false;
+  return CompareArrayRanges(left, right, 0, left.length, 0, opts, floating_approximate);
+}
+
 bool ScalarEquals(const Scalar& left, const Scalar& right, const EqualOptions& options) {
   const bool floating_approximate = false;
   return ScalarEquals(left, right, options, floating_approximate);

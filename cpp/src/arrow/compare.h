@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <iosfwd>
 
+#include "arrow/array/data.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -99,6 +100,10 @@ ARROW_EXPORT bool ArrayEquals(const Array& left, const Array& right,
 /// types, this is equivalent to ArrayEquals(left, right)
 ARROW_EXPORT bool ArrayApproxEquals(const Array& left, const Array& right,
                                     const EqualOptions& = EqualOptions::Defaults());
+
+/// Returns true if indicated array data are exactly equal
+ARROW_EXPORT bool ArrayDataEquals(const ArrayData& left, const ArrayData& right,
+                                  const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if indicated equal-length segment of arrays are exactly equal
 ARROW_EXPORT bool ArrayRangeEquals(const Array& left, const Array& right,
