@@ -56,4 +56,10 @@ if git_description == ''
     git_description = run_command('git', 'describe', '--tags', check: false).stdout().strip()
 endif
 
+needs_integration = false
+needs_tests = get_option('tests')
+needs_ipc = get_option('ipc') or needs_tests
+needs_testing = get_option('testing') or needs_tests
+needs_json = get_option('json') or needs_testing
+
 subdir('src/arrow')
