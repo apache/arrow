@@ -3336,6 +3336,28 @@ TEST(TestArrowReadWrite, NonUniqueDictionaryValues) {
   }
 }
 
+TEST(TestArrowReadWrite, DictionaryIndexBitwidthRoundtrip) {
+  // GH-30302: the bitwidth of Arrow dictionary indices should be preserved
+  for (const auto& index_type :
+       {::arrow::int8(), ::arrow::int16(), ::arrow::int32(), ::arrow::int64()}) {
+    ARROW_SCOPED_TRACE("index_type = ", *index_type);
+    auto dict_type = ::arrow::dictionary(index_type, ::arrow::utf8());
+    auto schema = ::arrow::schema({field("dictionary", dict_type)});
+
+    ::arrow::ArrayVector dict_arrays = {
+        DictArrayFromJSON(dict_type, R"([0, 1, 0, 2, 1])",
+                          R"(["first", "second", "third"])"),
+        DictArrayFromJSON(dict_type, R"([2, 0, 1, 0, 2])",
+                          R"(["first", "second", "third"])"),
+    };
+    auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(dict_arrays)});
+    auto arrow_writer_props =
+        parquet::ArrowWriterProperties::Builder().store_schema()->build();
+
+    CheckSimpleRoundtrip(table, table->num_rows(), arrow_writer_props);
+  }
+}
+
 TEST(TestArrowWrite, CheckChunkSize) {
   const int num_columns = 2;
   const int num_rows = 128;

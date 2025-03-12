@@ -906,6 +906,10 @@ test_that("Dataset [ (take by index)", {
 
 test_that("Dataset and query print methods", {
   ds <- open_dataset(hive_dir)
+
+  # See https://github.com/apache/arrow/pull/45685#discussion_r1991143334
+  dict_index_type <- ifelse(arrow_cpp_version_at_least("20.0.0"), "int8", "int32")
+
   expect_output(
     print(ds),
     paste(
@@ -915,7 +919,7 @@ test_that("Dataset and query print methods", {
       "dbl: double",
       "lgl: bool",
       "chr: string",
-      "fct: dictionary<values=string, indices=int32>",
+      paste("fct: dictionary<values=string, indices=", dict_index_type, ">", sep = ""),
       "ts: timestamp[us, tz=UTC]",
       "group: int32",
       "other: string",
