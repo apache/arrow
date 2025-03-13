@@ -307,7 +307,7 @@ without heirarchical namespace enabled.
 The :class:`AzureFileSystem` constructor has several options to configure the
 Azure Blob Storage connection (e.g. account name, account key, SAS token, etc.).
 
-If neither account_key or sas_token is specified a `DefaultAzureCredential <https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/identity/azure-identity/README.md#defaultazurecredential>`__
+If neither ``account_key`` or ``sas_token`` is specified a `DefaultAzureCredential <https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/identity/azure-identity/README.md#defaultazurecredential>`__
 is used for authentication. This means it will try several types of authentication
 and go with the first one that works. If any authentication parameters are provided when
 initialising the FileSystem, they will be used instead of the default credential.
