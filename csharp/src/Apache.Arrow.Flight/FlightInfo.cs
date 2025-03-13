@@ -41,6 +41,9 @@ namespace Apache.Arrow.Flight
             Ordered = flightInfo.Ordered;
             AppMetadata = flightInfo.AppMetadata;
         }
+        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords = -1, long totalBytes = -1):this(schema,descriptor,endpoints,totalRecords,totalBytes,false, ByteString.Empty)
+        {
+        }
 
         public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords = -1, long totalBytes = -1, bool ordered = false, ByteString appMetadata=null)
         {
