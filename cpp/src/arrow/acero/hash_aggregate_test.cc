@@ -1579,7 +1579,7 @@ TEST_P(GroupBy, VarianceOptionsAndSkewOptions) {
                                R"([
          [1, null,      0.707106,  null,     null,    null,      -1.5,      null,      null    ],
          [2, 0.213833,  0.213833,  0.213833, 0.37037, -1.720164, -1.720164, -1.720164, -3.90123],
-         [3, 0.0,       null,      null,     -NaN,    -2.0,       null,     null,      -NaN    ],
+         [3, 0.0,       null,      null,     NaN,     -2.0,       null,     null,      NaN     ],
          [4, null,      0.707106,  null,     null,    null,      -1.5,      null,      null    ]
          ])");
       ValidateOutput(actual);
