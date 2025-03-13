@@ -111,6 +111,7 @@ static auto kVarianceOptionsType = GetFunctionOptionsType<VarianceOptions>(
     DataMember("min_count", &VarianceOptions::min_count));
 static auto kSkewOptionsType = GetFunctionOptionsType<SkewOptions>(
     DataMember("skip_nulls", &SkewOptions::skip_nulls),
+    DataMember("bias", &SkewOptions::bias),
     DataMember("min_count", &SkewOptions::min_count));
 static auto kQuantileOptionsType = GetFunctionOptionsType<QuantileOptions>(
     DataMember("q", &QuantileOptions::q),
@@ -154,9 +155,10 @@ VarianceOptions::VarianceOptions(int ddof, bool skip_nulls, uint32_t min_count)
       min_count(min_count) {}
 constexpr char VarianceOptions::kTypeName[];
 
-SkewOptions::SkewOptions(bool skip_nulls, uint32_t min_count)
+SkewOptions::SkewOptions(bool skip_nulls, bool bias, uint32_t min_count)
     : FunctionOptions(internal::kSkewOptionsType),
       skip_nulls(skip_nulls),
+      bias(bias),
       min_count(min_count) {}
 
 QuantileOptions::QuantileOptions(double q, enum Interpolation interpolation,

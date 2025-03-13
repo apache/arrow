@@ -3838,3 +3838,10 @@ def test_pivot_wider():
     with pytest.raises(ValueError, match="Encountered more than one non-null value"):
         result = pc.pivot_wider(["height", "width", "height"], [10, None, 11],
                                 key_names=key_names)
+
+
+@pytest.mark.pandas
+def test_biased_skew():
+    arrow_skew = pc.skew([1.0, 2.0, 3.0, 40.0, None], skip_nulls=True, bias=False)
+    pandas_skew = pd.Series(np.array([1.0, 2.0, 3.0, 40.0, np.nan])).skew(skipna=True)
+    assert arrow_skew == pa.scalar(pandas_skew)

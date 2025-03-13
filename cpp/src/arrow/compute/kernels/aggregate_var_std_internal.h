@@ -84,9 +84,16 @@ struct Moments {
 
   double Stddev(int ddof) const { return sqrt(Variance(ddof)); }
 
-  double Skew() const {
+  double Skew(bool bias = true) const {
+    double result;
     // This may return NaN for m2 == 0 and m3 == 0, which is expected
-    return sqrt(count) * m3 / sqrt(m2 * m2 * m2);
+    if (bias) {
+      result = sqrt(count) * m3 / sqrt(m2 * m2 * m2);
+    } else {
+      result =
+          sqrt(count * (count - 1)) / (count - 2) * (m3 / count) / pow((m2 / count), 1.5);
+    }
+    return result;
   }
 
   double Kurtosis() const {

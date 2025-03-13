@@ -2628,8 +2628,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CSkewOptions \
             "arrow::compute::SkewOptions"(CFunctionOptions):
-        CSkewOptions(c_bool skip_nulls, uint32_t min_count)
+        CSkewOptions(c_bool skip_nulls, c_bool bias, uint32_t min_count)
         c_bool skip_nulls
+        c_bool bias
         uint32_t min_count
 
     cdef cppclass CScalarAggregateOptions \

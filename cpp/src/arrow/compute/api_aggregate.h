@@ -117,13 +117,14 @@ class ARROW_EXPORT VarianceOptions : public FunctionOptions {
 /// \brief Control Skew and Kurtosis kernel behavior
 class ARROW_EXPORT SkewOptions : public FunctionOptions {
  public:
-  explicit SkewOptions(bool skip_nulls = true, uint32_t min_count = 0);
+  explicit SkewOptions(bool skip_nulls = true, bool bias = true, uint32_t min_count = 0);
   static constexpr char const kTypeName[] = "SkewOptions";
   static SkewOptions Defaults() { return SkewOptions{}; }
 
   /// If true (the default), null values are ignored. Otherwise, if any value is null,
   /// emit null.
   bool skip_nulls;
+  bool bias;
   /// If less than this many non-null values are observed, emit null.
   uint32_t min_count;
 };

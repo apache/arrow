@@ -176,6 +176,7 @@ struct StatisticImpl : public ScalarAggregator {
       : out_type(out_type),
         stat_type(stat_type),
         skip_nulls(options.skip_nulls),
+        bias(options.bias),
         min_count(options.min_count),
         ddof(0),
         state(moments_level_for_statistic(stat_type), decimal_scale, skip_nulls) {}
@@ -208,7 +209,7 @@ struct StatisticImpl : public ScalarAggregator {
           out->value = std::make_shared<DoubleScalar>(state.moments.Variance(ddof));
           break;
         case StatisticType::Skew:
-          out->value = std::make_shared<DoubleScalar>(state.moments.Skew());
+          out->value = std::make_shared<DoubleScalar>(state.moments.Skew(bias));
           break;
         case StatisticType::Kurtosis:
           out->value = std::make_shared<DoubleScalar>(state.moments.Kurtosis());
@@ -224,6 +225,7 @@ struct StatisticImpl : public ScalarAggregator {
   std::shared_ptr<DataType> out_type;
   StatisticType stat_type;
   bool skip_nulls;
+  bool bias;
   uint32_t min_count;
   int ddof = 0;
   MomentsState<ArrowType> state;
