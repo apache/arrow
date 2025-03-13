@@ -299,7 +299,7 @@ some environment variables.
 .. _filesystem-azurefs:
 
 Azure Storage File System
---------------------------------
+-------------------------
 
 PyArrow implements natively an Azure filesystem for Azure Blob Storage with or
 without heirarchical namespace enabled.
