@@ -152,8 +152,8 @@ class ContentDefinedChunker {
 
   // Calculate the chunk boundaries for typed Arrow arrays.
   template <typename RollFunc>
-  const std::vector<Chunk> Calculate(const int16_t* def_levels, const int16_t* rep_levels,
-                                     int64_t num_levels, const RollFunc& RollValue);
+  std::vector<Chunk> Calculate(const int16_t* def_levels, const int16_t* rep_levels,
+                               int64_t num_levels, const RollFunc& RollValue);
 
   // Reference to the column's level information
   const internal::LevelInfo& level_info_;

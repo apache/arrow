@@ -45,8 +45,8 @@ namespace parquet::internal {
 /// This implementation uses cut-point skipping because it improves the overall
 /// performance and a more accurate alternative to have less skewed chunk size
 /// distribution. Instead of using two different masks (one with a lower and one with a
-/// probability of matching and switching them based on the actual chunk size), we rather
-/// use 8 different gear hash tables and require having 8 consecutive matches while
+/// higher probability of matching and switching them based on the actual chunk size), we
+/// rather use 8 different gear hash tables and require having 8 consecutive matches while
 /// switching between the used hashtables. This approach is based on central limit theorem
 /// and approximates normal distribution of the chunk sizes.
 //
@@ -139,8 +139,9 @@ bool ContentDefinedChunker::NeedNewChunk() {
     has_matched_ = false;
     // in order to have a normal distribution of chunk sizes, we only create a new chunk
     // if the adjused mask matches the rolling hash 8 times in a row, each run uses a
-    // different gearhash table (gearhash's chunk size has exponential distribution, and
-    // we use central limit theorem to approximate normal distribution)
+    // different gearhash table (gearhash's chunk size has geometric distribution, and
+    // we use central limit theorem to approximate normal distribution, see section 6.2.1
+    // in paper https://www.cidrdb.org/cidr2023/papers/p43-low.pdf)
     if (ARROW_PREDICT_FALSE(++nth_run_ >= 7)) {
       nth_run_ = 0;
       chunk_size_ = 0;
@@ -158,10 +159,10 @@ bool ContentDefinedChunker::NeedNewChunk() {
 }
 
 template <typename RollFunc>
-const std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_levels,
-                                                          const int16_t* rep_levels,
-                                                          int64_t num_levels,
-                                                          const RollFunc& RollValue) {
+std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_levels,
+                                                    const int16_t* rep_levels,
+                                                    int64_t num_levels,
+                                                    const RollFunc& RollValue) {
   std::vector<Chunk> chunks;
   int64_t offset;
   int64_t prev_offset = 0;
