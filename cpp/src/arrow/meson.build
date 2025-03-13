@@ -438,4 +438,6 @@ pkg.generate(
     },
 )
 
+subdir('testing')
+
 subdir('util')
