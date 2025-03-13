@@ -4,6 +4,10 @@
 {% block extrahead %}
   {{ super() }}
 
+
+  <!-- Content Security Policy for kapa.ai -->
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://widget.kapa.ai">
+
   <!-- Matomo -->
   <script>
     var _paq = window._paq = window._paq || [];
