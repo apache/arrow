@@ -1,4 +1,4 @@
-// Licensed to the Apache Software Foundation (ASF) under one or more
+﻿// Licensed to the Apache Software Foundation (ASF) under one or more
 // contributor license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright ownership.
 // The ASF licenses this file to You under the Apache License, Version 2.0
@@ -42,7 +42,7 @@ namespace Apache.Arrow.Flight
             AppMetadata = flightInfo.AppMetadata;
         }
 
-        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords = -1, long totalBytes = -1, bool ordered = false, ByteString appMetadata = null)
+        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords = -1, long totalBytes = -1, bool ordered = false, ByteString appMetadata=null)
         {
             Schema = schema;
             Descriptor = descriptor;
@@ -70,6 +70,7 @@ namespace Apache.Arrow.Flight
         internal Protocol.FlightInfo ToProtocol()
         {
             var serializedSchema = Schema != null ? SchemaWriter.SerializeSchema(Schema) : ByteString.Empty;
+
             var response = new Protocol.FlightInfo()
             {
                 Schema = serializedSchema,
@@ -77,10 +78,10 @@ namespace Apache.Arrow.Flight
                 TotalBytes = TotalBytes,
                 TotalRecords = TotalRecords,
                 Ordered = Ordered,
-                AppMetadata = AppMetadata
+                AppMetadata = AppMetadata 
             };
 
-            foreach(var endpoint in Endpoints)
+            foreach (var endpoint in Endpoints)
             {
                 response.Endpoint.Add(endpoint.ToProtocol());
             }
