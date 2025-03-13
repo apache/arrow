@@ -60,8 +60,7 @@ struct ExecPlanImpl : public ExecPlan {
                         std::shared_ptr<const KeyValueMetadata> metadata = nullptr,
                         std::shared_ptr<ThreadPool> owned_thread_pool = nullptr)
       : metadata_(std::move(metadata)),
-        query_context_(options, exec_context),
-        owned_thread_pool_(std::move(owned_thread_pool)) {}
+        query_context_(options, exec_context) {}
 
   ~ExecPlanImpl() override {
     if (started_ && !finished_.is_finished()) {
@@ -340,9 +339,6 @@ struct ExecPlanImpl : public ExecPlan {
   arrow::util::tracing::Span span_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
   QueryContext query_context_;
-  // This field only exists for backwards compatibility.  Remove once the deprecated
-  // ExecPlan::Make overloads have been removed.
-  std::shared_ptr<ThreadPool> owned_thread_pool_;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -400,28 +396,6 @@ Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
 Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
     ExecContext ctx, std::shared_ptr<const KeyValueMetadata> metadata) {
   return Make(/*opts=*/{}, ctx, std::move(metadata));
-}
-
-// Deprecated and left for backwards compatibility.  If the user does not supply a CPU
-// executor then we will create a 1 thread pool and tie its lifetime to the plan
-Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
-    QueryOptions opts, ExecContext* ctx,
-    std::shared_ptr<const KeyValueMetadata> metadata) {
-  if (ctx->executor() == nullptr) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ThreadPool> tpool, ThreadPool::Make(1));
-    ExecContext actual_ctx(ctx->memory_pool(), tpool.get(), ctx->func_registry());
-    return std::shared_ptr<ExecPlan>(
-        new ExecPlanImpl{opts, actual_ctx, std::move(metadata), std::move(tpool)});
-  }
-  return ExecPlan::Make(opts, *ctx, std::move(metadata));
-}
-
-// Deprecated
-Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
-    ExecContext* ctx, std::shared_ptr<const KeyValueMetadata> metadata) {
-  ARROW_SUPPRESS_DEPRECATION_WARNING
-  return Make(/*opts=*/{}, ctx, std::move(metadata));
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 ExecNode* ExecPlan::AddNode(std::unique_ptr<ExecNode> node) {
