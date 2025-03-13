@@ -412,13 +412,23 @@ def get_library_dirs():
                 append_library_dir(library_dir[2:])
 
     if _sys.platform == 'win32':
+        python_base_install = _os.path.dirname(_sys.executable)
+
         # TODO(wesm): Is this necessary, or does setuptools within a conda
         # installation add Library\lib to the linker path for MSVC?
-        python_base_install = _os.path.dirname(_sys.executable)
         library_dir = _os.path.join(python_base_install, 'Library', 'lib')
 
         if _os.path.exists(_os.path.join(library_dir, 'arrow.lib')):
             append_library_dir(library_dir)
+
+        # GH-45530: Add pyarrow.libs dir containing delvewheel-mangled
+        # msvcp140.dll
+        pyarrow_libs_dir = _os.path.join(
+            python_base_install, "Lib", "site-packages", "pyarrow.libs"
+        )
+
+        if _os.path.exists(pyarrow_libs_dir):
+            append_library_dir(pyarrow_libs_dir)
 
     # ARROW-4074: Allow for ARROW_HOME to be set to some other directory
     if _os.environ.get('ARROW_HOME'):
