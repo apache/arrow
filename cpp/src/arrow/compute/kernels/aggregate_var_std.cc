@@ -212,7 +212,7 @@ struct StatisticImpl : public ScalarAggregator {
           out->value = std::make_shared<DoubleScalar>(state.moments.Skew(bias));
           break;
         case StatisticType::Kurtosis:
-          out->value = std::make_shared<DoubleScalar>(state.moments.Kurtosis());
+          out->value = std::make_shared<DoubleScalar>(state.moments.Kurtosis(bias));
           break;
         default:
           return Status::NotImplemented("Unsupported statistic type ",

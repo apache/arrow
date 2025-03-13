@@ -3841,7 +3841,11 @@ def test_pivot_wider():
 
 
 @pytest.mark.pandas
-def test_biased_skew():
-    arrow_skew = pc.skew([1.0, 2.0, 3.0, 40.0, None], skip_nulls=True, bias=False)
-    pandas_skew = pd.Series(np.array([1.0, 2.0, 3.0, 40.0, np.nan])).skew(skipna=True)
+def test_biased_skew_and_kurtosis():
+    input = [1.0, 2.0, 3.0, 40.0, None]
+    arrow_skew = pc.skew(input, skip_nulls=True, bias=False)
+    pandas_skew = pd.Series(np.array(input)).skew(skipna=True)
     assert arrow_skew == pa.scalar(pandas_skew)
+    arrow_kurtosis = pc.kurtosis(input, skip_nulls=True, bias=False)
+    pandas_kurtosis = pd.Series(np.array(input)).kurtosis(skipna=True)
+    assert arrow_kurtosis == pa.scalar(pandas_kurtosis)

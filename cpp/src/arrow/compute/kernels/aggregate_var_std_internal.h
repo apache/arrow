@@ -96,9 +96,17 @@ struct Moments {
     return result;
   }
 
-  double Kurtosis() const {
+  double Kurtosis(bool bias = true) const {
+    double result;
     // This may return NaN for m2 == 0 and m4 == 0, which is expected
-    return count * m4 / (m2 * m2) - 3;
+    if (bias) {
+      result = count * m4 / (m2 * m2) - 3;
+    } else {
+      result = 1.0 / (count - 2) / (count - 3) *
+               ((pow(count, 2) - 1.0) * (m4 / count) / pow((m2 / count), 2.0) -
+                3 * pow((count - 1), 2.0));
+    }
+    return result;
   }
 
   void MergeFrom(int level, const Moments& other) { *this = Merge(level, *this, other); }
