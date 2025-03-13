@@ -16,7 +16,7 @@
 // under the License.
 
 #include "gandiva/encrypt_utils.h"
-#include <string.h>
+#include <sstream>
 
 #include <stdexcept>
 
@@ -29,8 +29,11 @@ const EVP_CIPHER* get_cipher_algo(int32_t key_length) {
       return EVP_aes_192_ecb();
     case 32:
       return EVP_aes_256_ecb();
-    default:
-      throw std::runtime_error("unsupported key length: " + std::to_string(key_length));
+    default: {
+      std::ostringstream oss;
+      oss << "unsupported key length: " << key_length;
+      throw std::runtime_error(oss.str());
+    }
   }
 }
 }  // namespace
