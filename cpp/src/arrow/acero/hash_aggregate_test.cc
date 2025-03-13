@@ -1504,11 +1504,12 @@ TEST_P(GroupBy, VarianceOptionsAndSkewOptions) {
       /*ddof=*/0, /*skip_nulls=*/false, /*min_count=*/3);
 
   auto skew_keep_nulls = std::make_shared<SkewOptions>(/*skip_nulls=*/false,
+                                                       /*bias=*/true,
                                                        /*min_count=*/0);
   auto skew_min_count =
-      std::make_shared<SkewOptions>(/*skip_nulls=*/true, /*min_count=*/3);
+      std::make_shared<SkewOptions>(/*skip_nulls=*/true, /*bias=*/true, /*min_count=*/3);
   auto skew_keep_nulls_min_count = std::make_shared<SkewOptions>(
-      /*skip_nulls=*/false, /*min_count=*/3);
+      /*skip_nulls=*/false, /*bias=*/true, /*min_count=*/3);
 
   for (std::string value_column : {"argument", "argument1"}) {
     for (bool use_threads : {false}) {
