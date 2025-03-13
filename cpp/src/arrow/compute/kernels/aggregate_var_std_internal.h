@@ -103,8 +103,8 @@ struct Moments {
       result = count * m4 / (m2 * m2) - 3;
     } else {
       result = 1.0 / (count - 2) / (count - 3) *
-               ((pow(count, 2) - 1.0) * (m4 / count) / pow((m2 / count), 2.0) -
-                3 * pow((count - 1), 2.0));
+               ((pow(count, 2) - 1.0) * (m4 / count) / pow((m2 / count), 2) -
+                3 * pow((count - 1), 2));
     }
     return result;
   }
