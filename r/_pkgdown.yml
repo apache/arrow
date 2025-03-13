@@ -44,7 +44,11 @@ template:
       </script>
       <!-- End Matomo Code -->
       <!-- Kapa AI -->
-      <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://widget.kapa.ai">
+      <meta http-equiv="Content-Security-Policy" content="
+      script-src 'self' widget.kapa.ai www.google.com;
+      connect-src 'self' proxy.kapa.ai kapa-widget-proxy-la7dkmplpq-uc.a.run.app metrics.kapa.ai;
+      frame-src 'self' www.google.com;
+      ">
       <script
           async
           src="https://widget.kapa.ai/kapa-widget.bundle.js"
