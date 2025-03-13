@@ -301,15 +301,15 @@ some environment variables.
 Azure Storage File System
 --------------------------------
 
-PyArrow implements natively an Azure filesystem for Azure Blob Storage with or 
+PyArrow implements natively an Azure filesystem for Azure Blob Storage with or
 without heirarchical namespace enabled.
 
-The :class:`AzureFileSystem` constructor has several options to configure the 
+The :class:`AzureFileSystem` constructor has several options to configure the
 Azure Blob Storage connection (e.g. account name, account key, SAS token, etc).
 
-If neither account_key or sas_token is specified a `DefaultAzureCredential <https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/identity/azure-identity/README.md#defaultazurecredential>`__ 
+If neither account_key or sas_token is specified a `DefaultAzureCredential <https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/identity/azure-identity/README.md#defaultazurecredential>`__
 is used for authentication. This means it will try several types of authentication
-and go with the first one that works. If any authentication parameters are provided when 
+and go with the first one that works. If any authentication parameters are provided when
 initialising the FileSystem, they will be used instead of the default credential.
 
 Example showing how you can read contents from an Azure Blob Storage account::
@@ -333,7 +333,7 @@ For more details on the parameters and usage, refer to the :class:`AzureFileSyst
 
 .. seealso::
 
-   See the `Azure SDK for C++ documentation <https://github.com/Azure/azure-sdk-for-cpp>`__ 
+   See the `Azure SDK for C++ documentation <https://github.com/Azure/azure-sdk-for-cpp>`__
    for more information on authentication and configuration options.
 
 .. _filesystem-fsspec:
