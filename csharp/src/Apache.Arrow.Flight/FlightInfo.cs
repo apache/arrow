@@ -45,7 +45,7 @@ namespace Apache.Arrow.Flight
         {
         }
 
-        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords = -1, long totalBytes = -1, bool ordered = false, ByteString appMetadata=null)
+        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords, long totalBytes, bool ordered = false, ByteString appMetadata=null)
         {
             Schema = schema;
             Descriptor = descriptor;
