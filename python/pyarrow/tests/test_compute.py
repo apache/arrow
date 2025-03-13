@@ -3841,12 +3841,19 @@ def test_pivot_wider():
 
 
 @pytest.mark.pandas
-def test_unbiased_skew_and_kurtosis():
+@pytest.mark.parametrize("input", ([1.0, 2.0, 3.0, 40.0, None], [1, 40]))
+def test_unbiased_skew_and_kurtosis(input):
     # Validate computing unbiased skew and kurtosis matches pandas
-    input = [1.0, 2.0, 3.0, 40.0, None]
     arrow_skew = pc.skew(input, skip_nulls=True, bias=False)
     pandas_skew = pd.Series(np.array(input)).skew(skipna=True)
-    assert arrow_skew == pa.scalar(pandas_skew)
     arrow_kurtosis = pc.kurtosis(input, skip_nulls=True, bias=False)
     pandas_kurtosis = pd.Series(np.array(input)).kurtosis(skipna=True)
-    assert arrow_kurtosis == pa.scalar(pandas_kurtosis)
+
+    if len(input) > 2:
+        assert arrow_skew == pa.scalar(pandas_skew)
+        assert arrow_kurtosis == pa.scalar(pandas_kurtosis)
+    else:
+        # Validate if not enough samples to compute skew and kurtosis
+        # then the result is NaN for arrow, matching pandas.
+        assert pc.is_nan(arrow_skew) == pc.is_nan(pandas_skew)
+        assert pc.is_nan(arrow_kurtosis) == pc.is_nan(pandas_kurtosis)

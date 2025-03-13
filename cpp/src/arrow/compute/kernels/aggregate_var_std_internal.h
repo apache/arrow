@@ -87,6 +87,7 @@ struct Moments {
   double Skew(bool bias = true) const {
     double result;
     // This may return NaN for m2 == 0 and m3 == 0, which is expected
+    // or if unbiased and not enough samples (count < 2).
     if (bias) {
       result = sqrt(count) * m3 / sqrt(m2 * m2 * m2);
     } else {
@@ -99,6 +100,7 @@ struct Moments {
   double Kurtosis(bool bias = true) const {
     double result;
     // This may return NaN for m2 == 0 and m4 == 0, which is expected
+    // or if unbiased and not enough samples (count < 3).
     if (bias) {
       result = count * m4 / (m2 * m2) - 3;
     } else {
