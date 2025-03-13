@@ -44,8 +44,6 @@ arrow_components = {
             'array/util.cc',
             'array/validate.cc',
         ],
-        'include_dirs': [],
-        'dependencies': [],
     },
     'arrow_compute': {
         'sources': [
@@ -78,8 +76,6 @@ arrow_components = {
             'compute/kernels/vector_selection_internal.cc',
             'compute/kernels/vector_selection_take_internal.cc',
         ],
-        'include_dirs': [],
-        'dependencies': [],
     },
     'arrow_io': {
         'sources': [
@@ -149,14 +145,9 @@ arrow_components = {
             'util/utf8.cc',
             'util/value_parsing.cc',
         ],
-        'include_dirs': [],
         'dependencies': [threads_dep],
     },
-    'memory_pool': {
-        'sources': ['memory_pool.cc'],
-        'include_dirs': [],
-        'dependencies': [],
-    },
+    'memory_pool': {'sources': ['memory_pool.cc']},
     'vendored': {
         'sources': [
             'vendored/base64.cpp',
@@ -186,8 +177,6 @@ arrow_components = {
             'vendored/uriparser/UriResolve.c',
             'vendored/uriparser/UriShorten.c',
         ],
-        'include_dirs': [],
-        'dependencies': [],
     },
     'arrow_base': {
         'sources': [
@@ -222,8 +211,6 @@ arrow_components = {
             'c/bridge.cc',
             'c/dlpack.cc',
         ],
-        'include_dirs': [],
-        'dependencies': [],
     },
 }
 
@@ -247,8 +234,6 @@ if needs_integration or needs_tests
                 'integration/json_integration.cc',
                 'integration/json_internal.cc',
             ],
-            'include_dirs': [],
-            'dependencies': [],
         },
     }
 endif
@@ -279,11 +264,7 @@ if needs_ipc
     endif
 
     arrow_components += {
-        'arrow_ipc': {
-            'sources': arrow_ipc_srcs,
-            'include_dirs': [],
-            'dependencies': arrow_ipc_deps,
-        },
+        'arrow_ipc': {'sources': arrow_ipc_srcs, 'dependencies': arrow_ipc_deps},
     }
 endif
 
@@ -302,7 +283,6 @@ if needs_json
                 'json/parser.cc',
                 'json/reader.cc',
             ],
-            'include_dirs': [],
             'dependencies': [rapidjson_dep],
         },
     }
@@ -314,8 +294,8 @@ arrow_includes = [include_dir]
 arrow_deps = []
 foreach key, val : arrow_components
     arrow_srcs += val['sources']
-    arrow_includes += val['include_dirs']
-    arrow_deps += val['dependencies']
+    arrow_includes += val.get('include_dirs', [])
+    arrow_deps += val.get('dependencies', [])
 endforeach
 
 arrow_lib = library(
