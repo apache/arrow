@@ -20,6 +20,7 @@
 #include <cmath>
 #include <string>
 #include <vector>
+
 #include "arrow/array.h"
 #include "arrow/util/logging.h"
 #include "parquet/chunker_internal_generated.h"
