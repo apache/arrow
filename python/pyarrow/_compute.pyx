@@ -1920,6 +1920,9 @@ class SkewOptions(_SkewOptions):
     Parameters
     ----------
     {_skip_nulls_doc()}
+    bias : bool, default True
+        Whether the calculated value is biased.
+        If False, the value computed includes a corrections factor to reduce bias.
     {_min_count_doc(default=0)}
     """
 

@@ -124,6 +124,9 @@ class ARROW_EXPORT SkewOptions : public FunctionOptions {
   /// If true (the default), null values are ignored. Otherwise, if any value is null,
   /// emit null.
   bool skip_nulls;
+  /// If true (the default), the calculated value is biased. If false, the calculated
+  /// value includes a correction factor to reduce bias, making it more accurate for
+  /// small sample sizes.
   bool bias;
   /// If less than this many non-null values are observed, emit null.
   uint32_t min_count;
