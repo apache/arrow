@@ -480,4 +480,5 @@ pkg.generate(
 
 subdir('testing')
 
+subdir('extension')
 subdir('util')
