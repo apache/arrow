@@ -25,6 +25,7 @@ import sys
 import tempfile
 import textwrap
 import threading
+
 import time
 from shutil import copytree
 from urllib.parse import quote
@@ -1546,10 +1547,15 @@ def test_parquet_fragment_statistics(tempdir):
 
     fragment = list(dataset.get_fragments())[0]
 
-    import datetime
-    def dt_s(x): return datetime.datetime(1970, 1, 1, 0, 0, x)
-    def dt_ms(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x*1000)
-    def dt_us(x): return datetime.datetime(1970, 1, 1, 0, 0, 0, x)
+    def dt_s(x):
+        return datetime.datetime(1970, 1, 1, 0, 0, x)
+
+    def dt_ms(x):
+        return datetime.datetime(1970, 1, 1, 0, 0, 0, x*1000)
+
+    def dt_us(x):
+        return datetime.datetime(1970, 1, 1, 0, 0, 0, x)
+
     date = datetime.date
     time = datetime.time
 

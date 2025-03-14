@@ -14,5 +14,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from .core import DockerCompose, UndefinedImage  # noqa
+from .core import DockerCompose, UndefinedImage
+
+__all__ = ["DockerCompose", "UndefinedImage"]

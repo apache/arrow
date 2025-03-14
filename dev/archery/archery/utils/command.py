@@ -14,18 +14,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import os
 import shlex
 import shutil
 import subprocess
 
-from .logger import logger, ctx
+from .logger import ctx, logger
 
 
 def default_bin(name, default):
     assert default
-    env_name = "ARCHERY_{0}_BIN".format(default.upper())
+    env_name = f"ARCHERY_{default.upper()}_BIN"
     return name if name else os.environ.get(env_name, default)
 
 
@@ -40,18 +41,18 @@ class capture_stdout:
             return x.strip() if self.strip else x
 
         def list_it(x):
-            return x.decode('utf-8').splitlines() if self.listify else x
+            return x.decode("utf-8").splitlines() if self.listify else x
 
         def wrapper(*argv, **kwargs):
             # Ensure stdout is captured
             kwargs["stdout"] = subprocess.PIPE
             return list_it(strip_it(f(*argv, **kwargs).stdout))
+
         return wrapper
 
 
 class Command:
-    """
-    A runnable command.
+    """A runnable command.
 
     Class inheriting from the Command class must provide the bin
     property/attribute.
@@ -74,14 +75,12 @@ class Command:
         if "check" not in kwargs:
             kwargs["check"] = True
 
-        logger.debug("Executing `{}`".format(invocation))
+        logger.debug(f"Executing `{invocation}`")
         return subprocess.run(invocation, **kwargs)
 
     @property
     def available(self):
-        """
-        Indicate if the command binary is found in PATH.
-        """
+        """Indicate if the command binary is found in PATH."""
         binary = shlex.split(self.bin)[0]
         return shutil.which(binary) is not None
 
@@ -92,7 +91,7 @@ class Command:
 class CommandStackMixin:
     def run(self, *argv, **kwargs):
         stacked_args = self.argv + argv
-        return super(CommandStackMixin, self).run(*stacked_args, **kwargs)
+        return super().run(*stacked_args, **kwargs)
 
 
 class Bash(Command):

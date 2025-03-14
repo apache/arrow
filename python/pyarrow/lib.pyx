@@ -177,7 +177,8 @@ def _ensure_cuda_loaded():
     if __cuda_loaded is not True:
         raise ImportError(
             "Trying to import data on a CUDA device, but PyArrow is not built with "
-            f"CUDA support.\n(importing 'pyarrow.cuda' resulted in \"{__cuda_loaded}\")."
+            "CUDA support.\n"
+            f"(importing 'pyarrow.cuda' resulted in \"{__cuda_loaded}\")."
         )
 
 

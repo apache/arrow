@@ -14,17 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import contextlib
 import functools
 import os
 import subprocess
 
-from . import cdata
-from .tester import Tester, CDataExporter, CDataImporter
-from .util import run_cmd, log
 from ..utils.source import ARROW_ROOT_DEFAULT
-
+from . import cdata
+from .tester import CDataExporter, CDataImporter, Tester
+from .util import log, run_cmd
 
 # FIXME(sbinet): revisit for Go modules
 _HOME = os.getenv("HOME", "~")
@@ -42,9 +42,7 @@ _FLIGHT_CLIENT_CMD = [
     "localhost",
 ]
 
-_DLL_PATH = os.path.join(
-    ARROW_ROOT_DEFAULT,
-    "go/arrow/internal/cdata_integration")
+_DLL_PATH = os.path.join(ARROW_ROOT_DEFAULT, "go/arrow/internal/cdata_integration")
 _INTEGRATION_DLL = os.path.join(_DLL_PATH, "arrow_go_integration" + cdata.dll_suffix)
 
 
@@ -58,78 +56,73 @@ class GoTester(Tester):
     C_DATA_SCHEMA_IMPORTER = True
     C_DATA_ARRAY_IMPORTER = True
 
-    name = 'Go'
+    name = "Go"
 
-    def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
+    def _run(self, arrow_path=None, json_path=None, command="VALIDATE"):
         cmd = [_GO_INTEGRATION_EXE]
 
         if arrow_path is not None:
-            cmd.extend(['-arrow', arrow_path])
+            cmd.extend(["-arrow", arrow_path])
 
         if json_path is not None:
-            cmd.extend(['-json', json_path])
+            cmd.extend(["-json", json_path])
 
-        cmd.extend(['-mode', command])
+        cmd.extend(["-mode", command])
 
         if self.debug:
-            log(' '.join(cmd))
+            log(" ".join(cmd))
 
         run_cmd(cmd)
 
     def validate(self, json_path, arrow_path, quirks=None):
-        return self._run(arrow_path, json_path, 'VALIDATE')
+        return self._run(arrow_path, json_path, "VALIDATE")
 
     def json_to_file(self, json_path, arrow_path):
-        return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
+        return self._run(arrow_path, json_path, "JSON_TO_ARROW")
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = [_STREAM_TO_FILE, '<', stream_path, '>', file_path]
+        cmd = [_STREAM_TO_FILE, "<", stream_path, ">", file_path]
         self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = [_FILE_TO_STREAM, file_path, '>', stream_path]
+        cmd = [_FILE_TO_STREAM, file_path, ">", stream_path]
         self.run_shell_command(cmd)
 
     @contextlib.contextmanager
     def flight_server(self, scenario_name=None):
-        cmd = _FLIGHT_SERVER_CMD + ['-port=0']
+        cmd = _FLIGHT_SERVER_CMD + ["-port=0"]
         if scenario_name:
-            cmd = cmd + ['-scenario', scenario_name]
+            cmd = cmd + ["-scenario", scenario_name]
         if self.debug:
-            log(' '.join(cmd))
-        server = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            log(" ".join(cmd))
+        server = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         try:
             output = server.stdout.readline().decode()
-            if not output.startswith('Server listening on localhost:'):
+            if not output.startswith("Server listening on localhost:"):
                 server.kill()
                 out, err = server.communicate()
                 raise RuntimeError(
-                    'Flight-Go server did not start properly, '
-                    'stdout: \n{}\n\nstderr:\n{}\n'.format(
-                        output + out.decode(), err.decode()
-                    )
+                    "Flight-Go server did not start properly, "
+                    f"stdout: \n{output + out.decode()}\n\nstderr:\n{err.decode()}\n"
                 )
-            port = int(output.split(':')[1])
+            port = int(output.split(":")[1])
             yield port
         finally:
             server.kill()
             server.wait(5)
 
     def flight_request(self, port, json_path=None, scenario_name=None):
-        cmd = _FLIGHT_CLIENT_CMD + [
-            '-port=' + str(port),
-        ]
+        cmd = _FLIGHT_CLIENT_CMD + ["-port=" + str(port)]
         if json_path:
-            cmd.extend(('-path', json_path))
+            cmd.extend(("-path", json_path))
         elif scenario_name:
-            cmd.extend(('-scenario', scenario_name))
+            cmd.extend(("-scenario", scenario_name))
         else:
-            raise TypeError('Must provide one of json_path or scenario_name')
+            raise TypeError("Must provide one of json_path or scenario_name")
 
         if self.debug:
-            log(' '.join(cmd))
+            log(" ".join(cmd))
         run_cmd(cmd)
 
     def make_c_data_exporter(self):
@@ -168,7 +161,6 @@ def _load_ffi(ffi, lib_path=_INTEGRATION_DLL):
 
 
 class _CDataBase:
-
     def __init__(self, debug, args):
         self.debug = debug
         self.args = args
@@ -176,11 +168,10 @@ class _CDataBase:
         self.dll = _load_ffi(self.ffi)
 
     def _pointer_to_int(self, c_ptr):
-        return self.ffi.cast('uintptr_t', c_ptr)
+        return self.ffi.cast("uintptr_t", c_ptr)
 
     def _check_go_error(self, go_error):
-        """
-        Check a `const char*` error return from an integration entrypoint.
+        """Check a `const char*` error return from an integration entrypoint.
 
         A null means success, a non-empty string is an error message.
         The string is dynamically allocated on the Go side.
@@ -188,10 +179,8 @@ class _CDataBase:
         assert self.ffi.typeof(go_error) is self.ffi.typeof("const char*")
         if go_error != self.ffi.NULL:
             try:
-                error = self.ffi.string(go_error).decode('utf8',
-                                                         errors='replace')
-                raise RuntimeError(
-                    f"Go C Data Integration call failed: {error}")
+                error = self.ffi.string(go_error).decode("utf8", errors="replace")
+                raise RuntimeError(f"Go C Data Integration call failed: {error}")
             finally:
                 self.dll.ArrowGo_FreeError(go_error)
 
@@ -203,13 +192,14 @@ class GoCDataExporter(CDataExporter, _CDataBase):
 
     def export_schema_from_json(self, json_path, c_schema_ptr):
         go_error = self.dll.ArrowGo_ExportSchemaFromJson(
-            str(json_path).encode(), self._pointer_to_int(c_schema_ptr))
+            str(json_path).encode(), self._pointer_to_int(c_schema_ptr)
+        )
         self._check_go_error(go_error)
 
     def export_batch_from_json(self, json_path, num_batch, c_array_ptr):
         go_error = self.dll.ArrowGo_ExportBatchFromJson(
-            str(json_path).encode(), num_batch,
-            self._pointer_to_int(c_array_ptr))
+            str(json_path).encode(), num_batch, self._pointer_to_int(c_array_ptr)
+        )
         self._check_go_error(go_error)
 
     @property
@@ -224,17 +214,16 @@ class GoCDataExporter(CDataExporter, _CDataBase):
 
 
 class GoCDataImporter(CDataImporter, _CDataBase):
-
     def import_schema_and_compare_to_json(self, json_path, c_schema_ptr):
         go_error = self.dll.ArrowGo_ImportSchemaAndCompareToJson(
-            str(json_path).encode(), self._pointer_to_int(c_schema_ptr))
+            str(json_path).encode(), self._pointer_to_int(c_schema_ptr)
+        )
         self._check_go_error(go_error)
 
-    def import_batch_and_compare_to_json(self, json_path, num_batch,
-                                         c_array_ptr):
+    def import_batch_and_compare_to_json(self, json_path, num_batch, c_array_ptr):
         go_error = self.dll.ArrowGo_ImportBatchAndCompareToJson(
-            str(json_path).encode(), num_batch,
-            self._pointer_to_int(c_array_ptr))
+            str(json_path).encode(), num_batch, self._pointer_to_int(c_array_ptr)
+        )
         self._check_go_error(go_error)
 
     @property

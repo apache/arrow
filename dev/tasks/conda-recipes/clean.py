@@ -1,12 +1,12 @@
-import subprocess
-from typing import Set
+from __future__ import annotations
 
 import json
-import pandas as pd
+import subprocess
 import sys
+from typing import Set
 
+import pandas as pd
 from packaging.version import Version
-
 
 VERSIONS_TO_KEEP = 5
 DELETE_BEFORE = pd.Timestamp.now() - pd.Timedelta(days=30)
@@ -22,18 +22,19 @@ PLATFORMS = [
 
 
 class CommandFailedException(Exception):
-
     def __init__(self, cmdline, output):
         self.cmdline = cmdline
         self.output = output
 
 
 def run_command(cmdline, **kwargs):
-    kwargs.setdefault('capture_output', True)
+    kwargs.setdefault("capture_output", True)
     p = subprocess.run(cmdline, **kwargs)
     if p.returncode != 0:
-        print(f"Command {cmdline} returned non-zero exit status "
-              f"{p.returncode}", file=sys.stderr)
+        print(
+            f"Command {cmdline} returned non-zero exit status {p.returncode}",
+            file=sys.stderr,
+        )
         output = ""
         if p.stdout:
             print("Stdout was:\n" + "-" * 70, file=sys.stderr)
@@ -60,8 +61,8 @@ def builds_to_delete(platform: str, to_delete: Set[str]) -> int:
                 "arrow-nightlies",
                 "--override-channels",
                 "--subdir",
-                platform
-            ],
+                platform,
+            ]
         )
     except CommandFailedException as ex:
         # If the command failed due to no packages found, return
@@ -79,8 +80,8 @@ def builds_to_delete(platform: str, to_delete: Set[str]) -> int:
         builds = pd.DataFrame(builds)
         builds["version"] = builds["version"].map(Version)
         # May be NaN if package doesn't depend on Python
-        builds["py_version"] = builds["build"].str.extract(r'(py\d+)')
-        builds["timestamp"] = pd.to_datetime(builds['timestamp'], unit='ms')
+        builds["py_version"] = builds["build"].str.extract(r"(py\d+)")
+        builds["timestamp"] = pd.to_datetime(builds["timestamp"], unit="ms")
         builds["stale"] = builds["timestamp"] < DELETE_BEFORE
         # Some packages can be present in several "features" (e.g. CUDA),
         # others miss that column in which case we set a default value.
@@ -93,9 +94,9 @@ def builds_to_delete(platform: str, to_delete: Set[str]) -> int:
 
         # Detect old builds for each configuration:
         # a product of (architecture, Python version, features).
-        for (subdir, python, features, stale), group in builds.groupby(
-                ["subdir", "py_version", "track_features", "stale"],
-                dropna=False):
+        for (_subdir, _python, _features, stale), group in builds.groupby(
+            ["subdir", "py_version", "track_features", "stale"], dropna=False
+        ):
             del_candidates = []
             if stale:
                 del_candidates = group
@@ -109,8 +110,7 @@ def builds_to_delete(platform: str, to_delete: Set[str]) -> int:
                     f"arrow-nightlies/{package_name}/"
                     + del_candidates["version"].astype(str)
                     + del_candidates["url"].str.replace(
-                        "https://conda.anaconda.org/arrow-nightlies", "",
-                        regex=False
+                        "https://conda.anaconda.org/arrow-nightlies", "", regex=False
                     )
                 )
 

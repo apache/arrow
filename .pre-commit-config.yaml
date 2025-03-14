@@ -42,12 +42,24 @@ repos:
           ?^ci/docker/python-.*-wheel-windows-test-vs2022.*\.dockerfile$|
           )
         types: []
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.10
+    hooks:
+      # Run the linter.
+      - id: ruff
+        args: [--fix]
+        files: >-
+          ^dev/archery/
+      # Run the formatter.
+      - id: ruff-format
+        files: >-
+          ^dev/
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
     hooks:
       - id: flake8
         name: Python Format
-        files: ^(python|dev|c_glib|integration)/
+        files: ^(python|c_glib|integration)/
         types:
           - file
           - python

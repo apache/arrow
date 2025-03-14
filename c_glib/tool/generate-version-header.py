@@ -26,39 +26,31 @@ import re
 
 def main():
     parser = argparse.ArgumentParser(
-            description="Generate C header with version macros")
+        description="Generate C header with version macros"
+    )
     parser.add_argument(
-            "--library",
-            required=True,
-            help="The library name to use in macro prefixes")
+        "--library", required=True, help="The library name to use in macro prefixes"
+    )
+    parser.add_argument("--version", required=True, help="The library version number")
     parser.add_argument(
-            "--version",
-            required=True,
-            help="The library version number")
+        "--input", type=Path, required=True, help="Path to the input template file"
+    )
     parser.add_argument(
-            "--input",
-            type=Path,
-            required=True,
-            help="Path to the input template file")
-    parser.add_argument(
-            "--output",
-            type=Path,
-            required=True,
-            help="Path to the output file to generate")
+        "--output", type=Path, required=True, help="Path to the output file to generate"
+    )
 
     args = parser.parse_args()
 
-    with open(args.input, "r", encoding="utf-8") as input_file, \
-            open(args.output, "w", encoding="utf-8") as output_file:
-        write_header(
-                input_file, output_file, args.library, args.version)
+    with (
+        open(args.input, "r", encoding="utf-8") as input_file,
+        open(args.output, "w", encoding="utf-8") as output_file,
+    ):
+        write_header(input_file, output_file, args.library, args.version)
 
 
 def write_header(
-        input_file: TextIOBase,
-        output_file: TextIOBase,
-        library_name: str,
-        version: str):
+    input_file: TextIOBase, output_file: TextIOBase, library_name: str, version: str
+):
     if "-" in version:
         version, version_tag = version.split("-")
     else:
@@ -70,17 +62,18 @@ def write_header(
     availability_macros = generate_availability_macros(library_name)
 
     replacements = {
-            "VERSION_MAJOR": str(version_major),
-            "VERSION_MINOR": str(version_minor),
-            "VERSION_MICRO": str(version_micro),
-            "VERSION_TAG": version_tag,
-            "ENCODED_VERSIONS": encoded_versions,
-            "VISIBILITY_MACROS": visibility_macros,
-            "AVAILABILITY_MACROS": availability_macros,
+        "VERSION_MAJOR": str(version_major),
+        "VERSION_MINOR": str(version_minor),
+        "VERSION_MICRO": str(version_micro),
+        "VERSION_TAG": version_tag,
+        "ENCODED_VERSIONS": encoded_versions,
+        "VISIBILITY_MACROS": visibility_macros,
+        "AVAILABILITY_MACROS": availability_macros,
     }
 
-    output_file.write(re.sub(
-        r"@([A-Z_]+)@", lambda match: replacements[match[1]], input_file.read()))
+    output_file.write(
+        re.sub(r"@([A-Z_]+)@", lambda match: replacements[match[1]], input_file.read())
+    )
 
 
 def generate_visibility_macros(library: str) -> str:
@@ -140,36 +133,36 @@ def generate_availability_macros(library: str) -> str:
 
 
 ALL_VERSIONS = [
-        (20, 0),
-        (19, 0),
-        (18, 0),
-        (17, 0),
-        (16, 0),
-        (15, 0),
-        (14, 0),
-        (13, 0),
-        (12, 0),
-        (11, 0),
-        (10, 0),
-        (9, 0),
-        (8, 0),
-        (7, 0),
-        (6, 0),
-        (5, 0),
-        (4, 0),
-        (3, 0),
-        (2, 0),
-        (1, 0),
-        (0, 17),
-        (0, 16),
-        (0, 15),
-        (0, 14),
-        (0, 13),
-        (0, 12),
-        (0, 11),
-        (0, 10),
+    (20, 0),
+    (19, 0),
+    (18, 0),
+    (17, 0),
+    (16, 0),
+    (15, 0),
+    (14, 0),
+    (13, 0),
+    (12, 0),
+    (11, 0),
+    (10, 0),
+    (9, 0),
+    (8, 0),
+    (7, 0),
+    (6, 0),
+    (5, 0),
+    (4, 0),
+    (3, 0),
+    (2, 0),
+    (1, 0),
+    (0, 17),
+    (0, 16),
+    (0, 15),
+    (0, 14),
+    (0, 13),
+    (0, 12),
+    (0, 11),
+    (0, 10),
 ]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

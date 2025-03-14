@@ -14,11 +14,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 
 class Scenario:
-    """
-    An integration test scenario for Arrow Flight.
+    """An integration test scenario for Arrow Flight.
 
     Does not correspond to a particular IPC JSON file.
     """

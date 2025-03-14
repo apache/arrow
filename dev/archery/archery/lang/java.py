@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import os
 
@@ -35,14 +36,18 @@ class Jar(CommandStackMixin, Java):
 
 class JavaConfiguration:
     REQUIRED_JAVA_OPTIONS = [
-        "--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED",
+        "--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED"
     ]
 
-    def __init__(self,
-                 # toolchain
-                 java_home=None, java_options=None,
-                 # build & benchmark
-                 build_extras=None, benchmark_extras=None):
+    def __init__(
+        self,
+        # toolchain
+        java_home=None,
+        java_options=None,
+        # build & benchmark
+        build_extras=None,
+        benchmark_extras=None,
+    ):
         self.java_home = java_home
         self.java_options = java_options
 
@@ -54,8 +59,7 @@ class JavaConfiguration:
                     self.java_options += " " + option
 
         self.build_extras = list(build_extras) if build_extras else []
-        self.benchmark_extras = list(
-            benchmark_extras) if benchmark_extras else []
+        self.benchmark_extras = list(benchmark_extras) if benchmark_extras else []
 
     @property
     def build_definitions(self):
@@ -81,7 +85,10 @@ class JavaConfiguration:
 class JavaMavenDefinition(MavenDefinition):
     def __init__(self, source, conf, **kwargs):
         self.configuration = conf
-        super().__init__(source, **kwargs,
-                         build_definitions=conf.build_definitions,
-                         benchmark_definitions=conf.benchmark_definitions,
-                         env=conf.environment)
+        super().__init__(
+            source,
+            **kwargs,
+            build_definitions=conf.build_definitions,
+            benchmark_definitions=conf.benchmark_definitions,
+            env=conf.environment,
+        )

@@ -14,9 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
-from click.testing import CliRunner
 import pytest
+from click.testing import CliRunner
 
 from archery.crossbow.cli import crossbow
 from archery.utils.git import git
@@ -27,17 +28,17 @@ def test_crossbow_submit(tmp_path):
     runner = CliRunner()
 
     def invoke(*args):
-        return runner.invoke(crossbow, ['--queue-path', str(tmp_path), *args])
+        return runner.invoke(crossbow, ["--queue-path", str(tmp_path), *args])
 
     # initialize an empty crossbow repository
     git.run_cmd("init", str(tmp_path))
-    git.run_cmd("-C", str(tmp_path), "remote", "add", "origin",
-                "https://github.com/dummy/repo")
-    git.run_cmd("-C", str(tmp_path), "commit", "-m", "initial",
-                "--allow-empty")
+    git.run_cmd(
+        "-C", str(tmp_path), "remote", "add", "origin", "https://github.com/dummy/repo"
+    )
+    git.run_cmd("-C", str(tmp_path), "commit", "-m", "initial", "--allow-empty")
 
-    result = invoke('check-config')
+    result = invoke("check-config")
     assert result.exit_code == 0
 
-    result = invoke('submit', '--no-fetch', '--no-push', '-g', 'wheel')
+    result = invoke("submit", "--no-fetch", "--no-push", "-g", "wheel")
     assert result.exit_code == 0

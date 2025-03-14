@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+from __future__ import annotations
 
 import importlib
 
@@ -23,11 +24,11 @@ from .source import ArrowSources, InvalidArrowSource
 
 
 class ArrowBool(click.types.BoolParamType):
-    """
-    ArrowBool supports the 'ON' and 'OFF' values on top of the values
+    """ArrowBool supports the 'ON' and 'OFF' values on top of the values
     supported by BoolParamType. This is convenient to port script which exports
     CMake options variables.
     """
+
     name = "boolean"
 
     def convert(self, value, param, ctx):
@@ -42,9 +43,7 @@ class ArrowBool(click.types.BoolParamType):
 
 
 def validate_arrow_sources(ctx, param, src):
-    """
-    Ensure a directory contains Arrow cpp sources.
-    """
+    """Ensure a directory contains Arrow cpp sources."""
     try:
         return ArrowSources.find(src)
     except InvalidArrowSource as e:
@@ -60,10 +59,7 @@ def add_optional_command(name, module, function, parent):
 
         @parent.command(
             name,
-            context_settings={
-                "allow_extra_args": True,
-                "ignore_unknown_options": True,
-            }
+            context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
         )
         def command():
             raise click.ClickException(
