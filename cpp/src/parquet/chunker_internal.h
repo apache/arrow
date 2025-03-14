@@ -31,11 +31,6 @@ struct Chunk {
   int64_t level_offset;
   int64_t value_offset;
   int64_t levels_to_write;
-
-  Chunk(int64_t level_offset, int64_t value_offset, int64_t levels_to_write)
-      : level_offset(level_offset),
-        value_offset(value_offset),
-        levels_to_write(levels_to_write) {}
 };
 
 /// CDC (Content-Defined Chunking) is a technique that divides data into variable-sized
@@ -119,6 +114,7 @@ class ContentDefinedChunker {
   ///                    ratio.
   ContentDefinedChunker(const LevelInfo& level_info, int64_t min_size, int64_t max_size,
                         int8_t norm_factor = 0);
+  ~ContentDefinedChunker();
 
   /// Get the chunk boundaries for the given column data
   ///
@@ -127,57 +123,12 @@ class ContentDefinedChunker {
   /// @param num_levels Number of levels
   /// @param values Column values as an Arrow array
   /// @return Vector of Chunk objects representing the chunk boundaries
-  const std::vector<Chunk> GetBoundaries(const int16_t* def_levels,
-                                         const int16_t* rep_levels, int64_t num_levels,
-                                         const ::arrow::Array& values);
+  std::vector<Chunk> GetChunks(const int16_t* def_levels, const int16_t* rep_levels,
+                               int64_t num_levels, const ::arrow::Array& values);
 
  private:
-  inline void Roll(const bool value);
-
-  // Update the rolling hash with a compile-time known sized value, set has_matched_ to
-  // true if the hash matches the mask.
-  template <int ByteWidth>
-  void inline Roll(const uint8_t* value);
-
-  template <typename T>
-  inline void Roll(const T* value);
-
-  // Update the rolling hash with a binary-like value, set has_matched_ to true if the
-  // hash matches the mask.
-  inline void Roll(const uint8_t* value, int64_t length);
-
-  // Evaluate whether a new chunk should be created based on the has_matched_, nth_run_
-  // and chunk_size_ state.
-  inline bool NeedNewChunk();
-
-  // Calculate the chunk boundaries for typed Arrow arrays.
-  template <typename RollFunc>
-  std::vector<Chunk> Calculate(const int16_t* def_levels, const int16_t* rep_levels,
-                               int64_t num_levels, const RollFunc& RollValue);
-
-  // Reference to the column's level information
-  const internal::LevelInfo& level_info_;
-  // Minimum chunk size in bytes, the rolling hash will not be updated until this size is
-  // reached for each chunk. Note that all data sent through the hash function is counted
-  // towards the chunk size, including definition and repetition levels.
-  const int64_t min_size_;
-  const int64_t max_size_;
-  // The mask to match the rolling hash against to determine if a new chunk should be
-  // created. The mask is calculated based on min/max chunk size and the normalization
-  // factor.
-  const uint64_t hash_mask_;
-
-  // Whether the rolling hash has matched the mask since the last chunk creation. This
-  // flag is set true by the Roll() function when the mask is matched and reset to false
-  // by NeedNewChunk() method.
-  bool has_matched_ = false;
-  // The current run of the rolling hash, used to normalize the chunk size distribution
-  // by requiring multiple consecutive matches to create a new chunk.
-  int8_t nth_run_ = 0;
-  // Current chunk size in bytes, reset to 0 when a new chunk is created.
-  int64_t chunk_size_ = 0;
-  // Rolling hash state, never reset only initialized once for the entire column.
-  uint64_t rolling_hash_ = 0;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace parquet::internal
