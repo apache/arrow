@@ -54,6 +54,11 @@ rustup show
 
 pushd ${source_dir}
 
+# Workaround for https://github.com/apache/arrow/issues/45787
+# half 2.5.0 requires rust 1.81.0 or newer, so use the
+# 2.4.0 which is compatible with version of rust in builder
+cargo update -p half --precise 2.4.0
+
 # build only the integration testing binaries
 cargo build -p arrow-integration-testing --target-dir ${build_dir}
 
