@@ -355,7 +355,7 @@ install_headers(
     install_dir: 'arrow',
 )
 
-if needs_tests
+if needs_testing
     filesystem_dep = dependency(
         'boost',
         modules: ['filesystem'],
@@ -440,13 +440,44 @@ if needs_ipc
     }
 endif
 
-foreach key, val : arrow_tests
-    exc = executable(
-        key,
-        sources: val['sources'],
-        dependencies: [arrow_test_dep, val.get('dependencies', [])],
+if needs_tests
+    foreach key, val : arrow_tests
+        exc = executable(
+            key,
+            sources: val['sources'],
+            dependencies: [arrow_test_dep, val.get('dependencies', [])],
+        )
+        test(key, exc)
+    endforeach
+endif
+
+if needs_benchmarks
+    benchmark_dep = dependency(
+        'benchmark',
+        default_options: {'tests': 'disabled'},
     )
-    test(key, exc)
+else
+    benchmark_dep = disabler()
+endif
+
+arrow_benchmarks = [
+    'builder_benchmark',
+    'chunk_resolver_benchmark',
+    'compare_benchmark',
+    'memory_pool_benchmark',
+    'type_benchmark',
+    'tensor_benchmark',
+]
+
+foreach benchmark : arrow_benchmarks
+    benchmark_name = 'arrow-@0@'.format(benchmark.replace('_', '-'))
+    exc = executable(
+        benchmark_name,
+        sources: '@0@.cc'.format(benchmark),
+        dependencies: [arrow_test_dep, benchmark_dep],
+    )
+
+    benchmark(benchmark_name, exc)
 endforeach
 
 version = meson.project_version()
