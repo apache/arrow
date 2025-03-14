@@ -338,6 +338,13 @@ TEST(Expression, Equality) {
               literal(std::numeric_limits<double>::signaling_NaN()));
   }
 
+  Expression expr1;
+  Expression expr2(literal(1));
+  EXPECT_NE(literal("a"), expr1);
+
+  EXPECT_FALSE(expr1.Equals(expr2));
+  EXPECT_FALSE(expr2.Equals(expr1));
+
   EXPECT_EQ(field_ref("a"), field_ref("a"));
   EXPECT_NE(field_ref("a"), field_ref("b"));
   EXPECT_NE(field_ref("a"), literal(2));
@@ -1916,12 +1923,6 @@ TEST(Expression, SerializationRoundTrips) {
                          equal(field_ref("beta"), literal(3.25f))}));
 }
 
-TEST(Expression, ExpressionEquals) {
-  Expression expr1;
-  Expression expr2(literal(1));
-
-  EXPECT_FALSE(expr1.Equals(expr2));
-}
 TEST(Projection, AugmentWithNull) {
   // NB: input contains *no columns* except i32
   auto input = ArrayFromJSON(struct_({kBoringSchema->GetFieldByName("i32")}),
