@@ -390,24 +390,64 @@ arrow_test_dep = declare_dependency(
     dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
 )
 
-array_array_test = executable(
-    'arrow_array_test',
-    sources: [
-        'array/array_test.cc',
-        'array/array_binary_test.cc',
-        'array/array_dict_test.cc',
-        'array/array_list_test.cc',
-        'array/array_list_view_test.cc',
-        'array/array_run_end_test.cc',
-        'array/array_struct_test.cc',
-        'array/array_union_test.cc',
-        'array/array_view_test.cc',
-        'array/statistics_test.cc',
-    ],
-    dependencies: [arrow_test_dep],
-)
+arrow_tests = {
+    'arrow-array-test': {
+        'sources': [
+            'array/array_test.cc',
+            'array/array_binary_test.cc',
+            'array/array_dict_test.cc',
+            'array/array_list_test.cc',
+            'array/array_list_view_test.cc',
+            'array/array_run_end_test.cc',
+            'array/array_struct_test.cc',
+            'array/array_union_test.cc',
+            'array/array_view_test.cc',
+            'array/statistics_test.cc',
+        ],
+    },
+    'arrow-buffer-test': {'sources': ['buffer_test.cc']},
+    'arrow-misc-test': {
+        'sources': [
+            'datum_test.cc',
+            'memory_pool_test.cc',
+            'result_test.cc',
+            'pretty_print_test.cc',
+            'status_test.cc',
+        ],
+    },
+    'arrow-public-api-test': {'sources': ['public_api_test.cc']},
+    'arrow-scalar-test': {'sources': ['scalar_test.cc']},
+    'arrow-type-test': {'sources': ['field_ref_test.cc', 'type_test.cc']},
+    'arrow-table-test': {
+        'sources': [
+            'chunked_array_test.cc',
+            'record_batch_test.cc',
+            'table_test.cc',
+            'table_builder_test.cc',
+        ],
+    },
+    'arrow-tensor-test': {'sources': ['tensor_test.cc']},
+    'arrow-sparse-tensor-test': {'sources': ['sparse_tensor_test.cc']},
+    'arrow-stl-test': {'sources': ['stl_iterator_test.cc', 'stl_test.cc']},
+}
 
-test('arrow_array_test', array_array_test)
+if needs_ipc
+    arrow_tests += {
+        'arrow-extension-type-test': {
+            'sources': ['extension_type_test.cc'],
+            'dependencies': [arrow_ipc_deps],
+        },
+    }
+endif
+
+foreach key, val : arrow_tests
+    exc = executable(
+        key,
+        sources: val['sources'],
+        dependencies: [arrow_test_dep, val.get('dependencies', [])],
+    )
+    test(key, exc)
+endforeach
 
 version = meson.project_version()
 
@@ -421,7 +461,7 @@ version_major = components[0]
 version_minor = components[1]
 version_patch = components[2]
 
-arrow_version = (version_major.to_int() * 1000 + version_minor.to_int()) * 1000 + version_patch.to_int()
+arrow_version = '@0@.@1@.@2@'.format(version_major, version_minor, version_patch)
 arrow_so_version = (version_major.to_int() * 100 + version_minor.to_int()).to_string()
 arrow_full_so_version = '@0@.@1@.@2@'.format(arrow_so_version, version_patch, 0)
 
