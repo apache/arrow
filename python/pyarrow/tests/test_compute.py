@@ -3840,20 +3840,16 @@ def test_pivot_wider():
                                 key_names=key_names)
 
 
-@pytest.mark.pandas
-@pytest.mark.parametrize("input", ([1.0, 2.0, 3.0, 40.0, None], [1, 40]))
-def test_unbiased_skew_and_kurtosis(input):
-    # Validate computing unbiased skew and kurtosis matches pandas
+@pytest.mark.parametrize("input, expected", (
+    (
+        [1.0, 2.0, 3.0, 40.0, None],
+        {'skew': 1.988947740397821, 'kurtosis': 3.9631931024230695}
+    ),
+    ([1, 2, 40], {'skew': 1.7281098503730385, 'kurtosis': None}),
+    ([1, 40], {'skew': None, 'kurtosis': None}),
+))
+def test_unbiased_skew_and_kurtosis(input, expected):
     arrow_skew = pc.skew(input, skip_nulls=True, biased=False)
-    pandas_skew = pd.Series(np.array(input)).skew(skipna=True)
     arrow_kurtosis = pc.kurtosis(input, skip_nulls=True, biased=False)
-    pandas_kurtosis = pd.Series(np.array(input)).kurtosis(skipna=True)
-
-    if len(input) > 2:
-        assert arrow_skew == pa.scalar(pandas_skew)
-        assert arrow_kurtosis == pa.scalar(pandas_kurtosis)
-    else:
-        # Validate if not enough samples to compute skew and kurtosis
-        # then the result is NaN for arrow, matching pandas.
-        assert pc.is_nan(arrow_skew) == pc.is_nan(pandas_skew)
-        assert pc.is_nan(arrow_kurtosis) == pc.is_nan(pandas_kurtosis)
+    assert arrow_skew == pa.scalar(expected['skew'], type=pa.float64())
+    assert arrow_kurtosis == pa.scalar(expected['kurtosis'], type=pa.float64())

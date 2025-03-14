@@ -198,7 +198,9 @@ struct StatisticImpl : public ScalarAggregator {
 
   Status Finalize(KernelContext*, Datum* out) override {
     if (state.count() <= ddof || state.count() < min_count ||
-        (!state.all_valid && !skip_nulls)) {
+        (!state.all_valid && !skip_nulls) ||
+        (stat_type == StatisticType::Skew && !biased && state.count() < 3) ||
+        (stat_type == StatisticType::Kurtosis && !biased && state.count() < 4)) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
       switch (stat_type) {
