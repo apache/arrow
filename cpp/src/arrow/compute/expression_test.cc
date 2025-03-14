@@ -338,6 +338,7 @@ TEST(Expression, Equality) {
               literal(std::numeric_limits<double>::signaling_NaN()));
   }
 
+  // Equality when underlying `impl_` is null.
   Expression expr1;
   Expression expr2(literal(1));
   EXPECT_NE(literal("a"), expr1);
