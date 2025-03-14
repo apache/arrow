@@ -73,170 +73,176 @@ static uint64_t GetMask(int64_t min_size, int64_t max_size, uint8_t norm_factor)
   return std::numeric_limits<uint64_t>::max() << (64 - effective_bits);
 }
 
-ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
-                                             int64_t min_size, int64_t max_size,
-                                             int8_t norm_factor)
-    : level_info_(level_info),
-      min_size_(min_size),
-      max_size_(max_size),
-      hash_mask_(GetMask(min_size, max_size, norm_factor)) {
-  if (min_size_ < 0) {
-    throw ParquetException("min_size must be non-negative");
+class ContentDefinedChunker::Impl {
+ public:
+  Impl(const LevelInfo& level_info, int64_t min_size, int64_t max_size,
+       int8_t norm_factor)
+      : level_info_(level_info),
+        min_size_(min_size),
+        max_size_(max_size),
+        hash_mask_(GetMask(min_size, max_size, norm_factor)) {
+    if (min_size_ < 0) {
+      throw ParquetException("min_size must be non-negative");
+    }
+    if (max_size_ < 0) {
+      throw ParquetException("max_size must be non-negative");
+    }
+    if (min_size_ > max_size_) {
+      throw ParquetException("min_size must be less than or equal to max_size");
+    }
   }
-  if (max_size_ < 0) {
-    throw ParquetException("max_size must be non-negative");
-  }
-  if (min_size_ > max_size_) {
-    throw ParquetException("min_size must be less than or equal to max_size");
-  }
-}
 
-void ContentDefinedChunker::Roll(const bool value) {
-  if (chunk_size_++ < min_size_) {
-    // short-circuit if we haven't reached the minimum chunk size, this speeds up the
-    // chunking process since the gearhash doesn't need to be updated
-    return;
-  }
-  rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][value];
-  has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
-}
-
-template <int ByteWidth>
-void ContentDefinedChunker::Roll(const uint8_t* value) {
-  chunk_size_ += ByteWidth;
-  if (chunk_size_ < min_size_) {
-    // short-circuit if we haven't reached the minimum chunk size, this speeds up the
-    // chunking process since the gearhash doesn't need to be updated
-    return;
-  }
-  for (size_t i = 0; i < ByteWidth; ++i) {
-    rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][value[i]];
+  void Roll(const bool value) {
+    if (chunk_size_++ < min_size_) {
+      // short-circuit if we haven't reached the minimum chunk size, this speeds up the
+      // chunking process since the gearhash doesn't need to be updated
+      return;
+    }
+    rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][value];
     has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
   }
-}
 
-template <typename T>
-void ContentDefinedChunker::Roll(const T* value) {
-  return Roll<sizeof(T)>(reinterpret_cast<const uint8_t*>(value));
-}
+  template <int ByteWidth>
+  void Roll(const uint8_t* value) {
+    // Update the rolling hash with a compile-time known sized value, set has_matched_ to
+    // true if the hash matches the mask.
 
-void ContentDefinedChunker::Roll(const uint8_t* value, int64_t length) {
-  chunk_size_ += length;
-  if (chunk_size_ < min_size_) {
-    // short-circuit if we haven't reached the minimum chunk size, this speeds up the
-    // chunking process since the gearhash doesn't need to be updated
-    return;
+    chunk_size_ += ByteWidth;
+    if (chunk_size_ < min_size_) {
+      // short-circuit if we haven't reached the minimum chunk size, this speeds up the
+      // chunking process since the gearhash doesn't need to be updated
+      return;
+    }
+    for (size_t i = 0; i < ByteWidth; ++i) {
+      rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][value[i]];
+      has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
+    }
   }
-  for (auto i = 0; i < length; ++i) {
-    rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][value[i]];
-    has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
-  }
-}
 
-bool ContentDefinedChunker::NeedNewChunk() {
-  // decide whether to create a new chunk based on the rolling hash; has_matched_ is
-  // set to true if we encountered a match since the last NeedNewChunk() call
-  if (ARROW_PREDICT_FALSE(has_matched_)) {
-    has_matched_ = false;
-    // in order to have a normal distribution of chunk sizes, we only create a new chunk
-    // if the adjused mask matches the rolling hash 8 times in a row, each run uses a
-    // different gearhash table (gearhash's chunk size has geometric distribution, and
-    // we use central limit theorem to approximate normal distribution, see section 6.2.1
-    // in paper https://www.cidrdb.org/cidr2023/papers/p43-low.pdf)
-    if (ARROW_PREDICT_FALSE(++nth_run_ >= 7)) {
-      nth_run_ = 0;
+  template <typename T>
+  void Roll(const T* value) {
+    return Roll<sizeof(T)>(reinterpret_cast<const uint8_t*>(value));
+  }
+
+  void Roll(const uint8_t* value, int64_t length) {
+    // Update the rolling hash with a binary-like value, set has_matched_ to true if the
+    // hash matches the mask.
+
+    chunk_size_ += length;
+    if (chunk_size_ < min_size_) {
+      // short-circuit if we haven't reached the minimum chunk size, this speeds up the
+      // chunking process since the gearhash doesn't need to be updated
+      return;
+    }
+    for (auto i = 0; i < length; ++i) {
+      rolling_hash_ = (rolling_hash_ << 1) + kGearhashTable[nth_run_][value[i]];
+      has_matched_ = has_matched_ || ((rolling_hash_ & hash_mask_) == 0);
+    }
+  }
+
+  bool NeedNewChunk() {
+    // decide whether to create a new chunk based on the rolling hash; has_matched_ is
+    // set to true if we encountered a match since the last NeedNewChunk() call
+    if (ARROW_PREDICT_FALSE(has_matched_)) {
+      has_matched_ = false;
+      // in order to have a normal distribution of chunk sizes, we only create a new chunk
+      // if the adjused mask matches the rolling hash 8 times in a row, each run uses a
+      // different gearhash table (gearhash's chunk size has geometric distribution, and
+      // we use central limit theorem to approximate normal distribution, see
+      // section 6.2.1 in paper https://www.cidrdb.org/cidr2023/papers/p43-low.pdf)
+      if (ARROW_PREDICT_FALSE(++nth_run_ >= 7)) {
+        nth_run_ = 0;
+        chunk_size_ = 0;
+        return true;
+      }
+    }
+    if (ARROW_PREDICT_FALSE(chunk_size_ >= max_size_)) {
+      // we have a hard limit on the maximum chunk size, note that we don't reset the
+      // rolling hash state here, so the next NeedNewChunk() call will continue from the
+      // current state
       chunk_size_ = 0;
       return true;
     }
+    return false;
   }
-  if (ARROW_PREDICT_FALSE(chunk_size_ >= max_size_)) {
-    // we have a hard limit on the maximum chunk size, note that we don't reset the
-    // rolling hash state here, so the next NeedNewChunk() call will continue from the
-    // current state
-    chunk_size_ = 0;
-    return true;
-  }
-  return false;
-}
 
-template <typename RollFunc>
-std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_levels,
-                                                    const int16_t* rep_levels,
-                                                    int64_t num_levels,
-                                                    const RollFunc& RollValue) {
-  std::vector<Chunk> chunks;
-  int64_t offset;
-  int64_t prev_offset = 0;
-  int64_t prev_value_offset = 0;
-  bool has_def_levels = level_info_.def_level > 0;
-  bool has_rep_levels = level_info_.rep_level > 0;
+  template <typename RollFunc>
+  std::vector<Chunk> Calculate(const int16_t* def_levels, const int16_t* rep_levels,
+                               int64_t num_levels, const RollFunc& RollValue) {
+    // Calculate the chunk boundaries for typed Arrow arrays.
+    std::vector<Chunk> chunks;
+    int64_t offset;
+    int64_t prev_offset = 0;
+    int64_t prev_value_offset = 0;
+    bool has_def_levels = level_info_.def_level > 0;
+    bool has_rep_levels = level_info_.rep_level > 0;
 
-  if (!has_rep_levels && !has_def_levels) {
-    // fastest path for non-nested non-null data
-    for (offset = 0; offset < num_levels; ++offset) {
-      RollValue(offset);
-      if (NeedNewChunk()) {
-        chunks.emplace_back(prev_offset, prev_offset, offset - prev_offset);
-        prev_offset = offset;
-      }
-    }
-    // set the previous value offset to add the last chunk
-    prev_value_offset = prev_offset;
-  } else if (!has_rep_levels) {
-    // non-nested data with nulls
-    int16_t def_level;
-    for (int64_t offset = 0; offset < num_levels; ++offset) {
-      def_level = def_levels[offset];
-
-      Roll(&def_level);
-      if (def_level == level_info_.def_level) {
+    if (!has_rep_levels && !has_def_levels) {
+      // fastest path for non-nested non-null data
+      for (offset = 0; offset < num_levels; ++offset) {
         RollValue(offset);
-      }
-      if (NeedNewChunk()) {
-        chunks.emplace_back(prev_offset, prev_offset, offset - prev_offset);
-        prev_offset = offset;
-      }
-    }
-    // set the previous value offset to add the last chunk
-    prev_value_offset = prev_offset;
-  } else {
-    // nested data with nulls
-    int16_t def_level;
-    int16_t rep_level;
-    int64_t value_offset = 0;
-
-    for (offset = 0; offset < num_levels; ++offset) {
-      def_level = def_levels[offset];
-      rep_level = rep_levels[offset];
-
-      Roll(&def_level);
-      Roll(&rep_level);
-      if (def_level == level_info_.def_level) {
-        RollValue(value_offset);
-      }
-
-      if ((rep_level == 0) && NeedNewChunk()) {
-        // if we are at a record boundary and need a new chunk, we create a new chunk
-        auto levels_to_write = offset - prev_offset;
-        if (levels_to_write > 0) {
-          chunks.emplace_back(prev_offset, prev_value_offset, levels_to_write);
+        if (NeedNewChunk()) {
+          chunks.push_back({prev_offset, prev_offset, offset - prev_offset});
           prev_offset = offset;
-          prev_value_offset = value_offset;
         }
       }
-      if (def_level >= level_info_.repeated_ancestor_def_level) {
-        // we only increment the value offset if we have a leaf value
-        ++value_offset;
+      // set the previous value offset to add the last chunk
+      prev_value_offset = prev_offset;
+    } else if (!has_rep_levels) {
+      // non-nested data with nulls
+      int16_t def_level;
+      for (int64_t offset = 0; offset < num_levels; ++offset) {
+        def_level = def_levels[offset];
+
+        Roll(&def_level);
+        if (def_level == level_info_.def_level) {
+          RollValue(offset);
+        }
+        if (NeedNewChunk()) {
+          chunks.push_back({prev_offset, prev_offset, offset - prev_offset});
+          prev_offset = offset;
+        }
+      }
+      // set the previous value offset to add the last chunk
+      prev_value_offset = prev_offset;
+    } else {
+      // nested data with nulls
+      int16_t def_level;
+      int16_t rep_level;
+      int64_t value_offset = 0;
+
+      for (offset = 0; offset < num_levels; ++offset) {
+        def_level = def_levels[offset];
+        rep_level = rep_levels[offset];
+
+        Roll(&def_level);
+        Roll(&rep_level);
+        if (def_level == level_info_.def_level) {
+          RollValue(value_offset);
+        }
+
+        if ((rep_level == 0) && NeedNewChunk()) {
+          // if we are at a record boundary and need a new chunk, we create a new chunk
+          auto levels_to_write = offset - prev_offset;
+          if (levels_to_write > 0) {
+            chunks.push_back({prev_offset, prev_value_offset, levels_to_write});
+            prev_offset = offset;
+            prev_value_offset = value_offset;
+          }
+        }
+        if (def_level >= level_info_.repeated_ancestor_def_level) {
+          // we only increment the value offset if we have a leaf value
+          ++value_offset;
+        }
       }
     }
-  }
 
-  // add the last chunk if we have any levels left
-  if (prev_offset < num_levels) {
-    chunks.emplace_back(prev_offset, prev_value_offset, num_levels - prev_offset);
+    // add the last chunk if we have any levels left
+    if (prev_offset < num_levels) {
+      chunks.push_back({prev_offset, prev_value_offset, num_levels - prev_offset});
+    }
+    return chunks;
   }
-  return chunks;
-}
 
 #define FIXED_WIDTH_CASE(ByteWidth)                                       \
   {                                                                       \
@@ -257,65 +263,104 @@ std::vector<Chunk> ContentDefinedChunker::Calculate(const int16_t* def_levels,
     });                                                                   \
   }
 
-const std::vector<Chunk> ContentDefinedChunker::GetBoundaries(
-    const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
-    const ::arrow::Array& values) {
-  auto type_id = values.type()->id();
-  switch (type_id) {
-    case ::arrow::Type::NA: {
-      return Calculate(def_levels, rep_levels, num_levels, [](int64_t) {});
+  std::vector<Chunk> GetChunks(const int16_t* def_levels, const int16_t* rep_levels,
+                               int64_t num_levels, const ::arrow::Array& values) {
+    auto type_id = values.type()->id();
+    switch (type_id) {
+      case ::arrow::Type::NA: {
+        return Calculate(def_levels, rep_levels, num_levels, [](int64_t) {});
+      }
+      case ::arrow::Type::BOOL: {
+        const auto& bool_array = static_cast<const ::arrow::BooleanArray&>(values);
+        return Calculate(def_levels, rep_levels, num_levels,
+                         [&](int64_t i) { return Roll(bool_array.Value(i)); });
+      }
+      case ::arrow::Type::INT8:
+      case ::arrow::Type::UINT8:
+        FIXED_WIDTH_CASE(1)
+      case ::arrow::Type::INT16:
+      case ::arrow::Type::UINT16:
+      case ::arrow::Type::HALF_FLOAT:
+        FIXED_WIDTH_CASE(2)
+      case ::arrow::Type::INT32:
+      case ::arrow::Type::UINT32:
+      case ::arrow::Type::FLOAT:
+      case ::arrow::Type::DATE32:
+      case ::arrow::Type::TIME32:
+        FIXED_WIDTH_CASE(4)
+      case ::arrow::Type::INT64:
+      case ::arrow::Type::UINT64:
+      case ::arrow::Type::DOUBLE:
+      case ::arrow::Type::DATE64:
+      case ::arrow::Type::TIME64:
+      case ::arrow::Type::TIMESTAMP:
+      case ::arrow::Type::DURATION:
+        FIXED_WIDTH_CASE(8)
+      case ::arrow::Type::DECIMAL128:
+        FIXED_WIDTH_CASE(16)
+      case ::arrow::Type::DECIMAL256:
+        FIXED_WIDTH_CASE(32)
+      case ::arrow::Type::BINARY:
+        BINARY_LIKE_CASE(::arrow::BinaryArray)
+      case ::arrow::Type::STRING:
+        BINARY_LIKE_CASE(::arrow::StringArray)
+      case ::arrow::Type::LARGE_BINARY:
+        BINARY_LIKE_CASE(::arrow::LargeBinaryArray)
+      case ::arrow::Type::LARGE_STRING:
+        BINARY_LIKE_CASE(::arrow::LargeStringArray)
+      case ::arrow::Type::FIXED_SIZE_BINARY: {
+        const auto& array = static_cast<const ::arrow::FixedSizeBinaryArray&>(values);
+        const auto byte_width = array.byte_width();
+        return Calculate(def_levels, rep_levels, num_levels,
+                         [&](int64_t i) { Roll(array.GetValue(i), byte_width); });
+      }
+      case ::arrow::Type::DICTIONARY:
+        return GetChunks(def_levels, rep_levels, num_levels,
+                         *static_cast<const ::arrow::DictionaryArray&>(values).indices());
+      default:
+        throw ParquetException("Unsupported Arrow array type " +
+                               values.type()->ToString());
     }
-    case ::arrow::Type::BOOL: {
-      const auto& bool_array = static_cast<const ::arrow::BooleanArray&>(values);
-      return Calculate(def_levels, rep_levels, num_levels,
-                       [&](int64_t i) { return Roll(bool_array.Value(i)); });
-    }
-    case ::arrow::Type::INT8:
-    case ::arrow::Type::UINT8:
-      FIXED_WIDTH_CASE(1)
-    case ::arrow::Type::INT16:
-    case ::arrow::Type::UINT16:
-    case ::arrow::Type::HALF_FLOAT:
-      FIXED_WIDTH_CASE(2)
-    case ::arrow::Type::INT32:
-    case ::arrow::Type::UINT32:
-    case ::arrow::Type::FLOAT:
-    case ::arrow::Type::DATE32:
-    case ::arrow::Type::TIME32:
-      FIXED_WIDTH_CASE(4)
-    case ::arrow::Type::INT64:
-    case ::arrow::Type::UINT64:
-    case ::arrow::Type::DOUBLE:
-    case ::arrow::Type::DATE64:
-    case ::arrow::Type::TIME64:
-    case ::arrow::Type::TIMESTAMP:
-    case ::arrow::Type::DURATION:
-      FIXED_WIDTH_CASE(8)
-    case ::arrow::Type::DECIMAL128:
-      FIXED_WIDTH_CASE(16)
-    case ::arrow::Type::DECIMAL256:
-      FIXED_WIDTH_CASE(32)
-    case ::arrow::Type::BINARY:
-      BINARY_LIKE_CASE(::arrow::BinaryArray)
-    case ::arrow::Type::STRING:
-      BINARY_LIKE_CASE(::arrow::StringArray)
-    case ::arrow::Type::LARGE_BINARY:
-      BINARY_LIKE_CASE(::arrow::LargeBinaryArray)
-    case ::arrow::Type::LARGE_STRING:
-      BINARY_LIKE_CASE(::arrow::LargeStringArray)
-    case ::arrow::Type::FIXED_SIZE_BINARY: {
-      const auto& array = static_cast<const ::arrow::FixedSizeBinaryArray&>(values);
-      const auto byte_width = array.byte_width();
-      return Calculate(def_levels, rep_levels, num_levels,
-                       [&](int64_t i) { Roll(array.GetValue(i), byte_width); });
-    }
-    case ::arrow::Type::DICTIONARY:
-      return GetBoundaries(
-          def_levels, rep_levels, num_levels,
-          *static_cast<const ::arrow::DictionaryArray&>(values).indices());
-    default:
-      throw ParquetException("Unsupported Arrow array type " + values.type()->ToString());
   }
+
+ private:
+  // Reference to the column's level information
+  const internal::LevelInfo& level_info_;
+  // Minimum chunk size in bytes, the rolling hash will not be updated until this size is
+  // reached for each chunk. Note that all data sent through the hash function is counted
+  // towards the chunk size, including definition and repetition levels.
+  const int64_t min_size_;
+  const int64_t max_size_;
+  // The mask to match the rolling hash against to determine if a new chunk should be
+  // created. The mask is calculated based on min/max chunk size and the normalization
+  // factor.
+  const uint64_t hash_mask_;
+
+  // Whether the rolling hash has matched the mask since the last chunk creation. This
+  // flag is set true by the Roll() function when the mask is matched and reset to false
+  // by NeedNewChunk() method.
+  bool has_matched_ = false;
+  // The current run of the rolling hash, used to normalize the chunk size distribution
+  // by requiring multiple consecutive matches to create a new chunk.
+  int8_t nth_run_ = 0;
+  // Current chunk size in bytes, reset to 0 when a new chunk is created.
+  int64_t chunk_size_ = 0;
+  // Rolling hash state, never reset only initialized once for the entire column.
+  uint64_t rolling_hash_ = 0;
+};
+
+ContentDefinedChunker::ContentDefinedChunker(const LevelInfo& level_info,
+                                             int64_t min_size, int64_t max_size,
+                                             int8_t norm_factor)
+    : impl_(new Impl(level_info, min_size, max_size, norm_factor)) {}
+
+ContentDefinedChunker::~ContentDefinedChunker() = default;
+
+std::vector<Chunk> ContentDefinedChunker::GetChunks(const int16_t* def_levels,
+                                                    const int16_t* rep_levels,
+                                                    int64_t num_levels,
+                                                    const ::arrow::Array& values) {
+  return impl_->GetChunks(def_levels, rep_levels, num_levels, values);
 }
 
 }  // namespace parquet::internal
