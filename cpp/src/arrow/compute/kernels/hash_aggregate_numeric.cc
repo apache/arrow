@@ -741,7 +741,9 @@ struct GroupedStatisticImpl : public GroupedAggregator {
     const double* m3s = m3s_data();
     const double* m4s = m4s_data();
     for (int64_t i = 0; i < num_groups_; ++i) {
-      if (counts[i] > ddof_ && counts[i] >= min_count_) {
+      if (counts[i] > ddof_ && counts[i] >= min_count_ &&
+          (stat_type_ != StatisticType::Skew || biased_ || counts[i] > 2) &&
+          (stat_type_ != StatisticType::Kurtosis || biased_ || counts[i] > 3)) {
         const auto moments = Moments(counts[i], means[i], m2s[i], m3s[i], m4s[i]);
         switch (stat_type_) {
           case StatisticType::Var:
