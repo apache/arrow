@@ -16,8 +16,8 @@
 // under the License.
 
 #include "gandiva/encrypt_utils.h"
-#include <sstream>
 
+#include <sstream>
 #include <stdexcept>
 
 namespace {
