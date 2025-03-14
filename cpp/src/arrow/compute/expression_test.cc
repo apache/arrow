@@ -341,6 +341,7 @@ TEST(Expression, Equality) {
   Expression expr1;
   Expression expr2(literal(1));
   EXPECT_NE(literal("a"), expr1);
+  EXPECT_NE(expr1, literal("a"));
 
   EXPECT_FALSE(expr1.Equals(expr2));
   EXPECT_FALSE(expr2.Equals(expr1));
