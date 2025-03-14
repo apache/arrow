@@ -261,7 +261,7 @@ class RowArrayMerge {
   // caller can pass in nullptr to indicate that it is not needed.
   //
   static Status PrepareForMerge(RowArray* target, const std::vector<RowArray*>& sources,
-                                std::vector<int64_t>* first_target_row_id,
+                                std::vector<uint32_t>* first_target_row_id,
                                 MemoryPool* pool, int64_t hardware_flags);
 
   // Copy rows from source array to target array.
@@ -286,8 +286,8 @@ class RowArrayMerge {
   // initializes boundary offsets for target row ranges for each source).
   //
   static void MergeSingle(RowArray* target, const RowArray& source,
-                          int64_t first_target_row_id,
-                          const int64_t* source_rows_permutation);
+                          uint32_t first_target_row_id,
+                          const uint32_t* source_rows_permutation);
 
  private:
   // Copy rows from source array to a region of the target array.
@@ -295,24 +295,24 @@ class RowArrayMerge {
   // Null information needs to be handled separately.
   //
   static void CopyFixedLength(RowTableImpl* target, const RowTableImpl& source,
-                              int64_t first_target_row_id,
-                              const int64_t* source_rows_permutation);
+                              uint32_t first_target_row_id,
+                              const uint32_t* source_rows_permutation);
 
   // Copy rows from source array to a region of the target array.
   // This implementation is for varying length rows.
   // Null information needs to be handled separately.
   //
   static void CopyVaryingLength(RowTableImpl* target, const RowTableImpl& source,
-                                int64_t first_target_row_id,
+                                uint32_t first_target_row_id,
                                 int64_t first_target_row_offset,
-                                const int64_t* source_rows_permutation);
+                                const uint32_t* source_rows_permutation);
 
   // Copy null information from rows from source array to a region of the target
   // array.
   //
   static void CopyNulls(RowTableImpl* target, const RowTableImpl& source,
-                        int64_t first_target_row_id,
-                        const int64_t* source_rows_permutation);
+                        uint32_t first_target_row_id,
+                        const uint32_t* source_rows_permutation);
 };
 
 // Implements merging of multiple SwissTables into a single one, using
@@ -649,8 +649,8 @@ class SwissTableForJoinBuild {
   std::vector<PartitionState> prtn_states_;
   std::vector<ThreadState> thread_states_;
 
-  std::vector<int64_t> partition_keys_first_row_id_;
-  std::vector<int64_t> partition_payloads_first_row_id_;
+  std::vector<uint32_t> partition_keys_first_row_id_;
+  std::vector<uint32_t> partition_payloads_first_row_id_;
 };
 
 class JoinResultMaterialize {
