@@ -326,6 +326,11 @@ arrow_lib = library(
     install: true,
 )
 
+arrow_dep = declare_dependency(
+    include_directories: [include_dir],
+    link_with: arrow_lib,
+)
+
 # Meson does not allow you to glob for headers to install. See also
 # https://mesonbuild.com/FAQ.html#why-cant-i-specify-target-files-with-a-wildcard
 # install_subdir would be usable if the directory only contained headers
@@ -397,15 +402,12 @@ endif
 arrow_test_lib = static_library(
     'arrow_testing',
     sources: arrow_testing_srcs,
-    include_directories: [include_dir],
-    link_with: [arrow_lib],
-    dependencies: [filesystem_dep, gtest_main_dep],
+    dependencies: [arrow_dep, filesystem_dep, gtest_main_dep],
 )
 
 arrow_test_dep = declare_dependency(
-    link_with: [arrow_lib, arrow_test_lib],
-    include_directories: [include_dir],
-    dependencies: [filesystem_dep, gmock_dep, gtest_main_dep],
+    link_with: [arrow_test_lib],
+    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
 )
 
 array_array_test = executable(
