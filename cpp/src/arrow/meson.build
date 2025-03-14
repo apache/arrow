@@ -238,11 +238,7 @@ if needs_integration or needs_tests
     }
 endif
 
-if needs_json
-    rapidjson_dep = dependency('rapidjson', include_type: 'system')
-else
-    rapidjson_dep = disabler()
-endif
+rapidjson_dep = dependency('rapidjson', include_type: 'system')
 
 if needs_ipc
     arrow_ipc_srcs = [
@@ -355,7 +351,7 @@ install_headers(
     install_dir: 'arrow',
 )
 
-if needs_tests
+if needs_testing
     filesystem_dep = dependency(
         'boost',
         modules: ['filesystem'],
@@ -372,10 +368,12 @@ if needs_tests
     endif
 
     gtest_main_dep = dependency('gtest_main')
+    gtest_dep = dependency('gtest')
     gmock_dep = dependency('gmock')
 else
     filesystem_dep = disabler()
     gtest_main_dep = disabler()
+    gtest_dep = disabler()
     gmock_dep = disabler()
 endif
 
@@ -440,14 +438,16 @@ if needs_ipc
     }
 endif
 
-foreach key, val : arrow_tests
-    exc = executable(
-        key,
-        sources: val['sources'],
-        dependencies: [arrow_test_dep, val.get('dependencies', [])],
-    )
-    test(key, exc)
-endforeach
+if needs_tests
+    foreach key, val : arrow_tests
+        exc = executable(
+            key,
+            sources: val['sources'],
+            dependencies: [arrow_test_dep, val.get('dependencies', [])],
+        )
+        test(key, exc)
+    endforeach
+endif
 
 version = meson.project_version()
 
@@ -481,3 +481,8 @@ pkg.generate(
 subdir('testing')
 
 subdir('util')
+
+gflags_dep = dependency('gflags', include_type: 'system')
+if needs_integration or needs_tests
+    subdir('integration')
+endif
