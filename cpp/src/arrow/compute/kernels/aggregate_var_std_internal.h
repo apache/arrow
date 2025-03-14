@@ -91,8 +91,9 @@ struct Moments {
     if (bias) {
       result = sqrt(count) * m3 / sqrt(m2 * m2 * m2);
     } else {
-      result =
-          sqrt(count * (count - 1)) / (count - 2) * (m3 / count) / pow((m2 / count), 1.5);
+      auto m2_avg = m2 / count;
+      result = sqrt(count * (count - 1)) / (count - 2) * (m3 / count) /
+               sqrt(m2_avg * m2_avg * m2_avg);
     }
     return result;
   }
@@ -104,9 +105,10 @@ struct Moments {
     if (bias) {
       result = count * m4 / (m2 * m2) - 3;
     } else {
-      result = 1.0 / (count - 2) / (count - 3) *
-               ((pow(count, 2) - 1.0) * (m4 / count) / pow((m2 / count), 2) -
-                3 * pow((count - 1), 2));
+      auto m2_avg = m2 / count;
+      result = 1.0 / ((count - 2) * (count - 3)) *
+               (((count * count) - 1.0) * (m4 / count) / (m2_avg * m2_avg) -
+                3 * ((count - 1) * (count - 1)));
     }
     return result;
   }
