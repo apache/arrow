@@ -37,6 +37,7 @@ export type {
     TypeMap, StructRowProxy,
     ReadableSource, WritableSink,
     ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions,
+    IntervalDayTimeObject, IntervalMonthDayNanoObject,
 } from './Arrow.js';
 
 export {
@@ -58,7 +59,7 @@ export {
     Struct, StructRow,
     Union, DenseUnion, SparseUnion,
     Dictionary,
-    Interval, IntervalDayTime, IntervalYearMonth,
+    Interval, IntervalDayTime, IntervalYearMonth, IntervalMonthDayNano,
     Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     FixedSizeList,
     Map_, MapRow,
@@ -86,7 +87,7 @@ export {
     FixedSizeBinaryBuilder,
     FixedSizeListBuilder,
     FloatBuilder, Float16Builder, Float32Builder, Float64Builder,
-    IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder,
+    IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder, IntervalMonthDayNanoBuilder,
     DurationBuilder, DurationSecondBuilder, DurationMillisecondBuilder, DurationMicrosecondBuilder, DurationNanosecondBuilder,
     IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder,
     ListBuilder,
