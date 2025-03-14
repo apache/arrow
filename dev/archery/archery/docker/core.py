@@ -117,18 +117,18 @@ class ComposeConfig:
         for name in self.with_gpus:
             if name not in services:
                 errors.append(
-                    'Service `{}` defined in `x-with-gpus` bot not in '
-                    '`services`'.format(name)
+                    f'Service `{name}` defined in `x-with-gpus` bot not in '
+                    '`services`'
                 )
         for name in nodes - services:
             errors.append(
-                'Service `{}` is defined in `x-hierarchy` bot not in '
-                '`services`'.format(name)
+                f'Service `{name}` is defined in `x-hierarchy` bot not in '
+                '`services`'
             )
         for name in services - nodes:
             errors.append(
-                'Service `{}` is defined in `services` but not in '
-                '`x-hierarchy`'.format(name)
+                f'Service `{name}` is defined in `services` but not in '
+                '`x-hierarchy`'
             )
 
         # trigger Docker Compose's own validation
@@ -147,9 +147,9 @@ class ComposeConfig:
             errors += result.stderr.decode().splitlines()
 
         if errors:
-            msg = '\n'.join([' - {}'.format(msg) for msg in errors])
+            msg = '\n'.join([f' - {msg}' for msg in errors])
             raise ValueError(
-                'Found errors with docker-compose:\n{}'.format(msg)
+                f'Found errors with docker-compose:\n{msg}'
             )
 
         rendered_config = StringIO(result.stdout.decode())
@@ -230,9 +230,7 @@ class DockerCompose(Command):
             result.check_returncode()
         except subprocess.CalledProcessError as e:
             raise RuntimeError(
-                "{} exited with non-zero exit code {}".format(
-                    ' '.join(e.cmd), e.returncode
-                )
+                f'{e.cmd} exited with non-zero exit code {e.returncode}'
             )
 
     def pull(self, service_name, pull_leaf=True, ignore_pull_failures=True):
@@ -294,14 +292,12 @@ class DockerCompose(Command):
 
             if self.config.using_buildx:
                 for k, v in service['build'].get('args', {}).items():
-                    args.extend(['--build-arg', '{}={}'.format(k, v)])
+                    args.extend(['--build-arg', f'{k}={v}'])
 
                 if use_cache:
-                    cache_ref = '{}-cache'.format(service['image'])
-                    cache_from = 'type=registry,ref={}'.format(cache_ref)
-                    cache_to = (
-                        'type=registry,ref={},mode=max'.format(cache_ref)
-                    )
+                    cache_ref = f'{service["image"]}-cache'
+                    cache_from = f'type=registry,ref={cache_ref}'
+                    cache_to = f'type=registry,ref={cache_ref},mode=max'
                     args.extend([
                         '--cache-from', cache_from,
                         '--cache-to', cache_to,
@@ -319,9 +315,9 @@ class DockerCompose(Command):
                 if self.config.debug and os.name != "nt":
                     args.append("--progress=plain")
                 for k, v in service['build'].get('args', {}).items():
-                    args.extend(['--build-arg', '{}={}'.format(k, v)])
+                    args.extend(['--build-arg', f'{k}={v}'])
                 for img in cache_from:
-                    args.append('--cache-from="{}"'.format(img))
+                    args.append(f'--cache-from="{img}"')
                 args.extend([
                     '-f', arrow_path(service['build']['dockerfile']),
                     '-t', service['image'],
@@ -358,13 +354,13 @@ class DockerCompose(Command):
             # append env variables from the compose conf
             for k, v in service.get('environment', {}).items():
                 if v is not None:
-                    args.extend(['-e', '{}={}'.format(k, v)])
+                    args.extend(['-e', f'{k}={v}'])
 
             # append volumes from the compose conf
             for v in service.get('volumes', []):
                 if not isinstance(v, str):
                     # if not the compact string volume definition
-                    v = "{}:{}".format(v['source'], v['target'])
+                    v = f'{v["source"]}:{v["target"]}'
                 args.extend(['-v', v])
 
             # append capabilities from the compose conf
@@ -393,7 +389,7 @@ class DockerCompose(Command):
 
         if env is not None:
             for k, v in env.items():
-                args.extend(['-e', '{}={}'.format(k, v)])
+                args.extend(['-e', f'{k}={v}'])
 
         if volumes is not None:
             for volume in volumes:
@@ -443,8 +439,7 @@ class DockerCompose(Command):
                 self._execute_docker('login', '-u', user, '-p', password)
             except subprocess.CalledProcessError:
                 # hide credentials
-                msg = ('Failed to push `{}`, check the passed credentials'
-                       .format(service_name))
+                msg = f'Failed to push `{service_name}`, check the passed credentials'
                 raise RuntimeError(msg) from None
 
         service = self.config.get(service_name)

@@ -45,7 +45,7 @@ def root_allocator():
         }).text
     jar_path = os.path.join(
         arrow_dir, 'java', 'tools', 'target',
-        'arrow-tools-{}-jar-with-dependencies.jar'.format(version))
+        f'arrow-tools-{version}-jar-with-dependencies.jar')
     jar_path = os.getenv("ARROW_TOOLS_JAR", jar_path)
     kwargs = {}
     # This will be the default behaviour in jpype 0.8+
@@ -224,7 +224,7 @@ def test_jvm_types(root_allocator, pa_type, jvm_spec, nullable):
 ])
 def test_jvm_array(root_allocator, pa_type, py_data, jvm_type):
     # Create vector
-    cls = "org.apache.arrow.vector.{}".format(jvm_type)
+    cls = f"org.apache.arrow.vector.{jvm_type}"
     jvm_vector = jpype.JClass(cls)("vector", root_allocator)
     jvm_vector.allocateNew(len(py_data))
     for i, val in enumerate(py_data):
@@ -241,7 +241,7 @@ def test_jvm_array(root_allocator, pa_type, py_data, jvm_type):
 
 
 def test_jvm_array_empty(root_allocator):
-    cls = "org.apache.arrow.vector.{}".format('IntVector')
+    cls = f"org.apache.arrow.vector.{'IntVector'}"
     jvm_vector = jpype.JClass(cls)("vector", root_allocator)
     jvm_vector.allocateNew()
     jvm_array = pa_jvm.array(jvm_vector)
@@ -362,7 +362,7 @@ def test_jvm_array_empty(root_allocator):
 def test_jvm_record_batch(root_allocator, pa_type, py_data, jvm_type,
                           jvm_spec):
     # Create vector
-    cls = "org.apache.arrow.vector.{}".format(jvm_type)
+    cls = f"org.apache.arrow.vector.{jvm_type}"
     jvm_vector = jpype.JClass(cls)("vector", root_allocator)
     jvm_vector.allocateNew(len(py_data))
     for i, val in enumerate(py_data):
