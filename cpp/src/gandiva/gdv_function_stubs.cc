@@ -323,7 +323,7 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
   } else {
     std::ostringstream oss;
     oss << "invalid key length: " << key_data_len;
-    gdv_fn_context_set_error_msg( context, oss.str().c_str());
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
     *out_len = 0;
     return nullptr;
   }
@@ -367,7 +367,7 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
   } else {
     std::ostringstream oss;
     oss << "invalid key length: " << key_data_len;
-    gdv_fn_context_set_error_msg( context, oss.str().c_str());
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
     *out_len = 0;
     return nullptr;
   }
