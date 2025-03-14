@@ -165,7 +165,7 @@ arrow::Status WriteInBatches(std::string path_to_file) {
   return arrow::Status::OK();
 }
 
-arrow::Status RunExamples(std::string path_to_file) {
+arrow::Status RunExamples(const std::string& path_to_file) {
   ARROW_RETURN_NOT_OK(WriteFullFile(path_to_file));
   ARROW_RETURN_NOT_OK(ReadFullFile(path_to_file));
   ARROW_RETURN_NOT_OK(WriteInBatches(path_to_file));
