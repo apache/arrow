@@ -84,11 +84,11 @@ struct Moments {
 
   double Stddev(int ddof) const { return sqrt(Variance(ddof)); }
 
-  double Skew(bool bias = true) const {
+  double Skew(bool biased = true) const {
     double result;
     // This may return NaN for m2 == 0 and m3 == 0, which is expected
     // or if unbiased and not enough samples (count < 2).
-    if (bias) {
+    if (biased) {
       result = sqrt(count) * m3 / sqrt(m2 * m2 * m2);
     } else {
       auto m2_avg = m2 / count;
@@ -98,11 +98,11 @@ struct Moments {
     return result;
   }
 
-  double Kurtosis(bool bias = true) const {
+  double Kurtosis(bool biased = true) const {
     double result;
     // This may return NaN for m2 == 0 and m4 == 0, which is expected
     // or if unbiased and not enough samples (count < 3).
-    if (bias) {
+    if (biased) {
       result = count * m4 / (m2 * m2) - 3;
     } else {
       auto m2_avg = m2 / count;

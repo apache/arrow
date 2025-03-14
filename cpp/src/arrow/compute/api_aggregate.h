@@ -117,7 +117,8 @@ class ARROW_EXPORT VarianceOptions : public FunctionOptions {
 /// \brief Control Skew and Kurtosis kernel behavior
 class ARROW_EXPORT SkewOptions : public FunctionOptions {
  public:
-  explicit SkewOptions(bool skip_nulls = true, bool bias = true, uint32_t min_count = 0);
+  explicit SkewOptions(bool skip_nulls = true, bool biased = true,
+                       uint32_t min_count = 0);
   static constexpr char const kTypeName[] = "SkewOptions";
   static SkewOptions Defaults() { return SkewOptions{}; }
 
@@ -127,7 +128,7 @@ class ARROW_EXPORT SkewOptions : public FunctionOptions {
   /// If true (the default), the calculated value is biased. If false, the calculated
   /// value includes a correction factor to reduce bias, making it more accurate for
   /// small sample sizes.
-  bool bias;
+  bool biased;
   /// If less than this many non-null values are observed, emit null.
   uint32_t min_count;
 };

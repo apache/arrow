@@ -3844,9 +3844,9 @@ def test_pivot_wider():
 @pytest.mark.parametrize("input", ([1.0, 2.0, 3.0, 40.0, None], [1, 40]))
 def test_unbiased_skew_and_kurtosis(input):
     # Validate computing unbiased skew and kurtosis matches pandas
-    arrow_skew = pc.skew(input, skip_nulls=True, bias=False)
+    arrow_skew = pc.skew(input, skip_nulls=True, biased=False)
     pandas_skew = pd.Series(np.array(input)).skew(skipna=True)
-    arrow_kurtosis = pc.kurtosis(input, skip_nulls=True, bias=False)
+    arrow_kurtosis = pc.kurtosis(input, skip_nulls=True, biased=False)
     pandas_kurtosis = pd.Series(np.array(input)).kurtosis(skipna=True)
 
     if len(input) > 2:
