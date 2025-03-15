@@ -425,7 +425,6 @@ def get_library_dirs():
         pyarrow_libs_dir = _os.path.abspath(
             _os.path.join(_os.path.dirname(__file__), _os.pardir, "pyarrow.libs")
         )
-
         if _os.path.exists(pyarrow_libs_dir):
             append_library_dir(pyarrow_libs_dir)
 
