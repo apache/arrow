@@ -2140,28 +2140,6 @@ cdef class ParquetWriter(_Weakrefable):
         shared_ptr[COutputStream] sink
         bint own_sink
 
-    cdef readonly:
-        object use_dictionary
-        object use_deprecated_int96_timestamps
-        object use_byte_stream_split
-        object column_encoding
-        object coerce_timestamps
-        object allow_truncated_timestamps
-        object compression
-        object compression_level
-        object data_page_version
-        object use_compliant_nested_type
-        object version
-        object write_statistics
-        object writer_engine_version
-        int row_group_size
-        int64_t data_page_size
-        FileEncryptionProperties encryption_properties
-        int64_t write_batch_size
-        int64_t dictionary_pagesize_limit
-        object store_schema
-        object store_decimal_as_integer
-
     def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
                   write_statistics=None,
