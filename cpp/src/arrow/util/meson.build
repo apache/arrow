@@ -58,7 +58,10 @@ conf_data.set('ARROW_GCS', false)
 conf_data.set('ARROW_HDFS', false)
 conf_data.set('ARROW_S3', false)
 conf_data.set('ARROW_USE_GLOG', false)
-conf_data.set('ARROW_USE_NATIVE_INT128', false)
+
+use_native_int128 = cpp_compiler.has_define('__SIZEOF_INT128__')
+conf_data.set('ARROW_USE_NATIVE_INT128', use_native_int128)
+
 conf_data.set('ARROW_WITH_BROTLI', false)
 conf_data.set('ARROW_WITH_BZ2', false)
 conf_data.set('ARROW_WITH_LZ4', false)
