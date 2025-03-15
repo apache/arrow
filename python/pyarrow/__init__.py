@@ -411,11 +411,10 @@ def get_library_dirs():
                         "value {!r}".format(library_dir))
                 append_library_dir(library_dir[2:])
 
-    if _sys.platform == 'win32':
-        python_base_install = _os.path.dirname(_sys.executable)
-
+    if _sys.platform == "win32":
         # TODO(wesm): Is this necessary, or does setuptools within a conda
         # installation add Library\lib to the linker path for MSVC?
+        python_base_install = _os.path.dirname(_sys.executable)
         library_dir = _os.path.join(python_base_install, 'Library', 'lib')
 
         if _os.path.exists(_os.path.join(library_dir, 'arrow.lib')):
