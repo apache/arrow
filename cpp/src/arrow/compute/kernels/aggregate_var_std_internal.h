@@ -84,14 +84,31 @@ struct Moments {
 
   double Stddev(int ddof) const { return sqrt(Variance(ddof)); }
 
-  double Skew() const {
-    // This may return NaN for m2 == 0 and m3 == 0, which is expected
-    return sqrt(count) * m3 / sqrt(m2 * m2 * m2);
+  double Skew(bool biased = true) const {
+    double result;
+    // This may return NaN for m2 == 0 and m3 == 0, which is expected.
+    if (biased) {
+      result = sqrt(count) * m3 / sqrt(m2 * m2 * m2);
+    } else {
+      auto m2_avg = m2 / count;
+      result = sqrt(count * (count - 1)) / (count - 2) * (m3 / count) /
+               sqrt(m2_avg * m2_avg * m2_avg);
+    }
+    return result;
   }
 
-  double Kurtosis() const {
-    // This may return NaN for m2 == 0 and m4 == 0, which is expected
-    return count * m4 / (m2 * m2) - 3;
+  double Kurtosis(bool biased = true) const {
+    double result;
+    // This may return NaN for m2 == 0 and m4 == 0, which is expected.
+    if (biased) {
+      result = count * m4 / (m2 * m2) - 3;
+    } else {
+      auto m2_avg = m2 / count;
+      result = 1.0 / ((count - 2) * (count - 3)) *
+               (((count * count) - 1.0) * (m4 / count) / (m2_avg * m2_avg) -
+                3 * ((count - 1) * (count - 1)));
+    }
+    return result;
   }
 
   void MergeFrom(int level, const Moments& other) { *this = Merge(level, *this, other); }
