@@ -238,7 +238,11 @@ if needs_integration or needs_tests
     }
 endif
 
-rapidjson_dep = dependency('rapidjson', include_type: 'system')
+if needs_json or needs_integration
+    rapidjson_dep = dependency('rapidjson', include_type: 'system')
+else
+    rapidjson_dep = disabler()
+endif
 
 if needs_ipc
     arrow_ipc_srcs = [
