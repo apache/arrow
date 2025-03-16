@@ -44,5 +44,5 @@ notifications:
   issues_status: issues@arrow.apache.org
   issues:       github@arrow.apache.org
   pullrequests: github@arrow.apache.org
-  discussions: users@arrow.apache.org
+  discussions: user@arrow.apache.org
   jira_options: link label worklog
