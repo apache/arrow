@@ -257,7 +257,7 @@ if needs_csv
     arrow_testing_srcs += ['csv/test_common.cc']
 endif
 
-if needs_json
+if needs_json or needs_integration
     rapidjson_dep = dependency('rapidjson', include_type: 'system')
 else
     rapidjson_dep = disabler()
