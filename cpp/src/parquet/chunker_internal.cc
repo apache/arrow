@@ -290,10 +290,6 @@ class ContentDefinedChunker::Impl {
         const auto byte_width = array.byte_width();
         return Calculate(def_levels, rep_levels, num_levels,
                          [&](int64_t i) { Roll(array.GetValue(i), byte_width); });
-      } else if constexpr (ArrowType::type_id == ::arrow::Type::DICTIONARY) {
-        return GetChunks(def_levels, rep_levels, num_levels,
-                         *static_cast<const ::arrow::DictionaryArray&>(values).indices());
-
       } else if constexpr (::arrow::is_primitive(ArrowType::type_id)) {
         using c_type = typename ArrowType::c_type;
         return CalculateFixedWidth<sizeof(c_type)>(def_levels, rep_levels, num_levels,
@@ -307,6 +303,9 @@ class ContentDefinedChunker::Impl {
       } else if constexpr (::arrow::is_large_binary_like(ArrowType::type_id)) {
         return CalculateBinaryLike<::arrow::LargeBinaryArray>(def_levels, rep_levels,
                                                               num_levels, values);
+      } else if constexpr (::arrow::is_dictionary(ArrowType::type_id)) {
+        return GetChunks(def_levels, rep_levels, num_levels,
+                         *static_cast<const ::arrow::DictionaryArray&>(values).indices());
       } else {
         throw ParquetException("Unsupported Arrow array type " +
                                values.type()->ToString());
