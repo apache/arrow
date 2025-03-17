@@ -238,6 +238,25 @@ if needs_integration or needs_tests
     }
 endif
 
+if needs_csv
+    arrow_components += {
+        'arrow_csv': {
+            'sources': [
+                'csv/converter.cc',
+                'csv/chunker.cc',
+                'csv/column_builder.cc',
+                'csv/column_decoder.cc',
+                'csv/options.cc',
+                'csv/parser.cc',
+                'csv/reader.cc',
+                'csv/writer.cc',
+            ],
+        },
+    }
+
+    arrow_testing_srcs += ['csv/test_common.cc']
+endif
+
 if needs_json
     rapidjson_dep = dependency('rapidjson', include_type: 'system')
 else
@@ -512,3 +531,7 @@ pkg.generate(
 subdir('testing')
 
 subdir('util')
+
+if needs_csv
+    subdir('csv')
+endif
