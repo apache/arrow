@@ -511,4 +511,5 @@ pkg.generate(
 
 subdir('testing')
 
+subdir('c')
 subdir('util')
