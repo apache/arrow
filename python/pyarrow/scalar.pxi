@@ -243,8 +243,8 @@ cdef class UInt8Scalar(Scalar):
         Return this value as a Python int.
         """
 
-        val = self.as_py()
-        return(val)
+        return(self.as_py())
+
 
 cdef class Int8Scalar(Scalar):
     """
@@ -269,8 +269,7 @@ cdef class Int8Scalar(Scalar):
         Return this value as a Python int.
         """
 
-        val = self.as_py()
-        return(val)
+        return(self.as_py())
 
 
 cdef class UInt16Scalar(Scalar):
@@ -296,8 +295,7 @@ cdef class UInt16Scalar(Scalar):
         Return this value as a Python int.
         """
 
-        val = self.as_py()
-        return(val)
+        return(self.as_py())
 
 
 cdef class Int16Scalar(Scalar):
@@ -323,8 +321,7 @@ cdef class Int16Scalar(Scalar):
         Return this value as a Python int.
         """
 
-        val = self.as_py()
-        return(val)
+        return(self.as_py())
 
 
 cdef class UInt32Scalar(Scalar):
@@ -350,8 +347,7 @@ cdef class UInt32Scalar(Scalar):
         Return this value as a Python int.
         """
 
-        val = self.as_py()
-        return(val)
+        return(self.as_py())
 
 
 cdef class Int32Scalar(Scalar):
@@ -377,8 +373,7 @@ cdef class Int32Scalar(Scalar):
         Return this value as a Python int.
         """
 
-        val = self.as_py()
-        return(val)
+        return(self.as_py())
 
 
 cdef class UInt64Scalar(Scalar):
@@ -404,8 +399,7 @@ cdef class UInt64Scalar(Scalar):
         Return this value as a Python int.
         """
 
-        val = self.as_py()
-        return(val)
+        return(self.as_py())
 
 
 cdef class Int64Scalar(Scalar):
@@ -431,8 +425,7 @@ cdef class Int64Scalar(Scalar):
         Return this value as a Python int.
         """
 
-        val = self.as_py()
-        return(val)
+        return(self.as_py())
 
 
 cdef class HalfFloatScalar(Scalar):
