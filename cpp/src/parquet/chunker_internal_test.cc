@@ -264,9 +264,8 @@ Result<std::shared_ptr<Buffer>> WriteTableToBuffer(const std::shared_ptr<Table>&
   auto sink = CreateOutputStream();
 
   auto builder = WriterProperties::Builder();
-  builder.enable_cdc()
-      ->cdc_size_range(min_chunk_size, max_chunk_size)
-      ->cdc_norm_factor(0);
+  builder.enable_content_defined_chunking()->content_defined_chunking_options(
+      min_chunk_size, max_chunk_size, /*norm_factor=*/0);
   if (enable_dictionary) {
     builder.enable_dictionary();
   } else {
