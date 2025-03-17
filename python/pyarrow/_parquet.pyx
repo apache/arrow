@@ -2126,7 +2126,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
             use_content_defined_chunking.get("norm_factor", 0)
         )
     else:
-        raise TypeError("'use_content_defined_chunking' should be either boolean or a dictionary")
+        raise TypeError(
+            "'use_content_defined_chunking' should be either boolean or a dictionary")
 
     # encryption
 
