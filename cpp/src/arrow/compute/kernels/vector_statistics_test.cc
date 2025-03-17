@@ -42,9 +42,9 @@ class TestWinsorize : public ::testing::Test {
     CheckWinsorize(input, expected);
   }
 
-  void CheckWinsorize(const std::shared_ptr<DataType>& type,
-                      const std::vector<std::string>& json_input,
-                      const std::vector<std::string>& json_expected) {
+  void CheckWinsorizeChunked(const std::shared_ptr<DataType>& type,
+                             const std::vector<std::string>& json_input,
+                             const std::vector<std::string>& json_expected) {
     auto input = ChunkedArrayFromJSON(type, json_input);
     auto expected = ChunkedArrayFromJSON(type, json_expected);
     CheckWinsorize(input, expected);
@@ -70,9 +70,9 @@ TEST_F(TestWinsorize, FloatingPoint) {
     CheckWinsorize(type, "[2.2, 1.1, null, null, NaN, 44, 55, 3.3]",
                    "[2.2, 2.2, null, null, NaN, 44, 44, 3.3]");
     // Chunked
-    CheckWinsorize(type, {"[2.2, 1.1, null]", "[]", "[NaN, 44, 55, 3.3]"},
-                   {"[2.2, 2.2, null]", "[]", "[NaN, 44, 44, 3.3]"});
-    CheckWinsorize(type, {"[]", "[]"}, {"[]", "[]"});
+    CheckWinsorizeChunked(type, {"[2.2, 1.1, null]", "[]", "[NaN, 44, 55, 3.3]"},
+                          {"[2.2, 2.2, null]", "[]", "[NaN, 44, 44, 3.3]"});
+    CheckWinsorizeChunked(type, {"[]", "[]"}, {"[]", "[]"});
     CheckWinsorize(ChunkedArrayFromJSON(type, {}), ChunkedArrayFromJSON(type, {}));
 
     options_.lower_limit = 0.05;
@@ -98,9 +98,9 @@ TEST_F(TestWinsorize, Integral) {
     CheckWinsorize(type, "[2, 1, null, null, 44, 55, 3]",
                    "[2, 2, null, null, 44, 44, 3]");
     // Chunked
-    CheckWinsorize(type, {"[2, 1, null]", "[]", "[null, 44, 55, 3]"},
-                   {"[2, 2, null]", "[]", "[null, 44, 44, 3]"});
-    CheckWinsorize(type, {"[]", "[]"}, {"[]", "[]"});
+    CheckWinsorizeChunked(type, {"[2, 1, null]", "[]", "[null, 44, 55, 3]"},
+                          {"[2, 2, null]", "[]", "[null, 44, 44, 3]"});
+    CheckWinsorizeChunked(type, {"[]", "[]"}, {"[]", "[]"});
     CheckWinsorize(ChunkedArrayFromJSON(type, {}), ChunkedArrayFromJSON(type, {}));
 
     options_.lower_limit = 0.05;
@@ -124,9 +124,10 @@ TEST_F(TestWinsorize, Decimal) {
     CheckWinsorize(type, R"(["2.2", "1.1", null, null, "44.4", "55.5", "3.3"])",
                    R"(["2.2", "2.2", null, null, "44.4", "44.4", "3.3"])");
     // Chunked
-    CheckWinsorize(type, {R"(["2.2", "1.1"])", R"([null, null, "44.4", "55.5", "3.3"])"},
-                   {R"(["2.2", "2.2"])", R"([null, null, "44.4", "44.4", "3.3"])"});
-    CheckWinsorize(type, {"[]", "[]"}, {"[]", "[]"});
+    CheckWinsorizeChunked(
+        type, {R"(["2.2", "1.1"])", R"([null, null, "44.4", "55.5", "3.3"])"},
+        {R"(["2.2", "2.2"])", R"([null, null, "44.4", "44.4", "3.3"])"});
+    CheckWinsorizeChunked(type, {"[]", "[]"}, {"[]", "[]"});
     CheckWinsorize(ChunkedArrayFromJSON(type, {}), ChunkedArrayFromJSON(type, {}));
 
     options_.lower_limit = 0.05;
