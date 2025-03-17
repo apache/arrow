@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/visit_type_inline.h"
@@ -67,8 +68,8 @@ static uint64_t GetMask(int64_t min_size, int64_t max_size, uint8_t norm_factor)
   // `min_size` bytes
   int64_t target_size = avg_size - min_size;
   // assuming that the gear hash has a uniform distribution, we can calculate the mask
-  // by taking the log2 of the target size
-  size_t mask_bits = static_cast<size_t>(std::floor(std::log2(target_size)));
+  // by taking the floor(log2(target_size))
+  size_t mask_bits = ::arrow::bit_util::NumRequiredBits(target_size) - 1;
   // -3 because we are using 8 hash tables to have more gaussian-like distribution,
   // a user defined `norm_factor` can be used to adjust the mask size, hence the matching
   // probability, by increasing the norm_factor we increase the probability of matching
