@@ -79,7 +79,7 @@ _This step must be done by the current package maintainer._
 - [ ] CRAN has accepted the submission.
 - [ ] Tag the tip of the CRAN-specific release branch with `r-universe-release`.
 - [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/main/dev/tasks/r/github.linux.arrow.version.back.compat.yml).
-- [ ] (patch releases only) Update the package version in `ci/scripts/PKGBUILD`, `dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb`, `r/DESCRIPTION`, and `r/NEWS.md`.
+- [ ] (patch releases only) Update the package version in `ci/scripts/PKGBUILD`, `r/DESCRIPTION`, and `r/NEWS.md`.
 - [ ] (CRAN-only releases) Rebuild news page with `pkgdown::build_news()` and submit a PR to the asf-site branch of the docs site with the contents of `arrow/r/docs/news/index.html` replacing the current contents of `arrow-site/docs/r/news/index.html`.
 - [ ] (CRAN-only releases) Bump the version number in `r/pkgdown/assets/versions.json`, and update this on the [the `asf-site` branch of the docs site](https://github.com/apache/arrow-site) too..
 - [ ] Review the packaging checklist template and update as needed.
