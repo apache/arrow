@@ -29,6 +29,8 @@
 
 namespace parquet::internal {
 
+using ::arrow::internal::checked_cast;
+
 /// Calculate the mask to use for the rolling hash, the mask is used to determine if a
 /// new chunk should be created based on the rolling hash value. The mask is calculated
 /// based on the min_size, max_size and norm_factor parameters.
@@ -244,23 +246,28 @@ class ContentDefinedChunker::Impl {
     return chunks;
   }
 
-#define FIXED_WIDTH_CASE(ByteWidth)                                       \
-  {                                                                       \
-    const auto raw_values = values.data()->GetValues<uint8_t>(1);         \
-    return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) { \
-      return Roll<ByteWidth>(raw_values + i * ByteWidth);                 \
-    });                                                                   \
+  template <int kByteWidth>
+  std::vector<Chunk> CalculateFixedWidth(const int16_t* def_levels,
+                                         const int16_t* rep_levels, int64_t num_levels,
+                                         const ::arrow::Array& values) {
+    const uint8_t* raw_values =
+        values.data()->GetValues<uint8_t>(1, 0) + values.offset() * kByteWidth;
+    return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) {
+      return Roll<kByteWidth>(&raw_values[i * kByteWidth]);
+    });
   }
 
-#define BINARY_LIKE_CASE(ArrayType)                                       \
-  {                                                                       \
-    const auto& array = static_cast<const ArrayType&>(values);            \
-    const uint8_t* value;                                                 \
-    ArrayType::offset_type length;                                        \
-    return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) { \
-      value = array.GetValue(i, &length);                                 \
-      Roll(value, length);                                                \
-    });                                                                   \
+  template <typename ArrayType>
+  std::vector<Chunk> CalculateBinaryLike(const int16_t* def_levels,
+                                         const int16_t* rep_levels, int64_t num_levels,
+                                         const ::arrow::Array& values) {
+    const auto& array = checked_cast<const ArrayType&>(values);
+    const uint8_t* value;
+    typename ArrayType::offset_type length;
+    return Calculate(def_levels, rep_levels, num_levels, [&](int64_t i) {
+      value = array.GetValue(i, &length);
+      Roll(value, length);
+    });
   }
 
   std::vector<Chunk> GetChunks(const int16_t* def_levels, const int16_t* rep_levels,
@@ -277,17 +284,17 @@ class ContentDefinedChunker::Impl {
       }
       case ::arrow::Type::INT8:
       case ::arrow::Type::UINT8:
-        FIXED_WIDTH_CASE(1)
+        return CalculateFixedWidth<1>(def_levels, rep_levels, num_levels, values);
       case ::arrow::Type::INT16:
       case ::arrow::Type::UINT16:
       case ::arrow::Type::HALF_FLOAT:
-        FIXED_WIDTH_CASE(2)
+        return CalculateFixedWidth<2>(def_levels, rep_levels, num_levels, values);
       case ::arrow::Type::INT32:
       case ::arrow::Type::UINT32:
       case ::arrow::Type::FLOAT:
       case ::arrow::Type::DATE32:
       case ::arrow::Type::TIME32:
-        FIXED_WIDTH_CASE(4)
+        return CalculateFixedWidth<4>(def_levels, rep_levels, num_levels, values);
       case ::arrow::Type::INT64:
       case ::arrow::Type::UINT64:
       case ::arrow::Type::DOUBLE:
@@ -295,19 +302,19 @@ class ContentDefinedChunker::Impl {
       case ::arrow::Type::TIME64:
       case ::arrow::Type::TIMESTAMP:
       case ::arrow::Type::DURATION:
-        FIXED_WIDTH_CASE(8)
+        return CalculateFixedWidth<8>(def_levels, rep_levels, num_levels, values);
       case ::arrow::Type::DECIMAL128:
-        FIXED_WIDTH_CASE(16)
+        return CalculateFixedWidth<16>(def_levels, rep_levels, num_levels, values);
       case ::arrow::Type::DECIMAL256:
-        FIXED_WIDTH_CASE(32)
+        return CalculateFixedWidth<32>(def_levels, rep_levels, num_levels, values);
       case ::arrow::Type::BINARY:
-        BINARY_LIKE_CASE(::arrow::BinaryArray)
       case ::arrow::Type::STRING:
-        BINARY_LIKE_CASE(::arrow::StringArray)
+        return CalculateBinaryLike<::arrow::BinaryArray>(def_levels, rep_levels,
+                                                         num_levels, values);
       case ::arrow::Type::LARGE_BINARY:
-        BINARY_LIKE_CASE(::arrow::LargeBinaryArray)
       case ::arrow::Type::LARGE_STRING:
-        BINARY_LIKE_CASE(::arrow::LargeStringArray)
+        return CalculateBinaryLike<::arrow::LargeBinaryArray>(def_levels, rep_levels,
+                                                              num_levels, values);
       case ::arrow::Type::FIXED_SIZE_BINARY: {
         const auto& array = static_cast<const ::arrow::FixedSizeBinaryArray&>(values);
         const auto byte_width = array.byte_width();
