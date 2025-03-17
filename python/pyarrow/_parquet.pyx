@@ -1973,9 +1973,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         write_page_checksum=False,
         sorting_columns=None,
         store_decimal_as_integer=False,
-        cdc=False,
-        cdc_size_range=None,
-        cdc_norm_factor=None) except *:
+        use_content_defined_chunking=False) except *:
 
     """General writer properties"""
     cdef:
@@ -2105,7 +2103,6 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
                 "'column_encoding' should be a dictionary or a string")
 
     # size limits
-
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
 
@@ -2116,16 +2113,20 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         props.dictionary_pagesize_limit(dictionary_pagesize_limit)
 
     # content defined chunking
-    if cdc:
-        props.enable_cdc()
-    else:
-        props.disable_cdc()
 
-    if cdc_size_range is not None:
-        min_size, max_size = cdc_size_range
-        props.cdc_size_range(min_size, max_size)
-    if cdc_norm_factor is not None:
-        props.cdc_norm_factor(cdc_norm_factor)
+    if use_content_defined_chunking is True:
+        props.enable_content_defined_chunking()
+    elif use_content_defined_chunking is False:
+        props.disable_content_defined_chunking()
+    elif isinstance(use_content_defined_chunking, dict):
+        props.enable_content_defined_chunking()
+        props.content_defined_chunking_options(
+            use_content_defined_chunking["min_chunk_size"],
+            use_content_defined_chunking["max_chunk_size"],
+            use_content_defined_chunking.get("norm_factor", 0)
+        )
+    else:
+        raise TypeError("'use_content_defined_chunking' should be either boolean or a dictionary")
 
     # encryption
 
@@ -2277,9 +2278,7 @@ cdef class ParquetWriter(_Weakrefable):
                   write_page_checksum=False,
                   sorting_columns=None,
                   store_decimal_as_integer=False,
-                  cdc=False,
-                  cdc_size_range=None,
-                  cdc_norm_factor=None):
+                  use_content_defined_chunking=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2314,7 +2313,7 @@ cdef class ParquetWriter(_Weakrefable):
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
-            cdc=cdc, cdc_size_range=cdc_size_range, cdc_norm_factor=cdc_norm_factor
+            use_content_defined_chunking=use_content_defined_chunking
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,

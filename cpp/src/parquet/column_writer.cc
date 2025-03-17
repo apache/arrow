@@ -754,9 +754,10 @@ class ColumnWriterImpl {
         fallback_(false),
         definition_levels_sink_(allocator_),
         repetition_levels_sink_(allocator_),
-        content_defined_chunker_(level_info_, properties->cdc_size_range().first,
-                                 properties->cdc_size_range().second,
-                                 properties->cdc_norm_factor()) {
+        content_defined_chunker_(
+            level_info_, properties->content_defined_chunking_options().min_chunk_size,
+            properties->content_defined_chunking_options().max_chunk_size,
+            properties->content_defined_chunking_options().norm_factor) {
     definition_levels_rle_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     repetition_levels_rle_ =
@@ -1363,7 +1364,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       bits_buffer_->ZeroPadding();
     }
 
-    if (properties_->cdc_enabled()) {
+    if (properties_->content_defined_chunking_enabled()) {
       auto boundaries = content_defined_chunker_.GetChunks(def_levels, rep_levels,
                                                            num_levels, leaf_array);
       for (auto chunk : boundaries) {
