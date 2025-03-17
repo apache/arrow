@@ -23,6 +23,8 @@
 
 #include "arrow/array.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/unreachable.h"
+#include "arrow/visit_type_inline.h"
 #include "parquet/chunker_internal_generated.h"
 #include "parquet/exception.h"
 #include "parquet/level_conversion.h"
@@ -272,62 +274,45 @@ class ContentDefinedChunker::Impl {
 
   std::vector<Chunk> GetChunks(const int16_t* def_levels, const int16_t* rep_levels,
                                int64_t num_levels, const ::arrow::Array& values) {
-    auto type_id = values.type()->id();
-    switch (type_id) {
-      case ::arrow::Type::NA: {
+    auto handle_type = [&](auto&& type) -> std::vector<Chunk> {
+      using ArrowType = std::decay_t<decltype(type)>;
+      if constexpr (std::is_same<::arrow::DataType, ArrowType>::value) {
+        // TODO(kszucs): this branch should be removed once #45816 is resolved
+        ::arrow::Unreachable("DataType is not a concrete type");
+      } else if constexpr (ArrowType::type_id == ::arrow::Type::NA) {
         return Calculate(def_levels, rep_levels, num_levels, [](int64_t) {});
-      }
-      case ::arrow::Type::BOOL: {
-        const auto& bool_array = static_cast<const ::arrow::BooleanArray&>(values);
+      } else if constexpr (ArrowType::type_id == ::arrow::Type::BOOL) {
+        const auto& array = static_cast<const ::arrow::BooleanArray&>(values);
         return Calculate(def_levels, rep_levels, num_levels,
-                         [&](int64_t i) { return Roll(bool_array.Value(i)); });
-      }
-      case ::arrow::Type::INT8:
-      case ::arrow::Type::UINT8:
-        return CalculateFixedWidth<1>(def_levels, rep_levels, num_levels, values);
-      case ::arrow::Type::INT16:
-      case ::arrow::Type::UINT16:
-      case ::arrow::Type::HALF_FLOAT:
-        return CalculateFixedWidth<2>(def_levels, rep_levels, num_levels, values);
-      case ::arrow::Type::INT32:
-      case ::arrow::Type::UINT32:
-      case ::arrow::Type::FLOAT:
-      case ::arrow::Type::DATE32:
-      case ::arrow::Type::TIME32:
-        return CalculateFixedWidth<4>(def_levels, rep_levels, num_levels, values);
-      case ::arrow::Type::INT64:
-      case ::arrow::Type::UINT64:
-      case ::arrow::Type::DOUBLE:
-      case ::arrow::Type::DATE64:
-      case ::arrow::Type::TIME64:
-      case ::arrow::Type::TIMESTAMP:
-      case ::arrow::Type::DURATION:
-        return CalculateFixedWidth<8>(def_levels, rep_levels, num_levels, values);
-      case ::arrow::Type::DECIMAL128:
-        return CalculateFixedWidth<16>(def_levels, rep_levels, num_levels, values);
-      case ::arrow::Type::DECIMAL256:
-        return CalculateFixedWidth<32>(def_levels, rep_levels, num_levels, values);
-      case ::arrow::Type::BINARY:
-      case ::arrow::Type::STRING:
-        return CalculateBinaryLike<::arrow::BinaryArray>(def_levels, rep_levels,
-                                                         num_levels, values);
-      case ::arrow::Type::LARGE_BINARY:
-      case ::arrow::Type::LARGE_STRING:
-        return CalculateBinaryLike<::arrow::LargeBinaryArray>(def_levels, rep_levels,
-                                                              num_levels, values);
-      case ::arrow::Type::FIXED_SIZE_BINARY: {
+                         [&](int64_t i) { return Roll(array.Value(i)); });
+      } else if constexpr (ArrowType::type_id == ::arrow::Type::FIXED_SIZE_BINARY) {
         const auto& array = static_cast<const ::arrow::FixedSizeBinaryArray&>(values);
         const auto byte_width = array.byte_width();
         return Calculate(def_levels, rep_levels, num_levels,
                          [&](int64_t i) { Roll(array.GetValue(i), byte_width); });
-      }
-      case ::arrow::Type::DICTIONARY:
+      } else if constexpr (ArrowType::type_id == ::arrow::Type::DICTIONARY) {
         return GetChunks(def_levels, rep_levels, num_levels,
                          *static_cast<const ::arrow::DictionaryArray&>(values).indices());
-      default:
+
+      } else if constexpr (::arrow::is_primitive(ArrowType::type_id)) {
+        using c_type = typename ArrowType::c_type;
+        return CalculateFixedWidth<sizeof(c_type)>(def_levels, rep_levels, num_levels,
+                                                   values);
+      } else if constexpr (::arrow::is_decimal(ArrowType::type_id)) {
+        return CalculateFixedWidth<ArrowType::kByteWidth>(def_levels, rep_levels,
+                                                          num_levels, values);
+      } else if constexpr (::arrow::is_binary_like(ArrowType::type_id)) {
+        return CalculateBinaryLike<::arrow::BinaryArray>(def_levels, rep_levels,
+                                                         num_levels, values);
+      } else if constexpr (::arrow::is_large_binary_like(ArrowType::type_id)) {
+        return CalculateBinaryLike<::arrow::LargeBinaryArray>(def_levels, rep_levels,
+                                                              num_levels, values);
+      } else {
         throw ParquetException("Unsupported Arrow array type " +
                                values.type()->ToString());
-    }
+      }
+    };
+    return ::arrow::VisitType(*values.type(), handle_type);
   }
 
  private:
