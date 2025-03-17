@@ -35,6 +35,7 @@ install_headers(
         'util.h',
         'visibility.h',
     ],
+    subdir: 'arrow/testing',
 )
 
 if needs_tests

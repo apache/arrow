@@ -72,4 +72,5 @@ install_headers(
         'transform.h',
         'type_fwd.h',
     ],
+    subdir: 'arrow/io',
 )
