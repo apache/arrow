@@ -24,7 +24,7 @@ For a high-level overview of the Arrow release process see the [Apache Arrow Rel
 
 ## Before the Arrow Release Candidate Is Created
 
-- [ ] [Create a GitHub issue](https://github.com/apache/arrow/issues/new/) entitled `[R] CRAN packaging checklist for version X.X.X` and copy this checklist to the issue.
+- [ ] [Create a GitHub issue](https://github.com/apache/arrow/issues/new/) entitled `[R] CRAN packaging checklist for version X.Y.Z` and copy this checklist to the issue.
 - [ ] Review deprecated functions to advance their deprecation status, including removing preprocessor directives that no longer apply (search for `ARROW_VERSION_MAJOR` in r/src).
 - [ ] Evaluate the status of any failing [nightly tests and nightly packaging builds](http://crossbow.voltrondata.com). These checks replicate most of the checks that CRAN runs, so we need them all to be passing or to understand that the failures may (though won't necessarily) result in a rejection from CRAN.
 - [ ] Check [current CRAN check results](https://cran.rstudio.org/web/checks/check_results_arrow.html).
@@ -42,9 +42,9 @@ _Wait for the release candidate to be created._
 
 ## Prepare and Check Package That Will Be Released to CRAN
 
-- [ ] `git fetch upstream && git checkout maint-X.X.X-r && git clean -f -d`.
+- [ ] `git fetch upstream && git checkout maint-X.Y.Z-r && git clean -f -d`.
 - [ ] Run `make build`. This copies Arrow C++ into tools/cpp, prunes some unnecessary components, and runs `R CMD build` to generate the source tarball. Because this will install the package, you will need to ensure that the version of Arrow C++ available to the configure script is the same as the version that is vendored into the R package (e.g., you may need to unset `ARROW_HOME`).
-- [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally.
+- [ ] `devtools::check_built("arrow_X.Y.Z.tar.gz")` locally.
 
 ## Wait for Arrow Release Vote
 
@@ -56,22 +56,22 @@ _Wait for the release candidate to be created._
 - [ ] Pick any commits that were made to main since the release commit that were needed to fix CRAN-related submission issues identified in the above steps.
 - [ ] Remove badges from README.md.
 - [ ] Run `urlchecker::url_check()` on the R directory.
-- [ ] Create a PR entitled `WIP: [R] Verify CRAN release-X.X.X-rcX`. Add a comment `@github-actions crossbow submit --group r` to run all R crossbow jobs against the CRAN-specific release branch.
+- [ ] Create a PR entitled `WIP: [R] Verify CRAN release-X.Y.Z-rcX`. Add a comment `@github-actions crossbow submit --group r` to run all R crossbow jobs against the CRAN-specific release branch.
 - [ ] Run `Rscript tools/update-checksums.R <libarrow version>` to download the checksums for the pre-compiled binaries from the ASF artifactory into the tools directory.
-- [ ] Regenerate arrow_X.X.X.tar.gz (i.e., `make build`).
+- [ ] Regenerate arrow_X.Y.Z.tar.gz (i.e., `make build`).
 
 ## Check Binary Arrow C++ Distributions Specific to the R Package
 
 - [ ] Upload the .tar.gz to [win-builder](https://win-builder.r-project.org/upload.aspx) (r-devel only) and confirm with Jon (who will automatically receive an email about the results) that the check is clean.
 - [ ] Upload the .tar.gz to [macOS Builder](https://mac.r-project.org/macbuilder/submit.html) and confirm that the check is clean.
-- [ ] Check `install.packages("arrow_X.X.X.tar.gz")` on Ubuntu and ensure that the hosted binaries are used.
-- [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally one more time (for luck).
+- [ ] Check `install.packages("arrow_X.Y.Z.tar.gz")` on Ubuntu and ensure that the hosted binaries are used.
+- [ ] `devtools::check_built("arrow_X.Y.Z.tar.gz")` locally one more time (for luck).
 
 ## Submit Package to CRAN
 
 _This step must be done by the current package maintainer._
 
-- [ ] Upload arrow_X.X.X.tar.gz to the [CRAN submit page](https://xmpalantir.wu.ac.at/cransubmit/).
+- [ ] Upload arrow_X.Y.Z.tar.gz to the [CRAN submit page](https://xmpalantir.wu.ac.at/cransubmit/).
 - [ ] Confirm the submission email.
 
 ## Wait for CRAN to Accept the Submission
