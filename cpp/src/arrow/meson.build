@@ -512,3 +512,7 @@ pkg.generate(
 subdir('testing')
 
 subdir('util')
+
+if needs_json
+    subdir('json')
+endif
