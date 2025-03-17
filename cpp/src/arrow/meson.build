@@ -624,3 +624,7 @@ endif
 if needs_filesystem
     subdir('filesystem')
 endif
+
+if needs_json
+    subdir('json')
+endif
