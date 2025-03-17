@@ -196,6 +196,7 @@ install_headers(
         'windows_compatibility.h',
         'windows_fixup.h',
     ],
+    subdir: 'arrow/util',
 )
 
 if host_machine.system() == 'windows'
