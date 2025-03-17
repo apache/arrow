@@ -63,9 +63,8 @@ struct Winsorize {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = WinsorizeState::Get(ctx);
     RETURN_NOT_OK(ValidateOptions(options));
-    ARROW_ASSIGN_OR_RAISE(auto maybe_quantiles,
-                          GetQuantileValues(ctx, batch.ToExecBatch(), options));
     auto data = batch.values[0].array.ToArrayData();
+    ARROW_ASSIGN_OR_RAISE(auto maybe_quantiles, GetQuantileValues(ctx, data, options));
     auto out_data = out->array_data_mutable();
     if (!maybe_quantiles.has_value()) {
       // Only nulls and NaNs => return input as-is
@@ -80,8 +79,9 @@ struct Winsorize {
   static Status ExecChunked(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = WinsorizeState::Get(ctx);
     RETURN_NOT_OK(ValidateOptions(options));
-    ARROW_ASSIGN_OR_RAISE(auto maybe_quantiles, GetQuantileValues(ctx, batch, options));
     const auto& chunked_array = batch.values[0].chunked_array();
+    ARROW_ASSIGN_OR_RAISE(auto maybe_quantiles,
+                          GetQuantileValues(ctx, chunked_array, options));
     if (!maybe_quantiles.has_value()) {
       // Only nulls and NaNs => return input as-is
       *out = chunked_array;
@@ -103,13 +103,13 @@ struct Winsorize {
   };
 
   static Result<std::optional<QuantileValues>> GetQuantileValues(
-      KernelContext* ctx, const ExecBatch& batch, const WinsorizeOptions& options) {
+      KernelContext* ctx, const Datum& input, const WinsorizeOptions& options) {
     // We use "nearest" to avoid the conversion of quantile values to double.
     QuantileOptions quantile_options(/*q=*/{options.lower_limit, options.upper_limit},
                                      QuantileOptions::NEAREST);
     ARROW_ASSIGN_OR_RAISE(
         auto quantile,
-        CallFunction("quantile", batch, &quantile_options, ctx->exec_context()));
+        CallFunction("quantile", {input}, &quantile_options, ctx->exec_context()));
     auto quantile_array = quantile.array_as<ArrayType>();
     DCHECK_EQ(quantile_array->length(), 2);
     if (quantile_array->null_count() == 2) {
