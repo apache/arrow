@@ -38,7 +38,7 @@ _Wait for the release candidate to be created._
 
 ## After the Arrow Release Candidate Has Been Created
 
-- [ ] Create a CRAN-release branch from the release candidate commit, name the new branch e.g. `maint-X.X.X-r` and push to upstream.
+- [ ] Create a CRAN-release branch from the release candidate commit, name the new branch `maint-X.Y.Z-r` and push to upstream.
 
 ## Prepare and Check Package That Will Be Released to CRAN
 
