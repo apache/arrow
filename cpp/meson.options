@@ -23,6 +23,13 @@ option(
 )
 
 option(
+    'csv',
+    type: 'boolean',
+    description: 'Build the Arrow CSV Parser Module',
+    value: false,
+)
+
+option(
     'ipc',
     type: 'boolean',
     description: 'Build the Arrow IPC extensions',
