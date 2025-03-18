@@ -19,12 +19,12 @@
 requires = [
     "cython >= 3.1",
     "numpy>=1.25",
+    "meson-python",
     # configuring setuptools_scm in pyproject.toml requires
     # versions released after 2022
     "setuptools_scm[toml]>=8",
-    "setuptools>=64",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "mesonpy"
 
 [project]
 name = "pyarrow"
@@ -93,3 +93,9 @@ version_file = 'pyarrow/_generated_version.py'
 version_scheme = 'guess-next-dev'
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
 fallback_version = '23.0.0a0'
+
+# TODO: see if shared helps with file sizes
+# https://mesonbuild.com/meson-python/how-to-guides/shared-libraries.html#shared-library-from-subproject
+[tool.meson-python.args]
+setup = ['--default-library=static']
+install = ['--skip-subprojects']

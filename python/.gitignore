@@ -45,3 +45,6 @@ pyarrow/_table_api.h
 manylinux1/arrow
 nm_arrow.log
 visible_symbols.log
+
+# meson files
+subprojects/.wraplock
