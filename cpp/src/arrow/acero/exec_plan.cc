@@ -59,8 +59,7 @@ struct ExecPlanImpl : public ExecPlan {
   explicit ExecPlanImpl(QueryOptions options, ExecContext exec_context,
                         std::shared_ptr<const KeyValueMetadata> metadata = nullptr,
                         std::shared_ptr<ThreadPool> owned_thread_pool = nullptr)
-      : metadata_(std::move(metadata)),
-        query_context_(options, exec_context) {}
+      : metadata_(std::move(metadata)), query_context_(options, exec_context) {}
 
   ~ExecPlanImpl() override {
     if (started_ && !finished_.is_finished()) {
