@@ -30,6 +30,13 @@ option(
 )
 
 option(
+    'compute',
+    type: 'boolean',
+    description: 'Build all Arrow Compute kernels',
+    value: false,
+)
+
+option(
     'csv',
     type: 'boolean',
     description: 'Build the Arrow CSV Parser Module',
