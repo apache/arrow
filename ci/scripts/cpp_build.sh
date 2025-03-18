@@ -118,12 +118,20 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
     fi
   }
 
+  ORIGINAL_CXX=${CXX}
+  if [ "${ARROW_USE_CCACHE}" = "ON" ]; then
+      export CXX="ccache ${CXX}"
+  else
+      export CXX="sccache ${CXX}"
+  fi
   meson setup \
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
     -Dtests=$(meson_boolean ${ARROW_BUILD_TESTS:-OFF}) \
     . \
     ${source_dir}
+
+  export CXX=${ORIGINAL_CXX}
 elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   if [ "${UBUNTU}" = "20.04" ]; then
     echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
