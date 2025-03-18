@@ -263,30 +263,6 @@ else
     rapidjson_dep = disabler()
 endif
 
-if needs_filesystem
-    arrow_fs_srcs = [
-        'filesystem/filesystem.cc',
-        'filesystem/localfs.cc',
-        'filesystem/mockfs.cc',
-        'filesystem/path_util.cc',
-        'filesystem/util_internal.cc',
-    ]
-    arrow_fs_incdir = []
-
-    if needs_hdfs
-        arrow_fs_srcs += 'filesystem/hdfs.cc'
-        hdfs_incdir = '../../thirdparty/hadoop/include'
-        arrow_fs_incdir += hdfs_incdir
-    endif
-
-    arrow_components += {
-        'arrow_filesystem': {
-            'sources': arrow_fs_srcs,
-            'include_dirs': arrow_fs_incdir,
-        },
-    }
-endif
-
 if needs_ipc
     arrow_ipc_srcs = [
         'ipc/dictionary.cc',
