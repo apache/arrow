@@ -3693,6 +3693,11 @@ TEST_F(TestSkewKurtosis, Options) {
     AssertSkewKurtosisInvalid(type, {"[]", "[]", "[]"}, options);
     AssertSkewKurtosisAre(type, "[0, 1, null, 2]", options, 0.0, -1.5);
     AssertSkewKurtosisAre(type, {"[0, 1]", "[]", "[null, 2]"}, options, 0.0, -1.5);
+    options.biased = false;
+    AssertSkewKurtosisInvalid(type, "[0, 1]", options);
+    AssertSkewKurtosisAre(type, {"[1, 2, 3]", "[40, null]"}, options, 1.9889477403978211,
+                          3.9631931024230695);
+    options.biased = true;
     options.min_count = 3;
     AssertSkewKurtosisAre(type, "[0, 1, null, 2]", options, 0.0, -1.5);
     AssertSkewKurtosisAre(type, {"[0, 1]", "[]", "[null, 2]"}, options, 0.0, -1.5);

@@ -1909,8 +1909,8 @@ class VarianceOptions(_VarianceOptions):
 
 
 cdef class _SkewOptions(FunctionOptions):
-    def _set_options(self, skip_nulls, min_count):
-        self.wrapped.reset(new CSkewOptions(skip_nulls, min_count))
+    def _set_options(self, skip_nulls, biased, min_count):
+        self.wrapped.reset(new CSkewOptions(skip_nulls, biased, min_count))
 
 
 class SkewOptions(_SkewOptions):
@@ -1920,11 +1920,14 @@ class SkewOptions(_SkewOptions):
     Parameters
     ----------
     {_skip_nulls_doc()}
+    biased : bool, default True
+        Whether the calculated value is biased.
+        If False, the value computed includes a correction factor to reduce bias.
     {_min_count_doc(default=0)}
     """
 
-    def __init__(self, *, skip_nulls=True, min_count=0):
-        self._set_options(skip_nulls, min_count)
+    def __init__(self, *, skip_nulls=True, biased=True, min_count=0):
+        self._set_options(skip_nulls, biased, min_count)
 
 
 cdef class _SplitOptions(FunctionOptions):

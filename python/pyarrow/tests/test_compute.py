@@ -457,6 +457,21 @@ def test_kurtosis():
     assert pc.kurtosis(data, min_count=4).as_py() is None
 
 
+@pytest.mark.parametrize("input, expected", (
+    (
+        [1.0, 2.0, 3.0, 40.0, None],
+        {'skew': 1.988947740397821, 'kurtosis': 3.9631931024230695}
+    ),
+    ([1, 2, 40], {'skew': 1.7281098503730385, 'kurtosis': None}),
+    ([1, 40], {'skew': None, 'kurtosis': None}),
+))
+def test_unbiased_skew_and_kurtosis(input, expected):
+    arrow_skew = pc.skew(input, skip_nulls=True, biased=False)
+    arrow_kurtosis = pc.kurtosis(input, skip_nulls=True, biased=False)
+    assert arrow_skew == pa.scalar(expected['skew'], type=pa.float64())
+    assert arrow_kurtosis == pa.scalar(expected['kurtosis'], type=pa.float64())
+
+
 def test_count_substring():
     for (ty, offset) in [(pa.string(), pa.int32()),
                          (pa.large_string(), pa.int64())]:

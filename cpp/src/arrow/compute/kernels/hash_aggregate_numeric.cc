@@ -452,35 +452,37 @@ struct GroupedStatisticImpl : public GroupedAggregator {
   Status InitInternal(ExecContext* ctx, const KernelInitArgs& args,
                       StatisticType stat_type, const VarianceOptions& options) {
     return InitInternal(ctx, args, stat_type, options.ddof, options.skip_nulls,
-                        options.min_count);
+                        /*biased=*/false, options.min_count);
   }
 
   // Init helper for hash_skew and hash_kurtosis
   Status InitInternal(ExecContext* ctx, const KernelInitArgs& args,
                       StatisticType stat_type, const SkewOptions& options) {
     return InitInternal(ctx, args, stat_type, /*ddof=*/0, options.skip_nulls,
-                        options.min_count);
+                        options.biased, options.min_count);
   }
 
   Status InitInternal(ExecContext* ctx, const KernelInitArgs& args,
-                      StatisticType stat_type, int ddof, bool skip_nulls,
+                      StatisticType stat_type, int ddof, bool skip_nulls, bool biased,
                       uint32_t min_count) {
     if constexpr (is_decimal_type<Type>::value) {
       int32_t decimal_scale =
           checked_cast<const DecimalType&>(*args.inputs[0].type).scale();
-      return InitInternal(ctx, stat_type, decimal_scale, ddof, skip_nulls, min_count);
+      return InitInternal(ctx, stat_type, decimal_scale, ddof, skip_nulls, biased,
+                          min_count);
     } else {
-      return InitInternal(ctx, stat_type, /*decimal_scale=*/0, ddof, skip_nulls,
+      return InitInternal(ctx, stat_type, /*decimal_scale=*/0, ddof, skip_nulls, biased,
                           min_count);
     }
   }
 
   Status InitInternal(ExecContext* ctx, StatisticType stat_type, int32_t decimal_scale,
-                      int ddof, bool skip_nulls, uint32_t min_count) {
+                      int ddof, bool skip_nulls, bool biased, uint32_t min_count) {
     stat_type_ = stat_type;
     moments_level_ = moments_level_for_statistic(stat_type_);
     decimal_scale_ = decimal_scale;
     skip_nulls_ = skip_nulls;
+    biased_ = biased;
     min_count_ = min_count;
     ddof_ = ddof;
     ctx_ = ctx;
@@ -539,7 +541,7 @@ struct GroupedStatisticImpl : public GroupedAggregator {
   Status ConsumeGeneric(const ExecSpan& batch) {
     GroupedStatisticImpl<Type> state;
     RETURN_NOT_OK(state.InitInternal(ctx_, stat_type_, decimal_scale_, ddof_, skip_nulls_,
-                                     min_count_));
+                                     biased_, min_count_));
     RETURN_NOT_OK(state.Resize(num_groups_));
     int64_t* counts = state.counts_.mutable_data();
     double* means = state.means_.mutable_data();
@@ -612,7 +614,7 @@ struct GroupedStatisticImpl : public GroupedAggregator {
       var_std.resize(num_groups_);
       GroupedStatisticImpl<Type> state;
       RETURN_NOT_OK(state.InitInternal(ctx_, stat_type_, decimal_scale_, ddof_,
-                                       skip_nulls_, min_count_));
+                                       skip_nulls_, biased_, min_count_));
       RETURN_NOT_OK(state.Resize(num_groups_));
       int64_t* other_counts = state.counts_.mutable_data();
       double* other_means = state.means_.mutable_data();
@@ -739,7 +741,9 @@ struct GroupedStatisticImpl : public GroupedAggregator {
     const double* m3s = m3s_data();
     const double* m4s = m4s_data();
     for (int64_t i = 0; i < num_groups_; ++i) {
-      if (counts[i] > ddof_ && counts[i] >= min_count_) {
+      if (counts[i] > ddof_ && counts[i] >= min_count_ &&
+          (stat_type_ != StatisticType::Skew || biased_ || counts[i] > 2) &&
+          (stat_type_ != StatisticType::Kurtosis || biased_ || counts[i] > 3)) {
         const auto moments = Moments(counts[i], means[i], m2s[i], m3s[i], m4s[i]);
         switch (stat_type_) {
           case StatisticType::Var:
@@ -749,10 +753,10 @@ struct GroupedStatisticImpl : public GroupedAggregator {
             results[i] = moments.Stddev(ddof_);
             break;
           case StatisticType::Skew:
-            results[i] = moments.Skew();
+            results[i] = moments.Skew(biased_);
             break;
           case StatisticType::Kurtosis:
-            results[i] = moments.Kurtosis();
+            results[i] = moments.Kurtosis(biased_);
             break;
           default:
             return Status::NotImplemented("Statistic type ",
@@ -809,6 +813,7 @@ struct GroupedStatisticImpl : public GroupedAggregator {
   int moments_level_;
   int32_t decimal_scale_;
   bool skip_nulls_;
+  bool biased_;
   uint32_t min_count_;
   int ddof_;
   int64_t num_groups_ = 0;
