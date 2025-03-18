@@ -414,6 +414,7 @@ arrow_add_object_library(ARROW_ARRAY
                          array/data.cc
                          array/diff.cc
                          array/statistics.cc
+                         array/statistics_option.cc
                          array/util.cc
                          array/validate.cc)
 
@@ -668,6 +669,7 @@ endif()
 
 set(ARROW_TESTING_SRCS
     io/test_common.cc
+    array/statistics_test_util.cc
     ipc/test_common.cc
     testing/fixed_width_test_util.cc
     testing/generator.cc

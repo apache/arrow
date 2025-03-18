@@ -21,6 +21,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdlib>
+#include <iterator>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -32,8 +33,9 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_union.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/statistics.h"
+#include "arrow/array/statistics_option.h"
 #include "arrow/array/validate.h"
-#include "arrow/c/abi.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -476,244 +478,18 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::ViewOrCopyTo(
   return Make(schema_, num_rows(), std::move(copied_columns));
 }
 
-namespace {
-struct EnumeratedStatistics {
-  int nth_statistics = 0;
-  bool start_new_column = false;
-  std::optional<int32_t> nth_column = std::nullopt;
-  const char* key = nullptr;
-  std::shared_ptr<DataType> type = nullptr;
-  ArrayStatistics::ValueType value = false;
-};
-using OnStatistics =
-    std::function<Status(const EnumeratedStatistics& enumerated_statistics)>;
-using ArrayStatisticsAndTypeVector =
-    std::vector<std::pair<std::shared_ptr<ArrayStatistics>, std::shared_ptr<DataType>>>;
-ArrayStatisticsAndTypeVector ExtractArrayDataAndType(const RecordBatch& record_batch) {
-  ArrayDataVector traverse;
-  ArrayStatisticsAndTypeVector result;
-  for (int i = 0; i < record_batch.num_columns(); ++i) {
-    auto column_array_data = record_batch.column(i)->data();
-    result.emplace_back(column_array_data->statistics, column_array_data->type);
-    traverse.insert(traverse.end(), column_array_data->child_data.crbegin(),
-                    column_array_data->child_data.crend());
-    while (!traverse.empty()) {
-      auto child_data = traverse.back();
-      traverse.pop_back();
-      result.emplace_back(child_data->statistics, child_data->type);
-      traverse.insert(traverse.end(), child_data->child_data.crbegin(),
-                      child_data->child_data.crend());
-    }
-  }
-  return result;
-}
-
-Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_statistics) {
-  EnumeratedStatistics statistics;
-  statistics.nth_statistics = 0;
-  statistics.start_new_column = true;
-  statistics.nth_column = std::nullopt;
-
-  statistics.key = ARROW_STATISTICS_KEY_ROW_COUNT_EXACT;
-  statistics.type = int64();
-  statistics.value = record_batch.num_rows();
-  RETURN_NOT_OK(on_statistics(statistics));
-  statistics.start_new_column = false;
-
-  const auto& array_statistics_and_type_vector = ExtractArrayDataAndType(record_batch);
-  auto num_fields = static_cast<int64_t>(array_statistics_and_type_vector.size());
-  for (int64_t nth_column = 0; nth_column < num_fields; ++nth_column) {
-    const auto& type = array_statistics_and_type_vector[nth_column].second;
-    auto column_statistics = array_statistics_and_type_vector[nth_column].first;
-    if (!column_statistics) {
-      continue;
-    }
-
-    statistics.start_new_column = true;
-    statistics.nth_column = static_cast<int32_t>(nth_column);
-    if (column_statistics->null_count.has_value()) {
-      statistics.nth_statistics++;
-      statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_EXACT;
-      statistics.type = int64();
-      statistics.value = column_statistics->null_count.value();
-      RETURN_NOT_OK(on_statistics(statistics));
-      statistics.start_new_column = false;
-    }
-
-    if (column_statistics->distinct_count.has_value()) {
-      statistics.nth_statistics++;
-      statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT;
-      statistics.type = int64();
-      statistics.value = column_statistics->distinct_count.value();
-      RETURN_NOT_OK(on_statistics(statistics));
-      statistics.start_new_column = false;
-    }
-
-    if (column_statistics->min.has_value()) {
-      statistics.nth_statistics++;
-      if (column_statistics->is_min_exact) {
-        statistics.key = ARROW_STATISTICS_KEY_MIN_VALUE_EXACT;
-      } else {
-        statistics.key = ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE;
-      }
-      statistics.type = column_statistics->MinArrowType(type);
-      statistics.value = column_statistics->min.value();
-      RETURN_NOT_OK(on_statistics(statistics));
-      statistics.start_new_column = false;
-    }
-
-    if (column_statistics->max.has_value()) {
-      statistics.nth_statistics++;
-      if (column_statistics->is_max_exact) {
-        statistics.key = ARROW_STATISTICS_KEY_MAX_VALUE_EXACT;
-      } else {
-        statistics.key = ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE;
-      }
-      statistics.type = column_statistics->MaxArrowType(type);
-      statistics.value = column_statistics->max.value();
-      RETURN_NOT_OK(on_statistics(statistics));
-      statistics.start_new_column = false;
-    }
-  }
-  return Status::OK();
-}
-}  // namespace
-
 Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
-    MemoryPool* memory_pool) const {
-  // Statistics schema:
-  // struct<
-  //   column: int32,
-  //   statistics: map<
-  //     key: dictionary<
-  //       indices: int32,
-  //       dictionary: utf8,
-  //     >,
-  //     items: dense_union<...all needed types...>,
-  //   >
-  // >
-
-  // Statistics schema doesn't define static dense union type for
-  // values. Each statistics schema have a dense union type that has
-  // needled value types. The following block collects these types.
-  std::vector<std::shared_ptr<Field>> values_types;
-  std::vector<int8_t> values_type_indexes;
-  RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
-    int8_t i = 0;
-    for (const auto& field : values_types) {
-      if (field->type()->Equals(statistics.type)) {
-        break;
-      }
-      i++;
-    }
-    if (i == static_cast<int8_t>(values_types.size())) {
-      values_types.push_back(field(statistics.type->name(), statistics.type));
-    }
-    values_type_indexes.push_back(i);
-    return Status::OK();
-  }));
-
-  // statistics.key: dictionary<indices: int32, dictionary: utf8>
-  auto keys_type = dictionary(int32(), utf8(), false);
-  // statistics.items: dense_union<...all needed types...>
-  auto values_type = dense_union(values_types);
-  // struct<
-  //   column: int32,
-  //   statistics: map<
-  //     key: dictionary<
-  //       indices: int32,
-  //       dictionary: utf8,
-  //     >,
-  //     items: dense_union<...all needed types...>,
-  //   >
-  // >
-  auto statistics_type =
-      struct_({field("column", int32()),
-               field("statistics", map(keys_type, values_type, false))});
-
-  std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
-  // columns: int32
-  auto columns_builder = std::make_shared<Int32Builder>(memory_pool);
-  field_builders.push_back(std::static_pointer_cast<ArrayBuilder>(columns_builder));
-  // statistics.key: dictionary<indices: int32, dictionary: utf8>
-  auto keys_builder = std::make_shared<StringDictionary32Builder>();
-  // statistics.items: dense_union<...all needed types...>
-  std::vector<std::shared_ptr<ArrayBuilder>> values_builders;
-  for (const auto& values_type : values_types) {
-    std::unique_ptr<ArrayBuilder> values_builder;
-    RETURN_NOT_OK(MakeBuilder(memory_pool, values_type->type(), &values_builder));
-    values_builders.push_back(std::shared_ptr<ArrayBuilder>(std::move(values_builder)));
+    const StatisticsArrayTOptions& options) const {
+  ArrayDataVector vector;
+  for (int i = 0; i < this->num_columns(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto extracted_columns,
+        internal::ExtractColumnsToArrayData(column(i), options.max_recursion_depth));
+    vector.insert(vector.end(), std::make_move_iterator(extracted_columns.begin()),
+                  std::make_move_iterator(extracted_columns.end()));
   }
-  auto items_builder = std::make_shared<DenseUnionBuilder>(
-      memory_pool, std::move(values_builders), values_type);
-  // statistics:
-  //   map<
-  //     key: dictionary<
-  //       indices: int32,
-  //       dictionary: utf8,
-  //     >,
-  //     items: dense_union<...all needed types...>,
-  //   >
-  auto values_builder = std::make_shared<MapBuilder>(
-      memory_pool, std::static_pointer_cast<ArrayBuilder>(keys_builder),
-      std::static_pointer_cast<ArrayBuilder>(items_builder));
-  field_builders.push_back(std::static_pointer_cast<ArrayBuilder>(values_builder));
-  // struct<
-  //   column: int32,
-  //   statistics: map<
-  //     key: dictionary<
-  //       indices: int32,
-  //       dictionary: utf8,
-  //     >,
-  //     items: dense_union<...all needed types...>,
-  //   >
-  // >
-  StructBuilder builder(statistics_type, memory_pool, std::move(field_builders));
-
-  // Append statistics.
-  RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
-    if (statistics.start_new_column) {
-      RETURN_NOT_OK(builder.Append());
-      if (statistics.nth_column.has_value()) {
-        RETURN_NOT_OK(columns_builder->Append(statistics.nth_column.value()));
-      } else {
-        RETURN_NOT_OK(columns_builder->AppendNull());
-      }
-      RETURN_NOT_OK(values_builder->Append());
-    }
-    RETURN_NOT_OK(keys_builder->Append(statistics.key,
-                                       static_cast<int32_t>(strlen(statistics.key))));
-    const auto values_type_index = values_type_indexes[statistics.nth_statistics];
-    RETURN_NOT_OK(items_builder->Append(values_type_index));
-    struct Visitor {
-      ArrayBuilder* builder;
-
-      Status operator()(const bool& value) {
-        return static_cast<BooleanBuilder*>(builder)->Append(value);
-      }
-      Status operator()(const int64_t& value) {
-        return static_cast<Int64Builder*>(builder)->Append(value);
-      }
-      Status operator()(const uint64_t& value) {
-        return static_cast<UInt64Builder*>(builder)->Append(value);
-      }
-      Status operator()(const double& value) {
-        return static_cast<DoubleBuilder*>(builder)->Append(value);
-      }
-      Status operator()(const std::string& value) {
-        return static_cast<StringBuilder*>(builder)->Append(
-            value.data(), static_cast<int32_t>(value.size()));
-      }
-      Status operator()(const std::shared_ptr<Scalar>& value) {
-        return builder->AppendScalar(*value);
-      }
-    } visitor;
-    visitor.builder = values_builders[values_type_index].get();
-    RETURN_NOT_OK(std::visit(visitor, statistics.value));
-    return Status::OK();
-  }));
-
-  return builder.Finish();
+  return internal::MakeStatisticsArray(options.memory_pool, std::move(vector),
+                                       this->num_rows());
 }
 
 Status RecordBatch::Validate() const {

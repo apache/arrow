@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/array/statistics_option.h"
 #include "arrow/compare.h"
 #include "arrow/device.h"
 #include "arrow/result.h"
@@ -289,10 +290,11 @@ class ARROW_EXPORT RecordBatch {
   /// https://arrow.apache.org/docs/format/StatisticsSchema.html
   /// for details.
   ///
-  /// \param[in] pool the memory pool to allocate memory from
+  /// \param[in] options Options for creating a statistics array
+  ///
   /// \return the statistics array of this record batch
   Result<std::shared_ptr<Array>> MakeStatisticsArray(
-      MemoryPool* pool = default_memory_pool()) const;
+      const StatisticsArrayTOptions& options = StatisticsArrayTOptions::Default()) const;
 
  protected:
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);
