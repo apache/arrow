@@ -232,7 +232,6 @@ ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps 
 
 valid_parquet_version <- c(
   "1.0" = ParquetVersionType$PARQUET_1_0,
-  "2.0" = ParquetVersionType$PARQUET_2_0,
   "2.4" = ParquetVersionType$PARQUET_2_4,
   "2.6" = ParquetVersionType$PARQUET_2_6,
   "latest" = ParquetVersionType$PARQUET_2_6
@@ -252,15 +251,7 @@ make_valid_parquet_version <- function(version, valid_versions = valid_parquet_v
       call. = FALSE
     )
   }
-  out <- valid_versions[[arg_match(version, values = names(valid_versions))]]
-
-  if (identical(out, ParquetVersionType$PARQUET_2_0)) {
-    warning(
-      'Parquet format version "2.0" is deprecated. Use "2.4" or "2.6" to select format features.',
-      call. = FALSE
-    )
-  }
-  out
+  valid_versions[[arg_match(version, values = names(valid_versions))]]
 }
 
 #' @title ParquetWriterProperties class
