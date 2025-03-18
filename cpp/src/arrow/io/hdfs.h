@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/filesystem/type_fwd.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -39,15 +40,10 @@ class HdfsReadableFile;
 class HdfsOutputStream;
 
 /// DEPRECATED.  Use the FileSystem API in arrow::fs instead.
-struct ObjectType {
-  enum type { FILE, DIRECTORY };
-};
-
-/// DEPRECATED.  Use the FileSystem API in arrow::fs instead.
 struct ARROW_EXPORT FileStatistics {
   /// Size of file, -1 if finding length is unsupported
   int64_t size;
-  ObjectType::type kind;
+  arrow::fs::FileType kind;
 };
 
 class ARROW_EXPORT FileSystem {
@@ -67,7 +63,7 @@ class ARROW_EXPORT FileSystem {
 };
 
 struct HdfsPathInfo {
-  ObjectType::type kind;
+  arrow::fs::FileType kind;
 
   std::string name;
   std::string owner;
