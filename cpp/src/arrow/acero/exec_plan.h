@@ -73,14 +73,6 @@ class ARROW_ACERO_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan
       ExecContext exec_context = *threaded_exec_context(),
       std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
-  static Result<std::shared_ptr<ExecPlan>> Make(
-      QueryOptions options, ExecContext* exec_context,
-      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
-
-  static Result<std::shared_ptr<ExecPlan>> Make(
-      ExecContext* exec_context,
-      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
-
   ExecNode* AddNode(std::unique_ptr<ExecNode> node);
 
   template <typename Node, typename... Args>
