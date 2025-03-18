@@ -20,13 +20,15 @@
 # Not a direct dependency of s3fs, but needed for our s3fs fixture
 boto3
 cffi
+cmake
 cython>=3
 cloudpickle
 fsspec
 hypothesis
+meson-python
 numpy>=1.16.6
+patchelf
 pytest
 pytest-faulthandler
 s3fs>=2023.10.0
-setuptools>=64
 setuptools_scm>=8

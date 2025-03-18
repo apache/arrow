@@ -16,4 +16,4 @@
 // under the License.
 
 // For backward compatibility.
-#include "arrow/python/lib.h"
+#include "lib.h"

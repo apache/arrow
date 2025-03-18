@@ -17,14 +17,17 @@
 
 # Requirements for building the documentation
 breathe
+cmake
 doxygen
 ipython
 linkify-it-py
+meson-python
 # We can't install linuxdoc by conda. We install linuxdoc by pip in
 # ci/dockerfiles/conda-python-pandas.dockerfile.
 # linuxdoc
 myst-parser
 numpydoc
+patchelf
 pydata-sphinx-theme=0.14
 sphinx-autobuild
 sphinx-design

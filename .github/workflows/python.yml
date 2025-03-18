@@ -118,7 +118,7 @@ jobs:
         with:
           python-version: 3.12
       - name: Setup Archery
-        run: pip install -e dev/archery[docker]
+        run: pip install -e dev/archery[docker] meson-python cmake
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
@@ -153,6 +153,7 @@ jobs:
             macos-version: "14"
     env:
       ARROW_HOME: /tmp/local
+      ARROW_ACERO: ON
       ARROW_AZURE: ON
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
@@ -175,7 +176,7 @@ jobs:
       ARROW_BUILD_TESTS: OFF
       PYARROW_TEST_LARGE_MEMORY: ON
       # Current oldest supported version according to https://endoflife.date/macos
-      MACOSX_DEPLOYMENT_TARGET: 12.0
+      MACOSX_DEPLOYMENT_TARGET: "12.0"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v4
