@@ -161,6 +161,12 @@ struct ARROW_EXPORT IpcReadOptions {
   /// RecordBatchStreamReader and StreamDecoder classes.
   bool ensure_native_endian = true;
 
+  /// \brief Whether to align incoming data if mis-aligned
+  ///
+  /// Received mis-aligned data is copied to aligned memory locations allocated via the
+  /// MemoryPool configured as \ref arrow::ipc::IpcReadOptions::memory_pool.
+  bool ensure_memory_alignment = false;
+
   /// \brief Options to control caching behavior when pre-buffering is requested
   ///
   /// The lazy property will always be reset to true to deliver the expected behavior
