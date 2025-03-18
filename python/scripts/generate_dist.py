@@ -15,25 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Requirements for building the documentation
-breathe
-cython>3.1.1
-doxygen
-ipython
-linkify-it-py
-meson-python
-# We can't install linuxdoc by conda. We install linuxdoc by pip in
-# ci/dockerfiles/conda-python-pandas.dockerfile.
-# linuxdoc
-myst-parser
-numpydoc
-pydata-sphinx-theme=0.16
-sphinx-autobuild
-sphinx-design
-sphinx-copybutton
-sphinx-lint
-sphinxcontrib-jquery
-sphinxcontrib-mermaid
-sphinx
-pytest-cython
-pandas
+import os
+import pathlib
+import shutil
+
+
+def main():
+    src_dir = pathlib.Path(os.environ["MESON_SOURCE_ROOT"])
+    parent_dir = src_dir.parent.resolve()
+    dest_dir = pathlib.Path(os.environ["MESON_DIST_ROOT"]).resolve()
+
+    license_file = parent_dir / 'LICENSE.txt'
+    shutil.copy(license_file, dest_dir)
+    notice_file = parent_dir / 'NOTICE.txt'
+    shutil.copy(notice_file, dest_dir)
+
+
+if __name__ == "__main__":
+    main()

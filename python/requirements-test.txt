@@ -5,3 +5,4 @@ pandas
 pytest
 pytz
 pyuwsgi; sys.platform != 'win32' and python_version < '3.13'
+setuptools>=64
