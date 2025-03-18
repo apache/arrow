@@ -40,6 +40,7 @@ namespace internal {
 /// \param[in] offset bit offset into the source data
 /// \param[in] length number of bits to copy
 /// \param[in] out_offset bit offset into the output buffer
+///
 /// \return Status message
 ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* bitmap,
