@@ -1589,16 +1589,19 @@ TEST(BitUtilTests, TestCopyBitmap) {
 
   std::vector<int64_t> lengths = {kBufferSize * 8 - 4, kBufferSize * 8};
   std::vector<int64_t> offsets = {0, 12, 16, 32, 37, 63, 64, 128};
-  for (int64_t num_bits : lengths) {
-    for (int64_t offset : offsets) {
-      const int64_t copy_length = num_bits - offset;
+  for (bool maintan_offset : {true, false}) {
+    for (int64_t num_bits : lengths) {
+      for (int64_t offset : offsets) {
+        const int64_t copy_length = num_bits - offset;
 
-      std::shared_ptr<Buffer> copy;
-      ASSERT_OK_AND_ASSIGN(copy,
-                           CopyBitmap(default_memory_pool(), src, offset, copy_length));
+        std::shared_ptr<Buffer> copy;
+        ASSERT_OK_AND_ASSIGN(copy, CopyBitmap(default_memory_pool(), src, offset,
+                                              copy_length, maintan_offset ? offset : 0));
 
-      for (int64_t i = 0; i < copy_length; ++i) {
-        ASSERT_EQ(bit_util::GetBit(src, i + offset), bit_util::GetBit(copy->data(), i));
+        for (int64_t i = 0; i < copy_length; ++i) {
+          ASSERT_EQ(bit_util::GetBit(src, i + offset),
+                    bit_util::GetBit(copy->data(), i + (maintan_offset ? offset : 0)));
+        }
       }
     }
   }

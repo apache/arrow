@@ -39,7 +39,6 @@ namespace internal {
 /// \param[in] bitmap source data
 /// \param[in] offset bit offset into the source data
 /// \param[in] length number of bits to copy
-/// \param[in] length number of bits to copy
 /// \param[in] out_offset bit offset into the output buffer
 /// \return Status message
 ARROW_EXPORT
