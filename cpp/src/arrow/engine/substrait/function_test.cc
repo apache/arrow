@@ -636,7 +636,7 @@ std::shared_ptr<acero::ExecPlan> PlanFromAggregateCase(
           default_extension_id_registry(), /*ext_set_out=*/nullptr, conversion_options));
   std::shared_ptr<acero::ExecPlan> plan;
   if (test_case.ordered) {
-    EXPECT_OK_AND_ASSIGN(plan, acero::ExecPlan::Make(ctx_for_ordered));
+    EXPECT_OK_AND_ASSIGN(plan, acero::ExecPlan::Make(/*opts=*/{}, ctx_for_ordered));
   } else {
     EXPECT_OK_AND_ASSIGN(plan, acero::ExecPlan::Make());
   }
