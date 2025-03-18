@@ -223,6 +223,10 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
+
   /// Create a GcsFileSystem instance from the given options.
   static Result<std::shared_ptr<GcsFileSystem>> Make(
       const GcsOptions& options, const io::IOContext& = io::default_io_context());
