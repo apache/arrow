@@ -30,6 +30,13 @@ option(
 )
 
 option(
+    'hdfs',
+    type: 'boolean',
+    description: 'Build the Arrow HDFS bridge',
+    value: false,
+)
+
+option(
     'ipc',
     type: 'boolean',
     description: 'Build the Arrow IPC extensions',
