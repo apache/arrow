@@ -1276,6 +1276,16 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
   int64_t WriteBatch(int64_t num_values, const int16_t* def_levels,
                      const int16_t* rep_levels, const T* values) override {
+    if (properties_->content_defined_chunking_enabled()) {
+      throw ParquetException(
+          "Content-defined chunking is not yet supported for WriteBatch() and "
+          "WriteBatchSpaced(), use WriteArrow() instead");
+    }
+    return WriteBatchInternal(num_values, def_levels, rep_levels, values);
+  }
+
+  int64_t WriteBatchInternal(int64_t num_values, const int16_t* def_levels,
+                             const int16_t* rep_levels, const T* values) {
     // We check for DataPage limits only after we have inserted the values. If a user
     // writes a large number of values, the DataPage size can be much above the limit.
     // The purpose of this chunking is to bound this. Even if a user writes large number
@@ -1308,6 +1318,18 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
                         const int16_t* rep_levels, const uint8_t* valid_bits,
                         int64_t valid_bits_offset, const T* values) override {
+    if (properties_->content_defined_chunking_enabled()) {
+      throw ParquetException(
+          "Content-defined chunking is not yet supported for WriteBatch() and "
+          "WriteBatchSpaced(), use WriteArrow() instead");
+    }
+    return WriteBatchSpacedInternal(num_values, def_levels, rep_levels, valid_bits,
+                                    valid_bits_offset, values);
+  }
+
+  void WriteBatchSpacedInternal(int64_t num_values, const int16_t* def_levels,
+                                const int16_t* rep_levels, const uint8_t* valid_bits,
+                                int64_t valid_bits_offset, const T* values) {
     // Like WriteBatch, but for spaced values
     int64_t value_offset = 0;
     auto WriteChunk = [&](int64_t offset, int64_t batch_size, bool check_page) {
@@ -1436,11 +1458,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         this->descr()->schema_node()->is_required() || (array.null_count() == 0);
 
     if (!maybe_parent_nulls && no_nulls) {
-      PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, values));
+      PARQUET_CATCH_NOT_OK(
+          WriteBatchInternal(num_levels, def_levels, rep_levels, values));
     } else {
-      PARQUET_CATCH_NOT_OK(WriteBatchSpaced(num_levels, def_levels, rep_levels,
-                                            data.null_bitmap_data(), data.offset(),
-                                            values));
+      PARQUET_CATCH_NOT_OK(WriteBatchSpacedInternal(num_levels, def_levels, rep_levels,
+                                                    data.null_bitmap_data(),
+                                                    data.offset(), values));
     }
     return Status::OK();
   }
@@ -2003,11 +2026,11 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowSerialize(
   bool no_nulls =
       this->descr()->schema_node()->is_required() || (array.null_count() == 0);
   if (!maybe_parent_nulls && no_nulls) {
-    PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, buffer));
+    PARQUET_CATCH_NOT_OK(WriteBatchInternal(num_levels, def_levels, rep_levels, buffer));
   } else {
-    PARQUET_CATCH_NOT_OK(WriteBatchSpaced(num_levels, def_levels, rep_levels,
-                                          array.null_bitmap_data(), array.offset(),
-                                          buffer));
+    PARQUET_CATCH_NOT_OK(WriteBatchSpacedInternal(num_levels, def_levels, rep_levels,
+                                                  array.null_bitmap_data(),
+                                                  array.offset(), buffer));
   }
   return Status::OK();
 }
@@ -2131,7 +2154,8 @@ Status TypedColumnWriterImpl<Int32Type>::WriteArrowDense(
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
     case ::arrow::Type::NA: {
-      PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, nullptr));
+      PARQUET_CATCH_NOT_OK(
+          WriteBatchInternal(num_levels, def_levels, rep_levels, nullptr));
     } break;
       WRITE_SERIALIZE_CASE(INT8)
       WRITE_SERIALIZE_CASE(UINT8)
