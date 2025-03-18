@@ -238,6 +238,25 @@ if needs_integration or needs_tests
     }
 endif
 
+if needs_csv
+    arrow_components += {
+        'arrow_csv': {
+            'sources': [
+                'csv/converter.cc',
+                'csv/chunker.cc',
+                'csv/column_builder.cc',
+                'csv/column_decoder.cc',
+                'csv/options.cc',
+                'csv/parser.cc',
+                'csv/reader.cc',
+                'csv/writer.cc',
+            ],
+        },
+    }
+
+    arrow_testing_srcs += ['csv/test_common.cc']
+endif
+
 if needs_json
     rapidjson_dep = dependency('rapidjson', include_type: 'system')
 else
@@ -355,7 +374,7 @@ install_headers(
     install_dir: 'arrow',
 )
 
-if needs_tests
+if needs_testing
     filesystem_dep = dependency(
         'boost',
         modules: ['filesystem'],
@@ -440,13 +459,44 @@ if needs_ipc
     }
 endif
 
-foreach key, val : arrow_tests
-    exc = executable(
-        key,
-        sources: val['sources'],
-        dependencies: [arrow_test_dep, val.get('dependencies', [])],
+if needs_tests
+    foreach key, val : arrow_tests
+        exc = executable(
+            key,
+            sources: val['sources'],
+            dependencies: [arrow_test_dep, val.get('dependencies', [])],
+        )
+        test(key, exc)
+    endforeach
+endif
+
+if needs_benchmarks
+    benchmark_dep = dependency(
+        'benchmark',
+        default_options: {'tests': 'disabled'},
     )
-    test(key, exc)
+else
+    benchmark_dep = disabler()
+endif
+
+arrow_benchmarks = [
+    'builder_benchmark',
+    'chunk_resolver_benchmark',
+    'compare_benchmark',
+    'memory_pool_benchmark',
+    'type_benchmark',
+    'tensor_benchmark',
+]
+
+foreach benchmark : arrow_benchmarks
+    benchmark_name = 'arrow-@0@'.format(benchmark.replace('_', '-'))
+    exc = executable(
+        benchmark_name,
+        sources: '@0@.cc'.format(benchmark),
+        dependencies: [arrow_test_dep, benchmark_dep],
+    )
+
+    benchmark(benchmark_name, exc)
 endforeach
 
 version = meson.project_version()
@@ -481,4 +531,9 @@ pkg.generate(
 subdir('testing')
 
 subdir('array')
+subdir('c')
 subdir('util')
+
+if needs_csv
+    subdir('csv')
+endif

@@ -43,6 +43,7 @@ Filesystem Implementations
    GcsFileSystem
    HadoopFileSystem
    SubTreeFileSystem
+   AzureFileSystem
 
 To define filesystems with behavior implemented in Python:
 

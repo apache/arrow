@@ -420,6 +420,14 @@ def get_library_dirs():
         if _os.path.exists(_os.path.join(library_dir, 'arrow.lib')):
             append_library_dir(library_dir)
 
+        # GH-45530: Add pyarrow.libs dir containing delvewheel-mangled
+        # msvcp140.dll
+        pyarrow_libs_dir = _os.path.abspath(
+            _os.path.join(_os.path.dirname(__file__), _os.pardir, "pyarrow.libs")
+        )
+        if _os.path.exists(pyarrow_libs_dir):
+            append_library_dir(pyarrow_libs_dir)
+
     # ARROW-4074: Allow for ARROW_HOME to be set to some other directory
     if _os.environ.get('ARROW_HOME'):
         append_library_dir(_os.path.join(_os.environ['ARROW_HOME'], 'lib'))
