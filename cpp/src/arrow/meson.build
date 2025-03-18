@@ -375,38 +375,82 @@ install_headers(
 )
 
 if needs_testing
-    filesystem_dep = dependency(
+    boost_dep = dependency('boost', include_type: 'system', required: false)
+
+    asio_dep = dependency(
         'boost',
-        modules: ['filesystem'],
+        include_type: 'system',
+        modules: 'asio',
         required: false,
     )
-    if not filesystem_dep.found()
+
+    filesystem_dep = dependency(
+        'boost',
+        include_type: 'system',
+        modules: 'filesystem',
+        required: false,
+    )
+
+    process_dep = dependency(
+        'boost',
+        include_type: 'system',
+        modules: 'process',
+        required: false,
+    )
+
+    if not (boost_dep.found()
+and asio_dep.found()
+and filesystem_dep.found()
+and process_dep.found()
+)
         cmake = import('cmake')
         boost_opt = cmake.subproject_options()
         boost_opt.add_cmake_defines(
-            {'BOOST_INCLUDE_LIBRARIES': 'filesystem;system'},
+            {'BOOST_INCLUDE_LIBRARIES': 'asio;filesystem;process'},
         )
         boost_proj = cmake.subproject('boost', options: boost_opt)
-        filesystem_dep = boost_proj.dependency('boost_filesystem')
+        boost_dep = boost_proj.dependency(
+            'boost_headers',
+            include_type: 'system',
+        )
+        asio_dep = boost_proj.dependency('boost_asio', include_type: 'system')
+        filesystem_dep = boost_proj.dependency(
+            'boost_filesystem',
+            include_type: 'system',
+        )
+        process_dep = boost_proj.dependency(
+            'boost_process',
+            include_type: 'system',
+        )
     endif
 
     gtest_main_dep = dependency('gtest_main')
     gmock_dep = dependency('gmock')
 else
+    boost_dep = disabler()
+    asio_dep = disabler()
     filesystem_dep = disabler()
     gtest_main_dep = disabler()
     gmock_dep = disabler()
+    process_dep = disabler()
 endif
 
 arrow_test_lib = static_library(
     'arrow_testing',
     sources: arrow_testing_srcs,
-    dependencies: [arrow_dep, filesystem_dep, gtest_main_dep],
+    dependencies: [
+        arrow_dep,
+        boost_dep,
+        process_dep,
+        filesystem_dep,
+        asio_dep,
+        gtest_main_dep,
+    ],
 )
 
 arrow_test_dep = declare_dependency(
     link_with: [arrow_test_lib],
-    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+    dependencies: [arrow_dep, gmock_dep, gtest_main_dep],
 )
 
 arrow_tests = {
