@@ -57,6 +57,7 @@ if git_description == ''
 endif
 
 needs_benchmarks = get_option('benchmarks')
+needs_csv = get_option('csv')
 needs_filesystem = false
 needs_integration = get_option('integration')
 needs_tests = get_option('tests')

@@ -13,32 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Tests;
-using Xunit;
+using Google.Protobuf;
 
-namespace Apache.Arrow.Flight.Tests
+
+namespace Apache.Arrow.Flight.Extensions
 {
-    public static class FlightInfoComparer
+    public static class FlightInfoExtensions
     {
-        public static void Compare(FlightInfo expected, FlightInfo actual)
-        {
-            //Check endpoints
-            Assert.Equal(expected.Endpoints, actual.Endpoints);
-
-            //Check flight descriptor
-            Assert.Equal(expected.Descriptor, actual.Descriptor);
-
-            //Check schema
-            SchemaComparer.Compare(expected.Schema, actual.Schema);
-
-            Assert.Equal(expected.TotalBytes, actual.TotalBytes);
-
-            Assert.Equal(expected.TotalRecords, actual.TotalRecords);
-
-            Assert.Equal(expected.Ordered, actual.Ordered);
-
-            Assert.Equal(expected.AppMetadata, actual.AppMetadata);
-            
+        public static ByteString ToByteString(this FlightInfo flightInfo)
+        { 
+            return flightInfo.ToProtocol().ToByteString();
         }
     }
 }
