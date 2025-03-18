@@ -58,7 +58,10 @@ conf_data.set('ARROW_GCS', false)
 conf_data.set('ARROW_HDFS', false)
 conf_data.set('ARROW_S3', false)
 conf_data.set('ARROW_USE_GLOG', false)
-conf_data.set('ARROW_USE_NATIVE_INT128', false)
+
+has_int128 = cpp_compiler.has_define('__SIZEOF_INT128__')
+conf_data.set('ARROW_USE_NATIVE_INT128', has_int128)
+
 conf_data.set('ARROW_WITH_BROTLI', false)
 conf_data.set('ARROW_WITH_BZ2', false)
 conf_data.set('ARROW_WITH_LZ4', false)
@@ -199,18 +202,6 @@ install_headers(
     subdir: 'arrow/util',
 )
 
-if host_machine.system() == 'windows'
-    # This manifest enables long file paths on Windows 10+
-    # See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
-    if cpp_compiler.get_id() == 'msvc'
-        io_util_test_sources = ['io_util_test.cc', 'io_util_test.manifest']
-    else
-        io_util_test_sources = ['io_util_test.cc', 'io_util_test.rc']
-    endif
-else
-    io_util_test_sources = ['io_util_test.cc']
-endif
-
 utility_test_srcs = [
     'align_util_test.cc',
     'atfork_test.cc',
@@ -226,6 +217,7 @@ utility_test_srcs = [
     'key_value_metadata_test.cc',
     'hashing_test.cc',
     'int_util_test.cc',
+    'io_util_test.cc',
     'iterator_test.cc',
     'list_util_test.cc',
     'logger_test.cc',
@@ -250,9 +242,19 @@ utility_test_srcs = [
     'value_parsing_test.cc',
 ]
 
+if host_machine.system() == 'windows'
+    # This manifest enables long file paths on Windows 10+
+    # See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
+    if cpp_compiler.get_id() == 'msvc'
+        utility_test_sources += ['io_util_test.manifest']
+    else
+        utility_test_sources += ['io_util_test.rc']
+    endif
+endif
+
 exc = executable(
     'arrow-utility-test',
-    sources: utility_test_srcs + io_util_test_sources,
+    sources: utility_test_srcs,
     dependencies: [arrow_dep, filesystem_dep, gtest_dep, gmock_dep],
     link_with: [arrow_test_lib],
     implicit_include_directories: false,
@@ -284,23 +286,18 @@ util_tests = {
             'thread_pool_test.cc',
         ],
     },
-    'arrow-crc32-test': {
-        'sources': ['crc32_test.cc'],
-        'dependencies': [filesystem_dep],
-    },
+    'arrow-crc32-test': {'sources': ['crc32_test.cc']},
 }
 
-if needs_tests
-    foreach key, val : util_tests
-        exc = executable(
-            key,
-            sources: val['sources'],
-            dependencies: [arrow_test_dep, val.get('dependencies', [])],
-            implicit_include_directories: false,
-        )
-        test(key, exc)
-    endforeach
-endif
+foreach key, val : util_tests
+    exc = executable(
+        key,
+        sources: val['sources'],
+        dependencies: [arrow_test_dep],
+        implicit_include_directories: false,
+    )
+    test(key, exc)
+endforeach
 
 util_benchmarks = [
     'bit_block_counter',
@@ -325,7 +322,7 @@ foreach util_benchmark : util_benchmarks
     exc = executable(
         benchmark_name,
         sources: '@0@_benchmark.cc'.format(util_benchmark),
-        dependencies: [arrow_test_dep, benchmark_dep],
+        dependencies: [arrow_benchmark_dep],
         implicit_include_directories: false,
     )
     benchmark(benchmark_name, exc)
