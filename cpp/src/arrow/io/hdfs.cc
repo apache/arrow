@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/filesystem/type_fwd.h"
 #include "arrow/io/hdfs.h"
 #include "arrow/io/hdfs_internal.h"
 #include "arrow/io/interfaces.h"
@@ -340,7 +341,7 @@ Result<int64_t> HdfsOutputStream::Tell() const { return impl_->Tell(); }
 // TODO(wesm): this could throw std::bad_alloc in the course of copying strings
 // into the path info object
 static void SetPathInfo(const hdfsFileInfo* input, HdfsPathInfo* out) {
-  out->kind = input->mKind == kObjectKindFile ? ObjectType::FILE : ObjectType::DIRECTORY;
+  out->kind = input->mKind == kObjectKindFile ? arrow::fs::FileType::File : arrow::fs::FileType::Directory;
   out->name = std::string(input->mName);
   out->owner = std::string(input->mOwner);
   out->group = std::string(input->mGroup);
