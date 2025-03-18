@@ -613,7 +613,7 @@ This field expects a string of the format ``"columnKeyID:colName,colName;columnK
    :emphasize-lines: 4-5
    :dedent: 2
 
-See the full example below: :ref:`cpp-parquet-encryption-full-example`.
+See the full `Parquet column encryption example <examples/parquet_column_encryption.html>`_.
 
 .. note::
 
@@ -629,18 +629,6 @@ See the full example below: :ref:`cpp-parquet-encryption-full-example`.
    and  ``m.key_value.value``, respectively. The inner field of a list column ``l``
    has the name ``l.list.element``. An inner field ``f`` of a struct column ``s`` has
    the name ``s.f``.
-
-.. _cpp-parquet-encryption-full-example:
-
-Full Example
-~~~~~~~~~~~~
-
-This examplifies writing a dataset in encrypted Parquet file format,
-where columns are encrypted with a differnt key than metadata:
-
-.. literalinclude:: ../../../cpp/examples/arrow/parquet_column_encryption.cc
-   :language: cpp
-   :linenos:
 
 Miscellaneous
 -------------
