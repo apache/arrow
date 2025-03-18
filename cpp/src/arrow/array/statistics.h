@@ -23,11 +23,13 @@
 #include <string>
 #include <variant>
 
+#include "arrow/compare.h"
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-class DataType;
-struct Scalar;
+
 /// \class ArrayStatistics
 /// \brief Statistics for an Array
 ///
@@ -97,6 +99,9 @@ struct ARROW_EXPORT ArrayStatistics {
     return ValueToArrowType(max, array_type);
   }
 
+  /// \brief Use for Equality of two Scalar.
+  EqualOptions options = EqualOptions::Defaults();
+
   /// \brief Whether the maximum value is exact or not
   bool is_max_exact = false;
 
@@ -109,5 +114,30 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief Check two statistics for not equality
   bool operator!=(const ArrayStatistics& other) const { return !Equals(other); }
 };
+
+namespace internal {
+/// \brief Extract all nested arrays from an array as \ref ArrayDataVector.
+///
+/// Returns all nested arrays within the given array, up to the specified
+/// maximum nesting depth, as a vector of ArrayData.
+///
+/// \param[in] array The input array from which nested arrays will be extracted.
+/// \param[in] max_nesting_depth The maximum depth of nested arrays to extract.
+///
+/// \return A vector of \ref ArrayData .
+ARROW_EXPORT
+Result<ArrayDataVector> ExtractColumnsToArrayData(const std::shared_ptr<Array>& array,
+                                                  const int32_t& max_nesting_depth);
+/// \brief Collect Statistics From ArrayDataVector and turns into an Array
+///
+/// \param[in] memory_pool the memory pool to allocate memory from
+/// \param extracted_array_data_vector The input ArrayData from which statistics array is
+/// extracted
+///
+/// \return A statistics array.
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> MakeStatisticsArray(
+    MemoryPool* memory_pool, const ArrayDataVector& extracted_array_data_vector);
+}  // namespace internal
 
 }  // namespace arrow

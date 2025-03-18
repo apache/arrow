@@ -68,7 +68,6 @@ TEST(ArrayStatisticsTest, TestEquality) {
   ArrayStatistics statistics2;
 
   ASSERT_EQ(statistics1, statistics2);
-
   statistics1.null_count = 29;
   ASSERT_NE(statistics1, statistics2);
   statistics2.null_count = 29;
@@ -98,16 +97,16 @@ TEST(ArrayStatisticsTest, TestEquality) {
 
   statistics1.max = std::nullopt;
   statistics2.max = std::nullopt;
-  // check the state of both of them are std::nullopt
+  // the state of both of them are std::nullopt
   ASSERT_EQ(statistics1.max, statistics2.max);
-  //  the state of one of them is std::nullopt
+  // the state of one of them is std::nullopt
   statistics1.max = std::shared_ptr<Scalar>();
   ASSERT_NE(statistics1, statistics2);
-  // the state of both of them are nullptr
+  // the state of both of them are empty shared_ptr
   statistics2.max = std::shared_ptr<Scalar>();
   ASSERT_EQ(statistics1, statistics2);
   ASSERT_OK_AND_ASSIGN(statistics1.max, MakeScalar(int64(), 5));
-  // the state of one of them is nullptr
+  // the state of one of them is empty shared_ptr
   ASSERT_NE(statistics1, statistics2);
   // the state of one of them has different type
   statistics2.max = static_cast<int64_t>(10);
