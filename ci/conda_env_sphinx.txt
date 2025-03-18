@@ -17,9 +17,11 @@
 
 # Requirements for building the documentation
 breathe
+cmake
 doxygen
 ipython
 linkify-it-py
+meson-python
 # We can't install linuxdoc by conda. We install linuxdoc by pip in
 # ci/dockerfiles/conda-python-pandas.dockerfile.
 # linuxdoc
