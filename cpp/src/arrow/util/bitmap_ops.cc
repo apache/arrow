@@ -223,14 +223,6 @@ Result<std::shared_ptr<Buffer>> TransferBitmap(MemoryPool* pool, const uint8_t* 
 
   TransferBitmap<mode>(data, offset, length, out_offset, dest);
 
-  // As we have freshly allocated this bitmap, we should take care of zeroing the
-  // remaining bits.
-  int64_t num_bytes = bit_util::BytesForBits(phys_bits);
-  int64_t bits_to_zero = num_bytes * 8 - phys_bits;
-  for (int64_t i = phys_bits; i < phys_bits + bits_to_zero; ++i) {
-    // Both branches may copy extra bits - unsetting to match specification.
-    bit_util::ClearBit(dest, i);
-  }
   return buffer;
 }
 
