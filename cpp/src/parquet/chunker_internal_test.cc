@@ -959,7 +959,37 @@ INSTANTIATE_TEST_SUITE_P(
         CaseConfig{::arrow::struct_({::arrow::field("f0", ::arrow::float64())}), true,
                    10}));
 
+TEST(TestColumnCDC, WriteSingleColumnParquetFile) {
+  // Define the schema with a single column "number"
+  auto schema = std::dynamic_pointer_cast<schema::GroupNode>(schema::GroupNode::Make(
+      "root", Repetition::REQUIRED,
+      {schema::PrimitiveNode::Make("number", Repetition::REQUIRED, Type::INT32)}));
+
+  auto sink = CreateOutputStream();
+  auto builder = WriterProperties::Builder();
+  auto props = builder.enable_content_defined_chunking()->build();
+
+  auto writer = ParquetFileWriter::Open(sink, schema, props);
+  auto row_group_writer = writer->AppendRowGroup();
+
+  // Create a column writer for the "number" column
+  auto column_writer = row_group_writer->NextColumn();
+  auto& int_column_writer = dynamic_cast<Int32Writer&>(*column_writer);
+
+  std::vector<int32_t> numbers = {1, 2, 3, 4, 5};
+  std::vector<uint8_t> valid_bits = {1, 0, 1, 0, 1};
+  EXPECT_THROW(
+      int_column_writer.WriteBatch(numbers.size(), nullptr, nullptr, numbers.data()),
+      ParquetException);
+  EXPECT_THROW(int_column_writer.WriteBatchSpaced(numbers.size(), nullptr, nullptr,
+                                                  valid_bits.data(), 0, numbers.data()),
+               ParquetException);
+}
+
 }  // namespace parquet
 
 // TODO:
 // - test multiple row groups
+// - place information about the used CDC parameters to the metadata
+// - test the effect of the normalization factor
+// - do more validation on min/max chunk size
