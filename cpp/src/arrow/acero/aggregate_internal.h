@@ -143,11 +143,10 @@ Status HandleSegments(RowSegmenter* segmenter, const ExecBatch& batch,
 }
 
 /// @brief Extract values of segment keys from a segment batch
-/// @param[out] values_ptr Vector to store the extracted segment key values
+/// @param[out] values Vector to store the extracted segment key values
 /// @param[in] input_batch Segment batch. Must have the a constant value for segment key
 /// @param[in] field_ids Segment key field ids
-Status ExtractSegmenterValues(std::vector<Datum>* values_ptr,
-                              const ExecBatch& input_batch,
+Status ExtractSegmenterValues(std::vector<Datum>& values, const ExecBatch& input_batch,
                               const std::vector<int>& field_ids);
 
 Result<std::vector<Datum>> ExtractValues(const ExecBatch& input_batch,
@@ -171,6 +170,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
         TracedNode(this),
         segmenter_(std::move(segmenter)),
         segment_field_ids_(std::move(segment_field_ids)),
+        segmenter_values_(segment_field_ids_.size()),
         target_fieldsets_(std::move(target_fieldsets)),
         aggs_(std::move(aggs)),
         kernels_(std::move(kernels)),
@@ -195,7 +195,6 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
 
   Status StartProducing() override {
     NoteStartProducing(ToStringExtra(0));
-    local_states_.resize(plan_->query_context()->max_concurrency());
     return Status::OK();
   }
 
@@ -213,17 +212,6 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   std::string ToStringExtra(int indent) const override;
 
  private:
-  struct ThreadLocalState {
-    // Holds the segment key values of the most recent input batch processed by a thread.
-    // The values are updated every time an input batch is processed by the thread
-    std::vector<Datum> segmenter_values;
-  };
-
-  ThreadLocalState* GetLocalState() {
-    size_t thread_index = plan_->query_context()->GetThreadIndex();
-    return &local_states_[thread_index];
-  }
-
   Status ResetKernelStates();
 
   Status OutputResult(bool is_last);
@@ -232,6 +220,9 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   std::unique_ptr<RowSegmenter> segmenter_;
   // Field indices corresponding to the segment-keys
   const std::vector<int> segment_field_ids_;
+  // Holds the value of segment keys of the most recent input batch
+  // The values are updated every time an input batch is processed
+  std::vector<Datum> segmenter_values_;
 
   const std::vector<std::vector<int>> target_fieldsets_;
   const std::vector<Aggregate> aggs_;
@@ -242,9 +233,6 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
 
   AtomicCounter input_counter_;
-
-  std::vector<ThreadLocalState> local_states_;
-
   /// \brief Total number of output batches produced
   int total_output_batches_ = 0;
 };
@@ -261,6 +249,7 @@ class GroupByNode : public ExecNode, public TracedNode {
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema)),
         TracedNode(this),
         segmenter_(std::move(segmenter)),
+        segmenter_values_(segment_key_field_ids.size()),
         key_field_ids_(std::move(key_field_ids)),
         segment_key_field_ids_(std::move(segment_key_field_ids)),
         agg_src_types_(std::move(agg_src_types)),
@@ -321,9 +310,6 @@ class GroupByNode : public ExecNode, public TracedNode {
   struct ThreadLocalState {
     std::unique_ptr<Grouper> grouper;
     std::vector<std::unique_ptr<KernelState>> agg_states;
-    // Holds values of the current batch in this thread that were selected for the
-    // segment-keys
-    std::vector<Datum> segmenter_values;
   };
 
   ThreadLocalState* GetLocalState() {
@@ -345,6 +331,8 @@ class GroupByNode : public ExecNode, public TracedNode {
   int output_task_group_id_;
   /// \brief A segmenter for the segment-keys
   std::unique_ptr<RowSegmenter> segmenter_;
+  /// \brief Holds values of the current batch that were selected for the segment-keys
+  std::vector<Datum> segmenter_values_;
 
   const std::vector<int> key_field_ids_;
   /// \brief Field indices corresponding to the segment-keys
