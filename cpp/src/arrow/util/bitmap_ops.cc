@@ -215,20 +215,14 @@ void ReverseBlockOffsets(const uint8_t* data, int64_t offset, int64_t length,
 
 template <TransferMode mode>
 Result<std::shared_ptr<Buffer>> TransferBitmap(MemoryPool* pool, const uint8_t* data,
-                                               int64_t offset, int64_t length) {
-  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(length, pool));
+                                               int64_t offset, int64_t length,
+                                               int64_t out_offset) {
+  const int64_t phys_bits = length + out_offset;
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(phys_bits, pool));
   uint8_t* dest = buffer->mutable_data();
 
-  TransferBitmap<mode>(data, offset, length, 0, dest);
+  TransferBitmap<mode>(data, offset, length, out_offset, dest);
 
-  // As we have freshly allocated this bitmap, we should take care of zeroing the
-  // remaining bits.
-  int64_t num_bytes = bit_util::BytesForBits(length);
-  int64_t bits_to_zero = num_bytes * 8 - length;
-  for (int64_t i = length; i < length + bits_to_zero; ++i) {
-    // Both branches may copy extra bits - unsetting to match specification.
-    bit_util::ClearBit(dest, i);
-  }
   return buffer;
 }
 
@@ -248,13 +242,15 @@ void ReverseBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t*
 }
 
 Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* data,
-                                           int64_t offset, int64_t length) {
-  return TransferBitmap<TransferMode::Copy>(pool, data, offset, length);
+                                           int64_t offset, int64_t length,
+                                           int64_t out_offset) {
+  return TransferBitmap<TransferMode::Copy>(pool, data, offset, length, out_offset);
 }
 
 Result<std::shared_ptr<Buffer>> InvertBitmap(MemoryPool* pool, const uint8_t* data,
                                              int64_t offset, int64_t length) {
-  return TransferBitmap<TransferMode::Invert>(pool, data, offset, length);
+  return TransferBitmap<TransferMode::Invert>(pool, data, offset, length,
+                                              /*out_offset=*/0);
 }
 
 Result<std::shared_ptr<Buffer>> ReverseBitmap(MemoryPool* pool, const uint8_t* data,
