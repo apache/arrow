@@ -42,6 +42,7 @@ using ::arrow::DataType;
 using ::arrow::default_memory_pool;
 using ::arrow::Field;
 using ::arrow::Result;
+using ::arrow::Schema;
 using ::arrow::Table;
 using ::arrow::io::BufferReader;
 using ::parquet::arrow::FileReader;
@@ -294,16 +295,20 @@ Result<std::shared_ptr<Table>> ReadTableFromBuffer(const std::shared_ptr<Buffer>
 using ChunkList = std::vector<int64_t>;
 
 // Type to represent the sizes and lengths of the data pages in a column.
-struct PageInfo {
-  ChunkList lengths;
-  ChunkList sizes;
+
+struct RowGroupInfo {
+  ChunkList page_lengths;
+  ChunkList page_sizes;
 };
 
-PageInfo GetColumnPageInfo(const std::shared_ptr<Buffer>& data, int column_index = 0) {
+using ParquetInfo = std::vector<RowGroupInfo>;
+
+ParquetInfo GetColumnParquetInfo(const std::shared_ptr<Buffer>& data,
+                                 int column_index = 0) {
   // Read the parquet data out of the buffer and get the sizes and lengths of the
   // data pages in given column. We assert on the sizes and lengths of the pages
   // to ensure that the chunking is done correctly.
-  PageInfo result;
+  ParquetInfo result;
 
   auto buffer_reader = std::make_shared<BufferReader>(data);
   auto parquet_reader = ParquetFileReader::Open(std::move(buffer_reader));
@@ -311,26 +316,30 @@ PageInfo GetColumnPageInfo(const std::shared_ptr<Buffer>& data, int column_index
   auto metadata = parquet_reader->metadata();
   for (int rg = 0; rg < metadata->num_row_groups(); rg++) {
     auto page_reader = parquet_reader->RowGroup(rg)->GetColumnPageReader(column_index);
+    RowGroupInfo rg_info;
     while (auto page = page_reader->NextPage()) {
       if (page->type() == PageType::DATA_PAGE || page->type() == PageType::DATA_PAGE_V2) {
         auto data_page = static_cast<DataPage*>(page.get());
-        result.sizes.push_back(data_page->size());
-        result.lengths.push_back(data_page->num_values());
+        rg_info.page_sizes.push_back(data_page->size());
+        rg_info.page_lengths.push_back(data_page->num_values());
       }
     }
+    result.push_back(rg_info);
   }
 
   return result;
 }
 
-Result<PageInfo> WriteAndGetPageInfo(const std::shared_ptr<Table>& table,
-                                     uint64_t min_chunk_size, uint64_t max_chunk_size,
-                                     bool enable_dictionary = false,
-                                     int column_index = 0) {
+Result<ParquetInfo> WriteAndGetParquetInfo(const std::shared_ptr<Table>& table,
+                                           uint64_t min_chunk_size,
+                                           uint64_t max_chunk_size,
+                                           bool enable_dictionary = false,
+                                           int64_t row_group_size = 1024 * 1024,
+                                           int column_index = 0) {
   // Write the table to a buffer and read it back to get the page sizes
-  ARROW_ASSIGN_OR_RAISE(
-      auto buffer,
-      WriteTableToBuffer(table, min_chunk_size, max_chunk_size, enable_dictionary));
+  ARROW_ASSIGN_OR_RAISE(auto buffer,
+                        WriteTableToBuffer(table, min_chunk_size, max_chunk_size,
+                                           enable_dictionary, row_group_size));
   ARROW_ASSIGN_OR_RAISE(auto readback, ReadTableFromBuffer(buffer));
 
   RETURN_NOT_OK(readback->ValidateFull());
@@ -338,7 +347,7 @@ Result<PageInfo> WriteAndGetPageInfo(const std::shared_ptr<Table>& table,
     ARROW_RETURN_IF(!readback->Equals(*table),
                     Status::Invalid("Readback table not equal to original"));
   }
-  return GetColumnPageInfo(buffer, column_index);
+  return GetColumnParquetInfo(buffer, column_index);
 }
 
 // A git-hunk like side-by-side data structure to represent the differences between two
@@ -574,80 +583,82 @@ TEST(TestFindDifferences, AdditionalCase) {
   }
 }
 
-void AssertUpdateCase(const std::shared_ptr<::arrow::DataType>& dtype,
-                      const ChunkList& original, const ChunkList& modified,
-                      uint8_t n_modifications) {
-  auto diffs = FindDifferences(original, modified);
-  if (diffs.size() > n_modifications) {
-    PrintDifferences(original, modified, diffs);
+void AssertPageLengthDifferences(const RowGroupInfo& original,
+                                 const RowGroupInfo& modified,
+                                 int8_t exact_number_of_equal_diffs,
+                                 int8_t exact_number_of_larger_diffs,
+                                 int8_t exact_number_of_smaller_diffs,
+                                 int64_t edit_length = 0) {
+  // Asserts that the differences between the original and modified page lengths
+  // are as expected. A longest common subsequence diff is calculated on the original
+  // and modified sequences of page lengths. The exact_number_of_equal_diffs,
+  // exact_number_of_larger_diffs, and exact_number_of_smaller_diffs parameters specify
+  // the expected number of differences with equal, larger, and smaller sums of the page
+  // lengths respectively. The edit_length parameter is used to verify that the page
+  // lenght differences are exactly equal to the edit_length.
+  auto diffs = FindDifferences(original.page_lengths, modified.page_lengths);
+  size_t expected_number_of_diffs = exact_number_of_equal_diffs +
+                                    exact_number_of_larger_diffs +
+                                    exact_number_of_smaller_diffs;
+  if (diffs.size() != expected_number_of_diffs) {
+    PrintDifferences(original.page_lengths, modified.page_lengths, diffs);
   }
-  ASSERT_LE(diffs.size(), n_modifications);
+  if (diffs.size() == 0) {
+    // no differences found, the arrays are equal
+    ASSERT_TRUE(original.page_lengths == modified.page_lengths);
+  }
+  ASSERT_EQ(diffs.size(), expected_number_of_diffs);
+
+  uint8_t equal_diffs = 0;
+  int8_t larger_diffs = 0;
+  int8_t smaller_diffs = 0;
+  for (const auto& diff : diffs) {
+    uint64_t original_sum = 0, modified_sum = 0;
+    for (const auto& val : diff.first) original_sum += val;
+    for (const auto& val : diff.second) modified_sum += val;
+
+    if (original_sum == modified_sum) {
+      equal_diffs++;
+    } else if (original_sum < modified_sum) {
+      larger_diffs++;
+      ASSERT_EQ(original_sum + edit_length, modified_sum);
+    } else if (original_sum > modified_sum) {
+      smaller_diffs++;
+      ASSERT_EQ(original_sum, modified_sum + edit_length);
+    }
+    ASSERT_LE(diff.first.size(), 2);
+    ASSERT_LE(diff.second.size(), 2);
+  }
+
+  ASSERT_EQ(equal_diffs, exact_number_of_equal_diffs);
+  ASSERT_EQ(larger_diffs, exact_number_of_larger_diffs);
+  ASSERT_EQ(smaller_diffs, exact_number_of_smaller_diffs);
+}
+
+void AssertPageLengthDifferences(const RowGroupInfo& original,
+                                 const RowGroupInfo& modified,
+                                 uint8_t max_number_of_equal_diffs) {
+  // A less restrictive version of the above assertion function mainly used to
+  // assert the update case.
+  auto diffs = FindDifferences(original.page_lengths, modified.page_lengths);
+  if (diffs.size() > max_number_of_equal_diffs) {
+    PrintDifferences(original.page_lengths, modified.page_lengths, diffs);
+  }
+  ASSERT_LE(diffs.size(), max_number_of_equal_diffs);
 
   for (const auto& diff : diffs) {
-    if (!::arrow::is_list_like(dtype->id())) {
-      uint64_t left_sum = 0, right_sum = 0;
-      for (const auto& val : diff.first) left_sum += val;
-      for (const auto& val : diff.second) right_sum += val;
-      ASSERT_EQ(left_sum, right_sum);
-    }
+    uint64_t left_sum = 0, right_sum = 0;
+    for (const auto& val : diff.first) left_sum += val;
+    for (const auto& val : diff.second) right_sum += val;
+    ASSERT_EQ(left_sum, right_sum);
     ASSERT_LE(diff.first.size(), 2);
     ASSERT_LE(diff.second.size(), 2);
   }
 
   if (diffs.size() == 0) {
     // no differences found, the arrays are equal
-    ASSERT_TRUE(original == modified);
+    ASSERT_TRUE(original.page_lengths == modified.page_lengths);
   }
-}
-
-void AssertDeleteCase(const std::shared_ptr<::arrow::DataType>& dtype,
-                      const ChunkList& original, const ChunkList& modified,
-                      uint8_t n_modifications, uint64_t edit_length) {
-  auto diffs = FindDifferences(original, modified);
-  if (diffs.size() != n_modifications) {
-    PrintDifferences(original, modified, diffs);
-  }
-  ASSERT_EQ(diffs.size(), n_modifications);
-
-  for (const auto& diff : diffs) {
-    if (!::arrow::is_list_like(dtype->id())) {
-      uint64_t left_sum = 0, right_sum = 0;
-      for (const auto& val : diff.first) left_sum += val;
-      for (const auto& val : diff.second) right_sum += val;
-      ASSERT_EQ(left_sum, right_sum + edit_length);
-    }
-    ASSERT_LE(diff.first.size(), 2);
-    ASSERT_LE(diff.second.size(), 2);
-  }
-}
-
-void AssertInsertCase(const std::shared_ptr<::arrow::DataType>& dtype,
-                      const ChunkList& original, const ChunkList& modified,
-                      uint8_t n_modifications, uint64_t edit_length) {
-  auto diffs = FindDifferences(original, modified);
-  if (diffs.size() != n_modifications) {
-    PrintDifferences(original, modified, diffs);
-  }
-  ASSERT_EQ(diffs.size(), n_modifications);
-
-  for (const auto& diff : diffs) {
-    if (!::arrow::is_list_like(dtype->id())) {
-      uint64_t left_sum = 0, right_sum = 0;
-      for (const auto& val : diff.first) left_sum += val;
-      for (const auto& val : diff.second) right_sum += val;
-      ASSERT_EQ(left_sum + edit_length, right_sum);
-    }
-    ASSERT_LE(diff.first.size(), 2);
-    ASSERT_LE(diff.second.size(), 2);
-  }
-}
-
-void AssertAppendCase(const ChunkList& original, const ChunkList& modified) {
-  ASSERT_GE(modified.size(), original.size());
-  for (size_t i = 0; i < original.size() - 1; i++) {
-    ASSERT_EQ(original[i], modified[i]);
-  }
-  ASSERT_GT(modified[original.size() - 1], original.back());
 }
 
 uint64_t ElementCount(int64_t size, int32_t byte_width, bool nullable) {
@@ -687,8 +698,8 @@ void AssertAllBetween(const ChunkList& chunks, int64_t min, int64_t max,
 }
 
 void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
-                      PageInfo base_result, PageInfo modified_result, bool nullable,
-                      bool enable_dictionary, int64_t min_chunk_size,
+                      const RowGroupInfo& base_info, const RowGroupInfo& modified_info,
+                      bool nullable, bool enable_dictionary, int64_t min_chunk_size,
                       int64_t max_chunk_size) {
   if (::arrow::is_fixed_width(dtype->id()) && !nullable) {
     // for nullable types we cannot calculate the exact number of elements because
@@ -696,14 +707,14 @@ void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
     auto byte_width = (dtype->id() == ::arrow::Type::BOOL) ? 1 : dtype->byte_width();
     auto min_length = ElementCount(min_chunk_size, byte_width, nullable);
     auto max_length = ElementCount(max_chunk_size, byte_width, nullable);
-    AssertAllBetween(base_result.lengths, min_length, max_length,
+    AssertAllBetween(base_info.page_lengths, min_length, max_length,
                      /*expect_dictionary_fallback=*/enable_dictionary);
-    AssertAllBetween(modified_result.lengths, min_length, max_length,
+    AssertAllBetween(modified_info.page_lengths, min_length, max_length,
                      /*expect_dictionary_fallback=*/enable_dictionary);
   } else if (::arrow::is_base_binary_like(dtype->id()) && !nullable &&
              !enable_dictionary) {
-    AssertAllBetween(base_result.sizes, min_chunk_size, max_chunk_size);
-    AssertAllBetween(modified_result.sizes, min_chunk_size, max_chunk_size);
+    AssertAllBetween(base_info.page_sizes, min_chunk_size, max_chunk_size);
+    AssertAllBetween(modified_info.page_sizes, min_chunk_size, max_chunk_size);
   }
 }
 
@@ -763,17 +774,26 @@ TEST_P(TestColumnCDC, DeleteOnce) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(
-        auto base_result,
-        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(
-        auto modified_result,
-        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+        auto base_info,
+        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(auto modified_info,
+                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                                enable_dictionary));
 
-    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
-                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
+    // assert that there is only one row group
+    ASSERT_EQ(base_info.size(), 1);
+    ASSERT_EQ(modified_info.size(), 1);
+    AssertChunkSizes(param.dtype, base_info.front(), modified_info.front(),
+                     param.is_nullable, enable_dictionary, kMinChunkSize, kMaxChunkSize);
 
-    AssertDeleteCase(param.dtype, base_result.lengths, modified_result.lengths, 1,
-                     part2_->num_rows());
+    auto edit_length = part2_->num_rows();
+    if (::arrow::is_list_like(param.dtype->id())) {
+      edit_length += 1;
+    }
+    AssertPageLengthDifferences(base_info.front(), modified_info.front(),
+                                /*exact_number_of_equal_diffs=*/0,
+                                /*exact_number_of_larger_diffs=*/0,
+                                /*exact_number_of_smaller_diffs=*/1, edit_length);
   }
 }
 
@@ -787,16 +807,26 @@ TEST_P(TestColumnCDC, DeleteTwice) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(
-        auto base_result,
-        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(
-        auto modified_result,
-        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+        auto base_info,
+        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(auto modified_info,
+                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                                enable_dictionary));
 
-    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
-                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
-    AssertDeleteCase(param.dtype, base_result.lengths, modified_result.lengths, 2,
-                     part2_->num_rows());
+    // assert that there is only one row group
+    ASSERT_EQ(base_info.size(), 1);
+    ASSERT_EQ(modified_info.size(), 1);
+    AssertChunkSizes(param.dtype, base_info.front(), modified_info.front(),
+                     param.is_nullable, enable_dictionary, kMinChunkSize, kMaxChunkSize);
+
+    auto edit_length = part2_->num_rows();
+    if (::arrow::is_list_like(param.dtype->id())) {
+      edit_length += 1;
+    }
+    AssertPageLengthDifferences(base_info.front(), modified_info.front(),
+                                /*exact_number_of_equal_diffs=*/0,
+                                /*exact_number_of_larger_diffs=*/0,
+                                /*exact_number_of_smaller_diffs=*/2, edit_length);
   }
 }
 
@@ -809,15 +839,18 @@ TEST_P(TestColumnCDC, UpdateOnce) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(
-        auto base_result,
-        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(
-        auto modified_result,
-        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-
-    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
-                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
-    AssertUpdateCase(param.dtype, base_result.lengths, modified_result.lengths, 1);
+        auto base_info,
+        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(auto modified_info,
+                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                                enable_dictionary));
+    // assert that there is only one row group
+    ASSERT_EQ(base_info.size(), 1);
+    ASSERT_EQ(modified_info.size(), 1);
+    AssertChunkSizes(param.dtype, base_info.front(), modified_info.front(),
+                     param.is_nullable, enable_dictionary, kMinChunkSize, kMaxChunkSize);
+    AssertPageLengthDifferences(base_info.front(), modified_info.front(),
+                                /*max_number_of_equal_diffs=*/1);
   }
 }
 
@@ -832,15 +865,18 @@ TEST_P(TestColumnCDC, UpdateTwice) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(
-        auto base_result,
-        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(
-        auto modified_result,
-        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-
-    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
-                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
-    AssertUpdateCase(param.dtype, base_result.lengths, modified_result.lengths, 2);
+        auto base_info,
+        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(auto modified_info,
+                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                                enable_dictionary));
+    // assert that there is only one row group
+    ASSERT_EQ(base_info.size(), 1);
+    ASSERT_EQ(modified_info.size(), 1);
+    AssertChunkSizes(param.dtype, base_info.front(), modified_info.front(),
+                     param.is_nullable, enable_dictionary, kMinChunkSize, kMaxChunkSize);
+    AssertPageLengthDifferences(base_info.front(), modified_info.front(),
+                                /*max_number_of_equal_diffs=*/2);
   }
 }
 
@@ -853,16 +889,25 @@ TEST_P(TestColumnCDC, InsertOnce) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(
-        auto base_result,
-        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(
-        auto modified_result,
-        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+        auto base_info,
+        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(auto modified_info,
+                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                                enable_dictionary));
+    // assert that there is only one row group
+    ASSERT_EQ(base_info.size(), 1);
+    ASSERT_EQ(modified_info.size(), 1);
+    AssertChunkSizes(param.dtype, base_info.front(), modified_info.front(),
+                     param.is_nullable, enable_dictionary, kMinChunkSize, kMaxChunkSize);
 
-    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
-                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
-    AssertInsertCase(param.dtype, base_result.lengths, modified_result.lengths, 1,
-                     part2_->num_rows());
+    auto edit_length = part2_->num_rows();
+    if (::arrow::is_list_like(param.dtype->id())) {
+      edit_length += 1;
+    }
+    AssertPageLengthDifferences(base_info.front(), modified_info.front(),
+                                /*exact_number_of_equal_diffs=*/0,
+                                /*exact_number_of_larger_diffs=*/1,
+                                /*exact_number_of_smaller_diffs=*/0, edit_length);
   }
 }
 
@@ -876,16 +921,25 @@ TEST_P(TestColumnCDC, InsertTwice) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(
-        auto base_result,
-        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(
-        auto modified_result,
-        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+        auto base_info,
+        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(auto modified_info,
+                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                                enable_dictionary));
+    // assert that there is only one row group
+    ASSERT_EQ(base_info.size(), 1);
+    ASSERT_EQ(modified_info.size(), 1);
+    AssertChunkSizes(param.dtype, base_info.front(), modified_info.front(),
+                     param.is_nullable, enable_dictionary, kMinChunkSize, kMaxChunkSize);
 
-    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
-                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
-    AssertInsertCase(param.dtype, base_result.lengths, modified_result.lengths, 2,
-                     part2_->num_rows());
+    auto edit_length = part2_->num_rows();
+    if (::arrow::is_list_like(param.dtype->id())) {
+      edit_length += 1;
+    }
+    AssertPageLengthDifferences(base_info.front(), modified_info.front(),
+                                /*exact_number_of_equal_diffs=*/0,
+                                /*exact_number_of_larger_diffs=*/2,
+                                /*exact_number_of_smaller_diffs=*/0, edit_length);
   }
 }
 
@@ -898,15 +952,24 @@ TEST_P(TestColumnCDC, Append) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(
-        auto base_result,
-        WriteAndGetPageInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
-    ASSERT_OK_AND_ASSIGN(
-        auto modified_result,
-        WriteAndGetPageInfo(modified, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+        auto base_info,
+        WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize, enable_dictionary));
+    ASSERT_OK_AND_ASSIGN(auto modified_info,
+                         WriteAndGetParquetInfo(modified, kMinChunkSize, kMaxChunkSize,
+                                                enable_dictionary));
+    // assert that there is only one row group
+    ASSERT_EQ(base_info.size(), 1);
+    ASSERT_EQ(modified_info.size(), 1);
+    AssertChunkSizes(param.dtype, base_info.front(), modified_info.front(),
+                     param.is_nullable, enable_dictionary, kMinChunkSize, kMaxChunkSize);
 
-    AssertChunkSizes(param.dtype, base_result, modified_result, param.is_nullable,
-                     enable_dictionary, kMinChunkSize, kMaxChunkSize);
-    AssertAppendCase(base_result.lengths, modified_result.lengths);
+    auto original_page_lengths = base_info.front().page_lengths;
+    auto modified_page_lengths = modified_info.front().page_lengths;
+    ASSERT_GE(original_page_lengths.size(), modified_page_lengths.size());
+    for (size_t i = 0; i < original_page_lengths.size() - 1; i++) {
+      ASSERT_EQ(original_page_lengths[i], modified_page_lengths[i]);
+    }
+    ASSERT_GT(modified_page_lengths.back(), original_page_lengths.back());
   }
 }
 
@@ -919,12 +982,13 @@ TEST_P(TestColumnCDC, EmptyTable) {
 
   for (bool enable_dictionary : {false, true}) {
     ASSERT_OK_AND_ASSIGN(auto result,
-                         WriteAndGetPageInfo(empty_table, kMinChunkSize, kMaxChunkSize,
-                                             enable_dictionary));
+                         WriteAndGetParquetInfo(empty_table, kMinChunkSize, kMaxChunkSize,
+                                                enable_dictionary));
 
     // An empty table should result in no data pages
-    ASSERT_TRUE(result.lengths.empty());
-    ASSERT_TRUE(result.sizes.empty());
+    ASSERT_EQ(result.size(), 1);
+    ASSERT_TRUE(result.front().page_lengths.empty());
+    ASSERT_TRUE(result.front().page_sizes.empty());
   }
 }
 
@@ -986,10 +1050,173 @@ TEST(TestColumnCDC, WriteSingleColumnParquetFile) {
                ParquetException);
 }
 
+class TestColumnCDCMultipleRowGroups : public ::testing::Test {
+ protected:
+  // Column random table parts for testing
+  std::shared_ptr<DataType> dtype_;
+  std::shared_ptr<Table> part1_, part2_, part3_;
+  std::shared_ptr<Table> edit1_, edit2_, edit3_;
+
+  void SetUp() override {
+    auto constexpr kPartLength = 256 * 1024;
+    auto constexpr kEditLength = 128;
+
+    dtype_ = ::arrow::int32();
+    auto field = ::arrow::field("f0", dtype_, true);
+    auto schema = ::arrow::schema({field});
+
+    ASSERT_OK_AND_ASSIGN(part1_, GenerateTable(schema, kPartLength, 0));
+    ASSERT_OK_AND_ASSIGN(part2_, GenerateTable(schema, kPartLength, 2));
+    ASSERT_OK_AND_ASSIGN(part3_, GenerateTable(schema, kPartLength, 4));
+
+    ASSERT_OK_AND_ASSIGN(edit1_, GenerateTable(schema, kEditLength, 1));
+    ASSERT_OK_AND_ASSIGN(edit2_, GenerateTable(schema, kEditLength, 3));
+    ASSERT_OK_AND_ASSIGN(edit3_, GenerateTable(schema, kEditLength, 5));
+  }
+};
+
+TEST_F(TestColumnCDCMultipleRowGroups, InsertOnce) {
+  auto constexpr kRowGroupLength = 128 * 1024;
+  auto constexpr kEnableDictionary = false;
+  auto constexpr kMinChunkSize = 0 * 1024;
+  auto constexpr kMaxChunkSize = 128 * 1024;
+
+  ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, edit1_, part2_, part3_}));
+  ASSERT_OK_AND_ASSIGN(auto inserted,
+                       ConcatAndCombine({part1_, edit1_, edit2_, part2_, part3_}));
+  ASSERT_FALSE(base->Equals(*inserted));
+  ASSERT_EQ(inserted->num_rows(), base->num_rows() + edit2_->num_rows());
+
+  ASSERT_OK_AND_ASSIGN(auto base_info,
+                       WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize,
+                                              kEnableDictionary, kRowGroupLength));
+  ASSERT_OK_AND_ASSIGN(auto inserted_info,
+                       WriteAndGetParquetInfo(inserted, kMinChunkSize, kMaxChunkSize,
+                                              kEnableDictionary, kRowGroupLength));
+
+  ASSERT_EQ(base_info.size(), 7);
+  ASSERT_EQ(inserted_info.size(), 7);
+
+  ASSERT_EQ(base_info.at(0).page_lengths, inserted_info.at(0).page_lengths);
+  ASSERT_EQ(base_info.at(1).page_lengths, inserted_info.at(1).page_lengths);
+  for (size_t i = 2; i < inserted_info.size() - 1; i++) {
+    AssertPageLengthDifferences(base_info.at(i), inserted_info.at(i),
+                                /*exact_number_of_equal_diffs=*/0,
+                                /*exact_number_of_larger_diffs=*/1,
+                                /*exact_number_of_smaller_diffs=*/1, edit2_->num_rows());
+  }
+  AssertPageLengthDifferences(base_info.back(), inserted_info.back(),
+                              /*exact_number_of_equal_diffs=*/0,
+                              /*exact_number_of_larger_diffs=*/1,
+                              /*exact_number_of_smaller_diffs=*/0, edit2_->num_rows());
+}
+
+TEST_F(TestColumnCDCMultipleRowGroups, DeleteOnce) {
+  auto constexpr kRowGroupLength = 128 * 1024;
+  auto constexpr kEnableDictionary = false;
+  auto constexpr kMinChunkSize = 0 * 1024;
+  auto constexpr kMaxChunkSize = 128 * 1024;
+
+  ASSERT_OK_AND_ASSIGN(auto base,
+                       ConcatAndCombine({part1_, edit1_, part2_, part3_, edit2_}));
+  ASSERT_OK_AND_ASSIGN(auto deleted, ConcatAndCombine({part1_, part2_, part3_, edit2_}));
+  ASSERT_FALSE(base->Equals(*deleted));
+  ASSERT_EQ(deleted->num_rows(), base->num_rows() - edit1_->num_rows());
+
+  ASSERT_OK_AND_ASSIGN(auto base_info,
+                       WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize,
+                                              kEnableDictionary, kRowGroupLength));
+  ASSERT_OK_AND_ASSIGN(auto deleted_info,
+                       WriteAndGetParquetInfo(deleted, kMinChunkSize, kMaxChunkSize,
+                                              kEnableDictionary, kRowGroupLength));
+
+  ASSERT_EQ(base_info.size(), 7);
+  ASSERT_EQ(deleted_info.size(), 7);
+
+  ASSERT_EQ(base_info.at(0).page_lengths, deleted_info.at(0).page_lengths);
+  ASSERT_EQ(base_info.at(1).page_lengths, deleted_info.at(1).page_lengths);
+  for (size_t i = 2; i < deleted_info.size() - 1; i++) {
+    AssertPageLengthDifferences(base_info.at(i), deleted_info.at(i),
+                                /*exact_number_of_equal_diffs=*/0,
+                                /*exact_number_of_larger_diffs=*/1,
+                                /*exact_number_of_smaller_diffs=*/1, edit1_->num_rows());
+  }
+  AssertPageLengthDifferences(base_info.back(), deleted_info.back(),
+                              /*exact_number_of_equal_diffs=*/0,
+                              /*exact_number_of_larger_diffs=*/0,
+                              /*exact_number_of_smaller_diffs=*/1, edit1_->num_rows());
+}
+
+TEST_F(TestColumnCDCMultipleRowGroups, UpdateOnce) {
+  auto constexpr kRowGroupLength = 128 * 1024;
+  auto constexpr kEnableDictionary = false;
+  auto constexpr kMinChunkSize = 0 * 1024;
+  auto constexpr kMaxChunkSize = 128 * 1024;
+
+  ASSERT_OK_AND_ASSIGN(auto base,
+                       ConcatAndCombine({part1_, edit1_, part2_, part3_, edit2_}));
+  ASSERT_OK_AND_ASSIGN(auto updated,
+                       ConcatAndCombine({part1_, edit3_, part2_, part3_, edit2_}));
+  ASSERT_FALSE(base->Equals(*updated));
+
+  ASSERT_OK_AND_ASSIGN(auto base_info,
+                       WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize,
+                                              kEnableDictionary, kRowGroupLength));
+  ASSERT_OK_AND_ASSIGN(auto updated_info,
+                       WriteAndGetParquetInfo(updated, kMinChunkSize, kMaxChunkSize,
+                                              kEnableDictionary, kRowGroupLength));
+
+  ASSERT_EQ(base_info.size(), 7);
+  ASSERT_EQ(updated_info.size(), 7);
+
+  ASSERT_EQ(base_info.at(0).page_lengths, updated_info.at(0).page_lengths);
+  ASSERT_EQ(base_info.at(1).page_lengths, updated_info.at(1).page_lengths);
+  AssertPageLengthDifferences(base_info.at(2), updated_info.at(2),
+                              /*max_number_of_equal_diffs=*/1);
+  for (size_t i = 2; i < updated_info.size(); i++) {
+    ASSERT_EQ(base_info.at(i).page_lengths, updated_info.at(i).page_lengths);
+  }
+}
+
+TEST_F(TestColumnCDCMultipleRowGroups, Append) {
+  auto constexpr kRowGroupLength = 128 * 1024;
+  auto constexpr kEnableDictionary = false;
+  auto constexpr kMinChunkSize = 0 * 1024;
+  auto constexpr kMaxChunkSize = 128 * 1024;
+
+  ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, edit1_, part2_, part3_}));
+  ASSERT_OK_AND_ASSIGN(auto appended,
+                       ConcatAndCombine({part1_, edit1_, part2_, part3_, edit2_}));
+  ASSERT_FALSE(base->Equals(*appended));
+  ASSERT_EQ(appended->num_rows(), base->num_rows() + edit2_->num_rows());
+
+  ASSERT_OK_AND_ASSIGN(auto base_info,
+                       WriteAndGetParquetInfo(base, kMinChunkSize, kMaxChunkSize,
+                                              kEnableDictionary, kRowGroupLength));
+  ASSERT_OK_AND_ASSIGN(auto appended_info,
+                       WriteAndGetParquetInfo(appended, kMinChunkSize, kMaxChunkSize,
+                                              kEnableDictionary, kRowGroupLength));
+
+  ASSERT_EQ(base_info.size(), 7);
+  ASSERT_EQ(appended_info.size(), 7);
+
+  for (size_t i = 0; i < appended_info.size() - 1; i++) {
+    ASSERT_EQ(base_info.at(i).page_lengths, appended_info.at(i).page_lengths);
+  }
+  // only the last row group should have more or equal number of pages
+  auto original_page_lengths = base_info.back().page_lengths;
+  auto appended_page_lengths = appended_info.back().page_lengths;
+  ASSERT_GE(original_page_lengths.size(), appended_page_lengths.size());
+  for (size_t i = 0; i < original_page_lengths.size() - 1; i++) {
+    ASSERT_EQ(original_page_lengths[i], appended_page_lengths[i]);
+  }
+  ASSERT_GT(appended_page_lengths.back(), original_page_lengths.back());
+}
+
 }  // namespace parquet
 
 // TODO:
-// - test multiple row groups
 // - place information about the used CDC parameters to the metadata
 // - test the effect of the normalization factor
 // - do more validation on min/max chunk size
+// - test extension types
