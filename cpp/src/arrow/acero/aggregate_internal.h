@@ -146,7 +146,8 @@ Status HandleSegments(RowSegmenter* segmenter, const ExecBatch& batch,
 /// @param[out] values_ptr Vector to store the extracted segment key values
 /// @param[in] input_batch Segment batch. Must have the a constant value for segment key
 /// @param[in] field_ids Segment key field ids
-Status ExtractSegmenterValues(std::vector<Datum>* values_ptr, const ExecBatch& input_batch,
+Status ExtractSegmenterValues(std::vector<Datum>* values_ptr,
+                              const ExecBatch& input_batch,
                               const std::vector<int>& field_ids);
 
 Result<std::vector<Datum>> ExtractValues(const ExecBatch& input_batch,
