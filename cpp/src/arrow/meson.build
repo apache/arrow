@@ -371,7 +371,7 @@ install_headers(
         'visit_scalar_inline.h',
         'visit_type_inline.h',
     ],
-    install_dir: 'arrow',
+    subdir: 'arrow',
 )
 
 if needs_testing
@@ -531,6 +531,7 @@ pkg.generate(
 subdir('testing')
 
 subdir('c')
+subdir('io')
 subdir('util')
 
 if needs_csv

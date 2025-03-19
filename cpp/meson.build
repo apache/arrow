@@ -58,7 +58,8 @@ endif
 
 needs_benchmarks = get_option('benchmarks')
 needs_csv = get_option('csv')
-needs_filesystem = false
+needs_hdfs = get_option('hdfs')
+needs_filesystem = false or needs_hdfs
 needs_integration = false
 needs_tests = get_option('tests')
 needs_ipc = get_option('ipc') or needs_tests or needs_benchmarks
