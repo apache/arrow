@@ -241,7 +241,7 @@ Status ScalarAggregateNode::InputReceived(ExecNode* input, ExecBatch batch) {
     auto exec_batch = full_batch.Slice(segment.offset, segment.length);
     RETURN_NOT_OK(DoConsume(ExecSpan(exec_batch), thread_index));
     RETURN_NOT_OK(
-        ExtractSegmenterValues(segmenter_values_, exec_batch, segment_field_ids_));
+        ExtractSegmenterValues(&segmenter_values_, exec_batch, segment_field_ids_));
 
     // If the segment closes the current segment group, we can output segment group
     // aggregation.

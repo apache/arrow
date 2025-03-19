@@ -177,10 +177,12 @@ void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
   *ss << ']';
 }
 
-Status ExtractSegmenterValues(std::vector<Datum>& values, const ExecBatch& input_batch,
+Status ExtractSegmenterValues(std::vector<Datum>* values_ptr,
+                              const ExecBatch& input_batch,
                               const std::vector<int>& field_ids) {
-  DCHECK_EQ(values.size(), field_ids.size());
   DCHECK_GT(input_batch.length, 0);
+  std::vector<Datum>& values = *values_ptr;
+  DCHECK_EQ(values.size(), field_ids.size());
   int64_t row = input_batch.length - 1;
   for (size_t i = 0; i < field_ids.size(); i++) {
     const Datum& value = input_batch.values[field_ids[i]];
