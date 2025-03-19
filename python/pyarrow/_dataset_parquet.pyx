@@ -144,6 +144,8 @@ cdef class ParquetFileFormat(FileFormat):
                 options.dict_columns.insert(tobytes(column))
         options.coerce_int96_timestamp_unit = \
             read_options._coerce_int96_timestamp_unit
+        options.convert_unknown_logical_types = \
+            read_options.convert_unknown_logical_types
 
         self.init(<shared_ptr[CFileFormat]> wrapped)
         self.default_fragment_scan_options = default_fragment_scan_options
