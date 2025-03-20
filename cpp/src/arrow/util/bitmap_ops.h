@@ -150,6 +150,31 @@ bool OptionalBitmapEquals(const std::shared_ptr<Buffer>& left, int64_t left_offs
 /// \brief Do a "bitmap and" on right and left buffers starting at
 /// their respective bit-offsets for the given bit-length and put
 /// the results in out_buffer starting at the given bit-offset.
+/// Both right and left buffers are optional. If any of the buffers is
+/// null a bitmap of zeros is returned.
+///
+/// out_buffer will be allocated and initialized to zeros using pool before
+/// the operation.
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> OptionalBitmapAnd(MemoryPool* pool, const uint8_t* left,
+                                                  int64_t left_offset,
+                                                  const uint8_t* right,
+                                                  int64_t right_offset, int64_t length,
+                                                  int64_t out_offset);
+
+/// \brief Do a "bitmap and" on right and left buffers starting at
+/// their respective bit-offsets for the given bit-length and put
+/// the results in out starting at the given bit-offset.
+/// Both right and left buffers are optional. If any of the buffers is
+/// null a bitmap of zeros is returned.
+ARROW_EXPORT
+void OptionalBitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                       int64_t right_offset, int64_t length, int64_t out_offset,
+                       uint8_t* out);
+
+/// \brief Do a "bitmap and" on right and left buffers starting at
+/// their respective bit-offsets for the given bit-length and put
+/// the results in out_buffer starting at the given bit-offset.
 ///
 /// out_buffer will be allocated and initialized to zeros using pool before
 /// the operation.

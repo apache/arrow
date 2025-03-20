@@ -394,6 +394,32 @@ Result<std::shared_ptr<Buffer>> BitmapOp(MemoryPool* pool, const uint8_t* left,
 
 }  // namespace
 
+Result<std::shared_ptr<Buffer>> OptionalBitmapAnd(MemoryPool* pool, const uint8_t* left,
+                                                  int64_t left_offset,
+                                                  const uint8_t* right,
+                                                  int64_t right_offset, int64_t length,
+                                                  int64_t out_offset) {
+  if (left == nullptr || right == nullptr) {
+    const int64_t phys_bits = length + out_offset;
+    ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateEmptyBitmap(phys_bits, pool));
+    return out_buffer;
+  } else {
+    return BitmapOp<std::bit_and>(pool, left, left_offset, right, right_offset, length,
+                                  out_offset);
+  }
+}
+
+void OptionalBitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                       int64_t right_offset, int64_t length, int64_t out_offset,
+                       uint8_t* out) {
+  if (left == nullptr || right == nullptr) {
+    bit_util::ClearBitmap(out, out_offset, length);
+  } else {
+    BitmapOp<std::bit_and>(left, left_offset, right, right_offset, length, out_offset,
+                           out);
+  }
+}
+
 Result<std::shared_ptr<Buffer>> BitmapAnd(MemoryPool* pool, const uint8_t* left,
                                           int64_t left_offset, const uint8_t* right,
                                           int64_t right_offset, int64_t length,
