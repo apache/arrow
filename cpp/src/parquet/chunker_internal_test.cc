@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/table.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/float16.h"
 #include "parquet/arrow/reader.h"
@@ -232,6 +233,15 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
                                bitmap_buffer, num_nulls));
       RETURN_NOT_OK(list_array->ValidateFull());
       return list_array;
+    }
+
+    case ::arrow::Type::EXTENSION: {
+      auto extension_type = dynamic_cast<::arrow::ExtensionType*>(type.get());
+      auto storage_type = extension_type->storage_type();
+      auto storage_field = ::arrow::field("storage", storage_type, true);
+      ARROW_ASSIGN_OR_RAISE(auto storage_array,
+                            GenerateArray(storage_field, length, seed));
+      return ::arrow::ExtensionType::WrapArray(type, storage_array);
     }
 
     default:
@@ -1021,7 +1031,9 @@ INSTANTIATE_TEST_SUITE_P(
         CaseConfig{::arrow::list(::arrow::utf8()), true, 18},
         CaseConfig{::arrow::struct_({::arrow::field("f0", ::arrow::int32())}), false, 8},
         CaseConfig{::arrow::struct_({::arrow::field("f0", ::arrow::float64())}), true,
-                   10}));
+                   10},
+        // Extension type
+        CaseConfig{::arrow::uuid(), true, 16}));
 
 TEST(TestColumnCDC, WriteSingleColumnParquetFile) {
   // Define the schema with a single column "number"
@@ -1219,4 +1231,3 @@ TEST_F(TestColumnCDCMultipleRowGroups, Append) {
 // - place information about the used CDC parameters to the metadata
 // - test the effect of the normalization factor
 // - do more validation on min/max chunk size
-// - test extension types

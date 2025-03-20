@@ -291,6 +291,9 @@ class ContentDefinedChunker::Impl {
         const auto byte_width = array.byte_width();
         return Calculate(def_levels, rep_levels, num_levels,
                          [&](int64_t i) { Roll(array.GetValue(i), byte_width); });
+      } else if constexpr (ArrowType::type_id == ::arrow::Type::EXTENSION) {
+        const auto& array = static_cast<const ::arrow::ExtensionArray&>(values);
+        return GetChunks(def_levels, rep_levels, num_levels, *array.storage());
       } else if constexpr (::arrow::is_primitive(ArrowType::type_id)) {
         using c_type = typename ArrowType::c_type;
         return CalculateFixedWidth<sizeof(c_type)>(def_levels, rep_levels, num_levels,
