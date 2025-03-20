@@ -769,7 +769,10 @@ def test_struct_from_arrays():
 
     # Inconsistent fields
     fa2 = pa.field("a", pa.int32())
-    with pytest.raises(ValueError, match="expected to have type int32, but provided data is int64"):
+    with pytest.raises(
+            ValueError,
+            match="expected to have type int32, but provided data is int64",
+    ):
         pa.StructArray.from_arrays([a, b, c], fields=[fa2, fb, fc])
 
     # Too few fields

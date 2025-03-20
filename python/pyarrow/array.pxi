@@ -4244,7 +4244,8 @@ cdef class StructArray(Array):
                 # we can verify.
                 if isinstance(ary, (Array, ChunkedArray)):
                     if ary.type != field.type:
-                        raise ValueError(f"Field {field.name} is expected to have type {field.type}, but provided data is {ary.type}")
+                        raise ValueError(
+                            f"Field {field.name} is expected to have type {field.type}, but provided data is {ary.type}")
                     type_enforced_arrays.append(ary)
                 else:
                     type_enforced_arrays.append(asarray(ary, field.type))
