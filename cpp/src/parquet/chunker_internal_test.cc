@@ -1002,6 +1002,22 @@ TEST_P(TestColumnCDC, EmptyTable) {
   }
 }
 
+TEST_P(TestColumnCDC, ArrayOffsets) {
+  ASSERT_OK_AND_ASSIGN(auto table, ConcatAndCombine({part1_, part2_, part3_}));
+
+  for (auto offset : {0, 512, 1024}) {
+    auto sliced_table = table->Slice(offset);
+
+    // assert that the first column has a non-zero offset
+    auto column = sliced_table->column(0);
+    auto first_chunk = column->chunk(0);
+    ASSERT_EQ(first_chunk->offset(), offset);
+
+    // write out the sliced table, read it back and compare
+    ASSERT_OK(WriteAndGetParquetInfo(sliced_table, kMinChunkSize, kMaxChunkSize, true));
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(
     FixedSizedTypes, TestColumnCDC,
     testing::Values(
