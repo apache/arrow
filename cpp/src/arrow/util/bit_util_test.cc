@@ -64,6 +64,7 @@ using internal::BitsetStack;
 using internal::CopyBitmap;
 using internal::CountSetBits;
 using internal::InvertBitmap;
+using internal::OptionalBitmapAnd;
 using internal::ReverseBitmap;
 using util::SafeCopy;
 
@@ -1272,6 +1273,24 @@ struct BitmapOperation {
   virtual ~BitmapOperation() = default;
 };
 
+struct OptionalBitmapAndOp : public BitmapOperation {
+  Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
+                                       int64_t left_offset, const uint8_t* right,
+                                       int64_t right_offset, int64_t length,
+                                       int64_t out_offset) const override {
+    return OptionalBitmapAnd(pool, left, left_offset, right, right_offset, length,
+                             out_offset);
+  }
+
+  Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+              int64_t right_offset, int64_t length, int64_t out_offset,
+              uint8_t* out_buffer) const override {
+    OptionalBitmapAnd(left, left_offset, right, right_offset, length, out_offset,
+                      out_buffer);
+    return Status::OK();
+  }
+};
+
 struct BitmapAndOp : public BitmapOperation {
   Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
                                        int64_t left_offset, const uint8_t* right,
@@ -1342,23 +1361,34 @@ class BitmapOp : public ::testing::Test {
                    const std::vector<int>& right_bits,
                    const std::vector<int>& result_bits) {
     std::shared_ptr<Buffer> left, right, out;
-    int64_t length;
+    int64_t length{0};
+    uint8_t *left_buffer, *right_buffer;
 
     for (int64_t left_offset : {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536}) {
-      BitmapFromVector(left_bits, left_offset, &left, &length);
+      if (left_bits.size() > 0) {
+        BitmapFromVector(left_bits, left_offset, &left, &length);
+        left_buffer = left->mutable_data();
+      } else {
+        left_buffer = nullptr;
+      }
       for (int64_t right_offset : {left_offset, left_offset + 8, left_offset + 40}) {
-        BitmapFromVector(right_bits, right_offset, &right, &length);
+        if (right_bits.size() > 0) {
+          BitmapFromVector(right_bits, right_offset, &right, &length);
+          right_buffer = right->mutable_data();
+        } else {
+          right_buffer = nullptr;
+        }
         for (int64_t out_offset : {left_offset, left_offset + 16, left_offset + 24}) {
           ASSERT_OK_AND_ASSIGN(
-              out, op.Call(default_memory_pool(), left->mutable_data(), left_offset,
-                           right->mutable_data(), right_offset, length, out_offset));
+              out, op.Call(default_memory_pool(), left_buffer, left_offset, right_buffer,
+                           right_offset, length, out_offset));
           auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
 
           // Clear out buffer and try non-allocating version
           std::memset(out->mutable_data(), 0, out->size());
-          ASSERT_OK(op.Call(left->mutable_data(), left_offset, right->mutable_data(),
-                            right_offset, length, out_offset, out->mutable_data()));
+          ASSERT_OK(op.Call(left_buffer, left_offset, right_buffer, right_offset, length,
+                            out_offset, out->mutable_data()));
           reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
         }
@@ -1370,26 +1400,36 @@ class BitmapOp : public ::testing::Test {
                      const std::vector<int>& right_bits,
                      const std::vector<int>& result_bits) {
     std::shared_ptr<Buffer> left, right, out;
-    int64_t length;
+    int64_t length{0};
+    uint8_t *left_buffer, *right_buffer;
     auto offset_values = {0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536};
 
     for (int64_t left_offset : offset_values) {
-      BitmapFromVector(left_bits, left_offset, &left, &length);
+      if (left_bits.size() > 0) {
+        BitmapFromVector(left_bits, left_offset, &left, &length);
+        left_buffer = left->mutable_data();
+      } else {
+        left_buffer = nullptr;
+      }
 
       for (int64_t right_offset : offset_values) {
-        BitmapFromVector(right_bits, right_offset, &right, &length);
-
+        if (right_bits.size() > 0) {
+          BitmapFromVector(right_bits, right_offset, &right, &length);
+          right_buffer = right->mutable_data();
+        } else {
+          right_buffer = nullptr;
+        }
         for (int64_t out_offset : offset_values) {
           ASSERT_OK_AND_ASSIGN(
-              out, op.Call(default_memory_pool(), left->mutable_data(), left_offset,
-                           right->mutable_data(), right_offset, length, out_offset));
+              out, op.Call(default_memory_pool(), left_buffer, left_offset, right_buffer,
+                           right_offset, length, out_offset));
           auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
 
           // Clear out buffer and try non-allocating version
           std::memset(out->mutable_data(), 0, out->size());
-          ASSERT_OK(op.Call(left->mutable_data(), left_offset, right->mutable_data(),
-                            right_offset, length, out_offset, out->mutable_data()));
+          ASSERT_OK(op.Call(left_buffer, left_offset, right_buffer, right_offset, length,
+                            out_offset, out->mutable_data()));
           reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
         }
@@ -1397,6 +1437,24 @@ class BitmapOp : public ::testing::Test {
     }
   }
 };
+
+TEST_F(BitmapOp, OptionalAnd) {
+  OptionalBitmapAndOp op;
+  std::vector<int> left = {0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1};
+  std::vector<int> right = {0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0};
+  std::vector<int> result = {0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0};
+
+  TestAligned(op, left, right, result);
+  TestUnaligned(op, left, right, result);
+
+  result = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  TestAligned(op, {}, right, result);
+  TestUnaligned(op, {}, right, result);
+  TestAligned(op, left, {}, result);
+  TestUnaligned(op, left, {}, result);
+  TestAligned(op, {}, {}, {});
+  TestUnaligned(op, {}, {}, {});
+}
 
 TEST_F(BitmapOp, And) {
   BitmapAndOp op;
