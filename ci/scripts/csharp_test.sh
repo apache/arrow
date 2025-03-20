@@ -33,5 +33,5 @@ ${PYTHON} -m pip install pyarrow find-libpython
 export PYTHONNET_PYDLL=$(${PYTHON} -m find_libpython)
 
 pushd ${source_dir}
-dotnet test
+dotnet test --logger "xunit;LogFileName=TestResults.xml"
 popd

@@ -71,6 +71,12 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/csharp_test.sh $(pwd)
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-csharp-ubuntu-${{ matrix.dotnet }}
+          path: './csharp/test/**/TestResults/TestResults.xml'
 
   windows:
     name: AMD64 Windows 2019 18.04 C# ${{ matrix.dotnet }}
@@ -96,6 +102,12 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/csharp_test.sh $(pwd)
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-csharp-windows-${{ matrix.dotnet }}
+          path: './csharp/test/**/TestResults/TestResults.xml'
 
   macos:
     name: AMD64 macOS 13 C# ${{ matrix.dotnet }}
@@ -125,6 +137,12 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/csharp_test.sh $(pwd)
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-csharp-macos-${{ matrix.dotnet }}
+          path: './csharp/test/**/TestResults/TestResults.xml'
 
   package:
     name: Package
@@ -210,3 +228,13 @@ jobs:
             *.snupkg
         env:
           GH_TOKEN: ${{ github.token }}
+
+  event_file:
+    name: "Event File"
+    runs-on: ubuntu-latest
+    steps:
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: Event File
+        path: ${{ github.event_path }}

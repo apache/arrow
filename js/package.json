@@ -97,6 +97,7 @@
     "gulp-vinyl-size": "1.1.4",
     "ix": "7.0.0",
     "jest": "29.7.0",
+    "jest-junit-reporter": "1.1.0",
     "jest-silent-reporter": "0.6.0",
     "memfs": "4.17.0",
     "mkdirp": "3.0.1",

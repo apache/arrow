@@ -123,6 +123,7 @@ jobs:
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          PYTEST_ARGS: --junit-xml /arrow/python/pytest.xml
         run: |
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ${{ matrix.image }}
@@ -137,6 +138,12 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-python-docker-${{ matrix.name }}
+          path: python/pytest.xml
 
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} Python 3
@@ -174,6 +181,7 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
       PYARROW_TEST_LARGE_MEMORY: ON
+      PYTEST_ARGS: --junit-xml python/pytest.xml
       # Current oldest supported version according to https://endoflife.date/macos
       MACOSX_DEPLOYMENT_TARGET: 12.0
     steps:
@@ -224,3 +232,19 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-python-macos-${{ matrix.architecture }}-${{ matrix.macos-version }}
+          path: python/pytest.xml
+
+  event_file:
+    name: "Event File"
+    runs-on: ubuntu-latest
+    steps:
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: Event File
+        path: ${{ github.event_path }}

@@ -47,6 +47,7 @@ permissions:
 
 env:
   ARCHERY_DEBUG: 1
+  TEST_REPORT_PATH: js/
 
 jobs:
 
@@ -70,6 +71,7 @@ jobs:
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          TEST_REPORT_PATH: /arrow/${{ env.TEST_REPORT_PATH }}
         run: |
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run debian-js
@@ -84,6 +86,12 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push debian-js
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-js-docker-debian-js
+          path: ${{ env.TEST_REPORT_PATH }}/test-report.xml
 
   macos:
     name: AMD64 macOS 13 NodeJS ${{ matrix.node }}
@@ -113,8 +121,16 @@ jobs:
         shell: bash
         run: ci/scripts/js_build.sh $(pwd) build
       - name: Test
+        env:
+          TEST_REPORT_PATH: ../../${{ env.TEST_REPORT_PATH }}
         shell: bash
         run: ci/scripts/js_test.sh $(pwd) build
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-js-macos-${{ matrix.node }}
+          path: ${{ env.TEST_REPORT_PATH }}/test-report.xml
 
   windows:
     name: AMD64 Windows NodeJS ${{ matrix.node }}
@@ -144,5 +160,23 @@ jobs:
         shell: bash
         run: ci/scripts/js_build.sh $(pwd) build
       - name: Test
+        env:
+          TEST_REPORT_PATH: ../../${{ env.TEST_REPORT_PATH }}
         shell: bash
         run: ci/scripts/js_test.sh $(pwd) build
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-js-windows-${{ matrix.node }}
+          path: ${{ env.TEST_REPORT_PATH }}/test-report.xml
+
+  event_file:
+    name: "Event File"
+    runs-on: ubuntu-latest
+    steps:
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: Event File
+        path: ${{ github.event_path }}

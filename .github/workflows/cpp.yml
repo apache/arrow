@@ -66,6 +66,7 @@ permissions:
 env:
   ARCHERY_DEBUG: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
+  ARROW_CTEST_OUTPUT_JUNIT: junit-results.xml
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
@@ -137,6 +138,7 @@ jobs:
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          ARROW_CTEST_OUTPUT_JUNIT: /arrow/cpp/${{ env.ARROW_CTEST_OUTPUT_JUNIT }}
         run: |
           # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
           sudo sysctl -w vm.mmap_rnd_bits=28
@@ -153,6 +155,12 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-cpp-docker-${{ matrix.image }}
+          path: './cpp/${{ env.ARROW_CTEST_OUTPUT_JUNIT }}'
 
   build-example:
     name: C++ Minimal Build Example
@@ -264,6 +272,12 @@ jobs:
           sudo sysctl -w kern.corefile=/tmp/core.%N.%P
           ulimit -c unlimited  # must enable within the same shell
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-cpp-macos-${{ matrix.architecture }}-${{ matrix.macos-version }}
+          path: './build/cpp/${{ env.ARROW_CTEST_OUTPUT_JUNIT }}'
 
   windows:
     name: ${{ matrix.title }}
@@ -360,6 +374,12 @@ jobs:
           # For ORC
           export TZDIR=/c/msys64/usr/share/zoneinfo
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-cpp-windows-${{ matrix.simd-level }}
+          path: './build/cpp/${{ env.ARROW_CTEST_OUTPUT_JUNIT }}'
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.msystem_upper }} C++
@@ -468,3 +488,19 @@ jobs:
         shell: msys2 {0}
         run: |
           ci/scripts/cpp_test.sh "$(pwd)" "$(pwd)/build"
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-cpp-windows-mingw-${{ matrix.msystem_lower }}
+          path: './build/cpp/${{ env.ARROW_CTEST_OUTPUT_JUNIT }}'
+
+  event_file:
+    name: "Event File"
+    runs-on: ubuntu-latest
+    steps:
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: Event File
+        path: ${{ github.event_path }}

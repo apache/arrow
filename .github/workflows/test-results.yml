@@ -1,0 +1,68 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Test Results
+run-name: Test Results (${{ github.event.workflow.name }}) [${{ github.event.workflow_run.event }}]
+
+on:
+  workflow_run:
+    workflows:
+      - 'C\+\+'
+      - 'C#'
+      - 'NodeJS'
+      - 'Python'
+    types:
+      - completed
+permissions: {}
+
+jobs:
+  test-results:
+    name: Test Results
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion != 'skipped'
+
+    permissions:
+      checks: write
+
+      # needed unless run with comment_mode: off
+      pull-requests: write
+
+      # only needed for private repository
+      contents: read
+
+      # only needed for private repository
+      issues: read
+
+      # required by download step to access artifacts API
+      actions: read
+
+    steps:
+      - name: Download and Extract Artifacts
+        uses: dawidd6/action-download-artifact@e7466d1a7587ed14867642c2ca74b5bcc1e19a2d
+        with:
+           run_id: ${{ github.event.workflow_run.id }}
+           path: artifacts
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          commit: ${{ github.event.workflow_run.head_sha }}
+          check_name: Test Results (${{ github.event.workflow.name }}) [${{ github.event.workflow_run.event }}]
+          comment_mode: ${{ github.event.workflow_run.event == 'pull_request' && 'always' || 'off' }}
+          event_file: artifacts/Event File/event.json
+          event_name: ${{ github.event.workflow_run.event }}
+          files: "artifacts/**/*.xml"
