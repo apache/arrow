@@ -72,12 +72,12 @@ class PARQUET_EXPORT GeoStatistics {
   void Merge(const GeoStatistics& other);
 
   /// \brief Update these statistics based on values
-  void Update(const ByteArray* values, int64_t num_values, int64_t null_count);
+  void Update(const ByteArray* values, int64_t num_values);
 
   /// \brief Update these statistics based on the non-null elements of values
   void UpdateSpaced(const ByteArray* values, const uint8_t* valid_bits,
                     int64_t valid_bits_offset, int64_t num_spaced_values,
-                    int64_t num_values, int64_t null_count);
+                    int64_t num_values);
 
   /// \brief Update these statistics based on the non-null elements of values
   ///

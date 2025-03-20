@@ -69,7 +69,7 @@ class GeoStatisticsImpl {
     bounder_.ReadGeometryTypes(other_geometry_types);
   }
 
-  void Update(const ByteArray* values, int64_t num_values, int64_t null_count) {
+  void Update(const ByteArray* values, int64_t num_values) {
     if (!is_valid_) {
       return;
     }
@@ -92,7 +92,7 @@ class GeoStatisticsImpl {
 
   void UpdateSpaced(const ByteArray* values, const uint8_t* valid_bits,
                     int64_t valid_bits_offset, int64_t num_spaced_values,
-                    int64_t num_values, int64_t null_count) {
+                    int64_t num_values) {
     DCHECK_GT(num_spaced_values, 0);
 
     if (!is_valid_) {
@@ -281,16 +281,15 @@ bool GeoStatistics::Equals(const GeoStatistics& other) const {
 
 void GeoStatistics::Merge(const GeoStatistics& other) { impl_->Merge(*other.impl_); }
 
-void GeoStatistics::Update(const ByteArray* values, int64_t num_values,
-                           int64_t null_count) {
-  impl_->Update(values, num_values, null_count);
+void GeoStatistics::Update(const ByteArray* values, int64_t num_values) {
+  impl_->Update(values, num_values);
 }
 
 void GeoStatistics::UpdateSpaced(const ByteArray* values, const uint8_t* valid_bits,
                                  int64_t valid_bits_offset, int64_t num_spaced_values,
-                                 int64_t num_values, int64_t null_count) {
+                                 int64_t num_values) {
   impl_->UpdateSpaced(values, valid_bits, valid_bits_offset, num_spaced_values,
-                      num_values, null_count);
+                      num_values);
 }
 
 void GeoStatistics::Update(const ::arrow::Array& values) { impl_->Update(values); }

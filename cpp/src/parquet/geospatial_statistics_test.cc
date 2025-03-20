@@ -61,7 +61,7 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
   std::string xyzm0 = test::MakeWKBPoint({10, 11, 12, 13}, true, true);
   ByteArray item0{xyzm0};
 
-  stats.Update(&item0, /*num_values=*/1, /*null_count=*/0);
+  stats.Update(&item0, /*num_values=*/1);
   EXPECT_TRUE(stats.is_valid());
   EXPECT_THAT(stats.get_lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
   EXPECT_THAT(stats.get_upper_bound(), ::testing::ElementsAre(10, 11, 12, 13));
@@ -70,7 +70,7 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
   std::string xyzm1 = test::MakeWKBPoint({20, 21, 22, 23}, true, true);
   ByteArray item1{xyzm1};
 
-  stats.Update(&item1, /*num_values=*/1, /*null_count=*/0);
+  stats.Update(&item1, /*num_values=*/1);
   EXPECT_TRUE(stats.is_valid());
   EXPECT_THAT(stats.get_lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
   EXPECT_THAT(stats.get_upper_bound(), ::testing::ElementsAre(20, 21, 22, 23));
@@ -101,7 +101,7 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
   // Validity bitmap with an extra bit on the front to check non-zero bits offset
   uint8_t validity = 0b00010111;
   GeoStatistics stats_spaced;
-  stats_spaced.UpdateSpaced(items, &validity, 1, 4, 4, 1);
+  stats_spaced.UpdateSpaced(items, &validity, 1, 4, 4);
 
   EXPECT_TRUE(stats.is_valid());
   EXPECT_THAT(stats_spaced.get_lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
@@ -114,12 +114,12 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
 
   // Check ingest of invalid WKB
   ByteArray invalid;
-  stats.Update(&invalid, /*num_values=*/1, /*null_count=*/0);
+  stats.Update(&invalid, /*num_values=*/1);
   EXPECT_FALSE(stats.is_valid());
   EXPECT_FALSE(stats.Encode().is_set());
 
   // This should be true even after ingesting more values
-  stats.Update(&item0, /*num_values=*/1, /*null_count=*/0);
+  stats.Update(&item0, /*num_values=*/1);
   EXPECT_FALSE(stats.is_valid());
   EXPECT_FALSE(stats.Encode().is_set());
   EXPECT_EQ(stats.ToString(), "GeoStatistics <invalid>\n");
