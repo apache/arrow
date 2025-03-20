@@ -150,6 +150,11 @@ class PARQUET_EXPORT GeoStatistics {
   std::array<double, 4> upper_bound() const;
 
   /// \brief Returns true if zero finite coordinates or geometry types were encountered
+  ///
+  /// This will occur, for example, if all encountered values were null. If all
+  /// encountered values were EMPTY (e.g., all values were POINT EMPTY, LINESTRING EMPTY,
+  /// etc.), is_empty() will still return false because the geometry types list will
+  /// contain values.
   bool is_empty() const;
 
   /// \brief Returns true if any Z values were encountered or false otherwise
