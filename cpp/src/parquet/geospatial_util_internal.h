@@ -171,13 +171,13 @@ class PARQUET_EXPORT WKBGeometryBounder {
   /// Returns SerializationError for any parse errors encountered. Bounds for
   /// any encountered coordinates are accumulated and the geometry type of
   /// the geometry is added to the internal geometry type list.
-  ::arrow::Status ReadGeometry(std::string_view bytes_wkb);
+  ::arrow::Status MergeGeometry(std::string_view bytes_wkb);
 
   /// \brief Accumulate the bounds of a previously-calculated BoundingBox
-  void ReadBox(const BoundingBox& box) { box_.Merge(box); }
+  void MergeBox(const BoundingBox& box) { box_.Merge(box); }
 
   /// \brief Accumulate a previously-calculated list of geometry types
-  void ReadGeometryTypes(::arrow::util::span<const int32_t> geospatial_types) {
+  void MergeGeometryTypes(::arrow::util::span<const int32_t> geospatial_types) {
     geospatial_types_.insert(geospatial_types.begin(), geospatial_types.end());
   }
 
@@ -197,10 +197,10 @@ class PARQUET_EXPORT WKBGeometryBounder {
   BoundingBox box_;
   std::unordered_set<int32_t> geospatial_types_;
 
-  ::arrow::Status ReadGeometryInternal(WKBBuffer* src, bool record_wkb_type);
+  ::arrow::Status MergeGeometryInternal(WKBBuffer* src, bool record_wkb_type);
 
-  ::arrow::Status ReadSequence(WKBBuffer* src, Dimensions dimensions, uint32_t n_coords,
-                               bool swap);
+  ::arrow::Status MergeSequence(WKBBuffer* src, Dimensions dimensions, uint32_t n_coords,
+                                bool swap);
 };
 
 }  // namespace parquet::geometry

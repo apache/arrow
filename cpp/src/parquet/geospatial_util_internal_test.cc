@@ -107,7 +107,7 @@ TEST_P(WKBTestFixture, TestWKBBounderNonEmpty) {
   WKBGeometryBounder bounder;
   EXPECT_EQ(bounder.Bounds(), BoundingBox());
 
-  ASSERT_OK(bounder.ReadGeometry(
+  ASSERT_OK(bounder.MergeGeometry(
       {reinterpret_cast<const char*>(item.wkb.data()), item.wkb.size()}));
 
   EXPECT_EQ(bounder.Bounds(), item.box);
@@ -428,7 +428,7 @@ TEST_P(MakeWKBPointTestFixture, MakeWKBPoint) {
   auto param = GetParam();
   std::string wkb = test::MakeWKBPoint(param.xyzm, param.has_z, param.has_m);
   WKBGeometryBounder bounder;
-  ASSERT_OK(bounder.ReadGeometry(wkb));
+  ASSERT_OK(bounder.MergeGeometry(wkb));
   const BoundingBox::XYZM& mins = bounder.Bounds().min;
   EXPECT_DOUBLE_EQ(param.xyzm[0], mins[0]);
   EXPECT_DOUBLE_EQ(param.xyzm[1], mins[1]);

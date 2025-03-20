@@ -143,10 +143,10 @@ std::vector<int32_t> WKBGeometryBounder::GeometryTypes() const {
   return out;
 }
 
-::arrow::Status WKBGeometryBounder::ReadGeometry(std::string_view bytes_wkb) {
+::arrow::Status WKBGeometryBounder::MergeGeometry(std::string_view bytes_wkb) {
   WKBBuffer src{reinterpret_cast<const uint8_t*>(bytes_wkb.data()),
                 static_cast<int64_t>(bytes_wkb.size())};
-  ARROW_RETURN_NOT_OK(ReadGeometryInternal(&src, /*record_wkb_type=*/true));
+  ARROW_RETURN_NOT_OK(MergeGeometryInternal(&src, /*record_wkb_type=*/true));
   if (src.size() != 0) {
     return ::arrow::Status::SerializationError(
         "Exepcted zero bytes after consuming WKB but got ", src.size());
@@ -155,8 +155,8 @@ std::vector<int32_t> WKBGeometryBounder::GeometryTypes() const {
   return ::arrow::Status::OK();
 }
 
-::arrow::Status WKBGeometryBounder::ReadGeometryInternal(WKBBuffer* src,
-                                                         bool record_wkb_type) {
+::arrow::Status WKBGeometryBounder::MergeGeometryInternal(WKBBuffer* src,
+                                                          bool record_wkb_type) {
   ARROW_ASSIGN_OR_RAISE(uint8_t endian, src->ReadUInt8());
 #if defined(ARROW_LITTLE_ENDIAN)
   bool swap = endian != 0x01;
@@ -176,13 +176,13 @@ std::vector<int32_t> WKBGeometryBounder::GeometryTypes() const {
   switch (geometry_type_and_dimensions.first) {
     case GeometryType::kPoint:
       ARROW_RETURN_NOT_OK(
-          ReadSequence(src, geometry_type_and_dimensions.second, 1, swap));
+          MergeSequence(src, geometry_type_and_dimensions.second, 1, swap));
       break;
 
     case GeometryType::kLinestring: {
       ARROW_ASSIGN_OR_RAISE(uint32_t n_coords, src->ReadUInt32(swap));
       ARROW_RETURN_NOT_OK(
-          ReadSequence(src, geometry_type_and_dimensions.second, n_coords, swap));
+          MergeSequence(src, geometry_type_and_dimensions.second, n_coords, swap));
       break;
     }
     case GeometryType::kPolygon: {
@@ -190,7 +190,7 @@ std::vector<int32_t> WKBGeometryBounder::GeometryTypes() const {
       for (uint32_t i = 0; i < n_parts; i++) {
         ARROW_ASSIGN_OR_RAISE(uint32_t n_coords, src->ReadUInt32(swap));
         ARROW_RETURN_NOT_OK(
-            ReadSequence(src, geometry_type_and_dimensions.second, n_coords, swap));
+            MergeSequence(src, geometry_type_and_dimensions.second, n_coords, swap));
       }
       break;
     }
@@ -204,7 +204,7 @@ std::vector<int32_t> WKBGeometryBounder::GeometryTypes() const {
     case GeometryType::kGeometryCollection: {
       ARROW_ASSIGN_OR_RAISE(uint32_t n_parts, src->ReadUInt32(swap));
       for (uint32_t i = 0; i < n_parts; i++) {
-        ARROW_RETURN_NOT_OK(ReadGeometryInternal(src, /*record_wkb_type*/ false));
+        ARROW_RETURN_NOT_OK(MergeGeometryInternal(src, /*record_wkb_type*/ false));
       }
       break;
     }
@@ -213,8 +213,8 @@ std::vector<int32_t> WKBGeometryBounder::GeometryTypes() const {
   return ::arrow::Status::OK();
 }
 
-::arrow::Status WKBGeometryBounder::ReadSequence(WKBBuffer* src, Dimensions dimensions,
-                                                 uint32_t n_coords, bool swap) {
+::arrow::Status WKBGeometryBounder::MergeSequence(WKBBuffer* src, Dimensions dimensions,
+                                                  uint32_t n_coords, bool swap) {
   switch (dimensions) {
     case Dimensions::kXY:
       return src->ReadDoubles<BoundingBox::XY>(

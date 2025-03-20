@@ -64,9 +64,9 @@ class GeoStatisticsImpl {
           "Wraparound X or Y is not supported by GeoStatistics::Merge()");
     }
 
-    bounder_.ReadBox(other.bounder_.Bounds());
+    bounder_.MergeBox(other.bounder_.Bounds());
     std::vector<int32_t> other_geometry_types = other.bounder_.GeometryTypes();
-    bounder_.ReadGeometryTypes(other_geometry_types);
+    bounder_.MergeGeometryTypes(other_geometry_types);
   }
 
   void Update(const ByteArray* values, int64_t num_values) {
@@ -82,7 +82,7 @@ class GeoStatisticsImpl {
     for (int64_t i = 0; i < num_values; i++) {
       const ByteArray& item = values[i];
       ::arrow::Status status =
-          bounder_.ReadGeometry({reinterpret_cast<const char*>(item.ptr), item.len});
+          bounder_.MergeGeometry({reinterpret_cast<const char*>(item.ptr), item.len});
       if (!status.ok()) {
         is_valid_ = false;
         return;
@@ -109,7 +109,7 @@ class GeoStatisticsImpl {
         [&](int64_t position, int64_t length) {
           for (int64_t i = 0; i < length; i++) {
             ByteArray item = SafeLoad(values + i + position);
-            ARROW_RETURN_NOT_OK(bounder_.ReadGeometry(
+            ARROW_RETURN_NOT_OK(bounder_.MergeGeometry(
                 {reinterpret_cast<const char*>(item.ptr), item.len}));
           }
 
@@ -210,8 +210,8 @@ class GeoStatisticsImpl {
       box.max[3] = encoded.mmax;
     }
 
-    bounder_.ReadBox(box);
-    bounder_.ReadGeometryTypes(encoded.geospatial_types);
+    bounder_.MergeBox(box);
+    bounder_.MergeGeometryTypes(encoded.geospatial_types);
   }
 
   bool is_wraparound_x() const {
@@ -249,7 +249,7 @@ class GeoStatisticsImpl {
     const auto& binary_array = static_cast<const ArrayType&>(values);
     for (int64_t i = 0; i < binary_array.length(); ++i) {
       if (!binary_array.IsNull(i)) {
-        ::arrow::Status status = bounder_.ReadGeometry(binary_array.GetView(i));
+        ::arrow::Status status = bounder_.MergeGeometry(binary_array.GetView(i));
         if (!status.ok()) {
           is_valid_ = false;
           return;
