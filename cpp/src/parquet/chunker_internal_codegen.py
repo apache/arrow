@@ -80,7 +80,12 @@ constexpr uint64_t kGearhashTable[8][256] = {{
 
 
 def generate_hash(n: int, seed: int):
-    """Produce predictable hash values for a given seed and n using MD5."""
+    """Produce predictable hash values for a given seed and n using MD5.
+
+    The value can be arbitrary as long as it is deterministic and has a uniform
+    distribution. The MD5 hash is used to produce a 16 character hexadecimal
+    string which is then converted to a 64-bit integer.
+    """
     value = bytes([seed] * 64 + [n] * 64)
     hasher = hashlib.md5(value)
     return hasher.hexdigest()[:16]
