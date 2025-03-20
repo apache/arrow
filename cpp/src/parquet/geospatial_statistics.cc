@@ -33,23 +33,9 @@ namespace parquet {
 class GeoStatisticsImpl {
  public:
   bool Equals(const GeoStatisticsImpl& other) const {
-    if (is_valid_ != other.is_valid_) {
-      return false;
-    }
-
-    if (!is_valid_ && !other.is_valid_) {
-      return true;
-    }
-
-    if (bounder_.GeometryTypes() != other.bounder_.GeometryTypes()) {
-      return false;
-    }
-
-    if (bounder_.Bounds() != other.bounder_.Bounds()) {
-      return false;
-    }
-
-    return true;
+    return is_valid_ == other.is_valid_ &&
+           bounder_.GeometryTypes() == other.bounder_.GeometryTypes() &&
+           bounder_.Bounds() == other.bounder_.Bounds();
   }
 
   void Merge(const GeoStatisticsImpl& other) {
