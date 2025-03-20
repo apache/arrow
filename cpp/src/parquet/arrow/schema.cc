@@ -435,7 +435,13 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
         type = ParquetType::BYTE_ARRAY;
         logical_type = LogicalType::JSON();
         break;
+      } else if (ext_type->extension_name() == std::string("arrow.uuid")) {
+        type = ParquetType::FIXED_LEN_BYTE_ARRAY;
+        logical_type = LogicalType::UUID();
+        length = 16;
+        break;
       }
+
       std::shared_ptr<::arrow::Field> storage_field = ::arrow::field(
           name, ext_type->storage_type(), field->nullable(), field->metadata());
       return FieldToNode(name, storage_field, properties, arrow_properties, out);
