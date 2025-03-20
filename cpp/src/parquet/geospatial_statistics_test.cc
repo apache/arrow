@@ -29,15 +29,15 @@ namespace parquet::geometry {
 
 TEST(TestGeoStatistics, TestDefaults) {
   GeoStatistics stats;
-  EXPECT_EQ(stats.get_geometry_types().size(), 0);
+  EXPECT_EQ(stats.geometry_types().size(), 0);
   EXPECT_TRUE(stats.is_valid());
   EXPECT_TRUE(stats.is_empty());
   EXPECT_FALSE(stats.has_z());
   EXPECT_FALSE(stats.has_m());
-  EXPECT_EQ(stats.get_xmax() - stats.get_xmin(), -kInf);
-  EXPECT_EQ(stats.get_ymax() - stats.get_ymin(), -kInf);
-  EXPECT_EQ(stats.get_zmax() - stats.get_zmin(), -kInf);
-  EXPECT_EQ(stats.get_mmax() - stats.get_mmin(), -kInf);
+  EXPECT_EQ(stats.xmax() - stats.xmin(), -kInf);
+  EXPECT_EQ(stats.ymax() - stats.ymin(), -kInf);
+  EXPECT_EQ(stats.zmax() - stats.zmin(), -kInf);
+  EXPECT_EQ(stats.mmax() - stats.mmin(), -kInf);
   EXPECT_TRUE(stats.Equals(GeoStatistics()));
 
   EXPECT_EQ(stats.ToString(),
@@ -63,18 +63,18 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
 
   stats.Update(&item0, /*num_values=*/1);
   EXPECT_TRUE(stats.is_valid());
-  EXPECT_THAT(stats.get_lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
-  EXPECT_THAT(stats.get_upper_bound(), ::testing::ElementsAre(10, 11, 12, 13));
-  EXPECT_THAT(stats.get_geometry_types(), ::testing::ElementsAre(3001));
+  EXPECT_THAT(stats.lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
+  EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(10, 11, 12, 13));
+  EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(3001));
 
   std::string xyzm1 = test::MakeWKBPoint({20, 21, 22, 23}, true, true);
   ByteArray item1{xyzm1};
 
   stats.Update(&item1, /*num_values=*/1);
   EXPECT_TRUE(stats.is_valid());
-  EXPECT_THAT(stats.get_lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
-  EXPECT_THAT(stats.get_upper_bound(), ::testing::ElementsAre(20, 21, 22, 23));
-  EXPECT_THAT(stats.get_geometry_types(), ::testing::ElementsAre(3001));
+  EXPECT_THAT(stats.lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
+  EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(20, 21, 22, 23));
+  EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(3001));
 
   // Check recreating the statistics with actual values
   auto encoded = stats.Encode();
@@ -104,9 +104,9 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
   stats_spaced.UpdateSpaced(items, &validity, 1, 4, 4);
 
   EXPECT_TRUE(stats.is_valid());
-  EXPECT_THAT(stats_spaced.get_lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
-  EXPECT_THAT(stats_spaced.get_upper_bound(), ::testing::ElementsAre(30, 31, 32, 33));
-  EXPECT_THAT(stats_spaced.get_geometry_types(), ::testing::ElementsAre(3001));
+  EXPECT_THAT(stats_spaced.lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
+  EXPECT_THAT(stats_spaced.upper_bound(), ::testing::ElementsAre(30, 31, 32, 33));
+  EXPECT_THAT(stats_spaced.geometry_types(), ::testing::ElementsAre(3001));
 
   // Check merge
   stats.Merge(stats_spaced);
@@ -154,10 +154,10 @@ TEST(TestGeoStatistics, TestUpdateArray) {
 
   GeoStatistics stats;
   stats.Update(*binary_array);
-  EXPECT_EQ(stats.get_xmin(), 0);
-  EXPECT_EQ(stats.get_ymin(), 1);
-  EXPECT_EQ(stats.get_xmax(), 14);
-  EXPECT_EQ(stats.get_ymax(), 15);
+  EXPECT_EQ(stats.xmin(), 0);
+  EXPECT_EQ(stats.ymin(), 1);
+  EXPECT_EQ(stats.xmax(), 14);
+  EXPECT_EQ(stats.ymax(), 15);
 
   GeoStatistics stats_large;
   stats_large.Update(*large_binary_array.make_array());

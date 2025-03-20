@@ -106,11 +106,11 @@ class PARQUET_EXPORT GeoStatistics {
   /// case, these bounds represent the union of the intervals [xmax, Inf] and [-Inf,
   /// xmin]. This implementation does not yet generate these types of bounds but they may
   /// be encountered in files written by other writers.
-  double get_xmin() const;
+  double xmin() const;
 
   /// \brief The maximum encountered value in the X dimension, or -Inf if no X values were
-  /// encountered, subject to "wrap around" bounds (see GetXMin()).
-  double get_xmax() const;
+  /// encountered, subject to "wrap around" bounds (see xmin()).
+  double xmax() const;
 
   /// \brief The minimum encountered value in the Y dimension, or Inf if no Y values were
   /// encountered.
@@ -119,33 +119,33 @@ class PARQUET_EXPORT GeoStatistics {
   /// case, these bounds represent the union of the intervals [ymax, Inf] and [-Inf,
   /// ymin]. This implementation does not yet generate these types of bounds but they may
   /// be encountered in files written by other readers.
-  double get_ymin() const;
+  double ymin() const;
 
   /// \brief The maximum encountered value in the Y dimension, or -Inf if no Y values were
-  /// encountered, subject to "wrap around" bounds (see GetXMin()).
-  double get_ymax() const;
+  /// encountered, subject to "wrap around" bounds (see ymin()).
+  double ymax() const;
 
   /// \brief The minimum encountered value in the Z dimension, or Inf if no Z values were
   /// encountered. Wrap around bounds are not permitted in the Z dimension.
-  double get_zmin() const;
+  double zmin() const;
 
   /// \brief The maximum encountered value in the Z dimension, or -Inf if no Z values were
   /// encountered. Wrap around bounds are not permitted in the Z dimension.
-  double get_zmax() const;
+  double zmax() const;
 
   /// \brief The minimum encountered value in the M dimension, or Inf if no M values were
   /// encountered.  Wrap around bounds are not permitted in the M dimension.
-  double get_mmin() const;
+  double mmin() const;
 
   /// \brief The maximum encountered value in the M dimension, or -Inf if no M values were
   /// encountered.  Wrap around bounds are not permitted in the M dimension.
-  double get_mmax() const;
+  double mmax() const;
 
   /// \brief All minimum values in XYZM order
-  std::array<double, 4> get_lower_bound() const;
+  std::array<double, 4> lower_bound() const;
 
   /// \brief All maximum values in XYZM order
-  std::array<double, 4> get_upper_bound() const;
+  std::array<double, 4> upper_bound() const;
 
   /// \brief Returns true if zero finite coordinates or geometry types were encountered
   bool is_empty() const;
@@ -159,7 +159,7 @@ class PARQUET_EXPORT GeoStatistics {
   /// \brief Return the geometry type codes from the well-known binary encountered
   ///
   /// This implementation always returns sorted output with no duplicates.
-  std::vector<int32_t> get_geometry_types() const;
+  std::vector<int32_t> geometry_types() const;
 
   /// \brief Return a string representation of these statistics
   std::string ToString() const;

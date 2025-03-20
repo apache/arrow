@@ -1925,13 +1925,13 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndRead) {
   ASSERT_TRUE(metadata_accessor()->is_geo_stats_set());
   std::shared_ptr<GeoStatistics> geospatial_statistics = metadata_geo_stats();
   ASSERT_TRUE(geospatial_statistics != nullptr);
-  std::vector<int32_t> geospatial_types = geospatial_statistics->get_geometry_types();
+  std::vector<int32_t> geospatial_types = geospatial_statistics->geometry_types();
   EXPECT_EQ(1, geospatial_types.size());
   EXPECT_EQ(1, geospatial_types[0]);
-  EXPECT_DOUBLE_EQ(0, geospatial_statistics->get_xmin());
-  EXPECT_DOUBLE_EQ(1, geospatial_statistics->get_ymin());
-  EXPECT_DOUBLE_EQ(99, geospatial_statistics->get_xmax());
-  EXPECT_DOUBLE_EQ(100, geospatial_statistics->get_ymax());
+  EXPECT_DOUBLE_EQ(0, geospatial_statistics->xmin());
+  EXPECT_DOUBLE_EQ(1, geospatial_statistics->ymin());
+  EXPECT_DOUBLE_EQ(99, geospatial_statistics->xmax());
+  EXPECT_DOUBLE_EQ(100, geospatial_statistics->ymax());
   EXPECT_FALSE(geospatial_statistics->has_z());
   EXPECT_FALSE(geospatial_statistics->has_m());
 }
@@ -1981,13 +1981,13 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndReadSpaced) {
 
   std::shared_ptr<GeoStatistics> geospatial_statistics = metadata_geo_stats();
   ASSERT_TRUE(geospatial_statistics != nullptr);
-  std::vector<int32_t> geospatial_types = geospatial_statistics->get_geometry_types();
+  std::vector<int32_t> geospatial_types = geospatial_statistics->geometry_types();
   EXPECT_EQ(1, geospatial_types.size());
   EXPECT_EQ(1, geospatial_types[0]);
-  EXPECT_DOUBLE_EQ(1, geospatial_statistics->get_xmin());
-  EXPECT_DOUBLE_EQ(2, geospatial_statistics->get_ymin());
-  EXPECT_DOUBLE_EQ(98, geospatial_statistics->get_xmax());
-  EXPECT_DOUBLE_EQ(99, geospatial_statistics->get_ymax());
+  EXPECT_DOUBLE_EQ(1, geospatial_statistics->xmin());
+  EXPECT_DOUBLE_EQ(2, geospatial_statistics->ymin());
+  EXPECT_DOUBLE_EQ(98, geospatial_statistics->xmax());
+  EXPECT_DOUBLE_EQ(99, geospatial_statistics->ymax());
   EXPECT_FALSE(geospatial_statistics->has_z());
   EXPECT_FALSE(geospatial_statistics->has_m());
 }

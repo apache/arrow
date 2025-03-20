@@ -215,11 +215,11 @@ class GeoStatisticsImpl {
   }
 
   bool is_wraparound_x() const {
-    return is_wraparound(get_lower_bound()[0], get_upper_bound()[0]);
+    return is_wraparound(lower_bound()[0], upper_bound()[0]);
   }
 
   bool is_wraparound_y() const {
-    return is_wraparound(get_lower_bound()[1], get_upper_bound()[1]);
+    return is_wraparound(lower_bound()[1], upper_bound()[1]);
   }
 
   bool is_valid() const { return is_valid_; }
@@ -234,11 +234,11 @@ class GeoStatisticsImpl {
     return true;
   }
 
-  const std::array<double, 4>& get_lower_bound() const { return bounder_.Bounds().min; }
+  const std::array<double, 4>& lower_bound() const { return bounder_.Bounds().min; }
 
-  const std::array<double, 4>& get_upper_bound() const { return bounder_.Bounds().max; }
+  const std::array<double, 4>& upper_bound() const { return bounder_.Bounds().max; }
 
-  std::vector<int32_t> get_geometry_types() const { return bounder_.GeometryTypes(); }
+  std::vector<int32_t> geometry_types() const { return bounder_.GeometryTypes(); }
 
  private:
   geometry::WKBGeometryBounder bounder_;
@@ -305,40 +305,36 @@ void GeoStatistics::Decode(const EncodedGeoStatistics& encoded) {
   impl_->Update(encoded);
 }
 
-double GeoStatistics::get_xmin() const { return impl_->get_lower_bound()[0]; }
+double GeoStatistics::xmin() const { return impl_->lower_bound()[0]; }
 
-double GeoStatistics::get_xmax() const { return impl_->get_upper_bound()[0]; }
+double GeoStatistics::xmax() const { return impl_->upper_bound()[0]; }
 
-double GeoStatistics::get_ymin() const { return impl_->get_lower_bound()[1]; }
+double GeoStatistics::ymin() const { return impl_->lower_bound()[1]; }
 
-double GeoStatistics::get_ymax() const { return impl_->get_upper_bound()[1]; }
+double GeoStatistics::ymax() const { return impl_->upper_bound()[1]; }
 
-double GeoStatistics::get_zmin() const { return impl_->get_lower_bound()[2]; }
+double GeoStatistics::zmin() const { return impl_->lower_bound()[2]; }
 
-double GeoStatistics::get_zmax() const { return impl_->get_upper_bound()[2]; }
+double GeoStatistics::zmax() const { return impl_->upper_bound()[2]; }
 
-double GeoStatistics::get_mmin() const { return impl_->get_lower_bound()[3]; }
+double GeoStatistics::mmin() const { return impl_->lower_bound()[3]; }
 
-double GeoStatistics::get_mmax() const { return impl_->get_upper_bound()[3]; }
+double GeoStatistics::mmax() const { return impl_->upper_bound()[3]; }
 
-std::array<double, 4> GeoStatistics::get_lower_bound() const {
-  return impl_->get_lower_bound();
-}
+std::array<double, 4> GeoStatistics::lower_bound() const { return impl_->lower_bound(); }
 
-std::array<double, 4> GeoStatistics::get_upper_bound() const {
-  return impl_->get_upper_bound();
-}
+std::array<double, 4> GeoStatistics::upper_bound() const { return impl_->upper_bound(); }
 
 bool GeoStatistics::is_empty() const {
-  return impl_->get_geometry_types().empty() && impl_->bounds_empty();
+  return impl_->geometry_types().empty() && impl_->bounds_empty();
 }
 
-bool GeoStatistics::has_z() const { return (get_zmax() - get_zmin()) > 0; }
+bool GeoStatistics::has_z() const { return (zmax() - zmin()) > 0; }
 
-bool GeoStatistics::has_m() const { return (get_mmax() - get_mmin()) > 0; }
+bool GeoStatistics::has_m() const { return (mmax() - mmin()) > 0; }
 
-std::vector<int32_t> GeoStatistics::get_geometry_types() const {
-  return impl_->get_geometry_types();
+std::vector<int32_t> GeoStatistics::geometry_types() const {
+  return impl_->geometry_types();
 }
 
 std::string GeoStatistics::ToString() const {
@@ -349,22 +345,22 @@ std::string GeoStatistics::ToString() const {
   std::stringstream ss;
   ss << "GeoStatistics " << std::endl;
   ss << "  x: "
-     << "[" << get_xmin() << ", " << get_xmax() << "]" << std::endl;
+     << "[" << xmin() << ", " << xmax() << "]" << std::endl;
   ss << "  y: "
-     << "[" << get_ymin() << ", " << get_ymax() << "]" << std::endl;
+     << "[" << ymin() << ", " << ymax() << "]" << std::endl;
 
   if (has_z()) {
     ss << "  z: "
-       << "[" << get_zmin() << ", " << get_zmax() << "]" << std::endl;
+       << "[" << zmin() << ", " << zmax() << "]" << std::endl;
   }
 
   if (has_m()) {
     ss << "  m: "
-       << "[" << get_mmin() << ", " << get_mmax() << "]" << std::endl;
+       << "[" << mmin() << ", " << mmax() << "]" << std::endl;
   }
 
   ss << "  geometry_types:";
-  for (int32_t geometry_type : get_geometry_types()) {
+  for (int32_t geometry_type : geometry_types()) {
     ss << " " << geometry_type;
   }
 
