@@ -167,30 +167,28 @@ std::vector<int32_t> WKBGeometryBounder::GeometryTypes() const {
   ARROW_ASSIGN_OR_RAISE(uint32_t wkb_geometry_type, src->ReadUInt32(swap));
   ARROW_ASSIGN_OR_RAISE(auto geometry_type_and_dimensions,
                         ParseGeometryType(wkb_geometry_type));
+  auto [geometry_type, dimensions] = geometry_type_and_dimensions;
 
   // Keep track of geometry types encountered if at the top level
   if (record_wkb_type) {
     geospatial_types_.insert(static_cast<int32_t>(wkb_geometry_type));
   }
 
-  switch (geometry_type_and_dimensions.first) {
+  switch (geometry_type) {
     case GeometryType::kPoint:
-      ARROW_RETURN_NOT_OK(
-          MergeSequence(src, geometry_type_and_dimensions.second, 1, swap));
+      ARROW_RETURN_NOT_OK(MergeSequence(src, dimensions, 1, swap));
       break;
 
     case GeometryType::kLinestring: {
       ARROW_ASSIGN_OR_RAISE(uint32_t n_coords, src->ReadUInt32(swap));
-      ARROW_RETURN_NOT_OK(
-          MergeSequence(src, geometry_type_and_dimensions.second, n_coords, swap));
+      ARROW_RETURN_NOT_OK(MergeSequence(src, dimensions, n_coords, swap));
       break;
     }
     case GeometryType::kPolygon: {
       ARROW_ASSIGN_OR_RAISE(uint32_t n_parts, src->ReadUInt32(swap));
       for (uint32_t i = 0; i < n_parts; i++) {
         ARROW_ASSIGN_OR_RAISE(uint32_t n_coords, src->ReadUInt32(swap));
-        ARROW_RETURN_NOT_OK(
-            MergeSequence(src, geometry_type_and_dimensions.second, n_coords, swap));
+        ARROW_RETURN_NOT_OK(MergeSequence(src, dimensions, n_coords, swap));
       }
       break;
     }
