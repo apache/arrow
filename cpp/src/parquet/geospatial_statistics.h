@@ -51,7 +51,7 @@ class PARQUET_EXPORT EncodedGeoStatistics {
   bool has_m() const { return !std::isinf(mmin - mmax); }
 
   bool is_set() const {
-    return !geospatial_types.empty() || has_x() || has_y() || has_z() || has_m();
+    return !geospatial_types.empty() || (has_x() && has_y());
   }
 };
 
@@ -108,7 +108,7 @@ class PARQUET_EXPORT GeoStatistics {
   /// The Parquet definition allows for "wrap around" bounds where xmin > xmax. In this
   /// case, these bounds represent the union of the intervals [xmax, Inf] and [-Inf,
   /// xmin]. This implementation does not yet generate these types of bounds but they may
-  /// be encountered in files written by other readers.
+  /// be encountered in files written by other writers.
   double get_xmin() const;
 
   /// \brief The maximum encountered value in the X dimension, or -Inf if no X values were

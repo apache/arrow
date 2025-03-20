@@ -61,7 +61,7 @@ class GeoStatisticsImpl {
     if (is_wraparound_x() || is_wraparound_y() || other.is_wraparound_x() ||
         other.is_wraparound_y()) {
       throw ParquetException(
-          "Wraparound X or Y is not suppored by GeoStatistics::Merge()");
+          "Wraparound X or Y is not supported by GeoStatistics::Merge()");
     }
 
     bounder_.ReadBox(other.bounder_.Bounds());
