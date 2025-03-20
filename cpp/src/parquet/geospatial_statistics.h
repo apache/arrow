@@ -31,8 +31,7 @@ namespace parquet {
 ///
 /// See the Parquet Thrift definition and GeoStatistics for the specific definition
 /// of field values.
-class PARQUET_EXPORT EncodedGeoStatistics {
- public:
+struct PARQUET_EXPORT EncodedGeoStatistics {
   static constexpr double kInf = std::numeric_limits<double>::infinity();
 
   double xmin{kInf};
@@ -50,9 +49,7 @@ class PARQUET_EXPORT EncodedGeoStatistics {
   bool has_z() const { return !std::isinf(zmin - zmax); }
   bool has_m() const { return !std::isinf(mmin - mmax); }
 
-  bool is_set() const {
-    return !geospatial_types.empty() || (has_x() && has_y());
-  }
+  bool is_set() const { return !geospatial_types.empty() || (has_x() && has_y()); }
 };
 
 class GeoStatisticsImpl;

@@ -89,7 +89,7 @@ class EncodedStatistics;
 class Statistics;
 struct SizeStatistics;
 class GeoStatistics;
-class EncodedGeoStatistics;
+struct EncodedGeoStatistics;
 
 class ColumnIndex;
 class OffsetIndex;
