@@ -112,6 +112,7 @@ struct Winsorize {
         CallFunction("quantile", {input}, &quantile_options, ctx->exec_context()));
     auto quantile_array = quantile.array_as<ArrayType>();
     DCHECK_EQ(quantile_array->length(), 2);
+    // The quantile function outputs either all nulls or no nulls at all.
     if (quantile_array->null_count() == 2) {
       return std::nullopt;
     }

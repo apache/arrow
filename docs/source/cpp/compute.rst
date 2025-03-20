@@ -1728,8 +1728,8 @@ overflow is detected.
 
 * \(2) :member:`CumulativeOptions::start` is ignored.
 
-Other numeric functions
-~~~~~~~~~~~~~~~~~~~~~~~
+Statistical functions
+~~~~~~~~~~~~~~~~~~~~~
 
 +-------------------------+-------+-------------+-------------+--------------------------------+-----------+
 | Function name           | Arity | Input types | Output type | Options class                  | Notes     |
