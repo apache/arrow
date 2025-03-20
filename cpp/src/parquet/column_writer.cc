@@ -1246,10 +1246,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         (SortOrder::UNKNOWN != descr_->sort_order())) {
       page_statistics_ = MakeStatistics<ParquetType>(descr_, allocator_);
       chunk_statistics_ = MakeStatistics<ParquetType>(descr_, allocator_);
-
-      if (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry()) {
-        chunk_geospatial_statistics_ = std::make_shared<GeoStatistics>();
-      }
+    } else if (properties->statistics_enabled(descr_->path()) &&
+               descr_->logical_type() != nullptr &&
+               descr_->logical_type()->is_geometry()) {
+      chunk_geospatial_statistics_ = std::make_shared<GeoStatistics>();
     }
 
     if (properties->size_statistics_level() == SizeStatisticsLevel::ColumnChunk ||
