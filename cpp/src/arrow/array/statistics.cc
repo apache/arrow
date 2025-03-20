@@ -174,9 +174,10 @@ Status EnumerateStatistics(const ArrayDataVector& extracted_array_data,
 
   statistics.key = ARROW_STATISTICS_KEY_ROW_COUNT_EXACT;
   statistics.type = int64();
-  statistics.value = 0;
+  statistics.value = ArrayStatistics::ValueType{int64_t{0}};
   if (!extracted_array_data.empty()) {
-    statistics.value = extracted_array_data[0]->length;
+    statistics.value =
+        ArrayStatistics::ValueType{int64_t{extracted_array_data[0]->length}};
   }
   RETURN_NOT_OK(on_statistics(statistics));
   statistics.start_new_column = false;

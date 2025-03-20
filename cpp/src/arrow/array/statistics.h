@@ -99,7 +99,7 @@ struct ARROW_EXPORT ArrayStatistics {
     return ValueToArrowType(max, array_type);
   }
 
-  /// \brief Use for Equality of two Scalar.
+  /// \brief Use for the Equality of two Scalar.
   EqualOptions options = EqualOptions::Defaults();
 
   /// \brief Whether the maximum value is exact or not
