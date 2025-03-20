@@ -40,8 +40,8 @@ enum class Dimensions {
   kXYZ = 1,
   kXYM = 2,
   kXYZM = 3,
-  kWKBValueMin = 0,
-  kWKBValueMax = 3
+  kValueMin = 0,
+  kValueMax = 3
 };
 
 /// \brief The supported set of geometry types allowed by ISO well-known binary
@@ -56,8 +56,8 @@ enum class GeometryType {
   kMultiLinestring = 5,
   kMultiPolygon = 6,
   kGeometryCollection = 7,
-  kWKBValueMin = 1,
-  kWKBValueMax = 7
+  kValueMin = 1,
+  kValueMax = 7
 };
 
 /// \brief A collection of intervals representing the encountered ranges of values

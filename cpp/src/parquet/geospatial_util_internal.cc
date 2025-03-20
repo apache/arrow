@@ -122,10 +122,10 @@ namespace {
   uint32_t geometry_type_component = wkb_geometry_type % 1000;
   uint32_t dimensions_component = wkb_geometry_type / 1000;
 
-  auto min_geometry_type_value = static_cast<uint32_t>(GeometryType::kWKBValueMin);
-  auto max_geometry_type_value = static_cast<uint32_t>(GeometryType::kWKBValueMax);
-  auto min_dimension_value = static_cast<uint32_t>(Dimensions::kWKBValueMin);
-  auto max_dimension_value = static_cast<uint32_t>(Dimensions::kWKBValueMax);
+  auto min_geometry_type_value = static_cast<uint32_t>(GeometryType::kValueMin);
+  auto max_geometry_type_value = static_cast<uint32_t>(GeometryType::kValueMax);
+  auto min_dimension_value = static_cast<uint32_t>(Dimensions::kValueMin);
+  auto max_dimension_value = static_cast<uint32_t>(Dimensions::kValueMax);
 
   if (geometry_type_component < min_geometry_type_value ||
       geometry_type_component > max_geometry_type_value ||
