@@ -233,14 +233,15 @@ struct Zip<std::tuple<Ranges...>, std::index_sequence<I...>> {
 /// \endcode
 template <typename I = size_t>
 constexpr auto Enumerate = [] {
+  using Int = I;
   struct {
     struct sentinel {};
     constexpr sentinel end() const { return {}; }
 
     struct iterator {
-      I value{0};
+      Int value{0};
 
-      constexpr I operator*() { return value; }
+      constexpr Int operator*() { return value; }
 
       constexpr iterator& operator++() {
         ++value;
