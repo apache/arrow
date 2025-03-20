@@ -37,11 +37,6 @@ class WKBBuffer {
   WKBBuffer() : data_(NULLPTR), size_(0) {}
   WKBBuffer(const uint8_t* data, int64_t size) : data_(data), size_(size) {}
 
-  void Init(const uint8_t* data, int64_t size) {
-    data_ = data;
-    size_ = size;
-  }
-
   ::arrow::Result<uint8_t> ReadUInt8() { return ReadChecked<uint8_t>(); }
 
   ::arrow::Result<uint32_t> ReadUInt32(bool swap) {
