@@ -177,8 +177,7 @@ namespace {
 namespace {
 ::arrow::Result<std::shared_ptr<const LogicalType>> ParseGeoArrowJSON(
     const std::string& serialized_data, const ArrowWriterProperties& arrow_properties) {
-  return ::arrow::Status::NotImplemented(
-      "ParseGeoArrowJSON requires ARROW_JSON");
+  return ::arrow::Status::NotImplemented("ParseGeoArrowJSON requires ARROW_JSON");
 }
 }  // namespace
 #endif
