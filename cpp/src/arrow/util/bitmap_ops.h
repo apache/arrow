@@ -39,11 +39,13 @@ namespace internal {
 /// \param[in] bitmap source data
 /// \param[in] offset bit offset into the source data
 /// \param[in] length number of bits to copy
+/// \param[in] out_offset bit offset into the output buffer
 ///
 /// \return Status message
 ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* bitmap,
-                                           int64_t offset, int64_t length);
+                                           int64_t offset, int64_t length,
+                                           int64_t out_offset = 0);
 
 /// Copy a bit range of an existing bitmap into an existing bitmap
 ///

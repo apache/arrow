@@ -758,6 +758,8 @@ if(ARROW_COMPUTE)
        compute/kernels/aggregate_tdigest.cc
        compute/kernels/aggregate_var_std.cc
        compute/kernels/hash_aggregate.cc
+       compute/kernels/hash_aggregate_numeric.cc
+       compute/kernels/hash_aggregate_pivot.cc
        compute/kernels/pivot_internal.cc
        compute/kernels/scalar_arithmetic.cc
        compute/kernels/scalar_boolean.cc

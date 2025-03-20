@@ -1222,6 +1222,25 @@ class ExtractRegexOptions(_ExtractRegexOptions):
         self._set_options(pattern)
 
 
+cdef class _ExtractRegexSpanOptions(FunctionOptions):
+    def _set_options(self, pattern):
+        self.wrapped.reset(new CExtractRegexSpanOptions(tobytes(pattern)))
+
+
+class ExtractRegexSpanOptions(_ExtractRegexSpanOptions):
+    """
+    Options for the `extract_regex_span` function.
+
+    Parameters
+    ----------
+    pattern : str
+        Regular expression with named capture fields.
+    """
+
+    def __init__(self, pattern):
+        self._set_options(pattern)
+
+
 cdef class _SliceOptions(FunctionOptions):
     def _set_options(self, start, stop, step):
         self.wrapped.reset(new CSliceOptions(start, stop, step))
@@ -1890,8 +1909,8 @@ class VarianceOptions(_VarianceOptions):
 
 
 cdef class _SkewOptions(FunctionOptions):
-    def _set_options(self, skip_nulls, min_count):
-        self.wrapped.reset(new CSkewOptions(skip_nulls, min_count))
+    def _set_options(self, skip_nulls, biased, min_count):
+        self.wrapped.reset(new CSkewOptions(skip_nulls, biased, min_count))
 
 
 class SkewOptions(_SkewOptions):
@@ -1901,11 +1920,14 @@ class SkewOptions(_SkewOptions):
     Parameters
     ----------
     {_skip_nulls_doc()}
+    biased : bool, default True
+        Whether the calculated value is biased.
+        If False, the value computed includes a correction factor to reduce bias.
     {_min_count_doc(default=0)}
     """
 
-    def __init__(self, *, skip_nulls=True, min_count=0):
-        self._set_options(skip_nulls, min_count)
+    def __init__(self, *, skip_nulls=True, biased=True, min_count=0):
+        self._set_options(skip_nulls, biased, min_count)
 
 
 cdef class _SplitOptions(FunctionOptions):

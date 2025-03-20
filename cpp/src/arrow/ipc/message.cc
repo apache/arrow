@@ -62,7 +62,7 @@ class Message::MessageImpl {
       return Status::Invalid("Old metadata version not supported");
     }
 
-    if (message_->version() > flatbuf::MetadataVersion::MAX) {
+    if (message_->version() > flatbuf::MetadataVersion::MetadataVersion_MAX) {
       return Status::Invalid("Unsupported future MetadataVersion: ",
                              static_cast<int16_t>(message_->version()));
     }
@@ -79,15 +79,15 @@ class Message::MessageImpl {
 
   MessageType type() const {
     switch (message_->header_type()) {
-      case flatbuf::MessageHeader::Schema:
+      case flatbuf::MessageHeader::MessageHeader_Schema:
         return MessageType::SCHEMA;
-      case flatbuf::MessageHeader::DictionaryBatch:
+      case flatbuf::MessageHeader::MessageHeader_DictionaryBatch:
         return MessageType::DICTIONARY_BATCH;
-      case flatbuf::MessageHeader::RecordBatch:
+      case flatbuf::MessageHeader::MessageHeader_RecordBatch:
         return MessageType::RECORD_BATCH;
-      case flatbuf::MessageHeader::Tensor:
+      case flatbuf::MessageHeader::MessageHeader_Tensor:
         return MessageType::TENSOR;
-      case flatbuf::MessageHeader::SparseTensor:
+      case flatbuf::MessageHeader::MessageHeader_SparseTensor:
         return MessageType::SPARSE_TENSOR;
       default:
         return MessageType::NONE;
