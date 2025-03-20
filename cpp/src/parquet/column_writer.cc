@@ -1747,7 +1747,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
     if constexpr (std::is_same<T, ByteArray>::value) {
       if (chunk_geospatial_statistics_ != nullptr) {
-        chunk_geospatial_statistics_->Update(values, num_values, num_nulls);
+        chunk_geospatial_statistics_->Update(values, num_values);
       }
     }
   }
@@ -1784,8 +1784,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if constexpr (std::is_same<T, ByteArray>::value) {
       if (chunk_geospatial_statistics_ != nullptr) {
         chunk_geospatial_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
-                                                   num_spaced_values, num_values,
-                                                   num_nulls);
+                                                   num_spaced_values, num_values);
       }
     }
   }
