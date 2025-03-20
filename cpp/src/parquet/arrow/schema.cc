@@ -245,23 +245,6 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   return Status::OK();
 }
 
-Result<std::shared_ptr<const LogicalType>> GeospatialLogicalTypeFromArrow(
-    const std::string& serialized_data, const ArrowWriterProperties& arrow_properties) {
-  // Without a JSON parser, we can still handle a few trivial cases
-  if (serialized_data.empty() || serialized_data == "{}") {
-    return LogicalType::Geometry();
-  } else if (
-      serialized_data ==
-      R"({"edges": "spherical", "crs": "OGC:CRS84", "crs_type": "authority_code"})") {
-    return LogicalType::Geography();
-  } else if (serialized_data == R"({"crs": "OGC:CRS84", "crs_type": "authority_code"})") {
-    return LogicalType::Geometry();
-  } else {
-    // Will return an error status if Parquet was not built with ARROW_JSON
-    return GeospatialLogicalTypeFromGeoArrowJSON(serialized_data, arrow_properties);
-  }
-}
-
 static constexpr char FIELD_ID_KEY[] = "PARQUET:field_id";
 
 std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
@@ -455,7 +438,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
         break;
       } else if (ext_type->extension_name() == std::string("geoarrow.wkb")) {
         type = ParquetType::BYTE_ARRAY;
-        ARROW_ASSIGN_OR_RAISE(logical_type, GeospatialLogicalTypeFromArrow(
+        ARROW_ASSIGN_OR_RAISE(logical_type, GeospatialLogicalTypeFromGeoArrowJSON(
                                                 ext_type->Serialize(), arrow_properties));
         break;
       }

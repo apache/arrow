@@ -37,6 +37,26 @@
 
 namespace parquet {
 
+namespace {
+::arrow::Result<std::shared_ptr<const LogicalType>> ParseGeoArrowJSON(
+    const std::string& serialized_data, const ArrowWriterProperties& arrow_properties);
+}
+
+::arrow::Result<std::shared_ptr<const LogicalType>> GeospatialLogicalTypeFromGeoArrowJSON(
+    const std::string& serialized_data, const ArrowWriterProperties& arrow_properties) {
+  if (serialized_data.empty() || serialized_data == "{}") {
+    return LogicalType::Geometry();
+  } else if (
+      serialized_data ==
+      R"({"edges": "spherical", "crs": "OGC:CRS84", "crs_type": "authority_code"})") {
+    return LogicalType::Geography();
+  } else if (serialized_data == R"({"crs": "OGC:CRS84", "crs_type": "authority_code"})") {
+    return LogicalType::Geometry();
+  } else {
+    return ParseGeoArrowJSON(serialized_data, arrow_properties);
+  }
+}
+
 #ifdef ARROW_JSON
 namespace {
 ::arrow::Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
@@ -120,9 +140,7 @@ namespace {
   }
 }
 
-}  // namespace
-
-::arrow::Result<std::shared_ptr<const LogicalType>> GeospatialLogicalTypeFromGeoArrowJSON(
+::arrow::Result<std::shared_ptr<const LogicalType>> ParseGeoArrowJSON(
     const std::string& serialized_data, const ArrowWriterProperties& arrow_properties) {
   // Parquet has no way to interpret a null or missing CRS, so we choose the most likely
   // intent here (that the user meant to use the default Parquet CRS)
@@ -152,12 +170,17 @@ namespace {
 
   return LogicalType::Geometry(crs);
 }
+
+}  // namespace
+
 #else
-::arrow::Result<std::shared_ptr<const LogicalType>> GeospatialLogicalTypeFromGeoArrowJSON(
+namespace {
+::arrow::Result<std::shared_ptr<const LogicalType>> ParseGeoArrowJSON(
     const std::string& serialized_data, const ArrowWriterProperties& arrow_properties) {
   return ::arrow::Status::NotImplemented(
-      "GeospatialLogicalTypeFromGeoArrowJSON requires ARROW_JSON");
+      "ParseGeoArrowJSON requires ARROW_JSON");
 }
+}  // namespace
 #endif
 
 ::arrow::Result<std::shared_ptr<::arrow::DataType>> MakeGeoArrowGeometryType(
