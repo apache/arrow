@@ -309,6 +309,7 @@ using ChunkList = std::vector<int64_t>;
 struct RowGroupInfo {
   ChunkList page_lengths;
   ChunkList page_sizes;
+  bool has_dictionary_page = false;
 };
 
 using ParquetInfo = std::vector<RowGroupInfo>;
@@ -332,6 +333,8 @@ ParquetInfo GetColumnParquetInfo(const std::shared_ptr<Buffer>& data,
         auto data_page = static_cast<DataPage*>(page.get());
         rg_info.page_sizes.push_back(data_page->size());
         rg_info.page_lengths.push_back(data_page->num_values());
+      } else if (page->type() == PageType::DICTIONARY_PAGE) {
+        rg_info.has_dictionary_page = true;
       }
     }
     result.push_back(rg_info);
@@ -711,6 +714,10 @@ void AssertChunkSizes(const std::shared_ptr<::arrow::DataType>& dtype,
                       const RowGroupInfo& base_info, const RowGroupInfo& modified_info,
                       bool nullable, bool enable_dictionary, int64_t min_chunk_size,
                       int64_t max_chunk_size) {
+  if (dtype->id() != ::arrow::Type::BOOL) {
+    ASSERT_EQ(base_info.has_dictionary_page, enable_dictionary);
+    ASSERT_EQ(modified_info.has_dictionary_page, enable_dictionary);
+  }
   if (::arrow::is_fixed_width(dtype->id()) && !nullable) {
     // for nullable types we cannot calculate the exact number of elements because
     // not all elements are fed through the chunker (null elements are skipped)
