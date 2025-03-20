@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module RecordsBasicArraysTests
+module RawRecordsBasicArraysTests
   def test_null
     records = [
       [nil],
@@ -389,7 +389,7 @@ module RecordsBasicArraysTests
 end
 
 class EachRawRecordRecordBatchBasicArraysTest< Test::Unit::TestCase
-  include RecordsBasicArraysTests
+  include RawRecordsBasicArraysTests
 
   def build(schema, records)
     Arrow::RecordBatch.new(schema, records)
@@ -401,7 +401,7 @@ class EachRawRecordRecordBatchBasicArraysTest< Test::Unit::TestCase
 end
 
 class EachRawRecordTableBasicArraysTest < Test::Unit::TestCase
-  include RecordsBasicArraysTests
+  include RawRecordsBasicArraysTests
 
   def build(schema, records)
     record_batch = Arrow::RecordBatch.new(schema, records)
@@ -420,7 +420,7 @@ class EachRawRecordTableBasicArraysTest < Test::Unit::TestCase
 end
 
 class RawRecordsRecordBatchBasicArraysTest < Test::Unit::TestCase
-  include RecordsBasicArraysTests
+  include RawRecordsBasicArraysTests
 
   def build(schema, records)
     Arrow::RecordBatch.new(schema, records)
@@ -432,7 +432,7 @@ class RawRecordsRecordBatchBasicArraysTest < Test::Unit::TestCase
 end
 
 class RawRecordsTableBasicArraysTest < Test::Unit::TestCase
-  include RecordsBasicArraysTests
+  include RawRecordsBasicArraysTests
 
   def build(schema, records)
     Arrow::Table.new(schema, records)
