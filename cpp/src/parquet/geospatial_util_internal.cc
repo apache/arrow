@@ -195,7 +195,10 @@ std::vector<int32_t> WKBGeometryBounder::GeometryTypes() const {
 
     // These are all encoded the same in WKB, even though this encoding would
     // allow for parts to be of a different geometry type or different dimensions.
-    // For the purposes of bounding, this does not cause us problems.
+    // For the purposes of bounding, this does not cause us problems. We pass
+    // record_wkb_type = false because we do not want the child geometry to be
+    // added to the geometry_types list (e.g., for a MultiPoint, we only want
+    // the code for MultiPoint to be added, not the code for Point).
     case GeometryType::kMultiPoint:
     case GeometryType::kMultiLinestring:
     case GeometryType::kMultiPolygon:
