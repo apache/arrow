@@ -403,6 +403,42 @@ struct GrouperImpl : public Grouper {
     return ConsumeImpl(batch, offset, length, GrouperMode::kLookup);
   }
 
+  template <typename VisitGroupFunc, typename VisitUnknownGroupFunc>
+  void VisitKeys(int64_t length, const int32_t* key_offsets, const uint8_t* key_data,
+                 bool insert_new_keys, VisitGroupFunc&& visit_group,
+                 VisitUnknownGroupFunc&& visit_unknown_group) {
+    for (int64_t i = 0; i < length; ++i) {
+      const int32_t key_length = key_offsets[i + 1] - key_offsets[i];
+      const uint8_t* key_ptr = key_data + key_offsets[i];
+      std::string key(reinterpret_cast<const char*>(key_ptr), key_length);
+
+      uint32_t group_id;
+      if (insert_new_keys) {
+        const auto [it, inserted] = map_.emplace(std::move(key), num_groups_);
+        if (inserted) {
+          // New key: update offsets and key_bytes
+          ++num_groups_;
+          if (key_length > 0) {
+            const auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
+            key_bytes_.resize(next_key_offset + key_length);
+            offsets_.push_back(next_key_offset + key_length);
+            memcpy(key_bytes_.data() + next_key_offset, key_ptr, key_length);
+          }
+        }
+        group_id = it->second;
+      } else {
+        const auto it = map_.find(std::move(key));
+        if (it == map_.end()) {
+          // Key not found
+          visit_unknown_group();
+          continue;
+        }
+        group_id = it->second;
+      }
+      visit_group(group_id);
+    }
+  }
+
   Result<Datum> ConsumeImpl(const ExecSpan& batch, int64_t offset, int64_t length,
                             GrouperMode mode) {
     ARROW_RETURN_NOT_OK(CheckAndCapLengthForConsume(batch.length, offset, &length));
@@ -433,56 +469,12 @@ struct GrouperImpl : public Grouper {
       RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, key_buf_ptrs.data()));
     }
 
-    using MapIterator = typename decltype(map_)::iterator;
-
-    struct LookupResult {
-      bool inserted;
-      bool found;
-      MapIterator it;
-    };
-
-    auto generate_keys = [&](auto&& lookup_key, auto&& visit_group,
-                             auto&& visit_unknown_group) {
-      for (int64_t i = 0; i < batch.length; ++i) {
-        int32_t key_length = offsets_batch[i + 1] - offsets_batch[i];
-        std::string key(
-            reinterpret_cast<const char*>(key_bytes_batch.data() + offsets_batch[i]),
-            key_length);
-
-        LookupResult res = lookup_key(std::move(key), num_groups_);
-
-        if (res.inserted) {
-          // new key; update offsets and key_bytes
-          ++num_groups_;
-          // Skip if there are no keys
-          if (key_length > 0) {
-            auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
-            key_bytes_.resize(next_key_offset + key_length);
-            offsets_.push_back(next_key_offset + key_length);
-            memcpy(key_bytes_.data() + next_key_offset, key.c_str(), key_length);
-          }
-        }
-
-        if (res.found) {
-          visit_group(res.it->second);
-        } else {
-          visit_unknown_group();
-        }
-      }
-    };
-
-    auto lookup_or_insert_key = [&](auto&& key, uint32_t new_group_id) -> LookupResult {
-      auto [it, inserted] = map_.emplace(key, new_group_id);
-      return {inserted, /*found=*/true, it};
-    };
-    auto lookup_key = [&](auto&& key, uint32_t new_group_id) -> LookupResult {
-      auto it = map_.find(key);
-      return {/*inserted=*/false, /*found=*/it != map_.end(), it};
-    };
-
     if (mode == GrouperMode::kPopulate) {
-      generate_keys(
-          lookup_or_insert_key, [](uint32_t group_id) {}, [] {});
+      VisitKeys(
+          batch.length, offsets_batch.data(), key_bytes_batch.data(),
+          /*insert_new_keys=*/true,
+          /*visit_group=*/[](...) {},
+          /*visit_unknown_group=*/[] {});
       return Datum();
     }
 
@@ -496,10 +488,12 @@ struct GrouperImpl : public Grouper {
       };
       auto visit_unknown_group = [] {};
 
-      generate_keys(lookup_or_insert_key, visit_group, visit_unknown_group);
+      VisitKeys(batch.length, offsets_batch.data(), key_bytes_batch.data(),
+                /*insert_new_keys=*/true, visit_group, visit_unknown_group);
     } else {
       DCHECK_EQ(mode, GrouperMode::kLookup);
 
+      // Create a null bitmap to indicate which keys were found.
       TypedBufferBuilder<bool> null_bitmap_builder(ctx_->memory_pool());
       RETURN_NOT_OK(null_bitmap_builder.Resize(batch.length));
 
@@ -512,7 +506,8 @@ struct GrouperImpl : public Grouper {
         null_bitmap_builder.UnsafeAppend(false);
       };
 
-      generate_keys(lookup_key, visit_group, visit_unknown_group);
+      VisitKeys(batch.length, offsets_batch.data(), key_bytes_batch.data(),
+                /*insert_new_keys=*/false, visit_group, visit_unknown_group);
 
       ARROW_ASSIGN_OR_RAISE(null_bitmap, null_bitmap_builder.Finish());
     }
