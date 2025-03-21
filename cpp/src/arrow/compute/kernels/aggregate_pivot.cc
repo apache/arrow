@@ -149,7 +149,7 @@ Result<std::unique_ptr<KernelState>> PivotInit(KernelContext* ctx,
   DCHECK(is_base_binary_like(args.inputs[0].id()));
   auto state = std::make_unique<PivotImpl>();
   RETURN_NOT_OK(state->Init(options, args.inputs));
-  return state;
+  return std::unique_ptr<KernelState>(std::move(state));
 }
 
 Result<TypeHolder> ResolveOutputType(KernelContext* ctx, const std::vector<TypeHolder>&) {
