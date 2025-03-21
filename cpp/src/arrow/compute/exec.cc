@@ -50,6 +50,7 @@
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 
@@ -359,6 +360,7 @@ Status ExecSpanIterator::Init(const ExecBatch& batch, int64_t max_chunksize,
   have_all_scalars_ = CheckIfAllScalar(batch);
   promote_if_all_scalars_ = promote_if_all_scalars;
   position_ = 0;
+  selection_position_ = 0;
   length_ = batch.length;
   chunk_indexes_.clear();
   chunk_indexes_.resize(args_->size(), 0);
@@ -367,6 +369,12 @@ Status ExecSpanIterator::Init(const ExecBatch& batch, int64_t max_chunksize,
   value_offsets_.clear();
   value_offsets_.resize(args_->size(), 0);
   max_chunksize_ = std::min(length_, max_chunksize);
+  selection_vector_ = batch.selection_vector.get();
+  if (selection_vector_) {
+    selection_length_ = selection_vector_->length();
+  } else {
+    selection_length_ = 0;
+  }
   return Status::OK();
 }
 
@@ -403,7 +411,7 @@ int64_t ExecSpanIterator::GetNextChunkSpan(int64_t iteration_size, ExecSpan* spa
   return iteration_size;
 }
 
-bool ExecSpanIterator::Next(ExecSpan* span) {
+bool ExecSpanIterator::Next(ExecSpan* span, SelectionVectorSpan* selection_span) {
   if (!initialized_) {
     span->length = 0;
 
@@ -442,6 +450,13 @@ bool ExecSpanIterator::Next(ExecSpan* span) {
       PromoteExecSpanScalars(span);
     }
 
+    if (!have_all_scalars_ || promote_if_all_scalars_) {
+      if (selection_vector_) {
+        DCHECK_NE(selection_span, nullptr);
+        *selection_span = SelectionVectorSpan(selection_vector_->indices());
+      }
+    }
+
     initialized_ = true;
   } else if (position_ == length_) {
     // We've emitted at least one span and we're at the end so we are done
@@ -463,6 +478,23 @@ bool ExecSpanIterator::Next(ExecSpan* span) {
       arr->SetSlice(value_positions_[i] + value_offsets_[i], iteration_size);
       value_positions_[i] += iteration_size;
     }
+  }
+
+  // Then the selection span
+  if (selection_vector_) {
+    DCHECK_NE(selection_span, nullptr);
+    auto indices_begin = selection_vector_->indices() + selection_position_;
+    auto indices_end = selection_vector_->indices() + selection_vector_->length();
+    DCHECK_LE(indices_begin, indices_end);
+    auto chunk_row_id_end = position_ + iteration_size;
+    int64_t num_indices = 0;
+    while (indices_begin + num_indices < indices_end &&
+           *(indices_begin + num_indices) < chunk_row_id_end) {
+      ++num_indices;
+    }
+    selection_span->SetSlice(selection_position_, num_indices,
+                             static_cast<int32_t>(position_));
+    selection_position_ += num_indices;
   }
 
   position_ += iteration_size;
@@ -694,7 +726,14 @@ std::shared_ptr<ChunkedArray> ToChunkedArray(const std::vector<Datum>& values,
       // Skip empty chunks
       continue;
     }
-    arrays.emplace_back(val.make_array());
+    if (val.is_chunked_array()) {
+      for (const auto& chunk : val.chunked_array()->chunks()) {
+        arrays.emplace_back(chunk);
+      }
+    } else {
+      DCHECK(val.is_array());
+      arrays.emplace_back(val.make_array());
+    }
   }
   return std::make_shared<ChunkedArray>(std::move(arrays), type.GetSharedPtr());
 }
@@ -781,16 +820,40 @@ class KernelExecutorImpl : public KernelExecutor {
 class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
  public:
   Status Execute(const ExecBatch& batch, ExecListener* listener) override {
-    RETURN_NOT_OK(span_iterator_.Init(batch, exec_context()->exec_chunksize()));
-
     if (batch.length == 0) {
       // For zero-length batches, we do nothing except return a zero-length
       // array of the correct output type
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> result,
                             MakeArrayOfNull(output_type_.GetSharedPtr(), /*length=*/0,
                                             exec_context()->memory_pool()));
+      RETURN_NOT_OK(span_iterator_.Init(batch, exec_context()->exec_chunksize()));
       return EmitResult(result->data(), listener);
     }
+
+    if (batch.selection_vector && !kernel_->selective_exec) {
+      return ExecuteSelectiveDense(batch, listener);
+    }
+
+    return ExecuteBatch(batch, listener);
+  }
+
+  Datum WrapResults(const std::vector<Datum>& inputs,
+                    const std::vector<Datum>& outputs) override {
+    // If execution yielded multiple chunks (because large arrays were split
+    // based on the ExecContext parameters, then the result is a ChunkedArray
+    if (HaveChunkedArray(inputs) || outputs.size() > 1) {
+      return ToChunkedArray(outputs, output_type_);
+    } else {
+      // Outputs have just one element
+      return outputs[0];
+    }
+  }
+
+ protected:
+  Status ExecuteBatch(const ExecBatch& batch, ExecListener* listener) {
+    DCHECK(!batch.selection_vector || kernel_->selective_exec);
+
+    RETURN_NOT_OK(span_iterator_.Init(batch, exec_context()->exec_chunksize()));
 
     // If the executor is configured to produce a single large Array output for
     // kernels supporting preallocation, then we do so up front and then
@@ -811,19 +874,40 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     }
   }
 
-  Datum WrapResults(const std::vector<Datum>& inputs,
-                    const std::vector<Datum>& outputs) override {
-    // If execution yielded multiple chunks (because large arrays were split
-    // based on the ExecContext parameters, then the result is a ChunkedArray
-    if (HaveChunkedArray(inputs) || outputs.size() > 1) {
-      return ToChunkedArray(outputs, output_type_);
-    } else {
-      // Outputs have just one element
-      return outputs[0];
+  Status ExecuteSelectiveDense(const ExecBatch& batch, ExecListener* listener) {
+    DCHECK(batch.selection_vector && !kernel_->selective_exec);
+
+    if (CheckIfAllScalar(batch)) {
+      ExecBatch input = batch;
+      input.selection_vector = nullptr;
+      return ExecuteBatch(input, listener);
     }
+
+    std::vector<Datum> values(batch.num_values());
+    for (int i = 0; i < batch.num_values(); ++i) {
+      if (batch[i].is_scalar()) {
+        // Skip Take for scalars since it is not currently supported.
+        values[i] = batch[i];
+        continue;
+      }
+      ARROW_ASSIGN_OR_RAISE(values[i],
+                            Take(batch[i], *batch.selection_vector->data(),
+                                 TakeOptions{/*boundcheck=*/false}, exec_context()));
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        ExecBatch input,
+        ExecBatch::Make(std::move(values), batch.selection_vector->length()));
+
+    DatumAccumulator dense_listener;
+    RETURN_NOT_OK(ExecuteBatch(input, &dense_listener));
+    Datum dense_result = WrapResults(input.values, dense_listener.values());
+
+    ARROW_ASSIGN_OR_RAISE(auto result,
+                          Scatter(dense_result, *batch.selection_vector->data(),
+                                  ScatterOptions{/*max_index=*/batch.length - 1}));
+    return listener->OnResult(std::move(result));
   }
 
- protected:
   Status EmitResult(std::shared_ptr<ArrayData> out, ExecListener* listener) {
     if (span_iterator_.have_all_scalars()) {
       // ARROW-16757 We boxed scalar inputs as ArraySpan, so now we have to
@@ -842,6 +926,11 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     // eventually skip the creation of ArrayData altogether
     std::shared_ptr<ArrayData> preallocation;
     ExecSpan input;
+    SelectionVectorSpan selection;
+    SelectionVectorSpan* selection_ptr = nullptr;
+    if (span_iterator_.have_selection_vector()) {
+      selection_ptr = &selection;
+    }
     ExecResult output;
     ArraySpan* output_span = output.array_span_mutable();
 
@@ -853,10 +942,10 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       output_span->SetMembers(*preallocation);
       output_span->offset = 0;
       int64_t result_offset = 0;
-      while (span_iterator_.Next(&input)) {
+      while (span_iterator_.Next(&input, selection_ptr)) {
         // Set absolute output span position and length
         output_span->SetSlice(result_offset, input.length);
-        RETURN_NOT_OK(ExecuteSingleSpan(input, &output));
+        RETURN_NOT_OK(ExecuteSingleSpan(input, selection_ptr, &output));
         result_offset = span_iterator_.position();
       }
 
@@ -866,10 +955,10 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       // Fully preallocating, but not contiguously
       // We preallocate (maybe) only for the output of processing the current
       // chunk
-      while (span_iterator_.Next(&input)) {
+      while (span_iterator_.Next(&input, selection_ptr)) {
         ARROW_ASSIGN_OR_RAISE(preallocation, PrepareOutput(input.length));
         output_span->SetMembers(*preallocation);
-        RETURN_NOT_OK(ExecuteSingleSpan(input, &output));
+        RETURN_NOT_OK(ExecuteSingleSpan(input, selection_ptr, &output));
         // Emit the result for this chunk
         RETURN_NOT_OK(EmitResult(std::move(preallocation), listener));
       }
@@ -877,7 +966,8 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     }
   }
 
-  Status ExecuteSingleSpan(const ExecSpan& input, ExecResult* out) {
+  Status ExecuteSingleSpan(const ExecSpan& input, const SelectionVectorSpan* selection,
+                           ExecResult* out) {
     ArraySpan* result_span = out->array_span_mutable();
     if (output_type_.type->id() == Type::NA) {
       result_span->null_count = result_span->length;
@@ -888,7 +978,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     } else if (kernel_->null_handling == NullHandling::OUTPUT_NOT_NULL) {
       result_span->null_count = 0;
     }
-    RETURN_NOT_OK(kernel_->exec(kernel_ctx_, input, out));
+    RETURN_NOT_OK(InvokeKernel(input, selection, out));
     // Output type didn't change
     DCHECK(out->is_array_span());
     return Status::OK();
@@ -903,8 +993,13 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     // We will eventually delete the Scalar output path per
     // ARROW-16757.
     ExecSpan input;
+    SelectionVectorSpan selection;
+    SelectionVectorSpan* selection_ptr = nullptr;
+    if (span_iterator_.have_selection_vector()) {
+      selection_ptr = &selection;
+    }
     ExecResult output;
-    while (span_iterator_.Next(&input)) {
+    while (span_iterator_.Next(&input, selection_ptr)) {
       ARROW_ASSIGN_OR_RAISE(output.value, PrepareOutput(input.length));
       DCHECK(output.is_array_data());
 
@@ -917,7 +1012,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
         out_arr->null_count = 0;
       }
 
-      RETURN_NOT_OK(kernel_->exec(kernel_ctx_, input, &output));
+      RETURN_NOT_OK(InvokeKernel(input, selection_ptr, &output));
 
       // Output type didn't change
       DCHECK(output.is_array_data());
@@ -981,6 +1076,15 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
         (exec_context()->preallocate_contiguous() && kernel_->can_write_into_slices &&
          preallocating_all_buffers_);
     return Status::OK();
+  }
+
+  Status InvokeKernel(const ExecSpan& input, const SelectionVectorSpan* selection,
+                      ExecResult* out) {
+    if (selection) {
+      DCHECK_NE(kernel_->selective_exec, nullptr);
+      return kernel_->selective_exec(kernel_ctx_, input, *selection, out);
+    }
+    return kernel_->exec(kernel_ctx_, input, out);
   }
 
   // Used to account for the case where we do not preallocate a
@@ -1352,11 +1456,14 @@ SelectionVector::SelectionVector(std::shared_ptr<ArrayData> data)
 
 SelectionVector::SelectionVector(const Array& arr) : SelectionVector(arr.data()) {}
 
-int32_t SelectionVector::length() const { return static_cast<int32_t>(data_->length); }
+int64_t SelectionVector::length() const { return data_->length; }
 
-Result<std::shared_ptr<SelectionVector>> SelectionVector::FromMask(
-    const BooleanArray& arr) {
-  return Status::NotImplemented("FromMask");
+void SelectionVectorSpan::SetSlice(int64_t offset, int64_t length,
+                                   int32_t index_back_shift) {
+  DCHECK_NE(indices_, nullptr);
+  offset_ = offset;
+  length_ = length;
+  index_back_shift_ = index_back_shift;
 }
 
 Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
