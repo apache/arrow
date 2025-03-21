@@ -23,7 +23,7 @@
 # cython: language_level = 3
 
 from pyarrow.lib import Table, RecordBatch
-from pyarrow.compute import Expression, field
+from pyarrow.compute import Expression, Ordering, field
 
 try:
     from pyarrow._acero import (  # noqa
@@ -56,10 +56,9 @@ except ImportError:
     ds = DatasetModuleStub
 
 
-def _dataset_to_decl(dataset, use_threads=True, implicit_ordering=False):
+def _dataset_to_decl(dataset, use_threads=True, ordering=Ordering.unordered()):
     decl = Declaration("scan", ScanNodeOptions(
-        dataset, use_threads=use_threads,
-        implicit_ordering=implicit_ordering))
+        dataset, use_threads=use_threads, ordering=ordering))
 
     # Get rid of special dataset columns
     # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
@@ -316,7 +315,7 @@ def _perform_join_asof(left_operand, left_on, left_by,
         left_source = _dataset_to_decl(
             left_operand,
             use_threads=use_threads,
-            implicit_ordering=True)
+            ordering=Ordering.implicit())
     else:
         left_source = Declaration(
             "table_source", TableSourceNodeOptions(left_operand),
@@ -324,7 +323,7 @@ def _perform_join_asof(left_operand, left_on, left_by,
     if isinstance(right_operand, ds.Dataset):
         right_source = _dataset_to_decl(
             right_operand, use_threads=use_threads,
-            implicit_ordering=True)
+            ordering=Ordering.implicit())
     else:
         right_source = Declaration(
             "table_source", TableSourceNodeOptions(right_operand)
@@ -391,6 +390,20 @@ def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):
     order_by = Declaration("order_by", OrderByNodeOptions(sort_keys, **kwargs))
 
     decl = Declaration.from_sequence([data_source, order_by])
+    result_table = decl.to_table(use_threads=True)
+
+    if output_type == Table:
+        return result_table
+    elif output_type == ds.InMemoryDataset:
+        return ds.InMemoryDataset(result_table)
+    else:
+        raise TypeError("Unsupported output type")
+
+
+def _assert_sorted(dataset, sort_keys, *, null_placement="at_end", output_type=Table):
+
+    ordering = Ordering(sort_keys, null_placement=null_placement)
+    decl = _dataset_to_decl(dataset, use_threads=True, ordering=ordering)
     result_table = decl.to_table(use_threads=True)
 
     if output_type == Table:

@@ -51,6 +51,7 @@ from pyarrow._compute import (  # noqa
     MatchSubstringOptions,
     ModeOptions,
     NullOptions,
+    Ordering,
     PadOptions,
     PairwiseOptions,
     PartitionNthOptions,

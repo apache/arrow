@@ -877,9 +877,10 @@ TEST(TestNewScanner, MissingColumn) {
   AssertArraysEqual(*expected_nulls, *batches[0]->column(1));
 }
 
-void WriteIpcData(const std::string& path,
-                  const std::shared_ptr<fs::FileSystem> file_system,
-                  const std::shared_ptr<Table> input) {
+void WriteIpcData(
+    const std::string& path, const std::shared_ptr<fs::FileSystem> file_system,
+    const std::shared_ptr<Table> input,
+    const ipc::IpcWriteOptions& options = ipc::IpcWriteOptions::Defaults()) {
   EXPECT_OK_AND_ASSIGN(auto out_stream, file_system->OpenOutputStream(path));
   ASSERT_OK_AND_ASSIGN(
       auto file_writer,
@@ -942,9 +943,11 @@ class ClearCachedMetadataFragment : public InMemoryFragment {
 
 class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
  protected:
-  std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<Dataset> dataset) {
+  std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<Dataset> dataset,
+                                       const Ordering& ordering = Ordering::Unordered()) {
     ScannerBuilder builder(std::move(dataset), options_);
     ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
+    ARROW_EXPECT_OK(builder.Ordering(ordering));
     EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
     return scanner;
   }
@@ -1029,6 +1032,65 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
       check_metadata_clear_counts({1, 1});
     }
   }
+
+  std::vector<std::shared_ptr<RecordBatch>> CreateOrderedBatches(int items_per_batch,
+                                                                 int batches,
+                                                                 bool ordered) {
+    /// produces batches where
+    /// - first column is asc ordered (unless ordered == false)
+    /// - second column is desc ordered
+    /// - third column is constant
+    /// when ordered == false, the last value in the first column breaks the order (it is
+    /// 0)
+    auto step =
+        ordered ? 1
+                : std::numeric_limits<unsigned int>::max() / items_per_batch / batches;
+    auto start = ordered ? 1 : step + items_per_batch * batches;
+    return gen::Gen({gen::Step(start, step), gen::Step(-1, -1),
+                     gen::Constant(std::make_shared<Int32Scalar>(42))})
+        ->FailOnError()
+        ->RecordBatches(items_per_batch, batches);
+  }
+
+  void AssertScannerOrdering(bool ordered) {
+    auto items_per_batch = GetParam().items_per_batch;
+    auto num_batches = GetParam().num_child_datasets * GetParam().num_batches;
+
+    SetSchema({field("f0", uint32()), field("f1", int32()), field("f2", int32())});
+    auto batches = CreateOrderedBatches(items_per_batch, num_batches, ordered);
+    auto dataset = std::make_shared<InMemoryDataset>(schema_, batches);
+
+    // scanning the dataset always works when not asserting the order
+    auto scanner = MakeScanner(std::move(dataset));
+    auto expected = CreateOrderedBatches(items_per_batch, num_batches, ordered);
+    std::shared_ptr<RecordBatchReader> reader =
+        std::make_shared<BatchIterator>(schema_, expected);
+    AssertScanBatchesEquals(reader.get(), scanner.get());
+
+    auto ordering = Ordering({compute::SortKey("f0", compute::SortOrder::Ascending)},
+                             compute::NullPlacement::AtStart);
+
+    if (ordered) {
+      // when dataset is ordered, scanning it while asserting the order works fine
+      dataset = std::make_shared<InMemoryDataset>(schema_, batches);
+      scanner = MakeScanner(std::move(dataset), ordering);
+      expected = CreateOrderedBatches(items_per_batch, num_batches, ordered);
+      reader = std::make_shared<BatchIterator>(schema_, expected);
+      AssertScanBatchesEquals(reader.get(), scanner.get());
+    } else {
+      // when dataset is not ordered, scanning it fails on the conflicting row
+      dataset = std::make_shared<InMemoryDataset>(schema_, batches);
+      scanner = MakeScanner(std::move(dataset), ordering);
+      ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatches());
+      auto next = it.Next();
+      while (next.ok() && !IsIterationEnd<TaggedRecordBatch>(*next)) {
+        next = it.Next();
+      }
+      // expect iteration to stop on failure status
+      EXPECT_EQ(next.status().code(), StatusCode::ExecutionError);
+      EXPECT_THAT(next.status().message(), testing::StartsWith("Data is not ordered"));
+    }
+  }
 };
 
 TEST_P(TestScanner, Scan) {
@@ -1036,6 +1098,10 @@ TEST_P(TestScanner, Scan) {
   auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch), batch);
 }
+
+TEST_P(TestScanner, ScanOrdering) { AssertScannerOrdering(true); }
+
+TEST_P(TestScanner, ScanOrderingFail) { AssertScannerOrdering(false); }
 
 TEST_P(TestScanner, ScanBatches) {
   SetSchema({field("i32", int32()), field("f64", float64())});
@@ -2974,6 +3040,128 @@ TEST(ScanNode, OnlyLoadProjectedFields) {
       [null, 4, null]
   ])"});
   AssertTablesEqual(*expected, *actualMinusAugmented, /*same_chunk_layout=*/false);
+}
+
+Ordering CreateOrdering(const std::pair<std::string, compute::SortOrder>& sort_key) {
+  auto keys = std::vector<compute::SortKey>();
+  keys.emplace_back(FieldRef(sort_key.first), sort_key.second);
+  return {keys};
+}
+
+Ordering CreateOrdering(
+    const std::vector<std::pair<std::string, compute::SortOrder>>& sort_keys) {
+  auto keys = std::vector<compute::SortKey>();
+  for (const auto& sort_key : sort_keys) {
+    keys.emplace_back(FieldRef(sort_key.first), sort_key.second);
+  }
+  return {keys};
+}
+
+void AssertPlanHasAssertOrderNode(acero::Declaration declarations,
+                                  bool expect_assert_node) {
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> exec_plan,
+                       ExecPlan::Make(acero::QueryOptions(), ExecContext()));
+  ASSERT_OK(declarations.AddToPlan(exec_plan.get()));
+  if (expect_assert_node) {
+    // we expect the scan node expanded into two nodes
+    ASSERT_EQ(exec_plan->nodes().size(), 2);
+    ASSERT_STREQ(exec_plan->nodes().at(0)->kind_name(), "SourceNode");
+    ASSERT_STREQ(exec_plan->nodes().at(1)->kind_name(), "AssertOrderNode");
+  } else {
+    // we expect only the scan node
+    ASSERT_EQ(exec_plan->nodes().size(), 1);
+    ASSERT_STREQ(exec_plan->nodes().at(0)->kind_name(), "SourceNode");
+  }
+}
+
+TEST(ScanNode, AssertOrder) {
+  compute::ExecContext exec_context;
+  arrow::dataset::internal::Initialize();
+  ASSERT_OK_AND_ASSIGN(auto plan, acero::ExecPlan::Make());
+
+  auto dummy_schema =
+      schema({field("id", int32()), field("rev", int32()), field("value", int32())});
+
+  // creating a synthetic dataset using generators
+  static constexpr int kRowsPerBatch = 4;
+  static constexpr int kNumBatches = 32;
+
+  std::shared_ptr<Table> table =
+      gen::Gen(
+          {{"id", gen::Step(/*start=*/-kRowsPerBatch * kNumBatches / 2, /*step=*/1)},
+           {"rev", gen::Step(/*start=*/kRowsPerBatch * kNumBatches / 2, /*step=*/-1)},
+           {"value", gen::Random(int32())}})
+          ->FailOnError()
+          ->Table(kRowsPerBatch, kNumBatches);
+
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::string file_name = "plan_scan_order_disk_test.arrow";
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("plan-test-tempdir-"));
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+
+  // GH-26818: writing data with threads might change order of batches
+  auto ipc_write_options = ipc::IpcWriteOptions::Defaults();
+  ipc_write_options.use_threads = false;
+  WriteIpcData(file_path_str, filesystem, table, ipc_write_options);
+
+  std::vector<fs::FileInfo> files;
+  const std::vector<std::string> f_paths = {file_path_str};
+
+  for (const auto& f_path : f_paths) {
+    ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+    files.push_back(std::move(f_file));
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            filesystem, std::move(files), format, {}));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
+
+  auto scan_options = std::make_shared<dataset::ScanOptions>();
+  auto declarations = acero::Declaration::Sequence(
+      {acero::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options}})});
+  AssertPlanHasAssertOrderNode(declarations, false);
+
+  using SortKey = std::pair<std::string, compute::SortOrder>;
+  auto asc_key = SortKey({"id", compute::SortOrder::Ascending});
+  auto desc_key = SortKey({"rev", compute::SortOrder::Descending});
+  auto unordered_key = SortKey({"value", compute::SortOrder::Ascending});
+  auto not_asc_key = SortKey({"rev", compute::SortOrder::Ascending});
+  auto not_desc_key = SortKey({"id", compute::SortOrder::Descending});
+
+  compute::Ordering asc = CreateOrdering(asc_key);
+  compute::Ordering desc = CreateOrdering(desc_key);
+  compute::Ordering asc_desc = CreateOrdering({asc_key, desc_key});
+  compute::Ordering asc_desc_rand = CreateOrdering({asc_key, desc_key, unordered_key});
+  compute::Ordering desc_asc = CreateOrdering({desc_key, asc_key});
+  compute::Ordering desc_asc_rand = CreateOrdering({desc_key, asc_key, unordered_key});
+
+  compute::Ordering not_asc = CreateOrdering(not_asc_key);
+  compute::Ordering not_desc = CreateOrdering(not_desc_key);
+  compute::Ordering unordered = CreateOrdering(unordered_key);
+
+  // test existing orderings pass
+  for (const Ordering& ordering :
+       {asc, desc, asc_desc, asc_desc_rand, desc_asc, desc_asc_rand}) {
+    declarations = acero::Declaration::Sequence({acero::Declaration(
+        {"scan", dataset::ScanNodeOptions{dataset, scan_options, false, ordering}})});
+    ASSERT_OK_AND_ASSIGN(auto actual, acero::DeclarationToTable(declarations));
+    // Scan node always emits augmented fields so we drop those
+    ASSERT_OK_AND_ASSIGN(auto actualMinusAugmented, actual->SelectColumns({0, 1, 2}));
+    AssertTablesEqual(*table, *actualMinusAugmented, /*same_chunk_layout=*/false);
+    AssertPlanHasAssertOrderNode(declarations, true);
+  }
+
+  // test non-existing orderings fail
+  for (const Ordering& non_ordering : {not_asc, not_asc, unordered}) {
+    declarations = acero::Declaration::Sequence({acero::Declaration(
+        {"scan", dataset::ScanNodeOptions{dataset, scan_options, false, non_ordering}})});
+    ASSERT_NOT_OK(acero::DeclarationToTable(declarations));
+    AssertPlanHasAssertOrderNode(declarations, true);
+  }
 }
 
 }  // namespace dataset

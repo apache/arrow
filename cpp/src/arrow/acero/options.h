@@ -21,6 +21,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/acero/type_fwd.h"
@@ -237,6 +238,21 @@ using RecordBatchIteratorMaker = std::function<Iterator<std::shared_ptr<RecordBa
 class ARROW_ACERO_EXPORT RecordBatchSourceNodeOptions
     : public SchemaSourceNodeOptions<RecordBatchIteratorMaker> {
   using SchemaSourceNodeOptions::SchemaSourceNodeOptions;
+};
+
+/// \brief a node which asserts rows are in expected order
+///
+/// The order of rows with batches is asserted in parallel while
+/// consecutive batches are check for expected order sequentially.
+/// The output batches are again processed further in parallel.
+class ARROW_ACERO_EXPORT AssertOrderNodeOptions : public ExecNodeOptions {
+ public:
+  static constexpr std::string_view kName = "assert_order";
+  /// \brief create an instance from ordering
+  explicit AssertOrderNodeOptions(Ordering ordering) : ordering(std::move(ordering)) {}
+
+  /// \brief expected null placement and sort columns and directions
+  Ordering ordering;
 };
 
 /// \brief a node which excludes some rows from batches passed through it

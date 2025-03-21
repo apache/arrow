@@ -21,6 +21,7 @@ arrow_install_all_headers("arrow/acero")
 
 set(ARROW_ACERO_SRCS
     accumulation_queue.cc
+    assert_order_node.cc
     scalar_aggregate_node.cc
     groupby_aggregate_node.cc
     aggregate_internal.cc
@@ -160,6 +161,7 @@ endfunction()
 add_arrow_acero_test(plan_test SOURCES plan_test.cc test_nodes_test.cc)
 add_arrow_acero_test(source_node_test SOURCES source_node_test.cc)
 add_arrow_acero_test(fetch_node_test SOURCES fetch_node_test.cc)
+add_arrow_acero_test(assert_order_node_test SOURCES assert_order_node_test.cc)
 add_arrow_acero_test(order_by_node_test SOURCES order_by_node_test.cc)
 add_arrow_acero_test(hash_join_node_test SOURCES hash_join_node_test.cc
                      bloom_filter_test.cc)
