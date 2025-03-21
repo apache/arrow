@@ -311,6 +311,11 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
                    ArrayKernelExec exec, KernelInit init = NULLPTR,
                    std::shared_ptr<MatchConstraint> constraint = NULLPTR);
 
+  Status AddKernel(std::vector<InputType> in_types, OutputType out_type,
+                   ArrayKernelExec exec, ArrayKernelSelectiveExec selective_exec,
+                   KernelInit init = NULLPTR,
+                   std::shared_ptr<MatchConstraint> constraint = NULLPTR);
+
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarKernel kernel);
