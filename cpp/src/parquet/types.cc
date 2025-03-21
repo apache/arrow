@@ -1723,7 +1723,7 @@ bool LogicalType::Impl::Geometry::Equals(const LogicalType& other) const {
 }
 
 const std::string& GeometryLogicalType::crs() const {
-  return checked_cast<const LogicalType::Impl::Geometry&>(*impl_).crs();
+  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).crs();
 }
 
 std::shared_ptr<const LogicalType> GeometryLogicalType::Make(std::string crs) {
@@ -1827,15 +1827,15 @@ bool LogicalType::Impl::Geography::Equals(const LogicalType& other) const {
 }
 
 const std::string& GeographyLogicalType::crs() const {
-  return checked_cast<const LogicalType::Impl::Geography&>(*impl_).crs();
+  return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).crs();
 }
 
 LogicalType::EdgeInterpolationAlgorithm GeographyLogicalType::algorithm() const {
-  return checked_cast<const LogicalType::Impl::Geography&>(*impl_).algorithm();
+  return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).algorithm();
 }
 
 std::string_view GeographyLogicalType::algorithm_name() const {
-  return checked_cast<const LogicalType::Impl::Geography&>(*impl_).algorithm_name();
+  return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).algorithm_name();
 }
 
 std::shared_ptr<const LogicalType> GeographyLogicalType::Make(
