@@ -63,9 +63,22 @@ enum class GeometryType {
 /// \brief A collection of intervals representing the encountered ranges of values
 /// in each dimension.
 ///
-/// The Parquet specification also supports wraparound bounding boxes in the X and Y
-/// dimensions; however, this structure assumes min < max always as it is used for
+/// The Parquet specification also supports wraparound bounding boxes in the X
+/// dimension; however, this structure assumes min < max always as it is used for
 /// the purposes of accumulating this type of bounds.
+///
+/// This class will ignore any NaN values it visits via UpdateXY[Z[M]](). This is
+/// consistent with GEOS and ensures that ranges are accumulated in the same way that
+/// other statistics in Parquet are accumulated (e.g., statistics of a double column will
+/// return a min/max of all non-NaN values). In WKB specifically, POINT EMPTY is
+/// represented by convention as all ordinate values filled with NaN, so this behaviour
+/// allows for no special-casing of POINT EMPTY in the WKB reader.
+///
+/// This class will propagate any NaN values (per dimension) that were explicitly
+/// specified via setting mins/maxes directly or by merging another BoundingBox that
+/// contained NaN values. This definition ensures that NaN bounds obtained via
+/// EncodedGeoStatistics (which may have been written by some other writer that generated
+/// NaNs, either on purpose or by accident) are not silently overwritten.
 struct BoundingBox {
   using XY = std::array<double, 2>;
   using XYZ = std::array<double, 3>;
@@ -118,8 +131,14 @@ struct BoundingBox {
   /// \brief Update these bounds such they also contain other
   void Merge(const BoundingBox& other) {
     for (int i = 0; i < 4; i++) {
-      min[i] = std::min(min[i], other.min[i]);
-      max[i] = std::max(max[i], other.max[i]);
+      if (std::isnan(min[i]) || std::isnan(max[i]) || std::isnan(other.min[i]) ||
+          std::isnan(other.max[i])) {
+        min[i] = std::numeric_limits<double>::quiet_NaN();
+        max[i] = std::numeric_limits<double>::quiet_NaN();
+      } else {
+        min[i] = std::min(min[i], other.min[i]);
+        max[i] = std::max(max[i], other.max[i]);
+      }
     }
   }
 

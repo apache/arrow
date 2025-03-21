@@ -44,10 +44,8 @@ class GeoStatisticsImpl {
       return;
     }
 
-    if (is_wraparound_x() || is_wraparound_y() || other.is_wraparound_x() ||
-        other.is_wraparound_y()) {
-      throw ParquetException(
-          "Wraparound X or Y is not supported by GeoStatistics::Merge()");
+    if (is_wraparound_x() || other.is_wraparound_x()) {
+      throw ParquetException("Wraparound X is not supported by GeoStatistics::Merge()");
     }
 
     bounder_.MergeBox(other.bounder_.Bounds());
@@ -60,9 +58,8 @@ class GeoStatisticsImpl {
       return;
     }
 
-    if (is_wraparound_x() || is_wraparound_y()) {
-      throw ParquetException(
-          "Wraparound X or Y is not suppored by GeoStatistics::Update()");
+    if (is_wraparound_x()) {
+      throw ParquetException("Wraparound X is not suppored by GeoStatistics::Update()");
     }
 
     for (int64_t i = 0; i < num_values; i++) {
@@ -85,9 +82,8 @@ class GeoStatisticsImpl {
       return;
     }
 
-    if (is_wraparound_x() || is_wraparound_y()) {
-      throw ParquetException(
-          "Wraparound X or Y is not suppored by GeoStatistics::Update()");
+    if (is_wraparound_x()) {
+      throw ParquetException("Wraparound X is not suppored by GeoStatistics::Update()");
     }
 
     ::arrow::Status status = ::arrow::internal::VisitSetBitRuns(
@@ -112,9 +108,8 @@ class GeoStatisticsImpl {
       return;
     }
 
-    if (is_wraparound_x() || is_wraparound_y()) {
-      throw ParquetException(
-          "Wraparound X or Y is not suppored by GeoStatistics::Update()");
+    if (is_wraparound_x()) {
+      throw ParquetException("Wraparound X is not suppored by GeoStatistics::Update()");
     }
 
     // Note that ::arrow::Type::EXTENSION seems to be handled before this is called
@@ -148,10 +143,15 @@ class GeoStatisticsImpl {
     EncodedGeoStatistics out;
     out.geospatial_types = bounder_.GeometryTypes();
 
-    out.xmin = mins[0];
-    out.xmax = maxes[0];
-    out.ymin = mins[1];
-    out.ymax = maxes[1];
+    if (!bound_empty(0)) {
+      out.xmin = mins[0];
+      out.xmax = maxes[0];
+    }
+
+    if (!bound_empty(1)) {
+      out.ymin = mins[1];
+      out.ymax = maxes[1];
+    }
 
     if (!bound_empty(2)) {
       out.zmin = mins[2];
@@ -173,18 +173,23 @@ class GeoStatisticsImpl {
 
     // We can create GeoStatistics from a wraparound bounding box, but we can't
     // update an existing one because the merge logic is not yet implemented.
-    if (!bounds_empty() && (is_wraparound_x() || is_wraparound_y() ||
-                            is_wraparound(encoded.xmin, encoded.xmax) ||
-                            is_wraparound(encoded.ymin, encoded.ymax))) {
-      throw ParquetException(
-          "Wraparound X or Y is not suppored by GeoStatistics::Update()");
+    if (!bounds_empty() &&
+        (is_wraparound_x() || is_wraparound(encoded.xmin, encoded.xmax) ||
+         is_wraparound(encoded.ymin, encoded.ymax))) {
+      throw ParquetException("Wraparound X is not suppored by GeoStatistics::Update()");
     }
 
     geometry::BoundingBox box;
-    box.min[0] = encoded.xmin;
-    box.max[0] = encoded.xmax;
-    box.min[1] = encoded.ymin;
-    box.max[1] = encoded.ymax;
+
+    if (encoded.has_x()) {
+      box.min[0] = encoded.xmin;
+      box.max[0] = encoded.xmax;
+    }
+
+    if (encoded.has_y()) {
+      box.min[1] = encoded.ymin;
+      box.max[1] = encoded.ymax;
+    }
 
     if (encoded.has_z()) {
       box.min[2] = encoded.zmin;
@@ -204,10 +209,6 @@ class GeoStatisticsImpl {
     return is_wraparound(lower_bound()[0], upper_bound()[0]);
   }
 
-  bool is_wraparound_y() const {
-    return is_wraparound(lower_bound()[1], upper_bound()[1]);
-  }
-
   bool is_valid() const { return is_valid_; }
 
   bool bounds_empty() const {
@@ -218,6 +219,10 @@ class GeoStatisticsImpl {
     }
 
     return true;
+  }
+
+  bool bound_empty(int i) const {
+    return std::isinf(bounder_.Bounds().min[i] - bounder_.Bounds().max[i]);
   }
 
   const std::array<double, 4>& lower_bound() const { return bounder_.Bounds().min; }
@@ -246,10 +251,6 @@ class GeoStatisticsImpl {
 
   static bool is_wraparound(double dmin, double dmax) {
     return !std::isinf(dmin - dmax) && dmin > dmax;
-  }
-
-  bool bound_empty(int i) const {
-    return std::isinf(bounder_.Bounds().min[i] - bounder_.Bounds().max[i]);
   }
 };
 
@@ -315,9 +316,13 @@ bool GeoStatistics::is_empty() const {
   return impl_->geometry_types().empty() && impl_->bounds_empty();
 }
 
-bool GeoStatistics::has_z() const { return (zmax() - zmin()) > 0; }
+bool GeoStatistics::has_x() const { return !impl_->bound_empty(0); }
 
-bool GeoStatistics::has_m() const { return (mmax() - mmin()) > 0; }
+bool GeoStatistics::has_y() const { return !impl_->bound_empty(1); }
+
+bool GeoStatistics::has_z() const { return !impl_->bound_empty(2); }
+
+bool GeoStatistics::has_m() const { return !impl_->bound_empty(3); }
 
 std::vector<int32_t> GeoStatistics::geometry_types() const {
   return impl_->geometry_types();

@@ -59,6 +59,19 @@ class GeoStatisticsImpl;
 /// \brief Base type for computing geospatial column statistics while writing a file
 /// or representing them when reading a file
 ///
+/// Note that NaN values that were encountered within coordinates are omitted; however,
+/// NaN values that were obtained via decoding encoded statistics are propagated. This
+/// behaviour ensures C++ clients that are inspecting statistics via the column metadata
+/// can detect the case where a writer generated NaNs (even though this implementation
+/// does not generate them).
+///
+/// The handling of NaN values in coordinates is not well-defined among bounding
+/// implementations except for the WKB convention for POINT EMPTY, which is consistently
+/// represented as a point whose ordinates are all NaN. Any other geometry that contains
+/// NaNs cannot expect defined behaviour here or elsewhere; however, a row group that
+/// contains both NaN-containing and normal (completely finite) geometries should not be
+/// excluded from predicate pushdown.
+///
 /// EXPERIMENTAL
 class PARQUET_EXPORT GeoStatistics {
  public:
@@ -101,8 +114,8 @@ class PARQUET_EXPORT GeoStatistics {
   /// \brief Reset existing statistics and populate them from previously-encoded ones
   void Decode(const EncodedGeoStatistics& encoded);
 
-  /// \brief The minimum encountered value in the X dimension, or Inf if no X values were
-  /// encountered.
+  /// \brief The minimum encountered value in the X dimension, or Inf if no non-NaN X
+  /// values were encountered.
   ///
   /// The Parquet definition allows for "wrap around" bounds where xmin > xmax. In this
   /// case, these bounds represent the union of the intervals [xmax, Inf] and [-Inf,
@@ -110,37 +123,32 @@ class PARQUET_EXPORT GeoStatistics {
   /// be encountered in files written by other writers.
   double xmin() const;
 
-  /// \brief The maximum encountered value in the X dimension, or -Inf if no X values were
-  /// encountered, subject to "wrap around" bounds (see xmin()).
+  /// \brief The maximum encountered value in the X dimension, or -Inf if no non-NaN X
+  /// values were encountered, subject to "wrap around" bounds (see xmin()).
   double xmax() const;
 
-  /// \brief The minimum encountered value in the Y dimension, or Inf if no Y values were
-  /// encountered.
-  ///
-  /// The Parquet definition allows for "wrap around" bounds where ymin > ymax. In this
-  /// case, these bounds represent the union of the intervals [ymax, Inf] and [-Inf,
-  /// ymin]. This implementation does not yet generate these types of bounds but they may
-  /// be encountered in files written by other readers.
+  /// \brief The minimum encountered value in the Y dimension, or Inf if no non-NaN Y
+  /// values were encountered. Wrap around bounds are not permitted in the Y dimension.
   double ymin() const;
 
-  /// \brief The maximum encountered value in the Y dimension, or -Inf if no Y values were
-  /// encountered, subject to "wrap around" bounds (see ymin()).
+  /// \brief The maximum encountered value in the Y dimension, or -Inf if no non-NaN Y
+  /// values were encountered. Wrap around bounds are not permitted in the Y dimension.
   double ymax() const;
 
-  /// \brief The minimum encountered value in the Z dimension, or Inf if no Z values were
-  /// encountered. Wrap around bounds are not permitted in the Z dimension.
+  /// \brief The minimum encountered value in the Z dimension, or Inf if no non-NaN Z
+  /// values were encountered. Wrap around bounds are not permitted in the Z dimension.
   double zmin() const;
 
-  /// \brief The maximum encountered value in the Z dimension, or -Inf if no Z values were
-  /// encountered. Wrap around bounds are not permitted in the Z dimension.
+  /// \brief The maximum encountered value in the Z dimension, or -Inf if no non-NaN Z
+  /// values were encountered. Wrap around bounds are not permitted in the Z dimension.
   double zmax() const;
 
-  /// \brief The minimum encountered value in the M dimension, or Inf if no M values were
-  /// encountered.  Wrap around bounds are not permitted in the M dimension.
+  /// \brief The minimum encountered value in the M dimension, or Inf if no non-NaN M
+  /// values were encountered.  Wrap around bounds are not permitted in the M dimension.
   double mmin() const;
 
-  /// \brief The maximum encountered value in the M dimension, or -Inf if no M values were
-  /// encountered.  Wrap around bounds are not permitted in the M dimension.
+  /// \brief The maximum encountered value in the M dimension, or -Inf if no non-NaN M
+  /// values were encountered.  Wrap around bounds are not permitted in the M dimension.
   double mmax() const;
 
   /// \brief All minimum values in XYZM order
@@ -157,10 +165,16 @@ class PARQUET_EXPORT GeoStatistics {
   /// contain values.
   bool is_empty() const;
 
-  /// \brief Returns true if any Z values were encountered or false otherwise
+  /// \brief Returns true if any non-NaN X values were encountered or false otherwise
+  bool has_x() const;
+
+  /// \brief Returns true if any non-NaN Y values were encountered or false otherwise
+  bool has_y() const;
+
+  /// \brief Returns true if any non-NaN Z values were encountered or false otherwise
   bool has_z() const;
 
-  /// \brief Returns true if any M values were encountered or false otherwise
+  /// \brief Returns true if any non-NaN M values were encountered or false otherwise
   bool has_m() const;
 
   /// \brief Return the geometry type codes from the well-known binary encountered

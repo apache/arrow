@@ -32,6 +32,8 @@ TEST(TestGeoStatistics, TestDefaults) {
   EXPECT_EQ(stats.geometry_types().size(), 0);
   EXPECT_TRUE(stats.is_valid());
   EXPECT_TRUE(stats.is_empty());
+  EXPECT_FALSE(stats.has_x());
+  EXPECT_FALSE(stats.has_y());
   EXPECT_FALSE(stats.has_z());
   EXPECT_FALSE(stats.has_m());
   EXPECT_EQ(stats.xmax() - stats.xmin(), -kInf);
@@ -45,12 +47,81 @@ TEST(TestGeoStatistics, TestDefaults) {
 
   auto encoded = stats.Encode();
   EXPECT_FALSE(encoded.is_set());
+  EXPECT_FALSE(encoded.has_x());
+  EXPECT_FALSE(encoded.has_y());
   EXPECT_FALSE(encoded.has_z());
   EXPECT_FALSE(encoded.has_m());
   EXPECT_TRUE(GeoStatistics(encoded).Equals(stats));
 
   stats.Merge(GeoStatistics());
   EXPECT_TRUE(GeoStatistics(encoded).Equals(stats));
+}
+
+TEST(TestGeoStatistics, TestImportEncodedWithNaN) {
+  double nan_dbl = std::numeric_limits<double>::quiet_NaN();
+
+  EncodedGeoStatistics encoded_with_nan;
+  encoded_with_nan.xmin = nan_dbl;
+  encoded_with_nan.xmax = nan_dbl;
+  encoded_with_nan.ymin = nan_dbl;
+  encoded_with_nan.ymax = nan_dbl;
+  encoded_with_nan.zmin = nan_dbl;
+  encoded_with_nan.zmax = nan_dbl;
+  encoded_with_nan.mmin = nan_dbl;
+  encoded_with_nan.mmax = nan_dbl;
+
+  GeoStatistics stats(encoded_with_nan);
+  EXPECT_TRUE(stats.has_x());
+  EXPECT_TRUE(stats.has_y());
+  EXPECT_TRUE(stats.has_z());
+  EXPECT_TRUE(stats.has_m());
+
+  EXPECT_TRUE(std::isnan(stats.xmin()));
+  EXPECT_TRUE(std::isnan(stats.xmax()));
+  EXPECT_TRUE(std::isnan(stats.ymin()));
+  EXPECT_TRUE(std::isnan(stats.ymax()));
+  EXPECT_TRUE(std::isnan(stats.zmin()));
+  EXPECT_TRUE(std::isnan(stats.zmax()));
+  EXPECT_TRUE(std::isnan(stats.mmin()));
+  EXPECT_TRUE(std::isnan(stats.mmax()));
+
+  // Ensure that if we merge finite values into nans we get nans
+  GeoStatistics stats_finite;
+  std::string xyzm0 = test::MakeWKBPoint({10, 11, 12, 13}, true, true);
+  ByteArray item0{xyzm0};
+  stats_finite.Update(&item0, /*num_values=*/1);
+
+  stats.Merge(stats_finite);
+  EXPECT_TRUE(std::isnan(stats.xmin()));
+  EXPECT_TRUE(std::isnan(stats.xmax()));
+  EXPECT_TRUE(std::isnan(stats.ymin()));
+  EXPECT_TRUE(std::isnan(stats.ymax()));
+  EXPECT_TRUE(std::isnan(stats.zmin()));
+  EXPECT_TRUE(std::isnan(stats.zmax()));
+  EXPECT_TRUE(std::isnan(stats.mmin()));
+  EXPECT_TRUE(std::isnan(stats.mmax()));
+
+  // Ensure that if we merge nans into finite values we also get nans
+  stats_finite.Merge(stats);
+  EXPECT_TRUE(std::isnan(stats_finite.xmin()));
+  EXPECT_TRUE(std::isnan(stats_finite.xmax()));
+  EXPECT_TRUE(std::isnan(stats_finite.ymin()));
+  EXPECT_TRUE(std::isnan(stats_finite.ymax()));
+  EXPECT_TRUE(std::isnan(stats_finite.zmin()));
+  EXPECT_TRUE(std::isnan(stats_finite.zmax()));
+  EXPECT_TRUE(std::isnan(stats_finite.mmin()));
+  EXPECT_TRUE(std::isnan(stats_finite.mmax()));
+
+  // Ensure that if we decode nans, we also encode nans
+  EncodedGeoStatistics stats_encoded = stats.Encode();
+  EXPECT_TRUE(std::isnan(stats_encoded.xmin));
+  EXPECT_TRUE(std::isnan(stats_encoded.xmax));
+  EXPECT_TRUE(std::isnan(stats_encoded.ymin));
+  EXPECT_TRUE(std::isnan(stats_encoded.ymax));
+  EXPECT_TRUE(std::isnan(stats_encoded.zmin));
+  EXPECT_TRUE(std::isnan(stats_encoded.zmax));
+  EXPECT_TRUE(std::isnan(stats_encoded.mmin));
+  EXPECT_TRUE(std::isnan(stats_encoded.mmax));
 }
 
 TEST(TestGeoStatistics, TestUpdateByteArray) {

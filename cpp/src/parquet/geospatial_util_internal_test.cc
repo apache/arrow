@@ -27,6 +27,8 @@
 
 namespace parquet::geometry {
 
+static constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+
 TEST(TestGeometryUtil, TestBoundingBox) {
   BoundingBox box;
   EXPECT_EQ(box, BoundingBox({kInf, kInf, kInf, kInf}, {-kInf, -kInf, -kInf, -kInf}));
@@ -50,6 +52,13 @@ TEST(TestGeometryUtil, TestBoundingBox) {
 
   box_xyzm.Merge(box_xym);
   EXPECT_EQ(box_xyzm, BoundingBox({-10, -20, -30, -40}, {10, 20, 30, 40}));
+
+  BoundingBox box_nan({kNaN, kNaN, kNaN, kNaN}, {kNaN, kNaN, kNaN, kNaN});
+  box_xyzm.Merge(box_nan);
+  for (int i = 0; i < 4; i++) {
+    EXPECT_TRUE(std::isnan(box_xyzm.min[i]));
+    EXPECT_TRUE(std::isnan(box_xyzm.max[i]));
+  }
 
   box_xyzm.Reset();
   EXPECT_EQ(box_xyzm, BoundingBox());
@@ -123,6 +132,11 @@ TEST_P(WKBTestFixture, TestWKBBounderNonEmpty) {
 INSTANTIATE_TEST_SUITE_P(
     TestGeometryUtil, WKBTestFixture,
     ::testing::Values(
+        // POINT EMPTY
+        WKBTestCase(GeometryType::kPoint, Dimensions::kXY,
+                    {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                     0xf8, 0x7f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf8, 0x7f},
+                    {kInf, kInf, -kInf, -kInf}),
         // POINT (30 10)
         WKBTestCase(GeometryType::kPoint, Dimensions::kXY,
                     {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -147,6 +161,10 @@ INSTANTIATE_TEST_SUITE_P(
                      0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x44, 0x40, 0x00,
                      0x00, 0x00, 0x00, 0x00, 0xc0, 0x72, 0x40},
                     {30, 10, 40, 300, 30, 10, 40, 300}),
+        // LINESTRING EMPTY
+        WKBTestCase(GeometryType::kLinestring, Dimensions::kXY,
+                    {0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+                    {kInf, kInf, -kInf, -kInf}),
         // LINESTRING (30 10, 10 30, 40 40)
         WKBTestCase(GeometryType::kLinestring, Dimensions::kXY,
                     {0x01, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00,
@@ -191,6 +209,10 @@ INSTANTIATE_TEST_SUITE_P(
                      0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x54, 0x40, 0x00, 0x00,
                      0x00, 0x00, 0x00, 0x00, 0x99, 0x40},
                     {10, 10, 40, 300, 40, 40, 80, 1600}),
+        // LINESTRING EMPTY
+        WKBTestCase(GeometryType::kPolygon, Dimensions::kXY,
+                    {0x01, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+                    {kInf, kInf, -kInf, -kInf}),
         // POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))
         WKBTestCase(GeometryType::kPolygon, Dimensions::kXY,
                     {0x01, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x00,
@@ -252,6 +274,10 @@ INSTANTIATE_TEST_SUITE_P(
              0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x44, 0x40, 0x00, 0x00, 0x00, 0x00,
              0x00, 0xc0, 0x72, 0x40},
             {10, 10, 30, 200, 40, 40, 80, 1600}),
+        // MULTIPOINT EMPTY
+        WKBTestCase(GeometryType::kMultiPoint, Dimensions::kXY,
+                    {0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+                    {kInf, kInf, -kInf, -kInf}),
         // MULTIPOINT ((30 10))
         WKBTestCase(GeometryType::kMultiPoint, Dimensions::kXY,
                     {0x01, 0x04, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
@@ -280,6 +306,10 @@ INSTANTIATE_TEST_SUITE_P(
                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x44, 0x40, 0x00, 0x00,
                      0x00, 0x00, 0x00, 0xc0, 0x72, 0x40},
                     {30, 10, 40, 300, 30, 10, 40, 300}),
+        // MULTILINESTRING EMPTY
+        WKBTestCase(GeometryType::kMultiLinestring, Dimensions::kXY,
+                    {0x01, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+                    {kInf, kInf, -kInf, -kInf}),
         // MULTILINESTRING ((30 10, 10 30, 40 40))
         WKBTestCase(GeometryType::kMultiLinestring, Dimensions::kXY,
                     {0x01, 0x05, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x02,
@@ -324,6 +354,10 @@ INSTANTIATE_TEST_SUITE_P(
              0x00, 0x00, 0x00, 0x00, 0x00, 0x44, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
              0x54, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x99, 0x40},
             {10, 10, 40, 300, 40, 40, 80, 1600}),
+        // MULTIPOLYGON EMPTY
+        WKBTestCase(GeometryType::kMultiPolygon, Dimensions::kXY,
+                    {0x01, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+                    {kInf, kInf, -kInf, -kInf}),
         // MULTIPOLYGON (((30 10, 40 40, 20 40, 10 20, 30 10)))
         WKBTestCase(
             GeometryType::kMultiPolygon, Dimensions::kXY,
@@ -387,6 +421,10 @@ INSTANTIATE_TEST_SUITE_P(
                      0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x44, 0x40, 0x00, 0x00,
                      0x00, 0x00, 0x00, 0xc0, 0x72, 0x40},
                     {10, 10, 30, 200, 40, 40, 80, 1600}),
+        // GEOMETRYCOLLECTION EMPTY
+        WKBTestCase(GeometryType::kGeometryCollection, Dimensions::kXY,
+                    {0x01, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+                    {kInf, kInf, -kInf, -kInf}),
         // GEOMETRYCOLLECTION (POINT (30 10))
         WKBTestCase(GeometryType::kGeometryCollection, Dimensions::kXY,
                     {0x01, 0x07, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
