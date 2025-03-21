@@ -1728,6 +1728,18 @@ overflow is detected.
 
 * \(2) :member:`CumulativeOptions::start` is ignored.
 
+Statistical functions
+~~~~~~~~~~~~~~~~~~~~~
+
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| Function name           | Arity | Input types | Output type | Options class                  | Notes     |
++=========================+=======+=============+=============+================================+===========+
+| winsorize               | Unary | Numeric     | Numeric     | :struct:`WinsorizeOptions`     | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+
+* \(1) Clamp values in the lower and upper quantiles to reduce the statistical
+  influence of outliers. The quantiles can be configured in :struct:`WinsorizeOptions`.
+
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
 

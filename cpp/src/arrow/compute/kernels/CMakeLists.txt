@@ -105,6 +105,7 @@ add_arrow_compute_test(vector_test
                        vector_nested_test.cc
                        vector_replace_test.cc
                        vector_run_end_encode_test.cc
+                       vector_statistics_test.cc
                        select_k_test.cc
                        EXTRA_LINK_LIBS
                        arrow_compute_kernels_testing

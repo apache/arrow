@@ -228,6 +228,25 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   NullPlacement null_placement;
 };
 
+class ARROW_EXPORT WinsorizeOptions : public FunctionOptions {
+ public:
+  WinsorizeOptions(double lower_limit, double upper_limit);
+  WinsorizeOptions() : WinsorizeOptions(0, 1) {}
+  static constexpr char const kTypeName[] = "WinsorizeOptions";
+
+  /// The quantile below which all values are replaced with the quantile's value.
+  ///
+  /// For example, if lower_limit = 0.05, then all values in the lower 5% percentile
+  /// will be replaced with the 5% percentile value.
+  double lower_limit;
+
+  /// The quantile above which all values are replaced with the quantile's value.
+  ///
+  /// For example, if upper_limit = 0.95, then all values in the upper 95% percentile
+  /// will be replaced with the 95% percentile value.
+  double upper_limit;
+};
+
 /// \brief Options for cumulative functions
 /// \note Also aliased as CumulativeSumOptions for backward compatibility
 class ARROW_EXPORT CumulativeOptions : public FunctionOptions {
