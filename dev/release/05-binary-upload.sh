@@ -80,19 +80,19 @@ rake_tasks=()
 apt_targets=()
 yum_targets=()
 if [ ${UPLOAD_ALMALINUX} -gt 0 ]; then
-  rake_tasks+=(yum:rc)
+  rake_tasks+=(yum:rc:artifactory yum:rc)
   yum_targets+=(almalinux)
 fi
 if [ ${UPLOAD_AMAZON_LINUX} -gt 0 ]; then
-  rake_tasks+=(yum:rc)
+  rake_tasks+=(yum:rc:artifactory yum:rc)
   yum_targets+=(amazon-linux)
 fi
 if [ ${UPLOAD_CENTOS} -gt 0 ]; then
-  rake_tasks+=(yum:rc)
+  rake_tasks+=(yum:rc:artifactory yum:rc)
   yum_targets+=(centos)
 fi
 if [ ${UPLOAD_DEBIAN} -gt 0 ]; then
-  rake_tasks+=(apt:rc)
+  rake_tasks+=(apt:rc:artifactory apt:rc)
   apt_targets+=(debian)
 fi
 if [ ${UPLOAD_DOCS} -gt 0 ]; then
@@ -105,7 +105,7 @@ if [ ${UPLOAD_R} -gt 0 ]; then
   rake_tasks+=(r:rc)
 fi
 if [ ${UPLOAD_UBUNTU} -gt 0 ]; then
-  rake_tasks+=(apt:rc)
+  rake_tasks+=(apt:rc:artifactory apt:rc)
   apt_targets+=(ubuntu)
 fi
 rake_tasks+=(summary:rc)
