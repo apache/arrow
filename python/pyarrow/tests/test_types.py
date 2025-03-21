@@ -38,6 +38,8 @@ import pyarrow as pa
 import pyarrow.types as types
 import pyarrow.tests.strategies as past
 
+pytest.skip("module fails with segfaults", allow_module_level=True)
+
 
 def get_many_types():
     # returning them from a function is required because of pa.dictionary

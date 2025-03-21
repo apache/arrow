@@ -25,6 +25,7 @@ import pyarrow as pa
 from pyarrow.lib import ArrowInvalid
 
 
+@pytest.mark.skip("Needs port to meson-python")
 def test_get_include():
     include_dir = pa.get_include()
     assert os.path.exists(os.path.join(include_dir, 'arrow', 'api.h'))
