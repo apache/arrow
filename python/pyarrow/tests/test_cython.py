@@ -84,6 +84,7 @@ def check_cython_example_module(mod):
 # headers and is required to build for the cython tests.
 @pytest.mark.numpy
 @pytest.mark.cython
+@pytest.mark.skip("Needs port off of setuptools")
 def test_cython_api(tmpdir):
     """
     Basic test for the Cython API.
@@ -167,6 +168,7 @@ def test_cython_api(tmpdir):
 
 @pytest.mark.numpy
 @pytest.mark.cython
+@pytest.mark.skip("Needs port off of setuptools")
 def test_visit_strings(tmpdir):
     with tmpdir.as_cwd():
         # Set up temporary workspace
