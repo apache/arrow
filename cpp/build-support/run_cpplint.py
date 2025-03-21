@@ -78,7 +78,7 @@ if __name__ == "__main__":
     if arguments.quiet:
         cmd.append('--quiet')
     else:
-        print("\n".join(map(lambda x: "Linting {}".format(x),
+        print("\n".join(map(lambda x: f"Linting {x}",
                             linted_filenames)))
 
     # lint files in chunks: each invocation of cpplint will process 16 files

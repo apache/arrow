@@ -79,7 +79,7 @@ class CMakeDefinition:
     def arguments(self):
         """" Return the arguments to cmake invocation. """
         arguments = [
-            "-G{}".format(self.generator),
+            f"-G{self.generator}",
         ] + self.definitions + [
             self.source
         ]
@@ -99,13 +99,9 @@ class CMakeDefinition:
         if os.path.exists(build_dir):
             # Extra safety to ensure we're deleting a build folder.
             if not CMakeBuild.is_build_dir(build_dir):
-                raise FileExistsError(
-                    "{} is not a cmake build".format(build_dir)
-                )
+                raise FileExistsError(f"{build_dir} is not a cmake build")
             if not force:
-                raise FileExistsError(
-                    "{} exists use force=True".format(build_dir)
-                )
+                raise FileExistsError(f"{build_dir} exists use force=True")
             rmtree(build_dir)
 
         os.mkdir(build_dir)
@@ -116,7 +112,7 @@ class CMakeDefinition:
                           **kwargs)
 
     def __repr__(self):
-        return "CMakeDefinition[source={}]".format(self.source)
+        return f"CMakeDefinition[source={self.source}]"
 
 
 CMAKE_BUILD_TYPE_RE = re.compile("CMAKE_BUILD_TYPE:STRING=([a-zA-Z]+)")
@@ -194,7 +190,7 @@ class CMakeBuild(CMake):
         be lost. Only build_type is recovered.
         """
         if not CMakeBuild.is_build_dir(path):
-            raise ValueError("Not a valid CMakeBuild path: {}".format(path))
+            raise ValueError(f"Not a valid CMakeBuild path: {path}")
 
         build_type = None
         # Infer build_type by looking at CMakeCache.txt and looking for a magic
@@ -207,9 +203,6 @@ class CMakeBuild(CMake):
         return CMakeBuild(path, build_type)
 
     def __repr__(self):
-        return ("CMakeBuild["
-                "build = {},"
-                "build_type = {},"
-                "definition = {}]".format(self.build_dir,
-                                          self.build_type,
-                                          self.definition))
+        return (f"CMakeBuild[build = {self.build_dir},"
+                f"build_type = {self.build_type},"
+                f"definition = {self.definition}]")
