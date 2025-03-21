@@ -18,11 +18,14 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <variant>
 
-#include "arrow/type.h"
+#include "arrow/compare.h"
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -37,37 +40,11 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief The type for maximum and minimum values. If the target
   /// value exists, one of them is used. `std::nullopt` is used
   /// otherwise.
-  using ValueType = std::variant<bool, int64_t, uint64_t, double, std::string>;
+  using ValueType =
+      std::variant<bool, int64_t, uint64_t, double, std::string, std::shared_ptr<Scalar>>;
 
   static const std::shared_ptr<DataType>& ValueToArrowType(
-      const std::optional<ValueType>& value,
-      const std::shared_ptr<DataType>& array_type) {
-    if (!value.has_value()) {
-      return null();
-    }
-
-    struct Visitor {
-      const std::shared_ptr<DataType>& array_type;
-
-      const std::shared_ptr<DataType>& operator()(const bool&) { return boolean(); }
-      const std::shared_ptr<DataType>& operator()(const int64_t&) { return int64(); }
-      const std::shared_ptr<DataType>& operator()(const uint64_t&) { return uint64(); }
-      const std::shared_ptr<DataType>& operator()(const double&) { return float64(); }
-      const std::shared_ptr<DataType>& operator()(const std::string&) {
-        switch (array_type->id()) {
-          case Type::STRING:
-          case Type::BINARY:
-          case Type::FIXED_SIZE_BINARY:
-          case Type::LARGE_STRING:
-          case Type::LARGE_BINARY:
-            return array_type;
-          default:
-            return utf8();
-        }
-      }
-    } visitor{array_type};
-    return std::visit(visitor, value.value());
-  }
+      const std::optional<ValueType>& value, const std::shared_ptr<DataType>& array_type);
 
   /// \brief The number of null values, may not be set
   std::optional<int64_t> null_count = std::nullopt;
@@ -122,15 +99,14 @@ struct ARROW_EXPORT ArrayStatistics {
     return ValueToArrowType(max, array_type);
   }
 
+  /// \brief Use for the Equality of two Scalar.
+  EqualOptions options = EqualOptions::Defaults();
+
   /// \brief Whether the maximum value is exact or not
   bool is_max_exact = false;
 
   /// \brief Check two statistics for equality
-  bool Equals(const ArrayStatistics& other) const {
-    return null_count == other.null_count && distinct_count == other.distinct_count &&
-           min == other.min && is_min_exact == other.is_min_exact && max == other.max &&
-           is_max_exact == other.is_max_exact;
-  }
+  bool Equals(const ArrayStatistics& other) const;
 
   /// \brief Check two statistics for equality
   bool operator==(const ArrayStatistics& other) const { return Equals(other); }
@@ -138,5 +114,30 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief Check two statistics for not equality
   bool operator!=(const ArrayStatistics& other) const { return !Equals(other); }
 };
+
+namespace internal {
+/// \brief Extract all nested arrays from an array as \ref ArrayDataVector.
+///
+/// Returns all nested arrays within the given array, up to the specified
+/// maximum nesting depth, as a vector of ArrayData.
+///
+/// \param[in] array The input array from which nested arrays will be extracted.
+/// \param[in] max_nesting_depth The maximum depth of nested arrays to extract.
+///
+/// \return A vector of \ref ArrayData .
+ARROW_EXPORT
+Result<ArrayDataVector> ExtractColumnsToArrayData(const std::shared_ptr<Array>& array,
+                                                  const int32_t& max_nesting_depth);
+/// \brief Collect Statistics From ArrayDataVector and turns into an Array
+///
+/// \param[in] memory_pool the memory pool to allocate memory from
+/// \param extracted_array_data_vector The input ArrayData from which statistics array is
+/// extracted
+///
+/// \return A statistics array.
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> MakeStatisticsArray(
+    MemoryPool* memory_pool, const ArrayDataVector& extracted_array_data_vector);
+}  // namespace internal
 
 }  // namespace arrow
