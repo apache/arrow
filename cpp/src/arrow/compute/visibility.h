@@ -17,11 +17,33 @@
 
 #pragma once
 
-namespace arrow {
-namespace compute {
+#if defined(_WIN32) || defined(__CYGWIN__)
+#  if defined(_MSC_VER)
+#    pragma warning(push)
+#    pragma warning(disable : 4251)
+#  else
+#    pragma GCC diagnostic ignored "-Wattributes"
+#  endif
 
-ARROW_COMPUTE_EXPORT Result<std::unique_ptr<RowSegmenter>> MakeAnyKeysSegmenter(
-    const std::vector<TypeHolder>& key_types, ExecContext* ctx);
+#  ifdef ARROW_COMPUTE_STATIC
+#    define ARROW_COMPUTE_EXPORT
+#  elif defined(ARROW_COMPUTE_EXPORTING)
+#    define ARROW_COMPUTE_EXPORT __declspec(dllexport)
+#  else
+#    define ARROW_COMPUTE_EXPORT __declspec(dllimport)
+#  endif
 
-}  // namespace compute
-}  // namespace arrow
+#  define ARROW_COMPUTE_NO_EXPORT
+
+#  if defined(_MSC_VER)
+#    pragma warning(pop)
+#  endif
+
+#else  // Not Windows
+#  ifndef ARROW_COMPUTE_EXPORT
+#    define ARROW_COMPUTE_EXPORT __attribute__((visibility("default")))
+#  endif
+#  ifndef ARROW_COMPUTE_NO_EXPORT
+#    define ARROW_COMPUTE_NO_EXPORT __attribute__((visibility("hidden")))
+#  endif
+#endif
