@@ -1723,13 +1723,13 @@ bool LogicalType::Impl::Geometry::Equals(const LogicalType& other) const {
 }
 
 const std::string& GeometryLogicalType::crs() const {
-  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).crs();
+  return checked_cast<const LogicalType::Impl::Geometry&>(*impl_).crs();
 }
 
 std::shared_ptr<const LogicalType> GeometryLogicalType::Make(std::string crs) {
-  auto* logical_type = new GeometryLogicalType();
+  auto logical_type = std::shared_ptr<GeometryLogicalType>(new GeometryLogicalType());
   logical_type->impl_.reset(new LogicalType::Impl::Geometry(std::move(crs)));
-  return std::shared_ptr<const LogicalType>(logical_type);
+  return logical_type;
 }
 
 class LogicalType::Impl::Geography final : public LogicalType::Impl::Incompatible,
@@ -1827,22 +1827,22 @@ bool LogicalType::Impl::Geography::Equals(const LogicalType& other) const {
 }
 
 const std::string& GeographyLogicalType::crs() const {
-  return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).crs();
+  return checked_cast<const LogicalType::Impl::Geography&>(*impl_).crs();
 }
 
 LogicalType::EdgeInterpolationAlgorithm GeographyLogicalType::algorithm() const {
-  return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).algorithm();
+  return checked_cast<const LogicalType::Impl::Geography&>(*impl_).algorithm();
 }
 
 std::string_view GeographyLogicalType::algorithm_name() const {
-  return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).algorithm_name();
+  return checked_cast<const LogicalType::Impl::Geography&>(*impl_).algorithm_name();
 }
 
 std::shared_ptr<const LogicalType> GeographyLogicalType::Make(
     std::string crs, LogicalType::EdgeInterpolationAlgorithm algorithm) {
-  auto* logical_type = new GeographyLogicalType();
+  auto logical_type = std::shared_ptr<GeographyLogicalType>(new GeographyLogicalType());
   logical_type->impl_.reset(new LogicalType::Impl::Geography(std::move(crs), algorithm));
-  return std::shared_ptr<const LogicalType>(logical_type);
+  return logical_type;
 }
 
 class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
