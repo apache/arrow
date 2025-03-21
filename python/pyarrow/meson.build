@@ -101,7 +101,7 @@ cython_module_names = [
     '_json',
     '_compute',
     #'_cuda',
-    '_flight',
+    #'_flight',
     '_dataset',
     '_dataset_orc',
     '_dataset_parquet',
