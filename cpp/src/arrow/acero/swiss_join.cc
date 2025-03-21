@@ -1330,7 +1330,7 @@ void SwissTableForJoinBuild::PrtnMerge(int prtn_id) {
   PartitionState& prtn_state = prtn_states_[prtn_id];
   // Emscripten has size_t as unsigned long thus warns about this comparison being always
   // true. We explicit cast to unsigned long long.
-  DCHECK_LE(static_cast<unsigned long long>(prtn_state.key_ids.size()),
+  DCHECK_LE(static_cast<uint64_t>(prtn_state.key_ids.size()),
             std::numeric_limits<uint32_t>::max() + 1ull);
 
   // There are 4 data structures that require partition merging:
