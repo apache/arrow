@@ -32,8 +32,8 @@ the number of columns and number of rows), though if the data has fewer
 than 250 million cells (rows x cols), then the total number of rows is
 used.}
 
-\item{version}{parquet version: "1.0", "2.0" (deprecated), "2.4" (default),
-"2.6", or "latest" (currently equivalent to 2.6). Numeric values are
+\item{version}{parquet version: "1.0", "2.4" (default), "2.6", or
+"latest" (currently equivalent to 2.6). Numeric values are
 coerced to character.}
 
 \item{compression}{compression algorithm. Default "snappy". See details.}

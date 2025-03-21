@@ -121,7 +121,7 @@ def test_pandas_parquet_column_multiindex(tempdir):
 
 
 @pytest.mark.pandas
-def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(tempdir):
+def test_pandas_parquet_2_roundtrip_read_pandas_no_index_written(tempdir):
     df = alltypes_sample(size=10000)
 
     filename = tempdir / 'pandas_roundtrip.parquet'
@@ -267,18 +267,6 @@ def test_pandas_parquet_configuration_options(tempdir):
         table_read = _read_table(filename)
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
-
-
-@pytest.mark.pandas
-@pytest.mark.filterwarnings("ignore:Parquet format '2.0':FutureWarning")
-def test_spark_flavor_preserves_pandas_metadata():
-    df = _test_dataframe(size=100)
-    df.index = np.arange(0, 10 * len(df), 10)
-    df.index.name = 'foo'
-
-    result = _roundtrip_pandas_dataframe(df, {'version': '2.0',
-                                              'flavor': 'spark'})
-    tm.assert_frame_equal(result, df)
 
 
 @pytest.mark.pandas

@@ -1264,7 +1264,7 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
 
 using TestUInt32ParquetIO = TestParquetIO<::arrow::UInt32Type>;
 
-TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compatibility) {
+TEST_F(TestUInt32ParquetIO, Parquet_2_6_Compatibility) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> values;
 
@@ -2055,10 +2055,6 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                                           .version(ParquetVersion::PARQUET_1_0)
                                           ->build();
   ARROW_SUPPRESS_DEPRECATION_WARNING
-  auto parquet_version_2_0_properties = ::parquet::WriterProperties::Builder()
-                                            .version(ParquetVersion::PARQUET_2_0)
-                                            ->build();
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   auto parquet_version_2_4_properties = ::parquet::WriterProperties::Builder()
                                             .version(ParquetVersion::PARQUET_2_4)
                                             ->build();
@@ -2066,8 +2062,8 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                                             .version(ParquetVersion::PARQUET_2_6)
                                             ->build();
   const std::vector<std::shared_ptr<WriterProperties>> all_properties = {
-      parquet_version_1_properties, parquet_version_2_0_properties,
-      parquet_version_2_4_properties, parquet_version_2_6_properties};
+      parquet_version_1_properties, parquet_version_2_4_properties,
+      parquet_version_2_6_properties};
 
   {
     // Using Parquet version 1.0 and 2.4 defaults, seconds should be coerced to
@@ -2081,13 +2077,11 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                                                      parquet_version_2_4_properties));
   }
   {
-    // Using Parquet version 2.0 and 2.6 defaults, seconds should be coerced to
+    // Using Parquet version 2.6 defaults, seconds should be coerced to
     // milliseconds and nanoseconds should be retained
     auto expected_schema = schema({field("ts:s", t_ms), field("ts:ms", t_ms),
                                    field("ts:us", t_us), field("ts:ns", t_ns)});
     auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_us, a_ns});
-    ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                     parquet_version_2_0_properties));
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_2_6_properties));
   }
@@ -2133,9 +2127,8 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                              CreateOutputStream(), input_table->num_rows(), properties,
                              arrow_coerce_to_nanos_properties));
   }
-  // Using Parquet versions "2.0" and 2.6, coercing to (int64) nanoseconds is allowed
-  for (const auto& properties :
-       {parquet_version_2_0_properties, parquet_version_2_6_properties}) {
+  // Using Parquet version 2.6, coercing to (int64) nanoseconds is allowed
+  for (const auto& properties : {parquet_version_2_6_properties}) {
     ARROW_SCOPED_TRACE("format = ", ParquetVersionToString(properties->version()));
     auto expected_schema = schema({field("ts:s", t_ns), field("ts:ms", t_ns),
                                    field("ts:us", t_ns), field("ts:ns", t_ns)});

@@ -58,7 +58,7 @@ pytestmark = pytest.mark.parquet
 
 @pytest.mark.pandas
 @pytest.mark.parametrize('chunk_size', [None, 1000])
-def test_parquet_2_0_roundtrip(tempdir, chunk_size):
+def test_parquet_2_6_roundtrip(tempdir, chunk_size):
     df = alltypes_sample(size=10000, categorical=True)
 
     filename = tempdir / 'pandas_roundtrip.parquet'

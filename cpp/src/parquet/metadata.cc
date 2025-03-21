@@ -76,9 +76,6 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
     case ParquetVersion::PARQUET_1_0:
       return "1.0";
       ARROW_SUPPRESS_DEPRECATION_WARNING
-    case ParquetVersion::PARQUET_2_0:
-      return "pseudo-2.0";
-      ARROW_UNSUPPRESS_DEPRECATION_WARNING
     case ParquetVersion::PARQUET_2_4:
       return "2.4";
     case ParquetVersion::PARQUET_2_6:

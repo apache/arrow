@@ -991,8 +991,6 @@ cdef class FileMetaData(_Weakrefable):
         cdef ParquetVersion version = self._metadata.version()
         if version == ParquetVersion_V1:
             return '1.0'
-        elif version == ParquetVersion_V2_0:
-            return 'pseudo-2.0'
         elif version == ParquetVersion_V2_4:
             return '2.4'
         elif version == ParquetVersion_V2_6:
@@ -1888,12 +1886,6 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     if version is not None:
         if version == "1.0":
             props.version(ParquetVersion_V1)
-        elif version in ("2.0", "pseudo-2.0"):
-            warnings.warn(
-                "Parquet format '2.0' pseudo version is deprecated, use "
-                "'2.4' or '2.6' for fine-grained feature selection",
-                FutureWarning, stacklevel=2)
-            props.version(ParquetVersion_V2_0)
         elif version == "2.4":
             props.version(ParquetVersion_V2_4)
         elif version == "2.6":

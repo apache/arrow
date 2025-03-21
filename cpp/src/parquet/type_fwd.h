@@ -38,12 +38,6 @@ struct ParquetVersion {
     /// corresponding converted type.
     PARQUET_1_0,
 
-    /// DEPRECATED: Enable Parquet format 2.6 features
-    ///
-    /// This misleadingly named enum value is roughly similar to PARQUET_2_6.
-    PARQUET_2_0 ARROW_DEPRECATED_ENUM_VALUE("use PARQUET_2_4 or PARQUET_2_6 "
-                                            "for fine-grained feature selection"),
-
     /// Enable Parquet format 2.4 and earlier features when writing
     ///
     /// This enables UINT32 as well as logical types which don't have
