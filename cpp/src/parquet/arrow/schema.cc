@@ -21,7 +21,6 @@
 #include <string>
 #include <vector>
 
-#include "arrow/config.h"
 #include "arrow/extension/json.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
@@ -438,8 +437,8 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
         break;
       } else if (ext_type->extension_name() == std::string("geoarrow.wkb")) {
         type = ParquetType::BYTE_ARRAY;
-        ARROW_ASSIGN_OR_RAISE(logical_type, GeospatialLogicalTypeFromGeoArrowJSON(
-                                                ext_type->Serialize(), arrow_properties));
+        ARROW_ASSIGN_OR_RAISE(logical_type,
+                              LogicalTypeFromGeoArrowMetadata(ext_type->Serialize()));
         break;
       }
 
@@ -1097,10 +1096,6 @@ Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
                        const WriterProperties& properties,
                        const ArrowWriterProperties& arrow_properties,
                        std::shared_ptr<SchemaDescriptor>* out) {
-  // TODO(paleolimbot): I'm wondering if this geo_crs_context is reused when testing
-  // on MINGW, where we get some failures indicating non-empty metadata where it was
-  // expected
-  arrow_properties.geo_crs_context()->Clear();
   std::vector<NodePtr> nodes(arrow_schema->num_fields());
   for (int i = 0; i < arrow_schema->num_fields(); i++) {
     RETURN_NOT_OK(

@@ -1296,10 +1296,7 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsLonLat) {
 
 TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsSrid) {
 #ifdef ARROW_JSON
-  // Checks the conversion between GeoArrow's crs_type: srid and Parquet's srid:XXX.
-  // SRID (spatial reference identifier) is an opaque application specific identifier
-  // that GeoArrow will transport but refuse to resolve if required for a spatial
-  // operation.
+  // Checks that it is possible to write the srid:xxxx reccomendation from GeoArrow
   ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
 
   std::vector<NodePtr> parquet_fields;
@@ -1311,11 +1308,9 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsSrid) {
                                                ParquetType::BYTE_ARRAY));
 
   std::vector<std::shared_ptr<Field>> arrow_fields = {
-      ::arrow::field("geometry",
-                     test::geoarrow_wkb(R"({"crs": "1234", "crs_type": "srid"})"), true),
+      ::arrow::field("geometry", test::geoarrow_wkb(R"({"crs": "srid:1234"})"), true),
       ::arrow::field("geography",
-                     test::geoarrow_wkb(
-                         R"({"crs": "5678", "crs_type": "srid", "edges": "spherical"})"),
+                     test::geoarrow_wkb(R"({"crs": "srid:5678", "edges": "spherical"})"),
                      true)};
 
   ASSERT_OK(ConvertSchema(arrow_fields));
@@ -1333,37 +1328,32 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsProjjson) {
   ::arrow::ExtensionTypeGuard guard(test::geoarrow_wkb());
 
   std::vector<std::shared_ptr<Field>> arrow_fields = {
-      ::arrow::field(
-          "geometry",
-          test::geoarrow_wkb(R"({"crs": {"key0": "value0"}, "crs_type": "projjson"})"),
-          true),
+      ::arrow::field("geometry", test::geoarrow_wkb(R"({"crs": {"key0": "value0"}})"),
+                     true),
       ::arrow::field(
           "geography",
-          test::geoarrow_wkb(
-              R"({"crs": {"key1": "value1"}, "crs_type": "projjson", "edges": "spherical"})"),
+          test::geoarrow_wkb(R"({"crs": {"key1": "value1"}, "edges": "spherical"})"),
           true)};
 
   auto arrow_properties = default_arrow_writer_properties();
   ASSERT_OK(ConvertSchema(arrow_fields, arrow_properties));
 
-  std::shared_ptr<::arrow::KeyValueMetadata> crs_metadata =
-      ::arrow::key_value_metadata({}, {});
-  arrow_properties->geo_crs_context()->AddProjjsonCrsFieldsToFileMetadata(
-      crs_metadata.get());
+  // std::shared_ptr<::arrow::KeyValueMetadata> crs_metadata =
+  //     ::arrow::key_value_metadata({}, {});
+  // arrow_properties->geo_crs_context()->AddProjjsonCrsFieldsToFileMetadata(
+  //     crs_metadata.get());
 
-  ASSERT_EQ(crs_metadata->size(), 2);
-  ASSERT_EQ(crs_metadata->value(0), R"({"key0":"value0"})");
-  ASSERT_EQ(crs_metadata->value(1), R"({"key1":"value1"})");
+  // ASSERT_EQ(crs_metadata->size(), 2);
+  // ASSERT_EQ(crs_metadata->value(0), R"({"key0":"value0"})");
+  // ASSERT_EQ(crs_metadata->value(1), R"({"key1":"value1"})");
 
   std::vector<NodePtr> parquet_fields;
-  parquet_fields.push_back(
-      PrimitiveNode::Make("geometry", Repetition::OPTIONAL,
-                          LogicalType::Geometry("projjson:" + crs_metadata->key(0)),
-                          ParquetType::BYTE_ARRAY));
-  parquet_fields.push_back(
-      PrimitiveNode::Make("geography", Repetition::OPTIONAL,
-                          LogicalType::Geography("projjson:" + crs_metadata->key(1)),
-                          ParquetType::BYTE_ARRAY));
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "geometry", Repetition::OPTIONAL, LogicalType::Geometry(R"({"key0":"value0"})"),
+      ParquetType::BYTE_ARRAY));
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "geography", Repetition::OPTIONAL, LogicalType::Geography(R"({"key1":"value1"})"),
+      ParquetType::BYTE_ARRAY));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 #else

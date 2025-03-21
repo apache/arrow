@@ -16,22 +16,14 @@
 // under the License.
 
 #include <sstream>
-#include <utility>
 
 #include "parquet/properties.h"
 
 #include "arrow/io/buffered.h"
 #include "arrow/io/memory.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 
-#include "parquet/geospatial_util_internal_json.h"
-
 namespace parquet {
-
-std::shared_ptr<GeoCrsContext> GeoCrsContext::DefaultCrsContext() {
-  return std::make_shared<FileGeoCrsContext>();
-}
 
 std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
     std::shared_ptr<ArrowInputFile> source, int64_t start, int64_t num_bytes) {

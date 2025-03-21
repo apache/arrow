@@ -137,7 +137,7 @@ Result<std::shared_ptr<ArrowType>> FromByteArray(
       if (reader_properties.get_arrow_extensions_enabled()) {
         // Attempt creating a GeoArrow extension type (or return binary() if types are not
         // registered)
-        return MakeGeoArrowGeometryType(logical_type, metadata);
+        return GeoArrowTypeFromLogicalType(logical_type, metadata);
       }
 
       // When the original Arrow schema isn't stored, Arrow extensions are disabled, or
