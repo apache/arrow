@@ -752,8 +752,6 @@ class FileMetaData::FileMetaDataImpl {
     int32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
         serialized_data_span, str2span(key), str2span(aad), nonce,
         encrypted_buffer->mutable_span_as<uint8_t>());
-    // Delete AES encryptor object. It was created only to verify the footer signature.
-    aes_encryptor->WipeOut();
     return 0 ==
            memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
                   tag, encryption::kGcmTagLength);

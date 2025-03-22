@@ -259,12 +259,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     // The column is encrypted
-    std::shared_ptr<Decryptor> meta_decryptor = GetColumnMetaDecryptor(
-        crypto_metadata.get(), file_metadata_->file_decryptor().get());
-    std::shared_ptr<Decryptor> data_decryptor = GetColumnDataDecryptor(
-        crypto_metadata.get(), file_metadata_->file_decryptor().get());
-    ARROW_DCHECK_NE(meta_decryptor, nullptr);
-    ARROW_DCHECK_NE(data_decryptor, nullptr);
+    auto* file_decryptor = file_metadata_->file_decryptor().get();
+    auto meta_decryptor_factory = InternalFileDecryptor::GetColumnMetaDecryptorFactory(
+        file_decryptor, crypto_metadata.get());
+    auto data_decryptor_factory = InternalFileDecryptor::GetColumnDataDecryptorFactory(
+        file_decryptor, crypto_metadata.get());
 
     constexpr auto kEncryptedOrdinalLimit = 32767;
     if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedOrdinalLimit)) {
@@ -274,9 +273,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       throw ParquetException("Encrypted files cannot contain more than 32767 columns");
     }
 
-    CryptoContext ctx(col->has_dictionary_page(),
+    CryptoContext ctx{col->has_dictionary_page(),
                       static_cast<int16_t>(row_group_ordinal_), static_cast<int16_t>(i),
-                      meta_decryptor, data_decryptor);
+                      std::move(meta_decryptor_factory),
+                      std::move(data_decryptor_factory)};
     return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
                             always_compressed, &ctx);
   }
@@ -314,11 +314,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     }
   }
 
-  void Close() override {
-    if (file_metadata_ && file_metadata_->file_decryptor()) {
-      file_metadata_->file_decryptor()->WipeOutDecryptionKeys();
-    }
-  }
+  void Close() override {}
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap;
