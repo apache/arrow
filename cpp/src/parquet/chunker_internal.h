@@ -26,6 +26,8 @@
 
 namespace parquet::internal {
 
+class TestPina;
+
 // Represents a chunk of data with level offsets and value offsets due to the
 // record shredding for nested data.
 struct Chunk {
@@ -129,8 +131,12 @@ class PARQUET_EXPORT ContentDefinedChunker {
                                int64_t num_levels, const ::arrow::Array& values);
 
  private:
+  uint64_t GetMask() const;
+
   class Impl;
   std::unique_ptr<Impl> impl_;
+
+  friend class TestCDC;
 };
 
 }  // namespace parquet::internal
