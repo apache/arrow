@@ -1301,8 +1301,3 @@ TEST_F(TestColumnCDCMultipleRowGroups, Append) {
 }
 
 }  // namespace parquet
-
-// TODO:
-// - place information about the used CDC parameters to the metadata
-// - test the effect of the normalization factor
-// - do more validation on min/max chunk size
