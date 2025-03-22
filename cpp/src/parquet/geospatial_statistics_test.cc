@@ -27,8 +27,6 @@
 
 namespace parquet::geometry {
 
-static constexpr double kInf = std::numeric_limits<double>::infinity();
-
 TEST(TestGeoStatistics, TestDefaults) {
   GeoStatistics stats;
   EXPECT_EQ(stats.geometry_types().size(), 0);

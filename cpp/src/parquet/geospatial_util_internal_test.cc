@@ -27,8 +27,6 @@
 
 namespace parquet::geometry {
 
-static constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
-
 TEST(TestGeometryUtil, TestBoundingBox) {
   BoundingBox box;
   EXPECT_EQ(box, BoundingBox({kInf, kInf, kInf, kInf}, {-kInf, -kInf, -kInf, -kInf}));
@@ -53,7 +51,9 @@ TEST(TestGeometryUtil, TestBoundingBox) {
   box_xyzm.Merge(box_xym);
   EXPECT_EQ(box_xyzm, BoundingBox({-10, -20, -30, -40}, {10, 20, 30, 40}));
 
-  BoundingBox box_nan({kNaN, kNaN, kNaN, kNaN}, {kNaN, kNaN, kNaN, kNaN});
+  double nan_dbl = std::numeric_limits<double>::quiet_NaN();
+  BoundingBox box_nan({nan_dbl, nan_dbl, nan_dbl, nan_dbl},
+                      {nan_dbl, nan_dbl, nan_dbl, nan_dbl});
   box_xyzm.Merge(box_nan);
   for (int i = 0; i < 4; i++) {
     EXPECT_TRUE(std::isnan(box_xyzm.min[i]));
