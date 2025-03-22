@@ -2119,6 +2119,17 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     elif use_content_defined_chunking is False:
         props.disable_content_defined_chunking()
     elif isinstance(use_content_defined_chunking, dict):
+        defined_keys = use_content_defined_chunking.keys()
+        mandatory_keys = {"min_chunk_size", "max_chunk_size"}
+        allowed_keys = {"min_chunk_size", "max_chunk_size", "norm_factor"}
+        unknown_keys = defined_keys - allowed_keys
+        missing_keys = mandatory_keys - defined_keys
+        if unknown_keys:
+            raise ValueError(
+                f"Unknown options in 'use_content_defined_chunking': {unknown_keys}")
+        if missing_keys:
+            raise ValueError(
+                f"Missing options in 'use_content_defined_chunking': {missing_keys}")
         props.enable_content_defined_chunking()
         props.content_defined_chunking_options(
             use_content_defined_chunking["min_chunk_size"],
