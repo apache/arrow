@@ -1,6 +1,7 @@
 cffi
 cython
 hypothesis
+packaging
 pytest
 pytz
 pyuwsgi; sys.platform != 'win32' and python_version < '3.13'
