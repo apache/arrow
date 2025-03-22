@@ -36,16 +36,11 @@ jobs:
     if: github.event.workflow_run.conclusion != 'skipped'
 
     permissions:
+      # required to create check status
       checks: write
 
-      # needed unless run with comment_mode: off
+      # required to write comment to pull request
       pull-requests: write
-
-      # only needed for private repository
-      contents: read
-
-      # only needed for private repository
-      issues: read
 
       # required by download step to access artifacts API
       actions: read
