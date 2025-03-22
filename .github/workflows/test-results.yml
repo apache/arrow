@@ -47,14 +47,14 @@ jobs:
 
     steps:
       - name: Download event file
-        uses: dawidd6/action-download-artifact@e7466d1a7587ed14867642c2ca74b5bcc1e19a2d
+        uses: dawidd6/action-download-artifact@07ab29fd4a977ae4d2b275087cf67563dfdf0295  # v9
         with:
            run_id: ${{ github.event.workflow_run.id }}
            name: Event
            path: artifacts
 
       - name: Download test results
-        uses: dawidd6/action-download-artifact@e7466d1a7587ed14867642c2ca74b5bcc1e19a2d
+        uses: dawidd6/action-download-artifact@07ab29fd4a977ae4d2b275087cf67563dfdf0295  # v9
         with:
            run_id: ${{ github.event.workflow_run.id }}
            name: ^test-results-.*
