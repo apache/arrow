@@ -60,12 +60,12 @@ using ::arrow::internal::checked_cast;
 // @param max_chunk_size The maximum chunk size (default 1MiB)
 // @param norm_factor Normalization factor (default 0)
 // @return The mask used to compare against the rolling hash
-static uint64_t GetMask(int64_t min_chunk_size, int64_t max_chunk_size,
-                        int8_t norm_factor) {
+static uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size,
+                              int8_t norm_factor) {
   if (min_chunk_size < 0) {
     throw ParquetException("min_chunk_size must be positive");
   }
-  if (max_chunk_size < min_chunk_size) {
+  if (max_chunk_size <= min_chunk_size) {
     throw ParquetException("max_chunk_size must be greater than min_chunk_size");
   }
 
@@ -75,9 +75,10 @@ static uint64_t GetMask(int64_t min_chunk_size, int64_t max_chunk_size,
   // target a smaller chunk size to reach the average size after skipping the first
   // `min_chunk_size` bytes
   int64_t target_size = avg_chunk_size - min_chunk_size;
+
   // assuming that the gear hash has a uniform distribution, we can calculate the mask
   // by taking the floor(log2(target_size))
-  size_t mask_bits = std::max(0, ::arrow::bit_util::NumRequiredBits(target_size) - 1);
+  int mask_bits = std::max(0, ::arrow::bit_util::NumRequiredBits(target_size) - 1);
 
   // 3 because we are using 8 hash tables to have more gaussian-like distribution,
   // a user defined `norm_factor` can be used to adjust the mask size, hence the matching
@@ -86,20 +87,22 @@ static uint64_t GetMask(int64_t min_chunk_size, int64_t max_chunk_size,
   // default
   if (norm_factor < -3 || norm_factor > 3) {
     ARROW_LOG(WARNING) << "norm_factor=" << std::to_string(norm_factor)
-                       << " is outside the recommended range (-3, 3)";
+                       << " is outside the recommended range [-3, 3]";
   }
-  size_t effective_bits = mask_bits - 3 - norm_factor;
 
+  int mask_adjustement = 3 + norm_factor;
+  int effective_bits = mask_bits - mask_adjustement;
   if (effective_bits == 0) {
     return 0;
   } else if (effective_bits > 64) {
-    throw ParquetException("The number of bits in the mask is too large, max 64 bits");
+    throw ParquetException("The number of bits in the mask cannot exceed 64, got " +
+                           std::to_string(effective_bits));
   } else if (effective_bits < 0) {
     throw ParquetException(
         "The difference between min_chunk_size=" + std::to_string(min_chunk_size) +
         " and max_chunk_size=" + std::to_string(max_chunk_size) +
         " is too small for the given norm_factor=" + std::to_string(norm_factor) +
-        ", increase the difference.");
+        ", either increase the size range or decrease the norm_factor.");
   } else {
     // create the mask by setting the top mask_bits bits
     return std::numeric_limits<uint64_t>::max() << (64 - effective_bits);
@@ -113,7 +116,9 @@ class ContentDefinedChunker::Impl {
       : level_info_(level_info),
         min_chunk_size_(min_chunk_size),
         max_chunk_size_(max_chunk_size),
-        rolling_hash_mask_(GetMask(min_chunk_size, max_chunk_size, norm_factor)) {}
+        rolling_hash_mask_(CalculateMask(min_chunk_size, max_chunk_size, norm_factor)) {}
+
+  uint64_t GetRollingHashMask() const { return rolling_hash_mask_; }
 
   void Roll(const bool value) {
     if (chunk_size_++ < min_chunk_size_) {
@@ -375,5 +380,7 @@ std::vector<Chunk> ContentDefinedChunker::GetChunks(const int16_t* def_levels,
                                                     const ::arrow::Array& values) {
   return impl_->GetChunks(def_levels, rep_levels, num_levels, values);
 }
+
+uint64_t ContentDefinedChunker::GetMask() const { return impl_->GetRollingHashMask(); }
 
 }  // namespace parquet::internal
