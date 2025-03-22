@@ -35,7 +35,7 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
 
-namespace parquet {
+namespace parquet::internal {
 
 using ::arrow::Array;
 using ::arrow::ChunkedArray;
@@ -760,7 +760,125 @@ void PrintTo(const CaseConfig& param, std::ostream* os) {
   *os << " }";
 }
 
-class TestColumnCDC : public ::testing::TestWithParam<CaseConfig> {
+class TestCDC : public ::testing::Test {
+ public:
+  uint64_t GetMask(const ContentDefinedChunker& cdc) const { return cdc.GetMask(); }
+};
+
+TEST_F(TestCDC, RollingHashMaskCalculation) {
+  auto le = LevelInfo();
+  auto min_size = 256 * 1024;
+  auto max_size = 1024 * 1024;
+
+  auto cdc0 = ContentDefinedChunker(le, min_size, max_size, 0);
+  ASSERT_EQ(GetMask(cdc0), 0xFFFE000000000000);
+
+  auto cdc1 = ContentDefinedChunker(le, min_size, max_size, 1);
+  ASSERT_EQ(GetMask(cdc1), 0xFFFC000000000000);
+
+  auto cdc2 = ContentDefinedChunker(le, min_size, max_size, 2);
+  ASSERT_EQ(GetMask(cdc2), 0xFFF8000000000000);
+
+  auto cdc3 = ContentDefinedChunker(le, min_size, max_size, 3);
+  ASSERT_EQ(GetMask(cdc3), 0xFFF0000000000000);
+
+  auto cdc4 = ContentDefinedChunker(le, min_size, max_size, -1);
+  ASSERT_EQ(GetMask(cdc4), 0xFFFF000000000000);
+
+  // this is the smallest possible mask always matching, by using 8 hashtables
+  // we are going to have a match every 8 bytes; this is an unrealistic case
+  // but checking for the correctness of the mask calculation
+  auto cdc5 = ContentDefinedChunker(le, 0, 16, 0);
+  ASSERT_EQ(GetMask(cdc5), 0x0000000000000000);
+
+  auto cdc6 = ContentDefinedChunker(le, 0, 32, 1);
+  ASSERT_EQ(GetMask(cdc6), 0x0000000000000000);
+
+  auto cdc7 = ContentDefinedChunker(le, 0, 16, -1);
+  ASSERT_EQ(GetMask(cdc7), 0x8000000000000000);
+
+  // another unrealistic case, checking for the validation
+  auto cdc8 = ContentDefinedChunker(le, 128, 384, -60);
+  ASSERT_EQ(GetMask(cdc8), 0xFFFFFFFFFFFFFFFF);
+}
+
+TEST_F(TestCDC, WriteSingleColumnParquetFile) {
+  // Define the schema with a single column "number"
+  auto schema = std::dynamic_pointer_cast<schema::GroupNode>(schema::GroupNode::Make(
+      "root", Repetition::REQUIRED,
+      {schema::PrimitiveNode::Make("number", Repetition::REQUIRED, Type::INT32)}));
+
+  auto sink = CreateOutputStream();
+  auto builder = WriterProperties::Builder();
+  auto props = builder.enable_content_defined_chunking()->build();
+
+  auto writer = ParquetFileWriter::Open(sink, schema, props);
+  auto row_group_writer = writer->AppendRowGroup();
+
+  // Create a column writer for the "number" column
+  auto column_writer = row_group_writer->NextColumn();
+  auto& int_column_writer = dynamic_cast<Int32Writer&>(*column_writer);
+
+  std::vector<int32_t> numbers = {1, 2, 3, 4, 5};
+  std::vector<uint8_t> valid_bits = {1, 0, 1, 0, 1};
+  EXPECT_THROW(
+      int_column_writer.WriteBatch(numbers.size(), nullptr, nullptr, numbers.data()),
+      ParquetException);
+  EXPECT_THROW(int_column_writer.WriteBatchSpaced(numbers.size(), nullptr, nullptr,
+                                                  valid_bits.data(), 0, numbers.data()),
+               ParquetException);
+}
+
+TEST_F(TestCDC, ChunkSizeParameterValidation) {
+  // Test that constructor validates min/max chunk size parameters
+  auto li = LevelInfo();
+
+  ASSERT_NO_THROW(ContentDefinedChunker(li, 256 * 1024, 1024 * 1024));
+
+  // with norm_factor=0 the difference between min and max chunk size must be
+  // at least 16
+  ASSERT_THROW(ContentDefinedChunker(li, 0, -1), ParquetException);
+  ASSERT_THROW(ContentDefinedChunker(li, 1024, 512), ParquetException);
+
+  ASSERT_THROW(ContentDefinedChunker(li, -1, 0), ParquetException);
+  ASSERT_THROW(ContentDefinedChunker(li, 0, 0), ParquetException);
+  ASSERT_NO_THROW(ContentDefinedChunker(li, 0, 16));
+  ASSERT_THROW(ContentDefinedChunker(li, -16, -16), ParquetException);
+  ASSERT_THROW(ContentDefinedChunker(li, 16, 0), ParquetException);
+  ASSERT_THROW(ContentDefinedChunker(li, 32, 32), ParquetException);
+  ASSERT_NO_THROW(ContentDefinedChunker(li, 32, 48));
+  ASSERT_NO_THROW(ContentDefinedChunker(li, 1024 * 1024, 2 * 1024 * 1024));
+  ASSERT_NO_THROW(
+      ContentDefinedChunker(li, 1024 * 1024 * 1024L, 2LL * 1024 * 1024 * 1024L));
+
+  // with norm_factor=1 the difference between min and max chunk size must be
+  // at least 64
+  ASSERT_THROW(ContentDefinedChunker(li, 1, -1, 1), ParquetException);
+  ASSERT_THROW(ContentDefinedChunker(li, -1, 1, 1), ParquetException);
+  ASSERT_THROW(ContentDefinedChunker(li, 1, 1, 1), ParquetException);
+  ASSERT_THROW(ContentDefinedChunker(li, 1, 32, 1), ParquetException);
+  ASSERT_NO_THROW(ContentDefinedChunker(li, 1, 33, 1));
+
+  // with norm_factor=2 the difference between min and max chunk size must be
+  // at least 128
+  ASSERT_THROW(ContentDefinedChunker(li, 0, 63, 2), ParquetException);
+  ASSERT_NO_THROW(ContentDefinedChunker(li, 0, 64, 2));
+
+  // with norm_factor=-1 the difference between min and max chunk size must be
+  // at least 8
+  ASSERT_THROW(ContentDefinedChunker(li, 0, 7, -1), ParquetException);
+  ASSERT_NO_THROW(ContentDefinedChunker(li, 0, 8, -1));
+  ASSERT_NO_THROW(ContentDefinedChunker(li, 0, 16, -1));
+
+  // test the norm_factor extremes
+  ASSERT_THROW(ContentDefinedChunker(li, 0, 0, -68), ParquetException);
+  ASSERT_NO_THROW(ContentDefinedChunker(li, 0, 1, -67));
+  ASSERT_THROW(ContentDefinedChunker(li, 0, std::numeric_limits<int64_t>::max(), 59),
+               ParquetException);
+  ASSERT_NO_THROW(ContentDefinedChunker(li, 0, std::numeric_limits<int64_t>::max(), 58));
+}
+
+class TestCDCSingleRowGroup : public ::testing::TestWithParam<CaseConfig> {
  protected:
   // Column random table parts for testing
   std::shared_ptr<Field> field_;
@@ -783,7 +901,7 @@ class TestColumnCDC : public ::testing::TestWithParam<CaseConfig> {
   }
 };
 
-TEST_P(TestColumnCDC, DeleteOnce) {
+TEST_P(TestCDCSingleRowGroup, DeleteOnce) {
   const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part2_, part3_}));
@@ -815,7 +933,7 @@ TEST_P(TestColumnCDC, DeleteOnce) {
   }
 }
 
-TEST_P(TestColumnCDC, DeleteTwice) {
+TEST_P(TestCDCSingleRowGroup, DeleteTwice) {
   const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base,
@@ -848,7 +966,7 @@ TEST_P(TestColumnCDC, DeleteTwice) {
   }
 }
 
-TEST_P(TestColumnCDC, UpdateOnce) {
+TEST_P(TestCDCSingleRowGroup, UpdateOnce) {
   const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part2_, part3_}));
@@ -872,7 +990,7 @@ TEST_P(TestColumnCDC, UpdateOnce) {
   }
 }
 
-TEST_P(TestColumnCDC, UpdateTwice) {
+TEST_P(TestCDCSingleRowGroup, UpdateTwice) {
   const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base,
@@ -898,7 +1016,7 @@ TEST_P(TestColumnCDC, UpdateTwice) {
   }
 }
 
-TEST_P(TestColumnCDC, InsertOnce) {
+TEST_P(TestCDCSingleRowGroup, InsertOnce) {
   const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part3_}));
@@ -929,7 +1047,7 @@ TEST_P(TestColumnCDC, InsertOnce) {
   }
 }
 
-TEST_P(TestColumnCDC, InsertTwice) {
+TEST_P(TestCDCSingleRowGroup, InsertTwice) {
   const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part3_, part5_}));
@@ -961,7 +1079,7 @@ TEST_P(TestColumnCDC, InsertTwice) {
   }
 }
 
-TEST_P(TestColumnCDC, Append) {
+TEST_P(TestCDCSingleRowGroup, Append) {
   const auto& param = GetParam();
 
   ASSERT_OK_AND_ASSIGN(auto base, ConcatAndCombine({part1_, part2_, part3_}));
@@ -991,7 +1109,7 @@ TEST_P(TestColumnCDC, Append) {
   }
 }
 
-TEST_P(TestColumnCDC, EmptyTable) {
+TEST_P(TestCDCSingleRowGroup, EmptyTable) {
   const auto& param = GetParam();
 
   auto schema = ::arrow::schema({::arrow::field("f0", param.dtype, param.is_nullable)});
@@ -1010,7 +1128,7 @@ TEST_P(TestColumnCDC, EmptyTable) {
   }
 }
 
-TEST_P(TestColumnCDC, ArrayOffsets) {
+TEST_P(TestCDCSingleRowGroup, ArrayOffsets) {
   ASSERT_OK_AND_ASSIGN(auto table, ConcatAndCombine({part1_, part2_, part3_}));
 
   for (auto offset : {0, 512, 1024}) {
@@ -1027,7 +1145,7 @@ TEST_P(TestColumnCDC, ArrayOffsets) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    FixedSizedTypes, TestColumnCDC,
+    FixedSizedTypes, TestCDCSingleRowGroup,
     testing::Values(
         // Boolean
         CaseConfig{::arrow::boolean(), false, 1},
@@ -1059,85 +1177,7 @@ INSTANTIATE_TEST_SUITE_P(
         // Extension type
         CaseConfig{::arrow::uuid(), true, 16}));
 
-TEST(TestColumnCDC, WriteSingleColumnParquetFile) {
-  // Define the schema with a single column "number"
-  auto schema = std::dynamic_pointer_cast<schema::GroupNode>(schema::GroupNode::Make(
-      "root", Repetition::REQUIRED,
-      {schema::PrimitiveNode::Make("number", Repetition::REQUIRED, Type::INT32)}));
-
-  auto sink = CreateOutputStream();
-  auto builder = WriterProperties::Builder();
-  auto props = builder.enable_content_defined_chunking()->build();
-
-  auto writer = ParquetFileWriter::Open(sink, schema, props);
-  auto row_group_writer = writer->AppendRowGroup();
-
-  // Create a column writer for the "number" column
-  auto column_writer = row_group_writer->NextColumn();
-  auto& int_column_writer = dynamic_cast<Int32Writer&>(*column_writer);
-
-  std::vector<int32_t> numbers = {1, 2, 3, 4, 5};
-  std::vector<uint8_t> valid_bits = {1, 0, 1, 0, 1};
-  EXPECT_THROW(
-      int_column_writer.WriteBatch(numbers.size(), nullptr, nullptr, numbers.data()),
-      ParquetException);
-  EXPECT_THROW(int_column_writer.WriteBatchSpaced(numbers.size(), nullptr, nullptr,
-                                                  valid_bits.data(), 0, numbers.data()),
-               ParquetException);
-}
-
-TEST(TestColumnCDC, ChunkSizeParameterValidation) {
-  // Test that constructor validates min/max chunk size parameters
-  auto li = internal::LevelInfo();
-
-  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 256 * 1024, 1024 * 1024));
-
-  // with norm_factor=0 the difference between min and max chunk size must be
-  // at least 16
-  ASSERT_THROW(internal::ContentDefinedChunker(li, 0, -1), ParquetException);
-  ASSERT_THROW(internal::ContentDefinedChunker(li, 1024, 512), ParquetException);
-
-  ASSERT_THROW(internal::ContentDefinedChunker(li, -1, 0), ParquetException);
-  ASSERT_THROW(internal::ContentDefinedChunker(li, 0, 0), ParquetException);
-  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 0, 16));
-  ASSERT_THROW(internal::ContentDefinedChunker(li, -16, -16), ParquetException);
-  ASSERT_THROW(internal::ContentDefinedChunker(li, 16, 0), ParquetException);
-  ASSERT_THROW(internal::ContentDefinedChunker(li, 32, 32), ParquetException);
-  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 32, 48));
-  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 1024 * 1024, 2 * 1024 * 1024));
-  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 1024 * 1024 * 1024L,
-                                                  2LL * 1024 * 1024 * 1024L));
-
-  // with norm_factor=1 the difference between min and max chunk size must be
-  // at least 64
-  ASSERT_THROW(internal::ContentDefinedChunker(li, 1, -1, 1), ParquetException);
-  ASSERT_THROW(internal::ContentDefinedChunker(li, -1, 1, 1), ParquetException);
-  ASSERT_THROW(internal::ContentDefinedChunker(li, 1, 1, 1), ParquetException);
-  ASSERT_THROW(internal::ContentDefinedChunker(li, 1, 32, 1), ParquetException);
-  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 1, 33, 1));
-
-  // with norm_factor=2 the difference between min and max chunk size must be
-  // at least 128
-  ASSERT_THROW(internal::ContentDefinedChunker(li, 0, 63, 2), ParquetException);
-  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 0, 64, 2));
-
-  // with norm_factor=-1 the difference between min and max chunk size must be
-  // at least 8
-  ASSERT_THROW(internal::ContentDefinedChunker(li, 0, 7, -1), ParquetException);
-  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 0, 8, -1));
-  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 0, 16, -1));
-
-  // test the norm_factor extremes
-  ASSERT_THROW(internal::ContentDefinedChunker(li, 0, 0, -68), ParquetException);
-  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 0, 0, -67));
-  ASSERT_THROW(
-      internal::ContentDefinedChunker(li, 0, std::numeric_limits<int64_t>::max(), 59),
-      ParquetException);
-  ASSERT_NO_THROW(
-      internal::ContentDefinedChunker(li, 0, std::numeric_limits<int64_t>::max(), 58));
-}
-
-class TestColumnCDCMultipleRowGroups : public ::testing::Test {
+class TestCDCMultipleRowGroups : public ::testing::Test {
  protected:
   // Column random table parts for testing
   std::shared_ptr<DataType> dtype_;
@@ -1162,7 +1202,7 @@ class TestColumnCDCMultipleRowGroups : public ::testing::Test {
   }
 };
 
-TEST_F(TestColumnCDCMultipleRowGroups, InsertOnce) {
+TEST_F(TestCDCMultipleRowGroups, InsertOnce) {
   auto constexpr kRowGroupLength = 128 * 1024;
   auto constexpr kEnableDictionary = false;
   auto constexpr kMinChunkSize = 0 * 1024;
@@ -1198,7 +1238,7 @@ TEST_F(TestColumnCDCMultipleRowGroups, InsertOnce) {
                               /*exact_number_of_smaller_diffs=*/0, edit2_->num_rows());
 }
 
-TEST_F(TestColumnCDCMultipleRowGroups, DeleteOnce) {
+TEST_F(TestCDCMultipleRowGroups, DeleteOnce) {
   auto constexpr kRowGroupLength = 128 * 1024;
   auto constexpr kEnableDictionary = false;
   auto constexpr kMinChunkSize = 0 * 1024;
@@ -1234,7 +1274,7 @@ TEST_F(TestColumnCDCMultipleRowGroups, DeleteOnce) {
                               /*exact_number_of_smaller_diffs=*/1, edit1_->num_rows());
 }
 
-TEST_F(TestColumnCDCMultipleRowGroups, UpdateOnce) {
+TEST_F(TestCDCMultipleRowGroups, UpdateOnce) {
   auto constexpr kRowGroupLength = 128 * 1024;
   auto constexpr kEnableDictionary = false;
   auto constexpr kMinChunkSize = 0 * 1024;
@@ -1265,7 +1305,7 @@ TEST_F(TestColumnCDCMultipleRowGroups, UpdateOnce) {
   }
 }
 
-TEST_F(TestColumnCDCMultipleRowGroups, Append) {
+TEST_F(TestCDCMultipleRowGroups, Append) {
   auto constexpr kRowGroupLength = 128 * 1024;
   auto constexpr kEnableDictionary = false;
   auto constexpr kMinChunkSize = 0 * 1024;
@@ -1300,4 +1340,4 @@ TEST_F(TestColumnCDCMultipleRowGroups, Append) {
   ASSERT_GT(appended_page_lengths.back(), original_page_lengths.back());
 }
 
-}  // namespace parquet
+}  // namespace parquet::internal
