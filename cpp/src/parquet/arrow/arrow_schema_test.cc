@@ -740,6 +740,36 @@ TEST_F(TestConvertParquetSchema, ParquetNestedSchema2) {
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
 
+TEST_F(TestConvertParquetSchema, ParquetUndefinedType) {
+  std::vector<NodePtr> parquet_fields;
+
+  // Make a node and intentionally modify it such that it comes back
+  // as NoLogicalType::Make()
+  NodePtr node = PrimitiveNode::Make("undefined", Repetition::OPTIONAL,
+                                     StringLogicalType::Make(), Type::BYTE_ARRAY);
+
+  format::SchemaElement string_intermediary;
+  node->ToParquet(&string_intermediary);
+
+  string_intermediary.logicalType.__isset.STRING = false;
+  node = PrimitiveNode::FromParquet(&string_intermediary);
+  parquet_fields.push_back(std::move(node));
+
+  // With default options, this should error
+  ASSERT_NOT_OK(ConvertSchema(parquet_fields));
+
+  // With an opt-in, the field should be converted according to its storage
+  ArrowReaderProperties props;
+  props.set_convert_unknown_logical_types(true);
+  ASSERT_OK(ConvertSchema(parquet_fields, nullptr, props));
+
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+  arrow_fields.push_back(::arrow::field("undefined", BINARY));
+  auto arrow_schema = ::arrow::schema(arrow_fields);
+
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
+}
+
 TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
