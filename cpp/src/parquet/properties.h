@@ -245,6 +245,14 @@ class PARQUET_EXPORT ColumnProperties {
   bool page_index_enabled_;
 };
 
+struct CDCOptions {
+  int64_t min_chunk_size;
+  int64_t max_chunk_size;
+  int8_t norm_factor;
+};
+
+static constexpr CDCOptions kDefaultCdcOptions = CDCOptions{256 * 1024, 1024 * 1024, 0};
+
 class PARQUET_EXPORT WriterProperties {
  public:
   class Builder {
@@ -260,7 +268,9 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(DEFAULT_CREATED_BY),
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false),
-          size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL) {}
+          size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
+          content_defined_chunking_enabled_(false),
+          content_defined_chunking_options_(kDefaultCdcOptions) {}
 
     explicit Builder(const WriterProperties& properties)
         : pool_(properties.memory_pool()),
@@ -275,9 +285,31 @@ class PARQUET_EXPORT WriterProperties {
           page_checksum_enabled_(properties.page_checksum_enabled()),
           size_statistics_level_(properties.size_statistics_level()),
           sorting_columns_(properties.sorting_columns()),
-          default_column_properties_(properties.default_column_properties()) {}
+          default_column_properties_(properties.default_column_properties()),
+          content_defined_chunking_enabled_(
+              properties.content_defined_chunking_enabled()),
+          content_defined_chunking_options_(
+              properties.content_defined_chunking_options()) {}
 
     virtual ~Builder() {}
+
+    Builder* enable_content_defined_chunking() {
+      content_defined_chunking_enabled_ = true;
+      return this;
+    }
+
+    Builder* disable_content_defined_chunking() {
+      content_defined_chunking_enabled_ = false;
+      return this;
+    }
+
+    Builder* content_defined_chunking_options(
+        int64_t min_chunk_size, int64_t max_chunk_size,
+        int8_t norm_factor = kDefaultCdcOptions.norm_factor) {
+      content_defined_chunking_options_ =
+          CDCOptions{min_chunk_size, max_chunk_size, norm_factor};
+      return this;
+    }
 
     /// Specify the memory pool for the writer. Default default_memory_pool.
     Builder* memory_pool(MemoryPool* pool) {
@@ -701,7 +733,8 @@ class PARQUET_EXPORT WriterProperties {
           pagesize_, version_, created_by_, page_checksum_enabled_,
           size_statistics_level_, std::move(file_encryption_properties_),
           default_column_properties_, column_properties, data_page_version_,
-          store_decimal_as_integer_, std::move(sorting_columns_)));
+          store_decimal_as_integer_, std::move(sorting_columns_),
+          content_defined_chunking_enabled_, content_defined_chunking_options_));
     }
 
    private:
@@ -730,6 +763,9 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
     std::unordered_map<std::string, bool> page_index_enabled_;
+
+    bool content_defined_chunking_enabled_;
+    CDCOptions content_defined_chunking_options_;
   };
 
   inline MemoryPool* memory_pool() const { return pool_; }
@@ -753,6 +789,13 @@ class PARQUET_EXPORT WriterProperties {
   inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
 
   inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
+
+  inline bool content_defined_chunking_enabled() const {
+    return content_defined_chunking_enabled_;
+  }
+  inline CDCOptions content_defined_chunking_options() const {
+    return content_defined_chunking_options_;
+  }
 
   inline SizeStatisticsLevel size_statistics_level() const {
     return size_statistics_level_;
@@ -856,7 +899,8 @@ class PARQUET_EXPORT WriterProperties {
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
       ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
-      std::vector<SortingColumn> sorting_columns)
+      std::vector<SortingColumn> sorting_columns, bool content_defined_chunking_enabled,
+      CDCOptions content_defined_chunking_options)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -871,7 +915,9 @@ class PARQUET_EXPORT WriterProperties {
         file_encryption_properties_(file_encryption_properties),
         sorting_columns_(std::move(sorting_columns)),
         default_column_properties_(default_column_properties),
-        column_properties_(column_properties) {}
+        column_properties_(column_properties),
+        content_defined_chunking_enabled_(content_defined_chunking_enabled),
+        content_defined_chunking_options_(content_defined_chunking_options) {}
 
   MemoryPool* pool_;
   int64_t dictionary_pagesize_limit_;
@@ -891,6 +937,9 @@ class PARQUET_EXPORT WriterProperties {
 
   ColumnProperties default_column_properties_;
   std::unordered_map<std::string, ColumnProperties> column_properties_;
+
+  bool content_defined_chunking_enabled_;
+  CDCOptions content_defined_chunking_options_;
 };
 
 PARQUET_EXPORT const std::shared_ptr<WriterProperties>& default_writer_properties();
