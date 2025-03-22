@@ -15,17 +15,15 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Examples
-========
+.. default-domain:: cpp
+.. highlight:: cpp
 
-.. toctree::
-   :maxdepth: 1
+Parquet column encryption
+=========================
 
-   cmake_minimal_build
-   compute_and_write_example
-   dataset_documentation_example
-   dataset_skyhook_scan_example
-   parquet_column_encryption
-   row_columnar_conversion
-   std::tuple-like ranges to Arrow <tuple_range_conversion>
-   Converting RecordBatch to Tensor <converting_recordbatch_to_tensor>
+The following example defines a :class:`arrow::Table` instance, and then writes
+it to an encrypted Parquet file. Metadata footer and columns are encrypted with
+different encryption keys.
+
+.. literalinclude:: ../../../../cpp/examples/arrow/parquet_column_encryption.cc
+
