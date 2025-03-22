@@ -31,6 +31,7 @@
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/test_util.h"
 #include "parquet/arrow/writer.h"
+#include "parquet/chunker_internal.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
 
@@ -1083,6 +1084,57 @@ TEST(TestColumnCDC, WriteSingleColumnParquetFile) {
   EXPECT_THROW(int_column_writer.WriteBatchSpaced(numbers.size(), nullptr, nullptr,
                                                   valid_bits.data(), 0, numbers.data()),
                ParquetException);
+}
+
+TEST(TestColumnCDC, ChunkSizeParameterValidation) {
+  // Test that constructor validates min/max chunk size parameters
+  auto li = internal::LevelInfo();
+
+  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 256 * 1024, 1024 * 1024));
+
+  // with norm_factor=0 the difference between min and max chunk size must be
+  // at least 16
+  ASSERT_THROW(internal::ContentDefinedChunker(li, 0, -1), ParquetException);
+  ASSERT_THROW(internal::ContentDefinedChunker(li, 1024, 512), ParquetException);
+
+  ASSERT_THROW(internal::ContentDefinedChunker(li, -1, 0), ParquetException);
+  ASSERT_THROW(internal::ContentDefinedChunker(li, 0, 0), ParquetException);
+  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 0, 16));
+  ASSERT_THROW(internal::ContentDefinedChunker(li, -16, -16), ParquetException);
+  ASSERT_THROW(internal::ContentDefinedChunker(li, 16, 0), ParquetException);
+  ASSERT_THROW(internal::ContentDefinedChunker(li, 32, 32), ParquetException);
+  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 32, 48));
+  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 1024 * 1024, 2 * 1024 * 1024));
+  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 1024 * 1024 * 1024L,
+                                                  2LL * 1024 * 1024 * 1024L));
+
+  // with norm_factor=1 the difference between min and max chunk size must be
+  // at least 64
+  ASSERT_THROW(internal::ContentDefinedChunker(li, 1, -1, 1), ParquetException);
+  ASSERT_THROW(internal::ContentDefinedChunker(li, -1, 1, 1), ParquetException);
+  ASSERT_THROW(internal::ContentDefinedChunker(li, 1, 1, 1), ParquetException);
+  ASSERT_THROW(internal::ContentDefinedChunker(li, 1, 32, 1), ParquetException);
+  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 1, 33, 1));
+
+  // with norm_factor=2 the difference between min and max chunk size must be
+  // at least 128
+  ASSERT_THROW(internal::ContentDefinedChunker(li, 0, 63, 2), ParquetException);
+  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 0, 64, 2));
+
+  // with norm_factor=-1 the difference between min and max chunk size must be
+  // at least 8
+  ASSERT_THROW(internal::ContentDefinedChunker(li, 0, 7, -1), ParquetException);
+  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 0, 8, -1));
+  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 0, 16, -1));
+
+  // test the norm_factor extremes
+  ASSERT_THROW(internal::ContentDefinedChunker(li, 0, 0, -68), ParquetException);
+  ASSERT_NO_THROW(internal::ContentDefinedChunker(li, 0, 0, -67));
+  ASSERT_THROW(
+      internal::ContentDefinedChunker(li, 0, std::numeric_limits<int64_t>::max(), 59),
+      ParquetException);
+  ASSERT_NO_THROW(
+      internal::ContentDefinedChunker(li, 0, std::numeric_limits<int64_t>::max(), 58));
 }
 
 class TestColumnCDCMultipleRowGroups : public ::testing::Test {
