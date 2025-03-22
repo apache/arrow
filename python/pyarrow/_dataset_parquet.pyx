@@ -720,8 +720,6 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         Parquet file.
     page_checksum_verification : bool, default False
         If True, verify the page checksum for each page read from the file.
-    page_checksum_verification : bool, default False
-        If True, verify the page checksum for each page read from the file.
     smallest_decimal_enabled : bool, default False
         If True, always convert to the smallest arrow decimal type based
         on precision.
