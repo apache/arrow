@@ -137,6 +137,10 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
   EXPECT_THAT(stats.lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
   EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(10, 11, 12, 13));
   EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(3001));
+  EXPECT_TRUE(stats.has_x());
+  EXPECT_TRUE(stats.has_y());
+  EXPECT_TRUE(stats.has_z());
+  EXPECT_TRUE(stats.has_m());
 
   std::string xyzm1 = test::MakeWKBPoint({20, 21, 22, 23}, true, true);
   ByteArray item1{xyzm1};
@@ -199,6 +203,48 @@ TEST(TestGeoStatistics, TestUpdateByteArray) {
   stats_spaced.Merge(stats);
   EXPECT_FALSE(stats_spaced.is_valid());
   EXPECT_FALSE(stats_spaced.Encode().is_set());
+}
+
+TEST(TestGeoStatistics, TestUpdateXYZM) {
+  GeoStatistics stats;
+
+  // Test existence of x, y, z, and m by ingesting an XY, an XYZ, then an XYM
+  // and check that the has_(xyzm)() methods are working as expected and that
+  // geometry_types() accumulate (1 is the geometry type code for POINT,
+  // 1001 is the code for POINT Z, and 2001 is the code for POINT M).
+  std::string xy = test::MakeWKBPoint({10, 11, 0, 0}, false, false);
+  std::string xyz = test::MakeWKBPoint({10, 11, 12, 0}, true, false);
+  std::string xym = test::MakeWKBPoint({10, 11, 0, 13}, false, true);
+
+  ByteArray item_xy{xy};
+  stats.Update(&item_xy, /*num_values=*/1);
+  EXPECT_THAT(stats.lower_bound(), ::testing::ElementsAre(10, 11, kInf, kInf));
+  EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(10, 11, -kInf, -kInf));
+  EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(1));
+  EXPECT_TRUE(stats.has_x());
+  EXPECT_TRUE(stats.has_y());
+  EXPECT_FALSE(stats.has_z());
+  EXPECT_FALSE(stats.has_m());
+
+  ByteArray item_xyz{xyz};
+  stats.Update(&item_xyz, /*num_values=*/1);
+  EXPECT_THAT(stats.lower_bound(), ::testing::ElementsAre(10, 11, 12, kInf));
+  EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(10, 11, 12, -kInf));
+  EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(1, 1001));
+  EXPECT_TRUE(stats.has_x());
+  EXPECT_TRUE(stats.has_y());
+  EXPECT_TRUE(stats.has_z());
+  EXPECT_FALSE(stats.has_m());
+
+  ByteArray item_xym{xym};
+  stats.Update(&item_xym, /*num_values=*/1);
+  EXPECT_THAT(stats.lower_bound(), ::testing::ElementsAre(10, 11, 12, 13));
+  EXPECT_THAT(stats.upper_bound(), ::testing::ElementsAre(10, 11, 12, 13));
+  EXPECT_THAT(stats.geometry_types(), ::testing::ElementsAre(1, 1001, 2001));
+  EXPECT_TRUE(stats.has_x());
+  EXPECT_TRUE(stats.has_y());
+  EXPECT_TRUE(stats.has_z());
+  EXPECT_TRUE(stats.has_m());
 }
 
 TEST(TestGeoStatistics, TestUpdateArray) {
