@@ -502,5 +502,5 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v4
       with:
-        name: Event File
+        name: Event
         path: ${{ github.event_path }}
