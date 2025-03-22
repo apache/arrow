@@ -91,9 +91,10 @@ static uint64_t GetMask(int64_t min_chunk_size, int64_t max_chunk_size,
   }
   size_t mask_bit_adjustment = norm_factor + 3;
 
-  if (mask_bits - mask_bit_adjustment < 0) {
+  if (mask_bits - mask_bit_adjustment > 64) {
+    throw ParquetException("The number of bits in the mask is too large, max 64 bits");
+  } else if (mask_bits - mask_bit_adjustment < 0) {
     auto min_size_differece = 2 << mask_bit_adjustment;
-
     throw ParquetException(
         "The difference between min_chunk_size=" + std::to_string(min_chunk_size) +
         " and max_chunk_size=" + std::to_string(max_chunk_size) +
@@ -101,8 +102,6 @@ static uint64_t GetMask(int64_t min_chunk_size, int64_t max_chunk_size,
         "norm_factor=" +
         std::to_string(norm_factor) + ", increase the difference to be at least " +
         std::to_string(min_size_differece) + " bytes.");
-  } else if (mask_bits - mask_bit_adjustment > 64) {
-    throw ParquetException("The number of bits in the mask is too large, max 64 bits");
   }
   mask_bits -= mask_bit_adjustment;
 
