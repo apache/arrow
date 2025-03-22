@@ -22,7 +22,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "parquet/encryption/type_fwd.h"
@@ -31,12 +30,6 @@
 #include "parquet/type_fwd.h"
 
 namespace parquet {
-
-namespace schema {
-
-class ColumnPath;
-
-}  // namespace schema
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
 

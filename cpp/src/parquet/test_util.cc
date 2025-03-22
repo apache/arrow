@@ -35,6 +35,7 @@
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/encoding.h"
+#include "parquet/geospatial_util_internal.h"
 #include "parquet/platform.h"
 
 namespace parquet {
