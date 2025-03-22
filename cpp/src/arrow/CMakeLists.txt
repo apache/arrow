@@ -529,6 +529,7 @@ set(ARROW_UTIL_SRCS
     util/logger.cc
     util/logging.cc
     util/key_value_metadata.cc
+    util/math_internal.cc
     util/memory.cc
     util/mutex.cc
     util/ree_util.cc
@@ -752,10 +753,14 @@ if(ARROW_COMPUTE)
        ARROW_COMPUTE_SRCS
        compute/kernels/aggregate_basic.cc
        compute/kernels/aggregate_mode.cc
+       compute/kernels/aggregate_pivot.cc
        compute/kernels/aggregate_quantile.cc
        compute/kernels/aggregate_tdigest.cc
        compute/kernels/aggregate_var_std.cc
        compute/kernels/hash_aggregate.cc
+       compute/kernels/hash_aggregate_numeric.cc
+       compute/kernels/hash_aggregate_pivot.cc
+       compute/kernels/pivot_internal.cc
        compute/kernels/scalar_arithmetic.cc
        compute/kernels/scalar_boolean.cc
        compute/kernels/scalar_compare.cc

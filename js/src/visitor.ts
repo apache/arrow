@@ -118,6 +118,7 @@ function getVisitFnByTypeId(visitor: Visitor, dtype: Type, throwIfNotFound = tru
         case Type.Interval: fn = visitor.visitInterval; break;
         case Type.IntervalDayTime: fn = visitor.visitIntervalDayTime || visitor.visitInterval; break;
         case Type.IntervalYearMonth: fn = visitor.visitIntervalYearMonth || visitor.visitInterval; break;
+        case Type.IntervalMonthDayNano: fn = visitor.visitIntervalMonthDayNano || visitor.visitInterval; break;
         case Type.Duration: fn = visitor.visitDuration; break;
         case Type.DurationSecond: fn = visitor.visitDurationSecond || visitor.visitDuration; break;
         case Type.DurationMillisecond: fn = visitor.visitDurationMillisecond || visitor.visitDuration; break;
@@ -189,6 +190,7 @@ function inferDType<T extends DataType>(type: T): Type {
             switch ((type as any as Interval).unit) {
                 case IntervalUnit.DAY_TIME: return Type.IntervalDayTime;
                 case IntervalUnit.YEAR_MONTH: return Type.IntervalYearMonth;
+                case IntervalUnit.MONTH_DAY_NANO: return Type.IntervalMonthDayNano;
             }
             // @ts-ignore
             return Type.Interval;
@@ -262,6 +264,7 @@ export interface Visitor {
     visitInterval(node: any, ...args: any[]): any;
     visitIntervalDayTime?(node: any, ...args: any[]): any;
     visitIntervalYearMonth?(node: any, ...args: any[]): any;
+    visitIntervalMonthDayNano?(node: any, ...args: any[]): any;
     visitDuration(node: any, ...args: any[]): any;
     visitDurationSecond(node: any, ...args: any[]): any;
     visitDurationMillisecond(node: any, ...args: any[]): any;
@@ -298,6 +301,7 @@ export interface Visitor {
 (Visitor.prototype as any).visitSparseUnion = null;
 (Visitor.prototype as any).visitIntervalDayTime = null;
 (Visitor.prototype as any).visitIntervalYearMonth = null;
+(Visitor.prototype as any).visitIntervalMonthDayNano = null;
 (Visitor.prototype as any).visitDuration = null;
 (Visitor.prototype as any).visitDurationSecond = null;
 (Visitor.prototype as any).visitDurationMillisecond = null;

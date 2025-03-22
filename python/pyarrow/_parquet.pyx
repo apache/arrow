@@ -52,6 +52,9 @@ _MAX_ROW_GROUP_SIZE = 64*1024*1024
 cdef class Statistics(_Weakrefable):
     """Statistics for a single column in a single row group."""
 
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
+
     def __cinit__(self):
         pass
 
@@ -217,6 +220,10 @@ cdef class Statistics(_Weakrefable):
 
 cdef class ParquetLogicalType(_Weakrefable):
     """Logical type of parquet type."""
+
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
+
     cdef:
         shared_ptr[const CParquetLogicalType] type
 
@@ -253,7 +260,7 @@ cdef class ParquetLogicalType(_Weakrefable):
 
 
 cdef wrap_logical_type(const shared_ptr[const CParquetLogicalType]& type):
-    cdef ParquetLogicalType out = ParquetLogicalType()
+    cdef ParquetLogicalType out = ParquetLogicalType.__new__(ParquetLogicalType)
     out.init(type)
     return out
 
@@ -314,6 +321,9 @@ cdef _box_flba(ParquetFLBA val, uint32_t len):
 
 cdef class ColumnChunkMetaData(_Weakrefable):
     """Column metadata for a single row group."""
+
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     def __cinit__(self):
         pass
@@ -436,7 +446,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         """Statistics for column chunk (:class:`Statistics`)."""
         if not self.metadata.is_stats_set():
             return None
-        statistics = Statistics()
+        cdef Statistics statistics = Statistics.__new__(Statistics)
         statistics.init(self.metadata.statistics(), self)
         return statistics
 
@@ -739,13 +749,11 @@ cdef class SortingColumn:
 cdef class RowGroupMetaData(_Weakrefable):
     """Metadata for a single row group."""
 
-    def __cinit__(self, FileMetaData parent, int index):
-        if index < 0 or index >= parent.num_row_groups:
-            raise IndexError('{0} out of bounds'.format(index))
-        self.up_metadata = parent._metadata.RowGroup(index)
-        self.metadata = self.up_metadata.get()
-        self.parent = parent
-        self.index = index
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
+
+    def __cinit__(self):
+        pass
 
     def __reduce__(self):
         return RowGroupMetaData, (self.parent, self.index)
@@ -787,7 +795,7 @@ cdef class RowGroupMetaData(_Weakrefable):
         """
         if i < 0 or i >= self.num_columns:
             raise IndexError('{0} out of bounds'.format(i))
-        chunk = ColumnChunkMetaData()
+        cdef ColumnChunkMetaData chunk = ColumnChunkMetaData.__new__(ColumnChunkMetaData)
         chunk.init(self, i)
         return chunk
 
@@ -865,6 +873,9 @@ def _reconstruct_filemetadata(Buffer serialized):
 
 cdef class FileMetaData(_Weakrefable):
     """Parquet metadata for a single file."""
+
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     def __cinit__(self):
         pass
@@ -1027,7 +1038,9 @@ cdef class FileMetaData(_Weakrefable):
         -------
         row_group_metadata : RowGroupMetaData
         """
-        return RowGroupMetaData(self, i)
+        cdef RowGroupMetaData row_group = RowGroupMetaData.__new__(RowGroupMetaData)
+        row_group.init(self, i)
+        return row_group
 
     def set_file_path(self, path):
         """
@@ -1519,7 +1532,8 @@ cdef class ParquetReader(_Weakrefable):
         # Set up metadata
         with nogil:
             c_metadata = builder.raw_reader().metadata()
-        self._metadata = result = FileMetaData()
+        cdef FileMetaData result = FileMetaData.__new__(FileMetaData)
+        self._metadata = result
         result.init(c_metadata)
 
         if read_dictionary is not None:
@@ -2262,7 +2276,7 @@ cdef class ParquetWriter(_Weakrefable):
         with nogil:
             metadata = self.writer.get().metadata()
         if metadata:
-            result = FileMetaData()
+            result = FileMetaData.__new__(FileMetaData)
             result.init(metadata)
             return result
         raise RuntimeError(
