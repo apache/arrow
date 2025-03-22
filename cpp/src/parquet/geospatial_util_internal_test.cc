@@ -110,7 +110,7 @@ class WKBTestFixture : public ::testing::TestWithParam<WKBTestCase> {
   WKBTestCase test_case;
 };
 
-TEST_P(WKBTestFixture, TestWKBBounderNonEmpty) {
+TEST_P(WKBTestFixture, TestWKBBounderBounds) {
   auto item = GetParam();
 
   WKBGeometryBounder bounder;
@@ -127,6 +127,19 @@ TEST_P(WKBTestFixture, TestWKBBounderNonEmpty) {
   bounder.Reset();
   EXPECT_EQ(bounder.Bounds(), BoundingBox());
   EXPECT_TRUE(bounder.GeometryTypes().empty());
+}
+
+TEST_P(WKBTestFixture, TestWKBBounderErrorForTruncatedInput) {
+  auto item = GetParam();
+  WKBGeometryBounder bounder;
+
+  // Make sure an error occurs for any version of truncated input to the bounder
+  for (size_t i = 0; i < item.wkb.size(); i++) {
+    SCOPED_TRACE(i);
+    ::arrow::Status status =
+        bounder.MergeGeometry({reinterpret_cast<const char*>(item.wkb.data()), i});
+    ASSERT_TRUE(status.IsSerializationError()) << status;
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -161,6 +174,11 @@ INSTANTIATE_TEST_SUITE_P(
                      0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x44, 0x40, 0x00,
                      0x00, 0x00, 0x00, 0x00, 0xc0, 0x72, 0x40},
                     {30, 10, 40, 300, 30, 10, 40, 300}),
+        // POINT (30 10) (big endian)
+        WKBTestCase(GeometryType::kPoint, Dimensions::kXY,
+                    {0x00, 0x00, 0x00, 0x00, 0x01, 0x40, 0x3e, 0x00, 0x00, 0x00, 0x00,
+                     0x00, 0x00, 0x40, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+                    {30, 10, 30, 10}),
         // LINESTRING EMPTY
         WKBTestCase(GeometryType::kLinestring, Dimensions::kXY,
                     {0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
@@ -209,7 +227,16 @@ INSTANTIATE_TEST_SUITE_P(
                      0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x54, 0x40, 0x00, 0x00,
                      0x00, 0x00, 0x00, 0x00, 0x99, 0x40},
                     {10, 10, 40, 300, 40, 40, 80, 1600}),
-        // LINESTRING EMPTY
+        // LINESTRING (30 10, 10 30, 40 40) (big endian)
+        WKBTestCase(GeometryType::kLinestring, Dimensions::kXY,
+                    {0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x40,
+                     0x3e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x24, 0x00,
+                     0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x24, 0x00, 0x00, 0x00,
+                     0x00, 0x00, 0x00, 0x40, 0x3e, 0x00, 0x00, 0x00, 0x00, 0x00,
+                     0x00, 0x40, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40,
+                     0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+                    {10, 10, 40, 40}),
+        // POLYGON EMPTY
         WKBTestCase(GeometryType::kPolygon, Dimensions::kXY,
                     {0x01, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
                     {kInf, kInf, -kInf, -kInf}),
