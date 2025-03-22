@@ -67,7 +67,7 @@ jobs:
             # We can't use NuGet on manylinux2014_aarch64 because Mono is old.
             :
           elif [ "{{ linux_wheel_kind }}" = "musllinux" ] && [ "{{ arch }}" = "arm64" ]; then
-            # We can't use NuGet on musl arm systems because it fails to build abseil:x64-linux
+            # We can't use NuGet on musl arm systems because the official NuGet binary for arm doesn't exist.
             :
           else
             export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
