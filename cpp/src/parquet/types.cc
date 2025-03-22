@@ -1658,6 +1658,28 @@ class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
 
 GENERATE_MAKE(Float16)
 
+namespace {
+void WriteCrsKeyAndValue(const std::string& crs, std::ostream& json) {
+  // There is no restriction on the crs value here, and it may contain quotes
+  // or backslashes that would result in invalid JSON if unescaped.
+  json << R"(, "crs": ")";
+  for (char c : crs) {
+    switch (c) {
+      case '"':
+        json << R"(\")";
+        break;
+      case '\\':
+        json << R"(\\)";
+        break;
+      default:
+        json << c;
+        break;
+    }
+  }
+  json << R"(")";
+}
+}  // namespace
+
 class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible,
                                           public LogicalType::Impl::SimpleApplicable {
  public:
@@ -1690,10 +1712,7 @@ std::string LogicalType::Impl::Geometry::ToJSON() const {
   json << R"({"Type": "Geometry")";
 
   if (!crs_.empty()) {
-    // TODO(paleolimbot): For documented cases the CRS shouldn't contain quotes,
-    // but we should probably escape the value of crs_ for backslash and quotes
-    // to be safe.
-    json << R"(, "crs": ")" << crs_ << R"(")";
+    WriteCrsKeyAndValue(crs_, json);
   }
 
   json << "}";
@@ -1784,10 +1803,7 @@ std::string LogicalType::Impl::Geography::ToJSON() const {
   json << R"({"Type": "Geography")";
 
   if (!crs_.empty()) {
-    // TODO(paleolimbot): For documented cases the CRS shouldn't contain quotes,
-    // but we should probably escape the value of crs_ for backslash and quotes
-    // to be safe.
-    json << R"(, "crs": ")" << crs_ << R"(")";
+    WriteCrsKeyAndValue(crs_, json);
   }
 
   if (algorithm_ != LogicalType::EdgeInterpolationAlgorithm::SPHERICAL) {

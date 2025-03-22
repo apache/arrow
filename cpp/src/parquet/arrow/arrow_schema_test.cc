@@ -1338,15 +1338,6 @@ TEST_F(TestConvertArrowSchema, ParquetGeoArrowCrsProjjson) {
   auto arrow_properties = default_arrow_writer_properties();
   ASSERT_OK(ConvertSchema(arrow_fields, arrow_properties));
 
-  // std::shared_ptr<::arrow::KeyValueMetadata> crs_metadata =
-  //     ::arrow::key_value_metadata({}, {});
-  // arrow_properties->geo_crs_context()->AddProjjsonCrsFieldsToFileMetadata(
-  //     crs_metadata.get());
-
-  // ASSERT_EQ(crs_metadata->size(), 2);
-  // ASSERT_EQ(crs_metadata->value(0), R"({"key0":"value0"})");
-  // ASSERT_EQ(crs_metadata->value(1), R"({"key1":"value1"})");
-
   std::vector<NodePtr> parquet_fields;
   parquet_fields.push_back(PrimitiveNode::Make(
       "geometry", Repetition::OPTIONAL, LogicalType::Geometry(R"({"key0":"value0"})"),
