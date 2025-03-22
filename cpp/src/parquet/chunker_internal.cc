@@ -66,8 +66,7 @@ static uint64_t GetMask(int64_t min_chunk_size, int64_t max_chunk_size,
     throw ParquetException("min_chunk_size must be positive");
   }
   if (max_chunk_size < min_chunk_size) {
-    throw ParquetException(
-        "max_chunk_size must be greater than or equal to min_chunk_size");
+    throw ParquetException("max_chunk_size must be greater than min_chunk_size");
   }
 
   // calculate the average size of the chunks
@@ -85,28 +84,26 @@ static uint64_t GetMask(int64_t min_chunk_size, int64_t max_chunk_size,
   // probability, by increasing the norm_factor we increase the probability of matching
   // the mask, forcing the distribution closer to the average size; norm_factor is 0 by
   // default
-  if (norm_factor < -4 || norm_factor > 4) {
+  if (norm_factor < -3 || norm_factor > 3) {
     ARROW_LOG(WARNING) << "norm_factor=" << std::to_string(norm_factor)
-                       << " is outside the recommended range (-4, 4)";
+                       << " is outside the recommended range (-3, 3)";
   }
-  size_t mask_bit_adjustment = norm_factor + 3;
+  size_t effective_bits = mask_bits - 3 - norm_factor;
 
-  if (mask_bits - mask_bit_adjustment > 64) {
+  if (effective_bits == 0) {
+    return 0;
+  } else if (effective_bits > 64) {
     throw ParquetException("The number of bits in the mask is too large, max 64 bits");
-  } else if (mask_bits - mask_bit_adjustment < 0) {
-    auto min_size_differece = 2 << mask_bit_adjustment;
+  } else if (effective_bits < 0) {
     throw ParquetException(
         "The difference between min_chunk_size=" + std::to_string(min_chunk_size) +
         " and max_chunk_size=" + std::to_string(max_chunk_size) +
-        " is too small for the given "
-        "norm_factor=" +
-        std::to_string(norm_factor) + ", increase the difference to be at least " +
-        std::to_string(min_size_differece) + " bytes.");
+        " is too small for the given norm_factor=" + std::to_string(norm_factor) +
+        ", increase the difference.");
+  } else {
+    // create the mask by setting the top mask_bits bits
+    return std::numeric_limits<uint64_t>::max() << (64 - effective_bits);
   }
-  mask_bits -= mask_bit_adjustment;
-
-  // create the mask by setting the top mask_bits bits
-  return std::numeric_limits<uint64_t>::max() << (64 - mask_bits);
 }
 
 class ContentDefinedChunker::Impl {
