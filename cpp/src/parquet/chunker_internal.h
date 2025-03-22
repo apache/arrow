@@ -95,20 +95,20 @@ class ContentDefinedChunker {
   /// Create a new ContentDefinedChunker instance
   ///
   /// @param level_info Information about definition and repetition levels
-  /// @param min_size Minimum chunk size in bytes
+  /// @param min_chunk_size Minimum chunk size in bytes
   ///                 The rolling hash will not be updated until this size is reached for
   ///                 each chunk. Note that all data sent through the hash function is
   ///                 counted towards the chunk size, including definition and repetition
   ///                 levels if present.
-  /// @param max_size Maximum chunk size in bytes
+  /// @param max_chunk_size Maximum chunk size in bytes
   ///                 The chunker creates a new chunk whenever the chunk size exceeds this
   ///                 value. The chunk size distribution approximates a normal
-  ///                 distribution between min_size and max_size. Note that the parquet
-  ///                 writer has a related `data_pagesize` property that controls the
-  ///                 maximum size of a parquet data page after encoding. While setting
-  ///                 `data_pagesize` to a smaller value than `max_size` doesn't affect
-  ///                 the chunking effectiveness, it results in more small parquet data
-  ///                 pages.
+  ///                 distribution between min_chunk_size and max_chunk_size. Note that
+  ///                 the parquet writer has a related `data_pagesize` property that
+  ///                 controls the maximum size of a parquet data page after encoding.
+  ///                 While setting `data_pagesize` to a smaller value than
+  ///                 `max_chunk_size` doesn't affect the chunking effectiveness, it
+  ///                 results in more small parquet data pages.
   /// @param norm_factor Normalization factor to center the chunk size around the average
   ///                    size more aggressively, default 0.
   ///                    Increasing the normalization factor increases the probability of
@@ -118,8 +118,8 @@ class ContentDefinedChunker {
   ///                    between deduplication ratio and fragmentation. Use norm_factor=1
   ///                    or norm_factor=2 to reach a higher deduplication ratio at the
   ///                    expense of fragmentation.
-  ContentDefinedChunker(const LevelInfo& level_info, int64_t min_size, int64_t max_size,
-                        int8_t norm_factor = 0);
+  ContentDefinedChunker(const LevelInfo& level_info, int64_t min_chunk_size,
+                        int64_t max_chunk_size, int8_t norm_factor = 0);
   ~ContentDefinedChunker();
 
   /// Get the chunk boundaries for the given column data
