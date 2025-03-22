@@ -88,6 +88,8 @@ class ArrowWriterPropertiesBuilder;
 class EncodedStatistics;
 class Statistics;
 struct SizeStatistics;
+class GeoStatistics;
+struct EncodedGeoStatistics;
 
 class ColumnIndex;
 class OffsetIndex;
