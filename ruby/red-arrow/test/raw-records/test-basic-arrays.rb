@@ -388,7 +388,7 @@ module RawRecordsBasicArraysTests
   end
 end
 
-class EachRawRecordRecordBatchBasicArraysTest< Test::Unit::TestCase
+class EachRawRecordRecordBatchBasicArraysTest < Test::Unit::TestCase
   include RawRecordsBasicArraysTests
 
   def build(schema, records)
