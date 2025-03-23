@@ -25,14 +25,14 @@ export class FixedSizeListBuilder<T extends DataType = any, TNull = any> extends
         const [child] = this.children;
         const start = index * this.stride;
         for (let i = -1, n = this.stride; ++i < n;) {
-            // Use either the actual value or a null (if the slot is null)
-            const finalVal = value ? value[i] : null;
-            child.set(start + i, finalVal);
+            child.set(start + i, value[i]);
         }
     }
     public setValid(index: number, valid: boolean) {
-        this.length = this._nulls.set(index, +valid).length;
-        return true;
+        if (!super.setValid(index, valid)) {
+            this.children[0].setValid((index + 1) * this.stride - 1, false);
+        }
+        return valid;
     }
     public addChild(child: Builder<T>, name = '0') {
         if (this.numChildren > 0) {
