@@ -52,5 +52,6 @@
     "zlib",
     "zstd"
   ],
-  "builtin-baseline": "6f29f12e82a8293156836ad81cc9bf5af41fe836"
+  "$comment": "2025.03.19",
+  "builtin-baseline": "b02e341c927f16d991edbd915d8ea43eac52096c"
 }
