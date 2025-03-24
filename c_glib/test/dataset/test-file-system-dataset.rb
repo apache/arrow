@@ -91,15 +91,15 @@ class TestDatasetFileSystemDataset < Test::Unit::TestCase
     dataset = @factory.finish
 
     expected_table = build_table(count: [
-                               build_int32_array([1, 10]),
-                               build_int32_array([2]),
-                               build_int32_array([3]),
-                             ],
-                             label: [
-                               build_string_array(["a", "a"]),
-                               build_string_array(["b"]),
-                               build_string_array(["c"]),
-                             ])
+                                   build_int32_array([1, 10]),
+                                   build_int32_array([2]),
+                                   build_int32_array([3]),
+                                 ],
+                                 label: [
+                                   build_string_array(["a", "a"]),
+                                   build_string_array(["b"]),
+                                   build_string_array(["c"]),
+                                 ])
 
     return dataset, expected_table
   end

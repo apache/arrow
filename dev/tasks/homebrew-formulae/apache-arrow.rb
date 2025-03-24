@@ -36,35 +36,42 @@ class ApacheArrow < Formula
 
   depends_on "boost" => :build
   depends_on "cmake" => :build
-  depends_on "llvm@15" => :build
+  depends_on "gflags" => :build
+  depends_on "rapidjson" => :build
+  depends_on "xsimd" => :build
+  depends_on "abseil"
+  depends_on "aws-crt-cpp"
   depends_on "aws-sdk-cpp"
   depends_on "brotli"
-  depends_on "bzip2"
-  depends_on "glog"
   depends_on "grpc"
+  depends_on "llvm"
   depends_on "lz4"
-  depends_on "mimalloc"
   depends_on "openssl@3"
   depends_on "protobuf"
-  depends_on "rapidjson"
   depends_on "re2"
   depends_on "snappy"
   depends_on "thrift"
   depends_on "utf8proc"
   depends_on "zstd"
-  uses_from_macos "python" => :build
 
-  fails_with gcc: "5"
+  uses_from_macos "python" => :build
+  uses_from_macos "bzip2"
+  uses_from_macos "zlib"
+
+  # Issue ref: https://github.com/protocolbuffers/protobuf/issues/19447
+  fails_with :gcc do
+    version "12"
+    cause "Protobuf 29+ generated code with visibility and deprecated attributes needs GCC 13+"
+  end
 
   def install
-    # This isn't for https://github.com/Homebrew/homebrew-core/issues/76537 .
-    # This may improve performance.
-    ENV.runtime_cpu_detection if Hardware::CPU.intel?
+    ENV.llvm_clang if OS.linux?
 
-    # link against system libc++ instead of llvm provided libc++
-    ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
+    # We set `ARROW_ORC=OFF` because it fails to build with Protobuf 27.0
     args = %W[
       -DCMAKE_INSTALL_RPATH=#{rpath}
+      -DLLVM_ROOT=#{Formula["llvm"].opt_prefix}
+      -DARROW_DEPENDENCY_SOURCE=SYSTEM
       -DARROW_ACERO=ON
       -DARROW_COMPUTE=ON
       -DARROW_CSV=ON
@@ -73,29 +80,31 @@ class ApacheArrow < Formula
       -DARROW_FLIGHT=ON
       -DARROW_FLIGHT_SQL=ON
       -DARROW_GANDIVA=ON
-      -DARROW_GCS=ON
       -DARROW_HDFS=ON
-      -DARROW_INSTALL_NAME_RPATH=OFF
       -DARROW_JSON=ON
-      -DARROW_MIMALLOC=ON
-      -DARROW_ORC=ON
+      -DARROW_ORC=OFF
       -DARROW_PARQUET=ON
       -DARROW_PROTOBUF_USE_SHARED=ON
       -DARROW_S3=ON
-      -DARROW_WITH_BROTLI=ON
       -DARROW_WITH_BZ2=ON
-      -DARROW_WITH_LZ4=ON
-      -DARROW_WITH_SNAPPY=ON
-      -DARROW_WITH_UTF8PROC=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
+      -DARROW_WITH_LZ4=ON
+      -DARROW_WITH_SNAPPY=ON
+      -DARROW_WITH_BROTLI=ON
+      -DARROW_WITH_UTF8PROC=ON
+      -DARROW_INSTALL_NAME_RPATH=OFF
       -DPARQUET_BUILD_EXECUTABLES=ON
     ]
-    # Disable runtime SIMD dispatch. It may cause "illegal opcode"
-    # error on Intel Mac because of one-definition-rule violation.
-    #
-    # https://github.com/apache/arrow/issues/36685
-    args << "-DARROW_RUNTIME_SIMD_LEVEL=NONE" if OS.mac? and Hardware::CPU.intel?
+    args << "-DARROW_MIMALLOC=ON" unless Hardware::CPU.arm?
+    # Reduce overlinking. Can remove on Linux if GCC 11 issue is fixed
+    args << "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,#{OS.mac? ? "-dead_strip_dylibs" : "--as-needed"}"
+    # ARROW_SIMD_LEVEL sets the minimum required SIMD. Since this defaults to
+    # SSE4.2 on x86_64, we need to reduce level to match oldest supported CPU.
+    # Ref: https://arrow.apache.org/docs/cpp/env_vars.html#envvar-ARROW_USER_SIMD_LEVEL
+    if build.bottle? && Hardware::CPU.intel? && (!OS.mac? || !MacOS.version.requires_sse42?)
+      args << "-DARROW_SIMD_LEVEL=NONE"
+    end
 
     system "cmake", "-S", "cpp", "-B", "build", *args, *std_cmake_args
     system "cmake", "--build", "build"
@@ -103,13 +112,15 @@ class ApacheArrow < Formula
   end
 
   test do
-    (testpath/"test.cpp").write <<~EOS
+    ENV.method(DevelopmentTools.default_compiler).call if OS.linux?
+
+    (testpath/"test.cpp").write <<~CPP
       #include "arrow/api.h"
       int main(void) {
         arrow::int64();
         return 0;
       }
-    EOS
+    CPP
     system ENV.cxx, "test.cpp", "-std=c++17", "-I#{include}", "-L#{lib}", "-larrow", "-o", "test"
     system "./test"
   end

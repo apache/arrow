@@ -271,8 +271,6 @@ class PackageTask
       # "debian-bookworm-arm64",
       "debian-trixie",
       # "debian-trixie-arm64",
-      "ubuntu-focal",
-      # "ubuntu-focal-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
       "ubuntu-noble",

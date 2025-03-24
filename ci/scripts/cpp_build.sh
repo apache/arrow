@@ -109,7 +109,22 @@ if [ "${ARROW_OFFLINE}" = "ON" ]; then
   echo > /etc/resolv.conf
 fi
 
-if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
+if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
+  function meson_boolean() {
+    if [ "${1}" = "ON" ]; then
+      echo "true"
+    else
+      echo "false"
+    fi
+  }
+
+  meson setup \
+    --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
+    --buildtype=${ARROW_BUILD_TYPE:-debug} \
+    -Dtests=$(meson_boolean ${ARROW_BUILD_TESTS:-OFF}) \
+    . \
+    ${source_dir}
+elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   if [ "${UBUNTU}" = "20.04" ]; then
     echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
     exit -1
@@ -141,7 +156,6 @@ else
     -DARROW_BUILD_BENCHMARKS=${ARROW_BUILD_BENCHMARKS:-OFF} \
     -DARROW_BUILD_EXAMPLES=${ARROW_BUILD_EXAMPLES:-OFF} \
     -DARROW_BUILD_INTEGRATION=${ARROW_BUILD_INTEGRATION:-OFF} \
-    -DARROW_BUILD_OPENMP_BENCHMARKS=${ARROW_BUILD_OPENMP_BENCHMARKS:-OFF} \
     -DARROW_BUILD_SHARED=${ARROW_BUILD_SHARED:-ON} \
     -DARROW_BUILD_STATIC=${ARROW_BUILD_STATIC:-ON} \
     -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS:-OFF} \
@@ -201,7 +215,6 @@ else
     -DARROW_WITH_OPENTELEMETRY=${ARROW_WITH_OPENTELEMETRY:-OFF} \
     -DARROW_WITH_MUSL=${ARROW_WITH_MUSL:-OFF} \
     -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY:-OFF} \
-    -DARROW_WITH_UCX=${ARROW_WITH_UCX:-OFF} \
     -DARROW_WITH_UTF8PROC=${ARROW_WITH_UTF8PROC:-ON} \
     -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-OFF} \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-OFF} \
@@ -220,6 +233,7 @@ else
     -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR:-lib} \
     -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}} \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+    -DCUDAToolkit_ROOT=${CUDAToolkit_ROOT:-} \
     -Dgflags_SOURCE=${gflags_SOURCE:-} \
     -Dgoogle_cloud_cpp_storage_SOURCE=${google_cloud_cpp_storage_SOURCE:-} \
     -DgRPC_SOURCE=${gRPC_SOURCE:-} \
@@ -243,8 +257,12 @@ else
     ${source_dir}
 fi
 
-export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
-time cmake --build . --target install
+if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
+  time meson install
+else
+  export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
+  time cmake --build . --target install
+fi
 
 # Save disk space by removing large temporary build products
 find . -name "*.o" -delete

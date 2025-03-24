@@ -24,6 +24,7 @@ using Apache.Arrow.Tests;
 using Google.Protobuf;
 using Grpc.Core;
 using Grpc.Core.Utils;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Apache.Arrow.Flight.Tests
@@ -546,7 +547,30 @@ namespace Apache.Arrow.Flight.Tests
             var handshakeStreamingCall = _flightClient.Handshake(null, null, cts.Token);
             exception = await Assert.ThrowsAsync<RpcException>(async () => await handshakeStreamingCall.RequestStream.WriteAsync(new FlightHandshakeRequest(ByteString.Empty)));
             Assert.Equal(StatusCode.Cancelled, exception.StatusCode);
+        }
 
+        [Fact]
+        public async Task TestIntegrationWithGrpcNetClientFactory()
+        {
+            IServiceCollection services = new ServiceCollection();
+
+            services.AddGrpcClient<FlightClient>(grpc => grpc.Address = new Uri(_testWebFactory.GetAddress()));
+
+            IServiceProvider provider = services.BuildServiceProvider();
+
+            // Test that an instance of the FlightClient can be resolved whilst using the Grpc.Net.ClientFactory library.
+            FlightClient flightClient = provider.GetRequiredService<FlightClient>();
+
+            // Test that the resolved client is functional.
+            var flightDescriptor = FlightDescriptor.CreatePathDescriptor("test");
+            var expectedBatch = CreateTestBatch(0, 100);
+            var expectedSchema = expectedBatch.Schema;
+
+            GivenStoreBatches(flightDescriptor, new RecordBatchWithMetadata(expectedBatch));
+
+            var actualSchema = await flightClient.GetSchema(flightDescriptor);
+
+            SchemaComparer.Compare(expectedSchema, actualSchema);
         }
     }
 }

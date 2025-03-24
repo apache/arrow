@@ -38,7 +38,7 @@ update_versions() {
 
   pushd "${ARROW_DIR}/c_glib"
   sed -i.bak -E -e \
-    "s/^version = '.+'/version = '${version}'/" \
+    "s/^    version: '.+'/    version: '${version}'/" \
     meson.build
   rm -f meson.build.bak
   git add meson.build
@@ -76,6 +76,12 @@ update_versions() {
     CMakeLists.txt
   rm -f CMakeLists.txt.bak
   git add CMakeLists.txt
+
+  sed -i.bak -E -e \
+    "s/^    version: '.+'/    version: '${version}'/" \
+    meson.build
+  rm -f meson.build.bak
+  git add meson.build
 
   sed -i.bak -E -e \
     "s/\"version-string\": \".+\"/\"version-string\": \"${version}\"/" \

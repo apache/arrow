@@ -47,7 +47,7 @@ export {
     Struct,
     Union, DenseUnion, SparseUnion,
     Dictionary,
-    Interval, IntervalDayTime, IntervalYearMonth,
+    Interval, IntervalDayTime, IntervalYearMonth, IntervalMonthDayNano,
     Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     FixedSizeList,
     Map_
@@ -75,7 +75,7 @@ export { FloatBuilder, Float16Builder, Float32Builder, Float64Builder } from './
 export { IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder } from './builder/int.js';
 export { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder } from './builder/time.js';
 export { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder } from './builder/timestamp.js';
-export { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder } from './builder/interval.js';
+export { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder, IntervalMonthDayNanoBuilder } from './builder/interval.js';
 export { DurationBuilder, DurationSecondBuilder, DurationMillisecondBuilder, DurationMicrosecondBuilder, DurationNanosecondBuilder } from './builder/duration.js';
 export { Utf8Builder } from './builder/utf8.js';
 export { LargeUtf8Builder } from './builder/largeutf8.js';
@@ -104,6 +104,10 @@ import * as util_math_ from './util/math.js';
 import * as util_buffer_ from './util/buffer.js';
 import * as util_vector_ from './util/vector.js';
 import * as util_pretty_ from './util/pretty.js';
+
+import * as util_interval_ from './util/interval.js';
+export type * from './util/interval.js';
+
 import { compareSchemas, compareFields, compareTypes } from './visitor/typecomparator.js';
 
 /** @ignore */
@@ -115,6 +119,7 @@ export const util = {
     ...util_buffer_,
     ...util_vector_,
     ...util_pretty_,
+    ...util_interval_,
     compareSchemas,
     compareFields,
     compareTypes,

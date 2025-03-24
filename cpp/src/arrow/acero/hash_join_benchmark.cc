@@ -32,8 +32,6 @@
 #include <cstdio>
 #include <memory>
 
-#include <omp.h>
-
 namespace arrow {
 namespace acero {
 struct BenchmarkSettings {
@@ -56,6 +54,8 @@ struct BenchmarkSettings {
   int var_length_max = 20;   // Maximum length of any var length types
 
   Expression residual_filter = literal(true);
+
+  bool stats_probe_rows = true;
 };
 
 class JoinBenchmark {
@@ -128,6 +128,7 @@ class JoinBenchmark {
     for (ExecBatch& batch : r_batches_with_schema.batches)
       r_batches_.InsertBatch(std::move(batch));
 
+    stats_.num_build_rows = settings.num_build_batches * settings.batch_size;
     stats_.num_probe_rows = settings.num_probe_batches * settings.batch_size;
 
     schema_mgr_ = std::make_unique<HashJoinSchema>();
@@ -141,14 +142,9 @@ class JoinBenchmark {
       join_ = *HashJoinImpl::MakeSwiss();
     }
 
-    omp_set_num_threads(settings.num_threads);
-    auto schedule_callback = [](std::function<Status(size_t)> func) -> Status {
-#pragma omp task
-      { DCHECK_OK(func(omp_get_thread_num())); }
-      return Status::OK();
-    };
-
     scheduler_ = TaskScheduler::Make();
+    thread_pool_ = arrow::internal::GetCpuThreadPool();
+    DCHECK_OK(thread_pool_->SetCapacity(settings.num_threads));
     DCHECK_OK(ctx_.Init(nullptr));
 
     auto register_task_group_callback = [&](std::function<Status(size_t, int64_t)> task,
@@ -157,7 +153,7 @@ class JoinBenchmark {
     };
 
     auto start_task_group_callback = [&](int task_group_id, int64_t num_tasks) {
-      return scheduler_->StartTaskGroup(omp_get_thread_num(), task_group_id, num_tasks);
+      return scheduler_->StartTaskGroup(/*thread_id=*/0, task_group_id, num_tasks);
     };
 
     DCHECK_OK(join_->Init(
@@ -165,7 +161,7 @@ class JoinBenchmark {
         &(schema_mgr_->proj_maps[1]), std::move(key_cmp), settings.residual_filter,
         std::move(register_task_group_callback), std::move(start_task_group_callback),
         [](int64_t, ExecBatch) { return Status::OK(); },
-        [](int64_t) { return Status::OK(); }));
+        [&](int64_t) { return Status::OK(); }));
 
     task_group_probe_ = scheduler_->RegisterTaskGroup(
         [this](size_t thread_index, int64_t task_id) -> Status {
@@ -178,25 +174,27 @@ class JoinBenchmark {
     scheduler_->RegisterEnd();
 
     DCHECK_OK(scheduler_->StartScheduling(
-        0 /*thread index*/, std::move(schedule_callback),
-        static_cast<int>(2 * settings.num_threads) /*concurrent tasks*/,
-        settings.num_threads == 1));
+        /*thread_id=*/0,
+        [&](std::function<Status(size_t)> task) -> Status {
+          return thread_pool_->Spawn([&, task]() { DCHECK_OK(task(thread_indexer_())); });
+        },
+        thread_pool_->GetCapacity(), settings.num_threads == 1));
   }
 
   void RunJoin() {
-#pragma omp parallel
-    {
-      int tid = omp_get_thread_num();
-#pragma omp single
-      DCHECK_OK(
-          join_->BuildHashTable(tid, std::move(r_batches_), [this](size_t thread_index) {
-            return scheduler_->StartTaskGroup(thread_index, task_group_probe_,
-                                              l_batches_.batch_count());
-          }));
-    }
+    DCHECK_OK(join_->BuildHashTable(
+        /*thread_id=*/0, std::move(r_batches_), [this](size_t thread_index) {
+          return scheduler_->StartTaskGroup(thread_index, task_group_probe_,
+                                            l_batches_.batch_count());
+        }));
+
+    thread_pool_->WaitForIdle();
   }
 
   std::unique_ptr<TaskScheduler> scheduler_;
+  ThreadIndexer thread_indexer_;
+  arrow::internal::ThreadPool* thread_pool_;
+
   AccumulationQueue l_batches_;
   AccumulationQueue r_batches_;
   std::unique_ptr<HashJoinSchema> schema_mgr_;
@@ -205,6 +203,7 @@ class JoinBenchmark {
   int task_group_probe_;
 
   struct {
+    uint64_t num_build_rows;
     uint64_t num_probe_rows;
   } stats_;
 };
@@ -219,11 +218,13 @@ static void HashJoinBasicBenchmarkImpl(benchmark::State& st,
       st.ResumeTiming();
       bm.RunJoin();
       st.PauseTiming();
-      total_rows += bm.stats_.num_probe_rows;
+      total_rows += (settings.stats_probe_rows ? bm.stats_.num_probe_rows
+                                               : bm.stats_.num_build_rows);
     }
     st.ResumeTiming();
   }
-  st.counters["rows/sec"] = benchmark::Counter(total_rows, benchmark::Counter::kIsRate);
+  st.counters["rows/sec"] =
+      benchmark::Counter(static_cast<double>(total_rows), benchmark::Counter::kIsRate);
 }
 
 template <typename... Args>
@@ -302,6 +303,7 @@ static void BM_HashJoinBasic_BuildParallelism(benchmark::State& st) {
   settings.num_threads = static_cast<int>(st.range(0));
   settings.num_build_batches = static_cast<int>(st.range(1));
   settings.num_probe_batches = settings.num_threads;
+  settings.stats_probe_rows = false;
 
   HashJoinBasicBenchmarkImpl(st, settings);
 }

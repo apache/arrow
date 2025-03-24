@@ -214,35 +214,41 @@ the input to a single output value.
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | count_distinct     | Unary   | Non-nested types | Scalar Int64           | :struct:`CountOptions`           | \(2)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| first              | Unary   | Numeric, Binary  | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(11) |
+| first              | Unary   | Numeric, Binary  | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| first_last         | Unary   | Numeric, Binary  | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(11) |
+| first_last         | Unary   | Numeric, Binary  | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(3) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| index              | Unary   | Any              | Scalar Int64           | :struct:`IndexOptions`           | \(3)  |
+| index              | Unary   | Any              | Scalar Int64           | :struct:`IndexOptions`           | \(4)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| last               | Unary   | Numeric, Binary  | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(11) |
+| kurtosis           | Unary   | Numeric          | Scalar Float64         | :struct:`SkewOptions`            | \(11) |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| last               | Unary   | Numeric, Binary  | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | max                | Unary   | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| mean               | Unary   | Numeric          | Scalar Decimal/Float64 | :struct:`ScalarAggregateOptions` | \(4)  |
+| mean               | Unary   | Numeric          | Scalar Decimal/Float64 | :struct:`ScalarAggregateOptions` | \(5)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | min                | Unary   | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| min_max            | Unary   | Non-nested types | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(5)  |
+| min_max            | Unary   | Non-nested types | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(6)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| mode               | Unary   | Numeric          | Struct                 | :struct:`ModeOptions`            | \(6)  |
+| mode               | Unary   | Numeric          | Struct                 | :struct:`ModeOptions`            | \(7)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| product            | Unary   | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(7)  |
+| pivot_wider        | Binary  | Binary, Any      | Scalar Struct          | :struct:`PivotWiderOptions`      | \(8)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| quantile           | Unary   | Numeric          | Scalar Numeric         | :struct:`QuantileOptions`        | \(8)  |
+| product            | Unary   | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(9)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| stddev             | Unary   | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(9)  |
+| quantile           | Unary   | Numeric          | Scalar Numeric         | :struct:`QuantileOptions`        | \(10) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| sum                | Unary   | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(7)  |
+| skew               | Unary   | Numeric          | Scalar Float64         | :struct:`SkewOptions`            | \(11) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| tdigest            | Unary   | Numeric          | Float64                | :struct:`TDigestOptions`         | \(10) |
+| stddev             | Unary   | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(11) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
-| variance           | Unary   | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(9)  |
+| sum                | Unary   | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(9)  |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| tdigest            | Unary   | Numeric          | Float64                | :struct:`TDigestOptions`         | \(12) |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| variance           | Unary   | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(11) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
@@ -252,36 +258,40 @@ the input to a single output value.
 * \(2) CountMode controls whether only non-null values are counted (the
   default), only null values are counted, or all values are counted.
 
-* \(3) Returns -1 if the value is not found. The index of a null value
+* \(3) Result is based on the ordering of input data.
+
+* \(4) Returns -1 if the value is not found. The index of a null value
   is always -1, regardless of whether there are nulls in the input.
 
-* \(4) For decimal inputs, the resulting decimal will have the same
+* \(5) For decimal inputs, the resulting decimal will have the same
   precision and scale. The result is rounded away from zero.
 
-* \(5) Output is a ``{"min": input type, "max": input type}`` Struct.
+* \(6) Output is a ``{"min": input type, "max": input type}`` Struct.
 
   Of the interval types, only the month interval is supported, as the day-time
   and month-day-nano types are not sortable.
 
-* \(6) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
+* \(7) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
   It contains the *N* most common elements in the input, in descending
   order, where *N* is given in :member:`ModeOptions::n`.
   If two values have the same count, the smallest one comes first.
   Note that the output can have less than *N* elements if the input has
   less than *N* distinct values.
 
-* \(7) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
+* \(8) The first input contains the pivot key, while the second input contains
+  the values to be pivoted. The output is a Struct with one field for each key
+  in :member:`PivotOptions::key_names`.
+
+* \(9) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
 
-* \(8) Output is Float64 or input type, depending on QuantileOptions.
+* \(10) Output is Float64 or input type, depending on QuantileOptions.
 
-* \(9) Decimal arguments are cast to Float64 first.
+* \(11) Decimal arguments are cast to Float64 first.
 
-* \(10) tdigest/t-digest computes approximate quantiles, and so only needs a
+* \(12) tdigest/t-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
-
-* \(11) Result is based on the ordering of input data
 
   Decimal arguments are cast to Float64 first.
 
@@ -350,11 +360,13 @@ equivalents above and reflects how they are implemented internally.
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_distinct           | Unary   | Any                                | List of input type     | :struct:`CountOptions`           | \(2) \(3) |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
-| hash_first              | Unary   | Numeric, Binary                    | Input type             | :struct:`ScalarAggregateOptions` | \(10)     |
+| hash_first              | Unary   | Numeric, Binary                    | Input type             | :struct:`ScalarAggregateOptions` | \(11)     |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
-| hash_first_last         | Unary   | Numeric, Binary                    | Struct                 | :struct:`ScalarAggregateOptions` | \(10)     |
+| hash_first_last         | Unary   | Numeric, Binary                    | Struct                 | :struct:`ScalarAggregateOptions` | \(11)     |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
-| hash_last               | Unary   | Numeric, Binary                    | Input type             | :struct:`ScalarAggregateOptions` | \(10)     |
+| hash_kurtosis           | Unary   | Numeric                            | Float64                | :struct:`SkewOptions`            | \(9)      |
++-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_last               | Unary   | Numeric, Binary                    | Input type             | :struct:`ScalarAggregateOptions` | \(11)     |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_list               | Unary   | Any                                | List of input type     |                                  | \(3)      |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
@@ -368,15 +380,19 @@ equivalents above and reflects how they are implemented internally.
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_one                | Unary   | Any                                | Input type             |                                  | \(6)      |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
-| hash_product            | Unary   | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(7)      |
+| hash_pivot_wider        | Binary  | Binary, Any                        | Struct                 | :struct:`PivotWiderOptions`      | \(7)      |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
-| hash_stddev             | Unary   | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(8)      |
+| hash_product            | Unary   | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(8)      |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
-| hash_sum                | Unary   | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(7)      |
+| hash_skew               | Unary   | Numeric                            | Float64                | :struct:`SkewOptions`            | \(9)      |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
-| hash_tdigest            | Unary   | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(9)      |
+| hash_stddev             | Unary   | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(9)      |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
-| hash_variance           | Unary   | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(8)      |
+| hash_sum                | Unary   | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(8)      |
++-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_tdigest            | Unary   | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(10)     |
++-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_variance           | Unary   | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(9)      |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 
 * \(1) If null values are taken into account, by setting the
@@ -405,18 +421,21 @@ equivalents above and reflects how they are implemented internally.
   one non-null value for a certain group, that value is returned, and only if
   all the values are ``null`` for the group will the function return ``null``.
 
-* \(7) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
+* \(7) The first input contains the pivot key, while the second input contains
+  the values to be pivoted. The output is a Struct with one field for each key
+  in :member:`PivotOptions::key_names`.
+
+* \(8) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
 
-* \(8) Decimal arguments are cast to Float64 first.
+* \(9) Decimal arguments are cast to Float64 first.
 
-* \(9) T-digest computes approximate quantiles, and so only needs a
+* \(10) T-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
-* \(10) Result is based on ordering of the input data.
+* \(11) Result is based on ordering of the input data.
 
-  Decimal arguments are cast to Float64 first.
 
 Element-wise ("scalar") functions
 ---------------------------------
@@ -1109,16 +1128,25 @@ when a positive ``max_splits`` is given.
 String component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+---------------+-------+------------------------+-------------+-------------------------------+-------+
-| Function name | Arity | Input types            | Output type | Options class                 | Notes |
-+===============+=======+========================+=============+===============================+=======+
-| extract_regex | Unary | Binary- or String-like | Struct      | :struct:`ExtractRegexOptions` | \(1)  |
-+---------------+-------+------------------------+-------------+-------------------------------+-------+
++--------------------+-------+------------------------+-------------+-----------------------------------+-------+
+| Function name      | Arity | Input types            | Output type | Options class                     | Notes |
++====================+=======+========================+=============+===================================+=======+
+| extract_regex      | Unary | Binary- or String-like | Struct      | :struct:`ExtractRegexOptions`     | \(1)  |
++--------------------+-------+------------------------+-------------+-----------------------------------+-------+
+| extract_regex_span | Unary | Binary- or String-like | Struct      | :struct:`ExtractRegexSpanOptions` | \(2)  |
++--------------------+-------+------------------------+-------------+-----------------------------------+-------+
 
 * \(1) Extract substrings defined by a regular expression using the Google RE2
   library.  The output struct field names refer to the named capture groups,
   e.g. 'letter' and 'digit' for the regular expression
   ``(?P<letter>[ab])(?P<digit>\\d)``.
+
+* \(2) Extract the offset and length of substrings defined by a regular expression
+  using the Google RE2 library.  The output struct field names refer to the named
+  capture groups, e.g. 'letter' and 'digit' for the regular expression
+  ``(?P<letter>[ab])(?P<digit>\\d)``. Each output struct field is a fixed size list
+  of two integers: the index to the start of the captured group and the length
+  of the captured group, respectively.
 
 String joining
 ~~~~~~~~~~~~~~
@@ -1700,6 +1728,18 @@ overflow is detected.
 
 * \(2) :member:`CumulativeOptions::start` is ignored.
 
+Statistical functions
+~~~~~~~~~~~~~~~~~~~~~
+
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| Function name           | Arity | Input types | Output type | Options class                  | Notes     |
++=========================+=======+=============+=============+================================+===========+
+| winsorize               | Unary | Numeric     | Numeric     | :struct:`WinsorizeOptions`     | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+
+* \(1) Clamp values in the lower and upper quantiles to reduce the statistical
+  influence of outliers. The quantiles can be configured in :struct:`WinsorizeOptions`.
+
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1805,6 +1845,8 @@ in the respective option classes.
 +-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 | rank                  | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`RankOptions`         | \(4)           |
 +-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| rank_normal           | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | Float64           | :struct:`RankQuantileOptions` | \(5)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 | rank_quantile         | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | Float64           | :struct:`RankQuantileOptions` | \(5)           |
 +-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 | select_k_unstable     | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SelectKOptions`      | \(6) \(7)      |
@@ -1827,7 +1869,10 @@ in the respective option classes.
 
 * \(4) The output is a one-based numerical array of ranks.
 
-* \(5) The output is an array of quantiles strictly between 0 and 1.
+* \(5) The output of ``rank_quantile`` is an array of quantiles strictly between
+  0 and 1. The ouput of ``rank_normal`` is an array of finite real values
+  corresponding to points in the normal distribution that reflect the input's
+  quantile ranks.
 
 * \(6) The input can be an array, chunked array, record batch or
   table. If the input is a record batch or table, one or more sort

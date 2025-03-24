@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
 # https://www.cmake.org/cmake/help/latest/policy/CMP0025.html
@@ -160,6 +160,7 @@ set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "20.1"
     "19.1"
     "18.1"
     "17.0"

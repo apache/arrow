@@ -3336,6 +3336,28 @@ TEST(TestArrowReadWrite, NonUniqueDictionaryValues) {
   }
 }
 
+TEST(TestArrowReadWrite, DictionaryIndexBitwidthRoundtrip) {
+  // GH-30302: the bitwidth of Arrow dictionary indices should be preserved
+  for (const auto& index_type :
+       {::arrow::int8(), ::arrow::int16(), ::arrow::int32(), ::arrow::int64()}) {
+    ARROW_SCOPED_TRACE("index_type = ", *index_type);
+    auto dict_type = ::arrow::dictionary(index_type, ::arrow::utf8());
+    auto schema = ::arrow::schema({field("dictionary", dict_type)});
+
+    ::arrow::ArrayVector dict_arrays = {
+        DictArrayFromJSON(dict_type, R"([0, 1, 0, 2, 1])",
+                          R"(["first", "second", "third"])"),
+        DictArrayFromJSON(dict_type, R"([2, 0, 1, 0, 2])",
+                          R"(["first", "second", "third"])"),
+    };
+    auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(dict_arrays)});
+    auto arrow_writer_props =
+        parquet::ArrowWriterProperties::Builder().store_schema()->build();
+
+    CheckSimpleRoundtrip(table, table->num_rows(), arrow_writer_props);
+  }
+}
+
 TEST(TestArrowWrite, CheckChunkSize) {
   const int num_columns = 2;
   const int num_rows = 128;
@@ -4294,6 +4316,108 @@ TEST(TestArrowReaderAdHoc, ReadFloat16Files) {
       }
     }
   }
+}
+
+TEST(TestArrowFileReader, RecordBatchReaderEmptyRowGroups) {
+  const int num_columns = 1;
+  const int num_rows = 3;
+  const int num_chunks = 1;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, num_chunks, &table));
+
+  const int64_t row_group_size = num_rows;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  // This is the important part in this test.
+  std::vector<int> row_group_indices = {};
+  ASSERT_OK_AND_ASSIGN(auto record_batch_reader,
+                       file_reader->GetRecordBatchReader(row_group_indices));
+  std::shared_ptr<::arrow::RecordBatch> record_batch;
+  ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
+  // No read record batch for empty row groups request.
+  ASSERT_FALSE(record_batch);
+}
+
+TEST(TestArrowFileReader, RecordBatchReaderEmptyInput) {
+  const int num_columns = 1;
+  // This is the important part in this test.
+  const int num_rows = 0;
+  const int num_chunks = 1;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, num_chunks, &table));
+
+  const int64_t row_group_size = num_rows;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  ASSERT_OK_AND_ASSIGN(auto record_batch_reader, file_reader->GetRecordBatchReader());
+  std::shared_ptr<::arrow::RecordBatch> record_batch;
+  ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
+  // No read record batch for empty data.
+  ASSERT_FALSE(record_batch);
+}
+
+TEST(TestArrowColumnReader, NextBatchZeroBatchSize) {
+  const int num_columns = 1;
+  const int num_rows = 3;
+  const int num_chunks = 1;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, num_chunks, &table));
+
+  const int64_t row_group_size = num_rows;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  std::unique_ptr<arrow::ColumnReader> column_reader;
+  ASSERT_OK(file_reader->GetColumn(0, &column_reader));
+  std::shared_ptr<ChunkedArray> chunked_array;
+  // This is the important part in this test.
+  ASSERT_OK(column_reader->NextBatch(0, &chunked_array));
+  ASSERT_EQ(0, chunked_array->length());
+}
+
+TEST(TestArrowColumnReader, NextBatchEmptyInput) {
+  const int num_columns = 1;
+  // This is the important part in this test.
+  const int num_rows = 0;
+  const int num_chunks = 1;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, num_chunks, &table));
+
+  const int64_t row_group_size = num_rows;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ASSERT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  std::unique_ptr<arrow::ColumnReader> column_reader;
+  ASSERT_OK(file_reader->GetColumn(0, &column_reader));
+  std::shared_ptr<ChunkedArray> chunked_array;
+  ASSERT_OK(column_reader->NextBatch(10, &chunked_array));
+  ASSERT_EQ(0, chunked_array->length());
 }
 
 // direct-as-possible translation of

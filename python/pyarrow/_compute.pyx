@@ -74,6 +74,20 @@ def _forbid_instantiation(klass, subclasses_instead=True):
     raise TypeError(msg)
 
 
+cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):
+    cdef vector[CSortKey] c_sort_keys
+    if allow_str and isinstance(sort_keys, str):
+        c_sort_keys.push_back(
+            CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
+        )
+    else:
+        for name, order in sort_keys:
+            c_sort_keys.push_back(
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
+            )
+    return c_sort_keys
+
+
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
     """
     Wrap a C++ scalar Function in a ScalarFunction object.
@@ -1208,6 +1222,25 @@ class ExtractRegexOptions(_ExtractRegexOptions):
         self._set_options(pattern)
 
 
+cdef class _ExtractRegexSpanOptions(FunctionOptions):
+    def _set_options(self, pattern):
+        self.wrapped.reset(new CExtractRegexSpanOptions(tobytes(pattern)))
+
+
+class ExtractRegexSpanOptions(_ExtractRegexSpanOptions):
+    """
+    Options for the `extract_regex_span` function.
+
+    Parameters
+    ----------
+    pattern : str
+        Regular expression with named capture fields.
+    """
+
+    def __init__(self, pattern):
+        self._set_options(pattern)
+
+
 cdef class _SliceOptions(FunctionOptions):
     def _set_options(self, start, stop, step):
         self.wrapped.reset(new CSliceOptions(start, stop, step))
@@ -1875,6 +1908,28 @@ class VarianceOptions(_VarianceOptions):
         self._set_options(ddof, skip_nulls, min_count)
 
 
+cdef class _SkewOptions(FunctionOptions):
+    def _set_options(self, skip_nulls, biased, min_count):
+        self.wrapped.reset(new CSkewOptions(skip_nulls, biased, min_count))
+
+
+class SkewOptions(_SkewOptions):
+    __doc__ = f"""
+    Options for the `skew` and `kurtosis` functions.
+
+    Parameters
+    ----------
+    {_skip_nulls_doc()}
+    biased : bool, default True
+        Whether the calculated value is biased.
+        If False, the value computed includes a correction factor to reduce bias.
+    {_min_count_doc(default=0)}
+    """
+
+    def __init__(self, *, skip_nulls=True, biased=True, min_count=0):
+        self._set_options(skip_nulls, biased, min_count)
+
+
 cdef class _SplitOptions(FunctionOptions):
     def _set_options(self, max_splits, reverse):
         self.wrapped.reset(new CSplitOptions(max_splits, reverse))
@@ -1964,6 +2019,27 @@ class PartitionNthOptions(_PartitionNthOptions):
 
     def __init__(self, pivot, *, null_placement="at_end"):
         self._set_options(pivot, null_placement)
+
+
+cdef class _WinsorizeOptions(FunctionOptions):
+    def _set_options(self, lower_limit, upper_limit):
+        self.wrapped.reset(new CWinsorizeOptions(lower_limit, upper_limit))
+
+
+class WinsorizeOptions(_WinsorizeOptions):
+    """
+    Options for the `winsorize` function.
+
+    Parameters
+    ----------
+    lower_limit : float, between 0 and 1
+        The quantile below which all values are replaced with the quantile's value.
+    upper_limit : float, between 0 and 1
+        The quantile above which all values are replaced with the quantile's value.
+    """
+
+    def __init__(self, lower_limit, upper_limit):
+        self._set_options(lower_limit, upper_limit)
 
 
 cdef class _CumulativeOptions(FunctionOptions):
@@ -2093,13 +2169,9 @@ class ArraySortOptions(_ArraySortOptions):
 
 cdef class _SortOptions(FunctionOptions):
     def _set_options(self, sort_keys, null_placement):
-        cdef vector[CSortKey] c_sort_keys
-        for name, order in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
-            )
         self.wrapped.reset(new CSortOptions(
-            c_sort_keys, unwrap_null_placement(null_placement)))
+            unwrap_sort_keys(sort_keys, allow_str=False),
+            unwrap_null_placement(null_placement)))
 
 
 class SortOptions(_SortOptions):
@@ -2125,12 +2197,7 @@ class SortOptions(_SortOptions):
 
 cdef class _SelectKOptions(FunctionOptions):
     def _set_options(self, k, sort_keys):
-        cdef vector[CSortKey] c_sort_keys
-        for name, order in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
-            )
-        self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
+        self.wrapped.reset(new CSelectKOptions(k, unwrap_sort_keys(sort_keys, allow_str=False)))
 
 
 class SelectKOptions(_SelectKOptions):
@@ -2317,19 +2384,9 @@ cdef class _RankOptions(FunctionOptions):
     }
 
     def _set_options(self, sort_keys, null_placement, tiebreaker):
-        cdef vector[CSortKey] c_sort_keys
-        if isinstance(sort_keys, str):
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
-            )
-        else:
-            for name, order in sort_keys:
-                c_sort_keys.push_back(
-                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
-                )
         try:
             self.wrapped.reset(
-                new CRankOptions(c_sort_keys,
+                new CRankOptions(unwrap_sort_keys(sort_keys),
                                  unwrap_null_placement(null_placement),
                                  self._tiebreaker_map[tiebreaker])
             )
@@ -2368,6 +2425,81 @@ class RankOptions(_RankOptions):
 
     def __init__(self, sort_keys="ascending", *, null_placement="at_end", tiebreaker="first"):
         self._set_options(sort_keys, null_placement, tiebreaker)
+
+
+cdef class _RankQuantileOptions(FunctionOptions):
+
+    def _set_options(self, sort_keys, null_placement):
+        self.wrapped.reset(
+            new CRankQuantileOptions(unwrap_sort_keys(sort_keys),
+                                     unwrap_null_placement(null_placement))
+        )
+
+
+class RankQuantileOptions(_RankQuantileOptions):
+    """
+    Options for the `rank_quantile` function.
+
+    Parameters
+    ----------
+    sort_keys : sequence of (name, order) tuples or str, default "ascending"
+        Names of field/column keys to sort the input on,
+        along with the order each field/column is sorted in.
+        Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
+        Alternatively, one can simply pass "ascending" or "descending" as a string
+        if the input is array-like.
+    null_placement : str, default "at_end"
+        Where nulls in input should be sorted.
+        Accepted values are "at_start", "at_end".
+    """
+
+    def __init__(self, sort_keys="ascending", *, null_placement="at_end"):
+        self._set_options(sort_keys, null_placement)
+
+
+cdef class _PivotWiderOptions(FunctionOptions):
+
+    def _set_options(self, key_names, unexpected_key_behavior):
+        cdef:
+            vector[c_string] c_key_names
+            PivotWiderUnexpectedKeyBehavior c_unexpected_key_behavior
+        if unexpected_key_behavior == "ignore":
+            c_unexpected_key_behavior = PivotWiderUnexpectedKeyBehavior_Ignore
+        elif unexpected_key_behavior == "raise":
+            c_unexpected_key_behavior = PivotWiderUnexpectedKeyBehavior_Raise
+        else:
+            raise ValueError(
+                f"Unsupported value for unexpected_key_behavior: "
+                f"expected 'ignore' or 'raise', got {unexpected_key_behavior!r}")
+
+        for k in key_names:
+            c_key_names.push_back(tobytes(k))
+
+        self.wrapped.reset(
+            new CPivotWiderOptions(move(c_key_names), c_unexpected_key_behavior)
+        )
+
+
+class PivotWiderOptions(_PivotWiderOptions):
+    """
+    Options for the `pivot_wider` function.
+
+    Parameters
+    ----------
+    key_names : sequence of str
+        The pivot key names expected in the pivot key column.
+        For each entry in `key_names`, a column with the same name is emitted
+        in the struct output.
+    unexpected_key_behavior : str, default "ignore"
+        The behavior when pivot keys not in `key_names` are encountered.
+        Accepted values are "ignore", "raise".
+        If "ignore", unexpected keys are silently ignored.
+        If "raise", unexpected keys raise a KeyError.
+    """
+
+    def __init__(self, key_names, *, unexpected_key_behavior="ignore"):
+        self._set_options(key_names, unexpected_key_behavior)
 
 
 cdef class Expression(_Weakrefable):

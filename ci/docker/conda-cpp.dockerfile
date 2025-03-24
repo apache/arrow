@@ -37,8 +37,6 @@ RUN mamba install -q -y \
         doxygen \
         libnuma \
         python=${python} \
-        ucx \
-        ucx-proc=*=cpu \
         valgrind && \
     mamba clean --all
 
