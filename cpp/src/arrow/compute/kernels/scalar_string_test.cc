@@ -330,8 +330,8 @@ TYPED_TEST(TestBinaryKernels, NonUtf8Regex) {
                              field("digit", fixed_size_list(offset_type, 2))});
     this->CheckUnary("extract_regex_span",
                      this->MakeArray({"foo\xfc\x31\x34 bar", "\x02\xfc\x32"}), out_type,
-                     R"([{"letter": [3, 1], "digit": [4,2]},
-                                             {"letter": [1, 1], "digit": [2, 1]}])",
+                     R"([{"letter": [3, 1], "digit": [4, 2]},
+                         {"letter": [1, 1], "digit": [2, 1]}])",
                      &options);
   }
 }
@@ -400,8 +400,8 @@ TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
     this->CheckUnary("extract_regex_span",
                      this->template MakeArray<std::string>(
                          {{"foo\x00\x31\x34 bar", 10}, {"\x02\x00\x32", 3}}),
-                     out_type, R"([{"null": [3, 1], "digit": [4,2]},
-                                             {"null": [1, 1], "digit": [2, 1]}])",
+                     out_type, R"([{"null": [3, 1], "digit": [4, 2]},
+                                   {"null": [1, 1], "digit": [2, 1]}])",
                      &options);
   }
   {

@@ -2209,14 +2209,13 @@ struct BaseExtractRegexData {
   std::vector<std::string> group_names;
 
  protected:
-  explicit BaseExtractRegexData(const std::string& pattern, bool is_utf8 = true)
+  explicit BaseExtractRegexData(const std::string& pattern, bool is_utf8)
       : regex(new RE2(pattern, MakeRE2Options(is_utf8))) {}
 };
 
 // TODO cache this once per ExtractRegexOptions
 struct ExtractRegexData : public BaseExtractRegexData {
-  static Result<ExtractRegexData> Make(const ExtractRegexOptions& options,
-                                       bool is_utf8 = true) {
+  static Result<ExtractRegexData> Make(const ExtractRegexOptions& options, bool is_utf8) {
     ExtractRegexData data(options.pattern, is_utf8);
     ARROW_RETURN_NOT_OK(data.Init());
     return data;
@@ -2233,7 +2232,7 @@ struct ExtractRegexData : public BaseExtractRegexData {
   }
 
  private:
-  explicit ExtractRegexData(const std::string& pattern, bool is_utf8 = true)
+  explicit ExtractRegexData(const std::string& pattern, bool is_utf8)
       : BaseExtractRegexData(pattern, is_utf8) {}
 };
 
@@ -2359,8 +2358,7 @@ void AddAsciiStringExtractRegex(FunctionRegistry* registry) {
 }
 
 struct ExtractRegexSpanData : public BaseExtractRegexData {
-  static Result<ExtractRegexSpanData> Make(const std::string& pattern,
-                                           bool is_utf8 = true) {
+  static Result<ExtractRegexSpanData> Make(const std::string& pattern, bool is_utf8) {
     auto data = ExtractRegexSpanData(pattern, is_utf8);
     ARROW_RETURN_NOT_OK(data.Init());
     return data;
