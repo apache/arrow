@@ -779,11 +779,11 @@ struct TestGrouper {
                                    original->offset(), original->length(),
                                    /*out_offset=*/original->offset()));
         } else if (group_ids_null_bitmap) {
-          ASSERT_OK_AND_ASSIGN(
-              null_bitmap, AllocateEmptyBitmap(original->offset() + original->length()));
-          ::arrow::internal::CopyBitmap(group_ids_null_bitmap->data(),
-                                        group_ids->offset(), group_ids->length(),
-                                        null_bitmap->mutable_data(), original->offset());
+          ASSERT_OK_AND_ASSIGN(null_bitmap,
+                               ::arrow::internal::CopyBitmap(
+                                   default_memory_pool(), group_ids_null_bitmap->data(),
+                                   group_ids->offset(), group_ids->length(),
+                                   /*out_offset=*/original->offset()));
         } else {
           null_bitmap = original_null_bitmap;
         }
