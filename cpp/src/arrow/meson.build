@@ -404,10 +404,14 @@ arrow_test_lib = static_library(
     dependencies: [arrow_dep, filesystem_dep, gtest_main_dep],
 )
 
-arrow_test_dep = declare_dependency(
-    link_with: [arrow_test_lib],
-    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
-)
+if needs_tests
+    arrow_test_dep = declare_dependency(
+        link_with: [arrow_test_lib],
+        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+    )
+else
+    arrow_test_dep = disabler()
+endif
 
 arrow_tests = {
     'arrow-array-test': {
@@ -459,24 +463,27 @@ if needs_ipc
     }
 endif
 
-if needs_tests
-    foreach key, val : arrow_tests
-        exc = executable(
-            key,
-            sources: val['sources'],
-            dependencies: [arrow_test_dep, val.get('dependencies', [])],
-        )
-        test(key, exc)
-    endforeach
-endif
+foreach key, val : arrow_tests
+    exc = executable(
+        key,
+        sources: val['sources'],
+        dependencies: [arrow_test_dep, val.get('dependencies', [])],
+    )
+    test(key, exc)
+endforeach
 
 if needs_benchmarks
     benchmark_dep = dependency(
         'benchmark',
         default_options: {'tests': 'disabled'},
     )
+
+    arrow_benchmark_dep = declare_dependency(
+        link_with: [arrow_test_lib],
+        dependencies: [arrow_dep, gtest_main_dep, benchmark_dep],
+    )
 else
-    benchmark_dep = disabler()
+    arrow_benchmark_dep = disabler()
 endif
 
 arrow_benchmarks = [
@@ -493,7 +500,7 @@ foreach benchmark : arrow_benchmarks
     exc = executable(
         benchmark_name,
         sources: '@0@.cc'.format(benchmark),
-        dependencies: [arrow_test_dep, benchmark_dep],
+        dependencies: [arrow_benchmark_dep],
     )
 
     benchmark(benchmark_name, exc)
