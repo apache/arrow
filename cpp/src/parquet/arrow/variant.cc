@@ -52,7 +52,7 @@ std::shared_ptr<Array> VariantExtensionType::MakeArray(
 
 bool VariantExtensionType::IsSupportedStorageType(
     std::shared_ptr<DataType> storage_type) {
-  // For now, we only supported unshredded variants. Unshredded variant storage
+  // For now we only supported unshredded variants. Unshredded variant storage
   // type should be a struct with a binary metadata and binary value.
   //
   // TODO(neilechao) In shredded variants, the binary value field can be replaced
