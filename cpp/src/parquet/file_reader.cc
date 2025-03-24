@@ -579,7 +579,8 @@ class SerializedFile : public ParquetFileReader::Contents {
       int64_t metadata_start = read_size.first;
       metadata_len = read_size.second;
       return source_->ReadAsync(metadata_start, metadata_len)
-          .Then([this, metadata_len, is_encrypted_footer, file_decryptor](
+          .Then([this, metadata_len, is_encrypted_footer,
+                 file_decryptor = std::move(file_decryptor)](
                     const std::shared_ptr<::arrow::Buffer>& metadata_buffer) {
             // Continue and read the file footer
             return ParseMetaDataFinal(metadata_buffer, metadata_len, is_encrypted_footer,
