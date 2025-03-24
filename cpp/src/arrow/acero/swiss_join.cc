@@ -2242,7 +2242,11 @@ void JoinProbeProcessor::Init(QueryContext* ctx, int num_key_columns, JoinType j
   cmp_ = cmp;
   output_batch_fn_ = output_batch_fn;
 
-  if (ctx_->exec_context()->use_threads() && ctx_->executor()->GetCapacity() > 1) {
+  is_parallel_ =
+      ctx_->exec_context()->use_threads() && ctx_->executor()->GetCapacity() > 1;
+
+  if (is_parallel_) {
+    task_group_finished_ = false;
     flush_task_group_id_ = ctx_->RegisterTaskGroup(
         [this](size_t /*thread_index*/, int64_t task_id) -> Status {
           JoinResultMaterialize& materialize = *materialize_[task_id];
@@ -2254,7 +2258,7 @@ void JoinProbeProcessor::Init(QueryContext* ctx, int num_key_columns, JoinType j
         [this](size_t thread_index) -> Status {
           {
             auto guard = std::lock_guard{mutex_};
-            finished_ = true;
+            task_group_finished_ = true;
           }
           cv_.notify_one();
           return Status::OK();
@@ -2434,7 +2438,7 @@ Status JoinProbeProcessor::OnFinished() {
   // Flush all instances of materialize that have non-zero accumulated output
   // rows.
   //
-  if (!ctx_->exec_context()->use_threads() || ctx_->executor()->GetCapacity() <= 1) {
+  if (!is_parallel_) {
     for (size_t i = 0; i < materialize_.size(); ++i) {
       JoinResultMaterialize& materialize = *materialize_[i];
       RETURN_NOT_OK(materialize.Flush(
@@ -2446,7 +2450,7 @@ Status JoinProbeProcessor::OnFinished() {
   ARROW_RETURN_NOT_OK(ctx_->StartTaskGroup(flush_task_group_id_, materialize_.size()));
   {
     auto lock = std::unique_lock{mutex_};
-    cv_.wait(lock, [this]() { return finished_; });
+    cv_.wait(lock, [this]() { return task_group_finished_; });
   }
   return Status::OK();
 }

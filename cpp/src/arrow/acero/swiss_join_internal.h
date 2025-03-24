@@ -1033,8 +1033,9 @@ class JoinProbeProcessor {
   const std::vector<JoinKeyCmp>* cmp_;
   OutputBatchFn output_batch_fn_;
 
+  bool is_parallel_;
+  bool task_group_finished_;
   int flush_task_group_id_;
-  bool finished_{false};
   std::condition_variable cv_;
   std::mutex mutex_;
 };
