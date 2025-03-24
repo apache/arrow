@@ -553,4 +553,7 @@ def test_uuid_extension_type():
         table,
         pa.table({"ext": pa.array(data, pa.binary(16))}),
         store_schema=False)
-    _check_roundtrip(table, table, {"arrow_extensions_enabled": True}, store_schema=False)
+    _check_roundtrip(
+        table,
+        table,
+        {"arrow_extensions_enabled": True}, store_schema=False)
