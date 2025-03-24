@@ -52,7 +52,7 @@ Where to get help 👋
 
 For any question you may have or problems you are facing you can write to
 user or development :ref:`mailing_list`,
-[GitHub Discussions](https://github.com/apache/arrow/discussions) or you can
+`GitHub Discussions <https://github.com/apache/arrow/discussions>`_ or you can
 create an issue on :ref:`github`. Also use GitHub to search through the issues,
 report bugs and create feature requests or proposals.
 
@@ -62,9 +62,9 @@ GitHub
 ~~~~~~
 
 Different options of communicating are provided through GitHub where the project
-is hosted. What we use are [GitHub Issues](https://github.com/apache/arrow/issues),
-[Discussions](https://github.com/apache/arrow/discussions) and
-[Pull Requests](https://github.com/apache/arrow/pulls).
+is hosted. What we use are `GitHub Issues <https://github.com/apache/arrow/issues>`_,
+`Discussions <https://github.com/apache/arrow/discussions>`_ and
+`Pull Requests <https://github.com/apache/arrow/pulls>`_.
 
 You can use GitHub issues to:
 
@@ -109,7 +109,7 @@ you to broadcast to all users or developers. Use these when you want to get feed
 or answers from a wider audience.
 
 .. note::
-  [GitHub Discussions](https://github.com/apache/arrow/discussions) has all posts
+  `GitHub Discussions <https://github.com/apache/arrow/discussions>`_ has all posts
   mirrored to the <user@arrow.apache.org> mailing list. **Users are welcome to ask
   usage questions in either location.**
 
