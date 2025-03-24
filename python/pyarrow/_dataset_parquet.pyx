@@ -703,7 +703,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     cache_options : pyarrow.CacheOptions, default None
         Cache options used when pre_buffer is enabled. The default values should
         be good for most use cases. You may want to adjust these for example if
-        you have exceptionally high latency to the file system. 
+        you have exceptionally high latency to the file system.
     thrift_string_size_limit : int, default None
         If not None, override the maximum total string size allocated
         when decoding Thrift structures. The default limit should be
@@ -720,6 +720,9 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         Parquet file.
     page_checksum_verification : bool, default False
         If True, verify the page checksum for each page read from the file.
+    arrow_extensions_enabled : bool, default False
+        If True, read Parquet logical types as Arrow Extension Types where possible,
+        (e.g., JSON as arrow.json or UUID as arrow.uuid).
     """
 
     # Avoid mistakingly creating attributes
@@ -733,7 +736,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
                  thrift_container_size_limit=None,
                  decryption_config=None,
                  decryption_properties=None,
-                 bint page_checksum_verification=False):
+                 bint page_checksum_verification=False,
+                 bint arrow_extensions_enabled=False):
         self.init(shared_ptr[CFragmentScanOptions](
             new CParquetFragmentScanOptions()))
         self.use_buffered_stream = use_buffered_stream
@@ -752,6 +756,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         if decryption_properties is not None:
             self.decryption_properties = decryption_properties
         self.page_checksum_verification = page_checksum_verification
+        self.arrow_extensions_enabled = arrow_extensions_enabled
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -868,6 +873,14 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     def page_checksum_verification(self, bint page_checksum_verification):
         self.reader_properties().set_page_checksum_verification(page_checksum_verification)
 
+    @property
+    def arrow_extensions_enabled(self):
+        return self.arrow_reader_properties().get_arrow_extensions_enabled()
+
+    @arrow_extensions_enabled.setter
+    def arrow_extensions_enabled(self, bint arrow_extensions_enabled):
+        self.arrow_reader_properties().set_arrow_extensions_enabled(arrow_extensions_enabled)
+
     def equals(self, ParquetFragmentScanOptions other):
         """
         Parameters
@@ -881,11 +894,12 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         attrs = (
             self.use_buffered_stream, self.buffer_size, self.pre_buffer, self.cache_options,
             self.thrift_string_size_limit, self.thrift_container_size_limit,
-            self.page_checksum_verification)
+            self.page_checksum_verification, self.arrow_extensions_enabled)
         other_attrs = (
             other.use_buffered_stream, other.buffer_size, other.pre_buffer, other.cache_options,
             other.thrift_string_size_limit,
-            other.thrift_container_size_limit, other.page_checksum_verification)
+            other.thrift_container_size_limit, other.page_checksum_verification,
+            other.arrow_extensions_enabled)
         return attrs == other_attrs
 
     @staticmethod
@@ -902,7 +916,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             cache_options=self.cache_options,
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
-            page_checksum_verification=self.page_checksum_verification
+            page_checksum_verification=self.page_checksum_verification,
+            arrow_extensions_enabled=self.arrow_extensions_enabled
         )
         return ParquetFragmentScanOptions._reconstruct, (kwargs,)
 
