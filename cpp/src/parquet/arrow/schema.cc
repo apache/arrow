@@ -1063,26 +1063,24 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       // Apply metadata recursively to storage type
       RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
       inferred->field = inferred->field->WithType(origin_type);
-    } else if (inferred_type->id() != ::arrow::Type::EXTENSION &&
-               ex_type.extension_name() == std::string("arrow.uuid") &&
-               // TODO(paleolimbot) byte size == 16
-               inferred_type->id() == ::arrow::Type::FIXED_SIZE_BINARY) {
+    } else if (inferred_type->id() == ::arrow::Type::FIXED_SIZE_BINARY &&
+               ex_type.extension_name() == std::string("arrow.uuid")) {
       // Schema mismatch.
       //
       // Arrow extensions are DISABLED in Parquet.
-      // origin_type is ::arrow::extension::json()
-      // inferred_type is ::arrow::utf8()
+      // origin_type is ::arrow::extension::uuid()
+      // inferred_type is ::arrow::fixed_size_binary()
       //
       // Origin type is restored as Arrow should be considered the source of truth.
       inferred->field = inferred->field->WithType(origin_type);
       RETURN_NOT_OK(ApplyOriginalStorageMetadata(origin_field, inferred));
     } else if (inferred_type->id() == ::arrow::Type::EXTENSION &&
                ex_type.extension_name() == std::string("arrow.uuid")) {
-      // Potential schema mismatch.
+      // Schema match.
       //
       // Arrow extensions are ENABLED in Parquet.
-      // origin_type is arrow::extension::json(...)
-      // inferred_type is arrow::extension::json(arrow::utf8())
+      // origin_type is arrow::extension::uuid()
+      // inferred_type is arrow::extension::uuid()
       auto origin_storage_field = origin_field.WithType(ex_type.storage_type());
 
       // Apply metadata recursively to storage type
