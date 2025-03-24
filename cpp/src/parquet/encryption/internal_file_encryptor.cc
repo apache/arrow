@@ -43,16 +43,7 @@ int32_t Encryptor::Encrypt(::arrow::util::span<const uint8_t> plaintext,
 // InternalFileEncryptor
 InternalFileEncryptor::InternalFileEncryptor(FileEncryptionProperties* properties,
                                              ::arrow::MemoryPool* pool)
-    : properties_(properties), pool_(pool) {
-  if (properties_->is_utilized()) {
-    throw ParquetException("Re-using encryption properties for another file");
-  }
-  properties_->set_utilized();
-}
-
-void InternalFileEncryptor::WipeOutEncryptionKeys() {
-  properties_->WipeOutEncryptionKeys();
-}
+    : properties_(properties), pool_(pool) {}
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
   if (footer_encryptor_ != nullptr) {

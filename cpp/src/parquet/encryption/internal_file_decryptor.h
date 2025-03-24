@@ -63,12 +63,11 @@ class PARQUET_EXPORT Decryptor {
 
 class InternalFileDecryptor {
  public:
-  explicit InternalFileDecryptor(FileDecryptionProperties* properties,
+  explicit InternalFileDecryptor(std::shared_ptr<FileDecryptionProperties> properties,
                                  const std::string& file_aad,
                                  ParquetCipher::type algorithm,
                                  const std::string& footer_key_metadata,
                                  ::arrow::MemoryPool* pool);
-  ~InternalFileDecryptor();
 
   const std::string& file_aad() const { return file_aad_; }
 
@@ -78,9 +77,9 @@ class InternalFileDecryptor {
 
   const std::string& footer_key_metadata() const { return footer_key_metadata_; }
 
-  const FileDecryptionProperties* properties() const { return properties_; }
-
-  void WipeOutDecryptionKeys();
+  const std::shared_ptr<FileDecryptionProperties>& properties() const {
+    return properties_;
+  }
 
   ::arrow::MemoryPool* pool() const { return pool_; }
 
@@ -119,7 +118,7 @@ class InternalFileDecryptor {
       const std::string& aad = "");
 
  private:
-  FileDecryptionProperties* properties_;
+  std::shared_ptr<FileDecryptionProperties> properties_;
   // Concatenation of aad_prefix (if exists) and aad_file_unique
   std::string file_aad_;
   ParquetCipher::type algorithm_;

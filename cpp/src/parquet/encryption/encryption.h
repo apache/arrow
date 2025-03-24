@@ -112,8 +112,6 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     /// If key is not set on an encrypted column, the column will
     /// be encrypted with the footer key.
     /// keyBytes Key length must be either 16, 24 or 32 bytes.
-    /// The key is cloned, and will be wiped out (array values set to 0) upon completion
-    /// of file writing.
     /// Caller is responsible for wiping out the input key array.
     Builder* key(std::string column_key);
 
@@ -148,28 +146,6 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
   std::string key() const { return key_; }
   std::string key_metadata() const { return key_metadata_; }
 
-  /// Upon completion of file writing, the encryption key
-  /// will be wiped out.
-  void WipeOutEncryptionKey() { key_.clear(); }
-
-  bool is_utilized() {
-    if (key_.empty())
-      return false;  // can re-use column properties without encryption keys
-    return utilized_;
-  }
-
-  /// ColumnEncryptionProperties object can be used for writing one file only.
-  /// Mark ColumnEncryptionProperties as utilized once it is used in
-  /// FileEncryptionProperties as the encryption key will be wiped out upon
-  /// completion of file writing.
-  void set_utilized() { utilized_ = true; }
-
-  std::shared_ptr<ColumnEncryptionProperties> DeepClone() {
-    std::string key_copy = key_;
-    return std::shared_ptr<ColumnEncryptionProperties>(new ColumnEncryptionProperties(
-        encrypted_, column_path_, key_copy, key_metadata_));
-  }
-
   ColumnEncryptionProperties() = default;
   ColumnEncryptionProperties(const ColumnEncryptionProperties& other) = default;
   ColumnEncryptionProperties(ColumnEncryptionProperties&& other) = default;
@@ -180,7 +156,6 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
   bool encrypted_with_footer_key_;
   std::string key_;
   std::string key_metadata_;
-  bool utilized_;
   explicit ColumnEncryptionProperties(bool encrypted, const std::string& column_path,
                                       const std::string& key,
                                       const std::string& key_metadata);
@@ -214,24 +189,10 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
 
   std::string column_path() const { return column_path_; }
   std::string key() const { return key_; }
-  bool is_utilized() { return utilized_; }
-
-  /// ColumnDecryptionProperties object can be used for reading one file only.
-  /// Mark ColumnDecryptionProperties as utilized once it is used in
-  /// FileDecryptionProperties as the encryption key will be wiped out upon
-  /// completion of file reading.
-  void set_utilized() { utilized_ = true; }
-
-  /// Upon completion of file reading, the encryption key
-  /// will be wiped out.
-  void WipeOutDecryptionKey();
-
-  std::shared_ptr<ColumnDecryptionProperties> DeepClone();
 
  private:
   const std::string column_path_;
   std::string key_;
-  bool utilized_;
 
   /// This class is only required for setting explicit column decryption keys -
   /// to override key retriever (or to provide keys when key metadata and/or
@@ -359,26 +320,6 @@ class PARQUET_EXPORT FileDecryptionProperties {
     return aad_prefix_verifier_;
   }
 
-  /// Upon completion of file reading, the encryption keys in the properties
-  /// will be wiped out (array values set to 0).
-  void WipeOutDecryptionKeys();
-
-  bool is_utilized();
-
-  /// FileDecryptionProperties object can be used for reading one file only.
-  /// Mark FileDecryptionProperties as utilized once it is used to read a file as the
-  /// encryption keys will be wiped out upon completion of file reading.
-  void set_utilized() { utilized_ = true; }
-
-  /// FileDecryptionProperties object can be used for reading one file only.
-  /// (unless this object keeps the keyRetrieval callback only, and no explicit
-  /// keys or aadPrefix).
-  /// At the end, keys are wiped out in the memory.
-  /// This method allows to clone identical properties for another file,
-  /// with an option to update the aadPrefix (if newAadPrefix is null,
-  /// aadPrefix will be cloned too)
-  std::shared_ptr<FileDecryptionProperties> DeepClone(std::string new_aad_prefix = "");
-
  private:
   std::string footer_key_;
   std::string aad_prefix_;
@@ -390,7 +331,6 @@ class PARQUET_EXPORT FileDecryptionProperties {
   std::shared_ptr<DecryptionKeyRetriever> key_retriever_;
   bool check_plaintext_footer_integrity_;
   bool plaintext_files_allowed_;
-  bool utilized_;
 
   FileDecryptionProperties(
       const std::string& footer_key,
@@ -476,24 +416,6 @@ class PARQUET_EXPORT FileEncryptionProperties {
   std::shared_ptr<ColumnEncryptionProperties> column_encryption_properties(
       const std::string& column_path);
 
-  bool is_utilized() const { return utilized_; }
-
-  /// FileEncryptionProperties object can be used for writing one file only.
-  /// Mark FileEncryptionProperties as utilized once it is used to write a file as the
-  /// encryption keys will be wiped out upon completion of file writing.
-  void set_utilized() { utilized_ = true; }
-
-  /// Upon completion of file writing, the encryption keys
-  /// will be wiped out (array values set to 0).
-  void WipeOutEncryptionKeys();
-
-  /// FileEncryptionProperties object can be used for writing one file only.
-  /// (at the end, keys are wiped out in the memory).
-  /// This method allows to clone identical properties for another file,
-  /// with an option to update the aadPrefix (if newAadPrefix is null,
-  /// aadPrefix will be cloned too)
-  std::shared_ptr<FileEncryptionProperties> DeepClone(std::string new_aad_prefix = "");
-
   ColumnPathToEncryptionPropertiesMap encrypted_columns() const {
     return encrypted_columns_;
   }
@@ -505,7 +427,6 @@ class PARQUET_EXPORT FileEncryptionProperties {
   bool encrypted_footer_;
   std::string file_aad_;
   std::string aad_prefix_;
-  bool utilized_;
   bool store_aad_prefix_in_file_;
   ColumnPathToEncryptionPropertiesMap encrypted_columns_;
 

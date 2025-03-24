@@ -176,7 +176,7 @@ class TestDecryptionConfiguration
     std::shared_ptr<FileDecryptionProperties> file_decryption_properties;
     if (vector_of_decryption_configurations_[decryption_config_num]) {
       file_decryption_properties =
-          vector_of_decryption_configurations_[decryption_config_num]->DeepClone();
+          vector_of_decryption_configurations_[decryption_config_num];
     }
 
     decrypt_func(std::move(file), std::move(file_decryption_properties));
@@ -185,7 +185,7 @@ class TestDecryptionConfiguration
   std::shared_ptr<FileDecryptionProperties> GetDecryptionProperties(
       int decryption_config_num) {
     const auto props = vector_of_decryption_configurations_[decryption_config_num];
-    return props ? props->DeepClone() : nullptr;
+    return props;
   }
 
   void DecryptFile(const std::string& file, int decryption_config_num) {

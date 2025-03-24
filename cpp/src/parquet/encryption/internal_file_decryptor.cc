@@ -16,6 +16,7 @@
 // under the License.
 
 #include "parquet/encryption/internal_file_decryptor.h"
+
 #include "arrow/util/logging.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -49,30 +50,15 @@ int32_t Decryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
 }
 
 // InternalFileDecryptor
-InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* properties,
-                                             const std::string& file_aad,
-                                             ParquetCipher::type algorithm,
-                                             const std::string& footer_key_metadata,
-                                             ::arrow::MemoryPool* pool)
-    : properties_(properties),
+InternalFileDecryptor::InternalFileDecryptor(
+    std::shared_ptr<FileDecryptionProperties> properties, const std::string& file_aad,
+    ParquetCipher::type algorithm, const std::string& footer_key_metadata,
+    ::arrow::MemoryPool* pool)
+    : properties_(std::move(properties)),
       file_aad_(file_aad),
       algorithm_(algorithm),
       footer_key_metadata_(footer_key_metadata),
-      pool_(pool) {
-  if (properties_->is_utilized()) {
-    throw ParquetException(
-        "Re-using decryption properties with explicit keys for another file");
-  }
-  properties_->set_utilized();
-}
-
-InternalFileDecryptor::~InternalFileDecryptor() { WipeOutDecryptionKeys(); }
-
-void InternalFileDecryptor::WipeOutDecryptionKeys() {
-  std::unique_lock lock(mutex_);
-  properties_->WipeOutDecryptionKeys();
-  footer_key_.clear();
-}
+      pool_(pool) {}
 
 std::string InternalFileDecryptor::GetFooterKey() {
   std::unique_lock lock(mutex_);

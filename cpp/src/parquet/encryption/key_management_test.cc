@@ -414,7 +414,7 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
       kms_connection_config_, decryption_config, file_path, file_system);
 
   parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
-  reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
+  reader_properties.file_decryption_properties(file_decryption_properties);
 
   std::shared_ptr<::arrow::io::RandomAccessFile> source;
   PARQUET_ASSIGN_OR_THROW(source, ::arrow::io::ReadableFile::Open(
