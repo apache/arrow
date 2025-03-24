@@ -14,6 +14,10 @@
         "We need gobject-introspection 1.80.0 or later for GLib 2.80.0 but vcpkg doesn't provide it yet.",
       "name": "glib",
       "version": "2.78.4"
+    },
+    {
+      "name": "meson",
+      "version": "1.3.2"
     }
   ]
 }
