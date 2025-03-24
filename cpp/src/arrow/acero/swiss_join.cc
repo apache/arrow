@@ -2241,6 +2241,25 @@ void JoinProbeProcessor::Init(QueryContext* ctx, int num_key_columns, JoinType j
   }
   cmp_ = cmp;
   output_batch_fn_ = output_batch_fn;
+
+  if (ctx_->exec_context()->use_threads() && ctx_->executor()->GetCapacity() > 1) {
+    flush_task_group_id_ = ctx_->RegisterTaskGroup(
+        [this](size_t /*thread_index*/, int64_t task_id) -> Status {
+          JoinResultMaterialize& materialize = *materialize_[task_id];
+          RETURN_NOT_OK(materialize.Flush([&](ExecBatch batch) {
+            return output_batch_fn_(task_id, std::move(batch));
+          }));
+          return Status::OK();
+        },
+        [this](size_t thread_index) -> Status {
+          {
+            auto guard = std::lock_guard{mutex_};
+            finished_ = true;
+          }
+          cv_.notify_one();
+          return Status::OK();
+        });
+  }
 }
 
 Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
@@ -2415,24 +2434,20 @@ Status JoinProbeProcessor::OnFinished() {
   // Flush all instances of materialize that have non-zero accumulated output
   // rows.
   //
-  // for (size_t i = 0; i < materialize_.size(); ++i) {
-  //   JoinResultMaterialize& materialize = *materialize_[i];
-  //   RETURN_NOT_OK(materialize.Flush(
-  //       [&](ExecBatch batch) { return output_batch_fn_(i, std::move(batch)); }));
-  // }
+  if (!ctx_->exec_context()->use_threads() || ctx_->executor()->GetCapacity() <= 1) {
+    for (size_t i = 0; i < materialize_.size(); ++i) {
+      JoinResultMaterialize& materialize = *materialize_[i];
+      RETURN_NOT_OK(materialize.Flush(
+          [&](ExecBatch batch) { return output_batch_fn_(i, std::move(batch)); }));
+    }
+    return Status::OK();
+  }
 
-  auto task_group_id = ctx_->RegisterTaskGroup(
-      [this](size_t thread_index, int64_t task_id) -> Status {
-        JoinResultMaterialize& materialize = *materialize_[task_id];
-        RETURN_NOT_OK(materialize.Flush([&](ExecBatch batch) {
-          return output_batch_fn_(task_id, std::move(batch));
-        }));
-        return Status::OK();
-      },
-      [](size_t thread_index) -> Status { return Status::OK(); });
-
-  ARROW_RETURN_NOT_OK(ctx_->StartTaskGroup(task_group_id, materialize_.size()));
-
+  ARROW_RETURN_NOT_OK(ctx_->StartTaskGroup(flush_task_group_id_, materialize_.size()));
+  {
+    auto lock = std::unique_lock{mutex_};
+    cv_.wait(lock, [this]() { return finished_; });
+  }
   return Status::OK();
 }
 

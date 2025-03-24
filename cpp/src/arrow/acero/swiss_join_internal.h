@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <cstdint>
 #include "arrow/acero/options.h"
 #include "arrow/acero/partition_util.h"
@@ -1031,6 +1032,11 @@ class JoinProbeProcessor {
   std::vector<JoinResultMaterialize*> materialize_;
   const std::vector<JoinKeyCmp>* cmp_;
   OutputBatchFn output_batch_fn_;
+
+  int flush_task_group_id_;
+  bool finished_{false};
+  std::condition_variable cv_;
+  std::mutex mutex_;
 };
 
 }  // namespace acero
