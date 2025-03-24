@@ -89,7 +89,7 @@ pushd ${python_build_dir}
 #   on Debian/Ubuntu (ARROW-15243).
 # - Cannot use build isolation as we want to use specific dependency versions
 #   (e.g. Numpy, Pandas) on some CI jobs.
-${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv .
+${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv . -Csetup-args="-Db_sanitize=address,undefined"
 popd
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
