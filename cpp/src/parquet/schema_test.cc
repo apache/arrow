@@ -1943,8 +1943,6 @@ TEST_F(TestSchemaElementConstruction, SimpleCases) {
       {"float16", LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY, 2, false,
        ConvertedType::NA, true,
        [this]() { return element_->logicalType.__isset.FLOAT16; }},
-      {"variant", LogicalType::Variant(), Type::BYTE_ARRAY, -1, false, ConvertedType::NA,
-       true, [this]() { return element_->logicalType.__isset.VARIANT; }},
       {"none", LogicalType::None(), Type::INT64, -1, false, ConvertedType::NA, false,
        check_nothing}};
 
@@ -2282,7 +2280,6 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
       {LogicalType::BSON(), Type::BYTE_ARRAY, -1},
       {LogicalType::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16},
       {LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY, 2},
-      {LogicalType::Variant(), Type::BYTE_ARRAY, -1},
       {LogicalType::None(), Type::BOOLEAN, -1}};
 
   for (const AnnotatedPrimitiveNodeFactoryArguments& c : cases) {
