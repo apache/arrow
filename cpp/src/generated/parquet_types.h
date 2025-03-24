@@ -73,14 +73,14 @@ struct ConvertedType {
      */
     LIST = 3,
     /**
-     * an enum is converted into a binary field
+     * an enum is converted into a BYTE_ARRAY field
      */
     ENUM = 4,
     /**
      * A decimal value.
      * 
-     * This may be used to annotate binary or fixed primitive types. The
-     * underlying byte array stores the unscaled value encoded as two's
+     * This may be used to annotate BYTE_ARRAY or FIXED_LEN_BYTE_ARRAY primitive
+     * types. The underlying byte array stores the unscaled value encoded as two's
      * complement using big-endian byte order (the most significant byte is the
      * zeroth element). The value of the decimal is the value * 10^{-scale}.
      * 
@@ -161,7 +161,7 @@ struct ConvertedType {
     /**
      * An embedded BSON document
      * 
-     * A BSON document embedded within a single BINARY column.
+     * A BSON document embedded within a single BYTE_ARRAY column.
      */
     BSON = 20,
     /**
@@ -192,11 +192,11 @@ std::string to_string(const ConvertedType::type& val);
 struct FieldRepetitionType {
   enum type {
     /**
-     * This field is required (can not be null) and each record has exactly 1 value.
+     * This field is required (can not be null) and each row has exactly 1 value.
      */
     REQUIRED = 0,
     /**
-     * The field is optional (can be null) and each record has 0 or 1 values.
+     * The field is optional (can be null) and each row has 0 or 1 values.
      */
     OPTIONAL = 1,
     /**
@@ -211,6 +211,25 @@ extern const std::map<int, const char*> _FieldRepetitionType_VALUES_TO_NAMES;
 std::ostream& operator<<(std::ostream& out, const FieldRepetitionType::type& val);
 
 std::string to_string(const FieldRepetitionType::type& val);
+
+/**
+ * Edge interpolation algorithm for Geography logical type
+ */
+struct EdgeInterpolationAlgorithm {
+  enum type {
+    SPHERICAL = 0,
+    VINCENTY = 1,
+    THOMAS = 2,
+    ANDOYER = 3,
+    KARNEY = 4
+  };
+};
+
+extern const std::map<int, const char*> _EdgeInterpolationAlgorithm_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const EdgeInterpolationAlgorithm::type& val);
+
+std::string to_string(const EdgeInterpolationAlgorithm::type& val);
 
 /**
  * Encodings supported by Parquet.  Not all encodings are valid for all types.  These
@@ -267,12 +286,15 @@ struct Encoding {
      */
     RLE_DICTIONARY = 8,
     /**
-     * Encoding for floating-point data.
+     * Encoding for fixed-width data (FLOAT, DOUBLE, INT32, INT64, FIXED_LEN_BYTE_ARRAY).
      * K byte-streams are created where K is the size in bytes of the data type.
-     * The individual bytes of an FP value are scattered to the corresponding stream and
+     * The individual bytes of a value are scattered to the corresponding stream and
      * the streams are concatenated.
      * This itself does not reduce the size of the data but can lead to better compression
      * afterwards.
+     * 
+     * Added in 2.8 for FLOAT and DOUBLE.
+     * Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
      */
     BYTE_STREAM_SPLIT = 9
   };
@@ -347,6 +369,10 @@ std::string to_string(const BoundaryOrder::type& val);
 
 class SizeStatistics;
 
+class BoundingBox;
+
+class GeospatialStatistics;
+
 class Statistics;
 
 class StringType;
@@ -386,6 +412,10 @@ class JsonType;
 class BsonType;
 
 class VariantType;
+
+class GeometryType;
+
+class GeographyType;
 
 class LogicalType;
 
@@ -543,6 +573,127 @@ void swap(SizeStatistics &a, SizeStatistics &b);
 
 std::ostream& operator<<(std::ostream& out, const SizeStatistics& obj);
 
+typedef struct _BoundingBox__isset {
+  _BoundingBox__isset() : zmin(false), zmax(false), mmin(false), mmax(false) {}
+  bool zmin :1;
+  bool zmax :1;
+  bool mmin :1;
+  bool mmax :1;
+} _BoundingBox__isset;
+
+/**
+ * Bounding box for GEOMETRY or GEOGRAPHY type in the representation of min/max
+ * value pair of coordinates from each axis.
+ */
+class BoundingBox {
+ public:
+
+  BoundingBox(const BoundingBox&) noexcept;
+  BoundingBox(BoundingBox&&) noexcept;
+  BoundingBox& operator=(const BoundingBox&) noexcept;
+  BoundingBox& operator=(BoundingBox&&) noexcept;
+  BoundingBox() noexcept;
+
+  virtual ~BoundingBox() noexcept;
+  double xmin;
+  double xmax;
+  double ymin;
+  double ymax;
+  double zmin;
+  double zmax;
+  double mmin;
+  double mmax;
+
+  _BoundingBox__isset __isset;
+
+  void __set_xmin(const double val);
+
+  void __set_xmax(const double val);
+
+  void __set_ymin(const double val);
+
+  void __set_ymax(const double val);
+
+  void __set_zmin(const double val);
+
+  void __set_zmax(const double val);
+
+  void __set_mmin(const double val);
+
+  void __set_mmax(const double val);
+
+  bool operator == (const BoundingBox & rhs) const;
+  bool operator != (const BoundingBox &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const BoundingBox & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(BoundingBox &a, BoundingBox &b);
+
+std::ostream& operator<<(std::ostream& out, const BoundingBox& obj);
+
+typedef struct _GeospatialStatistics__isset {
+  _GeospatialStatistics__isset() : bbox(false), geospatial_types(false) {}
+  bool bbox :1;
+  bool geospatial_types :1;
+} _GeospatialStatistics__isset;
+
+/**
+ * Statistics specific to Geometry and Geography logical types
+ */
+class GeospatialStatistics {
+ public:
+
+  GeospatialStatistics(const GeospatialStatistics&);
+  GeospatialStatistics(GeospatialStatistics&&) noexcept;
+  GeospatialStatistics& operator=(const GeospatialStatistics&);
+  GeospatialStatistics& operator=(GeospatialStatistics&&) noexcept;
+  GeospatialStatistics() noexcept;
+
+  virtual ~GeospatialStatistics() noexcept;
+  /**
+   * A bounding box of geospatial instances
+   */
+  BoundingBox bbox;
+  /**
+   * Geospatial type codes of all instances, or an empty list if not known
+   */
+  std::vector<int32_t>  geospatial_types;
+
+  _GeospatialStatistics__isset __isset;
+
+  void __set_bbox(const BoundingBox& val);
+
+  void __set_geospatial_types(const std::vector<int32_t> & val);
+
+  bool operator == (const GeospatialStatistics & rhs) const;
+  bool operator != (const GeospatialStatistics &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const GeospatialStatistics & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(GeospatialStatistics &a, GeospatialStatistics &b);
+
+std::ostream& operator<<(std::ostream& out, const GeospatialStatistics& obj);
+
 typedef struct _Statistics__isset {
   _Statistics__isset() : max(false), min(false), null_count(false), distinct_count(false), max_value(false), min_value(false), is_max_value_exact(false), is_min_value_exact(false) {}
   bool max :1;
@@ -585,7 +736,12 @@ class Statistics {
   std::string max;
   std::string min;
   /**
-   * count of null value in the column
+   * Count of null values in the column.
+   * 
+   * Writers SHOULD always write this field even if it is zero (i.e. no null value)
+   * or the column is not nullable.
+   * Readers MUST distinguish between null_count not being present and null_count == 0.
+   * If null_count is not present, readers MUST NOT assume null_count == 0.
    */
   int64_t null_count;
   /**
@@ -920,7 +1076,7 @@ std::ostream& operator<<(std::ostream& out, const NullType& obj);
  * To maintain forward-compatibility in v1, implementations using this logical
  * type must also set scale and precision on the annotated SchemaElement.
  * 
- * Allowed for physical types: INT32, INT64, FIXED, and BINARY
+ * Allowed for physical types: INT32, INT64, FIXED_LEN_BYTE_ARRAY, and BYTE_ARRAY.
  */
 class DecimalType {
  public:
@@ -1234,7 +1390,7 @@ std::ostream& operator<<(std::ostream& out, const IntType& obj);
 /**
  * Embedded JSON logical type annotation
  * 
- * Allowed for physical types: BINARY
+ * Allowed for physical types: BYTE_ARRAY
  */
 class JsonType {
  public:
@@ -1270,7 +1426,7 @@ std::ostream& operator<<(std::ostream& out, const JsonType& obj);
 /**
  * Embedded BSON logical type annotation
  * 
- * Allowed for physical types: BINARY
+ * Allowed for physical types: BYTE_ARRAY
  */
 class BsonType {
  public:
@@ -1302,11 +1458,13 @@ void swap(BsonType &a, BsonType &b);
 
 std::ostream& operator<<(std::ostream& out, const BsonType& obj);
 
+typedef struct _VariantType__isset {
+  _VariantType__isset() : specification_version(false) {}
+  bool specification_version :1;
+} _VariantType__isset;
 
 /**
  * Embedded Variant logical type annotation
- * 
- * Allowed for physical types: BINARY
  */
 class VariantType {
  public:
@@ -1318,8 +1476,13 @@ class VariantType {
   VariantType() noexcept;
 
   virtual ~VariantType() noexcept;
+  int8_t specification_version;
 
-  bool operator == (const VariantType & /* rhs */) const;
+  _VariantType__isset __isset;
+
+  void __set_specification_version(const int8_t val);
+
+  bool operator == (const VariantType & rhs) const;
   bool operator != (const VariantType &rhs) const {
     return !(*this == rhs);
   }
@@ -1338,8 +1501,127 @@ void swap(VariantType &a, VariantType &b);
 
 std::ostream& operator<<(std::ostream& out, const VariantType& obj);
 
+typedef struct _GeometryType__isset {
+  _GeometryType__isset() : crs(false) {}
+  bool crs :1;
+} _GeometryType__isset;
+
+/**
+ * Embedded Geometry logical type annotation
+ * 
+ * Geospatial features in the Well-Known Binary (WKB) format and edges interpolation
+ * is always linear/planar.
+ * 
+ * A custom CRS can be set by the crs field. If unset, it defaults to "OGC:CRS84",
+ * which means that the geometries must be stored in longitude, latitude based on
+ * the WGS84 datum.
+ * 
+ * Allowed for physical type: BYTE_ARRAY.
+ * 
+ * See Geospatial.md for details.
+ */
+class GeometryType {
+ public:
+
+  GeometryType(const GeometryType&);
+  GeometryType(GeometryType&&) noexcept;
+  GeometryType& operator=(const GeometryType&);
+  GeometryType& operator=(GeometryType&&) noexcept;
+  GeometryType() noexcept;
+
+  virtual ~GeometryType() noexcept;
+  std::string crs;
+
+  _GeometryType__isset __isset;
+
+  void __set_crs(const std::string& val);
+
+  bool operator == (const GeometryType & rhs) const;
+  bool operator != (const GeometryType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const GeometryType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(GeometryType &a, GeometryType &b);
+
+std::ostream& operator<<(std::ostream& out, const GeometryType& obj);
+
+typedef struct _GeographyType__isset {
+  _GeographyType__isset() : crs(false), algorithm(false) {}
+  bool crs :1;
+  bool algorithm :1;
+} _GeographyType__isset;
+
+/**
+ * Embedded Geography logical type annotation
+ * 
+ * Geospatial features in the WKB format with an explicit (non-linear/non-planar)
+ * edges interpolation algorithm.
+ * 
+ * A custom geographic CRS can be set by the crs field, where longitudes are
+ * bound by [-180, 180] and latitudes are bound by [-90, 90]. If unset, the CRS
+ * defaults to "OGC:CRS84".
+ * 
+ * An optional algorithm can be set to correctly interpret edges interpolation
+ * of the geometries. If unset, the algorithm defaults to SPHERICAL.
+ * 
+ * Allowed for physical type: BYTE_ARRAY.
+ * 
+ * See Geospatial.md for details.
+ */
+class GeographyType {
+ public:
+
+  GeographyType(const GeographyType&);
+  GeographyType(GeographyType&&) noexcept;
+  GeographyType& operator=(const GeographyType&);
+  GeographyType& operator=(GeographyType&&) noexcept;
+  GeographyType() noexcept;
+
+  virtual ~GeographyType() noexcept;
+  std::string crs;
+  /**
+   * 
+   * @see EdgeInterpolationAlgorithm
+   */
+  EdgeInterpolationAlgorithm::type algorithm;
+
+  _GeographyType__isset __isset;
+
+  void __set_crs(const std::string& val);
+
+  void __set_algorithm(const EdgeInterpolationAlgorithm::type val);
+
+  bool operator == (const GeographyType & rhs) const;
+  bool operator != (const GeographyType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const GeographyType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(GeographyType &a, GeographyType &b);
+
+std::ostream& operator<<(std::ostream& out, const GeographyType& obj);
+
 typedef struct _LogicalType__isset {
-  _LogicalType__isset() : STRING(false), MAP(false), LIST(false), ENUM(false), DECIMAL(false), DATE(false), TIME(false), TIMESTAMP(false), INTEGER(false), UNKNOWN(false), JSON(false), BSON(false), UUID(false), FLOAT16(false), VARIANT(false) {}
+  _LogicalType__isset() : STRING(false), MAP(false), LIST(false), ENUM(false), DECIMAL(false), DATE(false), TIME(false), TIMESTAMP(false), INTEGER(false), UNKNOWN(false), JSON(false), BSON(false), UUID(false), FLOAT16(false), VARIANT(false), GEOMETRY(false), GEOGRAPHY(false) {}
   bool STRING :1;
   bool MAP :1;
   bool LIST :1;
@@ -1355,6 +1637,8 @@ typedef struct _LogicalType__isset {
   bool UUID :1;
   bool FLOAT16 :1;
   bool VARIANT :1;
+  bool GEOMETRY :1;
+  bool GEOGRAPHY :1;
 } _LogicalType__isset;
 
 /**
@@ -1367,9 +1651,9 @@ typedef struct _LogicalType__isset {
 class LogicalType {
  public:
 
-  LogicalType(const LogicalType&) noexcept;
+  LogicalType(const LogicalType&);
   LogicalType(LogicalType&&) noexcept;
-  LogicalType& operator=(const LogicalType&) noexcept;
+  LogicalType& operator=(const LogicalType&);
   LogicalType& operator=(LogicalType&&) noexcept;
   LogicalType() noexcept;
 
@@ -1389,6 +1673,8 @@ class LogicalType {
   UUIDType UUID;
   Float16Type FLOAT16;
   VariantType VARIANT;
+  GeometryType GEOMETRY;
+  GeographyType GEOGRAPHY;
 
   _LogicalType__isset __isset;
 
@@ -1421,6 +1707,10 @@ class LogicalType {
   void __set_FLOAT16(const Float16Type& val);
 
   void __set_VARIANT(const VariantType& val);
+
+  void __set_GEOMETRY(const GeometryType& val);
+
+  void __set_GEOGRAPHY(const GeographyType& val);
 
   bool operator == (const LogicalType & rhs) const;
   bool operator != (const LogicalType &rhs) const {
@@ -1591,7 +1881,12 @@ class DataPageHeader {
 
   virtual ~DataPageHeader() noexcept;
   /**
-   * Number of values, including NULLs, in this data page. *
+   * Number of values, including NULLs, in this data page.
+   * 
+   * If a OffsetIndex is present, a page must begin at a row
+   * boundary (repetition_level = 0). Otherwise, pages may begin
+   * within a row (repetition_level > 0).
+   * 
    */
   int32_t num_values;
   /**
@@ -1774,7 +2069,10 @@ class DataPageHeaderV2 {
    */
   int32_t num_nulls;
   /**
-   * Number of rows in this data page. which means pages change on record boundaries (r = 0) *
+   * Number of rows in this data page. Every page must begin at a
+   * row boundary (repetition_level = 0): rows must **not** be
+   * split across page boundaries when using V2 data pages.
+   * 
    */
   int32_t num_rows;
   /**
@@ -2282,7 +2580,7 @@ std::ostream& operator<<(std::ostream& out, const KeyValue& obj);
 
 
 /**
- * Wrapper struct to specify sort order
+ * Sort order within a RowGroup of a leaf column
  */
 class SortingColumn {
  public:
@@ -2295,7 +2593,7 @@ class SortingColumn {
 
   virtual ~SortingColumn() noexcept;
   /**
-   * The column index (in this row group) *
+   * The ordinal position of the column (in this row group) *
    */
   int32_t column_idx;
   /**
@@ -2390,7 +2688,7 @@ void swap(PageEncodingStats &a, PageEncodingStats &b);
 std::ostream& operator<<(std::ostream& out, const PageEncodingStats& obj);
 
 typedef struct _ColumnMetaData__isset {
-  _ColumnMetaData__isset() : key_value_metadata(false), index_page_offset(false), dictionary_page_offset(false), statistics(false), encoding_stats(false), bloom_filter_offset(false), bloom_filter_length(false), size_statistics(false) {}
+  _ColumnMetaData__isset() : key_value_metadata(false), index_page_offset(false), dictionary_page_offset(false), statistics(false), encoding_stats(false), bloom_filter_offset(false), bloom_filter_length(false), size_statistics(false), geospatial_statistics(false) {}
   bool key_value_metadata :1;
   bool index_page_offset :1;
   bool dictionary_page_offset :1;
@@ -2399,6 +2697,7 @@ typedef struct _ColumnMetaData__isset {
   bool bloom_filter_offset :1;
   bool bloom_filter_length :1;
   bool size_statistics :1;
+  bool geospatial_statistics :1;
 } _ColumnMetaData__isset;
 
 /**
@@ -2493,6 +2792,10 @@ class ColumnMetaData {
    * filter pushdown.
    */
   SizeStatistics size_statistics;
+  /**
+   * Optional statistics specific for Geometry and Geography logical types
+   */
+  GeospatialStatistics geospatial_statistics;
 
   _ColumnMetaData__isset __isset;
 
@@ -2527,6 +2830,8 @@ class ColumnMetaData {
   void __set_bloom_filter_length(const int32_t val);
 
   void __set_size_statistics(const SizeStatistics& val);
+
+  void __set_geospatial_statistics(const GeospatialStatistics& val);
 
   bool operator == (const ColumnMetaData & rhs) const;
   bool operator != (const ColumnMetaData &rhs) const {
@@ -2700,13 +3005,21 @@ class ColumnChunk {
    */
   std::string file_path;
   /**
-   * Byte offset in file_path to the ColumnMetaData *
+   * Deprecated: Byte offset in file_path to the ColumnMetaData
+   * 
+   * Past use of this field has been inconsistent, with some implementations
+   * using it to point to the ColumnMetaData and some using it to point to
+   * the first page in the column chunk. In many cases, the ColumnMetaData at this
+   * location is wrong. This field is now deprecated and should not be used.
+   * Writers should set this field to 0 if no ColumnMetaData has been written outside
+   * the footer.
    */
   int64_t file_offset;
   /**
-   * Column metadata for this chunk. This is the same content as what is at
-   * file_path/file_offset.  Having it here has it replicated in the file
-   * metadata.
+   * Column metadata for this chunk. Some writers may also replicate this at the
+   * location pointed to by file_path/file_offset.
+   * Note: while marked as optional, this field is in fact required by most major
+   * Parquet implementations. As such, writers MUST populate this field.
    * 
    */
   ColumnMetaData meta_data;
@@ -2939,13 +3252,15 @@ class ColumnOrder {
    *   TIME_MICROS - signed comparison
    *   TIMESTAMP_MILLIS - signed comparison
    *   TIMESTAMP_MICROS - signed comparison
-   *   INTERVAL - unsigned comparison
+   *   INTERVAL - undefined
    *   JSON - unsigned byte-wise comparison
    *   BSON - unsigned byte-wise comparison
    *   ENUM - unsigned byte-wise comparison
    *   LIST - undefined
    *   MAP - undefined
    *   VARIANT - undefined
+   *   GEOMETRY - undefined
+   *   GEOGRAPHY - undefined
    * 
    * In the absence of logical types, the sort order is determined by the physical type:
    *   BOOLEAN - false, true
@@ -3019,8 +3334,9 @@ class PageLocation {
    */
   int32_t compressed_page_size;
   /**
-   * Index within the RowGroup of the first row of the page; this means pages
-   * change on record boundaries (r = 0).
+   * Index within the RowGroup of the first row of the page. When an
+   * OffsetIndex is present, pages must begin on row boundaries
+   * (repetition_level = 0).
    */
   int64_t first_row_index;
 
@@ -3054,6 +3370,13 @@ typedef struct _OffsetIndex__isset {
   bool unencoded_byte_array_data_bytes :1;
 } _OffsetIndex__isset;
 
+/**
+ * Optional offsets for each data page in a ColumnChunk.
+ * 
+ * Forms part of the page index, along with ColumnIndex.
+ * 
+ * OffsetIndex may be present even if ColumnIndex is not.
+ */
 class OffsetIndex {
  public:
 
@@ -3110,8 +3433,14 @@ typedef struct _ColumnIndex__isset {
 } _ColumnIndex__isset;
 
 /**
- * Description for ColumnIndex.
- * Each <array-field>[i] refers to the page at OffsetIndex.page_locations[i]
+ * Optional statistics for each data page in a ColumnChunk.
+ * 
+ * Forms part the page index, along with OffsetIndex.
+ * 
+ * If this structure is present, OffsetIndex must also be present.
+ * 
+ * For each field in this structure, <field>[i] refers to the page at
+ * OffsetIndex.page_locations[i]
  */
 class ColumnIndex {
  public:
@@ -3153,7 +3482,14 @@ class ColumnIndex {
    */
   BoundaryOrder::type boundary_order;
   /**
-   * A list containing the number of null values for each page *
+   * A list containing the number of null values for each page
+   * 
+   * Writers SHOULD always write this field even if no null values
+   * are present or the column is not nullable.
+   * Readers MUST distinguish between null_counts not being present
+   * and null_count being 0.
+   * If null_counts are not present, readers MUST NOT assume all
+   * null counts are 0.
    */
   std::vector<int64_t>  null_counts;
   /**
