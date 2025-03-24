@@ -746,7 +746,10 @@ struct GrouperFastImpl : public Grouper {
       uint32_t* batch_group_ids = group_ids->mutable_data_as<uint32_t>() +
                                   ((mode == GrouperMode::kPopulate) ? 0 : start_row);
       if (mode == GrouperMode::kLookup) {
-        // Zero-initialize
+        // Zero-initialize each mini-batch just before it is partially populated
+        // in map_.find() below.
+        // This is potentially more cache-efficient than zeroing the entire buffer
+        // at once before this loop.
         memset(batch_group_ids, 0, batch_size_next * sizeof(uint32_t));
       }
 
