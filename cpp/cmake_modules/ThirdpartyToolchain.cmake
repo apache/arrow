@@ -67,7 +67,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Snappy
     Substrait
     Thrift
-    ucx
     utf8proc
     xsimd
     ZLIB
@@ -218,8 +217,6 @@ macro(build_dependency DEPENDENCY_NAME)
     build_substrait()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "ucx")
-    build_ucx()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
     build_utf8proc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "xsimd")
@@ -819,13 +816,6 @@ else()
       "https://www.apache.org/dyn/closer.lua/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz?action=download"
       "https://dlcdn.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
   )
-endif()
-
-if(DEFINED ENV{ARROW_UCX_URL})
-  set(ARROW_UCX_SOURCE_URL "$ENV{ARROW_UCX_URL}")
-else()
-  set_urls(ARROW_UCX_SOURCE_URL
-           "https://github.com/openucx/ucx/archive/v${ARROW_UCX_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_UTF8PROC_URL})
@@ -4582,16 +4572,11 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 function(build_orc)
   message(STATUS "Building Apache ORC from source")
 
-  # Remove this and "patch" in "ci/docker/{debian,ubuntu}-*.dockerfile" once we have a patch for ORC 2.1.1
-  find_program(PATCH patch REQUIRED)
-  set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/orc.diff)
-
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
                          URL ${ORC_SOURCE_URL}
-                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
-                         PATCH_COMMAND ${ORC_PATCH_COMMAND})
+                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     prepare_fetchcontent()
 
     set(CMAKE_UNITY_BUILD FALSE)
@@ -4758,8 +4743,7 @@ function(build_orc)
                                 ${ARROW_ZSTD_LIBZSTD}
                                 ${Snappy_TARGET}
                                 LZ4::lz4
-                                ZLIB::ZLIB
-                        PATCH_COMMAND ${ORC_PATCH_COMMAND})
+                                ZLIB::ZLIB)
     add_library(orc::orc STATIC IMPORTED)
     set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
     target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
@@ -5553,86 +5537,6 @@ if(ARROW_WITH_AZURE_SDK)
   resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
                                Azure::azure-storage-blobs Azure::azure-identity)
-endif()
-# ----------------------------------------------------------------------
-# ucx - communication framework for modern, high-bandwidth and low-latency networks
-
-macro(build_ucx)
-  message(STATUS "Building UCX from source")
-
-  set(UCX_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/ucx_ep-install")
-
-  # link with static ucx libraries leads to test failures, use shared libs instead
-  set(UCX_SHARED_LIB_UCP "${UCX_PREFIX}/lib/libucp${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  set(UCX_SHARED_LIB_UCT "${UCX_PREFIX}/lib/libuct${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  set(UCX_SHARED_LIB_UCS "${UCX_PREFIX}/lib/libucs${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  set(UCX_SHARED_LIB_UCM "${UCX_PREFIX}/lib/libucm${CMAKE_SHARED_LIBRARY_SUFFIX}")
-
-  set(UCX_CONFIGURE_COMMAND ./autogen.sh COMMAND ./configure)
-  list(APPEND
-       UCX_CONFIGURE_COMMAND
-       "CC=${CMAKE_C_COMPILER}"
-       "CXX=${CMAKE_CXX_COMPILER}"
-       "CFLAGS=${EP_C_FLAGS}"
-       "CXXFLAGS=${EP_CXX_FLAGS}"
-       "--prefix=${UCX_PREFIX}"
-       "--enable-mt"
-       "--enable-shared")
-  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-    list(APPEND
-         UCX_CONFIGURE_COMMAND
-         "--enable-profiling"
-         "--enable-frame-pointer"
-         "--enable-stats"
-         "--enable-fault-injection"
-         "--enable-debug-data")
-  else()
-    list(APPEND
-         UCX_CONFIGURE_COMMAND
-         "--disable-logging"
-         "--disable-debug"
-         "--disable-assertions"
-         "--disable-params-check")
-  endif()
-  set(UCX_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
-  externalproject_add(ucx_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${ARROW_UCX_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_UCX_BUILD_SHA256_CHECKSUM}"
-                      CONFIGURE_COMMAND ${UCX_CONFIGURE_COMMAND}
-                      BUILD_IN_SOURCE 1
-                      BUILD_COMMAND ${UCX_BUILD_COMMAND}
-                      BUILD_BYPRODUCTS "${UCX_SHARED_LIB_UCP}" "${UCX_SHARED_LIB_UCT}"
-                                       "${UCX_SHARED_LIB_UCS}" "${UCX_SHARED_LIB_UCM}"
-                      INSTALL_COMMAND ${MAKE} install)
-
-  # ucx cmake module sets UCX_INCLUDE_DIRS
-  set(UCX_INCLUDE_DIRS "${UCX_PREFIX}/include")
-  file(MAKE_DIRECTORY "${UCX_INCLUDE_DIRS}")
-
-  add_library(ucx::ucp SHARED IMPORTED)
-  set_target_properties(ucx::ucp PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCP}")
-  add_library(ucx::uct SHARED IMPORTED)
-  set_target_properties(ucx::uct PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCT}")
-  add_library(ucx::ucs SHARED IMPORTED)
-  set_target_properties(ucx::ucs PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCS}")
-
-  add_dependencies(ucx::ucp ucx_ep)
-  add_dependencies(ucx::uct ucx_ep)
-  add_dependencies(ucx::ucs ucx_ep)
-endmacro()
-
-if(ARROW_WITH_UCX)
-  resolve_dependency(ucx
-                     ARROW_CMAKE_PACKAGE_NAME
-                     ArrowFlight
-                     ARROW_PC_PACKAGE_NAME
-                     arrow-flight
-                     PC_PACKAGE_NAMES
-                     ucx)
-  add_library(ucx::ucx INTERFACE IMPORTED)
-  target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
-  target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")

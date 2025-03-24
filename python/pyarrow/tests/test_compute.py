@@ -152,6 +152,7 @@ def test_option_class_equality(request):
         pc.RunEndEncodeOptions(),
         pc.ElementWiseAggregateOptions(skip_nulls=True),
         pc.ExtractRegexOptions("pattern"),
+        pc.ExtractRegexSpanOptions("pattern"),
         pc.FilterOptions(),
         pc.IndexOptions(pa.scalar(1)),
         pc.JoinOptions(),
@@ -184,6 +185,7 @@ def test_option_class_equality(request):
         pc.ScalarAggregateOptions(),
         pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
         pc.SetLookupOptions(pa.array([1])),
+        pc.SkewOptions(min_count=2),
         pc.SliceOptions(0, 1, 1),
         pc.SortOptions([("dummy", "descending")], null_placement="at_start"),
         pc.SplitOptions(),
@@ -439,6 +441,35 @@ def test_variance():
     assert pc.variance(data).as_py() == 5.25
     assert pc.variance(data, ddof=0).as_py() == 5.25
     assert pc.variance(data, ddof=1).as_py() == 6.0
+
+
+def test_skew():
+    data = [1, 1, None, 2]
+    assert pc.skew(data).as_py() == pytest.approx(0.707106781186548, rel=1e-10)
+    assert pc.skew(data, skip_nulls=False).as_py() is None
+    assert pc.skew(data, min_count=4).as_py() is None
+
+
+def test_kurtosis():
+    data = [1, 1, None, 2]
+    assert pc.kurtosis(data).as_py() == pytest.approx(-1.5, rel=1e-10)
+    assert pc.kurtosis(data, skip_nulls=False).as_py() is None
+    assert pc.kurtosis(data, min_count=4).as_py() is None
+
+
+@pytest.mark.parametrize("input, expected", (
+    (
+        [1.0, 2.0, 3.0, 40.0, None],
+        {'skew': 1.988947740397821, 'kurtosis': 3.9631931024230695}
+    ),
+    ([1, 2, 40], {'skew': 1.7281098503730385, 'kurtosis': None}),
+    ([1, 40], {'skew': None, 'kurtosis': None}),
+))
+def test_unbiased_skew_and_kurtosis(input, expected):
+    arrow_skew = pc.skew(input, skip_nulls=True, biased=False)
+    arrow_kurtosis = pc.kurtosis(input, skip_nulls=True, biased=False)
+    assert arrow_skew == pa.scalar(expected['skew'], type=pa.float64())
+    assert arrow_kurtosis == pa.scalar(expected['kurtosis'], type=pa.float64())
 
 
 def test_count_substring():
@@ -1074,6 +1105,16 @@ def test_extract_regex():
     struct = pc.extract_regex(ar, pattern=r'(?P<letter>[ab])(?P<digit>\d)')
     assert struct.tolist() == expected
     struct = pc.extract_regex(ar, r'(?P<letter>[ab])(?P<digit>\d)')
+    assert struct.tolist() == expected
+
+
+def test_extract_regex_span():
+    ar = pa.array(['a1', 'zb234z'])
+    expected = [{'letter': [0, 1], 'digit': [1, 1]},
+                {'letter': [1, 1], 'digit': [2, 3]}]
+    struct = pc.extract_regex_span(ar, pattern=r'(?P<letter>[ab])(?P<digit>\d+)')
+    assert struct.tolist() == expected
+    struct = pc.extract_regex_span(ar, r'(?P<letter>[ab])(?P<digit>\d+)')
     assert struct.tolist() == expected
 
 

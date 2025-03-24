@@ -2500,6 +2500,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CExtractRegexOptions(c_string pattern)
         c_string pattern
 
+    cdef cppclass CExtractRegexSpanOptions \
+            "arrow::compute::ExtractRegexSpanOptions"(CFunctionOptions):
+        CExtractRegexSpanOptions(c_string pattern)
+        c_string pattern
+
     cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):
         CCastOptions()
         CCastOptions(c_bool safe)
@@ -2619,6 +2624,13 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CVarianceOptions(int ddof, c_bool skip_nulls, uint32_t min_count)
         int ddof
         c_bool skip_nulls
+        uint32_t min_count
+
+    cdef cppclass CSkewOptions \
+            "arrow::compute::SkewOptions"(CFunctionOptions):
+        CSkewOptions(c_bool skip_nulls, c_bool biased, uint32_t min_count)
+        c_bool skip_nulls
+        c_bool biased
         uint32_t min_count
 
     cdef cppclass CScalarAggregateOptions \

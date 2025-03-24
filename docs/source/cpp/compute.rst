@@ -220,6 +220,8 @@ the input to a single output value.
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | index              | Unary   | Any              | Scalar Int64           | :struct:`IndexOptions`           | \(4)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| kurtosis           | Unary   | Numeric          | Scalar Float64         | :struct:`SkewOptions`            | \(11) |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | last               | Unary   | Numeric, Binary  | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | max                | Unary   | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
@@ -237,6 +239,8 @@ the input to a single output value.
 | product            | Unary   | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(9)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | quantile           | Unary   | Numeric          | Scalar Numeric         | :struct:`QuantileOptions`        | \(10) |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| skew               | Unary   | Numeric          | Scalar Float64         | :struct:`SkewOptions`            | \(11) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | stddev             | Unary   | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(11) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
@@ -360,6 +364,8 @@ equivalents above and reflects how they are implemented internally.
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_first_last         | Unary   | Numeric, Binary                    | Struct                 | :struct:`ScalarAggregateOptions` | \(11)     |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_kurtosis           | Unary   | Numeric                            | Float64                | :struct:`SkewOptions`            | \(9)      |
++-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_last               | Unary   | Numeric, Binary                    | Input type             | :struct:`ScalarAggregateOptions` | \(11)     |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_list               | Unary   | Any                                | List of input type     |                                  | \(3)      |
@@ -377,6 +383,8 @@ equivalents above and reflects how they are implemented internally.
 | hash_pivot_wider        | Binary  | Binary, Any                        | Struct                 | :struct:`PivotWiderOptions`      | \(7)      |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_product            | Unary   | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(8)      |
++-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_skew               | Unary   | Numeric                            | Float64                | :struct:`SkewOptions`            | \(9)      |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_stddev             | Unary   | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(9)      |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
@@ -1120,16 +1128,25 @@ when a positive ``max_splits`` is given.
 String component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+---------------+-------+------------------------+-------------+-------------------------------+-------+
-| Function name | Arity | Input types            | Output type | Options class                 | Notes |
-+===============+=======+========================+=============+===============================+=======+
-| extract_regex | Unary | Binary- or String-like | Struct      | :struct:`ExtractRegexOptions` | \(1)  |
-+---------------+-------+------------------------+-------------+-------------------------------+-------+
++--------------------+-------+------------------------+-------------+-----------------------------------+-------+
+| Function name      | Arity | Input types            | Output type | Options class                     | Notes |
++====================+=======+========================+=============+===================================+=======+
+| extract_regex      | Unary | Binary- or String-like | Struct      | :struct:`ExtractRegexOptions`     | \(1)  |
++--------------------+-------+------------------------+-------------+-----------------------------------+-------+
+| extract_regex_span | Unary | Binary- or String-like | Struct      | :struct:`ExtractRegexSpanOptions` | \(2)  |
++--------------------+-------+------------------------+-------------+-----------------------------------+-------+
 
 * \(1) Extract substrings defined by a regular expression using the Google RE2
   library.  The output struct field names refer to the named capture groups,
   e.g. 'letter' and 'digit' for the regular expression
   ``(?P<letter>[ab])(?P<digit>\\d)``.
+
+* \(2) Extract the offset and length of substrings defined by a regular expression
+  using the Google RE2 library.  The output struct field names refer to the named
+  capture groups, e.g. 'letter' and 'digit' for the regular expression
+  ``(?P<letter>[ab])(?P<digit>\\d)``. Each output struct field is a fixed size list
+  of two integers: the index to the start of the captured group and the length
+  of the captured group, respectively.
 
 String joining
 ~~~~~~~~~~~~~~

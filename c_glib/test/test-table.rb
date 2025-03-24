@@ -268,9 +268,11 @@ valid:
 
         invalid_values = [@id_array, build_string_array(["abc", "def"])]
         table = Arrow::Table.new(@schema, invalid_values)
-        assert_raise(Arrow::Error::Invalid.new(message)) do
+        error = assert_raise(Arrow::Error::Invalid) do
           table.validate
         end
+        assert_equal(message,
+                     error.message.lines.first.chomp)
       end
     end
 
@@ -308,9 +310,11 @@ valid:
         columns = [@id_values, @invalid_name_values]
         table = Arrow::Table.new(@schema, columns)
 
-        assert_raise(Arrow::Error::Invalid.new(message)) do
+        error = assert_raise(Arrow::Error::Invalid) do
           table.validate_full
         end
+        assert_equal(message,
+                     error.message.lines.first.chomp)
       end
     end
 
